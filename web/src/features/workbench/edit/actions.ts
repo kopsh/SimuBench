@@ -12,8 +12,10 @@ const CLASS_PREFIX: Record<string, string> = {
   multimeter: "dmm",
   smu: "smu",
   lockin: "lockin",
+  rf_generator: "rf",
+  electronic_load: "eload",
 };
-const TYPE_PREFIX: Record<string, string> = { rc_lowpass: "rc", resistor: "r", unity_buffer: "buf" };
+const TYPE_PREFIX: Record<string, string> = { rc_lowpass: "rc", resistor: "r", load_resistor: "r", unity_buffer: "buf", dc_supply: "supply" };
 
 function names(data: BenchData | undefined): Set<string> {
   const keys = (v: unknown) => Object.keys(v && typeof v === "object" ? (v as object) : {});

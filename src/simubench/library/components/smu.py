@@ -313,11 +313,15 @@ class SmuCore(Component):
                 "current": i,
                 "regulation": "OFF" if not self.on() else ("CV" if self.mode == "V" else "CC"),
                 "limited": self.limited(),
+                "forcing": "VOLTage" if self._forcing_voltage() else "CURRent",
+                "limit": self.i_limit() if self._forcing_voltage() else self.v_limit(),
+                "reading_time": self.reading_time(),
                 "buffer_points": len(self.buffer),
             },
+            # One trace per buffer element (VOLT, CURR, RES, TIME, STAT), indexed by point.
             "traces": [
-                {"name": "buffer_v", "t0_s": 0.0, "dt_s": 1.0, "values": [r[0] for r in self.buffer]},
-                {"name": "buffer_i", "t0_s": 0.0, "dt_s": 1.0, "values": [r[1] for r in self.buffer]},
+                {"name": f"buffer_{name}", "t0_s": 0.0, "dt_s": 1.0, "values": [r[k] for r in self.buffer]}
+                for k, name in enumerate(("v", "i", "r", "t", "stat"))
             ],
         }
 

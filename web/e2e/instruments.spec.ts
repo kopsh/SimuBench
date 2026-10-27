@@ -35,11 +35,37 @@ test("spectrum analyzer screen: peak search walks the harmonics", async ({ page 
   await threshold.fill("-30");
   await threshold.press("Enter");
   await page.getByRole("button", { name: "峰值搜索" }).click();
-  // 1 Vpp square into 50 Ω: 0.5 V peak, fundamental 4·0.5/π V → +6.078 dBm (D13)
-  await expect(page.getByTestId("marker-readout")).toHaveText(/100 kHz · 6\.078 dBm/);
+  // 1 Vpp square into 50 Ω: 0.5 V peak, fundamental 4·0.5/π V → +6.0778 dBm (D13); the sweep's
+  // noise sample moves the reading by about ±0.0002 dB, across the display's rounding edge.
+  await expect(page.getByTestId("marker-readout")).toHaveText(/100 kHz · 6\.07[78] dBm/);
   await page.getByRole("button", { name: "下一峰值" }).click();
   await expect(page.getByTestId("marker-readout")).toHaveText(/300 kHz · -3\.46\d dBm/);
   await page.getByRole("textbox", { name: "跨度" }).first().fill("10M");
   await page.getByRole("textbox", { name: "跨度" }).first().press("Enter");
   await expect(page.getByText("RBW 100 kHz")).toBeVisible(); // the analyzer's coupling, not the UI's
+});
+
+test("SMU screen: the limit takes over, a sweep fills the I–V curve and the buffer", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("listitem").filter({ hasText: /^smu/ }).getByRole("button", { name: "启动" }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await page.locator(".react-flow__node").filter({ hasText: "源测量单元" }).dblclick();
+  // 5 V into 1 kΩ ∥ 10 MΩ = 999.9 Ω
+  await expect(page.getByTestId("smu-regulation")).toHaveText("CV");
+  await expect(page.getByTestId("readout-I")).toHaveText(/^5\.0005/);
+
+  const limit = page.getByRole("textbox", { name: "电流限值" }).first();
+  await limit.fill("4m");
+  await limit.press("Enter");
+  await expect(page.getByTestId("smu-regulation")).toHaveText("CC");
+  await expect(page.getByTestId("readout-V")).toHaveText(/^3\.9996/);
+
+  const console = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await console.fill(":READ?");
+  await console.press("Enter");
+  await expect(page.getByRole("status", { name: "响应" })).toContainText("+0.0000000E+00");
+  const rows = page.getByTestId("smu-buffer").locator("tbody tr");
+  await expect(rows).toHaveCount(9); // the configured 0–8 V sweep; from 4 V on the limit holds
+  await expect(rows.nth(8)).toContainText("3.9996");
+  await expect(page.getByRole("img", { name: "I–V 曲线（缓冲区）" })).toBeVisible();
 });
