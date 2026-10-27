@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 import pyvisa
 from refcalc.spectrum import (
+    bucket_response_db,
     detector_offsets,
     gaussian_rbw_loss_db,
     line_dbm,
@@ -144,7 +145,10 @@ def test_detectors_on_noise_and_on_a_line(rig):
         mean = float(np.mean(sweeps))
         assert mean - floor == pytest.approx(theory[det], abs=0.35), det
         sa.write(":SENS:FREQ:CENT 300e3")  # the third harmonic on the middle point
-        assert trace(sa)[1].max() == pytest.approx(line, abs=5e-3), det
+        # D13: a point's bucket is ten RBWs wide; average and rms detectors spread a CW line over
+        # it and read it low, as real analyzers do. Sample and positive peak read it exactly.
+        expected = line + bucket_response_db(0.0, 100, 1000, det)
+        assert trace(sa)[1].max() == pytest.approx(expected, abs=5e-3), det
 
 
 def test_floor_follows_attenuation(rig):
@@ -238,7 +242,10 @@ def test_prbs_lines_follow_the_closed_form():
         f_line = k * 100e3 / 127
         sa.write(f":CALC:MARK:X {f_line}")
         x = num(sa, ":CALC:MARK:X?")
-        expected = line_dbm(prbs_line_peak(level, 7, k)) + gaussian_rbw_loss_db(x - f_line, 100)
+        # The positive-peak detector catches the line anywhere in the marker point's 20 Hz bucket.
+        expected = line_dbm(prbs_line_peak(level, 7, k)) + gaussian_rbw_loss_db(
+            max(abs(x - f_line) - 10, 0), 100
+        )
         assert num(sa, ":CALC:MARK:Y?") == pytest.approx(expected, abs=0.01), k
     assert errors(sa) == []
     rm.close()

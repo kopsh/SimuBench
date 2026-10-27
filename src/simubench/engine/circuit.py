@@ -189,7 +189,9 @@ class Solution:
                 continue
             h = self.transfer(node, sid, sig.freq)
             h0 = self.transfer(node, sid, np.zeros(1))[0]
-            out = out + Signal(sig.freq, sig.amp * h, sig.t0_ns, sig.dc * h0.real, sig.notes)
+            amp = sig.amp * h
+            keep = amp != 0  # a source with no path to this node contributes nothing, not zero lines
+            out = out + Signal(sig.freq[keep], amp[keep], sig.t0_ns[keep], sig.dc * h0.real, sig.notes)
         return out
 
 
