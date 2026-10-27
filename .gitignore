@@ -11,3 +11,5 @@ web/dist/
 web/storybook-static/
 *.log
 runs/
+test-results/
+playwright-report/
