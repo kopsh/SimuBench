@@ -373,3 +373,52 @@ class Event(_Model):
     dt_ns: int | None = None
     reason: str | None = None
     wall: float | None = None
+
+
+# ---- run records (D36) ---------------------------------------------------------------------------
+
+
+class RunSummary(_Model):
+    run_id: str
+    bench: str
+    started: float = Field(..., description="Unix time the run started")
+    ended: float | None = Field(None, description="Unix time it ended; null while the session runs")
+    clock: str
+    seed: int
+    engine: str
+    events: int
+    duration_ns: int = Field(..., description="Virtual time the run covered")
+    instruments: list[str]
+    size: int = Field(..., description="Bytes on disk")
+
+
+class RunEvent(Event):
+    """An event as recorded; binary replies carry their hash and the acquisition that regenerates them."""
+
+    sha256: str | None = None
+    recipe: int | None = Field(None, description="seq of the acquisition event a waveform block came from")
+    channels: dict[str, Any] | None = Field(None, description="Acquisition recipe, per channel")
+
+
+class RunDetail(_Model):
+    summary: RunSummary
+    events: list[RunEvent]
+    truncated: bool = Field(False, description="More events than returned (the first ones are returned)")
+
+
+class ReplayMismatch(_Model):
+    seq: int
+    instrument: str
+    t_ns: int
+    expected: str
+    actual: str
+    command: str | None = None
+
+
+class ReplayResult(_Model):
+    run_id: str
+    ok: bool
+    actions: int
+    replies: int
+    mismatches: list[ReplayMismatch]
+    warnings: list[str]

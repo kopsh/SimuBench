@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock } from "@/lib/format";
+import { RecentRuns } from "../runs/RecentRuns";
 import { NewBenchDialog } from "./NewBenchDialog";
 
 export function HomePage() {
@@ -129,6 +130,7 @@ export function HomePage() {
                 </ul>
               )}
             </section>
+            <RecentRuns />
           </>
         )}
       </main>

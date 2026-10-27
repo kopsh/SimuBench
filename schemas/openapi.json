@@ -2077,6 +2077,95 @@
         "title": "Rename",
         "type": "object"
       },
+      "ReplayMismatch": {
+        "properties": {
+          "actual": {
+            "title": "Actual",
+            "type": "string"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "expected": {
+            "title": "Expected",
+            "type": "string"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "t_ns": {
+            "title": "T Ns",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "instrument",
+          "t_ns",
+          "expected",
+          "actual",
+          "command"
+        ],
+        "title": "ReplayMismatch",
+        "type": "object"
+      },
+      "ReplayResult": {
+        "properties": {
+          "actions": {
+            "title": "Actions",
+            "type": "integer"
+          },
+          "mismatches": {
+            "items": {
+              "$ref": "#/components/schemas/ReplayMismatch"
+            },
+            "title": "Mismatches",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "replies": {
+            "title": "Replies",
+            "type": "integer"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "ok",
+          "actions",
+          "replies",
+          "mismatches",
+          "warnings"
+        ],
+        "title": "ReplayResult",
+        "type": "object"
+      },
       "RestoreBenchRequest": {
         "properties": {
           "base_sha256": {
@@ -2098,6 +2187,357 @@
           "base_sha256"
         ],
         "title": "RestoreBenchRequest",
+        "type": "object"
+      },
+      "RunDetail": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/RunEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/RunSummary"
+          },
+          "truncated": {
+            "default": false,
+            "description": "More events than returned (the first ones are returned)",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "summary",
+          "events",
+          "truncated"
+        ],
+        "title": "RunDetail",
+        "type": "object"
+      },
+      "RunEvent": {
+        "description": "An event as recorded; binary replies carry their hash and the acquisition that regenerates them.",
+        "properties": {
+          "channels": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Acquisition recipe, per channel",
+            "title": "Channels"
+          },
+          "client": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "dir": {
+            "anyOf": [
+              {
+                "enum": [
+                  "write",
+                  "read"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dir"
+          },
+          "dt_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dt Ns"
+          },
+          "duration_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ns"
+          },
+          "fault": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fault id, for fault events and messages a fault affected",
+            "title": "Fault"
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument"
+          },
+          "kind": {
+            "description": "scpi | state | advance | error | fault | acquisition | session",
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "new": {
+            "title": "New"
+          },
+          "old": {
+            "title": "Old"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "seq of the acquisition event a waveform block came from",
+            "title": "Recipe"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Byte count of SCPI data",
+            "title": "Size"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "t_ns": {
+            "title": "T Ns",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SCPI bytes as text when printable",
+            "title": "Text"
+          },
+          "wall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wall"
+          }
+        },
+        "required": [
+          "seq",
+          "t_ns",
+          "kind",
+          "instrument",
+          "dir",
+          "text",
+          "size",
+          "duration_ns",
+          "client",
+          "path",
+          "old",
+          "new",
+          "source",
+          "fault",
+          "code",
+          "message",
+          "dt_ns",
+          "reason",
+          "wall",
+          "sha256",
+          "recipe",
+          "channels"
+        ],
+        "title": "RunEvent",
+        "type": "object"
+      },
+      "RunSummary": {
+        "properties": {
+          "bench": {
+            "title": "Bench",
+            "type": "string"
+          },
+          "clock": {
+            "title": "Clock",
+            "type": "string"
+          },
+          "duration_ns": {
+            "description": "Virtual time the run covered",
+            "title": "Duration Ns",
+            "type": "integer"
+          },
+          "ended": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unix time it ended; null while the session runs",
+            "title": "Ended"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "events": {
+            "title": "Events",
+            "type": "integer"
+          },
+          "instruments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "size": {
+            "description": "Bytes on disk",
+            "title": "Size",
+            "type": "integer"
+          },
+          "started": {
+            "description": "Unix time the run started",
+            "title": "Started",
+            "type": "number"
+          }
+        },
+        "required": [
+          "run_id",
+          "bench",
+          "started",
+          "ended",
+          "clock",
+          "seed",
+          "engine",
+          "events",
+          "duration_ns",
+          "instruments",
+          "size"
+        ],
+        "title": "RunSummary",
         "type": "object"
       },
       "SaveBenchRequest": {
@@ -3691,6 +4131,108 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/runs": {
+      "get": {
+        "description": "Run records in the record folder, newest first (empty without --record-dir).",
+        "operationId": "listRuns",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response Listruns",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Runs"
+      }
+    },
+    "/api/runs/{run_id}": {
+      "get": {
+        "operationId": "readRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Run"
+      }
+    },
+    "/api/runs/{run_id}/replay": {
+      "post": {
+        "description": "Replay the record and compare every reply (D36).",
+        "operationId": "replayRun",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Run"
       }
     },
     "/api/sessions": {

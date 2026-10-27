@@ -183,6 +183,37 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return M.ValidateResponse(ok=report.ok, diagnostics=diagnostics(report))
 
     @app.get(
+        "/api/runs", response_model=list[M.RunSummary], operation_id="listRuns", dependencies=[Depends(auth)]
+    )
+    def list_runs() -> list[M.RunSummary]:
+        """Run records in the record folder, newest first (empty without --record-dir)."""
+        return manager.runs.list()
+
+    @app.get(
+        "/api/runs/{run_id}", response_model=M.RunDetail, operation_id="readRun", dependencies=[Depends(auth)]
+    )
+    def read_run(run_id: str) -> M.RunDetail:
+        try:
+            return manager.runs.detail(run_id)
+        except FileNotFoundError:
+            raise HTTPException(404, "no such run record") from None
+
+    @app.post(
+        "/api/runs/{run_id}/replay",
+        response_model=M.ReplayResult,
+        operation_id="replayRun",
+        dependencies=[Depends(auth)],
+    )
+    def replay_run(run_id: str) -> M.ReplayResult:
+        """Replay the record and compare every reply (D36)."""
+        try:
+            return manager.runs.replay(run_id)
+        except FileNotFoundError:
+            raise HTTPException(404, "no such run record") from None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.get(
         "/api/catalog",
         response_model=M.Catalog,
         operation_id="getCatalog",
