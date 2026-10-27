@@ -1,0 +1,276 @@
+schema: simubench.instrument/1
+id: sb-smu-1
+manufacturer: SimuBench
+model: SB-SMU-1
+class: smu
+version: 1
+description: 源测量单元，强制电压或电流（210 V、1.05 A；21 V 以上 105 mA），四象限限值；线性、对数、列表扫描与测量缓冲区；读数时间由 NPLC 计算。
+identity:
+  serial: SBSMU000001
+  firmware: "1.0.0"
+state:
+  source.function:
+    type: enum
+    options: [VOLTage, CURRent]
+    default: VOLTage
+    electrical: true
+    label: 源功能
+    label_en: Source function
+    option_labels: {VOLTage: 电压源, CURRent: 电流源}
+  source.voltage.level:
+    type: float
+    unit: V
+    min: -210.0
+    max: 210.0
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage level
+  source.current.level:
+    type: float
+    unit: A
+    min: -1.05
+    max: 1.05
+    default: 0.0
+    label: 电流设定
+    label_en: Current level
+  compliance.current.limit:
+    type: float
+    unit: A
+    min: 1.0e-9
+    max: 1.05
+    default: 105.0e-6
+    label: 电流限值
+    label_en: Current limit
+  compliance.voltage.limit:
+    type: float
+    unit: V
+    min: 0.02
+    max: 210.0
+    default: 21.0
+    label: 电压限值
+    label_en: Voltage limit
+  output.enabled:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  sense.nplc:
+    type: float
+    min: 0.01
+    max: 10.0
+    default: 1.0
+    label: 积分时间
+    label_en: Integration time
+    display_unit: PLC
+  sense.autozero:
+    type: bool
+    default: true
+    label: 自动调零
+    label_en: Auto zero
+  system.line_freq:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 60.0
+    default: 60.0
+    label: 电源频率
+    label_en: Line frequency
+  source.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 10.0e3
+    default: 0.0
+    label: 源延迟
+    label_en: Source delay
+  sweep.mode:
+    type: enum
+    options: [NONE, LINear, LOGarithmic, LIST]
+    default: NONE
+    label: 扫描
+    label_en: Sweep
+    option_labels: {NONE: 关, LINear: 线性, LOGarithmic: 对数, LIST: 列表}
+  sweep.function:
+    type: enum
+    options: [VOLTage, CURRent]
+    default: VOLTage
+    label: 扫描量
+    label_en: Swept quantity
+    option_labels: {VOLTage: 电压, CURRent: 电流}
+  sweep.start:
+    type: float
+    min: -210.0
+    max: 210.0
+    default: 0.0
+    label: 起始
+    label_en: Start
+  sweep.stop:
+    type: float
+    min: -210.0
+    max: 210.0
+    default: 1.0
+    label: 终止
+    label_en: Stop
+  sweep.points:
+    type: int
+    min: 2
+    max: 2500
+    default: 2
+    label: 点数
+    label_en: Points
+  sweep.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 10.0e3
+    default: 0.0
+    label: 点延迟
+    label_en: Point delay
+  sweep.list:
+    type: string
+    default: ""
+    label: 列表
+    label_en: List
+components:
+  - name: core
+    type: smu_core
+    params:
+      function: $source.function
+      v_level: $source.voltage.level
+      i_level: $source.current.level
+      i_limit: $compliance.current.limit
+      v_limit: $compliance.voltage.limit
+      output: $output.enabled
+      nplc: $sense.nplc
+      autozero: $sense.autozero
+      line_freq: $system.line_freq
+      delay: $source.delay
+      sweep_mode: $sweep.mode
+      sweep_function: $sweep.function
+      sweep_start: $sweep.start
+      sweep_stop: $sweep.stop
+      sweep_points: $sweep.points
+      sweep_delay: $sweep.delay
+      sweep_list: $sweep.list
+ports:
+  instrument:
+    HI: core.hi
+display:
+  template: smu
+  summary: [source.function, source.voltage.level, source.current.level, compliance.current.limit, compliance.voltage.limit, output.enabled]
+capabilities: [smu]
+commands:
+  - header: "[:SOURce]:FUNCtion[:MODE]"
+    state: source.function
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    state: source.voltage.level
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]"
+    state: source.current.level
+  - header: "[:SOURce]:DELay"
+    state: source.delay
+  - header: "[:SENSe]:CURRent[:DC]:PROTection:TRIPped"
+    op: core.tripped
+    set: false
+    args: {kind: current}
+  - header: "[:SENSe]:VOLTage[:DC]:PROTection:TRIPped"
+    op: core.tripped
+    set: false
+    args: {kind: voltage}
+  - header: "[:SENSe]:CURRent[:DC]:PROTection[:LEVel]"
+    state: compliance.current.limit
+  - header: "[:SENSe]:VOLTage[:DC]:PROTection[:LEVel]"
+    state: compliance.voltage.limit
+  - header: "[:SENSe]:CURRent[:DC]:NPLCycles"
+    state: sense.nplc
+  - header: "[:SENSe]:VOLTage[:DC]:NPLCycles"
+    state: sense.nplc
+  - header: "[:SENSe]:RESistance:NPLCycles"
+    state: sense.nplc
+  - header: "[:SENSe]:AZERo[:STATe]"
+    state: sense.autozero
+  - header: ":SYSTem:LFRequency"
+    state: system.line_freq
+  - header: ":OUTPut[:STATe]"
+    state: output.enabled
+    dangerous: true
+  - header: ":OUTPut:REGulation"
+    op: core.regulation
+    set: false
+  - header: ":STATus:MEASurement:CONDition"
+    op: core.condition
+    set: false
+  - header: "[:SOURce]:SWEep:VOLTage:LINear"
+    op: core.sweep
+    query: false
+    dangerous: true
+    args: {function: VOLTage, kind: LINear}
+    params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
+  - header: "[:SOURce]:SWEep:CURRent:LINear"
+    op: core.sweep
+    query: false
+    dangerous: true
+    args: {function: CURRent, kind: LINear}
+    params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
+  - header: "[:SOURce]:SWEep:VOLTage:LOGarithmic"
+    op: core.sweep
+    query: false
+    dangerous: true
+    args: {function: VOLTage, kind: LOGarithmic}
+    params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
+  - header: "[:SOURce]:SWEep:CURRent:LOGarithmic"
+    op: core.sweep
+    query: false
+    dangerous: true
+    args: {function: CURRent, kind: LOGarithmic}
+    params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
+  - header: "[:SOURce]:SWEep:VOLTage:LIST"
+    op: core.sweep
+    query: false
+    dangerous: true
+    args: {function: VOLTage, kind: LIST}
+    params: [{name: values, type: raw}]
+  - header: "[:SOURce]:SWEep:CURRent:LIST"
+    op: core.sweep
+    query: false
+    dangerous: true
+    args: {function: CURRent, kind: LIST}
+    params: [{name: values, type: raw}]
+  - header: "[:SOURce]:SWEep:MODE"
+    state: sweep.mode
+  - header: ":READ[:VOLTage]"
+    op: core.read
+    set: false
+    dangerous: true
+  - header: ":READ:CURRent"
+    op: core.read
+    set: false
+    dangerous: true
+  - header: ":READ:RESistance"
+    op: core.read
+    set: false
+    dangerous: true
+  - header: ":MEASure[:VOLTage][:DC]"
+    op: core.measure
+    set: false
+  - header: ":MEASure:CURRent[:DC]"
+    op: core.measure
+    set: false
+  - header: ":MEASure:RESistance"
+    op: core.measure
+    set: false
+  - header: ":FETCh"
+    op: core.fetch
+    set: false
+  - header: ":INITiate[:IMMediate]"
+    op: core.initiate
+    query: false
+    dangerous: true
+  - header: ":TRACe:POINts:ACTual"
+    op: core.buffer
+    set: false
+    args: {what: count}
+  - header: ":TRACe:CLEar"
+    op: core.buffer
+    query: false
+    args: {what: clear}

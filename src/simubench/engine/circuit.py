@@ -42,6 +42,14 @@ class _Source:
 
 
 @dataclass
+class _Current:
+    """Ideal current source: source ``sid``'s signal, in amperes, injected into ``node``."""
+
+    node: Hashable
+    sid: Hashable
+
+
+@dataclass
 class _Vcvs:
     """Voltage-controlled voltage source: V(out) = gain(f) * V(ctrl) behind impedance ``z``."""
 
@@ -56,6 +64,7 @@ class Circuit:
     branches: list[_Branch] = field(default_factory=list)
     sources: list[_Source] = field(default_factory=list)
     vcvs: list[_Vcvs] = field(default_factory=list)
+    currents: list[_Current] = field(default_factory=list)
     _nodes: dict[Hashable, int] = field(default_factory=dict)
 
     # ---- building --------------------------------------------------------------------------------
@@ -93,6 +102,11 @@ class Circuit:
         self.node(node)
         self.sources.append(_Source(node, sid, float(z)))
 
+    def current(self, node: Hashable, sid: Hashable) -> None:
+        """An ideal current source pushing source ``sid``'s signal (in A) into ``node``."""
+        self.node(node)
+        self.currents.append(_Current(node, sid))
+
     def controlled(self, out: Hashable, ctrl: Hashable, gain: Admittance, z: float) -> None:
         self.node(out)
         self.node(ctrl)
@@ -107,7 +121,7 @@ class Circuit:
     def solve(self, freqs: Iterable[float]) -> Solution:
         f = np.unique(np.asarray(list(freqs), dtype=float))
         n = len(self._nodes)
-        sids = list(dict.fromkeys(s.sid for s in self.sources))
+        sids = list(dict.fromkeys([*(s.sid for s in self.sources), *(c.sid for c in self.currents)]))
         # Extra unknowns: one current per ideal (z == 0) source and per controlled source.
         ideal = [s for s in self.sources if s.z == 0]
         k = n + len(ideal) + len(self.vcvs)
@@ -147,6 +161,9 @@ class Circuit:
                 a[:, i, i] += g
                 b[:, i, col] += g  # Norton equivalent: EMF / z injected into the node
 
+        for cs in self.currents:
+            b[:, idx[cs.node], sids.index(cs.sid)] += 1
+
         for v in self.vcvs:
             io, ic = idx[v.out], idx[v.ctrl]
             gain = np.asarray(v.gain(f), dtype=complex)
@@ -164,7 +181,9 @@ class Circuit:
             row += 1
 
         x = np.linalg.solve(a, b) if k else np.zeros((f.size, 0, len(sids)), dtype=complex)
-        return Solution(f, {name: x[:, i, :] for name, i in idx.items()}, sids)
+        # The extra unknown of an ideal source is the current flowing from its node into it.
+        currents = {s.sid: -x[:, n + j, :] for j, s in enumerate(ideal)}
+        return Solution(f, {name: x[:, i, :] for name, i in idx.items()}, sids, currents)
 
 
 @dataclass
@@ -172,6 +191,7 @@ class Solution:
     freqs: np.ndarray
     node_transfer: dict[Hashable, np.ndarray]  # node -> (F, S)
     sids: list[Hashable]
+    source_transfer: dict[Hashable, np.ndarray] = field(default_factory=dict)  # ideal source -> (F, S)
 
     def transfer(self, node: Hashable, sid: Hashable, f: np.ndarray) -> np.ndarray:
         """Transfer from source ``sid``'s EMF to ``node`` at frequencies ``f`` (must have been solved)."""
@@ -180,6 +200,17 @@ class Solution:
         col = self.sids.index(sid)
         pos = np.searchsorted(self.freqs, f)
         return self.node_transfer[node][pos, col]
+
+    def source_dc_current(self, sid: Hashable, emf: dict[Hashable, Signal]) -> float:
+        """DC current an ideal (``z == 0``) source drives out of its node, in amperes."""
+        h = self.source_transfer.get(sid)
+        if h is None:
+            return 0.0
+        total = 0.0
+        for other, sig in emf.items():
+            if other in self.sids:
+                total += float((h[0, self.sids.index(other)] * sig.dc).real)
+        return total
 
     def node_signal(self, node: Hashable, emf: dict[Hashable, Signal]) -> Signal:
         """Signal on ``node`` given each source's EMF signal."""

@@ -1,0 +1,13 @@
+schema: simubench.bench/1
+name: acceptance-smu-eload
+description: SMU HI into an electronic load sinking 2 mA in constant-current mode (validation-smu.md).
+instruments:
+  smu:
+    model: sb-smu-1
+    address: TCPIP0::192.168.1.60::5025::SOCKET
+  eload:
+    model: sb-el-1
+    state: {function.mode: CC, source.current.level: 0.002, input.enabled: true}
+wires:
+  - {from: smu.HI, to: eload.IN}
+run: {seed: 5, clock: stepped}

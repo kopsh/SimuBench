@@ -1,0 +1,13 @@
+schema: simubench.bench/1
+name: acceptance-smu-reverse
+description: A 12 V supply behind 1 kΩ pushes current into an SMU forcing 0 V with a 1 mA limit (quadrant 2).
+instruments:
+  smu:
+    model: sb-smu-1
+    address: TCPIP0::192.168.1.60::5025::SOCKET
+    state: {source.voltage.level: 0.0, compliance.current.limit: 0.001, output.enabled: true}
+duts:
+  supply: {type: dc_supply, params: {v: 12.0, r: 1000.0}}
+wires:
+  - {from: supply.OUT, to: smu.HI}
+run: {seed: 5, clock: stepped}

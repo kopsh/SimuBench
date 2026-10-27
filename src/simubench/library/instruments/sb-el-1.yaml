@@ -1,0 +1,79 @@
+schema: simubench.instrument/1
+id: sb-el-1
+manufacturer: SimuBench
+model: SB-EL-1
+class: electronic_load
+version: 1
+description: 直流电子负载，恒流（CC）或恒阻（CR）；最小工作电阻 0.0367 Ω，恒流模式在拐点（设定电流 × 最小电阻）以下由该电阻限制。
+identity:
+  serial: SBEL0000001
+  firmware: "1.0.0"
+state:
+  function.mode:
+    type: enum
+    options: [CC, CR]
+    default: CC
+    electrical: true
+    label: 模式
+    label_en: Mode
+    option_labels: {CC: 恒流, CR: 恒阻}
+  source.current.level:
+    type: float
+    unit: A
+    min: 0.0
+    max: 30.0
+    default: 0.0
+    label: 电流设定
+    label_en: Current
+  source.resistance.level:
+    type: float
+    unit: OHM
+    min: 0.05
+    max: 10.0e3
+    default: 1.0e3
+    electrical: true
+    label: 电阻设定
+    label_en: Resistance
+  input.enabled:
+    type: bool
+    default: false
+    electrical: true
+    label: 输入
+    label_en: Input
+components:
+  - name: load
+    type: electronic_load
+    params:
+      function: $function.mode
+      current: $source.current.level
+      resistance: $source.resistance.level
+      enabled: $input.enabled
+ports:
+  instrument:
+    IN: load.in
+display:
+  template: electronic_load
+  summary: [function.mode, source.current.level, source.resistance.level, input.enabled]
+capabilities: [electronic_load]
+commands:
+  - header: "[:SOURce]:FUNCtion[:MODE]"
+    state: function.mode
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate]"
+    state: source.current.level
+  - header: "[:SOURce]:RESistance[:LEVel][:IMMediate]"
+    state: source.resistance.level
+  - header: ":INPut[:STATe]"
+    state: input.enabled
+    dangerous: true
+  - header: ":MEASure[:SCALar]:VOLTage[:DC]"
+    op: load.measure
+    set: false
+    args: {what: voltage}
+  - header: ":MEASure[:SCALar]:CURRent[:DC]"
+    op: load.measure
+    set: false
+    args: {what: current}
+  - header: ":MEASure[:SCALar]:POWer[:DC]"
+    op: load.measure
+    set: false
+    args: {what: power}
