@@ -82,8 +82,14 @@ class Component:
     """Base class for every component type."""
 
     type_name: ClassVar[str] = "component"
+    #: Where the component may be placed: "dut" (bench node), "accessory" (on a wire) or "internal"
+    #: (inside instrument definitions only).
+    category: ClassVar[str] = "internal"
+    label: ClassVar[str] = ""
+    label_en: ClassVar[str] = ""
     ports: ClassVar[dict[str, PortSpec]] = {}
     defaults: ClassVar[dict[str, Any]] = {}
+    units: ClassVar[dict[str, str]] = {}
 
     def __init__(
         self,

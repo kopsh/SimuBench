@@ -79,6 +79,10 @@ class InputPort(Component):
 
 @component("resistor")
 class Resistor(Component):
+    category = "dut"
+    label = "电阻"
+    label_en = "Resistor"
+    units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical"), "B": PortSpec("inout", "electrical")}
     defaults = {"r": 1000.0}
 
@@ -89,6 +93,11 @@ class Resistor(Component):
 @component("rc_lowpass")
 class RcLowpass(Component):
     """Series R from IN to OUT, C from OUT to ground. ``tol_r`` / ``tol_c`` are hidden tolerances."""
+
+    category = "dut"
+    label = "RC 低通"
+    label_en = "RC low-pass"
+    units = {"r": "OHM", "c": "F"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
     defaults = {"r": 1000.0, "c": 100e-9, "tol_r": 0.0, "tol_c": 0.0}
@@ -110,6 +119,11 @@ class PassiveProbe(Component):
     Probe capacitance and compensation are not modeled (transients are out of scope, D10).
     """
 
+    category = "accessory"
+    label = "无源探头"
+    label_en = "Passive probe"
+    units = {"r_tip": "OHM", "r_scope": "OHM", "c_pf": "pF"}
+
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
     defaults = {"attenuation": 10.0, "r_tip": 10e6, "r_scope": 1e6, "c_pf": 0.0}
 
@@ -125,6 +139,11 @@ class PassiveProbe(Component):
 class CoaxCable(Component):
     """An ideal short cable: a small series resistance (no delay or reflections)."""
 
+    category = "accessory"
+    label = "同轴线缆"
+    label_en = "Coax cable"
+    units = {"r": "OHM", "length_m": "m"}
+
     ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("inout", "electrical")}
     defaults = {"r": 0.05, "length_m": 1.0}
 
@@ -135,6 +154,11 @@ class CoaxCable(Component):
 @component("unity_buffer")
 class UnityBuffer(Component):
     """Unity-gain buffer: high-impedance input, low-impedance output."""
+
+    category = "dut"
+    label = "单位增益缓冲器"
+    label_en = "Unity-gain buffer"
+    units = {"z_in": "OHM", "z_out": "OHM"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
     defaults = {"z_in": 1e6, "z_out": 50.0, "gain": 1.0}

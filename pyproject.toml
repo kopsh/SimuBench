@@ -45,7 +45,8 @@ src = ["src", "tests", "refcalc"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]
+# Line length is the formatter's job; long string literals (messages, docs) stay unbroken.
+ignore = ["RUF001", "RUF002", "RUF003", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Component types declare ports and defaults as class attributes typed ClassVar on the base class.

@@ -38,7 +38,9 @@ class StateSpec(_Model):
     option_labels: dict[str, str] | None = Field(
         None, description="How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}"
     )
-    display_unit: str | None = Field(None, description="Unit shown in the UI when it differs from `unit`, e.g. '×'")
+    display_unit: str | None = Field(
+        None, description="Unit shown in the UI when it differs from `unit`, e.g. '×'"
+    )
     electrical: bool = Field(False, description="Changing this variable changes the bench's circuit")
     readonly: bool = False
     label: str | None = None
