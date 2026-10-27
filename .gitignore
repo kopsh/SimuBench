@@ -14,3 +14,4 @@ web/storybook-static/
 test-results/
 playwright-report/
 .simubench/
+web/visual-report/
