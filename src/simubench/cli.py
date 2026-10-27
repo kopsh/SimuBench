@@ -185,6 +185,38 @@ def _version(args: argparse.Namespace) -> int:
     return 0
 
 
+def _migrate(args: argparse.Namespace) -> int:
+    """Report (and with --write, apply) format upgrades; exit 1 when a file cannot be read."""
+    import yaml
+
+    from .library.loader import _read_yaml
+    from .library.migrate import FormatError, upgrade
+
+    status = 0
+    for name in args.files:
+        path = Path(name)
+        fmt = "bench" if ".bench." in path.name else "instrument"
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else _read_yaml(path)
+            data, steps = upgrade(raw, fmt)
+        except (FormatError, ValueError, OSError) as exc:
+            print(f"{name}: {exc}", file=sys.stderr)
+            status = 1
+            continue
+        if not steps:
+            print(f"{name}: current")
+            continue
+        print(f"{name}: {', '.join(steps)}{'' if args.write else ' (dry run; --write to apply)'}")
+        if args.write:
+            if path.suffix == ".json":
+                path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            else:
+                path.write_text(
+                    yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100), encoding="utf-8"
+                )
+    return status
+
+
 def _assets(args: argparse.Namespace) -> int:
     """Print a bench's calibration register (CSV or JSON) for a test script's pre-run check."""
     import csv
@@ -280,6 +312,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("validate", help="check bench files; exit 1 on the first problem")
     p.add_argument("benches", nargs="+")
     p.set_defaults(fn=_validate)
+
+    p = sub.add_parser("migrate", help="upgrade bench and definition files to the current format")
+    p.add_argument("files", nargs="+")
+    p.add_argument("--write", action="store_true", help="rewrite the files (default: report only)")
+    p.set_defaults(fn=_migrate)
 
     p = sub.add_parser("assets", help="print a bench's calibration register (CSV or JSON)")
     p.add_argument("bench")

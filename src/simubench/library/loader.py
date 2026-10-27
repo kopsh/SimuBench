@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Iterable
 from functools import lru_cache
@@ -11,6 +12,7 @@ import yaml
 
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
+from .migrate import upgrade
 
 BUILTIN_DIR = Path(__file__).parent / "instruments"
 
@@ -51,7 +53,8 @@ def _read_yaml(path: Path) -> dict:
 
 @lru_cache(maxsize=256)
 def _load_definition_file(path: Path, mtime: float) -> InstrumentDefinition:
-    return InstrumentDefinition.model_validate(_read_yaml(path))
+    data, _ = upgrade(_read_yaml(path), "instrument")
+    return InstrumentDefinition.model_validate(data)
 
 
 class DefinitionLibrary:
@@ -85,6 +88,6 @@ class DefinitionLibrary:
 
 def load_bench(path: str | Path) -> BenchDefinition:
     p = Path(path)
-    if p.suffix == ".json":
-        return BenchDefinition.model_validate_json(p.read_text(encoding="utf-8"))
-    return BenchDefinition.model_validate(_read_yaml(p))
+    raw = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
+    data, _ = upgrade(raw, "bench")
+    return BenchDefinition.model_validate(data)

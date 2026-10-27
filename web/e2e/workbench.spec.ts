@@ -128,3 +128,16 @@ test("about and diagnostics: manifest, health checks, bundle download", async ({
   await page.getByRole("button", { name: "导出诊断包" }).click();
   expect((await download).suggestedFilename()).toMatch(/^simubench-diagnostics-.*\.zip$/);
 });
+
+test("first-use guide: three ways in, dismissed for good", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  const guide = page.getByRole("region", { name: "开始使用 SimuBench" });
+  await expect(guide).toBeVisible();
+  await expect(guide).toContainText("@simubench");
+  await expect(guide).toContainText("simubench mcp");
+  await guide.getByRole("button", { name: "不再显示" }).click();
+  await expect(guide).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "测试台", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "开始使用 SimuBench" })).toBeHidden();
+});

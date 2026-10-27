@@ -21,6 +21,9 @@ mcp = ["mcp>=2.3,<3"]
 [project.scripts]
 simubench = "simubench.cli:main"
 
+[project.entry-points.pytest11]
+simubench = "simubench.pytest_plugin"
+
 [dependency-groups]
 dev = [
   "pytest>=8",

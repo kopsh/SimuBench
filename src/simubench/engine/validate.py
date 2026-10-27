@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 from pydantic import ValidationError
 
+from ..library.migrate import FormatError, upgrade
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .component import component_types
@@ -72,6 +73,11 @@ def validate_data(
 ) -> tuple[BenchDefinition | None, Report]:
     """Validate raw bench data (parsed YAML/JSON); return the model when the schema accepts it."""
     report = Report()
+    try:
+        data, _ = upgrade(data, "bench")
+    except FormatError as exc:
+        report.add("error", "E-FORMAT", "/schema", str(exc), None)
+        return None, report
     try:
         bench = BenchDefinition.model_validate(data)
     except ValidationError as exc:
