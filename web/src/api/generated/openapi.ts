@@ -18,6 +18,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/benches/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Edit Bench */
+        post: operations["editBench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/benches/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Bench */
+        get: operations["readBench"];
+        /** Save Bench */
+        put: operations["saveBench"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/benches/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Validate Bench */
+        post: operations["validateBench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catalog */
+        get: operations["getCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions": {
         parameters: {
             query?: never;
@@ -228,10 +297,85 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Accessory */
+        Accessory: {
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Type
+             * @description Two-port component placed on the wire, e.g. 'passive_probe'
+             */
+            type: string;
+        };
+        /** AddDut */
+        AddDut: {
+            /** Label */
+            label?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "add_dut";
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
+        /** AddInstrument */
+        AddInstrument: {
+            /** Address */
+            address?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "add_instrument";
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
         /** AdvanceRequest */
         AdvanceRequest: {
             /** Seconds */
             seconds: number;
+        };
+        /**
+         * BenchDocument
+         * @description A bench file's content as stored, with its diagnostics.
+         */
+        BenchDocument: {
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Diagnostics */
+            diagnostics: components["schemas"]["Diagnostic"][];
+            /** Ok */
+            ok: boolean;
+            /** Path */
+            path: string;
+            /**
+             * Sha256
+             * @description Hash of the file bytes; pass back as base_sha256 to save
+             */
+            sha256: string;
         };
         /** BenchFile */
         BenchFile: {
@@ -251,6 +395,16 @@ export interface components {
             name: string;
             /** Path */
             path: string;
+        };
+        /**
+         * Catalog
+         * @description What can be placed on a bench: instrument definitions, DUT and accessory types.
+         */
+        Catalog: {
+            /** Components */
+            components: components["schemas"]["ComponentTypeInfo"][];
+            /** Instruments */
+            instruments: components["schemas"]["DefinitionSummary"][];
         };
         /** Channels */
         Channels: {
@@ -359,6 +513,32 @@ export interface components {
             /** Type */
             type: string;
         };
+        /** ComponentTypeInfo */
+        ComponentTypeInfo: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "dut" | "accessory" | "internal";
+            /** Defaults */
+            defaults: {
+                [key: string]: unknown;
+            };
+            /** Doc */
+            doc: string | null;
+            /** Label */
+            label: string | null;
+            /** Label En */
+            label_en: string | null;
+            /** Ports */
+            ports: components["schemas"]["PortInfo"][];
+            /** Type */
+            type: string;
+            /** Units */
+            units: {
+                [key: string]: string;
+            };
+        };
         /** ConfigureRequest */
         ConfigureRequest: {
             /** Path */
@@ -373,6 +553,82 @@ export interface components {
             ok: boolean;
             /** Value */
             value: unknown;
+        };
+        /** Connect */
+        Connect: {
+            /** Accessories */
+            accessories?: components["schemas"]["Accessory"][];
+            /**
+             * From
+             * @description Port reference, e.g. 'awg.OUT1'
+             */
+            from: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "connect";
+            /** To */
+            to: string;
+        };
+        /** DefinitionSummary */
+        DefinitionSummary: {
+            /** Channels */
+            channels: number;
+            /** Description */
+            description: string | null;
+            /** Id */
+            id: string;
+            /** Instrument Class */
+            instrument_class: string;
+            /** Manufacturer */
+            manufacturer: string;
+            /** Model */
+            model: string;
+            /** Ports */
+            ports: string[];
+            /** Template */
+            template: string | null;
+        };
+        /** Diagnostic */
+        Diagnostic: {
+            /**
+             * Code
+             * @description Stable code, e.g. 'E-WIRE-PORT'
+             */
+            code: string;
+            /** Message */
+            message: string;
+            /**
+             * Pointer
+             * @description JSON pointer into the bench file, e.g. '/wires/1/to'
+             */
+            pointer: string;
+            /**
+             * Severity
+             * @enum {string}
+             */
+            severity: "error" | "warning";
+            /**
+             * Subject
+             * @description Instrument, DUT or wire the diagnostic is about
+             */
+            subject: string | null;
+            /** Suggestion */
+            suggestion: string | null;
+        };
+        /** Disconnect */
+        Disconnect: {
+            /**
+             * Index
+             * @description Wire index
+             */
+            index: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "disconnect";
         };
         /** Display */
         Display: {
@@ -394,6 +650,15 @@ export interface components {
             summary: string[];
             /** Template */
             template: string | null;
+        };
+        /** EditBenchRequest */
+        EditBenchRequest: {
+            /** Base Sha256 */
+            base_sha256: string;
+            /** Ops */
+            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
+            /** Path */
+            path: string;
         };
         /** ErrorItem */
         ErrorItem: {
@@ -532,6 +797,20 @@ export interface components {
              */
             y: number;
         };
+        /** Move */
+        Move: {
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "move";
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** NetInfo */
         NetInfo: {
             /** Id */
@@ -607,6 +886,45 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /** Remove */
+        Remove: {
+            /**
+             * Name
+             * @description Instrument or DUT; its wires are removed too
+             */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "remove";
+        };
+        /** Rename */
+        Rename: {
+            /** Name */
+            name: string;
+            /** New Name */
+            new_name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "rename";
+        };
+        /** SaveBenchRequest */
+        SaveBenchRequest: {
+            /**
+             * Base Sha256
+             * @description Hash the edit started from; null creates a new file (409 if it exists)
+             */
+            base_sha256: string | null;
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Path */
+            path: string;
+        };
         /** ScopeScreen */
         ScopeScreen: {
             /** Acquisitions */
@@ -679,6 +997,99 @@ export interface components {
             seed: number;
             /** Wires */
             wires: components["schemas"]["WireInfo"][];
+        };
+        /** SetAccessories */
+        SetAccessories: {
+            /** Accessories */
+            accessories: components["schemas"]["Accessory"][];
+            /** Index */
+            index: number;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_accessories";
+        };
+        /** SetAddress */
+        SetAddress: {
+            /** Address */
+            address?: string | null;
+            /** Instrument */
+            instrument: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_address";
+        };
+        /** SetLabel */
+        SetLabel: {
+            /** Label */
+            label?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_label";
+        };
+        /** SetMeta */
+        SetMeta: {
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_meta";
+        };
+        /** SetParams */
+        SetParams: {
+            /** Dut */
+            dut: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_params";
+            /** Params */
+            params: {
+                [key: string]: unknown;
+            };
+        };
+        /** SetRun */
+        SetRun: {
+            /** Clock */
+            clock?: ("command" | "wall" | "stepped") | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_run";
+            /** Reveal True Values */
+            reveal_true_values?: boolean | null;
+            /** Seed */
+            seed?: number | null;
+        };
+        /** SetState */
+        SetState: {
+            /** Instrument */
+            instrument: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_state";
+            /** Path */
+            path: string;
+            /**
+             * Value
+             * @description Initial value; null removes the entry
+             */
+            value?: unknown;
         };
         /** StartSessionRequest */
         StartSessionRequest: {
@@ -825,6 +1236,25 @@ export interface components {
             /** Volts */
             volts: number[];
         };
+        /** ValidateRequest */
+        ValidateRequest: {
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Path
+             * @description Bench file the data belongs to; finds its own definitions
+             */
+            path?: string | null;
+        };
+        /** ValidateResponse */
+        ValidateResponse: {
+            /** Diagnostics */
+            diagnostics: components["schemas"]["Diagnostic"][];
+            /** Ok */
+            ok: boolean;
+        };
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -900,6 +1330,170 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BenchFile"][];
+                };
+            };
+        };
+    };
+    editBench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditBenchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchDocument"];
+                };
+            };
+            /** @description The file changed since base_sha256 was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readBench: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchDocument"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveBench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveBenchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchDocument"];
+                };
+            };
+            /** @description The file changed since base_sha256 was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    validateBench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ValidateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ValidateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
                 };
             };
         };

@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..engine.edit import EditOp
 from .bench import LayoutItem
 
 
@@ -35,6 +36,78 @@ class BenchFile(_Model):
     description: str | None = None
     instruments: int = 0
     error: str | None = Field(None, description="Why the file could not be read, if it could not")
+
+
+class Diagnostic(_Model):
+    severity: Literal["error", "warning"]
+    code: str = Field(..., description="Stable code, e.g. 'E-WIRE-PORT'")
+    pointer: str = Field(..., description="JSON pointer into the bench file, e.g. '/wires/1/to'")
+    message: str
+    suggestion: str | None = None
+    subject: str | None = Field(None, description="Instrument, DUT or wire the diagnostic is about")
+
+
+class BenchDocument(_Model):
+    """A bench file's content as stored, with its diagnostics."""
+
+    path: str
+    sha256: str = Field(..., description="Hash of the file bytes; pass back as base_sha256 to save")
+    data: dict[str, Any]
+    ok: bool
+    diagnostics: list[Diagnostic]
+
+
+class SaveBenchRequest(_Model):
+    path: str
+    base_sha256: str | None = Field(
+        ..., description="Hash the edit started from; null creates a new file (409 if it exists)"
+    )
+    data: dict[str, Any]
+
+
+class EditBenchRequest(_Model):
+    path: str
+    base_sha256: str
+    ops: list[EditOp]
+
+
+class ValidateRequest(_Model):
+    data: dict[str, Any]
+    path: str | None = Field(None, description="Bench file the data belongs to; finds its own definitions")
+
+
+class ValidateResponse(_Model):
+    ok: bool
+    diagnostics: list[Diagnostic]
+
+
+class DefinitionSummary(_Model):
+    id: str
+    manufacturer: str
+    model: str
+    instrument_class: str
+    description: str | None = None
+    channels: int
+    ports: list[str]
+    template: str | None = None
+
+
+class ComponentTypeInfo(_Model):
+    type: str
+    category: Literal["dut", "accessory", "internal"]
+    label: str | None = None
+    label_en: str | None = None
+    doc: str | None = None
+    ports: list[PortInfo]
+    defaults: dict[str, Any]
+    units: dict[str, str]
+
+
+class Catalog(_Model):
+    """What can be placed on a bench: instrument definitions, DUT and accessory types."""
+
+    instruments: list[DefinitionSummary]
+    components: list[ComponentTypeInfo]
 
 
 class PortInfo(_Model):

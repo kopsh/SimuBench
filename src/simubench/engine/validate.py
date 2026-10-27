@@ -59,6 +59,10 @@ def _closest(word: str, options: list[str]) -> str | None:
     return hit[0] if hit else None
 
 
+def _bound(value: float | None, open_end: str = "-∞") -> str:
+    return open_end if value is None else f"{value:g}"
+
+
 def _ptr(*parts: object) -> str:
     return "/" + "/".join(str(p).replace("~", "~0").replace("/", "~1") for p in parts)
 
@@ -152,8 +156,8 @@ def validate_bench(
                         "error",
                         "E-STATE-RANGE",
                         _ptr(*sp),
-                        f"{path} = {v:g} 超出范围 [{spec.min:g}, {spec.max:g}]",
-                        f"取 {spec.min:g} 到 {spec.max:g} 之间的值",
+                        f"{path} = {v:g} 超出范围 [{_bound(spec.min)}, {_bound(spec.max, '∞')}]",
+                        f"取 {_bound(spec.min)} 到 {_bound(spec.max, '∞')} 之间的值",
                         name,
                     )
             elif spec.type == "enum":
