@@ -6,7 +6,7 @@
 
 > 一位工程师，拿着自己的 Python + PyVISA 脚本，连到虚拟的锁相放大器测试台，在界面上看着它运行，发现了一个本来要到真机上才会暴露的问题（例如等待时间不够、驱动导致输入过载）。
 
-开发验证场景见 [validation-lockin.md](validation-lockin.md)、[validation-scope.md](validation-scope.md)、[validation-rfgen.md](validation-rfgen.md)、[validation-specan.md](validation-specan.md) 与 [validation-multichannel.md](validation-multichannel.md)。定标场景由产品负责人验收。
+开发验证场景见 [validation-lockin.md](validation-lockin.md)、[validation-scope.md](validation-scope.md)、[validation-rfgen.md](validation-rfgen.md)、[validation-specan.md](validation-specan.md)、[validation-smu.md](validation-smu.md) 与 [validation-multichannel.md](validation-multichannel.md)。定标场景由产品负责人验收。
 
 划分原则：
 
@@ -49,6 +49,9 @@
 | 频谱分析仪模型：接收机噪声底、四种检波器、三种迹线模式、按虚拟时间扫描 | 闭环必需 |
 | 频谱分析仪模型：FFT 路径（任意波、PRBS、削波）与能力上限 | 闭环必需 |
 | 用户自定义仪表定义（如 PRBS 信号源），从 Bench 旁的目录加载 | 闭环必需 |
+| SMU 模型：强制电压/电流、四象限限值与控制环切换、NPLC 与读数时间、线性/对数/列表扫描、测量缓冲区 | 闭环必需 |
+| 电子负载模型（恒流模式，非线性负载） | 闭环必需 |
+| 连接中断故障与会话恢复 | 闭环必需 |
 | 隐藏状态：Bench 可设置、命令读不到、只能通过测量发现（如时基偏差、噪声密度） | 闭环必需 |
 | 参考/时基连线：时基误差沿 REF_OUT → REF_IN 传递 | 闭环必需 |
 | DUT：RC 低通（两个场景共用） | 闭环必需 |
