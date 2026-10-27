@@ -177,7 +177,9 @@ def doctor(
         Check(
             "mcp",
             "ok" if _dist_version("mcp") else "warn",
-            "installed" if _dist_version("mcp") else "not installed: `uv sync --extra mcp` for AI agents",
+            "installed"
+            if _dist_version("mcp")
+            else 'not installed: pip install "simubench[mcp]" (or uv sync --extra mcp) for AI agents',
         )
     )
     try:

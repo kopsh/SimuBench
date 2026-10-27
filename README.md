@@ -22,6 +22,17 @@ simubench validate examples/benches/*.bench.yaml   # 校验测试台，输出 �
 simubench schemas --out schemas                    # 导出 OpenAPI 与 JSON Schema
 ```
 
+## 安装（不需要源码与 Node）
+
+```bash
+./scripts/build-wheel.sh                         # 构建带界面的 wheel：dist/simubench-<版本>-py3-none-any.whl
+pip install dist/simubench-*.whl                 # 需要 AI Agent 时：pip install "dist/simubench-<版本>-py3-none-any.whl[mcp]"
+simubench doctor                                 # 检查安装
+simubench serve --workspace 我的测试台目录 --open
+```
+
+安全设计与自检见 [docs/security.md](docs/security.md)。
+
 ## 在 pytest 中使用
 
 安装后自动注册 pytest 插件。每个测试得到一台刚上电的测试台：

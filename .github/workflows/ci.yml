@@ -60,6 +60,31 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  package:
+    name: Wheel with the UI installs and runs
+    needs: [python, web]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: ./scripts/build-wheel.sh
+      - name: Install into a clean environment, outside the checkout
+        run: |
+          uv venv /tmp/wheel-env
+          VIRTUAL_ENV=/tmp/wheel-env uv pip install dist/simubench-*.whl
+          cd /tmp && /tmp/wheel-env/bin/simubench doctor --workspace "$GITHUB_WORKSPACE/examples"
+          /tmp/wheel-env/bin/python -c "import simubench.server.app as a; assert (a.WEB_DIST / 'index.html').exists(), a.WEB_DIST"
+
   e2e:
     name: End-to-end (Chromium)
     needs: [python, web]

@@ -40,6 +40,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simubench", "src/pyvisa_simubench"]
+# The built UI, copied in by scripts/build-wheel.sh (git-ignored, so listed as an artifact).
+artifacts = ["src/simubench/web_dist/**"]
 
 [tool.ruff]
 line-length = 110

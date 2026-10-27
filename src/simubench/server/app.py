@@ -31,7 +31,13 @@ from .benchfiles import Conflict, diagnostics
 from .manager import BenchInvalid, ServedSession, SessionManager, _plain
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
-WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
+#: The built UI: inside an installed wheel (scripts/build-wheel.sh), else web/dist in a checkout.
+_PACKAGED_UI = Path(__file__).resolve().parents[1] / "web_dist"
+WEB_DIST = (
+    _PACKAGED_UI
+    if (_PACKAGED_UI / "index.html").exists()
+    else Path(__file__).resolve().parents[3] / "web" / "dist"
+)
 
 
 def _host_ok(value: str | None) -> bool:
