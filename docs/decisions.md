@@ -232,3 +232,16 @@
   - **进程间通信**：服务进程与客户端之间使用本机 TCP，不依赖只在类 Unix 系统上可用的 Unix 套接字；
   - **路径与文件**：Bench 中的文件引用使用与平台无关的相对路径；
   - **发布**：纯 Python 包 + NumPy，两个平台使用同一份包。
+
+## D21 Web 技术栈与接口生成
+
+- **结论**：
+  - 前端：React + shadcn/ui + React Flow（Bench 画布）；仪表屏幕中的波形、频谱、曲线在 React Flow 节点与独立面板中用 Canvas 绘制；
+  - 后端：FastAPI，作为 `simubench serve` 的 HTTP 与 WebSocket 服务；
+  - **接口文件自动生成**，不手写前后端之间的类型与客户端代码。
+- **单一来源**：接口以 Python 中的 Pydantic 模型为唯一来源，自动生成：
+  1. HTTP 接口：FastAPI 生成 OpenAPI 描述，再生成前端 TypeScript 类型与客户端；
+  2. WebSocket 消息（事件、状态更新、动作）：同一批 Pydantic 模型导出 JSON Schema，再生成 TypeScript 类型；
+  3. Bench 与仪表定义文件的 JSON Schema（用于校验与编辑器提示）；
+  4. MCP 工具的输入输出 schema。
+- **一致性检查**：生成结果提交到仓库；CI 中重新生成并比较，不一致即失败，防止前后端接口漂移。
