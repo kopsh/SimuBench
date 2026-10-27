@@ -56,3 +56,35 @@ def fit_sine(t: list[float] | object, v: object, f: float) -> tuple[float, float
     basis = np.column_stack([np.sin(2 * np.pi * f * t), np.cos(2 * np.pi * f * t), np.ones_like(t)])
     (a, b, dc), *_ = np.linalg.lstsq(basis, v, rcond=None)
     return float(np.hypot(a, b)), float(np.arctan2(b, a)), float(dc)
+
+
+def rc_ladder(
+    f: float,
+    emf: float,
+    stages: int = 2,
+    rs: float = 50.0,
+    r: float = 1e3,
+    c: float = 100e-9,
+    load_out: float = math.inf,
+) -> complex:
+    """Output phasor of ``stages`` identical RC sections in cascade (each loads the previous one).
+
+    Uses two-port ABCD matrices, independent of the engine's nodal solver: series Z is
+    [[1, Z], [0, 1]], shunt Y is [[1, 0], [Y, 1]]. The source is an EMF behind ``rs``.
+    """
+    w = 2 * math.pi * f
+    y_c = 1j * w * c
+
+    def mul(m: tuple, n: tuple) -> tuple:
+        (a, b), (cc, d) = m
+        (e, g), (h, k) = n
+        return ((a * e + b * h, a * g + b * k), (cc * e + d * h, cc * g + d * k))
+
+    total = ((1, rs), (0, 1))
+    for _ in range(stages):
+        total = mul(total, ((1, r), (0, 1)))
+        total = mul(total, ((1, 0), (y_c, 1)))
+    (a, b), _ = total
+    # V_emf = A·V_out + B·I_out, with I_out = V_out / load_out
+    i_per_v = 0 if math.isinf(load_out) else 1 / load_out
+    return emf / (a + b * i_per_v)

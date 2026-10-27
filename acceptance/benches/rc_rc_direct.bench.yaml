@@ -1,0 +1,16 @@
+schema: simubench.bench/1
+name: acceptance-rc-rc-direct
+description: Two RC sections in direct cascade; the second loads the first (physics-correct, D13).
+instruments:
+  awg: {model: sb-awg-2, state: {ch1.amplitude: 2.0}}
+  scope: {model: sb-dso-4}
+duts:
+  rc1: {type: rc_lowpass, params: {r: 1000.0, c: 1.0e-7}}
+  rc2: {type: rc_lowpass, params: {r: 1000.0, c: 1.0e-7}}
+wires:
+  - {from: awg.OUT1, to: rc1.IN}
+  - {from: rc1.OUT, to: rc2.IN}
+  - from: rc2.OUT
+    to: scope.CH1
+    accessories: [{type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}]
+run: {seed: 7, clock: stepped}
