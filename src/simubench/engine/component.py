@@ -113,10 +113,18 @@ class Component:
         if key in self.overrides:
             return self.overrides[key]
         value = self._params.get(key)
-        if isinstance(value, str) and value.startswith("$"):
-            if self.owner is None:
-                raise ValueError(f"{self.uid}: binding {value!r} outside an instrument")
-            return self.owner.get_state(self.resolve_path(value[1:]))
+        if isinstance(value, str):
+            if value.startswith("$"):
+                if self.owner is None:
+                    raise ValueError(f"{self.uid}: binding {value!r} outside an instrument")
+                return self.owner.get_state(self.resolve_path(value[1:]))
+            default = self.defaults.get(key)
+            if isinstance(default, (int, float)) and not isinstance(default, bool):
+                # YAML 1.1 reads "25.0e6" (no exponent sign) as a string; numbers are meant here.
+                try:
+                    return float(value)
+                except ValueError:
+                    pass
         return value
 
     def resolve_path(self, path: str) -> str:
