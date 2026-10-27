@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.component import Component, PortSpec, component
-from ...engine.signal import FidelityNote, Signal, ramp, sine, square
+from ...engine.signal import MAX_LINES, FidelityNote, Signal, ramp, sine, square
 from ...scpi.errors import ScpiError
 
 
@@ -98,3 +98,48 @@ class ArbTable(Component):
         sig = Signal.lines(k[keep] * rate / n, 2 * coef[keep])
         notes = (FidelityNote("truncated", f"arbitrary table: {int(keep.sum())} harmonics"),)
         return Signal(sig.freq, sig.amp, sig.t0_ns, dc, notes)
+
+
+# Feedback taps of maximal-length sequences: x^n + x^k + 1.
+PRBS_TAPS = {5: 3, 6: 5, 7: 6, 9: 5, 10: 7, 11: 9, 15: 14}
+
+
+def prbs_sequence(order: int) -> np.ndarray:
+    """One period (2^n − 1 bits) of the maximal-length sequence of ``order``, as ±1."""
+    tap = PRBS_TAPS[order]
+    state = (1 << order) - 1
+    bits = np.empty((1 << order) - 1, dtype=float)
+    for i in range(bits.size):
+        bits[i] = 1.0 if state & 1 else -1.0
+        fb = ((state >> (order - 1)) ^ (state >> (tap - 1))) & 1
+        state = ((state << 1) | fb) & ((1 << order) - 1)
+    return bits
+
+
+@component("prbs_source")
+class PrbsSource(Component):
+    """A pseudo-random bit stream, NRZ at ``rate`` bits/s between ±``level``.
+
+    Periodic with 2^n − 1 bits, so its spectrum is lines at k·rate/N: the DFT of the sequence times
+    the rectangular pulse's sinc. Exact, not estimated by an FFT of samples (D13); lines are kept
+    for ``lobes`` sinc lobes, within the line limit.
+    """
+
+    ports = {"out": PortSpec("out", "signal")}
+    defaults = {"order": 7, "rate": 100e3, "level": 0.25, "lobes": 8}
+
+    def output(self, port: str) -> Signal:
+        order = int(self.param("order"))
+        if order not in PRBS_TAPS:
+            raise ScpiError(-224, f"PRBS order {order} not supported; one of {sorted(PRBS_TAPS)}")
+        seq = prbs_sequence(order) * float(self.param("level"))
+        n = seq.size
+        rate = float(self.param("rate"))
+        spec = np.fft.fft(seq) / n
+        m_max = min(int(self.param("lobes")) * n, MAX_LINES)
+        m = np.arange(1, m_max + 1)
+        coef = spec[m % n] * np.sinc(m / n) * np.exp(-1j * np.pi * m / n)
+        keep = np.abs(coef) > 1e-15
+        sig = Signal.lines(m[keep] * rate / n, 2 * coef[keep])
+        notes = (FidelityNote("truncated", f"PRBS: lines kept up to {m_max * rate / n:.6g} Hz"),)
+        return Signal(sig.freq, sig.amp, sig.t0_ns, float(spec[0].real), notes)

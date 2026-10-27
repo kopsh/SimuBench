@@ -1,0 +1,278 @@
+schema: simubench.instrument/1
+id: sb-sa-1
+manufacturer: SimuBench
+model: SB-SA-1
+class: spectrum_analyzer
+version: 1
+description: 扫频频谱分析仪，0–7.5 GHz；高斯 RBW 滤波器 1 Hz–3 MHz（1-3-10 梯级）；四种检波器、三种迹线模式；RF_IN 50 Ω，REF_IN 10 MHz 参考输入。
+identity:
+  serial: SBSA0000001
+  firmware: "1.0.0"
+state:
+  freq.center:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 7.5e9
+    default: 3.75e9
+    label: 中心频率
+    label_en: Center
+  freq.span:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 7.5e9
+    default: 7.5e9
+    label: 跨度
+    label_en: Span
+  bw.res:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 分辨率带宽 (手动)
+    label_en: RBW (manual)
+  bw.res_auto:
+    type: bool
+    default: true
+    label: RBW 自动
+    label_en: RBW auto
+  bw.vid:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 视频带宽 (手动)
+    label_en: VBW (manual)
+  bw.vid_auto:
+    type: bool
+    default: true
+    label: VBW 自动
+    label_en: VBW auto
+  sweep.time:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 10.0e3
+    default: 1.0e-3
+    label: 扫描时间 (手动)
+    label_en: Sweep time (manual)
+  sweep.time_auto:
+    type: bool
+    default: true
+    label: 扫描时间自动
+    label_en: Sweep time auto
+  sweep.points:
+    type: int
+    min: 101
+    max: 40001
+    default: 1001
+    label: 迹线点数
+    label_en: Points
+  power.att:
+    type: float
+    min: 0.0
+    max: 70.0
+    default: 10.0
+    display_unit: dB
+    label: 衰减 (手动)
+    label_en: Attenuation (manual)
+  power.att_auto:
+    type: bool
+    default: true
+    label: 衰减自动
+    label_en: Attenuation auto
+  display.ref_level:
+    type: float
+    min: -150.0
+    max: 30.0
+    default: 0.0
+    display_unit: dBm
+    label: 参考电平
+    label_en: Reference level
+  detector:
+    type: enum
+    options: [POSitive, SAMPle, AVERage, RMS]
+    default: POSitive
+    label: 检波器
+    label_en: Detector
+    option_labels: {POSitive: 正峰值, SAMPle: 采样, AVERage: 平均, RMS: 均方根}
+  trace.type:
+    type: enum
+    options: [WRITe, AVERage, MAXHold]
+    default: WRITe
+    label: 迹线模式
+    label_en: Trace mode
+    option_labels: {WRITe: 刷新, AVERage: 平均, MAXHold: 最大保持}
+  aver.count:
+    type: int
+    min: 1
+    max: 10000
+    default: 10
+    label: 平均次数
+    label_en: Average count
+  marker.x:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 7.5e9
+    default: 0.0
+    label: 标记频率
+    label_en: Marker
+  marker.threshold:
+    type: float
+    min: -200.0
+    max: 30.0
+    default: -130.0
+    display_unit: dBm
+    label: 峰值门限
+    label_en: Peak threshold
+  marker.excursion:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 6.0
+    display_unit: dB
+    label: 峰值偏移
+    label_en: Peak excursion
+  rosc.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 参考时钟
+    label_en: Reference
+    option_labels: {INTernal: 内部, EXTernal: 外部 10 MHz}
+  init.continuous:
+    type: bool
+    default: true
+    label: 连续扫描
+    label_en: Continuous
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: sa
+    type: spectrum_analyzer
+    params: {rosc: $rosc.source}
+wiring:
+  instrument:
+    - [rf_in.out, sa.in]
+    - [ref_in.out, sa.ref]
+ports:
+  instrument:
+    RF_IN: rf_in.pin
+    REF_IN: ref_in.pin
+display:
+  template: spectrum_analyzer
+  summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
+capabilities: [spectrum_analyzer]
+commands:
+  - header: "[:SENSe]:FREQuency:CENTer"
+    op: sa.frequency
+    args: {what: center}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:SPAN"
+    op: sa.frequency
+    args: {what: span}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STARt"
+    op: sa.frequency
+    args: {what: start}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STOP"
+    op: sa.frequency
+    args: {what: stop}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BANDwidth[:RESolution]"
+    op: sa.coupled
+    args: {what: rbw}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth:VIDeo:AUTO"
+    state: bw.vid_auto
+  - header: "[:SENSe]:BANDwidth:VIDeo"
+    op: sa.coupled
+    args: {what: vbw}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:SWEep:TIME:AUTO"
+    state: sweep.time_auto
+  - header: "[:SENSe]:SWEep:TIME:UNCal"
+    op: sa.status
+    set: false
+    args: {what: uncal}
+  - header: "[:SENSe]:SWEep:TIME"
+    op: sa.coupled
+    args: {what: sweep}
+    params: [{name: value, type: float, unit: S, optional: true}]
+  - header: "[:SENSe]:SWEep:POINts"
+    state: sweep.points
+  - header: ":DISPlay:WINDow[:TRACe]:Y[:SCALe]:RLEVel"
+    state: display.ref_level
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation:AUTO"
+    state: power.att_auto
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation"
+    op: sa.coupled
+    args: {what: att}
+    params: [{name: value, type: float, optional: true}]
+  - header: "[:SENSe]:POWer[:RF]:OVERload"
+    op: sa.status
+    set: false
+    args: {what: overload}
+  - header: "[:SENSe]:DETector[:FUNCtion]"
+    state: detector
+  - header: ":TRACe[1]:TYPE"
+    state: trace.type
+  - header: ":TRACe[1]:CLEar"
+    op: sa.trace_clear
+    query: false
+  - header: ":TRACe[:DATA]"
+    op: sa.trace_data
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: "[:SENSe]:AVERage:COUNt"
+    state: aver.count
+  - header: ":CALCulate:MARKer<m>:MAXimum[:PEAK]"
+    op: sa.marker
+    query: false
+    args: {what: max}
+  - header: ":CALCulate:MARKer<m>:MAXimum:NEXT"
+    op: sa.marker
+    query: false
+    args: {what: next}
+  - header: ":CALCulate:MARKer<m>:X"
+    op: sa.marker
+    args: {what: x}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: ":CALCulate:MARKer<m>:Y"
+    op: sa.marker
+    set: false
+    args: {what: y}
+  - header: ":CALCulate:MARKer<m>:FCOunt:X"
+    op: sa.marker
+    set: false
+    args: {what: count}
+  - header: ":CALCulate:MARKer<m>:PEAK:THReshold"
+    state: marker.threshold
+  - header: ":CALCulate:MARKer<m>:PEAK:EXCursion"
+    state: marker.excursion
+  - header: "[:SENSe]:ROSCillator:SOURce"
+    state: rosc.source
+  - header: "[:SENSe]:ROSCillator:LOCKed"
+    op: sa.status
+    set: false
+    args: {what: locked}
+  - header: "[:SENSe]:ROSCillator:ACTive"
+    op: sa.status
+    set: false
+    args: {what: active}
+  - header: ":INITiate:CONTinuous"
+    state: init.continuous
+  - header: ":INITiate[:IMMediate]"
+    op: sa.initiate
+    query: false

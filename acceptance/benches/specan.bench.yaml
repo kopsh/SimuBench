@@ -1,0 +1,17 @@
+schema: simubench.bench/1
+name: acceptance-specan
+description: A 100 kHz square (1 Vpp) on RF_IN; a 10 MHz + 20 Hz sine (2 ppm fast) on REF_IN (validation-specan.md).
+instruments:
+  awg:
+    model: sb-awg-2
+    state: {ch1.function: SQUare, ch1.frequency: 100000.0, ch1.amplitude: 1.0, ch1.output: true}
+  ref:
+    model: sb-awg-2
+    state: {ch1.frequency: 10000020.0, ch1.amplitude: 1.0, ch1.output: true}
+  sa:
+    model: sb-sa-1
+    state: {freq.center: 500000.0, freq.span: 1000000.0, display.ref_level: 10.0, rosc.source: EXTernal}
+wires:
+  - {from: awg.OUT1, to: sa.RF_IN}
+  - {from: ref.OUT1, to: sa.REF_IN}
+run: {seed: 5, clock: stepped}

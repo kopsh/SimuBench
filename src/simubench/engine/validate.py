@@ -364,6 +364,51 @@ def _check_nets(
         _impedance_hints(bench, defs, members, report)
 
 
+_NAMED_Z = {"FIFTY": 50.0, "FIFT": 50.0, "ONEMEG": 1e6, "ONEM": 1e6}
+
+
+def _close(z: float | None, target: float) -> bool:
+    return z is not None and abs(z - target) <= 0.1 * target
+
+
+def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinition], ref: str) -> float | None:
+    """Input impedance of an instrument port from its definition (an ``input_port`` component)."""
+    owner, _, port = ref.rpartition(".")
+    d = defs.get(owner)
+    if d is None:
+        return None
+    channel = None
+    target = d.ports.instrument.get(port)
+    if target is None:
+        for pattern, t in d.ports.channel.items():
+            for n in range(1, d.channels.count + 1):
+                if pattern.replace("{n}", str(n)) == port:
+                    target, channel = t, n
+    if target is None:
+        return None
+    comp_name = target.rsplit(".", 1)[0]
+    specs = d.channel_components if channel is not None else d.components
+    comp = next((c for c in specs if c.name == comp_name), None)
+    if comp is None or comp.type != "input_port":
+        return None
+    z = comp.params.get("z_in", 1e6)
+    if isinstance(z, str) and z.startswith("$"):
+        path = z[1:]
+        key = path[3:] if path.startswith("ch.") else path
+        full = f"ch{channel}.{key}" if path.startswith("ch.") else path
+        spec = (d.channel_state if path.startswith("ch.") else d.state).get(key)
+        z = bench.instruments[owner].state.get(full, spec.default if spec else None)
+    if isinstance(z, str):
+        named = _NAMED_Z.get(z.upper())
+        if named is not None:
+            return named
+        try:
+            return float(z)
+        except ValueError:
+            return None
+    return float(z) if z is not None else None
+
+
 def _impedance_hints(
     bench: BenchDefinition, defs: dict[str, InstrumentDefinition], members: list[str], report: Report
 ) -> None:
@@ -384,15 +429,7 @@ def _impedance_hints(
             load_v = math.inf
         if not math.isfinite(load_v) or load_v > 1000:
             continue
-        terminated = any(
-            m != ref
-            and (m.rpartition(".")[0] in defs)
-            and bench.instruments[m.rpartition(".")[0]].state.get(
-                f"ch{''.join(c for c in m.rpartition('.')[2] if c.isdigit()) or '1'}.impedance"
-            )
-            in ("FIFTy", "FIFT", 50)
-            for m in members
-        )
+        terminated = any(m != ref and _close(_input_impedance(bench, defs, m), load_v) for m in members)
         if not terminated:
             report.add(
                 "warning",

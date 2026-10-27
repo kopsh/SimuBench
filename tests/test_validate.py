@@ -89,3 +89,17 @@ def test_errors_point_at_the_place_and_suggest_a_fix(mutate, code, pointer, sugg
 def test_schema_errors_are_diagnostics():
     _, report = validate_data({"schema": "simubench.bench/1", "wires": "x"}, LIB)
     assert not report.ok and all(d.code == "E-SCHEMA" for d in report.diagnostics)
+
+
+def test_a_50_ohm_input_terminates_the_net():
+    data = {
+        "schema": "simubench.bench/1",
+        "name": "t",
+        "instruments": {"awg": {"model": "sb-awg-2"}, "sa": {"model": "sb-sa-1"}, "scope": {"model": "sb-dso-4"}},
+        "wires": [{"from": "awg.OUT1", "to": "sa.RF_IN"}, {"from": "awg.OUT2", "to": "scope.CH2"}],
+    }
+    found, _ = codes(data)
+    assert found == [("W-IMPEDANCE-MISMATCH", "/instruments/awg/state/ch2.load")]  # the analyzer is 50 Ω
+    data["instruments"]["scope"]["state"] = {"ch2.impedance": "FIFTy"}
+    found, _ = codes(data)
+    assert found == []

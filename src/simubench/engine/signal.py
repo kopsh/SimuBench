@@ -219,28 +219,37 @@ def sine(freq: float, peak: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Si
     return Signal.lines([freq], [a], t0_ns=t0_ns)
 
 
-def _harmonic_count(freq: float, f_max: float) -> int:
-    n = int(f_max // freq) if freq > 0 else 0
-    return max(1, min(n, 2 * MAX_LINES))
+def _harmonics(
+    freq: float, f_max: float, step: int, what: str
+) -> tuple[np.ndarray, tuple[FidelityNote, ...]]:
+    """Harmonic numbers up to the generator's bandwidth ``f_max``.
+
+    A waveform cut only by the generator's own bandwidth is exact (the generator outputs nothing
+    above it). When the line limit cuts it lower, the model leaves content out, and says so.
+    """
+    n_band = int(f_max // freq) if freq > 0 else 1
+    n = np.arange(1, max(n_band, 1) + 1, step)
+    if n.size <= MAX_LINES:
+        return n, ()
+    n = n[:MAX_LINES]
+    note = FidelityNote(
+        "truncated", f"{what}: {n.size} harmonics up to {n[-1] * freq:.6g} Hz kept, the rest left out"
+    )
+    return n, (note,)
 
 
 def square(freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Signal:
     """50 % duty square wave of amplitude ``peak`` (±peak), as odd harmonics up to ``f_max``."""
-    n_max = _harmonic_count(freq, f_max)
-    n = np.arange(1, n_max + 1, 2)
-    n = n[:MAX_LINES]
+    n, notes = _harmonics(freq, f_max, 2, "square wave")
     a = 4 * peak / (np.pi * n) * np.exp(1j * (n * phase_rad - np.pi / 2))
-    notes = (FidelityNote("truncated", f"square wave: {n.size} odd harmonics up to {n[-1] * freq:.6g} Hz"),)
     return Signal.lines(n * freq, a, t0_ns=t0_ns, notes=notes)
 
 
 def ramp(freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Signal:
     """Rising sawtooth of amplitude ``peak``: rises from −peak to +peak, crossing zero at phase 0."""
-    n_max = min(_harmonic_count(freq, f_max), MAX_LINES)
-    n = np.arange(1, n_max + 1)
+    n, notes = _harmonics(freq, f_max, 1, "ramp")
     # x/pi on (-pi, pi) = (2/pi) * sum (-1)^(n+1) sin(n x) / n
     a = (2 * peak / np.pi) * ((-1.0) ** (n + 1)) / n * np.exp(1j * (n * phase_rad - np.pi / 2))
-    notes = (FidelityNote("truncated", f"ramp: {n.size} harmonics up to {n[-1] * freq:.6g} Hz"),)
     return Signal.lines(n * freq, a, t0_ns=t0_ns, notes=notes)
 
 
