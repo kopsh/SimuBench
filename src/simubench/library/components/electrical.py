@@ -90,6 +90,21 @@ class Resistor(Component):
         circuit.resistor(node("A"), node("B"), float(self.param("r")))
 
 
+@component("load_resistor")
+class LoadResistor(Component):
+    """A resistor from its one terminal to the bench ground (a load on a single-ended net)."""
+
+    category = "dut"
+    label = "对地电阻"
+    label_en = "Resistor to ground"
+    units = {"r": "OHM"}
+    ports = {"A": PortSpec("inout", "electrical")}
+    defaults = {"r": 1000.0}
+
+    def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
+        circuit.resistor(node("A"), GROUND, float(self.param("r")))
+
+
 @component("rc_lowpass")
 class RcLowpass(Component):
     """Series R from IN to OUT, C from OUT to ground. ``tol_r`` / ``tol_c`` are hidden tolerances."""

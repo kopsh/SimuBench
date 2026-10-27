@@ -8,6 +8,7 @@ through one of its action methods, which run one at a time under a lock (D9).
 from __future__ import annotations
 
 import contextlib
+import logging
 import threading
 import time
 from collections import deque
@@ -26,6 +27,8 @@ from .record import Recorder
 from .signal import Signal
 
 Listener = Callable[[dict[str, Any]], None]
+MAX_MODE_ITERATIONS = 40
+log = logging.getLogger(__name__)
 
 #: In command-driven mode, idle gaps shorter than this are script overhead and do not advance time.
 IDLE_THRESHOLD_NS = 10_000_000
@@ -185,14 +188,33 @@ class Session:
 
     def _solve(self) -> tuple[Solution, dict[str, Signal]]:
         if self._solution is None or self._solution[0] != self._signal_version:
-            emf: dict[str, Signal] = {}
-            for comp in self._all_components():
-                emf.update(comp.emf())
-            freqs: set[float] = {0.0}
-            for sig in emf.values():
-                freqs.update(float(f) for f in set(sig.freq.tolist()))
-            sol = self.circuit().solve(sorted(freqs))
-            self._solution = (self._signal_version, sol, emf)
+            piecewise = [c for c in self._all_components() if c.piecewise]
+            for _ in range(MAX_MODE_ITERATIONS):
+                emf: dict[str, Signal] = {}
+                for comp in self._all_components():
+                    emf.update(comp.emf())
+                freqs: set[float] = {0.0}
+                for sig in emf.values():
+                    freqs.update(float(f) for f in set(sig.freq.tolist()))
+                sol = self.circuit().solve(sorted(freqs))
+                self._solution = (self._signal_version, sol, emf)
+                # Piecewise-linear devices check their mode against the DC operating point.
+                changed = False
+                for comp in piecewise:
+
+                    def dc(
+                        port: str, comp: Component = comp, sol: Solution = sol, emf: dict[str, Signal] = emf
+                    ) -> float:
+                        node = self.node_of(comp, port)
+                        return 0.0 if node not in sol.node_transfer else sol.node_signal(node, emf).mean()
+
+                    changed |= comp.update_mode(dc)
+                if not changed:
+                    break
+                self._signal_version += 1
+                self._electrical_version += 1
+            else:
+                log.warning("piecewise-linear devices did not settle on a mode")
         return self._solution[1], self._solution[2]
 
     def node_signal(self, node: str) -> Signal:
@@ -200,6 +222,11 @@ class Session:
         if node not in sol.node_transfer:
             return Signal.zero()
         return sol.node_signal(node, emf)
+
+    def source_current(self, sid: str) -> float:
+        """DC current an ideal source drives out of its node (piecewise devices read their own)."""
+        sol, emf = self._solve()
+        return sol.source_dc_current(sid, emf)
 
     def net_signal(self, net_id: str) -> Signal:
         return self.node_signal(net_id)

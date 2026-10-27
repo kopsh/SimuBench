@@ -1,0 +1,23 @@
+schema: simubench.bench/1
+name: acceptance-smu-resistor
+description: SMU HI into 1 kΩ to ground, a DMM on the same net (validation-smu.md); the terminal sees 999.9 Ω.
+instruments:
+  smu:
+    model: sb-smu-1
+    address: TCPIP0::192.168.1.60::5025::SOCKET
+    state:
+      source.voltage.level: 5.0
+      compliance.current.limit: 0.01
+      output.enabled: true
+      sweep.mode: LINear
+      sweep.start: 0.0
+      sweep.stop: 8.0
+      sweep.points: 9
+      source.delay: 0.001
+  dmm: {model: sb-dmm-1}
+duts:
+  r1: {type: load_resistor, params: {r: 1000.0}}
+wires:
+  - {from: smu.HI, to: r1.A}
+  - {from: smu.HI, to: dmm.IN}
+run: {seed: 5, clock: command}

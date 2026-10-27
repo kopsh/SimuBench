@@ -93,6 +93,9 @@ class Component:
     #: Components with state that evolves in virtual time (filters, oscillators) set this and
     #: implement :meth:`sync`; the session calls it whenever signals change and before time moves.
     dynamic: ClassVar[bool] = False
+    #: Piecewise-linear devices (sources with limits, electronic loads) set this and implement
+    #: :meth:`update_mode`; the session re-solves until every device's mode is consistent.
+    piecewise: ClassVar[bool] = False
 
     def __init__(
         self,
@@ -182,6 +185,14 @@ class Component:
 
     def reset(self) -> None:
         """Return runtime state to power-on (``*RST``)."""
+
+    def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
+        """Piecewise-linear devices: choose the mode the DC operating point calls for.
+
+        ``dc_voltage(port)`` is the solved DC voltage on one of the component's electrical ports.
+        Return True when the mode changed (the session then solves again).
+        """
+        return False
 
     def sync(self) -> None:
         """Dynamic components: note what changed at the current instant (see :attr:`dynamic`)."""

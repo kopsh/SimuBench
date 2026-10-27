@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from simubench.engine.circuit import Circuit, solve_signals
+from simubench.engine.circuit import GMIN, Circuit, solve_signals
 from simubench.engine.instrument import snap_ladder
 from simubench.engine.signal import Signal, lowpass1, sine, square
 
@@ -69,3 +69,16 @@ def test_phase_precision_after_long_runs():
 )
 def test_snap_ladder(value, ladder, expected):
     assert snap_ladder(value, ladder, None, None) == pytest.approx(expected)
+
+
+def test_current_source_and_ideal_source_current():
+    c = Circuit()
+    c.current("a", "i1")  # 2 mA into 1 kΩ
+    c.resistor("a", "0", 1000.0)
+    c.source("b", "v1", 0.0)  # an ideal 3 V source into 1.5 kΩ
+    c.resistor("b", "0", 1500.0)
+    emf = {"i1": Signal.constant(2e-3), "v1": Signal.constant(3.0)}
+    sol = c.solve([0.0])
+    assert sol.node_signal("a", emf).mean() == pytest.approx(2.0, rel=1e-9)
+    assert sol.source_dc_current("v1", emf) == pytest.approx(3.0 / 1500 + 3.0 * GMIN, rel=1e-12)
+    assert sol.source_dc_current("i1", emf) == 0.0  # not an ideal voltage source
