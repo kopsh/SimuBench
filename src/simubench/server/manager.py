@@ -351,6 +351,23 @@ class SessionManager:
             )
 
     @staticmethod
+    def readings(served: ServedSession, instrument: str) -> M.InstrumentReadings:
+        s = served.session
+        inst = s.instrument(instrument)
+        values: dict[str, Any] = {}
+        traces: list[M.ReadingTrace] = []
+        with s._lock:
+            for name, comp in inst.components.items():
+                r = comp.readings()
+                if not r:
+                    continue
+                for k, v in r.get("values", {}).items():
+                    values[f"{name}.{k}"] = _plain(v)
+                for t in r.get("traces", []):
+                    traces.append(M.ReadingTrace(**{**t, "name": f"{name}.{t['name']}"}))
+            return M.InstrumentReadings(instrument=instrument, now_ns=s.now_ns, values=values, traces=traces)
+
+    @staticmethod
     def net_waveform(served: ServedSession, net: str, window_s: float, points: int) -> M.NetWaveform:
         s = served.session
         if net not in s.nets:

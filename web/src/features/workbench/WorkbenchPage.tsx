@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Activity, AudioWaveform, Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
+import { Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { BottomPanel } from "./BottomPanel";
 import { Canvas, type LibraryItem } from "./canvas/Canvas";
+import { CLASS_ICON } from "./canvas/InstrumentNode";
 import type { Issue } from "./canvas/InstrumentNode";
 import { addItem } from "./edit/actions";
 import { RestartBanner } from "./edit/EditControls";
@@ -24,6 +25,8 @@ import { Inspector } from "./Inspector";
 import { instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
+import { LockinScreen } from "./screens/LockinScreen";
+import { ReadingsScreen } from "./screens/ReadingsScreen";
 import { ScopeScreen } from "./screens/ScopeScreen";
 import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
@@ -207,7 +210,7 @@ function CenterTabs({
   const icon = (tab: Tab) => {
     if (tab.kind === "canvas") return <LayoutGrid className="size-3.5" />;
     const cls = session.instruments.find((i) => i.name === tab.instrument)?.instrument_class;
-    const Icon = cls === "oscilloscope" ? Activity : cls === "function_generator" ? AudioWaveform : Cpu;
+    const Icon = CLASS_ICON[cls ?? ""] ?? Cpu;
     return <Icon className="size-3.5" />;
   };
   const current = tabs.find((x) => tabKey(x) === active) ?? tabs[0];
@@ -262,8 +265,12 @@ function CenterTabs({
 function Screen({ session, instrument, readonly }: { session: SessionInfo; instrument: string; readonly: boolean }) {
   const inst = session.instruments.find((i) => i.name === instrument);
   if (!inst) return null;
-  if (inst.instrument_class === "oscilloscope") return <ScopeScreen sid={session.id} inst={inst} />;
-  return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
+  // The class template picks the screen (D1); instruments without one get the generic layout.
+  const template = inst.display.template ?? inst.instrument_class;
+  if (template === "oscilloscope") return <ScopeScreen sid={session.id} inst={inst} />;
+  if (template === "function_generator") return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
+  if (template === "lockin") return <LockinScreen sid={session.id} inst={inst} readonly={readonly} />;
+  return <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />;
 }
 
 function BenchCanvas({

@@ -18,7 +18,7 @@ test("inject a timeout on the generator link, see it everywhere, clear it", asyn
   const console = page.getByRole("textbox", { name: "发送 SCPI 命令" });
   await console.fill("*IDN?");
   await console.press("Enter");
-  await expect(page.getByText("没有回应（超时）")).toBeVisible();
+  await expect(page.getByRole("status", { name: "响应" })).toContainText("没有回应（超时）");
 
   await page.getByRole("tab", { name: /问题/ }).click();
   await expect(page.getByText("生效中").first()).toBeVisible();
@@ -27,5 +27,5 @@ test("inject a timeout on the generator link, see it everywhere, clear it", asyn
   await expect(awg.getByLabel("故障注入")).toBeHidden();
   await console.fill("*IDN?");
   await console.press("Enter");
-  await expect(page.getByText("SIMUBENCH,SB-AWG-2")).toBeVisible();
+  await expect(page.getByRole("status", { name: "响应" })).toContainText("SIMUBENCH,SB-AWG-2");
 });

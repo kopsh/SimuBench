@@ -1,5 +1,5 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Activity, AlertTriangle, AudioWaveform, Cpu, Gauge, Zap } from "lucide-react";
+import { Activity, AlertTriangle, AudioWaveform, Cpu, Crosshair, Gauge, Waves, Zap } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, StateVarInfo } from "@/api/client";
@@ -12,10 +12,12 @@ export type Issue = "error" | "warning";
 export type InstrumentNodeData = { inst: InstrumentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
 export type InstrumentNodeType = Node<InstrumentNodeData, "instrument">;
 
-const CLASS_ICON: Record<string, typeof Activity> = {
+export const CLASS_ICON: Record<string, typeof Activity> = {
   oscilloscope: Activity,
   function_generator: AudioWaveform,
   multimeter: Gauge,
+  lockin: Crosshair,
+  source: Waves,
 };
 
 /**

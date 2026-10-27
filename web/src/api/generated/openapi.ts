@@ -294,6 +294,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/instruments/{name}/readings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Readings */
+        get: operations["instrumentReadings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}/scpi": {
         parameters: {
             query?: never;
@@ -964,6 +981,25 @@ export interface components {
             /** State */
             state: components["schemas"]["StateVarInfo"][];
         };
+        /**
+         * InstrumentReadings
+         * @description Front-panel readings, evaluated without side effects (no SCPI traffic, no error queue).
+         */
+        InstrumentReadings: {
+            /** Instrument */
+            instrument: string;
+            /** Now Ns */
+            now_ns: number;
+            /** Traces */
+            traces: components["schemas"]["ReadingTrace"][];
+            /**
+             * Values
+             * @description Keyed '<component>.<name>', e.g. 'demod.R'
+             */
+            values: {
+                [key: string]: number | boolean | string;
+            };
+        };
         /** LayoutItem */
         LayoutItem: {
             /** H */
@@ -1069,6 +1105,20 @@ export interface components {
             instrument?: {
                 [key: string]: string;
             };
+        };
+        /** ReadingTrace */
+        ReadingTrace: {
+            /** Dt S */
+            dt_s: number;
+            /** Name */
+            name: string;
+            /**
+             * T0 S
+             * @description Start relative to now
+             */
+            t0_s: number;
+            /** Values */
+            values: number[];
         };
         /** Remove */
         Remove: {
@@ -2137,6 +2187,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    instrumentReadings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentReadings"];
                 };
             };
             /** @description Validation Error */

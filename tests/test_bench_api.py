@@ -194,3 +194,23 @@ def test_fault_api_and_link_errors_in_the_console(client):
     assert bad.status_code == 422
     missing = client.post(f"/api/sessions/{sid}/faults", json={"kind": "timeout", "instrument": "nope"})
     assert missing.status_code == 404
+
+
+def test_readings_are_passive(tmp_path):
+    shutil.copy(ROOT / "acceptance" / "benches" / "lockin_rc.bench.yaml", tmp_path / "l.bench.yaml")
+    app = create_app(
+        SessionManager(tmp_path, scpi_base_port=None), token=TOKEN, web_dist=Path("/nonexistent")
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "l.bench.yaml"}).json()["id"]
+        r = c.get(f"/api/sessions/{sid}/instruments/lia/readings").json()
+        assert r["values"]["demod.R"] == pytest.approx(0.6896, abs=1e-3)  # 1 Vrms drive at 1591.55 Hz
+        assert r["values"]["osc.locked"] is True
+        assert len(r["traces"][0]["values"]) == 121
+        events = c.get(f"/api/sessions/{sid}").json()
+        assert events  # no SCPI was sent; the error queue is untouched
+        scpi = c.post(f"/api/sessions/{sid}/instruments/lia/scpi", json={"command": ":SYSTem:ERRor?"}).json()
+        assert scpi["response"].startswith("0,")
+        dmm = c.get(f"/api/sessions/{sid}/instruments/dmm/readings").json()
+        assert dmm["values"]["meter.AC"] == pytest.approx(r["values"]["demod.R"], rel=1e-6)

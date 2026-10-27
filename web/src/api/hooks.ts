@@ -8,6 +8,7 @@ export const keys = {
   screen: (sid: string, name: string, source: string) => ["screen", sid, name, source] as const,
   catalog: ["catalog"] as const,
   faults: (sid: string) => ["faults", sid] as const,
+  readings: (sid: string, name: string) => ["readings", sid, name] as const,
   benchDoc: (path: string) => ["bench-doc", path] as const,
   preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
 };
@@ -132,5 +133,16 @@ export function useClearFault(sid: string) {
     mutationFn: (fault_id: string) =>
       unwrap(api.DELETE("/api/sessions/{sid}/faults/{fault_id}", { params: { path: { sid, fault_id } } })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.faults(sid) }),
+  });
+}
+
+/** Front-panel readings; refreshed whenever the session's events move (and once a second). */
+export function useReadings(sid: string, name: string, version: number) {
+  return useQuery({
+    queryKey: [...keys.readings(sid, name), version],
+    queryFn: () =>
+      unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/readings", { params: { path: { sid, name } } })),
+    placeholderData: (prev) => prev,
+    refetchInterval: 1000,
   });
 }
