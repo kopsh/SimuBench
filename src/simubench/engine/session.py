@@ -283,6 +283,12 @@ class Session:
 
     # ---- clock --------------------------------------------------------------------------------------
 
+    def follow_wall(self) -> None:
+        """Wall clock only: bring virtual time up to real time (passive views read the present)."""
+        if self.clock_mode == "wall":
+            self._sync()
+            self.now_ns = max(self.now_ns, time.monotonic_ns() - self._wall_start)
+
     def _begin_action(self) -> None:
         wall = time.monotonic_ns()
         if self.clock_mode == "wall":
