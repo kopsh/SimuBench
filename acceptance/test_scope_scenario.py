@@ -250,3 +250,53 @@ def test_same_instant_same_bytes_later_instant_different():
     s.advance(0.00025)
     s.scpi("scope", ":DIGitize")
     assert s.query("scope", ":WAVeform:DATA?") != d
+
+
+# ---- 9. change-over ------------------------------------------------------------------------------
+
+
+def _gains(bench: str, init: str | None) -> list[float]:
+    """The scenario's decode and gain code, unchanged; only the scope's initialization differs."""
+    rm, awg, scope = open_rig(bench)
+    try:
+        if init:
+            for cmd in init.split(";"):
+                scope.write(cmd)
+        awg.write(":OUTPut1:STATe ON")
+        scope.write(":CHANnel1:SCALe 0.1")
+        out = []
+        for f in (1000.0, FC):
+            awg.write(f":SOURce1:FREQuency {f}")
+            scope.write(f":TIMebase:SCALe {2 / f}")
+            scope.write(":DIGitize CHANnel1")
+            cap = capture(scope, probe=10.0, digitize=False)
+            peak, _, _ = fit_sine(cap.t, cap.v, f)
+            out.append(peak / expected_tip_peak(100.0))  # relative to the passband
+        assert scope.query(":SYSTem:ERRor?").startswith("0,")
+        return out
+    finally:
+        rm.close()
+
+
+def test_change_over_needs_only_the_waveform_setup():
+    init = ":WAVeform:FORMat WORD;:WAVeform:BYTeorder LSBFirst;:WAVeform:UNSigned 0"
+    first = _gains("awg_rc_scope.bench.yaml", None)
+    swapped = _gains("awg_rc_scope_2x.bench.yaml", init)
+    assert swapped == pytest.approx(first, rel=1e-6)
+    want = [expected_tip_peak(f) / expected_tip_peak(100.0) for f in (1000.0, FC)]
+    assert swapped == pytest.approx(want, rel=2e-3)
+
+
+def test_change_over_defaults_differ():
+    """Without the setup, the 2X sends 8-bit unsigned codes: the 16-bit decode no longer fits."""
+    rm, _awg, scope = open_rig("awg_rc_scope_2x.bench.yaml")
+    try:
+        assert scope.query(":WAVeform:FORMat?") == "BYTE" and scope.query(":WAVeform:UNSigned?") == "1"
+        scope.write(":DIGitize CHANnel1")
+        assert scope.query_ascii_values(":WAVeform:PREamble?")[0] == 0  # BYTE
+        with pytest.raises(AssertionError):
+            capture(scope, digitize=False)  # 1000 bytes read as int16: 500 codes for 1000 points
+        scope.write(":CHANnel3:SCALe 1")  # a two-channel scope
+        assert scope.query(":SYSTem:ERRor?").startswith("-114,")
+    finally:
+        rm.close()
