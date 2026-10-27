@@ -94,3 +94,33 @@ def test_cli_replay(tmp_path, capsys):
     other = tmp_path / "x.jsonl"
     other.write_text('{"kind": "nothing"}\n', encoding="utf-8")
     assert main(["replay", str(other)]) == 2
+
+
+def test_runs_api(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from simubench.server.app import create_app
+    from simubench.server.manager import SessionManager
+
+    record_run(tmp_path / "runs")
+    app = create_app(
+        SessionManager(tmp_path, scpi_base_port=None, record_dir=tmp_path / "runs"),
+        token="t",
+        web_dist=Path("/nonexistent"),
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = "t"
+        runs = c.get("/api/runs").json()
+        assert len(runs) == 1 and runs[0]["bench"] == "acceptance-awg-rc-scope" and runs[0]["ended"]
+        run_id = runs[0]["run_id"]
+        detail = c.get(f"/api/runs/{run_id}").json()
+        kinds = {e["kind"] for e in detail["events"]}
+        assert {"scpi", "state", "acquisition", "fault"} <= kinds
+        block = next(e for e in detail["events"] if e.get("sha256"))
+        assert block["size"] == 2007 and block["recipe"] is not None
+        writes = [e for e in detail["events"] if e.get("dir") == "write"]
+        assert writes[0]["text"].startswith(":OUTPut1:STATe ON")
+        result = c.post(f"/api/runs/{run_id}/replay").json()
+        assert result["ok"] and result["replies"] == 4
+        assert c.get("/api/runs/..%2Fx").status_code == 404
+        assert c.get("/api/runs/nope").status_code == 404

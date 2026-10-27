@@ -13,6 +13,8 @@ export const keys = {
   preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
   history: (path: string, sha: string) => ["bench-history", path, sha] as const,
   version: (path: string, seq: number) => ["bench-version", path, seq] as const,
+  runs: ["runs"] as const,
+  run: (id: string) => ["run", id] as const,
 };
 
 export function useCatalog() {
@@ -166,5 +168,24 @@ export function useReadings(sid: string, name: string, version: number) {
       unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/readings", { params: { path: { sid, name } } })),
     placeholderData: (prev) => prev,
     refetchInterval: 1000,
+  });
+}
+
+/** Run records in the record folder, newest first (D36). */
+export function useRuns() {
+  return useQuery({ queryKey: keys.runs, queryFn: () => unwrap(api.GET("/api/runs")), refetchInterval: 5000 });
+}
+
+export function useRun(id: string) {
+  return useQuery({
+    queryKey: keys.run(id),
+    queryFn: () => unwrap(api.GET("/api/runs/{run_id}", { params: { path: { run_id: id } } })),
+  });
+}
+
+/** Replay a run record and compare every reply. */
+export function useReplayRun(id: string) {
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/runs/{run_id}/replay", { params: { path: { run_id: id } } })),
   });
 }

@@ -12,7 +12,7 @@ cpSync(join(root, "examples"), workspace, { recursive: true });
 
 const child = spawn(
   "uv",
-  ["run", "simubench", "serve", "--workspace", workspace, "--token", "e2e-token", "--port", port, "--scpi-base-port", "0"],
+  ["run", "simubench", "serve", "--workspace", workspace, "--token", "e2e-token", "--port", port, "--scpi-base-port", "0", "--record-dir", join(workspace, "runs")],
   { cwd: root, stdio: "inherit", shell: process.platform === "win32" },
 );
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));

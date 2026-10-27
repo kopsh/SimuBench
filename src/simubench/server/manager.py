@@ -20,6 +20,7 @@ from ..models import api as M
 from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
 from .benchfiles import BenchFiles
+from .runs import Runs
 
 
 class BenchInvalid(ValueError):
@@ -58,6 +59,7 @@ class SessionManager:
         self.record_raw = record_raw
         self.sessions: dict[str, ServedSession] = {}
         self.files = BenchFiles(workspace)
+        self.runs = Runs(record_dir)
 
     # ---- bench files --------------------------------------------------------------------------------
 

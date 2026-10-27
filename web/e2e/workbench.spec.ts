@@ -72,3 +72,32 @@ test("switch to English and dark theme", async ({ page }) => {
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveClass(/dark/);
 });
+
+test("run record: open it from the home page, see the timeline, replay identically", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "启动" }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+  for (const cmd of [":DIGitize", ":WAVeform:DATA?", ":WAVeform:PREamble?"]) {
+    await input.fill(cmd);
+    await input.press("Enter");
+    await expect(page.getByRole("status", { name: "响应" })).not.toBeEmpty();
+  }
+
+  // This session's record (other tests' sessions on the same bench write records too).
+  const sid = new URL(page.url()).pathname.split("/").pop()!;
+  const info = (await (await page.request.get(`/api/sessions/${sid}`, { headers: { "x-simubench-token": TOKEN } })).json()) as {
+    record_path: string;
+  };
+  const runId = info.record_path.split(/[\\/]/).pop()!.replace(/^run-/, "").replace(/\.jsonl$/, "");
+  await page.getByRole("button", { name: "返回测试台列表" }).click();
+  const runs = page.getByRole("region", { name: "运行记录" });
+  await runs.locator(`a[href="/runs/${runId}"]`).click();
+  await expect(page.getByTestId("run-timeline")).toBeVisible();
+  const events = page.getByTestId("run-events");
+  await expect(events).toContainText(":WAVeform:PREamble?");
+  await expect(events).toContainText("由采集 #"); // the data block is kept as its recipe
+  await page.getByRole("button", { name: "回放并比较" }).click();
+  await expect(page.getByRole("status", { name: "回放结果" })).toContainText("回放一致");
+});

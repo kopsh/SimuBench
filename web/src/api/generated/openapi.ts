@@ -212,6 +212,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description Run records in the record folder, newest first (empty without --record-dir).
+         */
+        get: operations["listRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Run */
+        get: operations["readRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/runs/{run_id}/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replay Run
+         * @description Replay the record and compare every reply (D36).
+         */
+        post: operations["replayRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions": {
         parameters: {
             query?: never;
@@ -1255,6 +1312,36 @@ export interface components {
              */
             op: "rename";
         };
+        /** ReplayMismatch */
+        ReplayMismatch: {
+            /** Actual */
+            actual: string;
+            /** Command */
+            command: string | null;
+            /** Expected */
+            expected: string;
+            /** Instrument */
+            instrument: string;
+            /** Seq */
+            seq: number;
+            /** T Ns */
+            t_ns: number;
+        };
+        /** ReplayResult */
+        ReplayResult: {
+            /** Actions */
+            actions: number;
+            /** Mismatches */
+            mismatches: components["schemas"]["ReplayMismatch"][];
+            /** Ok */
+            ok: boolean;
+            /** Replies */
+            replies: number;
+            /** Run Id */
+            run_id: string;
+            /** Warnings */
+            warnings: string[];
+        };
         /** RestoreBenchRequest */
         RestoreBenchRequest: {
             /** Base Sha256 */
@@ -1263,6 +1350,125 @@ export interface components {
             path: string;
             /** Seq */
             seq: number;
+        };
+        /** RunDetail */
+        RunDetail: {
+            /** Events */
+            events: components["schemas"]["RunEvent"][];
+            summary: components["schemas"]["RunSummary"];
+            /**
+             * Truncated
+             * @description More events than returned (the first ones are returned)
+             * @default false
+             */
+            truncated: boolean;
+        };
+        /**
+         * RunEvent
+         * @description An event as recorded; binary replies carry their hash and the acquisition that regenerates them.
+         */
+        RunEvent: {
+            /**
+             * Channels
+             * @description Acquisition recipe, per channel
+             */
+            channels: {
+                [key: string]: unknown;
+            } | null;
+            /** Client */
+            client: string | null;
+            /** Code */
+            code: number | null;
+            /** Dir */
+            dir: ("write" | "read") | null;
+            /** Dt Ns */
+            dt_ns: number | null;
+            /** Duration Ns */
+            duration_ns: number | null;
+            /**
+             * Fault
+             * @description Fault id, for fault events and messages a fault affected
+             */
+            fault: string | null;
+            /** Instrument */
+            instrument: string | null;
+            /**
+             * Kind
+             * @description scpi | state | advance | error | fault | acquisition | session
+             */
+            kind: string;
+            /** Message */
+            message: string | null;
+            /** New */
+            new: unknown;
+            /** Old */
+            old: unknown;
+            /** Path */
+            path: string | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Recipe
+             * @description seq of the acquisition event a waveform block came from
+             */
+            recipe: number | null;
+            /** Seq */
+            seq: number;
+            /** Sha256 */
+            sha256: string | null;
+            /**
+             * Size
+             * @description Byte count of SCPI data
+             */
+            size: number | null;
+            /** Source */
+            source: string | null;
+            /** T Ns */
+            t_ns: number;
+            /**
+             * Text
+             * @description SCPI bytes as text when printable
+             */
+            text: string | null;
+            /** Wall */
+            wall: number | null;
+        };
+        /** RunSummary */
+        RunSummary: {
+            /** Bench */
+            bench: string;
+            /** Clock */
+            clock: string;
+            /**
+             * Duration Ns
+             * @description Virtual time the run covered
+             */
+            duration_ns: number;
+            /**
+             * Ended
+             * @description Unix time it ended; null while the session runs
+             */
+            ended: number | null;
+            /** Engine */
+            engine: string;
+            /** Events */
+            events: number;
+            /** Instruments */
+            instruments: string[];
+            /** Run Id */
+            run_id: string;
+            /** Seed */
+            seed: number;
+            /**
+             * Size
+             * @description Bytes on disk
+             */
+            size: number;
+            /**
+             * Started
+             * @description Unix time the run started
+             */
+            started: number;
         };
         /** SaveBenchRequest */
         SaveBenchRequest: {
@@ -2080,6 +2286,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    listRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunSummary"][];
+                };
+            };
+        };
+    };
+    readRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    replayRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplayResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
