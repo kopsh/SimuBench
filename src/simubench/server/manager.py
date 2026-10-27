@@ -59,7 +59,7 @@ class SessionManager:
         for p in sorted(self.workspace.rglob("*.bench.yaml")) + sorted(self.workspace.rglob("*.bench.json")):
             if any(part in ("node_modules", ".venv", ".git") for part in p.parts):
                 continue
-            rel = str(p.relative_to(self.workspace))
+            rel = p.relative_to(self.workspace).as_posix()
             try:
                 b = load_bench(p)
                 out.append(
@@ -135,7 +135,9 @@ class SessionManager:
         return M.SessionInfo(
             id=served.id,
             bench_name=b.name,
-            bench_path=str(served.bench_path.relative_to(self.workspace)) if served.bench_path else None,
+            bench_path=served.bench_path.relative_to(self.files.workspace).as_posix()
+            if served.bench_path
+            else None,
             description=b.description,
             clock_mode=s.clock_mode,  # type: ignore[arg-type]
             now_ns=s.now_ns,
