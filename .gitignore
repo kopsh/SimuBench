@@ -10,7 +10,7 @@ node_modules/
 web/dist/
 web/storybook-static/
 *.log
-runs/
+/runs/
 test-results/
 playwright-report/
 .simubench/
