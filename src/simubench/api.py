@@ -15,6 +15,7 @@ def open_bench(
     clock: str | None = None,
     seed: int | None = None,
     record_dir: str | Path | None = None,
+    record_raw: bool = False,
     definition_dirs: list[str | Path] | None = None,
 ) -> Session:
     """Load a bench file (YAML or JSON) and start a session.
@@ -37,6 +38,7 @@ def open_bench(
         DefinitionLibrary(dirs),
         base_dir=base,
         record_dir=Path(record_dir) if record_dir else None,
+        record_raw=record_raw,
         clock=clock,
         seed=seed,
     )

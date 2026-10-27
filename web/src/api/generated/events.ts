@@ -11,7 +11,7 @@ export type DurationNs = number | null;
 export type Fault = string | null;
 export type Instrument = string | null;
 /**
- * scpi | state | advance | error | session
+ * scpi | state | advance | error | fault | acquisition | session
  */
 export type Kind = string;
 export type Message = string | null;

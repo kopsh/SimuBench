@@ -1,4 +1,10 @@
-"""Run record: an append-only JSON Lines file of everything that happened to a session (architecture 5.6)."""
+"""Run record: an append-only JSON Lines file of everything that happened to a session (architecture 5.6).
+
+The header carries the bench itself and a hash of every instrument definition, so a record can be
+replayed on its own (D36). Waveform blocks are not stored byte for byte: a read reply larger than
+:data:`BLOCK_MIN` bytes that is not text is kept as its size and hash, next to the acquisition recipe that regenerates it
+(trigger instant, sample interval, points, seed). ``raw=True`` keeps the bytes as well.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ if TYPE_CHECKING:
     from .session import Session
 
 RECORD_SCHEMA = "simubench.record/1"
+BLOCK_MIN = 256  # binary replies at least this long are waveform blocks: kept as hash + recipe
 
 
 def encode_bytes(data: bytes) -> dict[str, str]:
@@ -42,8 +49,15 @@ def _jsonable(value: Any) -> Any:
     return value
 
 
+def definition_hash(definition: Any) -> str:
+    text = definition.model_dump_json(by_alias=True)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
 class Recorder:
-    def __init__(self, directory: Path, session: Session) -> None:
+    def __init__(self, directory: Path, session: Session, *, raw: bool = False) -> None:
+        self.raw = raw
+        self._last_acquisition: dict[str, int] = {}  # instrument -> seq of its latest acquisition record
         directory.mkdir(parents=True, exist_ok=True)
         self.run_id = time.strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:8]
         self.path = directory / f"run-{self.run_id}.jsonl"
@@ -70,9 +84,14 @@ class Recorder:
                 "bench": self.session.bench.name,
                 "bench_sha256": hashlib.sha256(bench_json.encode()).hexdigest(),
                 "definitions": {
-                    name: {"id": inst.definition.id, "version": inst.definition.version}
+                    name: {
+                        "id": inst.definition.id,
+                        "version": inst.definition.version,
+                        "sha256": definition_hash(inst.definition),
+                    }
                     for name, inst in self.session.instruments.items()
                 },
+                "bench_data": json.loads(bench_json),
                 "seed": self.session.seed,
                 "clock": self.session.clock_mode,
                 "started": time.time(),
@@ -80,6 +99,25 @@ class Recorder:
         )
 
     def event(self, event: dict[str, Any]) -> None:
+        kind = event.get("kind")
+        if kind == "acquisition":
+            self._last_acquisition[str(event.get("instrument"))] = self._seq
+        data = event.get("data")
+        if (
+            kind == "scpi"
+            and event.get("dir") == "read"
+            and isinstance(data, bytes)
+            and len(data) >= BLOCK_MIN
+            and "b64" in encode_bytes(data)
+        ):
+            # A binary block: its recipe regenerates it; the hash proves it (D36).
+            ref: dict[str, Any] = {"sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+            acq = self._last_acquisition.get(str(event.get("instrument")))
+            if acq is not None:
+                ref["recipe"] = acq
+            if self.raw:
+                ref.update(encode_bytes(data))
+            event = {**event, "data": ref}
         self._write(event)
 
     def close(self) -> None:

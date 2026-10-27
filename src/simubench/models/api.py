@@ -356,7 +356,7 @@ class Event(_Model):
 
     seq: int
     t_ns: int
-    kind: str = Field(..., description="scpi | state | advance | error | session")
+    kind: str = Field(..., description="scpi | state | advance | error | fault | acquisition | session")
     instrument: str | None = None
     dir: Literal["write", "read"] | None = None
     text: str | None = Field(None, description="SCPI bytes as text when printable")

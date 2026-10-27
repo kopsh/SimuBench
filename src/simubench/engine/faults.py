@@ -234,6 +234,8 @@ class FaultManager:
                 "instrument": state.spec.instrument,
                 "message": state.describe(),
                 "source": state.source,
+                # What was injected, so that a run record can be replayed (D36).
+                **({"spec": state.spec.model_dump(mode="json")} if status == "injected" else {}),
             }
         )
 

@@ -91,7 +91,7 @@
       "title": "Instrument"
     },
     "kind": {
-      "description": "scpi | state | advance | error | session",
+      "description": "scpi | state | advance | error | fault | acquisition | session",
       "title": "Kind",
       "type": "string"
     },

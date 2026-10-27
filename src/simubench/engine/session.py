@@ -72,6 +72,7 @@ class Session:
         record_dir: Path | None = None,
         clock: str | None = None,
         seed: int | None = None,
+        record_raw: bool = False,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
@@ -92,7 +93,9 @@ class Session:
         self._last_wall = self._wall_start
         self.seq = 0
         self.event_id = 0  # id of the last emitted event; ids are stable cursors for event readers
-        self.recorder = Recorder(record_dir, self) if record_dir else None
+        self.recorder = Recorder(record_dir, self, raw=record_raw) if record_dir else None
+        #: Replaying a run record: time moves only where the record says (no idle steps).
+        self.replaying = False
 
         # ---- instruments and bench components ----
         self.instruments: dict[str, Instrument] = {}
@@ -294,7 +297,7 @@ class Session:
         if self.clock_mode == "wall":
             self._sync()
             self.now_ns = max(self.now_ns, wall - self._wall_start)
-        elif self.clock_mode == "command":
+        elif self.clock_mode == "command" and not self.replaying:
             idle = wall - self._last_wall
             if idle >= IDLE_THRESHOLD_NS:
                 step = (idle // IDLE_QUANTUM_NS) * IDLE_QUANTUM_NS
@@ -437,6 +440,12 @@ class Session:
         """Convenience for tests and notebooks: write text, return the decoded reply (or '')."""
         out = self.query(name, text)
         return out.decode(errors="replace").rstrip("\n")
+
+    def seek(self, t_ns: int, reason: str = "replay") -> None:
+        """Move virtual time forward to ``t_ns`` (replaying a record); never backwards."""
+        with self._lock:
+            if t_ns > self.now_ns:
+                self._advance(t_ns - self.now_ns, reason=reason)
 
     def advance(self, seconds: float) -> None:
         """Advance virtual time (action: advance). Works in every clock mode except wall."""
