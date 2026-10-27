@@ -6,7 +6,7 @@
 
 > 一位工程师，拿着自己的 Python + PyVISA 脚本，连到虚拟的锁相放大器测试台，在界面上看着它运行，发现了一个本来要到真机上才会暴露的问题（例如等待时间不够、驱动导致输入过载）。
 
-开发验证场景见 [validation-lockin.md](validation-lockin.md)、[validation-scope.md](validation-scope.md)、[validation-rfgen.md](validation-rfgen.md) 与 [validation-specan.md](validation-specan.md)。定标场景由产品负责人验收。
+开发验证场景见 [validation-lockin.md](validation-lockin.md)、[validation-scope.md](validation-scope.md)、[validation-rfgen.md](validation-rfgen.md)、[validation-specan.md](validation-specan.md) 与 [validation-multichannel.md](validation-multichannel.md)。定标场景由产品负责人验收。
 
 划分原则：
 
