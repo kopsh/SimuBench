@@ -225,6 +225,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/faults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Faults */
+        get: operations["listFaults"];
+        put?: never;
+        /** Inject Fault */
+        post: operations["injectFault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sid}/faults/{fault_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Clear Fault */
+        delete: operations["clearFault"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}": {
         parameters: {
             query?: never;
@@ -713,6 +748,109 @@ export interface components {
             /** Message */
             message: string;
         };
+        /**
+         * Fault
+         * @description A fault: on the link to an instrument, in an instrument, or in a component (architecture.md 5.5).
+         *
+         *     Link faults (``timeout``, ``disconnect``, ``garble``, ``latency``, ``busy``) act on every client's
+         *     SCPI traffic to ``instrument``. ``error`` queues an error code and ``trip`` switches the
+         *     instrument's outputs off with an error, both once. ``drift`` makes a component parameter
+         *     drift by ``drift_per_s`` (relative, per second of virtual time); ``hidden`` sets it to
+         *     ``value``. Both are undone when the fault ends.
+         */
+        Fault: {
+            /**
+             * At S
+             * @description Virtual time to start; omitted: at once
+             */
+            at_s?: number | null;
+            /**
+             * Code
+             * @description For error / trip: SCPI error code (default -300)
+             */
+            code?: number | null;
+            /**
+             * Component
+             * @description For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'
+             */
+            component?: string | null;
+            /**
+             * Count
+             * @description Link faults: number of messages affected
+             */
+            count?: number | null;
+            /**
+             * Drift Per S
+             * @description For drift: relative change per second, e.g. 1e-4
+             */
+            drift_per_s?: number | null;
+            /**
+             * Duration S
+             * @description How long it lasts; omitted: until cleared
+             */
+            duration_s?: number | null;
+            /**
+             * Garble Rate
+             * @description For garble: share of bytes corrupted
+             */
+            garble_rate?: number | null;
+            /**
+             * Instrument
+             * @description Instrument the fault acts on
+             */
+            instrument?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "timeout" | "disconnect" | "garble" | "latency" | "busy" | "error" | "trip" | "drift" | "hidden";
+            /** Label */
+            label?: string | null;
+            /**
+             * Latency S
+             * @description For latency: added to every message
+             */
+            latency_s?: number | null;
+            /** Message */
+            message?: string | null;
+            /**
+             * Param
+             * @description For drift / hidden: the component parameter, e.g. 'r'
+             */
+            param?: string | null;
+            /**
+             * Value
+             * @description For hidden: the new value
+             */
+            value?: unknown;
+        };
+        /** FaultInfo */
+        FaultInfo: {
+            /** Description */
+            description: string;
+            /** Ends Ns */
+            ends_ns: number | null;
+            /** Id */
+            id: string;
+            /**
+             * Remaining
+             * @description Messages left for a counted link fault
+             */
+            remaining: number | null;
+            /**
+             * Source
+             * @description bench (preset), ui, mcp or api
+             */
+            source: string;
+            spec: components["schemas"]["Fault"];
+            /** Started Ns */
+            started_ns: number | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "active" | "ended";
+        };
         /** Health */
         Health: {
             /**
@@ -1003,10 +1141,21 @@ export interface components {
         ScpiResponse: {
             /** Errors */
             errors: components["schemas"]["ErrorItem"][];
+            /**
+             * Link Error
+             * @description The link to the instrument is down (a fault)
+             */
+            link_error: string | null;
             /** Now Ns */
             now_ns: number;
             /** Response */
             response: string | null;
+            /**
+             * Timed Out
+             * @description A query got no answer (as a VISA read would time out)
+             * @default false
+             */
+            timed_out: boolean;
         };
         /** SessionInfo */
         SessionInfo: {
@@ -1822,6 +1971,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClockInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listFaults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaultInfo"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    injectFault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Fault"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaultInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clearFault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fault_id: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FaultInfo"];
                 };
             };
             /** @description Validation Error */

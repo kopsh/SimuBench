@@ -65,6 +65,19 @@
       "default": null,
       "title": "Duration Ns"
     },
+    "fault": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Fault id, for fault events and messages a fault affected",
+      "title": "Fault"
+    },
     "instrument": {
       "anyOf": [
         {

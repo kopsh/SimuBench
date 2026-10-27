@@ -31,7 +31,14 @@ STANDARD_MESSAGES: dict[int, str] = {
     -240: "Hardware error",
     -300: "Device-specific error",
     -310: "System error",
+    -311: "Memory error",
+    -313: "Calibration memory lost",
+    -314: "Save/recall memory lost",
+    -315: "Configuration memory lost",
+    -330: "Self-test failed",
     -350: "Queue overflow",
+    -360: "Communication error",
+    -363: "Input buffer overrun",
     -400: "Query error",
     -410: "Query INTERRUPTED",
     -420: "Query UNTERMINATED",
@@ -52,7 +59,9 @@ class ScpiError(Exception):
     def message(self) -> str:
         base = STANDARD_MESSAGES.get(self.code)
         if base is None:
-            base = STANDARD_MESSAGES.get(self.code // 10 * 10, "Error")
+            # The family of -313 is -310 (truncate toward zero; // would give -320).
+            family = -(abs(self.code) // 10 * 10) if self.code < 0 else self.code // 10 * 10
+            base = STANDARD_MESSAGES.get(family, "Error")
         return f"{base}; {self.detail}" if self.detail else base
 
     @property

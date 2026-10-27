@@ -27,7 +27,9 @@ from pydantic import Field
 from . import __version__
 from .engine.commands import classify
 from .engine.edit import EditError, EditOp
+from .engine.faults import LinkDown
 from .engine.scriptscan import draft_bench
+from .models.bench import Fault
 from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
 from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain
@@ -45,6 +47,18 @@ simulated with correct circuit physics. Typical flow:
 Edits change the bench file; a running session picks up topology changes only when restarted.
 Bench files are the engineer's: explain what you change.
 """
+
+
+def _fault(f: Any) -> dict[str, Any]:
+    return {
+        "id": f.id,
+        "status": f.status,
+        "description": f.describe(),
+        "source": f.source,
+        "started_s": f.started_ns / 1e9 if f.started_ns is not None else None,
+        "ends_s": f.ends_ns / 1e9 if f.ends_ns is not None else None,
+        "spec": f.spec.model_dump(exclude_none=True),
+    }
 
 
 class RateLimiter:
@@ -381,14 +395,20 @@ def build_server(
         def run() -> dict[str, Any]:
             session = s.session
             before = len(inst.errors)
-            session.write(instrument, command.encode(), client="mcp")
-            out = session.read(instrument, client="mcp")
+            try:
+                session.write(instrument, command.encode(), client="mcp")
+                out = session.read(instrument, client="mcp")
+            except LinkDown as exc:
+                return {"response": None, "link_error": str(exc), "now_s": session.now_ns / 1e9}
             errors = inst.errors.peek_all()[before:]
-            return {
+            result: dict[str, Any] = {
                 "response": out.decode(errors="replace").rstrip("\n") if out is not None else None,
                 "errors": [{"code": e.code, "message": e.message} for e in errors],
                 "now_s": session.now_ns / 1e9,
             }
+            if out is None and "?" in command:
+                result["timed_out"] = True
+            return result
 
         return await asyncio.to_thread(run)
 
@@ -446,6 +466,42 @@ def build_server(
         s = served(session_id)
         s.session.advance(seconds)
         return {"now_s": s.session.now_ns / 1e9}
+
+    @mcp.tool()
+    def inject_fault(fault: Fault, session_id: str | None = None) -> dict[str, Any]:
+        """Inject a fault into a running session (simulation control; needs --allow-control).
+        Link faults on an instrument: timeout, disconnect, garble, latency, busy; instrument faults:
+        error (queue an error code), trip (outputs off with an error); component faults: drift
+        (drift_per_s), hidden (set a parameter). at_s / duration_s / count limit it."""
+        guard()
+        control()
+        s = served(session_id)
+        try:
+            with s.session._lock:
+                state = s.session.faults.inject(fault, source="mcp")
+        except (KeyError, ValueError) as exc:
+            raise fail(exc) from None
+        return _fault(state)
+
+    @mcp.tool()
+    def list_faults(session_id: str | None = None) -> list[dict[str, Any]]:
+        """Faults of a session: pending, active and ended."""
+        guard()
+        s = served(session_id)
+        with s.session._lock:
+            return [_fault(f) for f in s.session.faults.snapshot()]
+
+    @mcp.tool()
+    def clear_fault(fault_id: str, session_id: str | None = None) -> dict[str, Any]:
+        """End a fault (simulation control; needs --allow-control)."""
+        guard()
+        control()
+        s = served(session_id)
+        try:
+            with s.session._lock:
+                return _fault(s.session.faults.clear(fault_id))
+        except KeyError as exc:
+            raise fail(exc) from None
 
     @mcp.tool()
     def read_true_values(session_id: str | None = None) -> dict[str, Any]:

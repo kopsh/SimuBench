@@ -174,3 +174,23 @@ def test_moving_nodes_keeps_the_fingerprint(client):
         },
     ).json()
     assert changed["fingerprint"] != doc["fingerprint"]
+
+
+def test_fault_api_and_link_errors_in_the_console(client):
+    sid = client.post("/api/sessions", json={"bench_path": BENCH}).json()["id"]
+    r = client.post(f"/api/sessions/{sid}/faults", json={"kind": "disconnect", "instrument": "awg"})
+    assert r.status_code == 200, r.text
+    fault = r.json()
+    assert fault["status"] == "active" and fault["source"] == "ui"
+    scpi = client.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": "*IDN?"}).json()
+    assert "down" in scpi["link_error"]
+    client.delete(f"/api/sessions/{sid}/faults/{fault['id']}")
+    client.post(f"/api/sessions/{sid}/faults", json={"kind": "timeout", "instrument": "awg"})
+    scpi = client.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": "*IDN?"}).json()
+    assert scpi["timed_out"] and scpi["response"] is None
+    faults = client.get(f"/api/sessions/{sid}/faults").json()
+    assert [f["status"] for f in faults] == ["ended", "active"]
+    bad = client.post(f"/api/sessions/{sid}/faults", json={"kind": "drift", "component": "rc", "param": "r"})
+    assert bad.status_code == 422
+    missing = client.post(f"/api/sessions/{sid}/faults", json={"kind": "timeout", "instrument": "nope"})
+    assert missing.status_code == 404

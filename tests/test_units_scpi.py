@@ -89,3 +89,11 @@ def test_error_queue_overflow():
     for _ in range(5):
         q.push(ScpiError(-222))
     assert [q.pop().code for _ in range(4)] == [-222, -222, -350, 0]
+
+
+def test_error_family_message_for_unlisted_codes():
+    from simubench.scpi.errors import ScpiError
+
+    assert ScpiError(-319).message == "System error"
+    assert ScpiError(-229).message == "Parameter error"
+    assert ScpiError(-313).message == "Calibration memory lost"

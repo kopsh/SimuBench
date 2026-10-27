@@ -57,6 +57,198 @@
       "title": "ComponentInstance",
       "type": "object"
     },
+    "Fault": {
+      "additionalProperties": false,
+      "description": "A fault: on the link to an instrument, in an instrument, or in a component (architecture.md 5.5).\n\nLink faults (``timeout``, ``disconnect``, ``garble``, ``latency``, ``busy``) act on every client's\nSCPI traffic to ``instrument``. ``error`` queues an error code and ``trip`` switches the\ninstrument's outputs off with an error, both once. ``drift`` makes a component parameter\ndrift by ``drift_per_s`` (relative, per second of virtual time); ``hidden`` sets it to\n``value``. Both are undone when the fault ends.",
+      "properties": {
+        "at_s": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Virtual time to start; omitted: at once",
+          "title": "At S"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For error / trip: SCPI error code (default -300)",
+          "title": "Code"
+        },
+        "component": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'",
+          "title": "Component"
+        },
+        "count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Link faults: number of messages affected",
+          "title": "Count"
+        },
+        "drift_per_s": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For drift: relative change per second, e.g. 1e-4",
+          "title": "Drift Per S"
+        },
+        "duration_s": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How long it lasts; omitted: until cleared",
+          "title": "Duration S"
+        },
+        "garble_rate": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For garble: share of bytes corrupted",
+          "title": "Garble Rate"
+        },
+        "instrument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Instrument the fault acts on",
+          "title": "Instrument"
+        },
+        "kind": {
+          "enum": [
+            "timeout",
+            "disconnect",
+            "garble",
+            "latency",
+            "busy",
+            "error",
+            "trip",
+            "drift",
+            "hidden"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "latency_s": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For latency: added to every message",
+          "title": "Latency S"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        },
+        "param": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For drift / hidden: the component parameter, e.g. 'r'",
+          "title": "Param"
+        },
+        "value": {
+          "default": null,
+          "description": "For hidden: the new value",
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Fault",
+      "type": "object"
+    },
     "InstrumentInstance": {
       "additionalProperties": false,
       "properties": {
@@ -267,6 +459,14 @@
       },
       "title": "Duts",
       "type": "object"
+    },
+    "faults": {
+      "description": "Faults preset for every run",
+      "items": {
+        "$ref": "#/$defs/Fault"
+      },
+      "title": "Faults",
+      "type": "array"
     },
     "instruments": {
       "additionalProperties": {

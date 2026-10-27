@@ -5,6 +5,10 @@ export type Code = number | null;
 export type Dir = ("write" | "read") | null;
 export type DtNs = number | null;
 export type DurationNs = number | null;
+/**
+ * Fault id, for fault events and messages a fault affected
+ */
+export type Fault = string | null;
 export type Instrument = string | null;
 /**
  * scpi | state | advance | error | session
@@ -35,6 +39,7 @@ export interface Event {
   dir?: Dir;
   dt_ns?: DtNs;
   duration_ns?: DurationNs;
+  fault?: Fault;
   instrument?: Instrument;
   kind: Kind;
   message?: Message;

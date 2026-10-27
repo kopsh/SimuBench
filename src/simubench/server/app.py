@@ -20,9 +20,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
 from ..engine.edit import EditError
+from ..engine.faults import FaultState
 from ..engine.record import encode_bytes
 from ..library.loader import DefinitionLibrary
 from ..models import api as M
+from ..models.bench import Fault
 from ..models.definition import InstrumentDefinition
 from .benchfiles import Conflict, diagnostics
 from .manager import BenchInvalid, ServedSession, SessionManager, _plain
@@ -325,6 +327,47 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise HTTPException(409, str(exc)) from None
         return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
 
+    @app.get(
+        "/api/sessions/{sid}/faults",
+        response_model=list[M.FaultInfo],
+        operation_id="listFaults",
+        dependencies=[Depends(auth)],
+    )
+    def list_faults(sid: str) -> list[M.FaultInfo]:
+        s = served(sid)
+        with s.session._lock:
+            return [fault_info(f) for f in s.session.faults.snapshot()]
+
+    @app.post(
+        "/api/sessions/{sid}/faults",
+        response_model=M.FaultInfo,
+        operation_id="injectFault",
+        dependencies=[Depends(auth)],
+    )
+    def inject_fault(sid: str, spec: Fault) -> M.FaultInfo:
+        s = served(sid)
+        try:
+            with s.session._lock:
+                return fault_info(s.session.faults.inject(spec, source="ui"))
+        except KeyError as exc:
+            raise not_found(exc) from None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.delete(
+        "/api/sessions/{sid}/faults/{fault_id}",
+        response_model=M.FaultInfo,
+        operation_id="clearFault",
+        dependencies=[Depends(auth)],
+    )
+    def clear_fault(sid: str, fault_id: str) -> M.FaultInfo:
+        s = served(sid)
+        try:
+            with s.session._lock:
+                return fault_info(s.session.faults.clear(fault_id))
+        except KeyError as exc:
+            raise not_found(exc) from None
+
     @app.websocket("/api/sessions/{sid}/events")
     async def events(ws: WebSocket, sid: str) -> None:
         if not _host_ok(ws.headers.get("host")) or not _host_ok(ws.headers.get("origin")):
@@ -404,6 +447,7 @@ def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
         "dt_ns",
         "reason",
         "wall",
+        "fault",
     ):
         if key in ev:
             out[key] = ev[key]
@@ -417,6 +461,19 @@ def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
         out["size"] = len(data)
         out["text"] = enc.get("text") if "text" in enc else _summary(data)
     return M.Event.model_validate(out).model_dump(exclude_none=True)
+
+
+def fault_info(f: FaultState) -> M.FaultInfo:
+    return M.FaultInfo(
+        id=f.id,
+        status=f.status,
+        description=f.describe(),
+        source=f.source,
+        started_ns=f.started_ns,
+        ends_ns=f.ends_ns,
+        remaining=f.remaining,
+        spec=f.spec,
+    )
 
 
 def _summary(data: bytes) -> str:

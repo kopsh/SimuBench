@@ -20,6 +20,7 @@ from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
 from .circuit import Circuit, Solution
 from .component import Component, component_type
+from .faults import FaultManager, LinkDown
 from .instrument import Instrument
 from .record import Recorder
 from .signal import Signal
@@ -127,6 +128,11 @@ class Session:
 
         if self.recorder:
             self.recorder.header()
+
+        # ---- faults preset in the bench ----
+        self.faults = FaultManager(self)
+        for spec in bench.faults:
+            self.faults.inject(spec, source="bench")
 
     # ---- references ---------------------------------------------------------------------------------
 
@@ -262,6 +268,7 @@ class Session:
         self.now_ns += int(dt_ns)
         self._signal_version += 1  # time-dependent components (filters, sweeps) may change
         self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason})
+        self.faults.tick()
 
     # ---- actions ------------------------------------------------------------------------------------
 
@@ -276,8 +283,32 @@ class Session:
         with self._lock:
             self._begin_action()
             inst = self.instrument(name)
+            link = self.faults.link(name)
+            for f in link:
+                if f.spec.kind == "disconnect":
+                    self._end_action()
+                    raise LinkDown(f"link to {name} is down (fault {f.id})")
+                if f.spec.kind == "latency":
+                    self._delay(f.spec.latency_s or 0.0)
             t0 = self.now_ns
             wall0 = time.time()
+            dropped = next((f for f in link if f.spec.kind == "timeout"), None)
+            if dropped is not None:
+                # The message never reaches the instrument.
+                self.faults.use(dropped)
+                self.emit(
+                    {
+                        "kind": "scpi",
+                        "dir": "write",
+                        "instrument": name,
+                        "data": data,
+                        "client": client,
+                        "fault": dropped.id,
+                        "duration_ns": 0,
+                    }
+                )
+                self._end_action()
+                return
             duration = inst.receive(data)
             if self.clock_mode == "command" and duration:
                 self._advance(duration, reason="command")
@@ -301,11 +332,42 @@ class Session:
         with self._lock:
             self._begin_action()
             inst = self.instrument(name)
+            link = self.faults.link(name)
+            fault_id = None
+            for f in link:
+                if f.spec.kind == "disconnect":
+                    self._end_action()
+                    raise LinkDown(f"link to {name} is down (fault {f.id})")
+                if f.spec.kind in ("timeout", "busy"):
+                    # Nothing arrives; the response (if any) stays queued until the fault ends.
+                    if f.spec.kind == "timeout":
+                        self.faults.use(f)
+                    self._end_action()
+                    return None
+                if f.spec.kind == "latency":
+                    self._delay(f.spec.latency_s or 0.0)
             out = inst.take_output()
             if out is not None:
-                self.emit({"kind": "scpi", "dir": "read", "instrument": name, "data": out, "client": client})
+                garble = next((f for f in link if f.spec.kind == "garble"), None)
+                if garble is not None:
+                    out = self.faults.garble(garble, out)
+                    fault_id = garble.id
+                    self.faults.use(garble)
+                event = {"kind": "scpi", "dir": "read", "instrument": name, "data": out, "client": client}
+                if fault_id:
+                    event["fault"] = fault_id
+                self.emit(event)
             self._end_action()
             return out
+
+    def _delay(self, seconds: float) -> None:
+        """Link latency: virtual time on the command clock, real time on the wall clock."""
+        if seconds <= 0:
+            return
+        if self.clock_mode == "command":
+            self._advance(round(seconds * 1e9), reason="latency")
+        elif self.clock_mode == "wall":
+            time.sleep(min(seconds, 5.0))
 
     def query(self, name: str, data: bytes | str, client: str = "sdk") -> bytes:
         if isinstance(data, str):
