@@ -19,11 +19,13 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
+from ..engine.edit import EditError
 from ..engine.record import encode_bytes
 from ..library.loader import DefinitionLibrary
 from ..models import api as M
 from ..models.definition import InstrumentDefinition
-from .manager import ServedSession, SessionManager, _plain
+from .benchfiles import Conflict, diagnostics
+from .manager import BenchInvalid, ServedSession, SessionManager, _plain
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
@@ -84,6 +86,70 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def benches() -> list[M.BenchFile]:
         return manager.bench_files()
 
+    files = manager.files
+
+    def file_errors(fn: Any) -> Any:
+        try:
+            return fn()
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from None
+        except FileNotFoundError:
+            raise HTTPException(404, "no such bench file") from None
+        except Conflict as exc:
+            raise HTTPException(409, {"message": str(exc), "current_sha256": exc.current_sha256}) from None
+        except EditError as exc:
+            raise HTTPException(422, str(exc)) from None
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise HTTPException(422, str(exc).splitlines()[0]) from None
+
+    @app.get(
+        "/api/benches/file",
+        response_model=M.BenchDocument,
+        operation_id="readBench",
+        dependencies=[Depends(auth)],
+    )
+    def read_bench(path: str = Query(...)) -> M.BenchDocument:
+        return file_errors(lambda: files.read(path))  # type: ignore[no-any-return]
+
+    @app.put(
+        "/api/benches/file",
+        response_model=M.BenchDocument,
+        operation_id="saveBench",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The file changed since base_sha256 was read"}},
+    )
+    def save_bench(req: M.SaveBenchRequest) -> M.BenchDocument:
+        return file_errors(lambda: files.save(req.path, req.base_sha256, req.data))  # type: ignore[no-any-return]
+
+    @app.post(
+        "/api/benches/edit",
+        response_model=M.BenchDocument,
+        operation_id="editBench",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The file changed since base_sha256 was read"}},
+    )
+    def edit_bench(req: M.EditBenchRequest) -> M.BenchDocument:
+        return file_errors(lambda: files.edit(req.path, req.base_sha256, req.ops))  # type: ignore[no-any-return]
+
+    @app.post(
+        "/api/benches/validate",
+        response_model=M.ValidateResponse,
+        operation_id="validateBench",
+        dependencies=[Depends(auth)],
+    )
+    def validate_bench(req: M.ValidateRequest) -> M.ValidateResponse:
+        report = file_errors(lambda: files.validate(req.data, req.path))
+        return M.ValidateResponse(ok=report.ok, diagnostics=diagnostics(report))
+
+    @app.get(
+        "/api/catalog",
+        response_model=M.Catalog,
+        operation_id="getCatalog",
+        dependencies=[Depends(auth)],
+    )
+    def catalog() -> M.Catalog:
+        return files.catalog()
+
     @app.get(
         "/api/definitions",
         response_model=list[str],
@@ -128,6 +194,10 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise HTTPException(403, str(exc)) from None
         except FileNotFoundError as exc:
             raise HTTPException(404, str(exc)) from None
+        except BenchInvalid as exc:
+            raise HTTPException(
+                422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
+            ) from None
         except (ValueError, KeyError) as exc:
             raise HTTPException(422, str(exc).splitlines()[0]) from None
         return manager.describe(s)

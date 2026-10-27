@@ -1,6 +1,158 @@
 {
   "components": {
     "schemas": {
+      "Accessory": {
+        "additionalProperties": false,
+        "properties": {
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "type": {
+            "description": "Two-port component placed on the wire, e.g. 'passive_probe'",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "Accessory",
+        "type": "object"
+      },
+      "AddDut": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "add_dut",
+            "default": "add_dut",
+            "title": "Op",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "AddDut",
+        "type": "object"
+      },
+      "AddInstrument": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "add_instrument",
+            "default": "add_instrument",
+            "title": "Op",
+            "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
+          }
+        },
+        "required": [
+          "name",
+          "model"
+        ],
+        "title": "AddInstrument",
+        "type": "object"
+      },
       "AdvanceRequest": {
         "properties": {
           "seconds": {
@@ -13,6 +165,45 @@
           "seconds"
         ],
         "title": "AdvanceRequest",
+        "type": "object"
+      },
+      "BenchDocument": {
+        "description": "A bench file's content as stored, with its diagnostics.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "description": "Hash of the file bytes; pass back as base_sha256 to save",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "data",
+          "ok",
+          "diagnostics"
+        ],
+        "title": "BenchDocument",
         "type": "object"
       },
       "BenchFile": {
@@ -62,6 +253,31 @@
           "error"
         ],
         "title": "BenchFile",
+        "type": "object"
+      },
+      "Catalog": {
+        "description": "What can be placed on a bench: instrument definitions, DUT and accessory types.",
+        "properties": {
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentTypeInfo"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/DefinitionSummary"
+            },
+            "title": "Instruments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instruments",
+          "components"
+        ],
+        "title": "Catalog",
         "type": "object"
       },
       "Channels": {
@@ -273,6 +489,87 @@
         "title": "ComponentSpec",
         "type": "object"
       },
+      "ComponentTypeInfo": {
+        "properties": {
+          "category": {
+            "enum": [
+              "dut",
+              "accessory",
+              "internal"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "defaults": {
+            "additionalProperties": true,
+            "title": "Defaults",
+            "type": "object"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "label_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label En"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/PortInfo"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "units": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Units",
+            "type": "object"
+          }
+        },
+        "required": [
+          "type",
+          "category",
+          "label",
+          "label_en",
+          "doc",
+          "ports",
+          "defaults",
+          "units"
+        ],
+        "title": "ComponentTypeInfo",
+        "type": "object"
+      },
       "ConfigureRequest": {
         "properties": {
           "path": {
@@ -316,6 +613,185 @@
           "value"
         ],
         "title": "ConfigureResponse",
+        "type": "object"
+      },
+      "Connect": {
+        "additionalProperties": false,
+        "properties": {
+          "accessories": {
+            "items": {
+              "$ref": "#/components/schemas/Accessory"
+            },
+            "title": "Accessories",
+            "type": "array"
+          },
+          "from": {
+            "description": "Port reference, e.g. 'awg.OUT1'",
+            "title": "From",
+            "type": "string"
+          },
+          "op": {
+            "const": "connect",
+            "default": "connect",
+            "title": "Op",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "Connect",
+        "type": "object"
+      },
+      "DefinitionSummary": {
+        "properties": {
+          "channels": {
+            "title": "Channels",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instrument_class": {
+            "title": "Instrument Class",
+            "type": "string"
+          },
+          "manufacturer": {
+            "title": "Manufacturer",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "ports": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          }
+        },
+        "required": [
+          "id",
+          "manufacturer",
+          "model",
+          "instrument_class",
+          "description",
+          "channels",
+          "ports",
+          "template"
+        ],
+        "title": "DefinitionSummary",
+        "type": "object"
+      },
+      "Diagnostic": {
+        "properties": {
+          "code": {
+            "description": "Stable code, e.g. 'E-WIRE-PORT'",
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "pointer": {
+            "description": "JSON pointer into the bench file, e.g. '/wires/1/to'",
+            "title": "Pointer",
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "error",
+              "warning"
+            ],
+            "title": "Severity",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Instrument, DUT or wire the diagnostic is about",
+            "title": "Subject"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggestion"
+          }
+        },
+        "required": [
+          "severity",
+          "code",
+          "pointer",
+          "message",
+          "suggestion",
+          "subject"
+        ],
+        "title": "Diagnostic",
+        "type": "object"
+      },
+      "Disconnect": {
+        "additionalProperties": false,
+        "properties": {
+          "index": {
+            "description": "Wire index",
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "op": {
+            "const": "disconnect",
+            "default": "disconnect",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index"
+        ],
+        "title": "Disconnect",
         "type": "object"
       },
       "Display": {
@@ -385,6 +861,94 @@
           "channel_summary"
         ],
         "title": "DisplayInfo",
+        "type": "object"
+      },
+      "EditBenchRequest": {
+        "properties": {
+          "base_sha256": {
+            "title": "Base Sha256",
+            "type": "string"
+          },
+          "ops": {
+            "items": {
+              "discriminator": {
+                "mapping": {
+                  "add_dut": "#/components/schemas/AddDut",
+                  "add_instrument": "#/components/schemas/AddInstrument",
+                  "connect": "#/components/schemas/Connect",
+                  "disconnect": "#/components/schemas/Disconnect",
+                  "move": "#/components/schemas/Move",
+                  "remove": "#/components/schemas/Remove",
+                  "rename": "#/components/schemas/Rename",
+                  "set_accessories": "#/components/schemas/SetAccessories",
+                  "set_address": "#/components/schemas/SetAddress",
+                  "set_label": "#/components/schemas/SetLabel",
+                  "set_meta": "#/components/schemas/SetMeta",
+                  "set_params": "#/components/schemas/SetParams",
+                  "set_run": "#/components/schemas/SetRun",
+                  "set_state": "#/components/schemas/SetState"
+                },
+                "propertyName": "op"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/AddInstrument"
+                },
+                {
+                  "$ref": "#/components/schemas/AddDut"
+                },
+                {
+                  "$ref": "#/components/schemas/Remove"
+                },
+                {
+                  "$ref": "#/components/schemas/Rename"
+                },
+                {
+                  "$ref": "#/components/schemas/Connect"
+                },
+                {
+                  "$ref": "#/components/schemas/Disconnect"
+                },
+                {
+                  "$ref": "#/components/schemas/SetState"
+                },
+                {
+                  "$ref": "#/components/schemas/SetParams"
+                },
+                {
+                  "$ref": "#/components/schemas/SetAccessories"
+                },
+                {
+                  "$ref": "#/components/schemas/SetLabel"
+                },
+                {
+                  "$ref": "#/components/schemas/SetAddress"
+                },
+                {
+                  "$ref": "#/components/schemas/Move"
+                },
+                {
+                  "$ref": "#/components/schemas/SetMeta"
+                },
+                {
+                  "$ref": "#/components/schemas/SetRun"
+                }
+              ]
+            },
+            "title": "Ops",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "base_sha256",
+          "ops"
+        ],
+        "title": "EditBenchRequest",
         "type": "object"
       },
       "ErrorItem": {
@@ -731,6 +1295,36 @@
         "title": "LayoutItem",
         "type": "object"
       },
+      "Move": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "move",
+            "default": "move",
+            "title": "Op",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "x",
+          "y"
+        ],
+        "title": "Move",
+        "type": "object"
+      },
       "NetInfo": {
         "properties": {
           "id": {
@@ -947,6 +1541,84 @@
         "title": "Ports",
         "type": "object"
       },
+      "Remove": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Instrument or DUT; its wires are removed too",
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "remove",
+            "default": "remove",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "Remove",
+        "type": "object"
+      },
+      "Rename": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "new_name": {
+            "title": "New Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "rename",
+            "default": "rename",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "new_name"
+        ],
+        "title": "Rename",
+        "type": "object"
+      },
+      "SaveBenchRequest": {
+        "properties": {
+          "base_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hash the edit started from; null creates a new file (409 if it exists)",
+            "title": "Base Sha256"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "base_sha256",
+          "data"
+        ],
+        "title": "SaveBenchRequest",
+        "type": "object"
+      },
       "ScopeScreen": {
         "properties": {
           "acquisitions": {
@@ -1161,6 +1833,238 @@
           "layout"
         ],
         "title": "SessionInfo",
+        "type": "object"
+      },
+      "SetAccessories": {
+        "additionalProperties": false,
+        "properties": {
+          "accessories": {
+            "items": {
+              "$ref": "#/components/schemas/Accessory"
+            },
+            "title": "Accessories",
+            "type": "array"
+          },
+          "index": {
+            "minimum": 0.0,
+            "title": "Index",
+            "type": "integer"
+          },
+          "op": {
+            "const": "set_accessories",
+            "default": "set_accessories",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "accessories"
+        ],
+        "title": "SetAccessories",
+        "type": "object"
+      },
+      "SetAddress": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_address",
+            "default": "set_address",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument"
+        ],
+        "title": "SetAddress",
+        "type": "object"
+      },
+      "SetLabel": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_label",
+            "default": "set_label",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SetLabel",
+        "type": "object"
+      },
+      "SetMeta": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "op": {
+            "const": "set_meta",
+            "default": "set_meta",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "title": "SetMeta",
+        "type": "object"
+      },
+      "SetParams": {
+        "additionalProperties": false,
+        "properties": {
+          "dut": {
+            "title": "Dut",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_params",
+            "default": "set_params",
+            "title": "Op",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "dut",
+          "params"
+        ],
+        "title": "SetParams",
+        "type": "object"
+      },
+      "SetRun": {
+        "additionalProperties": false,
+        "properties": {
+          "clock": {
+            "anyOf": [
+              {
+                "enum": [
+                  "command",
+                  "wall",
+                  "stepped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock"
+          },
+          "op": {
+            "const": "set_run",
+            "default": "set_run",
+            "title": "Op",
+            "type": "string"
+          },
+          "reveal_true_values": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reveal True Values"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          }
+        },
+        "title": "SetRun",
+        "type": "object"
+      },
+      "SetState": {
+        "additionalProperties": false,
+        "properties": {
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_state",
+            "default": "set_state",
+            "title": "Op",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "description": "Initial value; null removes the entry",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "instrument",
+          "path"
+        ],
+        "title": "SetState",
         "type": "object"
       },
       "StartSessionRequest": {
@@ -1576,6 +2480,53 @@
         "title": "Trace",
         "type": "object"
       },
+      "ValidateRequest": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bench file the data belongs to; finds its own definitions",
+            "title": "Path"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "ValidateRequest",
+        "type": "object"
+      },
+      "ValidateResponse": {
+        "properties": {
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "diagnostics"
+        ],
+        "title": "ValidateResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -1743,6 +2694,181 @@
           }
         },
         "summary": "Benches"
+      }
+    },
+    "/api/benches/edit": {
+      "post": {
+        "operationId": "editBench",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditBenchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The file changed since base_sha256 was read"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit Bench"
+      }
+    },
+    "/api/benches/file": {
+      "get": {
+        "operationId": "readBench",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Bench"
+      },
+      "put": {
+        "operationId": "saveBench",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveBenchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The file changed since base_sha256 was read"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Bench"
+      }
+    },
+    "/api/benches/validate": {
+      "post": {
+        "operationId": "validateBench",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Validate Bench"
+      }
+    },
+    "/api/catalog": {
+      "get": {
+        "operationId": "getCatalog",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Catalog"
       }
     },
     "/api/definitions": {

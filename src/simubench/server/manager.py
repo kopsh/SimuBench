@@ -16,6 +16,16 @@ from ..engine.session import Session
 from ..library.loader import load_bench
 from ..models import api as M
 from ..scpi.errors import ScpiError
+from .benchfiles import BenchFiles
+
+
+class BenchInvalid(ValueError):
+    """The bench cannot start; ``diagnostics`` say why and where."""
+
+    def __init__(self, diagnostics: list[M.Diagnostic]) -> None:
+        first = next(d for d in diagnostics if d.severity == "error")
+        super().__init__(f"{first.pointer}: {first.message}")
+        self.diagnostics = diagnostics
 
 
 class ServedSession:
@@ -40,6 +50,7 @@ class SessionManager:
         self.scpi_base_port = scpi_base_port
         self.record_dir = record_dir
         self.sessions: dict[str, ServedSession] = {}
+        self.files = BenchFiles(workspace)
 
     # ---- bench files --------------------------------------------------------------------------------
 
@@ -61,10 +72,7 @@ class SessionManager:
         return out
 
     def resolve(self, bench_path: str) -> Path:
-        p = (self.workspace / bench_path).resolve()
-        if self.workspace.resolve() not in p.parents and p != self.workspace.resolve():
-            raise PermissionError("bench path outside the workspace")
-        return p
+        return self.files.resolve(bench_path)
 
     # ---- sessions -----------------------------------------------------------------------------------
 
@@ -72,6 +80,9 @@ class SessionManager:
         self, bench_path: str, clock: str | None = None, seed: int | None = None
     ) -> ServedSession:
         path = self.resolve(bench_path)
+        doc = self.files.read(bench_path)
+        if not doc.ok:
+            raise BenchInvalid(doc.diagnostics)
         session = open_bench(path, clock=clock, seed=seed, record_dir=self.record_dir)
         served = ServedSession(uuid.uuid4().hex[:12], session, path)
         # One bench serves the SCPI ports at a time; a new session takes them over.
