@@ -53,6 +53,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/benches/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Preview Bench */
+        get: operations["previewBench"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/benches/validate": {
         parameters: {
             query?: never;
@@ -395,6 +412,30 @@ export interface components {
             name: string;
             /** Path */
             path: string;
+        };
+        /**
+         * BenchPreview
+         * @description How a bench file would look when started, without running it (the edit canvas).
+         *
+         *     Parts that cannot be built (unknown model, bad wire) are left out and named in ``omitted``;
+         *     the diagnostics of the document say why. Wire indices are those of the file.
+         */
+        BenchPreview: {
+            /**
+             * Error
+             * @description Why no preview could be built at all
+             */
+            error: string | null;
+            /**
+             * Omitted
+             * @description Instruments, DUTs, 'wire:<i>' or state paths
+             */
+            omitted: string[];
+            /** Path */
+            path: string;
+            session: components["schemas"]["SessionInfo"] | null;
+            /** Sha256 */
+            sha256: string;
         };
         /**
          * Catalog
@@ -969,6 +1010,11 @@ export interface components {
             /** Bench Path */
             bench_path: string | null;
             /**
+             * Bench Sha256
+             * @description Hash of the bench file the session started from
+             */
+            bench_sha256: string | null;
+            /**
              * Clock Mode
              * @enum {string}
              */
@@ -1433,6 +1479,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    previewBench: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchPreview"];
+                };
             };
             /** @description Validation Error */
             422: {

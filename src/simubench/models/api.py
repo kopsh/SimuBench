@@ -194,12 +194,29 @@ class SessionInfo(_Model):
     now_ns: int
     seed: int
     reveal_true_values: bool
+    bench_sha256: str | None = Field(None, description="Hash of the bench file the session started from")
     record_path: str | None = None
     instruments: list[InstrumentInfo]
     duts: list[ComponentInfo]
     wires: list[WireInfo]
     nets: list[NetInfo]
     layout: dict[str, LayoutItem]
+
+
+class BenchPreview(_Model):
+    """How a bench file would look when started, without running it (the edit canvas).
+
+    Parts that cannot be built (unknown model, bad wire) are left out and named in ``omitted``;
+    the diagnostics of the document say why. Wire indices are those of the file.
+    """
+
+    path: str
+    sha256: str
+    session: SessionInfo | None = None
+    omitted: list[str] = Field(
+        default_factory=list, description="Instruments, DUTs, 'wire:<i>' or state paths"
+    )
+    error: str | None = Field(None, description="Why no preview could be built at all")
 
 
 class StartSessionRequest(_Model):
