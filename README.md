@@ -32,6 +32,17 @@ simubench replay runs/run-20261027T120000-abcd1234.jsonl   # 逐条比较回复�
 
 示波器的波形数据块在记录中保存为可重新生成的配方与哈希，需要原始字节时加 `--record-raw`（D36）。
 
+## 运维与诊断
+
+```bash
+simubench doctor --workspace benches     # 健康检查，失败时退出码 1
+simubench version --full                 # 版本清单：依赖、仪表定义及其哈希
+simubench diagnose --out diag.zip --record-dir runs   # 诊断包（不含访问令牌）
+simubench serve --log-format json --log-file simubench.log
+```
+
+界面中的“设置 → 关于与诊断”显示同样的内容，并可导出诊断包（D38）。
+
 ## 让 AI Agent 使用（MCP）
 
 `simubench mcp` 在 stdio 上提供 MCP 服务，并在同一进程中启动 Web Bench（地址输出到 stderr），

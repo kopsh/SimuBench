@@ -28,6 +28,9 @@ def _serve(args: argparse.Namespace) -> int:
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
     )
+    from .ops import setup_logging
+
+    setup_logging(args.log_level, args.log_format, args.log_file)
     token = args.token or secrets.token_urlsafe(24)
     app = create_app(manager, token=token)
 
@@ -43,7 +46,7 @@ def _serve(args: argparse.Namespace) -> int:
         if args.open:
             webbrowser.open(url)
 
-    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level=args.log_level)
+    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level=args.log_level, log_config=None)
     return 0
 
 
@@ -63,7 +66,6 @@ def _mcp(args: argparse.Namespace) -> int:
 
     stdout carries the MCP protocol: everything else goes to stderr.
     """
-    import logging
 
     try:
         from .mcp_server import build_server
@@ -72,10 +74,11 @@ def _mcp(args: argparse.Namespace) -> int:
         return 2
     import uvicorn
 
+    from .ops import setup_logging
     from .server.app import create_app
     from .server.manager import SessionManager
 
-    logging.basicConfig(stream=sys.stderr, level=args.log_level.upper())
+    setup_logging(args.log_level, args.log_format, args.log_file)
     workspace = Path(args.workspace).resolve()
     manager = SessionManager(
         workspace,
@@ -142,6 +145,46 @@ def _validate(args: argparse.Namespace) -> int:
     return status
 
 
+def _doctor(args: argparse.Namespace) -> int:
+    """Health checks; exit 1 when one fails (warnings do not fail)."""
+    from dataclasses import asdict
+
+    from .ops import doctor
+
+    workspace = Path(args.workspace).resolve() if args.workspace else None
+    checks = doctor(workspace, port=args.port, scpi_base_port=args.scpi_base_port)
+    if args.json:
+        print(json.dumps([asdict(c) for c in checks], ensure_ascii=False, indent=2))
+    else:
+        mark = {"ok": "✓", "warn": "!", "fail": "✗"}
+        for c in checks:
+            print(f"{mark[c.status]} {c.name:<24} {c.detail}")
+    return 1 if any(c.status == "fail" for c in checks) else 0
+
+
+def _diagnose(args: argparse.Namespace) -> int:
+    """Write a diagnostics bundle (zip) for a bug report; no access token is included."""
+    from .ops import bundle
+
+    workspace = Path(args.workspace).resolve() if args.workspace else None
+    record_dir = Path(args.record_dir).resolve() if args.record_dir else None
+    out = Path(args.out)
+    out.write_bytes(bundle(None, workspace, record_dir=record_dir, runs=args.runs))
+    print(out)
+    return 0
+
+
+def _version(args: argparse.Namespace) -> int:
+    if args.full:
+        from .ops import manifest
+
+        workspace = Path(args.workspace).resolve() if args.workspace else None
+        print(json.dumps(manifest(workspace), ensure_ascii=False, indent=2))
+    else:
+        print(json.dumps({"simubench": __version__}))
+    return 0
+
+
 def _replay(args: argparse.Namespace) -> int:
     """Replay a run record and compare every reply; exit 1 when one differs (D36)."""
     from .engine.replay import replay
@@ -192,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--token", help="access token (default: random)")
     p.add_argument("--open", action="store_true", help="open the browser")
     p.add_argument("--log-level", default="warning")
+    p.add_argument("--log-format", choices=["text", "json"], default="text", help="json: one object per line")
+    p.add_argument("--log-file", help="also write the log here")
     p.set_defaults(fn=_serve)
 
     p = sub.add_parser("mcp", help="MCP service on stdio for AI agents, with the Web Bench alongside")
@@ -208,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
         help="enable simulation control tools (advance the clock, read true values)",
     )
     p.add_argument("--log-level", default="warning")
+    p.add_argument("--log-format", choices=["text", "json"], default="text")
+    p.add_argument("--log-file")
     p.set_defaults(fn=_mcp)
 
     p = sub.add_parser("validate", help="check bench files; exit 1 on the first problem")
@@ -225,8 +272,26 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default="schemas")
     p.set_defaults(fn=_schemas)
 
-    p = sub.add_parser("version", help="print the version")
-    p.set_defaults(fn=lambda a: print(json.dumps({"simubench": __version__})) or 0)
+    p = sub.add_parser("version", help="print the version (--full: the whole version manifest)")
+    p.add_argument(
+        "--full", action="store_true", help="dependencies, definitions and their hashes, web UI build"
+    )
+    p.add_argument("--workspace", help="include this workspace's own definitions")
+    p.set_defaults(fn=_version)
+
+    p = sub.add_parser("doctor", help="check that SimuBench can run here (exit 1 on a failure)")
+    p.add_argument("--workspace", help="also validate the bench files in this folder")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--scpi-base-port", type=int, default=5025)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=_doctor)
+
+    p = sub.add_parser("diagnose", help="write a diagnostics bundle (zip) for a bug report")
+    p.add_argument("--out", default="simubench-diagnostics.zip")
+    p.add_argument("--workspace")
+    p.add_argument("--record-dir", help="include the latest run records from here")
+    p.add_argument("--runs", type=int, default=3, help="how many run records to include")
+    p.set_defaults(fn=_diagnose)
 
     args = parser.parse_args(argv)
     result = args.fn(args)

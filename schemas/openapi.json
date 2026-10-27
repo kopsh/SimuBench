@@ -4309,6 +4309,46 @@
         "summary": "Definition"
       }
     },
+    "/api/diagnostics": {
+      "get": {
+        "description": "A diagnostics bundle (zip) to attach to a bug report; it contains no access token.",
+        "operationId": "getDiagnostics",
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Diagnostics"
+      }
+    },
+    "/api/doctor": {
+      "get": {
+        "operationId": "getDoctor",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "title": "Response Getdoctor",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Doctor"
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health",
@@ -4325,6 +4365,27 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/api/manifest": {
+      "get": {
+        "description": "Version manifest: engine, dependencies, definitions and their hashes, web UI build.",
+        "operationId": "getManifest",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Getmanifest",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Manifest"
       }
     },
     "/api/runs": {
