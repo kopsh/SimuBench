@@ -5,16 +5,16 @@ import type { ComponentInfo } from "@/api/client";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { numeric } from "../model";
-import { type Issue, IssueMark, PortHandle } from "./InstrumentNode";
+import { FaultMark, type Issue, IssueMark, PortHandle } from "./InstrumentNode";
 
-export type DutNodeData = { dut: ComponentInfo; editable?: boolean; issue?: Issue };
+export type DutNodeData = { dut: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
 export type DutNodeType = Node<DutNodeData, "dut">;
 
 const PARAM_UNITS: Record<string, string> = { r: "OHM", c: "F", z_in: "OHM", z_out: "OHM", gain: "" };
 const HIDDEN = new Set(["tol_r", "tol_c"]);
 
 function DutNodeImpl({ data, selected }: NodeProps<DutNodeType>) {
-  const { dut, editable, issue } = data;
+  const { dut, editable, issue, fault } = data;
   const ins = dut.ports.filter((p) => p.direction !== "out");
   const outs = dut.ports.filter((p) => p.direction === "out");
   const params = Object.entries(dut.params).filter(([k]) => !HIDDEN.has(k));
@@ -34,6 +34,7 @@ function DutNodeImpl({ data, selected }: NodeProps<DutNodeType>) {
           <div className="text-muted-foreground num truncate text-[11px] leading-tight">DUT · {dut.type}</div>
         </div>
         {issue && <IssueMark issue={issue} />}
+        {fault && <FaultMark />}
       </div>
       <div className="num grid gap-0.5 px-3 py-1.5 text-[11px]">
         {params.map(([k, v]) => (

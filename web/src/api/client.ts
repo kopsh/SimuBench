@@ -21,6 +21,8 @@ export type DefinitionSummary = Schemas["DefinitionSummary"];
 export type Diagnostic = Schemas["Diagnostic"];
 export type EditOp = Schemas["EditBenchRequest"]["ops"][number];
 export type BenchData = Record<string, unknown>;
+export type FaultSpec = Schemas["Fault"];
+export type FaultInfo = Schemas["FaultInfo"];
 
 export class ApiError extends Error {
   constructor(

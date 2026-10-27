@@ -43,7 +43,9 @@ simulated with correct circuit physics. Typical flow:
 3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
 4. start_session deploys the bench: instruments answer SCPI at the returned addresses, and the
    engineer watches it in the Web Bench;
-5. send_scpi / get_instrument_state / read_log to drive and observe it.
+5. send_scpi / get_instrument_state / read_log to drive and observe it;
+6. with --allow-control: inject_fault (timeouts, disconnects, error codes, drift…) to test how a
+   script handles failures, advance_clock, read_true_values.
 Edits change the bench file; a running session picks up topology changes only when restarted.
 Bench files are the engineer's: explain what you change.
 """

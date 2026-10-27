@@ -6,7 +6,7 @@ import { useParams } from "react-router-dom";
 import type { BenchDocument, EditOp, SessionInfo } from "@/api/client";
 import { useEventStream, useEvents } from "@/api/events";
 import type { Event } from "@/api/generated/events";
-import { keys, useBenchDoc, useBenchPreview, useCatalog, useSession } from "@/api/hooks";
+import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useSession } from "@/api/hooks";
 import { ErrorState } from "@/components/app/StateViews";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -56,7 +56,10 @@ export function WorkbenchPage() {
   const version = useEvents((s) => s.version);
   useEffect(() => {
     window.clearTimeout(refetchTimer.current);
-    refetchTimer.current = window.setTimeout(() => void qc.invalidateQueries({ queryKey: keys.session(sid) }), 250);
+    refetchTimer.current = window.setTimeout(() => {
+      void qc.invalidateQueries({ queryKey: keys.session(sid) });
+      void qc.invalidateQueries({ queryKey: keys.faults(sid) });
+    }, 250);
     return () => window.clearTimeout(refetchTimer.current);
   }, [version, qc, sid]);
 
@@ -281,6 +284,18 @@ function BenchCanvas({
   const { t } = useTranslation();
   const catalog = useCatalog().data;
   const issues = useMemo(() => (editing ? issuesOf(doc) : undefined), [editing, doc]);
+  const faults = useFaults(session.id).data;
+  const faulted = useMemo(
+    () =>
+      editing
+        ? undefined
+        : new Set(
+            (faults ?? [])
+              .filter((f) => f.status === "active")
+              .map((f) => f.spec.instrument ?? f.spec.component?.split("/")[0] ?? ""),
+          ),
+    [editing, faults],
+  );
   const layout = (doc?.data.layout as Record<string, { x: number; y: number }> | undefined) ?? undefined;
   // Node positions are part of the bench file (D8); moving a node never needs a restart.
   const onOps = useMemo(() => (session.bench_path ? (ops: EditOp[]) => void applyOps(ops) : undefined), [session.bench_path]);
@@ -301,7 +316,7 @@ function BenchCanvas({
   }
   return (
     <div className="relative h-full">
-      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} />
+      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} />
       {editing && (
         <div className="pointer-events-none absolute top-2 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
           {omitted.length > 0 && (
