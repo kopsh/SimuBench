@@ -275,9 +275,9 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
 
 def to_yaml_data(bench: BenchDefinition) -> dict[str, Any]:
     """A tidy mapping for writing bench files: defaults and empty sections are left out."""
-    data = bench.model_dump(by_alias=True, exclude_none=True, exclude_defaults=True)
+    data = bench.model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
     out: dict[str, Any] = {"schema": "simubench.bench/1", "name": bench.name}
-    for key in ("description", "instruments", "duts", "wires", "run", "layout"):
+    for key in ("description", "instruments", "duts", "wires", "run", "faults", "assets", "layout"):
         if data.get(key):
             out[key] = data[key]
     if bench.layout:  # coordinates are always written, 0 included

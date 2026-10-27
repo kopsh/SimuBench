@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import logging
 import math
 from collections import defaultdict
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 _LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0), "1-10": (1.0,)}
 
 log = logging.getLogger(__name__)
+_HANDLED = b"\x00handled"  # a built-in command that sends no reply
 
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
@@ -80,6 +82,8 @@ class Instrument:
         self._output: list[bytes] = []
         self.serial = instance.serial or definition.identity.serial
         self.firmware = instance.firmware or definition.identity.firmware
+        #: The instrument's own clock runs on the session calendar plus whatever :SYSTem:DATE/TIME set.
+        self.clock_offset = dt.timedelta(0)
 
         # ---- state ----
         self.specs: dict[str, StateSpec] = {}
@@ -190,12 +194,15 @@ class Instrument:
         except KeyError:
             raise KeyError(f"instrument {self.name!r} has no state {path!r}") from None
 
-    def set_state(self, path: str, value: Any, *, source: str = "scpi") -> None:
-        """Set a state variable after validation; notify bound components; refuse on conflict."""
+    def set_state(self, path: str, value: Any, *, source: str = "scpi", internal: bool = False) -> None:
+        """Set a state variable after validation; notify bound components; refuse on conflict.
+
+        ``internal``: the instrument itself sets a read-only variable (e.g. calibration coefficients).
+        """
         spec = self.specs.get(path)
         if spec is None:
             raise ScpiError(-113, f"no state {path!r}")
-        value = self._validate(spec, value)
+        value = self._validate(spec.model_copy(update={"readonly": False}) if internal else spec, value)
         old = self.state.get(path)
         if old == value:
             return
@@ -321,6 +328,8 @@ class Instrument:
             result = self._op_command(spec, unit, channel, suffixes)
             return result.response, result.duration_ns + parse_duration(spec.duration)
         builtin = self._builtin(unit, tokens)
+        if builtin is _HANDLED:
+            return None, 0
         if builtin is not None:
             return builtin, 0
         raise ScpiError(-113, unit.raw_header)
@@ -505,8 +514,14 @@ class Instrument:
     _SYST_ERR = Pattern.compile(":SYSTem:ERRor[:NEXT]")
     _SYST_ERR_COUNT = Pattern.compile(":SYSTem:ERRor:COUNt")
     _SYST_ERR_ALL = Pattern.compile(":SYSTem:ERRor:ALL")
+    _SYST_DATE = Pattern.compile(":SYSTem:DATE")
+    _SYST_TIME = Pattern.compile(":SYSTem:TIME")
+
+    def clock(self) -> dt.datetime:
+        return self.session.calendar() + self.clock_offset
 
     def _builtin(self, unit: Unit, tokens: tuple[Token, ...]) -> bytes | None:
+        """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
         if unit.query and self._SYST_ERR.match(tokens) is not None:
             return str(self.errors.pop()).encode()
         if unit.query and self._SYST_ERR_COUNT.match(tokens) is not None:
@@ -516,7 +531,32 @@ class Instrument:
             while len(self.errors):
                 items.append(str(self.errors.pop()))
             return ",".join(items or [str(ScpiError(0))]).encode()
+        if self._SYST_DATE.match(tokens) is not None or self._SYST_TIME.match(tokens) is not None:
+            return self._clock_command(unit, date=self._SYST_DATE.match(tokens) is not None)
         return None
+
+    def _clock_command(self, unit: Unit, *, date: bool) -> bytes:
+        """:SYSTem:DATE yyyy,mm,dd and :SYSTem:TIME hh,mm,ss (IEEE 488.2 style), on the session calendar."""
+        now = self.clock()
+        if unit.query:
+            if date:
+                return f"{now.year:04d},{now.month:02d},{now.day:02d}".encode()
+            return f"{now.hour:02d},{now.minute:02d},{now.second + now.microsecond / 1e6:06.3f}".encode()
+        if len(unit.params) != 3:
+            raise ScpiError(-109 if len(unit.params) < 3 else -108)
+        try:
+            a, b, c = (float(V.parse_float(p)) for p in unit.params)
+            if date:
+                target = now.replace(year=int(a), month=int(b), day=int(c))
+            else:
+                sec = int(c)
+                target = now.replace(
+                    hour=int(a), minute=int(b), second=sec, microsecond=round((c - sec) * 1e6)
+                )
+        except ValueError:
+            raise ScpiError(-222) from None
+        self.clock_offset += target - now
+        return _HANDLED
 
     # ---- observability ------------------------------------------------------------------------------
 

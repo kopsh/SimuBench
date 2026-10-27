@@ -98,3 +98,23 @@ def test_yaml_reads_engineering_floats_as_numbers():
         "n": 1000,
         "addr": "TCPIP0::1::INSTR",
     }
+
+
+def test_saving_keeps_preset_faults_and_the_register():
+    from simubench.engine.edit import to_yaml_data
+    from simubench.models.bench import BenchDefinition
+
+    bench = BenchDefinition.model_validate(
+        {
+            "name": "x",
+            "instruments": {"dmm": {"model": "sb-dmm-1", "serial": "MY001"}},
+            "faults": [{"kind": "timeout", "instrument": "dmm", "at_s": 1.0}],
+            "assets": [{"serial": "MY001", "cal_due": "2026-06-30"}],
+            "run": {"start": "2026-05-01T08:00:00Z"},
+        }
+    )
+    data = to_yaml_data(bench)
+    assert data["faults"] == [{"kind": "timeout", "instrument": "dmm", "at_s": 1.0}]
+    assert data["assets"] == [{"serial": "MY001", "cal_due": "2026-06-30"}]
+    assert data["run"]["start"].startswith("2026-05-01T08:00:00")
+    assert BenchDefinition.model_validate(data) == bench

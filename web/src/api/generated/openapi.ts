@@ -382,6 +382,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/assets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Assets
+         * @description The virtual calibration register, with due dates against the bench's calendar.
+         */
+        get: operations["getAssets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/clock": {
         parameters: {
             query?: never;
@@ -635,6 +655,24 @@ export interface components {
         AdvanceRequest: {
             /** Seconds */
             seconds: number;
+        };
+        /**
+         * AssetRegister
+         * @description The bench's virtual calibration register on its calendar (M5).
+         */
+        AssetRegister: {
+            /**
+             * Assets
+             * @description Register entries, each with due_in_days
+             */
+            assets: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Calendar
+             * @description Calendar time now (run.start + virtual time), ISO 8601 UTC
+             */
+            calendar: string;
         };
         /**
          * BenchDocument
@@ -2755,6 +2793,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getAssets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetRegister"];
+                };
             };
             /** @description Validation Error */
             422: {

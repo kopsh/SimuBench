@@ -523,6 +523,16 @@ def build_server(
             raise fail(exc) from None
 
     @mcp.tool()
+    def read_asset_register(session_id: str | None = None) -> dict[str, Any]:
+        """The bench's virtual calibration register (serials, status, due dates) and its calendar
+        date, as a test script's pre-run check would see them."""
+        from .engine.calibration import register_view
+
+        s = served(session_id).session
+        now = s.calendar()
+        return {"calendar": now.isoformat(), "assets": register_view(s.bench.assets, now.date())}
+
+    @mcp.tool()
     def read_true_values(session_id: str | None = None) -> dict[str, Any]:
         """Hidden state the simulation knows exactly: DUT parameters including hidden tolerances,
         instrument hidden overrides, and the true signal on every net. Needs --allow-control and

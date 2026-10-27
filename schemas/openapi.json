@@ -167,6 +167,31 @@
         "title": "AdvanceRequest",
         "type": "object"
       },
+      "AssetRegister": {
+        "description": "The bench's virtual calibration register on its calendar (M5).",
+        "properties": {
+          "assets": {
+            "description": "Register entries, each with due_in_days",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Assets",
+            "type": "array"
+          },
+          "calendar": {
+            "description": "Calendar time now (run.start + virtual time), ISO 8601 UTC",
+            "title": "Calendar",
+            "type": "string"
+          }
+        },
+        "required": [
+          "calendar",
+          "assets"
+        ],
+        "title": "AssetRegister",
+        "type": "object"
+      },
       "BenchDocument": {
         "description": "A bench file's content as stored, with its diagnostics.",
         "properties": {
@@ -4639,6 +4664,46 @@
           }
         },
         "summary": "Get Session"
+      }
+    },
+    "/api/sessions/{sid}/assets": {
+      "get": {
+        "description": "The virtual calibration register, with due dates against the bench's calendar.",
+        "operationId": "getAssets",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetRegister"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Assets"
       }
     },
     "/api/sessions/{sid}/clock": {
