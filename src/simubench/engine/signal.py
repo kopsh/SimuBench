@@ -156,6 +156,35 @@ class Signal:
         dc = merged.dc + float(np.real(merged.amp[merged.freq == 0]).sum())
         return float(np.sqrt(dc**2 + np.sum(np.abs(ac) ** 2) / 2))
 
+    def peak(self) -> float:
+        """Largest |v(t)| over time.
+
+        Lines on one harmonic grid (a periodic signal) are synthesized over a period by inverse
+        FFT, so truncated squares show their real peak (with Gibbs overshoot) rather than Σ|a|.
+        A few unrelated lines are sampled densely; many unrelated lines give the bound Σ|a|.
+        """
+        m = self.merged()
+        pos = m.freq > 0
+        dc = m.dc + float(np.real(m.amp[~pos]).sum())
+        f, a = m.freq[pos], m.amp[pos]
+        if not f.size:
+            return abs(dc)
+        f0 = float(f.min())
+        k = f / f0
+        if np.all(np.abs(k - np.round(k)) < 1e-9 * k) and k.max() < 1 << 20:
+            kk = np.round(k).astype(np.int64)
+            size = 1 << int(np.ceil(np.log2(8 * kk.max() + 1)))
+            spec = np.zeros(size, dtype=complex)
+            np.add.at(spec, kk, a / 2)
+            np.add.at(spec, size - kk, np.conj(a) / 2)
+            wave = np.fft.ifft(spec).real * size + dc
+            return float(np.abs(wave).max())
+        if f.size <= 64:
+            t = np.linspace(0, 50 / f0, 200_001)
+            wave = dc + np.real(a[None, :] * np.exp(2j * np.pi * f[None, :] * t[:, None])).sum(axis=1)
+            return float(np.abs(wave).max())
+        return abs(dc) + float(np.abs(a).sum())
+
     def mean(self) -> float:
         merged = self.merged()
         return merged.dc + float(np.real(merged.amp[merged.freq == 0]).sum())

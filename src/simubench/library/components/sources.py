@@ -5,8 +5,10 @@ from __future__ import annotations
 import math
 from typing import Any
 
+import numpy as np
+
 from ...engine.component import Component, PortSpec, component
-from ...engine.signal import Signal, ramp, sine, square
+from ...engine.signal import FidelityNote, Signal, ramp, sine, square
 from ...scpi.errors import ScpiError
 
 
@@ -67,3 +69,32 @@ class FunctionGeneratorCore(Component):
         else:
             raise ScpiError(-224, f"function {fn!r} not supported")
         return sig + Signal.constant(offset)
+
+
+@component("arb_table")
+class ArbTable(Component):
+    """An arbitrary waveform: a table played at ``rate`` samples per second, linearly interpolated.
+
+    The output is periodic with fundamental ``rate / N``. Linear interpolation between samples is a
+    convolution with a triangle, so harmonic k carries ``X[k mod N] / N · sinc²(k / N)``: the
+    spectrum is exact, not sampled (validation-lockin.md 6). Harmonics are kept up to ``max_lines``.
+    """
+
+    ports = {"out": PortSpec("out", "signal")}
+    defaults = {"table": [0.0], "rate": 16000.0, "scale": 1.0, "max_lines": 1024}
+
+    def output(self, port: str) -> Signal:
+        table = np.asarray(self.param("table"), dtype=float) * float(self.param("scale"))
+        n = table.size
+        rate = float(self.param("rate"))
+        if n == 0 or rate <= 0:
+            return Signal.zero()
+        spectrum = np.fft.fft(table) / n
+        dc = float(spectrum[0].real)
+        k = np.arange(1, int(self.param("max_lines")) + 1)
+        coef = spectrum[k % n] * np.sinc(k / n) ** 2
+        keep = np.abs(coef) > 1e-15
+        # v(t) = Σ 2·Re(c_k e^{i2πk f0 t}) for a real signal: peak phasor 2·c_k. Sample j sits at t = j/rate.
+        sig = Signal.lines(k[keep] * rate / n, 2 * coef[keep])
+        notes = (FidelityNote("truncated", f"arbitrary table: {int(keep.sum())} harmonics"),)
+        return Signal(sig.freq, sig.amp, sig.t0_ns, dc, notes)

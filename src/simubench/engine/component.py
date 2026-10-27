@@ -90,6 +90,9 @@ class Component:
     ports: ClassVar[dict[str, PortSpec]] = {}
     defaults: ClassVar[dict[str, Any]] = {}
     units: ClassVar[dict[str, str]] = {}
+    #: Components with state that evolves in virtual time (filters, oscillators) set this and
+    #: implement :meth:`sync`; the session calls it whenever signals change and before time moves.
+    dynamic: ClassVar[bool] = False
 
     def __init__(
         self,
@@ -179,6 +182,9 @@ class Component:
 
     def reset(self) -> None:
         """Return runtime state to power-on (``*RST``)."""
+
+    def sync(self) -> None:
+        """Dynamic components: note what changed at the current instant (see :attr:`dynamic`)."""
 
     # ---- operations --------------------------------------------------------------------------
 
