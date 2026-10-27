@@ -1,5 +1,5 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Activity, AlertTriangle, AudioWaveform, BarChart3, Cpu, Crosshair, Gauge, Waves, Zap } from "lucide-react";
+import { Activity, AlertTriangle, AudioWaveform, BarChart3, BatteryCharging, Cpu, Crosshair, Gauge, Radio, SquareFunction, Waves, Zap } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, StateVarInfo } from "@/api/client";
@@ -18,6 +18,9 @@ export const CLASS_ICON: Record<string, typeof Activity> = {
   multimeter: Gauge,
   lockin: Crosshair,
   spectrum_analyzer: BarChart3,
+  rf_generator: Radio,
+  smu: SquareFunction,
+  electronic_load: BatteryCharging,
   source: Waves,
 };
 

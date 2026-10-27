@@ -25,9 +25,12 @@ import { Inspector } from "./Inspector";
 import { instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
+import { LoadScreen } from "./screens/LoadScreen";
 import { LockinScreen } from "./screens/LockinScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
+import { RfGeneratorScreen } from "./screens/RfGeneratorScreen";
 import { ScopeScreen } from "./screens/ScopeScreen";
+import { SmuScreen } from "./screens/SmuScreen";
 import { SpectrumScreen } from "./screens/SpectrumScreen";
 import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
@@ -272,6 +275,9 @@ function Screen({ session, instrument, readonly }: { session: SessionInfo; instr
   if (template === "function_generator") return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "lockin") return <LockinScreen sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "spectrum_analyzer") return <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />;
+  if (template === "smu") return <SmuScreen sid={session.id} inst={inst} readonly={readonly} />;
+  if (template === "electronic_load") return <LoadScreen sid={session.id} inst={inst} readonly={readonly} />;
+  if (template === "rf_generator") return <RfGeneratorScreen sid={session.id} inst={inst} readonly={readonly} />;
   return <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />;
 }
 
