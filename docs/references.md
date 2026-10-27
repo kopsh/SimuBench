@@ -115,9 +115,56 @@ Moku 系列用一台 FPGA 硬件承载十余种软件定义仪器（示波器、
 3. **团队协作与资产管理**：测试台的保存、复制、共享、版本管理与协作是一等能力，而不仅是本地文件。
 4. **纯软件**：不依赖 FPGA 或任何专用硬件，可在本地、云端与 CI 中运行。
 
-## 5. 待决问题
+## 5. 待决问题（已处理）
 
-- 首批支持的仪表类别与对应的命令集（SCPI 子集）。
-- 求解器范围：仅准静态工作点，还是包含时域信号路径（示波器、频谱仪需要波形）以及两者如何协同。
-- 仪器定义格式：直接兼容已有 Profile 生态，还是自定义格式并提供转换。
-- 首批接入方式的优先级：PyVISA 后端、SCPI Socket、进程内 API、pytest 插件。
+本节最初列出的问题已在 decisions.md 中处理：首批仪表与命令集见 D10 与各验证场景；信号与求解见 D1；仪器定义格式见 D1、D3、D13；接入方式见 D5、D9、D12。
+
+---
+
+## 6. Galois Labs 平台调研（2026-10-27）
+
+来源：www.galoislabs.ai、docs.galoislabs.ai 与 GitHub 公开仓库 `Galois-Labs/edge`。EdgeSim 仓库为私有，未能查看源码；`cloud.galoislabs.ai` 不可访问。
+
+### 6.1 定位与定价
+
+- 自称“R&D 的操作系统”；开源、Python 原生的硬件测试测量平台，对标替代 LabVIEW、TestStand、PyVISA（[llms.txt](https://www.galoislabs.ai/llms.txt)）。用户为硬件测试/验证工程师与科研实验室。
+- [定价](https://www.galoislabs.ai/pricing)四档：开源版免费；学术版免费（每实验室 10 座位）；企业云（单租户）与企业私有部署（可离线）定制报价。
+- 开源版**不含**：精选仪器库、PDF 转驱动、测试序列版本管理、**可视化 Bench 拓扑编辑器**、Évariste、AI 报告。
+
+### 6.2 产品组成
+
+- **平台**（[product](https://www.galoislabs.ai/product)）：英文描述测试 → 版本化 YAML 测试序列 → 审阅 → 锁定 → 运行 → 报告；运行版本必须等于批准版本；每步记录测量值、限值、原始命令与响应、仪器、操作员、DUT 序列号、git 版本。
+- **Évariste**：平台中的 Agent，通过 galois-edge 操作仪器；草稿必须批准后才能运行。
+- **galois-edge**：Go 外壳 + Python 引擎的守护进程；支持 GPIB、USBTMC、LXI/HiSLIP、串口、Modbus、CAN、SPI、I2C、OPC-UA；自检命令 `galois-edge doctor`（13 项）。
+- **MCP**（[docs](https://docs.galoislabs.ai/agents/mcp-server/)）：13 个固定工具 + 按 profile 动态生成的工具；危险命令映射为 `destructiveHint`；云中继用 JWT 做到单条命令的授权；命令超过 200 条的仪器改为分页查询；MCP 层尚无限流。
+- **EdgeSim**：Apache-2.0、0.2.0、尚未公开发布；仿真专用 MCP 工具（注入故障、推进时钟、重置）需由操作者显式开启；故障类型八种：超时、断连、乱码、错误、延迟、忙、漂移、跳闸。构建依赖 Rust 工具链，核心可能为 Rust（推测）。
+
+### 6.3 Profile、Bench 与仪器库
+
+- Profile v1（[reference](https://docs.galoislabs.ai/reference/instrument-profiles/)）与 v2：v2 增加带类型、初值、范围的状态树，命令以 `writes`/`reads` 绑定状态，`_index` 表示通道号，另有 `ports` 与 `sim` 段；`galois-profiles convert` 从 v1 无损转换，`galois-profiles lint` 输出带 JSON 指针的错误码（如 `E-STATE-UNKNOWN`）。
+- Bench 文件由 `nodes` 与 `edges` 组成，是云端编辑器绘制的拓扑文件；`edgesim validate` 校验。
+- [仪器库](https://www.galoislabs.ai/instruments)：573 台仪器、135 家厂商、50 个类别；厂商名未归一化（如 RIGOL 有 4 种写法），实际厂商数偏少。开源版只带 11 个 profile。
+
+### 6.4 终端控制台（[terminal-instrument-console](https://www.galoislabs.ai/blog/terminal-instrument-console)）
+
+- 每台仪器一张卡片，**由 profile 的状态与端口自动生成**，不为任何型号单独写界面代码：数值显示为带单位的读数，布尔为开关，枚举为选择器，端口显示所连网络，采集命令得到波形图；九类仪器有类别模板，其他仪器用通用布局；profile 中可选的显示提示可调整卡片。
+- 网络视图直接绘制网络上的信号描述，绘图不推进仿真、不进入追踪。
+- 界面中的每个操作（修改值、注入故障、推进时钟）都是一次仿真动作并进入追踪；修改值是带外的状态覆盖，与 SCPI 命令区分记录。
+- 一个 World 通过 Unix 套接字同时服务脚本、pytest、Agent 与控制台，所有客户端操作同一个 Bench，写入同一份追踪。
+- 时钟三种：步进、按比例（默认按真实时间）、墙钟。
+- 无界面截图模式：步进时钟 + 种子噪声，同一 Bench 与脚本生成逐字节相同的 SVG，可在 CI 中重新生成文档图片。
+- 危险命令在界面中需二次确认。
+
+### 6.5 对 SimuBench 的启示
+
+| 发现 | 对应决策 |
+| --- | --- |
+| 可视化拓扑编辑器是付费功能 | 支持 D7 倾向 Web Bench |
+| 卡片由仪表定义自动生成，类别模板 + 通用布局 | D1“以仪表展示”：界面从仪表定义生成，不为型号写代码 |
+| 界面操作即仿真动作，进入追踪 | D16 用户可观测：界面操作与 SCPI 命令在同一时间线上 |
+| 一个 World 同时服务多个客户端 | D9 接入层的并发设计 |
+| 八类故障注入 | scope.md 故障注入的初始分类 |
+| `doctor` 自检 | D16 运维：健康检查 |
+| lint 错误码带 JSON 指针 | D8 Bench 校验的诊断格式 |
+| MCP 危险标记、按命令授权、尚无限流 | D9 MCP 设计；SimuBench 补上限流 |
+| 文章把校准列为必须用真机的事项 | 定标场景是 SimuBench 的差异化方向 |
