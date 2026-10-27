@@ -10,6 +10,7 @@ from __future__ import annotations
 import contextlib
 import threading
 import time
+from collections import deque
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -76,6 +77,8 @@ class Session:
         self.now_ns = 0
         self._lock = threading.RLock()
         self._listeners: list[Listener] = []
+        #: Recent events, so that a client connecting late sees what happened before (UI history).
+        self.history: deque[dict[str, Any]] = deque(maxlen=20_000)
         self._signal_version = 0
         self._electrical_version = 0
         self._circuit: tuple[int, Circuit] | None = None
@@ -226,6 +229,7 @@ class Session:
 
     def emit(self, event: dict[str, Any]) -> None:
         event = {"t_ns": self.now_ns, **event}
+        self.history.append(event)
         if self.recorder:
             self.recorder.event(event)
         for fn in list(self._listeners):

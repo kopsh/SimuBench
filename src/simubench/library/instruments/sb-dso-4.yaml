@@ -25,6 +25,7 @@ state:
   trigger.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
     default: CHANnel1
     label: 触发源
     label_en: Trigger source
@@ -51,18 +52,27 @@ state:
   waveform.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
     default: CHANnel1
+    label: 波形传输源
+    label_en: Waveform source
   waveform.format:
     type: enum
     options: [WORD, BYTE, ASCii]
     default: WORD
+    label: 波形格式
+    label_en: Waveform format
   waveform.byteorder:
     type: enum
     options: [LSBFirst, MSBFirst]
     default: LSBFirst
+    label: 字节序
+    label_en: Byte order
   waveform.unsigned:
     type: bool
     default: false
+    label: 无符号
+    label_en: Unsigned
   waveform.points:
     type: int
     min: 100
@@ -98,12 +108,14 @@ channel_state:
   impedance:
     type: enum
     options: [ONEMeg, FIFTy]
+    option_labels: {ONEMeg: "1 MΩ", FIFTy: "50 Ω"}
     default: ONEMeg
     electrical: true
     label: 输入阻抗
     label_en: Input impedance
   probe:
     type: float
+    display_unit: "×"
     min: 0.001
     max: 10000.0
     default: 1.0

@@ -318,6 +318,19 @@
           "default": null,
           "title": "Default"
         },
+        "display_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unit shown in the UI when it differs from `unit`, e.g. '×'",
+          "title": "Display Unit"
+        },
         "electrical": {
           "default": false,
           "description": "Changing this variable changes the bench's circuit",
@@ -390,6 +403,22 @@
           ],
           "default": null,
           "title": "Min"
+        },
+        "option_labels": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}",
+          "title": "Option Labels"
         },
         "options": {
           "anyOf": [
