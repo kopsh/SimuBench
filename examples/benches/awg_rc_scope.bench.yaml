@@ -1,0 +1,33 @@
+schema: simubench.bench/1
+name: awg_rc_scope
+description: 函数发生器经 RC 低通（1 kΩ、100 nF）与 10x 探头接到示波器 CH1。
+instruments:
+  awg:
+    model: sb-awg-2
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::5025::SOCKET"
+    state:
+      ch1.frequency: 1000
+      ch1.amplitude: 2.0
+  scope:
+    model: sb-dso-4
+    label: 示波器
+    address: "TCPIP0::192.168.1.21::5025::SOCKET"
+duts:
+  rc:
+    type: rc_lowpass
+    label: RC 低通
+    params: {r: 1000.0, c: 1.0e-7}
+wires:
+  - {from: awg.OUT1, to: rc.IN}
+  - from: rc.OUT
+    to: scope.CH1
+    accessories:
+      - {type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}
+run:
+  seed: 7
+  clock: command
+layout:
+  awg: {x: 0, y: 80}
+  rc: {x: 360, y: 100}
+  scope: {x: 640, y: 40}

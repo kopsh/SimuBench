@@ -1,0 +1,293 @@
+"""Oscilloscope components: analog front end and acquisition (trigger, sampling, quantization, transfer)."""
+
+from __future__ import annotations
+
+import math
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+
+from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.signal import Signal, highpass1, lowpass1
+from ...scpi import values as V
+from ...scpi.errors import ScpiError
+
+#: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
+DIVS_V = 8
+DIVS_H = 10
+
+
+@component("scope_frontend")
+class ScopeFrontend(Component):
+    """Coupling and bandwidth of one channel, applied to the voltage at the input connector.
+
+    Analog first-order filters (physics, D13): AC coupling is a ``ac_corner`` high-pass and the
+    bandwidth a first-order low-pass at ``bandwidth`` (or ``bw_limit_hz`` when the limit is on).
+    """
+
+    ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
+    defaults = {
+        "coupling": "DC",
+        "bandwidth": 200e6,
+        "bw_limit": False,
+        "bw_limit_hz": 20e6,
+        "ac_corner": 10.0,
+    }
+
+    def output(self, port: str) -> Signal:
+        sig = self.input("in")
+        if self.param("coupling") == "AC":
+            sig = sig.transfer(highpass1(float(self.param("ac_corner"))))
+        bw = float(self.param("bw_limit_hz")) if self.param("bw_limit") else float(self.param("bandwidth"))
+        return sig.transfer(lowpass1(bw))
+
+
+@dataclass
+class Record:
+    channel: int
+    t_start_ns: int  # instant of sample 0
+    dt_s: float
+    trigger_index: int
+    volts: np.ndarray  # display volts (probe ratio applied)
+    scale: float
+    offset: float
+    triggered: bool
+
+
+@component("scope_acquisition")
+class ScopeAcquisition(Component):
+    """Timebase, edge trigger, sampling and waveform transfer for all channels of a scope."""
+
+    ports: dict[str, PortSpec] = {}  # inputs in1..inN are created by the instrument wiring
+    defaults = {"overhead_s": 1e-3, "search_windows": 4}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.records: dict[int, Record] = {}
+        self.acq_count = 0
+
+    def reset(self) -> None:
+        self.records = {}
+
+    # ---- helpers ----------------------------------------------------------------------------------
+
+    def _st(self, path: str) -> Any:
+        assert self.owner is not None
+        return self.owner.get_state(path)
+
+    def _channels(self) -> int:
+        assert self.owner is not None
+        return self.owner.channel_count
+
+    def _display_signal(self, n: int) -> Signal:
+        """Signal of channel n in display volts: front-end output times the probe ratio."""
+        return self.input(f"in{n}").scale(float(self._st(f"ch{n}.probe")))
+
+    def _timing(self) -> tuple[int, float, int, int]:
+        points = int(self._st("waveform.points"))
+        scale = float(self._st("timebase.scale"))
+        dt = DIVS_H * scale / points
+        pre = points // 2
+        return points, dt, pre, points - pre
+
+    def _trigger_search(self, sig: Signal, t0: int, dt: float, pre: int, points: int) -> tuple[int, bool]:
+        """Return (trigger sample index measured from t0, triggered?)."""
+        level = float(self._st("trigger.level"))
+        slope = self._st("trigger.slope")
+        n_ch = int(str(self._st("trigger.source")).removeprefix("CHANnel") or 1)
+        hyst = 0.02 * DIVS_V * float(self._st(f"ch{n_ch}.scale"))
+        span = points * int(self.param("search_windows"))
+        idx = np.arange(span)
+        v = sig.sample_rel(t0, idx * dt)
+        rising = slope in ("POSitive", "EITHer")
+        falling = slope in ("NEGative", "EITHer")
+        best: int | None = None
+        if rising:
+            armed = np.nonzero(v < level - hyst)[0]
+            armed = armed[armed >= pre - 1]
+            if armed.size:
+                after = np.nonzero((v >= level) & (idx > armed[0]))[0]
+                if after.size:
+                    best = int(after[0])
+        if falling:
+            armed = np.nonzero(v > level + hyst)[0]
+            armed = armed[armed >= pre - 1]
+            if armed.size:
+                after = np.nonzero((v <= level) & (idx > armed[0]))[0]
+                if after.size and (best is None or after[0] < best):
+                    best = int(after[0])
+        if best is None or best < pre:
+            return pre, False
+        return best, True
+
+    # ---- acquisition ------------------------------------------------------------------------------
+
+    def acquire(self, channels: list[int]) -> int:
+        """Acquire the listed channels at the current instant. Returns the virtual time used (ns)."""
+        points, dt, pre, post = self._timing()
+        t0 = self.session.now_ns
+        n_trig = int(str(self._st("trigger.source")).removeprefix("CHANnel") or 1)
+        trig_sig = self._display_signal(n_trig)
+        k, triggered = self._trigger_search(trig_sig, t0, dt, pre, points)
+        mode = self._st("trigger.mode")
+        if not triggered and mode == "NORMal":
+            # No trigger: the previous records stay; the scope waited one search span.
+            return round(points * int(self.param("search_windows")) * dt * 1e9)
+        start = k - pre
+        idx = np.arange(points)
+        for n in channels:
+            sig = self._display_signal(n)
+            v = sig.sample_rel(t0, (start + idx) * dt)
+            self.records[n] = Record(
+                channel=n,
+                t_start_ns=t0 + round(start * dt * 1e9),
+                dt_s=dt,
+                trigger_index=pre,
+                volts=v,
+                scale=float(self._st(f"ch{n}.scale")),
+                offset=float(self._st(f"ch{n}.offset")),
+                triggered=triggered,
+            )
+        self.acq_count += 1
+        used = (k + post) * dt + float(self.param("overhead_s"))
+        self.session.invalidate()
+        return round(used * 1e9)
+
+    @op("digitize")
+    def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:
+        chans: list[int] = []
+        for raw in sources or []:
+            name = V.parse_string(raw).upper()
+            m = name.removeprefix("CHANNEL").removeprefix("CHAN")
+            if not m.isdigit() or not 1 <= int(m) <= self._channels():
+                raise ScpiError(-224, f"unknown source {name!r}")
+            chans.append(int(m))
+            assert self.owner is not None
+            self.owner.set_state(f"ch{int(m)}.display", True)
+        if not chans:
+            chans = [n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")]
+        return OpResult(duration_ns=self.acquire(chans))
+
+    def _source(self) -> int:
+        return int(str(self._st("waveform.source")).removeprefix("CHANnel"))
+
+    def _record(self) -> Record:
+        rec = self.records.get(self._source())
+        if rec is None:
+            raise ScpiError(-230, "no acquisition for this source; send :DIGitize first")
+        return rec
+
+    def _codes(self, rec: Record) -> tuple[np.ndarray, float, int]:
+        fmt = self._st("waveform.format")
+        full = DIVS_V / 2 * rec.scale
+        span = 128 if fmt == "BYTE" else 32768
+        unsigned = bool(self._st("waveform.unsigned"))
+        codes = np.round((rec.volts - rec.offset) / full * span)
+        lo, hi = -span, span - 1
+        codes = np.clip(codes, lo, hi).astype(np.int64)
+        yref = 0
+        if unsigned:
+            codes = codes + span
+            yref = span
+        return codes, full / span, yref
+
+    @op("preamble")
+    def preamble(self, **_: Any) -> OpResult:
+        rec = self._record()
+        _, yinc, yref = self._codes(rec)
+        fmt = {"BYTE": 0, "WORD": 1, "ASCii": 4}[self._st("waveform.format")]
+        pts = rec.volts.size
+        xorg = -rec.trigger_index * rec.dt_s
+        fields = [
+            str(fmt).encode(),
+            b"0",
+            str(pts).encode(),
+            b"1",
+            V.format_float(rec.dt_s),
+            V.format_float(xorg),
+            b"0",
+            V.format_float(yinc),
+            V.format_float(rec.offset),
+            str(yref).encode(),
+        ]
+        return OpResult(b",".join(fields))
+
+    @op("data")
+    def data(self, **_: Any) -> OpResult:
+        rec = self.records.get(self._source())
+        if rec is None:
+            assert self.owner is not None
+            self.owner.push_error(-230, "no acquisition for this source; send :DIGitize first")
+            return OpResult(V.format_block(b""))
+        fmt = self._st("waveform.format")
+        if fmt == "ASCii":
+            return OpResult(b",".join(V.format_float(x, 8) for x in rec.volts))
+        codes, _, _ = self._codes(rec)
+        little = self._st("waveform.byteorder") == "LSBFirst"
+        unsigned = bool(self._st("waveform.unsigned"))
+        if fmt == "BYTE":
+            payload = codes.astype("u1" if unsigned else "i1").tobytes()
+        else:
+            payload = V.encode_words(codes, little_endian=little, unsigned=unsigned)
+        return OpResult(V.format_block(payload))
+
+    # ---- measurements -----------------------------------------------------------------------------
+
+    def _measure_record(self, channel: int) -> Record:
+        rec = self.records.get(channel)
+        if rec is None:
+            self.acquire([channel])
+            rec = self.records[channel]
+        return rec
+
+    @op("measure")
+    def measure(
+        self, suffixes: dict[str, int] | None = None, source: str | None = None, **kw: Any
+    ) -> OpResult:
+        """Automatic measurements on the latest record.
+
+        VPP, VMAX, VMIN, VAMPlitude, VRMS, VAVerage, FREQuency and PERiod.
+        """
+        what = kw.get("what") or ""
+        n = self._source()
+        if source:
+            name = source.upper()
+            m = name.removeprefix("CHANNEL").removeprefix("CHAN")
+            if not m.isdigit():
+                raise ScpiError(-224, f"unknown source {source!r}")
+            n = int(m)
+        rec = self._measure_record(n)
+        v = rec.volts
+        value = _measure(what, v, rec.dt_s)
+        return OpResult(V.format_float(value))
+
+
+def _measure(what: str, v: np.ndarray, dt: float) -> float:
+    vmax, vmin = float(v.max()), float(v.min())
+    mid = (vmax + vmin) / 2
+    if what == "VPP":
+        return vmax - vmin
+    if what == "VMAX":
+        return vmax
+    if what == "VMIN":
+        return vmin
+    if what == "VAVerage":
+        return float(v.mean())
+    if what == "VRMS":
+        return float(np.sqrt(np.mean(v**2)))
+    if what == "VAMPlitude":
+        hi = v[v >= mid]
+        lo = v[v < mid]
+        return float(np.median(hi) - np.median(lo)) if hi.size and lo.size else vmax - vmin
+    if what in ("FREQuency", "PERiod"):
+        s = np.signbit(v - mid)
+        rising = np.nonzero(s[:-1] & ~s[1:])[0]
+        if rising.size < 2:
+            return math.nan
+        # Interpolate each crossing for sub-sample accuracy.
+        x0, x1 = v[rising] - mid, v[rising + 1] - mid
+        t = (rising + (-x0) / (x1 - x0)) * dt
+        period = float(np.mean(np.diff(t)))
+        return 1.0 / period if what == "FREQuency" else period
+    raise ScpiError(-113, f"measurement {what!r} not supported")

@@ -1,0 +1,63 @@
+[project]
+name = "simubench"
+version = "0.1.0"
+description = "SimuBench: software-defined virtual instrument benches"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+dependencies = [
+  "numpy>=2.0",
+  "scipy>=1.13",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "pyvisa>=1.14",
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+]
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]
+
+[project.scripts]
+simubench = "simubench.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "pytest-asyncio>=0.23",
+  "httpx>=0.27",
+  "ruff>=0.6",
+  "mypy>=1.11",
+  "types-PyYAML",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/simubench", "src/pyvisa_simubench"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+src = ["src", "tests", "refcalc"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# Component types declare ports and defaults as class attributes typed ClassVar on the base class.
+"src/simubench/library/components/*.py" = ["RUF012"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "acceptance"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+
+[tool.mypy]
+python_version = "3.11"
+packages = ["simubench"]
+mypy_path = "src"
+ignore_missing_imports = true
