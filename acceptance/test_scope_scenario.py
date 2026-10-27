@@ -9,7 +9,7 @@ import sys
 
 import numpy as np
 import pytest
-from refcalc.circuits import emf_for_load_setting, fit_sine, rc_chain
+from refcalc.circuits import emf_for_load_setting, fit_sine, rc_chain, rc_ladder
 
 from .conftest import BENCHES, capture, open_rig
 
@@ -175,6 +175,32 @@ def test_buffered_two_stage_corner():
     v2_fc = abs(rc_chain(FC, 1.0, rs=50, r=R, c=C, load_out=PROBE_LOAD)[1])
     assert at_fc / low == pytest.approx((v1_fc * v2_fc) / (v1_low * v2_low), rel=2e-3)
     rm.close()
+
+
+def test_direct_cascade_is_a_loaded_ladder():
+    """validation-scope.md 7: the reference rejects a direct RC-RC cascade; physically it is a valid
+    circuit whose second stage loads the first (D13), so SimuBench accepts it and solves it."""
+    rm, awg, scope = open_rig("rc_rc_direct.bench.yaml")
+    awg.write(":OUTPut1:LOAD INF;:OUTPut1:STATe ON;:SOURce1:FREQuency 10")
+    scope.write(":CHANnel1:SCALe 0.05;:TIMebase:SCALe 0.2")
+    low = fit_sine(*_tv(capture(scope, probe=10.0)), 10.0)[0]
+    awg.write(f":SOURce1:FREQuency {FC}")
+    scope.write(f":TIMebase:SCALe {2 / FC}")
+    at_fc = fit_sine(*_tv(capture(scope, probe=10.0)), FC)[0]
+    ref_low = abs(rc_ladder(10.0, 1.0, r=R, c=C, load_out=PROBE_LOAD))
+    ref_fc = abs(rc_ladder(FC, 1.0, r=R, c=C, load_out=PROBE_LOAD))
+    assert at_fc / low == pytest.approx(ref_fc / ref_low, rel=2e-3)
+    # Loading makes it clearly lower than two ideal one-pole stages (0.5).
+    assert at_fc / low < 0.45
+    rm.close()
+
+
+def test_acceptance_benches_validate_clean():
+    """validation-scope.md 1: validation passes with exit code 0."""
+    from simubench.cli import main
+
+    for bench in sorted(BENCHES.glob("*.bench.yaml")):
+        assert main(["validate", str(bench)]) == 0, bench.name
 
 
 def _tv(cap):
