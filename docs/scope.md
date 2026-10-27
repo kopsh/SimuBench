@@ -6,7 +6,7 @@
 
 > 一位工程师，拿着自己的 Python + PyVISA 脚本，连到虚拟的锁相放大器测试台，在界面上看着它运行，发现了一个本来要到真机上才会暴露的问题（例如等待时间不够、驱动导致输入过载）。
 
-验证场景见 [validation-lockin.md](validation-lockin.md) 与 [validation-scope.md](validation-scope.md)。
+开发验证场景见 [validation-lockin.md](validation-lockin.md)、[validation-scope.md](validation-scope.md) 与 [validation-rfgen.md](validation-rfgen.md)。定标场景由产品负责人验收。
 
 划分原则：
 
@@ -44,6 +44,10 @@
 | 万用表模型（RC 低通测试台上的旁路测量） | 闭环必需 |
 | 示波器模型：触发、采样、量化、IEEE 488.2 波形块与前导信息、耦合、带宽 | 闭环必需 |
 | 单位增益缓冲器 | 闭环必需 |
+| 射频信号源模型：载波、电平、AM/FM/PM、列表与步进扫描、时基与 REF_OUT | 闭环必需 |
+| 频谱分析仪模型：中心/跨度、RBW、参考电平与衰减、过载、标记与峰值搜索、计数器、外部参考锁定 | 闭环必需 |
+| 隐藏状态：Bench 可设置、命令读不到、只能通过测量发现（如时基偏差、噪声密度） | 闭环必需 |
+| 参考/时基连线：时基误差沿 REF_OUT → REF_IN 传递 | 闭环必需 |
 | DUT：RC 低通（两个场景共用） | 闭环必需 |
 | 连线属性：探头衰减比、负载电阻与电容 | 闭环必需 |
 | 真实型号模型（如 Keysight InfiniiVision 3000 X） | 闭环之后 |
@@ -61,7 +65,7 @@
 | PyVISA 后端，脚本只换资源地址 | 闭环必需 |
 | SCPI over TCP（raw socket），任意语言/VISA 可连 | 闭环之后 |
 | pytest 插件 | 闭环之后 |
-| Python SDK（进程内直接操作测试台） | 闭环之后 |
+| Python SDK（进程内直接操作测试台，含推进虚拟时间、读取网络信号） | 闭环必需（验证场景的脚本使用） |
 | VXI-11、HiSLIP、USBTMC 等协议 | 以后再说 |
 | MCP：由现有脚本生成 Bench，指出不支持的命令 | 闭环必需 |
 | MCP：部署 Bench，返回资源地址与切换配置 | 闭环必需 |
