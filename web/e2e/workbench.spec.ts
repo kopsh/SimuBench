@@ -117,3 +117,14 @@ test("virtual probe: select a net and see why it reads what it reads", async ({ 
   await expect(page.getByTestId("probe-sources")).toContainText("awg · ch1.out");
   await expect(page.getByTestId("probe-sources")).toContainText("∠");
 });
+
+test("about and diagnostics: manifest, health checks, bundle download", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("button", { name: "设置" }).click();
+  await page.getByRole("menuitem", { name: "关于与诊断" }).click();
+  await expect(page.getByTestId("about-version")).toHaveText(/^\d+\.\d+\.\d+/);
+  await expect(page.getByTestId("about-doctor")).toContainText("pyvisa backend");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "导出诊断包" }).click();
+  expect((await download).suggestedFilename()).toMatch(/^simubench-diagnostics-.*\.zip$/);
+});

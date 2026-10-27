@@ -10,11 +10,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import secrets
+import time
 from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -181,6 +182,40 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def validate_bench(req: M.ValidateRequest) -> M.ValidateResponse:
         report = file_errors(lambda: files.validate(req.data, req.path))
         return M.ValidateResponse(ok=report.ok, diagnostics=diagnostics(report))
+
+    @app.get("/api/manifest", operation_id="getManifest", dependencies=[Depends(auth)])
+    def get_manifest() -> dict[str, Any]:
+        """Version manifest: engine, dependencies, definitions and their hashes, web UI build."""
+        from ..ops import manifest
+
+        return manifest(manager.files.workspace, manager.record_dir)
+
+    @app.get("/api/doctor", operation_id="getDoctor", dependencies=[Depends(auth)])
+    def get_doctor() -> list[dict[str, str]]:
+        from dataclasses import asdict
+
+        from ..ops import doctor
+
+        return [asdict(c) for c in doctor(manager.files.workspace)]
+
+    @app.get(
+        "/api/diagnostics",
+        operation_id="getDiagnostics",
+        dependencies=[Depends(auth)],
+        response_class=Response,
+        responses={200: {"content": {"application/zip": {}}}},
+    )
+    def get_diagnostics() -> Response:
+        """A diagnostics bundle (zip) to attach to a bug report; it contains no access token."""
+        from ..ops import bundle
+
+        data = bundle(manager, manager.files.workspace, record_dir=manager.record_dir)
+        name = f"simubench-diagnostics-{time.strftime('%Y%m%d-%H%M%S')}.zip"
+        return Response(
+            data,
+            media_type="application/zip",
+            headers={"Content-Disposition": f'attachment; filename="{name}"'},
+        )
 
     @app.get(
         "/api/runs", response_model=list[M.RunSummary], operation_id="listRuns", dependencies=[Depends(auth)]
