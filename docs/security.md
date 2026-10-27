@@ -1,0 +1,22 @@
+# 安全自检：本地服务
+
+状态：每次 CI 由 `tests/test_security.py` 等测试复核。SimuBench 在工程师自己的电脑上运行，威胁主要来自同一台电脑上的浏览器页面（跨站请求、DNS 重绑定）与本机其他用户。
+
+| 防护 | 做法 | 测试 |
+| --- | --- | --- |
+| 只监听本机 | Web 服务与 SCPI 网络仪表只绑定 127.0.0.1 | `test_scpi_sockets_listen_on_loopback_only` |
+| 访问令牌 | 启动时随机生成（`secrets.token_urlsafe(24)`），界面地址中带一次后从地址栏移除；请求头 `x-simubench-token`，常量时间比较。除健康检查与接口描述（`/api/health`、`/api/openapi.json`、`/api/docs`，不含数据）外，每个 `/api` 路由都要求令牌 | `test_every_api_route_needs_the_token`（遍历全部路由，新增路由自动纳入） |
+| DNS 重绑定与跨站请求 | Host 与 Origin 头必须是本机地址（127.0.0.1、localhost、::1），否则 403，即使带了正确令牌 | `test_foreign_host_or_origin_is_refused_even_with_the_token`、`test_rebinding_host_rejected` |
+| 事件流 WebSocket | 同样检查 Host、Origin 与令牌，失败时以 4401 关闭 | `test_event_socket_checks_token_and_origin` |
+| 工作区边界 | 测试台文件、版本历史、会话启动的路径都解析后必须位于工作区内（`..`、绝对路径拒绝，403）；运行记录编号只接受字母数字与连字符 | `test_bench_paths_stay_in_the_workspace`、`test_bench_path_cannot_escape_workspace`、`test_runs_api` |
+| 诊断包 | 不包含访问令牌，不自动上传 | `test_diagnostics_bundle_over_the_api` |
+| MCP 仿真控制 | 推进时钟、读取真实值默认关闭，需 `--allow-control`；读取真实值还需 Bench 中 `run.reveal_true_values`（验证模式下关闭，定标脚本读不到答案） | `tests/test_mcp.py` |
+| MCP 危险命令 | 打开输出、扫描等标记为危险的命令需要 `confirm=true`，Agent 必须先向工程师说明 | `tests/test_mcp.py` |
+| MCP 频率限制 | 每个会话的命令速率受限，防止失控的 Agent 循环 | `tests/test_mcp.py` |
+| 文件写入 | 原子写入（临时文件 + 替换）；乐观并发（sha256），不会覆盖别人刚做的修改 | `tests/test_bench_api.py` |
+| 依赖 | 锁定文件（`uv.lock`、`pnpm-lock.yaml`），CI 以锁定版本安装 | CI |
+
+## 不在防护范围内
+
+- 本机拥有同一用户权限的恶意程序：它可以直接读取令牌所在的进程输出与文件。
+- 把服务暴露到网络：不支持；需要远程访问时应在其前面放置有认证的反向代理（之后的私有化部署再考虑）。
