@@ -82,3 +82,19 @@ def test_set_state_none_removes_and_yaml_is_tidy():
     assert all("accessories" not in w for w in data["wires"])
     assert list(data)[:2] == ["schema", "name"]
     assert BenchDefinition.model_validate(data) == b
+
+
+def test_layout_at_origin_is_written():
+    b = apply(build(), ops({"op": "move", "name": "awg", "x": 0, "y": 0}))
+    assert to_yaml_data(b)["layout"]["awg"] == {"x": 0.0, "y": 0.0}
+
+
+def test_yaml_reads_engineering_floats_as_numbers():
+    from simubench.library.loader import load_yaml
+
+    assert load_yaml("r: 1.0e7\nc: 1e-7\nn: 1000\naddr: TCPIP0::1::INSTR") == {
+        "r": 1e7,
+        "c": 1e-7,
+        "n": 1000,
+        "addr": "TCPIP0::1::INSTR",
+    }

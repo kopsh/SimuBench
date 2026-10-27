@@ -38,7 +38,7 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
         </div>
       );
   } else if (selection?.kind === "wire") {
-    const w = session.wires[selection.id];
+    const w = session.wires.find((x) => x.index === selection.id);
     if (w)
       body = (
         <div className="space-y-4 p-3">
@@ -193,7 +193,7 @@ function ScpiConsole({ sid, instrument, disabled }: { sid: string; instrument: s
   );
 }
 
-function Header({ title, subtitle, mono }: { title: string; subtitle: string; mono?: boolean }) {
+export function Header({ title, subtitle, mono }: { title: string; subtitle: string; mono?: boolean }) {
   return (
     <div>
       <div className={cn("text-sm font-semibold break-all", mono && "num")}>{title}</div>
@@ -202,7 +202,7 @@ function Header({ title, subtitle, mono }: { title: string; subtitle: string; mo
   );
 }
 
-function Section({
+export function Section({
   title,
   children,
   collapsible,
@@ -233,7 +233,7 @@ function Section({
   );
 }
 
-function KeyValues({ entries }: { entries: [string, string][] }) {
+export function KeyValues({ entries }: { entries: [string, string][] }) {
   return (
     <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
       {entries.map(([k, v]) => (

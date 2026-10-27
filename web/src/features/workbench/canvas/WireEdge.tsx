@@ -2,16 +2,21 @@ import { BaseEdge, type Edge, EdgeLabelRenderer, type EdgeProps, getBezierPath }
 import { memo } from "react";
 import { cn } from "@/lib/utils";
 
-export type WireEdgeData = { color: string; label?: string; highlighted?: boolean };
+export type WireEdgeData = { color: string; label?: string; highlighted?: boolean; issue?: "error" | "warning" };
 export type WireEdgeType = Edge<WireEdgeData, "wire">;
 
 function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps<WireEdgeType>) {
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
-  const color = data?.color ?? "var(--medium-electrical)";
+  const color = data?.issue === "error" ? "var(--status-error)" : (data?.color ?? "var(--medium-electrical)");
   const emphasis = selected || data?.highlighted;
   return (
     <>
-      <BaseEdge id={id} path={path} style={{ stroke: color, strokeWidth: emphasis ? 3.5 : 2, opacity: emphasis ? 1 : 0.85 }} />
+      <BaseEdge id={id} path={path} style={{
+          stroke: color,
+          strokeWidth: emphasis ? 3.5 : 2,
+          opacity: emphasis ? 1 : 0.85,
+          strokeDasharray: data?.issue ? "6 4" : undefined,
+        }} />
       {data?.label && (
         <EdgeLabelRenderer>
           <div

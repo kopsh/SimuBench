@@ -8,8 +8,12 @@ export type Selection =
   | null;
 
 export type Tab = { kind: "canvas" } | { kind: "screen"; instrument: string };
+export type Mode = "run" | "edit";
 
 interface WorkbenchState {
+  /** Run drives the session; Edit changes the bench file. Kept across restarts of the session. */
+  mode: Mode;
+  setMode: (mode: Mode) => void;
   selection: Selection;
   tabs: Tab[];
   active: string; // tab key
@@ -30,6 +34,8 @@ const initial = { selection: null, tabs: [{ kind: "canvas" }] as Tab[], active: 
 
 export const useWorkbench = create<WorkbenchState>((set) => ({
   ...initial,
+  mode: "run",
+  setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas" })),
   select: (selection) => set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection })),
   openScreen: (instrument) =>
     set((s) => {

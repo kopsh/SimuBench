@@ -21,7 +21,7 @@ import yaml
 from ..engine import edit
 from ..engine.component import component_types
 from ..engine.validate import Report, validate_data
-from ..library.loader import DefinitionLibrary
+from ..library.loader import DefinitionLibrary, load_yaml
 from ..models import api as M
 from ..models.bench import BenchDefinition
 
@@ -102,6 +102,7 @@ class BenchFiles:
         return M.BenchDocument(
             path=bench_path,
             sha256=_sha(raw),
+            fingerprint=fingerprint(data),
             data=data,
             ok=report.ok,
             diagnostics=diagnostics(report),
@@ -156,13 +157,33 @@ def diagnostics(report: Report) -> list[M.Diagnostic]:
     return [M.Diagnostic(**d.as_dict()) for d in report.diagnostics]
 
 
+def fingerprint(data: dict[str, Any]) -> str:
+    """Hash of the content that matters to a running session; moving a node does not change it."""
+    # Normalized, so that writing defaults out or leaving them implicit is the same bench.
+    with contextlib.suppress(ValueError):
+        data = BenchDefinition.model_validate(data).model_dump(mode="json", by_alias=True)
+    relevant = _numbers({k: v for k, v in data.items() if k not in ("layout", "description")})
+    return _sha(json.dumps(relevant, sort_keys=True, ensure_ascii=False, default=str).encode())
+
+
+def _numbers(value: Any) -> Any:
+    """1.0 and 1 are the same value (JSON clients do not keep the difference)."""
+    if isinstance(value, dict):
+        return {k: _numbers(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_numbers(v) for v in value]
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    return value
+
+
 def _sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
 def _parse(path: Path, raw: bytes) -> dict[str, Any]:
     text = raw.decode("utf-8")
-    data = json.loads(text) if path.suffix == ".json" else yaml.safe_load(text)
+    data = json.loads(text) if path.suffix == ".json" else load_yaml(text)
     if not isinstance(data, dict):
         raise ValueError(f"{path.name}: expected a mapping at the top level")
     return data

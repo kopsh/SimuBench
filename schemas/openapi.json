@@ -182,6 +182,11 @@
             "title": "Diagnostics",
             "type": "array"
           },
+          "fingerprint": {
+            "description": "Hash of what a session is built from (layout and description excluded)",
+            "title": "Fingerprint",
+            "type": "string"
+          },
           "ok": {
             "title": "Ok",
             "type": "boolean"
@@ -199,6 +204,7 @@
         "required": [
           "path",
           "sha256",
+          "fingerprint",
           "data",
           "ok",
           "diagnostics"
@@ -1770,6 +1776,18 @@
       },
       "SessionInfo": {
         "properties": {
+          "bench_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fingerprint of the bench content; differs from the file's when a restart is needed",
+            "title": "Bench Fingerprint"
+          },
           "bench_name": {
             "title": "Bench Name",
             "type": "string"
@@ -1890,6 +1908,7 @@
           "seed",
           "reveal_true_values",
           "bench_sha256",
+          "bench_fingerprint",
           "record_path",
           "instruments",
           "duts",
