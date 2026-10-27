@@ -76,14 +76,29 @@ function CanvasInner({ session }: { session: SessionInfo }) {
     ],
     [session, positions],
   );
-  const [nodes, setNodes] = useState<AnyNode[]>(built);
   const selectedId = selection?.kind === "instrument" || selection?.kind === "dut" ? selection.id : null;
-  // Rebuild nodes when the session changes; keep React Flow's own selection unless it differs from
-  // the store (selection made in the resource tree), so that clicks are never interrupted.
-  useEffect(() => setNodes(built.map((n) => ({ ...n, selected: n.id === useWorkbench.getState().selection?.id }))), [built]);
-  useEffect(() => {
-    setNodes((ns) => (ns.some((n) => !!n.selected !== (n.id === selectedId)) ? ns.map((n) => ({ ...n, selected: n.id === selectedId })) : ns));
-  }, [selectedId]);
+  const [nodes, setNodes] = useState<AnyNode[]>(() => built.map((n) => ({ ...n, selected: n.id === selectedId })));
+  // Derived-state updates during render (no effects): new session data keeps what React Flow
+  // measured and selected; a selection made elsewhere (resource tree) is applied only when it
+  // differs, so that clicks on the canvas are never interrupted by a rebuild.
+  const [prevBuilt, setPrevBuilt] = useState(built);
+  if (prevBuilt !== built) {
+    setPrevBuilt(built);
+    setNodes((ns) => {
+      const old = new Map(ns.map((n) => [n.id, n]));
+      return built.map((n) => {
+        const o = old.get(n.id);
+        return o ? ({ ...o, data: n.data, position: n.position } as AnyNode) : n;
+      });
+    });
+  }
+  const [prevSelected, setPrevSelected] = useState(selectedId);
+  if (prevSelected !== selectedId) {
+    setPrevSelected(selectedId);
+    setNodes((ns) =>
+      ns.some((n) => !!n.selected !== (n.id === selectedId)) ? ns.map((n) => ({ ...n, selected: n.id === selectedId })) : ns,
+    );
+  }
 
   const edges = useMemo<WireEdgeType[]>(
     () =>

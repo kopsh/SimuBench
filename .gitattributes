@@ -1,0 +1,5 @@
+# Generated files are compared byte for byte in CI (D21); keep LF on every platform.
+* text=auto eol=lf
+*.png binary
+*.woff binary
+*.woff2 binary

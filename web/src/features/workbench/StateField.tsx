@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
@@ -145,17 +145,15 @@ function NumberInput({
   const n = numeric(v.value);
   const parts = engParts(n, unit, 6);
   const shown = Number.isFinite(n) ? `${parts.mantissa} ${parts.prefix}` : "INF";
-  const [text, setText] = useState(shown.trim());
-  const [editing, setEditing] = useState(false);
-  useEffect(() => {
-    if (!editing) setText(shown.trim());
-  }, [shown, editing]);
+  // While editing, the draft is what the user types; otherwise the field shows the live value.
+  const [draft, setDraft] = useState<string | null>(null);
+  const text = draft ?? shown.trim();
 
   const submit = () => {
-    setEditing(false);
-    const parsed = parseEngineering(text);
+    if (draft === null) return;
+    setDraft(null);
+    const parsed = parseEngineering(draft);
     if (parsed === null) {
-      setText(shown.trim());
       onInvalid();
       return;
     }
@@ -167,14 +165,13 @@ function NumberInput({
       <Input
         value={text}
         disabled={disabled}
-        onFocus={() => setEditing(true)}
-        onChange={(e) => setText(e.target.value)}
+        onFocus={() => setDraft(shown.trim())}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={submit}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           if (e.key === "Escape") {
-            setText(shown.trim());
-            setEditing(false);
+            setDraft(null);
             (e.target as HTMLInputElement).blur();
           }
         }}

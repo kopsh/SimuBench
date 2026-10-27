@@ -146,11 +146,14 @@ function CommRow({ e }: { e: Event }) {
 }
 
 function EventRow({ e }: { e: Event }) {
-  let text = "";
-  if (e.kind === "state") text = `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`;
-  else if (e.kind === "advance") text = `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${e.reason ?? ""}`;
-  else if (e.kind === "error") text = `${e.instrument}  ${e.code}, ${e.message}`;
-  else text = JSON.stringify(e);
+  const text =
+    e.kind === "state"
+      ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`
+      : e.kind === "advance"
+        ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${e.reason ?? ""}`
+        : e.kind === "error"
+          ? `${e.instrument}  ${e.code}, ${e.message}`
+          : JSON.stringify(e);
   return (
     <div className="hover:bg-accent/60 grid h-full grid-cols-[96px_72px_1fr] items-center gap-2 px-3 text-[11.5px]">
       <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
