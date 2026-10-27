@@ -1,0 +1,238 @@
+schema: simubench.instrument/1
+id: sb-dso-4
+manufacturer: SimuBench
+model: SB-DSO-4
+class: oscilloscope
+version: 1
+description: 四通道数字示波器，200 MHz，16 位波形传输，输入 1 MΩ / 50 Ω 可选。
+identity:
+  serial: SBDSO000001
+  firmware: "1.0.0"
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 1.0e-9
+    max: 50.0
+    default: 1.0e-3
+    ladder: 1-2-5
+    label: 时基
+    label_en: Timebase
+  trigger.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 触发源
+    label_en: Trigger source
+  trigger.level:
+    type: float
+    unit: V
+    min: -1000.0
+    max: 1000.0
+    default: 0.0
+    label: 触发电平
+    label_en: Trigger level
+  trigger.slope:
+    type: enum
+    options: [POSitive, NEGative, EITHer]
+    default: POSitive
+    label: 触发沿
+    label_en: Trigger slope
+  trigger.mode:
+    type: enum
+    options: [AUTO, NORMal]
+    default: AUTO
+    label: 触发方式
+    label_en: Trigger mode
+  waveform.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+  waveform.format:
+    type: enum
+    options: [WORD, BYTE, ASCii]
+    default: WORD
+  waveform.byteorder:
+    type: enum
+    options: [LSBFirst, MSBFirst]
+    default: LSBFirst
+  waveform.unsigned:
+    type: bool
+    default: false
+  waveform.points:
+    type: int
+    min: 100
+    max: 10000
+    default: 1000
+    ladder: [100, 250, 500, 1000, 2000, 5000, 10000]
+    label: 记录长度
+    label_en: Record length
+channel_state:
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 100.0
+    default: 1.0
+    ladder: 1-2-5
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: V
+    min: -1000.0
+    max: 1000.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: 耦合
+    label_en: Coupling
+  impedance:
+    type: enum
+    options: [ONEMeg, FIFTy]
+    default: ONEMeg
+    electrical: true
+    label: 输入阻抗
+    label_en: Input impedance
+  probe:
+    type: float
+    min: 0.001
+    max: 10000.0
+    default: 1.0
+    label: 探头衰减设定
+    label_en: Probe ratio
+  bwlimit:
+    type: bool
+    default: false
+    label: 带宽限制
+    label_en: Bandwidth limit
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Display
+components:
+  - name: acq
+    type: scope_acquisition
+channel_components:
+  - name: inp
+    type: input_port
+    params:
+      z_in: $ch.impedance
+      c_in: 0.0
+  - name: front
+    type: scope_frontend
+    params:
+      coupling: $ch.coupling
+      bw_limit: $ch.bwlimit
+      bandwidth: 200.0e6
+wiring:
+  channel:
+    - [inp.out, front.in]
+  instrument:
+    - ["ch{n}.front.out", "acq.in{n}"]
+ports:
+  channel:
+    "CH{n}": inp.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, trigger.source, trigger.level, trigger.slope]
+  channel_summary: [display, scale, offset, coupling, impedance, probe]
+capabilities: [oscilloscope]
+commands:
+  - header: ":CHANnel<ch>:SCALe"
+    state: ch.scale
+  - header: ":CHANnel<ch>:OFFSet"
+    state: ch.offset
+  - header: ":CHANnel<ch>:COUPling"
+    state: ch.coupling
+  - header: ":CHANnel<ch>:IMPedance"
+    state: ch.impedance
+  - header: ":CHANnel<ch>:PROBe"
+    state: ch.probe
+  - header: ":CHANnel<ch>:BWLimit"
+    state: ch.bwlimit
+  - header: ":CHANnel<ch>:DISPlay"
+    state: ch.display
+  - header: ":TIMebase[:MAIN]:SCALe"
+    state: timebase.scale
+  - header: ":TRIGger[:EDGE]:SOURce"
+    state: trigger.source
+  - header: ":TRIGger[:EDGE]:LEVel"
+    state: trigger.level
+  - header: ":TRIGger[:EDGE]:SLOPe"
+    state: trigger.slope
+  - header: ":TRIGger:SWEep"
+    state: trigger.mode
+  - header: ":DIGitize"
+    op: acq.digitize
+    query: false
+    params:
+      - {name: sources, type: raw}
+  - header: ":SINGle"
+    op: acq.digitize
+    query: false
+  - header: ":WAVeform:SOURce"
+    state: waveform.source
+  - header: ":WAVeform:FORMat"
+    state: waveform.format
+  - header: ":WAVeform:BYTeorder"
+    state: waveform.byteorder
+  - header: ":WAVeform:UNSigned"
+    state: waveform.unsigned
+  - header: ":WAVeform:POINts"
+    state: waveform.points
+  - header: ":WAVeform:PREamble"
+    op: acq.preamble
+    set: false
+  - header: ":WAVeform:DATA"
+    op: acq.data
+    set: false
+  - header: ":MEASure:VPP"
+    op: acq.measure
+    set: false
+    args: {what: VPP}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VMAX"
+    op: acq.measure
+    set: false
+    args: {what: VMAX}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VMIN"
+    op: acq.measure
+    set: false
+    args: {what: VMIN}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VAMPlitude"
+    op: acq.measure
+    set: false
+    args: {what: VAMPlitude}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VRMS"
+    op: acq.measure
+    set: false
+    args: {what: VRMS}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VAVerage"
+    op: acq.measure
+    set: false
+    args: {what: VAVerage}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:FREQuency"
+    op: acq.measure
+    set: false
+    args: {what: FREQuency}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:PERiod"
+    op: acq.measure
+    set: false
+    args: {what: PERiod}
+    params: [{name: source, type: string, optional: true}]

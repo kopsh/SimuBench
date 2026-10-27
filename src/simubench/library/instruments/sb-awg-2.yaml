@@ -1,0 +1,109 @@
+schema: simubench.instrument/1
+id: sb-awg-2
+manufacturer: SimuBench
+model: SB-AWG-2
+class: function_generator
+version: 1
+description: 双通道函数发生器，输出阻抗 50 Ω，幅度按设定负载定义（D13）。
+identity:
+  serial: SBAWG000001
+  firmware: "1.0.0"
+channels:
+  count: 2
+channel_state:
+  function:
+    type: enum
+    options: [SINusoid, SQUare, RAMP, DC]
+    default: SINusoid
+    label: 波形
+    label_en: Function
+  frequency:
+    type: float
+    unit: HZ
+    min: 1.0e-6
+    max: 60.0e6
+    default: 1000.0
+    label: 频率
+    label_en: Frequency
+  amplitude:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 10.0
+    default: 0.1
+    label: 幅度 (Vpp)
+    label_en: Amplitude (Vpp)
+  offset:
+    type: float
+    unit: V
+    min: -5.0
+    max: 5.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  phase:
+    type: float
+    unit: DEG
+    min: -360.0
+    max: 360.0
+    default: 0.0
+    label: 相位
+    label_en: Phase
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  load:
+    type: float
+    unit: OHM
+    min: 1.0
+    max: 10000.0
+    default: 50.0
+    special: {INF: .inf, INFinity: .inf}
+    label: 输出负载设定
+    label_en: Output load
+channel_components:
+  - name: gen
+    type: function_generator_core
+    params:
+      function: $ch.function
+      frequency: $ch.frequency
+      amplitude: $ch.amplitude
+      offset: $ch.offset
+      phase: $ch.phase
+      bandwidth: 300.0e6
+      square_max: 25.0e6
+  - name: out
+    type: output_stage
+    params:
+      z_out: 50.0
+      enabled: $ch.output
+      load_setting: $ch.load
+wiring:
+  channel:
+    - [gen.out, out.in]
+ports:
+  channel:
+    "OUT{n}": out.pin
+display:
+  template: function_generator
+  channel_summary: [function, frequency, amplitude, offset, output, load]
+capabilities: [function_generator]
+commands:
+  - header: "[:SOURce<ch>]:FUNCtion[:SHAPe]"
+    state: ch.function
+  - header: "[:SOURce<ch>]:FREQuency[:CW]"
+    state: ch.frequency
+  - header: "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    state: ch.amplitude
+  - header: "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate]:OFFSet"
+    state: ch.offset
+  - header: "[:SOURce<ch>]:PHASe[:ADJust]"
+    state: ch.phase
+  - header: ":OUTPut<ch>[:STATe]"
+    state: ch.output
+    dangerous: true
+  - header: ":OUTPut<ch>:LOAD"
+    state: ch.load
