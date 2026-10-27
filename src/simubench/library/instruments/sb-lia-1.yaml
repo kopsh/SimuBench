@@ -119,6 +119,7 @@ ports:
     SIG_IN: sig_in.pin
     REF_IN: ref_in.pin
     SINE_OUT: out.pin
+  media: {REF_IN: reference}
 display:
   template: lockin
   summary: [reference.source, reference.frequency, reference.harmonic, input.sensitivity, filter.time_constant, filter.slope, sine_out.enabled]

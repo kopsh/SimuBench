@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import type { EditOp, SessionInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { useTheme } from "@/lib/theme";
-import { accessoryLabel, channelOfRef } from "../model";
+import { accessoryLabel, channelOfRef, isReferenceRef } from "../model";
 import { useWorkbench } from "../store";
 import { DutNode, type DutNodeType } from "./DutNode";
 import { InstrumentNode, type InstrumentNodeType, type Issue } from "./InstrumentNode";
@@ -144,6 +144,7 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
           data: {
             color: channelColor(ch),
             label: w.accessories.map((a) => accessoryLabel(a.type, a.params)).join(" · ") || undefined,
+            reference: isReferenceRef(view, w.from) || isReferenceRef(view, w.to),
             highlighted: !!selectedNet && w.net === selectedNet,
             issue: issues?.get(`wire:${w.index}`),
           },

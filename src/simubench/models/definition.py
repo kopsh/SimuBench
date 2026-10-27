@@ -120,6 +120,18 @@ class Wiring(_Model):
 class Ports(_Model):
     channel: dict[str, str] = Field(default_factory=dict, description="'OUT{n}': 'out.pin'")
     instrument: dict[str, str] = Field(default_factory=dict)
+    media: dict[str, Literal["signal", "electrical", "reference"]] = Field(
+        default_factory=dict,
+        description="What an exposed port carries when it is not plain electrical, e.g. {REF_IN: reference} "
+        "for a timebase or lock-in reference; the canvas draws such wires as reference wires",
+    )
+
+    @model_validator(mode="after")
+    def _check_media(self) -> Ports:
+        unknown = set(self.media) - set(self.instrument) - set(self.channel)
+        if unknown:
+            raise ValueError(f"media names ports that are not declared: {sorted(unknown)}")
+        return self
 
 
 class Display(_Model):

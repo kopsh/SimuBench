@@ -108,10 +108,10 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
       </div>
 
       {inPorts.map((p, i) => (
-        <PortHandle key={p.name} name={p.name} channel={p.channel} side={Position.Left} index={i} count={inPorts.length} connected={!!p.net} connectable={editable} />
+        <PortHandle key={p.name} name={p.name} channel={p.channel} reference={p.medium === "reference"} side={Position.Left} index={i} count={inPorts.length} connected={!!p.net} connectable={editable} />
       ))}
       {outPorts.map((p, i) => (
-        <PortHandle key={p.name} name={p.name} channel={p.channel} side={Position.Right} index={i} count={outPorts.length} connected={!!p.net} connectable={editable} />
+        <PortHandle key={p.name} name={p.name} channel={p.channel} reference={p.medium === "reference"} side={Position.Right} index={i} count={outPorts.length} connected={!!p.net} connectable={editable} />
       ))}
     </div>
   );
@@ -134,6 +134,7 @@ function Summary({ v, channelRow }: { v: StateVarInfo; channelRow?: boolean }) {
 export function PortHandle({
   name,
   channel,
+  reference,
   side,
   index,
   count,
@@ -142,6 +143,7 @@ export function PortHandle({
 }: {
   name: string;
   channel?: number | null;
+  reference?: boolean;
   side: Position;
   index: number;
   count: number;
@@ -149,7 +151,7 @@ export function PortHandle({
   connectable?: boolean;
 }) {
   const top = `${((index + 1) / (count + 1)) * 100}%`;
-  const color = channelColor(channel);
+  const color = reference ? "var(--medium-reference)" : channelColor(channel);
   return (
     <>
       <Handle
