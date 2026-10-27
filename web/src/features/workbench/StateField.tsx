@@ -153,7 +153,8 @@ function NumberInput({
   const unit = v.display_unit ?? displayUnit(v.unit);
   const n = numeric(v.value);
   const parts = engParts(n, unit, 6);
-  const shown = Number.isFinite(n) ? `${parts.mantissa} ${parts.prefix}` : "INF";
+  // Counts (points, averages, harmonics) read as plain integers, not engineering notation.
+  const shown = !Number.isFinite(n) ? "INF" : v.type === "int" ? String(Math.round(n)) : `${parts.mantissa} ${parts.prefix}`;
   // While editing, the draft is what the user types; otherwise the field shows the live value.
   const [draft, setDraft] = useState<string | null>(null);
   const text = draft ?? shown.trim();

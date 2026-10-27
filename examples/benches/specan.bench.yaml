@@ -1,0 +1,24 @@
+schema: simubench.bench/1
+name: specan
+description: 函数发生器的 100 kHz 方波接频谱仪 RF_IN；另一台函数发生器提供 10 MHz 参考（快 2 ppm）。
+instruments:
+  awg:
+    model: sb-awg-2
+    label: 函数发生器
+    state: {ch1.function: SQUare, ch1.frequency: 100000.0, ch1.amplitude: 1.0, ch1.output: true}
+  ref:
+    model: sb-awg-2
+    label: 参考源
+    state: {ch1.frequency: 10000020.0, ch1.amplitude: 1.0, ch1.output: true}
+  sa:
+    model: sb-sa-1
+    label: 频谱仪
+    state: {freq.center: 500000.0, freq.span: 1000000.0, display.ref_level: 10.0, rosc.source: EXTernal}
+wires:
+  - {from: awg.OUT1, to: sa.RF_IN}
+  - {from: ref.OUT1, to: sa.REF_IN}
+run: {seed: 5}
+layout:
+  awg: {x: 0, y: 0}
+  ref: {x: 0, y: 300}
+  sa: {x: 420, y: 120}

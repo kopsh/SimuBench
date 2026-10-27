@@ -44,8 +44,9 @@ export function formatValue(v: StateVarInfo, digits = 4): string {
       return value ? i18n.t("common.on") : i18n.t("common.off");
     case "enum":
       return v.option_labels?.[String(value)] ?? shortForm(String(value));
-    case "float":
-    case "int": {
+    case "int":
+      return String(numeric(value));
+    case "float": {
       const n = numeric(value);
       if (!Number.isFinite(n) && v.unit?.toUpperCase() === "OHM") return i18n.t("generator.highZ");
       if (v.display_unit) return `${formatEng(n, "", digits)}${v.display_unit}`;
