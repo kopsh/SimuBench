@@ -100,14 +100,14 @@
 ## D10 第一个闭环的验证场景：锁相放大器、示波器、射频信号源、频谱分析仪与 SMU
 
 - **结论**：第一个闭环改用以下场景验证（参考 EdgeSim 的对应指南），代替“信号源 + 示波器定标”：
-  1. 锁相放大器，详见 [validation-lockin.md](validation-lockin.md)；
+  1. 锁相放大器，详见 [validation-lockin.md](validation-lockin.md)。
   2. 示波器采集到电压，详见 [validation-scope.md](validation-scope.md)。
   3. 射频信号源调制，详见 [validation-rfgen.md](validation-rfgen.md)。
   4. 频谱分析仪，详见 [validation-specan.md](validation-specan.md)。
   5. 源测量单元 IV 扫描，详见 [validation-smu.md](validation-smu.md)。
-- **两个场景共用同一个 RC 低通 DUT**：验证 DUT 在多个 Bench 中复用，并以“两台原理不同的仪表测同一 DUT，结果一致”作为 SimuBench 独有的验收项。
+- **锁相放大器与示波器场景共用同一个 RC 低通 DUT**：验证 DUT 在多个 Bench 中复用，并以“两台原理不同的仪表测同一 DUT，结果一致”作为 SimuBench 独有的验收项。
 - **理由**：锁相放大器是清晰的模块化信号链，契合 D1；示波器覆盖逐点采样、触发、二进制传输与大量真机才暴露的脚本问题；被测 RC 低通有已知理论值；两者都有公开的参考输出可作为验收数据。
-- **待定**：命令集是否与 EdgeSim 兼容；虚拟时间的推进方式；与定标场景的关系。
+- **已解决**：命令兼容见 D13；虚拟时间见 D12；与定标场景的关系见 D11。另有多通道场景（D15），期望值由电路理论计算。
 
 ## D11 验证分工：开发验证用参考场景，定标场景由产品负责人验收
 
