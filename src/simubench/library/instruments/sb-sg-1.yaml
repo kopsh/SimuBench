@@ -1,0 +1,270 @@
+schema: simubench.instrument/1
+id: sb-sg-1
+manufacturer: SimuBench
+model: SB-SG-1
+class: rf_generator
+version: 1
+description: 射频信号源，9 kHz–6 GHz、−130 至 +20 dBm（匹配负载上的功率）；AM 精确、FM/PM 为贝塞尔谱线（卡森规则）；列表与步进扫描；REF_OUT 10 MHz 携带时基误差。
+identity:
+  serial: SBSG0000001
+  firmware: "1.0.0"
+state:
+  freq.cw:
+    type: float
+    unit: HZ
+    min: 9.0e3
+    max: 6.0e9
+    default: 1.0e9
+    label: 载波频率
+    label_en: Frequency
+  power.level:
+    type: float
+    min: -130.0
+    max: 20.0
+    default: -20.0
+    display_unit: dBm
+    label: 电平
+    label_en: Level
+  output.enabled:
+    type: bool
+    default: false
+    label: 射频输出
+    label_en: RF output
+  freq.mode:
+    type: enum
+    options: [CW, SWEep, LIST]
+    default: CW
+    label: 频率模式
+    label_en: Frequency mode
+    option_labels: {CW: 点频, SWEep: 步进扫描, LIST: 列表扫描}
+  sweep.start:
+    type: float
+    unit: HZ
+    min: 9.0e3
+    max: 6.0e9
+    default: 1.0e9
+    label: 起始频率
+    label_en: Start
+  sweep.stop:
+    type: float
+    unit: HZ
+    min: 9.0e3
+    max: 6.0e9
+    default: 2.0e9
+    label: 终止频率
+    label_en: Stop
+  sweep.points:
+    type: int
+    min: 2
+    max: 65535
+    default: 11
+    label: 扫描点数
+    label_en: Points
+  sweep.spacing:
+    type: enum
+    options: [LINear, LOGarithmic]
+    default: LINear
+    label: 间隔
+    label_en: Spacing
+  sweep.dwell:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 100.0
+    default: 0.01
+    label: 驻留时间
+    label_en: Dwell
+  list.manual:
+    type: int
+    min: 1
+    max: 65535
+    default: 1
+    label: 当前扫描点
+    label_en: Point
+  am.state:
+    type: bool
+    default: false
+    label: AM
+    label_en: AM
+  am.depth:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 30.0
+    display_unit: "%"
+    label: AM 深度
+    label_en: AM depth
+  am.rate:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 1.0e6
+    default: 1.0e3
+    label: AM 调制频率
+    label_en: AM rate
+  fm.state:
+    type: bool
+    default: false
+    label: FM
+    label_en: FM
+  fm.dev:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 10.0e6
+    default: 1.0e3
+    label: FM 频偏
+    label_en: FM deviation
+  fm.rate:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 1.0e6
+    default: 1.0e3
+    label: FM 调制频率
+    label_en: FM rate
+  pm.state:
+    type: bool
+    default: false
+    label: PM
+    label_en: PM
+  pm.dev:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 1.0
+    display_unit: rad
+    label: PM 相偏
+    label_en: PM deviation
+  pm.rate:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 1.0e6
+    default: 1.0e3
+    label: PM 调制频率
+    label_en: PM rate
+  pulm.state:
+    type: bool
+    default: false
+    label: 脉冲调制
+    label_en: Pulse modulation
+  rosc.output:
+    type: bool
+    default: true
+    label: REF_OUT 输出
+    label_en: REF_OUT
+  rosc.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 时基
+    label_en: Timebase
+    option_labels: {INTernal: 内部, EXTernal: 外部 10 MHz}
+components:
+  - name: core
+    type: rf_generator_core
+    params:
+      frequency: $freq.cw
+      level: $power.level
+      mode: $freq.mode
+      start: $sweep.start
+      stop: $sweep.stop
+      points: $sweep.points
+      spacing: $sweep.spacing
+      manual: $list.manual
+      am: $am.state
+      am_depth: $am.depth
+      am_rate: $am.rate
+      fm: $fm.state
+      fm_dev: $fm.dev
+      fm_rate: $fm.rate
+      pm: $pm.state
+      pm_dev: $pm.dev
+      pm_rate: $pm.rate
+      pulm: $pulm.state
+      ref_out: $rosc.output
+      ref_source: $rosc.source
+  - name: rf
+    type: output_stage
+    params: {z_out: 50.0, enabled: $output.enabled}
+  - name: ref_out
+    type: output_stage
+    params: {z_out: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+wiring:
+  instrument:
+    - [core.rf, rf.in]
+    - [core.ref, ref_out.in]
+    - [ref_in.out, core.ext]
+ports:
+  instrument:
+    RF_OUT: rf.pin
+    REF_OUT: ref_out.pin
+    REF_IN: ref_in.pin
+display:
+  template: rf_generator
+  summary: [freq.cw, power.level, output.enabled, freq.mode, am.state, fm.state, pm.state]
+capabilities: [rf_generator]
+commands:
+  - header: "[:SOURce]:FREQuency:MODE"
+    state: freq.mode
+  - header: "[:SOURce]:FREQuency:STARt"
+    state: sweep.start
+  - header: "[:SOURce]:FREQuency:STOP"
+    state: sweep.stop
+  - header: "[:SOURce]:FREQuency[:CW]"
+    state: freq.cw
+  - header: "[:SOURce]:FREQuency:FIXed"
+    state: freq.cw
+  - header: "[:SOURce]:SWEep:POINts"
+    state: sweep.points
+  - header: "[:SOURce]:SWEep:SPACing"
+    state: sweep.spacing
+  - header: "[:SOURce]:SWEep:DWELl"
+    state: sweep.dwell
+  - header: "[:SOURce]:LIST:FREQuency:POINts"
+    op: core.list_points
+    set: false
+  - header: "[:SOURce]:LIST:FREQuency"
+    op: core.list_freq
+    params: [{name: values, type: raw}]
+  - header: "[:SOURce]:LIST:MANual"
+    state: list.manual
+  - header: ":INITiate[:IMMediate]"
+    op: core.initiate
+    query: false
+  - header: ":TRIGger[:IMMediate]"
+    op: core.trigger
+    query: false
+  - header: "[:SOURce]:POWer[:LEVel][:IMMediate][:AMPLitude]"
+    state: power.level
+  - header: ":OUTPut[:STATe]"
+    state: output.enabled
+    dangerous: true
+  - header: "[:SOURce]:AM[:DEPTh]"
+    state: am.depth
+  - header: "[:SOURce]:AM:INTernal:FREQuency"
+    state: am.rate
+  - header: "[:SOURce]:AM:STATe"
+    state: am.state
+  - header: "[:SOURce]:FM[:DEViation]"
+    state: fm.dev
+  - header: "[:SOURce]:FM:INTernal:FREQuency"
+    state: fm.rate
+  - header: "[:SOURce]:FM:STATe"
+    state: fm.state
+  - header: "[:SOURce]:PM[:DEViation]"
+    state: pm.dev
+  - header: "[:SOURce]:PM:INTernal:FREQuency"
+    state: pm.rate
+  - header: "[:SOURce]:PM:STATe"
+    state: pm.state
+  - header: "[:SOURce]:PULM:STATe"
+    state: pulm.state
+  - header: "[:SOURce]:ROSCillator:OUTPut[:STATe]"
+    state: rosc.output
+  - header: "[:SOURce]:ROSCillator:SOURce"
+    state: rosc.source

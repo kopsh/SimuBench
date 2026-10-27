@@ -1,0 +1,20 @@
+schema: simubench.bench/1
+name: rfgen
+description: 射频信号源接频谱仪，REF_OUT 接 REF_IN；信号源时基快 2 ppm（隐藏状态，只能通过测量发现）。
+instruments:
+  rf:
+    model: sb-sg-1
+    label: 射频信号源
+    state: {freq.cw: 1.0e9, power.level: 0.0, output.enabled: true, am.depth: 30.0, am.rate: 1.0e6}
+    hidden: {core: {offset_ppm: 2.0}}
+  sa:
+    model: sb-sa-1
+    label: 频谱仪
+    state: {freq.center: 1.0e9, freq.span: 5.0e6, display.ref_level: 10.0, marker.threshold: -60.0}
+wires:
+  - {from: rf.RF_OUT, to: sa.RF_IN}
+  - {from: rf.REF_OUT, to: sa.REF_IN}
+run: {seed: 5}
+layout:
+  rf: {x: 0, y: 60}
+  sa: {x: 420, y: 60}

@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
+from scipy.special import erf
 
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.noise import gaussian, stream_key
@@ -29,6 +30,25 @@ NBW_FACTOR = math.sqrt(math.pi / (4 * math.log(2)))  # noise bandwidth of the Ga
 KT0_DBM_HZ = -174.0
 MAX_CELLS = 64
 MAX_LINES_IN_WINDOW = 65_536
+
+
+def line_response(d: np.ndarray, rbw: float, bucket: float, detector: str) -> np.ndarray:
+    """Power a trace point shows of a unit line ``d`` Hz from the point, per detector.
+
+    The Gaussian RBW filter swept across the point's bucket: the sample detector sees the filter
+    at the point; the positive-peak detector the highest response within the bucket; average and
+    rms detectors the mean over the bucket. When the bucket is narrower than the RBW all agree.
+    """
+    k = 4 * math.log(2) / rbw**2
+    if detector == "SAMPle" or bucket <= rbw / 50:
+        return np.exp(-k * d * d)
+    if detector == "POSitive":
+        e = np.maximum(np.abs(d) - bucket / 2, 0.0)
+        return np.exp(-k * e * e)
+    rk = math.sqrt(k)
+    return (math.sqrt(math.pi) / (2 * rk * bucket)) * (
+        erf(rk * (d + bucket / 2)) - erf(rk * (d - bucket / 2))
+    )
 
 
 def snap_rbw(value: float) -> float:
@@ -71,7 +91,7 @@ class SpectrumAnalyzer(Component):
         self._key: tuple[Any, ...] | None = None
         self._seen = -1
         self._history: list[tuple[int, Signal]] = []  # RF_IN since the restart: (from, signal)
-        self._cache: dict[int, np.ndarray] = {}
+        self._cache: dict[tuple[int, int], np.ndarray] = {}
         self._held: np.ndarray | None = None
         self._held_upto = -1
         self._frozen: np.ndarray | None = None
@@ -195,6 +215,15 @@ class SpectrumAnalyzer(Component):
 
     # ---- traces ---------------------------------------------------------------------------------
 
+    def _history_index(self, t_ns: int) -> int:
+        idx = 0
+        for i, (t, _) in enumerate(self._history):
+            if t <= t_ns:
+                idx = i
+            else:
+                break
+        return idx
+
     def _signal_at(self, t_ns: int) -> Signal:
         sig = self._history[0][1] if self._history else Signal.zero()
         for t, s in self._history:
@@ -239,21 +268,24 @@ class SpectrumAnalyzer(Component):
         return None
 
     def _sweep(self, s: int, st: _Settings) -> np.ndarray:
-        hit = self._cache.get(s)
+        """Trace of sweep ``s``. Finished sweeps used the signal at their start; the sweep in
+        progress shows what RF_IN carries now, so a change reads at once."""
+        current = s >= self.current_sweep(st)
+        t_ns = self.session.now_ns if current else self._restart_ns + round(s * st.sweep * 1e9)
+        version = self._history_index(t_ns)
+        hit = self._cache.get((s, version))
         if hit is not None:
             return hit
-        t_ns = self._restart_ns + round(s * st.sweep * 1e9)
-        sig = self._signal_at(t_ns)
+        sig = self._history[version][1] if self._history else Signal.zero()
         x = np.linspace(st.start, st.stop, st.points)
         f, p, _ = self._lines_in_window(sig, st)
         line_mw = np.zeros(st.points)
+        bucket = (st.stop - st.start) / max(st.points - 1, 1)
         if f.size:
-            k = 4 * math.log(2) / st.rbw**2
             for i in range(0, f.size, 512):
                 d = x[:, None] - f[None, i : i + 512]
-                line_mw += (p[None, i : i + 512] * np.exp(-k * d * d)).sum(axis=1)
+                line_mw += (p[None, i : i + 512] * line_response(d, st.rbw, bucket, st.detector)).sum(axis=1)
         floor_mw = 10 ** ((KT0_DBM_HZ + st.nf + st.att + 10 * math.log10(NBW_FACTOR * st.rbw)) / 10)
-        bucket = (st.stop - st.start) / max(st.points - 1, 1)
         cells = int(min(MAX_CELLS, max(1, round(bucket / st.rbw))))
         if st.detector == "SAMPle":
             cells = 1
@@ -276,7 +308,7 @@ class SpectrumAnalyzer(Component):
         trace = 10 * np.log10(out)
         if len(self._cache) > 4096:
             self._cache.clear()
-        self._cache[s] = trace
+        self._cache[(s, version)] = trace
         return trace
 
     def current_sweep(self, st: _Settings) -> int:
@@ -506,11 +538,18 @@ class SpectrumAnalyzer(Component):
         if what == "count":
             return OpResult(V.format_float(self._count(float(x[i])), 12))
         peaks = self._peaks(y)
-        # MAXimum: the highest peak; NEXT: the highest peak below the marker's level.
-        cands = peaks if what == "max" else [p for p in peaks if y[p] < y[i] and p != i]
+        # Peaks in display order: level, then frequency. MAXimum takes the first; NEXT the one after
+        # the marker's, so equal-level twins (two sidebands) are both visited.
+        order = sorted(peaks, key=lambda p: (-y[p], p))
+        if what == "max":
+            cands = order
+        elif i in order:
+            cands = order[order.index(i) + 1 :]
+        else:
+            cands = [p for p in order if (-y[p], p) > (-y[i], i)]
         if not cands:
             raise ScpiError(-200, "")
-        best = max(cands, key=lambda p: y[p])
+        best = cands[0]
         self._set("marker.x", float(x[best]))
         return OpResult()
 

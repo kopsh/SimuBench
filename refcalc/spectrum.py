@@ -43,3 +43,16 @@ def prbs_line_peak(level_on_net: float, order: int, k: int) -> float:
     """Line k of an m-sequence of ±A: 2A·√(N+1)/N·|sinc(k/N)|."""
     n = 2**order - 1
     return 2 * level_on_net * math.sqrt(n + 1) / n * abs(np.sinc(k / n))
+
+
+def bucket_response_db(offset_hz: float, rbw_hz: float, bucket_hz: float, detector: str) -> float:
+    """What a trace point shows of a line, by numeric integration over the point's bucket."""
+    grid = np.linspace(offset_hz - bucket_hz / 2, offset_hz + bucket_hz / 2, 20001)
+    h = np.exp(-4 * math.log(2) * (grid / rbw_hz) ** 2)
+    if detector == "SAMPle":
+        value = math.exp(-4 * math.log(2) * (offset_hz / rbw_hz) ** 2)
+    elif detector == "POSitive":
+        value = float(h.max())
+    else:
+        value = float(np.trapezoid(h, grid) / bucket_hz)
+    return 10 * math.log10(value)
