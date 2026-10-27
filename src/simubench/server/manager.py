@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import uuid
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from ..engine.instrument import Instrument
 from ..engine.session import Session
 from ..library.loader import load_bench
 from ..models import api as M
+from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
 from .benchfiles import BenchFiles
 
@@ -33,6 +35,7 @@ class ServedSession:
         self.id = sid
         self.session = session
         self.bench_path = bench_path
+        self.bench_sha256: str | None = None
         self.scpi: ScpiServer | None = None
 
 
@@ -85,6 +88,7 @@ class SessionManager:
             raise BenchInvalid(doc.diagnostics)
         session = open_bench(path, clock=clock, seed=seed, record_dir=self.record_dir)
         served = ServedSession(uuid.uuid4().hex[:12], session, path)
+        served.bench_sha256 = doc.sha256
         # One bench serves the SCPI ports at a time; a new session takes them over.
         for other in list(self.sessions.values()):
             await self.stop(other.id)
@@ -101,6 +105,57 @@ class SessionManager:
         if served.scpi:
             await served.scpi.stop()
         await asyncio.to_thread(served.session.close)
+
+    def preview(self, bench_path: str) -> M.BenchPreview:
+        """Build the bench without running it, leaving out what cannot be built."""
+        doc = self.files.read(bench_path)
+        out = M.BenchPreview(path=bench_path, sha256=doc.sha256)
+        errors = [d for d in doc.diagnostics if d.severity == "error"]
+        if any(d.code == "E-SCHEMA" for d in errors):
+            out.error = "文件不符合测试台格式"
+            return out
+        data = copy.deepcopy(doc.data)
+        instruments, duts = data.get("instruments") or {}, data.get("duts") or {}
+        dropped_wires: set[int] = set()
+        for d in errors:
+            parts = [p.replace("~1", "/").replace("~0", "~") for p in d.pointer.split("/")[1:]]
+            if d.code.startswith("E-STATE-") and len(parts) >= 4:
+                instruments.get(parts[1], {}).get("state", {}).pop(parts[3], None)
+                out.omitted.append(f"{parts[1]}.{parts[3]}")
+            elif d.code == "E-MODEL-UNKNOWN" and d.subject:
+                instruments.pop(d.subject, None)
+                out.omitted.append(d.subject)
+            elif d.code in ("E-COMPONENT-UNKNOWN", "E-NAME-DUPLICATE") and d.subject:
+                duts.pop(d.subject, None)
+                out.omitted.append(d.subject)
+            elif d.subject and d.subject.startswith("wire:"):
+                dropped_wires.add(int(d.subject[5:]))
+        names = set(instruments) | set(duts)
+        wires = data.get("wires") or []
+        kept: list[int] = []
+        for i, w in enumerate(wires):
+            ends = (str(w.get("from", "")), str(w.get("to", "")))
+            if i in dropped_wires or any(e.rpartition(".")[0] not in names for e in ends):
+                out.omitted.append(f"wire:{i}")
+            else:
+                kept.append(i)
+        data["wires"] = [wires[i] for i in kept]
+        path = self.resolve(bench_path)
+        try:
+            bench = BenchDefinition.model_validate(data)
+            session = Session(bench, self.files.library(path), base_dir=path.parent)
+        except Exception as exc:
+            out.error = str(exc).splitlines()[0]
+            return out
+        try:
+            info = self.describe(ServedSession("preview", session, path))
+        finally:
+            session.close()
+        for w in info.wires:
+            w.index = kept[w.index]
+        info.bench_sha256 = doc.sha256
+        out.session = info
+        return out
 
     def get(self, sid: str) -> ServedSession:
         try:
@@ -143,6 +198,7 @@ class SessionManager:
             now_ns=s.now_ns,
             seed=s.seed,
             reveal_true_values=s.reveal_true_values,
+            bench_sha256=served.bench_sha256,
             record_path=str(s.recorder.path) if s.recorder else None,
             instruments=instruments,
             duts=duts,

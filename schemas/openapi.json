@@ -255,6 +255,58 @@
         "title": "BenchFile",
         "type": "object"
       },
+      "BenchPreview": {
+        "description": "How a bench file would look when started, without running it (the edit canvas).\n\nParts that cannot be built (unknown model, bad wire) are left out and named in ``omitted``;\nthe diagnostics of the document say why. Wire indices are those of the file.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why no preview could be built at all",
+            "title": "Error"
+          },
+          "omitted": {
+            "description": "Instruments, DUTs, 'wire:<i>' or state paths",
+            "items": {
+              "type": "string"
+            },
+            "title": "Omitted",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "session",
+          "omitted",
+          "error"
+        ],
+        "title": "BenchPreview",
+        "type": "object"
+      },
       "Catalog": {
         "description": "What can be placed on a bench: instrument definitions, DUT and accessory types.",
         "properties": {
@@ -1733,6 +1785,18 @@
             ],
             "title": "Bench Path"
           },
+          "bench_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hash of the bench file the session started from",
+            "title": "Bench Sha256"
+          },
           "clock_mode": {
             "enum": [
               "command",
@@ -1825,6 +1889,7 @@
           "now_ns",
           "seed",
           "reveal_true_values",
+          "bench_sha256",
           "record_path",
           "instruments",
           "duts",
@@ -2813,6 +2878,45 @@
           }
         },
         "summary": "Save Bench"
+      }
+    },
+    "/api/benches/preview": {
+      "get": {
+        "operationId": "previewBench",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Bench"
       }
     },
     "/api/benches/validate": {

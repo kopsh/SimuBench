@@ -6,10 +6,10 @@ import pytest
 
 pytest.importorskip("mcp")
 
-from mcp import Client  # noqa: E402
+from mcp import Client
 
-from simubench.mcp_server import RateLimiter, build_server  # noqa: E402
-from simubench.server.manager import SessionManager  # noqa: E402
+from simubench.mcp_server import RateLimiter, build_server
+from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = "awg_rc_scope.bench.yaml"
@@ -115,7 +115,9 @@ async def test_draft_from_script(ws):
     assert d["bench"]["instruments"]["awg"]["model"] == "sb-awg-2"
     assert d["bench"]["instruments"]["scope"]["address"] == "TCPIP0::192.168.1.21::5025::SOCKET"
     awg = next(r for r in d["report"] if r["instance"] == "awg")
-    assert awg["unsupported"] == [{"line": 18, "command": ":SOUR1:SWEEP:STAT ON", "reason": "仪表模型中没有该命令"}]
+    assert awg["unsupported"] == [
+        {"line": 18, "command": ":SOUR1:SWEEP:STAT ON", "reason": "仪表模型中没有该命令"}
+    ]
     assert "dmm" not in d["bench"]["instruments"]
     assert d["saved"]["ok"]
     assert (ws / "cal.bench.yaml").is_file()

@@ -120,3 +120,35 @@ def test_catalog(client):
     assert types["rc_lowpass"]["category"] == "dut" and types["passive_probe"]["category"] == "accessory"
     assert "output_stage" not in types
     assert types["rc_lowpass"]["units"]["c"] == "F"
+
+
+def test_preview_renders_valid_parts_and_keeps_wire_indices(client):
+    data = {
+        "schema": "simubench.bench/1",
+        "name": "p",
+        "instruments": {
+            "awg": {"model": "sb-awg-2", "state": {"ch1.frequency": -5}},
+            "ghost": {"model": "sb-nope"},
+            "scope": {"model": "sb-dso-4"},
+        },
+        "duts": {"rc": {"type": "rc_lowpass"}},
+        "wires": [
+            {"from": "ghost.OUT1", "to": "rc.IN"},
+            {"from": "awg.OUT9", "to": "rc.IN"},
+            {"from": "rc.OUT", "to": "scope.CH1"},
+        ],
+    }
+    client.put("/api/benches/file", json={"path": "p.bench.yaml", "base_sha256": None, "data": data})
+    p = client.get("/api/benches/preview", params={"path": "p.bench.yaml"}).json()
+    assert p["error"] is None
+    assert set(p["omitted"]) >= {"ghost", "awg.ch1.frequency", "wire:0", "wire:1"}
+    s = p["session"]
+    assert [i["name"] for i in s["instruments"]] == ["awg", "scope"]
+    assert [w["index"] for w in s["wires"]] == [2]
+    assert s["bench_sha256"] == p["sha256"]
+
+
+def test_session_reports_its_bench_hash(client):
+    doc = client.get("/api/benches/file", params={"path": BENCH}).json()
+    s = client.post("/api/sessions", json={"bench_path": BENCH}).json()
+    assert s["bench_sha256"] == doc["sha256"]

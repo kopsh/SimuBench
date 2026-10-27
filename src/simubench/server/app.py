@@ -111,6 +111,15 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def read_bench(path: str = Query(...)) -> M.BenchDocument:
         return file_errors(lambda: files.read(path))  # type: ignore[no-any-return]
 
+    @app.get(
+        "/api/benches/preview",
+        response_model=M.BenchPreview,
+        operation_id="previewBench",
+        dependencies=[Depends(auth)],
+    )
+    def preview_bench(path: str = Query(...)) -> M.BenchPreview:
+        return file_errors(lambda: manager.preview(path))  # type: ignore[no-any-return]
+
     @app.put(
         "/api/benches/file",
         response_model=M.BenchDocument,
