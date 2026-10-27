@@ -87,6 +87,7 @@ class Session:
         self._wall_start = time.monotonic_ns()
         self._last_wall = self._wall_start
         self.seq = 0
+        self.event_id = 0  # id of the last emitted event; ids are stable cursors for event readers
         self.recorder = Recorder(record_dir, self) if record_dir else None
 
         # ---- instruments and bench components ----
@@ -228,7 +229,8 @@ class Session:
         return lambda: self._listeners.remove(fn) if fn in self._listeners else None
 
     def emit(self, event: dict[str, Any]) -> None:
-        event = {"t_ns": self.now_ns, **event}
+        self.event_id += 1
+        event = {"eid": self.event_id, "t_ns": self.now_ns, **event}
         self.history.append(event)
         if self.recorder:
             self.recorder.event(event)
