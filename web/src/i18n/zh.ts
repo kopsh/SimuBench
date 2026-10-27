@@ -325,6 +325,17 @@ export const zh = {
     autoTrigger: "自动触发",
     kinds: { state: "设置", error: "错误", fault: "故障", acquisition: "采集", session: "会话" },
   },
+  probe: {
+    title: "虚拟探针",
+    peak: "峰值",
+    lines: "谱线数",
+    frequency: "频率",
+    amplitude: "幅度（峰值）",
+    waveform: "网络上的波形",
+    why: "为什么是这个值",
+    whyHint: "网络电压 = 每个独立源的电动势 × 电路从该源到这个网络的传递函数（节点分析求得），再求和。探针不加载电路。",
+    noSource: "没有信号源连到这个网络。",
+  },
   panel: {
     comms: "通信",
     events: "事件",

@@ -1791,6 +1791,84 @@
         "title": "NetInfo",
         "type": "object"
       },
+      "NetProbe": {
+        "description": "A virtual probe on a net (no loading, no instrument involved), and why it reads what it reads.",
+        "properties": {
+          "dc": {
+            "title": "Dc",
+            "type": "number"
+          },
+          "line_count": {
+            "title": "Line Count",
+            "type": "integer"
+          },
+          "lines": {
+            "description": "Strongest lines, by amplitude",
+            "items": {
+              "$ref": "#/components/schemas/SpectralLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "members": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "net": {
+            "title": "Net",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Why the signal is not exact, if it is not",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "peak": {
+            "title": "Peak",
+            "type": "number"
+          },
+          "rms": {
+            "title": "Rms",
+            "type": "number"
+          },
+          "sources": {
+            "description": "By RMS contribution, largest first",
+            "items": {
+              "$ref": "#/components/schemas/SourceContribution"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "t_ns": {
+            "title": "T Ns",
+            "type": "integer"
+          },
+          "waveform": {
+            "$ref": "#/components/schemas/NetWaveform"
+          }
+        },
+        "required": [
+          "net",
+          "members",
+          "t_ns",
+          "dc",
+          "rms",
+          "peak",
+          "lines",
+          "line_count",
+          "waveform",
+          "sources",
+          "notes"
+        ],
+        "title": "NetProbe",
+        "type": "object"
+      },
       "NetWaveform": {
         "properties": {
           "dt_s": {
@@ -3075,6 +3153,122 @@
           "path"
         ],
         "title": "SetState",
+        "type": "object"
+      },
+      "SourceContribution": {
+        "description": "One independent source's share of a net's signal: its EMF times the circuit's transfer.",
+        "properties": {
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "dc_contribution": {
+            "title": "Dc Contribution",
+            "type": "number"
+          },
+          "dc_emf": {
+            "title": "Dc Emf",
+            "type": "number"
+          },
+          "dc_gain": {
+            "title": "Dc Gain",
+            "type": "number"
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instrument"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/SourceLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "rms_contribution": {
+            "title": "Rms Contribution",
+            "type": "number"
+          },
+          "source": {
+            "description": "Source id, e.g. 'awg/ch1.out'",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "instrument",
+          "component",
+          "dc_emf",
+          "dc_gain",
+          "dc_contribution",
+          "lines",
+          "rms_contribution"
+        ],
+        "title": "SourceContribution",
+        "type": "object"
+      },
+      "SourceLine": {
+        "properties": {
+          "contribution": {
+            "description": "Peak volts this source puts on the net at this frequency",
+            "title": "Contribution",
+            "type": "number"
+          },
+          "emf": {
+            "description": "Peak amplitude of the source at this frequency (V, or A for a current source)",
+            "title": "Emf",
+            "type": "number"
+          },
+          "freq_hz": {
+            "title": "Freq Hz",
+            "type": "number"
+          },
+          "gain": {
+            "description": "|transfer| from the source to the net",
+            "title": "Gain",
+            "type": "number"
+          },
+          "phase_deg": {
+            "description": "Phase of the transfer, degrees",
+            "title": "Phase Deg",
+            "type": "number"
+          }
+        },
+        "required": [
+          "freq_hz",
+          "emf",
+          "gain",
+          "phase_deg",
+          "contribution"
+        ],
+        "title": "SourceLine",
+        "type": "object"
+      },
+      "SpectralLine": {
+        "properties": {
+          "amplitude": {
+            "description": "Peak amplitude, V",
+            "title": "Amplitude",
+            "type": "number"
+          },
+          "freq_hz": {
+            "title": "Freq Hz",
+            "type": "number"
+          }
+        },
+        "required": [
+          "freq_hz",
+          "amplitude"
+        ],
+        "title": "SpectralLine",
         "type": "object"
       },
       "StartSessionRequest": {
@@ -4857,6 +5051,55 @@
           }
         },
         "summary": "Screen"
+      }
+    },
+    "/api/sessions/{sid}/nets/{net}/probe": {
+      "get": {
+        "description": "A virtual probe: the net's signal without loading it, broken down by source (M4).",
+        "operationId": "probeNet",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "net",
+            "required": true,
+            "schema": {
+              "title": "Net",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetProbe"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Probe Net"
       }
     },
     "/api/sessions/{sid}/nets/{net}/waveform": {

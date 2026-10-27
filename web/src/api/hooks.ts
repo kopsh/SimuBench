@@ -189,3 +189,13 @@ export function useReplayRun(id: string) {
     mutationFn: () => unwrap(api.POST("/api/runs/{run_id}/replay", { params: { path: { run_id: id } } })),
   });
 }
+
+/** A virtual probe on a net, refreshed whenever the session changes. */
+export function useNetProbe(sid: string, net: string | null | undefined, version: number) {
+  return useQuery({
+    queryKey: ["probe", sid, net ?? "", version],
+    queryFn: () => unwrap(api.GET("/api/sessions/{sid}/nets/{net}/probe", { params: { path: { sid, net: net! } } })),
+    enabled: !!net,
+    placeholderData: (prev) => prev,
+  });
+}

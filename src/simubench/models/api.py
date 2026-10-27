@@ -351,6 +351,50 @@ class NetWaveform(_Model):
     notes: list[str] = Field(default_factory=list)
 
 
+class SpectralLine(_Model):
+    freq_hz: float
+    amplitude: float = Field(..., description="Peak amplitude, V")
+
+
+class SourceLine(_Model):
+    freq_hz: float
+    emf: float = Field(
+        ..., description="Peak amplitude of the source at this frequency (V, or A for a current source)"
+    )
+    gain: float = Field(..., description="|transfer| from the source to the net")
+    phase_deg: float = Field(..., description="Phase of the transfer, degrees")
+    contribution: float = Field(..., description="Peak volts this source puts on the net at this frequency")
+
+
+class SourceContribution(_Model):
+    """One independent source's share of a net's signal: its EMF times the circuit's transfer."""
+
+    source: str = Field(..., description="Source id, e.g. 'awg/ch1.out'")
+    instrument: str | None = None
+    component: str
+    dc_emf: float
+    dc_gain: float
+    dc_contribution: float
+    lines: list[SourceLine]
+    rms_contribution: float
+
+
+class NetProbe(_Model):
+    """A virtual probe on a net (no loading, no instrument involved), and why it reads what it reads."""
+
+    net: str
+    members: list[str]
+    t_ns: int
+    dc: float
+    rms: float
+    peak: float
+    lines: list[SpectralLine] = Field(..., description="Strongest lines, by amplitude")
+    line_count: int
+    waveform: NetWaveform
+    sources: list[SourceContribution] = Field(..., description="By RMS contribution, largest first")
+    notes: list[str] = Field(default_factory=list, description="Why the signal is not exact, if it is not")
+
+
 class Event(_Model):
     """One event of the session's event stream (WebSocket)."""
 

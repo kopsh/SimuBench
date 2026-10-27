@@ -376,6 +376,89 @@ class SessionManager:
             return M.InstrumentReadings(instrument=instrument, now_ns=s.now_ns, values=values, traces=traces)
 
     @staticmethod
+    def probe(served: ServedSession, net: str, max_lines: int = 16) -> M.NetProbe:
+        """Read a net without touching it, and break its signal down by independent source."""
+        s = served.session
+        if net not in s.nets:
+            raise KeyError(net)
+        with s._lock:
+            s.follow_wall()
+            sol, emf = s._solve()
+            sig = s.net_signal(net).merged()
+            pos = sig.freq > 0
+            order = np.argsort(-np.abs(sig.amp[pos]))
+            f_pos, a_pos = sig.freq[pos], np.abs(sig.amp[pos])
+            lines = [
+                M.SpectralLine(freq_hz=float(f_pos[i]), amplitude=float(a_pos[i])) for i in order[:max_lines]
+            ]
+            # Two periods of the strongest line, or 2 ms for DC.
+            f0 = float(f_pos[order[0]]) if order.size else 0.0
+            window = 2.0 / f0 if f0 > 0 else 2e-3
+            points = 400
+            volts = sig.sample_rel(s.now_ns, np.arange(points) * (window / points))
+            wave = M.NetWaveform(
+                net=net,
+                t0_ns=s.now_ns,
+                dt_s=window / points,
+                volts=[float(v) for v in volts],
+                exact=sig.is_exact,
+                notes=[n.detail for n in sig.notes],
+            )
+            sources: list[M.SourceContribution] = []
+            for sid, src in emf.items():
+                if sid not in sol.sids:
+                    continue
+                m = src.merged()
+                h0 = complex(sol.transfer(net, sid, np.zeros(1))[0])
+                src_lines: list[M.SourceLine] = []
+                if m.freq.size:
+                    hs = sol.transfer(net, sid, m.freq)
+                    for f, a, h in zip(m.freq, m.amp, hs, strict=True):
+                        c = abs(a * h)
+                        if c > 0 and f > 0:
+                            src_lines.append(
+                                M.SourceLine(
+                                    freq_hz=float(f),
+                                    emf=float(abs(a)),
+                                    gain=float(abs(h)),
+                                    phase_deg=float(np.degrees(np.angle(h))),
+                                    contribution=float(c),
+                                )
+                            )
+                dc_c = m.dc * h0.real
+                if not src_lines and dc_c == 0:
+                    continue  # this source does not reach the net
+                src_lines.sort(key=lambda x: -x.contribution)
+                rms = float(np.sqrt(dc_c**2 + sum(x.contribution**2 for x in src_lines) / 2))
+                owner, _, comp = str(sid).partition("/")
+                sources.append(
+                    M.SourceContribution(
+                        source=str(sid),
+                        instrument=owner if comp else None,
+                        component=comp or owner,
+                        dc_emf=float(m.dc),
+                        dc_gain=float(h0.real),
+                        dc_contribution=float(dc_c),
+                        lines=src_lines[:max_lines],
+                        rms_contribution=rms,
+                    )
+                )
+            sources.sort(key=lambda x: -x.rms_contribution)
+            return M.NetProbe(
+                net=net,
+                members=list(s.nets[net].members),
+                t_ns=s.now_ns,
+                dc=sig.mean(),
+                rms=sig.rms(),
+                peak=sig.peak(),
+                lines=lines,
+                line_count=int(pos.sum()),
+                waveform=wave,
+                sources=sources,
+                notes=[n.detail for n in sig.notes],
+            )
+
+    @staticmethod
     def net_waveform(served: ServedSession, net: str, window_s: float, points: int) -> M.NetWaveform:
         s = served.session
         if net not in s.nets:

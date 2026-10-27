@@ -459,6 +459,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/nets/{net}/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Probe Net
+         * @description A virtual probe: the net's signal without loading it, broken down by source (M4).
+         */
+        get: operations["probeNet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/nets/{net}/waveform": {
         parameters: {
             query?: never;
@@ -1198,6 +1218,42 @@ export interface components {
             /** Members */
             members: string[];
         };
+        /**
+         * NetProbe
+         * @description A virtual probe on a net (no loading, no instrument involved), and why it reads what it reads.
+         */
+        NetProbe: {
+            /** Dc */
+            dc: number;
+            /** Line Count */
+            line_count: number;
+            /**
+             * Lines
+             * @description Strongest lines, by amplitude
+             */
+            lines: components["schemas"]["SpectralLine"][];
+            /** Members */
+            members: string[];
+            /** Net */
+            net: string;
+            /**
+             * Notes
+             * @description Why the signal is not exact, if it is not
+             */
+            notes: string[];
+            /** Peak */
+            peak: number;
+            /** Rms */
+            rms: number;
+            /**
+             * Sources
+             * @description By RMS contribution, largest first
+             */
+            sources: components["schemas"]["SourceContribution"][];
+            /** T Ns */
+            t_ns: number;
+            waveform: components["schemas"]["NetWaveform"];
+        };
         /** NetWaveform */
         NetWaveform: {
             /** Dt S */
@@ -1677,6 +1733,66 @@ export interface components {
              * @description Initial value; null removes the entry
              */
             value?: unknown;
+        };
+        /**
+         * SourceContribution
+         * @description One independent source's share of a net's signal: its EMF times the circuit's transfer.
+         */
+        SourceContribution: {
+            /** Component */
+            component: string;
+            /** Dc Contribution */
+            dc_contribution: number;
+            /** Dc Emf */
+            dc_emf: number;
+            /** Dc Gain */
+            dc_gain: number;
+            /** Instrument */
+            instrument: string | null;
+            /** Lines */
+            lines: components["schemas"]["SourceLine"][];
+            /** Rms Contribution */
+            rms_contribution: number;
+            /**
+             * Source
+             * @description Source id, e.g. 'awg/ch1.out'
+             */
+            source: string;
+        };
+        /** SourceLine */
+        SourceLine: {
+            /**
+             * Contribution
+             * @description Peak volts this source puts on the net at this frequency
+             */
+            contribution: number;
+            /**
+             * Emf
+             * @description Peak amplitude of the source at this frequency (V, or A for a current source)
+             */
+            emf: number;
+            /** Freq Hz */
+            freq_hz: number;
+            /**
+             * Gain
+             * @description |transfer| from the source to the net
+             */
+            gain: number;
+            /**
+             * Phase Deg
+             * @description Phase of the transfer, degrees
+             */
+            phase_deg: number;
+        };
+        /** SpectralLine */
+        SpectralLine: {
+            /**
+             * Amplitude
+             * @description Peak amplitude, V
+             */
+            amplitude: number;
+            /** Freq Hz */
+            freq_hz: number;
         };
         /** StartSessionRequest */
         StartSessionRequest: {
@@ -2806,6 +2922,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeScreen"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probeNet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                net: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetProbe"];
                 };
             };
             /** @description Validation Error */

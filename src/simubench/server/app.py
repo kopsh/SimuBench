@@ -365,6 +365,20 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise not_found(exc) from None
 
     @app.get(
+        "/api/sessions/{sid}/nets/{net}/probe",
+        response_model=M.NetProbe,
+        operation_id="probeNet",
+        dependencies=[Depends(auth)],
+    )
+    async def probe_net(sid: str, net: str) -> M.NetProbe:
+        """A virtual probe: the net's signal without loading it, broken down by source (M4)."""
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(manager.probe, s, net)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.get(
         "/api/sessions/{sid}/clock",
         response_model=M.ClockInfo,
         operation_id="getClock",
