@@ -12,6 +12,7 @@ import numpy as np
 
 from ..access.scpi_server import ScpiServer
 from ..api import open_bench
+from ..engine.faults import LinkDown
 from ..engine.instrument import Instrument
 from ..engine.session import Session
 from ..library.loader import load_bench
@@ -291,12 +292,16 @@ class SessionManager:
         s = served.session
         inst = s.instrument(instrument)
         before = len(inst.errors)
-        s.write(instrument, command.encode(), client="ui")
-        out = s.read(instrument, client="ui")
+        try:
+            s.write(instrument, command.encode(), client="ui")
+            out = s.read(instrument, client="ui")
+        except LinkDown as exc:
+            return M.ScpiResponse(link_error=str(exc), now_ns=s.now_ns)
         new_errors = inst.errors.peek_all()[before:]
         return M.ScpiResponse(
             response=out.decode(errors="replace").rstrip("\n") if out is not None else None,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in new_errors],
+            timed_out=out is None and "?" in command,
             now_ns=s.now_ns,
         )
 

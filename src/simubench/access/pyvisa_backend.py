@@ -23,6 +23,7 @@ from pyvisa import attributes, constants, errors, highlevel, rname
 from pyvisa.util import LibraryPath
 
 from ..api import open_bench
+from ..engine.faults import LinkDown
 from ..engine.session import Session
 
 BASE_PORT = 5025
@@ -195,7 +196,10 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         if s is None:
             return 0, constants.StatusCode.error_invalid_object
         s.buffer.clear()
-        self.bench.write(s.instrument, bytes(data), client="pyvisa")
+        try:
+            self.bench.write(s.instrument, bytes(data), client="pyvisa")
+        except LinkDown:
+            raise errors.VisaIOError(constants.VI_ERROR_CONN_LOST) from None
         return len(data), constants.StatusCode.success
 
     def read(self, session: Any, count: int) -> tuple[bytes, constants.StatusCode]:
@@ -203,7 +207,10 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         if s is None:
             return b"", constants.StatusCode.error_invalid_object
         if not s.buffer:
-            msg = self.bench.read(s.instrument, client="pyvisa")
+            try:
+                msg = self.bench.read(s.instrument, client="pyvisa")
+            except LinkDown:
+                raise errors.VisaIOError(constants.VI_ERROR_CONN_LOST) from None
             if msg is None:
                 timeout_ms, _ = s.get_attribute(constants.ResourceAttribute.timeout_value)
                 self._spend_timeout(timeout_ms)

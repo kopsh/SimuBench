@@ -265,6 +265,31 @@ def validate_bench(
                     f"wire:{i}",
                 )
 
+    # ---- preset faults ----
+    for i, f in enumerate(bench.faults):
+        fp = ("faults", i)
+        if f.instrument is not None and f.instrument not in bench.instruments:
+            hint = _closest(f.instrument, list(bench.instruments))
+            report.add(
+                "error",
+                "E-FAULT-TARGET",
+                _ptr(*fp, "instrument"),
+                f"故障指向不存在的仪表 {f.instrument!r}",
+                f"改为 {hint!r}" if hint else None,
+            )
+        if f.kind in ("drift", "hidden"):
+            ref = f.component or ""
+            owner = ref.partition("/")[0] if "/" in ref else ref
+            if not f.param or owner not in (bench.instruments if "/" in ref else bench.duts):
+                report.add(
+                    "error",
+                    "E-FAULT-TARGET",
+                    _ptr(*fp, "component"),
+                    f"{f.kind} 故障需要 component（DUT 名称或 <仪表>/<组件>）与 param，得到 {ref!r}",
+                )
+        elif f.instrument is None:
+            report.add("error", "E-FAULT-TARGET", _ptr(*fp), f"{f.kind} 故障需要 instrument")
+
     # ---- nets: one driver per net, impedance hints ----
     if report.ok:
         _check_nets(bench, defs, report)

@@ -11,7 +11,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..engine.edit import EditOp
-from .bench import LayoutItem
+from .bench import Fault, LayoutItem
 
 
 class _Model(BaseModel):
@@ -225,6 +225,17 @@ class BenchPreview(_Model):
     error: str | None = Field(None, description="Why no preview could be built at all")
 
 
+class FaultInfo(_Model):
+    id: str
+    status: Literal["pending", "active", "ended"]
+    description: str
+    source: str = Field(..., description="bench (preset), ui, mcp or api")
+    started_ns: int | None = None
+    ends_ns: int | None = None
+    remaining: int | None = Field(None, description="Messages left for a counted link fault")
+    spec: Fault
+
+
 class StartSessionRequest(_Model):
     bench_path: str
     clock: Literal["command", "wall", "stepped"] | None = None
@@ -238,6 +249,8 @@ class ScpiRequest(_Model):
 class ScpiResponse(_Model):
     response: str | None = None
     errors: list[ErrorItem] = Field(default_factory=list)
+    timed_out: bool = Field(False, description="A query got no answer (as a VISA read would time out)")
+    link_error: str | None = Field(None, description="The link to the instrument is down (a fault)")
     now_ns: int
 
 
@@ -306,6 +319,7 @@ class Event(_Model):
     old: Any = None
     new: Any = None
     source: str | None = None
+    fault: str | None = Field(None, description="Fault id, for fault events and messages a fault affected")
     code: int | None = None
     message: str | None = None
     dt_ns: int | None = None

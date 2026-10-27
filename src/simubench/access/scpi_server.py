@@ -11,6 +11,7 @@ import asyncio
 import logging
 from dataclasses import dataclass, field
 
+from ..engine.faults import LinkDown
 from ..engine.session import Session
 
 log = logging.getLogger("simubench.scpi")
@@ -69,6 +70,8 @@ class ScpiServer:
                     await writer.drain()
         except (ConnectionResetError, asyncio.IncompleteReadError):
             pass
+        except LinkDown:
+            log.info("SCPI %s: link fault, closing %s", lst.instrument, client)
         finally:
             lst.clients.discard(writer)
             writer.close()

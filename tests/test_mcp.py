@@ -160,3 +160,23 @@ async def test_rate_limit(ws):
         await call(c, "list_benches")
         r = await call(c, "list_benches")
     assert "rate limited" in r["error"]
+
+
+async def test_fault_tools_are_control(ws):
+    _, server = make(ws)
+    async with Client(server) as c:
+        await call(c, "start_session", path=BENCH)
+        r = await call(c, "inject_fault", fault={"kind": "timeout", "instrument": "awg"})
+        assert "--allow-control" in r["error"]
+        assert await call(c, "list_faults") == []
+
+    _, server = make(ws, allow_control=True)
+    async with Client(server) as c:
+        await call(c, "start_session", path=BENCH)
+        f = await call(c, "inject_fault", fault={"kind": "timeout", "instrument": "awg"})
+        assert f["status"] == "active"
+        r = await call(c, "send_scpi", instrument="awg", command="*IDN?")
+        assert r["timed_out"] is True
+        await call(c, "clear_fault", fault_id=f["id"])
+        r = await call(c, "send_scpi", instrument="awg", command="*IDN?")
+        assert "SB-AWG-2" in r["response"]

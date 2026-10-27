@@ -7,11 +7,58 @@ export type Label = string | null;
  */
 export type Type = string;
 /**
+ * Virtual time to start; omitted: at once
+ */
+export type AtS = number | null;
+/**
+ * For error / trip: SCPI error code (default -300)
+ */
+export type Code = number | null;
+/**
+ * For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'
+ */
+export type Component = string | null;
+/**
+ * Link faults: number of messages affected
+ */
+export type Count = number | null;
+/**
+ * For drift: relative change per second, e.g. 1e-4
+ */
+export type DriftPerS = number | null;
+/**
+ * How long it lasts; omitted: until cleared
+ */
+export type DurationS = number | null;
+/**
+ * For garble: share of bytes corrupted
+ */
+export type GarbleRate = number | null;
+/**
+ * Instrument the fault acts on
+ */
+export type Instrument = string | null;
+export type Kind = "timeout" | "disconnect" | "garble" | "latency" | "busy" | "error" | "trip" | "drift" | "hidden";
+export type Label1 = string | null;
+/**
+ * For latency: added to every message
+ */
+export type LatencyS = number | null;
+export type Message = string | null;
+/**
+ * For drift / hidden: the component parameter, e.g. 'r'
+ */
+export type Param = string | null;
+/**
+ * Faults preset for every run
+ */
+export type Faults = Fault[];
+/**
  * Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)
  */
 export type Address = string | null;
 export type Firmware = string | null;
-export type Label1 = string | null;
+export type Label2 = string | null;
 /**
  * Instrument definition id, e.g. 'sb-dso-4'
  */
@@ -41,7 +88,7 @@ export type Accessories = Accessory[];
  * Port reference 'instance.PORT'
  */
 export type From = string;
-export type Label2 = string | null;
+export type Label3 = string | null;
 /**
  * Port reference 'instance.PORT'
  */
@@ -51,6 +98,7 @@ export type Wires = Wire[];
 export interface BenchDefinition {
   description?: Description;
   duts?: Duts;
+  faults?: Faults;
   instruments?: Instruments;
   layout?: Layout;
   name: Name;
@@ -73,6 +121,37 @@ export interface Hidden {
 export interface Params {
   [k: string]: unknown;
 }
+/**
+ * A fault: on the link to an instrument, in an instrument, or in a component (architecture.md 5.5).
+ *
+ * Link faults (``timeout``, ``disconnect``, ``garble``, ``latency``, ``busy``) act on every client's
+ * SCPI traffic to ``instrument``. ``error`` queues an error code and ``trip`` switches the
+ * instrument's outputs off with an error, both once. ``drift`` makes a component parameter
+ * drift by ``drift_per_s`` (relative, per second of virtual time); ``hidden`` sets it to
+ * ``value``. Both are undone when the fault ends.
+ */
+export interface Fault {
+  at_s?: AtS;
+  code?: Code;
+  component?: Component;
+  count?: Count;
+  drift_per_s?: DriftPerS;
+  duration_s?: DurationS;
+  garble_rate?: GarbleRate;
+  instrument?: Instrument;
+  kind: Kind;
+  label?: Label1;
+  latency_s?: LatencyS;
+  message?: Message;
+  param?: Param;
+  value?: Value;
+}
+/**
+ * For hidden: the new value
+ */
+export interface Value {
+  [k: string]: unknown;
+}
 export interface Instruments {
   [k: string]: InstrumentInstance;
 }
@@ -80,7 +159,7 @@ export interface InstrumentInstance {
   address?: Address;
   firmware?: Firmware;
   hidden?: Hidden1;
-  label?: Label1;
+  label?: Label2;
   model: Model;
   serial?: Serial;
   state?: State;
@@ -119,7 +198,7 @@ export interface RunConditions {
 export interface Wire {
   accessories?: Accessories;
   from: From;
-  label?: Label2;
+  label?: Label3;
   to: To;
 }
 export interface Accessory {

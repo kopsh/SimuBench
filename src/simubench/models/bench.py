@@ -62,6 +62,37 @@ class RunConditions(_Model):
     reveal_true_values: bool = Field(False, description="Allow clients to read hidden state (D9)")
 
 
+FaultKind = Literal["timeout", "disconnect", "garble", "latency", "busy", "error", "trip", "drift", "hidden"]
+
+
+class Fault(_Model):
+    """A fault: on the link to an instrument, in an instrument, or in a component (architecture.md 5.5).
+
+    Link faults (``timeout``, ``disconnect``, ``garble``, ``latency``, ``busy``) act on every client's
+    SCPI traffic to ``instrument``. ``error`` queues an error code and ``trip`` switches the
+    instrument's outputs off with an error, both once. ``drift`` makes a component parameter
+    drift by ``drift_per_s`` (relative, per second of virtual time); ``hidden`` sets it to
+    ``value``. Both are undone when the fault ends.
+    """
+
+    kind: FaultKind
+    instrument: str | None = Field(None, description="Instrument the fault acts on")
+    component: str | None = Field(
+        None, description="For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'"
+    )
+    param: str | None = Field(None, description="For drift / hidden: the component parameter, e.g. 'r'")
+    value: Any = Field(None, description="For hidden: the new value")
+    drift_per_s: float | None = Field(None, description="For drift: relative change per second, e.g. 1e-4")
+    code: int | None = Field(None, description="For error / trip: SCPI error code (default -300)")
+    message: str | None = None
+    latency_s: float | None = Field(None, ge=0, le=60, description="For latency: added to every message")
+    garble_rate: float | None = Field(None, gt=0, le=1, description="For garble: share of bytes corrupted")
+    at_s: float | None = Field(None, ge=0, description="Virtual time to start; omitted: at once")
+    duration_s: float | None = Field(None, gt=0, description="How long it lasts; omitted: until cleared")
+    count: int | None = Field(None, ge=1, description="Link faults: number of messages affected")
+    label: str | None = None
+
+
 class BenchDefinition(_Model):
     schema_: Literal["simubench.bench/1"] = Field("simubench.bench/1", alias="schema")
     name: str
@@ -70,6 +101,7 @@ class BenchDefinition(_Model):
     duts: dict[str, ComponentInstance] = Field(default_factory=dict)
     wires: list[Wire] = Field(default_factory=list)
     run: RunConditions = Field(default_factory=RunConditions)
+    faults: list[Fault] = Field(default_factory=list, description="Faults preset for every run")
     layout: dict[str, LayoutItem] = Field(
         default_factory=dict, description="UI positions only; never affects simulation results"
     )

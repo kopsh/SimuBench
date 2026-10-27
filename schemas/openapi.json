@@ -1027,6 +1027,260 @@
         "title": "ErrorItem",
         "type": "object"
       },
+      "Fault": {
+        "additionalProperties": false,
+        "description": "A fault: on the link to an instrument, in an instrument, or in a component (architecture.md 5.5).\n\nLink faults (``timeout``, ``disconnect``, ``garble``, ``latency``, ``busy``) act on every client's\nSCPI traffic to ``instrument``. ``error`` queues an error code and ``trip`` switches the\ninstrument's outputs off with an error, both once. ``drift`` makes a component parameter\ndrift by ``drift_per_s`` (relative, per second of virtual time); ``hidden`` sets it to\n``value``. Both are undone when the fault ends.",
+        "properties": {
+          "at_s": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Virtual time to start; omitted: at once",
+            "title": "At S"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For error / trip: SCPI error code (default -300)",
+            "title": "Code"
+          },
+          "component": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'",
+            "title": "Component"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Link faults: number of messages affected",
+            "title": "Count"
+          },
+          "drift_per_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For drift: relative change per second, e.g. 1e-4",
+            "title": "Drift Per S"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How long it lasts; omitted: until cleared",
+            "title": "Duration S"
+          },
+          "garble_rate": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For garble: share of bytes corrupted",
+            "title": "Garble Rate"
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Instrument the fault acts on",
+            "title": "Instrument"
+          },
+          "kind": {
+            "enum": [
+              "timeout",
+              "disconnect",
+              "garble",
+              "latency",
+              "busy",
+              "error",
+              "trip",
+              "drift",
+              "hidden"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "latency_s": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For latency: added to every message",
+            "title": "Latency S"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For drift / hidden: the component parameter, e.g. 'r'",
+            "title": "Param"
+          },
+          "value": {
+            "description": "For hidden: the new value",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "Fault",
+        "type": "object"
+      },
+      "FaultInfo": {
+        "properties": {
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "ends_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends Ns"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Messages left for a counted link fault",
+            "title": "Remaining"
+          },
+          "source": {
+            "description": "bench (preset), ui, mcp or api",
+            "title": "Source",
+            "type": "string"
+          },
+          "spec": {
+            "$ref": "#/components/schemas/Fault"
+          },
+          "started_ns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started Ns"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "active",
+              "ended"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "description",
+          "source",
+          "started_ns",
+          "ends_ns",
+          "remaining",
+          "spec"
+        ],
+        "title": "FaultInfo",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1750,6 +2004,18 @@
             "title": "Errors",
             "type": "array"
           },
+          "link_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The link to the instrument is down (a fault)",
+            "title": "Link Error"
+          },
           "now_ns": {
             "title": "Now Ns",
             "type": "integer"
@@ -1764,11 +2030,19 @@
               }
             ],
             "title": "Response"
+          },
+          "timed_out": {
+            "default": false,
+            "description": "A query got no answer (as a VISA read would time out)",
+            "title": "Timed Out",
+            "type": "boolean"
           }
         },
         "required": [
           "response",
           "errors",
+          "timed_out",
+          "link_error",
           "now_ns"
         ],
         "title": "ScpiResponse",
@@ -3286,6 +3560,144 @@
           }
         },
         "summary": "Advance"
+      }
+    },
+    "/api/sessions/{sid}/faults": {
+      "get": {
+        "operationId": "listFaults",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/FaultInfo"
+                  },
+                  "title": "Response Listfaults",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Faults"
+      },
+      "post": {
+        "operationId": "injectFault",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Fault"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaultInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inject Fault"
+      }
+    },
+    "/api/sessions/{sid}/faults/{fault_id}": {
+      "delete": {
+        "operationId": "clearFault",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fault_id",
+            "required": true,
+            "schema": {
+              "title": "Fault Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FaultInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear Fault"
       }
     },
     "/api/sessions/{sid}/instruments/{name}": {
