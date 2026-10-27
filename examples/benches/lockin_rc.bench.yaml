@@ -1,0 +1,30 @@
+schema: simubench.bench/1
+name: lockin_rc
+description: 锁相放大器 SINE_OUT 驱动 RC 低通（1 kΩ、100 nF），输出接回 SIG_IN，同一网络上挂一台万用表。
+instruments:
+  lia:
+    model: sb-lia-1
+    label: 锁相放大器
+    state:
+      reference.frequency: 1515.76
+      sine_out.amplitude: 0.5
+      filter.time_constant: 0.03
+      filter.slope: "24"
+  dmm:
+    model: sb-dmm-1
+    label: 万用表
+duts:
+  rc:
+    type: rc_lowpass
+    label: RC 低通
+    params: {r: 1000.0, c: 1.0e-7}
+wires:
+  - {from: lia.SINE_OUT, to: rc.IN}
+  - {from: rc.OUT, to: lia.SIG_IN}
+  - {from: rc.OUT, to: dmm.IN}
+run:
+  seed: 5
+layout:
+  lia: {x: 0, y: 40}
+  rc: {x: 380, y: 60}
+  dmm: {x: 640, y: 220}

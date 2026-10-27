@@ -85,15 +85,12 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
   const openScreen = useWorkbench((s) => s.openScreen);
   const globals = globalVars(inst);
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
-  const hasScreen = ["oscilloscope", "function_generator"].includes(inst.instrument_class);
   return (
     <div className="space-y-4 p-3">
       <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} />
-      {hasScreen && (
-        <Button variant="outline" size="sm" className="w-full" onClick={() => openScreen(inst.name)}>
-          <MonitorPlay className="size-4" /> {t("workbench.openScreen")}
-        </Button>
-      )}
+      <Button variant="outline" size="sm" className="w-full" onClick={() => openScreen(inst.name)}>
+        <MonitorPlay className="size-4" /> {t("workbench.openScreen")}
+      </Button>
       <Section title={t("workbench.identitySection")}>
         <CopyRow label="*IDN?" value={inst.idn} />
         <CopyRow label={t("workbench.virtualAddress")} value={inst.address_virtual} />
@@ -193,7 +190,7 @@ function ScpiConsole({ sid, instrument, disabled }: { sid: string; instrument: s
         </Button>
       </div>
       {scpi.data && (
-        <div className="bg-muted/60 num rounded-md p-2 text-[11.5px] break-all">
+        <div className="bg-muted/60 num rounded-md p-2 text-[11.5px] break-all" role="status" aria-label={t("workbench.response")}>
           {scpi.data.response != null && <div>{scpi.data.response}</div>}
           {scpi.data.errors.map((e, i) => (
             <div key={i} className="text-error">

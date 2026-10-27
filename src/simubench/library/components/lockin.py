@@ -153,6 +153,16 @@ class LockinReference(Component):
         amp = float(self.param("amplitude")) * math.sqrt(2)
         return Signal.lines([self._freq], [amp * cmath.exp(1j * self._psi)], t0_ns=self._anchor_ns)
 
+    def readings(self) -> dict[str, Any]:
+        n = int(self.param("harmonic"))
+        return {
+            "values": {
+                "locked": self.locked,
+                "frequency": self._freq,
+                "detect_frequency": n * self._freq,
+            }
+        }
+
     @op("locked")
     def op_locked(self, **_: Any) -> OpResult:
         return OpResult(V.format_bool(self.locked))
@@ -386,6 +396,40 @@ class LockinDemodulator(Component):
         if rising & 2:
             self.owner.push_error(326, "Output overload")
         self._flags = flags
+
+    def _flags_now(self) -> int:
+        sens = float(self.param("sensitivity"))
+        limit = min(math.sqrt(2) * float(self.param("reserve")) * sens, float(self.param("input_limit")))
+        z = self._clean()
+        return (1 if self._in_peak > limit * (1 + 1e-12) else 0) | (
+            2 if max(abs(z.real), abs(z.imag)) > sens * (1 + 1e-12) else 0
+        )
+
+    def readings(self) -> dict[str, Any]:
+        """Outputs now, and where the filter is heading: R over the next 1.5 settling times."""
+        z = self.xy()
+        r = self._regime
+        now = self.session.now_ns
+        span = 1.5 * self.settling()
+        points = 121
+        dt = span / (points - 1)
+        trace: list[float] = []
+        if r is not None:
+            for i in range(points):
+                trace.append(abs(complex(r.state(now + round(i * dt * 1e9))[-1])))
+        return {
+            "values": {
+                "X": z.real,
+                "Y": z.imag,
+                "R": abs(z),
+                "THETA": math.degrees(math.atan2(z.imag, z.real)),
+                "overload": self._flags_now(),
+                "enbw": self.enbw(),
+                "settling": self.settling(),
+                "noise_sigma": float(self.param("noise_density")) * math.sqrt(self.enbw()),
+            },
+            "traces": [{"name": "R_projected", "t0_s": 0.0, "dt_s": dt, "values": trace}] if trace else [],
+        }
 
     def overload(self) -> int:
         self.session._sync()

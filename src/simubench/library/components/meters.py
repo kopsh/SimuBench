@@ -22,6 +22,11 @@ class DmmCore(Component):
     ports = {"in": PortSpec("in", "signal")}
     defaults = {"ac_low": 3.0, "digits": 7}
 
+    def readings(self) -> dict[str, Any]:
+        sig = self.input("in").merged()
+        ac = sig.amp[sig.freq >= float(self.param("ac_low"))]
+        return {"values": {"DC": sig.mean(), "AC": math.sqrt(float(np.sum(np.abs(ac) ** 2)) / 2)}}
+
     @op("measure")
     def op_measure(self, what: str = "DC", **_: Any) -> OpResult:
         sig = self.input("in").merged()

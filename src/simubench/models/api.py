@@ -294,6 +294,24 @@ class ScopeScreen(_Model):
     acquisitions: int
 
 
+class ReadingTrace(_Model):
+    name: str
+    t0_s: float = Field(..., description="Start relative to now")
+    dt_s: float
+    values: list[float]
+
+
+class InstrumentReadings(_Model):
+    """Front-panel readings, evaluated without side effects (no SCPI traffic, no error queue)."""
+
+    instrument: str
+    now_ns: int
+    values: dict[str, float | int | bool | str] = Field(
+        default_factory=dict, description="Keyed '<component>.<name>', e.g. 'demod.R'"
+    )
+    traces: list[ReadingTrace] = Field(default_factory=list)
+
+
 class NetWaveform(_Model):
     net: str
     t0_ns: int

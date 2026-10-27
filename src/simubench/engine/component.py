@@ -197,6 +197,13 @@ class Component:
 
     # ---- observability -----------------------------------------------------------------------
 
+    def readings(self) -> dict[str, Any] | None:
+        """What the instrument's front panel shows, read without side effects (no SCPI, no errors).
+
+        Return ``{"values": {...}, "traces": [{"name", "t0_s", "dt_s", "values"}]}`` or None.
+        """
+        return None
+
     def describe(self) -> dict[str, Any]:
         """Parameters as currently resolved, for inspectors and explanations."""
         out: dict[str, Any] = {}

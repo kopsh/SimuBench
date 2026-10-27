@@ -1,4 +1,4 @@
-import { Activity, AudioWaveform, CircuitBoard, Cpu, GripVertical, Plus, Search } from "lucide-react";
+import { CircuitBoard, Cpu, GripVertical, Plus, Search } from "lucide-react";
 import { type DragEvent, type ReactNode, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Catalog } from "@/api/client";
@@ -11,8 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { pickLabel } from "@/i18n";
 import { LIBRARY_MIME, type LibraryItem } from "../canvas/Canvas";
 import { addItem } from "./actions";
+import { CLASS_ICON } from "../canvas/InstrumentNode";
 
-const ICONS: Record<string, typeof Cpu> = { oscilloscope: Activity, function_generator: AudioWaveform };
 
 /** Instruments and DUTs that can be placed on the bench (the parts bin of schematic editors). */
 export function LibraryPanel() {
@@ -59,7 +59,7 @@ export function LibraryPanel() {
           <div className="p-2" aria-label={t("edit.library")}>
             <Group title={t("workbench.instruments")}>
               {items.instruments.map((d) => {
-                const Icon = ICONS[d.instrument_class] ?? Cpu;
+                const Icon = CLASS_ICON[d.instrument_class] ?? Cpu;
                 return (
                   <Entry
                     key={d.id}

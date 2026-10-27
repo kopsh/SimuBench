@@ -1,4 +1,4 @@
-import { Activity, AudioWaveform, Cable, CircuitBoard, Cpu, Network } from "lucide-react";
+import { Cable, CircuitBoard, Cpu, Network } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { SessionInfo } from "@/api/client";
@@ -6,8 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { instrumentTitle } from "./model";
 import { type Selection, useWorkbench } from "./store";
+import { CLASS_ICON } from "./canvas/InstrumentNode";
 
-const ICONS: Record<string, typeof Cpu> = { oscilloscope: Activity, function_generator: AudioWaveform };
 
 export function ResourceTree({ session }: { session: SessionInfo }) {
   const { t } = useTranslation();
@@ -18,7 +18,7 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
       <nav className="p-2 text-[12.5px]" aria-label={t("workbench.resources")}>
         <Group title={t("workbench.instruments")}>
           {session.instruments.map((i) => {
-            const Icon = ICONS[i.instrument_class] ?? Cpu;
+            const Icon = CLASS_ICON[i.instrument_class] ?? Cpu;
             const s = { kind: "instrument", id: i.name } as const;
             return (
               <Item key={i.name} active={is(s)} onClick={() => select(s)} onDoubleClick={() => openScreen(i.name)} icon={<Icon className="size-3.5" />}>

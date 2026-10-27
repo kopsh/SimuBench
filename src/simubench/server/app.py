@@ -328,6 +328,18 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
 
     @app.get(
+        "/api/sessions/{sid}/instruments/{name}/readings",
+        response_model=M.InstrumentReadings,
+        operation_id="instrumentReadings",
+        dependencies=[Depends(auth)],
+    )
+    def readings(sid: str, name: str) -> M.InstrumentReadings:
+        try:
+            return manager.readings(served(sid), name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.get(
         "/api/sessions/{sid}/faults",
         response_model=list[M.FaultInfo],
         operation_id="listFaults",
