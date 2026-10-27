@@ -1,5 +1,5 @@
 import { AlertCircle } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
@@ -26,16 +26,24 @@ interface Props {
   v: StateVarInfo;
   disabled?: boolean;
   compact?: boolean;
+  /** Edit something other than the running instrument (the bench file's initial state). */
+  onCommit?: (value: unknown) => void;
+  /** Shown after the control, e.g. a reset button. */
+  trailing?: ReactNode;
 }
 
 /** One editable state variable; edits are out-of-band "configure" actions (architecture.md 5.2). */
-export function StateField({ sid, instrument, v, disabled, compact }: Props) {
+export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing }: Props) {
   const { t } = useTranslation();
   const configure = useConfigure(sid);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | (() => void)>(null);
 
   const commit = (value: unknown) => {
+    if (onCommit) {
+      onCommit(value);
+      return;
+    }
     const run = () =>
       configure.mutate(
         { instrument, path: v.path, value },
@@ -89,6 +97,7 @@ export function StateField({ sid, instrument, v, disabled, compact }: Props) {
       </label>
       <div className="flex min-w-0 items-center justify-end gap-1.5">
         {control}
+        {trailing}
         {error && (
           <Tooltip>
             <TooltipTrigger asChild>

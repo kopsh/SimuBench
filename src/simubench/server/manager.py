@@ -36,6 +36,7 @@ class ServedSession:
         self.session = session
         self.bench_path = bench_path
         self.bench_sha256: str | None = None
+        self.bench_fingerprint: str | None = None
         self.scpi: ScpiServer | None = None
 
 
@@ -89,6 +90,7 @@ class SessionManager:
         session = open_bench(path, clock=clock, seed=seed, record_dir=self.record_dir)
         served = ServedSession(uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
+        served.bench_fingerprint = doc.fingerprint
         # One bench serves the SCPI ports at a time; a new session takes them over.
         for other in list(self.sessions.values()):
             await self.stop(other.id)
@@ -154,6 +156,7 @@ class SessionManager:
         for w in info.wires:
             w.index = kept[w.index]
         info.bench_sha256 = doc.sha256
+        info.bench_fingerprint = doc.fingerprint
         out.session = info
         return out
 
@@ -199,6 +202,7 @@ class SessionManager:
             seed=s.seed,
             reveal_true_values=s.reveal_true_values,
             bench_sha256=served.bench_sha256,
+            bench_fingerprint=served.bench_fingerprint,
             record_path=str(s.recorder.path) if s.recorder else None,
             instruments=instruments,
             duts=duts,

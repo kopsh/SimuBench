@@ -384,6 +384,11 @@ export interface components {
             };
             /** Diagnostics */
             diagnostics: components["schemas"]["Diagnostic"][];
+            /**
+             * Fingerprint
+             * @description Hash of what a session is built from (layout and description excluded)
+             */
+            fingerprint: string;
             /** Ok */
             ok: boolean;
             /** Path */
@@ -1005,6 +1010,11 @@ export interface components {
         };
         /** SessionInfo */
         SessionInfo: {
+            /**
+             * Bench Fingerprint
+             * @description Fingerprint of the bench content; differs from the file's when a restart is needed
+             */
+            bench_fingerprint: string | null;
             /** Bench Name */
             bench_name: string;
             /** Bench Path */

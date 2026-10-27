@@ -8,7 +8,8 @@ import { cn } from "@/lib/utils";
 import { formatValue, instrumentTitle, stateMap, varName } from "../model";
 import { useWorkbench } from "../store";
 
-export type InstrumentNodeData = { inst: InstrumentInfo; selected?: boolean };
+export type Issue = "error" | "warning";
+export type InstrumentNodeData = { inst: InstrumentInfo; editable?: boolean; issue?: Issue };
 export type InstrumentNodeType = Node<InstrumentNodeData, "instrument">;
 
 const CLASS_ICON: Record<string, typeof Activity> = {
@@ -23,7 +24,7 @@ const CLASS_ICON: Record<string, typeof Activity> = {
  */
 function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
   const { t } = useTranslation();
-  const { inst } = data;
+  const { inst, editable, issue } = data;
   const Icon = CLASS_ICON[inst.instrument_class] ?? Cpu;
   const vars = stateMap(inst);
   const chanKeys = inst.display.channel_summary.length ? inst.display.channel_summary : [];
@@ -40,6 +41,8 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
       onDoubleClick={() => openScreen(inst.name)}
       className={cn(
         "bg-card text-card-foreground w-[264px] rounded-lg border shadow-sm transition-shadow",
+        issue === "error" && "border-error",
+        issue === "warning" && "border-warn",
         selected && "ring-primary ring-2 shadow-md",
       )}
     >
@@ -49,6 +52,7 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
           <div className="truncate text-[13px] leading-tight font-medium">{instrumentTitle(inst)}</div>
           <div className="text-muted-foreground num truncate text-[11px] leading-tight">{inst.model}</div>
         </div>
+        {issue && <IssueMark issue={issue} />}
         {inst.errors.length > 0 && (
           <span
             className="bg-error/15 text-error inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
@@ -97,10 +101,10 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
       </div>
 
       {inPorts.map((p, i) => (
-        <PortHandle key={p.name} name={p.name} channel={p.channel} side={Position.Left} index={i} count={inPorts.length} connected={!!p.net} />
+        <PortHandle key={p.name} name={p.name} channel={p.channel} side={Position.Left} index={i} count={inPorts.length} connected={!!p.net} connectable={editable} />
       ))}
       {outPorts.map((p, i) => (
-        <PortHandle key={p.name} name={p.name} channel={p.channel} side={Position.Right} index={i} count={outPorts.length} connected={!!p.net} />
+        <PortHandle key={p.name} name={p.name} channel={p.channel} side={Position.Right} index={i} count={outPorts.length} connected={!!p.net} connectable={editable} />
       ))}
     </div>
   );
@@ -127,6 +131,7 @@ export function PortHandle({
   index,
   count,
   connected,
+  connectable,
 }: {
   name: string;
   channel?: number | null;
@@ -134,6 +139,7 @@ export function PortHandle({
   index: number;
   count: number;
   connected: boolean;
+  connectable?: boolean;
 }) {
   const top = `${((index + 1) / (count + 1)) * 100}%`;
   const color = channelColor(channel);
@@ -143,11 +149,12 @@ export function PortHandle({
         id={name}
         type="source"
         position={side}
-        isConnectable={false}
+        isConnectable={!!connectable}
+        className={cn(connectable && "hover:!scale-150 transition-transform")}
         style={{
           top,
-          width: 10,
-          height: 10,
+          width: connectable ? 12 : 10,
+          height: connectable ? 12 : 10,
           borderWidth: 2,
           borderColor: color,
           background: connected ? color : "var(--card)",
@@ -164,6 +171,23 @@ export function PortHandle({
         {name}
       </span>
     </>
+  );
+}
+
+/** Marks a node the bench diagnostics point at; the Problems panel says what is wrong. */
+export function IssueMark({ issue }: { issue: Issue }) {
+  const { t } = useTranslation();
+  return (
+    <span
+      className={cn(
+        "inline-flex size-5 shrink-0 items-center justify-center rounded",
+        issue === "error" ? "bg-error/15 text-error" : "bg-warn/15 text-warn",
+      )}
+      title={t("panel.problems")}
+      aria-label={t("panel.problems")}
+    >
+      <AlertTriangle className="size-3" />
+    </span>
   );
 }
 

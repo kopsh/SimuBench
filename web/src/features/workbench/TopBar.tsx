@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatClock, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { EditControls } from "./edit/EditControls";
 import { useWorkbench } from "./store";
 
 const STEPS = [1e-3, 10e-3, 100e-3, 1];
@@ -47,6 +48,8 @@ export function TopBar({ session }: { session: SessionInfo }) {
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{session.bench_path}</div>
       </div>
       <ConnectionBadge status={status} />
+      <Separator orientation="vertical" className="mx-1 !h-5" />
+      <EditControls session={session} />
 
       <div className="mx-auto flex items-center gap-2">
         <div className="bg-background flex h-8 items-center gap-3 rounded-md border px-3" aria-live="polite">

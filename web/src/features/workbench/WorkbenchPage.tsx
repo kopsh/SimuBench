@@ -1,25 +1,31 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Activity, AudioWaveform, Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
-import type { SessionInfo } from "@/api/client";
+import type { BenchDocument, EditOp, SessionInfo } from "@/api/client";
 import { useEventStream, useEvents } from "@/api/events";
 import type { Event } from "@/api/generated/events";
-import { keys, useSession } from "@/api/hooks";
+import { keys, useBenchDoc, useBenchPreview, useCatalog, useSession } from "@/api/hooks";
 import { ErrorState } from "@/components/app/StateViews";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { BottomPanel } from "./BottomPanel";
-import { Canvas } from "./canvas/Canvas";
+import { Canvas, type LibraryItem } from "./canvas/Canvas";
+import type { Issue } from "./canvas/InstrumentNode";
+import { addItem } from "./edit/actions";
+import { RestartBanner } from "./edit/EditControls";
+import { EditInspector } from "./edit/EditInspector";
+import { applyOps, bindEditor, syncDocument, useEditor } from "./edit/editor";
+import { LibraryPanel } from "./edit/LibraryPanel";
 import { CommandPalette } from "./CommandPalette";
 import { Inspector } from "./Inspector";
 import { instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
 import { ScopeScreen } from "./screens/ScopeScreen";
-import { type Tab, tabKey, useWorkbench } from "./store";
+import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
 
 export function WorkbenchPage() {
@@ -55,6 +61,18 @@ export function WorkbenchPage() {
   }, [version, qc, sid]);
 
   const status = useEvents((s) => s.status);
+  const mode = useWorkbench((s) => s.mode);
+
+  // The bench file behind the session: polled, so that edits made elsewhere show up.
+  const benchPath = session.data?.bench_path ?? null;
+  useEffect(() => bindEditor(qc), [qc]);
+  const docQuery = useBenchDoc(benchPath);
+  useEffect(() => {
+    if (docQuery.data) syncDocument(docQuery.data);
+  }, [docQuery.data]);
+  const editorDoc = useEditor((s) => s.doc);
+  const doc = editorDoc && editorDoc.path === benchPath ? editorDoc : null;
+  const preview = useBenchPreview(benchPath, mode === "edit" ? doc?.sha256 : undefined);
 
   if (session.isLoading) {
     return (
@@ -77,10 +95,13 @@ export function WorkbenchPage() {
   }
   const s = session.data;
   const readonly = status !== "connected";
+  const editing = mode === "edit" && !!doc;
+  const view = editing ? (preview.data?.session ?? null) : s;
 
   return (
     <div className="flex h-full flex-col">
       <TopBar session={s} />
+      <RestartBanner session={s} />
       {status === "reconnecting" && (
         <div className="bg-error/10 text-error flex h-7 shrink-0 items-center justify-center gap-2 border-b text-xs" role="status">
           <WifiOff className="size-3.5" /> {t("connection.reconnecting")}
@@ -90,21 +111,29 @@ export function WorkbenchPage() {
         <ResizablePanel defaultSize="72%" minSize="30%">
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel defaultSize="16%" minSize="10%" maxSize="30%" className="bg-sidebar">
-              <ResourceTree session={s} />
+              <LeftPanel session={view ?? s} mode={editing ? "edit" : "run"} />
             </ResizablePanel>
             <ResizableHandle />
             <ResizablePanel defaultSize="60%" minSize="30%">
-              <CenterTabs session={s} readonly={readonly} />
+              <CenterTabs
+                session={s}
+                view={view}
+                doc={doc}
+                editing={editing}
+                previewError={editing ? (preview.data?.error ?? null) : null}
+                omitted={editing ? (preview.data?.omitted ?? []) : []}
+                readonly={readonly}
+              />
             </ResizablePanel>
             <ResizableHandle />
             <ResizablePanel defaultSize="24%" minSize="16%" maxSize="40%" className="bg-sidebar">
-              <Inspector session={s} readonly={readonly} />
+              {editing && doc ? <EditInspector view={view} doc={doc} /> : <Inspector session={s} readonly={readonly} />}
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel defaultSize="28%" minSize="10%">
-          <BottomPanel session={s} />
+          <BottomPanel session={s} diagnostics={doc?.diagnostics} />
         </ResizablePanel>
       </ResizablePanelGroup>
       <CommandPalette session={s} />
@@ -112,7 +141,59 @@ export function WorkbenchPage() {
   );
 }
 
-function CenterTabs({ session, readonly }: { session: SessionInfo; readonly: boolean }) {
+function LeftPanel({ session, mode }: { session: SessionInfo; mode: Mode }) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<"library" | "resources">("library");
+  if (mode !== "edit") return <ResourceTree session={session} />;
+  return (
+    <div className="flex h-full flex-col">
+      <div role="tablist" className="flex h-9 shrink-0 items-end gap-0.5 border-b px-1">
+        {(["library", "resources"] as const).map((k) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={tab === k}
+            onClick={() => setTab(k)}
+            className={cn(
+              "h-8 rounded-t-md border border-b-0 px-3 text-xs",
+              tab === k ? "bg-background text-foreground -mb-px" : "text-muted-foreground hover:text-foreground border-transparent",
+            )}
+          >
+            {k === "library" ? t("edit.library") : t("workbench.resources")}
+          </button>
+        ))}
+      </div>
+      <div className="min-h-0 flex-1">{tab === "library" ? <LibraryPanel /> : <ResourceTree session={session} />}</div>
+    </div>
+  );
+}
+
+function issuesOf(doc: BenchDocument | null): Map<string, Issue> {
+  const out = new Map<string, Issue>();
+  for (const d of doc?.diagnostics ?? []) {
+    if (!d.subject) continue;
+    if (d.severity === "error" || !out.has(d.subject)) out.set(d.subject, d.severity);
+  }
+  return out;
+}
+
+function CenterTabs({
+  session,
+  view,
+  doc,
+  editing,
+  previewError,
+  omitted,
+  readonly,
+}: {
+  session: SessionInfo;
+  view: SessionInfo | null;
+  doc: BenchDocument | null;
+  editing: boolean;
+  previewError: string | null;
+  omitted: string[];
+  readonly: boolean;
+}) {
   const { t } = useTranslation();
   const { tabs, active, setActive, closeTab } = useWorkbench();
   const label = (tab: Tab) => {
@@ -166,7 +247,7 @@ function CenterTabs({ session, readonly }: { session: SessionInfo; readonly: boo
       </div>
       <div className="min-h-0 flex-1">
         {current.kind === "canvas" ? (
-          <Canvas session={session} />
+          <BenchCanvas session={session} view={view} doc={doc} editing={editing} previewError={previewError} omitted={omitted} />
         ) : (
           <Screen session={session} instrument={current.instrument} readonly={readonly} />
         )}
@@ -180,4 +261,59 @@ function Screen({ session, instrument, readonly }: { session: SessionInfo; instr
   if (!inst) return null;
   if (inst.instrument_class === "oscilloscope") return <ScopeScreen sid={session.id} inst={inst} />;
   return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
+}
+
+function BenchCanvas({
+  session,
+  view,
+  doc,
+  editing,
+  previewError,
+  omitted,
+}: {
+  session: SessionInfo;
+  view: SessionInfo | null;
+  doc: BenchDocument | null;
+  editing: boolean;
+  previewError: string | null;
+  omitted: string[];
+}) {
+  const { t } = useTranslation();
+  const catalog = useCatalog().data;
+  const issues = useMemo(() => (editing ? issuesOf(doc) : undefined), [editing, doc]);
+  const layout = (doc?.data.layout as Record<string, { x: number; y: number }> | undefined) ?? undefined;
+  // Node positions are part of the bench file (D8); moving a node never needs a restart.
+  const onOps = useMemo(() => (session.bench_path ? (ops: EditOp[]) => void applyOps(ops) : undefined), [session.bench_path]);
+  const onDropItem = useCallback(
+    (item: LibraryItem, at: { x: number; y: number }) => catalog && void addItem(catalog, item, at),
+    [catalog],
+  );
+  if (!view) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        {previewError ? (
+          <ErrorState error={new Error(t("edit.previewError", { error: previewError }))} />
+        ) : (
+          <Skeleton className="h-2/3 w-2/3" />
+        )}
+      </div>
+    );
+  }
+  return (
+    <div className="relative h-full">
+      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} />
+      {editing && (
+        <div className="pointer-events-none absolute top-2 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
+          {omitted.length > 0 && (
+            <div className="bg-error/10 text-error rounded-md border px-2 py-1 text-[11px]">
+              {t("edit.omitted", { count: omitted.length, names: omitted.join("、") })}
+            </div>
+          )}
+          {view.wires.length === 0 && view.instruments.length + view.duts.length > 1 && (
+            <div className="bg-card text-muted-foreground rounded-md border px-2 py-1 text-[11px] shadow-sm">{t("edit.connectHint")}</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
@@ -14,9 +15,35 @@ from ..models.definition import InstrumentDefinition
 BUILTIN_DIR = Path(__file__).parent / "instruments"
 
 
+class YamlLoader(yaml.SafeLoader):
+    """SafeLoader that reads floats the YAML 1.2 way: ``1.0e7`` and ``1e-7`` are numbers.
+
+    YAML 1.1 (PyYAML's default) needs a dot and a signed exponent, so engineers' ``1.0e7`` would
+    silently become a string.
+    """
+
+
+YamlLoader.add_implicit_resolver(
+    "tag:yaml.org,2002:float",
+    re.compile(
+        r"""^(?:[-+]?(?:[0-9][0-9_]*)\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+        |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+        |\.[0-9_]+(?:[eE][-+]?[0-9]+)?
+        |[-+]?\.(?:inf|Inf|INF)
+        |\.(?:nan|NaN|NAN))$""",
+        re.X,
+    ),
+    list("-+0123456789."),
+)
+
+
+def load_yaml(text: str) -> object:
+    return yaml.load(text, Loader=YamlLoader)  # a SafeLoader subclass: no arbitrary objects
+
+
 def _read_yaml(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
-        data = yaml.safe_load(f)
+        data = load_yaml(f.read())
     if not isinstance(data, dict):
         raise ValueError(f"{path}: expected a mapping at the top level")
     return data

@@ -1,7 +1,7 @@
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { SessionInfo } from "@/api/client";
+import type { Diagnostic, SessionInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { EmptyState } from "@/components/app/StateViews";
@@ -16,7 +16,8 @@ import { useWorkbench } from "./store";
 
 const ROW = 24;
 
-export function BottomPanel({ session }: { session: SessionInfo }) {
+/** ``diagnostics`` are the bench file's; instrument error queues come from the session. */
+export function BottomPanel({ session, diagnostics = [] }: { session: SessionInfo; diagnostics?: Diagnostic[] }) {
   const { t } = useTranslation();
   const { bottomTab, setBottomTab } = useWorkbench();
   const events = useEvents((s) => s.events);
@@ -57,7 +58,16 @@ export function BottomPanel({ session }: { session: SessionInfo }) {
             </TabsTrigger>
             <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.problems")}
-              {problems.length > 0 && <span className="bg-error/15 text-error num rounded px-1 text-[10px]">{problems.length}</span>}
+              {problems.length + diagnostics.length > 0 && (
+                <span
+                  className={cn(
+                    "num rounded px-1 text-[10px]",
+                    problems.length || diagnostics.some((d) => d.severity === "error") ? "bg-error/15 text-error" : "bg-warn/15 text-warn",
+                  )}
+                >
+                  {problems.length + diagnostics.length}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
         </Tabs>
@@ -104,10 +114,13 @@ export function BottomPanel({ session }: { session: SessionInfo }) {
       )}
       {bottomTab === "problems" && (
         <div className="min-h-0 flex-1 overflow-auto">
-          {problems.length === 0 ? (
+          {problems.length + diagnostics.length === 0 ? (
             <EmptyState icon={<CircleCheck className="text-ok size-6" />} title={t("panel.noProblems")} />
           ) : (
             <ul>
+              {diagnostics.map((d, i) => (
+                <DiagnosticRow key={`d${i}`} d={d} />
+              ))}
               {problems.map((p, i) => (
                 <ProblemRow key={i} instrument={p.instrument} code={p.code} message={p.message} />
               ))}
@@ -162,6 +175,33 @@ function EventRow({ e }: { e: Event }) {
         {text}
       </span>
     </div>
+  );
+}
+
+function DiagnosticRow({ d }: { d: Diagnostic }) {
+  const select = useWorkbench((s) => s.select);
+  const subject = d.subject;
+  const onClick = () => {
+    if (!subject) return select(null);
+    if (subject.startsWith("wire:")) return select({ kind: "wire", id: Number(subject.slice(5)) });
+    select({ kind: d.pointer.startsWith("/duts/") ? "dut" : "instrument", id: subject });
+  };
+  return (
+    <li>
+      <button className="hover:bg-accent/60 flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs" onClick={onClick}>
+        {d.severity === "error" ? (
+          <AlertCircle className="text-error mt-0.5 size-3.5 shrink-0" />
+        ) : (
+          <AlertTriangle className="text-warn mt-0.5 size-3.5 shrink-0" />
+        )}
+        <span className={cn("num w-40 shrink-0 truncate", d.severity === "error" ? "text-error" : "text-warn")}>{d.code}</span>
+        <span className="flex-1">
+          {d.message}
+          {d.suggestion && <span className="text-muted-foreground"> — {d.suggestion}</span>}
+        </span>
+        <span className="text-muted-foreground num shrink-0">{d.pointer}</span>
+      </button>
+    </li>
   );
 }
 

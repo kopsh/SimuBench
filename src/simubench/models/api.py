@@ -52,6 +52,9 @@ class BenchDocument(_Model):
 
     path: str
     sha256: str = Field(..., description="Hash of the file bytes; pass back as base_sha256 to save")
+    fingerprint: str = Field(
+        ..., description="Hash of what a session is built from (layout and description excluded)"
+    )
     data: dict[str, Any]
     ok: bool
     diagnostics: list[Diagnostic]
@@ -195,6 +198,9 @@ class SessionInfo(_Model):
     seed: int
     reveal_true_values: bool
     bench_sha256: str | None = Field(None, description="Hash of the bench file the session started from")
+    bench_fingerprint: str | None = Field(
+        None, description="Fingerprint of the bench content; differs from the file's when a restart is needed"
+    )
     record_path: str | None = None
     instruments: list[InstrumentInfo]
     duts: list[ComponentInfo]

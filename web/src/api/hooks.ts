@@ -6,7 +6,34 @@ export const keys = {
   sessions: ["sessions"] as const,
   session: (sid: string) => ["session", sid] as const,
   screen: (sid: string, name: string, source: string) => ["screen", sid, name, source] as const,
+  catalog: ["catalog"] as const,
+  benchDoc: (path: string) => ["bench-doc", path] as const,
+  preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
 };
+
+export function useCatalog() {
+  return useQuery({ queryKey: keys.catalog, queryFn: () => unwrap(api.GET("/api/catalog")), staleTime: 60_000 });
+}
+
+/** The bench file as stored; polled so that changes made elsewhere (an agent, an editor) show up. */
+export function useBenchDoc(path: string | null | undefined, pollMs: number | false = 2500) {
+  return useQuery({
+    queryKey: keys.benchDoc(path ?? ""),
+    queryFn: () => unwrap(api.GET("/api/benches/file", { params: { query: { path: path! } } })),
+    enabled: !!path,
+    refetchInterval: pollMs,
+  });
+}
+
+export function useBenchPreview(path: string | null | undefined, sha: string | undefined) {
+  return useQuery({
+    queryKey: keys.preview(path ?? "", sha ?? ""),
+    queryFn: () => unwrap(api.GET("/api/benches/preview", { params: { query: { path: path! } } })),
+    enabled: !!path && !!sha,
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
+  });
+}
 
 export function useBenches() {
   return useQuery({ queryKey: keys.benches, queryFn: () => unwrap(api.GET("/api/benches")) });

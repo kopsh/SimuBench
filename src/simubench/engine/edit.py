@@ -280,6 +280,8 @@ def to_yaml_data(bench: BenchDefinition) -> dict[str, Any]:
     for key in ("description", "instruments", "duts", "wires", "run", "layout"):
         if data.get(key):
             out[key] = data[key]
+    if bench.layout:  # coordinates are always written, 0 included
+        out["layout"] = {k: v.model_dump(exclude_none=True) for k, v in bench.layout.items()}
     for w in out.get("wires", []):
         if not w.get("accessories"):
             w.pop("accessories", None)

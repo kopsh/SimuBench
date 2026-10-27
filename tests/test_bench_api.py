@@ -152,3 +152,25 @@ def test_session_reports_its_bench_hash(client):
     doc = client.get("/api/benches/file", params={"path": BENCH}).json()
     s = client.post("/api/sessions", json={"bench_path": BENCH}).json()
     assert s["bench_sha256"] == doc["sha256"]
+
+
+def test_moving_nodes_keeps_the_fingerprint(client):
+    doc = client.get("/api/benches/file", params={"path": BENCH}).json()
+    moved = client.post(
+        "/api/benches/edit",
+        json={
+            "path": BENCH,
+            "base_sha256": doc["sha256"],
+            "ops": [{"op": "move", "name": "rc", "x": 1, "y": 2}],
+        },
+    ).json()
+    assert moved["sha256"] != doc["sha256"] and moved["fingerprint"] == doc["fingerprint"]
+    changed = client.post(
+        "/api/benches/edit",
+        json={
+            "path": BENCH,
+            "base_sha256": moved["sha256"],
+            "ops": [{"op": "set_params", "dut": "rc", "params": {"r": 2000}}],
+        },
+    ).json()
+    assert changed["fingerprint"] != doc["fingerprint"]

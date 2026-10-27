@@ -16,8 +16,7 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
   webServer: {
-    command: `uv run simubench serve --workspace examples --token e2e-token --port ${PORT} --scpi-base-port 0`,
-    cwd: "..",
+    command: `node e2e/serve.mjs ${PORT}`,
     url: `http://127.0.0.1:${PORT}/api/health`,
     reuseExistingServer: false,
     timeout: 60_000,
