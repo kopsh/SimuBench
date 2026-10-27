@@ -49,11 +49,13 @@ class SessionManager:
         scpi_host: str = "127.0.0.1",
         scpi_base_port: int | None = 5025,
         record_dir: Path | None = None,
+        record_raw: bool = False,
     ) -> None:
         self.workspace = workspace
         self.scpi_host = scpi_host
         self.scpi_base_port = scpi_base_port
         self.record_dir = record_dir
+        self.record_raw = record_raw
         self.sessions: dict[str, ServedSession] = {}
         self.files = BenchFiles(workspace)
 
@@ -88,7 +90,9 @@ class SessionManager:
         doc = self.files.read(bench_path)
         if not doc.ok:
             raise BenchInvalid(doc.diagnostics)
-        session = open_bench(path, clock=clock, seed=seed, record_dir=self.record_dir)
+        session = open_bench(
+            path, clock=clock, seed=seed, record_dir=self.record_dir, record_raw=self.record_raw
+        )
         served = ServedSession(uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
         served.bench_fingerprint = doc.fingerprint

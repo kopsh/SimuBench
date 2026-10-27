@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -165,6 +166,27 @@ class ScopeAcquisition(Component):
         self.records.update(records)
         self.acq_count += 1
         self.session.invalidate()
+        if self.owner is not None:
+            # The acquisition's recipe: everything needed to regenerate it from the bench (D36).
+            self.session.instrument_event(
+                self.owner,
+                "acquisition",
+                {
+                    "count": self.acq_count,
+                    "channels": {
+                        str(ch): {
+                            "t_start_ns": rec.t_start_ns,
+                            "dt_s": rec.dt_s,
+                            "points": int(rec.volts.size),
+                            "trigger_index": rec.trigger_index,
+                            "triggered": rec.triggered,
+                            "sha256": hashlib.sha256(np.ascontiguousarray(rec.volts).tobytes()).hexdigest(),
+                        }
+                        for ch, rec in sorted(records.items())
+                    },
+                    "seed": self.session.seed,
+                },
+            )
         return used
 
     @op("digitize")

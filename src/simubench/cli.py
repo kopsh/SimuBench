@@ -26,6 +26,7 @@ def _serve(args: argparse.Namespace) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
+        record_raw=getattr(args, "record_raw", False),
     )
     token = args.token or secrets.token_urlsafe(24)
     app = create_app(manager, token=token)
@@ -81,6 +82,7 @@ def _mcp(args: argparse.Namespace) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
+        record_raw=getattr(args, "record_raw", False),
     )
     token = args.token or secrets.token_urlsafe(24)
     ui_url = None
@@ -140,6 +142,31 @@ def _validate(args: argparse.Namespace) -> int:
     return status
 
 
+def _replay(args: argparse.Namespace) -> int:
+    """Replay a run record and compare every reply; exit 1 when one differs (D36)."""
+    from .engine.replay import replay
+
+    try:
+        report = replay(args.record, definition_dirs=args.definitions or None, stop_at_first=args.first)
+    except ValueError as exc:
+        print(f"{args.record}: {exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+    else:
+        for w in report.warnings:
+            print(f"warning: {w}", file=sys.stderr)
+        for m in report.mismatches:
+            print(f"{args.record}:{m.seq}: {m.instrument} at t = {m.t_ns / 1e9:.9f} s", file=sys.stderr)
+            if m.command:
+                print(f"  after:    {m.command}", file=sys.stderr)
+            print(f"  recorded: {m.expected}", file=sys.stderr)
+            print(f"  replayed: {m.actual}", file=sys.stderr)
+        verdict = "identical" if report.ok else f"{len(report.mismatches)} replies differ"
+        print(f"{report.bench}: {report.actions} actions, {report.replies} replies, {verdict}")
+    return 0 if report.ok else 1
+
+
 def _schemas(args: argparse.Namespace) -> int:
     from .server.schemas import export_all
 
@@ -161,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--scpi-base-port", type=int, default=5025, help="first SCPI port; 0 lets the OS choose")
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
+    p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
     p.add_argument("--token", help="access token (default: random)")
     p.add_argument("--open", action="store_true", help="open the browser")
     p.add_argument("--log-level", default="warning")
@@ -185,6 +213,13 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("validate", help="check bench files; exit 1 on the first problem")
     p.add_argument("benches", nargs="+")
     p.set_defaults(fn=_validate)
+
+    p = sub.add_parser("replay", help="replay a run record and compare every reply (exit 1 on a difference)")
+    p.add_argument("record", help="run-*.jsonl written with --record-dir")
+    p.add_argument("--definitions", action="append", help="extra instrument definition folder (repeatable)")
+    p.add_argument("--first", action="store_true", help="stop at the first difference")
+    p.add_argument("--json", action="store_true", help="print the report as JSON")
+    p.set_defaults(fn=_replay)
 
     p = sub.add_parser("schemas", help="export OpenAPI and JSON Schemas (D21)")
     p.add_argument("--out", default="schemas")
