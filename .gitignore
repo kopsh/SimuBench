@@ -13,3 +13,4 @@ web/storybook-static/
 runs/
 test-results/
 playwright-report/
+.simubench/

@@ -67,6 +67,10 @@ async def test_build_deploy_drive_observe(ws):
 
         stale = await call(c, "edit_bench", path="agent.bench.yaml", base_sha256="0" * 64, ops=ops[:1])
         assert "read_bench" in stale["error"]
+        versions = await call(c, "list_bench_history", path="agent.bench.yaml")
+        assert [v["source"] for v in versions] == ["agent", "agent"]  # D35: who wrote each version
+        first = await call(c, "read_bench_version", path="agent.bench.yaml", seq=1)
+        assert first["data"]["name"] == "agent" and "instruments" not in first["data"]
 
         s = await call(c, "start_session", path="agent.bench.yaml")
         assert {i["name"] for i in s["instruments"]} == {"gen", "osc"}

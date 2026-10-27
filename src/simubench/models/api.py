@@ -60,18 +60,48 @@ class BenchDocument(_Model):
     diagnostics: list[Diagnostic]
 
 
+SaveSource = Literal["ui", "agent", "api"]
+
+
 class SaveBenchRequest(_Model):
     path: str
     base_sha256: str | None = Field(
         ..., description="Hash the edit started from; null creates a new file (409 if it exists)"
     )
     data: dict[str, Any]
+    source: SaveSource = Field("api", description="Who is saving, kept in the version history (D35)")
 
 
 class EditBenchRequest(_Model):
     path: str
     base_sha256: str
     ops: list[EditOp]
+    source: SaveSource = Field("api", description="Who is saving, kept in the version history (D35)")
+
+
+class BenchVersion(_Model):
+    """One saved version of a bench file (D35)."""
+
+    seq: int
+    sha256: str
+    fingerprint: str
+    source: Literal["ui", "agent", "api", "external", "restore"] = Field(
+        ..., description="Who wrote it; external: changed outside SimuBench, seen at the next save"
+    )
+    saved_at: str = Field(..., description="UTC, ISO 8601")
+    layout_only: bool = Field(False, description="Only node positions changed since the previous version")
+
+
+class BenchVersionDocument(_Model):
+    path: str
+    version: BenchVersion
+    data: dict[str, Any]
+
+
+class RestoreBenchRequest(_Model):
+    path: str
+    seq: int
+    base_sha256: str
 
 
 class ValidateRequest(_Model):

@@ -17,6 +17,7 @@ import { CLASS_ICON } from "./canvas/InstrumentNode";
 import type { Issue } from "./canvas/InstrumentNode";
 import { addItem } from "./edit/actions";
 import { RestartBanner } from "./edit/EditControls";
+import { HistoryDialog } from "./edit/HistoryDialog";
 import { EditInspector } from "./edit/EditInspector";
 import { applyOps, bindEditor, syncDocument, useEditor } from "./edit/editor";
 import { LibraryPanel } from "./edit/LibraryPanel";
@@ -147,6 +148,7 @@ export function WorkbenchPage() {
         </ResizablePanel>
       </ResizablePanelGroup>
       <CommandPalette session={s} />
+      {s.bench_path && <HistoryDialog path={s.bench_path} />}
     </div>
   );
 }

@@ -18,19 +18,29 @@ interface WorkbenchState {
   tabs: Tab[];
   active: string; // tab key
   paletteOpen: boolean;
+  /** The version history dialog (D35) is open. */
+  historyOpen: boolean;
   bottomTab: "comms" | "events" | "problems";
   select: (s: Selection) => void;
   openScreen: (instrument: string) => void;
   closeTab: (key: string) => void;
   setActive: (key: string) => void;
   setPalette: (open: boolean) => void;
+  setHistory: (open: boolean) => void;
   setBottomTab: (tab: WorkbenchState["bottomTab"]) => void;
   reset: () => void;
 }
 
 export const tabKey = (t: Tab) => (t.kind === "canvas" ? "canvas" : `screen:${t.instrument}`);
 
-const initial = { selection: null, tabs: [{ kind: "canvas" }] as Tab[], active: "canvas", paletteOpen: false, bottomTab: "comms" as const };
+const initial = {
+  selection: null,
+  tabs: [{ kind: "canvas" }] as Tab[],
+  active: "canvas",
+  paletteOpen: false,
+  historyOpen: false,
+  bottomTab: "comms" as const,
+};
 
 export const useWorkbench = create<WorkbenchState>((set) => ({
   ...initial,
@@ -51,6 +61,7 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
     }),
   setActive: (active) => set({ active }),
   setPalette: (paletteOpen) => set({ paletteOpen }),
+  setHistory: (historyOpen) => set({ historyOpen }),
   setBottomTab: (bottomTab) => set({ bottomTab }),
   reset: () => set(initial),
 }));

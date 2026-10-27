@@ -132,3 +132,28 @@ test("create a bench from the home page and build it", async ({ page }) => {
   const doc = await readDoc(page.request, `${name}.bench.yaml`);
   expect(Object.keys(doc.data.instruments as object).sort()).toEqual(["awg", "scope"]);
 });
+
+test("review an agent's change in the version history and restore the version before it", async ({ page }) => {
+  const path = await openEditor(page);
+  const doc = await readDoc(page.request, path);
+  // An agent edits the bench through the API (as the MCP server does).
+  const ops = [{ op: "set_params", dut: "rc", params: { r: 2200 } }];
+  const r = await page.request.post("/api/benches/edit", { headers, data: { path, base_sha256: doc.sha256, ops, source: "agent" } });
+  expect(r.ok()).toBeTruthy();
+
+  await page.getByRole("button", { name: "查看差异" }).click();
+  const dialog = page.getByRole("dialog", { name: /版本历史/ });
+  const versions = dialog.getByRole("list", { name: "版本" });
+  await expect(versions.getByRole("button")).toHaveCount(2);
+  await expect(versions.getByRole("button").first()).toContainText("Agent");
+  const diff = dialog.getByTestId("history-diff");
+  await expect(diff).toContainText("params.r");
+  await expect(diff).toContainText("1000");
+  await expect(diff).toContainText("2200");
+
+  await versions.getByRole("button").nth(1).click();
+  await dialog.getByRole("button", { name: "恢复此版本" }).click();
+  await expect(versions.getByRole("button")).toHaveCount(3);
+  await expect(versions.getByRole("button").first()).toContainText("恢复");
+  expect(((await readDoc(page.request, path)).data.duts as { rc: { params: { r: number } } }).rc.params.r).toBe(1000);
+});

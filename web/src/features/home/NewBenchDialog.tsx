@@ -35,7 +35,7 @@ export function NewBenchDialog() {
     try {
       await unwrap(
         api.PUT("/api/benches/file", {
-          body: { path: filePath, base_sha256: null, data: { schema: "simubench.bench/1", name: name.trim() } },
+          body: { path: filePath, base_sha256: null, data: { schema: "simubench.bench/1", name: name.trim() }, source: "ui" },
         }),
       );
       const s = await start.mutateAsync(filePath);

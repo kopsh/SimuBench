@@ -313,6 +313,79 @@
         "title": "BenchPreview",
         "type": "object"
       },
+      "BenchVersion": {
+        "description": "One saved version of a bench file (D35).",
+        "properties": {
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "layout_only": {
+            "default": false,
+            "description": "Only node positions changed since the previous version",
+            "title": "Layout Only",
+            "type": "boolean"
+          },
+          "saved_at": {
+            "description": "UTC, ISO 8601",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source": {
+            "description": "Who wrote it; external: changed outside SimuBench, seen at the next save",
+            "enum": [
+              "ui",
+              "agent",
+              "api",
+              "external",
+              "restore"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "sha256",
+          "fingerprint",
+          "source",
+          "saved_at",
+          "layout_only"
+        ],
+        "title": "BenchVersion",
+        "type": "object"
+      },
+      "BenchVersionDocument": {
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "version": {
+            "$ref": "#/components/schemas/BenchVersion"
+          }
+        },
+        "required": [
+          "path",
+          "version",
+          "data"
+        ],
+        "title": "BenchVersionDocument",
+        "type": "object"
+      },
       "Catalog": {
         "description": "What can be placed on a bench: instrument definitions, DUT and accessory types.",
         "properties": {
@@ -998,6 +1071,17 @@
           },
           "path": {
             "title": "Path",
+            "type": "string"
+          },
+          "source": {
+            "default": "api",
+            "description": "Who is saving, kept in the version history (D35)",
+            "enum": [
+              "ui",
+              "agent",
+              "api"
+            ],
+            "title": "Source",
             "type": "string"
           }
         },
@@ -1993,6 +2077,29 @@
         "title": "Rename",
         "type": "object"
       },
+      "RestoreBenchRequest": {
+        "properties": {
+          "base_sha256": {
+            "title": "Base Sha256",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "seq",
+          "base_sha256"
+        ],
+        "title": "RestoreBenchRequest",
+        "type": "object"
+      },
       "SaveBenchRequest": {
         "properties": {
           "base_sha256": {
@@ -2014,6 +2121,17 @@
           },
           "path": {
             "title": "Path",
+            "type": "string"
+          },
+          "source": {
+            "default": "api",
+            "description": "Who is saving, kept in the version history (D35)",
+            "enum": [
+              "ui",
+              "agent",
+              "api"
+            ],
+            "title": "Source",
             "type": "string"
           }
         },
@@ -3267,6 +3385,50 @@
         "summary": "Save Bench"
       }
     },
+    "/api/benches/history": {
+      "get": {
+        "description": "Saved versions of a bench file, newest first (D35).",
+        "operationId": "benchHistory",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BenchVersion"
+                  },
+                  "title": "Response Benchhistory",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bench History"
+      }
+    },
     "/api/benches/preview": {
       "get": {
         "operationId": "previewBench",
@@ -3306,6 +3468,48 @@
         "summary": "Preview Bench"
       }
     },
+    "/api/benches/restore": {
+      "post": {
+        "description": "Write an earlier version back as the newest one; later versions stay in the history.",
+        "operationId": "restoreBench",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreBenchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The file changed since base_sha256 was read"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Bench"
+      }
+    },
     "/api/benches/validate": {
       "post": {
         "operationId": "validateBench",
@@ -3342,6 +3546,54 @@
           }
         },
         "summary": "Validate Bench"
+      }
+    },
+    "/api/benches/version": {
+      "get": {
+        "operationId": "readBenchVersion",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seq",
+            "required": true,
+            "schema": {
+              "title": "Seq",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchVersionDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Bench Version"
       }
     },
     "/api/catalog": {

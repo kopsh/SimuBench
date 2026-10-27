@@ -214,3 +214,46 @@ def test_readings_are_passive(tmp_path):
         assert scpi["response"].startswith("0,")
         dmm = c.get(f"/api/sessions/{sid}/instruments/dmm/readings").json()
         assert dmm["values"]["meter.AC"] == pytest.approx(r["values"]["demod.R"], rel=1e-6)
+
+
+def test_history_records_sources_external_changes_and_restores(client, ws):
+    def edit(sha, ops, source="ui"):
+        r = client.post(
+            "/api/benches/edit", json={"path": BENCH, "base_sha256": sha, "ops": ops, "source": source}
+        )
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    def history():
+        return client.get("/api/benches/history", params={"path": BENCH}).json()
+
+    original = client.get("/api/benches/file", params={"path": BENCH}).json()
+    a = edit(
+        original["sha256"], [{"op": "set_state", "instrument": "awg", "path": "ch1.load", "value": "INF"}]
+    )
+    b = edit(a["sha256"], [{"op": "set_params", "dut": "rc", "params": {"r": 2000}}], source="agent")
+    # The file as first seen counts as external (it was not written by SimuBench).
+    assert [(v["seq"], v["source"]) for v in history()] == [(3, "agent"), (2, "ui"), (1, "external")]
+    assert history()[2]["sha256"] == original["sha256"]
+
+    # Node moves right after each other merge into one version.
+    c = edit(b["sha256"], [{"op": "move", "name": "awg", "x": 10, "y": 20}])
+    d = edit(c["sha256"], [{"op": "move", "name": "awg", "x": 30, "y": 40}])
+    h = history()
+    assert len(h) == 4 and h[0]["layout_only"] and h[0]["sha256"] == d["sha256"]
+
+    # A text editor changes the file: seen as an external version at the next save.
+    text = (ws / BENCH).read_text(encoding="utf-8").replace("r: 2000", "r: 3000")
+    (ws / BENCH).write_text(text, encoding="utf-8")
+    current = client.get("/api/benches/file", params={"path": BENCH}).json()
+    edit(current["sha256"], [{"op": "set_params", "dut": "rc", "params": {"c": 2e-7}}])
+    assert [v["source"] for v in history()[:2]] == ["ui", "external"]
+
+    old = client.get("/api/benches/version", params={"path": BENCH, "seq": 2}).json()
+    assert old["data"]["duts"]["rc"]["params"]["r"] == 1000 and old["version"]["source"] == "ui"
+    head = client.get("/api/benches/file", params={"path": BENCH}).json()
+    r = client.post("/api/benches/restore", json={"path": BENCH, "seq": 2, "base_sha256": head["sha256"]})
+    assert r.status_code == 200 and r.json()["fingerprint"] == a["fingerprint"]
+    assert history()[0]["source"] == "restore" and len(history()) == 7  # nothing was dropped
+    assert client.get("/api/benches/version", params={"path": BENCH, "seq": 99}).status_code == 404
+    assert client.get("/api/benches/history", params={"path": "../x.bench.yaml"}).status_code == 403

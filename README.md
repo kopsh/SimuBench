@@ -32,6 +32,7 @@ Agent 搭建与部署的测试台会实时出现在界面中。需要可选依�
 claude mcp add simubench -- uv run --directory /path/to/SimuBench simubench mcp --workspace /path/to/benches
 ```
 
-工具：查询仪表定义与组件、创建/编辑/校验 Bench、由 PyVISA 脚本生成 Bench 草稿、部署（启动会话并返回资源地址）、
+工具：查询仪表定义与组件、创建/编辑/校验 Bench、查看 Bench 的版本历史、由 PyVISA 脚本生成 Bench 草稿、部署（启动会话并返回资源地址）、
 发送 SCPI（危险命令需 `confirm=true`）、读取仪表状态与通信记录。推进时钟与读取真实值属于仿真控制，
 需以 `--allow-control` 启动，读取真实值还需 Bench 中 `run.reveal_true_values: true`。
+Agent 保存的每个版本都记录为 Agent 所写，工程师在界面的“版本历史”中逐项审阅并可恢复（D35）。

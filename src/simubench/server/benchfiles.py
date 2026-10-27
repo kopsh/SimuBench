@@ -24,6 +24,7 @@ from ..engine.validate import Report, validate_data
 from ..library.loader import DefinitionLibrary, load_yaml
 from ..models import api as M
 from ..models.bench import BenchDefinition
+from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
 
@@ -40,6 +41,7 @@ class BenchFiles:
     def __init__(self, workspace: Path) -> None:
         self.workspace = workspace.resolve()
         self._lock = threading.Lock()
+        self.history = History(self.workspace)
 
     # ---- paths and libraries ------------------------------------------------------------------------
 
@@ -66,7 +68,9 @@ class BenchFiles:
         _, report = validate_data(data, self.library(path))
         return report
 
-    def save(self, bench_path: str, base_sha256: str | None, data: dict[str, Any]) -> M.BenchDocument:
+    def save(
+        self, bench_path: str, base_sha256: str | None, data: dict[str, Any], source: Source = "api"
+    ) -> M.BenchDocument:
         path = self.resolve(bench_path)
         if not path.name.endswith(SUFFIXES):
             raise ValueError(f"bench files end with {' or '.join(SUFFIXES)}")
@@ -76,7 +80,8 @@ class BenchFiles:
             data = edit.to_yaml_data(BenchDefinition.model_validate(data))
         raw = _dump(path, data)
         with self._lock:
-            current = _sha(path.read_bytes()) if path.exists() else None
+            old = path.read_bytes() if path.exists() else None
+            current = _sha(old) if old is not None else None
             if base_sha256 is None and current is not None:
                 raise Conflict(f"{bench_path} already exists", current)
             if base_sha256 is not None and base_sha256 != current:
@@ -85,9 +90,16 @@ class BenchFiles:
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
             os.replace(tmp, path)
+            previous = None
+            if old is not None:
+                with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
+                    previous = (old, current, fingerprint(_parse(path, old)))
+            self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
         return self._document(bench_path, path, raw, data)
 
-    def edit(self, bench_path: str, base_sha256: str, ops: list[Any]) -> M.BenchDocument:
+    def edit(
+        self, bench_path: str, base_sha256: str, ops: list[Any], source: Source = "api"
+    ) -> M.BenchDocument:
         doc = self.read(bench_path)
         if doc.sha256 != base_sha256:
             raise Conflict(f"{bench_path} changed since it was read", doc.sha256)
@@ -95,7 +107,26 @@ class BenchFiles:
             bench = BenchDefinition.model_validate(doc.data)
         except ValueError:
             raise edit.EditError("文件不符合测试台格式，先修正诊断中的错误再编辑") from None
-        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops)))
+        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops)), source)
+
+    # ---- history (D35) ------------------------------------------------------------------------------
+
+    def versions(self, bench_path: str) -> list[M.BenchVersion]:
+        self.resolve(bench_path)
+        return self.history.versions(bench_path)
+
+    def version(self, bench_path: str, seq: int) -> M.BenchVersionDocument:
+        path = self.resolve(bench_path)
+        entry = next((v for v in self.history.versions(bench_path) if v.seq == seq), None)
+        if entry is None:
+            raise FileNotFoundError(f"{bench_path} has no version {seq}")
+        data = _parse(path, self.history.content(bench_path, seq))
+        return M.BenchVersionDocument(path=bench_path, version=entry, data=data)
+
+    def restore(self, bench_path: str, seq: int, base_sha256: str) -> M.BenchDocument:
+        """Write version ``seq`` back as the newest version (the versions after it stay in the history)."""
+        old = self.version(bench_path, seq)
+        return self.save(bench_path, base_sha256, old.data, "restore")
 
     def _document(self, bench_path: str, path: Path, raw: bytes, data: dict[str, Any]) -> M.BenchDocument:
         _, report = validate_data(data, self.library(path))
