@@ -58,7 +58,9 @@ class StateVarInfo(_Model):
     label_en: str | None = None
     readonly: bool = False
     electrical: bool = False
-    dangerous: bool = Field(False, description="A command bound to it is marked dangerous; confirm before changing")
+    dangerous: bool = Field(
+        False, description="A command bound to it is marked dangerous; confirm before changing"
+    )
     value: Any = None
     channel: int | None = None
 

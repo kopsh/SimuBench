@@ -47,15 +47,25 @@ def _serve(args: argparse.Namespace) -> int:
 
 
 def _validate(args: argparse.Namespace) -> int:
-    from .api import open_bench
+    """Print diagnostics as ``file:pointer: CODE message (suggestion)``; exit 1 on any error."""
+    from .engine.validate import validate_data
+    from .library.loader import DefinitionLibrary, _read_yaml
 
     status = 0
     for path in args.benches:
+        p = Path(path)
         try:
-            with open_bench(path):
-                pass
+            data = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
         except Exception as exc:
-            print(f"{path}: {exc}", file=sys.stderr)
+            print(f"{path}: E-READ {exc}", file=sys.stderr)
+            status = 1
+            continue
+        library = DefinitionLibrary([p.resolve().parent / "instruments"])
+        _, report = validate_data(data, library)
+        for d in report.diagnostics:
+            hint = f" ({d.suggestion})" if d.suggestion else ""
+            print(f"{path}:{d.pointer}: {d.code} {d.message}{hint}", file=sys.stderr)
+        if not report.ok:
             status = 1
     return status
 
