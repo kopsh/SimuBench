@@ -1,0 +1,180 @@
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { SessionInfo } from "@/api/client";
+import { useEvents } from "@/api/events";
+import type { Event } from "@/api/generated/events";
+import { EmptyState } from "@/components/app/StateViews";
+import { VirtualList } from "@/components/app/VirtualList";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Toggle } from "@/components/ui/toggle";
+import { formatClock, formatEng } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { useWorkbench } from "./store";
+
+const ROW = 24;
+
+export function BottomPanel({ session }: { session: SessionInfo }) {
+  const { t } = useTranslation();
+  const { bottomTab, setBottomTab } = useWorkbench();
+  const events = useEvents((s) => s.events);
+  const clear = useEvents((s) => s.clear);
+  const [filter, setFilter] = useState("");
+  const [follow, setFollow] = useState(true);
+
+  const problems = useMemo(
+    () => session.instruments.flatMap((i) => i.errors.map((e) => ({ instrument: i.name, ...e }))),
+    [session.instruments],
+  );
+  const q = filter.trim().toLowerCase();
+  const comms = useMemo(
+    () =>
+      events.filter(
+        (e) => e.kind === "scpi" && (!q || (e.text ?? "").toLowerCase().includes(q) || (e.instrument ?? "").toLowerCase().includes(q)),
+      ),
+    [events, q],
+  );
+  const others = useMemo(
+    () =>
+      events.filter(
+        (e) => e.kind !== "scpi" && (!q || JSON.stringify(e).toLowerCase().includes(q)),
+      ),
+    [events, q],
+  );
+
+  return (
+    <div className="bg-panel flex h-full flex-col">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        <Tabs value={bottomTab} onValueChange={(v) => setBottomTab(v as typeof bottomTab)}>
+          <TabsList className="h-7">
+            <TabsTrigger value="comms" className="h-6 px-2.5 text-xs">
+              {t("panel.comms")}
+            </TabsTrigger>
+            <TabsTrigger value="events" className="h-6 px-2.5 text-xs">
+              {t("panel.events")}
+            </TabsTrigger>
+            <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
+              {t("panel.problems")}
+              {problems.length > 0 && <span className="bg-error/15 text-error num rounded px-1 text-[10px]">{problems.length}</span>}
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative ml-auto w-56">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("panel.filter")} className="h-7 pl-7 text-xs" aria-label={t("panel.filter")} />
+        </div>
+        <Toggle size="sm" pressed={follow} onPressedChange={setFollow} className="h-7" aria-label={t("panel.autoscroll")} title={t("panel.autoscroll")}>
+          <ArrowDownToLine className="size-3.5" />
+        </Toggle>
+        <Button variant="ghost" size="sm" className="h-7" onClick={clear} title={t("panel.clear")} aria-label={t("panel.clear")}>
+          <Eraser className="size-3.5" />
+        </Button>
+      </div>
+      {bottomTab === "comms" && (
+        <>
+          <div className="text-muted-foreground grid h-6 shrink-0 grid-cols-[96px_96px_28px_1fr_64px_72px] items-center gap-2 border-b px-3 text-[11px]">
+            <span>{t("panel.time")}</span>
+            <span>{t("panel.instrument")}</span>
+            <span />
+            <span>{t("panel.message")}</span>
+            <span className="text-right">{t("panel.bytes")}</span>
+            <span className="text-right">{t("panel.duration")}</span>
+          </div>
+          <VirtualList
+            className="min-h-0 flex-1"
+            items={comms}
+            rowHeight={ROW}
+            follow={follow}
+            empty={<EmptyState title={t("panel.noComms")} />}
+            render={(e) => <CommRow e={e} />}
+          />
+        </>
+      )}
+      {bottomTab === "events" && (
+        <VirtualList
+          className="min-h-0 flex-1"
+          items={others}
+          rowHeight={ROW}
+          follow={follow}
+          empty={<EmptyState title={t("panel.noEvents")} />}
+          render={(e) => <EventRow e={e} />}
+        />
+      )}
+      {bottomTab === "problems" && (
+        <div className="min-h-0 flex-1 overflow-auto">
+          {problems.length === 0 ? (
+            <EmptyState icon={<CircleCheck className="text-ok size-6" />} title={t("panel.noProblems")} />
+          ) : (
+            <ul>
+              {problems.map((p, i) => (
+                <ProblemRow key={i} instrument={p.instrument} code={p.code} message={p.message} />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CommRow({ e }: { e: Event }) {
+  const { t } = useTranslation();
+  const select = useWorkbench((s) => s.select);
+  const write = e.dir === "write";
+  return (
+    <div
+      className={cn(
+        "hover:bg-accent/60 grid h-full cursor-default grid-cols-[96px_96px_28px_1fr_64px_72px] items-center gap-2 px-3 text-[11.5px]",
+        !write && "text-muted-foreground",
+      )}
+      onClick={() => e.instrument && select({ kind: "instrument", id: e.instrument })}
+    >
+      <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
+      <span className="truncate">{e.instrument}</span>
+      <span title={write ? t("panel.write") : t("panel.read")}>
+        {write ? <ArrowRight className="text-primary size-3.5" /> : <ArrowLeft className="size-3.5" />}
+      </span>
+      <span className="num truncate" title={e.text ?? ""}>
+        {(e.text ?? "").replace(/\n$/, "")}
+      </span>
+      <span className="num text-muted-foreground text-right">{e.size ?? ""}</span>
+      <span className="num text-muted-foreground text-right">{e.duration_ns ? formatEng(e.duration_ns / 1e9, "s", 3) : ""}</span>
+    </div>
+  );
+}
+
+function EventRow({ e }: { e: Event }) {
+  let text = "";
+  if (e.kind === "state") text = `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`;
+  else if (e.kind === "advance") text = `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${e.reason ?? ""}`;
+  else if (e.kind === "error") text = `${e.instrument}  ${e.code}, ${e.message}`;
+  else text = JSON.stringify(e);
+  return (
+    <div className="hover:bg-accent/60 grid h-full grid-cols-[96px_72px_1fr] items-center gap-2 px-3 text-[11.5px]">
+      <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
+      <span className={cn("text-[11px] font-medium", e.kind === "error" ? "text-error" : "text-muted-foreground")}>{e.kind}</span>
+      <span className="num truncate" title={text}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+function ProblemRow({ instrument, code, message }: { instrument: string; code: number; message: string }) {
+  const select = useWorkbench((s) => s.select);
+  return (
+    <li>
+      <button
+        className="hover:bg-accent/60 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs"
+        onClick={() => select({ kind: "instrument", id: instrument })}
+      >
+        <AlertTriangle className="text-error size-3.5 shrink-0" />
+        <span className="num text-error w-12">{code}</span>
+        <span className="flex-1">{message}</span>
+        <span className="text-muted-foreground">{instrument}</span>
+      </button>
+    </li>
+  );
+}

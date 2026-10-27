@@ -168,8 +168,10 @@ class SessionManager:
                     channel=comp.channel,
                 )
             )
+        dangerous_paths = {c.state for c in d.commands if c.dangerous and c.state}
         state = []
         for path, spec in inst.specs.items():
+            generic = f"ch.{path.split('.', 1)[1]}" if path.startswith("ch") and path[2:3].isdigit() else path
             ch = int(path[2 : path.index(".")]) if path.startswith("ch") and path[2:3].isdigit() else None
             state.append(
                 M.StateVarInfo(
@@ -179,10 +181,13 @@ class SessionManager:
                     min=spec.min,
                     max=spec.max,
                     options=spec.options,
+                    option_labels=spec.option_labels,
+                    display_unit=spec.display_unit,
                     label=spec.label,
                     label_en=spec.label_en,
                     readonly=spec.readonly,
                     electrical=spec.electrical,
+                    dangerous=generic in dangerous_paths,
                     value=_plain(inst.state.get(path)),
                     channel=ch,
                 )

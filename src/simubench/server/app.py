@@ -271,7 +271,12 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             with contextlib.suppress(RuntimeError):
                 loop.call_soon_threadsafe(_put, queue, msg)
 
-        unsubscribe = s.session.subscribe(push)
+        with s.session._lock:  # backlog and subscription without a gap or a duplicate
+            backlog = list(s.session.history)
+            unsubscribe = s.session.subscribe(push)
+        for ev in backlog:
+            counter["seq"] += 1
+            await ws.send_json(to_event(ev, counter["seq"]))
         try:
             while True:
                 msg = await queue.get()

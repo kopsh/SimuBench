@@ -14,7 +14,9 @@ from .bench import LayoutItem
 
 
 class _Model(BaseModel):
-    model_config = ConfigDict(populate_by_name=True)
+    # Fields with defaults are always present in responses; say so in the schema so that the
+    # generated TypeScript types do not mark them optional.
+    model_config = ConfigDict(populate_by_name=True, json_schema_serialization_defaults_required=True)
 
 
 class Health(_Model):
@@ -50,10 +52,13 @@ class StateVarInfo(_Model):
     min: float | None = None
     max: float | None = None
     options: list[str] | None = None
+    option_labels: dict[str, str] | None = None
+    display_unit: str | None = None
     label: str | None = None
     label_en: str | None = None
     readonly: bool = False
     electrical: bool = False
+    dangerous: bool = Field(False, description="A command bound to it is marked dangerous; confirm before changing")
     value: Any = None
     channel: int | None = None
 

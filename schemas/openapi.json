@@ -56,7 +56,10 @@
         },
         "required": [
           "path",
-          "name"
+          "name",
+          "description",
+          "instruments",
+          "error"
         ],
         "title": "BenchFile",
         "type": "object"
@@ -238,7 +241,10 @@
         },
         "required": [
           "name",
-          "type"
+          "type",
+          "label",
+          "params",
+          "ports"
         ],
         "title": "ComponentInfo",
         "type": "object"
@@ -305,7 +311,9 @@
           }
         },
         "required": [
-          "ok"
+          "ok",
+          "error",
+          "value"
         ],
         "title": "ConfigureResponse",
         "type": "object"
@@ -371,6 +379,11 @@
             "title": "Template"
           }
         },
+        "required": [
+          "template",
+          "summary",
+          "channel_summary"
+        ],
         "title": "DisplayInfo",
         "type": "object"
       },
@@ -419,6 +432,7 @@
           }
         },
         "required": [
+          "status",
           "version"
         ],
         "title": "Health",
@@ -659,13 +673,17 @@
         },
         "required": [
           "name",
+          "label",
           "model",
           "manufacturer",
           "definition_id",
           "instrument_class",
+          "description",
           "idn",
           "channels",
           "address_virtual",
+          "address_real",
+          "scpi_port",
           "display",
           "ports",
           "state",
@@ -772,7 +790,8 @@
           "t0_ns",
           "dt_s",
           "volts",
-          "exact"
+          "exact",
+          "notes"
         ],
         "title": "NetWaveform",
         "type": "object"
@@ -899,7 +918,9 @@
         "required": [
           "name",
           "direction",
-          "medium"
+          "medium",
+          "net",
+          "channel"
         ],
         "title": "PortInfo",
         "type": "object"
@@ -1016,6 +1037,8 @@
           }
         },
         "required": [
+          "response",
+          "errors",
           "now_ns"
         ],
         "title": "ScpiResponse",
@@ -1124,10 +1147,13 @@
         "required": [
           "id",
           "bench_name",
+          "bench_path",
+          "description",
           "clock_mode",
           "now_ns",
           "seed",
           "reveal_true_values",
+          "record_path",
           "instruments",
           "duts",
           "wires",
@@ -1183,6 +1209,18 @@
         "properties": {
           "default": {
             "title": "Default"
+          },
+          "display_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Unit shown in the UI when it differs from `unit`, e.g. '×'",
+            "title": "Display Unit"
           },
           "electrical": {
             "default": false,
@@ -1251,6 +1289,21 @@
               }
             ],
             "title": "Min"
+          },
+          "option_labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}",
+            "title": "Option Labels"
           },
           "options": {
             "anyOf": [
@@ -1334,6 +1387,23 @@
             ],
             "title": "Channel"
           },
+          "dangerous": {
+            "default": false,
+            "description": "A command bound to it is marked dangerous; confirm before changing",
+            "title": "Dangerous",
+            "type": "boolean"
+          },
+          "display_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Unit"
+          },
           "electrical": {
             "default": false,
             "title": "Electrical",
@@ -1383,6 +1453,20 @@
             ],
             "title": "Min"
           },
+          "option_labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Option Labels"
+          },
           "options": {
             "anyOf": [
               {
@@ -1427,7 +1511,20 @@
         },
         "required": [
           "path",
-          "type"
+          "type",
+          "unit",
+          "min",
+          "max",
+          "options",
+          "option_labels",
+          "display_unit",
+          "label",
+          "label_en",
+          "readonly",
+          "electrical",
+          "dangerous",
+          "value",
+          "channel"
         ],
         "title": "StateVarInfo",
         "type": "object"
@@ -1567,7 +1664,10 @@
         "required": [
           "index",
           "from",
-          "to"
+          "to",
+          "label",
+          "accessories",
+          "net"
         ],
         "title": "WireInfo",
         "type": "object"
