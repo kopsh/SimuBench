@@ -33,7 +33,7 @@ def _serve(args: argparse.Namespace) -> int:
     @app.on_event("startup")
     async def _startup() -> None:
         if bench:
-            served = await manager.start(str(bench.relative_to(workspace)))
+            served = await manager.start(bench.relative_to(workspace).as_posix())
             for lst in served.scpi.listeners if served.scpi else []:
                 print(f"  SCPI  {lst.instrument:<12} {lst.address}")
         url = f"http://127.0.0.1:{args.port}/?token={token}"
