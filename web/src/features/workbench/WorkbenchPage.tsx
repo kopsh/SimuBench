@@ -28,6 +28,7 @@ import { GeneratorPanel } from "./screens/GeneratorPanel";
 import { LockinScreen } from "./screens/LockinScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
 import { ScopeScreen } from "./screens/ScopeScreen";
+import { SpectrumScreen } from "./screens/SpectrumScreen";
 import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
 
@@ -270,6 +271,7 @@ function Screen({ session, instrument, readonly }: { session: SessionInfo; instr
   if (template === "oscilloscope") return <ScopeScreen sid={session.id} inst={inst} />;
   if (template === "function_generator") return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "lockin") return <LockinScreen sid={session.id} inst={inst} readonly={readonly} />;
+  if (template === "spectrum_analyzer") return <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />;
   return <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />;
 }
 
