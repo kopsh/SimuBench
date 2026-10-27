@@ -11,6 +11,7 @@ import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { accessoryLabel, channelVars, globalVars, instrumentTitle, numeric } from "./model";
+import { FaultPanel } from "./faults/FaultPanel";
 import { StateField } from "./StateField";
 import { useWorkbench } from "./store";
 
@@ -34,6 +35,16 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
           </Section>
           <Section title={t("workbench.ports")}>
             <KeyValues entries={dut.ports.map((p) => [p.name, p.net ?? t("workbench.notConnected")])} />
+          </Section>
+          <Section title={t("fault.title")} collapsible defaultOpen={false}>
+            <FaultPanel
+              sid={session.id}
+              component={dut.name}
+              params={Object.entries(dut.params)
+                .filter(([, v]) => typeof v === "number")
+                .map(([k]) => k)}
+              disabled={readonly}
+            />
           </Section>
         </div>
       );
@@ -131,6 +142,9 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
       <Section title={t("workbench.sendCommand")}>
         <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
       </Section>
+      <Section title={t("fault.title")} collapsible defaultOpen={false}>
+        <FaultPanel sid={sid} instrument={inst.name} disabled={readonly} />
+      </Section>
     </div>
   );
 }
@@ -186,7 +200,11 @@ function ScpiConsole({ sid, instrument, disabled }: { sid: string; instrument: s
               {e.code},"{e.message}"
             </div>
           ))}
-          {scpi.data.response == null && scpi.data.errors.length === 0 && <div className="text-muted-foreground">✓</div>}
+          {scpi.data.link_error && <div className="text-error">{t("fault.linkDown")}: {scpi.data.link_error}</div>}
+          {scpi.data.timed_out && <div className="text-warn">{t("fault.timedOut")}</div>}
+          {scpi.data.response == null && scpi.data.errors.length === 0 && !scpi.data.timed_out && !scpi.data.link_error && (
+            <div className="text-muted-foreground">✓</div>
+          )}
         </div>
       )}
     </div>

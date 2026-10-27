@@ -2,6 +2,8 @@ import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, Cir
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Diagnostic, SessionInfo } from "@/api/client";
+import { useFaults } from "@/api/hooks";
+import { FaultRow } from "./faults/FaultPanel";
 import { useEvents } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { EmptyState } from "@/components/app/StateViews";
@@ -25,6 +27,7 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
   const [filter, setFilter] = useState("");
   const [follow, setFollow] = useState(true);
 
+  const activeFaults = (useFaults(session.id).data ?? []).filter((f) => f.status === "active");
   const problems = useMemo(
     () => session.instruments.flatMap((i) => i.errors.map((e) => ({ instrument: i.name, ...e }))),
     [session.instruments],
@@ -58,14 +61,16 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
             </TabsTrigger>
             <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.problems")}
-              {problems.length + diagnostics.length > 0 && (
+              {problems.length + diagnostics.length + activeFaults.length > 0 && (
                 <span
                   className={cn(
                     "num rounded px-1 text-[10px]",
-                    problems.length || diagnostics.some((d) => d.severity === "error") ? "bg-error/15 text-error" : "bg-warn/15 text-warn",
+                    problems.length || activeFaults.length || diagnostics.some((d) => d.severity === "error")
+                      ? "bg-error/15 text-error"
+                      : "bg-warn/15 text-warn",
                   )}
                 >
-                  {problems.length + diagnostics.length}
+                  {problems.length + diagnostics.length + activeFaults.length}
                 </span>
               )}
             </TabsTrigger>
@@ -114,10 +119,17 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
       )}
       {bottomTab === "problems" && (
         <div className="min-h-0 flex-1 overflow-auto">
-          {problems.length + diagnostics.length === 0 ? (
+          {problems.length + diagnostics.length + activeFaults.length === 0 ? (
             <EmptyState icon={<CircleCheck className="text-ok size-6" />} title={t("panel.noProblems")} />
           ) : (
             <ul>
+              {activeFaults.length > 0 && (
+                <ul className="border-b px-3 py-1.5">
+                  {activeFaults.map((f) => (
+                    <FaultRow key={f.id} f={f} />
+                  ))}
+                </ul>
+              )}
               {diagnostics.map((d, i) => (
                 <DiagnosticRow key={`d${i}`} d={d} />
               ))}
@@ -160,7 +172,9 @@ function CommRow({ e }: { e: Event }) {
 
 function EventRow({ e }: { e: Event }) {
   const text =
-    e.kind === "state"
+    e.kind === "fault"
+      ? `${e.fault} ${e.reason}  ${e.message ?? ""}  (${e.source ?? ""})`
+      : e.kind === "state"
       ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`
       : e.kind === "advance"
         ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${e.reason ?? ""}`
@@ -170,7 +184,9 @@ function EventRow({ e }: { e: Event }) {
   return (
     <div className="hover:bg-accent/60 grid h-full grid-cols-[96px_72px_1fr] items-center gap-2 px-3 text-[11.5px]">
       <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
-      <span className={cn("text-[11px] font-medium", e.kind === "error" ? "text-error" : "text-muted-foreground")}>{e.kind}</span>
+      <span className={cn("text-[11px] font-medium", e.kind === "error" || e.kind === "fault" ? "text-error" : "text-muted-foreground")}>
+        {e.kind}
+      </span>
       <span className="num truncate" title={text}>
         {text}
       </span>

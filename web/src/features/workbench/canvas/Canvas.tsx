@@ -51,6 +51,8 @@ export interface CanvasProps {
   onOps?: (ops: EditOp[]) => void;
   onDropItem?: (item: LibraryItem, at: Point) => void;
   issues?: Map<string, Issue>;
+  /** Instruments and DUTs with an active fault. */
+  faulted?: Set<string>;
 }
 
 function split(ref: string): [string, string] {
@@ -69,7 +71,7 @@ function positionsOf(view: SessionInfo, layout: Record<string, Point> | undefine
   return out;
 }
 
-function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues }: CanvasProps) {
+function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues, faulted }: CanvasProps) {
   const { t } = useTranslation();
   const { selection, select } = useWorkbench();
   const theme = useTheme((s) => s.resolved);
@@ -89,16 +91,16 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
         id: inst.name,
         type: "instrument",
         position: positions[inst.name],
-        data: { inst, editable, issue: issues?.get(inst.name) },
+        data: { inst, editable, issue: issues?.get(inst.name), fault: faulted?.has(inst.name) },
       })),
       ...view.duts.map<DutNodeType>((dut) => ({
         id: dut.name,
         type: "dut",
         position: positions[dut.name],
-        data: { dut, editable, issue: issues?.get(dut.name) },
+        data: { dut, editable, issue: issues?.get(dut.name), fault: faulted?.has(dut.name) },
       })),
     ],
-    [view, positions, editable, issues],
+    [view, positions, editable, issues, faulted],
   );
   const selectedId = selection?.kind === "instrument" || selection?.kind === "dut" ? selection.id : null;
   const [nodes, setNodes] = useState<AnyNode[]>(() => built.map((n) => ({ ...n, selected: n.id === selectedId })));

@@ -1,5 +1,5 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Activity, AlertTriangle, AudioWaveform, Cpu, Gauge } from "lucide-react";
+import { Activity, AlertTriangle, AudioWaveform, Cpu, Gauge, Zap } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, StateVarInfo } from "@/api/client";
@@ -9,7 +9,7 @@ import { formatValue, instrumentTitle, stateMap, varName } from "../model";
 import { useWorkbench } from "../store";
 
 export type Issue = "error" | "warning";
-export type InstrumentNodeData = { inst: InstrumentInfo; editable?: boolean; issue?: Issue };
+export type InstrumentNodeData = { inst: InstrumentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
 export type InstrumentNodeType = Node<InstrumentNodeData, "instrument">;
 
 const CLASS_ICON: Record<string, typeof Activity> = {
@@ -24,7 +24,7 @@ const CLASS_ICON: Record<string, typeof Activity> = {
  */
 function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
   const { t } = useTranslation();
-  const { inst, editable, issue } = data;
+  const { inst, editable, issue, fault } = data;
   const Icon = CLASS_ICON[inst.instrument_class] ?? Cpu;
   const vars = stateMap(inst);
   const chanKeys = inst.display.channel_summary.length ? inst.display.channel_summary : [];
@@ -53,6 +53,7 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
           <div className="text-muted-foreground num truncate text-[11px] leading-tight">{inst.model}</div>
         </div>
         {issue && <IssueMark issue={issue} />}
+        {fault && <FaultMark />}
         {inst.errors.length > 0 && (
           <span
             className="bg-error/15 text-error inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium"
@@ -187,6 +188,20 @@ export function IssueMark({ issue }: { issue: Issue }) {
       aria-label={t("panel.problems")}
     >
       <AlertTriangle className="size-3" />
+    </span>
+  );
+}
+
+/** An injected fault is active on this instrument or DUT. */
+export function FaultMark() {
+  const { t } = useTranslation();
+  return (
+    <span
+      className="bg-error text-primary-foreground inline-flex size-5 shrink-0 items-center justify-center rounded"
+      title={t("fault.title")}
+      aria-label={t("fault.title")}
+    >
+      <Zap className="size-3" />
     </span>
   );
 }

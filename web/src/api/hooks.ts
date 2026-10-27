@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, unwrap } from "./client";
+import { type FaultSpec, api, unwrap } from "./client";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -7,6 +7,7 @@ export const keys = {
   session: (sid: string) => ["session", sid] as const,
   screen: (sid: string, name: string, source: string) => ["screen", sid, name, source] as const,
   catalog: ["catalog"] as const,
+  faults: (sid: string) => ["faults", sid] as const,
   benchDoc: (path: string) => ["bench-doc", path] as const,
   preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
 };
@@ -107,5 +108,29 @@ export function useScopeScreen(sid: string, name: string, source: "preview" | "r
       ),
     placeholderData: (prev) => prev,
     staleTime: Infinity,
+  });
+}
+
+export function useFaults(sid: string) {
+  return useQuery({
+    queryKey: keys.faults(sid),
+    queryFn: () => unwrap(api.GET("/api/sessions/{sid}/faults", { params: { path: { sid } } })),
+  });
+}
+
+export function useInjectFault(sid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fault: FaultSpec) => unwrap(api.POST("/api/sessions/{sid}/faults", { params: { path: { sid } }, body: fault })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.faults(sid) }),
+  });
+}
+
+export function useClearFault(sid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (fault_id: string) =>
+      unwrap(api.DELETE("/api/sessions/{sid}/faults/{fault_id}", { params: { path: { sid, fault_id } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.faults(sid) }),
   });
 }
