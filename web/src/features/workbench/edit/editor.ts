@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { ApiError, type BenchData, type BenchDocument, type EditOp, api, unwrap } from "@/api/client";
 import { keys } from "@/api/hooks";
 import i18n from "@/i18n";
+import { useWorkbench } from "../store";
 import { describeChange } from "./diff";
 
 const MAX_UNDO = 100;
@@ -60,7 +61,12 @@ export function syncDocument(doc: BenchDocument) {
   // overwrite that change, so it starts afresh.
   const summary = s.doc ? describeChange(s.doc.data, doc.data) : "";
   useEditor.setState({ doc, undo: [], redo: [] });
-  if (s.doc) toast.info(i18n.t("edit.externalChange"), { description: summary || undefined });
+  if (s.doc) {
+    toast.info(i18n.t("edit.externalChange"), {
+      description: summary || undefined,
+      action: { label: i18n.t("history.review"), onClick: () => useWorkbench.getState().setHistory(true) },
+    });
+  }
 }
 
 async function reload(path: string) {
@@ -92,7 +98,7 @@ export function applyOps(ops: EditOp[]): Promise<BenchDocument | undefined> {
   return enqueue(async () => {
     const { doc, path } = useEditor.getState();
     if (!doc || !path) throw new Error("no bench file");
-    const next = await unwrap(api.POST("/api/benches/edit", { body: { path, base_sha256: doc.sha256, ops } }));
+    const next = await unwrap(api.POST("/api/benches/edit", { body: { path, base_sha256: doc.sha256, ops, source: "ui" } }));
     useEditor.setState((s) => ({ undo: [...s.undo, doc.data].slice(-MAX_UNDO), redo: [], lastError: null }));
     publish(next);
     return next;
@@ -102,7 +108,7 @@ export function applyOps(ops: EditOp[]): Promise<BenchDocument | undefined> {
 async function put(data: BenchData): Promise<BenchDocument> {
   const { doc, path } = useEditor.getState();
   if (!doc || !path) throw new Error("no bench file");
-  return unwrap(api.PUT("/api/benches/file", { body: { path, base_sha256: doc.sha256, data } }));
+  return unwrap(api.PUT("/api/benches/file", { body: { path, base_sha256: doc.sha256, data, source: "ui" } }));
 }
 
 export function undo() {
@@ -124,6 +130,18 @@ export function redo() {
     const next = await put(nextData);
     useEditor.setState((s) => ({ redo: s.redo.slice(0, -1), undo: [...s.undo, doc.data] }));
     publish(next);
+  });
+}
+
+/** Write saved version ``seq`` back as the newest version (D35); undo returns to the file before it. */
+export function restoreVersion(seq: number): Promise<BenchDocument | undefined> {
+  return enqueue(async () => {
+    const { doc, path } = useEditor.getState();
+    if (!doc || !path) throw new Error("no bench file");
+    const next = await unwrap(api.POST("/api/benches/restore", { body: { path, seq, base_sha256: doc.sha256 } }));
+    useEditor.setState((s) => ({ undo: [...s.undo, doc.data].slice(-MAX_UNDO), redo: [], lastError: null }));
+    publish(next);
+    return next;
   });
 }
 

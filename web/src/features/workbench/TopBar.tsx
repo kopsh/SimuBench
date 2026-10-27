@@ -1,4 +1,4 @@
-import { ChevronLeft, Command, Square, StepForward } from "lucide-react";
+import { ChevronLeft, Command, History, Square, StepForward } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +26,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const status = useEvents((s) => s.status);
   const nowNs = Math.max(useEvents((s) => s.nowNs), session.now_ns);
   const setPalette = useWorkbench((s) => s.setPalette);
+  const setHistory = useWorkbench((s) => s.setHistory);
   const advance = useAdvance(session.id);
   const stop = useStopSession();
   const [step, setStep] = useState(STEPS[1]);
@@ -90,6 +91,16 @@ export function TopBar({ session }: { session: SessionInfo }) {
         <span className="hidden md:inline">{t("workbench.commandPalette")}</span>
         <Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd>
       </Button>
+      {session.bench_path && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-8" aria-label={t("history.title")} onClick={() => setHistory(true)}>
+              <History className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("history.title")}</TooltipContent>
+        </Tooltip>
+      )}
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

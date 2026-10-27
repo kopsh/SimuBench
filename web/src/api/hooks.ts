@@ -11,6 +11,8 @@ export const keys = {
   readings: (sid: string, name: string) => ["readings", sid, name] as const,
   benchDoc: (path: string) => ["bench-doc", path] as const,
   preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
+  history: (path: string, sha: string) => ["bench-history", path, sha] as const,
+  version: (path: string, seq: number) => ["bench-version", path, seq] as const,
 };
 
 export function useCatalog() {
@@ -24,6 +26,26 @@ export function useBenchDoc(path: string | null | undefined, pollMs: number | fa
     queryFn: () => unwrap(api.GET("/api/benches/file", { params: { query: { path: path! } } })),
     enabled: !!path,
     refetchInterval: pollMs,
+  });
+}
+
+/** Saved versions of a bench file, newest first (D35); refetched whenever the file changes. */
+export function useBenchHistory(path: string | null | undefined, sha: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: keys.history(path ?? "", sha ?? ""),
+    queryFn: () => unwrap(api.GET("/api/benches/history", { params: { query: { path: path! } } })),
+    enabled: enabled && !!path,
+    placeholderData: (prev) => prev,
+  });
+}
+
+/** One saved version's content; versions never change, so it is cached for good. */
+export function useBenchVersion(path: string | null | undefined, seq: number | null | undefined) {
+  return useQuery({
+    queryKey: keys.version(path ?? "", seq ?? 0),
+    queryFn: () => unwrap(api.GET("/api/benches/version", { params: { query: { path: path!, seq: seq! } } })),
+    enabled: !!path && !!seq,
+    staleTime: Infinity,
   });
 }
 

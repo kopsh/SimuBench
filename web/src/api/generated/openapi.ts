@@ -53,6 +53,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/benches/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bench History
+         * @description Saved versions of a bench file, newest first (D35).
+         */
+        get: operations["benchHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/benches/preview": {
         parameters: {
             query?: never;
@@ -70,6 +90,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/benches/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Bench
+         * @description Write an earlier version back as the newest one; later versions stay in the history.
+         */
+        post: operations["restoreBench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/benches/validate": {
         parameters: {
             query?: never;
@@ -81,6 +121,23 @@ export interface paths {
         put?: never;
         /** Validate Bench */
         post: operations["validateBench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/benches/version": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Bench Version */
+        get: operations["readBenchVersion"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -495,6 +552,45 @@ export interface components {
             sha256: string;
         };
         /**
+         * BenchVersion
+         * @description One saved version of a bench file (D35).
+         */
+        BenchVersion: {
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Layout Only
+             * @description Only node positions changed since the previous version
+             * @default false
+             */
+            layout_only: boolean;
+            /**
+             * Saved At
+             * @description UTC, ISO 8601
+             */
+            saved_at: string;
+            /** Seq */
+            seq: number;
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Source
+             * @description Who wrote it; external: changed outside SimuBench, seen at the next save
+             * @enum {string}
+             */
+            source: "ui" | "agent" | "api" | "external" | "restore";
+        };
+        /** BenchVersionDocument */
+        BenchVersionDocument: {
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Path */
+            path: string;
+            version: components["schemas"]["BenchVersion"];
+        };
+        /**
          * Catalog
          * @description What can be placed on a bench: instrument definitions, DUT and accessory types.
          */
@@ -757,6 +853,13 @@ export interface components {
             ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
             /** Path */
             path: string;
+            /**
+             * Source
+             * @description Who is saving, kept in the version history (D35)
+             * @default api
+             * @enum {string}
+             */
+            source: "ui" | "agent" | "api";
         };
         /** ErrorItem */
         ErrorItem: {
@@ -1152,6 +1255,15 @@ export interface components {
              */
             op: "rename";
         };
+        /** RestoreBenchRequest */
+        RestoreBenchRequest: {
+            /** Base Sha256 */
+            base_sha256: string;
+            /** Path */
+            path: string;
+            /** Seq */
+            seq: number;
+        };
         /** SaveBenchRequest */
         SaveBenchRequest: {
             /**
@@ -1165,6 +1277,13 @@ export interface components {
             };
             /** Path */
             path: string;
+            /**
+             * Source
+             * @description Who is saving, kept in the version history (D35)
+             * @default api
+             * @enum {string}
+             */
+            source: "ui" | "agent" | "api";
         };
         /** ScopeScreen */
         ScopeScreen: {
@@ -1707,6 +1826,37 @@ export interface operations {
             };
         };
     };
+    benchHistory: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchVersion"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     previewBench: {
         parameters: {
             query: {
@@ -1726,6 +1876,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BenchPreview"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restoreBench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreBenchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchDocument"];
+                };
+            };
+            /** @description The file changed since base_sha256 was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -1758,6 +1948,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ValidateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    readBenchVersion: {
+        parameters: {
+            query: {
+                path: string;
+                seq: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchVersionDocument"];
                 };
             };
             /** @description Validation Error */

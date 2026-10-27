@@ -217,7 +217,7 @@ def build_server(
         if description:
             data["description"] = description
         try:
-            return files.save(path, None, data).model_dump(mode="json")
+            return files.save(path, None, data, "agent").model_dump(mode="json")
         except Exception as exc:
             raise fail(exc) from None
 
@@ -232,8 +232,25 @@ def build_server(
         content, sha256 and diagnostics."""
         guard()
         try:
-            return files.edit(path, base_sha256, ops).model_dump(mode="json")
+            return files.edit(path, base_sha256, ops, "agent").model_dump(mode="json")
         except (Conflict, EditError, PermissionError, FileNotFoundError, ValueError) as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def list_bench_history(path: str) -> list[dict[str, Any]]:
+        """Saved versions of a bench file, newest first: who wrote each (ui, agent, external,
+        restore) and when. Read one with read_bench_version."""
+        try:
+            return [v.model_dump(mode="json") for v in files.versions(path)]
+        except Exception as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def read_bench_version(path: str, seq: int) -> dict[str, Any]:
+        """The content of one saved version of a bench file."""
+        try:
+            return files.version(path, seq).model_dump(mode="json")
+        except Exception as exc:
             raise fail(exc) from None
 
     @mcp.tool()
@@ -286,7 +303,7 @@ def build_server(
         result = draft_bench(source, defs, name=name)
         if save_as:
             try:
-                result["saved"] = files.save(save_as, None, result["bench"]).model_dump(mode="json")
+                result["saved"] = files.save(save_as, None, result["bench"], "agent").model_dump(mode="json")
             except Exception as exc:
                 raise fail(exc) from None
         return result

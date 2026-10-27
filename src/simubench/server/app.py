@@ -130,7 +130,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         responses={409: {"description": "The file changed since base_sha256 was read"}},
     )
     def save_bench(req: M.SaveBenchRequest) -> M.BenchDocument:
-        return file_errors(lambda: files.save(req.path, req.base_sha256, req.data))  # type: ignore[no-any-return]
+        return file_errors(lambda: files.save(req.path, req.base_sha256, req.data, req.source))  # type: ignore[no-any-return]
 
     @app.post(
         "/api/benches/edit",
@@ -140,7 +140,37 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         responses={409: {"description": "The file changed since base_sha256 was read"}},
     )
     def edit_bench(req: M.EditBenchRequest) -> M.BenchDocument:
-        return file_errors(lambda: files.edit(req.path, req.base_sha256, req.ops))  # type: ignore[no-any-return]
+        return file_errors(lambda: files.edit(req.path, req.base_sha256, req.ops, req.source))  # type: ignore[no-any-return]
+
+    @app.get(
+        "/api/benches/history",
+        response_model=list[M.BenchVersion],
+        operation_id="benchHistory",
+        dependencies=[Depends(auth)],
+    )
+    def bench_history(path: str = Query(...)) -> list[M.BenchVersion]:
+        """Saved versions of a bench file, newest first (D35)."""
+        return file_errors(lambda: files.versions(path))  # type: ignore[no-any-return]
+
+    @app.get(
+        "/api/benches/version",
+        response_model=M.BenchVersionDocument,
+        operation_id="readBenchVersion",
+        dependencies=[Depends(auth)],
+    )
+    def read_bench_version(path: str = Query(...), seq: int = Query(...)) -> M.BenchVersionDocument:
+        return file_errors(lambda: files.version(path, seq))  # type: ignore[no-any-return]
+
+    @app.post(
+        "/api/benches/restore",
+        response_model=M.BenchDocument,
+        operation_id="restoreBench",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The file changed since base_sha256 was read"}},
+    )
+    def restore_bench(req: M.RestoreBenchRequest) -> M.BenchDocument:
+        """Write an earlier version back as the newest one; later versions stay in the history."""
+        return file_errors(lambda: files.restore(req.path, req.seq, req.base_sha256))  # type: ignore[no-any-return]
 
     @app.post(
         "/api/benches/validate",
