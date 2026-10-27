@@ -1782,11 +1782,20 @@
             },
             "title": "Members",
             "type": "array"
+          },
+          "notes": {
+            "description": "Why the signal on this net is not exact (empty when it is)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
           }
         },
         "required": [
           "id",
-          "members"
+          "members",
+          "notes"
         ],
         "title": "NetInfo",
         "type": "object"
@@ -4386,6 +4395,21 @@
           }
         },
         "summary": "Get Manifest"
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "description": "Prometheus text format: sessions, events by kind, circuit solves, virtual time (M4).",
+        "operationId": "getMetrics",
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {}
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Metrics"
       }
     },
     "/api/runs": {

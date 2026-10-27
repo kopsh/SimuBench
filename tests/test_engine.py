@@ -82,3 +82,18 @@ def test_current_source_and_ideal_source_current():
     assert sol.node_signal("a", emf).mean() == pytest.approx(2.0, rel=1e-9)
     assert sol.source_dc_current("v1", emf) == pytest.approx(3.0 / 1500 + 3.0 * GMIN, rel=1e-12)
     assert sol.source_dc_current("i1", emf) == 0.0  # not an ideal voltage source
+
+
+def test_fidelity_notes_follow_the_signal():
+    from simubench.engine.signal import FidelityNote
+
+    c = Circuit()
+    c.source("a", "s1", 50.0)
+    c.resistor("a", "0", 50.0)
+    c.source("b", "s2", 50.0)
+    c.resistor("b", "0", 50.0)
+    note = FidelityNote("truncated", "square wave: harmonics left out")
+    emf = {"s1": Signal.lines([1000.0], [1.0]).with_note(note), "s2": Signal.lines([500.0], [1.0])}
+    sol = c.solve([0.0, 500.0, 1000.0])
+    assert sol.node_signal("a", emf).notes == (note,)
+    assert sol.node_signal("b", emf).notes == ()  # s1 does not reach b

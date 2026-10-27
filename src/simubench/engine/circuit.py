@@ -222,7 +222,10 @@ class Solution:
             h0 = self.transfer(node, sid, np.zeros(1))[0]
             amp = sig.amp * h
             keep = amp != 0  # a source with no path to this node contributes nothing, not zero lines
-            out = out + Signal(sig.freq[keep], amp[keep], sig.t0_ns[keep], sig.dc * h0.real, sig.notes)
+            dc = sig.dc * h0.real
+            reaches = bool(keep.any()) or dc != 0
+            # A source's fidelity notes travel only where its signal does.
+            out = out + Signal(sig.freq[keep], amp[keep], sig.t0_ns[keep], dc, sig.notes if reaches else ())
         return out
 
 

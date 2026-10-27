@@ -216,6 +216,9 @@ class WireInfo(_Model):
 class NetInfo(_Model):
     id: str
     members: list[str]
+    notes: list[str] = Field(
+        default_factory=list, description="Why the signal on this net is not exact (empty when it is)"
+    )
 
 
 class SessionInfo(_Model):

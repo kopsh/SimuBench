@@ -96,6 +96,8 @@ class Session:
         self.recorder = Recorder(record_dir, self, raw=record_raw) if record_dir else None
         #: Replaying a run record: time moves only where the record says (no idle steps).
         self.replaying = False
+        #: Counters for metrics (M4): events by kind, circuit solves and the time they took.
+        self.stats: dict[str, float] = {}
 
         # ---- instruments and bench components ----
         self.instruments: dict[str, Instrument] = {}
@@ -199,7 +201,12 @@ class Session:
                 freqs: set[float] = {0.0}
                 for sig in emf.values():
                     freqs.update(float(f) for f in set(sig.freq.tolist()))
+                started = time.perf_counter()
                 sol = self.circuit().solve(sorted(freqs))
+                self.stats["solves"] = self.stats.get("solves", 0) + 1
+                self.stats["solve_seconds"] = (
+                    self.stats.get("solve_seconds", 0.0) + time.perf_counter() - started
+                )
                 self._solution = (self._signal_version, sol, emf)
                 # Piecewise-linear devices check their mode against the DC operating point.
                 changed = False
@@ -272,6 +279,8 @@ class Session:
         return lambda: self._listeners.remove(fn) if fn in self._listeners else None
 
     def emit(self, event: dict[str, Any]) -> None:
+        kind = str(event.get("kind"))
+        self.stats[kind] = self.stats.get(kind, 0) + 1
         self.event_id += 1
         event = {"eid": self.event_id, "t_ns": self.now_ns, **event}
         self.history.append(event)

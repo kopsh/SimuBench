@@ -79,3 +79,23 @@ def test_cli_diagnose(tmp_path):
     out = tmp_path / "d.zip"
     assert main(["diagnose", "--out", str(out), "--workspace", str(ROOT / "examples")]) == 0
     assert "manifest.json" in zipfile.ZipFile(out).namelist()
+
+
+def test_metrics_and_net_fidelity_notes():
+    app = create_app(
+        SessionManager(ROOT / "acceptance", scpi_base_port=None), token=TOKEN, web_dist=Path("/nonexistent")
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        info = c.post("/api/sessions", json={"bench_path": "benches/lockin_chopper.bench.yaml"}).json()
+        noted = [n for n in info["nets"] if n["notes"]]
+        assert noted and "harmonics" in noted[0]["notes"][0]  # a square wave is truncated: said so
+        c.post(f"/api/sessions/{info['id']}/instruments/lia/scpi", json={"command": "*IDN?"})
+        text = c.get("/api/metrics").text
+        assert "simubench_sessions 1" in text
+        assert (
+            f'simubench_events_total{{session="{info["id"]}",bench="acceptance-lockin-chopper",kind="scpi"}} 2'
+            in text
+        )
+        assert "simubench_solves_total{" in text and "# TYPE simubench_solve_seconds_total counter" in text
+        c.delete(f"/api/sessions/{info['id']}")

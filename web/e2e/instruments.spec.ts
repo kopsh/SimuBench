@@ -103,3 +103,23 @@ test("wall clock: time runs by itself and the lock-in settles without advancing"
   // Real time passes; a 30 ms, 24 dB/oct filter settles well within a few seconds.
   await expect(page.getByTestId("readout-R")).toHaveText(/^498\.8/, { timeout: 10_000 });
 });
+
+test("fidelity: a wire whose signal is truncated is marked ≈ with the reason", async ({ page }) => {
+  const headers = { "x-simubench-token": TOKEN };
+  const path = `e2e/approx-${Date.now()}.bench.yaml`;
+  const data = {
+    schema: "simubench.bench/1",
+    name: "approx",
+    instruments: {
+      sig: { model: "sb-awg-2", state: { "ch1.function": "SQUare", "ch1.frequency": 1000, "ch1.output": true, "ch1.load": "INF" } },
+      lia: { model: "sb-lia-1" },
+    },
+    wires: [{ from: "sig.OUT1", to: "lia.SIG_IN" }],
+  };
+  expect((await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data } })).ok()).toBeTruthy();
+  const sid = ((await (await page.request.post("/api/sessions", { headers, data: { bench_path: path } })).json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  const mark = page.getByTestId("wire-approx");
+  await expect(mark).toHaveText("≈");
+  await expect(mark).toHaveAttribute("title", /square wave: \d+ harmonics/);
+});

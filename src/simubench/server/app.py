@@ -183,6 +183,49 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         report = file_errors(lambda: files.validate(req.data, req.path))
         return M.ValidateResponse(ok=report.ok, diagnostics=diagnostics(report))
 
+    @app.get(
+        "/api/metrics",
+        operation_id="getMetrics",
+        dependencies=[Depends(auth)],
+        response_class=Response,
+        responses={200: {"content": {"text/plain": {}}}},
+    )
+    def get_metrics() -> Response:
+        """Prometheus text format: sessions, events by kind, circuit solves, virtual time (M4)."""
+        lines = [
+            "# HELP simubench_info SimuBench version.",
+            "# TYPE simubench_info gauge",
+            f'simubench_info{{version="{__version__}"}} 1',
+            "# HELP simubench_sessions Running sessions.",
+            "# TYPE simubench_sessions gauge",
+            f"simubench_sessions {len(manager.sessions)}",
+            "# HELP simubench_events_total Session events by kind.",
+            "# TYPE simubench_events_total counter",
+        ]
+        rest: list[str] = [
+            "# HELP simubench_solves_total Circuit solves.",
+            "# TYPE simubench_solves_total counter",
+        ]
+        timing = [
+            "# HELP simubench_solve_seconds_total Time spent solving circuits.",
+            "# TYPE simubench_solve_seconds_total counter",
+        ]
+        clock = [
+            "# HELP simubench_virtual_seconds Virtual time of a session.",
+            "# TYPE simubench_virtual_seconds gauge",
+        ]
+        for sid, served in list(manager.sessions.items()):
+            s = served.session
+            label = f'session="{sid}",bench="{s.bench.name}"'
+            for kind, n in sorted(s.stats.items()):
+                if kind not in ("solves", "solve_seconds"):
+                    lines.append(f'simubench_events_total{{{label},kind="{kind}"}} {int(n)}')
+            rest.append(f"simubench_solves_total{{{label}}} {int(s.stats.get('solves', 0))}")
+            timing.append(f"simubench_solve_seconds_total{{{label}}} {s.stats.get('solve_seconds', 0.0):.6f}")
+            clock.append(f"simubench_virtual_seconds{{{label}}} {s.now_ns / 1e9:.9f}")
+        body = "\n".join([*lines, *rest, *timing, *clock]) + "\n"
+        return Response(body, media_type="text/plain; version=0.0.4")
+
     @app.get("/api/manifest", operation_id="getManifest", dependencies=[Depends(auth)])
     def get_manifest() -> dict[str, Any]:
         """Version manifest: engine, dependencies, definitions and their hashes, web UI build."""
