@@ -1,0 +1,618 @@
+{
+  "$defs": {
+    "Channels": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "default": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "overrides": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "description": "Per-channel overrides of channel_state specs, e.g. {3: {frequency: {max: 2e8}}}",
+          "title": "Overrides",
+          "type": "object"
+        }
+      },
+      "title": "Channels",
+      "type": "object"
+    },
+    "CommandSpec": {
+      "additionalProperties": false,
+      "description": "One SCPI command. Exactly one of ``state`` or ``op`` is given.",
+      "properties": {
+        "args": {
+          "additionalProperties": true,
+          "description": "Constant arguments passed to the operation",
+          "title": "Args",
+          "type": "object"
+        },
+        "dangerous": {
+          "default": false,
+          "title": "Dangerous",
+          "type": "boolean"
+        },
+        "doc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doc"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Virtual time the command consumes (D12)",
+          "title": "Duration"
+        },
+        "header": {
+          "description": "Header pattern, e.g. '[:SOURce<ch>]:FREQuency[:CW]'",
+          "title": "Header",
+          "type": "string"
+        },
+        "op": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Component operation, e.g. 'acq.digitize'",
+          "title": "Op"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/ParamSpec"
+          },
+          "title": "Params",
+          "type": "array"
+        },
+        "query": {
+          "default": true,
+          "title": "Query",
+          "type": "boolean"
+        },
+        "set": {
+          "default": true,
+          "title": "Set",
+          "type": "boolean"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "State path bound to the command, e.g. 'ch.frequency'",
+          "title": "State"
+        }
+      },
+      "required": [
+        "header"
+      ],
+      "title": "CommandSpec",
+      "type": "object"
+    },
+    "ComponentSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "type": {
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "ComponentSpec",
+      "type": "object"
+    },
+    "Display": {
+      "additionalProperties": false,
+      "properties": {
+        "channel_summary": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Channel Summary",
+          "type": "array"
+        },
+        "summary": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Summary",
+          "type": "array"
+        },
+        "template": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "UI class template, e.g. 'oscilloscope'",
+          "title": "Template"
+        }
+      },
+      "title": "Display",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "firmware": {
+          "default": "1.0.0",
+          "title": "Firmware",
+          "type": "string"
+        },
+        "idn": {
+          "default": "{manufacturer},{model},{serial},{firmware}",
+          "title": "Idn",
+          "type": "string"
+        },
+        "serial": {
+          "default": "SB000001",
+          "title": "Serial",
+          "type": "string"
+        }
+      },
+      "title": "Identity",
+      "type": "object"
+    },
+    "ParamSpec": {
+      "additionalProperties": false,
+      "description": "A parameter of an operation command.",
+      "properties": {
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Options"
+        },
+        "type": {
+          "enum": [
+            "float",
+            "int",
+            "bool",
+            "enum",
+            "string",
+            "float_list",
+            "block",
+            "raw"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "title": "ParamSpec",
+      "type": "object"
+    },
+    "Ports": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "'OUT{n}': 'out.pin'",
+          "title": "Channel",
+          "type": "object"
+        },
+        "instrument": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Instrument",
+          "type": "object"
+        }
+      },
+      "title": "Ports",
+      "type": "object"
+    },
+    "StateSpec": {
+      "additionalProperties": false,
+      "description": "One settable state variable.",
+      "properties": {
+        "default": {
+          "default": null,
+          "title": "Default"
+        },
+        "electrical": {
+          "default": false,
+          "description": "Changing this variable changes the bench's circuit",
+          "title": "Electrical",
+          "type": "boolean"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "label_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label En"
+        },
+        "ladder": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Snap writes to a ladder: '1-2-5', '1-3' or an explicit list of values",
+          "title": "Ladder"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Min"
+        },
+        "options": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enum options in SCPI mixed case, e.g. SINusoid",
+          "title": "Options"
+        },
+        "readonly": {
+          "default": false,
+          "title": "Readonly",
+          "type": "boolean"
+        },
+        "rst": {
+          "default": null,
+          "description": "Value after *RST; defaults to `default`",
+          "title": "Rst"
+        },
+        "special": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load",
+          "title": "Special"
+        },
+        "type": {
+          "enum": [
+            "float",
+            "int",
+            "bool",
+            "enum",
+            "string"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM",
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "StateSpec",
+      "type": "object"
+    },
+    "Wiring": {
+      "additionalProperties": false,
+      "properties": {
+        "channel": {
+          "description": "Signal wires inside each channel",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Channel",
+          "type": "array"
+        },
+        "instrument": {
+          "description": "Signal wires at instrument level; '{n}' expands per channel",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array"
+          },
+          "title": "Instrument",
+          "type": "array"
+        }
+      },
+      "title": "Wiring",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "capabilities": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Capabilities",
+      "type": "array"
+    },
+    "channel_components": {
+      "items": {
+        "$ref": "#/$defs/ComponentSpec"
+      },
+      "title": "Channel Components",
+      "type": "array"
+    },
+    "channel_state": {
+      "additionalProperties": {
+        "$ref": "#/$defs/StateSpec"
+      },
+      "title": "Channel State",
+      "type": "object"
+    },
+    "channels": {
+      "$ref": "#/$defs/Channels"
+    },
+    "class": {
+      "title": "Class",
+      "type": "string"
+    },
+    "commands": {
+      "items": {
+        "$ref": "#/$defs/CommandSpec"
+      },
+      "title": "Commands",
+      "type": "array"
+    },
+    "components": {
+      "items": {
+        "$ref": "#/$defs/ComponentSpec"
+      },
+      "title": "Components",
+      "type": "array"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "display": {
+      "$ref": "#/$defs/Display"
+    },
+    "id": {
+      "title": "Id",
+      "type": "string"
+    },
+    "identity": {
+      "$ref": "#/$defs/Identity"
+    },
+    "manufacturer": {
+      "title": "Manufacturer",
+      "type": "string"
+    },
+    "model": {
+      "title": "Model",
+      "type": "string"
+    },
+    "ports": {
+      "$ref": "#/$defs/Ports"
+    },
+    "schema": {
+      "const": "simubench.instrument/1",
+      "default": "simubench.instrument/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "state": {
+      "additionalProperties": {
+        "$ref": "#/$defs/StateSpec"
+      },
+      "title": "State",
+      "type": "object"
+    },
+    "version": {
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "wiring": {
+      "$ref": "#/$defs/Wiring"
+    }
+  },
+  "required": [
+    "id",
+    "manufacturer",
+    "model",
+    "class"
+  ],
+  "title": "InstrumentDefinition",
+  "type": "object"
+}

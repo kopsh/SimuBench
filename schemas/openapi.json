@@ -1,0 +1,2237 @@
+{
+  "components": {
+    "schemas": {
+      "AdvanceRequest": {
+        "properties": {
+          "seconds": {
+            "exclusiveMinimum": 0.0,
+            "title": "Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "seconds"
+        ],
+        "title": "AdvanceRequest",
+        "type": "object"
+      },
+      "BenchFile": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the file could not be read, if it could not",
+            "title": "Error"
+          },
+          "instruments": {
+            "default": 0,
+            "title": "Instruments",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "name"
+        ],
+        "title": "BenchFile",
+        "type": "object"
+      },
+      "Channels": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "default": 1,
+            "title": "Count",
+            "type": "integer"
+          },
+          "overrides": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "object"
+            },
+            "description": "Per-channel overrides of channel_state specs, e.g. {3: {frequency: {max: 2e8}}}",
+            "title": "Overrides",
+            "type": "object"
+          }
+        },
+        "title": "Channels",
+        "type": "object"
+      },
+      "ClockInfo": {
+        "properties": {
+          "mode": {
+            "enum": [
+              "command",
+              "wall",
+              "stepped"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "now_ns": {
+            "title": "Now Ns",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mode",
+          "now_ns"
+        ],
+        "title": "ClockInfo",
+        "type": "object"
+      },
+      "CommandSpec": {
+        "additionalProperties": false,
+        "description": "One SCPI command. Exactly one of ``state`` or ``op`` is given.",
+        "properties": {
+          "args": {
+            "additionalProperties": true,
+            "description": "Constant arguments passed to the operation",
+            "title": "Args",
+            "type": "object"
+          },
+          "dangerous": {
+            "default": false,
+            "title": "Dangerous",
+            "type": "boolean"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Virtual time the command consumes (D12)",
+            "title": "Duration"
+          },
+          "header": {
+            "description": "Header pattern, e.g. '[:SOURce<ch>]:FREQuency[:CW]'",
+            "title": "Header",
+            "type": "string"
+          },
+          "op": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Component operation, e.g. 'acq.digitize'",
+            "title": "Op"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/ParamSpec"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "query": {
+            "default": true,
+            "title": "Query",
+            "type": "boolean"
+          },
+          "set": {
+            "default": true,
+            "title": "Set",
+            "type": "boolean"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "State path bound to the command, e.g. 'ch.frequency'",
+            "title": "State"
+          }
+        },
+        "required": [
+          "header"
+        ],
+        "title": "CommandSpec",
+        "type": "object"
+      },
+      "ComponentInfo": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/PortInfo"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ComponentInfo",
+        "type": "object"
+      },
+      "ComponentSpec": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ComponentSpec",
+        "type": "object"
+      },
+      "ConfigureRequest": {
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "path",
+          "value"
+        ],
+        "title": "ConfigureRequest",
+        "type": "object"
+      },
+      "ConfigureResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "ConfigureResponse",
+        "type": "object"
+      },
+      "Display": {
+        "additionalProperties": false,
+        "properties": {
+          "channel_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channel Summary",
+            "type": "array"
+          },
+          "summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Summary",
+            "type": "array"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UI class template, e.g. 'oscilloscope'",
+            "title": "Template"
+          }
+        },
+        "title": "Display",
+        "type": "object"
+      },
+      "DisplayInfo": {
+        "properties": {
+          "channel_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channel Summary",
+            "type": "array"
+          },
+          "summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Summary",
+            "type": "array"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Template"
+          }
+        },
+        "title": "DisplayInfo",
+        "type": "object"
+      },
+      "ErrorItem": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorItem",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "const": "ok",
+            "default": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "Health",
+        "type": "object"
+      },
+      "Identity": {
+        "additionalProperties": false,
+        "properties": {
+          "firmware": {
+            "default": "1.0.0",
+            "title": "Firmware",
+            "type": "string"
+          },
+          "idn": {
+            "default": "{manufacturer},{model},{serial},{firmware}",
+            "title": "Idn",
+            "type": "string"
+          },
+          "serial": {
+            "default": "SB000001",
+            "title": "Serial",
+            "type": "string"
+          }
+        },
+        "title": "Identity",
+        "type": "object"
+      },
+      "InstrumentDefinition": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "channel_components": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentSpec"
+            },
+            "title": "Channel Components",
+            "type": "array"
+          },
+          "channel_state": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StateSpec"
+            },
+            "title": "Channel State",
+            "type": "object"
+          },
+          "channels": {
+            "$ref": "#/components/schemas/Channels"
+          },
+          "class": {
+            "title": "Class",
+            "type": "string"
+          },
+          "commands": {
+            "items": {
+              "$ref": "#/components/schemas/CommandSpec"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentSpec"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display": {
+            "$ref": "#/components/schemas/Display"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "identity": {
+            "$ref": "#/components/schemas/Identity"
+          },
+          "manufacturer": {
+            "title": "Manufacturer",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "ports": {
+            "$ref": "#/components/schemas/Ports"
+          },
+          "schema": {
+            "const": "simubench.instrument/1",
+            "default": "simubench.instrument/1",
+            "title": "Schema",
+            "type": "string"
+          },
+          "state": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StateSpec"
+            },
+            "title": "State",
+            "type": "object"
+          },
+          "version": {
+            "default": 1,
+            "title": "Version",
+            "type": "integer"
+          },
+          "wiring": {
+            "$ref": "#/components/schemas/Wiring"
+          }
+        },
+        "required": [
+          "id",
+          "manufacturer",
+          "model",
+          "class"
+        ],
+        "title": "InstrumentDefinition",
+        "type": "object"
+      },
+      "InstrumentInfo": {
+        "properties": {
+          "address_real": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Real"
+          },
+          "address_virtual": {
+            "title": "Address Virtual",
+            "type": "string"
+          },
+          "channels": {
+            "title": "Channels",
+            "type": "integer"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display": {
+            "$ref": "#/components/schemas/DisplayInfo"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "idn": {
+            "title": "Idn",
+            "type": "string"
+          },
+          "instrument_class": {
+            "title": "Instrument Class",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "manufacturer": {
+            "title": "Manufacturer",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/PortInfo"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "scpi_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scpi Port"
+          },
+          "state": {
+            "items": {
+              "$ref": "#/components/schemas/StateVarInfo"
+            },
+            "title": "State",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "model",
+          "manufacturer",
+          "definition_id",
+          "instrument_class",
+          "idn",
+          "channels",
+          "address_virtual",
+          "display",
+          "ports",
+          "state",
+          "errors"
+        ],
+        "title": "InstrumentInfo",
+        "type": "object"
+      },
+      "LayoutItem": {
+        "additionalProperties": false,
+        "properties": {
+          "h": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "H"
+          },
+          "w": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "W"
+          },
+          "x": {
+            "default": 0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "default": 0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "title": "LayoutItem",
+        "type": "object"
+      },
+      "NetInfo": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "members": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Members",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "members"
+        ],
+        "title": "NetInfo",
+        "type": "object"
+      },
+      "NetWaveform": {
+        "properties": {
+          "dt_s": {
+            "title": "Dt S",
+            "type": "number"
+          },
+          "exact": {
+            "title": "Exact",
+            "type": "boolean"
+          },
+          "net": {
+            "title": "Net",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "t0_ns": {
+            "title": "T0 Ns",
+            "type": "integer"
+          },
+          "volts": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Volts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "net",
+          "t0_ns",
+          "dt_s",
+          "volts",
+          "exact"
+        ],
+        "title": "NetWaveform",
+        "type": "object"
+      },
+      "ParamSpec": {
+        "additionalProperties": false,
+        "description": "A parameter of an operation command.",
+        "properties": {
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "optional": {
+            "default": false,
+            "title": "Optional",
+            "type": "boolean"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "type": {
+            "enum": [
+              "float",
+              "int",
+              "bool",
+              "enum",
+              "string",
+              "float_list",
+              "block",
+              "raw"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "ParamSpec",
+        "type": "object"
+      },
+      "PortInfo": {
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "medium": {
+            "title": "Medium",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net"
+          }
+        },
+        "required": [
+          "name",
+          "direction",
+          "medium"
+        ],
+        "title": "PortInfo",
+        "type": "object"
+      },
+      "Ports": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "'OUT{n}': 'out.pin'",
+            "title": "Channel",
+            "type": "object"
+          },
+          "instrument": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Instrument",
+            "type": "object"
+          }
+        },
+        "title": "Ports",
+        "type": "object"
+      },
+      "ScopeScreen": {
+        "properties": {
+          "acquisitions": {
+            "title": "Acquisitions",
+            "type": "integer"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "source": {
+            "enum": [
+              "record",
+              "preview"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "timebase_scale": {
+            "title": "Timebase Scale",
+            "type": "number"
+          },
+          "traces": {
+            "items": {
+              "$ref": "#/components/schemas/Trace"
+            },
+            "title": "Traces",
+            "type": "array"
+          },
+          "trigger_level": {
+            "title": "Trigger Level",
+            "type": "number"
+          },
+          "trigger_source": {
+            "title": "Trigger Source",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instrument",
+          "source",
+          "timebase_scale",
+          "trigger_level",
+          "trigger_source",
+          "traces",
+          "acquisitions"
+        ],
+        "title": "ScopeScreen",
+        "type": "object"
+      },
+      "ScpiRequest": {
+        "properties": {
+          "command": {
+            "description": "Program message, e.g. ':CHANnel1:SCALe 0.05' or '*IDN?'",
+            "title": "Command",
+            "type": "string"
+          }
+        },
+        "required": [
+          "command"
+        ],
+        "title": "ScpiRequest",
+        "type": "object"
+      },
+      "ScpiResponse": {
+        "properties": {
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/ErrorItem"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "now_ns": {
+            "title": "Now Ns",
+            "type": "integer"
+          },
+          "response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response"
+          }
+        },
+        "required": [
+          "now_ns"
+        ],
+        "title": "ScpiResponse",
+        "type": "object"
+      },
+      "SessionInfo": {
+        "properties": {
+          "bench_name": {
+            "title": "Bench Name",
+            "type": "string"
+          },
+          "bench_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bench Path"
+          },
+          "clock_mode": {
+            "enum": [
+              "command",
+              "wall",
+              "stepped"
+            ],
+            "title": "Clock Mode",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "duts": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentInfo"
+            },
+            "title": "Duts",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "instruments": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentInfo"
+            },
+            "title": "Instruments",
+            "type": "array"
+          },
+          "layout": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LayoutItem"
+            },
+            "title": "Layout",
+            "type": "object"
+          },
+          "nets": {
+            "items": {
+              "$ref": "#/components/schemas/NetInfo"
+            },
+            "title": "Nets",
+            "type": "array"
+          },
+          "now_ns": {
+            "title": "Now Ns",
+            "type": "integer"
+          },
+          "record_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Path"
+          },
+          "reveal_true_values": {
+            "title": "Reveal True Values",
+            "type": "boolean"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "wires": {
+            "items": {
+              "$ref": "#/components/schemas/WireInfo"
+            },
+            "title": "Wires",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "bench_name",
+          "clock_mode",
+          "now_ns",
+          "seed",
+          "reveal_true_values",
+          "instruments",
+          "duts",
+          "wires",
+          "nets",
+          "layout"
+        ],
+        "title": "SessionInfo",
+        "type": "object"
+      },
+      "StartSessionRequest": {
+        "properties": {
+          "bench_path": {
+            "title": "Bench Path",
+            "type": "string"
+          },
+          "clock": {
+            "anyOf": [
+              {
+                "enum": [
+                  "command",
+                  "wall",
+                  "stepped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          }
+        },
+        "required": [
+          "bench_path"
+        ],
+        "title": "StartSessionRequest",
+        "type": "object"
+      },
+      "StateSpec": {
+        "additionalProperties": false,
+        "description": "One settable state variable.",
+        "properties": {
+          "default": {
+            "title": "Default"
+          },
+          "electrical": {
+            "default": false,
+            "description": "Changing this variable changes the bench's circuit",
+            "title": "Electrical",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "label_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label En"
+          },
+          "ladder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snap writes to a ladder: '1-2-5', '1-3' or an explicit list of values",
+            "title": "Ladder"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Enum options in SCPI mixed case, e.g. SINusoid",
+            "title": "Options"
+          },
+          "readonly": {
+            "default": false,
+            "title": "Readonly",
+            "type": "boolean"
+          },
+          "rst": {
+            "description": "Value after *RST; defaults to `default`",
+            "title": "Rst"
+          },
+          "special": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load",
+            "title": "Special"
+          },
+          "type": {
+            "enum": [
+              "float",
+              "int",
+              "bool",
+              "enum",
+              "string"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM",
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "StateSpec",
+        "type": "object"
+      },
+      "StateVarInfo": {
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "electrical": {
+            "default": false,
+            "title": "Electrical",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "label_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label En"
+          },
+          "max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "readonly": {
+            "default": false,
+            "title": "Readonly",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "path",
+          "type"
+        ],
+        "title": "StateVarInfo",
+        "type": "object"
+      },
+      "Trace": {
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "integer"
+          },
+          "dt_s": {
+            "title": "Dt S",
+            "type": "number"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "number"
+          },
+          "scale": {
+            "title": "Scale",
+            "type": "number"
+          },
+          "t0_s": {
+            "description": "Time of the first sample relative to the trigger",
+            "title": "T0 S",
+            "type": "number"
+          },
+          "triggered": {
+            "title": "Triggered",
+            "type": "boolean"
+          },
+          "volts": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Volts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channel",
+          "t0_s",
+          "dt_s",
+          "volts",
+          "scale",
+          "offset",
+          "triggered"
+        ],
+        "title": "Trace",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "WireInfo": {
+        "properties": {
+          "accessories": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentInfo"
+            },
+            "title": "Accessories",
+            "type": "array"
+          },
+          "from": {
+            "title": "From",
+            "type": "string"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "net": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Net of the 'from' end",
+            "title": "Net"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "from",
+          "to"
+        ],
+        "title": "WireInfo",
+        "type": "object"
+      },
+      "Wiring": {
+        "additionalProperties": false,
+        "properties": {
+          "channel": {
+            "description": "Signal wires inside each channel",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Channel",
+            "type": "array"
+          },
+          "instrument": {
+            "description": "Signal wires at instrument level; '{n}' expands per channel",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Instrument",
+            "type": "array"
+          }
+        },
+        "title": "Wiring",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "SimuBench",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/benches": {
+      "get": {
+        "operationId": "listBenches",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BenchFile"
+                  },
+                  "title": "Response Listbenches",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Benches"
+      }
+    },
+    "/api/definitions": {
+      "get": {
+        "operationId": "listDefinitions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Listdefinitions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Definitions"
+      }
+    },
+    "/api/definitions/{def_id}": {
+      "get": {
+        "operationId": "getDefinition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentDefinition"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition"
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "operationId": "listSessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionInfo"
+                  },
+                  "title": "Response Listsessions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Sessions"
+      },
+      "post": {
+        "operationId": "startSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start"
+      }
+    },
+    "/api/sessions/{sid}": {
+      "delete": {
+        "operationId": "stopSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop"
+      },
+      "get": {
+        "operationId": "getSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Session"
+      }
+    },
+    "/api/sessions/{sid}/clock": {
+      "get": {
+        "operationId": "getClock",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clock"
+      }
+    },
+    "/api/sessions/{sid}/clock/advance": {
+      "post": {
+        "operationId": "advanceClock",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Advance"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}": {
+      "get": {
+        "operationId": "getInstrument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Instrument"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/configure": {
+      "post": {
+        "operationId": "configure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Configure"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/scpi": {
+      "post": {
+        "operationId": "sendScpi",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScpiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScpiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Scpi"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/screen": {
+      "get": {
+        "operationId": "getScopeScreen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source",
+            "required": false,
+            "schema": {
+              "default": "preview",
+              "pattern": "^(record|preview)$",
+              "title": "Source",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScopeScreen"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Screen"
+      }
+    },
+    "/api/sessions/{sid}/nets/{net}/waveform": {
+      "get": {
+        "operationId": "getNetWaveform",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "net",
+            "required": true,
+            "schema": {
+              "title": "Net",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "window_s",
+            "required": false,
+            "schema": {
+              "default": 0.002,
+              "exclusiveMinimum": 0,
+              "title": "Window S",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 20000,
+              "minimum": 2,
+              "title": "Points",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetWaveform"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Net Waveform"
+      }
+    }
+  }
+}
