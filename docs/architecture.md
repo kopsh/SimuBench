@@ -452,11 +452,12 @@ Bench 的编辑操作（添加/删除仪表与 DUT、连线、修改配置、校
 
 | 部分 | 建议 |
 | --- | --- |
-| 服务进程 | Python 异步框架：HTTP 与 WebSocket 服务、每台仪表一个 TCP 监听 |
+| 服务进程 | FastAPI：HTTP 与 WebSocket 服务；每台仪表一个异步 TCP 监听（D21） |
 | MCP | 官方 Python SDK；本机 stdio 与 HTTP 两种方式 |
 | PyVISA 后端 | 按 PyVISA 的后端扩展机制实现，注册名 `simubench` |
-| Web 前端 | TypeScript + React；波形与迹线用 Canvas 绘制 |
-| 定义与 Bench 文件 | YAML，配 JSON Schema 校验 |
+| Web 前端 | TypeScript + React + shadcn/ui；Bench 画布用 React Flow；波形与迹线用 Canvas 绘制（D21） |
+| 接口生成 | Pydantic 模型为唯一来源：FastAPI 生成 OpenAPI → 生成前端 TypeScript 类型与客户端；WebSocket 消息、Bench 与定义文件、MCP 工具的 schema 由同一批模型导出；CI 检查生成结果是否最新（D21） |
+| 定义与 Bench 文件 | YAML，配由 Pydantic 模型导出的 JSON Schema 校验 |
 | 运行记录 | 分段 JSON Lines；以后可选列式格式用于大数据 |
 | 日志与指标 | 结构化 JSON 日志；指标与追踪采用 OpenTelemetry 导出 |
 | 确定性 | 固定依赖版本；数学库单线程运行；随机数用计数器式算法（如 Philox） |
