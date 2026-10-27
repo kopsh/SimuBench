@@ -22,6 +22,22 @@ simubench validate examples/benches/*.bench.yaml   # 校验测试台，输出 �
 simubench schemas --out schemas                    # 导出 OpenAPI 与 JSON Schema
 ```
 
+## 在 pytest 中使用
+
+安装后自动注册 pytest 插件。每个测试得到一台刚上电的测试台：
+
+```python
+import pytest
+
+@pytest.mark.bench("benches/awg_rc_scope.bench.yaml", seed=7)
+def test_gain(instruments, bench_session):
+    scope = instruments["scope"]            # 也可用真实地址 "TCPIP0::192.168.1.21::5025::SOCKET"
+    assert scope.query("*IDN?").startswith("SIMUBENCH")
+    bench_session.advance(0.01)             # 真机做不到的事：推进虚拟时间、注入故障
+```
+
+`pytest --simubench-bench <bench> --simubench-record-dir runs` 为没有标记的测试指定测试台，并为每个测试写运行记录；失败的测试在报告中给出记录与 `simubench replay` 命令。
+
 ## 运行记录与回放
 
 `simubench serve --record-dir runs` 为每个会话写一份运行记录（JSON Lines）。CI 中失败的一次运行可以在本地复现：

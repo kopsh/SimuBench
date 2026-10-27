@@ -107,7 +107,13 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
 
     def _start(self) -> None:
         """Open the bench: a fresh session, as a power-cycled bench would be."""
-        self.bench = open_bench(self._spec, record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None)
+        seed = os.environ.get("SIMUBENCH_SEED")
+        self.bench = open_bench(
+            self._spec,
+            record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None,
+            clock=os.environ.get("SIMUBENCH_CLOCK") or None,
+            seed=int(seed) if seed else None,
+        )
         self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.
         self.addresses: dict[str, str] = {}  # normalized address/alias -> instrument

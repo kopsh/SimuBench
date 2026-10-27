@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock } from "@/lib/format";
 import { RecentRuns } from "../runs/RecentRuns";
+import { GettingStarted } from "./GettingStarted";
 import { NewBenchDialog } from "./NewBenchDialog";
 
 export function HomePage() {
@@ -49,6 +50,7 @@ export function HomePage() {
       <main className="mx-auto w-full max-w-5xl flex-1 overflow-auto px-6 py-8">
         <h1 className="text-lg font-semibold">{t("home.title")}</h1>
         <p className="text-muted-foreground mt-1">{t("home.subtitle")}</p>
+        <GettingStarted example={(benches.data ?? []).find((b) => !b.error && b.instruments > 0)} onStart={onStart} />
 
         {error ? (
           <ErrorState
