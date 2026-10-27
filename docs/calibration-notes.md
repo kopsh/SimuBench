@@ -26,7 +26,7 @@
 ## 3. 定标前后数据与超差
 
 - 证书报告调整前（as-found）与调整后（as-left）的结果；as-found 超差时，需要回溯该仪表自上次合格校准以来的所有测量结果。
-- **对 SimuBench 的要求**：虚拟 DUT 的隐藏误差（D14 之前讨论的“隐藏状态即真值”）同时给出 as-found 的真实值；脚本写入定标系数后，as-left 的真实值同样已知，因此平台可以判定脚本的 as-found / as-left 结论是否正确。
+- **对 SimuBench 的要求**：虚拟 DUT 的隐藏误差（“隐藏状态即真值”，见 validation-rfgen.md）同时给出 as-found 的真实值；脚本写入定标系数后，as-left 的真实值同样已知，因此平台可以判定脚本的 as-found / as-left 结论是否正确。
 
 ## 4. 不确定度与判定规则
 
