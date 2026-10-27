@@ -53,7 +53,8 @@ class ScpiServer:
         self, lst: ScpiListener, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         lst.clients.add(writer)
-        client = "socket:%s:%s" % writer.get_extra_info("peername")[:2]
+        host, port = writer.get_extra_info("peername")[:2]
+        client = f"socket:{host}:{port}"
         try:
             while True:
                 line = await reader.readline()
