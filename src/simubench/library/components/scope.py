@@ -123,23 +123,23 @@ class ScopeAcquisition(Component):
 
     # ---- acquisition ------------------------------------------------------------------------------
 
-    def acquire(self, channels: list[int]) -> int:
-        """Acquire the listed channels at the current instant. Returns the virtual time used (ns)."""
+    def compute(self, channels: list[int]) -> tuple[dict[int, Record], int, bool]:
+        """Sample the listed channels at the current instant without changing any state.
+
+        Returns the records, the virtual time an acquisition takes (ns) and whether it triggered.
+        """
         points, dt, pre, post = self._timing()
         t0 = self.session.now_ns
         n_trig = int(str(self._st("trigger.source")).removeprefix("CHANnel") or 1)
         trig_sig = self._display_signal(n_trig)
         k, triggered = self._trigger_search(trig_sig, t0, dt, pre, points)
-        mode = self._st("trigger.mode")
-        if not triggered and mode == "NORMal":
-            # No trigger: the previous records stay; the scope waited one search span.
-            return round(points * int(self.param("search_windows")) * dt * 1e9)
         start = k - pre
         idx = np.arange(points)
+        records: dict[int, Record] = {}
         for n in channels:
             sig = self._display_signal(n)
             v = sig.sample_rel(t0, (start + idx) * dt)
-            self.records[n] = Record(
+            records[n] = Record(
                 channel=n,
                 t_start_ns=t0 + round(start * dt * 1e9),
                 dt_s=dt,
@@ -149,10 +149,23 @@ class ScopeAcquisition(Component):
                 offset=float(self._st(f"ch{n}.offset")),
                 triggered=triggered,
             )
-        self.acq_count += 1
         used = (k + post) * dt + float(self.param("overhead_s"))
+        if not triggered:
+            used = points * int(self.param("search_windows")) * dt + float(self.param("overhead_s"))
+        return records, round(used * 1e9), triggered
+
+    def displayed(self) -> list[int]:
+        return [n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")]
+
+    def acquire(self, channels: list[int]) -> int:
+        """Acquire the listed channels at the current instant. Returns the virtual time used (ns)."""
+        records, used, triggered = self.compute(channels)
+        if not triggered and self._st("trigger.mode") == "NORMal":
+            return used  # no trigger: the previous records stay
+        self.records.update(records)
+        self.acq_count += 1
         self.session.invalidate()
-        return round(used * 1e9)
+        return used
 
     @op("digitize")
     def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -166,7 +179,7 @@ class ScopeAcquisition(Component):
             assert self.owner is not None
             self.owner.set_state(f"ch{int(m)}.display", True)
         if not chans:
-            chans = [n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")]
+            chans = self.displayed()
         return OpResult(duration_ns=self.acquire(chans))
 
     def _source(self) -> int:

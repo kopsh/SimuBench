@@ -1,0 +1,339 @@
+"""FastAPI application of ``simubench serve`` (D18, D21).
+
+Security for a local service (roadmap.md, D22): the service listens on the loopback interface,
+requires the access token printed at start-up, and rejects requests whose Host or Origin header is
+not a loopback name, so that a web page cannot reach it through DNS rebinding.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import secrets
+from pathlib import Path
+from typing import Any
+
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+
+from .. import __version__
+from ..engine.record import encode_bytes
+from ..library.loader import DefinitionLibrary
+from ..models import api as M
+from ..models.definition import InstrumentDefinition
+from .manager import ServedSession, SessionManager, _plain
+
+LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
+WEB_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
+
+
+def _host_ok(value: str | None) -> bool:
+    if not value:
+        return True
+    host = value.split("://", 1)[-1].split("/", 1)[0]
+    if host.startswith("["):
+        host = host.split("]", 1)[0] + "]"
+    else:
+        host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    return host in LOOPBACK_HOSTS
+
+
+class LocalOnly(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        if not _host_ok(request.headers.get("host")) or not _host_ok(request.headers.get("origin")):
+            return JSONResponse({"detail": "only loopback hosts and origins are allowed"}, status_code=403)
+        return await call_next(request)
+
+
+def create_app(manager: SessionManager, token: str | None = None, web_dist: Path | None = None) -> FastAPI:
+    token = token or secrets.token_urlsafe(24)
+    app = FastAPI(
+        title="SimuBench", version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json"
+    )
+    app.state.token = token
+    app.state.manager = manager
+    app.add_middleware(LocalOnly)
+    library = DefinitionLibrary([manager.workspace / "instruments"])
+
+    def auth(request: Request) -> None:
+        supplied = request.headers.get("x-simubench-token") or request.query_params.get("token")
+        if not supplied or not secrets.compare_digest(supplied, token):
+            raise HTTPException(status_code=401, detail="missing or wrong access token")
+
+    def served(sid: str) -> ServedSession:
+        try:
+            return manager.get(sid)
+        except KeyError:
+            raise HTTPException(404, f"no session {sid!r}") from None
+
+    def not_found(exc: KeyError) -> HTTPException:
+        return HTTPException(404, str(exc).strip("'\""))
+
+    @app.get("/api/health", response_model=M.Health, operation_id="health")
+    def health() -> M.Health:
+        return M.Health(version=__version__)
+
+    @app.get(
+        "/api/benches",
+        response_model=list[M.BenchFile],
+        operation_id="listBenches",
+        dependencies=[Depends(auth)],
+    )
+    def benches() -> list[M.BenchFile]:
+        return manager.bench_files()
+
+    @app.get(
+        "/api/definitions",
+        response_model=list[str],
+        operation_id="listDefinitions",
+        dependencies=[Depends(auth)],
+    )
+    def definitions() -> list[str]:
+        return library.ids()
+
+    @app.get(
+        "/api/definitions/{def_id}",
+        response_model=InstrumentDefinition,
+        response_model_by_alias=True,
+        operation_id="getDefinition",
+        dependencies=[Depends(auth)],
+    )
+    def definition(def_id: str) -> InstrumentDefinition:
+        try:
+            return library.get(def_id)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.get(
+        "/api/sessions",
+        response_model=list[M.SessionInfo],
+        operation_id="listSessions",
+        dependencies=[Depends(auth)],
+    )
+    def sessions() -> list[M.SessionInfo]:
+        return [manager.describe(s) for s in manager.sessions.values()]
+
+    @app.post(
+        "/api/sessions",
+        response_model=M.SessionInfo,
+        operation_id="startSession",
+        dependencies=[Depends(auth)],
+    )
+    async def start(req: M.StartSessionRequest) -> M.SessionInfo:
+        try:
+            s = await manager.start(req.bench_path, clock=req.clock, seed=req.seed)
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from None
+        except FileNotFoundError as exc:
+            raise HTTPException(404, str(exc)) from None
+        except (ValueError, KeyError) as exc:
+            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        return manager.describe(s)
+
+    @app.get(
+        "/api/sessions/{sid}",
+        response_model=M.SessionInfo,
+        operation_id="getSession",
+        dependencies=[Depends(auth)],
+    )
+    def get_session(sid: str) -> M.SessionInfo:
+        return manager.describe(served(sid))
+
+    @app.delete(
+        "/api/sessions/{sid}", status_code=204, operation_id="stopSession", dependencies=[Depends(auth)]
+    )
+    async def stop(sid: str) -> None:
+        served(sid)
+        await manager.stop(sid)
+
+    @app.get(
+        "/api/sessions/{sid}/instruments/{name}",
+        response_model=M.InstrumentInfo,
+        operation_id="getInstrument",
+        dependencies=[Depends(auth)],
+    )
+    def instrument(sid: str, name: str) -> M.InstrumentInfo:
+        s = served(sid)
+        try:
+            inst = s.session.instrument(name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+        index = list(s.session.instruments).index(name)
+        port = next(
+            (lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None
+        )
+        return manager.describe_instrument(s.session, inst, index, port)
+
+    @app.post(
+        "/api/sessions/{sid}/instruments/{name}/scpi",
+        response_model=M.ScpiResponse,
+        operation_id="sendScpi",
+        dependencies=[Depends(auth)],
+    )
+    async def scpi(sid: str, name: str, req: M.ScpiRequest) -> M.ScpiResponse:
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(manager.scpi, s, name, req.command)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.post(
+        "/api/sessions/{sid}/instruments/{name}/configure",
+        response_model=M.ConfigureResponse,
+        operation_id="configure",
+        dependencies=[Depends(auth)],
+    )
+    async def configure(sid: str, name: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(manager.configure, s, name, req.path, req.value)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.get(
+        "/api/sessions/{sid}/instruments/{name}/screen",
+        response_model=M.ScopeScreen,
+        operation_id="getScopeScreen",
+        dependencies=[Depends(auth)],
+    )
+    async def screen(
+        sid: str, name: str, source: str = Query("preview", pattern="^(record|preview)$")
+    ) -> M.ScopeScreen:
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(manager.scope_screen, s, name, source)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.get(
+        "/api/sessions/{sid}/nets/{net}/waveform",
+        response_model=M.NetWaveform,
+        operation_id="getNetWaveform",
+        dependencies=[Depends(auth)],
+    )
+    async def net_waveform(
+        sid: str, net: str, window_s: float = Query(2e-3, gt=0), points: int = Query(500, ge=2, le=20000)
+    ) -> M.NetWaveform:
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(manager.net_waveform, s, net, window_s, points)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.get(
+        "/api/sessions/{sid}/clock",
+        response_model=M.ClockInfo,
+        operation_id="getClock",
+        dependencies=[Depends(auth)],
+    )
+    def clock(sid: str) -> M.ClockInfo:
+        s = served(sid).session
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
+
+    @app.post(
+        "/api/sessions/{sid}/clock/advance",
+        response_model=M.ClockInfo,
+        operation_id="advanceClock",
+        dependencies=[Depends(auth)],
+    )
+    def advance(sid: str, req: M.AdvanceRequest) -> M.ClockInfo:
+        s = served(sid).session
+        try:
+            s.advance(req.seconds)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from None
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
+
+    @app.websocket("/api/sessions/{sid}/events")
+    async def events(ws: WebSocket, sid: str) -> None:
+        if not _host_ok(ws.headers.get("host")) or not _host_ok(ws.headers.get("origin")):
+            await ws.close(code=4403)
+            return
+        supplied = ws.query_params.get("token") or ""
+        if not secrets.compare_digest(supplied, token):
+            await ws.close(code=4401)
+            return
+        try:
+            s = manager.get(sid)
+        except KeyError:
+            await ws.close(code=4404)
+            return
+        await ws.accept()
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=10000)
+        counter = {"seq": 0}
+
+        def push(ev: dict[str, Any]) -> None:
+            counter["seq"] += 1
+            msg = to_event(ev, counter["seq"])
+            with contextlib.suppress(RuntimeError):
+                loop.call_soon_threadsafe(_put, queue, msg)
+
+        unsubscribe = s.session.subscribe(push)
+        try:
+            while True:
+                msg = await queue.get()
+                await ws.send_json(msg)
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+        finally:
+            unsubscribe()
+
+    dist = web_dist or WEB_DIST
+    if dist.is_dir() and (dist / "index.html").is_file():
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+        @app.get("/{path:path}", include_in_schema=False)
+        def spa(path: str) -> FileResponse:
+            candidate = dist / path
+            if path and candidate.is_file() and dist in candidate.resolve().parents:
+                return FileResponse(candidate)
+            return FileResponse(dist / "index.html")
+
+    return app
+
+
+def _put(queue: asyncio.Queue[dict[str, Any]], msg: dict[str, Any]) -> None:
+    if queue.full():
+        with contextlib.suppress(asyncio.QueueEmpty):
+            queue.get_nowait()  # drop the oldest rather than block the bench
+    queue.put_nowait(msg)
+
+
+def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
+    out: dict[str, Any] = {"seq": seq, "t_ns": int(ev.get("t_ns", 0)), "kind": ev.get("kind", "unknown")}
+    for key in (
+        "instrument",
+        "dir",
+        "duration_ns",
+        "client",
+        "path",
+        "source",
+        "code",
+        "message",
+        "dt_ns",
+        "reason",
+        "wall",
+    ):
+        if key in ev:
+            out[key] = ev[key]
+    if "old" in ev:
+        out["old"] = _plain(ev["old"])
+    if "new" in ev:
+        out["new"] = _plain(ev["new"])
+    data = ev.get("data")
+    if isinstance(data, bytes):
+        enc = encode_bytes(data)
+        out["size"] = len(data)
+        out["text"] = enc.get("text") if "text" in enc else _summary(data)
+    return M.Event.model_validate(out).model_dump(exclude_none=True)
+
+
+def _summary(data: bytes) -> str:
+    """Printable summary of binary SCPI data: the block header and the byte count."""
+    if data.startswith(b"#") and len(data) > 2 and data[1:2].isdigit():
+        n = int(data[1:2])
+        return data[: 2 + n].decode(errors="replace") + f"… ({len(data)} B)"
+    return f"<{len(data)} B binary>"

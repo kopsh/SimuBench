@@ -1,0 +1,312 @@
+{
+  "$defs": {
+    "Accessory": {
+      "additionalProperties": false,
+      "properties": {
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "type": {
+          "description": "Two-port component placed on the wire, e.g. 'passive_probe'",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Accessory",
+      "type": "object"
+    },
+    "ComponentInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "hidden": {
+          "additionalProperties": true,
+          "title": "Hidden",
+          "type": "object"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "params": {
+          "additionalProperties": true,
+          "title": "Params",
+          "type": "object"
+        },
+        "type": {
+          "description": "Component type, e.g. 'rc_lowpass'",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "ComponentInstance",
+      "type": "object"
+    },
+    "InstrumentInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "address": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)",
+          "title": "Address"
+        },
+        "firmware": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Firmware"
+        },
+        "hidden": {
+          "additionalProperties": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "description": "Hidden state: component parameter overrides, e.g. {'ch1.out': {'z_out': 50.4}}",
+          "title": "Hidden",
+          "type": "object"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "model": {
+          "description": "Instrument definition id, e.g. 'sb-dso-4'",
+          "title": "Model",
+          "type": "string"
+        },
+        "serial": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overrides the definition's serial number",
+          "title": "Serial"
+        },
+        "state": {
+          "additionalProperties": true,
+          "description": "Initial state, e.g. {'ch1.frequency': 1000}",
+          "title": "State",
+          "type": "object"
+        }
+      },
+      "required": [
+        "model"
+      ],
+      "title": "InstrumentInstance",
+      "type": "object"
+    },
+    "LayoutItem": {
+      "additionalProperties": false,
+      "properties": {
+        "h": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "H"
+        },
+        "w": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "W"
+        },
+        "x": {
+          "default": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "default": 0,
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "title": "LayoutItem",
+      "type": "object"
+    },
+    "RunConditions": {
+      "additionalProperties": false,
+      "properties": {
+        "clock": {
+          "default": "command",
+          "enum": [
+            "command",
+            "wall",
+            "stepped"
+          ],
+          "title": "Clock",
+          "type": "string"
+        },
+        "reveal_true_values": {
+          "default": false,
+          "description": "Allow clients to read hidden state (D9)",
+          "title": "Reveal True Values",
+          "type": "boolean"
+        },
+        "seed": {
+          "default": 1,
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "title": "RunConditions",
+      "type": "object"
+    },
+    "Wire": {
+      "additionalProperties": false,
+      "properties": {
+        "accessories": {
+          "items": {
+            "$ref": "#/$defs/Accessory"
+          },
+          "title": "Accessories",
+          "type": "array"
+        },
+        "from": {
+          "description": "Port reference 'instance.PORT'",
+          "title": "From",
+          "type": "string"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "to": {
+          "description": "Port reference 'instance.PORT'",
+          "title": "To",
+          "type": "string"
+        }
+      },
+      "required": [
+        "from",
+        "to"
+      ],
+      "title": "Wire",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "description": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "duts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ComponentInstance"
+      },
+      "title": "Duts",
+      "type": "object"
+    },
+    "instruments": {
+      "additionalProperties": {
+        "$ref": "#/$defs/InstrumentInstance"
+      },
+      "title": "Instruments",
+      "type": "object"
+    },
+    "layout": {
+      "additionalProperties": {
+        "$ref": "#/$defs/LayoutItem"
+      },
+      "description": "UI positions only; never affects simulation results",
+      "title": "Layout",
+      "type": "object"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "run": {
+      "$ref": "#/$defs/RunConditions"
+    },
+    "schema": {
+      "const": "simubench.bench/1",
+      "default": "simubench.bench/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "wires": {
+      "items": {
+        "$ref": "#/$defs/Wire"
+      },
+      "title": "Wires",
+      "type": "array"
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "title": "BenchDefinition",
+  "type": "object"
+}
