@@ -86,3 +86,22 @@ export function useEventStream(sid: string, onState?: (ev: Event) => void) {
     };
   }, [sid, onState]);
 }
+
+/**
+ * Wall-clock sessions move on their own, without events: count the clock forward in real time from
+ * the session's last reported instant, and nudge screens to re-read twice a second.
+ */
+export function useWallClock(clockMode: string, serverNowNs: number) {
+  useEffect(() => {
+    if (clockMode !== "wall") return;
+    const anchorNs = serverNowNs;
+    const anchorMs = performance.now();
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      const now = anchorNs + Math.round((performance.now() - anchorMs) * 1e6);
+      useEvents.setState((s) => ({ nowNs: Math.max(s.nowNs, now), version: ticks % 5 === 0 ? s.version + 1 : s.version }));
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [clockMode, serverNowNs]);
+}

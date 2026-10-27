@@ -69,3 +69,37 @@ test("SMU screen: the limit takes over, a sweep fills the I–V curve and the bu
   await expect(rows.nth(8)).toContainText("3.9996");
   await expect(page.getByRole("img", { name: "I–V 曲线（缓冲区）" })).toBeVisible();
 });
+
+test("wall clock: time runs by itself and the lock-in settles without advancing", async ({ page }) => {
+  const headers = { "x-simubench-token": TOKEN };
+  const path = `e2e/wall-${Date.now()}.bench.yaml`;
+  const data = {
+    schema: "simubench.bench/1",
+    name: "wall",
+    instruments: {
+      lia: { model: "sb-lia-1", label: "锁相放大器", state: { "reference.frequency": 1515.76, "sine_out.amplitude": 0.5, "filter.time_constant": 0.03 } },
+    },
+    duts: { rc: { type: "rc_lowpass", params: { r: 1000, c: 1e-7 } } },
+    wires: [
+      { from: "lia.SINE_OUT", to: "rc.IN" },
+      { from: "rc.OUT", to: "lia.SIG_IN" },
+    ],
+    run: { clock: "wall", seed: 1 },
+  };
+  expect((await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data } })).ok()).toBeTruthy();
+  const sid = ((await (await page.request.post("/api/sessions", { headers, data: { bench_path: path } })).json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await expect(page.getByText("墙钟", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /推进/ })).toHaveCount(0); // nothing to advance
+  const clock = page.getByTitle("虚拟时间");
+  const first = await clock.textContent();
+  await expect(clock).not.toHaveText(first ?? "");
+
+  await page.locator(".react-flow__node").filter({ hasText: "锁相放大器" }).dblclick();
+  await expect(page.getByTestId("readout-R")).toHaveText(/^353\.5/);
+  const freq = page.getByRole("textbox", { name: "参考频率" }).first();
+  await freq.fill("100");
+  await freq.press("Enter");
+  // Real time passes; a 30 ms, 24 dB/oct filter settles well within a few seconds.
+  await expect(page.getByTestId("readout-R")).toHaveText(/^498\.8/, { timeout: 10_000 });
+});

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import type { BenchDocument, EditOp, SessionInfo } from "@/api/client";
-import { useEventStream, useEvents } from "@/api/events";
+import { useEventStream, useEvents, useWallClock } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useSession } from "@/api/hooks";
 import { ErrorState } from "@/components/app/StateViews";
@@ -61,6 +61,7 @@ export function WorkbenchPage() {
     [qc, sid],
   );
   useEventStream(sid, onState);
+  useWallClock(session.data?.clock_mode ?? "", session.data?.now_ns ?? 0);
   const version = useEvents((s) => s.version);
   useEffect(() => {
     window.clearTimeout(refetchTimer.current);

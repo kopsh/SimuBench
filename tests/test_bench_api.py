@@ -1,4 +1,5 @@
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -257,3 +258,21 @@ def test_history_records_sources_external_changes_and_restores(client, ws):
     assert history()[0]["source"] == "restore" and len(history()) == 7  # nothing was dropped
     assert client.get("/api/benches/version", params={"path": BENCH, "seq": 99}).status_code == 404
     assert client.get("/api/benches/history", params={"path": "../x.bench.yaml"}).status_code == 403
+
+
+def test_wall_clock_readings_follow_real_time(tmp_path):
+    data = yaml.safe_load(
+        (ROOT / "acceptance" / "benches" / "lockin_rc.bench.yaml").read_text(encoding="utf-8")
+    )
+    data["run"] = {"clock": "wall", "seed": 1}
+    (tmp_path / "w.bench.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
+    app = create_app(
+        SessionManager(tmp_path, scpi_base_port=None), token=TOKEN, web_dist=Path("/nonexistent")
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "w.bench.yaml"}).json()["id"]
+        first = c.get(f"/api/sessions/{sid}/instruments/lia/readings").json()["now_ns"]
+        time.sleep(0.05)
+        second = c.get(f"/api/sessions/{sid}/instruments/lia/readings").json()["now_ns"]
+        assert second - first >= 40_000_000  # nothing was sent; time moved with the wall

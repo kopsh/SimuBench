@@ -324,6 +324,7 @@ class SessionManager:
         if acq is None or not hasattr(acq, "compute"):
             raise KeyError(f"{instrument} is not an oscilloscope")
         with s._lock:  # read a consistent view without changing anything
+            s.follow_wall()
             if source == "record":
                 records = dict(acq.records)  # type: ignore[attr-defined]
             else:
@@ -357,6 +358,7 @@ class SessionManager:
         values: dict[str, Any] = {}
         traces: list[M.ReadingTrace] = []
         with s._lock:
+            s.follow_wall()
             for name, comp in inst.components.items():
                 r = comp.readings()
                 if not r:
@@ -373,6 +375,7 @@ class SessionManager:
         if net not in s.nets:
             raise KeyError(net)
         with s._lock:
+            s.follow_wall()
             sig = s.net_signal(net)
             dt = window_s / points
             v = sig.sample_rel(s.now_ns, np.arange(points) * dt)
