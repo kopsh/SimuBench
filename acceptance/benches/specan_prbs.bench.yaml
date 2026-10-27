@@ -1,0 +1,11 @@
+schema: simubench.bench/1
+name: acceptance-specan-prbs
+description: An order-7 PRBS (100 kb/s, 0.25 V open circuit) on RF_IN.
+instruments:
+  prbs: {model: sb-prbs-1}
+  sa:
+    model: sb-sa-1
+    state: {freq.center: 100000.0, freq.span: 200000.0}
+wires:
+  - {from: prbs.OUT, to: sa.RF_IN}
+run: {seed: 5, clock: stepped}

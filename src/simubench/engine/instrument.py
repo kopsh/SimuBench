@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import math
 from collections import defaultdict
 from dataclasses import dataclass
@@ -20,6 +21,8 @@ if TYPE_CHECKING:
     from .session import Session
 
 _LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0), "1-10": (1.0,)}
+
+log = logging.getLogger(__name__)
 
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
@@ -267,6 +270,11 @@ class Instrument:
                     responses.append(resp)
             except ScpiError as e:
                 self._push(e)
+            except Exception as e:  # a model defect must not take the client's script down
+                log.exception("%s: internal error executing %r", self.name, unit.raw_header)
+                self._push(
+                    ScpiError(-300, f"internal simulator error in {unit.raw_header}: {type(e).__name__}")
+                )
         if responses:
             self._output.append(b";".join(responses) + b"\n")
         return duration

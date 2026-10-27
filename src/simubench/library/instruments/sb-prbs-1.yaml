@@ -1,0 +1,49 @@
+schema: simubench.instrument/1
+id: sb-prbs-1
+manufacturer: SimuBench
+model: SB-PRBS-1
+class: source
+version: 1
+description: 伪随机码源：7 阶 m 序列，NRZ，比特率与电平可设（电平为开路值）；输出阻抗 50 Ω。
+identity:
+  serial: SBPRBS00001
+  firmware: "1.0.0"
+state:
+  rate:
+    type: float
+    unit: HZ
+    min: 1000.0
+    max: 10.0e6
+    default: 100000.0
+    label: 比特率
+    label_en: Bit rate
+  level:
+    type: float
+    unit: V
+    min: 0.0
+    max: 5.0
+    default: 0.25
+    label: 电平
+    label_en: Level
+components:
+  - name: prbs
+    type: prbs_source
+    params: {order: 7, rate: $rate, level: $level}
+  - name: out
+    type: output_stage
+    params: {z_out: 50.0}
+wiring:
+  instrument:
+    - [prbs.out, out.in]
+ports:
+  instrument:
+    OUT: out.pin
+display:
+  template: source
+  summary: [rate, level]
+capabilities: [source]
+commands:
+  - header: "[:SOURce]:RATE"
+    state: rate
+  - header: "[:SOURce]:LEVel"
+    state: level
