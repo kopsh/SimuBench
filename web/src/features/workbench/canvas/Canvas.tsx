@@ -145,6 +145,7 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
             color: channelColor(ch),
             label: w.accessories.map((a) => accessoryLabel(a.type, a.params)).join(" · ") || undefined,
             reference: isReferenceRef(view, w.from) || isReferenceRef(view, w.to),
+            notes: view.nets.find((n) => n.id === w.net)?.notes ?? [],
             highlighted: !!selectedNet && w.net === selectedNet,
             issue: issues?.get(`wire:${w.index}`),
           },

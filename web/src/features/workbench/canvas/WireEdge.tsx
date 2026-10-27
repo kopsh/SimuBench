@@ -9,6 +9,8 @@ export type WireEdgeData = {
   issue?: "error" | "warning";
   /** A timebase or lock-in reference: drawn in the reference color, dash-dotted, tagged REF. */
   reference?: boolean;
+  /** Why the signal on this wire's net is not exact (fidelity); shown as ≈ with the reasons. */
+  notes?: string[];
 };
 export type WireEdgeType = Edge<WireEdgeData, "wire">;
 
@@ -16,7 +18,8 @@ function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
   const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const color =
     data?.issue === "error" ? "var(--status-error)" : data?.reference ? "var(--medium-reference)" : (data?.color ?? "var(--medium-electrical)");
-  const label = data?.reference ? ["REF", data.label].filter(Boolean).join(" · ") : data?.label;
+  const approx = (data?.notes?.length ?? 0) > 0;
+  const label = [data?.reference ? "REF" : null, data?.label, approx ? "≈" : null].filter(Boolean).join(" · ") || undefined;
   const emphasis = selected || data?.highlighted;
   return (
     <>
@@ -30,9 +33,12 @@ function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
         <EdgeLabelRenderer>
           <div
             className={cn(
-              "bg-card num pointer-events-none absolute rounded border px-1.5 py-0.5 text-[10px] font-medium shadow-sm",
+              "bg-card num absolute rounded border px-1.5 py-0.5 text-[10px] font-medium shadow-sm",
+              approx ? "pointer-events-auto cursor-help" : "pointer-events-none",
               emphasis && "border-primary",
             )}
+            title={approx ? data?.notes?.join("\n") : undefined}
+            data-testid={approx ? "wire-approx" : undefined}
             style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`, color }}
           >
             {label}

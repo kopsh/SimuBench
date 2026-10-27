@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import logging
 import uuid
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
 from .benchfiles import BenchFiles
 from .runs import Runs
+
+log = logging.getLogger(__name__)
 
 
 class BenchInvalid(ValueError):
@@ -214,7 +217,7 @@ class SessionManager:
             instruments=instruments,
             duts=duts,
             wires=wires,
-            nets=[M.NetInfo(id=n.id, members=n.members) for n in s.nets.values()],
+            nets=[M.NetInfo(id=n.id, members=n.members, notes=_net_notes(s, n.id)) for n in s.nets.values()],
             layout=b.layout,
         )
 
@@ -492,3 +495,13 @@ def _plain(value: Any) -> Any:
 
 
 __all__ = ["ScpiError", "ServedSession", "SessionManager"]
+
+
+def _net_notes(s: Session, net: str) -> list[str]:
+    """Fidelity notes of the signal on a net (empty when exact); a model failure is a note too."""
+    try:
+        with s._lock:
+            return list(dict.fromkeys(n.detail for n in s.net_signal(net).notes))
+    except Exception as exc:  # describing a session must not fail because one net cannot be solved
+        log.exception("net %s of %s", net, s.bench.name)
+        return [f"model error: {type(exc).__name__}"]
