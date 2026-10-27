@@ -1,0 +1,36 @@
+schema: simubench.instrument/1
+id: sb-dmm-1
+manufacturer: SimuBench
+model: SB-DMM-1
+class: multimeter
+version: 1
+description: 数字万用表（电压功能），输入阻抗 10 MΩ；DC 为平均值，AC 为真有效值。
+identity:
+  serial: SBDMM000001
+  firmware: "1.0.0"
+components:
+  - name: input
+    type: input_port
+    params: {z_in: 10.0e6}
+  - name: meter
+    type: dmm_core
+wiring:
+  instrument:
+    - [input.out, meter.in]
+ports:
+  instrument:
+    IN: input.pin
+display:
+  template: multimeter
+capabilities: [multimeter]
+commands:
+  - header: ":MEASure:VOLTage[:DC]"
+    op: meter.measure
+    set: false
+    args: {what: DC}
+    params: [{name: range, type: raw}]
+  - header: ":MEASure:VOLTage:AC"
+    op: meter.measure
+    set: false
+    args: {what: AC}
+    params: [{name: range, type: raw}]

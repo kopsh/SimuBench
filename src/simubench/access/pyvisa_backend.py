@@ -102,7 +102,13 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
                 "SimuBench needs a bench file: ResourceManager('path/to/bench.yaml@simubench') "
                 "or set SIMUBENCH_BENCH"
             )
-        self.bench = open_bench(spec, record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None)
+        self._spec = spec
+        self._start()
+
+    def _start(self) -> None:
+        """Open the bench: a fresh session, as a power-cycled bench would be."""
+        self.bench = open_bench(self._spec, record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None)
+        self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.
         self.addresses: dict[str, str] = {}  # normalized address/alias -> instrument
         self.canonical: dict[str, str] = {}  # instrument -> canonical address
@@ -141,6 +147,10 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         return handle
 
     def open_default_resource_manager(self) -> tuple[Any, constants.StatusCode]:
+        # PyVISA keeps one library object per bench path; a resource manager opened after the
+        # previous one closed gets a new session, so tests do not inherit each other's state.
+        if self._closed:
+            self._start()
         return self._register(self), constants.StatusCode.success
 
     def list_resources(self, session: Any, query: str = "?*::INSTR") -> tuple[str, ...]:
@@ -183,6 +193,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             return constants.StatusCode.error_invalid_object
         if obj is self:
             self.bench.close()
+            self._closed = True
         return constants.StatusCode.success
 
     # ---- I/O ----------------------------------------------------------------------------------------

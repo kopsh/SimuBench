@@ -129,6 +129,11 @@ class Session:
         if self.recorder:
             self.recorder.header()
 
+        # ---- components with state in virtual time ----
+        self._dynamic = [c for c in self._all_components() if c.dynamic]
+        self._syncing = False
+        self._sync()
+
         # ---- faults preset in the bench ----
         self.faults = FaultManager(self)
         for spec in bench.faults:
@@ -221,12 +226,14 @@ class Session:
         self.emit(
             {"kind": "state", "instrument": inst.name, "path": path, "old": old, "new": new, "source": source}
         )
+        self._sync()
 
     def invalidate(self, electrical: bool = False) -> None:
         """Components call this when their own runtime state changes the signals they produce."""
         self._signal_version += 1
         if electrical:
             self._electrical_version += 1
+        self._sync()
 
     # ---- events -------------------------------------------------------------------------------------
 
@@ -252,6 +259,7 @@ class Session:
     def _begin_action(self) -> None:
         wall = time.monotonic_ns()
         if self.clock_mode == "wall":
+            self._sync()
             self.now_ns = max(self.now_ns, wall - self._wall_start)
         elif self.clock_mode == "command":
             idle = wall - self._last_wall
@@ -262,9 +270,25 @@ class Session:
     def _end_action(self) -> None:
         self._last_wall = time.monotonic_ns()
 
+    def _sync(self) -> None:
+        """Let dynamic components record changes at the current instant (exactly, before time moves)."""
+        if self._syncing or not getattr(self, "_dynamic", None):
+            return
+        self._syncing = True
+        try:
+            for _ in range(4):  # a component may change signals another one reads; settle that
+                version = self._signal_version
+                for comp in self._dynamic:
+                    comp.sync()
+                if self._signal_version == version:
+                    break
+        finally:
+            self._syncing = False
+
     def _advance(self, dt_ns: int, reason: str) -> None:
         if dt_ns <= 0:
             return
+        self._sync()
         self.now_ns += int(dt_ns)
         self._signal_version += 1  # time-dependent components (filters, sweeps) may change
         self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason})

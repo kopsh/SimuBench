@@ -1,0 +1,19 @@
+schema: simubench.bench/1
+name: acceptance-lockin-rc
+description: Lock-in SINE_OUT drives the 1 kΩ / 100 nF low-pass; its output goes to SIG_IN and a DMM (validation-lockin.md).
+instruments:
+  lia:
+    model: sb-lia-1
+    state:
+      reference.frequency: 1591.55
+      sine_out.amplitude: 1.0
+      filter.time_constant: 0.03
+      filter.slope: "24"
+  dmm: {model: sb-dmm-1}
+duts:
+  rc: {type: rc_lowpass, params: {r: 1000.0, c: 1.0e-7}}
+wires:
+  - {from: lia.SINE_OUT, to: rc.IN}
+  - {from: rc.OUT, to: lia.SIG_IN}
+  - {from: rc.OUT, to: dmm.IN}
+run: {seed: 5, clock: stepped}

@@ -1,0 +1,11 @@
+schema: simubench.bench/1
+name: acceptance-lockin-arb
+description: A 16-point arbitrary table (one sine period, 1 mV peak) on SIG_IN; internal 1 kHz reference.
+instruments:
+  lia:
+    model: sb-lia-1
+    state: {filter.time_constant: 0.03, filter.slope: "24", sine_out.enabled: false}
+  arb: {model: sb-arb-1}
+wires:
+  - {from: arb.OUT, to: lia.SIG_IN}
+run: {seed: 5, clock: stepped}

@@ -1,0 +1,42 @@
+schema: simubench.instrument/1
+id: sb-arb-1
+manufacturer: SimuBench
+model: SB-ARB-1
+class: source
+version: 1
+description: 任意波形源：16 点表（一个正弦周期，1 mV 峰值）按采样率播放，线性插值；输出阻抗 50 Ω。
+identity:
+  serial: SBARB000001
+  firmware: "1.0.0"
+state:
+  rate:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 1.0e6
+    default: 16000.0
+    label: 采样率
+    label_en: Sample rate
+components:
+  - name: table
+    type: arb_table
+    params:
+      table: [0, 0.3827, 0.7071, 0.9239, 1, 0.9239, 0.7071, 0.3827, 0, -0.3827, -0.7071, -0.9239, -1, -0.9239, -0.7071, -0.3827]
+      rate: $rate
+      scale: 0.001
+  - name: out
+    type: output_stage
+    params: {z_out: 50.0}
+wiring:
+  instrument:
+    - [table.out, out.in]
+ports:
+  instrument:
+    OUT: out.pin
+display:
+  template: source
+  summary: [rate]
+capabilities: [source]
+commands:
+  - header: ":SOURce:RATE"
+    state: rate

@@ -1,0 +1,204 @@
+schema: simubench.instrument/1
+id: sb-lia-1
+manufacturer: SimuBench
+model: SB-LIA-1
+class: lockin
+version: 1
+description: 双相锁相放大器。内部参考 1 mHz–500 kHz 或 REF_IN 外部参考，谐波 1–99；1–4 阶滤波；SINE_OUT 50 Ω、按开路电压（V rms）定义。
+identity:
+  serial: SBLIA000001
+  firmware: "1.0.0"
+state:
+  reference.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 参考源
+    label_en: Reference
+    option_labels: {INTernal: 内部, EXTernal: 外部}
+  reference.frequency:
+    type: float
+    unit: HZ
+    min: 1.0e-3
+    max: 500.0e3
+    default: 1000.0
+    label: 参考频率
+    label_en: Frequency
+  reference.phase:
+    type: float
+    unit: DEG
+    min: -360.0
+    max: 729.99
+    default: 0.0
+    display_unit: "°"
+    label: 参考相位
+    label_en: Phase
+  reference.harmonic:
+    type: int
+    min: 1
+    max: 99
+    default: 1
+    label: 谐波
+    label_en: Harmonic
+  sine_out.amplitude:
+    type: float
+    unit: V
+    min: 0.004
+    max: 5.0
+    default: 1.0
+    label: 正弦输出 (Vrms)
+    label_en: Sine out (Vrms)
+  sine_out.enabled:
+    type: bool
+    default: true
+    label: 正弦输出
+    label_en: Sine out
+  input.sensitivity:
+    type: float
+    unit: V
+    min: 2.0e-9
+    max: 1.0
+    ladder: 1-2-5
+    default: 1.0
+    label: 灵敏度
+    label_en: Sensitivity
+  input.coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: 耦合
+    label_en: Coupling
+  filter.time_constant:
+    type: float
+    unit: S
+    min: 10.0e-6
+    max: 30.0e3
+    ladder: 1-3
+    default: 0.1
+    label: 时间常数
+    label_en: Time constant
+  filter.slope:
+    type: enum
+    options: ["6", "12", "18", "24"]
+    default: "24"
+    label: 斜率 (dB/oct)
+    label_en: Slope (dB/oct)
+components:
+  - name: osc
+    type: lockin_reference
+    params:
+      source: $reference.source
+      frequency: $reference.frequency
+      phase: $reference.phase
+      harmonic: $reference.harmonic
+      amplitude: $sine_out.amplitude
+  - name: out
+    type: output_stage
+    params: {z_out: 50.0, enabled: $sine_out.enabled}
+  - name: sig_in
+    type: input_port
+    params: {z_in: 10.0e6}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 1.0e6}
+  - name: demod
+    type: lockin_demodulator
+    params:
+      sensitivity: $input.sensitivity
+      coupling: $input.coupling
+      time_constant: $filter.time_constant
+      slope: $filter.slope
+wiring:
+  instrument:
+    - [osc.sine, out.in]
+    - [ref_in.out, osc.ext]
+    - [sig_in.out, demod.in]
+    - [osc.ref, demod.ref]
+ports:
+  instrument:
+    SIG_IN: sig_in.pin
+    REF_IN: ref_in.pin
+    SINE_OUT: out.pin
+display:
+  template: lockin
+  summary: [reference.source, reference.frequency, reference.harmonic, input.sensitivity, filter.time_constant, filter.slope, sine_out.enabled]
+capabilities: [lockin]
+commands:
+  - header: ":REFerence:SOURce"
+    state: reference.source
+  - header: ":REFerence:FREQuency"
+    state: reference.frequency
+  - header: ":REFerence:FREQuency:ACTual"
+    op: osc.frequency
+    set: false
+    args: {what: actual}
+  - header: ":REFerence:DETect:FREQuency"
+    op: osc.frequency
+    set: false
+    args: {what: detect}
+  - header: ":REFerence:PHASe"
+    state: reference.phase
+  - header: ":REFerence:HARMonic"
+    state: reference.harmonic
+  - header: ":REFerence:LOCKed"
+    op: osc.locked
+    set: false
+  - header: ":SOURce:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    state: sine_out.amplitude
+  - header: ":OUTPut[:STATe]"
+    state: sine_out.enabled
+  - header: ":INPut:SENSitivity"
+    state: input.sensitivity
+  - header: ":INPut:COUPling"
+    state: input.coupling
+  - header: ":FILTer:TCONstant"
+    state: filter.time_constant
+  - header: ":FILTer:SLOPe"
+    state: filter.slope
+  - header: ":FILTer:ENBW"
+    op: demod.filter_info
+    set: false
+    args: {what: enbw}
+  - header: ":FILTer:SETTling"
+    op: demod.filter_info
+    set: false
+    args: {what: settling}
+    doc: Seconds to settle within 1 % of a step
+  - header: ":MEASure:X"
+    op: demod.measure
+    set: false
+    args: {what: X}
+  - header: ":MEASure:Y"
+    op: demod.measure
+    set: false
+    args: {what: Y}
+  - header: ":MEASure:R"
+    op: demod.measure
+    set: false
+    args: {what: R}
+  - header: ":MEASure:THETa"
+    op: demod.measure
+    set: false
+    args: {what: THETa}
+  - header: ":MEASure:SNAP"
+    op: demod.snap
+    set: false
+    params: [{name: names, type: raw}]
+  - header: ":STATus:OVERload"
+    op: demod.overload
+    set: false
+    args: {what: all}
+  - header: ":STATus:OVERload:INPut"
+    op: demod.overload
+    set: false
+    args: {what: input}
+  - header: ":STATus:OVERload:OUTPut"
+    op: demod.overload
+    set: false
+    args: {what: output}
+  - header: ":AUTO:GAIN"
+    op: demod.auto_gain
+    query: false
+  - header: ":AUTO:PHASe"
+    op: demod.auto_phase
+    query: false

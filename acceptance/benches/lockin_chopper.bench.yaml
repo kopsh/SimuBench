@@ -1,0 +1,17 @@
+schema: simubench.bench/1
+name: acceptance-lockin-chopper
+description: External reference from a 1 kHz sine (a chopper); a 1 kHz square of 1 V peak on SIG_IN.
+instruments:
+  lia:
+    model: sb-lia-1
+    state: {reference.source: EXTernal, filter.time_constant: 0.03, filter.slope: "24", sine_out.enabled: false}
+  ref:
+    model: sb-awg-2
+    state: {ch1.function: SINusoid, ch1.frequency: 1000.0, ch1.amplitude: 1.0, ch1.load: INF, ch1.output: true}
+  sig:
+    model: sb-awg-2
+    state: {ch1.function: SQUare, ch1.frequency: 1000.0, ch1.amplitude: 2.0, ch1.load: INF, ch1.output: true}
+wires:
+  - {from: ref.OUT1, to: lia.REF_IN}
+  - {from: sig.OUT1, to: lia.SIG_IN}
+run: {seed: 5, clock: stepped}

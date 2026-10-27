@@ -58,6 +58,8 @@ class ScpiError(Exception):
     @property
     def message(self) -> str:
         base = STANDARD_MESSAGES.get(self.code)
+        if base is None and self.code > 0 and self.detail:
+            return self.detail  # device-specific codes carry their own message, e.g. 325,"Input overload"
         if base is None:
             # The family of -313 is -310 (truncate toward zero; // would give -320).
             family = -(abs(self.code) // 10 * 10) if self.code < 0 else self.code // 10 * 10
