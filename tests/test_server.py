@@ -115,3 +115,23 @@ def test_reference_ports_are_reported_as_reference(client):
     assert media[("rf", "REF_OUT")] == "reference" and media[("sa", "REF_IN")] == "reference"
     assert media[("rf", "RF_OUT")] == "electrical"
     client.delete(f"/api/sessions/{info['id']}")
+
+
+def test_virtual_probe_explains_the_value(client):
+    info = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()
+    sid = info["id"]
+    client.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":OUTPut1:STATe ON"})
+    out = next(n["id"] for n in info["nets"] if "rc.OUT" in n["members"])
+    p = client.get(f"/api/sessions/{sid}/nets/{out}/probe").json()
+    src = p["sources"][0]
+    assert src["source"] == "awg/ch1.out" and src["instrument"] == "awg"
+    line = src["lines"][0]
+    assert line["freq_hz"] == 1000.0
+    # The net's value is the source's EMF times the circuit's transfer: nothing else.
+    assert line["contribution"] == pytest.approx(line["emf"] * line["gain"], rel=1e-12)
+    assert p["lines"][0]["amplitude"] == pytest.approx(line["contribution"], rel=1e-9)
+    assert p["rms"] == pytest.approx(line["contribution"] / 2**0.5, rel=1e-9)
+    assert -90 < line["phase_deg"] < 0  # a low-pass lags
+    assert len(p["waveform"]["volts"]) == 400 and p["waveform"]["exact"]
+    assert client.get(f"/api/sessions/{sid}/nets/nope/probe").status_code == 404
+    client.delete(f"/api/sessions/{sid}")

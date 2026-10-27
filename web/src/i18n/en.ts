@@ -328,6 +328,17 @@ export const en: Widen<Messages> = {
     autoTrigger: "auto trigger",
     kinds: { state: "Setting", error: "Error", fault: "Fault", acquisition: "Acquisition", session: "Session" },
   },
+  probe: {
+    title: "Virtual probe",
+    peak: "Peak",
+    lines: "Spectral lines",
+    frequency: "Frequency",
+    amplitude: "Amplitude (peak)",
+    waveform: "Waveform on the net",
+    why: "Why this value",
+    whyHint: "Net voltage = each independent source's EMF × the circuit's transfer function from it to this net (nodal analysis), summed. The probe does not load the circuit.",
+    noSource: "No source reaches this net.",
+  },
   panel: {
     comms: "Communication",
     events: "Events",

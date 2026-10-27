@@ -12,6 +12,7 @@ import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { accessoryLabel, channelVars, globalVars, instrumentTitle, numeric } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
+import { ProbePanel } from "./ProbePanel";
 import { StateField } from "./StateField";
 import { useWorkbench } from "./store";
 
@@ -57,6 +58,11 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
           <Section title={t("workbench.net")}>
             <KeyValues entries={[[t("workbench.net"), w.net ?? "—"]]} />
           </Section>
+          {w.net && (
+            <Section title={t("probe.title")}>
+              <ProbePanel sid={session.id} net={w.net} />
+            </Section>
+          )}
           {w.accessories.length > 0 && (
             <Section title={t("workbench.accessories")}>
               {w.accessories.map((a) => (
@@ -74,6 +80,17 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
               ))}
             </Section>
           )}
+        </div>
+      );
+  } else if (selection?.kind === "net") {
+    const net = session.nets.find((n) => n.id === selection.id);
+    if (net)
+      body = (
+        <div className="space-y-4 p-3">
+          <Header title={net.id} subtitle={net.members.join(" · ")} mono />
+          <Section title={t("probe.title")}>
+            <ProbePanel sid={session.id} net={net.id} />
+          </Section>
         </div>
       );
   }

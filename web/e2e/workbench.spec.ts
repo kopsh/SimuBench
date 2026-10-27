@@ -101,3 +101,19 @@ test("run record: open it from the home page, see the timeline, replay identical
   await page.getByRole("button", { name: "回放并比较" }).click();
   await expect(page.getByRole("status", { name: "回放结果" })).toContainText("回放一致");
 });
+
+test("virtual probe: select a net and see why it reads what it reads", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "启动" }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await page.getByRole("button", { name: /^net-1/ }).click();
+  const probe = page.getByTestId("probe");
+  await expect(probe).toContainText("没有信号源连到这个网络"); // the generator's output is off
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  await input.fill(":OUTPut1:STATe ON");
+  await input.press("Enter");
+  await page.getByRole("button", { name: /^net-1/ }).click();
+  await expect(page.getByTestId("probe-sources")).toContainText("awg · ch1.out");
+  await expect(page.getByTestId("probe-sources")).toContainText("∠");
+});
