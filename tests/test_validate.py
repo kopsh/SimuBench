@@ -95,7 +95,11 @@ def test_a_50_ohm_input_terminates_the_net():
     data = {
         "schema": "simubench.bench/1",
         "name": "t",
-        "instruments": {"awg": {"model": "sb-awg-2"}, "sa": {"model": "sb-sa-1"}, "scope": {"model": "sb-dso-4"}},
+        "instruments": {
+            "awg": {"model": "sb-awg-2"},
+            "sa": {"model": "sb-sa-1"},
+            "scope": {"model": "sb-dso-4"},
+        },
         "wires": [{"from": "awg.OUT1", "to": "sa.RF_IN"}, {"from": "awg.OUT2", "to": "scope.CH2"}],
     }
     found, _ = codes(data)
