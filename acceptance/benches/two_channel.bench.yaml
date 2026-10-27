@@ -1,0 +1,16 @@
+schema: simubench.bench/1
+name: acceptance-two-channel
+instruments:
+  awg: {model: sb-awg-2, state: {ch1.amplitude: 2.0}}
+  scope: {model: sb-dso-4}
+duts:
+  rc: {type: rc_lowpass, params: {r: 1000.0, c: 1.0e-7}}
+wires:
+  - {from: awg.OUT1, to: rc.IN}
+  - from: rc.IN
+    to: scope.CH1
+    accessories: [{type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}]
+  - from: rc.OUT
+    to: scope.CH2
+    accessories: [{type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}]
+run: {seed: 7, clock: stepped}

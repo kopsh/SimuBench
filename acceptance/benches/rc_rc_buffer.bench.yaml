@@ -1,0 +1,17 @@
+schema: simubench.bench/1
+name: acceptance-rc-buffer-rc
+instruments:
+  awg: {model: sb-awg-2, state: {ch1.amplitude: 2.0}}
+  scope: {model: sb-dso-4}
+duts:
+  rc1: {type: rc_lowpass, params: {r: 1000.0, c: 1.0e-7}}
+  buf: {type: unity_buffer, params: {z_in: 1.0e6, z_out: 50.0}}
+  rc2: {type: rc_lowpass, params: {r: 1000.0, c: 1.0e-7}}
+wires:
+  - {from: awg.OUT1, to: rc1.IN}
+  - {from: rc1.OUT, to: buf.IN}
+  - {from: buf.OUT, to: rc2.IN}
+  - from: rc2.OUT
+    to: scope.CH1
+    accessories: [{type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}]
+run: {seed: 7, clock: stepped}
