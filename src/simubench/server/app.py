@@ -378,7 +378,11 @@ def _put(queue: asyncio.Queue[dict[str, Any]], msg: dict[str, Any]) -> None:
 
 
 def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
-    out: dict[str, Any] = {"seq": seq, "t_ns": int(ev.get("t_ns", 0)), "kind": ev.get("kind", "unknown")}
+    out: dict[str, Any] = {
+        "seq": ev.get("eid", seq),
+        "t_ns": int(ev.get("t_ns", 0)),
+        "kind": ev.get("kind", "unknown"),
+    }
     for key in (
         "instrument",
         "dir",

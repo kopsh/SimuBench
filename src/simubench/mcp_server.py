@@ -1,0 +1,486 @@
+"""Local MCP service: lets an AI agent build, deploy, drive and observe benches (D9, architecture.md 7.5).
+
+The tools are thin wrappers over the same :class:`~simubench.server.manager.SessionManager` and
+bench-file operations the Web Bench uses, so whatever an agent does shows up in the engineer's
+browser, and agent edits land in readable bench files.
+
+Rules the tools enforce:
+
+* dangerous commands (outputs on, sweeps that could harm a DUT) need ``confirm=true``;
+* simulation control (advancing the clock, reading true values) is off unless the service was
+  started with ``--allow-control``; true values also need ``run.reveal_true_values`` in the bench;
+* calls are rate limited, so a looping agent cannot flood a session.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import threading
+import time
+from pathlib import Path
+from typing import Any, Literal
+
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import Field
+
+from . import __version__
+from .engine.commands import classify
+from .engine.edit import EditError, EditOp
+from .engine.scriptscan import draft_bench
+from .server.app import to_event
+from .server.benchfiles import Conflict, diagnostics
+from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain
+
+INSTRUCTIONS = """\
+SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), DUTs and wires,
+simulated with correct circuit physics. Typical flow:
+1. list_catalog / get_definition to see what instruments and DUTs exist;
+2. read_bench or create_bench, then edit_bench with operations (always pass the sha256 you read);
+   or draft_bench_from_script to start from an existing PyVISA test program;
+3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
+4. start_session deploys the bench: instruments answer SCPI at the returned addresses, and the
+   engineer watches it in the Web Bench;
+5. send_scpi / get_instrument_state / read_log to drive and observe it.
+Edits change the bench file; a running session picks up topology changes only when restarted.
+Bench files are the engineer's: explain what you change.
+"""
+
+
+class RateLimiter:
+    """Token bucket shared by all tools."""
+
+    def __init__(self, rate: float = 20.0, burst: int = 60) -> None:
+        self.rate, self.burst = rate, burst
+        self.tokens = float(burst)
+        self.t = time.monotonic()
+        self._lock = threading.Lock()
+
+    def take(self) -> None:
+        with self._lock:
+            now = time.monotonic()
+            self.tokens = min(self.burst, self.tokens + (now - self.t) * self.rate)
+            self.t = now
+            if self.tokens < 1:
+                wait = (1 - self.tokens) / self.rate
+                raise ToolError(f"调用过于频繁，请 {wait:.2f} 秒后重试 (rate limited)")
+            self.tokens -= 1
+
+
+def build_server(
+    manager: SessionManager,
+    *,
+    allow_control: bool = False,
+    ui_url: str | None = None,
+    limiter: RateLimiter | None = None,
+) -> MCPServer:
+    mcp = MCPServer(name="simubench", version=__version__, instructions=INSTRUCTIONS)
+    files = manager.files
+    limiter = limiter or RateLimiter()
+
+    def guard() -> None:
+        limiter.take()
+
+    def fail(exc: Exception) -> ToolError:
+        if isinstance(exc, Conflict):
+            return ToolError(f"{exc}；当前 sha256 = {exc.current_sha256}，请先 read_bench 再编辑")
+        if isinstance(exc, BenchInvalid):
+            lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
+            return ToolError("测试台未通过校验，无法启动：\n" + "\n".join(lines))
+        if isinstance(exc, FileNotFoundError):
+            return ToolError("文件不存在")
+        if isinstance(exc, KeyError):
+            return ToolError(str(exc).strip("'\""))
+        return ToolError(str(exc).splitlines()[0] if str(exc) else type(exc).__name__)
+
+    def served(session_id: str | None) -> ServedSession:
+        if session_id:
+            try:
+                return manager.get(session_id)
+            except KeyError:
+                raise ToolError(f"没有会话 {session_id!r}；用 list_sessions 查看") from None
+        if len(manager.sessions) == 1:
+            return next(iter(manager.sessions.values()))
+        if not manager.sessions:
+            raise ToolError("没有运行中的会话；先用 start_session 部署测试台")
+        raise ToolError("有多个会话，请指定 session_id")
+
+    def control() -> None:
+        if not allow_control:
+            raise ToolError("仿真控制默认关闭；工程师需以 `simubench mcp --allow-control` 启动服务")
+
+    # ---- build ------------------------------------------------------------------------------------
+
+    @mcp.tool()
+    def list_catalog() -> dict[str, Any]:
+        """Instrument definitions (id, class, channels, ports) and DUT / accessory component types
+        (ports, default parameters, units) that can be placed on a bench."""
+        guard()
+        return files.catalog().model_dump(mode="json")
+
+    @mcp.tool()
+    def get_definition(
+        definition_id: str,
+        offset: int = Field(0, ge=0, description="First command to list"),
+        limit: int = Field(40, ge=1, le=200, description="Commands per page"),
+    ) -> dict[str, Any]:
+        """One instrument definition: state variables (with units, ranges, options) and its SCPI
+        commands, paged. Header patterns use SCPI notation: upper case is the short form,
+        [optional] nodes, <ch> a channel suffix."""
+        guard()
+        try:
+            d = files.library(None).get(definition_id)
+        except KeyError as exc:
+            raise fail(exc) from None
+
+        def spec(path: str, s: Any) -> dict[str, Any]:
+            out = {"path": path, "type": s.type}
+            for key in ("unit", "min", "max", "options", "default", "label", "label_en", "readonly"):
+                v = getattr(s, key)
+                if v not in (None, False):
+                    out[key] = _plain(v)
+            return out
+
+        commands = [
+            {
+                k: v
+                for k, v in {
+                    "header": c.header,
+                    "set": c.set,
+                    "query": c.query,
+                    "state": c.state,
+                    "op": c.op,
+                    "params": [p.model_dump(exclude_defaults=True) for p in c.params] or None,
+                    "dangerous": c.dangerous or None,
+                    "doc": c.doc,
+                }.items()
+                if v is not None
+            }
+            for c in d.commands
+        ]
+        return {
+            "id": d.id,
+            "manufacturer": d.manufacturer,
+            "model": d.model,
+            "class": d.instrument_class,
+            "description": d.description,
+            "channels": d.channels.count,
+            "channel_ports": list(d.ports.channel),
+            "instrument_ports": list(d.ports.instrument),
+            "state": [spec(k, s) for k, s in d.state.items()],
+            "channel_state": [spec(f"ch<n>.{k}", s) for k, s in d.channel_state.items()],
+            "commands": commands[offset : offset + limit],
+            "commands_total": len(commands),
+            "next_offset": offset + limit if offset + limit < len(commands) else None,
+        }
+
+    @mcp.tool()
+    def list_benches() -> list[dict[str, Any]]:
+        """Bench files in the workspace."""
+        guard()
+        return [b.model_dump(mode="json") for b in manager.bench_files()]
+
+    @mcp.tool()
+    def read_bench(path: str) -> dict[str, Any]:
+        """A bench file's content, its sha256 (needed to edit it) and its diagnostics."""
+        guard()
+        try:
+            return files.read(path).model_dump(mode="json")
+        except Exception as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def create_bench(
+        path: str = Field(..., description="Workspace-relative, ending in .bench.yaml"),
+        name: str = Field(..., description="Bench name"),
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        """Create an empty bench file; fill it with edit_bench."""
+        guard()
+        data: dict[str, Any] = {"schema": "simubench.bench/1", "name": name}
+        if description:
+            data["description"] = description
+        try:
+            return files.save(path, None, data).model_dump(mode="json")
+        except Exception as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def edit_bench(
+        path: str,
+        base_sha256: str = Field(..., description="sha256 from the last read_bench / edit_bench"),
+        ops: list[EditOp] = Field(..., description="Applied in order, all or nothing"),
+    ) -> dict[str, Any]:
+        """Edit a bench file: add instruments and DUTs, connect ports (with accessories such as
+        probes), set initial state and DUT parameters, rename, remove, move. Returns the new
+        content, sha256 and diagnostics."""
+        guard()
+        try:
+            return files.edit(path, base_sha256, ops).model_dump(mode="json")
+        except (Conflict, EditError, PermissionError, FileNotFoundError, ValueError) as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def validate_bench(
+        path: str | None = Field(None, description="Bench file to check"),
+        data: dict[str, Any] | None = Field(None, description="Or unsaved bench content"),
+    ) -> dict[str, Any]:
+        """Check a bench and return diagnostics: code, JSON pointer, message and suggestion."""
+        guard()
+        try:
+            if data is None:
+                if not path:
+                    raise ToolError("给出 path 或 data")
+                doc = files.read(path)
+                return {"ok": doc.ok, "diagnostics": [d.model_dump() for d in doc.diagnostics]}
+            report = files.validate(data, path)
+        except ToolError:
+            raise
+        except Exception as exc:
+            raise fail(exc) from None
+        return {"ok": report.ok, "diagnostics": [d.model_dump() for d in diagnostics(report)]}
+
+    @mcp.tool()
+    def draft_bench_from_script(
+        script_path: str = Field(..., description="Workspace-relative path of a Python + PyVISA script"),
+        save_as: str | None = Field(None, description="Also create this bench file from the draft"),
+    ) -> dict[str, Any]:
+        """Read a test program without running it: find the resources it opens and the SCPI it
+        sends, choose the instrument definition that supports most of each instrument's commands,
+        and list the commands no model supports (with line numbers). Wiring cannot be read from a
+        script; add DUTs and wires with edit_bench."""
+        guard()
+        try:
+            script = files.resolve(script_path)
+            source = script.read_text(encoding="utf-8")
+        except Exception as exc:
+            raise fail(exc) from None
+        lib = files.library(script)
+
+        def defs() -> list[Any]:
+            out = []
+            for i in lib.ids():
+                try:
+                    out.append(lib.get(i))
+                except Exception:
+                    continue
+            return out
+
+        name = Path(save_as or script.stem).name.split(".")[0]
+        result = draft_bench(source, defs, name=name)
+        if save_as:
+            try:
+                result["saved"] = files.save(save_as, None, result["bench"]).model_dump(mode="json")
+            except Exception as exc:
+                raise fail(exc) from None
+        return result
+
+    # ---- deploy -----------------------------------------------------------------------------------
+
+    def session_summary(s: ServedSession) -> dict[str, Any]:
+        info = manager.describe(s)
+        rel = info.bench_path
+        out: dict[str, Any] = {
+            "session_id": info.id,
+            "bench": info.bench_name,
+            "bench_path": rel,
+            "clock": info.clock_mode,
+            "now_s": info.now_ns / 1e9,
+            "instruments": [
+                {
+                    "name": i.name,
+                    "model": i.model,
+                    "idn": i.idn,
+                    "resource_virtual": i.address_virtual,
+                    "resource_real": i.address_real,
+                    "scpi_socket": f"TCPIP0::127.0.0.1::{i.scpi_port}::SOCKET" if i.scpi_port else None,
+                }
+                for i in info.instruments
+            ],
+            "switch_script": (
+                "In-process (CI): rm = pyvisa.ResourceManager('<bench file>@simubench'); the script's "
+                "real addresses and the instance names both open the virtual instruments. "
+                "Or keep the default backend and use the scpi_socket addresses of this session."
+            ),
+        }
+        if ui_url:
+            out["web_bench"] = ui_url
+        return out
+
+    @mcp.tool()
+    async def start_session(
+        path: str,
+        clock: Literal["command", "wall", "stepped"] | None = None,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
+        """Deploy a bench: start a session (replacing the running one) and return the resource
+        addresses each instrument answers at, and how to point an existing script at them."""
+        guard()
+        try:
+            s = await manager.start(path, clock=clock, seed=seed)
+        except Exception as exc:
+            raise fail(exc) from None
+        return session_summary(s)
+
+    @mcp.tool()
+    async def stop_session(session_id: str | None = None) -> str:
+        """Stop a session and close its SCPI sockets."""
+        guard()
+        s = served(session_id)
+        await manager.stop(s.id)
+        return f"stopped {s.id}"
+
+    @mcp.tool()
+    def list_sessions() -> list[dict[str, Any]]:
+        """Running sessions with their instruments and addresses."""
+        guard()
+        return [session_summary(s) for s in manager.sessions.values()]
+
+    @mcp.tool()
+    def describe_session(session_id: str | None = None) -> dict[str, Any]:
+        """Topology of a running session: instruments, DUTs, wires and the nets they form."""
+        guard()
+        info = manager.describe(served(session_id))
+        return {
+            **session_summary(served(session_id)),
+            "duts": [{"name": d.name, "type": d.type, "ports": [p.name for p in d.ports]} for d in info.duts],
+            "wires": [
+                {
+                    "index": w.index,
+                    "from": w.from_,
+                    "to": w.to,
+                    "accessories": [a.type for a in w.accessories],
+                    "net": w.net,
+                }
+                for w in info.wires
+            ],
+            "nets": [n.model_dump() for n in info.nets],
+        }
+
+    # ---- instruments ------------------------------------------------------------------------------
+
+    @mcp.tool()
+    async def send_scpi(
+        instrument: str,
+        command: str = Field(..., description="Program message; ';' joins units, '?' makes a query"),
+        session_id: str | None = None,
+        confirm: bool = Field(False, description="Required for commands marked dangerous"),
+    ) -> dict[str, Any]:
+        """Send SCPI to an instrument of the session and return its response and any new errors
+        from the error queue. Logged as client 'mcp'."""
+        guard()
+        s = served(session_id)
+        try:
+            inst = s.session.instrument(instrument)
+        except KeyError as exc:
+            raise fail(exc) from None
+        risky = [m.text for m in classify(inst.definition, command) if m.dangerous]
+        if risky and not confirm:
+            raise ToolError(f"危险命令需要确认：{'; '.join(risky)}。向工程师说明后，以 confirm=true 重新调用")
+
+        def run() -> dict[str, Any]:
+            session = s.session
+            before = len(inst.errors)
+            session.write(instrument, command.encode(), client="mcp")
+            out = session.read(instrument, client="mcp")
+            errors = inst.errors.peek_all()[before:]
+            return {
+                "response": out.decode(errors="replace").rstrip("\n") if out is not None else None,
+                "errors": [{"code": e.code, "message": e.message} for e in errors],
+                "now_s": session.now_ns / 1e9,
+            }
+
+        return await asyncio.to_thread(run)
+
+    @mcp.tool()
+    def get_instrument_state(instrument: str, session_id: str | None = None) -> dict[str, Any]:
+        """Current state variables and error queue of an instrument (what its front panel shows)."""
+        guard()
+        s = served(session_id)
+        try:
+            snap = s.session.instrument(instrument).snapshot()
+        except KeyError as exc:
+            raise fail(exc) from None
+        snap["state"] = {k: _plain(v) for k, v in snap["state"].items()}
+        return snap
+
+    # ---- observe ----------------------------------------------------------------------------------
+
+    @mcp.tool()
+    def read_log(
+        session_id: str | None = None,
+        after: int = Field(0, ge=0, description="Return events after this seq (cursor)"),
+        limit: int = Field(100, ge=1, le=1000),
+        instrument: str | None = None,
+        kinds: list[str] | None = Field(None, description="e.g. ['scpi', 'error', 'state']"),
+    ) -> dict[str, Any]:
+        """Communication log and events of a session (SCPI writes and reads with their clients,
+        state changes, errors, clock advances). Page with the returned next cursor."""
+        guard()
+        s = served(session_id)
+        with s.session._lock:
+            history = list(s.session.history)
+        events = []
+        for ev in history:
+            if ev.get("eid", 0) <= after:
+                continue
+            if instrument and ev.get("instrument") != instrument:
+                continue
+            if kinds and ev.get("kind") not in kinds:
+                continue
+            events.append(to_event(ev, ev.get("eid", 0)))
+            if len(events) >= limit:
+                break
+        last = events[-1]["seq"] if events else after
+        return {"events": events, "next": last, "latest": s.session.event_id}
+
+    # ---- simulation control (off by default) ------------------------------------------------------
+
+    @mcp.tool()
+    def advance_clock(
+        seconds: float = Field(..., gt=0, le=3600), session_id: str | None = None
+    ) -> dict[str, Any]:
+        """Advance the session's virtual clock (simulation control; needs --allow-control)."""
+        guard()
+        control()
+        s = served(session_id)
+        s.session.advance(seconds)
+        return {"now_s": s.session.now_ns / 1e9}
+
+    @mcp.tool()
+    def read_true_values(session_id: str | None = None) -> dict[str, Any]:
+        """Hidden state the simulation knows exactly: DUT parameters including hidden tolerances,
+        instrument hidden overrides, and the true signal on every net. Needs --allow-control and
+        run.reveal_true_values in the bench (off in validation runs, so calibration cannot read
+        the answer)."""
+        guard()
+        control()
+        s = served(session_id)
+        session = s.session
+        if not session.reveal_true_values:
+            raise ToolError("该测试台未开启 run.reveal_true_values；验证模式下不提供真实值")
+        with session._lock:
+            duts = {n: {k: _plain(v) for k, v in c.describe().items()} for n, c in session.components.items()}
+            hidden = {
+                name: {
+                    cname: {k: _plain(v) for k, v in comp.overrides.items()}
+                    for cname, comp in inst.components.items()
+                    if comp.overrides
+                }
+                for name, inst in session.instruments.items()
+            }
+            nets = {}
+            for net_id in session.nets:
+                sig = session.net_signal(net_id).merged()
+                nets[net_id] = {
+                    "rms_v": float(sig.rms()),
+                    "lines": [
+                        {"freq_hz": float(f), "amp_peak_v": float(abs(a))}
+                        for f, a in zip(sig.freq, sig.amp, strict=False)
+                        if abs(a) > 1e-12
+                    ][:16],
+                    "dc_v": float(sig.dc),
+                }
+        return {"duts": duts, "instrument_hidden": hidden, "nets": nets}
+
+    return mcp
