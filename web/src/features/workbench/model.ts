@@ -65,13 +65,21 @@ export function errorsCount(session: SessionInfo): number {
   return session.instruments.reduce((n, i) => n + i.errors.length, 0);
 }
 
+/** The instrument port a wire end refers to ('awg.OUT1'), if it is one. */
+function instrumentPortOfRef(session: SessionInfo, ref: string) {
+  const dot = ref.lastIndexOf(".");
+  const inst = session.instruments.find((i) => i.name === ref.slice(0, dot));
+  return inst?.ports.find((p) => p.name === ref.slice(dot + 1));
+}
+
 /** Channel of the instrument port a wire end refers to, for coloring. */
 export function channelOfRef(session: SessionInfo, ref: string): number | null {
-  const dot = ref.lastIndexOf(".");
-  const owner = ref.slice(0, dot);
-  const port = ref.slice(dot + 1);
-  const inst = session.instruments.find((i) => i.name === owner);
-  return inst?.ports.find((p) => p.name === port)?.channel ?? null;
+  return instrumentPortOfRef(session, ref)?.channel ?? null;
+}
+
+/** Whether a wire end is a reference port (a timebase or a lock-in reference). */
+export function isReferenceRef(session: SessionInfo, ref: string): boolean {
+  return instrumentPortOfRef(session, ref)?.medium === "reference";
 }
 
 export function accessoryLabel(type: string, params: Record<string, unknown>): string {

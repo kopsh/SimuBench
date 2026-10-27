@@ -107,3 +107,11 @@ def test_scpi_socket_roundtrip():
     finally:
         asyncio.run_coroutine_threadsafe(server.stop(), loop).result(5)
         loop.call_soon_threadsafe(loop.stop)
+
+
+def test_reference_ports_are_reported_as_reference(client):
+    info = client.post("/api/sessions", json={"bench_path": "benches/rfgen.bench.yaml"}).json()
+    media = {(i["name"], p["name"]): p["medium"] for i in info["instruments"] for p in i["ports"]}
+    assert media[("rf", "REF_OUT")] == "reference" and media[("sa", "REF_IN")] == "reference"
+    assert media[("rf", "RF_OUT")] == "electrical"
+    client.delete(f"/api/sessions/{info['id']}")

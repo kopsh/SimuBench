@@ -1105,6 +1105,13 @@ export interface components {
             instrument?: {
                 [key: string]: string;
             };
+            /**
+             * Media
+             * @description What an exposed port carries when it is not plain electrical, e.g. {REF_IN: reference} for a timebase or lock-in reference; the canvas draws such wires as reference wires
+             */
+            media?: {
+                [key: string]: "signal" | "electrical" | "reference";
+            };
         };
         /** ReadingTrace */
         ReadingTrace: {

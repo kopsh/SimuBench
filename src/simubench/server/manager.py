@@ -237,7 +237,7 @@ class SessionManager:
                 M.PortInfo(
                     name=pname,
                     direction=spec.direction,
-                    medium=spec.medium,
+                    medium=d.ports.media.get(pname, spec.medium),
                     net=s.port_net.get(f"{inst.name}.{pname}"),
                     channel=comp.channel,
                 )

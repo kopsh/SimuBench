@@ -167,6 +167,7 @@ ports:
   instrument:
     RF_IN: rf_in.pin
     REF_IN: ref_in.pin
+  media: {REF_IN: reference}
 display:
   template: spectrum_analyzer
   summary: [freq.center, freq.span, display.ref_level, detector, trace.type]

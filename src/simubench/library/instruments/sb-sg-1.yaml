@@ -204,6 +204,7 @@ ports:
     RF_OUT: rf.pin
     REF_OUT: ref_out.pin
     REF_IN: ref_in.pin
+  media: {REF_OUT: reference, REF_IN: reference}
 display:
   template: rf_generator
   summary: [freq.cw, power.level, output.enabled, freq.mode, am.state, fm.state, pm.state]
