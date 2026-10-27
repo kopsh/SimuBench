@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock } from "@/lib/format";
+import { NewBenchDialog } from "./NewBenchDialog";
 
 export function HomePage() {
   const { t } = useTranslation();
@@ -72,7 +73,10 @@ export function HomePage() {
             <section className="mt-8">
               <div className="mb-2 flex items-center gap-3">
                 <h2 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{t("home.files")}</h2>
-                <div className="relative ml-auto w-64">
+                <div className="ml-auto">
+                  <NewBenchDialog />
+                </div>
+                <div className="relative w-64">
                   <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
                   <Input
                     value={filter}

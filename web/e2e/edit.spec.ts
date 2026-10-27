@@ -111,3 +111,24 @@ test("changes made elsewhere (an agent) show up live", async ({ page }) => {
   await expect(page.getByText("已载入在其他地方所做的修改")).toBeVisible();
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
 });
+
+test("create a bench from the home page and build it", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("button", { name: "新建测试台" }).click();
+  const name = `scratch_${Date.now()}`;
+  await page.getByLabel("测试台名称").fill(name);
+  await expect(page.getByLabel("文件路径")).toHaveValue(`${name}.bench.yaml`);
+  await page.getByRole("button", { name: "创建并打开" }).click();
+  await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
+  await expect(page.getByRole("tab", { name: "元件库" })).toBeVisible();
+
+  // Drag a scope from the library onto the canvas.
+  const source = page.getByTestId("library-sb-dso-4");
+  const pane = page.locator(".react-flow__pane");
+  await source.dragTo(pane, { targetPosition: { x: 300, y: 200 } });
+  await expect(page.locator(".react-flow__node")).toHaveCount(1);
+  await page.getByRole("button", { name: "添加 SB-AWG-2" }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  const doc = await readDoc(page.request, `${name}.bench.yaml`);
+  expect(Object.keys(doc.data.instruments as object).sort()).toEqual(["awg", "scope"]);
+});
