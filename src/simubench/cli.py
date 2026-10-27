@@ -185,6 +185,26 @@ def _version(args: argparse.Namespace) -> int:
     return 0
 
 
+def _assets(args: argparse.Namespace) -> int:
+    """Print a bench's calibration register (CSV or JSON) for a test script's pre-run check."""
+    import csv
+
+    from .engine.calibration import register_view
+    from .library.loader import load_bench
+
+    bench = load_bench(args.bench)
+    rows = register_view(bench.assets, bench.run.start.date())
+    if args.format == "json":
+        print(json.dumps(rows, ensure_ascii=False, indent=2))
+        return 0
+    fields = ["serial", "model", "status", "cal_date", "cal_due", "certificate", "notes"]
+    writer = csv.DictWriter(sys.stdout, fieldnames=fields, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({k: "" if r.get(k) is None else r[k] for k in fields})
+    return 0
+
+
 def _replay(args: argparse.Namespace) -> int:
     """Replay a run record and compare every reply; exit 1 when one differs (D36)."""
     from .engine.replay import replay
@@ -260,6 +280,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("validate", help="check bench files; exit 1 on the first problem")
     p.add_argument("benches", nargs="+")
     p.set_defaults(fn=_validate)
+
+    p = sub.add_parser("assets", help="print a bench's calibration register (CSV or JSON)")
+    p.add_argument("bench")
+    p.add_argument("--format", choices=["csv", "json"], default="csv")
+    p.set_defaults(fn=_assets)
 
     p = sub.add_parser("replay", help="replay a run record and compare every reply (exit 1 on a difference)")
     p.add_argument("record", help="run-*.jsonl written with --record-dir")

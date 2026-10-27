@@ -469,3 +469,10 @@ class ReplayResult(_Model):
     replies: int
     mismatches: list[ReplayMismatch]
     warnings: list[str]
+
+
+class AssetRegister(_Model):
+    """The bench's virtual calibration register on its calendar (M5)."""
+
+    calendar: str = Field(..., description="Calendar time now (run.start + virtual time), ISO 8601 UTC")
+    assets: list[dict[str, Any]] = Field(..., description="Register entries, each with due_in_days")

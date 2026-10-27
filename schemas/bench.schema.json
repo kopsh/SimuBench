@@ -20,6 +20,98 @@
       "title": "Accessory",
       "type": "object"
     },
+    "Asset": {
+      "additionalProperties": false,
+      "description": "One entry of the virtual calibration register (an equipment list, ISO/IEC 17025 6.4.13).",
+      "properties": {
+        "cal_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Date of the last calibration",
+          "title": "Cal Date"
+        },
+        "cal_due": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Calibration due date",
+          "title": "Cal Due"
+        },
+        "certificate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Certificate"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Model, e.g. 'SB-DMM-1'",
+          "title": "Model"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        },
+        "serial": {
+          "description": "Serial number as *IDN? reports it",
+          "title": "Serial",
+          "type": "string"
+        },
+        "status": {
+          "default": "in_use",
+          "enum": [
+            "in_use",
+            "out_of_service",
+            "quarantined",
+            "retired"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "serial"
+      ],
+      "title": "Asset",
+      "type": "object"
+    },
     "ComponentInstance": {
       "additionalProperties": false,
       "properties": {
@@ -393,6 +485,13 @@
           "default": 1,
           "title": "Seed",
           "type": "integer"
+        },
+        "start": {
+          "default": "2026-01-01T00:00:00Z",
+          "description": "Calendar time at virtual t = 0 (instrument clocks, calibration due dates); fixed for repeatability",
+          "format": "date-time",
+          "title": "Start",
+          "type": "string"
         }
       },
       "title": "RunConditions",
@@ -441,6 +540,14 @@
   },
   "additionalProperties": false,
   "properties": {
+    "assets": {
+      "description": "Virtual calibration register: the instruments a test script may check before running",
+      "items": {
+        "$ref": "#/$defs/Asset"
+      },
+      "title": "Assets",
+      "type": "array"
+    },
     "description": {
       "anyOf": [
         {

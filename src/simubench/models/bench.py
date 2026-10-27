@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -60,6 +61,22 @@ class RunConditions(_Model):
     seed: int = 1
     clock: ClockMode = "command"
     reveal_true_values: bool = Field(False, description="Allow clients to read hidden state (D9)")
+    start: dt.datetime = Field(
+        dt.datetime(2026, 1, 1, tzinfo=dt.UTC),
+        description="Calendar time at virtual t = 0 (instrument clocks, calibration due dates); fixed for repeatability",
+    )
+
+
+class Asset(_Model):
+    """One entry of the virtual calibration register (an equipment list, ISO/IEC 17025 6.4.13)."""
+
+    serial: str = Field(..., description="Serial number as *IDN? reports it")
+    model: str | None = Field(None, description="Model, e.g. 'SB-DMM-1'")
+    status: Literal["in_use", "out_of_service", "quarantined", "retired"] = "in_use"
+    cal_date: dt.date | None = Field(None, description="Date of the last calibration")
+    cal_due: dt.date | None = Field(None, description="Calibration due date")
+    certificate: str | None = None
+    notes: str | None = None
 
 
 FaultKind = Literal["timeout", "disconnect", "garble", "latency", "busy", "error", "trip", "drift", "hidden"]
@@ -102,6 +119,10 @@ class BenchDefinition(_Model):
     wires: list[Wire] = Field(default_factory=list)
     run: RunConditions = Field(default_factory=RunConditions)
     faults: list[Fault] = Field(default_factory=list, description="Faults preset for every run")
+    assets: list[Asset] = Field(
+        default_factory=list,
+        description="Virtual calibration register: the instruments a test script may check before running",
+    )
     layout: dict[str, LayoutItem] = Field(
         default_factory=dict, description="UI positions only; never affects simulation results"
     )

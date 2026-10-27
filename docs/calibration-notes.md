@@ -43,3 +43,16 @@ ISO/IEC 17025 第 7.5、7.11 条对记录的要求，与 D16 的运行记录设�
 - 中止的运行同样保留；
 - 记录软件版本、测试序列版本、Bench 版本；
 - 记录发起运行的人（脚本或 Agent 发起时，记录安排运行的人与批准版本的人）。
+
+## SimuBench 已提供的能力（M5 基础，D39）
+
+| 要求 | 提供方式 |
+| --- | --- |
+| 1. 仪表身份可配置 | Bench 中每台仪表可设 `serial`、`firmware`，`*IDN?` 返回实例自己的标识；同型号的两台仪表标识不同 |
+| 2. 校准台账与运行前检查 | Bench 的 `assets`：序列号、型号、状态（在用 / 停用 / 隔离 / 报废）、上次校准日期、到期日、证书号；`simubench assets <bench>` 导出 CSV / JSON 供脚本读取；`/api/sessions/{sid}/assets` 与 MCP `read_asset_register` 给出按 Bench 日历计算的剩余天数 |
+| 日历 | `run.start` 是虚拟时间 0 对应的日历时刻（默认 2026-01-01T00:00Z，保证可重复）；仪表的 `:SYSTem:DATE?`、`:SYSTem:TIME?` 随虚拟时间走；设置某台仪表的日期只改变它自己的时钟（可模拟时钟设错的仪表） |
+| 3. as-found / as-left 与真值 | 万用表 `sb-dmm-1` 的测量通道有隐藏的增益误差（ppm）与零点误差（V），在 Bench 的 `hidden` 中设置；读数 = (真值 × (1 + 增益误差) + 零点误差 − 零点系数) × 增益系数。`:CALibration:SECure:STATe OFF,<安全码>` 解锁，`:CALibration:ZERO?`、`:CALibration:VALue` + `:CALibration?` 调整，`:CALibration:STORe` 计数并记日期，`:CALibration:COUNt?`、`:CALibration:DATE?`、`:CALibration:STRing`；输入与校准值不符时 702、未解锁时 701，系数不能直接写入。隐藏误差即真值，as-found 与 as-left 的真实误差都可计算 |
+| 4. 判定规则 | `simubench.engine.calibration`：`decide()` 按简单接受或保护带（默认 = U）给出合格 / 不合格 / 不作符合性声明；`assess()` 用真值判断脚本的声明是否正确（正确、误接受、误拒绝、未声明）。笔记中的例子（3.2–3.4 V，U = 4 mV，读数 3.399 V）作为测试 |
+| 5. 运行记录 | D16、D36：原始响应与解析值、只追加、中止的运行同样保留、软件与定义版本（哈希）在记录头部 |
+
+开启 `run.reveal_true_values` 时，万用表的前面板读数接口同时给出真值（`true_DC`、`true_AC`）；验证模式下不开启，脚本无法读到答案。

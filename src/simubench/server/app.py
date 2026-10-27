@@ -457,6 +457,20 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise not_found(exc) from None
 
     @app.get(
+        "/api/sessions/{sid}/assets",
+        response_model=M.AssetRegister,
+        operation_id="getAssets",
+        dependencies=[Depends(auth)],
+    )
+    def get_assets(sid: str) -> M.AssetRegister:
+        """The virtual calibration register, with due dates against the bench's calendar."""
+        from ..engine.calibration import register_view
+
+        s = served(sid).session
+        now = s.calendar()
+        return M.AssetRegister(calendar=now.isoformat(), assets=register_view(s.bench.assets, now.date()))
+
+    @app.get(
         "/api/sessions/{sid}/clock",
         response_model=M.ClockInfo,
         operation_id="getClock",

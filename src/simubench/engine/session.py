@@ -8,6 +8,7 @@ through one of its action methods, which run one at a time under a lock (D9).
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import logging
 import threading
 import time
@@ -449,6 +450,10 @@ class Session:
         """Convenience for tests and notebooks: write text, return the decoded reply (or '')."""
         out = self.query(name, text)
         return out.decode(errors="replace").rstrip("\n")
+
+    def calendar(self) -> dt.datetime:
+        """Calendar time now: the bench's run.start plus virtual time (instrument clocks, due dates)."""
+        return self.bench.run.start + dt.timedelta(microseconds=self.now_ns // 1000)
 
     def seek(self, t_ns: int, reason: str = "replay") -> None:
         """Move virtual time forward to ``t_ns`` (replaying a record); never backwards."""
