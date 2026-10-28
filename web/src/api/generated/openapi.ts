@@ -1040,6 +1040,13 @@ export interface components {
         };
         /** Display */
         Display: {
+            /**
+             * Actions
+             * @description Commands the UI sends for front-panel actions, e.g. {single: ':TRIGger:MODE SINGle'}; defaults: single ':SINGle'
+             */
+            actions?: {
+                [key: string]: string;
+            };
             /** Channel Summary */
             channel_summary?: string[];
             /** Summary */
@@ -1052,6 +1059,13 @@ export interface components {
         };
         /** DisplayInfo */
         DisplayInfo: {
+            /**
+             * Actions
+             * @description Commands for front-panel actions
+             */
+            actions: {
+                [key: string]: string;
+            };
             /** Channel Summary */
             channel_summary: string[];
             /** Summary */
@@ -1221,6 +1235,11 @@ export interface components {
         };
         /** InstrumentDefinition */
         InstrumentDefinition: {
+            /**
+             * Builtins
+             * @description Built-in headers this model answers (e.g. ['*IDN', '*OPC', '*RST']); the others are not modeled. Default: all of them
+             */
+            builtins?: string[] | null;
             /** Capabilities */
             capabilities?: string[];
             /** Channel Components */
@@ -1654,11 +1673,11 @@ export interface components {
             digits: number;
             /**
              * Enum
-             * @description short: SIN; long: SINUSOID (upper case)
+             * @description short: SIN; long: SINUSOID (upper case); as_defined: SINusoid, as in `options`
              * @default short
              * @enum {string}
              */
-            enum: "short" | "long";
+            enum: "short" | "long" | "as_defined";
             /**
              * Error Code
              * @description Code in :SYSTem:ERRor? replies: plain: 0,"No error"; signed: +0,"No error"
