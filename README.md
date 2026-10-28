@@ -33,7 +33,7 @@ simubench doctor                                 # 检查安装
 simubench serve --workspace 我的测试台目录 --open
 ```
 
-安全设计与自检见 [docs/security.md](docs/security.md)。
+默认不需要访问令牌；在多人共用的电脑上请加 `--require-token`。安全设计与自检见 [docs/security.md](docs/security.md)。
 
 ## 在 pytest 中使用
 
