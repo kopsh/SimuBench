@@ -6,6 +6,9 @@ import { getToken } from "./token";
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "unauthorized" | "gone";
 
 const MAX_EVENTS = 100_000;
+/** How long after a command the session still counts as running commands. */
+const BUSY_MS = 800;
+let busyTimer: number | undefined;
 
 interface EventStore {
   sid: string | null;
@@ -14,6 +17,10 @@ interface EventStore {
   /** Bumped on every state-changing event so screens can refresh. */
   version: number;
   nowNs: number;
+  /** Commands written to each instrument so far: a change makes its canvas node flash (D44). */
+  activity: Record<string, number>;
+  /** A command arrived in the last moment: "running commands" rather than "waiting" (D44). */
+  busy: boolean;
   clear: () => void;
 }
 
@@ -23,6 +30,8 @@ export const useEvents = create<EventStore>((set) => ({
   events: [],
   version: 0,
   nowNs: 0,
+  activity: {},
+  busy: false,
   clear: () => set({ events: [] }),
 }));
 
@@ -33,7 +42,7 @@ export function useEventStream(sid: string, onState?: (ev: Event) => void) {
     let closed = false;
     let attempt = 0;
     let timer: number | undefined;
-    useEvents.setState({ sid, status: "connecting", events: [], version: 0 });
+    useEvents.setState({ sid, status: "connecting", events: [], version: 0, activity: {}, busy: false });
 
     const pending: Event[] = [];
     let flushScheduled = false;
@@ -41,11 +50,23 @@ export function useEventStream(sid: string, onState?: (ev: Event) => void) {
       flushScheduled = false;
       if (!pending.length) return;
       const batch = pending.splice(0);
+      if (batch.some((e) => e.kind === "scpi" && e.dir === "write")) {
+        window.clearTimeout(busyTimer);
+        busyTimer = window.setTimeout(() => useEvents.setState({ busy: false }), BUSY_MS);
+      }
       useEvents.setState((s) => {
         const events = s.events.length + batch.length > MAX_EVENTS ? [...s.events, ...batch].slice(-MAX_EVENTS) : [...s.events, ...batch];
         const changed = batch.some((e) => e.kind !== "scpi" || e.dir === "write");
+        const writes = batch.filter((e) => e.kind === "scpi" && e.dir === "write" && e.instrument);
+        let activity = s.activity;
+        if (writes.length) {
+          activity = { ...activity };
+          for (const e of writes) activity[e.instrument!] = (activity[e.instrument!] ?? 0) + 1;
+        }
         return {
           events,
+          activity,
+          busy: writes.length ? true : s.busy,
           version: changed ? s.version + 1 : s.version,
           nowNs: Math.max(s.nowNs, ...batch.map((e) => e.t_ns + (e.duration_ns ?? 0))),
         };
@@ -105,3 +126,4 @@ export function useWallClock(clockMode: string, serverNowNs: number) {
     return () => window.clearInterval(timer);
   }, [clockMode, serverNowNs]);
 }
+

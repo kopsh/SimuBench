@@ -9,6 +9,7 @@ export const keys = {
   catalog: ["catalog"] as const,
   faults: (sid: string) => ["faults", sid] as const,
   readings: (sid: string, name: string) => ["readings", sid, name] as const,
+  levels: (sid: string) => ["levels", sid] as const,
   benchDoc: (path: string) => ["bench-doc", path] as const,
   preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
   history: (path: string, sha: string) => ["bench-history", path, sha] as const,
@@ -119,6 +120,17 @@ export function useAdvance(sid: string) {
   return useMutation({
     mutationFn: (seconds: number) =>
       unwrap(api.POST("/api/sessions/{sid}/clock/advance", { params: { path: { sid } }, body: { seconds } })),
+  });
+}
+
+/** Every net's level and a thumbnail, re-read when the bench changes (D44). */
+export function useNetLevels(sid: string, version: number, enabled = true) {
+  return useQuery({
+    queryKey: [...keys.levels(sid), version],
+    queryFn: () => unwrap(api.GET("/api/sessions/{sid}/levels", { params: { path: { sid } } })),
+    enabled,
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
   });
 }
 

@@ -308,6 +308,19 @@ class ClockInfo(_Model):
     now_ns: int
 
 
+class SilenceReason(_Model):
+    """Why a port or net reads 0 V, found by tracing the circuit upstream."""
+
+    kind: Literal["unconnected", "source_off", "zero_setting", "no_source", "fault"]
+    path: list[str] = Field(
+        default_factory=list,
+        description="From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')",
+    )
+    source: str | None = Field(None, description="The source this reason is about, e.g. 'awg.OUT1'")
+    fault_id: str | None = None
+    detail: str = ""
+
+
 class Trace(_Model):
     channel: int
     t0_s: float = Field(..., description="Time of the first sample relative to the trigger")
@@ -316,6 +329,9 @@ class Trace(_Model):
     scale: float
     offset: float
     triggered: bool
+    silence: list[SilenceReason] = Field(
+        default_factory=list, description="Why the channel's input reads 0 V; empty when it carries a signal"
+    )
 
 
 class ScopeScreen(_Model):
@@ -397,6 +413,26 @@ class NetProbe(_Model):
     waveform: NetWaveform
     sources: list[SourceContribution] = Field(..., description="By RMS contribution, largest first")
     notes: list[str] = Field(default_factory=list, description="Why the signal is not exact, if it is not")
+    silence: list[SilenceReason] = Field(
+        default_factory=list, description="Why the net reads 0 V; empty when it carries a signal"
+    )
+
+
+class NetLevel(_Model):
+    """A net's level for the canvas: whether a signal is there, and a small picture of it."""
+
+    net: str
+    dc: float
+    rms: float
+    peak: float
+    active: bool = Field(..., description="Carries a signal (not a flat 0 V)")
+    window_s: float = Field(..., description="Span of ``wave``: two periods of the strongest line, or 2 ms")
+    wave: list[float] = Field(..., description="A few dozen samples over ``window_s``, for a thumbnail")
+
+
+class NetLevels(_Model):
+    t_ns: int
+    nets: list[NetLevel]
 
 
 class Event(_Model):

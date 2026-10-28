@@ -1,5 +1,6 @@
-// The access token comes from the link printed by `simubench serve` (?token=...). It is kept for the
-// browser tab and removed from the address bar so that it is not shared by copying the URL.
+// The access token is opt-in (`simubench serve --require-token`, D43); when on, it comes from the
+// printed link (?token=...). It is kept for the browser tab and removed from the address bar so that
+// it is not shared by copying the URL. Without it, requests simply carry no token.
 let token: string | null = null;
 
 export function getToken(): string | null {

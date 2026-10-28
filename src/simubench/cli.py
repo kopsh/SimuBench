@@ -32,7 +32,7 @@ def _serve(args: argparse.Namespace) -> int:
     from .ops import setup_logging
 
     setup_logging(args.log_level, args.log_format, args.log_file)
-    token = args.token or secrets.token_urlsafe(24)
+    token = _token(args)
     app = create_app(manager, token=token)
 
     @app.on_event("startup")
@@ -43,7 +43,7 @@ def _serve(args: argparse.Namespace) -> int:
                 print(f"  SCPI  {lst.instrument:<12} {lst.address}")
             for name, addr in served.hislip.addresses().items() if served.hislip else []:
                 print(f"  HiSLIP {name:<12} {addr}")
-        url = f"http://127.0.0.1:{args.port}/?token={token}"
+        url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
         if args.open:
@@ -51,6 +51,17 @@ def _serve(args: argparse.Namespace) -> int:
 
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level=args.log_level, log_config=None)
     return 0
+
+
+def _token(args: argparse.Namespace) -> str | None:
+    """The access token is opt-in (D43): ``--token VALUE`` or ``--require-token`` (random)."""
+    if args.token:
+        return str(args.token)
+    return secrets.token_urlsafe(24) if args.require_token else None
+
+
+def _ui_url(port: int, token: str | None) -> str:
+    return f"http://127.0.0.1:{port}/" + (f"?token={token}" if token else "")
 
 
 def _free_port(port: int) -> int:
@@ -91,12 +102,12 @@ def _mcp(args: argparse.Namespace) -> int:
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
     )
-    token = args.token or secrets.token_urlsafe(24)
+    token = _token(args)
     ui_url = None
     server = None
     if not args.no_ui:
         port = _free_port(args.port)
-        ui_url = f"http://127.0.0.1:{port}/?token={token}"
+        ui_url = _ui_url(port, token)
         config = uvicorn.Config(
             create_app(manager, token=token),
             host="127.0.0.1",
@@ -266,6 +277,43 @@ def _replay(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _coverage(args: argparse.Namespace) -> int:
+    """A real model's coverage table (D42): every command of the manual and how far SimuBench goes."""
+    from .library.coverage import LEVEL_TEXT, coverage_path, load_coverage
+    from .library.loader import DefinitionLibrary
+
+    lib = DefinitionLibrary([Path(d) for d in args.definitions] + [Path.cwd() / "instruments"])
+    try:
+        path = lib.path(args.id)
+    except KeyError as exc:
+        print(exc.args[0], file=sys.stderr)
+        return 2
+    definition = lib.get(args.id)
+    cov_file = coverage_path(path)
+    if not cov_file.is_file():
+        print(f"{args.id}: no coverage table ({cov_file.name})", file=sys.stderr)
+        return 2
+    cov = load_coverage(cov_file)
+    ref = definition.reference
+    print(f"{definition.manufacturer} {definition.model} ({definition.id})")
+    if ref:
+        print(
+            "  "
+            + " · ".join(
+                x for x in (ref.title, ref.document, ref.version, ref.firmware and f"FW {ref.firmware}") if x
+            )
+        )
+    for section in cov.sections:
+        print(f"\n{section.section}")
+        for c in section.commands:
+            note = f"  {c.note}" if c.note else ""
+            print(f"  {LEVEL_TEXT[c.level]:<4} {c.header}{note}")
+    st = cov.stats()
+    total = sum(st.values())
+    print(f"\n{' · '.join(f'{LEVEL_TEXT[k]} {v}' for k, v in st.items())} · 共 {total}")
+    return 0
+
+
 def _schemas(args: argparse.Namespace) -> int:
     from .server.schemas import export_all
 
@@ -294,7 +342,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
-    p.add_argument("--token", help="access token (default: random)")
+    p.add_argument("--token", help="require this access token (default: no token, D43)")
+    p.add_argument(
+        "--require-token",
+        action="store_true",
+        help="require a random access token; use on a computer shared with other users",
+    )
     p.add_argument("--open", action="store_true", help="open the browser")
     p.add_argument("--log-level", default="warning")
     p.add_argument("--log-format", choices=["text", "json"], default="text", help="json: one object per line")
@@ -309,7 +362,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--hislip-port", type=int, default=4880)
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")
-    p.add_argument("--token")
+    p.add_argument("--token", help="require this access token (default: no token, D43)")
+    p.add_argument("--require-token", action="store_true", help="require a random access token")
     p.add_argument(
         "--allow-control",
         action="store_true",
@@ -340,6 +394,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--first", action="store_true", help="stop at the first difference")
     p.add_argument("--json", action="store_true", help="print the report as JSON")
     p.set_defaults(fn=_replay)
+
+    p = sub.add_parser(
+        "coverage", help="a real model's coverage table: commands of the manual by level (D42)"
+    )
+    p.add_argument("id", help="definition id, e.g. keysight-34465a")
+    p.add_argument("--definitions", action="append", default=[], help="also look for definitions here")
+    p.set_defaults(fn=_coverage)
 
     p = sub.add_parser("schemas", help="export OpenAPI and JSON Schemas (D21)")
     p.add_argument("--out", default="schemas")

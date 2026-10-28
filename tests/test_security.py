@@ -108,3 +108,38 @@ def test_scpi_sockets_listen_on_loopback_only(app):
         # The shared HiSLIP port (D41) binds loopback only as well, like the sockets.
         assert hislip and all(a.startswith("TCPIP0::127.0.0.1::hislip") for a in hislip)
         c.delete(f"/api/sessions/{info['id']}")
+
+
+def test_without_a_token_by_default_but_still_loopback_only():
+    """D43: the token is opt-in; Host/Origin checks still apply without it."""
+    app = create_app(SessionManager(ROOT / "examples", scpi_base_port=0), web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        assert c.get("/api/benches").status_code == 200
+        assert c.get("/api/benches", headers={"origin": "http://evil.example"}).status_code == 403
+        sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+        with (
+            pytest.raises(WebSocketDisconnect),
+            c.websocket_connect(
+                f"/api/sessions/{sid}/events", headers={"host": "127.0.0.1", "origin": "http://evil.example"}
+            ) as ws,
+        ):
+            ws.receive_json()
+        with c.websocket_connect(f"/api/sessions/{sid}/events", headers={"host": "127.0.0.1"}) as ws:
+            assert ws
+        c.delete(f"/api/sessions/{sid}")
+
+
+@pytest.mark.parametrize(
+    ("given", "require", "required", "fixed"),
+    [(None, False, False, None), (None, True, True, None), ("abc", False, True, "abc")],
+)
+def test_cli_token_is_opt_in(given, require, required, fixed):
+    from argparse import Namespace
+
+    from simubench.cli import _token, _ui_url
+
+    token = _token(Namespace(token=given, require_token=require))
+    assert (token is not None) == required
+    if fixed:
+        assert token == fixed
+    assert ("?token=" in _ui_url(8765, token)) == required

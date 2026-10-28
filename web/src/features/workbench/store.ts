@@ -29,6 +29,8 @@ interface WorkbenchState {
   setHistory: (open: boolean) => void;
   setBottomTab: (tab: WorkbenchState["bottomTab"]) => void;
   reset: () => void;
+  /** Reopen screens remembered for a bench (instruments it no longer has are dropped). */
+  restore: (tabs: Tab[], active: string) => void;
 }
 
 export const tabKey = (t: Tab) => (t.kind === "canvas" ? "canvas" : `screen:${t.instrument}`);
@@ -64,4 +66,9 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   setHistory: (historyOpen) => set({ historyOpen }),
   setBottomTab: (bottomTab) => set({ bottomTab }),
   reset: () => set(initial),
+  restore: (tabs, active) =>
+    set(() => {
+      const all: Tab[] = [{ kind: "canvas" }, ...tabs.filter((t) => t.kind === "screen")];
+      return { tabs: all, active: all.some((t) => tabKey(t) === active) ? active : "canvas" };
+    }),
 }));

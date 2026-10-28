@@ -52,7 +52,10 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   await page.getByRole("tab", { name: /问题/ }).click();
   await expect(page.getByRole("button", { name: /-114.*Header suffix out of range/ })).toBeVisible();
   await page.getByRole("tab", { name: "通信" }).click();
-  await expect(page.getByText(":CHANnel9:SCALe 1")).toBeVisible();
+  const row = page.getByText(":CHANnel9:SCALe 1").locator("..");
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("界面"); // who sent it
+  await expect(row.getByTestId("wall-time")).toHaveText(/^\d\d:\d\d:\d\d\.\d{3}$/); // real time beside virtual time
 });
 
 test("open the scope screen by double-clicking its node", async ({ page }) => {
@@ -61,6 +64,68 @@ test("open the scope screen by double-clicking its node", async ({ page }) => {
   await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
   await expect(page.getByRole("img", { name: "waveform" })).toBeVisible();
   await expect(page.getByText("实时预览")).toBeVisible();
+});
+
+test("acquire from the scope screen without a script", async ({ page }) => {
+  await startBench(page);
+  const controls = page.getByRole("group", { name: "采集控制" });
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  // Outputs are off at power-on: the notice traces CH1 back to the generator, through the probe and the RC.
+  const why = page.getByRole("status", { name: "输入为 0 V 的原因" });
+  await expect(why).toContainText("探头 10×");
+  await expect(why).toContainText("RC 低通");
+  await expect(why).toContainText("函数发生器 OUT1 输出关闭");
+  await page.getByRole("radio", { name: "最近采集" }).click();
+  await expect(page.getByText("还没有采集")).toBeVisible();
+  await controls.getByRole("button", { name: "单次" }).click();
+  await expect(page.getByText("还没有采集")).toBeHidden();
+  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  await expect(page.getByText(":SINGle").first()).toBeVisible(); // in the communication log, like a script's
+  await controls.getByRole("button", { name: "运行" }).click();
+  await expect(page.getByText(/采集次数\s*[3-9]/)).toBeVisible();
+  await controls.getByRole("button", { name: "停止" }).click();
+  await expect(controls.getByRole("button", { name: "单次" })).toBeEnabled();
+});
+
+test("an unwired channel says so; clicking the source selects it", async ({ page }) => {
+  await startBench(page);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await input.fill(":CHANnel2:DISPlay ON");
+  await input.press("Enter");
+  const why = page.getByRole("status", { name: "输入为 0 V 的原因" });
+  await expect(why).toContainText("没有接线");
+  await page.getByRole("button", { name: "函数发生器 OUT1 输出关闭" }).click();
+  await expect(page.getByText("TCPIP0::192.168.1.20::5025::SOCKET")).toBeVisible(); // the generator is selected
+});
+
+test("live canvas: wires and thumbnails follow the signal, nodes flash on commands", async ({ page }) => {
+  await startBench(page);
+  const sid = new URL(page.url()).pathname.split("/").pop()!;
+  // Output off at power-on: every wire silent, the scope thumbnail flat, the clock waiting.
+  await expect(page.locator('path[data-level="silent"]')).toHaveCount(2);
+  await expect(page.getByRole("img", { name: "CH1 0 V" })).toBeVisible();
+  await expect(page.getByTestId("session-activity")).toContainText("等待命令");
+  await page.request.post(`/api/sessions/${sid}/instruments/awg/scpi`, {
+    headers: { "x-simubench-token": TOKEN },
+    data: { command: ":OUTPut1 ON" },
+  });
+  await expect(page.locator('path[data-level="live"]')).toHaveCount(2);
+  await expect(page.getByRole("img", { name: "CH1 signal" })).toBeVisible();
+  await expect(page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).getByTestId("node-activity")).toHaveCount(1);
+  await expect(page.getByTestId("session-activity")).toContainText("等待命令"); // back to waiting once it is done
+});
+
+test("open screens are remembered for the bench and reopen on the next start", async ({ page }) => {
+  await startBench(page);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await page.getByRole("button", { name: "返回测试台列表" }).click();
+  // Start again: the scope screen comes back as the active tab, not the canvas.
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "启动" }).click();
+  await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
+  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: "采集控制" })).toBeVisible();
 });
 
 test("switch to English and dark theme", async ({ page }) => {

@@ -47,7 +47,7 @@ scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::5026::SOCKET"
 scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::hislip1,4880::INSTR")
 ```
 
-安全设计与自检见 [docs/security.md](docs/security.md)。
+默认不需要访问令牌；在多人共用的电脑上请加 `--require-token`。安全设计与自检见 [docs/security.md](docs/security.md)。
 
 ## 在 pytest 中使用
 

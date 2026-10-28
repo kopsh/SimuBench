@@ -556,6 +556,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Net Levels
+         * @description Every net's level and a thumbnail, for the canvas (D44).
+         */
+        get: operations["getNetLevels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/nets/{net}/probe": {
         parameters: {
             query?: never;
@@ -845,6 +865,8 @@ export interface components {
              * @description Virtual time the command consumes (D12)
              */
             duration?: string | number | null;
+            /** @description Overrides the definition's response format */
+            format?: components["schemas"]["ResponseFormat"] | null;
             /**
              * Header
              * @description Header pattern, e.g. '[:SOURce<ch>]:FREQuency[:CW]'
@@ -1217,6 +1239,20 @@ export interface components {
             /** Description */
             description?: string | null;
             display?: components["schemas"]["Display"];
+            /**
+             * Error Queue
+             * @description Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)
+             */
+            error_queue?: number | null;
+            /**
+             * Errors
+             * @description Error texts by code: overrides standard texts and adds device-specific codes
+             */
+            errors?: {
+                [key: string]: string;
+            };
+            /** @description Default response format */
+            format?: components["schemas"]["ResponseFormat"];
             /** Id */
             id: string;
             identity?: components["schemas"]["Identity"];
@@ -1225,12 +1261,21 @@ export interface components {
             /** Model */
             model: string;
             ports?: components["schemas"]["Ports"];
+            /** @description The manual this definition follows; a definition with a reference is a real model: unknown commands answer -113 'not modeled by SimuBench', error texts follow `errors` */
+            reference?: components["schemas"]["Reference"] | null;
             /**
              * Schema
              * @default simubench.instrument/1
              * @constant
              */
             schema: "simubench.instrument/1";
+            /**
+             * Specs
+             * @description Accuracy and other specifications from the manual; stored, not yet used in calculations
+             */
+            specs?: {
+                [key: string]: unknown;
+            };
             /** State */
             state?: {
                 [key: string]: components["schemas"]["StateSpec"];
@@ -1341,6 +1386,42 @@ export interface components {
             notes: string[];
         };
         /**
+         * NetLevel
+         * @description A net's level for the canvas: whether a signal is there, and a small picture of it.
+         */
+        NetLevel: {
+            /**
+             * Active
+             * @description Carries a signal (not a flat 0 V)
+             */
+            active: boolean;
+            /** Dc */
+            dc: number;
+            /** Net */
+            net: string;
+            /** Peak */
+            peak: number;
+            /** Rms */
+            rms: number;
+            /**
+             * Wave
+             * @description A few dozen samples over ``window_s``, for a thumbnail
+             */
+            wave: number[];
+            /**
+             * Window S
+             * @description Span of ``wave``: two periods of the strongest line, or 2 ms
+             */
+            window_s: number;
+        };
+        /** NetLevels */
+        NetLevels: {
+            /** Nets */
+            nets: components["schemas"]["NetLevel"][];
+            /** T Ns */
+            t_ns: number;
+        };
+        /**
          * NetProbe
          * @description A virtual probe on a net (no loading, no instrument involved), and why it reads what it reads.
          */
@@ -1367,6 +1448,11 @@ export interface components {
             peak: number;
             /** Rms */
             rms: number;
+            /**
+             * Silence
+             * @description Why the net reads 0 V; empty when it carries a signal
+             */
+            silence: components["schemas"]["SilenceReason"][];
             /**
              * Sources
              * @description By RMS contribution, largest first
@@ -1465,6 +1551,32 @@ export interface components {
             /** Values */
             values: number[];
         };
+        /**
+         * Reference
+         * @description The manual a real-model definition follows (D42): behavior is checked against this edition.
+         */
+        Reference: {
+            /**
+             * Document
+             * @description Document or part number
+             */
+            document?: string | null;
+            /**
+             * Firmware
+             * @description Firmware version the manual describes
+             */
+            firmware?: string | null;
+            /**
+             * Title
+             * @description e.g. 'Keysight Truevolt Series Operating and Service Guide'
+             */
+            title: string;
+            /**
+             * Version
+             * @description Edition, revision or date
+             */
+            version?: string | null;
+        };
         /** Remove */
         Remove: {
             /**
@@ -1519,6 +1631,67 @@ export interface components {
             run_id: string;
             /** Warnings */
             warnings: string[];
+        };
+        /**
+         * ResponseFormat
+         * @description How query responses are written (real models, D42): numbers, booleans and enumerations.
+         *
+         *     The defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.
+         */
+        ResponseFormat: {
+            /**
+             * Boolean
+             * @description numeric: 1/0; word: ON/OFF
+             * @default numeric
+             * @enum {string}
+             */
+            boolean: "numeric" | "word";
+            /**
+             * Digits
+             * @description Digits after the decimal point (nr3 mantissa, nr2)
+             * @default 6
+             */
+            digits: number;
+            /**
+             * Enum
+             * @description short: SIN; long: SINUSOID (upper case)
+             * @default short
+             * @enum {string}
+             */
+            enum: "short" | "long";
+            /**
+             * Error Code
+             * @description Code in :SYSTem:ERRor? replies: plain: 0,"No error"; signed: +0,"No error"
+             * @default plain
+             * @enum {string}
+             */
+            error_code: "plain" | "signed";
+            /**
+             * Exponent Digits
+             * @description nr3: digits of the exponent, e.g. E+03 is 2
+             * @default 2
+             */
+            exponent_digits: number;
+            /**
+             * Integer
+             * @description plain: 5; signed: +5
+             * @default plain
+             * @enum {string}
+             */
+            integer: "plain" | "signed";
+            /**
+             * Number
+             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded)
+             * @default nr3
+             * @enum {string}
+             */
+            number: "nr3" | "nr2" | "nr1";
+            /**
+             * Sign
+             * @description Write '+' before non-negative numbers
+             * @default true
+             */
+            sign: boolean;
         };
         /** RestoreBenchRequest */
         RestoreBenchRequest: {
@@ -1857,6 +2030,34 @@ export interface components {
             value?: unknown;
         };
         /**
+         * SilenceReason
+         * @description Why a port or net reads 0 V, found by tracing the circuit upstream.
+         */
+        SilenceReason: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Fault Id */
+            fault_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "unconnected" | "source_off" | "zero_setting" | "no_source" | "fault";
+            /**
+             * Path
+             * @description From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')
+             */
+            path: string[];
+            /**
+             * Source
+             * @description The source this reason is about, e.g. 'awg.OUT1'
+             */
+            source: string | null;
+        };
+        /**
          * SourceContribution
          * @description One independent source's share of a net's signal: its EMF times the circuit's transfer.
          */
@@ -2051,6 +2252,11 @@ export interface components {
             offset: number;
             /** Scale */
             scale: number;
+            /**
+             * Silence
+             * @description Why the channel's input reads 0 V; empty when it carries a signal
+             */
+            silence: components["schemas"]["SilenceReason"][];
             /**
              * T0 S
              * @description Time of the first sample relative to the trigger
@@ -3159,6 +3365,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeScreen"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNetLevels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetLevels"];
                 };
             };
             /** @description Validation Error */

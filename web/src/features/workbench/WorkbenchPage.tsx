@@ -1,15 +1,16 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import type { BenchDocument, EditOp, SessionInfo } from "@/api/client";
 import { useEventStream, useEvents, useWallClock } from "@/api/events";
 import type { Event } from "@/api/generated/events";
-import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useSession } from "@/api/hooks";
+import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useNetLevels, useSession } from "@/api/hooks";
 import { ErrorState } from "@/components/app/StateViews";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
+import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { BottomPanel } from "./BottomPanel";
 import { Canvas, type LibraryItem } from "./canvas/Canvas";
@@ -43,6 +44,7 @@ export function WorkbenchPage() {
   const session = useSession(sid);
   const reset = useWorkbench((s) => s.reset);
   useEffect(() => reset(), [sid, reset]);
+  useRememberedScreens(session.data);
 
   // State events patch the cached session at once; a debounced refetch keeps error queues in step.
   const refetchTimer = useRef<number | undefined>(undefined);
@@ -274,7 +276,7 @@ function Screen({ session, instrument, readonly }: { session: SessionInfo; instr
   if (!inst) return null;
   // The class template picks the screen (D1); instruments without one get the generic layout.
   const template = inst.display.template ?? inst.instrument_class;
-  if (template === "oscilloscope") return <ScopeScreen sid={session.id} inst={inst} />;
+  if (template === "oscilloscope") return <ScopeScreen session={session} inst={inst} readonly={readonly} />;
   if (template === "function_generator") return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "lockin") return <LockinScreen sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "spectrum_analyzer") return <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />;
@@ -314,6 +316,13 @@ function BenchCanvas({
           ),
     [editing, faults],
   );
+  // Live levels only for the running bench: an edited preview may differ from what is running.
+  const version = useDeferredValue(useEvents((s) => s.version));
+  const levelData = useNetLevels(session.id, version, !editing).data;
+  const levels = useMemo(
+    () => (editing || !levelData ? undefined : new Map(levelData.nets.map((n) => [n.net, n]))),
+    [editing, levelData],
+  );
   const layout = (doc?.data.layout as Record<string, { x: number; y: number }> | undefined) ?? undefined;
   // Node positions are part of the bench file (D8); moving a node never needs a restart.
   const onOps = useMemo(() => (session.bench_path ? (ops: EditOp[]) => void applyOps(ops) : undefined), [session.bench_path]);
@@ -334,7 +343,7 @@ function BenchCanvas({
   }
   return (
     <div className="relative h-full">
-      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} />
+      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} levels={levels} />
       {editing && (
         <div className="pointer-events-none absolute top-2 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
           {omitted.length > 0 && (
@@ -352,4 +361,32 @@ function BenchCanvas({
       )}
     </div>
   );
+}
+
+/**
+ * The screens open on a bench are remembered per bench file in this browser and reopened the next
+ * time it starts, so a scope screen does not have to be opened by hand every time.
+ */
+function useRememberedScreens(session: SessionInfo | undefined) {
+  const restore = useWorkbench((s) => s.restore);
+  const key = session ? `screens:${session.bench_path ?? session.bench_name}` : null;
+  // Restored once per session (a new start of the same bench restores again, after the reset).
+  const marker = session && key ? `${session.id}|${key}` : null;
+  const restored = useRef<string | null>(null);
+  const names = session?.instruments.map((i) => i.name).join("\n");
+  useEffect(() => {
+    if (!key || !marker || names === undefined || restored.current === marker) return;
+    restored.current = marker;
+    const known = new Set(names.split("\n"));
+    const saved = load<{ tabs: Tab[]; active: string }>(key, { tabs: [], active: "canvas" });
+    restore(
+      saved.tabs.filter((t) => t.kind === "screen" && known.has(t.instrument)),
+      saved.active,
+    );
+  }, [key, marker, names, restore]);
+  const tabs = useWorkbench((s) => s.tabs);
+  const active = useWorkbench((s) => s.active);
+  useEffect(() => {
+    if (key && marker && restored.current === marker) save(key, { tabs: tabs.filter((t) => t.kind === "screen"), active });
+  }, [key, marker, tabs, active]);
 }

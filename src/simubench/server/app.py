@@ -1,8 +1,9 @@
 """FastAPI application of ``simubench serve`` (D18, D21).
 
 Security for a local service (roadmap.md, D22): the service listens on the loopback interface,
-requires the access token printed at start-up, and rejects requests whose Host or Origin header is
-not a loopback name, so that a web page cannot reach it through DNS rebinding.
+rejects requests whose Host or Origin header is not a loopback name, so that a web page cannot reach
+it through DNS rebinding, and, when started with an access token (opt-in, D43), requires it on every
+data route.
 """
 
 from __future__ import annotations
@@ -59,7 +60,7 @@ class LocalOnly(BaseHTTPMiddleware):
 
 
 def create_app(manager: SessionManager, token: str | None = None, web_dist: Path | None = None) -> FastAPI:
-    token = token or secrets.token_urlsafe(24)
+    """``token``: when given, every data route and the event socket require it; None serves without one."""
     app = FastAPI(
         title="SimuBench", version=__version__, docs_url="/api/docs", openapi_url="/api/openapi.json"
     )
@@ -69,6 +70,8 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     library = DefinitionLibrary([manager.workspace / "instruments"])
 
     def auth(request: Request) -> None:
+        if token is None:
+            return
         supplied = request.headers.get("x-simubench-token") or request.query_params.get("token")
         if not supplied or not secrets.compare_digest(supplied, token):
             raise HTTPException(status_code=401, detail="missing or wrong access token")
@@ -434,6 +437,16 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise not_found(exc) from None
 
     @app.get(
+        "/api/sessions/{sid}/levels",
+        response_model=M.NetLevels,
+        operation_id="getNetLevels",
+        dependencies=[Depends(auth)],
+    )
+    async def net_levels(sid: str) -> M.NetLevels:
+        """Every net's level and a thumbnail, for the canvas (D44)."""
+        return await asyncio.to_thread(manager.net_levels, served(sid))
+
+    @app.get(
         "/api/sessions/{sid}/nets/{net}/waveform",
         response_model=M.NetWaveform,
         operation_id="getNetWaveform",
@@ -559,7 +572,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             await ws.close(code=4403)
             return
         supplied = ws.query_params.get("token") or ""
-        if not secrets.compare_digest(supplied, token):
+        if token is not None and not secrets.compare_digest(supplied, token):
             await ws.close(code=4401)
             return
         try:

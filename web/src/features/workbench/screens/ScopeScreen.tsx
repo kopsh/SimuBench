@@ -1,26 +1,41 @@
-import { Info } from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import { Info, Play, Square, StepForward } from "lucide-react";
+import { useDeferredValue, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { InstrumentInfo } from "@/api/client";
+import type { InstrumentInfo, SessionInfo, Trace } from "@/api/client";
 import { useEvents } from "@/api/events";
-import { useScopeScreen } from "@/api/hooks";
+import { useScopeScreen, useScpi } from "@/api/hooks";
 import { EmptyState } from "@/components/app/StateViews";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { channelColor } from "@/lib/channels";
 import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { stateMap } from "../model";
+import { refTarget, stateMap } from "../model";
+import { useWorkbench } from "../store";
 import { WaveformCanvas } from "./WaveformCanvas";
 
-export function ScopeScreen({ sid, inst }: { sid: string; inst: InstrumentInfo }) {
+/** Pause between acquisitions while running, in real time. */
+const RUN_INTERVAL_MS = 300;
+
+export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
+  const sid = session.id;
   const [source, setSource] = useState<"preview" | "record">("preview");
   const version = useDeferredValue(useEvents((s) => s.version));
   const screen = useScopeScreen(sid, inst.name, source, version);
   const vars = stateMap(inst);
   const data = screen.data;
+  const acquire = useAcquire(sid, inst.name, readonly);
+  const single = () => {
+    setSource("record");
+    acquire.single();
+  };
+  const run = () => {
+    setSource("record");
+    acquire.setRunning(!acquire.running);
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -40,6 +55,16 @@ export function ScopeScreen({ sid, inst }: { sid: string; inst: InstrumentInfo }
             {t("scope.record")}
           </ToggleGroupItem>
         </ToggleGroup>
+        <div role="group" aria-label={t("scope.acquisition")} className="flex items-center gap-1">
+          <Button size="sm" variant={acquire.running ? "default" : "outline"} className="h-7 gap-1.5 text-xs" disabled={readonly} onClick={run}>
+            {acquire.running ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
+            {acquire.running ? t("scope.stop") : t("scope.run")}
+          </Button>
+          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" disabled={readonly || acquire.running || acquire.busy} onClick={single}>
+            <StepForward className="size-3.5" />
+            {t("scope.single")}
+          </Button>
+        </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <Info className="text-muted-foreground size-4" aria-label={source === "preview" ? t("scope.previewHint") : t("scope.recordHint")} />
@@ -86,12 +111,15 @@ export function ScopeScreen({ sid, inst }: { sid: string; inst: InstrumentInfo }
             <EmptyState title={t("scope.noRecord")} />
           </div>
         ) : (
-          <WaveformCanvas
-            className="h-full w-full rounded-md"
-            traces={data?.traces ?? []}
-            triggerLevel={data?.trigger_level}
-            triggerChannel={data?.trigger_source}
-          />
+          <>
+            <WaveformCanvas
+              className="h-full w-full rounded-md"
+              traces={data?.traces ?? []}
+              triggerLevel={data?.trigger_level}
+              triggerChannel={data?.trigger_source}
+            />
+            {data && <SilenceNotice session={session} traces={data.traces} />}
+          </>
         )}
       </div>
 
@@ -116,4 +144,92 @@ export function ScopeScreen({ sid, inst }: { sid: string; inst: InstrumentInfo }
       </div>
     </div>
   );
+}
+
+/**
+ * Why a channel reads 0 V, traced upstream by the service (unwired, source off, set to 0, no source,
+ * a fault), with each hop selectable so it can be found on the canvas and in the inspector.
+ */
+function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trace[] }) {
+  const { t } = useTranslation();
+  const select = useWorkbench((s) => s.select);
+  const silent = traces.filter((tr) => tr.silence.length > 0 && tr.volts.every((v) => v === 0));
+  if (silent.length === 0) return null;
+  return (
+    <div
+      role="status"
+      aria-label={t("scope.silence.title")}
+      className="bg-card/90 absolute top-3 left-1/2 w-max max-w-[90%] -translate-x-1/2 space-y-1 rounded-md border px-3 py-1.5 text-xs"
+    >
+      {silent.map((tr) =>
+        tr.silence.map((r, i) => {
+          const source = r.source ? refTarget(session, r.source).label : "";
+          return (
+            <div key={`${tr.channel}-${i}`} className="text-muted-foreground flex flex-wrap items-center gap-1">
+              <span className="num font-semibold" style={{ color: channelColor(tr.channel) }}>
+                CH{tr.channel}
+              </span>
+              {r.path.slice(1, r.source ? -1 : undefined).map((ref) => {
+                const hop = refTarget(session, ref);
+                return (
+                  <span key={ref} className="flex items-center gap-1">
+                    <span aria-hidden>←</span>
+                    <button className="text-foreground hover:underline" disabled={!hop.selection} onClick={() => hop.selection && select(hop.selection)}>
+                      {hop.label}
+                    </button>
+                  </span>
+                );
+              })}
+              {r.source && <span aria-hidden>←</span>}
+              <span>
+                {r.source && r.kind !== "fault" ? (
+                  <button
+                    className="text-foreground hover:underline"
+                    onClick={() => {
+                      const sel = refTarget(session, r.source!).selection;
+                      if (sel) select(sel);
+                    }}
+                  >
+                    {t(`scope.silence.${r.kind}`, { source, fault: r.fault_id })}
+                  </button>
+                ) : (
+                  t(`scope.silence.${r.kind}`, { source, fault: r.fault_id })
+                )}
+              </span>
+            </div>
+          );
+        }),
+      )}
+    </div>
+  );
+}
+
+/**
+ * Front-panel acquisition: Single sends :SINGle once, Run repeats it until stopped. The commands go
+ * to the instrument like a script's, so they show in the communication log and advance virtual time.
+ */
+function useAcquire(sid: string, name: string, readonly: boolean) {
+  const scpi = useScpi(sid, name);
+  const [running, setRunning] = useState(false);
+  const send = scpi.mutateAsync; // stable across renders (TanStack Query)
+  useEffect(() => {
+    if (!running || readonly) return;
+    let stop = false;
+    void (async () => {
+      while (!stop) {
+        try {
+          const r = await send(":SINGle");
+          if (r.link_error || r.errors.length) break; // a fault or a refused command stops the run
+        } catch {
+          break;
+        }
+        await new Promise((done) => setTimeout(done, RUN_INTERVAL_MS));
+      }
+      if (!stop) setRunning(false);
+    })();
+    return () => {
+      stop = true;
+    };
+  }, [running, readonly, send]);
+  return { running: running && !readonly, setRunning, single: () => scpi.mutate(":SINGle"), busy: scpi.isPending };
 }

@@ -17,11 +17,12 @@ from ..api import open_bench
 from ..engine.faults import LinkDown
 from ..engine.instrument import Instrument
 from ..engine.session import Session
+from ..engine.silence import why_silent
 from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
-from .benchfiles import BenchFiles
+from .benchfiles import BenchFiles, scan
 from .runs import Runs
 
 log = logging.getLogger(__name__)
@@ -72,9 +73,7 @@ class SessionManager:
 
     def bench_files(self) -> list[M.BenchFile]:
         out: list[M.BenchFile] = []
-        for p in sorted(self.workspace.rglob("*.bench.yaml")) + sorted(self.workspace.rglob("*.bench.json")):
-            if any(part in ("node_modules", ".venv", ".git") for part in p.parts):
-                continue
+        for p in scan(self.workspace):
             rel = p.relative_to(self.workspace).as_posix()
             try:
                 b = load_bench(p)
@@ -358,6 +357,7 @@ class SessionManager:
                     scale=r.scale,
                     offset=r.offset,
                     triggered=r.triggered,
+                    silence=_channel_silence(s, inst, n),
                 )
                 for n, r in sorted(records.items())
             ]
@@ -470,7 +470,37 @@ class SessionManager:
                 waveform=wave,
                 sources=sources,
                 notes=[n.detail for n in sig.notes],
+                silence=[_silence(x) for x in why_silent(s, net)],
             )
+
+    @staticmethod
+    def net_levels(served: ServedSession, points: int = 48) -> M.NetLevels:
+        """Every net's level and a thumbnail, in one read, for the canvas (D44)."""
+        s = served.session
+        with s._lock:
+            s.follow_wall()
+            out: list[M.NetLevel] = []
+            for net in s.nets:
+                sig = s.net_signal(net).merged()
+                pos = sig.freq > 0
+                amps = np.abs(sig.amp[pos])
+                f0 = float(sig.freq[pos][int(np.argmax(amps))]) if amps.size else 0.0
+                window = 2.0 / f0 if f0 > 0 else 2e-3
+                volts = sig.sample_rel(s.now_ns, np.arange(points) * (window / points))
+                peak = float(sig.peak())
+                dc = float(sig.mean())
+                out.append(
+                    M.NetLevel(
+                        net=net,
+                        dc=dc,
+                        rms=float(sig.rms()),
+                        peak=peak,
+                        active=peak > 0 or dc != 0,
+                        window_s=window,
+                        wave=[float(v) for v in volts],
+                    )
+                )
+            return M.NetLevels(t_ns=s.now_ns, nets=out)
 
     @staticmethod
     def net_waveform(served: ServedSession, net: str, window_s: float, points: int) -> M.NetWaveform:
@@ -516,3 +546,16 @@ def _net_notes(s: Session, net: str) -> list[str]:
     except Exception as exc:  # describing a session must not fail because one net cannot be solved
         log.exception("net %s of %s", net, s.bench.name)
         return [f"model error: {type(exc).__name__}"]
+
+
+def _silence(x: Any) -> M.SilenceReason:
+    return M.SilenceReason(kind=x.kind, path=x.path, source=x.source, fault_id=x.fault_id, detail=x.detail)
+
+
+def _channel_silence(s: Session, inst: Instrument, channel: int) -> list[M.SilenceReason]:
+    """Why a scope channel's input reads 0 V: its input port, traced upstream (issue 22)."""
+    for pname, (comp, port) in inst.ports.items():
+        if comp.startswith(f"ch{channel}.") and inst.components[comp].ports[port].direction == "in":
+            ref = f"{inst.name}.{pname}"
+            return [_silence(x) for x in why_silent(s, s.node_of(inst.components[comp], port), port_ref=ref)]
+    return []

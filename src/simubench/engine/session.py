@@ -423,7 +423,14 @@ class Session:
                     out = self.faults.garble(garble, out)
                     fault_id = garble.id
                     self.faults.use(garble)
-                event = {"kind": "scpi", "dir": "read", "instrument": name, "data": out, "client": client}
+                event = {
+                    "kind": "scpi",
+                    "dir": "read",
+                    "instrument": name,
+                    "data": out,
+                    "wall": time.time(),
+                    "client": client,
+                }
                 if fault_id:
                     event["fault"] = fault_id
                 self.emit(event)
