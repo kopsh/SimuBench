@@ -27,6 +27,18 @@ from ..models.bench import BenchDefinition
 from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
+#: Folders that never hold the user's benches: SimuBench's own state (history versions are folders
+#: named after the bench file) and tool folders.
+SKIP_DIRS = frozenset({".simubench", ".git", ".venv", "node_modules"})
+
+
+def scan(workspace: Path) -> list[Path]:
+    """The bench files in the workspace, sorted, without descending into :data:`SKIP_DIRS`."""
+    found = []
+    for root, dirs, files in os.walk(workspace):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        found.extend(Path(root) / f for f in files if f.endswith(SUFFIXES))
+    return sorted(found, key=lambda p: (p.suffix != ".yaml", p.relative_to(workspace).as_posix()))
 
 
 class Conflict(Exception):
