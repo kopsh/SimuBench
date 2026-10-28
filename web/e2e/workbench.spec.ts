@@ -219,3 +219,29 @@ test("first-use guide: three ways in, dismissed for good", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "测试台", exact: true })).toBeVisible();
   await expect(page.getByRole("region", { name: "开始使用 SimuBench" })).toBeHidden();
 });
+
+test("instrument internals: the scope's components, wiring and panel ports, read-only (issue 20)", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "启动" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  await expect(page.getByRole("tab", { name: /示波器 · 内部结构/ })).toBeVisible();
+  const graph = page.getByTestId("internals-graph");
+  // CH1 is open: input port -> front end -> acquisition; the other channels are collapsed groups.
+  for (const name of ["ch1.inp", "ch1.front", "acq"]) await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
+  await expect(graph.getByTestId("internal-group")).toHaveCount(3);
+  await expect(graph.getByTestId("internal-port")).toHaveCount(4);
+  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 2 + 3);
+  // A component's parameters: the bound ones follow the setting.
+  await graph.locator('[data-name="ch1.front"]').click();
+  const details = page.getByTestId("internal-details");
+  await expect(details).toContainText("scope_frontend");
+  await expect(details).toContainText("跟随设置：耦合");
+  await expect(details).toContainText("200 MHz");
+  // Expanding everything shows every channel's chain.
+  await page.getByRole("button", { name: "全部展开" }).click();
+  await expect(graph.getByTestId("internal-component")).toHaveCount(9);
+  await expect(graph.getByTestId("internal-group")).toHaveCount(0);
+  // Read-only: nothing to drag or connect.
+  await expect(graph.locator(".react-flow__node.draggable")).toHaveCount(0);
+});

@@ -505,6 +505,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/instruments/{name}/internals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Internals */
+        get: operations["getInstrumentInternals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}/readings": {
         parameters: {
             query?: never;
@@ -1343,6 +1360,26 @@ export interface components {
             state: components["schemas"]["StateVarInfo"][];
         };
         /**
+         * InstrumentInternals
+         * @description How an instrument is built from components (issue 20): read-only, the model's nominal values.
+         *
+         *     Parameters show the definition's values; a bench's per-unit overrides are not part of the model.
+         */
+        InstrumentInternals: {
+            /** Channels */
+            channels: number;
+            /** Components */
+            components: components["schemas"]["InternalComponent"][];
+            /** Definition Id */
+            definition_id: string;
+            /** Instrument */
+            instrument: string;
+            /** Ports */
+            ports: components["schemas"]["InternalPort"][];
+            /** Wires */
+            wires: components["schemas"]["InternalWire"][];
+        };
+        /**
          * InstrumentReadings
          * @description Front-panel readings, evaluated without side effects (no SCPI traffic, no error queue).
          */
@@ -1360,6 +1397,76 @@ export interface components {
             values: {
                 [key: string]: number | boolean | string;
             };
+        };
+        /** InternalComponent */
+        InternalComponent: {
+            /**
+             * Channel
+             * @description Channel the component belongs to; none for the whole instrument
+             */
+            channel: number | null;
+            /**
+             * Doc
+             * @description What the component type does (first paragraph of its description)
+             */
+            doc: string | null;
+            /**
+             * Name
+             * @description Unique within the instrument, e.g. 'ch1.front' or 'acq'
+             */
+            name: string;
+            /** Params */
+            params: components["schemas"]["InternalParam"][];
+            /** Ports */
+            ports: components["schemas"]["PortInfo"][];
+            /** Type */
+            type: string;
+        };
+        /** InternalParam */
+        InternalParam: {
+            /**
+             * Binding
+             * @description Instrument setting the parameter follows, e.g. 'ch1.coupling'
+             */
+            binding: string | null;
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string | null;
+            /**
+             * Value
+             * @description The model's value; for a bound parameter, the setting's current value
+             */
+            value: unknown;
+        };
+        /** InternalPort */
+        InternalPort: {
+            /** Channel */
+            channel: number | null;
+            /** Direction */
+            direction: string;
+            /** Medium */
+            medium: string;
+            /**
+             * Name
+             * @description Port on the instrument's panel, e.g. 'CH1'
+             */
+            name: string;
+            /**
+             * Target
+             * @description Component port it leads to, e.g. 'ch1.inp.pin'
+             */
+            target: string;
+        };
+        /** InternalWire */
+        InternalWire: {
+            /**
+             * From
+             * @description '<component>.<port>'
+             */
+            from: string;
+            /** To */
+            to: string;
         };
         /** LayoutItem */
         LayoutItem: {
@@ -3282,6 +3389,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getInstrumentInternals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentInternals"];
                 };
             };
             /** @description Validation Error */
