@@ -305,6 +305,63 @@ class SessionManager:
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
         )
 
+    @staticmethod
+    def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
+        """The instrument's components, internal wiring and panel ports (issue 20), read-only."""
+        s = served.session
+        inst = s.instrument(instrument)
+        wires = inst.internal_wires()
+        # Ports a component takes per channel (an acquisition's in1..in4) exist only in the wiring.
+        wired: dict[str, dict[str, str]] = {}
+        for a, b in wires:
+            for end, direction in ((a, "out"), (b, "in")):
+                cname, port = end.rsplit(".", 1)
+                wired.setdefault(cname, {})[port] = direction
+        with s._lock:
+            components = [
+                M.InternalComponent(
+                    name=name,
+                    type=comp.type_name,
+                    channel=comp.channel,
+                    doc=_first_paragraph(type(comp).__doc__),
+                    params=[
+                        M.InternalParam(name=k, value=_plain(v), binding=b, unit=comp.units.get(k))
+                        for k, v, b in comp.nominal()
+                    ],
+                    ports=[
+                        M.PortInfo(name=p, direction=spec.direction, medium=spec.medium, channel=comp.channel)
+                        for p, spec in comp.ports.items()
+                    ]
+                    + [
+                        M.PortInfo(name=p, direction=d, medium="signal", channel=comp.channel)
+                        for p, d in wired.get(name, {}).items()
+                        if p not in comp.ports
+                    ],
+                )
+                for name, comp in inst.components.items()
+            ]
+        ports = []
+        for pname, (cname, cport) in inst.ports.items():
+            comp = inst.components[cname]
+            spec = comp.ports[cport]
+            ports.append(
+                M.InternalPort(
+                    name=pname,
+                    target=f"{cname}.{cport}",
+                    direction=spec.direction,
+                    medium=inst.definition.ports.media.get(pname, spec.medium),
+                    channel=comp.channel,
+                )
+            )
+        return M.InstrumentInternals(
+            instrument=inst.name,
+            definition_id=inst.definition.id,
+            channels=inst.channel_count,
+            components=components,
+            wires=[M.InternalWire(**{"from": a}, to=b) for a, b in wires],
+            ports=ports,
+        )
+
     # ---- actions ------------------------------------------------------------------------------------
 
     @staticmethod
@@ -537,6 +594,12 @@ def _plain(value: Any) -> Any:
 
 
 __all__ = ["ScpiError", "ServedSession", "SessionManager"]
+
+
+def _first_paragraph(doc: str | None) -> str | None:
+    if not doc:
+        return None
+    return " ".join(doc.strip().split("\n\n")[0].split())
 
 
 def _net_notes(s: Session, net: str) -> list[str]:

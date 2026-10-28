@@ -1,0 +1,2055 @@
+{
+ "internals": {
+  "instrument": "scope",
+  "definition_id": "siglent-sds2104xplus",
+  "channels": 4,
+  "components": [
+   {
+    "name": "acq",
+    "type": "siglent_sds_acquisition",
+    "channel": null,
+    "doc": "SDS-series run control, record length and waveform transfer on the shared scope engine.",
+    "params": [
+     {
+      "name": "overhead_s",
+      "value": 0.001,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "search_windows",
+      "value": 4,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "max_rate",
+      "value": 2000000000.0,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "max_rate_both",
+      "value": 1000000000.0,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "level_divs",
+      "value": 4.1,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "trigger_level",
+      "value": 0.0,
+      "binding": "trigger.level",
+      "unit": null
+     },
+     {
+      "name": "noise_rms",
+      "value": 3.577708763999664e-05,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "trigger_jitter_s",
+      "value": 1e-11,
+      "binding": null,
+      "unit": null
+     },
+     {
+      "name": "delay",
+      "value": 0.0,
+      "binding": "timebase.delay",
+      "unit": null
+     },
+     {
+      "name": "tdiv",
+      "value": 0.001,
+      "binding": "timebase.scale",
+      "unit": null
+     }
+    ],
+    "ports": [
+     {
+      "name": "in1",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": null
+     },
+     {
+      "name": "in2",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": null
+     },
+     {
+      "name": "in3",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": null
+     },
+     {
+      "name": "in4",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": null
+     }
+    ]
+   },
+   {
+    "name": "ch1.inp",
+    "type": "input_port",
+    "channel": 1,
+    "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
+    "params": [
+     {
+      "name": "z_in",
+      "value": "ONEMeg",
+      "binding": "ch1.impedance",
+      "unit": "OHM"
+     },
+     {
+      "name": "c_in",
+      "value": 1.7e-11,
+      "binding": null,
+      "unit": "F"
+     }
+    ],
+    "ports": [
+     {
+      "name": "pin",
+      "direction": "in",
+      "medium": "electrical",
+      "net": null,
+      "channel": 1
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 1
+     }
+    ]
+   },
+   {
+    "name": "ch1.front",
+    "type": "scope_frontend",
+    "channel": 1,
+    "doc": "Coupling and bandwidth of one channel, applied to the voltage at the input connector.",
+    "params": [
+     {
+      "name": "coupling",
+      "value": "DC",
+      "binding": "ch1.coupling",
+      "unit": null
+     },
+     {
+      "name": "bandwidth",
+      "value": 100000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "bw_limit",
+      "value": "FULL",
+      "binding": "ch1.bwlimit",
+      "unit": null
+     },
+     {
+      "name": "bw_limit_hz",
+      "value": 20000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "ac_corner",
+      "value": 5.0,
+      "binding": null,
+      "unit": "Hz"
+     }
+    ],
+    "ports": [
+     {
+      "name": "in",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": 1
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 1
+     }
+    ]
+   },
+   {
+    "name": "ch1.limits",
+    "type": "siglent_sds_channel_limits",
+    "channel": 1,
+    "doc": "Vertical scale and offset ranges of one channel, which depend on the impedance and the probe (data sheet: 500 uV/div to 10 V/div at 1 MOhm, to 1 V/div at 50 Ohm; offset by scale).",
+    "params": [
+     {
+      "name": "scale",
+      "value": 0.05,
+      "binding": "ch1.scale",
+      "unit": null
+     },
+     {
+      "name": "offset",
+      "value": 0.0,
+      "binding": "ch1.offset",
+      "unit": null
+     },
+     {
+      "name": "probe",
+      "value": 1.0,
+      "binding": "ch1.probe",
+      "unit": null
+     },
+     {
+      "name": "impedance",
+      "value": "ONEMeg",
+      "binding": "ch1.impedance",
+      "unit": null
+     },
+     {
+      "name": "min_scale",
+      "value": 0.0005,
+      "binding": null,
+      "unit": null
+     }
+    ],
+    "ports": []
+   },
+   {
+    "name": "ch2.inp",
+    "type": "input_port",
+    "channel": 2,
+    "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
+    "params": [
+     {
+      "name": "z_in",
+      "value": "ONEMeg",
+      "binding": "ch2.impedance",
+      "unit": "OHM"
+     },
+     {
+      "name": "c_in",
+      "value": 1.7e-11,
+      "binding": null,
+      "unit": "F"
+     }
+    ],
+    "ports": [
+     {
+      "name": "pin",
+      "direction": "in",
+      "medium": "electrical",
+      "net": null,
+      "channel": 2
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 2
+     }
+    ]
+   },
+   {
+    "name": "ch2.front",
+    "type": "scope_frontend",
+    "channel": 2,
+    "doc": "Coupling and bandwidth of one channel, applied to the voltage at the input connector.",
+    "params": [
+     {
+      "name": "coupling",
+      "value": "DC",
+      "binding": "ch2.coupling",
+      "unit": null
+     },
+     {
+      "name": "bandwidth",
+      "value": 100000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "bw_limit",
+      "value": "FULL",
+      "binding": "ch2.bwlimit",
+      "unit": null
+     },
+     {
+      "name": "bw_limit_hz",
+      "value": 20000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "ac_corner",
+      "value": 5.0,
+      "binding": null,
+      "unit": "Hz"
+     }
+    ],
+    "ports": [
+     {
+      "name": "in",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": 2
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 2
+     }
+    ]
+   },
+   {
+    "name": "ch2.limits",
+    "type": "siglent_sds_channel_limits",
+    "channel": 2,
+    "doc": "Vertical scale and offset ranges of one channel, which depend on the impedance and the probe (data sheet: 500 uV/div to 10 V/div at 1 MOhm, to 1 V/div at 50 Ohm; offset by scale).",
+    "params": [
+     {
+      "name": "scale",
+      "value": 1.0,
+      "binding": "ch2.scale",
+      "unit": null
+     },
+     {
+      "name": "offset",
+      "value": 0.0,
+      "binding": "ch2.offset",
+      "unit": null
+     },
+     {
+      "name": "probe",
+      "value": 1.0,
+      "binding": "ch2.probe",
+      "unit": null
+     },
+     {
+      "name": "impedance",
+      "value": "ONEMeg",
+      "binding": "ch2.impedance",
+      "unit": null
+     },
+     {
+      "name": "min_scale",
+      "value": 0.0005,
+      "binding": null,
+      "unit": null
+     }
+    ],
+    "ports": []
+   },
+   {
+    "name": "ch3.inp",
+    "type": "input_port",
+    "channel": 3,
+    "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
+    "params": [
+     {
+      "name": "z_in",
+      "value": "ONEMeg",
+      "binding": "ch3.impedance",
+      "unit": "OHM"
+     },
+     {
+      "name": "c_in",
+      "value": 1.7e-11,
+      "binding": null,
+      "unit": "F"
+     }
+    ],
+    "ports": [
+     {
+      "name": "pin",
+      "direction": "in",
+      "medium": "electrical",
+      "net": null,
+      "channel": 3
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 3
+     }
+    ]
+   },
+   {
+    "name": "ch3.front",
+    "type": "scope_frontend",
+    "channel": 3,
+    "doc": "Coupling and bandwidth of one channel, applied to the voltage at the input connector.",
+    "params": [
+     {
+      "name": "coupling",
+      "value": "DC",
+      "binding": "ch3.coupling",
+      "unit": null
+     },
+     {
+      "name": "bandwidth",
+      "value": 100000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "bw_limit",
+      "value": "FULL",
+      "binding": "ch3.bwlimit",
+      "unit": null
+     },
+     {
+      "name": "bw_limit_hz",
+      "value": 20000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "ac_corner",
+      "value": 5.0,
+      "binding": null,
+      "unit": "Hz"
+     }
+    ],
+    "ports": [
+     {
+      "name": "in",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": 3
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 3
+     }
+    ]
+   },
+   {
+    "name": "ch3.limits",
+    "type": "siglent_sds_channel_limits",
+    "channel": 3,
+    "doc": "Vertical scale and offset ranges of one channel, which depend on the impedance and the probe (data sheet: 500 uV/div to 10 V/div at 1 MOhm, to 1 V/div at 50 Ohm; offset by scale).",
+    "params": [
+     {
+      "name": "scale",
+      "value": 1.0,
+      "binding": "ch3.scale",
+      "unit": null
+     },
+     {
+      "name": "offset",
+      "value": 0.0,
+      "binding": "ch3.offset",
+      "unit": null
+     },
+     {
+      "name": "probe",
+      "value": 1.0,
+      "binding": "ch3.probe",
+      "unit": null
+     },
+     {
+      "name": "impedance",
+      "value": "ONEMeg",
+      "binding": "ch3.impedance",
+      "unit": null
+     },
+     {
+      "name": "min_scale",
+      "value": 0.0005,
+      "binding": null,
+      "unit": null
+     }
+    ],
+    "ports": []
+   },
+   {
+    "name": "ch4.inp",
+    "type": "input_port",
+    "channel": 4,
+    "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
+    "params": [
+     {
+      "name": "z_in",
+      "value": "ONEMeg",
+      "binding": "ch4.impedance",
+      "unit": "OHM"
+     },
+     {
+      "name": "c_in",
+      "value": 1.7e-11,
+      "binding": null,
+      "unit": "F"
+     }
+    ],
+    "ports": [
+     {
+      "name": "pin",
+      "direction": "in",
+      "medium": "electrical",
+      "net": null,
+      "channel": 4
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 4
+     }
+    ]
+   },
+   {
+    "name": "ch4.front",
+    "type": "scope_frontend",
+    "channel": 4,
+    "doc": "Coupling and bandwidth of one channel, applied to the voltage at the input connector.",
+    "params": [
+     {
+      "name": "coupling",
+      "value": "DC",
+      "binding": "ch4.coupling",
+      "unit": null
+     },
+     {
+      "name": "bandwidth",
+      "value": 100000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "bw_limit",
+      "value": "FULL",
+      "binding": "ch4.bwlimit",
+      "unit": null
+     },
+     {
+      "name": "bw_limit_hz",
+      "value": 20000000.0,
+      "binding": null,
+      "unit": "Hz"
+     },
+     {
+      "name": "ac_corner",
+      "value": 5.0,
+      "binding": null,
+      "unit": "Hz"
+     }
+    ],
+    "ports": [
+     {
+      "name": "in",
+      "direction": "in",
+      "medium": "signal",
+      "net": null,
+      "channel": 4
+     },
+     {
+      "name": "out",
+      "direction": "out",
+      "medium": "signal",
+      "net": null,
+      "channel": 4
+     }
+    ]
+   },
+   {
+    "name": "ch4.limits",
+    "type": "siglent_sds_channel_limits",
+    "channel": 4,
+    "doc": "Vertical scale and offset ranges of one channel, which depend on the impedance and the probe (data sheet: 500 uV/div to 10 V/div at 1 MOhm, to 1 V/div at 50 Ohm; offset by scale).",
+    "params": [
+     {
+      "name": "scale",
+      "value": 1.0,
+      "binding": "ch4.scale",
+      "unit": null
+     },
+     {
+      "name": "offset",
+      "value": 0.0,
+      "binding": "ch4.offset",
+      "unit": null
+     },
+     {
+      "name": "probe",
+      "value": 1.0,
+      "binding": "ch4.probe",
+      "unit": null
+     },
+     {
+      "name": "impedance",
+      "value": "ONEMeg",
+      "binding": "ch4.impedance",
+      "unit": null
+     },
+     {
+      "name": "min_scale",
+      "value": 0.0005,
+      "binding": null,
+      "unit": null
+     }
+    ],
+    "ports": []
+   }
+  ],
+  "wires": [
+   {
+    "from": "ch1.inp.out",
+    "to": "ch1.front.in"
+   },
+   {
+    "from": "ch2.inp.out",
+    "to": "ch2.front.in"
+   },
+   {
+    "from": "ch3.inp.out",
+    "to": "ch3.front.in"
+   },
+   {
+    "from": "ch4.inp.out",
+    "to": "ch4.front.in"
+   },
+   {
+    "from": "ch1.front.out",
+    "to": "acq.in1"
+   },
+   {
+    "from": "ch2.front.out",
+    "to": "acq.in2"
+   },
+   {
+    "from": "ch3.front.out",
+    "to": "acq.in3"
+   },
+   {
+    "from": "ch4.front.out",
+    "to": "acq.in4"
+   }
+  ],
+  "ports": [
+   {
+    "name": "CH1",
+    "target": "ch1.inp.pin",
+    "direction": "in",
+    "medium": "electrical",
+    "channel": 1
+   },
+   {
+    "name": "CH2",
+    "target": "ch2.inp.pin",
+    "direction": "in",
+    "medium": "electrical",
+    "channel": 2
+   },
+   {
+    "name": "CH3",
+    "target": "ch3.inp.pin",
+    "direction": "in",
+    "medium": "electrical",
+    "channel": 3
+   },
+   {
+    "name": "CH4",
+    "target": "ch4.inp.pin",
+    "direction": "in",
+    "medium": "electrical",
+    "channel": 4
+   }
+  ]
+ },
+ "instrument": {
+  "name": "scope",
+  "label": "示波器",
+  "model": "SDS2104X Plus",
+  "manufacturer": "Siglent Technologies",
+  "definition_id": "siglent-sds2104xplus",
+  "instrument_class": "oscilloscope",
+  "description": "Siglent SDS2104X Plus, 4 channels, 100 MHz, 2 GSa/s. Real model (D42): commands, replies and waveform transfer follow the SDS Series Programming Guide EN11F; ranges follow the data sheet. Settings the manual gives no *RST value for use the SimuBench defaults listed in the coverage table.",
+  "idn": "Siglent Technologies,SDS2104X Plus,SDS2PEEQ6R0123,1.5.2R3",
+  "channels": 4,
+  "address_virtual": "TCPIP0::127.0.0.1::5026::SOCKET",
+  "address_real": "TCPIP0::192.168.1.31::INSTR",
+  "address_hislip": null,
+  "scpi_port": null,
+  "display": {
+   "template": "oscilloscope",
+   "summary": [
+    "timebase.scale",
+    "trigger.source",
+    "trigger.level",
+    "trigger.slope"
+   ],
+   "channel_summary": [
+    "display",
+    "scale",
+    "offset",
+    "coupling",
+    "impedance",
+    "probe"
+   ],
+   "actions": {
+    "single": ":TRIGger:MODE SINGle"
+   }
+  },
+  "ports": [
+   {
+    "name": "CH1",
+    "direction": "in",
+    "medium": "electrical",
+    "net": "net-2",
+    "channel": 1
+   },
+   {
+    "name": "CH2",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": 2
+   },
+   {
+    "name": "CH3",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": 3
+   },
+   {
+    "name": "CH4",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": 4
+   }
+  ],
+  "state": [
+   {
+    "path": "timebase.scale",
+    "type": "float",
+    "unit": "S",
+    "min": 1e-09,
+    "max": 1000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "时基",
+    "label_en": "Timebase",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.001,
+    "channel": null
+   },
+   {
+    "path": "timebase.delay",
+    "type": "float",
+    "unit": "S",
+    "min": -5000000.0,
+    "max": 5000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "水平延迟",
+    "label_en": "Delay",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": null
+   },
+   {
+    "path": "timebase.reference",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "DELay",
+     "POSition"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "DELay",
+    "channel": null
+   },
+   {
+    "path": "timebase.reference_position",
+    "type": "int",
+    "unit": null,
+    "min": 0.0,
+    "max": 100.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 50,
+    "channel": null
+   },
+   {
+    "path": "trigger.mode",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "AUTO",
+     "NORMal",
+     "SINGle",
+     "FTRIG"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "触发方式",
+    "label_en": "Trigger mode",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "AUTO",
+    "channel": null
+   },
+   {
+    "path": "trigger.type",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "EDGE"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "EDGE",
+    "channel": null
+   },
+   {
+    "path": "trigger.source",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "C1",
+     "C2",
+     "C3",
+     "C4",
+     "EX",
+     "EX5",
+     "LINE"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "触发源",
+    "label_en": "Trigger source",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "C1",
+    "channel": null
+   },
+   {
+    "path": "trigger.level",
+    "type": "float",
+    "unit": "V",
+    "min": -1000000.0,
+    "max": 1000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "触发电平",
+    "label_en": "Trigger level",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": null
+   },
+   {
+    "path": "trigger.slope",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "RISing",
+     "FALLing",
+     "ALTernate"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "触发沿",
+    "label_en": "Trigger slope",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "RISing",
+    "channel": null
+   },
+   {
+    "path": "trigger.coupling",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "DC",
+     "AC",
+     "LFREJect",
+     "HFREJect"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "DC",
+    "channel": null
+   },
+   {
+    "path": "acquire.type",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "NORMal",
+     "PEAK",
+     "AVERage",
+     "ERES"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "采集方式",
+    "label_en": "Acquisition type",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "NORMal",
+    "channel": null
+   },
+   {
+    "path": "acquire.average",
+    "type": "int",
+    "unit": null,
+    "min": 4.0,
+    "max": 8192.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 16,
+    "channel": null
+   },
+   {
+    "path": "acquire.eres",
+    "type": "float",
+    "unit": null,
+    "min": 0.5,
+    "max": 4.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.5,
+    "channel": null
+   },
+   {
+    "path": "acquire.resolution",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "8Bits",
+     "10Bits"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "垂直分辨率",
+    "label_en": "Resolution",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "8Bits",
+    "channel": null
+   },
+   {
+    "path": "acquire.mdepth",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "10k",
+     "20k",
+     "100k",
+     "200k",
+     "1M",
+     "2M",
+     "10M",
+     "20M",
+     "100M",
+     "200M"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "存储深度",
+    "label_en": "Memory depth",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "10k",
+    "channel": null
+   },
+   {
+    "path": "acquire.mmanagement",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "AUTO",
+     "FSRate",
+     "FMDepth"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "AUTO",
+    "channel": null
+   },
+   {
+    "path": "acquire.mode",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "YT",
+     "XY",
+     "ROLL"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "YT",
+    "channel": null
+   },
+   {
+    "path": "acquire.amode",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "FAST",
+     "SLOW"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "FAST",
+    "channel": null
+   },
+   {
+    "path": "acquire.interpolation",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": true,
+    "channel": null
+   },
+   {
+    "path": "channel.reference",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "OFFSet",
+     "POSition"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "OFFSet",
+    "channel": null
+   },
+   {
+    "path": "waveform.source",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "C1",
+     "C2",
+     "C3",
+     "C4"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "波形传输源",
+    "label_en": "Waveform source",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "C1",
+    "channel": null
+   },
+   {
+    "path": "waveform.width",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "BYTE",
+     "WORD"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "波形格式",
+    "label_en": "Waveform width",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "BYTE",
+    "channel": null
+   },
+   {
+    "path": "waveform.start",
+    "type": "int",
+    "unit": null,
+    "min": 0.0,
+    "max": 200000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0,
+    "channel": null
+   },
+   {
+    "path": "waveform.point",
+    "type": "int",
+    "unit": null,
+    "min": 0.0,
+    "max": 200000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0,
+    "channel": null
+   },
+   {
+    "path": "waveform.interval",
+    "type": "int",
+    "unit": null,
+    "min": 1.0,
+    "max": 200000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1,
+    "channel": null
+   },
+   {
+    "path": "measure.state",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": false,
+    "channel": null
+   },
+   {
+    "path": "measure.mode",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "SIMPle",
+     "ADVanced"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "SIMPle",
+    "channel": null
+   },
+   {
+    "path": "measure.source",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "C1",
+     "C2",
+     "C3",
+     "C4"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "C1",
+    "channel": null
+   },
+   {
+    "path": "ch1.scale",
+    "type": "float",
+    "unit": "V",
+    "min": 1e-12,
+    "max": 10000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "垂直档位",
+    "label_en": "Scale",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.05,
+    "channel": 1
+   },
+   {
+    "path": "ch1.offset",
+    "type": "float",
+    "unit": "V",
+    "min": -100000000.0,
+    "max": 100000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "偏置",
+    "label_en": "Offset",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 1
+   },
+   {
+    "path": "ch1.coupling",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "DC",
+     "AC",
+     "GND"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "耦合",
+    "label_en": "Coupling",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "DC",
+    "channel": 1
+   },
+   {
+    "path": "ch1.impedance",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "ONEMeg",
+     "FIFTy"
+    ],
+    "option_labels": {
+     "ONEMeg": "1 MΩ",
+     "FIFTy": "50 Ω"
+    },
+    "display_unit": null,
+    "label": "输入阻抗",
+    "label_en": "Input impedance",
+    "readonly": false,
+    "electrical": true,
+    "dangerous": false,
+    "value": "ONEMeg",
+    "channel": 1
+   },
+   {
+    "path": "ch1.probe",
+    "type": "float",
+    "unit": null,
+    "min": 1e-06,
+    "max": 1000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": "×",
+    "label": "探头衰减设定",
+    "label_en": "Probe ratio",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 1
+   },
+   {
+    "path": "ch1.bwlimit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "FULL",
+     "20M",
+     "200M"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "带宽限制",
+    "label_en": "Bandwidth limit",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "FULL",
+    "channel": 1
+   },
+   {
+    "path": "ch1.display",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "显示",
+    "label_en": "Display",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": true,
+    "channel": 1
+   },
+   {
+    "path": "ch1.skew",
+    "type": "float",
+    "unit": "S",
+    "min": -1e-07,
+    "max": 1e-07,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 1
+   },
+   {
+    "path": "ch1.unit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "V",
+     "A"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "V",
+    "channel": 1
+   },
+   {
+    "path": "ch1.visible",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": true,
+    "channel": 1
+   },
+   {
+    "path": "ch2.scale",
+    "type": "float",
+    "unit": "V",
+    "min": 1e-12,
+    "max": 10000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "垂直档位",
+    "label_en": "Scale",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 2
+   },
+   {
+    "path": "ch2.offset",
+    "type": "float",
+    "unit": "V",
+    "min": -100000000.0,
+    "max": 100000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "偏置",
+    "label_en": "Offset",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 2
+   },
+   {
+    "path": "ch2.coupling",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "DC",
+     "AC",
+     "GND"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "耦合",
+    "label_en": "Coupling",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "DC",
+    "channel": 2
+   },
+   {
+    "path": "ch2.impedance",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "ONEMeg",
+     "FIFTy"
+    ],
+    "option_labels": {
+     "ONEMeg": "1 MΩ",
+     "FIFTy": "50 Ω"
+    },
+    "display_unit": null,
+    "label": "输入阻抗",
+    "label_en": "Input impedance",
+    "readonly": false,
+    "electrical": true,
+    "dangerous": false,
+    "value": "ONEMeg",
+    "channel": 2
+   },
+   {
+    "path": "ch2.probe",
+    "type": "float",
+    "unit": null,
+    "min": 1e-06,
+    "max": 1000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": "×",
+    "label": "探头衰减设定",
+    "label_en": "Probe ratio",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 2
+   },
+   {
+    "path": "ch2.bwlimit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "FULL",
+     "20M",
+     "200M"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "带宽限制",
+    "label_en": "Bandwidth limit",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "FULL",
+    "channel": 2
+   },
+   {
+    "path": "ch2.display",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "显示",
+    "label_en": "Display",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": false,
+    "channel": 2
+   },
+   {
+    "path": "ch2.skew",
+    "type": "float",
+    "unit": "S",
+    "min": -1e-07,
+    "max": 1e-07,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 2
+   },
+   {
+    "path": "ch2.unit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "V",
+     "A"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "V",
+    "channel": 2
+   },
+   {
+    "path": "ch2.visible",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": true,
+    "channel": 2
+   },
+   {
+    "path": "ch3.scale",
+    "type": "float",
+    "unit": "V",
+    "min": 1e-12,
+    "max": 10000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "垂直档位",
+    "label_en": "Scale",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 3
+   },
+   {
+    "path": "ch3.offset",
+    "type": "float",
+    "unit": "V",
+    "min": -100000000.0,
+    "max": 100000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "偏置",
+    "label_en": "Offset",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 3
+   },
+   {
+    "path": "ch3.coupling",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "DC",
+     "AC",
+     "GND"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "耦合",
+    "label_en": "Coupling",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "DC",
+    "channel": 3
+   },
+   {
+    "path": "ch3.impedance",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "ONEMeg",
+     "FIFTy"
+    ],
+    "option_labels": {
+     "ONEMeg": "1 MΩ",
+     "FIFTy": "50 Ω"
+    },
+    "display_unit": null,
+    "label": "输入阻抗",
+    "label_en": "Input impedance",
+    "readonly": false,
+    "electrical": true,
+    "dangerous": false,
+    "value": "ONEMeg",
+    "channel": 3
+   },
+   {
+    "path": "ch3.probe",
+    "type": "float",
+    "unit": null,
+    "min": 1e-06,
+    "max": 1000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": "×",
+    "label": "探头衰减设定",
+    "label_en": "Probe ratio",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 3
+   },
+   {
+    "path": "ch3.bwlimit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "FULL",
+     "20M",
+     "200M"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "带宽限制",
+    "label_en": "Bandwidth limit",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "FULL",
+    "channel": 3
+   },
+   {
+    "path": "ch3.display",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "显示",
+    "label_en": "Display",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": false,
+    "channel": 3
+   },
+   {
+    "path": "ch3.skew",
+    "type": "float",
+    "unit": "S",
+    "min": -1e-07,
+    "max": 1e-07,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 3
+   },
+   {
+    "path": "ch3.unit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "V",
+     "A"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "V",
+    "channel": 3
+   },
+   {
+    "path": "ch3.visible",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": true,
+    "channel": 3
+   },
+   {
+    "path": "ch4.scale",
+    "type": "float",
+    "unit": "V",
+    "min": 1e-12,
+    "max": 10000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "垂直档位",
+    "label_en": "Scale",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 4
+   },
+   {
+    "path": "ch4.offset",
+    "type": "float",
+    "unit": "V",
+    "min": -100000000.0,
+    "max": 100000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "偏置",
+    "label_en": "Offset",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 4
+   },
+   {
+    "path": "ch4.coupling",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "DC",
+     "AC",
+     "GND"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "耦合",
+    "label_en": "Coupling",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "DC",
+    "channel": 4
+   },
+   {
+    "path": "ch4.impedance",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "ONEMeg",
+     "FIFTy"
+    ],
+    "option_labels": {
+     "ONEMeg": "1 MΩ",
+     "FIFTy": "50 Ω"
+    },
+    "display_unit": null,
+    "label": "输入阻抗",
+    "label_en": "Input impedance",
+    "readonly": false,
+    "electrical": true,
+    "dangerous": false,
+    "value": "ONEMeg",
+    "channel": 4
+   },
+   {
+    "path": "ch4.probe",
+    "type": "float",
+    "unit": null,
+    "min": 1e-06,
+    "max": 1000000.0,
+    "options": null,
+    "option_labels": null,
+    "display_unit": "×",
+    "label": "探头衰减设定",
+    "label_en": "Probe ratio",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 1.0,
+    "channel": 4
+   },
+   {
+    "path": "ch4.bwlimit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "FULL",
+     "20M",
+     "200M"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": "带宽限制",
+    "label_en": "Bandwidth limit",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "FULL",
+    "channel": 4
+   },
+   {
+    "path": "ch4.display",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": "显示",
+    "label_en": "Display",
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": false,
+    "channel": 4
+   },
+   {
+    "path": "ch4.skew",
+    "type": "float",
+    "unit": "S",
+    "min": -1e-07,
+    "max": 1e-07,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": 0.0,
+    "channel": 4
+   },
+   {
+    "path": "ch4.unit",
+    "type": "enum",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": [
+     "V",
+     "A"
+    ],
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": "V",
+    "channel": 4
+   },
+   {
+    "path": "ch4.visible",
+    "type": "bool",
+    "unit": null,
+    "min": null,
+    "max": null,
+    "options": null,
+    "option_labels": null,
+    "display_unit": null,
+    "label": null,
+    "label_en": null,
+    "readonly": false,
+    "electrical": false,
+    "dangerous": false,
+    "value": true,
+    "channel": 4
+   }
+  ],
+  "errors": []
+ }
+}

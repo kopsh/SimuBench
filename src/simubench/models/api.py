@@ -206,6 +206,57 @@ class ComponentInfo(_Model):
     ports: list[PortInfo] = Field(default_factory=list)
 
 
+class InternalParam(_Model):
+    name: str
+    value: Any = Field(
+        None, description="The model's value; for a bound parameter, the setting's current value"
+    )
+    binding: str | None = Field(
+        None, description="Instrument setting the parameter follows, e.g. 'ch1.coupling'"
+    )
+    unit: str | None = None
+
+
+class InternalComponent(_Model):
+    name: str = Field(..., description="Unique within the instrument, e.g. 'ch1.front' or 'acq'")
+    type: str
+    channel: int | None = Field(
+        None, description="Channel the component belongs to; none for the whole instrument"
+    )
+    doc: str | None = Field(
+        None, description="What the component type does (first paragraph of its description)"
+    )
+    params: list[InternalParam] = Field(default_factory=list)
+    ports: list[PortInfo] = Field(default_factory=list)
+
+
+class InternalWire(_Model):
+    from_: str = Field(..., alias="from", description="'<component>.<port>'")
+    to: str
+
+
+class InternalPort(_Model):
+    name: str = Field(..., description="Port on the instrument's panel, e.g. 'CH1'")
+    target: str = Field(..., description="Component port it leads to, e.g. 'ch1.inp.pin'")
+    direction: str
+    medium: str
+    channel: int | None = None
+
+
+class InstrumentInternals(_Model):
+    """How an instrument is built from components (issue 20): read-only, the model's nominal values.
+
+    Parameters show the definition's values; a bench's per-unit overrides are not part of the model.
+    """
+
+    instrument: str
+    definition_id: str
+    channels: int
+    components: list[InternalComponent]
+    wires: list[InternalWire]
+    ports: list[InternalPort]
+
+
 class WireInfo(_Model):
     index: int
     from_: str = Field(..., alias="from")

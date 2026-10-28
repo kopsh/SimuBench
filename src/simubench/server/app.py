@@ -395,6 +395,19 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         )
         return manager.describe_instrument(s.session, inst, index, port)
 
+    @app.get(
+        "/api/sessions/{sid}/instruments/{name}/internals",
+        response_model=M.InstrumentInternals,
+        operation_id="getInstrumentInternals",
+        dependencies=[Depends(auth)],
+    )
+    def internals(sid: str, name: str) -> M.InstrumentInternals:
+        s = served(sid)
+        try:
+            return manager.internals(s, name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
     @app.post(
         "/api/sessions/{sid}/instruments/{name}/scpi",
         response_model=M.ScpiResponse,

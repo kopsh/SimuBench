@@ -7,7 +7,7 @@ export type Selection =
   | { kind: "net"; id: string }
   | null;
 
-export type Tab = { kind: "canvas" } | { kind: "screen"; instrument: string };
+export type Tab = { kind: "canvas" } | { kind: "screen"; instrument: string } | { kind: "internals"; instrument: string };
 export type Mode = "run" | "edit";
 
 interface WorkbenchState {
@@ -23,6 +23,8 @@ interface WorkbenchState {
   bottomTab: "comms" | "events" | "problems";
   select: (s: Selection) => void;
   openScreen: (instrument: string) => void;
+  /** The read-only view of an instrument's components (issue 20). */
+  openInternals: (instrument: string) => void;
   closeTab: (key: string) => void;
   setActive: (key: string) => void;
   setPalette: (open: boolean) => void;
@@ -33,7 +35,7 @@ interface WorkbenchState {
   restore: (tabs: Tab[], active: string) => void;
 }
 
-export const tabKey = (t: Tab) => (t.kind === "canvas" ? "canvas" : `screen:${t.instrument}`);
+export const tabKey = (t: Tab) => (t.kind === "canvas" ? "canvas" : `${t.kind}:${t.instrument}`);
 
 const initial = {
   selection: null,
@@ -44,17 +46,22 @@ const initial = {
   bottomTab: "comms" as const,
 };
 
+function openTab(tabs: Tab[], tab: Tab & { instrument: string }) {
+  const key = tabKey(tab);
+  return {
+    tabs: tabs.some((t) => tabKey(t) === key) ? tabs : [...tabs, tab],
+    active: key,
+    selection: { kind: "instrument" as const, id: tab.instrument },
+  };
+}
+
 export const useWorkbench = create<WorkbenchState>((set) => ({
   ...initial,
   mode: "run",
   setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas" })),
   select: (selection) => set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection })),
-  openScreen: (instrument) =>
-    set((s) => {
-      const key = `screen:${instrument}`;
-      const tabs = s.tabs.some((t) => tabKey(t) === key) ? s.tabs : [...s.tabs, { kind: "screen" as const, instrument }];
-      return { tabs, active: key, selection: { kind: "instrument", id: instrument } };
-    }),
+  openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
+  openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),
   closeTab: (key) =>
     set((s) => {
       if (key === "canvas") return s;

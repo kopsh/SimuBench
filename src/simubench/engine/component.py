@@ -124,7 +124,9 @@ class Component:
     def param(self, key: str) -> Any:
         if key in self.overrides:
             return self.overrides[key]
-        value = self._params.get(key)
+        return self._resolve(key, self._params.get(key))
+
+    def _resolve(self, key: str, value: Any) -> Any:
         if isinstance(value, str):
             if value.startswith("$"):
                 if self.owner is None:
@@ -224,4 +226,20 @@ class Component:
             except Exception:  # a binding that cannot resolve yet
                 out[key] = None
         out.update(self.overrides)
+        return out
+
+    def nominal(self) -> list[tuple[str, Any, str | None]]:
+        """``(name, value, bound state path)`` for each parameter as the model defines it.
+
+        Per-unit overrides (bench hidden state, faults) are left out: this is the model, not the unit.
+        A bound parameter's value is the setting's current value.
+        """
+        out = []
+        bound = self.bound_paths()
+        for key, value in self._params.items():
+            try:
+                resolved = self._resolve(key, value)
+            except Exception:  # a binding that cannot resolve yet
+                resolved = None
+            out.append((key, resolved, bound.get(key)))
         return out
