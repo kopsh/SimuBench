@@ -1,0 +1,8 @@
+schema: simubench.bench/1
+name: siglent_noise
+description: An SDS2104X Plus with nothing on CH1, to read its own noise (issue 24).
+instruments:
+  scope:
+    model: siglent-sds2104xplus
+    state: {timebase.scale: 1.0e-3, acquire.mdepth: 100k}
+run: {seed: 11, clock: command}

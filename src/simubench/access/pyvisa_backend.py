@@ -259,15 +259,20 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             s.end_pending = True  # type: ignore[attr-defined]
         termchar_enabled, _ = s.get_attribute(constants.ResourceAttribute.termchar_enabled)
         termchar, _ = s.get_attribute(constants.ResourceAttribute.termchar)
-        out = bytearray()
-        while s.buffer and len(out) < count:
-            b = s.buffer.pop(0)
-            out.append(b)
-            if termchar_enabled and b == termchar:
-                return bytes(out), constants.StatusCode.success_termination_character_read
+        # Up to ``count`` bytes, stopping after the termination character; sliced, not popped one by
+        # one, so that megabyte waveform blocks read in linear time.
+        end = min(count, len(s.buffer))
+        if termchar_enabled:
+            stop = s.buffer.find(bytes([termchar]), 0, end)
+            if stop != -1:
+                out = bytes(s.buffer[: stop + 1])
+                del s.buffer[: stop + 1]
+                return out, constants.StatusCode.success_termination_character_read
+        out = bytes(s.buffer[:end])
+        del s.buffer[:end]
         if not s.buffer:
-            return bytes(out), constants.StatusCode.success  # END with the last byte
-        return bytes(out), constants.StatusCode.success_max_count_read
+            return out, constants.StatusCode.success  # END with the last byte
+        return out, constants.StatusCode.success_max_count_read
 
     def _spend_timeout(self, timeout_ms: Any) -> None:
         try:

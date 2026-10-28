@@ -9,6 +9,7 @@ replayed on its own (D36). Waveform blocks are not stored byte for byte: a read 
 from __future__ import annotations
 
 import base64
+import datetime as dt
 import hashlib
 import json
 import platform
@@ -42,6 +43,8 @@ def _jsonable(value: Any) -> Any:
         return encode_bytes(value)
     if isinstance(value, float) and (value != value or value in (float("inf"), float("-inf"))):
         return str(value)
+    if isinstance(value, (dt.datetime, dt.date)):
+        return value.isoformat()
     if isinstance(value, dict):
         return {k: _jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
@@ -91,7 +94,8 @@ class Recorder:
                     }
                     for name, inst in self.session.instruments.items()
                 },
-                "bench_data": json.loads(bench_json),
+                # Not the JSON dump: it writes infinity (a HiZ load setting) as null.
+                "bench_data": self.session.bench.model_dump(by_alias=True),
                 "seed": self.session.seed,
                 "clock": self.session.clock_mode,
                 "started": time.time(),

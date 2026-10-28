@@ -97,3 +97,44 @@ def test_fidelity_notes_follow_the_signal():
     sol = c.solve([0.0, 500.0, 1000.0])
     assert sol.node_signal("a", emf).notes == (note,)
     assert sol.node_signal("b", emf).notes == ()  # s1 does not reach b
+
+
+# ---- waveform shapes and fast sampling (SDG2042X duty and symmetry, issue 10) ----------------------
+
+
+@pytest.mark.parametrize("duty", [0.5, 0.2, 0.8])
+def test_pulse_train_matches_the_ideal_waveform(duty):
+    from simubench.engine.signal import pulse_train
+
+    t = np.linspace(0, 1e-3, 4000, endpoint=False)
+    v = pulse_train(1000.0, 1.0, duty, 1e9).sample_rel(0, t)
+    ideal = np.where(t < duty * 1e-3, 1.0, -1.0)
+    away = (np.abs(t - duty * 1e-3) > 2e-5) & (t > 2e-5) & (t < 1e-3 - 2e-5)  # off the edges (Gibbs)
+    assert np.max(np.abs(v - ideal)[away]) < 0.01
+    assert v.mean() == pytest.approx(2 * duty - 1, abs=1e-3)
+
+
+@pytest.mark.parametrize("symmetry", [0.5, 0.25, 0.9])
+def test_ramp_with_symmetry_matches_the_ideal_waveform(symmetry):
+    from simubench.engine.signal import triangle
+
+    t = np.linspace(0, 1e-3, 2000, endpoint=False)
+    v = triangle(1000.0, 1.0, symmetry, 1e9).sample_rel(0, t)
+    u = (t / 1e-3 + symmetry / 2) % 1  # rising zero crossing at t = 0
+    ideal = np.where(u < symmetry, -1 + 2 * u / symmetry, 1 - 2 * (u - symmetry) / (1 - symmetry))
+    assert np.max(np.abs(v - ideal)) < 1e-3
+
+
+def test_uniform_sampling_takes_the_matrix_path_and_agrees_with_the_direct_sum():
+    from simubench.engine import signal as S
+
+    sig = S.pulse_train(1000.0, 1.0, 0.2, 1.2e8, 0.3, 12345)
+    off = np.arange(20000) * 2.5e-7 + 3e-6
+    assert S._uniform_step(off) is not None
+    fast = sig.sample_rel(10**12 + 7, off)
+    base = S.phase_cycles(sig.freq, 10**12 + 7 - sig.t0_ns)
+    a = sig.amp * np.exp(2j * np.pi * base)
+    direct = sig.dc + np.real(a[None, :] * np.exp(2j * np.pi * sig.freq[None, :] * off[:500, None])).sum(
+        axis=1
+    )
+    assert np.max(np.abs(fast[:500] - direct)) < 1e-10
