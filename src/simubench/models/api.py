@@ -307,6 +307,19 @@ class ClockInfo(_Model):
     now_ns: int
 
 
+class SilenceReason(_Model):
+    """Why a port or net reads 0 V, found by tracing the circuit upstream."""
+
+    kind: Literal["unconnected", "source_off", "zero_setting", "no_source", "fault"]
+    path: list[str] = Field(
+        default_factory=list,
+        description="From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')",
+    )
+    source: str | None = Field(None, description="The source this reason is about, e.g. 'awg.OUT1'")
+    fault_id: str | None = None
+    detail: str = ""
+
+
 class Trace(_Model):
     channel: int
     t0_s: float = Field(..., description="Time of the first sample relative to the trigger")
@@ -315,6 +328,9 @@ class Trace(_Model):
     scale: float
     offset: float
     triggered: bool
+    silence: list[SilenceReason] = Field(
+        default_factory=list, description="Why the channel's input reads 0 V; empty when it carries a signal"
+    )
 
 
 class ScopeScreen(_Model):
@@ -396,6 +412,9 @@ class NetProbe(_Model):
     waveform: NetWaveform
     sources: list[SourceContribution] = Field(..., description="By RMS contribution, largest first")
     notes: list[str] = Field(default_factory=list, description="Why the signal is not exact, if it is not")
+    silence: list[SilenceReason] = Field(
+        default_factory=list, description="Why the net reads 0 V; empty when it carries a signal"
+    )
 
 
 class Event(_Model):

@@ -1,4 +1,5 @@
 import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
+import type { Selection } from "./store";
 import { pickLabel } from "@/i18n";
 import i18n from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
@@ -87,3 +88,26 @@ export function accessoryLabel(type: string, params: Record<string, unknown>): s
   if (type === "coax_cable") return "coax";
   return type;
 }
+
+/** What a reference in a traced path ('awg.OUT1', 'rc', 'wire1.passive_probe0') is called, and what selecting it selects. */
+export function refTarget(session: SessionInfo, ref: string): { label: string; selection: Selection | null } {
+  const acc = /^wire(\d+)\.([a-z_]+?)(\d+)$/.exec(ref);
+  if (acc) {
+    const wire = session.wires.find((w) => w.index === Number(acc[1]));
+    const a = wire?.accessories[Number(acc[3])];
+    return {
+      label: a?.type === "passive_probe" ? i18n.t("scope.silence.probe", { label: accessoryLabel(a.type, a.params) }) : a ? accessoryLabel(a.type, a.params) : acc[2],
+      selection: wire ? { kind: "wire", id: wire.index } : null,
+    };
+  }
+  const dut = session.duts.find((d) => d.name === ref);
+  if (dut) return { label: dut.label || dut.name, selection: { kind: "dut", id: dut.name } };
+  const dot = ref.lastIndexOf(".");
+  const inst = session.instruments.find((i) => i.name === (dot > 0 ? ref.slice(0, dot) : ref));
+  if (inst) {
+    const port = dot > 0 ? ` ${ref.slice(dot + 1)}` : "";
+    return { label: `${instrumentTitle(inst)}${port}`, selection: { kind: "instrument", id: inst.name } };
+  }
+  return { label: ref, selection: null };
+}
+
