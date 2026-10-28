@@ -27,6 +27,7 @@ from ..engine.faults import LinkDown
 from ..engine.session import Session
 
 BASE_PORT = 5025
+HISLIP_PORT = 4880
 
 
 class _VisaSession:
@@ -46,6 +47,18 @@ class _VisaSession:
         if isinstance(parsed, rname.TCPIPSocket):
             self.attrs[constants.ResourceAttribute.tcpip_address] = parsed.host_address
             self.attrs[constants.ResourceAttribute.tcpip_port] = int(parsed.port)
+        elif isinstance(parsed, rname.TCPIPInstr):
+            # A TCPIP INSTR resource is a HiSLIP address (D41); fill in its VISA attributes.
+            # VI_ATTR_TCPIP_PORT is not valid on INSTR sessions in PyVISA's table: the port
+            # lives inside the LAN device name.
+            sub = parsed.lan_device_name.partition(",")[0]
+            self.attrs[constants.ResourceAttribute.tcpip_address] = parsed.host_address
+            self.attrs[constants.ResourceAttribute.tcpip_hostname] = parsed.host_address
+            self.attrs[constants.ResourceAttribute.tcpip_device_name] = parsed.lan_device_name
+            hislip = sub.lower().startswith("hislip")
+            self.attrs[constants.ResourceAttribute.tcpip_is_hislip] = hislip
+            if hislip:
+                self.attrs[constants.ResourceAttribute.tcpip_hislip_version] = 0x0010_0000
         self.buffer = bytearray()  # bytes of the current response message not yet read
         self.connected = True
 
@@ -116,12 +129,22 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         )
         self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.
+        # HiSLIP addresses resolve to the same in-process instruments (D41).
         self.addresses: dict[str, str] = {}  # normalized address/alias -> instrument
-        self.canonical: dict[str, str] = {}  # instrument -> canonical address
+        self.canonical: dict[str, str] = {}  # instrument -> canonical socket address
+        self.hislip: dict[str, str] = {}  # instrument -> canonical HiSLIP address
         for i, (name, inst) in enumerate(self.bench.instruments.items()):
             canon = f"TCPIP0::127.0.0.1::{BASE_PORT + i}::SOCKET"
             self.canonical[name] = canon
             self.addresses[self._norm(canon)] = name
+            for form in (
+                f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR",
+                f"TCPIP0::127.0.0.1::hislip{i}::INSTR",  # the default port, left unwritten
+                f"TCPIP0::127.0.0.1::hislip_{name},{HISLIP_PORT}::INSTR",
+                f"TCPIP0::127.0.0.1::hislip_{name}::INSTR",
+            ):
+                self.addresses[self._norm(form)] = name
+            self.hislip[name] = f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR"
             if inst.instance.address:
                 self.addresses[self._norm(inst.instance.address)] = name
             self.addresses[name.upper()] = name
@@ -160,7 +183,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         return self._register(self), constants.StatusCode.success
 
     def list_resources(self, session: Any, query: str = "?*::INSTR") -> tuple[str, ...]:
-        resources = list(self.canonical.values())
+        resources = list(self.canonical.values()) + list(self.hislip.values())
         for inst in self.bench.instruments.values():
             if inst.instance.address:
                 resources.append(inst.instance.address)
@@ -263,9 +286,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         if s is None:
             return constants.StatusCode.error_invalid_object
         s.buffer.clear()
-        inst = self.bench.instrument(s.instrument)
-        while inst.take_output() is not None:
-            pass
+        self.bench.clear_output(s.instrument, client="pyvisa")
         return constants.StatusCode.success
 
     def read_stb(self, session: Any) -> tuple[int, constants.StatusCode]:

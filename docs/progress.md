@@ -127,3 +127,13 @@
 | Siglent SDS2104X Plus（D45，替代 InfiniiVision 3000T） | ✅ 手册用例 24 条；覆盖表 622 条（实现 36、接受 13、未实现 573）；按手册示例读取波形并与网络信号比对（8/10 位、BYTE/WORD）；示例测试台 `siglent_scope_rc` |
 | 型号：Keysight 34465A、Fluke 5522A、Siglent SDG2042X（替代 33500B）、Keithley 2450 | ⏳ 各自的 issue |
 
+## HiSLIP 接入（Issue 3，D41）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| pyvisa-py 经 `TCPIP0::127.0.0.1::hislip<i>,<端口>::INSTR` 连接：`*IDN?`、含 0x0A 的波形块完整读回、`read_stb()`/`clear()` 与进程内后端一致、独占锁期间其他会话写入被扣住 | ✅ `acceptance/test_hislip_scenario.py`（4 项）与 `tests/test_hislip.py`（锁等待与超时失败、释放后继续） |
+| 原始协议客户端覆盖 pyvisa-py 测不到的部分：会话建立（错误子地址 FatalError）、最大消息长度拆分、查询被打断、设备清除握手、SRQ、未知消息类型 | ✅ `tests/test_hislip.py`（20 项），含空子地址开默认仪表、`hislip_<实例名>` 别名、锁信息查询、断连即释放锁、LinkDown/timeout 故障 |
+| 示波器场景参数化，SOCKET 与 HiSLIP 两种连接结果一致 | ✅ `acceptance/test_scope_scenario.py::test_amplitude_follows_circuit_theory[socket|hislip]` |
+| HiSLIP 端口只绑定 127.0.0.1 | ✅ `test_scpi_sockets_listen_on_loopback_only` 扩展覆盖 `address_hislip` |
+| `scripts/check.sh` 通过；schemas 与前端类型最新 | ✅（提交前运行） |
+| NI-VISA / Keysight IO Libraries 手动验证 | ⏳ 不作为合并条件，待有环境后进行 |

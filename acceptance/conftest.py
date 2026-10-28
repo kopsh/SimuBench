@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -24,6 +26,43 @@ def open_rig(bench: str):
     awg = rm.open_resource("awg", read_termination="\n", write_termination="\n")
     scope = rm.open_resource("scope", read_termination="\n", write_termination="\n")
     return rm, awg, scope
+
+
+def run_over_hislip(bench: str, body: Callable, count: int = 2) -> None:
+    """Serve a bench over HiSLIP and run ``body(*resources)`` against it with pyvisa-py (D41).
+
+    The blocking VISA client runs on a worker thread while the server keeps the event loop.
+    """
+    from simubench.access.hislip_server import HislipServer
+    from simubench.api import open_bench
+
+    def client(port: int):
+        rm = pyvisa.ResourceManager("@py")
+        try:
+            resources = [
+                rm.open_resource(
+                    f"TCPIP0::127.0.0.1::hislip{i},{port}::INSTR",
+                    read_termination="\n",
+                    write_termination="\n",
+                    timeout=5000,
+                )
+                for i in range(count)
+            ]
+            return body(*resources)
+        finally:
+            rm.close()
+
+    async def serve():
+        session = open_bench(BENCHES / bench)
+        server = HislipServer(session, port=0)
+        await server.start()
+        try:
+            return await asyncio.to_thread(client, server.port)
+        finally:
+            await server.stop()
+            session.close()
+
+    return asyncio.run(serve())
 
 
 def capture(scope, probe: float = 1.0, source: int = 1, digitize: bool = True) -> Capture:

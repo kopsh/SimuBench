@@ -24,6 +24,10 @@ simubench = "simubench.cli:main"
 [project.entry-points.pytest11]
 simubench = "simubench.pytest_plugin"
 
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
 [dependency-groups]
 dev = [
   "pytest>=8",
@@ -32,6 +36,7 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.11",
   "types-PyYAML",
+  "pyvisa-py>=0.8.1",
 ]
 
 [build-system]

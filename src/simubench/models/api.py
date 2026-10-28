@@ -190,6 +190,7 @@ class InstrumentInfo(_Model):
     channels: int
     address_virtual: str
     address_real: str | None = None
+    address_hislip: str | None = None
     scpi_port: int | None = None
     display: DisplayInfo
     ports: list[PortInfo]
