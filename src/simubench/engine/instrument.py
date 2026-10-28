@@ -179,6 +179,10 @@ class Instrument:
         cls = component_type(type_name)
         self.components[name] = cls(name, params, self, self.session, channel)
 
+    def internal_wires(self) -> list[tuple[str, str]]:
+        """Signal wiring inside the instrument as ``('<comp>.<port>', '<comp>.<port>')`` (from, to)."""
+        return [(f"{sc}.{sp}", f"{dc}.{dp}") for (dc, dp), (sc, sp) in self._upstream.items()]
+
     def _wire(self, src: str, dst: str) -> None:
         sc, sp = src.rsplit(".", 1)
         dc, dp = dst.rsplit(".", 1)

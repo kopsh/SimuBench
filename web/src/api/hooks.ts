@@ -9,6 +9,7 @@ export const keys = {
   catalog: ["catalog"] as const,
   faults: (sid: string) => ["faults", sid] as const,
   readings: (sid: string, name: string) => ["readings", sid, name] as const,
+  internals: (sid: string, name: string) => ["internals", sid, name] as const,
   levels: (sid: string) => ["levels", sid] as const,
   benchDoc: (path: string) => ["bench-doc", path] as const,
   preview: (path: string, sha: string) => ["bench-preview", path, sha] as const,
@@ -173,6 +174,17 @@ export function useClearFault(sid: string) {
 }
 
 /** Front-panel readings; refreshed whenever the session's events move (and once a second). */
+/** An instrument's components and internal wiring (issue 20); bound values follow its settings. */
+export function useInternals(sid: string, name: string, version: number) {
+  return useQuery({
+    queryKey: [...keys.internals(sid, name), version],
+    queryFn: () =>
+      unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/internals", { params: { path: { sid, name } } })),
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
+  });
+}
+
 export function useReadings(sid: string, name: string, version: number) {
   return useQuery({
     queryKey: [...keys.readings(sid, name), version],

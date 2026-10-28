@@ -1,4 +1,4 @@
-import { Home, Monitor, MonitorPlay, Moon, Square, StepForward, Sun } from "lucide-react";
+import { Blocks, Home, Monitor, MonitorPlay, Moon, Square, StepForward, Sun } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,7 @@ import { useWorkbench } from "./store";
 export function CommandPalette({ session }: { session: SessionInfo }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { paletteOpen, setPalette, openScreen, select } = useWorkbench();
+  const { paletteOpen, setPalette, openScreen, openInternals, select } = useWorkbench();
   const setTheme = useTheme((s) => s.setPreference);
   const advance = useAdvance(session.id);
   const stop = useStopSession();
@@ -43,6 +43,11 @@ export function CommandPalette({ session }: { session: SessionInfo }) {
           {session.instruments.map((i) => (
             <CommandItem key={i.name} value={`screen ${i.name} ${i.model}`} onSelect={run(() => openScreen(i.name))}>
               <MonitorPlay /> {t("workbench.openScreen")}: {instrumentTitle(i)}
+            </CommandItem>
+          ))}
+          {session.instruments.map((i) => (
+            <CommandItem key={`int-${i.name}`} value={`internals ${i.name} ${i.model}`} onSelect={run(() => openInternals(i.name))}>
+              <Blocks /> {t("internals.open")}: {instrumentTitle(i)}
             </CommandItem>
           ))}
           {session.instruments.map((i) => (

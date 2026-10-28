@@ -60,6 +60,7 @@ class InputPort(Component):
         "out": PortSpec("out", "signal"),
     }
     defaults = {"z_in": 1e6, "c_in": 0.0}
+    units = {"z_in": "OHM", "c_in": "F"}
     _NAMED = {"FIFTY": 50.0, "ONEMEG": 1e6}
 
     def impedance(self) -> float:

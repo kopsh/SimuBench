@@ -1774,6 +1774,54 @@
         "title": "InstrumentInfo",
         "type": "object"
       },
+      "InstrumentInternals": {
+        "description": "How an instrument is built from components (issue 20): read-only, the model's nominal values.\n\nParameters show the definition's values; a bench's per-unit overrides are not part of the model.",
+        "properties": {
+          "channels": {
+            "title": "Channels",
+            "type": "integer"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/InternalComponent"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "string"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/InternalPort"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "wires": {
+            "items": {
+              "$ref": "#/components/schemas/InternalWire"
+            },
+            "title": "Wires",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument",
+          "definition_id",
+          "channels",
+          "components",
+          "wires",
+          "ports"
+        ],
+        "title": "InstrumentInternals",
+        "type": "object"
+      },
       "InstrumentReadings": {
         "description": "Front-panel readings, evaluated without side effects (no SCPI traffic, no error queue).",
         "properties": {
@@ -1821,6 +1869,171 @@
           "traces"
         ],
         "title": "InstrumentReadings",
+        "type": "object"
+      },
+      "InternalComponent": {
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Channel the component belongs to; none for the whole instrument",
+            "title": "Channel"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the component type does (first paragraph of its description)",
+            "title": "Doc"
+          },
+          "name": {
+            "description": "Unique within the instrument, e.g. 'ch1.front' or 'acq'",
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/InternalParam"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/PortInfo"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "channel",
+          "doc",
+          "params",
+          "ports"
+        ],
+        "title": "InternalComponent",
+        "type": "object"
+      },
+      "InternalParam": {
+        "properties": {
+          "binding": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Instrument setting the parameter follows, e.g. 'ch1.coupling'",
+            "title": "Binding"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "description": "The model's value; for a bound parameter, the setting's current value",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "binding",
+          "unit"
+        ],
+        "title": "InternalParam",
+        "type": "object"
+      },
+      "InternalPort": {
+        "properties": {
+          "channel": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channel"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "medium": {
+            "title": "Medium",
+            "type": "string"
+          },
+          "name": {
+            "description": "Port on the instrument's panel, e.g. 'CH1'",
+            "title": "Name",
+            "type": "string"
+          },
+          "target": {
+            "description": "Component port it leads to, e.g. 'ch1.inp.pin'",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "target",
+          "direction",
+          "medium",
+          "channel"
+        ],
+        "title": "InternalPort",
+        "type": "object"
+      },
+      "InternalWire": {
+        "properties": {
+          "from": {
+            "description": "'<component>.<port>'",
+            "title": "From",
+            "type": "string"
+          },
+          "to": {
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ],
+        "title": "InternalWire",
         "type": "object"
       },
       "LayoutItem": {
@@ -5417,6 +5630,54 @@
           }
         },
         "summary": "Configure"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/internals": {
+      "get": {
+        "operationId": "getInstrumentInternals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentInternals"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Internals"
       }
     },
     "/api/sessions/{sid}/instruments/{name}/readings": {

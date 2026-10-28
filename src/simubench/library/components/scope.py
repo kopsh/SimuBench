@@ -36,6 +36,7 @@ class ScopeFrontend(Component):
         "bw_limit_hz": 20e6,
         "ac_corner": 10.0,
     }
+    units = {"bandwidth": "Hz", "bw_limit_hz": "Hz", "ac_corner": "Hz"}
 
     def output(self, port: str) -> Signal:
         sig = self.input("in")
