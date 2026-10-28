@@ -15,6 +15,8 @@ uv run simubench serve examples/benches/awg_rc_scope.bench.yaml   # 启动本地
 cd web && pnpm install && pnpm dev                                 # 启动界面开发服务器
 ```
 
+协作开发（任何 AI agent 或人）：任务是 GitHub Issue，规则见 [AGENTS.md](AGENTS.md)；PR 通过 CI 后自动合并进 `main`。
+
 ## 命令行
 
 ```bash
