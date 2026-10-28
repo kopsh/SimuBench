@@ -112,6 +112,7 @@ def test_hidden_and_drift_change_the_circuit_and_are_undone(tmp_path):
     s.faults.clear(f.id)
     assert out_amplitude(s) == pytest.approx(base)
 
+    s.advance(0.25)  # time before the fault does not count towards its drift
     d = s.faults.inject(Fault(kind="drift", component="rc", param="r", drift_per_s=0.5))
     s.advance(1.0)  # r has grown by 50 %
     assert out_amplitude(s) < base

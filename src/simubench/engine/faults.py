@@ -44,6 +44,7 @@ class FaultState:
     remaining: int | None = None
     source: str = "api"
     garbled: int = 0
+    injected_ns: int = 0
     # What a parameter fault replaced, so that ending it puts it back.
     _component: Component | None = field(default=None, repr=False)
     _had_override: bool = False
@@ -73,7 +74,9 @@ class FaultManager:
     def inject(self, spec: Fault, source: str = "api") -> FaultState:
         """Validate and schedule a fault; it starts at once unless ``at_s`` is in the future."""
         self._check(spec)
-        state = FaultState(f"f{next(self._ids)}", spec, source=source, remaining=spec.count)
+        state = FaultState(
+            f"f{next(self._ids)}", spec, source=source, remaining=spec.count, injected_ns=self.session.now_ns
+        )
         self.faults[state.id] = state
         self._emit(state, "injected")
         self.tick()
@@ -92,7 +95,8 @@ class FaultManager:
         now = self.session.now_ns
         for state in list(self.faults.values()):
             if state.status == "pending":
-                start = round((state.spec.at_s or 0.0) * 1e9)
+                # Never before the injection: a fault injected now starts now, not at time zero.
+                start = max(round((state.spec.at_s or 0.0) * 1e9), state.injected_ns)
                 if now >= start:
                     self._start(state, start)
             if state.status == "active":
