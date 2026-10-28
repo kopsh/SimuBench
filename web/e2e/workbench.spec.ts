@@ -80,6 +80,18 @@ test("acquire from the scope screen without a script", async ({ page }) => {
   await expect(controls.getByRole("button", { name: "单次" })).toBeEnabled();
 });
 
+test("open screens are remembered for the bench and reopen on the next start", async ({ page }) => {
+  await startBench(page);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await page.getByRole("button", { name: "返回测试台列表" }).click();
+  // Start again: the scope screen comes back as the active tab, not the canvas.
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "启动" }).click();
+  await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
+  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: "采集控制" })).toBeVisible();
+});
+
 test("switch to English and dark theme", async ({ page }) => {
   await startBench(page);
   await page.getByRole("button", { name: "设置" }).click();
