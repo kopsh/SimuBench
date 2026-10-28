@@ -61,10 +61,11 @@ def test_guide_procedure_reconstructs_the_bench_signal(scope, resolution):
     rec = _record(session)
     assert len(volts) == rec.volts.size == 10_000
     lsb = 0.5 / (30 if resolution == "8Bits" else 120)  # volts per code at 0.5 V/div
-    # The codes are the record quantized; the record is the net seen through the front end
-    # (100 MHz, 1 MOhm || 17 pF): at 1 kHz that is a few microvolts.
-    assert np.max(np.abs(np.array(volts) - rec.volts)) <= lsb / 2 + 1e-9
-    assert np.max(np.abs(rec.volts - _truth(session, rec))) < 5e-5
+    # The transferred codes are the record (already on the ADC's grid); the record is the net seen
+    # through the front end (a few microvolts at 1 kHz) plus the input noise, quantized.
+    assert np.max(np.abs(np.array(volts) - rec.volts)) < 1e-9
+    sigma = 80e-6 * np.sqrt(100 / 500)
+    assert np.max(np.abs(rec.volts - _truth(session, rec))) <= lsb / 2 + 6 * sigma + 5e-5
     # Time axis: delay 0 puts the trigger (rising zero crossing of the sine) at t = 0.
     assert times[0] == pytest.approx(-5 * 2e-4)
     i0 = int(np.argmin(np.abs(np.array(times))))
@@ -148,3 +149,21 @@ def test_example_bench_and_script_run_as_on_the_real_bench(tmp_path, capsys, mon
     assert out.startswith("10000 points")
     lo, hi = (float(x.split()[0]) for x in out.split(" s, ")[1].split(" to "))
     assert hi - lo == pytest.approx(2 * 0.847 / 10, rel=0.03)
+
+
+def test_noisy_acquisitions_replay_byte_for_byte(tmp_path):
+    """Noise is a function of the seed and virtual time (issue 24): a run record replays exactly."""
+    from simubench.api import open_bench
+    from simubench.engine.replay import replay
+
+    s = open_bench(CASES_BENCH, record_dir=tmp_path)
+    s.write("scope", b":TIMebase:SCALe 2E-4;:CHANnel1:SCALe 5E-3;:TRIGger:MODE SINGle;:WAVeform:SOURce C1\n")
+    s.write("scope", b":WAVeform:DATA?\n")
+    s.read("scope")
+    s.write("scope", b":TRIGger:MODE SINGle\n")
+    s.write("scope", b":WAVeform:DATA?\n")
+    s.read("scope")
+    s.close()
+    report = replay(next(tmp_path.glob("run-*.jsonl")))
+    assert report.ok, report.as_dict()
+    assert report.replies == 2

@@ -26,6 +26,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.component import Component, OpResult, component, op
+from ...engine.noise import gaussian, stream_key
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .scope import DIVS_H, FALLING, RISING, Record, ScopeAcquisition, _measure, channel_index
@@ -85,6 +86,10 @@ class SiglentSdsAcquisition(ScopeAcquisition):
         "max_rate_both": 1e9,  # non-interleaved
         "level_divs": 4.1,  # trigger level range: +-4.1 div around the offset
         "trigger_level": "$trigger.level",
+        # Data sheet: "only 80 uV rms at 500 MHz bandwidth"; white noise scales with sqrt(bandwidth),
+        # so this 100 MHz model has 80 uV * sqrt(100/500) at its input.
+        "noise_rms": 80e-6 * math.sqrt(100 / 500),
+        "trigger_jitter_s": 10e-12,
         "delay": "$timebase.delay",
         "tdiv": "$timebase.scale",
     }
@@ -147,21 +152,55 @@ class SiglentSdsAcquisition(ScopeAcquisition):
             k, triggered = pre, False
         start = k - pre
         idx = np.arange(points)
-        records = {
-            n: Record(
+        t_start_ns = t0 + round(start * dt * 1e9)
+        # Trigger jitter (data sheet: < 10 ps rms): where the record sits around the edge.
+        jitter = float(self.param("trigger_jitter_s")) * float(
+            gaussian(stream_key(self.session.seed, self.uid, "jitter"), np.array([t_start_ns]))[0]
+        )
+        records = {}
+        for n in channels:
+            volts = self._display_signal(n).sample_rel(t0, (start + idx) * dt + jitter)
+            scale, offset = float(self._st(f"ch{n}.scale")), float(self._st(f"ch{n}.offset"))
+            volts = volts + self._noise(n, t_start_ns, dt, points)
+            records[n] = Record(
                 channel=n,
-                t_start_ns=t0 + round(start * dt * 1e9),
+                t_start_ns=t_start_ns,
                 dt_s=dt,
                 trigger_index=pre,
-                volts=self._display_signal(n).sample_rel(t0, (start + idx) * dt),
-                scale=float(self._st(f"ch{n}.scale")),
-                offset=float(self._st(f"ch{n}.offset")),
+                volts=self._quantize(volts, scale, offset),
+                scale=scale,
+                offset=offset,
                 triggered=triggered,
             )
-            for n in channels
-        }
         used = (k + max(post, 0)) * dt + float(self.param("overhead_s"))
+        if self._st("acquire.type") == "AVERage":
+            used += (int(self._st("acquire.average")) - 1) * round(used)  # N acquisitions in all
         return records, round(used * 1e9), triggered
+
+    # ---- noise and the ADC (issue 24) ---------------------------------------------------------------
+
+    def _noise(self, n: int, t_start_ns: int, dt: float, points: int) -> np.ndarray:
+        """Input noise in display volts, a pure function of the seed and the sample instants.
+
+        White at ``noise_rms`` (input-referred, the data sheet's floor scaled to this bandwidth),
+        times the probe ratio; averaging N acquisitions leaves 1/sqrt(N) of it.
+        """
+        sigma = float(self.param("noise_rms")) * float(self._st(f"ch{n}.probe"))
+        if sigma <= 0:
+            return np.zeros(points)
+        if self._st("acquire.type") == "AVERage":
+            sigma /= math.sqrt(int(self._st("acquire.average")))
+        first = math.floor(t_start_ns * 1e-9 / dt)  # sample n of the absolute sample grid
+        key = stream_key(self.session.seed, self.uid, "noise", n, dt, str(self._st("acquire.type")))
+        return sigma * gaussian(key, first + np.arange(points))
+
+    def _quantize(self, volts: np.ndarray, scale: float, offset: float) -> np.ndarray:
+        """What the ADC keeps: the codes of the current resolution, back in volts."""
+        bits = self._bits()
+        per_div = CODES_PER_DIV * (1 << (bits - 8))
+        half = 1 << (bits - 1)
+        codes = np.clip(np.round((volts + offset) / scale * per_div), -half, half - 1)
+        return codes / per_div * scale - offset
 
     def _search(self, sig: Any, t0: int, dt: float, pre: int, points: int) -> tuple[int, bool]:
         """First qualifying edge at or after ``pre`` samples (enough history before the trigger)."""

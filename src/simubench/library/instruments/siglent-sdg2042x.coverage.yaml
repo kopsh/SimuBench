@@ -33,7 +33,7 @@ sections:
     level: implemented
     note: 'WVTP SINE, SQUARE (DUTY), RAMP (SYM), DC; FRQ, PERI, AMP, AMPVRMS, AMPDBM (finite load), OFST, HLEV, LLEV, PHSE, MAX_OUTPUT_AMP. PULSE, NOISE, ARB, PRBS, IQ and their parameters answer -224 (not
       modeled). Reply in the order of the guide''s example (WVTP, FRQ, PERI, AMP, OFST, HLEV, LLEV, PHSE), then DUTY or SYM; numbers in their shortest form with the unit. Out of the data sheet''s ranges:
-      -222 and nothing changes'
+      -222 and nothing changes. The data sheet''s distortion and spur figures are maxima, its 150 ps jitter is cycle-to-cycle, and it gives no output noise floor: the output is modeled clean (D46)'
 - section: 3.5 Modulate Wave Command (PG02_E05C)
   commands:
   - header: C<ch>:MoDulateWaVe
