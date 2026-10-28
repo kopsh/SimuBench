@@ -1,7 +1,10 @@
+import { Eraser, Play, StepForward } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
-import { useReadings } from "@/api/hooks";
+import { useReadings, useScpi } from "@/api/hooks";
+import { Button } from "@/components/ui/button";
 import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stateMap } from "../model";
@@ -30,6 +33,15 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
   const volts = num("core.voltage");
   const amps = num("core.current");
   const on = regulation !== "OFF";
+  // Front-panel keys: the same commands a script sends, so they show in the communication log.
+  const scpi = useScpi(sid, inst.name);
+  const send = (command: string) =>
+    scpi.mutate(command, {
+      onSuccess: (r) => {
+        const e = r.link_error ?? r.errors[0]?.message;
+        if (e) toast.error(`${command}: ${e}`);
+      },
+    });
 
   const trace = (name: string) => readings.data?.traces.find((x) => x.name === `core.buffer_${name}`)?.values ?? [];
   const [bv, bi, br, bt, bs] = ["v", "i", "r", "t", "stat"].map(trace);
@@ -90,6 +102,20 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
             <Legend dashed label={t("smu.limit")} />
             <span className="text-muted-foreground num ml-auto">{t("smu.points", { count: rows.length })}</span>
           </header>
+          <div role="group" aria-label={t("smu.controls")} className="flex flex-wrap gap-1.5 border-b px-3 py-2">
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" disabled={readonly || scpi.isPending} onClick={() => send(":MEASure?")}>
+              <StepForward className="size-3.5" />
+              {t("smu.read")}
+            </Button>
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" disabled={readonly || scpi.isPending} onClick={() => send(":INITiate")} title={t("smu.initiateHint")}>
+              <Play className="size-3.5" />
+              {t("smu.initiate")}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 gap-1.5 text-xs" disabled={readonly || scpi.isPending || rows.length === 0} onClick={() => send(":TRACe:CLEar")}>
+              <Eraser className="size-3.5" />
+              {t("smu.clearBuffer")}
+            </Button>
+          </div>
           <IvChart rows={rows} limit={num("core.limit")} forcingVoltage={forcingVoltage} />
         </div>
         <div className="bg-card flex min-h-0 flex-col rounded-lg border">
