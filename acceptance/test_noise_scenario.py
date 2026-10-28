@@ -68,18 +68,33 @@ def test_noise_matches_the_data_sheet_and_the_adc(scope, scale, resolution, code
     assert_sigma(v, quantized_sigma(SIGMA_IN, scale / codes))
 
 
-def test_each_acquisition_differs_and_a_new_session_repeats_them(scope):
+def test_each_acquisition_differs(scope):
     scope.write(":CHANnel1:SCALe 5E-4")
     first, second = read_volts(scope), read_volts(scope)
     assert not np.array_equal(first, second)  # noise moves with virtual time
-    rm = pyvisa.ResourceManager(f"{BENCHES / 'siglent_noise.bench.yaml'}@simubench")
-    rm.close()  # a fresh power-on of the same bench, same seed, same commands
-    rm = pyvisa.ResourceManager(f"{BENCHES / 'siglent_noise.bench.yaml'}@simubench")
-    again = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
-    again.write("*RST;:TIMebase:SCALe 1E-3;:ACQuire:MDEPth 100k")
-    again.write(":CHANnel1:SCALe 5E-4")
-    assert np.array_equal(read_volts(again), first)
-    rm.close()
+
+
+def test_same_seed_and_virtual_times_repeat_the_noise(monkeypatch):
+    """Noise is a function of the seed and virtual time, not of the run. On the stepped clock the
+    virtual instants are exactly the ones asked for (the command clock also counts real idle time,
+    which differs from run to run; its runs are reproduced by replaying their records)."""
+    monkeypatch.setenv("SIMUBENCH_CLOCK", "stepped")
+
+    def run() -> list[np.ndarray]:
+        rm = pyvisa.ResourceManager(f"{BENCHES / 'siglent_noise.bench.yaml'}@simubench")
+        try:
+            inst = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+            inst.write("*RST;:TIMebase:SCALe 1E-3;:ACQuire:MDEPth 100k;:CHANnel1:SCALe 5E-4")
+            out = [read_volts(inst)]
+            rm.visalib.bench.advance(1e-3)
+            out.append(read_volts(inst))
+            return out
+        finally:
+            rm.close()
+
+    a, b = run(), run()
+    assert not np.array_equal(a[0], a[1])
+    assert np.array_equal(a[0], b[0]) and np.array_equal(a[1], b[1])
 
 
 def test_averaging_lowers_the_noise_by_sqrt_n(scope):
