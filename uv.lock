@@ -1205,6 +1205,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pyvisa-py"
+version = "0.8.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyvisa" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/55/8d/0f1af2b39feca8868d0692a2c5d0c47f4ad559a051fb678c441fe1e99536/pyvisa_py-0.8.1.tar.gz", hash = "sha256:db53d3219d971d16b8f7c764a93e08475875063635b9ad8ea3c988439833ccdd", size = 102061, upload-time = "2025-09-04T20:48:21.639Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/70/0b/06ccf917ce30d78d75e452d0afc89236b1d384b776c5c33d75c8cc55fbe7/pyvisa_py-0.8.1-py3-none-any.whl", hash = "sha256:31208a2933c1793b4e829ba5f07d265b83f280668df440ee7ee6ac505dea4ee9", size = 82206, upload-time = "2025-09-04T20:48:20.13Z" },
+]
+
+[[package]]
 name = "pywin32"
 version = "312"
 source = { registry = "https://pypi.org/simple" }
@@ -1463,7 +1476,7 @@ resolution-markers = [
     "python_full_version < '3.12'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" } },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7a/97/5a3609c4f8d58b039179648e62dd220f89864f56f7357f5d4f45c29eb2cc/scipy-1.17.1.tar.gz", hash = "sha256:95d8e012d8cb8816c226aef832200b1d45109ed4464303e997c5b13122b297c0", size = 30573822, upload-time = "2026-02-23T00:26:24.851Z" }
 wheels = [
@@ -1539,7 +1552,7 @@ resolution-markers = [
     "python_full_version >= '3.12' and python_full_version < '3.14'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" } },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/7e/74/66de6258867beb2ef08f35f9f2ac017a52cacd5081714d239ff1a442d458/scipy-1.18.1.tar.gz", hash = "sha256:52c4b7422442aba924d03ad4019852b08a92e64ea187b933135687bfe2747307", size = 30781235, upload-time = "2026-08-21T23:28:50.599Z" }
 wheels = [
@@ -1632,6 +1645,7 @@ dev = [
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
+    { name = "pyvisa-py" },
     { name = "ruff" },
     { name = "types-pyyaml" },
 ]
@@ -1655,6 +1669,7 @@ dev = [
     { name = "mypy", specifier = ">=1.11" },
     { name = "pytest", specifier = ">=8" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
+    { name = "pyvisa-py", specifier = ">=0.8.1" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "types-pyyaml" },
 ]

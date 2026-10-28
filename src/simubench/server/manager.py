@@ -11,6 +11,7 @@ from typing import Any
 
 import numpy as np
 
+from ..access.hislip_server import HislipServer
 from ..access.scpi_server import ScpiServer
 from ..api import open_bench
 from ..engine.faults import LinkDown
@@ -45,6 +46,7 @@ class ServedSession:
         self.bench_sha256: str | None = None
         self.bench_fingerprint: str | None = None
         self.scpi: ScpiServer | None = None
+        self.hislip: HislipServer | None = None
 
 
 class SessionManager:
@@ -54,12 +56,14 @@ class SessionManager:
         *,
         scpi_host: str = "127.0.0.1",
         scpi_base_port: int | None = 5025,
+        hislip_port: int | None = 4880,
         record_dir: Path | None = None,
         record_raw: bool = False,
     ) -> None:
         self.workspace = workspace
         self.scpi_host = scpi_host
         self.scpi_base_port = scpi_base_port
+        self.hislip_port = hislip_port
         self.record_dir = record_dir
         self.record_raw = record_raw
         self.sessions: dict[str, ServedSession] = {}
@@ -107,6 +111,9 @@ class SessionManager:
         if self.scpi_base_port is not None:
             served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
             await served.scpi.start()
+            if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
+                served.hislip = HislipServer(session, self.scpi_host, self.hislip_port)
+                await served.hislip.start()
         self.sessions[served.id] = served
         return served
 
@@ -114,6 +121,8 @@ class SessionManager:
         served = self.sessions.pop(sid, None)
         if served is None:
             return
+        if served.hislip:
+            await served.hislip.stop()
         if served.scpi:
             await served.scpi.stop()
         await asyncio.to_thread(served.session.close)
@@ -182,8 +191,9 @@ class SessionManager:
         s = served.session
         b = s.bench
         ports = {lst.instrument: lst.port for lst in (served.scpi.listeners if served.scpi else [])}
+        hislip = served.hislip.addresses() if served.hislip else {}
         instruments = [
-            self.describe_instrument(s, inst, i, ports.get(name))
+            self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name))
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
         duts = [self._component_info(s, name) for name in b.duts]
@@ -235,7 +245,7 @@ class SessionManager:
         )
 
     def describe_instrument(
-        self, s: Session, inst: Instrument, index: int, scpi_port: int | None
+        self, s: Session, inst: Instrument, index: int, scpi_port: int | None, hislip: str | None = None
     ) -> M.InstrumentInfo:
         d = inst.definition
         ports = []
@@ -287,6 +297,7 @@ class SessionManager:
             channels=inst.channel_count,
             address_virtual=f"TCPIP0::127.0.0.1::{scpi_port or 5025 + index}::SOCKET",
             address_real=inst.instance.address,
+            address_hislip=hislip,
             scpi_port=scpi_port,
             display=M.DisplayInfo(**d.display.model_dump()),
             ports=ports,

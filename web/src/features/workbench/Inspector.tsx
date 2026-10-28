@@ -111,6 +111,7 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
       <Section title={t("workbench.identitySection")}>
         <CopyRow label="*IDN?" value={inst.idn} />
         <CopyRow label={t("workbench.virtualAddress")} value={inst.address_virtual} />
+        {inst.address_hislip && <CopyRow label={t("workbench.hislipAddress")} value={inst.address_hislip} />}
         {inst.address_real && <CopyRow label={t("workbench.realAddress")} value={inst.address_real} />}
       </Section>
       {inst.errors.length > 0 && (

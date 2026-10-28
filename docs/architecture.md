@@ -360,10 +360,11 @@ Bench 的编辑操作（添加/删除仪表与 DUT、连线、修改配置、校
 - 后端看得到每次读写，因此命令驱动的虚拟时间在这条路径上自然成立。
 - 通信层故障（超时、断连等）在这一层生效，返回与真实 VISA 一致的错误。
 
-### 7.4 SCPI 网络仪表（D9）
+### 7.4 SCPI 网络仪表（D9、D41）
 
 - 每台仪表在本机监听一个 TCP 端口（raw socket）；端口可指定或自动分配，地址表在启动时输出。
-- 以后再支持 VXI-11、HiSLIP、USBTMC 等协议。
+- HiSLIP（IVI-6.1，D41）：所有仪表共用一个端口（默认 4880，`--hislip-port 0` 自动分配），按子地址 `hislip0`、`hislip1`…（或 `hislip_<实例名>`）区分；只实现 synchronized 模式，支持消息边界（`DataEnd`）、设备清除、读 STB、锁与 SRQ，与 PyVISA 后端的 `clear`/`read_stb` 语义一致；不实现 overlapped、TLS 与认证。客户端连接形如 `TCPIP0::127.0.0.1::hislip0,<端口>::INSTR`。
+- 以后再支持 VXI-11、USBTMC 等协议。
 
 ### 7.5 MCP 服务（D9）
 

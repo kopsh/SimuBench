@@ -1640,6 +1640,17 @@
       },
       "InstrumentInfo": {
         "properties": {
+          "address_hislip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Hislip"
+          },
           "address_real": {
             "anyOf": [
               {
@@ -1753,6 +1764,7 @@
           "channels",
           "address_virtual",
           "address_real",
+          "address_hislip",
           "scpi_port",
           "display",
           "ports",

@@ -1308,6 +1308,8 @@ export interface components {
         };
         /** InstrumentInfo */
         InstrumentInfo: {
+            /** Address Hislip */
+            address_hislip: string | null;
             /** Address Real */
             address_real: string | null;
             /** Address Virtual */

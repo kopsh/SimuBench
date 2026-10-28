@@ -366,6 +366,16 @@
 - **格式迁移**：每种文件以 `schema` 声明格式与版本；迁移按版本逐级升级解析后的数据，加载时在内存中完成，`simubench migrate [--write]` 改写文件。来自更新版本的文件给出“请升级 SimuBench”的明确诊断（E-FORMAT），而不是难以理解的校验错误。首个迁移：没有 `schema` 行的旧文件视为版本 0。
 - **首次使用引导**：首页的“开始使用”卡片给出三种入口（在界面中运行、用 PyVISA 脚本驱动、让 Agent 搭建），关闭后不再显示。
 
+## D41 HiSLIP 接入：synchronized 模式、共用端口、按子地址区分仪表
+
+- **结论**：除 raw socket 外，每台虚拟仪表也以 HiSLIP（IVI-6.1）暴露，NI-VISA、Keysight IO Libraries、pyvisa-py 等客户端不改脚本即可连接 `TCPIP0::127.0.0.1::hislip<i>,<端口>::INSTR`。三条设计约束：
+  1. **共用一个端口，按子地址区分仪表**（默认 4880，`--hislip-port 0` 自动分配）：真实仪表各自有 IP、都用 `hislip0`；本机只有一个 IP，用 `hislip0`、`hislip1`…（编号规则与 SOCKET 端口一致）最接近真实情况，另接受 `hislip_<实例名>` 别名。
+  2. **只实现 synchronized 模式**（IVI-6.1 3.1）：`InitializeResponse` 一律回复 synchronized，客户端请求 overlapped 也如此，规范允许服务器这样选择。消息边界、设备清除、读 STB、锁（独占/共享，仅在同一仪表的 HiSLIP 会话之间生效）、SRQ 按规范实现；查询被打断按 synchronized 规则丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。
+  3. **不实现加密与凭证认证**：客户端请求 StartTLS 等按规范以 Error 回复。只绑定 127.0.0.1（D38/安全自检同款约束）。
+- **理由**：很多现有脚本与 LabVIEW/C# 程序用 HiSLIP 地址；raw socket 以换行结尾，二进制块中的 0x0A 只能靠解析长度，HiSLIP 用 `DataEnd` 标出消息边界，且只有它支持设备清除、读 STB 与 SRQ 这些 IEEE 488.2 语义。
+- **实现位置**：`access/hislip_server.py`（服务器）；`Session.clear_output` 提取为 PyVISA 后端与 HiSLIP 服务器共用的设备清除语义；PyVISA 后端地址表加入 HiSLIP 形式（含 Bench 中配置的 HiSLIP 真实地址直接打开），TCPIP INSTR 资源的 VISA 属性（`TCPIP_IS_HISLIP`、`TCPIP_DEVICE_NAME` 等）按 PyVISA 属性表填齐。
+- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、VXI-11、USBTMC、GPIB、监听本机以外地址。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress.md 留待进行。
+
 ## D42 真实型号仪表
 
 - **结论**：为演示与脚本兼容，新增按真实型号实现的仪表定义（如 Keysight 34465A、Fluke 5522A）。命令行为以该型号的编程手册为准；测量值仍来自电路求解（D13）。规则见 [real-models.md](real-models.md)。

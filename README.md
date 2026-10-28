@@ -33,6 +33,20 @@ simubench doctor                                 # 检查安装
 simubench serve --workspace 我的测试台目录 --open
 ```
 
+### 从脚本连接
+
+会话中的每台仪表同时以两种方式可达（启动时输出地址表）：
+
+```python
+import pyvisa
+
+# raw socket：每台仪表一个端口
+scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::5026::SOCKET")
+# HiSLIP：共用一个端口（默认 4880），按子地址区分仪表（D41），消息边界、设备清除、
+# 读状态字节与 SRQ 与真实 HiSLIP 仪表一致；NI-VISA、Keysight IO Libraries 无需修改即可连
+scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::hislip1,4880::INSTR")
+```
+
 默认不需要访问令牌；在多人共用的电脑上请加 `--require-token`。安全设计与自检见 [docs/security.md](docs/security.md)。
 
 ## 在 pytest 中使用

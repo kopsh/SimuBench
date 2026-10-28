@@ -77,7 +77,8 @@
 | SCPI over TCP（raw socket），任意语言/VISA 可连 | 闭环之后 |
 | pytest 插件 | 闭环之后 |
 | Python SDK（进程内直接操作测试台，含推进虚拟时间、读取网络信号） | 闭环必需（验证场景的脚本使用） |
-| VXI-11、HiSLIP、USBTMC 等协议 | 以后再说 |
+| HiSLIP（IVI-6.1，synchronized 模式，D41） | 完成：`access/hislip_server.py`，共用端口按子地址区分仪表 |
+| VXI-11、USBTMC 等协议 | 以后再说 |
 | MCP：由现有脚本生成 Bench，指出不支持的命令 | 闭环必需 |
 | MCP：部署 Bench，返回资源地址与切换配置 | 闭环必需 |
 | MCP：查看 Bench、收发 SCPI、运行脚本并返回判定 | 闭环必需 |
