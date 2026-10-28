@@ -52,7 +52,10 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   await page.getByRole("tab", { name: /问题/ }).click();
   await expect(page.getByRole("button", { name: /-114.*Header suffix out of range/ })).toBeVisible();
   await page.getByRole("tab", { name: "通信" }).click();
-  await expect(page.getByText(":CHANnel9:SCALe 1")).toBeVisible();
+  const row = page.getByText(":CHANnel9:SCALe 1").locator("..");
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("界面"); // who sent it
+  await expect(row.getByTestId("wall-time")).toHaveText(/^\d\d:\d\d:\d\d\.\d{3}$/); // real time beside virtual time
 });
 
 test("open the scope screen by double-clicking its node", async ({ page }) => {

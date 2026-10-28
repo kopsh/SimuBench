@@ -89,8 +89,10 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
       </div>
       {bottomTab === "comms" && (
         <>
-          <div className="text-muted-foreground grid h-6 shrink-0 grid-cols-[96px_96px_28px_1fr_64px_72px] items-center gap-2 border-b px-3 text-[11px]">
-            <span>{t("panel.time")}</span>
+          <div className="text-muted-foreground grid h-6 shrink-0 grid-cols-[96px_96px_64px_96px_28px_1fr_64px_72px] items-center gap-2 border-b px-3 text-[11px]">
+            <span title={t("panel.timeHint")}>{t("panel.virtualTime")}</span>
+            <span title={t("panel.wallTimeHint")}>{t("panel.wallTimeHeader")}</span>
+            <span>{t("panel.source")}</span>
             <span>{t("panel.instrument")}</span>
             <span />
             <span>{t("panel.message")}</span>
@@ -151,12 +153,18 @@ function CommRow({ e }: { e: Event }) {
   return (
     <div
       className={cn(
-        "hover:bg-accent/60 grid h-full cursor-default grid-cols-[96px_96px_28px_1fr_64px_72px] items-center gap-2 px-3 text-[11.5px]",
+        "hover:bg-accent/60 grid h-full cursor-default grid-cols-[96px_96px_64px_96px_28px_1fr_64px_72px] items-center gap-2 px-3 text-[11.5px]",
         !write && "text-muted-foreground",
       )}
       onClick={() => e.instrument && select({ kind: "instrument", id: e.instrument })}
     >
       <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
+      <span className="num text-muted-foreground" data-testid="wall-time">
+        {e.wall ? formatWall(e.wall) : ""}
+      </span>
+      <span className="text-muted-foreground truncate" title={e.client ?? ""}>
+        {clientLabel(e.client, t)}
+      </span>
       <span className="truncate">{e.instrument}</span>
       <span title={write ? t("panel.write") : t("panel.read")}>
         {write ? <ArrowRight className="text-primary size-3.5" /> : <ArrowLeft className="size-3.5" />}
@@ -236,4 +244,21 @@ function ProblemRow({ instrument, code, message }: { instrument: string; code: n
       </button>
     </li>
   );
+}
+
+/** Who sent a message: the script, the UI, an agent, a network client or a replay. */
+function clientLabel(client: string | null | undefined, t: (key: string) => string): string {
+  if (!client) return "";
+  if (client === "pyvisa" || client === "sdk") return t("panel.client.script");
+  if (client === "ui" || client === "mcp" || client === "replay") return t(`panel.client.${client}`);
+  if (client.startsWith("socket:")) return "SOCKET";
+  if (client.startsWith("hislip:")) return "HiSLIP";
+  return client;
+}
+
+/** Real local time of day with milliseconds, from epoch seconds. */
+function formatWall(epochS: number): string {
+  const d = new Date(epochS * 1000);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
 }

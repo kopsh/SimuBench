@@ -100,7 +100,7 @@ test("wall clock: time runs by itself and the lock-in settles without advancing"
   await page.goto(`/s/${sid}?token=${TOKEN}`);
   await expect(page.getByText("墙钟", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /推进/ })).toHaveCount(0); // nothing to advance
-  const clock = page.getByTitle("虚拟时间");
+  const clock = page.getByTitle("虚拟时间", { exact: true });
   const first = await clock.textContent();
   await expect(clock).not.toHaveText(first ?? "");
 
