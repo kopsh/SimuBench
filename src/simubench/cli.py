@@ -31,7 +31,7 @@ def _serve(args: argparse.Namespace) -> int:
     from .ops import setup_logging
 
     setup_logging(args.log_level, args.log_format, args.log_file)
-    token = args.token or secrets.token_urlsafe(24)
+    token = _token(args)
     app = create_app(manager, token=token)
 
     @app.on_event("startup")
@@ -40,7 +40,7 @@ def _serve(args: argparse.Namespace) -> int:
             served = await manager.start(bench.relative_to(workspace).as_posix())
             for lst in served.scpi.listeners if served.scpi else []:
                 print(f"  SCPI  {lst.instrument:<12} {lst.address}")
-        url = f"http://127.0.0.1:{args.port}/?token={token}"
+        url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
         if args.open:
@@ -48,6 +48,17 @@ def _serve(args: argparse.Namespace) -> int:
 
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level=args.log_level, log_config=None)
     return 0
+
+
+def _token(args: argparse.Namespace) -> str | None:
+    """The access token is opt-in (D43): ``--token VALUE`` or ``--require-token`` (random)."""
+    if args.token:
+        return str(args.token)
+    return secrets.token_urlsafe(24) if args.require_token else None
+
+
+def _ui_url(port: int, token: str | None) -> str:
+    return f"http://127.0.0.1:{port}/" + (f"?token={token}" if token else "")
 
 
 def _free_port(port: int) -> int:
@@ -87,12 +98,12 @@ def _mcp(args: argparse.Namespace) -> int:
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
     )
-    token = args.token or secrets.token_urlsafe(24)
+    token = _token(args)
     ui_url = None
     server = None
     if not args.no_ui:
         port = _free_port(args.port)
-        ui_url = f"http://127.0.0.1:{port}/?token={token}"
+        ui_url = _ui_url(port, token)
         config = uvicorn.Config(
             create_app(manager, token=token),
             host="127.0.0.1",
@@ -284,7 +295,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
-    p.add_argument("--token", help="access token (default: random)")
+    p.add_argument("--token", help="require this access token (default: no token, D43)")
+    p.add_argument(
+        "--require-token",
+        action="store_true",
+        help="require a random access token; use on a computer shared with other users",
+    )
     p.add_argument("--open", action="store_true", help="open the browser")
     p.add_argument("--log-level", default="warning")
     p.add_argument("--log-format", choices=["text", "json"], default="text", help="json: one object per line")
@@ -298,7 +314,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--scpi-base-port", type=int, default=5025)
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")
-    p.add_argument("--token")
+    p.add_argument("--token", help="require this access token (default: no token, D43)")
+    p.add_argument("--require-token", action="store_true", help="require a random access token")
     p.add_argument(
         "--allow-control",
         action="store_true",
