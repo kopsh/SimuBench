@@ -1,0 +1,163 @@
+{
+  "$defs": {
+    "Case": {
+      "additionalProperties": false,
+      "properties": {
+        "manual": {
+          "description": "Manual section the case follows",
+          "title": "Manual",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "steps": {
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "manual",
+        "steps"
+      ],
+      "title": "Case",
+      "type": "object"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "description": "One command of a case: ``send`` writes, ``query`` writes and reads the reply.",
+      "properties": {
+        "expect": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The exact reply",
+          "title": "Expect"
+        },
+        "expect_match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A regular expression the whole reply matches",
+          "title": "Expect Match"
+        },
+        "expect_value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reply as a number",
+          "title": "Expect Value"
+        },
+        "query": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Query"
+        },
+        "send": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Send"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute tolerance for expect_value",
+          "title": "Tolerance"
+        }
+      },
+      "title": "Step",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "bench": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Bench file relative to the cases file; default: the instrument alone",
+      "title": "Bench"
+    },
+    "cases": {
+      "items": {
+        "$ref": "#/$defs/Case"
+      },
+      "title": "Cases",
+      "type": "array"
+    },
+    "instrument": {
+      "default": "dut",
+      "description": "Instrument the steps talk to",
+      "title": "Instrument",
+      "type": "string"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Definition id; defaults to the folder name",
+      "title": "Model"
+    }
+  },
+  "required": [
+    "cases"
+  ],
+  "title": "Cases",
+  "type": "object"
+}

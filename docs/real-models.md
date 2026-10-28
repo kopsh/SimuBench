@@ -69,3 +69,47 @@
 
 - 只实现手册描述的行为，不把手册原文复制进仓库；命令名称和简短的语法说明除外。
 - `*IDN?` 返回真实的厂商与型号，用于内部演示和脚本兼容。对外发布前需要重新评估（D17）。
+
+## 8. 字段说明（框架已实现）
+
+以下字段都是可选的，`sb-*` 定义不用改。带 `reference` 的定义即为真实型号。
+
+| 字段 | 位置 | 说明 |
+| --- | --- | --- |
+| `reference` | 定义 | 所依据的手册：`title`（名称）、`document`（文档编号）、`version`（版本或日期）、`firmware`（对应的固件版本）。有此字段时：未定义的命令回复 `-113,"Undefined header;not modeled by SimuBench"`，事件历史中该错误带 `reason: not_modeled`；错误信息只用手册文字，不附带 SimuBench 的诊断细节（细节仍记入事件历史）。 |
+| `errors` | 定义 | 错误表 `{错误码: 信息文字}`。覆盖标准文字，也可新增设备专用错误码（如 `501`）；`0` 的文字用于“无错误”。 |
+| `error_queue` | 定义 | 错误队列长度（默认 20）。队列满时最后一格变为 `-350`（SCPI-99 21.8），其文字也可在 `errors` 中给出。 |
+| `format` | 定义 | 默认返回格式：`number`（`nr3` / `nr2` / `nr1`）、`digits`（小数位数）、`sign`（非负数是否带 `+`）、`exponent_digits`、`integer`（`plain` / `signed`）、`boolean`（`numeric` 即 1/0，`word` 即 ON/OFF）、`enum`（`short` / `long`）、`error_code`（`:SYSTem:ERRor?` 中的错误码是否带 `+`，如 Keysight 的 `+0,"No error"`）。默认值即 `sb-*` 一直以来的格式（`+1.000000E+03`）。 |
+| `commands[].format` | 命令 | 覆盖该命令的返回格式，字段同上。 |
+| `specs` | 定义 | 手册中的精度指标，任意结构；目前只保存，不参与计算（M7）。 |
+
+**覆盖表** `<id>.coverage.yaml`（与定义放在一起；仪表库不会把它当作定义）：
+
+```yaml
+schema: simubench.coverage/1
+model: keysight-34465a
+sections:
+  - section: "Command Reference > SENSe Subsystem"
+    commands:
+      - {header: "[:SENSe]:VOLTage[:DC]:NPLC", level: implemented}
+      - {header: "[:SENSe]:CURRent[:DC]:NPLC", level: not_modeled, note: 之后实现}
+      - {header: ":DISPlay[:STATe]", level: accepted}
+```
+
+`header` 与定义中的写法一致（比较时忽略大小写、空格和开头的冒号）。`*IDN`、`*RST`、`:SYSTem:ERRor[:NEXT]` 等内置命令不在定义里，也可以列为“实现”。CI（`tests/test_real_models.py`）检查：定义中的每条命令都在覆盖表中且不是“未实现”；标为“实现”或“接受”的命令都在定义中（或是内置命令），并且至少有一条手册用例使用它。不一致时，失败信息写出是哪一条命令。
+
+**手册用例** `tests/models/<id>/cases.yaml`：第 4 节的列表写法即可；也可以写成映射，指定测试台：
+
+```yaml
+model: keysight-33522b          # 默认取文件夹名
+bench: ../../../examples/benches/keysight_33522b_rc.bench.yaml   # 默认：只有这台仪表
+instrument: awg                  # 默认 dut
+cases:
+  - name: ...
+    manual: ...
+    steps: [...]
+```
+
+每条用例在一个刚上电的测试台上通过 PyVISA 后端运行，测试报告中单独列出，名称带手册章节。
+
+**完整示例**：`tests/models/acme-dm1/` 是一个虚构的“真实型号”，只用于测试框架本身（不在产品仪表库中）：定义（`reference`、`errors`、`error_queue`、`format`、`specs`、命令级 `format`、没有冒号层级的 `OUT` 命令）、覆盖表与用例。`simubench coverage acme-dm1 --definitions tests/models/acme-dm1` 打印它的覆盖表与统计。

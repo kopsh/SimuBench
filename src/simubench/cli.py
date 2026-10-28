@@ -273,6 +273,43 @@ def _replay(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _coverage(args: argparse.Namespace) -> int:
+    """A real model's coverage table (D42): every command of the manual and how far SimuBench goes."""
+    from .library.coverage import LEVEL_TEXT, coverage_path, load_coverage
+    from .library.loader import DefinitionLibrary
+
+    lib = DefinitionLibrary([Path(d) for d in args.definitions] + [Path.cwd() / "instruments"])
+    try:
+        path = lib.path(args.id)
+    except KeyError as exc:
+        print(exc.args[0], file=sys.stderr)
+        return 2
+    definition = lib.get(args.id)
+    cov_file = coverage_path(path)
+    if not cov_file.is_file():
+        print(f"{args.id}: no coverage table ({cov_file.name})", file=sys.stderr)
+        return 2
+    cov = load_coverage(cov_file)
+    ref = definition.reference
+    print(f"{definition.manufacturer} {definition.model} ({definition.id})")
+    if ref:
+        print(
+            "  "
+            + " · ".join(
+                x for x in (ref.title, ref.document, ref.version, ref.firmware and f"FW {ref.firmware}") if x
+            )
+        )
+    for section in cov.sections:
+        print(f"\n{section.section}")
+        for c in section.commands:
+            note = f"  {c.note}" if c.note else ""
+            print(f"  {LEVEL_TEXT[c.level]:<4} {c.header}{note}")
+    st = cov.stats()
+    total = sum(st.values())
+    print(f"\n{' · '.join(f'{LEVEL_TEXT[k]} {v}' for k, v in st.items())} · 共 {total}")
+    return 0
+
+
 def _schemas(args: argparse.Namespace) -> int:
     from .server.schemas import export_all
 
@@ -346,6 +383,13 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--first", action="store_true", help="stop at the first difference")
     p.add_argument("--json", action="store_true", help="print the report as JSON")
     p.set_defaults(fn=_replay)
+
+    p = sub.add_parser(
+        "coverage", help="a real model's coverage table: commands of the manual by level (D42)"
+    )
+    p.add_argument("id", help="definition id, e.g. keysight-34465a")
+    p.add_argument("--definitions", action="append", default=[], help="also look for definitions here")
+    p.set_defaults(fn=_coverage)
 
     p = sub.add_parser("schemas", help="export OpenAPI and JSON Schemas (D21)")
     p.add_argument("--out", default="schemas")

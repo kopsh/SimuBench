@@ -9,7 +9,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, StateSpec
+from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, ResponseFormat, StateSpec
 from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, split_units
@@ -25,6 +25,26 @@ _LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0
 
 log = logging.getLogger(__name__)
 _HANDLED = b"\x00handled"  # a built-in command that sends no reply
+#: Appended to -113 when a real model gets a command its definition does not have (D42).
+NOT_MODELED = "not modeled by SimuBench"
+#: Headers every instrument answers without a definition entry (coverage tables list them too).
+BUILTIN_HEADERS = (
+    "*IDN",
+    "*RST",
+    "*CLS",
+    "*OPC",
+    "*WAI",
+    "*ESR",
+    "*ESE",
+    "*SRE",
+    "*STB",
+    "*TST",
+    ":SYSTem:ERRor[:NEXT]",
+    ":SYSTem:ERRor:COUNt",
+    ":SYSTem:ERRor:ALL",
+    ":SYSTem:DATE",
+    ":SYSTem:TIME",
+)
 
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
@@ -75,7 +95,9 @@ class Instrument:
         self.instance = instance
         self.session = session
         self.channel_count = definition.channels.count
-        self.errors = ErrorQueue()
+        self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
+        #: A real model (D42): follows its manual's error texts and refuses what it does not model.
+        self.real = definition.reference is not None
         self.esr = 0
         self.ese = 0
         self.sre = 0
@@ -295,9 +317,34 @@ class Instrument:
         return bool(self._output)
 
     def _push(self, err: ScpiError) -> None:
+        detail = err.detail
+        if err.text is None:
+            table = self.definition.errors.get(err.code)
+            if table is not None or self.real:
+                # A real model answers with its manual's text only; the detail stays in the event.
+                err = ScpiError(err.code, err.detail, text=table if table is not None else err.standard_text)
         self.errors.push(err)
         self.esr |= 1 << ESR_BITS[err.esr_class]
-        self.session.instrument_event(self, "error", {"code": err.code, "message": err.message})
+        data: dict[str, Any] = {"code": err.code, "message": err.message}
+        if err.text is not None and detail and detail not in err.message:
+            data["message"] = f"{err.message} ({detail})"
+        if err.text is not None and err.text.endswith(NOT_MODELED):
+            data["reason"] = "not_modeled"
+        self.session.instrument_event(self, "error", data)
+
+    def _error_reply(self, err: ScpiError) -> bytes:
+        """An error queue entry as :SYSTem:ERRor? writes it, in the manual's form for a real model."""
+        if err.code == 0 and 0 in self.definition.errors:
+            err = ScpiError(0, text=self.definition.errors[0])
+        sign = "+" if self.definition.format.error_code == "signed" and err.code >= 0 else ""
+        return f'{sign}{err.code},"{err.message}"'.encode()
+
+    def _undefined(self, header: str) -> ScpiError:
+        """-113 for a header the definition does not have; a real model says it is not modeled."""
+        if not self.real:
+            return ScpiError(-113, header)
+        base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
+        return ScpiError(-113, header, text=f"{base};{NOT_MODELED}")
 
     def push_error(self, code: int, detail: str = "") -> None:
         """Queue a device error from a component (e.g. an overload)."""
@@ -332,7 +379,7 @@ class Instrument:
             return None, 0
         if builtin is not None:
             return builtin, 0
-        raise ScpiError(-113, unit.raw_header)
+        raise self._undefined(unit.raw_header)
 
     def _resolve(self, ref: str, channel: int | None) -> str:
         if ref.startswith("ch.") and channel is not None:
@@ -361,9 +408,9 @@ class Instrument:
                         if which.startswith("MAX")
                         else st.default
                     )
-                    return self._format(st, v)
+                    return self._format(st, v, spec.format)
                 raise ScpiError(-108)
-            return self._format(st, self.state[path])
+            return self._format(st, self.state[path], spec.format)
         if not unit.params:
             raise ScpiError(-109)
         if len(unit.params) > 1 and st.type != "string":
@@ -385,17 +432,20 @@ class Instrument:
             return V.parse_enum(raw, st.options or [])
         return V.parse_string(raw)
 
-    def _format(self, st: StateSpec, value: Any) -> bytes:
+    def _format(self, st: StateSpec, value: Any, override: ResponseFormat | None = None) -> bytes:
+        f = override or self.definition.format
         if st.type == "float":
             if st.special and value in st.special.values() and not math.isfinite(value):
                 return next(k for k, v in st.special.items() if v == value).encode()
-            return V.format_float(value)
+            return V.format_float(
+                value, f.digits, style=f.number, sign=f.sign, exponent_digits=f.exponent_digits
+            )
         if st.type == "int":
-            return V.format_int(value)
+            return (b"+" if f.integer == "signed" and int(value) >= 0 else b"") + V.format_int(value)
         if st.type == "bool":
-            return V.format_bool(value)
+            return V.format_bool(value, word=f.boolean == "word")
         if st.type == "enum":
-            return V.format_enum(value)
+            return V.format_enum(value, long=f.enum == "long")
         return V.format_string(str(value))
 
     def _op_command(
@@ -509,7 +559,7 @@ class Instrument:
             return str(self.stb()).encode()
         if word == "TST" and q:
             return b"0"
-        raise ScpiError(-113, unit.raw_header)
+        raise self._undefined(unit.raw_header)
 
     _SYST_ERR = Pattern.compile(":SYSTem:ERRor[:NEXT]")
     _SYST_ERR_COUNT = Pattern.compile(":SYSTem:ERRor:COUNt")
@@ -523,14 +573,14 @@ class Instrument:
     def _builtin(self, unit: Unit, tokens: tuple[Token, ...]) -> bytes | None:
         """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
         if unit.query and self._SYST_ERR.match(tokens) is not None:
-            return str(self.errors.pop()).encode()
+            return self._error_reply(self.errors.pop())
         if unit.query and self._SYST_ERR_COUNT.match(tokens) is not None:
             return str(len(self.errors)).encode()
         if unit.query and self._SYST_ERR_ALL.match(tokens) is not None:
             items = []
             while len(self.errors):
-                items.append(str(self.errors.pop()))
-            return ",".join(items or [str(ScpiError(0))]).encode()
+                items.append(self._error_reply(self.errors.pop()))
+            return b",".join(items or [self._error_reply(ScpiError(0))])
         if self._SYST_DATE.match(tokens) is not None or self._SYST_TIME.match(tokens) is not None:
             return self._clock_command(unit, date=self._SYST_DATE.match(tokens) is not None)
         return None

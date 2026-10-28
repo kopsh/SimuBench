@@ -71,6 +71,26 @@ class ParamSpec(_Model):
     max: float | None = None
 
 
+class ResponseFormat(_Model):
+    """How query responses are written (real models, D42): numbers, booleans and enumerations.
+
+    The defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.
+    """
+
+    number: Literal["nr3", "nr2", "nr1"] = Field(
+        "nr3", description="nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded)"
+    )
+    digits: int = Field(6, ge=0, le=17, description="Digits after the decimal point (nr3 mantissa, nr2)")
+    sign: bool = Field(True, description="Write '+' before non-negative numbers")
+    exponent_digits: int = Field(2, ge=1, le=3, description="nr3: digits of the exponent, e.g. E+03 is 2")
+    integer: Literal["plain", "signed"] = Field("plain", description="plain: 5; signed: +5")
+    boolean: Literal["numeric", "word"] = Field("numeric", description="numeric: 1/0; word: ON/OFF")
+    enum: Literal["short", "long"] = Field("short", description="short: SIN; long: SINUSOID (upper case)")
+    error_code: Literal["plain", "signed"] = Field(
+        "plain", description='Code in :SYSTem:ERRor? replies: plain: 0,"No error"; signed: +0,"No error"'
+    )
+
+
 class CommandSpec(_Model):
     """One SCPI command. Exactly one of ``state`` or ``op`` is given."""
 
@@ -84,6 +104,7 @@ class CommandSpec(_Model):
         default_factory=dict, description="Constant arguments passed to the operation"
     )
     duration: str | float | None = Field(None, description="Virtual time the command consumes (D12)")
+    format: ResponseFormat | None = Field(None, description="Overrides the definition's response format")
     dangerous: bool = False
     doc: str | None = None
 
@@ -92,6 +113,15 @@ class CommandSpec(_Model):
         if (self.state is None) == (self.op is None):
             raise ValueError(f"command {self.header!r}: give exactly one of state or op")
         return self
+
+
+class Reference(_Model):
+    """The manual a real-model definition follows (D42): behavior is checked against this edition."""
+
+    title: str = Field(..., description="e.g. 'Keysight Truevolt Series Operating and Service Guide'")
+    document: str | None = Field(None, description="Document or part number")
+    version: str | None = Field(None, description="Edition, revision or date")
+    firmware: str | None = Field(None, description="Firmware version the manual describes")
 
 
 class Identity(_Model):
@@ -159,5 +189,23 @@ class InstrumentDefinition(_Model):
     commands: list[CommandSpec] = Field(default_factory=list)
     display: Display = Field(default_factory=Display)
     capabilities: list[str] = Field(default_factory=list)
+    # ---- real models (D42, docs/real-models.md) ----
+    reference: Reference | None = Field(
+        None,
+        description="The manual this definition follows; a definition with a reference is a real model: "
+        "unknown commands answer -113 'not modeled by SimuBench', error texts follow `errors`",
+    )
+    errors: dict[int, str] = Field(
+        default_factory=dict,
+        description="Error texts by code: overrides standard texts and adds device-specific codes",
+    )
+    error_queue: int | None = Field(
+        None, ge=2, description="Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)"
+    )
+    format: ResponseFormat = Field(default_factory=ResponseFormat, description="Default response format")
+    specs: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Accuracy and other specifications from the manual; stored, not yet used in calculations",
+    )
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

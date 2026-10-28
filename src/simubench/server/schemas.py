@@ -2,7 +2,8 @@
 
 * ``openapi.json`` - HTTP interface, from FastAPI;
 * ``events.schema.json`` - WebSocket event messages;
-* ``bench.schema.json`` and ``instrument.schema.json`` - file formats.
+* ``bench.schema.json`` and ``instrument.schema.json`` - file formats;
+* ``coverage.schema.json`` and ``cases.schema.json`` - a real model's coverage table and manual cases (D42).
 
 The web client's TypeScript types are generated from these files (``web/scripts/gen-api.mjs``),
 and CI fails when the committed output is stale.
@@ -14,6 +15,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..library.coverage import Cases, Coverage
 from ..models.api import Event
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
@@ -39,4 +41,6 @@ def export_all(out: Path) -> list[Path]:
         _dump(out / "events.schema.json", Event.model_json_schema()),
         _dump(out / "bench.schema.json", BenchDefinition.model_json_schema(by_alias=True)),
         _dump(out / "instrument.schema.json", InstrumentDefinition.model_json_schema(by_alias=True)),
+        _dump(out / "coverage.schema.json", Coverage.model_json_schema(by_alias=True)),
+        _dump(out / "cases.schema.json", Cases.model_json_schema(by_alias=True)),
     ]

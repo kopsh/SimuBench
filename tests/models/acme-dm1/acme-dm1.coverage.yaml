@@ -1,0 +1,25 @@
+schema: simubench.coverage/1
+model: acme-dm1
+sections:
+  - section: "Common Commands"
+    commands:
+      - {header: "*IDN", level: implemented}
+      - {header: "*RST", level: implemented}
+      - {header: "*CLS", level: implemented}
+  - section: "Command Reference > SENSe Subsystem"
+    commands:
+      - {header: "[:SENSe]:VOLTage[:DC]:NPLC", level: implemented}
+      - {header: "[:SENSe]:VOLTage[:DC]:RANGe:AUTO", level: implemented}
+      - {header: "[:SENSe]:CURRent[:DC]:NPLC", level: not_modeled, note: current measurement comes later}
+  - section: "Command Reference > DISPlay Subsystem"
+    commands:
+      - {header: ":DISPlay[:STATe]", level: accepted, note: no display in the simulation}
+  - section: "Command Reference > Source (Fluke-style, no colon hierarchy)"
+    commands:
+      - {header: "OUT", level: implemented}
+  - section: "Command Reference > TRIGger Subsystem"
+    commands:
+      - {header: ":TRIGger:SOURce", level: implemented}
+  - section: "Command Reference > SYSTem Subsystem"
+    commands:
+      - {header: ":SYSTem:ERRor[:NEXT]", level: implemented}

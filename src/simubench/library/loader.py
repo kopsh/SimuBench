@@ -15,6 +15,8 @@ from ..models.definition import InstrumentDefinition
 from .migrate import upgrade
 
 BUILTIN_DIR = Path(__file__).parent / "instruments"
+#: Coverage tables live next to their definitions (D42) and are not definitions themselves.
+COVERAGE_SUFFIX = ".coverage.yaml"
 
 
 class YamlLoader(yaml.SafeLoader):
@@ -82,7 +84,8 @@ class DefinitionLibrary:
         for d in self.dirs:
             if d.is_dir():
                 for p in sorted(d.glob("*.yaml")):
-                    seen.setdefault(p.stem, None)
+                    if not p.name.endswith(COVERAGE_SUFFIX):  # a real model's coverage table (D42)
+                        seen.setdefault(p.stem, None)
         return list(seen)
 
 

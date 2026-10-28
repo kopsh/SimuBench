@@ -1,0 +1,57 @@
+- name: "*IDN? 按手册格式返回厂商、型号、序列号与固件"
+  manual: "Common Commands > *IDN?"
+  steps:
+    - query: "*IDN?"
+      expect: "ACME Instruments,DM1,MY12345678,2.04-1.19"
+- name: "*RST 后 NPLC 为 10，返回 8 位尾数"
+  manual: "Command Reference > SENSe:VOLTage:DC:NPLC"
+  steps:
+    - send: ":SENS:VOLT:NPLC 1"
+    - send: "*RST"
+    - query: ":SENS:VOLT:DC:NPLC?"
+      expect: "+1.00000000E+01"
+- name: "超出范围的 NPLC 报 -222，错误码带符号"
+  manual: "Command Reference > SENSe:VOLTage:DC:NPLC"
+  steps:
+    - send: "*CLS"
+    - send: "VOLT:NPLC 1000"
+    - query: ":SYST:ERR?"
+      expect: '-222,"Data out of range"'
+    - query: ":SYST:ERR?"
+      expect: '+0,"No error"'
+- name: "*RST 后自动量程打开"
+  manual: "Command Reference > SENSe:VOLTage:DC:RANGe:AUTO"
+  steps:
+    - send: "VOLT:RANG:AUTO OFF;*RST"
+    - query: "VOLT:RANG:AUTO?"
+      expect: "1"
+- name: "显示开关被接受并保存"
+  manual: "Command Reference > DISPlay[:STATe]"
+  steps:
+    - send: "DISP OFF"
+    - query: "DISP?"
+      expect: "0"
+- name: "没有冒号层级的命令，数字和单位之间有空格"
+  manual: "Command Reference > OUT"
+  steps:
+    - send: "OUT 1.5 V"
+    - query: "OUT?"
+      expect_value: 1.5
+      tolerance: 1.0e-9
+    - query: "OUT?"
+      expect: "+1.500"
+- name: "枚举按长格式返回"
+  manual: "Command Reference > TRIGger:SOURce"
+  steps:
+    - send: "TRIG:SOUR BUS"
+    - query: "TRIG:SOUR?"
+      expect: "BUS"
+    - send: "TRIG:SOUR EXT"
+    - query: ":TRIGger:SOURce?"
+      expect_match: "^EXTERNAL$"
+- name: "没有建模的命令回复 -113 并说明"
+  manual: "Command Reference > SENSe:CURRent:DC:NPLC"
+  steps:
+    - send: "*CLS;CURR:NPLC 1"
+    - query: ":SYST:ERR?"
+      expect: '-113,"Undefined header;not modeled by SimuBench"'

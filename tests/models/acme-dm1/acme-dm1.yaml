@@ -1,0 +1,65 @@
+# A made-up "real model" that exercises the real-model framework (D42, docs/real-models.md).
+# It is not in the product library: the tests load it from this folder.
+schema: simubench.instrument/1
+id: acme-dm1
+manufacturer: ACME Instruments
+model: DM1
+class: multimeter
+description: Framework test model; every real-model feature on a few commands.
+reference:
+  title: ACME DM1 Programming Manual
+  document: DM1-90001
+  version: Rev. B, 2026-01
+  firmware: "2.04"
+identity:
+  idn: "ACME Instruments,DM1,{serial},{firmware}"
+  serial: MY12345678
+  firmware: "2.04-1.19"
+errors:
+  0: No error
+  -113: Undefined header
+  -222: Data out of range
+  501: Isolator UART framing error
+error_queue: 4
+format:
+  digits: 8
+  error_code: signed
+specs:
+  dcv_accuracy_ppm: {range_10V: {reading: 15, range: 4}}
+state:
+  nplc:
+    type: float
+    min: 0.02
+    max: 100.0
+    default: 10.0
+    label: 积分时间
+    label_en: Integration time
+  range_auto:
+    type: bool
+    default: true
+  display:
+    type: bool
+    default: true
+  source_level:
+    type: float
+    unit: V
+    min: -10.0
+    max: 10.0
+    default: 0.0
+  trigger_source:
+    type: enum
+    options: [IMMediate, BUS, EXTernal]
+    default: IMMediate
+commands:
+  - header: "[:SENSe]:VOLTage[:DC]:NPLC"
+    state: nplc
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe:AUTO"
+    state: range_auto
+  - header: ":DISPlay[:STATe]"
+    state: display
+  - header: "OUT"
+    state: source_level
+    format: {number: nr2, digits: 3}
+  - header: ":TRIGger:SOURce"
+    state: trigger_source
+    format: {enum: long}
