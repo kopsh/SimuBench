@@ -124,5 +124,6 @@
 | 覆盖表与一致性检查、`simubench coverage <id>` | ✅ 不一致时指出具体命令 |
 | 手册用例与通用运行器（PyVISA 后端，每条用例单独报告并带手册章节） | ✅ 虚构型号 `tests/models/acme-dm1` |
 | IEEE 488.2 语法：数字与单位间空格、多个带单位的参数、没有冒号层级的命令头 | ✅ 已支持，补充测试 |
-| 型号：Keysight 34465A、Fluke 5522A、33500B、InfiniiVision 3000T、Keithley 2450 | ⏳ 各自的 issue |
+| Siglent SDS2104X Plus（D45，替代 InfiniiVision 3000T） | ✅ 手册用例 24 条；覆盖表 622 条（实现 36、接受 13、未实现 573）；按手册示例读取波形并与网络信号比对（8/10 位、BYTE/WORD）；示例测试台 `siglent_scope_rc` |
+| 型号：Keysight 34465A、Fluke 5522A、Siglent SDG2042X（替代 33500B）、Keithley 2450 | ⏳ 各自的 issue |
 

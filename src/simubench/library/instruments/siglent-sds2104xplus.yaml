@@ -1,0 +1,354 @@
+schema: simubench.instrument/1
+id: siglent-sds2104xplus
+manufacturer: Siglent Technologies
+model: SDS2104X Plus
+class: oscilloscope
+version: 1
+description: >-
+  Siglent SDS2104X Plus, 4 channels, 100 MHz, 2 GSa/s. Real model (D42): commands, replies and
+  waveform transfer follow the SDS Series Programming Guide EN11F; ranges follow the data sheet.
+  Settings the manual gives no *RST value for use the SimuBench defaults listed in the coverage
+  table.
+reference:
+  title: SDS Series Digital Oscilloscope Programming Guide
+  document: EN11F
+  version: EN11F, 2024-01 (siglentna.com)
+  firmware: "SDS2000X Plus, as covered by EN11F"
+identity:
+  idn: "Siglent Technologies,SDS2104X Plus,{serial},{firmware}"
+  serial: SDS2PEEQ6R0123
+  firmware: "1.5.2R3"
+builtins: ["*IDN", "*OPC", "*RST"]
+format:
+  number: nr3
+  digits: 2
+  sign: false
+  boolean: word
+  enum: as_defined
+specs:
+  source: SDS2000X Plus Data Sheet EN01D (DataSheet-2024.06)
+  bandwidth_hz: 1.0e8
+  sample_rate: {interleaved: 2.0e9, non_interleaved: 1.0e9}
+  memory_depth_pts: {interleaved: 2.0e8, non_interleaved: 1.0e8}
+  vertical_resolution_bits: [8, 10]
+  vertical_scale_v_div: {one_meg: [5.0e-4, 10.0], fifty: [5.0e-4, 1.0]}
+  offset_range_v: {"0.5mV-100mV": 2.0, "102mV-1V": 20.0, "1.02V-10V": 200.0}
+  dc_gain_accuracy: 0.03
+  input: {r_ohm: 1.0e6, c_f: 1.7e-11}
+  ac_coupling_corner_hz: 5.0
+  timebase_s_div: [1.0e-9, 1000.0]
+  timebase_accuracy_ppm: 1.0
+  trigger_level_div: 4.1
+  trigger_jitter_s_rms: 1.0e-11
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 1.0e-9
+    max: 1000.0
+    default: 1.0e-6
+    ladder: 1-2-5
+    label: 时基
+    label_en: Timebase
+  timebase.delay:
+    type: float
+    unit: S
+    min: -5.0e6
+    max: 5.0e3
+    default: 0.0
+    label: 水平延迟
+    label_en: Delay
+  timebase.reference:
+    type: enum
+    options: [DELay, POSition]
+    default: DELay
+  timebase.reference_position:
+    type: int
+    min: 0
+    max: 100
+    default: 50
+  trigger.mode:
+    type: enum
+    options: [AUTO, NORMal, SINGle, FTRIG]
+    default: AUTO
+    label: 触发方式
+    label_en: Trigger mode
+  trigger.type:
+    type: enum
+    options: [EDGE]
+    default: EDGE
+  trigger.source:
+    type: enum
+    options: [C1, C2, C3, C4, EX, EX5, LINE]
+    default: C1
+    label: 触发源
+    label_en: Trigger source
+  trigger.level:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发电平
+    label_en: Trigger level
+  trigger.slope:
+    type: enum
+    options: [RISing, FALLing, ALTernate]
+    default: RISing
+    label: 触发沿
+    label_en: Trigger slope
+  trigger.coupling:
+    type: enum
+    options: [DC, AC, LFREJect, HFREJect]
+    default: DC
+  acquire.type:
+    type: enum
+    options: [NORMal, PEAK, AVERage, ERES]
+    default: NORMal
+    label: 采集方式
+    label_en: Acquisition type
+  acquire.average:
+    type: int
+    min: 4
+    max: 8192
+    default: 16
+  acquire.eres:
+    type: float
+    min: 0.5
+    max: 4.0
+    default: 0.5
+  acquire.resolution:
+    type: enum
+    options: [8Bits, 10Bits]
+    default: 8Bits
+    label: 垂直分辨率
+    label_en: Resolution
+  acquire.mdepth:
+    type: enum
+    options: [10k, 20k, 100k, 200k, 1M, 2M, 10M, 20M, 100M, 200M]
+    default: 10k
+    label: 存储深度
+    label_en: Memory depth
+  acquire.mmanagement:
+    type: enum
+    options: [AUTO, FSRate, FMDepth]
+    default: AUTO
+  acquire.mode:
+    type: enum
+    options: [YT, XY, ROLL]
+    default: YT
+  acquire.amode:
+    type: enum
+    options: [FAST, SLOW]
+    default: FAST
+  acquire.interpolation:
+    type: bool
+    default: true
+  channel.reference:
+    type: enum
+    options: [OFFSet, POSition]
+    default: OFFSet
+  waveform.source:
+    type: enum
+    options: [C1, C2, C3, C4]
+    default: C1
+    label: 波形传输源
+    label_en: Waveform source
+  waveform.width:
+    type: enum
+    options: [BYTE, WORD]
+    default: BYTE
+    label: 波形格式
+    label_en: Waveform width
+  waveform.start:
+    type: int
+    min: 0
+    max: 200000000
+    default: 0
+  waveform.point:
+    type: int
+    min: 0
+    max: 200000000
+    default: 0
+  waveform.interval:
+    type: int
+    min: 1
+    max: 200000000
+    default: 1
+  measure.state:
+    type: bool
+    default: false
+  measure.mode:
+    type: enum
+    options: [SIMPle, ADVanced]
+    default: SIMPle
+  measure.source:
+    type: enum
+    options: [C1, C2, C3, C4]
+    default: C1
+channel_state:
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-12
+    max: 1.0e7
+    default: 1.0
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: V
+    min: -1.0e8
+    max: 1.0e8
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  coupling:
+    type: enum
+    options: [DC, AC, GND]
+    default: DC
+    label: 耦合
+    label_en: Coupling
+  impedance:
+    type: enum
+    options: [ONEMeg, FIFTy]
+    option_labels: {ONEMeg: "1 MΩ", FIFTy: "50 Ω"}
+    default: ONEMeg
+    electrical: true
+    label: 输入阻抗
+    label_en: Input impedance
+  probe:
+    type: float
+    display_unit: "×"
+    min: 1.0e-6
+    max: 1.0e6
+    default: 1.0
+    label: 探头衰减设定
+    label_en: Probe ratio
+  bwlimit:
+    type: enum
+    options: [FULL, 20M, 200M]
+    default: FULL
+    label: 带宽限制
+    label_en: Bandwidth limit
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Display
+  skew:
+    type: float
+    unit: S
+    min: -1.0e-7
+    max: 1.0e-7
+    default: 0.0
+  unit:
+    type: enum
+    options: [V, A]
+    default: V
+  visible:
+    type: bool
+    default: true
+components:
+  - name: acq
+    type: siglent_sds_acquisition
+channel_components:
+  - name: inp
+    type: input_port
+    params:
+      z_in: $ch.impedance
+      c_in: 1.7e-11
+  - name: front
+    type: scope_frontend
+    params:
+      coupling: $ch.coupling
+      bw_limit: $ch.bwlimit
+      bandwidth: 1.0e8
+      ac_corner: 5.0
+  - name: limits
+    type: siglent_sds_channel_limits
+wiring:
+  channel:
+    - [inp.out, front.in]
+  instrument:
+    - ["ch{n}.front.out", "acq.in{n}"]
+ports:
+  channel:
+    "CH{n}": inp.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, trigger.source, trigger.level, trigger.slope]
+  channel_summary: [display, scale, offset, coupling, impedance, probe]
+  actions:
+    single: ":TRIGger:MODE SINGle"
+capabilities: [oscilloscope]
+commands:
+  # ---- ACQUire ----
+  - {header: ":ACQuire:AMODe", state: acquire.amode}
+  - {header: ":ACQuire:INTerpolation", state: acquire.interpolation}
+  - {header: ":ACQuire:MMANagement", state: acquire.mmanagement}
+  - {header: ":ACQuire:MODE", state: acquire.mode}
+  - {header: ":ACQuire:MDEPth", state: acquire.mdepth}
+  - {header: ":ACQuire:NUMAcq", op: acq.numacq, set: false}
+  - {header: ":ACQuire:POINts", op: acq.points, set: false}
+  - {header: ":ACQuire:RESolution", state: acquire.resolution}
+  - {header: ":ACQuire:SRATe", op: acq.srate, set: false}
+  - header: ":ACQuire:TYPE"
+    op: acq.acquire_type
+    params:
+      - {name: kind, type: enum, options: [NORMal, PEAK, AVERage, ERES], optional: true}
+      - {name: value, type: float, optional: true}
+  # ---- CHANnel ----
+  - {header: ":CHANnel:REFerence", state: channel.reference}
+  - {header: ":CHANnel<ch>:BWLimit", state: ch.bwlimit}
+  - {header: ":CHANnel<ch>:COUPling", state: ch.coupling}
+  - {header: ":CHANnel<ch>:IMPedance", state: ch.impedance}
+  - {header: ":CHANnel<ch>:OFFSet", state: ch.offset}
+  - header: ":CHANnel<ch>:PROBe"
+    op: acq.probe
+    params:
+      - {name: mode, type: enum, options: [DEFault, VALue], optional: true}
+      - {name: value, type: float, optional: true}
+  - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
+  - {header: ":CHANnel<ch>:SKEW", state: ch.skew}
+  - {header: ":CHANnel<ch>:SWITch", state: ch.display}
+  - {header: ":CHANnel<ch>:UNIT", state: ch.unit}
+  - {header: ":CHANnel<ch>:VISible", state: ch.visible}
+  # ---- MEASure ----
+  - {header: ":MEASure", state: measure.state}
+  - {header: ":MEASure:MODE", state: measure.mode}
+  - {header: ":MEASure:SIMPle:SOURce", state: measure.source}
+  - header: ":MEASure:SIMPle:VALue"
+    op: acq.measure_simple
+    set: false
+    params: [{name: kind, type: string}]
+  # ---- TIMebase ----
+  - {header: ":TIMebase:DELay", state: timebase.delay}
+  - {header: ":TIMebase:REFerence", state: timebase.reference}
+  - {header: ":TIMebase:REFerence:POSition", state: timebase.reference_position}
+  - {header: ":TIMebase:SCALe", state: timebase.scale}
+  # ---- TRIGger ----
+  - header: ":TRIGger:MODE"
+    op: acq.trigger_mode
+    params: [{name: mode, type: enum, options: [SINGle, NORMal, AUTO, FTRIG], optional: true}]
+  - {header: ":TRIGger:RUN", op: acq.run, query: false}
+  - {header: ":TRIGger:STATus", op: acq.status, set: false}
+  - {header: ":TRIGger:STOP", op: acq.stop, query: false}
+  - {header: ":TRIGger:TYPE", state: trigger.type}
+  - {header: ":TRIGger:EDGE:COUPling", state: trigger.coupling}
+  - {header: ":TRIGger:EDGE:LEVel", state: trigger.level}
+  - {header: ":TRIGger:EDGE:SLOPe", state: trigger.slope}
+  - {header: ":TRIGger:EDGE:SOURce", state: trigger.source}
+  # ---- WAVeform ----
+  - {header: ":WAVeform:SOURce", state: waveform.source}
+  - {header: ":WAVeform:STARt", state: waveform.start}
+  - {header: ":WAVeform:INTerval", state: waveform.interval}
+  - {header: ":WAVeform:POINt", state: waveform.point}
+  - {header: ":WAVeform:MAXPoint", op: acq.maxpoint, set: false}
+  - {header: ":WAVeform:WIDTh", state: waveform.width}
+  - {header: ":WAVeform:PREamble", op: acq.wav_preamble, set: false}
+  - {header: ":WAVeform:DATA", op: acq.wav_data, set: false}

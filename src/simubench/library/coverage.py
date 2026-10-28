@@ -69,6 +69,10 @@ class Step(_Model):
     expect_match: str | None = Field(None, description="A regular expression the whole reply matches")
     expect_value: float | None = Field(None, description="The reply as a number")
     tolerance: float | None = Field(None, description="Absolute tolerance for expect_value")
+    binary: bool = Field(
+        False,
+        description="The reply is binary (a block): expect / expect_match apply to its bytes read as Latin-1",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> Step:
@@ -125,8 +129,8 @@ def load_coverage(path: Path) -> Coverage:
 
 
 def _norm(header: str) -> str:
-    """Headers compare as written, ignoring case, spaces and the root colon."""
-    return re.sub(r"\s+", "", header).lstrip(":").upper()
+    """Headers compare as written, ignoring case, spaces, the root colon and suffix names (<n>, <ch>)."""
+    return re.sub(r"<\w*>", "<>", re.sub(r"\s+", "", header)).lstrip(":").upper()
 
 
 def _matches(header: str, command: str) -> bool:
@@ -151,7 +155,7 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
     if coverage.model != definition.id:
         problems.append(f"coverage table is for {coverage.model!r}, the definition is {definition.id!r}")
     defined = {_norm(c.header): c.header for c in definition.commands}
-    builtin = {_norm(h) for h in BUILTIN_HEADERS}
+    builtin = {_norm(h) for h in (BUILTIN_HEADERS if definition.builtins is None else definition.builtins)}
     listed: dict[str, tuple[str, CoverageEntry]] = {}
     for section, entry in coverage.entries():
         key = _norm(entry.header)

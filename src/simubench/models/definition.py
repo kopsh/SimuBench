@@ -85,7 +85,9 @@ class ResponseFormat(_Model):
     exponent_digits: int = Field(2, ge=1, le=3, description="nr3: digits of the exponent, e.g. E+03 is 2")
     integer: Literal["plain", "signed"] = Field("plain", description="plain: 5; signed: +5")
     boolean: Literal["numeric", "word"] = Field("numeric", description="numeric: 1/0; word: ON/OFF")
-    enum: Literal["short", "long"] = Field("short", description="short: SIN; long: SINUSOID (upper case)")
+    enum: Literal["short", "long", "as_defined"] = Field(
+        "short", description="short: SIN; long: SINUSOID (upper case); as_defined: SINusoid, as in `options`"
+    )
     error_code: Literal["plain", "signed"] = Field(
         "plain", description='Code in :SYSTem:ERRor? replies: plain: 0,"No error"; signed: +0,"No error"'
     )
@@ -168,6 +170,11 @@ class Display(_Model):
     template: str | None = Field(None, description="UI class template, e.g. 'oscilloscope'")
     summary: list[str] = Field(default_factory=list)
     channel_summary: list[str] = Field(default_factory=list)
+    actions: dict[str, str] = Field(
+        default_factory=dict,
+        description="Commands the UI sends for front-panel actions, e.g. {single: ':TRIGger:MODE SINGle'}; "
+        "defaults: single ':SINGle'",
+    )
 
 
 class InstrumentDefinition(_Model):
@@ -198,6 +205,11 @@ class InstrumentDefinition(_Model):
     errors: dict[int, str] = Field(
         default_factory=dict,
         description="Error texts by code: overrides standard texts and adds device-specific codes",
+    )
+    builtins: list[str] | None = Field(
+        None,
+        description="Built-in headers this model answers (e.g. ['*IDN', '*OPC', '*RST']); the others are not "
+        "modeled. Default: all of them",
     )
     error_queue: int | None = Field(
         None, ge=2, description="Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)"
