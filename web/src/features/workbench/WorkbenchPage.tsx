@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
 import type { BenchDocument, EditOp, SessionInfo } from "@/api/client";
 import { useEventStream, useEvents, useWallClock } from "@/api/events";
 import type { Event } from "@/api/generated/events";
-import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useSession } from "@/api/hooks";
+import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useNetLevels, useSession } from "@/api/hooks";
 import { ErrorState } from "@/components/app/StateViews";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -316,6 +316,13 @@ function BenchCanvas({
           ),
     [editing, faults],
   );
+  // Live levels only for the running bench: an edited preview may differ from what is running.
+  const version = useDeferredValue(useEvents((s) => s.version));
+  const levelData = useNetLevels(session.id, version, !editing).data;
+  const levels = useMemo(
+    () => (editing || !levelData ? undefined : new Map(levelData.nets.map((n) => [n.net, n]))),
+    [editing, levelData],
+  );
   const layout = (doc?.data.layout as Record<string, { x: number; y: number }> | undefined) ?? undefined;
   // Node positions are part of the bench file (D8); moving a node never needs a restart.
   const onOps = useMemo(() => (session.bench_path ? (ops: EditOp[]) => void applyOps(ops) : undefined), [session.bench_path]);
@@ -336,7 +343,7 @@ function BenchCanvas({
   }
   return (
     <div className="relative h-full">
-      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} />
+      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} levels={levels} />
       {editing && (
         <div className="pointer-events-none absolute top-2 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
           {omitted.length > 0 && (

@@ -463,6 +463,35 @@ class SessionManager:
             )
 
     @staticmethod
+    def net_levels(served: ServedSession, points: int = 48) -> M.NetLevels:
+        """Every net's level and a thumbnail, in one read, for the canvas (D44)."""
+        s = served.session
+        with s._lock:
+            s.follow_wall()
+            out: list[M.NetLevel] = []
+            for net in s.nets:
+                sig = s.net_signal(net).merged()
+                pos = sig.freq > 0
+                amps = np.abs(sig.amp[pos])
+                f0 = float(sig.freq[pos][int(np.argmax(amps))]) if amps.size else 0.0
+                window = 2.0 / f0 if f0 > 0 else 2e-3
+                volts = sig.sample_rel(s.now_ns, np.arange(points) * (window / points))
+                peak = float(sig.peak())
+                dc = float(sig.mean())
+                out.append(
+                    M.NetLevel(
+                        net=net,
+                        dc=dc,
+                        rms=float(sig.rms()),
+                        peak=peak,
+                        active=peak > 0 or dc != 0,
+                        window_s=window,
+                        wave=[float(v) for v in volts],
+                    )
+                )
+            return M.NetLevels(t_ns=s.now_ns, nets=out)
+
+    @staticmethod
     def net_waveform(served: ServedSession, net: str, window_s: float, points: int) -> M.NetWaveform:
         s = served.session
         if net not in s.nets:

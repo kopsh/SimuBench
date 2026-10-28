@@ -11,6 +11,7 @@ export type WireInfo = Schemas["WireInfo"];
 export type BenchFile = Schemas["BenchFile"];
 export type ScopeScreen = Schemas["ScopeScreen"];
 export type Trace = Schemas["Trace"];
+export type NetLevel = Schemas["NetLevel"];
 export type ScpiResponse = Schemas["ScpiResponse"];
 export type ConfigureResponse = Schemas["ConfigureResponse"];
 export type BenchDocument = Schemas["BenchDocument"];
