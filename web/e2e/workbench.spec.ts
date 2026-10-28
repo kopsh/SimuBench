@@ -70,7 +70,11 @@ test("acquire from the scope screen without a script", async ({ page }) => {
   await startBench(page);
   const controls = page.getByRole("group", { name: "采集控制" });
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
-  await expect(page.getByText("信号源的输出打开了吗")).toBeVisible(); // outputs are off at power-on
+  // Outputs are off at power-on: the notice traces CH1 back to the generator, through the probe and the RC.
+  const why = page.getByRole("status", { name: "输入为 0 V 的原因" });
+  await expect(why).toContainText("探头 10×");
+  await expect(why).toContainText("RC 低通");
+  await expect(why).toContainText("函数发生器 OUT1 输出关闭");
   await page.getByRole("radio", { name: "最近采集" }).click();
   await expect(page.getByText("还没有采集")).toBeVisible();
   await controls.getByRole("button", { name: "单次" }).click();
@@ -81,6 +85,18 @@ test("acquire from the scope screen without a script", async ({ page }) => {
   await expect(page.getByText(/采集次数\s*[3-9]/)).toBeVisible();
   await controls.getByRole("button", { name: "停止" }).click();
   await expect(controls.getByRole("button", { name: "单次" })).toBeEnabled();
+});
+
+test("an unwired channel says so; clicking the source selects it", async ({ page }) => {
+  await startBench(page);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await input.fill(":CHANnel2:DISPlay ON");
+  await input.press("Enter");
+  const why = page.getByRole("status", { name: "输入为 0 V 的原因" });
+  await expect(why).toContainText("没有接线");
+  await page.getByRole("button", { name: "函数发生器 OUT1 输出关闭" }).click();
+  await expect(page.getByText("TCPIP0::192.168.1.20::5025::SOCKET")).toBeVisible(); // the generator is selected
 });
 
 test("open screens are remembered for the bench and reopen on the next start", async ({ page }) => {

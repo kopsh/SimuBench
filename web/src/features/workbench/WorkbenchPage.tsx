@@ -276,7 +276,7 @@ function Screen({ session, instrument, readonly }: { session: SessionInfo; instr
   if (!inst) return null;
   // The class template picks the screen (D1); instruments without one get the generic layout.
   const template = inst.display.template ?? inst.instrument_class;
-  if (template === "oscilloscope") return <ScopeScreen sid={session.id} inst={inst} readonly={readonly} />;
+  if (template === "oscilloscope") return <ScopeScreen session={session} inst={inst} readonly={readonly} />;
   if (template === "function_generator") return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "lockin") return <LockinScreen sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "spectrum_analyzer") return <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />;

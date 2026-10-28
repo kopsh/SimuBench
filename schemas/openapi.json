@@ -1871,6 +1871,14 @@
             "title": "Rms",
             "type": "number"
           },
+          "silence": {
+            "description": "Why the net reads 0 V; empty when it carries a signal",
+            "items": {
+              "$ref": "#/components/schemas/SilenceReason"
+            },
+            "title": "Silence",
+            "type": "array"
+          },
           "sources": {
             "description": "By RMS contribution, largest first",
             "items": {
@@ -1898,7 +1906,8 @@
           "line_count",
           "waveform",
           "sources",
-          "notes"
+          "notes",
+          "silence"
         ],
         "title": "NetProbe",
         "type": "object"
@@ -3189,6 +3198,67 @@
         "title": "SetState",
         "type": "object"
       },
+      "SilenceReason": {
+        "description": "Why a port or net reads 0 V, found by tracing the circuit upstream.",
+        "properties": {
+          "detail": {
+            "default": "",
+            "title": "Detail",
+            "type": "string"
+          },
+          "fault_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fault Id"
+          },
+          "kind": {
+            "enum": [
+              "unconnected",
+              "source_off",
+              "zero_setting",
+              "no_source",
+              "fault"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "description": "From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')",
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The source this reason is about, e.g. 'awg.OUT1'",
+            "title": "Source"
+          }
+        },
+        "required": [
+          "kind",
+          "path",
+          "source",
+          "fault_id",
+          "detail"
+        ],
+        "title": "SilenceReason",
+        "type": "object"
+      },
       "SourceContribution": {
         "description": "One independent source's share of a net's signal: its EMF times the circuit's transfer.",
         "properties": {
@@ -3689,6 +3759,14 @@
             "title": "Scale",
             "type": "number"
           },
+          "silence": {
+            "description": "Why the channel's input reads 0 V; empty when it carries a signal",
+            "items": {
+              "$ref": "#/components/schemas/SilenceReason"
+            },
+            "title": "Silence",
+            "type": "array"
+          },
           "t0_s": {
             "description": "Time of the first sample relative to the trigger",
             "title": "T0 S",
@@ -3713,7 +3791,8 @@
           "volts",
           "scale",
           "offset",
-          "triggered"
+          "triggered",
+          "silence"
         ],
         "title": "Trace",
         "type": "object"

@@ -1366,6 +1366,11 @@ export interface components {
             /** Rms */
             rms: number;
             /**
+             * Silence
+             * @description Why the net reads 0 V; empty when it carries a signal
+             */
+            silence: components["schemas"]["SilenceReason"][];
+            /**
              * Sources
              * @description By RMS contribution, largest first
              */
@@ -1855,6 +1860,34 @@ export interface components {
             value?: unknown;
         };
         /**
+         * SilenceReason
+         * @description Why a port or net reads 0 V, found by tracing the circuit upstream.
+         */
+        SilenceReason: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Fault Id */
+            fault_id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "unconnected" | "source_off" | "zero_setting" | "no_source" | "fault";
+            /**
+             * Path
+             * @description From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')
+             */
+            path: string[];
+            /**
+             * Source
+             * @description The source this reason is about, e.g. 'awg.OUT1'
+             */
+            source: string | null;
+        };
+        /**
          * SourceContribution
          * @description One independent source's share of a net's signal: its EMF times the circuit's transfer.
          */
@@ -2049,6 +2082,11 @@ export interface components {
             offset: number;
             /** Scale */
             scale: number;
+            /**
+             * Silence
+             * @description Why the channel's input reads 0 V; empty when it carries a signal
+             */
+            silence: components["schemas"]["SilenceReason"][];
             /**
              * T0 S
              * @description Time of the first sample relative to the trigger
