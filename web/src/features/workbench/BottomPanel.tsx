@@ -89,8 +89,9 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
       </div>
       {bottomTab === "comms" && (
         <>
-          <div className="text-muted-foreground grid h-6 shrink-0 grid-cols-[96px_88px_96px_28px_1fr_64px_72px] items-center gap-2 border-b px-3 text-[11px]">
+          <div className="text-muted-foreground grid h-6 shrink-0 grid-cols-[96px_96px_64px_96px_28px_1fr_64px_72px] items-center gap-2 border-b px-3 text-[11px]">
             <span title={t("panel.timeHint")}>{t("panel.virtualTime")}</span>
+            <span title={t("panel.wallTimeHint")}>{t("panel.wallTimeHeader")}</span>
             <span>{t("panel.source")}</span>
             <span>{t("panel.instrument")}</span>
             <span />
@@ -152,13 +153,14 @@ function CommRow({ e }: { e: Event }) {
   return (
     <div
       className={cn(
-        "hover:bg-accent/60 grid h-full cursor-default grid-cols-[96px_88px_96px_28px_1fr_64px_72px] items-center gap-2 px-3 text-[11.5px]",
+        "hover:bg-accent/60 grid h-full cursor-default grid-cols-[96px_96px_64px_96px_28px_1fr_64px_72px] items-center gap-2 px-3 text-[11.5px]",
         !write && "text-muted-foreground",
       )}
       onClick={() => e.instrument && select({ kind: "instrument", id: e.instrument })}
     >
-      <span className="num text-muted-foreground" title={e.wall ? t("panel.wallTime", { time: formatWall(e.wall) }) : undefined}>
-        {formatClock(e.t_ns)}
+      <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
+      <span className="num text-muted-foreground" data-testid="wall-time">
+        {e.wall ? formatWall(e.wall) : ""}
       </span>
       <span className="text-muted-foreground truncate" title={e.client ?? ""}>
         {clientLabel(e.client, t)}

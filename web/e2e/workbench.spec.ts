@@ -55,7 +55,7 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   const row = page.getByText(":CHANnel9:SCALe 1").locator("..");
   await expect(row).toBeVisible();
   await expect(row).toContainText("界面"); // who sent it
-  await expect(row.locator("span").first()).toHaveAttribute("title", /^实际时间 \d\d:\d\d:\d\d\.\d{3}$/);
+  await expect(row.getByTestId("wall-time")).toHaveText(/^\d\d:\d\d:\d\d\.\d{3}$/); // real time beside virtual time
 });
 
 test("open the scope screen by double-clicking its node", async ({ page }) => {
