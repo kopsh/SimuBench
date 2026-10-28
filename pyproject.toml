@@ -24,6 +24,10 @@ simubench = "simubench.cli:main"
 [project.entry-points.pytest11]
 simubench = "simubench.pytest_plugin"
 
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true
+
 [dependency-groups]
 dev = [
   "pytest>=8",

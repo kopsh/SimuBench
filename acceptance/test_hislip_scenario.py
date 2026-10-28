@@ -27,8 +27,11 @@ def test_identity_matches_the_in_process_backend():
 
 def test_status_byte_and_clear_match_the_in_process_backend():
     def drive(inst):
-        inst.write("*CLS;*ESE 1;*SRE 32;*OPC")
-        stb = inst.read_stb()  # ESB and RQS: the same bits both ways
+        # ESE without SRE: ESB is set while RQS stays down, so no AsyncServiceRequest is in
+        # flight — pyvisa-py's read_stb cannot cope with unsolicited SRQ messages. The SRQ
+        # behaviour itself is covered by the raw client in tests/test_hislip.py.
+        inst.write("*CLS;*ESE 1;*OPC")
+        stb = inst.read_stb()  # ESB: the same bits both ways
         assert inst.query(":SYSTem:ERRor?").startswith("0,")
         inst.clear()  # device clear over HiSLIP: same handshake, same effect
         return stb, inst.read_stb()  # the status byte survives the clear the same way
