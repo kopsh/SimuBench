@@ -1,0 +1,630 @@
+# The commands of the SDG Series Programming Guide PG02_E05C by section; levels and notes by hand.
+schema: simubench.coverage/1
+model: siglent-sdg2042x
+sections:
+- section: 3.1 IEEE 488.2 Common Commands (PG02_E05C)
+  commands:
+  - header: '*IDN'
+    level: implemented
+    note: 'Format 2 (SDG2000X): Siglent Technologies,<model>,<serial>,<firmware>'
+  - header: '*OPC'
+    level: implemented
+    note: 'Format 2: 1'
+  - header: '*RST'
+    level: implemented
+    note: '*RST values the manual does not give use SimuBench defaults: SINE, 1 kHz, 4 Vpp, 0 V, phase 0, output OFF, load HZ, NOR, duty 50 %, symmetry 50 %'
+- section: 3.2 Comm_Header Command (PG02_E05C)
+  commands:
+  - header: Comm_HeaDeR
+    level: not_modeled
+    note: not available on the SDG2000X (availability table)
+- section: 3.3 Output Command (PG02_E05C)
+  commands:
+  - header: C<ch>:OUTPut
+    level: implemented
+    note: ON|OFF, LOAD (50..100000 Ω or HZ), PLRT (NOR|INVT); reply C<n>:OUTP ON,LOAD,HZ,PLRT,NOR. Changing the load keeps the amplitude setting, so the output voltage changes (D13)
+  - header: C<ch>:NOISE_ADD
+    level: not_modeled
+  - header: OUT_BOTHCH
+    level: not_modeled
+- section: 3.4 Basic Wave Command (PG02_E05C)
+  commands:
+  - header: C<ch>:BaSic_WaVe
+    level: implemented
+    note: 'WVTP SINE, SQUARE (DUTY), RAMP (SYM), DC; FRQ, PERI, AMP, AMPVRMS, AMPDBM (finite load), OFST, HLEV, LLEV, PHSE, MAX_OUTPUT_AMP. PULSE, NOISE, ARB, PRBS, IQ and their parameters answer -224 (not
+      modeled). Reply in the order of the guide''s example (WVTP, FRQ, PERI, AMP, OFST, HLEV, LLEV, PHSE), then DUTY or SYM; numbers in their shortest form with the unit. Out of the data sheet''s ranges:
+      -222 and nothing changes'
+- section: 3.5 Modulate Wave Command (PG02_E05C)
+  commands:
+  - header: C<ch>:MoDulateWaVe
+    level: not_modeled
+- section: 3.6 Sweep Wave Command (PG02_E05C)
+  commands:
+  - header: C<ch>:SweepWaVe
+    level: not_modeled
+  - header: C<ch>:SWEep
+    level: not_modeled
+  - header: C<ch>:SWEep:TYPE
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:SOURce
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:FMODe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:AMODe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:FSNumber
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:ASNumber
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:TIME
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:SHTime
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:EHTime
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:RTIMe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:SFRequency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:EFRequency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CFRequency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:FSPan
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:SAMPlitude
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:EAMPlitude
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CAMPlitude
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:ASPan
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:FDIRection
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:ADIRection
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:FSYMmetry
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:ASYMmetry
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:TOUT
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:EDGe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:MTRigger
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:FMARker
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:MFRequency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:MSNumber
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:WTYPe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:FREQuency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:PHASe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:PAMPlitude
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:RAMPlitude
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:OFFSet
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:SYMMetry
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SWEep:CARRier:DUTY
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.7 Burst Wave Command (PG02_E05C)
+  commands:
+  - header: C<ch>:BursTWaVe
+    level: not_modeled
+- section: 3.8 Parameter Copy Command (PG02_E05C)
+  commands:
+  - header: PAraCoPy
+    level: implemented
+    note: 'PACP <destination>,<source>: every basic-wave and output parameter except the output switch'
+- section: 3.9 Arbitrary Wave Command (PG02_E05C)
+  commands:
+  - header: C<ch>:ARbWaVe
+    level: not_modeled
+  - header: C<ch>:MARKer
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.10 Sync Command (PG02_E05C)
+  commands:
+  - header: C<ch>:SYNC
+    level: accepted
+    note: ON|OFF and TYPE are stored; there is no sync output port
+- section: 3.11 Equal Phase Command (PG02_E05C)
+  commands:
+  - header: EQPHASE
+    level: not_modeled
+- section: 3.12 Number Format Command (PG02_E05C)
+  commands:
+  - header: NumBer_ForMat
+    level: not_modeled
+    note: replies always use a dot and no separator
+- section: 3.13 Language Command (PG02_E05C)
+  commands:
+  - header: LAnGuaGe
+    level: not_modeled
+- section: 3.14 Configuration Command (PG02_E05C)
+  commands:
+  - header: Sys_CFG
+    level: not_modeled
+- section: 3.15 Date and Time Command (PG02_E05C)
+  commands:
+  - header: SYSTem:DATE
+    level: not_modeled
+  - header: SYSTem:TIME
+    level: not_modeled
+- section: 3.16 Power On Command (PG02_E05C)
+  commands:
+  - header: POWer:ON
+    level: not_modeled
+- section: 3.17 Key Command (PG02_E05C)
+  commands:
+  - header: KEY
+    level: not_modeled
+- section: 3.18 Buzzer Command (PG02_E05C)
+  commands:
+  - header: BUZZer
+    level: accepted
+    note: ON|OFF stored; reply BUZZ ON
+- section: 3.19 Channel Trigger Source Setting Command (PG02_E05C)
+  commands:
+  - header: C<ch>:TRIGger:SOURce
+    level: not_modeled
+- section: 3.20 Screen Saver Command (PG02_E05C)
+  commands:
+  - header: SCreen_SaVe
+    level: not_modeled
+- section: 3.21 Clock Source Command (PG02_E05C)
+  commands:
+  - header: ROSCillator
+    level: not_modeled
+- section: 3.22 Frequency Counter Command (PG02_E05C)
+  commands:
+  - header: FreqCouNTer
+    level: not_modeled
+- section: 3.23 Counter Command (SDG7000A only) (PG02_E05C)
+  commands:
+  - header: :SENSe:COUNTer:CLEar
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MEASure
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:RFREQuency
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:SNUMBer
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:FDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MEAN
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MEAN:FDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MAX
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MAX:FDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MIN
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:MIN:FDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:SDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:SDEViation:FDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:PERiod
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:PERiod:MEAN
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:PERiod:MAX
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:PERiod:MIN
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:PERiod:SDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:DUTY
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:DUTY:MEAN
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:DUTY:MAX
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:DUTY:MIN
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:FREQuency:DUTY:SDEViation
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:TOTalizer:GATE:STATe
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:TOTalizer:EDGE
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:TOTalizer:GATE:MODE
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:TOTalizer:GOLarity:GATE:POLarity
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:TOTalizer:GOLarity:GATE:EDGE
+    level: not_modeled
+    note: SDG7000A only
+  - header: :SENSe:COUNTer:TOTalizer
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.24 Invert Command (PG02_E05C)
+  commands:
+  - header: C<ch>:INVerT
+    level: implemented
+    note: the same polarity as OUTP PLRT
+- section: 3.25 Digital Filter Command (PG02_E05C)
+  commands:
+  - header: C<ch>:FILTer
+    level: not_modeled
+- section: 3.26 Coupling Command (PG02_E05C)
+  commands:
+  - header: COUPling
+    level: not_modeled
+- section: 3.27 Over-Voltage Protection Command (PG02_E05C)
+  commands:
+  - header: VOLTPRT
+    level: not_modeled
+- section: 3.28 Over-Current Protection Command (PG02_E05C)
+  commands:
+  - header: C<ch>:OCP
+    level: not_modeled
+- section: 3.29 Overload Status Query Command (PG02_E05C)
+  commands:
+  - header: C<ch>:OVLD
+    level: not_modeled
+- section: 3.30 Output Skew (PG02_E05C)
+  commands:
+  - header: C<ch>:SKEW
+    level: not_modeled
+- section: 3.31 Store List Command (PG02_E05C)
+  commands:
+  - header: SToreList
+    level: not_modeled
+- section: 3.32 Arb Data Command (PG02_E05C)
+  commands:
+  - header: WaVeDaTa
+    level: not_modeled
+- section: 3.33 Sequence Command (SDG7000A only) (PG02_E05C)
+  commands:
+  - header: C<ch>:ARBMode
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:BURSt
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:RMODe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:TRIGger[:SEQuence]:SOURce
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:TRIGger[:SEQuence][:IMMediate]
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:TRIGger:TIMer
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:TRIGger[:SEQuence]:SLOPe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:COUNt
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:DEFAult
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:NEW
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:WAVeform
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:REPeat:COUNt
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:AMPlitude
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:OFFset
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:VOLTage:HIGH
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:VOLTage:LOW
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:LENGth
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:DELEte
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SEGMent<x>:INSErt
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:STATe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SCALe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:INCReasing
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:DECReasing
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:RECall
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:SEQuence:SAVe
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.34 Digital Channel Command (SDG7000A only) (PG02_E05C)
+  commands:
+  - header: DIG:SRATe
+    level: not_modeled
+    note: SDG7000A only
+  - header: DIG:PERiod
+    level: not_modeled
+    note: SDG7000A only
+  - header: DIG:CHANnel<x>:STATe
+    level: not_modeled
+    note: SDG7000A only
+  - header: DIG:OUTPut
+    level: not_modeled
+    note: SDG7000A only
+  - header: DIG:WAVeform
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.35 Frequency Hop Command (SDG7000A only) (PG02_E05C)
+  commands:
+  - header: C<ch>:FHOP:SWITch
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:STATe
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:TYPE
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:TIME
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:SFREquency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:EFREquency
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:FSTep
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:RPATtern
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:RLPAttern
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:ALSTate
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:AFLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:DFLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:CFLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:MFLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:AOLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:DOLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:COLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:MOLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:AALIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:DALIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:CALIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:LFLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:SFLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:LOLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:SOLIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:LALIst
+    level: not_modeled
+    note: SDG7000A only
+  - header: C<ch>:FHOP:SALIst
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.36 Virtual Key Command (PG02_E05C)
+  commands:
+  - header: VirtualKEY
+    level: not_modeled
+- section: 3.37 IP Command (PG02_E05C)
+  commands:
+  - header: SYSTem:COMMunicate:LAN:IPADdress
+    level: not_modeled
+- section: 3.38 Subnet Mask Command (PG02_E05C)
+  commands:
+  - header: SYSTem:COMMunicate:LAN:SMASk
+    level: not_modeled
+- section: 3.39 Gateway Command (PG02_E05C)
+  commands:
+  - header: SYSTem:COMMunicate:LAN:GATeway
+    level: not_modeled
+- section: 3.40 Sampling Rate Command (PG02_E05C)
+  commands:
+  - header: C<ch>:SampleRATE
+    level: not_modeled
+- section: 3.41 Harmonic Command (PG02_E05C)
+  commands:
+  - header: C<ch>:HARMonic
+    level: not_modeled
+- section: 3.42 Waveform Combining Command (PG02_E05C)
+  commands:
+  - header: C<ch>:CoMBiNe
+    level: not_modeled
+- section: 3.43 Mode Select Command (PG02_E05C)
+  commands:
+  - header: MODE
+    level: not_modeled
+    note: SDG7000A only
+- section: 3.44 Multi-Device Sync (PG02_E05C)
+  commands:
+  - header: CASCADE
+    level: not_modeled
+- section: 3.45 IQ Commands (PG02_E05C)
+  commands:
+  - header: IQ:WAVeinfo
+    level: not_modeled
+  - header: IQ:CENTerfreq
+    level: not_modeled
+  - header: IQ:SAMPlerate
+    level: not_modeled
+  - header: IQ:SYMBolrate
+    level: not_modeled
+  - header: IQ:AMPLitude
+    level: not_modeled
+  - header: IQ:IQADjustment:GAIN
+    level: not_modeled
+  - header: IQ:IQADjustment:IOFFset
+    level: not_modeled
+  - header: IQ:IQADjustment:QOFFset
+    level: not_modeled
+  - header: IQ:IQADjustment:QSKew
+    level: not_modeled
+  - header: IQ:TRIGger:SOURce
+    level: not_modeled
+  - header: IQ:WAVEload:BUILtin
+    level: not_modeled
+  - header: IQ:WAVEload:USERstored
+    level: not_modeled
+  - header: IQ:FrequencySampling
+    level: not_modeled
+- section: 3.46 File Operation Commands (SDG7000A only) (PG02_E05C)
+  commands:
+  - header: MMEMory:DELete
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:RDIRectory
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:MDIRectory
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:CATalog
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:COPY
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:MOVE
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:SAVE:XML
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:LOAD:XML
+    level: not_modeled
+    note: SDG7000A only
+  - header: MMEMory:TRANsfer
+    level: not_modeled
+    note: SDG7000A only

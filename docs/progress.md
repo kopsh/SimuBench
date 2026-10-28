@@ -125,7 +125,8 @@
 | 手册用例与通用运行器（PyVISA 后端，每条用例单独报告并带手册章节） | ✅ 虚构型号 `tests/models/acme-dm1` |
 | IEEE 488.2 语法：数字与单位间空格、多个带单位的参数、没有冒号层级的命令头 | ✅ 已支持，补充测试 |
 | Siglent SDS2104X Plus（D45，替代 InfiniiVision 3000T） | ✅ 手册用例 24 条；覆盖表 622 条（实现 36、接受 13、未实现 573）；按手册示例读取波形并与网络信号比对（8/10 位、BYTE/WORD）；示例测试台 `siglent_scope_rc` |
-| 型号：Keysight 34465A、Fluke 5522A、Siglent SDG2042X（替代 33500B）、Keithley 2450 | ⏳ 各自的 issue |
+| Siglent SDG2042X（D45，替代 33500B） | ✅ 手册用例 11 条；覆盖表 193 条（实现 7、接受 2、未实现 184）；负载设定（HZ / 50 Ω）与实际负载（1 MΩ / 50 Ω）四种组合下示波器读到的幅度与手工计算一致；占空比、对称度、反相；示例测试台 `siglent_scope_rc` 改为两台 Siglent |
+| 型号：Keysight 34465A、Fluke 5522A、Keithley 2450 | ⏳ 各自的 issue |
 
 ## HiSLIP 接入（Issue 3，D41）
 

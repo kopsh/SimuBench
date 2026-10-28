@@ -157,7 +157,7 @@ class Pattern:
             if not sm:
                 raise ValueError(f"bad pattern node {part!r} in {text!r}")
             word, suffix = sm.group(1), sm.group(2)
-            short = "".join(c for c in word if c.isupper() or c == "_") or word.upper()
+            short = "".join(c for c in word if c.isupper()) or word.upper()
             nodes.append(Node(word.upper(), short.upper(), optional, suffix))
         return Pattern(text, False, tuple(nodes))
 

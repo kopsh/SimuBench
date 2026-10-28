@@ -143,8 +143,8 @@ def test_example_bench_and_script_run_as_on_the_real_bench(tmp_path, capsys, mon
     monkeypatch.setattr(sys, "argv", ["x", "TCPIP0::192.168.1.31::INSTR", "C1", "--bench", str(bench)])
     reader.main()
     out = capsys.readouterr().out
-    # 2 Vpp is set for a 50 Ohm load (D13): the high-impedance RC sees 4 Vpp, passes 0.847 of it at
-    # 1 kHz, and the 10x probe divides by 10 while the scope still assumes 1X.
+    # The SDG2042X's 2 Vpp is set for a HiZ load (its default): the RC passes 0.847 of it at 1 kHz,
+    # and the 10x probe divides by 10 while the scope still assumes 1X.
     assert out.startswith("10000 points")
     lo, hi = (float(x.split()[0]) for x in out.split(" s, ")[1].split(" to "))
-    assert hi - lo == pytest.approx(4 * 0.847 / 10, rel=0.03)
+    assert hi - lo == pytest.approx(2 * 0.847 / 10, rel=0.03)

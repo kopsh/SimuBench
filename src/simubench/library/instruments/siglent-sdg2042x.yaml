@@ -1,0 +1,172 @@
+schema: simubench.instrument/1
+id: siglent-sdg2042x
+manufacturer: Siglent Technologies
+model: SDG2042X
+class: function_generator
+version: 1
+description: >-
+  Siglent SDG2042X, 2 channels, 40 MHz, 50 Ω outputs. Real model (D42, D45): commands and replies
+  follow the SDG Series Programming Guide PG02_E05C; ranges follow the SDG2000X data sheet EN02H.
+  Amplitudes are defined for the load setting (D13). Settings the manual gives no *RST value for
+  use the SimuBench defaults listed in the coverage table.
+reference:
+  title: SDG Series Arbitrary Waveform Generator Programming Guide
+  document: PG02_E05C
+  version: PG02_E05C (siglentna.com)
+  firmware: "SDG2000X, as covered by PG02_E05C"
+identity:
+  idn: "Siglent Technologies,SDG2042X,{serial},{firmware}"
+  serial: SDG2XCAX1R1234
+  firmware: "2.01.01.35R3B2"
+builtins: ["*IDN", "*OPC", "*RST"]
+specs:
+  source: SDG2000X Series Data Sheet EN02H
+  frequency_hz: {sine: [1.0e-6, 4.0e7], square: [1.0e-6, 2.5e7], ramp: [1.0e-6, 1.0e6], pulse: [1.0e-6, 2.5e7]}
+  amplitude_vpp_hiz: {up_to_20mhz: [2.0e-3, 20.0], above_20mhz: [2.0e-3, 10.0]}
+  amplitude_accuracy: "±(1%+1mVpp), 10 kHz sine, 0 V offset"
+  dc_range_v_hiz: [-10.0, 10.0]
+  dc_accuracy: "±(1%+2mV), HiZ"
+  output_impedance_ohm: 50.0
+  square_rise_time_s: 9.0e-9
+  jitter_s_rms: 1.5e-10
+channels:
+  count: 2
+state:
+  buzzer:
+    type: bool
+    default: true
+channel_state:
+  function:
+    type: enum
+    options: [SINE, SQUARE, RAMP, DC]
+    default: SINE
+    label: 波形
+    label_en: Function
+  frequency:
+    type: float
+    unit: HZ
+    min: 1.0e-6
+    max: 4.0e7
+    default: 1000.0
+    label: 频率
+    label_en: Frequency
+  amplitude:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 20.0
+    default: 4.0
+    label: 幅度
+    label_en: Amplitude
+  offset:
+    type: float
+    unit: V
+    min: -10.0
+    max: 10.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  phase:
+    type: float
+    min: 0.0
+    max: 360.0
+    default: 0.0
+    label: 相位
+    label_en: Phase
+  duty:
+    type: float
+    min: 0.001
+    max: 99.999
+    default: 50.0
+  symmetry:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 50.0
+  max_output_amp:
+    type: float
+    min: 1.0
+    max: 20.0
+    default: 20.0
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  load:
+    type: float
+    unit: OHM
+    min: 50.0
+    max: 100000.0
+    default: .inf
+    special: {HZ: .inf}
+    label: 负载设定
+    label_en: Load setting
+  invert:
+    type: bool
+    default: false
+    label: 反相
+    label_en: Invert
+  sync:
+    type: bool
+    default: false
+  sync_type:
+    type: enum
+    options: [CH1, CH2, MOD_CH1, MOD_CH2]
+    default: CH1
+components:
+  - name: sdg
+    type: siglent_sdg
+channel_components:
+  - name: gen
+    type: function_generator_core
+    params:
+      function: $ch.function
+      frequency: $ch.frequency
+      amplitude: $ch.amplitude
+      offset: $ch.offset
+      phase: $ch.phase
+      duty: $ch.duty
+      symmetry: $ch.symmetry
+      bandwidth: 1.2e8
+  - name: out
+    type: output_stage
+    params:
+      z_out: 50.0
+      enabled: $ch.output
+      load_setting: $ch.load
+      invert: $ch.invert
+  - name: limits
+    type: siglent_sdg_channel_limits
+wiring:
+  channel:
+    - [gen.out, out.in]
+ports:
+  channel:
+    "CH{n}": out.pin
+display:
+  template: function_generator
+  channel_summary: [function, frequency, amplitude, offset, output, load]
+capabilities: [function_generator]
+commands:
+  - header: "C<ch>:BaSic_WaVe"
+    op: sdg.bswv
+    params: [{name: params, type: raw}]
+  - header: "C<ch>:OUTPut"
+    op: sdg.outp
+    dangerous: true
+    params: [{name: params, type: raw}]
+  - header: "C<ch>:INVerT"
+    op: sdg.invt
+    params: [{name: state, type: bool, optional: true}]
+  - header: "C<ch>:SYNC"
+    op: sdg.sync
+    params: [{name: params, type: raw}]
+  - header: "PAraCoPy"
+    op: sdg.pacp
+    query: false
+    params: [{name: params, type: raw}]
+  - header: "BUZZer"
+    op: sdg.buzz
+    params: [{name: state, type: bool, optional: true}]
