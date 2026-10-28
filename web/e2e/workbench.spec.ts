@@ -63,6 +63,23 @@ test("open the scope screen by double-clicking its node", async ({ page }) => {
   await expect(page.getByText("实时预览")).toBeVisible();
 });
 
+test("acquire from the scope screen without a script", async ({ page }) => {
+  await startBench(page);
+  const controls = page.getByRole("group", { name: "采集控制" });
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  await expect(page.getByText("信号源的输出打开了吗")).toBeVisible(); // outputs are off at power-on
+  await page.getByRole("radio", { name: "最近采集" }).click();
+  await expect(page.getByText("还没有采集")).toBeVisible();
+  await controls.getByRole("button", { name: "单次" }).click();
+  await expect(page.getByText("还没有采集")).toBeHidden();
+  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  await expect(page.getByText(":SINGle").first()).toBeVisible(); // in the communication log, like a script's
+  await controls.getByRole("button", { name: "运行" }).click();
+  await expect(page.getByText(/采集次数\s*[3-9]/)).toBeVisible();
+  await controls.getByRole("button", { name: "停止" }).click();
+  await expect(controls.getByRole("button", { name: "单次" })).toBeEnabled();
+});
+
 test("switch to English and dark theme", async ({ page }) => {
   await startBench(page);
   await page.getByRole("button", { name: "设置" }).click();
