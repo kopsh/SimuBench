@@ -13,4 +13,14 @@ passes CI merges itself into `main`, with no review.
 6. Never push to `main` directly, and never weaken, skip or delete tests to get CI green.
 
 Before changing behaviour, read `docs/decisions.md` (the recorded decisions) and
-`docs/progress.md` (what is done). A new design choice gets a new decision entry there.
+`docs/progress.md` (what is done). A decision entry is written only for a choice that satisfies
+both:
+
+1. **Real alternatives existed** — either path would have worked, and someone may want to reverse
+   it later;
+2. **The impact reaches beyond one feature** — file formats, APIs, terminology, product scope,
+   the security model, and the like.
+
+Feature-level descriptions belong in issues, pull requests and their docs (`docs/real-models.md`,
+`docs/architecture.md`, `docs/glossary.md`, …). To change an existing decision, edit its entry; do
+not add a new one.
