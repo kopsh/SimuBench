@@ -127,20 +127,41 @@ def parse_block(raw: bytes) -> bytes:
 # ---- responses ----------------------------------------------------------------------------------
 
 
-def format_float(v: float, digits: int = 6) -> bytes:
-    return format_nr3(float(v), digits).encode()
+def format_float(
+    v: float, digits: int = 6, *, style: str = "nr3", sign: bool = True, exponent_digits: int = 2
+) -> bytes:
+    """A number as a response: NR3 ``+1.000000E+03`` (default), NR2 ``+1000.000000`` or NR1 ``+1000``.
+
+    Infinity and NaN are written as the SCPI sentinels 9.9E+37 and 9.91E+37 in the same format.
+    """
+    v = float(v)
+    if style == "nr3" and digits == 6 and sign and exponent_digits == 2:
+        return format_nr3(v, digits).encode()  # the long-standing default, sentinels included
+    if not math.isfinite(v):
+        v = 9.91e37 if math.isnan(v) else math.copysign(9.9e37, v)
+    lead = "-" if v < 0 else ("+" if sign else "")
+    a = abs(v)
+    if style == "nr1":
+        return f"{lead}{round(a)}".encode()
+    if style == "nr2":
+        return f"{lead}{a:.{digits}f}".encode()
+    mantissa, exp = f"{a:.{digits}E}".split("E")
+    e = int(exp)
+    return f"{lead}{mantissa}E{'+' if e >= 0 else '-'}{abs(e):0{exponent_digits}d}".encode()
 
 
 def format_int(v: int) -> bytes:
     return str(int(v)).encode()
 
 
-def format_bool(v: bool) -> bytes:
+def format_bool(v: bool, word: bool = False) -> bytes:
+    if word:
+        return b"ON" if v else b"OFF"
     return b"1" if v else b"0"
 
 
-def format_enum(v: str) -> bytes:
-    return short_form(v).encode()
+def format_enum(v: str, long: bool = False) -> bytes:
+    return (v.upper() if long else short_form(v)).encode()
 
 
 def format_string(v: str) -> bytes:

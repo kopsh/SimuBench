@@ -67,6 +67,18 @@
           "description": "Virtual time the command consumes (D12)",
           "title": "Duration"
         },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overrides the definition's response format"
+        },
         "header": {
           "description": "Header pattern, e.g. '[:SOURce<ch>]:FREQuency[:CW]'",
           "title": "Header",
@@ -321,6 +333,142 @@
         }
       },
       "title": "Ports",
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "description": "The manual a real-model definition follows (D42): behavior is checked against this edition.",
+      "properties": {
+        "document": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Document or part number",
+          "title": "Document"
+        },
+        "firmware": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Firmware version the manual describes",
+          "title": "Firmware"
+        },
+        "title": {
+          "description": "e.g. 'Keysight Truevolt Series Operating and Service Guide'",
+          "title": "Title",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Edition, revision or date",
+          "title": "Version"
+        }
+      },
+      "required": [
+        "title"
+      ],
+      "title": "Reference",
+      "type": "object"
+    },
+    "ResponseFormat": {
+      "additionalProperties": false,
+      "description": "How query responses are written (real models, D42): numbers, booleans and enumerations.\n\nThe defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.",
+      "properties": {
+        "boolean": {
+          "default": "numeric",
+          "description": "numeric: 1/0; word: ON/OFF",
+          "enum": [
+            "numeric",
+            "word"
+          ],
+          "title": "Boolean",
+          "type": "string"
+        },
+        "digits": {
+          "default": 6,
+          "description": "Digits after the decimal point (nr3 mantissa, nr2)",
+          "maximum": 17,
+          "minimum": 0,
+          "title": "Digits",
+          "type": "integer"
+        },
+        "enum": {
+          "default": "short",
+          "description": "short: SIN; long: SINUSOID (upper case)",
+          "enum": [
+            "short",
+            "long"
+          ],
+          "title": "Enum",
+          "type": "string"
+        },
+        "error_code": {
+          "default": "plain",
+          "description": "Code in :SYSTem:ERRor? replies: plain: 0,\"No error\"; signed: +0,\"No error\"",
+          "enum": [
+            "plain",
+            "signed"
+          ],
+          "title": "Error Code",
+          "type": "string"
+        },
+        "exponent_digits": {
+          "default": 2,
+          "description": "nr3: digits of the exponent, e.g. E+03 is 2",
+          "maximum": 3,
+          "minimum": 1,
+          "title": "Exponent Digits",
+          "type": "integer"
+        },
+        "integer": {
+          "default": "plain",
+          "description": "plain: 5; signed: +5",
+          "enum": [
+            "plain",
+            "signed"
+          ],
+          "title": "Integer",
+          "type": "string"
+        },
+        "number": {
+          "default": "nr3",
+          "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded)",
+          "enum": [
+            "nr3",
+            "nr2",
+            "nr1"
+          ],
+          "title": "Number",
+          "type": "string"
+        },
+        "sign": {
+          "default": true,
+          "description": "Write '+' before non-negative numbers",
+          "title": "Sign",
+          "type": "boolean"
+        }
+      },
+      "title": "ResponseFormat",
       "type": "object"
     },
     "StateSpec": {
@@ -609,6 +757,32 @@
     "display": {
       "$ref": "#/$defs/Display"
     },
+    "error_queue": {
+      "anyOf": [
+        {
+          "minimum": 2,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)",
+      "title": "Error Queue"
+    },
+    "errors": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Error texts by code: overrides standard texts and adds device-specific codes",
+      "title": "Errors",
+      "type": "object"
+    },
+    "format": {
+      "$ref": "#/$defs/ResponseFormat",
+      "description": "Default response format"
+    },
     "id": {
       "title": "Id",
       "type": "string"
@@ -627,11 +801,29 @@
     "ports": {
       "$ref": "#/$defs/Ports"
     },
+    "reference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Reference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The manual this definition follows; a definition with a reference is a real model: unknown commands answer -113 'not modeled by SimuBench', error texts follow `errors`"
+    },
     "schema": {
       "const": "simubench.instrument/1",
       "default": "simubench.instrument/1",
       "title": "Schema",
       "type": "string"
+    },
+    "specs": {
+      "additionalProperties": true,
+      "description": "Accuracy and other specifications from the manual; stored, not yet used in calculations",
+      "title": "Specs",
+      "type": "object"
     },
     "state": {
       "additionalProperties": {
