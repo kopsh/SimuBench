@@ -417,6 +417,23 @@ class NetProbe(_Model):
     )
 
 
+class NetLevel(_Model):
+    """A net's level for the canvas: whether a signal is there, and a small picture of it."""
+
+    net: str
+    dc: float
+    rms: float
+    peak: float
+    active: bool = Field(..., description="Carries a signal (not a flat 0 V)")
+    window_s: float = Field(..., description="Span of ``wave``: two periods of the strongest line, or 2 ms")
+    wave: list[float] = Field(..., description="A few dozen samples over ``window_s``, for a thumbnail")
+
+
+class NetLevels(_Model):
+    t_ns: int
+    nets: list[NetLevel]
+
+
 class Event(_Model):
     """One event of the session's event stream (WebSocket)."""
 

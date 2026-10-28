@@ -99,6 +99,23 @@ test("an unwired channel says so; clicking the source selects it", async ({ page
   await expect(page.getByText("TCPIP0::192.168.1.20::5025::SOCKET")).toBeVisible(); // the generator is selected
 });
 
+test("live canvas: wires and thumbnails follow the signal, nodes flash on commands", async ({ page }) => {
+  await startBench(page);
+  const sid = new URL(page.url()).pathname.split("/").pop()!;
+  // Output off at power-on: every wire silent, the scope thumbnail flat, the clock waiting.
+  await expect(page.locator('path[data-level="silent"]')).toHaveCount(2);
+  await expect(page.getByRole("img", { name: "CH1 0 V" })).toBeVisible();
+  await expect(page.getByTestId("session-activity")).toContainText("等待命令");
+  await page.request.post(`/api/sessions/${sid}/instruments/awg/scpi`, {
+    headers: { "x-simubench-token": TOKEN },
+    data: { command: ":OUTPut1 ON" },
+  });
+  await expect(page.locator('path[data-level="live"]')).toHaveCount(2);
+  await expect(page.getByRole("img", { name: "CH1 signal" })).toBeVisible();
+  await expect(page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).getByTestId("node-activity")).toHaveCount(1);
+  await expect(page.getByTestId("session-activity")).toContainText("等待命令"); // back to waiting once it is done
+});
+
 test("open screens are remembered for the bench and reopen on the next start", async ({ page }) => {
   await startBench(page);
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();

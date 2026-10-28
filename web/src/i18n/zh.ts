@@ -49,6 +49,13 @@ export const zh = {
     inspector: "检查器",
     noSelection: "选择画布中的仪表、DUT 或连线以查看属性。",
     running: "运行中",
+    activity: { idle: "等待命令", busy: "执行命令", wall: "时钟走动" },
+    activityHint: {
+      idle: "命令驱动时钟：没有命令时虚拟时间不前进，画面保持不变。发送命令、点击“推进”，或在示波器屏幕上点“运行”。",
+      busy: "正在执行命令，虚拟时间随命令前进。",
+      wall: "墙钟：虚拟时间按真实时间前进，画面自动刷新。",
+    },
+    peak: "峰值",
     clock: "虚拟时间",
     clockMode: { command: "命令驱动时钟", wall: "墙钟", stepped: "步进时钟" },
     advance: "推进",

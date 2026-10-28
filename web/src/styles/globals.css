@@ -172,3 +172,34 @@
   --xy-controls-button-border-color: var(--border);
   --xy-attribution-background-color: transparent;
 }
+
+/* Live canvas (D44): a wire carrying a signal flows from source to load; a node receiving SCPI flashes. */
+@keyframes wire-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.wire-live {
+  stroke-dasharray: 8 4;
+  animation: wire-flow 0.8s linear infinite;
+}
+@keyframes node-activity {
+  from {
+    box-shadow: 0 0 0 3px color-mix(in oklch, var(--primary) 55%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+.node-activity {
+  animation: node-activity 0.7s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .wire-live {
+    animation: none;
+  }
+  .node-activity {
+    animation: none;
+    outline: 2px solid var(--primary);
+  }
+}

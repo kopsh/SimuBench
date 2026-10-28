@@ -48,7 +48,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
         <div className="truncate text-[13px] leading-tight font-medium">{session.bench_name}</div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{session.bench_path}</div>
       </div>
-      <ConnectionBadge status={status} />
+      <ConnectionBadge status={status} clockMode={session.clock_mode} />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <EditControls session={session} />
 
@@ -120,20 +120,30 @@ export function TopBar({ session }: { session: SessionInfo }) {
   );
 }
 
-function ConnectionBadge({ status }: { status: ConnectionState }) {
+function ConnectionBadge({ status, clockMode }: { status: ConnectionState; clockMode: string }) {
   const { t } = useTranslation();
+  const busy = useEvents((s) => s.busy);
+  // "Running" alone hid that a command-driven clock stands still between commands (D44).
+  const activity = clockMode === "wall" ? "wall" : busy ? "busy" : "idle";
   const map: Record<ConnectionState, [string, string]> = {
-    connected: ["bg-ok", t("workbench.running")],
+    connected: [activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse", `${t("workbench.running")} · ${t(`workbench.activity.${activity}`)}`],
     connecting: ["bg-warn animate-pulse", t("connection.connecting")],
     reconnecting: ["bg-error animate-pulse", t("connection.disconnected")],
     unauthorized: ["bg-error", t("connection.unauthorized")],
     gone: ["bg-off", t("errors.notFound")],
   };
   const [dot, label] = map[status];
-  return (
-    <span className="text-muted-foreground ml-2 inline-flex items-center gap-1.5 text-[11px]">
+  const badge = (
+    <span className="text-muted-foreground ml-2 inline-flex items-center gap-1.5 text-[11px]" data-testid="session-activity">
       <span className={cn("size-2 rounded-full", dot)} aria-hidden />
       {label}
     </span>
+  );
+  if (status !== "connected") return badge;
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{badge}</TooltipTrigger>
+      <TooltipContent className="max-w-xs">{t(`workbench.activityHint.${activity}`)}</TooltipContent>
+    </Tooltip>
   );
 }

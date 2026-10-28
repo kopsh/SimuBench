@@ -556,6 +556,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/levels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Net Levels
+         * @description Every net's level and a thumbnail, for the canvas (D44).
+         */
+        get: operations["getNetLevels"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/nets/{net}/probe": {
         parameters: {
             query?: never;
@@ -1337,6 +1357,42 @@ export interface components {
              * @description Why the signal on this net is not exact (empty when it is)
              */
             notes: string[];
+        };
+        /**
+         * NetLevel
+         * @description A net's level for the canvas: whether a signal is there, and a small picture of it.
+         */
+        NetLevel: {
+            /**
+             * Active
+             * @description Carries a signal (not a flat 0 V)
+             */
+            active: boolean;
+            /** Dc */
+            dc: number;
+            /** Net */
+            net: string;
+            /** Peak */
+            peak: number;
+            /** Rms */
+            rms: number;
+            /**
+             * Wave
+             * @description A few dozen samples over ``window_s``, for a thumbnail
+             */
+            wave: number[];
+            /**
+             * Window S
+             * @description Span of ``wave``: two periods of the strongest line, or 2 ms
+             */
+            window_s: number;
+        };
+        /** NetLevels */
+        NetLevels: {
+            /** Nets */
+            nets: components["schemas"]["NetLevel"][];
+            /** T Ns */
+            t_ns: number;
         };
         /**
          * NetProbe
@@ -3195,6 +3251,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeScreen"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getNetLevels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetLevels"];
                 };
             };
             /** @description Validation Error */

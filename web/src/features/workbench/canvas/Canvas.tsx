@@ -16,7 +16,8 @@ import {
 import "@xyflow/react/dist/base.css";
 import { type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { EditOp, SessionInfo } from "@/api/client";
+import type { EditOp, NetLevel, SessionInfo } from "@/api/client";
+import { useEvents } from "@/api/events";
 import { channelColor } from "@/lib/channels";
 import { useTheme } from "@/lib/theme";
 import { accessoryLabel, channelOfRef, isReferenceRef } from "../model";
@@ -53,6 +54,8 @@ export interface CanvasProps {
   issues?: Map<string, Issue>;
   /** Instruments and DUTs with an active fault. */
   faulted?: Set<string>;
+  /** Live level of each net (D44); without it, wires are drawn as before, without signal state. */
+  levels?: Map<string, NetLevel>;
 }
 
 function split(ref: string): [string, string] {
@@ -71,12 +74,20 @@ function positionsOf(view: SessionInfo, layout: Record<string, Point> | undefine
   return out;
 }
 
-function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues, faulted }: CanvasProps) {
+/** Direction of the port a wire end refers to, to flow from source to load. */
+function directionOf(view: SessionInfo, ref: string): string | undefined {
+  const [owner, port] = split(ref);
+  const ports = view.instruments.find((i) => i.name === owner)?.ports ?? view.duts.find((d) => d.name === owner)?.ports;
+  return ports?.find((p) => p.name === port)?.direction;
+}
+
+function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues, faulted, levels }: CanvasProps) {
   const { t } = useTranslation();
   const { selection, select } = useWorkbench();
   const theme = useTheme((s) => s.resolved);
   const flow = useReactFlow();
   const positions = useMemo(() => positionsOf(view, layout), [view, layout]);
+  const activity = useEvents((s) => s.activity);
 
   const selectedNet =
     selection?.kind === "wire"
@@ -91,7 +102,16 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
         id: inst.name,
         type: "instrument",
         position: positions[inst.name],
-        data: { inst, editable, issue: issues?.get(inst.name), fault: faulted?.has(inst.name) },
+        data: {
+          inst,
+          editable,
+          issue: issues?.get(inst.name),
+          fault: faulted?.has(inst.name),
+          levels: levels
+            ? Object.fromEntries(inst.ports.flatMap((p) => (p.net && levels.get(p.net) ? [[p.name, levels.get(p.net)!]] : [])))
+            : undefined,
+          activity: levels ? activity[inst.name] : undefined,
+        },
       })),
       ...view.duts.map<DutNodeType>((dut) => ({
         id: dut.name,
@@ -100,7 +120,7 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
         data: { dut, editable, issue: issues?.get(dut.name), fault: faulted?.has(dut.name) },
       })),
     ],
-    [view, positions, editable, issues, faulted],
+    [view, positions, editable, issues, faulted, levels, activity],
   );
   const selectedId = selection?.kind === "instrument" || selection?.kind === "dut" ? selection.id : null;
   const [nodes, setNodes] = useState<AnyNode[]>(() => built.map((n) => ({ ...n, selected: n.id === selectedId })));
@@ -148,10 +168,12 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
             notes: view.nets.find((n) => n.id === w.net)?.notes ?? [],
             highlighted: !!selectedNet && w.net === selectedNet,
             issue: issues?.get(`wire:${w.index}`),
+            level: w.net ? levels?.get(w.net) : undefined,
+            reverse: directionOf(view, w.from) === "in" && directionOf(view, w.to) !== "in",
           },
         };
       }),
-    [view, selection, selectedNet, issues],
+    [view, selection, selectedNet, issues, levels],
   );
 
   const onNodesChange = useCallback(

@@ -437,6 +437,16 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise not_found(exc) from None
 
     @app.get(
+        "/api/sessions/{sid}/levels",
+        response_model=M.NetLevels,
+        operation_id="getNetLevels",
+        dependencies=[Depends(auth)],
+    )
+    async def net_levels(sid: str) -> M.NetLevels:
+        """Every net's level and a thumbnail, for the canvas (D44)."""
+        return await asyncio.to_thread(manager.net_levels, served(sid))
+
+    @app.get(
         "/api/sessions/{sid}/nets/{net}/waveform",
         response_model=M.NetWaveform,
         operation_id="getNetWaveform",
