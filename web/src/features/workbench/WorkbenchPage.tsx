@@ -10,6 +10,7 @@ import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useSession }
 import { ErrorState } from "@/components/app/StateViews";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
+import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { BottomPanel } from "./BottomPanel";
 import { Canvas, type LibraryItem } from "./canvas/Canvas";
@@ -43,6 +44,7 @@ export function WorkbenchPage() {
   const session = useSession(sid);
   const reset = useWorkbench((s) => s.reset);
   useEffect(() => reset(), [sid, reset]);
+  useRememberedScreens(session.data);
 
   // State events patch the cached session at once; a debounced refetch keeps error queues in step.
   const refetchTimer = useRef<number | undefined>(undefined);
@@ -352,4 +354,32 @@ function BenchCanvas({
       )}
     </div>
   );
+}
+
+/**
+ * The screens open on a bench are remembered per bench file in this browser and reopened the next
+ * time it starts, so a scope screen does not have to be opened by hand every time.
+ */
+function useRememberedScreens(session: SessionInfo | undefined) {
+  const restore = useWorkbench((s) => s.restore);
+  const key = session ? `screens:${session.bench_path ?? session.bench_name}` : null;
+  // Restored once per session (a new start of the same bench restores again, after the reset).
+  const marker = session && key ? `${session.id}|${key}` : null;
+  const restored = useRef<string | null>(null);
+  const names = session?.instruments.map((i) => i.name).join("\n");
+  useEffect(() => {
+    if (!key || !marker || names === undefined || restored.current === marker) return;
+    restored.current = marker;
+    const known = new Set(names.split("\n"));
+    const saved = load<{ tabs: Tab[]; active: string }>(key, { tabs: [], active: "canvas" });
+    restore(
+      saved.tabs.filter((t) => t.kind === "screen" && known.has(t.instrument)),
+      saved.active,
+    );
+  }, [key, marker, names, restore]);
+  const tabs = useWorkbench((s) => s.tabs);
+  const active = useWorkbench((s) => s.active);
+  useEffect(() => {
+    if (key && marker && restored.current === marker) save(key, { tabs: tabs.filter((t) => t.kind === "screen"), active });
+  }, [key, marker, tabs, active]);
 }
