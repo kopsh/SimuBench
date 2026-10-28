@@ -1,5 +1,8 @@
 import { BaseEdge, type Edge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from "@xyflow/react";
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
+import type { NetLevel } from "@/api/client";
+import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type WireEdgeData = {
@@ -11,6 +14,10 @@ export type WireEdgeData = {
   reference?: boolean;
   /** Why the signal on this wire's net is not exact (fidelity); shown as ≈ with the reasons. */
   notes?: string[];
+  /** The net's live level (D44): grey at 0 V, flowing in the channel color while it carries a signal. */
+  level?: NetLevel;
+  /** The wire was drawn from its load to its source: flow the other way. */
+  reverse?: boolean;
 };
 export type WireEdgeType = Edge<WireEdgeData, "wire">;
 
@@ -21,14 +28,25 @@ function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
   const approx = (data?.notes?.length ?? 0) > 0;
   const label = [data?.reference ? "REF" : null, data?.label, approx ? "≈" : null].filter(Boolean).join(" · ") || undefined;
   const emphasis = selected || data?.highlighted;
+  const level = data?.level;
+  const silent = !!level && !level.active && !data?.issue;
+  const live = !!level?.active && !data?.issue && !data?.reference;
   return (
     <>
-      <BaseEdge id={id} path={path} style={{
-          stroke: color,
+      <BaseEdge
+        id={id}
+        path={path}
+        className={cn(live && "wire-live")}
+        data-level={level ? (level.active ? "live" : "silent") : undefined}
+        style={{
+          stroke: silent ? "var(--muted-foreground)" : color,
           strokeWidth: emphasis ? 3.5 : 2,
-          opacity: emphasis ? 1 : 0.85,
+          opacity: emphasis ? 1 : silent ? 0.45 : 0.85,
           strokeDasharray: data?.issue ? "6 4" : data?.reference ? "10 3 2 3" : undefined,
-        }} />
+          animationDirection: live && data?.reverse ? "reverse" : undefined,
+        }}
+      />
+      {level && <LevelHover path={path} level={level} />}
       {label && (
         <EdgeLabelRenderer>
           <div
@@ -46,6 +64,19 @@ function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
         </EdgeLabelRenderer>
       )}
     </>
+  );
+}
+
+/** Hovering a wire shows its net's present level (from the virtual probe's numbers). */
+function LevelHover({ path, level }: { path: string; level: NetLevel }) {
+  const { t } = useTranslation();
+  const text = level.active
+    ? `${level.net} · DC ${formatEng(level.dc, "V", 3)} · RMS ${formatEng(level.rms, "V", 3)} · ${t("workbench.peak")} ${formatEng(level.peak, "V", 3)}`
+    : `${level.net} · 0 V`;
+  return (
+    <path d={path} fill="none" stroke="transparent" strokeWidth={14} className="react-flow__edge-interaction" data-testid="wire-level">
+      <title>{text}</title>
+    </path>
   );
 }
 

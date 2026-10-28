@@ -2,14 +2,23 @@ import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
 import { Activity, AlertTriangle, AudioWaveform, BarChart3, BatteryCharging, Cpu, Crosshair, Gauge, Radio, SquareFunction, Waves, Zap } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
-import type { InstrumentInfo, StateVarInfo } from "@/api/client";
+import type { InstrumentInfo, NetLevel, StateVarInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { cn } from "@/lib/utils";
 import { formatValue, instrumentTitle, stateMap, varName } from "../model";
 import { useWorkbench } from "../store";
 
 export type Issue = "error" | "warning";
-export type InstrumentNodeData = { inst: InstrumentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
+export type InstrumentNodeData = {
+  inst: InstrumentInfo;
+  editable?: boolean;
+  issue?: Issue;
+  fault?: boolean;
+  /** Live level of the net on each port, by port name (D44). */
+  levels?: Record<string, NetLevel>;
+  /** Commands received so far: each new one flashes the node (D44). */
+  activity?: number;
+};
 export type InstrumentNodeType = Node<InstrumentNodeData, "instrument">;
 
 export const CLASS_ICON: Record<string, typeof Activity> = {
@@ -30,7 +39,7 @@ export const CLASS_ICON: Record<string, typeof Activity> = {
  */
 function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
   const { t } = useTranslation();
-  const { inst, editable, issue, fault } = data;
+  const { inst, editable, issue, fault, levels, activity } = data;
   const Icon = CLASS_ICON[inst.instrument_class] ?? Cpu;
   const vars = stateMap(inst);
   const chanKeys = inst.display.channel_summary.length ? inst.display.channel_summary : [];
@@ -50,8 +59,10 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
         issue === "error" && "border-error",
         issue === "warning" && "border-warn",
         selected && "ring-primary ring-2 shadow-md",
+        "relative",
       )}
     >
+      {!!activity && <div key={activity} className="node-activity pointer-events-none absolute inset-0 rounded-lg" data-testid="node-activity" aria-hidden />}
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <Icon className="text-muted-foreground size-4 shrink-0" />
         <div className="min-w-0 flex-1">
@@ -94,6 +105,7 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
                   return v ? <Summary key={k} v={v} channelRow /> : null;
                 })}
             </div>
+            {isScope && levels && <Thumbnail level={levels[channelPort(inst, n) ?? ""]} channel={n} />}
           </div>
         ))}
         {isScope && visibleChannels.length < channels.length && (
@@ -114,6 +126,33 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
         <PortHandle key={p.name} name={p.name} channel={p.channel} reference={p.medium === "reference"} side={Position.Right} index={i} count={outPorts.length} connected={!!p.net} connectable={editable} />
       ))}
     </div>
+  );
+}
+
+function channelPort(inst: InstrumentInfo, channel: number): string | undefined {
+  return inst.ports.find((p) => p.channel === channel && p.direction === "in" && p.medium === "electrical")?.name;
+}
+
+/** What the channel's input is doing right now, as a scope would draw it: two periods, to scale. */
+function Thumbnail({ level, channel }: { level?: NetLevel; channel: number }) {
+  const W = 64;
+  const H = 20;
+  const wave = level?.wave ?? [];
+  const peak = Math.max(1e-12, ...wave.map(Math.abs));
+  const points = level?.active
+    ? wave.map((v, i) => `${((i / Math.max(1, wave.length - 1)) * W).toFixed(1)},${(H / 2 - (v / peak) * (H / 2 - 2)).toFixed(1)}`).join(" ")
+    : `0,${H / 2} ${W},${H / 2}`;
+  return (
+    <svg
+      width={W}
+      height={H}
+      className="bg-plot shrink-0 rounded-sm"
+      role="img"
+      aria-label={`CH${channel} ${level?.active ? "signal" : "0 V"}`}
+      data-testid="channel-thumbnail"
+    >
+      <polyline points={points} fill="none" strokeWidth={1.25} stroke={level?.active ? channelColor(channel) : "var(--muted-foreground)"} />
+    </svg>
   );
 }
 

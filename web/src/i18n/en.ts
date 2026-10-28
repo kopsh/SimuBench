@@ -52,6 +52,13 @@ export const en: Widen<Messages> = {
     inspector: "Inspector",
     noSelection: "Select an instrument, DUT or wire on the canvas to see its properties.",
     running: "Running",
+    activity: { idle: "waiting for commands", busy: "running commands", wall: "clock running" },
+    activityHint: {
+      idle: "Command-driven clock: virtual time stands still between commands, so nothing changes. Send a command, press Advance, or press Run on the scope screen.",
+      busy: "Commands are running; virtual time moves with them.",
+      wall: "Wall clock: virtual time follows real time and the screens refresh on their own.",
+    },
+    peak: "Peak",
     clock: "Virtual time",
     clockMode: { command: "Command-driven clock", wall: "Wall clock", stepped: "Stepped clock" },
     advance: "Advance",

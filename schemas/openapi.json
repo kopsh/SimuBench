@@ -1825,6 +1825,77 @@
         "title": "NetInfo",
         "type": "object"
       },
+      "NetLevel": {
+        "description": "A net's level for the canvas: whether a signal is there, and a small picture of it.",
+        "properties": {
+          "active": {
+            "description": "Carries a signal (not a flat 0 V)",
+            "title": "Active",
+            "type": "boolean"
+          },
+          "dc": {
+            "title": "Dc",
+            "type": "number"
+          },
+          "net": {
+            "title": "Net",
+            "type": "string"
+          },
+          "peak": {
+            "title": "Peak",
+            "type": "number"
+          },
+          "rms": {
+            "title": "Rms",
+            "type": "number"
+          },
+          "wave": {
+            "description": "A few dozen samples over ``window_s``, for a thumbnail",
+            "items": {
+              "type": "number"
+            },
+            "title": "Wave",
+            "type": "array"
+          },
+          "window_s": {
+            "description": "Span of ``wave``: two periods of the strongest line, or 2 ms",
+            "title": "Window S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "net",
+          "dc",
+          "rms",
+          "peak",
+          "active",
+          "window_s",
+          "wave"
+        ],
+        "title": "NetLevel",
+        "type": "object"
+      },
+      "NetLevels": {
+        "properties": {
+          "nets": {
+            "items": {
+              "$ref": "#/components/schemas/NetLevel"
+            },
+            "title": "Nets",
+            "type": "array"
+          },
+          "t_ns": {
+            "title": "T Ns",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "t_ns",
+          "nets"
+        ],
+        "title": "NetLevels",
+        "type": "object"
+      },
       "NetProbe": {
         "description": "A virtual probe on a net (no loading, no instrument involved), and why it reads what it reads.",
         "properties": {
@@ -5280,6 +5351,46 @@
           }
         },
         "summary": "Screen"
+      }
+    },
+    "/api/sessions/{sid}/levels": {
+      "get": {
+        "description": "Every net's level and a thumbnail, for the canvas (D44).",
+        "operationId": "getNetLevels",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetLevels"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Net Levels"
       }
     },
     "/api/sessions/{sid}/nets/{net}/probe": {
