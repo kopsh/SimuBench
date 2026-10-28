@@ -68,6 +68,15 @@ test("SMU screen: the limit takes over, a sweep fills the I–V curve and the bu
   await expect(rows).toHaveCount(9); // the configured 0–8 V sweep; from 4 V on the limit holds
   await expect(rows.nth(8)).toContainText("3.9996");
   await expect(page.getByRole("img", { name: "I–V 曲线（缓冲区）" })).toBeVisible();
+
+  // The same from the screen's own keys, without a script or the console.
+  const keys = page.getByRole("group", { name: "测量控制" });
+  await keys.getByRole("button", { name: "清空缓冲区" }).click();
+  await expect(page.getByText("缓冲区为空").first()).toBeVisible();
+  await keys.getByRole("button", { name: "单次读数" }).click();
+  await expect(rows).toHaveCount(1); // one reading at the source level, whatever the sweep
+  await keys.getByRole("button", { name: "执行" }).click();
+  await expect(rows).toHaveCount(9);
 });
 
 test("wall clock: time runs by itself and the lock-in settles without advancing", async ({ page }) => {

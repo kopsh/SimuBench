@@ -212,6 +212,7 @@ export const zh = {
     dc: "直流电压",
     ac: "交流电压（有效值）",
     readings: "读数",
+    noReadings: "这台仪表没有可显示的读数。",
   },
   spectrum: {
     overload: "混频器过载",
@@ -250,7 +251,12 @@ export const zh = {
     buffer: "缓冲区",
     bufferTable: "缓冲区读数",
     points: "{{count}} 点",
-    noBuffer: "缓冲区为空。:READ? 或 :INITiate 执行扫描或一次读数后在这里显示。",
+    noBuffer: "缓冲区为空。点击“单次读数”或“执行”，或由脚本发送 :MEASure?、:READ? 或 :INITiate。",
+    controls: "测量控制",
+    read: "单次读数",
+    initiate: "执行",
+    initiateHint: "按当前设置执行（:INITiate）：设置了扫描时执行整个扫描，否则读一次。",
+    clearBuffer: "清空缓冲区",
   },
   load: {
     inputOn: "输入开",

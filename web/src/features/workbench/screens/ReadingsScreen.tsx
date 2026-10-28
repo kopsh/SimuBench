@@ -25,7 +25,7 @@ export function ReadingsScreen({ sid, inst, readonly }: { sid: string; inst: Ins
           {inst.label || inst.name} <span className="text-muted-foreground num ml-1">{inst.model}</span>
         </header>
         <div className="divide-y">
-          {entries.length === 0 && <p className="text-muted-foreground p-3 text-xs">{t("panel.noEvents")}</p>}
+          {entries.length === 0 && <p className="text-muted-foreground p-3 text-xs">{t("meter.noReadings")}</p>}
           {entries.map(([key, value]) => {
             const meter = METER[key];
             if (meter && typeof value === "number") {
