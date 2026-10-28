@@ -964,6 +964,14 @@
       "Display": {
         "additionalProperties": false,
         "properties": {
+          "actions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Commands the UI sends for front-panel actions, e.g. {single: ':TRIGger:MODE SINGle'}; defaults: single ':SINGle'",
+            "title": "Actions",
+            "type": "object"
+          },
           "channel_summary": {
             "items": {
               "type": "string"
@@ -996,6 +1004,14 @@
       },
       "DisplayInfo": {
         "properties": {
+          "actions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Commands for front-panel actions",
+            "title": "Actions",
+            "type": "object"
+          },
           "channel_summary": {
             "items": {
               "type": "string"
@@ -1025,7 +1041,8 @@
         "required": [
           "template",
           "summary",
-          "channel_summary"
+          "channel_summary",
+          "actions"
         ],
         "title": "DisplayInfo",
         "type": "object"
@@ -1459,6 +1476,21 @@
       "InstrumentDefinition": {
         "additionalProperties": false,
         "properties": {
+          "builtins": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Built-in headers this model answers (e.g. ['*IDN', '*OPC', '*RST']); the others are not modeled. Default: all of them",
+            "title": "Builtins"
+          },
           "capabilities": {
             "items": {
               "type": "string"
@@ -2487,10 +2519,11 @@
           },
           "enum": {
             "default": "short",
-            "description": "short: SIN; long: SINUSOID (upper case)",
+            "description": "short: SIN; long: SINUSOID (upper case); as_defined: SINusoid, as in `options`",
             "enum": [
               "short",
-              "long"
+              "long",
+              "as_defined"
             ],
             "title": "Enum",
             "type": "string"

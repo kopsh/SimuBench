@@ -27,7 +27,8 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
   const screen = useScopeScreen(sid, inst.name, source, version);
   const vars = stateMap(inst);
   const data = screen.data;
-  const acquire = useAcquire(sid, inst.name, readonly);
+  // The model's own single-acquisition command (Siglent: :TRIGger:MODE SINGle), else :SINGle.
+  const acquire = useAcquire(sid, inst.name, readonly, inst.display.actions?.single ?? ":SINGle");
   const single = () => {
     setSource("record");
     acquire.single();
@@ -205,10 +206,11 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
 }
 
 /**
- * Front-panel acquisition: Single sends :SINGle once, Run repeats it until stopped. The commands go
+ * Front-panel acquisition: Single sends the model's single command once (:SINGle unless the definition
+ * names another), Run repeats it until stopped. The commands go
  * to the instrument like a script's, so they show in the communication log and advance virtual time.
  */
-function useAcquire(sid: string, name: string, readonly: boolean) {
+function useAcquire(sid: string, name: string, readonly: boolean, singleCommand: string) {
   const scpi = useScpi(sid, name);
   const [running, setRunning] = useState(false);
   const send = scpi.mutateAsync; // stable across renders (TanStack Query)
@@ -218,7 +220,7 @@ function useAcquire(sid: string, name: string, readonly: boolean) {
     void (async () => {
       while (!stop) {
         try {
-          const r = await send(":SINGle");
+          const r = await send(singleCommand);
           if (r.link_error || r.errors.length) break; // a fault or a refused command stops the run
         } catch {
           break;
@@ -230,6 +232,6 @@ function useAcquire(sid: string, name: string, readonly: boolean) {
     return () => {
       stop = true;
     };
-  }, [running, readonly, send]);
-  return { running: running && !readonly, setRunning, single: () => scpi.mutate(":SINGle"), busy: scpi.isPending };
+  }, [running, readonly, send, singleCommand]);
+  return { running: running && !readonly, setRunning, single: () => scpi.mutate(singleCommand), busy: scpi.isPending };
 }

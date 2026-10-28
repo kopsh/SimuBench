@@ -116,6 +116,19 @@ test("live canvas: wires and thumbnails follow the signal, nodes flash on comman
   await expect(page.getByTestId("session-activity")).toContainText("等待命令"); // back to waiting once it is done
 });
 
+test("real model: the Siglent scope screen acquires with its own command", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("listitem").filter({ hasText: "siglent_scope_rc" }).getByRole("button", { name: "启动" }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await expect(page.locator(".react-flow__node").filter({ hasText: "SDS2104X Plus" })).toBeVisible();
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  const controls = page.getByRole("group", { name: "采集控制" });
+  await controls.getByRole("button", { name: "单次" }).click();
+  await expect(page.getByText(":TRIGger:MODE SINGle").first()).toBeVisible(); // not :SINGle, which it does not have
+  await page.getByRole("tab", { name: /问题/ }).click();
+  await expect(page.getByText(/-113/)).toHaveCount(0); // the bench's probe warning is the only problem
+});
+
 test("open screens are remembered for the bench and reopen on the next start", async ({ page }) => {
   await startBench(page);
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();

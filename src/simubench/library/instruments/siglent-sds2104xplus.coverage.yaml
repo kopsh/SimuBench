@@ -1,0 +1,1405 @@
+# Generated from the command entries of the SDS Series Programming Guide EN11F; levels and notes by hand.
+schema: simubench.coverage/1
+model: siglent-sds2104xplus
+sections:
+- section: Common (*) Commands (EN11F)
+  commands:
+  - header: '*IDN'
+    level: implemented
+  - header: '*OPC'
+    level: implemented
+  - header: '*RST'
+    level: implemented
+    note: '*RST values the manual does not give use SimuBench defaults: 1 V/div, 0 V offset, DC, 1 MΩ, probe 1X, FULL bandwidth, CH1 on, 1 us/div, delay 0, edge trigger on C1 rising at 0 V, AUTO, NORMal
+      acquisition, 8 bits, 10k memory depth'
+- section: Root(:) Commands (EN11F)
+  commands:
+  - header: :AUToset
+    level: not_modeled
+  - header: :PRINt
+    level: not_modeled
+  - header: :FORMat:DATA
+    level: not_modeled
+- section: ACQUire Commands (EN11F)
+  commands:
+  - header: :ACQuire:AMODe
+    level: accepted
+    note: waveform capture rate has no effect on the simulation
+  - header: :ACQuire:CSWeep
+    level: not_modeled
+  - header: :ACQuire:INTerpolation
+    level: accepted
+    note: display interpolation only
+  - header: :ACQuire:MMANagement
+    level: accepted
+    note: 'stored; the record length always follows AUTO: rate = min(maximum rate, depth / 10 div) on a 1-2-5 ladder'
+  - header: :ACQuire:MODE
+    level: accepted
+    note: YT only; XY and ROLL are stored
+  - header: :ACQuire:MDEPth
+    level: implemented
+    note: sets the record length with the timebase; *RST value 10k is a SimuBench default
+  - header: :ACQuire:NUMAcq
+    level: implemented
+    note: acquisitions since the session started or *RST
+  - header: :ACQuire:POINts
+    level: implemented
+  - header: :ACQuire:RESolution
+    level: implemented
+    note: '8 bits: 30 codes/div; 10 bits: 120 codes/div, left-aligned in WORD data (30 * 256 per div in the preamble)'
+  - header: :ACQuire:SEQuence
+    level: not_modeled
+  - header: :ACQuire:SEQuence:COUNt
+    level: not_modeled
+  - header: :ACQuire:SRATe
+    level: implemented
+    note: query only here; setting a fixed rate (FSRate) is not modeled
+  - header: :ACQuire:TYPE
+    level: implemented
+    note: NORMal; AVERage keeps one acquisition and takes the time of N until the noise model (issue 24); PEAK and ERES are stored
+- section: CHANnel Commands (EN11F)
+  commands:
+  - header: :CHANnel:REFerence
+    level: accepted
+  - header: :CHANnel<ch>:BWLimit
+    level: implemented
+    note: first-order low-pass at 20 MHz; 200M has no effect on the 100 MHz model
+  - header: :CHANnel<ch>:COUPling
+    level: implemented
+    note: 'AC: 5 Hz high-pass (data sheet); GND: 0 V'
+  - header: :CHANnel<ch>:IMPedance
+    level: implemented
+    note: 1 MΩ || 17 pF or 50 Ω in the bench circuit; at 50 Ω the scale is limited to 1 V/div
+  - header: :CHANnel<ch>:INVert
+    level: not_modeled
+  - header: :CHANnel<ch>:LABel
+    level: not_modeled
+  - header: :CHANnel<ch>:LABel:TEXT
+    level: not_modeled
+  - header: :CHANnel<ch>:OFFSet
+    level: implemented
+    note: 'range by scale (data sheet); out of range: -222 and the old value stays'
+  - header: :CHANnel<ch>:PROBe
+    level: implemented
+    note: changing the ratio rescales SCALe and OFFSet
+  - header: :CHANnel<ch>:SCALe
+    level: implemented
+    note: '500 uV/div to 10 V/div (1 MΩ) at the input, times the probe ratio; out of range: -222 and the old value stays'
+  - header: :CHANnel<ch>:SKEW
+    level: accepted
+    note: stored; no time shift is applied
+  - header: :CHANnel<ch>:SWITch
+    level: implemented
+    note: channels on decide interleaving (2 or 1 GSa/s)
+  - header: :CHANnel<ch>:UNIT
+    level: accepted
+  - header: :CHANnel<ch>:VISible
+    level: accepted
+- section: COUNter Commands (EN11F)
+  commands:
+  - header: :COUNter
+    level: not_modeled
+  - header: :COUNter:LEVel
+    level: not_modeled
+  - header: :COUNter:MODE
+    level: not_modeled
+  - header: :COUNter:SOURce
+    level: not_modeled
+  - header: :COUNter:STATistics
+    level: not_modeled
+  - header: :COUNter:STATistics:RESet
+    level: not_modeled
+  - header: :COUNter:TOTalizer:GATE
+    level: not_modeled
+  - header: :COUNter:TOTalizer:GATE:LEVel
+    level: not_modeled
+  - header: :COUNter:TOTalizer:GATE:SLOPe
+    level: not_modeled
+  - header: :COUNter:TOTalizer:GATE:TYPE
+    level: not_modeled
+  - header: :COUNter:TOTalizer:RESet
+    level: not_modeled
+  - header: :COUNter:TOTalizer:SLOPe
+    level: not_modeled
+- section: CURSor Commands (EN11F)
+  commands:
+  - header: :CURSor
+    level: not_modeled
+  - header: :CURSor:TAGStyle
+    level: not_modeled
+  - header: :CURSor:IXDelta
+    level: not_modeled
+  - header: :CURSor:MITem
+    level: not_modeled
+  - header: :CURSor:MODE
+    level: not_modeled
+  - header: :CURSor:SOURce1
+    level: not_modeled
+  - header: :CURSor:SOURce2
+    level: not_modeled
+  - header: :CURSor:X1
+    level: not_modeled
+  - header: :CURSor:X2
+    level: not_modeled
+  - header: :CURSor:XDELta
+    level: not_modeled
+  - header: :CURSor:XREFerence
+    level: not_modeled
+  - header: :CURSor:Y1
+    level: not_modeled
+  - header: :CURSor:Y2
+    level: not_modeled
+  - header: :CURSor:YDELta
+    level: not_modeled
+  - header: :CURSor:YREFerence
+    level: not_modeled
+- section: DECode Commands (EN11F)
+  commands:
+  - header: :DECode
+    level: not_modeled
+  - header: :DECode:LIST
+    level: not_modeled
+  - header: :DECode:LIST:LINE
+    level: not_modeled
+  - header: :DECode:LIST:SCRoll
+    level: not_modeled
+  - header: :DECode:BUS<n>
+    level: not_modeled
+  - header: :DECode:BUS<n>:COPY
+    level: not_modeled
+  - header: :DECode:BUS<n>:FORMat
+    level: not_modeled
+  - header: :DECode:BUS<n>:PROTocol
+    level: not_modeled
+  - header: :DECode:BUS<n>:RESult
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:IIC Commands (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:IIC:RWBit
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIC:SCLSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIC:SCLThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIC:SDASource
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIC:SDAThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:BITorder
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:CLKSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:CLKThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:CSSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:CSThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:CSTYpe
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:DLENgth
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:LATChedge
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:MISOSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:MISOThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:MOSISource
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:MOSIThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:NCSSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:SPI:NCSThreshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:UART Commands (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:UART:BAUD
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:BITorder
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:DLENgth
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:IDLE
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:PARity
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:RXSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:RXThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:STOP
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:TXSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:UART:TXThreshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:CAN Commands (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:CAN:BAUD
+    level: not_modeled
+  - header: :DECode:BUS<n>:CAN:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:CAN:THReshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:LIN Commands (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:LIN:BAUD
+    level: not_modeled
+  - header: :DECode:BUS<n>:LIN:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:LIN:THReshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:FLEXray Commands [Option] (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:FLEXray:BAUD
+    level: not_modeled
+  - header: :DECode:BUS<n>:FLEXray:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:FLEXray:THReshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:CANFd Commands [Option] (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:CANFd:BAUDData
+    level: not_modeled
+  - header: :DECode:BUS<n>:CANFd:BAUDNominal
+    level: not_modeled
+  - header: :DECode:BUS<n>:CANFd:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:CANFd:THReshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:IIS Commands [Option] (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:IIS:ANNotate
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:AVARiant
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:BCLKSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:BCLKThreshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:BITorder
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:DLENgth
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:DSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:DTHReshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:LATChedge
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:LCH
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:SBIT
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:WSSource
+    level: not_modeled
+  - header: :DECode:BUS<n>:IIS:WSTHreshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:M1553 Commands [Option] (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:M1553:LTHReshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:M1553:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:M1553:UTHReshold
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:SENT Commands [Option] (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:SENT:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:THReshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:FORMat
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:CLOCk
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:IDLE
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:LENGth
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:CRC
+    level: not_modeled
+  - header: :DECode:BUS<n>:SENT:PPULse
+    level: not_modeled
+- section: DECode Commands > :DECode:BUS<n>:MANChester Commands [Option] (EN11F)
+  commands:
+  - header: :DECode:BUS<n>:MANChester:SOURce
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:THReshold
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:BAUD
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:POLarity
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:IDLE
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:IBITs
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:STARt
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:SSIZe
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:HSIZe
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:TSIZe
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:WSIZe
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:DSIZe
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:DISPlay
+    level: not_modeled
+  - header: :DECode:BUS<n>:MANChester:BITorder
+    level: not_modeled
+- section: DIGital Commands [Option] (EN11F)
+  commands:
+  - header: :DIGital
+    level: not_modeled
+  - header: :DIGital:ACTive
+    level: not_modeled
+  - header: :DIGital:BUS<n>:DISPlay
+    level: not_modeled
+  - header: :DIGital:BUS<n>:DEFault
+    level: not_modeled
+  - header: :DIGital:BUS<n>:FORMat
+    level: not_modeled
+  - header: :DIGital:BUS<n>:MAP
+    level: not_modeled
+  - header: :DIGital:D<d>
+    level: not_modeled
+  - header: :DIGital:HEIGht
+    level: not_modeled
+  - header: :DIGital:LABel<d>
+    level: not_modeled
+  - header: :DIGital:POINts
+    level: not_modeled
+  - header: :DIGital:POSition
+    level: not_modeled
+  - header: :DIGital:SKEW
+    level: not_modeled
+  - header: :DIGital:SRATe
+    level: not_modeled
+  - header: :DIGital:THReshold<n>
+    level: not_modeled
+- section: DISPlay Commands (EN11F)
+  commands:
+  - header: :DISPlay:AXIS
+    level: not_modeled
+  - header: :DISPlay:AXIS:MODE
+    level: not_modeled
+  - header: :DISPlay:BACKlight
+    level: not_modeled
+  - header: :DISPlay:CLEar
+    level: not_modeled
+  - header: :DISPlay:COLor
+    level: not_modeled
+  - header: :DISPlay:GRATicule
+    level: not_modeled
+  - header: :DISPlay:GRIDstyle
+    level: not_modeled
+  - header: :DISPlay:INTensity
+    level: not_modeled
+  - header: :DISPlay:MENU
+    level: not_modeled
+  - header: :DISPlay:MENU:HIDE
+    level: not_modeled
+  - header: :DISPlay:PERSistence
+    level: not_modeled
+  - header: :DISPlay:TRANsparence
+    level: not_modeled
+  - header: :DISPlay:TYPE
+    level: not_modeled
+- section: DVM Commands (EN11F)
+  commands:
+  - header: :DVM
+    level: not_modeled
+  - header: :DVM:ALARm
+    level: not_modeled
+  - header: :DVM:ARANge
+    level: not_modeled
+  - header: :DVM:CURRent
+    level: not_modeled
+  - header: :DVM:HOLD
+    level: not_modeled
+  - header: :DVM:MODE
+    level: not_modeled
+  - header: :DVM:SOURce
+    level: not_modeled
+- section: FUNCtion Commands (EN11F)
+  commands:
+  - header: :FUNCtion:FFTDisplay
+    level: not_modeled
+  - header: :FUNCtion:GVALue
+    level: not_modeled
+  - header: :FUNCtion<x>
+    level: not_modeled
+  - header: :FUNCtion<x>:AVERage:NUM
+    level: not_modeled
+  - header: :FUNCtion<x>:DIFF:DX
+    level: not_modeled
+  - header: :FUNCtion<x>:ERES:BITS
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:AUToset
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:HCENter
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:HSCale
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:SPAN
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:LOAD
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:MODE
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:POINts
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:RESET
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:RLEVel
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:SCALe
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:SEARch
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:SEARch:EXCursion
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:SEARch:RESult
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:SEARch:THReshold
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:UNIT
+    level: not_modeled
+  - header: :FUNCtion<x>:FFT:WINDow
+    level: not_modeled
+  - header: :FUNCtion<x>:FILTer:TYPe
+    level: not_modeled
+  - header: :FUNCtion<x>:FILTer:HFRequency
+    level: not_modeled
+  - header: :FUNCtion<x>:FILTer:LFRequency
+    level: not_modeled
+  - header: :FUNCtion<x>:INTegrate:GATE
+    level: not_modeled
+  - header: :FUNCtion<x>:INTegrate:OFFSet
+    level: not_modeled
+  - header: :FUNCtion<x>:INTErpolate:COEF
+    level: not_modeled
+  - header: :FUNCtion<x>:INVert
+    level: not_modeled
+  - header: :FUNCtion<x>:LABel
+    level: not_modeled
+  - header: :FUNCtion<x>:LABel:TEXT
+    level: not_modeled
+  - header: :FUNCtion<x>:MAXHold:SWeeps
+    level: not_modeled
+  - header: :FUNCtion<x>:MINHold:SWeeps
+    level: not_modeled
+  - header: :FUNCtion<x>:OPERation
+    level: not_modeled
+  - header: :FUNCtion<x>:POSition
+    level: not_modeled
+  - header: :FUNCtion<x>:SCALe
+    level: not_modeled
+  - header: :FUNCtion<x>:SOURce1
+    level: not_modeled
+  - header: :FUNCtion<x>:SOURce2
+    level: not_modeled
+- section: HISTORy Commands (EN11F)
+  commands:
+  - header: :HISTORy
+    level: not_modeled
+  - header: :HISTORy:FRAMe
+    level: not_modeled
+  - header: :HISTORy:INTERval
+    level: not_modeled
+  - header: :HISTORy:LIST
+    level: not_modeled
+  - header: :HISTORy:PLAY
+    level: not_modeled
+  - header: :HISTORy:TIME
+    level: not_modeled
+- section: MEASure Commands (EN11F)
+  commands:
+  - header: :MEASure
+    level: accepted
+    note: measurement values are available whatever this switch says
+  - header: :MEASure:ADVanced:CLEar
+    level: not_modeled
+  - header: :MEASure:ADVanced:LINenumber
+    level: not_modeled
+  - header: :MEASure:ADVanced:P<n>
+    level: not_modeled
+  - header: :MEASure:ADVanced:P<n>:SOURce1
+    level: not_modeled
+  - header: :MEASure:ADVanced:P<n>:SOURce2
+    level: not_modeled
+  - header: :MEASure:ADVanced:P<n>:STATistics
+    level: not_modeled
+  - header: :MEASure:ADVanced:P<n>:TYPE
+    level: not_modeled
+  - header: :MEASure:ADVanced:P<n>:VALue
+    level: not_modeled
+  - header: :MEASure:ADVanced:STATistics
+    level: not_modeled
+  - header: :MEASure:ADVanced:STATistics:AIMLimit
+    level: not_modeled
+  - header: :MEASure:ADVanced:STATistics:HISTOGram
+    level: not_modeled
+  - header: :MEASure:ADVanced:STATistics:MAXCount
+    level: not_modeled
+  - header: :MEASure:ADVanced:STATistics:RESet
+    level: not_modeled
+  - header: :MEASure:ADVanced:STYLe
+    level: not_modeled
+  - header: :MEASure:ASTRategy
+    level: not_modeled
+  - header: :MEASure:ASTRategy:BASE
+    level: not_modeled
+  - header: :MEASure:ASTRategy:TOP
+    level: not_modeled
+  - header: :MEASure:GATE
+    level: not_modeled
+  - header: :MEASure:GATE:GA
+    level: not_modeled
+  - header: :MEASure:GATE:GB
+    level: not_modeled
+  - header: :MEASure:MODE
+    level: accepted
+  - header: :MEASure:SIMPle:CLEar
+    level: not_modeled
+  - header: :MEASure:SIMPle:ITEM
+    level: not_modeled
+  - header: :MEASure:SIMPle:SOURce
+    level: implemented
+    note: C1 to C4
+  - header: :MEASure:SIMPle:VALue
+    level: implemented
+    note: PKPK, MAX, MIN, AMPL, MEAN, RMS, PER, FREQ; other types answer -224; 3 significant digits as :FORMat:DATA's default (the manual's example shows 4)
+  - header: :MEASure:THReshold:SOURce
+    level: not_modeled
+  - header: :MEASure:THReshold:TYPE
+    level: not_modeled
+  - header: :MEASure:THReshold:ABSolute
+    level: not_modeled
+  - header: :MEASure:THReshold:PERCent
+    level: not_modeled
+- section: MEMory Commands (EN11F)
+  commands:
+  - header: :MEMory<m>:HORizontal:POSition
+    level: not_modeled
+  - header: :MEMory<m>:HORizontal:SCALe
+    level: not_modeled
+  - header: :MEMory<m>:HORizontal:SYNC
+    level: not_modeled
+  - header: :MEMory<m>:IMPort
+    level: not_modeled
+  - header: :MEMory<m>:LABel
+    level: not_modeled
+  - header: :MEMory<m>:LABel:TEXT
+    level: not_modeled
+  - header: :MEMory<m>:SWITch
+    level: not_modeled
+  - header: :MEMory<m>:VERTical:POSition
+    level: not_modeled
+  - header: :MEMory<m>:VERTical:SCALe
+    level: not_modeled
+- section: MTEst Commands (EN11F)
+  commands:
+  - header: :MTESt
+    level: not_modeled
+  - header: :MTESt:COUNt
+    level: not_modeled
+  - header: :MTESt:FUNCtion:BUZZer
+    level: not_modeled
+  - header: :MTESt:FUNCtion:COF
+    level: not_modeled
+  - header: :MTESt:FUNCtion:FTH
+    level: not_modeled
+  - header: :MTESt:FUNCtion:SOF
+    level: not_modeled
+  - header: :MTESt:IDISplay
+    level: not_modeled
+  - header: :MTESt:MASK:CREate
+    level: not_modeled
+  - header: :MTESt:MASK:LOAD
+    level: not_modeled
+  - header: :MTESt:OPERate
+    level: not_modeled
+  - header: :MTESt:RESet
+    level: not_modeled
+  - header: :MTESt:SOURce
+    level: not_modeled
+  - header: :MTESt:TYPE
+    level: not_modeled
+- section: RECall Commands (EN11F)
+  commands:
+  - header: :RECall:FDEFault
+    level: not_modeled
+  - header: :RECall:REFerence
+    level: not_modeled
+  - header: :RECall:SERase
+    level: not_modeled
+  - header: :RECall:SETup
+    level: not_modeled
+- section: REF Commands (EN11F)
+  commands:
+  - header: :REF<r>:LABel
+    level: not_modeled
+  - header: :REF<r>:LABel:TEXT
+    level: not_modeled
+  - header: :REF<r>:DATA
+    level: not_modeled
+  - header: :REF<r>:DATA:SOURce
+    level: not_modeled
+  - header: :REF<r>:DATA:SCALe
+    level: not_modeled
+  - header: :REF<r>:DATA:POSition
+    level: not_modeled
+- section: SAVE Commands (EN11F)
+  commands:
+  - header: :SAVE:BINary
+    level: not_modeled
+  - header: :SAVE:CSV
+    level: not_modeled
+  - header: :SAVE:DEFault
+    level: not_modeled
+  - header: :SAVE:IMAGe
+    level: not_modeled
+  - header: :SAVE:MATLab
+    level: not_modeled
+  - header: :SAVE:REFerence
+    level: not_modeled
+  - header: :SAVE:SETup
+    level: not_modeled
+- section: SEARch Commands (EN11F)
+  commands:
+  - header: :SEARch
+    level: not_modeled
+  - header: :SEARch:MODE
+    level: not_modeled
+  - header: :SEARch:COUNt
+    level: not_modeled
+  - header: :SEARch:EVENt
+    level: not_modeled
+  - header: :SEARch:COPY
+    level: not_modeled
+- section: SEARch Commands > :SEARch:EDGE Commands (EN11F)
+  commands:
+  - header: :SEARch:EDGE:SOURce
+    level: not_modeled
+  - header: :SEARch:EDGE:SLOPe
+    level: not_modeled
+  - header: :SEARch:EDGE:LEVel
+    level: not_modeled
+- section: SEARch Commands > :SEARch:SLOPe Commands (EN11F)
+  commands:
+  - header: :SEARch:SLOPe:SOURce
+    level: not_modeled
+  - header: :SEARch:SLOPe:SLOPe
+    level: not_modeled
+  - header: :SEARch:SLOPe:HLEVel
+    level: not_modeled
+  - header: :SEARch:SLOPe:LLEVel
+    level: not_modeled
+  - header: :SEARch:SLOPe:LIMit
+    level: not_modeled
+  - header: :SEARch:SLOPe:TUPPer
+    level: not_modeled
+  - header: :SEARch:SLOPe:TLOWer
+    level: not_modeled
+- section: SEARch Commands > :SEARch:PULSe Commands (EN11F)
+  commands:
+  - header: :SEARch:PULSe:SOURce
+    level: not_modeled
+  - header: :SEARch:PULSe:POLarity
+    level: not_modeled
+  - header: :SEARch:PULSe:LEVel
+    level: not_modeled
+  - header: :SEARch:PULSe:LIMit
+    level: not_modeled
+  - header: :SEARch:PULSe:TUPPer
+    level: not_modeled
+  - header: :SEARch:PULSe:TLOWer
+    level: not_modeled
+- section: SEARch Commands > :SEARch:INTerval Commands (EN11F)
+  commands:
+  - header: :SEARch:INTerval:SOURce
+    level: not_modeled
+  - header: :SEARch:INTerval:SLOPe
+    level: not_modeled
+  - header: :SEARch:INTerval:LEVel
+    level: not_modeled
+  - header: :SEARch:INTerval:LIMit
+    level: not_modeled
+  - header: :SEARch:INTerval:TUPPer
+    level: not_modeled
+  - header: :SEARch:INTerval:TLOWer
+    level: not_modeled
+- section: SEARch Commands > :SEARch:RUNT Commands (EN11F)
+  commands:
+  - header: :SEARch:RUNT:SOURce
+    level: not_modeled
+  - header: :SEARch:RUNT:POLarity
+    level: not_modeled
+  - header: :SEARch:RUNT:HLEVel
+    level: not_modeled
+  - header: :SEARch:RUNT:LLEVel
+    level: not_modeled
+  - header: :SEARch:RUNT:LIMit
+    level: not_modeled
+  - header: :SEARch:RUNT:TUPPer
+    level: not_modeled
+  - header: :SEARch:RUNT:TLOWer
+    level: not_modeled
+- section: SYSTem Commands (EN11F)
+  commands:
+  - header: :SYSTem:BUZZer
+    level: not_modeled
+  - header: :SYSTem:CLOCk
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:LAN:GATeway
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:LAN:IPADdress
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:LAN:MAC
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:LAN:SMASk
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:LAN:TYPE
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:VNCPort
+    level: not_modeled
+  - header: :SYSTem:DATE
+    level: not_modeled
+  - header: :SYSTem:EDUMode
+    level: not_modeled
+  - header: :SYSTem:LANGuage
+    level: not_modeled
+  - header: :SYSTem:MENU
+    level: not_modeled
+  - header: :SYSTem:NSTorage
+    level: not_modeled
+  - header: :SYSTem:NSTorage:CONNect
+    level: not_modeled
+  - header: :SYSTem:NSTorage:DISConnect
+    level: not_modeled
+  - header: :SYSTem:NSTorage:STATus
+    level: not_modeled
+  - header: :SYSTem:PON
+    level: not_modeled
+  - header: :SYSTem:REBoot
+    level: not_modeled
+  - header: :SYSTem:REMote
+    level: not_modeled
+  - header: :SYSTem:SELFCal
+    level: not_modeled
+  - header: :SYSTem:SHUTdown
+    level: not_modeled
+  - header: :SYSTem:SSAVer
+    level: not_modeled
+  - header: :SYSTem:TIME
+    level: not_modeled
+  - header: :SYSTem:TOUCh
+    level: not_modeled
+- section: TIMebase Commands (EN11F)
+  commands:
+  - header: :TIMebase:DELay
+    level: implemented
+    note: '[-5000 div, 5 div]; sample 0 is at delay - 5 div'
+  - header: :TIMebase:REFerence
+    level: accepted
+  - header: :TIMebase:REFerence:POSition
+    level: accepted
+  - header: :TIMebase:SCALe
+    level: implemented
+    note: 1 ns/div to 1000 s/div on 1-2-5 steps
+  - header: :TIMebase:WINDow
+    level: not_modeled
+  - header: :TIMebase:WINDow:DELay
+    level: not_modeled
+  - header: :TIMebase:WINDow:SCALe
+    level: not_modeled
+- section: TRIGger Commands (EN11F)
+  commands:
+  - header: :TRIGger:FREQuency
+    level: not_modeled
+  - header: :TRIGger:MODE
+    level: implemented
+    note: SINGle acquires at once and stops when it triggers; FTRIG forces one frame
+  - header: :TRIGger:RUN
+    level: implemented
+  - header: :TRIGger:STATus
+    level: implemented
+    note: Stop, Trig'd, Auto or Ready
+  - header: :TRIGger:STOP
+    level: implemented
+  - header: :TRIGger:TYPE
+    level: implemented
+    note: EDGE only; other types are not modeled
+- section: TRIGger Commands > :TRIGger:EDGE Commands (EN11F)
+  commands:
+  - header: :TRIGger:EDGE:COUPling
+    level: accepted
+    note: the trigger path has no filters
+  - header: :TRIGger:EDGE:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:EDGE:HLDTime
+    level: not_modeled
+  - header: :TRIGger:EDGE:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:EDGE:HSTart
+    level: not_modeled
+  - header: :TRIGger:EDGE:IMPedance
+    level: not_modeled
+  - header: :TRIGger:EDGE:LEVel
+    level: implemented
+    note: within +-4.1 div around the offset
+  - header: :TRIGger:EDGE:NREJect
+    level: not_modeled
+  - header: :TRIGger:EDGE:SLOPe
+    level: implemented
+  - header: :TRIGger:EDGE:SOURce
+    level: implemented
+    note: C1 to C4; EX, EX5 and LINE are stored and never trigger
+- section: TRIGger Commands > :TRIGger:SLOPe Commands (EN11F)
+  commands:
+  - header: :TRIGger:SLOPe:COUPling
+    level: not_modeled
+  - header: :TRIGger:SLOPe:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:SLOPe:HLDTime
+    level: not_modeled
+  - header: :TRIGger:SLOPe:HLEVel
+    level: not_modeled
+  - header: :TRIGger:SLOPe:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:SLOPe:HSTart
+    level: not_modeled
+  - header: :TRIGger:SLOPe:LIMit
+    level: not_modeled
+  - header: :TRIGger:SLOPe:LLEVel
+    level: not_modeled
+  - header: :TRIGger:SLOPe:NREJect
+    level: not_modeled
+  - header: :TRIGger:SLOPe:SLOPe
+    level: not_modeled
+  - header: :TRIGger:SLOPe:SOURce
+    level: not_modeled
+  - header: :TRIGger:SLOPe:TLOWer
+    level: not_modeled
+  - header: :TRIGger:SLOPe:TUPPer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:PULSe Commands (EN11F)
+  commands:
+  - header: :TRIGger:PULSe:COUPling
+    level: not_modeled
+  - header: :TRIGger:PULSe:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:PULSe:HLDTime
+    level: not_modeled
+  - header: :TRIGger:PULSe:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:PULSe:HSTart
+    level: not_modeled
+  - header: :TRIGger:PULSe:LEVel
+    level: not_modeled
+  - header: :TRIGger:PULSe:LIMit
+    level: not_modeled
+  - header: :TRIGger:PULSe:NREJect
+    level: not_modeled
+  - header: :TRIGger:PULSe:POLarity
+    level: not_modeled
+  - header: :TRIGger:PULSe:SOURce
+    level: not_modeled
+  - header: :TRIGger:PULSe:TLOWer
+    level: not_modeled
+  - header: :TRIGger:PULSe:TUPPer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:VIDeo Commands (EN11F)
+  commands:
+  - header: :TRIGger:VIDeo:FCNT
+    level: not_modeled
+  - header: :TRIGger:VIDeo:FIELd
+    level: not_modeled
+  - header: :TRIGger:VIDeo:FRATe
+    level: not_modeled
+  - header: :TRIGger:VIDeo:INTerlace
+    level: not_modeled
+  - header: :TRIGger:VIDeo:LCNT
+    level: not_modeled
+  - header: :TRIGger:VIDeo:LEVel
+    level: not_modeled
+  - header: :TRIGger:VIDeo:LINE
+    level: not_modeled
+  - header: :TRIGger:VIDeo:SOURce
+    level: not_modeled
+  - header: :TRIGger:VIDeo:STANdard
+    level: not_modeled
+  - header: :TRIGger:VIDeo:SYNC
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:WINDow Commands (EN11F)
+  commands:
+  - header: :TRIGger:WINDow:CLEVel
+    level: not_modeled
+  - header: :TRIGger:WINDow:COUPling
+    level: not_modeled
+  - header: :TRIGger:WINDow:DLEVel
+    level: not_modeled
+  - header: :TRIGger:WINDow:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:WINDow:HLDTime
+    level: not_modeled
+  - header: :TRIGger:WINDow:HLEVel
+    level: not_modeled
+  - header: :TRIGger:WINDow:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:WINDow:HSTart
+    level: not_modeled
+  - header: :TRIGger:WINDow:LLEVel
+    level: not_modeled
+  - header: :TRIGger:WINDow:NREJect
+    level: not_modeled
+  - header: :TRIGger:WINDow:SOURce
+    level: not_modeled
+  - header: :TRIGger:WINDow:TYPE
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:INTerval Commands (EN11F)
+  commands:
+  - header: :TRIGger:INTerval:COUPling
+    level: not_modeled
+  - header: :TRIGger:INTerval:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:INTerval:HLDTime
+    level: not_modeled
+  - header: :TRIGger:INTerval:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:INTerval:HSTart
+    level: not_modeled
+  - header: :TRIGger:INTerval:LEVel
+    level: not_modeled
+  - header: :TRIGger:INTerval:LIMit
+    level: not_modeled
+  - header: :TRIGger:INTerval:NREJect
+    level: not_modeled
+  - header: :TRIGger:INTerval:SLOPe
+    level: not_modeled
+  - header: :TRIGger:INTerval:SOURce
+    level: not_modeled
+  - header: :TRIGger:INTerval:TLOWer
+    level: not_modeled
+  - header: :TRIGger:INTerval:TUPPer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:DROPout Commands (EN11F)
+  commands:
+  - header: :TRIGger:DROPout:COUPling
+    level: not_modeled
+  - header: :TRIGger:DROPout:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:DROPout:HLDTime
+    level: not_modeled
+  - header: :TRIGger:DROPout:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:DROPout:HSTart
+    level: not_modeled
+  - header: :TRIGger:DROPout:LEVel
+    level: not_modeled
+  - header: :TRIGger:DROPout:NREJect
+    level: not_modeled
+  - header: :TRIGger:DROPout:SLOPe
+    level: not_modeled
+  - header: :TRIGger:DROPout:SOURce
+    level: not_modeled
+  - header: :TRIGger:DROPout:TIME
+    level: not_modeled
+  - header: :TRIGger:DROPout:TYPE
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:RUNT Commands (EN11F)
+  commands:
+  - header: :TRIGger:RUNT:COUPling
+    level: not_modeled
+  - header: :TRIGger:RUNT:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:RUNT:HLDTime
+    level: not_modeled
+  - header: :TRIGger:RUNT:HLEVel
+    level: not_modeled
+  - header: :TRIGger:RUNT:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:RUNT:HSTart
+    level: not_modeled
+  - header: :TRIGger:RUNT:LIMit
+    level: not_modeled
+  - header: :TRIGger:RUNT:LLEVel
+    level: not_modeled
+  - header: :TRIGger:RUNT:NREJect
+    level: not_modeled
+  - header: :TRIGger:RUNT:POLarity
+    level: not_modeled
+  - header: :TRIGger:RUNT:SOURce
+    level: not_modeled
+  - header: :TRIGger:RUNT:TLOWer
+    level: not_modeled
+  - header: :TRIGger:RUNT:TUPPer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:PATTern Commands (EN11F)
+  commands:
+  - header: :TRIGger:PATTern:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:PATTern:HLDTime
+    level: not_modeled
+  - header: :TRIGger:PATTern:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:PATTern:HSTart
+    level: not_modeled
+  - header: :TRIGger:PATTern:INPut
+    level: not_modeled
+  - header: :TRIGger:PATTern:LEVel
+    level: not_modeled
+  - header: :TRIGger:PATTern:LIMit
+    level: not_modeled
+  - header: :TRIGger:PATTern:LOGic
+    level: not_modeled
+  - header: :TRIGger:PATTern:TLOWer
+    level: not_modeled
+  - header: :TRIGger:PATTern:TUPPer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:QUALified Commands (EN11F)
+  commands:
+  - header: :TRIGger:QUALified:ELEVel
+    level: not_modeled
+  - header: :TRIGger:QUALified:ESLope
+    level: not_modeled
+  - header: :TRIGger:QUALified:ESource
+    level: not_modeled
+  - header: :TRIGger:QUALified:LIMit
+    level: not_modeled
+  - header: :TRIGger:QUALified:QLEVel
+    level: not_modeled
+  - header: :TRIGger:QUALified:QSource
+    level: not_modeled
+  - header: :TRIGger:QUALified:TLOWer
+    level: not_modeled
+  - header: :TRIGger:QUALified:TUPPer
+    level: not_modeled
+  - header: :TRIGger:QUALified:TYPE
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:DELay Commands (EN11F)
+  commands:
+  - header: :TRIGger:DELay:COUPling
+    level: not_modeled
+  - header: :TRIGger:DELay:SOURce
+    level: not_modeled
+  - header: :TRIGger:DELay:SOURce2
+    level: not_modeled
+  - header: :TRIGger:DELay:SLOPe
+    level: not_modeled
+  - header: :TRIGger:DELay:SLOPe2
+    level: not_modeled
+  - header: :TRIGger:DELay:LEVel
+    level: not_modeled
+  - header: :TRIGger:DELay:LEVel2
+    level: not_modeled
+  - header: :TRIGger:DELay:LIMit
+    level: not_modeled
+  - header: :TRIGger:DELay:TUPPer
+    level: not_modeled
+  - header: :TRIGger:DELay:TLOWer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:NEDGe Commands (EN11F)
+  commands:
+  - header: :TRIGger:NEDGe:SOURce
+    level: not_modeled
+  - header: :TRIGger:NEDGe:SLOPe
+    level: not_modeled
+  - header: :TRIGger:NEDGe:IDLE
+    level: not_modeled
+  - header: :TRIGger:NEDGe:EDGE
+    level: not_modeled
+  - header: :TRIGger:NEDGe:LEVel
+    level: not_modeled
+  - header: :TRIGger:NEDGe:HOLDoff
+    level: not_modeled
+  - header: :TRIGger:NEDGe:HLDTime
+    level: not_modeled
+  - header: :TRIGger:NEDGe:HLDEVent
+    level: not_modeled
+  - header: :TRIGger:NEDGe:HSTart
+    level: not_modeled
+  - header: :TRIGger:NEDGe:NREJect
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:SHOLd Commands (EN11F)
+  commands:
+  - header: :TRIGger:SHOLd:TYPE
+    level: not_modeled
+  - header: :TRIGger:SHOLd:CSource
+    level: not_modeled
+  - header: :TRIGger:SHOLd:CTHReshold
+    level: not_modeled
+  - header: :TRIGger:SHOLd:SLOPe
+    level: not_modeled
+  - header: :TRIGger:SHOLd:DSource
+    level: not_modeled
+  - header: :TRIGger:SHOLd:DTHReshold
+    level: not_modeled
+  - header: :TRIGger:SHOLd:LEVel
+    level: not_modeled
+  - header: :TRIGger:SHOLd:LIMit
+    level: not_modeled
+  - header: :TRIGger:SHOLd:TUPPer
+    level: not_modeled
+  - header: :TRIGger:SHOLd:TLOWer
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:IIC Commands (EN11F)
+  commands:
+  - header: :TRIGger:IIC:ADDRess
+    level: not_modeled
+  - header: :TRIGger:IIC:ALENgth
+    level: not_modeled
+  - header: :TRIGger:IIC:CONDition
+    level: not_modeled
+  - header: :TRIGger:IIC:DAT2
+    level: not_modeled
+  - header: :TRIGger:IIC:DATA
+    level: not_modeled
+  - header: :TRIGger:IIC:DLENgth
+    level: not_modeled
+  - header: :TRIGger:IIC:LIMit
+    level: not_modeled
+  - header: :TRIGger:IIC:RWBit
+    level: not_modeled
+  - header: :TRIGger:IIC:SCLSource
+    level: not_modeled
+  - header: :TRIGger:IIC:SCLThreshold
+    level: not_modeled
+  - header: :TRIGger:IIC:SDASource
+    level: not_modeled
+  - header: :TRIGger:IIC:SDAThreshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:SPI Commands (EN11F)
+  commands:
+  - header: :TRIGger:SPI:BITorder
+    level: not_modeled
+  - header: :TRIGger:SPI:CLKSource
+    level: not_modeled
+  - header: :TRIGger:SPI:CLKThreshold
+    level: not_modeled
+  - header: :TRIGger:SPI:CSSource
+    level: not_modeled
+  - header: :TRIGger:SPI:CSThreshold
+    level: not_modeled
+  - header: :TRIGger:SPI:CSTYpe
+    level: not_modeled
+  - header: :TRIGger:SPI:DATA
+    level: not_modeled
+  - header: :TRIGger:SPI:DLENgth
+    level: not_modeled
+  - header: :TRIGger:SPI:LATChedge
+    level: not_modeled
+  - header: :TRIGger:SPI:MISOSource
+    level: not_modeled
+  - header: :TRIGger:SPI:MISOThreshold
+    level: not_modeled
+  - header: :TRIGger:SPI:MOSISource
+    level: not_modeled
+  - header: :TRIGger:SPI:MOSIThreshold
+    level: not_modeled
+  - header: :TRIGger:SPI:NCSSource
+    level: not_modeled
+  - header: :TRIGger:SPI:NCSThreshold
+    level: not_modeled
+  - header: :TRIGger:SPI:TTYPe
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:UART Commands (EN11F)
+  commands:
+  - header: :TRIGger:UART:BAUD
+    level: not_modeled
+  - header: :TRIGger:UART:BITorder
+    level: not_modeled
+  - header: :TRIGger:UART:CONDition
+    level: not_modeled
+  - header: :TRIGger:UART:DATA
+    level: not_modeled
+  - header: :TRIGger:UART:DLENgth
+    level: not_modeled
+  - header: :TRIGger:UART:IDLE
+    level: not_modeled
+  - header: :TRIGger:UART:LIMit
+    level: not_modeled
+  - header: :TRIGger:UART:PARity
+    level: not_modeled
+  - header: :TRIGger:UART:RXSource
+    level: not_modeled
+  - header: :TRIGger:UART:RXThreshold
+    level: not_modeled
+  - header: :TRIGger:UART:STOP
+    level: not_modeled
+  - header: :TRIGger:UART:TTYPe
+    level: not_modeled
+  - header: :TRIGger:UART:TXSource
+    level: not_modeled
+  - header: :TRIGger:UART:TXThreshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:CAN Commands (EN11F)
+  commands:
+  - header: :TRIGger:CAN:BAUD
+    level: not_modeled
+  - header: :TRIGger:CAN:CONDition
+    level: not_modeled
+  - header: :TRIGger:CAN:DAT2
+    level: not_modeled
+  - header: :TRIGger:CAN:DATA
+    level: not_modeled
+  - header: :TRIGger:CAN:ID
+    level: not_modeled
+  - header: :TRIGger:CAN:IDLength
+    level: not_modeled
+  - header: :TRIGger:CAN:SOURce
+    level: not_modeled
+  - header: :TRIGger:CAN:THReshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:LIN Commands (EN11F)
+  commands:
+  - header: :TRIGger:LIN:BAUD
+    level: not_modeled
+  - header: :TRIGger:LIN:CONDition
+    level: not_modeled
+  - header: :TRIGger:LIN:DAT2
+    level: not_modeled
+  - header: :TRIGger:LIN:DATA
+    level: not_modeled
+  - header: :TRIGger:LIN:ERRor:CHECksum
+    level: not_modeled
+  - header: :TRIGger:LIN:ERRor:DLENgth
+    level: not_modeled
+  - header: :TRIGger:LIN:ERRor:ID
+    level: not_modeled
+  - header: :TRIGger:LIN:ERRor:PARity
+    level: not_modeled
+  - header: :TRIGger:LIN:ERRor:SYNC
+    level: not_modeled
+  - header: :TRIGger:LIN:ID
+    level: not_modeled
+  - header: :TRIGger:LIN:SOURce
+    level: not_modeled
+  - header: :TRIGger:LIN:STANdard
+    level: not_modeled
+  - header: :TRIGger:LIN:THReshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:FLEXray Commands [Option] (EN11F)
+  commands:
+  - header: :TRIGger:FLEXray:BAUD
+    level: not_modeled
+  - header: :TRIGger:FLEXray:CONDition
+    level: not_modeled
+  - header: :TRIGger:FLEXray:FRAMe:COMPare
+    level: not_modeled
+  - header: :TRIGger:FLEXray:FRAMe:CYCLe
+    level: not_modeled
+  - header: :TRIGger:FLEXray:FRAMe:ID
+    level: not_modeled
+  - header: :TRIGger:FLEXray:FRAMe:REPetition
+    level: not_modeled
+  - header: :TRIGger:FLEXray:SOURce
+    level: not_modeled
+  - header: :TRIGger:FLEXray:THReshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:CANFd Commands [Option] (EN11F)
+  commands:
+  - header: :TRIGger:CANFd:BAUDData
+    level: not_modeled
+  - header: :TRIGger:CANFd:BAUDNominal
+    level: not_modeled
+  - header: :TRIGger:CANFd:CONDition
+    level: not_modeled
+  - header: :TRIGger:CANFd:DAT2
+    level: not_modeled
+  - header: :TRIGger:CANFd:DATA
+    level: not_modeled
+  - header: :TRIGger:CANFd:FTYPe
+    level: not_modeled
+  - header: :TRIGger:CANFd:ID
+    level: not_modeled
+  - header: :TRIGger:CANFd:IDLength
+    level: not_modeled
+  - header: :TRIGger:CANFd:SOURce
+    level: not_modeled
+  - header: :TRIGger:CANFd:THReshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:IIS Commands [Option] (EN11F)
+  commands:
+  - header: :TRIGger:IIS:AVARiant
+    level: not_modeled
+  - header: :TRIGger:IIS:BCLKSource
+    level: not_modeled
+  - header: :TRIGger:IIS:BCLKThreshold
+    level: not_modeled
+  - header: :TRIGger:IIS:BITorder
+    level: not_modeled
+  - header: :TRIGger:IIS:CHANnel
+    level: not_modeled
+  - header: :TRIGger:IIS:COMPare
+    level: not_modeled
+  - header: :TRIGger:IIS:CONDition
+    level: not_modeled
+  - header: :TRIGger:IIS:DLENgth
+    level: not_modeled
+  - header: :TRIGger:IIS:DSource
+    level: not_modeled
+  - header: :TRIGger:IIS:DTHReshold
+    level: not_modeled
+  - header: :TRIGger:IIS:LATChedge
+    level: not_modeled
+  - header: :TRIGger:IIS:LCH
+    level: not_modeled
+  - header: :TRIGger:IIS:VALue
+    level: not_modeled
+  - header: :TRIGger:IIS:WSSource
+    level: not_modeled
+  - header: :TRIGger:IIS:WSTHreshold
+    level: not_modeled
+- section: TRIGger Commands > :TRIGger:SENT Commands [Option] (EN11F)
+  commands:
+  - header: :TRIGger:SENT:SOURce
+    level: not_modeled
+  - header: :TRIGger:SENT:THReshold
+    level: not_modeled
+- section: WAVeform Commands (EN11F)
+  commands:
+  - header: :WAVeform:SOURce
+    level: implemented
+    note: C1 to C4
+  - header: :WAVeform:STARt
+    level: implemented
+  - header: :WAVeform:INTerval
+    level: implemented
+  - header: :WAVeform:POINt
+    level: implemented
+    note: '0: all points (SimuBench default)'
+  - header: :WAVeform:MAXPoint
+    level: implemented
+  - header: :WAVeform:WIDTh
+    level: implemented
+    note: WORD is LSB first, as the manual's waveform example reads it
+  - header: :WAVeform:PREamble
+    level: implemented
+    note: '346-byte WAVEDESC, little-endian, in a #9 block'
+  - header: :WAVeform:DATA
+    level: implemented
+    note: signed codes; block header digits as needed (E11D and later); followed by an extra line feed
+  - header: :WAVeform:SEQuence
+    level: not_modeled
+- section: WGEN Commands (EN11F)
+  commands:
+  - header: ARbWaVe
+    level: not_modeled
+  - header: BaSic_WaVe
+    level: not_modeled
+  - header: OUTPut
+    level: not_modeled
+  - header: SToreList
+    level: not_modeled
+  - header: SYNC
+    level: not_modeled
+  - header: VOLTPRT
+    level: not_modeled

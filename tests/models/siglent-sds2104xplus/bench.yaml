@@ -1,0 +1,12 @@
+schema: simubench.bench/1
+name: sds2104xplus_cases
+description: A 1 kHz, 2 Vpp sine straight into CH1 (1 MΩ) for the SDS2104X Plus manual cases.
+instruments:
+  awg:
+    model: sb-awg-2
+    state: {ch1.frequency: 1000, ch1.amplitude: 2.0, ch1.load: .inf, ch1.output: true}
+  scope:
+    model: siglent-sds2104xplus
+wires:
+  - {from: awg.OUT1, to: scope.CH1}
+run: {seed: 1, clock: command}

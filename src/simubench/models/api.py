@@ -175,6 +175,7 @@ class DisplayInfo(_Model):
     template: str | None = None
     summary: list[str] = Field(default_factory=list)
     channel_summary: list[str] = Field(default_factory=list)
+    actions: dict[str, str] = Field(default_factory=dict, description="Commands for front-panel actions")
 
 
 class InstrumentInfo(_Model):

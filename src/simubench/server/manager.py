@@ -17,6 +17,7 @@ from ..engine.faults import LinkDown
 from ..engine.instrument import Instrument
 from ..engine.session import Session
 from ..engine.silence import why_silent
+from ..library.components.scope import channel_index
 from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
@@ -355,7 +356,7 @@ class SessionManager:
                 source=source,  # type: ignore[arg-type]
                 timebase_scale=float(inst.get_state("timebase.scale")),
                 trigger_level=float(inst.get_state("trigger.level")),
-                trigger_source=int(str(inst.get_state("trigger.source")).removeprefix("CHANnel")),
+                trigger_source=channel_index(inst.get_state("trigger.source")),
                 traces=traces,
                 acquisitions=int(acq.acq_count),  # type: ignore[attr-defined]
             )

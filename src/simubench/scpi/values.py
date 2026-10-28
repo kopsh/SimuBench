@@ -160,7 +160,9 @@ def format_bool(v: bool, word: bool = False) -> bytes:
     return b"1" if v else b"0"
 
 
-def format_enum(v: str, long: bool = False) -> bytes:
+def format_enum(v: str, long: bool = False, as_defined: bool = False) -> bytes:
+    if as_defined:
+        return v.encode()
     return (v.upper() if long else short_form(v)).encode()
 
 

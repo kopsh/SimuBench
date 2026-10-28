@@ -47,6 +47,11 @@ BUILTIN_HEADERS = (
 )
 
 
+def _header_key(header: str) -> str:
+    """A header as written in a definition, compared without case, spaces or the root colon."""
+    return "".join(header.split()).lstrip(":").upper()
+
+
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
     """Snap ``value`` to the nearest rung on a log scale."""
     if value <= 0:
@@ -164,6 +169,9 @@ class Instrument:
             self.ports[pname] = (comp, port)
 
         self._commands = [_Compiled(Pattern.compile(c.header), c) for c in definition.commands]
+        #: Built-in headers this model answers; a real model's manual may document only a few (D42).
+        allowed = definition.builtins
+        self._builtins = None if allowed is None else {_header_key(h) for h in allowed}
 
     # ---- construction helpers -------------------------------------------------------------------
 
@@ -332,6 +340,14 @@ class Instrument:
             data["reason"] = "not_modeled"
         self.session.instrument_event(self, "error", data)
 
+    def _builtin_header(self, tokens: tuple[Token, ...]) -> bool:
+        """Whether the tokens name a built-in header this model is allowed to answer."""
+        for header in BUILTIN_HEADERS:
+            pattern = Pattern.compile(header)
+            if not pattern.common and pattern.match(tokens) is not None:
+                return self._builtin_allowed(header)
+        return False
+
     def _error_reply(self, err: ScpiError) -> bytes:
         """An error queue entry as :SYSTem:ERRor? writes it, in the manual's form for a real model."""
         if err.code == 0 and 0 in self.definition.errors:
@@ -352,8 +368,13 @@ class Instrument:
 
     # ---- command execution --------------------------------------------------------------------------
 
+    def _builtin_allowed(self, header: str) -> bool:
+        return self._builtins is None or _header_key(header) in self._builtins
+
     def _execute(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         if unit.common:
+            if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
+                raise self._undefined(unit.raw_header)
             return self._common(unit), 0
         for compiled in self._commands:
             caps = compiled.pattern.match(tokens)
@@ -374,7 +395,9 @@ class Instrument:
                 return self._state_command(spec, unit, channel), parse_duration(spec.duration)
             result = self._op_command(spec, unit, channel, suffixes)
             return result.response, result.duration_ns + parse_duration(spec.duration)
-        builtin = self._builtin(unit, tokens)
+        builtin = (
+            self._builtin(unit, tokens) if self._builtins is None or self._builtin_header(tokens) else None
+        )
         if builtin is _HANDLED:
             return None, 0
         if builtin is not None:
@@ -445,7 +468,7 @@ class Instrument:
         if st.type == "bool":
             return V.format_bool(value, word=f.boolean == "word")
         if st.type == "enum":
-            return V.format_enum(value, long=f.enum == "long")
+            return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
         return V.format_string(str(value))
 
     def _op_command(

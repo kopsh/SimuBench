@@ -13,6 +13,7 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from ...units import parse_number
 
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
@@ -38,10 +39,35 @@ class ScopeFrontend(Component):
 
     def output(self, port: str) -> Signal:
         sig = self.input("in")
-        if self.param("coupling") == "AC":
+        coupling = self.param("coupling")
+        if coupling == "GND":
+            return Signal.zero()
+        if coupling == "AC":
             sig = sig.transfer(highpass1(float(self.param("ac_corner"))))
-        bw = float(self.param("bw_limit_hz")) if self.param("bw_limit") else float(self.param("bandwidth"))
-        return sig.transfer(lowpass1(bw))
+        return sig.transfer(lowpass1(min(self._limit(), float(self.param("bandwidth")))))
+
+    def _limit(self) -> float:
+        """Bandwidth limit: on/off (``bw_limit_hz``) or a named filter such as Siglent's 20M / FULL."""
+        limit = self.param("bw_limit")
+        if isinstance(limit, str):
+            if limit.upper() in ("FULL", "OFF"):
+                return math.inf
+            return parse_number(limit.upper().removesuffix("HZ").replace("M", "e6").replace("K", "e3"))
+        return float(self.param("bw_limit_hz")) if limit else math.inf
+
+
+def channel_index(source: object) -> int:
+    """Channel number of a source name: CHANnel2 (sb-*) or C2 (Siglent)."""
+    text = str(source).upper()
+    for prefix in ("CHANNEL", "CHAN", "C"):
+        if text.startswith(prefix) and text[len(prefix) :].isdigit():
+            return int(text[len(prefix) :])
+    return 1
+
+
+#: Edge slope names across models: SCPI-style and Siglent-style.
+RISING = {"POSitive", "EITHer", "RISing", "ALTernate"}
+FALLING = {"NEGative", "EITHer", "FALLing", "ALTernate"}
 
 
 @dataclass
@@ -96,13 +122,13 @@ class ScopeAcquisition(Component):
         """Return (trigger sample index measured from t0, triggered?)."""
         level = float(self._st("trigger.level"))
         slope = self._st("trigger.slope")
-        n_ch = int(str(self._st("trigger.source")).removeprefix("CHANnel") or 1)
+        n_ch = channel_index(self._st("trigger.source"))
         hyst = 0.02 * DIVS_V * float(self._st(f"ch{n_ch}.scale"))
         span = points * int(self.param("search_windows"))
         idx = np.arange(span)
         v = sig.sample_rel(t0, idx * dt)
-        rising = slope in ("POSitive", "EITHer")
-        falling = slope in ("NEGative", "EITHer")
+        rising = slope in RISING
+        falling = slope in FALLING
         best: int | None = None
         if rising:
             armed = np.nonzero(v < level - hyst)[0]
@@ -131,7 +157,7 @@ class ScopeAcquisition(Component):
         """
         points, dt, pre, post = self._timing()
         t0 = self.session.now_ns
-        n_trig = int(str(self._st("trigger.source")).removeprefix("CHANnel") or 1)
+        n_trig = channel_index(self._st("trigger.source"))
         trig_sig = self._display_signal(n_trig)
         k, triggered = self._trigger_search(trig_sig, t0, dt, pre, points)
         start = k - pre
@@ -205,7 +231,7 @@ class ScopeAcquisition(Component):
         return OpResult(duration_ns=self.acquire(chans))
 
     def _source(self) -> int:
-        return int(str(self._st("waveform.source")).removeprefix("CHANnel"))
+        return channel_index(self._st("waveform.source"))
 
     def _record(self) -> Record:
         rec = self.records.get(self._source())

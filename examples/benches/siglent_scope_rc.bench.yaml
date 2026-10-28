@@ -1,0 +1,38 @@
+schema: simubench.bench/1
+name: siglent_scope_rc
+description: >-
+  函数发生器经 RC 低通（1 kΩ、100 nF）与 10x 探头接到 Siglent SDS2104X Plus 的 C1（真实型号，D42）。
+  示波器探头设定仍为 1X，与连线上的 10x 探头不一致。
+instruments:
+  awg:
+    model: sb-awg-2
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::5025::SOCKET"
+    state:
+      ch1.frequency: 1000
+      ch1.amplitude: 2.0
+  scope:
+    model: siglent-sds2104xplus
+    label: 示波器
+    address: "TCPIP0::192.168.1.31::INSTR"
+    state:
+      timebase.scale: 1.0e-3
+      ch1.scale: 0.05
+duts:
+  rc:
+    type: rc_lowpass
+    label: RC 低通
+    params: {r: 1000.0, c: 1.0e-7}
+wires:
+  - {from: awg.OUT1, to: rc.IN}
+  - from: rc.OUT
+    to: scope.CH1
+    accessories:
+      - {type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}
+run:
+  seed: 7
+  clock: command
+layout:
+  awg: {x: 0, y: 80}
+  rc: {x: 360, y: 100}
+  scope: {x: 640, y: 40}
