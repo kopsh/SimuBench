@@ -30,14 +30,16 @@ class OutputStage(Component):
         "in": PortSpec("in", "signal"),
         "pin": PortSpec("out", "electrical"),
     }
-    defaults = {"z_out": 50.0, "enabled": True, "load_setting": math.inf}
+    defaults = {"z_out": 50.0, "enabled": True, "load_setting": math.inf, "invert": False}
 
     def _scale(self) -> float:
+        """EMF per volt of setting: the load the amplitude is defined for, and the polarity."""
         z = float(self.param("z_out"))
         rl = float(self.param("load_setting"))
+        sign = -1.0 if _flag(self.param("invert")) else 1.0
         if not math.isfinite(rl) or rl <= 0:
-            return 1.0
-        return (rl + z) / rl
+            return sign
+        return sign * (rl + z) / rl
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         if _flag(self.param("enabled")):

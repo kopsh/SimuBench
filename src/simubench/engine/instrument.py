@@ -336,8 +336,8 @@ class Instrument:
         data: dict[str, Any] = {"code": err.code, "message": err.message}
         if err.text is not None and detail and detail not in err.message:
             data["message"] = f"{err.message} ({detail})"
-        if err.text is not None and err.text.endswith(NOT_MODELED):
-            data["reason"] = "not_modeled"
+        if (err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail:
+            data["reason"] = "not_modeled"  # a command, or a parameter value, SimuBench does not model
         self.session.instrument_event(self, "error", data)
 
     def _builtin_header(self, tokens: tuple[Token, ...]) -> bool:

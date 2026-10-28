@@ -342,7 +342,7 @@ def _measure(what: str, v: np.ndarray, dt: float) -> float:
         lo = v[v < mid]
         return float(np.median(hi) - np.median(lo)) if hi.size and lo.size else vmax - vmin
     if what in ("FREQuency", "PERiod"):
-        s = np.signbit(v - mid)
+        s = (v - mid) < 0  # not signbit: quantized records hold -0.0, which is not below the middle
         rising = np.nonzero(s[:-1] & ~s[1:])[0]
         if rising.size < 2:
             return math.nan

@@ -1,13 +1,13 @@
 schema: simubench.bench/1
 name: siglent_scope_rc
 description: >-
-  函数发生器经 RC 低通（1 kΩ、100 nF）与 10x 探头接到 Siglent SDS2104X Plus 的 C1（真实型号，D42）。
-  示波器探头设定仍为 1X，与连线上的 10x 探头不一致。
+  Siglent SDG2042X 经 RC 低通（1 kΩ、100 nF）与 10x 探头接到 Siglent SDS2104X Plus 的 C1
+  （真实型号，D42、D45）。示波器探头设定仍为 1X，与连线上的 10x 探头不一致。
 instruments:
   awg:
-    model: sb-awg-2
+    model: siglent-sdg2042x
     label: 函数发生器
-    address: "TCPIP0::192.168.1.20::5025::SOCKET"
+    address: "TCPIP0::192.168.1.20::INSTR"
     state:
       ch1.frequency: 1000
       ch1.amplitude: 2.0
@@ -24,7 +24,7 @@ duts:
     label: RC 低通
     params: {r: 1000.0, c: 1.0e-7}
 wires:
-  - {from: awg.OUT1, to: rc.IN}
+  - {from: awg.CH1, to: rc.IN}
   - from: rc.OUT
     to: scope.CH1
     accessories:

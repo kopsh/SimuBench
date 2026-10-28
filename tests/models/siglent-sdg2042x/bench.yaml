@@ -1,0 +1,12 @@
+schema: simubench.bench/1
+name: sdg2042x_cases
+description: SDG2042X CH1 straight into an SDS2104X Plus CH1, for the SDG2042X manual cases.
+instruments:
+  sdg:
+    model: siglent-sdg2042x
+  scope:
+    model: siglent-sds2104xplus
+    state: {timebase.scale: 1.0e-3}
+wires:
+  - {from: sdg.CH1, to: scope.CH1}
+run: {seed: 1, clock: command}

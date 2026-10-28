@@ -1,0 +1,89 @@
+# Manual cases for the Siglent SDG2042X: SDG Series Programming Guide PG02_E05C.
+# Replies carry their header (C1:BSWV ..., C1:OUTP ...) and numbers carry their unit (100HZ, 2V).
+model: siglent-sdg2042x
+bench: bench.yaml
+instrument: sdg
+cases:
+  - name: "*IDN? 按格式 2 返回"
+    manual: "3.1.1 *IDN"
+    steps:
+      - query: "*IDN?"
+        expect_match: '^Siglent Technologies,SDG2042X,\S+,\S+$'
+  - name: "*OPC? 返回 1（格式 2）"
+    manual: "3.1.2 *OPC"
+    steps:
+      - query: "*OPC?"
+        expect: "1"
+  - name: "*RST 恢复默认设置"
+    manual: "3.1.3 *RST"
+    steps:
+      - send: "C1:BSWV FRQ,2000"
+      - send: "C1:OUTP ON"
+      - send: "*RST"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP OFF,LOAD,HZ,PLRT,NOR"
+      - query: "C1:BSWV?"
+        expect: "C1:BSWV WVTP,SINE,FRQ,1000HZ,PERI,0.001S,AMP,4V,OFST,0V,HLEV,2V,LLEV,-2V,PHSE,0"
+  - name: "基本波形：示例中的写法与返回"
+    manual: "3.4 Basic Wave Command"
+    steps:
+      - send: "C1:BSWV WVTP,SINE,FRQ,100,AMP,2"
+      - query: "C1:BSWV?"
+        expect: "C1:BSWV WVTP,SINE,FRQ,100HZ,PERI,0.01S,AMP,2V,OFST,0V,HLEV,1V,LLEV,-1V,PHSE,0"
+      - send: "C1:BSWV WVTP,RAMP"
+      - send: "C1:BSWV FRQ,2000"
+      - send: "C1:BSWV AMP,3"
+      - query: "C1:BSWV?"
+        expect: "C1:BSWV WVTP,RAMP,FRQ,2000HZ,PERI,0.0005S,AMP,3V,OFST,0V,HLEV,1.5V,LLEV,-1.5V,PHSE,0,SYM,50"
+  - name: "高低电平改变幅度与偏置；方波占空比"
+    manual: "3.4 Basic Wave Command (HLEV, LLEV, DUTY)"
+    steps:
+      - send: "C1:BSWV WVTP,SQUARE,HLEV,3,LLEV,-1,DUTY,25"
+      - query: "C1:BSWV?"
+        expect: "C1:BSWV WVTP,SQUARE,FRQ,1000HZ,PERI,0.001S,AMP,4V,OFST,1V,HLEV,3V,LLEV,-1V,PHSE,0,DUTY,25"
+  - name: "直流"
+    manual: "3.4 Basic Wave Command (WVTP DC)"
+    steps:
+      - send: "C1:BSWV WVTP,DC,OFST,1.5"
+      - query: "C1:BSWV?"
+        expect: "C1:BSWV WVTP,DC,OFST,1.5V"
+  - name: "输出开关、负载与极性"
+    manual: "3.3 Output Command"
+    steps:
+      - send: "C1:OUTP ON"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP ON,LOAD,HZ,PLRT,NOR"
+      - send: "C1:OUTP LOAD,50"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP ON,LOAD,50,PLRT,NOR"
+      - send: "C1:OUTP LOAD,HZ"
+      - send: "C1:OUTP PLRT,NOR"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP ON,LOAD,HZ,PLRT,NOR"
+  - name: "反相"
+    manual: "3.24 Invert Command"
+    steps:
+      - send: "C1:INVT ON"
+      - query: "C1:INVT?"
+        expect: "C1:INVT ON"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP OFF,LOAD,HZ,PLRT,INVT"
+  - name: "同步输出（接受）"
+    manual: "3.10 Sync Command"
+    steps:
+      - send: "C1:SYNC ON,TYPE,MOD_CH1"
+      - query: "C1:SYNC?"
+        expect: "C1:SYNC ON,TYPE,MOD_CH1"
+  - name: "参数复制"
+    manual: "3.8 Parameter Copy Command"
+    steps:
+      - send: "C1:BSWV WVTP,SQUARE,FRQ,5000"
+      - send: "PACP C2,C1"
+      - query: "C2:BSWV?"
+        expect: "C2:BSWV WVTP,SQUARE,FRQ,5000HZ,PERI,0.0002S,AMP,4V,OFST,0V,HLEV,2V,LLEV,-2V,PHSE,0,DUTY,50"
+  - name: "蜂鸣器（接受）"
+    manual: "3.18 Buzzer Command"
+    steps:
+      - send: "BUZZ OFF"
+      - query: "BUZZ?"
+        expect: "BUZZ OFF"

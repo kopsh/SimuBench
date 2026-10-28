@@ -141,6 +141,9 @@ class Signal:
             return out
         base = phase_cycles(self.freq, int(base_ns) - self.t0_ns)  # per line, at the base instant
         a = self.amp * np.exp(2j * np.pi * base)
+        uniform = _uniform_step(off)
+        if uniform is not None and off.size * self.freq.size > 1_000_000:
+            return out + _sum_uniform(a, self.freq, float(off[0]), uniform, off.size)
         block = max(1, 4_000_000 // max(1, self.freq.size))
         for start in range(0, off.size, block):
             o = off[start : start + block]
@@ -213,6 +216,30 @@ class Signal:
 # ---- periodic waveform builders -----------------------------------------------------------------
 
 
+def _uniform_step(off: np.ndarray) -> float | None:
+    """The step of evenly spaced offsets (a scope record), or None."""
+    if off.ndim != 1 or off.size < 1024:
+        return None
+    step = (off[-1] - off[0]) / (off.size - 1)
+    if step <= 0 or np.max(np.abs(np.diff(off) - step)) > 1e-9 * step:
+        return None
+    return float(step)
+
+
+def _sum_uniform(a: np.ndarray, freq: np.ndarray, o0: float, dt: float, n: int) -> np.ndarray:
+    """``Re sum_l a_l exp(2 pi j f_l (o0 + k dt))`` for k < n, as one matrix product.
+
+    With k = q * B + r the exponential splits into a block factor and an in-block factor, so the
+    sum is ``Re((P * a) @ R.T)``: about 2 * sqrt(n) * lines exponentials instead of n * lines.
+    """
+    block = max(1, int(np.ceil(np.sqrt(n))))
+    q = np.arange((n + block - 1) // block)
+    r = np.arange(block)
+    outer = np.exp(2j * np.pi * np.outer(o0 + q * block * dt, freq)) * a[None, :]
+    inner = np.exp(2j * np.pi * np.outer(r * dt, freq))
+    return np.real(outer @ inner.T).reshape(-1)[:n]
+
+
 def sine(freq: float, peak: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Signal:
     """``peak * sin(2*pi*f*(t - t0) + phase)`` as one line (cosine phasor convention)."""
     a = peak * np.exp(1j * (phase_rad - np.pi / 2))
@@ -251,6 +278,40 @@ def ramp(freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: 
     # x/pi on (-pi, pi) = (2/pi) * sum (-1)^(n+1) sin(n x) / n
     a = (2 * peak / np.pi) * ((-1.0) ** (n + 1)) / n * np.exp(1j * (n * phase_rad - np.pi / 2))
     return Signal.lines(n * freq, a, t0_ns=t0_ns, notes=notes)
+
+
+def pulse_train(
+    freq: float, peak: float, duty: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0
+) -> Signal:
+    """Rectangular wave at ``duty`` (0..1): +peak for duty * T from the rising edge at phase 0, else
+    -peak. Its mean is peak * (2 duty - 1); harmonics up to ``f_max``. Duty 0.5 is :func:`square`."""
+    n, notes = _harmonics(freq, f_max, 1, "pulse train")
+    x = 2 * np.pi * n * duty
+    # f = P(2d-1) + sum 2P/(n pi) [sin(x) cos(n w t) + (1 - cos x) sin(n w t)]; a_n = c_n - j s_n.
+    a = (2 * peak / (np.pi * n)) * (np.sin(x) - 1j * (1 - np.cos(x))) * np.exp(1j * n * phase_rad)
+    keep = np.abs(a) > 1e-15 * peak
+    return Signal.lines(n[keep] * freq, a[keep], t0_ns=t0_ns, notes=notes) + Signal.constant(
+        peak * (2 * duty - 1)
+    )
+
+
+def triangle(
+    freq: float, peak: float, symmetry: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0
+) -> Signal:
+    """Ramp with ``symmetry`` (0..1, the rising share of the period) between -peak and +peak, crossing
+    zero on the rise at phase 0. Symmetry 1 is :func:`ramp` (sawtooth); 0 a falling sawtooth."""
+    if symmetry >= 1.0:
+        return ramp(freq, peak, f_max, phase_rad, t0_ns)
+    if symmetry <= 0.0:
+        return ramp(freq, -peak, f_max, phase_rad + np.pi, t0_ns)
+    n, notes = _harmonics(freq, f_max, 1, "ramp")
+    th = 2 * np.pi * n * symmetry
+    # From -P at t=0, rising to +P at s*T, falling back by T: a_n = -P (1 - e^-j th) / (pi^2 n^2 s (1-s)).
+    a = -peak * (1 - np.exp(-1j * th)) / (np.pi**2 * n**2 * symmetry * (1 - symmetry))
+    # Shift so the rising zero crossing (t = s*T/2) sits at phase 0.
+    a = a * np.exp(1j * n * (np.pi * symmetry + phase_rad))
+    keep = np.abs(a) > 1e-15 * peak
+    return Signal.lines(n[keep] * freq, a[keep], t0_ns=t0_ns, notes=notes)
 
 
 # ---- common transfer functions ------------------------------------------------------------------

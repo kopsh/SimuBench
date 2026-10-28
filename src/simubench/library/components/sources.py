@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.component import Component, PortSpec, component
-from ...engine.signal import MAX_LINES, FidelityNote, Signal, ramp, sine, square
+from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
 from ...scpi.errors import ScpiError
 
 
@@ -16,9 +16,10 @@ from ...scpi.errors import ScpiError
 class FunctionGeneratorCore(Component):
     """Standard waveforms with phase-continuous frequency changes.
 
-    Parameters: ``function`` (SINusoid, SQUare, RAMP, DC), ``frequency`` (Hz), ``amplitude`` (Vpp),
-    ``offset`` (V), ``phase`` (degrees), ``bandwidth`` (Hz, harmonic limit for square and ramp),
-    ``square_max`` (Hz, highest square/ramp frequency).
+    Parameters: ``function`` (SINusoid, SQUare, RAMP, DC; Siglent's SINE, SQUARE are the same),
+    ``frequency`` (Hz), ``amplitude`` (Vpp), ``offset`` (V), ``phase`` (degrees), ``duty`` (% high,
+    square), ``symmetry`` (% rising, ramp; 100 is a sawtooth), ``bandwidth`` (Hz, harmonic limit for
+    square and ramp), ``square_max`` (Hz, highest square/ramp frequency).
     """
 
     ports = {"out": PortSpec("out", "signal")}
@@ -30,7 +31,11 @@ class FunctionGeneratorCore(Component):
         "phase": 0.0,
         "bandwidth": 100e6,
         "square_max": math.inf,
+        "duty": 50.0,
+        "symmetry": 100.0,
     }
+    #: Other instruments' names for the same shapes (Siglent SDG: C1:BSWV WVTP,SINE).
+    ALIASES = {"SINE": "SINusoid", "SQUARE": "SQUare"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -47,13 +52,13 @@ class FunctionGeneratorCore(Component):
             now = self.session.now_ns
             self._phase0 = (self._phase0 + 2 * math.pi * float(old) * (now - self._t0) * 1e-9) % (2 * math.pi)
             self._t0 = now
-        fn = self.param("function")
+        fn = self.ALIASES.get(self.param("function"), self.param("function"))
         freq = float(self.param("frequency"))
         if fn in ("SQUare", "RAMP") and freq > float(self.param("square_max")):
             raise ScpiError(-221, f"{fn} is limited to {self.param('square_max'):g} Hz")
 
     def output(self, port: str) -> Signal:
-        fn = self.param("function")
+        fn = self.ALIASES.get(self.param("function"), self.param("function"))
         offset = float(self.param("offset"))
         if fn == "DC":
             return Signal.constant(offset)
@@ -63,9 +68,16 @@ class FunctionGeneratorCore(Component):
         if fn == "SINusoid":
             sig = sine(freq, peak, phase, self._t0)
         elif fn == "SQUare":
-            sig = square(freq, peak, float(self.param("bandwidth")), phase, self._t0)
+            duty = float(self.param("duty")) / 100.0
+            bw = float(self.param("bandwidth"))
+            sig = (
+                square(freq, peak, bw, phase, self._t0)
+                if duty == 0.5
+                else pulse_train(freq, peak, duty, bw, phase, self._t0)
+            )
         elif fn == "RAMP":
-            sig = ramp(freq, peak, float(self.param("bandwidth")), phase, self._t0)
+            sym = float(self.param("symmetry")) / 100.0
+            sig = triangle(freq, peak, sym, float(self.param("bandwidth")), phase, self._t0)
         else:
             raise ScpiError(-224, f"function {fn!r} not supported")
         return sig + Signal.constant(offset)

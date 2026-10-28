@@ -40,6 +40,8 @@ specs:
   timebase_accuracy_ppm: 1.0
   trigger_level_div: 4.1
   trigger_jitter_s_rms: 1.0e-11
+  noise_floor: "80 uV rms at 500 MHz bandwidth (data sheet, 500 MHz model); modeled as white input noise of 80 uV * sqrt(100/500) = 35.8 uV rms at this model's 100 MHz (D46)"
+  sfdr_db: 40
 channels:
   count: 4
   overrides:

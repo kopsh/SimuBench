@@ -46,7 +46,7 @@ sections:
     level: implemented
   - header: :ACQuire:RESolution
     level: implemented
-    note: '8 bits: 30 codes/div; 10 bits: 120 codes/div, left-aligned in WORD data (30 * 256 per div in the preamble)'
+    note: '8 bits: 30 codes/div; 10 bits: 120 codes/div, left-aligned in WORD data (30 * 256 per div in the preamble); every record is quantized, so measurements see the codes too'
   - header: :ACQuire:SEQuence
     level: not_modeled
   - header: :ACQuire:SEQuence:COUNt
@@ -56,7 +56,7 @@ sections:
     note: query only here; setting a fixed rate (FSRate) is not modeled
   - header: :ACQuire:TYPE
     level: implemented
-    note: NORMal; AVERage keeps one acquisition and takes the time of N until the noise model (issue 24); PEAK and ERES are stored
+    note: 'NORMal; AVERage,N gives the noise of N averaged acquisitions (1/sqrt(N)) and takes the time of N; PEAK and ERES are stored (no effect)'
 - section: CHANnel Commands (EN11F)
   commands:
   - header: :CHANnel:REFerence
