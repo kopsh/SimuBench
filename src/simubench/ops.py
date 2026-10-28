@@ -239,6 +239,7 @@ def doctor(
 def _workspace_checks(workspace: Path) -> list[Check]:
     from .engine.validate import validate_data
     from .library.loader import DefinitionLibrary, load_yaml
+    from .server.benchfiles import scan
 
     if not workspace.is_dir():
         return [Check("workspace", "fail", f"{workspace} does not exist")]
@@ -246,9 +247,7 @@ def _workspace_checks(workspace: Path) -> list[Check]:
     lib = DefinitionLibrary([workspace / "instruments"])
     bad = []
     count = 0
-    for path in sorted(workspace.rglob("*.bench.yaml")):
-        if ".simubench" in path.parts:
-            continue
+    for path in scan(workspace):
         count += 1
         try:
             _, report = validate_data(load_yaml(path.read_text(encoding="utf-8")), lib)
