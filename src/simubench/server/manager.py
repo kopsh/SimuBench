@@ -20,7 +20,7 @@ from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
-from .benchfiles import BenchFiles
+from .benchfiles import BenchFiles, scan
 from .runs import Runs
 
 log = logging.getLogger(__name__)
@@ -68,9 +68,7 @@ class SessionManager:
 
     def bench_files(self) -> list[M.BenchFile]:
         out: list[M.BenchFile] = []
-        for p in sorted(self.workspace.rglob("*.bench.yaml")) + sorted(self.workspace.rglob("*.bench.json")):
-            if any(part in ("node_modules", ".venv", ".git") for part in p.parts):
-                continue
+        for p in scan(self.workspace):
             rel = p.relative_to(self.workspace).as_posix()
             try:
                 b = load_bench(p)

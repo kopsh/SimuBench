@@ -276,3 +276,22 @@ def test_wall_clock_readings_follow_real_time(tmp_path):
         time.sleep(0.05)
         second = c.get(f"/api/sessions/{sid}/instruments/lia/readings").json()["now_ns"]
         assert second - first >= 40_000_000  # nothing was sent; time moved with the wall
+
+
+def test_history_versions_are_not_listed_as_benches(client, ws):
+    # Saving keeps versions in .simubench/history/<bench path>/, a folder named like a bench file.
+    doc = client.get("/api/benches/file", params={"path": BENCH}).json()
+    data = {**doc["data"], "description": "edited"}
+    r = client.put("/api/benches/file", json={"path": BENCH, "base_sha256": doc["sha256"], "data": data})
+    assert r.status_code == 200, r.text
+    assert (ws / ".simubench" / "history" / BENCH).is_dir()
+    (ws / "node_modules" / "pkg").mkdir(parents=True)
+    (ws / "node_modules" / "pkg" / "x.bench.yaml").write_text("name: not mine\n", encoding="utf-8")
+
+    benches = client.get("/api/benches").json()
+    assert [(b["path"], b.get("error")) for b in benches] == [(BENCH, None)]
+
+    from simubench.ops import doctor
+
+    check = next(c for c in doctor(ws) if c.name == "bench files")
+    assert (check.status, check.detail) == ("ok", "1 valid")
