@@ -32,6 +32,12 @@
       "additionalProperties": false,
       "description": "One command of a case: ``send`` writes, ``query`` writes and reads the reply.",
       "properties": {
+        "binary": {
+          "default": false,
+          "description": "The reply is binary (a block): expect / expect_match apply to its bytes read as Latin-1",
+          "title": "Binary",
+          "type": "boolean"
+        },
         "expect": {
           "anyOf": [
             {

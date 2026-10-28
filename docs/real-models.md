@@ -80,7 +80,9 @@
 | `errors` | 定义 | 错误表 `{错误码: 信息文字}`。覆盖标准文字，也可新增设备专用错误码（如 `501`）；`0` 的文字用于“无错误”。 |
 | `error_queue` | 定义 | 错误队列长度（默认 20）。队列满时最后一格变为 `-350`（SCPI-99 21.8），其文字也可在 `errors` 中给出。 |
 | `format` | 定义 | 默认返回格式：`number`（`nr3` / `nr2` / `nr1`）、`digits`（小数位数）、`sign`（非负数是否带 `+`）、`exponent_digits`、`integer`（`plain` / `signed`）、`boolean`（`numeric` 即 1/0，`word` 即 ON/OFF）、`enum`（`short` / `long`）、`error_code`（`:SYSTem:ERRor?` 中的错误码是否带 `+`，如 Keysight 的 `+0,"No error"`）。默认值即 `sb-*` 一直以来的格式（`+1.000000E+03`）。 |
-| `commands[].format` | 命令 | 覆盖该命令的返回格式，字段同上。 |
+| `commands[].format` | 命令 | 覆盖该命令的返回格式，字段同上。`enum` 还可以是 `as_defined`：按定义中的写法原样返回（如 Siglent 的 `RISing`）。 |
+| `builtins` | 定义 | 这个型号回答的内置命令（如 `["*IDN", "*OPC", "*RST"]`）。不写时全部回答；写了以后，其余内置命令（`*CLS`、`:SYSTem:ERRor?` 等）按“未建模”处理（D45）。 |
+| `display.actions` | 定义 | 界面的面板操作发送的命令，如 `{single: ":TRIGger:MODE SINGle"}`；不写时“单次”发送 `:SINGle`。 |
 | `specs` | 定义 | 手册中的精度指标，任意结构；目前只保存，不参与计算（M7）。 |
 
 **覆盖表** `<id>.coverage.yaml`（与定义放在一起；仪表库不会把它当作定义）：
@@ -110,6 +112,11 @@ cases:
     steps: [...]
 ```
 
+回复是二进制块（如波形数据）的查询写 `binary: true`：按块头给出的长度读取，`expect` / `expect_match` 作用于按 Latin-1 解码的字节（包括块后的换行）。
+
 每条用例在一个刚上电的测试台上通过 PyVISA 后端运行，测试报告中单独列出，名称带手册章节。
 
 **完整示例**：`tests/models/acme-dm1/` 是一个虚构的“真实型号”，只用于测试框架本身（不在产品仪表库中）：定义（`reference`、`errors`、`error_queue`、`format`、`specs`、命令级 `format`、没有冒号层级的 `OUT` 命令）、覆盖表与用例。`simubench coverage acme-dm1 --definitions tests/models/acme-dm1` 打印它的覆盖表与统计。
+
+**第一个产品型号**：`siglent-sds2104xplus`（D45）。覆盖表由手册正文中的命令条目生成（622 条），实现与接受的级别和说明逐条手写；`examples/scripts/siglent_sds_read_waveform.py` 按手册的波形读取示例编写，在真机和 SimuBench 上都能直接运行（`tests/test_siglent_sds.py`）。
+
