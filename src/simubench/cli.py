@@ -25,6 +25,7 @@ def _serve(args: argparse.Namespace) -> int:
         workspace,
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
+        hislip_port=None if args.no_scpi else args.hislip_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
     )
@@ -40,6 +41,8 @@ def _serve(args: argparse.Namespace) -> int:
             served = await manager.start(bench.relative_to(workspace).as_posix())
             for lst in served.scpi.listeners if served.scpi else []:
                 print(f"  SCPI  {lst.instrument:<12} {lst.address}")
+            for name, addr in served.hislip.addresses().items() if served.hislip else []:
+                print(f"  HiSLIP {name:<12} {addr}")
         url = f"http://127.0.0.1:{args.port}/?token={token}"
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
@@ -84,6 +87,7 @@ def _mcp(args: argparse.Namespace) -> int:
         workspace,
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
+        hislip_port=None if args.no_scpi else args.hislip_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
     )
@@ -281,6 +285,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workspace", help="folder searched for bench files (default: the bench's folder)")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--scpi-base-port", type=int, default=5025, help="first SCPI port; 0 lets the OS choose")
+    p.add_argument(
+        "--hislip-port",
+        type=int,
+        default=4880,
+        help="shared HiSLIP port (D41); 0 lets the OS choose, and --no-scpi disables it too",
+    )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
@@ -296,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--port", type=int, default=8765, help="Web Bench port (next free one if taken)")
     p.add_argument("--no-ui", action="store_true", help="do not serve the Web Bench")
     p.add_argument("--scpi-base-port", type=int, default=5025)
+    p.add_argument("--hislip-port", type=int, default=4880)
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")
     p.add_argument("--token")

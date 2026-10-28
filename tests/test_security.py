@@ -19,7 +19,9 @@ PUBLIC = {"/api/health", "/api/openapi.json", "/api/docs"}
 @pytest.fixture
 def app():
     return create_app(
-        SessionManager(ROOT / "examples", scpi_base_port=0), token=TOKEN, web_dist=Path("/nonexistent")
+        SessionManager(ROOT / "examples", scpi_base_port=0, hislip_port=0),
+        token=TOKEN,
+        web_dist=Path("/nonexistent"),
     )
 
 
@@ -102,4 +104,7 @@ def test_scpi_sockets_listen_on_loopback_only(app):
         info = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()
         addresses = [i["address_virtual"] for i in info["instruments"]]
         assert addresses and all(a.startswith("TCPIP0::127.0.0.1::") for a in addresses)
+        hislip = [i["address_hislip"] for i in info["instruments"]]
+        # The shared HiSLIP port (D41) binds loopback only as well, like the sockets.
+        assert hislip and all(a.startswith("TCPIP0::127.0.0.1::hislip") for a in hislip)
         c.delete(f"/api/sessions/{info['id']}")

@@ -4,7 +4,7 @@
 
 | 防护 | 做法 | 测试 |
 | --- | --- | --- |
-| 只监听本机 | Web 服务与 SCPI 网络仪表只绑定 127.0.0.1 | `test_scpi_sockets_listen_on_loopback_only` |
+| 只监听本机 | Web 服务与 SCPI 网络仪表（raw socket 与 HiSLIP 共用端口）只绑定 127.0.0.1 | `test_scpi_sockets_listen_on_loopback_only` |
 | 访问令牌 | 启动时随机生成（`secrets.token_urlsafe(24)`），界面地址中带一次后从地址栏移除；请求头 `x-simubench-token`，常量时间比较。除健康检查与接口描述（`/api/health`、`/api/openapi.json`、`/api/docs`，不含数据）外，每个 `/api` 路由都要求令牌 | `test_every_api_route_needs_the_token`（遍历全部路由，新增路由自动纳入） |
 | DNS 重绑定与跨站请求 | Host 与 Origin 头必须是本机地址（127.0.0.1、localhost、::1），否则 403，即使带了正确令牌 | `test_foreign_host_or_origin_is_refused_even_with_the_token`、`test_rebinding_host_rejected` |
 | 事件流 WebSocket | 同样检查 Host、Origin 与令牌，失败时以 4401 关闭 | `test_event_socket_checks_token_and_origin` |

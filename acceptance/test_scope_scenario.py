@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from refcalc.circuits import emf_for_load_setting, fit_sine, rc_chain, rc_ladder
 
-from .conftest import BENCHES, capture, open_rig
+from .conftest import BENCHES, capture, open_rig, run_over_hislip
 
 R, C = 1000.0, 100e-9
 FC = 1 / (2 * math.pi * R * C)
@@ -51,15 +51,28 @@ def test_preamble_fields(rig):
     assert y_inc == pytest.approx(4 * 0.05 / 32768, rel=1e-6) and y_org == 0 and y_ref == 0
 
 
-def test_amplitude_follows_circuit_theory(rig):
-    awg, scope = rig
-    awg.write(":OUTPut1:STATe ON")  # 2 Vpp into a 50 ohm load setting, 1 kHz
-    scope.write(":CHANnel1:SCALe 0.1")
-    cap = capture(scope, probe=10.0)
-    peak, _, _ = fit_sine(cap.t, cap.v, 1000.0)
-    assert peak == pytest.approx(expected_tip_peak(1000.0), rel=1e-3)
-    # The classic bench bug, reproduced: a 50 ohm setting into a high-impedance load reads about twice.
-    assert peak * 2 > 1.9 * 2 * 0.8467
+@pytest.mark.parametrize("style", ["socket", "hislip"])
+def test_amplitude_follows_circuit_theory(style):
+    """The same measurement over the in-process SOCKET addresses and over HiSLIP (D41)."""
+
+    def body(awg, scope):
+        awg.write(":OUTPut1:STATe ON")  # 2 Vpp into a 50 ohm load setting, 1 kHz
+        scope.write(":CHANnel1:SCALe 0.1")
+        cap = capture(scope, probe=10.0)
+        peak, _, _ = fit_sine(cap.t, cap.v, 1000.0)
+        assert peak == pytest.approx(expected_tip_peak(1000.0), rel=1e-3)
+        # The classic bench bug, reproduced: a 50 ohm setting into a high-impedance load reads
+        # about twice.
+        assert peak * 2 > 1.9 * 2 * 0.8467
+
+    if style == "socket":
+        rm, awg, scope = open_rig("awg_rc_scope.bench.yaml")
+        try:
+            body(awg, scope)
+        finally:
+            rm.close()
+    else:
+        run_over_hislip("awg_rc_scope.bench.yaml", body)
 
 
 def test_high_z_load_setting_halves_the_emf(rig):

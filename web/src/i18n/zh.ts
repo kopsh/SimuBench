@@ -68,6 +68,7 @@ export const zh = {
     errorsQueued_other: "{{count}} 个错误待读取",
     address: "地址",
     virtualAddress: "虚拟地址",
+    hislipAddress: "HiSLIP 地址",
     realAddress: "真实测试台地址",
     model: "型号",
     identity: "标识",

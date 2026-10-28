@@ -71,6 +71,7 @@ export const en: Widen<Messages> = {
     errorsQueued_other: "{{count}} errors queued",
     address: "Address",
     virtualAddress: "Virtual address",
+    hislipAddress: "HiSLIP address",
     realAddress: "Real bench address",
     model: "Model",
     identity: "Identity",

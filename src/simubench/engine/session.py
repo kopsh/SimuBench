@@ -430,6 +430,14 @@ class Session:
             self._end_action()
             return out
 
+    def clear_output(self, name: str, client: str = "sdk") -> None:
+        """Device clear: drop every queued response message (the communication layer of
+        IEEE 488.2 device clear, shared by the PyVISA backend and the HiSLIP server)."""
+        with self._lock:
+            inst = self.instrument(name)
+            while inst.take_output() is not None:
+                pass
+
     def _delay(self, seconds: float) -> None:
         """Link latency: virtual time on the command clock, real time on the wall clock."""
         if seconds <= 0:

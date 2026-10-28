@@ -326,6 +326,7 @@ def build_server(
                     "idn": i.idn,
                     "resource_virtual": i.address_virtual,
                     "resource_real": i.address_real,
+                    "resource_hislip": i.address_hislip,
                     "scpi_socket": f"TCPIP0::127.0.0.1::{i.scpi_port}::SOCKET" if i.scpi_port else None,
                 }
                 for i in info.instruments
