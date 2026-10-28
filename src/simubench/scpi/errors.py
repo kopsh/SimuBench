@@ -54,9 +54,13 @@ class ScpiError(Exception):
 
     code: int
     detail: str = ""
+    #: The instrument's own text for this code (a real model's error table), replacing the standard one.
+    text: str | None = None
 
     @property
     def message(self) -> str:
+        if self.text is not None:
+            return self.text
         base = STANDARD_MESSAGES.get(self.code)
         if base is None and self.code > 0 and self.detail:
             return self.detail  # device-specific codes carry their own message, e.g. 325,"Input overload"
@@ -65,6 +69,15 @@ class ScpiError(Exception):
             family = -(abs(self.code) // 10 * 10) if self.code < 0 else self.code // 10 * 10
             base = STANDARD_MESSAGES.get(family, "Error")
         return f"{base}; {self.detail}" if self.detail else base
+
+    @property
+    def standard_text(self) -> str:
+        """The standard text for the code (or its family), without detail."""
+        base = STANDARD_MESSAGES.get(self.code)
+        if base is None:
+            family = -(abs(self.code) // 10 * 10) if self.code < 0 else self.code // 10 * 10
+            base = STANDARD_MESSAGES.get(family, "Error")
+        return base
 
     @property
     def esr_class(self) -> str:
@@ -83,15 +96,16 @@ class ScpiError(Exception):
 class ErrorQueue:
     """FIFO error queue; the last slot reports -350 on overflow (SCPI-99 21.8.2)."""
 
-    def __init__(self, capacity: int = 20) -> None:
+    def __init__(self, capacity: int = 20, overflow_text: str | None = None) -> None:
         self.capacity = capacity
+        self.overflow_text = overflow_text
         self._q: deque[ScpiError] = deque()
 
     def push(self, err: ScpiError) -> None:
         if len(self._q) >= self.capacity:
             return
         if len(self._q) == self.capacity - 1:
-            self._q.append(ScpiError(-350))
+            self._q.append(ScpiError(-350, text=self.overflow_text))
             return
         self._q.append(err)
 

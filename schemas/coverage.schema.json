@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "CoverageEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "header": {
+          "description": "Header as the definition writes it, e.g. '[:SENSe]:VOLTage[:DC]:NPLC'",
+          "title": "Header",
+          "type": "string"
+        },
+        "level": {
+          "enum": [
+            "implemented",
+            "accepted",
+            "not_modeled"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "header",
+        "level"
+      ],
+      "title": "CoverageEntry",
+      "type": "object"
+    },
+    "CoverageSection": {
+      "additionalProperties": false,
+      "properties": {
+        "commands": {
+          "items": {
+            "$ref": "#/$defs/CoverageEntry"
+          },
+          "title": "Commands",
+          "type": "array"
+        },
+        "section": {
+          "description": "Manual section, e.g. 'Command Reference > SENSe Subsystem'",
+          "title": "Section",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section",
+        "commands"
+      ],
+      "title": "CoverageSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "model": {
+      "description": "Definition id, e.g. keysight-34465a",
+      "title": "Model",
+      "type": "string"
+    },
+    "schema": {
+      "const": "simubench.coverage/1",
+      "default": "simubench.coverage/1",
+      "title": "Schema",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/CoverageSection"
+      },
+      "title": "Sections",
+      "type": "array"
+    }
+  },
+  "required": [
+    "model",
+    "sections"
+  ],
+  "title": "Coverage",
+  "type": "object"
+}
