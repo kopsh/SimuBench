@@ -1,7 +1,7 @@
 import { Info, Play, Square, StepForward } from "lucide-react";
 import { useDeferredValue, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { InstrumentInfo } from "@/api/client";
+import type { InstrumentInfo, SessionInfo, Trace } from "@/api/client";
 import { useEvents } from "@/api/events";
 import { useScopeScreen, useScpi } from "@/api/hooks";
 import { EmptyState } from "@/components/app/StateViews";
@@ -12,14 +12,16 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { channelColor } from "@/lib/channels";
 import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { stateMap } from "../model";
+import { refTarget, stateMap } from "../model";
+import { useWorkbench } from "../store";
 import { WaveformCanvas } from "./WaveformCanvas";
 
 /** Pause between acquisitions while running, in real time. */
 const RUN_INTERVAL_MS = 300;
 
-export function ScopeScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
+export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
+  const sid = session.id;
   const [source, setSource] = useState<"preview" | "record">("preview");
   const version = useDeferredValue(useEvents((s) => s.version));
   const screen = useScopeScreen(sid, inst.name, source, version);
@@ -116,11 +118,7 @@ export function ScopeScreen({ sid, inst, readonly }: { sid: string; inst: Instru
               triggerLevel={data?.trigger_level}
               triggerChannel={data?.trigger_source}
             />
-            {data && data.traces.length > 0 && data.traces.every((tr) => tr.volts.every((v) => v === 0)) && (
-              <div className="bg-card/90 text-muted-foreground absolute top-3 left-1/2 -translate-x-1/2 rounded-md border px-3 py-1.5 text-xs">
-                {t("scope.noSignal")}
-              </div>
-            )}
+            {data && <SilenceNotice session={session} traces={data.traces} />}
           </>
         )}
       </div>
@@ -144,6 +142,64 @@ export function ScopeScreen({ sid, inst, readonly }: { sid: string; inst: Instru
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Why a channel reads 0 V, traced upstream by the service (unwired, source off, set to 0, no source,
+ * a fault), with each hop selectable so it can be found on the canvas and in the inspector.
+ */
+function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trace[] }) {
+  const { t } = useTranslation();
+  const select = useWorkbench((s) => s.select);
+  const silent = traces.filter((tr) => tr.silence.length > 0 && tr.volts.every((v) => v === 0));
+  if (silent.length === 0) return null;
+  return (
+    <div
+      role="status"
+      aria-label={t("scope.silence.title")}
+      className="bg-card/90 absolute top-3 left-1/2 w-max max-w-[90%] -translate-x-1/2 space-y-1 rounded-md border px-3 py-1.5 text-xs"
+    >
+      {silent.map((tr) =>
+        tr.silence.map((r, i) => {
+          const source = r.source ? refTarget(session, r.source).label : "";
+          return (
+            <div key={`${tr.channel}-${i}`} className="text-muted-foreground flex flex-wrap items-center gap-1">
+              <span className="num font-semibold" style={{ color: channelColor(tr.channel) }}>
+                CH{tr.channel}
+              </span>
+              {r.path.slice(1, r.source ? -1 : undefined).map((ref) => {
+                const hop = refTarget(session, ref);
+                return (
+                  <span key={ref} className="flex items-center gap-1">
+                    <span aria-hidden>←</span>
+                    <button className="text-foreground hover:underline" disabled={!hop.selection} onClick={() => hop.selection && select(hop.selection)}>
+                      {hop.label}
+                    </button>
+                  </span>
+                );
+              })}
+              {r.source && <span aria-hidden>←</span>}
+              <span>
+                {r.source && r.kind !== "fault" ? (
+                  <button
+                    className="text-foreground hover:underline"
+                    onClick={() => {
+                      const sel = refTarget(session, r.source!).selection;
+                      if (sel) select(sel);
+                    }}
+                  >
+                    {t(`scope.silence.${r.kind}`, { source, fault: r.fault_id })}
+                  </button>
+                ) : (
+                  t(`scope.silence.${r.kind}`, { source, fault: r.fault_id })
+                )}
+              </span>
+            </div>
+          );
+        }),
+      )}
     </div>
   );
 }

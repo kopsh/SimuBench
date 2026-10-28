@@ -16,6 +16,7 @@ from ..api import open_bench
 from ..engine.faults import LinkDown
 from ..engine.instrument import Instrument
 from ..engine.session import Session
+from ..engine.silence import why_silent
 from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
@@ -345,6 +346,7 @@ class SessionManager:
                     scale=r.scale,
                     offset=r.offset,
                     triggered=r.triggered,
+                    silence=_channel_silence(s, inst, n),
                 )
                 for n, r in sorted(records.items())
             ]
@@ -457,6 +459,7 @@ class SessionManager:
                 waveform=wave,
                 sources=sources,
                 notes=[n.detail for n in sig.notes],
+                silence=[_silence(x) for x in why_silent(s, net)],
             )
 
     @staticmethod
@@ -503,3 +506,16 @@ def _net_notes(s: Session, net: str) -> list[str]:
     except Exception as exc:  # describing a session must not fail because one net cannot be solved
         log.exception("net %s of %s", net, s.bench.name)
         return [f"model error: {type(exc).__name__}"]
+
+
+def _silence(x: Any) -> M.SilenceReason:
+    return M.SilenceReason(kind=x.kind, path=x.path, source=x.source, fault_id=x.fault_id, detail=x.detail)
+
+
+def _channel_silence(s: Session, inst: Instrument, channel: int) -> list[M.SilenceReason]:
+    """Why a scope channel's input reads 0 V: its input port, traced upstream (issue 22)."""
+    for pname, (comp, port) in inst.ports.items():
+        if comp.startswith(f"ch{channel}.") and inst.components[comp].ports[port].direction == "in":
+            ref = f"{inst.name}.{pname}"
+            return [_silence(x) for x in why_silent(s, s.node_of(inst.components[comp], port), port_ref=ref)]
+    return []
