@@ -215,6 +215,7 @@ export const en: Widen<Messages> = {
     dc: "DC voltage",
     ac: "AC voltage (rms)",
     readings: "Readings",
+    noReadings: "This instrument has no readings to show.",
   },
   spectrum: {
     overload: "Mixer overload",
@@ -253,7 +254,12 @@ export const en: Widen<Messages> = {
     buffer: "Buffer",
     bufferTable: "Buffer readings",
     points: "{{count}} points",
-    noBuffer: "The buffer is empty. A sweep or reading by :READ? or :INITiate shows here.",
+    noBuffer: "The buffer is empty. Click Read or Initiate, or have a script send :MEASure?, :READ? or :INITiate.",
+    controls: "Measurement controls",
+    read: "Read",
+    initiate: "Initiate",
+    initiateHint: "Run with the current settings (:INITiate): the whole sweep in sweep mode, otherwise one reading.",
+    clearBuffer: "Clear buffer",
   },
   load: {
     inputOn: "Input on",
