@@ -1,0 +1,28 @@
+# Merge a pull request into main once CI has passed on it: no review, and no repository settings
+# needed (it does not rely on branch protection). Drafts are left alone.
+name: Merge when CI passes
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for n in $(jq -r '.workflow_run.pull_requests[] | select(.base.ref == "main") | .number' "$GITHUB_EVENT_PATH"); do
+            if [ "$(gh pr view "$n" --repo "$REPO" --json isDraft -q .isDraft)" = true ]; then continue; fi
+            # Only the commit CI tested: a newer push waits for its own CI run.
+            gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
