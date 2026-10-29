@@ -1,0 +1,46 @@
+schema: simubench.bench/1
+name: lowfreq_cal
+description: >-
+  低频校准工作台预设：示波器校准仪（源）的 CH1–CH4 经 1 m 50 Ω 同轴线缆（直流电阻
+  0.05 Ω，趋肤效应 1 MHz 时 0.15 Ω）接到参考示波器（表）的 C1–C4。
+  主机测试程序以 raw socket（TCPIP0::127.0.0.1::<端口>::SOCKET，换行结束）连接两台仪器，
+  源码不改。两台的 *IDN? 由下面的 idn 给出：把型号段改成主机校验的型号串。
+  步进时钟：虚拟时间只随显式推进前进，同一种子、同一命令序列的结果逐位一致（AC-4）。
+instruments:
+  calibrator:
+    model: lfcal-scope-calibrator
+    label: 示波器校准仪
+    idn: "SIMUBENCH,LFCAL-CALIBRATOR,{serial},{firmware}"
+  scope:
+    model: lfcal-reference-scope
+    label: 参考示波器
+    idn: "LECROY,LFCAL-REFSCOPE,{serial},{firmware}"
+    state:
+      ch1.coupling: D50
+      ch2.coupling: D50
+      ch3.coupling: D50
+      ch4.coupling: D50
+duts: {}
+wires:
+  - from: calibrator.CH1
+    to: scope.CH1
+    accessories:
+      - {type: coax_cable, params: {length_m: 1.0, r: 0.05, r_skin_1mhz: 0.15}}
+  - from: calibrator.CH2
+    to: scope.CH2
+    accessories:
+      - {type: coax_cable, params: {length_m: 1.0, r: 0.05, r_skin_1mhz: 0.15}}
+  - from: calibrator.CH3
+    to: scope.CH3
+    accessories:
+      - {type: coax_cable, params: {length_m: 1.0, r: 0.05, r_skin_1mhz: 0.15}}
+  - from: calibrator.CH4
+    to: scope.CH4
+    accessories:
+      - {type: coax_cable, params: {length_m: 1.0, r: 0.05, r_skin_1mhz: 0.15}}
+run:
+  seed: 20261029
+  clock: stepped
+layout:
+  calibrator: {x: 0, y: 60}
+  scope: {x: 480, y: 40}

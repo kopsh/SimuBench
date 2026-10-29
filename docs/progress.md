@@ -130,6 +130,18 @@
 | 内置仪表只有真实型号，`sb-*` 不发布（issue 35） | ✅ `sb-*` 定义移到 `validation/instruments/`，演示台移到 `validation/benches/`；定义搜索路径 `SIMUBENCH_DEFINITIONS`，测试经 `conftest.py` 加载；服务启动会话与回放运行记录也搜索工作区的 `instruments/`（此前只有校验搜索）；`tests/test_release.py` 与 CI 打包任务检查内置定义、`examples/` 与 wheel 中没有 `sb-*` |
 | 型号：Keysight 34465A、Fluke 5522A、Keithley 2450 | ⏳ 各自的 issue |
 
+## 低频校准工作台（lowfreq-cal.md）
+
+| 交付物 / 验收标准 | 自检 |
+| --- | --- |
+| D1 参考示波器（LeCroy 风格方言）、D2 示波器校准仪、D4 工作台预设、D5 示例脚本与说明 | ✅ `examples/lowfreq-cal/`；按接口契约编写，不带 `reference`（D42） |
+| D3 私有文本波形回读 `C<n>:INSPECT? "DATA_ARRAY_1",FLOAT` 与 `WAVEFORM_SETUP` 分块 | ✅ 平台组件 `lecroy_acquisition`；回复格式、`FP`/`NP`/`SP`、任意点数拼接（`tests/test_lowfreq_cal.py`） |
+| 平台：`unknown_commands: ignore`、定义中的公共命令、测试台实例的 `idn`、`output_stage` 的 `hiz_from`、`coax_cable` 的趋肤效应 | ✅ 单元测试；schemas 与前端类型已重新生成 |
+| AC-1 主机流程经 raw socket 完成；AC-2 30 000 / 100 000 点；AC-3 频响合法且单调；AC-4 同种子一致 | ✅ `acceptance/test_lowfreq_cal_scenario.py`（pyvisa-py，真实套接字） |
+| AC-5 未启用平台时真实硬件路径不受影响 | ✅ 主机程序与其配置不被修改，只换地址 |
+| 主机约定的 `*IDN?` 型号串 | ⏳ 需求未给出；预设为占位串，部署前在测试台 `idn` 中改为约定值 |
+| 用真实主机程序跑一遍 | ⏳ 需要主机程序；验收测试以按契约编写的示例脚本代替 |
+
 ## 仪表内部组件图（Issue 20，D3）
 
 | 完成条件 | 自检 |

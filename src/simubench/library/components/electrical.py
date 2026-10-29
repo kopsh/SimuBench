@@ -23,21 +23,28 @@ class OutputStage(Component):
 
     ``load_setting`` is the load the instrument assumes when it defines its amplitude (D13): the
     source EMF is scaled so that a load of that value would see the requested voltage. ``inf`` means
-    the amplitude is the open-circuit voltage.
+    the amplitude is the open-circuit voltage; so does any setting of ``hiz_from`` ohms or more, for
+    instruments whose high-impedance setting is a number (a calibrator's ``LOAD 10000``).
     """
 
     ports = {
         "in": PortSpec("in", "signal"),
         "pin": PortSpec("out", "electrical"),
     }
-    defaults = {"z_out": 50.0, "enabled": True, "load_setting": math.inf, "invert": False}
+    defaults = {
+        "z_out": 50.0,
+        "enabled": True,
+        "load_setting": math.inf,
+        "invert": False,
+        "hiz_from": math.inf,
+    }
 
     def _scale(self) -> float:
         """EMF per volt of setting: the load the amplitude is defined for, and the polarity."""
         z = float(self.param("z_out"))
         rl = float(self.param("load_setting"))
         sign = -1.0 if _flag(self.param("invert")) else 1.0
-        if not math.isfinite(rl) or rl <= 0:
+        if not math.isfinite(rl) or rl <= 0 or rl >= float(self.param("hiz_from")):
             return sign
         return sign * (rl + z) / rl
 
@@ -61,13 +68,19 @@ class InputPort(Component):
     }
     defaults = {"z_in": 1e6, "c_in": 0.0}
     units = {"z_in": "OHM", "c_in": "F"}
-    _NAMED = {"FIFTY": 50.0, "ONEMEG": 1e6}
+    _NAMED = {"FIFTY": 50.0, "FIFT": 50.0, "ONEMEG": 1e6, "ONEM": 1e6}
+
+    @classmethod
+    def impedance_of(cls, params: dict[str, Any]) -> float:
+        """The resistance to ground for these parameter values (also used by the bench validator)."""
+        z = params["z_in"]
+        if isinstance(z, str):
+            named = cls._NAMED.get(z.upper())
+            return named if named is not None else float(z)
+        return float(z)
 
     def impedance(self) -> float:
-        z = self.param("z_in")
-        if isinstance(z, str):
-            return self._NAMED[z.upper()]
-        return float(z)
+        return self.impedance_of({k: self.param(k) for k in ("z_in", *self.defaults)})
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         n = node("pin")
@@ -155,18 +168,33 @@ class PassiveProbe(Component):
 
 @component("coax_cable")
 class CoaxCable(Component):
-    """An ideal short cable: a small series resistance (no delay or reflections)."""
+    """A short cable: a small series resistance (no delay or reflections).
+
+    ``r_skin_1mhz`` adds the skin effect: a series impedance ``r_skin_1mhz * sqrt(f / 1 MHz) * (1 + j)``
+    (resistance and internal reactance rise together with the square root of frequency), which
+    makes a 50 Ω path lose a little more at higher frequencies and a square wave settle slowly
+    after each edge. A lumped model, valid while the cable is short against the wavelength.
+    """
 
     category = "accessory"
     label = "同轴线缆"
     label_en = "Coax cable"
-    units = {"r": "OHM", "length_m": "m"}
+    units = {"r": "OHM", "length_m": "m", "r_skin_1mhz": "OHM"}
 
     ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("inout", "electrical")}
-    defaults = {"r": 0.05, "length_m": 1.0}
+    defaults = {"r": 0.05, "length_m": 1.0, "r_skin_1mhz": 0.0}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
-        circuit.resistor(node("IN"), node("OUT"), max(float(self.param("r")), 1e-6))
+        r = max(float(self.param("r")), 1e-6)
+        skin = float(self.param("r_skin_1mhz"))
+        if skin <= 0:
+            circuit.resistor(node("IN"), node("OUT"), r)
+            return
+
+        def y(f: np.ndarray, r: float = r, skin: float = skin) -> np.ndarray:
+            return 1.0 / (r + skin * np.sqrt(np.abs(np.asarray(f, dtype=float)) / 1e6) * (1 + 1j))
+
+        circuit.admittance(node("IN"), node("OUT"), y)
 
 
 @component("unity_buffer")

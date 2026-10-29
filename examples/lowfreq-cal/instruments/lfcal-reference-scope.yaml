@@ -1,0 +1,275 @@
+schema: simubench.instrument/1
+id: lfcal-reference-scope
+manufacturer: LeCroy
+model: LFCAL-REFSCOPE
+class: oscilloscope
+version: 1
+description: >-
+  低频校准工作台的参考示波器：LeCroy 风格的私有命令方言（TRSE、C1:VDIV、WAVEFORM_SETUP、
+  C1:INSPECT? 文本波形回读）。按主机测试程序的接口契约编写，不是按某一型号手册实现的真实型号
+  （没有 reference，D42）；契约之外的命令被忽略而不报错。*IDN? 的型号段由测试台的 idn 设定
+  （主机校验的型号串）。4 通道，记录长度恰为 MSIZ 点；噪声与 ADC 位数是假设值，见
+  docs/lowfreq-cal.md。
+identity:
+  idn: "{manufacturer},{model},{serial},{firmware}"
+  serial: LCRY0000001
+  firmware: "9.6.0"
+unknown_commands: ignore
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 2.0e-11
+    max: 1000.0
+    default: 1.0e-3
+    label: 时基
+    label_en: Timebase
+  memory.size:
+    type: int
+    min: 500
+    max: 50000000
+    default: 10000
+    label: 存储深度
+    label_en: Memory size
+  trigger.mode:
+    type: enum
+    options: [AUTO, NORMal, SINGLE, STOP]
+    default: AUTO
+    label: 触发方式
+    label_en: Trigger mode
+  trigger.type:
+    type: enum
+    options: [EDGE]
+    default: EDGE
+  trigger.source:
+    type: enum
+    options: [C1, C2, C3, C4, EX, EX10, LINE]
+    default: C1
+    label: 触发源
+    label_en: Trigger source
+  trigger.hold:
+    type: enum
+    options: ["OFF", TI, PS, PL, IS, IL, P2, I2]
+    default: "OFF"
+  interleaved:
+    type: bool
+    default: false
+    label: 随机交错采样
+    label_en: Random interleaved sampling
+  refclock:
+    type: enum
+    options: [INTERNAL, EXTERNAL]
+    default: INTERNAL
+    label: 参考时钟
+    label_en: Reference clock
+  comm.header:
+    type: enum
+    options: ["OFF", SHORT, LONG]
+    default: SHORT
+  waveform.sp:
+    type: int
+    min: 0
+    max: 50000000
+    default: 0
+  waveform.np:
+    type: int
+    min: 0
+    max: 50000000
+    default: 0
+  waveform.fp:
+    type: int
+    min: 0
+    max: 50000000
+    default: 0
+  waveform.sn:
+    type: int
+    min: 0
+    max: 10000
+    default: 0
+  measure.p1: {type: string, default: ""}
+  measure.p2: {type: string, default: ""}
+  measure.p3: {type: string, default: ""}
+  measure.p4: {type: string, default: ""}
+  measure.p5: {type: string, default: ""}
+  measure.p6: {type: string, default: ""}
+  measure.p7: {type: string, default: ""}
+  measure.p8: {type: string, default: ""}
+channel_state:
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Trace
+  coupling:
+    type: enum
+    options: [A1M, D1M, D50, GND]
+    default: D1M
+    electrical: true
+    label: 耦合
+    label_en: Coupling
+    option_labels: {A1M: "AC 1 MΩ", D1M: "DC 1 MΩ", D50: "DC 50 Ω", GND: "GND"}
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 10.0
+    default: 0.05
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: V
+    min: -100.0
+    max: 100.0
+    default: 0.0
+    label: 偏移
+    label_en: Offset
+  trigger_level:
+    type: float
+    unit: V
+    min: -100.0
+    max: 100.0
+    default: 0.0
+    label: 触发电平
+    label_en: Trigger level
+  trigger_slope:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+    label: 触发沿
+    label_en: Trigger slope
+  probe:
+    type: float
+    min: 0.0001
+    max: 10000.0
+    default: 1.0
+    label: 衰减
+    label_en: Attenuation
+components:
+  - name: lc
+    type: lecroy_scope
+  - name: acq
+    type: lecroy_acquisition
+    params:
+      max_rate: 2.0e10
+      # 假设值（不是数据手册数值）：12 位 ADC，输入端 200 µV rms 白噪声；测试台可用 hidden 覆盖。
+      adc_bits: 12
+      noise_rms: 2.0e-4
+channel_components:
+  - name: inp
+    type: lecroy_input
+    params:
+      coupling: $ch.coupling
+      z_in: 1.0e6
+      c_in: 1.6e-11
+  - name: front
+    type: lecroy_frontend
+    params:
+      coupling: $ch.coupling
+      bandwidth: 2.5e9
+      ac_corner: 10.0
+wiring:
+  channel:
+    - [inp.out, front.in]
+  instrument:
+    - ["ch{n}.front.out", "acq.in{n}"]
+ports:
+  channel:
+    "CH{n}": inp.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, memory.size, trigger.mode, trigger.source]
+  channel_summary: [display, scale, offset, coupling, trigger_level]
+  actions:
+    single: "TRMD SINGLE"
+capabilities: [oscilloscope]
+commands:
+  # ---- 公共命令与系统 ----
+  - {header: "*CLS", op: lc.cls}
+  - {header: "*OPC", op: acq.opc}
+  - {header: ":SYSTem:PRESet", op: lc.preset, query: false}
+  - header: "Comm_HeaDeR"
+    op: lc.setting
+    args: {state: comm.header, header: CHDR, long: COMM_HEADER}
+    params: [{name: value, type: raw}]
+  # ---- 通道 ----
+  - header: "C<ch>:TRAce"
+    op: lc.setting
+    args: {state: ch.display, header: TRA, long: TRACE}
+    params: [{name: value, type: raw}]
+  - header: "C<ch>:CouPLing"
+    op: lc.setting
+    args: {state: ch.coupling, header: CPL, long: COUPLING}
+    params: [{name: value, type: raw}]
+  - header: "C<ch>:Volt_DIV"
+    op: lc.setting
+    args: {state: ch.scale, header: VDIV, long: VOLT_DIV, unit: V}
+    params: [{name: value, type: raw}]
+  - header: "C<ch>:OFfSeT"
+    op: lc.setting
+    args: {state: ch.offset, header: OFST, long: OFFSET, unit: V}
+    params: [{name: value, type: raw}]
+  - header: "C<ch>:ATTeNuation"
+    op: lc.setting
+    args: {state: ch.probe, header: ATTN, long: ATTENUATION}
+    params: [{name: value, type: raw}]
+  - header: "C<ch>:TRig_LeVel"
+    op: lc.setting
+    args: {state: ch.trigger_level, header: TRLV, long: TRIG_LEVEL, unit: V}
+    params: [{name: value, type: raw}]
+  - header: "C<ch>:TRig_SLope"
+    op: lc.setting
+    args: {state: ch.trigger_slope, header: TRSL, long: TRIG_SLOPE}
+    params: [{name: value, type: raw}]
+  # ---- 时基、存储深度、采集 ----
+  - header: "Time_DIV"
+    op: lc.setting
+    args: {state: timebase.scale, header: TDIV, long: TIME_DIV, unit: S}
+    params: [{name: value, type: raw}]
+  - header: "Memory_SIZe"
+    op: lc.memory_size
+    params: [{name: value, type: raw}]
+  - header: "InterLeaVeD"
+    op: lc.setting
+    args: {state: interleaved, header: ILVD, long: INTERLEAVED}
+    params: [{name: value, type: raw}]
+  - header: "Reference_CLocK"
+    op: lc.setting
+    args: {state: refclock, header: RCLK, long: REFERENCE_CLOCK}
+    params: [{name: value, type: raw}]
+  # ---- 触发与运行控制 ----
+  - header: "TRig_SElect"
+    op: lc.trig_select
+    params: [{name: params, type: raw}]
+  - header: "TRig_MoDe"
+    op: acq.trig_mode
+    params: [{name: mode, type: enum, options: [AUTO, NORMal, SINGLE, STOP], optional: true}]
+  - {header: "ARM_acquisition", op: acq.arm, query: false}
+  - {header: "STOP", op: acq.stop, query: false}
+  - {header: "FoRce_TRigger", op: acq.force_trigger, query: false}
+  - header: "WAIT"
+    op: acq.wait
+    query: false
+    params: [{name: timeout, type: float, unit: S, optional: true}]
+  # ---- 测量 ----
+  - header: "PArameter_CUstom"
+    op: lc.param_custom
+    params: [{name: params, type: raw}]
+  - header: "C<ch>:PArameter_VAlue"
+    op: acq.pava
+    set: false
+    params: [{name: kind, type: string}]
+  # ---- 波形传输（§5.3 文本回读） ----
+  - header: "WaveForm_SetUp"
+    op: lc.waveform_setup
+    params: [{name: params, type: raw}]
+  - header: "C<ch>:INSPect"
+    op: acq.inspect
+    set: false
+    params:
+      - {name: name, type: string}
+      - {name: fmt, type: enum, options: [BYTE, WORD, FLOAT], optional: true}

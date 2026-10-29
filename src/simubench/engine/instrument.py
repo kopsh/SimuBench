@@ -79,6 +79,10 @@ def parse_duration(d: str | float | None) -> int:
     return round(parse_number(d, "S") * 1e9)
 
 
+class _Ignored(Exception):
+    """An unknown header on an instrument whose definition ignores unknown commands."""
+
+
 @dataclass
 class _Compiled:
     pattern: Pattern
@@ -360,7 +364,12 @@ class Instrument:
         return f'{sign}{err.code},"{err.message}"'.encode()
 
     def _undefined(self, header: str) -> ScpiError:
-        """-113 for a header the definition does not have; a real model says it is not modeled."""
+        """-113 for a header the definition does not have; a real model says it is not modeled.
+
+        Raises :class:`_Ignored` instead when the definition ignores unknown commands.
+        """
+        if self.definition.unknown_commands == "ignore":
+            raise _Ignored(header)
         if not self.real:
             return ScpiError(-113, header)
         base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
@@ -376,29 +385,38 @@ class Instrument:
         return self._builtins is None or _header_key(header) in self._builtins
 
     def _execute(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
+        try:
+            return self._dispatch(unit, tokens)
+        except _Ignored:
+            pass
+        # unknown_commands: ignore — swallowed without an error or a reply, but never silently (D16).
+        self.session.instrument_event(
+            self, "ignored", {"header": unit.raw_header, "query": unit.query, "reason": "unknown_command"}
+        )
+        return None, 0
+
+    def _dispatch(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         if unit.common:
+            # A definition may give a common header its own behavior (e.g. a dialect's *CLS?).
+            for compiled in self._commands:
+                if compiled.pattern.common and compiled.pattern.match(tokens) is not None:
+                    return self._run(compiled.spec, unit, None, {})
             if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
                 raise self._undefined(unit.raw_header)
             return self._common(unit), 0
         for compiled in self._commands:
+            if compiled.pattern.common:
+                continue
             caps = compiled.pattern.match(tokens)
             if caps is None:
                 continue
             spec = compiled.spec
-            if unit.query and not spec.query:
-                raise ScpiError(-113, f"{unit.raw_header} is not a query")
-            if not unit.query and not spec.set:
-                raise ScpiError(-113, f"{unit.raw_header} is a query only")
             channel = caps.get("ch")
             if "ch" in caps:
                 channel = 1 if channel is None else channel
                 if not 1 <= channel <= self.channel_count:
                     raise ScpiError(-114, f"channel {channel} does not exist")
-            suffixes = {k: (1 if v is None else v) for k, v in caps.items()}
-            if spec.state is not None:
-                return self._state_command(spec, unit, channel), parse_duration(spec.duration)
-            result = self._op_command(spec, unit, channel, suffixes)
-            return result.response, result.duration_ns + parse_duration(spec.duration)
+            return self._run(spec, unit, channel, {k: (1 if v is None else v) for k, v in caps.items()})
         builtin = (
             self._builtin(unit, tokens) if self._builtins is None or self._builtin_header(tokens) else None
         )
@@ -407,6 +425,18 @@ class Instrument:
         if builtin is not None:
             return builtin, 0
         raise self._undefined(unit.raw_header)
+
+    def _run(
+        self, spec: CommandSpec, unit: Unit, channel: int | None, suffixes: dict[str, int]
+    ) -> tuple[bytes | None, int]:
+        """Execute a command of the definition (a state binding or a component operation)."""
+        if (unit.query and not spec.query) or (not unit.query and not spec.set):
+            # A header the definition has, used the wrong way: an error even when unknown ones are ignored.
+            raise ScpiError(-113, f"{unit.raw_header} is {'not a query' if unit.query else 'a query only'}")
+        if spec.state is not None:
+            return self._state_command(spec, unit, channel), parse_duration(spec.duration)
+        result = self._op_command(spec, unit, channel, suffixes)
+        return result.response, result.duration_ns + parse_duration(spec.duration)
 
     def _resolve(self, ref: str, channel: int | None) -> str:
         if ref.startswith("ch.") and channel is not None:
@@ -445,6 +475,10 @@ class Instrument:
         value = self._parse_state(st, unit.params[0])
         self.set_state(path, value)
         return None
+
+    def parse_setting(self, path: str, raw: bytes) -> Any:
+        """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
+        return self._parse_state(self.specs[path], raw)
 
     def _parse_state(self, st: StateSpec, raw: bytes) -> Any:
         if st.type in ("float", "int"):
@@ -534,7 +568,7 @@ class Instrument:
     @property
     def idn(self) -> str:
         d = self.definition
-        return d.identity.idn.format(
+        return (self.instance.idn or d.identity.idn).format(
             manufacturer=d.manufacturer.upper(), model=d.model, serial=self.serial, firmware=self.firmware
         )
 

@@ -112,6 +112,10 @@ class ScopeAcquisition(Component):
         """Signal of channel n in display volts: front-end output times the probe ratio."""
         return self.input(f"in{n}").scale(float(self._st(f"ch{n}.probe")))
 
+    def trigger_level(self) -> float:
+        """The trigger level in display volts (the scope screen draws it)."""
+        return float(self._st("trigger.level"))
+
     def _timing(self) -> tuple[int, float, int, int]:
         points = int(self._st("waveform.points"))
         scale = float(self._st("timebase.scale"))

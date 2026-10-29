@@ -1317,6 +1317,13 @@ export interface components {
                 [key: string]: components["schemas"]["StateSpec"];
             };
             /**
+             * Unknown Commands
+             * @description A header the definition does not have: 'error' queues -113; 'ignore' swallows it (no error, no reply) and logs an 'ignored' event. Only for definitions without `reference` (D42)
+             * @default error
+             * @enum {string}
+             */
+            unknown_commands: "error" | "ignore";
+            /**
              * Version
              * @default 1
              */

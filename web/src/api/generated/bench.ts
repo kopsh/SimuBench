@@ -81,6 +81,10 @@ export type Faults = Fault[];
  */
 export type Address = string | null;
 export type Firmware = string | null;
+/**
+ * Overrides the definition's *IDN? reply, with the same fields, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}' (the model token a host program checks)
+ */
+export type Idn = string | null;
 export type Label2 = string | null;
 /**
  * Instrument definition id, e.g. 'siglent-sds2104xplus'
@@ -199,6 +203,7 @@ export interface InstrumentInstance {
   address?: Address;
   firmware?: Firmware;
   hidden?: Hidden1;
+  idn?: Idn;
   label?: Label2;
   model: Model1;
   serial?: Serial1;
