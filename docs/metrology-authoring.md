@@ -228,7 +228,7 @@ parts:
 已实现：`models/deviation.py`（`DeviationRange`、`DeviationSpec`）、`engine/deviation.py`（抽取）。与上文的差别与补充：
 
 - 正态分布截断在 ±limit 之内（超出指标的一台是故障，另用故障注入），因此每个值都在范围内；
-- 按表抽取时，值是按 `by` 的键顺序嵌套的表（`{DC: {0.1: …, 1: …}}`），相对偏差按每格自己的标称值计算；按量程使用这张表的测量核心由 #87 提供；
+- 按表抽取时，值是按 `by` 的键顺序嵌套的表（`{DC: {0.1: …, 1: …}}`），相对偏差按每格自己的标称值计算；#87 的测量核心按（功能、量程）读这张表，每个量程的读数带着各自抽到的增益误差（`test_per_range_deviations_reach_the_reading_of_each_range`）；
 - 编辑操作 `set_deviation`（仪表的 `mode`，或 DUT 一个参数的 `range`），画布与 MCP 共用（D9）；
 - 会话接口：仪表的 `deviation`（模式）与 `deviations`，DUT 的 `deviations`；每项给出范围、是否抽取、值（只在 `reveal_true_values` 打开时）；隐藏时 DUT 的 `params` 显示标称值。检查器中的“个体偏差”一节显示范围与值，仪表有“按指标抽取”开关；原来 DUT 的“隐藏参数”（`tol_*`）并入这一节；
 - 运行记录头部的 `deviations`；回放按记录的种子重新抽取，不一致时警告（例如定义中的范围改过）；
