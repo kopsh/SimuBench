@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: lowfreq_cal
 description: >-
   低频校准工作台预设：示波器校准仪（源）的 CH1–CH4 经 1 m 50 Ω 同轴线缆（直流电阻
@@ -20,7 +20,6 @@ instruments:
       ch2.coupling: D50
       ch3.coupling: D50
       ch4.coupling: D50
-duts: {}
 wires:
   - from: calibrator.CH1
     to: scope.CH1

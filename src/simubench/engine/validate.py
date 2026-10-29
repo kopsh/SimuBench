@@ -191,53 +191,53 @@ def validate_bench(
                         name,
                     )
 
-    # ---- DUTs ----
-    for name, dut in bench.duts.items():
-        p = ("duts", name)
+    # ---- parts ----
+    for name, part in bench.parts.items():
+        p = ("parts", name)
         if name in bench.instruments:
             report.add(
                 "error",
                 "E-NAME-DUPLICATE",
                 _ptr(*p),
-                f"名称 {name!r} 同时用于仪表与 DUT",
-                "为 DUT 换一个名称",
+                f"名称 {name!r} 同时用于仪表与元件",
+                "为元件换一个名称",
                 name,
             )
-        cls = known_types.get(dut.type)
+        cls = known_types.get(part.type)
         if cls is None:
-            hint = _closest(dut.type, list(known_types))
+            hint = _closest(part.type, list(known_types))
             report.add(
                 "error",
                 "E-COMPONENT-UNKNOWN",
                 _ptr(*p, "type"),
-                f"组件类型 {dut.type!r} 不存在",
+                f"组件类型 {part.type!r} 不存在",
                 f"改为 {hint!r}" if hint else None,
                 name,
             )
             continue
-        for k in dut.params:
+        for k in part.params:
             if k not in cls.defaults:
                 hint = _closest(k, list(cls.defaults))
                 report.add(
                     "warning",
                     "W-PARAM-UNKNOWN",
                     _ptr(*p, "params", k),
-                    f"{dut.type} 没有参数 {k!r}，它不会起作用",
+                    f"{part.type} 没有参数 {k!r}，它不会起作用",
                     f"改为 {hint!r}" if hint else None,
                     name,
                 )
-        for k, rng in dut.deviation.items():
+        for k, rng in part.deviation.items():
             if k not in cls.defaults:
                 hint = _closest(k, list(cls.defaults))
                 report.add(
                     "error",
                     "E-DEVIATION-PARAM",
                     _ptr(*p, "deviation", k),
-                    f"{dut.type} 没有参数 {k!r}，无法给它个体偏差",
+                    f"{part.type} 没有参数 {k!r}，无法给它个体偏差",
                     f"改为 {hint!r}" if hint else None,
                     name,
                 )
-            elif rng.unit and not dut.params.get(k, cls.defaults[k]):
+            elif rng.unit and not part.params.get(k, cls.defaults[k]):
                 report.add(
                     "warning",
                     "W-DEVIATION-ZERO",
@@ -315,12 +315,12 @@ def validate_bench(
         if f.kind in ("drift", "hidden"):
             ref = f.component or ""
             owner = ref.partition("/")[0] if "/" in ref else ref
-            if not f.param or owner not in (bench.instruments if "/" in ref else bench.duts):
+            if not f.param or owner not in (bench.instruments if "/" in ref else bench.parts):
                 report.add(
                     "error",
                     "E-FAULT-TARGET",
                     _ptr(*fp, "component"),
-                    f"{f.kind} 故障需要 component（DUT 名称或 <仪表>/<组件>）与 param，得到 {ref!r}",
+                    f"{f.kind} 故障需要 component（元件名称或 <仪表>/<组件>）与 param，得到 {ref!r}",
                 )
         elif f.instrument is None:
             report.add("error", "E-FAULT-TARGET", _ptr(*fp), f"{f.kind} 故障需要 instrument")
@@ -359,8 +359,8 @@ def _check_nets(
                 comp, _, pin = target.rpartition(".")
                 return drives(types.get(comp_types.get(comp, "")), pin)
             return False
-        dut = bench.duts.get(owner)
-        return dut is not None and drives(types.get(dut.type), port)
+        part = bench.parts.get(owner)
+        return part is not None and drives(types.get(part.type), port)
 
     for members in _nets(bench):
         srcs = sorted(m for m in members if is_driver(m))

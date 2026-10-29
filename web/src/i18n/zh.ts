@@ -47,7 +47,8 @@ export const zh = {
   workbench: {
     resources: "资源",
     instruments: "仪表",
-    duts: "DUT",
+    parts: "元件",
+    part: "元件",
     wires: "连线",
     nets: "网络",
     canvas: "画布",
@@ -100,6 +101,11 @@ export const zh = {
     commandPlaceholder: "例如 :CHANnel1:SCALe 0.05 或 *IDN?",
     send: "发送",
     response: "响应",
+  },
+  dut: {
+    title: "被测或被定标的对象（DUT）",
+    toggle: "DUT",
+    hint: "被测或被定标的对象。仪表和元件都可以是 DUT，例如定标时被校的万用表。",
   },
   deviation: {
     title: "个体偏差",
@@ -321,7 +327,7 @@ export const zh = {
     explainCurrent: "从这个版本到当前文件，发生了以下变化：",
     source: { ui: "界面", agent: "Agent", api: "API", external: "外部修改", restore: "恢复" },
     kind: { added: "新增", removed: "删除", changed: "修改" },
-    section: { bench: "测试台", instruments: "仪表", duts: "DUT", wires: "连线", faults: "预设故障", run: "启动设置", layout: "节点位置" },
+    section: { bench: "测试台", instruments: "仪表", parts: "元件", wires: "连线", faults: "预设故障", run: "启动设置", layout: "节点位置" },
   },
   runs: {
     title: "记录",

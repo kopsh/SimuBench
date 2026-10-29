@@ -111,18 +111,18 @@ class Session:
         for name, inst in bench.instruments.items():
             self.instruments[name] = Instrument(name, definitions(inst.model), inst, self)
         self.components: dict[str, Component] = {}
-        #: Drawn DUT deviations, '<dut>.<parameter>' -> value.
-        self.dut_deviations: dict[str, Any] = {}
-        for name, dut in bench.duts.items():
+        #: Drawn deviations of parts, '<part>.<parameter>' -> value.
+        self.part_deviations: dict[str, Any] = {}
+        for name, part in bench.parts.items():
             if name in self.instruments:
-                raise ValueError(f"name {name!r} used by both an instrument and a DUT")
-            comp = component_type(dut.type)(name, dut.params, None, self)
-            comp.overrides.update(dut.hidden)
-            for param, rng in dut.deviation.items():
+                raise ValueError(f"name {name!r} used by both an instrument and a part")
+            comp = component_type(part.type)(name, part.params, None, self)
+            comp.overrides.update(part.hidden)
+            for param, rng in part.deviation.items():
                 if param not in comp.overrides:
                     value = draw_deviation(rng, comp.param(param), self.seed, name, param)
                     comp.overrides[param] = value
-                    self.dut_deviations[f"{name}.{param}"] = value
+                    self.part_deviations[f"{name}.{param}"] = value
             self.components[name] = comp
 
         # ---- nets ----
@@ -169,11 +169,11 @@ class Session:
 
     def deviations(self) -> dict[str, Any]:
         """Every drawn individual deviation: '<instrument>/<component>.<parameter>' and
-        '<dut>.<parameter>' -> value (empty when every unit is nominal)."""
+        '<part>.<parameter>' -> value (empty when every unit is nominal)."""
         out = {
             f"{name}/{k}": v for name, inst in self.instruments.items() for k, v in inst.deviations.items()
         }
-        out.update(self.dut_deviations)
+        out.update(self.part_deviations)
         return out
 
     def _check_ref(self, ref: str) -> None:

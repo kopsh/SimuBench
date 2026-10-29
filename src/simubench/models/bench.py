@@ -1,11 +1,16 @@
-"""Bench definition file model (``simubench.bench/1``), architecture.md section 4."""
+"""Bench definition file model (``simubench.bench/2``), architecture.md section 4.
+
+A bench holds instruments and parts (passive or simple pieces: an RC network, a resistor); either
+may be marked as a DUT, the object under test or calibration (D8, #100). Older files (``bench/1``
+with ``duts``) are migrated when they are read, wherever they come from.
+"""
 
 from __future__ import annotations
 
 import datetime as dt
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .deviation import DeviationRange
 
@@ -37,6 +42,7 @@ class InstrumentInstance(_Model):
         default_factory=dict,
         description="Hidden state: component parameter overrides, e.g. {'ch1.out': {'z_out': 50.4}}",
     )
+    dut: bool = Field(False, description="This instrument is a DUT: the object under test or calibration")
     deviation: Literal["nominal", "from_specs"] = Field(
         "nominal",
         description="Individual deviations (个体偏差): 'nominal' keeps the model's values; 'from_specs' draws "
@@ -46,8 +52,11 @@ class InstrumentInstance(_Model):
 
 
 class ComponentInstance(_Model):
+    """A part on the bench (元件): a component type placed as a node of its own."""
+
     type: str = Field(..., description="Component type, e.g. 'rc_lowpass'")
     label: str | None = None
+    dut: bool = Field(False, description="This part is a DUT: the object under test or calibration")
     params: dict[str, Any] = Field(default_factory=dict)
     hidden: dict[str, Any] = Field(default_factory=dict)
     deviation: dict[str, DeviationRange] = Field(
@@ -123,7 +132,7 @@ class Fault(_Model):
     kind: FaultKind
     instrument: str | None = Field(None, description="Instrument the fault acts on")
     component: str | None = Field(
-        None, description="For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'"
+        None, description="For drift / hidden: '<instrument>/<component>' or a part's name, e.g. 'rc'"
     )
     param: str | None = Field(None, description="For drift / hidden: the component parameter, e.g. 'r'")
     value: Any = Field(None, description="For hidden: the new value")
@@ -139,11 +148,14 @@ class Fault(_Model):
 
 
 class BenchDefinition(_Model):
-    schema_: Literal["simubench.bench/1"] = Field("simubench.bench/1", alias="schema")
+    schema_: Literal["simubench.bench/2"] = Field("simubench.bench/2", alias="schema")
     name: str
     description: str | None = None
     instruments: dict[str, InstrumentInstance] = Field(default_factory=dict)
-    duts: dict[str, ComponentInstance] = Field(default_factory=dict)
+    parts: dict[str, ComponentInstance] = Field(
+        default_factory=dict,
+        description="Parts (元件): RC networks, resistors and the like; any may be a DUT",
+    )
     wires: list[Wire] = Field(default_factory=list)
     run: RunConditions = Field(default_factory=RunConditions)
     faults: list[Fault] = Field(default_factory=list, description="Faults preset for every run")
@@ -154,3 +166,15 @@ class BenchDefinition(_Model):
     layout: dict[str, LayoutItem] = Field(
         default_factory=dict, description="UI positions only; never affects simulation results"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade(cls, data: Any) -> Any:
+        """An older format (bench/1, or no schema) is migrated first, whoever passes it in."""
+        from ..library.migrate import upgrade
+
+        return upgrade(data, "bench")[0] if isinstance(data, dict) else data
+
+    def duts(self) -> list[str]:
+        """Names of the instruments and parts marked as DUTs, instruments first."""
+        return [n for n, i in self.instruments.items() if i.dut] + [n for n, p in self.parts.items() if p.dut]

@@ -99,7 +99,7 @@ class InputPort(Component):
 
 @component("resistor")
 class Resistor(Component):
-    category = "dut"
+    category = "part"
     label = "电阻"
     label_en = "Resistor"
     units = {"r": "OHM"}
@@ -114,7 +114,7 @@ class Resistor(Component):
 class LoadResistor(Component):
     """A resistor from its one terminal to the bench ground (a load on a single-ended net)."""
 
-    category = "dut"
+    category = "part"
     label = "对地电阻"
     label_en = "Resistor to ground"
     units = {"r": "OHM"}
@@ -129,7 +129,7 @@ class LoadResistor(Component):
 class RcLowpass(Component):
     """Series R from IN to OUT, C from OUT to ground. ``tol_r`` / ``tol_c`` are hidden tolerances."""
 
-    category = "dut"
+    category = "part"
     label = "RC 低通"
     label_en = "RC low-pass"
     units = {"r": "OHM", "c": "F"}
@@ -220,7 +220,7 @@ class CoaxCable(Component):
 class UnityBuffer(Component):
     """Unity-gain buffer: high-impedance input, low-impedance output."""
 
-    category = "dut"
+    category = "part"
     label = "单位增益缓冲器"
     label_en = "Unity-gain buffer"
     role = "driver"

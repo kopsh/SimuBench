@@ -1267,10 +1267,14 @@
    }
   ],
   "duts": [
+   "rc"
+  ],
+  "parts": [
    {
     "name": "rc",
     "type": "rc_lowpass",
     "label": "RC 低通",
+    "dut": true,
     "params": {
      "r": 1000.0,
      "c": 1e-07,
@@ -2477,10 +2481,14 @@
    }
   ],
   "duts": [
+   "rc"
+  ],
+  "parts": [
    {
     "name": "rc",
     "type": "rc_lowpass",
     "label": "RC 低通",
+    "dut": true,
     "params": {
      "r": 1000.0,
      "c": 1e-07,

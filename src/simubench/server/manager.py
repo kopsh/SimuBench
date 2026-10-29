@@ -182,22 +182,22 @@ class SessionManager:
             out.error = "文件不符合测试台格式"
             return out
         data = copy.deepcopy(doc.data)
-        instruments, duts = data.get("instruments") or {}, data.get("duts") or {}
+        instruments, parts = data.get("instruments") or {}, data.get("parts") or {}
         dropped_wires: set[int] = set()
         for d in errors:
-            parts = [p.replace("~1", "/").replace("~0", "~") for p in d.pointer.split("/")[1:]]
-            if d.code.startswith("E-STATE-") and len(parts) >= 4:
-                instruments.get(parts[1], {}).get("state", {}).pop(parts[3], None)
-                out.omitted.append(f"{parts[1]}.{parts[3]}")
+            segs = [p.replace("~1", "/").replace("~0", "~") for p in d.pointer.split("/")[1:]]
+            if d.code.startswith("E-STATE-") and len(segs) >= 4:
+                instruments.get(segs[1], {}).get("state", {}).pop(segs[3], None)
+                out.omitted.append(f"{segs[1]}.{segs[3]}")
             elif d.code == "E-MODEL-UNKNOWN" and d.subject:
                 instruments.pop(d.subject, None)
                 out.omitted.append(d.subject)
             elif d.code in ("E-COMPONENT-UNKNOWN", "E-NAME-DUPLICATE") and d.subject:
-                duts.pop(d.subject, None)
+                parts.pop(d.subject, None)
                 out.omitted.append(d.subject)
             elif d.subject and d.subject.startswith("wire:"):
                 dropped_wires.add(int(d.subject[5:]))
-        names = set(instruments) | set(duts)
+        names = set(instruments) | set(parts)
         wires = data.get("wires") or []
         kept: list[int] = []
         for i, w in enumerate(wires):
@@ -268,7 +268,7 @@ class SessionManager:
                 clients.append(
                     M.ClientInfo(client=hs.client, locked=served.hislip.locks(hs.instrument).held_by(hs))
                 )
-        duts = [self._component_info(s, name) for name in b.duts]
+        parts = [self._component_info(s, name) for name in b.parts]
         wires = []
         for i, w in enumerate(b.wires):
             accs = [self._component_info(s, f"wire{i}.{a.type}{k}") for k, a in enumerate(w.accessories)]
@@ -299,7 +299,8 @@ class SessionManager:
             record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
             clients=clients,
             instruments=instruments,
-            duts=duts,
+            parts=parts,
+            duts=b.duts(),
             wires=wires,
             nets=[M.NetInfo(id=n.id, members=n.members, notes=_net_notes(s, n.id)) for n in s.nets.values()],
             layout=b.layout,
@@ -307,7 +308,8 @@ class SessionManager:
 
     def _component_info(self, s: Session, name: str) -> M.ComponentInfo:
         comp = s.components[name]
-        label = s.bench.duts[name].label if name in s.bench.duts else None
+        part = s.bench.parts.get(name)
+        label = part.label if part else None
         ports = [
             M.PortInfo(
                 name=p, direction=spec.direction, medium=spec.medium, net=s.port_net.get(f"{name}.{p}")
@@ -316,10 +318,9 @@ class SessionManager:
         ]
         params = comp.describe()
         deviations = []
-        dut = s.bench.duts.get(name)
-        for param, rng in (dut.deviation if dut else {}).items():
+        for param, rng in (part.deviation if part else {}).items():
             key = f"{name}.{param}"
-            drawn = key in s.dut_deviations
+            drawn = key in s.part_deviations
             if drawn and not s.reveal_true_values:
                 params[param] = next(v for k, v, _ in comp.nominal() if k == param)  # the nominal value
             deviations.append(_deviation_info(param, rng, comp.param(param), drawn, s.reveal_true_values))
@@ -327,6 +328,7 @@ class SessionManager:
             name=name,
             type=comp.type_name,
             label=label,
+            dut=bool(part and part.dut),
             params=_plain(params),
             ports=ports,
             deviations=deviations,
@@ -392,6 +394,7 @@ class SessionManager:
             state=state,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
             deviation=inst.instance.deviation,
+            dut=inst.instance.dut,
             deviations=[
                 _deviation_info(
                     key,

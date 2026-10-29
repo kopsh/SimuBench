@@ -211,7 +211,7 @@ function DiagnosticRow({ d }: { d: Diagnostic }) {
   const onClick = () => {
     if (!subject) return select(null);
     if (subject.startsWith("wire:")) return select({ kind: "wire", id: Number(subject.slice(5)) });
-    select({ kind: d.pointer.startsWith("/duts/") ? "dut" : "instrument", id: subject });
+    select({ kind: d.pointer.startsWith("/parts/") ? "part" : "instrument", id: subject });
   };
   return (
     <li>

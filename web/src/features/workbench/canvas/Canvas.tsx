@@ -22,18 +22,18 @@ import { channelColor } from "@/lib/channels";
 import { useTheme } from "@/lib/theme";
 import { accessoryLabel, channelOfRef, isReferenceRef } from "../model";
 import { useWorkbench } from "../store";
-import { DutNode, type DutNodeType } from "./DutNode";
+import { PartNode, type PartNodeType } from "./PartNode";
 import { InstrumentNode, type InstrumentNodeType, type Issue } from "./InstrumentNode";
 import { WireEdge, type WireEdgeType } from "./WireEdge";
 
-const nodeTypes = { instrument: InstrumentNode, dut: DutNode };
+const nodeTypes = { instrument: InstrumentNode, part: PartNode };
 const edgeTypes = { wire: WireEdge };
 
 /** MIME type of library items dragged onto the canvas. */
 export const LIBRARY_MIME = "application/x-simubench-item";
-export type LibraryItem = { kind: "instrument" | "dut"; id: string };
+export type LibraryItem = { kind: "instrument" | "part"; id: string };
 
-type AnyNode = InstrumentNodeType | DutNodeType;
+type AnyNode = InstrumentNodeType | PartNodeType;
 type Point = { x: number; y: number };
 
 // Where "add" from the library places an item when it is not dropped: the middle of the view.
@@ -66,7 +66,7 @@ function split(ref: string): [string, string] {
 function positionsOf(view: SessionInfo, layout: Record<string, Point> | undefined): Record<string, Point> {
   const source = layout ?? view.layout;
   const out: Record<string, Point> = {};
-  const names = [...view.instruments.map((i) => i.name), ...view.duts.map((d) => d.name)];
+  const names = [...view.instruments.map((i) => i.name), ...view.parts.map((d) => d.name)];
   names.forEach((name, i) => {
     const p = source[name];
     out[name] = p ? { x: Number(p.x) || 0, y: Number(p.y) || 0 } : { x: i * 320, y: 60 };
@@ -77,7 +77,7 @@ function positionsOf(view: SessionInfo, layout: Record<string, Point> | undefine
 /** Direction of the port a wire end refers to, to flow from source to load. */
 function directionOf(view: SessionInfo, ref: string): string | undefined {
   const [owner, port] = split(ref);
-  const ports = view.instruments.find((i) => i.name === owner)?.ports ?? view.duts.find((d) => d.name === owner)?.ports;
+  const ports = view.instruments.find((i) => i.name === owner)?.ports ?? view.parts.find((d) => d.name === owner)?.ports;
   return ports?.find((p) => p.name === port)?.direction;
 }
 
@@ -113,16 +113,16 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
           activity: levels ? activity[inst.name] : undefined,
         },
       })),
-      ...view.duts.map<DutNodeType>((dut) => ({
-        id: dut.name,
-        type: "dut",
-        position: positions[dut.name],
-        data: { dut, editable, issue: issues?.get(dut.name), fault: faulted?.has(dut.name) },
+      ...view.parts.map<PartNodeType>((part) => ({
+        id: part.name,
+        type: "part",
+        position: positions[part.name],
+        data: { part, editable, issue: issues?.get(part.name), fault: faulted?.has(part.name) },
       })),
     ],
     [view, positions, editable, issues, faulted, levels, activity],
   );
-  const selectedId = selection?.kind === "instrument" || selection?.kind === "dut" ? selection.id : null;
+  const selectedId = selection?.kind === "instrument" || selection?.kind === "part" ? selection.id : null;
   const [nodes, setNodes] = useState<AnyNode[]>(() => built.map((n) => ({ ...n, selected: n.id === selectedId })));
   // Derived-state updates during render (no effects): new data keeps what React Flow measured and
   // selected; a selection made elsewhere (resource tree) is applied only when it differs, so that
@@ -255,7 +255,7 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
   };
 
   const onNodeClick = (_: unknown, n: Node) =>
-    select({ kind: view.instruments.some((i) => i.name === n.id) ? "instrument" : "dut", id: n.id });
+    select({ kind: view.instruments.some((i) => i.name === n.id) ? "instrument" : "part", id: n.id });
 
   return (
     <ReactFlow

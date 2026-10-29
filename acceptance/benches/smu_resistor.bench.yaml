@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-smu-resistor
 description: SMU HI into 1 kΩ to ground, a DMM on the same net (validation-smu.md); the terminal sees 999.9 Ω.
 instruments:
@@ -15,8 +15,8 @@ instruments:
       sweep.points: 9
       source.delay: 0.001
   dmm: {model: sb-dmm-1}
-duts:
-  r1: {type: load_resistor, params: {r: 1000.0}}
+parts:
+  r1: {type: load_resistor, dut: true, params: {r: 1000.0}}
 wires:
   - {from: smu.HI, to: r1.A}
   - {from: smu.HI, to: dmm.IN}

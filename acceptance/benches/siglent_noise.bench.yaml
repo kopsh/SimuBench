@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: siglent_noise
 description: An SDS2104X Plus with nothing on CH1, to read its own noise (issue 24).
 instruments:

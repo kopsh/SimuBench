@@ -38,9 +38,10 @@ from .server.definitionfiles import DefinitionFiles
 from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain
 
 INSTRUCTIONS = """\
-SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), DUTs and wires,
-simulated with correct circuit physics. Typical flow:
-1. list_catalog / get_definition to see what instruments and DUTs exist; list_components for the
+SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), parts (RC networks,
+resistors, ...) and wires, simulated with correct circuit physics. Any instrument or part may be
+marked as the DUT, the object under test or calibration (dut: true). Typical flow:
+1. list_catalog / get_definition to see what instruments and parts exist; list_components for the
    building blocks of instrument definitions (ports, parameters, operations);
 2. read_bench or create_bench, then edit_bench with operations (always pass the sha256 you read);
    or draft_bench_from_script to start from an existing PyVISA test program;
@@ -138,7 +139,7 @@ def build_server(
 
     @mcp.tool()
     def list_catalog() -> dict[str, Any]:
-        """Instrument definitions (id, class, channels, ports) and DUT / accessory component types
+        """Instrument definitions (id, class, channels, ports) and part / accessory component types
         (ports, default parameters, units) that can be placed on a bench."""
         guard()
         return files.catalog().model_dump(mode="json")
@@ -146,7 +147,7 @@ def build_server(
     @mcp.tool()
     def list_components(
         types: list[str] | None = Field(None, description="Component types to describe in full"),
-        category: Literal["dut", "accessory", "internal"] | None = None,
+        category: Literal["part", "accessory", "internal"] | None = None,
     ) -> list[dict[str, Any]]:
         """Component types for instrument definitions, internal ones included: ports, circuit role,
         parameters (default, unit, description; a value may be bound to a setting with '$path') and
@@ -268,7 +269,7 @@ def build_server(
     ) -> dict[str, Any]:
         """Create an empty bench file; fill it with edit_bench."""
         guard()
-        data: dict[str, Any] = {"schema": "simubench.bench/1", "name": name}
+        data: dict[str, Any] = {"schema": "simubench.bench/2", "name": name}
         if description:
             data["description"] = description
         try:
@@ -282,8 +283,8 @@ def build_server(
         base_sha256: str = Field(..., description="sha256 from the last read_bench / edit_bench"),
         ops: list[EditOp] = Field(..., description="Applied in order, all or nothing"),
     ) -> dict[str, Any]:
-        """Edit a bench file: add instruments and DUTs, connect ports (with accessories such as
-        probes), set initial state and DUT parameters, rename, remove, move. Returns the new
+        """Edit a bench file: add instruments and parts, mark DUTs (set_dut), connect ports (with accessories such as
+        probes), set initial state and part parameters, rename, remove, move. Returns the new
         content, sha256 and diagnostics."""
         guard()
         try:
@@ -452,7 +453,7 @@ def build_server(
         """Read a test program without running it: find the resources it opens and the SCPI it
         sends, choose the instrument definition that supports most of each instrument's commands,
         and list the commands no model supports (with line numbers). Wiring cannot be read from a
-        script; add DUTs and wires with edit_bench."""
+        script; add parts and wires with edit_bench."""
         guard()
         try:
             script = files.resolve(script_path)
@@ -543,12 +544,17 @@ def build_server(
 
     @mcp.tool()
     def describe_session(session_id: str | None = None) -> dict[str, Any]:
-        """Topology of a running session: instruments, DUTs, wires and the nets they form."""
+        """Topology of a running session: instruments, parts, which of them are DUTs, wires and the nets
+        they form."""
         guard()
         info = manager.describe(served(session_id))
         return {
             **session_summary(served(session_id)),
-            "duts": [{"name": d.name, "type": d.type, "ports": [p.name for p in d.ports]} for d in info.duts],
+            "parts": [
+                {"name": d.name, "type": d.type, "dut": d.dut, "ports": [p.name for p in d.ports]}
+                for d in info.parts
+            ],
+            "duts": info.duts,
             "wires": [
                 {
                     "index": w.index,
@@ -706,7 +712,7 @@ def build_server(
 
     @mcp.tool()
     def read_true_values(session_id: str | None = None) -> dict[str, Any]:
-        """Hidden state the simulation knows exactly: DUT parameters including hidden tolerances,
+        """Hidden state the simulation knows exactly: part parameters including hidden tolerances,
         instrument hidden overrides, the individual deviations drawn from the bench seed, and the
         true signal on every net. Needs --allow-control and
         run.reveal_true_values in the bench (off in validation runs, so calibration cannot read
@@ -718,7 +724,9 @@ def build_server(
         if not session.reveal_true_values:
             raise ToolError("该测试台未开启 run.reveal_true_values；验证模式下不提供真实值")
         with session._lock:
-            duts = {n: {k: _plain(v) for k, v in c.describe().items()} for n, c in session.components.items()}
+            parts = {
+                n: {k: _plain(v) for k, v in c.describe().items()} for n, c in session.components.items()
+            }
             hidden = {
                 name: {
                     cname: {k: _plain(v) for k, v in comp.overrides.items()}
@@ -740,6 +748,6 @@ def build_server(
                     "dc_v": float(sig.dc),
                 }
             deviations = {k: _plain(v) for k, v in session.deviations().items()}
-        return {"duts": duts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
+        return {"parts": parts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
 
     return mcp

@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: rfgen
 description: 射频信号源接频谱仪，REF_OUT 接 REF_IN；信号源时基快 2 ppm（隐藏状态，只能通过测量发现）。
 instruments:

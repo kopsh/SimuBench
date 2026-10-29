@@ -32,7 +32,7 @@ def test_read_reports_diagnostics(client):
     doc = client.get("/api/benches/file", params={"path": BENCH}).json()
     assert doc["ok"] and len(doc["sha256"]) == 64
     assert [d["code"] for d in doc["diagnostics"]] == ["W-IMPEDANCE-MISMATCH"]
-    assert doc["data"]["duts"]["rc"]["type"] == "rc_lowpass"
+    assert doc["data"]["parts"]["rc"]["type"] == "rc_lowpass"
 
 
 def test_edit_writes_and_detects_conflicts(client, ws):
@@ -118,7 +118,7 @@ def test_catalog(client):
     by_id = {d["id"]: d for d in cat["instruments"]}
     assert by_id["sb-dso-4"]["ports"][:2] == ["CH1", "CH2"] and by_id["sb-awg-2"]["channels"] == 2
     types = {c["type"]: c for c in cat["components"]}
-    assert types["rc_lowpass"]["category"] == "dut" and types["passive_probe"]["category"] == "accessory"
+    assert types["rc_lowpass"]["category"] == "part" and types["passive_probe"]["category"] == "accessory"
     assert "output_stage" not in types
     assert types["rc_lowpass"]["units"]["c"] == "F"
 
@@ -251,7 +251,7 @@ def test_history_records_sources_external_changes_and_restores(client, ws):
     assert [v["source"] for v in history()[:2]] == ["ui", "external"]
 
     old = client.get("/api/benches/version", params={"path": BENCH, "seq": 2}).json()
-    assert old["data"]["duts"]["rc"]["params"]["r"] == 1000 and old["version"]["source"] == "ui"
+    assert old["data"]["parts"]["rc"]["params"]["r"] == 1000 and old["version"]["source"] == "ui"
     head = client.get("/api/benches/file", params={"path": BENCH}).json()
     r = client.post("/api/benches/restore", json={"path": BENCH, "seq": 2, "base_sha256": head["sha256"]})
     assert r.status_code == 200 and r.json()["fingerprint"] == a["fingerprint"]

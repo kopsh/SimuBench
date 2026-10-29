@@ -49,7 +49,7 @@ def test_apply_is_all_or_nothing():
 
 def test_rename_rewrites_wires_and_layout():
     b = apply(build(), ops({"op": "rename", "name": "rc", "new_name": "filter"}))
-    assert "filter" in b.duts and "rc" not in b.layout
+    assert "filter" in b.parts and "rc" not in b.layout
     assert [(w.from_, w.to) for w in b.wires] == [("awg.OUT1", "filter.IN"), ("filter.OUT", "scope.CH1")]
 
 
@@ -67,7 +67,7 @@ def test_remove_drops_wires():
         ({"op": "connect", "from": "awg.OUT2", "to": "ghost.IN"}, "ghost"),
         ({"op": "connect", "from": "awg", "to": "rc.IN"}, "<名称>.<端口>"),
         ({"op": "disconnect", "index": 5}, "共 2 根"),
-        ({"op": "set_params", "dut": "awg", "params": {}}, "DUT"),
+        ({"op": "set_params", "dut": "awg", "params": {}}, "元件"),  # the older field name still works
     ],
 )
 def test_errors_explain(op, message):

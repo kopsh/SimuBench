@@ -204,11 +204,11 @@ instruments:
     definition: keysight-34465a
     deviation: from_specs          # 按 deviations 抽取
     hidden: {meter: {offset: 0.0}} # 写死的值优先，逐项覆盖
-duts:
+parts:
   r1:
     type: resistor
     params: {r: 1000}
-    deviation: {r: {limit: 1, unit: "%", distribution: uniform}}   # DUT 的范围属于料号，写在实例上
+    deviation: {r: {limit: 1, unit: "%", distribution: uniform}}   # 元件的范围属于料号，写在实例上
 ```
 
 - 抽取用计数器式随机数（`engine/noise.py`），键为（种子、实例名、组件.参数、表键）：与抽取顺序、测试台中其他仪表的增减无关；同一测试台同一种子结果相同。

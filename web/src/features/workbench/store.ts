@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 export type Selection =
   | { kind: "instrument"; id: string }
-  | { kind: "dut"; id: string }
+  | { kind: "part"; id: string }
   | { kind: "wire"; id: number }
   | { kind: "net"; id: string }
   | null;

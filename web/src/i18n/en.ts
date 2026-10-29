@@ -50,7 +50,8 @@ export const en: Widen<Messages> = {
   workbench: {
     resources: "Resources",
     instruments: "Instruments",
-    duts: "DUT",
+    parts: "Parts",
+    part: "Part",
     wires: "Wires",
     nets: "Nets",
     canvas: "Canvas",
@@ -103,6 +104,11 @@ export const en: Widen<Messages> = {
     commandPlaceholder: "e.g. :CHANnel1:SCALe 0.05 or *IDN?",
     send: "Send",
     response: "Response",
+  },
+  dut: {
+    title: "The object under test or calibration (DUT)",
+    toggle: "DUT",
+    hint: "The object under test or calibration. An instrument or a part may be the DUT, e.g. the meter being calibrated.",
   },
   deviation: {
     title: "Individual deviations",
@@ -324,7 +330,7 @@ export const en: Widen<Messages> = {
     explainCurrent: "From this version to the current file:",
     source: { ui: "UI", agent: "Agent", api: "API", external: "External edit", restore: "Restore" },
     kind: { added: "Added", removed: "Removed", changed: "Changed" },
-    section: { bench: "Bench", instruments: "Instrument", duts: "DUT", wires: "Wire", faults: "Preset faults", run: "Startup settings", layout: "Node positions" },
+    section: { bench: "Bench", instruments: "Instrument", parts: "Part", wires: "Wire", faults: "Preset faults", run: "Startup settings", layout: "Node positions" },
   },
   runs: {
     title: "Records",

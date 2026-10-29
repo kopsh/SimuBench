@@ -4,13 +4,13 @@ const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
 
 const BENCH = {
-  schema: "simubench.bench/1",
+  schema: "simubench.bench/2",
   name: "edit-e2e",
   instruments: {
     awg: { model: "sb-awg-2", label: "函数发生器", state: { "ch1.amplitude": 2.0 } },
     scope: { model: "sb-dso-4", label: "示波器" },
   },
-  duts: { rc: { type: "rc_lowpass", label: "RC 低通", params: { r: 1000, c: 1e-7 } } },
+  parts: { rc: { type: "rc_lowpass", label: "RC 低通", dut: true, params: { r: 1000, c: 1e-7 } } },
   wires: [
     { from: "awg.OUT1", to: "rc.IN" },
     { from: "rc.OUT", to: "scope.CH1", accessories: [{ type: "passive_probe" }] },
@@ -40,12 +40,12 @@ async function openEditor(page: Page): Promise<string> {
   return path;
 }
 
-test("add a DUT from the library, undo and redo", async ({ page }) => {
+test("add a part from the library, undo and redo", async ({ page }) => {
   const path = await openEditor(page);
   await page.getByRole("button", { name: "添加 电阻" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
   await expect(page.getByText("已保存到文件")).toBeVisible();
-  expect(Object.keys((await readDoc(page.request, path)).data.duts as object)).toEqual(["rc", "r"]);
+  expect(Object.keys((await readDoc(page.request, path)).data.parts as object)).toEqual(["rc", "r"]);
   // A topology change applies when switching back to Operate (issue 31); nothing to click meanwhile.
   await expect(page.getByRole("button", { name: "重新启动以应用" })).toHaveCount(0);
 
@@ -104,7 +104,7 @@ test("changes made elsewhere (an agent) show up live", async ({ page }) => {
   const doc = await readDoc(page.request, path);
   const r = await page.request.post("/api/benches/edit", {
     headers,
-    data: { path, base_sha256: doc.sha256, ops: [{ op: "add_dut", name: "buf", type: "unity_buffer", x: 360, y: 320 }] },
+    data: { path, base_sha256: doc.sha256, ops: [{ op: "add_part", name: "buf", type: "unity_buffer", dut: false, x: 360, y: 320 }] },
   });
   expect(r.ok()).toBeTruthy();
   await expect(page.getByText("已载入在其他地方所做的修改")).toBeVisible();
@@ -154,7 +154,7 @@ test("review an agent's change in the version history and restore the version be
   await dialog.getByRole("button", { name: "恢复此版本" }).click();
   await expect(versions.getByRole("button")).toHaveCount(3);
   await expect(versions.getByRole("button").first()).toContainText("恢复");
-  expect(((await readDoc(page.request, path)).data.duts as { rc: { params: { r: number } } }).rc.params.r).toBe(1000);
+  expect(((await readDoc(page.request, path)).data.parts as { rc: { params: { r: number } } }).rc.params.r).toBe(1000);
 });
 
 test("individual deviations: an instrument draws from its specs, the drawn values stay hidden", async ({ page }) => {
@@ -174,4 +174,26 @@ test("individual deviations: an instrument draws from its specs, the drawn value
   await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
   await page.getByRole("button", { name: "个体偏差" }).click();
   await expect(page.getByText("已隐藏")).toHaveCount(2);
+});
+
+test("DUT is a role: mark the meter under calibration, not only a part", async ({ page }) => {
+  const path = await openEditor(page);
+  await expect(page.locator(".react-flow__node").filter({ hasText: "RC 低通" }).getByTestId("dut-badge")).toBeVisible();
+  const scope = page.locator(".react-flow__node").filter({ hasText: "示波器" });
+  await expect(scope.getByTestId("dut-badge")).toHaveCount(0);
+  await scope.click();
+  await page.getByRole("switch", { name: "DUT" }).click();
+  await expect.poll(async () => (await readDoc(page.request, path)).data.instruments).toMatchObject({ scope: { dut: true } });
+  await expect(scope.getByTestId("dut-badge")).toBeVisible();
+  // The RC network is a fixture now, not the object under test.
+  await page.locator(".react-flow__node").filter({ hasText: "RC 低通" }).click();
+  await page.getByRole("switch", { name: "DUT" }).click();
+  // false is the default, so the file leaves it out
+  await expect.poll(async () => ((await readDoc(page.request, path)).data.parts as { rc: { dut?: boolean } }).rc.dut ?? false).toBe(false);
+  await expect(page.locator(".react-flow__node").filter({ hasText: "RC 低通" })).toContainText("元件 · rc_lowpass");
+  // Back in Operate mode the resource tree marks the DUT too.
+  await page.getByRole("radio", { name: "操作" }).click();
+  const tree = page.getByRole("navigation", { name: "资源" });
+  await expect(tree.getByTestId("dut-badge")).toHaveCount(1);
+  await expect(tree.getByRole("button").filter({ hasText: "示波器" }).getByTestId("dut-badge")).toBeVisible();
 });

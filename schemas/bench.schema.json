@@ -114,6 +114,7 @@
     },
     "ComponentInstance": {
       "additionalProperties": false,
+      "description": "A part on the bench (元件): a component type placed as a node of its own.",
       "properties": {
         "deviation": {
           "additionalProperties": {
@@ -122,6 +123,12 @@
           "description": "Individual deviations (个体偏差) by parameter, drawn from the bench seed, e.g. {r: {limit: 1, unit: '%'}}: the range belongs to the part, so it is written here. A value in `hidden` takes precedence",
           "title": "Deviation",
           "type": "object"
+        },
+        "dut": {
+          "default": false,
+          "description": "This part is a DUT: the object under test or calibration",
+          "title": "Dut",
+          "type": "boolean"
         },
         "hidden": {
           "additionalProperties": true,
@@ -275,7 +282,7 @@
             }
           ],
           "default": null,
-          "description": "For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'",
+          "description": "For drift / hidden: '<instrument>/<component>' or a part's name, e.g. 'rc'",
           "title": "Component"
         },
         "count": {
@@ -451,6 +458,12 @@
           ],
           "title": "Deviation",
           "type": "string"
+        },
+        "dut": {
+          "default": false,
+          "description": "This instrument is a DUT: the object under test or calibration",
+          "title": "Dut",
+          "type": "boolean"
         },
         "firmware": {
           "anyOf": [
@@ -679,13 +692,6 @@
       "default": null,
       "title": "Description"
     },
-    "duts": {
-      "additionalProperties": {
-        "$ref": "#/$defs/ComponentInstance"
-      },
-      "title": "Duts",
-      "type": "object"
-    },
     "faults": {
       "description": "Faults preset for every run",
       "items": {
@@ -713,12 +719,20 @@
       "title": "Name",
       "type": "string"
     },
+    "parts": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ComponentInstance"
+      },
+      "description": "Parts (元件): RC networks, resistors and the like; any may be a DUT",
+      "title": "Parts",
+      "type": "object"
+    },
     "run": {
       "$ref": "#/$defs/RunConditions"
     },
     "schema": {
-      "const": "simubench.bench/1",
-      "default": "simubench.bench/1",
+      "const": "simubench.bench/2",
+      "default": "simubench.bench/2",
       "title": "Schema",
       "type": "string"
     },

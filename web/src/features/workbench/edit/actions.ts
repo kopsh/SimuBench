@@ -19,7 +19,7 @@ const TYPE_PREFIX: Record<string, string> = { rc_lowpass: "rc", resistor: "r", l
 
 function names(data: BenchData | undefined): Set<string> {
   const keys = (v: unknown) => Object.keys(v && typeof v === "object" ? (v as object) : {});
-  return new Set([...keys(data?.instruments), ...keys(data?.duts)]);
+  return new Set([...keys(data?.instruments), ...keys(data?.parts)]);
 }
 
 /** A short, unused instance name: scope, scope2, scope3, … */
@@ -44,8 +44,8 @@ export async function addItem(catalog: Catalog, item: LibraryItem, at?: { x: num
     if (done) useWorkbench.getState().select({ kind: "instrument", id: name });
   } else {
     name = suggestName(TYPE_PREFIX[item.id] ?? item.id, taken);
-    const done = await applyOps([{ op: "add_dut", name, type: item.id, ...pos }]);
-    if (done) useWorkbench.getState().select({ kind: "dut", id: name });
+    const done = await applyOps([{ op: "add_part", name, type: item.id, dut: false, ...pos }]);
+    if (done) useWorkbench.getState().select({ kind: "part", id: name });
   }
   return name;
 }

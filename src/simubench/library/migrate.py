@@ -13,7 +13,7 @@ from typing import Any
 
 Data = dict[str, Any]
 
-CURRENT = {"bench": 1, "instrument": 1}
+CURRENT = {"bench": 2, "instrument": 1}
 
 #: (format, from_version) -> function returning the data at from_version + 1.
 MIGRATIONS: dict[tuple[str, int], Callable[[Data], Data]] = {}
@@ -66,6 +66,17 @@ def upgrade(data: Any, fmt: str) -> tuple[Any, list[str]]:
 def _bench_0_to_1(data: Data) -> Data:
     """Files without a schema line: name the format (the content is the same)."""
     return {"schema": "simubench.bench/1", **data}
+
+
+@migration("bench", 1)
+def _bench_1_to_2(data: Data) -> Data:
+    """DUT is a role, not a kind of object (#100): ``duts`` become ``parts``, each marked as a DUT."""
+    out = {k: v for k, v in data.items() if k != "duts"}
+    out["schema"] = "simubench.bench/2"
+    parts = data.get("duts") or {}
+    if parts:
+        out["parts"] = {name: {**(p or {}), "dut": True} for name, p in parts.items()}
+    return out
 
 
 @migration("instrument", 0)

@@ -95,12 +95,12 @@ def test_a_unit_does_not_depend_on_the_rest_of_the_bench():
 def test_hidden_values_win_and_nominal_draws_nothing():
     b = bench(1)
     b.instruments["dmm"].hidden = {"meter": {"gain_error_ppm": 150.0}}
-    b.duts["r1"].hidden = {"r": 1002.0}
+    b.parts["r1"].hidden = {"r": 1002.0}
     d = deviations(b)
     assert "dmm/meter.gain_error_ppm" not in d and "r1.r" not in d
     assert "dmm/meter.offset" in d
     nominal = bench(1, deviation="nominal")
-    nominal.duts["r1"].deviation = {}
+    nominal.parts["r1"].deviation = {}
     assert deviations(nominal) == {}
 
 
@@ -179,10 +179,10 @@ def test_validation_names_wrong_deviations():
 
     b = bench(1)
     b.instruments["src"] = b.instruments["dmm"].model_copy(update={"model": "sb-smu-1"})
-    b.duts["r1"].deviation["rr"] = DeviationRange(limit=1)
+    b.parts["r1"].deviation["rr"] = DeviationRange(limit=1)
     found = {(d.code, d.pointer) for d in validate_bench(b, lib.get).diagnostics}
     assert ("W-DEVIATION-NONE", "/instruments/src/deviation") in found
-    assert ("E-DEVIATION-PARAM", "/duts/r1/deviation/rr") in found
+    assert ("E-DEVIATION-PARAM", "/parts/r1/deviation/rr") in found
 
 
 def test_edit_sets_the_mode_and_a_dut_range():
@@ -191,12 +191,12 @@ def test_edit_sets_the_mode_and_a_dut_range():
         b,
         [
             SetDeviation(instrument="dmm", mode="from_specs"),
-            SetDeviation(dut="r1", param="r", range=DeviationRange(limit=5, unit="%")),
+            SetDeviation(part="r1", param="r", range=DeviationRange(limit=5, unit="%")),
         ],
     )
-    assert b.instruments["dmm"].deviation == "from_specs" and b.duts["r1"].deviation["r"].limit == 5
-    b = apply(b, [SetDeviation(dut="r1", param="r", range=None)])
-    assert b.duts["r1"].deviation == {}
+    assert b.instruments["dmm"].deviation == "from_specs" and b.parts["r1"].deviation["r"].limit == 5
+    b = apply(b, [SetDeviation(part="r1", param="r", range=None)])
+    assert b.parts["r1"].deviation == {}
     with pytest.raises(ValueError):
         apply(b, [SetDeviation(instrument="dmm")])
 
@@ -219,7 +219,7 @@ def test_the_session_view_hides_drawn_values_unless_revealed(tmp_path):
             session.close()
         dmm = next(i for i in view.instruments if i.name == "dmm")
         awg = next(i for i in view.instruments if i.name == "awg")
-        r1 = next(d for d in view.duts if d.name == "r1")
+        r1 = next(d for d in view.parts if d.name == "r1")
         assert dmm.deviation == "from_specs"
         assert [x.param for x in dmm.deviations] == ["meter.gain_error_ppm", "meter.offset"]
         assert [x.param for x in awg.deviations] == ["ch1.out.z_out", "ch2.out.z_out"]

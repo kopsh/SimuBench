@@ -137,7 +137,7 @@ class Component:
     """Base class for every component type."""
 
     type_name: ClassVar[str] = "component"
-    #: Where the component may be placed: "dut" (bench node), "accessory" (on a wire) or "internal"
+    #: Where the component may be placed: "part" (a bench node of its own), "accessory" (on a wire) or "internal"
     #: (inside instrument definitions only).
     category: ClassVar[str] = "internal"
     label: ClassVar[str] = ""

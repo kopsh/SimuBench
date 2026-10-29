@@ -25,12 +25,12 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
   if (selection?.kind === "instrument") {
     const inst = session.instruments.find((i) => i.name === selection.id);
     if (inst) body = <InstrumentInspector sid={session.id} inst={inst} readonly={readonly} />;
-  } else if (selection?.kind === "dut") {
-    const dut = session.duts.find((d) => d.name === selection.id);
+  } else if (selection?.kind === "part") {
+    const dut = session.parts.find((d) => d.name === selection.id);
     if (dut)
       body = (
         <div className="space-y-4 p-3">
-          <Header title={dut.label || dut.name} subtitle={`DUT · ${dut.type}`} />
+          <Header title={dut.label || dut.name} subtitle={`${dut.dut ? "DUT" : t("workbench.part")} · ${dut.type}`} />
           <Section title={t("workbench.params")}>
             <KeyValues entries={Object.entries(dut.params).map(([k, v]) => [k, typeof v === "number" ? formatEng(v, "") : String(v)])} />
           </Section>

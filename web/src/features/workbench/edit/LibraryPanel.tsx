@@ -27,7 +27,7 @@ export function LibraryPanel() {
     const match = (...fields: (string | null | undefined)[]) => !query || fields.some((f) => f?.toLowerCase().includes(query));
     return {
       instruments: c.instruments.filter((d) => match(d.id, d.model, d.manufacturer, d.instrument_class, d.description)),
-      duts: c.components.filter((x) => x.category === "dut" && match(x.type, x.label, x.label_en, x.doc)),
+      parts: c.components.filter((x) => x.category === "part" && match(x.type, x.label, x.label_en, x.doc)),
     };
   }, [catalog.data, query]);
 
@@ -73,12 +73,12 @@ export function LibraryPanel() {
                 );
               })}
             </Group>
-            <Group title={t("workbench.duts")}>
-              {items.duts.map((c) => (
+            <Group title={t("workbench.parts")}>
+              {items.parts.map((c) => (
                 <Entry
                   key={c.type}
                   catalog={catalog.data}
-                  item={{ kind: "dut", id: c.type }}
+                  item={{ kind: "part", id: c.type }}
                   icon={<CircuitBoard className="size-4" />}
                   title={pickLabel(c.label, c.label_en, c.type)}
                   subtitle={c.type}

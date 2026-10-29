@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-lockin-arb
 description: A 16-point arbitrary table (one sine period, 1 mV peak) on SIG_IN; internal 1 kHz reference.
 instruments:

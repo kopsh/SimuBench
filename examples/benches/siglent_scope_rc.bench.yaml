@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: siglent_scope_rc
 description: >-
   Siglent SDG2042X 经 RC 低通（1 kΩ、100 nF）与 10x 探头接到 Siglent SDS2104X Plus 的 C1
@@ -18,9 +18,10 @@ instruments:
     state:
       timebase.scale: 1.0e-3
       ch1.scale: 0.05
-duts:
+parts:
   rc:
     type: rc_lowpass
+    dut: true
     label: RC 低通
     params: {r: 1000.0, c: 1.0e-7}
 wires:

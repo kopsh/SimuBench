@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-specan-prbs
 description: An order-7 PRBS (100 kb/s, 0.25 V open circuit) on RF_IN.
 instruments:
