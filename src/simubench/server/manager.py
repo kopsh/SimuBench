@@ -63,6 +63,7 @@ class SessionManager:
         hislip_port: int | None = 4880,
         record_dir: Path | None = None,
         record_raw: bool = False,
+        allow_plugins: bool = False,
     ) -> None:
         self.workspace = workspace
         self.scpi_host = scpi_host
@@ -70,9 +71,22 @@ class SessionManager:
         self.hislip_port = hislip_port
         self.record_dir = record_dir
         self.record_raw = record_raw
+        self.allow_plugins = allow_plugins
         self.sessions: dict[str, ServedSession] = {}
         self.files = BenchFiles(workspace)
         self.runs = Runs(record_dir, [self.workspace / "instruments"])
+        # Workspace plugins run code from the workspace: only with the engineer's consent (D3),
+        # and before any bench is validated, so plugin types are known to the checks.
+        if self.plugins_allowed():
+            from ..plugins import load_workspace_plugins
+
+            load_workspace_plugins(workspace / "components")
+
+    def plugins_allowed(self) -> bool:
+        """``--allow-plugins``, or the workspace setting (``.simubench/settings.json``)."""
+        from ..plugins import workspace_allows_plugins
+
+        return self.allow_plugins or workspace_allows_plugins(self.workspace)
 
     # ---- bench files --------------------------------------------------------------------------------
 

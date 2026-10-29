@@ -61,7 +61,9 @@ def component(type_name: str) -> Callable[[type[Component]], type[Component]]:
 
 def component_type(type_name: str) -> type[Component]:
     from ..library import components as _  # noqa: F401  (registers the built-in library)
+    from ..plugins import ensure_entry_point_plugins
 
+    ensure_entry_point_plugins()  # installed packages load by default (D3)
     try:
         return _REGISTRY[type_name]
     except KeyError:
@@ -70,7 +72,9 @@ def component_type(type_name: str) -> type[Component]:
 
 def component_types() -> dict[str, type[Component]]:
     from ..library import components as _  # noqa: F401
+    from ..plugins import ensure_entry_point_plugins
 
+    ensure_entry_point_plugins()
     return dict(_REGISTRY)
 
 
