@@ -12,6 +12,7 @@ on:
 permissions:
   actions: write
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -27,11 +28,14 @@ jobs:
               gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain: merge the latest main into it and push; it merges once CI passes again (AGENTS.md)."
               continue
             fi
+            # The issues the pull request lists, read before the merge: closingIssuesReferences is
+            # filled for an open pull request but only a minute or so after it, too late for after.
+            closing=$(gh pr view "$n" --repo "$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[]?.number')
             # Only the commit CI tested: a newer push waits for its own CI run.
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"
             # A merge by the workflow token is skipped by GitHub's closing-keyword step, so Closes
             # #n in the description closes nothing: close the issues the pull request lists itself.
-            for i in $(gh pr view "$n" --repo "$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[]?.number'); do
+            for i in $closing; do
               gh issue close "$i" --repo "$REPO" --comment "Closed by #$n"
             done
             # The merge's push starts no workflow (it is the workflow token's): run main's checks now.
