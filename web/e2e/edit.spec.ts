@@ -197,3 +197,23 @@ test("DUT is a role: mark the meter under calibration, not only a part", async (
   await expect(tree.getByTestId("dut-badge")).toHaveCount(1);
   await expect(tree.getByRole("button").filter({ hasText: "示波器" }).getByTestId("dut-badge")).toBeVisible();
 });
+
+test("build mode: the canvas shows the initial settings, a screen the running values and what differs", async ({ page }) => {
+  await openEditor(page);
+  const sid = new URL(page.url()).pathname.split("/").pop();
+  await expect(page.getByRole("note", { name: "初始设置" })).toBeVisible();
+  // A script turns CH1's output on while the bench is being built.
+  const r = await page.request.post(`/api/sessions/${sid}/instruments/awg/scpi`, { headers, data: { command: ":OUTP1 ON" } });
+  expect(r.ok()).toBeTruthy();
+  const awg = page.locator(".react-flow__node").filter({ hasText: "函数发生器" });
+  await expect(awg).toContainText("关"); // the bench file: output off
+  await awg.dblclick();
+  const banner = page.getByRole("note", { name: "运行中的值" });
+  await expect(banner).toBeVisible();
+  await expect(banner).toContainText("CH1 输出：开（初始：关）");
+  // Operate mode shows the running bench everywhere: no notes.
+  await page.getByRole("radio", { name: "操作" }).click();
+  await expect(page.getByRole("note", { name: "运行中的值" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "画布" }).click();
+  await expect(page.getByRole("note", { name: "初始设置" })).toHaveCount(0);
+});
