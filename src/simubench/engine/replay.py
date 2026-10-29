@@ -84,13 +84,18 @@ def _show(data: bytes | None, limit: int = 120) -> str:
         return f"<{len(data)} bytes, sha256 {hashlib.sha256(data).hexdigest()[:16]}…>"
 
 
-def replay(
+def open_record(
     path: str | Path,
     *,
     definition_dirs: list[str | Path] | None = None,
-    stop_at_first: bool = False,
     workspace_plugins: Path | None = None,
-) -> ReplayReport:
+) -> tuple[Iterator[dict[str, Any]], Any, list[str]]:
+    """Validate a run record's header and rebuild its bench (D36).
+
+    Returns the events after the header, the reopened session (``replaying`` set; the caller must
+    close it) and the warnings about definitions, plugins and deviations that changed since the
+    record was made. Callers replay the events with :func:`resend`.
+    """
     path = Path(path)
     if workspace_plugins is not None:
         from ..plugins import load_workspace_plugins
@@ -113,13 +118,13 @@ def replay(
         bench, clock=clock, seed=header.get("seed"), idle=idle, definition_dirs=definition_dirs
     )
     session.replaying = True
-    report = ReplayReport(record=str(path), bench=bench.name)
+    warnings: list[str] = []
     for name, want in (header.get("definitions") or {}).items():
         inst = session.instruments.get(name)
         if inst is None:
             continue
         if want.get("sha256") and want["sha256"] != definition_hash(inst.definition):
-            report.warnings.append(
+            warnings.append(
                 f"{name}: definition {want.get('id')} differs from the one recorded; differences may come from it"
             )
     # The same check for plugin components (D36): their code is not in the record, only its hash.
@@ -130,39 +135,86 @@ def replay(
     for name, want in recorded.items():
         now = have.get(name)
         if now is None:
-            report.warnings.append(
+            warnings.append(
                 f"plugin {name} ({want.get('source')}, recorded as {want.get('origin')}) is not loaded now"
             )
         elif want.get("sha256") and want["sha256"] != now.get("sha256"):
-            report.warnings.append(
+            warnings.append(
                 f"plugin {name} changed since the record (sha256 differs); differences may come from it"
             )
     for name in have.keys() - recorded.keys():
-        report.warnings.append(f"plugin {name} is loaded now but the record was made without it")
+        warnings.append(f"plugin {name} is loaded now but the record was made without it")
     # Individual deviations are drawn again from the recorded seed: equal unless their ranges changed.
     if "deviations" in header:
         drawn = json.loads(json.dumps(session.deviations()))
         for key in sorted(drawn.keys() | header["deviations"].keys()):
             if drawn.get(key) != header["deviations"].get(key):
-                report.warnings.append(
+                warnings.append(
                     f"deviation {key} is {drawn.get(key)!r} now, {header['deviations'].get(key)!r} in the "
                     "record; differences may come from it"
                 )
+    return events, session, warnings
+
+
+def resend(
+    session: Any, events: Iterator[dict[str, Any]], last_command: dict[str, str]
+) -> Iterator[tuple[dict[str, Any], bytes | None]]:
+    """Resend every recorded action at its recorded virtual time.
+
+    Yields ``(event, reply)``, where ``reply`` is what a replayed read returned (``None`` for every
+    other kind of event). A write a fault dropped is resent too: the replayed fault drops it the
+    same way.
+    """
+    for ev in events:
+        kind = ev.get("kind")
+        t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
+        got: bytes | None = None
+        if kind == "scpi" and ev.get("dir") == "write":
+            session.seek(t)
+            data = _bytes(ev.get("data")) or b""
+            last_command[ev["instrument"]] = data.decode("ascii", errors="replace").strip()
+            session.write(ev["instrument"], data, client="replay")
+        elif kind == "scpi" and ev.get("dir") == "read":
+            session.seek(t)
+            got = session.read(ev["instrument"], client="replay")
+        elif kind == "state" and ev.get("source") not in ("scpi", None) and ev.get("path") != "*RST":
+            session.seek(t)
+            session.instrument(ev["instrument"]).set_state(ev["path"], ev["new"], source="replay")
+        elif kind == "panel" and ev.get("source") != "replay":
+            session.seek(t)
+            session.panel(ev["instrument"], ev["action"], client="replay")
+        elif kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"):
+            session.seek(t)
+            session.faults.inject(Fault.model_validate(ev["spec"]), source="replay")
+        elif kind == "fault" and ev.get("reason") == "cleared" and ev.get("source") != "replay":
+            session.seek(t)
+            fid = ev.get("fault")
+            if fid in session.faults.faults:
+                session.faults.clear(fid)
+        elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep"):
+            session.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
+        yield ev, got
+
+
+def replay(
+    path: str | Path,
+    *,
+    definition_dirs: list[str | Path] | None = None,
+    stop_at_first: bool = False,
+    workspace_plugins: Path | None = None,
+) -> ReplayReport:
+    events, session, warnings = open_record(
+        path, definition_dirs=definition_dirs, workspace_plugins=workspace_plugins
+    )
+    report = ReplayReport(record=str(path), bench=session.bench.name, warnings=warnings)
     last_command: dict[str, str] = {}
     try:
-        for ev in events:
+        for ev, got in resend(session, events, last_command):
             kind = ev.get("kind")
             t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
             if kind == "scpi" and ev.get("dir") == "write":
-                # A write a fault dropped is resent too: the replayed fault drops it the same way.
-                session.seek(t)
-                data = _bytes(ev.get("data")) or b""
-                last_command[ev["instrument"]] = data.decode("ascii", errors="replace").strip()
-                session.write(ev["instrument"], data, client="replay")
                 report.actions += 1
             elif kind == "scpi" and ev.get("dir") == "read":
-                session.seek(t)
-                got = session.read(ev["instrument"], client="replay")
                 report.replies += 1
                 recorded = ev.get("data")
                 want = _bytes(recorded)
@@ -185,25 +237,12 @@ def replay(
                     )
                     if stop_at_first:
                         break
-            elif kind == "state" and ev.get("source") not in ("scpi", None) and ev.get("path") != "*RST":
-                session.seek(t)
-                session.instrument(ev["instrument"]).set_state(ev["path"], ev["new"], source="replay")
+            elif (
+                (kind == "state" and ev.get("source") not in ("scpi", None) and ev.get("path") != "*RST")
+                or (kind == "panel" and ev.get("source") != "replay")
+                or (kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"))
+            ):
                 report.actions += 1
-            elif kind == "panel" and ev.get("source") != "replay":
-                session.seek(t)
-                session.panel(ev["instrument"], ev["action"], client="replay")
-                report.actions += 1
-            elif kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"):
-                session.seek(t)
-                session.faults.inject(Fault.model_validate(ev["spec"]), source="replay")
-                report.actions += 1
-            elif kind == "fault" and ev.get("reason") == "cleared" and ev.get("source") != "replay":
-                session.seek(t)
-                fid = ev.get("fault")
-                if fid in session.faults.faults:
-                    session.faults.clear(fid)
-            elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep"):
-                session.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
     finally:
         session.close()
     return report

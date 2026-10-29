@@ -1,4 +1,4 @@
-"""Command line: ``simubench serve | mcp | validate | schemas | version``."""
+"""Command line: ``simubench serve | mcp | validate | verdicts | replay | ...``."""
 
 from __future__ import annotations
 
@@ -313,6 +313,48 @@ def _replay(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _verdicts(args: argparse.Namespace) -> int:
+    """Check a calibration script's verdicts against the truth; exit 1 on a misjudgment (C7)."""
+    from .engine.verdicts import VerdictError, check_verdicts
+
+    try:
+        report = check_verdicts(
+            args.record,
+            args.report,
+            args.map,
+            definition_dirs=args.definitions or None,
+            workspace_plugins=Path.cwd() / "components" if args.allow_plugins else None,
+        )
+    except (VerdictError, ValueError, OSError) as exc:
+        print(f"{exc}", file=sys.stderr)
+        return 2
+    if args.json:
+        print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
+        return 0 if report.ok else 1
+    for w in report.warnings:
+        print(f"warning: {w}", file=sys.stderr)
+
+    def g(x: float) -> str:
+        return f"{x:.9g}"
+
+    for p in report.points:
+        print(
+            f"row {p.row} ({p.instrument}): reading {g(p.reading)}  true input {g(p.true_input)}  "
+            f"script error {p.script_error:+.9g}  true error {p.true_error:+.9g}  "
+            f"{p.statement} → {p.verdict}"
+        )
+    s = report.summary
+    print(
+        f"{len(report.points)} points: {s['correct']} correct, {s['false_accept']} false_accept, "
+        f"{s['false_reject']} false_reject, {s['withheld']} withheld"
+    )
+    if not report.ok:
+        print("MISJUDGED: the script's statements disagree with the truth", file=sys.stderr)
+        return 1
+    print("every statement agrees with the truth")
+    return 0
+
+
 def _cases(args: argparse.Namespace) -> int:
     """Run cases files, each case on a freshly powered bench; exit 1 when a case fails (D6)."""
     from .library.coverage import junit_xml, run_cases
@@ -516,6 +558,20 @@ def main(argv: list[str] | None = None) -> int:
         help="with --draft: the table to write (default: next to the definition, or instruments/<id>.coverage.yaml)",
     )
     p.set_defaults(fn=_coverage)
+
+    p = sub.add_parser(
+        "verdicts",
+        help="check a calibration script's verdicts against the truth (exit 1 on a misjudgment, C7)",
+    )
+    p.add_argument("record", help="run-*.jsonl of the script's run")
+    p.add_argument("report", help="the verdict report (CSV) the script wrote")
+    p.add_argument("--map", required=True, help="column map (YAML): which column is what, how decisions read")
+    p.add_argument("--definitions", action="append", help="extra instrument definition folder (repeatable)")
+    p.add_argument(
+        "--allow-plugins", action="store_true", help="also run components/*.py from the current folder"
+    )
+    p.add_argument("--json", action="store_true", help="print the report as JSON")
+    p.set_defaults(fn=_verdicts)
 
     p = sub.add_parser(
         "cases", help="run cases files (commands and expected replies) on fresh benches; exit 1 on a failure"
