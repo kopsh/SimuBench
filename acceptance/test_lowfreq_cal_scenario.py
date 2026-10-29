@@ -94,6 +94,9 @@ def test_ac2_any_point_count_reads_back(point):
         cal.write(":CHANnel1:BASE:AMPLitude 1.0")
         cal.write(":CHANnel1:BASE:FREQuency 1000")
         cal.write(":CHANnel1:OUTPut 1")
+        # Two connections: wait until the calibrator has done its commands, or the scope's single
+        # acquisition may be read before the output is on (a piece of a forced record first).
+        cal.query("*OPC?")
         scope.write("C1:VDIV 200 mV")
         scope.write("TDIV 1E-3")
         scope.write("TRMD SINGLE")
