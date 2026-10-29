@@ -31,7 +31,7 @@
 - **错误**：错误码与错误信息文字与手册的错误列表一致，包括设备专用错误码；错误队列长度与溢出（`-350`）也按手册。定义中可声明错误表。
 - **触发与时序**：触发系统（`INITiate`、`FETCh?`、`READ?`、`*TRG`、触发源与计数）按手册。测量和命令所需时间（积分时间、建立时间）按手册计入虚拟时间（D12）。
 - **状态系统**：`*OPC`、`*WAI`、`*ESR?`、`*STB?`、`*SRE`、`*ESE` 及手册中的操作与可疑状态寄存器。
-- **物理量**：测量值来自电路求解与组件模型，不按命令伪造。手册中的精度指标记入定义（可选的 `specs` 字段），供以后由指标生成误差参数（M7）。
+- **物理量**：测量值来自电路求解与组件模型，不按命令伪造。手册中的精度指标记入定义（可选的 `specs` 字段），参与计算的个体偏差范围写在 `deviations` 中（[metrology-authoring.md](metrology-authoring.md) 第 7 节）。
 
 ## 4. 手册用例
 
@@ -93,7 +93,7 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 | `commands[].format` | 命令 | 覆盖该命令的返回格式，字段同上。`enum` 还可以是 `as_defined`：按定义中的写法原样返回（如 Siglent 的 `RISing`）。 |
 | `builtins` | 定义 | 这个型号回答的内置命令（如 `["*IDN", "*OPC", "*RST"]`）。不写时全部回答；写了以后，其余内置命令（`*CLS`、`:SYSTem:ERRor?` 等）按“未建模”处理（D45）。 |
 | `display.actions` | 定义 | 面板按钮（`run`、`stop`、`single`）等价的型号命令，如 `{single: ":TRIGger:MODE SINGle"}`，在仪表内部执行、不经过 SCPI（D32）；不写时用采集组件的 `run`、`stop`、`single`（没有单次模式的型号为 `digitize`）。 |
-| `specs` | 定义 | 手册中的精度指标，任意结构；目前只保存，不参与计算（M7）。 |
+| `specs` | 定义 | 手册中的精度指标，任意结构；只记录，不参与计算。参与计算的个体偏差范围写在 `deviations` 中（#34，[metrology-authoring.md](metrology-authoring.md) 第 7 节）。 |
 | `unknown_commands` | 定义 | `error`（默认）：未定义的命令回复 `-113`；`ignore`：不报错、不回复，事件历史记为 `ignored`。只用于按接口契约编写、没有 `reference` 的定义（D42），真实型号不允许。 |
 | `commands[].header` 为 `*XXX` | 命令 | 定义可以给公共命令自己的行为（如方言中的 `*CLS?`），优先于内置的公共命令。 |
 | `idn` | 测试台实例 | 覆盖定义的 `*IDN?` 回复，字段同 `identity.idn`；用于主机程序校验的型号串。 |
