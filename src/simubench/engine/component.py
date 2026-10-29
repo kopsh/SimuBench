@@ -118,7 +118,8 @@ def binding_of(value: Any) -> str | None:
 
 def map_setting(mapping: dict[str, Any], value: Any) -> Any:
     """A setting's value through a parameter mapping: ``map`` (else ``default``, else as is), then
-    ``value * scale + offset`` for numbers."""
+    a numeric ``table`` (the largest entry not above the value), then ``value * scale + offset``
+    for numbers."""
     table = mapping.get("map")
     if table is not None:
         if value in table:
@@ -127,6 +128,14 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
             value = table[hit]
         elif mapping.get("default") is not None:
             value = mapping["default"]
+    ladder = mapping.get("table")
+    if ladder is not None:
+        rungs = {float(k): v for k, v in ladder.items()}
+        picked = min(rungs)
+        for k in sorted(rungs):
+            if k <= float(value):
+                picked = k
+        value = rungs[picked]
     scale, offset = mapping.get("scale"), mapping.get("offset")
     if isinstance(value, (int, float)) and not isinstance(value, bool) and (scale, offset) != (None, None):
         value = value * (1.0 if scale is None else float(scale)) + (0.0 if offset is None else float(offset))

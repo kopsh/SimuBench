@@ -76,9 +76,10 @@ params:
   function: {from: $ch.wave, map: {SQUare: SQUare, PULSe: SQUare, SINe: SINusoid, DC: DC}}
   duty: {from: $ch.duty, scale: 100}           # 比例 → 通用组件的百分数
   z_in: {from: $ch.coupling, map: {D50: 50.0}, default: 1.0e6}
+  resolution: {from: $sense.nplc, table: {0.02: 3.0e-4, 1: 3.0e-6}}   # 数值查表：取不大于该值的最大表项
 ```
 
-只支持 `map`、`scale`、`offset`、`default`，不引入表达式语言：表达式难以校验、难以让 Agent 写对，复杂换算走插件。
+只支持 `map`、`table`、`scale`、`offset`、`default`，不引入表达式语言：表达式难以校验、难以让 Agent 写对，复杂换算走插件。`table`（#87）按数值查表：取不大于设置值的最大表项（NPLC 0.5 用 0.2 的值），没有更小的项时取最小项，之后同样过 `scale` / `offset`。
 
 ### 2.4 公共命令与未知命令
 
