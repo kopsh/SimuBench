@@ -192,6 +192,14 @@ params:
 
 工具共享现有的限流与 `guard`；不写代码文件。
 
+已实现（#46，`server/definitionfiles.py`、`engine/jsonpatch.py`、`engine/scriptscan.py` 的 `draft_definition`）：
+
+- `read_definition` 返回文件内容、`sha256` 与诊断；工作区之外的定义（内置、搜索路径上的）`editable: false`，要修改就以新 id（或同 id，工作区的文件优先）`create_definition` 一份副本。
+- `create_definition` / `edit_definition` 写 `instruments/<id>.yaml`；没有通过校验的内容也保存（与测试台相同，进行中的工作不丢），诊断随结果返回。`edit_definition` 的补丁整体应用或整体不应用；`sha256` 过期时报冲突并提示先 `read_definition`。每次保存进入版本历史（`.simubench/history/instruments/<id>.yaml/`，来源 `agent`）。
+- JSON 中没有无穷大：定义里的 `.inf` 在 MCP 中写作 `"INF"`（与测试台文件相同），保存后照常加载。
+- `draft_definition_from_script`：对脚本中的一台仪器（多台时用 `receiver` 指定），在 `base_definition`（不给时为空骨架）之上，为它不支持的每个命令头生成状态量与命令：数值（带 V、HZ、S 等单位）、ON/OFF、单词（枚举）、带引号（字符串）；多个参数的命令生成多个状态量与绑定参数的命令；只查询的命令为只读字符串。起草的条目在 `label` 与 `doc` 中标为“草稿（待确认）”，并列在返回的 `drafted` 中。f-string 的占位符按 `1` 读取，所以循环里的通道号只看得到 1，通道数需要 Agent 自己改。
+- 保存后，使用该定义旧版本的会话列在结果的 `sessions_to_restart` 中；会话信息的 `stale_definitions` 同样列出，界面顶栏显示“仪表定义已修改”，点击即重置（按新定义重建）。
+
 ### 5.5 用例运行命令（G8）
 
 `simubench cases <cases.yaml> [--junit 报告]`：在刚上电的测试台上逐条运行用例（与 `tests/test_real_models.py` 同一个运行器，移入 `library/coverage.py`），退出码与 JUnit 报告供 CI 使用（D6）。真实型号的手册用例与按契约编写的契约用例用同一种文件。
@@ -208,7 +216,7 @@ params:
 | #43 | 通用波形传输组件（3.1）（已完成） | #40 |
 | #44 | 可配置的采集组件，Siglent 与 LeCroy 改为配置（3.2）（已完成） | #43 |
 | #45 | `simubench cases` 与 MCP `run_cases`（5.5）（已完成） | — |
-| #46 | MCP 编写工具：创建、编辑、校验、由脚本生成定义草稿（5.4） | #40、#41、#45 |
+| #46 | MCP 编写工具：创建、编辑、校验、由脚本生成定义草稿（5.4）（已完成） | #40、#41、#45 |
 | #47 | 插件出口：入口点与工作区插件（第 4 节） | #40 |
 | #48 | 验收：只用 YAML、再只用 MCP 重建低频校准工作台（第 0 节） | #42、#43、#44、#46 |
 

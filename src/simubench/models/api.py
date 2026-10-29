@@ -47,6 +47,24 @@ class Diagnostic(_Model):
     subject: str | None = Field(None, description="Instrument, DUT or wire the diagnostic is about")
 
 
+class DefinitionDocument(_Model):
+    """An instrument definition's content as stored, with its static-check diagnostics."""
+
+    id: str
+    path: str | None = Field(None, description="Workspace-relative file, e.g. instruments/acme-x1.yaml")
+    editable: bool = Field(
+        description="False for definitions outside the workspace (built in or on the search path): "
+        "create a copy under a new id to change one"
+    )
+    sha256: str = Field(..., description="Hash of the file bytes; pass back as base_sha256 to edit")
+    data: dict[str, Any]
+    ok: bool
+    diagnostics: list[Diagnostic]
+    sessions_to_restart: list[str] = Field(
+        default_factory=list, description="Running sessions that use an older version of this definition"
+    )
+
+
 class BenchDocument(_Model):
     """A bench file's content as stored, with its diagnostics."""
 
@@ -331,6 +349,10 @@ class SessionInfo(_Model):
     bench_sha256: str | None = Field(None, description="Hash of the bench file the session started from")
     bench_fingerprint: str | None = Field(
         None, description="Fingerprint of the bench content; differs from the file's when a restart is needed"
+    )
+    stale_definitions: list[str] = Field(
+        default_factory=list,
+        description="Instrument definitions changed on disk since the session started: restart to apply them",
     )
     record_path: str | None = None
     clients: list[ClientInfo] = Field(

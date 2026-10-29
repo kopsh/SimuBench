@@ -67,6 +67,8 @@ export const zh = {
     stopSession: "关闭测试台",
     reset: "重置",
     resetDone: "已重置：仪表回到初始状态，开始新的记录",
+    staleDefinitions: "仪表定义已修改",
+    staleDefinitionsHint: "{{ids}} 在打开测试台后被修改，正在运行的仍是旧版本。点击重置以应用。",
     backHome: "返回测试台列表",
     commandPalette: "命令面板",
     theme: { label: "主题", system: "跟随系统", light: "浅色", dark: "深色" },

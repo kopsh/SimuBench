@@ -2260,6 +2260,11 @@ export interface components {
             reveal_true_values: boolean;
             /** Seed */
             seed: number;
+            /**
+             * Stale Definitions
+             * @description Instrument definitions changed on disk since the session started: restart to apply them
+             */
+            stale_definitions: string[];
             /** Wires */
             wires: components["schemas"]["WireInfo"][];
         };

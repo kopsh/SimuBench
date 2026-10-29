@@ -16,6 +16,7 @@ from ..access.scpi_server import ScpiServer
 from ..api import open_bench
 from ..engine.faults import LinkDown
 from ..engine.instrument import Instrument
+from ..engine.record import definition_hash
 from ..engine.session import Session
 from ..engine.silence import why_silent
 from ..library.components.scope import channel_index
@@ -209,6 +210,22 @@ class SessionManager:
         out.session = info
         return out
 
+    def stale_definitions(self, served: ServedSession) -> list[str]:
+        """Definitions the session's instruments use that changed on disk since it started."""
+        lib = self.files.library(served.bench_path)
+        out: list[str] = []
+        for inst in served.session.instruments.values():
+            d = inst.definition
+            if d.id in out:
+                continue
+            try:
+                current = definition_hash(lib.get(d.id))
+            except Exception:  # removed, or no longer loads: the session runs an old version too
+                current = None
+            if current != definition_hash(d):
+                out.append(d.id)
+        return out
+
     def get(self, sid: str) -> ServedSession:
         try:
             return self.sessions[sid]
@@ -263,6 +280,7 @@ class SessionManager:
             reveal_true_values=s.reveal_true_values,
             bench_sha256=served.bench_sha256,
             bench_fingerprint=served.bench_fingerprint,
+            stale_definitions=self.stale_definitions(served) if served.id != "preview" else [],
             record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
             clients=clients,
             instruments=instruments,

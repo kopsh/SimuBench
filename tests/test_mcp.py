@@ -265,3 +265,114 @@ async def test_run_cases(ws):
     assert (wrong["passed"], wrong["step"], wrong["command"]) == (False, 1, "FREQ?")
     assert wrong["actual"] == "+1.000000E+03" and "expected 5.0" in wrong["summary"]
     assert "error" in outside
+
+
+CONTRACT_SCRIPT = """
+import pyvisa
+
+rm = pyvisa.ResourceManager()
+dmm = rm.open_resource("TCPIP0::10.0.0.5::5025::SOCKET")
+dmm.write("*RST")
+dmm.write("MODE DCV")
+assert dmm.query("MODE?").strip() == "DCV"
+dmm.write("RANGE 10 V")
+for ch in (1, 2):
+    dmm.write(f"C{ch}:LEVEL 0.5")
+    dmm.query(f"C{ch}:LEVEL?")
+dmm.write("OUT ON")
+print(dmm.query("SYST:ERR?"))
+"""
+
+
+async def test_an_agent_builds_a_definition_from_a_script(ws):
+    """Issue 46: draft_definition_from_script -> edit_definition -> validate_definition -> run_cases."""
+    (ws / "contract.py").write_text(CONTRACT_SCRIPT, encoding="utf-8")
+    (ws / "dmm.cases.yaml").write_text(
+        "model: agent-dmm\ninstrument: dmm\ncases:\n"
+        "  - name: mode\n    steps:\n      - {send: 'MODE ACV'}\n      - {query: 'MODE?', expect: ACV}\n"
+        "  - name: level per channel\n    steps:\n      - {send: 'C2:LEVEL 0.25'}\n"
+        "      - {query: 'C2:LEVEL?', expect_value: 0.25}\n      - {query: 'C1:LEVEL?', expect_value: 0.5}\n"
+        "  - name: range in volts\n    steps:\n      - {send: 'RANGE 100 mV'}\n"
+        "      - {query: 'RANGE?', expect_value: 0.1, tolerance: 1.0e-12}\n"
+        "  - name: identity\n    steps:\n      - {query: '*IDN?', expect_match: 'AGENT LABS,DMM-1,.*'}\n",
+        encoding="utf-8",
+    )
+    _, server = make(ws)
+    async with Client(server) as c:
+        draft = await call(
+            c, "draft_definition_from_script", script_path="contract.py", definition_id="agent-dmm", save=True
+        )
+        assert [d["header"] for d in draft["drafted"]] == [":MODE", ":RANGE", ":C<ch>:LEVEL", ":OUT"]
+        # The loop's channel reads as 1 (an f-string placeholder): the agent sets the count itself.
+        assert draft["definition"]["channels"]["count"] == 1
+        saved = draft["saved"]
+        assert saved["path"] == "instruments/agent-dmm.yaml" and saved["ok"], saved["diagnostics"]
+
+        failing = await call(c, "run_cases", path="dmm.cases.yaml")
+        assert failing["failed"] == 3  # no ACV option, one channel, a placeholder identity
+
+        doc = await call(
+            c,
+            "edit_definition",
+            definition_id="agent-dmm",
+            base_sha256=saved["sha256"],
+            patch=[
+                {"op": "add", "path": "/state/mode/options/-", "value": "ACV"},
+                {"op": "replace", "path": "/manufacturer", "value": "Agent Labs"},
+                {"op": "replace", "path": "/model", "value": "DMM-1"},
+                {"op": "replace", "path": "/channels/count", "value": 2},
+                {"op": "test", "path": "/channel_state/c_level/type", "value": "float"},
+            ],
+        )
+        assert doc["ok"] and doc["data"]["state"]["mode"]["options"] == ["DCV", "ACV"]
+        assert (await call(c, "validate_definition", definition_id="agent-dmm")) == {
+            "ok": True,
+            "diagnostics": [],
+        }
+        passing = await call(c, "run_cases", path="dmm.cases.yaml")
+        assert (passing["passed"], passing["failed"]) == (4, 0), passing
+
+        stale = await call(
+            c, "edit_definition", definition_id="agent-dmm", base_sha256=saved["sha256"], patch=[]
+        )
+        assert "read_definition" in stale["error"]
+        bad = await call(
+            c, "edit_definition", definition_id="agent-dmm", base_sha256=doc["sha256"],
+            patch=[{"op": "remove", "path": "/state/nothing"}],
+        )  # fmt: skip
+        assert "补丁没有应用" in bad["error"]
+    history = ws / ".simubench" / "history" / "instruments" / "agent-dmm.yaml" / "index.jsonl"
+    assert [json.loads(line)["source"] for line in history.read_text().splitlines()] == ["agent", "agent"]
+
+
+async def test_definitions_outside_the_workspace_are_read_only(ws):
+    _, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "read_definition", definition_id="sb-awg-2")
+        assert doc["editable"] is False and doc["path"] is None and doc["ok"]
+        r = await call(c, "edit_definition", definition_id="sb-awg-2", base_sha256=doc["sha256"], patch=[])
+        assert "create a copy" in r["error"]
+        bad = await call(c, "validate_definition", data={**doc["data"], "channels": {"count": "two"}})
+        assert bad["ok"] is False and bad["diagnostics"][0]["code"] == "E-SCHEMA"
+        exists = await call(c, "create_definition", definition_id="sb-awg-2", data=doc["data"])
+        assert exists["ok"]  # a workspace copy under the same id shadows the library's
+        again = await call(c, "create_definition", definition_id="sb-awg-2", data=doc["data"])
+        assert "already exists" in again["error"]
+        wrong = await call(c, "create_definition", definition_id="other", data=doc["data"])
+        assert "holds the definition" in wrong["error"]
+
+
+async def test_a_session_names_the_definitions_to_restart_for(ws):
+    manager, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "read_definition", definition_id="sb-awg-2")
+        copy = await call(c, "create_definition", definition_id="sb-awg-2", data=doc["data"])
+        await call(c, "start_session", path=BENCH)
+        assert manager.describe(next(iter(manager.sessions.values()))).stale_definitions == []
+        edited = await call(
+            c, "edit_definition", definition_id="sb-awg-2", base_sha256=copy["sha256"],
+            patch=[{"op": "replace", "path": "/description", "value": "changed"}],
+        )  # fmt: skip
+        [sid] = manager.sessions
+        assert edited["sessions_to_restart"] == [sid]
+        assert manager.describe(manager.sessions[sid]).stale_definitions == ["sb-awg-2"]

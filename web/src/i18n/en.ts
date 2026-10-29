@@ -70,6 +70,8 @@ export const en: Widen<Messages> = {
     stopSession: "Close bench",
     reset: "Reset",
     resetDone: "Reset: instruments back to power-on defaults, a fresh record",
+    staleDefinitions: "Definitions changed",
+    staleDefinitionsHint: "{{ids}} changed after the bench was opened; the running instruments use the old version. Click to reset and apply.",
     backHome: "Back to benches",
     commandPalette: "Command palette",
     theme: { label: "Theme", system: "System", light: "Light", dark: "Dark" },

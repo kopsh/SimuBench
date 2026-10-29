@@ -28,11 +28,13 @@ from . import __version__
 from .engine.commands import classify
 from .engine.edit import EditError, EditOp
 from .engine.faults import LinkDown
-from .engine.scriptscan import draft_bench
+from .engine.jsonpatch import PatchError, PatchOp
+from .engine.scriptscan import draft_bench, draft_definition
 from .models.bench import Fault
 from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
 from .server.catalog import components as component_catalog
+from .server.definitionfiles import DefinitionFiles
 from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain
 
 INSTRUCTIONS = """\
@@ -44,6 +46,8 @@ simulated with correct circuit physics. Typical flow:
    or draft_bench_from_script to start from an existing PyVISA test program;
 3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
    run_cases checks instruments against a cases file of commands and expected replies;
+   to build an instrument the library lacks: draft_definition_from_script or create_definition,
+   then edit_definition (JSON Patch) / validate_definition until clean, then run_cases;
 4. start_session deploys the bench: instruments answer SCPI at the returned addresses, and the
    engineer watches it in the Web Bench;
 5. send_scpi / get_instrument_state / read_log to drive and observe it;
@@ -95,6 +99,7 @@ def build_server(
 ) -> MCPServer:
     mcp = MCPServer(name="simubench", version=__version__, instructions=INSTRUCTIONS)
     files = manager.files
+    definitions = DefinitionFiles(files)
     limiter = limiter or RateLimiter()
 
     def guard() -> None:
@@ -102,7 +107,8 @@ def build_server(
 
     def fail(exc: Exception) -> ToolError:
         if isinstance(exc, Conflict):
-            return ToolError(f"{exc}；当前 sha256 = {exc.current_sha256}，请先 read_bench 再编辑")
+            again = "read_definition" if "instruments/" in str(exc) else "read_bench"
+            return ToolError(f"{exc}；当前 sha256 = {exc.current_sha256}，请先 {again} 再编辑")
         if isinstance(exc, BenchInvalid):
             lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
             return ToolError("测试台未通过校验，无法启动：\n" + "\n".join(lines))
@@ -342,6 +348,99 @@ def build_server(
             "failed": sum(not r.passed for r in results),
             "cases": [r.as_dict() | {"summary": r.describe()} for r in results],
         }
+
+    # ---- instrument definitions (instrument-authoring.md 5.4) --------------------------------------
+
+    def definition_out(doc: Any) -> dict[str, Any]:
+        doc.data = _plain(doc.data)  # JSON has no infinity: "INF", as bench files spell it
+        doc.sessions_to_restart = [
+            sid for sid, sv in manager.sessions.items() if doc.id in manager.stale_definitions(sv)
+        ]
+        return doc.model_dump(mode="json")
+
+    @mcp.tool()
+    def read_definition(definition_id: str) -> dict[str, Any]:
+        """An instrument definition file as stored: its data, sha256 (pass it to edit_definition) and
+        static-check diagnostics. Only definitions in the workspace's instruments/ are editable."""
+        guard()
+        try:
+            return definition_out(definitions.read(definition_id))
+        except Exception as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def create_definition(
+        definition_id: str = Field(..., description="The new id; the file is instruments/<id>.yaml"),
+        data: dict[str, Any] = Field(..., description="The definition (simubench.instrument/1)"),
+    ) -> dict[str, Any]:
+        """Write a new instrument definition into the workspace's instruments/ (never code: the
+        building blocks are list_components). The file is kept even when it does not pass the
+        checks yet; fix what the diagnostics point at with edit_definition."""
+        guard()
+        try:
+            return definition_out(definitions.create(definition_id, data, "agent"))
+        except Exception as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def edit_definition(
+        definition_id: str,
+        base_sha256: str = Field(..., description="sha256 from read_definition or the last edit"),
+        patch: list[PatchOp] = Field(..., description="JSON Patch (RFC 6902) operations, applied in order"),
+    ) -> dict[str, Any]:
+        """Edit a workspace definition with JSON Patch, e.g. {"op": "replace", "path":
+        "/channel_state/scale/max", "value": 10}. Every save enters the version history. Sessions that
+        use the definition keep the old one until restarted (sessions_to_restart)."""
+        guard()
+        try:
+            return definition_out(definitions.edit(definition_id, base_sha256, patch, "agent"))
+        except PatchError as exc:
+            raise ToolError(f"补丁没有应用：{exc}") from None
+        except Exception as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def validate_definition(
+        definition_id: str | None = Field(None, description="A definition by id"),
+        data: dict[str, Any] | None = Field(None, description="Or a definition's content, not saved"),
+    ) -> dict[str, Any]:
+        """Static checks of an instrument definition: schema, component types and parameters, setting
+        bindings, operations, wiring and ports, headers (codes E-DEF-*, pointer, suggestion)."""
+        guard()
+        if (definition_id is None) == (data is None):
+            raise ToolError("给出 definition_id 或 data 之一")
+        try:
+            content = data if data is not None else definitions.read(definition_id).data  # type: ignore[arg-type]
+        except Exception as exc:
+            raise fail(exc) from None
+        report = definitions.validate(content)
+        return {"ok": report.ok, "diagnostics": [d.as_dict() for d in report.diagnostics]}
+
+    @mcp.tool()
+    def draft_definition_from_script(
+        script_path: str = Field(..., description="Workspace-relative path of a Python + PyVISA script"),
+        definition_id: str = Field(..., description="Id of the drafted definition"),
+        receiver: str | None = Field(None, description="Which instrument of the script, e.g. 'scope'"),
+        base_definition: str | None = Field(
+            None, description="Start from this definition and draft only what it does not support"
+        ),
+        save: bool = Field(False, description="Also create instruments/<definition_id>.yaml"),
+    ) -> dict[str, Any]:
+        """Read a test program without running it and draft an instrument definition for one of its
+        instruments: a setting and a command for every header the base does not support, typed from
+        the values the script writes and marked 草稿（待确认）. Check them, then edit_definition."""
+        guard()
+        try:
+            script = files.resolve(script_path)
+            source = script.read_text(encoding="utf-8")
+            lib = files.library(script)
+            base = lib.get(base_definition) if base_definition else None
+            out = draft_definition(source, definition_id, receiver=receiver, base=base)
+            if save:
+                out["saved"] = definition_out(definitions.create(definition_id, out["definition"], "agent"))
+        except Exception as exc:
+            raise fail(exc) from None
+        return out
 
     @mcp.tool()
     def draft_bench_from_script(

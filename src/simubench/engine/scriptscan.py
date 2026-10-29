@@ -293,3 +293,182 @@ def draft_bench(
         "layout": layout,
     }
     return {"bench": bench, "report": report, "notes": notes}
+
+
+# ---- definition drafts (instrument-authoring.md 5.4) --------------------------------------------------
+
+NUMBER = re.compile(r"^([-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?)\s*([A-Za-z]*)$")
+UNITS = ("HZ", "V", "A", "S", "OHM", "W", "DBM", "DB", "PCT")
+PREFIXES = "PNUMKG"
+DRAFT = "草稿（待确认）"
+
+
+def _guess(values: list[str]) -> dict[str, Any]:
+    """A state variable for the values a script writes: float (with its unit), bool, enum or string."""
+    words = [v.strip() for v in values]
+    if (
+        words
+        and all(w.upper() in ("ON", "OFF", "0", "1") for w in words)
+        and any(w.upper() in ("ON", "OFF") for w in words)
+    ):
+        return {"type": "bool", "default": words[0].upper() in ("ON", "1")}
+    numbers = [NUMBER.match(w) for w in words]
+    if words and all(numbers):
+        unit = None
+        for m in numbers:
+            suffix = m.group(2).upper()  # type: ignore[union-attr]
+            for u in UNITS:
+                if suffix == u or (suffix.endswith(u) and suffix[: -len(u)] in PREFIXES):
+                    unit = u
+        spec: dict[str, Any] = {"type": "float", "default": float(numbers[0].group(1))}  # type: ignore[union-attr]
+        if unit:
+            spec["unit"] = unit
+            if numbers[0].group(2).upper() != unit:  # type: ignore[union-attr]
+                spec["default"] = 0.0  # the first value carries a prefix: no default guessed from it
+        return spec
+    if words and all(w.startswith(("'", '"')) for w in words):
+        return {"type": "string", "default": words[0].strip("'\"")}
+    if words and all(re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*", w) for w in words):
+        options = list(dict.fromkeys(w.upper() for w in words))
+        return {"type": "enum", "options": options, "default": options[0]}
+    return {"type": "string", "default": words[0] if words else ""}
+
+
+def draft_definition(
+    source: str,
+    definition_id: str,
+    *,
+    receiver: str | None = None,
+    base: InstrumentDefinition | None = None,
+) -> dict[str, Any]:
+    """A definition draft for one instrument of a script: ``base`` (or an empty skeleton) plus a
+    setting and a command for every header it does not support, typed from the values the script
+    writes. Drafted entries are marked ``草稿（待确认）`` in their ``doc`` and listed in ``drafted``.
+
+    Returns ``{"definition": <data>, "drafted": [...], "notes": [...]}``."""
+    from ..scpi.errors import ScpiError
+    from ..scpi.parse import Token, parse_unit, split_params, split_units
+
+    scan = scan_python(source)
+    notes = [*scan.notes]
+    resources = {r.key: r for r in scan.resources if r.commands}
+    if receiver is None:
+        if len(resources) != 1:
+            names = ", ".join(resources) or "（无）"
+            raise ValueError(f"脚本中有多台仪器发送命令：{names}；用 receiver 指定其中一台")
+        receiver = next(iter(resources))
+    if receiver not in resources:
+        raise ValueError(f"脚本中没有向 {receiver!r} 发送的命令；可选：{', '.join(resources)}")
+    res = resources[receiver]
+    if base is not None:
+        data = base.model_dump(mode="json", by_alias=True, exclude_defaults=True)
+        data.update(id=definition_id, schema="simubench.instrument/1")
+        data.pop("reference", None)  # a contract definition, not the real model's
+        known = base
+    else:
+        leaf = receiver.rsplit(".", 1)[-1].lower()
+        cls = next((c for c, words in CLASS_HINTS.items() if any(w in leaf for w in words)), "other")
+        data = {
+            "schema": "simubench.instrument/1",
+            "id": definition_id,
+            "manufacturer": "TODO",
+            "model": definition_id.upper(),
+            "class": cls,
+            "description": f"由脚本生成的{DRAFT}：命令与状态量按脚本中的写法推测",
+            "channels": {"count": 1},
+        }
+        known = InstrumentDefinition.model_validate(data)
+
+    # Every unsupported header with the parameter lists the script writes and the lines it is on.
+    groups: dict[str, dict[str, Any]] = {}
+    for cmd in res.commands:
+        try:
+            units = split_units(cmd.text.encode())
+        except ScpiError:
+            continue
+        path: tuple[Token, ...] = ()
+        for raw, match in zip(units, classify(known, cmd.text), strict=False):
+            try:
+                unit = parse_unit(raw)
+            except ScpiError:
+                continue
+            tokens = unit.tokens if unit.common or unit.absolute or not path else path + unit.tokens
+            if not unit.common:
+                path = tokens[:-1]
+            if match.supported or unit.common:
+                continue
+            channel = any(t.suffix is not None for t in tokens)
+            header = ("*" if unit.common else ":") + ":".join(
+                t.keyword + ("<ch>" if t.suffix is not None else "") for t in tokens
+            )
+            g = groups.setdefault(
+                header,
+                {"tokens": tokens, "channel": channel, "sets": [], "query": False, "lines": [], "max_ch": 1},
+            )
+            g["lines"].append(cmd.line)
+            g["max_ch"] = max([g["max_ch"], *[t.suffix or 1 for t in tokens]])
+            if unit.query:
+                g["query"] = True
+            else:
+                g["sets"].append([p.decode(errors="replace") for p in split_params(b",".join(unit.params))])
+    state = data.setdefault("state", {})
+    channel_state = data.setdefault("channel_state", {})
+    commands = data.setdefault("commands", [])
+    drafted = []
+    for header, g in groups.items():
+        target = channel_state if g["channel"] else state
+        stem = "_".join(t.keyword.lower() for t in g["tokens"])
+        width = max((len(s) for s in g["sets"]), default=1)
+        names = []
+        for k in range(width):
+            name = stem if width == 1 else f"{stem}_{k + 1}"
+            n = 2
+            while name in target:
+                name, n = f"{stem}_{n}", n + 1
+            spec = _guess([s[k] for s in g["sets"] if len(s) > k])
+            spec["label"] = f"{DRAFT} {name}"
+            target[name] = spec
+            names.append(name)
+        prefix = "ch." if g["channel"] else ""
+        lines = ", ".join(str(n) for n in sorted(set(g["lines"])))
+        entry: dict[str, Any] = {"header": header, "doc": f"{DRAFT}：由脚本第 {lines} 行推测"}
+        if width == 1:
+            entry["state"] = prefix + names[0]
+        else:
+            entry["params"] = [
+                {
+                    "name": n,
+                    "type": target[n]["type"],
+                    "state": prefix + n,
+                    **({"options": target[n]["options"]} if "options" in target[n] else {}),
+                }
+                for n in names
+            ]
+        if not g["sets"]:
+            entry["set"] = False
+        commands.append(entry)
+        if g["channel"]:  # enough channels for the highest suffix the script uses
+            channels = data.setdefault("channels", {"count": 1})
+            channels["count"] = max(int(channels.get("count", 1)), g["max_ch"])
+        drafted.append(
+            {
+                "header": header,
+                "states": [prefix + n for n in names],
+                "types": [target[n]["type"] for n in names],
+                "lines": sorted(set(g["lines"])),
+                "query": g["query"],
+                "set": bool(g["sets"]),
+            }
+        )
+    if not state:
+        data.pop("state")
+    if not channel_state:
+        data.pop("channel_state")
+    if drafted:
+        notes.append(
+            f"为 {len(drafted)} 条命令起草了设置与命令（标为“{DRAFT}”）：类型、范围与默认值由脚本中的写法推测，"
+            "请核对后用 edit_definition 修改；电路行为（组件与连线）需要另行添加"
+        )
+    else:
+        notes.append("脚本中的命令都已被支持，没有需要起草的部分")
+    return {"definition": data, "drafted": drafted, "notes": notes}
