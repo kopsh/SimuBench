@@ -56,6 +56,10 @@ class DmmCore(Component):
     bench circuit — ``z_in_high`` when ``high_z`` is set and the range in use is one of
     ``high_z_ranges``. Without ``z_in`` the meter reads the signal it is wired, and an
     ``input_port`` in front owns the electrical side (as on sb-dmm-1).
+
+    Calibration: with ``store`` naming a ``calibration_store`` component, the reading is corrected
+    with the store's per-key coefficients (metrology-authoring.md 4) and the ``cal_*`` operations
+    delegate to it. Without a store the single legacy coefficient set below applies.
     """
 
     ports = {"in": PortSpec("in", "electrical", "the meter's input (electrical when z_in is set)")}
@@ -78,12 +82,13 @@ class DmmCore(Component):
         "gain_error_ppm": 0.0,  # the meter's own gain error, ppm (hidden); per function and range
         "offset": 0.0,  # the meter's own DC offset error, V (hidden); per function and range
         "reading_time": 0.0,  # s of virtual time one reading takes (integration and overhead)
-        "cal_gain": 1.0,  # calibration gain coefficient
-        "cal_offset": 0.0,  # calibration zero (offset) coefficient
-        "cal_value": 0.0,  # the reference a gain calibration assumes on the input
-        "cal_secured": True,  # calibration secured: changing it needs cal_code
-        "cal_code": "SIMUBENCH",  # calibration security code
-        "cal_tolerance": 0.1,  # fraction of the cal value the input may be off by
+        "store": "",  # the calibration_store whose per-key coefficients correct the reading
+        "cal_gain": 1.0,  # legacy (no store): calibration gain coefficient
+        "cal_offset": 0.0,  # legacy (no store): calibration zero (offset) coefficient
+        "cal_value": 0.0,  # legacy (no store): the reference a gain calibration assumes on the input
+        "cal_secured": True,  # legacy (no store): calibration secured: changing it needs cal_code
+        "cal_code": "SIMUBENCH",  # legacy (no store): calibration security code
+        "cal_tolerance": 0.1,  # legacy (no store): fraction of the cal value the input may be off by
     }
     units = {"offset": "V", "cal_offset": "V", "cal_value": "V", "z_in": "OHM", "z_in_high": "OHM"}
 
@@ -127,8 +132,8 @@ class DmmCore(Component):
 
     def reading(self, what: str) -> float:
         function = self.active_function(what)
-        cal_offset = float(self.param("cal_offset")) if function == "DC" else 0.0
-        value = (self.raw(function) - cal_offset) * float(self.param("cal_gain"))
+        gain, cal_offset = self._cal(function)
+        value = (self.raw(function) - (cal_offset if function == "DC" else 0.0)) * gain
         r = self.effective_range(function)
         if r is not None:
             step = float(self.param("resolution") or 0.0) * r
@@ -137,6 +142,22 @@ class DmmCore(Component):
             if abs(value) > float(self.param("overrange")) * r:
                 return float(self.param("overload_value"))
         return value
+
+    def _store(self) -> Component | None:
+        """The calibration_store the meter references, or None (legacy coefficients)."""
+        name = str(self.param("store") or "")
+        if not name:
+            return None
+        assert self.owner is not None
+        return self.owner.components[name]
+
+    def _cal(self, function: str) -> tuple[float, float]:
+        """The (gain, offset) correcting the raw reading: the store's per-key coefficients, or the
+        legacy single set. The offset corrects the DC reading only (zero is a DC concept)."""
+        store = self._store()
+        if store is not None:
+            return store.coefficients(function)
+        return float(self.param("cal_gain")), float(self.param("cal_offset"))
 
     def readings(self) -> dict[str, Any]:
         values: dict[str, Any] = {"DC": self.reading("DC"), "AC": self.reading("AC")}
@@ -288,12 +309,17 @@ class DmmCore(Component):
         self.owner.set_state(key, value, source="scpi", internal=True)
 
     def _unsecured(self) -> None:
-        if self.param("cal_secured"):
+        store = self._store()
+        secured = store.is_secured if store is not None else bool(self.param("cal_secured"))
+        if secured:
             raise ScpiError(CAL_SECURED, "Calibration error; calibration is secured")
 
     @op("cal_secure")
     def op_cal_secure(self, query: bool = False, values: list[bytes] | None = None, **_: Any) -> OpResult:
         """:CALibration:SECure:STATe {ON|OFF},<code>: unsecuring needs the security code."""
+        store = self._store()
+        if store is not None:
+            return store.op_secure(query=query, values=values)
         if query:
             return OpResult(V.format_bool(bool(self.param("cal_secured"))))
         params = list(values or [])
@@ -309,7 +335,9 @@ class DmmCore(Component):
     @op("cal_zero")
     def op_cal_zero(self, **_: Any) -> OpResult:
         """:CALibration:ZERO? — with 0 V applied, make the reading zero. Replies 0 (done) or 1 (failed)."""
-        self._unsecured()
+        store = self._store()
+        if store is not None:
+            return store.adjust_offset(self)
         raw = self.raw("DC")
         full = max(abs(float(self.param("cal_value"))), 1.0)
         if abs(raw) > float(self.param("cal_tolerance")) * full:
@@ -321,7 +349,9 @@ class DmmCore(Component):
     @op("cal_gain")
     def op_cal_gain(self, **_: Any) -> OpResult:
         """:CALibration[:GAIN]? — with :CALibration:VALue applied, make the reading equal it."""
-        self._unsecured()
+        store = self._store()
+        if store is not None:
+            return store.adjust_gain(self)
         target = float(self.param("cal_value"))
         corrected = self.raw("DC") - float(self.param("cal_offset"))
         if target == 0 or corrected == 0 or abs(corrected / target - 1) > float(self.param("cal_tolerance")):
@@ -333,6 +363,9 @@ class DmmCore(Component):
     @op("cal_store")
     def op_cal_store(self, **_: Any) -> OpResult:
         """:CALibration:STORe — keep the coefficients; counts the calibration and dates it."""
+        store = self._store()
+        if store is not None:
+            return store.op_store()
         self._unsecured()
         assert self.owner is not None
         self._set("cal.count", int(self.owner.get_state("cal.count")) + 1)
