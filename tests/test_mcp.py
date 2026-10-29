@@ -122,7 +122,10 @@ async def test_draft_from_script(ws):
     assert awg["unsupported"] == [
         {"line": 18, "command": ":SOUR1:SWEEP:STAT ON", "reason": "仪表模型中没有该命令"}
     ]
-    assert "dmm" not in d["bench"]["instruments"]
+    # The DMM's :CONF:VOLT:DC is supported by the real model now: it joins the draft.
+    assert d["bench"]["instruments"]["dmm"]["model"] == "keysight-34465a"
+    dmm = next(r for r in d["report"] if r["instance"] == "dmm")
+    assert dmm["supported"] == 1 and dmm["unsupported"] == []
     assert d["saved"]["ok"]
     assert (ws / "cal.bench.yaml").is_file()
 

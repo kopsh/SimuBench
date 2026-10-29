@@ -1,0 +1,508 @@
+schema: simubench.instrument/1
+id: keysight-34465a
+manufacturer: Keysight Technologies
+model: 34465A
+class: multimeter
+version: 1
+description: >-
+  Keysight 34465A, 6½ 位数字万用表（Truevolt 系列）。Real model (D42): 命令、回复与错误文字按
+  Keysight Truevolt 系列的 Operating and Service Guide（编程参考部分）；量程、读数与输入阻抗
+  真实进入电路求解。手册未给 *RST 值的设定用 SimuBench 默认值（覆盖表中逐条注明）。
+reference:
+  title: Keysight Truevolt Series Digital Multimeters 34460A/34461A/34465A/34470A Operating and Service Guide (SCPI Programming Reference)
+  document: "34460-90901"
+  version: Edition 13, September 2025
+  firmware: 34465A as covered by Edition 13
+identity:
+  idn: "Keysight Technologies,34465A,{serial},{firmware}"
+  # 序列号与固件串按手册 *IDN? 的格式（MY + 8 位数字；h.ff.ff-pp.pp-mm.mm-gg.gg-bb-fp）。
+  serial: MY57440001
+  firmware: "2.6.1-2.0.0-0.0.0-0.0-0-0"
+format:
+  number: nr3
+  digits: 8
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+errors:
+  0: No error
+  -101: Invalid character
+  -102: Syntax error
+  -103: Invalid separator
+  -104: Data type error
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -110: Command header error
+  -113: Undefined header
+  -131: Invalid suffix
+  -141: Invalid character data
+  -151: Invalid string data
+  -168: Block data not allowed
+  -203: Command protected
+  -210: Trigger error
+  -211: Trigger ignored
+  -213: Init ignored
+  -214: Trigger deadlock
+  -221: Settings conflict
+  -222: Data out of range
+  -223: Too much data
+  -224: Illegal parameter value
+  -230: Data corrupt or stale
+  -241: Hardware missing
+  -310: System error
+  -313: Calibration memory lost
+  -350: Queue overflow
+  # 校准错误：手册的 +702（保护中）/ +703（安全码无效）/ +708（输入超限）。校准存储组件对
+  # "保护中"与"安全码无效"都报 701、对"输入超限"报 702，错误码以组件为准，文字按手册的对应情形。
+  701: "Calibration error; calibration memory is secured"
+  702: "Calibration error: signal measurement out of range"
+  703: "Calibration error; secure code provided was invalid"
+  704: "Calibration error: secure code too long"
+  705: "Calibration error; calibration aborted"
+  708: "Calibration error: signal measurement out of range"
+  711: "Calibration error: calibration string too long"
+  712: Calibration failed
+specs:
+  source: Keysight 34465A Data Sheet 5991-1983EN
+  digits: "6½"
+  reading_format: "+1.00000000E+00（nr3，8 位尾数）；超量程 +9.90000000E+37"
+  dcv_accuracy_percent_1year_10plc: {reading_plus_range: {100mV: [0.0050, 0.0035], 1V: [0.0035, 0.0004], 10V: [0.0030, 0.0004], 100V: [0.0040, 0.0006], 1000V: [0.0040, 0.0006]}}
+  dcv_accuracy_percent_24hour: {reading_plus_range: {100mV: [0.0030, 0.0030], 1V: [0.0015, 0.0004], 10V: [0.0010, 0.0003], 100V: [0.0020, 0.0006], 1000V: [0.0020, 0.0006]}}
+  acv_accuracy_percent_1year: {reading_plus_range: {"3Hz-5Hz": [0.50, 0.02], "5Hz-10Hz": [0.10, 0.02], "10Hz-20kHz": [0.05, 0.02], "20kHz-50kHz": [0.07, 0.03], "50kHz-100kHz": [0.15, 0.05], "100kHz-300kHz": [1.00, 0.10]}}
+  adc_linearity: "0.0001% of reading + 0.0001% of range"
+  input_resistance: {dcv_100mV_1V_10V: "10 MΩ 或 >10 GΩ（VOLT:IMP:AUTO ON）", dcv_100V_1000V: "10 MΩ"}
+  nplc: [0.02, 0.06, 0.2, 1, 10, 100]
+  aperture: "200 µs – 1 s（2 µs 分辨率），默认 100 ms"
+  ac_filter_hz: [3, 20, 200]
+  reading_memory: "50,000 readings（无 MEM 选项），溢出后覆盖最旧的"
+  max_trigger_count: 1.0e9
+  max_sample_count: 1.0e9
+state:
+  sense.function:
+    type: enum
+    options: [VOLT, "VOLT:AC"]
+    default: VOLT
+    label: 测量功能
+    label_en: Function
+  sense.range:
+    type: float
+    unit: V
+    min: 0.1
+    max: 1000.0
+    default: 0.0
+    special: {AUTO: 0.0}
+    label: 量程设定
+    label_en: Range setting
+  sense.range_auto:
+    type: bool
+    default: true
+    label: 自动量程
+    label_en: Autorange
+  sense.nplc:
+    type: float
+    min: 0.02
+    max: 100.0
+    default: 10.0
+    label: 积分时间（PLC）
+    label_en: Integration time (PLC)
+  sense.aperture:
+    type: float
+    unit: S
+    min: 2.0e-4
+    max: 1.0
+    default: 0.1
+    label: 孔径时间
+    label_en: Aperture time
+  sense.aperture_enabled:
+    type: bool
+    default: false
+    label: 孔径时间模式
+    label_en: Aperture mode
+  sense.resolution:
+    type: float
+    unit: V
+    min: 0.0
+    max: 1000.0
+    default: 0.0
+    label: 分辨率设定
+    label_en: Resolution setting
+  sense.zero_auto:
+    type: bool
+    default: true
+    label: 自动调零
+    label_en: Autozero
+  sense.ac.bandwidth:
+    type: float
+    unit: HZ
+    min: 3.0
+    max: 200.0
+    default: 20.0
+    label: AC 带宽
+    label_en: AC bandwidth
+  sense.imp_auto:
+    type: bool
+    default: false
+    label: 输入阻抗自动（10 MΩ ↔ >10 GΩ）
+    label_en: Input impedance AUTO
+  trigger.source:
+    type: enum
+    options: [IMMediate, BUS, EXTernal]
+    default: IMMediate
+    label: 触发源
+    label_en: Trigger source
+  trigger.count:
+    type: float
+    min: 1.0
+    max: 1.0e9
+    default: 1.0
+    label: 触发计数
+    label_en: Trigger count
+  trigger.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.0
+    label: 触发延迟
+    label_en: Trigger delay
+  trigger.delay_auto:
+    type: bool
+    default: true
+    label: 自动触发延迟
+    label_en: Automatic trigger delay
+  trigger.slope:
+    type: enum
+    options: [POSitive, NEGative]
+    default: NEGative
+    label: 触发沿
+    label_en: Trigger slope
+  sample.count:
+    type: float
+    min: 1.0
+    max: 1.0e9
+    default: 1.0
+    label: 每触发采样数
+    label_en: Samples per trigger
+  vmcomp.slope:
+    type: enum
+    options: [POSitive, NEGative]
+    default: NEGative
+    label: VM Comp 输出斜率
+    label_en: VM Comp output slope
+  display.state:
+    type: bool
+    default: true
+    label: 显示
+    label_en: Display
+  display.text:
+    type: string
+    default: ""
+    label: 显示文本
+    label_en: Display text
+  beeper.state:
+    type: bool
+    default: true
+    label: 蜂鸣器
+    label_en: Beeper
+  click.state:
+    type: bool
+    default: true
+    label: 按键音
+    label_en: Key click
+  format.data:
+    type: enum
+    options: [ASCii, REAL]
+    default: ASCii
+    label: 数据格式
+    label_en: Data format
+  format.length:
+    type: int
+    min: 9
+    max: 64
+    default: 9
+    label: 数据长度
+    label_en: Data length
+  format.border:
+    type: enum
+    options: [NORMal, SWAPped]
+    default: NORMal
+    label: 字节序
+    label_en: Byte order
+  cal.value:
+    type: float
+    unit: V
+    min: -1000.0
+    max: 1000.0
+    default: 0.0
+    label: 校准值
+    label_en: Calibration value
+  system.version:
+    type: float
+    min: 1994.0
+    max: 1994.0
+    default: 1994.0
+    readonly: true
+    label: SCPI 版本
+    label_en: SCPI version
+  line.frequency:
+    type: int
+    min: 50
+    max: 60
+    default: 50
+    readonly: true
+    label: 电源频率
+    label_en: Line frequency
+  system.temperature:
+    type: float
+    unit: V
+    min: 0.0
+    max: 100.0
+    default: 28.5
+    readonly: true
+    label: 内部温度
+    label_en: Internal temperature
+components:
+  # 校准存储：系数按（功能, 实际量程）分开；安全码为手册的出厂码 AT3446XA。
+  - name: cal
+    type: calibration_store
+    params:
+      code: AT3446XA
+      value: $cal.value
+      key: [meter.function, meter.range]
+      tolerance: 0.1
+      ok_reply: "+0"
+      fail_reply: "+1"
+      volatile_until_store: false
+  # 测量核心：量程 100 mV–1000 V（AC 按手册的命令表同为 1000 V 档；数据表的 ACV 量程上限 750 Vrms
+  # 是安全限值）；超量程 +9.9E+37；分辨率与读数时间按手册的 NPLC 表（50 Hz 电源、自动调零开启、
+  # 含 DC 的自动触发延迟 100/130/160 µs）。输入阻抗 10 MΩ，100 mV–10 V 量程可选 >10 GΩ。
+  - name: meter
+    type: dmm_core
+    params:
+      store: cal
+      function: {from: $sense.function, map: {VOLT: DC, "VOLT:AC": AC}}
+      ranges: {DC: [0.1, 1, 10, 100, 1000], AC: [0.1, 1, 10, 100, 1000]}
+      range: $sense.range
+      autorange: $sense.range_auto
+      autorange_up: 1.2
+      autorange_down: 0.1
+      overrange: 1.2
+      overload_value: 9.9e37
+      resolution: {from: $sense.nplc, table: {0.02: 3.0e-6, 0.06: 1.5e-6, 0.2: 7.0e-7, 1: 3.0e-7, 10: 1.0e-7, 100: 3.0e-8}}
+      digits: 8
+      z_in: 1.0e7
+      z_in_high: 1.0e10
+      high_z: $sense.imp_auto
+      high_z_ranges: [0.1, 1, 10]
+      reading_time: {from: $sense.nplc, table: {0.02: 0.0009, 0.06: 0.00253, 0.2: 0.00813, 1: 0.04013, 10: 0.40016, 100: 4.00016}}
+      ac_low: {from: $sense.ac.bandwidth, table: {3: 3.0, 20: 20.0, 200: 200.0}}
+  # 触发模型与读数存储器（50,000 readings，溢出覆盖最旧的）。
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: meter
+      source: {from: $trigger.source, map: {IMMediate: immediate, BUS: bus, EXTernal: external}}
+      trigger_count: $trigger.count
+      sample_count: $sample.count
+      delay: $trigger.delay
+      buffer: mem
+      max_readings: 1.0e9
+  - name: mem
+    type: reading_buffer
+    params:
+      capacity: 50000
+      when_full: overwrite
+  - name: sys
+    type: system
+wiring:
+  instrument: []
+ports:
+  instrument:
+    # 设了 z_in 的测量核心自带输入级：IN 就是仪表的电气端子（10 MΩ / >10 GΩ 进入电路求解）。
+    IN: meter.in
+display:
+  template: multimeter
+  summary: [sense.function, sense.range, sense.nplc, trigger.source]
+capabilities: [multimeter]
+commands:
+  # ---- 测量与配置 ----
+  - header: "[:SENSe]:FUNCtion[:ON]"
+    state: sense.function
+    format: {enum: as_defined}
+    reply: '"{value}"'
+    doc: 查询返回带引号的短格式（"VOLT" / "VOLT:AC"）。
+  - header: ":CONFigure[:VOLTage]:DC"
+    query: false
+    params:
+      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range}
+      - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
+    doc: 量程与分辨率参数保存；AUTO 关键字按孔径/量程的 special 字接受为 0（自动）。
+  - header: ":CONFigure[:VOLTage]:AC"
+    query: false
+    params:
+      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range}
+      - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
+  - header: CONFigure
+    state: sense.function
+    set: false
+    format: {number: nr3, digits: 8, sign: true, exponent_digits: 2, enum: as_defined}
+    reply: '"{value}{sense.range},{sense.resolution}"'
+  - header: ":MEASure[:VOLTage][:DC]"
+    op: meter.measure
+    set: false
+    args: {what: DC}
+    params:
+      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true}
+      - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true}
+  - header: ":MEASure[:VOLTage]:AC"
+    op: meter.measure
+    set: false
+    args: {what: AC}
+    params:
+      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true}
+      - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true}
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe"
+    state: sense.range
+  - header: "[:SENSe]:VOLTage:AC:RANGe"
+    state: sense.range
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe:AUTO"
+    state: sense.range_auto
+  - header: "[:SENSe]:VOLTage:AC:RANGe:AUTO"
+    state: sense.range_auto
+  - header: "[:SENSe]:VOLTage[:DC]:NPLCycles"
+    state: sense.nplc
+  - header: "[:SENSe]:VOLTage[:DC]:APERture"
+    state: sense.aperture
+  - header: "[:SENSe]:VOLTage[:DC]:APERture:ENABled"
+    state: sense.aperture_enabled
+  - header: "[:SENSe]:VOLTage[:DC]:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:VOLTage[:DC]:IMPedance:AUTO"
+    state: sense.imp_auto
+  - header: "[:SENSe]:VOLTage[:DC]:ZERO:AUTO"
+    state: sense.zero_auto
+  - header: "[:SENSe]:VOLTage:AC:BANDwidth"
+    state: sense.ac.bandwidth
+  # ---- 触发 ----
+  - header: ABORt
+    op: trig.abort
+    query: false
+  - header: INITiate[:IMMediate]
+    op: trig.initiate
+    query: false
+  - header: FETCh
+    op: trig.fetch
+    set: false
+  - header: READ
+    op: trig.read
+    set: false
+  - header: TRIGger:SOURce
+    state: trigger.source
+  - header: TRIGger:COUNt
+    state: trigger.count
+  - header: TRIGger:DELay
+    state: trigger.delay
+  - header: TRIGger:DELay:AUTO
+    state: trigger.delay_auto
+  - header: TRIGger:SLOPe
+    state: trigger.slope
+  - header: SAMPle:COUNt
+    state: sample.count
+  - header: OUTPut:TRIGger:SLOPe
+    state: vmcomp.slope
+  # ---- 读数存储器 ----
+  - header: "DATA:POINts"
+    op: mem.points
+    set: false
+  - header: "DATA:REMove"
+    op: mem.remove
+    set: false
+    params:
+      - {name: count, type: int, min: 1}
+  - header: R
+    op: mem.read_clear
+    set: false
+    params:
+      - {name: count, type: int, min: 1, optional: true}
+  # ---- 校准 ----
+  - header: ":CALibration:SECure:STATe"
+    op: cal.secure
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:SECure:CODE"
+    op: cal.code
+    query: false
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:VALue"
+    op: cal.value
+    params: [{name: values, type: raw}]
+  - header: ":CALibration[:ALL]"
+    op: cal.adjust
+    set: false
+  - header: ":CALibration:STORe"
+    op: cal.store
+    query: false
+  - header: ":CALibration:COUNt"
+    op: cal.count
+    set: false
+  - header: ":CALibration:DATE"
+    op: cal.date
+    set: false
+  - header: ":CALibration:TIME"
+    op: cal.time
+    set: false
+  - header: ":CALibration:STRing"
+    op: cal.string
+    params: [{name: values, type: raw}]
+  # ---- 系统 ----
+  - header: SYSTem:PRESet
+    op: sys.reset
+    query: false
+  - header: SYSTem:VERSion
+    state: system.version
+    set: false
+    format: {number: nr2, digits: 1, sign: false}
+  - header: SYSTem:LFRequency
+    state: line.frequency
+    set: false
+    format: {integer: signed}
+  - header: SYSTem:TEMPerature
+    state: system.temperature
+    set: false
+  - header: SYSTem:BEEPer:STATe
+    state: beeper.state
+  - header: SYSTem:BEEPer[:IMMediate]
+    query: false
+    params: [{name: state, type: bool, optional: true, state: beeper.state}]
+    doc: 立即蜂鸣：本命令无参数、无回复；蜂鸣在仿真中没有效果。
+  - header: SYSTem:CLICk:STATe
+    state: click.state
+  - header: SYSTem:LOCal
+    query: false
+    params: [{name: display, type: bool, optional: true, state: display.state}]
+    doc: 回到本地；前面板可用，显示按 DISPlay:STATe。
+  # ---- 显示与格式（接受：不影响仿真） ----
+  - header: ":DISPlay[:STATe]"
+    state: display.state
+  - header: ":DISPlay:TEXT[:DATA]"
+    state: display.text
+  - header: "FORMat[:DATA]"
+    params:
+      - {name: data, type: enum, options: [ASCii, REAL], state: format.data}
+      - {name: length, type: int, min: 9, max: 64, optional: true, state: format.length}
+    doc: REAL 与二进制块传输未实现，读数仍按 ASCII 返回。
+  - header: "FORMat:BORDer"
+    state: format.border
+# 个体偏差（#34，metrology-authoring.md 7）：1 年、10 PLC 的直流精度（数据表）按量程抽到增益
+# 误差（读数的 ppm）与零点（V）。limit 表按 by 的最后一个键（量程）取值，DC 与 AC 共用同一张表；
+# 数据表的交流限值按频段给出，与本模型的单一增益参数不一一对应，故取直流表（注释于此）。
+deviations:
+  - param: meter.gain_error_ppm
+    by: {function: [DC, AC], range: [0.1, 1, 10, 100, 1000]}
+    limit: {0.1: 50, 1: 35, 10: 30, 100: 40, 1000: 40}
+    distribution: uniform
+  - param: meter.offset
+    by: {function: [DC], range: [0.1, 1, 10, 100, 1000]}
+    limit: {0.1: 3.5e-6, 1: 4.0e-6, 10: 4.0e-6, 100: 6.0e-5, 1000: 6.0e-4}
+    distribution: uniform

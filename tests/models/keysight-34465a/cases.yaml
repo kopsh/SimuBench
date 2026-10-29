@@ -1,0 +1,462 @@
+# Keysight 34465A 的手册用例：Keysight Truevolt 系列 Operating and Service Guide
+# （34460-90901, Edition 13, September 2025），SCPI Programming Reference 的命令条目与示例。
+# 读数格式 +1.00000000E+00（nr3，8 位尾数），错误码带 + 号；超量程 +9.90000000E+37。
+# 测试台的万用表带隐藏个体误差（10 V 量程增益 +150 ppm、零点 +200 µV），测量用例的期望值按
+# raw = 设定 × (1 + 增益误差) + 零点误差 计算，分辨率按 NPLC 表量化。
+model: keysight-34465a
+bench: bench.yaml
+instrument: dut
+cases:
+  - name: "*IDN? 按手册格式返回厂商、型号、序列号与固件"
+    manual: "IEEE 488.2 Common Commands > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,34465A,MY57440001,2.6.1-2.0.0-0.0.0-0.0-0-0"
+
+  - name: "*RST 恢复出厂默认：DCV、自动量程、10 PLC、自动调零、10 MΩ、立即触发"
+    manual: "Power-On and Reset State > Factory Default Settings"
+    steps:
+      - send: "FUNC \"VOLT:AC\";:VOLT:DC:RANG 1;:VOLT:DC:NPLC 0.2;:VOLT:DC:ZERO:AUTO OFF;:VOLT:DC:IMP:AUTO ON;:TRIG:SOUR BUS"
+      - send: "*RST"
+      - query: "CONF?"
+        expect: '"VOLT+0.00000000E+00,+0.00000000E+00"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01"
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - query: "VOLT:DC:ZERO:AUTO?"
+        expect: "1"
+      - query: "VOLT:DC:IMP:AUTO?"
+        expect: "0"
+      - query: "TRIG:SOUR?"
+        expect: "IMM"
+      - query: "TRIG:COUN?"
+        expect: "+1.00000000E+00"
+      - query: "SAMP:COUN?"
+        expect: "+1.00000000E+00"
+
+  - name: "状态与事件寄存器：*CLS、*ESE、*ESR?、*SRE、*STB?、*TST?、*OPC?"
+    manual: "IEEE 488.2 Common Commands > *CLS / *ESE / *ESR? / *SRE / *STB? / *TST? / *OPC"
+    steps:
+      - send: "*CLS"
+      - query: "*TST?"
+        expect: "0"
+      - send: "*ESE 1;*SRE 32"
+      - query: "*ESE?"
+        expect: "1"
+      - query: "*SRE?"
+        expect: "32"
+      - query: "*ESR?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
+      - send: "NONSUCH"
+      - query: "*STB?"
+        expect: "4"
+      - query: "*ESR?"
+        expect: "32"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+      - send: "*WAI"
+      - query: "*OPC?"
+        expect: "1"
+
+  - name: "MEASure? 直流电压：8 位尾数、隐藏误差进入读数"
+    manual: "MEASure Subsystem > MEASure[:VOLTage]:{AC|DC}?"
+    steps:
+      - send: ":SOUR:VOLT 5"
+        instrument: src
+      - query: "MEAS:VOLT:DC?"
+        expect: "+5.00095000E+00"
+      - send: ":SOUR:VOLT 0"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+2.00000000E-04"
+
+  - name: "CONFigure 设置量程与分辨率；CONF? 查询"
+    manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC} / CONFigure?"
+    steps:
+      - send: ":CONF:VOLT:DC 10,0.001"
+      - query: "CONF?"
+        expect: '"VOLT+1.00000000E+01,+1.00000000E-03"'
+      - query: "VOLT:DC:RANG?"
+        expect: "+1.00000000E+01"
+      - send: ":CONF:VOLT:DC AUTO"
+      - query: "CONF?"
+        expect: '"VOLT+0.00000000E+00,+1.00000000E-03"'
+      - send: ":CONF:VOLT:AC 100"
+      - query: "VOLT:AC:RANG?"
+        expect: "+1.00000000E+02"
+      - query: "VOLT:AC:RANG:AUTO?"
+        expect: "1"
+      - query: "FUNC?"
+        expect: '"VOLT"'
+
+  - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
+    manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"
+    steps:
+      - send: 'FUNC "VOLT:AC"'
+      - query: "FUNC?"
+        expect: '"VOLT:AC"'
+      - query: "MEAS:VOLT:AC?"
+        expect: "+0.00000000E+00"
+      - send: "FUNC VOLT"
+      - query: "FUNC?"
+        expect: '"VOLT"'
+
+  - name: "量程与超量程：+9.9E+37；自动量程在测量命令里选档"
+    manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}（量程与超量程）"
+    steps:
+      - send: ":VOLT:DC:RANG 0.1;:VOLT:DC:RANG:AUTO OFF"
+      - send: ":SOUR:VOLT 0.13"
+        instrument: src
+      - query: "MEAS:VOLT:DC?"
+        expect: "+9.90000000E+37"
+      - send: ":SOUR:VOLT 0.115"
+        instrument: src
+      - query: "READ?"
+        expect: "+1.15211500E-01"
+      - send: ":VOLT:DC:RANG:AUTO ON"
+      - send: ":SOUR:VOLT 0.5"
+        instrument: src
+      - query: "MEAS:VOLT:DC?"
+        expect: "+5.00240000E-01"
+
+  - name: "积分时间 NPLC：档位、MIN/MAX/DEF、超范围报 -222"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:NPLC"
+    steps:
+      - send: "VOLT:DC:NPLC 0.06"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+6.00000000E-02"
+      - query: "VOLT:DC:NPLC? MIN"
+        expect: "+2.00000000E-02"
+      - query: "VOLT:DC:NPLC? MAX"
+        expect: "+1.00000000E+02"
+      - query: "VOLT:DC:NPLC? DEF"
+        expect: "+1.00000000E+01"
+      - send: "VOLT:DC:NPLC 1000"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "孔径时间与孔径模式"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:APERture / :APERture:ENABled"
+    steps:
+      - send: "VOLT:DC:APER:ENAB ON"
+      - query: "VOLT:DC:APER:ENAB?"
+        expect: "1"
+      - send: "VOLT:DC:APER 300E-3"
+      - query: "VOLT:DC:APER?"
+        expect: "+3.00000000E-01"
+      - query: "VOLT:DC:APER? MIN"
+        expect: "+2.00000000E-04"
+      - query: "VOLT:DC:APER? MAX"
+        expect: "+1.00000000E+00"
+
+  - name: "分辨率设定与查询"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:RESolution"
+    steps:
+      - send: "VOLT:DC:RES 3E-6"
+      - query: "VOLT:DC:RES?"
+        expect: "+3.00000000E-06"
+
+  - name: "自动调零 ON/OFF；ONCE 未建模报 -224"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:ZERO:AUTO"
+    steps:
+      - send: "VOLT:DC:ZERO:AUTO OFF"
+      - query: "VOLT:DC:ZERO:AUTO?"
+        expect: "0"
+      - send: "VOLT:DC:ZERO:AUTO ONCE"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "VOLT:DC:ZERO:AUTO ON"
+      - query: "VOLT:DC:ZERO:AUTO?"
+        expect: "1"
+
+  - name: "AC 带宽滤波 3/20/200 Hz"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage:AC:BANDwidth"
+    steps:
+      - send: "VOLT:AC:BAND 3"
+      - query: "VOLT:AC:BAND?"
+        expect: "+3.00000000E+00"
+      - send: "VOLT:AC:BAND 190"
+      - query: "VOLT:AC:BAND?"
+        expect: "+1.90000000E+02"
+      - query: "VOLT:AC:BAND? MAX"
+        expect: "+2.00000000E+02"
+
+  - name: "输入阻抗 AUTO 开关（分压负载效应见 keysight-34465a-impedance 用例）"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:IMPedance:AUTO"
+    steps:
+      - send: "VOLT:DC:IMP:AUTO ON"
+      - query: "VOLT:DC:IMP:AUTO?"
+        expect: "1"
+      - send: "VOLT:DC:IMP:AUTO OFF"
+      - query: "VOLT:DC:IMP:AUTO?"
+        expect: "0"
+
+  - name: "触发系统：BUS 触发、计数、延迟、FETCh?、*TRG、读数存储器、R?"
+    manual: "TRIGger Subsystem > TRIGger:SOURce / :COUNt / :DELay；Reading Memory Commands"
+    steps:
+      - send: ":TRIG:SOUR BUS;:TRIG:COUN 2;:SAMP:COUN 3;:TRIG:DEL 0.01;:TRIG:DEL:AUTO OFF"
+      - send: ":SOUR:VOLT 5"
+        instrument: src
+      - send: ":INIT"
+      - send: ":FETC?"
+      - query: ":SYST:ERR?"
+        expect: '-230,"Data corrupt or stale"'
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":FETC?"
+        expect: "+5.00095000E+00,+5.00095000E+00,+5.00095000E+00,+5.00095000E+00,+5.00095000E+00,+5.00095000E+00"
+      - send: "*TRG"
+      - query: ":SYST:ERR?"
+        expect: '-211,"Trigger ignored"'
+      - query: ":DATA:POIN?"
+        expect: "6"
+      - query: ":DATA:REM? 2"
+        expect: "+5.00095000E+00,+5.00095000E+00"
+      - query: ":DATA:POIN?"
+        expect: "4"
+      - query: "R?"
+        binary: true
+        expect_match: '^#263(\+5\.00095000E\+00,?){4}\n$'
+      - query: ":DATA:POIN?"
+        expect: "0"
+
+  - name: "READ? 在外部触发下死锁报 -214；INIT 运行中被忽略报 -213；ABORt 回空闲"
+    manual: "SCPI Command Reference > READ? / ABORt；Execution Errors"
+    steps:
+      - send: ":TRIG:SOUR EXT;:TRIG:COUN 1;:SAMP:COUN 4"
+      - send: ":INIT"
+      - send: "READ?"
+      - query: ":SYST:ERR?"
+        expect: '-214,"Trigger deadlock"'
+      - send: ":ABOR"
+      - send: ":TRIG:SOUR IMM;:SAMP:COUN 100"
+      - send: ":INIT"
+      - send: ":INIT"
+      - query: ":SYST:ERR?"
+        expect: '-213,"Init ignored"'
+      - send: ":ABOR"
+      - query: "*OPC?"
+        expect: "1"
+
+  - name: "触发沿与 VM Comp 输出斜率"
+    manual: "TRIGger Subsystem > TRIGger:SLOPe；OUTPut:TRIGger:SLOPe"
+    steps:
+      - send: "TRIG:SLOP POS"
+      - query: "TRIG:SLOP?"
+        expect: "POS"
+      - send: "OUTP:TRIG:SLOP POS"
+      - query: "OUTP:TRIG:SLOP?"
+        expect: "POS"
+
+  - name: "校准保护：出厂码 AT3446XA、改安全码、错误 +701"
+    manual: "CALibration Subsystem > CALibration:SECure:STATe / :SECure:CODE"
+    steps:
+      - query: "CAL:SEC:STAT?"
+        expect: "1"
+      - send: "CAL:VAL 1"
+      - send: "CAL?"
+      - query: ":SYST:ERR?"
+        expect: '+701,"Calibration error; calibration memory is secured"'
+      - send: 'CAL:SEC:STAT OFF,"WRONG"'
+      - query: ":SYST:ERR?"
+        expect: '+701,"Calibration error; calibration memory is secured"'
+      - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
+      - query: "CAL:SEC:STAT?"
+        expect: "0"
+      - send: 'CAL:SEC:CODE "LAB_2_CODE"'
+      - send: "CAL:SEC:STAT ON"
+      - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
+      - query: ":SYST:ERR?"
+        expect: '+701,"Calibration error; calibration memory is secured"'
+      - send: 'CAL:SEC:STAT OFF,"LAB_2_CODE"'
+      - query: "CAL:SEC:STAT?"
+        expect: "0"
+
+  - name: "直流电压调整：as-found 符合隐藏误差，调整后 as-left 误差 < 1 ppm"
+    manual: "Calibration Adjustment Procedures > 34465A DC Voltage Gain Calibration"
+    steps:
+      - send: ":VOLT:DC:RANG 10;:VOLT:DC:RANG:AUTO OFF"
+      - send: ":SOUR:VOLT 0"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+2.00000000E-04"
+      - send: ":SOUR:VOLT 10"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+1.00017000E+01"
+      - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
+      - send: ":SOUR:VOLT 0"
+        instrument: src
+      - send: "CAL:VAL 0"
+      - query: "CAL?"
+        expect: "+0"
+      - query: "MEAS:VOLT?"
+        expect: "+0.00000000E+00"
+      - send: ":SOUR:VOLT 10"
+        instrument: src
+      - send: "CAL:VAL 10"
+      - query: "CAL?"
+        expect: "+0"
+      - query: "MEAS:VOLT?"
+        expect: "+1.00000000E+01"
+      - send: "CAL:STOR;:CAL:SEC:STAT ON"
+      - send: ":SOUR:VOLT 0"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+0.00000000E+00"
+      - send: ":SOUR:VOLT 10"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+1.00000000E+01"
+      - query: "CAL:COUN?"
+        expect: "1"
+      - query: "CAL:DATE?"
+        expect: '"2026-05-04"'
+      - query: "CAL:TIME?"
+        expect: '"09:00:00"'
+      - query: "CAL:STR?"
+        expect: '""'
+
+  - name: "调整按量程进行：1 V 量程的调整不影响 10 V 量程"
+    manual: "Calibration Adjustment Procedures > Entering Calibration Values and Storing Calibration Constants"
+    steps:
+      - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
+      - send: ":VOLT:DC:RANG 1;:VOLT:DC:RANG:AUTO OFF"
+      - send: ":SOUR:VOLT 1"
+        instrument: src
+      - send: "CAL:VAL 1"
+      - query: "CAL?"
+        expect: "+0"
+      - query: "MEAS:VOLT?"
+        expect: "+1.00000000E+00"
+      - send: ":VOLT:DC:RANG 10"
+      - send: ":SOUR:VOLT 10"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+1.00017000E+01"
+
+  - name: "校准值不符报 +702 且不改变系数；零点调整要求零输入"
+    manual: "SCPI Error Messages > Calibration Errors (+700...)"
+    steps:
+      - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
+      - send: ":VOLT:DC:RANG 1;:VOLT:DC:RANG:AUTO OFF"
+      - send: ":SOUR:VOLT 1"
+        instrument: src
+      - send: "CAL:VAL 2"
+      - query: "CAL?"
+        expect: "+1"
+      - query: ":SYST:ERR?"
+        expect: '+702,"Calibration error: signal measurement out of range"'
+      - send: "CAL:VAL 0"
+      - query: "CAL?"
+        expect: "+1"
+      - query: ":SYST:ERR?"
+        expect: '+702,"Calibration error: signal measurement out of range"'
+      - send: ":VOLT:DC:RANG 10"
+      - send: ":SOUR:VOLT 10"
+        instrument: src
+      - query: "MEAS:VOLT?"
+        expect: "+1.00017000E+01"
+
+  - name: "校准值、校准信息与台账：CAL:VALue、CAL:STRing；*RST 只复位校准值"
+    manual: "CALibration Subsystem > CALibration:VALue / :STRing / :COUNt? / :DATE? / :TIME?"
+    steps:
+      - send: "CAL:VAL 2.5"
+      - query: "CAL:VAL?"
+        expect: "+2.500000E+00"
+      - send: 'CAL:STR "CAL 2026-05-04, lab 2"'
+      - query: "CAL:STR?"
+        expect: '"CAL 2026-05-04, lab 2"'
+      - send: "*RST"
+      - query: "CAL:VAL?"
+        expect: "+0.000000E+00"
+      - query: "CAL:STR?"
+        expect: '"CAL 2026-05-04, lab 2"'
+      - query: "CAL:COUN?"
+        expect: "0"
+      - send: "CAL:COUN 0"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header"'
+
+  - name: "SYSTem:DATE / TIME / VERSion? / LFRequency? / TEMPerature? / PRESet"
+    manual: "SYSTem Subsystem - General Purpose Commands > SYSTem:DATE / :TIME / :VERSion? / :LFRequency? / :TEMPerature? / :PRESet"
+    steps:
+      - query: "SYST:DATE?"
+        expect: "2026,05,04"
+      - query: "SYST:TIME?"
+        expect_match: "^09,00,\\d\\d\\.\\d{3}$"
+      - send: "SYST:DATE 2025,1,1"
+      - query: "SYST:DATE?"
+        expect: "2025,01,01"
+      - send: "SYST:DATE 2026,5,4"
+      - query: "SYST:VERS?"
+        expect: "1994.0"
+      - query: "SYST:LFR?"
+        expect: "+50"
+      - query: "SYST:TEMP?"
+        expect: "+2.85000000E+01"
+      - send: "VOLT:DC:NPLC 1;:VOLT:DC:RANG 1"
+      - send: "SYST:PRES"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01"
+      - query: "VOLT:DC:RANG?"
+        expect: "+0.00000000E+00"
+
+  - name: "蜂鸣器、按键音、SYST:BEEP、SYST:LOCal（接受，不影响仿真）"
+    manual: "SYSTem Subsystem > SYSTem:BEEPer:STATe / :BEEPer[:IMMediate] / :CLICk:STATe / :LOCal"
+    steps:
+      - send: "SYST:BEEP"
+      - send: "SYST:LOC"
+      - send: "SYST:BEEP:STAT OFF"
+      - query: "SYST:BEEP:STAT?"
+        expect: "0"
+      - send: "SYST:CLIC:STAT OFF"
+      - query: "SYST:CLIC:STAT?"
+        expect: "0"
+
+  - name: "显示开关与显示文本"
+    manual: "DISPlay Subsystem > DISPlay[:STATe] / :TEXT[:DATA]"
+    steps:
+      - send: "DISP OFF"
+      - query: "DISP?"
+        expect: "0"
+      - send: "DISP ON;:DISP:TEXT \"Test in progress...\""
+      - query: "DISP:TEXT?"
+        expect: '"Test in progress..."'
+
+  - name: "FORMat:DATA 与 FORMat:BORDer（保存并回读；REAL 仍按 ASCII 传输）"
+    manual: "FORMat Subsystem > FORMat[:DATA] / :BORDer"
+    steps:
+      - send: "FORM:DATA REAL,64"
+      - query: "FORM?"
+        expect: "REAL,64"
+      - send: "FORM:BORD SWAP"
+      - query: "FORM:BORD?"
+        expect: "SWAP"
+
+  - name: "未实现的功能回复 -113 未建模"
+    manual: "Command Quick Reference（电流、电阻、频率、温度、二次测量、定时采样）"
+    steps:
+      - send: "*CLS"
+      - send: "CURR:DC:NPLC 1"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+      - send: "MEAS:RES?"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+      - send: "TRIG:LEV 0.5"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+      - send: "SAMP:SOUR TIM"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+      - send: "DATA:LAST?"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
