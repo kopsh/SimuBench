@@ -159,3 +159,12 @@
 | HiSLIP 端口只绑定 127.0.0.1 | ✅ `test_scpi_sockets_listen_on_loopback_only` 扩展覆盖 `address_hislip` |
 | `scripts/check.sh` 通过；schemas 与前端类型最新 | ✅（提交前运行） |
 | NI-VISA / Keysight IO Libraries 手动验证 | ⏳ 不作为合并条件，待有环境后进行 |
+
+## 界面去掉“运行”概念（Issue 31）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 除示波器面板 RUN/STOP 外，中英文文案不再出现“运行”测试台的说法 | ✅ 以 grep 全量清扫 `web/src/i18n`（保留示波器语义与 simubench serve 进程的“运行”）；等价英文键同步（Operate/Build、Records、Close bench） |
+| 打开即可操作、脚本即可连接；关闭、重置、切换（含确认框）、搭建切回自动重建有端到端测试 | ✅ `web/e2e/bench-open.spec.ts`（5 项）与 `edit.spec.ts`（自动重建、不合法定义阻止切换）；服务端 `tests/test_server.py`（reset 同 id 回初始态、连接脚本列出、只打开不产生记录） |
+| 只打开不操作不产生记录；有操作的记录仍可逐字节回放 | ✅ `Recorder` 延迟到首个动作建文件（header 随首事件落盘）；既有回放测试不变 |
+| Storybook 与视觉回归截图（亮/暗）更新 | ✅（提交前运行；本项未改动故事内容） |

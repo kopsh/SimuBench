@@ -460,6 +460,28 @@
         "title": "Channels",
         "type": "object"
       },
+      "ClientInfo": {
+        "description": "A client connected to the session's SCPI ports (raw socket or HiSLIP).",
+        "properties": {
+          "client": {
+            "description": "Label as it appears in the communication log",
+            "title": "Client",
+            "type": "string"
+          },
+          "locked": {
+            "default": false,
+            "description": "Holds a HiSLIP lock, i.e. a script is in control",
+            "title": "Locked",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "client",
+          "locked"
+        ],
+        "title": "ClientInfo",
+        "type": "object"
+      },
       "ClockInfo": {
         "properties": {
           "mode": {
@@ -2730,6 +2752,40 @@
         "title": "ReplayResult",
         "type": "object"
       },
+      "ResetSessionRequest": {
+        "description": "Power-cycle the bench: a fresh session (new record) with the same id and startup settings.",
+        "properties": {
+          "clock": {
+            "anyOf": [
+              {
+                "enum": [
+                  "command",
+                  "wall",
+                  "stepped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock"
+          },
+          "seed": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seed"
+          }
+        },
+        "title": "ResetSessionRequest",
+        "type": "object"
+      },
       "ResponseFormat": {
         "additionalProperties": false,
         "description": "How query responses are written (real models, D42): numbers, booleans and enumerations.\n\nThe defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.",
@@ -3387,6 +3443,14 @@
             "description": "Hash of the bench file the session started from",
             "title": "Bench Sha256"
           },
+          "clients": {
+            "description": "Scripts currently connected to the SCPI ports",
+            "items": {
+              "$ref": "#/components/schemas/ClientInfo"
+            },
+            "title": "Clients",
+            "type": "array"
+          },
           "clock_mode": {
             "enum": [
               "command",
@@ -3482,6 +3546,7 @@
           "bench_sha256",
           "bench_fingerprint",
           "record_path",
+          "clients",
           "instruments",
           "duts",
           "wires",
@@ -6013,6 +6078,56 @@
           }
         },
         "summary": "Net Waveform"
+      }
+    },
+    "/api/sessions/{sid}/reset": {
+      "post": {
+        "description": "Power-cycle the bench: fresh instruments, a new record, the same session id.",
+        "operationId": "resetSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reset"
       }
     }
   }

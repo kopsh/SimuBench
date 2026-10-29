@@ -377,6 +377,25 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         served(sid)
         await manager.stop(sid)
 
+    @app.post(
+        "/api/sessions/{sid}/reset",
+        response_model=M.SessionInfo,
+        operation_id="resetSession",
+        dependencies=[Depends(auth)],
+    )
+    async def reset(sid: str, req: M.ResetSessionRequest) -> M.SessionInfo:
+        """Power-cycle the bench: fresh instruments, a new record, the same session id."""
+        try:
+            served(sid)
+            s = await manager.reset(sid, clock=req.clock, seed=req.seed)
+        except BenchInvalid as exc:
+            raise HTTPException(
+                422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
+            ) from None
+        except (ValueError, KeyError) as exc:
+            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        return manager.describe(s)
+
     @app.get(
         "/api/sessions/{sid}/instruments/{name}",
         response_model=M.InstrumentInfo,

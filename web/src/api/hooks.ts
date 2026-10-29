@@ -68,7 +68,8 @@ export function useBenches() {
 }
 
 export function useSessions() {
-  return useQuery({ queryKey: keys.sessions, queryFn: () => unwrap(api.GET("/api/sessions")) });
+  // Polled: connected scripts and the "script access" mark on the home page must stay fresh.
+  return useQuery({ queryKey: keys.sessions, queryFn: () => unwrap(api.GET("/api/sessions")), refetchInterval: 2000 });
 }
 
 export function useSession(sid: string) {
@@ -95,6 +96,18 @@ export function useStopSession() {
   return useMutation({
     mutationFn: (sid: string) => unwrap(api.DELETE("/api/sessions/{sid}", { params: { path: { sid } } })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.sessions }),
+  });
+}
+
+/** Power-cycle: fresh instruments, a new record, the same session id (issue 31). */
+export function useResetSession(sid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/sessions/{sid}/reset", { params: { path: { sid } }, body: {} })),
+    onSuccess: (s) => {
+      qc.setQueryData(keys.session(s.id), s);
+      void qc.invalidateQueries({ queryKey: keys.sessions });
+    },
   });
 }
 

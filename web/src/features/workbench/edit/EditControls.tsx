@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, Pencil, Play, Redo2, RotateCw, Undo2 } from "lucide-react";
+import { CheckCircle2, Gauge, Hammer, Loader2, Redo2, Undo2 } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -20,11 +20,16 @@ function typing(target: EventTarget | null): boolean {
   return !!el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
 }
 
-/** Run / Edit switch, and in Edit mode undo, redo and the save state. */
+/** Operate / Build switch, and in Build mode undo, redo and the save state.
+
+Switching back to Operate rebuilds the bench from the current file when it changed (issue 31);
+a definition that does not validate keeps the user in Build with the problems panel open. */
 export function EditControls({ session }: { session: SessionInfo }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { mode, setMode } = useWorkbench();
   const canEdit = !!session.bench_path;
+  const start = useStartSession();
   const { undo: undoStack, redo: redoStack, pending, lastError } = useEditor();
 
   useEffect(() => {
@@ -44,6 +49,40 @@ export function EditControls({ session }: { session: SessionInfo }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [mode]);
 
+  const switchMode = async (v: string) => {
+    if (v !== "run") {
+      setMode(v as "run" | "edit");
+      return;
+    }
+    const doc = useEditor.getState().doc;
+    const stale =
+      doc &&
+      doc.path === session.bench_path &&
+      session.bench_fingerprint &&
+      doc.fingerprint !== session.bench_fingerprint;
+    if (!stale) {
+      setMode("run");
+      return;
+    }
+    await settled(); // the file on disk is the single source of truth (D25)
+    const path = useEditor.getState().doc?.path ?? session.bench_path!;
+    start.mutate(path, {
+      onSuccess: (s) => {
+        setMode("run");
+        toast.success(t("edit.rebuilt"), { description: t("edit.rebuiltHint") });
+        navigate(`/s/${s.id}`);
+      },
+      onError: (e) => {
+        const diags = ((e as ApiError).detail as { diagnostics?: Diagnostic[] } | undefined)?.diagnostics ?? [];
+        const first = diags.find((d) => d.severity === "error");
+        toast.error(t("edit.blockedInvalid"), {
+          description: first ? `${first.code} ${first.message}` : (e as Error).message,
+        });
+        useWorkbench.getState().setBottomTab("problems");
+      },
+    });
+  };
+
   return (
     <div className="flex items-center gap-1.5">
       <Tooltip>
@@ -54,15 +93,15 @@ export function EditControls({ session }: { session: SessionInfo }) {
               size="sm"
               variant="outline"
               value={mode}
-              onValueChange={(v) => v && setMode(v as "run" | "edit")}
+              onValueChange={(v) => v && void switchMode(v)}
               aria-label={t("edit.modeLabel")}
-              disabled={!canEdit}
+              disabled={!canEdit || start.isPending}
             >
               <ToggleGroupItem value="run" className="h-8 gap-1.5 px-2.5 text-xs" aria-label={t("edit.mode.run")}>
-                <Play className="size-3.5" /> {t("edit.mode.run")}
+                <Gauge className="size-3.5" /> {t("edit.mode.run")}
               </ToggleGroupItem>
               <ToggleGroupItem value="edit" className="h-8 gap-1.5 px-2.5 text-xs" aria-label={t("edit.mode.edit")}>
-                <Pencil className="size-3.5" /> {t("edit.mode.edit")}
+                <Hammer className="size-3.5" /> {t("edit.mode.edit")}
               </ToggleGroupItem>
             </ToggleGroup>
           </span>
@@ -122,41 +161,5 @@ function IconAction({
         {label} <Kbd>{keys}</Kbd>
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-/** Shown while the bench file differs from what the running session was started from. */
-export function RestartBanner({ session }: { session: SessionInfo }) {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  const start = useStartSession();
-  const doc = useEditor((s) => s.doc);
-  if (!doc || doc.path !== session.bench_path || !session.bench_fingerprint || doc.fingerprint === session.bench_fingerprint) return null;
-
-  const restart = async () => {
-    await settled();
-    const path = useEditor.getState().doc?.path ?? session.bench_path!;
-    start.mutate(path, {
-      onSuccess: (s) => {
-        toast.success(t("edit.restarted"));
-        navigate(`/s/${s.id}`);
-      },
-      onError: (e) => {
-        const diags = ((e as ApiError).detail as { diagnostics?: Diagnostic[] } | undefined)?.diagnostics ?? [];
-        const first = diags.find((d) => d.severity === "error");
-        toast.error(t("edit.startFailed"), { description: first ? `${first.code} ${first.message}` : (e as Error).message });
-        useWorkbench.getState().setBottomTab("problems");
-      },
-    });
-  };
-
-  return (
-    <div className="bg-warn/10 flex h-8 shrink-0 items-center justify-center gap-3 border-b px-3 text-xs" role="status">
-      <span>{t("edit.stale")}</span>
-      <Button size="sm" variant="outline" className="h-6 gap-1.5 px-2 text-xs" disabled={start.isPending} onClick={() => void restart()}>
-        <RotateCw className={start.isPending ? "size-3 animate-spin" : "size-3"} />
-        {start.isPending ? t("edit.restarting") : t("edit.restart")}
-      </Button>
-    </div>
   );
 }
