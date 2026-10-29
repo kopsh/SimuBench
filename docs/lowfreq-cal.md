@@ -11,7 +11,7 @@
 | `lowfreq_cal.bench.yaml` | D4 工作台预设：校准仪 CH1–CH4 经 1 m 同轴线缆接示波器 C1–C4 |
 | `lowfreq_cal_demo.py` | D5 示例脚本：按主机程序的接口契约完成初始化、逐频点采集与回读、收尾 |
 
-D3（私有文本波形回读）是平台组件：`library/components/lecroy.py`（示波器方言与 `C<n>:INSPECT?`）与 `library/components/calibrator.py`（校准仪）。
+D3（私有文本波形回读）是平台组件 `library/components/lecroy.py`（采集、运行控制、`C<n>:INSPECT?`、`PACU`）。示波器的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都在定义文件里声明（方言、应答模板、`pairs` 参数、参数映射，见 [instrument-authoring.md](instrument-authoring.md) 2）。
 
 ## 1. 部署
 
@@ -112,7 +112,7 @@ data += map(float, reply.strip().split()[2:-1])
 
 需求第 9 节待澄清项的处理：
 
-1. **D3 的实现方式**：新增平台组件类型（`lecroy_*`、`calibrator_core`、`scope_calibrator`），与 Siglent SDG/SDS 的私有命令同样做法；平台核心只增加了与型号无关的三处：定义的 `unknown_commands`、定义可以给公共命令（如 `*CLS?`）自己的行为、测试台实例的 `idn`。
+1. **D3 的实现方式**：新增平台组件类型（`lecroy_*`），与 Siglent SDG/SDS 的私有命令同样做法；校准仪最初也有专用组件，issue 42 之后改为通用信号源加参数映射，命令全部声明；平台核心只增加了与型号无关的三处：定义的 `unknown_commands`、定义可以给公共命令（如 `*CLS?`）自己的行为、测试台实例的 `idn`。
 2. **频响模型精度**：理想信号源 + 电路求解（输出阻抗、负载设定、输入阻抗、线缆损耗与趋肤效应、前端带宽）+ 噪声与量化；不是按某台真机的实测传递函数建模。
 3. **`*OPC?` 与虚拟时间**：预设使用步进时钟（`run.clock: stepped`），同一种子、同一命令序列结果逐位一致（AC-4）；`*OPC?` 等待未完成的单次采集。需要采集消耗虚拟时间时改为 `clock: command`（每次采集推进约 10 格时间加 1 ms），噪声仍不随停顿变化。
 

@@ -507,7 +507,7 @@
       },
       "CommandSpec": {
         "additionalProperties": false,
-        "description": "One SCPI command. Exactly one of ``state`` or ``op`` is given.",
+        "description": "One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through\nits parameters' ``state``, to several settings at once.",
         "properties": {
           "args": {
             "additionalProperties": true,
@@ -586,6 +586,18 @@
             "title": "Query",
             "type": "boolean"
           },
+          "reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting) and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}'",
+            "title": "Reply"
+          },
           "set": {
             "default": true,
             "title": "Set",
@@ -663,6 +675,7 @@
           },
           "params": {
             "additionalProperties": true,
+            "description": "Parameter values: a literal, a setting ('$ch.frequency') or a mapping of a setting ({from, map, scale, offset, default})",
             "title": "Params",
             "type": "object"
           },
@@ -959,6 +972,29 @@
           "subject"
         ],
         "title": "Diagnostic",
+        "type": "object"
+      },
+      "Dialect": {
+        "additionalProperties": false,
+        "description": "How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).\n\nThe defaults are SCPI: no header in replies, numbers without multiplier suffixes.",
+        "properties": {
+          "echo_header": {
+            "default": "off",
+            "description": "Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER)",
+            "pattern": "^(off|short|long|\\$.+)$",
+            "title": "Echo Header",
+            "type": "string"
+          },
+          "multipliers": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'",
+            "title": "Multipliers",
+            "type": "object"
+          }
+        },
+        "title": "Dialect",
         "type": "object"
       },
       "Disconnect": {
@@ -1565,6 +1601,10 @@
               }
             ],
             "title": "Description"
+          },
+          "dialect": {
+            "$ref": "#/components/schemas/Dialect",
+            "description": "Reply framing beyond SCPI (headers, suffixes)"
           },
           "display": {
             "$ref": "#/components/schemas/Display"
@@ -2373,6 +2413,28 @@
         "additionalProperties": false,
         "description": "A parameter of an operation command.",
         "properties": {
+          "keys": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set",
+            "title": "Keys"
+          },
           "max": {
             "anyOf": [
               {
@@ -2418,6 +2480,18 @@
             ],
             "title": "Options"
           },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Setting this parameter writes (a command without `state` or `op`); it is parsed as that setting reads values",
+            "title": "State"
+          },
           "type": {
             "enum": [
               "float",
@@ -2427,7 +2501,8 @@
               "string",
               "float_list",
               "block",
-              "raw"
+              "raw",
+              "pairs"
             ],
             "title": "Type",
             "type": "string"
@@ -2839,21 +2914,23 @@
           },
           "integer": {
             "default": "plain",
-            "description": "plain: 5; signed: +5",
+            "description": "plain: 5; signed: +5; engineering: 100E+3",
             "enum": [
               "plain",
-              "signed"
+              "signed",
+              "engineering"
             ],
             "title": "Integer",
             "type": "string"
           },
           "number": {
             "default": "nr3",
-            "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded)",
+            "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa)",
             "enum": [
               "nr3",
               "nr2",
-              "nr1"
+              "nr1",
+              "engineering"
             ],
             "title": "Number",
             "type": "string"
@@ -4121,6 +4198,12 @@
             ],
             "description": "Enum options in SCPI mixed case, e.g. SINusoid",
             "title": "Options"
+          },
+          "ratio": {
+            "default": false,
+            "description": "A ratio (0.25 for 25 %) that also accepts a percentage: a written value above 1 is divided by 100 (40 -> 0.4)",
+            "title": "Ratio",
+            "type": "boolean"
           },
           "readonly": {
             "default": false,

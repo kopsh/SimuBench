@@ -32,16 +32,20 @@ SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是*
 
 ## 2. 声明式命令与应答（G1）
 
+已实现（#42）：低频校准工作台两份定义中的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都改为声明，`calibrator.py` 已删除，`lecroy.py` 只剩采集、运行控制、文本回读与 `PACU`（槽号选择状态，留给插件或后续扩展）。与设计稿的差别：数值格式放在已有的 `format` 中（`number: engineering`、`integer: engineering`），不在 `dialect` 中重复；多状态命令的查询不写 `reply` 时按参数顺序回答（`EDGE,SR,C1,HT,OFF`）；新增状态的 `ratio`（比例量也接受百分数，40 → 0.4）；信号源的幅度单位（VPP / VPK / VRMS）是 `function_generator_core` 的参数 `amplitude_unit`，因为它依赖两个设置（单位与波形），不是查表与直线能表达的。
+
 ### 2.1 方言
 
-定义新增 `dialect`，说明这台仪表的应答怎么写，默认值即现在的 SCPI 行为：
+定义新增 `dialect`，说明这台仪表的应答怎么写，默认值即现在的 SCPI 行为；数值写法用已有的 `format`：
 
 ```yaml
 dialect:
   echo_header: $comm.header      # off | short | long，或绑定到一个状态量（COMM_HEADER 可切换）
-  number: engineering            # 现有 nr1/nr2/nr3 之外新增 engineering：200E-3、10E+3
-  enum: short
   multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}   # 无单位数值的倍率后缀（点数）
+format:
+  number: engineering            # 现有 nr1/nr2/nr3 之外新增 engineering：200E-3、10E+3
+  boolean: word
+  enum: short
 ```
 
 ### 2.2 应答模板
@@ -138,7 +142,7 @@ params:
 
 `simubench validate` 同时接受定义文件；MCP `validate_definition`。检查：格式（JSON Schema）；组件类型存在；`op` 名存在于该组件类型；状态绑定与 `reply` 模板引用的路径存在；内部连线与端口映射指向存在的组件端口；命令头可解析、没有两条命令匹配同一命令头；参数类型与绑定状态的类型相容。诊断沿用测试台的结构（错误码 `E-DEF-*`、JSON 指针、建议）。
 
-已实现（#40，`engine/validate_definition.py`）；`reply` 模板随 #42、MCP 工具随 #46 加入。错误码：
+已实现（#40，`engine/validate_definition.py`）；#42 加入了应答模板、多状态命令与参数映射的检查；MCP 工具随 #46 加入。错误码：
 
 | 代码 | 内容 |
 | --- | --- |
@@ -149,6 +153,7 @@ params:
 | `E-DEF-PARAM-TYPE` | 组件参数与绑定状态的类型不相容（数值、布尔量接受枚举：组件读取 `FIFTy`、`OFF` 这样的名称） |
 | `E-DEF-OP-UNKNOWN` | 组件或操作不存在；通道组件的操作用在没有 `<ch>` 的命令头上 |
 | `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
+| `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
 
 ### 5.2 组件元数据（G7）
@@ -181,9 +186,9 @@ params:
 
 | issue | 内容 | 依赖 |
 | --- | --- | --- |
-| #40 | 定义的静态校验（5.1）与组件角色元数据（5.2） | — |
+| #40 | 定义的静态校验（5.1）与组件角色元数据（5.2）（已完成） | — |
 | #41 | 组件目录接口与 MCP `list_components`（5.3） | — |
-| #42 | 声明式应答：方言、应答模板、`pairs` 参数、倍率后缀、参数映射（第 2 节） | #40 |
+| #42 | 声明式应答：方言、应答模板、`pairs` 参数、倍率后缀、参数映射（第 2 节）（已完成） | #40 |
 | #43 | 通用波形传输组件（3.1） | #40 |
 | #44 | 可配置的采集组件，Siglent 与 LeCroy 改为配置（3.2） | #43 |
 | #45 | `simubench cases` 与 MCP `run_cases`（5.5） | — |
