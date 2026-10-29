@@ -83,7 +83,7 @@ export type Address = string | null;
 export type Firmware = string | null;
 export type Label2 = string | null;
 /**
- * Instrument definition id, e.g. 'sb-dso-4'
+ * Instrument definition id, e.g. 'siglent-sds2104xplus'
  */
 export type Model1 = string;
 /**

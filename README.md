@@ -11,9 +11,12 @@
 ```bash
 uv sync --all-extras    # 安装 Python 依赖（含 MCP）
 uv run pytest           # 运行测试
-uv run simubench serve examples/benches/awg_rc_scope.bench.yaml   # 启动本地服务
-cd web && pnpm install && pnpm dev                                 # 启动界面开发服务器
+uv run simubench serve examples/benches/siglent_scope_rc.bench.yaml   # 启动本地服务
+uv run simubench serve --workspace validation                          # 用 sb-* 验证仪表与测试台
+cd web && pnpm install && pnpm dev                                     # 启动界面开发服务器
 ```
+
+内置仪表只有真实型号（D42），随 wheel 发布。`sb-*` 是 SimuBench 自己的验证仪表，不发布：定义在 `validation/instruments/`，用到它们的测试台在 `validation/benches/` 与 `acceptance/benches/`。测试与验收自动加载它们（`conftest.py`）；其他场合把 `validation` 当作工作区，或设置环境变量 `SIMUBENCH_DEFINITIONS=validation/instruments`（多个目录用路径分隔符隔开）。
 
 协作开发（任何 AI agent 或人）：任务是 GitHub Issue，规则见 [AGENTS.md](AGENTS.md)；PR 通过 CI 后自动合并进 `main`。
 
@@ -56,10 +59,10 @@ scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::hislip1,4880:
 ```python
 import pytest
 
-@pytest.mark.bench("benches/awg_rc_scope.bench.yaml", seed=7)
+@pytest.mark.bench("benches/siglent_scope_rc.bench.yaml", seed=7)
 def test_gain(instruments, bench_session):
-    scope = instruments["scope"]            # 也可用真实地址 "TCPIP0::192.168.1.21::5025::SOCKET"
-    assert scope.query("*IDN?").startswith("SIMUBENCH")
+    scope = instruments["scope"]            # 也可用真实地址 "TCPIP0::192.168.1.31::INSTR"
+    assert scope.query("*IDN?").startswith("Siglent")
     bench_session.advance(0.01)             # 真机做不到的事：推进虚拟时间、注入故障
 ```
 

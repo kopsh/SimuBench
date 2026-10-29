@@ -83,7 +83,7 @@ def test_single_channel_instrument():
 
 
 def test_http_endpoint():
-    manager = SessionManager(ROOT / "examples", scpi_base_port=None)
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
     app = create_app(manager, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]

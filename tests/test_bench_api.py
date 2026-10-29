@@ -16,7 +16,7 @@ BENCH = "awg_rc_scope.bench.yaml"
 
 @pytest.fixture
 def ws(tmp_path):
-    shutil.copy(ROOT / "examples" / "benches" / BENCH, tmp_path / BENCH)
+    shutil.copy(ROOT / "validation" / "benches" / BENCH, tmp_path / BENCH)
     return tmp_path
 
 

@@ -391,7 +391,7 @@
           "title": "Label"
         },
         "model": {
-          "description": "Instrument definition id, e.g. 'sb-dso-4'",
+          "description": "Instrument definition id, e.g. 'siglent-sds2104xplus'",
           "title": "Model",
           "type": "string"
         },

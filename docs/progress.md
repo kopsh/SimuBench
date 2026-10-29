@@ -127,6 +127,7 @@
 | Siglent SDS2104X Plus（D45，替代 InfiniiVision 3000T） | ✅ 手册用例 24 条；覆盖表 622 条（实现 36、接受 13、未实现 573）；按手册示例读取波形并与网络信号比对（8/10 位、BYTE/WORD）；示例测试台 `siglent_scope_rc` |
 | 示波器噪声、抖动与量化（D46，issue 24） | ✅ `acceptance/test_noise_scenario.py`：0.5 / 1 mV/div、8 / 10 位下噪声 σ 与 `refcalc.noise` 一致（按样本数的 4σ 区间）；平均 16 次按 1/√16 下降；探头比例；每次采集不同、重新上电后相同；带噪声的运行记录逐位重放 |
 | Siglent SDG2042X（D45，替代 33500B） | ✅ 手册用例 11 条；覆盖表 193 条（实现 7、接受 2、未实现 184）；负载设定（HZ / 50 Ω）与实际负载（1 MΩ / 50 Ω）四种组合下示波器读到的幅度与手工计算一致；占空比、对称度、反相；示例测试台 `siglent_scope_rc` 改为两台 Siglent |
+| 内置仪表只有真实型号，`sb-*` 不发布（issue 35） | ✅ `sb-*` 定义移到 `validation/instruments/`，演示台移到 `validation/benches/`；定义搜索路径 `SIMUBENCH_DEFINITIONS`，测试经 `conftest.py` 加载；服务启动会话与回放运行记录也搜索工作区的 `instruments/`（此前只有校验搜索）；`tests/test_release.py` 与 CI 打包任务检查内置定义、`examples/` 与 wheel 中没有 `sb-*` |
 | 型号：Keysight 34465A、Fluke 5522A、Keithley 2450 | ⏳ 各自的 issue |
 
 ## 仪表内部组件图（Issue 20，D3）

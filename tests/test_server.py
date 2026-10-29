@@ -15,7 +15,7 @@ TOKEN = "test-token"
 
 @pytest.fixture
 def client():
-    manager = SessionManager(ROOT / "examples", scpi_base_port=None)
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
@@ -92,7 +92,7 @@ def test_scpi_socket_roundtrip():
     from simubench.access.scpi_server import ScpiServer
     from simubench.api import open_bench
 
-    session = open_bench(ROOT / "examples/benches/awg_rc_scope.bench.yaml")
+    session = open_bench(ROOT / "validation/benches/awg_rc_scope.bench.yaml")
     loop = asyncio.new_event_loop()
     server = ScpiServer(session, base_port=0)
     listeners = loop.run_until_complete(server.start())

@@ -79,6 +79,9 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: ./scripts/build-wheel.sh
+      - name: The wheel ships real-model definitions only, no sb-* (D42)
+        run: |
+          python3 -c "import sys, zipfile; names = zipfile.ZipFile(sys.argv[1]).namelist(); bad = [n for n in names if '/instruments/sb-' in n]; assert not bad, bad; assert any('/instruments/siglent-' in n for n in names)" dist/simubench-*.whl
       - name: Install into a clean environment, outside the checkout
         run: |
           uv venv /tmp/wheel-env

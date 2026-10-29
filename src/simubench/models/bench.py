@@ -15,7 +15,7 @@ class _Model(BaseModel):
 
 
 class InstrumentInstance(_Model):
-    model: str = Field(..., description="Instrument definition id, e.g. 'sb-dso-4'")
+    model: str = Field(..., description="Instrument definition id, e.g. 'siglent-sds2104xplus'")
     label: str | None = None
     address: str | None = Field(
         None, description="Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)"
