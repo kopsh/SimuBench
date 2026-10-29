@@ -4,7 +4,7 @@ manufacturer: SimuBench
 model: SB-DMM-1
 class: multimeter
 version: 1
-description: 数字万用表（电压功能），输入阻抗 10 MΩ；DC 为平均值，AC 为真有效值。测量通道有隐藏的增益与零点误差，可经 :CALibration 命令校准（安全码保护）。
+description: 数字万用表（电压功能），输入阻抗 10 MΩ；DC 为平均值，AC 为真有效值。测量通道有隐藏的增益与零点误差，可经 :CALibration 命令校准（安全码保护），系数保存在校准存储中。
 identity:
   serial: SBDMM000001
   firmware: "1.0.0"
@@ -23,48 +23,22 @@ state:
     default: 10.0
     label: 校准值
     label_en: Calibration value
-  cal.gain:
-    type: float
-    default: 1.0
-    readonly: true
-    label: 增益系数
-    label_en: Gain coefficient
-  cal.offset:
-    type: float
-    unit: V
-    default: 0.0
-    readonly: true
-    label: 零点系数
-    label_en: Offset coefficient
-  cal.count:
-    type: int
-    min: 0
-    default: 0
-    readonly: true
-    label: 校准次数
-    label_en: Calibration count
-  cal.date:
-    type: string
-    default: ""
-    readonly: true
-    label: 校准日期
-    label_en: Calibration date
-  cal.string:
-    type: string
-    default: ""
-    label: 校准信息
-    label_en: Calibration message
 components:
   - name: input
     type: input_port
     params: {z_in: 10.0e6}
+  - name: cal
+    type: calibration_store
+    params:
+      secured: $cal.secured
+      value: $cal.value
+      ok_reply: "0"
+      fail_reply: "1"
+      volatile_until_store: true
   - name: meter
     type: dmm_core
     params:
-      cal_gain: $cal.gain
-      cal_offset: $cal.offset
-      cal_value: $cal.value
-      cal_secured: $cal.secured
+      store: cal
 wiring:
   instrument:
     - [input.out, meter.in]
@@ -100,11 +74,17 @@ commands:
     op: meter.cal_store
     query: false
   - header: ":CALibration:COUNt"
-    state: cal.count
+    op: cal.count
+    params: [{name: values, type: raw}]
   - header: ":CALibration:DATE"
-    state: cal.date
+    op: cal.date
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:TIME"
+    op: cal.time
+    params: [{name: values, type: raw}]
   - header: ":CALibration:STRing"
-    state: cal.string
+    op: cal.string
+    params: [{name: values, type: raw}]
 # Individual deviations (个体偏差): a bench instance with deviation: from_specs draws them from its seed.
 deviations:
   - param: meter.gain_error_ppm

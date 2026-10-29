@@ -137,6 +137,15 @@
 - 台账字段（计数、日期、字符串）不受 `*RST` 影响。
 - `dmm_core` 现有的 `cal_*` op 改为委托给这个组件；`sb-dmm-1` 的定义可以改，回复逐条不变。
 
+### 4.1 实现与设计的差别（#89）
+
+- 键的解析：`$path` 条目取状态值；`component.param` 条目取组件参数，其中**被校核心自己**的 `function` 是当前测量的功能、`range` 是实际使用的量程（自动量程包含在内）。设计示例的 `$sense.function` 也可用（按状态取值），但 DC 与 AC 的读数要各有键，用 `meter.function` 更直接（`tests/models/cal-store-test` 即如此写）。
+- 调整的检查：参考值为 0 时（调零点）输入偏差对 `max(|参考值设定|, 1)` 比较——零点本身是 0，比例没有意义，与 `dmm_core` 原来的规则一致；调增益时对参考值本身比较。失败推 702（默认文字与原来逐字相同）并回 `fail_reply`。
+- `secured` 与 `value` 可以绑定状态（`$cal.secured`）：读取跟随状态，经 op 写入时写回状态（`internal`），`*RST` 重置状态即恢复保护、参考值回到默认；不绑定时存组件属性。`code` 与台账（`count`/`date`/`time`/`string`）永远是组件属性，`*RST` 不清除。
+- 零点系数只修正 DC 读数（调零是直流概念），增益对所有功能生效；AC 的键没有调整过就是 1 / 0。
+- `dmm_core` 设了 `store` 时四个 `cal_*` op 全部委托；没有 store 时保留原来的单组系数实现（对不写校准的定义向后兼容）。
+- `sb-dmm-1`：`cal.gain`/`cal.offset`/`cal.count`/`cal.date`/`cal.string` 状态删除，`COUNt`/`DATE`/`TIME`/`STRing` 改为存储组件的 op（set 形式按原样回 -221）；`SECure:STATe`/`VALue`/`ZERO`/`GAIN`/`STORe` 命令与回复不变（`ok_reply: "0"`、`fail_reply: "1"` 保持无正号）。`volatile_until_store: true` 保持未存储调整被 `*RST` 丢弃的原行为；已存储的系数与台账现在按设计跨 `*RST` 保留（有意的行为变化，无测试依赖旧值）。
+
 ## 5. 校准源与按单位分派的参数（C4，#90）
 
 ### 5.1 `calibrator_output`

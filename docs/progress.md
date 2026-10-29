@@ -224,7 +224,7 @@
 | 型号不依赖专用组件的检查、写型号的操作手册、覆盖表草稿 | ✅ issue 93：组件的 `generic` 标记（组件目录与 MCP `list_components` 显示），`tests/test_model_components.py`（两台 Siglent 的 4 处使用为例外，清单只能缩短；新增使用与已还清未删都会失败并指明定义与组件）；`.claude/skills/real-model/SKILL.md`（其中的命令逐条运行过）；`simubench coverage <id> --draft`（新建、补充时保留手写内容、分节，`tests/test_coverage_draft.py`）；`.github/ISSUE_TEMPLATE/real-model.md` |
 | 测量核心：量程、超量程、分辨率、输入阻抗、按量程的误差 | ✅ issue 87：手动量程取能容纳设定值的最小档、超限取最大档；自动量程按真值、滞回带 `[down, up] × 满量程`，判定发生在测量命令；超量程读 `overload_value`；分辨率（含 NPLC 的 `table` 映射）量化读数；隐藏误差可按（功能、量程）给表；输入阻抗由核心自己 stamp 进电路（量程或 `high_z` 变化触发重解），`tests/test_meter_core.py` 覆盖分压电路两种 `high_z` 取值、与手工计算差小于 1 ppm；`sb-dmm-1` 现有测试不改通过；#88 的最小 `sample()` 读到的也是量程系统的读数（metrology-authoring.md 2.1） |
 | 触发模型、读数存储、待完成操作、`*TRG` | ✅ issue 88：只用通用组件写成的测试万用表（`tests/definitions/test-trigger-meter.yaml`）上，`TRIG:COUN 3; SAMP:COUN 2; INIT; FETC?` 给出 6 个读数，虚拟时间为 6 × 读数时间 + 3 × 延时；`*OPC?`、`*WAI`、`*OPC` 等待运行完成，`*CLS` 取消；总线触发、`READ?` 的死锁、运行中 `INIT`、不在等待时的 `*TRG` 的错误；`R?` 的块格式与取出、`DATA:POINts?`、`DATA:REMove?`；命名缓冲区与按元素读取；含触发的运行记录回放一致（`tests/test_trigger_model.py`，10 项）；示波器的 `*OPC` 改用同一机制，现有用例与验收不改通过 |
-| 校准存储 | ⏳ issue 89 |
+| 校准存储 | ✅ issue 89：新组件 `calibration_store`（键 = 功能与实际量程，`$状态` 或 `组件.参数` 条目；安全码、参考值、调整的容差与回复参数化；台账计数/日期/时间/字符串），`dmm_core` 设 `store` 时四个 `cal_*` op 全部委托、读数按键取系数，未设时保留原实现；测试定义两量程各带不同隐藏增益误差，分别调整后 as-left 均小于 1 ppm 且互不影响，DC 调整不进 AC 的键；安全码错误、未解锁调整、输入偏离参考、`COUNt` 不可设各有用例；`STORe` 后计数/日期/时间正确，`*RST` 保留台账与已存系数、丢弃未存储调整（`volatile_until_store: true`）；`sb-dmm-1` 定义改造（台账命令改 op、系数状态删除）但回复逐条不变，`tests/test_calibration.py` 不改通过；`tests/test_calstore.py` 7 项；实现与设计的差别见 metrology-authoring.md 4.1 |
 | 校准源、按单位分派的参数、错误查询的声明 | ⏳ issue 90 |
 | 四线测量与引线电阻 | ⏳ issue 91 |
 | `smu_core` 接入触发模型与缓冲区、源与测量量程 | ⏳ issue 94 |
