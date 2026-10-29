@@ -155,6 +155,10 @@ def replay(
                 session.seek(t)
                 session.instrument(ev["instrument"]).set_state(ev["path"], ev["new"], source="replay")
                 report.actions += 1
+            elif kind == "panel" and ev.get("source") != "replay":
+                session.seek(t)
+                session.panel(ev["instrument"], ev["action"], client="replay")
+                report.actions += 1
             elif kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"):
                 session.seek(t)
                 session.faults.inject(Fault.model_validate(ev["spec"]), source="replay")

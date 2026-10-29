@@ -75,7 +75,7 @@ def test_scope_screen_and_probe_carry_the_reasons():
     app = create_app(SessionManager(ROOT / "validation", scpi_base_port=None), web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
-        screen = c.get(f"/api/sessions/{sid}/instruments/scope/screen", params={"source": "preview"}).json()
+        screen = c.get(f"/api/sessions/{sid}/instruments/scope/screen").json()
         (ch1,) = [t for t in screen["traces"] if t["channel"] == 1]
         assert [r["kind"] for r in ch1["silence"]] == ["source_off"]
         net = c.get(f"/api/sessions/{sid}").json()["nets"]
@@ -83,6 +83,6 @@ def test_scope_screen_and_probe_carry_the_reasons():
         probe = c.get(f"/api/sessions/{sid}/nets/{scope_net}/probe").json()
         assert probe["silence"][0]["source"] == "awg.OUT1"
         c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":OUTPut1 ON"})
-        screen = c.get(f"/api/sessions/{sid}/instruments/scope/screen", params={"source": "preview"}).json()
+        screen = c.get(f"/api/sessions/{sid}/instruments/scope/screen").json()
         assert all(t["silence"] == [] for t in screen["traces"] if t["channel"] == 1)
         c.delete(f"/api/sessions/{sid}")

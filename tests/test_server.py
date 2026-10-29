@@ -59,7 +59,7 @@ def test_session_lifecycle_and_scpi(client):
     ).json()
     assert not bad["ok"] and bad["error"]["code"] == -222
     screen = client.get(f"/api/sessions/{sid}/instruments/scope/screen").json()
-    assert screen["source"] == "preview" and len(screen["traces"][0]["volts"]) == 1000
+    assert screen["source"] == "live" and screen["running"] and len(screen["traces"][0]["volts"]) == 1000
     wf = client.get(
         f"/api/sessions/{sid}/nets/net-0/waveform", params={"window_s": 2e-3, "points": 100}
     ).json()
