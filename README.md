@@ -69,6 +69,8 @@ def test_gain(instruments, bench_session):
 
 `pytest --simubench-bench <bench> --simubench-record-dir runs` 为没有标记的测试指定测试台，并为每个测试写运行记录；失败的测试在报告中给出记录与 `simubench replay` 命令。
 
+插件默认 `idle: sleep`（D47）：命令之间空闲的真实时间不计入虚拟时间，`time.sleep(t)` 精确推进虚拟时间 `t` 且不真的等待。测试结果与机器快慢无关，脚本里的 `sleep(5)` 也不再拖慢 CI；需要等建立时间就写 `time.sleep(0.05)`（虚拟时间照样走 50 ms）。依赖旧行为（空闲跟随真实时间）的测试用 `@pytest.mark.bench(..., idle="wall")` 显式标回。
+
 ## 运行记录与回放
 
 `simubench serve --record-dir runs` 为每个会话写一份运行记录（JSON Lines）。CI 中失败的一次运行可以在本地复现：
