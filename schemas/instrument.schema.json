@@ -139,6 +139,22 @@
           "default": null,
           "description": "State path bound to the command, e.g. 'ch.frequency'",
           "title": "State"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? \"WAVEDESC\")",
+          "title": "When"
         }
       },
       "required": [
@@ -263,6 +279,12 @@
       "additionalProperties": false,
       "description": "A parameter of an operation command.",
       "properties": {
+        "index": {
+          "default": false,
+          "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+          "title": "Index",
+          "type": "boolean"
+        },
         "keys": {
           "anyOf": [
             {

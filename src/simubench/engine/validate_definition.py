@@ -147,26 +147,67 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
         if cmd.op is not None:
             _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
+        indexes = _index_values(cmd)
         for k, ps in enumerate(cmd.params):
             if ps.state is not None:
-                _check_state_ref(d, ps.state, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report)
+                for ref in _expand(ps.state, indexes):  # every setting an index can pick
+                    if not _check_state_ref(
+                        d, ref, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report
+                    ):
+                        break
             for key, ref in (ps.keys or {}).items():
                 if ref is not None:
                     _check_state_ref(
                         d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report
                     )
         if cmd.reply is not None:
-            _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report)
+            fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
+            _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
     _check_overlaps(d, compiled, report)
     _check_dialect(d, report)
     return report
 
 
+def _index_values(cmd: CommandSpec) -> dict[str, list[int]]:
+    """The values each index parameter can take (at most 64 checked)."""
+    out = {}
+    for ps in cmd.params:
+        if ps.index:
+            lo = int(ps.min) if ps.min is not None else 1
+            hi = int(ps.max) if ps.max is not None else lo
+            out[ps.name] = list(range(lo, min(hi, lo + 63) + 1))
+    return out
+
+
+def _expand(ref: str, indexes: dict[str, list[int]]) -> list[str]:
+    refs = [ref]
+    for name, values in indexes.items():
+        if "{" + name + "}" in ref:
+            refs = [r.replace("{" + name + "}", str(v)) for r in refs for v in values]
+    return refs
+
+
+def _op_fields(d: InstrumentDefinition, classes: dict[str, type[Component]], ref: str) -> set[str]:
+    """Names an operation gives its command's reply template (``op(fields=...)``)."""
+    comp, _, name = ref.rpartition(".")
+    cls = classes.get(f"ch1.{comp[3:]}" if comp.startswith("ch.") else comp)
+    for attr in dir(cls) if cls is not None else []:
+        fn = getattr(cls, attr)
+        if getattr(fn, "__op_name__", None) == name:
+            return set(getattr(fn, "__op_fields__", ()))
+    return set()
+
+
 def _check_reply(
-    d: InstrumentDefinition, cmd: CommandSpec, per_channel: bool, pointer: str, report: Report
+    d: InstrumentDefinition,
+    cmd: CommandSpec,
+    per_channel: bool,
+    pointer: str,
+    report: Report,
+    fields: set[str] | None = None,
 ) -> None:
     for name in re.findall(r"\{([^{}]*)\}", cmd.reply or ""):
-        if name == "header":
+        if name == "header" or name in (fields or ()):
             continue
         if name == "value":
             if cmd.state is None and cmd.op is None:
@@ -429,6 +470,13 @@ def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
     return out
 
 
+def _told_apart(a: CommandSpec, b: CommandSpec) -> bool:
+    """Two commands on one header that ``when`` tells apart: some parameter value differs."""
+    if not a.when or not b.when:
+        return False
+    return any(k in b.when and str(v).upper() != str(b.when[k]).upper() for k, v in a.when.items())
+
+
 def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], report: Report) -> None:
     """The first command whose header matches wins: a later one that an earlier one also matches
     never runs for those forms."""
@@ -442,7 +490,10 @@ def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], rep
                 (
                     i
                     for i, pi in enumerate(compiled[:j])
-                    if pi is not None and pi.common == pj.common and pi.match(tokens) is not None
+                    if pi is not None
+                    and pi.common == pj.common
+                    and pi.match(tokens) is not None
+                    and not _told_apart(d.commands[i], d.commands[j])
                 ),
                 None,
             )

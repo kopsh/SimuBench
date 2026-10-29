@@ -8,6 +8,7 @@ over raw sockets is the acceptance scenario (acceptance/test_lowfreq_cal_scenari
 from __future__ import annotations
 
 import importlib.util
+import os
 import shutil
 import sys
 from itertools import pairwise
@@ -24,9 +25,11 @@ from simubench.library.loader import DefinitionLibrary, load_yaml
 from simubench.models.definition import InstrumentDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = ROOT / "examples" / "lowfreq-cal"
+EXAMPLE = ROOT / "examples" / "lowfreq-cal"
+# The bench and its definitions; issue 48 runs these tests again on a workspace built through MCP alone.
+WORKSPACE = Path(os.environ.get("SIMUBENCH_LFCAL_WORKSPACE") or EXAMPLE)
 BENCH = WORKSPACE / "lowfreq_cal.bench.yaml"
-SCRIPT = WORKSPACE / "lowfreq_cal_demo.py"
+SCRIPT = EXAMPLE / "lowfreq_cal_demo.py"
 INSPECT = 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
 
 

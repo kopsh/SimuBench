@@ -2,7 +2,6 @@
 
 from . import (  # noqa: F401
     electrical,
-    lecroy,
     lockin,
     meters,
     rfgen,
@@ -12,5 +11,6 @@ from . import (  # noqa: F401
     smu,
     sources,
     specan,
+    system,
     transfer,
 )
