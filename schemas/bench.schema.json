@@ -378,6 +378,19 @@
           "title": "Hidden",
           "type": "object"
         },
+        "idn": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overrides the definition's *IDN? reply, with the same fields, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}' (the model token a host program checks)",
+          "title": "Idn"
+        },
         "label": {
           "anyOf": [
             {

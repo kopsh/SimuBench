@@ -857,6 +857,16 @@
       "title": "State",
       "type": "object"
     },
+    "unknown_commands": {
+      "default": "error",
+      "description": "A header the definition does not have: 'error' queues -113; 'ignore' swallows it (no error, no reply) and logs an 'ignored' event. Only for definitions without `reference` (D42)",
+      "enum": [
+        "error",
+        "ignore"
+      ],
+      "title": "Unknown Commands",
+      "type": "string"
+    },
     "version": {
       "default": 1,
       "title": "Version",

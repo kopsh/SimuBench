@@ -307,26 +307,6 @@ def _check_nets(
     defs: dict[str, InstrumentDefinition],
     report: Report,
 ) -> None:
-    parent: dict[str, str] = {}
-
-    def find(x: str) -> str:
-        parent.setdefault(x, x)
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a: str, b: str) -> None:
-        parent[find(b)] = find(a)
-
-    for i, w in enumerate(bench.wires):
-        chain = [w.from_]
-        for k, _acc in enumerate(w.accessories):
-            chain += [f"wire{i}.acc{k}.IN", f"wire{i}.acc{k}.OUT"]
-        chain.append(w.to)
-        for a, b in zip(chain[0::2], chain[1::2], strict=True):
-            union(a, b)
-
     def is_driver(ref: str) -> bool:
         owner, _, port = ref.rpartition(".")
         if owner in defs:
@@ -349,10 +329,7 @@ def _check_nets(
             return dut.type == "unity_buffer" and port == "OUT"
         return False
 
-    nets: dict[str, list[str]] = {}
-    for ref in list(parent):
-        nets.setdefault(find(ref), []).append(ref)
-    for members in nets.values():
+    for members in _nets(bench):
         srcs = sorted(m for m in members if is_driver(m))
         if len(srcs) > 1:
             idx = next(
@@ -367,10 +344,42 @@ def _check_nets(
                 "断开其中一个输出，或在两者之间加入器件",
                 f"wire:{idx}",
             )
+    # A cable is a few milliohms in series: a termination behind it still terminates the source.
+    for members in _nets(bench, through=SERIES_ACCESSORIES):
         _impedance_hints(bench, defs, members, report)
 
 
-_NAMED_Z = {"FIFTY": 50.0, "FIFT": 50.0, "ONEMEG": 1e6, "ONEM": 1e6}
+#: Accessories that are a short in series for the purpose of load matching.
+SERIES_ACCESSORIES = frozenset({"coax_cable"})
+
+
+def _nets(bench: BenchDefinition, through: frozenset[str] = frozenset()) -> list[list[str]]:
+    """Port references grouped by net; accessories of the ``through`` types join their two sides."""
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: str, b: str) -> None:
+        parent[find(b)] = find(a)
+
+    for i, w in enumerate(bench.wires):
+        chain = [w.from_]
+        for k, acc in enumerate(w.accessories):
+            chain += [f"wire{i}.acc{k}.IN", f"wire{i}.acc{k}.OUT"]
+            if acc.type in through:
+                union(f"wire{i}.acc{k}.IN", f"wire{i}.acc{k}.OUT")
+        chain.append(w.to)
+        for a, b in zip(chain[0::2], chain[1::2], strict=True):
+            union(a, b)
+    nets: dict[str, list[str]] = {}
+    for ref in list(parent):
+        nets.setdefault(find(ref), []).append(ref)
+    return list(nets.values())
 
 
 def _close(z: float | None, target: float) -> bool:
@@ -378,7 +387,8 @@ def _close(z: float | None, target: float) -> bool:
 
 
 def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinition], ref: str) -> float | None:
-    """Input impedance of an instrument port from its definition (an ``input_port`` component)."""
+    """Input impedance of an instrument port from its definition (an ``input_port`` component or a
+    type derived from it, which says how its parameters give the impedance)."""
     owner, _, port = ref.rpartition(".")
     d = defs.get(owner)
     if d is None:
@@ -395,24 +405,25 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
     comp_name = target.rsplit(".", 1)[0]
     specs = d.channel_components if channel is not None else d.components
     comp = next((c for c in specs if c.name == comp_name), None)
-    if comp is None or comp.type != "input_port":
+    cls = component_types().get(comp.type) if comp is not None else None
+    impedance_of = getattr(cls, "impedance_of", None)
+    if comp is None or impedance_of is None:
         return None
-    z = comp.params.get("z_in", 1e6)
-    if isinstance(z, str) and z.startswith("$"):
-        path = z[1:]
-        key = path[3:] if path.startswith("ch.") else path
-        full = f"ch{channel}.{key}" if path.startswith("ch.") else path
-        spec = (d.channel_state if path.startswith("ch.") else d.state).get(key)
-        z = bench.instruments[owner].state.get(full, spec.default if spec else None)
-    if isinstance(z, str):
-        named = _NAMED_Z.get(z.upper())
-        if named is not None:
-            return named
-        try:
-            return float(z)
-        except ValueError:
-            return None
-    return float(z) if z is not None else None
+
+    def value(v: Any) -> Any:
+        if isinstance(v, str) and v.startswith("$"):
+            path = v[1:]
+            key = path[3:] if path.startswith("ch.") else path
+            full = f"ch{channel}.{key}" if path.startswith("ch.") else path
+            spec = (d.channel_state if path.startswith("ch.") else d.state).get(key)
+            return bench.instruments[owner].state.get(full, spec.default if spec else None)
+        return v
+
+    params = {k: value(v) for k, v in {**cls.defaults, **comp.params}.items()}  # type: ignore[union-attr]
+    try:
+        return impedance_of(params)  # type: ignore[no-any-return]
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _impedance_hints(

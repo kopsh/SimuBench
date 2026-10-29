@@ -219,5 +219,18 @@ class InstrumentDefinition(_Model):
         default_factory=dict,
         description="Accuracy and other specifications from the manual; stored, not yet used in calculations",
     )
+    unknown_commands: Literal["error", "ignore"] = Field(
+        "error",
+        description="A header the definition does not have: 'error' queues -113; 'ignore' swallows it (no "
+        "error, no reply) and logs an 'ignored' event. Only for definitions without `reference` (D42)",
+    )
+
+    @model_validator(mode="after")
+    def _check_unknown(self) -> InstrumentDefinition:
+        if self.unknown_commands == "ignore" and self.reference is not None:
+            raise ValueError(
+                "a real model (with `reference`) refuses unknown commands; unknown_commands: ignore"
+            )
+        return self
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)

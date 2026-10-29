@@ -1,0 +1,127 @@
+schema: simubench.instrument/1
+id: lfcal-scope-calibrator
+manufacturer: SimuBench
+model: LFCAL-CALIBRATOR
+class: function_generator
+version: 1
+description: >-
+  低频校准工作台的示波器校准仪：4 个输出通道，方波、脉冲、正弦与直流，幅度按负载设定定义
+  （LOAD 50 为 50 Ω，LOAD 10000 为高阻，D13），输出阻抗 50 Ω。按主机测试程序的接口契约编写，
+  不是按某一型号手册实现的真实型号（没有 reference，D42）；契约之外的命令被忽略而不报错。
+  *IDN? 的厂商与型号段由测试台的 idn 设定（主机校验的型号串）。见 docs/lowfreq-cal.md。
+identity:
+  idn: "{manufacturer},{model},{serial},{firmware}"
+  serial: CAL0000001
+  firmware: "1.0.0"
+unknown_commands: ignore
+channels:
+  count: 4
+state:
+  clock_source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 时钟源
+    label_en: Clock source
+channel_state:
+  wave:
+    type: enum
+    options: [SQUare, PULSe, SINe, DC, TRIangle, RAMP]
+    default: SQUare
+    label: 波形
+    label_en: Waveform
+  frequency:
+    type: float
+    unit: HZ
+    min: 0.01
+    max: 1.1e9
+    default: 1000.0
+    label: 频率
+    label_en: Frequency
+  amplitude:
+    type: float
+    unit: V
+    min: 0.0
+    max: 200.0
+    default: 0.1
+    label: 幅度
+    label_en: Amplitude
+  amplitude_unit:
+    type: enum
+    options: [VPP, VPK, VRMS]
+    default: VPP
+    label: 幅度单位
+    label_en: Amplitude unit
+  offset:
+    type: float
+    unit: V
+    min: -100.0
+    max: 100.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  duty:
+    type: float
+    min: 0.0
+    max: 1.0
+    default: 0.5
+    label: 占空比
+    label_en: Duty cycle
+  load:
+    type: float
+    unit: OHM
+    min: 1.0
+    max: 1.0e9
+    default: 50.0
+    label: 负载设定
+    label_en: Load setting
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+components:
+  - name: cal
+    type: scope_calibrator
+channel_components:
+  - name: gen
+    type: calibrator_core
+    params:
+      wave: $ch.wave
+      frequency: $ch.frequency
+      amplitude: $ch.amplitude
+      amplitude_unit: $ch.amplitude_unit
+      offset: $ch.offset
+      duty: $ch.duty
+      # 方波与脉冲的谐波上限（边沿约 350 ps）；超出谱线上限时信号带保真度说明。
+      bandwidth: 1.0e9
+  - name: out
+    type: output_stage
+    params:
+      z_out: 50.0
+      enabled: $ch.output
+      load_setting: $ch.load
+      hiz_from: 10000.0
+wiring:
+  channel:
+    - [gen.out, out.in]
+ports:
+  channel:
+    "CH{n}": out.pin
+display:
+  template: function_generator
+  channel_summary: [wave, frequency, amplitude, offset, duty, load, output]
+capabilities: [function_generator]
+commands:
+  - {header: ":CHANnel<ch>:BASE:WAVe", state: ch.wave}
+  - {header: ":CHANnel<ch>:BASE:FREQuency", state: ch.frequency}
+  - {header: ":CHANnel<ch>:BASE:AMPLitude", state: ch.amplitude}
+  - {header: ":CHANnel<ch>:BASE:OFFSet", state: ch.offset}
+  - header: ":CHANnel<ch>:BASE:DUTY"
+    op: cal.duty
+    params: [{name: value, type: float, optional: true}]
+  - {header: ":CHANnel<ch>:AMPLitude:UNIT", state: ch.amplitude_unit}
+  - {header: ":CHANnel<ch>:LOAD", state: ch.load}
+  - {header: ":CHANnel<ch>:OUTPut", state: ch.output, dangerous: true}
+  - {header: ":SYSTem:CLKSource", state: clock_source}

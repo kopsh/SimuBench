@@ -244,11 +244,12 @@ def _workspace_checks(workspace: Path) -> list[Check]:
     if not workspace.is_dir():
         return [Check("workspace", "fail", f"{workspace} does not exist")]
     out = [Check("workspace", "ok", str(workspace))]
-    lib = DefinitionLibrary([workspace / "instruments"])
     bad = []
     count = 0
     for path in scan(workspace):
         count += 1
+        # Definitions next to the bench come first, as when the bench starts (real-models.md 9).
+        lib = DefinitionLibrary(dict.fromkeys([path.parent / "instruments", workspace / "instruments"]))
         try:
             _, report = validate_data(load_yaml(path.read_text(encoding="utf-8")), lib)
             if not report.ok:
