@@ -1,0 +1,100 @@
+# A calibrator built from generic components only, to test calibrator_output, the quantities
+# parameter type and the declared error query (issue 90, metrology-authoring.md 5). Test-only,
+# not in the product library (D42); the numbers are the test's own, not a real model's.
+schema: simubench.instrument/1
+id: test-calibrator
+manufacturer: SimuBench
+model: CAL-TEST-1
+class: calibrator
+version: 1
+description: 测试用校准源：工作/待机、建立时间、过载跳回待机、按单位分派的输出参数与错误查询。
+errors:
+  0: "No error"
+  21: "Excess current"
+  22: "Value requires a unit"
+  23: "Unit not usable here"
+  24: "Unit given twice"
+  25: "Combination not allowed"
+state:
+  out.function:
+    type: enum
+    options: [DCV, ACV]
+    default: DCV
+    electrical: true
+    label: 功能
+    label_en: Function
+  out.level:
+    type: float
+    unit: V
+    default: 0.0
+    electrical: true
+    label: 幅度
+    label_en: Level
+  out.frequency:
+    type: float
+    unit: HZ
+    default: 0.0
+    electrical: true
+    label: 频率
+    label_en: Frequency
+  out.operate:
+    type: bool
+    default: false
+    electrical: true
+    label: 工作
+    label_en: Operate
+  out.unit:
+    type: enum
+    options: [V, A]
+    default: V
+    label: 单位
+    label_en: Unit
+components:
+  - name: out
+    type: calibrator_output
+    params:
+      function: $out.function
+      level: $out.level
+      frequency: $out.frequency
+      operate: $out.operate
+      z_out: 0.0
+      i_max: 0.05
+      settle: {DCV: 0.004, ACV: 0.01}
+      standby_above: 22.0
+      overload_error: 21
+  - name: sys
+    type: system
+ports:
+  instrument:
+    OUT: out.out
+commands:
+  - header: "OPER"
+    op: out.operate
+    query: false
+    args: {value: true}
+  - header: "STBY"
+    op: out.operate
+    query: false
+    args: {value: false}
+  - header: "OUT"
+    params:
+      - name: q
+        type: quantities
+        units:
+          V: {state: out.level, sets: {out.unit: V}}
+          HZ: {state: out.frequency}
+        combine:
+          "V": {out.function: DCV}
+          "V,HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+        missing_unit_error: 22
+        unknown_unit_error: 23
+        duplicate_unit_error: 24
+        combine_error: 25
+    reply: "{out.level},{out.unit},{out.frequency},HZ"
+  - header: "ERR"
+    op: sys.next_error
+    set: false
+    reply: '{code},"{text}"'
+  - header: "ERR:COUNt"
+    op: sys.error_count
+    set: false

@@ -198,6 +198,18 @@
 
 `system` 组件增加 `next_error`、`error_count` op，复用内置错误队列与定义的 `errors`，回复格式由命令的 `reply` 模板给出（`{code},{text}` 等）。这样 `ERR?` 一类写法可以声明，不必挂在 `:SYSTem:ERRor` 下。
 
+### 5.4 实现与设计的差别（#90）
+
+- **`quantities` 的应答单位**：模板里 `{out.unit}` 按普通状态解决——定义声明一个状态（枚举或字符串），units 表的 `sets` 在写数值的同时把它写成当前单位（`V: {state: out.level, sets: {out.unit: V}}`），查询的 `reply` 模板引用它（`{out.level},{out.unit},{out.frequency},HZ`）。引擎没有引入 `{<参数>.unit}` 之类的特殊语法。
+- **组合键的规范化**：`combine` 的键按 units 表的声明顺序规范化（写 "V,HZ" 与 "HZ,V" 等价），输入里单位的先后无关；`combine` 声明时不在表中的组合报错，未声明时任意组合只写各自的状态。
+- **倍率**：`mV`、`kHz` 按现有单位规则（`units.py` 的 `parse_quantity`）：M 单独为毫，MHZ/MOHM 为兆（SCPI-99 7.7）；不是数的参数报 -104。
+- **错误码**：缺单位、未知单位、重复单位与组合不在表中的错误码是 ParamSpec 的参数（`missing_unit_error` / `unknown_unit_error` / `duplicate_unit_error` / `combine_error`，默认 -131、-131、-224、-224），文字按定义的 `errors` 表给出。
+- **静态校验**：units、sets、combine 的每个写入目标都查状态是否存在（枚举值对一下 options），组合键里的单位必须在 units 表中，`if_zero` 指向的状态必须存在（`E-DEF-QUANTITY`、`E-DEF-STATE-UNKNOWN`）；quantities 命令只允许这一个参数、查询必须有 reply 模板（schema 拒绝）。
+- **`system.next_error`**：`{code}` 按 `format.error_code` 写正负号（与 `:SYSTem:ERRor?` 相同），`{text}` 是定义的 `errors` 文字；空队列给 0。
+- **过载只按直流工作点判断**（与 D34 的模式切换同一迭代）：交流功能的负载电流在直流工作点为 0，因此 ACV 不触发过载；交流电流能力需要逐频率的源电流，本期不做。`offset` 只作用于 DCV（偏移是直流概念，与 `dmm_core` 相同）。
+- **过载改变 operate 状态**：仪表确实回到待机（状态与面板都显示待机），错误按 `overload_error` 参数的码入队（默认 0 = 不报错，码与文字由型号定义给出）；`tripped` 只是面板信息，下一次 OPER 清除并重新建立。
+- **建立**：只有幅度（level）按一阶过渡（时间常数 settle/5），频率与功能的切换立即生效；settle 按目标功能取表。待机下改设定不触发建立、也不触发 `standby_above`——进入工作本身就是确认。
+
 ## 6. 四线测量与引线电阻（C5，#91）
 
 - **引线配件** `lead`：`IN` / `OUT`，参数 `r`。它不是 `role: series`（那一类阻抗可忽略），端接判断与电路求解都算上它。测试台写 `accessories: [{type: lead, params: {r: 0.5}}]`。
