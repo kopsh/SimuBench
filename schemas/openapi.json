@@ -1154,7 +1154,7 @@
             "additionalProperties": {
               "type": "string"
             },
-            "description": "Commands the UI sends for front-panel actions, e.g. {single: ':TRIGger:MODE SINGle'}; defaults: single ':SINGle'",
+            "description": "Front-panel buttons as the model's own commands, run inside the instrument (not over SCPI, D32), e.g. {single: ':TRIGger:MODE SINGle'}; run, stop and single default to the acquisition component's operations",
             "title": "Actions",
             "type": "object"
           },
@@ -2612,6 +2612,49 @@
         "title": "OperationParam",
         "type": "object"
       },
+      "PanelRequest": {
+        "properties": {
+          "action": {
+            "description": "A front-panel button (D32): not a SCPI command, no communication log, no virtual time",
+            "enum": [
+              "run",
+              "stop",
+              "single"
+            ],
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "PanelRequest",
+        "type": "object"
+      },
+      "PanelResponse": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorItem"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "error"
+        ],
+        "title": "PanelResponse",
+        "type": "object"
+      },
       "ParamInfo": {
         "properties": {
           "default": {
@@ -3249,6 +3292,18 @@
       "RunEvent": {
         "description": "An event as recorded; binary replies carry their hash and the acquisition that regenerates them.",
         "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A front-panel button, for panel events: run | stop | single",
+            "title": "Action"
+          },
           "channels": {
             "anyOf": [
               {
@@ -3345,7 +3400,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | fault | acquisition | session",
+            "description": "scpi | state | advance | error | fault | acquisition | panel | session",
             "title": "Kind",
             "type": "string"
           },
@@ -3486,6 +3541,7 @@
           "dt_ns",
           "reason",
           "wall",
+          "action",
           "sha256",
           "recipe",
           "channels"
@@ -3614,6 +3670,7 @@
         "type": "object"
       },
       "ScopeScreen": {
+        "description": "What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:\nnoise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition.",
         "properties": {
           "acquisitions": {
             "title": "Acquisitions",
@@ -3623,10 +3680,15 @@
             "title": "Instrument",
             "type": "string"
           },
+          "running": {
+            "description": "Running in an auto or normal mode: the screen follows the signal",
+            "title": "Running",
+            "type": "boolean"
+          },
           "source": {
             "enum": [
-              "record",
-              "preview"
+              "live",
+              "record"
             ],
             "title": "Source",
             "type": "string"
@@ -3649,11 +3711,18 @@
           "trigger_source": {
             "title": "Trigger Source",
             "type": "integer"
+          },
+          "waiting": {
+            "description": "A single acquisition armed, waiting for a trigger",
+            "title": "Waiting",
+            "type": "boolean"
           }
         },
         "required": [
           "instrument",
           "source",
+          "running",
+          "waiting",
           "timebase_scale",
           "trigger_level",
           "trigger_source",
@@ -6175,6 +6244,65 @@
         "summary": "Internals"
       }
     },
+    "/api/sessions/{sid}/instruments/{name}/panel": {
+      "post": {
+        "description": "A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32).",
+        "operationId": "panel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PanelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PanelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Panel"
+      }
+    },
     "/api/sessions/{sid}/instruments/{name}/readings": {
       "get": {
         "operationId": "instrumentReadings",
@@ -6300,17 +6428,6 @@
             "required": true,
             "schema": {
               "title": "Name",
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "source",
-            "required": false,
-            "schema": {
-              "default": "preview",
-              "pattern": "^(record|preview)$",
-              "title": "Source",
               "type": "string"
             }
           }

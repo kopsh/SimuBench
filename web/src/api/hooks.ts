@@ -5,7 +5,7 @@ export const keys = {
   benches: ["benches"] as const,
   sessions: ["sessions"] as const,
   session: (sid: string) => ["session", sid] as const,
-  screen: (sid: string, name: string, source: string) => ["screen", sid, name, source] as const,
+  screen: (sid: string, name: string) => ["screen", sid, name] as const,
   catalog: ["catalog"] as const,
   faults: (sid: string) => ["faults", sid] as const,
   readings: (sid: string, name: string) => ["readings", sid, name] as const,
@@ -148,17 +148,27 @@ export function useNetLevels(sid: string, version: number, enabled = true) {
   });
 }
 
-export function useScopeScreen(sid: string, name: string, source: "preview" | "record", version: number) {
+/** How often a running scope's screen redraws, in real time (reads only: no SCPI, no virtual time). */
+const SCREEN_REFRESH_MS = 300;
+
+export function useScopeScreen(sid: string, name: string, version: number) {
   return useQuery({
-    queryKey: [...keys.screen(sid, name, source), version],
+    queryKey: [...keys.screen(sid, name), version],
     queryFn: () =>
-      unwrap(
-        api.GET("/api/sessions/{sid}/instruments/{name}/screen", {
-          params: { path: { sid, name }, query: { source } },
-        }),
-      ),
+      unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/screen", { params: { path: { sid, name } } })),
     placeholderData: (prev) => prev,
     staleTime: Infinity,
+    refetchInterval: (q) => (q.state.data?.running ? SCREEN_REFRESH_MS : false),
+  });
+}
+
+/** A front-panel button (Run, Stop, Single): inside the instrument, not a SCPI command (D32). */
+export function usePanel(sid: string, name: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (action: "run" | "stop" | "single") =>
+      unwrap(api.POST("/api/sessions/{sid}/instruments/{name}/panel", { params: { path: { sid, name } }, body: { action } })),
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.screen(sid, name) }),
   });
 }
 

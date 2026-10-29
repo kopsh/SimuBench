@@ -179,8 +179,11 @@ function CommRow({ e }: { e: Event }) {
 }
 
 function EventRow({ e }: { e: Event }) {
+  const { t } = useTranslation();
   const text =
-    e.kind === "fault"
+    e.kind === "panel"
+      ? `${e.instrument} ${t("panel.frontPanel")}: ${t(`scope.${e.action ?? "run"}`)}  (${e.source ?? ""})`
+      : e.kind === "fault"
       ? `${e.fault} ${e.reason}  ${e.message ?? ""}  (${e.source ?? ""})`
       : e.kind === "state"
       ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`

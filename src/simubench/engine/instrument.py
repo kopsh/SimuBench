@@ -325,6 +325,39 @@ class Instrument:
             self._output.append(b";".join(responses) + b"\n")
         return duration
 
+    PANEL_ACTIONS = ("run", "stop", "single")
+
+    def panel(self, action: str) -> None:
+        """A front-panel operation (D32): Run, Stop or Single pressed on the instrument itself.
+
+        Not a SCPI command: nothing reaches the communication log, the error queue or a script's
+        pending reply, and no virtual time passes. ``display.actions`` may name the command the
+        model's own button is equivalent to (run inside the instrument); otherwise the acquisition
+        component's ``run``, ``stop`` and ``single`` operations (``digitize`` for a scope without a
+        single mode). A refused action raises the ScpiError instead of queuing it."""
+        if action not in self.PANEL_ACTIONS:
+            raise ScpiError(-224, f"no front-panel action {action!r}")
+        command = self.definition.display.actions.get(action)
+        if command:
+            path: tuple[Token, ...] = ()
+            for raw in split_units(command.encode()):
+                unit = parse_unit(raw)
+                tokens = unit.tokens if unit.common or unit.absolute or not path else path + unit.tokens
+                if not unit.common:
+                    path = tokens[:-1]
+                self._execute(unit, tokens)  # the reply and the time it would take are a panel's own
+            return
+        acq = self.components.get("acq")
+        if acq is None:
+            raise ScpiError(-224, f"{self.name} has no front-panel {action}")
+        name = action
+        if action == "single" and not acq.param("single"):
+            name = "digitize"  # no single mode: one acquisition of the displayed channels
+        fn = acq.operation(name)
+        if fn is None:
+            raise ScpiError(-224, f"{self.name} has no front-panel {action}")
+        fn()
+
     def take_output(self) -> bytes | None:
         """Pop the next response message, or None when nothing is queued."""
         return self._output.pop(0) if self._output else None

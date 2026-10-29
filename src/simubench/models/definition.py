@@ -280,8 +280,9 @@ class Display(_Model):
     channel_summary: list[str] = Field(default_factory=list)
     actions: dict[str, str] = Field(
         default_factory=dict,
-        description="Commands the UI sends for front-panel actions, e.g. {single: ':TRIGger:MODE SINGle'}; "
-        "defaults: single ':SINGle'",
+        description="Front-panel buttons as the model's own commands, run inside the instrument (not over "
+        "SCPI, D32), e.g. {single: ':TRIGger:MODE SINGle'}; run, stop and single default to the acquisition "
+        "component's operations",
     )
 
 
