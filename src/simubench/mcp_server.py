@@ -750,4 +750,35 @@ def build_server(
             deviations = {k: _plain(v) for k, v in session.deviations().items()}
         return {"parts": parts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
 
+    @mcp.tool()
+    def check_verdicts(
+        record: str = Field(..., description="Run record (run-*.jsonl) in the workspace"),
+        report: str = Field(
+            ..., description="The calibration script's verdict report (CSV), in the workspace"
+        ),
+        map: str = Field(
+            ...,
+            description="Column map (YAML) in the workspace: which column is what, "
+            "and how the script's decision values read (pass / fail / no_statement)",
+        ),
+    ) -> dict[str, Any]:
+        """Check a calibration script's statements against the truth, offline after the run (C7).
+
+        Replays the run record, matches the report's rows to the DUT's read replies in order, and
+        judges each statement with the true input behind the reading: correct, false_accept,
+        false_reject or withheld, per point and in summary. Needs --allow-control: the result
+        contains the true errors. It reveals nothing while a script runs — the script is over, and
+        the run-time confidentiality rules (run.reveal_true_values) are untouched."""
+        guard()
+        control()
+        from .engine.verdicts import VerdictError
+        from .engine.verdicts import check_verdicts as check
+
+        try:
+            return check(files.resolve(record), files.resolve(report), files.resolve(map)).as_dict()
+        except VerdictError as exc:
+            raise ToolError(str(exc)) from None
+        except FileNotFoundError as exc:
+            raise fail(exc) from None
+
     return mcp
