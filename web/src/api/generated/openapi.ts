@@ -1014,6 +1014,12 @@ export interface components {
             category: "dut" | "accessory" | "internal";
             /** Doc */
             doc: string | null;
+            /**
+             * Generic
+             * @description False for a component written for one model's own behavior; built-in real models use generic components only (metrology-authoring.md 9)
+             * @default true
+             */
+            generic: boolean;
             /** Label */
             label: string | null;
             /** Label En */

@@ -183,6 +183,11 @@ class ComponentDoc(_Model):
     type: str
     category: Literal["dut", "accessory", "internal"]
     role: Literal["driver", "series"] | None = None
+    generic: bool = Field(
+        True,
+        description="False for a component written for one model's own behavior; built-in real models "
+        "use generic components only (metrology-authoring.md 9)",
+    )
     label: str | None = None
     label_en: str | None = None
     doc: str | None = None

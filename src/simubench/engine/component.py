@@ -133,6 +133,9 @@ class Component:
     port_pattern: ClassVar[str | None] = None
     #: Circuit role (see :data:`Role`); input impedance comes from ``impedance_of(params)``.
     role: ClassVar[Role | None] = None
+    #: False for a component written for one model's own behavior: built-in real models may not
+    #: use one beyond the list in tests/test_model_components.py (metrology-authoring.md 9).
+    generic: ClassVar[bool] = True
     defaults: ClassVar[dict[str, Any]] = {}
     units: ClassVar[dict[str, str]] = {}
     #: Components with state that evolves in virtual time (filters, oscillators) set this and
