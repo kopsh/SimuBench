@@ -325,10 +325,82 @@ def validate_bench(
         elif f.instrument is None:
             report.add("error", "E-FAULT-TARGET", _ptr(*fp), f"{f.kind} 故障需要 instrument")
 
+    # ---- remote sense of sources (metrology-authoring.md 6) ----
+    _check_sense(bench, defs, report)
+
     # ---- nets: one driver per net, impedance hints ----
     if report.ok:
         _check_nets(bench, defs, report)
     return report
+
+
+def _component_param(d: InstrumentDefinition, comp: Any, inst: Any, name: str) -> Any:
+    """A definition component's parameter as the bench leaves it (bindings through state)."""
+    cls = component_types().get(comp.type)
+    if cls is None:
+        return None
+    value = {**cls.defaults, **comp.params}.get(name)
+    ref = binding_of(value)
+    if ref is None:
+        return value
+    spec = (d.channel_state if ref.startswith("ch.") else d.state).get(
+        ref[3:] if ref.startswith("ch.") else ref
+    )
+    setting = inst.state.get(ref, spec.default if spec else None)
+    return map_setting(value, setting) if isinstance(value, dict) else setting
+
+
+def _check_sense(
+    bench: BenchDefinition,
+    defs: dict[str, InstrumentDefinition],
+    report: Report,
+) -> None:
+    """A source with remote sense on warns while a sense terminal is unconnected (the loop falls
+    back to the force terminals and readings error); both sense terminals on one net is a mistake
+    the circuit could not solve."""
+
+    def truthy(value: Any) -> bool:
+        return value if isinstance(value, bool) else str(value).strip().upper() in ("1", "ON", "TRUE", "YES")
+
+    net_of = {ref: i for i, members in enumerate(_nets(bench)) for ref in members}
+    types = component_types()
+    for name, inst in bench.instruments.items():
+        d = defs.get(name)
+        if d is None:
+            continue
+        for comp in d.components:
+            cls = types.get(comp.type)
+            if cls is None or not cls.sense_ports or not cls.sense_param:
+                continue
+            if not truthy(_component_param(d, comp, inst, cls.sense_param)):
+                continue
+            exposed: dict[str, str | None] = {}
+            for sp in cls.sense_ports:
+                hits = [p for p, t in d.ports.instrument.items() if t == f"{comp.name}.{sp}"]
+                exposed[sp] = f"{name}.{hits[0]}" if hits else None
+            state_path = binding_of(comp.params.get(cls.sense_param))
+            ptr = _ptr("instruments", name, "state", state_path) if state_path else _ptr("instruments", name)
+            unconnected = [sp for sp, ref in exposed.items() if ref is None or ref not in net_of]
+            if unconnected:
+                report.add(
+                    "warning",
+                    "W-SENSE-UNCONNECTED",
+                    ptr,
+                    f"{name} 的远端检测开启，但 sense 端 {', '.join(unconnected)} 没有接线：读数会报错，电压环退回 force 端",
+                    "把两个 sense 端接到被测件的两端，或关闭远端检测",
+                    name,
+                )
+            elif len(cls.sense_ports) == 2:
+                nets = [net_of[exposed[sp]] for sp in cls.sense_ports]  # type: ignore[arg-type]
+                if nets[0] == nets[1]:
+                    report.add(
+                        "error",
+                        "E-SENSE-SHORT",
+                        ptr,
+                        f"{name} 的两个 sense 端接在同一网络上，远端检测无法调节",
+                        "把两个 sense 端分别接到被测件的两端",
+                        name,
+                    )
 
 
 def _check_nets(

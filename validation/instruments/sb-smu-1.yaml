@@ -4,7 +4,7 @@ manufacturer: SimuBench
 model: SB-SMU-1
 class: smu
 version: 1
-description: 源测量单元，强制电压或电流（210 V、1.05 A；21 V 以上 105 mA），四象限限值；线性、对数、列表扫描与测量缓冲区；读数时间由 NPLC 计算。
+description: 源测量单元，强制电压或电流（210 V、1.05 A；21 V 以上 105 mA），四象限限值；远端检测（四线）与浮地 LO；线性、对数、列表扫描与测量缓冲区；读数时间由 NPLC 计算。
 identity:
   serial: SBSMU000001
   firmware: "1.0.0"
@@ -55,6 +55,18 @@ state:
     electrical: true
     label: 输出
     label_en: Output
+  sense.remote:
+    type: bool
+    default: false
+    electrical: true
+    label: 远端检测
+    label_en: Remote sense
+  terminal.floating:
+    type: bool
+    default: false
+    electrical: true
+    label: 浮地 LO
+    label_en: Floating LO
   sense.nplc:
     type: float
     min: 0.01
@@ -142,6 +154,8 @@ components:
       i_limit: $compliance.current.limit
       v_limit: $compliance.voltage.limit
       output: $output.enabled
+      remote_sense: $sense.remote
+      floating: $terminal.floating
       nplc: $sense.nplc
       autozero: $sense.autozero
       line_freq: $system.line_freq
@@ -167,6 +181,9 @@ components:
 ports:
   instrument:
     HI: core.hi
+    LO: core.lo
+    SENSE_HI: core.sense_hi
+    SENSE_LO: core.sense_lo
 display:
   template: smu
   summary: [source.function, source.voltage.level, source.current.level, compliance.current.limit, compliance.voltage.limit, output.enabled]
@@ -205,6 +222,10 @@ commands:
   - header: ":OUTPut[:STATe]"
     state: output.enabled
     dangerous: true
+  - header: "[:SENSe]:REMote[:STATe]"
+    state: sense.remote
+  - header: ":SYSTem:FLOATing"
+    state: terminal.floating
   - header: ":OUTPut:REGulation"
     op: core.regulation
     set: false

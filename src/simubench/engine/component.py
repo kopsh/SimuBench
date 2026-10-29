@@ -162,6 +162,11 @@ class Component:
     port_pattern: ClassVar[str | None] = None
     #: Circuit role (see :data:`Role`); input impedance comes from ``impedance_of(params)``.
     role: ClassVar[Role | None] = None
+    #: Ports that carry a source's remote-sense feedback, and the parameter that enables it: the
+    #: bench validator warns when the setting is on but either port is left unconnected
+    #: (metrology-authoring.md 6).
+    sense_ports: ClassVar[tuple[str, ...]] = ()
+    sense_param: ClassVar[str] = ""
     #: False for a component written for one model's own behavior: built-in real models may not
     #: use one beyond the list in tests/test_model_components.py (metrology-authoring.md 9).
     generic: ClassVar[bool] = True
@@ -250,6 +255,11 @@ class Component:
     def pin_signal(self, port: str) -> Signal:
         """Voltage on the net an electrical port is connected to."""
         return self.session.port_signal(self, port)
+
+    def wired(self, port: str) -> bool:
+        """Whether an electrical port is wired into the bench (a wire connects it)."""
+        ref = self.session.port_ref(self, port)
+        return ref is not None and ref in self.session.port_net
 
     # ---- electrical --------------------------------------------------------------------------
 

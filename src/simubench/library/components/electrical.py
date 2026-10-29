@@ -180,6 +180,26 @@ class PassiveProbe(Component):
             circuit.resistor(node("IN"), node("OUT"), r_series)
 
 
+@component("lead")
+class Lead(Component):
+    """A test lead on a wire: a real series resistance (metrology-authoring.md 6).
+
+    Unlike a ``series`` accessory such as a cable, it is not negligible: the termination check does
+    not look through it and the bench circuit solves the drop across it.
+    """
+
+    category = "accessory"
+    label = "测试导线"
+    label_en = "Test lead"
+    units = {"r": "OHM"}
+
+    ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("out", "electrical")}
+    defaults = {"r": 0.1}  # series resistance
+
+    def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
+        circuit.resistor(node("IN"), node("OUT"), max(float(self.param("r")), 1e-6))
+
+
 @component("coax_cable")
 class CoaxCable(Component):
     """A short cable: a small series resistance (no delay or reflections).

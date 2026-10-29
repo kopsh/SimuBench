@@ -47,6 +47,7 @@ class _Current:
 
     node: Hashable
     sid: Hashable
+    sign: float = 1.0
 
 
 @dataclass
@@ -60,11 +61,29 @@ class _Vcvs:
 
 
 @dataclass
+class _LoopSource:
+    """Feedback source of a four-wire measurement (metrology-authoring.md 6).
+
+    Regulates ``V(sense_a) − V(sense_b)`` to the EMF of ``sid`` while the loop current leaves
+    ``force_a`` and returns into ``force_b``: the voltage loop senses the load, the current still
+    flows through the force terminals (a controlled constraint, one extra unknown in the MNA).
+    Sense and force terminals coincide for a two-wire source; a terminal may be GROUND.
+    """
+
+    sense_a: Hashable
+    sense_b: Hashable
+    force_a: Hashable
+    force_b: Hashable
+    sid: Hashable
+
+
+@dataclass
 class Circuit:
     branches: list[_Branch] = field(default_factory=list)
     sources: list[_Source] = field(default_factory=list)
     vcvs: list[_Vcvs] = field(default_factory=list)
     currents: list[_Current] = field(default_factory=list)
+    loop_sources: list[_LoopSource] = field(default_factory=list)
     _nodes: dict[Hashable, int] = field(default_factory=dict)
 
     # ---- building --------------------------------------------------------------------------------
@@ -102,10 +121,22 @@ class Circuit:
         self.node(node)
         self.sources.append(_Source(node, sid, float(z)))
 
-    def current(self, node: Hashable, sid: Hashable) -> None:
-        """An ideal current source pushing source ``sid``'s signal (in A) into ``node``."""
+    def current(self, node: Hashable, sid: Hashable, sign: float = 1.0) -> None:
+        """An ideal current source pushing source ``sid``'s signal (in A) into ``node``;
+        a negative ``sign`` draws it (the return path of a source whose LO is not ground)."""
         self.node(node)
-        self.currents.append(_Current(node, sid))
+        self.currents.append(_Current(node, sid, sign))
+
+    def loop_source(
+        self, sense_a: Hashable, sense_b: Hashable, force_a: Hashable, force_b: Hashable, sid: Hashable
+    ) -> None:
+        """A feedback source regulating ``V(sense_a) − V(sense_b)`` to ``sid``'s EMF, its loop
+        current leaving ``force_a`` and returning into ``force_b`` (four-wire remote sense)."""
+        self.node(sense_a)
+        self.node(sense_b)
+        self.node(force_a)
+        self.node(force_b)
+        self.loop_sources.append(_LoopSource(sense_a, sense_b, force_a, force_b, sid))
 
     def controlled(self, out: Hashable, ctrl: Hashable, gain: Admittance, z: float) -> None:
         self.node(out)
@@ -121,10 +152,19 @@ class Circuit:
     def solve(self, freqs: Iterable[float]) -> Solution:
         f = np.unique(np.asarray(list(freqs), dtype=float))
         n = len(self._nodes)
-        sids = list(dict.fromkeys([*(s.sid for s in self.sources), *(c.sid for c in self.currents)]))
-        # Extra unknowns: one current per ideal (z == 0) source and per controlled source.
+        sids = list(
+            dict.fromkeys(
+                [
+                    *(s.sid for s in self.sources),
+                    *(c.sid for c in self.currents),
+                    *(ls.sid for ls in self.loop_sources),
+                ]
+            )
+        )
+        # Extra unknowns: one current per ideal (z == 0) source, per controlled source and per
+        # feedback (loop) source.
         ideal = [s for s in self.sources if s.z == 0]
-        k = n + len(ideal) + len(self.vcvs)
+        k = n + len(ideal) + len(self.vcvs) + len(self.loop_sources)
         a = np.zeros((f.size, k, k), dtype=complex)
         b = np.zeros((f.size, k, len(sids)), dtype=complex)
         idx = self._nodes
@@ -162,7 +202,7 @@ class Circuit:
                 b[:, i, col] += g  # Norton equivalent: EMF / z injected into the node
 
         for cs in self.currents:
-            b[:, idx[cs.node], sids.index(cs.sid)] += 1
+            b[:, idx[cs.node], sids.index(cs.sid)] += cs.sign
 
         for v in self.vcvs:
             io, ic = idx[v.out], idx[v.ctrl]
@@ -180,9 +220,25 @@ class Circuit:
                 a[:, row, row] = 1
             row += 1
 
+        for ls in self.loop_sources:
+            col = sids.index(ls.sid)
+            # The constraint: V(sense_a) − V(sense_b) = EMF (the sense path carries no current).
+            for sign, nd in ((1.0, ls.sense_a), (-1.0, ls.sense_b)):
+                if nd != GROUND:
+                    a[:, row, idx[nd]] += sign
+            b[:, row, col] += 1
+            # The loop current leaves force_a and returns into force_b.
+            for sign, nd in ((1.0, ls.force_a), (-1.0, ls.force_b)):
+                if nd != GROUND:
+                    a[:, idx[nd], row] += sign
+            row += 1
+
         x = np.linalg.solve(a, b) if k else np.zeros((f.size, 0, len(sids)), dtype=complex)
         # The extra unknown of an ideal source is the current flowing from its node into it.
         currents = {s.sid: -x[:, n + j, :] for j, s in enumerate(ideal)}
+        first_loop = n + len(ideal) + len(self.vcvs)
+        for j, ls in enumerate(self.loop_sources):
+            currents[ls.sid] = -x[:, first_loop + j, :]
         return Solution(f, {name: x[:, i, :] for name, i in idx.items()}, sids, currents)
 
 
