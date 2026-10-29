@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import sys
 from collections.abc import Callable
 from itertools import pairwise
@@ -19,7 +20,9 @@ import pytest
 import pyvisa
 
 ROOT = Path(__file__).resolve().parents[1]
-BENCH = ROOT / "examples" / "lowfreq-cal" / "lowfreq_cal.bench.yaml"
+# The bench and its definitions; issue 48 runs this scenario again on a workspace built through MCP alone.
+WORKSPACE = Path(os.environ.get("SIMUBENCH_LFCAL_WORKSPACE") or ROOT / "examples" / "lowfreq-cal")
+BENCH = WORKSPACE / "lowfreq_cal.bench.yaml"
 SCRIPT = ROOT / "examples" / "lowfreq-cal" / "lowfreq_cal_demo.py"
 FREQUENCIES = [1e3, 1e4, 1e5, 1e6]
 
@@ -91,6 +94,9 @@ def test_ac2_any_point_count_reads_back(point):
         cal.write(":CHANnel1:BASE:AMPLitude 1.0")
         cal.write(":CHANnel1:BASE:FREQuency 1000")
         cal.write(":CHANnel1:OUTPut 1")
+        # Two connections: wait until the calibrator has done its commands, or the scope's single
+        # acquisition may be read before the output is on (a piece of a forced record first).
+        cal.query("*OPC?")
         scope.write("C1:VDIV 200 mV")
         scope.write("TDIV 1E-3")
         scope.write("TRMD SINGLE")

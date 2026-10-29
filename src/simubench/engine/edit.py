@@ -100,6 +100,17 @@ class SetAddress(_Op):
     address: str | None = None
 
 
+class SetIdentity(_Op):
+    op: Literal["set_identity"] = "set_identity"
+    instrument: str
+    idn: str | None = Field(
+        None,
+        description="*IDN? reply, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}'; null: the definition's",
+    )
+    serial: str | None = None
+    firmware: str | None = None
+
+
 class Move(_Op):
     op: Literal["move"] = "move"
     name: str
@@ -132,6 +143,7 @@ EditOp = Annotated[
     | SetAccessories
     | SetLabel
     | SetAddress
+    | SetIdentity
     | Move
     | SetMeta
     | SetRun,
@@ -253,6 +265,11 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
         if op.instrument not in b.instruments:
             raise EditError(f"没有名为 {op.instrument!r} 的仪表")
         b.instruments[op.instrument].address = op.address
+    elif isinstance(op, SetIdentity):
+        if op.instrument not in b.instruments:
+            raise EditError(f"没有名为 {op.instrument!r} 的仪表")
+        inst = b.instruments[op.instrument]
+        inst.idn, inst.serial, inst.firmware = op.idn, op.serial, op.firmware
     elif isinstance(op, Move):
         if op.name not in _names(b):
             raise EditError(f"没有名为 {op.name!r} 的仪表或 DUT")

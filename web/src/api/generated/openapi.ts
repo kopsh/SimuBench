@@ -974,6 +974,13 @@ export interface components {
              * @description State path bound to the command, e.g. 'ch.frequency'
              */
             state?: string | null;
+            /**
+             * When
+             * @description Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC")
+             */
+            when?: {
+                [key: string]: string;
+            } | null;
         };
         /**
          * ComponentDoc
@@ -1214,7 +1221,7 @@ export interface components {
             /** Base Sha256 */
             base_sha256: string;
             /** Ops */
-            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
+            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
             /** Path */
             path: string;
             /**
@@ -1783,6 +1790,12 @@ export interface components {
          */
         ParamSpec: {
             /**
+             * Index
+             * @description An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)
+             * @default false
+             */
+            index: boolean;
+            /**
              * Keys
              * @description type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set
              */
@@ -2291,6 +2304,25 @@ export interface components {
              * @enum {string}
              */
             op: "set_address";
+        };
+        /** SetIdentity */
+        SetIdentity: {
+            /** Firmware */
+            firmware?: string | null;
+            /**
+             * Idn
+             * @description *IDN? reply, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}'; null: the definition's
+             */
+            idn?: string | null;
+            /** Instrument */
+            instrument: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_identity";
+            /** Serial */
+            serial?: string | null;
         };
         /** SetLabel */
         SetLabel: {

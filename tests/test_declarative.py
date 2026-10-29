@@ -297,3 +297,96 @@ def test_static_checks_of_the_new_fields():
             ("E-DEF-DIALECT", "/dialect/echo_header"),
         ]
     )
+
+
+# ---- commands told apart by a parameter, index parameters (issue 48) -------------------------------
+
+AUTHORING = {
+    **DEMO,
+    "state": {
+        **DEMO["state"],
+        **{
+            f"slot.p{i}.kind": {"type": "enum", "options": ["NULL", "AMPL", "FREQ"], "default": "NULL"}
+            for i in (1, 2)
+        },
+        **{f"slot.p{i}.source": {"type": "enum", "options": ["C1", "C2"], "default": ""} for i in (1, 2)},
+    },
+    "components": [{"name": "sys", "type": "system"}],
+    "commands": [
+        *DEMO["commands"],
+        {"header": "*CLS", "op": "sys.clear_status"},
+        {
+            "header": "SLOT",
+            "params": [
+                {"name": "n", "type": "int", "index": True, "min": 1, "max": 2},
+                {"name": "kind", "type": "enum", "state": "slot.p{n}.kind"},
+                {"name": "source", "type": "enum", "state": "slot.p{n}.source", "optional": True},
+            ],
+        },
+        {
+            "header": "ACTion",
+            "when": {"what": "PRESET"},
+            "op": "sys.reset",
+            "query": False,
+            "params": [{"name": "what", "type": "string"}],
+        },
+        {
+            "header": "ACTion",
+            "when": {"what": "CLEAR"},
+            "op": "sys.clear_status",
+            "query": False,
+            "params": [{"name": "what", "type": "string"}],
+        },
+    ],
+}
+
+
+def test_the_authoring_definition_is_clean():
+    assert codes(AUTHORING) == []
+
+
+def test_an_index_picks_the_settings_and_a_query_takes_it():
+    _, inst, query, write = open_demo(AUTHORING)
+    assert query("SLOT? 1") == "SLOT 1,NULL"  # the source is not set: left out
+    write("SLOT 2,AMPL,C2")
+    assert query("SLOT? 2") == "SLOT 2,AMPL,C2"
+    assert inst.get_state("slot.p2.kind") == "AMPL" and inst.get_state("slot.p1.kind") == "NULL"
+    write("SLOT 3,AMPL")
+    assert error(query).startswith("-222,")
+    write("SLOT 1,VOLT")
+    assert error(query).startswith("-224,")
+
+
+def test_commands_on_one_header_told_apart_by_a_parameter():
+    _, inst, query, write = open_demo(AUTHORING)
+    write("MSIZ 20K")
+    write("ACTION PRESET")
+    assert inst.get_state("memory.size") == 10_000  # reset
+    write("C9:VDIV 1")  # an error to clear
+    write("ACT CLEAR")
+    assert error(query) == '0,"No error"'
+    write("ACT FOO")
+    assert error(query).startswith("-224,")
+    assert query("*CLS?") == "0"  # the system component's clear_reply
+
+
+def test_static_checks_of_index_states_when_and_reply_fields():
+    bad = copy.deepcopy(AUTHORING)
+    slot = next(c for c in bad["commands"] if c["header"] == "SLOT")
+    slot["params"][0]["max"] = 3  # slot.p3 does not exist
+    i = bad["commands"].index(slot)
+    bad["commands"].append({"header": "*OPC", "op": "sys.reset", "reply": "{unit}"})  # reset gives no {unit}
+    actions = [k for k, c in enumerate(bad["commands"]) if c["header"] == "ACTion"]
+    bad["commands"][actions[1]]["when"] = {"what": "PRESET"}  # the same value: never runs
+    assert sorted(codes(bad)) == sorted(
+        [
+            ("E-DEF-STATE-UNKNOWN", f"/commands/{i}/params/1/state"),
+            ("E-DEF-STATE-UNKNOWN", f"/commands/{i}/params/2/state"),
+            ("E-DEF-HEADER-DUPLICATE", f"/commands/{actions[1]}/header"),
+            ("E-DEF-REPLY", f"/commands/{len(bad['commands']) - 1}/reply"),
+        ]
+    )
+    with pytest.raises(ValidationError, match="when names"):
+        InstrumentDefinition.model_validate(
+            {**DEMO, "commands": [{"header": "X", "op": "a.b", "when": {"y": "1"}}]}
+        )

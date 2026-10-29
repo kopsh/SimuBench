@@ -99,14 +99,23 @@ state:
     min: 0
     max: 10000
     default: 0
-  measure.p1: {type: string, default: ""}
-  measure.p2: {type: string, default: ""}
-  measure.p3: {type: string, default: ""}
-  measure.p4: {type: string, default: ""}
-  measure.p5: {type: string, default: ""}
-  measure.p6: {type: string, default: ""}
-  measure.p7: {type: string, default: ""}
-  measure.p8: {type: string, default: ""}
+  # PACU 的测量槽位：测量名与信源（未设信源时为空，回复中省略）。
+  measure.p1.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p1.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p2.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p2.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p3.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p3.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p4.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p4.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p5.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p5.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p6.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p6.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p7.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p7.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p8.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER], default: "NULL"}
+  measure.p8.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
 channel_state:
   display:
     type: bool
@@ -159,10 +168,10 @@ channel_state:
     label: 衰减
     label_en: Attenuation
 components:
-  - name: lc
-    type: lecroy_scope
+  - name: sys
+    type: system
   - name: acq
-    type: lecroy_acquisition
+    type: scope_acquisition
     params:
       # 记录正好 MSIZ 点、覆盖 10 格（采样率 MSIZ / 10 TDIV，最高 20 GSa/s，不取仪器的采样率表）。
       record_length: exact
@@ -186,6 +195,16 @@ components:
       adc_divs: 10.0
       adc_offset: add
       noise_rms: 2.0e-4
+      # C<n>:PAVA? 的测量名：引擎的测量与回复的单位。
+      measurements:
+        AMPL: [VAMPlitude, V]
+        PKPK: [VPP, V]
+        MAX: [VMAX, V]
+        MIN: [VMIN, V]
+        MEAN: [VAVerage, V]
+        RMS: [VRMS, V]
+        FREQ: [FREQuency, HZ]
+        PER: [PERiod, S]
   - name: xfer
     type: waveform_transfer
     params:
@@ -199,17 +218,29 @@ components:
       values: volts
       format: "%.6e"
       separator: " "
+      # C<n>:INSPECT? "WAVEDESC"：脚本缩放与定时需要的描述变量，NAME : value，空格分隔。
+      descriptor:
+        WAVE_ARRAY_COUNT: "{points}"
+        FIRST_POINT: "{first}"
+        SPARSING_FACTOR: "{step}"
+        HORIZ_INTERVAL: "{dt:.9e}"
+        HORIZ_OFFSET: "{x_offset:.9e}"
+        VERTICAL_OFFSET: "{offset:.6e}"
+        VERTICAL_GAIN: "{gain:.6e}"
+        TIMEBASE: "{timebase:.6e}"
+        VOLT_PER_DIV: "{scale:.6e}"
+        ACQ_COUNT: "{count}"
 channel_components:
+  # 耦合 A1M（交流 1 MΩ）、D1M、D50（直流 50 Ω）、GND：输入阻抗与前端都由它决定。
   - name: inp
-    type: lecroy_input
+    type: input_port
     params:
-      coupling: $ch.coupling
-      z_in: 1.0e6
+      z_in: {from: $ch.coupling, map: {D50: 50.0}, default: 1.0e6}
       c_in: 1.6e-11
   - name: front
-    type: lecroy_frontend
+    type: scope_frontend
     params:
-      coupling: $ch.coupling
+      coupling: {from: $ch.coupling, map: {A1M: AC, D1M: DC, D50: DC, GND: GND}}
       bandwidth: 2.5e9
       ac_corner: 10.0
 wiring:
@@ -229,9 +260,9 @@ display:
 capabilities: [oscilloscope]
 commands:
   # ---- 公共命令与系统 ----
-  - {header: "*CLS", op: lc.cls}
+  - {header: "*CLS", op: sys.clear_status}
   - {header: "*OPC", op: acq.opc}
-  - {header: ":SYSTem:PRESet", op: lc.preset, query: false}
+  - {header: ":SYSTem:PRESet", op: sys.reset, query: false}
   - {header: "Comm_HeaDeR", state: comm.header}
   # ---- 通道：应答回显命令头与单位，C1:VDIV 200E-3 V ----
   - {header: "C<ch>:TRAce", state: ch.display}
@@ -265,20 +296,39 @@ commands:
     params: [{name: timeout, type: float, unit: S, optional: true}]
   # ---- 测量 ----
   - header: "PArameter_CUstom"
-    op: lc.param_custom
-    params: [{name: params, type: raw}]
+    params:
+      - {name: slot, type: int, index: true, min: 1, max: 8}
+      - {name: kind, type: enum, state: "measure.p{slot}.kind"}
+      - {name: source, type: enum, state: "measure.p{slot}.source", optional: true}
   - header: "C<ch>:PArameter_VAlue"
-    op: acq.pava
+    op: acq.measurement
     set: false
+    reply: "{header} {kind},{value} {unit},{status}"
     params: [{name: kind, type: string}]
   # ---- 波形传输（§5.3 文本回读） ----
   - header: "WaveForm_SetUp"
     params:
       - {name: setup, type: pairs, keys: {SP: waveform.sp, NP: waveform.np, FP: waveform.fp, SN: waveform.sn}}
+  # 按第一个参数区分：DATA_ARRAY_1（SIMPLE 同）回读伏特值，WAVEDESC 给出描述变量；其他名称回复 -224。
   - header: "C<ch>:INSPect"
-    op: acq.inspect
+    when: {name: DATA_ARRAY_1}
+    op: xfer.data
     set: false
     reply: '{header} " {value} "'
     params:
       - {name: name, type: string}
-      - {name: fmt, type: enum, options: [BYTE, WORD, FLOAT], optional: true}
+      - {name: fmt, type: enum, options: [FLOAT], optional: true}
+  - header: "C<ch>:INSPect"
+    when: {name: SIMPLE}
+    op: xfer.data
+    set: false
+    reply: '{header} " {value} "'
+    params:
+      - {name: name, type: string}
+      - {name: fmt, type: enum, options: [FLOAT], optional: true}
+  - header: "C<ch>:INSPect"
+    when: {name: WAVEDESC}
+    op: xfer.describe
+    set: false
+    reply: '{header} " {value} "'
+    params: [{name: name, type: string}]
