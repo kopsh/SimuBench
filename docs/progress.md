@@ -221,7 +221,7 @@
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 型号不依赖专用组件的检查、写型号的操作手册、覆盖表草稿 | ⏳ issue 93 |
+| 型号不依赖专用组件的检查、写型号的操作手册、覆盖表草稿 | ✅ issue 93：组件的 `generic` 标记（组件目录与 MCP `list_components` 显示），`tests/test_model_components.py`（两台 Siglent 的 4 处使用为例外，清单只能缩短；新增使用与已还清未删都会失败并指明定义与组件）；`.claude/skills/real-model/SKILL.md`（其中的命令逐条运行过）；`simubench coverage <id> --draft`（新建、补充时保留手写内容、分节，`tests/test_coverage_draft.py`）；`.github/ISSUE_TEMPLATE/real-model.md` |
 | 测量核心：量程、超量程、分辨率、输入阻抗、按量程的误差 | ⏳ issue 87 |
 | 触发模型、读数存储、待完成操作、`*TRG` | ⏳ issue 88 |
 | 校准存储 | ⏳ issue 89 |

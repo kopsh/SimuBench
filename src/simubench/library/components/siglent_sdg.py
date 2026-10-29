@@ -70,6 +70,8 @@ def check_ranges(s: dict[str, Any]) -> None:
 class SiglentSdg(Component):
     """C<n>:BSWV, C<n>:OUTP, C<n>:INVT, C<n>:SYNC, PACP and BUZZ of an SDG2000X."""
 
+    generic = False
+
     # ---- helpers ----------------------------------------------------------------------------------
 
     def _st(self, ch: int, key: str) -> Any:
@@ -303,6 +305,8 @@ class SiglentSdg(Component):
 @component("siglent_sdg_channel_limits")
 class SiglentSdgChannelLimits(Component):
     """Checks a channel's ranges whenever one of its settings changes outside a command (UI, bench)."""
+
+    generic = False
 
     # The channel settings whose ranges depend on each other (LIMITED), bound for check_ranges().
     defaults = {

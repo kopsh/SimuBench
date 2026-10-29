@@ -660,6 +660,12 @@
             ],
             "title": "Doc"
           },
+          "generic": {
+            "default": true,
+            "description": "False for a component written for one model's own behavior; built-in real models use generic components only (metrology-authoring.md 9)",
+            "title": "Generic",
+            "type": "boolean"
+          },
           "label": {
             "anyOf": [
               {
@@ -739,6 +745,7 @@
           "type",
           "category",
           "role",
+          "generic",
           "label",
           "label_en",
           "doc",

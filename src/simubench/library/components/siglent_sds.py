@@ -59,6 +59,8 @@ def _block9(payload: bytes) -> bytes:
 class SiglentSdsAcquisition(ScopeAcquisition):
     """SDS-series status, WAVEDESC and setting limits on the configurable scope acquisition."""
 
+    generic = False
+
     defaults = {
         **ScopeAcquisition.defaults,
         "level_divs": 4.1,  # trigger level range: +-4.1 div around the offset
@@ -246,6 +248,8 @@ OFFSET_RANGES = ((0.1, 2.0), (1.0, 20.0), (math.inf, 200.0))
 class SiglentSdsChannelLimits(Component):
     """Vertical scale and offset ranges of one channel, which depend on the impedance and the probe
     (data sheet: 500 uV/div to 10 V/div at 1 MOhm, to 1 V/div at 50 Ohm; offset by scale)."""
+
+    generic = False
 
     defaults = {
         "scale": "$ch.scale",  # V/div, checked per division at probe 1X

@@ -36,6 +36,7 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
             type=name,
             category=cls.category,  # type: ignore[arg-type]
             role=cls.role,
+            generic=cls.generic,
             label=cls.label or None,
             label_en=cls.label_en or None,
             doc=inspect.getdoc(cls),
