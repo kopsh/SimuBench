@@ -291,7 +291,7 @@ export const zh = {
     controls: "测量控制",
     read: "单次读数",
     initiate: "执行",
-    initiateHint: "按当前设置执行（:INITiate）：设置了扫描时执行整个扫描，否则读一次。",
+    initiateHint: "按当前设置执行（:INITiate;*WAI）：设置了扫描时执行整个扫描，否则读一次。",
     clearBuffer: "清空缓冲区",
   },
   load: {
