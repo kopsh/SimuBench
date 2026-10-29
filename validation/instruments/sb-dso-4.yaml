@@ -134,6 +134,19 @@ channel_state:
 components:
   - name: acq
     type: scope_acquisition
+  - name: xfer
+    type: waveform_transfer
+    params:
+      # :WAVeform:DATA? 按 :WAVeform:FORMat：BYTE / WORD 为 ADC 码的定长块，ASCii 为伏特的 NR3 列表。
+      source: $waveform.source
+      encoding: {from: $waveform.format, map: {BYTE: block, WORD: block, ASCii: ascii}}
+      values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
+      codes_per_div: {from: $waveform.format, map: {BYTE: 32.0, WORD: 8192.0}, default: 32.0}
+      adc_bits: {from: $waveform.format, map: {BYTE: 8, WORD: 16}, default: 8}
+      width: {from: $waveform.format, map: {BYTE: 8, WORD: 16}, default: 8}
+      unsigned: $waveform.unsigned
+      byteorder: $waveform.byteorder
+      no_record: "no acquisition for this source; send :DIGitize first"
 channel_components:
   - name: inp
     type: input_port
@@ -206,7 +219,7 @@ commands:
     op: acq.preamble
     set: false
   - header: ":WAVeform:DATA"
-    op: acq.data
+    op: xfer.data
     set: false
   - header: ":MEASure:VPP"
     op: acq.measure

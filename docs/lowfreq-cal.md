@@ -11,7 +11,7 @@
 | `lowfreq_cal.bench.yaml` | D4 工作台预设：校准仪 CH1–CH4 经 1 m 同轴线缆接示波器 C1–C4 |
 | `lowfreq_cal_demo.py` | D5 示例脚本：按主机程序的接口契约完成初始化、逐频点采集与回读、收尾 |
 
-D3（私有文本波形回读）是平台组件 `library/components/lecroy.py`（采集、运行控制、`C<n>:INSPECT?`、`PACU`）。示波器的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都在定义文件里声明（方言、应答模板、`pairs` 参数、参数映射，见 [instrument-authoring.md](instrument-authoring.md) 2）。
+D3（私有文本波形回读）由两部分组成：平台组件 `library/components/lecroy.py`（采集、运行控制、`WAVEDESC`、`PACU`），以及通用的 `waveform_transfer`（`DATA_ARRAY_1` 的选点与 `%.6e` 文本，定义中配置，见 [instrument-authoring.md](instrument-authoring.md) 3.1）。示波器的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都在定义文件里声明（方言、应答模板、`pairs` 参数、参数映射，见 [instrument-authoring.md](instrument-authoring.md) 2）。
 
 ## 1. 部署
 

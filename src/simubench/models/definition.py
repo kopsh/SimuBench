@@ -165,8 +165,9 @@ class CommandSpec(_Model):
     reply: str | None = Field(
         None,
         description="Query reply template: {header} (the echoed header, see dialect.echo_header; with "
-        "echo off it and the space after it are left out), {value} (the bound setting) and {<setting>}, "
-        "e.g. '{header} {value} V'. Default: '{header} {value}'",
+        "echo off it and the space after it are left out), {value} (the bound setting, or an "
+        "operation's reply) and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for "
+        "settings; an operation's reply as it is",
     )
     dangerous: bool = False
     doc: str | None = None

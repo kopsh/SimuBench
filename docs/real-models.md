@@ -90,7 +90,7 @@
 | `commands[].header` 为 `*XXX` | 命令 | 定义可以给公共命令自己的行为（如方言中的 `*CLS?`），优先于内置的公共命令。 |
 | `idn` | 测试台实例 | 覆盖定义的 `*IDN?` 回复，字段同 `identity.idn`；用于主机程序校验的型号串。 |
 | `dialect` | 定义 | 非 SCPI 方言的应答框架：`echo_header`（`off` / `short` / `long`，或绑定一个取值为 OFF、SHORT、LONG 的状态，如 LeCroy 的 `COMM_HEADER`），`multipliers`（无单位数值的倍率后缀，如 `MSIZ 10K`）。默认即 SCPI。见 [instrument-authoring.md](instrument-authoring.md) 2。 |
-| `commands[].reply` | 命令 | 查询应答模板：`{header}`（按 `echo_header` 回显的命令头）、`{value}`（绑定的状态）、`{<状态路径>}`，如 `"{header} {value} V"`。 |
+| `commands[].reply` | 命令 | 查询应答模板：`{header}`（按 `echo_header` 回显的命令头）、`{value}`（绑定的状态，或操作的应答）、`{<状态路径>}`，如 `"{header} {value} V"`。 |
 | `commands[].params[].state`、`type: pairs` | 命令 | 参数各自写入一个状态（多状态命令，如 `TRSE EDGE,SR,C1`）；`pairs` 是 `名,值,名,值…`，`keys` 给出每个名对应的状态（`null` 为接受并忽略）。全部校验通过才写入。 |
 | `state.*.ratio` | 状态 | 比例量（0.25）；写入大于 1 的值按百分数读（40 → 0.4）。 |
 | 组件参数 `{from, map, scale, offset, default}` | 定义 | 由设置派生组件参数：查表（不在表中用 `default`，没有 `default` 则原值），再做 `值 × scale + offset`。 |

@@ -239,6 +239,12 @@ class ScopeAcquisition(Component):
     def _source(self) -> int:
         return channel_index(self._st("waveform.source"))
 
+    def transfer_record(self, channel: int, first: int) -> tuple[Record | None, int]:
+        """The record a waveform transfer reads (``waveform_transfer``), and the virtual time getting
+        it took: the last acquisition. ``first`` is the transfer's first point (a read that starts
+        at 0 may acquire anew on models that do)."""
+        return self.records.get(channel), 0
+
     def _record(self) -> Record:
         rec = self.records.get(self._source())
         if rec is None:
@@ -279,25 +285,6 @@ class ScopeAcquisition(Component):
             str(yref).encode(),
         ]
         return OpResult(b",".join(fields))
-
-    @op("data")
-    def data(self, **_: Any) -> OpResult:
-        rec = self.records.get(self._source())
-        if rec is None:
-            assert self.owner is not None
-            self.owner.push_error(-230, "no acquisition for this source; send :DIGitize first")
-            return OpResult(V.format_block(b""))
-        fmt = self._st("waveform.format")
-        if fmt == "ASCii":
-            return OpResult(b",".join(V.format_float(x, 8) for x in rec.volts))
-        codes, _, _ = self._codes(rec)
-        little = self._st("waveform.byteorder") == "LSBFirst"
-        unsigned = bool(self._st("waveform.unsigned"))
-        if fmt == "BYTE":
-            payload = codes.astype("u1" if unsigned else "i1").tobytes()
-        else:
-            payload = V.encode_words(codes, little_endian=little, unsigned=unsigned)
-        return OpResult(V.format_block(payload))
 
     # ---- measurements -----------------------------------------------------------------------------
 
