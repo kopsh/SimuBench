@@ -18,7 +18,7 @@ from pydantic import ValidationError
 from ..library.migrate import FormatError, upgrade
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
-from .component import Component, component_types
+from .component import Component, binding_of, component_types, map_setting
 
 Severity = Literal["error", "warning"]
 
@@ -412,13 +412,14 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
         return None
 
     def value(v: Any) -> Any:
-        if isinstance(v, str) and v.startswith("$"):
-            path = v[1:]
-            key = path[3:] if path.startswith("ch.") else path
-            full = f"ch{channel}.{key}" if path.startswith("ch.") else path
-            spec = (d.channel_state if path.startswith("ch.") else d.state).get(key)
-            return bench.instruments[owner].state.get(full, spec.default if spec else None)
-        return v
+        path = binding_of(v)
+        if path is None:
+            return v
+        key = path[3:] if path.startswith("ch.") else path
+        full = f"ch{channel}.{key}" if path.startswith("ch.") else path
+        spec = (d.channel_state if path.startswith("ch.") else d.state).get(key)
+        setting = bench.instruments[owner].state.get(full, spec.default if spec else None)
+        return map_setting(v, setting) if isinstance(v, dict) else setting
 
     params = {k: value(v) for k, v in {**cls.defaults, **comp.params}.items()}  # type: ignore[union-attr]
     try:

@@ -150,6 +150,31 @@ def format_float(
     return f"{lead}{mantissa}E{'+' if e >= 0 else '-'}{abs(e):0{exponent_digits}d}".encode()
 
 
+def format_engineering(v: float) -> bytes:
+    """Engineering notation, shortest mantissa: ``200E-3``, ``10E+3``, ``1.5E+0`` (LeCroy-style replies)."""
+    v = float(v)
+    if v == 0 or not math.isfinite(v):
+        return b"0E+0" if v == 0 else (b"9.9E+37" if v > 0 else b"-9.9E+37")
+    exp = math.floor(math.log10(abs(v)) / 3) * 3
+    text = f"{v / 10.0**exp:.6g}"
+    if abs(float(text)) >= 1000:  # rounding carried into the next group
+        exp += 3
+        text = f"{v / 10.0**exp:.6g}"
+    return f"{text}E{exp:+d}".encode()
+
+
+def parse_multiplied(raw: bytes, multipliers: dict[str, float]) -> float | None:
+    """A number with a multiplier suffix (``10K``, ``2.5MA``), or None when it has none of them."""
+    text = _text(raw).strip().upper()
+    for suffix in sorted(multipliers, key=len, reverse=True):
+        if text.endswith(suffix.upper()) and len(text) > len(suffix):
+            try:
+                return float(text[: -len(suffix)]) * multipliers[suffix]
+            except ValueError:
+                return None
+    return None
+
+
 def format_int(v: int) -> bytes:
     return str(int(v)).encode()
 

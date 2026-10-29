@@ -6,7 +6,8 @@ Teledyne LeCroy's remote commands are not SCPI trees. Headers are short words (`
 (``C1:VDIV 200E-3 V``) unless ``COMM_HEADER OFF``. These components implement the subset a host
 calibration program uses (docs/lowfreq-cal.md); the physics is the shared oscilloscope engine:
 
-* ``lecroy_scope``: the command layer and its reply format;
+* ``lecroy_scope``: the commands the definition cannot declare (settings, ``TRSE``, ``MSIZ`` and
+  ``WAVEFORM_SETUP`` are declared with ``dialect``, reply templates and ``pairs`` parameters);
 * ``lecroy_acquisition``: timebase, edge trigger, run control (``TRMD``) and waveform transfer,
   including the text readback ``C<n>:INSPECT? "DATA_ARRAY_1",FLOAT``: blank-separated numbers
   between the header and quotes, ``C1:INSP " 1.000000e-03 ... "``, in pieces chosen by
@@ -52,32 +53,6 @@ MEASUREMENTS = {
 TRMD_TEXT = {"AUTO": "AUTO", "NORMal": "NORM", "SINGLE": "SINGLE", "STOP": "STOP"}
 
 
-def lc_number(value: float) -> str:
-    """A number as LeCroy writes it: engineering exponent, shortest mantissa (``200E-3``, ``10E+3``)."""
-    if value == 0 or not math.isfinite(value):
-        return "0E+0" if value == 0 else ("9.9E+37" if value > 0 else "-9.9E+37")
-    exp = math.floor(math.log10(abs(value)) / 3) * 3
-    text = f"{value / 10.0**exp:.6g}"
-    if abs(float(text)) >= 1000:  # rounding carried into the next group
-        exp += 3
-        text = f"{value / 10.0**exp:.6g}"
-    return f"{text}E{exp:+d}"
-
-
-def _points(raw: bytes) -> int:
-    """A point count: ``10000``, ``10K``, ``2.5MA``; ``M`` alone is mega here (milli-points mean nothing)."""
-    text = V.parse_string(raw).strip().upper()
-    mult = 1.0
-    for suffix, k in (("MA", 1e6), ("K", 1e3), ("M", 1e6), ("G", 1e9)):
-        if text.endswith(suffix):
-            text, mult = text[: -len(suffix)], k
-            break
-    try:
-        return round(float(text) * mult)
-    except ValueError:
-        raise ScpiError(-224, f"bad point count {raw!r}") from None
-
-
 class _Dialect(Component):
     """Shared helpers: state access and the header that starts every reply."""
 
@@ -101,77 +76,10 @@ class _Dialect(Component):
 
 @component("lecroy_scope")
 class LecroyScope(_Dialect):
-    """The command layer: settings with LeCroy replies, TRSE, PACU, WAVEFORM_SETUP, *CLS?, presets."""
+    """What the definition cannot declare: PACU (a slot number that picks the setting), *CLS?, presets.
 
-    @op("setting")
-    def setting(self, query: bool = False, channel: int | None = None, value: list[bytes] | None = None,
-                state: str = "", header: str = "", long: str | None = None, unit: str | None = None,
-                **_: Any) -> OpResult:  # fmt: skip
-        """A setting bound to one state variable, e.g. ``C1:VDIV 200 mV`` / ``C1:VDIV?``."""
-        assert self.owner is not None
-        path = f"ch{channel}.{state[3:]}" if state.startswith("ch.") and channel is not None else state
-        if query:
-            return OpResult(self.reply(header, self._text(path, unit), channel, long))
-        if not value:
-            raise ScpiError(-109)
-        if len(value) > 1:
-            raise ScpiError(-108)
-        self._set(path, self.owner.parse_setting(path, value[0]))
-        return OpResult()
-
-    def _text(self, path: str, unit: str | None) -> str:
-        assert self.owner is not None
-        spec, v = self.owner.specs[path], self._st(path)
-        if spec.type == "float":
-            return lc_number(float(v)) + (f" {unit}" if unit else "")
-        if spec.type == "int":
-            return str(int(v))
-        if spec.type == "bool":
-            return "ON" if v else "OFF"
-        if spec.type == "enum":
-            return V.short_form(str(v))
-        return str(v)
-
-    @op("memory_size")
-    def memory_size(self, query: bool = False, value: list[bytes] | None = None, **_: Any) -> OpResult:
-        """``MSIZ 10K`` / ``MSIZ 100000``: the record length in points."""
-        if query:
-            return OpResult(self.reply("MSIZ", lc_number(int(self._st("memory.size"))), long="MEMORY_SIZE"))
-        if not value:
-            raise ScpiError(-109)
-        if len(value) > 1:
-            raise ScpiError(-108)
-        self._set("memory.size", _points(value[0]))
-        return OpResult()
-
-    @op("trig_select")
-    def trig_select(self, query: bool = False, params: list[bytes] | None = None, **_: Any) -> OpResult:
-        """``TRSE EDGE,SR,C1[,HT,OFF]``: trigger type and source (only the edge trigger is modeled)."""
-        if query:
-            body = f"{self._st('trigger.type')},SR,{self._st('trigger.source')},HT,{self._st('trigger.hold')}"
-            return OpResult(self.reply("TRSE", body, long="TRIG_SELECT"))
-        items = [V.parse_string(p).strip().upper() for p in params or []]
-        if not items:
-            raise ScpiError(-109)
-        if items[0] != "EDGE":
-            raise ScpiError(-224, f"trigger type {items[0]} not modeled by SimuBench")
-        new: dict[str, Any] = {"trigger.type": "EDGE"}
-        rest = items[1:]
-        if len(rest) % 2:
-            raise ScpiError(-109, "TRSE parameters come in name,value pairs")
-        assert self.owner is not None
-        for name, raw in zip(rest[::2], rest[1::2], strict=True):
-            if name == "SR":
-                new["trigger.source"] = self.owner.parse_setting("trigger.source", raw.encode())
-            elif name == "HT":
-                new["trigger.hold"] = self.owner.parse_setting("trigger.hold", raw.encode())
-            elif name == "HV":
-                pass  # hold value: only meaningful with a hold type, which is not modeled
-            else:
-                raise ScpiError(-224, f"TRSE parameter {name} not modeled by SimuBench")
-        for path, v in new.items():
-            self._set(path, v)
-        return OpResult()
+    Settings, TRSE, MSIZ and WAVEFORM_SETUP are declared in the definition (dialect, reply templates
+    and ``pairs`` parameters, instrument-authoring.md 2)."""
 
     @op("param_custom")
     def param_custom(self, query: bool = False, params: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -194,25 +102,6 @@ class LecroyScope(_Dialect):
         if items[1] not in MEASUREMENTS and items[1] != "NULL":
             raise ScpiError(-224, f"measurement {items[1]} not modeled by SimuBench")
         self._set(path, ",".join(items[1:]))
-        return OpResult()
-
-    @op("waveform_setup")
-    def waveform_setup(self, query: bool = False, params: list[bytes] | None = None, **_: Any) -> OpResult:
-        """``WAVEFORM_SETUP SP,<sparsing>,NP,<points>,FP,<first point>,SN,<segment>`` (any subset)."""
-        keys = {"SP": "waveform.sp", "NP": "waveform.np", "FP": "waveform.fp", "SN": "waveform.sn"}
-        if query:
-            body = ",".join(f"{k},{int(self._st(p))}" for k, p in keys.items())
-            return OpResult(self.reply("WFSU", body, long="WAVEFORM_SETUP"))
-        items = [V.parse_string(p).strip().upper() for p in params or []]
-        if not items or len(items) % 2:
-            raise ScpiError(-109, "WAVEFORM_SETUP parameters come in name,value pairs")
-        new: dict[str, int] = {}
-        for name, raw in zip(items[::2], items[1::2], strict=True):
-            if name not in keys:
-                raise ScpiError(-224, f"WAVEFORM_SETUP parameter {name}")
-            new[keys[name]] = _points(raw.encode())
-        for path, v in new.items():
-            self._set(path, v)
         return OpResult()
 
     @op("preset")
@@ -518,7 +407,7 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
         rec, used = self._record_for(channel, fresh=True)
         value = _measure(engine_name, rec.volts, rec.dt_s)
         state = "OK" if math.isfinite(value) else "UF"
-        body = f"{what},{lc_number(value) if math.isfinite(value) else 'UNDEF'} {unit},{state}"
+        body = f"{what},{V.format_engineering(value).decode() if math.isfinite(value) else 'UNDEF'} {unit},{state}"
         return OpResult(self.reply("PAVA", body, channel, "PARAMETER_VALUE"), used)
 
 
