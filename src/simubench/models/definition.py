@@ -101,11 +101,24 @@ class ComponentSpec(_Model):
         return self
 
 
+class QuantityUnit(_Model):
+    """What one unit of a ``quantities`` parameter means (metrology-authoring.md 5.2): the setting
+    the value writes, and further settings written at the same time."""
+
+    state: str = Field(..., description="The setting the value writes, e.g. 'out.level'")
+    sets: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Further settings written along with it, e.g. {out.unit: V} or {out.function: DCI}",
+    )
+
+
 class ParamSpec(_Model):
     """A parameter of an operation command."""
 
     name: str
-    type: Literal["float", "int", "bool", "enum", "string", "float_list", "block", "raw", "pairs"]
+    type: Literal[
+        "float", "int", "bool", "enum", "string", "float_list", "block", "raw", "pairs", "quantities"
+    ]
     unit: str | None = None
     options: list[str] | None = None
     optional: bool = False
@@ -126,6 +139,26 @@ class ParamSpec(_Model):
         description="An int that picks which settings the other parameters write: their state paths name "
         "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
     )
+    units: dict[str, QuantityUnit] | None = Field(
+        None,
+        description="type quantities: comma-separated 'value unit' parameters, each written into the "
+        "setting its unit names, e.g. {V: {state: out.level}, HZ: {state: out.frequency}}; the "
+        "multiplier moves into the value (mV, kHz)",
+    )
+    combine: dict[str, dict[str, Any]] | None = Field(
+        None,
+        description="type quantities: what a combination of units writes besides, keyed by the units "
+        "joined with commas in the `units` table's order ('V,HZ'); a value may be conditional, "
+        "{if_zero: <state>, then: ..., else: ...}. A combination not listed is refused",
+    )
+    missing_unit_error: int = Field(
+        -131, description="Error code for a value without a unit (the text comes from `errors`)"
+    )
+    unknown_unit_error: int = Field(-131, description="Error code for a unit the `units` table does not name")
+    duplicate_unit_error: int = Field(-224, description="Error code for a unit given twice in one command")
+    combine_error: int = Field(
+        -224, description="Error code for a combination of units `combine` does not list"
+    )
 
     @model_validator(mode="after")
     def _check(self) -> ParamSpec:
@@ -133,6 +166,15 @@ class ParamSpec(_Model):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
         if self.index and (self.type != "int" or self.state is not None):
             raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
+        if self.type == "quantities":
+            if not self.units:
+                raise ValueError(f"parameter {self.name!r}: quantities need a units table")
+            if self.state is not None or self.keys is not None or self.index:
+                raise ValueError(
+                    f"parameter {self.name!r}: quantities write through units, no state/keys/index"
+                )
+        elif self.units is not None or self.combine is not None:
+            raise ValueError(f"parameter {self.name!r}: units and combine go with type quantities")
         return self
 
 
@@ -194,7 +236,7 @@ class CommandSpec(_Model):
 
     @property
     def bound_params(self) -> list[ParamSpec]:
-        return [p for p in self.params if p.state is not None or p.keys is not None]
+        return [p for p in self.params if p.state is not None or p.keys is not None or p.type == "quantities"]
 
     @model_validator(mode="after")
     def _check(self) -> CommandSpec:
@@ -208,6 +250,19 @@ class CommandSpec(_Model):
             raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
         if indexes and not self.bound_params:
             raise ValueError(f"command {self.header!r}: an index parameter picks the settings others write")
+        quantities = [p for p in self.params if p.type == "quantities"]
+        if quantities:
+            if self.state is not None or self.op is not None:
+                raise ValueError(
+                    f"command {self.header!r}: a quantities parameter writes the settings itself, "
+                    "no state or op beside it"
+                )
+            if len(quantities) > 1 or len(self.params) > 1:
+                raise ValueError(f"command {self.header!r}: a quantities parameter is the only parameter")
+            if self.query and self.reply is None:
+                raise ValueError(
+                    f"command {self.header!r}: a quantities query answers through its reply template"
+                )
         names = {p.name for p in self.params}
         for key in self.when or {}:
             if key not in names:

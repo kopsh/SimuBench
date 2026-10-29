@@ -16,7 +16,7 @@ from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, Re
 from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, split_units
-from ..units import parse_number
+from ..units import parse_number, parse_quantity
 from .component import Component, OpResult, component_type
 from .signal import Signal
 
@@ -590,6 +590,8 @@ class Instrument:
             if response is not None and spec.reply is not None:  # an operation's reply in a template
                 response = self._reply(compiled, response, channel, suffixes, result.fields)
             return response, result.duration_ns + parse_duration(spec.duration)
+        elif any(p.type == "quantities" for p in spec.params):
+            body = self._quantities_command(spec, unit, channel)
         else:
             body = self._settings_command(spec, unit, channel)
         if body is not None:
@@ -749,6 +751,76 @@ class Instrument:
     def _format_path(self, ref: str, channel: int | None, spec: CommandSpec) -> str:
         path = self._resolve(ref, channel)
         return self._format(self.specs[path], self.state[path], spec.format).decode()
+
+    def _quantities_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+        """A command whose parameters are 'value unit' pairs (``OUT 1 V, 1 kHz``), each written into
+        the setting its unit names, a combination writing more (metrology-authoring.md 5.2). All
+        writes are checked before any is set; the query answers through the reply template."""
+        ps = next(p for p in spec.params if p.type == "quantities")
+        if unit.query:
+            if unit.params:
+                raise ScpiError(-108)
+            return b""  # the reply template composes the answer from the settings
+        if not unit.params:
+            raise ScpiError(-109)
+        writes = self._parse_quantities(ps, unit.params, channel)
+        checked = {path: self._validate(self.specs[path], v) for path, v in writes.items()}
+        for path, v in checked.items():
+            self.set_state(path, v)
+        return None
+
+    def _parse_quantities(self, ps: ParamSpec, raw: tuple[bytes, ...], channel: int | None) -> dict[str, Any]:
+        assert ps.units is not None
+        order = {u.upper(): i for i, u in enumerate(ps.units)}
+        used: dict[str, float] = {}
+        writes: dict[str, Any] = {}
+        for r in raw:
+            text = V.parse_string(r)
+            try:
+                value, base = parse_quantity(text)
+            except ValueError:
+                raise ScpiError(-104, f"expected a number, got {text!r}") from None
+            if not base:
+                raise ScpiError(ps.missing_unit_error, f"{text!r}: a unit is required")
+            name = next((u for u in ps.units if u.upper() == base), None)
+            if name is None:
+                raise ScpiError(ps.unknown_unit_error, f"unit {base!r} is not one this command takes")
+            if name in used:
+                raise ScpiError(ps.duplicate_unit_error, f"unit {name} is given twice")
+            used[name] = value
+            entry = ps.units[name]
+            writes[self._resolve(entry.state, channel)] = value
+            for ref, v in entry.sets.items():
+                writes[self._resolve(ref, channel)] = v
+        combo = ",".join(sorted(used, key=lambda u: order[u.upper()]))
+        combine = self._combine_of(ps)
+        if ps.combine is not None:
+            if combo not in combine:
+                raise ScpiError(ps.combine_error, f"the unit combination {combo} is not allowed here")
+            for target, value in combine[combo].items():
+                writes[self._resolve(target, channel)] = self._conditional_write(value, writes, channel)
+        return writes
+
+    def _combine_of(self, ps: ParamSpec) -> dict[str, dict[str, Any]]:
+        """The combine table keyed the way _parse_quantities keys a combination: units joined with
+        commas in the units table's order (a definition may write the key in any order)."""
+        assert ps.units is not None and ps.combine is not None
+        order = {u.upper(): i for i, u in enumerate(ps.units)}
+        out: dict[str, dict[str, Any]] = {}
+        for key, value in ps.combine.items():
+            names = [k.strip().upper() for k in key.split(",")]
+            if all(n in order for n in names):
+                out[",".join(sorted(set(names), key=lambda n: order[n]))] = value
+        return out
+
+    def _conditional_write(self, value: Any, writes: dict[str, Any], channel: int | None) -> Any:
+        """A combine entry's value: ``{if_zero: <state>, then: ..., else: ...}`` decides by the
+        value the state has once this command's writes are in (0 Hz is DC, 5.2)."""
+        if isinstance(value, dict) and "if_zero" in value:
+            path = self._resolve(str(value["if_zero"]), channel)
+            current = writes.get(path, self.state.get(path))
+            return value["then" if current == 0 else "else"]
+        return value
 
     def parse_setting(self, path: str, raw: bytes) -> Any:
         """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
