@@ -63,12 +63,18 @@ class ParamMapping(_Model):
     differently: ``{from: $ch.wave, map: {SINe: SINusoid}}``, ``{from: $ch.duty, scale: 100}``.
 
     The value of ``from`` is looked up in ``map`` (``default`` when it is not there, else it passes
-    through), then numbers become ``value * scale + offset``. There is no expression language: what
-    a table and a straight line cannot say belongs in a component.
+    through), or through a numeric ``table`` (the largest entry not above the value), then numbers
+    become ``value * scale + offset``. There is no expression language: what a table and a straight
+    line cannot say belongs in a component.
     """
 
     from_: str = Field(..., alias="from", pattern=r"^\$", description="The setting, e.g. '$ch.wave'")
     map: dict[str, Any] | None = Field(None, description="Setting value -> parameter value")
+    table: dict[float, Any] | None = Field(
+        None,
+        description="Setting value -> parameter value for numbers: the largest table key not above "
+        "the value wins (NPLC 0.5 uses the 0.2 entry)",
+    )
     scale: float | None = None
     offset: float | None = None
     default: Any = Field(None, description="The parameter value for a setting value `map` does not list")
