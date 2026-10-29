@@ -30,7 +30,11 @@ def _sign(x: float) -> float:
 
 @component("smu_core")
 class SmuCore(Component):
-    """Source with a limit and a meter on HI (LO is the bench ground)."""
+    """Source with a limit and a meter on HI (LO is the bench ground).
+
+    Not a ``driver`` for bench checks: at its limit it sinks current, so a supply on the same net
+    is a valid bench (quadrant 2).
+    """
 
     ports = {"hi": PortSpec("inout", "electrical")}
     defaults = {
@@ -400,6 +404,7 @@ class DcSupply(Component):
     category = "dut"
     label = "直流电源"
     label_en = "DC supply"
+    role = "driver"
     units = {"v": "V", "r": "OHM"}
     ports = {"OUT": PortSpec("out", "electrical")}
     defaults = {"v": 12.0, "r": 1000.0}

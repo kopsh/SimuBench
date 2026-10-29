@@ -142,6 +142,14 @@
 | `*IDN?` 由用户自定义（主机脚本校验 IDN） | ✅ 测试台实例的 `idn`，可写整串或带 `{serial}` 等字段；`test_bench_idn_overrides_the_definition` |
 | 用真实主机程序跑一遍 | ⏳ 需要主机程序；验收测试以按契约编写的示例脚本代替 |
 
+## 由用户与 Agent 搭建仪表（instrument-authoring.md，issue 39）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义的静态校验：`simubench validate` 接受定义文件，错误码 `E-DEF-*`、JSON 指针、建议（issue 40） | ✅ `engine/validate_definition.py`；仓库中全部定义无诊断；每类错误一个反例（`tests/test_validate_definition.py`）；检出 `sb-sa-1` 的 `:TRACe[1]:TYPE`（`TRAC1:TYPE` 不匹配），改为 `:TRACe<t>:TYPE` |
+| 组件角色：`role: driver`、`role: series`，测试台校验不再写死组件名（issue 40） | ✅ 内置组件已声明；测试台诊断不变（全部测试台前后逐条比对）；自定义组件的驱动与串联测试 |
+| 组件目录、声明式应答、波形传输、可配置采集、`simubench cases`、MCP 编写工具、插件、验收 | ⏳ issue 41–48 |
+
 ## 仪表内部组件图（Issue 20，D3）
 
 | 完成条件 | 自检 |

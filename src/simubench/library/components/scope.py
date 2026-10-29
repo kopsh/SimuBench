@@ -87,7 +87,8 @@ class Record:
 class ScopeAcquisition(Component):
     """Timebase, edge trigger, sampling and waveform transfer for all channels of a scope."""
 
-    ports: dict[str, PortSpec] = {}  # inputs in1..inN are created by the instrument wiring
+    ports: dict[str, PortSpec] = {}
+    port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
     defaults = {"overhead_s": 1e-3, "search_windows": 4}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

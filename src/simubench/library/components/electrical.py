@@ -27,6 +27,7 @@ class OutputStage(Component):
     instruments whose high-impedance setting is a number (a calibrator's ``LOAD 10000``).
     """
 
+    role = "driver"
     ports = {
         "in": PortSpec("in", "signal"),
         "pin": PortSpec("out", "electrical"),
@@ -179,6 +180,7 @@ class CoaxCable(Component):
     category = "accessory"
     label = "同轴线缆"
     label_en = "Coax cable"
+    role = "series"
     units = {"r": "OHM", "length_m": "m", "r_skin_1mhz": "OHM"}
 
     ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("inout", "electrical")}
@@ -204,6 +206,7 @@ class UnityBuffer(Component):
     category = "dut"
     label = "单位增益缓冲器"
     label_en = "Unity-gain buffer"
+    role = "driver"
     units = {"z_in": "OHM", "z_out": "OHM"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}

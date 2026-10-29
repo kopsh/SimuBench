@@ -24,6 +24,7 @@ cd web && pnpm install && pnpm dev                                     # 启动�
 
 ```bash
 simubench validate examples/benches/*.bench.yaml   # 校验测试台，输出 文件:位置: 代码 说明（建议）
+simubench validate my-instruments/*.yaml           # 校验仪表定义：组件、操作、状态绑定、连线、命令头
 simubench schemas --out schemas                    # 导出 OpenAPI 与 JSON Schema
 ```
 
