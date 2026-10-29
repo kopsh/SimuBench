@@ -1,0 +1,22 @@
+schema: simubench.bench/1
+name: keysight_34465a_cases
+description: >-
+  Keysight 34465A 手册用例的测试台：sb-smu-1 作直流参考源（输出内阻为 0，端电压即设定值）。
+  万用表带手册精度量级内的隐藏个体误差（10 V 量程增益 +150 ppm、零点 +200 µV，其余量程见
+  定义 deviations 的表），校准用例的 as-found/as-left 依此计算。
+instruments:
+  src:
+    model: sb-smu-1
+    state: {source.voltage.level: 0.0, output.enabled: true}
+  dut:
+    model: keysight-34465a
+    hidden:
+      meter:
+        gain_error_ppm: {DC: {0.1: 100.0, 1: 80.0, 10: 150.0, 100: 120.0, 1000: 90.0}, AC: 300.0}
+        offset: 2.0e-4
+wires:
+  - {from: src.HI, to: dut.IN}
+run:
+  seed: 1
+  clock: command
+  start: "2026-05-04T09:00:00Z"
