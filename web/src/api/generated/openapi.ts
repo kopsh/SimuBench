@@ -630,6 +630,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset
+         * @description Power-cycle the bench: fresh instruments, a new record, the same session id.
+         */
+        post: operations["resetSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -847,6 +867,23 @@ export interface components {
                     };
                 };
             };
+        };
+        /**
+         * ClientInfo
+         * @description A client connected to the session's SCPI ports (raw socket or HiSLIP).
+         */
+        ClientInfo: {
+            /**
+             * Client
+             * @description Label as it appears in the communication log
+             */
+            client: string;
+            /**
+             * Locked
+             * @description Holds a HiSLIP lock, i.e. a script is in control
+             * @default false
+             */
+            locked: boolean;
         };
         /** ClockInfo */
         ClockInfo: {
@@ -1759,6 +1796,16 @@ export interface components {
             warnings: string[];
         };
         /**
+         * ResetSessionRequest
+         * @description Power-cycle the bench: a fresh session (new record) with the same id and startup settings.
+         */
+        ResetSessionRequest: {
+            /** Clock */
+            clock?: ("command" | "wall" | "stepped") | null;
+            /** Seed */
+            seed?: number | null;
+        };
+        /**
          * ResponseFormat
          * @description How query responses are written (real models, D42): numbers, booleans and enumerations.
          *
@@ -2032,6 +2079,11 @@ export interface components {
              * @description Hash of the bench file the session started from
              */
             bench_sha256: string | null;
+            /**
+             * Clients
+             * @description Scripts currently connected to the SCPI ports
+             */
+            clients: components["schemas"]["ClientInfo"][];
             /**
              * Clock Mode
              * @enum {string}
@@ -3621,6 +3673,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NetWaveform"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resetSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetSessionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionInfo"];
                 };
             };
             /** @description Validation Error */

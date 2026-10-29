@@ -35,7 +35,7 @@ async function openEditor(page: Page): Promise<string> {
   const sid = ((await start.json()) as { id: string }).id;
   await page.goto(`/s/${sid}?token=${TOKEN}`);
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
-  await page.getByRole("radio", { name: "编辑" }).click();
+  await page.getByRole("radio", { name: "搭建" }).click();
   await expect(page.getByRole("tab", { name: "元件库" })).toBeVisible();
   return path;
 }
@@ -46,12 +46,11 @@ test("add a DUT from the library, undo and redo", async ({ page }) => {
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
   await expect(page.getByText("已保存到文件")).toBeVisible();
   expect(Object.keys((await readDoc(page.request, path)).data.duts as object)).toEqual(["rc", "r"]);
-  // A topology change needs a restart; the banner says so.
-  await expect(page.getByRole("button", { name: "重新启动以应用" })).toBeVisible();
+  // A topology change applies when switching back to Operate (issue 31); nothing to click meanwhile.
+  await expect(page.getByRole("button", { name: "重新启动以应用" })).toHaveCount(0);
 
   await page.keyboard.press("Control+z");
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
-  await expect(page.getByRole("button", { name: "重新启动以应用" })).toBeHidden();
   await page.getByRole("button", { name: "重做" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
 });
@@ -82,9 +81,9 @@ test("connect ports by dragging, delete a wire, restart to apply", async ({ page
   await page.keyboard.press("Delete");
   await expect(page.locator(".react-flow__edge")).toHaveCount(2);
 
-  await page.getByRole("button", { name: "重新启动以应用" }).click();
-  await expect(page.getByText("已按新的测试台定义重新启动")).toBeVisible();
-  await page.getByRole("radio", { name: "运行" }).click();
+  // Switching back to Operate rebuilds from the new definition (issue 31).
+  await page.getByRole("radio", { name: "操作" }).click();
+  await expect(page.getByText("已按新的测试台定义重建")).toBeVisible();
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
 });
 

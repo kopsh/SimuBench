@@ -1,6 +1,7 @@
 import asyncio
 import socket
 import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -135,3 +136,67 @@ def test_virtual_probe_explains_the_value(client):
     assert len(p["waveform"]["volts"]) == 400 and p["waveform"]["exact"]
     assert client.get(f"/api/sessions/{sid}/nets/nope/probe").status_code == 404
     client.delete(f"/api/sessions/{sid}")
+
+
+def test_reset_power_cycles_the_bench(client):
+    """Reset: same session id, instruments back at power-on defaults (issue 31)."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    changed = client.post(
+        f"/api/sessions/{sid}/instruments/scope/configure", json={"path": "ch1.scale", "value": 0.5}
+    ).json()
+    assert changed["value"] == 0.5
+
+    after = client.post(f"/api/sessions/{sid}/reset", json={}).json()
+    assert after["id"] == sid  # the same session, scripts keep their entry point
+    scale = next(
+        v
+        for i in after["instruments"]
+        if i["name"] == "scope"
+        for v in i["state"]
+        if v["path"] == "ch1.scale"
+    )
+    assert scale["value"] != 0.5  # back to power-on defaults
+    assert after["record_path"] is None  # nothing has happened on the fresh session yet
+    client.delete(f"/api/sessions/{sid}")
+
+
+def test_opening_without_actions_writes_no_record(tmp_path):
+    """A bench that is only opened leaves no record; the first command starts one (issue 31)."""
+    app = create_app(
+        SessionManager(ROOT / "examples", scpi_base_port=None, record_dir=tmp_path),
+        token=TOKEN,
+        web_dist=Path("/nonexistent"),
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+        assert c.get(f"/api/sessions/{sid}").json()["record_path"] is None
+        assert list(tmp_path.iterdir()) == []  # only looking, nothing recorded
+        c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": "*IDN?"})
+        assert len(list(tmp_path.iterdir())) == 1  # the first command starts the record
+        c.delete(f"/api/sessions/{sid}")
+
+
+def test_connected_scripts_are_listed_for_the_switch_confirm():
+    """The session description names the scripts holding the SCPI ports (issue 31)."""
+    manager = SessionManager(ROOT / "examples", scpi_base_port=0, hislip_port=0)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+        port = c.get(f"/api/sessions/{sid}").json()["instruments"][1]["scpi_port"]
+        assert c.get(f"/api/sessions/{sid}").json()["clients"] == []
+        with socket.create_connection(("127.0.0.1", port), timeout=5) as sock:  # a script connects
+            sock.sendall(b"*IDN?\n")
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                clients = c.get(f"/api/sessions/{sid}").json()["clients"]
+                if clients:
+                    break
+                time.sleep(0.05)
+            assert clients and clients[0]["client"].startswith("socket:127.0.0.1:")
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and c.get(f"/api/sessions/{sid}").json()["clients"]:
+            time.sleep(0.05)  # gone once the script disconnects
+        assert c.get(f"/api/sessions/{sid}").json()["clients"] == []
+        c.delete(f"/api/sessions/{sid}")

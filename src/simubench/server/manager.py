@@ -47,6 +47,8 @@ class ServedSession:
         self.bench_fingerprint: str | None = None
         self.scpi: ScpiServer | None = None
         self.hislip: HislipServer | None = None
+        self.clock: str | None = None  # startup settings, kept for a reset
+        self.seed: int | None = None
 
 
 class SessionManager:
@@ -93,7 +95,7 @@ class SessionManager:
     # ---- sessions -----------------------------------------------------------------------------------
 
     async def start(
-        self, bench_path: str, clock: str | None = None, seed: int | None = None
+        self, bench_path: str, clock: str | None = None, seed: int | None = None, sid: str | None = None
     ) -> ServedSession:
         path = self.resolve(bench_path)
         doc = self.files.read(bench_path)
@@ -102,9 +104,10 @@ class SessionManager:
         session = open_bench(
             path, clock=clock, seed=seed, record_dir=self.record_dir, record_raw=self.record_raw
         )
-        served = ServedSession(uuid.uuid4().hex[:12], session, path)
+        served = ServedSession(sid or uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
         served.bench_fingerprint = doc.fingerprint
+        served.clock, served.seed = clock, seed
         # One bench serves the SCPI ports at a time; a new session takes them over.
         for other in list(self.sessions.values()):
             await self.stop(other.id)
@@ -116,6 +119,24 @@ class SessionManager:
                 await served.hislip.start()
         self.sessions[served.id] = served
         return served
+
+    async def reset(self, sid: str, clock: str | None = None, seed: int | None = None) -> ServedSession:
+        """Power-cycle: a fresh session under the same id, with the startup settings applied.
+
+        Everything goes back to power-on defaults (a new record starts too); scripts connected
+        to the ports are dropped, as on hardware.
+        """
+        served = self.sessions.get(sid)
+        if served is None:
+            raise KeyError(sid)
+        bench_path = served.bench_path
+        if bench_path is None:
+            raise KeyError(sid)
+        rel = bench_path.relative_to(self.files.workspace).as_posix()
+        clock = clock if clock is not None else served.clock
+        seed = seed if seed is not None else served.seed
+        await self.stop(sid)
+        return await self.start(rel, clock=clock, seed=seed, sid=sid)
 
     async def stop(self, sid: str) -> None:
         served = self.sessions.pop(sid, None)
@@ -196,6 +217,16 @@ class SessionManager:
             self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name))
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
+        clients: list[M.ClientInfo] = [
+            M.ClientInfo(client=c)
+            for lst in (served.scpi.listeners if served.scpi else [])
+            for c in sorted(lst.labels)
+        ]
+        if served.hislip:
+            for hs in served.hislip._sessions.values():
+                clients.append(
+                    M.ClientInfo(client=hs.client, locked=served.hislip.locks(hs.instrument).held_by(hs))
+                )
         duts = [self._component_info(s, name) for name in b.duts]
         wires = []
         for i, w in enumerate(b.wires):
@@ -223,7 +254,8 @@ class SessionManager:
             reveal_true_values=s.reveal_true_values,
             bench_sha256=served.bench_sha256,
             bench_fingerprint=served.bench_fingerprint,
-            record_path=str(s.recorder.path) if s.recorder else None,
+            record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
+            clients=clients,
             instruments=instruments,
             duts=duts,
             wires=wires,
