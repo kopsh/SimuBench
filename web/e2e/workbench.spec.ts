@@ -4,7 +4,7 @@ const TOKEN = "e2e-token";
 
 async function startBench(page: Page) {
   await page.goto(`/?token=${TOKEN}`);
-  await expect(page.getByRole("heading", { name: "测试台", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "测试台", exact: true, level: 1 })).toBeVisible();
   await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
   await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
@@ -12,7 +12,7 @@ async function startBench(page: Page) {
 
 test("the token is removed from the address bar", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await expect(page.getByRole("heading", { name: "测试台", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "测试台", exact: true, level: 1 })).toBeVisible();
   expect(page.url()).not.toContain("token");
 });
 
@@ -216,7 +216,7 @@ test("first-use guide: three ways in, dismissed for good", async ({ page }) => {
   await guide.getByRole("button", { name: "不再显示" }).click();
   await expect(guide).toBeHidden();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "测试台", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "测试台", exact: true, level: 1 })).toBeVisible();
   await expect(page.getByRole("region", { name: "开始使用 SimuBench" })).toBeHidden();
 });
 

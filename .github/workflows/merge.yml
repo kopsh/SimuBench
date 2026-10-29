@@ -1,5 +1,7 @@
 # Merge a pull request into main once CI has passed on it: no review, and no repository settings
-# needed (it does not rely on branch protection). Drafts are left alone.
+# needed (it does not rely on branch protection). Drafts are left alone, and so is a pull request
+# whose head does not contain the latest main: two that each pass on an older main can break main
+# together, so it is merged only after main has been merged into it and CI has passed again.
 name: Merge when CI passes
 
 on:
@@ -19,6 +21,11 @@ jobs:
       - run: |
           for n in $(jq -r '.workflow_run.pull_requests[] | select(.base.ref == "main") | .number' "$GITHUB_EVENT_PATH"); do
             if [ "$(gh pr view "$n" --repo "$REPO" --json isDraft -q .isDraft)" = true ]; then continue; fi
+            behind=$(gh api "repos/$REPO/compare/main...$SHA" -q .behind_by)
+            if [ "$behind" != 0 ]; then
+              gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain: merge the latest main into it and push; it merges once CI passes again (AGENTS.md)."
+              continue
+            fi
             # Only the commit CI tested: a newer push waits for its own CI run.
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"
           done
