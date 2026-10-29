@@ -1,0 +1,85 @@
+# A multimeter on the ranged dmm_core (issue 87, metrology-authoring.md 2): ranges, autorange,
+# overload, resolution and a switchable high-impedance input. Test-only, not in the product
+# library (D42).
+schema: simubench.instrument/1
+id: meter-core-test
+manufacturer: SimuBench
+model: METER-CORE-1
+class: multimeter
+version: 1
+description: 测试用数字万用表：量程、自动量程、超量程、分辨率与可切换的高阻抗输入。
+format:
+  digits: 9
+state:
+  sense.function:
+    type: enum
+    options: [DCV, ACV]
+    default: DCV
+    label: 功能
+    label_en: Function
+  sense.range:
+    type: float
+    unit: V
+    min: 0.0
+    default: 10.0
+    label: 量程
+    label_en: Range
+  sense.range_auto:
+    type: bool
+    default: false
+    label: 自动量程
+    label_en: Autorange
+  sense.nplc:
+    type: float
+    min: 0.0
+    default: 1.0
+    label: 积分时间
+    label_en: Integration time
+  input.high_z:
+    type: bool
+    default: false
+    label: 高阻抗输入
+    label_en: High-Z input
+components:
+  - name: meter
+    type: dmm_core
+    params:
+      function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
+      ranges: {DC: [0.1, 1, 10, 100, 1000], AC: [0.1, 1, 10, 100, 750]}
+      range: $sense.range
+      autorange: $sense.range_auto
+      autorange_up: 1.2
+      autorange_down: 0.1
+      overrange: 1.2
+      overload_value: 9.9e37
+      resolution: {from: $sense.nplc, table: {0.02: 3.0e-4, 0.2: 3.0e-5, 1: 3.0e-6, 10: 3.0e-7}}
+      digits: 9
+      z_in: 1.0e7
+      z_in_high: 1.0e10
+      high_z: $input.high_z
+      high_z_ranges: [0.1, 1, 10]
+ports:
+  instrument:
+    IN: meter.in
+commands:
+  - header: ":MEASure:VOLTage[:DC]"
+    op: meter.measure
+    set: false
+    args: {what: DC}
+  - header: ":MEASure:VOLTage:AC"
+    op: meter.measure
+    set: false
+    args: {what: AC}
+  - header: "[:SENSe]:FUNCtion"
+    state: sense.function
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe"
+    state: sense.range
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe:AUTO"
+    state: sense.range_auto
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe:ACTual"
+    op: meter.range
+    set: false
+  - header: "[:SENSe]:VOLTage[:DC]:NPLCycles"
+    state: sense.nplc
+  - header: "INPut:IMPedance:AUTO"
+    state: input.high_z
