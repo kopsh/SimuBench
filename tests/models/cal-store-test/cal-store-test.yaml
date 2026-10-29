@@ -1,0 +1,102 @@
+# A multimeter on the generic calibration store (issue 89, metrology-authoring.md 4): coefficients
+# per function and range, security code, adjustment, ledger. Test-only, not in the product library
+# (D42).
+schema: simubench.instrument/1
+id: cal-store-test
+manufacturer: SimuBench
+model: CAL-STORE-1
+class: multimeter
+version: 1
+description: 测试用数字万用表：校准存储按功能与量程保存系数，安全码、调整、台账齐全。
+format:
+  digits: 9
+state:
+  sense.function:
+    type: enum
+    options: [DCV, ACV]
+    default: DCV
+    label: 功能
+    label_en: Function
+  sense.range:
+    type: float
+    unit: V
+    min: 0.0
+    default: 10.0
+    label: 量程
+    label_en: Range
+components:
+  - name: input
+    type: input_port
+    params: {z_in: 10.0e6}
+  - name: cal
+    type: calibration_store
+    params:
+      code: SIMUBENCH
+      key: [meter.function, meter.range]
+      tolerance: 0.1
+      ok_reply: "+0"
+      fail_reply: "+1"
+      volatile_until_store: true
+  - name: meter
+    type: dmm_core
+    params:
+      store: cal
+      function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
+      ranges: {DC: [1, 10], AC: [1, 10]}
+      range: $sense.range
+      autorange: false
+      digits: 9
+wiring:
+  instrument:
+    - [input.out, meter.in]
+ports:
+  instrument:
+    IN: input.pin
+commands:
+  - header: ":MEASure:VOLTage[:DC]"
+    op: meter.measure
+    set: false
+    args: {what: DC}
+  - header: ":MEASure:VOLTage:AC"
+    op: meter.measure
+    set: false
+    args: {what: AC}
+  - header: "[:SENSe]:FUNCtion"
+    state: sense.function
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe"
+    state: sense.range
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe:ACTual"
+    op: meter.range
+    set: false
+  - header: ":CALibration:SECure:STATe"
+    op: cal.secure
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:VALue"
+    op: cal.value
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:CODE"
+    op: cal.code
+    query: false
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:ZERO"
+    op: cal.adjust
+    set: false
+    args: {reference: 0}
+  - header: ":CALibration[:ADJust]"
+    op: cal.adjust
+    set: false
+  - header: ":CALibration:STORe"
+    op: cal.store
+    query: false
+  - header: ":CALibration:COUNt"
+    op: cal.count
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:DATE"
+    op: cal.date
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:TIME"
+    op: cal.time
+    params: [{name: values, type: raw}]
+  - header: ":CALibration:STRing"
+    op: cal.string
+    params: [{name: values, type: raw}]
