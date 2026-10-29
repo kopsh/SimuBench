@@ -48,27 +48,27 @@ class RfGeneratorCore(Component):
         "ext": PortSpec("in", "signal", "REF_IN"),
     }
     defaults = {
-        "frequency": 1e9,
-        "level": -20.0,
-        "mode": "CW",
-        "am": False,
-        "am_depth": 0.0,
-        "am_rate": 1e3,
-        "fm": False,
-        "fm_dev": 0.0,
-        "fm_rate": 1e3,
-        "pm": False,
-        "pm_dev": 0.0,
-        "pm_rate": 1e3,
-        "pulm": False,
-        "ref_out": True,
-        "ref_source": "INTernal",
-        "offset_ppm": 0.0,
-        "manual": 1,
-        "start": 1e9,
-        "stop": 2e9,
-        "points": 2,
-        "spacing": "LINear",
+        "frequency": 1e9,  # Hz of the CW carrier
+        "level": -20.0,  # dBm into a matched load
+        "mode": "CW",  # CW | LIST | otherwise the start/stop sweep
+        "am": False,  # amplitude modulation on
+        "am_depth": 0.0,  # percent modulation depth
+        "am_rate": 1e3,  # Hz of the AM tone
+        "fm": False,  # frequency modulation on (FM and PM are exclusive)
+        "fm_dev": 0.0,  # Hz peak deviation
+        "fm_rate": 1e3,  # Hz of the FM tone
+        "pm": False,  # phase modulation on (FM and PM are exclusive)
+        "pm_dev": 0.0,  # rad of phase deviation (the modulation index beta)
+        "pm_rate": 1e3,  # Hz of the PM tone
+        "pulm": False,  # pulse modulation (setting it errors: not simulated)
+        "ref_out": True,  # the 10 MHz reference output on
+        "ref_source": "INTernal",  # INTernal | EXTernal 10 MHz timebase
+        "offset_ppm": 0.0,  # timebase error, ppm (hidden state, D9)
+        "manual": 1,  # current sweep point, 1-based
+        "start": 1e9,  # Hz, first frequency of the sweep
+        "stop": 2e9,  # Hz, last frequency of the sweep
+        "points": 2,  # points of the sweep
+        "spacing": "LINear",  # LINear | LOGarithmic
     }
     units = {"offset_ppm": "ppm"}
     dynamic = True

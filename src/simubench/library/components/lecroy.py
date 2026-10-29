@@ -192,7 +192,7 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
 class LecroyInput(InputPort):
     """The input connector: 50 Ω with ``D50``, 1 MΩ (and its capacitance) otherwise."""
 
-    defaults = {**InputPort.defaults, "coupling": "D1M"}
+    defaults = {**InputPort.defaults, "coupling": "D1M"}  # D50: 50 ohm; otherwise 1 Mohm
 
     @classmethod
     def impedance_of(cls, params: dict[str, Any]) -> float:

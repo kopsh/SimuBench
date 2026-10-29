@@ -248,11 +248,11 @@ class SiglentSdsChannelLimits(Component):
     (data sheet: 500 uV/div to 10 V/div at 1 MOhm, to 1 V/div at 50 Ohm; offset by scale)."""
 
     defaults = {
-        "scale": "$ch.scale",
-        "offset": "$ch.offset",
-        "probe": "$ch.probe",
-        "impedance": "$ch.impedance",
-        "min_scale": 500e-6,
+        "scale": "$ch.scale",  # V/div, checked per division at probe 1X
+        "offset": "$ch.offset",  # V, range depends on the scale
+        "probe": "$ch.probe",  # probe ratio (1, 10, ...)
+        "impedance": "$ch.impedance",  # ONEMeg or FIFTy: scale tops out at 10 or 1 V/div
+        "min_scale": 500e-6,  # V/div, smallest scale (probe 1X)
     }
 
     def on_state(self, path: str, old: Any, new: Any) -> None:

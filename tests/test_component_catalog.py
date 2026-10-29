@@ -60,6 +60,13 @@ def test_comment_lines_above_a_default_describe_it():
     assert param_docs(Demo) == {"a": "The first line and the second.", "b": "trailing"}
 
 
+def test_every_parameter_has_a_description():
+    for name, cls in sorted(component_types().items()):
+        docs = param_docs(cls)
+        missing = [k for k in cls.defaults if not docs.get(k)]
+        assert not missing, f"{name}: parameters without a description: {missing}"
+
+
 def test_the_components_endpoint():
     app = create_app(SessionManager(ROOT / "validation", scpi_base_port=None), token="t", web_dist=Path("/x"))
     with TestClient(app, base_url="http://127.0.0.1") as c:

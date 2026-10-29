@@ -66,12 +66,12 @@ class LockinReference(Component):
         "sine": PortSpec("out", "signal"),
     }
     defaults = {
-        "source": "INTernal",
-        "frequency": 1000.0,
-        "phase": 0.0,
-        "harmonic": 1,
-        "amplitude": 1.0,
-        "min_vpp": 0.4,
+        "source": "INTernal",  # INTernal | EXTernal: track the fundamental on REF_IN
+        "frequency": 1000.0,  # Hz of the internal oscillator
+        "phase": 0.0,  # degrees, phase of the detection reference
+        "harmonic": 1,  # detection at harmonic n x f
+        "amplitude": 1.0,  # V rms of the SINE_OUT drive
+        "min_vpp": 0.4,  # V peak to peak an external reference needs to lock
     }
     dynamic = True
 
@@ -213,15 +213,15 @@ class LockinDemodulator(Component):
 
     ports = {"in": PortSpec("in", "signal"), "ref": PortSpec("in", "reference")}
     defaults = {
-        "sensitivity": 1.0,
-        "time_constant": 0.1,
-        "slope": "24",
-        "coupling": "DC",
-        "ac_corner": 0.16,
+        "sensitivity": 1.0,  # V rms full scale: overload flags and auto gain, not the scaling of X, Y, R
+        "time_constant": 0.1,  # s, filter time constant T
+        "slope": "24",  # dB/octave of the low-pass; 6 per pole (24: 4 poles)
+        "coupling": "DC",  # DC | AC input coupling
+        "ac_corner": 0.16,  # corner of the AC coupling high-pass
         "noise_density": 5e-9,  # V/√Hz, hidden state
         "input_limit": 1.4,  # V peak
         "reserve": 10.0,  # 20 dB of dynamic reserve over the sensitivity
-        "truncation_limit": 1e-6,
+        "truncation_limit": 1e-6,  # filter gain past which truncated input raises error 329
     }
     units = {"noise_density": "V/√Hz", "input_limit": "V", "ac_corner": "Hz"}
     dynamic = True

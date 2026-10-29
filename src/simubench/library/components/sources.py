@@ -25,16 +25,16 @@ class FunctionGeneratorCore(Component):
 
     ports = {"out": PortSpec("out", "signal")}
     defaults = {
-        "function": "SINusoid",
-        "frequency": 1000.0,
-        "amplitude": 0.1,
-        "offset": 0.0,
-        "phase": 0.0,
-        "bandwidth": 100e6,
-        "square_max": math.inf,
-        "duty": 50.0,
-        "symmetry": 100.0,
-        "amplitude_unit": "VPP",
+        "function": "SINusoid",  # SINusoid | SQUare | RAMP | DC (SINE, SQUARE are aliases)
+        "frequency": 1000.0,  # Hz
+        "amplitude": 0.1,  # in amplitude_unit
+        "offset": 0.0,  # V
+        "phase": 0.0,  # degrees
+        "bandwidth": 100e6,  # Hz, harmonic limit for square and ramp
+        "square_max": math.inf,  # Hz, highest square/ramp frequency (inf: none)
+        "duty": 50.0,  # percent high time of the square
+        "symmetry": 100.0,  # percent rising half of the ramp (100: sawtooth)
+        "amplitude_unit": "VPP",  # VPP | VPK | VRMS: what amplitude means
     }
     #: Other instruments' names for the same shapes (Siglent SDG: C1:BSWV WVTP,SINE).
     ALIASES = {"SINE": "SINusoid", "SQUARE": "SQUare"}
@@ -107,7 +107,12 @@ class ArbTable(Component):
     """
 
     ports = {"out": PortSpec("out", "signal")}
-    defaults = {"table": [0.0], "rate": 16000.0, "scale": 1.0, "max_lines": 1024}
+    defaults = {
+        "table": [0.0],  # one period of the waveform, sampled
+        "rate": 16000.0,  # samples per second
+        "scale": 1.0,  # volts per unit of the table
+        "max_lines": 1024,  # harmonics kept
+    }
 
     def output(self, port: str) -> Signal:
         table = np.asarray(self.param("table"), dtype=float) * float(self.param("scale"))
@@ -152,7 +157,12 @@ class PrbsSource(Component):
     """
 
     ports = {"out": PortSpec("out", "signal")}
-    defaults = {"order": 7, "rate": 100e3, "level": 0.25, "lobes": 8}
+    defaults = {
+        "order": 7,  # LFSR order n: period 2^n - 1 bits (one of 5, 6, 7, 9, 10, 11, 15)
+        "rate": 100e3,  # bit rate, bits/s
+        "level": 0.25,  # V: the bits swing between +level and -level
+        "lobes": 8,  # sinc lobes of spectrum kept
+    }
 
     def output(self, port: str) -> Signal:
         order = int(self.param("order"))
