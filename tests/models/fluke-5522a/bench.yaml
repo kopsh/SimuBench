@@ -1,0 +1,16 @@
+schema: simubench.bench/2
+name: fluke_5522a_cases
+description: >-
+  Fluke 5522A 手册用例的测试台：sb-dmm-1 作负载（隐藏误差为零，读数即端电压）。校准源的隐藏
+  个体偏差不抽取（个体偏差只在 deviation: from_specs 时抽取），输出即设定值，读数期望按设定值
+  计算；工作/待机、建立时间与输出断开的行为由此进入电路求解。
+instruments:
+  dut:
+    model: fluke-5522a
+  dmm:
+    model: sb-dmm-1
+wires:
+  - {from: dut.OUT, to: dmm.IN}
+run:
+  seed: 7
+  clock: command

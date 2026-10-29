@@ -1,0 +1,318 @@
+# Fluke 5522A 的手册用例：Fluke 5522A Multi-Product Calibrator Operators Manual
+#（PN 3795084, January 2011），第 6 章远程命令的命令条目与示例、第 1 章的 *RST 表与
+# 规格（建立时间 <5 s）、第 3 章的 ≥33 V 自动回待机。回复格式：数字 nr3 6 位尾数无 + 号，
+# 错误码无 + 号（ERR? 回 0,"No Error"）。测试台的万用表与校准源隐藏误差均为零，
+# 读数期望即设定值；MODEL 说明里记录的与手册的偏差（OPER? 的查询形式等）按现状期望。
+model: fluke-5522a
+bench: bench.yaml
+instrument: dut
+cases:
+  - name: "*IDN? 按手册格式返回厂商、型号、序列号与固件"
+    manual: "Remote Commands > Common Commands > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "FLUKE,5522A,5248101,1.0+1.3+1.8"
+
+  - name: "*OPT? 返回已安装选件列表，无选件为 0"
+    manual: "Remote Commands > Common Commands > *OPT?"
+    steps:
+      - query: "*OPT?"
+        expect: "0"
+
+  - name: "*RST 回到上电状态：输出 0V,0HZ、待机、EARTH OPEN、EXTGUARD OFF"
+    manual: "Remote Commands > Common Commands > *RST（reset 时唤起的命令与值）"
+    steps:
+      - send: "OUT 10 V;OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "EARTH TIED;EXTGUARD ON"
+      - send: "*RST"
+      - query: "OUT?"
+        expect: "0.000000E+00,V,0E+00,0,0.000000E+00"
+      - query: "EARTH?"
+        expect: "OPEN"
+      - query: "EXTGUARD?"
+        expect: "OFF"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+
+  - name: "上电即待机：设定不进入电路，OPER 后输出建立，STBY 后输出断开"
+    manual: "Remote Commands > Output Commands > OPER / STBY；第 3 章 standby 模式（输出端子内部断开）"
+    steps:
+      - send: "OUT 10 V"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+      - send: "OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+1.0000000E+01"
+      - send: "STBY"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+
+  - name: "直流输出与 OUT? 查询：幅值,单位,第二输出,频率"
+    manual: "Remote Commands > Output Commands > OUT / OUT?（响应格式与示例）"
+    steps:
+      - send: "OUT 10 V"
+      - query: "OUT?"
+        expect: "1.000000E+01,V,0E+00,0,0.000000E+00"
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+1.0000000E+01"
+
+  - name: "交流输出：OUT 1 V, 1 kHz，OUT? 带频率"
+    manual: "Remote Commands > Output Commands > OUT（<value> V, <value> Hz 交流电压）"
+    steps:
+      - send: "OUT 1 V, 1 kHz"
+      - query: "OUT?"
+        expect: "1.000000E+00,V,0E+00,0,1.000000E+03"
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:AC?"
+        instrument: dmm
+        expect: "+1.0000000E+00"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+
+  - name: "0 Hz 是直流：OUT 2 V, 0 HZ 回到直流电压"
+    manual: "Remote Commands > Output Commands > OUT（<value> V, <value> Hz —— 0 Hz 为直流）"
+    steps:
+      - send: "OUT 1 V, 1 kHz"
+      - send: "OUT 2 V, 0 HZ"
+      - query: "FUNC?"
+        expect: "DCV"
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+2.0000000E+00"
+
+  - name: "OUT 60 HZ 只更新频率，幅值与功能不变"
+    manual: "Remote Commands > Output Commands > OUT（<value> HZ 频率更新）"
+    steps:
+      - send: "OUT 1 V, 1 kHz"
+      - send: "OUT 60 HZ"
+      - query: "OUT?"
+        expect: "1.000000E+00,V,0E+00,0,6.000000E+01"
+      - query: "FUNC?"
+        expect: "ACV"
+
+  - name: "倍率后缀：OUT 10 mV, 1 kHz"
+    manual: "Remote Commands > Output Commands > OUT（Use multipliers e.g. k, M, µ with the OUT command）"
+    steps:
+      - send: "OUT 10 mV, 1 kHz"
+      - query: "OUT?"
+        expect: "1.000000E-02,V,0E+00,0,1.000000E+03"
+
+  - name: "FUNC? 返回当前输出功能"
+    manual: "Remote Commands > Output Commands > FUNC?"
+    steps:
+      - send: "OUT 10 V"
+      - query: "FUNC?"
+        expect: "DCV"
+      - send: "OUT 1 V, 1 kHz"
+      - query: "FUNC?"
+        expect: "ACV"
+
+  - name: "超出 ±1020 V 的幅值报错"
+    manual: "Remote Commands > Output Commands > OUT；第 1 章 DC Voltage 量程表（100 V to 1020.000 V）"
+    steps:
+      - send: "OUT 2000 V"
+      - query: "ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "OUT?"
+        expect: "0.000000E+00,V,0E+00,0,0.000000E+00"
+
+  - name: "缺单位的幅值报 519 Must specify an output unit"
+    manual: "Remote Commands > Status Commands > ERR?（附录 D 错误 519）；OUT 的裸数值形式未建模（能力缺口，见覆盖表说明）"
+    steps:
+      - send: "OUT 10"
+      - query: "ERR?"
+        expect: '519,"Must specify an output unit"'
+
+  - name: "不认识的单位报 1305 Bad parameter unit"
+    manual: "Remote Commands > Status Commands > ERR?（附录 D 错误 1305）；电流（OUT 1 A）未建模，同报 1305"
+    steps:
+      - send: "OUT 1 W"
+      - query: "ERR?"
+        expect: '1305,"Bad parameter unit"'
+      - send: "OUT 1 A"
+      - query: "ERR?"
+        expect: '1305,"Bad parameter unit"'
+
+  - name: "同一单位两次（双电压输出）报 506 Function not available"
+    manual: "Remote Commands > Output Commands > OUT（<value> V, <value> V 双电压）；双输出未建模（错误 506）"
+    steps:
+      - send: "OUT 1 V, 2 V"
+      - query: "ERR?"
+        expect: '506,"Function not available"'
+
+  - name: "≥33 V 的新设定使输出回待机，需要再次 OPER"
+    manual: "第 3 章 The STBY (Standby) Key（voltage ≥ 33 V is selected … 自动回待机）；第 4 章 Operating→Standby"
+    steps:
+      - send: "OUT 10 V"
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+1.0000000E+01"
+      - send: "OUT 40 V"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+4.0000000E+01"
+
+  - name: "输出已在 ≥33 V 时改输出同样回待机"
+    manual: "第 4 章 If the calibrator is operating …（output voltage is ≥33 V 时改输出回待机）"
+    steps:
+      - send: "OUT 40 V"
+      - send: "OPER;*WAI"
+      - send: "OUT 50 V"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+5.0000000E+01"
+
+  - name: "33 V 以下的输出变化不回待机"
+    manual: "第 4 章（except when going between ac or dc voltage <33 V）"
+    steps:
+      - send: "OUT 10 V"
+      - send: "OPER;*WAI"
+      - send: "OUT 5 V;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+5.0000000E+00"
+
+  - name: "≥33 V 的设定可以在待机下保存，OPER 是确认"
+    manual: "第 4 章 How to Use Multiply and Divide（Press the O key if you wish to continue）"
+    steps:
+      - send: "OUT 100 V"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+0.0000000E+00"
+      - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+1.0000000E+02"
+
+  - name: "OPER? 的查询形式报 -113（能力缺口，见覆盖表 OPER 说明）"
+    manual: "Remote Commands > Output Commands > OPER?（本模型未实现的查询形式）"
+    steps:
+      - send: "OPER?"
+      - query: "ERR?"
+        expect: '-113,"Undefined header"'
+
+  - name: "ERR? 取出最早错误并删除，空队列回 0"
+    manual: "Remote Commands > Status Commands > ERR?"
+    steps:
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - send: "OUT 10"
+      - query: "ERR?"
+        expect: '519,"Must specify an output unit"'
+      - query: "ERR?"
+        expect: '0,"No Error"'
+
+  - name: "FAULT? 只回错误码"
+    manual: "Remote Commands > Status Commands > FAULT?"
+    steps:
+      - send: "OUT 10"
+      - query: "FAULT?"
+        expect: "519"
+      - query: "FAULT?"
+        expect: "0"
+
+  - name: "EARTH 与 EXTGUARD 被接受并回读，*RST 后回 OPEN/OFF"
+    manual: "Remote Commands > External Connection Commands > EARTH / EXTGUARD；*RST 表"
+    steps:
+      - send: "EARTH TIED;EXTGUARD ON"
+      - query: "EARTH?"
+        expect: "TIED"
+      - query: "EXTGUARD?"
+        expect: "ON"
+      - send: "*RST"
+      - query: "EARTH?"
+        expect: "OPEN"
+      - query: "EXTGUARD?"
+        expect: "OFF"
+
+  - name: "LOCAL、REMOTE、LOCKOUT 被接受（不影响仿真）"
+    manual: "Remote Commands > RS-232 Host Port Commands > LOCAL / REMOTE / LOCKOUT"
+    steps:
+      - send: "REMOTE"
+      - send: "LOCKOUT"
+      - send: "LOCAL"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+
+  - name: "状态寄存器：*CLS、*ESE、*ESR?、*SRE、*STB?、*TST?"
+    manual: "Remote Commands > Common Commands > *CLS / *ESE / *ESR? / *SRE / *STB? / *TST?"
+    steps:
+      - send: "*CLS"
+      - query: "*TST?"
+        expect: "0"
+      - send: "*ESE 1;*SRE 32"
+      - query: "*ESE?"
+        expect: "1"
+      - query: "*SRE?"
+        expect: "32"
+      - query: "*ESR?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
+      - send: "NONSUCH"
+      - query: "*STB?"
+        expect: "4"
+      - query: "*ESR?"
+        expect: "32"
+      - query: "ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+
+  - name: "*OPC 在输出建立完成时置 ESR 位 0；*WAI 等待建立"
+    manual: "Remote Commands > Common Commands > *OPC / *WAI；第 1 章 Settling Time（<5 s）"
+    steps:
+      - send: "OUT 10 V"
+      - send: "OPER"
+      - send: "*OPC"
+      - query: "*ESR?"
+        expect: "0"
+      - send: "*WAI"
+      - query: "*ESR?"
+        expect: "1"
+      - query: "*OPC?"
+        expect: "1"
+
+  - name: "复合命令与 OUT 1 V, 1 kHz 的示例写法（空格可省）"
+    manual: "第 5 章 Remote Program Examples（OUT 1 V, 1 A, 60 HZ ; *WAI 的复合命令写法）"
+    steps:
+      - send: "OUT 1V, 1kHz"
+      - query: "OUT?"
+        expect: "1.000000E+00,V,0E+00,0,1.000000E+03"
+      - send: "STBY;OUT 10 V;OPER;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+1.0000000E+01"
+
+  - name: "没有建模的命令回复 -113 并说明（量程锁定）"
+    manual: "Remote Commands > Output Commands > RANGELCK（未建模）"
+    steps:
+      - send: "RANGELCK ON"
+      - query: "ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'
+      - send: "SCOPE ACV"
+      - query: "ERR?"
+        expect: '-113,"Undefined header;not modeled by SimuBench"'

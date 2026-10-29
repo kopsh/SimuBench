@@ -1,0 +1,22 @@
+schema: simubench.bench/2
+name: fluke_5522a_dmm
+description: >-
+  Fluke 5522A（真实型号）接 sb-dmm-1（验证仪表）：校准源经 deviation: from_specs 按定义的
+  deviations 抽取隐藏个体误差（直流增益 ≤20 ppm、零点 ≤1 µV，1 年指标的最紧档），万用表的
+  隐藏误差写死为零。用例（tests/test_fluke_5522a.py）：OPER 后万用表读到设定值（误差在隐藏
+  误差内）；STBY 后读到 0 V——输出端断开进电路。
+instruments:
+  cal:
+    model: fluke-5522a
+    deviation: from_specs
+  dmm:
+    model: sb-dmm-1
+    hidden:
+      meter:
+        gain_error_ppm: 0.0
+        offset: 0.0
+wires:
+  - {from: cal.OUT, to: dmm.IN}
+run:
+  seed: 11
+  clock: command
