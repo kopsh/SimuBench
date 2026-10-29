@@ -342,7 +342,7 @@ async def test_an_agent_builds_a_definition_from_a_script(ws):
         )  # fmt: skip
         assert "补丁没有应用" in bad["error"]
     history = ws / ".simubench" / "history" / "instruments" / "agent-dmm.yaml" / "index.jsonl"
-    assert [json.loads(line)["source"] for line in history.read_text().splitlines()] == ["agent", "agent"]
+    assert [json.loads(line)["source"] for line in history.read_text(encoding="utf-8").splitlines()] == ["agent", "agent"]
 
 
 async def test_definitions_outside_the_workspace_are_read_only(ws):
