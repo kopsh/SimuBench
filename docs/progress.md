@@ -153,7 +153,8 @@
 | 可配置的示波器采集 `scope_acquisition`：记录长度规则、触发（可按通道绑定）、运行控制、何时重新采集、ADC、噪声（issue 44） | ✅ Siglent SDS 与低频校准参考示波器的行为改为定义中的参数，专用组件只剩专用命令；三台示波器约 100 条命令的回复、虚拟时间与采集事件与改动前逐项一致（命令时钟），唯一差别是 Siglent 平均采集的耗时改为 N 次（D46）；参考示波器改用通用组件后运行控制不变（`tests/test_scope_acquisition.py`） |
 | 组件目录：`GET /api/components` 与 MCP `list_components`（含内部组件，端口、参数、op、电路角色），`get_definition` 补充组件、内部连线与端口（issue 41） | ✅ 由组件类生成（参数说明取自 `defaults` 旁的注释，op 参数取自签名）；每个注册的类型都在目录中、op 与静态校验所见一致（`tests/test_component_catalog.py`）；只凭目录写出的最小定义通过静态校验（`tests/test_mcp.py`） |
 | 用例运行：`simubench cases`（JUnit 报告）与 MCP `run_cases`，手册用例与契约用例同一种文件（issue 45） | ✅ `tests/test_real_models.py` 改用同一个运行器，69 项结果不变；低频校准工作台的契约用例 11 条通过（`examples/lowfreq-cal/cases.yaml`）；失败信息、刚上电、JUnit 可解析、MCP（`tests/test_cases.py`、`tests/test_mcp.py`）；契约用例查出并修正 `FP` 超出记录时多一个空格的回归 |
-| MCP 编写工具、插件、验收 | ⏳ issue 46–48 |
+| MCP 编写仪表定义：`read_definition`、`create_definition`、`edit_definition`（JSON Patch，sha256 乐观并发，版本历史标为 Agent）、`validate_definition`、`draft_definition_from_script`；会话提示“重新启动以应用”（issue 46） | ✅ 从只用契约命令的脚本出发：起草 → 首次运行用例 3 条失败 → 补丁（枚举选项、通道数、型号）→ 校验无诊断 → 用例 4 条全过（`tests/test_mcp.py`）；冲突、坏补丁、只读的库定义、会话的 `stale_definitions`；JSON Patch 与类型推测（`tests/test_definition_authoring.py`） |
+| 插件、验收 | ⏳ issue 47–48 |
 
 ## 仪表内部组件图（Issue 20，D3）
 

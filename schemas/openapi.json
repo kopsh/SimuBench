@@ -3829,6 +3829,14 @@
             "title": "Seed",
             "type": "integer"
           },
+          "stale_definitions": {
+            "description": "Instrument definitions changed on disk since the session started: restart to apply them",
+            "items": {
+              "type": "string"
+            },
+            "title": "Stale Definitions",
+            "type": "array"
+          },
           "wires": {
             "items": {
               "$ref": "#/components/schemas/WireInfo"
@@ -3848,6 +3856,7 @@
           "reveal_true_values",
           "bench_sha256",
           "bench_fingerprint",
+          "stale_definitions",
           "record_path",
           "clients",
           "instruments",

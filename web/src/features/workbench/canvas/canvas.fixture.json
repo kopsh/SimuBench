@@ -189,6 +189,7 @@
   "reveal_true_values": false,
   "bench_sha256": "9609073c7856a9b5b961322e398861cf5b95f51c713434f053ed114d2a94f155",
   "bench_fingerprint": "593ca515bf85d079000ab87bdacb7c9ea34e7446910c99ca7a6838a45526cc60",
+  "stale_definitions": [],
   "record_path": null,
   "instruments": [
    {
@@ -1398,6 +1399,7 @@
   "reveal_true_values": false,
   "bench_sha256": "9609073c7856a9b5b961322e398861cf5b95f51c713434f053ed114d2a94f155",
   "bench_fingerprint": "593ca515bf85d079000ab87bdacb7c9ea34e7446910c99ca7a6838a45526cc60",
+  "stale_definitions": [],
   "record_path": null,
   "instruments": [
    {
