@@ -26,6 +26,7 @@ import { Inspector } from "./Inspector";
 import { instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { InternalsView } from "./internals/InternalsView";
+import { LiveValuesBanner } from "./edit/LiveValuesBanner";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
 import { LoadScreen } from "./screens/LoadScreen";
 import { LockinScreen } from "./screens/LockinScreen";
@@ -267,7 +268,15 @@ function CenterTabs({
         ) : current.kind === "internals" ? (
           <Internals session={session} instrument={current.instrument} />
         ) : (
-          <Screen session={session} instrument={current.instrument} readonly={readonly} />
+          <div className="flex h-full flex-col">
+            {editing && (() => {
+              const live = session.instruments.find((i) => i.name === current.instrument);
+              return live ? <LiveValuesBanner live={live} initial={view?.instruments.find((i) => i.name === current.instrument)} /> : null;
+            })()}
+            <div className="min-h-0 flex-1">
+              <Screen session={session} instrument={current.instrument} readonly={readonly} />
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -352,6 +361,15 @@ function BenchCanvas({
   return (
     <div className="relative h-full">
       <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} levels={levels} />
+      {editing && (
+        <div
+          className="bg-card/90 text-muted-foreground pointer-events-none absolute top-2 left-2 max-w-72 rounded-md border px-2 py-1 text-[11px] shadow-sm"
+          role="note"
+          aria-label={t("edit.initialTitle")}
+        >
+          <span className="text-foreground font-medium">{t("edit.initialTitle")}</span> · {t("edit.initialNote")}
+        </div>
+      )}
       {editing && (
         <div className="pointer-events-none absolute top-2 left-1/2 flex -translate-x-1/2 flex-col items-center gap-1">
           {omitted.length > 0 && (
