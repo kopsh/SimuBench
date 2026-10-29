@@ -101,10 +101,14 @@ class SessionManager:
         doc = self.files.read(bench_path)
         if not doc.ok:
             raise BenchInvalid(doc.diagnostics)
+        # Sockets and HiSLIP serve other processes, whose sleep cannot be intercepted: a bench
+        # configured for 'sleep' runs as 'off' here (D47).
+        idle = "off" if (doc.data.get("run") or {}).get("idle") == "sleep" else None
         session = open_bench(
             path,
             clock=clock,
             seed=seed,
+            idle=idle,
             record_dir=self.record_dir,
             record_raw=self.record_raw,
             definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)

@@ -20,6 +20,7 @@ from typing import Any
 
 from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
+from . import sleep_mode
 from .circuit import Circuit, Solution
 from .component import Component, component_type
 from .faults import FaultManager, LinkDown
@@ -73,12 +74,16 @@ class Session:
         record_dir: Path | None = None,
         clock: str | None = None,
         seed: int | None = None,
+        idle: str | None = None,
         record_raw: bool = False,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
         self.seed = bench.run.seed if seed is None else seed
         self.clock_mode = clock or bench.run.clock
+        self.idle_mode = bench.run.idle if idle is None else idle
+        if self.idle_mode not in ("wall", "sleep", "off"):
+            raise ValueError(f"idle must be wall, sleep or off, not {self.idle_mode!r}")
         self.reveal_true_values = bench.run.reveal_true_values
         self.now_ns = 0
         self._lock = threading.RLock()
@@ -137,6 +142,10 @@ class Session:
 
         if self.recorder:
             self.recorder.header()
+
+        # 'sleep' intercepts time.sleep for this process while the bench is open (D47).
+        if self.clock_mode == "command" and self.idle_mode == "sleep":
+            sleep_mode.register(self)
 
         # ---- components with state in virtual time ----
         self._dynamic = [c for c in self._all_components() if c.dynamic]
@@ -307,7 +316,9 @@ class Session:
         if self.clock_mode == "wall":
             self._sync()
             self.now_ns = max(self.now_ns, wall - self._wall_start)
-        elif self.clock_mode == "command" and not self.replaying:
+        elif self.clock_mode == "command" and not self.replaying and self.idle_mode == "wall":
+            # Counting idle real time makes results depend on machine speed; only 'wall' does it
+            # (D47). 'sleep' and 'off' move time only by command, advance and time.sleep.
             idle = wall - self._last_wall
             if idle >= IDLE_THRESHOLD_NS:
                 step = (idle // IDLE_QUANTUM_NS) * IDLE_QUANTUM_NS
@@ -476,12 +487,12 @@ class Session:
             if t_ns > self.now_ns:
                 self._advance(t_ns - self.now_ns, reason=reason)
 
-    def advance(self, seconds: float) -> None:
+    def advance(self, seconds: float, reason: str = "explicit") -> None:
         """Advance virtual time (action: advance). Works in every clock mode except wall."""
         with self._lock:
             if self.clock_mode == "wall":
                 raise RuntimeError("cannot advance a wall clock")
-            self._advance(round(seconds * 1e9), reason="explicit")
+            self._advance(round(seconds * 1e9), reason=reason)
 
     def configure(self, name: str, path: str, value: Any, client: str = "ui") -> None:
         """Out-of-band state change from the UI, MCP or SDK (action: configure)."""
@@ -502,6 +513,7 @@ class Session:
     # ---- lifecycle ----------------------------------------------------------------------------------
 
     def close(self) -> None:
+        sleep_mode.unregister(self)
         if self.recorder:
             self.recorder.close()
 
