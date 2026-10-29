@@ -22,7 +22,7 @@ export const en: Widen<Messages> = {
   home: {
     title: "Benches",
     subtitle: "Click a bench to use it: operate it here, connect scripts by address.",
-    files: "Benches",
+    files: "All benches",
     open: "Open bench",
     continue: "Enter",
     scriptAccess: "Script access",
