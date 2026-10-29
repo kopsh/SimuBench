@@ -1,7 +1,11 @@
+# Pull requests run the fast checks only (ubuntu: Python and web); merge.yml merges on them. The slow
+# ones (Windows, the wheel, end-to-end and visual tests) run after a merge, on main, and do not hold
+# up merging: when one is red on main, fixing it is the next task.
 name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -15,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -38,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -63,6 +67,7 @@ jobs:
 
   package:
     name: Wheel with the UI installs and runs
+    if: github.event_name != 'pull_request'
     needs: [python, web]
     runs-on: ubuntu-latest
     steps:
@@ -91,6 +96,7 @@ jobs:
 
   e2e:
     name: End-to-end (Chromium)
+    if: github.event_name != 'pull_request'
     needs: [python, web]
     runs-on: ubuntu-latest
     steps:
