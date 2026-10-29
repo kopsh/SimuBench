@@ -12,6 +12,7 @@
 | 诊断包 | 不包含访问令牌，不自动上传 | `test_diagnostics_bundle_over_the_api` |
 | MCP 仿真控制 | 推进时钟、读取真实值默认关闭，需 `--allow-control`；读取真实值还需 Bench 中 `run.reveal_true_values`（验证模式下关闭，定标脚本读不到答案） | `tests/test_mcp.py` |
 | 个体偏差 | 按指标抽取的值（D3 第 2 层）在会话接口中只在 `run.reveal_true_values` 打开时给出：仪表与 DUT 的 `deviations[].value` 为 null，DUT 的 `params` 显示标称值；MCP `read_true_values` 同样受这个开关与 `--allow-control` 限制。内部组件图只显示型号的标称值 | `tests/test_deviation.py::test_the_session_view_hides_drawn_values_unless_revealed`、`web/e2e/edit.spec.ts` |
+| 真值核对（C7） | `simubench verdicts` 与 MCP `check_verdicts` 在**运行结束后离线**核对定标脚本的判定：只读运行记录与脚本自己的报告，输出逐点结论与真误差。它不碰正在运行的会话——脚本运行中 `run.reveal_true_values` 关着时它什么也给不出，运行时的保密规则不变。MCP 工具与 `read_true_values` 一样需要 `--allow-control`：把真值交给 Agent 是工程师的显式行为 | `tests/test_verdicts.py`、`tests/test_mcp.py` |
 | MCP 危险命令 | 打开输出、扫描等标记为危险的命令需要 `confirm=true`，Agent 必须先向工程师说明 | `tests/test_mcp.py` |
 | MCP 频率限制 | 每个会话的命令速率受限，防止失控的 Agent 循环 | `tests/test_mcp.py` |
 | 工作区插件代码 | `components/*.py` 默认**不**加载（不会被导入，更不会执行）；需 `--allow-plugins` 或工作区设置 `.simubench/settings.json` 的 `"allow_workspace_plugins": true` 显式开启（D3）。开启后加载了哪些插件会打印在启动横幅，`doctor` 与诊断包列出插件及来源（不含源码）；运行记录头部带每个插件文件的 sha256，回放不一致时告警（D36）。已安装包经 `simubench.components` 入口点提供的组件默认加载——安装包本身就是信任行为 | `tests/test_plugins.py`、`test_security.py::test_workspace_plugins_are_opt_in` |
