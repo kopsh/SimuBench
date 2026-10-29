@@ -3,6 +3,25 @@
 Any coding agent (or person) works the same way. Tasks are GitHub issues; a pull request that
 passes CI merges itself into `main`, with no review.
 
+## Who takes which issue
+
+Every issue carries exactly one of two labels, set when the issue is opened:
+
+- **`核心`** (core) — done by the lead agent only: **capability building** (new or generic
+  components, engine semantics, file formats, the API and MCP, validation rules, design docs and
+  decisions) and **Web user interaction** (UI, interaction, wording). These need judgment that
+  later work builds on.
+- **`可认领`** (claimable) — any agent may claim it: the design is settled and the acceptance
+  criteria are written, so the work is following them. Real-model definitions (YAML, coverage,
+  cases, example benches), contract cases, a bug with a clear reproduction, documentation fixes.
+
+Claim only a `可认领` issue unless you are the lead agent. When a claimable issue turns out to need
+a capability the platform lacks, do not build it inside that issue: open a `核心` issue for the
+capability (under the umbrella issue it belongs to, e.g. #86) and comment on yours that it is
+blocked by it. Whoever opens an issue labels it; one without a label is not claimable.
+
+## Steps
+
 1. **Claim** the issue: comment "working on this" first, so two agents don't do the same task.
 2. **Branch** from the latest `main`: `issue-<number>-<short-name>`.
 3. **Stay in scope**: change only what the issue asks for.

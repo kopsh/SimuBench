@@ -18,14 +18,15 @@ there are allowed (the list only shrinks).
 
 When the platform cannot express something the manual requires:
 
-1. open a capability issue under the umbrella issue #86 (what the manual needs, which commands,
-   why the existing components cannot do it — see the sub-issues of #86 for the shape);
+1. open a capability issue labelled `核心` under the umbrella issue #86 (what the manual needs,
+   which commands, why the existing components cannot do it — see the sub-issues of #86 for the
+   shape); capability work belongs to the lead agent (`AGENTS.md`);
 2. comment on the model issue that it is blocked by that issue, and stop or continue with what
    does not depend on it. Do not write a model-specific component to get round it.
 
 ## Steps
 
-1. **Claim** the issue (comment "working on this"), branch from the latest `main` (`AGENTS.md`).
+1. **Claim** the issue (comment "working on this"; only a `可认领` one), branch from the latest `main` (`AGENTS.md`).
 2. **Command list**: copy the command headers from the manual's command index into a text file,
    one per line, `# <section>` lines for the manual's sections. Only command names — never the
    manual's text (real-models.md 7).

@@ -2,6 +2,7 @@
 name: 真实型号
 about: 新增或扩展一个真实型号的仪表定义（D42）
 title: "真实型号：<厂商> <型号>（<范围>）"
+labels: ["可认领"]
 ---
 
 ## 目标
@@ -10,7 +11,7 @@ title: "真实型号：<厂商> <型号>（<范围>）"
 
 先读 `docs/real-models.md`（D42）与 `.claude/skills/real-model/SKILL.md`。
 
-**本 issue 只写定义、覆盖表、用例与测试台，不新增或修改 `src/simubench/library/components/` 中的代码**（`tests/test_model_components.py` 检查）。平台缺能力时，在 #86 下开能力 issue，并在这里注明被它阻塞。
+**本 issue 只写定义、覆盖表、用例与测试台，不新增或修改 `src/simubench/library/components/` 中的代码**（`tests/test_model_components.py` 检查）。平台缺能力时，在 #86 下开标为 `核心` 的能力 issue，并在这里注明被它阻塞。
 
 **依赖的能力 issue**：<列出，或“无”>
 
