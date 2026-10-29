@@ -1,0 +1,240 @@
+schema: simubench.instrument/1
+id: fluke-5522a
+manufacturer: Fluke
+model: 5522A
+class: calibrator
+version: 1
+description: >-
+  Fluke 5522A 多功能校准源（NORMAL 端子的直流与交流电压输出）。Real model (D42)：命令、回复与
+  错误文字按 Fluke 5522A Operators Manual 的远程编程章节（第 5、6 章，Fluke 风格命令，非 SCPI 树）。
+  输出由 calibrator_output 建模：待机断开、建立时间、过载跳回待机、≥33 V 改变输出回待机；
+  电流、电阻、电容、温度与示波器校准选件未实现（覆盖表逐条列出，回复 -113）。
+reference:
+  title: Fluke 5522A Multi-Product Calibrator Operators Manual
+  document: "3795084"
+  version: January 2011
+  firmware: 手册 *IDN? 示例的 1.0+1.3+1.8（主 CPU+前面板 CPU+inguard PGA）
+identity:
+  idn: "FLUKE,5522A,{serial},{firmware}"
+  serial: "5248101"
+  firmware: "1.0+1.3+1.8"
+format:
+  number: nr3
+  digits: 6
+  sign: false
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: plain
+builtins:
+  # 手册的公共命令（*TRG 在手册中等价于热电偶测量，未建模；:SYSTem:* 一类 SCPI 头不是
+  # 5522A 的命令，错误队列用 ERR?/FAULT?、日期时间用 CLOCK，回复 -113）。
+  ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
+errors:
+  0: No Error
+  506: Function not available
+  519: Must specify an output unit
+  1305: Bad parameter unit
+  1503: Output current lim exceeded
+specs:
+  source: Fluke 5522A Operators Manual (3795084, January 2011) 第 1 章 Detailed Specifications
+  settling_time: "小于 5 s（全部功能与量程，另有注明者除外）→ settle 取 5 s"
+  output_resistance: "输出端电阻 <5 mΩ（≥0.33 V 的输出）→ z_out 取 5 mΩ"
+  high_voltage_threshold: "≥33 V：改变输出（前一电压 <33 V）或换功能（电压 ≥33 V）自动回待机，需再 OPER"
+  oper_with_errors: "错误队列非空时 ≥33 V 的 OPER 被禁止（错误 1331）——本模型未实现（能力 issue）"
+  dc_voltage_ranges_1year_ppm_plus_uv:
+    "0 to 329.9999 mV": {gain: 20, floor_uv: 1, resolution_uv: 0.1, max_burden: "65 Ω"}
+    "0 to 3.299999 V": {gain: 11, floor_uv: 2, resolution_uv: 1, max_burden: "10 mA"}
+    "0 to 32.99999 V": {gain: 12, floor_uv: 20, resolution_uv: 10, max_burden: "10 mA"}
+    "30 V to 329.9999 V": {gain: 18, floor_uv: 150, resolution_uv: 100, max_burden: "5 mA"}
+    "100 V to 1020.000 V": {gain: 18, floor_uv: 1500, resolution_uv: 1000, max_burden: "5 mA"}
+  ac_voltage_ranges_1year_45hz_10khz_ppm_plus_uv:
+    "1.0 mV to 32.999 mV": {gain: 150, floor_uv: 6, resolution_uv: 1}
+    "33 mV to 329.999 mV": {gain: 150, floor_uv: 60, resolution_uv: 1}
+    "0.33 V to 3.29999 V": {gain: 150, floor_uv: 600, resolution_uv: 10}
+    "3.3 V to 32.999 V": {gain: 150, floor_uv: 600, resolution_uv: 100}
+    "33 V to 329.999 V": {gain: 300, floor_uv: 10000, resolution_uv: 1000}
+    "330 V to 1020 V": {gain: 300, floor_uv: 10000, resolution_uv: 10000}
+  ac_voltage_frequency: "10 Hz 到 500 kHz（单输出）"
+  voltage_limits: "±1020 V（出厂 LIMIT 默认）"
+state:
+  out.function:
+    type: enum
+    options: [DCV, ACV]
+    default: DCV
+    rst: DCV
+    electrical: true
+    label: 功能
+    label_en: Function
+  out.level:
+    type: float
+    unit: V
+    min: -1020.0
+    max: 1020.0
+    default: 0.0
+    rst: 0.0
+    electrical: true
+    label: 幅度设定
+    label_en: Level
+  out.frequency:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 500000.0
+    default: 0.0
+    rst: 0.0
+    electrical: true
+    label: 频率（0 Hz 为直流）
+    label_en: Frequency
+  out.operate:
+    type: bool
+    default: false
+    rst: false
+    electrical: true
+    label: 工作
+    label_en: Operate
+  earth:
+    type: enum
+    options: [OPEN, TIED]
+    default: OPEN
+    rst: OPEN
+    label: NORMAL LO 接机壳地
+    label_en: NORMAL LO to earth
+  extguard:
+    type: enum
+    options: ["OFF", "ON"]
+    default: "OFF"
+    rst: "OFF"
+    label: 外部保护（guard 接 LO）
+    label_en: External guard
+  interface:
+    type: enum
+    options: [LOCAL, REMOTE, LOCKOUT]
+    default: LOCAL
+    rst: LOCAL
+    label: 远程接口状态
+    label_en: Remote interface state
+  installed_options:
+    type: enum
+    options: ["0"]
+    default: "0"
+    readonly: true
+    label: 已安装选件
+    label_en: Installed options
+components:
+  # 输出级：输出端电阻 <5 mΩ（手册第 1 章）；电压功能的负载电流上限取最小的 5 mA（手册允许
+  # 2–20 mA 按量程与频率，超限跳回待机并报 1503）；建立时间 <5 s；≥33 V 改变输出回待机。
+  - name: out
+    type: calibrator_output
+    params:
+      function: $out.function
+      level: $out.level
+      frequency: $out.frequency
+      operate: $out.operate
+      z_out: 0.005
+      i_max: 0.005
+      settle: 5.0
+      standby_above: 33.0
+      overload_error: 1503
+  - name: sys
+    type: system
+wiring:
+  instrument: []
+ports:
+  instrument:
+    # NORMAL 端子的 HI；LO 是机内地（输出以测试台地为参考），不单独成端口。
+    OUT: out.out
+display:
+  summary: [out.function, out.level, out.frequency, out.operate, earth, extguard]
+capabilities: [calibrator]
+commands:
+  # ---- 输出 ----
+  - header: OUT
+    params:
+      - name: q
+        type: quantities
+        units:
+          V: {state: out.level}
+          HZ: {state: out.frequency}
+        combine:
+          # 只有幅值 → 直流电压（OUT 10 V）；带频率 → 0 Hz 为直流、非 0 为交流（OUT 1 V, 1 kHz）；
+          # 只有频率 → 仅更新频率（OUT 60 HZ）。同一单位两次（OUT 1 V, 2 V）按手册是双电压输出，
+          # 双输出未建模，报 506。
+          "V": {out.function: DCV}
+          "V,HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+          "HZ": {}
+        missing_unit_error: 519
+        unknown_unit_error: 1305
+        duplicate_unit_error: 506
+        combine_error: 1305
+    reply: "{out.level},V,0E+00,0,{out.frequency}"
+    doc: >-
+      查询按手册给出 <幅值>,<单位>,<第二输出幅值>,<第二输出单位>,<频率>；单输出第二输出为
+      0E+00,0。各数字按本模型的统一格式（nr3，6 位尾数；手册示例中各字段的位数不一）。
+  - header: FUNC
+    state: out.function
+    set: false
+    format: {enum: as_defined}
+    doc: 返回当前输出功能（DCV / ACV；手册还有电流、电阻等功能的返回，未建模）。
+  - header: OPER
+    op: out.operate
+    args: {value: true}
+    query: false
+    doc: >-
+      进入工作，输出经建立时间到达设定值。手册的错误队列非空时 ≥33 V 禁止 OPER（1331）未实现
+      （能力 issue）；OPER? 查询形式无法与无参数的 OPER 同头声明（同一能力 issue），现报 -113。
+  - header: STBY
+    op: out.operate
+    args: {value: false}
+    query: false
+    doc: 回到待机，输出端与电路断开。
+  # ---- 错误队列 ----
+  - header: ERR
+    op: sys.next_error
+    set: false
+    reply: '{code},"{text}"'
+    doc: 取出最早的一条错误（码与文字按手册附录 D）；空队列回 0,"No Error"。
+  - header: FAULT
+    op: sys.next_error
+    set: false
+    reply: "{code}"
+    doc: 只取错误码；文字用 EXPLAIN? 查询（未建模）。
+  # ---- 外部连接（接受：不影响仿真） ----
+  - header: EARTH
+    state: earth
+    doc: NORMAL LO 接/断机壳地；仿真中不影响电路。
+  - header: EXTGUARD
+    state: extguard
+    doc: 内部保护屏蔽接/断 LO 端子；仿真中不影响电路。
+  # ---- RS-232 主机口命令（接受：不影响仿真） ----
+  - header: LOCAL
+    query: false
+    params: [{name: state, type: enum, options: [LOCAL, REMOTE, LOCKOUT], optional: true, state: interface}]
+    doc: >-
+      回到本地并解除锁定。手册无参数；无参数置态命令的声明是能力缺口（能力 issue），命令被
+      接受但不写状态，仿真中本地/远程不影响行为。
+  - header: REMOTE
+    query: false
+    params: [{name: state, type: enum, options: [LOCAL, REMOTE, LOCKOUT], optional: true, state: interface}]
+    doc: 进入远程状态（等价 IEEE-488 REN）；同 LOCAL 的限制。
+  - header: LOCKOUT
+    query: false
+    params: [{name: state, type: enum, options: [LOCAL, REMOTE, LOCKOUT], optional: true, state: interface}]
+    doc: 前面板锁定（等价 IEEE-488 LLO）；同 LOCAL 的限制。
+  # ---- 选件 ----
+  - header: "*OPT"
+    state: installed_options
+    set: false
+    doc: 已安装选件列表；按无选件的 5522A 建模，回 0。
+# 个体偏差（#34，metrology-authoring.md 7）：calibrator_output 的隐藏误差是单一标量（无按量程
+# 的表），取各量程 1 年指标中最紧的一档，使任何设定值都落在手册的 1 年包络内：直流增益 20 ppm
+# （330 mV 档），零点 1 µV（330 mV 档的 floor）；交流按 45 Hz–10 kHz 的 150–300 ppm 建模得更紧
+# （ specs 记完整表格）。limit 表按 by 的最后一个键取值，DC/AC 两套限值无法在同一参数上表达，
+# 故取直流档（注释于此）。
+deviations:
+  - param: out.gain_error_ppm
+    limit: 20.0
+    distribution: uniform
+  - param: out.offset
+    limit: 1.0e-6
+    distribution: uniform

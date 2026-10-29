@@ -1,0 +1,328 @@
+# Fluke 5522A 的覆盖表：命令按 Fluke 5522A Multi-Product Calibrator Operators Manual
+#（PN 3795084, January 2011）第 6 章的命令汇总表（Table 6-1 至 6-10）逐条列出；
+# 程度与说明手写；带查询形式的命令（手册中成对的 X 与 X?）在一条里说明。与手册的已知
+# 偏差（OPER? 的查询形式、OUT 的裸数值形式、错误码的 SCPI 码/仪器码差异等）写在对应
+# 命令的说明里；能力缺口另开了核心 issue。
+schema: simubench.coverage/1
+model: fluke-5522a
+sections:
+- section: Remote Commands > Table 6-1 Common Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: '清 ESR、错误队列与 RQS 位；手册还说清除 ISCR0/ISCR1（仪器状态变化寄存器未建模）。'
+  - header: '*ESE'
+    level: implemented
+    note: '标准事件使能寄存器（IEEE 488.2 内置命令）；查询形式 *ESE? 同。'
+  - header: '*ESR'
+    level: implemented
+    note: '标准事件寄存器查询（*ESR?），读后清除；按整数回复（手册示例无 + 号）。'
+  - header: '*IDN'
+    level: implemented
+    note: '查询 *IDN? 回 FLUKE,5522A,<序列号>,<主 CPU+前面板 CPU+inguard PGA 固件>（手册第 6 章示例格式）。'
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 在输出建立完成后置 ESR 位 0；*OPC? 等建立结束后回 1（建立时间按手册计入虚拟时间）。'
+  - header: '*OPT'
+    level: implemented
+    note: '查询 *OPT? 回已安装选件列表；按无选件的 5522A 建模，回 0。'
+  - header: '*PUD'
+    level: not_modeled
+    note: '非易失存储的用户数据（*PUD/*PUD?）；写入需校准开关在 ENABLE，未建模。'
+  - header: '*RST'
+    level: implemented
+    note: '回到上电状态：OUT 0V,0HZ、待机、EARTH OPEN、EXTGUARD OFF（手册 *RST 表中建模范围内的各项）。'
+  - header: '*SRE'
+    level: implemented
+    note: '服务请求使能寄存器（*SRE/*SRE?，IEEE 488.2 内置命令）。'
+  - header: '*TRG'
+    level: not_modeled
+    note: '手册中等价于热电偶测量（TC_MEAS;*OPC;VAL?）；热电偶未建模。'
+  - header: '*TST'
+    level: implemented
+    note: '查询 *TST? 自检通过回 0；仿真的仪表总在正常状态。'
+  - header: '*WAI'
+    level: implemented
+    note: '等全部待完成操作（输出的建立）。'
+- section: Remote Commands > Table 6-2 Error Mode Commands
+  commands:
+  - header: 'EDIT'
+    level: not_modeled
+    note: '误差模式的编辑域（EDIT/EDIT?）；误差模式（UUT 误差计算）整体未建模。'
+  - header: 'ERR_REF'
+    level: not_modeled
+    note: '误差参考源选择（ERR_REF/ERR_REF?）；误差模式未建模。'
+  - header: 'ERR_UNIT'
+    level: not_modeled
+    note: 'UUT 误差显示单位（ERR_UNIT/ERR_UNIT?）；误差模式未建模。'
+  - header: 'INCR'
+    level: not_modeled
+    note: '误差模式下增减输出；误差模式未建模。'
+  - header: 'MULT'
+    level: not_modeled
+    note: '参考值乘系数；误差模式未建模。'
+  - header: 'NEWREF'
+    level: not_modeled
+    note: '把当前输出设为新参考；误差模式未建模。'
+  - header: 'OLDREF'
+    level: not_modeled
+    note: '回到原参考；误差模式未建模。'
+  - header: 'OUT_ERR?'
+    level: not_modeled
+    note: 'UUT 误差查询；误差模式未建模。'
+  - header: 'REFOUT?'
+    level: not_modeled
+    note: '误差模式参考值查询；误差模式未建模。'
+- section: Remote Commands > Table 6-3 External Connection Commands
+  commands:
+  - header: 'CUR_POST'
+    level: not_modeled
+    note: '电流输出的接线端子选择（CUR_POST/CUR_POST?）；电流未建模。'
+  - header: 'EARTH'
+    level: accepted
+    note: 'NORMAL LO 接/断机壳地（TIED/OPEN），查询 EARTH? 回读；解析并保存，不影响仿真中的电路。*RST 后 OPEN。'
+  - header: 'EXTGUARD'
+    level: accepted
+    note: '内部保护屏蔽接/断 LO（ON/OFF），查询 EXTGUARD? 回读；解析并保存，不影响仿真。*RST 后 OFF。'
+  - header: 'LOWS'
+    level: not_modeled
+    note: 'NORMAL LO 与 AUX LO 内部连接（LOWS/LOWS?，双输出用）；双输出未建模。'
+  - header: 'PRES_UNIT'
+    level: not_modeled
+    note: '压力显示单位（PRES_UNIT/PRES_UNIT?）；压力测量未建模。'
+  - header: 'RTD_TYPE'
+    level: not_modeled
+    note: 'RTD 传感器类型（RTD_TYPE/RTD_TYPE?）；温度未建模。'
+  - header: 'TC_REF'
+    level: not_modeled
+    note: '热电偶参考结点来源（TC_REF/TC_REF?）；热电偶未建模。'
+  - header: 'TC_TYPE'
+    level: not_modeled
+    note: '热电偶类型（TC_TYPE/TC_TYPE?）；热电偶未建模。'
+  - header: 'TSENS_TYPE'
+    level: not_modeled
+    note: '温度传感器类型（TSENS_TYPE/TSENS_TYPE?）；温度未建模。'
+- section: Remote Commands > Table 6-4 Oscilloscope Commands
+  commands:
+  - header: 'OL_TRIP?'
+    level: not_modeled
+    note: '示波器校准选件（-SC600）的过载状态；选件未建模。'
+  - header: 'OUT_IMP'
+    level: not_modeled
+    note: 'SCOPE BNC 输出阻抗（OUT_IMP/OUT_IMP?）；示波器校准选件未建模。'
+  - header: 'RANGE'
+    level: not_modeled
+    note: 'OVERLD/PULSE/MEASZ 模式的量程；选件未建模（单输出的量程查询是 RANGE?）。'
+  - header: 'SCOPE'
+    level: not_modeled
+    note: '示波器校准模式（SCOPE/SCOPE?）；选件未建模（无 -SC600/-SC1100）。'
+  - header: 'TDPULSE'
+    level: not_modeled
+    note: '隧道二极管脉冲驱动（TDPULSE/TDPULSE?，-SC600 EDGE）；选件未建模。'
+  - header: 'TLIMIT'
+    level: not_modeled
+    note: '-SC600 OVERLD 模式的工作时限（TLIMIT/TLIMIT?）；选件未建模。'
+  - header: 'TLIMIT_D'
+    level: not_modeled
+    note: 'TLIMIT 的上电默认（TLIMIT_D/TLIMIT_D?）；选件未建模。'
+  - header: 'TMWAVE'
+    level: not_modeled
+    note: 'MARKER 模式时标波形（TMWAVE/TMWAVE?）；选件未建模。'
+  - header: 'TRIG'
+    level: not_modeled
+    note: 'TRIG OUT BNC 的频率（TRIG/TRIG?）；选件未建模。'
+  - header: 'VIDEOFMT'
+    level: not_modeled
+    note: 'VIDEO 模式制式（VIDEOFMT/VIDEOFMT?）；选件未建模。'
+  - header: 'VIDEOMARK'
+    level: not_modeled
+    note: 'VIDEO 模式行标记位置（VIDEOMARK/VIDEOMARK?）；选件未建模。'
+  - header: 'ZERO_MEAS'
+    level: not_modeled
+    note: '压力模块调零/电容测量调零（ZERO_MEAS/ZERO_MEAS?）；压力与电容未建模。'
+- section: Remote Commands > Table 6-5 Output Commands
+  commands:
+  - header: 'CFREQ?'
+    level: not_modeled
+    note: '电容模式的最佳激励频率；电容未建模。'
+  - header: 'DBMZ'
+    level: not_modeled
+    note: 'dBm 输出的参考阻抗（DBMZ/DBMZ?）；dBm 单位未建模。'
+  - header: 'DC_OFFSET'
+    level: not_modeled
+    note: '交流输出的直流偏置；未建模——calibrator_output 的隐藏 offset 只作用于直流（#90 已知边界），接受它会掩盖真机行为差异。'
+  - header: 'DPF'
+    level: not_modeled
+    note: '功率输出的位移功率因子（DPF/DPF?）；功率输出未建模。'
+  - header: 'DUTY'
+    level: not_modeled
+    note: '方波占空比（DUTY/DUTY?）；非正弦波形未建模。'
+  - header: 'FUNC'
+    level: implemented
+    note: '查询 FUNC? 回当前输出功能：DCV / ACV（手册还有电流、电阻、温度、功率、双输出与示波器功能的返回，未建模）。'
+  - header: 'HARMONIC'
+    level: not_modeled
+    note: '谐波输出（HARMONIC/HARMONIC?）；未建模。'
+  - header: 'LCOMP'
+    level: not_modeled
+    note: '交流电流的电感负载补偿（LCOMP/LCOMP?）；电流未建模。'
+  - header: 'OPER'
+    level: implemented
+    note: '进入工作，输出经建立时间（<5 s，按手册计入虚拟时间）到达设定值。手册的“错误队列非空时 ≥33 V 禁止 OPER”（错误 1331）未实现（能力 issue）；查询形式 OPER? 与无参数的 OPER 同头，声明式定义无法表达“set 调操作、query 回读状态”（同一能力 issue），OPER? 现报 -113。'
+  - header: 'OUT'
+    level: implemented
+    note: '设定输出：OUT 10 V 直流、OUT 1 V, 1 kHz 交流、OUT 60 HZ 只更新频率。手册允许省略单位的裸数值（沿用当前单位），quantities 参数无法表达“单位取自状态”，缺单位报手册的 519；量程超限报 -222（SCPI 码，手册的 1300 系列错误码无法由状态范围检查给出）。'
+  - header: 'PHASE'
+    level: not_modeled
+    note: '双输出的相位差（PHASE/PHASE?）；双输出未建模。'
+  - header: 'POWER?'
+    level: not_modeled
+    note: '功率输出的等效功率；功率输出未建模。'
+  - header: 'RANGE?'
+    level: not_modeled
+    note: '按手册返回量程的符号名（DC330MV 等）；需要由当前幅值推导量程名，平台无此能力（回复模板不做查表映射）。'
+  - header: 'RANGELCK'
+    level: not_modeled
+    note: '直流电压/电流量程锁定（RANGELCK/RANGELCK?）；量程系统未建模。'
+  - header: 'REFCLOCK'
+    level: not_modeled
+    note: '参考时钟源（REFCLOCK/REFCLOCK?，内部/10 MHz IN）；时钟输入不在仿真中。'
+  - header: 'REFPHASE'
+    level: not_modeled
+    note: '同步校准器间的相位差（REFPHASE/REFPHASE?）；10 MHz 同步未建模。'
+  - header: 'STBY'
+    level: implemented
+    note: '回到待机：输出端与测试台电路断开（进入电路求解）。'
+  - header: 'SYNCOUT'
+    level: not_modeled
+    note: '向从校准器发同步脉冲；10 MHz 同步未建模。'
+  - header: 'WAVE'
+    level: not_modeled
+    note: '交流波形（WAVE/WAVE?，三角/方波/截断正弦）；输出恒为正弦谱线（calibrator_output），接受会掩盖真机行为差异。'
+  - header: 'ZCOMP'
+    level: not_modeled
+    note: '阻抗测量补偿（ZCOMP/ZCOMP?）；电阻未建模。'
+- section: Remote Commands > Table 6-6 Pressure Measurement Commands
+  commands:
+  - header: 'DAMPEN'
+    level: not_modeled
+    note: '压力读数平均（DAMPEN/DAMPEN?）；压力测量未建模。'
+  - header: 'PRES?'
+    level: not_modeled
+    note: '压力模块型号查询；压力测量未建模。'
+  - header: 'PRES_MEAS'
+    level: not_modeled
+    note: '压力测量模式；未建模。'
+  - header: 'VAL?'
+    level: not_modeled
+    note: '热电偶/压力/阻抗测量值；测量模式未建模。'
+- section: Remote Commands > Table 6-7 RS-232 Host Port Commands
+  commands:
+  - header: 'LOCAL'
+    level: accepted
+    note: '回到本地并解除锁定（等价 IEEE-488 GTL）。手册无参数；无参数置态命令的声明是能力缺口（能力 issue），命令被接受（不报错、不回复）但不写状态，仿真中本地/远程不影响行为。'
+  - header: 'LOCKOUT'
+    level: accepted
+    note: '前面板锁定（等价 IEEE-488 LLO）；同 LOCAL 的限制。'
+  - header: 'REMOTE'
+    level: accepted
+    note: '进入远程状态（等价 IEEE-488 REN）；同 LOCAL 的限制。'
+  - header: 'SPLSTR'
+    level: not_modeled
+    note: '串口轮询应答串（SPLSTR/SPLSTR?）；RS-232 串口层不在仿真中。'
+  - header: 'SRQSTR'
+    level: not_modeled
+    note: '串口 SRQ 应答串（SRQSTR/SRQSTR?）；RS-232 串口层不在仿真中。'
+  - header: 'UUT_RECVB?'
+    level: not_modeled
+    note: '从 UUT 串口读二进制；UUT 串口未建模。'
+  - header: 'UUT_SENDB'
+    level: not_modeled
+    note: '向 UUT 串口写二进制；UUT 串口未建模。'
+  - header: '^P'
+    level: not_modeled
+    note: 'RS-232 控制字符（打印轮询串）；串口层不在仿真中。'
+  - header: '^C'
+    level: not_modeled
+    note: 'RS-232 控制字符（清设备）；串口层不在仿真中。'
+  - header: '^T'
+    level: not_modeled
+    note: 'RS-232 控制字符（组触发）；串口层不在仿真中。'
+- section: Remote Commands > Table 6-8 RS-232 UUT Port Commands
+  commands:
+  - header: 'UUT_FLUSH'
+    level: not_modeled
+    note: '清 UUT 串口接收缓冲；UUT 串口未建模。'
+  - header: 'UUT_RECV?'
+    level: not_modeled
+    note: '从 UUT 串口读数据；UUT 串口未建模。'
+  - header: 'UUT_SEND'
+    level: not_modeled
+    note: '向 UUT 串口写字符串；UUT 串口未建模。'
+  - header: 'UUT_SET'
+    level: not_modeled
+    note: '设置 UUT 串口参数（UUT_SET/UUT_SET?，非易失）；UUT 串口未建模。'
+- section: Remote Commands > Table 6-9 Setup and Utility Commands
+  commands:
+  - header: 'CLOCK'
+    level: not_modeled
+    note: '实时时钟设置（CLOCK/CLOCK?）；:SYSTem:DATE/:SYSTem:TIME 由 IEEE 488.2 内置命令回答，CLOCK 的非易失存储未建模。'
+  - header: 'DBMZ_D'
+    level: not_modeled
+    note: 'DBMZ 的上电默认（DBMZ_D/DBMZ_D?）；dBm 未建模。'
+  - header: 'FORMAT'
+    level: not_modeled
+    note: '恢复非易失存储出厂值；非易失存储未建模。'
+  - header: 'LIMIT'
+    level: not_modeled
+    note: '用户输出限值（LIMIT/LIMIT?，非易失，出厂 ±1020 V/±20.5 A）；设定不影响仿真输出，未建模。'
+  - header: 'ONTIME?'
+    level: not_modeled
+    note: '上电以来的分钟数；回复随真实上电时刻而异，未建模。'
+  - header: 'PR_RPT'
+    level: not_modeled
+    note: '经串口打印校准报告；串口与校准报告未建模。'
+  - header: 'PRES_UNIT_D'
+    level: not_modeled
+    note: '压力单位上电默认（PRES_UNIT_D/PRES_UNIT_D?）；压力未建模。'
+  - header: 'REFCLOCK_D'
+    level: not_modeled
+    note: '参考时钟上电默认（REFCLOCK_D/REFCLOCK_D?）；时钟输入不在仿真中。'
+  - header: 'REFPHASE_D'
+    level: not_modeled
+    note: '同步相位上电默认（REFPHASE_D/REFPHASE_D?）；10 MHz 同步未建模。'
+  - header: 'RTD_TYPE_D'
+    level: not_modeled
+    note: 'RTD 类型上电默认（RTD_TYPE_D/RTD_TYPE_D?）；温度未建模。'
+  - header: 'SP_SET'
+    level: not_modeled
+    note: '主机串口参数（SP_SET/SP_SET?，非易失）；串口层不在仿真中。'
+  - header: 'TC_TYPE_D'
+    level: not_modeled
+    note: '热电偶类型上电默认（TC_TYPE_D/TC_TYPE_D?）；热电偶未建模。'
+  - header: 'TEMP_STD'
+    level: not_modeled
+    note: '温标（TEMP_STD/TEMP_STD?，ITS-90/IPTS-68）；温度未建模。'
+  - header: 'UNCERT?'
+    level: not_modeled
+    note: '当前输出的不确定度查询；需要按量程与频率查规格表，未建模（specs 记录了 1 年指标）。'
+- section: Remote Commands > Table 6-10 Status Commands
+  commands:
+  - header: 'ERR'
+    level: implemented
+    note: '查询 ERR? 取出最早的错误并从队列删除：<码>,"<文字>"（手册附录 D）；空队列回 0,"No Error"。队列溢出时最后一格按 SCPI-99 报 -350（手册用仪器码 1 "Error queue overflow"，框架的溢出码固定为 -350）。'
+  - header: 'EXPLAIN?'
+    level: not_modeled
+    note: '按错误码查解释文字；需要“参数→错误表查文字”的操作，平台无此能力（ERR? 已带文字）。'
+  - header: 'FAULT'
+    level: implemented
+    note: '查询 FAULT? 只回最早的错误码（文字用 EXPLAIN? 查，未建模）；空队列回 0。'
+  - header: 'ISCE'
+    level: not_modeled
+    note: '仪器状态变化使能寄存器（ISCE/ISCE?、ISCE0/ISCE0?、ISCE1/ISCE1?）；ISCR 位（SETTLED、REMOTE、HIVOLT 等）未建模，*ESR?/*STB? 已覆盖常用状态位。'
+  - header: 'ISCR?'
+    level: not_modeled
+    note: '仪器状态变化寄存器（ISCR?/ISCR0?/ISCR1?，读后清除）；同 ISCE 的说明。'
+  - header: 'ISR?'
+    level: not_modeled
+    note: '仪器状态寄存器（SETTLED、REMOTE、HIVOLT 等位）；同 ISCE 的说明。'
