@@ -22,6 +22,11 @@ class InstrumentInstance(_Model):
     )
     serial: str | None = Field(None, description="Overrides the definition's serial number")
     firmware: str | None = None
+    idn: str | None = Field(
+        None,
+        description="Overrides the definition's *IDN? reply, with the same fields, e.g. "
+        "'LECROY,WAVEPRO 254HD,{serial},{firmware}' (the model token a host program checks)",
+    )
     state: dict[str, Any] = Field(
         default_factory=dict, description="Initial state, e.g. {'ch1.frequency': 1000}"
     )

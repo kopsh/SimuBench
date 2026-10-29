@@ -460,7 +460,7 @@ class SessionManager:
                 instrument=instrument,
                 source=source,  # type: ignore[arg-type]
                 timebase_scale=float(inst.get_state("timebase.scale")),
-                trigger_level=float(inst.get_state("trigger.level")),
+                trigger_level=acq.trigger_level(),  # type: ignore[attr-defined]
                 trigger_source=channel_index(inst.get_state("trigger.source")),
                 traces=traces,
                 acquisitions=int(acq.acq_count),  # type: ignore[attr-defined]

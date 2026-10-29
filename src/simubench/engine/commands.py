@@ -79,14 +79,21 @@ def classify(definition: InstrumentDefinition, message: str) -> list[UnitMatch]:
             tokens = path + tokens
         if not unit.common:
             path = tokens[:-1]
-        if unit.common:
+        hit = next(
+            (
+                (p, c)
+                for p, c in _compiled(definition)
+                if p.common == unit.common and p.match(tokens) is not None
+            ),
+            None,
+        )
+        if unit.common and hit is None:
             word = tokens[0].keyword
             kind: Kind = "common" if word in COMMON else "unsupported"
             out.append(
                 UnitMatch(text, kind, unit.query, reason=None if kind == "common" else "未实现的公共命令")
             )
             continue
-        hit = next(((p, c) for p, c in _compiled(definition) if p.match(tokens) is not None), None)
         if hit is not None:
             spec = hit[1]
             if (unit.query and not spec.query) or (not unit.query and not spec.set):

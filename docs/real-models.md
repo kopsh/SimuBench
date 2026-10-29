@@ -86,6 +86,9 @@
 | `builtins` | 定义 | 这个型号回答的内置命令（如 `["*IDN", "*OPC", "*RST"]`）。不写时全部回答；写了以后，其余内置命令（`*CLS`、`:SYSTem:ERRor?` 等）按“未建模”处理（D45）。 |
 | `display.actions` | 定义 | 界面的面板操作发送的命令，如 `{single: ":TRIGger:MODE SINGle"}`；不写时“单次”发送 `:SINGle`。 |
 | `specs` | 定义 | 手册中的精度指标，任意结构；目前只保存，不参与计算（M7）。 |
+| `unknown_commands` | 定义 | `error`（默认）：未定义的命令回复 `-113`；`ignore`：不报错、不回复，事件历史记为 `ignored`。只用于按接口契约编写、没有 `reference` 的定义（D42），真实型号不允许。 |
+| `commands[].header` 为 `*XXX` | 命令 | 定义可以给公共命令自己的行为（如方言中的 `*CLS?`），优先于内置的公共命令。 |
+| `idn` | 测试台实例 | 覆盖定义的 `*IDN?` 回复，字段同 `identity.idn`；用于主机程序校验的型号串。 |
 
 **覆盖表** `<id>.coverage.yaml`（与定义放在一起；仪表库不会把它当作定义）：
 
