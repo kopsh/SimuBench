@@ -240,7 +240,9 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   await expect(details).toContainText("200 MHz");
   // Expanding everything shows every channel's chain.
   await page.getByRole("button", { name: "全部展开" }).click();
-  await expect(graph.getByTestId("internal-component")).toHaveCount(9);
+  // 4 channels × (input port, front end), the acquisition and the waveform transfer (no signal wires).
+  await expect(graph.getByTestId("internal-component")).toHaveCount(10);
+  await expect(graph.locator('[data-name="xfer"]')).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(0);
   // Read-only: nothing to drag or connect.
   await expect(graph.locator(".react-flow__node.draggable")).toHaveCount(0);
