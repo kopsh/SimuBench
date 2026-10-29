@@ -153,6 +153,17 @@ components:
       sweep_points: $sweep.points
       sweep_delay: $sweep.delay
       sweep_list: $sweep.list
+      buffer: mem
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: core
+      buffer: mem
+      digits: 7
+      fetch_from_buffer: true
+  - name: mem
+    type: reading_buffer
+    params: {digits: 7}
 ports:
   instrument:
     HI: core.hi
@@ -239,17 +250,20 @@ commands:
   - header: "[:SOURce]:SWEep:MODE"
     state: sweep.mode
   - header: ":READ[:VOLTage]"
-    op: core.read
+    op: trig.read
     set: false
     dangerous: true
+    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
   - header: ":READ:CURRent"
-    op: core.read
+    op: trig.read
     set: false
     dangerous: true
+    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
   - header: ":READ:RESistance"
-    op: core.read
+    op: trig.read
     set: false
     dangerous: true
+    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
   - header: ":MEASure[:VOLTage][:DC]"
     op: core.measure
     set: false
@@ -260,17 +274,16 @@ commands:
     op: core.measure
     set: false
   - header: ":FETCh"
-    op: core.fetch
+    op: trig.fetch
     set: false
+    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
   - header: ":INITiate[:IMMediate]"
-    op: core.initiate
+    op: trig.initiate
     query: false
     dangerous: true
   - header: ":TRACe:POINts:ACTual"
-    op: core.buffer
+    op: mem.actual
     set: false
-    args: {what: count}
   - header: ":TRACe:CLEar"
-    op: core.buffer
+    op: mem.clear
     query: false
-    args: {what: clear}

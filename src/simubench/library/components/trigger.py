@@ -6,6 +6,15 @@ INITiate arms it, each trigger (immediate, ``*TRG`` on the bus, or an external o
 take virtual time (the sampler's reading time, D12): on the command clock INITiate returns at once
 and FETCh? waits, using that time; ``*OPC?`` and ``*WAI`` wait for the run too.
 
+A sampler may give the run a shape of its own, beyond the two required protocol methods:
+
+* ``run_samples()`` — how many readings one of its runs takes (a source-measure unit's sweep);
+  it replaces the configured counts (one trigger, that many readings);
+* ``sample_fields(index)`` — additional fields of one reading (an SMU's VOLT, CURR, RES, STAT);
+  ``reading_buffer``'s ``data`` op selects them by name, as ``READ`` and ``REL``;
+* ``run_begin()`` / ``run_done()`` — around a run, for settings the sampler drives while it runs
+  (a sweep holds the output on and the point levels set).
+
 ``reading_buffer`` keeps the readings: one or more named buffers, with a capacity and what happens
 when one is full; the reading memory of a DMM (``R?``, ``DATA:POINts?``, ``DATA:REMove?``) and the
 named buffers of an SMU (``TRACe:MAKE``, ``TRACe:DATA?``).
@@ -28,6 +37,34 @@ class Reading:
     fields: dict[str, float] = field(default_factory=dict)
 
 
+def _number_formatter(owner: Component, digits: Any) -> Any:
+    """The number writer a component's readings use: the definition's response format, or a fixed
+    number of digits (an ``sb-*`` model's readings, which predate the definition format)."""
+    if digits is None:
+        return owner.format_number
+    return lambda v: V.format_float(float(v), int(digits))
+
+
+def format_readings(
+    readings: list[Reading], elements: list[str] | None, number: Any, error: int = -222
+) -> bytes:
+    """Readings joined by commas; per reading each named element (``READ``: the reading, ``REL``:
+    seconds since the first reading, else a field the sampler gave it)."""
+    out: list[bytes] = []
+    first = readings[0].t_ns if readings else 0
+    for r in readings:
+        for e in [x.upper() for x in elements or ["READ"]]:
+            if e.startswith("READ"):
+                out.append(number(r.value))
+            elif e.startswith("REL"):
+                out.append(number((r.t_ns - first) / 1e9))
+            elif e in {k.upper() for k in r.fields}:
+                out.append(number(next(v for k, v in r.fields.items() if k.upper() == e)))
+            else:
+                raise ScpiError(error, f"no buffer element {e!r}")
+    return b",".join(out)
+
+
 @component("trigger_model")
 class TriggerModel(Component):
     """INITiate, triggers and FETCh? of a meter: ``trigger_count`` × ``sample_count`` readings of the
@@ -40,6 +77,8 @@ class TriggerModel(Component):
         "sample_count": 1,  # readings per trigger
         "delay": 0.0,  # s, from each trigger to its first reading
         "buffer": "",  # the reading_buffer component that keeps the readings ('' for none)
+        "digits": None,  # readings with a fixed number of digits (None: the definition's format)
+        "fetch_from_buffer": False,  # FETCh? answers from the reading buffer, not the last run
         "max_readings": 1000000,  # trigger_count × sample_count above this is refused
         "waiting_error": -230,  # a fetch with no readings to give (waiting for a trigger, none taken)
         "ignored_error": -213,  # INITiate while a run is in progress (SCPI: Init ignored)
@@ -56,6 +95,7 @@ class TriggerModel(Component):
         self.readings: list[Reading] = []  # the readings of the last run, what FETCh? returns
         self.triggers = 0  # triggers taken in this run
         self.done_ns = 0  # when the readings being taken are done
+        self._run_begun = False  # run_begin was called and run_done is still owed
         if self.owner is not None:
             self.owner.cancel_pending(self.uid)
 
@@ -68,10 +108,24 @@ class TriggerModel(Component):
             raise ScpiError(-300, f"{self.uid}: sampler {self.param('sampler')!r} takes no readings")
         return comp
 
+    def _optional(self, name: str, *args: Any) -> Any:
+        """Call an optional sampler hook (``run_samples``, ``run_begin``, ``run_done``,
+        ``sample_fields``); ``None`` when the sampler does not have it."""
+        hook = getattr(self._sampler(), name, None)
+        return hook(*args) if hook is not None else None
+
     def _source(self) -> str:
         return str(self.param("source")).lower()
 
     def _counts(self) -> tuple[int, int]:
+        """(triggers, readings per trigger) of a run: the sampler's own size (a sweep) when it
+        declares one, else the configured counts."""
+        declared = self._optional("run_samples")
+        if declared is not None:
+            n = int(declared)
+            if n < 1 or n > int(self.param("max_readings")):
+                raise ScpiError(-222, f"{n} readings is out of range")
+            return 1, n
         triggers, samples = int(float(self.param("trigger_count"))), int(float(self.param("sample_count")))
         if triggers < 1 or samples < 1 or triggers * samples > int(self.param("max_readings")):
             raise ScpiError(-222, f"{triggers} triggers × {samples} readings is out of range")
@@ -84,9 +138,18 @@ class TriggerModel(Component):
         """Take ``batches`` triggers' readings from now; they are done at ``done_ns``."""
         assert self.owner is not None
         _, samples = self._counts()
+        if not self._run_begun:
+            self._run_begun = True
+            self._optional("run_begin")
         self.phase = "measuring"
         self.done_ns = self.owner.now_ns() + batches * self._batch_ns(samples)
         self._batches = batches
+        if self.owner.session.clock_mode == "stepped":
+            # A stepped clock moves only when stepped, so nothing would ever complete it: an
+            # immediate run is instantaneous, its readings taken now (their spacing is what the
+            # sampler's TIME fields say). Waiting runs (bus, external) still wait for *TRG.
+            self._finish()
+            return
         self.owner.register_pending(self.uid, self.done_ns, self._finish)
 
     def _finish(self) -> None:
@@ -102,12 +165,18 @@ class TriggerModel(Component):
             t += delay
             for _ in range(samples):
                 t += step
-                reading = Reading(float(sampler.sample(len(self.readings))), t)
+                index = len(self.readings)
+                value = float(sampler.sample(index))
+                fields = self._optional("sample_fields", index) or {}
+                reading = Reading(value, t, fields)
                 self.readings.append(reading)
                 if buffer is not None:
                     buffer.append(reading)
         self.triggers += self._batches
         self.phase = "waiting" if self.triggers < triggers else "idle"
+        if self.phase == "idle" and self._run_begun:
+            self._run_begun = False
+            self._optional("run_done")
         self.owner.cancel_pending(self.uid)
 
     def _buffer(self) -> ReadingBuffer | None:
@@ -130,9 +199,16 @@ class TriggerModel(Component):
             self._finish()
         return used
 
-    def _reply(self) -> bytes:
-        assert self.owner is not None
-        return b",".join(self.owner.format_number(r.value) for r in self.readings)
+    def _number(self) -> Any:
+        return _number_formatter(self.owner, self.param("digits"))
+
+    def _reply(self, elements: list[str] | None = None) -> bytes:
+        if self.param("fetch_from_buffer"):
+            buffer = self._buffer()
+            readings = buffer.buffers[buffer._default()]
+        else:
+            readings = self.readings
+        return format_readings(readings, elements, self._number())
 
     # ---- operations ----------------------------------------------------------------------------------
 
@@ -162,22 +238,30 @@ class TriggerModel(Component):
         return OpResult()
 
     @op("fetch")
-    def fetch(self, **_: Any) -> OpResult:
-        """``FETCh?``: the readings of the last run, once they are taken (waiting for them)."""
+    def fetch(self, elements: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``FETCh?``: the readings of the last run, once they are taken (waiting for them). With
+        ``fetch_from_buffer`` the reading buffer answers instead (an SMU's ``FETCh?`` is its trace
+        memory: ``TRAC:CLE`` empties it), each reading with the ``elements`` named."""
+        names = [V.parse_string(e) if isinstance(e, bytes) else str(e) for e in elements or []]
         used = self._wait()
-        if self.phase == "measuring" or not self.readings or (self.phase == "waiting" and not self.triggers):
+        if self.param("fetch_from_buffer"):
+            buffer = self._buffer()
+            if not buffer.buffers[buffer._default()]:
+                raise ScpiError(int(buffer.param("empty_error")), "the buffer is empty")
+        elif (
+            self.phase == "measuring" or not self.readings or (self.phase == "waiting" and not self.triggers)
+        ):
             raise ScpiError(int(self.param("waiting_error")), "Data stale; no readings to fetch")
-        return OpResult(self._reply(), used)
+        return OpResult(self._reply(names or None), used)
 
     @op("read")
-    def read(self, **_: Any) -> OpResult:
+    def read(self, elements: list[bytes] | None = None, **_: Any) -> OpResult:
         """``READ?``: INITiate and FETCh?; with a bus or external trigger nothing would ever arrive."""
         if self._source() != "immediate":
             raise ScpiError(int(self.param("deadlock_error")), "Trigger deadlock")
         self.abort()
         self.initiate()
-        used = self._wait()
-        return OpResult(self._reply(), used)
+        return self.fetch(elements=elements)
 
     @op("abort")
     def abort(self, **_: Any) -> OpResult:
@@ -185,6 +269,9 @@ class TriggerModel(Component):
         assert self.owner is not None
         self.owner.cancel_pending(self.uid)
         self.phase = "idle"
+        if self._run_begun:
+            self._run_begun = False
+            self._optional("run_done")
         return OpResult()
 
     @op("state")
@@ -202,6 +289,7 @@ class ReadingBuffer(Component):
         "default": "defbuffer1",  # the buffer commands use when they name none
         "capacity": 10000,  # readings a buffer keeps (a made buffer gives its own)
         "when_full": "stop",  # stop: new readings are dropped | overwrite: the oldest go
+        "digits": None,  # readings with a fixed number of digits (None: the definition's format)
         "max_buffers": 8,  # buffers there may be, the default one included
         "missing_error": -222,  # a buffer name, index or count that does not exist
         "empty_error": -230,  # reading from an empty buffer
@@ -243,22 +331,12 @@ class ReadingBuffer(Component):
     # ---- operations ----------------------------------------------------------------------------------
 
     def _numbers(self, readings: list[Reading], elements: list[str] | None = None) -> bytes:
-        assert self.owner is not None
-        out: list[bytes] = []
-        first = readings[0].t_ns if readings else 0
-        for r in readings:
-            for e in [x.upper() for x in elements or ["READ"]]:
-                if e.startswith("READ"):
-                    out.append(self.owner.format_number(r.value))
-                elif e.startswith("REL"):
-                    out.append(self.owner.format_number((r.t_ns - first) / 1e9))
-                elif e in {k.upper() for k in r.fields}:
-                    out.append(
-                        self.owner.format_number(next(v for k, v in r.fields.items() if k.upper() == e))
-                    )
-                else:
-                    raise ScpiError(int(self.param("missing_error")), f"no buffer element {e!r}")
-        return b",".join(out)
+        return format_readings(
+            readings,
+            elements,
+            _number_formatter(self.owner, self.param("digits")),
+            int(self.param("missing_error")),
+        )
 
     @op("points")
     def points(self, name: str | None = None, **_: Any) -> OpResult:
