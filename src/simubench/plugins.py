@@ -49,6 +49,9 @@ class PluginInfo:
 
 _LOCK = threading.Lock()
 _ENTRY_POINTS: dict[str, PluginInfo] = {}  # by entry point value
+# Installed packages are scanned once per process: component_type() asks for every component a bench
+# creates, and scanning every distribution's metadata each time made opening a bench 50 times slower.
+_scanned = False
 _WORKSPACE: dict[str, PluginInfo] = {}  # by resolved file path
 
 
@@ -111,8 +114,13 @@ def _warn_overrides(before: dict[str, type], name: str) -> None:
 
 
 def ensure_entry_point_plugins() -> list[PluginInfo]:
-    """Import every installed package's components (idempotent); the results stay listed."""
+    """Import every installed package's components, once per process; the results stay listed."""
+    global _scanned
+    if _scanned:
+        return []
     with _LOCK:
+        if _scanned:
+            return []
         infos: list[PluginInfo] = []
         for ep in _discover():
             if ep.value in _ENTRY_POINTS:
@@ -133,6 +141,7 @@ def ensure_entry_point_plugins() -> list[PluginInfo]:
             infos.append(info)
             if error:
                 logger.warning("plugin %s did not load: %s", ep.name, error)
+        _scanned = True
         return infos
 
 
@@ -212,6 +221,8 @@ def status_line(workspace: Path | None, allow: bool) -> str:
 
 def _reset() -> None:
     """Test seam: forget what was loaded (the component registry itself is the caller's to clear)."""
+    global _scanned
     with _LOCK:
+        _scanned = False
         _ENTRY_POINTS.clear()
         _WORKSPACE.clear()

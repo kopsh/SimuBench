@@ -223,3 +223,15 @@ def test_doctor_and_manifest_list_the_plugins(tmp_path, clean_plugins):
     allowed = {c.name: c for c in doctor(ws, allow_plugins=True)}
     assert allowed["workspace plugins"].status == "ok" and "1 loaded" in allowed["workspace plugins"].detail
     assert {p["name"] for p in manifest(ws)["plugins"]} == {"plugin_load.py"}
+
+
+def test_installed_packages_are_scanned_once_per_process(monkeypatch, clean_plugins):
+    """component_type() runs for every component a bench creates; scanning the installed
+    distributions each time made opening a 40-instrument bench take a second (main after #79)."""
+    from simubench.engine.component import component_type
+
+    calls = []
+    monkeypatch.setattr(plugins, "_discover", lambda: calls.append(1) or [])
+    for _ in range(50):
+        component_type("output_stage")
+    assert len(calls) == 1
