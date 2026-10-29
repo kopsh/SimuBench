@@ -136,6 +136,44 @@ class ComponentTypeInfo(_Model):
     units: dict[str, str]
 
 
+class ParamInfo(_Model):
+    name: str
+    default: Any = None
+    unit: str | None = None
+    doc: str | None = Field(None, description="The comment next to the default in the component's source")
+
+
+class OperationParam(_Model):
+    name: str
+    type: str | None = Field(None, description="The Python annotation, e.g. 'float | None'")
+    default: Any = None
+    required: bool = False
+
+
+class OperationInfo(_Model):
+    name: str = Field(description="What a command names: op: <component>.<name>")
+    doc: str | None = None
+    params: list[OperationParam] = Field(
+        description="Keyword parameters; a command's params pass under these names. Every operation "
+        "also receives query (a query form), channel (the command's <ch>) and suffixes"
+    )
+
+
+class ComponentDoc(_Model):
+    """A component type as instrument definitions use it: ports, parameters, operations, role."""
+
+    type: str
+    category: Literal["dut", "accessory", "internal"]
+    role: Literal["driver", "series"] | None = None
+    label: str | None = None
+    label_en: str | None = None
+    doc: str | None = None
+    ports: list[PortInfo]
+    port_pattern: str | None = Field(None, description="Ports created by the wiring, e.g. 'in\\d+'")
+    params: list[ParamInfo]
+    operations: list[OperationInfo]
+
+
 class Catalog(_Model):
     """What can be placed on a bench: instrument definitions, DUT and accessory types."""
 

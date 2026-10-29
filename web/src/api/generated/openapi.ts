@@ -161,6 +161,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/components": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Components
+         * @description Every component type, internal ones included: the building blocks of instrument definitions.
+         */
+        get: operations["listComponents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions": {
         parameters: {
             query?: never;
@@ -955,6 +975,38 @@ export interface components {
              */
             state?: string | null;
         };
+        /**
+         * ComponentDoc
+         * @description A component type as instrument definitions use it: ports, parameters, operations, role.
+         */
+        ComponentDoc: {
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "dut" | "accessory" | "internal";
+            /** Doc */
+            doc: string | null;
+            /** Label */
+            label: string | null;
+            /** Label En */
+            label_en: string | null;
+            /** Operations */
+            operations: components["schemas"]["OperationInfo"][];
+            /** Params */
+            params: components["schemas"]["ParamInfo"][];
+            /**
+             * Port Pattern
+             * @description Ports created by the wiring, e.g. 'in\d+'
+             */
+            port_pattern: string | null;
+            /** Ports */
+            ports: components["schemas"]["PortInfo"][];
+            /** Role */
+            role: ("driver" | "series") | null;
+            /** Type */
+            type: string;
+        };
         /** ComponentInfo */
         ComponentInfo: {
             /** Label */
@@ -1678,6 +1730,52 @@ export interface components {
             t0_ns: number;
             /** Volts */
             volts: number[];
+        };
+        /** OperationInfo */
+        OperationInfo: {
+            /** Doc */
+            doc: string | null;
+            /**
+             * Name
+             * @description What a command names: op: <component>.<name>
+             */
+            name: string;
+            /**
+             * Params
+             * @description Keyword parameters; a command's params pass under these names. Every operation also receives query (a query form), channel (the command's <ch>) and suffixes
+             */
+            params: components["schemas"]["OperationParam"][];
+        };
+        /** OperationParam */
+        OperationParam: {
+            /** Default */
+            default: unknown;
+            /** Name */
+            name: string;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
+            /**
+             * Type
+             * @description The Python annotation, e.g. 'float | None'
+             */
+            type: string | null;
+        };
+        /** ParamInfo */
+        ParamInfo: {
+            /** Default */
+            default: unknown;
+            /**
+             * Doc
+             * @description The comment next to the default in the component's source
+             */
+            doc: string | null;
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string | null;
         };
         /**
          * ParamSpec
@@ -2894,6 +2992,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Catalog"];
+                };
+            };
+        };
+    };
+    listComponents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComponentDoc"][];
                 };
             };
         };

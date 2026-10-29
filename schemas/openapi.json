@@ -622,6 +622,119 @@
         "title": "CommandSpec",
         "type": "object"
       },
+      "ComponentDoc": {
+        "description": "A component type as instrument definitions use it: ports, parameters, operations, role.",
+        "properties": {
+          "category": {
+            "enum": [
+              "dut",
+              "accessory",
+              "internal"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "label_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label En"
+          },
+          "operations": {
+            "items": {
+              "$ref": "#/components/schemas/OperationInfo"
+            },
+            "title": "Operations",
+            "type": "array"
+          },
+          "params": {
+            "items": {
+              "$ref": "#/components/schemas/ParamInfo"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "port_pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ports created by the wiring, e.g. 'in\\d+'",
+            "title": "Port Pattern"
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/PortInfo"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "enum": [
+                  "driver",
+                  "series"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "category",
+          "role",
+          "label",
+          "label_en",
+          "doc",
+          "ports",
+          "port_pattern",
+          "params",
+          "operations"
+        ],
+        "title": "ComponentDoc",
+        "type": "object"
+      },
       "ComponentInfo": {
         "properties": {
           "label": {
@@ -2407,6 +2520,119 @@
           "notes"
         ],
         "title": "NetWaveform",
+        "type": "object"
+      },
+      "OperationInfo": {
+        "properties": {
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doc"
+          },
+          "name": {
+            "description": "What a command names: op: <component>.<name>",
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "description": "Keyword parameters; a command's params pass under these names. Every operation also receives query (a query form), channel (the command's <ch>) and suffixes",
+            "items": {
+              "$ref": "#/components/schemas/OperationParam"
+            },
+            "title": "Params",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "doc",
+          "params"
+        ],
+        "title": "OperationInfo",
+        "type": "object"
+      },
+      "OperationParam": {
+        "properties": {
+          "default": {
+            "title": "Default"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Python annotation, e.g. 'float | None'",
+            "title": "Type"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "default",
+          "required"
+        ],
+        "title": "OperationParam",
+        "type": "object"
+      },
+      "ParamInfo": {
+        "properties": {
+          "default": {
+            "title": "Default"
+          },
+          "doc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The comment next to the default in the component's source",
+            "title": "Doc"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "name",
+          "default",
+          "unit",
+          "doc"
+        ],
+        "title": "ParamInfo",
         "type": "object"
       },
       "ParamSpec": {
@@ -5032,6 +5258,29 @@
           }
         },
         "summary": "Catalog"
+      }
+    },
+    "/api/components": {
+      "get": {
+        "description": "Every component type, internal ones included: the building blocks of instrument definitions.",
+        "operationId": "listComponents",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ComponentDoc"
+                  },
+                  "title": "Response Listcomponents",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Components"
       }
     },
     "/api/definitions": {

@@ -32,12 +32,14 @@ from .engine.scriptscan import draft_bench
 from .models.bench import Fault
 from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
+from .server.catalog import components as component_catalog
 from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain
 
 INSTRUCTIONS = """\
 SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), DUTs and wires,
 simulated with correct circuit physics. Typical flow:
-1. list_catalog / get_definition to see what instruments and DUTs exist;
+1. list_catalog / get_definition to see what instruments and DUTs exist; list_components for the
+   building blocks of instrument definitions (ports, parameters, operations);
 2. read_bench or create_bench, then edit_bench with operations (always pass the sha256 you read);
    or draft_bench_from_script to start from an existing PyVISA test program;
 3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
@@ -135,12 +137,52 @@ def build_server(
         return files.catalog().model_dump(mode="json")
 
     @mcp.tool()
+    def list_components(
+        types: list[str] | None = Field(None, description="Component types to describe in full"),
+        category: Literal["dut", "accessory", "internal"] | None = None,
+    ) -> list[dict[str, Any]]:
+        """Component types for instrument definitions, internal ones included: ports, circuit role,
+        parameters (default, unit, description; a value may be bound to a setting with '$path') and
+        operations (what a command's op: <component>.<name> calls, with its parameters).
+
+        Without ``types`` each entry is a summary (first line of the description, parameter and
+        operation names); name the types you use to get every field."""
+        guard()
+        out = []
+        for c in component_catalog():
+            if category and c.category != category:
+                continue
+            if types is not None:
+                if c.type in types:
+                    out.append(c.model_dump(mode="json"))
+                continue
+            out.append(
+                {
+                    "type": c.type,
+                    "category": c.category,
+                    "role": c.role,
+                    "doc": (c.doc or "").split("\n", 1)[0] or None,
+                    "ports": [p.name for p in c.ports] + ([f"/{c.port_pattern}/"] if c.port_pattern else []),
+                    "params": [p.name for p in c.params],
+                    "operations": [o.name for o in c.operations],
+                }
+            )
+        if types is not None:
+            unknown = sorted(set(types) - {c["type"] for c in out})
+            if unknown:
+                raise ToolError(
+                    f"没有组件类型 {', '.join(unknown)}；不带 types 调用 list_components 查看全部"
+                )
+        return out
+
+    @mcp.tool()
     def get_definition(
         definition_id: str,
         offset: int = Field(0, ge=0, description="First command to list"),
         limit: int = Field(40, ge=1, le=200, description="Commands per page"),
     ) -> dict[str, Any]:
-        """One instrument definition: state variables (with units, ranges, options) and its SCPI
+        """One instrument definition: state variables (with units, ranges, options), its components
+        (list_components describes their types), internal wiring and exposed ports, and its SCPI
         commands, paged. Header patterns use SCPI notation: upper case is the short form,
         [optional] nodes, <ch> a channel suffix."""
         guard()
@@ -185,6 +227,10 @@ def build_server(
             "instrument_ports": list(d.ports.instrument),
             "state": [spec(k, s) for k, s in d.state.items()],
             "channel_state": [spec(f"ch<n>.{k}", s) for k, s in d.channel_state.items()],
+            "components": [_plain(c.model_dump()) for c in d.components],
+            "channel_components": [_plain(c.model_dump()) for c in d.channel_components],
+            "wiring": d.wiring.model_dump(),
+            "ports": {"channel": dict(d.ports.channel), "instrument": dict(d.ports.instrument)},
             "commands": commands[offset : offset + limit],
             "commands_total": len(commands),
             "next_offset": offset + limit if offset + limit < len(commands) else None,

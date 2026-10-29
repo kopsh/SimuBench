@@ -151,7 +151,8 @@
 | 声明式命令与应答：`dialect`（命令头回显、倍率后缀）、`format` 的 engineering、`reply` 模板、多状态命令与 `pairs`、`ratio`、组件参数映射（issue 42） | ✅ 低频校准工作台的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪全部改为声明，`calibrator.py` 删除；`tests/test_lowfreq_cal.py` 与验收不改即通过；新字段的运行与静态校验测试（`tests/test_declarative.py`） |
 | 通用波形传输 `waveform_transfer`：文本、ASCII、定长块；选点；ADC 码的比例、偏移、位数、字宽、字节序、无符号（issue 43） | ✅ sb-dso-2x/4、Siglent SDS、低频校准参考示波器改为配置；`:WAVeform:DATA?` 各格式（WORD LSB/MSB、有符号/无符号、BYTE、ASCii、Siglent 8/10 位、选点）与改动前逐字节一致（步进时钟下比对）；`tests/test_waveform_transfer.py` |
 | 可配置的示波器采集 `scope_acquisition`：记录长度规则、触发（可按通道绑定）、运行控制、何时重新采集、ADC、噪声（issue 44） | ✅ Siglent SDS 与低频校准参考示波器的行为改为定义中的参数，专用组件只剩专用命令；三台示波器约 100 条命令的回复、虚拟时间与采集事件与改动前逐项一致（命令时钟），唯一差别是 Siglent 平均采集的耗时改为 N 次（D46）；参考示波器改用通用组件后运行控制不变（`tests/test_scope_acquisition.py`） |
-| 组件目录、`simubench cases`、MCP 编写工具、插件、验收 | ⏳ issue 41、45–48 |
+| 组件目录：`GET /api/components` 与 MCP `list_components`（含内部组件，端口、参数、op、电路角色），`get_definition` 补充组件、内部连线与端口（issue 41） | ✅ 由组件类生成（参数说明取自 `defaults` 旁的注释，op 参数取自签名）；每个注册的类型都在目录中、op 与静态校验所见一致（`tests/test_component_catalog.py`）；只凭目录写出的最小定义通过静态校验（`tests/test_mcp.py`） |
+| `simubench cases`、MCP 编写工具、插件、验收 | ⏳ issue 45–48 |
 
 ## 仪表内部组件图（Issue 20，D3）
 

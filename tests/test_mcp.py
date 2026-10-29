@@ -184,3 +184,66 @@ async def test_fault_tools_are_control(ws):
         await call(c, "clear_fault", fault_id=f["id"])
         r = await call(c, "send_scpi", instrument="awg", command="*IDN?")
         assert "SB-AWG-2" in r["response"]
+
+
+async def test_components_are_listed_for_definition_authors(ws):
+    _, server = make(ws)
+    async with Client(server) as c:
+        summary = await call(c, "list_components")
+        internal = await call(c, "list_components", category="internal")
+        detail = await call(c, "list_components", types=["function_generator_core", "output_stage"])
+        unknown = await call(c, "list_components", types=["output_stag"])
+        definition = await call(c, "get_definition", definition_id="sb-awg-2", limit=1)
+    by_type = {e["type"]: e for e in summary}
+    assert "scope_acquisition" in by_type and "run_mode" in by_type["scope_acquisition"]["operations"]
+    assert all(e["category"] == "internal" for e in internal) and "waveform_transfer" in {
+        e["type"] for e in internal
+    }
+    assert "output_stag" in unknown["error"]
+    assert [w for w in definition["wiring"]["channel"]] and definition["ports"]["channel"]
+    assert {c["type"] for c in definition["channel_components"]} >= {
+        "function_generator_core",
+        "output_stage",
+    }
+
+    # From the catalog alone, an agent writes a minimal definition that passes the static checks.
+    gen, out = sorted(detail, key=lambda e: e["type"] != "function_generator_core")
+
+    def port(entry, direction, medium):
+        return next(
+            p["name"] for p in entry["ports"] if p["direction"] == direction and p["medium"] == medium
+        )
+
+    params = {p["name"]: p for p in gen["params"]}
+    draft = {
+        "schema": "simubench.instrument/1",
+        "id": "agent-gen",
+        "manufacturer": "Agent",
+        "model": "GEN-1",
+        "class": "awg",
+        "channels": {"count": 1},
+        "channel_state": {
+            "frequency": {
+                "type": "float",
+                "unit": "HZ",
+                "min": 1.0,
+                "max": 1e6,
+                "default": params["frequency"]["default"],
+            },
+            "output": {"type": "bool", "default": False},
+        },
+        "channel_components": [
+            {"name": "gen", "type": gen["type"], "params": {"frequency": "$ch.frequency"}},
+            {"name": "out", "type": out["type"], "params": {"enabled": "$ch.output"}},
+        ],
+        "wiring": {"channel": [[f"gen.{port(gen, 'out', 'signal')}", f"out.{port(out, 'in', 'signal')}"]]},
+        "ports": {"channel": {"OUT{n}": f"out.{port(out, 'out', 'electrical')}"}},
+        "commands": [
+            {"header": ":SOURce<ch>:FREQuency", "state": "ch.frequency"},
+            {"header": ":OUTPut<ch>", "state": "ch.output"},
+        ],
+    }
+    from simubench.engine.validate_definition import validate_definition_data
+
+    _, report = validate_definition_data(draft)
+    assert [d.as_dict() for d in report.diagnostics] == []
