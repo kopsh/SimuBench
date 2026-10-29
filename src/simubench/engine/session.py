@@ -23,6 +23,7 @@ from ..scpi.errors import ScpiError
 from . import sleep_mode
 from .circuit import Circuit, Solution
 from .component import Component, component_type
+from .deviation import draw as draw_deviation
 from .faults import FaultManager, LinkDown
 from .instrument import Instrument
 from .record import Recorder
@@ -110,11 +111,18 @@ class Session:
         for name, inst in bench.instruments.items():
             self.instruments[name] = Instrument(name, definitions(inst.model), inst, self)
         self.components: dict[str, Component] = {}
+        #: Drawn DUT deviations, '<dut>.<parameter>' -> value.
+        self.dut_deviations: dict[str, Any] = {}
         for name, dut in bench.duts.items():
             if name in self.instruments:
                 raise ValueError(f"name {name!r} used by both an instrument and a DUT")
             comp = component_type(dut.type)(name, dut.params, None, self)
             comp.overrides.update(dut.hidden)
+            for param, rng in dut.deviation.items():
+                if param not in comp.overrides:
+                    value = draw_deviation(rng, comp.param(param), self.seed, name, param)
+                    comp.overrides[param] = value
+                    self.dut_deviations[f"{name}.{param}"] = value
             self.components[name] = comp
 
         # ---- nets ----
@@ -158,6 +166,15 @@ class Session:
             self.faults.inject(spec, source="bench")
 
     # ---- references ---------------------------------------------------------------------------------
+
+    def deviations(self) -> dict[str, Any]:
+        """Every drawn individual deviation: '<instrument>/<component>.<parameter>' and
+        '<dut>.<parameter>' -> value (empty when every unit is nominal)."""
+        out = {
+            f"{name}/{k}": v for name, inst in self.instruments.items() for k, v in inst.deviations.items()
+        }
+        out.update(self.dut_deviations)
+        return out
 
     def _check_ref(self, ref: str) -> None:
         owner, _, port = ref.rpartition(".")

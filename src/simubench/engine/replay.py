@@ -139,6 +139,15 @@ def replay(
             )
     for name in have.keys() - recorded.keys():
         report.warnings.append(f"plugin {name} is loaded now but the record was made without it")
+    # Individual deviations are drawn again from the recorded seed: equal unless their ranges changed.
+    if "deviations" in header:
+        drawn = json.loads(json.dumps(session.deviations()))
+        for key in sorted(drawn.keys() | header["deviations"].keys()):
+            if drawn.get(key) != header["deviations"].get(key):
+                report.warnings.append(
+                    f"deviation {key} is {drawn.get(key)!r} now, {header['deviations'].get(key)!r} in the "
+                    "record; differences may come from it"
+                )
     last_command: dict[str, str] = {}
     try:
         for ev in events:

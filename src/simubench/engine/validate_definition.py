@@ -84,6 +84,51 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                 classes[f"ch{n}.{spec.name}" if n else spec.name] = cls
             _check_params(d, spec, cls, p, channel, report)
 
+    # ---- individual deviations: a parameter of a declared component ----
+    specs_by_name = {c.name: c for c in (*d.components, *d.channel_components)}
+    for i, dev in enumerate(d.deviations):
+        p = ("deviations", i, "param")
+        spec = specs_by_name.get(dev.component)
+        cls = known.get(spec.type) if spec else None
+        if spec is None:
+            hint = _closest(dev.component, list(specs_by_name))
+            report.add(
+                "error",
+                "E-DEF-DEVIATION",
+                _ptr(*p),
+                f"没有组件 {dev.component!r}，无法给它个体偏差",
+                f"改为 {hint!r}" if hint else None,
+            )
+            continue
+        if cls is None:
+            continue  # reported with the component
+        if dev.parameter not in cls.defaults:
+            hint = _closest(dev.parameter, list(cls.defaults))
+            report.add(
+                "error",
+                "E-DEF-DEVIATION",
+                _ptr(*p),
+                f"{spec.type} 没有参数 {dev.parameter!r}",
+                f"改为 {dev.component}.{hint}" if hint else None,
+            )
+            continue
+        nominal = spec.params.get(dev.parameter, cls.defaults[dev.parameter])
+        if isinstance(nominal, bool) or not isinstance(nominal, (int, float, dict, str)):
+            report.add(
+                "error",
+                "E-DEF-DEVIATION",
+                _ptr(*p),
+                f"{dev.param} 不是数值参数，不能有个体偏差",
+            )
+        elif dev.unit and isinstance(nominal, (int, float)) and nominal == 0:
+            report.add(
+                "warning",
+                "W-DEF-DEVIATION-ZERO",
+                _ptr("deviations", i, "unit"),
+                f"{dev.param} 的标称值为 0，按 {dev.unit} 的相对偏差不起作用",
+                "去掉 unit，把 limit 写成参数本身的单位",
+            )
+
     # ---- signal wiring and exposed ports ----
     def check_end(ref: str, pointer: str, in_channel: bool) -> None:
         comp, _, port = ref.rpartition(".")
