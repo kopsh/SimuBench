@@ -62,9 +62,10 @@ channel_state:
     label_en: Offset
   duty:
     type: float
-    min: 0.0
+    min: 1.0e-6
     max: 1.0
     default: 0.5
+    ratio: true          # 0.25；写 25 按百分数读
     label: 占空比
     label_en: Duty cycle
   load:
@@ -81,19 +82,20 @@ channel_state:
     electrical: true
     label: 输出
     label_en: Output
-components:
-  - name: cal
-    type: scope_calibrator
 channel_components:
   - name: gen
-    type: calibrator_core
+    type: function_generator_core
     params:
-      wave: $ch.wave
+      # 校准仪的波形名映射到通用信号源：脉冲是占空比可调的方波，三角波是对称度 50 % 的斜波。
+      function:
+        from: $ch.wave
+        map: {SQUare: SQUare, PULSe: SQUare, SINe: SINusoid, DC: DC, TRIangle: RAMP, RAMP: RAMP}
+      symmetry: {from: $ch.wave, map: {TRIangle: 50.0}, default: 100.0}
       frequency: $ch.frequency
       amplitude: $ch.amplitude
       amplitude_unit: $ch.amplitude_unit
       offset: $ch.offset
-      duty: $ch.duty
+      duty: {from: $ch.duty, scale: 100.0}   # 比例 → 通用信号源的百分数
       # 方波与脉冲的谐波上限（边沿约 350 ps）；超出谱线上限时信号带保真度说明。
       bandwidth: 1.0e9
   - name: out
@@ -118,9 +120,7 @@ commands:
   - {header: ":CHANnel<ch>:BASE:FREQuency", state: ch.frequency}
   - {header: ":CHANnel<ch>:BASE:AMPLitude", state: ch.amplitude}
   - {header: ":CHANnel<ch>:BASE:OFFSet", state: ch.offset}
-  - header: ":CHANnel<ch>:BASE:DUTY"
-    op: cal.duty
-    params: [{name: value, type: float, optional: true}]
+  - {header: ":CHANnel<ch>:BASE:DUTY", state: ch.duty}
   - {header: ":CHANnel<ch>:AMPLitude:UNIT", state: ch.amplitude_unit}
   - {header: ":CHANnel<ch>:LOAD", state: ch.load}
   - {header: ":CHANnel<ch>:OUTPut", state: ch.output, dangerous: true}

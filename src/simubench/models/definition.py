@@ -41,6 +41,11 @@ class StateSpec(_Model):
     display_unit: str | None = Field(
         None, description="Unit shown in the UI when it differs from `unit`, e.g. '×'"
     )
+    ratio: bool = Field(
+        False,
+        description="A ratio (0.25 for 25 %) that also accepts a percentage: a written value above 1 is "
+        "divided by 100 (40 -> 0.4)",
+    )
     electrical: bool = Field(False, description="Changing this variable changes the bench's circuit")
     readonly: bool = False
     label: str | None = None
@@ -53,22 +58,67 @@ class StateSpec(_Model):
         return self
 
 
+class ParamMapping(_Model):
+    """A component parameter derived from a setting, for a dialect's values the component reads
+    differently: ``{from: $ch.wave, map: {SINe: SINusoid}}``, ``{from: $ch.duty, scale: 100}``.
+
+    The value of ``from`` is looked up in ``map`` (``default`` when it is not there, else it passes
+    through), then numbers become ``value * scale + offset``. There is no expression language: what
+    a table and a straight line cannot say belongs in a component.
+    """
+
+    from_: str = Field(..., alias="from", pattern=r"^\$", description="The setting, e.g. '$ch.wave'")
+    map: dict[str, Any] | None = Field(None, description="Setting value -> parameter value")
+    scale: float | None = None
+    offset: float | None = None
+    default: Any = Field(None, description="The parameter value for a setting value `map` does not list")
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
 class ComponentSpec(_Model):
     name: str
     type: str
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Parameter values: a literal, a setting ('$ch.frequency') or a mapping of a setting "
+        "({from, map, scale, offset, default})",
+    )
+
+    @model_validator(mode="after")
+    def _check_mappings(self) -> ComponentSpec:
+        for value in self.params.values():
+            if isinstance(value, dict) and "from" in value:
+                ParamMapping.model_validate(value)
+        return self
 
 
 class ParamSpec(_Model):
     """A parameter of an operation command."""
 
     name: str
-    type: Literal["float", "int", "bool", "enum", "string", "float_list", "block", "raw"]
+    type: Literal["float", "int", "bool", "enum", "string", "float_list", "block", "raw", "pairs"]
     unit: str | None = None
     options: list[str] | None = None
     optional: bool = False
     min: float | None = None
     max: float | None = None
+    state: str | None = Field(
+        None,
+        description="Setting this parameter writes (a command without `state` or `op`); it is parsed "
+        "as that setting reads values",
+    )
+    keys: dict[str, str | None] | None = Field(
+        None,
+        description="type pairs: 'name,value,name,value...'; each name writes the setting it maps to, "
+        "null accepts the name and ignores its value. All values are checked before any is set",
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> ParamSpec:
+        if (self.type == "pairs") != (self.keys is not None):
+            raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
+        return self
 
 
 class ResponseFormat(_Model):
@@ -77,13 +127,17 @@ class ResponseFormat(_Model):
     The defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.
     """
 
-    number: Literal["nr3", "nr2", "nr1"] = Field(
-        "nr3", description="nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded)"
+    number: Literal["nr3", "nr2", "nr1", "engineering"] = Field(
+        "nr3",
+        description="nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, "
+        "200E-3 (exponent a multiple of 3, shortest mantissa)",
     )
     digits: int = Field(6, ge=0, le=17, description="Digits after the decimal point (nr3 mantissa, nr2)")
     sign: bool = Field(True, description="Write '+' before non-negative numbers")
     exponent_digits: int = Field(2, ge=1, le=3, description="nr3: digits of the exponent, e.g. E+03 is 2")
-    integer: Literal["plain", "signed"] = Field("plain", description="plain: 5; signed: +5")
+    integer: Literal["plain", "signed", "engineering"] = Field(
+        "plain", description="plain: 5; signed: +5; engineering: 100E+3"
+    )
     boolean: Literal["numeric", "word"] = Field("numeric", description="numeric: 1/0; word: ON/OFF")
     enum: Literal["short", "long", "as_defined"] = Field(
         "short", description="short: SIN; long: SINUSOID (upper case); as_defined: SINusoid, as in `options`"
@@ -94,7 +148,8 @@ class ResponseFormat(_Model):
 
 
 class CommandSpec(_Model):
-    """One SCPI command. Exactly one of ``state`` or ``op`` is given."""
+    """One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through
+    its parameters' ``state``, to several settings at once."""
 
     header: str = Field(..., description="Header pattern, e.g. '[:SOURce<ch>]:FREQuency[:CW]'")
     state: str | None = Field(None, description="State path bound to the command, e.g. 'ch.frequency'")
@@ -107,14 +162,47 @@ class CommandSpec(_Model):
     )
     duration: str | float | None = Field(None, description="Virtual time the command consumes (D12)")
     format: ResponseFormat | None = Field(None, description="Overrides the definition's response format")
+    reply: str | None = Field(
+        None,
+        description="Query reply template: {header} (the echoed header, see dialect.echo_header; with "
+        "echo off it and the space after it are left out), {value} (the bound setting) and {<setting>}, "
+        "e.g. '{header} {value} V'. Default: '{header} {value}'",
+    )
     dangerous: bool = False
     doc: str | None = None
 
+    @property
+    def bound_params(self) -> list[ParamSpec]:
+        return [p for p in self.params if p.state is not None or p.keys is not None]
+
     @model_validator(mode="after")
     def _check(self) -> CommandSpec:
-        if (self.state is None) == (self.op is None):
-            raise ValueError(f"command {self.header!r}: give exactly one of state or op")
+        kinds = (self.state is not None) + (self.op is not None) + bool(self.bound_params)
+        if kinds != 1:
+            raise ValueError(
+                f"command {self.header!r}: give one of state, op, or parameters bound to settings"
+            )
+        if self.bound_params and len(self.bound_params) != len(self.params):
+            raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
         return self
+
+
+class Dialect(_Model):
+    """How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).
+
+    The defaults are SCPI: no header in replies, numbers without multiplier suffixes.
+    """
+
+    echo_header: str = Field(
+        "off",
+        pattern=r"^(off|short|long|\$.+)$",
+        description="Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or "
+        "a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER)",
+    )
+    multipliers: dict[str, float] = Field(
+        default_factory=dict,
+        description="Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'",
+    )
 
 
 class Reference(_Model):
@@ -215,6 +303,9 @@ class InstrumentDefinition(_Model):
         None, ge=2, description="Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)"
     )
     format: ResponseFormat = Field(default_factory=ResponseFormat, description="Default response format")
+    dialect: Dialect = Field(
+        default_factory=Dialect, description="Reply framing beyond SCPI (headers, suffixes)"
+    )
     specs: dict[str, Any] = Field(
         default_factory=dict,
         description="Accuracy and other specifications from the manual; stored, not yet used in calculations",

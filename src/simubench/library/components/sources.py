@@ -19,7 +19,8 @@ class FunctionGeneratorCore(Component):
     Parameters: ``function`` (SINusoid, SQUare, RAMP, DC; Siglent's SINE, SQUARE are the same),
     ``frequency`` (Hz), ``amplitude`` (Vpp), ``offset`` (V), ``phase`` (degrees), ``duty`` (% high,
     square), ``symmetry`` (% rising, ramp; 100 is a sawtooth), ``bandwidth`` (Hz, harmonic limit for
-    square and ramp), ``square_max`` (Hz, highest square/ramp frequency).
+    square and ramp), ``square_max`` (Hz, highest square/ramp frequency), ``amplitude_unit`` (what
+    ``amplitude`` means: VPP, VPK or VRMS of the waveform).
     """
 
     ports = {"out": PortSpec("out", "signal")}
@@ -33,9 +34,22 @@ class FunctionGeneratorCore(Component):
         "square_max": math.inf,
         "duty": 50.0,
         "symmetry": 100.0,
+        "amplitude_unit": "VPP",
     }
     #: Other instruments' names for the same shapes (Siglent SDG: C1:BSWV WVTP,SINE).
     ALIASES = {"SINE": "SINusoid", "SQUARE": "SQUare"}
+    #: Peak-to-peak volts per RMS volt, by function (``amplitude_unit: VRMS``).
+    VPP_PER_VRMS = {"SINusoid": 2 * math.sqrt(2), "SQUare": 2.0, "RAMP": 2 * math.sqrt(3)}
+
+    def vpp(self, fn: str) -> float:
+        """The amplitude as volts peak-to-peak."""
+        amp = float(self.param("amplitude"))
+        unit = str(self.param("amplitude_unit")).upper()
+        if unit == "VPK":
+            return 2 * amp
+        if unit == "VRMS":
+            return amp * self.VPP_PER_VRMS.get(fn, self.VPP_PER_VRMS["SINusoid"])
+        return amp
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -63,7 +77,7 @@ class FunctionGeneratorCore(Component):
         if fn == "DC":
             return Signal.constant(offset)
         freq = float(self.param("frequency"))
-        peak = float(self.param("amplitude")) / 2.0
+        peak = self.vpp(fn) / 2.0
         phase = self._phase0 + math.radians(float(self.param("phase")))
         if fn == "SINusoid":
             sig = sine(freq, peak, phase, self._t0)

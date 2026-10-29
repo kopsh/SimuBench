@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import math
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -400,7 +401,7 @@ class Instrument:
             # A definition may give a common header its own behavior (e.g. a dialect's *CLS?).
             for compiled in self._commands:
                 if compiled.pattern.common and compiled.pattern.match(tokens) is not None:
-                    return self._run(compiled.spec, unit, None, {})
+                    return self._run(compiled, unit, None, {})
             if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
                 raise self._undefined(unit.raw_header)
             return self._common(unit), 0
@@ -410,13 +411,12 @@ class Instrument:
             caps = compiled.pattern.match(tokens)
             if caps is None:
                 continue
-            spec = compiled.spec
             channel = caps.get("ch")
             if "ch" in caps:
                 channel = 1 if channel is None else channel
                 if not 1 <= channel <= self.channel_count:
                     raise ScpiError(-114, f"channel {channel} does not exist")
-            return self._run(spec, unit, channel, {k: (1 if v is None else v) for k, v in caps.items()})
+            return self._run(compiled, unit, channel, {k: (1 if v is None else v) for k, v in caps.items()})
         builtin = (
             self._builtin(unit, tokens) if self._builtins is None or self._builtin_header(tokens) else None
         )
@@ -427,21 +427,64 @@ class Instrument:
         raise self._undefined(unit.raw_header)
 
     def _run(
-        self, spec: CommandSpec, unit: Unit, channel: int | None, suffixes: dict[str, int]
+        self, compiled: _Compiled, unit: Unit, channel: int | None, suffixes: dict[str, int]
     ) -> tuple[bytes | None, int]:
-        """Execute a command of the definition (a state binding or a component operation)."""
+        """Execute a command of the definition (a setting, a component operation or several settings)."""
+        spec = compiled.spec
         if (unit.query and not spec.query) or (not unit.query and not spec.set):
             # A header the definition has, used the wrong way: an error even when unknown ones are ignored.
             raise ScpiError(-113, f"{unit.raw_header} is {'not a query' if unit.query else 'a query only'}")
         if spec.state is not None:
-            return self._state_command(spec, unit, channel), parse_duration(spec.duration)
-        result = self._op_command(spec, unit, channel, suffixes)
-        return result.response, result.duration_ns + parse_duration(spec.duration)
+            body = self._state_command(spec, unit, channel)
+        elif spec.op is not None:
+            result = self._op_command(spec, unit, channel, suffixes)
+            return result.response, result.duration_ns + parse_duration(spec.duration)
+        else:
+            body = self._settings_command(spec, unit, channel)
+        if body is not None:
+            body = self._reply(compiled, body, channel, suffixes)
+        return body, parse_duration(spec.duration)
 
     def _resolve(self, ref: str, channel: int | None) -> str:
         if ref.startswith("ch.") and channel is not None:
             return f"ch{channel}.{ref[3:]}"
         return ref
+
+    # ---- replies: the dialect's header echo and the command's template ------------------------------
+
+    def echo_mode(self) -> str:
+        """off, short or long: whether and how replies repeat the command header (dialect.echo_header)."""
+        mode = self.definition.dialect.echo_header
+        if mode.startswith("$"):
+            mode = str(self.state.get(mode[1:], "off"))
+        return mode.lower()
+
+    def _reply(
+        self, compiled: _Compiled, body: bytes, channel: int | None, suffixes: dict[str, int]
+    ) -> bytes:
+        template = compiled.spec.reply
+        mode = self.echo_mode()
+        if template is None and mode == "off":
+            return body
+        template = template or "{header} {value}"
+        header = ""
+        if mode != "off":
+            header = compiled.pattern.echo(suffixes, long=mode == "long")
+        else:
+            template = template.replace("{header} ", "").replace("{header}", "")
+
+        def field(m: re.Match[str]) -> str:
+            name = m.group(1)
+            if name == "header":
+                return header
+            if name == "value":
+                return body.decode(errors="replace")
+            path = self._resolve(name, channel)
+            return self._format(self.specs[path], self.state[path], compiled.spec.format).decode()
+
+        return re.sub(r"\{([^{}]+)\}", field, template).encode()
+
+    # ---- settings --------------------------------------------------------------------------------------
 
     def _state_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         assert spec.state is not None
@@ -476,6 +519,56 @@ class Instrument:
         self.set_state(path, value)
         return None
 
+    def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+        """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked
+        before any is set. The query answers the settings in the same order and form."""
+        if unit.query:
+            if unit.params:
+                raise ScpiError(-108)
+            parts: list[str] = []
+            for ps in spec.params:
+                if ps.state is not None:
+                    parts.append(self._format_path(ps.state, channel, spec))
+                for key, ref in (ps.keys or {}).items():
+                    if ref is not None:
+                        parts += [key, self._format_path(ref, channel, spec)]
+            return ",".join(parts).encode()
+        raw = list(unit.params)
+        new: dict[str, Any] = {}
+        for ps in spec.params:
+            if ps.state is not None:
+                if not raw:
+                    if ps.optional:
+                        continue
+                    raise ScpiError(-109, f"missing {ps.name}")
+                path = self._resolve(ps.state, channel)
+                new[path] = self._parse_state(self.specs[path], raw.pop(0))
+                continue
+            items, raw = raw, []
+            if not items and not ps.optional:
+                raise ScpiError(-109, f"missing {ps.name}")
+            if len(items) % 2:
+                raise ScpiError(-109, f"{ps.name}: parameters come in name,value pairs")
+            keys = {k.upper(): ref for k, ref in (ps.keys or {}).items()}
+            for name_raw, value_raw in zip(items[::2], items[1::2], strict=True):
+                name = V.parse_string(name_raw).upper()
+                if name not in keys:
+                    raise ScpiError(-224, f"{unit.raw_header} parameter {name} not modeled by SimuBench")
+                ref = keys[name]
+                if ref is not None:
+                    path = self._resolve(ref, channel)
+                    new[path] = self._parse_state(self.specs[path], value_raw)
+        if raw:
+            raise ScpiError(-108)
+        checked = {path: self._validate(self.specs[path], v) for path, v in new.items()}
+        for path, v in checked.items():
+            self.set_state(path, v)
+        return None
+
+    def _format_path(self, ref: str, channel: int | None, spec: CommandSpec) -> str:
+        path = self._resolve(ref, channel)
+        return self._format(self.specs[path], self.state[path], spec.format).decode()
+
     def parse_setting(self, path: str, raw: bytes) -> Any:
         """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
         return self._parse_state(self.specs[path], raw)
@@ -485,7 +578,12 @@ class Instrument:
             word = raw.decode(errors="replace").strip().upper()
             if st.special and word in st.special:
                 return st.special[word]
-            v = V.parse_float(raw, st.unit, st.min, st.max, st.default)
+            multipliers = self.definition.dialect.multipliers
+            v = V.parse_multiplied(raw, multipliers) if multipliers and st.unit is None else None
+            if v is None:
+                v = V.parse_float(raw, st.unit, st.min, st.max, st.default)
+            if st.ratio and v > 1:
+                v /= 100.0  # a percentage
             return v
         if st.type == "bool":
             return V.parse_bool(raw)
@@ -498,10 +596,14 @@ class Instrument:
         if st.type == "float":
             if st.special and value in st.special.values() and not math.isfinite(value):
                 return next(k for k, v in st.special.items() if v == value).encode()
+            if f.number == "engineering":
+                return V.format_engineering(value)
             return V.format_float(
                 value, f.digits, style=f.number, sign=f.sign, exponent_digits=f.exponent_digits
             )
         if st.type == "int":
+            if f.integer == "engineering":
+                return V.format_engineering(int(value))
             return (b"+" if f.integer == "signed" and int(value) >= 0 else b"") + V.format_int(value)
         if st.type == "bool":
             return V.format_bool(value, word=f.boolean == "word")

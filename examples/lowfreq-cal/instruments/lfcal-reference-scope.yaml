@@ -15,6 +15,15 @@ identity:
   serial: LCRY0000001
   firmware: "9.6.0"
 unknown_commands: ignore
+# LeCroy 的应答：回显命令头（COMM_HEADER 切换 OFF / SHORT / LONG）、工程计数法、ON/OFF；
+# 无单位的点数可带倍率后缀（MSIZ 10K、2.5MA；这里 M 是兆，点数没有毫）。
+dialect:
+  echo_header: $comm.header
+  multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}
+format:
+  number: engineering
+  boolean: word
+  enum: short
 channels:
   count: 4
   overrides:
@@ -192,59 +201,26 @@ commands:
   - {header: "*CLS", op: lc.cls}
   - {header: "*OPC", op: acq.opc}
   - {header: ":SYSTem:PRESet", op: lc.preset, query: false}
-  - header: "Comm_HeaDeR"
-    op: lc.setting
-    args: {state: comm.header, header: CHDR, long: COMM_HEADER}
-    params: [{name: value, type: raw}]
-  # ---- 通道 ----
-  - header: "C<ch>:TRAce"
-    op: lc.setting
-    args: {state: ch.display, header: TRA, long: TRACE}
-    params: [{name: value, type: raw}]
-  - header: "C<ch>:CouPLing"
-    op: lc.setting
-    args: {state: ch.coupling, header: CPL, long: COUPLING}
-    params: [{name: value, type: raw}]
-  - header: "C<ch>:Volt_DIV"
-    op: lc.setting
-    args: {state: ch.scale, header: VDIV, long: VOLT_DIV, unit: V}
-    params: [{name: value, type: raw}]
-  - header: "C<ch>:OFfSeT"
-    op: lc.setting
-    args: {state: ch.offset, header: OFST, long: OFFSET, unit: V}
-    params: [{name: value, type: raw}]
-  - header: "C<ch>:ATTeNuation"
-    op: lc.setting
-    args: {state: ch.probe, header: ATTN, long: ATTENUATION}
-    params: [{name: value, type: raw}]
-  - header: "C<ch>:TRig_LeVel"
-    op: lc.setting
-    args: {state: ch.trigger_level, header: TRLV, long: TRIG_LEVEL, unit: V}
-    params: [{name: value, type: raw}]
-  - header: "C<ch>:TRig_SLope"
-    op: lc.setting
-    args: {state: ch.trigger_slope, header: TRSL, long: TRIG_SLOPE}
-    params: [{name: value, type: raw}]
+  - {header: "Comm_HeaDeR", state: comm.header}
+  # ---- 通道：应答回显命令头与单位，C1:VDIV 200E-3 V ----
+  - {header: "C<ch>:TRAce", state: ch.display}
+  - {header: "C<ch>:CouPLing", state: ch.coupling}
+  - {header: "C<ch>:Volt_DIV", state: ch.scale, reply: "{header} {value} V"}
+  - {header: "C<ch>:OFfSeT", state: ch.offset, reply: "{header} {value} V"}
+  - {header: "C<ch>:ATTeNuation", state: ch.probe}
+  - {header: "C<ch>:TRig_LeVel", state: ch.trigger_level, reply: "{header} {value} V"}
+  - {header: "C<ch>:TRig_SLope", state: ch.trigger_slope}
   # ---- 时基、存储深度、采集 ----
-  - header: "Time_DIV"
-    op: lc.setting
-    args: {state: timebase.scale, header: TDIV, long: TIME_DIV, unit: S}
-    params: [{name: value, type: raw}]
-  - header: "Memory_SIZe"
-    op: lc.memory_size
-    params: [{name: value, type: raw}]
-  - header: "InterLeaVeD"
-    op: lc.setting
-    args: {state: interleaved, header: ILVD, long: INTERLEAVED}
-    params: [{name: value, type: raw}]
-  - header: "Reference_CLocK"
-    op: lc.setting
-    args: {state: refclock, header: RCLK, long: REFERENCE_CLOCK}
-    params: [{name: value, type: raw}]
+  - {header: "Time_DIV", state: timebase.scale, reply: "{header} {value} S"}
+  - {header: "Memory_SIZe", state: memory.size, format: {integer: engineering}}
+  - {header: "InterLeaVeD", state: interleaved}
+  - {header: "Reference_CLocK", state: refclock}
   # ---- 触发与运行控制 ----
+  # TRSE EDGE,SR,C1,HT,OFF：只建模边沿触发；HV（保持值）接受并忽略。
   - header: "TRig_SElect"
-    op: lc.trig_select
-    params: [{name: params, type: raw}]
+    params:
+      - {name: type, type: enum, state: trigger.type}
+      - {name: rest, type: pairs, optional: true, keys: {SR: trigger.source, HT: trigger.hold, HV: null}}
   - header: "TRig_MoDe"
     op: acq.trig_mode
     params: [{name: mode, type: enum, options: [AUTO, NORMal, SINGLE, STOP], optional: true}]
@@ -265,8 +241,8 @@ commands:
     params: [{name: kind, type: string}]
   # ---- 波形传输（§5.3 文本回读） ----
   - header: "WaveForm_SetUp"
-    op: lc.waveform_setup
-    params: [{name: params, type: raw}]
+    params:
+      - {name: setup, type: pairs, keys: {SP: waveform.sp, NP: waveform.np, FP: waveform.fp, SN: waveform.sn}}
   - header: "C<ch>:INSPect"
     op: acq.inspect
     set: false

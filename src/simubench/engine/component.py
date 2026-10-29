@@ -82,6 +82,32 @@ def op(name: str | None = None) -> Callable[[Callable[..., OpResult]], Callable[
     return deco
 
 
+def binding_of(value: Any) -> str | None:
+    """The state path a parameter value is bound to (``$ch.wave`` or ``{from: $ch.wave, ...}``), or None."""
+    if isinstance(value, dict) and isinstance(value.get("from"), str):
+        value = value["from"]
+    if isinstance(value, str) and value.startswith("$"):
+        return value[1:]
+    return None
+
+
+def map_setting(mapping: dict[str, Any], value: Any) -> Any:
+    """A setting's value through a parameter mapping: ``map`` (else ``default``, else as is), then
+    ``value * scale + offset`` for numbers."""
+    table = mapping.get("map")
+    if table is not None:
+        if value in table:
+            value = table[value]
+        elif isinstance(value, str) and (hit := next((k for k in table if k.upper() == value.upper()), None)):
+            value = table[hit]
+        elif mapping.get("default") is not None:
+            value = mapping["default"]
+    scale, offset = mapping.get("scale"), mapping.get("offset")
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and (scale, offset) != (None, None):
+        value = value * (1.0 if scale is None else float(scale)) + (0.0 if offset is None else float(offset))
+    return value
+
+
 class Component:
     """Base class for every component type."""
 
@@ -135,6 +161,8 @@ class Component:
         return self._resolve(key, self._params.get(key))
 
     def _resolve(self, key: str, value: Any) -> Any:
+        if isinstance(value, dict) and "from" in value:  # a mapping of a setting (ParamMapping)
+            return map_setting(value, self._resolve(key, value["from"]))
         if isinstance(value, str):
             if value.startswith("$"):
                 if self.owner is None:
@@ -159,8 +187,9 @@ class Component:
         """Parameter name -> resolved state path for every bound parameter."""
         out = {}
         for key, value in self._params.items():
-            if isinstance(value, str) and value.startswith("$"):
-                out[key] = self.resolve_path(value[1:])
+            ref = binding_of(value)
+            if ref is not None:
+                out[key] = self.resolve_path(ref)
         return out
 
     # ---- signal flow -------------------------------------------------------------------------

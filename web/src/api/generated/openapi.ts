@@ -897,7 +897,8 @@ export interface components {
         };
         /**
          * CommandSpec
-         * @description One SCPI command. Exactly one of ``state`` or ``op`` is given.
+         * @description One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through
+         *     its parameters' ``state``, to several settings at once.
          */
         CommandSpec: {
             /**
@@ -939,6 +940,11 @@ export interface components {
              */
             query: boolean;
             /**
+             * Reply
+             * @description Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting) and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}'
+             */
+            reply?: string | null;
+            /**
              * Set
              * @default true
              */
@@ -968,7 +974,10 @@ export interface components {
         ComponentSpec: {
             /** Name */
             name: string;
-            /** Params */
+            /**
+             * Params
+             * @description Parameter values: a literal, a setting ('$ch.frequency') or a mapping of a setting ({from, map, scale, offset, default})
+             */
             params?: {
                 [key: string]: unknown;
             };
@@ -1078,6 +1087,27 @@ export interface components {
             subject: string | null;
             /** Suggestion */
             suggestion: string | null;
+        };
+        /**
+         * Dialect
+         * @description How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).
+         *
+         *     The defaults are SCPI: no header in replies, numbers without multiplier suffixes.
+         */
+        Dialect: {
+            /**
+             * Echo Header
+             * @description Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER)
+             * @default off
+             */
+            echo_header: string;
+            /**
+             * Multipliers
+             * @description Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'
+             */
+            multipliers?: {
+                [key: string]: number;
+            };
         };
         /** Disconnect */
         Disconnect: {
@@ -1311,6 +1341,8 @@ export interface components {
             components?: components["schemas"]["ComponentSpec"][];
             /** Description */
             description?: string | null;
+            /** @description Reply framing beyond SCPI (headers, suffixes) */
+            dialect?: components["schemas"]["Dialect"];
             display?: components["schemas"]["Display"];
             /**
              * Error Queue
@@ -1652,6 +1684,13 @@ export interface components {
          * @description A parameter of an operation command.
          */
         ParamSpec: {
+            /**
+             * Keys
+             * @description type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set
+             */
+            keys?: {
+                [key: string]: string | null;
+            } | null;
             /** Max */
             max?: number | null;
             /** Min */
@@ -1666,10 +1705,15 @@ export interface components {
             /** Options */
             options?: string[] | null;
             /**
+             * State
+             * @description Setting this parameter writes (a command without `state` or `op`); it is parsed as that setting reads values
+             */
+            state?: string | null;
+            /**
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw";
+            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs";
             /** Unit */
             unit?: string | null;
         };
@@ -1854,18 +1898,18 @@ export interface components {
             exponent_digits: number;
             /**
              * Integer
-             * @description plain: 5; signed: +5
+             * @description plain: 5; signed: +5; engineering: 100E+3
              * @default plain
              * @enum {string}
              */
-            integer: "plain" | "signed";
+            integer: "plain" | "signed" | "engineering";
             /**
              * Number
-             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded)
+             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa)
              * @default nr3
              * @enum {string}
              */
-            number: "nr3" | "nr2" | "nr1";
+            number: "nr3" | "nr2" | "nr1" | "engineering";
             /**
              * Sign
              * @description Write '+' before non-negative numbers
@@ -2354,6 +2398,12 @@ export interface components {
              * @description Enum options in SCPI mixed case, e.g. SINusoid
              */
             options?: string[] | null;
+            /**
+             * Ratio
+             * @description A ratio (0.25 for 25 %) that also accepts a percentage: a written value above 1 is divided by 100 (40 -> 0.4)
+             * @default false
+             */
+            ratio: boolean;
             /**
              * Readonly
              * @default false

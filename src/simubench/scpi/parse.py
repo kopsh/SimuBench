@@ -161,6 +161,18 @@ class Pattern:
             nodes.append(Node(word.upper(), short.upper(), optional, suffix))
         return Pattern(text, False, tuple(nodes))
 
+    def echo(self, suffixes: dict[str, int], *, long: bool = False) -> str:
+        """The header as a reply repeats it: required nodes, short or long, with their suffixes
+        (``C<ch>:Volt_DIV`` -> ``C1:VDIV`` or ``C1:VOLT_DIV``)."""
+        if self.common:
+            return "*" + self.nodes[0].long
+        words = [
+            (n.long if long else n.short) + (str(suffixes.get(n.suffix, 1)) if n.suffix else "")
+            for n in self.nodes
+            if not n.optional
+        ]
+        return (":" if self.text.lstrip().startswith(":") else "") + ":".join(words)
+
     def match(self, tokens: tuple[Token, ...]) -> dict[str, int | None] | None:
         """Match tokens against the nodes; return captured suffixes, or None."""
 

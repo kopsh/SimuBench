@@ -16,9 +16,9 @@ from typing import Any
 from pydantic import ValidationError
 
 from ..library.migrate import FormatError, upgrade
-from ..models.definition import ComponentSpec, InstrumentDefinition, StateSpec
+from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, StateSpec
 from ..scpi.parse import Pattern, Token
-from .component import Component, component_types
+from .component import Component, binding_of, component_types
 from .validate import Report, _closest, _ptr
 
 _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
@@ -147,8 +147,69 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
         if cmd.op is not None:
             _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
+        for k, ps in enumerate(cmd.params):
+            if ps.state is not None:
+                _check_state_ref(d, ps.state, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report)
+            for key, ref in (ps.keys or {}).items():
+                if ref is not None:
+                    _check_state_ref(
+                        d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report
+                    )
+        if cmd.reply is not None:
+            _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report)
     _check_overlaps(d, compiled, report)
+    _check_dialect(d, report)
     return report
+
+
+def _check_reply(
+    d: InstrumentDefinition, cmd: CommandSpec, per_channel: bool, pointer: str, report: Report
+) -> None:
+    for name in re.findall(r"\{([^{}]*)\}", cmd.reply or ""):
+        if name == "header":
+            continue
+        if name == "value":
+            if cmd.state is None:
+                report.add(
+                    "error",
+                    "E-DEF-REPLY",
+                    pointer,
+                    "{value} 是命令绑定的状态，这条命令没有 state",
+                    "改用 {<状态路径>}",
+                    cmd.header,
+                )
+            continue
+        _spec, problem = _state_spec(d, name, per_channel)
+        if problem:
+            hint = _closest(name, _state_options(d, per_channel))
+            report.add(
+                "error",
+                "E-DEF-REPLY",
+                pointer,
+                f"应答模板引用 {{{name}}}：{problem}",
+                f"改为 {{{hint}}}" if hint else "可用 {header}、{value} 与 {<状态路径>}",
+                cmd.header,
+            )
+
+
+def _check_dialect(d: InstrumentDefinition, report: Report) -> None:
+    mode = d.dialect.echo_header
+    if not mode.startswith("$"):
+        return
+    pointer = _ptr("dialect", "echo_header")
+    spec = _check_state_ref(d, mode[1:], False, pointer, "dialect", report)
+    if spec is None:
+        return
+    missing = {"OFF", "SHORT", "LONG"} - {o.upper() for o in spec.options or []}
+    if spec.type != "enum" or missing:
+        report.add(
+            "error",
+            "E-DEF-DIALECT",
+            pointer,
+            f"echo_header 绑定的状态 {mode[1:]!r} 要是取值为 OFF、SHORT、LONG 的枚举",
+            'options: ["OFF", SHORT, LONG]',
+            "dialect",
+        )
 
 
 def _declared(d: InstrumentDefinition, name: str, channel: bool) -> bool:
@@ -231,9 +292,16 @@ def _check_params(
                 f"改为 {hint!r}" if hint else None,
                 spec.name,
             )
-        if not (isinstance(value, str) and value.startswith("$")):
+        mapping = value if isinstance(value, dict) and "from" in value else None
+        ref = binding_of(value)
+        if ref is None:
             continue
-        st = _check_state_ref(d, value[1:], channel, pp, spec.name, report)
+        st = _check_state_ref(
+            d, ref, channel, _ptr(*p, "params", key, "from") if mapping else pp, spec.name, report
+        )
+        if st is not None and mapping and mapping.get("map"):
+            _check_map_keys(st, mapping["map"], (*p, "params", key, "map"), spec.name, report)
+            continue  # the table decides the parameter's type
         default = cls.defaults.get(key)
         if st is not None and default is not None and not _compatible(default, st):
             report.add(
@@ -243,6 +311,26 @@ def _check_params(
                 f"{spec.type}.{key} 是{_kind(default)}，绑定的状态 {value[1:]!r} 是 {st.type}",
                 f"绑定一个{_kind(default)}状态",
                 spec.name,
+            )
+
+
+def _check_map_keys(
+    st: StateSpec, table: dict[str, Any], where: tuple[Any, ...], subject: str, report: Report
+) -> None:
+    """A key of ``map`` that the setting can never take never applies."""
+    if st.type != "enum":
+        return
+    options = {o.upper() for o in st.options or []}
+    for k in table:
+        if str(k).upper() not in options:
+            hint = _closest(str(k), list(st.options or []))
+            report.add(
+                "warning",
+                "W-DEF-MAP-KEY",
+                _ptr(*where, k),
+                f"设置的取值中没有 {k!r}，这一项不会生效",
+                f"改为 {hint!r}" if hint else f"可选值：{', '.join(st.options or [])}",
+                subject,
             )
 
 
