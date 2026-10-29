@@ -153,40 +153,40 @@ class ScopeAcquisition(Component):
     ports: dict[str, PortSpec] = {}
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
     defaults = {
-        "overhead_s": 1e-3,
-        "search_windows": 4,
-        "timebase": "$timebase.scale",
+        "overhead_s": 1e-3,  # virtual time an acquisition takes besides its record, s
+        "search_windows": 4,  # how many records long the trigger search is
+        "timebase": "$timebase.scale",  # seconds per division (ten divisions across)
         "record_length": "fixed",  # fixed | exact | rate_ladder
-        "points": "$waveform.points",
+        "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "max_rate": 0.0,  # 0: no limit
-        "max_rate_paired": 0.0,
+        "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
         "rate_pairs": [],  # e.g. [[1, 2], [3, 4]]
         "delay": None,  # unbound: the trigger at the centre of the record
-        "trigger_source": "$trigger.source",
-        "trigger_level": "$trigger.level",
-        "trigger_slope": "$trigger.slope",
-        "rising": RISING,
-        "falling": FALLING,
-        "mode": "$trigger.mode",
-        "auto": ["AUTO"],
-        "normal": ["NORMal"],
-        "single": [],
-        "stop": [],
-        "force": [],
-        "after_single": "",
+        "trigger_source": "$trigger.source",  # a channel (C1, CHANnel1); anything else never triggers
+        "trigger_level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
+        "trigger_slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
+        "rising": RISING,  # slope values that take a rising edge
+        "falling": FALLING,  # slope values that take a falling edge
+        "mode": "$trigger.mode",  # the run mode setting
+        "auto": ["AUTO"],  # modes that keep untriggered acquisitions
+        "normal": ["NORMal"],  # modes that wait for a trigger
+        "single": [],  # modes that acquire once on the next trigger
+        "stop": [],  # modes that stop (none: a stop command stops)
+        "force": [],  # modes that take one frame whatever the trigger, then stop
+        "after_single": "",  # the mode a completed single acquisition sets (empty: unchanged)
         "reacquire": "explicit",  # explicit | every_read | on_read_start
         "missing": "error",  # error | acquire
         "untriggered": "search",  # the time an untriggered acquisition takes: search | record
-        "adc_bits": 0,
-        "adc_codes_per_div": 0.0,
-        "adc_divs": 10.0,
+        "adc_bits": 0,  # 0: records are not quantized
+        "adc_codes_per_div": 0.0,  # 0: 2**adc_bits / adc_divs
+        "adc_divs": 10.0,  # divisions the ADC spans
         "adc_offset": "add",  # add | subtract
-        "noise_rms": 0.0,
+        "noise_rms": 0.0,  # input-referred white noise, V rms (times the probe ratio)
         "noise_key": "acquisition",  # acquisition | time
-        "noise_stream": "",
-        "trigger_jitter_s": 0.0,
-        "averaging": False,
-        "averages": 1,
+        "noise_stream": "",  # a setting that selects another noise stream (time key)
+        "trigger_jitter_s": 0.0,  # rms offset of each record around the trigger, s
+        "averaging": False,  # averaging on: noise / sqrt(averages), averages times the time
+        "averages": 1,  # acquisitions averaged
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
