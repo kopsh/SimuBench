@@ -93,7 +93,7 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 | `error_queue` | 定义 | 错误队列长度（默认 20）。队列满时最后一格变为 `-350`（SCPI-99 21.8），其文字也可在 `errors` 中给出。 |
 | `format` | 定义 | 默认返回格式：`number`（`nr3` / `nr2` / `nr1` / `engineering`，后者即 `200E-3`）、`digits`（小数位数）、`sign`（非负数是否带 `+`）、`exponent_digits`、`integer`（`plain` / `signed` / `engineering`）、`boolean`（`numeric` 即 1/0，`word` 即 ON/OFF）、`enum`（`short` / `long`）、`error_code`（`:SYSTem:ERRor?` 中的错误码是否带 `+`，如 Keysight 的 `+0,"No error"`）。默认值即 `sb-*` 一直以来的格式（`+1.000000E+03`）。 |
 | `commands[].format` | 命令 | 覆盖该命令的返回格式，字段同上。`enum` 还可以是 `as_defined`：按定义中的写法原样返回（如 Siglent 的 `RISing`）。 |
-| `builtins` | 定义 | 这个型号回答的内置命令（如 `["*IDN", "*OPC", "*RST"]`）。不写时全部回答；写了以后，其余内置命令（`*CLS`、`:SYSTem:ERRor?` 等）按“未建模”处理（D45）。 |
+| `builtins` | 定义 | 这个型号回答的内置命令（如 `["*IDN", "*OPC", "*RST"]`）。不写时全部回答；写了以后，其余内置命令（`*CLS`、`:SYSTem:ERRor?` 等）按“未建模”处理（D45）。`*TRG` 也是内置命令：调用定义中带 `bus_trigger` 操作的组件（如 `trigger_model`），没有时按“未建模”回复。 |
 | `display.actions` | 定义 | 面板按钮（`run`、`stop`、`single`）等价的型号命令，如 `{single: ":TRIGger:MODE SINGle"}`，在仪表内部执行、不经过 SCPI（D32）；不写时用采集组件的 `run`、`stop`、`single`（没有单次模式的型号为 `digitize`）。 |
 | `specs` | 定义 | 手册中的精度指标，任意结构；只记录，不参与计算。参与计算的个体偏差范围写在 `deviations` 中（#34，[metrology-authoring.md](metrology-authoring.md) 第 7 节）。 |
 | `deviations` | 定义 | 个体偏差的范围：`param`（`组件.参数`，通道组件每通道一个值）、`limit`、`unit`（`%`/`ppm` 为相对标称值；不写为参数本身的单位，值 = 标称 + 偏差）、`distribution`（`uniform`，或 `normal` 与 `coverage`，截断在 ±limit）、`by`（按表抽取）。测试台实例写 `deviation: from_specs` 时由种子抽取（[metrology-authoring.md](metrology-authoring.md) 第 7 节） |

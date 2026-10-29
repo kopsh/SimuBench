@@ -92,6 +92,19 @@
 - 组件可以登记“到虚拟时刻 t 才完成”的操作。内置 `*OPC?` 在全部完成时回答 `1`（命令时钟下推进到最晚的 t），`*WAI` 同样等待，`*OPC` 在完成时置 ESR 位 0。示波器采集组件的 `opc` 改为使用这个机制（回复与虚拟时间不变）。校准源的建立时间（第 5 节）用同一机制。
 - 内置 `*TRG`：定义中有 `bus_trigger` 操作的仪表回答；没有时按“未建模”处理（D42 不变）。
 
+### 3.5 实现（#88）
+
+已实现：`library/components/trigger.py`（`trigger_model`、`reading_buffer`），`Instrument` 的待完成操作（`register_pending`、`settle_pending`、`wait_until`、`wait_pending`、`arm_opc`），`engine/component.py` 的 `Sampler` 协议。与上文的差别与补充：
+
+- **`Sampler` 协议**：`sample_time_ns()`（一个读数所需的虚拟时间）与 `sample(index)`（此刻的一个读数，`index` 是本次运行中的序号，供噪声流使用）。`dmm_core` 先给出最小实现（参数 `function`、`reading_time`）；NPLC、自动调零与量程的读数时间由 #87 补上，`smu_core` 由 #94 接入；
+- 读数在运行完成时按各自的时刻取得（`FETCh?`、`*OPC?`、`*WAI`，或之后任一条命令到达时）；
+- 同一条程序消息中，前面命令用掉的时间计入“现在”（`Instrument.now_ns()`），所以 `INIT;*WAI;…` 中 `*WAI` 之后的命令看到的是运行结束后的状态；
+- 墙钟下的等待按真实时间（最多 5 s，与链路延迟相同）；步进时钟下不等待，`FETCh?` 在读数完成前报错；
+- 没有触发可等时的 `FETCh?`：不回复并报 `waiting_error`（默认 -230），脚本因此超时，与真机一样；`READ?` 配总线或外部触发报 `deadlock_error`（-214）；运行中再 `INITiate` 报 `ignored_error`（-213）；不在等待时的 `*TRG` 报 `trigger_ignored_error`（-211）。错误码都是参数，型号按手册给出；
+- `*TRG` 加入内置命令：调用第一个带 `bus_trigger` 操作的组件，没有时仍按“未建模”回复 -113；
+- 等待总线触发的运行不登记为待完成操作，所以 `*OPC?` 不会因为一个永远不来的触发而无限等待；
+- 读数缓冲区按 `elements` 给出 `READ`（读数）、`REL`（距第一个读数的秒数）与 sampler 附加的字段（#94 起）。
+
 ### 3.4 `smu_core` 迁移（#94）
 
 `smu_core` 实现 `sampler` 协议，扫描的每一点也经它产生读数；它自己的缓冲区删除，`sb-smu-1` 改用 `trigger_model` 与 `reading_buffer`，回复、虚拟时间与运行记录逐条不变。源与测量的量程（`source_ranges`、`measure_ranges` 与自动量程）和第 2 节共用量程选择的实现，现在的 21 V / 105 mA 包络成为默认表中的一项。
