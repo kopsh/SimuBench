@@ -24,7 +24,9 @@ SIGLENT = ROOT / "examples" / "benches" / "siglent_scope_rc.bench.yaml"
 
 def _lfcal(scope: dict):
     """The low-frequency calibration bench with ``scope`` as the reference scope's definition."""
-    bench = BenchDefinition.model_validate(load_yaml((LFCAL / "lowfreq_cal.bench.yaml").read_text(encoding="utf-8")))
+    bench = BenchDefinition.model_validate(
+        load_yaml((LFCAL / "lowfreq_cal.bench.yaml").read_text(encoding="utf-8"))
+    )
     defs = {
         "lfcal-reference-scope": InstrumentDefinition.model_validate(scope),
         "lfcal-scope-calibrator": InstrumentDefinition.model_validate(CALIBRATOR),
