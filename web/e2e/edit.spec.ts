@@ -156,3 +156,22 @@ test("review an agent's change in the version history and restore the version be
   await expect(versions.getByRole("button").first()).toContainText("恢复");
   expect(((await readDoc(page.request, path)).data.duts as { rc: { params: { r: number } } }).rc.params.r).toBe(1000);
 });
+
+test("individual deviations: an instrument draws from its specs, the drawn values stay hidden", async ({ page }) => {
+  const path = await openEditor(page);
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  await page.getByRole("button", { name: "个体偏差" }).click();
+  const ranges = page.getByRole("definition").filter({ hasText: "±2 %" });
+  await expect(ranges).toHaveCount(2); // one output impedance per channel
+  await page.getByRole("switch", { name: "按指标抽取" }).click();
+  await expect.poll(async () => (await readDoc(page.request, path)).data.instruments).toMatchObject({
+    awg: { deviation: "from_specs" },
+  });
+  // Back in Operate mode the bench is rebuilt: values are drawn, but true values may not be read.
+  await page.getByRole("radio", { name: "操作" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  await page.getByRole("radio", { name: "搭建" }).click();
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  await page.getByRole("button", { name: "个体偏差" }).click();
+  await expect(page.getByText("已隐藏")).toHaveCount(2);
+});

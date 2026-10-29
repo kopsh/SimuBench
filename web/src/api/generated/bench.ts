@@ -24,6 +24,32 @@ export type Status = "in_use" | "out_of_service" | "quarantined" | "retired";
  */
 export type Assets = Asset[];
 export type Description = string | null;
+/**
+ * Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
+ */
+export type By = {
+  [k: string]: unknown[];
+} | null;
+/**
+ * normal: the coverage factor k of the limit (limit = k·σ)
+ */
+export type Coverage = number;
+/**
+ * uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)
+ */
+export type Distribution = "uniform" | "normal";
+/**
+ * ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)
+ */
+export type Limit =
+  | number
+  | {
+      [k: string]: number;
+    };
+/**
+ * '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
+ */
+export type Unit = ("%" | "ppm") | null;
 export type Label = string | null;
 /**
  * Component type, e.g. 'rc_lowpass'
@@ -80,6 +106,10 @@ export type Faults = Fault[];
  * Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)
  */
 export type Address = string | null;
+/**
+ * Individual deviations (个体偏差): 'nominal' keeps the model's values; 'from_specs' draws this unit's values within the definition's `deviations`, from the bench seed. Values in `hidden` take precedence, parameter by parameter
+ */
+export type Deviation1 = "nominal" | "from_specs";
 export type Firmware = string | null;
 /**
  * Overrides the definition's *IDN? reply, with the same fields, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}' (the model token a host program checks)
@@ -158,10 +188,27 @@ export interface Duts {
   [k: string]: ComponentInstance;
 }
 export interface ComponentInstance {
+  deviation?: Deviation;
   hidden?: Hidden;
   label?: Label;
   params?: Params;
   type: Type;
+}
+/**
+ * Individual deviations (个体偏差) by parameter, drawn from the bench seed, e.g. {r: {limit: 1, unit: '%'}}: the range belongs to the part, so it is written here. A value in `hidden` takes precedence
+ */
+export interface Deviation {
+  [k: string]: DeviationRange;
+}
+/**
+ * The range one parameter's deviation falls in.
+ */
+export interface DeviationRange {
+  by?: By;
+  coverage?: Coverage;
+  distribution?: Distribution;
+  limit: Limit;
+  unit?: Unit;
 }
 export interface Hidden {
   [k: string]: unknown;
@@ -205,6 +252,7 @@ export interface Instruments {
 }
 export interface InstrumentInstance {
   address?: Address;
+  deviation?: Deviation1;
   firmware?: Firmware;
   hidden?: Hidden1;
   idn?: Idn;

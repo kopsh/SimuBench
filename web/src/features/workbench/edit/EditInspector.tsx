@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { channelColor } from "@/lib/channels";
 import { pickLabel } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { DeviationSection } from "../DeviationSection";
 import { Header, KeyValues, Section } from "../Inspector";
 import { accessoryLabel, channelVars, globalVars, instrumentTitle } from "../model";
 import { StateField } from "../StateField";
@@ -239,6 +240,19 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
           <div className="space-y-1.5">{channelVars(inst, n).map(field)}</div>
         </Section>
       ))}
+      {(inst.deviations.length > 0 || inst.deviation === "from_specs") && (
+        <DeviationSection items={inst.deviations}>
+          <Field label={t("deviation.mode")} hint={t("deviation.modeHint")}>
+            <Switch
+              checked={inst.deviation === "from_specs"}
+              onCheckedChange={(c) =>
+                void applyOps([{ op: "set_deviation", instrument: inst.name, mode: c ? "from_specs" : "nominal" }])
+              }
+              aria-label={t("deviation.mode")}
+            />
+          </Field>
+        </DeviationSection>
+      )}
       <DeleteButton onClick={() => void applyOps([{ op: "remove", name: inst.name }]).then((d) => d && select(null))} />
     </div>
   );
@@ -301,10 +315,10 @@ function DutEdit({ dut, type }: { dut: ComponentInfo; type?: ComponentTypeInfo }
       <Section title={t("workbench.params")}>
         <div className="space-y-1.5">{visible.map(field)}</div>
       </Section>
-      {hidden.length > 0 && (
-        <Section title={t("edit.hiddenParams")} collapsible defaultOpen={false}>
-          <div className="space-y-1.5">{hidden.map(field)}</div>
-        </Section>
+      {(hidden.length > 0 || dut.deviations.length > 0) && (
+        <DeviationSection items={dut.deviations}>
+          {hidden.length > 0 && <div className="space-y-1.5">{hidden.map(field)}</div>}
+        </DeviationSection>
       )}
       <Section title={t("workbench.ports")}>
         <KeyValues entries={dut.ports.map((p) => [p.name, p.net ?? t("workbench.notConnected")])} />

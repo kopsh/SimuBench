@@ -104,6 +104,15 @@ export const en: Widen<Messages> = {
     send: "Send",
     response: "Response",
   },
+  deviation: {
+    title: "Individual deviations",
+    hint: "How far this unit sits from the model's nominal values. Commands cannot read them; only measuring finds them. Drawn values show only while true values may be read.",
+    mode: "Draw from specs",
+    modeHint: "On: this unit's deviations are drawn within the definition's ranges from the bench seed; off: nominal values. Hidden values written in the bench take precedence.",
+    nominal: "nominal",
+    hidden: "hidden",
+    normal: "normal",
+  },
   edit: {
     mode: { run: "Operate", edit: "Build" },
     runChanged: "startup settings changed",
@@ -147,7 +156,6 @@ export const en: Widen<Messages> = {
     clock: "Clock mode",
     revealTrue: "Allow reading true values",
     revealTrueHint: "For debugging: the UI and agents may read hidden true values. Turn off for validation.",
-    hiddenParams: "Hidden parameters",
     addAccessory: "Add accessory",
     removeAccessory: "Remove accessory",
     from: "From",

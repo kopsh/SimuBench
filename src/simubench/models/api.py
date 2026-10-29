@@ -239,6 +239,21 @@ class DisplayInfo(_Model):
     actions: dict[str, str] = Field(default_factory=dict, description="Commands for front-panel actions")
 
 
+class DeviationInfo(_Model):
+    """One parameter's individual deviation (个体偏差): its range, and this unit's value when shown."""
+
+    param: str = Field(..., description="'<component>.<parameter>' (instrument) or '<parameter>' (DUT)")
+    limit: Any = Field(..., description="±limit: a number, or a table keyed by the last `by` value")
+    unit: str | None = None
+    distribution: str
+    by: dict[str, list[Any]] | None = None
+    value: Any = Field(
+        None,
+        description="This unit's value; null while hidden (run.reveal_true_values off) or not drawn",
+    )
+    drawn: bool = Field(False, description="Drawn from the bench seed (else the nominal or a hidden value)")
+
+
 class InstrumentInfo(_Model):
     name: str
     label: str | None = None
@@ -257,14 +272,21 @@ class InstrumentInfo(_Model):
     ports: list[PortInfo]
     state: list[StateVarInfo]
     errors: list[ErrorItem]
+    deviation: Literal["nominal", "from_specs"] = "nominal"
+    deviations: list[DeviationInfo] = Field(
+        default_factory=list, description="The definition's deviation ranges, with this unit's values"
+    )
 
 
 class ComponentInfo(_Model):
     name: str
     type: str
     label: str | None = None
-    params: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(
+        default_factory=dict, description="Parameters; a drawn deviation shows its nominal value while hidden"
+    )
     ports: list[PortInfo] = Field(default_factory=list)
+    deviations: list[DeviationInfo] = Field(default_factory=list)
 
 
 class InternalParam(_Model):
