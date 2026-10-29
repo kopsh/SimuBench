@@ -52,7 +52,7 @@ def test_doctor_passes_here_and_reports_broken_benches(tmp_path):
 
 def test_diagnostics_bundle_over_the_api(tmp_path):
     app = create_app(
-        SessionManager(ROOT / "examples", scpi_base_port=None, record_dir=tmp_path / "runs"),
+        SessionManager(ROOT / "validation", scpi_base_port=None, record_dir=tmp_path / "runs"),
         token=TOKEN,
         web_dist=Path("/nonexistent"),
     )

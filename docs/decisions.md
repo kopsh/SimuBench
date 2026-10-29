@@ -379,13 +379,16 @@
 - **实现位置**：`access/hislip_server.py`（服务器）；`Session.clear_output` 提取为 PyVISA 后端与 HiSLIP 服务器共用的设备清除语义；PyVISA 后端地址表加入 HiSLIP 形式（含 Bench 中配置的 HiSLIP 真实地址直接打开），TCPIP INSTR 资源的 VISA 属性（`TCPIP_IS_HISLIP`、`TCPIP_DEVICE_NAME` 等）按 PyVISA 属性表填齐。
 - **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、VXI-11、USBTMC、GPIB、监听本机以外地址。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress.md 留待进行。
 
-## D42 真实型号仪表
+## D42 内置仪表都是真实型号
 
-- **结论**：为演示与脚本兼容，新增按真实型号实现的仪表定义（如 Keysight 34465A、Fluke 5522A）。命令行为以该型号的编程手册为准；测量值仍来自电路求解（D13）。规则见 [real-models.md](real-models.md)。
+- **结论**：内置仪表（随软件包发布、出现在元件库、MCP `list_catalog` 与命令行中的仪表）都是按真实型号实现的定义（如 Siglent SDS2104X Plus、Keysight 34465A）。命令行为以该型号的编程手册为准；测量值仍来自电路求解（D13）。规则见 [real-models.md](real-models.md)。
+- **`sb-*` 只用于开发验证，不发布**：SimuBench 自造的 `sb-*` 定义放在仓库的 `validation/instruments/`，不进 wheel；测试、验收与开发时通过定义搜索路径加载（工作区的 `instruments/` 目录，或环境变量 `SIMUBENCH_DEFINITIONS`）。用到它们的测试台在 `validation/benches/` 与 `acceptance/benches/`，`examples/` 只放真实型号的测试台。CI 检查 wheel 与 `examples/` 中没有 `sb-*`（issue 35）。
+- **理由**：自造型号没有手册可依，脚本在它上面通过不能说明在真机上也通过（D4、D5）；它们的价值是在没有对应真实型号时验证引擎与组件。只被 `sb-*` 使用的组件（锁相、频谱仪、SMU、电子负载、射频源、PRBS）保留在引擎中，供验证与以后的真实型号使用。
+- **代价**：在有对应真实型号之前，发布版中没有锁相放大器、频谱仪、SMU、电子负载、射频信号源、万用表等类别。
 - **三种实现程度**：手册中的每条命令属于“实现”“接受”（解析并保存，不影响仿真）或“未实现”之一。未实现的命令回复 `-113` 并标注 “not modeled by SimuBench”，不静默接受，避免脚本在虚拟环境通过、在真机失败。
 - **可验证**：每个型号有覆盖表（按手册章节列出全部命令及其程度）和手册用例（命令与预期返回，注明手册章节），CI 检查两者与定义一致。
 - **首批型号**：Keysight 34465A 与 Fluke 5522A（定标演示），之后为 Keysight 33500B 系列、Keysight InfiniiVision 3000T 与 Keithley 2450。
-- **商标**：`*IDN?` 返回真实厂商与型号，限内部演示；对外发布前重新评估。
+- **商标**：`*IDN?` 返回真实厂商与型号，这是脚本不改即可运行（D5）的前提，发布版也如此。只以名称指明所模拟的型号：不使用厂商标志与商业外观，不复制手册原文，文档声明 SimuBench 与各厂商无关联、商标归各自所有者（real-models.md 第 7 节）。
 
 ## D43 访问令牌改为可选，默认关闭
 

@@ -11,7 +11,7 @@ from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE = ROOT / "examples" / "benches" / "awg_rc_scope.bench.yaml"
+EXAMPLE = ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml"
 
 
 def reasons(s, ref):
@@ -72,7 +72,7 @@ def test_fault_on_the_source_is_named():
 
 
 def test_scope_screen_and_probe_carry_the_reasons():
-    app = create_app(SessionManager(ROOT / "examples", scpi_base_port=None), web_dist=Path("/nonexistent"))
+    app = create_app(SessionManager(ROOT / "validation", scpi_base_port=None), web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
         screen = c.get(f"/api/sessions/{sid}/instruments/scope/screen", params={"source": "preview"}).json()

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_net_levels_show_which_wires_carry_a_signal():
-    app = create_app(SessionManager(ROOT / "examples", scpi_base_port=None), web_dist=Path("/nonexistent"))
+    app = create_app(SessionManager(ROOT / "validation", scpi_base_port=None), web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
         levels = c.get(f"/api/sessions/{sid}/levels").json()["nets"]
