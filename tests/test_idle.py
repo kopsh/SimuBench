@@ -77,7 +77,9 @@ def test_reproduce_the_drift_of_issue_4(tmp_path):
         assert with_gap == without  # a busy 50 ms between commands changes nothing
     wall_fast = drifted("wall", "wall-fast", None)
     wall_slow = drifted("wall", "wall-slow", 0.05)
-    assert wall_fast == pytest.approx(1500.0, rel=1e-6)
+    # wall counts real idle time by design: without a deliberate gap a slow runner may still idle
+    # over 10 ms (the 1508 of issue 4), so only its direction is certain (#106).
+    assert wall_fast >= 1500.0 * (1 - 1e-9)
     assert wall_slow > 1520  # the historical 1508-class failure, reproduced on purpose
 
 
