@@ -155,7 +155,7 @@
 | 用例运行：`simubench cases`（JUnit 报告）与 MCP `run_cases`，手册用例与契约用例同一种文件（issue 45） | ✅ `tests/test_real_models.py` 改用同一个运行器，69 项结果不变；低频校准工作台的契约用例 11 条通过（`examples/lowfreq-cal/cases.yaml`）；失败信息、刚上电、JUnit 可解析、MCP（`tests/test_cases.py`、`tests/test_mcp.py`）；契约用例查出并修正 `FP` 超出记录时多一个空格的回归 |
 | MCP 编写仪表定义：`read_definition`、`create_definition`、`edit_definition`（JSON Patch，sha256 乐观并发，版本历史标为 Agent）、`validate_definition`、`draft_definition_from_script`；会话提示“重新启动以应用”（issue 46） | ✅ 从只用契约命令的脚本出发：起草 → 首次运行用例 3 条失败 → 补丁（枚举选项、通道数、型号）→ 校验无诊断 → 用例 4 条全过（`tests/test_mcp.py`）；冲突、坏补丁、只读的库定义、会话的 `stale_definitions`；JSON Patch 与类型推测（`tests/test_definition_authoring.py`） |
 | 验收：只用 YAML、再只用 MCP 重建低频校准工作台（issue 48） | ✅ `lecroy.py` 删除，两份定义只用通用组件；补充 `when`、索引参数、操作应答字段、`system` 组件、命名测量、记录描述、`set_identity`（instrument-authoring.md 2.5）。参考示波器约 35 条命令的回复、虚拟时间与采集事件与改动前一致；从空工作区只用 MCP 搭出的工作台指纹与示例相同，`tests/test_lowfreq_cal.py` 与验收场景在它上面全部通过（`tests/test_lfcal_mcp_rebuild.py`）。没有需要插件的部分 |
-| 插件出口 | ⏳ issue 47 |
+| 插件出口 | ✅ issue 47（见下文“插件出口”一节） |
 
 ## 仪表内部组件图（Issue 20，D3）
 
@@ -216,3 +216,18 @@
 | 运行记录头部带插件文件哈希（D36）；doctor 与诊断包列出插件及来源（不含源码） | ✅ 记录头部 `plugins`（来源、origin、sha256）；`doctor` 增加 plugins / workspace plugins 两项检查；清单进 `version --full` 与诊断包的 `manifest.json` |
 | 启动时打印加载了哪些插件；MCP 不提供写 `.py` 的工具 | ✅ serve / mcp 启动横幅打印（含"present but not enabled"提示）；文件写入只覆盖测试台与定义 yaml（`docs/security.md`） |
 | `docs/security.md` 更新；`scripts/check.sh` 通过 | ✅ 新增"工作区插件代码"一行与"不在防护范围内"两条；check.sh 全绿（web 经 node_modules 本地二进制复核） |
+
+## 计量类仪表的通用能力（metrology-authoring.md，issue 86）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 型号不依赖专用组件的检查、写型号的操作手册、覆盖表草稿 | ⏳ issue 93 |
+| 测量核心：量程、超量程、分辨率、输入阻抗、按量程的误差 | ⏳ issue 87 |
+| 触发模型、读数存储、待完成操作、`*TRG` | ⏳ issue 88 |
+| 校准存储 | ⏳ issue 89 |
+| 校准源、按单位分派的参数、错误查询的声明 | ⏳ issue 90 |
+| 四线测量与引线电阻 | ⏳ issue 91 |
+| `smu_core` 接入触发模型与缓冲区、源与测量量程 | ⏳ issue 94 |
+| 个体偏差按指标抽取 | ⏳ issue 34 |
+| 定标判定的真值核对 | ⏳ issue 92 |
+| 衡量：34465A、5522A、2450 只写定义（issue 7、8、12），定标演示的核对不写专用代码（issue 9） | ⏳ |
