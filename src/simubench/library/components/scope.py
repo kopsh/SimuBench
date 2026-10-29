@@ -31,11 +31,11 @@ class ScopeFrontend(Component):
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
-        "coupling": "DC",
-        "bandwidth": 200e6,
-        "bw_limit": False,
-        "bw_limit_hz": 20e6,
-        "ac_corner": 10.0,
+        "coupling": "DC",  # DC | AC | GND
+        "bandwidth": 200e6,  # -3 dB point of the first-order low-pass
+        "bw_limit": False,  # bandwidth limit on, or a named filter (FULL, 20M)
+        "bw_limit_hz": 20e6,  # the limit when bw_limit is on
+        "ac_corner": 10.0,  # corner of the AC coupling high-pass
     }
     units = {"bandwidth": "Hz", "bw_limit_hz": "Hz", "ac_corner": "Hz"}
 

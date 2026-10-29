@@ -35,29 +35,29 @@ class WaveformTransfer(Component):
     defaults = {
         "record": "acq",  # the acquisition component holding the records
         "source": "",  # the channel (C1, CHANnel1, 1); empty: the command's channel
-        "first": 0,
-        "count": 0,
-        "step": 1,
+        "first": 0,  # index of the first point sent
+        "count": 0,  # points sent; 0: to the end, at most max_points when that is set
+        "step": 1,  # send every step-th point
         "max_points": 0,  # 0: no limit
         "encoding": "block",  # block | ascii | text
         "values": "codes",  # codes | volts
         "format": "%.6e",  # text
         "separator": " ",  # text
         "digits": 8,  # ascii
-        "codes_per_div": 25.0,
+        "codes_per_div": 25.0,  # ADC codes per division of the record scale
         "offset": "subtract",  # subtract: (v - offset); add: (v + offset), the record's offset setting
-        "adc_bits": 8,
-        "width": 8,
-        "unsigned": False,
+        "adc_bits": 8,  # bits of the ADC codes (signed around zero)
+        "width": 8,  # bits of a block word: codes shift up or down to fit
+        "unsigned": False,  # block codes offset by 2**(width-1)
         "byteorder": "little",  # little | big (also LSBFirst | MSBFirst)
         "block_digits": 0,  # 0: as few as the length needs
         "trailer": "",  # appended after a block, e.g. a line feed
-        "no_record": "no acquisition for this source",
+        "no_record": "no acquisition for this source",  # the -230 message when there is no record
         # describe: NAME -> a format of the record's figures (points, first, step, dt, x_offset,
         # offset, scale, gain, timebase, count), e.g. {HORIZ_INTERVAL: "{dt:.9e}"}
         "descriptor": {},
         "descriptor_item": "{name} : {value}",  # how describe writes one entry
-        "descriptor_separator": " ",
+        "descriptor_separator": " ",  # between describe's entries
     }
 
     def _source(self, channel: int | None) -> int:

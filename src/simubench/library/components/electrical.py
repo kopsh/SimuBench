@@ -33,11 +33,11 @@ class OutputStage(Component):
         "pin": PortSpec("out", "electrical"),
     }
     defaults = {
-        "z_out": 50.0,
-        "enabled": True,
-        "load_setting": math.inf,
-        "invert": False,
-        "hiz_from": math.inf,
+        "z_out": 50.0,  # series output impedance, ohm
+        "enabled": True,  # False: the pin floats
+        "load_setting": math.inf,  # load the amplitude is defined for (D13), ohm; inf: open circuit
+        "invert": False,  # invert the polarity of the output
+        "hiz_from": math.inf,  # a load_setting of this many ohms or more counts as high-Z, ohm
     }
 
     def _scale(self) -> float:
@@ -67,7 +67,10 @@ class InputPort(Component):
         "pin": PortSpec("in", "electrical"),
         "out": PortSpec("out", "signal"),
     }
-    defaults = {"z_in": 1e6, "c_in": 0.0}
+    defaults = {
+        "z_in": 1e6,  # input resistance to ground (FIFTY and ONEMEG are named values)
+        "c_in": 0.0,  # input capacitance to ground
+    }
     units = {"z_in": "OHM", "c_in": "F"}
     _NAMED = {"FIFTY": 50.0, "FIFT": 50.0, "ONEMEG": 1e6, "ONEM": 1e6}
 
@@ -101,7 +104,7 @@ class Resistor(Component):
     label_en = "Resistor"
     units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical"), "B": PortSpec("inout", "electrical")}
-    defaults = {"r": 1000.0}
+    defaults = {"r": 1000.0}  # resistance
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("A"), node("B"), float(self.param("r")))
@@ -116,7 +119,7 @@ class LoadResistor(Component):
     label_en = "Resistor to ground"
     units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical")}
-    defaults = {"r": 1000.0}
+    defaults = {"r": 1000.0}  # resistance to ground
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("A"), GROUND, float(self.param("r")))
@@ -132,7 +135,12 @@ class RcLowpass(Component):
     units = {"r": "OHM", "c": "F"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
-    defaults = {"r": 1000.0, "c": 100e-9, "tol_r": 0.0, "tol_c": 0.0}
+    defaults = {
+        "r": 1000.0,  # series resistance
+        "c": 100e-9,  # capacitance to ground
+        "tol_r": 0.0,  # relative tolerance of r, hidden (0.1: +10%)
+        "tol_c": 0.0,  # relative tolerance of c, hidden
+    }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         r = float(self.param("r")) * (1 + float(self.param("tol_r")))
@@ -157,7 +165,12 @@ class PassiveProbe(Component):
     units = {"r_tip": "OHM", "r_scope": "OHM", "c_pf": "pF"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
-    defaults = {"attenuation": 10.0, "r_tip": 10e6, "r_scope": 1e6, "c_pf": 0.0}
+    defaults = {
+        "attenuation": 10.0,  # nominal division ratio (10: a 10x probe)
+        "r_tip": 10e6,  # total resistance from the tip into the scope input
+        "r_scope": 1e6,  # the nominal scope input resistance the series element assumes
+        "c_pf": 0.0,  # probe capacitance (not modeled, D10)
+    }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         r_series = float(self.param("r_tip")) - float(self.param("r_scope"))
@@ -184,7 +197,11 @@ class CoaxCable(Component):
     units = {"r": "OHM", "length_m": "m", "r_skin_1mhz": "OHM"}
 
     ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("inout", "electrical")}
-    defaults = {"r": 0.05, "length_m": 1.0, "r_skin_1mhz": 0.0}
+    defaults = {
+        "r": 0.05,  # series resistance
+        "length_m": 1.0,  # cable length (no delay is modeled)
+        "r_skin_1mhz": 0.0,  # skin impedance at 1 MHz, rising as the square root of frequency
+    }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         r = max(float(self.param("r")), 1e-6)
@@ -210,7 +227,11 @@ class UnityBuffer(Component):
     units = {"z_in": "OHM", "z_out": "OHM"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
-    defaults = {"z_in": 1e6, "z_out": 50.0, "gain": 1.0}
+    defaults = {
+        "z_in": 1e6,  # input resistance to ground
+        "z_out": 50.0,  # output impedance
+        "gain": 1.0,  # voltage gain, V/V
+    }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("IN"), GROUND, float(self.param("z_in")))
