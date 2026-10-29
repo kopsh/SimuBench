@@ -68,7 +68,7 @@ class SessionManager:
         self.record_raw = record_raw
         self.sessions: dict[str, ServedSession] = {}
         self.files = BenchFiles(workspace)
-        self.runs = Runs(record_dir)
+        self.runs = Runs(record_dir, [self.workspace / "instruments"])
 
     # ---- bench files --------------------------------------------------------------------------------
 
@@ -100,7 +100,12 @@ class SessionManager:
         if not doc.ok:
             raise BenchInvalid(doc.diagnostics)
         session = open_bench(
-            path, clock=clock, seed=seed, record_dir=self.record_dir, record_raw=self.record_raw
+            path,
+            clock=clock,
+            seed=seed,
+            record_dir=self.record_dir,
+            record_raw=self.record_raw,
+            definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)
         )
         served = ServedSession(uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256

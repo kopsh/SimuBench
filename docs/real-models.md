@@ -9,7 +9,7 @@
 - 定义文件：`src/simubench/library/instruments/<厂商>-<型号>.yaml`，id 全小写，如 `keysight-34465a`、`fluke-5522a`。
 - `manufacturer`、`model` 与 `identity.idn` 按手册中 `*IDN?` 的返回格式填写，如 `Keysight Technologies,34465A,<序列号>,<固件版本>`。序列号与固件版本的格式也与真机一致。
 - 新字段 `reference`：所依据的手册（名称、文档编号、版本或日期、对应的固件版本）。同一型号不同固件的命令可能不同，以此为准。
-- 现有的 `sb-*` 仪表保持不变，真实型号是新增的定义。
+- 内置仪表只有真实型号（D42）。`sb-*` 是 SimuBench 自造的验证仪表，定义在仓库的 `validation/instruments/`，不随软件包发布；测试与验收通过定义搜索路径加载（见第 9 节）。
 
 ## 2. 命令的三种实现程度
 
@@ -56,7 +56,7 @@
 
 ## 5. 演示用的测试台
 
-每个型号至少带一个示例测试台（`examples/benches/`），让它和其他仪表、DUT 连在一起时能测出符合物理的结果。
+每个型号至少带一个示例测试台（`examples/benches/`），让它和其他仪表、DUT 连在一起时能测出符合物理的结果。`examples/` 只用真实型号；用 `sb-*` 的测试台放在 `validation/benches/` 或 `acceptance/benches/`（CI 检查）。
 
 ## 6. 覆盖表
 
@@ -68,11 +68,13 @@
 ## 7. 版权与商标
 
 - 只实现手册描述的行为，不把手册原文复制进仓库；命令名称和简短的语法说明除外。
-- `*IDN?` 返回真实的厂商与型号，用于内部演示和脚本兼容。对外发布前需要重新评估（D17）。
+- `*IDN?` 返回真实的厂商与型号，脚本才能不改一行地运行（D5）；发布版也如此（D42）。
+- 只以名称指明所模拟的型号：界面与文档不使用厂商标志、配色等商业外观，不暗示厂商认可。
+- 声明：SimuBench 与所模拟型号的厂商没有关联，也未获其认可；文中的厂商名与型号是各自所有者的商标，仅用于指明所模拟的仪表。
 
 ## 8. 字段说明（框架已实现）
 
-以下字段都是可选的，`sb-*` 定义不用改。带 `reference` 的定义即为真实型号。
+以下字段都是可选的，`sb-*` 定义不用改。带 `reference` 的定义即为真实型号；内置定义都必须带 `reference`（`tests/test_release.py`）。
 
 | 字段 | 位置 | 说明 |
 | --- | --- | --- |
@@ -122,3 +124,10 @@ cases:
 
 **第二个产品型号**：`siglent-sdg2042x`（D45）。SDG 的命令不是 SCPI 树，而是 Siglent 自己的键值写法（`C1:BSWV WVTP,SINE,FRQ,1000`），回复带命令头与单位（`C1:BSWV WVTP,SINE,FRQ,100HZ,...`），所以这些命令都是组件操作（`library/components/siglent_sdg.py`），由组件拼出完整回复。手册的命令头写法也不全是 SCPI 的长短格式：`ParaCoPy` 的短格式是 `PACP`，定义中写成 `PAraCoPy`，使大写字母就是短格式。
 
+## 9. 内置定义与验证定义
+
+- **内置**：`src/simubench/library/instruments/` 只放真实型号的定义与覆盖表，随 wheel 发布，是元件库、MCP `list_catalog` 与命令行默认列出的全部仪表。
+- **验证**：`sb-*` 定义在 `validation/instruments/`，用到它们的测试台在 `validation/benches/`（开发时用的演示台）与 `acceptance/benches/`（验收场景）。只被它们使用的组件（锁相、频谱仪、SMU、电子负载、射频源、PRBS）留在引擎里。
+- **搜索顺序**：测试台所在目录的 `instruments/`、工作区的 `instruments/`、环境变量 `SIMUBENCH_DEFINITIONS` 中的目录（多个目录用 `os.pathsep` 分隔，Linux 为 `:`，Windows 为 `;`），最后是内置定义。
+- **加载验证定义**：`pytest` 由仓库根目录的 `conftest.py` 自动设置 `SIMUBENCH_DEFINITIONS`；开发时 `simubench serve --workspace validation`（`validation/` 本身就是一个带 `instruments/` 的工作区），或 `SIMUBENCH_DEFINITIONS=validation/instruments simubench serve ...`。
+- **检查**：`tests/test_release.py` 检查内置定义都是真实型号、未设置搜索路径时仪表库中没有 `sb-*`、`examples/` 中没有 `sb-*` 引用；CI 的打包任务检查 wheel 中没有 `sb-*` 定义。

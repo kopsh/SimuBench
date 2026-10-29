@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections.abc import Iterable
 from functools import lru_cache
@@ -14,7 +15,12 @@ from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .migrate import upgrade
 
+#: Built-in definitions: real models only (D42). SimuBench's own ``sb-*`` validation definitions are
+#: not shipped; they live in ``validation/instruments`` of the repository and are loaded through
+#: :data:`DEFINITIONS_ENV`.
 BUILTIN_DIR = Path(__file__).parent / "instruments"
+#: Extra definition folders, separated like ``PATH`` (``os.pathsep``), searched before the built-in ones.
+DEFINITIONS_ENV = "SIMUBENCH_DEFINITIONS"
 #: Coverage tables live next to their definitions (D42) and are not definitions themselves.
 COVERAGE_SUFFIX = ".coverage.yaml"
 
@@ -53,6 +59,11 @@ def _read_yaml(path: Path) -> dict:
     return data
 
 
+def env_definition_dirs() -> list[Path]:
+    """The folders named by :data:`DEFINITIONS_ENV`, in order."""
+    return [Path(d) for d in os.environ.get(DEFINITIONS_ENV, "").split(os.pathsep) if d]
+
+
 @lru_cache(maxsize=256)
 def _load_definition_file(path: Path, mtime: float) -> InstrumentDefinition:
     data, _ = upgrade(_read_yaml(path), "instrument")
@@ -60,10 +71,12 @@ def _load_definition_file(path: Path, mtime: float) -> InstrumentDefinition:
 
 
 class DefinitionLibrary:
-    """Finds instrument definitions by id: first in the bench's own folders, then built-in."""
+    """Finds instrument definitions by id: first in the bench's own folders, then in the folders of
+    :data:`DEFINITIONS_ENV`, then built-in."""
 
     def __init__(self, search_dirs: Iterable[Path] = ()) -> None:
-        self.dirs = [Path(d) for d in search_dirs] + [BUILTIN_DIR]
+        dirs = [Path(d) for d in search_dirs] + env_definition_dirs() + [BUILTIN_DIR]
+        self.dirs = list(dict.fromkeys(dirs))
 
     def path(self, def_id: str) -> Path:
         for d in self.dirs:

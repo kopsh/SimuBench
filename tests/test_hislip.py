@@ -47,7 +47,7 @@ from simubench.access.hislip_server import (
 from simubench.api import open_bench
 from simubench.models.bench import Fault
 
-BENCH = Path(__file__).resolve().parents[1] / "examples" / "benches" / "awg_rc_scope.bench.yaml"
+BENCH = Path(__file__).resolve().parents[1] / "validation" / "benches" / "awg_rc_scope.bench.yaml"
 VENDOR = 0x5342  # "SB"
 
 

@@ -14,8 +14,9 @@ MAX_EVENTS = 20_000
 
 
 class Runs:
-    def __init__(self, directory: Path | None) -> None:
+    def __init__(self, directory: Path | None, definition_dirs: list[Path] | None = None) -> None:
         self.directory = directory
+        self.definition_dirs = definition_dirs or []
 
     def _path(self, run_id: str) -> Path:
         if self.directory is None or not RUN_ID.match(run_id):
@@ -69,7 +70,7 @@ class Runs:
         )
 
     def replay(self, run_id: str) -> M.ReplayResult:
-        report = replay(self._path(run_id))
+        report = replay(self._path(run_id), definition_dirs=list(self.definition_dirs))
         return M.ReplayResult(
             run_id=run_id,
             ok=report.ok,

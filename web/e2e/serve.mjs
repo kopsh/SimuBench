@@ -1,5 +1,6 @@
-// Starts the service for end-to-end tests on a scratch copy of the examples, because the tests edit
-// bench files (and node drags are saved to the file).
+// Starts the service for end-to-end tests on a scratch copy of the examples and the validation
+// workspace (sb-* definitions in instruments/, their benches), because the tests edit bench files
+// (and node drags are saved to the file).
 import { spawn } from "node:child_process";
 import { cpSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -9,6 +10,7 @@ const port = process.argv[2] ?? "18765";
 const root = resolve(import.meta.dirname, "..", "..");
 const workspace = mkdtempSync(join(tmpdir(), "simubench-e2e-"));
 cpSync(join(root, "examples"), workspace, { recursive: true });
+cpSync(join(root, "validation"), workspace, { recursive: true });
 
 const child = spawn(
   "uv",
