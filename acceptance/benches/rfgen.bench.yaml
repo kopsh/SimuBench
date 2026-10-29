@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-rfgen
 description: RF generator into a spectrum analyzer; REF_OUT to REF_IN; the generator's timebase is 2 ppm fast (hidden).
 instruments:

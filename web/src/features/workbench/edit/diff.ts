@@ -12,7 +12,7 @@ export function describeChange(before: BenchData, after: BenchData): string {
   const parts: string[] = [];
   for (const [key, label] of [
     ["instruments", t("workbench.instruments")],
-    ["duts", t("workbench.duts")],
+    ["parts", t("workbench.parts")],
   ] as const) {
     const a = obj(before[key]);
     const b = obj(after[key]);
@@ -40,7 +40,7 @@ export function describeChange(before: BenchData, after: BenchData): string {
 export type FieldChange = { path: string; before?: unknown; after?: unknown };
 export type DiffItem = {
   /** What the item is: an instrument, a DUT, a wire, or a bench-level section. */
-  section: "bench" | "instruments" | "duts" | "wires" | "faults" | "run" | "layout";
+  section: "bench" | "instruments" | "parts" | "wires" | "faults" | "run" | "layout";
   name: string;
   kind: "added" | "removed" | "changed";
   changes: FieldChange[];
@@ -77,7 +77,7 @@ export function diffItems(before: BenchData, after: BenchData): DiffItem[] {
   const metaChanges = fieldChanges(meta(before), meta(after));
   if (metaChanges.length) items.push({ section: "bench", name: "", kind: "changed", changes: metaChanges });
 
-  for (const section of ["instruments", "duts"] as const) {
+  for (const section of ["instruments", "parts"] as const) {
     const a = obj(before[section]);
     const b = obj(after[section]);
     for (const name of [...new Set([...Object.keys(a), ...Object.keys(b)])]) {

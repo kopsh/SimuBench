@@ -49,7 +49,7 @@ def test_replay_reproduces_every_reply(tmp_path, clock):
 def test_acquisitions_are_recorded_as_recipes(tmp_path):
     records = lines(record_run(tmp_path))
     header = records[0]
-    assert header["bench_data"]["duts"]["rc"]["params"]["r"] == 1000.0
+    assert header["bench_data"]["parts"]["rc"]["params"]["r"] == 1000.0
     assert len(header["definitions"]["scope"]["sha256"]) == 64
     acquisitions = [r for r in records if r["kind"] == "acquisition"]
     assert len(acquisitions) == 2
@@ -76,7 +76,7 @@ def test_raw_recording_keeps_the_bytes(tmp_path):
 def test_a_changed_bench_is_located(tmp_path):
     rec = record_run(tmp_path)
     records = lines(rec)
-    records[0]["bench_data"]["duts"]["rc"]["params"]["r"] = 1100.0  # as if the bench had drifted
+    records[0]["bench_data"]["parts"]["rc"]["params"]["r"] = 1100.0  # as if the bench had drifted
     rec.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
     report = replay(rec)
     assert not report.ok

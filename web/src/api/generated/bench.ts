@@ -25,6 +25,84 @@ export type Status = "in_use" | "out_of_service" | "quarantined" | "retired";
 export type Assets = Asset[];
 export type Description = string | null;
 /**
+ * Virtual time to start; omitted: at once
+ */
+export type AtS = number | null;
+/**
+ * For error / trip: SCPI error code (default -300)
+ */
+export type Code = number | null;
+/**
+ * For drift / hidden: '<instrument>/<component>' or a part's name, e.g. 'rc'
+ */
+export type Component = string | null;
+/**
+ * Link faults: number of messages affected
+ */
+export type Count = number | null;
+/**
+ * For drift: relative change per second, e.g. 1e-4
+ */
+export type DriftPerS = number | null;
+/**
+ * How long it lasts; omitted: until cleared
+ */
+export type DurationS = number | null;
+/**
+ * For garble: share of bytes corrupted
+ */
+export type GarbleRate = number | null;
+/**
+ * Instrument the fault acts on
+ */
+export type Instrument = string | null;
+export type Kind = "timeout" | "disconnect" | "garble" | "latency" | "busy" | "error" | "trip" | "drift" | "hidden";
+export type Label = string | null;
+/**
+ * For latency: added to every message
+ */
+export type LatencyS = number | null;
+export type Message = string | null;
+/**
+ * For drift / hidden: the component parameter, e.g. 'r'
+ */
+export type Param = string | null;
+/**
+ * Faults preset for every run
+ */
+export type Faults = Fault[];
+/**
+ * Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)
+ */
+export type Address = string | null;
+/**
+ * Individual deviations (个体偏差): 'nominal' keeps the model's values; 'from_specs' draws this unit's values within the definition's `deviations`, from the bench seed. Values in `hidden` take precedence, parameter by parameter
+ */
+export type Deviation = "nominal" | "from_specs";
+/**
+ * This instrument is a DUT: the object under test or calibration
+ */
+export type Dut = boolean;
+export type Firmware = string | null;
+/**
+ * Overrides the definition's *IDN? reply, with the same fields, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}' (the model token a host program checks)
+ */
+export type Idn = string | null;
+export type Label1 = string | null;
+/**
+ * Instrument definition id, e.g. 'siglent-sds2104xplus'
+ */
+export type Model1 = string;
+/**
+ * Overrides the definition's serial number
+ */
+export type Serial1 = string | null;
+export type H = number | null;
+export type W = number | null;
+export type X = number;
+export type Y = number;
+export type Name = string;
+/**
  * Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
  */
 export type By = {
@@ -50,85 +128,15 @@ export type Limit =
  * '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
  */
 export type Unit = ("%" | "ppm") | null;
-export type Label = string | null;
+/**
+ * This part is a DUT: the object under test or calibration
+ */
+export type Dut1 = boolean;
+export type Label2 = string | null;
 /**
  * Component type, e.g. 'rc_lowpass'
  */
 export type Type = string;
-/**
- * Virtual time to start; omitted: at once
- */
-export type AtS = number | null;
-/**
- * For error / trip: SCPI error code (default -300)
- */
-export type Code = number | null;
-/**
- * For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'
- */
-export type Component = string | null;
-/**
- * Link faults: number of messages affected
- */
-export type Count = number | null;
-/**
- * For drift: relative change per second, e.g. 1e-4
- */
-export type DriftPerS = number | null;
-/**
- * How long it lasts; omitted: until cleared
- */
-export type DurationS = number | null;
-/**
- * For garble: share of bytes corrupted
- */
-export type GarbleRate = number | null;
-/**
- * Instrument the fault acts on
- */
-export type Instrument = string | null;
-export type Kind = "timeout" | "disconnect" | "garble" | "latency" | "busy" | "error" | "trip" | "drift" | "hidden";
-export type Label1 = string | null;
-/**
- * For latency: added to every message
- */
-export type LatencyS = number | null;
-export type Message = string | null;
-/**
- * For drift / hidden: the component parameter, e.g. 'r'
- */
-export type Param = string | null;
-/**
- * Faults preset for every run
- */
-export type Faults = Fault[];
-/**
- * Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)
- */
-export type Address = string | null;
-/**
- * Individual deviations (个体偏差): 'nominal' keeps the model's values; 'from_specs' draws this unit's values within the definition's `deviations`, from the bench seed. Values in `hidden` take precedence, parameter by parameter
- */
-export type Deviation1 = "nominal" | "from_specs";
-export type Firmware = string | null;
-/**
- * Overrides the definition's *IDN? reply, with the same fields, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}' (the model token a host program checks)
- */
-export type Idn = string | null;
-export type Label2 = string | null;
-/**
- * Instrument definition id, e.g. 'siglent-sds2104xplus'
- */
-export type Model1 = string;
-/**
- * Overrides the definition's serial number
- */
-export type Serial1 = string | null;
-export type H = number | null;
-export type W = number | null;
-export type X = number;
-export type Y = number;
-export type Name = string;
 export type Clock = "command" | "wall" | "stepped";
 /**
  * Command clock: how idle real time between commands counts as virtual time (D47). 'wall' counts it (interactive use, the historical behaviour); 'sleep' ignores it and turns time.sleep(t) into exactly t of virtual time without waiting (in-process benches only; the pytest default); 'off' ignores idle time completely. Only read on the command clock; wall and stepped clocks are unaffected
@@ -143,7 +151,7 @@ export type Seed = number;
  * Calendar time at virtual t = 0 (instrument clocks, calibration due dates); fixed for repeatability
  */
 export type Start = string;
-export type Schema = "simubench.bench/1";
+export type Schema = "simubench.bench/2";
 /**
  * Two-port component placed on the wire, e.g. 'passive_probe'
  */
@@ -163,11 +171,11 @@ export type Wires = Wire[];
 export interface BenchDefinition {
   assets?: Assets;
   description?: Description;
-  duts?: Duts;
   faults?: Faults;
   instruments?: Instruments;
   layout?: Layout;
   name: Name;
+  parts?: Parts;
   run?: RunConditions;
   schema?: Schema;
   wires?: Wires;
@@ -183,38 +191,6 @@ export interface Asset {
   notes?: Notes;
   serial: Serial;
   status?: Status;
-}
-export interface Duts {
-  [k: string]: ComponentInstance;
-}
-export interface ComponentInstance {
-  deviation?: Deviation;
-  hidden?: Hidden;
-  label?: Label;
-  params?: Params;
-  type: Type;
-}
-/**
- * Individual deviations (个体偏差) by parameter, drawn from the bench seed, e.g. {r: {limit: 1, unit: '%'}}: the range belongs to the part, so it is written here. A value in `hidden` takes precedence
- */
-export interface Deviation {
-  [k: string]: DeviationRange;
-}
-/**
- * The range one parameter's deviation falls in.
- */
-export interface DeviationRange {
-  by?: By;
-  coverage?: Coverage;
-  distribution?: Distribution;
-  limit: Limit;
-  unit?: Unit;
-}
-export interface Hidden {
-  [k: string]: unknown;
-}
-export interface Params {
-  [k: string]: unknown;
 }
 /**
  * A fault: on the link to an instrument, in an instrument, or in a component (architecture.md 5.5).
@@ -235,7 +211,7 @@ export interface Fault {
   garble_rate?: GarbleRate;
   instrument?: Instrument;
   kind: Kind;
-  label?: Label1;
+  label?: Label;
   latency_s?: LatencyS;
   message?: Message;
   param?: Param;
@@ -252,11 +228,12 @@ export interface Instruments {
 }
 export interface InstrumentInstance {
   address?: Address;
-  deviation?: Deviation1;
+  deviation?: Deviation;
+  dut?: Dut;
   firmware?: Firmware;
-  hidden?: Hidden1;
+  hidden?: Hidden;
   idn?: Idn;
-  label?: Label2;
+  label?: Label1;
   model: Model1;
   serial?: Serial1;
   state?: State;
@@ -264,7 +241,7 @@ export interface InstrumentInstance {
 /**
  * Hidden state: component parameter overrides, e.g. {'ch1.out': {'z_out': 50.4}}
  */
-export interface Hidden1 {
+export interface Hidden {
   [k: string]: {
     [k: string]: unknown;
   };
@@ -286,6 +263,45 @@ export interface LayoutItem {
   w?: W;
   x?: X;
   y?: Y;
+}
+/**
+ * Parts (元件): RC networks, resistors and the like; any may be a DUT
+ */
+export interface Parts {
+  [k: string]: ComponentInstance;
+}
+/**
+ * A part on the bench (元件): a component type placed as a node of its own.
+ */
+export interface ComponentInstance {
+  deviation?: Deviation1;
+  dut?: Dut1;
+  hidden?: Hidden1;
+  label?: Label2;
+  params?: Params;
+  type: Type;
+}
+/**
+ * Individual deviations (个体偏差) by parameter, drawn from the bench seed, e.g. {r: {limit: 1, unit: '%'}}: the range belongs to the part, so it is written here. A value in `hidden` takes precedence
+ */
+export interface Deviation1 {
+  [k: string]: DeviationRange;
+}
+/**
+ * The range one parameter's deviation falls in.
+ */
+export interface DeviationRange {
+  by?: By;
+  coverage?: Coverage;
+  distribution?: Distribution;
+  limit: Limit;
+  unit?: Unit;
+}
+export interface Hidden1 {
+  [k: string]: unknown;
+}
+export interface Params {
+  [k: string]: unknown;
 }
 export interface RunConditions {
   clock?: Clock;

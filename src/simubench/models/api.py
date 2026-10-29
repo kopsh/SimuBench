@@ -145,7 +145,7 @@ class DefinitionSummary(_Model):
 
 class ComponentTypeInfo(_Model):
     type: str
-    category: Literal["dut", "accessory", "internal"]
+    category: Literal["part", "accessory", "internal"]
     label: str | None = None
     label_en: str | None = None
     doc: str | None = None
@@ -181,7 +181,7 @@ class ComponentDoc(_Model):
     """A component type as instrument definitions use it: ports, parameters, operations, role."""
 
     type: str
-    category: Literal["dut", "accessory", "internal"]
+    category: Literal["part", "accessory", "internal"]
     role: Literal["driver", "series"] | None = None
     generic: bool = Field(
         True,
@@ -272,6 +272,7 @@ class InstrumentInfo(_Model):
     ports: list[PortInfo]
     state: list[StateVarInfo]
     errors: list[ErrorItem]
+    dut: bool = Field(False, description="Marked as a DUT: the object under test or calibration")
     deviation: Literal["nominal", "from_specs"] = "nominal"
     deviations: list[DeviationInfo] = Field(
         default_factory=list, description="The definition's deviation ranges, with this unit's values"
@@ -286,6 +287,7 @@ class ComponentInfo(_Model):
         default_factory=dict, description="Parameters; a drawn deviation shows its nominal value while hidden"
     )
     ports: list[PortInfo] = Field(default_factory=list)
+    dut: bool = Field(False, description="Marked as a DUT: the object under test or calibration")
     deviations: list[DeviationInfo] = Field(default_factory=list)
 
 
@@ -386,7 +388,10 @@ class SessionInfo(_Model):
         default_factory=list, description="Scripts currently connected to the SCPI ports"
     )
     instruments: list[InstrumentInfo]
-    duts: list[ComponentInfo]
+    parts: list[ComponentInfo]
+    duts: list[str] = Field(
+        default_factory=list, description="Names of the instruments and parts marked as DUTs"
+    )
     wires: list[WireInfo]
     nets: list[NetInfo]
     layout: dict[str, LayoutItem]
@@ -403,7 +408,7 @@ class BenchPreview(_Model):
     sha256: str
     session: SessionInfo | None = None
     omitted: list[str] = Field(
-        default_factory=list, description="Instruments, DUTs, 'wire:<i>' or state paths"
+        default_factory=list, description="Instruments, parts, 'wire:<i>' or state paths"
     )
     error: str | None = Field(None, description="Why no preview could be built at all")
 

@@ -153,7 +153,7 @@ async def test_true_values_need_bench_switch(ws):
         await call(c, "start_session", path=BENCH)
         await call(c, "send_scpi", instrument="awg", command=":OUTP1 ON", confirm=True)
         tv = await call(c, "read_true_values")
-    assert tv["duts"]["rc"]["r"] == 1000.0
+    assert tv["parts"]["rc"]["r"] == 1000.0
     assert any(n["lines"] for n in tv["nets"].values())
 
 
