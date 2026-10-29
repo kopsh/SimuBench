@@ -33,16 +33,16 @@ class DmmCore(Component):
 
     ports = {"in": PortSpec("in", "signal")}
     defaults = {
-        "ac_low": 3.0,
-        "digits": 7,
-        "gain_error_ppm": 0.0,
-        "offset": 0.0,
-        "cal_gain": 1.0,
-        "cal_offset": 0.0,
-        "cal_value": 0.0,
-        "cal_secured": True,
-        "cal_code": "SIMUBENCH",
-        "cal_tolerance": 0.1,
+        "ac_low": 3.0,  # Hz above which lines count into the AC reading
+        "digits": 7,  # display digits of a reading
+        "gain_error_ppm": 0.0,  # the meter's own gain error, ppm (hidden)
+        "offset": 0.0,  # the meter's own DC offset error (hidden)
+        "cal_gain": 1.0,  # calibration gain coefficient
+        "cal_offset": 0.0,  # calibration zero (offset) coefficient
+        "cal_value": 0.0,  # the reference a gain calibration assumes on the input
+        "cal_secured": True,  # calibration secured: changing it needs cal_code
+        "cal_code": "SIMUBENCH",  # calibration security code
+        "cal_tolerance": 0.1,  # fraction of the cal value the input may be off by
     }
     units = {"offset": "V", "cal_offset": "V", "cal_value": "V"}
 

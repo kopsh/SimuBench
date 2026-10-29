@@ -38,23 +38,23 @@ class SmuCore(Component):
 
     ports = {"hi": PortSpec("inout", "electrical")}
     defaults = {
-        "function": "VOLTage",
-        "v_level": 0.0,
-        "i_level": 0.0,
-        "i_limit": 105e-6,
-        "v_limit": 21.0,
-        "output": False,
-        "nplc": 1.0,
-        "autozero": True,
-        "line_freq": 60.0,
-        "delay": 0.0,
-        "sweep_mode": "NONE",
-        "sweep_function": "VOLTage",
-        "sweep_start": 0.0,
-        "sweep_stop": 1.0,
-        "sweep_points": 2,
-        "sweep_delay": 0.0,
-        "sweep_list": "",
+        "function": "VOLTage",  # VOLTage | CURRent: what the terminal is forced to
+        "v_level": 0.0,  # V, setpoint in voltage mode
+        "i_level": 0.0,  # A, setpoint in current mode
+        "i_limit": 105e-6,  # A, current limit in voltage mode
+        "v_limit": 21.0,  # V, voltage limit in current mode
+        "output": False,  # False: the terminal floats
+        "nplc": 1.0,  # reading time in power line cycles
+        "autozero": True,  # autozero on: an extra phase and firmware per reading
+        "line_freq": 60.0,  # Hz, mains frequency nplc refers to
+        "delay": 0.0,  # s, wait before each reading
+        "sweep_mode": "NONE",  # NONE | LINear | LOGarithmic | LIST
+        "sweep_function": "VOLTage",  # VOLTage | CURRent: what a sweep varies
+        "sweep_start": 0.0,  # V or A, first level
+        "sweep_stop": 1.0,  # V or A, last level
+        "sweep_points": 2,  # points of a linear or log sweep
+        "sweep_delay": 0.0,  # s, wait before each sweep point
+        "sweep_list": "",  # comma-separated levels of a LIST sweep
     }
     piecewise = True
 
@@ -339,7 +339,13 @@ class ElectronicLoad(Component):
     """
 
     ports = {"in": PortSpec("in", "electrical")}
-    defaults = {"function": "CC", "current": 0.0, "resistance": 1000.0, "enabled": False, "r_min": 0.0367}
+    defaults = {
+        "function": "CC",  # CC | CR: constant-current sink or constant resistance
+        "current": 0.0,  # A, set current in CC
+        "resistance": 1000.0,  # ohm, set resistance in CR
+        "enabled": False,  # False: the input floats
+        "r_min": 0.0367,  # minimum operating resistance: below set*r_min the CC mode sinks less
+    }
     units = {"r_min": "OHM"}
     piecewise = True
 
@@ -407,7 +413,10 @@ class DcSupply(Component):
     role = "driver"
     units = {"v": "V", "r": "OHM"}
     ports = {"OUT": PortSpec("out", "electrical")}
-    defaults = {"v": 12.0, "r": 1000.0}
+    defaults = {
+        "v": 12.0,  # EMF
+        "r": 1000.0,  # output resistance
+    }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.source(node("OUT"), self.uid, max(float(self.param("r")), 1e-6))

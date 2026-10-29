@@ -304,7 +304,14 @@ class SiglentSdg(Component):
 class SiglentSdgChannelLimits(Component):
     """Checks a channel's ranges whenever one of its settings changes outside a command (UI, bench)."""
 
-    defaults = {k: f"$ch.{k}" for k in LIMITED}
+    # The channel settings whose ranges depend on each other (LIMITED), bound for check_ranges().
+    defaults = {
+        "function": "$ch.function",  # the channel's waveform type
+        "frequency": "$ch.frequency",  # Hz
+        "amplitude": "$ch.amplitude",  # Vpp
+        "offset": "$ch.offset",  # V
+        "load": "$ch.load",  # ohm, or inf for HiZ: what the amplitude is defined into
+    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

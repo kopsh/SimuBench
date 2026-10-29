@@ -76,11 +76,11 @@ class SpectrumAnalyzer(Component):
 
     ports = {"in": PortSpec("in", "signal", "RF_IN"), "ref": PortSpec("in", "signal", "REF_IN")}
     defaults = {
-        "z_in": 50.0,
-        "noise_figure": 24.0,
-        "mixer_limit": -10.0,
-        "maxhold_limit": 999,
-        "rosc": "INTernal",
+        "z_in": 50.0,  # input impedance, ohm
+        "noise_figure": 24.0,  # receiver noise figure over kT0
+        "mixer_limit": -10.0,  # dBm at the mixer: total input minus attenuation above it overloads
+        "maxhold_limit": 999,  # sweeps max hold keeps (older ones are dropped, with a warning)
+        "rosc": "INTernal",  # INTernal | EXTernal 10 MHz reference
     }
     units = {"noise_figure": "dB"}
     dynamic = True
