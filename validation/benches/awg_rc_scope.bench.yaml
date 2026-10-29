@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: awg_rc_scope
 description: 函数发生器经 RC 低通（1 kΩ、100 nF）与 10x 探头接到示波器 CH1。
 instruments:
@@ -13,9 +13,10 @@ instruments:
     model: sb-dso-4
     label: 示波器
     address: "TCPIP0::192.168.1.21::5025::SOCKET"
-duts:
+parts:
   rc:
     type: rc_lowpass
+    dut: true
     label: RC 低通
     params: {r: 1000.0, c: 1.0e-7}
 wires:

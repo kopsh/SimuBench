@@ -22,6 +22,7 @@ from ..engine import edit
 from ..engine.component import component_types
 from ..engine.validate import Report, validate_data
 from ..library.loader import DefinitionLibrary, load_yaml
+from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from .history import History, Source
@@ -141,6 +142,9 @@ class BenchFiles:
         return self.save(bench_path, base_sha256, old.data, "restore")
 
     def _document(self, bench_path: str, path: Path, raw: bytes, data: dict[str, Any]) -> M.BenchDocument:
+        # Clients see the current format (an older file is migrated here, and rewritten on its next save).
+        with contextlib.suppress(FormatError):
+            data = upgrade(data, "bench")[0]
         _, report = validate_data(data, self.library(path))
         return M.BenchDocument(
             path=bench_path,

@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: smu
 description: SMU 的 HI 端接 1 kΩ 对地电阻，同一网络上挂一台万用表；终端看到 999.9 Ω。初始强制 5 V、电流限值 10 mA、输出开启。
 instruments:
@@ -15,8 +15,8 @@ instruments:
       sweep.stop: 8.0
       sweep.points: 9
   dmm: {model: sb-dmm-1, label: 万用表}
-duts:
-  r1: {type: load_resistor, params: {r: 1000.0}}
+parts:
+  r1: {type: load_resistor, dut: true, params: {r: 1000.0}}
 wires:
   - {from: smu.HI, to: r1.A}
   - {from: smu.HI, to: dmm.IN}

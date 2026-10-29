@@ -359,10 +359,10 @@ function BenchCanvas({
               {t("edit.omitted", { count: omitted.length, names: omitted.join("、") })}
             </div>
           )}
-          {view.instruments.length + view.duts.length === 0 && (
+          {view.instruments.length + view.parts.length === 0 && (
             <div className="bg-card text-muted-foreground mt-24 rounded-md border px-3 py-2 text-xs shadow-sm">{t("edit.libraryHint")}</div>
           )}
-          {view.wires.length === 0 && view.instruments.length + view.duts.length > 1 && (
+          {view.wires.length === 0 && view.instruments.length + view.parts.length > 1 && (
             <div className="bg-card text-muted-foreground rounded-md border px-2 py-1 text-[11px] shadow-sm">{t("edit.connectHint")}</div>
           )}
         </div>

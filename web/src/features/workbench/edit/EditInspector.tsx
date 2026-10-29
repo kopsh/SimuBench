@@ -42,7 +42,7 @@ export function EditInspector({ view, doc }: { view: SessionInfo | null; doc: Be
   const selection = useWorkbench((s) => s.selection);
   const catalog = useCatalog().data;
   const subject =
-    selection?.kind === "wire" ? `wire:${selection.id}` : selection?.kind === "instrument" || selection?.kind === "dut" ? selection.id : null;
+    selection?.kind === "wire" ? `wire:${selection.id}` : selection?.kind === "instrument" || selection?.kind === "part" ? selection.id : null;
   const diags = subject ? doc.diagnostics.filter((d) => d.subject === subject) : [];
 
   let body: ReactNode;
@@ -55,8 +55,8 @@ export function EditInspector({ view, doc }: { view: SessionInfo | null; doc: Be
     ) : (
       <Broken name={selection.id} />
     );
-  } else if (selection.kind === "dut") {
-    const dut = view?.duts.find((d) => d.name === selection.id);
+  } else if (selection.kind === "part") {
+    const dut = view?.parts.find((d) => d.name === selection.id);
     const type = catalog?.components.find((c) => c.type === dut?.type);
     body = dut ? <DutEdit dut={dut} type={type} /> : <Broken name={selection.id} />;
   } else if (selection.kind === "wire") {
@@ -210,6 +210,7 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
               onCommit={(v) => applyOps([{ op: "set_label", name: inst.name, label: v || null }])}
             />
           </Field>
+          <DutField name={inst.name} dut={inst.dut} />
           <Field label={t("workbench.realAddress")} stacked>
             <TextField
               value={inst.address_real ?? ""}
@@ -258,7 +259,21 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
   );
 }
 
-// ---- DUT --------------------------------------------------------------------------------------------
+/** The DUT role (#100): any instrument or part may be the object under test or calibration. */
+function DutField({ name, dut }: { name: string; dut: boolean }) {
+  const { t } = useTranslation();
+  return (
+    <Field label={t("dut.toggle")} hint={t("dut.hint")}>
+      <Switch
+        checked={dut}
+        onCheckedChange={(c) => void applyOps([{ op: "set_dut", name, dut: c }])}
+        aria-label={t("dut.toggle")}
+      />
+    </Field>
+  );
+}
+
+// ---- part -------------------------------------------------------------------------------------------
 
 /** Parameters as state variables, so they get the same engineering-notation fields. */
 function paramVar(key: string, value: unknown, unit: string | undefined): StateVarInfo {
@@ -294,15 +309,18 @@ function DutEdit({ dut, type }: { dut: ComponentInfo; type?: ComponentTypeInfo }
       sid=""
       instrument={dut.name}
       v={paramVar(k, v, type?.units[k])}
-      onCommit={(value) => void applyOps([{ op: "set_params", dut: dut.name, params: { [k]: value } }])}
+      onCommit={(value) => void applyOps([{ op: "set_params", part: dut.name, params: { [k]: value } }])}
     />
   );
   return (
     <div className="space-y-4 p-3">
-      <Header title={dut.label || dut.name} subtitle={`DUT · ${type ? pickLabel(type.label, type.label_en, dut.type) : dut.type}`} />
+      <Header
+        title={dut.label || dut.name}
+        subtitle={`${dut.dut ? "DUT" : t("workbench.part")} · ${type ? pickLabel(type.label, type.label_en, dut.type) : dut.type}`}
+      />
       <Section title={t("workbench.identitySection")}>
         <div className="space-y-2">
-          <NameField name={dut.name} onRenamed={(n) => select({ kind: "dut", id: n })} />
+          <NameField name={dut.name} onRenamed={(n) => select({ kind: "part", id: n })} />
           <Field label={t("edit.label")}>
             <TextField
               value={dut.label ?? ""}
@@ -310,6 +328,7 @@ function DutEdit({ dut, type }: { dut: ComponentInfo; type?: ComponentTypeInfo }
               onCommit={(v) => applyOps([{ op: "set_label", name: dut.name, label: v || null }])}
             />
           </Field>
+          <DutField name={dut.name} dut={dut.dut} />
         </div>
       </Section>
       <Section title={t("workbench.params")}>

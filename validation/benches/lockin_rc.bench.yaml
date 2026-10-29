@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: lockin_rc
 description: 锁相放大器 SINE_OUT 驱动 RC 低通（1 kΩ、100 nF），输出接回 SIG_IN，同一网络上挂一台万用表。
 instruments:
@@ -13,9 +13,10 @@ instruments:
   dmm:
     model: sb-dmm-1
     label: 万用表
-duts:
+parts:
   rc:
     type: rc_lowpass
+    dut: true
     label: RC 低通
     params: {r: 1000.0, c: 1.0e-7}
 wires:

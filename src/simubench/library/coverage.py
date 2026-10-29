@@ -313,7 +313,7 @@ def open_case_bench(cases_file: Path, cases: Cases, definition_dirs: list[Path] 
         return open_bench(cases_file.parent / cases.bench, definition_dirs=dirs)
     bench = BenchDefinition.model_validate(
         {
-            "schema": "simubench.bench/1",
+            "schema": "simubench.bench/2",
             "name": "case",
             "instruments": {cases.instrument: {"model": cases.model}},
         }

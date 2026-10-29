@@ -8,10 +8,10 @@ from simubench.library.loader import DefinitionLibrary
 LIB = DefinitionLibrary()
 
 BASE = {
-    "schema": "simubench.bench/1",
+    "schema": "simubench.bench/2",
     "name": "t",
     "instruments": {"awg": {"model": "sb-awg-2"}, "scope": {"model": "sb-dso-4"}},
-    "duts": {"rc": {"type": "rc_lowpass", "params": {"r": 1000, "c": 1e-7}}},
+    "parts": {"rc": {"type": "rc_lowpass", "dut": True, "params": {"r": 1000, "c": 1e-7}}},
     "wires": [
         {"from": "awg.OUT1", "to": "rc.IN"},
         {"from": "rc.OUT", "to": "scope.CH1", "accessories": [{"type": "passive_probe"}]},
@@ -61,9 +61,9 @@ def test_high_z_setting_clears_the_hint():
             None,
         ),
         (
-            lambda d: d["duts"]["rc"].update(type="rc_lowpas"),
+            lambda d: d["parts"]["rc"].update(type="rc_lowpas"),
             "E-COMPONENT-UNKNOWN",
-            "/duts/rc/type",
+            "/parts/rc/type",
             "rc_lowpass",
         ),
         (

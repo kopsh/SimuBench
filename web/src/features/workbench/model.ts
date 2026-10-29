@@ -100,8 +100,8 @@ export function refTarget(session: SessionInfo, ref: string): { label: string; s
       selection: wire ? { kind: "wire", id: wire.index } : null,
     };
   }
-  const dut = session.duts.find((d) => d.name === ref);
-  if (dut) return { label: dut.label || dut.name, selection: { kind: "dut", id: dut.name } };
+  const part = session.parts.find((d) => d.name === ref);
+  if (part) return { label: part.label || part.name, selection: { kind: "part", id: part.name } };
   const dot = ref.lastIndexOf(".");
   const inst = session.instruments.find((i) => i.name === (dot > 0 ? ref.slice(0, dot) : ref));
   if (inst) {

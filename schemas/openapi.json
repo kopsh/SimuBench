@@ -23,7 +23,13 @@
       },
       "AddDut": {
         "additionalProperties": false,
+        "description": "Older name of add_part that marks the part as a DUT (bench/1, before DUT became a role).",
         "properties": {
+          "dut": {
+            "default": true,
+            "title": "Dut",
+            "type": "boolean"
+          },
           "label": {
             "anyOf": [
               {
@@ -151,6 +157,76 @@
           "model"
         ],
         "title": "AddInstrument",
+        "type": "object"
+      },
+      "AddPart": {
+        "additionalProperties": false,
+        "description": "A part (元件) as a node of its own: an RC network, a resistor, a buffer.",
+        "properties": {
+          "dut": {
+            "default": false,
+            "description": "Mark it as a DUT (the object under test)",
+            "title": "Dut",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "add_part",
+            "default": "add_part",
+            "title": "Op",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "AddPart",
         "type": "object"
       },
       "AdvanceRequest": {
@@ -302,7 +378,7 @@
             "title": "Error"
           },
           "omitted": {
-            "description": "Instruments, DUTs, 'wire:<i>' or state paths",
+            "description": "Instruments, parts, 'wire:<i>' or state paths",
             "items": {
               "type": "string"
             },
@@ -642,7 +718,7 @@
         "properties": {
           "category": {
             "enum": [
-              "dut",
+              "part",
               "accessory",
               "internal"
             ],
@@ -766,6 +842,12 @@
             "title": "Deviations",
             "type": "array"
           },
+          "dut": {
+            "default": false,
+            "description": "Marked as a DUT: the object under test or calibration",
+            "title": "Dut",
+            "type": "boolean"
+          },
           "label": {
             "anyOf": [
               {
@@ -805,6 +887,7 @@
           "label",
           "params",
           "ports",
+          "dut",
           "deviations"
         ],
         "title": "ComponentInfo",
@@ -839,7 +922,7 @@
         "properties": {
           "category": {
             "enum": [
-              "dut",
+              "part",
               "accessory",
               "internal"
             ],
@@ -1483,6 +1566,7 @@
                 "mapping": {
                   "add_dut": "#/components/schemas/AddDut",
                   "add_instrument": "#/components/schemas/AddInstrument",
+                  "add_part": "#/components/schemas/AddPart",
                   "connect": "#/components/schemas/Connect",
                   "disconnect": "#/components/schemas/Disconnect",
                   "move": "#/components/schemas/Move",
@@ -1491,6 +1575,7 @@
                   "set_accessories": "#/components/schemas/SetAccessories",
                   "set_address": "#/components/schemas/SetAddress",
                   "set_deviation": "#/components/schemas/SetDeviation",
+                  "set_dut": "#/components/schemas/SetDut",
                   "set_identity": "#/components/schemas/SetIdentity",
                   "set_label": "#/components/schemas/SetLabel",
                   "set_meta": "#/components/schemas/SetMeta",
@@ -1505,7 +1590,13 @@
                   "$ref": "#/components/schemas/AddInstrument"
                 },
                 {
+                  "$ref": "#/components/schemas/AddPart"
+                },
+                {
                   "$ref": "#/components/schemas/AddDut"
+                },
+                {
+                  "$ref": "#/components/schemas/SetDut"
                 },
                 {
                   "$ref": "#/components/schemas/Remove"
@@ -1634,7 +1725,7 @@
                 "type": "null"
               }
             ],
-            "description": "For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'",
+            "description": "For drift / hidden: '<instrument>/<component>' or a part's name, e.g. 'rc'",
             "title": "Component"
           },
           "count": {
@@ -2159,6 +2250,12 @@
           "display": {
             "$ref": "#/components/schemas/DisplayInfo"
           },
+          "dut": {
+            "default": false,
+            "description": "Marked as a DUT: the object under test or calibration",
+            "title": "Dut",
+            "type": "boolean"
+          },
           "errors": {
             "items": {
               "$ref": "#/components/schemas/ErrorItem"
@@ -2241,6 +2338,7 @@
           "ports",
           "state",
           "errors",
+          "dut",
           "deviation",
           "deviations"
         ],
@@ -3259,7 +3357,7 @@
         "additionalProperties": false,
         "properties": {
           "name": {
-            "description": "Instrument or DUT; its wires are removed too",
+            "description": "Instrument or part; its wires are removed too",
             "title": "Name",
             "type": "string"
           },
@@ -4138,8 +4236,9 @@
             "title": "Description"
           },
           "duts": {
+            "description": "Names of the instruments and parts marked as DUTs",
             "items": {
-              "$ref": "#/components/schemas/ComponentInfo"
+              "type": "string"
             },
             "title": "Duts",
             "type": "array"
@@ -4172,6 +4271,13 @@
           "now_ns": {
             "title": "Now Ns",
             "type": "integer"
+          },
+          "parts": {
+            "items": {
+              "$ref": "#/components/schemas/ComponentInfo"
+            },
+            "title": "Parts",
+            "type": "array"
           },
           "record_path": {
             "anyOf": [
@@ -4223,6 +4329,7 @@
           "record_path",
           "clients",
           "instruments",
+          "parts",
           "duts",
           "wires",
           "nets",
@@ -4293,20 +4400,8 @@
       },
       "SetDeviation": {
         "additionalProperties": false,
-        "description": "Individual deviations (个体偏差): an instrument's mode, or one DUT parameter's range.",
+        "description": "Individual deviations (个体偏差): an instrument's mode, or the range of one parameter of a part.",
         "properties": {
-          "dut": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "With `param`: the DUT",
-            "title": "Dut"
-          },
           "instrument": {
             "anyOf": [
               {
@@ -4352,6 +4447,18 @@
             ],
             "title": "Param"
           },
+          "part": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `param`: the part (older name: dut)",
+            "title": "Part"
+          },
           "range": {
             "anyOf": [
               {
@@ -4365,6 +4472,32 @@
           }
         },
         "title": "SetDeviation",
+        "type": "object"
+      },
+      "SetDut": {
+        "additionalProperties": false,
+        "description": "Mark an instrument or a part as a DUT, or not (DUT is a role, #100).",
+        "properties": {
+          "dut": {
+            "default": true,
+            "title": "Dut",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_dut",
+            "default": "set_dut",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SetDut",
         "type": "object"
       },
       "SetIdentity": {
@@ -4490,10 +4623,6 @@
       "SetParams": {
         "additionalProperties": false,
         "properties": {
-          "dut": {
-            "title": "Dut",
-            "type": "string"
-          },
           "op": {
             "const": "set_params",
             "default": "set_params",
@@ -4504,10 +4633,15 @@
             "additionalProperties": true,
             "title": "Params",
             "type": "object"
+          },
+          "part": {
+            "description": "The part (older name: dut)",
+            "title": "Part",
+            "type": "string"
           }
         },
         "required": [
-          "dut",
+          "part",
           "params"
         ],
         "title": "SetParams",
