@@ -319,8 +319,7 @@ def test_the_calibrator_is_in_the_component_catalog():
 
 
 def load_def() -> dict:
-    with DEF_FILE.open() as f:
-        return yaml.safe_load(f)
+    return yaml.safe_load(DEF_FILE.read_text(encoding="utf-8"))
 
 
 def codes(data: dict) -> set[str]:
