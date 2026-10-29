@@ -19,7 +19,7 @@ export const zh = {
   home: {
     title: "测试台",
     subtitle: "点开一个测试台即可使用：界面直接操作，脚本按地址连接。",
-    files: "测试台",
+    files: "测试台列表",
     open: "打开测试台",
     continue: "进入",
     scriptAccess: "脚本可访问",
