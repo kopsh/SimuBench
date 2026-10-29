@@ -9,8 +9,12 @@ import secrets
 import sys
 import webbrowser
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import __version__
+
+if TYPE_CHECKING:
+    from .server.manager import SessionManager
 
 
 def _serve(args: argparse.Namespace) -> int:
@@ -28,6 +32,7 @@ def _serve(args: argparse.Namespace) -> int:
         hislip_port=None if args.no_scpi else args.hislip_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
+        allow_plugins=args.allow_plugins,
     )
     from .ops import setup_logging
 
@@ -46,6 +51,7 @@ def _serve(args: argparse.Namespace) -> int:
         url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
+        _print_plugins(manager)
         if args.open:
             webbrowser.open(url)
 
@@ -62,6 +68,15 @@ def _token(args: argparse.Namespace) -> str | None:
 
 def _ui_url(port: int, token: str | None) -> str:
     return f"http://127.0.0.1:{port}/" + (f"?token={token}" if token else "")
+
+
+def _print_plugins(manager: SessionManager, *, err: bool = False) -> None:
+    """The startup banner names every loaded plugin and what waits for consent (issue 47)."""
+    from .plugins import status_line
+
+    line = status_line(manager.workspace, manager.plugins_allowed())
+    if line:
+        print(f"  plugins: {line}", file=sys.stderr if err else sys.stdout)
 
 
 def _free_port(port: int) -> int:
@@ -101,6 +116,7 @@ def _mcp(args: argparse.Namespace) -> int:
         hislip_port=None if args.no_scpi else args.hislip_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
+        allow_plugins=args.allow_plugins,
     )
     token = _token(args)
     ui_url = None
@@ -119,6 +135,7 @@ def _mcp(args: argparse.Namespace) -> int:
         server = uvicorn.Server(config)
         print(f"SimuBench {__version__} MCP  workspace: {workspace}", file=sys.stderr)
         print(f"  界面 / UI: {ui_url}", file=sys.stderr)
+    _print_plugins(manager, err=True)
     mcp = build_server(manager, allow_control=args.allow_control, ui_url=ui_url)
 
     async def run() -> None:
@@ -178,7 +195,9 @@ def _doctor(args: argparse.Namespace) -> int:
     from .ops import doctor
 
     workspace = Path(args.workspace).resolve() if args.workspace else None
-    checks = doctor(workspace, port=args.port, scpi_base_port=args.scpi_base_port)
+    checks = doctor(
+        workspace, port=args.port, scpi_base_port=args.scpi_base_port, allow_plugins=args.allow_plugins
+    )
     if args.json:
         print(json.dumps([asdict(c) for c in checks], ensure_ascii=False, indent=2))
     else:
@@ -268,7 +287,12 @@ def _replay(args: argparse.Namespace) -> int:
     from .engine.replay import replay
 
     try:
-        report = replay(args.record, definition_dirs=args.definitions or None, stop_at_first=args.first)
+        report = replay(
+            args.record,
+            definition_dirs=args.definitions or None,
+            stop_at_first=args.first,
+            workspace_plugins=Path.cwd() / "components" if args.allow_plugins else None,
+        )
     except ValueError as exc:
         print(f"{args.record}: {exc}", file=sys.stderr)
         return 2
@@ -383,6 +407,11 @@ def main(argv: list[str] | None = None) -> int:
         help="require a random access token; use on a computer shared with other users",
     )
     p.add_argument("--open", action="store_true", help="open the browser")
+    p.add_argument(
+        "--allow-plugins",
+        action="store_true",
+        help="run components/*.py from the workspace as plugins (code; default off, D3)",
+    )
     p.add_argument("--log-level", default="warning")
     p.add_argument("--log-format", choices=["text", "json"], default="text", help="json: one object per line")
     p.add_argument("--log-file", help="also write the log here")
@@ -402,6 +431,11 @@ def main(argv: list[str] | None = None) -> int:
         "--allow-control",
         action="store_true",
         help="enable simulation control tools (advance the clock, read true values)",
+    )
+    p.add_argument(
+        "--allow-plugins",
+        action="store_true",
+        help="run components/*.py from the workspace as plugins (code; default off, D3)",
     )
     p.add_argument("--log-level", default="warning")
     p.add_argument("--log-format", choices=["text", "json"], default="text")
@@ -425,6 +459,9 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("replay", help="replay a run record and compare every reply (exit 1 on a difference)")
     p.add_argument("record", help="run-*.jsonl written with --record-dir")
     p.add_argument("--definitions", action="append", help="extra instrument definition folder (repeatable)")
+    p.add_argument(
+        "--allow-plugins", action="store_true", help="also run components/*.py from the current folder"
+    )
     p.add_argument("--first", action="store_true", help="stop at the first difference")
     p.add_argument("--json", action="store_true", help="print the report as JSON")
     p.set_defaults(fn=_replay)
@@ -459,6 +496,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workspace", help="also validate the bench files in this folder")
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--scpi-base-port", type=int, default=5025)
+    p.add_argument("--allow-plugins", action="store_true", help="also run components/*.py from the workspace")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=_doctor)
 

@@ -85,9 +85,17 @@ def _show(data: bytes | None, limit: int = 120) -> str:
 
 
 def replay(
-    path: str | Path, *, definition_dirs: list[str | Path] | None = None, stop_at_first: bool = False
+    path: str | Path,
+    *,
+    definition_dirs: list[str | Path] | None = None,
+    stop_at_first: bool = False,
+    workspace_plugins: Path | None = None,
 ) -> ReplayReport:
     path = Path(path)
+    if workspace_plugins is not None:
+        from ..plugins import load_workspace_plugins
+
+        load_workspace_plugins(workspace_plugins)
     events = iter(read_record(path))
     header = next(events, None)
     if not header or header.get("kind") != "header" or header.get("schema") != RECORD_SCHEMA:
@@ -114,6 +122,23 @@ def replay(
             report.warnings.append(
                 f"{name}: definition {want.get('id')} differs from the one recorded; differences may come from it"
             )
+    # The same check for plugin components (D36): their code is not in the record, only its hash.
+    from ..plugins import report as plugin_report
+
+    have = plugin_report()
+    recorded = header.get("plugins") or {}
+    for name, want in recorded.items():
+        now = have.get(name)
+        if now is None:
+            report.warnings.append(
+                f"plugin {name} ({want.get('source')}, recorded as {want.get('origin')}) is not loaded now"
+            )
+        elif want.get("sha256") and want["sha256"] != now.get("sha256"):
+            report.warnings.append(
+                f"plugin {name} changed since the record (sha256 differs); differences may come from it"
+            )
+    for name in have.keys() - recorded.keys():
+        report.warnings.append(f"plugin {name} is loaded now but the record was made without it")
     last_command: dict[str, str] = {}
     try:
         for ev in events:

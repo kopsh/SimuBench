@@ -112,6 +112,7 @@ def manifest(workspace: Path | None = None, record_dir: Path | None = None) -> d
     from .engine.component import component_types
     from .engine.record import definition_hash
     from .library.loader import DefinitionLibrary
+    from .plugins import loaded as loaded_plugins
     from .server.app import WEB_DIST
 
     lib = DefinitionLibrary([workspace / "instruments"] if workspace else [])
@@ -134,6 +135,7 @@ def manifest(workspace: Path | None = None, record_dir: Path | None = None) -> d
         },
         "definitions": definitions,
         "component_types": sorted(component_types()),
+        "plugins": [i.__dict__ for i in loaded_plugins()],
         "workspace": str(workspace) if workspace else None,
         "record_dir": str(record_dir) if record_dir else None,
     }
@@ -159,9 +161,13 @@ def _port_free(port: int) -> bool:
 
 
 def doctor(
-    workspace: Path | None = None, port: int | None = None, scpi_base_port: int | None = None
+    workspace: Path | None = None,
+    port: int | None = None,
+    scpi_base_port: int | None = None,
+    allow_plugins: bool = False,
 ) -> list[Check]:
     """Checks that SimuBench can run here; each says what is wrong and how to fix it."""
+    from .plugins import ensure_entry_point_plugins, load_workspace_plugins, workspace_allows_plugins
     from .server.app import WEB_DIST
 
     checks: list[Check] = []
@@ -206,6 +212,32 @@ def doctor(
             "; ".join(broken) or f"{len(lib.ids())} load",
         )
     )
+    # Loaded plugins and their origins, never their source (instrument-authoring.md 4).
+    infos = ensure_entry_point_plugins()
+    bad = [f"{i.name}: {i.error}" for i in infos if i.error]
+    detail = "; ".join(bad) or "; ".join(f"{i.name} {i.origin}" for i in infos if i.error is None) or "none"
+    checks.append(Check("plugins", "warn" if bad else "ok", detail))
+    if workspace is not None:
+        folder = workspace / "components"
+        if folder.is_dir():
+            if allow_plugins or workspace_allows_plugins(workspace):
+                ws = load_workspace_plugins(folder)
+                wbad = [f"{i.name}: {i.error}" for i in ws if i.error]
+                checks.append(
+                    Check(
+                        "workspace plugins",
+                        "warn" if wbad else "ok",
+                        "; ".join(wbad) or f"{len(ws)} loaded from {folder}",
+                    )
+                )
+            else:
+                checks.append(
+                    Check(
+                        "workspace plugins",
+                        "ok",
+                        f"{folder} present but not enabled (run them with --allow-plugins)",
+                    )
+                )
     checks.append(
         Check(
             "web ui",
