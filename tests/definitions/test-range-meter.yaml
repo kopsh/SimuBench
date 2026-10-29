@@ -1,0 +1,34 @@
+# A meter with ranges and per-range deviations, from generic components only (#34 after #87).
+schema: simubench.instrument/1
+id: test-range-meter
+manufacturer: SimuBench
+model: RANGE-METER
+class: multimeter
+description: 测试用：按量程抽取个体偏差的万用表。
+state:
+  sense.range:
+    type: float
+    unit: V
+    min: 0.0
+    max: 100.0
+    default: 10.0
+components:
+  - name: meter
+    type: dmm_core
+    params:
+      ranges: {DC: [1.0, 10.0, 100.0]}
+      range: $sense.range
+      autorange: false
+      digits: 12
+      z_in: 1.0e7                  # the meter is its own input stage on the bench net
+      gain_error_ppm: {DC: {1.0: 0.0, 10.0: 0.0, 100.0: 0.0}}
+ports:
+  instrument:
+    IN: meter.in
+commands:
+  - {header: "[:SENSe]:VOLTage[:DC]:RANGe", state: sense.range}
+  - {header: ":MEASure:VOLTage[:DC]", op: meter.measure, set: false, args: {what: DC}}
+deviations:
+  - param: meter.gain_error_ppm
+    by: {function: [DC], range: [1.0, 10.0, 100.0]}
+    limit: {1.0: 30, 10.0: 20, 100.0: 40}

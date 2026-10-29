@@ -4,6 +4,7 @@ metrology-authoring.md 7)."""
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -231,3 +232,37 @@ def test_the_session_view_hides_drawn_values_unless_revealed(tmp_path):
             assert r1.params["r"] != 1000.0
         else:
             assert all(x.value is None for x in dmm.deviations + r1.deviations) and r1.params["r"] == 1000.0
+
+
+def test_per_range_deviations_reach_the_reading_of_each_range():
+    """A table drawn per function and range is what the meter core (#87) uses on each range."""
+    defs = Path(__file__).parent / "definitions"
+    b = BenchDefinition.model_validate(
+        {
+            "name": "ranges",
+            "instruments": {
+                "src": {
+                    "model": "sb-smu-1",
+                    "state": {
+                        "source.voltage.level": 0.5,
+                        "compliance.current.limit": 0.01,
+                        "output.enabled": True,
+                    },
+                },
+                "dmm": {"model": "test-range-meter", "deviation": "from_specs"},
+            },
+            "wires": [{"from": "src.HI", "to": "dmm.IN"}],
+            "run": {"seed": 11},
+        }
+    )
+    s = open_bench(b, definition_dirs=[defs])
+    try:
+        table = s.deviations()["dmm/meter.gain_error_ppm"]["DC"]
+        assert abs(table[1.0]) <= 30 and abs(table[10.0]) <= 20 and abs(table[100.0]) <= 40
+        assert len({table[1.0], table[10.0], table[100.0]}) == 3
+        for r in (1.0, 10.0, 100.0):
+            s.write("dmm", f":VOLT:RANG {r}\n".encode())
+            s.write("dmm", b":MEAS:VOLT?\n")
+            assert float(s.read("dmm").decode()) == pytest.approx(0.5 * (1 + table[r] * 1e-6), abs=1e-9)
+    finally:
+        s.close()
