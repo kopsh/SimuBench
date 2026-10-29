@@ -1,0 +1,27 @@
+schema: simubench.bench/2
+name: fluke_5522a_scope
+description: >-
+  Fluke 5522A 多功能校准源（真实型号，D42）接 Siglent SDS2104X Plus 示波器：直流 10 V 与
+  1 kHz 交流 1 V 先后在示波器上可见（通道 1 的平均值与峰峰值/频率测量）。校准源的 NORMAL
+  输出端子（HI）进电路，待机时端子断开；示波器 1 MΩ 输入阻抗是输出端的负载。
+instruments:
+  cal:
+    model: fluke-5522a
+    label: 多功能校准源
+    address: "GPIB0::4::INSTR"
+  dut:
+    model: siglent-sds2104xplus
+    label: 示波器
+    address: "TCPIP0::192.168.1.21::5025::SOCKET"
+    state:
+      timebase.scale: 1.0e-3
+      ch1.scale: 2.5
+      ch1.coupling: DC
+wires:
+  - {from: cal.OUT, to: dut.CH1}
+run:
+  seed: 5
+  clock: command
+layout:
+  cal: {x: 0, y: 80}
+  dut: {x: 560, y: 80}
