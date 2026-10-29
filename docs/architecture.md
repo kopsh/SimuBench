@@ -211,7 +211,7 @@ D3 第 3 层需要表达声明式定义无法描述的行为时，可用代码�
 
 ### 3.5 校验
 
-仪表定义与 Bench 共用一套校验机制：每条诊断包含错误码、文件内位置（JSON 指针）、说明与修改建议，供界面显示与 Agent 自我纠错（D9）。
+仪表定义与 Bench 共用一套校验机制：每条诊断包含错误码、文件内位置（JSON 指针）、说明与修改建议，供界面显示与 Agent 自我纠错（D9）。`simubench validate` 两种文件都接受；定义的检查项与错误码见 [instrument-authoring.md](instrument-authoring.md) 5.1。
 
 ---
 

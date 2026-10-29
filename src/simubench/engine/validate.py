@@ -18,7 +18,7 @@ from pydantic import ValidationError
 from ..library.migrate import FormatError, upgrade
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
-from .component import component_types
+from .component import Component, component_types
 
 Severity = Literal["error", "warning"]
 
@@ -307,11 +307,17 @@ def _check_nets(
     defs: dict[str, InstrumentDefinition],
     report: Report,
 ) -> None:
+    types = component_types()
+
+    def drives(cls: type[Component] | None, port: str) -> bool:
+        spec = cls.ports.get(port) if cls is not None and cls.role == "driver" else None
+        return spec is not None and spec.medium == "electrical" and spec.direction != "in"
+
     def is_driver(ref: str) -> bool:
         owner, _, port = ref.rpartition(".")
         if owner in defs:
             d = defs[owner]
-            comp_names = {c.name: c.type for c in d.channel_components} | {
+            comp_types = {c.name: c.type for c in d.channel_components} | {
                 c.name: c.type for c in d.components
             }
             target = None
@@ -321,13 +327,11 @@ def _check_nets(
                         target = t
             target = target or d.ports.instrument.get(port)
             if target:
-                comp = target.rsplit(".", 1)[0]
-                return comp_names.get(comp) in ("output_stage",)
+                comp, _, pin = target.rpartition(".")
+                return drives(types.get(comp_types.get(comp, "")), pin)
             return False
         dut = bench.duts.get(owner)
-        if dut is not None:
-            return dut.type == "unity_buffer" and port == "OUT"
-        return False
+        return dut is not None and drives(types.get(dut.type), port)
 
     for members in _nets(bench):
         srcs = sorted(m for m in members if is_driver(m))
@@ -345,12 +349,9 @@ def _check_nets(
                 f"wire:{idx}",
             )
     # A cable is a few milliohms in series: a termination behind it still terminates the source.
-    for members in _nets(bench, through=SERIES_ACCESSORIES):
+    series = frozenset(t for t, cls in types.items() if cls.role == "series")
+    for members in _nets(bench, through=series):
         _impedance_hints(bench, defs, members, report)
-
-
-#: Accessories that are a short in series for the purpose of load matching.
-SERIES_ACCESSORIES = frozenset({"coax_cable"})
 
 
 def _nets(bench: BenchDefinition, through: frozenset[str] = frozenset()) -> list[list[str]]:

@@ -24,6 +24,10 @@ if TYPE_CHECKING:
 
 Direction = Literal["in", "out", "inout"]
 Medium = Literal["signal", "electrical", "reference"]
+#: What a component is to the bench circuit, for checks that read a bench without solving it:
+#: "driver" holds the nets on its electrical outputs to a voltage (an output stage, a supply, a
+#: buffer's output), "series" is a short in series for load matching (a cable).
+Role = Literal["driver", "series"]
 
 
 @dataclass(frozen=True)
@@ -88,6 +92,10 @@ class Component:
     label: ClassVar[str] = ""
     label_en: ClassVar[str] = ""
     ports: ClassVar[dict[str, PortSpec]] = {}
+    #: Ports the instrument wiring creates (a regular expression), e.g. ``in\d+`` for in1..inN.
+    port_pattern: ClassVar[str | None] = None
+    #: Circuit role (see :data:`Role`); input impedance comes from ``impedance_of(params)``.
+    role: ClassVar[Role | None] = None
     defaults: ClassVar[dict[str, Any]] = {}
     units: ClassVar[dict[str, str]] = {}
     #: Components with state that evolves in virtual time (filters, oscillators) set this and

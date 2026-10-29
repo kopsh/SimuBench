@@ -136,13 +136,22 @@ def _mcp(args: argparse.Namespace) -> int:
     return 0
 
 
+def _is_definition(path: Path, data: object) -> bool:
+    """An instrument definition rather than a bench: by its schema line, else by its content."""
+    schema = data.get("schema") if isinstance(data, dict) else None
+    if isinstance(schema, str):
+        return schema.startswith("simubench.instrument/")
+    return ".bench." not in path.name and isinstance(data, dict) and "instruments" not in data
+
+
 def _validate(args: argparse.Namespace) -> int:
     """Print diagnostics as ``file:pointer: CODE message (suggestion)``; exit 1 on any error."""
     from .engine.validate import validate_data
+    from .engine.validate_definition import validate_definition_data
     from .library.loader import DefinitionLibrary, _read_yaml
 
     status = 0
-    for path in args.benches:
+    for path in args.files:
         p = Path(path)
         try:
             data = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
@@ -150,8 +159,10 @@ def _validate(args: argparse.Namespace) -> int:
             print(f"{path}: E-READ {exc}", file=sys.stderr)
             status = 1
             continue
-        library = DefinitionLibrary([p.resolve().parent / "instruments"])
-        _, report = validate_data(data, library)
+        if _is_definition(p, data):
+            _, report = validate_definition_data(data)
+        else:
+            _, report = validate_data(data, DefinitionLibrary([p.resolve().parent / "instruments"]))
         for d in report.diagnostics:
             hint = f" ({d.suggestion})" if d.suggestion else ""
             print(f"{path}:{d.pointer}: {d.code} {d.message}{hint}", file=sys.stderr)
@@ -374,8 +385,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--log-file")
     p.set_defaults(fn=_mcp)
 
-    p = sub.add_parser("validate", help="check bench files; exit 1 on the first problem")
-    p.add_argument("benches", nargs="+")
+    p = sub.add_parser("validate", help="check bench and instrument definition files; exit 1 on any error")
+    p.add_argument("files", nargs="+", metavar="file")
     p.set_defaults(fn=_validate)
 
     p = sub.add_parser("migrate", help="upgrade bench and definition files to the current format")
