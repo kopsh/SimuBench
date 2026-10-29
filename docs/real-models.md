@@ -72,6 +72,8 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 
 - CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有手册用例。
 - `simubench coverage <id>` 打印覆盖表与统计，用于演示时说明做到了什么程度。
+- `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
+- 内置的真实型号只使用通用组件（`generic`），例外清单在 `tests/test_model_components.py`，只能缩短（[metrology-authoring.md](metrology-authoring.md) 第 9 节）。
 
 ## 7. 版权与商标
 

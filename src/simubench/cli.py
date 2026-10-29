@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from . import __version__
 
 if TYPE_CHECKING:
+    from .library.loader import DefinitionLibrary
     from .server.manager import SessionManager
 
 
@@ -341,6 +342,8 @@ def _coverage(args: argparse.Namespace) -> int:
     from .library.loader import DefinitionLibrary
 
     lib = DefinitionLibrary([Path(d) for d in args.definitions] + [Path.cwd() / "instruments"])
+    if args.draft:
+        return _coverage_draft(args, lib)
     try:
         path = lib.path(args.id)
     except KeyError as exc:
@@ -369,6 +372,37 @@ def _coverage(args: argparse.Namespace) -> int:
     st = cov.stats()
     total = sum(st.values())
     print(f"\n{' · '.join(f'{LEVEL_TEXT[k]} {v}' for k, v in st.items())} · 共 {total}")
+    return 0
+
+
+def _coverage_draft(args: argparse.Namespace, lib: DefinitionLibrary) -> int:
+    """``coverage <id> --draft list.txt``: write or extend the coverage table from a command list."""
+    from .library.coverage import (
+        coverage_path,
+        draft_coverage,
+        dump_coverage,
+        leading_comments,
+        load_coverage,
+        read_command_list,
+    )
+    from .library.loader import COVERAGE_SUFFIX
+
+    commands = read_command_list(Path(args.draft).read_text(encoding="utf-8"))
+    try:
+        definition = lib.get(args.id)
+        default_out = coverage_path(lib.path(args.id))
+    except KeyError:
+        definition, default_out = None, Path.cwd() / "instruments" / f"{args.id}{COVERAGE_SUFFIX}"
+    out = Path(args.out) if args.out else default_out
+    existing, comments = None, ""
+    if out.is_file():
+        existing = load_coverage(out)
+        comments = leading_comments(out.read_text(encoding="utf-8"))
+    cov, added = draft_coverage(args.id, commands, existing, definition)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(dump_coverage(cov, comments), encoding="utf-8")
+    total = sum(len(h) for _, h in commands)
+    print(f"{out}: {added} of {total} listed commands added, {len(cov.entries())} in the table")
     return 0
 
 
@@ -471,6 +505,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("id", help="definition id, e.g. keysight-34465a")
     p.add_argument("--definitions", action="append", default=[], help="also look for definitions here")
+    p.add_argument(
+        "--draft",
+        metavar="LIST",
+        help="write the coverage table from a command list (one header per line, '# section' lines); "
+        "an existing table keeps its entries and gains the missing commands as not modeled",
+    )
+    p.add_argument(
+        "--out",
+        help="with --draft: the table to write (default: next to the definition, or instruments/<id>.coverage.yaml)",
+    )
     p.set_defaults(fn=_coverage)
 
     p = sub.add_parser(

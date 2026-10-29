@@ -195,6 +195,82 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
     return problems
 
 
+DRAFT_SECTION = "Commands"
+DRAFT_NOTE = "草稿：定义中已有，确认程度与说明"
+
+
+def read_command_list(text: str) -> list[tuple[str, list[str]]]:
+    """A command list: one header per line; ``# name`` starts a section, blank lines are ignored.
+
+    Headers before the first ``#`` line go in a section called "Commands". Only command names come
+    from the manual (real-models.md 7), so the list is what an author copies from its index."""
+    sections: list[tuple[str, list[str]]] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            sections.append((line.lstrip("#").strip() or DRAFT_SECTION, []))
+            continue
+        if not sections:
+            sections.append((DRAFT_SECTION, []))
+        sections[-1][1].append(line)
+    return [(name, headers) for name, headers in sections if headers]
+
+
+def draft_coverage(
+    model: str,
+    commands: list[tuple[str, list[str]]],
+    existing: Coverage | None = None,
+    definition: InstrumentDefinition | None = None,
+) -> tuple[Coverage, int]:
+    """A coverage table with every listed command, and how many entries were added.
+
+    New commands are not modeled, except those the definition already has: implemented, with a
+    note to confirm. An existing table keeps its entries, levels and notes as they are; listed
+    commands it lacks join the section of the same name, or a new one at the end."""
+    cov = existing.model_copy(deep=True) if existing else Coverage(model=model, sections=[])
+    known = {_norm(c.header) for _, c in cov.entries()}
+    defined = {_norm(c.header) for c in definition.commands} if definition else set()
+    added = 0
+    for name, headers in commands:
+        section = next((s for s in cov.sections if s.section == name), None)
+        for header in headers:
+            key = _norm(header)
+            if key in known:
+                continue
+            known.add(key)
+            if section is None:
+                section = CoverageSection(section=name, commands=[])
+                cov.sections.append(section)
+            entry = (
+                CoverageEntry(header=header, level="implemented", note=DRAFT_NOTE)
+                if key in defined
+                else CoverageEntry(header=header, level="not_modeled")
+            )
+            section.commands.append(entry)
+            added += 1
+    return cov, added
+
+
+def dump_coverage(cov: Coverage, leading_comments: str = "") -> str:
+    """YAML text of a coverage table, after the comment lines a hand-written file starts with."""
+    import yaml
+
+    data = cov.model_dump(mode="json", by_alias=True, exclude_none=True)
+    body = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100)
+    return leading_comments + body
+
+
+def leading_comments(text: str) -> str:
+    lines = []
+    for line in text.splitlines(keepends=True):
+        if not line.startswith("#"):
+            break
+        lines.append(line)
+    return "".join(lines)
+
+
 # ---- running cases --------------------------------------------------------------------------------
 
 
