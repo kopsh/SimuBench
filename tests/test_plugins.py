@@ -72,11 +72,11 @@ def clean_plugins():
 
 def workspace_with(tmp_path: Path, *files: str, bench: bool = True) -> Path:
     (tmp_path / "components").mkdir()
-    (tmp_path / "components" / "plugin_load.py").write_text(PLUGIN_SRC)
+    (tmp_path / "components" / "plugin_load.py").write_text(PLUGIN_SRC, encoding="utf-8")
     for f in files:
-        (tmp_path / "components" / f).write_text(BOMB)
+        (tmp_path / "components" / f).write_text(BOMB, encoding="utf-8")
     if bench:
-        (tmp_path / "plugin.bench.yaml").write_text(BENCH)
+        (tmp_path / "plugin.bench.yaml").write_text(BENCH, encoding="utf-8")
     return tmp_path
 
 
@@ -170,7 +170,9 @@ async def test_manager_session_uses_a_workspace_plugin(tmp_path, clean_plugins):
 
 def test_a_plugin_targeting_another_api_is_refused(tmp_path, clean_plugins):
     (tmp_path / "components").mkdir()
-    (tmp_path / "components" / "future.py").write_text(PLUGIN_SRC.replace("plugin_api = 1", "plugin_api = 2"))
+    (tmp_path / "components" / "future.py").write_text(
+        PLUGIN_SRC.replace("plugin_api = 1", "plugin_api = 2"), encoding="utf-8"
+    )
     infos = plugins.load_workspace_plugins(tmp_path / "components")
     assert infos[0].name == "future.py" and "plugin_api 2" in (infos[0].error or "")
     with pytest.raises(KeyError, match="plugin_load"):
@@ -190,14 +192,16 @@ def test_replay_warns_when_a_plugin_changed(tmp_path, clean_plugins):
     rec = next(records.glob("run-*.jsonl"))
     report = replay(rec, workspace_plugins=ws / "components")
     assert report.ok and report.warnings == []
-    (ws / "components" / "plugin_load.py").write_text(PLUGIN_SRC + "\n# changed since the record\n")
+    (ws / "components" / "plugin_load.py").write_text(
+        PLUGIN_SRC + "\n# changed since the record\n", encoding="utf-8"
+    )
     report = replay(rec, workspace_plugins=ws / "components")
     assert any("plugin_load.py changed since the record" in w for w in report.warnings)
 
 
 def test_replay_warns_when_a_recorded_plugin_is_not_loaded(tmp_path, monkeypatch, clean_plugins):
     monkeypatch.setattr(plugins, "_discover", lambda: [FakeEntryPoint(tmp_path / "acme.py")])
-    (tmp_path / "acme.py").write_text(PLUGIN_SRC)
+    (tmp_path / "acme.py").write_text(PLUGIN_SRC, encoding="utf-8")
     records = tmp_path / "records"
     s = open_bench(BENCH_WITHOUT_PLUGINS, record_dir=records, clock="command")
     s.write("awg", b"*IDN?\n")
