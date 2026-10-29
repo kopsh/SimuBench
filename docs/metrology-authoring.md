@@ -107,7 +107,7 @@
 - **`Sampler` 协议**：`sample_time_ns()`（一个读数所需的虚拟时间）与 `sample(index)`（此刻的一个读数，`index` 是本次运行中的序号，供噪声流使用）。`dmm_core` 先给出最小实现（参数 `function`、`reading_time`）；NPLC、自动调零与量程的读数时间由 #87 补上，`smu_core` 由 #94 接入；
 - 读数在运行完成时按各自的时刻取得（`FETCh?`、`*OPC?`、`*WAI`，或之后任一条命令到达时）；
 - 同一条程序消息中，前面命令用掉的时间计入“现在”（`Instrument.now_ns()`），所以 `INIT;*WAI;…` 中 `*WAI` 之后的命令看到的是运行结束后的状态；
-- 墙钟下的等待按真实时间（最多 5 s，与链路延迟相同）；步进时钟下不等待，`FETCh?` 在读数完成前报错；
+- 墙钟下的等待按真实时间（最多 5 s，与链路延迟相同）；步进时钟下不等待，`FETCh?` 在读数完成前报错（#94 起：即时触发的运行当场完成，见 3.6）；
 - 没有触发可等时的 `FETCh?`：不回复并报 `waiting_error`（默认 -230），脚本因此超时，与真机一样；`READ?` 配总线或外部触发报 `deadlock_error`（-214）；运行中再 `INITiate` 报 `ignored_error`（-213）；不在等待时的 `*TRG` 报 `trigger_ignored_error`（-211）。错误码都是参数，型号按手册给出；
 - `*TRG` 加入内置命令：调用第一个带 `bus_trigger` 操作的组件，没有时仍按“未建模”回复 -113；
 - 等待总线触发的运行不登记为待完成操作，所以 `*OPC?` 不会因为一个永远不来的触发而无限等待；
@@ -116,6 +116,22 @@
 ### 3.4 `smu_core` 迁移（#94）
 
 `smu_core` 实现 `sampler` 协议，扫描的每一点也经它产生读数；它自己的缓冲区删除，`sb-smu-1` 改用 `trigger_model` 与 `reading_buffer`，回复、虚拟时间与运行记录逐条不变。源与测量的量程（`source_ranges`、`measure_ranges` 与自动量程）和第 2 节共用量程选择的实现，现在的 21 V / 105 mA 包络成为默认表中的一项。
+
+### 3.6 实现（#94）
+
+`library/components/ranging.py` 收拢第 2 节的选档规则（手动量程取最小可容纳档、自动量程的滞回带）与 NPLC 读数时间公式，`smu_core` 与 `dmm_core` 的规则同源；`dmm_core` 的耗时仍由定义映射的 `reading_time` 参数给出（34465A 接入时换用同一公式）。
+
+`smu_core` 的量程参数：
+
+- **源包络**：`source_ranges`（按功能的满量程列表）+ `range_limits`（按功能给出每个源量程对另一物理量限值的封顶）。默认表就是现在的包络：`{VOLTage: [2.1, 21, 210]}`、`{VOLTage: {2.1: 1.05, 21: 1.05, 210: 0.105}}`——21 V / 105 mA 是 210 V 档的封顶一项，`sb-smu-1` 不必新增参数。手动 `source_range` 取能容纳它的最小档并随之改包络（设定值超档时档位照用、电平不被裁剪；真型号的检查由它自己的定义给出）；`source_autorange`（默认开）跟随电平。
+- **测量量程**：`measure_ranges`（按功能：电压读数与电流读数各一张表）、手动 `measure_range_voltage` / `measure_range_current`（可绑定）、`measure_autorange` 与第 2 节同规则（判定发生在读数上）。超量程读 `overload_value`（电压、电流分别判）；`RES` 仍由未裁剪的原始读数相除，超量程只影响 VOLT 与 CURR。
+
+触发模型一侧（`trigger.py`）：
+
+- **sampler 的可选钩子**：`run_samples()`（一次运行取几个读数——扫描就是运行，取代配置的计数，取 `trigger_count=1 × 它的值`）、`sample_fields(index)`（读数的附加字段）、`run_begin()` / `run_done()`（运行前后，扫描用它保存并恢复被驱动的源设置）。
+- **读数回复**：`digits` 参数（定长位数，`None` 时按定义的 `format`；`sb-smu-1` 给 7 位保持旧回复）；`fetch` / `read` 接受命令参数 `elements`，按读数给出各元素；`fetch_from_buffer`（SMU 的 `FETCh?` 读读数存储，`TRAC:CLE` 后为空报 -230；万用表默认仍读最近一次运行）。
+- **步进时钟**：立即触发的运行当场完成（读数取齐，间隔仍由 TIME 元素表达；等待总线/外部触发的运行照旧等 `*TRG`）。3.5 的「`FETCh?` 在读数完成前报错」指等待触发的运行；即时运行若无此规则，验收测试台的扫描（`smu_eload` 为步进时钟）将永远完不成。
+- `:MEASure`（`core.measure`）不再写读数存储：它与万用表的 `measure` 一样是一次直接的测量查询，存储归触发模型；`INIT` 按第 3.1 节立即返回（旧 `sb-smu-1` 的 `INIT` 同步耗完整段扫描时间，现改为 `INIT` 即返、`*OPC?` / `FETCh?` 等待，一次 `INIT`+等待的总时长不变）。两条都以改动前后的命令比对（`tests/test_smu_migration.py` 的金标准：34 条消息的回复与虚拟时间逐条一致）为界，除这两条外逐条不变。
 
 ## 4. 校准存储（C3，#89）
 

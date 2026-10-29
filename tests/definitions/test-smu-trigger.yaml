@@ -1,0 +1,198 @@
+# A source-measure unit built from generic components only, to test the trigger system, the reading
+# memory and the ranges of smu_core (#94).
+schema: simubench.instrument/1
+id: test-smu-trigger
+manufacturer: SimuBench
+model: TRIGGER-SMU
+class: smu
+description: 测试用：通用组件搭出的源表触发系统、读数存储与量程。
+state:
+  source.function:
+    type: enum
+    options: [VOLTage, CURRent]
+    default: VOLTage
+    electrical: true
+  source.voltage.level:
+    type: float
+    unit: V
+    min: -10.0
+    max: 10.0
+    default: 0.0
+  source.current.level:
+    type: float
+    unit: A
+    min: -0.1
+    max: 0.1
+    default: 0.0
+  compliance.current.limit:
+    type: float
+    unit: A
+    min: 1.0e-9
+    max: 0.1
+    default: 0.1
+  output.enabled:
+    type: bool
+    default: false
+    electrical: true
+  sense.nplc:
+    type: float
+    min: 0.01
+    max: 10.0
+    default: 1.0
+  trigger.source:
+    type: enum
+    options: [IMMediate, BUS, EXTernal]
+    default: IMMediate
+  trigger.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+  trigger.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.0
+  sample.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+  measure.range.voltage:
+    type: float
+    unit: V
+    min: 0.0
+    max: 10.0
+    default: 0.0
+  measure.range.current:
+    type: float
+    unit: A
+    min: 0.0
+    max: 0.1
+    default: 0.0
+  measure.range.auto:
+    type: bool
+    default: true
+  source.range:
+    type: float
+    unit: V
+    min: 0.0
+    max: 10.0
+    default: 0.0
+  source.range.auto:
+    type: bool
+    default: true
+  sweep.start:
+    type: float
+    min: -10.0
+    max: 10.0
+    default: 0.0
+  sweep.stop:
+    type: float
+    min: -10.0
+    max: 10.0
+    default: 1.0
+  sweep.points:
+    type: int
+    min: 2
+    max: 2500
+    default: 2
+  sweep.mode:
+    type: enum
+    options: [NONE, LINear, LOGarithmic, LIST]
+    default: NONE
+  sweep.function:
+    type: enum
+    options: [VOLTage, CURRent]
+    default: VOLTage
+  sweep.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 10.0e3
+    default: 0.0
+  sweep.list:
+    type: string
+    default: ""
+components:
+  - name: core
+    type: smu_core
+    params:
+      function: $source.function
+      v_level: $source.voltage.level
+      i_level: $source.current.level
+      i_limit: $compliance.current.limit
+      output: $output.enabled
+      nplc: $sense.nplc
+      source_ranges: {VOLTage: [1.0, 10.0]}
+      source_range: $source.range
+      source_autorange: $source.range.auto
+      range_limits: {VOLTage: {1.0: 0.005, 10.0: 0.05}}
+      measure_ranges: {VOLTage: [0.1, 1.0, 10.0], CURRent: [1.0e-4, 1.0e-3, 0.1]}
+      measure_range_voltage: $measure.range.voltage
+      measure_range_current: $measure.range.current
+      measure_autorange: $measure.range.auto
+      sweep_mode: $sweep.mode
+      sweep_function: $sweep.function
+      sweep_start: $sweep.start
+      sweep_stop: $sweep.stop
+      sweep_points: $sweep.points
+      sweep_delay: $sweep.delay
+      sweep_list: $sweep.list
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: core
+      source: {from: $trigger.source, map: {IMMediate: immediate, BUS: bus, EXTernal: external}}
+      trigger_count: $trigger.count
+      sample_count: $sample.count
+      delay: $trigger.delay
+      buffer: mem
+  - name: mem
+    type: reading_buffer
+    params: {capacity: 100}
+ports:
+  instrument:
+    HI: core.hi
+capabilities: [smu]
+commands:
+  - {header: "[:SOURce]:FUNCtion[:MODE]", state: source.function}
+  - {header: "[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]", state: source.voltage.level}
+  - {header: "[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]", state: source.current.level}
+  - {header: "[:SENSe]:CURRent[:DC]:PROTection[:LEVel]", state: compliance.current.limit}
+  - {header: ":OUTPut[:STATe]", state: output.enabled}
+  - {header: "[:SENSe]:VOLTage[:DC]:NPLCycles", state: sense.nplc}
+  - {header: ":TRIGger:SOURce", state: trigger.source}
+  - {header: ":TRIGger:COUNt", state: trigger.count}
+  - {header: ":TRIGger:DELay", state: trigger.delay}
+  - {header: ":SAMPle:COUNt", state: sample.count}
+  - {header: "[:SENSe]:VOLTage[:DC]:RANGe", state: measure.range.voltage}
+  - {header: "[:SENSe]:CURRent[:DC]:RANGe", state: measure.range.current}
+  - {header: "[:SENSe]:RANGe:AUTO", state: measure.range.auto}
+  - {header: "[:SOURce]:VOLTage:RANGe", state: source.range}
+  - {header: "[:SOURce]:RANGe:AUTO", state: source.range.auto}
+  - {header: ":INITiate[:IMMediate]", op: trig.initiate, query: false}
+  - {header: ":ABORt", op: trig.abort, query: false}
+  - {header: ":FETCh", op: trig.fetch, set: false}
+  - {header: ":READ", op: trig.read, set: false}
+  - {header: ":TRIGger:STATe", op: trig.state, set: false}
+  - {header: ":MEASure", op: core.measure, set: false}
+  - {header: "[:SENSe]:VOLTage[:DC]:RANGe:ACTual", op: core.range, set: false, args: {function: VOLTage}}
+  - {header: "[:SENSe]:CURRent[:DC]:RANGe:ACTual", op: core.range, set: false, args: {function: CURRent}}
+  - {header: ":DATA:POINts", op: mem.points, set: false}
+  - {header: "R", op: mem.read_clear, set: false, params: [{name: count, type: int, optional: true}]}
+  - {header: ":TRACe:MAKE", op: mem.make, query: false, params: [{name: name, type: string}, {name: capacity, type: int}]}
+  - {header: ":TRACe:CLEar", op: mem.clear, query: false}
+  - header: ":TRACe:DATA"
+    op: mem.data
+    set: false
+    params:
+      - {name: start, type: int}
+      - {name: end, type: int}
+      - {name: name, type: string, optional: true}
+      - {name: elements, type: raw}
+  - header: "[:SOURce]:SWEep:VOLTage:LINear"
+    op: core.sweep
+    query: false
+    params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
