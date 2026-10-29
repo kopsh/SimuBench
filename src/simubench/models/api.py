@@ -428,6 +428,17 @@ class ConfigureResponse(_Model):
     value: Any = None
 
 
+class PanelRequest(_Model):
+    action: Literal["run", "stop", "single"] = Field(
+        description="A front-panel button (D32): not a SCPI command, no communication log, no virtual time"
+    )
+
+
+class PanelResponse(_Model):
+    ok: bool
+    error: ErrorItem | None = None
+
+
 class AdvanceRequest(_Model):
     seconds: float = Field(..., gt=0)
 
@@ -464,8 +475,13 @@ class Trace(_Model):
 
 
 class ScopeScreen(_Model):
+    """What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:
+    noise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition."""
+
     instrument: str
-    source: Literal["record", "preview"]
+    source: Literal["live", "record"]
+    running: bool = Field(description="Running in an auto or normal mode: the screen follows the signal")
+    waiting: bool = Field(description="A single acquisition armed, waiting for a trigger")
     timebase_scale: float
     trigger_level: float
     trigger_source: int
@@ -569,7 +585,9 @@ class Event(_Model):
 
     seq: int
     t_ns: int
-    kind: str = Field(..., description="scpi | state | advance | error | fault | acquisition | session")
+    kind: str = Field(
+        ..., description="scpi | state | advance | error | fault | acquisition | panel | session"
+    )
     instrument: str | None = None
     dir: Literal["write", "read"] | None = None
     text: str | None = Field(None, description="SCPI bytes as text when printable")
@@ -586,6 +604,9 @@ class Event(_Model):
     dt_ns: int | None = None
     reason: str | None = None
     wall: float | None = None
+    action: str | None = Field(
+        None, description="A front-panel button, for panel events: run | stop | single"
+    )
 
 
 # ---- run records (D36) ---------------------------------------------------------------------------
