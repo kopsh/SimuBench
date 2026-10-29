@@ -168,6 +168,19 @@ components:
       # 假设值（不是数据手册数值）：12 位 ADC，输入端 200 µV rms 白噪声；测试台可用 hidden 覆盖。
       adc_bits: 12
       noise_rms: 2.0e-4
+  - name: xfer
+    type: waveform_transfer
+    params:
+      # C<n>:INSPECT? "DATA_ARRAY_1",FLOAT：WAVEFORM_SETUP 选点（NP 0 时每次最多 30000 点，主机契约），
+      # 伏特，%.6e，空格分隔；引号与命令头由命令的应答模板加上。
+      first: $waveform.fp
+      count: $waveform.np
+      step: $waveform.sp
+      max_points: 30000
+      encoding: text
+      values: volts
+      format: "%.6e"
+      separator: " "
 channel_components:
   - name: inp
     type: lecroy_input
@@ -246,6 +259,7 @@ commands:
   - header: "C<ch>:INSPect"
     op: acq.inspect
     set: false
+    reply: '{header} " {value} "'
     params:
       - {name: name, type: string}
       - {name: fmt, type: enum, options: [BYTE, WORD, FLOAT], optional: true}

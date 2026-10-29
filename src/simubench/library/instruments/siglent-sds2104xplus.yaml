@@ -258,6 +258,22 @@ channel_state:
 components:
   - name: acq
     type: siglent_sds_acquisition
+  - name: xfer
+    type: waveform_transfer
+    params:
+      # :WAVeform:DATA?：:WAVeform:STARt / POINt / INTerval 选点，ADC 码（8 位每格 30 码，10 位每格 120 码），
+      # BYTE 取高 8 位、WORD 左对齐到 16 位；定长块后跟一个换行（手册 WAVeform:DATA 示例）。
+      source: $waveform.source
+      first: $waveform.start
+      count: $waveform.point
+      step: $waveform.interval
+      values: codes
+      offset: add
+      codes_per_div: {from: $acquire.resolution, map: {8Bits: 30.0, 10Bits: 120.0}}
+      adc_bits: {from: $acquire.resolution, map: {8Bits: 8, 10Bits: 10}}
+      width: {from: $waveform.width, map: {BYTE: 8, WORD: 16}}
+      byteorder: little
+      trailer: "\n"
 channel_components:
   - name: inp
     type: input_port
@@ -353,4 +369,4 @@ commands:
   - {header: ":WAVeform:MAXPoint", op: acq.maxpoint, set: false}
   - {header: ":WAVeform:WIDTh", state: waveform.width}
   - {header: ":WAVeform:PREamble", op: acq.wav_preamble, set: false}
-  - {header: ":WAVeform:DATA", op: acq.wav_data, set: false}
+  - {header: ":WAVeform:DATA", op: xfer.data, set: false}

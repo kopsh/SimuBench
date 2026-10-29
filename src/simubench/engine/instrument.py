@@ -438,7 +438,10 @@ class Instrument:
             body = self._state_command(spec, unit, channel)
         elif spec.op is not None:
             result = self._op_command(spec, unit, channel, suffixes)
-            return result.response, result.duration_ns + parse_duration(spec.duration)
+            response = result.response
+            if response is not None and spec.reply is not None:  # an operation's reply in a template
+                response = self._reply(compiled, response, channel, suffixes)
+            return response, result.duration_ns + parse_duration(spec.duration)
         else:
             body = self._settings_command(spec, unit, channel)
         if body is not None:

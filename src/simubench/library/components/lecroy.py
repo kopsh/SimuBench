@@ -36,8 +36,6 @@ from .scope import DIVS_H, Record, ScopeAcquisition, ScopeFrontend, _measure, ch
 
 #: Vertical divisions on screen; the ADC reaches a little beyond (``adc_divs``).
 DIVS_V = 8
-#: Waveform readback without NP (NP 0): at most this many points per reply (the host contract's limit).
-INSPECT_MAX_POINTS = 30_000
 #: PAVA? measurements by LeCroy name: the engine's measurement and the unit of the reply.
 MEASUREMENTS = {
     "AMPL": ("VAMPlitude", "V"),
@@ -137,7 +135,7 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
         "adc_bits": 12,
         "adc_divs": 10.0,  # the ADC spans +-5 div around the screen centre
         "trigger_jitter_s": 0.0,
-        "inspect_max_points": INSPECT_MAX_POINTS,
+        "transfer": "xfer",  # the waveform_transfer component that encodes DATA_ARRAY_1
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -346,22 +344,24 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
 
     # ---- waveform readback -------------------------------------------------------------------------
 
-    def _selection(self, size: int) -> np.ndarray:
-        first = int(self._st("waveform.fp"))
-        count = int(self._st("waveform.np"))
-        step = max(1, int(self._st("waveform.sp")))
-        sel = np.arange(first, size, step)
-        return sel[: count if count > 0 else int(self.param("inspect_max_points"))]
+    def transfer_record(self, channel: int, first: int) -> tuple[Record | None, int]:
+        """A readback starting at the first point acquires anew on a running scope (see _record_for)."""
+        return self._record_for(channel, fresh=first == 0)
+
+    def _transfer(self) -> Any:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("transfer"))]
 
     @op("inspect")
     def inspect(self, query: bool = False, channel: int | None = None, name: str | None = None,
                 fmt: str | None = None, **_: Any) -> OpResult:  # fmt: skip
         """``C<n>:INSPECT? "DATA_ARRAY_1",FLOAT``: the selected points in volts, as text.
 
-        ``C1:INSP "`` then the numbers separated by blanks, then `` "``, all on one line: the reply
-        has no line feed before its end and never names the connection (no ``TCPIP``). A readback
-        starting at ``FP 0`` acquires anew on a running scope; later pieces read the same record.
-        ``"WAVEDESC"`` gives the descriptor variables a script needs to scale and time the data.
+        The numbers are the ``waveform_transfer`` component's (``transfer``); the command's reply
+        template frames them, ``C1:INSP " 1.000000e-03 ... "``, all on one line: no line feed before
+        the end and never the connection's name (no ``TCPIP``). A readback starting at ``FP 0``
+        acquires anew on a running scope; later pieces read the same record. ``"WAVEDESC"`` gives the
+        descriptor variables a script needs to scale and time the data.
         """
         assert channel is not None
         what = (name or "").strip().upper()
@@ -369,18 +369,14 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
             raise ScpiError(-224, f"INSPECT {name!r} not modeled by SimuBench")
         if what == "WAVEDESC":
             rec, used = self._record_for(channel, fresh=False)
-            return OpResult(self.reply("INSP", f'" {self._wavedesc(rec)} "', channel, "INSPECT"), used)
+            return OpResult(self._wavedesc(rec).encode(), used)
         if (fmt or "FLOAT") != "FLOAT":
             raise ScpiError(-224, f"INSPECT format {fmt} not modeled by SimuBench (FLOAT is)")
-        rec, used = self._record_for(channel, fresh=int(self._st("waveform.fp")) == 0)
-        values = rec.volts[self._selection(rec.volts.size)]
-        text = " ".join(f"{x:.6e}" for x in values.tolist())
-        body = f'" {text} "' if text else '" "'
-        return OpResult(self.reply("INSP", body, channel, "INSPECT"), used)
+        return self._transfer().transfer(channel)  # type: ignore[no-any-return]
 
     def _wavedesc(self, rec: Record) -> str:
         """The descriptor variables, ``NAME : value`` separated by blanks (one line)."""
-        sel = self._selection(rec.volts.size)
+        sel = self._transfer().selection(rec.volts.size)
         items = {
             "WAVE_ARRAY_COUNT": str(rec.volts.size),
             "FIRST_POINT": str(int(sel[0]) if sel.size else 0),

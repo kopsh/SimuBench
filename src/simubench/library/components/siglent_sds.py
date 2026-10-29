@@ -423,6 +423,11 @@ class SiglentSdsAcquisition(ScopeAcquisition):
         used = self._fresh()
         return self.records.get(self._source()), used
 
+    def transfer_record(self, channel: int, first: int) -> tuple[Record | None, int]:
+        """A running scope hands out the newest acquisition (``:WAVeform:DATA?``)."""
+        used = self._fresh()
+        return self.records.get(channel), used
+
     @op("wav_preamble")
     def wav_preamble(self, **_: Any) -> OpResult:
         rec, used = self._wave_record()
@@ -462,22 +467,6 @@ class SiglentSdsAcquisition(ScopeAcquisition):
         struct.pack_into("<f", d, 328, probe)
         struct.pack_into("<hh", d, 334, bwl, n - 1)
         return bytes(d)
-
-    @op("wav_data")
-    def wav_data(self, **_: Any) -> OpResult:
-        rec, used = self._wave_record()
-        if rec is None:
-            assert self.owner is not None
-            self.owner.push_error(-230, "no acquisition for this source")
-            return OpResult(V.format_block(b"") + b"\n", used)
-        codes, _, bits = self._codes(rec)
-        sel, _, _ = self._selection(rec)
-        codes = codes[sel]
-        if self._st("waveform.width") == "WORD":
-            payload = (codes << (16 - bits)).astype("<i2").tobytes()
-        else:
-            payload = (codes >> (bits - 8)).astype("i1").tobytes()
-        return OpResult(V.format_block(payload) + b"\n", used)
 
     # ---- measurements -----------------------------------------------------------------------------
 
