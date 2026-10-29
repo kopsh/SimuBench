@@ -92,7 +92,7 @@ class TriggerModel(Component):
 
     def reset(self) -> None:
         self.phase = "idle"  # idle | waiting (for a trigger) | measuring
-        self.readings: list[Reading] = []  # the readings of the last run, what FETCh? returns
+        self.taken: list[Reading] = []  # the readings of the last run, what FETCh? returns
         self.triggers = 0  # triggers taken in this run
         self.done_ns = 0  # when the readings being taken are done
         self._run_begun = False  # run_begin was called and run_done is still owed
@@ -165,11 +165,11 @@ class TriggerModel(Component):
             t += delay
             for _ in range(samples):
                 t += step
-                index = len(self.readings)
+                index = len(self.taken)
                 value = float(sampler.sample(index))
                 fields = self._optional("sample_fields", index) or {}
                 reading = Reading(value, t, fields)
-                self.readings.append(reading)
+                self.taken.append(reading)
                 if buffer is not None:
                     buffer.append(reading)
         self.triggers += self._batches
@@ -207,7 +207,7 @@ class TriggerModel(Component):
             buffer = self._buffer()
             readings = buffer.buffers[buffer._default()]
         else:
-            readings = self.readings
+            readings = self.taken
         return format_readings(readings, elements, self._number())
 
     # ---- operations ----------------------------------------------------------------------------------
@@ -219,7 +219,7 @@ class TriggerModel(Component):
         if self.phase != "idle":
             raise ScpiError(int(self.param("ignored_error")), "Init ignored")
         triggers, _ = self._counts()
-        self.readings, self.triggers = [], 0
+        self.taken, self.triggers = [], 0
         buffer = self._buffer()
         if buffer is not None:
             buffer.clear_buffer()
@@ -248,9 +248,7 @@ class TriggerModel(Component):
             buffer = self._buffer()
             if not buffer.buffers[buffer._default()]:
                 raise ScpiError(int(buffer.param("empty_error")), "the buffer is empty")
-        elif (
-            self.phase == "measuring" or not self.readings or (self.phase == "waiting" and not self.triggers)
-        ):
+        elif self.phase == "measuring" or not self.taken or (self.phase == "waiting" and not self.triggers):
             raise ScpiError(int(self.param("waiting_error")), "Data stale; no readings to fetch")
         return OpResult(self._reply(names or None), used)
 

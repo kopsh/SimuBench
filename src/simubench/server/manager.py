@@ -555,6 +555,7 @@ class SessionManager:
         traces: list[M.ReadingTrace] = []
         with s._lock:
             s.follow_wall()
+            inst.settle_pending()  # the panel shows what has come due, as any command's arrival would
             for name, comp in inst.components.items():
                 r = comp.readings()
                 if not r:

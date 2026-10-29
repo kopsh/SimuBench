@@ -107,7 +107,7 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
               <StepForward className="size-3.5" />
               {t("smu.read")}
             </Button>
-            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" disabled={readonly || scpi.isPending} onClick={() => send(":INITiate")} title={t("smu.initiateHint")}>
+            <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" disabled={readonly || scpi.isPending} onClick={() => send(":INITiate;*WAI")} title={t("smu.initiateHint")}>
               <Play className="size-3.5" />
               {t("smu.initiate")}
             </Button>

@@ -294,7 +294,7 @@ export const en: Widen<Messages> = {
     controls: "Measurement controls",
     read: "Read",
     initiate: "Initiate",
-    initiateHint: "Run with the current settings (:INITiate): the whole sweep in sweep mode, otherwise one reading.",
+    initiateHint: "Run with the current settings (:INITiate;*WAI): the whole sweep in sweep mode, otherwise one reading.",
     clearBuffer: "Clear buffer",
   },
   load: {
