@@ -12,7 +12,7 @@ expressed by overriding:
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from .signal import Signal
@@ -43,6 +43,8 @@ class OpResult:
 
     response: bytes | None = None
     duration_ns: int = 0
+    #: Named parts of the reply for the command's reply template, e.g. {unit} (see ``op(fields=...)``).
+    fields: dict[str, str] = field(default_factory=dict)
 
 
 _REGISTRY: dict[str, type[Component]] = {}
@@ -72,11 +74,16 @@ def component_types() -> dict[str, type[Component]]:
     return dict(_REGISTRY)
 
 
-def op(name: str | None = None) -> Callable[[Callable[..., OpResult]], Callable[..., OpResult]]:
-    """Mark a method as an operation callable from a command (``op: <component>.<name>``)."""
+def op(
+    name: str | None = None, fields: tuple[str, ...] = ()
+) -> Callable[[Callable[..., OpResult]], Callable[..., OpResult]]:
+    """Mark a method as an operation callable from a command (``op: <component>.<name>``).
+
+    ``fields``: names the operation's result gives a reply template besides {value}."""
 
     def deco(fn: Callable[..., OpResult]) -> Callable[..., OpResult]:
         fn.__op_name__ = name or fn.__name__  # type: ignore[attr-defined]
+        fn.__op_fields__ = tuple(fields)  # type: ignore[attr-defined]
         return fn
 
     return deco

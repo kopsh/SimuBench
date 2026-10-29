@@ -614,6 +614,21 @@
             ],
             "description": "State path bound to the command, e.g. 'ch.frequency'",
             "title": "State"
+          },
+          "when": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? \"WAVEDESC\")",
+            "title": "When"
           }
         },
         "required": [
@@ -1237,6 +1252,7 @@
                   "rename": "#/components/schemas/Rename",
                   "set_accessories": "#/components/schemas/SetAccessories",
                   "set_address": "#/components/schemas/SetAddress",
+                  "set_identity": "#/components/schemas/SetIdentity",
                   "set_label": "#/components/schemas/SetLabel",
                   "set_meta": "#/components/schemas/SetMeta",
                   "set_params": "#/components/schemas/SetParams",
@@ -1278,6 +1294,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/SetAddress"
+                },
+                {
+                  "$ref": "#/components/schemas/SetIdentity"
                 },
                 {
                   "$ref": "#/components/schemas/Move"
@@ -2639,6 +2658,12 @@
         "additionalProperties": false,
         "description": "A parameter of an operation command.",
         "properties": {
+          "index": {
+            "default": false,
+            "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+            "title": "Index",
+            "type": "boolean"
+          },
           "keys": {
             "anyOf": [
               {
@@ -3926,6 +3951,60 @@
           "instrument"
         ],
         "title": "SetAddress",
+        "type": "object"
+      },
+      "SetIdentity": {
+        "additionalProperties": false,
+        "properties": {
+          "firmware": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmware"
+          },
+          "idn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "*IDN? reply, e.g. 'LECROY,WAVEPRO 254HD,{serial},{firmware}'; null: the definition's",
+            "title": "Idn"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_identity",
+            "default": "set_identity",
+            "title": "Op",
+            "type": "string"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          }
+        },
+        "required": [
+          "instrument"
+        ],
+        "title": "SetIdentity",
         "type": "object"
       },
       "SetLabel": {

@@ -53,6 +53,11 @@ class WaveformTransfer(Component):
         "block_digits": 0,  # 0: as few as the length needs
         "trailer": "",  # appended after a block, e.g. a line feed
         "no_record": "no acquisition for this source",
+        # describe: NAME -> a format of the record's figures (points, first, step, dt, x_offset,
+        # offset, scale, gain, timebase, count), e.g. {HORIZ_INTERVAL: "{dt:.9e}"}
+        "descriptor": {},
+        "descriptor_item": "{name} : {value}",  # how describe writes one entry
+        "descriptor_separator": " ",
     }
 
     def _source(self, channel: int | None) -> int:
@@ -124,6 +129,37 @@ class WaveformTransfer(Component):
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
         return OpResult(self.encode(rec), used)
+
+    @op("describe")
+    def describe(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
+        """A text descriptor of the record a transfer reads (LeCroy's ``C1:INSPECT? "WAVEDESC"``):
+        one ``descriptor_item`` per ``descriptor`` entry, figures of the record, this transfer's
+        selection and the acquisition (``count``: acquisitions so far)."""
+        assert self.owner is not None
+        acq = self.owner.components[str(self.param("record"))]
+        rec, used = acq.read_record(self._source(channel), start=False)  # type: ignore[attr-defined]
+        if rec is None:
+            self.owner.push_error(-230, str(self.param("no_record")))
+            return OpResult(b"", used)
+        sel = self.selection(rec.volts.size)
+        figures = {
+            "points": rec.volts.size,
+            "first": int(sel[0]) if sel.size else 0,
+            "step": max(1, int(self.param("step"))),
+            "dt": rec.dt_s,
+            "x_offset": -rec.trigger_index * rec.dt_s,
+            "offset": rec.offset,
+            "scale": rec.scale,
+            "gain": rec.scale / acq.adc_codes_per_div() if acq.adc_codes_per_div() else 0.0,  # type: ignore[attr-defined]
+            "timebase": float(acq.param("timebase")),
+            "count": acq.acq_count,  # type: ignore[attr-defined]
+        }
+        item = str(self.param("descriptor_item"))
+        parts = [
+            item.format(name=name, value=str(fmt).format(**figures))
+            for name, fmt in (self.param("descriptor") or {}).items()
+        ]
+        return OpResult(str(self.param("descriptor_separator")).join(parts).encode(), used)
 
     @op("data")
     def data(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:

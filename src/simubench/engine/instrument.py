@@ -198,8 +198,8 @@ class Instrument:
 
     def _coerce_initial(self, path: str, value: Any) -> Any:
         spec = self.specs[path]
-        if spec.type == "enum":
-            return V.parse_enum(str(value).encode(), spec.options or [])
+        if spec.type == "enum":  # "" is an enum not set yet (an optional value a query leaves out)
+            return "" if value == "" else V.parse_enum(str(value).encode(), spec.options or [])
         if spec.type == "float":
             return float(value)
         if spec.type == "int":
@@ -405,11 +405,15 @@ class Instrument:
             if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
                 raise self._undefined(unit.raw_header)
             return self._common(unit), 0
+        refused: CommandSpec | None = None  # a header that matched, with other parameter values
         for compiled in self._commands:
             if compiled.pattern.common:
                 continue
             caps = compiled.pattern.match(tokens)
             if caps is None:
+                continue
+            if compiled.spec.when and not self._when(compiled.spec, unit):
+                refused = compiled.spec
                 continue
             channel = caps.get("ch")
             if "ch" in caps:
@@ -417,6 +421,8 @@ class Instrument:
                 if not 1 <= channel <= self.channel_count:
                     raise ScpiError(-114, f"channel {channel} does not exist")
             return self._run(compiled, unit, channel, {k: (1 if v is None else v) for k, v in caps.items()})
+        if refused is not None:
+            raise ScpiError(-224, f"{unit.raw_header}: parameter not modeled by SimuBench")
         builtin = (
             self._builtin(unit, tokens) if self._builtins is None or self._builtin_header(tokens) else None
         )
@@ -425,6 +431,16 @@ class Instrument:
         if builtin is not None:
             return builtin, 0
         raise self._undefined(unit.raw_header)
+
+    @staticmethod
+    def _when(spec: CommandSpec, unit: Unit) -> bool:
+        """Whether the unit's parameters have the values the command's ``when`` names."""
+        names = [p.name for p in spec.params]
+        for key, want in (spec.when or {}).items():
+            i = names.index(key)
+            if i >= len(unit.params) or V.parse_string(unit.params[i]).strip().upper() != str(want).upper():
+                return False
+        return True
 
     def _run(
         self, compiled: _Compiled, unit: Unit, channel: int | None, suffixes: dict[str, int]
@@ -440,7 +456,7 @@ class Instrument:
             result = self._op_command(spec, unit, channel, suffixes)
             response = result.response
             if response is not None and spec.reply is not None:  # an operation's reply in a template
-                response = self._reply(compiled, response, channel, suffixes)
+                response = self._reply(compiled, response, channel, suffixes, result.fields)
             return response, result.duration_ns + parse_duration(spec.duration)
         else:
             body = self._settings_command(spec, unit, channel)
@@ -463,7 +479,12 @@ class Instrument:
         return mode.lower()
 
     def _reply(
-        self, compiled: _Compiled, body: bytes, channel: int | None, suffixes: dict[str, int]
+        self,
+        compiled: _Compiled,
+        body: bytes,
+        channel: int | None,
+        suffixes: dict[str, int],
+        fields: dict[str, str] | None = None,
     ) -> bytes:
         template = compiled.spec.reply
         mode = self.echo_mode()
@@ -484,6 +505,8 @@ class Instrument:
                 return header
             if name == "value":
                 return body.decode(errors="replace")
+            if fields and name in fields:
+                return fields[name]
             path = self._resolve(name, channel)
             return self._format(self.specs[path], self.state[path], compiled.spec.format).decode()
 
@@ -527,26 +550,47 @@ class Instrument:
     def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked
         before any is set. The query answers the settings in the same order and form."""
+        raw = list(unit.params)
+        index: dict[str, int] = {}
+        for ps in spec.params:  # index parameters come first: they pick the settings
+            if ps.index:
+                if not raw:
+                    raise ScpiError(-109, f"missing {ps.name}")
+                value = V.parse_int(raw.pop(0))
+                if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
+                    raise ScpiError(-222, f"{ps.name} {value} out of range")
+                index[ps.name] = value
+
+        def at(ref: str) -> str:
+            for name, value in index.items():
+                ref = ref.replace("{" + name + "}", str(value))
+            return ref
+
         if unit.query:
-            if unit.params:
+            if raw:
                 raise ScpiError(-108)
             parts: list[str] = []
             for ps in spec.params:
+                if ps.index:
+                    parts.append(str(index[ps.name]))
                 if ps.state is not None:
-                    parts.append(self._format_path(ps.state, channel, spec))
+                    parts.append(self._format_path(at(ps.state), channel, spec))
                 for key, ref in (ps.keys or {}).items():
                     if ref is not None:
-                        parts += [key, self._format_path(ref, channel, spec)]
+                        parts += [key, self._format_path(at(ref), channel, spec)]
+            while parts and parts[-1] in ("", '""'):  # an optional value not set: left out
+                parts.pop()
             return ",".join(parts).encode()
-        raw = list(unit.params)
         new: dict[str, Any] = {}
         for ps in spec.params:
+            if ps.index:
+                continue
             if ps.state is not None:
                 if not raw:
                     if ps.optional:
                         continue
                     raise ScpiError(-109, f"missing {ps.name}")
-                path = self._resolve(ps.state, channel)
+                path = self._resolve(at(ps.state), channel)
                 new[path] = self._parse_state(self.specs[path], raw.pop(0))
                 continue
             items, raw = raw, []
@@ -561,7 +605,7 @@ class Instrument:
                     raise ScpiError(-224, f"{unit.raw_header} parameter {name} not modeled by SimuBench")
                 ref = keys[name]
                 if ref is not None:
-                    path = self._resolve(ref, channel)
+                    path = self._resolve(at(ref), channel)
                     new[path] = self._parse_state(self.specs[path], value_raw)
         if raw:
             raise ScpiError(-108)

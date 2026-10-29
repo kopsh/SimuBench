@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import os
 import sys
 from collections.abc import Callable
 from itertools import pairwise
@@ -19,7 +20,9 @@ import pytest
 import pyvisa
 
 ROOT = Path(__file__).resolve().parents[1]
-BENCH = ROOT / "examples" / "lowfreq-cal" / "lowfreq_cal.bench.yaml"
+# The bench and its definitions; issue 48 runs this scenario again on a workspace built through MCP alone.
+WORKSPACE = Path(os.environ.get("SIMUBENCH_LFCAL_WORKSPACE") or ROOT / "examples" / "lowfreq-cal")
+BENCH = WORKSPACE / "lowfreq_cal.bench.yaml"
 SCRIPT = ROOT / "examples" / "lowfreq-cal" / "lowfreq_cal_demo.py"
 FREQUENCIES = [1e3, 1e4, 1e5, 1e6]
 
