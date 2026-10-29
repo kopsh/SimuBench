@@ -169,12 +169,12 @@ def _check_reply(
         if name == "header":
             continue
         if name == "value":
-            if cmd.state is None:
+            if cmd.state is None and cmd.op is None:
                 report.add(
                     "error",
                     "E-DEF-REPLY",
                     pointer,
-                    "{value} 是命令绑定的状态，这条命令没有 state",
+                    "{value} 是命令绑定的状态或操作的应答，这条命令两者都没有",
                     "改用 {<状态路径>}",
                     cmd.header,
                 )

@@ -86,6 +86,8 @@ params:
 
 ### 3.1 `waveform_transfer`
 
+已实现（#43，`library/components/transfer.py`）：sb 示波器、Siglent SDS 与低频校准参考示波器的数据回读都改为本组件的配置，回复与改动前逐字节一致。与下面的设计稿的差别：文本的前后缀不放在组件里，由命令的 `reply` 模板加上（`'{header} " {value} "'`，操作命令的应答也走模板，随 `COMM_HEADER` 回显或省略命令头）；ADC 码由参数描述：`codes_per_div`、`offset`（`subtract` 或 `add` 记录的偏移设置）、`adc_bits`（限幅）、`width`（8 或 16 位，按位移对齐）、`unsigned`、`byteorder`，都可以绑定或映射设置（例如 sb 的 `:WAVeform:FORMat` 同时决定编码、码值比例与字宽）；`block_digits`（如 Siglent 前导的 `#9`）、`trailer`（块后的换行）。“当前记录是哪一个”（读取开始时是否重新采集）由采集组件的 `transfer_record` 回答，留给 #44。
+
 一个通用组件，读取采集组件的记录，按配置编码。低频校准的文本回读写成：
 
 ```yaml
@@ -189,7 +191,7 @@ params:
 | #40 | 定义的静态校验（5.1）与组件角色元数据（5.2）（已完成） | — |
 | #41 | 组件目录接口与 MCP `list_components`（5.3） | — |
 | #42 | 声明式应答：方言、应答模板、`pairs` 参数、倍率后缀、参数映射（第 2 节）（已完成） | #40 |
-| #43 | 通用波形传输组件（3.1） | #40 |
+| #43 | 通用波形传输组件（3.1）（已完成） | #40 |
 | #44 | 可配置的采集组件，Siglent 与 LeCroy 改为配置（3.2） | #43 |
 | #45 | `simubench cases` 与 MCP `run_cases`（5.5） | — |
 | #46 | MCP 编写工具：创建、编辑、校验、由脚本生成定义草稿（5.4） | #40、#41、#45 |
