@@ -205,12 +205,85 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                     _check_state_ref(
                         d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report
                     )
+            if ps.type == "quantities":
+                _check_quantities(d, ps, per_channel, _ptr(*p, "params", k), cmd.header, report)
         if cmd.reply is not None:
             fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
             _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
     _check_overlaps(d, compiled, report)
     _check_dialect(d, report)
     return report
+
+
+def _check_quantities(
+    d: InstrumentDefinition,
+    ps: Any,
+    per_channel: bool,
+    pointer: str,
+    subject: str,
+    report: Report,
+) -> None:
+    """A quantities parameter's table: every unit names a declared setting, its `sets` and the
+    combine table's targets too, and every combine key is made of the table's units (5.2)."""
+    units = ps.units or {}
+    for name, entry in units.items():
+        _check_state_ref(d, entry.state, per_channel, f"{pointer}/units/{name}/state", subject, report)
+        for ref, value in entry.sets.items():
+            _check_quantity_write(
+                d, ref, value, per_channel, f"{pointer}/units/{name}/sets/{ref}", subject, report
+            )
+    for key, writes in (ps.combine or {}).items():
+        kp = f"{pointer}/combine/{key}"
+        for name in key.split(","):
+            if name.strip().upper() not in {u.upper() for u in units}:
+                report.add(
+                    "error",
+                    "E-DEF-QUANTITY",
+                    kp,
+                    f"组合表里的单位 {name.strip()!r} 不在 units 表中",
+                    f"units 里的单位：{', '.join(units)}",
+                    subject,
+                )
+        for ref, value in writes.items():
+            _check_quantity_write(
+                d, ref, value, per_channel, f"{pointer}/combine/{key}/{ref}", subject, report
+            )
+
+
+def _check_quantity_write(
+    d: InstrumentDefinition,
+    ref: str,
+    value: Any,
+    per_channel: bool,
+    pointer: str,
+    subject: str,
+    report: Report,
+) -> None:
+    """One setting a quantities table writes (a `sets` entry or a combine target): the state must
+    be declared and the value acceptable for it; ``{if_zero: <state>, then, else}`` decides on a
+    state that must be declared too."""
+    if isinstance(value, dict) and "if_zero" in value:
+        _check_state_ref(d, str(value["if_zero"]), per_channel, f"{pointer}/if_zero", subject, report)
+        for branch in ("then", "else"):
+            if branch in value:
+                _check_quantity_write(
+                    d, ref, value[branch], per_channel, f"{pointer}/{branch}", subject, report
+                )
+        return
+    spec = _check_state_ref(d, ref, per_channel, pointer, subject, report)
+    if (
+        spec is not None
+        and spec.type == "enum"
+        and str(value).upper() not in {o.upper() for o in spec.options or []}
+    ):
+        report.add(
+            "error",
+            "E-DEF-QUANTITY",
+            pointer,
+            f"{ref!r} 不接受 {value!r}",
+            f"可选值：{', '.join(spec.options or [])}",
+            subject,
+        )
 
 
 def _index_values(cmd: CommandSpec) -> dict[str, list[int]]:

@@ -3068,6 +3068,34 @@
         "additionalProperties": false,
         "description": "A parameter of an operation command.",
         "properties": {
+          "combine": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "type quantities: what a combination of units writes besides, keyed by the units joined with commas in the `units` table's order ('V,HZ'); a value may be conditional, {if_zero: <state>, then: ..., else: ...}. A combination not listed is refused",
+            "title": "Combine"
+          },
+          "combine_error": {
+            "default": -224,
+            "description": "Error code for a combination of units `combine` does not list",
+            "title": "Combine Error",
+            "type": "integer"
+          },
+          "duplicate_unit_error": {
+            "default": -224,
+            "description": "Error code for a unit given twice in one command",
+            "title": "Duplicate Unit Error",
+            "type": "integer"
+          },
           "index": {
             "default": false,
             "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
@@ -3118,6 +3146,12 @@
             ],
             "title": "Min"
           },
+          "missing_unit_error": {
+            "default": -131,
+            "description": "Error code for a value without a unit (the text comes from `errors`)",
+            "title": "Missing Unit Error",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -3163,7 +3197,8 @@
               "float_list",
               "block",
               "raw",
-              "pairs"
+              "pairs",
+              "quantities"
             ],
             "title": "Type",
             "type": "string"
@@ -3178,6 +3213,27 @@
               }
             ],
             "title": "Unit"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/QuantityUnit"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "type quantities: comma-separated 'value unit' parameters, each written into the setting its unit names, e.g. {V: {state: out.level}, HZ: {state: out.frequency}}; the multiplier moves into the value (mV, kHz)",
+            "title": "Units"
+          },
+          "unknown_unit_error": {
+            "default": -131,
+            "description": "Error code for a unit the `units` table does not name",
+            "title": "Unknown Unit Error",
+            "type": "integer"
           }
         },
         "required": [
@@ -3267,6 +3323,28 @@
           }
         },
         "title": "Ports",
+        "type": "object"
+      },
+      "QuantityUnit": {
+        "additionalProperties": false,
+        "description": "What one unit of a ``quantities`` parameter means (metrology-authoring.md 5.2): the setting\nthe value writes, and further settings written at the same time.",
+        "properties": {
+          "sets": {
+            "additionalProperties": true,
+            "description": "Further settings written along with it, e.g. {out.unit: V} or {out.function: DCI}",
+            "title": "Sets",
+            "type": "object"
+          },
+          "state": {
+            "description": "The setting the value writes, e.g. 'out.level'",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "QuantityUnit",
         "type": "object"
       },
       "ReadingTrace": {

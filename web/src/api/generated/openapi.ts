@@ -2019,6 +2019,27 @@ export interface components {
          */
         ParamSpec: {
             /**
+             * Combine
+             * @description type quantities: what a combination of units writes besides, keyed by the units joined with commas in the `units` table's order ('V,HZ'); a value may be conditional, {if_zero: <state>, then: ..., else: ...}. A combination not listed is refused
+             */
+            combine?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            } | null;
+            /**
+             * Combine Error
+             * @description Error code for a combination of units `combine` does not list
+             * @default -224
+             */
+            combine_error: number;
+            /**
+             * Duplicate Unit Error
+             * @description Error code for a unit given twice in one command
+             * @default -224
+             */
+            duplicate_unit_error: number;
+            /**
              * Index
              * @description An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)
              * @default false
@@ -2035,6 +2056,12 @@ export interface components {
             max?: number | null;
             /** Min */
             min?: number | null;
+            /**
+             * Missing Unit Error
+             * @description Error code for a value without a unit (the text comes from `errors`)
+             * @default -131
+             */
+            missing_unit_error: number;
             /** Name */
             name: string;
             /**
@@ -2053,9 +2080,22 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs";
+            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs" | "quantities";
             /** Unit */
             unit?: string | null;
+            /**
+             * Units
+             * @description type quantities: comma-separated 'value unit' parameters, each written into the setting its unit names, e.g. {V: {state: out.level}, HZ: {state: out.frequency}}; the multiplier moves into the value (mV, kHz)
+             */
+            units?: {
+                [key: string]: components["schemas"]["QuantityUnit"];
+            } | null;
+            /**
+             * Unknown Unit Error
+             * @description Error code for a unit the `units` table does not name
+             * @default -131
+             */
+            unknown_unit_error: number;
         };
         /** PortInfo */
         PortInfo: {
@@ -2090,6 +2130,25 @@ export interface components {
             media?: {
                 [key: string]: "signal" | "electrical" | "reference";
             };
+        };
+        /**
+         * QuantityUnit
+         * @description What one unit of a ``quantities`` parameter means (metrology-authoring.md 5.2): the setting
+         *     the value writes, and further settings written at the same time.
+         */
+        QuantityUnit: {
+            /**
+             * Sets
+             * @description Further settings written along with it, e.g. {out.unit: V} or {out.function: DCI}
+             */
+            sets?: {
+                [key: string]: unknown;
+            };
+            /**
+             * State
+             * @description The setting the value writes, e.g. 'out.level'
+             */
+            state: string;
         };
         /** ReadingTrace */
         ReadingTrace: {

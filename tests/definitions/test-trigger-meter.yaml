@@ -6,6 +6,10 @@ model: TRIGGER-METER
 class: multimeter
 description: 测试用：通用组件搭出的万用表触发系统与读数存储。
 state:
+  sense.function:
+    type: enum
+    options: [DCV, ACV]
+    default: DCV
   sense.nplc:
     type: float
     min: 0.02
@@ -38,6 +42,7 @@ components:
   - name: meter
     type: dmm_core
     params:
+      function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
       reading_time: {from: $sense.nplc, scale: 0.02}   # 1 PLC at 50 Hz = 20 ms
   - name: trig
     type: trigger_model
@@ -58,7 +63,10 @@ ports:
   instrument:
     IN: input.pin
 commands:
+  - {header: "[:SENSe]:FUNCtion", state: sense.function}
   - {header: "[:SENSe]:VOLTage[:DC]:NPLC", state: sense.nplc}
+  - {header: ":MEASure:VOLTage[:DC]", op: meter.measure, set: false, args: {what: DC}}
+  - {header: ":MEASure:VOLTage:AC", op: meter.measure, set: false, args: {what: AC}}
   - {header: ":TRIGger:SOURce", state: trigger.source}
   - {header: ":TRIGger:COUNt", state: trigger.count}
   - {header: ":TRIGger:DELay", state: trigger.delay}

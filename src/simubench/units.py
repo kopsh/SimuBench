@@ -57,6 +57,32 @@ def parse_number(text: str, unit: str | None = None) -> float:
     raise UnitError(f"suffix {suffix!r} does not fit unit {unit!r}")
 
 
+def parse_quantity(text: str) -> tuple[float, str]:
+    """Parse a number with a unit suffix of any base (``10 mV``, ``1 kHz``, ``0.5 A``) as
+    ``(value, base unit)`` for parameters whose unit decides what they mean
+    (metrology-authoring.md 5.2).
+
+    The multiplier moves into the value (``mV`` -> 1e-3 V, ``kHz`` -> 1e3 HZ); the base unit is
+    upper case and empty when the number carries none. ``MHZ`` and ``MOHM`` are mega, ``M``
+    before any other unit is milli, as in :func:`parse_number`. Raises ``ValueError`` when the
+    text is not a number.
+    """
+    s = text.strip()
+    m = _NUMBER.match(s)
+    if not m:
+        raise ValueError(f"not a number: {text!r}")
+    value = float(m.group(0))
+    suffix = s[m.end() :].strip().upper()
+    if not suffix:
+        return value, ""
+    if suffix in ("MHZ", "MOHM"):  # mega only where the unit makes it unambiguous
+        return value * 1e6, suffix[1:]
+    for prefix in sorted(_PREFIXES, key=len, reverse=True):
+        if suffix.startswith(prefix) and len(suffix) > len(prefix):
+            return value * _PREFIXES[prefix], suffix[len(prefix) :]
+    return value, suffix
+
+
 def format_nr3(value: float, digits: int = 6) -> str:
     """Format a float as an IEEE 488.2 NR3 value, e.g. ``+1.000000E+03``."""
     if math.isnan(value):
