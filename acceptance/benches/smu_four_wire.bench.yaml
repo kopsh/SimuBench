@@ -1,0 +1,20 @@
+schema: simubench.bench/2
+name: acceptance-smu-four-wire
+description: SMU 经两根 0.5 Ω 引线接 10 Ω 电阻，sense 端接在电阻两端；二线读到 11 V，四线读到 10 V（issue 91，metrology-authoring.md 6）。
+instruments:
+  smu:
+    model: sb-smu-1
+    label: 源测量单元
+    address: TCPIP0::192.168.1.60::5025::SOCKET
+    state:
+      source.function: CURRent
+      source.current.level: 1.0
+      output.enabled: true
+parts:
+  r1: {type: resistor, dut: true, params: {r: 10.0}}
+wires:
+  - {from: smu.HI, to: r1.A, accessories: [{type: lead, params: {r: 0.5}}]}
+  - {from: r1.B, to: smu.LO, accessories: [{type: lead, params: {r: 0.5}}]}
+  - {from: smu.SENSE_HI, to: r1.A}
+  - {from: smu.SENSE_LO, to: r1.B}
+run: {seed: 5, clock: command}

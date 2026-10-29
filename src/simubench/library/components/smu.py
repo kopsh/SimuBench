@@ -25,6 +25,10 @@ from .trigger import Reading, ReadingBuffer
 OPEN = 9.91e37  # SCPI "not a number" for a resistance with no current
 STAT_LIMIT = 8
 CONDITION_LIMIT = 1 << 14
+#: Resistance of the internal bond from the LO terminal to the bench ground when the LO is not
+#: floating: small enough to be invisible at reading precision, real enough that two SMUs' bonded
+#: LOs on one net stay solvable.
+BOND_R = 1e-6
 
 
 def _sign(x: float) -> float:
@@ -37,7 +41,14 @@ def _flag(value: Any) -> bool:
 
 @component("smu_core")
 class SmuCore(Component):
-    """Source with a limit and a meter on HI (LO is the bench ground).
+    """Source with a limit and a meter on HI/LO, with optional remote sense (four-wire).
+
+    The voltage loop regulates the metered points: ``V(sense_hi) − V(sense_lo)`` with remote sense
+    on, otherwise the force terminals (``V(hi) − V(lo)``; with ``floating: false`` the LO is bonded
+    to the bench ground, the model's original behaviour). The current always flows through the
+    force terminals. A sense terminal left unconnected while remote sense is on makes the reading
+    operations raise an error (the loop falls back to the force terminals); the bench validator
+    warns about such a bench (metrology-authoring.md 6).
 
     Not a ``driver`` for bench checks: at its limit it sinks current, so a supply on the same net
     is a valid bench (quadrant 2).
@@ -56,7 +67,14 @@ class SmuCore(Component):
     it; ``source_autorange`` follows the level instead.
     """
 
-    ports = {"hi": PortSpec("inout", "electrical")}
+    ports = {
+        "hi": PortSpec("inout", "electrical"),
+        "lo": PortSpec("inout", "electrical"),
+        "sense_hi": PortSpec("in", "electrical"),
+        "sense_lo": PortSpec("in", "electrical"),
+    }
+    sense_ports = ("sense_hi", "sense_lo")
+    sense_param = "remote_sense"
     units = {"source_range": "V", "measure_range_voltage": "V", "measure_range_current": "A"}
     defaults = {
         "function": "VOLTage",  # VOLTage | CURRent: what the terminal is forced to
@@ -65,6 +83,8 @@ class SmuCore(Component):
         "i_limit": 105e-6,  # A, current limit in voltage mode
         "v_limit": 21.0,  # V, voltage limit in current mode
         "output": False,  # False: the terminal floats
+        "remote_sense": False,  # False: sense internally connected to the force terminals
+        "floating": False,  # False: LO bonded to the bench ground
         "nplc": 1.0,  # reading time in power line cycles
         "autozero": True,  # autozero on: an extra phase and firmware per reading
         "line_freq": 60.0,  # Hz, mains frequency nplc refers to
@@ -155,13 +175,46 @@ class SmuCore(Component):
 
     # ---- circuit --------------------------------------------------------------------------------
 
+    def _remote(self) -> bool:
+        """Remote sense in force: the setting is on and both sense terminals are wired, apart."""
+        if not (bool(self.param("remote_sense")) and self.wired("sense_hi") and self.wired("sense_lo")):
+            return False
+        # Both sense terminals on one net would make the constraint unsolvable: fall back.
+        return self.session.node_of(self, "sense_hi") != self.session.node_of(self, "sense_lo")
+
+    def sense_fault(self) -> bool:
+        """Remote sense is switched on but the sense terminals cannot serve it."""
+        return bool(self.param("remote_sense")) and not self._remote()
+
+    def _low_node(self) -> str | None:
+        """The node the meter's low terminal references: the LO net when floating, else ground."""
+        return "lo" if self.param("floating") else None
+
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
+        floating = bool(self.param("floating"))
+        if not floating and self.wired("lo"):
+            # LO bonded to the bench ground: anything wired to LO reaches ground through it.
+            circuit.resistor(node("lo"), GROUND, BOND_R)
         if not self.on():
             return
+        if floating and self.session.node_of(self, "hi") == self.session.node_of(self, "lo"):
+            floating = False  # force terminals shorted: drive them against ground, not themselves
         if self.mode == "V":
-            circuit.source(node("hi"), self.uid + "/v", 0.0)  # ideal: its current is solved exactly
+            if self._remote():
+                circuit.loop_source(
+                    node("sense_hi"),
+                    node("sense_lo"),
+                    node("hi"),
+                    node("lo") if floating else GROUND,
+                    self.uid + "/v",
+                )
+            else:
+                low = node("lo") if floating else GROUND
+                circuit.loop_source(node("hi"), low, node("hi"), low, self.uid + "/v")
         else:
             circuit.current(node("hi"), self.uid + "/i")
+            if floating:
+                circuit.current(node("lo"), self.uid + "/i", sign=-1.0)
 
     def emf(self) -> dict[str, Signal]:
         if not self.on():
@@ -171,10 +224,17 @@ class SmuCore(Component):
             return {self.uid + "/v": Signal.constant(v)}
         return {self.uid + "/i": Signal.constant(i)}
 
+    def _metered_dc(self, dc_voltage: Callable[[str], float]) -> float:
+        """The DC voltage the loop regulates and the meter reads, from solved port voltages."""
+        if self._remote():
+            return dc_voltage("sense_hi") - dc_voltage("sense_lo")
+        low = self._low_node()
+        return dc_voltage("hi") - (dc_voltage(low) if low else 0.0)
+
     def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
         if not self.on():
             return False
-        v_node = dc_voltage("hi")
+        v_node = self._metered_dc(dc_voltage)
         old = (self.mode, self.limit_sign)
         if self._forcing_voltage():
             setpoint = float(self.param("v_level"))
@@ -199,8 +259,9 @@ class SmuCore(Component):
         bound = {v: k for k, v in self.bound_paths().items()}
         if bound.get(path) == "line_freq" and float(new) not in (50.0, 60.0):
             raise ScpiError(-222, "line frequency is 50 or 60 Hz")
-        if bound.get(path) in ("function", "output"):
-            # A new source function or a restarted output starts from the setpoint's own loop.
+        if bound.get(path) in ("function", "output", "remote_sense", "floating"):
+            # A new source function, a restarted output or a re-wired sense starts from the
+            # setpoint's own loop.
             self.mode = "V" if self._forcing_voltage() else "I"
             self.limit_sign = 1.0
 
@@ -212,13 +273,22 @@ class SmuCore(Component):
     # ---- measuring ------------------------------------------------------------------------------
 
     def reading(self) -> tuple[float, float]:
-        """(terminal voltage, current out of HI) at the operating point."""
+        """(metered voltage, current out of the force HI terminal) at the operating point.
+
+        The voltage is the metered differential: sense terminals with remote sense on, otherwise
+        the force terminals (against ground unless the LO floats). With remote sense on but a sense
+        terminal unconnected, the reading operations report an error instead of a number.
+        """
         if not self.on():
             return 0.0, 0.0
-        v_node = self.pin_signal("hi").mean()
+        v_node = self._metered_dc(lambda p: self.pin_signal(p).mean())
         if self.mode == "V":
             return v_node, self.session.source_current(self.uid + "/v")
         return v_node, self._targets()[1]
+
+    def _check_sense(self) -> None:
+        if self.sense_fault():
+            raise ScpiError(-221, "remote sense is on but a sense terminal is not connected")
 
     def _measure_range(self, function: str, value: float) -> float | None:
         """The measure range a reading of ``function`` uses (None: the function does not range):
@@ -291,6 +361,7 @@ class SmuCore(Component):
 
     def run_begin(self) -> None:
         """A run starts: remember the source settings; the sweep drives them until run_done."""
+        self._check_sense()  # the run's readings would report the fallback loop, refuse instead
         self._saved = {k: self.overrides.get(k) for k in ("v_level", "i_level", "function", "output")}
 
     def run_done(self) -> None:
@@ -352,6 +423,7 @@ class SmuCore(Component):
     def op_measure(self, **_: Any) -> OpResult:
         """One reading with the source as configured, whatever the sweep mode; it replaces the
         reading memory (one reading is what the panel and ``FETCh?`` show until the next run)."""
+        self._check_sense()
         t = self.reading_time(0.0)
         row = self._row(t)
         buffer = self._reading_buffer()

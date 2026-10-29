@@ -86,6 +86,7 @@ export function isReferenceRef(session: SessionInfo, ref: string): boolean {
 export function accessoryLabel(type: string, params: Record<string, unknown>): string {
   if (type === "passive_probe") return `${numeric(params.attenuation ?? 10)}×`;
   if (type === "coax_cable") return "coax";
+  if (type === "lead") return `${numeric(params.r ?? 0.1)} Ω`;
   return type;
 }
 
