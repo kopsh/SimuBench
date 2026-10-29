@@ -10,6 +10,7 @@ on:
     types: [completed]
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -28,6 +29,8 @@ jobs:
             fi
             # Only the commit CI tested: a newer push waits for its own CI run.
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"
+            # The merge's push starts no workflow (it is the workflow token's): run main's checks now.
+            gh workflow run ci.yml --repo "$REPO" --ref main
           done
         env:
           GH_TOKEN: ${{ github.token }}

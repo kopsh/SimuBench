@@ -1,11 +1,13 @@
 # Pull requests run the fast checks only (ubuntu: Python and web); merge.yml merges on them. The slow
 # ones (Windows, the wheel, end-to-end and visual tests) run after a merge, on main, and do not hold
-# up merging: when one is red on main, fixing it is the next task.
+# up merging: when one is red on main, fixing it is the next task. A merge by merge.yml pushes with
+# the workflow token, which starts no workflow, so merge.yml dispatches this one on main itself.
 name: CI
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
