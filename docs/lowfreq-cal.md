@@ -41,10 +41,10 @@ python examples/lowfreq-cal/lowfreq_cal_demo.py --bench examples/lowfreq-cal/low
 instruments:
   scope:
     model: lfcal-reference-scope
-    idn: "LECROY,LFCAL-REFSCOPE,{serial},{firmware}"   # 把型号段改成主机校验的型号串
+    idn: "LECROY,LFCAL-REFSCOPE,{serial},{firmware}"   # 用户自定义：整串照真机的 *IDN? 回复填写
 ```
 
-预设中的 `LFCAL-REFSCOPE`、`LFCAL-CALIBRATOR` 是占位型号串：需求没有给出主机约定的 token，部署前按主机程序改成约定值。
+`idn` 由用户自定义：主机脚本校验什么（型号段、厂商段或整串），就照所替换真机的 `*IDN?` 回复填写；可以写死整串，也可以保留 `{serial}`、`{firmware}` 等字段（序列号、固件版本也可用实例的 `serial`、`firmware` 单独设定）。不写 `idn` 时用定义中的默认值（预设里的 `LFCAL-REFSCOPE`、`LFCAL-CALIBRATOR` 只是示例值）。同一套定义可以配多份测试台，各自模拟不同型号串的真机。示例脚本的 `--scope-model`、`--calibrator-model` 指定它校验的型号串，与 `idn` 保持一致即可。
 
 ## 3. 两台仪器的定义属于哪一类
 

@@ -8,6 +8,6 @@ python examples/lowfreq-cal/lowfreq_cal_demo.py --calibrator TCPIP0::127.0.0.1::
     --scope TCPIP0::127.0.0.1::5026::SOCKET
 ```
 
-部署前把 `lowfreq_cal.bench.yaml` 中两台仪器 `idn` 的型号段改成主机程序校验的型号串。
+两台仪器的 `*IDN?` 由用户自定义：在 `lowfreq_cal.bench.yaml` 中按主机脚本校验的内容填写各自的 `idn`（照所替换真机的 `*IDN?` 回复）。
 
 两份仪器定义按主机程序的接口契约编写，不是按型号手册实现的真实型号（D42）；文中的厂商名只用于指明命令方言，SimuBench 与该厂商没有关联。

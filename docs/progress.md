@@ -139,7 +139,7 @@
 | 平台：`unknown_commands: ignore`、定义中的公共命令、测试台实例的 `idn`、`output_stage` 的 `hiz_from`、`coax_cable` 的趋肤效应 | ✅ 单元测试；schemas 与前端类型已重新生成 |
 | AC-1 主机流程经 raw socket 完成；AC-2 30 000 / 100 000 点；AC-3 频响合法且单调；AC-4 同种子一致 | ✅ `acceptance/test_lowfreq_cal_scenario.py`（pyvisa-py，真实套接字） |
 | AC-5 未启用平台时真实硬件路径不受影响 | ✅ 主机程序与其配置不被修改，只换地址 |
-| 主机约定的 `*IDN?` 型号串 | ⏳ 需求未给出；预设为占位串，部署前在测试台 `idn` 中改为约定值 |
+| `*IDN?` 由用户自定义（主机脚本校验 IDN） | ✅ 测试台实例的 `idn`，可写整串或带 `{serial}` 等字段；`test_bench_idn_overrides_the_definition` |
 | 用真实主机程序跑一遍 | ⏳ 需要主机程序；验收测试以按契约编写的示例脚本代替 |
 
 ## 仪表内部组件图（Issue 20，D3）
