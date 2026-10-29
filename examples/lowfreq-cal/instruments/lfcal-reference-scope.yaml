@@ -164,9 +164,27 @@ components:
   - name: acq
     type: lecroy_acquisition
     params:
+      # 记录正好 MSIZ 点、覆盖 10 格（采样率 MSIZ / 10 TDIV，最高 20 GSa/s，不取仪器的采样率表）。
+      record_length: exact
+      points: $memory.size
       max_rate: 2.0e10
-      # 假设值（不是数据手册数值）：12 位 ADC，输入端 200 µV rms 白噪声；测试台可用 hidden 覆盖。
+      search_windows: 2
+      # 每个通道有自己的触发电平与触发沿（C<n>:TRLV、C<n>:TRSL）。
+      trigger_level: $ch{n}.trigger_level
+      trigger_slope: $ch{n}.trigger_slope
+      # TRMD：SINGLE 采集一次后变为 STOP；AUTO / NORM 下从第一点开始的读取取新的采集，后续分段读同一记录；
+      # 没有记录的通道读取时按当前信号采一次（事件中记为 forced）。
+      single: [SINGLE]
+      stop: [STOP]
+      after_single: STOP
+      reacquire: on_read_start
+      missing: acquire
+      untriggered: record
+      # 假设值（不是数据手册数值）：12 位 ADC 覆盖 ±5 格，输入端 200 µV rms 白噪声，按采集序号取值；
+      # 测试台可用 hidden 覆盖。
       adc_bits: 12
+      adc_divs: 10.0
+      adc_offset: add
       noise_rms: 2.0e-4
   - name: xfer
     type: waveform_transfer
@@ -235,9 +253,10 @@ commands:
       - {name: type, type: enum, state: trigger.type}
       - {name: rest, type: pairs, optional: true, keys: {SR: trigger.source, HT: trigger.hold, HV: null}}
   - header: "TRig_MoDe"
-    op: acq.trig_mode
+    op: acq.run_mode
+    reply: "{header} {value}"
     params: [{name: mode, type: enum, options: [AUTO, NORMal, SINGLE, STOP], optional: true}]
-  - {header: "ARM_acquisition", op: acq.arm, query: false}
+  - {header: "ARM_acquisition", op: acq.single, query: false}
   - {header: "STOP", op: acq.stop, query: false}
   - {header: "FoRce_TRigger", op: acq.force_trigger, query: false}
   - header: "WAIT"

@@ -1,20 +1,16 @@
-"""Siglent SDS oscilloscope acquisition (real model, D42): run control, WAVEDESC preamble, codes.
+"""Siglent SDS oscilloscope acquisition (real model, D42): status, WAVEDESC preamble, limits.
 
-Behavior follows the *SDS Series Digital Oscilloscope Programming Guide* EN11F; the trigger search
-and sampling are the shared oscilloscope engine (:class:`ScopeAcquisition`). What differs from the
-``sb-*`` scopes:
+Behavior follows the *SDS Series Digital Oscilloscope Programming Guide* EN11F. Run control, the
+record length (memory management AUTO: rate = min(maximum rate, depth / 10 div) on a 1-2-5 ladder),
+noise and the ADC are the configurable :class:`ScopeAcquisition`, set in the definition
+(``siglent-sds2104xplus.yaml``). What only this model has:
 
-* run control is the trigger mode: ``:TRIGger:MODE SINGle`` acquires once and stops,
-  ``:TRIGger:STATus?`` reports ``Stop`` / ``Trig'd`` / ``Auto`` / ``Ready``; a running scope
-  (AUTO or NORMal) hands out a fresh acquisition for every read;
-* the record length follows the sample rate, the memory depth and the timebase
-  (memory management AUTO): rate = min(maximum rate, depth / 10 div), on a 1-2-5 ladder;
+* ``:TRIGger:STATus?`` reports ``Stop`` / ``Trig'd`` / ``Auto`` / ``Ready``;
 * ``:WAVeform:PREamble?`` is the 346-byte binary WAVEDESC block (little-endian) in a ``#9``
-  block; ``:WAVeform:DATA?`` signed codes with ``volts = code / code_per_div * vdiv - offset`` in
-  a block whose header has as many digits as the length needs (since E11D); both are followed by
-  an extra line feed (the manual's "0A 0A" end of data);
-* 8-bit codes have 30 codes per division; in 10-bit mode a WORD carries the code left-aligned in
-  16 bits, so the preamble reports 30 * 256 codes per division.
+  block, followed by an extra line feed (the manual's "0A 0A" end of data); in 10-bit mode a WORD
+  carries the code left-aligned in 16 bits, so it reports 30 * 256 codes per division;
+* limits that depend on other settings (trigger level, delay), ``:ACQuire:TYPE`` with its count,
+  ``:CHANnel<n>:PROBe`` and the read-only acquisition figures.
 """
 
 from __future__ import annotations
@@ -26,12 +22,10 @@ from typing import Any
 import numpy as np
 
 from ...engine.component import Component, OpResult, component, op
-from ...engine.noise import gaussian, stream_key
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
-from .scope import DIVS_H, FALLING, RISING, Record, ScopeAcquisition, _measure, channel_index
+from .scope import Record, ScopeAcquisition, _measure, channel_index
 
-CODES_PER_DIV = 30
 #: :WAVeform:MAXPoint? of the SDS2000X Plus (manual example).
 MAX_POINT = 10_000_000
 #: Time/div enumeration of the WAVEDESC (manual's waveform example).
@@ -61,51 +55,14 @@ def _block9(payload: bytes) -> bytes:
     return b"#9" + f"{len(payload):09d}".encode() + payload
 
 
-def _depth(text: str) -> int:
-    t = text.strip().upper()
-    mult = {"K": 1_000, "M": 1_000_000, "G": 1_000_000_000}.get(t[-1:], 1)
-    return round(float(t.rstrip("KMG")) * mult)
-
-
-def _ladder_down(value: float) -> float:
-    """Largest 1-2-5 step not above ``value`` (sample rates come in such steps)."""
-    k = math.floor(math.log10(value))
-    for m in (5.0, 2.0, 1.0):
-        if m * 10.0**k <= value * (1 + 1e-12):
-            return m * 10.0**k
-    return 10.0 ** (k - 1) * 5.0
-
-
 @component("siglent_sds_acquisition")
 class SiglentSdsAcquisition(ScopeAcquisition):
-    """SDS-series run control, record length and waveform transfer on the shared scope engine."""
+    """SDS-series status, WAVEDESC and setting limits on the configurable scope acquisition."""
 
     defaults = {
         **ScopeAcquisition.defaults,
-        "max_rate": 2e9,  # interleaved: one of CH1/CH2 and one of CH3/CH4 on (data sheet)
-        "max_rate_both": 1e9,  # non-interleaved
         "level_divs": 4.1,  # trigger level range: +-4.1 div around the offset
-        "trigger_level": "$trigger.level",
-        # Data sheet: "only 80 uV rms at 500 MHz bandwidth"; white noise scales with sqrt(bandwidth),
-        # so this 100 MHz model has 80 uV * sqrt(100/500) at its input.
-        "noise_rms": 80e-6 * math.sqrt(100 / 500),
-        "trigger_jitter_s": 10e-12,
-        "delay": "$timebase.delay",
-        "tdiv": "$timebase.scale",
     }
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.running = True
-        self.single_armed = False
-        self.last_triggered = False
-
-    def reset(self) -> None:
-        super().reset()
-        self.running = True
-        self.single_armed = False
-        self.last_triggered = False
-        self.acq_count = 0
 
     # ---- limits that depend on other settings (raise -222 and keep the old value) ---------------
 
@@ -123,191 +80,10 @@ class SiglentSdsAcquisition(ScopeAcquisition):
             if not -5000 * tb * (1 + 1e-9) <= float(new) <= 5 * tb * (1 + 1e-9):
                 raise ScpiError(-222, "delay outside [-5000 div, 5 div]")
 
-    # ---- timing ---------------------------------------------------------------------------------
-
-    def sample_rate(self) -> float:
-        on = {n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")}
-        both = {1, 2} <= on or {3, 4} <= on
-        top = float(self.param("max_rate_both" if both else "max_rate"))
-        window = DIVS_H * float(self._st("timebase.scale"))
-        return min(top, _ladder_down(_depth(str(self._st("acquire.mdepth"))) / window))
-
-    def _timing(self) -> tuple[int, float, int, int]:
-        rate = self.sample_rate()
-        tb = float(self._st("timebase.scale"))
-        points = max(2, round(rate * DIVS_H * tb))
-        dt = 1.0 / rate
-        # Time of sample 0 is delay - 5 div (manual): the trigger sits at (5 div - delay) / dt.
-        pre = round((DIVS_H / 2 * tb - float(self._st("timebase.delay"))) / dt)
-        return points, dt, pre, points - pre
-
-    def compute(self, channels: list[int]) -> tuple[dict[int, Record], int, bool]:
-        points, dt, pre, post = self._timing()
-        t0 = self.session.now_ns
-        trig_src = str(self._st("trigger.source"))
-        if trig_src.startswith("C"):
-            sig = self._display_signal(channel_index(trig_src))
-            k, triggered = self._search(sig, t0, dt, pre, points)
-        else:  # EX, EX5, LINE: nothing modeled drives them; the scope never triggers
-            k, triggered = pre, False
-        start = k - pre
-        idx = np.arange(points)
-        t_start_ns = t0 + round(start * dt * 1e9)
-        # Trigger jitter (data sheet: < 10 ps rms): where the record sits around the edge.
-        jitter = float(self.param("trigger_jitter_s")) * float(
-            gaussian(stream_key(self.session.seed, self.uid, "jitter"), np.array([t_start_ns]))[0]
-        )
-        records = {}
-        for n in channels:
-            volts = self._display_signal(n).sample_rel(t0, (start + idx) * dt + jitter)
-            scale, offset = float(self._st(f"ch{n}.scale")), float(self._st(f"ch{n}.offset"))
-            volts = volts + self._noise(n, t_start_ns, dt, points)
-            records[n] = Record(
-                channel=n,
-                t_start_ns=t_start_ns,
-                dt_s=dt,
-                trigger_index=pre,
-                volts=self._quantize(volts, scale, offset),
-                scale=scale,
-                offset=offset,
-                triggered=triggered,
-            )
-        used = (k + max(post, 0)) * dt + float(self.param("overhead_s"))
-        if self._st("acquire.type") == "AVERage":
-            used += (int(self._st("acquire.average")) - 1) * round(used)  # N acquisitions in all
-        return records, round(used * 1e9), triggered
-
-    # ---- noise and the ADC (issue 24) ---------------------------------------------------------------
-
-    def _noise(self, n: int, t_start_ns: int, dt: float, points: int) -> np.ndarray:
-        """Input noise in display volts, a pure function of the seed and the sample instants.
-
-        White at ``noise_rms`` (input-referred, the data sheet's floor scaled to this bandwidth),
-        times the probe ratio; averaging N acquisitions leaves 1/sqrt(N) of it.
-        """
-        sigma = float(self.param("noise_rms")) * float(self._st(f"ch{n}.probe"))
-        if sigma <= 0:
-            return np.zeros(points)
-        if self._st("acquire.type") == "AVERage":
-            sigma /= math.sqrt(int(self._st("acquire.average")))
-        first = math.floor(t_start_ns * 1e-9 / dt)  # sample n of the absolute sample grid
-        key = stream_key(self.session.seed, self.uid, "noise", n, dt, str(self._st("acquire.type")))
-        return sigma * gaussian(key, first + np.arange(points))
-
-    def _quantize(self, volts: np.ndarray, scale: float, offset: float) -> np.ndarray:
-        """What the ADC keeps: the codes of the current resolution, back in volts."""
-        bits = self._bits()
-        per_div = CODES_PER_DIV * (1 << (bits - 8))
-        half = 1 << (bits - 1)
-        codes = np.clip(np.round((volts + offset) / scale * per_div), -half, half - 1)
-        return codes / per_div * scale - offset
-
-    def _search(self, sig: Any, t0: int, dt: float, pre: int, points: int) -> tuple[int, bool]:
-        """First qualifying edge at or after ``pre`` samples (enough history before the trigger)."""
-        level = float(self._st("trigger.level"))
-        slope = self._st("trigger.slope")
-        n = channel_index(self._st("trigger.source"))
-        hyst = 0.02 * 8 * float(self._st(f"ch{n}.scale"))
-        span = max(points * int(self.param("search_windows")), pre + 2 * points)
-        idx = np.arange(span)
-        v = sig.sample_rel(t0, idx * dt)
-        best: int | None = None
-        for wanted, armed_side, crossed in (
-            (slope in RISING, v < level - hyst, v >= level),
-            (slope in FALLING, v > level + hyst, v <= level),
-        ):
-            if not wanted:
-                continue
-            armed = np.nonzero(armed_side & (idx >= pre - 1))[0]
-            if armed.size:
-                after = np.nonzero(crossed & (idx > armed[0]))[0]
-                if after.size and (best is None or after[0] < best):
-                    best = int(after[0])
-        return (pre, False) if best is None else (best, True)
-
-    def displayed(self) -> list[int]:
-        return [n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")]
-
     # ---- run control ------------------------------------------------------------------------------
 
-    def _acquire_now(self, force: bool = False) -> int:
-        records, used, triggered = self.compute(self.displayed())
-        self.last_triggered = triggered
-        if not triggered and not force and self._st("trigger.mode") in ("NORMal", "SINGle"):
-            return used  # waiting for a trigger: the previous records stay
-        return self.acquire_records(records, used)
-
-    def acquire_records(self, records: dict[int, Record], used: int) -> int:
-        """Keep ``records`` as the latest acquisition and log its recipe (D36)."""
-        self.records.update(records)
-        self.acq_count += 1
-        self.session.invalidate()
-        if self.owner is not None:
-            self.session.instrument_event(
-                self.owner,
-                "acquisition",
-                {
-                    "count": self.acq_count,
-                    "channels": {
-                        str(ch): {
-                            "t_start_ns": rec.t_start_ns,
-                            "dt_s": rec.dt_s,
-                            "points": int(rec.volts.size),
-                            "trigger_index": rec.trigger_index,
-                            "triggered": rec.triggered,
-                        }
-                        for ch, rec in sorted(records.items())
-                    },
-                    "seed": self.session.seed,
-                },
-            )
-        return used
-
-    def _fresh(self) -> int:
-        """A running scope hands out the newest acquisition: acquire now. Returns the time used."""
-        if self.running and self._st("trigger.mode") in ("AUTO", "NORMal"):
-            return self._acquire_now()
-        return 0
-
-    @op("trigger_mode")
-    def trigger_mode(self, query: bool = False, mode: str | None = None, **_: Any) -> OpResult:
-        if query:
-            return OpResult(str(self._st("trigger.mode")).encode())
-        if mode is None:
-            raise ScpiError(-109)
-        assert self.owner is not None
-        self.owner.set_state("trigger.mode", mode)
-        if mode == "SINGle":
-            self.running, self.single_armed = True, True
-            used = self._acquire_now()
-            if self.last_triggered:
-                self.running, self.single_armed = False, False
-            return OpResult(duration_ns=used)
-        if mode == "FTRIG":  # force one frame whatever the trigger condition, then stop
-            used = self._acquire_now(force=True)
-            self.running = False
-            return OpResult(duration_ns=used)
-        self.running, self.single_armed = True, False
-        return OpResult()
-
-    @op("run")
-    def run(self, **_: Any) -> OpResult:
-        self.running = True
-        if self._st("trigger.mode") == "SINGle":
-            self.single_armed = True
-            used = self._acquire_now()
-            if self.last_triggered:
-                self.running, self.single_armed = False, False
-            return OpResult(duration_ns=used)
-        return OpResult()
-
-    @op("stop")
-    def stop(self, **_: Any) -> OpResult:
-        self.running, self.single_armed = False, False
-        return OpResult()
-
     def status(self) -> str:
-        if not self.running:
+        if not self.is_running():
             return "Stop"
         mode = self._st("trigger.mode")
         if mode == "SINGle":
@@ -399,9 +175,6 @@ class SiglentSdsAcquisition(ScopeAcquisition):
 
     # ---- waveform transfer ------------------------------------------------------------------------
 
-    def _bits(self) -> int:
-        return 10 if self._st("acquire.resolution") == "10Bits" else 8
-
     def _selection(self, rec: Record) -> tuple[np.ndarray, int, int]:
         start = int(self._st("waveform.start"))
         count = int(self._st("waveform.point"))
@@ -411,26 +184,9 @@ class SiglentSdsAcquisition(ScopeAcquisition):
             sel = sel[:count]
         return sel, start, step
 
-    def _codes(self, rec: Record) -> tuple[np.ndarray, float, int]:  # type: ignore[override]
-        """ADC codes at the record's resolution: (codes, codes per division, ADC bits)."""
-        bits = self._bits()
-        per_div = CODES_PER_DIV * (1 << (bits - 8))
-        half = 1 << (bits - 1)
-        codes = np.round((rec.volts + rec.offset) / rec.scale * per_div)
-        return np.clip(codes, -half, half - 1).astype(np.int64), float(per_div), bits
-
-    def _wave_record(self) -> tuple[Record | None, int]:
-        used = self._fresh()
-        return self.records.get(self._source()), used
-
-    def transfer_record(self, channel: int, first: int) -> tuple[Record | None, int]:
-        """A running scope hands out the newest acquisition (``:WAVeform:DATA?``)."""
-        used = self._fresh()
-        return self.records.get(channel), used
-
     @op("wav_preamble")
     def wav_preamble(self, **_: Any) -> OpResult:
-        rec, used = self._wave_record()
+        rec, used = self.read_record(channel_index(self._st("waveform.source")))
         if rec is None:
             assert self.owner is not None
             self.owner.push_error(-230, "no acquisition for this source")
@@ -442,7 +198,7 @@ class SiglentSdsAcquisition(ScopeAcquisition):
         probe = float(self._st(f"ch{n}.probe"))
         sel, start, step = self._selection(rec)
         word = self._st("waveform.width") == "WORD"
-        _, per_div, bits = self._codes(rec)
+        per_div, bits = self.adc_codes_per_div(), int(self.param("adc_bits"))
         if bits > 8:
             per_div *= 1 << (16 - bits)  # left-aligned in a 16-bit word
         tb = float(self._st("timebase.scale"))
@@ -477,13 +233,7 @@ class SiglentSdsAcquisition(ScopeAcquisition):
         what = SIMPLE_MEASUREMENTS.get(kind.upper())
         if what is None:
             raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
-        used = self._fresh()
-        n = channel_index(self._st("measure.source"))
-        rec = self.records.get(n)
-        if rec is None:
-            records, t, _ = self.compute([n])
-            used += self.acquire_records(records, t)
-            rec = self.records[n]
+        rec, used = self.measure_record(channel_index(self._st("measure.source")))
         value = _measure(what, rec.volts, rec.dt_s)
         return OpResult(self._nr3(value if math.isfinite(value) else 9.9e37), used)
 

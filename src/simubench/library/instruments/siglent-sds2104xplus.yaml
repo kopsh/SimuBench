@@ -258,6 +258,30 @@ channel_state:
 components:
   - name: acq
     type: siglent_sds_acquisition
+    params:
+      # 存储管理 AUTO：采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
+      record_length: rate_ladder
+      points: $acquire.mdepth
+      max_rate: 2.0e9
+      max_rate_paired: 1.0e9
+      rate_pairs: [[1, 2], [3, 4]]
+      delay: $timebase.delay  # 第 0 点在 delay - 5 格
+      # :TRIGger:MODE：SINGle 采集一次后停止（模式不变），FTRIG 不论触发强制一帧后停止；运行中每次读取都取新的采集。
+      single: [SINGle]
+      force: [FTRIG]
+      reacquire: every_read
+      untriggered: record
+      # ADC：8 位每格 30 码，10 位每格 120 码；偏移设置加到电压上（volts = code / 每格码数 * vdiv - offset）。
+      adc_bits: {from: $acquire.resolution, map: {8Bits: 8, 10Bits: 10}}
+      adc_codes_per_div: {from: $acquire.resolution, map: {8Bits: 30.0, 10Bits: 120.0}}
+      adc_offset: add
+      # 噪声底（specs.noise_floor，D46）：80 µV × √(100/500)，按绝对采样序号取值；采集方式各用一组噪声。
+      noise_rms: 3.577708763999664e-05
+      noise_key: time
+      noise_stream: $acquire.type
+      trigger_jitter_s: 10.0e-12
+      averaging: {from: $acquire.type, map: {AVERage: true}, default: false}
+      averages: $acquire.average
   - name: xfer
     type: waveform_transfer
     params:
@@ -351,7 +375,7 @@ commands:
   - {header: ":TIMebase:SCALe", state: timebase.scale}
   # ---- TRIGger ----
   - header: ":TRIGger:MODE"
-    op: acq.trigger_mode
+    op: acq.run_mode
     params: [{name: mode, type: enum, options: [SINGle, NORMal, AUTO, FTRIG], optional: true}]
   - {header: ":TRIGger:RUN", op: acq.run, query: false}
   - {header: ":TRIGger:STATus", op: acq.status, set: false}
