@@ -118,3 +118,19 @@ def test_saving_keeps_preset_faults_and_the_register():
     assert data["assets"] == [{"serial": "MY001", "cal_due": "2026-06-30"}]
     assert data["run"]["start"].startswith("2026-05-01T08:00:00")
     assert BenchDefinition.model_validate(data) == bench
+
+
+def test_set_identity():
+    idn = "LECROY,WAVEPRO 254HD,{serial},{firmware}"
+    b = apply(
+        empty(),
+        ops(
+            {"op": "add_instrument", "name": "scope", "model": "sb-dso-2x"},
+            {"op": "set_identity", "instrument": "scope", "idn": idn, "serial": "X1"},
+        ),
+    )
+    inst = b.instruments["scope"]
+    assert (inst.idn, inst.serial, inst.firmware) == (idn, "X1", None)
+    assert apply(b, ops({"op": "set_identity", "instrument": "scope"})).instruments["scope"].idn is None
+    with pytest.raises(EditError, match="nope"):
+        apply(b, ops({"op": "set_identity", "instrument": "nope", "idn": "x"}))

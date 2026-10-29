@@ -185,6 +185,9 @@ class ScopeAcquisition(Component):
         "noise_key": "acquisition",  # acquisition | time
         "noise_stream": "",  # a setting that selects another noise stream (time key)
         "trigger_jitter_s": 0.0,  # rms offset of each record around the trigger, s
+        "measurements": {},  # named measurements (op measurement): {AMPL: [VAMPlitude, V], ...}
+        "invalid_value": "UNDEF",  # a named measurement's value when it cannot be measured
+        "status": ["OK", "UF"],  # a named measurement's status: measured, cannot be measured
         "averaging": False,  # averaging on: noise / sqrt(averages), averages times the time
         "averages": 1,  # acquisitions averaged
     }
@@ -571,6 +574,32 @@ class ScopeAcquisition(Component):
         assert self.owner is not None
         self.owner.esr |= 1
         return OpResult(duration_ns=used)
+
+    @op("measurement", fields=("kind", "unit", "status"))
+    def measurement(self, channel: int | None = None, kind: str | None = None, **_: Any) -> OpResult:
+        """A named measurement on the channel's record (``C1:PAVA? AMPL``): ``measurements`` maps the
+        model's names to the engine's (VPP, VMAX, VMIN, VAMPlitude, VRMS, VAVerage, FREQuency,
+        PERiod) and units. The reply is the value in the definition's number format; the reply
+        template also gets {kind}, {unit} and {status}, e.g. '{header} {kind},{value} {unit},{status}'."""
+        if channel is None:
+            raise ScpiError(-300, f"{self.uid}: a measurement names its channel (<ch>)")
+        table = {str(k).upper(): v for k, v in (self.param("measurements") or {}).items()}
+        name = (kind or "").strip().upper()
+        if name not in table:
+            raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
+        engine_name, unit = table[name]
+        rec, used = self.measure_record(channel)
+        value = _measure(str(engine_name), rec.volts, rec.dt_s)
+        ok, bad = self.param("status")
+        assert self.owner is not None
+        f = self.owner.definition.format
+        text = (
+            (V.format_engineering(value) if f.number == "engineering" else V.format_float(value, f.digits))
+            if math.isfinite(value)
+            else str(self.param("invalid_value")).encode()
+        )
+        fields = {"kind": name, "unit": str(unit), "status": str(ok if math.isfinite(value) else bad)}
+        return OpResult(text, used, fields)
 
     @op("digitize")
     def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:

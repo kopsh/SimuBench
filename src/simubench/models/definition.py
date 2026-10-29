@@ -113,11 +113,18 @@ class ParamSpec(_Model):
         description="type pairs: 'name,value,name,value...'; each name writes the setting it maps to, "
         "null accepts the name and ignores its value. All values are checked before any is set",
     )
+    index: bool = Field(
+        False,
+        description="An int that picks which settings the other parameters write: their state paths name "
+        "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> ParamSpec:
         if (self.type == "pairs") != (self.keys is not None):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
+        if self.index and (self.type != "int" or self.state is not None):
+            raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
         return self
 
 
@@ -169,6 +176,11 @@ class CommandSpec(_Model):
         "operation's reply) and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for "
         "settings; an operation's reply as it is",
     )
+    when: dict[str, str] | None = Field(
+        None,
+        description="Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: "
+        'several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC")',
+    )
     dangerous: bool = False
     doc: str | None = None
 
@@ -183,8 +195,15 @@ class CommandSpec(_Model):
             raise ValueError(
                 f"command {self.header!r}: give one of state, op, or parameters bound to settings"
             )
-        if self.bound_params and len(self.bound_params) != len(self.params):
+        indexes = [p for p in self.params if p.index]
+        if self.bound_params and len(self.bound_params) + len(indexes) != len(self.params):
             raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
+        if indexes and not self.bound_params:
+            raise ValueError(f"command {self.header!r}: an index parameter picks the settings others write")
+        names = {p.name for p in self.params}
+        for key in self.when or {}:
+            if key not in names:
+                raise ValueError(f"command {self.header!r}: when names {key!r}, which is not a parameter")
         return self
 
 

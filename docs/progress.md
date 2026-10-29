@@ -135,7 +135,7 @@
 | 交付物 / 验收标准 | 自检 |
 | --- | --- |
 | D1 参考示波器（LeCroy 风格方言）、D2 示波器校准仪、D4 工作台预设、D5 示例脚本与说明 | ✅ `examples/lowfreq-cal/`；按接口契约编写，不带 `reference`（D42） |
-| D3 私有文本波形回读 `C<n>:INSPECT? "DATA_ARRAY_1",FLOAT` 与 `WAVEFORM_SETUP` 分块 | ✅ 平台组件 `lecroy_acquisition`（#44 起运行控制等为 `scope_acquisition` 的配置）；回复格式、`FP`/`NP`/`SP`、任意点数拼接（`tests/test_lowfreq_cal.py`） |
+| D3 私有文本波形回读 `C<n>:INSPECT? "DATA_ARRAY_1",FLOAT` 与 `WAVEFORM_SETUP` 分块 | ✅ 通用组件 `waveform_transfer` 与 `scope_acquisition` 的配置（#48 起没有专用代码）；回复格式、`FP`/`NP`/`SP`、任意点数拼接（`tests/test_lowfreq_cal.py`） |
 | 平台：`unknown_commands: ignore`、定义中的公共命令、测试台实例的 `idn`、`output_stage` 的 `hiz_from`、`coax_cable` 的趋肤效应 | ✅ 单元测试；schemas 与前端类型已重新生成 |
 | AC-1 主机流程经 raw socket 完成；AC-2 30 000 / 100 000 点；AC-3 频响合法且单调；AC-4 同种子一致 | ✅ `acceptance/test_lowfreq_cal_scenario.py`（pyvisa-py，真实套接字） |
 | AC-5 未启用平台时真实硬件路径不受影响 | ✅ 主机程序与其配置不被修改，只换地址 |
@@ -154,7 +154,8 @@
 | 组件目录：`GET /api/components` 与 MCP `list_components`（含内部组件，端口、参数、op、电路角色），`get_definition` 补充组件、内部连线与端口（issue 41） | ✅ 由组件类生成（参数说明取自 `defaults` 旁的注释，op 参数取自签名）；每个注册的类型都在目录中、op 与静态校验所见一致（`tests/test_component_catalog.py`）；只凭目录写出的最小定义通过静态校验（`tests/test_mcp.py`） |
 | 用例运行：`simubench cases`（JUnit 报告）与 MCP `run_cases`，手册用例与契约用例同一种文件（issue 45） | ✅ `tests/test_real_models.py` 改用同一个运行器，69 项结果不变；低频校准工作台的契约用例 11 条通过（`examples/lowfreq-cal/cases.yaml`）；失败信息、刚上电、JUnit 可解析、MCP（`tests/test_cases.py`、`tests/test_mcp.py`）；契约用例查出并修正 `FP` 超出记录时多一个空格的回归 |
 | MCP 编写仪表定义：`read_definition`、`create_definition`、`edit_definition`（JSON Patch，sha256 乐观并发，版本历史标为 Agent）、`validate_definition`、`draft_definition_from_script`；会话提示“重新启动以应用”（issue 46） | ✅ 从只用契约命令的脚本出发：起草 → 首次运行用例 3 条失败 → 补丁（枚举选项、通道数、型号）→ 校验无诊断 → 用例 4 条全过（`tests/test_mcp.py`）；冲突、坏补丁、只读的库定义、会话的 `stale_definitions`；JSON Patch 与类型推测（`tests/test_definition_authoring.py`） |
-| 插件、验收 | ⏳ issue 47–48 |
+| 验收：只用 YAML、再只用 MCP 重建低频校准工作台（issue 48） | ✅ `lecroy.py` 删除，两份定义只用通用组件；补充 `when`、索引参数、操作应答字段、`system` 组件、命名测量、记录描述、`set_identity`（instrument-authoring.md 2.5）。参考示波器约 35 条命令的回复、虚拟时间与采集事件与改动前一致；从空工作区只用 MCP 搭出的工作台指纹与示例相同，`tests/test_lowfreq_cal.py` 与验收场景在它上面全部通过（`tests/test_lfcal_mcp_rebuild.py`）。没有需要插件的部分 |
+| 插件出口 | ⏳ issue 47 |
 
 ## 仪表内部组件图（Issue 20，D3）
 

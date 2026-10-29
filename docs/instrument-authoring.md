@@ -8,6 +8,8 @@ SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是*
 
 **衡量标准**：不改平台代码，只用 YAML 定义（第二遍：只通过 MCP 工具）重建低频校准工作台（[lowfreq-cal.md](lowfreq-cal.md)），并通过同一组验收测试（`tests/test_lowfreq_cal.py`、`acceptance/test_lowfreq_cal_scenario.py`）。
 
+**结果（#48）**：已达成。低频校准工作台的两份定义只用平台组件与声明式字段写成，`library/components/lecroy.py` 已删除（`calibrator.py` 在 #42 删除），两份定义背后不再有专用代码；从空工作区只调用 MCP 工具（`list_components`、`create_definition`、`validate_definition`、`create_bench` / `edit_bench`、`run_cases`）搭出的工作台与示例的测试台指纹相同，并通过同一组测试（`tests/test_lfcal_mcp_rebuild.py` 在这个工作区上再跑一遍 `tests/test_lowfreq_cal.py` 与验收场景）。没有需要插件的部分。为此补充的通用能力见 2.5。
+
 原则：
 
 1. **声明式优先**：常见的命令方言、应答格式、波形传输与运行控制都能在定义文件里写出来；
@@ -81,6 +83,16 @@ params:
 ### 2.4 公共命令与未知命令
 
 已实现（低频校准工作台）：定义可以给公共命令自己的行为（`*CLS?`），`unknown_commands: ignore`（D42）。保持不变。
+
+### 2.5 #48 补充的声明式字段与通用组件
+
+把参考示波器最后的专用行为改为声明时补充（都与型号无关）：
+
+- **按参数区分的命令** `when`：几条命令共用一个命令头，按参数的取值选择（`C1:INSPECT? "DATA_ARRAY_1"` 回读数据，`"WAVEDESC"` 给出描述）；都不匹配时回复 -224。静态校验只在 `when` 能区分时才不报 `E-DEF-HEADER-DUPLICATE`。
+- **索引参数** `index: true`：多状态命令的一个整数参数选择其他参数写哪组设置，状态路径中写作 `{名称}`：`PACU 1,AMPL,C1` 写 `measure.p1.kind` 与 `measure.p1.source`；查询也带它（`PACU? 1` → `PACU 1,AMPL,C1`），没有设置的可选值不写出（`PACU 1,NULL`）。静态校验按索引的取值范围检查每个状态。枚举的默认值可以是 `""`（尚未设置）。
+- **操作应答的字段**：操作可以在结果中给出命名字段（`@op(fields=...)`），命令的 `reply` 模板引用它们：`'{header} {kind},{value} {unit},{status}'`（`C1:PAVA AMPL,200.1E-3 V,OK`）。组件目录与静态校验都认得这些字段。
+- **通用组件与操作**：`system`（`clear_status`：`*CLS` 及其查询的回复；`reset`：与 `*RST` 相同的预置）；`scope_acquisition.measurement`（按 `measurements` 表的命名测量，值不能测量时为 `invalid_value` 与 `status` 的第二项）；`waveform_transfer.describe`（按 `descriptor` 的格式写出记录的点数、首点、抽点、采样间隔、偏移、增益、时基与采集次数）。输入阻抗、前端耦合用 `input_port` 与 `scope_frontend` 加参数映射表达。
+- **测试台编辑** `set_identity`：设置实例的 `idn`、`serial`、`firmware`（MCP 原来无法写出 `*IDN?` 的型号串）。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
@@ -218,6 +230,6 @@ params:
 | #45 | `simubench cases` 与 MCP `run_cases`（5.5）（已完成） | — |
 | #46 | MCP 编写工具：创建、编辑、校验、由脚本生成定义草稿（5.4）（已完成） | #40、#41、#45 |
 | #47 | 插件出口：入口点与工作区插件（第 4 节） | #40 |
-| #48 | 验收：只用 YAML、再只用 MCP 重建低频校准工作台（第 0 节） | #42、#43、#44、#46 |
+| #48 | 验收：只用 YAML、再只用 MCP 重建低频校准工作台（第 0 节）（已完成） | #42、#43、#44、#46 |
 
 界面中的定义编辑（D3 第 3 层的编辑）不在本期：定义文件仍可用文本编辑器与 MCP 修改，界面的“查看内部结构”（issue 20）显示结果。
