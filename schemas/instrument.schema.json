@@ -188,6 +188,90 @@
       "title": "ComponentSpec",
       "type": "object"
     },
+    "DeviationSpec": {
+      "additionalProperties": false,
+      "description": "A definition's deviation: which component parameter, and its range.",
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {},
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}",
+          "title": "By"
+        },
+        "coverage": {
+          "default": 2.0,
+          "description": "normal: the coverage factor k of the limit (limit = k·σ)",
+          "exclusiveMinimum": 0,
+          "title": "Coverage",
+          "type": "number"
+        },
+        "distribution": {
+          "default": "uniform",
+          "description": "uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)",
+          "enum": [
+            "uniform",
+            "normal"
+          ],
+          "title": "Distribution",
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            }
+          ],
+          "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+          "title": "Limit"
+        },
+        "param": {
+          "description": "'<component>.<parameter>', e.g. 'meter.gain_error_ppm'; a channel component's name (e.g. 'out.z_out') draws one value per channel",
+          "pattern": "^[^.]+(\\.[^.]+)*\\.[^.]+$",
+          "title": "Param",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "enum": [
+                "%",
+                "ppm"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "'%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)",
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "limit",
+        "param"
+      ],
+      "title": "DeviationSpec",
+      "type": "object"
+    },
     "Dialect": {
       "additionalProperties": false,
       "description": "How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).\n\nThe defaults are SCPI: no header in replies, numbers without multiplier suffixes.",
@@ -883,6 +967,14 @@
       "default": null,
       "title": "Description"
     },
+    "deviations": {
+      "description": "Parameters a unit deviates in, and their ranges: a bench instance with deviation: from_specs draws its own values from the bench seed (个体偏差, metrology-authoring.md 7)",
+      "items": {
+        "$ref": "#/$defs/DeviationSpec"
+      },
+      "title": "Deviations",
+      "type": "array"
+    },
     "dialect": {
       "$ref": "#/$defs/Dialect",
       "description": "Reply framing beyond SCPI (headers, suffixes)"
@@ -954,7 +1046,7 @@
     },
     "specs": {
       "additionalProperties": true,
-      "description": "Accuracy and other specifications from the manual; stored, not yet used in calculations",
+      "description": "Accuracy and other specifications from the manual, as written there; a record, not used in calculations (the deviations a unit draws are in `deviations`)",
       "title": "Specs",
       "type": "object"
     },

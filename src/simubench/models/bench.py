@@ -7,6 +7,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .deviation import DeviationRange
+
 ClockMode = Literal["command", "wall", "stepped"]
 IdleMode = Literal["wall", "sleep", "off"]
 
@@ -35,6 +37,12 @@ class InstrumentInstance(_Model):
         default_factory=dict,
         description="Hidden state: component parameter overrides, e.g. {'ch1.out': {'z_out': 50.4}}",
     )
+    deviation: Literal["nominal", "from_specs"] = Field(
+        "nominal",
+        description="Individual deviations (个体偏差): 'nominal' keeps the model's values; 'from_specs' draws "
+        "this unit's values within the definition's `deviations`, from the bench seed. Values in "
+        "`hidden` take precedence, parameter by parameter",
+    )
 
 
 class ComponentInstance(_Model):
@@ -42,6 +50,12 @@ class ComponentInstance(_Model):
     label: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
     hidden: dict[str, Any] = Field(default_factory=dict)
+    deviation: dict[str, DeviationRange] = Field(
+        default_factory=dict,
+        description="Individual deviations (个体偏差) by parameter, drawn from the bench seed, e.g. "
+        "{r: {limit: 1, unit: '%'}}: the range belongs to the part, so it is written here. A value in "
+        "`hidden` takes precedence",
+    )
 
 
 class Accessory(_Model):

@@ -169,11 +169,10 @@
 
 ```yaml
 deviations:
-  - param: meter.gain_error_ppm
+  - param: meter.gain_error_ppm   # 参数本身就是误差（ppm）：不写 unit，值 = 标称 + 偏差
     by: {function: [DC], range: [0.1, 1, 10, 100, 1000]}   # 可选：按表抽取，每格一个值
     limit: {0.1: 30, 1: 20, 10: 15, 100: 20, 1000: 20}     # 每格的 ±limit；一个数则各格相同
-    unit: ppm
-    distribution: uniform          # uniform：±limit 内均匀；normal：σ = limit / coverage
+    distribution: uniform          # uniform：±limit 内均匀；normal：σ = limit / coverage，截断在 ±limit
   - param: meter.offset
     limit: 2.0e-6
     unit: V
@@ -181,7 +180,7 @@ deviations:
     coverage: 2
 ```
 
-- `unit` 为 `ppm`、`%` 或参数自己的单位；静态校验检查 `param` 存在、`by` 的键与参数的表一致。
+- `unit` 为 `%` 或 `ppm` 时偏差相对标称值（值 = 标称 × (1 + d)）；不写时 limit 用参数本身的单位，值 = 标称 + d（参数本身就是误差或偏移时这样写）。静态校验检查 `param` 指向已声明的组件与参数、参数是数值，相对偏差用在标称值为 0 的参数上时给出警告。
 - 一项的 `limit` 来自手册时，在 `specs` 中引用出处即可，不要求两者自动对应（手册的指标常是“读数的 x ppm + 量程的 y ppm”，换成参数需要领域判断，由写型号的人完成）。
 
 ### 7.2 测试台
@@ -202,6 +201,18 @@ duts:
 - 抽取用计数器式随机数（`engine/noise.py`），键为（种子、实例名、组件.参数、表键）：与抽取顺序、测试台中其他仪表的增减无关；同一测试台同一种子结果相同。
 - 抽到的值写入运行记录头部，回放时校验。
 - 界面统一叫“个体偏差”；抽取的值受 `run.reveal_true_values` 约束（写死的值通过 `read_bench` 本来就可读）。
+
+### 7.3 实现（#34）
+
+已实现：`models/deviation.py`（`DeviationRange`、`DeviationSpec`）、`engine/deviation.py`（抽取）。与上文的差别与补充：
+
+- 正态分布截断在 ±limit 之内（超出指标的一台是故障，另用故障注入），因此每个值都在范围内；
+- 按表抽取时，值是按 `by` 的键顺序嵌套的表（`{DC: {0.1: …, 1: …}}`），相对偏差按每格自己的标称值计算；按量程使用这张表的测量核心由 #87 提供；
+- 编辑操作 `set_deviation`（仪表的 `mode`，或 DUT 一个参数的 `range`），画布与 MCP 共用（D9）；
+- 会话接口：仪表的 `deviation`（模式）与 `deviations`，DUT 的 `deviations`；每项给出范围、是否抽取、值（只在 `reveal_true_values` 打开时）；隐藏时 DUT 的 `params` 显示标称值。检查器中的“个体偏差”一节显示范围与值，仪表有“按指标抽取”开关；原来 DUT 的“隐藏参数”（`tol_*`）并入这一节；
+- 运行记录头部的 `deviations`；回放按记录的种子重新抽取，不一致时警告（例如定义中的范围改过）；
+- 诊断：`E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO`（定义），`E-DEVIATION-PARAM`、`W-DEVIATION-ZERO`、`W-DEVIATION-NONE`（测试台）；
+- `sb-dmm-1`（增益误差、零点）与 `sb-awg-2`（每通道的输出阻抗）写了 `deviations`，供测试与演示。
 
 ## 8. 定标判定的真值核对（C7，#92）
 

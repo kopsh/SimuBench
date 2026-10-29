@@ -121,6 +121,15 @@ def validate_bench(
             )
             continue
         defs[name] = d
+        if inst.deviation == "from_specs" and not d.deviations:
+            report.add(
+                "warning",
+                "W-DEVIATION-NONE",
+                _ptr(*p, "deviation"),
+                f"仪表定义 {d.id} 没有写 deviations，按指标抽取不会改变任何参数",
+                "在定义中补充 deviations，或去掉 deviation: from_specs",
+                name,
+            )
         ports: dict[str, tuple[str, str, int | None]] = {}
         for n in range(1, d.channels.count + 1):
             for pname in d.ports.channel:
@@ -215,6 +224,26 @@ def validate_bench(
                     _ptr(*p, "params", k),
                     f"{dut.type} 没有参数 {k!r}，它不会起作用",
                     f"改为 {hint!r}" if hint else None,
+                    name,
+                )
+        for k, rng in dut.deviation.items():
+            if k not in cls.defaults:
+                hint = _closest(k, list(cls.defaults))
+                report.add(
+                    "error",
+                    "E-DEVIATION-PARAM",
+                    _ptr(*p, "deviation", k),
+                    f"{dut.type} 没有参数 {k!r}，无法给它个体偏差",
+                    f"改为 {hint!r}" if hint else None,
+                    name,
+                )
+            elif rng.unit and not dut.params.get(k, cls.defaults[k]):
+                report.add(
+                    "warning",
+                    "W-DEVIATION-ZERO",
+                    _ptr(*p, "deviation", k),
+                    f"{k} 的标称值为 0，按 {rng.unit} 的相对偏差不起作用",
+                    "去掉 unit，把 limit 写成参数本身的单位",
                     name,
                 )
         port_info[name] = {pn: (ps.medium, ps.direction, None) for pn, ps in cls.ports.items()}

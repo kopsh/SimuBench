@@ -11,6 +11,7 @@
 | 工作区边界 | 测试台文件、版本历史、会话启动的路径都解析后必须位于工作区内（`..`、绝对路径拒绝，403）；运行记录编号只接受字母数字与连字符 | `test_bench_paths_stay_in_the_workspace`、`test_bench_path_cannot_escape_workspace`、`test_runs_api` |
 | 诊断包 | 不包含访问令牌，不自动上传 | `test_diagnostics_bundle_over_the_api` |
 | MCP 仿真控制 | 推进时钟、读取真实值默认关闭，需 `--allow-control`；读取真实值还需 Bench 中 `run.reveal_true_values`（验证模式下关闭，定标脚本读不到答案） | `tests/test_mcp.py` |
+| 个体偏差 | 按指标抽取的值（D3 第 2 层）在会话接口中只在 `run.reveal_true_values` 打开时给出：仪表与 DUT 的 `deviations[].value` 为 null，DUT 的 `params` 显示标称值；MCP `read_true_values` 同样受这个开关与 `--allow-control` 限制。内部组件图只显示型号的标称值 | `tests/test_deviation.py::test_the_session_view_hides_drawn_values_unless_revealed`、`web/e2e/edit.spec.ts` |
 | MCP 危险命令 | 打开输出、扫描等标记为危险的命令需要 `confirm=true`，Agent 必须先向工程师说明 | `tests/test_mcp.py` |
 | MCP 频率限制 | 每个会话的命令速率受限，防止失控的 Agent 循环 | `tests/test_mcp.py` |
 | 工作区插件代码 | `components/*.py` 默认**不**加载（不会被导入，更不会执行）；需 `--allow-plugins` 或工作区设置 `.simubench/settings.json` 的 `"allow_workspace_plugins": true` 显式开启（D3）。开启后加载了哪些插件会打印在启动横幅，`doctor` 与诊断包列出插件及来源（不含源码）；运行记录头部带每个插件文件的 sha256，回放不一致时告警（D36）。已安装包经 `simubench.components` 入口点提供的组件默认加载——安装包本身就是信任行为 | `tests/test_plugins.py`、`test_security.py::test_workspace_plugins_are_opt_in` |
@@ -23,4 +24,5 @@
 - 本机拥有同一用户权限的恶意程序：它可以直接读取令牌所在的进程输出与文件。
 - 把服务暴露到网络：不支持；需要远程访问时应在其前面放置有认证的反向代理（之后的私有化部署再考虑）。
 - 被显式同意执行的代码：开启 `--allow-plugins`（或工作区设置）后，工作区 `components/*.py` 以启动者的用户权限执行任意代码，没有沙箱；已安装包的入口点组件同理——安装任何 Python 包本就可以在其安装与导入时执行代码。防护只保证**默认不执行**与**执行可追溯**（加载清单与文件哈希），不限制已同意代码能做什么。
+- 抽取的个体偏差不是秘密数据，而是种子的确定函数：知道测试台（种子）与定义的人可以重算出来。开关防的是被验证的脚本经 SCPI、会话接口或 MCP 读到答案，不防有意重算。
 - MCP 与 API 写不了 `.py`：文件写入只覆盖测试台（`*.bench.yaml`/`*.bench.json`）与定义（`instruments/<id>.yaml`，id 受字符白名单限制）。Agent 需要插件时，只能生成说明与草稿，由工程师亲手落盘（原则 3）。

@@ -12,6 +12,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .deviation import DeviationSpec
+
 StateType = Literal["float", "int", "bool", "enum", "string"]
 
 
@@ -329,7 +331,13 @@ class InstrumentDefinition(_Model):
     )
     specs: dict[str, Any] = Field(
         default_factory=dict,
-        description="Accuracy and other specifications from the manual; stored, not yet used in calculations",
+        description="Accuracy and other specifications from the manual, as written there; a record, not "
+        "used in calculations (the deviations a unit draws are in `deviations`)",
+    )
+    deviations: list[DeviationSpec] = Field(
+        default_factory=list,
+        description="Parameters a unit deviates in, and their ranges: a bench instance with deviation: "
+        "from_specs draws its own values from the bench seed (个体偏差, metrology-authoring.md 7)",
     )
     unknown_commands: Literal["error", "ignore"] = Field(
         "error",

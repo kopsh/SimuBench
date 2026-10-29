@@ -1042,11 +1042,16 @@ export interface components {
         };
         /** ComponentInfo */
         ComponentInfo: {
+            /** Deviations */
+            deviations: components["schemas"]["DeviationInfo"][];
             /** Label */
             label: string | null;
             /** Name */
             name: string;
-            /** Params */
+            /**
+             * Params
+             * @description Parameters; a drawn deviation shows its nominal value while hidden
+             */
             params: {
                 [key: string]: unknown;
             };
@@ -1145,6 +1150,122 @@ export interface components {
             ports: string[];
             /** Template */
             template: string | null;
+        };
+        /**
+         * DeviationInfo
+         * @description One parameter's individual deviation (个体偏差): its range, and this unit's value when shown.
+         */
+        DeviationInfo: {
+            /** By */
+            by: {
+                [key: string]: unknown[];
+            } | null;
+            /** Distribution */
+            distribution: string;
+            /**
+             * Drawn
+             * @description Drawn from the bench seed (else the nominal or a hidden value)
+             * @default false
+             */
+            drawn: boolean;
+            /**
+             * Limit
+             * @description ±limit: a number, or a table keyed by the last `by` value
+             */
+            limit: unknown;
+            /**
+             * Param
+             * @description '<component>.<parameter>' (instrument) or '<parameter>' (DUT)
+             */
+            param: string;
+            /** Unit */
+            unit: string | null;
+            /**
+             * Value
+             * @description This unit's value; null while hidden (run.reveal_true_values off) or not drawn
+             */
+            value: unknown;
+        };
+        /**
+         * DeviationRange
+         * @description The range one parameter's deviation falls in.
+         */
+        DeviationRange: {
+            /**
+             * By
+             * @description Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
+             */
+            by?: {
+                [key: string]: unknown[];
+            } | null;
+            /**
+             * Coverage
+             * @description normal: the coverage factor k of the limit (limit = k·σ)
+             * @default 2
+             */
+            coverage: number;
+            /**
+             * Distribution
+             * @description uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)
+             * @default uniform
+             * @enum {string}
+             */
+            distribution: "uniform" | "normal";
+            /**
+             * Limit
+             * @description ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)
+             */
+            limit: number | {
+                [key: string]: number;
+            };
+            /**
+             * Unit
+             * @description '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
+             */
+            unit?: ("%" | "ppm") | null;
+        };
+        /**
+         * DeviationSpec
+         * @description A definition's deviation: which component parameter, and its range.
+         */
+        DeviationSpec: {
+            /**
+             * By
+             * @description Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
+             */
+            by?: {
+                [key: string]: unknown[];
+            } | null;
+            /**
+             * Coverage
+             * @description normal: the coverage factor k of the limit (limit = k·σ)
+             * @default 2
+             */
+            coverage: number;
+            /**
+             * Distribution
+             * @description uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)
+             * @default uniform
+             * @enum {string}
+             */
+            distribution: "uniform" | "normal";
+            /**
+             * Limit
+             * @description ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)
+             */
+            limit: number | {
+                [key: string]: number;
+            };
+            /**
+             * Param
+             * @description '<component>.<parameter>', e.g. 'meter.gain_error_ppm'; a channel component's name (e.g. 'out.z_out') draws one value per channel
+             */
+            param: string;
+            /**
+             * Unit
+             * @description '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
+             */
+            unit?: ("%" | "ppm") | null;
         };
         /** Diagnostic */
         Diagnostic: {
@@ -1247,7 +1368,7 @@ export interface components {
             /** Base Sha256 */
             base_sha256: string;
             /** Ops */
-            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
+            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
             /** Path */
             path: string;
             /**
@@ -1426,6 +1547,11 @@ export interface components {
             components?: components["schemas"]["ComponentSpec"][];
             /** Description */
             description?: string | null;
+            /**
+             * Deviations
+             * @description Parameters a unit deviates in, and their ranges: a bench instance with deviation: from_specs draws its own values from the bench seed (个体偏差, metrology-authoring.md 7)
+             */
+            deviations?: components["schemas"]["DeviationSpec"][];
             /** @description Reply framing beyond SCPI (headers, suffixes) */
             dialect?: components["schemas"]["Dialect"];
             display?: components["schemas"]["Display"];
@@ -1461,7 +1587,7 @@ export interface components {
             schema: "simubench.instrument/1";
             /**
              * Specs
-             * @description Accuracy and other specifications from the manual; stored, not yet used in calculations
+             * @description Accuracy and other specifications from the manual, as written there; a record, not used in calculations (the deviations a unit draws are in `deviations`)
              */
             specs?: {
                 [key: string]: unknown;
@@ -1498,6 +1624,17 @@ export interface components {
             definition_id: string;
             /** Description */
             description: string | null;
+            /**
+             * Deviation
+             * @default nominal
+             * @enum {string}
+             */
+            deviation: "nominal" | "from_specs";
+            /**
+             * Deviations
+             * @description The definition's deviation ranges, with this unit's values
+             */
+            deviations: components["schemas"]["DeviationInfo"][];
             display: components["schemas"]["DisplayInfo"];
             /** Errors */
             errors: components["schemas"]["ErrorItem"][];
@@ -2364,6 +2501,36 @@ export interface components {
              * @enum {string}
              */
             op: "set_address";
+        };
+        /**
+         * SetDeviation
+         * @description Individual deviations (个体偏差): an instrument's mode, or one DUT parameter's range.
+         */
+        SetDeviation: {
+            /**
+             * Dut
+             * @description With `param`: the DUT
+             */
+            dut?: string | null;
+            /**
+             * Instrument
+             * @description With `mode`: the instrument
+             */
+            instrument?: string | null;
+            /**
+             * Mode
+             * @description nominal: the model's values; from_specs: drawn within the definition's deviations
+             */
+            mode?: ("nominal" | "from_specs") | null;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_deviation";
+            /** Param */
+            param?: string | null;
+            /** @description The parameter's range; null removes it */
+            range?: components["schemas"]["DeviationRange"] | null;
         };
         /** SetIdentity */
         SetIdentity: {

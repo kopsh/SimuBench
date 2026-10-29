@@ -14,6 +14,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..models.bench import Accessory, BenchDefinition, ComponentInstance, InstrumentInstance, LayoutItem, Wire
+from ..models.deviation import DeviationRange
 
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,47}$")
 
@@ -111,6 +112,19 @@ class SetIdentity(_Op):
     firmware: str | None = None
 
 
+class SetDeviation(_Op):
+    """Individual deviations (个体偏差): an instrument's mode, or one DUT parameter's range."""
+
+    op: Literal["set_deviation"] = "set_deviation"
+    instrument: str | None = Field(None, description="With `mode`: the instrument")
+    mode: Literal["nominal", "from_specs"] | None = Field(
+        None, description="nominal: the model's values; from_specs: drawn within the definition's deviations"
+    )
+    dut: str | None = Field(None, description="With `param`: the DUT")
+    param: str | None = None
+    range: DeviationRange | None = Field(None, description="The parameter's range; null removes it")
+
+
 class Move(_Op):
     op: Literal["move"] = "move"
     name: str
@@ -144,6 +158,7 @@ EditOp = Annotated[
     | SetLabel
     | SetAddress
     | SetIdentity
+    | SetDeviation
     | Move
     | SetMeta
     | SetRun,
@@ -270,6 +285,24 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
             raise EditError(f"没有名为 {op.instrument!r} 的仪表")
         inst = b.instruments[op.instrument]
         inst.idn, inst.serial, inst.firmware = op.idn, op.serial, op.firmware
+    elif isinstance(op, SetDeviation):
+        if op.instrument is not None:
+            if op.instrument not in b.instruments or op.mode is None or op.dut is not None:
+                raise EditError(
+                    f"set_deviation 需要已有的仪表与 mode（没有名为 {op.instrument!r} 的仪表或缺少 mode）"
+                )
+            b.instruments[op.instrument].deviation = op.mode
+        elif op.dut is not None:
+            if op.dut not in b.duts or not op.param:
+                raise EditError(
+                    f"set_deviation 需要已有的 DUT 与 param（没有名为 {op.dut!r} 的 DUT 或缺少 param）"
+                )
+            if op.range is None:
+                b.duts[op.dut].deviation.pop(op.param, None)
+            else:
+                b.duts[op.dut].deviation[op.param] = op.range
+        else:
+            raise EditError("set_deviation 需要 instrument（与 mode）或 dut（与 param）")
     elif isinstance(op, Move):
         if op.name not in _names(b):
             raise EditError(f"没有名为 {op.name!r} 的仪表或 DUT")

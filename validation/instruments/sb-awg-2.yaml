@@ -107,3 +107,8 @@ commands:
     dangerous: true
   - header: ":OUTPut<ch>:LOAD"
     state: ch.load
+# Individual deviations (个体偏差): one output impedance per channel, within ±2 %.
+deviations:
+  - param: out.z_out
+    limit: 2.0
+    unit: "%"

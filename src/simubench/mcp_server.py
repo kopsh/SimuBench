@@ -707,7 +707,8 @@ def build_server(
     @mcp.tool()
     def read_true_values(session_id: str | None = None) -> dict[str, Any]:
         """Hidden state the simulation knows exactly: DUT parameters including hidden tolerances,
-        instrument hidden overrides, and the true signal on every net. Needs --allow-control and
+        instrument hidden overrides, the individual deviations drawn from the bench seed, and the
+        true signal on every net. Needs --allow-control and
         run.reveal_true_values in the bench (off in validation runs, so calibration cannot read
         the answer)."""
         guard()
@@ -738,6 +739,7 @@ def build_server(
                     ][:16],
                     "dc_v": float(sig.dc),
                 }
-        return {"duts": duts, "instrument_hidden": hidden, "nets": nets}
+            deviations = {k: _plain(v) for k, v in session.deviations().items()}
+        return {"duts": duts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
 
     return mcp

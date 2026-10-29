@@ -178,6 +178,7 @@ params:
 | `E-DEF-OP-UNKNOWN` | 组件或操作不存在；通道组件的操作用在没有 `<ch>` 的命令头上 |
 | `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举；参数映射的表中有设置取不到的值（#42） |
+| `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
 
 ### 5.2 组件元数据（G7）

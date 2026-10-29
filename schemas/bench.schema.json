@@ -115,6 +115,14 @@
     "ComponentInstance": {
       "additionalProperties": false,
       "properties": {
+        "deviation": {
+          "additionalProperties": {
+            "$ref": "#/$defs/DeviationRange"
+          },
+          "description": "Individual deviations (个体偏差) by parameter, drawn from the bench seed, e.g. {r: {limit: 1, unit: '%'}}: the range belongs to the part, so it is written here. A value in `hidden` takes precedence",
+          "title": "Deviation",
+          "type": "object"
+        },
         "hidden": {
           "additionalProperties": true,
           "title": "Hidden",
@@ -147,6 +155,83 @@
         "type"
       ],
       "title": "ComponentInstance",
+      "type": "object"
+    },
+    "DeviationRange": {
+      "additionalProperties": false,
+      "description": "The range one parameter's deviation falls in.",
+      "properties": {
+        "by": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {},
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}",
+          "title": "By"
+        },
+        "coverage": {
+          "default": 2.0,
+          "description": "normal: the coverage factor k of the limit (limit = k·σ)",
+          "exclusiveMinimum": 0,
+          "title": "Coverage",
+          "type": "number"
+        },
+        "distribution": {
+          "default": "uniform",
+          "description": "uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)",
+          "enum": [
+            "uniform",
+            "normal"
+          ],
+          "title": "Distribution",
+          "type": "string"
+        },
+        "limit": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            }
+          ],
+          "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+          "title": "Limit"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "enum": [
+                "%",
+                "ppm"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "'%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)",
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "limit"
+      ],
+      "title": "DeviationRange",
       "type": "object"
     },
     "Fault": {
@@ -356,6 +441,16 @@
           "default": null,
           "description": "Resource address of the real bench, e.g. 'TCPIP0::192.168.1.20::5025::SOCKET' (D5)",
           "title": "Address"
+        },
+        "deviation": {
+          "default": "nominal",
+          "description": "Individual deviations (个体偏差): 'nominal' keeps the model's values; 'from_specs' draws this unit's values within the definition's `deviations`, from the bench seed. Values in `hidden` take precedence, parameter by parameter",
+          "enum": [
+            "nominal",
+            "from_specs"
+          ],
+          "title": "Deviation",
+          "type": "string"
         },
         "firmware": {
           "anyOf": [

@@ -101,6 +101,15 @@ export const zh = {
     send: "发送",
     response: "响应",
   },
+  deviation: {
+    title: "个体偏差",
+    hint: "本台仪表或元件相对型号标称值的偏差，SCPI 读不到，只能通过测量发现。抽取的值只在“允许读取真实值”打开时显示。",
+    mode: "按指标抽取",
+    modeHint: "开启后按定义中的指标范围，由测试台种子为本台抽取偏差；关闭则使用标称值。测试台中写死的隐藏值优先。",
+    nominal: "标称",
+    hidden: "已隐藏",
+    normal: "正态",
+  },
   edit: {
     mode: { run: "操作", edit: "搭建" },
     runChanged: "启动设置已修改",
@@ -144,7 +153,6 @@ export const zh = {
     clock: "时钟模式",
     revealTrue: "允许读取真实值",
     revealTrueHint: "调试时允许界面与 Agent 读取隐藏状态的真实值；验证测试时应关闭。",
-    hiddenParams: "隐藏参数",
     addAccessory: "添加配件",
     removeAccessory: "移除配件",
     from: "起点",
