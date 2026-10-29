@@ -1,0 +1,91 @@
+# A meter built from generic components only, to test trigger_model and reading_buffer (#88).
+schema: simubench.instrument/1
+id: test-trigger-meter
+manufacturer: SimuBench
+model: TRIGGER-METER
+class: multimeter
+description: 测试用：通用组件搭出的万用表触发系统与读数存储。
+state:
+  sense.nplc:
+    type: float
+    min: 0.02
+    max: 100.0
+    default: 1.0
+  trigger.source:
+    type: enum
+    options: [IMMediate, BUS, EXTernal]
+    default: IMMediate
+  trigger.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+  trigger.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.0
+  sample.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+components:
+  - name: input
+    type: input_port
+    params: {z_in: 10.0e6}
+  - name: meter
+    type: dmm_core
+    params:
+      reading_time: {from: $sense.nplc, scale: 0.02}   # 1 PLC at 50 Hz = 20 ms
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: meter
+      source: {from: $trigger.source, map: {IMMediate: immediate, BUS: bus, EXTernal: external}}
+      trigger_count: $trigger.count
+      sample_count: $sample.count
+      delay: $trigger.delay
+      buffer: mem
+  - name: mem
+    type: reading_buffer
+    params: {capacity: 100}
+wiring:
+  instrument:
+    - [input.out, meter.in]
+ports:
+  instrument:
+    IN: input.pin
+commands:
+  - {header: "[:SENSe]:VOLTage[:DC]:NPLC", state: sense.nplc}
+  - {header: ":TRIGger:SOURce", state: trigger.source}
+  - {header: ":TRIGger:COUNt", state: trigger.count}
+  - {header: ":TRIGger:DELay", state: trigger.delay}
+  - {header: ":SAMPle:COUNt", state: sample.count}
+  - {header: ":INITiate[:IMMediate]", op: trig.initiate, query: false}
+  - {header: ":ABORt", op: trig.abort, query: false}
+  - {header: ":FETCh", op: trig.fetch, set: false}
+  - {header: ":READ", op: trig.read, set: false}
+  - {header: ":TRIGger:STATe", op: trig.state, set: false}
+  - {header: ":DATA:POINts", op: mem.points, set: false}
+  - header: ":DATA:REMove"
+    op: mem.remove
+    set: false
+    params: [{name: count, type: int}]
+  - header: "R"
+    op: mem.read_clear
+    set: false
+    params: [{name: count, type: int, optional: true}]
+  - header: ":TRACe:MAKE"
+    op: mem.make
+    query: false
+    params: [{name: name, type: string}, {name: capacity, type: int}]
+  - header: ":TRACe:DATA"
+    op: mem.data
+    set: false
+    params:
+      - {name: start, type: int}
+      - {name: end, type: int}
+      - {name: name, type: string, optional: true}
+      - {name: elements, type: raw}

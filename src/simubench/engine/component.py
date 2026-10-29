@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
 
 from .signal import Signal
 
@@ -45,6 +45,20 @@ class OpResult:
     duration_ns: int = 0
     #: Named parts of the reply for the command's reply template, e.g. {unit} (see ``op(fields=...)``).
     fields: dict[str, str] = field(default_factory=dict)
+
+
+@runtime_checkable
+class Sampler(Protocol):
+    """What a trigger model (``trigger_model``) reads from: a measurement path that takes one reading
+    at a time (a meter's core, a source-measure unit). metrology-authoring.md 3.1."""
+
+    def sample_time_ns(self) -> int:
+        """Virtual time one reading takes (integration, autozero, overhead)."""
+        ...
+
+    def sample(self, index: int) -> float:
+        """One reading now; ``index`` counts the readings of this initiate (for noise streams)."""
+        ...
 
 
 _REGISTRY: dict[str, type[Component]] = {}

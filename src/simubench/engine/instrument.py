@@ -6,7 +6,9 @@ import datetime as dt
 import logging
 import math
 import re
+import time
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -35,6 +37,7 @@ BUILTIN_HEADERS = (
     "*CLS",
     "*OPC",
     "*WAI",
+    "*TRG",
     "*ESR",
     "*ESE",
     "*SRE",
@@ -110,6 +113,11 @@ class Instrument:
         self.real = definition.reference is not None
         self.esr = 0
         self.ese = 0
+        #: Operations that finish at a later virtual instant: key -> (done at, called when done).
+        #: *OPC? and *WAI wait for them; *OPC sets ESR bit 0 once they are all done.
+        self.pending: dict[str, tuple[int, Callable[[], None] | None]] = {}
+        self._opc_armed = False
+        self._elapsed_ns = 0  # virtual time the program message being executed has used so far
         self.sre = 0
         self._output: list[bytes] = []
         self.serial = instance.serial or definition.identity.serial
@@ -305,7 +313,61 @@ class Instrument:
             return bool(value)
         return str(value)
 
+    # ---- operations that finish later --------------------------------------------------------------
+
+    def now_ns(self) -> int:
+        """The instrument's present: the session's time plus what the current message has used."""
+        return self.session.now_ns + self._elapsed_ns
+
+    def register_pending(self, key: str, done_ns: int, on_done: Callable[[], None] | None = None) -> None:
+        """An operation that finishes at virtual time ``done_ns``; ``on_done`` runs once it has."""
+        self.pending[key] = (int(done_ns), on_done)
+
+    def cancel_pending(self, key: str) -> None:
+        self.pending.pop(key, None)
+
+    def settle_pending(self) -> None:
+        """Finish what is due by now; an armed *OPC sets ESR bit 0 once nothing is left."""
+        now = self.now_ns()
+        for key, (done, on_done) in sorted(self.pending.items(), key=lambda kv: kv[1][0]):
+            if done <= now:
+                del self.pending[key]
+                if on_done is not None:
+                    on_done()
+        if self._opc_armed and not self.pending:
+            self._opc_armed = False
+            self.esr |= 1
+
+    def wait_until(self, done_ns: int) -> int:
+        """Wait for virtual time ``done_ns``: on the command clock, the time the caller's message
+        uses; on the wall clock the call waits for real (at most 5 s, like link latency) and uses
+        none; a stepped clock moves only when stepped, so nothing is waited."""
+        remaining = int(done_ns) - self.now_ns()
+        if remaining <= 0:
+            return 0
+        if self.session.clock_mode == "command":
+            return remaining
+        if self.session.clock_mode == "wall":
+            time.sleep(min(remaining / 1e9, 5.0))
+            self.session.follow_wall()
+        return 0
+
+    def wait_pending(self) -> int:
+        """Wait until every pending operation is done (``*OPC?``, ``*WAI``), see :meth:`wait_until`."""
+        if not self.pending:
+            return 0
+        return self.wait_until(max(done for done, _ in self.pending.values()))
+
+    def arm_opc(self) -> None:
+        """``*OPC``: ESR bit 0 now, or once the pending operations are done."""
+        if self.pending:
+            self._opc_armed = True
+        else:
+            self.esr |= 1
+
     def reset(self) -> None:
+        self.pending.clear()
+        self._opc_armed = False
         self._reset_state()
         for comp in self.components.values():
             comp.reset()
@@ -320,6 +382,7 @@ class Instrument:
             self._push(ScpiError(-410))
         responses: list[bytes] = []
         duration = 0
+        self._elapsed_ns = 0
         path: tuple[Token, ...] = ()
         try:
             units = split_units(message)
@@ -340,6 +403,7 @@ class Instrument:
             try:
                 resp, d = self._execute(unit, tokens)
                 duration += d
+                self._elapsed_ns = duration
                 if resp is not None:
                     responses.append(resp)
             except ScpiError as e:
@@ -351,6 +415,7 @@ class Instrument:
                 )
         if responses:
             self._output.append(b";".join(responses) + b"\n")
+        self._elapsed_ns = 0
         return duration
 
     PANEL_ACTIONS = ("run", "stop", "single")
@@ -458,6 +523,7 @@ class Instrument:
         return None, 0
 
     def _dispatch(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
+        self.settle_pending()
         if unit.common:
             # A definition may give a common header its own behavior (e.g. a dialect's *CLS?).
             for compiled in self._commands:
@@ -465,6 +531,11 @@ class Instrument:
                     return self._run(compiled, unit, None, {})
             if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
                 raise self._undefined(unit.raw_header)
+            word = unit.tokens[0].keyword
+            if word in ("OPC", "WAI") and (unit.query or word == "WAI"):
+                return (b"1" if word == "OPC" else None), self.wait_pending()
+            if word == "TRG" and not unit.query:
+                return self._bus_trigger(unit)
             return self._common(unit), 0
         refused: CommandSpec | None = None  # a header that matched, with other parameter values
         for compiled in self._commands:
@@ -705,6 +776,13 @@ class Instrument:
             return V.parse_enum(raw, st.options or [])
         return V.parse_string(raw)
 
+    def format_number(self, value: float) -> bytes:
+        """A number in the definition's response format (a reading, a measured value)."""
+        f = self.definition.format
+        if f.number == "engineering":
+            return V.format_engineering(value)
+        return V.format_float(value, f.digits, style=f.number, sign=f.sign, exponent_digits=f.exponent_digits)
+
     def _format(self, st: StateSpec, value: Any, override: ResponseFormat | None = None) -> bytes:
         f = override or self.definition.format
         if st.type == "float":
@@ -811,13 +889,10 @@ class Instrument:
         if word == "CLS" and not q:
             self.errors.clear()
             self.esr = 0
+            self._opc_armed = False
             return None
-        if word == "OPC":
-            if q:
-                return b"1"
-            self.esr |= 1
-            return None
-        if word == "WAI" and not q:
+        if word == "OPC" and not q:
+            self.arm_opc()
             return None
         if word == "ESR" and q:
             v, self.esr = self.esr, 0
@@ -836,6 +911,15 @@ class Instrument:
             return str(self.stb()).encode()
         if word == "TST" and q:
             return b"0"
+        raise self._undefined(unit.raw_header)
+
+    def _bus_trigger(self, unit: Unit) -> tuple[bytes | None, int]:
+        """``*TRG``: the bus trigger of the first component with a ``bus_trigger`` operation."""
+        for comp in self.components.values():
+            fn = comp.operation("bus_trigger")
+            if fn is not None:
+                result = fn()
+                return result.response, result.duration_ns
         raise self._undefined(unit.raw_header)
 
     _SYST_ERR = Pattern.compile(":SYSTem:ERRor[:NEXT]")

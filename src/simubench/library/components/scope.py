@@ -590,11 +590,11 @@ class ScopeAcquisition(Component):
     @op("opc")
     def opc(self, query: bool = False, **_: Any) -> OpResult:
         """``*OPC?`` answers ``1`` once a pending single acquisition is done; ``*OPC`` sets the ESR bit."""
-        used = self.poll()
+        assert self.owner is not None
+        used = self.poll() + self.owner.wait_pending()  # and whatever else the instrument has pending
         if query:
             return OpResult(b"1", used)
-        assert self.owner is not None
-        self.owner.esr |= 1
+        self.owner.arm_opc()
         return OpResult(duration_ns=used)
 
     @op("measurement", fields=("kind", "unit", "status"))

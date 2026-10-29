@@ -43,6 +43,8 @@ class DmmCore(Component):
         "cal_secured": True,  # calibration secured: changing it needs cal_code
         "cal_code": "SIMUBENCH",  # calibration security code
         "cal_tolerance": 0.1,  # fraction of the cal value the input may be off by
+        "function": "DC",  # DC | AC: what a trigger model's readings measure (sample)
+        "reading_time": 0.0,  # s of virtual time one reading takes (integration and overhead)
     }
     units = {"offset": "V", "cal_offset": "V", "cal_value": "V"}
 
@@ -68,6 +70,14 @@ class DmmCore(Component):
         if self.session.reveal_true_values:
             values.update({f"true_{k}": v for k, v in self.true_values().items()})
         return {"values": values}
+
+    # ---- a Sampler for trigger_model (metrology-authoring.md 3.1) -----------------------------------
+
+    def sample_time_ns(self) -> int:
+        return round(float(self.param("reading_time")) * 1e9)
+
+    def sample(self, index: int) -> float:
+        return self.reading(str(self.param("function")).upper())
 
     @op("measure")
     def op_measure(self, what: str = "DC", **_: Any) -> OpResult:
