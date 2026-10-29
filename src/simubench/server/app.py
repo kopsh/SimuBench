@@ -29,6 +29,7 @@ from ..models import api as M
 from ..models.bench import Fault
 from ..models.definition import InstrumentDefinition
 from .benchfiles import Conflict, diagnostics
+from .catalog import components as component_catalog
 from .manager import BenchInvalid, ServedSession, SessionManager, _plain
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -308,6 +309,16 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def catalog() -> M.Catalog:
         return files.catalog()
+
+    @app.get(
+        "/api/components",
+        response_model=list[M.ComponentDoc],
+        operation_id="listComponents",
+        dependencies=[Depends(auth)],
+    )
+    def list_components() -> list[M.ComponentDoc]:
+        """Every component type, internal ones included: the building blocks of instrument definitions."""
+        return component_catalog()
 
     @app.get(
         "/api/definitions",
