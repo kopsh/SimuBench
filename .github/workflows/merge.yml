@@ -29,6 +29,11 @@ jobs:
             fi
             # Only the commit CI tested: a newer push waits for its own CI run.
             gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"
+            # A merge by the workflow token is skipped by GitHub's closing-keyword step, so Closes
+            # #n in the description closes nothing: close the issues the pull request lists itself.
+            for i in $(gh pr view "$n" --repo "$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[]?.number'); do
+              gh issue close "$i" --repo "$REPO" --comment "Closed by #$n"
+            done
             # The merge's push starts no workflow (it is the workflow token's): run main's checks now.
             gh workflow run ci.yml --repo "$REPO" --ref main
           done
