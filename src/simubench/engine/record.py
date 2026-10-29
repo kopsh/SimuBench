@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from .. import __version__
+from ..plugins import report as plugin_report
 
 if TYPE_CHECKING:
     from .session import Session
@@ -98,6 +99,8 @@ class Recorder:
                 }
                 for name, inst in self.session.instruments.items()
             },
+            # Plugin components the bench may be using; a replay warns when a hash changed (D36).
+            "plugins": plugin_report(),
             # Not the JSON dump: it writes infinity (a HiZ load setting) as null.
             "bench_data": self.session.bench.model_dump(by_alias=True),
             "seed": self.session.seed,

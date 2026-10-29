@@ -18,12 +18,18 @@ def open_bench(
     record_dir: str | Path | None = None,
     record_raw: bool = False,
     definition_dirs: list[str | Path] | None = None,
+    workspace_plugins: Path | None = None,
 ) -> Session:
     """Load a bench file (YAML or JSON) and start a session.
 
     Instrument definitions are looked up in ``<bench folder>/instruments`` and in ``definition_dirs``
-    before the built-in library.
+    before the built-in library. ``workspace_plugins`` names the ``components`` folder to run as
+    plugins; workspace code is the engineer's explicit consent (D3), so it is off unless passed.
     """
+    if workspace_plugins is not None:
+        from .plugins import load_workspace_plugins
+
+        load_workspace_plugins(workspace_plugins)
     base: Path | None = None
     if isinstance(bench, BenchDefinition):
         definition = bench

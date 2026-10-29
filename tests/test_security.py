@@ -129,6 +129,20 @@ def test_without_a_token_by_default_but_still_loopback_only():
         c.delete(f"/api/sessions/{sid}")
 
 
+def test_workspace_plugins_are_opt_in(tmp_path):
+    """Workspace ``components/*.py`` is code (issue 47, D3): not imported, let alone run, unless
+    the engineer allows it. If it ran, it would leave a marker behind."""
+    (tmp_path / "components").mkdir()
+    (tmp_path / "components" / "bomb.py").write_text(
+        "from pathlib import Path\nPath(__file__).with_suffix('.imported').write_text('x')\n"
+    )
+    bomb = tmp_path / "components" / "bomb.imported"
+    SessionManager(tmp_path, scpi_base_port=0, hislip_port=0)
+    assert not bomb.exists()
+    SessionManager(tmp_path, scpi_base_port=0, hislip_port=0, allow_plugins=True)
+    assert bomb.exists()  # the flag is an explicit yes to running this code
+
+
 @pytest.mark.parametrize(
     ("given", "require", "required", "fixed"),
     [(None, False, False, None), (None, True, True, None), ("abc", False, True, "abc")],

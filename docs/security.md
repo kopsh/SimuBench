@@ -13,6 +13,7 @@
 | MCP 仿真控制 | 推进时钟、读取真实值默认关闭，需 `--allow-control`；读取真实值还需 Bench 中 `run.reveal_true_values`（验证模式下关闭，定标脚本读不到答案） | `tests/test_mcp.py` |
 | MCP 危险命令 | 打开输出、扫描等标记为危险的命令需要 `confirm=true`，Agent 必须先向工程师说明 | `tests/test_mcp.py` |
 | MCP 频率限制 | 每个会话的命令速率受限，防止失控的 Agent 循环 | `tests/test_mcp.py` |
+| 工作区插件代码 | `components/*.py` 默认**不**加载（不会被导入，更不会执行）；需 `--allow-plugins` 或工作区设置 `.simubench/settings.json` 的 `"allow_workspace_plugins": true` 显式开启（D3）。开启后加载了哪些插件会打印在启动横幅，`doctor` 与诊断包列出插件及来源（不含源码）；运行记录头部带每个插件文件的 sha256，回放不一致时告警（D36）。已安装包经 `simubench.components` 入口点提供的组件默认加载——安装包本身就是信任行为 | `tests/test_plugins.py`、`test_security.py::test_workspace_plugins_are_opt_in` |
 | 文件写入 | 原子写入（临时文件 + 替换）；乐观并发（sha256），不会覆盖别人刚做的修改 | `tests/test_bench_api.py` |
 | 依赖 | 锁定文件（`uv.lock`、`pnpm-lock.yaml`），CI 以锁定版本安装 | CI |
 
@@ -21,3 +22,5 @@
 - 默认（未开启访问令牌）时，本机其他用户：他们可以直接访问 127.0.0.1 上的服务（Host/Origin 校验只针对浏览器），以启动者的身份读写工作区内的测试台、注入故障、发送 SCPI。在多人共用的电脑上请用 `--require-token` 启动。
 - 本机拥有同一用户权限的恶意程序：它可以直接读取令牌所在的进程输出与文件。
 - 把服务暴露到网络：不支持；需要远程访问时应在其前面放置有认证的反向代理（之后的私有化部署再考虑）。
+- 被显式同意执行的代码：开启 `--allow-plugins`（或工作区设置）后，工作区 `components/*.py` 以启动者的用户权限执行任意代码，没有沙箱；已安装包的入口点组件同理——安装任何 Python 包本就可以在其安装与导入时执行代码。防护只保证**默认不执行**与**执行可追溯**（加载清单与文件哈希），不限制已同意代码能做什么。
+- MCP 与 API 写不了 `.py`：文件写入只覆盖测试台（`*.bench.yaml`/`*.bench.json`）与定义（`instruments/<id>.yaml`，id 受字符白名单限制）。Agent 需要插件时，只能生成说明与草稿，由工程师亲手落盘（原则 3）。

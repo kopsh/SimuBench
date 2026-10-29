@@ -205,3 +205,14 @@
 | issue 4 的漂移在 `wall` 下可复现、`sleep` 下不可 | ✅ 同上：`wall` + 忙等 50 ms 复现 1508 Ω 一类的偏大读数（> 1520），`sleep` 恒为 1500 |
 | 多测试台规则、serve 降级、记录与回放 | ✅ 两个 `sleep` 测试台同时推进、`wall` 测试台不受影响、关闭后恢复真实 `time.sleep`；serve 把 `sleep` 按 `off`（`test_serve_treats_sleep_as_off`）；记录头部 `idle` 与 `reason: sleep` 事件、回放通过（`test_sleep_record_names_idle_and_replays`） |
 | `scripts/check.sh` 通过，schemas 最新 | ✅（提交前运行） |
+
+## 插件出口：入口点组件与工作区组件（Issue 47）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 入口点插件可被定义使用：`simubench.components` 入口点默认加载，组件与内置同接口（`plugin_api: 1`，不匹配的模块拒绝并撤销注册） | ✅ `tests/test_plugins.py`（fake entry point 加载后测试台可搭建；`plugin_api = 2` 被拒） |
+| 未开启时工作区插件不被导入（导入即失败的文件不会执行）；开启后可用 | ✅ 同文件：`bomb.py` 默认零导入，`--allow-plugins` / 工作区设置 `.simubench/settings.json` 后执行并可用；`test_security.py::test_workspace_plugins_are_opt_in` |
+| 回放时插件哈希变化给出警告 | ✅ `test_replay_warns_when_a_plugin_changed`（改文件后告警）；记录了插件而回放未加载也告警（`…_not_loaded`） |
+| 运行记录头部带插件文件哈希（D36）；doctor 与诊断包列出插件及来源（不含源码） | ✅ 记录头部 `plugins`（来源、origin、sha256）；`doctor` 增加 plugins / workspace plugins 两项检查；清单进 `version --full` 与诊断包的 `manifest.json` |
+| 启动时打印加载了哪些插件；MCP 不提供写 `.py` 的工具 | ✅ serve / mcp 启动横幅打印（含"present but not enabled"提示）；文件写入只覆盖测试台与定义 yaml（`docs/security.md`） |
+| `docs/security.md` 更新；`scripts/check.sh` 通过 | ✅ 新增"工作区插件代码"一行与"不在防护范围内"两条；check.sh 全绿（web 经 node_modules 本地二进制复核） |
