@@ -163,7 +163,7 @@ def test_reset_power_cycles_the_bench(client):
 def test_opening_without_actions_writes_no_record(tmp_path):
     """A bench that is only opened leaves no record; the first command starts one (issue 31)."""
     app = create_app(
-        SessionManager(ROOT / "examples", scpi_base_port=None, record_dir=tmp_path),
+        SessionManager(ROOT / "validation", scpi_base_port=None, record_dir=tmp_path),
         token=TOKEN,
         web_dist=Path("/nonexistent"),
     )
@@ -179,7 +179,7 @@ def test_opening_without_actions_writes_no_record(tmp_path):
 
 def test_connected_scripts_are_listed_for_the_switch_confirm():
     """The session description names the scripts holding the SCPI ports (issue 31)."""
-    manager = SessionManager(ROOT / "examples", scpi_base_port=0, hislip_port=0)
+    manager = SessionManager(ROOT / "validation", scpi_base_port=0, hislip_port=0)
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
