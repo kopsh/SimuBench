@@ -52,6 +52,29 @@ export function TopBar({ session }: { session: SessionInfo }) {
       <ConnectionBadge status={status} clockMode={session.clock_mode} />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <EditControls session={session} />
+      {session.stale_definitions.length > 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
+              disabled={reset.isPending}
+              onClick={() =>
+                reset.mutate(undefined, {
+                  onSuccess: () => toast.success(t("workbench.resetDone")),
+                  onError: (e) => toast.error((e as Error).message),
+                })
+              }
+            >
+              <RotateCw className="size-3.5" /> {t("workbench.staleDefinitions")}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-72">
+            {t("workbench.staleDefinitionsHint", { ids: session.stale_definitions.join(", ") })}
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       <div className="mx-auto flex items-center gap-2">
         <div className="bg-background flex h-8 items-center gap-3 rounded-md border px-3" aria-live="polite">
