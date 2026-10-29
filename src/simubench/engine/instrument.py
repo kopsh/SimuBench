@@ -576,6 +576,10 @@ class Instrument:
         """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
         return self._parse_state(self.specs[path], raw)
 
+    def format_setting(self, path: str) -> bytes:
+        """The setting at ``path`` as the definition formats replies."""
+        return self._format(self.specs[path], self.state[path])
+
     def _parse_state(self, st: StateSpec, raw: bytes) -> Any:
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()

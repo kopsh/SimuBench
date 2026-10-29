@@ -8,10 +8,11 @@ calibration program uses (docs/lowfreq-cal.md); the physics is the shared oscill
 
 * ``lecroy_scope``: the commands the definition cannot declare (settings, ``TRSE``, ``MSIZ`` and
   ``WAVEFORM_SETUP`` are declared with ``dialect``, reply templates and ``pairs`` parameters);
-* ``lecroy_acquisition``: timebase, edge trigger, run control (``TRMD``) and waveform transfer,
-  including the text readback ``C<n>:INSPECT? "DATA_ARRAY_1",FLOAT``: blank-separated numbers
-  between the header and quotes, ``C1:INSP " 1.000000e-03 ... "``, in pieces chosen by
-  ``WAVEFORM_SETUP`` (first point, number of points, sparsing);
+* ``lecroy_acquisition``: the configurable scope acquisition (record length, trigger, run control
+  ``TRMD``, noise and the ADC are set in the definition) plus the text readback
+  ``C<n>:INSPECT? "DATA_ARRAY_1",FLOAT`` (blank-separated numbers between the header and quotes,
+  ``C1:INSP " 1.000000e-03 ... "``, in pieces chosen by ``WAVEFORM_SETUP``), its ``"WAVEDESC"``
+  and ``PAVA?`` measurements;
 * ``lecroy_input`` / ``lecroy_frontend``: the coupling (``A1M``, ``D1M``, ``D50``, ``GND``) as
   input impedance and front-end filter.
 
@@ -25,17 +26,12 @@ from __future__ import annotations
 import math
 from typing import Any
 
-import numpy as np
-
 from ...engine.component import Component, OpResult, component, op
-from ...engine.noise import gaussian, stream_key
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .electrical import InputPort
-from .scope import DIVS_H, Record, ScopeAcquisition, ScopeFrontend, _measure, channel_index
+from .scope import Record, ScopeAcquisition, ScopeFrontend, _measure
 
-#: Vertical divisions on screen; the ADC reaches a little beyond (``adc_divs``).
-DIVS_V = 8
 #: PAVA? measurements by LeCroy name: the engine's measurement and the unit of the reply.
 MEASUREMENTS = {
     "AMPL": ("VAMPlitude", "V"),
@@ -47,8 +43,6 @@ MEASUREMENTS = {
     "FREQ": ("FREQuency", "HZ"),
     "PER": ("PERiod", "S"),
 }
-#: Trigger modes as TRMD? writes them.
-TRMD_TEXT = {"AUTO": "AUTO", "NORMal": "NORM", "SINGLE": "SINGLE", "STOP": "STOP"}
 
 
 class _Dialect(Component):
@@ -120,233 +114,19 @@ class LecroyScope(_Dialect):
 
 @component("lecroy_acquisition")
 class LecroyAcquisition(ScopeAcquisition, _Dialect):
-    """Run control, record length, noise and the ADC, waveform readback and PAVA? measurements.
+    """INSPECT? readback and PAVA? measurements on the configurable scope acquisition.
 
-    Run control follows ``TRMD``: AUTO and NORM acquire anew whenever a readback starts (``FP 0``)
-    and keep that record for the following pieces, so pieces read one after another join into one
-    record; SINGLE acquires once on the next trigger and then shows ``STOP``; STOP keeps the record.
+    The definition sets the run control: AUTO and NORM acquire anew whenever a readback starts
+    (``FP 0``) and keep that record for the following pieces, so pieces read one after another join
+    into one record; SINGLE acquires once on the next trigger and then shows ``STOP``.
     """
 
     defaults = {
         **ScopeAcquisition.defaults,
-        "max_rate": 2.0e10,
-        "search_windows": 2,
-        "noise_rms": 0.0,  # input-referred white noise, V rms; the definition sets it
-        "adc_bits": 12,
-        "adc_divs": 10.0,  # the ADC spans +-5 div around the screen centre
-        "trigger_jitter_s": 0.0,
         "transfer": "xfer",  # the waveform_transfer component that encodes DATA_ARRAY_1
     }
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.armed = False
-
-    def reset(self) -> None:
-        super().reset()
-        self.armed = False
-        self.acq_count = 0
-
-    # ---- timing and sampling ----------------------------------------------------------------------
-
-    def sample_rate(self) -> float:
-        window = DIVS_H * float(self._st("timebase.scale"))
-        return min(float(self.param("max_rate")), int(self._st("memory.size")) / window)
-
-    def _timing(self) -> tuple[int, float, int, int]:
-        window = DIVS_H * float(self._st("timebase.scale"))
-        points = max(2, round(self.sample_rate() * window))
-        dt = window / points
-        pre = points // 2  # trigger delay 0: the trigger sits at the centre of the screen
-        return points, dt, pre, points - pre
-
-    def trigger_level(self) -> float:
-        src = str(self._st("trigger.source"))
-        return float(self._st(f"ch{channel_index(src)}.trigger_level")) if src.startswith("C") else 0.0
-
-    def _search(self, sig: Any, t0: int, dt: float, pre: int, points: int) -> tuple[int, bool]:
-        """First edge of the trigger slope at or after ``pre`` samples (history before the trigger)."""
-        n = channel_index(self._st("trigger.source"))
-        level = self.trigger_level()
-        rising = self._st(f"ch{n}.trigger_slope") == "POSitive"
-        hyst = 0.02 * DIVS_V * float(self._st(f"ch{n}.scale"))
-        span = max(points * int(self.param("search_windows")), pre + 2 * points)
-        idx = np.arange(span)
-        v = sig.sample_rel(t0, idx * dt)
-        armed_side, crossed = (v < level - hyst, v >= level) if rising else (v > level + hyst, v <= level)
-        armed = np.nonzero(armed_side & (idx >= pre - 1))[0]
-        if armed.size:
-            after = np.nonzero(crossed & (idx > armed[0]))[0]
-            if after.size:
-                return int(after[0]), True
-        return pre, False
-
-    def compute(self, channels: list[int]) -> tuple[dict[int, Record], int, bool]:
-        points, dt, pre, post = self._timing()
-        t0 = self.session.now_ns
-        src = str(self._st("trigger.source"))
-        if src.startswith("C"):
-            k, triggered = self._search(self._display_signal(channel_index(src)), t0, dt, pre, points)
-        else:  # EX, EX10, LINE: nothing modeled drives them
-            k, triggered = pre, False
-        start = k - pre
-        t_start_ns = t0 + round(start * dt * 1e9)
-        jitter = float(self.param("trigger_jitter_s"))
-        if jitter:
-            key = stream_key(self.session.seed, self.uid, "jitter", self.acq_count)
-            jitter *= float(gaussian(key, np.zeros(1))[0])
-        offsets = (start + np.arange(points)) * dt + jitter
-        records = {}
-        for n in channels:
-            scale, offset = float(self._st(f"ch{n}.scale")), float(self._st(f"ch{n}.offset"))
-            volts = self._display_signal(n).sample_rel(t0, offsets) + self._noise(n, points)
-            records[n] = Record(
-                n, t_start_ns, dt, pre, self._adc(volts, scale, offset), scale, offset, triggered
-            )
-        used = (k + post) * dt + float(self.param("overhead_s"))
-        return records, round(used * 1e9), triggered
-
-    def _noise(self, n: int, points: int) -> np.ndarray:
-        """White input noise in display volts; a pure function of the seed, channel and acquisition.
-
-        Keyed by the acquisition count rather than by virtual time, so a script that pauses for a
-        different real time between commands still reads the same numbers for the same seed.
-        """
-        sigma = float(self.param("noise_rms")) * float(self._st(f"ch{n}.probe"))
-        if sigma <= 0:
-            return np.zeros(points)
-        key = stream_key(self.session.seed, self.uid, "noise", n, self.acq_count)
-        return sigma * gaussian(key, np.arange(points))
-
-    def _adc(self, volts: np.ndarray, scale: float, offset: float) -> np.ndarray:
-        """What the ADC keeps: ``adc_bits`` over ``adc_divs`` divisions around the screen centre."""
-        divs = float(self.param("adc_divs"))
-        per_div = (1 << int(self.param("adc_bits"))) / divs
-        half = divs / 2 * per_div
-        codes = np.clip(np.round((volts + offset) / scale * per_div), -half, half - 1)
-        return codes / per_div * scale - offset
-
-    # ---- run control ------------------------------------------------------------------------------
-
-    def _store(self, records: dict[int, Record], used: int, forced: bool = False) -> int:
-        self.records.update(records)
-        self.acq_count += 1
-        self.session.invalidate()
-        assert self.owner is not None
-        self.session.instrument_event(
-            self.owner,
-            "acquisition",
-            {
-                "count": self.acq_count,
-                "forced": forced,
-                "channels": {
-                    str(ch): {
-                        "t_start_ns": r.t_start_ns,
-                        "dt_s": r.dt_s,
-                        "points": int(r.volts.size),
-                        "trigger_index": r.trigger_index,
-                        "triggered": r.triggered,
-                    }
-                    for ch, r in sorted(records.items())
-                },
-                "seed": self.session.seed,
-            },
-        )
-        return used
-
-    def _channels_for(self, channel: int | None) -> list[int]:
-        chans = set(self.displayed())
-        if channel is not None:
-            chans.add(channel)
-        return sorted(chans)
-
-    def acquire_now(self, channel: int | None = None) -> int:
-        """One acquisition attempt as the trigger mode allows it. Returns the virtual time used."""
-        mode = self._st("trigger.mode")
-        if mode == "STOP":
-            return 0
-        records, used, triggered = self.compute(self._channels_for(channel))
-        if mode == "AUTO" or triggered:
-            self._store(records, used)
-            if mode == "SINGLE":
-                self.armed = False
-                self._set("trigger.mode", "STOP")
-        return used
-
-    def _poll(self) -> int:
-        """A SINGLE acquisition still waiting: try again now (the signal may have arrived since)."""
-        return self.acquire_now() if self.armed and self._st("trigger.mode") == "SINGLE" else 0
-
-    def _record_for(self, channel: int, fresh: bool) -> tuple[Record, int]:
-        """The record a readback uses: a new acquisition when ``fresh`` and the scope is running."""
-        used = 0
-        mode = self._st("trigger.mode")
-        if (fresh and mode in ("AUTO", "NORMal")) or (self.armed and mode == "SINGLE"):
-            used += self.acquire_now(channel)
-        rec = self.records.get(channel)
-        if rec is None:
-            # Nothing acquired on this channel yet (stopped, or no trigger): rather than an empty
-            # trace, read what the channel shows now, and say so in the event history.
-            records, t, _ = self.compute(self._channels_for(channel))
-            used += self._store(records, t, forced=True)
-            rec = self.records[channel]
-        return rec, used
-
-    @op("trig_mode")
-    def trig_mode(self, query: bool = False, mode: str | None = None, **_: Any) -> OpResult:
-        """``TRMD AUTO|NORM|SINGLE|STOP``; SINGLE arms one acquisition and acquires at once if it can."""
-        if query:
-            used = self._poll()
-            return OpResult(
-                self.reply("TRMD", TRMD_TEXT[str(self._st("trigger.mode"))], long="TRIG_MODE"), used
-            )
-        if mode is None:
-            raise ScpiError(-109)
-        self._set("trigger.mode", mode)
-        self.armed = mode == "SINGLE"
-        return OpResult(duration_ns=self.acquire_now() if self.armed else 0)
-
-    @op("arm")
-    def arm(self, **_: Any) -> OpResult:
-        """``ARM``: a single acquisition, like ``TRMD SINGLE``."""
-        return self.trig_mode(mode="SINGLE")
-
-    @op("stop")
-    def stop(self, **_: Any) -> OpResult:
-        self.armed = False
-        self._set("trigger.mode", "STOP")
-        return OpResult()
-
-    @op("force_trigger")
-    def force_trigger(self, **_: Any) -> OpResult:
-        """``FRTR``: one acquisition now, triggered or not; a SINGLE acquisition then stops."""
-        records, used, _ = self.compute(self.displayed())
-        self._store(records, used)
-        if self._st("trigger.mode") == "SINGLE":
-            self.armed = False
-            self._set("trigger.mode", "STOP")
-        return OpResult(duration_ns=used)
-
-    @op("wait")
-    def wait(self, timeout: float | None = None, **_: Any) -> OpResult:
-        """``WAIT [timeout]``: until a pending SINGLE acquisition is done (or the timeout passes)."""
-        return OpResult(duration_ns=self._poll())
-
-    @op("opc")
-    def opc(self, query: bool = False, **_: Any) -> OpResult:
-        """``*OPC?`` answers ``1`` once a pending SINGLE acquisition is done; ``*OPC`` sets the ESR bit."""
-        used = self._poll()
-        if query:
-            return OpResult(b"1", used)
-        assert self.owner is not None
-        self.owner.esr |= 1
-        return OpResult(duration_ns=used)
-
     # ---- waveform readback -------------------------------------------------------------------------
-
-    def transfer_record(self, channel: int, first: int) -> tuple[Record | None, int]:
-        """A readback starting at the first point acquires anew on a running scope (see _record_for)."""
-        return self._record_for(channel, fresh=first == 0)
 
     def _transfer(self) -> Any:
         assert self.owner is not None
@@ -368,7 +148,8 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
         if what not in ("DATA_ARRAY_1", "SIMPLE", "WAVEDESC"):
             raise ScpiError(-224, f"INSPECT {name!r} not modeled by SimuBench")
         if what == "WAVEDESC":
-            rec, used = self._record_for(channel, fresh=False)
+            rec, used = self.read_record(channel, start=False)
+            assert rec is not None  # missing: acquire
             return OpResult(self._wavedesc(rec).encode(), used)
         if (fmt or "FLOAT") != "FLOAT":
             raise ScpiError(-224, f"INSPECT format {fmt} not modeled by SimuBench (FLOAT is)")
@@ -384,7 +165,7 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
             "HORIZ_INTERVAL": f"{rec.dt_s:.9e}",
             "HORIZ_OFFSET": f"{-rec.trigger_index * rec.dt_s:.9e}",
             "VERTICAL_OFFSET": f"{rec.offset:.6e}",
-            "VERTICAL_GAIN": f"{rec.scale / ((1 << int(self.param('adc_bits'))) / float(self.param('adc_divs'))):.6e}",
+            "VERTICAL_GAIN": f"{rec.scale / self.adc_codes_per_div():.6e}",
             "TIMEBASE": f"{float(self._st('timebase.scale')):.6e}",
             "VOLT_PER_DIV": f"{rec.scale:.6e}",
             "ACQ_COUNT": str(self.acq_count),
@@ -400,7 +181,7 @@ class LecroyAcquisition(ScopeAcquisition, _Dialect):
         if what not in MEASUREMENTS:
             raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
         engine_name, unit = MEASUREMENTS[what]
-        rec, used = self._record_for(channel, fresh=True)
+        rec, used = self.measure_record(channel)
         value = _measure(engine_name, rec.volts, rec.dt_s)
         state = "OK" if math.isfinite(value) else "UF"
         body = f"{what},{V.format_engineering(value).decode() if math.isfinite(value) else 'UNDEF'} {unit},{state}"
