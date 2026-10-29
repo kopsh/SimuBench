@@ -50,7 +50,13 @@ class OpResult:
 @runtime_checkable
 class Sampler(Protocol):
     """What a trigger model (``trigger_model``) reads from: a measurement path that takes one reading
-    at a time (a meter's core, a source-measure unit). metrology-authoring.md 3.1."""
+    at a time (a meter's core, a source-measure unit). metrology-authoring.md 3.1.
+
+    A sampler may implement three optional hooks the trigger model uses when present:
+    ``run_samples()`` — how many readings one of its runs takes (an SMU's sweep; replaces the
+    configured counts), ``sample_fields(index)`` — additional fields of one reading (an SMU's VOLT,
+    CURR, RES, STAT; the reading buffer selects them by name), and ``run_begin()`` / ``run_done()``
+    — around a run, for settings the sampler drives while it runs."""
 
     def sample_time_ns(self) -> int:
         """Virtual time one reading takes (integration, autozero, overhead)."""
