@@ -189,6 +189,15 @@
 - **远端检测**：`sense_hi`、`sense_lo` 端口与参数 `remote_sense`。四线时电压环调节 `V(sense_hi) − V(sense_lo)`，读数也取这两个节点；电流仍从 force 端注入。电路上是修正节点分析中的一行受控约束；限值与 CV/CC 切换照常（D34）。二线时 sense 在内部接到 force 端。`remote_sense` 开启而 sense 端悬空时，测试台校验给出警告，运行时按真机的行为处理（型号定义给出读数或错误）。
 - 万用表的四线电阻测量不在本期，但 sense 端口的写法与此一致。
 
+### 6.1 实现与设计的差别（#91）
+
+- 电路上不是"一行"而是一个新的求解元素 `loop_source`（`engine/circuit.py`）：约束 `V(sense_a) − V(sense_b) = EMF` 占一个方程，环路的电流以同一个未知量从 force 正端流出、force 负端流回（引线上的压降由此精确出现）。二线与不浮地的单端源都是它的退化形式——`floating: false`、`remote_sense: false` 时它逐位等价于原来的单端理想源，现有 SMU 测试与验收场景不改通过。
+- 二线读数以测试台地为参考（`floating: false` 时 LO 在仪表内部接保护地，读数 = V(hi)），浮地时读 `V(hi) − V(lo)`；`remote_sense` 开启且两个 sense 端都接线时读 `V(sense_hi) − V(sense_lo)`。四线的电流环仍然只从 force 端注入/流回，sense 端不参与电流。
+- `floating: false` 时 LO 端口若接了线，仪表内部用一个 1e-6 Ω 的连接把它接到测试台地（1 A 下 1 µV，读数 7 位内不可见；取小电阻而不是理想短线，两台 SMU 的 LO 接到同一网络才不会使求解奇异）。
+- `remote_sense` 开启而 sense 端悬空（或两 sense 端接到同一网络）：电压环退回 force 端（测试台仍然可解、输出仍然驱动），读数命令报 -221 "Settings conflict; remote sense is on but a sense terminal is not connected"；面板读数（`readings()`，无副作用）显示退回后的值。校验诊断：sense 端悬空给警告 `W-SENSE-UNCONNECTED`，两端接在同一网络给错误 `E-SENSE-SHORT`。
+- `sb-smu-1` 的状态与命令：`sense.remote`（`[:SENSe]:REMote[:STATe]`）与 `terminal.floating`（`:SYSTem:FLOATing`），都是 electrical 设置，改动后控制环从设定量自己的环路重新开始；端口 `HI`、`LO`、`SENSE_HI`、`SENSE_LO`。
+- 引线与端接：`lead` 的 `role` 为空，`_check_nets` 不把它并入两侧网络——信号源幅度按 50 Ω 负载设定时，隔着引线的 50 Ω 端接不再被看到（与隔着同轴线缆不同，`tests/test_four_wire.py` 有对照用例）；`r` 取 0 时按 1e-6 Ω 求解，不报错。
+
 ## 7. 个体偏差按指标抽取（C6，#34）
 
 决定见 D3（第 2 层的起步）。
