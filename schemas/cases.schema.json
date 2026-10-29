@@ -4,9 +4,17 @@
       "additionalProperties": false,
       "properties": {
         "manual": {
-          "description": "Manual section the case follows",
-          "title": "Manual",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Manual section the case follows (or the contract clause it checks)",
+          "title": "Manual"
         },
         "name": {
           "title": "Name",
@@ -22,7 +30,6 @@
       },
       "required": [
         "name",
-        "manual",
         "steps"
       ],
       "title": "Case",
@@ -76,6 +83,19 @@
           "default": null,
           "description": "The reply as a number",
           "title": "Expect Value"
+        },
+        "instrument": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Instrument of this step; default: the file's",
+          "title": "Instrument"
         },
         "query": {
           "anyOf": [

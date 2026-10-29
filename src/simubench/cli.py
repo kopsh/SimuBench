@@ -288,6 +288,29 @@ def _replay(args: argparse.Namespace) -> int:
     return 0 if report.ok else 1
 
 
+def _cases(args: argparse.Namespace) -> int:
+    """Run cases files, each case on a freshly powered bench; exit 1 when a case fails (D6)."""
+    from .library.coverage import junit_xml, run_cases
+
+    dirs = [Path(d) for d in args.definitions]
+    suites = []
+    for path in args.files:
+        try:
+            results = run_cases(Path(path), dirs)
+        except Exception as exc:  # the file does not read
+            print(f"{path}: {exc or type(exc).__name__}", file=sys.stderr)
+            return 2
+        suites.append((path, results))
+        for r in results:
+            if not r.passed:
+                print(f"{path}: FAIL {r.describe()}", file=sys.stderr)
+        passed = sum(r.passed for r in results)
+        print(f"{path}: {passed}/{len(results)} cases passed")
+    if args.junit:
+        Path(args.junit).write_text(junit_xml(suites), encoding="utf-8")
+    return 0 if all(r.passed for _, results in suites for r in results) else 1
+
+
 def _coverage(args: argparse.Namespace) -> int:
     """A real model's coverage table (D42): every command of the manual and how far SimuBench goes."""
     from .library.coverage import LEVEL_TEXT, coverage_path, load_coverage
@@ -412,6 +435,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("id", help="definition id, e.g. keysight-34465a")
     p.add_argument("--definitions", action="append", default=[], help="also look for definitions here")
     p.set_defaults(fn=_coverage)
+
+    p = sub.add_parser(
+        "cases", help="run cases files (commands and expected replies) on fresh benches; exit 1 on a failure"
+    )
+    p.add_argument("files", nargs="+", metavar="cases.yaml")
+    p.add_argument("--junit", help="also write a JUnit XML report here (for CI)")
+    p.add_argument("--definitions", action="append", default=[], help="also look for definitions here")
+    p.set_defaults(fn=_cases)
 
     p = sub.add_parser("schemas", help="export OpenAPI and JSON Schemas (D21)")
     p.add_argument("--out", default="schemas")

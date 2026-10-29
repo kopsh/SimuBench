@@ -2,8 +2,10 @@
 
 A coverage table (``<id>.coverage.yaml`` next to the definition) lists every command of the manual,
 by section, with how far SimuBench goes: implemented, accepted (parsed and stored, no effect on the
-simulation) or not modeled (answers -113). Manual cases (``tests/models/<id>/cases.yaml``) are
-command sequences with expected replies, each citing the manual section it checks.
+simulation) or not modeled (answers -113). Cases (``cases.yaml``) are command sequences with
+expected replies: manual cases of a real model (``tests/models/<id>/cases.yaml``) cite the manual
+section they check, contract cases the interface contract of an existing test program. Both run the
+same way: each case on a freshly powered bench (:func:`run_cases`, ``simubench cases``).
 
 :func:`check` keeps the three in step: every command of the definition is in the table, every
 implemented or accepted command of the table is in the definition and has at least one case.
@@ -12,9 +14,12 @@ implemented or accepted command of the table is in the definition and has at lea
 from __future__ import annotations
 
 import re
+import time
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+from xml.sax.saxutils import escape, quoteattr
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -23,6 +28,9 @@ from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, parse_unit, split_units
 from .loader import COVERAGE_SUFFIX, _read_yaml, load_yaml
+
+if TYPE_CHECKING:
+    from ..engine.session import Session
 
 Level = Literal["implemented", "accepted", "not_modeled"]
 LEVEL_TEXT = {"implemented": "实现", "accepted": "接受", "not_modeled": "未实现"}
@@ -65,6 +73,7 @@ class Step(_Model):
 
     send: str | None = None
     query: str | None = None
+    instrument: str | None = Field(None, description="Instrument of this step; default: the file's")
     expect: str | None = Field(None, description="The exact reply")
     expect_match: str | None = Field(None, description="A regular expression the whole reply matches")
     expect_value: float | None = Field(None, description="The reply as a number")
@@ -97,7 +106,9 @@ class Step(_Model):
 
 class Case(_Model):
     name: str
-    manual: str = Field(..., description="Manual section the case follows")
+    manual: str | None = Field(
+        None, description="Manual section the case follows (or the contract clause it checks)"
+    )
     steps: list[Step]
 
 
@@ -178,4 +189,152 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
             _matches(entry.header, step.command) for case in cases.cases for step in case.steps
         ):
             problems.append(f"{entry.header}: marked {entry.level} ({section}) but no manual case uses it")
+    for case in cases.cases if cases is not None else []:
+        if not case.manual:
+            problems.append(f"{case.name}: a manual case names the manual section it follows (manual)")
     return problems
+
+
+# ---- running cases --------------------------------------------------------------------------------
+
+
+@dataclass
+class CaseResult:
+    """The outcome of one case; a failure names its step, the command, and what was expected and got."""
+
+    name: str
+    manual: str | None
+    passed: bool
+    step: int | None = None
+    command: str | None = None
+    expected: str | None = None
+    actual: str | None = None
+    error: str | None = None
+    seconds: float = 0.0
+
+    def describe(self) -> str:
+        if self.passed:
+            return self.name
+        where = f"{self.name}: step {self.step} ({self.command!r})" if self.step else self.name
+        if self.error:
+            return f"{where}: {self.error}"
+        return f"{where}: expected {self.expected}, got {self.actual!r}"
+
+    def as_dict(self) -> dict[str, object]:
+        return {k: v for k, v in vars(self).items() if v is not None}
+
+
+def open_case_bench(cases_file: Path, cases: Cases, definition_dirs: list[Path] | None = None) -> Session:
+    """A freshly powered bench for one case: the cases' bench file, or the instrument alone.
+
+    Definitions are looked up next to the cases file (a model under development), in
+    ``definition_dirs`` and in the library."""
+    from ..api import open_bench
+    from ..models.bench import BenchDefinition
+
+    dirs = [cases_file.parent, *(definition_dirs or [])]
+    if cases.bench:
+        return open_bench(cases_file.parent / cases.bench, definition_dirs=dirs)
+    bench = BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/1",
+            "name": "case",
+            "instruments": {cases.instrument: {"model": cases.model}},
+        }
+    )
+    return open_bench(bench, definition_dirs=dirs)
+
+
+def _reply(session: Session, instrument: str, step: Step) -> str | None:
+    session.write(instrument, step.command.encode() + b"\n")
+    if step.send is not None:
+        return None
+    out = session.read(instrument)
+    if out is None:
+        return None
+    text = out.decode("latin-1")
+    return text if step.binary else text.strip()
+
+
+def _check(step: Step, reply: str | None) -> tuple[str, bool]:
+    """(what was expected, whether the reply meets it)."""
+    if step.expect is not None:
+        return repr(step.expect), reply == step.expect
+    if step.expect_match is not None:
+        return f"a match of {step.expect_match!r}", reply is not None and bool(
+            re.fullmatch(step.expect_match, reply, re.DOTALL)
+        )
+    tol = step.tolerance or 0.0
+    expected = f"{step.expect_value!r} ± {tol!r}"
+    try:
+        return expected, reply is not None and abs(float(reply) - float(step.expect_value or 0.0)) <= tol
+    except ValueError:
+        return expected, False
+
+
+def run_case(
+    cases_file: Path, cases: Cases, case: Case, definition_dirs: list[Path] | None = None
+) -> CaseResult:
+    """Run one case on a freshly powered bench."""
+    t0 = time.perf_counter()
+    result = CaseResult(case.name, case.manual, passed=True)
+    try:
+        session = open_case_bench(cases_file, cases, definition_dirs)
+    except Exception as exc:  # the bench or a definition does not load
+        result.passed, result.error = False, f"the bench does not open: {exc}"
+        result.seconds = time.perf_counter() - t0
+        return result
+    try:
+        for i, step in enumerate(case.steps, 1):
+            instrument = step.instrument or cases.instrument
+            try:
+                reply = _reply(session, instrument, step)
+            except Exception as exc:
+                result.passed, result.step, result.command = False, i, step.command
+                result.error = f"{type(exc).__name__}: {exc}"
+                break
+            if step.query is None:
+                continue
+            expected, ok = _check(step, reply)
+            if not ok:
+                result.passed, result.step, result.command = False, i, step.command
+                result.expected = expected
+                result.actual = "(no reply)" if reply is None else reply[:200]
+                break
+    finally:
+        session.close()
+    result.seconds = time.perf_counter() - t0
+    return result
+
+
+def run_cases(cases_file: Path, definition_dirs: list[Path] | None = None) -> list[CaseResult]:
+    """Run every case of a cases file, each on a freshly powered bench."""
+    cases = load_cases(cases_file)
+    return [run_case(cases_file, cases, case, definition_dirs) for case in cases.cases]
+
+
+def junit_xml(suites: list[tuple[str, list[CaseResult]]]) -> str:
+    """JUnit XML for CI: one test suite per cases file, one test case per case."""
+    total = sum(len(r) for _, r in suites)
+    failed = sum(not c.passed for _, r in suites for c in r)
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', f'<testsuites tests="{total}" failures="{failed}">']
+    for name, results in suites:
+        bad = sum(not c.passed for c in results)
+        seconds = sum(c.seconds for c in results)
+        lines.append(
+            f'  <testsuite name={quoteattr(name)} tests="{len(results)}" failures="{bad}" time="{seconds:.3f}">'
+        )
+        for c in results:
+            label = f"{c.name} [{c.manual}]" if c.manual else c.name
+            head = f'    <testcase classname={quoteattr(name)} name={quoteattr(label)} time="{c.seconds:.3f}"'
+            if c.passed:
+                lines.append(head + "/>")
+            else:
+                lines.append(head + ">")
+                lines.append(
+                    f"      <failure message={quoteattr(c.describe())}>{escape(c.describe())}</failure>"
+                )
+                lines.append("    </testcase>")
+        lines.append("  </testsuite>")
+    lines.append("</testsuites>")
+    return "\n".join(lines) + "\n"

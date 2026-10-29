@@ -52,7 +52,15 @@
       expect_match: '^-222,"Data out of range'
 ```
 
-一个通用的测试读取所有用例文件，通过 PyVISA 后端逐条运行。预期可以是精确字符串（`expect`）、正则（`expect_match`）或数值与容差（`expect_value` + `tolerance`）。用例应覆盖覆盖表中每条“实现”和“接受”的命令。
+一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期可以是精确字符串（`expect`）、正则（`expect_match`）或数值与容差（`expect_value` + `tolerance`）。用例应覆盖覆盖表中每条“实现”和“接受”的命令；真实型号的每条用例都要写 `manual`（覆盖检查报告缺少的）。
+
+同一种文件也用来写**契约用例**：按既有测试程序的接口契约而不是编程手册编写，`manual` 写契约条目（例如 `examples/lowfreq-cal/cases.yaml`）。步骤可以用 `instrument` 发给测试台中的另一台仪器。运行：
+
+```bash
+simubench cases examples/lowfreq-cal/cases.yaml --junit cases.xml   # 失败时给出步骤、命令、预期与实际回复，退出码 1
+```
+
+MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结果。
 
 ## 5. 演示用的测试台
 
@@ -124,7 +132,7 @@ cases:
 
 回复是二进制块（如波形数据）的查询写 `binary: true`：按块头给出的长度读取，`expect` / `expect_match` 作用于按 Latin-1 解码的字节（包括块后的换行）。
 
-每条用例在一个刚上电的测试台上通过 PyVISA 后端运行，测试报告中单独列出，名称带手册章节。
+每条用例在一个刚上电的测试台上运行，测试报告中单独列出，名称带手册章节。
 
 **完整示例**：`tests/models/acme-dm1/` 是一个虚构的“真实型号”，只用于测试框架本身（不在产品仪表库中）：定义（`reference`、`errors`、`error_queue`、`format`、`specs`、命令级 `format`、没有冒号层级的 `OUT` 命令）、覆盖表与用例。`simubench coverage acme-dm1 --definitions tests/models/acme-dm1` 打印它的覆盖表与统计。
 
