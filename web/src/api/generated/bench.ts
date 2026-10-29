@@ -101,6 +101,10 @@ export type Y = number;
 export type Name = string;
 export type Clock = "command" | "wall" | "stepped";
 /**
+ * Command clock: how idle real time between commands counts as virtual time (D47). 'wall' counts it (interactive use, the historical behaviour); 'sleep' ignores it and turns time.sleep(t) into exactly t of virtual time without waiting (in-process benches only; the pytest default); 'off' ignores idle time completely. Only read on the command clock; wall and stepped clocks are unaffected
+ */
+export type Idle = "wall" | "sleep" | "off";
+/**
  * Allow clients to read hidden state (D9)
  */
 export type RevealTrueValues = boolean;
@@ -237,6 +241,7 @@ export interface LayoutItem {
 }
 export interface RunConditions {
   clock?: Clock;
+  idle?: Idle;
   reveal_true_values?: RevealTrueValues;
   seed?: Seed;
   start?: Start;
