@@ -20,7 +20,7 @@ from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .ranging import auto_range, fitting_range, range_of_setting, ranges_of, reading_time
-from .trigger import ReadingBuffer
+from .trigger import Reading, ReadingBuffer
 
 OPEN = 9.91e37  # SCPI "not a number" for a resistance with no current
 STAT_LIMIT = 8
@@ -421,13 +421,22 @@ class SmuCore(Component):
 
     @op("measure")
     def op_measure(self, **_: Any) -> OpResult:
-        """One reading with the source as configured, whatever the sweep mode; the reading memory
-        is the trigger model's business and is left alone."""
+        """One reading with the source as configured, whatever the sweep mode; it replaces the
+        reading memory (one reading is what the panel and ``FETCh?`` show until the next run)."""
         self._check_sense()
         t = self.reading_time(0.0)
-        return OpResult(
-            self._format([self._row(t)]), duration_ns=round((t + float(self.param("delay"))) * 1e9)
-        )
+        row = self._row(t)
+        buffer = self._reading_buffer()
+        if buffer is not None and self.owner is not None:
+            buffer.clear_buffer()
+            buffer.append(
+                Reading(
+                    row[0] if self._forcing_voltage() else row[1],
+                    self.owner.now_ns() + round((t + float(self.param("delay"))) * 1e9),
+                    {"VOLT": row[0], "CURR": row[1], "RES": row[2], "TIME": t, "STAT": row[4]},
+                )
+            )
+        return OpResult(self._format([row]), duration_ns=round((t + float(self.param("delay"))) * 1e9))
 
     @op("range")
     def op_range(self, function: str = "VOLTage", **_: Any) -> OpResult:
@@ -523,15 +532,18 @@ class SmuCore(Component):
             ],
         }
 
-    def _buffer_points(self) -> list[Any]:
-        """The readings the front panel shows: the reading memory the definition names."""
+    def _reading_buffer(self) -> ReadingBuffer | None:
+        """The reading memory the definition names (None when it does not)."""
         name = str(self.param("buffer") or "")
         if not name or self.owner is None:
-            return []
+            return None
         buffer = self.owner.components.get(name)
-        if not isinstance(buffer, ReadingBuffer):
-            return []
-        return list(buffer.buffers[buffer._default()])
+        return buffer if isinstance(buffer, ReadingBuffer) else None
+
+    def _buffer_points(self) -> list[Any]:
+        """The readings the front panel shows."""
+        buffer = self._reading_buffer()
+        return list(buffer.buffers[buffer._default()]) if buffer is not None else []
 
 
 @component("electronic_load")
