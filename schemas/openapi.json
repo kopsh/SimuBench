@@ -660,6 +660,12 @@
             ],
             "title": "Doc"
           },
+          "generic": {
+            "default": true,
+            "description": "False for a component written for one model's own behavior; built-in real models use generic components only (metrology-authoring.md 9)",
+            "title": "Generic",
+            "type": "boolean"
+          },
           "label": {
             "anyOf": [
               {
@@ -739,6 +745,7 @@
           "type",
           "category",
           "role",
+          "generic",
           "label",
           "label_en",
           "doc",
@@ -752,6 +759,13 @@
       },
       "ComponentInfo": {
         "properties": {
+          "deviations": {
+            "items": {
+              "$ref": "#/components/schemas/DeviationInfo"
+            },
+            "title": "Deviations",
+            "type": "array"
+          },
           "label": {
             "anyOf": [
               {
@@ -769,6 +783,7 @@
           },
           "params": {
             "additionalProperties": true,
+            "description": "Parameters; a drawn deviation shows its nominal value while hidden",
             "title": "Params",
             "type": "object"
           },
@@ -789,7 +804,8 @@
           "type",
           "label",
           "params",
-          "ports"
+          "ports",
+          "deviations"
         ],
         "title": "ComponentInfo",
         "type": "object"
@@ -1043,6 +1059,228 @@
         "title": "DefinitionSummary",
         "type": "object"
       },
+      "DeviationInfo": {
+        "description": "One parameter's individual deviation (个体偏差): its range, and this unit's value when shown.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {},
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "distribution": {
+            "title": "Distribution",
+            "type": "string"
+          },
+          "drawn": {
+            "default": false,
+            "description": "Drawn from the bench seed (else the nominal or a hidden value)",
+            "title": "Drawn",
+            "type": "boolean"
+          },
+          "limit": {
+            "description": "±limit: a number, or a table keyed by the last `by` value",
+            "title": "Limit"
+          },
+          "param": {
+            "description": "'<component>.<parameter>' (instrument) or '<parameter>' (DUT)",
+            "title": "Param",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "value": {
+            "description": "This unit's value; null while hidden (run.reveal_true_values off) or not drawn",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "param",
+          "limit",
+          "unit",
+          "distribution",
+          "by",
+          "value",
+          "drawn"
+        ],
+        "title": "DeviationInfo",
+        "type": "object"
+      },
+      "DeviationRange": {
+        "additionalProperties": false,
+        "description": "The range one parameter's deviation falls in.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {},
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}",
+            "title": "By"
+          },
+          "coverage": {
+            "default": 2.0,
+            "description": "normal: the coverage factor k of the limit (limit = k·σ)",
+            "exclusiveMinimum": 0.0,
+            "title": "Coverage",
+            "type": "number"
+          },
+          "distribution": {
+            "default": "uniform",
+            "description": "uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)",
+            "enum": [
+              "uniform",
+              "normal"
+            ],
+            "title": "Distribution",
+            "type": "string"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              }
+            ],
+            "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+            "title": "Limit"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "enum": [
+                  "%",
+                  "ppm"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "'%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)",
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "limit"
+        ],
+        "title": "DeviationRange",
+        "type": "object"
+      },
+      "DeviationSpec": {
+        "additionalProperties": false,
+        "description": "A definition's deviation: which component parameter, and its range.",
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "items": {},
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}",
+            "title": "By"
+          },
+          "coverage": {
+            "default": 2.0,
+            "description": "normal: the coverage factor k of the limit (limit = k·σ)",
+            "exclusiveMinimum": 0.0,
+            "title": "Coverage",
+            "type": "number"
+          },
+          "distribution": {
+            "default": "uniform",
+            "description": "uniform: anywhere within ±limit; normal: σ = limit / coverage, truncated at ±limit (a unit outside its specification is a fault, injected separately)",
+            "enum": [
+              "uniform",
+              "normal"
+            ],
+            "title": "Distribution",
+            "type": "string"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              }
+            ],
+            "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+            "title": "Limit"
+          },
+          "param": {
+            "description": "'<component>.<parameter>', e.g. 'meter.gain_error_ppm'; a channel component's name (e.g. 'out.z_out') draws one value per channel",
+            "pattern": "^[^.]+(\\.[^.]+)*\\.[^.]+$",
+            "title": "Param",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "enum": [
+                  "%",
+                  "ppm"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "'%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)",
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "limit",
+          "param"
+        ],
+        "title": "DeviationSpec",
+        "type": "object"
+      },
       "Diagnostic": {
         "properties": {
           "code": {
@@ -1252,6 +1490,7 @@
                   "rename": "#/components/schemas/Rename",
                   "set_accessories": "#/components/schemas/SetAccessories",
                   "set_address": "#/components/schemas/SetAddress",
+                  "set_deviation": "#/components/schemas/SetDeviation",
                   "set_identity": "#/components/schemas/SetIdentity",
                   "set_label": "#/components/schemas/SetLabel",
                   "set_meta": "#/components/schemas/SetMeta",
@@ -1297,6 +1536,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/SetIdentity"
+                },
+                {
+                  "$ref": "#/components/schemas/SetDeviation"
                 },
                 {
                   "$ref": "#/components/schemas/Move"
@@ -1734,6 +1976,14 @@
             ],
             "title": "Description"
           },
+          "deviations": {
+            "description": "Parameters a unit deviates in, and their ranges: a bench instance with deviation: from_specs draws its own values from the bench seed (个体偏差, metrology-authoring.md 7)",
+            "items": {
+              "$ref": "#/components/schemas/DeviationSpec"
+            },
+            "title": "Deviations",
+            "type": "array"
+          },
           "dialect": {
             "$ref": "#/components/schemas/Dialect",
             "description": "Reply framing beyond SCPI (headers, suffixes)"
@@ -1803,7 +2053,7 @@
           },
           "specs": {
             "additionalProperties": true,
-            "description": "Accuracy and other specifications from the manual; stored, not yet used in calculations",
+            "description": "Accuracy and other specifications from the manual, as written there; a record, not used in calculations (the deviations a unit draws are in `deviations`)",
             "title": "Specs",
             "type": "object"
           },
@@ -1889,6 +2139,23 @@
             ],
             "title": "Description"
           },
+          "deviation": {
+            "default": "nominal",
+            "enum": [
+              "nominal",
+              "from_specs"
+            ],
+            "title": "Deviation",
+            "type": "string"
+          },
+          "deviations": {
+            "description": "The definition's deviation ranges, with this unit's values",
+            "items": {
+              "$ref": "#/components/schemas/DeviationInfo"
+            },
+            "title": "Deviations",
+            "type": "array"
+          },
           "display": {
             "$ref": "#/components/schemas/DisplayInfo"
           },
@@ -1973,7 +2240,9 @@
           "display",
           "ports",
           "state",
-          "errors"
+          "errors",
+          "deviation",
+          "deviations"
         ],
         "title": "InstrumentInfo",
         "type": "object"
@@ -4020,6 +4289,82 @@
           "instrument"
         ],
         "title": "SetAddress",
+        "type": "object"
+      },
+      "SetDeviation": {
+        "additionalProperties": false,
+        "description": "Individual deviations (个体偏差): an instrument's mode, or one DUT parameter's range.",
+        "properties": {
+          "dut": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `param`: the DUT",
+            "title": "Dut"
+          },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `mode`: the instrument",
+            "title": "Instrument"
+          },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "nominal",
+                  "from_specs"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "nominal: the model's values; from_specs: drawn within the definition's deviations",
+            "title": "Mode"
+          },
+          "op": {
+            "const": "set_deviation",
+            "default": "set_deviation",
+            "title": "Op",
+            "type": "string"
+          },
+          "param": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Param"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeviationRange"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The parameter's range; null removes it"
+          }
+        },
+        "title": "SetDeviation",
         "type": "object"
       },
       "SetIdentity": {

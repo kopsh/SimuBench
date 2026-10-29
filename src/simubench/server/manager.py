@@ -314,8 +314,22 @@ class SessionManager:
             )
             for p, spec in comp.ports.items()
         ]
+        params = comp.describe()
+        deviations = []
+        dut = s.bench.duts.get(name)
+        for param, rng in (dut.deviation if dut else {}).items():
+            key = f"{name}.{param}"
+            drawn = key in s.dut_deviations
+            if drawn and not s.reveal_true_values:
+                params[param] = next(v for k, v, _ in comp.nominal() if k == param)  # the nominal value
+            deviations.append(_deviation_info(param, rng, comp.param(param), drawn, s.reveal_true_values))
         return M.ComponentInfo(
-            name=name, type=comp.type_name, label=label, params=_plain(comp.describe()), ports=ports
+            name=name,
+            type=comp.type_name,
+            label=label,
+            params=_plain(params),
+            ports=ports,
+            deviations=deviations,
         )
 
     def describe_instrument(
@@ -377,6 +391,18 @@ class SessionManager:
             ports=ports,
             state=state,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
+            deviation=inst.instance.deviation,
+            deviations=[
+                _deviation_info(
+                    key,
+                    spec,
+                    inst.deviations.get(key),
+                    key in inst.deviations,
+                    s.reveal_true_values,
+                )
+                for spec in d.deviations
+                for key in _deviation_keys(inst, spec.component, spec.parameter)
+            ],
         )
 
     @staticmethod
@@ -712,3 +738,23 @@ def _channel_silence(s: Session, inst: Instrument, channel: int) -> list[M.Silen
             ref = f"{inst.name}.{pname}"
             return [_silence(x) for x in why_silent(s, s.node_of(inst.components[comp], port), port_ref=ref)]
     return []
+
+
+def _deviation_keys(inst: Instrument, component: str, parameter: str) -> list[str]:
+    """'<component>.<parameter>' for an instrument-level component, one per channel otherwise."""
+    if component in inst.components:
+        return [f"{component}.{parameter}"]
+    return [f"ch{n}.{component}.{parameter}" for n in range(1, inst.channel_count + 1)]
+
+
+def _deviation_info(param: str, rng: Any, value: Any, drawn: bool, reveal: bool) -> M.DeviationInfo:
+    """A deviation range for the inspector; a drawn value only when the bench reveals true values."""
+    return M.DeviationInfo(
+        param=param,
+        limit=_plain(rng.limit),
+        unit=rng.unit,
+        distribution=rng.distribution,
+        by=_plain(rng.by),
+        value=_plain(value) if drawn and reveal else None,
+        drawn=drawn,
+    )

@@ -67,7 +67,7 @@
 - 分辨率量化在读数管线里、超量程判定之前：真值 → 隐藏误差 → 校准系数 → 量化 → 超量程判 `overload_value`。
 - `table` 映射已加入（instrument-authoring.md 2.3 同步更新）：取不大于设置值的最大表项，没有更小的项时取最小项。
 - 输入阻抗见上条的实现；测试 `tests/test_meter_core.py` 覆盖分压电路的两种 `high_z` 取值，与手工计算（含求解器每节点 1e-12 S 的 GMIN 对地电导）差小于 1 ppm。
-- **`sampler` 协议本期未做**，随 #88（触发模型）一起实现：#87 的命令清单没有它，读数耗时仍由定义的 `duration` 给出。
+- `sampler` 协议：#88 已先于本 issue 合并，在核心上给出了最小实现（`sample(index)` / `sample_time_ns()`，`reading_time` 参数）；本 issue 之后，量程系统的读数（量化、超量程、按量程误差）同样进入 `sample()`。耗时的 NPLC 规则（NPLC × 电源周期 + 自动调零 + 开销）与 `smu_core` 的共用实现随 #94。
 
 ## 3. 触发模型、读数存储与待完成操作（C2，#88、#94）
 
@@ -99,6 +99,19 @@
 
 - 组件可以登记“到虚拟时刻 t 才完成”的操作。内置 `*OPC?` 在全部完成时回答 `1`（命令时钟下推进到最晚的 t），`*WAI` 同样等待，`*OPC` 在完成时置 ESR 位 0。示波器采集组件的 `opc` 改为使用这个机制（回复与虚拟时间不变）。校准源的建立时间（第 5 节）用同一机制。
 - 内置 `*TRG`：定义中有 `bus_trigger` 操作的仪表回答；没有时按“未建模”处理（D42 不变）。
+
+### 3.5 实现（#88）
+
+已实现：`library/components/trigger.py`（`trigger_model`、`reading_buffer`），`Instrument` 的待完成操作（`register_pending`、`settle_pending`、`wait_until`、`wait_pending`、`arm_opc`），`engine/component.py` 的 `Sampler` 协议。与上文的差别与补充：
+
+- **`Sampler` 协议**：`sample_time_ns()`（一个读数所需的虚拟时间）与 `sample(index)`（此刻的一个读数，`index` 是本次运行中的序号，供噪声流使用）。`dmm_core` 先给出最小实现（参数 `function`、`reading_time`）；NPLC、自动调零与量程的读数时间由 #87 补上，`smu_core` 由 #94 接入；
+- 读数在运行完成时按各自的时刻取得（`FETCh?`、`*OPC?`、`*WAI`，或之后任一条命令到达时）；
+- 同一条程序消息中，前面命令用掉的时间计入“现在”（`Instrument.now_ns()`），所以 `INIT;*WAI;…` 中 `*WAI` 之后的命令看到的是运行结束后的状态；
+- 墙钟下的等待按真实时间（最多 5 s，与链路延迟相同）；步进时钟下不等待，`FETCh?` 在读数完成前报错；
+- 没有触发可等时的 `FETCh?`：不回复并报 `waiting_error`（默认 -230），脚本因此超时，与真机一样；`READ?` 配总线或外部触发报 `deadlock_error`（-214）；运行中再 `INITiate` 报 `ignored_error`（-213）；不在等待时的 `*TRG` 报 `trigger_ignored_error`（-211）。错误码都是参数，型号按手册给出；
+- `*TRG` 加入内置命令：调用第一个带 `bus_trigger` 操作的组件，没有时仍按“未建模”回复 -113；
+- 等待总线触发的运行不登记为待完成操作，所以 `*OPC?` 不会因为一个永远不来的触发而无限等待；
+- 读数缓冲区按 `elements` 给出 `READ`（读数）、`REL`（距第一个读数的秒数）与 sampler 附加的字段（#94 起）。
 
 ### 3.4 `smu_core` 迁移（#94）
 
@@ -177,11 +190,10 @@
 
 ```yaml
 deviations:
-  - param: meter.gain_error_ppm
+  - param: meter.gain_error_ppm   # 参数本身就是误差（ppm）：不写 unit，值 = 标称 + 偏差
     by: {function: [DC], range: [0.1, 1, 10, 100, 1000]}   # 可选：按表抽取，每格一个值
     limit: {0.1: 30, 1: 20, 10: 15, 100: 20, 1000: 20}     # 每格的 ±limit；一个数则各格相同
-    unit: ppm
-    distribution: uniform          # uniform：±limit 内均匀；normal：σ = limit / coverage
+    distribution: uniform          # uniform：±limit 内均匀；normal：σ = limit / coverage，截断在 ±limit
   - param: meter.offset
     limit: 2.0e-6
     unit: V
@@ -189,7 +201,7 @@ deviations:
     coverage: 2
 ```
 
-- `unit` 为 `ppm`、`%` 或参数自己的单位；静态校验检查 `param` 存在、`by` 的键与参数的表一致。
+- `unit` 为 `%` 或 `ppm` 时偏差相对标称值（值 = 标称 × (1 + d)）；不写时 limit 用参数本身的单位，值 = 标称 + d（参数本身就是误差或偏移时这样写）。静态校验检查 `param` 指向已声明的组件与参数、参数是数值，相对偏差用在标称值为 0 的参数上时给出警告。
 - 一项的 `limit` 来自手册时，在 `specs` 中引用出处即可，不要求两者自动对应（手册的指标常是“读数的 x ppm + 量程的 y ppm”，换成参数需要领域判断，由写型号的人完成）。
 
 ### 7.2 测试台
@@ -210,6 +222,18 @@ duts:
 - 抽取用计数器式随机数（`engine/noise.py`），键为（种子、实例名、组件.参数、表键）：与抽取顺序、测试台中其他仪表的增减无关；同一测试台同一种子结果相同。
 - 抽到的值写入运行记录头部，回放时校验。
 - 界面统一叫“个体偏差”；抽取的值受 `run.reveal_true_values` 约束（写死的值通过 `read_bench` 本来就可读）。
+
+### 7.3 实现（#34）
+
+已实现：`models/deviation.py`（`DeviationRange`、`DeviationSpec`）、`engine/deviation.py`（抽取）。与上文的差别与补充：
+
+- 正态分布截断在 ±limit 之内（超出指标的一台是故障，另用故障注入），因此每个值都在范围内；
+- 按表抽取时，值是按 `by` 的键顺序嵌套的表（`{DC: {0.1: …, 1: …}}`），相对偏差按每格自己的标称值计算；按量程使用这张表的测量核心由 #87 提供；
+- 编辑操作 `set_deviation`（仪表的 `mode`，或 DUT 一个参数的 `range`），画布与 MCP 共用（D9）；
+- 会话接口：仪表的 `deviation`（模式）与 `deviations`，DUT 的 `deviations`；每项给出范围、是否抽取、值（只在 `reveal_true_values` 打开时）；隐藏时 DUT 的 `params` 显示标称值。检查器中的“个体偏差”一节显示范围与值，仪表有“按指标抽取”开关；原来 DUT 的“隐藏参数”（`tol_*`）并入这一节；
+- 运行记录头部的 `deviations`；回放按记录的种子重新抽取，不一致时警告（例如定义中的范围改过）；
+- 诊断：`E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO`（定义），`E-DEVIATION-PARAM`、`W-DEVIATION-ZERO`、`W-DEVIATION-NONE`（测试台）；
+- `sb-dmm-1`（增益误差、零点）与 `sb-awg-2`（每通道的输出阻抗）写了 `deviations`，供测试与演示。
 
 ## 8. 定标判定的真值核对（C7，#92）
 
@@ -240,6 +264,8 @@ decisions: {PASS: pass, FAIL: fail, "N/A": no_statement}
 - 核对在运行结束后离线进行，不受 `run.reveal_true_values` 限制；输出只有结论与真误差，不改变运行时的保密规则（`docs/security.md` 说明）。
 
 ## 9. 型号不依赖专用组件；写型号的操作手册（C8，#93）
+
+已实现（#93）：`Component.generic`；`siglent_sdg`、`siglent_sdg_channel_limits`、`siglent_sds_acquisition`、`siglent_sds_channel_limits` 标为 `False`；检查在 `tests/test_model_components.py`（例外清单按“定义 id、组件类型”成对列出，另断言目录中所有非通用组件都在清单里，因此也不能新增只是不被内置定义使用的专用组件）。与下面的设计稿的差别：覆盖表草稿的写法是 `simubench coverage <id> --draft <清单>`（`--out` 指定写到哪里，默认在定义旁边，没有定义时为 `instruments/<id>.coverage.yaml`）；定义中已有的命令起草为 `implemented` 并注明“待确认”，其余为 `not_modeled`；补充已有的覆盖表时保留文件开头的注释与已写的条目，其他注释不保留（覆盖表按数据重写）。
 
 - 组件类增加 `generic`（默认 `True`）；现有的型号专用组件标为 `False`，组件目录显示这一项。
 - CI 检查：内置定义（带 `reference`）只使用 `generic` 组件。例外清单写在测试里，现在只有两台 Siglent；清单只能缩短（检查同时断言清单中的每一项仍在使用）。

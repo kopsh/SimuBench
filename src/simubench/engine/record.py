@@ -104,6 +104,8 @@ class Recorder:
             # Not the JSON dump: it writes infinity (a HiZ load setting) as null.
             "bench_data": self.session.bench.model_dump(by_alias=True),
             "seed": self.session.seed,
+            # Drawn individual deviations; a replay draws them again from the seed and warns when they differ.
+            "deviations": self.session.deviations(),
             "clock": self.session.clock_mode,
             "idle": self.session.idle_mode,
             "started": time.time(),

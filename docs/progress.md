@@ -221,13 +221,13 @@
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 型号不依赖专用组件的检查、写型号的操作手册、覆盖表草稿 | ⏳ issue 93 |
-| 测量核心：量程、超量程、分辨率、输入阻抗、按量程的误差 | ✅ issue 87：手动量程取能容纳设定值的最小档、超限取最大档；自动量程按真值、滞回带 `[down, up] × 满量程`，判定发生在测量命令；超量程读 `overload_value`；分辨率（含 NPLC 的 `table` 映射）量化读数；隐藏误差可按（功能、量程）给表；输入阻抗由核心自己 stamp 进电路（量程或 `high_z` 变化触发重解），`tests/test_meter_core.py` 覆盖分压电路两种 `high_z` 取值、与手工计算差小于 1 ppm；`sb-dmm-1` 现有测试不改通过；`sampler` 协议留给 #88（metrology-authoring.md 2.1） |
-| 触发模型、读数存储、待完成操作、`*TRG` | ⏳ issue 88 |
+| 型号不依赖专用组件的检查、写型号的操作手册、覆盖表草稿 | ✅ issue 93：组件的 `generic` 标记（组件目录与 MCP `list_components` 显示），`tests/test_model_components.py`（两台 Siglent 的 4 处使用为例外，清单只能缩短；新增使用与已还清未删都会失败并指明定义与组件）；`.claude/skills/real-model/SKILL.md`（其中的命令逐条运行过）；`simubench coverage <id> --draft`（新建、补充时保留手写内容、分节，`tests/test_coverage_draft.py`）；`.github/ISSUE_TEMPLATE/real-model.md` |
+| 测量核心：量程、超量程、分辨率、输入阻抗、按量程的误差 | ✅ issue 87：手动量程取能容纳设定值的最小档、超限取最大档；自动量程按真值、滞回带 `[down, up] × 满量程`，判定发生在测量命令；超量程读 `overload_value`；分辨率（含 NPLC 的 `table` 映射）量化读数；隐藏误差可按（功能、量程）给表；输入阻抗由核心自己 stamp 进电路（量程或 `high_z` 变化触发重解），`tests/test_meter_core.py` 覆盖分压电路两种 `high_z` 取值、与手工计算差小于 1 ppm；`sb-dmm-1` 现有测试不改通过；#88 的最小 `sample()` 读到的也是量程系统的读数（metrology-authoring.md 2.1） |
+| 触发模型、读数存储、待完成操作、`*TRG` | ✅ issue 88：只用通用组件写成的测试万用表（`tests/definitions/test-trigger-meter.yaml`）上，`TRIG:COUN 3; SAMP:COUN 2; INIT; FETC?` 给出 6 个读数，虚拟时间为 6 × 读数时间 + 3 × 延时；`*OPC?`、`*WAI`、`*OPC` 等待运行完成，`*CLS` 取消；总线触发、`READ?` 的死锁、运行中 `INIT`、不在等待时的 `*TRG` 的错误；`R?` 的块格式与取出、`DATA:POINts?`、`DATA:REMove?`；命名缓冲区与按元素读取；含触发的运行记录回放一致（`tests/test_trigger_model.py`，10 项）；示波器的 `*OPC` 改用同一机制，现有用例与验收不改通过 |
 | 校准存储 | ⏳ issue 89 |
 | 校准源、按单位分派的参数、错误查询的声明 | ⏳ issue 90 |
 | 四线测量与引线电阻 | ⏳ issue 91 |
 | `smu_core` 接入触发模型与缓冲区、源与测量量程 | ⏳ issue 94 |
-| 个体偏差按指标抽取 | ⏳ issue 34 |
+| 个体偏差按指标抽取 | ✅ issue 34：同一测试台同一种子抽到相同的值，换种子不同，200 个种子全部在范围内（`sb-dmm-1` 两项、`sb-awg-2` 每通道一项、DUT 电阻）；与测试台中其他仪表无关；写死的值优先；读数等于按抽取的误差手工计算的值；按表抽取；记录头部与回放校验；静态校验；编辑操作；会话接口在 `reveal_true_values` 关闭时不给出值（`tests/test_deviation.py`，11 项）；检查器“个体偏差”与“按指标抽取”开关（端到端测试）；现有测试台行为不变（全部现有测试不改通过） |
 | 定标判定的真值核对 | ⏳ issue 92 |
 | 衡量：34465A、5522A、2450 只写定义（issue 7、8、12），定标演示的核对不写专用代码（issue 9） | ⏳ |

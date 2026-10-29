@@ -105,3 +105,12 @@ commands:
     state: cal.date
   - header: ":CALibration:STRing"
     state: cal.string
+# Individual deviations (个体偏差): a bench instance with deviation: from_specs draws them from its seed.
+deviations:
+  - param: meter.gain_error_ppm
+    limit: 20.0
+    distribution: uniform
+  - param: meter.offset
+    limit: 5.0e-6
+    distribution: normal
+    coverage: 2

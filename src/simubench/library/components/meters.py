@@ -62,7 +62,7 @@ class DmmCore(Component):
     defaults = {
         "ac_low": 3.0,  # Hz above which lines count into the AC reading
         "digits": 7,  # display digits of a reading
-        "function": None,  # what a command without a function measures (DC / AC, mapped from a setting)
+        "function": "DC",  # DC | AC: what a command without one measures; what sample() reads
         "ranges": None,  # full-scale value of each range, per function ({DC: [...]}) or one list
         "range": None,  # manual range: a value the range must be able to measure (None, <= 0: auto)
         "autorange": True,  # the range follows the true value
@@ -77,6 +77,7 @@ class DmmCore(Component):
         "high_z_ranges": [],  # the ranges on which high_z applies (full-scale values)
         "gain_error_ppm": 0.0,  # the meter's own gain error, ppm (hidden); per function and range
         "offset": 0.0,  # the meter's own DC offset error, V (hidden); per function and range
+        "reading_time": 0.0,  # s of virtual time one reading takes (integration and overhead)
         "cal_gain": 1.0,  # calibration gain coefficient
         "cal_offset": 0.0,  # calibration zero (offset) coefficient
         "cal_value": 0.0,  # the reference a gain calibration assumes on the input
@@ -142,6 +143,14 @@ class DmmCore(Component):
         if self.session.reveal_true_values:
             values.update({f"true_{k}": v for k, v in self.true_values().items()})
         return {"values": values}
+
+    # ---- a Sampler for trigger_model (metrology-authoring.md 3.1) -----------------------------------
+
+    def sample_time_ns(self) -> int:
+        return round(float(self.param("reading_time")) * 1e9)
+
+    def sample(self, index: int) -> float:
+        return self.reading(self.active_function())
 
     @op("measure")
     def op_measure(self, what: str | None = None, **_: Any) -> OpResult:

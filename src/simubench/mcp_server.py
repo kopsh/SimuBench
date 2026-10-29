@@ -153,7 +153,8 @@ def build_server(
         operations (what a command's op: <component>.<name> calls, with its parameters).
 
         Without ``types`` each entry is a summary (first line of the description, parameter and
-        operation names); name the types you use to get every field."""
+        operation names); name the types you use to get every field. ``generic: false`` marks a
+        component written for one model: a new definition uses generic components only."""
         guard()
         out = []
         for c in component_catalog():
@@ -168,6 +169,7 @@ def build_server(
                     "type": c.type,
                     "category": c.category,
                     "role": c.role,
+                    "generic": c.generic,
                     "doc": (c.doc or "").split("\n", 1)[0] or None,
                     "ports": [p.name for p in c.ports] + ([f"/{c.port_pattern}/"] if c.port_pattern else []),
                     "params": [p.name for p in c.params],
@@ -705,7 +707,8 @@ def build_server(
     @mcp.tool()
     def read_true_values(session_id: str | None = None) -> dict[str, Any]:
         """Hidden state the simulation knows exactly: DUT parameters including hidden tolerances,
-        instrument hidden overrides, and the true signal on every net. Needs --allow-control and
+        instrument hidden overrides, the individual deviations drawn from the bench seed, and the
+        true signal on every net. Needs --allow-control and
         run.reveal_true_values in the bench (off in validation runs, so calibration cannot read
         the answer)."""
         guard()
@@ -736,6 +739,7 @@ def build_server(
                     ][:16],
                     "dc_v": float(sig.dc),
                 }
-        return {"duts": duts, "instrument_hidden": hidden, "nets": nets}
+            deviations = {k: _plain(v) for k, v in session.deviations().items()}
+        return {"duts": duts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
 
     return mcp
