@@ -5,7 +5,6 @@ named after the manual section it checks. Every real-model definition (one with 
 must agree with its coverage table and its cases.
 """
 
-import re
 import shutil
 from pathlib import Path
 
@@ -14,7 +13,7 @@ import pyvisa
 import yaml
 
 from simubench.cli import main
-from simubench.library.coverage import Coverage, check, coverage_path, load_cases, load_coverage
+from simubench.library.coverage import Coverage, check, coverage_path, load_cases, load_coverage, run_case
 from simubench.library.loader import BUILTIN_DIR, DefinitionLibrary
 from simubench.scpi import values as V
 from simubench.scpi.parse import Pattern, parse_unit
@@ -59,50 +58,11 @@ def open_instrument(tmp_path: Path, cases_file: Path, cases):
     return rm, rm.open_resource(cases.instrument, read_termination="\n", write_termination="\n", timeout=2000)
 
 
-def read_block(inst) -> bytes:
-    """A definite-length block and what follows it on the line, read the way scripts read binary data
-    (the payload may contain line feeds, so reading up to the termination character is not enough)."""
-    head = inst.read_bytes(2)
-    digits = inst.read_bytes(int(head[1:2]))
-    payload = inst.read_bytes(int(digits))
-    tail = b""
-    while not tail.endswith(b"\n"):
-        tail += inst.read_bytes(1)
-    while True:  # a second line feed, as some instruments send (Siglent's "0A 0A")
-        try:
-            inst.timeout, saved = 50, inst.timeout
-            more = inst.read_bytes(1)
-        except pyvisa.errors.VisaIOError:
-            break
-        finally:
-            inst.timeout = saved
-        tail += more
-    return head + digits + payload + tail
-
-
 @pytest.mark.parametrize(("cases_file", "cases", "case"), list(all_cases()))
-def test_manual_case(tmp_path, cases_file, cases, case):
-    rm, inst = open_instrument(tmp_path, cases_file, cases)
-    try:
-        for i, step in enumerate(case.steps, 1):
-            where = f"{case.name}: step {i} ({step.command!r}), manual: {case.manual}"
-            if step.send is not None:
-                inst.write(step.send)
-                continue
-            if step.binary:
-                inst.write(step.query)
-                reply = read_block(inst).decode("latin-1")
-            else:
-                reply = inst.query(step.query).strip()
-            if step.expect is not None:
-                assert reply == step.expect, where
-            elif step.expect_match is not None:
-                assert re.fullmatch(step.expect_match, reply, re.DOTALL), f"{where}: {reply[:80]!r}"
-            else:
-                tol = step.tolerance or 0.0
-                assert abs(float(reply) - step.expect_value) <= tol, f"{where}: {reply!r}"
-    finally:
-        rm.close()
+def test_manual_case(cases_file, cases, case):
+    """Through the same runner as ``simubench cases``: a freshly powered bench per case."""
+    result = run_case(cases_file, cases, case)
+    assert result.passed, result.describe()
 
 
 def real_models():

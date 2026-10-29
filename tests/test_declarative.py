@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import math
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -153,6 +154,20 @@ def test_scpi_definitions_reply_as_before():
     _, _, query, _ = open_demo(data)
     assert query("C1:VDIV?") == "+5.000000E-02 V"  # a reply template still applies, without {header}
     assert query("C1:TRA?") == "0"
+
+
+def test_an_empty_value_leaves_one_blank_in_the_template():
+    from simubench.api import open_bench
+
+    session = open_bench(
+        Path(__file__).resolve().parents[1] / "examples" / "lowfreq-cal" / "lowfreq_cal.bench.yaml"
+    )
+    try:
+        session.write("scope", b"WAVEFORM_SETUP SP,0,NP,10,FP,20000000,SN,0\n")  # beyond the record
+        session.write("scope", b'C1:INSPECT? "DATA_ARRAY_1",FLOAT\n')
+        assert session.read("scope") == b'C1:INSP " "\n'
+    finally:
+        session.close()
 
 
 # ---- settings: ratios ------------------------------------------------------------------------------

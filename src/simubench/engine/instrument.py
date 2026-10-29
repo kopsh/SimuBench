@@ -475,6 +475,8 @@ class Instrument:
             header = compiled.pattern.echo(suffixes, long=mode == "long")
         else:
             template = template.replace("{header} ", "").replace("{header}", "")
+        if not body:  # nothing to show: one blank, not two ('C1:INSP " "')
+            template = template.replace(" {value}", "{value}")
 
         def field(m: re.Match[str]) -> str:
             name = m.group(1)
