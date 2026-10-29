@@ -16,3 +16,4 @@ playwright-report/
 .simubench/
 web/visual-report/
 src/simubench/web_dist/
+.codegraph/
