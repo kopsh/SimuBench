@@ -274,6 +274,13 @@ class NetInfo(_Model):
     )
 
 
+class ClientInfo(_Model):
+    """A client connected to the session's SCPI ports (raw socket or HiSLIP)."""
+
+    client: str = Field(..., description="Label as it appears in the communication log")
+    locked: bool = Field(False, description="Holds a HiSLIP lock, i.e. a script is in control")
+
+
 class SessionInfo(_Model):
     id: str
     bench_name: str
@@ -288,6 +295,9 @@ class SessionInfo(_Model):
         None, description="Fingerprint of the bench content; differs from the file's when a restart is needed"
     )
     record_path: str | None = None
+    clients: list[ClientInfo] = Field(
+        default_factory=list, description="Scripts currently connected to the SCPI ports"
+    )
     instruments: list[InstrumentInfo]
     duts: list[ComponentInfo]
     wires: list[WireInfo]
@@ -324,6 +334,13 @@ class FaultInfo(_Model):
 
 class StartSessionRequest(_Model):
     bench_path: str
+    clock: Literal["command", "wall", "stepped"] | None = None
+    seed: int | None = None
+
+
+class ResetSessionRequest(_Model):
+    """Power-cycle the bench: a fresh session (new record) with the same id and startup settings."""
+
     clock: Literal["command", "wall", "stepped"] | None = None
     seed: int | None = None
 

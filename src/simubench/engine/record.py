@@ -58,51 +58,57 @@ def definition_hash(definition: Any) -> str:
 
 
 class Recorder:
+    """Writes nothing until the first action, so a bench that is only opened leaves no record."""
+
     def __init__(self, directory: Path, session: Session, *, raw: bool = False) -> None:
         self.raw = raw
         self._last_acquisition: dict[str, int] = {}  # instrument -> seq of its latest acquisition record
-        directory.mkdir(parents=True, exist_ok=True)
         self.run_id = time.strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:8]
         self.path = directory / f"run-{self.run_id}.jsonl"
         self.session = session
-        self._f = self.path.open("a", encoding="utf-8")
+        self._f = None
         self._seq = 0
+        self._header: dict[str, Any] | None = None  # written ahead of the first event, not at open
 
     def _write(self, record: dict[str, Any]) -> None:
         record = {"seq": self._seq, **record}
         self._seq += 1
+        if self._f is None:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self._f = self.path.open("a", encoding="utf-8")
         self._f.write(json.dumps(_jsonable(record), ensure_ascii=False, separators=(",", ":")) + "\n")
         self._f.flush()
 
     def header(self) -> None:
         bench_json = self.session.bench.model_dump_json(by_alias=True)
-        self._write(
-            {
-                "kind": "header",
-                "schema": RECORD_SCHEMA,
-                "run_id": self.run_id,
-                "engine": __version__,
-                "python": platform.python_version(),
-                "platform": platform.platform(),
-                "bench": self.session.bench.name,
-                "bench_sha256": hashlib.sha256(bench_json.encode()).hexdigest(),
-                "definitions": {
-                    name: {
-                        "id": inst.definition.id,
-                        "version": inst.definition.version,
-                        "sha256": definition_hash(inst.definition),
-                    }
-                    for name, inst in self.session.instruments.items()
-                },
-                # Not the JSON dump: it writes infinity (a HiZ load setting) as null.
-                "bench_data": self.session.bench.model_dump(by_alias=True),
-                "seed": self.session.seed,
-                "clock": self.session.clock_mode,
-                "started": time.time(),
-            }
-        )
+        self._header = {
+            "kind": "header",
+            "schema": RECORD_SCHEMA,
+            "run_id": self.run_id,
+            "engine": __version__,
+            "python": platform.python_version(),
+            "platform": platform.platform(),
+            "bench": self.session.bench.name,
+            "bench_sha256": hashlib.sha256(bench_json.encode()).hexdigest(),
+            "definitions": {
+                name: {
+                    "id": inst.definition.id,
+                    "version": inst.definition.version,
+                    "sha256": definition_hash(inst.definition),
+                }
+                for name, inst in self.session.instruments.items()
+            },
+            # Not the JSON dump: it writes infinity (a HiZ load setting) as null.
+            "bench_data": self.session.bench.model_dump(by_alias=True),
+            "seed": self.session.seed,
+            "clock": self.session.clock_mode,
+            "started": time.time(),
+        }
 
     def event(self, event: dict[str, Any]) -> None:
+        if self._header is not None:
+            header, self._header = self._header, None
+            self._write(header)
         kind = event.get("kind")
         if kind == "acquisition":
             self._last_acquisition[str(event.get("instrument"))] = self._seq
@@ -125,6 +131,6 @@ class Recorder:
         self._write(event)
 
     def close(self) -> None:
-        if not self._f.closed:
+        if self._f is not None and not self._f.closed:
             self._write({"kind": "end", "t_ns": self.session.now_ns, "ended": time.time()})
             self._f.close()

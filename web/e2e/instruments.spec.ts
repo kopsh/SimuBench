@@ -4,7 +4,7 @@ const TOKEN = "e2e-token";
 
 test("lock-in screen: readouts follow the circuit and settle after a change", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "lockin_rc" }).getByRole("button", { name: "启动" }).click();
+  await page.getByRole("listitem").filter({ hasText: "lockin_rc" }).getByRole("button", { name: "打开测试台" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.locator(".react-flow__node").filter({ hasText: "锁相放大器" }).dblclick();
   await expect(page.getByText("已锁定")).toBeVisible();
@@ -28,7 +28,7 @@ test("lock-in screen: readouts follow the circuit and settle after a change", as
 
 test("spectrum analyzer screen: peak search walks the harmonics", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: /^specan/ }).getByRole("button", { name: "启动" }).click();
+  await page.getByRole("listitem").filter({ hasText: /^specan/ }).getByRole("button", { name: "打开测试台" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.locator(".react-flow__node").filter({ hasText: "频谱仪" }).dblclick();
   const threshold = page.getByRole("textbox", { name: "峰值门限" }).first();
@@ -47,7 +47,7 @@ test("spectrum analyzer screen: peak search walks the harmonics", async ({ page 
 
 test("SMU screen: the limit takes over, a sweep fills the I–V curve and the buffer", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: /^smu/ }).getByRole("button", { name: "启动" }).click();
+  await page.getByRole("listitem").filter({ hasText: /^smu/ }).getByRole("button", { name: "打开测试台" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.locator(".react-flow__node").filter({ hasText: "源测量单元" }).dblclick();
   // 5 V into 1 kΩ ∥ 10 MΩ = 999.9 Ω

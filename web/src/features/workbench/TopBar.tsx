@@ -1,11 +1,11 @@
-import { ChevronLeft, Command, History, Square, StepForward } from "lucide-react";
+import { ChevronLeft, Command, History, Power, RotateCw, StepForward } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { SessionInfo } from "@/api/client";
 import { type ConnectionState, useEvents } from "@/api/events";
-import { useAdvance, useStopSession } from "@/api/hooks";
+import { useAdvance, useResetSession, useStopSession } from "@/api/hooks";
 import { Logo } from "@/components/app/Logo";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const setHistory = useWorkbench((s) => s.setHistory);
   const advance = useAdvance(session.id);
   const stop = useStopSession();
+  const reset = useResetSession(session.id);
   const [step, setStep] = useState(STEPS[1]);
   const mac = navigator.platform.toLowerCase().includes("mac");
 
@@ -107,10 +108,30 @@ export function TopBar({ session }: { session: SessionInfo }) {
             variant="ghost"
             size="icon"
             className="size-8"
+            aria-label={t("workbench.reset")}
+            disabled={reset.isPending}
+            onClick={() =>
+              reset.mutate(undefined, {
+                onSuccess: () => toast.success(t("workbench.resetDone")),
+                onError: (e) => toast.error((e as Error).message),
+              })
+            }
+          >
+            <RotateCw className={reset.isPending ? "size-3.5 animate-spin" : "size-3.5"} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("workbench.reset")}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
             aria-label={t("workbench.stopSession")}
             onClick={() => stop.mutate(session.id, { onSuccess: () => navigate("/") })}
           >
-            <Square className="size-3.5" />
+            <Power className="size-3.5" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("workbench.stopSession")}</TooltipContent>
@@ -125,8 +146,9 @@ function ConnectionBadge({ status, clockMode }: { status: ConnectionState; clock
   const busy = useEvents((s) => s.busy);
   // "Running" alone hid that a command-driven clock stands still between commands (D44).
   const activity = clockMode === "wall" ? "wall" : busy ? "busy" : "idle";
+  // No "running" here: the bench is simply open, and the scope panel owns RUN/STOP (issue 31).
   const map: Record<ConnectionState, [string, string]> = {
-    connected: [activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse", `${t("workbench.running")} · ${t(`workbench.activity.${activity}`)}`],
+    connected: [activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse", t(`workbench.activity.${activity}`)],
     connecting: ["bg-warn animate-pulse", t("connection.connecting")],
     reconnecting: ["bg-error animate-pulse", t("connection.disconnected")],
     unauthorized: ["bg-error", t("connection.unauthorized")],

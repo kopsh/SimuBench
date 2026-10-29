@@ -17,7 +17,6 @@ import { Canvas, type LibraryItem } from "./canvas/Canvas";
 import { CLASS_ICON } from "./canvas/InstrumentNode";
 import type { Issue } from "./canvas/InstrumentNode";
 import { addItem } from "./edit/actions";
-import { RestartBanner } from "./edit/EditControls";
 import { HistoryDialog } from "./edit/HistoryDialog";
 import { EditInspector } from "./edit/EditInspector";
 import { applyOps, bindEditor, syncDocument, useEditor } from "./edit/editor";
@@ -116,7 +115,6 @@ export function WorkbenchPage() {
   return (
     <div className="flex h-full flex-col">
       <TopBar session={s} />
-      <RestartBanner session={s} />
       {status === "reconnecting" && (
         <div className="bg-error/10 text-error flex h-7 shrink-0 items-center justify-center gap-2 border-b text-xs" role="status">
           <WifiOff className="size-3.5" /> {t("connection.reconnecting")}

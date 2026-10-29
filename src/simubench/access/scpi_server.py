@@ -24,6 +24,7 @@ class ScpiListener:
     port: int
     server: asyncio.AbstractServer | None = None
     clients: set[asyncio.StreamWriter] = field(default_factory=set)
+    labels: set[str] = field(default_factory=set)  # client labels, e.g. socket:127.0.0.1:54321
 
     @property
     def address(self) -> str:
@@ -56,6 +57,7 @@ class ScpiServer:
         lst.clients.add(writer)
         host, port = writer.get_extra_info("peername")[:2]
         client = f"socket:{host}:{port}"
+        lst.labels.add(client)
         try:
             while True:
                 line = await reader.readline()
@@ -74,6 +76,7 @@ class ScpiServer:
             log.info("SCPI %s: link fault, closing %s", lst.instrument, client)
         finally:
             lst.clients.discard(writer)
+            lst.labels.discard(client)
             writer.close()
 
     async def stop(self) -> None:
