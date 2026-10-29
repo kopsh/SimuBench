@@ -227,9 +227,9 @@ commands:
     args: {what: overload}
   - header: "[:SENSe]:DETector[:FUNCtion]"
     state: detector
-  - header: ":TRACe[1]:TYPE"
+  - header: ":TRACe<t>:TYPE"  # one trace: TRAC:TYPE and TRAC1:TYPE
     state: trace.type
-  - header: ":TRACe[1]:CLEar"
+  - header: ":TRACe<t>:CLEar"
     op: sa.trace_clear
     query: false
   - header: ":TRACe[:DATA]"

@@ -138,9 +138,24 @@ params:
 
 `simubench validate` 同时接受定义文件；MCP `validate_definition`。检查：格式（JSON Schema）；组件类型存在；`op` 名存在于该组件类型；状态绑定与 `reply` 模板引用的路径存在；内部连线与端口映射指向存在的组件端口；命令头可解析、没有两条命令匹配同一命令头；参数类型与绑定状态的类型相容。诊断沿用测试台的结构（错误码 `E-DEF-*`、JSON 指针、建议）。
 
+已实现（#40，`engine/validate_definition.py`）；`reply` 模板随 #42、MCP 工具随 #46 加入。错误码：
+
+| 代码 | 内容 |
+| --- | --- |
+| `E-FORMAT`、`E-SCHEMA` | 格式版本、JSON Schema（与测试台相同） |
+| `E-DEF-COMPONENT-UNKNOWN`、`E-DEF-COMPONENT-DUPLICATE` | 组件类型不存在；组件名重复 |
+| `W-DEF-PARAM-UNKNOWN` | 组件没有这个参数（警告：不会起作用） |
+| `E-DEF-STATE-UNKNOWN` | 组件参数或命令绑定的状态不存在；通道状态（`ch.`）用在没有通道号的地方 |
+| `E-DEF-PARAM-TYPE` | 组件参数与绑定状态的类型不相容（数值、布尔量接受枚举：组件读取 `FIFTy`、`OFF` 这样的名称） |
+| `E-DEF-OP-UNKNOWN` | 组件或操作不存在；通道组件的操作用在没有 `<ch>` 的命令头上 |
+| `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
+| `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
+
 ### 5.2 组件元数据（G7）
 
 组件类型声明它在电路中的角色，测试台校验据此判断，不再写死组件名：`role: driver`（驱动源）、`role: series`（串联、阻抗可忽略，端接判断穿过它）、`impedance_of(params)`（已为输入端口实现）。内置组件补齐声明；插件组件同样可以声明。
+
+已实现（#40）：组件类上的 `role`；驱动源是 `role: driver` 组件的电气输出端口（`out` 或 `inout`）。内置声明：`output_stage`、`unity_buffer`、`dc_supply` 为 driver，`coax_cable` 为 series；`smu_core` 不是 driver（到限值时吸收电流，与电源接在同一网络是合法的第二象限测试台）。
 
 ### 5.3 组件目录（G5）
 

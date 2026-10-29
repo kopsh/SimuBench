@@ -1,0 +1,370 @@
+"""Static checks of instrument definition files (instrument-authoring.md 5.1, issue 40).
+
+A definition that loads (the JSON Schema accepts it) can still name a component type that does
+not exist, an operation the component does not have or a state variable that is not declared; the
+instrument would only fail when a session starts, or when the command is first sent. These checks
+find such mistakes in the file, with the same diagnostics as bench validation (code, JSON pointer,
+message, suggestion), so that people and agents correct a definition before running it (D9).
+"""
+
+from __future__ import annotations
+
+import itertools
+import re
+from typing import Any
+
+from pydantic import ValidationError
+
+from ..library.migrate import FormatError, upgrade
+from ..models.definition import ComponentSpec, InstrumentDefinition, StateSpec
+from ..scpi.parse import Pattern, Token
+from .component import Component, component_types
+from .validate import Report, _closest, _ptr
+
+_NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
+
+
+def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Report]:
+    """Validate raw definition data (parsed YAML/JSON); return the model when the schema accepts it."""
+    report = Report()
+    try:
+        data, _ = upgrade(data, "instrument")
+    except FormatError as exc:
+        report.add("error", "E-FORMAT", "/schema", str(exc), None)
+        return None, report
+    try:
+        definition = InstrumentDefinition.model_validate(data)
+    except ValidationError as exc:
+        for err in exc.errors():
+            loc = [p for p in err["loc"] if not (isinstance(p, str) and p.startswith("function-"))]
+            report.add("error", "E-SCHEMA", _ptr(*loc), err["msg"], None)
+        return None, report
+    validate_definition(definition, report)
+    return definition, report
+
+
+def validate_definition(definition: InstrumentDefinition, report: Report | None = None) -> Report:
+    report = report or Report()
+    d = definition
+    known = component_types()
+    count = d.channels.count
+
+    # ---- components: instrument level by name, channel level as ch<n>.<name> ----
+    classes: dict[str, type[Component]] = {}  # resolved name -> class (known types only)
+    for section, specs, channel in (
+        ("components", d.components, False),
+        ("channel_components", d.channel_components, True),
+    ):
+        seen: set[str] = set()
+        for i, spec in enumerate(specs):
+            p = (section, i)
+            if spec.name in seen:
+                report.add(
+                    "error",
+                    "E-DEF-COMPONENT-DUPLICATE",
+                    _ptr(*p, "name"),
+                    f"组件名 {spec.name!r} 重复，后一个会覆盖前一个",
+                    "为其中一个换一个名称",
+                    spec.name,
+                )
+            seen.add(spec.name)
+            cls = known.get(spec.type)
+            if cls is None:
+                hint = _closest(spec.type, list(known))
+                report.add(
+                    "error",
+                    "E-DEF-COMPONENT-UNKNOWN",
+                    _ptr(*p, "type"),
+                    f"组件类型 {spec.type!r} 不存在",
+                    f"改为 {hint!r}" if hint else None,
+                    spec.name,
+                )
+                continue
+            for n in range(1, count + 1) if channel else (None,):
+                classes[f"ch{n}.{spec.name}" if n else spec.name] = cls
+            _check_params(d, spec, cls, p, channel, report)
+
+    # ---- signal wiring and exposed ports ----
+    def check_end(ref: str, pointer: str, in_channel: bool) -> None:
+        comp, _, port = ref.rpartition(".")
+        if in_channel:  # inside a channel, components are named without the ch<n>. prefix
+            cls = classes.get(f"ch1.{comp}")
+            options = [s.name for s in d.channel_components]
+        else:
+            cls = classes.get(comp)
+            options = [s.name for s in d.components] + [f"ch{{n}}.{s.name}" for s in d.channel_components]
+        if not comp or cls is None:
+            if comp and _declared(d, comp, in_channel):
+                return  # an unknown component type, reported above
+            hint = _closest(comp or ref, options)
+            report.add(
+                "error",
+                "E-DEF-WIRE-COMPONENT",
+                pointer,
+                f"{ref!r}：没有名为 {comp or ref!r} 的组件",
+                f"改为 {hint}.{port}" if hint else "写作 <组件>.<端口>",
+            )
+            return
+        if not _has_port(cls, port):
+            hint = _closest(port, list(cls.ports))
+            report.add(
+                "error",
+                "E-DEF-WIRE-PORT",
+                pointer,
+                f"{ref!r}：{cls.type_name} 没有端口 {port!r}",
+                f"改为 {comp}.{hint}" if hint else f"可用端口：{', '.join(cls.ports) or '无'}",
+            )
+
+    for i, (src, dst) in enumerate(d.wiring.channel):
+        for k, ref in enumerate((src, dst)):
+            check_end(ref, _ptr("wiring", "channel", i, k), True)
+    for i, (src, dst) in enumerate(d.wiring.instrument):
+        for k, ref in enumerate((src, dst)):
+            check_end(ref.replace("{n}", "1"), _ptr("wiring", "instrument", i, k), False)
+    for pname, target in d.ports.channel.items():
+        check_end(target, _ptr("ports", "channel", pname), True)
+    for pname, target in d.ports.instrument.items():
+        check_end(target.replace("{n}", "1"), _ptr("ports", "instrument", pname), False)
+
+    # ---- commands ----
+    compiled: list[Pattern | None] = []
+    for i, cmd in enumerate(d.commands):
+        p = ("commands", i)
+        pattern = _compile(cmd.header)
+        compiled.append(pattern)
+        if pattern is None:
+            report.add(
+                "error",
+                "E-DEF-HEADER",
+                _ptr(*p, "header"),
+                f"命令头 {cmd.header!r} 无法解析",
+                "节点写作 :WORD、[:WORD] 或 WORD<后缀名>，例如 [:SOURce<ch>]:FREQuency[:CW]",
+                cmd.header,
+            )
+            continue
+        per_channel = any(n.suffix == "ch" for n in pattern.nodes)
+        if cmd.state is not None:
+            _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
+        if cmd.op is not None:
+            _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
+    _check_overlaps(d, compiled, report)
+    return report
+
+
+def _declared(d: InstrumentDefinition, name: str, channel: bool) -> bool:
+    specs = d.channel_components if channel else d.components
+    if not channel and name.startswith("ch"):
+        name = name.partition(".")[2]
+        specs = d.channel_components
+    return any(s.name == name for s in specs)
+
+
+def _has_port(cls: type[Component], port: str) -> bool:
+    return port in cls.ports or bool(cls.port_pattern and re.fullmatch(cls.port_pattern, port))
+
+
+def _compile(header: str) -> Pattern | None:
+    """The header's pattern, or None when part of the text is not a header node."""
+    text = header.strip()
+    if text.startswith("*"):
+        return Pattern.compile(text) if re.fullmatch(r"\*[A-Za-z]+", text) else None
+    if not text or _NODE.sub("", text):
+        return None
+    try:
+        return Pattern.compile(text)
+    except ValueError:
+        return None
+
+
+def _state_spec(d: InstrumentDefinition, path: str, per_channel: bool) -> tuple[StateSpec | None, str | None]:
+    """The state variable a binding names, and a message when it does not resolve."""
+    if path.startswith("ch."):
+        if not per_channel:
+            return (
+                None,
+                f"{path!r} 是通道状态，这里没有通道号（命令头需要 <ch>，或绑定写作 ch<n>.{path[3:]}）",
+            )
+        spec = d.channel_state.get(path[3:])
+        return spec, None if spec else f"没有通道状态 {path[3:]!r}"
+    m = re.fullmatch(r"ch(\d+)\.(.+)", path)
+    if m and m.group(2) in d.channel_state:
+        if not 1 <= int(m.group(1)) <= d.channels.count:
+            return None, f"{path!r}：仪表只有 {d.channels.count} 个通道"
+        return d.channel_state[m.group(2)], None
+    spec = d.state.get(path)
+    return spec, None if spec else f"没有状态 {path!r}"
+
+
+def _state_options(d: InstrumentDefinition, per_channel: bool) -> list[str]:
+    return list(d.state) + ([f"ch.{k}" for k in d.channel_state] if per_channel else [])
+
+
+def _check_state_ref(
+    d: InstrumentDefinition, path: str, per_channel: bool, pointer: str, subject: str, report: Report
+) -> StateSpec | None:
+    spec, problem = _state_spec(d, path, per_channel)
+    if problem:
+        hint = _closest(path, _state_options(d, per_channel))
+        report.add(
+            "error", "E-DEF-STATE-UNKNOWN", pointer, problem, f"改为 {hint!r}" if hint else None, subject
+        )
+    return spec
+
+
+def _check_params(
+    d: InstrumentDefinition,
+    spec: ComponentSpec,
+    cls: type[Component],
+    p: tuple[Any, ...],
+    channel: bool,
+    report: Report,
+) -> None:
+    for key, value in spec.params.items():
+        pp = _ptr(*p, "params", key)
+        if key not in cls.defaults:
+            hint = _closest(key, list(cls.defaults))
+            report.add(
+                "warning",
+                "W-DEF-PARAM-UNKNOWN",
+                pp,
+                f"{spec.type} 没有参数 {key!r}，它不会起作用",
+                f"改为 {hint!r}" if hint else None,
+                spec.name,
+            )
+        if not (isinstance(value, str) and value.startswith("$")):
+            continue
+        st = _check_state_ref(d, value[1:], channel, pp, spec.name, report)
+        default = cls.defaults.get(key)
+        if st is not None and default is not None and not _compatible(default, st):
+            report.add(
+                "error",
+                "E-DEF-PARAM-TYPE",
+                pp,
+                f"{spec.type}.{key} 是{_kind(default)}，绑定的状态 {value[1:]!r} 是 {st.type}",
+                f"绑定一个{_kind(default)}状态",
+                spec.name,
+            )
+
+
+def _kind(default: Any) -> str:
+    if isinstance(default, bool):
+        return "布尔量"
+    if isinstance(default, (int, float)):
+        return "数值"
+    return "文字"
+
+
+def _compatible(default: Any, st: StateSpec) -> bool:
+    """Enumerations pass to numbers and switches: components read named values (FIFTy, OFF)."""
+    if isinstance(default, bool):
+        return st.type in ("bool", "int", "enum")
+    if isinstance(default, (int, float)):
+        return st.type in ("float", "int", "bool", "enum")
+    if isinstance(default, str):
+        return st.type in ("enum", "string")
+    return True
+
+
+def _check_op(
+    d: InstrumentDefinition,
+    classes: dict[str, type[Component]],
+    ref: str,
+    per_channel: bool,
+    pointer: str,
+    subject: str,
+    report: Report,
+) -> None:
+    comp, _, name = ref.rpartition(".")
+    channel = comp.startswith("ch.")
+    key = f"ch1.{comp[3:]}" if channel else comp
+    if channel and not per_channel:
+        report.add(
+            "error",
+            "E-DEF-OP-UNKNOWN",
+            pointer,
+            f"{ref!r} 是通道组件的操作，这里没有通道号",
+            "命令头需要 <ch>，例如 :CHANnel<ch>:...",
+            subject,
+        )
+        return
+    cls = classes.get(key)
+    if cls is None:
+        if comp and _declared(d, comp[3:] if channel else comp, channel):
+            return  # an unknown component type, reported above
+        names = [s.name for s in d.components] + [f"ch.{s.name}" for s in d.channel_components]
+        hint = _closest(comp, names)
+        report.add(
+            "error",
+            "E-DEF-OP-UNKNOWN",
+            pointer,
+            f"{ref!r}：没有名为 {comp!r} 的组件",
+            f"改为 {hint}.{name}" if hint else "写作 <组件>.<操作>（通道组件写作 ch.<组件>.<操作>）",
+            subject,
+        )
+        return
+    ops = operations(cls)
+    if name not in ops:
+        hint = _closest(name, ops)
+        report.add(
+            "error",
+            "E-DEF-OP-UNKNOWN",
+            pointer,
+            f"{cls.type_name} 没有操作 {name!r}",
+            f"改为 {comp}.{hint}" if hint else f"可用操作：{', '.join(ops) or '无'}",
+            subject,
+        )
+
+
+def operations(cls: type[Component]) -> list[str]:
+    """Names of the operations a component type offers (``@op``)."""
+    return sorted({n for a in dir(cls) if (n := getattr(getattr(cls, a), "__op_name__", None))})
+
+
+def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
+    """Every header form the pattern accepts, up to the spelling of each node and the suffix value."""
+    choices = []
+    for node in pattern.nodes:
+        forms: list[Token | None] = [Token(node.long, None)]
+        if node.suffix:
+            forms.append(Token(node.long, 1))
+        if node.optional:
+            forms.append(None)
+        choices.append(forms)
+    out = []
+    for combo in itertools.islice(itertools.product(*choices), 512):
+        out.append(tuple(t for t in combo if t is not None))
+    return out
+
+
+def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], report: Report) -> None:
+    """The first command whose header matches wins: a later one that an earlier one also matches
+    never runs for those forms."""
+    for j, pj in enumerate(compiled):
+        if pj is None:
+            continue
+        for tokens in _samples(pj):
+            if not tokens:
+                continue
+            i = next(
+                (
+                    i
+                    for i, pi in enumerate(compiled[:j])
+                    if pi is not None and pi.common == pj.common and pi.match(tokens) is not None
+                ),
+                None,
+            )
+            if i is None:
+                continue
+            form = ("*" if pj.common else ":") + ":".join(
+                f"{t.keyword}{'' if t.suffix is None else t.suffix}" for t in tokens
+            )
+            report.add(
+                "error",
+                "E-DEF-HEADER-DUPLICATE",
+                _ptr("commands", j, "header"),
+                f"命令头 {d.commands[j].header!r} 与第 {i} 条 {d.commands[i].header!r} 都匹配 {form}；"
+                "先写的那条生效，这条不会执行",
+                "删除重复的一条，或让两个命令头互不重叠",
+                d.commands[j].header,
+            )
+            break
