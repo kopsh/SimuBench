@@ -470,12 +470,24 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="getScopeScreen",
         dependencies=[Depends(auth)],
     )
-    async def screen(
-        sid: str, name: str, source: str = Query("preview", pattern="^(record|preview)$")
-    ) -> M.ScopeScreen:
+    async def screen(sid: str, name: str) -> M.ScopeScreen:
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.scope_screen, s, name, source)
+            return await asyncio.to_thread(manager.scope_screen, s, name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.post(
+        "/api/sessions/{sid}/instruments/{name}/panel",
+        response_model=M.PanelResponse,
+        operation_id="panel",
+        dependencies=[Depends(auth)],
+    )
+    async def panel(sid: str, name: str, req: M.PanelRequest) -> M.PanelResponse:
+        """A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32)."""
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(manager.panel, s, name, req.action)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -689,6 +701,7 @@ def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
         "reason",
         "wall",
         "fault",
+        "action",
     ):
         if key in ev:
             out[key] = ev[key]

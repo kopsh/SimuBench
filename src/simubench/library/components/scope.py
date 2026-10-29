@@ -323,22 +323,32 @@ class ScopeAcquisition(Component):
     def _averages(self) -> int:
         return max(1, int(self.param("averages"))) if self.param("averaging") in (True, 1, "1", "ON") else 1
 
-    def _jitter(self, t_start_ns: int) -> float:
+    def _jitter(self, t_start_ns: int, frame: int | None = None) -> float:
         jitter = float(self.param("trigger_jitter_s"))
         if not jitter:
             return 0.0
+        if frame is not None:  # a displayed frame of a running scope (shows_live), not an acquisition
+            return jitter * float(
+                gaussian(stream_key(self.session.seed, self.uid, "frame", frame), np.zeros(1))[0]
+            )
         if self.param("noise_key") == "time":
             key = stream_key(self.session.seed, self.uid, "jitter")
             return jitter * float(gaussian(key, np.array([t_start_ns]))[0])
         key = stream_key(self.session.seed, self.uid, "jitter", self.acq_count)
         return jitter * float(gaussian(key, np.zeros(1))[0])
 
-    def _noise(self, n: int, t_start_ns: int, dt: float, points: int) -> np.ndarray | None:
+    def _noise(
+        self, n: int, t_start_ns: int, dt: float, points: int, frame: int | None = None
+    ) -> np.ndarray | None:
         """Input noise in display volts, a pure function of the seed, the channel and the key."""
         sigma = float(self.param("noise_rms")) * float(self._st(f"ch{n}.probe"))
         if sigma <= 0:
             return None
         sigma /= math.sqrt(self._averages())
+        if frame is not None:  # a displayed frame: noise of its own, no acquisition's stream used
+            return sigma * gaussian(
+                stream_key(self.session.seed, self.uid, "frame", n, frame), np.arange(points)
+            )
         if self.param("noise_key") == "time":
             first = math.floor(t_start_ns * 1e-9 / dt)  # sample n of the absolute sample grid
             key = stream_key(self.session.seed, self.uid, "noise", n, dt, str(self.param("noise_stream")))
@@ -363,10 +373,11 @@ class ScopeAcquisition(Component):
 
     # ---- acquisition ------------------------------------------------------------------------------
 
-    def compute(self, channels: list[int]) -> tuple[dict[int, Record], int, bool]:
+    def compute(self, channels: list[int], frame: int | None = None) -> tuple[dict[int, Record], int, bool]:
         """Sample the listed channels at the current instant without changing any state.
 
         Returns the records, the virtual time an acquisition takes (ns) and whether it triggered.
+        ``frame`` numbers a frame the screen of a running scope shows: its noise is its own.
         """
         points, dt, pre, post = self._timing()
         t0 = self.session.now_ns
@@ -378,14 +389,14 @@ class ScopeAcquisition(Component):
         start = k - pre
         t_start_ns = t0 + round(start * dt * 1e9)
         offsets = (start + np.arange(points)) * dt
-        jitter = self._jitter(t_start_ns)
+        jitter = self._jitter(t_start_ns, frame)
         if jitter:
             offsets = offsets + jitter
         records: dict[int, Record] = {}
         for n in channels:
             scale, offset = float(self._st(f"ch{n}.scale")), float(self._st(f"ch{n}.offset"))
             volts = self._display_signal(n).sample_rel(t0, offsets)
-            noise = self._noise(n, t_start_ns, dt, points)
+            noise = self._noise(n, t_start_ns, dt, points, frame)
             if noise is not None:
                 volts = volts + noise
             records[n] = Record(
@@ -444,6 +455,11 @@ class ScopeAcquisition(Component):
             return not self._is("stop")
         return self.running
 
+    def shows_live(self) -> bool:
+        """Whether the screen follows the signal (running in an auto or normal mode) rather than
+        holding the last acquisition (stopped, or a single acquisition waiting)."""
+        return self.is_running() and (self._is("auto") or self._is("normal")) and not self.armed
+
     def _finish_single(self) -> None:
         self.armed = False
         self.running = False
@@ -457,10 +473,13 @@ class ScopeAcquisition(Component):
             chans.add(channel)
         return sorted(chans)
 
-    def acquire_now(self, channels: list[int] | None = None, force: bool = False) -> int:
+    def acquire_now(
+        self, channels: list[int] | None = None, force: bool = False, stopped_too: bool = False
+    ) -> int:
         """One acquisition attempt as the run mode allows it (``force``: whatever the trigger and the
-        run state). Returns the virtual time used (ns)."""
-        if not force and not self.is_running():
+        run state; ``stopped_too``: also when stopped, still waiting for a trigger). Returns the
+        virtual time used (ns)."""
+        if not force and not stopped_too and not self.is_running():
             return 0
         records, used, triggered = self.compute(self.displayed() if channels is None else channels)
         self.last_triggered = triggered
@@ -540,8 +559,11 @@ class ScopeAcquisition(Component):
 
     @op("run")
     def run(self, **_: Any) -> OpResult:
-        """``:TRIGger:RUN``: run again; in a single mode, arm one acquisition."""
+        """``:TRIGger:RUN``: run again; in a single mode, arm one acquisition. A model whose stop is a
+        mode (LeCroy's STOP) runs in its first auto mode."""
         self.running = True
+        if self.param("stop") and self._is("stop"):
+            self._set_mode(str(self.param("auto")[0]))
         if self._is("single"):
             self.armed = True
             return OpResult(duration_ns=self.acquire_now())
@@ -614,7 +636,7 @@ class ScopeAcquisition(Component):
             self.owner.set_state(f"ch{int(m)}.display", True)
         if not chans:
             chans = self.displayed()
-        return OpResult(duration_ns=self.acquire_now(chans))
+        return OpResult(duration_ns=self.acquire_now(chans, stopped_too=True))  # whatever the run state
 
     def _source(self) -> int:
         return channel_index(self._st("waveform.source"))

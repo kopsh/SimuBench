@@ -503,6 +503,16 @@ class Session:
             finally:
                 self._end_action()
 
+    def panel(self, name: str, action: str, client: str = "ui") -> None:
+        """A front-panel operation (Run, Stop, Single; D32): one ``panel`` event, no SCPI, no time."""
+        with self._lock:
+            self._begin_action()
+            try:
+                self.instrument(name).panel(action)
+                self.emit({"kind": "panel", "instrument": name, "action": action, "source": client})
+            finally:
+                self._end_action()
+
     def try_configure(self, name: str, path: str, value: Any, client: str = "ui") -> ScpiError | None:
         try:
             self.configure(name, path, value, client)

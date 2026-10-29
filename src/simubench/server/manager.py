@@ -48,6 +48,7 @@ class ServedSession:
         self.bench_fingerprint: str | None = None
         self.scpi: ScpiServer | None = None
         self.hislip: HislipServer | None = None
+        self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
         self.seed: int | None = None
 
@@ -453,18 +454,31 @@ class SessionManager:
         )
 
     @staticmethod
-    def scope_screen(served: ServedSession, instrument: str, source: str) -> M.ScopeScreen:
+    def panel(served: ServedSession, instrument: str, action: str) -> M.PanelResponse:
+        try:
+            served.session.panel(instrument, action, client="ui")
+        except ScpiError as err:
+            return M.PanelResponse(ok=False, error=M.ErrorItem(code=err.code, message=err.message))
+        return M.PanelResponse(ok=True)
+
+    @staticmethod
+    def scope_screen(served: ServedSession, instrument: str) -> M.ScopeScreen:
         s = served.session
         inst = s.instrument(instrument)
         acq = inst.components.get("acq")
         if acq is None or not hasattr(acq, "compute"):
             raise KeyError(f"{instrument} is not an oscilloscope")
-        with s._lock:  # read a consistent view without changing anything
+        with s._lock:  # read a consistent view without changing anything the instrument keeps
             s.follow_wall()
-            if source == "record":
-                records = dict(acq.records)  # type: ignore[attr-defined]
-            else:
-                records, _, _ = acq.compute(acq.displayed())  # type: ignore[attr-defined]
+            live = bool(acq.shows_live())  # type: ignore[attr-defined]
+            records = dict(acq.records)  # type: ignore[attr-defined]
+            if live:
+                # A running scope redraws the signal now; a frame is not an acquisition (no record,
+                # no virtual time), and its noise is its own. Untriggered in a normal mode, it holds.
+                frame = served.frames[instrument] = served.frames.get(instrument, 0) + 1
+                shown, _, triggered = acq.compute(acq.displayed(), frame=frame)  # type: ignore[attr-defined]
+                if triggered or acq._is("auto") or not records:  # type: ignore[attr-defined]
+                    records = shown
             traces = [
                 M.Trace(
                     channel=n,
@@ -480,7 +494,9 @@ class SessionManager:
             ]
             return M.ScopeScreen(
                 instrument=instrument,
-                source=source,  # type: ignore[arg-type]
+                source="live" if live else "record",
+                running=live,
+                waiting=bool(acq.armed and acq._is("single")),  # type: ignore[attr-defined]
                 timebase_scale=float(inst.get_state("timebase.scale")),
                 trigger_level=acq.trigger_level(),  # type: ignore[attr-defined]
                 trigger_source=channel_index(inst.get_state("trigger.source")),

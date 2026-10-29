@@ -542,6 +542,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/instruments/{name}/panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Panel
+         * @description A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32).
+         */
+        post: operations["panel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}/readings": {
         parameters: {
             query?: never;
@@ -1185,7 +1205,7 @@ export interface components {
         Display: {
             /**
              * Actions
-             * @description Commands the UI sends for front-panel actions, e.g. {single: ':TRIGger:MODE SINGle'}; defaults: single ':SINGle'
+             * @description Front-panel buttons as the model's own commands, run inside the instrument (not over SCPI, D32), e.g. {single: ':TRIGger:MODE SINGle'}; run, stop and single default to the acquisition component's operations
              */
             actions?: {
                 [key: string]: string;
@@ -1770,6 +1790,21 @@ export interface components {
              */
             type: string | null;
         };
+        /** PanelRequest */
+        PanelRequest: {
+            /**
+             * Action
+             * @description A front-panel button (D32): not a SCPI command, no communication log, no virtual time
+             * @enum {string}
+             */
+            action: "run" | "stop" | "single";
+        };
+        /** PanelResponse */
+        PanelResponse: {
+            error: components["schemas"]["ErrorItem"] | null;
+            /** Ok */
+            ok: boolean;
+        };
         /** ParamInfo */
         ParamInfo: {
             /** Default */
@@ -2055,6 +2090,11 @@ export interface components {
          */
         RunEvent: {
             /**
+             * Action
+             * @description A front-panel button, for panel events: run | stop | single
+             */
+            action: string | null;
+            /**
              * Channels
              * @description Acquisition recipe, per channel
              */
@@ -2080,7 +2120,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | fault | acquisition | session
+             * @description scpi | state | advance | error | fault | acquisition | panel | session
              */
             kind: string;
             /** Message */
@@ -2177,17 +2217,26 @@ export interface components {
              */
             source: "ui" | "agent" | "api";
         };
-        /** ScopeScreen */
+        /**
+         * ScopeScreen
+         * @description What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:
+         *     noise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition.
+         */
         ScopeScreen: {
             /** Acquisitions */
             acquisitions: number;
             /** Instrument */
             instrument: string;
             /**
+             * Running
+             * @description Running in an auto or normal mode: the screen follows the signal
+             */
+            running: boolean;
+            /**
              * Source
              * @enum {string}
              */
-            source: "record" | "preview";
+            source: "live" | "record";
             /** Timebase Scale */
             timebase_scale: number;
             /** Traces */
@@ -2196,6 +2245,11 @@ export interface components {
             trigger_level: number;
             /** Trigger Source */
             trigger_source: number;
+            /**
+             * Waiting
+             * @description A single acquisition armed, waiting for a trigger
+             */
+            waiting: boolean;
         };
         /** ScpiRequest */
         ScpiRequest: {
@@ -3698,6 +3752,42 @@ export interface operations {
             };
         };
     };
+    panel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     instrumentReadings: {
         parameters: {
             query?: never;
@@ -3768,9 +3858,7 @@ export interface operations {
     };
     getScopeScreen: {
         parameters: {
-            query?: {
-                source?: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 name: string;

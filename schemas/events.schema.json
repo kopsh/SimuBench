@@ -1,6 +1,19 @@
 {
   "description": "One event of the session's event stream (WebSocket).",
   "properties": {
+    "action": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "A front-panel button, for panel events: run | stop | single",
+      "title": "Action"
+    },
     "client": {
       "anyOf": [
         {
@@ -91,7 +104,7 @@
       "title": "Instrument"
     },
     "kind": {
-      "description": "scpi | state | advance | error | fault | acquisition | session",
+      "description": "scpi | state | advance | error | fault | acquisition | panel | session",
       "title": "Kind",
       "type": "string"
     },

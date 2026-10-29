@@ -63,10 +63,10 @@ test("open the scope screen by double-clicking its node", async ({ page }) => {
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
   await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
   await expect(page.getByRole("img", { name: "waveform" })).toBeVisible();
-  await expect(page.getByText("实时预览")).toBeVisible();
+  await expect(page.getByText("运行中", { exact: true })).toBeVisible(); // a scope runs from power-on
 });
 
-test("acquire from the scope screen without a script", async ({ page }) => {
+test("the scope's run, stop and single are front-panel buttons, not SCPI", async ({ page }) => {
   await startBench(page);
   const controls = page.getByRole("group", { name: "采集控制" });
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
@@ -75,16 +75,20 @@ test("acquire from the scope screen without a script", async ({ page }) => {
   await expect(why).toContainText("探头 10×");
   await expect(why).toContainText("RC 低通");
   await expect(why).toContainText("函数发生器 OUT1 输出关闭");
-  await page.getByRole("radio", { name: "最近采集" }).click();
-  await expect(page.getByText("还没有采集")).toBeVisible();
+  await controls.getByRole("button", { name: "停止" }).click();
+  await expect(page.getByText("已停止", { exact: true })).toBeVisible();
+  await expect(page.getByText("还没有采集")).toBeVisible(); // stopped: the screen holds the last acquisition
   await controls.getByRole("button", { name: "单次" }).click();
   await expect(page.getByText("还没有采集")).toBeHidden();
   await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
-  await expect(page.getByText(":SINGle").first()).toBeVisible(); // in the communication log, like a script's
   await controls.getByRole("button", { name: "运行" }).click();
-  await expect(page.getByText(/采集次数\s*[3-9]/)).toBeVisible();
-  await controls.getByRole("button", { name: "停止" }).click();
-  await expect(controls.getByRole("button", { name: "单次" })).toBeEnabled();
+  await expect(page.getByText("运行中", { exact: true })).toBeVisible();
+  await page.waitForTimeout(1000); // the screen redraws while running: frames, not acquisitions
+  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  await expect(page.getByText(":SINGle")).toHaveCount(0); // nothing in the communication log
+  await page.getByRole("tab", { name: "事件" }).click();
+  await expect(page.getByText(/scope 面板: 单次/)).toBeVisible();
+  await expect(page.getByText(/scope 面板: 运行/)).toBeVisible();
 });
 
 test("an unwired channel says so; clicking the source selects it", async ({ page }) => {
@@ -116,7 +120,7 @@ test("live canvas: wires and thumbnails follow the signal, nodes flash on comman
   await expect(page.getByTestId("session-activity")).toContainText("等待命令"); // back to waiting once it is done
 });
 
-test("real model: the Siglent scope screen acquires with its own command", async ({ page }) => {
+test("real model: the Siglent scope's single is its own, inside the instrument", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
   await page.getByRole("listitem").filter({ hasText: "siglent_scope_rc" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
@@ -124,7 +128,17 @@ test("real model: the Siglent scope screen acquires with its own command", async
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
   const controls = page.getByRole("group", { name: "采集控制" });
   await controls.getByRole("button", { name: "单次" }).click();
-  await expect(page.getByText(":TRIGger:MODE SINGle").first()).toBeVisible(); // not :SINGle, which it does not have
+  await expect(page.getByText("等待触发", { exact: true })).toBeVisible(); // the generator is off: no trigger yet
+  await controls.getByRole("button", { name: "运行" }).click();
+  const sid = new URL(page.url()).pathname.split("/").pop()!;
+  await page.request.post(`/api/sessions/${sid}/instruments/awg/scpi`, {
+    headers: { "x-simubench-token": TOKEN },
+    data: { command: "C1:OUTP ON" },
+  });
+  await controls.getByRole("button", { name: "单次" }).click();
+  await expect(page.getByText("已停止", { exact: true })).toBeVisible(); // its single mode: one acquisition, then Stop
+  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  await expect(page.getByText(":TRIGger:MODE SINGle")).toHaveCount(0); // run inside the scope, not over SCPI
   await page.getByRole("tab", { name: /问题/ }).click();
   await expect(page.getByText(/-113/)).toHaveCount(0); // the bench's probe warning is the only problem
 });
