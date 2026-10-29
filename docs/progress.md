@@ -135,7 +135,7 @@
 | 交付物 / 验收标准 | 自检 |
 | --- | --- |
 | D1 参考示波器（LeCroy 风格方言）、D2 示波器校准仪、D4 工作台预设、D5 示例脚本与说明 | ✅ `examples/lowfreq-cal/`；按接口契约编写，不带 `reference`（D42） |
-| D3 私有文本波形回读 `C<n>:INSPECT? "DATA_ARRAY_1",FLOAT` 与 `WAVEFORM_SETUP` 分块 | ✅ 平台组件 `lecroy_acquisition`；回复格式、`FP`/`NP`/`SP`、任意点数拼接（`tests/test_lowfreq_cal.py`） |
+| D3 私有文本波形回读 `C<n>:INSPECT? "DATA_ARRAY_1",FLOAT` 与 `WAVEFORM_SETUP` 分块 | ✅ 平台组件 `lecroy_acquisition`（#44 起运行控制等为 `scope_acquisition` 的配置）；回复格式、`FP`/`NP`/`SP`、任意点数拼接（`tests/test_lowfreq_cal.py`） |
 | 平台：`unknown_commands: ignore`、定义中的公共命令、测试台实例的 `idn`、`output_stage` 的 `hiz_from`、`coax_cable` 的趋肤效应 | ✅ 单元测试；schemas 与前端类型已重新生成 |
 | AC-1 主机流程经 raw socket 完成；AC-2 30 000 / 100 000 点；AC-3 频响合法且单调；AC-4 同种子一致 | ✅ `acceptance/test_lowfreq_cal_scenario.py`（pyvisa-py，真实套接字） |
 | AC-5 未启用平台时真实硬件路径不受影响 | ✅ 主机程序与其配置不被修改，只换地址 |
@@ -150,7 +150,8 @@
 | 组件角色：`role: driver`、`role: series`，测试台校验不再写死组件名（issue 40） | ✅ 内置组件已声明；测试台诊断不变（全部测试台前后逐条比对）；自定义组件的驱动与串联测试 |
 | 声明式命令与应答：`dialect`（命令头回显、倍率后缀）、`format` 的 engineering、`reply` 模板、多状态命令与 `pairs`、`ratio`、组件参数映射（issue 42） | ✅ 低频校准工作台的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪全部改为声明，`calibrator.py` 删除；`tests/test_lowfreq_cal.py` 与验收不改即通过；新字段的运行与静态校验测试（`tests/test_declarative.py`） |
 | 通用波形传输 `waveform_transfer`：文本、ASCII、定长块；选点；ADC 码的比例、偏移、位数、字宽、字节序、无符号（issue 43） | ✅ sb-dso-2x/4、Siglent SDS、低频校准参考示波器改为配置；`:WAVeform:DATA?` 各格式（WORD LSB/MSB、有符号/无符号、BYTE、ASCii、Siglent 8/10 位、选点）与改动前逐字节一致（步进时钟下比对）；`tests/test_waveform_transfer.py` |
-| 组件目录、可配置采集、`simubench cases`、MCP 编写工具、插件、验收 | ⏳ issue 41、44–48 |
+| 可配置的示波器采集 `scope_acquisition`：记录长度规则、触发（可按通道绑定）、运行控制、何时重新采集、ADC、噪声（issue 44） | ✅ Siglent SDS 与低频校准参考示波器的行为改为定义中的参数，专用组件只剩专用命令；三台示波器约 100 条命令的回复、虚拟时间与采集事件与改动前逐项一致（命令时钟），唯一差别是 Siglent 平均采集的耗时改为 N 次（D46）；参考示波器改用通用组件后运行控制不变（`tests/test_scope_acquisition.py`） |
+| 组件目录、`simubench cases`、MCP 编写工具、插件、验收 | ⏳ issue 41、45–48 |
 
 ## 仪表内部组件图（Issue 20，D3）
 

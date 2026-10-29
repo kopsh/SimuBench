@@ -247,6 +247,9 @@ def _state_spec(d: InstrumentDefinition, path: str, per_channel: bool) -> tuple[
             )
         spec = d.channel_state.get(path[3:])
         return spec, None if spec else f"没有通道状态 {path[3:]!r}"
+    if path.startswith("ch{n}."):  # a channel's setting, the channel chosen by the component
+        spec = d.channel_state.get(path[6:])
+        return spec, None if spec else f"没有通道状态 {path[6:]!r}"
     m = re.fullmatch(r"ch(\d+)\.(.+)", path)
     if m and m.group(2) in d.channel_state:
         if not 1 <= int(m.group(1)) <= d.channels.count:
@@ -348,6 +351,8 @@ def _compatible(default: Any, st: StateSpec) -> bool:
         return st.type in ("bool", "int", "enum")
     if isinstance(default, (int, float)):
         return st.type in ("float", "int", "bool", "enum")
+    if isinstance(default, str) and default.startswith("$"):
+        return True  # bound by default: the component reads a setting, of any type
     if isinstance(default, str):
         return st.type in ("enum", "string")
     return True
