@@ -43,6 +43,7 @@ simulated with correct circuit physics. Typical flow:
 2. read_bench or create_bench, then edit_bench with operations (always pass the sha256 you read);
    or draft_bench_from_script to start from an existing PyVISA test program;
 3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
+   run_cases checks instruments against a cases file of commands and expected replies;
 4. start_session deploys the bench: instruments answer SCPI at the returned addresses, and the
    engineer watches it in the Web Bench;
 5. send_scpi / get_instrument_state / read_log to drive and observe it;
@@ -318,6 +319,29 @@ def build_server(
         except Exception as exc:
             raise fail(exc) from None
         return {"ok": report.ok, "diagnostics": [d.model_dump() for d in diagnostics(report)]}
+
+    @mcp.tool()
+    def run_cases(
+        path: str = Field(..., description="Workspace-relative cases file (commands and expected replies)"),
+    ) -> dict[str, Any]:
+        """Run a cases file: each case on a freshly powered bench, every step's reply checked against
+        its expect / expect_match / expect_value. A failure names the step, the command, what was
+        expected and the actual reply. The same files as `simubench cases` and the manual cases of
+        real models."""
+        guard()
+        from .library.coverage import run_cases as run
+
+        try:
+            cases_file = files.resolve(path)
+            results = run(cases_file, [files.workspace / "instruments"])
+        except Exception as exc:
+            raise fail(exc) from None
+        return {
+            "path": path,
+            "passed": sum(r.passed for r in results),
+            "failed": sum(not r.passed for r in results),
+            "cases": [r.as_dict() | {"summary": r.describe()} for r in results],
+        }
 
     @mcp.tool()
     def draft_bench_from_script(

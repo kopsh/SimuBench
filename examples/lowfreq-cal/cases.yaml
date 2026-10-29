@@ -1,0 +1,121 @@
+# 契约用例：低频校准主机程序的接口契约（需求 §5，docs/lowfreq-cal.md），每条在刚上电的工作台上运行。
+#   simubench cases examples/lowfreq-cal/cases.yaml [--junit report.xml]
+# manual 写契约条目；步骤默认发给 scope，instrument 指定另一台仪器。一条消息里用 ; 连写时，后面的命令头
+# 按 SCPI 规则相对于前一条（C1:TRACE ON;MSIZ 10K 中的 MSIZ 是 C1:MSIZ），所以设置命令分开发送。
+bench: lowfreq_cal.bench.yaml
+instrument: scope
+cases:
+  - name: "*IDN? 的型号段按测试台的 idn 回复"
+    manual: "FR-1 型号识别"
+    steps:
+      - query: "*IDN?"
+        expect_match: '^LECROY,LFCAL-REFSCOPE,[^,]+,[^,]+$'
+      - instrument: calibrator
+        query: "*IDN?"
+        expect_match: '^SIMUBENCH,LFCAL-CALIBRATOR,[^,]+,[^,]+$'
+  - name: "公共命令按契约回复，不带命令头"
+    manual: "§4 *OPC? / *CLS? / SYST:ERR?"
+    steps:
+      - query: "*OPC?"
+        expect: "1"
+      - query: "*CLS?"
+        expect: "0"
+      - query: "SYST:ERR?"
+        expect: '0,"No error"'
+  - name: "回复带命令头与单位，随 COMM_HEADER 变化"
+    manual: "§4 命令头与单位"
+    steps:
+      - send: "C1:VDIV 200 mV"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 200E-3 V"
+      - send: "COMM_HEADER OFF"
+      - query: "C1:VDIV?"
+        expect: "200E-3 V"
+      - send: "COMM_HEADER LONG"
+      - query: "C1:VDIV?"
+        expect: "C1:VOLT_DIV 200E-3 V"
+  - name: "未知命令不报错、不中断；已知命令的错误值仍报错"
+    manual: "§3 unknown_commands: ignore"
+    steps:
+      - send: "FOO_BAR 1"
+      - query: "SYST:ERR?"
+        expect: '0,"No error"'
+      - send: "C1:CPL D75"
+      - query: "SYST:ERR?"
+        expect_match: '^-2\d\d,.*'
+  - name: "重复设置同一个值不报错"
+    manual: "FR-3 重复设置"
+    steps:
+      - send: "TDIV 1E-3"
+      - send: "TDIV 1E-3"
+      - query: "TDIV?"
+        expect: "TDIV 1E-3 S"
+      - query: "SYST:ERR?"
+        expect: '0,"No error"'
+  - name: "MSIZ 接受倍率后缀"
+    manual: "§4 MSIZ <点数>"
+    steps:
+      - send: "MSIZ 2.5MA"
+      - query: "MSIZ?"
+        expect: "MSIZ 2.5E+6"
+      - send: "MSIZ 10K"
+      - query: "MSIZ?"
+        expect: "MSIZ 10E+3"
+  - name: "触发设置以键值对回复"
+    manual: "§4 TRSE"
+    steps:
+      - send: "TRSE EDGE,SR,C2,HT,OFF"
+      - query: "TRSE?"
+        expect: "TRSE EDGE,SR,C2,HT,OFF"
+  - name: "文本波形回读：命令头、引号与可解析的数值"
+    manual: "§6 C<n>:INSPECT? \"DATA_ARRAY_1\",FLOAT"
+    steps:
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:WAVe SQUare;:CHANnel1:BASE:AMPLitude 1;:CHANnel1:BASE:FREQuency 1000;:CHANnel1:OUTPut 1"
+      - send: "C1:TRACE ON"
+      - send: "MSIZ 10K"
+      - send: "TDIV 1E-3"
+      - send: "WAVEFORM_SETUP SP,0,NP,10,FP,0,SN,0"
+      - query: 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
+        expect_match: '^C1:INSP " ([-+]?\d\.\d{6}e[-+]\d\d ){10}"$'
+      - send: "WAVEFORM_SETUP FP,20000"
+      - query: 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
+        expect: 'C1:INSP " "'
+  - name: "单次采集在触发后变为 STOP"
+    manual: "§5 TRMD SINGLE"
+    steps:
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:AMPLitude 1;:CHANnel1:OUTPut 1"
+      - send: "C1:TRACE ON"
+      - send: "TRMD SINGLE"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "TRMD?"
+        expect: "TRMD STOP"
+  - name: "测量槽位与幅度测量"
+    manual: "§4 PACU / C<n>:PAVA?"
+    steps:
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:WAVe SQUare;:CHANnel1:BASE:AMPLitude 1;:CHANnel1:LOAD 50;:CHANnel1:OUTPut 1"
+      - send: "C1:TRACE ON"
+      - send: "C1:VDIV 200 mV"
+      - send: "PACU 1,AMPL,C1"
+      - query: "PACU? 1"
+        expect: "PACU 1,AMPL,C1"
+      - query: "C1:PAVA? AMPL"
+        expect_match: '^C1:PAVA AMPL,(99\d(\.\d+)?E-3|1(\.0+)?E\+0) V,OK$'
+  - name: "校准仪的波形、占空比与负载设定可查询"
+    manual: "§7 示波器校准仪"
+    steps:
+      - instrument: calibrator
+        send: ":CHANnel2:BASE:WAVe SQUare;:CHANnel2:BASE:DUTY 25;:CHANnel2:LOAD 50"
+      - instrument: calibrator
+        query: ":CHANnel2:BASE:WAVe?"
+        expect: "SQU"
+      - instrument: calibrator
+        query: ":CHANnel2:BASE:DUTY?"
+        expect_value: 0.25
+        tolerance: 1.0e-9
+      - instrument: calibrator
+        query: ":CHANnel2:LOAD?"
+        expect_value: 50.0

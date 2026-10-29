@@ -247,3 +247,21 @@ async def test_components_are_listed_for_definition_authors(ws):
 
     _, report = validate_definition_data(draft)
     assert [d.as_dict() for d in report.diagnostics] == []
+
+
+async def test_run_cases(ws):
+    (ws / "awg.cases.yaml").write_text(
+        f"bench: {BENCH}\ninstrument: awg\ncases:\n"
+        "  - {name: identity, steps: [{query: '*IDN?', expect_match: '.*SB-AWG-2.*'}]}\n"
+        "  - {name: wrong, steps: [{query: 'FREQ?', expect_value: 5.0}]}\n",
+        encoding="utf-8",
+    )
+    _, server = make(ws)
+    async with Client(server) as c:
+        out = await call(c, "run_cases", path="awg.cases.yaml")
+        outside = await call(c, "run_cases", path="../x.yaml")
+    assert (out["passed"], out["failed"]) == (1, 1)
+    wrong = out["cases"][1]
+    assert (wrong["passed"], wrong["step"], wrong["command"]) == (False, 1, "FREQ?")
+    assert wrong["actual"] == "+1.000000E+03" and "expected 5.0" in wrong["summary"]
+    assert "error" in outside
