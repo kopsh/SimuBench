@@ -5,7 +5,7 @@ const TOKEN = "e2e-token";
 async function startBench(page: Page) {
   await page.goto(`/?token=${TOKEN}`);
   await expect(page.getByRole("heading", { name: "测试台", exact: true, level: 1 })).toBeVisible();
-  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
 }
@@ -118,7 +118,7 @@ test("live canvas: wires and thumbnails follow the signal, nodes flash on comman
 
 test("real model: the Siglent scope screen acquires with its own command", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "siglent_scope_rc" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "siglent_scope_rc" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await expect(page.locator(".react-flow__node").filter({ hasText: "SDS2104X Plus" })).toBeVisible();
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
@@ -135,7 +135,7 @@ test("open screens are remembered for the bench and reopen on the next start", a
   await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
   await page.getByRole("button", { name: "返回测试台列表" }).click();
   // Start again: the scope screen comes back as the active tab, not the canvas.
-  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
   await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
   await expect(page.getByRole("group", { name: "采集控制" })).toBeVisible();
@@ -153,7 +153,7 @@ test("switch to English and dark theme", async ({ page }) => {
 
 test("run record: open it from the home page, see the timeline, replay identically", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
@@ -170,7 +170,7 @@ test("run record: open it from the home page, see the timeline, replay identical
   };
   const runId = info.record_path.split(/[\\/]/).pop()!.replace(/^run-/, "").replace(/\.jsonl$/, "");
   await page.getByRole("button", { name: "返回测试台列表" }).click();
-  const runs = page.getByRole("region", { name: "运行记录" });
+  const runs = page.getByRole("region", { name: "记录", exact: true });
   await runs.locator(`a[href="/runs/${runId}"]`).click();
   await expect(page.getByTestId("run-timeline")).toBeVisible();
   const events = page.getByTestId("run-events");
@@ -182,7 +182,7 @@ test("run record: open it from the home page, see the timeline, replay identical
 
 test("virtual probe: select a net and see why it reads what it reads", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.getByRole("button", { name: /^net-1/ }).click();
   const probe = page.getByTestId("probe");
@@ -222,7 +222,7 @@ test("first-use guide: three ways in, dismissed for good", async ({ page }) => {
 
 test("instrument internals: the scope's components, wiring and panel ports, read-only (issue 20)", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
   await page.getByRole("button", { name: "查看内部结构" }).click();
   await expect(page.getByRole("tab", { name: /示波器 · 内部结构/ })).toBeVisible();

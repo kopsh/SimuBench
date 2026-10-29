@@ -4,7 +4,7 @@ const TOKEN = "e2e-token";
 
 test("inject a timeout on the generator link, see it everywhere, clear it", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: "打开测试台" }).click();
+  await page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   const awg = page.locator(".react-flow__node").filter({ hasText: "函数发生器" });
   await awg.click();
