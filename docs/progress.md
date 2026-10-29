@@ -178,3 +178,14 @@
 | 打开即可操作、脚本即可连接；关闭、重置、切换（含确认框）、搭建切回自动重建有端到端测试 | ✅ `web/e2e/bench-open.spec.ts`（5 项）与 `edit.spec.ts`（自动重建、不合法定义阻止切换）；服务端 `tests/test_server.py`（reset 同 id 回初始态、连接脚本列出、只打开不产生记录） |
 | 只打开不操作不产生记录；有操作的记录仍可逐字节回放 | ✅ `Recorder` 延迟到首个动作建文件（header 随首事件落盘）；既有回放测试不变 |
 | Storybook 与视觉回归截图（亮/暗）更新 | ✅（提交前运行；本项未改动故事内容） |
+
+## 测试可复现：空闲时间不计入虚拟时间（Issue 17，D47）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 命令间插入真实延迟（忙等 50 ms 模拟慢机器）：`sleep`/`off` 与无延迟完全一致，`wall` 按原有行为变化 | ✅ `tests/test_idle.py::test_reproduce_the_drift_of_issue_4`（drift 满漂移 1 s 后 `r`：三档各跑快慢两遍，`sleep`/`off` 逐值相等且等于 1500，`wall` 慢机 > 1520） |
+| `sleep` 语义：pytest 插件下 `time.sleep(2)` 与 `bench_session.advance(2)` 读数相同，真实耗时 < 0.1 s | ✅ `tests/test_pytest_plugin.py::test_sleep_is_virtual_time_by_default`（锁相放大器读数逐字符串相等；真实耗时断言 < 0.1 s） |
+| 不影响已有测试：全部现有测试不改通过 | ✅ `scripts/check.sh` 468 项通过；无测试标注 `idle=wall`（现有测试均以显式 `advance`/命令时长驱动时间，或本身运行在 wall 时钟） |
+| issue 4 的漂移在 `wall` 下可复现、`sleep` 下不可 | ✅ 同上：`wall` + 忙等 50 ms 复现 1508 Ω 一类的偏大读数（> 1520），`sleep` 恒为 1500 |
+| 多测试台规则、serve 降级、记录与回放 | ✅ 两个 `sleep` 测试台同时推进、`wall` 测试台不受影响、关闭后恢复真实 `time.sleep`；serve 把 `sleep` 按 `off`（`test_serve_treats_sleep_as_off`）；记录头部 `idle` 与 `reason: sleep` 事件、回放通过（`test_sleep_record_names_idle_and_replays`） |
+| `scripts/check.sh` 通过，schemas 最新 | ✅（提交前运行） |

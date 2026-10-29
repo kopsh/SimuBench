@@ -8,6 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 ClockMode = Literal["command", "wall", "stepped"]
+IdleMode = Literal["wall", "sleep", "off"]
 
 
 class _Model(BaseModel):
@@ -65,6 +66,14 @@ class LayoutItem(_Model):
 class RunConditions(_Model):
     seed: int = 1
     clock: ClockMode = "command"
+    idle: IdleMode = Field(
+        "wall",
+        description="Command clock: how idle real time between commands counts as virtual time (D47). "
+        "'wall' counts it (interactive use, the historical behaviour); 'sleep' ignores it and turns "
+        "time.sleep(t) into exactly t of virtual time without waiting (in-process benches only; "
+        "the pytest default); 'off' ignores idle time completely. Only read on the command clock; "
+        "wall and stepped clocks are unaffected",
+    )
     reveal_true_values: bool = Field(False, description="Allow clients to read hidden state (D9)")
     start: dt.datetime = Field(
         dt.datetime(2026, 1, 1, tzinfo=dt.UTC),

@@ -102,6 +102,7 @@ class Recorder:
             "bench_data": self.session.bench.model_dump(by_alias=True),
             "seed": self.session.seed,
             "clock": self.session.clock_mode,
+            "idle": self.session.idle_mode,
             "started": time.time(),
         }
 

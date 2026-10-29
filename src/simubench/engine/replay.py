@@ -98,7 +98,12 @@ def replay(
         )
     bench = BenchDefinition.model_validate(header["bench_data"])
     clock = "stepped" if header.get("clock") == "wall" else header.get("clock")
-    session = open_bench(bench, clock=clock, seed=header.get("seed"), definition_dirs=definition_dirs)
+    idle = header.get("idle", "wall")
+    if idle == "sleep":
+        idle = "off"  # the replay drives time from the record; nothing here may fake a sleep (D47)
+    session = open_bench(
+        bench, clock=clock, seed=header.get("seed"), idle=idle, definition_dirs=definition_dirs
+    )
     session.replaying = True
     report = ReplayReport(record=str(path), bench=bench.name)
     for name, want in (header.get("definitions") or {}).items():
@@ -159,7 +164,7 @@ def replay(
                 fid = ev.get("fault")
                 if fid in session.faults.faults:
                     session.faults.clear(fid)
-            elif kind == "advance" and ev.get("reason") in ("explicit", "idle"):
+            elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep"):
                 session.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
     finally:
         session.close()

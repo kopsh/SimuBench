@@ -126,6 +126,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None,
             clock=os.environ.get("SIMUBENCH_CLOCK") or None,
             seed=int(seed) if seed else None,
+            idle=os.environ.get("SIMUBENCH_IDLE") or None,
         )
         self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.

@@ -488,6 +488,17 @@
           "title": "Clock",
           "type": "string"
         },
+        "idle": {
+          "default": "wall",
+          "description": "Command clock: how idle real time between commands counts as virtual time (D47). 'wall' counts it (interactive use, the historical behaviour); 'sleep' ignores it and turns time.sleep(t) into exactly t of virtual time without waiting (in-process benches only; the pytest default); 'off' ignores idle time completely. Only read on the command clock; wall and stepped clocks are unaffected",
+          "enum": [
+            "wall",
+            "sleep",
+            "off"
+          ],
+          "title": "Idle",
+          "type": "string"
+        },
         "reveal_true_values": {
           "default": false,
           "description": "Allow clients to read hidden state (D9)",

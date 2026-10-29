@@ -14,6 +14,7 @@ def open_bench(
     *,
     clock: str | None = None,
     seed: int | None = None,
+    idle: str | None = None,
     record_dir: str | Path | None = None,
     record_raw: bool = False,
     definition_dirs: list[str | Path] | None = None,
@@ -41,4 +42,5 @@ def open_bench(
         record_raw=record_raw,
         clock=clock,
         seed=seed,
+        idle=idle,
     )

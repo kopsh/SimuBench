@@ -5,6 +5,7 @@ from pathlib import Path
 pytest_plugins = ["pytester"]
 
 BENCH = Path(__file__).resolve().parents[1] / "acceptance" / "benches" / "awg_rc_scope.bench.yaml"
+LOCKIN = Path(__file__).resolve().parents[1] / "acceptance" / "benches" / "lockin_rc.bench.yaml"
 
 
 def test_marker_fixtures_and_fresh_benches(pytester):
@@ -51,3 +52,51 @@ def test_missing_bench_is_explained(pytester):
     result = pytester.runpytest_subprocess()
     result.assert_outcomes(errors=1)
     result.stdout.fnmatch_lines(["*no bench: use @pytest.mark.bench(path)*"])
+
+
+def test_sleep_is_virtual_time_by_default(pytester):
+    """D47: a slow machine reads the same numbers; time.sleep(t) is exactly t of virtual time."""
+    pytester.makepyfile(
+        f"""
+        import time, pytest
+
+        SEEN = {{}}
+        BENCH = {str(LOCKIN)!r}
+
+        @pytest.mark.bench(BENCH, clock="command")
+        def test_by_sleep(instruments, bench_session):
+            lia = instruments["lia"]
+            lia.write(":SOURce:VOLTage 0.5")
+            lia.write(":OUTPut:STATe ON")
+            before = bench_session.now_ns
+            t0 = time.perf_counter()
+            time.sleep(2.0)
+            assert time.perf_counter() - t0 < 0.1  # the test does not really wait
+            assert bench_session.now_ns - before == 2_000_000_000
+            SEEN["r"] = lia.query(":MEASure:R?")
+
+        @pytest.mark.bench(BENCH, clock="command")
+        def test_by_advance(instruments, bench_session):
+            lia = instruments["lia"]
+            lia.write(":SOURce:VOLTage 0.5")
+            lia.write(":OUTPut:STATe ON")
+            bench_session.advance(2.0)
+            assert lia.query(":MEASure:R?") == SEEN["r"]  # the same instant, the same reading
+        """
+    )
+    pytester.runpytest_subprocess("-p", "no:cacheprovider").assert_outcomes(passed=2)
+
+
+def test_marker_opts_back_into_wall_idle(pytester):
+    pytester.makepyfile(
+        f"""
+        import time, pytest
+
+        @pytest.mark.bench({str(LOCKIN)!r}, idle="wall", clock="command")
+        def test_wall_idle_really_waits(instruments, bench_session):
+            t0 = time.perf_counter()
+            time.sleep(0.15)
+            assert time.perf_counter() - t0 > 0.1  # the historical behaviour, on request
+        """
+    )
+    pytester.runpytest_subprocess("-p", "no:cacheprovider").assert_outcomes(passed=1)

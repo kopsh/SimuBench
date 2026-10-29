@@ -9,8 +9,13 @@ Select the bench per test or per module with a marker, or for the whole run on t
 
     pytest --simubench-bench benches/awg_rc_scope.bench.yaml --simubench-record-dir runs
 
-Every test gets a freshly powered bench (D31). With ``--simubench-record-dir`` each test writes a
-run record; a failing test's report names it and the ``simubench replay`` command (D36).
+Every test gets a freshly powered bench (D31). Idle real time does not move the virtual clock:
+the plugin defaults to ``idle: sleep`` (D47), so ``time.sleep(t)`` advances virtual time by
+exactly ``t`` without waiting and a slow machine reads the same numbers as a fast one. A test
+that needs the historical behaviour opts back in with ``idle="wall"``.
+
+With ``--simubench-record-dir`` each test writes a run record; a failing test's report names it
+and the ``simubench replay`` command (D36).
 """
 
 from __future__ import annotations
@@ -23,7 +28,7 @@ from typing import Any
 
 import pytest
 
-ENV = ("SIMUBENCH_RECORD_DIR", "SIMUBENCH_CLOCK", "SIMUBENCH_SEED")
+ENV = ("SIMUBENCH_RECORD_DIR", "SIMUBENCH_CLOCK", "SIMUBENCH_SEED", "SIMUBENCH_IDLE")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -35,7 +40,9 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
-        "markers", "bench(path, clock=None, seed=None): the SimuBench bench file this test runs against"
+        "markers",
+        "bench(path, clock=None, seed=None, idle=None): the SimuBench bench file this test runs "
+        "against; idle defaults to 'sleep' so results do not depend on machine speed (D47)",
     )
 
 
@@ -75,6 +82,9 @@ def visa_rm(request: pytest.FixtureRequest) -> Iterator[Any]:
         os.environ["SIMUBENCH_CLOCK"] = str(options["clock"])
     if options.get("seed") is not None:
         os.environ["SIMUBENCH_SEED"] = str(options["seed"])
+    # A test must read the same numbers on a slow machine as on a fast one: idle real time does
+    # not move the virtual clock, and time.sleep(t) advances it by exactly t (D47).
+    os.environ["SIMUBENCH_IDLE"] = str(options.get("idle") or "sleep")
     try:
         rm = pyvisa.ResourceManager(f"{path}@simubench")
     finally:
