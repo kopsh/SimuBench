@@ -1,0 +1,48 @@
+schema: simubench.bench/2
+name: keysight_34465a_divider
+description: >-
+  Siglent SDG2042X（直流 1 V，HiZ 负载设定）经 900 kΩ/100 kΩ 分压接到 Keysight 34465A 的输入
+  （真实型号，D42）。分压器的输出阻抗约 90 kΩ，万用表的 10 MΩ 输入阻抗会明显加载分压——
+  INPut:IMPedance:AUTO（10 MΩ ↔ >10 GΩ）的两种设定下读数不同，用例与手工计算（含求解器
+  每节点 1e-12 S 的对地电导）一致。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.function: DC
+      ch1.offset: 1.0
+      ch1.load: .inf
+      ch1.output: true
+  dut:
+    model: keysight-34465a
+    label: 数字万用表
+    address: "TCPIP0::192.168.1.31::INSTR"
+    state:
+      sense.range: 0.1
+      sense.range_auto: false
+      sense.nplc: 1
+parts:
+  r1:
+    type: resistor
+    dut: true
+    label: 分压上臂
+    params: {r: 900000.0}
+  r2:
+    type: load_resistor
+    dut: true
+    label: 分压下臂
+    params: {r: 100000.0}
+wires:
+  - {from: awg.CH1, to: r1.A}
+  - {from: r1.B, to: dut.IN}
+  - {from: r2.A, to: dut.IN}
+run:
+  seed: 3
+  clock: command
+layout:
+  awg: {x: 0, y: 80}
+  r1: {x: 320, y: 40}
+  r2: {x: 320, y: 160}
+  dut: {x: 640, y: 80}

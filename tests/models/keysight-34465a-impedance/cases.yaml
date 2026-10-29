@@ -1,0 +1,29 @@
+# Keysight 34465A 的输入阻抗对照用例：示例测试台（SDG2042X 直流 1 V 经 900 kΩ/100 kΩ 分压）
+# 上，10 MΩ 与 >10 GΩ 两种输入阻抗的读数不同，且与手工计算一致（含求解器每节点 1e-12 S 的
+# 对地电导、SDG 的 50 Ω 输出内阻；手工计算见 tests/test_keysight_34465a.py）。
+# 手册：[SENSe:]VOLTage[:DC]:IMPedance:AUTO——OFF 时全量程 10 MΩ，ON 时 100 mV–10 V 量程 >10 GΩ。
+model: keysight-34465a
+bench: ../../../examples/benches/keysight-34465a.bench.yaml
+instrument: dut
+cases:
+  - name: "分压电路下 10 MΩ 与 >10 GΩ 输入阻抗的读数不同，与手工计算一致"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:IMPedance:AUTO"
+    steps:
+      - send: "VOLT:DC:IMP:AUTO OFF"
+      - query: "MEAS:VOLT:DC?"
+        expect: "+9.91030500E-02"
+      - send: "VOLT:DC:IMP:AUTO ON"
+      - query: "MEAS:VOLT:DC?"
+        expect: "+9.99940800E-02"
+  - name: "100 V/1000 V 量程不适用高阻抗：>10 GΩ 只在 100 mV–10 V 量程生效"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:IMPedance:AUTO（ON：100 mV、1 V、10 V 量程为 HI-Z）"
+    steps:
+      - send: "VOLT:DC:IMP:AUTO ON"
+      - query: "MEAS:VOLT:DC?"
+        expect: "+9.99940800E-02"
+      - send: "VOLT:DC:RANG 100"
+      - query: "MEAS:VOLT:DC?"
+        expect: "+9.90900000E-02"
+      - send: "VOLT:DC:RANG 0.1"
+      - query: "MEAS:VOLT:DC?"
+        expect: "+9.99940800E-02"
