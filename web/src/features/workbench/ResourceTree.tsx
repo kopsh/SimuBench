@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { instrumentTitle } from "./model";
 import { type Selection, useWorkbench } from "./store";
-import { CLASS_ICON } from "./canvas/InstrumentNode";
+import { CLASS_ICON, DutBadge } from "./canvas/InstrumentNode";
 
 
 export function ResourceTree({ session }: { session: SessionInfo }) {
@@ -23,17 +23,19 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
             return (
               <Item key={i.name} active={is(s)} onClick={() => select(s)} onDoubleClick={() => openScreen(i.name)} icon={<Icon className="size-3.5" />}>
                 <span className="truncate">{instrumentTitle(i)}</span>
-                {i.errors.length > 0 && <span className="text-error num ml-auto text-[11px]">{i.errors.length}</span>}
+                {i.dut && <DutBadge className="ml-auto" />}
+                {i.errors.length > 0 && <span className={cn("text-error num text-[11px]", !i.dut && "ml-auto")}>{i.errors.length}</span>}
               </Item>
             );
           })}
         </Group>
-        <Group title={t("workbench.duts")}>
-          {session.duts.map((d) => {
-            const s = { kind: "dut", id: d.name } as const;
+        <Group title={t("workbench.parts")}>
+          {session.parts.map((d) => {
+            const s = { kind: "part", id: d.name } as const;
             return (
               <Item key={d.name} active={is(s)} onClick={() => select(s)} icon={<CircuitBoard className="size-3.5" />}>
                 <span className="truncate">{d.label || d.name}</span>
+                {d.dut && <DutBadge className="ml-auto" />}
               </Item>
             );
           })}

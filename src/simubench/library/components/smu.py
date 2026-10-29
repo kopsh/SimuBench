@@ -407,7 +407,7 @@ class ElectronicLoad(Component):
 class DcSupply(Component):
     """A fixed DC source with an output resistance (a bench supply or a battery), to ground."""
 
-    category = "dut"
+    category = "part"
     label = "直流电源"
     label_en = "DC supply"
     role = "driver"

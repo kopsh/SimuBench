@@ -69,6 +69,7 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
           <div className="truncate text-[13px] leading-tight font-medium">{instrumentTitle(inst)}</div>
           <div className="text-muted-foreground num truncate text-[11px] leading-tight">{inst.model}</div>
         </div>
+        {inst.dut && <DutBadge />}
         {issue && <IssueMark issue={issue} />}
         {fault && <FaultMark />}
         {inst.errors.length > 0 && (
@@ -254,3 +255,17 @@ export function FaultMark() {
 }
 
 export const InstrumentNode = memo(InstrumentNodeImpl);
+
+/** The DUT role (the object under test or calibration) on an instrument or a part (#100). */
+export function DutBadge({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <span
+      className={cn("bg-primary/12 text-primary shrink-0 rounded px-1.5 py-0.5 text-[10.5px] font-semibold", className)}
+      title={t("dut.title")}
+      data-testid="dut-badge"
+    >
+      DUT
+    </span>
+  );
+}

@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-lockin-chopper
 description: External reference from a 1 kHz sine (a chopper); a 1 kHz square of 1 V peak on SIG_IN.
 instruments:

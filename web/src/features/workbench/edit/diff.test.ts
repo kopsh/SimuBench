@@ -5,7 +5,7 @@ const base = {
   schema: "simubench.bench/1",
   name: "b",
   instruments: { awg: { model: "sb-awg-2", state: { "ch1.frequency": 1000 } }, scope: { model: "sb-dso-4" } },
-  duts: { rc: { type: "rc_lowpass", params: { r: 1000, c: 1e-7 } } },
+  parts: { rc: { type: "rc_lowpass", params: { r: 1000, c: 1e-7 } } },
   wires: [{ from: "awg.OUT1", to: "rc.IN" }],
   layout: { awg: { x: 0, y: 0 } },
 };
@@ -15,7 +15,7 @@ describe("diffItems", () => {
     const after = {
       ...base,
       instruments: { awg: { model: "sb-awg-2", state: { "ch1.frequency": 2000 } }, dmm: { model: "sb-dmm-1" } },
-      duts: { rc: { type: "rc_lowpass", params: { r: 2200, c: 1e-7 } } },
+      parts: { rc: { type: "rc_lowpass", params: { r: 2200, c: 1e-7 } } },
       wires: [{ from: "awg.OUT1", to: "rc.IN", accessories: [{ type: "coax_cable" }] }, { from: "rc.OUT", to: "dmm.IN" }],
       layout: { awg: { x: 10, y: 0 } },
     };
@@ -25,7 +25,7 @@ describe("diffItems", () => {
       "instruments:awg:changed",
       "instruments:scope:removed",
       "instruments:dmm:added",
-      "duts:rc:changed",
+      "parts:rc:changed",
       "wires:awg.OUT1 → rc.IN:changed",
       "wires:rc.OUT → dmm.IN:added",
       "layout:awg:changed",

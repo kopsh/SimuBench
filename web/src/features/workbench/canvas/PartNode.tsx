@@ -1,23 +1,26 @@
 import { type Node, type NodeProps, Position } from "@xyflow/react";
 import { CircuitBoard } from "lucide-react";
 import { memo } from "react";
+import { useTranslation } from "react-i18next";
 import type { ComponentInfo } from "@/api/client";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { numeric } from "../model";
-import { FaultMark, type Issue, IssueMark, PortHandle } from "./InstrumentNode";
+import { DutBadge, FaultMark, type Issue, IssueMark, PortHandle } from "./InstrumentNode";
 
-export type DutNodeData = { dut: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
-export type DutNodeType = Node<DutNodeData, "dut">;
+/** A part (元件) on the canvas: an RC network, a resistor; the DUT badge when it is the DUT (#100). */
+export type PartNodeData = { part: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
+export type PartNodeType = Node<PartNodeData, "part">;
 
 const PARAM_UNITS: Record<string, string> = { r: "OHM", c: "F", z_in: "OHM", z_out: "OHM", gain: "" };
 const HIDDEN = new Set(["tol_r", "tol_c"]);
 
-function DutNodeImpl({ data, selected }: NodeProps<DutNodeType>) {
-  const { dut, editable, issue, fault } = data;
-  const ins = dut.ports.filter((p) => p.direction !== "out");
-  const outs = dut.ports.filter((p) => p.direction === "out");
-  const params = Object.entries(dut.params).filter(([k]) => !HIDDEN.has(k));
+function PartNodeImpl({ data, selected }: NodeProps<PartNodeType>) {
+  const { t } = useTranslation();
+  const { part, editable, issue, fault } = data;
+  const ins = part.ports.filter((p) => p.direction !== "out");
+  const outs = part.ports.filter((p) => p.direction === "out");
+  const params = Object.entries(part.params).filter(([k]) => !HIDDEN.has(k));
   return (
     <div
       className={cn(
@@ -30,9 +33,12 @@ function DutNodeImpl({ data, selected }: NodeProps<DutNodeType>) {
       <div className="flex items-center gap-2 border-b border-dashed px-3 py-2">
         <CircuitBoard className="text-muted-foreground size-4 shrink-0" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] leading-tight font-medium">{dut.label || dut.name}</div>
-          <div className="text-muted-foreground num truncate text-[11px] leading-tight">DUT · {dut.type}</div>
+          <div className="truncate text-[13px] leading-tight font-medium">{part.label || part.name}</div>
+          <div className="text-muted-foreground num truncate text-[11px] leading-tight">
+            {part.dut ? "DUT" : t("workbench.part")} · {part.type}
+          </div>
         </div>
+        {part.dut && <DutBadge />}
         {issue && <IssueMark issue={issue} />}
         {fault && <FaultMark />}
       </div>
@@ -54,4 +60,4 @@ function DutNodeImpl({ data, selected }: NodeProps<DutNodeType>) {
   );
 }
 
-export const DutNode = memo(DutNodeImpl);
+export const PartNode = memo(PartNodeImpl);

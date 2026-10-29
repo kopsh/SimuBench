@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-specan
 description: A 100 kHz square (1 Vpp) on RF_IN; a 10 MHz + 20 Hz sine (2 ppm fast) on REF_IN (validation-specan.md).
 instruments:

@@ -706,8 +706,16 @@ export interface components {
              */
             type: string;
         };
-        /** AddDut */
+        /**
+         * AddDut
+         * @description Older name of add_part that marks the part as a DUT (bench/1, before DUT became a role).
+         */
         AddDut: {
+            /**
+             * Dut
+             * @default true
+             */
+            dut: boolean;
             /** Label */
             label?: string | null;
             /** Name */
@@ -743,6 +751,37 @@ export interface components {
              * @enum {string}
              */
             op: "add_instrument";
+            /** X */
+            x?: number | null;
+            /** Y */
+            y?: number | null;
+        };
+        /**
+         * AddPart
+         * @description A part (元件) as a node of its own: an RC network, a resistor, a buffer.
+         */
+        AddPart: {
+            /**
+             * Dut
+             * @description Mark it as a DUT (the object under test)
+             * @default false
+             */
+            dut: boolean;
+            /** Label */
+            label?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "add_part";
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
             /** X */
             x?: number | null;
             /** Y */
@@ -831,7 +870,7 @@ export interface components {
             error: string | null;
             /**
              * Omitted
-             * @description Instruments, DUTs, 'wire:<i>' or state paths
+             * @description Instruments, parts, 'wire:<i>' or state paths
              */
             omitted: string[];
             /** Path */
@@ -1011,7 +1050,7 @@ export interface components {
              * Category
              * @enum {string}
              */
-            category: "dut" | "accessory" | "internal";
+            category: "part" | "accessory" | "internal";
             /** Doc */
             doc: string | null;
             /**
@@ -1044,6 +1083,12 @@ export interface components {
         ComponentInfo: {
             /** Deviations */
             deviations: components["schemas"]["DeviationInfo"][];
+            /**
+             * Dut
+             * @description Marked as a DUT: the object under test or calibration
+             * @default false
+             */
+            dut: boolean;
             /** Label */
             label: string | null;
             /** Name */
@@ -1080,7 +1125,7 @@ export interface components {
              * Category
              * @enum {string}
              */
-            category: "dut" | "accessory" | "internal";
+            category: "part" | "accessory" | "internal";
             /** Defaults */
             defaults: {
                 [key: string]: unknown;
@@ -1368,7 +1413,7 @@ export interface components {
             /** Base Sha256 */
             base_sha256: string;
             /** Ops */
-            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
+            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddPart"] | components["schemas"]["AddDut"] | components["schemas"]["SetDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
             /** Path */
             path: string;
             /**
@@ -1409,7 +1454,7 @@ export interface components {
             code?: number | null;
             /**
              * Component
-             * @description For drift / hidden: '<instrument>/<component>' or a DUT name, e.g. 'rc'
+             * @description For drift / hidden: '<instrument>/<component>' or a part's name, e.g. 'rc'
              */
             component?: string | null;
             /**
@@ -1636,6 +1681,12 @@ export interface components {
              */
             deviations: components["schemas"]["DeviationInfo"][];
             display: components["schemas"]["DisplayInfo"];
+            /**
+             * Dut
+             * @description Marked as a DUT: the object under test or calibration
+             * @default false
+             */
+            dut: boolean;
             /** Errors */
             errors: components["schemas"]["ErrorItem"][];
             /** Idn */
@@ -2084,7 +2135,7 @@ export interface components {
         Remove: {
             /**
              * Name
-             * @description Instrument or DUT; its wires are removed too
+             * @description Instrument or part; its wires are removed too
              */
             name: string;
             /**
@@ -2450,8 +2501,11 @@ export interface components {
             clock_mode: "command" | "wall" | "stepped";
             /** Description */
             description: string | null;
-            /** Duts */
-            duts: components["schemas"]["ComponentInfo"][];
+            /**
+             * Duts
+             * @description Names of the instruments and parts marked as DUTs
+             */
+            duts: string[];
             /** Id */
             id: string;
             /** Instruments */
@@ -2464,6 +2518,8 @@ export interface components {
             nets: components["schemas"]["NetInfo"][];
             /** Now Ns */
             now_ns: number;
+            /** Parts */
+            parts: components["schemas"]["ComponentInfo"][];
             /** Record Path */
             record_path: string | null;
             /** Reveal True Values */
@@ -2504,14 +2560,9 @@ export interface components {
         };
         /**
          * SetDeviation
-         * @description Individual deviations (个体偏差): an instrument's mode, or one DUT parameter's range.
+         * @description Individual deviations (个体偏差): an instrument's mode, or the range of one parameter of a part.
          */
         SetDeviation: {
-            /**
-             * Dut
-             * @description With `param`: the DUT
-             */
-            dut?: string | null;
             /**
              * Instrument
              * @description With `mode`: the instrument
@@ -2529,8 +2580,31 @@ export interface components {
             op: "set_deviation";
             /** Param */
             param?: string | null;
+            /**
+             * Part
+             * @description With `param`: the part (older name: dut)
+             */
+            part?: string | null;
             /** @description The parameter's range; null removes it */
             range?: components["schemas"]["DeviationRange"] | null;
+        };
+        /**
+         * SetDut
+         * @description Mark an instrument or a part as a DUT, or not (DUT is a role, #100).
+         */
+        SetDut: {
+            /**
+             * Dut
+             * @default true
+             */
+            dut: boolean;
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_dut";
         };
         /** SetIdentity */
         SetIdentity: {
@@ -2577,8 +2651,6 @@ export interface components {
         };
         /** SetParams */
         SetParams: {
-            /** Dut */
-            dut: string;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2588,6 +2660,11 @@ export interface components {
             params: {
                 [key: string]: unknown;
             };
+            /**
+             * Part
+             * @description The part (older name: dut)
+             */
+            part: string;
         };
         /** SetRun */
         SetRun: {

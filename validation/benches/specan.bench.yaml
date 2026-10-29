@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: specan
 description: 函数发生器的 100 kHz 方波接频谱仪 RF_IN；另一台函数发生器提供 10 MHz 参考（快 2 ppm）。
 instruments:

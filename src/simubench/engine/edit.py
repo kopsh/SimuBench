@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..models.bench import Accessory, BenchDefinition, ComponentInstance, InstrumentInstance, LayoutItem, Wire
 from ..models.deviation import DeviationRange
@@ -37,19 +37,37 @@ class AddInstrument(_Op):
     y: float | None = None
 
 
-class AddDut(_Op):
-    op: Literal["add_dut"] = "add_dut"
+class AddPart(_Op):
+    """A part (元件) as a node of its own: an RC network, a resistor, a buffer."""
+
+    op: Literal["add_part"] = "add_part"
     name: str
     type: str
     label: str | None = None
     params: dict[str, Any] = Field(default_factory=dict)
+    dut: bool = Field(False, description="Mark it as a DUT (the object under test)")
     x: float | None = None
     y: float | None = None
 
 
+class AddDut(AddPart):
+    """Older name of add_part that marks the part as a DUT (bench/1, before DUT became a role)."""
+
+    op: Literal["add_dut"] = "add_dut"  # type: ignore[assignment]
+    dut: bool = True
+
+
+class SetDut(_Op):
+    """Mark an instrument or a part as a DUT, or not (DUT is a role, #100)."""
+
+    op: Literal["set_dut"] = "set_dut"
+    name: str
+    dut: bool = True
+
+
 class Remove(_Op):
     op: Literal["remove"] = "remove"
-    name: str = Field(..., description="Instrument or DUT; its wires are removed too")
+    name: str = Field(..., description="Instrument or part; its wires are removed too")
 
 
 class Rename(_Op):
@@ -79,7 +97,9 @@ class SetState(_Op):
 
 class SetParams(_Op):
     op: Literal["set_params"] = "set_params"
-    dut: str
+    part: str = Field(
+        ..., validation_alias=AliasChoices("part", "dut"), description="The part (older name: dut)"
+    )
     params: dict[str, Any]
 
 
@@ -113,14 +133,18 @@ class SetIdentity(_Op):
 
 
 class SetDeviation(_Op):
-    """Individual deviations (个体偏差): an instrument's mode, or one DUT parameter's range."""
+    """Individual deviations (个体偏差): an instrument's mode, or the range of one parameter of a part."""
 
     op: Literal["set_deviation"] = "set_deviation"
     instrument: str | None = Field(None, description="With `mode`: the instrument")
     mode: Literal["nominal", "from_specs"] | None = Field(
         None, description="nominal: the model's values; from_specs: drawn within the definition's deviations"
     )
-    dut: str | None = Field(None, description="With `param`: the DUT")
+    part: str | None = Field(
+        None,
+        validation_alias=AliasChoices("part", "dut"),
+        description="With `param`: the part (older name: dut)",
+    )
     param: str | None = None
     range: DeviationRange | None = Field(None, description="The parameter's range; null removes it")
 
@@ -147,7 +171,9 @@ class SetRun(_Op):
 
 EditOp = Annotated[
     AddInstrument
+    | AddPart
     | AddDut
+    | SetDut
     | Remove
     | Rename
     | Connect
@@ -167,7 +193,7 @@ EditOp = Annotated[
 
 
 def _names(b: BenchDefinition) -> set[str]:
-    return set(b.instruments) | set(b.duts)
+    return set(b.instruments) | set(b.parts)
 
 
 def _check_new_name(b: BenchDefinition, name: str) -> None:
@@ -209,27 +235,27 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
         b.layout[op.name] = (
             LayoutItem(x=op.x, y=op.y) if op.x is not None and op.y is not None else _free_position(b)
         )
-    elif isinstance(op, AddDut):
+    elif isinstance(op, AddPart):
         _check_new_name(b, op.name)
-        b.duts[op.name] = ComponentInstance(type=op.type, label=op.label, params=op.params)
+        b.parts[op.name] = ComponentInstance(type=op.type, label=op.label, params=op.params, dut=op.dut)
         b.layout[op.name] = (
             LayoutItem(x=op.x, y=op.y) if op.x is not None and op.y is not None else _free_position(b)
         )
     elif isinstance(op, Remove):
         if op.name not in _names(b):
-            raise EditError(f"没有名为 {op.name!r} 的仪表或 DUT")
+            raise EditError(f"没有名为 {op.name!r} 的仪表或元件")
         b.instruments.pop(op.name, None)
-        b.duts.pop(op.name, None)
+        b.parts.pop(op.name, None)
         b.layout.pop(op.name, None)
         b.wires = [w for w in b.wires if _owner(w.from_) != op.name and _owner(w.to) != op.name]
     elif isinstance(op, Rename):
         if op.name not in _names(b):
-            raise EditError(f"没有名为 {op.name!r} 的仪表或 DUT")
+            raise EditError(f"没有名为 {op.name!r} 的仪表或元件")
         _check_new_name(b, op.new_name)
         if op.name in b.instruments:
             b.instruments = {(op.new_name if k == op.name else k): v for k, v in b.instruments.items()}
         else:
-            b.duts = {(op.new_name if k == op.name else k): v for k, v in b.duts.items()}
+            b.parts = {(op.new_name if k == op.name else k): v for k, v in b.parts.items()}
         if op.name in b.layout:
             b.layout[op.new_name] = b.layout.pop(op.name)
 
@@ -243,7 +269,7 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
     elif isinstance(op, Connect):
         for ref in (op.from_, op.to):
             if _owner(ref) not in _names(b):
-                raise EditError(f"端口引用 {ref!r}：没有名为 {_owner(ref)!r} 的仪表或 DUT")
+                raise EditError(f"端口引用 {ref!r}：没有名为 {_owner(ref)!r} 的仪表或元件")
         if op.from_ == op.to:
             raise EditError("连线的两端不能是同一个端口")
         if any({w.from_, w.to} == {op.from_, op.to} for w in b.wires):
@@ -262,9 +288,9 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
         else:
             st[op.path] = op.value
     elif isinstance(op, SetParams):
-        if op.dut not in b.duts:
-            raise EditError(f"没有名为 {op.dut!r} 的 DUT")
-        b.duts[op.dut].params.update(op.params)
+        if op.part not in b.parts:
+            raise EditError(f"没有名为 {op.part!r} 的元件")
+        b.parts[op.part].params.update(op.params)
     elif isinstance(op, SetAccessories):
         if op.index >= len(b.wires):
             raise EditError(f"没有第 {op.index} 根连线")
@@ -272,10 +298,10 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
     elif isinstance(op, SetLabel):
         if op.name in b.instruments:
             b.instruments[op.name].label = op.label
-        elif op.name in b.duts:
-            b.duts[op.name].label = op.label
+        elif op.name in b.parts:
+            b.parts[op.name].label = op.label
         else:
-            raise EditError(f"没有名为 {op.name!r} 的仪表或 DUT")
+            raise EditError(f"没有名为 {op.name!r} 的仪表或元件")
     elif isinstance(op, SetAddress):
         if op.instrument not in b.instruments:
             raise EditError(f"没有名为 {op.instrument!r} 的仪表")
@@ -287,25 +313,32 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
         inst.idn, inst.serial, inst.firmware = op.idn, op.serial, op.firmware
     elif isinstance(op, SetDeviation):
         if op.instrument is not None:
-            if op.instrument not in b.instruments or op.mode is None or op.dut is not None:
+            if op.instrument not in b.instruments or op.mode is None or op.part is not None:
                 raise EditError(
                     f"set_deviation 需要已有的仪表与 mode（没有名为 {op.instrument!r} 的仪表或缺少 mode）"
                 )
             b.instruments[op.instrument].deviation = op.mode
-        elif op.dut is not None:
-            if op.dut not in b.duts or not op.param:
+        elif op.part is not None:
+            if op.part not in b.parts or not op.param:
                 raise EditError(
-                    f"set_deviation 需要已有的 DUT 与 param（没有名为 {op.dut!r} 的 DUT 或缺少 param）"
+                    f"set_deviation 需要已有的元件与 param（没有名为 {op.part!r} 的元件或缺少 param）"
                 )
             if op.range is None:
-                b.duts[op.dut].deviation.pop(op.param, None)
+                b.parts[op.part].deviation.pop(op.param, None)
             else:
-                b.duts[op.dut].deviation[op.param] = op.range
+                b.parts[op.part].deviation[op.param] = op.range
         else:
-            raise EditError("set_deviation 需要 instrument（与 mode）或 dut（与 param）")
+            raise EditError("set_deviation 需要 instrument（与 mode）或 part（与 param）")
+    elif isinstance(op, SetDut):
+        if op.name in b.instruments:
+            b.instruments[op.name].dut = op.dut
+        elif op.name in b.parts:
+            b.parts[op.name].dut = op.dut
+        else:
+            raise EditError(f"没有名为 {op.name!r} 的仪表或元件")
     elif isinstance(op, Move):
         if op.name not in _names(b):
-            raise EditError(f"没有名为 {op.name!r} 的仪表或 DUT")
+            raise EditError(f"没有名为 {op.name!r} 的仪表或元件")
         b.layout[op.name] = LayoutItem(x=op.x, y=op.y)
     elif isinstance(op, SetMeta):
         if op.name is not None:
@@ -326,8 +359,8 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
 def to_yaml_data(bench: BenchDefinition) -> dict[str, Any]:
     """A tidy mapping for writing bench files: defaults and empty sections are left out."""
     data = bench.model_dump(mode="json", by_alias=True, exclude_none=True, exclude_defaults=True)
-    out: dict[str, Any] = {"schema": "simubench.bench/1", "name": bench.name}
-    for key in ("description", "instruments", "duts", "wires", "run", "faults", "assets", "layout"):
+    out: dict[str, Any] = {"schema": "simubench.bench/2", "name": bench.name}
+    for key in ("description", "instruments", "parts", "wires", "run", "faults", "assets", "layout"):
         if data.get(key):
             out[key] = data[key]
     if bench.layout:  # coordinates are always written, 0 included

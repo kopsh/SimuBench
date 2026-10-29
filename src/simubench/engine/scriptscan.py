@@ -286,7 +286,7 @@ def draft_bench(
     if instruments:
         notes.append("脚本中看不出接线：草稿只有仪表，请补充 DUT 与连线")
     bench = {
-        "schema": "simubench.bench/1",
+        "schema": "simubench.bench/2",
         "name": name,
         "description": "由脚本生成的草稿",
         "instruments": instruments,

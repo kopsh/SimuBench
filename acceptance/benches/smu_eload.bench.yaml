@@ -1,4 +1,4 @@
-schema: simubench.bench/1
+schema: simubench.bench/2
 name: acceptance-smu-eload
 description: SMU HI into an electronic load sinking 2 mA in constant-current mode (validation-smu.md).
 instruments:
