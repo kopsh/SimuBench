@@ -103,10 +103,24 @@ def test_a_clipped_record_is_unmeasurable_when_declared(scope):
     assert q(scope, "MEASurement:RESult? PEAK").strip() == b"9.91E+37"
 
 
+def earlier_form(data: dict) -> dict:
+    """The reference scope written the earlier way (it has used modules since G7): the measurement
+    names on the acquisition, the commands pointing at it — the form whose load moves them to a
+    ``scope_measurements`` module named ``meas``."""
+    earlier = copy.deepcopy(data)
+    meas = next(c for c in earlier["components"] if c["name"] == "meas")
+    earlier["components"].remove(meas)
+    next(c for c in earlier["components"] if c["name"] == "acq")["params"]["measurements"] = meas["params"][
+        "names"
+    ]
+    next(c for c in earlier["commands"] if c.get("op") == "meas.named")["op"] = "acq.measurement"
+    return earlier
+
+
 def test_measurements_written_on_the_acquisition_move_to_a_module():
     """The earlier form (measurements on scope_acquisition, op acq.measurement) loads as a
     scope_measurements module named meas, the commands pointing at it."""
-    data = load_yaml(LFCAL_SCOPE.read_text(encoding="utf-8"))
+    data = earlier_form(load_yaml(LFCAL_SCOPE.read_text(encoding="utf-8")))
     d = InstrumentDefinition.model_validate(data)
     meas = next(c for c in d.components if c.type == "scope_measurements")
     assert meas.name == "meas" and meas.params["names"]["AMPL"] == ["VAMPlitude", "V"]

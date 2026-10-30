@@ -511,6 +511,10 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 - 验收（衡量 6）：各档噪声 σ 与档位表一致（`acceptance/test_noise_scenario.py`：噪声底的 0.5/1 mV/div 与估计的 5 mV、0.5 V/div）；0.5 V/div 下 5 mV 直流平均 64 次，MEAN 误差 < 0.2 LSB——旧模型平均后仍测得 0（F4 的实测）；ERES 2.0 的 σ 降到 1/4；1 kHz 的 500 ns 脉冲（源端谐波上限所限）在 NORMal 记录里成批漏掉、PEAK 全部保留；平均 / PEAK / ERES 记录的重放仍逐位一致。
 - 依赖旧行为（极值上无噪声）的用例按真机行为改正：SDS 手册用例的 PKPK（2.00 → 2.0x）、5522A 例程的 MAX/PKPK/均值、SDG 负载测试的 PKPK、手册流程的偏差界——一次采集的极值本来就带几个码的噪声。
 
+**G7 的实现（#139）**：
+
+- 低频校准参考示波器改为显式写出模块：`timebase`（记录恰为 MSIZ 点）、`trigger`（每通道自己的电平与触发沿）、`adc`（12 位、±5 格、20 GSa/s）、每通道 `input_port` → `scope_vertical` → `scope_probe`（探头比走 `$ch.probe` 的默认绑定，`C<n>:ATTeNuation` 照旧），测量在 `meas`（`C<n>:PAVA?` 的测量名与单位）。改写前后的定义指纹相同；仓库里不再有经宏展开的定义，宏保留给用户已有的旧写法。以它为宏形式样本的两个测试（宏展开的诊断指针、测量搬移到 `meas`）改为从显式形式构造旧写法；`tests/test_lowfreq_cal.py`、`acceptance/test_lowfreq_cal_scenario.py`、`examples/lowfreq-cal/cases.yaml` 与 `tests/test_lfcal_mcp_rebuild.py` 不改通过。
+
 ### 8.5 示波器：衡量
 
 **结构**：
