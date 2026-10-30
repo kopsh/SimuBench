@@ -91,6 +91,42 @@ def test_load_change_that_would_exceed_the_range_is_refused(bench):
     assert sdg.query("C1:OUTP?").strip() == "C1:OUTP OFF,LOAD,HZ,PLRT,NOR"
 
 
+def test_compound_message_with_the_repeated_channel_prefix(bench):
+    """``C1:BSWV …;C1:OUTP ON``: the second unit starts again from the channel node instead of
+    doubling it into ``C1:C1:…`` (issue 149); the units in the other order too."""
+    sdg, _, _ = bench
+    sdg.write("C1:BSWV WVTP,SQUARE,FRQ,1000,AMP,2;C1:OUTP ON")
+    assert sdg.query("C1:OUTP?").strip() == "C1:OUTP ON,LOAD,HZ,PLRT,NOR"
+    assert "WVTP,SQUARE,FRQ,1000HZ" in sdg.query("C1:BSWV?")
+    sdg.write("C1:OUTP OFF;C1:BSWV WVTP,SINE,FRQ,2000")  # the units in the other order
+    assert sdg.query("C1:OUTP?").strip() == "C1:OUTP OFF,LOAD,HZ,PLRT,NOR"
+    assert "WVTP,SINE,FRQ,2000HZ" in sdg.query("C1:BSWV?")
+
+
+def test_compound_query_answers_and_a_failed_unit_does_not_swallow_the_rest(bench):
+    """A query inside a compound message answers; a failed unit is named in the error event and
+    later units still run (issue 149)."""
+    sdg, _, session = bench
+    sdg.write("C1:OUTP ON;C1:BSWV?")
+    assert "WVTP,SINE" in sdg.read()
+    sdg.write("C1:BSWV FRQ,3000;C1:NOSUCH 1;C1:BSWV?")
+    assert "FRQ,3000HZ" in sdg.read()
+    error = [e for e in session.history if e.get("kind") == "error"][-1]
+    assert error["code"] == -113 and "C1:NOSUCH" in error["message"]
+
+
+def test_static_classification_sees_both_units_of_a_repeated_prefix_compound():
+    """The MCP's dangerous-command confirmation applies the same header rules (issue 149)."""
+    from simubench.engine.commands import classify
+    from simubench.library.loader import DefinitionLibrary
+
+    known = DefinitionLibrary().get("siglent-sdg2042x")
+    message = "C1:BSWV WVTP,SQUARE,FRQ,1000,AMP,2;C1:OUTP ON"
+    kinds = [m.kind for m in classify(known, message)]
+    assert kinds == ["command", "command"]
+    assert [m.text for m in classify(known, message) if m.dangerous] == ["C1:OUTP ON"]
+
+
 def test_unmodeled_waveforms_are_marked_in_the_event_history(bench):
     sdg, _, session = bench
     sdg.write("C1:BSWV WVTP,PULSE")
