@@ -9,7 +9,6 @@ from . import (  # noqa: F401
     rfgen,
     scope,
     siglent_sdg,
-    siglent_sds,
     smu,
     sources,
     specan,

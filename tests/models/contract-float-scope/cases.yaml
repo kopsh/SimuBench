@@ -1,0 +1,74 @@
+# 契约用例（#138）：类 R&S 的示波器只用通用模块写成——float32 块、点数模式、声明的文本前导、
+# 按名称的测量与统计。1 kHz、2 Vpp 正弦接 CH1（bench.yaml）。
+model: test-float-scope
+bench: bench.yaml
+instrument: scope
+cases:
+  - name: "*IDN? 按定义的身份回复"
+    steps:
+      - query: "*IDN?"
+        expect: "SIMUBENCH,TEST-FLOAT-SCOPE,TFS0001,1.0"
+  - name: "FORMat REAL,32 可查询"
+    steps:
+      - send: "FORMat REAL,32"
+      - query: "FORMat?"
+        expect: "REAL,32"
+  - name: "float32 块：每点 4 字节，未设点数时按每次最多 5000 点截断"
+    steps:
+      - send: "FORMat REAL,32"
+      - query: "CHANnel1:DATA?"
+        binary: true
+        expect_match: '#520000.{20000}\n'
+  - name: "点数模式：10000 点的记录取 1000 点，前导给出起止时间与点数"
+    steps:
+      - send: "CHANnel1:DATA:POINts 1000"
+      - query: "CHANnel1:DATA:HEADer?"
+        expect: "-5.000000e-04,5.000000e-04,1000,1"
+      - send: "FORMat REAL,32"
+      - query: "CHANnel1:DATA?"
+        binary: true
+        expect_match: '#44000.{4000}\n'
+  - name: "ASCII 列表：逗号分隔的伏特数"
+    steps:
+      - send: "CHANnel1:DATA:POINts 10"
+      - query: "CHANnel1:DATA?"
+        expect_match: '^([+-]\d\.\d{6}E[+-]\d\d,){9}[+-]\d\.\d{6}E[+-]\d\d$'
+  - name: "幅度按直方图的顶值与底值"
+    steps:
+      - send: "TIMebase:SCALe 1E-3"
+      - query: "MEASurement:RESult? AMPLitude"
+        expect_value: 2.0
+        tolerance: 0.02
+  - name: "频率：记录中至少两个完整周期"
+    steps:
+      - send: "TIMebase:SCALe 1E-3"
+      - query: "MEASurement:RESult? FREQuency"
+        expect_value: 1000.0
+        tolerance: 1.0
+  - name: "不足两个周期时无法测量"
+    steps:
+      - send: "TIMebase:SCALe 1E-4"
+      - query: "MEASurement:RESult? FREQuency"
+        expect: "9.91E+37"
+  - name: "统计：次数与平均，复位后清零"
+    steps:
+      - send: "TIMebase:SCALe 1E-3"
+      - query: "MEASurement:RESult? PEAK"
+        expect_value: 2.0
+        tolerance: 0.02
+      - query: "MEASurement:RESult? PEAK"
+        expect_value: 2.0
+        tolerance: 0.02
+      - query: "MEASurement:RESult:WFMCount? PEAK"
+        expect: "2"
+      - query: "MEASurement:RESult:AVG? PEAK"
+        expect_value: 2.0
+        tolerance: 0.02
+      - send: "MEASurement:STATistics:RESet"
+      - query: "MEASurement:RESult:WFMCount? PEAK"
+        expect: "0"
+  - name: "触发状态按声明的文字：停止后为 STOP"
+    steps:
+      - send: "STOP"
+      - query: "TRIGger:A:STATus?"
+        expect: "STOP"
