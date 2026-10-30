@@ -27,6 +27,7 @@ import { instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { InternalsView } from "./internals/InternalsView";
 import { LiveValuesBanner } from "./edit/LiveValuesBanner";
+import { RemoteBanner } from "./RemoteBanner";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
 import { LoadScreen } from "./screens/LoadScreen";
 import { LockinScreen } from "./screens/LockinScreen";
@@ -272,6 +273,10 @@ function CenterTabs({
             {editing && (() => {
               const live = session.instruments.find((i) => i.name === current.instrument);
               return live ? <LiveValuesBanner live={live} initial={view?.instruments.find((i) => i.name === current.instrument)} /> : null;
+            })()}
+            {(() => {
+              const inst = session.instruments.find((i) => i.name === current.instrument);
+              return inst ? <RemoteBanner sid={session.id} inst={inst} /> : null;
             })()}
             <div className="min-h-0 flex-1">
               <Screen session={session} instrument={current.instrument} readonly={readonly} />

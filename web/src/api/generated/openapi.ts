@@ -542,6 +542,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/instruments/{name}/local": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Go Local
+         * @description LOCAL: take an instrument in remote control back to the UI, until a remote client's next
+         *     command (as the LOCAL key of an instrument). Recorded as a ``remote`` event (#121).
+         */
+        post: operations["goLocal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}/panel": {
         parameters: {
             query?: never;
@@ -789,6 +810,12 @@ export interface components {
         };
         /** AdvanceRequest */
         AdvanceRequest: {
+            /**
+             * Force
+             * @description Advance even though scripts are connected (they see the time move)
+             * @default false
+             */
+            force: boolean;
             /** Seconds */
             seconds: number;
         };
@@ -957,6 +984,11 @@ export interface components {
              * @description Label as it appears in the communication log
              */
             client: string;
+            /**
+             * Instrument
+             * @description The instrument whose port it is connected to
+             */
+            instrument: string | null;
             /**
              * Locked
              * @description Holds a HiSLIP lock, i.e. a script is in control
@@ -1695,6 +1727,12 @@ export interface components {
             instrument_class: string;
             /** Label */
             label: string | null;
+            /**
+             * Local
+             * @description Taken back to local from the UI (LOCAL) until a remote client's next command
+             * @default false
+             */
+            local: boolean;
             /** Manufacturer */
             manufacturer: string;
             /** Model */
@@ -1703,6 +1741,11 @@ export interface components {
             name: string;
             /** Ports */
             ports: components["schemas"]["PortInfo"][];
+            /**
+             * Remote
+             * @description Clients connected to this instrument's ports (socket, HiSLIP): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)
+             */
+            remote: string[];
             /** Scpi Port */
             scpi_port: number | null;
             /** State */
@@ -2252,6 +2295,12 @@ export interface components {
         ResetSessionRequest: {
             /** Clock */
             clock?: ("command" | "wall" | "stepped") | null;
+            /**
+             * Force
+             * @description Reset even though scripts are connected (they are dropped)
+             * @default false
+             */
+            force: boolean;
             /** Seed */
             seed?: number | null;
         };
@@ -2344,7 +2393,7 @@ export interface components {
         RunEvent: {
             /**
              * Action
-             * @description A front-panel button, for panel events: run | stop | single
+             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command)
              */
             action: string | null;
             /**
@@ -2373,7 +2422,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | fault | acquisition | panel | session
+             * @description scpi | state | advance | error | fault | acquisition | panel | remote | session
              */
             kind: string;
             /** Message */
@@ -2850,6 +2899,12 @@ export interface components {
             bench_path: string;
             /** Clock */
             clock?: ("command" | "wall" | "stepped") | null;
+            /**
+             * Force
+             * @description Start even though scripts are connected to the running bench (they are dropped)
+             * @default false
+             */
+            force: boolean;
             /** Seed */
             seed?: number | null;
         };
@@ -3695,6 +3750,13 @@ export interface operations {
                     "application/json": components["schemas"]["SessionInfo"];
                 };
             };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -3739,7 +3801,9 @@ export interface operations {
     };
     stopSession: {
         parameters: {
-            query?: never;
+            query?: {
+                force?: boolean;
+            };
             header?: never;
             path: {
                 sid: string;
@@ -3750,6 +3814,13 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Scripts are connected; repeat with force=true to drop them */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3851,6 +3922,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ClockInfo"];
                 };
+            };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4018,6 +4096,13 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigureResponse"];
                 };
             };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -4061,6 +4146,38 @@ export interface operations {
             };
         };
     };
+    goLocal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     panel: {
         parameters: {
             query?: never;
@@ -4085,6 +4202,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["PanelResponse"];
                 };
+            };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4153,6 +4277,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ScpiResponse"];
                 };
+            };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -4318,6 +4449,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SessionInfo"];
                 };
+            };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

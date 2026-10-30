@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { api, unwrap } from "@/api/client";
 import { useStartSession } from "@/api/hooks";
+import { isCancelled } from "@/components/app/ClientsConfirm";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export function NewBenchDialog() {
       useWorkbench.getState().setMode("edit");
       navigate(`/s/${s.id}`);
     } catch (err) {
+      if (isCancelled(err)) return; // the file is saved; the open bench keeps its scripts
       toast.error(t("errors.generic"), { description: (err as Error).message });
     } finally {
       setBusy(false);

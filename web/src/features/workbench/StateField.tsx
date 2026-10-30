@@ -3,6 +3,7 @@ import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
+import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,7 +50,8 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
         { instrument, path: v.path, value },
         {
           onSuccess: (r) => setError(r.ok ? null : `${r.error?.code}, ${r.error?.message}`),
-          onError: (e) => setError((e as Error).message),
+          // A remote instrument is reported by the hook, with LOCAL (#121).
+          onError: (e) => setError(remoteInstrument(e) ? null : (e as Error).message),
         },
       );
     if (v.dangerous && value === true) setConfirm(() => run);

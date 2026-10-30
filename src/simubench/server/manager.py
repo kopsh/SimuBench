@@ -39,6 +39,28 @@ class BenchInvalid(ValueError):
         self.diagnostics = diagnostics
 
 
+class InstrumentRemote(RuntimeError):
+    """A UI operation on an instrument a script is connected to (remote, #121)."""
+
+    def __init__(self, instrument: str, clients: list[str]) -> None:
+        super().__init__(f"{instrument} is in remote control by {', '.join(clients)}; take it to local first")
+        self.instrument = instrument
+        self.clients = clients
+
+
+class ClientsConnected(RuntimeError):
+    """An operation that drops or disturbs the scripts connected to the bench, asked without force."""
+
+    def __init__(self, clients: list[str], what: str) -> None:
+        super().__init__(f"{what} affects connected scripts ({', '.join(clients)}); confirm with force")
+        self.clients = clients
+
+
+def is_remote(client: str | None) -> bool:
+    """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
+    return bool(client) and client.startswith(("socket:", "hislip:"))  # type: ignore[union-attr]
+
+
 class ServedSession:
     def __init__(self, sid: str, session: Session, bench_path: Path | None) -> None:
         self.id = sid
@@ -51,6 +73,60 @@ class ServedSession:
         self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
         self.seed: int | None = None
+        #: Instruments taken back to local from the UI (LOCAL), until a remote client's next command.
+        self.local: set[str] = set()
+        session.subscribe(self._follow_remote)
+
+    def _follow_remote(self, ev: dict[str, Any]) -> None:
+        # As on hardware, a command from the remote interface returns the instrument to remote.
+        name = ev.get("instrument")
+        if (
+            ev.get("kind") == "scpi"
+            and ev.get("dir") == "write"
+            and name in self.local
+            and is_remote(ev.get("client"))
+        ):
+            self.local.discard(name)
+            self.session.emit(
+                {"kind": "remote", "instrument": name, "action": "remote", "source": ev["client"]}
+            )
+
+    def remote_clients(self, instrument: str | None = None) -> list[str]:
+        """Clients connected to the ports of ``instrument`` (or of any instrument), sorted."""
+        out = [
+            c
+            for lst in (self.scpi.listeners if self.scpi else [])
+            if instrument is None or lst.instrument == instrument
+            for c in lst.labels
+        ]
+        if self.hislip:
+            out += [
+                hs.client
+                for hs in self.hislip._sessions.values()
+                if instrument is None or hs.instrument == instrument
+            ]
+        return sorted(out)
+
+    def require_local(self, instrument: str) -> None:
+        """Refuse a UI operation on an instrument in remote control (#121)."""
+        self.session.instrument(instrument)  # KeyError for an unknown name, before the remote check
+        clients = self.remote_clients(instrument)
+        if clients and instrument not in self.local:
+            raise InstrumentRemote(instrument, clients)
+
+    def require_no_clients(self, what: str, force: bool) -> None:
+        """Refuse an operation that drops or disturbs connected scripts unless confirmed (#121)."""
+        clients = self.remote_clients()
+        if clients and not force:
+            raise ClientsConnected(clients, what)
+
+    def go_local(self, instrument: str, client: str = "ui") -> None:
+        """LOCAL: the UI takes the instrument back from the remote clients (recorded as an event)."""
+        self.session.instrument(instrument)
+        if instrument in self.local:
+            return
+        self.local.add(instrument)
+        self.session.emit({"kind": "remote", "instrument": instrument, "action": "local", "source": client})
 
 
 class SessionManager:
@@ -259,15 +335,22 @@ class SessionManager:
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
         clients: list[M.ClientInfo] = [
-            M.ClientInfo(client=c)
+            M.ClientInfo(client=c, instrument=lst.instrument)
             for lst in (served.scpi.listeners if served.scpi else [])
             for c in sorted(lst.labels)
         ]
         if served.hislip:
             for hs in served.hislip._sessions.values():
                 clients.append(
-                    M.ClientInfo(client=hs.client, locked=served.hislip.locks(hs.instrument).held_by(hs))
+                    M.ClientInfo(
+                        client=hs.client,
+                        instrument=hs.instrument,
+                        locked=served.hislip.locks(hs.instrument).held_by(hs),
+                    )
                 )
+        for info in instruments:
+            info.remote = served.remote_clients(info.name)
+            info.local = info.name in served.local
         parts = [self._component_info(s, name) for name in b.parts]
         wires = []
         for i, w in enumerate(b.wires):
@@ -473,8 +556,9 @@ class SessionManager:
         inst = s.instrument(instrument)
         before = len(inst.errors)
         try:
-            s.write(instrument, command.encode(), client="ui")
-            out = s.read(instrument, client="ui")
+            # Write and read in one action: a script's response cannot end up here (#121).
+            got = s.exchange(instrument, command.encode(), client="ui", reads=1)
+            out = got[0] if got else None
         except LinkDown as exc:
             return M.ScpiResponse(link_error=str(exc), now_ns=s.now_ns)
         new_errors = inst.errors.peek_all()[before:]

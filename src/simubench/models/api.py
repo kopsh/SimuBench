@@ -277,6 +277,14 @@ class InstrumentInfo(_Model):
     deviations: list[DeviationInfo] = Field(
         default_factory=list, description="The definition's deviation ranges, with this unit's values"
     )
+    remote: list[str] = Field(
+        default_factory=list,
+        description="Clients connected to this instrument's ports (socket, HiSLIP): while any is, the "
+        "instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
+    )
+    local: bool = Field(
+        False, description="Taken back to local from the UI (LOCAL) until a remote client's next command"
+    )
 
 
 class ComponentInfo(_Model):
@@ -363,6 +371,7 @@ class ClientInfo(_Model):
     """A client connected to the session's SCPI ports (raw socket or HiSLIP)."""
 
     client: str = Field(..., description="Label as it appears in the communication log")
+    instrument: str | None = Field(None, description="The instrument whose port it is connected to")
     locked: bool = Field(False, description="Holds a HiSLIP lock, i.e. a script is in control")
 
 
@@ -428,6 +437,9 @@ class StartSessionRequest(_Model):
     bench_path: str
     clock: Literal["command", "wall", "stepped"] | None = None
     seed: int | None = None
+    force: bool = Field(
+        False, description="Start even though scripts are connected to the running bench (they are dropped)"
+    )
 
 
 class ResetSessionRequest(_Model):
@@ -435,6 +447,7 @@ class ResetSessionRequest(_Model):
 
     clock: Literal["command", "wall", "stepped"] | None = None
     seed: int | None = None
+    force: bool = Field(False, description="Reset even though scripts are connected (they are dropped)")
 
 
 class ScpiRequest(_Model):
@@ -473,6 +486,9 @@ class PanelResponse(_Model):
 
 class AdvanceRequest(_Model):
     seconds: float = Field(..., gt=0)
+    force: bool = Field(
+        False, description="Advance even though scripts are connected (they see the time move)"
+    )
 
 
 class ClockInfo(_Model):
@@ -618,7 +634,8 @@ class Event(_Model):
     seq: int
     t_ns: int
     kind: str = Field(
-        ..., description="scpi | state | advance | error | fault | acquisition | panel | session"
+        ...,
+        description="scpi | state | advance | error | fault | acquisition | panel | remote | session",
     )
     instrument: str | None = None
     dir: Literal["write", "read"] | None = None
@@ -637,7 +654,9 @@ class Event(_Model):
     reason: str | None = None
     wall: float | None = None
     action: str | None = Field(
-        None, description="A front-panel button, for panel events: run | stop | single"
+        None,
+        description="A front-panel button, for panel events: run | stop | single; "
+        "for remote events: local (taken back from the UI) | remote (a remote client's command)",
     )
 
 

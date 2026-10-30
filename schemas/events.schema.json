@@ -11,7 +11,7 @@
         }
       ],
       "default": null,
-      "description": "A front-panel button, for panel events: run | stop | single",
+      "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command)",
       "title": "Action"
     },
     "client": {
@@ -104,7 +104,7 @@
       "title": "Instrument"
     },
     "kind": {
-      "description": "scpi | state | advance | error | fault | acquisition | panel | session",
+      "description": "scpi | state | advance | error | fault | acquisition | panel | remote | session",
       "title": "Kind",
       "type": "string"
     },
