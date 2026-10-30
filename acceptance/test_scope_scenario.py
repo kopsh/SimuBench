@@ -47,7 +47,8 @@ def test_preamble_fields(rig):
     cap = capture(scope)
     fmt, typ, points, count, x_inc, x_org, x_ref, y_inc, y_org, y_ref = cap.preamble
     assert (fmt, typ, points, count) == (1, 0, 1000, 1)
-    assert x_inc == pytest.approx(1e-5) and x_org == pytest.approx(-5e-3) and x_ref == 0
+    # xorigin: 500 samples before the trigger, plus where the trigger fell between two samples (G5).
+    assert x_inc == pytest.approx(1e-5) and -5e-3 <= x_org < -5e-3 + 1e-5 and x_ref == 0
     assert y_inc == pytest.approx(4 * 0.05 / 32768, rel=1e-6) and y_org == 0 and y_ref == 0
 
 
@@ -113,7 +114,8 @@ def test_trigger_point(rig, slope, level):
     awg.write(":OUTPut1:STATe ON")
     scope.write(f":CHANnel1:SCALe 0.05;:TRIGger:EDGE:SLOPe {slope};:TRIGger:EDGE:LEVel {level}")
     cap = capture(scope)
-    assert cap.t[500] == pytest.approx(0.0, abs=1e-12)
+    # The trigger instant (t = 0) is interpolated between samples 499 and 500 (G5).
+    assert cap.t[499] < 0.0 <= cap.t[500]
     if slope == "POSitive":
         assert cap.v[499] < level <= cap.v[500] + 1e-4
     else:

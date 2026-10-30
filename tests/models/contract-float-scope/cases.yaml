@@ -22,8 +22,9 @@ cases:
   - name: "点数模式：10000 点的记录取 1000 点，前导给出起止时间与点数"
     steps:
       - send: "CHANnel1:DATA:POINts 1000"
+      # 起止时间带触发落在两个采样之间的小数（G5），在 ±0.5 ms 之后一个采样（0.1 µs）以内。
       - query: "CHANnel1:DATA:HEADer?"
-        expect: "-5.000000e-04,5.000000e-04,1000,1"
+        expect_match: '-(5\.000000e-04|4\.99\d{4}e-04),(5\.000000e-04|5\.00\d{4}e-04),1000,1'
       - send: "FORMat REAL,32"
       - query: "CHANnel1:DATA?"
         binary: true

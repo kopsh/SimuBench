@@ -278,9 +278,9 @@ class ScopeProbe(Component):
 
 
 def channel_index(source: object) -> int:
-    """Channel number of a source name: CHANnel2 (sb-*) or C2 (Siglent)."""
+    """Channel number of a source name: CHANnel2 (sb-*), CH2 or C2 (Siglent)."""
     text = str(source).upper()
-    for prefix in ("CHANNEL", "CHAN", "C"):
+    for prefix in ("CHANNEL", "CHAN", "CH", "C"):
         if text.startswith(prefix) and text[len(prefix) :].isdigit():
             return int(text[len(prefix) :])
     return 1
@@ -292,9 +292,9 @@ FALLING = ["NEGative", "EITHer", "FALLing", "ALTernate"]
 
 
 def trigger_channel(source: object) -> int | None:
-    """Channel number of a trigger source (CHANnel2, C2), None for EXTernal, LINE and the like."""
+    """Channel number of a trigger source (CHANnel2, CH2, C2), None for EXTernal, LINE and the like."""
     text = str(source).upper()
-    for prefix in ("CHANNEL", "CHAN", "C"):
+    for prefix in ("CHANNEL", "CHAN", "CH", "C"):
         if text.startswith(prefix) and text[len(prefix) :].isdigit():
             return int(text[len(prefix) :])
     return None
@@ -328,6 +328,15 @@ class Record:
     scale: float
     offset: float
     triggered: bool
+    #: Time of sample 0 relative to the trigger as the scope measured it, s: -trigger_index * dt
+    #: plus the trigger's fraction of a sample and its jitter (G5). None: -trigger_index * dt.
+    x_origin_s: float | None = None
+    trigger_ns: int | None = None  # the trigger's instant (holdoff); None: untriggered
+
+    @property
+    def origin(self) -> float:
+        """Time of sample 0 relative to the trigger, s."""
+        return self.x_origin_s if self.x_origin_s is not None else -self.trigger_index * self.dt_s
 
 
 def _upper(values: Any) -> set[str]:
@@ -471,23 +480,68 @@ class ScopeTimebase(Component):
                 self._ref_error, self._ref_locked = f / 10e6 - 1, True
 
 
+@dataclass
+class TriggerHit:
+    """Where a trigger search found its edge: the instant (seconds after the search's base
+    instant, interpolated between samples) and the first record-grid sample at or after it."""
+
+    t_s: float
+    index: int
+
+
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
-    """Edge trigger: ``source``, ``level`` and ``slope`` (``rising`` and ``falling`` list the slope
-    names that take each edge); a level or slope per channel is bound with the channel number
-    written ``{n}``: ``$ch{n}.trigger_level``. A source that is not a channel (external, line)
-    never triggers. The search looks ``search_windows`` records ahead."""
+    """Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).
 
+    The trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table
+    ``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency
+    reject) and with its own ``noise_rms``. An edge counts once the signal has been beyond the
+    ``hysteresis_divs`` band on the far side of the level (``reject_hysteresis_divs`` while
+    ``noise_reject`` is on); the instant is interpolated between samples, so a record reports the
+    trigger to a fraction of a sample. After a trigger, the next is not taken before ``holdoff``
+    seconds (while ``holdoff_on``).
+
+    ``source``, ``level`` and ``slope`` select the edge (``rising`` and ``falling`` list the slope
+    names that take each); a level or slope per channel is bound with the channel number written
+    ``{n}``: ``$ch{n}.trigger_level``. ``external`` sources read the ``ext`` port (wired from an
+    instrument input); ``line`` sources trigger on the rising zero crossings of the mains
+    (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
+    records ahead (its auto timeout); a normal or single acquisition waits up to
+    ``search_horizon_s`` of virtual time for its edge.
+    """
+
+    ports = {"ext": PortSpec("in", "signal", "external trigger input")}
     defaults = {
-        "source": "$trigger.source",  # a channel (C1, CHANnel1); anything else never triggers
+        "source": "$trigger.source",  # a channel (C1, CHANnel1), an external or a line source
         "level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
         "slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
         "rising": RISING,  # slope values that take a rising edge
         "falling": FALLING,  # slope values that take a falling edge
-        "search_windows": 4,  # how many records long the trigger search is
+        "search_windows": 4,  # records an auto mode looks ahead for an edge (its auto timeout)
+        "search_horizon_s": 10.0,  # virtual time a normal or single acquisition waits for an edge, s
+        "max_search_points": 4_000_000,  # samples a search may take (a long horizon is searched coarser)
         "level_range_divs": None,  # the level stays within +-this many divisions of the source's screen
+        "coupling": "DC",  # the trigger path's coupling: a key of filters, or DC
+        # coupling -> [[highpass | lowpass, corner Hz], ...], e.g. {AC: [[highpass, 8]]}
+        "filters": {},
+        "hysteresis_divs": 0.16,  # half the band an edge must cross, in divisions of the source
+        "noise_reject": False,  # on: the wider band below
+        "reject_hysteresis_divs": 0.5,  # the band while noise_reject is on
+        "noise_rms": 0.0,  # the trigger path's own noise, display volts rms
+        "holdoff_on": True,  # whether holdoff applies (e.g. a holdoff mode that is TIME)
+        "holdoff": 0.0,  # s after a trigger before the next one is taken
+        "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
+        "line": ["LINE"],  # sources that trigger on the mains
+        "line_hz": 50.0,  # mains frequency
     }
-    units = {"level": "V"}
+    units = {"level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V"}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.last_ns: int | None = None  # the instant of the latest trigger (holdoff)
+
+    def reset(self) -> None:
+        self.last_ns = None
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         """Refuse a level off the source channel's screen by more than ``level_range_divs``
@@ -512,36 +566,167 @@ class ScopeTrigger(_ChannelBound):
         """The channel the source names, None for external, line and the like."""
         return trigger_channel(self.param("source"))
 
+    def source_kind(self) -> str:
+        """channel | external | line | none."""
+        src = str(self.param("source")).upper()
+        if self.source_channel() is not None:
+            return "channel"
+        if src in _upper(self.param("external")):
+            return "external"
+        if src in _upper(self.param("line")):
+            return "line"
+        return "none"
+
     def level(self) -> float:
         """The trigger level in display volts (the scope screen draws it)."""
         level = self.channel_param("level", self.source_channel())
         return 0.0 if level is None else float(level)
 
-    def search(
-        self, sig: Signal, t0: int, dt: float, pre: int, points: int, n: int, scale: float
-    ) -> tuple[int, bool]:
-        """First qualifying edge at or after ``pre`` samples (enough history before the trigger).
+    def path_signal(self, sig: Signal) -> Signal:
+        """The source's signal as the trigger sees it: through the coupling's filters."""
+        table = {str(k).upper(): v for k, v in (self.param("filters") or {}).items()}
+        for kind, corner in table.get(str(self.param("coupling")).upper(), []):
+            sig = sig.transfer((highpass1 if str(kind).lower() == "highpass" else lowpass1)(float(corner)))
+        return sig
 
-        Returns (trigger sample index measured from t0, triggered?)."""
-        level = float(self.channel_param("level", n))
-        slope = str(self.channel_param("slope", n)).upper()
-        hyst = 0.02 * DIVS_V * scale
-        span = max(points * int(self.param("search_windows")), pre + 2 * points)
-        idx = np.arange(span)
-        v = sig.sample_rel(t0, idx * dt)
-        best: int | None = None
-        for wanted, armed_side, crossed in (
-            (slope in _upper(self.param("rising")), v < level - hyst, v >= level),
-            (slope in _upper(self.param("falling")), v > level + hyst, v <= level),
+    def _hysteresis(self, scale: float) -> float:
+        on = self.param("noise_reject") in (True, 1, "1", "ON", "on")
+        divs = float(self.param("reject_hysteresis_divs" if on else "hysteresis_divs"))
+        return divs * scale
+
+    def _noisy(self, v: np.ndarray, t0: int, offsets: np.ndarray) -> np.ndarray:
+        sigma = float(self.param("noise_rms"))
+        if sigma <= 0 or self.session is None:
+            return v
+        # Keyed by the absolute instant (ns) of each sample: the same instant, the same noise.
+        key = stream_key(self.session.seed, self.uid, "trigger-noise")
+        return v + sigma * gaussian(key, t0 + np.round(offsets * 1e9).astype(np.int64))
+
+    def search(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        pre: int,
+        points: int,
+        n: int | None,
+        scale: float,
+        horizon_s: float | None = None,
+    ) -> TriggerHit | None:
+        """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
+        the trigger) and past the holdoff, within ``search_windows`` records or, with
+        ``horizon_s``, that much virtual time. None: no edge."""
+        kind = self.source_kind()
+        start_s = pre * dt
+        if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
+            start_s = max(start_s, (self.last_ns - t0) * 1e-9 + float(self.param("holdoff")))
+        span = max(points * int(self.param("search_windows")), pre + 2 * points) * dt
+        horizon = max(span, float(horizon_s or 0.0))
+        if kind == "line":
+            period = 1.0 / float(self.param("line_hz"))
+            phase = (t0 * 1e-9) % period
+            t = math.ceil((start_s + phase) / period - 1e-12) * period - phase
+            return TriggerHit(t, math.ceil(t / dt - 1e-9)) if t <= horizon else None
+        if kind == "none":
+            return None
+        level = float(self.channel_param("level", n) if n is not None else self.level())
+        slope = str(self.channel_param("slope", n) if n is not None else self.param("slope")).upper()
+        rising = slope in _upper(self.param("rising"))
+        falling = slope in _upper(self.param("falling"))
+        hyst = self._hysteresis(scale)
+        sig = self.path_signal(sig)
+        # An edge the signal cannot make (its level beyond the signal's whole swing, noise
+        # included) is not searched for: a waiting acquisition looks again at every command.
+        swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
+        top, bottom = sig.dc + swing, sig.dc - swing
+        if not (
+            (rising and bottom < level - hyst and top >= level)
+            or (falling and top > level + hyst and bottom <= level)
         ):
-            if not wanted:
-                continue
-            armed = np.nonzero(armed_side & (idx >= pre - 1))[0]
-            if armed.size:
-                after = np.nonzero(crossed & (idx > armed[0]))[0]
-                if after.size and (best is None or after[0] < best):
-                    best = int(after[0])
-        return (pre, False) if best is None else (best, True)
+            return None
+        # The first stretch on the record grid; further on, a grid as coarse as the signal allows
+        # (sixteen samples a period of its highest line) and no finer than the record's.
+        hit = self._scan(sig, t0, dt, start_s, span, level, hyst, rising, falling, dt)
+        if hit is not None or horizon <= span:
+            return hit
+        lines = sig.freq[np.abs(sig.amp) > 1e-6 * max(1e-300, float(np.abs(sig.amp).max(initial=0.0)))]
+        f_top = float(lines.max()) if lines.size else 0.0
+        step = dt if f_top <= 0 else max(dt, 1.0 / (16.0 * f_top))
+        # The work is samples times lines: a signal of many lines is searched on fewer samples.
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        step = max(step, (horizon - span) / budget)
+        return self._scan(
+            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
+        )
+
+    @staticmethod
+    def _bisect(sig: Signal, t0: int, lo: float, hi: float, level: float, rising: bool, dt: float) -> float:
+        """The crossing in (lo, hi] found on a coarse grid, to a thousandth of a record sample."""
+        while hi - lo > dt * 1e-3:
+            mid = (lo + hi) / 2
+            v = float(sig.sample_rel(t0, np.array([mid]))[0])
+            if (v >= level) == rising:
+                hi = mid
+            else:
+                lo = mid
+        return hi
+
+    def _scan(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stop_s: float,
+        level: float,
+        hyst: float,
+        rising: bool,
+        falling: bool,
+        step: float,
+        lead: bool = True,
+    ) -> TriggerHit | None:
+        """Search [start_s, stop_s] on a grid of ``step`` (with ``lead``, its first sample one step
+        before start_s, which may arm but not trigger). An edge is armed once the signal has been beyond
+        the band on the far side of the level; it triggers at the first sample on the level's other
+        side, the instant interpolated between that sample and the one before."""
+        chunk = 1 << 18
+        directions = [d for d, on in (("rise", rising), ("fall", falling)) if on]
+        armed = dict.fromkeys(directions, False)
+        prev: tuple[float, float] | None = None
+        a = start_s - step if lead else start_s
+        while a <= stop_s:
+            count = min(chunk, max(2, math.ceil((stop_s - a) / step) + 1))
+            offsets = a + step * np.arange(count)
+            v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+            best: float | None = None
+            for d in directions:
+                far = v < level - hyst if d == "rise" else v > level + hyst
+                cross = (v >= level if d == "rise" else v <= level) & (offsets >= start_s - 1e-15)
+                if armed[d]:
+                    after = 0
+                else:
+                    first = np.nonzero(far)[0]
+                    if not first.size:
+                        continue
+                    after = int(first[0]) + 1
+                    armed[d] = True
+                hits = np.nonzero(cross[after:])[0]
+                if not hits.size:
+                    continue
+                k = after + int(hits[0])
+                t_k, v_k = float(offsets[k]), float(v[k])
+                t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
+                if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
+                    t = self._bisect(sig, t0, t_p, t_k, level, d == "rise", dt)
+                else:
+                    frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
+                    t = t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+                best = t if best is None else min(best, t)
+            if best is not None:
+                return TriggerHit(best, math.ceil(best / dt - 1e-9))
+            prev = (float(offsets[-1]), float(v[-1]))
+            a = float(offsets[-1]) + step
+        return None
 
 
 #: Parameters an acquisition written the earlier way (one component) gives each module, and the
@@ -921,18 +1106,31 @@ class ScopeAcquisition(Component):
         t0 = self.session.now_ns
         trig = self.trigger_unit()
         n_trig = trig.source_channel()
-        if n_trig is None:
-            k, triggered = pre, False
+        kind = trig.source_kind()
+        if kind == "channel":
+            sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
+        elif kind == "external":
+            sig, scale_t = trig.input("ext"), 1.0
         else:
-            k, triggered = trig.search(
-                self._display_signal(n_trig), t0, dt, pre, points, n_trig, self.scale_offset(n_trig)[0]
-            )
+            sig, scale_t = Signal.zero(), 1.0
+        # An auto mode gives up after its auto timeout; a normal or single acquisition waits for
+        # its edge, the virtual time it takes included (G5).
+        waits = not self._is("auto") and frame is None
+        hit = trig.search(
+            sig, t0, dt, pre, points, n_trig, scale_t,
+            float(trig.param("search_horizon_s")) if waits else None,
+        )  # fmt: skip
+        triggered = hit is not None
+        k = hit.index if hit is not None else pre
         start = k - pre
         t_start_ns = t0 + round(start * dt * 1e9)
         offsets = (start + np.arange(points)) * dt
+        # The record samples on the clock's grid; where the trigger fell between two samples, and
+        # the trigger's jitter, are in the record's time origin (the scope's xorigin), not in the
+        # samples.
         jitter = self._jitter(t_start_ns, frame)
-        if jitter:
-            offsets = offsets + jitter
+        x_origin = (start * dt - hit.t_s - jitter) if hit is not None else -pre * dt
+        trigger_ns = t0 + round(hit.t_s * 1e9) if hit is not None else None
         adc = self.adc_unit()
         records: dict[int, Record] = {}
         for n in channels:
@@ -952,6 +1150,8 @@ class ScopeAcquisition(Component):
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
+                x_origin_s=x_origin * nominal_dt / dt,  # in the scope's own (nominal) time
+                trigger_ns=trigger_ns,
             )
         if triggered or self.param("untriggered") == "record":
             used = (k + max(post, 0)) * dt
@@ -965,6 +1165,9 @@ class ScopeAcquisition(Component):
 
         ``forced``: read from a channel that had no record, whatever the run mode."""
         self.records.update(records)
+        instants = [r.trigger_ns for r in records.values() if r.triggered and r.trigger_ns is not None]
+        if instants:
+            self.trigger_unit().last_ns = max(instants)  # the holdoff runs from here
         self.acq_count += 1
         self.session.invalidate()
         if self.owner is not None:
@@ -981,6 +1184,7 @@ class ScopeAcquisition(Component):
                             "dt_s": rec.dt_s,
                             "points": int(rec.volts.size),
                             "trigger_index": rec.trigger_index,
+                            "x_origin_s": rec.origin,
                             "triggered": rec.triggered,
                             "sha256": hashlib.sha256(np.ascontiguousarray(rec.volts).tobytes()).hexdigest(),
                         }
@@ -1356,7 +1560,7 @@ class ScopeAcquisition(Component):
         _, yinc, yref = self._codes(rec)
         fmt = {"BYTE": 0, "WORD": 1, "ASCii": 4}[self._st("waveform.format")]
         pts = rec.volts.size
-        xorg = -rec.trigger_index * rec.dt_s
+        xorg = rec.origin
         fields = [
             str(fmt).encode(),
             b"0",

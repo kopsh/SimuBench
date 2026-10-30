@@ -55,7 +55,10 @@ def test_a_float_block_carries_the_record_volts_of_the_points_mode(scope):
     rec = scope.instruments["scope"].components["acq"].records[1]
     np.testing.assert_array_equal(values, rec.volts[::10][:1000].astype("<f4"))  # every 10th of 10 000
     start, stop, points, per = q(scope, "CHANnel1:DATA:HEADer?").decode().strip().split(",")
-    assert (float(start), float(stop), int(points), per) == (-5e-3, 5e-3, 1000, "1")
+    assert (int(points), per) == (1000, "1")
+    # From 5 ms before the trigger to 5 ms after, plus where it fell between two samples (G5).
+    dt = 1e-2 / 10000
+    assert -5e-3 <= float(start) < -5e-3 + dt and 5e-3 <= float(stop) < 5e-3 + dt
 
 
 @pytest.mark.parametrize(("over", "expect"), [("allow", 6000), ("truncate", 5000), ("error", None)])
