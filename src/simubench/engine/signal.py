@@ -221,7 +221,10 @@ def _uniform_step(off: np.ndarray) -> float | None:
     if off.ndim != 1 or off.size < 1024:
         return None
     step = (off[-1] - off[0]) / (off.size - 1)
-    if step <= 0 or np.max(np.abs(np.diff(off) - step)) > 1e-9 * step:
+    # Offsets far from the base instant (a record after a trigger wait, G5) carry the rounding of
+    # their magnitude in every difference: that is not an uneven step.
+    tol = 1e-9 * step + 8 * np.finfo(float).eps * max(abs(float(off[0])), abs(float(off[-1])))
+    if step <= 0 or np.max(np.abs(np.diff(off) - step)) > tol:
         return None
     return float(step)
 

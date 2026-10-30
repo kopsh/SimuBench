@@ -712,13 +712,16 @@ class ScopeTrigger(_ChannelBound):
         before start_s, which may arm but not trigger). An edge is armed once the signal has been beyond
         the band on the far side of the level; it triggers at the first sample on the level's other
         side, the instant interpolated between that sample and the one before."""
-        chunk = 1 << 18
+        # Chunks grow from a few thousand samples: the first edge is usually early, and sampling
+        # the whole window of a many-line signal up front costs more than the rest of the record.
+        chunk = 1 << 12
         directions = [d for d, on in (("rise", rising), ("fall", falling)) if on]
         armed = dict.fromkeys(directions, False)
         prev: tuple[float, float] | None = None
         a = start_s - step if lead else start_s
         while a <= stop_s:
             count = min(chunk, max(2, math.ceil((stop_s - a) / step) + 1))
+            chunk = min(chunk * 2, 1 << 18)
             offsets = a + step * np.arange(count)
             v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
             best: float | None = None
