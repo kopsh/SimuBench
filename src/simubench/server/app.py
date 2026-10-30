@@ -30,7 +30,7 @@ from ..models.bench import Fault
 from ..models.definition import InstrumentDefinition
 from .benchfiles import Conflict, diagnostics
 from .catalog import components as component_catalog
-from .manager import BenchInvalid, ServedSession, SessionManager, _plain
+from .manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager, _plain
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 #: The built UI: inside an installed wheel (scripts/build-wheel.sh), else web/dist in a checkout.
@@ -60,6 +60,12 @@ class LocalOnly(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+#: The 409 of an operation that connected scripts stand in the way of (#121).
+IN_USE: dict[int | str, dict[str, Any]] = {
+    409: {"description": "Scripts are connected: the instrument is remote, or the operation needs force=true"}
+}
+
+
 def create_app(manager: SessionManager, token: str | None = None, web_dist: Path | None = None) -> FastAPI:
     """``token``: when given, every data route and the event socket require it; None serves without one."""
     app = FastAPI(
@@ -85,6 +91,22 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
 
     def not_found(exc: KeyError) -> HTTPException:
         return HTTPException(404, str(exc).strip("'\""))
+
+    def in_use(exc: InstrumentRemote | ClientsConnected) -> HTTPException:
+        """409 for an operation the connected scripts stand in the way of (#121)."""
+        detail: dict[str, Any] = {"message": str(exc), "clients": exc.clients}
+        if isinstance(exc, InstrumentRemote):
+            detail.update(reason="remote", instrument=exc.instrument)
+        else:
+            detail["reason"] = "clients_connected"
+        return HTTPException(409, detail)
+
+    def guard_clients(sessions: list[ServedSession], what: str, force: bool) -> None:
+        for sv in sessions:
+            try:
+                sv.require_no_clients(what, force)
+            except ClientsConnected as exc:
+                raise in_use(exc) from None
 
     @app.get("/api/health", response_model=M.Health, operation_id="health")
     def health() -> M.Health:
@@ -356,8 +378,11 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         response_model=M.SessionInfo,
         operation_id="startSession",
         dependencies=[Depends(auth)],
+        responses=IN_USE,
     )
     async def start(req: M.StartSessionRequest) -> M.SessionInfo:
+        # Starting a bench stops the running one (one bench serves the ports): its scripts drop.
+        guard_clients(list(manager.sessions.values()), "starting a bench", req.force)
         try:
             s = await manager.start(req.bench_path, clock=req.clock, seed=req.seed)
         except PermissionError as exc:
@@ -382,10 +407,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return manager.describe(served(sid))
 
     @app.delete(
-        "/api/sessions/{sid}", status_code=204, operation_id="stopSession", dependencies=[Depends(auth)]
+        "/api/sessions/{sid}",
+        status_code=204,
+        operation_id="stopSession",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "Scripts are connected; repeat with force=true to drop them"}},
     )
-    async def stop(sid: str) -> None:
-        served(sid)
+    async def stop(sid: str, force: bool = Query(False)) -> None:
+        guard_clients([served(sid)], "stopping the bench", force)
         await manager.stop(sid)
 
     @app.post(
@@ -393,11 +422,12 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         response_model=M.SessionInfo,
         operation_id="resetSession",
         dependencies=[Depends(auth)],
+        responses=IN_USE,
     )
     async def reset(sid: str, req: M.ResetSessionRequest) -> M.SessionInfo:
         """Power-cycle the bench: fresh instruments, a new record, the same session id."""
+        guard_clients([served(sid)], "a reset", req.force)
         try:
-            served(sid)
             s = await manager.reset(sid, clock=req.clock, seed=req.seed)
         except BenchInvalid as exc:
             raise HTTPException(
@@ -423,7 +453,9 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         port = next(
             (lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None
         )
-        return manager.describe_instrument(s.session, inst, index, port)
+        info = manager.describe_instrument(s.session, inst, index, port)
+        info.remote, info.local = s.remote_clients(name), name in s.local
+        return info
 
     @app.get(
         "/api/sessions/{sid}/instruments/{name}/internals",
@@ -443,26 +475,34 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         response_model=M.ScpiResponse,
         operation_id="sendScpi",
         dependencies=[Depends(auth)],
+        responses=IN_USE,
     )
     async def scpi(sid: str, name: str, req: M.ScpiRequest) -> M.ScpiResponse:
         s = served(sid)
         try:
+            s.require_local(name)
             return await asyncio.to_thread(manager.scpi, s, name, req.command)
         except KeyError as exc:
             raise not_found(exc) from None
+        except InstrumentRemote as exc:
+            raise in_use(exc) from None
 
     @app.post(
         "/api/sessions/{sid}/instruments/{name}/configure",
         response_model=M.ConfigureResponse,
         operation_id="configure",
         dependencies=[Depends(auth)],
+        responses=IN_USE,
     )
     async def configure(sid: str, name: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
         s = served(sid)
         try:
+            s.require_local(name)
             return await asyncio.to_thread(manager.configure, s, name, req.path, req.value)
         except KeyError as exc:
             raise not_found(exc) from None
+        except InstrumentRemote as exc:
+            raise in_use(exc) from None
 
     @app.get(
         "/api/sessions/{sid}/instruments/{name}/screen",
@@ -482,14 +522,34 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         response_model=M.PanelResponse,
         operation_id="panel",
         dependencies=[Depends(auth)],
+        responses=IN_USE,
     )
     async def panel(sid: str, name: str, req: M.PanelRequest) -> M.PanelResponse:
         """A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32)."""
         s = served(sid)
         try:
+            s.require_local(name)
             return await asyncio.to_thread(manager.panel, s, name, req.action)
         except KeyError as exc:
             raise not_found(exc) from None
+        except InstrumentRemote as exc:
+            raise in_use(exc) from None
+
+    @app.post(
+        "/api/sessions/{sid}/instruments/{name}/local",
+        response_model=M.InstrumentInfo,
+        operation_id="goLocal",
+        dependencies=[Depends(auth)],
+    )
+    def go_local(sid: str, name: str) -> M.InstrumentInfo:
+        """LOCAL: take an instrument in remote control back to the UI, until a remote client's next
+        command (as the LOCAL key of an instrument). Recorded as a ``remote`` event (#121)."""
+        s = served(sid)
+        try:
+            s.go_local(name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+        return instrument(sid, name)
 
     @app.get(
         "/api/sessions/{sid}/levels",
@@ -559,9 +619,12 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         response_model=M.ClockInfo,
         operation_id="advanceClock",
         dependencies=[Depends(auth)],
+        responses=IN_USE,
     )
     def advance(sid: str, req: M.AdvanceRequest) -> M.ClockInfo:
-        s = served(sid).session
+        sv = served(sid)
+        guard_clients([sv], "advancing the clock", req.force)
+        s = sv.session
         try:
             s.advance(req.seconds)
         except RuntimeError as exc:

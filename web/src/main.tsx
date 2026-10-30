@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router-dom";
 import "./styles/globals.css";
 import "./i18n";
 import { getToken } from "./api/token";
+import { ClientsConfirmDialog } from "./components/app/ClientsConfirm";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
 import "./lib/theme";
@@ -22,6 +23,7 @@ createRoot(document.getElementById("root")!).render(
       <TooltipProvider delayDuration={400}>
         <RouterProvider router={router} />
         <Toaster position="bottom-right" closeButton />
+        <ClientsConfirmDialog />
       </TooltipProvider>
     </QueryClientProvider>
   </StrictMode>,
