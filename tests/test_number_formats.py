@@ -108,7 +108,7 @@ def _codes(reply: bytes) -> np.ndarray:
 
 
 def test_a_reserved_hole_code_is_never_data(dsox):
-    s, q = dsox
+    _, q = dsox
     # 2 Vpp at 50 mV/div clips at both ends: the bottom reads 1, never the hole code 0.
     q(":CHANnel1:PROBe 1;:CHANnel1:SCALe 0.05;:DIGitize CHANnel1;:WAVeform:FORMat BYTE")
     codes = _codes(q(":WAVeform:DATA?"))
@@ -116,7 +116,7 @@ def test_a_reserved_hole_code_is_never_data(dsox):
 
 
 def test_a_header_field_follows_a_setting_with_a_fallback(dsox):
-    s, q = dsox
+    _, q = dsox
     q(":DIGitize CHANnel1")
     assert q(":WAVeform:PREamble?").split(b",")[3] == b"1"
     q(":ACQuire:TYPE AVERage;:ACQuire:COUNt 16;:DIGitize CHANnel1")
@@ -126,7 +126,7 @@ def test_a_header_field_follows_a_setting_with_a_fallback(dsox):
 
 @pytest.mark.parametrize(("reference", "divs"), [("LEFT", 1), ("CENTer", 5), ("RIGHt", 9)])
 def test_the_reference_position_sets_how_much_of_the_record_precedes_the_trigger(dsox, reference, divs):
-    s, q = dsox
+    _, q = dsox
     q(f":TIMebase:REFerence {reference};:DIGitize CHANnel1")
     xorigin = float(q(":WAVeform:XORigin?"))
     assert xorigin == pytest.approx(-divs * 1e-4, abs=1e-6)  # plus the trigger's fraction of a sample

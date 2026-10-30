@@ -8,7 +8,6 @@ individual deviations, offset clamping and the probe rescale.
 """
 
 import importlib.util
-import shutil
 import sys
 from pathlib import Path
 
