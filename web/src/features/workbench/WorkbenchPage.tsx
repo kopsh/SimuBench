@@ -3,7 +3,7 @@ import { Blocks, Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
-import type { BenchDocument, EditOp, SessionInfo } from "@/api/client";
+import type { BenchDocument, EditOp, InstrumentInfo, SessionInfo } from "@/api/client";
 import { useEventStream, useEvents, useWallClock } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useNetLevels, useSession } from "@/api/hooks";
@@ -31,6 +31,7 @@ import { RemoteBanner } from "./RemoteBanner";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
 import { LoadScreen } from "./screens/LoadScreen";
 import { LockinScreen } from "./screens/LockinScreen";
+import { PanelScreen } from "./screens/PanelScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
 import { RfGeneratorScreen } from "./screens/RfGeneratorScreen";
 import { ScopeScreen } from "./screens/ScopeScreen";
@@ -272,14 +273,20 @@ function CenterTabs({
           <div className="flex h-full flex-col">
             {editing && (() => {
               const live = session.instruments.find((i) => i.name === current.instrument);
-              return live ? <LiveValuesBanner live={live} initial={view?.instruments.find((i) => i.name === current.instrument)} /> : null;
+              const initial = view?.instruments.find((i) => i.name === current.instrument);
+              return live ? <LiveValuesBanner live={live} initial={initial} panel={!!live.display.panel} /> : null;
             })()}
             {(() => {
               const inst = session.instruments.find((i) => i.name === current.instrument);
               return inst ? <RemoteBanner sid={session.id} inst={inst} /> : null;
             })()}
             <div className="min-h-0 flex-1">
-              <Screen session={session} instrument={current.instrument} readonly={readonly} />
+              <Screen
+                session={session}
+                instrument={current.instrument}
+                initial={editing ? view?.instruments.find((i) => i.name === current.instrument) : undefined}
+                readonly={readonly}
+              />
             </div>
           </div>
         )}
@@ -293,7 +300,18 @@ function Internals({ session, instrument }: { session: SessionInfo; instrument: 
   return inst ? <InternalsView key={inst.name} session={session} inst={inst} /> : null;
 }
 
-function Screen({ session, instrument, readonly }: { session: SessionInfo; instrument: string; readonly: boolean }) {
+function Screen({
+  session,
+  instrument,
+  initial,
+  readonly,
+}: {
+  session: SessionInfo;
+  instrument: string;
+  /** In build mode, the instrument as the bench file starts it: a panel sets these (#103). */
+  initial?: InstrumentInfo;
+  readonly: boolean;
+}) {
   const inst = session.instruments.find((i) => i.name === instrument);
   if (!inst) return null;
   // The class template picks the screen (D1); instruments without one get the generic layout.
@@ -305,6 +323,8 @@ function Screen({ session, instrument, readonly }: { session: SessionInfo; instr
   if (template === "smu") return <SmuScreen sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "electronic_load") return <LoadScreen sid={session.id} inst={inst} readonly={readonly} />;
   if (template === "rf_generator") return <RfGeneratorScreen sid={session.id} inst={inst} readonly={readonly} />;
+  // Otherwise the definition's panel, or its class's default (multimeter, calibrator); else the generic layout.
+  if (inst.display.panel) return <PanelScreen sid={session.id} inst={inst} initial={initial} readonly={readonly} />;
   return <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />;
 }
 

@@ -270,3 +270,13 @@
 | G1 结构拆分：时基、触发、ADC 组、每通道的垂直与探头模块；采集引用它们；宏在加载时展开（issue 133） | ✅ 新组件 `scope_vertical`（旧名 `scope_frontend`）、`scope_probe`、`scope_adc`、`scope_timebase`、`scope_trigger`；`scope_acquisition` 按名称引用，`E-DEF-COMPONENT-REF` 检查引用（缺失、拼错、类型不对各有反例）；宏在 `InstrumentDefinition` 构造时展开，`sb-dso-4` 的一个组件写法与显式写法的定义哈希相同，重复展开不变、不改动调用方的数据，无法展开时报 `E-DEF-MACRO`（`tests/test_scope_modules.py`，6 项）；刻度与偏置范围按输入端检查，超出报 -222 并保留旧值，改探头比不检查；`sb-dso-4`、`sb-dso-2x` 显式写出模块，SDS2104X Plus 与低频校准参考示波器经宏展开。行为不变：SDS 的手册用例、`tests/test_siglent_sds.py`、示波器验收与低频校准测试不改通过；只改了检查内部结构的断言（参数所在的模块、经探头模块的连线、内部结构图的组件与连线数、展开后诊断的指针），并在内部结构图中加入新模块的中英文名称。Python 774 项（含验收 115 项）、端到端全部通过 |
 | G2 采集的同步语义：采集作为待完成操作，同步规则按型号声明，命令耗时（issue 134） | ✅ `completion`、`opc_waits`、`while_waiting`、`no_trigger`；SDS2104X Plus 声明在虚拟时间中完成，覆盖表注明 `*OPC?` 是否等待采集未经核实。`tests/test_scope_sync.py`（9 项）：单次后立即读得到上一帧且采集次数不变；状态随虚拟时间依次为 Ready、Trig'd、Stop；`opc_waits: false` 时 `*OPC?` 立即回复；`no_trigger: return`；`while_waiting: error` 报 -221；停止结束等待；`:DIGitize` 推进到记录填满；定义声明 `*RST` 耗时 0.5 s；没有触发时 PyVISA 读 `*OPC?` 超时。依赖旧行为的用例按新语义改正（SDS 手册用例 1 条、SDG 测量、噪声验收、等待中的单次采集测试），D32 相应修改；面板按下的单次当场完成，端到端测试中“运行后的单次”采集次数按新语义为 2。Python 783 项（含验收）与端到端 38 项全部通过 |
 
+## 面板布局的声明与真机式面板；万用表、校准源的类别默认布局（Issue 128，instrument-authoring.md 7.3）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 定义的 `display.panel`：分组、控件（按键组、带单位与步进的数值、开关、下拉）、主显示区的读数与单位、软键 | ✅ `models/definition.py` 的 `Panel`；会话接口的 `display.panel` 与 `panel_source`（`library/panels.py` 的 `effective_panel`）；`tests/test_panel_layout.py` |
+| 静态校验与诊断码，有反例 | ✅ `E-DEF-PANEL-STATE / CONTROL / VALUE / READING / ACTION`、`W-DEF-PANEL-IGNORED`；同一测试文件 19 个反例（不存在的设置、类型不相容的控件、只读设置、缺少 keys、枚举短形式给出改正建议、超出范围的值、不存在的组件、无人执行的动作、专用屏幕类别） |
+| 万用表与校准源的类别默认布局；其他类别用通用布局；专用屏幕不变 | ✅ 34465A：所选功能的读数、DC V / AC V、100 mV–1000 V 与 AUTO、NPLC、输入阻抗、AC 带宽与触发设置；5522A：输出值、ACV 时的频率、OPER / STBY；`sb-dmm-1` 只有读数；示波器、函数发生器等无面板 |
+| 端到端：34465A 切换功能与量程，读数随之变化；5522A 设置输出、工作与待机；带声明的测试定义按声明出现分组与控件；搭建模式下改的是初始设置 | ✅ `web/e2e/panel.spec.ts`（4 项）：1000 V 量程下同一输入读数由 99.103 mV 变为 99.0000 mV、AC 显示 0；OPER 后经过 5 s 建立时间万用表读到 2.5 V；`sb-panel-1`（e2e 专用定义）的分组、按键、步进、下拉、开关与软键；搭建模式下按 10 V 量程写入测试台文件（`sense.range: 10`、`sense.range_auto: false`），运行中的仪表不变。远程状态沿用设置接口（#121） |
+| 视觉基线（亮色与暗色）；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ 新故事“Instruments/Front panel”（万用表、校准源，各亮暗两张）；原有基线不变；端到端 42 项通过 |
+

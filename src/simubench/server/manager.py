@@ -21,8 +21,10 @@ from ..engine.session import Session
 from ..engine.silence import why_silent
 from ..library.components.scope import channel_index
 from ..library.loader import load_bench
+from ..library.panels import effective_panel
 from ..models import api as M
 from ..models.bench import BenchDefinition
+from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from .benchfiles import BenchFiles, scan
 from .runs import Runs
@@ -472,7 +474,7 @@ class SessionManager:
             address_real=inst.instance.address,
             address_hislip=hislip,
             scpi_port=scpi_port,
-            display=M.DisplayInfo(**d.display.model_dump()),
+            display=_display_info(d),
             ports=ports,
             state=state,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
@@ -847,3 +849,8 @@ def _deviation_info(param: str, rng: Any, value: Any, drawn: bool, reveal: bool)
         value=_plain(value) if drawn and reveal else None,
         drawn=drawn,
     )
+
+
+def _display_info(d: InstrumentDefinition) -> M.DisplayInfo:
+    panel, source = effective_panel(d)
+    return M.DisplayInfo(**d.display.model_dump(exclude={"panel"}), panel=panel, panel_source=source)

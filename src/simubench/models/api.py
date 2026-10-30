@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..engine.edit import EditOp
 from .bench import Fault, LayoutItem
+from .definition import Panel
 
 
 class _Model(BaseModel):
@@ -237,6 +238,12 @@ class DisplayInfo(_Model):
     summary: list[str] = Field(default_factory=list)
     channel_summary: list[str] = Field(default_factory=list)
     actions: dict[str, str] = Field(default_factory=dict, description="Commands for front-panel actions")
+    panel: Panel | None = Field(
+        None,
+        description="The front panel the UI draws: the definition's own, or its class's default layout "
+        "(multimeter, calibrator); none for a class with a dedicated screen or without a default",
+    )
+    panel_source: Literal["declared", "class_default"] | None = None
 
 
 class DeviationInfo(_Model):
