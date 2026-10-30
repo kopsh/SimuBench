@@ -262,8 +262,9 @@ export function useInternals(sid: string, name: string, version: number) {
   });
 }
 
-export function useReadings(sid: string, name: string, version: number) {
+export function useReadings(sid: string, name: string, version: number, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: [...keys.readings(sid, name), version],
     queryFn: () =>
       unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/readings", { params: { path: { sid, name } } })),

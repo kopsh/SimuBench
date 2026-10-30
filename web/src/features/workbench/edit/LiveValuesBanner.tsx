@@ -8,9 +8,10 @@ const SHOWN = 6;
 /**
  * Build mode shows the bench file (initial settings) on the canvas, while an instrument screen
  * shows the running session. Over a screen opened in build mode, say so, and list the settings
- * whose running value differs from the initial one (#103).
+ * whose running value differs from the initial one (#103). A front panel (`panel`) is the exception:
+ * in build mode its controls set the initial settings, and only its main display reads the session.
  */
-export function LiveValuesBanner({ live, initial }: { live: InstrumentInfo; initial?: InstrumentInfo }) {
+export function LiveValuesBanner({ live, initial, panel }: { live: InstrumentInfo; initial?: InstrumentInfo; panel?: boolean }) {
   const { t } = useTranslation();
   const start = new Map((initial?.state ?? []).map((v) => [v.path, v]));
   const diffs = live.state.filter((v) => {
@@ -22,9 +23,11 @@ export function LiveValuesBanner({ live, initial }: { live: InstrumentInfo; init
     <div role="note" aria-label={t("edit.liveTitle")} className="bg-primary/8 border-b px-4 py-2 text-xs">
       <div className="flex items-center gap-1.5 font-medium">
         <Info className="text-primary size-3.5 shrink-0" />
-        {t("edit.liveTitle")}
+        {panel ? t("edit.panelTitle") : t("edit.liveTitle")}
       </div>
-      <p className="text-muted-foreground mt-0.5">{diffs.length ? t("edit.liveDiffers") : t("edit.liveSame")}</p>
+      <p className="text-muted-foreground mt-0.5">
+        {panel ? (diffs.length ? t("edit.panelDiffers") : t("edit.panelSame")) : diffs.length ? t("edit.liveDiffers") : t("edit.liveSame")}
+      </p>
       {diffs.length > 0 && (
         <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5">
           {diffs.slice(0, SHOWN).map((v) => (

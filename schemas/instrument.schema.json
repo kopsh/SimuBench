@@ -313,6 +313,18 @@
           "title": "Channel Summary",
           "type": "array"
         },
+        "panel": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Panel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Front-panel layout: readings on the main display, grouped controls, softkeys (instrument-authoring.md 7.3)"
+        },
         "summary": {
           "items": {
             "type": "string"
@@ -357,6 +369,353 @@
         }
       },
       "title": "Identity",
+      "type": "object"
+    },
+    "Panel": {
+      "additionalProperties": false,
+      "description": "The instrument's front panel as the UI draws it (instrument-authoring.md 7.3): the main\ndisplay's readings, groups of controls, and softkeys. Without one, a multimeter and a calibrator\nget their class's default layout; the classes with a dedicated screen do not use it.",
+      "properties": {
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/PanelGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "readouts": {
+          "items": {
+            "$ref": "#/$defs/PanelReadout"
+          },
+          "title": "Readouts",
+          "type": "array"
+        },
+        "softkeys": {
+          "items": {
+            "$ref": "#/$defs/PanelSoftkey"
+          },
+          "title": "Softkeys",
+          "type": "array"
+        }
+      },
+      "title": "Panel",
+      "type": "object"
+    },
+    "PanelControl": {
+      "additionalProperties": false,
+      "description": "One setting on the panel, and the control it is set with (instrument-authoring.md 7.3).",
+      "properties": {
+        "control": {
+          "description": "buttons: a key per value (an enum's options, or `keys`); number: a value with its unit and step keys; switch: on / off (bool); select: a drop-down (enum)",
+          "enum": [
+            "buttons",
+            "number",
+            "switch",
+            "select"
+          ],
+          "title": "Control",
+          "type": "string"
+        },
+        "keys": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/PanelKey"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "buttons: the keys; default for an enum: one per option, for a bool: on and off",
+          "title": "Keys"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Default: the setting's label",
+          "title": "Label"
+        },
+        "label_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label En"
+        },
+        "state": {
+          "description": "The setting, e.g. 'sense.function' (a channel's: 'ch1.level')",
+          "title": "State",
+          "type": "string"
+        },
+        "step": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "number: what the step keys add and subtract",
+          "title": "Step"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "number: the unit shown; default: the setting's",
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "state",
+        "control"
+      ],
+      "title": "PanelControl",
+      "type": "object"
+    },
+    "PanelGroup": {
+      "additionalProperties": false,
+      "properties": {
+        "controls": {
+          "items": {
+            "$ref": "#/$defs/PanelControl"
+          },
+          "title": "Controls",
+          "type": "array"
+        },
+        "label": {
+          "description": "The group's title, e.g. 测量, 量程, 触发",
+          "title": "Label",
+          "type": "string"
+        },
+        "label_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label En"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "PanelGroup",
+      "type": "object"
+    },
+    "PanelKey": {
+      "additionalProperties": false,
+      "description": "One key of a button group: the value it writes, and what it reads on the instrument.",
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The key's text; default: the option's label or the value",
+          "title": "Label"
+        },
+        "label_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label En"
+        },
+        "sets": {
+          "additionalProperties": true,
+          "description": "Further settings written along with it, e.g. {sense.range_auto: false} for a range key; the key is lit while all of them hold",
+          "title": "Sets",
+          "type": "object"
+        },
+        "value": {
+          "description": "The value the key writes to the control's setting",
+          "title": "Value"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "PanelKey",
+      "type": "object"
+    },
+    "PanelReadout": {
+      "additionalProperties": false,
+      "description": "A reading on the main display.",
+      "properties": {
+        "digits": {
+          "anyOf": [
+            {
+              "maximum": 12,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Significant digits shown",
+          "title": "Digits"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "label_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label En"
+        },
+        "reading": {
+          "description": "A reading of the instrument, '<component>.<reading>', e.g. 'meter.DC'",
+          "title": "Reading",
+          "type": "string"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reading's unit, e.g. V; none for a count or a word",
+          "title": "Unit"
+        },
+        "when": {
+          "additionalProperties": true,
+          "description": "Shown only while these settings have these values, e.g. {sense.function: VOLT}",
+          "title": "When",
+          "type": "object"
+        }
+      },
+      "required": [
+        "reading"
+      ],
+      "title": "PanelReadout",
+      "type": "object"
+    },
+    "PanelSoftkey": {
+      "additionalProperties": false,
+      "description": "A key under the display: a front-panel action (D32), or a setting written to a value.",
+      "properties": {
+        "action": {
+          "anyOf": [
+            {
+              "enum": [
+                "run",
+                "stop",
+                "single"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A front-panel action, as `display.actions` names them",
+          "title": "Action"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "label_en": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label En"
+        },
+        "sets": {
+          "additionalProperties": true,
+          "description": "Further settings written along with it",
+          "title": "Sets",
+          "type": "object"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The setting the key writes",
+          "title": "State"
+        },
+        "value": {
+          "default": null,
+          "title": "Value"
+        }
+      },
+      "required": [
+        "label"
+      ],
+      "title": "PanelSoftkey",
       "type": "object"
     },
     "ParamSpec": {

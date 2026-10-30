@@ -181,6 +181,8 @@ params:
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
+| `E-DEF-PANEL-STATE`、`E-DEF-PANEL-CONTROL`、`E-DEF-PANEL-VALUE` | 面板（`display.panel`，7.3）引用的设置不存在；控件与设置的类型不相容（`switch` 用于布尔、`select` 用于枚举、`number` 用于数值，数值或字符串的 `buttons` 要写出 `keys`）或设置只读；按键、软键、`sets` 与 `when` 的取值不是可选项、超出范围或类型不符（#128） |
+| `E-DEF-PANEL-READING`、`E-DEF-PANEL-ACTION`、`W-DEF-PANEL-IGNORED` | 读数不是 `<组件>.<读数>` 或组件不存在；软键的面板动作既不在 `display.actions` 中也没有采集组件执行；有专用屏幕的类别声明了面板（不使用） |
 
 ### 5.2 组件元数据（G7）
 
@@ -290,6 +292,28 @@ params:
 - 搭建模式下，面板设置的是测试台文件中的初始设置；操作模式下是运行中的设置（#103 的说明照常显示）。脚本连着时遵守远程状态（#121）。
 
 面板只改设置，不改仪表定义。
+
+已实现（#128）。定义中的写法（`library/panels.py` 生成类别默认布局，`web/e2e/fixtures/instruments/sb-panel-1.yaml` 是一份完整的声明）：
+
+```yaml
+display:
+  panel:
+    readouts:     # 主显示区：读数 <组件>.<读数>、单位、位数；when 为显示条件
+      - {reading: meter.DC, label: 直流, unit: V, digits: 6, when: {sense.function: DC}}
+    groups:       # 分组，每组若干控件
+      - label: 量程
+        controls:
+          - state: sense.range
+            control: buttons          # buttons | number | switch | select
+            keys:                     # 按键：写入的值，sets 为同时写入的其他设置（全部成立时按键点亮）
+              - {value: 1, label: 1 V, sets: {sense.range_auto: false}}
+              - {value: 0, label: AUTO, sets: {sense.range_auto: true}}
+          - {state: sense.nplc, control: number, step: 0.5}   # number 可带步进键与显示单位
+    softkeys:     # 软键：面板动作（run / stop / single），或把一个设置写为某个值
+      - {label: 精确, state: sense.nplc, value: 10}
+```
+
+枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 `dmm_core` 的绑定生成：所选功能的读数，功能键，按 `ranges` 的量程键加 AUTO（量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时），测量核心与触发模型绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
 
 ### 7.4 MCP：模板与试运行（W4、W5）
 
