@@ -17,7 +17,10 @@ from pydantic import ValidationError
 
 from ..library.macros import expand_macros
 from ..library.migrate import FormatError, upgrade
-from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, StateSpec
+from ..library.panels import DEDICATED, template_of
+from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
+from ..scpi import values as V
+from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token
 from .component import Component, binding_of, component_types
 from .validate import Report, _closest, _ptr
@@ -251,6 +254,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
     _check_overlaps(d, compiled, report)
     _check_dialect(d, report)
+    _check_panel(d, report)
     return report
 
 
@@ -669,3 +673,177 @@ def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], rep
                 d.commands[j].header,
             )
             break
+
+
+# ---- the front panel (instrument-authoring.md 7.3) ---------------------------------------------------
+
+_CONTROL_TYPES = {
+    "switch": ("bool",),
+    "select": ("enum",),
+    "number": ("float", "int"),
+    "buttons": ("enum", "bool", "float", "int", "string"),
+}
+
+
+def _check_panel(d: InstrumentDefinition, report: Report) -> None:
+    panel = d.display.panel
+    if panel is None:
+        return
+    base = ("display", "panel")
+    template = template_of(d)
+    if template in DEDICATED:
+        report.add(
+            "warning",
+            "W-DEF-PANEL-IGNORED",
+            _ptr(*base),
+            f"{template} 有专用屏幕，界面不使用面板声明",
+            "去掉 display.panel",
+            "panel",
+        )
+    components = {c.name for c in d.components} | {
+        f"ch{n}.{c.name}" for c in d.channel_components for n in range(1, d.channels.count + 1)
+    }
+
+    def setting(path: str, pointer: str) -> StateSpec | None:
+        spec, problem = _state_spec(d, path, False)
+        if problem:
+            hint = _closest(path, _state_options(d, False))
+            report.add(
+                "error", "E-DEF-PANEL-STATE", pointer, problem, f"改为 {hint!r}" if hint else None, "panel"
+            )
+        return spec
+
+    def value(path: str, spec: StateSpec, v: Any, pointer: str) -> None:
+        problem, hint = _panel_value(spec, v)
+        if problem:
+            report.add("error", "E-DEF-PANEL-VALUE", pointer, f"{path}：{problem}", hint, "panel")
+
+    def settings(values: dict[str, Any], pointer: tuple[Any, ...]) -> None:
+        for path, v in values.items():
+            spec = setting(path, _ptr(*pointer, path))
+            if spec is not None:
+                value(path, spec, v, _ptr(*pointer, path))
+
+    for i, readout in enumerate(panel.readouts):
+        p = (*base, "readouts", i)
+        comp, _, name = readout.reading.rpartition(".")
+        if not comp or not name or comp not in components:
+            hint = _closest(comp or readout.reading, sorted(components))
+            report.add(
+                "error",
+                "E-DEF-PANEL-READING",
+                _ptr(*p, "reading"),
+                f"读数 {readout.reading!r} 应写作 <组件>.<读数>，"
+                + (f"没有组件 {comp!r}" if comp else "缺少组件名"),
+                f"改为 {hint}.{name or 'DC'}" if hint else None,
+                "panel",
+            )
+        settings(readout.when, (*p, "when"))
+
+    for g, group in enumerate(panel.groups):
+        for c, control in enumerate(group.controls):
+            p = (*base, "groups", g, "controls", c)
+            spec = setting(control.state, _ptr(*p, "state"))
+            if spec is not None:
+                _check_control(control, spec, p, report)
+                for k, key in enumerate(control.keys or []):
+                    value(control.state, spec, key.value, _ptr(*p, "keys", k, "value"))
+                    settings(key.sets, (*p, "keys", k, "sets"))
+
+    for k, key in enumerate(panel.softkeys):
+        p = (*base, "softkeys", k)
+        if key.action is not None:
+            if key.action not in d.display.actions and "acq" not in components:
+                report.add(
+                    "error",
+                    "E-DEF-PANEL-ACTION",
+                    _ptr(*p, "action"),
+                    f"面板动作 {key.action!r} 既没有写在 display.actions 中，也没有采集组件 acq 执行它",
+                    f"在 display.actions 中写出 {key.action} 对应的命令",
+                    "panel",
+                )
+        elif key.state is not None:
+            spec = setting(key.state, _ptr(*p, "state"))
+            if spec is not None:
+                if spec.readonly:
+                    report.add(
+                        "error",
+                        "E-DEF-PANEL-CONTROL",
+                        _ptr(*p, "state"),
+                        f"{key.state} 是只读状态",
+                        None,
+                        "panel",
+                    )
+                value(key.state, spec, key.value, _ptr(*p, "value"))
+        settings(key.sets, (*p, "sets"))
+
+
+def _check_control(control: PanelControl, spec: StateSpec, p: tuple[Any, ...], report: Report) -> None:
+    kinds = _CONTROL_TYPES[control.control]
+    if spec.readonly:
+        report.add(
+            "error",
+            "E-DEF-PANEL-CONTROL",
+            _ptr(*p, "state"),
+            f"{control.state} 是只读状态，不能放控件",
+            "把它作为读数显示，或去掉这个控件",
+            "panel",
+        )
+    elif spec.type not in kinds:
+        fits = [k for k, types in _CONTROL_TYPES.items() if spec.type in types and k != "buttons"]
+        report.add(
+            "error",
+            "E-DEF-PANEL-CONTROL",
+            _ptr(*p, "control"),
+            f"{control.state} 是 {spec.type}，不能用 {control.control} 控件",
+            f"改为 {fits[0]}" if fits else "改为 buttons 并写出 keys",
+            "panel",
+        )
+    if control.control == "buttons" and not control.keys and spec.type not in ("enum", "bool"):
+        report.add(
+            "error",
+            "E-DEF-PANEL-CONTROL",
+            _ptr(*p, "keys"),
+            f"{control.state} 是 {spec.type}，按键组要写出 keys（每个键的取值）",
+            "例如 keys: [{value: 0.1, label: 100 mV}, {value: 1, label: 1 V}]",
+            "panel",
+        )
+    if control.keys is not None and control.control != "buttons":
+        report.add(
+            "error", "E-DEF-PANEL-CONTROL", _ptr(*p, "keys"), "keys 只用于 buttons 控件", None, "panel"
+        )
+    if (control.step is not None or control.unit is not None) and control.control != "number":
+        report.add(
+            "error",
+            "E-DEF-PANEL-CONTROL",
+            _ptr(*p, "step" if control.step is not None else "unit"),
+            "step 与 unit 只用于 number 控件",
+            None,
+            "panel",
+        )
+
+
+def _panel_value(spec: StateSpec, v: Any) -> tuple[str | None, str | None]:
+    """Whether a value the panel writes or compares fits the setting, and the fix when it does not."""
+    if spec.type == "enum":
+        options = spec.options or []
+        if isinstance(v, str) and v in options:
+            return None, None
+        try:
+            fixed = V.parse_enum(str(v).encode(), options)
+        except ScpiError:
+            return f"{v!r} 不是可选值（{', '.join(options)}）", None
+        return f"{v!r} 要写作选项的原样 {fixed!r}", f"改为 {fixed!r}"
+    if spec.type == "bool":
+        return (None, None) if isinstance(v, bool) else (f"{v!r} 不是 true / false", None)
+    if spec.type in ("float", "int"):
+        if isinstance(v, str) and v.upper() in {k.upper() for k in spec.special or {}}:
+            return None, None
+        if isinstance(v, bool) or not isinstance(v, (int, float)):
+            return f"{v!r} 不是数值", None
+        if (spec.min is not None and v < spec.min and v not in (spec.special or {}).values()) or (
+            spec.max is not None and v > spec.max
+        ):
+            return f"{v!r} 超出范围 [{spec.min}, {spec.max}]", None
+        return None, None
+    return (None, None) if isinstance(v, str) else (f"{v!r} 不是字符串", None)

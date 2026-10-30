@@ -40,9 +40,11 @@ export interface EngParts {
   unit: string;
 }
 
-export function engParts(value: number, unit = "", digits = 4): EngParts {
+export function engParts(value: number, unit = "", digits = 4, fixed = false): EngParts {
+  // `fixed` keeps trailing zeros, as an instrument's display shows its digits.
+  const shown = (s: string) => (fixed ? s : trim(s));
   if (!Number.isFinite(value)) return { mantissa: value > 0 ? "∞" : value < 0 ? "−∞" : "—", prefix: "", unit };
-  if (value === 0 || unit === "°") return { mantissa: trim(value.toPrecision(digits)), prefix: "", unit };
+  if (value === 0 || unit === "°") return { mantissa: shown(value.toPrecision(digits)), prefix: "", unit };
   const mag = Math.abs(value);
   let [scale, prefix] = PREFIXES[PREFIXES.length - 1];
   for (const [s, p] of PREFIXES) {
@@ -52,7 +54,7 @@ export function engParts(value: number, unit = "", digits = 4): EngParts {
       break;
     }
   }
-  return { mantissa: trim((value / scale).toPrecision(digits)), prefix, unit };
+  return { mantissa: shown((value / scale).toPrecision(digits)), prefix, unit };
 }
 
 function trim(s: string): string {

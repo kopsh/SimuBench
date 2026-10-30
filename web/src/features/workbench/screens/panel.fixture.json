@@ -1,0 +1,1116 @@
+{
+ "multimeter": {
+  "instrument": {
+   "name": "dut",
+   "label": "数字万用表",
+   "model": "34465A",
+   "manufacturer": "Keysight Technologies",
+   "definition_id": "keysight-34465a",
+   "instrument_class": "multimeter",
+   "description": "Keysight 34465A, 6½ 位数字万用表（Truevolt 系列）。Real model (D42): 命令、回复与错误文字按 Keysight Truevolt 系列的 Operating and Service Guide（编程参考部分）；量程、读数与输入阻抗 真实进入电路求解。手册未给 *RST 值的设定用 SimuBench 默认值（覆盖表中逐条注明）。",
+   "idn": "Keysight Technologies,34465A,MY57440001,2.6.1-2.0.0-0.0.0-0.0-0-0",
+   "channels": 1,
+   "address_virtual": "TCPIP0::127.0.0.1::5026::SOCKET",
+   "address_real": "TCPIP0::192.168.1.31::INSTR",
+   "address_hislip": null,
+   "scpi_port": null,
+   "display": {
+    "template": "multimeter",
+    "summary": [
+     "sense.function",
+     "sense.range",
+     "sense.nplc",
+     "trigger.source"
+    ],
+    "channel_summary": [],
+    "actions": {},
+    "panel": {
+     "readouts": [
+      {
+       "reading": "meter.DC",
+       "label": "直流电压",
+       "label_en": "DC voltage",
+       "unit": "V",
+       "digits": 8,
+       "when": {
+        "sense.function": "VOLT"
+       }
+      },
+      {
+       "reading": "meter.AC",
+       "label": "交流电压",
+       "label_en": "AC voltage",
+       "unit": "V",
+       "digits": 8,
+       "when": {
+        "sense.function": "VOLT:AC"
+       }
+      }
+     ],
+     "groups": [
+      {
+       "label": "测量",
+       "label_en": "Measure",
+       "controls": [
+        {
+         "state": "sense.function",
+         "control": "buttons",
+         "label": null,
+         "label_en": null,
+         "keys": [
+          {
+           "value": "VOLT",
+           "label": "DC V",
+           "label_en": null,
+           "sets": {}
+          },
+          {
+           "value": "VOLT:AC",
+           "label": "AC V",
+           "label_en": null,
+           "sets": {}
+          }
+         ],
+         "step": null,
+         "unit": null
+        }
+       ]
+      },
+      {
+       "label": "量程",
+       "label_en": "Range",
+       "controls": [
+        {
+         "state": "sense.range",
+         "control": "buttons",
+         "label": null,
+         "label_en": null,
+         "keys": [
+          {
+           "value": 0.1,
+           "label": "100 mV",
+           "label_en": null,
+           "sets": {
+            "sense.range_auto": false
+           }
+          },
+          {
+           "value": 1.0,
+           "label": "1 V",
+           "label_en": null,
+           "sets": {
+            "sense.range_auto": false
+           }
+          },
+          {
+           "value": 10.0,
+           "label": "10 V",
+           "label_en": null,
+           "sets": {
+            "sense.range_auto": false
+           }
+          },
+          {
+           "value": 100.0,
+           "label": "100 V",
+           "label_en": null,
+           "sets": {
+            "sense.range_auto": false
+           }
+          },
+          {
+           "value": 1000.0,
+           "label": "1000 V",
+           "label_en": null,
+           "sets": {
+            "sense.range_auto": false
+           }
+          },
+          {
+           "value": 0.0,
+           "label": "AUTO",
+           "label_en": null,
+           "sets": {
+            "sense.range_auto": true
+           }
+          }
+         ],
+         "step": null,
+         "unit": null
+        }
+       ]
+      },
+      {
+       "label": "设置",
+       "label_en": "Settings",
+       "controls": [
+        {
+         "state": "sense.nplc",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "sense.imp_auto",
+         "control": "switch",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "sense.ac.bandwidth",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        }
+       ]
+      },
+      {
+       "label": "触发",
+       "label_en": "Trigger",
+       "controls": [
+        {
+         "state": "trigger.source",
+         "control": "select",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "trigger.count",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "sample.count",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "trigger.delay",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        }
+       ]
+      }
+     ],
+     "softkeys": []
+    },
+    "panel_source": "class_default"
+   },
+   "ports": [
+    {
+     "name": "IN",
+     "direction": "in",
+     "medium": "electrical",
+     "net": "net-1",
+     "channel": null
+    }
+   ],
+   "state": [
+    {
+     "path": "sense.function",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "VOLT",
+      "VOLT:AC"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "测量功能",
+     "label_en": "Function",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "VOLT",
+     "channel": null
+    },
+    {
+     "path": "sense.range",
+     "type": "float",
+     "unit": "V",
+     "min": 0.1,
+     "max": 1000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "量程设定",
+     "label_en": "Range setting",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.1,
+     "channel": null
+    },
+    {
+     "path": "sense.range_auto",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "自动量程",
+     "label_en": "Autorange",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "sense.nplc",
+     "type": "float",
+     "unit": null,
+     "min": 0.02,
+     "max": 100.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "积分时间（PLC）",
+     "label_en": "Integration time (PLC)",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1.0,
+     "channel": null
+    },
+    {
+     "path": "sense.aperture",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0002,
+     "max": 1.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "孔径时间",
+     "label_en": "Aperture time",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.1,
+     "channel": null
+    },
+    {
+     "path": "sense.aperture_enabled",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "孔径时间模式",
+     "label_en": "Aperture mode",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "sense.resolution",
+     "type": "float",
+     "unit": "V",
+     "min": 0.0,
+     "max": 1000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "分辨率设定",
+     "label_en": "Resolution setting",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "sense.zero_auto",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "自动调零",
+     "label_en": "Autozero",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "sense.ac.bandwidth",
+     "type": "float",
+     "unit": "HZ",
+     "min": 3.0,
+     "max": 200.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "AC 带宽",
+     "label_en": "AC bandwidth",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 20.0,
+     "channel": null
+    },
+    {
+     "path": "sense.imp_auto",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "输入阻抗自动（10 MΩ ↔ >10 GΩ）",
+     "label_en": "Input impedance AUTO",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "trigger.source",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "IMMediate",
+      "BUS",
+      "EXTernal"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "触发源",
+     "label_en": "Trigger source",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "IMMediate",
+     "channel": null
+    },
+    {
+     "path": "trigger.count",
+     "type": "float",
+     "unit": null,
+     "min": 1.0,
+     "max": 1000000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "触发计数",
+     "label_en": "Trigger count",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1.0,
+     "channel": null
+    },
+    {
+     "path": "trigger.delay",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0,
+     "max": 3600.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "触发延迟",
+     "label_en": "Trigger delay",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "trigger.delay_auto",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "自动触发延迟",
+     "label_en": "Automatic trigger delay",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "trigger.slope",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "POSitive",
+      "NEGative"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "触发沿",
+     "label_en": "Trigger slope",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "NEGative",
+     "channel": null
+    },
+    {
+     "path": "sample.count",
+     "type": "float",
+     "unit": null,
+     "min": 1.0,
+     "max": 1000000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "每触发采样数",
+     "label_en": "Samples per trigger",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1.0,
+     "channel": null
+    },
+    {
+     "path": "vmcomp.slope",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "POSitive",
+      "NEGative"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "VM Comp 输出斜率",
+     "label_en": "VM Comp output slope",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "NEGative",
+     "channel": null
+    },
+    {
+     "path": "display.state",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "显示",
+     "label_en": "Display",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "display.text",
+     "type": "string",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "显示文本",
+     "label_en": "Display text",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "",
+     "channel": null
+    },
+    {
+     "path": "beeper.state",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "蜂鸣器",
+     "label_en": "Beeper",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "click.state",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "按键音",
+     "label_en": "Key click",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "format.data",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "ASCii",
+      "REAL"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "数据格式",
+     "label_en": "Data format",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "ASCii",
+     "channel": null
+    },
+    {
+     "path": "format.length",
+     "type": "int",
+     "unit": null,
+     "min": 9.0,
+     "max": 64.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "数据长度",
+     "label_en": "Data length",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 9,
+     "channel": null
+    },
+    {
+     "path": "format.border",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "NORMal",
+      "SWAPped"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "字节序",
+     "label_en": "Byte order",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "NORMal",
+     "channel": null
+    },
+    {
+     "path": "cal.value",
+     "type": "float",
+     "unit": "V",
+     "min": -1000.0,
+     "max": 1000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "校准值",
+     "label_en": "Calibration value",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "system.version",
+     "type": "float",
+     "unit": null,
+     "min": 1994.0,
+     "max": 1994.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "SCPI 版本",
+     "label_en": "SCPI version",
+     "readonly": true,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1994.0,
+     "channel": null
+    },
+    {
+     "path": "line.frequency",
+     "type": "int",
+     "unit": null,
+     "min": 50.0,
+     "max": 60.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电源频率",
+     "label_en": "Line frequency",
+     "readonly": true,
+     "electrical": false,
+     "dangerous": false,
+     "value": 50,
+     "channel": null
+    },
+    {
+     "path": "system.temperature",
+     "type": "float",
+     "unit": "V",
+     "min": 0.0,
+     "max": 100.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "内部温度",
+     "label_en": "Internal temperature",
+     "readonly": true,
+     "electrical": false,
+     "dangerous": false,
+     "value": 28.5,
+     "channel": null
+    }
+   ],
+   "dut": false,
+   "deviation": "nominal",
+   "deviations": [
+    {
+     "param": "meter.gain_error_ppm",
+     "limit": {
+      "0.1": 50.0,
+      "1": 35.0,
+      "10": 30.0,
+      "100": 40.0,
+      "1000": 40.0
+     },
+     "unit": null,
+     "distribution": "uniform",
+     "by": {
+      "function": [
+       "DC",
+       "AC"
+      ],
+      "range": [
+       0.1,
+       1,
+       10,
+       100,
+       1000
+      ]
+     },
+     "value": null,
+     "drawn": false
+    },
+    {
+     "param": "meter.offset",
+     "limit": {
+      "0.1": 3.5e-06,
+      "1": 4e-06,
+      "10": 4e-06,
+      "100": 6e-05,
+      "1000": 0.0006
+     },
+     "unit": null,
+     "distribution": "uniform",
+     "by": {
+      "function": [
+       "DC"
+      ],
+      "range": [
+       0.1,
+       1,
+       10,
+       100,
+       1000
+      ]
+     },
+     "value": null,
+     "drawn": false
+    }
+   ],
+   "remote": [],
+   "local": false,
+   "errors": []
+  },
+  "readings": {
+   "meter.DC": 0.09910304999999998,
+   "meter.AC": 0.0
+  }
+ },
+ "calibrator": {
+  "instrument": {
+   "name": "cal",
+   "label": "多功能校准源",
+   "model": "5522A",
+   "manufacturer": "Fluke",
+   "definition_id": "fluke-5522a",
+   "instrument_class": "calibrator",
+   "description": "Fluke 5522A 多功能校准源（NORMAL 端子的直流与交流电压输出）。Real model (D42)：命令、回复与 错误文字按 Fluke 5522A Operators Manual 的远程编程章节（第 5、6 章，Fluke 风格命令，非 SCPI 树）。 输出由 calibrator_output 建模：待机断开、建立时间、过载跳回待机、≥33 V 改变输出回待机； 电流、电阻、电容、温度与示波器校准选件未实现（覆盖表逐条列出，回复 -113）。",
+   "idn": "FLUKE,5522A,5248101,1.0+1.3+1.8",
+   "channels": 1,
+   "address_virtual": "TCPIP0::127.0.0.1::5025::SOCKET",
+   "address_real": "GPIB0::4::INSTR",
+   "address_hislip": null,
+   "scpi_port": null,
+   "display": {
+    "template": null,
+    "summary": [
+     "out.function",
+     "out.level",
+     "out.frequency",
+     "out.operate",
+     "earth",
+     "extguard"
+    ],
+    "channel_summary": [],
+    "actions": {},
+    "panel": {
+     "readouts": [
+      {
+       "reading": "out.level",
+       "label": "输出",
+       "label_en": "Output",
+       "unit": "V",
+       "digits": 7,
+       "when": {}
+      },
+      {
+       "reading": "out.frequency",
+       "label": "频率",
+       "label_en": "Frequency",
+       "unit": "Hz",
+       "digits": 6,
+       "when": {
+        "out.function": "ACV"
+       }
+      },
+      {
+       "reading": "out.output",
+       "label": "输出端",
+       "label_en": "Terminal",
+       "unit": null,
+       "digits": null,
+       "when": {}
+      }
+     ],
+     "groups": [
+      {
+       "label": "输出",
+       "label_en": "Output",
+       "controls": [
+        {
+         "state": "out.function",
+         "control": "buttons",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "out.level",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "out.frequency",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        }
+       ]
+      },
+      {
+       "label": "工作 / 待机",
+       "label_en": "Operate / Standby",
+       "controls": [
+        {
+         "state": "out.operate",
+         "control": "buttons",
+         "label": null,
+         "label_en": null,
+         "keys": [
+          {
+           "value": true,
+           "label": "OPER",
+           "label_en": null,
+           "sets": {}
+          },
+          {
+           "value": false,
+           "label": "STBY",
+           "label_en": null,
+           "sets": {}
+          }
+         ],
+         "step": null,
+         "unit": null
+        }
+       ]
+      }
+     ],
+     "softkeys": []
+    },
+    "panel_source": "class_default"
+   },
+   "ports": [
+    {
+     "name": "OUT",
+     "direction": "out",
+     "medium": "electrical",
+     "net": "net-0",
+     "channel": null
+    }
+   ],
+   "state": [
+    {
+     "path": "out.function",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "DCV",
+      "ACV"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "功能",
+     "label_en": "Function",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": "DCV",
+     "channel": null
+    },
+    {
+     "path": "out.level",
+     "type": "float",
+     "unit": "V",
+     "min": -1020.0,
+     "max": 1020.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "幅度设定",
+     "label_en": "Level",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": 10.0,
+     "channel": null
+    },
+    {
+     "path": "out.frequency",
+     "type": "float",
+     "unit": "HZ",
+     "min": 0.0,
+     "max": 500000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "频率（0 Hz 为直流）",
+     "label_en": "Frequency",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "out.operate",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "工作",
+     "label_en": "Operate",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "earth",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "OPEN",
+      "TIED"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "NORMAL LO 接机壳地",
+     "label_en": "NORMAL LO to earth",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "OPEN",
+     "channel": null
+    },
+    {
+     "path": "extguard",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "OFF",
+      "ON"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "外部保护（guard 接 LO）",
+     "label_en": "External guard",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "OFF",
+     "channel": null
+    },
+    {
+     "path": "interface",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "LOCAL",
+      "REMOTE",
+      "LOCKOUT"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "远程接口状态",
+     "label_en": "Remote interface state",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "LOCAL",
+     "channel": null
+    },
+    {
+     "path": "installed_options",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "0"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "已安装选件",
+     "label_en": "Installed options",
+     "readonly": true,
+     "electrical": false,
+     "dangerous": false,
+     "value": "0",
+     "channel": null
+    }
+   ],
+   "dut": false,
+   "deviation": "nominal",
+   "deviations": [
+    {
+     "param": "out.gain_error_ppm",
+     "limit": 20.0,
+     "unit": null,
+     "distribution": "uniform",
+     "by": null,
+     "value": null,
+     "drawn": false
+    },
+    {
+     "param": "out.offset",
+     "limit": 1e-06,
+     "unit": null,
+     "distribution": "uniform",
+     "by": null,
+     "value": null,
+     "drawn": false
+    }
+   ],
+   "remote": [],
+   "local": false,
+   "errors": []
+  },
+  "readings": {
+   "out.output": "OPER",
+   "out.function": "DCV",
+   "out.level": 10.0,
+   "out.frequency": 0.0,
+   "out.tripped": false,
+   "out.settling": true,
+   "out.voltage": 0.0
+  }
+ }
+}

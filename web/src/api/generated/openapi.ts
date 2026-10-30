@@ -1416,6 +1416,8 @@ export interface components {
             };
             /** Channel Summary */
             channel_summary?: string[];
+            /** @description Front-panel layout: readings on the main display, grouped controls, softkeys (instrument-authoring.md 7.3) */
+            panel?: components["schemas"]["Panel"] | null;
             /** Summary */
             summary?: string[];
             /**
@@ -1435,6 +1437,10 @@ export interface components {
             };
             /** Channel Summary */
             channel_summary: string[];
+            /** @description The front panel the UI draws: the definition's own, or its class's default layout (multimeter, calibrator); none for a class with a dedicated screen or without a default */
+            panel: components["schemas"]["Panel"] | null;
+            /** Panel Source */
+            panel_source: ("declared" | "class_default") | null;
             /** Summary */
             summary: string[];
             /** Template */
@@ -2027,6 +2033,128 @@ export interface components {
              */
             type: string | null;
         };
+        /**
+         * Panel
+         * @description The instrument's front panel as the UI draws it (instrument-authoring.md 7.3): the main
+         *     display's readings, groups of controls, and softkeys. Without one, a multimeter and a calibrator
+         *     get their class's default layout; the classes with a dedicated screen do not use it.
+         */
+        Panel: {
+            /** Groups */
+            groups?: components["schemas"]["PanelGroup"][];
+            /** Readouts */
+            readouts?: components["schemas"]["PanelReadout"][];
+            /** Softkeys */
+            softkeys?: components["schemas"]["PanelSoftkey"][];
+        };
+        /**
+         * PanelControl
+         * @description One setting on the panel, and the control it is set with (instrument-authoring.md 7.3).
+         */
+        PanelControl: {
+            /**
+             * Control
+             * @description buttons: a key per value (an enum's options, or `keys`); number: a value with its unit and step keys; switch: on / off (bool); select: a drop-down (enum)
+             * @enum {string}
+             */
+            control: "buttons" | "number" | "switch" | "select";
+            /**
+             * Keys
+             * @description buttons: the keys; default for an enum: one per option, for a bool: on and off
+             */
+            keys?: components["schemas"]["PanelKey"][] | null;
+            /**
+             * Label
+             * @description Default: the setting's label
+             */
+            label?: string | null;
+            /** Label En */
+            label_en?: string | null;
+            /**
+             * State
+             * @description The setting, e.g. 'sense.function' (a channel's: 'ch1.level')
+             */
+            state: string;
+            /**
+             * Step
+             * @description number: what the step keys add and subtract
+             */
+            step?: number | null;
+            /**
+             * Unit
+             * @description number: the unit shown; default: the setting's
+             */
+            unit?: string | null;
+        };
+        /** PanelGroup */
+        PanelGroup: {
+            /** Controls */
+            controls?: components["schemas"]["PanelControl"][];
+            /**
+             * Label
+             * @description The group's title, e.g. 测量, 量程, 触发
+             */
+            label: string;
+            /** Label En */
+            label_en?: string | null;
+        };
+        /**
+         * PanelKey
+         * @description One key of a button group: the value it writes, and what it reads on the instrument.
+         */
+        PanelKey: {
+            /**
+             * Label
+             * @description The key's text; default: the option's label or the value
+             */
+            label?: string | null;
+            /** Label En */
+            label_en?: string | null;
+            /**
+             * Sets
+             * @description Further settings written along with it, e.g. {sense.range_auto: false} for a range key; the key is lit while all of them hold
+             */
+            sets?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Value
+             * @description The value the key writes to the control's setting
+             */
+            value: unknown;
+        };
+        /**
+         * PanelReadout
+         * @description A reading on the main display.
+         */
+        PanelReadout: {
+            /**
+             * Digits
+             * @description Significant digits shown
+             */
+            digits?: number | null;
+            /** Label */
+            label?: string | null;
+            /** Label En */
+            label_en?: string | null;
+            /**
+             * Reading
+             * @description A reading of the instrument, '<component>.<reading>', e.g. 'meter.DC'
+             */
+            reading: string;
+            /**
+             * Unit
+             * @description The reading's unit, e.g. V; none for a count or a word
+             */
+            unit?: string | null;
+            /**
+             * When
+             * @description Shown only while these settings have these values, e.g. {sense.function: VOLT}
+             */
+            when?: {
+                [key: string]: unknown;
+            };
+        };
         /** PanelRequest */
         PanelRequest: {
             /**
@@ -2041,6 +2169,35 @@ export interface components {
             error: components["schemas"]["ErrorItem"] | null;
             /** Ok */
             ok: boolean;
+        };
+        /**
+         * PanelSoftkey
+         * @description A key under the display: a front-panel action (D32), or a setting written to a value.
+         */
+        PanelSoftkey: {
+            /**
+             * Action
+             * @description A front-panel action, as `display.actions` names them
+             */
+            action?: ("run" | "stop" | "single") | null;
+            /** Label */
+            label: string;
+            /** Label En */
+            label_en?: string | null;
+            /**
+             * Sets
+             * @description Further settings written along with it
+             */
+            sets?: {
+                [key: string]: unknown;
+            };
+            /**
+             * State
+             * @description The setting the key writes
+             */
+            state?: string | null;
+            /** Value */
+            value?: unknown;
         };
         /** ParamInfo */
         ParamInfo: {

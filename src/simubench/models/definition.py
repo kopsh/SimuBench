@@ -337,6 +337,88 @@ class Ports(_Model):
         return self
 
 
+class PanelKey(_Model):
+    """One key of a button group: the value it writes, and what it reads on the instrument."""
+
+    value: Any = Field(..., description="The value the key writes to the control's setting")
+    label: str | None = Field(None, description="The key's text; default: the option's label or the value")
+    label_en: str | None = None
+    sets: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Further settings written along with it, e.g. {sense.range_auto: false} for a range "
+        "key; the key is lit while all of them hold",
+    )
+
+
+class PanelControl(_Model):
+    """One setting on the panel, and the control it is set with (instrument-authoring.md 7.3)."""
+
+    state: str = Field(..., description="The setting, e.g. 'sense.function' (a channel's: 'ch1.level')")
+    control: Literal["buttons", "number", "switch", "select"] = Field(
+        ...,
+        description="buttons: a key per value (an enum's options, or `keys`); number: a value with its "
+        "unit and step keys; switch: on / off (bool); select: a drop-down (enum)",
+    )
+    label: str | None = Field(None, description="Default: the setting's label")
+    label_en: str | None = None
+    keys: list[PanelKey] | None = Field(
+        None, description="buttons: the keys; default for an enum: one per option, for a bool: on and off"
+    )
+    step: float | None = Field(None, gt=0, description="number: what the step keys add and subtract")
+    unit: str | None = Field(None, description="number: the unit shown; default: the setting's")
+
+
+class PanelReadout(_Model):
+    """A reading on the main display."""
+
+    reading: str = Field(
+        ..., description="A reading of the instrument, '<component>.<reading>', e.g. 'meter.DC'"
+    )
+    label: str | None = None
+    label_en: str | None = None
+    unit: str | None = Field(None, description="The reading's unit, e.g. V; none for a count or a word")
+    digits: int | None = Field(None, ge=1, le=12, description="Significant digits shown")
+    when: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Shown only while these settings have these values, e.g. {sense.function: VOLT}",
+    )
+
+
+class PanelGroup(_Model):
+    label: str = Field(..., description="The group's title, e.g. 测量, 量程, 触发")
+    label_en: str | None = None
+    controls: list[PanelControl] = Field(default_factory=list)
+
+
+class PanelSoftkey(_Model):
+    """A key under the display: a front-panel action (D32), or a setting written to a value."""
+
+    label: str
+    label_en: str | None = None
+    action: Literal["run", "stop", "single"] | None = Field(
+        None, description="A front-panel action, as `display.actions` names them"
+    )
+    state: str | None = Field(None, description="The setting the key writes")
+    value: Any = None
+    sets: dict[str, Any] = Field(default_factory=dict, description="Further settings written along with it")
+
+    @model_validator(mode="after")
+    def _check(self) -> PanelSoftkey:
+        if (self.action is None) == (self.state is None):
+            raise ValueError("a softkey has either `action` or `state`")
+        return self
+
+
+class Panel(_Model):
+    """The instrument's front panel as the UI draws it (instrument-authoring.md 7.3): the main
+    display's readings, groups of controls, and softkeys. Without one, a multimeter and a calibrator
+    get their class's default layout; the classes with a dedicated screen do not use it."""
+
+    readouts: list[PanelReadout] = Field(default_factory=list)
+    groups: list[PanelGroup] = Field(default_factory=list)
+    softkeys: list[PanelSoftkey] = Field(default_factory=list)
+
+
 class Display(_Model):
     template: str | None = Field(None, description="UI class template, e.g. 'oscilloscope'")
     summary: list[str] = Field(default_factory=list)
@@ -346,6 +428,11 @@ class Display(_Model):
         description="Front-panel buttons as the model's own commands, run inside the instrument (not over "
         "SCPI, D32), e.g. {single: ':TRIGger:MODE SINGle'}; run, stop and single default to the acquisition "
         "component's operations",
+    )
+    panel: Panel | None = Field(
+        None,
+        description="Front-panel layout: readings on the main display, grouped controls, softkeys "
+        "(instrument-authoring.md 7.3)",
     )
 
 

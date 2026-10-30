@@ -1,0 +1,25 @@
+schema: simubench.bench/2
+name: panel_declared
+description: >-
+  端到端测试：Siglent SDG2042X 输出直流 5 V（HiZ 负载设定），接到声明了自己面板的测试万用表
+  SB-PANEL-1（instrument-authoring.md 7.3）。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    state:
+      ch1.function: DC
+      ch1.offset: 5.0
+      ch1.load: .inf
+      ch1.output: true
+  dmm:
+    model: sb-panel-1
+    label: 面板万用表
+wires:
+  - {from: awg.CH1, to: dmm.IN}
+run:
+  seed: 1
+  clock: command
+layout:
+  awg: {x: 0, y: 80}
+  dmm: {x: 520, y: 80}

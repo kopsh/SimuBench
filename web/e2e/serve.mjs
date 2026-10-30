@@ -1,5 +1,5 @@
 // Starts the service for end-to-end tests on a scratch copy of the examples and the validation
-// workspace (sb-* definitions in instruments/, their benches), because the tests edit bench files
+// workspace (sb-* definitions in instruments/, their benches) and the e2e fixtures, because the tests edit bench files
 // (and node drags are saved to the file).
 import { spawn } from "node:child_process";
 import { cpSync, mkdtempSync } from "node:fs";
@@ -11,6 +11,8 @@ const root = resolve(import.meta.dirname, "..", "..");
 const workspace = mkdtempSync(join(tmpdir(), "simubench-e2e-"));
 cpSync(join(root, "examples"), workspace, { recursive: true });
 cpSync(join(root, "validation"), workspace, { recursive: true });
+// Definitions and benches only the end-to-end tests use (a definition with a declared panel).
+cpSync(join(root, "web", "e2e", "fixtures"), workspace, { recursive: true });
 
 const child = spawn(
   "uv",
