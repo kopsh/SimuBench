@@ -4,7 +4,7 @@ import pytest
 
 from simubench.scpi import values as V
 from simubench.scpi.errors import ErrorQueue, ScpiError
-from simubench.scpi.parse import Pattern, parse_unit, split_units
+from simubench.scpi.parse import Pattern, Token, parse_unit, resolve_tokens, split_units
 from simubench.units import UnitError, format_nr3, parse_number
 
 
@@ -50,6 +50,29 @@ def test_parse_unit_header_and_params():
     assert u.params == (b"0.05",)
     q = parse_unit(b"*IDN?")
     assert q.common and q.query
+
+
+def _tokens(header: str):
+    return parse_unit(header.encode())
+
+
+def test_resolve_tokens_path_rules():
+    c1_bswv = _tokens("C1:BSWV")
+    path = (Token("C", 1),)
+    # a common, an absolute and the first unit stand alone
+    assert resolve_tokens(_tokens("*OPC?"), path) == (Token("OPC", None),)
+    assert resolve_tokens(_tokens(":C1:BSWV"), path) == (Token("C", 1), Token("BSWV", None))
+    assert resolve_tokens(c1_bswv, ()) == (Token("C", 1), Token("BSWV", None))
+    # a bare leaf continues the path
+    assert resolve_tokens(_tokens("OUTP"), path) == (Token("C", 1), Token("OUTP", None))
+    # a unit repeating the path's first node starts again from it, not doubling it (issue 149)
+    assert resolve_tokens(c1_bswv, path) == (Token("C", 1), Token("BSWV", None))
+    deep = (Token("SENS", 1), Token("VOLT", None))
+    assert resolve_tokens(_tokens("SENS1:RANG?"), deep) == (Token("SENS", 1), Token("RANG", None))
+    # a bare leaf still continues a deeper path
+    assert resolve_tokens(_tokens("RANG?"), deep) == (*deep, Token("RANG", None))
+    # a different channel node is a continuation of the current path, which doubles it: refused
+    assert resolve_tokens(_tokens("C2:BSWV"), path) == (Token("C", 1), Token("C", 2), Token("BSWV", None))
 
 
 @pytest.mark.parametrize(

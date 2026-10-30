@@ -60,6 +60,23 @@ cases:
       - send: "C1:OUTP PLRT,NOR"
       - query: "C1:OUTP?"
         expect: "C1:OUTP ON,LOAD,HZ,PLRT,NOR"
+  - name: "复合命令：两条都生效（真机接受重复通道前缀，issue 149）"
+    manual: "3.3 Output Command + 3.4 Basic Wave Command（组合消息；PG02_E05C 未单列组合命令一节）"
+    steps:
+      - send: "C1:BSWV WVTP,SQUARE,FRQ,1000,AMP,2;C1:OUTP ON"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP ON,LOAD,HZ,PLRT,NOR"
+      - send: "C1:OUTP OFF;C1:BSWV WVTP,SINE,FRQ,2000"
+      - query: "C1:OUTP?"
+        expect: "C1:OUTP OFF,LOAD,HZ,PLRT,NOR"
+      - query: "C1:BSWV?"
+        expect: "C1:BSWV WVTP,SINE,FRQ,2000HZ,PERI,0.0005S,AMP,2V,OFST,0V,HLEV,1V,LLEV,-1V,PHSE,0"
+  - name: "复合命令里的查询有应答（issue 149）"
+    manual: "3.3 Output Command + 3.4 Basic Wave Command（组合消息；PG02_E05C 未单列组合命令一节）"
+    steps:
+      - send: "C1:BSWV WVTP,SINE,FRQ,1000"
+      - query: "C1:OUTP ON;C1:BSWV?"
+        expect: "C1:BSWV WVTP,SINE,FRQ,1000HZ,PERI,0.001S,AMP,4V,OFST,0V,HLEV,2V,LLEV,-2V,PHSE,0"
   - name: "反相"
     manual: "3.24 Invert Command"
     steps:
