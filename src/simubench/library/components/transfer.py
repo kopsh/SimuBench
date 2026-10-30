@@ -5,7 +5,8 @@ new vendor's format is a definition, not code:
 
 * ``encoding: block``: an IEEE 488.2 definite-length block of ADC codes (``width`` 8 or 16 bits,
   ``byteorder``, ``unsigned``; ``block_digits`` fixes the length digits, e.g. 9 for ``#9...``);
-* ``encoding: ascii``: comma-separated NR3 numbers (``digits``);
+* ``encoding: ascii``: comma-separated NR3 numbers (``digits``); ``ascii_block``: the same list
+  inside a definite-length block (``block_digits``, ``trailer``);
 * ``encoding: text``: numbers in a printf ``format`` joined by ``separator`` (a command's reply
   template adds what goes around them, e.g. ``'{header} " {value} "'``).
 
@@ -56,7 +57,7 @@ class WaveformTransfer(Component):
         "count_mode": "first",  # first: the first count points; spread: count points over the record
         "max_points": 0,  # 0: no limit
         "over_limit": "allow",  # an explicit count above max_points: allow | truncate | error (-222)
-        "encoding": "block",  # block | ascii | text
+        "encoding": "block",  # block | ascii | ascii_block | text
         "values": "codes",  # codes | volts
         "float": 0,  # block of volts as IEEE floats: 32 | 64 (0: codes or volts as integers)
         "format": "%.6e",  # text
@@ -67,6 +68,7 @@ class WaveformTransfer(Component):
         "adc_bits": 8,  # bits of the ADC codes (signed around zero)
         "width": 8,  # bits of a block word: codes shift up or down to fit
         "unsigned": False,  # block codes offset by 2**(width-1)
+        "reserve_lowest": False,  # the lowest output code means "no data" (a hole): samples stay above it
         "byteorder": "little",  # little | big (also LSBFirst | MSBFirst)
         "block_digits": 0,  # 0: as few as the length needs
         "trailer": "",  # appended after a block, e.g. a line feed
@@ -79,7 +81,7 @@ class WaveformTransfer(Component):
         # header: a declared preamble (op header). {encoding: binary | text, size: bytes (binary),
         # byteorder, block_digits, trailer, separator (text), fields: [{at: byte offset (binary),
         # type: i8 | u8 | i16 | u16 | i32 | u32 | i64 | f32 | f64 | str, value | figure | setting,
-        # map, nearest, scale, format (text: a printf format)}]}
+        # map, nearest, scale, format (text: a printf format), when: {setting: value} with else}]}
         "header": None,
     }
 
@@ -128,6 +130,10 @@ class WaveformTransfer(Component):
             codes = codes >> (bits - width)
         if self.param("unsigned") in (True, 1, "1", "ON", "on"):
             codes = codes + (1 << (width - 1))
+        if self.param("reserve_lowest") in (True, 1, "1", "ON", "on"):
+            lowest = 0 if self.param("unsigned") in (True, 1, "1", "ON", "on") else -(1 << (width - 1))
+            step = 1 << max(0, width - bits)  # the code above the lowest the data can reach
+            codes = np.maximum(codes, lowest + step)
         return codes
 
     def encode(self, rec: Record | None) -> bytes:
@@ -140,9 +146,11 @@ class WaveformTransfer(Component):
         if encoding == "text":
             fmt = str(self.param("format"))
             return str(self.param("separator")).join(fmt % x for x in values.tolist()).encode()
-        if encoding == "ascii":
-            digits = int(self.param("digits"))
-            return b",".join(V.format_float(x, digits) for x in values.tolist())
+        if encoding in ("ascii", "ascii_block"):
+            text = b",".join(V.format_float(x, int(self.param("digits"))) for x in values.tolist())
+            if encoding == "ascii":
+                return text
+            return self._block(text)
         width = int(self.param("width"))
         unsigned = self.param("unsigned") in (True, 1, "1", "ON", "on")
         big = str(self.param("byteorder")).upper() in ("BIG", "MSBFIRST")
@@ -155,6 +163,9 @@ class WaveformTransfer(Component):
             payload = values.astype("u1" if unsigned else "i1").tobytes()
         else:
             payload = V.encode_words(values, little_endian=not big, unsigned=unsigned)
+        return self._block(payload)
+
+    def _block(self, payload: bytes) -> bytes:
         digits = int(self.param("block_digits"))
         if digits:
             block = b"#" + str(digits).encode() + f"{len(payload):0{digits}d}".encode() + payload
@@ -206,12 +217,21 @@ class WaveformTransfer(Component):
         width = int(self.param("width"))
         first = int(sel[0]) if sel.size else int(self.param("first"))
         last = int(sel[-1]) if sel.size else first - 1
-        span = int(sel[1] - sel[0]) if sel.size > 1 else 1
+        span = int(sel[1] - sel[0]) if sel.size > 1 else max(1, int(self.param("step")))
+        unsigned = self.param("unsigned") in (True, 1, "1", "ON", "on")
+        # codes per division of the word sent: the ADC's, shifted up or down to fit the word
+        word_per_div = float(self.param("codes_per_div")) * 2.0 ** (width - int(self.param("adc_bits")))
         return {
             "points": int(sel.size),
             "record_points": rec.volts.size,
             "first": first,
-            "step": max(1, int(self.param("step"))),
+            "step": span,  # the spacing of the points sent (a points mode spreads them)
+            "x_increment": span * rec.dt_s,
+            "x_reference": 0,  # the point x_start belongs to
+            # code -> volts: (code - y_reference) * y_increment + y_origin
+            "y_increment": rec.scale / word_per_div if word_per_div else 0.0,
+            "y_origin": rec.offset if str(self.param("offset")).lower() != "add" else -rec.offset,
+            "y_reference": (1 << (width - 1)) if unsigned else 0,
             "bytes": int(sel.size) * (int(self.param("float") or 0) or width) // 8,
             "dt": rec.dt_s,
             "x_offset": rec.origin,
@@ -234,6 +254,9 @@ class WaveformTransfer(Component):
 
     def _field(self, spec: dict[str, Any], figures: dict[str, Any], n: int) -> Any:
         assert self.owner is not None
+        when = spec.get("when")
+        if when and any(str(self.owner.get_state(p)) != str(v) for p, v in when.items()):
+            return spec.get("else")  # the field's value while the settings are otherwise
         if "figure" in spec:
             value = figures[str(spec["figure"])]
         elif "setting" in spec:
@@ -307,6 +330,25 @@ class WaveformTransfer(Component):
         else:
             block = V.format_block(payload)
         return OpResult(block + str(h.get("trailer", "")).encode(), used)
+
+    @op("figure")
+    def figure(self, query: bool = False, channel: int | None = None, what: str = "points",
+               format: str = "", **_: Any) -> OpResult:  # fmt: skip
+        """One figure of the source's record and this transfer's selection (``figures``), e.g.
+        ``:WAVeform:XINCrement?``; ``format`` is a printf format, else the definition's numbers."""
+        assert self.owner is not None
+        acq = self.owner.components[str(self.param("record"))]
+        n = self._source(channel)
+        rec, used = acq.read_record(n, start=False)  # type: ignore[attr-defined]
+        if rec is None:
+            self.owner.push_error(-230, str(self.param("no_record")))
+            return OpResult(b"", used)
+        value = self.figures(rec, n)[what]
+        if format:
+            return OpResult((format % value).encode(), used)
+        if isinstance(value, int):
+            return OpResult(str(value).encode(), used)
+        return OpResult(self.owner.format_number(float(value)), used)
 
     @op("data")
     def data(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:

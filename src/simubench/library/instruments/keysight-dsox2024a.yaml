@@ -1,0 +1,510 @@
+schema: simubench.instrument/1
+id: keysight-dsox2024a
+manufacturer: Keysight Technologies
+model: DSO-X 2024A
+class: oscilloscope
+version: 1
+description: >-
+  Keysight InfiniiVision DSO-X 2024A, 4 channels, 200 MHz, 2 GSa/s. Real model (D42): commands,
+  replies and *RST values follow the InfiniiVision 2000 X-Series Programmer's Guide 02.66.0000;
+  ranges follow the 2000 X-Series data sheet 5990-6618EN. The scope's development baseline for the
+  oscilloscope modules (D45). Values neither document gives are SimuBench defaults, listed in the
+  coverage table.
+reference:
+  title: Keysight InfiniiVision 2000 X-Series Oscilloscopes Programmer's Guide
+  version: "02.66.0000, 2024-02-01"
+  firmware: "2000 X-Series, as covered by Programmer's Guide 02.66.0000"
+identity:
+  # *IDN? per the guide: AGILENT TECHNOLOGIES,<model>,<serial number>,X.XX.XX.
+  idn: "AGILENT TECHNOLOGIES,DSO-X 2024A,{serial},{firmware}"
+  serial: MY58260001
+  firmware: "02.66.0000"
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST", ":SYSTem:ERRor[:NEXT]"]
+error_queue: 30
+# Numbers the guide does not show come back as NR3 with five decimals; settings whose *RST sample
+# replies the guide shows set their own (engineering exponent, signed, the sample's digits).
+format:
+  number: nr3
+  digits: 5
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  # :SYSTem:ERRor?：手册的示例程序以 "+0," 判断错误队列为空。
+  error_code: signed
+specs:
+  source: InfiniiVision 2000 X-Series Oscilloscopes Data Sheet 5990-6618EN (2014-04-03)
+  bandwidth_hz: 2.0e8
+  sample_rate: {half_channel_interleaved: 2.0e9, per_channel: 1.0e9}
+  memory_depth_pts: 1.0e5
+  vertical_resolution_bits: 8
+  input_sensitivity_v_div: [1.0e-3, 5.0]
+  input: {r_ohm: 1.0e6, r_tolerance: 0.02, c_f: 1.1e-11}
+  offset_range_v: {"1 mV to 200 mV/div": 2.0, "> 200 mV to 5 V/div": 50.0}
+  dc_gain_accuracy: "±3% full scale (≥ 10 mV/div); ±4% full scale (< 10 mV/div)"
+  dc_offset_accuracy: "±0.1 div ± 2 mV ± 1% of offset setting"
+  bandwidth_limit_hz: 2.0e7
+  timebase_s_div: [2.0e-9, 50.0]
+  timebase_accuracy_ppm: 25
+  trigger_sensitivity: "< 10 mV/div: greater of 1 div or 5 mV; ≥ 10 mV/div: 0.6 div"
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 2.0e-9
+    max: 50.0
+    default: 1.0e-4
+    label: 时基
+    label_en: Timebase
+  timebase.position:
+    type: float
+    unit: S
+    min: -500.0
+    max: 500.0
+    default: 0.0
+    label: 触发位置
+    label_en: Position
+  timebase.reference:
+    type: enum
+    options: [LEFT, CENTer, RIGHt]
+    default: CENTer
+    label: 时间参考
+    label_en: Reference
+  timebase.mode:
+    type: enum
+    options: [MAIN, WINDow, XY, ROLL]
+    default: MAIN
+    label: 时基模式
+    label_en: Time base mode
+  trigger.mode:
+    type: enum
+    options: [EDGE]
+    default: EDGE
+    label: 触发类型
+    label_en: Trigger type
+  trigger.sweep:
+    type: enum
+    options: [AUTO, NORMal]
+    default: AUTO
+    label: 触发方式
+    label_en: Trigger mode
+  trigger.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, EXTernal, LINE, WGEN]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
+    default: CHANnel1
+    label: 触发源
+    label_en: Trigger source
+  trigger.level:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发电平
+    label_en: Trigger level
+  trigger.slope:
+    type: enum
+    options: [NEGative, POSitive, EITHer, ALTernate]
+    default: POSitive
+    label: 触发沿
+    label_en: Trigger slope
+  trigger.coupling:
+    type: enum
+    options: [AC, DC, LFReject]
+    default: DC
+    label: 触发耦合
+    label_en: Trigger coupling
+  trigger.reject:
+    type: enum
+    options: ["OFF", LFReject, HFReject]
+    default: "OFF"
+    label: 触发抑制
+    label_en: Trigger reject
+  trigger.hfreject:
+    type: bool
+    default: false
+    label: 高频抑制
+    label_en: HF reject
+  trigger.nreject:
+    type: bool
+    default: false
+    label: 噪声抑制
+    label_en: Noise reject
+  trigger.holdoff:
+    type: float
+    unit: S
+    min: 4.0e-8
+    max: 10.0
+    default: 4.0e-8
+    label: 释抑时间
+    label_en: Holdoff
+  acquire.type:
+    type: enum
+    options: [NORMal, AVERage, HRESolution, PEAK]
+    default: NORMal
+    label: 采集方式
+    label_en: Acquisition type
+  acquire.count:
+    type: int
+    min: 2
+    max: 65536
+    default: 8
+    label: 平均次数
+    label_en: Averages
+  acquire.mode:
+    type: enum
+    options: [RTIMe, SEGMented]
+    default: RTIMe
+  acquire.complete:
+    type: int
+    min: 100
+    max: 100
+    default: 100
+  waveform.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
+    default: CHANnel1
+    label: 波形传输源
+    label_en: Waveform source
+  waveform.format:
+    type: enum
+    options: [WORD, BYTE, ASCii]
+    default: BYTE
+    label: 波形格式
+    label_en: Waveform format
+  waveform.byteorder:
+    type: enum
+    options: [LSBFirst, MSBFirst]
+    default: MSBFirst
+  waveform.unsigned:
+    type: bool
+    default: true
+  waveform.points:
+    type: int
+    min: 100
+    max: 1000000
+    default: 1000
+    label: 传输点数
+    label_en: Waveform points
+  waveform.points_mode:
+    type: enum
+    options: [NORMal, MAXimum, RAW]
+    default: NORMal
+  measure.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+  measure.source2:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel2
+channel_state:
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Display
+  # Display volts per division with the probe ratio (*RST: 5 V/div with the 10:1 probe = 40 V range).
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-6
+    max: 5.0e4
+    default: 5.0
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  coupling:
+    type: enum
+    options: [AC, DC]
+    default: DC
+    label: 耦合
+    label_en: Coupling
+  probe:
+    type: float
+    min: 0.001
+    max: 10000.0
+    default: 10.0
+    special: {X1: 1.0, X10: 10.0, X20: 20.0, X100: 100.0}
+    display_unit: "×"
+    label: 探头衰减
+    label_en: Probe
+  bwlimit:
+    type: bool
+    default: false
+    label: 带宽限制
+    label_en: BW limit
+  impedance:
+    type: enum
+    options: [ONEMeg]
+    option_labels: {ONEMeg: "1 MΩ"}
+    default: ONEMeg
+    label: 输入阻抗
+    label_en: Impedance
+# 个体偏差（数据手册 5990-6618EN，按种子抽取，metrology-authoring.md 7）：直流增益精度 ±3% 满量程
+# （≥ 10 mV/div）、±4%（< 10 mV/div）；直流偏置精度 ±0.1 格 ± 2 mV ± 1% 偏置设定；时基精度 25 ppm。
+deviations:
+  - param: front.gain_error_ppm
+    by: {scale: [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5]}
+    limit: {0.001: 40000, 0.002: 40000, 0.005: 40000, 0.01: 30000, 0.02: 30000, 0.05: 30000, 0.1: 30000, 0.2: 30000, 0.5: 30000, 1: 30000, 2: 30000, 5: 30000}
+    distribution: uniform
+  - param: front.offset_error
+    by: {scale: [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5]}
+    limit: {0.001: 0.0021, 0.002: 0.0022, 0.005: 0.0025, 0.01: 0.003, 0.02: 0.004, 0.05: 0.007, 0.1: 0.012, 0.2: 0.022, 0.5: 0.052, 1: 0.102, 2: 0.202, 5: 0.502}
+    distribution: uniform
+  - param: front.dac_error_ppm
+    limit: 10000.0
+    distribution: uniform
+  - param: timebase.clock_ppm
+    limit: 25.0
+    distribution: uniform
+components:
+  # 示波器由通用模块组成（instrument-authoring.md 8.4）。
+  - name: acq
+    type: scope_acquisition
+    params:
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
+      mode: $trigger.sweep
+      auto: [AUTO]
+      normal: [NORMal]
+      # :DIGitize（与 :SINGle）采一条记录，完成后停止；运行中每次读取都取新的采集。
+      reacquire: every_read
+      missing: acquire
+      untriggered: record
+      # :DIGitize 在记录填满后返回；*OPC? 等待未完成的操作（手册 *OPC）；没有触发时一直等（手册：
+      # 用 device clear 中止进行中的 :DIGitize）。
+      completion: pending
+      opc_waits: true
+      while_waiting: previous
+      no_trigger: wait
+      processing: {from: $acquire.type, map: {AVERage: average}, default: normal}
+      averages: $acquire.count
+  # 时基：存储深度 100 kpts，采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；参考位置 LEFT /
+  # CENTer / RIGHt 为离左边 1 格、中央、离右边 1 格（手册 :TIMebase:REFerence）。
+  - name: timebase
+    type: scope_timebase
+    params:
+      scale: $timebase.scale
+      delay: $timebase.position
+      reference_divs: {from: $timebase.reference, map: {LEFT: 1.0, CENTer: 5.0, RIGHt: 9.0}}
+      record_length: rate_ladder
+      points: 100000
+  # 边沿触发：AC 耦合为 10 Hz 高通，LFReject 耦合与 LFReject 抑制为 50 kHz 高通，HFReject 抑制与
+  # :TRIGger:HFReject 为 50 kHz 低通（手册）；电平在信源屏幕中心 ±0.75 满量程（±6 格）内；释抑
+  # 40 ns 到 10 s。迟滞取数据手册的触发灵敏度 0.6 格的一半；噪声抑制的迟滞加宽到 1 格（假设值）。
+  - name: trigger
+    type: scope_trigger
+    params:
+      source: $trigger.source
+      level: $trigger.level
+      slope: $trigger.slope
+      rising: [POSitive, EITHer, ALTernate]
+      falling: [NEGative, EITHer, ALTernate]
+      level_range_divs: 6.0
+      coupling: $trigger.coupling
+      reject: $trigger.reject
+      hf_reject: $trigger.hfreject
+      filters:
+        AC: [[highpass, 10.0]]
+        LFReject: [[highpass, 5.0e4]]
+        HFReject: [[lowpass, 5.0e4]]
+        HF: [[lowpass, 5.0e4]]
+      hysteresis_divs: 0.3
+      noise_reject: $trigger.nreject
+      reject_hysteresis_divs: 1.0
+      holdoff: $trigger.holdoff
+      external: [EXTernal]
+      line: [LINE]
+  # ADC：8 位；BYTE 数据的 256 个码值对应屏幕的 8 格（手册：码值 1 与 255 表示削到屏幕底部与顶部），
+  # 偏置为屏幕中心的电压。CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
+  - name: adc
+    type: scope_adc
+    params:
+      bits: 8
+      codes_per_div: 32.0
+      divs: 8.0
+      offset_sign: subtract
+      max_rate: 2.0e9
+      max_rate_paired: 1.0e9
+      rate_pairs: [[1, 2], [3, 4]]
+  # 外触发输入 EXT TRIG：1 MΩ（*RST 表：外触发阻抗 1 MΩ，不可改）。
+  - name: extin
+    type: input_port
+    params:
+      z_in: 1.0e6
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $measure.source
+      invalid_value: "+9.9E+37"
+  - name: xfer
+    type: waveform_transfer
+    params:
+      source: $waveform.source
+      # :WAVeform:DATA?：#8 定长块。BYTE 为 8 位码、WORD 为左移到 16 位的码（手册），ASCii 为逗号分隔的伏特数；
+      # 码 0 表示没有数据。:WAVeform:POINts 在屏幕记录上均匀取点（1000 取 500 即隔一个取一个，手册）；
+      # NORMal 方式最多 1000 点。
+      encoding: {from: $waveform.format, map: {WORD: block, BYTE: block, ASCii: ascii_block}}
+      values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
+      digits: 6
+      count: $waveform.points
+      count_mode: spread
+      max_points: {from: $waveform.points_mode, map: {NORMal: 1000}, default: 0}
+      over_limit: truncate
+      codes_per_div: 32.0
+      adc_bits: 8
+      width: {from: $waveform.format, map: {WORD: 16}, default: 8}
+      offset: subtract
+      unsigned: $waveform.unsigned
+      reserve_lowest: true
+      byteorder: $waveform.byteorder
+      block_digits: 8
+      # :WAVeform:PREamble?：format,type,points,count,xincrement,xorigin,xreference,yincrement,yorigin,yreference。
+      header:
+        encoding: text
+        separator: ","
+        fields:
+          - {setting: waveform.format, map: {BYTE: 0, WORD: 1, ASCii: 4}}
+          - {setting: acquire.type, map: {NORMal: 0, PEAK: 1, AVERage: 2, HRESolution: 3}}
+          - {figure: points}
+          - {setting: acquire.count, when: {acquire.type: AVERage}, else: 1}
+          - {figure: x_increment, format: "%+.11E"}
+          - {figure: x_start, format: "%+.11E"}
+          - {value: 0}
+          - {figure: y_increment, format: "%+.5E"}
+          - {figure: y_origin, format: "%+.5E"}
+          - {figure: y_reference}
+channel_components:
+  - name: inp
+    type: input_port
+    params:
+      z_in: 1.0e6
+      c_in: 1.1e-11
+  # 档位 1 mV/div 到 5 V/div（探头 1:1 的输入端），偏置 ±2 V（≤ 200 mV/div）或 ±50 V（数据手册）；
+  # 超出范围时取最近的合法值（手册 :CHANnel<n>:OFFSet）。带宽限制约 20 MHz（数据手册）。
+  - name: front
+    type: scope_vertical
+    params:
+      coupling: $ch.coupling
+      bandwidth: 2.0e8
+      bw_limit: $ch.bwlimit
+      bw_limit_hz: 2.0e7
+      ac_corner: 10.0
+      scale: $ch.scale
+      offset: $ch.offset
+      probe_ratio: $ch.probe
+      scale_range: [1.0e-3, 5.0]
+      offset_ranges: [[0.2, 2.0], [.inf, 50.0]]
+      out_of_range: clamp
+  # 改探头比时，刻度与偏置随之乘以探头比（手册 :CHANnel<n>:SCALe）。
+  - name: probe
+    type: scope_probe
+    params:
+      ratio: $ch.probe
+      rescales: [$ch.scale, $ch.offset]
+wiring:
+  channel:
+    - [inp.out, front.in]
+    - [front.out, probe.in]
+  instrument:
+    - ["ch{n}.probe.out", "acq.in{n}"]
+    - [extin.out, trigger.ext]
+ports:
+  channel:
+    "CH{n}": inp.pin
+  instrument:
+    EXT: extin.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, trigger.source, trigger.level, trigger.slope]
+  channel_summary: [display, scale, offset, coupling, probe]
+capabilities: [oscilloscope]
+commands:
+  # ---- Root ----
+  - {header: ":RUN", op: acq.run, query: false}
+  - {header: ":STOP", op: acq.stop, query: false}
+  - {header: ":SINGle", op: acq.digitize, query: false}
+  - header: ":DIGitize"
+    op: acq.digitize
+    query: false
+    params: [{name: sources, type: raw}]
+  # ---- ACQuire ----
+  - {header: ":ACQuire:TYPE", state: acquire.type}
+  - {header: ":ACQuire:COUNt", state: acquire.count}
+  - {header: ":ACQuire:MODE", state: acquire.mode}
+  - {header: ":ACQuire:COMPlete", state: acquire.complete}
+  - {header: ":ACQuire:POINts", op: acq.figure, args: {what: points, integer: true}, set: false}
+  - {header: ":ACQuire:SRATe", op: acq.figure, args: {what: sample_rate, significant: 3}, set: false}
+  # ---- CHANnel<n> ----
+  - {header: ":CHANnel<ch>:SCALe", state: ch.scale, format: {number: engineering, significant: 3}}
+  - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0, format: {number: engineering, significant: 3}}
+  - {header: ":CHANnel<ch>:OFFSet", state: ch.offset, format: {number: engineering, significant: 6}}
+  - {header: ":CHANnel<ch>:COUPling", state: ch.coupling}
+  - {header: ":CHANnel<ch>:PROBe", state: ch.probe, format: {number: engineering, significant: 2}}
+  - {header: ":CHANnel<ch>:BWLimit", state: ch.bwlimit}
+  - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
+  - {header: ":CHANnel<ch>:IMPedance", state: ch.impedance}
+  # ---- MEASure ----
+  - header: ":MEASure:SOURce"
+    params:
+      - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: measure.source}
+      - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true, state: measure.source2}
+    reply: "{measure.source},{measure.source2}"
+  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VAVerage", op: meas.measure, set: false, args: {what: VAVerage}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VRMS", op: meas.measure, set: false, args: {what: VRMS}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:FREQuency", op: meas.measure, set: false, args: {what: FREQuency}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PERiod", op: meas.measure, set: false, args: {what: PERiod}, params: [{name: source, type: raw}]}
+  # ---- TIMebase ----
+  - {header: ":TIMebase:SCALe", state: timebase.scale, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:POSition", state: timebase.position, format: {number: engineering, significant: 2}}
+  - {header: ":TIMebase:REFerence", state: timebase.reference}
+  - {header: ":TIMebase:MODE", state: timebase.mode}
+  # ---- TRIGger ----
+  - {header: ":TRIGger:MODE", state: trigger.mode}
+  - {header: ":TRIGger:SWEep", state: trigger.sweep}
+  - {header: ":TRIGger:NREJect", state: trigger.nreject}
+  - {header: ":TRIGger:HFReject", state: trigger.hfreject}
+  - {header: ":TRIGger:HOLDoff", state: trigger.holdoff, format: {number: engineering, significant: 15}}
+  - {header: ":TRIGger[:EDGE]:SOURce", state: trigger.source}
+  - {header: ":TRIGger[:EDGE]:LEVel", state: trigger.level, format: {number: engineering, significant: 6}}
+  - {header: ":TRIGger[:EDGE]:SLOPe", state: trigger.slope}
+  - {header: ":TRIGger[:EDGE]:COUPling", state: trigger.coupling}
+  - {header: ":TRIGger[:EDGE]:REJect", state: trigger.reject}
+  # ---- WAVeform ----
+  - {header: ":WAVeform:SOURce", state: waveform.source}
+  - {header: ":WAVeform:FORMat", state: waveform.format}
+  - {header: ":WAVeform:BYTeorder", state: waveform.byteorder}
+  - {header: ":WAVeform:UNSigned", state: waveform.unsigned}
+  - {header: ":WAVeform:POINts", state: waveform.points, format: {integer: signed}}
+  - {header: ":WAVeform:POINts:MODE", state: waveform.points_mode, format: {enum: as_defined}}
+  - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
+  - {header: ":WAVeform:DATA", op: xfer.data, set: false}
+  - {header: ":WAVeform:TYPE", state: acquire.type, set: false}
+  - {header: ":WAVeform:XINCrement", op: xfer.figure, set: false, args: {what: x_increment, format: "%+.11E"}}
+  - {header: ":WAVeform:XORigin", op: xfer.figure, set: false, args: {what: x_start, format: "%+.11E"}}
+  - {header: ":WAVeform:XREFerence", op: xfer.figure, set: false, args: {what: x_reference}}
+  - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment, format: "%+.5E"}}
+  - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin, format: "%+.5E"}}
+  - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}

@@ -143,6 +143,15 @@ cases:
 
 **第二个产品型号**：`siglent-sdg2042x`（D45）。SDG 的命令不是 SCPI 树，而是 Siglent 自己的键值写法（`C1:BSWV WVTP,SINE,FRQ,1000`），回复带命令头与单位（`C1:BSWV WVTP,SINE,FRQ,100HZ,...`），所以这些命令都是组件操作（`library/components/siglent_sdg.py`），由组件拼出完整回复。手册的命令头写法也不全是 SCPI 的长短格式：`ParaCoPy` 的短格式是 `PACP`，定义中写成 `PAraCoPy`，使大写字母就是短格式。
 
+**第三个产品型号**：`keysight-dsox2024a`（D45，示波器的开发验证基准）。覆盖表由编程手册的命令索引生成（485 条），`*RST` 的示例回复逐条对过；`examples/scripts/keysight_dsox_read_waveform.py` 按手册的波形章节编写（`:DIGitize`、`:WAVeform:PREamble?`、`(code - yreference) * yincrement + yorigin`），在真机和 SimuBench 上都能直接运行（`tests/test_keysight_dsox.py`）。为它补上的通用能力（`tests/test_number_formats.py`）：
+
+- 返回格式 `significant`：有效数字位数固定的工程记数（`+40.0E+00`、`+60.0000000000000E-09`），由命令级 `format` 逐条给出；
+- 命令的 `factor`：命令的数是设置乘以系数（`:CHANnel<n>:RANGe` 为 8 格，`:TIMebase:RANGe` 为 10 格），写入时除回去，范围仍按设置检查；
+- 组件的 `on_state` 可以返回调整后的值：`scope_vertical` 的 `out_of_range: clamp` 把超出范围的档位与偏置设为最近的合法值（手册的写法），改档位时偏置随之收进新的范围；探头比改变时按 `rescales` 换算档位与偏置；
+- `scope_timebase.reference_divs`：参考位置（左、中、右）决定触发前的格数；
+- `waveform_transfer`：`reserve_lowest`（最低码表示无数据，数据不落在它上面）、`ascii_block`（ASCII 列表放在定长块里）、头字段的 `when` / `else`、op `figure` 单独读出 x/y 增量、原点与参考；16 位字的 y 增量按移位后的码计算；
+- `scope_trigger` 的 `reject` / `hf_reject`：触发路径上的低频、高频抑制滤波。
+
 ## 9. 内置定义与验证定义
 
 - **内置**：`src/simubench/library/instruments/` 只放真实型号的定义与覆盖表，随 wheel 发布，是元件库、MCP `list_catalog` 与命令行默认列出的全部仪表。

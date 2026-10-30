@@ -276,8 +276,9 @@ class Component:
 
     # ---- lifecycle ---------------------------------------------------------------------------
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        """Called after a bound state variable changed; raise ScpiError to refuse the change."""
+    def on_state(self, path: str, old: Any, new: Any) -> Any:
+        """Called after a bound state variable changed; raise ScpiError to refuse the change, or
+        return the value to keep instead (e.g. the nearest legal one). None keeps ``new``."""
 
     def reset(self) -> None:
         """Return runtime state to power-on (``*RST``)."""

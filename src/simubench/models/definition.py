@@ -190,6 +190,13 @@ class ResponseFormat(_Model):
         "200E-3 (exponent a multiple of 3, shortest mantissa)",
     )
     digits: int = Field(6, ge=0, le=17, description="Digits after the decimal point (nr3 mantissa, nr2)")
+    significant: int | None = Field(
+        None,
+        ge=1,
+        le=17,
+        description="engineering with this many significant digits, signed and with exponent_digits: "
+        "+40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own",
+    )
     sign: bool = Field(True, description="Write '+' before non-negative numbers")
     exponent_digits: int = Field(2, ge=1, le=3, description="nr3: digits of the exponent, e.g. E+03 is 2")
     integer: Literal["plain", "signed", "engineering"] = Field(
@@ -216,6 +223,11 @@ class CommandSpec(_Model):
     params: list[ParamSpec] = Field(default_factory=list)
     args: dict[str, Any] = Field(
         default_factory=dict, description="Constant arguments passed to the operation"
+    )
+    factor: float = Field(
+        1.0,
+        description="The command's number is the bound setting times factor: :TIMebase:RANGe is "
+        "factor 10 on the time/div setting; a write divides by it",
     )
     duration: str | float | None = Field(None, description="Virtual time the command consumes (D12)")
     format: ResponseFormat | None = Field(None, description="Overrides the definition's response format")
