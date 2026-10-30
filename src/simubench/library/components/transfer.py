@@ -204,19 +204,20 @@ class WaveformTransfer(Component):
         bits = int(acq.adc_unit().param("bits")) if hasattr(acq, "adc_unit") else int(self.param("adc_bits"))
         per_div = acq.adc_codes_per_div() if hasattr(acq, "adc_codes_per_div") else 0.0
         width = int(self.param("width"))
+        first = int(sel[0]) if sel.size else int(self.param("first"))
+        last = int(sel[-1]) if sel.size else first - 1
+        span = int(sel[1] - sel[0]) if sel.size > 1 else 1
         return {
             "points": int(sel.size),
             "record_points": rec.volts.size,
-            "first": int(sel[0]) if sel.size else int(self.param("first")),
+            "first": first,
             "step": max(1, int(self.param("step"))),
             "bytes": int(sel.size) * (int(self.param("float") or 0) or width) // 8,
             "dt": rec.dt_s,
             "x_offset": -rec.trigger_index * rec.dt_s,
             # the time of the first point sent, and one sent point's span after the last (trigger: 0)
-            "x_start": (int(sel[0]) - rec.trigger_index) * rec.dt_s if sel.size else 0.0,
-            "x_stop": (int(sel[-1]) + int(sel[1] - sel[0] if sel.size > 1 else 1) - rec.trigger_index) * rec.dt_s
-            if sel.size
-            else 0.0,
+            "x_start": (first - rec.trigger_index) * rec.dt_s,
+            "x_stop": (last + span - rec.trigger_index) * rec.dt_s,
             "offset": rec.offset,
             "scale": rec.scale,
             "probe": probe,
