@@ -1080,9 +1080,98 @@ class ScopeAcquisition(Component):
         return OpResult(V.format_float(value))
 
 
-def _measure(what: str, v: np.ndarray, dt: float) -> float:
+#: Bins of a record's histogram, from which the top and the base are read. Fine against any
+#: ADC grid a record can have, so a modal bin is one level and its mean is that level.
+TOP_BASE_BINS = 1000
+#: A half of that histogram holds a level when its fullest bin holds at least this times the
+#: average of the half's occupied bins; a ramp fills it evenly and has no levels to tell.
+TOP_BASE_PEAK = 2.0
+#: Half the frequency counter's hysteresis band, of top minus base: a crossing counts only
+#: after the record reached below the band, so noise near the middle cannot fake one.
+FREQ_HYSTERESIS = 0.1
+
+
+def _top_base(v: np.ndarray) -> tuple[float, float] | None:
+    """Top and base of a record: the modes of its histogram in the upper and the lower half.
+
+    AMPLitude and the frequency counter take the levels the waveform rests on, not the halves'
+    medians (a sine's upper median sits at 0.707 of its peak) and not the extremes (a noise
+    spike would count as amplitude). Each half must form a peak — its fullest bin holding at
+    least twice the average of the half's occupied bins — otherwise no levels can be told (a
+    ramp or triangle fills the histogram evenly) and None comes back; the caller falls back to
+    the extremes. The level is the mean of the samples in its modal bin.
+    """
     vmax, vmin = float(v.max()), float(v.min())
+    if not vmax > vmin:
+        return None
+    counts, edges = np.histogram(v, bins=TOP_BASE_BINS, range=(vmin, vmax))
+    centres = (edges[:-1] + edges[1:]) / 2
     mid = (vmax + vmin) / 2
+    levels: list[float] = []
+    for above in (True, False):
+        idx = np.nonzero(centres > mid if above else centres < mid)[0]
+        if not idx.size:
+            return None
+        top = idx[np.argmax(counts[idx])]
+        taken = counts[idx][counts[idx] > 0]
+        if counts[top] < TOP_BASE_PEAK * taken.mean() or taken.size < 2:
+            return None
+        sel = (v >= edges[top]) & (v <= edges[top + 1])
+        levels.append(float(v[sel].mean()))
+    return levels[0], levels[1]
+
+
+def _period(v: np.ndarray, dt: float) -> float | None:
+    """The record's period, or None when it holds no complete cycle.
+
+    The counter runs on the hysteresis band the top and the base set around the middle (the
+    10 % / 50 % / 90 % reference levels; frequency counts the middle one): a rising crossing
+    counts only after the record last reached below the band's lower edge, so noise and
+    quantization near the middle cannot fake crossings, and a swing that never gets above the
+    band's upper edge counts for nothing. Each crossing is interpolated on the middle for
+    sub-sample time; the period is the least-squares slope of crossing time against crossing
+    number, which noise on the single crossings averages out of. The band comes from the top
+    and the base, falling back to the extremes when the histogram forms no peaks (a triangle
+    has no levels to tell but a well-defined span).
+    """
+    levels = _top_base(v)
+    if levels is None:
+        vmax, vmin = float(v.max()), float(v.min())
+        levels = (vmax, vmin) if vmax > vmin else None
+    if levels is None:
+        return None
+    top, base = levels
+    mid = (top + base) / 2
+    h = FREQ_HYSTERESIS * (top - base)
+    n = v.size
+    idx = np.arange(n)
+    last_below = np.maximum.accumulate(np.where(v <= mid - h, idx, -1))
+    last_above = np.maximum.accumulate(np.where(v >= mid + h, idx, -1))
+    if v[0] <= mid:  # the record opens in the lower half: its first rise is countable
+        last_below = np.maximum(last_below, 0)
+    above_before = np.concatenate(([-1], last_above[:-1]))  # the hit's own sample does not count
+    hit = np.nonzero((last_below > above_before) & (v >= mid + h))[0]
+    if hit.size < 2:
+        return None
+    times = np.empty(hit.size)
+    for j, i in enumerate(hit):
+        seg = v[last_below[i] : i + 1]  # the swing: from not above the middle to above the band
+        k = last_below[i] + int(np.nonzero((seg[:-1] <= mid) & (seg[1:] > mid))[0][0])
+        frac = (mid - float(v[k])) / (float(v[k + 1]) - float(v[k]))
+        times[j] = (k + min(max(frac, 0.0), 1.0)) * dt
+    seq = np.arange(times.size, dtype=float)
+    seq -= seq.mean()
+    slope = float(np.dot(seq, times - times.mean()) / np.dot(seq, seq))
+    return slope if slope > 0 else None
+
+
+def _measure(what: str, v: np.ndarray, dt: float) -> float:
+    """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod.
+
+    Unmeasurable — no complete cycle in the record — comes back as NaN, which the callers
+    report as the definition's invalid value.
+    """
+    vmax, vmin = float(v.max()), float(v.min())
     if what == "VPP":
         return vmax - vmin
     if what == "VMAX":
@@ -1094,17 +1183,11 @@ def _measure(what: str, v: np.ndarray, dt: float) -> float:
     if what == "VRMS":
         return float(np.sqrt(np.mean(v**2)))
     if what == "VAMPlitude":
-        hi = v[v >= mid]
-        lo = v[v < mid]
-        return float(np.median(hi) - np.median(lo)) if hi.size and lo.size else vmax - vmin
+        levels = _top_base(v)
+        return levels[0] - levels[1] if levels else vmax - vmin
     if what in ("FREQuency", "PERiod"):
-        s = (v - mid) < 0  # not signbit: quantized records hold -0.0, which is not below the middle
-        rising = np.nonzero(s[:-1] & ~s[1:])[0]
-        if rising.size < 2:
+        period = _period(v, dt)
+        if period is None:
             return math.nan
-        # Interpolate each crossing for sub-sample accuracy.
-        x0, x1 = v[rising] - mid, v[rising + 1] - mid
-        t = (rising + (-x0) / (x1 - x0)) * dt
-        period = float(np.mean(np.diff(t)))
         return 1.0 / period if what == "FREQuency" else period
     raise ScpiError(-113, f"measurement {what!r} not supported")
