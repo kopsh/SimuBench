@@ -1,0 +1,16 @@
+schema: simubench.bench/1
+name: sds5522a_cal
+description: >-
+  Fluke 5522A 校准仪驱动 SDS2104X Plus（deviation: from_specs，按定义的个体偏差抽取）：
+  "核查 → 调整（*CAL? 自校准）→ 复核"契约用例的测试台（instrument-authoring.md 8.5 衡量 5）。
+  5 V/div 下 10 V 占 2 格；直流增益精度 ±3%（specs.dc_gain_accuracy）。
+instruments:
+  cal:
+    model: fluke-5522a
+  scope:
+    model: siglent-sds2104xplus
+    deviation: from_specs
+    state: {timebase.scale: 1.0e-3, ch1.scale: 5.0}
+wires:
+  - {from: cal.OUT, to: scope.CH1}
+run: {seed: 11, clock: command}

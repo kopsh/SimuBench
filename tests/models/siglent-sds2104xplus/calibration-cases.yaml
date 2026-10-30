@@ -1,0 +1,46 @@
+# 契约用例：用 5522A 校准 SDS2104X Plus 的"核查 → 调整 → 复核"（instrument-authoring.md 8.5 衡量 5）。
+#   simubench cases tests/models/siglent-sds2104xplus/calibration-cases.yaml
+# 每条在刚上电的测试台上运行。核查按数据手册的直流增益精度（±3%，specs.dc_gain_accuracy）判定，
+# 容差含 1 个 ADC 码（5 V/div 每码 166.7 mV）的量化；调整是 *CAL? 自校准（SDS 系列编程手册的
+# SYSTEM *CAL?：回复 *CAL 0 = 成功；真机要求先断开输入，所以先 STBY），系数进校准存储、按显示 V/div
+# 生效；复核只留量化与噪声的余量（±0.2 V）。
+bench: calibration.bench.yaml
+instrument: scope
+cases:
+  - name: 核查：±10 V 直流在数据手册的增益精度内
+    manual: "EN01D dc_gain_accuracy ±3%；5522A 手册的输出流程（OUT 设定、OPER 进入工作、建立时间后读数）"
+    steps:
+      - {instrument: cal, send: "OUT 10 V"}
+      - {instrument: cal, send: "OPER"}
+      - {instrument: cal, query: "*OPC?", expect: "1"}
+      - query: ":MEASure:SIMPle:VALue? MAX"
+        expect_value: 10.0
+        tolerance: 0.5
+      - {instrument: cal, send: "OUT -10 V"}
+      - {instrument: cal, query: "*OPC?", expect: "1"}
+      - query: ":MEASure:SIMPle:VALue? MIN"
+        expect_value: -10.0
+        tolerance: 0.5
+  - name: 调整：断开输入、自校准写入系数，复核回到量化余量
+    manual: "SDS 系列编程手册 SYSTEM *CAL?（回复 *CAL 0 = 校准成功）；输入断开后自校准，再按原流程复核"
+    steps:
+      - {instrument: cal, send: "OUT 10 V"}
+      - {instrument: cal, send: "OPER"}
+      - {instrument: cal, query: "*OPC?", expect: "1"}
+      - query: ":MEASure:SIMPle:VALue? MAX"
+        expect_value: 10.0
+        tolerance: 0.5
+      - {instrument: cal, send: "STBY"}
+      - query: "*CAL?"
+        expect: "*CAL 0"
+      - {instrument: cal, send: "OUT 10 V"}
+      - {instrument: cal, send: "OPER"}
+      - {instrument: cal, query: "*OPC?", expect: "1"}
+      - query: ":MEASure:SIMPle:VALue? MAX"
+        expect_value: 10.0
+        tolerance: 0.2
+      - {instrument: cal, send: "OUT -10 V"}
+      - {instrument: cal, query: "*OPC?", expect: "1"}
+      - query: ":MEASure:SIMPle:VALue? MIN"
+        expect_value: -10.0
+        tolerance: 0.2
