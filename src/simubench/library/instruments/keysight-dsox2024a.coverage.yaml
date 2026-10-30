@@ -1,0 +1,1076 @@
+# Generated from the command index of the InfiniiVision 2000 X-Series Programmer's Guide 02.66.0000; levels and notes by hand.
+schema: simubench.coverage/1
+model: keysight-dsox2024a
+sections:
+- section: Common (*) Commands (Programmer's Guide 02.66, ch. 5)
+  commands:
+  - header: '*CLS'
+    level: implemented
+  - header: '*ESE'
+    level: implemented
+  - header: '*ESR'
+    level: implemented
+  - header: '*IDN'
+    level: implemented
+    note: 'AGILENT TECHNOLOGIES,DSO-X 2024A,<serial>,<software revision> as the guide writes it; serial MY58260001 and revision 02.66.0000 are SimuBench values'
+  - header: '*LRN'
+    level: not_modeled
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC? waits for a :DIGitize or :SINGle in progress; without a trigger it does not answer (the guide: use device clear to halt a :DIGitize)'
+  - header: '*OPT'
+    level: not_modeled
+  - header: '*RCL'
+    level: not_modeled
+  - header: '*RST'
+    level: implemented
+    note: 'the guide''s reset conditions (CH1 on at 5 V/div with the 10:1 probe, offset 0, DC, 100 us/div, centre reference, edge trigger on CH1 at 0 V rising, AUTO, holdoff 40 ns, NORMal acquisition with 8 averages, BYTE unsigned MSBFirst 1000 points). The guide''s :TRIGger? sample after *RST shows HOLD 60 ns; the reset table''s 40 ns is used'
+  - header: '*SAV'
+    level: not_modeled
+  - header: '*SRE'
+    level: implemented
+  - header: '*STB'
+    level: implemented
+  - header: '*TRG'
+    level: not_modeled
+  - header: '*TST'
+    level: implemented
+  - header: '*WAI'
+    level: implemented
+- section: Root (:) Commands (Programmer's Guide 02.66, ch. 6)
+  commands:
+  - header: :ACTivity
+    level: not_modeled
+  - header: :AER
+    level: not_modeled
+  - header: :AUToscale
+    level: not_modeled
+  - header: :AUToscale:AMODE
+    level: not_modeled
+  - header: :AUToscale:CHANnels
+    level: not_modeled
+  - header: :AUToscale:FDEBug
+    level: not_modeled
+  - header: :BLANk
+    level: not_modeled
+  - header: :DIGitize
+    level: implemented
+    note: 'acquires the displayed channels (or the ones named) and stops; returns once the record is full (virtual time), and waits while there is no trigger. FUNCtion, MATH, SBUS1 and digital sources are not modeled'
+  - header: :MTEenable
+    level: not_modeled
+  - header: :MTERegister[:EVENt]
+    level: not_modeled
+  - header: :OPEE
+    level: not_modeled
+  - header: :OPERegister:CONDition
+    level: not_modeled
+  - header: :OPERegister[:EVENt]
+    level: not_modeled
+  - header: :OVLenable
+    level: not_modeled
+  - header: :OVLRegister
+    level: not_modeled
+  - header: :PRINt
+    level: not_modeled
+  - header: :RUN
+    level: implemented
+  - header: :SERial
+    level: not_modeled
+  - header: :SINGle
+    level: implemented
+    note: 'takes one acquisition the way :DIGitize does and stops'
+  - header: :STATus
+    level: not_modeled
+  - header: :STOP
+    level: implemented
+  - header: :TER
+    level: not_modeled
+  - header: :VIEW
+    level: not_modeled
+- section: :ACQuire Commands (Programmer's Guide 02.66, ch. 7)
+  commands:
+  - header: :ACQuire:COMPlete
+    level: implemented
+    note: '100 only, as the guide says'
+  - header: :ACQuire:COUNt
+    level: implemented
+    note: '2 to 65536; averaging divides the noise by the square root of the count'
+  - header: :ACQuire:MODE
+    level: implemented
+    note: 'stored; SEGMented acquisition is not modeled'
+  - header: :ACQuire:POINts
+    level: implemented
+    note: 'the record length: 100 kpts (standard memory, data sheet)'
+  - header: :ACQuire:SEGMented:ANALyze
+    level: not_modeled
+  - header: :ACQuire:SEGMented:COUNt
+    level: not_modeled
+  - header: :ACQuire:SEGMented:INDex
+    level: not_modeled
+  - header: :ACQuire:SRATe
+    level: implemented
+    note: 'min(2 GSa/s, 1 GSa/s with both channels of a pair on, 100 kpts / 10 div) on a 1-2-5 ladder (data sheet); reply digits are a SimuBench choice (the guide shows none)'
+  - header: :ACQuire:TYPE
+    level: implemented
+    note: 'NORMal and AVERage change the data; HRESolution and PEAK are stored and acquire as NORMal'
+- section: :BUS<n> Commands (Programmer's Guide 02.66, ch. 8)
+  commands:
+  - header: :BUS<n>:BIT<m>
+    level: not_modeled
+  - header: :BUS<n>:BITS
+    level: not_modeled
+  - header: :BUS<n>:CLEar
+    level: not_modeled
+  - header: :BUS<n>:DISPlay
+    level: not_modeled
+  - header: :BUS<n>:LABel
+    level: not_modeled
+  - header: :BUS<n>:MASK
+    level: not_modeled
+- section: :CALibrate Commands (Programmer's Guide 02.66, ch. 9)
+  commands:
+  - header: :CALibrate:DATE
+    level: not_modeled
+  - header: :CALibrate:LABel
+    level: not_modeled
+  - header: :CALibrate:OUTPut
+    level: not_modeled
+  - header: :CALibrate:PROTected
+    level: not_modeled
+  - header: :CALibrate:STARt
+    level: not_modeled
+  - header: :CALibrate:STATus
+    level: not_modeled
+  - header: :CALibrate:TEMPerature
+    level: not_modeled
+  - header: :CALibrate:TIME
+    level: not_modeled
+- section: :CHANnel<n> Commands (Programmer's Guide 02.66, ch. 10)
+  commands:
+  - header: :CHANnel<ch>:BANDwidth
+    level: not_modeled
+  - header: :CHANnel<ch>:BWLimit
+    level: implemented
+    note: 'about 20 MHz (data sheet; the guide says approximately 25 MHz)'
+  - header: :CHANnel<ch>:COUPling
+    level: implemented
+    note: 'AC is a 10 Hz high-pass (the corner is a SimuBench value; neither document gives it)'
+  - header: :CHANnel<ch>:DISPlay
+    level: implemented
+  - header: :CHANnel<ch>:IMPedance
+    level: implemented
+    note: 'ONEMeg only (the guide); 1 MΩ ∥ 11 pF (data sheet)'
+  - header: :CHANnel<ch>:INVert
+    level: not_modeled
+  - header: :CHANnel<ch>:LABel
+    level: not_modeled
+  - header: :CHANnel<ch>:OFFSet
+    level: implemented
+    note: '±2 V up to 200 mV/div, ±50 V above (data sheet, at the input); out of range it takes the nearest legal value (the guide)'
+  - header: :CHANnel<ch>:PROBe
+    level: implemented
+    note: '0.001 to 10000 and X1, X10, X20, X100; scale and offset follow the ratio (the guide)'
+  - header: :CHANnel<ch>:PROBe:HEAD[:TYPE]
+    level: not_modeled
+  - header: :CHANnel<ch>:PROBe:ID
+    level: not_modeled
+  - header: :CHANnel<ch>:PROBe:SKEW
+    level: not_modeled
+  - header: :CHANnel<ch>:PROBe:STYPe
+    level: not_modeled
+  - header: :CHANnel<ch>:PROTection
+    level: not_modeled
+  - header: :CHANnel<ch>:RANGe
+    level: implemented
+    note: 'eight divisions of :SCALe; 8 mV to 40 V at 1:1'
+  - header: :CHANnel<ch>:SCALe
+    level: implemented
+    note: '1 mV/div to 5 V/div at the input (data sheet); out of range it takes the nearest legal value (as the offset; the guide does not say); reply digits like :RANGe''s sample'
+  - header: :CHANnel<ch>:UNITs
+    level: not_modeled
+  - header: :CHANnel<ch>:VERNier
+    level: not_modeled
+- section: :DEMO Commands (Programmer's Guide 02.66, ch. 11)
+  commands:
+  - header: :DEMO:FUNCtion
+    level: not_modeled
+  - header: :DEMO:FUNCtion:PHASe:PHASe
+    level: not_modeled
+  - header: :DEMO:OUTPut
+    level: not_modeled
+- section: :DIGital<d> Commands (Programmer's Guide 02.66, ch. 12)
+  commands:
+  - header: :DIGital<d>:DISPlay
+    level: not_modeled
+  - header: :DIGital<d>:LABel
+    level: not_modeled
+  - header: :DIGital<d>:POSition
+    level: not_modeled
+  - header: :DIGital<d>:SIZE
+    level: not_modeled
+  - header: :DIGital<d>:THReshold
+    level: not_modeled
+- section: :DISPlay Commands (Programmer's Guide 02.66, ch. 13)
+  commands:
+  - header: :DISPlay:ANNotation
+    level: not_modeled
+  - header: :DISPlay:ANNotation:BACKground
+    level: not_modeled
+  - header: :DISPlay:ANNotation:COLor
+    level: not_modeled
+  - header: :DISPlay:ANNotation:TEXT
+    level: not_modeled
+  - header: :DISPlay:CLEar
+    level: not_modeled
+  - header: :DISPlay:DATA
+    level: not_modeled
+  - header: :DISPlay:INTensity:WAVeform
+    level: not_modeled
+  - header: :DISPlay:LABel
+    level: not_modeled
+  - header: :DISPlay:LABList
+    level: not_modeled
+  - header: :DISPlay:PERSistence
+    level: not_modeled
+  - header: :DISPlay:PERSistence:CLEar
+    level: not_modeled
+  - header: :DISPlay:VECTors
+    level: not_modeled
+- section: :DVM Commands (Programmer's Guide 02.66, ch. 14)
+  commands:
+  - header: :DVM:ARANge
+    level: not_modeled
+  - header: :DVM:CURRent
+    level: not_modeled
+  - header: :DVM:ENABle
+    level: not_modeled
+  - header: :DVM:FREQuency
+    level: not_modeled
+  - header: :DVM:MODE
+    level: not_modeled
+  - header: :DVM:SOURce
+    level: not_modeled
+- section: :EXTernal Trigger Commands (Programmer's Guide 02.66, ch. 15)
+  commands:
+  - header: :EXTernal:BWLimit
+    level: not_modeled
+  - header: :EXTernal:PROBe
+    level: not_modeled
+  - header: :EXTernal:RANGe
+    level: not_modeled
+  - header: :EXTernal:UNITs
+    level: not_modeled
+- section: :FUNCtion Commands (Programmer's Guide 02.66, ch. 16)
+  commands:
+  - header: :FUNCtion:BUS:CLOCk
+    level: not_modeled
+  - header: :FUNCtion:BUS:SLOPe
+    level: not_modeled
+  - header: :FUNCtion:BUS:YINCrement
+    level: not_modeled
+  - header: :FUNCtion:BUS:YORigin
+    level: not_modeled
+  - header: :FUNCtion:BUS:YUNits
+    level: not_modeled
+  - header: :FUNCtion:DISPlay
+    level: not_modeled
+  - header: :FUNCtion[:FFT]:CENTer
+    level: not_modeled
+  - header: :FUNCtion[:FFT]:SPAN
+    level: not_modeled
+  - header: :FUNCtion[:FFT]:VTYPe
+    level: not_modeled
+  - header: :FUNCtion[:FFT]:WINDow
+    level: not_modeled
+  - header: :FUNCtion:FREQuency:HIGHpass
+    level: not_modeled
+  - header: :FUNCtion:FREQuency:LOWPass
+    level: not_modeled
+  - header: :FUNCtion:GOFT:OPERation
+    level: not_modeled
+  - header: :FUNCtion:GOFT:SOURce1
+    level: not_modeled
+  - header: :FUNCtion:GOFT:SOURce2
+    level: not_modeled
+  - header: :FUNCtion:INTegrate:IOFFset
+    level: not_modeled
+  - header: :FUNCtion:LINear:GAIN
+    level: not_modeled
+  - header: :FUNCtion:LINear:OFFSet
+    level: not_modeled
+  - header: :FUNCtion:OFFSet
+    level: not_modeled
+  - header: :FUNCtion:OPERation
+    level: not_modeled
+  - header: :FUNCtion:RANGe
+    level: not_modeled
+  - header: :FUNCtion:REFerence
+    level: not_modeled
+  - header: :FUNCtion:SCALe
+    level: not_modeled
+  - header: :FUNCtion:SOURce1
+    level: not_modeled
+  - header: :FUNCtion:SOURce2
+    level: not_modeled
+  - header: :FUNCtion:TRENd:MEASurement
+    level: not_modeled
+- section: :HARDcopy Commands (Programmer's Guide 02.66, ch. 17)
+  commands:
+  - header: :HARDcopy:AREA
+    level: not_modeled
+  - header: :HARDcopy:APRinter
+    level: not_modeled
+  - header: :HARDcopy:FACTors
+    level: not_modeled
+  - header: :HARDcopy:FFEed
+    level: not_modeled
+  - header: :HARDcopy:INKSaver
+    level: not_modeled
+  - header: :HARDcopy:LAYout
+    level: not_modeled
+  - header: :HARDcopy:NETWork:ADDRess
+    level: not_modeled
+  - header: :HARDcopy:NETWork:APPLy
+    level: not_modeled
+  - header: :HARDcopy:NETWork:DOMain
+    level: not_modeled
+  - header: :HARDcopy:NETWork:PASSword
+    level: not_modeled
+  - header: :HARDcopy:NETWork:SLOT
+    level: not_modeled
+  - header: :HARDcopy:NETWork:USERname
+    level: not_modeled
+  - header: :HARDcopy:PALette
+    level: not_modeled
+  - header: :HARDcopy:PRINter:LIST
+    level: not_modeled
+  - header: :HARDcopy:STARt
+    level: not_modeled
+- section: :LISTer Commands (Programmer's Guide 02.66, ch. 18)
+  commands:
+  - header: :LISTer:DATA
+    level: not_modeled
+  - header: :LISTer:DISPlay
+    level: not_modeled
+  - header: :LISTer:REFerence
+    level: not_modeled
+- section: :MARKer Commands (Programmer's Guide 02.66, ch. 19)
+  commands:
+  - header: :MARKer:MODE
+    level: not_modeled
+  - header: :MARKer:X1Position
+    level: not_modeled
+  - header: :MARKer:X1Y1source
+    level: not_modeled
+  - header: :MARKer:X2Position
+    level: not_modeled
+  - header: :MARKer:X2Y2source
+    level: not_modeled
+  - header: :MARKer:XDELta
+    level: not_modeled
+  - header: :MARKer:XUNits
+    level: not_modeled
+  - header: :MARKer:XUNits:USE
+    level: not_modeled
+  - header: :MARKer:Y1Position
+    level: not_modeled
+  - header: :MARKer:Y2Position
+    level: not_modeled
+  - header: :MARKer:YDELta
+    level: not_modeled
+  - header: :MARKer:YUNits
+    level: not_modeled
+  - header: :MARKer:YUNits:USE
+    level: not_modeled
+- section: :MEASure Commands (Programmer's Guide 02.66, ch. 20)
+  commands:
+  - header: :MEASure:ALL
+    level: not_modeled
+  - header: :MEASure:BRATe
+    level: not_modeled
+  - header: :MEASure:CLEar
+    level: not_modeled
+  - header: :MEASure:DEFine
+    level: not_modeled
+  - header: :MEASure:DELay
+    level: not_modeled
+  - header: :MEASure:DUTYcycle
+    level: not_modeled
+  - header: :MEASure:FALLtime
+    level: not_modeled
+  - header: :MEASure:FREQuency
+    level: implemented
+    note: 'on the whole record (the guide: the cycle closest to the trigger); query only, the command form is not modeled; unmeasurable: +9.9E+37'
+  - header: :MEASure:NDUTy
+    level: not_modeled
+  - header: :MEASure:NEDGes
+    level: not_modeled
+  - header: :MEASure:NPULses
+    level: not_modeled
+  - header: :MEASure:NWIDth
+    level: not_modeled
+  - header: :MEASure:OVERshoot
+    level: not_modeled
+  - header: :MEASure:PEDGes
+    level: not_modeled
+  - header: :MEASure:PERiod
+    level: implemented
+    note: 'as :MEASure:FREQuency'
+  - header: :MEASure:PHASe
+    level: not_modeled
+  - header: :MEASure:PPULses
+    level: not_modeled
+  - header: :MEASure:PREShoot
+    level: not_modeled
+  - header: :MEASure:PWIDth
+    level: not_modeled
+  - header: :MEASure:RESults
+    level: not_modeled
+  - header: :MEASure:RISetime
+    level: not_modeled
+  - header: :MEASure:SHOW
+    level: not_modeled
+  - header: :MEASure:SOURce
+    level: implemented
+    note: 'CHANnel1 to CHANnel4 (FUNCtion, MATH, WMEMory not modeled)'
+  - header: :MEASure:TEDGe
+    level: not_modeled
+  - header: :MEASure:TVALue
+    level: not_modeled
+  - header: :MEASure:VAMPlitude
+    level: implemented
+    note: 'top minus base from the record''s histogram; query only'
+  - header: :MEASure:VAVerage
+    level: implemented
+    note: 'on the whole record (<interval> CYCLe is taken as DISPlay); query only'
+  - header: :MEASure:VBASe
+    level: not_modeled
+  - header: :MEASure:VMAX
+    level: implemented
+    note: 'query only'
+  - header: :MEASure:VMIN
+    level: implemented
+    note: 'query only'
+  - header: :MEASure:VPP
+    level: implemented
+    note: 'query only'
+  - header: :MEASure:VRMS
+    level: implemented
+    note: 'DC RMS on the whole record (<interval> and <type> AC are taken as DISPlay, DC); query only'
+  - header: :MEASure:VTIMe
+    level: not_modeled
+  - header: :MEASure:VTOP
+    level: not_modeled
+  - header: :MEASure:WINDow
+    level: not_modeled
+  - header: :MEASure:XMAX
+    level: not_modeled
+  - header: :MEASure:XMIN
+    level: not_modeled
+- section: :MTESt Commands (Programmer's Guide 02.66, ch. 21)
+  commands:
+  - header: :MTESt:ALL
+    level: not_modeled
+  - header: :MTESt:AMASk:CREate
+    level: not_modeled
+  - header: :MTESt:AMASk:SOURce
+    level: not_modeled
+  - header: :MTESt:AMASk:UNITs
+    level: not_modeled
+  - header: :MTESt:AMASk:XDELta
+    level: not_modeled
+  - header: :MTESt:AMASk:YDELta
+    level: not_modeled
+  - header: :MTESt:COUNt:FWAVeforms
+    level: not_modeled
+  - header: :MTESt:COUNt:RESet
+    level: not_modeled
+  - header: :MTESt:COUNt:TIME
+    level: not_modeled
+  - header: :MTESt:COUNt:WAVeforms
+    level: not_modeled
+  - header: :MTESt:DATA
+    level: not_modeled
+  - header: :MTESt:DELete
+    level: not_modeled
+  - header: :MTESt:ENABle
+    level: not_modeled
+  - header: :MTESt:LOCK
+    level: not_modeled
+  - header: :MTESt:RMODe
+    level: not_modeled
+  - header: :MTESt:RMODe:FACTion:MEASure
+    level: not_modeled
+  - header: :MTESt:RMODe:FACTion:PRINt
+    level: not_modeled
+  - header: :MTESt:RMODe:FACTion:SAVE
+    level: not_modeled
+  - header: :MTESt:RMODe:FACTion:STOP
+    level: not_modeled
+  - header: :MTESt:RMODe:SIGMa
+    level: not_modeled
+  - header: :MTESt:RMODe:TIME
+    level: not_modeled
+  - header: :MTESt:RMODe:WAVeforms
+    level: not_modeled
+  - header: :MTESt:SCALe:BIND
+    level: not_modeled
+  - header: :MTESt:SCALe:X1
+    level: not_modeled
+  - header: :MTESt:SCALe:XDELta
+    level: not_modeled
+  - header: :MTESt:SCALe:Y1
+    level: not_modeled
+  - header: :MTESt:SCALe:Y2
+    level: not_modeled
+  - header: :MTESt:SOURce
+    level: not_modeled
+  - header: :MTESt:TITLe
+    level: not_modeled
+- section: :POD Commands (Programmer's Guide 02.66, ch. 22)
+  commands:
+  - header: :POD<n>:DISPlay
+    level: not_modeled
+  - header: :POD<n>:SIZE
+    level: not_modeled
+  - header: :POD<n>:THReshold
+    level: not_modeled
+- section: :RECall Commands (Programmer's Guide 02.66, ch. 23)
+  commands:
+  - header: :RECall:FILename
+    level: not_modeled
+  - header: :RECall:MASK[:STARt]
+    level: not_modeled
+  - header: :RECall:PWD
+    level: not_modeled
+  - header: :RECall:SETup[:STARt]
+    level: not_modeled
+  - header: :RECall:WMEMory<r>[:STARt]
+    level: not_modeled
+- section: :SAVE Commands (Programmer's Guide 02.66, ch. 24)
+  commands:
+  - header: :SAVE:FILename
+    level: not_modeled
+  - header: :SAVE:IMAGe[:STARt]
+    level: not_modeled
+  - header: :SAVE:IMAGe:FACTors
+    level: not_modeled
+  - header: :SAVE:IMAGe:FORMat
+    level: not_modeled
+  - header: :SAVE:IMAGe:INKSaver
+    level: not_modeled
+  - header: :SAVE:IMAGe:PALette
+    level: not_modeled
+  - header: :SAVE:LISTer[:STARt]
+    level: not_modeled
+  - header: :SAVE:MASK[:STARt]
+    level: not_modeled
+  - header: :SAVE:MULTi[:STARt]
+    level: not_modeled
+  - header: :SAVE:PWD
+    level: not_modeled
+  - header: :SAVE:SETup[:STARt]
+    level: not_modeled
+  - header: :SAVE:WAVeform[:STARt]
+    level: not_modeled
+  - header: :SAVE:WAVeform:FORMat
+    level: not_modeled
+  - header: :SAVE:WAVeform:LENGth
+    level: not_modeled
+  - header: :SAVE:WAVeform:LENGth:MAX
+    level: not_modeled
+  - header: :SAVE:WAVeform:SEGMented
+    level: not_modeled
+  - header: :SAVE:WMEMory:SOURce
+    level: not_modeled
+  - header: :SAVE:WMEMory[:STARt]
+    level: not_modeled
+- section: :SBUS<n> Commands (Programmer's Guide 02.66, ch. 25)
+  commands:
+  - header: :SBUS<n>:DISPlay
+    level: not_modeled
+  - header: :SBUS<n>:MODE
+    level: not_modeled
+  - header: :SBUS<n>:CAN:COUNt:ERRor
+    level: not_modeled
+  - header: :SBUS<n>:CAN:COUNt:OVERload
+    level: not_modeled
+  - header: :SBUS<n>:CAN:COUNt:RESet
+    level: not_modeled
+  - header: :SBUS<n>:CAN:COUNt:TOTal
+    level: not_modeled
+  - header: :SBUS<n>:CAN:COUNt:UTILization
+    level: not_modeled
+  - header: :SBUS<n>:CAN:SAMPlepoint
+    level: not_modeled
+  - header: :SBUS<n>:CAN:SIGNal:BAUDrate
+    level: not_modeled
+  - header: :SBUS<n>:CAN:SIGNal:DEFinition
+    level: not_modeled
+  - header: :SBUS<n>:CAN:SOURce
+    level: not_modeled
+  - header: :SBUS<n>:CAN:TRIGger
+    level: not_modeled
+  - header: :SBUS<n>:CAN:TRIGger:PATTern:DATA
+    level: not_modeled
+  - header: :SBUS<n>:CAN:TRIGger:PATTern:DATA:LENGth
+    level: not_modeled
+  - header: :SBUS<n>:CAN:TRIGger:PATTern:ID
+    level: not_modeled
+  - header: :SBUS<n>:CAN:TRIGger:PATTern:ID:MODE
+    level: not_modeled
+  - header: :SBUS<n>:IIC:ASIZe
+    level: not_modeled
+  - header: :SBUS<n>:IIC[:SOURce]:CLOCk
+    level: not_modeled
+  - header: :SBUS<n>:IIC[:SOURce]:DATA
+    level: not_modeled
+  - header: :SBUS<n>:IIC:TRIGger:PATTern:ADDRess
+    level: not_modeled
+  - header: :SBUS<n>:IIC:TRIGger:PATTern:DATA
+    level: not_modeled
+  - header: :SBUS<n>:IIC:TRIGger:PATTern:DATa2
+    level: not_modeled
+  - header: :SBUS<n>:IIC:TRIGger:QUALifier
+    level: not_modeled
+  - header: :SBUS<n>:IIC:TRIGger[:TYPE]
+    level: not_modeled
+  - header: :SBUS<n>:LIN:PARity
+    level: not_modeled
+  - header: :SBUS<n>:LIN:SAMPlepoint
+    level: not_modeled
+  - header: :SBUS<n>:LIN:SIGNal:BAUDrate
+    level: not_modeled
+  - header: :SBUS<n>:LIN:SOURce
+    level: not_modeled
+  - header: :SBUS<n>:LIN:STANdard
+    level: not_modeled
+  - header: :SBUS<n>:LIN:SYNCbreak
+    level: not_modeled
+  - header: :SBUS<n>:LIN:TRIGger
+    level: not_modeled
+  - header: :SBUS<n>:LIN:TRIGger:ID
+    level: not_modeled
+  - header: :SBUS<n>:LIN:TRIGger:PATTern:DATA
+    level: not_modeled
+  - header: :SBUS<n>:LIN:TRIGger:PATTern:DATA:LENGth
+    level: not_modeled
+  - header: :SBUS<n>:LIN:TRIGger:PATTern:FORMat
+    level: not_modeled
+  - header: :SBUS<n>:SPI:BITorder
+    level: not_modeled
+  - header: :SBUS<n>:SPI:CLOCk:SLOPe
+    level: not_modeled
+  - header: :SBUS<n>:SPI:CLOCk:TIMeout
+    level: not_modeled
+  - header: :SBUS<n>:SPI:FRAMing
+    level: not_modeled
+  - header: :SBUS<n>:SPI:SOURce:CLOCk
+    level: not_modeled
+  - header: :SBUS<n>:SPI:SOURce:FRAMe
+    level: not_modeled
+  - header: :SBUS<n>:SPI:SOURce:MISO
+    level: not_modeled
+  - header: :SBUS<n>:SPI:SOURce:MOSI
+    level: not_modeled
+  - header: :SBUS<n>:SPI:TRIGger:PATTern:MISO:DATA
+    level: not_modeled
+  - header: :SBUS<n>:SPI:TRIGger:PATTern:MISO:WIDTh
+    level: not_modeled
+  - header: :SBUS<n>:SPI:TRIGger:PATTern:MOSI:DATA
+    level: not_modeled
+  - header: :SBUS<n>:SPI:TRIGger:PATTern:MOSI:WIDTh
+    level: not_modeled
+  - header: :SBUS<n>:SPI:TRIGger:TYPE
+    level: not_modeled
+  - header: :SBUS<n>:SPI:WIDTh
+    level: not_modeled
+  - header: :SBUS<n>:UART:BASE
+    level: not_modeled
+  - header: :SBUS<n>:UART:BAUDrate
+    level: not_modeled
+  - header: :SBUS<n>:UART:BITorder
+    level: not_modeled
+  - header: :SBUS<n>:UART:COUNt:ERRor
+    level: not_modeled
+  - header: :SBUS<n>:UART:COUNt:RESet
+    level: not_modeled
+  - header: :SBUS<n>:UART:COUNt:RXFRames
+    level: not_modeled
+  - header: :SBUS<n>:UART:COUNt:TXFRames
+    level: not_modeled
+  - header: :SBUS<n>:UART:FRAMing
+    level: not_modeled
+  - header: :SBUS<n>:UART:PARity
+    level: not_modeled
+  - header: :SBUS<n>:UART:POLarity
+    level: not_modeled
+  - header: :SBUS<n>:UART:SOURce:RX
+    level: not_modeled
+  - header: :SBUS<n>:UART:SOURce:TX
+    level: not_modeled
+  - header: :SBUS<n>:UART:TRIGger:BASE
+    level: not_modeled
+  - header: :SBUS<n>:UART:TRIGger:BURSt
+    level: not_modeled
+  - header: :SBUS<n>:UART:TRIGger:DATA
+    level: not_modeled
+  - header: :SBUS<n>:UART:TRIGger:IDLE
+    level: not_modeled
+  - header: :SBUS<n>:UART:TRIGger:QUALifier
+    level: not_modeled
+  - header: :SBUS<n>:UART:TRIGger:TYPE
+    level: not_modeled
+  - header: :SBUS<n>:UART:WIDTh
+    level: not_modeled
+- section: :SEARch Commands (Programmer's Guide 02.66, ch. 26)
+  commands:
+  - header: :SEARch:COUNt
+    level: not_modeled
+  - header: :SEARch:MODE
+    level: not_modeled
+  - header: :SEARch:STATe
+    level: not_modeled
+  - header: :SEARch:SERial:CAN:MODE
+    level: not_modeled
+  - header: :SEARch:SERial:CAN:PATTern:DATA
+    level: not_modeled
+  - header: :SEARch:SERial:CAN:PATTern:DATA:LENGth
+    level: not_modeled
+  - header: :SEARch:SERial:CAN:PATTern:ID
+    level: not_modeled
+  - header: :SEARch:SERial:CAN:PATTern:ID:MODE
+    level: not_modeled
+  - header: :SEARch:SERial:IIC:MODE
+    level: not_modeled
+  - header: :SEARch:SERial:IIC:PATTern:ADDRess
+    level: not_modeled
+  - header: :SEARch:SERial:IIC:PATTern:DATA
+    level: not_modeled
+  - header: :SEARch:SERial:IIC:PATTern:DATA2
+    level: not_modeled
+  - header: :SEARch:SERial:IIC:QUALifier
+    level: not_modeled
+  - header: :SEARch:SERial:LIN:ID
+    level: not_modeled
+  - header: :SEARch:SERial:LIN:MODE
+    level: not_modeled
+  - header: :SEARch:SERial:LIN:PATTern:DATA
+    level: not_modeled
+  - header: :SEARch:SERial:LIN:PATTern:DATA:LENGth
+    level: not_modeled
+  - header: :SEARch:SERial:LIN:PATTern:FORMat
+    level: not_modeled
+  - header: :SEARch:SERial:SPI:MODE
+    level: not_modeled
+  - header: :SEARch:SERial:SPI:PATTern:DATA
+    level: not_modeled
+  - header: :SEARch:SERial:SPI:PATTern:WIDTh
+    level: not_modeled
+  - header: :SEARch:SERial:UART:DATA
+    level: not_modeled
+  - header: :SEARch:SERial:UART:MODE
+    level: not_modeled
+  - header: :SEARch:SERial:UART:QUALifier
+    level: not_modeled
+- section: :SYSTem Commands (Programmer's Guide 02.66, ch. 27)
+  commands:
+  - header: :SYSTem:DATE
+    level: not_modeled
+  - header: :SYSTem:DIDentifier
+    level: not_modeled
+  - header: :SYSTem:DSP
+    level: not_modeled
+  - header: :SYSTem:ERRor
+    level: not_modeled
+  - header: :SYSTem:LOCK
+    level: not_modeled
+  - header: :SYSTem:MENU
+    level: not_modeled
+  - header: :SYSTem:PRESet
+    level: not_modeled
+  - header: :SYSTem:PROTection:LOCK
+    level: not_modeled
+  - header: :SYSTem:RLOGger
+    level: not_modeled
+  - header: :SYSTem:RLOGger:DESTination
+    level: not_modeled
+  - header: :SYSTem:RLOGger:DISPlay
+    level: not_modeled
+  - header: :SYSTem:RLOGger:FNAMe
+    level: not_modeled
+  - header: :SYSTem:RLOGger:STATe
+    level: not_modeled
+  - header: :SYSTem:RLOGger:TRANsparent
+    level: not_modeled
+  - header: :SYSTem:RLOGger:WMODe
+    level: not_modeled
+  - header: :SYSTem:SETup
+    level: not_modeled
+  - header: :SYSTem:TIME
+    level: not_modeled
+- section: :TIMebase Commands (Programmer's Guide 02.66, ch. 28)
+  commands:
+  - header: :TIMebase:MODE
+    level: implemented
+    note: 'stored; WINDow, XY and ROLL are not modeled'
+  - header: :TIMebase:POSition
+    level: implemented
+    note: 'time from the trigger to the reference; its limits (the data sheet''s pre- and post-trigger ranges) are not checked'
+  - header: :TIMebase:RANGe
+    level: implemented
+    note: 'ten divisions of :SCALe'
+  - header: :TIMebase:REFerence
+    level: implemented
+    note: 'LEFT and RIGHt are one division from the edge (the guide)'
+  - header: :TIMebase:SCALe
+    level: implemented
+    note: '2 ns/div to 50 s/div (data sheet)'
+  - header: :TIMebase:VERNier
+    level: not_modeled
+  - header: :TIMebase:WINDow:POSition
+    level: not_modeled
+  - header: :TIMebase:WINDow:RANGe
+    level: not_modeled
+  - header: :TIMebase:WINDow:SCALe
+    level: not_modeled
+- section: :TRIGger Commands (Programmer's Guide 02.66, ch. 29)
+  commands:
+  - header: :TRIGger:FORCe
+    level: not_modeled
+  - header: :TRIGger:HFReject
+    level: implemented
+    note: 'a 50 kHz low-pass in the trigger path (the guide)'
+  - header: :TRIGger:HOLDoff
+    level: implemented
+    note: '40 ns to 10 s (the guide)'
+  - header: :TRIGger:LEVel:ASETup
+    level: not_modeled
+  - header: :TRIGger:LEVel:HIGH
+    level: not_modeled
+  - header: :TRIGger:LEVel:LOW
+    level: not_modeled
+  - header: :TRIGger:MODE
+    level: implemented
+    note: 'EDGE only; the other trigger types answer -224'
+  - header: :TRIGger:NREJect
+    level: implemented
+    note: 'widens the trigger hysteresis from 0.3 div (half the data sheet''s 0.6 div sensitivity) to 1 div (an assumed width)'
+  - header: :TRIGger:SWEep
+    level: implemented
+  - header: :TRIGger:DELay:ARM:SLOPe
+    level: not_modeled
+  - header: :TRIGger:DELay:ARM:SOURce
+    level: not_modeled
+  - header: :TRIGger:DELay:TDELay:TIME
+    level: not_modeled
+  - header: :TRIGger:DELay:TRIGger:COUNt
+    level: not_modeled
+  - header: :TRIGger:DELay:TRIGger:SLOPe
+    level: not_modeled
+  - header: :TRIGger:DELay:TRIGger:SOURce
+    level: not_modeled
+  - header: :TRIGger:EBURst:COUNt
+    level: not_modeled
+  - header: :TRIGger:EBURst:IDLE
+    level: not_modeled
+  - header: :TRIGger:EBURst:SLOPe
+    level: not_modeled
+  - header: :TRIGger:EBURst:SOURce
+    level: not_modeled
+  - header: :TRIGger[:EDGE]:COUPling
+    level: implemented
+    note: 'AC: 10 Hz high-pass; LFReject: 50 kHz high-pass (the guide). The coupling with :REJect is not modeled: each keeps its own value'
+  - header: :TRIGger[:EDGE]:LEVel
+    level: implemented
+    note: 'within ±0.75 full scale (6 div) of the source''s centre screen; the optional <source> parameter is not modeled (-108)'
+  - header: :TRIGger[:EDGE]:REJect
+    level: implemented
+    note: 'LFReject: 50 kHz high-pass; HFReject: 50 kHz low-pass (the guide)'
+  - header: :TRIGger[:EDGE]:SLOPe
+    level: implemented
+    note: 'EITHer and ALTernate trigger on either edge'
+  - header: :TRIGger[:EDGE]:SOURce
+    level: implemented
+    note: 'CHANnel1 to 4, EXTernal (the EXT input), LINE (50 Hz); WGEN never triggers (no generator); NONE when all channels are off is not modeled'
+  - header: :TRIGger:GLITch:GREaterthan
+    level: not_modeled
+  - header: :TRIGger:GLITch:LESSthan
+    level: not_modeled
+  - header: :TRIGger:GLITch:LEVel
+    level: not_modeled
+  - header: :TRIGger:GLITch:POLarity
+    level: not_modeled
+  - header: :TRIGger:GLITch:QUALifier
+    level: not_modeled
+  - header: :TRIGger:GLITch:RANGe
+    level: not_modeled
+  - header: :TRIGger:GLITch:SOURce
+    level: not_modeled
+  - header: :TRIGger:OR
+    level: not_modeled
+  - header: :TRIGger:PATTern
+    level: not_modeled
+  - header: :TRIGger:PATTern:FORMat
+    level: not_modeled
+  - header: :TRIGger:PATTern:QUALifier
+    level: not_modeled
+  - header: :TRIGger:RUNT:POLarity
+    level: not_modeled
+  - header: :TRIGger:RUNT:QUALifier
+    level: not_modeled
+  - header: :TRIGger:RUNT:SOURce
+    level: not_modeled
+  - header: :TRIGger:RUNT:TIME
+    level: not_modeled
+  - header: :TRIGger:SHOLd:SLOPe
+    level: not_modeled
+  - header: :TRIGger:SHOLd:SOURce:CLOCk
+    level: not_modeled
+  - header: :TRIGger:SHOLd:SOURce:DATA
+    level: not_modeled
+  - header: :TRIGger:SHOLd:TIME:HOLD
+    level: not_modeled
+  - header: :TRIGger:SHOLd:TIME:SETup
+    level: not_modeled
+  - header: :TRIGger:TRANsition:QUALifier
+    level: not_modeled
+  - header: :TRIGger:TRANsition:SLOPe
+    level: not_modeled
+  - header: :TRIGger:TRANsition:SOURce
+    level: not_modeled
+  - header: :TRIGger:TRANsition:TIME
+    level: not_modeled
+  - header: :TRIGger:TV:LINE
+    level: not_modeled
+  - header: :TRIGger:TV:MODE
+    level: not_modeled
+  - header: :TRIGger:TV:POLarity
+    level: not_modeled
+  - header: :TRIGger:TV:SOURce
+    level: not_modeled
+  - header: :TRIGger:TV:STANdard
+    level: not_modeled
+  - header: :TRIGger:USB:SOURce:DMINus
+    level: not_modeled
+  - header: :TRIGger:USB:SOURce:DPLus
+    level: not_modeled
+  - header: :TRIGger:USB:SPEed
+    level: not_modeled
+  - header: :TRIGger:USB:TRIGger
+    level: not_modeled
+- section: :WAVeform Commands (Programmer's Guide 02.66, ch. 30)
+  commands:
+  - header: :WAVeform:BYTeorder
+    level: implemented
+  - header: :WAVeform:COUNt
+    level: not_modeled
+  - header: :WAVeform:DATA
+    level: implemented
+    note: '#8 block; BYTE codes over the eight screen divisions (32 per division) with 0 for a hole and 1 and 255 for clipped at the bottom and the top (the guide); WORD codes left-shifted to 16 bits; ASCii values with 6 decimals (a SimuBench choice)'
+  - header: :WAVeform:FORMat
+    level: implemented
+  - header: :WAVeform:POINts
+    level: implemented
+    note: 'points spread over the record (the guide''s time buckets); at most 1000 in NORMal mode'
+  - header: :WAVeform:POINts:MODE
+    level: implemented
+    note: 'NORMal: the 1000-point measurement record; MAXimum and RAW: the whole record (also while running)'
+  - header: :WAVeform:PREamble
+    level: implemented
+    note: 'the ten fields of the guide; xorigin carries where the trigger fell between two samples; the float digits are a SimuBench choice (the guide shows none); type 3 for HRESolution is not in the guide'
+  - header: :WAVeform:SEGMented:COUNt
+    level: not_modeled
+  - header: :WAVeform:SEGMented:TTAG
+    level: not_modeled
+  - header: :WAVeform:SOURce
+    level: implemented
+    note: 'CHANnel1 to 4 (FUNCtion, MATH, WMEMory, SBUS1 not modeled)'
+  - header: :WAVeform:SOURce:SUBSource
+    level: not_modeled
+  - header: :WAVeform:TYPE
+    level: implemented
+  - header: :WAVeform:UNSigned
+    level: implemented
+  - header: :WAVeform:VIEW
+    level: not_modeled
+  - header: :WAVeform:XINCrement
+    level: implemented
+  - header: :WAVeform:XORigin
+    level: implemented
+  - header: :WAVeform:XREFerence
+    level: implemented
+  - header: :WAVeform:YINCrement
+    level: implemented
+  - header: :WAVeform:YORigin
+    level: implemented
+  - header: :WAVeform:YREFerence
+    level: implemented
+- section: :WGEN Commands (Programmer's Guide 02.66, ch. 31)
+  commands:
+  - header: :WGEN:FREQuency
+    level: not_modeled
+  - header: :WGEN:FUNCtion
+    level: not_modeled
+  - header: :WGEN:FUNCtion:PULSe:WIDTh
+    level: not_modeled
+  - header: :WGEN:FUNCtion:RAMP:SYMMetry
+    level: not_modeled
+  - header: :WGEN:FUNCtion:SQUare:DCYCle
+    level: not_modeled
+  - header: :WGEN:MODulation:AM:DEPTh
+    level: not_modeled
+  - header: :WGEN:MODulation:AM:FREQuency
+    level: not_modeled
+  - header: :WGEN:MODulation:FM:DEViation
+    level: not_modeled
+  - header: :WGEN:MODulation:FM:FREQuency
+    level: not_modeled
+  - header: :WGEN:MODulation:FSKey:FREQuency
+    level: not_modeled
+  - header: :WGEN:MODulation:FSKey:RATE
+    level: not_modeled
+  - header: :WGEN:MODulation:FUNCtion
+    level: not_modeled
+  - header: :WGEN:MODulation:FUNCtion:RAMP:SYMMetry
+    level: not_modeled
+  - header: :WGEN:MODulation:NOISe
+    level: not_modeled
+  - header: :WGEN:MODulation:STATe
+    level: not_modeled
+  - header: :WGEN:MODulation:TYPE
+    level: not_modeled
+  - header: :WGEN:OUTPut
+    level: not_modeled
+  - header: :WGEN:OUTPut:LOAD
+    level: not_modeled
+  - header: :WGEN:PERiod
+    level: not_modeled
+  - header: :WGEN:RST
+    level: not_modeled
+  - header: :WGEN:VOLTage
+    level: not_modeled
+  - header: :WGEN:VOLTage:HIGH
+    level: not_modeled
+  - header: :WGEN:VOLTage:LOW
+    level: not_modeled
+  - header: :WGEN:VOLTage:OFFSet
+    level: not_modeled
+- section: :WMEMory<r> Commands (Programmer's Guide 02.66, ch. 32)
+  commands:
+  - header: :WMEMory<r>:CLEar
+    level: not_modeled
+  - header: :WMEMory<r>:DISPlay
+    level: not_modeled
+  - header: :WMEMory<r>:LABel
+    level: not_modeled
+  - header: :WMEMory<r>:SAVE
+    level: not_modeled
+  - header: :WMEMory<r>:SKEW
+    level: not_modeled
+  - header: :WMEMory<r>:YOFFset
+    level: not_modeled
+  - header: :WMEMory<r>:YRANge
+    level: not_modeled
+  - header: :WMEMory<r>:YSCale
+    level: not_modeled

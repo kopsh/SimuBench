@@ -81,6 +81,7 @@ class ScopeVertical(Component):
         "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
+        "out_of_range": "error",  # error: refuse with -222 | clamp: take the nearest legal value
         "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
@@ -184,26 +185,39 @@ class ScopeVertical(Component):
             )
         store.calibrate(corrections)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        """Refuse a scale or offset outside its range. A probe change scales both together (the
-        probe setting moves the display values, not the input), so it is not checked."""
-        if path == self.bound_paths().get("probe_ratio"):
-            return
+    def on_state(self, path: str, old: Any, new: Any) -> Any:
+        """Refuse a scale or offset outside its range, or with ``out_of_range: clamp`` take the
+        nearest legal value (a smaller scale also pulls the offset in). A probe change scales both
+        together (the probe setting moves the display values, not the input), so it is not checked."""
+        bound = self.bound_paths()
+        if path == bound.get("probe_ratio"):
+            return None
         ranges, limits = self.param("scale_range"), self.param("offset_ranges")
         if ranges is None and limits is None:
-            return
+            return None
+        clamp = str(self.param("out_of_range")) == "clamp"
         ratio = float(self.param("probe_ratio"))
         scale = float(self.param("scale")) / ratio
         if ranges is not None:
             lo, hi = (float(x) for x in ranges)
             if not lo * (1 - 1e-9) <= scale <= hi * (1 + 1e-9):
+                if clamp and path == bound.get("scale"):
+                    return min(max(scale, lo), hi) * ratio
                 raise ScpiError(-222, f"scale outside {lo:g}..{hi:g} V/div at the input")
         if limits is not None:
             limit = next((float(lim) for top, lim in limits if scale <= float(top) * (1 + 1e-9)), None)
             if limit is None:
                 limit = float(limits[-1][1])
-            if abs(float(self.param("offset")) / ratio) > limit * (1 + 1e-9):
+            offset = float(self.param("offset")) / ratio
+            if abs(offset) > limit * (1 + 1e-9):
+                nearest = math.copysign(limit, offset) * ratio
+                if clamp and path == bound.get("offset"):
+                    return nearest
+                if clamp and self.owner is not None and "offset" in bound:
+                    self.owner.set_state(bound["offset"], nearest, internal=True)
+                    return None
                 raise ScpiError(-222, f"offset outside +-{limit:g} V at this scale (at the input)")
+        return None
 
 
 @component("scope_frontend")
@@ -269,12 +283,18 @@ class ScopeProbe(Component):
         limits = self.param("ratio_range")
         if limits is not None and not float(limits[0]) <= ratio <= float(limits[1]):
             raise ScpiError(-222)
-        k = ratio / float(self.owner.get_state(path))
-        self.owner.set_state(path, ratio)
+        self.owner.set_state(path, ratio)  # the display settings follow it (on_state)
+        return OpResult()
+
+    def on_state(self, path: str, old: Any, new: Any) -> Any:
+        """The ``rescales`` settings follow a change of the ratio, however it is written."""
+        if path != self.bound_paths().get("ratio") or self.owner is None or not old:
+            return None
+        k = float(new) / float(old)
         for ref in self.param("rescales") or []:
             other = self.resolve_path(str(ref).removeprefix("$"))
             self.owner.set_state(other, float(self.owner.get_state(other)) * k, internal=True)
-        return OpResult()
+        return None
 
 
 def channel_index(source: object) -> int:
@@ -409,6 +429,7 @@ class ScopeTimebase(Component):
         "record_length": "fixed",  # fixed | exact | rate_ladder
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
+        "reference_divs": 5.0,  # where the trigger (delay 0) sits, divisions from the left; may map a setting
         "clock_ppm": 0.0,  # the sampling clock's frequency error, ppm (hidden)
         "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
     }
@@ -456,7 +477,11 @@ class ScopeTimebase(Component):
             dt = 1.0 / rate if rule == "rate_ladder" else window / points
         # Sample 0 is at delay - 5 div: the trigger sits (5 div - delay) / dt in (no delay: the centre).
         delay = self.param("delay")
-        pre = points // 2 if delay in (None, "") else round((window / 2 - float(delay)) / dt)
+        ref = float(self.param("reference_divs")) * float(self.param("scale"))  # trigger from the left edge
+        if delay in (None, "") and abs(ref - window / 2) < 1e-15 * window:
+            pre = points // 2
+        else:
+            pre = round((ref - float(delay or 0.0)) / dt)
         return points, dt, pre, points - pre
 
     def clock_error(self) -> float:
@@ -495,7 +520,8 @@ class ScopeTrigger(_ChannelBound):
 
     The trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table
     ``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency
-    reject) and with its own ``noise_rms``. An edge counts once the signal has been beyond the
+    reject), a ``reject`` filter alongside it and ``hf_reject`` (filters keyed HF), with its own
+    ``noise_rms``. An edge counts once the signal has been beyond the
     ``hysteresis_divs`` band on the far side of the level (``reject_hysteresis_divs`` while
     ``noise_reject`` is on); the instant is interpolated between samples, so a record reports the
     trigger to a fraction of a sample. After a trigger, the next is not taken before ``holdoff``
@@ -522,7 +548,9 @@ class ScopeTrigger(_ChannelBound):
         "max_search_points": 4_000_000,  # samples a search may take (a long horizon is searched coarser)
         "level_range_divs": None,  # the level stays within +-this many divisions of the source's screen
         "coupling": "DC",  # the trigger path's coupling: a key of filters, or DC
-        # coupling -> [[highpass | lowpass, corner Hz], ...], e.g. {AC: [[highpass, 8]]}
+        "reject": "",  # a reject filter alongside the coupling (LFReject, HFReject): a key of filters
+        "hf_reject": False,  # on: the filters keyed HF as well (a separate high-frequency reject)
+        # coupling or reject -> [[highpass | lowpass, corner Hz], ...], e.g. {AC: [[highpass, 8]]}
         "filters": {},
         "hysteresis_divs": 0.16,  # half the band an edge must cross, in divisions of the source
         "noise_reject": False,  # on: the wider band below
@@ -585,8 +613,14 @@ class ScopeTrigger(_ChannelBound):
     def path_signal(self, sig: Signal) -> Signal:
         """The source's signal as the trigger sees it: through the coupling's filters."""
         table = {str(k).upper(): v for k, v in (self.param("filters") or {}).items()}
-        for kind, corner in table.get(str(self.param("coupling")).upper(), []):
-            sig = sig.transfer((highpass1 if str(kind).lower() == "highpass" else lowpass1)(float(corner)))
+        keys = [str(self.param("coupling")).upper(), str(self.param("reject") or "").upper()]
+        if self.param("hf_reject") in (True, 1, "1", "ON", "on"):
+            keys.append("HF")
+        for key in keys:
+            for kind, corner in table.get(key, []) if key else []:
+                sig = sig.transfer(
+                    (highpass1 if str(kind).lower() == "highpass" else lowpass1)(float(corner))
+                )
         return sig
 
     def _hysteresis(self, scale: float) -> float:
@@ -1489,18 +1523,24 @@ class ScopeAcquisition(Component):
         return OpResult()
 
     @op("figure")
-    def figure(self, what: str = "points", **_: Any) -> OpResult:
-        """A read-only figure of the acquisition: ``points`` (record length), ``sample_rate`` (in
-        the definition's number format) or ``count`` (acquisitions so far, an integer)."""
+    def figure(self, what: str = "points", integer: bool = False, significant: int = 0, **_: Any) -> OpResult:
+        """A read-only figure of the acquisition: ``points`` (record length), ``sample_rate`` or
+        ``count`` (acquisitions so far, an integer). Numbers come in the definition's number
+        format, as an integer with ``integer``, or in engineering notation with ``significant``
+        digits."""
         assert self.owner is not None
         if what == "count":
             return OpResult(str(self.acq_count).encode())
+        if integer and what == "points":
+            return OpResult(str(int(self._timing()[0])).encode())
         if what == "points":
             value = float(self._timing()[0])
         elif what == "sample_rate":
             value = self.sample_rate()
         else:
             raise ScpiError(-300, f"{self.uid}: no figure {what!r}")
+        if significant:
+            return OpResult(V.format_engineering_digits(value, int(significant)))
         return OpResult(self.owner.format_number(value))
 
     @op("digitize")
@@ -1758,7 +1798,10 @@ class ScopeMeasurements(Component):
         assert self.owner is not None
         return self.owner.components[str(self.param("record"))]  # type: ignore[return-value]
 
-    def _channel(self, channel: int | None, source: str | None = None) -> int:
+    def _channel(self, channel: int | None, source: Any = None) -> int:
+        if isinstance(source, list):  # raw parameters: [<interval>][,<type>][,<source>]
+            words = [V.parse_string(b).strip().upper() for b in source]
+            source = next((w for w in words if w.startswith("CH")), None)
         if source:
             name = source.strip().upper()
             m = name.removeprefix("CHANNEL").removeprefix("CHAN").removeprefix("C")
@@ -1804,20 +1847,31 @@ class ScopeMeasurements(Component):
         )
         return value, used
 
+    def _follow(self, n: int, source: Any) -> None:
+        """A measurement that names its source makes it the default one (the bound ``source``)."""
+        path = self.bound_paths().get("source")
+        if not source or path is None or self.owner is None:
+            return
+        options = self.owner.specs[path].options or []
+        match = next((o for o in options if trigger_channel(o) == n), None)
+        if match is not None:
+            self.owner.set_state(path, match)
+
     def _keep(self, name: str, n: int, value: float) -> None:
         if math.isfinite(value):
             self.history.setdefault((name, n), []).append(value)
 
     @op("measure")
-    def measure(
-        self, what: str = "", source: str | None = None, channel: int | None = None, **_: Any
-    ) -> OpResult:
+    def measure(self, what: str = "", source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
         command) in the definition's number format; what cannot be measured is NaN's sentinel."""
         assert self.owner is not None
         n = self._channel(channel, source)
+        self._follow(n, source)
         value, used = self.value(what, n)
         self._keep(what, n, value)
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return OpResult(str(self.param("invalid_value")).encode(), used)
         return OpResult(self.owner.format_number(value), used)  # NaN: the SCPI sentinel 9.91E+37
 
     @op("named", fields=("kind", "unit", "status"))

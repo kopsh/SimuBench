@@ -1,0 +1,40 @@
+schema: simubench.bench/2
+name: keysight_dsox2024a_rc
+description: >-
+  Siglent SDG2042X 经 RC 低通（1 kΩ、100 nF）接到 Keysight DSO-X 2024A 的 CH1（真实型号，D42、D45）。
+  示波器是示波器能力的开发验证基准；示例脚本 examples/scripts/keysight_dsox_read_waveform.py
+  按编程手册的步骤读波形。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.frequency: 1000
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+  scope:
+    model: keysight-dsox2024a
+    label: 示波器
+    address: "TCPIP0::192.168.1.32::INSTR"
+    state:
+      timebase.scale: 2.0e-4
+      ch1.probe: 1.0
+      ch1.scale: 0.5
+parts:
+  rc:
+    type: rc_lowpass
+    dut: true
+    label: RC 低通
+    params: {r: 1000.0, c: 1.0e-7}
+wires:
+  - {from: awg.CH1, to: rc.IN}
+  - {from: rc.OUT, to: scope.CH1}
+run:
+  seed: 7
+  clock: command
+layout:
+  awg: {x: 0, y: 80}
+  rc: {x: 360, y: 100}
+  scope: {x: 640, y: 40}
