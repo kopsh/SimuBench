@@ -284,3 +284,13 @@
 | 端到端：34465A 切换功能与量程，读数随之变化；5522A 设置输出、工作与待机；带声明的测试定义按声明出现分组与控件；搭建模式下改的是初始设置 | ✅ `web/e2e/panel.spec.ts`（4 项）：1000 V 量程下同一输入读数由 99.103 mV 变为 99.0000 mV、AC 显示 0；OPER 后经过 5 s 建立时间万用表读到 2.5 V；`sb-panel-1`（e2e 专用定义）的分组、按键、步进、下拉、开关与软键；搭建模式下按 10 V 量程写入测试台文件（`sense.range: 10`、`sense.range_auto: false`），运行中的仪表不变。远程状态沿用设置接口（#121） |
 | 视觉基线（亮色与暗色）；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ 新故事“Instruments/Front panel”（万用表、校准源，各亮暗两张）；原有基线不变；端到端 42 项通过 |
 
+
+## 示波器的开发验证基准：Keysight DSO-X 2024A（Issue 151，D45）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 定义只用通用组件，`reference` 写明编程手册版本；`*RST` 的示例回复逐条一致 | ✅ `keysight-dsox2024a.yaml`（InfiniiVision 2000 X-Series Programmer's Guide 02.66.0000，数据手册 5990-6618EN）；`:CHAN1:RANG +40.0E+00`、`:TIM:…RANG +1.00E-03`、`:TRIG:…HOLD`、`:WAV:UNS 1;BYT MSBF;FORM BYTE;POIN +1000` 等示例回复相同；释抑默认取复位表的 40 ns（示例写 60 ns，覆盖表注明） |
+| 覆盖表由命令索引生成，实现的命令都有手册用例 | ✅ 485 条：实现 67、未实现 418；`tests/models/keysight-dsox2024a/cases.yaml` 17 条用例通过 |
+| 按手册写的 PyVISA 脚本在 SimuBench 上读回测试台的信号 | ✅ `examples/scripts/keysight_dsox_read_waveform.py`、`examples/benches/keysight-dsox2024a.bench.yaml`；`tests/test_keysight_dsox.py`（10 项）：BYTE / WORD / ASCii 三种格式按前导重建的电压与记录一致、与网络上的信号相差在半个码加噪声内；RC 低通后的幅度；`:DIGitize` 后 `*OPC?` 时采集已完成；xorigin 带亚采样的触发偏移；数据手册的增益、偏置、DAC 与时基个体偏差在限值内且随种子复现；偏置超出范围钳到最近值并随档位收紧；RANGe 是档位乘格数；探头比换算档位与偏置 |
+| 为此补的通用能力有单元测试 | ✅ `tests/test_number_formats.py`（14 项）：`significant` 的工程记数、命令 `factor`、保留的空洞码、头字段的 `when` / `else`、参考位置决定触发前的格数；`ascii_block`、16 位字的 y 增量由上面的脚本测试覆盖 |
+| D45、real-models.md 记录基准的变更；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ Python 892 项通过（另 3 项跳过） |
