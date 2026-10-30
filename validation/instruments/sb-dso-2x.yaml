@@ -178,6 +178,7 @@ channel_components:
       coupling: $ch.coupling
       bw_limit: $ch.bwlimit
       bandwidth: 100.0e6
+      probe_ratio: $ch.probe  # the per-V/div errors are at the input connector
   - name: probe
     type: scope_probe
 wiring:

@@ -15,6 +15,7 @@ from ...engine.signal import Signal, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
+from .calstore import CalibrationStore
 
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
@@ -52,6 +53,20 @@ class ScopeVertical(Component):
     ``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The
     ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``
     (instrument-authoring.md 8.4).
+
+    The unit's own metrology (instrument-authoring.md 8.4, G3). Each V/div at the input
+    connector has its own attenuator and gain stage: ``gain_error_ppm`` (relative) and
+    ``offset_error`` (V at the input) are what this unit adds there — a number, or one per input
+    V/div, the table a ``deviations`` entry with ``by: {scale: …}`` draws; a scale the table does
+    not list has no characterized error and contributes 0. ``dac_error_ppm`` is the offset DAC's
+    gain error, referred to the displayed offset setting: a display offset of V moves the record
+    by V·(1 + d), i.e. the reading is off by V·d. The vertical runs before the probe (which is a
+    display conversion), so the errors ride the input path and the DAC term is divided by
+    ``probe_ratio`` here. They sit in signal order — coupling, the attenuator's gain, the bias,
+    then the bandwidth — and the record shows them, since it is reconstructed with the nominal
+    scale and offset. ``store`` names a ``calibration_store`` whose coefficients correct the
+    record digitally, (raw − offset) × gain, keyed by the displayed V/div
+    (metrology-authoring.md 4); :meth:`self_calibrate` writes them for every tabulated scale.
     """
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
@@ -66,8 +81,19 @@ class ScopeVertical(Component):
         "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
+        "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
+        "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
+        "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
+        "store": "",  # the calibration_store correcting the record, keyed by the displayed V/div
     }
-    units = {"bandwidth": "Hz", "bw_limit_hz": "Hz", "ac_corner": "Hz", "scale": "V", "offset": "V"}
+    units = {
+        "bandwidth": "Hz",
+        "bw_limit_hz": "Hz",
+        "ac_corner": "Hz",
+        "scale": "V",
+        "offset": "V",
+        "offset_error": "V",
+    }
 
     def output(self, port: str) -> Signal:
         sig = self.input("in")
@@ -76,6 +102,15 @@ class ScopeVertical(Component):
             return Signal.zero()
         if coupling == "AC":
             sig = sig.transfer(highpass1(float(self.param("ac_corner"))))
+        gain = self._error("gain_error_ppm")
+        offset = self._error("offset_error")  # the vertical runs before the probe: input volts
+        dac = float(self.param("dac_error_ppm")) * 1e-6
+        if gain or offset or dac:
+            sig = sig.scale(1.0 + gain * 1e-6)
+            # The DAC error belongs to the displayed offset setting; the probe scales the input
+            # path by probe_ratio after this stage, so divide it here to keep it display-referred.
+            ratio = float(self.param("probe_ratio"))
+            sig = sig + Signal(dc=offset + float(self.param("offset")) * dac / ratio)
         return sig.transfer(lowpass1(min(self._limit(), float(self.param("bandwidth")))))
 
     def _limit(self) -> float:
@@ -86,6 +121,68 @@ class ScopeVertical(Component):
                 return math.inf
             return parse_number(limit.upper().removesuffix("HZ").replace("M", "e6").replace("K", "e3"))
         return float(self.param("bw_limit_hz")) if limit else math.inf
+
+    def input_scale(self) -> float:
+        """V/div at the input connector: the displayed scale divided by the probe ratio."""
+        return float(self.param("scale")) / float(self.param("probe_ratio"))
+
+    def _error(self, key: str, scale: float | None = None) -> float:
+        """This unit's error ``key`` at input V/div ``scale`` (default: now); a scalar, or a table."""
+        value = self.param(key)
+        if not isinstance(value, dict):
+            return float(value)
+        scale = self.input_scale() if scale is None else scale
+        for k, entry in value.items():
+            if math.isclose(float(k), scale, rel_tol=1e-9):
+                return float(entry)
+        return 0.0
+
+    def _store(self) -> CalibrationStore | None:
+        name = str(self.param("store") or "")
+        if not name:
+            return None
+        assert self.owner is not None
+        names = [name]
+        if self.channel is not None:
+            names.insert(0, f"ch{self.channel}.{name}")  # a channel's store: ch2.cal
+        for candidate in names:
+            store = self.owner.components.get(candidate)
+            if store is not None:
+                return store  # type: ignore[no-any-return]
+        raise ScpiError(-300, f"{self.uid}: store {name!r} is not a component of this instrument")
+
+    def correct(self, volts: np.ndarray) -> np.ndarray:
+        """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
+        the displayed V/div (the setting the store names)."""
+        store = self._store()
+        if store is None:
+            return volts
+        gain, offset = store.coefficients()
+        return (volts - offset) * gain
+
+    def self_calibrate(self) -> None:
+        """A self-calibration's write: the coefficients that cancel this unit's gain and offset
+        error for every V/div the tables hold (scalars: the setting now), keyed by the displayed
+        scale the store names. The scope compares against its internal references at zero offset,
+        so the offset DAC's error at the user's offset setting stays. Without a store there is
+        nothing to write (a scope without calibratable constants). A later probe-ratio change
+        moves the displayed settings (and their keys), so the new settings start at nominal."""
+        store = self._store()
+        if store is None:
+            return
+        ratio = float(self.param("probe_ratio"))
+        inputs = {self.input_scale()}
+        for key in ("gain_error_ppm", "offset_error"):
+            table = self.param(key)
+            if isinstance(table, dict):
+                inputs |= {float(k) for k in table}
+        corrections: dict[tuple, tuple[float, float]] = {}
+        for inp in inputs:
+            corrections[store.state_key(inp * ratio)] = (
+                1.0 / (1.0 + self._error("gain_error_ppm", inp) * 1e-6),
+                self._error("offset_error", inp) * ratio,  # the record is in display volts
+            )
+        store.calibrate(corrections)
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         """Refuse a scale or offset outside its range. A probe change scales both together (the
@@ -118,7 +215,12 @@ class ScopeFrontend(ScopeVertical):
 class ScopeProbe(Component):
     """The probe setting of one channel: display volts are the volts at the input times ``ratio``.
 
-    A display conversion, not part of the analog path (instrument-authoring.md 8.4)."""
+    A display conversion, not part of the analog path (instrument-authoring.md 8.4). ``skew``
+    (bound to the model's channel-skew setting where it has one) and ``skew_error`` (this unit's
+    own, a ``deviations`` draw) delay the channel's record by that many seconds: the acquisition
+    samples the channel's signal that much earlier (instrument-authoring.md 8.4, G3). A real
+    scope applies the delay after the ADC, so the trigger path — which detects on the analog
+    signal — is not delayed with it."""
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
@@ -128,10 +230,18 @@ class ScopeProbe(Component):
         "keywords": {"DEFault": 1.0, "VALue": "value"},
         "ratio_range": None,  # [min, max]; None: any positive ratio
         "rescales": [],  # settings in display units that follow the ratio, e.g. [$ch.scale, $ch.offset]
+        "skew": None,  # the channel's skew setting, s (unbound: the model has none)
+        "skew_error": 0.0,  # this unit's own skew error, s (hidden; a deviations entry)
     }
+    units = {"skew": "s", "skew_error": "s"}
 
     def output(self, port: str) -> Signal:
         return self.input("in").scale(float(self.param("ratio")))
+
+    def delay(self) -> float:
+        """How many seconds this channel's record lags the trigger timeline."""
+        setting = self.param("skew")
+        return (0.0 if setting in (None, "") else float(setting)) + float(self.param("skew_error"))
 
     @op("set_ratio")
     def set_ratio(self, query: bool = False, mode: str | None = None, value: float | None = None,
@@ -274,16 +384,31 @@ class ScopeTimebase(Component):
     ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is
     ``points / 10 div`` up to the ADC group's top rate) or ``rate_ladder`` (that rate rounded down
     to a 1-2-5 step; samples ``1 / rate`` apart). The trigger sits at the centre, or ``delay``
-    seconds before it when that is bound."""
+    seconds before it when that is bound.
 
+    The sampling clock has a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
+    draw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional
+    error the instrument inherits (instrument-authoring.md 8.4, G3). A fast clock takes samples
+    closer together than the nominal interval, so the records keep the nominal dt the scope
+    reports and time measurements read low — the spectrum analyzer's reference convention.
+    """
+
+    ports = {"ref": PortSpec("in", "signal", "REF_IN")}
     defaults = {
         "scale": "$timebase.scale",  # seconds per division (ten divisions across)
         "delay": None,  # unbound: the trigger at the centre of the record
         "record_length": "fixed",  # fixed | exact | rate_ladder
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
+        "clock_ppm": 0.0,  # the sampling clock's frequency error, ppm (hidden)
+        "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
     }
-    units = {"scale": "s", "delay": "s"}
+    units = {"scale": "s", "delay": "s", "clock_ppm": "ppm"}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._ref_error = 0.0  # fractional frequency error of the reference in use
+        self._ref_locked = False
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         """Refuse a delay outside ``delay_range_divs`` (-222, the old value kept)."""
@@ -324,6 +449,26 @@ class ScopeTimebase(Component):
         delay = self.param("delay")
         pre = points // 2 if delay in (None, "") else round((window / 2 - float(delay)) / dt)
         return points, dt, pre, points - pre
+
+    def clock_error(self) -> float:
+        """The sampling clock's fractional frequency error: the internal ppm, or the reference's
+        when ``rosc`` is EXTernal and a usable 10 MHz is on ``ref``."""
+        if str(self.param("rosc")).upper().startswith("EXT"):
+            self._update_clock()
+            if self._ref_locked:
+                return self._ref_error
+        return float(self.param("clock_ppm")) * 1e-6
+
+    def _update_clock(self) -> None:
+        """The 10 MHz on ``ref``: within +-10 ppm and present, it is the clock (as the spectrum
+        analyzer accepts its reference); anything else leaves the internal clock in charge."""
+        self._ref_locked = False
+        sig = self.input("ref").merged()
+        if sig.freq.size:
+            k = int(np.argmax(np.abs(sig.amp)))
+            f = float(sig.freq[k])
+            if abs(f - 10e6) <= 10e6 * 10e-6 and abs(sig.amp[k]) > 0.05:
+                self._ref_error, self._ref_locked = f / 10e6 - 1, True
 
 
 @component("scope_trigger")
@@ -654,6 +799,12 @@ class ScopeAcquisition(Component):
     def probe_ratio(self, n: int) -> float:
         return float(self._module("probe", f"ch{n}.{self.param('probe')}").param("ratio"))
 
+    def probe_skew(self, n: int) -> float:
+        """Channel n's skew (the setting and the unit's own), seconds; 0 without a probe module."""
+        if not self.param("probe"):
+            return 0.0
+        return self._module("probe", f"ch{n}.{self.param('probe')}").delay()  # type: ignore[no-any-return]
+
     def scale_offset(self, n: int) -> tuple[float, float]:
         """Channel n's scale (V/div) and offset (V) as displayed."""
         v = self.vertical_of(n)
@@ -762,7 +913,11 @@ class ScopeAcquisition(Component):
         self, channels: list[int], frame: int | None = None
     ) -> tuple[dict[int, Record], int, bool, int]:
         """:meth:`compute`, and the instant of the trigger (or of the record's middle) in ns."""
-        points, dt, pre, post = self._timing()
+        points, nominal_dt, pre, post = self._timing()
+        # A fast clock (positive clock_ppm) samples closer together than the nominal interval; the
+        # record keeps the nominal dt the scope reports and reconstructs with, so time measurements
+        # read low by that fraction (the spectrum analyzer's reference convention, G3).
+        dt = nominal_dt / (1.0 + self.horizontal().clock_error())
         t0 = self.session.now_ns
         trig = self.trigger_unit()
         n_trig = trig.source_channel()
@@ -782,16 +937,18 @@ class ScopeAcquisition(Component):
         records: dict[int, Record] = {}
         for n in channels:
             scale, offset = self.scale_offset(n)
-            volts = self._display_signal(n).sample_rel(t0, offsets)
+            # A channel's skew (setting + this unit's error) is a digital delay: sample its trace
+            # that much earlier, the trigger path (analog) stays on the unshifted signal.
+            volts = self._display_signal(n).sample_rel(t0, offsets - self.probe_skew(n))
             noise = self._noise(n, t_start_ns, dt, points, frame)
             if noise is not None:
                 volts = volts + noise
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
-                dt_s=dt,
+                dt_s=nominal_dt,
                 trigger_index=pre,
-                volts=adc.quantize(volts, scale, offset),
+                volts=self.vertical_of(n).correct(adc.quantize(volts, scale, offset)),
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
@@ -1159,6 +1316,16 @@ class ScopeAcquisition(Component):
         if self.pending_mode() and self.due_ns is not None and self.owner is not None:
             used += self.owner.wait_until(self.due_ns)  # a digitize returns once its record is full
         return OpResult(duration_ns=used)
+
+    @op("self_cal")
+    def self_cal(self, **_: Any) -> OpResult:
+        """A user self-calibration: every channel re-derives its calibration constants against the
+        scope's internal references (``scope_vertical.self_calibrate``; a channel without a
+        calibration store has nothing to write). The reply is the diagnostic code ``0``; the
+        command's ``reply`` template gives the model's words (e.g. ``*CAL {value}``)."""
+        for n in range(1, self._channels() + 1):
+            self.vertical_of(n).self_calibrate()
+        return OpResult(b"0")
 
     def _source(self) -> int:
         return channel_index(self._st("waveform.source"))

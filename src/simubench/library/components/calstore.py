@@ -120,8 +120,15 @@ class CalibrationStore(Component):
 
     def _meter(self) -> Component:
         assert self.owner is not None
+        # A channel component names its own channel's store without the prefix: ch2.cal belongs to
+        # the core whose ``store: cal`` and channel are 2.
+        match = {self.name}
+        if self.channel is not None:
+            match.add(self.name.rsplit(".", 1)[1])
         for comp in self.owner.components.values():
-            if str(comp.param("store") or "") == self.name:
+            if self.channel is not None and comp.channel != self.channel:
+                continue
+            if str(comp.param("store") or "") in match:
                 return comp
         raise ScpiError(-300, f"{self.uid}: no component references this calibration store")
 
@@ -147,8 +154,9 @@ class CalibrationStore(Component):
     def _coeff(self, key: tuple) -> dict[str, float]:
         return {**self._stored.get(key, {}), **self._pending.get(key, {})}
 
-    def coefficients(self, function: str) -> tuple[float, float]:
-        """The (gain, offset) correcting the core's raw reading for this function's key."""
+    def coefficients(self, function: str = "") -> tuple[float, float]:
+        """The (gain, offset) correcting the core's raw reading for the current key; ``function``
+        fills the meter's function entry where the store has one (scopes do not)."""
         gain, offset = 1.0, 0.0
         if self.owner is not None:
             c = self._coeff(self._key(self._meter(), function))
@@ -204,6 +212,32 @@ class CalibrationStore(Component):
         now = self.owner.clock()
         self._date = now.date().isoformat()
         self._time = now.strftime("%H:%M:%S")
+
+    # ---- self-calibration -----------------------------------------------------------------------------
+
+    def state_key(self, value: Any) -> tuple:
+        """The key the store resolves when its single ``$state`` entry holds ``value``: a
+        self-calibrating core writes coefficients for contexts other than the current one (a
+        scope calibrates every V/div, the one in use included)."""
+        entries = list(self.param("key") or ())
+        if len(entries) != 1 or not str(entries[0]).startswith("$"):
+            raise ScpiError(-300, f"{self.uid}: self-calibration supports a single $state key")
+        return (value,)
+
+    def calibrate(self, corrections: dict[tuple, tuple[float, float]]) -> None:
+        """A self-calibration's write: the core compares against its own internal references, not
+        against the input, so no tolerance check applies; ``corrections`` maps resolved keys to
+        (gain, offset). One commit — the count and the date move once. Adjustments still waiting
+        to be stored stay waiting, unless a correction covers the same key."""
+        if not corrections:
+            return
+        pending = self._pending
+        self._pending = {}
+        for key, (gain, offset) in corrections.items():
+            self._stored[tuple(key)] = {"gain": float(gain), "offset": float(offset)}
+            pending.pop(tuple(key), None)
+        self.commit()  # commits the corrections only
+        self._pending = pending
 
     # ---- operations ----------------------------------------------------------------------------------
 
