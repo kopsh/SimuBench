@@ -263,3 +263,9 @@
 | 端到端：仪表面板的远程标记与 LOCAL；有连接时切回操作模式的确认与“稍后重建” | ✅ `web/e2e/remote.spec.ts`（2 项）：检查器的“远程控制中”横幅、控制台被拒的提示、LOCAL 后命令可用、脚本下一条命令后回到远程；切回操作的确认框列出脚本，“稍后重建”保留连接，顶栏“测试台文件已修改”再重建。确认框每次提问是新实例（重开时旧实例的内容未卸载会被新遮罩盖住，重复运行 24 次验证） |
 | D25、D32 按新行为修改；`scripts/check.sh` 全绿 | ✅ |
 
+## 组件粒度：示波器（instrument-authoring.md 第 8 节，issue 123）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| G1 结构拆分：时基、触发、ADC 组、每通道的垂直与探头模块；采集引用它们；宏在加载时展开（issue 133） | ✅ 新组件 `scope_vertical`（旧名 `scope_frontend`）、`scope_probe`、`scope_adc`、`scope_timebase`、`scope_trigger`；`scope_acquisition` 按名称引用，`E-DEF-COMPONENT-REF` 检查引用（缺失、拼错、类型不对各有反例）；宏在 `InstrumentDefinition` 构造时展开，`sb-dso-4` 的一个组件写法与显式写法的定义哈希相同，重复展开不变、不改动调用方的数据，无法展开时报 `E-DEF-MACRO`（`tests/test_scope_modules.py`，6 项）；刻度与偏置范围按输入端检查，超出报 -222 并保留旧值，改探头比不检查；`sb-dso-4`、`sb-dso-2x` 显式写出模块，SDS2104X Plus 与低频校准参考示波器经宏展开。行为不变：SDS 的手册用例、`tests/test_siglent_sds.py`、示波器验收与低频校准测试不改通过；只改了检查内部结构的断言（参数所在的模块、经探头模块的连线、内部结构图的组件与连线数、展开后诊断的指针），并在内部结构图中加入新模块的中英文名称。Python 774 项（含验收 115 项）、端到端全部通过 |
+

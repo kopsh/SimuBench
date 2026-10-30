@@ -172,6 +172,10 @@ class Component:
     generic: ClassVar[bool] = True
     defaults: ClassVar[dict[str, Any]] = {}
     units: ClassVar[dict[str, str]] = {}
+    #: Parameters that name another component of the instrument: parameter -> (the component type
+    #: it must be, or derive from; "instrument" or "channel" for where it is declared). Definition
+    #: validation checks them (E-DEF-COMPONENT-REF).
+    refs: ClassVar[dict[str, tuple[str, Literal["instrument", "channel"]]]] = {}
     #: Components with state that evolves in virtual time (filters, oscillators) set this and
     #: implement :meth:`sync`; the session calls it whenever signals change and before time moves.
     dynamic: ClassVar[bool] = False
