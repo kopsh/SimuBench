@@ -1,0 +1,12 @@
+schema: simubench.bench/2
+name: contract_float_scope
+description: 1 kHz、2 Vpp 正弦（高阻负载设定）接契约示波器 CH1，供 #138 的契约用例。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    state: {ch1.function: SINE, ch1.frequency: 1000, ch1.amplitude: 2.0, ch1.load: .inf, ch1.output: true}
+  scope:
+    model: test-float-scope
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+run: {seed: 1, clock: command}

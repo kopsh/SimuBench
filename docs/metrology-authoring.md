@@ -314,7 +314,7 @@ decisions: {PASS: pass, FAIL: fail, "N/A": no_statement}
 已实现（#93）：`Component.generic`；`siglent_sdg`、`siglent_sdg_channel_limits`、`siglent_sds_acquisition`、`siglent_sds_channel_limits` 标为 `False`；检查在 `tests/test_model_components.py`（例外清单按“定义 id、组件类型”成对列出，另断言目录中所有非通用组件都在清单里，因此也不能新增只是不被内置定义使用的专用组件）。与下面的设计稿的差别：覆盖表草稿的写法是 `simubench coverage <id> --draft <清单>`（`--out` 指定写到哪里，默认在定义旁边，没有定义时为 `instruments/<id>.coverage.yaml`）；定义中已有的命令起草为 `implemented` 并注明“待确认”，其余为 `not_modeled`；补充已有的覆盖表时保留文件开头的注释与已写的条目，其他注释不保留（覆盖表按数据重写）。
 
 - 组件类增加 `generic`（默认 `True`）；现有的型号专用组件标为 `False`，组件目录显示这一项。
-- CI 检查：内置定义（带 `reference`）只使用 `generic` 组件。例外清单写在测试里，现在只有两台 Siglent；清单只能缩短（检查同时断言清单中的每一项仍在使用）。
+- CI 检查：内置定义（带 `reference`）只使用 `generic` 组件。例外清单写在测试里，清单只能缩短（检查同时断言清单中的每一项仍在使用）。#138 删除了 `siglent_sds_acquisition` 与 `siglent_sds_channel_limits`，清单只剩 SDG2042X 的两项。
 - `.claude/skills/real-model/SKILL.md`：写型号的步骤与命令，规则本身留在 real-models.md。遇到平台缺能力时的做法写在第一屏：不写专用组件，在 #86 下开能力 issue，型号 issue 标为被它阻塞。
 - `simubench coverage --draft <命令清单.txt> --model <id>`：由命令头清单生成全部为 `not_modeled` 的覆盖表骨架；已存在的覆盖表只补缺少的命令。
 - `.github/ISSUE_TEMPLATE/real-model.md`：真实型号 issue 的模板。
@@ -343,5 +343,5 @@ decisions: {PASS: pass, FAIL: fail, "N/A": no_statement}
 
 - 万用表的电流、电阻、频率等功能，校准源的电流与电阻输出：各自另开 issue，在本期的组件上加功能。
 - 外部触发连线（3.1）、换档时间。
-- 把 `siglent_sdg`、`siglent_sds_*` 剩下的专用 op 改为声明（第 9 节的例外清单因此缩短）。
+- 把 `siglent_sdg` 剩下的专用 op 改为声明（第 9 节的例外清单因此缩短；`siglent_sds_*` 已由 #138 改为声明）。
 - 界面中的定义编辑（与 instrument-authoring.md 相同，仍推后）。
