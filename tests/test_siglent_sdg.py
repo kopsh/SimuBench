@@ -50,7 +50,9 @@ def test_amplitude_at_the_scope_follows_the_load(bench, load_setting, scope_inpu
     r_set = math.inf if load_setting == "HZ" else float(load_setting)
     emf = 2.0 if math.isinf(r_set) else 2.0 * (r_set + Z_OUT) / r_set
     expected = emf * r_load / (r_load + Z_OUT)
-    assert measure(sds, "PKPK") == pytest.approx(expected, rel=0.01)
+    # One acquisition's extremes carry the division's noise (7.5 mV rms at 0.5 V/div, D46):
+    # its PKPK sits a few codes above the signal's own peak-to-peak.
+    assert measure(sds, "PKPK") == pytest.approx(expected, abs=8 * 7.5e-3 + 0.5 / 30)
 
 
 def test_duty_symmetry_and_polarity_shape_the_waveform(bench):

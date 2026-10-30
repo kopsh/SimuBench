@@ -189,12 +189,11 @@ components:
       reacquire: on_read_start
       missing: acquire
       untriggered: record
-      # 假设值（不是数据手册数值）：12 位 ADC 覆盖 ±5 格，输入端 200 µV rms 白噪声，按采集序号取值；
-      # 测试台可用 hidden 覆盖。
+      # 假设值（不是数据手册数值）：12 位 ADC 覆盖 ±5 格，输入端 200 µV rms 白噪声（假设与档位无关，
+      # 单行档位表），按采集序号取值；测试台可用 hidden 覆盖。
       adc_bits: 12
       adc_divs: 10.0
       adc_offset: add
-      noise_rms: 2.0e-4
       # C<n>:PAVA? 的测量名：引擎的测量与回复的单位。
       measurements:
         AMPL: [VAMPlitude, V]
@@ -243,6 +242,7 @@ channel_components:
       coupling: {from: $ch.coupling, map: {A1M: AC, D1M: DC, D50: DC, GND: GND}}
       bandwidth: 2.5e9
       ac_corner: 10.0
+      noise_table: [[0.0, 2.0e-4]]
 wiring:
   channel:
     - [inp.out, front.in]
