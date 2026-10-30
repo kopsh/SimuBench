@@ -347,7 +347,7 @@ def draft_definition(
 
     Returns ``{"definition": <data>, "drafted": [...], "notes": [...]}``."""
     from ..scpi.errors import ScpiError
-    from ..scpi.parse import Token, parse_unit, split_params, split_units
+    from ..scpi.parse import Token, parse_unit, resolve_tokens, split_params, split_units
 
     scan = scan_python(source)
     notes = [*scan.notes]
@@ -392,7 +392,7 @@ def draft_definition(
                 unit = parse_unit(raw)
             except ScpiError:
                 continue
-            tokens = unit.tokens if unit.common or unit.absolute or not path else path + unit.tokens
+            tokens = resolve_tokens(unit, path)
             if not unit.common:
                 path = tokens[:-1]
             if match.supported or unit.common:

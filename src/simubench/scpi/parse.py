@@ -117,6 +117,21 @@ def parse_unit(unit: bytes) -> Unit:
     )
 
 
+def resolve_tokens(unit: Unit, path: tuple[Token, ...]) -> tuple[Token, ...]:
+    """A unit's header as it reads against the current path of its program message.
+
+    Common (``*``) and absolute (leading ``:``) units stand alone; the others continue the path.
+    A unit that repeats the path's first node (``C1:BSWV …;C1:OUTP ON``, issue 149) reads as
+    starting again from that node — the real instrument (D45) accepts the repeated prefix instead
+    of doubling it.
+    """
+    if unit.common or unit.absolute or not path:
+        return unit.tokens
+    if unit.tokens[0] == path[0]:
+        return unit.tokens
+    return path + unit.tokens
+
+
 # ---- header patterns ----------------------------------------------------------------------------
 
 

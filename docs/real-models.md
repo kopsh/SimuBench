@@ -141,7 +141,7 @@ cases:
 
 **第一个产品型号**：`siglent-sds2104xplus`（D45）。覆盖表由手册正文中的命令条目生成（622 条），实现与接受的级别和说明逐条手写；`examples/scripts/siglent_sds_read_waveform.py` 按手册的波形读取示例编写，在真机和 SimuBench 上都能直接运行（`tests/test_siglent_sds.py`）。
 
-**第二个产品型号**：`siglent-sdg2042x`（D45）。SDG 的命令不是 SCPI 树，而是 Siglent 自己的键值写法（`C1:BSWV WVTP,SINE,FRQ,1000`），回复带命令头与单位（`C1:BSWV WVTP,SINE,FRQ,100HZ,...`），所以这些命令都是组件操作（`library/components/siglent_sdg.py`），由组件拼出完整回复。手册的命令头写法也不全是 SCPI 的长短格式：`ParaCoPy` 的短格式是 `PACP`，定义中写成 `PAraCoPy`，使大写字母就是短格式。
+**第二个产品型号**：`siglent-sdg2042x`（D45）。SDG 的命令不是 SCPI 树，而是 Siglent 自己的键值写法（`C1:BSWV WVTP,SINE,FRQ,1000`），回复带命令头与单位（`C1:BSWV WVTP,SINE,FRQ,100HZ,...`），所以这些命令都是组件操作（`library/components/siglent_sdg.py`），由组件拼出完整回复。手册的命令头写法也不全是 SCPI 的长短格式：`ParaCoPy` 的短格式是 `PACP`，定义中写成 `PAraCoPy`，使大写字母就是短格式。组合消息里重复通道前缀的第二条单元（`C1:BSWV …;C1:OUTP ON`）按真机接受，第一条单元重新从该节点起，不按 SCPI 相对路径重复拼接成 `C1:C1:…`（issue 149；PG02_E05C 未单列组合命令一节，规则在 `scpi/parse.py` 的 `resolve_tokens`，引擎与静态分类共用）。
 
 **第三个产品型号**：`keysight-dsox2024a`（D45，示波器的开发验证基准）。覆盖表由编程手册的命令索引生成（485 条），`*RST` 的示例回复逐条对过；`examples/scripts/keysight_dsox_read_waveform.py` 按手册的波形章节编写（`:DIGitize`、`:WAVeform:PREamble?`、`(code - yreference) * yincrement + yorigin`），在真机和 SimuBench 上都能直接运行（`tests/test_keysight_dsox.py`）。为它补上的通用能力（`tests/test_number_formats.py`）：
 

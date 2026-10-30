@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, ResponseFormat, StateSpec
 from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
-from ..scpi.parse import Pattern, Token, Unit, parse_unit, split_units
+from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 from ..units import parse_number, parse_quantity
 from .component import Component, OpResult, component_type
 from .signal import Signal
@@ -446,9 +446,7 @@ class Instrument:
             except ScpiError as e:
                 self._push(e)
                 continue
-            tokens = unit.tokens
-            if not unit.common and not unit.absolute and path:
-                tokens = path + tokens
+            tokens = resolve_tokens(unit, path)
             if not unit.common:
                 path = tokens[:-1]
             try:
@@ -493,7 +491,7 @@ class Instrument:
             path: tuple[Token, ...] = ()
             for raw in split_units(command.encode()):
                 unit = parse_unit(raw)
-                tokens = unit.tokens if unit.common or unit.absolute or not path else path + unit.tokens
+                tokens = resolve_tokens(unit, path)
                 if not unit.common:
                     path = tokens[:-1]
                 self._execute(unit, tokens)  # the reply and the time it would take are a panel's own

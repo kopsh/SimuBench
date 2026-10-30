@@ -12,7 +12,7 @@ from typing import Literal
 
 from ..models.definition import CommandSpec, InstrumentDefinition
 from ..scpi.errors import ScpiError
-from ..scpi.parse import Pattern, Token, parse_unit, split_units
+from ..scpi.parse import Pattern, Token, parse_unit, resolve_tokens, split_units
 
 COMMON = {"IDN", "RST", "CLS", "OPC", "WAI", "ESR", "ESE", "SRE", "STB", "TST"}
 _BUILTIN = [
@@ -74,9 +74,7 @@ def classify(definition: InstrumentDefinition, message: str) -> list[UnitMatch]:
         except ScpiError as e:
             out.append(UnitMatch(text, "invalid", False, reason=e.message))
             continue
-        tokens = unit.tokens
-        if not unit.common and not unit.absolute and path:
-            tokens = path + tokens
+        tokens = resolve_tokens(unit, path)
         if not unit.common:
             path = tokens[:-1]
         hit = next(
