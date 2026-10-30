@@ -63,11 +63,8 @@ class ScpiServer:
                 line = await reader.readline()
                 if not line:
                     break
-                await asyncio.to_thread(self.session.write, lst.instrument, line, client)
-                while True:
-                    out = await asyncio.to_thread(self.session.read, lst.instrument, client)
-                    if out is None:
-                        break
+                # One action: a UI console query cannot take this message's response (#121).
+                for out in await asyncio.to_thread(self.session.exchange, lst.instrument, line, client):
                     writer.write(out)
                     await writer.drain()
         except (ConnectionResetError, asyncio.IncompleteReadError):

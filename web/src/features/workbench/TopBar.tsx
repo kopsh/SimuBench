@@ -7,6 +7,7 @@ import type { SessionInfo } from "@/api/client";
 import { type ConnectionState, useEvents } from "@/api/events";
 import { useAdvance, useResetSession, useStopSession } from "@/api/hooks";
 import { Logo } from "@/components/app/Logo";
+import { isCancelled } from "@/components/app/ClientsConfirm";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -15,7 +16,8 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatClock, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { EditControls } from "./edit/EditControls";
+import { EditControls, benchChanged, useRebuild } from "./edit/EditControls";
+import { useEditor } from "./edit/editor";
 import { useWorkbench } from "./store";
 
 const STEPS = [1e-3, 10e-3, 100e-3, 1];
@@ -30,6 +32,10 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const advance = useAdvance(session.id);
   const stop = useStopSession();
   const reset = useResetSession(session.id);
+  // Back in Operate without rebuilding ("later", scripts connected): offer the rebuild here (#121).
+  const mode = useWorkbench((s) => s.mode);
+  const changed = benchChanged(session, useEditor((s) => s.doc));
+  const rebuild = useRebuild(session);
   const [step, setStep] = useState(STEPS[1]);
   const mac = navigator.platform.toLowerCase().includes("mac");
 
@@ -52,6 +58,22 @@ export function TopBar({ session }: { session: SessionInfo }) {
       <ConnectionBadge status={status} clockMode={session.clock_mode} />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <EditControls session={session} />
+      {mode === "run" && changed && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 border-amber-500/50 text-xs text-amber-700 dark:text-amber-400"
+              disabled={rebuild.isPending}
+              onClick={rebuild.run}
+            >
+              <RotateCw className="size-3.5" /> {t("edit.benchChanged")}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-72">{t("edit.benchChangedHint")}</TooltipContent>
+        </Tooltip>
+      )}
       {session.stale_definitions.length > 0 && (
         <Tooltip>
           <TooltipTrigger asChild>
@@ -63,7 +85,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
               onClick={() =>
                 reset.mutate(undefined, {
                   onSuccess: () => toast.success(t("workbench.resetDone")),
-                  onError: (e) => toast.error((e as Error).message),
+                  onError: (e) => !isCancelled(e) && toast.error((e as Error).message),
                 })
               }
             >
@@ -102,7 +124,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
               size="sm"
               className="h-8 rounded-l-none border-l-0"
               disabled={status !== "connected" || advance.isPending}
-              onClick={() => advance.mutate(step, { onError: (e) => toast.error((e as Error).message) })}
+              onClick={() => advance.mutate(step, { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) })}
             >
               <StepForward className="size-3.5" /> {t("workbench.advance")}
             </Button>
@@ -136,7 +158,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
             onClick={() =>
               reset.mutate(undefined, {
                 onSuccess: () => toast.success(t("workbench.resetDone")),
-                onError: (e) => toast.error((e as Error).message),
+                onError: (e) => !isCancelled(e) && toast.error((e as Error).message),
               })
             }
           >

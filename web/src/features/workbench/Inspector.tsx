@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { accessoryLabel, channelVars, globalVars, instrumentTitle, numeric } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
+import { RemoteBanner } from "./RemoteBanner";
 import { StateField } from "./StateField";
 import { useWorkbench } from "./store";
 
@@ -105,6 +106,7 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
   return (
     <div className="space-y-4 p-3">
+      <RemoteBanner sid={sid} inst={inst} className="-mx-3 -mt-3" />
       <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} />
       <div className="grid grid-cols-2 gap-1.5">
         <Button variant="outline" size="sm" onClick={() => openScreen(inst.name)}>

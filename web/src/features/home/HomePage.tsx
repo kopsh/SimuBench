@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { BenchFile, SessionInfo } from "@/api/client";
 import { useBenches, useSessions, useStartSession } from "@/api/hooks";
+import { isCancelled } from "@/components/app/ClientsConfirm";
 import { Logo } from "@/components/app/Logo";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
 import { EmptyState, ErrorState } from "@/components/app/StateViews";
@@ -51,11 +52,15 @@ export function HomePage() {
     startBench(b);
   };
 
-  const startBench = (b: BenchFile) =>
-    start.mutate(b.path, {
-      onSuccess: (s) => navigate(`/s/${s.id}`),
-      onError: (e) => toast.error(t("errors.generic"), { description: (e as Error).message }),
-    });
+  // ``force`` once the user confirmed dropping the scripts below; otherwise the engine asks (#121).
+  const startBench = (b: BenchFile, force = false) =>
+    start.mutate(
+      { bench_path: b.path, force },
+      {
+        onSuccess: (s) => navigate(`/s/${s.id}`),
+        onError: (e) => !isCancelled(e) && toast.error(t("errors.generic"), { description: (e as Error).message }),
+      },
+    );
 
   const error = benches.error ?? sessions.error;
 
@@ -180,7 +185,7 @@ export function HomePage() {
             <Button
               size="sm"
               onClick={() => {
-                if (pendingSwitch) startBench(pendingSwitch);
+                if (pendingSwitch) startBench(pendingSwitch, true);
                 setPendingSwitch(null);
               }}
             >

@@ -465,6 +465,21 @@ class Session:
             self._end_action()
             return out
 
+    def exchange(self, name: str, data: bytes, client: str = "sdk", reads: int | None = None) -> list[bytes]:
+        """Write a program message and take its responses in one action, so that no other client
+        (a script on a port, the UI console) can take a response in between (#121).
+
+        ``reads`` limits how many messages are taken; by default every queued one."""
+        with self._lock:
+            self.write(name, data, client)
+            out: list[bytes] = []
+            while reads is None or len(out) < reads:
+                msg = self.read(name, client)
+                if msg is None:
+                    break
+                out.append(msg)
+            return out
+
     def clear_output(self, name: str, client: str = "sdk") -> None:
         """Device clear: drop every queued response message (the communication layer of
         IEEE 488.2 device clear, shared by the PyVISA backend and the HiSLIP server)."""

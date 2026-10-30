@@ -1,4 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import i18n from "@/i18n";
+import { toast } from "sonner";
+import { confirmClients, remoteInstrument } from "@/components/app/ClientsConfirm";
 import { type FaultSpec, api, unwrap } from "./client";
 
 export const keys = {
@@ -77,13 +80,24 @@ export function useSession(sid: string) {
     queryKey: keys.session(sid),
     queryFn: () => unwrap(api.GET("/api/sessions/{sid}", { params: { path: { sid } } })),
     retry: (count, err) => (err as { status?: number }).status !== 404 && count < 3,
+    // Scripts connect and leave without an event: keep the remote marks fresh (#121).
+    refetchInterval: (q) => (q.state.data?.clients.length ? 2000 : 5000),
   });
 }
 
+/**
+ * Start a bench (stopping the open one). With scripts connected the user confirms first (#121);
+ * ``rebuild`` asks as a rebuild (with "later"), ``force`` skips the question (already asked).
+ */
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (bench_path: string) => unwrap(api.POST("/api/sessions", { body: { bench_path } })),
+    mutationFn: (arg: string | { bench_path: string; rebuild?: boolean; force?: boolean }) => {
+      const { bench_path, rebuild = false, force: asked = false } = typeof arg === "string" ? { bench_path: arg } : arg;
+      return confirmClients(rebuild ? "rebuild" : "start", (force) =>
+        unwrap(api.POST("/api/sessions", { body: { bench_path, force: force || asked } })),
+      );
+    },
     onSuccess: (s) => {
       qc.setQueryData(keys.session(s.id), s);
       void qc.invalidateQueries({ queryKey: keys.sessions });
@@ -94,7 +108,8 @@ export function useStartSession() {
 export function useStopSession() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (sid: string) => unwrap(api.DELETE("/api/sessions/{sid}", { params: { path: { sid } } })),
+    mutationFn: (sid: string) =>
+      confirmClients("stop", (force) => unwrap(api.DELETE("/api/sessions/{sid}", { params: { path: { sid }, query: { force } } }))),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.sessions }),
   });
 }
@@ -103,7 +118,8 @@ export function useStopSession() {
 export function useResetSession(sid: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => unwrap(api.POST("/api/sessions/{sid}/reset", { params: { path: { sid } }, body: {} })),
+    mutationFn: () =>
+      confirmClients("reset", (force) => unwrap(api.POST("/api/sessions/{sid}/reset", { params: { path: { sid } }, body: { force } }))),
     onSuccess: (s) => {
       qc.setQueryData(keys.session(s.id), s);
       void qc.invalidateQueries({ queryKey: keys.sessions });
@@ -111,14 +127,48 @@ export function useResetSession(sid: string) {
   });
 }
 
+/** LOCAL: take an instrument in remote control back to the UI, until the script's next command (#121). */
+export function useGoLocal(sid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => goLocal(qc, sid, name),
+  });
+}
+
+async function goLocal(qc: QueryClient, sid: string, name: string) {
+  const inst = await unwrap(api.POST("/api/sessions/{sid}/instruments/{name}/local", { params: { path: { sid, name } } }));
+  await qc.invalidateQueries({ queryKey: keys.session(sid) });
+  return inst;
+}
+
+/** A UI operation refused because a script holds the instrument: say so and offer LOCAL (#121). */
+function remoteRefused(qc: QueryClient, sid: string) {
+  return (e: unknown) => {
+    const name = remoteInstrument(e);
+    if (!name) return;
+    void qc.invalidateQueries({ queryKey: keys.session(sid) });
+    toast.warning(i18n.t("remote.refused", { name }), {
+      id: `remote-${name}`,
+      description: i18n.t("remote.refusedHint"),
+      action: {
+        label: i18n.t("remote.local"),
+        onClick: () => void goLocal(qc, sid, name).catch((err: Error) => toast.error(err.message)),
+      },
+    });
+  };
+}
+
 export function useScpi(sid: string, name: string) {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (command: string) =>
       unwrap(api.POST("/api/sessions/{sid}/instruments/{name}/scpi", { params: { path: { sid, name } }, body: { command } })),
+    onError: remoteRefused(qc, sid),
   });
 }
 
 export function useConfigure(sid: string) {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ instrument, path, value }: { instrument: string; path: string; value: unknown }) =>
       unwrap(
@@ -127,13 +177,16 @@ export function useConfigure(sid: string) {
           body: { path, value },
         }),
       ),
+    onError: remoteRefused(qc, sid),
   });
 }
 
 export function useAdvance(sid: string) {
   return useMutation({
     mutationFn: (seconds: number) =>
-      unwrap(api.POST("/api/sessions/{sid}/clock/advance", { params: { path: { sid } }, body: { seconds } })),
+      confirmClients("advance", (force) =>
+        unwrap(api.POST("/api/sessions/{sid}/clock/advance", { params: { path: { sid } }, body: { seconds, force } })),
+      ),
   });
 }
 
@@ -169,6 +222,7 @@ export function usePanel(sid: string, name: string) {
     mutationFn: (action: "run" | "stop" | "single") =>
       unwrap(api.POST("/api/sessions/{sid}/instruments/{name}/panel", { params: { path: { sid, name } }, body: { action } })),
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.screen(sid, name) }),
+    onError: remoteRefused(qc, sid),
   });
 }
 

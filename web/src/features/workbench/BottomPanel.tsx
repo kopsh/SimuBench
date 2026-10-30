@@ -183,6 +183,8 @@ function EventRow({ e }: { e: Event }) {
   const text =
     e.kind === "panel"
       ? `${e.instrument} ${t("panel.frontPanel")}: ${t(`scope.${e.action ?? "run"}`)}  (${e.source ?? ""})`
+      : e.kind === "remote"
+      ? `${e.instrument} ${t(e.action === "local" ? "remote.eventLocal" : "remote.eventRemote")}  (${e.source ?? ""})`
       : e.kind === "fault"
       ? `${e.fault} ${e.reason}  ${e.message ?? ""}  (${e.source ?? ""})`
       : e.kind === "state"

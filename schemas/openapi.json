@@ -231,6 +231,12 @@
       },
       "AdvanceRequest": {
         "properties": {
+          "force": {
+            "default": false,
+            "description": "Advance even though scripts are connected (they see the time move)",
+            "title": "Force",
+            "type": "boolean"
+          },
           "seconds": {
             "exclusiveMinimum": 0.0,
             "title": "Seconds",
@@ -544,6 +550,18 @@
             "title": "Client",
             "type": "string"
           },
+          "instrument": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The instrument whose port it is connected to",
+            "title": "Instrument"
+          },
           "locked": {
             "default": false,
             "description": "Holds a HiSLIP lock, i.e. a script is in control",
@@ -553,6 +571,7 @@
         },
         "required": [
           "client",
+          "instrument",
           "locked"
         ],
         "title": "ClientInfo",
@@ -2282,6 +2301,12 @@
             ],
             "title": "Label"
           },
+          "local": {
+            "default": false,
+            "description": "Taken back to local from the UI (LOCAL) until a remote client's next command",
+            "title": "Local",
+            "type": "boolean"
+          },
           "manufacturer": {
             "title": "Manufacturer",
             "type": "string"
@@ -2299,6 +2324,14 @@
               "$ref": "#/components/schemas/PortInfo"
             },
             "title": "Ports",
+            "type": "array"
+          },
+          "remote": {
+            "description": "Clients connected to this instrument's ports (socket, HiSLIP): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Remote",
             "type": "array"
           },
           "scpi_port": {
@@ -2340,7 +2373,9 @@
           "errors",
           "dut",
           "deviation",
-          "deviations"
+          "deviations",
+          "remote",
+          "local"
         ],
         "title": "InstrumentInfo",
         "type": "object"
@@ -3585,6 +3620,12 @@
             ],
             "title": "Clock"
           },
+          "force": {
+            "default": false,
+            "description": "Reset even though scripts are connected (they are dropped)",
+            "title": "Force",
+            "type": "boolean"
+          },
           "seed": {
             "anyOf": [
               {
@@ -3746,7 +3787,7 @@
                 "type": "null"
               }
             ],
-            "description": "A front-panel button, for panel events: run | stop | single",
+            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command)",
             "title": "Action"
           },
           "channels": {
@@ -3845,7 +3886,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | fault | acquisition | panel | session",
+            "description": "scpi | state | advance | error | fault | acquisition | panel | remote | session",
             "title": "Kind",
             "type": "string"
           },
@@ -5003,6 +5044,12 @@
               }
             ],
             "title": "Clock"
+          },
+          "force": {
+            "default": false,
+            "description": "Start even though scripts are connected to the running bench (they are dropped)",
+            "title": "Force",
+            "type": "boolean"
           },
           "seed": {
             "anyOf": [
@@ -6298,6 +6345,9 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6324,11 +6374,24 @@
               "title": "Sid",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "force",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Force",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "Scripts are connected; repeat with force=true to drop them"
           },
           "422": {
             "content": {
@@ -6494,6 +6557,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
           },
           "422": {
             "content": {
@@ -6739,6 +6805,9 @@
             },
             "description": "Successful Response"
           },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
+          },
           "422": {
             "content": {
               "application/json": {
@@ -6801,6 +6870,55 @@
         "summary": "Internals"
       }
     },
+    "/api/sessions/{sid}/instruments/{name}/local": {
+      "post": {
+        "description": "LOCAL: take an instrument in remote control back to the UI, until a remote client's next\ncommand (as the LOCAL key of an instrument). Recorded as a ``remote`` event (#121).",
+        "operationId": "goLocal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Go Local"
+      }
+    },
     "/api/sessions/{sid}/instruments/{name}/panel": {
       "post": {
         "description": "A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32).",
@@ -6845,6 +6963,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
           },
           "422": {
             "content": {
@@ -6951,6 +7072,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
           },
           "422": {
             "content": {
@@ -7209,6 +7333,9 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
           },
           "422": {
             "content": {

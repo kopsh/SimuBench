@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { InstrumentInfo, SessionInfo, Trace } from "@/api/client";
 import { useEvents } from "@/api/events";
 import { usePanel, useScopeScreen } from "@/api/hooks";
+import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { EmptyState } from "@/components/app/StateViews";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -30,7 +31,7 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
       onSuccess: (r) => {
         if (!r.ok && r.error) toast.error(`${r.error.code} ${r.error.message}`);
       },
-      onError: (e) => toast.error((e as Error).message),
+      onError: (e) => !remoteInstrument(e) && toast.error((e as Error).message), // the hook says why, with LOCAL
     });
   const running = !!data?.running;
   const hint = running ? t("scope.liveHint") : t("scope.recordHint");
