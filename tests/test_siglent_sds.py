@@ -6,6 +6,7 @@ and compare what it reconstructs with the signal the bench actually carries.
 """
 
 import importlib.util
+import math
 import shutil
 import sys
 from pathlib import Path
@@ -62,14 +63,17 @@ def test_guide_procedure_reconstructs_the_bench_signal(scope, resolution):
     assert len(volts) == rec.volts.size == 10_000
     lsb = 0.5 / (30 if resolution == "8Bits" else 120)  # volts per code at 0.5 V/div
     # The transferred codes are the record (already on the ADC's grid); the record is the net seen
-    # through the front end (a few microvolts at 1 kHz) plus the input noise, quantized.
+    # through the front end (a few microvolts at 1 kHz) plus the division's noise, quantized. At
+    # 0.5 V/div that noise is the estimated 7.5 mV rms (noise_table, D46) - a real scope's record
+    # wanders a few codes around the signal, which the bound takes into account.
+    sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
+    assert sigma == pytest.approx(7.5e-3)
     assert np.max(np.abs(np.array(volts) - rec.volts)) < 1e-9
-    sigma = 80e-6 * np.sqrt(100 / 500)
     assert np.max(np.abs(rec.volts - _truth(session, rec))) <= lsb / 2 + 6 * sigma + 5e-5
     # Time axis: delay 0 puts the trigger (rising zero crossing of the sine) at t = 0.
     assert times[0] == pytest.approx(-5 * 2e-4)
     i0 = int(np.argmin(np.abs(np.array(times))))
-    assert abs(volts[i0]) <= 2 * lsb and volts[i0 + 20] > volts[i0 - 20]
+    assert abs(volts[i0]) <= 6 * sigma + lsb and volts[i0 + 20] > volts[i0 - 20]
 
 
 def test_byte_and_word_carry_the_same_codes(scope):
@@ -95,7 +99,7 @@ def test_start_point_and_interval_select_the_transferred_points(scope):
 
 
 def test_measurements_match_the_waveform(scope):
-    sds, _ = scope
+    sds, session = scope
     sds.write(":TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")
     _, volts = reader.read_waveform(sds, "C1")
     pkpk = float(sds.query(":MEASure:SIMPle:VALue? PKPK"))
@@ -103,9 +107,12 @@ def test_measurements_match_the_waveform(scope):
     rms = float(sds.query(":MEASure:SIMPle:VALue? RMS"))
     v = np.array(volts)
     assert pkpk == pytest.approx(v.max() - v.min(), abs=0.02)  # 3 digits, codes of 16.7 mV
-    assert pkpk == pytest.approx(2.0, abs=0.01)
+    # The extremes carry the division's noise (7.5 mV rms, D46): a real scope's PKPK of one
+    # acquisition sits a few codes above the signal's own 2 V.
+    sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
+    assert pkpk == pytest.approx(2.0, abs=8 * sigma + 0.5 / 30)
     assert freq == pytest.approx(1000.0, rel=5e-3)
-    assert rms == pytest.approx(2.0 / 2 / np.sqrt(2), rel=5e-3)
+    assert rms == pytest.approx(math.sqrt((1.0 / np.sqrt(2)) ** 2 + sigma**2), rel=5e-3)
 
 
 def test_amplitude_of_a_sine_reads_the_peaks(scope):
@@ -190,7 +197,9 @@ def test_example_bench_and_script_run_as_on_the_real_bench(tmp_path, capsys, mon
 
 
 def test_noisy_acquisitions_replay_byte_for_byte(tmp_path):
-    """Noise is a function of the seed and virtual time (issue 24): a run record replays exactly."""
+    """Noise is a function of the seed and virtual time (issue 24), whatever the processing (D46):
+    a run record with plain, averaged, peak-detect and high-resolution acquisitions replays
+    exactly."""
     from simubench.api import open_bench
     from simubench.engine.replay import replay
 
@@ -198,10 +207,11 @@ def test_noisy_acquisitions_replay_byte_for_byte(tmp_path):
     s.write("scope", b":TIMebase:SCALe 2E-4;:CHANnel1:SCALe 5E-3;:TRIGger:MODE SINGle;:WAVeform:SOURce C1\n")
     s.write("scope", b":WAVeform:DATA?\n")
     s.read("scope")
-    s.write("scope", b":TRIGger:MODE SINGle\n")
-    s.write("scope", b":WAVeform:DATA?\n")
-    s.read("scope")
+    for kind in ("AVERage,16", "PEAK", "ERES,2.0"):
+        s.write("scope", f":ACQuire:TYPE {kind};:TRIGger:MODE SINGle\n".encode())
+        s.write("scope", b":WAVeform:DATA?\n")
+        s.read("scope")
     s.close()
     report = replay(next(tmp_path.glob("run-*.jsonl")))
     assert report.ok, report.as_dict()
-    assert report.replies == 2
+    assert report.replies == 4
