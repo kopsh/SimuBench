@@ -10,8 +10,8 @@ from typing import Any
 
 import numpy as np
 import pytest
-
 from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
+
 from simubench.api import open_bench
 from simubench.engine.session import Session
 from simubench.engine.validate_definition import validate_definition_data
@@ -179,12 +179,8 @@ def test_high_resolution_smooths_codes_and_gains_effective_bits():
     query(":ACQuire:TYPE ERES,2.0")
     smoothed, _, _ = acq.compute([1])
     lsb = 0.5 / 30
-    assert float(np.std(smoothed[1].volts)) == pytest.approx(
-        float(np.std(plain[1].volts)) / 4, rel=0.05
-    )
-    assert float(np.std(smoothed[1].volts)) == pytest.approx(
-        averaged_codes_sigma(7.5e-3, lsb, 16), rel=0.05
-    )
+    assert float(np.std(smoothed[1].volts)) == pytest.approx(float(np.std(plain[1].volts)) / 4, rel=0.05)
+    assert float(np.std(smoothed[1].volts)) == pytest.approx(averaged_codes_sigma(7.5e-3, lsb, 16), rel=0.05)
     session.close()
 
 
