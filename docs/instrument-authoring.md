@@ -120,7 +120,7 @@ params:
 
 ### 3.2 可配置的采集组件
 
-把 `ScopeAcquisition`、`SiglentSdsAcquisition`、`LecroyAcquisition` 合成一个可配置的 `scope_acquisition`：
+把 `ScopeAcquisition`、`SiglentSdsAcquisition`、`LecroyAcquisition` 合成一个可配置的 `scope_acquisition`（第 8 节又把它拆成时基、触发、ADC 组等模块，这里的一个组件写法作为宏保留）：
 
 已实现（#44，`library/components/scope.py`）：三台示波器（sb、Siglent SDS、低频校准参考示波器）的记录长度、触发、运行控制、噪声与 ADC 都写在定义里，回复、虚拟时间与采集事件与改动前一致（只有 Siglent 平均采集的耗时按 D46 改为 N 次）。`siglent_sds_acquisition` 与 `lecroy_acquisition` 只剩专用命令（WAVEDESC、`:TRIGger:STATus?`、依赖其他设置的范围、`INSPECT?`、`PAVA?`）。与下面的设计稿的差别：参数是平铺的（与 `waveform_transfer` 一致，每项都可以绑定或映射设置）：
 
@@ -423,6 +423,14 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 **暂不做**：数学通道与 FFT（放在测量之后，作为测量与传输的虚拟数据源）、数字通道、协议解码、参考波形、模板测试、分段存储（留接口）。
 
 **能否覆盖其他厂商**：按上表，Keysight 的 `:DIGitize` 阻塞与点数模式、R&S 的 `SING;*OPC?` 与 `FORM REAL,32`、Tek 的 `ACQ:STATE` 与 `WFMOutpre?` 的换算字段、Rigol 的分批读取上限与 `:TRIG:STAT?` 的取值，都可以用声明表达。这些厂商行为来自经验，未在仓库中核实，写进型号定义前要对照手册。
+
+**G1 的实现（#133）**：
+
+- 新模块：`scope_vertical`（`scope_frontend` 是它的旧名）、`scope_probe`、`scope_adc`、`scope_timebase`、`scope_trigger`。`scope_acquisition` 用参数 `horizontal`、`trigger`、`adc`、`vertical`、`probe` 按名称引用它们，引用由静态校验检查（`E-DEF-COMPONENT-REF`）。组件基类的 `refs` 声明“这个参数指向哪类组件”，以后的模块沿用。
+- 宏在定义模型构造时展开（`InstrumentDefinition` 的前置校验调用 `library/macros.py`），所以加载文件、MCP、测试中直接构造定义都走同一条路。展开把模块的参数改用模块自己的名称，例如 `adc_bits` 改为 `bits`、`trigger_source` 改为 `source`；把接到 `<acq>.in{n}` 的每通道组件作为 `vertical`，并改用 `scope_vertical` 这个名称；再在它与采集之间插入名为 `probe` 的 `scope_probe`。名称冲突或连线不是这个形状时报 `E-DEF-MACRO`，要求把模块写出来。对宏形式的定义，校验诊断的指针指向展开后的位置。
+- `scope_vertical` 的档位表本期只有刻度与偏置的范围（`scale_range`、`offset_ranges`，按输入端给出，用 `probe_ratio` 换算，超出报 -222 并保留旧值）。带宽、噪声、误差与饱和随 G3、G4 加入。
+- 噪声、触发抖动与平均仍在 `scope_acquisition` 上：它们的随机流以采集组件的标识为键，搬动会改变每一个数值，而这两项的行为会在 G4、G5 中改变，届时再搬到 `scope_vertical` 与 `scope_trigger`。
+- `sb-dso-4`、`sb-dso-2x` 改为显式写出模块；SDS2104X Plus 与低频校准参考示波器经宏展开，分别在 G6、G7 改写。
 
 ### 8.5 示波器：衡量
 

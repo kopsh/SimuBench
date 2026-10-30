@@ -37,9 +37,19 @@ def test_operation_parameters_come_from_the_signature():
 def test_parameter_descriptions_are_the_comments_next_to_the_defaults():
     acq = next(c for c in components() if c.type == "siglent_sds_acquisition")
     params = {p.name: p for p in acq.params}
-    assert params["record_length"].doc == "fixed | exact | rate_ladder"  # inherited from scope_acquisition
+    assert (
+        params["reacquire"].doc == "explicit | every_read | on_read_start"
+    )  # inherited from scope_acquisition
+    timebase = next(c for c in components() if c.type == "scope_timebase")
+    assert next(p for p in timebase.params if p.name == "record_length").doc == "fixed | exact | rate_ladder"
     assert params["level_divs"].doc == "trigger level range: +-4.1 div around the offset"
-    assert params["rising"].default == ["POSitive", "EITHer", "RISing", "ALTernate"]
+    trigger = next(c for c in components() if c.type == "scope_trigger")
+    assert next(p for p in trigger.params if p.name == "rising").default == [
+        "POSitive",
+        "EITHer",
+        "RISing",
+        "ALTernate",
+    ]
     front = next(c for c in components() if c.type == "scope_frontend")
     assert next(p for p in front.params if p.name == "bandwidth").unit == "Hz"
     assert acq.role is None and acq.port_pattern == r"in\d+"

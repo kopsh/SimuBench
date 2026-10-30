@@ -241,21 +241,24 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   await page.getByRole("button", { name: "查看内部结构" }).click();
   await expect(page.getByRole("tab", { name: /示波器 · 内部结构/ })).toBeVisible();
   const graph = page.getByTestId("internals-graph");
-  // CH1 is open: input port -> front end -> acquisition; the other channels are collapsed groups.
-  for (const name of ["ch1.inp", "ch1.front", "acq"]) await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
+  // CH1 is open: input port -> vertical channel -> probe setting -> acquisition; the other channels
+  // are collapsed groups (instrument-authoring.md 8.4).
+  for (const name of ["ch1.inp", "ch1.front", "ch1.probe", "acq"]) await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(3);
   await expect(graph.getByTestId("internal-port")).toHaveCount(4);
-  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 2 + 3);
+  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3);
   // A component's parameters: the bound ones follow the setting.
   await graph.locator('[data-name="ch1.front"]').click();
   const details = page.getByTestId("internal-details");
-  await expect(details).toContainText("scope_frontend");
+  await expect(details).toContainText("scope_vertical");
   await expect(details).toContainText("跟随设置：耦合");
   await expect(details).toContainText("200 MHz");
   // Expanding everything shows every channel's chain.
   await page.getByRole("button", { name: "全部展开" }).click();
-  // 4 channels × (input port, front end), the acquisition and the waveform transfer (no signal wires).
-  await expect(graph.getByTestId("internal-component")).toHaveCount(10);
+  // 4 channels × (input port, vertical, probe), the acquisition, its timebase, trigger and ADC group
+  // and the waveform transfer (the last four without signal wires).
+  await expect(graph.getByTestId("internal-component")).toHaveCount(17);
+  for (const name of ["timebase", "trigger", "adc"]) await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.locator('[data-name="xfer"]')).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(0);
   // Read-only: nothing to drag or connect.

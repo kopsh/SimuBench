@@ -498,6 +498,11 @@ export const en: Widen<Messages> = {
     types: {
       input_port: "Input port",
       scope_frontend: "Analog front end",
+      scope_vertical: "Vertical channel",
+      scope_probe: "Probe setting",
+      scope_timebase: "Timebase",
+      scope_trigger: "Trigger",
+      scope_adc: "ADC group",
       scope_acquisition: "Acquisition",
       siglent_sds_acquisition: "Acquisition and transfer",
       siglent_sds_channel_limits: "Channel range check",

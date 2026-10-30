@@ -90,11 +90,12 @@ def test_state_binding_of_a_component_parameter():
 
 def test_channel_state_outside_a_channel():
     bad = copy.deepcopy(DSO)
-    bad["components"][0]["params"] = {"overhead_s": "$ch.scale"}  # acq is one per instrument
+    params = bad["components"][0]["params"]
+    params["overhead_s"] = "$ch.scale"  # acq is one per instrument
     assert codes(bad) == [("E-DEF-STATE-UNKNOWN", "/components/0/params/overhead_s")]
-    bad["components"][0]["params"] = {"overhead_s": "$ch3.scale"}  # two channels
+    params["overhead_s"] = "$ch3.scale"  # two channels
     assert codes(bad) == [("E-DEF-STATE-UNKNOWN", "/components/0/params/overhead_s")]
-    bad["components"][0]["params"] = {"overhead_s": "$ch2.scale"}
+    params["overhead_s"] = "$ch2.scale"
     assert codes(bad) == []
 
 

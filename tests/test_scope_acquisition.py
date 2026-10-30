@@ -69,12 +69,13 @@ def test_run_control_is_configuration():
 
 def test_the_record_length_rules():
     session, _ = _lfcal(LECROY)
-    acq = session.instruments["scope"].components["acq"]
+    scope = session.instruments["scope"].components
+    acq, timebase = scope["acq"], scope["timebase"]  # the one-component form expands into modules
     assert acq._timing()[:2] == (10_000, pytest.approx(1e-6))  # exact: MSIZ points over ten divisions
-    acq._params.update(record_length="rate_ladder", points=30_000)
+    timebase._params.update(record_length="rate_ladder", points=30_000)
     points, dt, pre, _ = acq._timing()
     assert (points, dt, pre) == (20_000, pytest.approx(0.5e-6), 10_000)  # 3 MSa/s rounded down to 2
-    acq._params.update(delay=2e-3)  # the trigger 2 ms before the centre
+    timebase._params.update(delay=2e-3)  # the trigger 2 ms before the centre
     assert acq._timing()[2] == 6_000
     session.close()
 
@@ -114,6 +115,7 @@ def test_channel_bindings_are_checked():
     acq = next(i for i, c in enumerate(bad["components"]) if c["name"] == "acq")
     bad["components"][acq]["params"]["trigger_level"] = "$ch{n}.trigger_lvl"
     _, report = validate_definition_data(bad)
+    # The one-component form expands: the trigger module, right after the acquisition, has the level.
     assert [(d.code, d.pointer) for d in report.diagnostics] == [
-        ("E-DEF-STATE-UNKNOWN", f"/components/{acq}/params/trigger_level")
+        ("E-DEF-STATE-UNKNOWN", f"/components/{acq + 2}/params/level")
     ]
