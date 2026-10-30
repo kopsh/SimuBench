@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
 
 from simubench.api import open_bench
 from simubench.engine.session import Session
@@ -116,6 +117,93 @@ def test_averaging_takes_the_time_of_its_acquisitions():
     _, sixteen, _ = acq.compute([1])
     overhead = round(float(acq.param("overhead_s")) * 1e9)
     assert sixteen - overhead == pytest.approx(16 * (one - overhead), rel=1e-6)
+    session.close()
+
+
+def _noise_query(session):
+    def query(cmd: str) -> str:
+        session.write("scope", cmd.encode() + b"\n")
+        out = session.read("scope") if "?" in cmd else None
+        return out.decode().strip() if out is not None else ""
+
+    return query
+
+
+def test_noise_comes_from_the_division_table():
+    """G4/D46: the input noise is the vertical division's own noise_table row - it rides the
+    scale (the front-end gain sets it at the ADC), and the records match the table (F4)."""
+    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
+    query = _noise_query(session)
+    acq = session.instruments["scope"].components["acq"]
+    for scale, sigma in ((0.5, 7.5e-3), (5e-3, 75e-6)):
+        query(f":CHANnel1:SCALe {scale}")
+        assert acq.vertical_of(1).noise_rms() == pytest.approx(sigma)
+        records, _, _ = acq.compute([1])
+        lo, hi = sigma_interval(quantized_sigma(sigma, scale / 30), records[1].volts.size)
+        assert lo <= float(np.std(records[1].volts)) <= hi
+    query(":CHANnel1:SCALe 7")  # not listed: the row of the largest division not above it
+    assert acq.vertical_of(1).noise_rms() == pytest.approx(0.075)
+    query(":CHANnel1:PROBe VALue,10;:CHANnel1:SCALe 5")  # 0.5 V/div at the input, x10 on screen
+    assert acq.vertical_of(1).noise_rms() == pytest.approx(7.5e-3)  # input-referred
+    noise = acq._noise(1, session.now_ns, acq._timing()[1], 10)
+    lo, hi = sigma_interval(0.075, 10)  # display volts: the input rms times the probe ratio
+    assert lo <= float(np.std(noise)) <= hi
+    session.close()
+
+
+def test_the_average_of_codes_resolves_below_the_adc_grid():
+    """G4/D46: every averaged acquisition is noisy and quantized, and their mean keeps the
+    sub-code resolution - averaging analog values and quantizing once would not (F4)."""
+    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
+    query = _noise_query(session)
+    acq = session.instruments["scope"].components["acq"]
+    query(":CHANnel1:SCALe 0.5;:ACQuire:TYPE AVERage,64")
+    records, _, _ = acq.compute([1])
+    lsb = 0.5 / 30
+    # The mean of 64 records, each with the one-acquisition noise the table row quantizes to.
+    sigma = quantized_sigma(7.5e-3, lsb) / 8
+    lo, hi = sigma_interval(sigma, records[1].volts.size)
+    assert lo <= float(np.std(records[1].volts)) <= hi
+    assert float(np.std(records[1].volts)) < 0.25 * lsb  # the noise fell well below one code
+    session.close()
+
+
+def test_high_resolution_smooths_codes_and_gains_effective_bits():
+    """G4/D46: ERES,b is a boxcar of 4^b codes - at 2.0 bits the noise falls by four, and the
+    bandwidth with the window."""
+    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
+    query = _noise_query(session)
+    acq = session.instruments["scope"].components["acq"]
+    query(":CHANnel1:SCALe 0.5")
+    plain, _, _ = acq.compute([1])
+    query(":ACQuire:TYPE ERES,2.0")
+    smoothed, _, _ = acq.compute([1])
+    lsb = 0.5 / 30
+    assert float(np.std(smoothed[1].volts)) == pytest.approx(float(np.std(plain[1].volts)) / 4, rel=0.05)
+    assert float(np.std(smoothed[1].volts)) == pytest.approx(averaged_codes_sigma(7.5e-3, lsb, 16), rel=0.05)
+    session.close()
+
+
+def test_peak_detect_keeps_the_excursions_and_the_top_rate_keeps_the_record():
+    """G4/D46: peak detect keeps, of each interval's native codes, the exceptional one, so its
+    noise band is wider; at the ADC's top rate there is nothing to oversample and the record is
+    the plain one."""
+    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
+    query = _noise_query(session)
+    acq = session.instruments["scope"].components["acq"]
+    query(":CHANnel1:SCALe 0.5")
+    plain, _, _ = acq.compute([1])
+    query(":ACQuire:TYPE PEAK")
+    peaks, _, _ = acq.compute([1])
+    assert float(np.std(peaks[1].volts)) > 1.5 * float(np.std(plain[1].volts))  # extremes of 64 codes
+    query(":TIMebase:SCALe 5E-7")  # 10k points over 5 us: at the ADC's 2 GSa/s, m = 1
+    query(":ACQuire:TYPE NORMal")
+    plain, _, _ = acq.compute([1])
+    query(":ACQuire:TYPE PEAK")
+    peaks, _, _ = acq.compute([1])
+    # Nothing to oversample: the peak record has the plain record's noise band (the type keeps
+    # its own noise stream, so the realizations differ, the width does not).
+    assert float(np.std(peaks[1].volts)) == pytest.approx(float(np.std(plain[1].volts)), rel=0.05)
     session.close()
 
 

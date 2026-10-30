@@ -60,7 +60,14 @@ sections:
     note: query only here; setting a fixed rate (FSRate) is not modeled
   - header: :ACQuire:TYPE
     level: implemented
-    note: 'NORMal; AVERage,N gives the noise of N averaged acquisitions (1/sqrt(N)) and takes the time of N; PEAK and ERES are stored (no effect)'
+    note: >-
+      NORMal; AVERage,N is the mean of N quantized acquisitions - noise 1/sqrt(N) with the
+      resolution gained, the time of N; PEAK keeps the largest excursion of each record interval
+      at up to 64 x the record rate (the native rate, capped for the model), so a pulse the record
+      rate would step over shows; ERES,b is a boxcar of 4^b codes - noise 2^-b, b more effective
+      bits, at the boxcar's bandwidth (D46). The per-division noise is estimated, the data sheet
+      gives none: max(35.8 uV, 0.015 x v_div) at the input (specs.noise_per_division, the
+      scope_vertical noise_table).
 - section: CHANnel Commands (EN11F)
   commands:
   - header: :CHANnel:REFerence

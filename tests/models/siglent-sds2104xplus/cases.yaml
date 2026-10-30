@@ -239,7 +239,8 @@ cases:
         expect: "C1"
       - send: "TIM:SCAL 1E-3;:CHAN1:SCAL 0.5"
       - query: "MEAS:SIMP:VAL? PKPK"
-        expect: "2.00E+00"
+        # 2 Vpp 信号加上 0.5 V/div 档位的估计噪声（D46）在极值上的几个码，读数在 2.00-2.09 V 之间。
+        expect_match: "2\\.0[0-9]E\\+00"
       - query: "MEAS:SIMP:VAL? FREQ"
         expect: "1.00E+03"
   - name: "没有建模的命令回复 -113（自动设置）"

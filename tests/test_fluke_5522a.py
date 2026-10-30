@@ -210,17 +210,20 @@ def test_the_example_bench_shows_dc_and_1khz_ac_on_the_scope():
         q(s, "dut", ":MEASure ON;:MEASure:MODE SIMPle;:MEASure:SIMPle:SOURce C1")
         q(s, "cal", "OUT 10 V")
         q(s, "cal", "OPER;*OPC?")
-        # 8-bit ADC, 30 codes/div at 2.5 V/div: 10 V is 120 codes, on scale.
+        # 8-bit ADC, 30 codes/div at 2.5 V/div: 10 V is 120 codes, on scale. The mean of the noisy
+        # record is the 10 V itself; its extremes carry the division's noise (37.5 mV rms, D46):
+        # MAX reads a few codes above the calibrator's value.
+        sigma = 0.015 * 2.5
         assert q(s, "dut", "MEAS:SIMP:VAL? MEAN") == "1.00E+01"
-        assert q(s, "dut", "MEAS:SIMP:VAL? MAX") == "1.00E+01"
+        assert 10.0 <= float(q(s, "dut", "MEAS:SIMP:VAL? MAX")) <= 10.0 + 8 * sigma
         q(s, "cal", "STBY")
         q(s, "cal", "OUT 1 V, 1 kHz")
         q(s, "cal", "OPER;*OPC?")
-        # 1 V RMS: 2.83 Vpp; the quantized peaks read 17 codes = 1.4167 V.
-        assert q(s, "dut", "MEAS:SIMP:VAL? PKPK") == "2.83E+00"
+        # 1 V RMS: 2.83 Vpp, a few codes of noise on top; FREQ and RMS are untroubled by it.
+        assert 2.83 <= float(q(s, "dut", "MEAS:SIMP:VAL? PKPK")) <= 2.83 + 8 * sigma
         assert q(s, "dut", "MEAS:SIMP:VAL? FREQ") == "1.00E+03"
         assert q(s, "dut", "MEAS:SIMP:VAL? RMS") == "1.00E+00"
-        assert float(q(s, "dut", "MEAS:SIMP:VAL? MEAN")) == pytest.approx(0.0, abs=1e-12)
+        assert float(q(s, "dut", "MEAS:SIMP:VAL? MEAN")) == pytest.approx(0.0, abs=5e-3)
     finally:
         s.close()
 

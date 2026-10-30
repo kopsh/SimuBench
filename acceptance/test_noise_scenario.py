@@ -1,8 +1,12 @@
-"""Scope noise (issue 24): the SDS2104X Plus's input noise and ADC, read the way a script reads them.
+"""Scope noise (issue 24, G4 #136): the SDS2104X Plus's noise and ADC, read as a script reads them.
 
 Expectations come from refcalc.noise and the data sheet: 80 uV rms at 500 MHz, white, so
-80 uV * sqrt(100 / 500) at this model's 100 MHz; 30 codes per division at 8 bits, 120 at 10 bits.
-Intervals follow the sample count (architecture.md: statistics are checked against intervals).
+80 uV * sqrt(100 / 500) = 35.8 uV at this model's 100 MHz; 30 codes per division at 8 bits, 120
+at 10 bits. The data sheet gives the noise of the sensitive divisions only; above them the
+per-division values are the definition's estimate (noise_table, D46): max(35.8 uV, 0.015 v_div)
+at the input - 7.5 mV rms at 0.5 V/div. Processing happens on the quantized codes: an average is
+the mean of N quantized acquisitions, ERES b a boxcar of 4^b codes, PEAK keeps the largest
+excursion of each interval at up to 64 x the record rate.
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ import struct
 import numpy as np
 import pytest
 import pyvisa
-from refcalc.noise import quantized_sigma, sigma_interval
+from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
 
 from .conftest import BENCHES
 
@@ -106,8 +110,86 @@ def test_same_seed_and_virtual_times_repeat_the_noise(monkeypatch):
 
 
 def test_averaging_lowers_the_noise_by_sqrt_n(scope):
+    """The average is taken after the quantization (G4/D46): the codes' lsb^2/12 averages down
+    with the noise, which is why averaging resolves below one code at all. Read by the scope's
+    RMS, which sees the record the average produced - a BYTE transfer would re-round it to the
+    sample grid, as the instrument's sample memory would."""
     scope.write(":CHANnel1:SCALe 5E-4;:ACQuire:TYPE AVERage,16")
-    assert_sigma(read_volts(scope), quantized_sigma(SIGMA_IN, 5e-4 / 30, averages=16))
+    lo, hi = sigma_interval(averaged_codes_sigma(SIGMA_IN, 5e-4 / 30, 16), POINTS)
+    assert lo <= measure(scope) <= hi
+
+
+def measure(scope) -> float:
+    """One forced acquisition's record, as the scope's RMS sees it (the record's own precision -
+    a BYTE transfer would re-round it to the sample grid, as the sample memory would)."""
+    scope.write(":TRIGger:MODE FTRIG")
+    assert scope.query("*OPC?") == "1"
+    return float(scope.query(":MEASure:SIMPle:VALue? RMS"))
+
+
+@pytest.mark.parametrize(
+    ("scale", "sigma_div"),
+    [(5e-3, 0.015 * 5e-3), (0.5, 0.015 * 0.5)],  # an estimated division; the data sheet's floor is below
+)
+def test_the_noise_of_each_division_is_its_table_row(scope, scale, sigma_div):
+    """G4/D46: the noise rides the division, not the front end alone - the definition's
+    noise_table holds the rms per division and the records match it."""
+    scope.write(f":CHANnel1:SCALe {scale}")
+    assert_sigma(read_volts(scope), quantized_sigma(sigma_div, scale / 30))
+
+
+def test_a_quiet_dc_is_measured_once_the_average_resolves_it():
+    """G4's headline (D46): 5 mV of DC at 0.5 V/div - 0.3 of a code - is invisible in one
+    acquisition (the old model measured 0) and the average of 64 resolves it to 0.2 LSB."""
+    rm = pyvisa.ResourceManager(f"{BENCHES / 'siglent_noise.bench.yaml'}@simubench")
+    try:
+        awg = rm.open_resource("awg", read_termination="\n", write_termination="\n")
+        scope = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=30000)
+        awg.write("C1:BSWV WVTP,DC,OFST,5E-3")
+        awg.write("C1:OUTP ON")
+        scope.write(":CHANnel1:SCALe 0.5;:ACQuire:TYPE AVERage,64")
+        scope.write(":TRIGger:MODE FTRIG")
+        assert scope.query("*OPC?") == "1"  # 64 acquisitions' time
+        mean = float(scope.query(":MEASure:SIMPle:VALue? MEAN"))
+        assert abs(mean - 5e-3) < 0.2 * 0.5 / 30, mean
+        awg.write("C1:OUTP OFF")
+    finally:
+        rm.close()
+
+
+def test_high_resolution_gains_the_effective_bits_the_manual_promises(scope):
+    """ERES,b smooths 4^b codes (D46): the noise falls by 2^b, b effective bits - at 2.0 bits,
+    a quarter of the one-acquisition sigma."""
+    lsb = 5e-4 / 30
+    sigma = quantized_sigma(SIGMA_IN, lsb)
+    scope.write(":CHANnel1:SCALe 5E-4")
+    scope.write(":ACQuire:TYPE ERES,2.0")
+    lo, hi = sigma_interval(averaged_codes_sigma(SIGMA_IN, lsb, 16), POINTS)
+    assert lo <= measure(scope) <= hi
+    assert averaged_codes_sigma(SIGMA_IN, lsb, 16) < sigma / 3.5  # two bits, minus the quantization floor
+
+
+def test_peak_detect_catches_the_pulse_the_record_rate_steps_over():
+    """G4/D46: the record rate steps over pulses (500 ns at 1 kHz into 1 us samples - the source's
+    harmonic limit sets the width); PEAK examines 64 native codes per record sample and every
+    pulse's excursion is in the record."""
+    rm = pyvisa.ResourceManager(f"{BENCHES / 'siglent_noise.bench.yaml'}@simubench")
+    try:
+        awg = rm.open_resource("awg", read_termination="\n", write_termination="\n")
+        scope = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=30000)
+        awg.write("C1:BSWV WVTP,SQUARE,FRQ,1000,AMP,2,DUTY,0.05")
+        awg.write("C1:OUTP ON")
+        scope.write(":ACQuire:MDEPth 10k;:TIMebase:SCALe 1E-3;:CHANnel1:SCALe 0.5")
+
+        scope.write(":ACQuire:TYPE NORMal")
+        normal = read_volts(scope)
+        scope.write(":ACQuire:TYPE PEAK")
+        peak = read_volts(scope)
+        assert np.sum(normal > 0.5) < np.sum(peak > 0.5), (np.sum(normal > 0.5), np.sum(peak > 0.5))
+        assert np.max(peak) > 0.8, np.max(peak)  # the pulse's excursion, kept
+        awg.write("C1:OUTP OFF")
+    finally:
+        rm.close()
 
 
 def test_the_probe_ratio_scales_the_noise_in_display_volts(scope):

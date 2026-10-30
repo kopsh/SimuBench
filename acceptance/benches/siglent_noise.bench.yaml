@@ -1,8 +1,18 @@
 schema: simubench.bench/2
 name: siglent_noise
-description: An SDS2104X Plus with nothing on CH1, to read its own noise (issue 24).
+description: >-
+  An SDS2104X Plus reading its own noise on CH1 (issue 24): the SDG2042X sits on the wire with
+  its output off; a test that needs a signal (the average-resolution checks) switches it on.
 instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
   scope:
     model: siglent-sds2104xplus
+    label: 示波器
+    address: "TCPIP0::192.168.1.31::INSTR"
     state: {timebase.scale: 1.0e-3, acquire.mdepth: 100k}
+wires:
+  - {from: awg.CH1, to: scope.CH1}
 run: {seed: 11, clock: command}
