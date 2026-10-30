@@ -8,6 +8,7 @@ sections:
     level: implemented
   - header: '*OPC'
     level: implemented
+    note: '*OPC? waits for a single acquisition, a forced frame or a digitize in progress, and does not answer while armed for a trigger that does not come (the client times out); not verified on the instrument: the manual does not say whether *OPC? waits for an acquisition'
   - header: '*RST'
     level: implemented
     note: '*RST values the manual does not give use SimuBench defaults: 1 V/div, 0 V offset, DC, 1 MΩ, probe 1X, FULL bandwidth, CH1 on, 1 us/div, delay 0, edge trigger on C1 rising at 0 V, AUTO, NORMal
@@ -826,12 +827,12 @@ sections:
     level: not_modeled
   - header: :TRIGger:MODE
     level: implemented
-    note: SINGle acquires at once and stops when it triggers; FTRIG forces one frame
+    note: 'SINGle arms one acquisition that finishes in virtual time, once the record after the trigger is full, then stops; a read meanwhile gets the running scope''s last frame; FTRIG forces one frame, which also takes its record time. No command takes a declared time of its own (the manual gives none): a script that polls without sleeping moves virtual time only on the wall clock or with idle time counted (D47)' 
   - header: :TRIGger:RUN
     level: implemented
   - header: :TRIGger:STATus
     level: implemented
-    note: Stop, Trig'd, Auto or Ready
+    note: 'Stop, Trig''d, Auto or Ready; during a single acquisition Ready until the trigger, Trig''d while the record after it fills, then Stop' 
   - header: :TRIGger:STOP
     level: implemented
   - header: :TRIGger:TYPE

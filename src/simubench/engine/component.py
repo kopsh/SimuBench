@@ -293,6 +293,10 @@ class Component:
     def sync(self) -> None:
         """Dynamic components: note what changed at the current instant (see :attr:`dynamic`)."""
 
+    def retry_pending(self) -> None:
+        """An operation waiting for an event (a scope armed for a trigger) looks for it again: called
+        whenever a command arrives, before what is due is finished (``Instrument.settle_pending``)."""
+
     # ---- operations --------------------------------------------------------------------------
 
     def operation(self, name: str) -> Callable[..., OpResult] | None:

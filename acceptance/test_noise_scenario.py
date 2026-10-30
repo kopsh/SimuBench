@@ -29,9 +29,16 @@ def read_block(scope) -> bytes:
     return data
 
 
-def read_volts(scope) -> np.ndarray:
-    """One single acquisition of C1 in volts, by the guide's procedure (WAVEDESC + codes)."""
+def read_volts(scope, step=None) -> np.ndarray:
+    """One single acquisition of C1 in volts, by the guide's procedure (WAVEDESC + codes).
+
+    The forced frame takes its record time (completion: pending): wait for it with *OPC? before
+    reading, or on the stepped clock, where only stepping moves time, ``step`` past it."""
     scope.write(":TRIGger:MODE FTRIG;:WAVeform:SOURce C1;:WAVeform:STARt 0")
+    if step is None:
+        assert scope.query("*OPC?") == "1"
+    else:
+        step(0.02)  # 10 divisions of 1 ms and the overhead
     scope.write(":WAVeform:PREamble?")
     desc = read_block(scope)
     vdiv, ofst, per_div = struct.unpack("<fff", desc[156:168])
@@ -85,9 +92,10 @@ def test_same_seed_and_virtual_times_repeat_the_noise(monkeypatch):
         try:
             inst = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
             inst.write("*RST;:TIMebase:SCALe 1E-3;:ACQuire:MDEPth 100k;:CHANnel1:SCALe 5E-4")
-            out = [read_volts(inst)]
-            rm.visalib.bench.advance(1e-3)
-            out.append(read_volts(inst))
+            step = rm.visalib.bench.advance
+            out = [read_volts(inst, step)]
+            step(1e-3)
+            out.append(read_volts(inst, step))
             return out
         finally:
             rm.close()

@@ -80,7 +80,9 @@ def test_the_record_length_rules():
     session.close()
 
 
-def test_a_pending_single_acquisition_completes_on_a_later_read():
+def test_a_waiting_single_acquisition_completes_once_the_trigger_comes():
+    """A read does not complete a waiting single acquisition (completion: pending, issue 134): the
+    scope triggers when the signal crosses the level, and the record fills in virtual time."""
     session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
 
     def query(cmd: str) -> str:
@@ -90,11 +92,14 @@ def test_a_pending_single_acquisition_completes_on_a_later_read():
 
     session.write("awg", b"C1:OUTP ON\n")
     query(":TRIGger:EDGE:LEVel 0.15")  # above the signal
-    query(":TRIGger:MODE SINGle")
-    assert query(":TRIGger:STATus?") == "Ready"
-    query(":TRIGger:EDGE:LEVel 0")
-    query(":WAVeform:DATA?")  # the scope triggers now
-    assert (query(":TRIGger:STATus?"), query(":ACQuire:NUMAcq?")) == ("Stop", "1")
+    query(":TRIGger:MODE SINGle")  # the running scope's last frame is its latest acquisition
+    assert (query(":TRIGger:STATus?"), query(":ACQuire:NUMAcq?")) == ("Ready", "1")
+    assert query("*OPC?") == ""  # no trigger: no reply, the client's read times out
+    query(":WAVeform:DATA?")  # a read gets the previous record and does not trigger
+    assert (query(":TRIGger:STATus?"), query(":ACQuire:NUMAcq?")) == ("Ready", "1")
+    query(":TRIGger:EDGE:LEVel 0")  # now the signal crosses the level
+    assert query("*OPC?") == "1"  # waits until the record after the trigger is full
+    assert (query(":TRIGger:STATus?"), query(":ACQuire:NUMAcq?")) == ("Stop", "2")
     session.close()
 
 

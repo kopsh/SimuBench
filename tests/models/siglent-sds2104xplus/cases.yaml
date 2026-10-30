@@ -172,11 +172,16 @@ cases:
     manual: "TRIGger Commands > :TRIGger:MODE, :TRIGger:STATus, :TRIGger:STOP, :TRIGger:RUN"
     steps:
       - send: "TIM:SCAL 1E-3;:CHAN1:SCAL 0.5"
+      # 单次采集在虚拟时间中完成：触发后的记录未填满时状态为 Ready；运行中的最后一帧算一次采集。
       - send: ":TRIGger:MODE SINGle"
+      - query: ":TRIGger:STATus?"
+        expect: "Ready"
+      - query: "*OPC?"
+        expect: "1"
       - query: ":TRIGger:STATus?"
         expect: "Stop"
       - query: "ACQ:NUMA?"
-        expect: "1"
+        expect: "2"
       - send: ":TRIGger:MODE NORMal"
       - query: "TRIG:MODE?"
         expect: "NORMal"

@@ -597,6 +597,7 @@ class SessionManager:
             raise KeyError(f"{instrument} is not an oscilloscope")
         with s._lock:  # read a consistent view without changing anything the instrument keeps
             s.follow_wall()
+            inst.settle_pending()  # an acquisition that has come due is shown, as any command would
             live = bool(acq.shows_live())  # type: ignore[attr-defined]
             records = dict(acq.records)  # type: ignore[attr-defined]
             if live:
