@@ -25,7 +25,7 @@ DEFINITIONS_ENV = "SIMUBENCH_DEFINITIONS"
 COVERAGE_SUFFIX = ".coverage.yaml"
 
 
-class YamlLoader(yaml.SafeLoader):
+class YamlLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # libyaml's parser when present
     """SafeLoader that reads floats the YAML 1.2 way: ``1.0e7`` and ``1e-7`` are numbers.
 
     YAML 1.1 (PyYAML's default) needs a dot and a signed exponent, so engineers' ``1.0e7`` would
