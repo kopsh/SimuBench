@@ -67,6 +67,12 @@
           "description": "Virtual time the command consumes (D12)",
           "title": "Duration"
         },
+        "factor": {
+          "default": 1.0,
+          "description": "The command's number is the bound setting times factor: :TIMebase:RANGe is factor 10 on the time/div setting; a write divides by it",
+          "title": "Factor",
+          "type": "number"
+        },
         "format": {
           "anyOf": [
             {
@@ -1096,6 +1102,21 @@
           "description": "Write '+' before non-negative numbers",
           "title": "Sign",
           "type": "boolean"
+        },
+        "significant": {
+          "anyOf": [
+            {
+              "maximum": 17,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "engineering with this many significant digits, signed and with exponent_digits: +40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own",
+          "title": "Significant"
         }
       },
       "title": "ResponseFormat",

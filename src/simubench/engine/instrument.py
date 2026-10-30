@@ -296,10 +296,17 @@ class Instrument:
         self.state[path] = value
         try:
             for comp in self._watchers.get(path, ()):
-                comp.on_state(path, old, value)
+                # A component may take a value outside its legal range as the nearest legal one
+                # (it returns that value) instead of refusing it.
+                adjusted = comp.on_state(path, old, value)
+                if adjusted is not None and adjusted != value:
+                    value = self._validate(spec.model_copy(update={"readonly": False}), adjusted)
+                    self.state[path] = value
         except ScpiError:
             self.state[path] = old
             raise
+        if old == value:
+            return
         self.session.state_changed(self, path, old, value, electrical=spec.electrical, source=source)
 
     def _validate(self, spec: StateSpec, value: Any) -> Any:
@@ -723,14 +730,24 @@ class Instrument:
                         if which.startswith("MAX")
                         else st.default
                     )
-                    return self._format(st, v, spec.format)
+                    return self._format(st, v * spec.factor if v is not None else v, spec.format)
                 raise ScpiError(-108)
-            return self._format(st, self.state[path], spec.format)
+            value = self.state[path]
+            return self._format(st, value * spec.factor if spec.factor != 1 else value, spec.format)
         if not unit.params:
             raise ScpiError(-109)
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
-        value = self._parse_state(st, unit.params[0])
+        if spec.factor != 1:
+            # The command's number is the setting times factor (:TIMebase:RANGe is ten :SCALe).
+            word = V.parse_string(unit.params[0]).strip().upper()
+            keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or word in (
+                st.special or {}
+            )
+            v = V.parse_float(unit.params[0], st.unit)
+            value = self._parse_state(st, unit.params[0]) if keyword else v / spec.factor
+        else:
+            value = self._parse_state(st, unit.params[0])
         self.set_state(path, value)
         return None
 
@@ -905,6 +922,10 @@ class Instrument:
         """A number in the definition's response format (a reading, a measured value)."""
         f = self.definition.format
         if f.number == "engineering":
+            if f.significant:
+                return V.format_engineering_digits(
+                    value, f.significant, sign=f.sign, exponent_digits=f.exponent_digits
+                )
             return V.format_engineering(value)
         return V.format_float(value, f.digits, style=f.number, sign=f.sign, exponent_digits=f.exponent_digits)
 
@@ -914,6 +935,10 @@ class Instrument:
             if st.special and value in st.special.values() and not math.isfinite(value):
                 return next(k for k, v in st.special.items() if v == value).encode()
             if f.number == "engineering":
+                if f.significant:
+                    return V.format_engineering_digits(
+                        value, f.significant, sign=f.sign, exponent_digits=f.exponent_digits
+                    )
                 return V.format_engineering(value)
             return V.format_float(
                 value, f.digits, style=f.number, sign=f.sign, exponent_digits=f.exponent_digits

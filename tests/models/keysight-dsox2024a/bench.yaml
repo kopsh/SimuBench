@@ -1,0 +1,12 @@
+schema: simubench.bench/2
+name: dsox2024a_cases
+description: 1 kHz、2 Vpp 正弦（高阻负载设定）接 DSO-X 2024A 的 CH1，供手册用例使用。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    state: {ch1.function: SINE, ch1.frequency: 1000, ch1.amplitude: 2.0, ch1.load: .inf, ch1.output: true}
+  scope:
+    model: keysight-dsox2024a
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+run: {seed: 1, clock: command, idle: "off"}

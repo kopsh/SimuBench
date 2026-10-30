@@ -163,6 +163,28 @@ def format_engineering(v: float) -> bytes:
     return f"{text}E{exp:+d}".encode()
 
 
+def format_engineering_digits(
+    v: float, significant: int, *, sign: bool = True, exponent_digits: int = 2
+) -> bytes:
+    """Engineering notation with ``significant`` digits: ``+40.0E+00``, ``+0.00000E+00``,
+    ``+60.0000000000000E-09`` (Keysight InfiniiVision replies). Not finite: ``+9.9E+37``."""
+    v = float(v)
+    lead = "-" if v < 0 else ("+" if sign else "")
+    if not math.isfinite(v):
+        return f"{'-' if v < 0 else lead}9.9E+{37:0{exponent_digits}d}".encode()
+    a = abs(v)
+    exp = 0 if a == 0 else math.floor(math.log10(a) / 3) * 3
+    for _ in range(2):  # rounding may carry into the next group (999.5 -> 1.00E+03)
+        mant = a / 10.0**exp
+        whole = 1 if mant < 10 else 2 if mant < 100 else 3
+        decimals = max(0, significant - whole)
+        text = f"{mant:.{decimals}f}"
+        if float(text) < 1000:
+            break
+        exp += 3
+    return f"{lead}{text}E{'+' if exp >= 0 else '-'}{abs(exp):0{exponent_digits}d}".encode()
+
+
 def parse_multiplied(raw: bytes, multipliers: dict[str, float]) -> float | None:
     """A number with a multiplier suffix (``10K``, ``2.5MA``), or None when it has none of them."""
     text = _text(raw).strip().upper()

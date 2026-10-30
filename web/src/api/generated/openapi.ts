@@ -1031,6 +1031,12 @@ export interface components {
              * @description Virtual time the command consumes (D12)
              */
             duration?: string | number | null;
+            /**
+             * Factor
+             * @description The command's number is the bound setting times factor: :TIMebase:RANGe is factor 10 on the time/div setting; a write divides by it
+             * @default 1
+             */
+            factor: number;
             /** @description Overrides the definition's response format */
             format?: components["schemas"]["ResponseFormat"] | null;
             /**
@@ -2521,6 +2527,11 @@ export interface components {
              * @default true
              */
             sign: boolean;
+            /**
+             * Significant
+             * @description engineering with this many significant digits, signed and with exponent_digits: +40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own
+             */
+            significant?: number | null;
         };
         /** RestoreBenchRequest */
         RestoreBenchRequest: {
