@@ -214,10 +214,10 @@ class WaveformTransfer(Component):
             "step": max(1, int(self.param("step"))),
             "bytes": int(sel.size) * (int(self.param("float") or 0) or width) // 8,
             "dt": rec.dt_s,
-            "x_offset": -rec.trigger_index * rec.dt_s,
+            "x_offset": rec.origin,
             # the time of the first point sent, and one sent point's span after the last (trigger: 0)
-            "x_start": (first - rec.trigger_index) * rec.dt_s,
-            "x_stop": (last + span - rec.trigger_index) * rec.dt_s,
+            "x_start": rec.origin + first * rec.dt_s,
+            "x_stop": rec.origin + (last + span) * rec.dt_s,
             "offset": rec.offset,
             "scale": rec.scale,
             "probe": probe,

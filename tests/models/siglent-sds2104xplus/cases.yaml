@@ -249,3 +249,8 @@ cases:
       - send: ":AUToset"
       - query: "*OPC?"
         expect: "1"
+  - name: "*CAL? 自校准成功"
+    manual: "SDS 系列编程指南 SYSTEM *CAL?（EN11F 目录未列；回复 *CAL 0 = 校准成功，系数按显示 V/div 进校准存储）"
+    steps:
+      - query: "*CAL?"
+        expect: "*CAL 0"

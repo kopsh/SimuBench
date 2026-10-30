@@ -479,6 +479,26 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 - SDS2104X Plus 只用通用模块写成，`siglent_sds_acquisition` 与 `siglent_sds_channel_limits` 已删除。改写前后对同一串 105 条命令（前导块、波形数据、状态、采集方式、探头、测量、各项限值与它们的错误码）的回复逐字节相同。`sb-dso-4`、`sb-dso-2x` 显式写出 `meas`。
 - 契约定义：`tests/models/contract-float-scope/` 是一台类 R&S 的示波器（float32 块、点数模式、文本前导、按名称的测量与统计），只用通用模块，用例全部通过。
 
+**G3 的实现（#135）**：
+
+- `scope_vertical` 增加 `gain_error_ppm`、`offset_error`、`dac_error_ppm` 与 `store`。前两项按**输入端**的 V/div 给：一个数，或 `deviations` 的 `by: {scale: …}` 画出的表（表里没有的档位没有刻画误差，贡献 0）。垂直模块在探头模块之前，所以增益误差沿输入通路乘上去、偏置误差按输入伏特加上；`dac_error_ppm` 是偏置 DAC 的增益误差，按**显示的偏置设定**折算（显示偏置 V 使记录偏 V·d），在这一级除以 `probe_ratio`，过探头后仍是显示域的值。误差的顺序：耦合 → 衰减与增益 → 加偏置 → 带宽。
+- 校准常数：`scope_vertical` 的 `store` 指向 `calibration_store`，读数按 (原始 − 偏置) × 增益修正，键是**显示的** V/div（型号在存储上声明 `key: ["$ch.scale"]`）。`calibration_store` 新增 `calibrate`（自校准写系数：核心与自己的内部参考比较，不做输入容差检查，一次提交只让台账记一次）与 `state_key`（把单个 `$状态` 键按另一格的值解析，自校准因此能写当前不在用的档位）。`scope_vertical.self_calibrate` 为误差表里的每个输入端 V/div 写一组系数（标量：当前档），按当前探头比换成显示刻度；改探头比会移动显示刻度与键，新刻度从标称开始，需要再校准。
+- `scope_probe` 增加 `skew`（绑定型号的通道时延）与 `skew_error`（本机的个体偏差，s）。采集在早于记录时刻 `skew + skew_error` 处取通道信号：这是 ADC 之后的数字延迟，触发仍检测模拟信号，不随时延移动。
+- `scope_timebase` 增加 `clock_ppm`（本机采样时钟的频率误差）、`rosc`（INTernal / EXTernal）与 `ref` 端口。`clock_ppm` 为正表示时钟快，采样的真实间隔比标称的短，记录仍按标称 dt 重建，所以时间测量读数偏**低**（与频谱仪的参考约定一致）。EXTernal 时从 `ref` 上的 10 MHz 取得分数频率误差（±10 ppm 内、幅度 > 0.05 才算可用），参考消失或不可用时回到内部 ppm，与 `spectrum_analyzer`、`rf_generator_core` 的参考输入写法相同。引擎不在仪表之间路由 signal 介质的连线，所以 REF_IN 写成“`input_port`（如 50 Ω）+ 仪表内部连线到 `timebase.ref`”，与 `sb-sa-1`、`sb-lia-1`、`sb-sg-1` 一致。
+- 自校准的命令：`scope_acquisition` 新增通用 op `self_cal`（每通道调用 `scope_vertical.self_calibrate`，回复诊断码 0），型号用 `reply` 模板给回复的文字。SDS2104X Plus 绑定 `*CAL`，回复 `*CAL 0`（SDS 系列编程手册的 SYSTEM *CAL?，0 = 成功）；EN11F 目录只列 `:SYSTem:SELFCal`、未列 `*CAL?`，覆盖表已注明来源与未核实。
+- SDS2104X Plus（在 G6 的通用模块之上）：`front` 增加 `store: cal`，每通道 `cal` 存储以 `$ch.scale` 为键，`probe` 绑定 `skew: $ch.skew`。`deviations` 只写数据手册给出的两项：每个 V/div（1X，14 档）的直流增益 ±3 %（±30000 ppm）与时基 ±1 ppm；数据手册没有偏置误差与 SKEW 精度的指标，不编造数值（能力仍在组件上）。
+- 验收：`tests/test_scope_acquisition.py` 覆盖每档的增益/偏置/DAC 误差（含探头比）、REF_IN 与回退、SKEW 与时钟 ppm 的个体偏差（`sb-dso-4` 上，与型号无关）；`tests/test_siglent_sds.py` 覆盖 SDS 的 14 档增益抽取在限值内且随种子复现、每档增益误差进入记录、`*CAL?` 写全部档位并使读数回到一个 ADC 码内、SKEW 使记录移相、时钟 ppm 在频率测量中可见，以及 5522A 的“核查 → 调整 → 复核”契约用例（`tests/models/siglent-sds2104xplus/calibration-cases.yaml`，与 `simubench cases` 同一运行器）；没有 `deviations` 的定义保持原有行为。
+
+**G5 的实现（#137）**：
+
+- `scope_trigger` 在 ADC 之前的模拟信号上检测，有自己的耦合滤波（`coupling` 与 `filters`：每种耦合一组高通、低通转折频率）和噪声（`noise_rms`）。先越过电平另一侧的迟滞带（`hysteresis_divs`，`noise_reject` 开启时为 `reject_hysteresis_divs`）才布防，然后在第一个越过电平的采样上触发，触发时刻在它与前一个采样之间线性插值。
+- 记录仍在采样时钟的网格上（数值与改动前相同）；触发落在两个采样之间的小数和触发抖动都进入记录的时间原点 `Record.origin`（xorigin），不再移动采样点。前导与描述中的 xorigin（sb-dso 的 `:WAVeform:PREamble?`、低频校准示例的 `HORIZ_OFFSET`、传输的 `x_offset` / `x_start` / `x_stop`）与示波器屏幕都用它。Siglent 的 WAVEDESC 照手册的时间轴公式只写延迟设置，不变。
+- 自动模式只在 `search_windows` 个记录内找边沿（它的自动超时）；普通与单次采集在 `search_horizon_s`（默认 10 s）的虚拟时间内等边沿，所用时间计入采集：1 Hz 信号的单次采集在下一个边沿触发，记录填满后完成。超出首段的搜索按信号最高谱线的 1/16 周期取粗网格，跨越处在连续信号上二分到千分之一采样；总计算量按谱线数限制（`max_search_points`），电平超出信号可能的摆幅时不搜索。
+- 释抑：`holdoff_on` 时，上一次触发后 `holdoff` 秒内的边沿不触发。电源触发（`line` 列出的信源）在 `line_hz` 的上升过零处触发；外触发（`external` 列出的信源）读 `ext` 端口，由定义把仪表的输入端接到它。
+- 信源名 `CH1` 也识别为通道（原来只认 `CHANnel1`、`C1`）。
+- 依赖“触发正好落在采样点上”的用例按真机行为改正：sb-dso 的触发点在采样 499 与 500 之间，xorigin 在 −5 ms 之后一个采样以内；低频校准示例的 `HORIZ_OFFSET` 同样。
+- SDS2104X Plus 的触发耦合、噪声抑制与释抑命令没有在本期接上：这些需要按手册与数据手册核实的取值（转折频率、命令语法），留待能取得手册时再做。
+
 ### 8.5 示波器：衡量
 
 **结构**：

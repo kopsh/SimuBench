@@ -13,6 +13,9 @@ sections:
     level: implemented
     note: '*RST values the manual does not give use SimuBench defaults: 1 V/div, 0 V offset, DC, 1 MΩ, probe 1X, FULL bandwidth, CH1 on, 1 us/div, delay 0, edge trigger on C1 rising at 0 V, AUTO, NORMal
       acquisition, 8 bits, 10k memory depth'
+  - header: '*CAL'
+    level: implemented
+    note: '*CAL? runs the user self-calibration and replies "*CAL 0" (0 = successful). EN11F''s table of contents lists only :SYSTem:SELFCal under SYSTEM, not *CAL?; the reply and the command come from the SDS Series Programming Guide (same family; sibling SDS1000X-E guide and the earlier Digital Oscilloscopes Series guide document it), so not verified on this model. Each channel''s per-V/div coefficients go into its calibration store; inputs are supposed to be disconnected on the instrument, the simulation does not check it.'
 - section: Root(:) Commands (EN11F)
   commands:
   - header: :AUToset
@@ -94,8 +97,8 @@ sections:
     level: implemented
     note: '500 uV/div to 10 V/div (1 MΩ) at the input, times the probe ratio; out of range: -222 and the old value stays'
   - header: :CHANnel<ch>:SKEW
-    level: accepted
-    note: stored; no time shift is applied
+    level: implemented
+    note: the channel's delay enters the record as a digital delay (the acquisition samples that much earlier); the trigger path stays on the analog signal. The data sheet gives no deskew accuracy, so the model draws no individual skew error.
   - header: :CHANnel<ch>:SWITch
     level: implemented
     note: channels on decide interleaving (2 or 1 GSa/s)

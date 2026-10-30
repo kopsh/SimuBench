@@ -15,6 +15,7 @@ from ...engine.signal import Signal, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
+from .calstore import CalibrationStore
 
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
@@ -55,6 +56,20 @@ class ScopeVertical(Component):
     scopes' noise rides the vertical setting (the front-end gain sets it at the ADC), so a fixed
     input value would leave the coarse divisions far quieter than 1 LSB and averaging could not
     resolve more (F4, D46).
+
+    The unit's own metrology (instrument-authoring.md 8.4, G3). Each V/div at the input
+    connector has its own attenuator and gain stage: ``gain_error_ppm`` (relative) and
+    ``offset_error`` (V at the input) are what this unit adds there — a number, or one per input
+    V/div, the table a ``deviations`` entry with ``by: {scale: …}`` draws; a scale the table does
+    not list has no characterized error and contributes 0. ``dac_error_ppm`` is the offset DAC's
+    gain error, referred to the displayed offset setting: a display offset of V moves the record
+    by V·(1 + d), i.e. the reading is off by V·d. The vertical runs before the probe (which is a
+    display conversion), so the errors ride the input path and the DAC term is divided by
+    ``probe_ratio`` here. They sit in signal order — coupling, the attenuator's gain, the bias,
+    then the bandwidth — and the record shows them, since it is reconstructed with the nominal
+    scale and offset. ``store`` names a ``calibration_store`` whose coefficients correct the
+    record digitally, (raw − offset) × gain, keyed by the displayed V/div
+    (metrology-authoring.md 4); :meth:`self_calibrate` writes them for every tabulated scale.
     """
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
@@ -70,8 +85,19 @@ class ScopeVertical(Component):
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
         "noise_table": None,  # [[V/div, noise V rms], ...] at the input, per division (None: quiet)
+        "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
+        "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
+        "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
+        "store": "",  # the calibration_store correcting the record, keyed by the displayed V/div
     }
-    units = {"bandwidth": "Hz", "bw_limit_hz": "Hz", "ac_corner": "Hz", "scale": "V", "offset": "V"}
+    units = {
+        "bandwidth": "Hz",
+        "bw_limit_hz": "Hz",
+        "ac_corner": "Hz",
+        "scale": "V",
+        "offset": "V",
+        "offset_error": "V",
+    }
 
     def output(self, port: str) -> Signal:
         sig = self.input("in")
@@ -80,6 +106,15 @@ class ScopeVertical(Component):
             return Signal.zero()
         if coupling == "AC":
             sig = sig.transfer(highpass1(float(self.param("ac_corner"))))
+        gain = self._error("gain_error_ppm")
+        offset = self._error("offset_error")  # the vertical runs before the probe: input volts
+        dac = float(self.param("dac_error_ppm")) * 1e-6
+        if gain or offset or dac:
+            sig = sig.scale(1.0 + gain * 1e-6)
+            # The DAC error belongs to the displayed offset setting; the probe scales the input
+            # path by probe_ratio after this stage, so divide it here to keep it display-referred.
+            ratio = float(self.param("probe_ratio"))
+            sig = sig + Signal(dc=offset + float(self.param("offset")) * dac / ratio)
         return sig.transfer(lowpass1(min(self._limit(), float(self.param("bandwidth")))))
 
     def _limit(self) -> float:
@@ -98,8 +133,70 @@ class ScopeVertical(Component):
         rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
         if not rows:
             return 0.0
-        scale = float(self.param("scale")) / float(self.param("probe_ratio"))
+        scale = self.input_scale()
         return next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
+
+    def input_scale(self) -> float:
+        """V/div at the input connector: the displayed scale divided by the probe ratio."""
+        return float(self.param("scale")) / float(self.param("probe_ratio"))
+
+    def _error(self, key: str, scale: float | None = None) -> float:
+        """This unit's error ``key`` at input V/div ``scale`` (default: now); a scalar, or a table."""
+        value = self.param(key)
+        if not isinstance(value, dict):
+            return float(value)
+        scale = self.input_scale() if scale is None else scale
+        for k, entry in value.items():
+            if math.isclose(float(k), scale, rel_tol=1e-9):
+                return float(entry)
+        return 0.0
+
+    def _store(self) -> CalibrationStore | None:
+        name = str(self.param("store") or "")
+        if not name:
+            return None
+        assert self.owner is not None
+        names = [name]
+        if self.channel is not None:
+            names.insert(0, f"ch{self.channel}.{name}")  # a channel's store: ch2.cal
+        for candidate in names:
+            store = self.owner.components.get(candidate)
+            if store is not None:
+                return store  # type: ignore[no-any-return]
+        raise ScpiError(-300, f"{self.uid}: store {name!r} is not a component of this instrument")
+
+    def correct(self, volts: np.ndarray) -> np.ndarray:
+        """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
+        the displayed V/div (the setting the store names)."""
+        store = self._store()
+        if store is None:
+            return volts
+        gain, offset = store.coefficients()
+        return (volts - offset) * gain
+
+    def self_calibrate(self) -> None:
+        """A self-calibration's write: the coefficients that cancel this unit's gain and offset
+        error for every V/div the tables hold (scalars: the setting now), keyed by the displayed
+        scale the store names. The scope compares against its internal references at zero offset,
+        so the offset DAC's error at the user's offset setting stays. Without a store there is
+        nothing to write (a scope without calibratable constants). A later probe-ratio change
+        moves the displayed settings (and their keys), so the new settings start at nominal."""
+        store = self._store()
+        if store is None:
+            return
+        ratio = float(self.param("probe_ratio"))
+        inputs = {self.input_scale()}
+        for key in ("gain_error_ppm", "offset_error"):
+            table = self.param(key)
+            if isinstance(table, dict):
+                inputs |= {float(k) for k in table}
+        corrections: dict[tuple, tuple[float, float]] = {}
+        for inp in inputs:
+            corrections[store.state_key(inp * ratio)] = (
+                1.0 / (1.0 + self._error("gain_error_ppm", inp) * 1e-6),
+                self._error("offset_error", inp) * ratio,  # the record is in display volts
+            )
+        store.calibrate(corrections)
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         """Refuse a scale or offset outside its range. A probe change scales both together (the
@@ -132,7 +229,12 @@ class ScopeFrontend(ScopeVertical):
 class ScopeProbe(Component):
     """The probe setting of one channel: display volts are the volts at the input times ``ratio``.
 
-    A display conversion, not part of the analog path (instrument-authoring.md 8.4)."""
+    A display conversion, not part of the analog path (instrument-authoring.md 8.4). ``skew``
+    (bound to the model's channel-skew setting where it has one) and ``skew_error`` (this unit's
+    own, a ``deviations`` draw) delay the channel's record by that many seconds: the acquisition
+    samples the channel's signal that much earlier (instrument-authoring.md 8.4, G3). A real
+    scope applies the delay after the ADC, so the trigger path — which detects on the analog
+    signal — is not delayed with it."""
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
@@ -142,10 +244,18 @@ class ScopeProbe(Component):
         "keywords": {"DEFault": 1.0, "VALue": "value"},
         "ratio_range": None,  # [min, max]; None: any positive ratio
         "rescales": [],  # settings in display units that follow the ratio, e.g. [$ch.scale, $ch.offset]
+        "skew": None,  # the channel's skew setting, s (unbound: the model has none)
+        "skew_error": 0.0,  # this unit's own skew error, s (hidden; a deviations entry)
     }
+    units = {"skew": "s", "skew_error": "s"}
 
     def output(self, port: str) -> Signal:
         return self.input("in").scale(float(self.param("ratio")))
+
+    def delay(self) -> float:
+        """How many seconds this channel's record lags the trigger timeline."""
+        setting = self.param("skew")
+        return (0.0 if setting in (None, "") else float(setting)) + float(self.param("skew_error"))
 
     @op("set_ratio")
     def set_ratio(self, query: bool = False, mode: str | None = None, value: float | None = None,
@@ -182,9 +292,9 @@ class ScopeProbe(Component):
 
 
 def channel_index(source: object) -> int:
-    """Channel number of a source name: CHANnel2 (sb-*) or C2 (Siglent)."""
+    """Channel number of a source name: CHANnel2 (sb-*), CH2 or C2 (Siglent)."""
     text = str(source).upper()
-    for prefix in ("CHANNEL", "CHAN", "C"):
+    for prefix in ("CHANNEL", "CHAN", "CH", "C"):
         if text.startswith(prefix) and text[len(prefix) :].isdigit():
             return int(text[len(prefix) :])
     return 1
@@ -196,9 +306,9 @@ FALLING = ["NEGative", "EITHer", "FALLing", "ALTernate"]
 
 
 def trigger_channel(source: object) -> int | None:
-    """Channel number of a trigger source (CHANnel2, C2), None for EXTernal, LINE and the like."""
+    """Channel number of a trigger source (CHANnel2, CH2, C2), None for EXTernal, LINE and the like."""
     text = str(source).upper()
-    for prefix in ("CHANNEL", "CHAN", "C"):
+    for prefix in ("CHANNEL", "CHAN", "CH", "C"):
         if text.startswith(prefix) and text[len(prefix) :].isdigit():
             return int(text[len(prefix) :])
     return None
@@ -241,6 +351,15 @@ class Record:
     scale: float
     offset: float
     triggered: bool
+    #: Time of sample 0 relative to the trigger as the scope measured it, s: -trigger_index * dt
+    #: plus the trigger's fraction of a sample and its jitter (G5). None: -trigger_index * dt.
+    x_origin_s: float | None = None
+    trigger_ns: int | None = None  # the trigger's instant (holdoff); None: untriggered
+
+    @property
+    def origin(self) -> float:
+        """Time of sample 0 relative to the trigger, s."""
+        return self.x_origin_s if self.x_origin_s is not None else -self.trigger_index * self.dt_s
 
 
 def _upper(values: Any) -> set[str]:
@@ -297,16 +416,31 @@ class ScopeTimebase(Component):
     ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is
     ``points / 10 div`` up to the ADC group's top rate) or ``rate_ladder`` (that rate rounded down
     to a 1-2-5 step; samples ``1 / rate`` apart). The trigger sits at the centre, or ``delay``
-    seconds before it when that is bound."""
+    seconds before it when that is bound.
 
+    The sampling clock has a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
+    draw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional
+    error the instrument inherits (instrument-authoring.md 8.4, G3). A fast clock takes samples
+    closer together than the nominal interval, so the records keep the nominal dt the scope
+    reports and time measurements read low — the spectrum analyzer's reference convention.
+    """
+
+    ports = {"ref": PortSpec("in", "signal", "REF_IN")}
     defaults = {
         "scale": "$timebase.scale",  # seconds per division (ten divisions across)
         "delay": None,  # unbound: the trigger at the centre of the record
         "record_length": "fixed",  # fixed | exact | rate_ladder
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
+        "clock_ppm": 0.0,  # the sampling clock's frequency error, ppm (hidden)
+        "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
     }
-    units = {"scale": "s", "delay": "s"}
+    units = {"scale": "s", "delay": "s", "clock_ppm": "ppm"}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._ref_error = 0.0  # fractional frequency error of the reference in use
+        self._ref_locked = False
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         """Refuse a delay outside ``delay_range_divs`` (-222, the old value kept)."""
@@ -348,24 +482,89 @@ class ScopeTimebase(Component):
         pre = points // 2 if delay in (None, "") else round((window / 2 - float(delay)) / dt)
         return points, dt, pre, points - pre
 
+    def clock_error(self) -> float:
+        """The sampling clock's fractional frequency error: the internal ppm, or the reference's
+        when ``rosc`` is EXTernal and a usable 10 MHz is on ``ref``."""
+        if str(self.param("rosc")).upper().startswith("EXT"):
+            self._update_clock()
+            if self._ref_locked:
+                return self._ref_error
+        return float(self.param("clock_ppm")) * 1e-6
+
+    def _update_clock(self) -> None:
+        """The 10 MHz on ``ref``: within +-10 ppm and present, it is the clock (as the spectrum
+        analyzer accepts its reference); anything else leaves the internal clock in charge."""
+        self._ref_locked = False
+        sig = self.input("ref").merged()
+        if sig.freq.size:
+            k = int(np.argmax(np.abs(sig.amp)))
+            f = float(sig.freq[k])
+            if abs(f - 10e6) <= 10e6 * 10e-6 and abs(sig.amp[k]) > 0.05:
+                self._ref_error, self._ref_locked = f / 10e6 - 1, True
+
+
+@dataclass
+class TriggerHit:
+    """Where a trigger search found its edge: the instant (seconds after the search's base
+    instant, interpolated between samples) and the first record-grid sample at or after it."""
+
+    t_s: float
+    index: int
+
 
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
-    """Edge trigger: ``source``, ``level`` and ``slope`` (``rising`` and ``falling`` list the slope
-    names that take each edge); a level or slope per channel is bound with the channel number
-    written ``{n}``: ``$ch{n}.trigger_level``. A source that is not a channel (external, line)
-    never triggers. The search looks ``search_windows`` records ahead."""
+    """Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).
 
+    The trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table
+    ``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency
+    reject) and with its own ``noise_rms``. An edge counts once the signal has been beyond the
+    ``hysteresis_divs`` band on the far side of the level (``reject_hysteresis_divs`` while
+    ``noise_reject`` is on); the instant is interpolated between samples, so a record reports the
+    trigger to a fraction of a sample. After a trigger, the next is not taken before ``holdoff``
+    seconds (while ``holdoff_on``).
+
+    ``source``, ``level`` and ``slope`` select the edge (``rising`` and ``falling`` list the slope
+    names that take each); a level or slope per channel is bound with the channel number written
+    ``{n}``: ``$ch{n}.trigger_level``. ``external`` sources read the ``ext`` port (wired from an
+    instrument input); ``line`` sources trigger on the rising zero crossings of the mains
+    (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
+    records ahead (its auto timeout); a normal or single acquisition waits up to
+    ``search_horizon_s`` of virtual time for its edge.
+    """
+
+    ports = {"ext": PortSpec("in", "signal", "external trigger input")}
     defaults = {
-        "source": "$trigger.source",  # a channel (C1, CHANnel1); anything else never triggers
+        "source": "$trigger.source",  # a channel (C1, CHANnel1), an external or a line source
         "level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
         "slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
         "rising": RISING,  # slope values that take a rising edge
         "falling": FALLING,  # slope values that take a falling edge
-        "search_windows": 4,  # how many records long the trigger search is
+        "search_windows": 4,  # records an auto mode looks ahead for an edge (its auto timeout)
+        "search_horizon_s": 10.0,  # virtual time a normal or single acquisition waits for an edge, s
+        "max_search_points": 4_000_000,  # samples a search may take (a long horizon is searched coarser)
         "level_range_divs": None,  # the level stays within +-this many divisions of the source's screen
+        "coupling": "DC",  # the trigger path's coupling: a key of filters, or DC
+        # coupling -> [[highpass | lowpass, corner Hz], ...], e.g. {AC: [[highpass, 8]]}
+        "filters": {},
+        "hysteresis_divs": 0.16,  # half the band an edge must cross, in divisions of the source
+        "noise_reject": False,  # on: the wider band below
+        "reject_hysteresis_divs": 0.5,  # the band while noise_reject is on
+        "noise_rms": 0.0,  # the trigger path's own noise, display volts rms
+        "holdoff_on": True,  # whether holdoff applies (e.g. a holdoff mode that is TIME)
+        "holdoff": 0.0,  # s after a trigger before the next one is taken
+        "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
+        "line": ["LINE"],  # sources that trigger on the mains
+        "line_hz": 50.0,  # mains frequency
     }
-    units = {"level": "V"}
+    units = {"level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V"}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.last_ns: int | None = None  # the instant of the latest trigger (holdoff)
+
+    def reset(self) -> None:
+        self.last_ns = None
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         """Refuse a level off the source channel's screen by more than ``level_range_divs``
@@ -390,36 +589,167 @@ class ScopeTrigger(_ChannelBound):
         """The channel the source names, None for external, line and the like."""
         return trigger_channel(self.param("source"))
 
+    def source_kind(self) -> str:
+        """channel | external | line | none."""
+        src = str(self.param("source")).upper()
+        if self.source_channel() is not None:
+            return "channel"
+        if src in _upper(self.param("external")):
+            return "external"
+        if src in _upper(self.param("line")):
+            return "line"
+        return "none"
+
     def level(self) -> float:
         """The trigger level in display volts (the scope screen draws it)."""
         level = self.channel_param("level", self.source_channel())
         return 0.0 if level is None else float(level)
 
-    def search(
-        self, sig: Signal, t0: int, dt: float, pre: int, points: int, n: int, scale: float
-    ) -> tuple[int, bool]:
-        """First qualifying edge at or after ``pre`` samples (enough history before the trigger).
+    def path_signal(self, sig: Signal) -> Signal:
+        """The source's signal as the trigger sees it: through the coupling's filters."""
+        table = {str(k).upper(): v for k, v in (self.param("filters") or {}).items()}
+        for kind, corner in table.get(str(self.param("coupling")).upper(), []):
+            sig = sig.transfer((highpass1 if str(kind).lower() == "highpass" else lowpass1)(float(corner)))
+        return sig
 
-        Returns (trigger sample index measured from t0, triggered?)."""
-        level = float(self.channel_param("level", n))
-        slope = str(self.channel_param("slope", n)).upper()
-        hyst = 0.02 * DIVS_V * scale
-        span = max(points * int(self.param("search_windows")), pre + 2 * points)
-        idx = np.arange(span)
-        v = sig.sample_rel(t0, idx * dt)
-        best: int | None = None
-        for wanted, armed_side, crossed in (
-            (slope in _upper(self.param("rising")), v < level - hyst, v >= level),
-            (slope in _upper(self.param("falling")), v > level + hyst, v <= level),
+    def _hysteresis(self, scale: float) -> float:
+        on = self.param("noise_reject") in (True, 1, "1", "ON", "on")
+        divs = float(self.param("reject_hysteresis_divs" if on else "hysteresis_divs"))
+        return divs * scale
+
+    def _noisy(self, v: np.ndarray, t0: int, offsets: np.ndarray) -> np.ndarray:
+        sigma = float(self.param("noise_rms"))
+        if sigma <= 0 or self.session is None:
+            return v
+        # Keyed by the absolute instant (ns) of each sample: the same instant, the same noise.
+        key = stream_key(self.session.seed, self.uid, "trigger-noise")
+        return v + sigma * gaussian(key, t0 + np.round(offsets * 1e9).astype(np.int64))
+
+    def search(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        pre: int,
+        points: int,
+        n: int | None,
+        scale: float,
+        horizon_s: float | None = None,
+    ) -> TriggerHit | None:
+        """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
+        the trigger) and past the holdoff, within ``search_windows`` records or, with
+        ``horizon_s``, that much virtual time. None: no edge."""
+        kind = self.source_kind()
+        start_s = pre * dt
+        if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
+            start_s = max(start_s, (self.last_ns - t0) * 1e-9 + float(self.param("holdoff")))
+        span = max(points * int(self.param("search_windows")), pre + 2 * points) * dt
+        horizon = max(span, float(horizon_s or 0.0))
+        if kind == "line":
+            period = 1.0 / float(self.param("line_hz"))
+            phase = (t0 * 1e-9) % period
+            t = math.ceil((start_s + phase) / period - 1e-12) * period - phase
+            return TriggerHit(t, math.ceil(t / dt - 1e-9)) if t <= horizon else None
+        if kind == "none":
+            return None
+        level = float(self.channel_param("level", n) if n is not None else self.level())
+        slope = str(self.channel_param("slope", n) if n is not None else self.param("slope")).upper()
+        rising = slope in _upper(self.param("rising"))
+        falling = slope in _upper(self.param("falling"))
+        hyst = self._hysteresis(scale)
+        sig = self.path_signal(sig)
+        # An edge the signal cannot make (its level beyond the signal's whole swing, noise
+        # included) is not searched for: a waiting acquisition looks again at every command.
+        swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
+        top, bottom = sig.dc + swing, sig.dc - swing
+        if not (
+            (rising and bottom < level - hyst and top >= level)
+            or (falling and top > level + hyst and bottom <= level)
         ):
-            if not wanted:
-                continue
-            armed = np.nonzero(armed_side & (idx >= pre - 1))[0]
-            if armed.size:
-                after = np.nonzero(crossed & (idx > armed[0]))[0]
-                if after.size and (best is None or after[0] < best):
-                    best = int(after[0])
-        return (pre, False) if best is None else (best, True)
+            return None
+        # The first stretch on the record grid; further on, a grid as coarse as the signal allows
+        # (sixteen samples a period of its highest line) and no finer than the record's.
+        hit = self._scan(sig, t0, dt, start_s, span, level, hyst, rising, falling, dt)
+        if hit is not None or horizon <= span:
+            return hit
+        lines = sig.freq[np.abs(sig.amp) > 1e-6 * max(1e-300, float(np.abs(sig.amp).max(initial=0.0)))]
+        f_top = float(lines.max()) if lines.size else 0.0
+        step = dt if f_top <= 0 else max(dt, 1.0 / (16.0 * f_top))
+        # The work is samples times lines: a signal of many lines is searched on fewer samples.
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        step = max(step, (horizon - span) / budget)
+        return self._scan(
+            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
+        )
+
+    @staticmethod
+    def _bisect(sig: Signal, t0: int, lo: float, hi: float, level: float, rising: bool, dt: float) -> float:
+        """The crossing in (lo, hi] found on a coarse grid, to a thousandth of a record sample."""
+        while hi - lo > dt * 1e-3:
+            mid = (lo + hi) / 2
+            v = float(sig.sample_rel(t0, np.array([mid]))[0])
+            if (v >= level) == rising:
+                hi = mid
+            else:
+                lo = mid
+        return hi
+
+    def _scan(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stop_s: float,
+        level: float,
+        hyst: float,
+        rising: bool,
+        falling: bool,
+        step: float,
+        lead: bool = True,
+    ) -> TriggerHit | None:
+        """Search [start_s, stop_s] on a grid of ``step`` (with ``lead``, its first sample one step
+        before start_s, which may arm but not trigger). An edge is armed once the signal has been beyond
+        the band on the far side of the level; it triggers at the first sample on the level's other
+        side, the instant interpolated between that sample and the one before."""
+        chunk = 1 << 18
+        directions = [d for d, on in (("rise", rising), ("fall", falling)) if on]
+        armed = dict.fromkeys(directions, False)
+        prev: tuple[float, float] | None = None
+        a = start_s - step if lead else start_s
+        while a <= stop_s:
+            count = min(chunk, max(2, math.ceil((stop_s - a) / step) + 1))
+            offsets = a + step * np.arange(count)
+            v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+            best: float | None = None
+            for d in directions:
+                far = v < level - hyst if d == "rise" else v > level + hyst
+                cross = (v >= level if d == "rise" else v <= level) & (offsets >= start_s - 1e-15)
+                if armed[d]:
+                    after = 0
+                else:
+                    first = np.nonzero(far)[0]
+                    if not first.size:
+                        continue
+                    after = int(first[0]) + 1
+                    armed[d] = True
+                hits = np.nonzero(cross[after:])[0]
+                if not hits.size:
+                    continue
+                k = after + int(hits[0])
+                t_k, v_k = float(offsets[k]), float(v[k])
+                t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
+                if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
+                    t = self._bisect(sig, t0, t_p, t_k, level, d == "rise", dt)
+                else:
+                    frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
+                    t = t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+                best = t if best is None else min(best, t)
+            if best is not None:
+                return TriggerHit(best, math.ceil(best / dt - 1e-9))
+            prev = (float(offsets[-1]), float(v[-1]))
+            a = float(offsets[-1]) + step
+        return None
 
 
 #: Parameters an acquisition written the earlier way (one component) gives each module, and the
@@ -686,6 +1016,12 @@ class ScopeAcquisition(Component):
     def probe_ratio(self, n: int) -> float:
         return float(self._module("probe", f"ch{n}.{self.param('probe')}").param("ratio"))
 
+    def probe_skew(self, n: int) -> float:
+        """Channel n's skew (the setting and the unit's own), seconds; 0 without a probe module."""
+        if not self.param("probe"):
+            return 0.0
+        return self._module("probe", f"ch{n}.{self.param('probe')}").delay()  # type: ignore[no-any-return]
+
     def scale_offset(self, n: int) -> tuple[float, float]:
         """Channel n's scale (V/div) and offset (V) as displayed."""
         v = self.vertical_of(n)
@@ -797,16 +1133,30 @@ class ScopeAcquisition(Component):
         self, channels: list[int], frame: int | None = None
     ) -> tuple[dict[int, Record], int, bool, int]:
         """:meth:`compute`, and the instant of the trigger (or of the record's middle) in ns."""
-        points, dt, pre, post = self._timing()
+        points, nominal_dt, pre, post = self._timing()
+        # A fast clock (positive clock_ppm) samples closer together than the nominal interval; the
+        # record keeps the nominal dt the scope reports and reconstructs with, so time measurements
+        # read low by that fraction (the spectrum analyzer's reference convention, G3).
+        dt = nominal_dt / (1.0 + self.horizontal().clock_error())
         t0 = self.session.now_ns
         trig = self.trigger_unit()
         n_trig = trig.source_channel()
-        if n_trig is None:
-            k, triggered = pre, False
+        kind = trig.source_kind()
+        if kind == "channel":
+            sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
+        elif kind == "external":
+            sig, scale_t = trig.input("ext"), 1.0
         else:
-            k, triggered = trig.search(
-                self._display_signal(n_trig), t0, dt, pre, points, n_trig, self.scale_offset(n_trig)[0]
-            )
+            sig, scale_t = Signal.zero(), 1.0
+        # An auto mode gives up after its auto timeout; a normal or single acquisition waits for
+        # its edge, the virtual time it takes included (G5).
+        waits = not self._is("auto") and frame is None
+        hit = trig.search(
+            sig, t0, dt, pre, points, n_trig, scale_t,
+            float(trig.param("search_horizon_s")) if waits else None,
+        )  # fmt: skip
+        triggered = hit is not None
+        k = hit.index if hit is not None else pre
         start = k - pre
         t_start_ns = t0 + round(start * dt * 1e9)
         # Peak detect samples the ADC's native rate (F4): m native codes per record sample, capped
@@ -821,14 +1171,20 @@ class ScopeAcquisition(Component):
         count = points * m
         native_dt = dt / m
         offsets = (start * m + np.arange(count)) * native_dt
+        # The record samples on the clock's grid; where the trigger fell between two samples, and
+        # the trigger's jitter, are in the record's time origin (the scope's xorigin), not in the
+        # samples.
         jitter = self._jitter(t_start_ns, frame)
-        if jitter:
-            offsets = offsets + jitter
+        x_origin = (start * dt - hit.t_s - jitter) if hit is not None else -pre * dt
+        trigger_ns = t0 + round(hit.t_s * 1e9) if hit is not None else None
         adc = self.adc_unit()
         records: dict[int, Record] = {}
         for n in channels:
             scale, offset = self.scale_offset(n)
-            volts = self._display_signal(n).sample_rel(t0, offsets)
+            # A channel's skew (setting + this unit's error) is a digital delay: sample its trace
+            # that much earlier, the trigger path (analog) stays on the unshifted signal.
+            skew = self.probe_skew(n)
+            volts = self._display_signal(n).sample_rel(t0, offsets - skew)
             noise = self._noise(n, t_start_ns, native_dt, count, frame)
             if noise is not None:
                 volts = volts + noise
@@ -841,8 +1197,8 @@ class ScopeAcquisition(Component):
             elif proc == "average":
                 total = volts
                 for sub in range(1, self._averages()):
-                    noise = self._noise(n, t_start_ns, dt, points, frame, sub)
-                    extra = self._display_signal(n).sample_rel(t0, offsets)
+                    noise = self._noise(n, t_start_ns, native_dt, count, frame, sub)
+                    extra = self._display_signal(n).sample_rel(t0, offsets - skew)
                     if noise is not None:
                         extra = extra + noise
                     total = total + adc.quantize(extra, scale, offset)
@@ -852,12 +1208,14 @@ class ScopeAcquisition(Component):
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
-                dt_s=dt,
+                dt_s=nominal_dt,
                 trigger_index=pre,
-                volts=volts,
+                volts=self.vertical_of(n).correct(volts),
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
+                x_origin_s=x_origin * nominal_dt / dt,  # in the scope's own (nominal) time
+                trigger_ns=trigger_ns,
             )
         if triggered or self.param("untriggered") == "record":
             used = (k + max(post, 0)) * dt
@@ -871,6 +1229,9 @@ class ScopeAcquisition(Component):
 
         ``forced``: read from a channel that had no record, whatever the run mode."""
         self.records.update(records)
+        instants = [r.trigger_ns for r in records.values() if r.triggered and r.trigger_ns is not None]
+        if instants:
+            self.trigger_unit().last_ns = max(instants)  # the holdoff runs from here
         self.acq_count += 1
         self.session.invalidate()
         if self.owner is not None:
@@ -887,6 +1248,7 @@ class ScopeAcquisition(Component):
                             "dt_s": rec.dt_s,
                             "points": int(rec.volts.size),
                             "trigger_index": rec.trigger_index,
+                            "x_origin_s": rec.origin,
                             "triggered": rec.triggered,
                             "sha256": hashlib.sha256(np.ascontiguousarray(rec.volts).tobytes()).hexdigest(),
                         }
@@ -1223,6 +1585,16 @@ class ScopeAcquisition(Component):
             used += self.owner.wait_until(self.due_ns)  # a digitize returns once its record is full
         return OpResult(duration_ns=used)
 
+    @op("self_cal")
+    def self_cal(self, **_: Any) -> OpResult:
+        """A user self-calibration: every channel re-derives its calibration constants against the
+        scope's internal references (``scope_vertical.self_calibrate``; a channel without a
+        calibration store has nothing to write). The reply is the diagnostic code ``0``; the
+        command's ``reply`` template gives the model's words (e.g. ``*CAL {value}``)."""
+        for n in range(1, self._channels() + 1):
+            self.vertical_of(n).self_calibrate()
+        return OpResult(b"0")
+
     def _source(self) -> int:
         return channel_index(self._st("waveform.source"))
 
@@ -1252,7 +1624,7 @@ class ScopeAcquisition(Component):
         _, yinc, yref = self._codes(rec)
         fmt = {"BYTE": 0, "WORD": 1, "ASCii": 4}[self._st("waveform.format")]
         pts = rec.volts.size
-        xorg = -rec.trigger_index * rec.dt_s
+        xorg = rec.origin
         fields = [
             str(fmt).encode(),
             b"0",
