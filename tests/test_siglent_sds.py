@@ -108,6 +108,44 @@ def test_measurements_match_the_waveform(scope):
     assert rms == pytest.approx(2.0 / 2 / np.sqrt(2), rel=5e-3)
 
 
+def test_amplitude_of_a_sine_reads_the_peaks(scope):
+    """F2 (#131): AMPLitude is top - base, the levels the waveform rests on — not the halves'
+    medians, which sit at 0.707 of the peak on a sine."""
+    sds, _ = scope
+    sds.write(":TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")  # 10 ms: ten cycles
+    pkpk = float(sds.query(":MEASure:SIMPle:VALue? PKPK"))
+    ampl = float(sds.query(":MEASure:SIMPle:VALue? AMPL"))
+    assert ampl == pytest.approx(pkpk, rel=0.02)
+    assert ampl == pytest.approx(2.0, abs=0.04)
+
+
+def test_amplitude_of_a_square_is_the_level_it_rests_on(scope):
+    sds, _ = scope
+    sds.write(":SOURce1:FUNCtion SQUare;:TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")
+    lsb = 0.5 / 30  # 0.5 V/div, 30 codes a division (8 Bits)
+    ampl = float(sds.query(":MEASure:SIMPle:VALue? AMPL"))
+    assert ampl == pytest.approx(2.0, abs=lsb)
+
+
+def test_frequency_survives_noise_at_the_quantization_floor(scope):
+    """F2 (#131): the counter runs on a hysteresis band around the middle, so noise there
+    cannot fake crossings. 1 mVpp at 500 uV/div is about 20 dB of SNR over the input noise
+    floor (80 uV at the input), 8-bit codes of 16.7 uV."""
+    sds, _ = scope
+    sds.write(":SOURce1:VOLTage:AMPLitude 1E-3;:CHANnel1:SCALe 5E-4")
+    sds.write(":TIMebase:SCALe 1E-2;:TRIGger:MODE SINGle")  # 100 ms: a hundred cycles
+    freq = float(sds.query(":MEASure:SIMPle:VALue? FREQ"))
+    assert freq == pytest.approx(1000.0, abs=1.0)  # 0.1 %
+
+
+def test_a_window_with_less_than_a_period_is_unmeasurable(scope):
+    """F2 (#131): no complete cycle in the record — the declared invalid value, not a number."""
+    sds, _ = scope
+    sds.write(":TIMebase:SCALe 1E-5;:TRIGger:MODE SINGle")  # 100 us: a tenth of a cycle
+    for kind in ("FREQ", "PER"):
+        assert sds.query(f":MEASure:SIMPle:VALue? {kind}") == "9.9E37"
+
+
 def test_settings_out_of_the_data_sheet_ranges_are_refused(scope):
     sds, session = scope
     sds.write(":CHANnel1:SCALe 20")  # 1 MOhm: at most 10 V/div at the input
