@@ -116,6 +116,14 @@ class Instrument:
         #: Operations that finish at a later virtual instant: key -> (done at, called when done).
         #: *OPC? and *WAI wait for them; *OPC sets ESR bit 0 once they are all done.
         self.pending: dict[str, tuple[int, Callable[[], None] | None]] = {}
+        #: Pending operations *OPC, *OPC? and *WAI do not wait for (the model says so, e.g. a scope
+        #: whose *OPC? answers at once while an acquisition runs).
+        self.unwaited: set[str] = set()
+        #: Operations waiting for an event that may never come (a scope armed for a trigger that does
+        #: not occur): while any is waiting, *OPC? does not answer, as on hardware the reply never comes.
+        self.blockers: set[str] = set()
+        #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
+        self.on_panel = False
         self._opc_armed = False
         self._elapsed_ns = 0  # virtual time the program message being executed has used so far
         self.sre = 0
@@ -148,6 +156,10 @@ class Instrument:
         for n in range(1, self.channel_count + 1):
             for spec in definition.channel_components:
                 self._add_component(f"ch{n}.{spec.name}", spec.type, spec.params, n)
+        #: Components that look again for the event they wait for whenever a command arrives.
+        self._retrying = [
+            c for c in self.components.values() if type(c).retry_pending is not Component.retry_pending
+        ]
         for comp_name, params in instance.hidden.items():
             if comp_name not in self.components:
                 raise ValueError(f"instrument {name!r}: hidden state for unknown component {comp_name!r}")
@@ -319,22 +331,45 @@ class Instrument:
         """The instrument's present: the session's time plus what the current message has used."""
         return self.session.now_ns + self._elapsed_ns
 
-    def register_pending(self, key: str, done_ns: int, on_done: Callable[[], None] | None = None) -> None:
-        """An operation that finishes at virtual time ``done_ns``; ``on_done`` runs once it has."""
+    def register_pending(
+        self, key: str, done_ns: int, on_done: Callable[[], None] | None = None, *, waited: bool = True
+    ) -> None:
+        """An operation that finishes at virtual time ``done_ns``; ``on_done`` runs once it has.
+
+        ``waited``: *OPC, *OPC? and *WAI wait for it (False: they answer regardless)."""
         self.pending[key] = (int(done_ns), on_done)
+        if waited:
+            self.unwaited.discard(key)
+        else:
+            self.unwaited.add(key)
 
     def cancel_pending(self, key: str) -> None:
         self.pending.pop(key, None)
+        self.unwaited.discard(key)
+
+    def block(self, key: str, waiting: bool) -> None:
+        """Mark (or clear) an operation that waits for an event that may never come."""
+        if waiting:
+            self.blockers.add(key)
+        else:
+            self.blockers.discard(key)
+
+    def _waited(self) -> list[int]:
+        return [done for key, (done, _) in self.pending.items() if key not in self.unwaited]
 
     def settle_pending(self) -> None:
-        """Finish what is due by now; an armed *OPC sets ESR bit 0 once nothing is left."""
+        """Let waiting operations look for their event, then finish what is due by now; an armed
+        *OPC sets ESR bit 0 once nothing it waits for is left."""
+        for comp in self._retrying:
+            comp.retry_pending()
         now = self.now_ns()
         for key, (done, on_done) in sorted(self.pending.items(), key=lambda kv: kv[1][0]):
             if done <= now:
                 del self.pending[key]
+                self.unwaited.discard(key)
                 if on_done is not None:
                     on_done()
-        if self._opc_armed and not self.pending:
+        if self._opc_armed and not self._waited() and not self.blockers:
             self._opc_armed = False
             self.esr |= 1
 
@@ -354,19 +389,28 @@ class Instrument:
 
     def wait_pending(self) -> int:
         """Wait until every pending operation is done (``*OPC?``, ``*WAI``), see :meth:`wait_until`."""
-        if not self.pending:
+        waited = self._waited()
+        if not waited:
             return 0
-        return self.wait_until(max(done for done, _ in self.pending.values()))
+        return self.wait_until(max(waited))
+
+    def opc_query(self) -> tuple[bytes | None, int]:
+        """``*OPC?``: ``1`` once what it waits for is done; no reply while an operation waits for an
+        event that does not come (the client's read times out, as on hardware)."""
+        used = self.wait_pending()
+        return (None if self.blockers else b"1"), used
 
     def arm_opc(self) -> None:
         """``*OPC``: ESR bit 0 now, or once the pending operations are done."""
-        if self.pending:
+        if self._waited() or self.blockers:
             self._opc_armed = True
         else:
             self.esr |= 1
 
     def reset(self) -> None:
         self.pending.clear()
+        self.unwaited.clear()
+        self.blockers.clear()
         self._opc_armed = False
         self._reset_state()
         for comp in self.components.values():
@@ -430,6 +474,13 @@ class Instrument:
         single mode). A refused action raises the ScpiError instead of queuing it."""
         if action not in self.PANEL_ACTIONS:
             raise ScpiError(-224, f"no front-panel action {action!r}")
+        self.on_panel = True  # what the button starts is the panel's own: no virtual time passes
+        try:
+            self._panel(action)
+        finally:
+            self.on_panel = False
+
+    def _panel(self, action: str) -> None:
         command = self.definition.display.actions.get(action)
         if command:
             path: tuple[Token, ...] = ()
@@ -532,8 +583,10 @@ class Instrument:
             if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
                 raise self._undefined(unit.raw_header)
             word = unit.tokens[0].keyword
-            if word in ("OPC", "WAI") and (unit.query or word == "WAI"):
-                return (b"1" if word == "OPC" else None), self.wait_pending()
+            if word == "OPC" and unit.query:
+                return self.opc_query()
+            if word == "WAI":
+                return None, self.wait_pending()
             if word == "TRG" and not unit.query:
                 return self._bus_trigger(unit)
             return self._common(unit), 0

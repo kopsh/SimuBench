@@ -92,6 +92,9 @@ class SiglentSdsAcquisition(ScopeAcquisition):
             return "Stop"
         mode = self._st("trigger.mode")
         if mode == "SINGle":
+            assert self.owner is not None
+            if self.trigger_ns is not None and self.owner.now_ns() >= self.trigger_ns:
+                return "Trig'd"  # triggered; the record after the trigger is filling (completion: pending)
             return "Ready"
         _, _, triggered = self.compute([])
         if mode == "AUTO":

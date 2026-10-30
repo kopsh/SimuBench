@@ -137,7 +137,9 @@ test("real model: the Siglent scope's single is its own, inside the instrument",
   });
   await controls.getByRole("button", { name: "单次" }).click();
   await expect(page.getByText("已停止", { exact: true })).toBeVisible(); // its single mode: one acquisition, then Stop
-  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  // Run left it armed in its single mode: that acquisition triggered once the generator came on
+  // (issue 134), and Single took one more.
+  await expect(page.getByText(/采集次数\s*2/)).toBeVisible();
   await expect(page.getByText(":TRIGger:MODE SINGle")).toHaveCount(0); // run inside the scope, not over SCPI
   await page.getByRole("tab", { name: /问题/ }).click();
   await expect(page.getByText(/-113/)).toHaveCount(0); // the bench's probe warning is the only problem

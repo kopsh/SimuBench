@@ -390,6 +390,15 @@ class ScopeAcquisition(Component):
       with ``averages`` divides the noise by the square root of the count and takes that many
       acquisitions' time.
 
+    * **synchronization** (instrument-authoring.md 8.4, G2): ``completion: immediate`` finishes a
+      single acquisition, a digitize or a forced frame within the command that starts it;
+      ``pending`` makes it an operation that finishes in virtual time, when the record after the
+      trigger is full: until then the trigger status is waiting (then triggered), a read gets the
+      previous record (``while_waiting: previous``) or an error (``error``), ``*OPC?`` and ``*WAI``
+      wait for it unless ``opc_waits`` is false, and a digitize waits for it. Without a trigger it
+      waits for one, looking again whenever a command arrives; ``no_trigger: wait`` leaves ``*OPC?``
+      unanswered meanwhile (the client times out), ``return`` answers it at once.
+
     Per-channel ``ch<n>.display`` says which channels are acquired. Model-specific commands
     (Siglent's WAVEDESC, LeCroy's INSPECT?) are subclasses.
     """
@@ -429,6 +438,10 @@ class ScopeAcquisition(Component):
         "status": ["OK", "UF"],  # a named measurement's status: measured, cannot be measured
         "averaging": False,  # averaging on: noise / sqrt(averages), averages times the time
         "averages": 1,  # acquisitions averaged
+        "completion": "immediate",  # immediate | pending: when a single acquisition or digitize is done
+        "opc_waits": True,  # *OPC?, *OPC and *WAI wait for a pending acquisition
+        "while_waiting": "previous",  # previous | error: a read while an acquisition is pending
+        "no_trigger": "wait",  # wait | return: *OPC? while armed for a trigger that has not come
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -438,6 +451,7 @@ class ScopeAcquisition(Component):
         self.running = True
         self.armed = False
         self.last_triggered = False
+        self._clear_due()
 
     def reset(self) -> None:
         self.records = {}
@@ -445,6 +459,16 @@ class ScopeAcquisition(Component):
         self.running = True
         self.armed = False
         self.last_triggered = False
+        self._clear_due()
+
+    def _clear_due(self) -> None:
+        """No acquisition scheduled (completion: pending)."""
+        #: The scheduled acquisition: when it is done, when it triggered, and what it keeps.
+        self.due_ns: int | None = None
+        self.trigger_ns: int | None = None
+        self._due: tuple[dict[int, Record], int] | None = None
+        #: Armed, the trigger not come yet: the channels to acquire once it does (None: those shown).
+        self._awaiting: tuple[list[int] | None] | None = None
 
     # ---- the macro: the earlier one-component form expands into the modules -----------------------
 
@@ -624,6 +648,13 @@ class ScopeAcquisition(Component):
         Returns the records, the virtual time an acquisition takes (ns) and whether it triggered.
         ``frame`` numbers a frame the screen of a running scope shows: its noise is its own.
         """
+        records, used, triggered, _ = self._acquire(channels, frame)
+        return records, used, triggered
+
+    def _acquire(
+        self, channels: list[int], frame: int | None = None
+    ) -> tuple[dict[int, Record], int, bool, int]:
+        """:meth:`compute`, and the instant of the trigger (or of the record's middle) in ns."""
         points, dt, pre, post = self._timing()
         t0 = self.session.now_ns
         trig = self.trigger_unit()
@@ -663,7 +694,7 @@ class ScopeAcquisition(Component):
         else:  # the whole trigger search
             used = points * int(trig.param("search_windows")) * dt
         used = used * self._averages() + float(self.param("overhead_s"))
-        return records, round(used * 1e9), triggered
+        return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
 
     def store(self, records: dict[int, Record], used: int, forced: bool = False) -> int:
         """Keep ``records`` as the latest acquisition and log its recipe (D36). Returns ``used``.
@@ -722,13 +753,23 @@ class ScopeAcquisition(Component):
             chans.add(channel)
         return sorted(chans)
 
+    def pending_mode(self) -> bool:
+        """Acquisitions finish in virtual time; one a front-panel button starts finishes at once,
+        as the panel's own (D32: no virtual time passes for a panel operation)."""
+        on_panel = self.owner is not None and self.owner.on_panel
+        return str(self.param("completion")) == "pending" and not on_panel
+
     def acquire_now(
         self, channels: list[int] | None = None, force: bool = False, stopped_too: bool = False
     ) -> int:
         """One acquisition attempt as the run mode allows it (``force``: whatever the trigger and the
         run state; ``stopped_too``: also when stopped, still waiting for a trigger). Returns the
-        virtual time used (ns)."""
+        virtual time used (ns): with ``completion: pending`` the attempt is scheduled instead, and
+        uses none."""
         if not force and not stopped_too and not self.is_running():
+            return 0
+        if self.pending_mode() and (force or stopped_too or self._is("single")):
+            self._schedule(channels, force)  # continuous runs (auto, normal) refresh at once
             return 0
         records, used, triggered = self.compute(self.displayed() if channels is None else channels)
         self.last_triggered = triggered
@@ -740,7 +781,73 @@ class ScopeAcquisition(Component):
 
     def poll(self) -> int:
         """A single acquisition still waiting: try again now (the signal may have arrived since)."""
+        if self.pending_mode():
+            self.retry_pending()
+            return 0
         return self.acquire_now() if self.armed and self._is("single") else 0
+
+    # ---- pending acquisitions (completion: pending) -------------------------------------------------
+
+    def waiting(self) -> bool:
+        """A single acquisition (or a digitize) not done yet."""
+        return self.due_ns is not None or self._awaiting is not None or (self.armed and self._is("single"))
+
+    def _schedule(self, channels: list[int] | None, force: bool) -> None:
+        """Arm an acquisition that finishes in virtual time: when the record after the trigger is
+        full, or, without a trigger, once one comes (``retry_pending``)."""
+        assert self.owner is not None
+        if self.due_ns is not None:
+            return  # already on its way
+        records, used, triggered, trigger_ns = self._acquire(
+            self.displayed() if channels is None else channels
+        )
+        self.last_triggered = triggered
+        if not (force or triggered or self._is("auto")):
+            self._awaiting = (channels,)
+            self.owner.block(self.uid, str(self.param("no_trigger")) == "wait")
+            return
+        self._awaiting = None
+        now = self.owner.now_ns()
+        self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
+        self.owner.block(self.uid, False)
+        self.owner.register_pending(
+            self.uid, self.due_ns, self._complete, waited=bool(self.param("opc_waits"))
+        )
+
+    def _complete(self) -> None:
+        """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
+        assert self._due is not None
+        records, used = self._due
+        self._clear_due()
+        self.store(records, used)
+        if self._is("single"):
+            self._finish_single()
+        else:
+            self.armed = False
+
+    def _keep_last_frame(self) -> None:
+        """A running scope has been acquiring all along: before a single acquisition (or a stop)
+        replaces the run, the frame it shows now is its latest acquisition, which a read gets
+        until the single one is done (completion: pending)."""
+        records, used, triggered = self.compute(self.displayed())
+        if records and (triggered or self._is("auto")):
+            self.store(records, used)
+
+    def _cancel(self) -> None:
+        """Stop waiting: nothing scheduled, nothing blocking ``*OPC?``."""
+        if self.owner is not None:
+            self.owner.cancel_pending(self.uid)
+            self.owner.block(self.uid, False)
+        self._clear_due()
+
+    def retry_pending(self) -> None:
+        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
+        if not self.pending_mode() or self.due_ns is not None:
+            return
+        if self._awaiting is not None:
+            self._schedule(self._awaiting[0], force=False)
+        elif self.armed and self._is("single"):  # armed from the panel, waiting for its trigger
+            self._schedule(None, force=False)
 
     def read_record(self, channel: int, start: bool = True) -> tuple[Record | None, int]:
         """The record a read uses, and the virtual time getting it took (``reacquire``, ``missing``).
@@ -750,7 +857,10 @@ class ScopeAcquisition(Component):
         how = self.param("reacquire")
         fresh = how == "every_read" or (how == "on_read_start" and start)
         running = self.is_running() and (self._is("auto") or self._is("normal"))
-        if (fresh and running) or (self.armed and self._is("single")):
+        if self.pending_mode() and self.waiting():
+            if str(self.param("while_waiting")) == "error":
+                raise ScpiError(-221, "acquisition in progress")
+        elif (fresh and running) or (self.armed and self._is("single")):
             used += self.acquire_now(self._acquisition_channels(channel))
         rec = self.records.get(channel)
         if rec is None and self.param("missing") == "acquire":
@@ -790,6 +900,9 @@ class ScopeAcquisition(Component):
             return OpResult(self.mode_text(), used)
         if mode is None:
             raise ScpiError(-109)
+        self._cancel()  # a new mode replaces whatever acquisition was waiting
+        if self.pending_mode() and self.is_running() and (self._is("auto") or self._is("normal")):
+            self._keep_last_frame()
         self._set_mode(mode)
         if self._is("force", mode):
             used = self.acquire_now(force=True)
@@ -820,6 +933,7 @@ class ScopeAcquisition(Component):
 
     @op("stop")
     def stop(self, **_: Any) -> OpResult:
+        self._cancel()
         self.running, self.armed = False, False
         stops = self.param("stop")
         if stops:
@@ -834,15 +948,23 @@ class ScopeAcquisition(Component):
     @op("wait")
     def wait(self, timeout: float | None = None, **_: Any) -> OpResult:
         """``WAIT [timeout]``: until a pending single acquisition is done (or the timeout passes)."""
-        return OpResult(duration_ns=self.poll())
+        used = self.poll()
+        if self.pending_mode() and self.owner is not None:
+            if self.due_ns is not None:
+                used += self.owner.wait_until(self.due_ns)
+            elif timeout is not None and self.waiting():
+                used += self.owner.wait_until(self.owner.now_ns() + round(float(timeout) * 1e9))
+        return OpResult(duration_ns=used)
 
     @op("opc")
     def opc(self, query: bool = False, **_: Any) -> OpResult:
         """``*OPC?`` answers ``1`` once a pending single acquisition is done; ``*OPC`` sets the ESR bit."""
         assert self.owner is not None
-        used = self.poll() + self.owner.wait_pending()  # and whatever else the instrument has pending
+        used = self.poll()
         if query:
-            return OpResult(b"1", used)
+            reply, waited = self.owner.opc_query()  # and whatever else the instrument has pending
+            return OpResult(reply, used + waited)
+        used += self.owner.wait_pending()
         self.owner.arm_opc()
         return OpResult(duration_ns=used)
 
@@ -885,7 +1007,10 @@ class ScopeAcquisition(Component):
             self.owner.set_state(f"ch{int(m)}.display", True)
         if not chans:
             chans = self.displayed()
-        return OpResult(duration_ns=self.acquire_now(chans, stopped_too=True))  # whatever the run state
+        used = self.acquire_now(chans, stopped_too=True)  # whatever the run state
+        if self.pending_mode() and self.due_ns is not None and self.owner is not None:
+            used += self.owner.wait_until(self.due_ns)  # a digitize returns once its record is full
+        return OpResult(duration_ns=used)
 
     def _source(self) -> int:
         return channel_index(self._st("waveform.source"))
