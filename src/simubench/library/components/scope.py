@@ -52,7 +52,10 @@ class ScopeVertical(Component):
     The ``scale`` (V/div) and ``offset`` (V) are display values; with ``scale_range`` and
     ``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The
     ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``
-    (instrument-authoring.md 8.4).
+    (instrument-authoring.md 8.4). The input noise is a ``noise_table`` row of the scale: real
+    scopes' noise rides the vertical setting (the front-end gain sets it at the ADC), so a fixed
+    input value would leave the coarse divisions far quieter than 1 LSB and averaging could not
+    resolve more (F4, D46).
 
     The unit's own metrology (instrument-authoring.md 8.4, G3). Each V/div at the input
     connector has its own attenuator and gain stage: ``gain_error_ppm`` (relative) and
@@ -82,6 +85,7 @@ class ScopeVertical(Component):
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
         "out_of_range": "error",  # error: refuse with -222 | clamp: take the nearest legal value
+        "noise_table": None,  # [[V/div, noise V rms], ...] at the input, per division (None: quiet)
         "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
@@ -122,6 +126,16 @@ class ScopeVertical(Component):
                 return math.inf
             return parse_number(limit.upper().removesuffix("HZ").replace("M", "e6").replace("K", "e3"))
         return float(self.param("bw_limit_hz")) if limit else math.inf
+
+    def noise_rms(self) -> float:
+        """The input-referred noise (V rms) of the current division: its ``noise_table`` row, or
+        the row of the largest listed division not above it (a table that starts at a floor holds
+        the sensitive divisions first, D46). No table: no noise."""
+        rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
+        if not rows:
+            return 0.0
+        scale = self.input_scale()
+        return next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
 
     def input_scale(self) -> float:
         """V/div at the input connector: the displayed scale divided by the probe ratio."""
@@ -336,6 +350,15 @@ def ladder_down(value: float) -> float:
         if m * 10.0**k <= value * (1 + 1e-12):
             return m * 10.0**k
     return 10.0 ** (k - 1) * 5.0
+
+
+def _boxcar(v: np.ndarray, w: int) -> np.ndarray:
+    """The centered boxcar average of ``w`` samples, the edges holding their nearest full window
+    (high resolution, F4/D46: white noise falls by sqrt(w), the bandwidth by the window)."""
+    if w <= 1:
+        return v
+    c = np.cumsum(np.pad(v, (w // 2, w - 1 - w // 2), mode="edge"))
+    return (c[w:] - c[:-w]) / w
 
 
 @dataclass
@@ -816,12 +839,20 @@ class ScopeAcquisition(Component):
       (only a digitize command), ``every_read`` or ``on_read_start`` (a read from the first point;
       later pieces read the same record). A pending single acquisition is retried on every read.
       ``missing: acquire`` reads a channel that has no record yet, ``error`` refuses it;
-    * **noise** ``noise_rms`` (input-referred white noise, times the probe ratio), keyed by
+    * **noise** the input noise comes from the channel's ``scope_vertical`` ``noise_table``, per
+      division at the input connector, in display volts times the probe ratio; it is keyed by
       ``noise_key``: ``time`` (the absolute sample instants, D46; ``noise_stream`` names a setting
       that selects another stream) or ``acquisition`` (the acquisition count, so pauses of any
-      real length between commands give the same numbers); ``trigger_jitter_s``; ``averaging``
-      with ``averages`` divides the noise by the square root of the count and takes that many
-      acquisitions' time.
+      real length between commands give the same numbers); ``trigger_jitter_s``;
+      * **processing** (F4, D46) what the quantized codes go through: ``normal`` keeps them;
+        ``average`` (``averages``) is the mean of that many acquisitions, each of them noisy and
+        quantized, so the noise falls by √N and the resolution gains (it takes N acquisitions'
+        time); ``peak`` examines each record interval at the ADC's native rate (at most
+        ``peak_max_oversample`` samples per record sample) and keeps, of the interval's smallest
+        and largest code, the one that departs farther from its ends — a pulse the record rate
+        would step over shows up; ``eres`` smooths ``4**eres_bits`` codes (a boxcar), so the
+        noise falls by ``2**eres_bits`` — that many more effective bits, at the boxcar's
+        bandwidth.
 
     * **synchronization** (instrument-authoring.md 8.4, G2): ``completion: immediate`` finishes a
       single acquisition, a digitize or a forced frame within the command that starts it;
@@ -865,10 +896,13 @@ class ScopeAcquisition(Component):
         "reacquire": "explicit",  # explicit | every_read | on_read_start
         "missing": "error",  # error | acquire
         "untriggered": "search",  # the time an untriggered acquisition takes: search | record
-        "noise_rms": 0.0,  # input-referred white noise, V rms (times the probe ratio)
         "noise_key": "acquisition",  # acquisition | time
         "noise_stream": "",  # a setting that selects another noise stream (time key)
         "trigger_jitter_s": 0.0,  # rms offset of each record around the trigger, s
+        "processing": "normal",  # normal | average | peak | eres: what the quantized codes go through
+        "averages": 1,  # acquisitions an average is the mean of (processing: average)
+        "eres_bits": 0.0,  # effective bits a high-resolution acquisition gains (boxcar of 4^b codes)
+        "peak_max_oversample": 64,  # native samples a peak-detect interval examines at most
         # op status: the trigger status as the model words it (stopped, waiting for a trigger,
         # triggered, running untriggered in an auto mode)
         "status_text": {"stopped": "STOP", "waiting": "READY", "triggered": "TRIG'D", "auto": "AUTO"},
@@ -877,8 +911,6 @@ class ScopeAcquisition(Component):
         # {AVERage: {setting: acquire.average, values: [4, 16], format: "{kind},{value:d}"}}
         "acquire_type": "",
         "acquire_counts": {},  # type -> {setting, values, format} for the types that take a count
-        "averaging": False,  # averaging on: noise / sqrt(averages), averages times the time
-        "averages": 1,  # acquisitions averaged
         "completion": "immediate",  # immediate | pending: when a single acquisition or digitize is done
         "opc_waits": True,  # *OPC?, *OPC and *WAI wait for a pending acquisition
         "while_waiting": "previous",  # previous | error: a read while an acquisition is pending
@@ -1079,7 +1111,7 @@ class ScopeAcquisition(Component):
     # ---- sampling, noise and the ADC ----------------------------------------------------------------
 
     def _averages(self) -> int:
-        return max(1, int(self.param("averages"))) if self.param("averaging") in (True, 1, "1", "ON") else 1
+        return max(1, int(self.param("averages"))) if str(self.param("processing")) == "average" else 1
 
     def _jitter(self, t_start_ns: int, frame: int | None = None) -> float:
         jitter = float(self.param("trigger_jitter_s"))
@@ -1096,23 +1128,26 @@ class ScopeAcquisition(Component):
         return jitter * float(gaussian(key, np.zeros(1))[0])
 
     def _noise(
-        self, n: int, t_start_ns: int, dt: float, points: int, frame: int | None = None
+        self, n: int, t_start_ns: int, dt: float, count: int, frame: int | None = None, sub: int = 0
     ) -> np.ndarray | None:
-        """Input noise in display volts, a pure function of the seed, the channel and the key."""
-        sigma = float(self.param("noise_rms")) * self.probe_ratio(n)
+        """Input noise in display volts, a pure function of the seed, the channel and the key.
+
+        The rms comes from the channel's vertical division (D46); ``count`` samples at ``dt``
+        (the native grid when peak detect oversamples), ``sub`` the sub-acquisition of an average,
+        whose stream continues after the previous one's samples."""
+        sigma = self.vertical_of(n).noise_rms() * self.probe_ratio(n)
         if sigma <= 0:
             return None
-        sigma /= math.sqrt(self._averages())
         if frame is not None:  # a displayed frame: noise of its own, no acquisition's stream used
             return sigma * gaussian(
-                stream_key(self.session.seed, self.uid, "frame", n, frame), np.arange(points)
+                stream_key(self.session.seed, self.uid, "frame", n, frame), np.arange(count)
             )
         if self.param("noise_key") == "time":
-            first = math.floor(t_start_ns * 1e-9 / dt)  # sample n of the absolute sample grid
+            first = math.floor(t_start_ns * 1e-9 / dt) + sub * count  # on the absolute sample grid
             key = stream_key(self.session.seed, self.uid, "noise", n, dt, str(self.param("noise_stream")))
-            return sigma * gaussian(key, first + np.arange(points))
+            return sigma * gaussian(key, first + np.arange(count))
         key = stream_key(self.session.seed, self.uid, "noise", n, self.acq_count)
-        return sigma * gaussian(key, np.arange(points))
+        return sigma * gaussian(key, sub * count + np.arange(count))
 
     def adc_codes_per_div(self) -> float:
         return self.adc_unit().codes_per_div()
@@ -1158,7 +1193,18 @@ class ScopeAcquisition(Component):
         k = hit.index if hit is not None else pre
         start = k - pre
         t_start_ns = t0 + round(start * dt * 1e9)
-        offsets = (start + np.arange(points)) * dt
+        # Peak detect samples the ADC's native rate (F4): m native codes per record sample, capped
+        # so a deep record at a slow timebase stays feasible - the real detector is hardware too.
+        proc = str(self.param("processing"))
+        m = 1
+        if proc == "peak":
+            rate = self.sample_rate()
+            top = self._top_rate()
+            if rate > 0 and top > rate:
+                m = max(1, min(int(self.param("peak_max_oversample")), round(top / rate)))
+        count = points * m
+        native_dt = dt / m
+        offsets = (start * m + np.arange(count)) * native_dt
         # The record samples on the clock's grid; where the trigger fell between two samples, and
         # the trigger's jitter, are in the record's time origin (the scope's xorigin), not in the
         # samples.
@@ -1171,16 +1217,34 @@ class ScopeAcquisition(Component):
             scale, offset = self.scale_offset(n)
             # A channel's skew (setting + this unit's error) is a digital delay: sample its trace
             # that much earlier, the trigger path (analog) stays on the unshifted signal.
-            volts = self._display_signal(n).sample_rel(t0, offsets - self.probe_skew(n))
-            noise = self._noise(n, t_start_ns, dt, points, frame)
+            skew = self.probe_skew(n)
+            volts = self._display_signal(n).sample_rel(t0, offsets - skew)
+            noise = self._noise(n, t_start_ns, native_dt, count, frame)
             if noise is not None:
                 volts = volts + noise
+            volts = adc.quantize(volts, scale, offset)  # the codes, as volts (D46: they are kept)
+            if m > 1:  # peak detect: of each interval's smallest and largest code, the one that
+                grid = volts.reshape(points, m)  # departs farther from the interval's ends
+                ends = (grid[:, 0] + grid[:, -1]) / 2
+                lo, hi = grid.min(axis=1), grid.max(axis=1)
+                volts = np.where(np.abs(hi - ends) >= np.abs(lo - ends), hi, lo)
+            elif proc == "average":
+                total = volts
+                for sub in range(1, self._averages()):
+                    noise = self._noise(n, t_start_ns, native_dt, count, frame, sub)
+                    extra = self._display_signal(n).sample_rel(t0, offsets - skew)
+                    if noise is not None:
+                        extra = extra + noise
+                    total = total + adc.quantize(extra, scale, offset)
+                volts = total / self._averages()
+            elif proc == "eres":
+                volts = _boxcar(volts, round(4.0 ** float(self.param("eres_bits"))))
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
                 dt_s=nominal_dt,
                 trigger_index=pre,
-                volts=self.vertical_of(n).correct(adc.quantize(volts, scale, offset)),
+                volts=self.vertical_of(n).correct(volts),
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
