@@ -181,6 +181,13 @@ state:
     min: 1
     max: 200000000
     default: 1
+  # :WAVeform:MAXPoint?：一次可读出的最多点数（手册示例的取值）。
+  waveform.maxpoint:
+    type: int
+    min: 10000000
+    max: 10000000
+    default: 10000000
+    readonly: true
   measure.state:
     type: bool
     default: false
@@ -256,16 +263,16 @@ channel_state:
     type: bool
     default: true
 components:
+  # 示波器由通用模块组成（instrument-authoring.md 8.4）：时基、触发、ADC 组、每通道的垂直与探头、
+  # 采集与运行控制、自动测量、波形传输。型号的取值都在参数中，没有型号专用组件（#93、G6）。
   - name: acq
-    type: siglent_sds_acquisition
+    type: scope_acquisition
     params:
-      # 存储管理 AUTO：采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
-      record_length: rate_ladder
-      points: $acquire.mdepth
-      max_rate: 2.0e9
-      max_rate_paired: 1.0e9
-      rate_pairs: [[1, 2], [3, 4]]
-      delay: $timebase.delay  # 第 0 点在 delay - 5 格
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
       # :TRIGger:MODE：SINGle 采集一次后停止（模式不变），FTRIG 不论触发强制一帧后停止；运行中每次读取都取新的采集。
       single: [SINGle]
       force: [FTRIG]
@@ -279,10 +286,12 @@ components:
       opc_waits: true
       while_waiting: previous
       no_trigger: wait
-      # ADC：8 位每格 30 码，10 位每格 120 码；偏移设置加到电压上（volts = code / 每格码数 * vdiv - offset）。
-      adc_bits: {from: $acquire.resolution, map: {8Bits: 8, 10Bits: 10}}
-      adc_codes_per_div: {from: $acquire.resolution, map: {8Bits: 30.0, 10Bits: 120.0}}
-      adc_offset: add
+      status_text: {stopped: Stop, waiting: Ready, triggered: "Trig'd", auto: Auto}
+      # :ACQuire:TYPE：AVERage 带平均次数、ERES 带增强位数（手册的取值表），查询回复 AVERage,64 / ERES,1.5。
+      acquire_type: $acquire.type
+      acquire_counts:
+        AVERage: {setting: acquire.average, values: [4, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192], format: "{kind},{value:d}"}
+        ERES: {setting: acquire.eres, values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], format: "{kind},{value:.1f}"}
       # 噪声底（specs.noise_floor，D46）：80 µV × √(100/500)，按绝对采样序号取值；采集方式各用一组噪声。
       noise_rms: 3.577708763999664e-05
       noise_key: time
@@ -290,7 +299,44 @@ components:
       trigger_jitter_s: 10.0e-12
       averaging: {from: $acquire.type, map: {AVERage: true}, default: false}
       averages: $acquire.average
-      # :MEASure:SIMPle:VALue? 无法测量（记录不足一个周期、定不出顶值与底值）时的值与状态。
+  # 存储管理 AUTO：采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；延迟范围 -5000 格到 +5 格（第 0 点在 delay - 5 格）。
+  - name: timebase
+    type: scope_timebase
+    params:
+      delay: $timebase.delay
+      delay_range_divs: [-5000, 5]
+      record_length: rate_ladder
+      points: $acquire.mdepth
+  # 边沿触发；电平在触发源通道偏置附近 ±4.1 格内（数据手册）。
+  - name: trigger
+    type: scope_trigger
+    params:
+      level_range_divs: 4.1
+  # ADC：8 位每格 30 码，10 位每格 120 码；偏移设置加到电压上（volts = code / 每格码数 * vdiv - offset）；
+  # CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
+  - name: adc
+    type: scope_adc
+    params:
+      bits: {from: $acquire.resolution, map: {8Bits: 8, 10Bits: 10}}
+      codes_per_div: {from: $acquire.resolution, map: {8Bits: 30.0, 10Bits: 120.0}}
+      offset_sign: add
+      max_rate: 2.0e9
+      max_rate_paired: 1.0e9
+      rate_pairs: [[1, 2], [3, 4]]
+  # :MEASure:SIMPle:VALue? 的测量名；无法测量（记录不足一个周期、定不出顶值与底值）时回复 9.9E37。
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $measure.source
+      names:
+        PKPK: [VPP, V]
+        MAX: [VMAX, V]
+        MIN: [VMIN, V]
+        AMPL: [VAMPlitude, V]
+        MEAN: [VAVerage, V]
+        RMS: [VRMS, V]
+        PER: [PERiod, S]
+        FREQ: [FREQuency, HZ]
       invalid_value: "9.9E37"
       status: [OK, UF]
   - name: xfer
@@ -309,26 +355,69 @@ components:
       width: {from: $waveform.width, map: {BYTE: 8, WORD: 16}}
       byteorder: little
       trailer: "\n"
+      # :WAVeform:PREamble?：346 字节的 WAVEDESC（小端），#9 定长块后跟一个换行（手册的 "0A 0A"）。
+      # 10 位时 WORD 把码值左对齐到 16 位，所以每格码数写为 120 × 64 = 7680（30 × 256）。
+      header:
+        size: 346
+        byteorder: little
+        block_digits: 9
+        trailer: "\n"
+        fields:
+          - {at: 0, type: str, value: WAVEDESC}
+          - {at: 16, type: str, value: WAVEACE}
+          - {at: 32, type: i16, setting: waveform.width, map: {BYTE: 0, WORD: 1}}
+          - {at: 34, type: i16, value: 0}
+          - {at: 36, type: i32, value: 346}
+          - {at: 60, type: i32, figure: bytes}
+          - {at: 76, type: str, value: Siglent SDS}
+          - {at: 116, type: i32, figure: points}
+          - {at: 132, type: i32, figure: first}
+          - {at: 136, type: i32, figure: step}
+          - {at: 144, type: i32, value: 1}
+          - {at: 148, type: i32, value: 1}
+          - {at: 156, type: f32, figure: scale_input}
+          - {at: 160, type: f32, figure: offset_input}
+          - {at: 164, type: f32, setting: acquire.resolution, map: {8Bits: 30.0, 10Bits: 7680.0}}
+          - {at: 172, type: i16, figure: bits}
+          - {at: 174, type: i16, value: 1}
+          - {at: 176, type: f32, figure: dt}
+          - {at: 180, type: f64, setting: timebase.delay}
+          - {at: 324, type: i16, figure: timebase, nearest: [200.0e-12, 500.0e-12, 1.0e-9, 2.0e-9, 5.0e-9, 10.0e-9, 20.0e-9, 50.0e-9, 100.0e-9, 200.0e-9, 500.0e-9, 1.0e-6, 2.0e-6, 5.0e-6, 10.0e-6, 20.0e-6, 50.0e-6, 100.0e-6, 200.0e-6, 500.0e-6, 1.0e-3, 2.0e-3, 5.0e-3, 10.0e-3, 20.0e-3, 50.0e-3, 100.0e-3, 200.0e-3, 500.0e-3, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 100.0, 200.0, 500.0, 1000.0]}
+          - {at: 326, type: i16, setting: "ch{n}.coupling", map: {DC: 0, AC: 1, GND: 2}}
+          - {at: 328, type: f32, figure: probe}
+          - {at: 334, type: i16, setting: "ch{n}.bwlimit", map: {FULL: 0, 20M: 1, 200M: 2}}
+          - {at: 336, type: i16, figure: channel0}
 channel_components:
   - name: inp
     type: input_port
     params:
       z_in: $ch.impedance
       c_in: 1.7e-11
+  # 刻度 500 µV/div 到 10 V/div（1 MΩ）或 1 V/div（50 Ω），偏置范围随刻度（数据手册），都按探头 1X 的输入端检查。
   - name: front
-    type: scope_frontend
+    type: scope_vertical
     params:
       coupling: $ch.coupling
       bw_limit: $ch.bwlimit
       bandwidth: 1.0e8
       ac_corner: 5.0
-  - name: limits
-    type: siglent_sds_channel_limits
+      probe_ratio: $ch.probe
+      scale_range: {from: $ch.impedance, map: {ONEMeg: [5.0e-4, 10.0], FIFTy: [5.0e-4, 1.0]}}
+      offset_ranges: [[0.1, 2.0], [1.0, 20.0], [.inf, 200.0]]
+  # :CHANnel<n>:PROBe DEFault | VALue,<比>：改探头比时刻度与偏置随之缩放（显示的是探头端的电压）。
+  - name: probe
+    type: scope_probe
+    params:
+      ratio: $ch.probe
+      keywords: {DEFault: 1.0, VALue: value}
+      ratio_range: [1.0e-6, 1.0e6]
+      rescales: [$ch.scale, $ch.offset]
 wiring:
   channel:
     - [inp.out, front.in]
+    - [front.out, probe.in]
   instrument:
-    - ["ch{n}.front.out", "acq.in{n}"]
+    - ["ch{n}.probe.out", "acq.in{n}"]
 ports:
   channel:
     "CH{n}": inp.pin
@@ -346,10 +435,10 @@ commands:
   - {header: ":ACQuire:MMANagement", state: acquire.mmanagement}
   - {header: ":ACQuire:MODE", state: acquire.mode}
   - {header: ":ACQuire:MDEPth", state: acquire.mdepth}
-  - {header: ":ACQuire:NUMAcq", op: acq.numacq, set: false}
-  - {header: ":ACQuire:POINts", op: acq.points, set: false}
+  - {header: ":ACQuire:NUMAcq", op: acq.figure, args: {what: count}, set: false}
+  - {header: ":ACQuire:POINts", op: acq.figure, args: {what: points}, set: false}
   - {header: ":ACQuire:RESolution", state: acquire.resolution}
-  - {header: ":ACQuire:SRATe", op: acq.srate, set: false}
+  - {header: ":ACQuire:SRATe", op: acq.figure, args: {what: sample_rate}, set: false}
   - header: ":ACQuire:TYPE"
     op: acq.acquire_type
     params:
@@ -362,7 +451,7 @@ commands:
   - {header: ":CHANnel<ch>:IMPedance", state: ch.impedance}
   - {header: ":CHANnel<ch>:OFFSet", state: ch.offset}
   - header: ":CHANnel<ch>:PROBe"
-    op: acq.probe
+    op: ch.probe.set_ratio
     params:
       - {name: mode, type: enum, options: [DEFault, VALue], optional: true}
       - {name: value, type: float, optional: true}
@@ -376,7 +465,7 @@ commands:
   - {header: ":MEASure:MODE", state: measure.mode}
   - {header: ":MEASure:SIMPle:SOURce", state: measure.source}
   - header: ":MEASure:SIMPle:VALue"
-    op: acq.measure_simple
+    op: meas.named
     set: false
     params: [{name: kind, type: string}]
   # ---- TIMebase ----
@@ -401,7 +490,7 @@ commands:
   - {header: ":WAVeform:STARt", state: waveform.start}
   - {header: ":WAVeform:INTerval", state: waveform.interval}
   - {header: ":WAVeform:POINt", state: waveform.point}
-  - {header: ":WAVeform:MAXPoint", op: acq.maxpoint, set: false}
+  - {header: ":WAVeform:MAXPoint", state: waveform.maxpoint, set: false}
   - {header: ":WAVeform:WIDTh", state: waveform.width}
-  - {header: ":WAVeform:PREamble", op: acq.wav_preamble, set: false}
+  - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
   - {header: ":WAVeform:DATA", op: xfer.data, set: false}

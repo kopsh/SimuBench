@@ -1,0 +1,211 @@
+schema: simubench.instrument/1
+id: test-float-scope
+manufacturer: SimuBench
+model: TEST-FLOAT-SCOPE
+class: oscilloscope
+version: 1
+description: >-
+  契约定义（#138 的验收）：类 R&S 的两通道示波器，只用通用模块写成。波形以 IEEE float32 定长块
+  （FORMat REAL,32）或 ASCII 伏特列表传出；DATA:POINts 按点数模式在整条记录上均匀抽取，每次最多
+  5000 点；DATA:HEADer? 是声明的文本前导（起止时间、点数、每点数值个数）；测量按名称回复，带统计。
+identity:
+  idn: "{manufacturer},{model},{serial},{firmware}"
+  serial: TFS0001
+  firmware: "1.0"
+channels:
+  count: 2
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 1.0e-9
+    max: 10.0
+    default: 1.0e-4
+  acquire.points:
+    type: int
+    min: 1000
+    max: 1000000
+    default: 10000
+  trigger.mode:
+    type: enum
+    options: [AUTO, NORMal, SINGle]
+    default: AUTO
+  trigger.source:
+    type: enum
+    options: [CH1, CH2]
+    default: CH1
+  trigger.level:
+    type: float
+    unit: V
+    min: -100.0
+    max: 100.0
+    default: 0.0
+  trigger.slope:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+  format.data:
+    type: enum
+    options: [ASCii, REAL]
+    default: ASCii
+  format.length:
+    type: int
+    min: 0
+    max: 32
+    default: 0
+  data.points:
+    type: int
+    min: 0
+    max: 1000000
+    default: 0
+  measure.source:
+    type: enum
+    options: [CH1, CH2]
+    default: CH1
+channel_state:
+  display:
+    type: bool
+    default: false
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 10.0
+    default: 0.5
+  offset:
+    type: float
+    unit: V
+    min: -10.0
+    max: 10.0
+    default: 0.0
+  probe:
+    type: float
+    min: 1.0
+    max: 1000.0
+    default: 1.0
+components:
+  - name: acq
+    type: scope_acquisition
+    params:
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
+      single: [SINGle]
+      after_single: AUTO
+      reacquire: on_read_start
+      missing: acquire
+      status_text: {stopped: STOP, waiting: WAIT, triggered: TRIG, auto: AUTO}
+  - name: timebase
+    type: scope_timebase
+    params:
+      points: $acquire.points
+      record_length: fixed
+  - name: trigger
+    type: scope_trigger
+    params:
+      source: $trigger.source
+  - name: adc
+    type: scope_adc
+    params: {bits: 10, divs: 10.0}
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $measure.source
+      names:
+        AMPLitude: [VAMPlitude, V]
+        PEAK: [VPP, V]
+        MEAN: [VAVerage, V]
+        RMS: [VRMS, V]
+        FREQuency: [FREQuency, HZ]
+        PERiod: [PERiod, S]
+      top_base: histogram
+      min_cycles: 2
+      invalid_value: "9.91E+37"
+  - name: xfer
+    type: waveform_transfer
+    params:
+      encoding: {from: $format.data, map: {ASCii: ascii, REAL: block}}
+      values: volts
+      float: {from: $format.data, map: {REAL: 32}, default: 0}
+      digits: 6
+      byteorder: little
+      count: $data.points
+      count_mode: spread
+      max_points: 5000
+      over_limit: truncate
+      header:
+        encoding: text
+        separator: ","
+        fields:
+          - {figure: x_start, format: "%.6e"}
+          - {figure: x_stop, format: "%.6e"}
+          - {figure: points, format: "%d"}
+          - {value: 1}
+channel_components:
+  - name: inp
+    type: input_port
+    params: {z_in: 1.0e6}
+  - name: front
+    type: scope_vertical
+    params:
+      bandwidth: 2.0e8
+      probe_ratio: $ch.probe
+  - name: probe
+    type: scope_probe
+    params:
+      ratio: $ch.probe
+wiring:
+  channel:
+    - [inp.out, front.in]
+    - [front.out, probe.in]
+  instrument:
+    - ["ch{n}.probe.out", "acq.in{n}"]
+ports:
+  channel:
+    "CH{n}": inp.pin
+display:
+  template: oscilloscope
+capabilities: [oscilloscope]
+commands:
+  - {header: "CHANnel<ch>:STATe", state: ch.display}
+  - {header: "CHANnel<ch>:SCALe", state: ch.scale}
+  - {header: "CHANnel<ch>:OFFSet", state: ch.offset}
+  - {header: "TIMebase:SCALe", state: timebase.scale}
+  - {header: "ACQuire:POINts", state: acquire.points}
+  - {header: "TRIGger:A:SOURce", state: trigger.source}
+  - {header: "TRIGger:A:LEVel", state: trigger.level}
+  - {header: "TRIGger:A:MODE", op: acq.run_mode, params: [{name: mode, type: enum, options: [AUTO, NORMal, SINGle], optional: true}]}
+  - {header: "TRIGger:A:STATus", op: acq.status, set: false}
+  - {header: "RUN", op: acq.run, query: false}
+  - {header: "STOP", op: acq.stop, query: false}
+  - {header: "SINGle", op: acq.single, query: false}
+  - {header: "ACQuire:COUNt", op: acq.figure, args: {what: count}, set: false}
+  - {header: "ACQuire:SRATe", op: acq.figure, args: {what: sample_rate}, set: false}
+  - header: "FORMat[:DATA]"
+    params:
+      - {name: type, type: enum, options: [ASCii, REAL], state: format.data}
+      - {name: length, type: int, optional: true, state: format.length}
+    reply: "{format.data},{format.length}"
+  - {header: "CHANnel<ch>:DATA:POINts", state: data.points}
+  - {header: "CHANnel<ch>:DATA:HEADer", op: xfer.header, set: false}
+  - {header: "CHANnel<ch>:DATA", op: xfer.data, set: false}
+  - {header: "MEASurement:SOURce", state: measure.source}
+  - header: "MEASurement:RESult"
+    op: meas.named
+    set: false
+    params: [{name: kind, type: string}]
+  - header: "MEASurement:RESult:AVG"
+    op: meas.statistics
+    set: false
+    args: {item: mean}
+    params: [{name: kind, type: string}]
+  - header: "MEASurement:RESult:WFMCount"
+    op: meas.statistics
+    set: false
+    args: {item: count}
+    params: [{name: kind, type: string}]
+  - {header: "MEASurement:STATistics:RESet", op: meas.clear_statistics, query: false}

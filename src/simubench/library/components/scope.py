@@ -123,10 +123,48 @@ class ScopeProbe(Component):
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
         "ratio": "$ch.probe",  # probe attenuation the display assumes (1, 10, ...)
+        # op set_ratio: what the probe command's keywords mean (a ratio, or "value": the number
+        # that follows), the range of a ratio, and the display settings that scale with it
+        "keywords": {"DEFault": 1.0, "VALue": "value"},
+        "ratio_range": None,  # [min, max]; None: any positive ratio
+        "rescales": [],  # settings in display units that follow the ratio, e.g. [$ch.scale, $ch.offset]
     }
 
     def output(self, port: str) -> Signal:
         return self.input("in").scale(float(self.param("ratio")))
+
+    @op("set_ratio")
+    def set_ratio(self, query: bool = False, mode: str | None = None, value: float | None = None,
+                  **_: Any) -> OpResult:  # fmt: skip
+        """``:CHANnel<n>:PROBe VALue,10`` / ``DEFault``: a keyword gives the ratio or says the number
+        that follows is; the ``rescales`` settings scale with it (the display shows probe-tip
+        volts). The query answers the ratio in the definition's number format."""
+        assert self.owner is not None
+        path = self.bound_paths().get("ratio")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: ratio names no setting")
+        if query:
+            return OpResult(self.owner.format_number(float(self.owner.get_state(path))))
+        if mode is None:
+            raise ScpiError(-109)
+        meaning = {str(k).upper(): v for k, v in (self.param("keywords") or {}).items()}.get(mode.upper())
+        if meaning is None:
+            raise ScpiError(-224, f"unknown probe setting {mode!r}")
+        if meaning == "value":
+            if value is None:
+                raise ScpiError(-109, "probe ratio missing")
+            ratio = float(value)
+        else:
+            ratio = float(meaning)
+        limits = self.param("ratio_range")
+        if limits is not None and not float(limits[0]) <= ratio <= float(limits[1]):
+            raise ScpiError(-222)
+        k = ratio / float(self.owner.get_state(path))
+        self.owner.set_state(path, ratio)
+        for ref in self.param("rescales") or []:
+            other = self.resolve_path(str(ref).removeprefix("$"))
+            self.owner.set_state(other, float(self.owner.get_state(other)) * k, internal=True)
+        return OpResult()
 
 
 def channel_index(source: object) -> int:
@@ -243,8 +281,19 @@ class ScopeTimebase(Component):
         "delay": None,  # unbound: the trigger at the centre of the record
         "record_length": "fixed",  # fixed | exact | rate_ladder
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
+        "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
     }
     units = {"scale": "s", "delay": "s"}
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        """Refuse a delay outside ``delay_range_divs`` (-222, the old value kept)."""
+        limits = self.param("delay_range_divs")
+        if limits is None or path != self.bound_paths().get("delay"):
+            return
+        tb = float(self.param("scale"))
+        lo, hi = (float(x) * tb for x in limits)
+        if not lo - abs(lo) * 1e-9 <= float(new) <= hi + abs(hi) * 1e-9:
+            raise ScpiError(-222, f"delay outside [{limits[0]} div, {limits[1]} div]")
 
     def window(self) -> float:
         return DIVS_H * float(self.param("scale"))
@@ -291,8 +340,28 @@ class ScopeTrigger(_ChannelBound):
         "rising": RISING,  # slope values that take a rising edge
         "falling": FALLING,  # slope values that take a falling edge
         "search_windows": 4,  # how many records long the trigger search is
+        "level_range_divs": None,  # the level stays within +-this many divisions of the source's screen
     }
     units = {"level": "V"}
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        """Refuse a level off the source channel's screen by more than ``level_range_divs``
+        divisions around its offset (-222, the old value kept)."""
+        divs = self.param("level_range_divs")
+        if divs is None or path != self.bound_paths().get("level"):
+            return
+        n = self.source_channel()
+        acq = next(
+            (c for c in (self.owner.components.values() if self.owner else ())
+             if isinstance(c, ScopeAcquisition) and c.param("trigger") == self.name),
+            None,
+        )  # fmt: skip
+        if n is None or acq is None:
+            return
+        scale, offset = acq.scale_offset(n)
+        lim = float(divs) * scale
+        if not -lim - offset - 1e-12 <= float(new) <= lim - offset + 1e-12:
+            raise ScpiError(-222, f"trigger level outside +-{divs} div")
 
     def source_channel(self) -> int | None:
         """The channel the source names, None for external, line and the like."""
@@ -399,8 +468,11 @@ class ScopeAcquisition(Component):
       waits for one, looking again whenever a command arrives; ``no_trigger: wait`` leaves ``*OPC?``
       unanswered meanwhile (the client times out), ``return`` answers it at once.
 
-    Per-channel ``ch<n>.display`` says which channels are acquired. Model-specific commands
-    (Siglent's WAVEDESC, LeCroy's INSPECT?) are subclasses.
+    Per-channel ``ch<n>.display`` says which channels are acquired. The trigger status
+    (``status_text``), an acquisition type with its count (``acquire_type``, ``acquire_counts``)
+    and the read-only figures (op ``figure``: points, sample rate, acquisitions) are declared.
+    Measurements are a ``scope_measurements`` module, the transfer and its preamble a
+    ``waveform_transfer``.
     """
 
     ports: dict[str, PortSpec] = {}
@@ -433,9 +505,14 @@ class ScopeAcquisition(Component):
         "noise_key": "acquisition",  # acquisition | time
         "noise_stream": "",  # a setting that selects another noise stream (time key)
         "trigger_jitter_s": 0.0,  # rms offset of each record around the trigger, s
-        "measurements": {},  # named measurements (op measurement): {AMPL: [VAMPlitude, V], ...}
-        "invalid_value": "UNDEF",  # a named measurement's value when it cannot be measured
-        "status": ["OK", "UF"],  # a named measurement's status: measured, cannot be measured
+        # op status: the trigger status as the model words it (stopped, waiting for a trigger,
+        # triggered, running untriggered in an auto mode)
+        "status_text": {"stopped": "STOP", "waiting": "READY", "triggered": "TRIG'D", "auto": "AUTO"},
+        # op acquire_type: the acquisition type setting and, per type that takes a count, the
+        # setting the count writes, its allowed values and how a query writes it, e.g.
+        # {AVERage: {setting: acquire.average, values: [4, 16], format: "{kind},{value:d}"}}
+        "acquire_type": "",
+        "acquire_counts": {},  # type -> {setting, values, format} for the types that take a count
         "averaging": False,  # averaging on: noise / sqrt(averages), averages times the time
         "averages": 1,  # acquisitions averaged
         "completion": "immediate",  # immediate | pending: when a single acquisition or digitize is done
@@ -480,6 +557,7 @@ class ScopeAcquisition(Component):
         the per-channel component wired to ``<acq>.in{n}`` becomes the ``vertical`` one, and a
         ``scope_probe`` named ``probe`` is put between it and the acquisition. Raises ValueError when
         the definition is not shaped so (write the modules out instead)."""
+        cls._expand_measurements(data, spec)
         params = dict(spec.get("params") or {})
         if any(key in params for key in MACRO_MODULES):
             return  # the modules are written out
@@ -521,6 +599,35 @@ class ScopeAcquisition(Component):
         chans.insert(after, {"name": "probe", "type": "scope_probe", "params": {}})
         chan_wires.append([f"{vertical}.out", "probe.in"])
         inst_wires[index] = ["ch{n}.probe.out", f"{acq}.in{{n}}"]
+
+    @staticmethod
+    def _expand_measurements(data: dict[str, Any], spec: dict[str, Any]) -> None:
+        """Measurements written on the acquisition (``measurements``, ``invalid_value``, ``status``
+        and the commands' ``<acq>.measure`` / ``<acq>.measurement``) move to a ``scope_measurements``
+        module named ``meas`` (``meas2``... when taken), added after the other components."""
+        acq = str(spec["name"])
+        params = spec.get("params") or {}
+        moved = {k: params[k] for k in ("measurements", "invalid_value", "status") if k in params}
+        ops = {f"{acq}.measure": "measure", f"{acq}.measurement": "named"}
+        commands = [c for c in data.get("commands") or [] if isinstance(c, dict) and c.get("op") in ops]
+        if not moved and not commands:
+            return
+        taken = {str(c.get("name")) for c in data["components"]}
+        name = next(n for n in ("meas", *(f"meas{i}" for i in range(2, 100))) if n not in taken)
+        meas: dict[str, Any] = {"record": acq}
+        if "measurements" in moved:
+            meas["names"] = moved.pop("measurements")
+        meas.update(moved)
+        if any(c.get("op") == f"{acq}.measure" for c in commands) and "waveform.source" in (
+            data.get("state") or {}
+        ):
+            meas["source"] = "$waveform.source"  # the earlier measure read the waveform source
+        spec["params"] = {
+            k: v for k, v in params.items() if k not in ("measurements", "invalid_value", "status")
+        }
+        data["components"].append({"name": name, "type": "scope_measurements", "params": meas})
+        for c in commands:
+            c["op"] = f"{name}.{ops[c['op']]}"
 
     # ---- the modules ------------------------------------------------------------------------------
 
@@ -968,31 +1075,72 @@ class ScopeAcquisition(Component):
         self.owner.arm_opc()
         return OpResult(duration_ns=used)
 
-    @op("measurement", fields=("kind", "unit", "status"))
-    def measurement(self, channel: int | None = None, kind: str | None = None, **_: Any) -> OpResult:
-        """A named measurement on the channel's record (``C1:PAVA? AMPL``): ``measurements`` maps the
-        model's names to the engine's (VPP, VMAX, VMIN, VAMPlitude, VRMS, VAVerage, FREQuency,
-        PERiod) and units. The reply is the value in the definition's number format; the reply
-        template also gets {kind}, {unit} and {status}, e.g. '{header} {kind},{value} {unit},{status}'."""
-        if channel is None:
-            raise ScpiError(-300, f"{self.uid}: a measurement names its channel (<ch>)")
-        table = {str(k).upper(): v for k, v in (self.param("measurements") or {}).items()}
-        name = (kind or "").strip().upper()
-        if name not in table:
-            raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
-        engine_name, unit = table[name]
-        rec, used = self.measure_record(channel)
-        value = _measure(str(engine_name), rec.volts, rec.dt_s)
-        ok, bad = self.param("status")
+    # ---- declared status, acquisition type and figures ----------------------------------------------
+
+    def status(self) -> str:
+        """The trigger status in the model's words (``status_text``)."""
+        words = {**self.defaults["status_text"], **(self.param("status_text") or {})}
+        if not self.is_running():
+            return str(words["stopped"])
+        if self._is("single"):
+            assert self.owner is not None
+            if self.trigger_ns is not None and self.owner.now_ns() >= self.trigger_ns:
+                return str(words["triggered"])  # the record after the trigger is filling (pending)
+            return str(words["waiting"])
+        _, _, triggered = self.compute([])
+        if self._is("auto"):
+            return str(words["triggered" if triggered else "auto"])
+        return str(words["triggered" if triggered else "waiting"])
+
+    @op("status")
+    def status_query(self, **_: Any) -> OpResult:
+        return OpResult(self.status().encode())
+
+    @op("acquire_type")
+    def acquire_type_op(self, query: bool = False, kind: str | None = None, value: float | None = None,
+                        **_: Any) -> OpResult:  # fmt: skip
+        """``:ACQuire:TYPE AVERage,64``: the type, and the count a type takes (``acquire_counts``);
+        a count not in the type's ``values`` is refused (-224). The query writes the type, with its
+        count by the type's ``format``."""
         assert self.owner is not None
-        f = self.owner.definition.format
-        text = (
-            (V.format_engineering(value) if f.number == "engineering" else V.format_float(value, f.digits))
-            if math.isfinite(value)
-            else str(self.param("invalid_value")).encode()
-        )
-        fields = {"kind": name, "unit": str(unit), "status": str(ok if math.isfinite(value) else bad)}
-        return OpResult(text, used, fields)
+        path = self.resolve_path(binding_of(self._params.get("acquire_type")) or "")
+        if not path:
+            raise ScpiError(-300, f"{self.uid}: acquire_type names no setting")
+        counts = self.param("acquire_counts") or {}
+        if query:
+            current = str(self._st(path))
+            spec = counts.get(current)
+            if spec is None:
+                return OpResult(current.encode())
+            count = self._st(str(spec["setting"]))
+            fmt = str(spec.get("format", "{kind},{value}"))
+            return OpResult(fmt.format(kind=current, value=count).encode())
+        if kind is None:
+            raise ScpiError(-109)
+        spec = counts.get(kind)
+        if spec is not None and value is not None:
+            allowed = spec.get("values")
+            if allowed is not None and not any(abs(float(value) - float(a)) < 1e-9 for a in allowed):
+                raise ScpiError(-224, f"{kind} count must be one of {list(allowed)}")
+            setting = str(spec["setting"])
+            self.owner.set_state(setting, round(value) if self.owner.specs[setting].type == "int" else value)
+        self.owner.set_state(path, kind)
+        return OpResult()
+
+    @op("figure")
+    def figure(self, what: str = "points", **_: Any) -> OpResult:
+        """A read-only figure of the acquisition: ``points`` (record length), ``sample_rate`` (in
+        the definition's number format) or ``count`` (acquisitions so far, an integer)."""
+        assert self.owner is not None
+        if what == "count":
+            return OpResult(str(self.acq_count).encode())
+        if what == "points":
+            value = float(self._timing()[0])
+        elif what == "sample_rate":
+            value = self.sample_rate()
+        else:
+            raise ScpiError(-300, f"{self.uid}: no figure {what!r}")
+        return OpResult(self.owner.format_number(value))
 
     @op("digitize")
     def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -1056,29 +1204,6 @@ class ScopeAcquisition(Component):
         ]
         return OpResult(b",".join(fields))
 
-    # ---- measurements -----------------------------------------------------------------------------
-
-    @op("measure")
-    def measure(
-        self, suffixes: dict[str, int] | None = None, source: str | None = None, **kw: Any
-    ) -> OpResult:
-        """Automatic measurements on the latest record.
-
-        VPP, VMAX, VMIN, VAMPlitude, VRMS, VAVerage, FREQuency and PERiod.
-        """
-        what = kw.get("what") or ""
-        n = self._source()
-        if source:
-            name = source.upper()
-            m = name.removeprefix("CHANNEL").removeprefix("CHAN")
-            if not m.isdigit():
-                raise ScpiError(-224, f"unknown source {source!r}")
-            n = int(m)
-        rec, _ = self.measure_record(n)
-        v = rec.volts
-        value = _measure(what, v, rec.dt_s)
-        return OpResult(V.format_float(value))
-
 
 #: Bins of a record's histogram, from which the top and the base are read. Fine against any
 #: ADC grid a record can have, so a modal bin is one level and its mean is that level.
@@ -1121,7 +1246,14 @@ def _top_base(v: np.ndarray) -> tuple[float, float] | None:
     return levels[0], levels[1]
 
 
-def _period(v: np.ndarray, dt: float) -> float | None:
+def _period(
+    v: np.ndarray,
+    dt: float,
+    levels: tuple[float, float] | None = None,
+    mid: float | None = None,
+    hysteresis: float = FREQ_HYSTERESIS,
+    min_cycles: int = 1,
+) -> float | None:
     """The record's period, or None when it holds no complete cycle.
 
     The counter runs on the hysteresis band the top and the base set around the middle (the
@@ -1134,15 +1266,17 @@ def _period(v: np.ndarray, dt: float) -> float | None:
     and the base, falling back to the extremes when the histogram forms no peaks (a triangle
     has no levels to tell but a well-defined span).
     """
-    levels = _top_base(v)
+    if levels is None:
+        levels = _top_base(v)
     if levels is None:
         vmax, vmin = float(v.max()), float(v.min())
         levels = (vmax, vmin) if vmax > vmin else None
     if levels is None:
         return None
     top, base = levels
-    mid = (top + base) / 2
-    h = FREQ_HYSTERESIS * (top - base)
+    if mid is None:
+        mid = (top + base) / 2
+    h = hysteresis * (top - base)
     n = v.size
     idx = np.arange(n)
     last_below = np.maximum.accumulate(np.where(v <= mid - h, idx, -1))
@@ -1151,7 +1285,7 @@ def _period(v: np.ndarray, dt: float) -> float | None:
         last_below = np.maximum(last_below, 0)
     above_before = np.concatenate(([-1], last_above[:-1]))  # the hit's own sample does not count
     hit = np.nonzero((last_below > above_before) & (v >= mid + h))[0]
-    if hit.size < 2:
+    if hit.size < max(2, min_cycles + 1):
         return None
     times = np.empty(hit.size)
     for j, i in enumerate(hit):
@@ -1165,13 +1299,28 @@ def _period(v: np.ndarray, dt: float) -> float | None:
     return slope if slope > 0 else None
 
 
-def _measure(what: str, v: np.ndarray, dt: float) -> float:
+def _measure(
+    what: str,
+    v: np.ndarray,
+    dt: float,
+    *,
+    top_base: str = "histogram",
+    mid: float | None = None,
+    hysteresis: float = FREQ_HYSTERESIS,
+    min_cycles: int = 1,
+) -> float:
     """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod.
 
-    Unmeasurable — no complete cycle in the record — comes back as NaN, which the callers
-    report as the definition's invalid value.
+    ``top_base``: the levels from the histogram (``histogram``) or the extremes (``extremes``);
+    ``mid``: the crossing level in volts (None: halfway between top and base); ``hysteresis``: half
+    the counter's band, of top minus base; ``min_cycles``: complete cycles a period needs.
+    Unmeasurable — fewer cycles in the record — comes back as NaN, which the callers report as
+    the definition's invalid value.
     """
+    if v.size == 0:
+        return math.nan
     vmax, vmin = float(v.max()), float(v.min())
+    levels = _top_base(v) if top_base == "histogram" else ((vmax, vmin) if vmax > vmin else None)
     if what == "VPP":
         return vmax - vmin
     if what == "VMAX":
@@ -1183,11 +1332,169 @@ def _measure(what: str, v: np.ndarray, dt: float) -> float:
     if what == "VRMS":
         return float(np.sqrt(np.mean(v**2)))
     if what == "VAMPlitude":
-        levels = _top_base(v)
         return levels[0] - levels[1] if levels else vmax - vmin
     if what in ("FREQuency", "PERiod"):
-        period = _period(v, dt)
+        period = _period(v, dt, levels, mid, hysteresis, min_cycles)
         if period is None:
             return math.nan
         return 1.0 / period if what == "FREQuency" else period
     raise ScpiError(-113, f"measurement {what!r} not supported")
+
+
+@component("scope_measurements")
+class ScopeMeasurements(Component):
+    """Automatic measurements on a scope's records (instrument-authoring.md 8.4).
+
+    The engine's measurements are VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base),
+    FREQuency and PERiod. ``names`` maps the model's names to them and to a unit (``C1:PAVA? AMPL``,
+    ``:MEASure:SIMPle:VALue? PKPK``). How they are taken is declared:
+
+    * the top and the base: the modes of the record's histogram (``histogram``) or its extremes;
+    * the crossing level a period is counted on: ``mid`` percent of top minus base, or volts with
+      ``levels: absolute``; ``hysteresis`` is half the counter's band, of top minus base;
+    * ``min_cycles`` complete cycles a period needs, else it cannot be measured;
+    * ``clipped: invalid``: a record that reaches the ADC's limits cannot be measured;
+    * ``gate``: [from, to] divisions of the record (0 to 10) the measurement looks at;
+    * what cannot be measured answers ``invalid_value`` with the second ``status`` word.
+
+    Every value taken is kept for ``statistics`` (count, mean, sdev, min, max) until cleared.
+    """
+
+    refs = {"record": ("scope_acquisition", "instrument")}
+    defaults = {
+        "record": "acq",  # the acquisition component holding the records
+        "source": "",  # the channel measured (a setting such as $measure.source); empty: the command's
+        "names": {},  # model name -> [engine measurement, unit], e.g. {AMPL: [VAMPlitude, V]}
+        "top_base": "histogram",  # histogram | extremes
+        "levels": "percent",  # percent | absolute: what mid is
+        "mid": 50.0,  # the crossing level a period is counted on
+        "hysteresis": FREQ_HYSTERESIS,  # half the counter's band, of top minus base
+        "min_cycles": 1,  # complete cycles a period needs
+        "clipped": "measure",  # measure | invalid: a record at the ADC's limits
+        "gate": None,  # [from, to] divisions of the record; None: all of it
+        "invalid_value": "UNDEF",  # what an unmeasurable value answers
+        "status": ["OK", "UF"],  # measured, cannot be measured
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.history: dict[tuple[str, int], list[float]] = {}
+
+    def reset(self) -> None:
+        self.history = {}
+
+    def _acq(self) -> ScopeAcquisition:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("record"))]  # type: ignore[return-value]
+
+    def _channel(self, channel: int | None, source: str | None = None) -> int:
+        if source:
+            name = source.strip().upper()
+            m = name.removeprefix("CHANNEL").removeprefix("CHAN").removeprefix("C")
+            if not m.isdigit():
+                raise ScpiError(-224, f"unknown source {source!r}")
+            return int(m)
+        bound = self.param("source")
+        if bound not in (None, ""):
+            return channel_index(bound)
+        return channel or 1
+
+    def value(self, what: str, n: int) -> tuple[float, int]:
+        """The engine measurement ``what`` on channel n's record (NaN: cannot be measured), and the
+        virtual time getting the record took."""
+        acq = self._acq()
+        rec, used = acq.measure_record(n)
+        v = rec.volts
+        gate = self.param("gate")
+        if gate:
+            lo, hi = (max(0, min(v.size, round(float(g) / 10 * v.size))) for g in gate)
+            v = v[lo:hi]
+        if v.size and str(self.param("clipped")) == "invalid":
+            rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+            if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
+                return math.nan, used
+        mid = None
+        if v.size and what in ("FREQuency", "PERiod"):
+            m = float(self.param("mid"))
+            if str(self.param("levels")) == "absolute":
+                mid = m
+            elif m != 50.0:
+                levels = _top_base(v) if self.param("top_base") == "histogram" else None
+                top, base = levels or (float(v.max()), float(v.min()))
+                mid = base + m / 100 * (top - base)
+        value = _measure(
+            what,
+            v,
+            rec.dt_s,
+            top_base=str(self.param("top_base")),
+            mid=mid,
+            hysteresis=float(self.param("hysteresis")),
+            min_cycles=int(self.param("min_cycles")),
+        )
+        return value, used
+
+    def _keep(self, name: str, n: int, value: float) -> None:
+        if math.isfinite(value):
+            self.history.setdefault((name, n), []).append(value)
+
+    @op("measure")
+    def measure(
+        self, what: str = "", source: str | None = None, channel: int | None = None, **_: Any
+    ) -> OpResult:
+        """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
+        command) in the definition's number format; what cannot be measured is NaN's sentinel."""
+        assert self.owner is not None
+        n = self._channel(channel, source)
+        value, used = self.value(what, n)
+        self._keep(what, n, value)
+        return OpResult(self.owner.format_number(value), used)  # NaN: the SCPI sentinel 9.91E+37
+
+    @op("named", fields=("kind", "unit", "status"))
+    def named(self, channel: int | None = None, kind: str | None = None, **_: Any) -> OpResult:
+        """A measurement by the model's name (``names``): the value, or ``invalid_value`` when it
+        cannot be measured; the reply template also gets {kind}, {unit} and {status}, e.g.
+        '{header} {kind},{value} {unit},{status}'."""
+        assert self.owner is not None
+        if kind is None:
+            raise ScpiError(-109)
+        table = {str(k).upper(): v for k, v in (self.param("names") or {}).items()}
+        name = kind.strip().upper()
+        if name not in table:
+            raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
+        engine_name, unit = table[name]
+        n = self._channel(channel)
+        value, used = self.value(str(engine_name), n)
+        self._keep(name, n, value)
+        good, bad = self.param("status")
+        ok = math.isfinite(value)
+        text = self.owner.format_number(value) if ok else str(self.param("invalid_value")).encode()
+        return OpResult(text, used, {"kind": name, "unit": str(unit), "status": str(good if ok else bad)})
+
+    @op("statistics")
+    def statistics(
+        self, kind: str | None = None, item: str = "mean", channel: int | None = None, **_: Any
+    ) -> OpResult:
+        """The statistics of the values taken so far of a measurement: ``count``, ``mean``,
+        ``sdev``, ``min`` or ``max`` (``item``, a constant argument or a parameter)."""
+        assert self.owner is not None
+        if kind is None:
+            raise ScpiError(-109)
+        table = {str(k).upper(): v for k, v in (self.param("names") or {}).items()}
+        name = kind.strip().upper()
+        n = self._channel(channel)
+        values = np.array(
+            self.history.get((name, n)) or self.history.get((str(table.get(name, [name])[0]), n)) or []
+        )
+        if item == "count":
+            return OpResult(str(values.size).encode())
+        if not values.size:
+            return OpResult(str(self.param("invalid_value")).encode())
+        stat = {"mean": values.mean, "sdev": values.std, "min": values.min, "max": values.max}.get(item)
+        if stat is None:
+            raise ScpiError(-224, f"no statistic {item!r}")
+        return OpResult(self.owner.format_number(float(stat())))
+
+    @op("clear_statistics")
+    def clear_statistics(self, **_: Any) -> OpResult:
+        self.history = {}
+        return OpResult()

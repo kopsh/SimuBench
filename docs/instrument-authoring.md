@@ -466,6 +466,19 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 - 命令耗时用已有的 `duration`；`*RST` 可以绑定 `system.reset` 并声明耗时。SDS 的手册没有给出命令耗时，本期不编造数值。在 `idle: off` 或 `sleep` 下，不 sleep 的轮询脚本不会推进虚拟时间，要用 `time.sleep`、`*OPC?` 或墙钟（D47）。
 - 依赖同步行为的用例按新语义改正：SDS 手册用例中“单次采集触发后停止”改为先 `Ready`、`*OPC?` 后 `Stop`；SDG 的测量与噪声验收在读数据前用 `*OPC?` 等待（步进时钟下显式推进时间）；原来“等待中的单次采集在之后的读取时完成”的测试改为“触发到来后采集在虚拟时间中完成，读取不会使它完成”。
 
+**G6 的实现（#138）**：
+
+- `scope_measurements`：从 `scope_acquisition` 搬出的测量。`names` 把型号的测量名对到引擎的测量与单位（`C1:PAVA? AMPL`、`:MEASure:SIMPle:VALue? PKPK`），op `named` 回复值并给应答模板 {kind}、{unit}、{status}；op `measure` 是 `:MEASure:VPP? [CHANnel1]` 的写法。规则都是参数：顶值与底值的求法（`top_base: histogram | extremes`）、计周期的电平（`mid`，百分比或 `levels: absolute` 的伏特）与迟滞（`hysteresis`，顶底差的比例）、最少周期数（`min_cycles`）、削波判定（`clipped: invalid` 时碰到 ADC 上下限的记录不可测）、门控（`gate`，记录中的格数范围）、无效值与状态字。每次测得的值进入统计，op `statistics` 给出次数、均值、σ、最小、最大，`clear_statistics` 清零。默认值与原来的算法相同，SDS、sb-dso 与低频校准示例的测量值不变。
+- 宏：测量写在采集上的旧写法（`measurements`、`invalid_value`、`status` 参数，命令的 `<acq>.measure` / `<acq>.measurement`）在加载时移到名为 `meas` 的 `scope_measurements`（名称被占用时依次为 `meas2`……），放在组件表末尾，所以与显式写出的定义指纹相同。
+- `waveform_transfer`：
+  - 声明的前导（`header`，op `header`）：二进制块按字节偏移写字段，或文本行按顺序写字段。字段取常量、记录与本次选点的数值（`figure`：点数、首点、间隔、字节数、采样间隔、首末点时间、刻度与偏置（显示的与输入端的）、探头比、ADC 位数、每格码数、时基、采集次数、通道号）或设置（`{n}` 为信源通道），再可经 `map`、`nearest`（按对数取最近的列表下标，如时基档位表）与 `scale`。Siglent 的 346 字节 WAVEDESC 由此写成定义；
+  - 浮点块：`values: volts` 加 `float: 32 | 64`（R&S 的 `FORMat REAL,32`）；
+  - 点数模式：`count_mode: spread` 在整条记录上均匀取 `count` 点；
+  - 每次读取的上限：`max_points` 加 `over_limit`（`allow` 照旧、`truncate` 截断、`error` 报 -222）。
+- 其余声明化：`scope_acquisition` 的 `status_text`（停止、等待触发、已触发、自动模式未触发的文字，op `status`）、`acquire_type` 与 `acquire_counts`（带次数的采集方式、允许的次数与查询格式，op `acquire_type`）、op `figure`（点数、采样率、采集次数）；`scope_trigger` 的 `level_range_divs`（电平在信源屏幕偏置附近的格数范围）；`scope_timebase` 的 `delay_range_divs`；`scope_probe` 的 op `set_ratio`（关键字与比值、比值范围，`rescales` 列出随探头比缩放的显示设置）。
+- SDS2104X Plus 只用通用模块写成，`siglent_sds_acquisition` 与 `siglent_sds_channel_limits` 已删除。改写前后对同一串 105 条命令（前导块、波形数据、状态、采集方式、探头、测量、各项限值与它们的错误码）的回复逐字节相同。`sb-dso-4`、`sb-dso-2x` 显式写出 `meas`。
+- 契约定义：`tests/models/contract-float-scope/` 是一台类 R&S 的示波器（float32 块、点数模式、文本前导、按名称的测量与统计），只用通用模块，用例全部通过。
+
 ### 8.5 示波器：衡量
 
 **结构**：

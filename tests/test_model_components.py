@@ -16,8 +16,6 @@ from simubench.models.definition import InstrumentDefinition
 ALLOWED = {
     ("siglent-sdg2042x", "siglent_sdg"),
     ("siglent-sdg2042x", "siglent_sdg_channel_limits"),
-    ("siglent-sds2104xplus", "siglent_sds_acquisition"),
-    ("siglent-sds2104xplus", "siglent_sds_channel_limits"),
 }
 
 
@@ -60,9 +58,9 @@ def test_a_new_model_specific_use_is_named():
 
 
 def test_a_paid_off_use_must_leave_the_list():
-    found = problems(builtin_definitions(), ALLOWED | {("siglent-sdg2042x", "siglent_sds_acquisition")})
+    found = problems(builtin_definitions(), ALLOWED | {("siglent-sds2104xplus", "siglent_sdg")})
     assert found == [
-        "siglent-sdg2042x: no longer uses 'siglent_sds_acquisition'; "
+        "siglent-sds2104xplus: no longer uses 'siglent_sdg'; "
         "remove it from ALLOWED in tests/test_model_components.py"
     ]
 

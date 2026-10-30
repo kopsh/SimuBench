@@ -148,6 +148,11 @@ components:
     type: scope_trigger
   - name: adc
     type: scope_adc
+  # :MEASure:VPP? 等：在 :WAVeform:SOURce（或命令给出的信源）的记录上测量。
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $waveform.source
   - name: xfer
     type: waveform_transfer
     params:
@@ -239,42 +244,42 @@ commands:
     op: xfer.data
     set: false
   - header: ":MEASure:VPP"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: VPP}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:VMAX"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: VMAX}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:VMIN"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: VMIN}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:VAMPlitude"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: VAMPlitude}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:VRMS"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: VRMS}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:VAVerage"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: VAVerage}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:FREQuency"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: FREQuency}
     params: [{name: source, type: string, optional: true}]
   - header: ":MEASure:PERiod"
-    op: acq.measure
+    op: meas.measure
     set: false
     args: {what: PERiod}
     params: [{name: source, type: string, optional: true}]
