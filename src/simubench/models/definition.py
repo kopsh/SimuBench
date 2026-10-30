@@ -351,6 +351,16 @@ class Display(_Model):
 
 class InstrumentDefinition(_Model):
     schema_: Literal["simubench.instrument/1"] = Field("simubench.instrument/1", alias="schema")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _expand_macros(cls, data: Any) -> Any:
+        """A component written the earlier, one-component way expands into its modules when the
+        definition loads, wherever it is loaded from (instrument-authoring.md 8.1)."""
+        from ..library.macros import expand_macros  # the component library needs the models first
+
+        return expand_macros(data)
+
     id: str
     manufacturer: str
     model: str

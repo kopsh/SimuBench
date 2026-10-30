@@ -21,12 +21,37 @@ DIVS_V = 8
 DIVS_H = 10
 
 
-@component("scope_frontend")
-class ScopeFrontend(Component):
-    """Coupling and bandwidth of one channel, applied to the voltage at the input connector.
+class _ChannelBound(Component):
+    """Parameters that may name a channel's setting: ``$ch{n}.trigger_level`` for channel n."""
+
+    def channel_param(self, key: str, n: int | None) -> Any:
+        if key in self.overrides:
+            return self.overrides[key]
+        value = self._params.get(key)
+        if isinstance(value, dict) and isinstance(value.get("from"), str) and "{n}" in value["from"]:
+            if n is None:
+                return None
+            value = {**value, "from": value["from"].replace("{n}", str(n))}
+        elif isinstance(value, str) and "{n}" in value:
+            if n is None:
+                return None
+            value = value.replace("{n}", str(n))
+        return self._resolve(key, value)
+
+    def bound_paths(self) -> dict[str, str]:
+        return {k: v for k, v in super().bound_paths().items() if "{n}" not in v}
+
+
+@component("scope_vertical")
+class ScopeVertical(Component):
+    """The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.
 
     Analog first-order filters (physics, D13): AC coupling is a ``ac_corner`` high-pass and the
     bandwidth a first-order low-pass at ``bandwidth`` (or ``bw_limit_hz`` when the limit is on).
+    The ``scale`` (V/div) and ``offset`` (V) are display values; with ``scale_range`` and
+    ``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The
+    ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``
+    (instrument-authoring.md 8.4).
     """
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
@@ -36,8 +61,13 @@ class ScopeFrontend(Component):
         "bw_limit": False,  # bandwidth limit on, or a named filter (FULL, 20M)
         "bw_limit_hz": 20e6,  # the limit when bw_limit is on
         "ac_corner": 10.0,  # corner of the AC coupling high-pass
+        "scale": "$ch.scale",  # V/div as displayed
+        "offset": "$ch.offset",  # V as displayed
+        "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
+        "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
+        "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
     }
-    units = {"bandwidth": "Hz", "bw_limit_hz": "Hz", "ac_corner": "Hz"}
+    units = {"bandwidth": "Hz", "bw_limit_hz": "Hz", "ac_corner": "Hz", "scale": "V", "offset": "V"}
 
     def output(self, port: str) -> Signal:
         sig = self.input("in")
@@ -56,6 +86,47 @@ class ScopeFrontend(Component):
                 return math.inf
             return parse_number(limit.upper().removesuffix("HZ").replace("M", "e6").replace("K", "e3"))
         return float(self.param("bw_limit_hz")) if limit else math.inf
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        """Refuse a scale or offset outside its range. A probe change scales both together (the
+        probe setting moves the display values, not the input), so it is not checked."""
+        if path == self.bound_paths().get("probe_ratio"):
+            return
+        ranges, limits = self.param("scale_range"), self.param("offset_ranges")
+        if ranges is None and limits is None:
+            return
+        ratio = float(self.param("probe_ratio"))
+        scale = float(self.param("scale")) / ratio
+        if ranges is not None:
+            lo, hi = (float(x) for x in ranges)
+            if not lo * (1 - 1e-9) <= scale <= hi * (1 + 1e-9):
+                raise ScpiError(-222, f"scale outside {lo:g}..{hi:g} V/div at the input")
+        if limits is not None:
+            limit = next((float(lim) for top, lim in limits if scale <= float(top) * (1 + 1e-9)), None)
+            if limit is None:
+                limit = float(limits[-1][1])
+            if abs(float(self.param("offset")) / ratio) > limit * (1 + 1e-9):
+                raise ScpiError(-222, f"offset outside +-{limit:g} V at this scale (at the input)")
+
+
+@component("scope_frontend")
+class ScopeFrontend(ScopeVertical):
+    """The earlier name of ``scope_vertical`` (same behavior), kept so existing definitions load."""
+
+
+@component("scope_probe")
+class ScopeProbe(Component):
+    """The probe setting of one channel: display volts are the volts at the input times ``ratio``.
+
+    A display conversion, not part of the analog path (instrument-authoring.md 8.4)."""
+
+    ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
+    defaults = {
+        "ratio": "$ch.probe",  # probe attenuation the display assumes (1, 10, ...)
+    }
+
+    def output(self, port: str) -> Signal:
+        return self.input("in").scale(float(self.param("ratio")))
 
 
 def channel_index(source: object) -> int:
@@ -115,21 +186,196 @@ def _upper(values: Any) -> set[str]:
     return {str(v).upper() for v in values or ()}
 
 
+@component("scope_adc")
+class ScopeAdc(Component):
+    """The ADC group shared by a scope's channels: resolution, top sample rates and interleaving.
+
+    ``bits`` (0: records are not quantized) and ``codes_per_div`` (0: ``2**bits / divs``) set the
+    quantization; ``offset_sign`` says whether the offset setting is added to or subtracted from the
+    volts. ``max_rate`` is the top sample rate (0: no limit); channels of a ``rate_pairs`` pair share
+    a converter, so with both on the top rate is ``max_rate_paired``."""
+
+    defaults = {
+        "bits": 0,  # 0: records are not quantized
+        "codes_per_div": 0.0,  # 0: 2**bits / divs
+        "divs": 10.0,  # divisions the ADC spans
+        "offset_sign": "add",  # add | subtract: how the offset setting enters the codes
+        "max_rate": 0.0,  # top sample rate, Sa/s (0: no limit)
+        "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
+        "rate_pairs": [],  # channels sharing a converter, e.g. [[1, 2], [3, 4]]
+    }
+    units = {"max_rate": "Sa/s", "max_rate_paired": "Sa/s"}
+
+    def codes_per_div(self) -> float:
+        bits = int(self.param("bits"))
+        return float(self.param("codes_per_div")) or (1 << bits) / float(self.param("divs"))
+
+    def top_rate(self, on: set[int]) -> float:
+        """The top sample rate with channels ``on`` displayed (inf when unlimited)."""
+        top = float(self.param("max_rate")) or math.inf
+        if any(set(pair) <= on for pair in self.param("rate_pairs") or ()):
+            top = float(self.param("max_rate_paired")) or top
+        return top
+
+    def quantize(self, volts: np.ndarray, scale: float, offset: float) -> np.ndarray:
+        """What the ADC keeps: the codes of ``bits``, back in volts."""
+        bits = int(self.param("bits"))
+        if bits <= 0:
+            return volts
+        per_div = self.codes_per_div()
+        half = 1 << (bits - 1)
+        off = offset if str(self.param("offset_sign")).lower() == "add" else -offset
+        codes = np.clip(np.round((volts + off) / scale * per_div), -half, half - 1)
+        return codes / per_div * scale - off
+
+
+@component("scope_timebase")
+class ScopeTimebase(Component):
+    """The horizontal system: time per division, the record length rule and the trigger position.
+
+    ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is
+    ``points / 10 div`` up to the ADC group's top rate) or ``rate_ladder`` (that rate rounded down
+    to a 1-2-5 step; samples ``1 / rate`` apart). The trigger sits at the centre, or ``delay``
+    seconds before it when that is bound."""
+
+    defaults = {
+        "scale": "$timebase.scale",  # seconds per division (ten divisions across)
+        "delay": None,  # unbound: the trigger at the centre of the record
+        "record_length": "fixed",  # fixed | exact | rate_ladder
+        "points": "$waveform.points",  # record points or memory depth (10000, "10k")
+    }
+    units = {"scale": "s", "delay": "s"}
+
+    def window(self) -> float:
+        return DIVS_H * float(self.param("scale"))
+
+    def sample_rate(self, top: float) -> float:
+        """The sample rate under the ADC group's top rate ``top``."""
+        window = self.window()
+        depth = memory_depth(self.param("points"))
+        rule = str(self.param("record_length"))
+        if rule == "fixed":
+            return depth / window
+        if rule == "rate_ladder":
+            return min(top, ladder_down(depth / window))
+        return min(top, depth / window)
+
+    def timing(self, top: float) -> tuple[int, float, int, int]:
+        """Points, sample interval, samples before the trigger and samples from it on."""
+        window = self.window()
+        rule = str(self.param("record_length"))
+        if rule == "fixed":
+            points = memory_depth(self.param("points"))
+            dt = window / points
+        else:
+            rate = self.sample_rate(top)
+            points = max(2, round(rate * window))
+            dt = 1.0 / rate if rule == "rate_ladder" else window / points
+        # Sample 0 is at delay - 5 div: the trigger sits (5 div - delay) / dt in (no delay: the centre).
+        delay = self.param("delay")
+        pre = points // 2 if delay in (None, "") else round((window / 2 - float(delay)) / dt)
+        return points, dt, pre, points - pre
+
+
+@component("scope_trigger")
+class ScopeTrigger(_ChannelBound):
+    """Edge trigger: ``source``, ``level`` and ``slope`` (``rising`` and ``falling`` list the slope
+    names that take each edge); a level or slope per channel is bound with the channel number
+    written ``{n}``: ``$ch{n}.trigger_level``. A source that is not a channel (external, line)
+    never triggers. The search looks ``search_windows`` records ahead."""
+
+    defaults = {
+        "source": "$trigger.source",  # a channel (C1, CHANnel1); anything else never triggers
+        "level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
+        "slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
+        "rising": RISING,  # slope values that take a rising edge
+        "falling": FALLING,  # slope values that take a falling edge
+        "search_windows": 4,  # how many records long the trigger search is
+    }
+    units = {"level": "V"}
+
+    def source_channel(self) -> int | None:
+        """The channel the source names, None for external, line and the like."""
+        return trigger_channel(self.param("source"))
+
+    def level(self) -> float:
+        """The trigger level in display volts (the scope screen draws it)."""
+        level = self.channel_param("level", self.source_channel())
+        return 0.0 if level is None else float(level)
+
+    def search(
+        self, sig: Signal, t0: int, dt: float, pre: int, points: int, n: int, scale: float
+    ) -> tuple[int, bool]:
+        """First qualifying edge at or after ``pre`` samples (enough history before the trigger).
+
+        Returns (trigger sample index measured from t0, triggered?)."""
+        level = float(self.channel_param("level", n))
+        slope = str(self.channel_param("slope", n)).upper()
+        hyst = 0.02 * DIVS_V * scale
+        span = max(points * int(self.param("search_windows")), pre + 2 * points)
+        idx = np.arange(span)
+        v = sig.sample_rel(t0, idx * dt)
+        best: int | None = None
+        for wanted, armed_side, crossed in (
+            (slope in _upper(self.param("rising")), v < level - hyst, v >= level),
+            (slope in _upper(self.param("falling")), v > level + hyst, v <= level),
+        ):
+            if not wanted:
+                continue
+            armed = np.nonzero(armed_side & (idx >= pre - 1))[0]
+            if armed.size:
+                after = np.nonzero(crossed & (idx > armed[0]))[0]
+                if after.size and (best is None or after[0] < best):
+                    best = int(after[0])
+        return (pre, False) if best is None else (best, True)
+
+
+#: Parameters an acquisition written the earlier way (one component) gives each module, and the
+#: module's name for them (instrument-authoring.md 8.4: the big component is a macro).
+MACRO_MODULES: dict[str, tuple[str, dict[str, str]]] = {
+    "horizontal": (
+        "scope_timebase",
+        {"timebase": "scale", "delay": "delay", "record_length": "record_length", "points": "points"},
+    ),
+    "trigger": (
+        "scope_trigger",
+        {
+            "trigger_source": "source",
+            "trigger_level": "level",
+            "trigger_slope": "slope",
+            "rising": "rising",
+            "falling": "falling",
+            "search_windows": "search_windows",
+        },
+    ),
+    "adc": (
+        "scope_adc",
+        {
+            "adc_bits": "bits",
+            "adc_codes_per_div": "codes_per_div",
+            "adc_divs": "divs",
+            "adc_offset": "offset_sign",
+            "max_rate": "max_rate",
+            "max_rate_paired": "max_rate_paired",
+            "rate_pairs": "rate_pairs",
+        },
+    ),
+}
+#: The names the expansion gives the modules.
+MACRO_NAMES = {"horizontal": "timebase", "trigger": "trigger", "adc": "adc"}
+
+
 @component("scope_acquisition")
 class ScopeAcquisition(Component):
-    """Timebase, edge trigger, run control, sampling, noise and the ADC for all channels of a scope.
+    """Run control, sampling and the records of a scope, built from the scope's modules.
 
-    One component for every oscilloscope model, set by parameters (instrument-authoring.md 3.2):
+    One component for every oscilloscope model, set by parameters (instrument-authoring.md 3.2, 8.4).
+    It names the modules it reads: ``horizontal`` (a ``scope_timebase``), ``trigger`` (a
+    ``scope_trigger``), ``adc`` (a ``scope_adc``), and per channel ``vertical`` (a
+    ``scope_vertical``: the scale and offset) and ``probe`` (a ``scope_probe``, whose output is wired
+    to ``in<n>``). Written the earlier way, with the modules' parameters on the acquisition itself and
+    no module named, the definition is expanded into the modules when it loads (a macro):
 
-    * **record length** ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact``
-      (the rate is ``points / 10 div`` up to ``max_rate``) or ``rate_ladder`` (that rate rounded
-      down to a 1-2-5 step; samples ``1 / rate`` apart). Channels of a ``rate_pairs`` pair share an
-      ADC: with both on the top rate is ``max_rate_paired``. The trigger sits at the centre, or
-      ``delay`` seconds before it when that is bound;
-    * **trigger** ``trigger_source``, ``trigger_level``, ``trigger_slope`` (``rising`` and
-      ``falling`` list the slope names that take each edge); a level or slope per channel is bound
-      with the channel number written ``{n}``: ``$ch{n}.trigger_level``. A source that is not a
-      channel (external, line) never triggers;
     * **run control** ``mode`` and the values that mean ``auto``, ``normal``, ``single``, ``stop``
       and ``force`` (one frame whatever the trigger, then stop); ``after_single`` is the mode a
       completed single acquisition leaves (empty: the mode stays and the scope stops).
@@ -137,8 +383,6 @@ class ScopeAcquisition(Component):
       (only a digitize command), ``every_read`` or ``on_read_start`` (a read from the first point;
       later pieces read the same record). A pending single acquisition is retried on every read.
       ``missing: acquire`` reads a channel that has no record yet, ``error`` refuses it;
-    * **ADC** ``adc_bits`` (0: not quantized), ``adc_codes_per_div`` (0: ``2**bits / adc_divs``)
-      and ``adc_offset`` (the offset setting added to or subtracted from the volts);
     * **noise** ``noise_rms`` (input-referred white noise, times the probe ratio), keyed by
       ``noise_key``: ``time`` (the absolute sample instants, D46; ``noise_stream`` names a setting
       that selects another stream) or ``acquisition`` (the acquisition count, so pauses of any
@@ -146,27 +390,26 @@ class ScopeAcquisition(Component):
       with ``averages`` divides the noise by the square root of the count and takes that many
       acquisitions' time.
 
-    Per-channel settings are ``ch<n>.scale``, ``ch<n>.offset``, ``ch<n>.probe`` and
-    ``ch<n>.display``. Model-specific commands (Siglent's WAVEDESC, LeCroy's INSPECT?) are subclasses.
+    Per-channel ``ch<n>.display`` says which channels are acquired. Model-specific commands
+    (Siglent's WAVEDESC, LeCroy's INSPECT?) are subclasses.
     """
 
     ports: dict[str, PortSpec] = {}
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
+    refs = {
+        "horizontal": ("scope_timebase", "instrument"),
+        "trigger": ("scope_trigger", "instrument"),
+        "adc": ("scope_adc", "instrument"),
+        "vertical": ("scope_vertical", "channel"),
+        "probe": ("scope_probe", "channel"),
+    }
     defaults = {
+        "horizontal": "",  # the scope_timebase component
+        "trigger": "",  # the scope_trigger component
+        "adc": "",  # the scope_adc component
+        "vertical": "",  # the per-channel scope_vertical component (its name without ch<n>.)
+        "probe": "",  # the per-channel scope_probe component (its name without ch<n>.)
         "overhead_s": 1e-3,  # virtual time an acquisition takes besides its record, s
-        "search_windows": 4,  # how many records long the trigger search is
-        "timebase": "$timebase.scale",  # seconds per division (ten divisions across)
-        "record_length": "fixed",  # fixed | exact | rate_ladder
-        "points": "$waveform.points",  # record points or memory depth (10000, "10k")
-        "max_rate": 0.0,  # 0: no limit
-        "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
-        "rate_pairs": [],  # e.g. [[1, 2], [3, 4]]
-        "delay": None,  # unbound: the trigger at the centre of the record
-        "trigger_source": "$trigger.source",  # a channel (C1, CHANnel1); anything else never triggers
-        "trigger_level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
-        "trigger_slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
-        "rising": RISING,  # slope values that take a rising edge
-        "falling": FALLING,  # slope values that take a falling edge
         "mode": "$trigger.mode",  # the run mode setting
         "auto": ["AUTO"],  # modes that keep untriggered acquisitions
         "normal": ["NORMal"],  # modes that wait for a trigger
@@ -177,10 +420,6 @@ class ScopeAcquisition(Component):
         "reacquire": "explicit",  # explicit | every_read | on_read_start
         "missing": "error",  # error | acquire
         "untriggered": "search",  # the time an untriggered acquisition takes: search | record
-        "adc_bits": 0,  # 0: records are not quantized
-        "adc_codes_per_div": 0.0,  # 0: 2**adc_bits / adc_divs
-        "adc_divs": 10.0,  # divisions the ADC spans
-        "adc_offset": "add",  # add | subtract
         "noise_rms": 0.0,  # input-referred white noise, V rms (times the probe ratio)
         "noise_key": "acquisition",  # acquisition | time
         "noise_stream": "",  # a setting that selects another noise stream (time key)
@@ -207,6 +446,88 @@ class ScopeAcquisition(Component):
         self.armed = False
         self.last_triggered = False
 
+    # ---- the macro: the earlier one-component form expands into the modules -----------------------
+
+    @classmethod
+    def expand_macro(cls, data: dict[str, Any], spec: dict[str, Any]) -> None:
+        """Expand an acquisition written the earlier way (no module named) into the modules.
+
+        The parameters each module takes move to it under the module's names (``MACRO_MODULES``);
+        the per-channel component wired to ``<acq>.in{n}`` becomes the ``vertical`` one, and a
+        ``scope_probe`` named ``probe`` is put between it and the acquisition. Raises ValueError when
+        the definition is not shaped so (write the modules out instead)."""
+        params = dict(spec.get("params") or {})
+        if any(key in params for key in MACRO_MODULES):
+            return  # the modules are written out
+        acq = str(spec["name"])
+        comps = data.setdefault("components", [])
+        chans = data.setdefault("channel_components", [])
+        wiring = data.setdefault("wiring", {})
+        inst_wires = wiring.setdefault("instrument", [])
+        chan_wires = wiring.setdefault("channel", [])
+        feed: tuple[int, str] | None = None
+        for i, (src, dst) in enumerate(inst_wires):
+            if dst == f"{acq}.in{{n}}" and src.startswith("ch{n}.") and src.endswith(".out"):
+                feed = (i, src[len("ch{n}.") : -len(".out")])
+        taken = {str(c.get("name")) for c in comps} | {f"ch.{c.get('name')}" for c in chans}
+        clash = [n for n in (*MACRO_NAMES.values(), "ch.probe") if n in taken]
+        if feed is None or clash:
+            why = f"names {', '.join(clash)} are taken" if clash else f"nothing is wired to {acq}.in{{n}}"
+            raise ValueError(
+                f"{acq}: cannot expand the one-component acquisition ({why}); write the modules out"
+            )
+        modules = []
+        for key, (type_name, moves) in MACRO_MODULES.items():
+            moved = {new: params.pop(old) for old, new in moves.items() if old in params}
+            modules.append({"name": MACRO_NAMES[key], "type": type_name, "params": moved})
+        index, vertical = feed
+        if not any(c.get("name") == vertical for c in chans):
+            raise ValueError(f"{acq}: {vertical!r} wired to {acq}.in{{n}} is not a channel component")
+        spec["params"] = {
+            **{k: MACRO_NAMES[k] for k in MACRO_MODULES},
+            "vertical": vertical,
+            "probe": "probe",
+            **params,
+        }
+        at = next(i for i, c in enumerate(comps) if c is spec) + 1
+        comps[at:at] = modules
+        after = next(i for i, c in enumerate(chans) if c.get("name") == vertical) + 1
+        if chans[after - 1].get("type") == "scope_frontend":
+            chans[after - 1]["type"] = "scope_vertical"  # the earlier name of the same component
+        chans.insert(after, {"name": "probe", "type": "scope_probe", "params": {}})
+        chan_wires.append([f"{vertical}.out", "probe.in"])
+        inst_wires[index] = ["ch{n}.probe.out", f"{acq}.in{{n}}"]
+
+    # ---- the modules ------------------------------------------------------------------------------
+
+    def _module(self, key: str, name: str | None = None) -> Any:
+        assert self.owner is not None
+        name = name or str(self.param(key))
+        comp = self.owner.components.get(name)
+        if comp is None:
+            raise ScpiError(-300, f"{self.uid}: {key} {name!r} is not a component of this instrument")
+        return comp
+
+    def horizontal(self) -> ScopeTimebase:
+        return self._module("horizontal")  # type: ignore[no-any-return]
+
+    def trigger_unit(self) -> ScopeTrigger:
+        return self._module("trigger")  # type: ignore[no-any-return]
+
+    def adc_unit(self) -> ScopeAdc:
+        return self._module("adc")  # type: ignore[no-any-return]
+
+    def vertical_of(self, n: int) -> ScopeVertical:
+        return self._module("vertical", f"ch{n}.{self.param('vertical')}")  # type: ignore[no-any-return]
+
+    def probe_ratio(self, n: int) -> float:
+        return float(self._module("probe", f"ch{n}.{self.param('probe')}").param("ratio"))
+
+    def scale_offset(self, n: int) -> tuple[float, float]:
+        """Channel n's scale (V/div) and offset (V) as displayed."""
+        v = self.vertical_of(n)
+        return float(v.param("scale")), float(v.param("offset"))
+
     # ---- helpers ----------------------------------------------------------------------------------
 
     def _st(self, path: str) -> Any:
@@ -216,24 +537,6 @@ class ScopeAcquisition(Component):
     def _channels(self) -> int:
         assert self.owner is not None
         return self.owner.channel_count
-
-    def channel_param(self, key: str, n: int | None) -> Any:
-        """A parameter that may name a channel's setting: ``$ch{n}.trigger_level`` for channel n."""
-        if key in self.overrides:
-            return self.overrides[key]
-        value = self._params.get(key)
-        if isinstance(value, dict) and isinstance(value.get("from"), str) and "{n}" in value["from"]:
-            if n is None:
-                return None
-            value = {**value, "from": value["from"].replace("{n}", str(n))}
-        elif isinstance(value, str) and "{n}" in value:
-            if n is None:
-                return None
-            value = value.replace("{n}", str(n))
-        return self._resolve(key, value)
-
-    def bound_paths(self) -> dict[str, str]:
-        return {k: v for k, v in super().bound_paths().items() if "{n}" not in v}
 
     def _is(self, key: str, value: Any = None) -> bool:
         """Whether the run mode (or ``value``) is one of the values listed in parameter ``key``."""
@@ -247,76 +550,30 @@ class ScopeAcquisition(Component):
         self.owner.set_state(self.resolve_path(path), value)
 
     def _display_signal(self, n: int) -> Signal:
-        """Signal of channel n in display volts: front-end output times the probe ratio."""
-        return self.input(f"in{n}").scale(float(self._st(f"ch{n}.probe")))
+        """Signal of channel n in display volts: the probe module's output."""
+        return self.input(f"in{n}")
 
     def trigger_level(self) -> float:
         """The trigger level in display volts (the scope screen draws it)."""
-        level = self.channel_param("trigger_level", trigger_channel(self.param("trigger_source")))
-        return 0.0 if level is None else float(level)
+        return self.trigger_unit().level()
+
+    def timebase_scale(self) -> float:
+        return float(self.horizontal().param("scale"))
 
     def displayed(self) -> list[int]:
         return [n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")]
 
     # ---- record length ------------------------------------------------------------------------------
 
+    def _top_rate(self) -> float:
+        return self.adc_unit().top_rate(set(self.displayed()))
+
     def sample_rate(self) -> float:
-        window = DIVS_H * float(self.param("timebase"))
-        depth = memory_depth(self.param("points"))
-        rule = str(self.param("record_length"))
-        if rule == "fixed":
-            return depth / window
-        top = float(self.param("max_rate")) or math.inf
-        on = set(self.displayed())
-        if any(set(pair) <= on for pair in self.param("rate_pairs") or ()):
-            top = float(self.param("max_rate_paired")) or top
-        if rule == "rate_ladder":
-            return min(top, ladder_down(depth / window))
-        return min(top, depth / window)
+        return self.horizontal().sample_rate(self._top_rate())
 
     def _timing(self) -> tuple[int, float, int, int]:
         """Points, sample interval, samples before the trigger and samples from it on."""
-        window = DIVS_H * float(self.param("timebase"))
-        rule = str(self.param("record_length"))
-        if rule == "fixed":
-            points = memory_depth(self.param("points"))
-            dt = window / points
-        else:
-            rate = self.sample_rate()
-            points = max(2, round(rate * window))
-            dt = 1.0 / rate if rule == "rate_ladder" else window / points
-        # Sample 0 is at delay - 5 div: the trigger sits (5 div - delay) / dt in (no delay: the centre).
-        delay = self.param("delay")
-        pre = points // 2 if delay in (None, "") else round((window / 2 - float(delay)) / dt)
-        return points, dt, pre, points - pre
-
-    # ---- trigger --------------------------------------------------------------------------------------
-
-    def _trigger_search(
-        self, sig: Signal, t0: int, dt: float, pre: int, points: int, n: int
-    ) -> tuple[int, bool]:
-        """First qualifying edge at or after ``pre`` samples (enough history before the trigger).
-
-        Returns (trigger sample index measured from t0, triggered?)."""
-        level = float(self.channel_param("trigger_level", n))
-        slope = str(self.channel_param("trigger_slope", n)).upper()
-        hyst = 0.02 * DIVS_V * float(self._st(f"ch{n}.scale"))
-        span = max(points * int(self.param("search_windows")), pre + 2 * points)
-        idx = np.arange(span)
-        v = sig.sample_rel(t0, idx * dt)
-        best: int | None = None
-        for wanted, armed_side, crossed in (
-            (slope in _upper(self.param("rising")), v < level - hyst, v >= level),
-            (slope in _upper(self.param("falling")), v > level + hyst, v <= level),
-        ):
-            if not wanted:
-                continue
-            armed = np.nonzero(armed_side & (idx >= pre - 1))[0]
-            if armed.size:
-                after = np.nonzero(crossed & (idx > armed[0]))[0]
-                if after.size and (best is None or after[0] < best):
-                    best = int(after[0])
-        return (pre, False) if best is None else (best, True)
+        return self.horizontal().timing(self._top_rate())
 
     # ---- sampling, noise and the ADC ----------------------------------------------------------------
 
@@ -341,7 +598,7 @@ class ScopeAcquisition(Component):
         self, n: int, t_start_ns: int, dt: float, points: int, frame: int | None = None
     ) -> np.ndarray | None:
         """Input noise in display volts, a pure function of the seed, the channel and the key."""
-        sigma = float(self.param("noise_rms")) * float(self._st(f"ch{n}.probe"))
+        sigma = float(self.param("noise_rms")) * self.probe_ratio(n)
         if sigma <= 0:
             return None
         sigma /= math.sqrt(self._averages())
@@ -357,19 +614,7 @@ class ScopeAcquisition(Component):
         return sigma * gaussian(key, np.arange(points))
 
     def adc_codes_per_div(self) -> float:
-        bits = int(self.param("adc_bits"))
-        return float(self.param("adc_codes_per_div")) or (1 << bits) / float(self.param("adc_divs"))
-
-    def _adc(self, volts: np.ndarray, scale: float, offset: float) -> np.ndarray:
-        """What the ADC keeps: the codes of ``adc_bits``, back in volts."""
-        bits = int(self.param("adc_bits"))
-        if bits <= 0:
-            return volts
-        per_div = self.adc_codes_per_div()
-        half = 1 << (bits - 1)
-        off = offset if str(self.param("adc_offset")).lower() == "add" else -offset
-        codes = np.clip(np.round((volts + off) / scale * per_div), -half, half - 1)
-        return codes / per_div * scale - off
+        return self.adc_unit().codes_per_div()
 
     # ---- acquisition ------------------------------------------------------------------------------
 
@@ -381,20 +626,24 @@ class ScopeAcquisition(Component):
         """
         points, dt, pre, post = self._timing()
         t0 = self.session.now_ns
-        n_trig = trigger_channel(self.param("trigger_source"))
+        trig = self.trigger_unit()
+        n_trig = trig.source_channel()
         if n_trig is None:
             k, triggered = pre, False
         else:
-            k, triggered = self._trigger_search(self._display_signal(n_trig), t0, dt, pre, points, n_trig)
+            k, triggered = trig.search(
+                self._display_signal(n_trig), t0, dt, pre, points, n_trig, self.scale_offset(n_trig)[0]
+            )
         start = k - pre
         t_start_ns = t0 + round(start * dt * 1e9)
         offsets = (start + np.arange(points)) * dt
         jitter = self._jitter(t_start_ns, frame)
         if jitter:
             offsets = offsets + jitter
+        adc = self.adc_unit()
         records: dict[int, Record] = {}
         for n in channels:
-            scale, offset = float(self._st(f"ch{n}.scale")), float(self._st(f"ch{n}.offset"))
+            scale, offset = self.scale_offset(n)
             volts = self._display_signal(n).sample_rel(t0, offsets)
             noise = self._noise(n, t_start_ns, dt, points, frame)
             if noise is not None:
@@ -404,7 +653,7 @@ class ScopeAcquisition(Component):
                 t_start_ns=t_start_ns,
                 dt_s=dt,
                 trigger_index=pre,
-                volts=self._adc(volts, scale, offset),
+                volts=adc.quantize(volts, scale, offset),
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
@@ -412,7 +661,7 @@ class ScopeAcquisition(Component):
         if triggered or self.param("untriggered") == "record":
             used = (k + max(post, 0)) * dt
         else:  # the whole trigger search
-            used = points * int(self.param("search_windows")) * dt
+            used = points * int(trig.param("search_windows")) * dt
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered
 

@@ -56,7 +56,9 @@ def test_scope_chain_and_bindings():
     comps = {c.name: c for c in view.components}
     assert comps["acq"].channel is None and comps["ch2.front"].channel == 2
     assert {"from": "ch2.inp.out", "to": "ch2.front.in"} in [w.model_dump(by_alias=True) for w in view.wires]
-    assert {"from": "ch2.front.out", "to": "acq.in2"} in [w.model_dump(by_alias=True) for w in view.wires]
+    wires = [w.model_dump(by_alias=True) for w in view.wires]
+    assert {"from": "ch2.front.out", "to": "ch2.probe.in"} in wires  # vertical -> probe -> acquisition
+    assert {"from": "ch2.probe.out", "to": "acq.in2"} in wires
     assert ("CH2", "ch2.inp.pin") in [(p.name, p.target) for p in view.ports]
     coupling = next(p for p in comps["ch2.front"].params if p.name == "coupling")
     assert (coupling.binding, coupling.value) == ("ch2.coupling", "AC")
@@ -90,5 +92,5 @@ def test_http_endpoint():
         r = c.get(f"/api/sessions/{sid}/instruments/scope/internals")
         assert r.status_code == 200
         body = r.json()
-        assert {"from": "ch1.front.out", "to": "acq.in1"} in body["wires"]
+        assert {"from": "ch1.probe.out", "to": "acq.in1"} in body["wires"]
         assert c.get(f"/api/sessions/{sid}/instruments/nope/internals").status_code == 404

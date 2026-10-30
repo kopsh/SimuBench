@@ -64,6 +64,9 @@ class SiglentSdsAcquisition(ScopeAcquisition):
     defaults = {
         **ScopeAcquisition.defaults,
         "level_divs": 4.1,  # trigger level range: +-4.1 div around the offset
+        # The settings the limits below check (bound so that changing them reaches on_state).
+        "level_setting": "$trigger.level",  # the trigger level
+        "delay_setting": "$timebase.delay",  # the horizontal delay
     }
 
     # ---- limits that depend on other settings (raise -222 and keep the old value) ---------------
@@ -73,7 +76,7 @@ class SiglentSdsAcquisition(ScopeAcquisition):
             src = str(self._st("trigger.source"))
             if src.startswith("C"):
                 n = channel_index(src)
-                scale, offset = float(self._st(f"ch{n}.scale")), float(self._st(f"ch{n}.offset"))
+                scale, offset = self.scale_offset(n)
                 lim = float(self.param("level_divs")) * scale
                 if not -lim - offset - 1e-12 <= float(new) <= lim - offset + 1e-12:
                     raise ScpiError(-222, f"trigger level outside +-{self.param('level_divs')} div")
@@ -200,7 +203,7 @@ class SiglentSdsAcquisition(ScopeAcquisition):
         probe = float(self._st(f"ch{n}.probe"))
         sel, start, step = self._selection(rec)
         word = self._st("waveform.width") == "WORD"
-        per_div, bits = self.adc_codes_per_div(), int(self.param("adc_bits"))
+        per_div, bits = self.adc_codes_per_div(), int(self.adc_unit().param("bits"))
         if bits > 8:
             per_div *= 1 << (16 - bits)  # left-aligned in a 16-bit word
         tb = float(self._st("timebase.scale"))

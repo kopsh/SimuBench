@@ -151,7 +151,7 @@ class WaveformTransfer(Component):
             "offset": rec.offset,
             "scale": rec.scale,
             "gain": rec.scale / acq.adc_codes_per_div() if acq.adc_codes_per_div() else 0.0,  # type: ignore[attr-defined]
-            "timebase": float(acq.param("timebase")),
+            "timebase": acq.timebase_scale(),  # type: ignore[attr-defined]
             "count": acq.acq_count,  # type: ignore[attr-defined]
         }
         item = str(self.param("descriptor_item"))

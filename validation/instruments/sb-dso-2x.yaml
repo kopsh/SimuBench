@@ -132,8 +132,22 @@ channel_state:
     label: 显示
     label_en: Display
 components:
+  # 示波器由模块组成（instrument-authoring.md 8.4）：采集按名称引用时基、触发、ADC 组，以及每通道的
+  # 垂直与探头模块。sb-* 不加噪声、不量化（D42）。
   - name: acq
     type: scope_acquisition
+    params:
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
+  - name: timebase
+    type: scope_timebase
+  - name: trigger
+    type: scope_trigger
+  - name: adc
+    type: scope_adc
   - name: xfer
     type: waveform_transfer
     params:
@@ -154,16 +168,19 @@ channel_components:
       z_in: $ch.impedance
       c_in: 0.0
   - name: front
-    type: scope_frontend
+    type: scope_vertical
     params:
       coupling: $ch.coupling
       bw_limit: $ch.bwlimit
       bandwidth: 100.0e6
+  - name: probe
+    type: scope_probe
 wiring:
   channel:
     - [inp.out, front.in]
+    - [front.out, probe.in]
   instrument:
-    - ["ch{n}.front.out", "acq.in{n}"]
+    - ["ch{n}.probe.out", "acq.in{n}"]
 ports:
   channel:
     "CH{n}": inp.pin

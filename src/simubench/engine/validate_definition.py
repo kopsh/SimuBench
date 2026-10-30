@@ -15,6 +15,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from ..library.macros import expand_macros
 from ..library.migrate import FormatError, upgrade
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, StateSpec
 from ..scpi.parse import Pattern, Token
@@ -31,6 +32,11 @@ def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Re
         data, _ = upgrade(data, "instrument")
     except FormatError as exc:
         report.add("error", "E-FORMAT", "/schema", str(exc), None)
+        return None, report
+    try:
+        data = expand_macros(data)
+    except ValueError as exc:
+        report.add("error", "E-DEF-MACRO", "/components", str(exc), "把模块逐个写出")
         return None, report
     try:
         definition = InstrumentDefinition.model_validate(data)
@@ -83,6 +89,39 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             for n in range(1, count + 1) if channel else (None,):
                 classes[f"ch{n}.{spec.name}" if n else spec.name] = cls
             _check_params(d, spec, cls, p, channel, report)
+
+    # ---- parameters that name another component (Component.refs) ----
+    declared = {
+        "instrument": {c.name: known.get(c.type) for c in d.components},
+        "channel": {c.name: known.get(c.type) for c in d.channel_components},
+    }
+    for section, specs in (("components", d.components), ("channel_components", d.channel_components)):
+        for i, spec in enumerate(specs):
+            cls = known.get(spec.type)
+            for param, (base, where) in (cls.refs if cls else {}).items():
+                name = str(spec.params.get(param, cls.defaults.get(param)) or "")  # type: ignore[union-attr]
+                target = declared[where].get(name, False)
+                want = known.get(base)
+                if target is False:
+                    options = [n for n, c in declared[where].items() if c and want and issubclass(c, want)]
+                    report.add(
+                        "error",
+                        "E-DEF-COMPONENT-REF",
+                        _ptr(section, i, "params", param),
+                        f"{spec.name}.{param} 应指向一个 {base} 组件（{'每通道' if where == 'channel' else '仪表级'}），"
+                        + (f"没有名为 {name!r} 的组件" if name else "没有填写"),
+                        f"改为 {options[0]!r}" if options else f"添加一个 {base} 组件",
+                        spec.name,
+                    )
+                elif target is not None and want is not None and not issubclass(target, want):
+                    report.add(
+                        "error",
+                        "E-DEF-COMPONENT-REF",
+                        _ptr(section, i, "params", param),
+                        f"{spec.name}.{param} 指向的 {name!r} 是 {target.type_name}，应为 {base}",
+                        None,
+                        spec.name,
+                    )
 
     # ---- individual deviations: a parameter of a declared component ----
     specs_by_name = {c.name: c for c in (*d.components, *d.channel_components)}

@@ -495,6 +495,11 @@ export const zh = {
     types: {
       input_port: "输入端口",
       scope_frontend: "模拟前端",
+      scope_vertical: "垂直通道",
+      scope_probe: "探头设置",
+      scope_timebase: "时基",
+      scope_trigger: "触发",
+      scope_adc: "ADC 组",
       scope_acquisition: "采集",
       siglent_sds_acquisition: "采集与传输",
       siglent_sds_channel_limits: "通道量程检查",
