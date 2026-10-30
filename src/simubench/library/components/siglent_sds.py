@@ -234,16 +234,23 @@ class SiglentSdsAcquisition(ScopeAcquisition):
 
     # ---- measurements -----------------------------------------------------------------------------
 
-    @op("measure_simple")
+    @op("measure_simple", fields=("kind", "status"))
     def measure_simple(self, kind: str | None = None, **_: Any) -> OpResult:
+        """``:MEASure:SIMPle:VALue? <kind>``: the value, or the acquisition's ``invalid_value``
+        when it cannot be measured (no complete cycle, no top and base); the reply template
+        also gets {kind} and {status}."""
         if kind is None:
             raise ScpiError(-109)
-        what = SIMPLE_MEASUREMENTS.get(kind.upper())
+        name = kind.strip().upper()
+        what = SIMPLE_MEASUREMENTS.get(name)
         if what is None:
             raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
         rec, used = self.measure_record(channel_index(self._st("measure.source")))
         value = _measure(what, rec.volts, rec.dt_s)
-        return OpResult(self._nr3(value if math.isfinite(value) else 9.9e37), used)
+        ok = math.isfinite(value)
+        text = self._nr3(value) if ok else str(self.param("invalid_value")).encode()
+        good, bad = self.param("status")
+        return OpResult(text, used, {"kind": name, "status": str(good if ok else bad)})
 
 
 #: Offset range at the input (probe 1X) by vertical scale (data sheet): (largest scale, offset limit).
