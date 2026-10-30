@@ -161,6 +161,7 @@
 - 零点系数只修正 DC 读数（调零是直流概念），增益对所有功能生效；AC 的键没有调整过就是 1 / 0。
 - `dmm_core` 设了 `store` 时四个 `cal_*` op 全部委托；没有 store 时保留原来的单组系数实现（对不写校准的定义向后兼容）。
 - `sb-dmm-1`：`cal.gain`/`cal.offset`/`cal.count`/`cal.date`/`cal.string` 状态删除，`COUNt`/`DATE`/`TIME`/`STRing` 改为存储组件的 op（set 形式按原样回 -221）；`SECure:STATe`/`VALue`/`ZERO`/`GAIN`/`STORe` 命令与回复不变（`ok_reply: "0"`、`fail_reply: "1"` 保持无正号）。`volatile_until_store: true` 保持未存储调整被 `*RST` 丢弃的原行为；已存储的系数与台账现在按设计跨 `*RST` 保留（有意的行为变化，无测试依赖旧值）。
+- 自校准写入（#135，示波器的 `*CAL?`）：核心与自己的内部参考比较时没有输入可查容差，`calibrate(corrections)` 直接把“键 → (增益, 偏置)”写进已存储的系数并提交一次（计数、日期各动一次）。`state_key(value)` 把存储的单个 `$状态` 键按另一格的值解析（例如 `$ch.scale` 的另一个 V/div），自校准因此能写当前不在用的档位；多个键或非 `$状态` 键报 -300，留给以后按型号再扩。存储可以是每通道的组件（`ch2.cal`）：测量核心的 `store: cal` 在通道 2 上匹配它，`_meter` 按通道筛选；`coefficients()` 的功能参数可省略（示波器的键不含功能）。
 
 ## 5. 校准源与按单位分派的参数（C4，#90）
 

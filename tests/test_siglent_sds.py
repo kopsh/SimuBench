@@ -6,6 +6,7 @@ and compare what it reconstructs with the signal the bench actually carries.
 """
 
 import importlib.util
+import math
 import shutil
 import sys
 from pathlib import Path
@@ -205,3 +206,163 @@ def test_noisy_acquisitions_replay_byte_for_byte(tmp_path):
     report = replay(next(tmp_path.glob("run-*.jsonl")))
     assert report.ok, report.as_dict()
     assert report.replies == 2
+
+
+MODELS = ROOT / "tests" / "models" / "siglent-sds2104xplus"
+CONTRACT = MODELS / "calibration-cases.yaml"
+#: The V/div detents of the data sheet (input connector, 1X probe): one attenuator step each.
+SCALES = [5e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 1e-1, 2e-1, 5e-1, 1.0, 2.0, 5.0, 10.0]
+
+
+def _metering_bench(tmp_path: Path, *, awg: dict | None = None, hidden: dict | None = None, seed: int = 3):
+    """A from_specs bench: one AWG into CH1, the scope draws its own deviations."""
+    state = {
+        "ch1.frequency": 1000.0,
+        "ch1.amplitude": 2.0,
+        "ch1.load": math.inf,
+        "ch1.output": True,
+        **(awg or {}),
+    }
+    scope: dict = {"model": "siglent-sds2104xplus", "deviation": "from_specs"}
+    if hidden:
+        scope["hidden"] = hidden
+    data = {
+        "schema": "simubench.bench/1",
+        "name": "sds_metrology",
+        "instruments": {"awg": {"model": "sb-awg-2", "state": state}, "scope": scope},
+        "wires": [{"from": "awg.OUT1", "to": "scope.CH1"}],
+        "run": {"seed": seed, "clock": "command"},
+    }
+    path = tmp_path / "bench.yaml"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    return path
+
+
+def _open(path: Path):
+    rm = pyvisa.ResourceManager(f"{path}@simubench")
+    return rm, rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+
+
+def test_drawn_deviations_stay_within_the_data_sheet_and_reproduce(tmp_path):
+    """G3 (#135): a unit drawn with ``deviation: from_specs`` sits inside the data sheet's limits —
+    ±3 % of DC gain per V/div (``specs.dc_gain_accuracy`` = 0.03 = 30000 ppm) and ±1 ppm of
+    timebase (``specs.timebase_accuracy_ppm``) — and the same bench seed draws the same unit."""
+    path = _metering_bench(tmp_path)
+    rm, _ = _open(path)
+    drawn = rm.visalib.bench.instruments["scope"].deviations
+    for n in range(1, 5):
+        gain = drawn[f"ch{n}.front.gain_error_ppm"]
+        assert set(gain) == set(SCALES)
+        assert all(abs(v) <= 30_000.0 for v in gain.values())
+    assert abs(drawn["timebase.clock_ppm"]) <= 1.0
+    shown = repr(drawn)
+    rm.close()
+
+    rm, _ = _open(path)  # same bench and seed: the same unit
+    assert repr(rm.visalib.bench.instruments["scope"].deviations) == shown
+    rm.close()
+
+    other = _metering_bench(tmp_path, seed=4)  # another seed: another unit
+    rm, _ = _open(other)
+    assert repr(rm.visalib.bench.instruments["scope"].deviations) != shown
+    rm.close()
+
+
+def test_the_drawn_gain_error_reaches_the_record_at_every_scale(tmp_path):
+    """G3 (#135): each V/div's drawn gain error is the one the record shows; the AWG's DC level is
+    set to 2.5 divisions (5 V at the top scales), averages reduce the input noise, and one ADC
+    code is the allowed quantization remainder."""
+    rm, sds = _open(_metering_bench(tmp_path))
+    scope = rm.visalib.bench.instruments["scope"]
+    acq = scope.components["acq"]
+    awg = rm.open_resource("awg", read_termination="\n", write_termination="\n")
+    gains = scope.deviations["ch1.front.gain_error_ppm"]
+    sds.write(":TIMebase:SCALe 1E-3;:ACQuire:TYPE AVERage,256")
+    for scale in (s for s in SCALES if s <= 2.0):  # the AWG's +-5 V reaches 2.5 div up to 2 V/div
+        level = 2.5 * scale
+        awg.write(f":FUNCtion DC;:VOLTage:OFFSet {level:.6g}")
+        sds.write(f":CHANnel1:SCALe {scale:g}")
+        rec, _ = acq.measure_record(1)
+        lsb = scale / 30  # 8 bits, 30 codes a division
+        assert float(np.mean(rec.volts)) == pytest.approx(level * (1 + gains[scale] * 1e-6), abs=0.75 * lsb)
+    rm.close()
+
+
+def test_user_calibration_writes_every_scale_and_corrects_the_reading(tmp_path):
+    """G3 (#135): the check-adjust-recheck loop on one scale — the as-found reading carries the
+    drawn gain error, ``*CAL?`` writes the per-V/div constants into the store, and the as-left
+    reading is right again (one ADC code's quantization remains)."""
+    rm, sds = _open(_metering_bench(tmp_path, awg={"ch1.function": "DC", "ch1.offset": 1.0}))
+    scope = rm.visalib.bench.instruments["scope"]
+    acq, cal = scope.components["acq"], scope.components["ch1.cal"]
+    drawn = scope.deviations["ch1.front.gain_error_ppm"][0.5]
+    sds.write(":TIMebase:SCALe 1E-3;:CHANnel1:SCALe 0.5")
+    lsb = 0.5 / 30
+    as_found = float(np.mean(acq.measure_record(1)[0].volts))
+    assert as_found == pytest.approx(1.0 * (1 + drawn * 1e-6), abs=0.75 * lsb)
+
+    assert sds.query("*CAL?") == "*CAL 0"
+    as_left = float(np.mean(acq.measure_record(1)[0].volts))
+    assert as_left == pytest.approx(1.0, abs=0.75 * lsb)
+    state = cal.describe()
+    assert state["count"] == 1 and len(state["keys"]) == len(SCALES)
+    gain, offset = cal.coefficients()
+    assert gain == pytest.approx(1 / (1 + drawn * 1e-6), rel=1e-12) and offset == 0.0
+    rm.close()
+
+
+def test_skew_delays_the_channel(tmp_path):
+    """G3 (#135): ``:CHANnel1:SKEW`` moves the channel's record in time — 100 ns is a tenth of a
+    1 MHz cycle, so the trigger sample shows the sine from 36° earlier."""
+    rm, sds = _open(_metering_bench(tmp_path, awg={"ch1.frequency": 1e6}))
+    scope = rm.visalib.bench.instruments["scope"]
+    acq = scope.components["acq"]
+    sds.write(":TIMebase:SCALe 5E-7;:CHANnel1:SCALe 0.5")
+    lsb = 0.5 / 30
+
+    def single():
+        # A single acquisition finishes in virtual time: *OPC? waits for it, the next command
+        # settles the completed record into the store.
+        sds.write(":TRIGger:MODE SINGle")
+        sds.query("*OPC?")
+        sds.query(":MEASure:SIMPle:VALue? PKPK")
+        return acq.records[1]
+
+    rec = single()
+    assert abs(float(rec.volts[rec.trigger_index])) <= 2 * lsb  # the unskewed rising zero crossing
+    sds.write(":CHANnel1:SKEW 1E-7")
+    rec = single()
+    assert float(rec.volts[rec.trigger_index]) == pytest.approx(-math.sin(0.2 * math.pi), abs=4 * lsb)
+    rm.close()
+
+
+def test_the_clock_error_shows_in_a_frequency_measurement(tmp_path):
+    """G3 (#135): the sampling clock's ppm reaches the time measurements. A fast clock samples
+    closer together than the nominal dt the scope reports, so the counter reads low; 20000 ppm
+    is above the reply's three significant digits (200 ppm would round away)."""
+    rm, sds = _open(_metering_bench(tmp_path, hidden={"timebase": {"clock_ppm": 20_000.0}}))
+    sds.write(":TIMebase:SCALe 1E-3")  # 10 ms: ten cycles of the 1 kHz sine
+    freq = float(sds.query(":MEASure:SIMPle:VALue? FREQ"))
+    assert freq == pytest.approx(1000.0 / 1.02, abs=1.0)
+    rm.close()
+
+
+def test_the_calibration_contract_cases_pass():
+    """G3 (#135), measure 5: the 5522A + SDS2104X Plus contract case, check → adjust → recheck,
+    runs through the same runner as ``simubench cases`` (tests/models/.../calibration-cases.yaml)."""
+    from simubench.library.coverage import load_cases, run_case
+
+    cases = load_cases(CONTRACT)
+    results = [run_case(CONTRACT, cases, case) for case in cases.cases]
+    assert all(r.passed for r in results), [r.describe() for r in results if not r.passed]
+
+
+def test_without_deviations_the_unit_is_nominal(scope):
+    """A definition without ``deviations`` (or a bench without ``deviation: from_specs``) draws
+    nothing: the scope stays the ideal unit the existing tests pin."""
+    _, session = scope
+    scope = session.instruments["scope"]
+    assert scope.deviations == {}
+    assert scope.components["timebase"].clock_error() == 0.0
+    assert scope.components["ch1.front"]._error("gain_error_ppm") == 0.0
+    assert scope.components["ch1.probe"].delay() == 0.0

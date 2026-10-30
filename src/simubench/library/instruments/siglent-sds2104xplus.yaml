@@ -262,6 +262,19 @@ channel_state:
   visible:
     type: bool
     default: true
+# 个体偏差（D3，metrology-authoring.md 7）：测试台 deviation: from_specs 时按种子抽取。
+# 直流增益精度 ±3%（specs.dc_gain_accuracy，EN01D）：每个 V/div 档（输入端，1X 探头）各有自己的
+# 衰减器与增益档，各档各抽各的。时基 ±1 ppm（specs.timebase_accuracy_ppm）。
+# 数据手册没有给出偏置误差与通道时延（SKEW）的指标，这里不编造数值：两者仍是 scope_vertical /
+# scope_probe 的参数，写型号的人在手册给出指标时再加一项。
+deviations:
+  - param: front.gain_error_ppm
+    by: {scale: [5.0e-4, 1.0e-3, 2.0e-3, 5.0e-3, 1.0e-2, 2.0e-2, 5.0e-2, 1.0e-1, 2.0e-1, 5.0e-1, 1.0, 2.0, 5.0, 10.0]}
+    limit: 30000.0
+    distribution: uniform
+  - param: timebase.clock_ppm
+    limit: 1.0
+    distribution: uniform
 components:
   # 示波器由通用模块组成（instrument-authoring.md 8.4）：时基、触发、ADC 组、每通道的垂直与探头、
   # 采集与运行控制、自动测量、波形传输。型号的取值都在参数中，没有型号专用组件（#93、G6）。
@@ -404,6 +417,8 @@ channel_components:
       probe_ratio: $ch.probe
       scale_range: {from: $ch.impedance, map: {ONEMeg: [5.0e-4, 10.0], FIFTy: [5.0e-4, 1.0]}}
       offset_ranges: [[0.1, 2.0], [1.0, 20.0], [.inf, 200.0]]
+      # 读数经校准存储按显示 V/div 修正；*CAL?（自校准）写入各档的系数。
+      store: cal
   # :CHANnel<n>:PROBe DEFault | VALue,<比>：改探头比时刻度与偏置随之缩放（显示的是探头端的电压）。
   - name: probe
     type: scope_probe
@@ -412,6 +427,13 @@ channel_components:
       keywords: {DEFault: 1.0, VALue: value}
       ratio_range: [1.0e-6, 1.0e6]
       rescales: [$ch.scale, $ch.offset]
+      # 通道时延（:CHANnel<ch>:SKEW，±100 ns）进入记录：采样在设置早于时延的时刻取值。
+      skew: $ch.skew
+  - name: cal
+    type: calibration_store
+    params:
+      # 自校准（*CAL?）按显示 V/div 写系数；真机的自校准在前面板上进行，不经 SCPI 调整。
+      key: ["$ch.scale"]
 wiring:
   channel:
     - [inp.out, front.in]
@@ -429,6 +451,9 @@ display:
     single: ":TRIGger:MODE SINGle"
 capabilities: [oscilloscope]
 commands:
+  # *CAL?：用户自校准（SDS 系列编程手册 SYSTEM *CAL?：回复 *CAL 0，0 = 校准成功；EN11F 目录只列
+  # :SYSTem:SELFCal，未列 *CAL?，按同系列手册建模）。系数写入每通道的校准存储，按显示 V/div 生效。
+  - {header: "*CAL", op: acq.self_cal, set: false, reply: "*CAL {value}"}
   # ---- ACQUire ----
   - {header: ":ACQuire:AMODe", state: acquire.amode}
   - {header: ":ACQuire:INTerpolation", state: acquire.interpolation}
