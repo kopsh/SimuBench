@@ -41,6 +41,11 @@ specs:
   trigger_level_div: 4.1
   trigger_jitter_s_rms: 1.0e-11
   noise_floor: "80 uV rms at 500 MHz bandwidth (data sheet, 500 MHz model); modeled as white input noise of 80 uV * sqrt(100/500) = 35.8 uV rms at this model's 100 MHz (D46)"
+  noise_per_division: >-
+    estimated (data sheet gives none, D46): the front-end gain sets about 0.015 divisions rms at
+    the ADC, so max(35.8 uV, 0.015 * v_div) at the input - the trace rests some 3 codes thick at
+    8 bits, as on the real instrument. Per-division values in the scope_vertical noise_table.
+  averaging_time: "an AVERage,N acquisition takes the time of N acquisitions (D46)"
   sfdr_db: 40
 channels:
   count: 4
@@ -305,13 +310,15 @@ components:
       acquire_counts:
         AVERage: {setting: acquire.average, values: [4, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192], format: "{kind},{value:d}"}
         ERES: {setting: acquire.eres, values: [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0], format: "{kind},{value:.1f}"}
-      # 噪声底（specs.noise_floor，D46）：80 µV × √(100/500)，按绝对采样序号取值；采集方式各用一组噪声。
-      noise_rms: 3.577708763999664e-05
+      # 噪声（specs.noise_floor、noise_per_division，D46）：档位表的估计值，按绝对采样序号取值；
+      # 采集方式各用一组噪声。
       noise_key: time
       noise_stream: $acquire.type
       trigger_jitter_s: 10.0e-12
-      averaging: {from: $acquire.type, map: {AVERage: true}, default: false}
+      # :ACQuire:TYPE 的处理级（F4，D46）：都在码值上做——先加噪声、再量化、最后处理。
+      processing: {from: $acquire.type, map: {AVERage: average, PEAK: peak, ERES: eres}, default: normal}
       averages: $acquire.average
+      eres_bits: $acquire.eres
   # 存储管理 AUTO：采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；延迟范围 -5000 格到 +5 格（第 0 点在 delay - 5 格）。
   - name: timebase
     type: scope_timebase
@@ -407,6 +414,8 @@ channel_components:
       z_in: $ch.impedance
       c_in: 1.7e-11
   # 刻度 500 µV/div 到 10 V/div（1 MΩ）或 1 V/div（50 Ω），偏置范围随刻度（数据手册），都按探头 1X 的输入端检查。
+  # 每档噪声（specs.noise_per_division，估计，D46）：数据手册未给分档噪声。ADC 端约 0.015 格 rms，
+  # 折算到输入端 max(35.8 µV, 0.015 × 档位)；最灵敏的 0.5–2 mV/div 由 35.8 µV 的输入噪声底决定。
   - name: front
     type: scope_vertical
     params:
@@ -419,6 +428,10 @@ channel_components:
       offset_ranges: [[0.1, 2.0], [1.0, 20.0], [.inf, 200.0]]
       # 读数经校准存储按显示 V/div 修正；*CAL?（自校准）写入各档的系数。
       store: cal
+      noise_table: [[5.0e-4, 3.5777087639996636e-05], [1.0e-3, 3.5777087639996636e-05],
+                    [2.0e-3, 3.5777087639996636e-05], [5.0e-3, 7.5e-05], [1.0e-2, 1.5e-04],
+                    [2.0e-2, 3.0e-04], [5.0e-2, 7.5e-04], [1.0e-1, 1.5e-03], [2.0e-1, 3.0e-03],
+                    [5.0e-1, 7.5e-03], [1.0, 1.5e-02], [2.0, 3.0e-02], [5.0, 7.5e-02], [10.0, 1.5e-01]]
   # :CHANnel<n>:PROBe DEFault | VALue,<比>：改探头比时刻度与偏置随之缩放（显示的是探头端的电压）。
   - name: probe
     type: scope_probe
