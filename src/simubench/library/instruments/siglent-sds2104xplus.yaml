@@ -271,6 +271,14 @@ components:
       force: [FTRIG]
       reacquire: every_read
       untriggered: record
+      # 同步（instrument-authoring.md 8.4，G2）：单次采集在虚拟时间中完成——触发后的记录填满时才停止，
+      # 期间 :TRIGger:STATus? 为 Ready，触发后为 Trig'd，完成后为 Stop（手册的 :TRIGger:STATus 取值）。
+      # 采集未完成时读波形得到上一次的记录。*OPC? 是否等待采集手册未写明（未核实）：按 IEEE 488.2 的
+      # 待完成操作处理，等待采集完成；一直没有触发时不回复。
+      completion: pending
+      opc_waits: true
+      while_waiting: previous
+      no_trigger: wait
       # ADC：8 位每格 30 码，10 位每格 120 码；偏移设置加到电压上（volts = code / 每格码数 * vdiv - offset）。
       adc_bits: {from: $acquire.resolution, map: {8Bits: 8, 10Bits: 10}}
       adc_codes_per_div: {from: $acquire.resolution, map: {8Bits: 30.0, 10Bits: 120.0}}

@@ -32,6 +32,7 @@ def bench(tmp_path):
 
 def measure(sds, what: str) -> float:
     sds.write(":TRIGger:MODE SINGle")
+    assert sds.query("*OPC?") == "1"  # the single acquisition is done (completion: pending)
     return float(sds.query(f":MEASure:SIMPle:VALue? {what}"))
 
 
