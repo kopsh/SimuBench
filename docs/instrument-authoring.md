@@ -489,6 +489,16 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 - SDS2104X Plus（在 G6 的通用模块之上）：`front` 增加 `store: cal`，每通道 `cal` 存储以 `$ch.scale` 为键，`probe` 绑定 `skew: $ch.skew`。`deviations` 只写数据手册给出的两项：每个 V/div（1X，14 档）的直流增益 ±3 %（±30000 ppm）与时基 ±1 ppm；数据手册没有偏置误差与 SKEW 精度的指标，不编造数值（能力仍在组件上）。
 - 验收：`tests/test_scope_acquisition.py` 覆盖每档的增益/偏置/DAC 误差（含探头比）、REF_IN 与回退、SKEW 与时钟 ppm 的个体偏差（`sb-dso-4` 上，与型号无关）；`tests/test_siglent_sds.py` 覆盖 SDS 的 14 档增益抽取在限值内且随种子复现、每档增益误差进入记录、`*CAL?` 写全部档位并使读数回到一个 ADC 码内、SKEW 使记录移相、时钟 ppm 在频率测量中可见，以及 5522A 的“核查 → 调整 → 复核”契约用例（`tests/models/siglent-sds2104xplus/calibration-cases.yaml`，与 `simubench cases` 同一运行器）；没有 `deviations` 的定义保持原有行为。
 
+**G5 的实现（#137）**：
+
+- `scope_trigger` 在 ADC 之前的模拟信号上检测，有自己的耦合滤波（`coupling` 与 `filters`：每种耦合一组高通、低通转折频率）和噪声（`noise_rms`）。先越过电平另一侧的迟滞带（`hysteresis_divs`，`noise_reject` 开启时为 `reject_hysteresis_divs`）才布防，然后在第一个越过电平的采样上触发，触发时刻在它与前一个采样之间线性插值。
+- 记录仍在采样时钟的网格上（数值与改动前相同）；触发落在两个采样之间的小数和触发抖动都进入记录的时间原点 `Record.origin`（xorigin），不再移动采样点。前导与描述中的 xorigin（sb-dso 的 `:WAVeform:PREamble?`、低频校准示例的 `HORIZ_OFFSET`、传输的 `x_offset` / `x_start` / `x_stop`）与示波器屏幕都用它。Siglent 的 WAVEDESC 照手册的时间轴公式只写延迟设置，不变。
+- 自动模式只在 `search_windows` 个记录内找边沿（它的自动超时）；普通与单次采集在 `search_horizon_s`（默认 10 s）的虚拟时间内等边沿，所用时间计入采集：1 Hz 信号的单次采集在下一个边沿触发，记录填满后完成。超出首段的搜索按信号最高谱线的 1/16 周期取粗网格，跨越处在连续信号上二分到千分之一采样；总计算量按谱线数限制（`max_search_points`），电平超出信号可能的摆幅时不搜索。
+- 释抑：`holdoff_on` 时，上一次触发后 `holdoff` 秒内的边沿不触发。电源触发（`line` 列出的信源）在 `line_hz` 的上升过零处触发；外触发（`external` 列出的信源）读 `ext` 端口，由定义把仪表的输入端接到它。
+- 信源名 `CH1` 也识别为通道（原来只认 `CHANnel1`、`C1`）。
+- 依赖“触发正好落在采样点上”的用例按真机行为改正：sb-dso 的触发点在采样 499 与 500 之间，xorigin 在 −5 ms 之后一个采样以内；低频校准示例的 `HORIZ_OFFSET` 同样。
+- SDS2104X Plus 的触发耦合、噪声抑制与释抑命令没有在本期接上：这些需要按手册与数据手册核实的取值（转折频率、命令语法），留待能取得手册时再做。
+
 ### 8.5 示波器：衡量
 
 **结构**：

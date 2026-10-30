@@ -457,7 +457,9 @@ def test_wavedesc_gives_the_scaling(rig):
     desc = {words[i]: words[i + 2] for i in range(2, len(words) - 2) if words[i + 1] == ":"}
     assert int(desc["WAVE_ARRAY_COUNT"]) == 30000
     assert float(desc["HORIZ_INTERVAL"]) == pytest.approx(1e-2 / 30000)
-    assert float(desc["HORIZ_OFFSET"]) == pytest.approx(-5e-3)
+    # Sample 0 is 5 ms before the trigger, plus where the trigger fell between two samples (G5).
+    dt = 1e-2 / 30000
+    assert -5e-3 <= float(desc["HORIZ_OFFSET"]) < -5e-3 + dt
 
 
 # ---- platform pieces ----------------------------------------------------------------------------------
