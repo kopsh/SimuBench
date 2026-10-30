@@ -4,13 +4,16 @@ trigger, run control, noise and the ADC are parameters of the definition, not co
 from __future__ import annotations
 
 import copy
+import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from simubench.api import open_bench
 from simubench.engine.session import Session
 from simubench.engine.validate_definition import validate_definition_data
+from simubench.library.components.scope import _measure, _top_base
 from simubench.library.loader import load_yaml
 from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
@@ -124,3 +127,16 @@ def test_channel_bindings_are_checked():
     assert [(d.code, d.pointer) for d in report.diagnostics] == [
         ("E-DEF-STATE-UNKNOWN", f"/components/{acq + 2}/params/level")
     ]
+
+
+def test_amplitude_falls_back_to_the_extremes_without_levels():
+    """A ramp or triangle fills the histogram evenly: no top and base to tell (F2, #131), and
+    AMPLitude falls back to the extremes; a flat record or too little data does the same."""
+    ramp = np.linspace(-1.0, 1.0, 10_000)
+    assert _top_base(ramp) is None
+    assert _measure("VAMPlitude", ramp, 1e-6) == pytest.approx(2.0)
+    flat = np.zeros(100)
+    assert _measure("VAMPlitude", flat, 1e-6) == 0.0
+    assert _measure("VAMPlitude", np.array([0.0, 1.0, 0.0]), 1e-6) == pytest.approx(1.0)
+    assert math.isnan(_measure("FREQuency", flat, 1e-6))
+    assert math.isnan(_measure("PERiod", ramp, 1e-6))

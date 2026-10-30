@@ -290,6 +290,9 @@ components:
       trigger_jitter_s: 10.0e-12
       averaging: {from: $acquire.type, map: {AVERage: true}, default: false}
       averages: $acquire.average
+      # :MEASure:SIMPle:VALue? 无法测量（记录不足一个周期、定不出顶值与底值）时的值与状态。
+      invalid_value: "9.9E37"
+      status: [OK, UF]
   - name: xfer
     type: waveform_transfer
     params:
