@@ -168,19 +168,18 @@ channel_state:
     label: 衰减
     label_en: Attenuation
 components:
+  # 示波器由模块组成（instrument-authoring.md 8.4）：采集按名称引用时基、触发、ADC 组，以及每通道的
+  # 垂直与探头模块；测量在 meas 上（C<n>:PAVA?）。
   - name: sys
     type: system
   - name: acq
     type: scope_acquisition
     params:
-      # 记录正好 MSIZ 点、覆盖 10 格（采样率 MSIZ / 10 TDIV，最高 20 GSa/s，不取仪器的采样率表）。
-      record_length: exact
-      points: $memory.size
-      max_rate: 2.0e10
-      search_windows: 2
-      # 每个通道有自己的触发电平与触发沿（C<n>:TRLV、C<n>:TRSL）。
-      trigger_level: $ch{n}.trigger_level
-      trigger_slope: $ch{n}.trigger_slope
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
       # TRMD：SINGLE 采集一次后变为 STOP；AUTO / NORM 下从第一点开始的读取取新的采集，后续分段读同一记录；
       # 没有记录的通道读取时按当前信号采一次（事件中记为 forced）。
       single: [SINGLE]
@@ -189,21 +188,27 @@ components:
       reacquire: on_read_start
       missing: acquire
       untriggered: record
-      # 假设值（不是数据手册数值）：12 位 ADC 覆盖 ±5 格，输入端 200 µV rms 白噪声（假设与档位无关，
-      # 单行档位表），按采集序号取值；测试台可用 hidden 覆盖。
-      adc_bits: 12
-      adc_divs: 10.0
-      adc_offset: add
-      # C<n>:PAVA? 的测量名：引擎的测量与回复的单位。
-      measurements:
-        AMPL: [VAMPlitude, V]
-        PKPK: [VPP, V]
-        MAX: [VMAX, V]
-        MIN: [VMIN, V]
-        MEAN: [VAVerage, V]
-        RMS: [VRMS, V]
-        FREQ: [FREQuency, HZ]
-        PER: [PERiod, S]
+  - name: timebase
+    type: scope_timebase
+    params:
+      # 记录正好 MSIZ 点、覆盖 10 格（采样率 MSIZ / 10 TDIV）。
+      record_length: exact
+      points: $memory.size
+  - name: trigger
+    type: scope_trigger
+    params:
+      # 每个通道有自己的触发电平与触发沿（C<n>:TRLV、C<n>:TRSL）。
+      level: $ch{n}.trigger_level
+      slope: $ch{n}.trigger_slope
+      search_windows: 2
+  - name: adc
+    type: scope_adc
+    params:
+      # 假设值（不是数据手册数值）：12 位 ADC 覆盖 ±5 格；采样率上限 20 GSa/s，不取仪器的采样率表。
+      bits: 12
+      divs: 10.0
+      offset_sign: add
+      max_rate: 2.0e10
   - name: xfer
     type: waveform_transfer
     params:
@@ -229,6 +234,20 @@ components:
         TIMEBASE: "{timebase:.6e}"
         VOLT_PER_DIV: "{scale:.6e}"
         ACQ_COUNT: "{count}"
+  - name: meas
+    type: scope_measurements
+    params:
+      record: acq
+      # C<n>:PAVA? 的测量名：引擎的测量与回复的单位。
+      names:
+        AMPL: [VAMPlitude, V]
+        PKPK: [VPP, V]
+        MAX: [VMAX, V]
+        MIN: [VMIN, V]
+        MEAN: [VAVerage, V]
+        RMS: [VRMS, V]
+        FREQ: [FREQuency, HZ]
+        PER: [PERiod, S]
 channel_components:
   # 耦合 A1M（交流 1 MΩ）、D1M、D50（直流 50 Ω）、GND：输入阻抗与前端都由它决定。
   - name: inp
@@ -237,17 +256,22 @@ channel_components:
       z_in: {from: $ch.coupling, map: {D50: 50.0}, default: 1.0e6}
       c_in: 1.6e-11
   - name: front
-    type: scope_frontend
+    type: scope_vertical
     params:
       coupling: {from: $ch.coupling, map: {A1M: AC, D1M: DC, D50: DC, GND: GND}}
       bandwidth: 2.5e9
       ac_corner: 10.0
+      # 假设值（不是数据手册数值）：输入端 200 µV rms 白噪声（假设与档位无关，单行档位表），
+      # 按采集序号取值；测试台可用 hidden 覆盖。
       noise_table: [[0.0, 2.0e-4]]
+  - name: probe
+    type: scope_probe
 wiring:
   channel:
     - [inp.out, front.in]
+    - [front.out, probe.in]
   instrument:
-    - ["ch{n}.front.out", "acq.in{n}"]
+    - ["ch{n}.probe.out", "acq.in{n}"]
 ports:
   channel:
     "CH{n}": inp.pin
@@ -301,7 +325,7 @@ commands:
       - {name: kind, type: enum, state: "measure.p{slot}.kind"}
       - {name: source, type: enum, state: "measure.p{slot}.source", optional: true}
   - header: "C<ch>:PArameter_VAlue"
-    op: acq.measurement
+    op: meas.named
     set: false
     reply: "{header} {kind},{value} {unit},{status}"
     params: [{name: kind, type: string}]

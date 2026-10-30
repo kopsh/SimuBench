@@ -207,8 +207,41 @@ def test_peak_detect_keeps_the_excursions_and_the_top_rate_keeps_the_record():
     session.close()
 
 
+def one_component(data: dict) -> dict:
+    """The reference scope written the earlier, one-component way (it has used modules since G7):
+    the timebase, trigger and ADC parameters back on the acquisition, no probe module — the form
+    the macro expands into the modules when the definition loads."""
+    earlier = copy.deepcopy(data)
+    moves = {
+        "timebase": {"record_length": "record_length", "points": "points"},
+        "trigger": {"level": "trigger_level", "slope": "trigger_slope", "search_windows": "search_windows"},
+        "adc": {"bits": "adc_bits", "divs": "adc_divs", "offset_sign": "adc_offset", "max_rate": "max_rate"},
+    }
+    params: dict[str, Any] = {}
+    for name, renames in moves.items():
+        module = next(c for c in earlier["components"] if c["name"] == name)
+        earlier["components"].remove(module)
+        params.update({old: module["params"][new] for new, old in renames.items()})
+    acq = next(c for c in earlier["components"] if c["name"] == "acq")
+    acq["params"] = {
+        **params,
+        **{
+            k: v
+            for k, v in acq["params"].items()
+            if k not in ("horizontal", "trigger", "adc", "vertical", "probe")
+        },
+    }
+    next(c for c in earlier["channel_components"] if c["name"] == "front")["type"] = "scope_frontend"
+    earlier["channel_components"] = [c for c in earlier["channel_components"] if c["name"] != "probe"]
+    earlier["wiring"] = {
+        "channel": [["inp.out", "front.in"]],
+        "instrument": [["ch{n}.front.out", "acq.in{n}"]],
+    }
+    return earlier
+
+
 def test_channel_bindings_are_checked():
-    bad = copy.deepcopy(LECROY)
+    bad = one_component(LECROY)
     acq = next(i for i, c in enumerate(bad["components"]) if c["name"] == "acq")
     bad["components"][acq]["params"]["trigger_level"] = "$ch{n}.trigger_lvl"
     _, report = validate_definition_data(bad)
