@@ -612,7 +612,7 @@ class SessionManager:
             traces = [
                 M.Trace(
                     channel=n,
-                    t0_s=-r.trigger_index * r.dt_s,
+                    t0_s=r.origin,
                     dt_s=r.dt_s,
                     volts=[float(x) for x in np.asarray(r.volts, dtype=float)],
                     scale=r.scale,
