@@ -294,7 +294,7 @@ components:
       opc_waits: true
       while_waiting: previous
       no_trigger: wait
-      averaging: {from: $acquire.type, map: {AVERage: true}, default: false}
+      processing: {from: $acquire.type, map: {AVERage: average}, default: normal}
       averages: $acquire.count
   # 时基：存储深度 100 kpts，采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；参考位置 LEFT /
   # CENTer / RIGHt 为离左边 1 格、中央、离右边 1 格（手册 :TIMebase:REFerence）。
