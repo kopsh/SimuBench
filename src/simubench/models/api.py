@@ -658,8 +658,27 @@ class Event(_Model):
     code: int | None = None
     message: str | None = None
     dt_ns: int | None = None
-    reason: str | None = None
+    reason: str | None = Field(
+        None,
+        description="For error and ignored events: why the command was not executed — not_modeled | "
+        "not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). "
+        "Fault and advance events carry their own kind-specific reason",
+    )
     wall: float | None = None
+    header: str | None = Field(None, description="The header that was ignored, for ignored events")
+    query: bool | None = Field(None, description="Whether the ignored header was a query")
+    origin: str | None = Field(
+        None,
+        description="The file the classification's declaration comes from (the definition or its "
+        "coverage table), as the loader received the path",
+    )
+    closest: str | None = Field(
+        None, description="The author's command header closest to the one sent, when one is close"
+    )
+    param: str | None = Field(None, description="The parameter or state path, for bad_parameter")
+    range: str | None = Field(
+        None, description="The range or options the definition declares, for bad_parameter"
+    )
     action: str | None = Field(
         None,
         description="A front-panel button, for panel events: run | stop | single; "

@@ -779,6 +779,12 @@ def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
         "wall",
         "fault",
         "action",
+        "header",
+        "query",
+        "origin",
+        "closest",
+        "param",
+        "range",
     ):
         if key in ev:
             out[key] = ev[key]

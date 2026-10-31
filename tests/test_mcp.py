@@ -112,6 +112,30 @@ async def test_start_refuses_invalid_bench(ws):
         assert "E-MODEL-UNKNOWN" in r["error"]
 
 
+async def test_read_log_returns_why_a_command_was_not_executed(ws):
+    """The error classification, its origin file and the closest command flow through to MCP (D18)."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "create_bench", path="class.bench.yaml", name="class")
+        doc = await call(
+            c,
+            "edit_bench",
+            path="class.bench.yaml",
+            base_sha256=doc["sha256"],
+            ops=[{"op": "add_instrument", "name": "gen", "model": "sb-awg-2"}],
+        )
+        await call(c, "start_session", path="class.bench.yaml")
+        bad = await call(c, "send_scpi", instrument="gen", command=":SOUR1:FREQuencyy 1000")
+        assert bad["errors"][0]["code"] == -113
+        log = await call(c, "read_log", kinds=["error"])
+        e = next(e for e in log["events"] if e["kind"] == "error")
+        assert e["reason"] == "not_in_definition"
+        assert e["origin"].endswith("sb-awg-2.yaml")
+        assert e["closest"] == "[:SOURce<ch>]:FREQuency[:CW]"
+        await call(c, "stop_session")
+    assert manager.sessions == {}
+
+
 async def test_draft_from_script(ws):
     _, server = make(ws)
     async with Client(server) as c:
