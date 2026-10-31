@@ -32,6 +32,7 @@ from .engine.jsonpatch import PatchError, PatchOp
 from .engine.scriptscan import draft_bench, draft_definition
 from .library.templates import get_template as template_by_id
 from .library.templates import templates as instrument_templates
+from .library.templates.draft import suggester as template_suggester
 from .models.bench import Fault
 from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
@@ -525,7 +526,7 @@ def build_server(
             return out
 
         name = Path(save_as or script.stem).name.split(".")[0]
-        result = draft_bench(source, defs, name=name)
+        result = draft_bench(source, defs, name=name, suggest=template_suggester(source))
         if save_as:
             try:
                 result["saved"] = files.save(save_as, None, result["bench"], "agent").model_dump(mode="json")

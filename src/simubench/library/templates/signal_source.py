@@ -458,6 +458,147 @@ def example() -> dict[str, Any]:
     }
 
 
+# ---- from a script (#145) ---------------------------------------------------------------------------
+
+#: How a waveform keyword reads as a shape (by its leading letters).
+KEYWORD_SHAPES = [("PULS", "pulse"), ("SQU", "square"), ("SIN", "sine"), ("TRI", "triangle"), ("RAMP", "ramp"),
+                  ("DC", "dc")]  # fmt: skip
+DEFAULT_WAVES = {
+    "scpi-source": [("SINusoid", "sine"), ("SQUare", "square"), ("PULSe", "pulse"), ("RAMP", "ramp"),
+                    ("TRIangle", "triangle"), ("DC", "dc")],
+    "channel-base": [("SQUare", "square"), ("PULSe", "pulse"), ("SINe", "sine"), ("DC", "dc"),
+                     ("TRIangle", "triangle"), ("RAMP", "ramp")],
+}  # fmt: skip
+
+
+def _base(variant: str) -> dict[str, Any]:
+    return {
+        "identity": {"manufacturer": "Unknown", "model": "SOURCE"},
+        "channels": 2,
+        "waveforms": [{"name": n, "shape": sh} for n, sh in DEFAULT_WAVES[variant]],
+        "frequency": {"min": 1.0e-3, "max": 1.1e9, "default": 1000.0, "bandwidth_hz": 1.0e9},
+        "amplitude": {"min": 0.0, "max": 20.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
+        "offset": {"min": -10.0, "max": 10.0, "default": 0.0},
+        "phase": {"min": -360.0, "max": 360.0, "default": 0.0},
+        "duty": {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"},
+        "load": {"min": 1.0, "max": 1.0e9, "default": 50.0, "high_z_keywords": ["INF", "INFinity"], "hiz_from": 10000.0},
+        "clock": {"sources": ["INTernal", "EXTernal"]},
+        "dialect": {"command_set": variant},
+    }  # fmt: skip
+
+
+def variants() -> dict[str, dict[str, Any]]:
+    out = {}
+    for name in ("scpi-source", "channel-base"):
+        base = _base(name)
+        base["channels"] = 8
+        out[name] = base
+    return out
+
+
+def prefill(variant: str, commands: list[Any], hints: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+    from .draft import channels_used, default, found, matching, number, units
+
+    x = _base(variant)
+    filled = []
+    us = units(commands)
+    model = hints.get("model")
+    if model:
+        x["identity"]["model"] = model[0]
+        filled.append(found(("identity", "model"), model[0], model[1], "*IDN? 校验的型号串"))
+    else:
+        filled.append(default(("identity", "model"), "SOURCE"))
+    filled.append(default(("identity", "manufacturer"), "Unknown"))
+    used = channels_used(commands)
+    n, line = max(used) if used else (1, None)
+    x["channels"] = max(n, 4 if variant == "channel-base" else 2)
+    if line is not None:
+        filled.append(
+            found(
+                ("channels",),
+                x["channels"],
+                line,
+                f"脚本中最大的通道号为 {n}（循环里的通道号读作 1），待确认",
+            )
+        )
+    chan = r"(CHAN(NEL)?\d+:)?" if variant == "channel-base" else r"(SOUR(CE)?\d*:)?"
+    wave_hdr = (
+        (r"(CHAN(NEL)?\d+:)BASE:WAV(E)?",)
+        if variant == "channel-base"
+        else (r"(SOUR(CE)?\d*:)?FUNC(TION)?(:SHAP(E)?)?",)
+    )
+    seen: list[tuple[str, str, int]] = []
+    for u in matching(us, *wave_hdr):
+        for a in u.args[:1]:
+            shape = next((sh for pre, sh in KEYWORD_SHAPES if a.upper().startswith(pre)), None)
+            if shape and all(a.upper() != w.upper() for w, _, _ in seen):
+                seen.append((a, shape, u.line))
+    if seen:
+        # The script's keywords as it writes them, then the variant's for the shapes it does not use.
+        waves = [{"name": w, "shape": sh} for w, sh, _ in seen]
+        shapes = {sh for _, sh, _ in seen}
+        names = {w.upper() for w, _, _ in seen}
+        waves += [
+            {"name": nme, "shape": sh}
+            for nme, sh in DEFAULT_WAVES[variant]
+            if sh not in shapes and nme.upper() not in names
+        ]
+        x["waveforms"] = waves
+        for w, _sh, ln in seen:
+            filled.append(found(("waveforms",), w, ln, "脚本使用的波形关键字"))
+    units_seen = [
+        (a.upper(), u.line)
+        for u in matching(us, chan + r"(AMPL(ITUDE)?|VOLT(AGE)?):UNIT")
+        for a in u.args[:1]
+    ]
+    for un, ln in units_seen:  # the variant offers all four units
+        filled.append(found(("amplitude", "units"), un, ln))
+    amps = [
+        number(a) for u in matching(us, chan + r"BASE:AMPL(ITUDE)?", chan + r"VOLT(AGE)?") for a in u.args[:1]
+    ]
+    amps = [a for a in amps if a is not None]
+    if amps and max(amps) > x["amplitude"]["max"]:
+        x["amplitude"]["max"] = max(amps)
+    filled.append(default(("amplitude", "max"), x["amplitude"]["max"]))
+    duties = [(number(a), u.line, a) for u in matching(us, chan + r"BASE:DUTY", chan + r"FUNC(TION)?:SQU(ARE)?:DCYC(LE)?")
+              for a in u.args[:1]]  # fmt: skip
+    duties = [(v, ln, a) for v, ln, a in duties if v is not None]
+    if duties:
+        if any(v > 1 for v, _, _ in duties):
+            x["duty"] = {"min": 0.0001, "max": 100.0, "default": 50.0, "unit": "percent"}
+            v, ln, a = max(duties)
+            filled.append(found(("duty", "unit"), "percent", ln, f"脚本写 {a}（大于 1）：按百分数"))
+        else:
+            v, ln, a = duties[0]
+            filled.append(
+                found(
+                    ("duty", "unit"),
+                    "ratio",
+                    ln,
+                    f"脚本写 {a}（不大于 1）：按比例；若实为百分数请改为 percent，待确认",
+                )
+            )
+    loads = [(a, u.line) for u in matching(us, chan + r"LOAD", r"OUTP(UT)?\d*:LOAD") for a in u.args[:1]]
+    for a, ln in loads:
+        v = number(a)
+        if v is None and a.upper() not in {k.upper() for k in x["load"]["high_z_keywords"]}:
+            x["load"]["high_z_keywords"].append(a)
+            filled.append(found(("load", "high_z_keywords"), a, ln))
+        elif v is not None:
+            filled.append(found(("load",), v, ln, "脚本写的负载设定"))
+    filled.append(
+        default(("load", "hiz_from"), x["load"]["hiz_from"], "不小于该值的负载设定视为高阻，待确认")
+    )
+    clocks = [(a, u.line) for u in matching(us, r"SYST(EM)?:CLKS(OURCE)?", r"(SOUR(CE)?:)?ROSC(ILLATOR)?:SOUR(CE)?")
+              for a in u.args[:1]]  # fmt: skip
+    for a, ln in clocks:
+        filled.append(found(("clock", "sources"), a, ln))
+    filled.append(default(("frequency", "max"), x["frequency"]["max"]))
+    filled.append(default(("output", "impedance_ohms"), 50.0))
+    filled.append(default(("dialect", "unknown_commands"), "error", "契约若要求忽略未建模命令，改为 ignore"))
+    return x, filled
+
+
 TEMPLATE = register(
     Template(
         id="signal_source",
@@ -471,5 +612,7 @@ TEMPLATE = register(
         example=example,
         build=build,
         check=check,
+        variants=variants,
+        prefill=prefill,
     )
 )

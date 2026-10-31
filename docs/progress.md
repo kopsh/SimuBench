@@ -318,3 +318,14 @@
 | 百分数占空比 0.1 % 在 10 kHz 与 5.5 MHz 的保真度（谐波截断时带说明，D33） | ✅ 10 kHz：谱线上限截断并带说明，高电平约 100 ns；5.5 MHz：截到 1 GHz 带宽，谱线与解析傅里叶系数一致；两者均值精确 |
 | 输入错误各有反例，诊断指向 `template.inputs`；不新增型号专用组件 | ✅ 八个反例；生成的定义只用通用组件 |
 | `scripts/check.sh` 全绿 | ✅ |
+
+## 由脚本选模板并预填输入（Issue 145，instrument-authoring.md 5.4、7.4）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 命令族识别：模板的每个方言变体声明自己的命令特征，扫描脚本时按命中数选出模板与变体，列出依据的行号 | ✅ 模板的 `variants` 展开为变体定义，用 `scriptscan.rank` 计数；示波器 `scpi-scope` / `lecroy-scope`，信号源 `scpi-source` / `channel-base` |
+| 预填输入，每项标明来源（脚本第几行）或“默认值，待确认” | ✅ `filled` 的 `source` 为 `script`（带行号与说明）或 `default`；型号串取自 `--scope-model` 等的默认值；占空比按写入的值推断比例或百分数并提示 |
+| 测试台草稿：连线按通道对应关系给出建议（标为推断），运行方式给出确定性的默认 | ✅ `inferred_wires`；`run: {seed: 1, clock: command, idle: off}` 与说明 |
+| `draft_bench_from_script` 在内置库没有匹配时返回模板建议；`create_definition_from_template` 直接接收草稿的输入；展开后仍不支持的命令按行号列出 | ✅ 报告的 `template`；加入一条 `HISTOGRAM_MODE ON` 时按行号报告 |
+| 低频校准示例脚本与类 Keysight 示波器脚本：只用内置库与模板，选对模板与变体，预填输入展开后没有诊断，全部命令被支持 | ✅ `tests/test_template_draft.py`；按草稿建好定义与测试台后脚本跑通，幅值 1 Vpp ±2 % |
+| 推断项与默认项可区分；MCP 协议级测试；`scripts/check.sh` 全绿 | ✅ |
