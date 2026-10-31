@@ -104,6 +104,7 @@ class SimuBenchApp(App[None]):
         self.labels: dict[tuple[str, str], str] = {}
         #: connecting | connected | disconnected | token-invalid | session-gone
         self.conn = "connecting"
+        self.conn_attempts = 0
         self.retry_at = 0.0
         self.retry_seconds = 0
         self.file_changed = False
@@ -207,6 +208,7 @@ class SimuBenchApp(App[None]):
 
     async def _connection_loop(self) -> None:
         while not self._stop.is_set() and self.sid is not None:
+            self.conn_attempts += 1
             try:
                 await self._full_refresh()
                 self.conn = "connected"

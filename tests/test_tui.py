@@ -599,6 +599,127 @@ async def test_min_size_guard(served):
         assert "awg" in flat(tui2)
 
 
+async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
+    """D25: the launched bench file is hashed; a change lights the hint, R rebuilds after confirm."""
+    bench = tmp_path / "demo.bench.yaml"
+    bench.write_text((ROOT / "tests/data/tui/demo.bench.yaml").read_text(encoding="utf-8"))
+    manager = SessionManager(tmp_path, scpi_base_port=0, hislip_port=0)
+    import uvicorn
+
+    from simubench.server.app import create_app
+
+    with socket.socket() as sck:
+        sck.bind(("127.0.0.1", 0))
+        port = sck.getsockname()[1]
+    config = uvicorn.Config(
+        create_app(manager, web_dist=Path("/nonexistent")),
+        host="127.0.0.1",
+        port=port,
+        log_config=None,
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    while not server.started:
+        time.sleep(0.02)
+    try:
+        served_session = await manager.start(bench.name, seed=7, clock="command")
+        tui = SimuBenchApp(
+            f"http://127.0.0.1:{port}",
+            sid=served_session.id,
+            lang="zh",
+            launched=True,
+            bench_path=bench,
+        )
+        async with tui.run_test(size=(100, 32)) as pilot:
+            await wait_connected(pilot, tui)
+            bench.write_text(bench.read_text(encoding="utf-8").replace("seed: 7", "seed: 9"))
+            end = loop_time() + 8
+            while loop_time() < end and not tui.file_changed:
+                await pilot.pause(0.1)
+            assert tui.file_changed
+            end = loop_time() + 8
+            while loop_time() < end and "文件已改 · R 重建" not in flat(tui):
+                await pilot.pause(0.1)
+            assert "文件已改 · R 重建" in flat(tui)
+            sha_before = tui.session_info["bench_sha256"]
+            await pilot.press("R")
+            await pilot.pause(0.3)
+            from simubench.tui.screens.states import ConfirmScreen
+
+            assert isinstance(tui.screen, ConfirmScreen)
+            await pilot.press("y")  # confirm the rebuild
+            end = loop_time() + 10
+            while loop_time() < end and tui.file_changed:
+                await pilot.pause(0.1)
+            assert not tui.file_changed
+            # The bench was rebuilt from the new file: its hash changed.
+            assert tui.session_info["bench_sha256"] not in (None, sha_before)
+    finally:
+        server.should_exit = True
+        thread.join(timeout=10)
+
+
+async def test_quit_with_clients_connected_confirms(served):
+    """q with a script connected (launched service): the confirm dialog; cancel keeps running."""
+    served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
+    sid = served_session.id
+    port = served.http().get(f"/api/sessions/{sid}/instruments/scope").json()["scpi_port"]
+    _reader, writer = await asyncio.open_connection("127.0.0.1", port)
+    await asyncio.sleep(0.3)  # let the session list the client
+    tui = SimuBenchApp(served.url, sid=sid, lang="zh", launched=True)
+    try:
+        async with tui.run_test(size=(100, 32)) as pilot:
+            await wait_connected(pilot, tui)
+            await pilot.press("q")
+            await pilot.pause(0.3)
+            from simubench.tui.screens.states import ConfirmScreen
+
+            assert isinstance(tui.screen, ConfirmScreen)
+            assert "退出" in flat(tui)
+            await pilot.press("n")  # cancel: still running
+            await pilot.pause(0.3)
+            assert not tui._exit
+    finally:
+        writer.close()
+
+
+def test_no_color_uses_the_mono_theme(monkeypatch):
+    monkeypatch.setenv("NO_COLOR", "1")
+    app = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    assert app.theme == "simubench-mono"
+    monkeypatch.delenv("NO_COLOR")
+    app2 = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    assert app2.theme == "simubench"
+
+
+def test_lang_default_follows_env(monkeypatch):
+    from simubench.tui.i18n import default_lang
+
+    monkeypatch.setenv("LANG", "en_US.UTF-8")
+    monkeypatch.delenv("SIMUBENCH_LANG", raising=False)
+    assert default_lang() == "en"
+    monkeypatch.setenv("LANG", "zh_CN.UTF-8")
+    assert default_lang() == "zh"
+    monkeypatch.delenv("LANG")
+    assert default_lang() == "zh"  # the fallback
+
+
+async def test_api_client_sends_the_tui_header(served):
+    """Every TUI request carries X-SimuBench-Client: tui (the server records 终端 as the source)."""
+    served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
+    sid = served_session.id
+    tui = SimuBenchApp(served.url, sid=sid, lang="zh")
+    async with tui.run_test(size=(80, 24)):
+        await tui.client.open()
+        assert tui.client.http.headers["x-simubench-client"] == "tui"
+        await tui.client.scpi(sid, "awg", "*IDN?")
+        clients = [e.get("client") for e in served.manager.get(sid).session.history if e["kind"] == "scpi"]
+        assert "tui" in clients
+        await tui.client.close()
+
+
 def test_ws_url_carries_the_token():
     assert ws_url("http://127.0.0.1:8000", "s1") == "ws://127.0.0.1:8000/api/sessions/s1/events"
     assert ws_url("http://127.0.0.1:8000", "s1", "t") == "ws://127.0.0.1:8000/api/sessions/s1/events?token=t"

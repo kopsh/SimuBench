@@ -151,7 +151,12 @@ class OverviewScreen(ShellScreen):
             focused = next((c.card.name for c in grid.query(Card) if c.has_focus), self._focus_name)
         grid.remove_children()
         if not session:
-            grid.mount(Static(i18n.t("connect.screen", app.lang), id="connecting-note"))
+            note = i18n.t("connect.screen", app.lang)
+            if app.conn == "disconnected" or app.conn_attempts > 1:
+                note += "\n" + i18n.t(
+                    "connect.attempt", app.lang, n=app.conn_attempts, seconds=int(app._backoff)
+                )
+            grid.mount(Static(note, id="connecting-note"))
             return
         cards = build_cards(session, app.readings, app.levels, app.screen_data, app.catalog, app.lang)
         columns = self._columns()
