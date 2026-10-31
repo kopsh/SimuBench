@@ -18,6 +18,7 @@ from ..engine.validate_definition import validate_definition_data
 from ..library.loader import load_yaml
 from ..models import api as M
 from .benchfiles import BenchFiles, Conflict, _sha, diagnostics
+from .definitionchanges import definition_changes
 from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -82,15 +83,48 @@ class DefinitionFiles:
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
             os.replace(tmp, path)
+            base_data: dict[str, Any] = {}
             previous = None
             if old is not None:
                 with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
-                    previous = (old, current, _fingerprint(_parse(old)))
+                    base_data = _parse(old)
+                    previous = (old, current, _fingerprint(base_data))
             self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
-        return self._document(def_id, rel, True, raw, data)
+            changes = definition_changes(base_data, data)
+        return self._document(def_id, rel, True, raw, data, changes=changes)
+
+    def versions(self, def_id: str) -> list[M.DefinitionVersion]:
+        """Saved versions of a workspace definition, newest first, each with what it changed since
+        the one before it (T3). A definition outside the workspace has no history: an empty list."""
+        rel = self.rel_path(def_id)
+        saved = self.files.history.versions(rel)
+        out = []
+        for i, v in enumerate(saved):
+            data = _parse(self.files.history.content(rel, v.seq))
+            older = _parse(self.files.history.content(rel, saved[i + 1].seq)) if i + 1 < len(saved) else {}
+            out.append(
+                M.DefinitionVersion(
+                    seq=v.seq, sha256=v.sha256, source=v.source, saved_at=v.saved_at,
+                    changes=definition_changes(older, data),
+                )
+            )
+        return out
+
+    def changes_between(self, def_id: str, base: int, target: int) -> M.DefinitionChangeList:
+        """The changes between two saved versions (``base=0`` compares against nothing: creation)."""
+        rel = self.rel_path(def_id)
+        older = _parse(self.files.history.content(rel, base)) if base > 0 else {}
+        newer = _parse(self.files.history.content(rel, target))
+        return M.DefinitionChangeList(base=base, target=target, changes=definition_changes(older, newer))
 
     def _document(
-        self, def_id: str, rel: str | None, editable: bool, raw: bytes, data: dict[str, Any]
+        self,
+        def_id: str,
+        rel: str | None,
+        editable: bool,
+        raw: bytes,
+        data: dict[str, Any],
+        changes: list[M.DefinitionChange] | None = None,
     ) -> M.DefinitionDocument:
         report = self.validate(data)
         return M.DefinitionDocument(
@@ -101,6 +135,7 @@ class DefinitionFiles:
             data=data,
             ok=report.ok,
             diagnostics=diagnostics(report),
+            changes=changes or [],
         )
 
 
