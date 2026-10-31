@@ -32,7 +32,7 @@ jobs:
       - run: uv run ruff check src tests acceptance refcalc
       - run: uv run ruff format --check src tests acceptance refcalc
       - name: Unit, service and acceptance tests
-        run: uv run pytest -q
+        run: uv run pytest -n 4 -q
       - name: Interface schemas are up to date (D21)
         shell: bash
         run: |

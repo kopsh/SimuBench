@@ -26,7 +26,9 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
 2. **Branch** from the latest `main`: `issue-<number>-<short-name>`.
 3. **Stay in scope**: change only what the issue asks for.
 4. **Check** before every push: merge the latest `main` into the branch, then run `scripts/check.sh`
-   (lint, format, tests, generated schemas and API types).
+   (lint, format, tests, generated schemas and API types). If the full test run exceeds 60 s, fix
+   that immediately as part of the current task: profile with `pytest --durations`, address the
+   slowest cases (waits, timeouts) or add parallelism — never leave the overrun for a later issue.
 5. **Pull request** into `main` with `Closes #<number>` in the description. It is squash-merged
    and its branch deleted once CI is green on its latest commit and that commit contains the
    latest `main` (otherwise merge `main` and push again); open it as a draft if it is not ready

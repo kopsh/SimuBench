@@ -7,7 +7,8 @@ ignored=$(git ls-files --others --ignored --exclude-standard -- src tests accept
 if [ -n "$ignored" ]; then echo "ignored by .gitignore but part of the source:"; echo "$ignored"; exit 1; fi
 uv run ruff check src tests acceptance refcalc
 uv run ruff format --check src tests acceptance refcalc
-uv run pytest -q
+# -n 4: pytest-xdist, the same width the 4-core dev container's `-n auto` gives; see issue #209.
+uv run pytest -n 4 -q
 uv run python scripts/check_tui_i18n.py
 uv run simubench schemas --out schemas >/dev/null
 git diff --exit-code --stat schemas || { echo "schemas changed: commit them"; exit 1; }
