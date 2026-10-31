@@ -1,6 +1,6 @@
 # 终端控制台（TUI）设计
 
-状态：草案，待产品负责人确认。确认后在 decisions.md 中补一条决定（见第 10 节），并按第 9 节拆成 `核心` issue。
+状态：设计已确认（D18），按第 9 节分期实现。
 
 参考：EdgeSim 的终端仪表控制台（Galois Labs，*Terminal instrument console*，`edgesim tui`，Textual 实现）。本文只借鉴它“在终端里看着测试台、动手操作、与脚本共用同一个世界”的形态，概念与术语一律按 SimuBench（[glossary.md](glossary.md)）。
 
@@ -268,11 +268,11 @@ steps:
 
 每个阶段一个 `核心` issue（TUI 属于界面交互，D 规则见 AGENTS.md），挂在一个 TUI 总 issue 之下。
 
-## 10. 待确认（确认后写入 decisions.md）
+## 10. 已确认的决定（D18）
 
-1. **TUI 只通过 HTTP/WebSocket 接口访问引擎**（第 2 节）。另一条路是进程内直接调用引擎（少一层、启动更快），但远程状态、确认与来源标记要再实现一遍，且无法与 Web / 脚本共用会话。建议前者。
-2. **Textual 作为可选依赖 `simubench[tui]`**。替代方案：urwid、prompt_toolkit（更底层，截图与无头测试要自己做），或 Rust 的 ratatui（与 D19 的 Python 起步不符）。建议 Textual。
-3. **TUI 的范围**（已确认）：只观察与操作运行中的测试台，不做编辑（第 1 节）。测试台的修改仍只有画布、MCP 与编辑器三个入口（D25）。
-4. **事件来源增加“终端”**（请求头 `X-SimuBench-Client`）：会改变接口与运行记录的 schema（D21 生成物）。是否接受，还是 TUI 沿用“界面”？建议增加，审阅运行记录时能分辨操作来自哪里。
-5. **错误事件的完整分类**（第 1.1 节）：改变事件 schema，Web 的通信记录也可用同一分类。是否接受？建议接受，作为 T2 的前置 `核心` issue。
-6. **D18 / architecture.md 8.1 的更新**：确认后把“TUI 以后作为补充”改为指向本文。
+1. TUI 只通过 HTTP/WebSocket 接口访问会话，不在进程内直接调用引擎（第 2 节）；
+2. Textual，作为可选依赖 `simubench[tui]`；
+3. 只观察与操作运行中的测试台，不做编辑；测试台的修改仍只有画布、MCP 与编辑器三个入口（D25）；
+4. 操作来源增加“终端”（请求头 `X-SimuBench-Client`），运行记录中与“界面”“Agent”区分；
+5. 错误事件给出命令未被执行的完整分类（第 1.1 节），作为 T2 的前置工作，Web 与 MCP 共用；
+6. D18 与 architecture.md 8.1 已更新。
