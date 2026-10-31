@@ -187,8 +187,13 @@ def calibrate(scope, cal, channel: int = 1, cal_channel: int = 1, points: int = 
     cal.write(f":CHANnel{c}:BASE:FREQuency {AC_FREQUENCY:.6g}")
     scope.write(f"TDIV {t_div(AC_FREQUENCY, points):.6g}")
     scope.write(f"C{s}:TRLV 0")
-    # one 0.5 Vpp point in each unit: VPP, VRMS (square: half the Vpp) and its dBm into 50 ohm
-    ac = [("VPP", a, a) for a in AC_AMPLITUDES] + [("VRMS", 0.25, 0.5), ("DBM", dbm_of(0.25), 0.5)]
+    # one 0.5 Vpp point in each unit: VPP, VRMS (square: half the Vpp) and its dBm into 50 ohm;
+    # the 50 mVpp point again as a negative dBm — the range is Vpp, so it is writable (D48)
+    ac = [("VPP", a, a) for a in AC_AMPLITUDES] + [
+        ("VRMS", 0.25, 0.5),
+        ("DBM", dbm_of(0.25), 0.5),
+        ("DBM", dbm_of(0.025), 0.05),
+    ]
     for unit, value, peak in ac:
         cal.write(f":CHANnel{c}:AMPLitude:UNIT {unit}")
         cal.write(f":CHANnel{c}:BASE:AMPLitude {value:.6g}")
