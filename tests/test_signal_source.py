@@ -71,9 +71,13 @@ def _bench(tmp_path: Path, definition: dict, port: str, *, load: float | None = 
     """The source's channel 1 into a load resistor (or open)."""
     inst = tmp_path / "instruments"
     inst.mkdir(exist_ok=True)
+<<<<<<< HEAD
     (inst / f"{definition['id']}.yaml").write_text(
         yaml.safe_dump(definition, allow_unicode=True, sort_keys=False), "utf-8"
     )
+=======
+    (inst / f"{definition['id']}.yaml").write_text(yaml.safe_dump(definition, allow_unicode=True), "utf-8")
+>>>>>>> origin/main
     bench: dict = {
         "schema": "simubench.bench/2", "name": "src",
         "instruments": {"gen": {"model": definition["id"], "deviation": "nominal"}},
@@ -141,10 +145,17 @@ def test_a_template_built_calibrator_passes_the_low_frequency_contract(tmp_path)
     shutil.copytree(ROOT / "examples" / "lowfreq-cal", work, ignore=shutil.ignore_patterns("__pycache__"))
     built = _expand(LFCAL_INPUTS, "lfcal-scope-calibrator")
     (work / "instruments" / "lfcal-scope-calibrator.yaml").write_text(
+<<<<<<< HEAD
         yaml.safe_dump(built, allow_unicode=True, sort_keys=False), "utf-8"
     )
     results = run_cases(work / "cases.yaml")
     failed = [(r.name, r.command, r.expected, r.actual, r.error) for r in results if not r.passed]
+=======
+        yaml.safe_dump(built, allow_unicode=True), "utf-8"
+    )
+    results = run_cases(work / "cases.yaml")
+    failed = [(r.name, r.message) for r in results if not r.passed]
+>>>>>>> origin/main
     assert results and not failed, failed
 
 
