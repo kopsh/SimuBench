@@ -8,6 +8,7 @@ import copy
 import math
 import shutil
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -17,6 +18,7 @@ from simubench.api import open_bench
 from simubench.engine.signal import MAX_LINES
 from simubench.library.coverage import run_cases
 from simubench.library.templates import INPUTS, get_template
+from simubench.scpi.errors import ScpiError
 from simubench.server.catalog import components
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,7 +53,7 @@ LFCAL_INPUTS = {
         {"name": "DC", "shape": "dc"}, {"name": "TRIangle", "shape": "triangle"}, {"name": "RAMP", "shape": "ramp"},
     ],
     "frequency": {"min": 0.01, "max": 1.1e9, "default": 1000.0, "bandwidth_hz": 1.0e9},
-    "amplitude": {"min": 0.0, "max": 200.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
+    "amplitude": {"min": 0.001, "max": 200.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
     "offset": {"min": -100.0, "max": 100.0, "default": 0.0},
     "duty": {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"},
     "load": {"min": 1.0, "max": 1.0e9, "default": 50.0, "hiz_from": 10000.0},
@@ -201,6 +203,173 @@ def test_dbm_with_a_high_z_setting_is_referred_to_50_ohm(tmp_path):
     assert loaded_vpp == pytest.approx(open_vpp / 2, rel=2e-3)
 
 
+# ---- the range in Vpp and the unit switch (D48) ------------------------------------------------------
+
+
+def _tx(s, cmd: str) -> str | None:
+    """One program message; the decoded reply for a query."""
+    s.write("gen", cmd.encode() + b"\n")
+    return s.read("gen").decode().strip() if "?" in cmd else None
+
+
+def _err(s) -> str:
+    reply = _tx(s, ":SYSTem:ERRor?") or ""
+    return reply
+
+
+def test_negative_dbm_is_writable_and_matches_the_formula(tmp_path):
+    """The one limit is Vpp into the load setting: any dBm whose Vpp fits, negative included."""
+    seen, rms = _level(tmp_path, "DBM", -10.0, "SINe", "50", 50.0)
+    assert seen == pytest.approx(2 * math.sqrt(2) * math.sqrt(1e-4 * 50), rel=2e-3)
+    assert 10 * math.log10(rms**2 / 50 / 1e-3) == pytest.approx(-10.0, abs=0.02)
+    open_vpp, _ = _level(tmp_path, "DBM", -10.0, "SINe", "INF", None)  # high-Z: still referred to 50 Ω
+    assert open_vpp == pytest.approx(2 * math.sqrt(2) * math.sqrt(1e-4 * 50), rel=2e-3)
+
+
+@pytest.mark.parametrize(
+    ("unit", "amplitude"),
+    [("VPP", 11.0), ("VRMS", 6.0), ("DBM", -60.0)],  # 11 Vpp; 12 Vpp of a square; 0.63 mVpp
+)
+def test_an_out_of_range_write_says_the_bounds_in_its_unit(tmp_path, unit, amplitude):
+    definition = _expand(SOURCE.example(), "acme-cal-4")
+    s = open_bench(_bench(tmp_path, definition, "CH1", load=None))
+    gen = s.instruments["gen"]
+    try:
+        _tx(s, f":CHANnel1:AMPLitude:UNIT {unit}")
+        before = gen.get_state("ch1.amplitude")  # the switch already converted the power-on value
+        _tx(s, f":CHANnel1:BASE:AMPLitude {amplitude}")
+        err = _err(s)
+        state = gen.get_state("ch1.amplitude")
+    finally:
+        s.close()
+    per = 2.0  # the bounds go through the power-on shape's peak-to-RMS ratio (the example's square)
+    # The bounds the message names are the Vpp range expressed in the written unit.
+    if unit == "VPP":
+        lo, hi = 0.001, 10.0
+    elif unit == "VRMS":
+        lo, hi = 0.001 / per, 10.0 / per
+    else:
+        lo = 10 * math.log10((0.001 / per) ** 2 / (1e-3 * 50))
+        hi = 10 * math.log10((10.0 / per) ** 2 / (1e-3 * 50))
+    assert err.startswith("-222") and "out of range" in err, err
+    assert f"{lo:.6g}" in err and f"{hi:.6g}" in err and unit in err, err
+    assert state == pytest.approx(before)  # the write was refused whole
+
+
+def test_a_shape_or_load_change_that_breaks_the_vpp_range_is_refused(tmp_path):
+    definition = _expand(SOURCE.example(), "acme-cal-4")
+    s = open_bench(_bench(tmp_path, definition, "CH1", load=None))
+    gen = s.instruments["gen"]
+    try:
+        _tx(s, ":CHANnel1:AMPLitude:UNIT VRMS")
+        _tx(s, ":CHANnel1:BASE:AMPLitude 4.5")  # a square of 9 Vpp: in range
+        _tx(s, ":CHANnel1:BASE:WAVe SINe")  # a sine of 12.7 Vpp: not
+        assert "-221" in _err(s)
+        assert gen.get_state("ch1.function") == "SQUare"
+        _tx(s, ":CHANnel1:AMPLitude:UNIT DBM")
+        _tx(s, ":CHANnel1:BASE:AMPLitude 15")  # 2.5 Vpp into 50 Ω
+        _tx(s, ":CHANnel1:LOAD 1000")  # 11.2 Vpp into 1 kΩ: not
+        assert "-221" in _err(s)
+        assert gen.get_state("ch1.load") == 50.0
+        _tx(s, ":CHANnel1:AMPLitude:UNIT VRMS")
+        _tx(s, ":CHANnel1:BASE:WAVe SINe")  # 3.5 Vpp of a sine: in range
+        _tx(s, ":CHANnel1:BASE:AMPLitude 0.0004")  # a sine of 1.13 mVpp: just above the floor
+        _tx(s, ":CHANnel1:BASE:WAVe SQUare")  # 0.8 mVpp: below it
+        assert "-221" in _err(s)
+        assert gen.get_state("ch1.function") == "SINe"  # the shape is what the host wrote
+    finally:
+        s.close()
+
+
+def test_switching_units_converts_the_value_and_keeps_the_wave(tmp_path):
+    definition = _expand(SOURCE.example(), "acme-cal-4")
+    s = open_bench(_bench(tmp_path, definition, "CH1", load=50.0))
+    gen = s.instruments["gen"]
+    try:
+        _tx(s, ":CHANnel1:BASE:WAVe SINe")
+        _tx(s, ":CHANnel1:BASE:FREQuency 1000")
+        _tx(s, ":CHANnel1:BASE:AMPLitude 1.0")
+        _tx(s, ":CHANnel1:OUTPut ON")
+        t = np.linspace(0, 1e-3, 20001)
+
+        def seen():
+            return float(np.ptp(_net(s, "CH1").sample_rel(0, t)))
+
+        assert seen() == pytest.approx(1.0, rel=2e-3)
+        per = 2 * math.sqrt(2)
+        for unit, value in [
+            ("VRMS", 1 / per),
+            ("DBM", 10 * math.log10((1 / per) ** 2 / (1e-3 * 50))),
+            ("VPP", 1.0),
+        ]:  # fmt: skip
+            _tx(s, f":CHANnel1:AMPLitude:UNIT {unit}")
+            # The state is the exact conversion; the reply carries the format's digits.
+            assert gen.get_state("ch1.amplitude") == pytest.approx(value, rel=1e-9)
+            reply = float(_tx(s, ":CHANnel1:BASE:AMPLitude?"))
+            assert reply == pytest.approx(value, rel=1e-6)
+            assert seen() == pytest.approx(1.0, rel=2e-3)  # the output did not move
+    finally:
+        s.close()
+
+
+def test_a_refusal_after_the_conversion_rolls_the_value_back_too(tmp_path):
+    """The unit watcher writes the converted value as a side effect; a later watcher's refusal must
+    restore it together with the unit, not leave a value in the wrong unit (D48)."""
+    definition = _expand(SOURCE.example(), "acme-cal-4")
+    s = open_bench(_bench(tmp_path, definition, "CH1", load=None))
+    gen = s.instruments["gen"]
+    try:
+        _tx(s, ":CHANnel1:BASE:AMPLitude 1.0")
+        before = gen.get_state("ch1.amplitude")
+
+        class Refuse:
+            def on_state(self, path: str, old: Any, new: Any) -> None:
+                if str(new).upper() == "DBM":
+                    raise ScpiError(-221, "no dBm here")
+
+        gen._watchers["ch1.amplitude_unit"].append(Refuse())
+        _tx(s, ":CHANnel1:AMPLitude:UNIT DBM")
+        assert "-221" in _err(s)
+        assert gen.get_state("ch1.amplitude_unit") == "VPP"
+        assert gen.get_state("ch1.amplitude") == pytest.approx(before)  # not the converted value
+    finally:
+        s.close()
+
+
+def test_zero_vpp_has_no_dbm_expression(tmp_path):
+    """The component's own guard, for definitions that let the amplitude reach 0."""
+    definition = _expand(LFCAL_INPUTS, "tpl-lfcal")
+    for comp in definition["channel_components"]:
+        if comp["name"] == "level":
+            comp["params"].pop("vpp_min")
+            comp["params"].pop("vpp_max")
+    s = open_bench(_bench(tmp_path, definition, "CH1", load=None))
+    gen = s.instruments["gen"]
+    try:
+        _tx(s, ":CHANnel1:BASE:AMPLitude 0")
+        _tx(s, ":CHANnel1:AMPLitude:UNIT DBM")
+        assert "-221" in _err(s)
+        assert gen.get_state("ch1.amplitude_unit") == "VPP"
+        assert gen.get_state("ch1.amplitude") == 0.0
+    finally:
+        s.close()
+
+
+def test_the_amplitude_range_lives_on_the_level_component():
+    definition = _expand(SOURCE.example(), "acme-cal-4")
+    state = definition["channel_state"]["amplitude"]
+    assert "min" not in state and "max" not in state  # several units: no static range
+    level = next(c for c in definition["channel_components"] if c["name"] == "level")
+    assert level["params"]["vpp_min"] == 0.001 and level["params"]["vpp_max"] == 10.0
+    vpp_only = copy.deepcopy(SOURCE.example())
+    vpp_only["amplitude"]["units"] = ["VPP"]
+    built = _expand(vpp_only, "vpp-only")
+    assert built["channel_state"]["amplitude"]["min"] == 0.001  # one unit: the static range stays
+    assert built["channel_state"]["amplitude"]["max"] == 10.0
+    level = next(c for c in built["channel_components"] if c["name"] == "level")
+    assert level["params"]["vpp_min"] == 0.001 and level["params"]["vpp_max"] == 10.0
+
+
 # ---- the duty as declared ---------------------------------------------------------------------------
 
 
@@ -300,6 +469,11 @@ def _errors(change) -> list[tuple[str, str]]:
         pytest.param(lambda x: x["waveforms"][1].update(name="SQUare"), ("E-TPL-DUPLICATE", "/waveforms/1/name"), id="duplicate-keyword"),
         pytest.param(lambda x: x["clock"].update(sources=["INTernal"]), ("E-TPL-MISSING", "/clock/sources"), id="ref-input-one-source"),
         pytest.param(lambda x: x["amplitude"].update(units=["VPP", "MW"]), ("E-TPL-INPUT", "/amplitude/units/1"), id="unknown-unit"),
+        pytest.param(lambda x: x["amplitude"].update(min=0.0), ("E-TPL-RANGE", "/amplitude/min"), id="dbm-needs-positive-min"),
+        pytest.param(
+            lambda x: x["amplitude"].update(units=["VRMS", "VPP", "DBM"], default=6.0),
+            ("E-TPL-DEFAULT", "/amplitude/default"), id="power-on-default-over-the-vpp-range",
+        ),  # 6 Vrms of the power-on square is 12 Vpp
         pytest.param(lambda x: x["waveforms"][0].update(shape="noise"), ("E-TPL-INPUT", "/waveforms/0/shape"), id="unknown-shape"),
     ],
 )  # fmt: skip

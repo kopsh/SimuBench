@@ -285,6 +285,8 @@ class Instrument:
         """Set a state variable after validation; notify bound components; refuse on conflict.
 
         ``internal``: the instrument itself sets a read-only variable (e.g. calibration coefficients).
+        A watcher may write other settings as a side effect (a unit switch converts the value); when
+        any watcher refuses, everything the watchers wrote is rolled back with the refused value.
         """
         spec = self.specs.get(path)
         if spec is None:
@@ -293,6 +295,7 @@ class Instrument:
         old = self.state.get(path)
         if old == value:
             return
+        before = dict(self.state)
         self.state[path] = value
         try:
             for comp in self._watchers.get(path, ()):
@@ -303,7 +306,7 @@ class Instrument:
                     value = self._validate(spec.model_copy(update={"readonly": False}), adjusted)
                     self.state[path] = value
         except ScpiError:
-            self.state[path] = old
+            self.state.update(before)
             raise
         if old == value:
             return
