@@ -228,7 +228,7 @@ class WaveformSynth(Component):
 
 @component("amplitude_level")
 class AmplitudeLevel(Component):
-    """The amplitude and offset of a 1 Vpp waveform, as the instrument defines them (D13).
+    """The amplitude and offset of a 1 Vpp waveform, as the instrument defines them (D13, D48).
 
     ``amplitude`` is in ``unit``: VPP, VPK, VRMS (through each function's peak-to-RMS ratio: sine
     2√2, square and pulse 2, ramp 2√3 Vpp per Vrms) or DBM (the power into the load setting:
@@ -236,6 +236,12 @@ class AmplitudeLevel(Component):
     behind ``output``'s impedance, so the EMF is raised by (R + Z) / R; ``inf``, or ``hiz_from`` ohms
     and more, is high-Z: the level is the open-circuit voltage and dBm is referred to
     ``dbm_hiz_ohms`` (50 Ω, the usual convention when the load is unknown).
+
+    ``vpp_min`` / ``vpp_max`` bound the amplitude as volts peak-to-peak into the load setting, the
+    one physical limit a source has (D48): a write in any unit is converted and checked, refusing
+    with -222; a change of the waveform or the load setting that would leave the range is refused
+    with -221. Switching the unit converts the value, so the output does not move (a real source's
+    ``VOLT:UNIT``); there is no dBm expression of 0 Vpp, so that switch is refused with -221.
     """
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
@@ -247,10 +253,19 @@ class AmplitudeLevel(Component):
         "load_setting": math.inf,  # ohm the amplitude is defined for; inf: open circuit
         "hiz_from": math.inf,  # a load setting of this many ohms or more counts as high-Z
         "dbm_hiz_ohms": 50.0,  # the resistance dBm is referred to when the load setting is high-Z
+        "vpp_min": None,  # V, the smallest Vpp into the load setting (None: not checked)
+        "vpp_max": None,  # V, the largest Vpp into the load setting (None: not checked)
         "synth": "synth",  # the waveform_synth (its function sets the VRMS and DBM conversion)
         "output": "out",  # the output_stage (its impedance raises the EMF for the load setting)
     }
-    units = {"offset": "V", "load_setting": "ohm", "hiz_from": "ohm", "dbm_hiz_ohms": "ohm"}
+    units = {
+        "offset": "V",
+        "load_setting": "ohm",
+        "hiz_from": "ohm",
+        "dbm_hiz_ohms": "ohm",
+        "vpp_min": "V",
+        "vpp_max": "V",
+    }
     #: Peak-to-peak volts per RMS volt, by function.
     VPP_PER_VRMS = FunctionGeneratorCore.VPP_PER_VRMS
 
@@ -261,6 +276,15 @@ class AmplitudeLevel(Component):
         full = f"ch{self.channel}.{name}" if self.channel is not None else name
         return self.owner.components.get(full)
 
+    def bound_paths(self) -> dict[str, str]:
+        out = super().bound_paths()
+        synth = self._sibling("synth")
+        if synth is not None:  # watched so a shape change that breaks the Vpp range is refused
+            path = synth.bound_paths().get("function")
+            if path:
+                out["function"] = path
+        return out
+
     def _load(self) -> float | None:
         """The load setting in ohms, None for high-Z."""
         rl = float(self.param("load_setting"))
@@ -268,21 +292,79 @@ class AmplitudeLevel(Component):
             return None
         return rl
 
-    def vpp(self) -> float:
-        """The amplitude as volts peak-to-peak into the load setting."""
-        amp = float(self.param("amplitude"))
-        unit = str(self.param("unit")).upper()
+    def _per_rms(self) -> float:
         synth = self._sibling("synth")
         fn = synth.function() if isinstance(synth, WaveformSynth) else "SINusoid"
-        per_rms = self.VPP_PER_VRMS.get(fn, self.VPP_PER_VRMS["SINusoid"])
+        return self.VPP_PER_VRMS.get(fn, self.VPP_PER_VRMS["SINusoid"])
+
+    def _dbm_ohms(self) -> float:
+        return self._load() or float(self.param("dbm_hiz_ohms"))
+
+    def _to_vpp(self, amp: float, unit: str) -> float:
+        """The amplitude in ``unit`` as volts peak-to-peak into the load setting."""
+        unit = unit.upper()
         if unit == "VPK":
             return 2 * amp
         if unit == "VRMS":
-            return amp * per_rms
+            return amp * self._per_rms()
         if unit == "DBM":
-            r = self._load() or float(self.param("dbm_hiz_ohms"))
-            return math.sqrt(10 ** (amp / 10) * 1e-3 * r) * per_rms
+            return math.sqrt(10 ** (amp / 10) * 1e-3 * self._dbm_ohms()) * self._per_rms()
         return amp
+
+    def _from_vpp(self, vpp: float, unit: str) -> float:
+        """The inverse of :meth:`_to_vpp` (log of a non-positive Vpp is undefined)."""
+        unit = unit.upper()
+        if unit == "VPK":
+            return vpp / 2
+        if unit == "VRMS":
+            return vpp / self._per_rms()
+        if unit == "DBM":
+            return 10 * math.log10((vpp / self._per_rms()) ** 2 / (1e-3 * self._dbm_ohms()))
+        return vpp
+
+    def vpp(self) -> float:
+        """The amplitude as volts peak-to-peak into the load setting."""
+        return self._to_vpp(float(self.param("amplitude")), str(self.param("unit")))
+
+    def on_state(self, path: str, old: Any, new: Any) -> Any:
+        if self.owner is None or old is None:
+            return None
+        bound = self.bound_paths()
+        if path == bound.get("unit"):
+            self._switch_unit(str(old), str(new))
+            return None
+        if path not in (bound.get("amplitude"), bound.get("load_setting"), bound.get("function")):
+            return None
+        vpp, lo, hi = self.vpp(), self.param("vpp_min"), self.param("vpp_max")
+        if (lo is not None and vpp < float(lo) - 1e-12) or (hi is not None and vpp > float(hi) + 1e-12):
+            if path == bound.get("amplitude"):
+                unit = str(self.param("unit")).upper()
+                edges = []
+                for bound_vpp, word in ((lo, "-inf"), (hi, "inf")):
+                    edges.append(
+                        f"{self._from_vpp(float(bound_vpp), unit):.6g}" if bound_vpp is not None else word
+                    )
+                raise ScpiError(
+                    -222,
+                    f"amplitude {float(self.param('amplitude')):.6g} {unit} out of range "
+                    f"[{edges[0]}, {edges[1]}] {unit}",
+                )
+            raise ScpiError(
+                -221,
+                f"the wave would be {vpp:.6g} Vpp into the load setting, "
+                f"out of [{lo if lo is not None else '-inf'}, {hi if hi is not None else 'inf'}] Vpp",
+            )
+        return None
+
+    def _switch_unit(self, old: str, new: str) -> None:
+        """Convert the value to the new unit: the same wave in the new unit's terms (D48)."""
+        amp_path = self.bound_paths().get("amplitude")
+        if amp_path is None:
+            return
+        vpp = self._to_vpp(float(self.owner.get_state(amp_path)), old)
+        if str(new).upper() == "DBM" and vpp <= 0:
+            raise ScpiError(-221, "0 Vpp has no dBm expression")
+        self.owner.set_state(amp_path, self._from_vpp(vpp, new), internal=True)
 
     def _emf_scale(self) -> float:
         rl = self._load()

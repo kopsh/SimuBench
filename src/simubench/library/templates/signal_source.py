@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..components.sources import AmplitudeLevel
 from . import InputProblem, Template, register
 from .oscilloscope import IdentityIn
 
@@ -80,6 +81,13 @@ class FrequencyIn(RangeIn):
 
 
 class AmplitudeIn(RangeIn):
+    min: float = _f(
+        ..., "最小", "Minimum", "Smallest amplitude, as Vpp into the load setting (D48); positive with dBm"
+    )
+    max: float = _f(..., "最大", "Maximum", "Largest amplitude, as Vpp into the load setting (D48)")
+    default: float = _f(
+        ..., "上电值", "Power-on value", "Value at power-on, in the power-on unit (the first one)"
+    )
     units: list[Literal["VPP", "VPK", "VRMS", "DBM"]] = _f(
         ["VPP"], "幅度单位", "Amplitude units", "Units the amplitude may be written in, the power-on one first",
         min_length=1,
@@ -189,6 +197,23 @@ class SignalSourceInputs(_In):
 # ---- checks the schema cannot express --------------------------------------------------------------
 
 
+def _default_vpp(x: SignalSourceInputs) -> float:
+    """The power-on amplitude as Vpp into the load setting — the unit the amplitude range is
+    declared in (D48), through the power-on waveform's peak-to-RMS ratio like the component does."""
+    fn = SHAPES[x.waveforms[0].shape][0]
+    per = AmplitudeLevel.VPP_PER_VRMS.get(fn, AmplitudeLevel.VPP_PER_VRMS["SINusoid"])
+    unit = x.amplitude.units[0]
+    if unit == "VPK":
+        return 2 * x.amplitude.default
+    if unit == "VRMS":
+        return x.amplitude.default * per
+    if unit == "DBM":
+        r, hiz = x.load.default, x.load.hiz_from
+        ohms = r if hiz is None or r < hiz else 50.0  # dbm_hiz_ohms, as amplitude_level refers it
+        return math.sqrt(10 ** (x.amplitude.default / 10) * 1e-3 * ohms) * per
+    return x.amplitude.default
+
+
 def check(x: SignalSourceInputs) -> list[InputProblem]:
     out: list[InputProblem] = []
 
@@ -205,8 +230,17 @@ def check(x: SignalSourceInputs) -> list[InputProblem]:
             continue
         if not r.min < r.max:
             bad("E-TPL-RANGE", (key, "max"), f"{key} 的最大值 {r.max} 应大于最小值 {r.min}")
-        elif not r.min <= r.default <= r.max:
-            bad("E-TPL-DEFAULT", (key, "default"), f"{key} 的上电值 {r.default} 不在 [{r.min}, {r.max}] 内")
+            continue
+        # The amplitude range is in Vpp (D48); the power-on default is in the power-on unit.
+        value = _default_vpp(x) if key == "amplitude" else r.default
+        span = f"[{r.min}, {r.max}]" + (" Vpp" if key == "amplitude" else "")
+        if not r.min <= value <= r.max:
+            bad(
+                "E-TPL-DEFAULT", (key, "default"),
+                f"{key} 的上电值 {r.default:g}"
+                + (f"（{x.amplitude.units[0]}，折合 {value:.6g} Vpp）" if key == "amplitude" else "")
+                + f" 不在 {span} 内",
+            )  # fmt: skip
     if x.frequency.min <= 0:
         bad("E-TPL-RANGE", ("frequency", "min"), "频率的最小值应大于 0")
     if x.load.min <= 0:
@@ -223,8 +257,11 @@ def check(x: SignalSourceInputs) -> list[InputProblem]:
             bad("E-TPL-UNUSED", ("duty",), "给了占空比，但没有方波或脉冲波形")
     elif any(w.shape == "pulse" for w in x.waveforms):
         bad("E-TPL-MISSING", ("duty",), "有脉冲波形，还要给占空比（表示与范围）")
-    if "DBM" in x.amplitude.units and x.amplitude.units[0] == "DBM" and x.amplitude.min < -200:
-        bad("E-TPL-RANGE", ("amplitude", "min"), "dBm 的最小值不合理")
+    if "DBM" in x.amplitude.units and x.amplitude.min <= 0:
+        bad(
+            "E-TPL-RANGE", ("amplitude", "min"),
+            "含 dBm 时最小幅度应大于 0（真机下限通常为 1 mVpp）：0 Vpp 在 dBm 下没有定义",
+        )  # fmt: skip
     if x.clock.ref_input and len(x.clock.sources) < 2:
         bad("E-TPL-MISSING", ("clock", "sources"), "有参考输入，还要给内部与外部两个时钟源关键字")
     return out
@@ -259,9 +296,11 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
             type="float", unit="HZ", min=fr.min, max=fr.max, default=fr.default, label="频率", label_en="Frequency"
         ),
         "amplitude": _setting(
-            type="float", unit="V" if first_unit != "DBM" else None, min=am.min, max=am.max, default=am.default,
+            type="float", unit="V" if first_unit != "DBM" else None,
+            min=None if len(units) > 1 or first_unit != "VPP" else am.min,
+            max=None if len(units) > 1 or first_unit != "VPP" else am.max, default=am.default,
             label=am.label or "幅度", label_en="Amplitude",
-        ),
+        ),  # the range lives on amplitude_level as Vpp bounds (D48) unless VPP is the only unit
     }  # fmt: skip
     if len(units) > 1:
         channel_state["amplitude_unit"] = _setting(
@@ -312,7 +351,13 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
         synth["square_max"] = fr.square_max
     if ck.sources or ck.ppm:
         synth["clock"] = "clock"
-    level: dict[str, Any] = {"amplitude": "$ch.amplitude", "offset": "$ch.offset", "load_setting": "$ch.load"}
+    level: dict[str, Any] = {
+        "amplitude": "$ch.amplitude",
+        "offset": "$ch.offset",
+        "load_setting": "$ch.load",
+        "vpp_min": am.min,
+        "vpp_max": am.max,  # the range as Vpp into the load setting (D48)
+    }
     if len(units) > 1:
         level["unit"] = "$ch.amplitude_unit"
     elif first_unit != "VPP":
@@ -447,7 +492,7 @@ def example() -> dict[str, Any]:
             {"name": "DC", "shape": "dc"},
         ],
         "frequency": {"min": 0.01, "max": 1.0e8, "default": 1000.0, "bandwidth_hz": 1.0e9},
-        "amplitude": {"min": 0.0, "max": 10.0, "default": 0.1, "units": ["VPP", "VRMS", "DBM"]},
+        "amplitude": {"min": 0.001, "max": 10.0, "default": 0.1, "units": ["VPP", "VRMS", "DBM"]},
         "offset": {"min": -5.0, "max": 5.0, "default": 0.0},
         "duty": {"min": 0.1, "max": 99.9, "default": 50.0, "unit": "percent"},
         "load": {"min": 1.0, "max": 1.0e6, "default": 50.0, "high_z_keywords": ["INF"], "hiz_from": 10000.0},
@@ -477,7 +522,7 @@ def _base(variant: str) -> dict[str, Any]:
         "channels": 2,
         "waveforms": [{"name": n, "shape": sh} for n, sh in DEFAULT_WAVES[variant]],
         "frequency": {"min": 1.0e-3, "max": 1.1e9, "default": 1000.0, "bandwidth_hz": 1.0e9},
-        "amplitude": {"min": 0.0, "max": 20.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
+        "amplitude": {"min": 0.001, "max": 20.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
         "offset": {"min": -10.0, "max": 10.0, "default": 0.0},
         "phase": {"min": -360.0, "max": 360.0, "default": 0.0},
         "duty": {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"},

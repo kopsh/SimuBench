@@ -207,12 +207,14 @@ async def test_the_agent_builds_the_bench_and_the_script_runs_through(tmp_path):
         ("VPP", 0.1),
         ("VRMS", 0.25),
         ("DBM", pytest.approx(0.9691, abs=1e-3)),
+        ("DBM", pytest.approx(-19.0309, abs=1e-3)),  # negative dBm, the range being Vpp (D48)
     ]
     for r in ac[:3]:
         assert r["measured_vpp"] == pytest.approx(r["set"], rel=0.01)
     # The same 0.5 Vpp square set as VRMS and as dBm into 50 Ω lands as the same wave as in VPP.
     assert ac[3]["measured_vpp"] == ac[4]["measured_vpp"]
     assert ac[3]["measured_vpp"] == pytest.approx(0.5, rel=0.01)
+    assert ac[5]["measured_vpp"] == pytest.approx(0.05, rel=0.01)
     await manager.stop(next(iter(manager.sessions)))
 
 
