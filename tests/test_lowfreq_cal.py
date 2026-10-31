@@ -206,9 +206,12 @@ def test_calibrator_settings_and_queries(rig):
     assert cal.query(":CHANnel1:AMPLitude:UNIT?") == "VPP"
     cal.write(":SYSTem:CLKSource EXTernal")
     assert cal.query(":SYSTem:CLKSource?") == "EXT"
-    cal.write(":CHANnel2:BASE:DUTY 40")  # a percentage is read as one
-    assert session.instruments["calibrator"].get_state("ch2.duty") == pytest.approx(0.4)
+    cal.write(":CHANnel2:BASE:DUTY 0.001")  # 0.1 %: the duty is a ratio, never read as a percentage
+    assert session.instruments["calibrator"].get_state("ch2.duty") == pytest.approx(0.001)
     assert cal.query(":SYSTem:ERRor?") == '0,"No error"'
+    cal.write(":CHANnel2:BASE:DUTY 40")  # not 0.4: out of the ratio's range
+    assert cal.query(":SYSTem:ERRor?").startswith("-222,")
+    assert session.instruments["calibrator"].get_state("ch2.duty") == pytest.approx(0.001)
 
 
 def test_unknown_commands_are_ignored_and_logged(rig):

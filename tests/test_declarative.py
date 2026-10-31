@@ -37,7 +37,7 @@ DEMO = {
         "scale": {"type": "float", "unit": "V", "min": 1e-3, "max": 10.0, "default": 0.05},
         "display": {"type": "bool", "default": False},
         "wave": {"type": "enum", "options": ["SQUare", "SINe", "TRIangle"], "default": "SQUare"},
-        "duty": {"type": "float", "min": 1e-6, "max": 1.0, "default": 0.5, "ratio": True},
+        "duty": {"type": "float", "min": 1e-6, "max": 1.0, "default": 0.5},
     },
     "channel_components": [
         {
@@ -173,15 +173,22 @@ def test_an_empty_value_leaves_one_blank_in_the_template():
 # ---- settings: ratios ------------------------------------------------------------------------------
 
 
-def test_a_ratio_accepts_a_percentage():
+def test_a_ratio_is_read_as_written():
+    """A duty setting is in the unit its definition declares: 0.001 is 0.1 % of a ratio, never 0.1 % read
+    as 10 % or 40 read as 0.4 (#144)."""
     _, inst, query, write = open_demo()
-    write("C1:DUTY 0.25")
-    assert inst.get_state("ch1.duty") == pytest.approx(0.25)
+    write("C1:DUTY 0.001")
+    assert inst.get_state("ch1.duty") == pytest.approx(0.001)
     write("C1:DUTY 40")
-    assert inst.get_state("ch1.duty") == pytest.approx(0.4)
-    write("C1:DUTY 250")
     assert error(query).startswith("-222,")
-    assert inst.get_state("ch1.duty") == pytest.approx(0.4)
+    assert inst.get_state("ch1.duty") == pytest.approx(0.001)
+
+
+def test_the_retired_ratio_flag_is_refused_with_a_way_out():
+    data = copy.deepcopy(DEMO)
+    data["channel_state"]["duty"]["ratio"] = True
+    with pytest.raises(ValidationError, match="duty_unit"):
+        InstrumentDefinition.model_validate(data)
 
 
 # ---- several settings in one command ----------------------------------------------------------------

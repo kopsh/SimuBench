@@ -43,15 +43,22 @@ class StateSpec(_Model):
     display_unit: str | None = Field(
         None, description="Unit shown in the UI when it differs from `unit`, e.g. '×'"
     )
-    ratio: bool = Field(
-        False,
-        description="A ratio (0.25 for 25 %) that also accepts a percentage: a written value above 1 is "
-        "divided by 100 (40 -> 0.4)",
-    )
     electrical: bool = Field(False, description="Changing this variable changes the bench's circuit")
     readonly: bool = False
     label: str | None = None
     label_en: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_ratio_guess(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "ratio" in data:
+            raise ValueError(
+                "`ratio` is gone: a number is no longer read as a percentage when it is above 1 (0.1 % "
+                "and 10 % would be the same). Write the setting in the unit the commands use (a ratio "
+                "0..1, or a percentage with max 100) and bind it to the component as that unit, e.g. "
+                "waveform_synth duty_unit: ratio (#144)"
+            )
+        return data
 
     @model_validator(mode="after")
     def _check(self) -> StateSpec:

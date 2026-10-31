@@ -108,7 +108,7 @@ cases:
     manual: "§7 示波器校准仪"
     steps:
       - instrument: calibrator
-        send: ":CHANnel2:BASE:WAVe SQUare;:CHANnel2:BASE:DUTY 25;:CHANnel2:LOAD 50"
+        send: ":CHANnel2:BASE:WAVe SQUare;:CHANnel2:BASE:DUTY 0.25;:CHANnel2:LOAD 50"
       - instrument: calibrator
         query: ":CHANnel2:BASE:WAVe?"
         expect: "SQU"

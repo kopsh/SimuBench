@@ -176,6 +176,9 @@ class Component:
     #: it must be, or derive from; "instrument" or "channel" for where it is declared). Definition
     #: validation checks them (E-DEF-COMPONENT-REF).
     refs: ClassVar[dict[str, tuple[str, Literal["instrument", "channel"]]]] = {}
+    #: Of those, the ones that may be left empty (the component then does without, e.g. a source
+    #: without a reference clock).
+    optional_refs: ClassVar[frozenset[str]] = frozenset()
     #: Components with state that evolves in virtual time (filters, oscillators) set this and
     #: implement :meth:`sync`; the session calls it whenever signals change and before time moves.
     dynamic: ClassVar[bool] = False

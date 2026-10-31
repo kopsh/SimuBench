@@ -907,8 +907,6 @@ class Instrument:
             v = V.parse_multiplied(raw, multipliers) if multipliers and st.unit is None else None
             if v is None:
                 v = V.parse_float(raw, st.unit, st.min, st.max, st.default)
-            if st.ratio and v > 1:
-                v /= 100.0  # a percentage
             return v
         if st.type == "bool":
             return V.parse_bool(raw)

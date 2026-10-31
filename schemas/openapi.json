@@ -5587,12 +5587,6 @@
             "description": "Enum options in SCPI mixed case, e.g. SINusoid",
             "title": "Options"
           },
-          "ratio": {
-            "default": false,
-            "description": "A ratio (0.25 for 25 %) that also accepts a percentage: a written value above 1 is divided by 100 (40 -> 0.4)",
-            "title": "Ratio",
-            "type": "boolean"
-          },
           "readonly": {
             "default": false,
             "title": "Readonly",

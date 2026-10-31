@@ -48,7 +48,7 @@ channel_state:
     label_en: Amplitude
   amplitude_unit:
     type: enum
-    options: [VPP, VPK, VRMS]
+    options: [VPP, VPK, VRMS, DBM]
     default: VPP
     label: 幅度单位
     label_en: Amplitude unit
@@ -64,8 +64,7 @@ channel_state:
     type: float
     min: 1.0e-6
     max: 1.0
-    default: 0.5
-    ratio: true          # 0.25；写 25 按百分数读
+    default: 0.5         # 比例：0.25 即 25 %，0.001 即 0.1 %（不按大小猜百分数，#144）
     label: 占空比
     label_en: Duty cycle
   load:
@@ -83,8 +82,9 @@ channel_state:
     label: 输出
     label_en: Output
 channel_components:
-  - name: gen
-    type: function_generator_core
+  # 波形合成（1 Vpp）→ 幅度与偏置（按负载设定定义，D13）→ 输出级（#144）。
+  - name: synth
+    type: waveform_synth
     params:
       # 校准仪的波形名映射到通用信号源：脉冲是占空比可调的方波，三角波是对称度 50 % 的斜波。
       function:
@@ -92,22 +92,27 @@ channel_components:
         map: {SQUare: SQUare, PULSe: SQUare, SINe: SINusoid, DC: DC, TRIangle: RAMP, RAMP: RAMP}
       symmetry: {from: $ch.wave, map: {TRIangle: 50.0}, default: 100.0}
       frequency: $ch.frequency
-      amplitude: $ch.amplitude
-      amplitude_unit: $ch.amplitude_unit
-      offset: $ch.offset
-      duty: {from: $ch.duty, scale: 100.0}   # 比例 → 通用信号源的百分数
+      duty: $ch.duty
+      duty_unit: ratio
       # 方波与脉冲的谐波上限（边沿约 350 ps）；超出谱线上限时信号带保真度说明。
       bandwidth: 1.0e9
+  - name: level
+    type: amplitude_level
+    params:
+      amplitude: $ch.amplitude
+      unit: $ch.amplitude_unit
+      offset: $ch.offset
+      load_setting: $ch.load
+      hiz_from: 10000.0
   - name: out
     type: output_stage
     params:
       z_out: 50.0
       enabled: $ch.output
-      load_setting: $ch.load
-      hiz_from: 10000.0
 wiring:
   channel:
-    - [gen.out, out.in]
+    - [synth.out, level.in]
+    - [level.out, out.in]
 ports:
   channel:
     "CH{n}": out.pin

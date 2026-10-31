@@ -99,8 +99,8 @@ data += map(float, reply.strip().split()[2:-1])
 | 命令 | 实现 |
 | --- | --- |
 | `:CHANnel<n>:BASE:WAVe SQUare\|PULSe\|SINe\|DC\|TRIangle\|RAMP` | 波形；方波与脉冲在 `偏置 ± 幅度/2` 之间切换 |
-| `:CHANnel<n>:BASE:FREQuency`、`:BASE:AMPLitude`、`:BASE:OFFSet` | 频率、幅度（按 `:AMPLitude:UNIT` 的 VPP / VPK / VRMS）、偏置 |
-| `:CHANnel<n>:BASE:DUTY <比例>` | 占空比，`0.25` 即 25 %；大于 1 的值按百分数读 |
+| `:CHANnel<n>:BASE:FREQuency`、`:BASE:AMPLitude`、`:BASE:OFFSet` | 频率、幅度（按 `:AMPLitude:UNIT` 的 VPP / VPK / VRMS / DBM；dBm 按负载设定换算，高阻时按 50 Ω）、偏置 |
+| `:CHANnel<n>:BASE:DUTY <比例>` | 占空比，比例：`0.25` 即 25 %，`0.001` 即 0.1 %；不按大小猜百分数，大于 1 的值超出范围（-222，#144） |
 | `:CHANnel<n>:LOAD <Ω>` | 幅度按负载设定定义（D13）：`50` 为 50 Ω，`10000` 及以上为高阻（开路电压） |
 | `:CHANnel<n>:OUTPut 0\|1` | 输出开关 |
 | `:SYSTem:CLKSource INTernal\|EXTernal` | 保存，可查询 |

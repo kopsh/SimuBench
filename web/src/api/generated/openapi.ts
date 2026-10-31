@@ -3122,12 +3122,6 @@ export interface components {
              */
             options?: string[] | null;
             /**
-             * Ratio
-             * @description A ratio (0.25 for 25 %) that also accepts a percentage: a written value above 1 is divided by 100 (40 -> 0.4)
-             * @default false
-             */
-            ratio: boolean;
-            /**
              * Readonly
              * @default false
              */
