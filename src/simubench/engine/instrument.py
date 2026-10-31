@@ -593,7 +593,9 @@ class Instrument:
         if err.text is not None and detail and detail not in err.message:
             data["message"] = f"{err.message} ({detail})"
         reason = err.reason
-        if reason is None and ((err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail):
+        if reason is None and (
+            (err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail
+        ):
             reason = "not_modeled"  # a command, or a parameter value, SimuBench does not model
         if reason is not None:
             data["reason"] = reason
@@ -602,11 +604,6 @@ class Instrument:
             if value is not None:
                 data[key] = value
         self.session.instrument_event(self, "error", data)
-
-    def _builtin_header(self, tokens: tuple[Token, ...]) -> bool:
-        """Whether the tokens name a built-in header this model is allowed to answer."""
-        named = self._builtin_named(tokens)
-        return named is not None and self._builtin_allowed(named)
 
     def _builtin_named(self, tokens: tuple[Token, ...]) -> str | None:
         """The built-in :SYSTem: header the tokens name (the common * ones go through
@@ -637,10 +634,16 @@ class Instrument:
             raise _Ignored(header)
         if builtin:
             return ScpiError(
-                -113, header, text=self._undefined_text(header), reason="builtin_excluded", origin=self.source_file
+                -113,
+                header,
+                text=self._undefined_text(header),
+                reason="builtin_excluded",
+                origin=self.source_file,
             )
         reason, origin, closest = self._classify_header(unit, tokens)
-        return ScpiError(-113, header, text=self._undefined_text(header), reason=reason, origin=origin, closest=closest)
+        return ScpiError(
+            -113, header, text=self._undefined_text(header), reason=reason, origin=origin, closest=closest
+        )
 
     def _undefined_text(self, header: str) -> str | None:
         """The -113 reply as it reads today: a real model says the header is not modeled."""
@@ -724,7 +727,9 @@ class Instrument:
             return replace(err, reason="bad_parameter")
         return err
 
-    def _bad_parameter(self, err: ScpiError, param: str | None, spec: StateSpec | ParamSpec | None) -> ScpiError:
+    def _bad_parameter(
+        self, err: ScpiError, param: str | None, spec: StateSpec | ParamSpec | None
+    ) -> ScpiError:
         """A parameter error raised where the definition's declaration is known: name the parameter
         and its declared range. The "not modeled by SimuBench" refusals keep their own category."""
         if err.reason is not None or err.code not in BAD_PARAMETER_CODES or NOT_MODELED in err.detail:
@@ -937,9 +942,7 @@ class Instrument:
                     raise ScpiError(-109, f"missing {ps.name}")
                 value = V.parse_int(raw.pop(0))
                 if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
-                    raise self._bad_parameter(
-                        ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps
-                    )
+                    raise self._bad_parameter(ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps)
                 index[ps.name] = value
 
         def at(ref: str) -> str:

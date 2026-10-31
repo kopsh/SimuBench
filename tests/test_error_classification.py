@@ -56,12 +56,8 @@ def test_a_command_the_coverage_does_not_list(tmp_path):
         definition = yaml.safe_load(
             (ROOT / "src/simubench/library/instruments/siglent-sds2104xplus.yaml").read_text("utf-8")
         )
-        cov = load_coverage(
-            ROOT / "src/simubench/library/instruments/siglent-sds2104xplus.coverage.yaml"
-        )
-        space = {c["header"] for c in definition["commands"]} | {
-            entry.header for _, entry in cov.entries()
-        }
+        cov = load_coverage(ROOT / "src/simubench/library/instruments/siglent-sds2104xplus.coverage.yaml")
+        space = {c["header"] for c in definition["commands"]} | {entry.header for _, entry in cov.entries()}
         assert e["closest"] in space
         assert e["closest"] == ":ACQuire:MDEPth"
     finally:
