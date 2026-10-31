@@ -20,6 +20,7 @@ from simubench.library.templates.draft import suggester
 
 ROOT = Path(__file__).resolve().parents[1]
 LFCAL_SCRIPT = ROOT / "examples" / "lowfreq-cal" / "lowfreq_cal_demo.py"
+HOST_SCRIPT = ROOT / "acceptance" / "lowfreq_cal_host.py"  # the issue-146 host: it writes PERSist 5
 KEYSIGHT_SCRIPT = ROOT / "examples" / "scripts" / "keysight_dsox_read_waveform.py"
 
 
@@ -158,3 +159,78 @@ async def test_an_agent_drafts_from_the_script_and_creates_both_definitions(tmp_
         checked = await call(c, "validate_bench", path="host.bench.yaml")
     assert sorted(made) == ["lfcal-calibrator", "lfcal-refscope"]
     assert checked["ok"], checked["diagnostics"]
+
+
+async def test_the_draft_extends_a_template_definition_in_place_and_reexpansion_keeps_it(tmp_path):
+    """Issue 169: extending a workspace definition in place is one call; re-expanding the template
+    afterwards refuses to drop the drafted command until it is merged or explicitly discarded."""
+    shutil.copy(HOST_SCRIPT, tmp_path / "host.py")
+    server = build_server(SessionManager(tmp_path, scpi_base_port=None), ui_url="http://127.0.0.1:1/?token=x")
+
+    async def call(c, tool, **args):
+        r = await c.call_tool(tool, args)
+        assert not r.is_error, (tool, r.content[0].text)
+        sc = r.structured_content
+        return (
+            sc.get("result", sc)
+            if sc is not None and set(sc) == {"result"}
+            else (sc or json.loads(r.content[0].text))
+        )
+
+    async with Client(server) as c:
+        draft = await call(c, "draft_bench_from_script", script_path="host.py")
+        scope_t = next(e for e in draft["report"] if e["receiver"] == "scope")["template"]
+        doc = await call(
+            c, "create_definition_from_template", template_id="oscilloscope",
+            definition_id=scope_t["definition_id"], inputs=scope_t["inputs"],
+        )  # fmt: skip
+        assert doc["saved"] and doc["ok"], doc["diagnostics"]
+        before = await call(c, "read_definition", definition_id="lfcal-refscope")
+        new_index = len(before["data"]["commands"])
+
+        # The in-place extension: one call saves the draft over the file, recorded as the agent's.
+        fixed = await call(
+            c, "draft_definition_from_script", script_path="host.py", definition_id="lfcal-refscope",
+            receiver="scope", base_definition="lfcal-refscope", save=True, base_sha256=before["sha256"],
+        )  # fmt: skip
+        assert fixed["saved"]["ok"] and [d["header"] for d in fixed["drafted"]] == [":PERSIST"]
+        assert fixed["saved"]["path"] == "instruments/lfcal-refscope.yaml"
+        history = (tmp_path / ".simubench/history/instruments/lfcal-refscope.yaml/index.jsonl").read_text(
+            "utf-8"
+        )
+        assert json.loads(history.splitlines()[-1])["source"] == "agent"
+        after = await call(c, "read_definition", definition_id="lfcal-refscope")
+        assert len(after["data"]["commands"]) == new_index + 1
+
+        # A stale sha256 is a conflict and leaves the file as it is.
+        r = await c.call_tool(
+            "draft_definition_from_script", {"script_path": "host.py", "definition_id": "lfcal-refscope",
+                                             "receiver": "scope", "base_definition": "lfcal-refscope",
+                                             "save": True, "base_sha256": before["sha256"]}
+        )  # fmt: skip
+        assert r.is_error and "changed since it was read" in r.content[0].text
+        same = await call(c, "read_definition", definition_id="lfcal-refscope")
+        assert same["sha256"] == after["sha256"]
+
+        # Re-expanding the template would drop the drafted command: refused, with its pointer.
+        r = await c.call_tool(
+            "create_definition_from_template", {"template_id": "oscilloscope", "definition_id": "lfcal-refscope",
+                                                "inputs": scope_t["inputs"], "base_sha256": after["sha256"]}
+        )  # fmt: skip
+        assert r.is_error and f"/commands/{new_index}" in r.content[0].text, r.content[0].text
+        assert (await call(c, "read_definition", definition_id="lfcal-refscope"))["sha256"] == after["sha256"]
+
+        # Confirmed discarded, the re-expansion goes through and the command is gone; a definition
+        # untouched since the template still re-expands as before.
+        redone = await call(
+            c, "create_definition_from_template", template_id="oscilloscope", definition_id="lfcal-refscope",
+            inputs=scope_t["inputs"], base_sha256=after["sha256"], discard_edits=True,
+        )  # fmt: skip
+        assert redone["saved"] and redone["ok"], redone["diagnostics"]
+        final = await call(c, "read_definition", definition_id="lfcal-refscope")
+        assert len(final["data"]["commands"]) == new_index
+        again = await call(
+            c, "create_definition_from_template", template_id="oscilloscope", definition_id="lfcal-refscope",
+            inputs=scope_t["inputs"], base_sha256=final["sha256"],
+        )  # fmt: skip
+        assert again["saved"] and again["ok"], again["diagnostics"]

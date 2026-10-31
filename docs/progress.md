@@ -344,3 +344,18 @@
 | 故意加一条模板不支持的命令：报告给出行号，Agent 用 `draft_definition_from_script(base_definition=...)` 补上后通过 | ✅ 脚本的 `PERSist 5` 按行号报告；Agent 以模板展开的定义为底起草出 `:PERSIST` 状态与命令，经 `edit_definition` 补上后重扫不再报告，脚本收尾的错误队列为空 |
 | 物理：负载 50 Ω / 高阻改变到达示波器的幅度；频率–幅值响应的量级与单调性合理；dBm、Vrms 与 Vpp 一致 | ✅ 负载设定高阻时进入示波器 50 Ω 输入的幅度减半、进入 1 MΩ 输入翻倍；响应在设值的 ±2 % 内随频率单调不增（1.002 → 0.984）；同一 0.5 Vpp 方波以三种单位写入测得同一幅度 |
 | `scripts/check.sh` 全绿 | ✅ Python 979 项（其中新增验收 5 项）、schema 与 Web 检查通过 |
+
+## 幅度的多单位：范围按 Vpp 检查，切单位换算数值（Issue 168，D48）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 负 dBm 可以写入，输出与 Vrms = √(10^(dBm/10)·1 mW·R) 一致（有限负载用负载设定，高阻按 `dbm_hiz_ohms`） | ✅ `tests/test_signal_source.py`：-10 dBm 入 50 Ω 实测功率 -10 dBm ±0.02，高阻时开路电压按 50 Ω 参考折算 |
+| 任一单位写入越界报 -222，界限按当前单位给出；覆盖 VPP、VRMS、DBM | ✅ 11 VPP、6 VRMS（方波 12 Vpp）、-60 dBm 各报 -222，消息为 `amplitude … out of range [下限, 上限] 单位`，状态回滚到写入前 |
+| 波形或负载设定导致越界报 -221 并拒绝 | ✅ VRMS 下正弦→方波跌破 `vpp_min`、方波→正弦超出 `vpp_max`、LOAD 50→1000 使 dBm 波形超界，各报 -221 且波形/负载不变 |
+| VPP→VRMS→DBM→VPP 切换：输出不变，查询返回换算值，回到原值（1e-9） | ✅ 状态逐次为 1/(2√2)、+3.98 dBm、1.0（rel 1e-9），示波器测得的 Vpp 每步 1.0 ±2e-3；应答按格式精度（1e-6）核对 |
+| 回滚与零幅度规则各有用例 | ✅ 单位监听内部写回的幅度在同一次 `set_state` 被后续监听拒绝时一并恢复（`set_state` 快照回滚，引擎层）；模板含 DBM 时 `min ≤ 0` 报 E-TPL-RANGE，组件在 Vpp ≤ 0 切 DBM 时报 -221、单位不变 |
+| #146 的定标流程加负 dBm 点并断言 | ✅ `acceptance/lowfreq_cal_host.py` 的定标表加 -19.03 dBm（50 mVpp 方波）一点，`test_lfcal_agent_scenario.py` 断言测得 0.05 Vpp |
+| D48 入 `docs/decisions.md`；模板口径文档更新 | ✅ D48 原文照抄（编号未被占用）；`instrument-authoring.md` 7.4 的幅度口径与多单位说明已更新（`real-models.md` 无幅度范围的记载，无需改） |
+| `sb-awg-2` 与低频校准契约用例不改通过 | ✅ 全量 990 项通过，无既有用例改动（`LFCAL_INPUTS` 的 min 按新模板规则 0.0 → 0.001，属模板输入数据） |
+| 仓库里由模板展开的定义重新展开 | ⬜ 仓库中没有带 `template:` 记录的定义文件（此前的匹配是 `display.template` 面板键），无需重展 |
+| `scripts/check.sh` 全绿 | ✅ Python 990 项（新增 11 项）、schema 与 Web 检查通过；Web 面板无需改动（数值控件本就按无范围处理，`PanelScreen` 的钳制以 ±Infinity 兜底） |
