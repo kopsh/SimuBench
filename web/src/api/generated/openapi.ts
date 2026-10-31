@@ -624,7 +624,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Screen */
+        /**
+         * Screen
+         * @description ``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample.
+         */
         get: operations["getScopeScreen"];
         put?: never;
         post?: never;
@@ -3258,6 +3261,11 @@ export interface components {
             channel: number;
             /** Dt S */
             dt_s: number;
+            /**
+             * Minmax
+             * @description When the request passed ``points``: per bin the minimum and the maximum, 2 values per bin in order (``2*points`` values) — the pixel extraction of architecture.md 8.3 for a renderer with a fixed dot width. ``volts`` comes back empty then, so a terminal asks for exactly the bins it can draw and never receives all samples
+             */
+            minmax: number[] | null;
             /** Offset */
             offset: number;
             /** Scale */
@@ -4520,7 +4528,9 @@ export interface operations {
     };
     getScopeScreen: {
         parameters: {
-            query?: never;
+            query?: {
+                points?: number | null;
+            };
             header?: never;
             path: {
                 name: string;

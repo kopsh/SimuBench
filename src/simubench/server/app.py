@@ -522,10 +522,13 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="getScopeScreen",
         dependencies=[Depends(auth)],
     )
-    async def screen(sid: str, name: str) -> M.ScopeScreen:
+    async def screen(
+        sid: str, name: str, points: int | None = Query(None, ge=2, le=4096)
+    ) -> M.ScopeScreen:
+        """``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample."""
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.scope_screen, s, name)
+            return await asyncio.to_thread(manager.scope_screen, s, name, points)
         except KeyError as exc:
             raise not_found(exc) from None
 

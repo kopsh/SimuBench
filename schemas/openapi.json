@@ -5915,6 +5915,21 @@
             "title": "Dt S",
             "type": "number"
           },
+          "minmax": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the request passed ``points``: per bin the minimum and the maximum, 2 values per bin in order (``2*points`` values) — the pixel extraction of architecture.md 8.3 for a renderer with a fixed dot width. ``volts`` comes back empty then, so a terminal asks for exactly the bins it can draw and never receives all samples",
+            "title": "Minmax"
+          },
           "offset": {
             "title": "Offset",
             "type": "number"
@@ -5956,7 +5971,8 @@
           "scale",
           "offset",
           "triggered",
-          "silence"
+          "silence",
+          "minmax"
         ],
         "title": "Trace",
         "type": "object"
@@ -7596,6 +7612,7 @@
     },
     "/api/sessions/{sid}/instruments/{name}/screen": {
       "get": {
+        "description": "``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample.",
         "operationId": "getScopeScreen",
         "parameters": [
           {
@@ -7614,6 +7631,24 @@
             "schema": {
               "title": "Name",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "points",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 4096,
+                  "minimum": 2,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Points"
             }
           }
         ],

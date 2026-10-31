@@ -593,12 +593,16 @@ class SessionManager:
         return M.PanelResponse(ok=True)
 
     @staticmethod
-    def scope_screen(served: ServedSession, instrument: str) -> M.ScopeScreen:
+    def scope_screen(served: ServedSession, instrument: str, points: int | None = None) -> M.ScopeScreen:
+        """The scope's screen. ``points`` (tui-screens.md 6.1): downsample each trace to that many
+        bins of per-bin min and max (2 values per bin) instead of returning every sample — the
+        pixel extraction of architecture.md 8.3 for a renderer with a fixed dot width."""
         s = served.session
         inst = s.instrument(instrument)
         acq = inst.components.get("acq")
         if acq is None or not hasattr(acq, "compute"):
             raise KeyError(f"{instrument} is not an oscilloscope")
+        bins = max(2, int(points)) if points else None
         with s._lock:  # read a consistent view without changing anything the instrument keeps
             s.follow_wall()
             inst.settle_pending()  # an acquisition that has come due is shown, as any command would
@@ -611,19 +615,30 @@ class SessionManager:
                 shown, _, triggered = acq.compute(acq.displayed(), frame=frame)  # type: ignore[attr-defined]
                 if triggered or acq._is("auto") or not records:  # type: ignore[attr-defined]
                     records = shown
-            traces = [
-                M.Trace(
-                    channel=n,
-                    t0_s=r.origin,
-                    dt_s=r.dt_s,
-                    volts=[float(x) for x in np.asarray(r.volts, dtype=float)],
-                    scale=r.scale,
-                    offset=r.offset,
-                    triggered=r.triggered,
-                    silence=_channel_silence(s, inst, n),
+            traces = []
+            for n, r in sorted(records.items()):
+                volts = np.asarray(r.volts, dtype=float)
+                minmax: list[float] | None = None
+                if bins is not None and volts.size:
+                    # Per-bin min and max: split the samples into ``bins`` near-equal parts.
+                    edges = np.linspace(0, volts.size, bins + 1, dtype=int)
+                    chunks = (volts[edges[i] : edges[i + 1]] for i in range(bins))
+                    pairs = [(float(c.min()), float(c.max())) for c in chunks if c.size]
+                    flat = [v for pair in pairs for v in pair]
+                    minmax = flat if flat else None
+                traces.append(
+                    M.Trace(
+                        channel=n,
+                        t0_s=r.origin,
+                        dt_s=r.dt_s,
+                        volts=[] if minmax is not None else [float(x) for x in volts],
+                        scale=r.scale,
+                        offset=r.offset,
+                        triggered=r.triggered,
+                        silence=_channel_silence(s, inst, n),
+                        minmax=minmax,
+                    )
                 )
-                for n, r in sorted(records.items())
-            ]
             return M.ScopeScreen(
                 instrument=instrument,
                 source="live" if live else "record",
