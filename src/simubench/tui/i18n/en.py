@@ -74,6 +74,7 @@ TERMS: dict = {
     "cards": {
         "source": "Source",
         "measure": "Measure",
+        "output": "Output",
         "ccLimited": "CC limited by current {limit}",
         "cvLimited": "CV limited by voltage {limit}",
         "load": "Load",
@@ -84,6 +85,9 @@ TERMS: dict = {
         "waiting": "Waiting for trigger",
         "channelsOff": "{items}",
         "params": "Parameters",
+        "accProbe": "{value}x probe",
+        "accLead": "{value} lead",
+        "accCoax": "coax cable",
     },
     "log": {
         "title": "Log",
@@ -112,6 +116,17 @@ TERMS: dict = {
         "remoteScript": "taken by the script",
         "errorsOnly": "errors only",
         "followLatest": "follow latest",
+    },
+    "keys": {
+        "select": "select",
+        "move": "move",
+        "log": "log",
+        "back": "back",
+        "quit": "quit",
+        "filter": "filter",
+        "errorsOnly": "errors only",
+        "follow": "follow",
+        "rebuild": "rebuild",
     },
     "minSize": "Window too small: at least 80 × 24, now {width} × {height}",
     "confirm": {

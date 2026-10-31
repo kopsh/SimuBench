@@ -77,6 +77,7 @@ TERMS: dict = {
     "cards": {
         "source": "源",
         "measure": "测",
+        "output": "输出",
         "ccLimited": "CC 受电流限值 {limit}",
         "cvLimited": "CV 受电压限值 {limit}",
         "load": "负载",
@@ -87,6 +88,9 @@ TERMS: dict = {
         "waiting": "等待触发",
         "channelsOff": "{items}",
         "params": "参数",
+        "accProbe": "{value}x 探头",
+        "accLead": "{value} 导线",
+        "accCoax": "同轴线缆",
     },
     "log": {
         "title": "通信",
@@ -115,6 +119,17 @@ TERMS: dict = {
         "remoteScript": "脚本收回",
         "errorsOnly": "只看错误",
         "followLatest": "跟随最新",
+    },
+    "keys": {
+        "select": "选择",
+        "move": "移动",
+        "log": "通信",
+        "back": "返回",
+        "quit": "退出",
+        "filter": "过滤",
+        "errorsOnly": "只看错误",
+        "follow": "跟随",
+        "rebuild": "重建",
     },
     "minSize": "窗口太小：至少 80 × 24，当前 {width} × {height}",
     "confirm": {

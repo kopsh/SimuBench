@@ -92,6 +92,9 @@ class ApiClient:
 
     # ---- sessions -----------------------------------------------------------------------------------
 
+    async def catalog(self) -> list[dict[str, Any]]:
+        return await self._request("GET", "/api/components")  # type: ignore[no-any-return]
+
     async def sessions(self) -> list[dict[str, Any]]:
         return await self._request("GET", "/api/sessions")  # type: ignore[no-any-return]
 
