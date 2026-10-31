@@ -46,6 +46,25 @@ def _scan(data: bytes, i: int, stop: bytes) -> int:
                 raise ScpiError(-150, "unterminated string")
             i = j + 1
             continue
+        if c == b"(":  # a parenthesized group is one program data item: the channel list (@1,2)
+            depth = 1
+            i += 1
+            while i < n and depth:
+                c = data[i : i + 1]
+                if c in (b'"', b"'"):
+                    j = data.find(c, i + 1)
+                    while j != -1 and data[j + 1 : j + 2] == c:
+                        j = data.find(c, j + 2)
+                    if j == -1:
+                        raise ScpiError(-150, "unterminated string")
+                    i = j + 1
+                    continue
+                if c == b"(":
+                    depth += 1
+                elif c == b")":
+                    depth -= 1
+                i += 1
+            continue
         if c == b"#" and i + 1 < n and data[i + 1 : i + 2].isdigit():
             nd = int(data[i + 1 : i + 2])
             if nd == 0:  # indefinite block runs to the end of the message
