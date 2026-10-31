@@ -63,6 +63,12 @@ class InstrumentScreen(ShellScreen):
 
     screen_key = "instrument"
 
+    # Nothing is focused on entry: the console's input must not swallow ``:`` and the first
+    # Tab takes the user to the controls. ``None`` would inherit the app's ``AUTO_FOCUS`` ("*"),
+    # which focuses the first control — and ``?`` would then explain that setting instead of
+    # the instrument's trouble (5.5); a selector that matches nothing focuses nothing.
+    AUTO_FOCUS = "#simubench-entry-no-focus"
+
     BINDINGS: ClassVar = [
         Binding("tab", "focus_next", show=False),
         Binding("shift+tab", "focus_previous", show=False),
@@ -76,7 +82,7 @@ class InstrumentScreen(ShellScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
-        Binding("l", "local", show=False),
+        Binding("L", "local", show=False),  # capital L (5.5): lowercase l is the log everywhere
         Binding("question_mark", "reason", show=False),
     ]
 
@@ -318,6 +324,8 @@ class InstrumentScreen(ShellScreen):
                 "controls": controls,
             }
             self._boxes.append(entry)
+        # The buttons are still pending children on this first refresh; style them once mounted.
+        self.call_after_refresh(self._refresh_buttons)
 
     def _controls_for(self, channel: int | None) -> list[C.Control]:
         info = self.info

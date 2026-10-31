@@ -111,6 +111,7 @@ class SimuBenchApp(App[None]):
         self.retry_seconds = 0
         self.file_changed = False
         self.data_version = 0
+        self.scope_version = 0  # the scope screen's frame alone (display data, not session data)
         self.reason: str | None = None  # why the picker came up again (session closed)
         self._stop = asyncio.Event()
         self._conn_task: asyncio.Task | None = None
@@ -410,12 +411,17 @@ class SimuBenchApp(App[None]):
         return r.json()  # type: ignore[no-any-return]
 
     async def refresh_scope_frame(self, name: str, points: int) -> None:
-        """The scope screen's frame at its own dot width (tui-screens.md 1.6, 6.1)."""
+        """The scope screen's frame at its own dot width (tui-screens.md 1.6, 6.1).
+
+        The frame is display data of one screen, not session data: it moves ``scope_version``
+        — watched by the scope screen alone — and leaves ``data_version``, and with it "the
+        app has settled", untouched.
+        """
         try:
             self.screen_data[name] = await self._screen(name, points)
         except ApiError:
             return
-        self.bump()
+        self.scope_version += 1
 
     def _merge_instrument(self, info: dict[str, Any]) -> None:
         if self.session_info is None:

@@ -335,7 +335,7 @@ def range_text(spec: Mapping[str, Any]) -> str:
         if v is None:
             parts.append("∞" if v is hi else "−∞")
         else:
-            parts.append(fmt(float(v), unit))
+            parts.append(fmt(float(v), unit, digits=6))
     return f"{parts[0]} … {parts[1]}"
 
 

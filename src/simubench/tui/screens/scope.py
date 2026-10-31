@@ -147,6 +147,10 @@ class ScopeScreen(ShellScreen):
 
     screen_key = "scope"
 
+    # Like the instrument screen: nothing focused on entry keeps ``:`` for the console (6.4),
+    # and ``?`` explains the screen's trouble rather than whichever setting auto-focus landed on.
+    AUTO_FOCUS = "#simubench-entry-no-focus"
+
     BINDINGS: ClassVar = [
         Binding("r", "run_stop", show=False),
         Binding("s", "single", show=False),
@@ -169,7 +173,7 @@ class ScopeScreen(ShellScreen):
     def __init__(self, name: str) -> None:
         super().__init__()
         self.instrument_name = name
-        self._last_version = -1
+        self._last_version: tuple[int, int] = (-1, -1)
         self._built = False
         self._last_cols = 0
         self._last_rows = 0
@@ -274,9 +278,11 @@ class ScopeScreen(ShellScreen):
         if not self._built:
             self._build_buttons()
             self._built = True
-        if app.data_version == self._last_version:
+            self.call_after_refresh(self._refresh_buttons)
+        version = (app.data_version, app.scope_version)
+        if version == self._last_version:
             return
-        self._last_version = app.data_version
+        self._last_version = version
         cols, rows = self._wave_size()
         state = {sv["path"]: sv for sv in self.info.get("state", [])}
         text, clipped = render_wave(app, self.frame, cols, rows, state, app.lang, self._open_channels())

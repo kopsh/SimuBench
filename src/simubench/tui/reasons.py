@@ -118,6 +118,23 @@ def trace_source(events: Sequence[Mapping[str, Any]], instrument: str, path: str
     return None
 
 
+def _setting_jump_seq(events: Sequence[Mapping[str, Any]], instrument: str, path: str) -> int | None:
+    """The log line of the command that set ``path`` — ``⏎`` in the reason dialog jumps there."""
+    for ev in reversed(events):
+        if (
+            ev.get("kind") == "state"
+            and ev.get("instrument") == instrument
+            and ev.get("path") == path
+            and ev.get("source") == "scpi"
+        ):
+            write = _scpi_write_for(events, instrument, int(ev.get("t_ns", 0)))
+            if write is not None:
+                seq = write.get("seq", write.get("eid"))
+                if seq is not None:
+                    return int(seq)
+    return None
+
+
 def bench_pointer(instrument: str, path: str | None = None) -> str:
     """``/instruments/smu/state`` — the JSON pointer of a value the bench file initializes."""
     return f"/instruments/{instrument}/state"
@@ -161,8 +178,10 @@ def limited_report(
     set_path = "source.current.level" if regulation == "CV" else "source.voltage.level"
     limit_path = "compliance.current.limit"
     if regulation == "CC":
+        # The dialog's first line is the one-sentence conclusion (9.1); the per-value wording
+        # (limitedCC) is the instrument screen's reason line (5.4).
         conclusion = t(
-            "reason.limitedCC",
+            "reason.conclusionCC",
             lang,
             limit=fmt(float(values.get("core.limit") or 0), "A"),
             actual=fmt(float(values.get("core.voltage") or 0), "V"),
@@ -171,7 +190,7 @@ def limited_report(
         subject = t("reason.subjectCurrent", lang, value=fmt(float(values.get("core.current") or 0), "A"))
     else:
         conclusion = t(
-            "reason.limitedCV",
+            "reason.conclusionCV",
             lang,
             limit=fmt(float(values.get("core.limit") or 0), "V"),
             actual=fmt(float(values.get("core.current") or 0), "A"),
@@ -200,7 +219,10 @@ def limited_report(
         ),
     ]
     return ReasonReport(
-        t("reason.titleFor", lang, instrument=instrument, subject=subject), conclusion, evidences
+        t("reason.titleFor", lang, instrument=instrument, subject=subject),
+        conclusion,
+        evidences,
+        jump_seq=_setting_jump_seq(events, instrument, set_path),
     )
 
 

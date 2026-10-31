@@ -75,7 +75,7 @@ class NumberEditScreen(ModalScreen[bool]):
         #edit-range { color: $muted; }
         #edit-accepted { color: $muted; }
         #edit-keys { color: $muted; margin-top: 1; }
-        Input { width: 1fr; }
+        #edit-input { width: 1fr; }
     }
     """
 
@@ -370,36 +370,56 @@ class ScpiConsole(Vertical):
     def __init__(
         self, instrument: str, submit: Callable[[str], Awaitable[tuple[str | None, str | None]]]
     ) -> None:
-        super().__init__(id="console")
+        # The children are constructor children, so they exist as soon as the console does —
+        # ``open()`` may run before a compose-cycle would have mounted compose() children.
+        lang = getattr(self, "lang", None) or "zh"
         self.instrument = instrument
         self._submit = submit
         self._history: list[str] = []
         self._busy = False
+        self._input = HistoryInput(id="console-input")
+        # The closed console must not be reachable by the screen's auto-focus: a focused Input
+        # would swallow ``:`` and every other character instead of letting the keys bubble.
+        self._input.can_focus = False
+        self._reply = Static("", id="console-reply")
+        super().__init__(
+            Horizontal(
+                Static(i18n.t("console.prompt", lang, instrument=instrument), id="console-prompt"),
+                self._input,
+                Static(
+                    i18n.t("console.send", lang) + "  " + i18n.t("console.history", lang) + "  "
+                    + i18n.t("console.close", lang),
+                    id="console-hints",
+                ),
+                id="console-row",
+            ),
+            self._reply,
+            id="console",
+        )
 
-    def compose(self) -> ComposeResult:
-        with Horizontal(id="console-row"):
-            yield Static(
-                i18n.t("console.prompt", self.app.lang, instrument=self.instrument), id="console-prompt"
-            )
-            yield HistoryInput(id="console-input")
-            yield Static(
-                i18n.t("console.send", self.app.lang) + "  " + i18n.t("console.history", self.app.lang)
-                + "  " + i18n.t("console.close", self.app.lang),
-                id="console-hints",
-            )
-        yield Static("", id="console-reply")
+    def on_mount(self) -> None:
+        """The prompt and hints are built before attachment; re-render with the app's language."""
+        lang = self.app.lang
+        self.query_one("#console-prompt", Static).update(
+            i18n.t("console.prompt", lang, instrument=self.instrument)
+        )
+        self.query_one("#console-hints", Static).update(
+            i18n.t("console.send", lang) + "  " + i18n.t("console.history", lang) + "  "
+            + i18n.t("console.close", lang)
+        )
 
     def open(self) -> None:
         app: Any = self.app
         self._history = list(app.scpi_history.get(self.instrument, []))
-        inp = self.query_one("#console-input", HistoryInput)
-        inp.set_history(self._history)
+        self._input.set_history(self._history)
         self.add_class("-open")
-        inp.focus()
+        self._input.can_focus = True
+        self._input.focus()
 
     def close(self) -> None:
         self.remove_class("-open")
-        self.query_one("#console-reply", Static).update("")
+        self._input.can_focus = False
+        self._reply.update("")
         screen = self.screen
         screen.set_focus(None)
         screen.refresh_content()
@@ -412,13 +432,12 @@ class ScpiConsole(Vertical):
         lang = self.app.lang
         from rich.text import Text
 
-        row = self.query_one("#console-reply", Static)
         if error:
-            row.update(Text(error, style=self._style("bad")))
+            self._reply.update(Text(error, style=self._style("bad")))
         elif reply is None:
-            row.update(Text(i18n.t("console.noReply", lang), style=self._style("muted")))
+            self._reply.update(Text(i18n.t("console.noReply", lang), style=self._style("muted")))
         else:
-            row.update(Text("→ " + reply))
+            self._reply.update(Text("→ " + reply))
         self._busy = False
 
     def _style(self, token: str) -> str:
@@ -436,7 +455,7 @@ class ScpiConsole(Vertical):
             app: Any = self.app
             app.scpi_history[self.instrument] = self._history
             save_history(app.scpi_history)
-            self.query_one("#console-input", HistoryInput).set_history(self._history)
+            self._input.set_history(self._history)
         self._busy = True
         self.run_worker(self._run(command), exclusive=True)
 

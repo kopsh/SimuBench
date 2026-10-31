@@ -152,12 +152,19 @@ class LogScreen(ShellScreen):
         self._box.scroll_end(animate=False, force=True)
 
     def focus_seq(self, seq: int) -> None:
-        """Select one command's row and scroll to it — the reason dialog's ⏎ jump (9.1)."""
+        """Select one command's row and scroll to it — the reason dialog's ⏎ jump (9.1).
+
+        The jump can arrive before the just-shown screen has mounted its children, so the
+        highlight is applied after the next refresh cycle.
+        """
         self._highlight_seq = seq
         self._last_version = -1
-        self.refresh_content()
+        self.call_after_refresh(self._apply_focus_seq, seq)
+
+    def _apply_focus_seq(self, seq: int) -> None:
         from ..log import filter_lines
 
+        self.refresh_content()
         lines = filter_lines(self.app.lines, self._filter_text.split(), self._errors_only)
         index = next((i for i, line in enumerate(lines) if line.seq == seq), None)
         if index is None:
