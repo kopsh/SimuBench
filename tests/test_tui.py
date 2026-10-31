@@ -602,7 +602,7 @@ async def test_min_size_guard(served):
 async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
     """D25: the launched bench file is hashed; a change lights the hint, R rebuilds after confirm."""
     bench = tmp_path / "demo.bench.yaml"
-    bench.write_text((ROOT / "tests/data/tui/demo.bench.yaml").read_text(encoding="utf-8"))
+    bench.write_text((ROOT / "tests/data/tui/demo.bench.yaml").read_text(encoding="utf-8"), encoding="utf-8")
     manager = SessionManager(tmp_path, scpi_base_port=0, hislip_port=0)
     import uvicorn
 
@@ -634,7 +634,9 @@ async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
         )
         async with tui.run_test(size=(100, 32)) as pilot:
             await wait_connected(pilot, tui)
-            bench.write_text(bench.read_text(encoding="utf-8").replace("seed: 7", "seed: 9"))
+            bench.write_text(
+                bench.read_text(encoding="utf-8").replace("seed: 7", "seed: 9"), encoding="utf-8"
+            )
             end = loop_time() + 8
             while loop_time() < end and not tui.file_changed:
                 await pilot.pause(0.1)
