@@ -118,11 +118,15 @@ def test_measurements_match_the_waveform(scope):
 def test_amplitude_of_a_sine_reads_the_peaks(scope):
     """F2 (#131): AMPLitude is top - base, the levels the waveform rests on — not the halves'
     medians, which sit at 0.707 of the peak on a sine."""
-    sds, _ = scope
+    sds, session = scope
     sds.write(":TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")  # 10 ms: ten cycles
     pkpk = float(sds.query(":MEASure:SIMPle:VALue? PKPK"))
     ampl = float(sds.query(":MEASure:SIMPle:VALue? AMPL"))
-    assert ampl == pytest.approx(pkpk, rel=0.02)
+    # PKPK rides the record's noise excursions, AMPL (top - base) does not: one acquisition's
+    # two extremes differ by a few sigma (7.5 mV rms at 0.5 V/div, D46) plus a code. The error
+    # this measurement exists to catch, the halves' medians, is 0.707 — far beyond either.
+    sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
+    assert ampl == pytest.approx(pkpk, abs=8 * sigma + 0.5 / 30)
     assert ampl == pytest.approx(2.0, abs=0.04)
 
 
