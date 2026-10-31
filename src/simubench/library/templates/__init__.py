@@ -131,4 +131,4 @@ def get_template(template_id: str) -> Template:
 
 
 def _load() -> None:
-    from . import oscilloscope  # noqa: F401  (registers itself)
+    from . import oscilloscope, signal_source  # noqa: F401  (they register themselves)

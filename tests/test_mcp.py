@@ -205,7 +205,8 @@ async def test_components_are_listed_for_definition_authors(ws):
     assert "output_stag" in unknown["error"]
     assert [w for w in definition["wiring"]["channel"]] and definition["ports"]["channel"]
     assert {c["type"] for c in definition["channel_components"]} >= {
-        "function_generator_core",
+        "waveform_synth",
+        "amplitude_level",
         "output_stage",
     }
 
@@ -388,11 +389,11 @@ async def test_an_agent_builds_a_scope_from_a_template(ws):
     """Issue 125: list_templates -> get_template -> create_definition_from_template, saved by the agent."""
     _, server = make(ws)
     async with Client(server) as c:
-        assert [t["id"] for t in await call(c, "list_templates")] == ["oscilloscope"]
+        assert [t["id"] for t in await call(c, "list_templates")] == ["oscilloscope", "signal_source"]
         tpl = await call(c, "get_template", template_id="oscilloscope")
         assert tpl["schema"]["properties"]["vertical"]["title_en"] == "Vertical"
         missing = await call(c, "get_template", template_id="nothing")
-        assert "oscilloscope" in missing["error"]
+        assert "oscilloscope" in missing["error"] and "signal_source" in missing["error"]
 
         inputs = tpl["example"]
         wrong = json.loads(json.dumps(inputs))

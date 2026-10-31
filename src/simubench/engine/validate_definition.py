@@ -103,6 +103,8 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             cls = known.get(spec.type)
             for param, (base, where) in (cls.refs if cls else {}).items():
                 name = str(spec.params.get(param, cls.defaults.get(param)) or "")  # type: ignore[union-attr]
+                if not name and param in cls.optional_refs:  # type: ignore[union-attr]
+                    continue
                 target = declared[where].get(name, False)
                 want = known.get(base)
                 if target is False:

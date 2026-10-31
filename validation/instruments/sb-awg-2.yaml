@@ -65,25 +65,30 @@ channel_state:
     label: 输出负载设定
     label_en: Output load
 channel_components:
-  - name: gen
-    type: function_generator_core
+  # 信号源由模块组成（#144）：波形合成（1 Vpp）→ 幅度与偏置（按负载设定定义，D13）→ 输出级。
+  - name: synth
+    type: waveform_synth
     params:
       function: $ch.function
       frequency: $ch.frequency
-      amplitude: $ch.amplitude
-      offset: $ch.offset
       phase: $ch.phase
       bandwidth: 300.0e6
       square_max: 25.0e6
+  - name: level
+    type: amplitude_level
+    params:
+      amplitude: $ch.amplitude
+      offset: $ch.offset
+      load_setting: $ch.load
   - name: out
     type: output_stage
     params:
       z_out: 50.0
       enabled: $ch.output
-      load_setting: $ch.load
 wiring:
   channel:
-    - [gen.out, out.in]
+    - [synth.out, level.in]
+    - [level.out, out.in]
 ports:
   channel:
     "OUT{n}": out.pin

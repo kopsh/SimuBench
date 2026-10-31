@@ -53,28 +53,28 @@ def test_format_and_schema():
 
 def test_unknown_component_type():
     bad = copy.deepcopy(AWG)
-    bad["channel_components"][1]["type"] = "output_stag"
+    bad["channel_components"][2]["type"] = "output_stag"
     _, report = validate_definition_data(bad)
     [d] = report.diagnostics  # wiring and ports to it are not reported again
-    assert (d.code, d.pointer) == ("E-DEF-COMPONENT-UNKNOWN", "/channel_components/1/type")
+    assert (d.code, d.pointer) == ("E-DEF-COMPONENT-UNKNOWN", "/channel_components/2/type")
     assert d.suggestion == "改为 'output_stage'"
 
 
 def test_duplicate_component_name():
     bad = copy.deepcopy(AWG)
-    bad["channel_components"][1]["name"] = "gen"
+    bad["channel_components"][1]["name"] = "synth"
     assert ("E-DEF-COMPONENT-DUPLICATE", "/channel_components/1/name") in codes(bad)
 
 
 def test_unknown_parameter_is_a_warning():
     bad = copy.deepcopy(AWG)
-    bad["channel_components"][1]["params"]["z_outt"] = 50
+    bad["channel_components"][2]["params"]["z_outt"] = 50
     _, report = validate_definition_data(bad)
     assert report.ok
     [d] = report.diagnostics
     assert (d.code, d.pointer, d.suggestion) == (
         "W-DEF-PARAM-UNKNOWN",
-        "/channel_components/1/params/z_outt",
+        "/channel_components/2/params/z_outt",
         "改为 'z_out'",
     )
 

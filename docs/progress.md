@@ -307,3 +307,14 @@
 | 输入错误各有反例，诊断指向输入字段 | ✅ 档位表非递增、偏置范围缺档、偏置范围没覆盖到最大档位、交织映射指向不存在的通道、通道出现在两组交织、上电点数不在列表中、未知测量、超出 schema 范围、缺少字段、未知字段，共 10 个 |
 | MCP 协议级测试覆盖三个工具；不新增型号专用组件 | ✅ `tests/test_mcp.py::test_an_agent_builds_a_scope_from_a_template`：列出、取 schema 与示例、错误输入不保存、保存后版本历史来源为 agent、按新输入重新展开与过期哈希的冲突；生成的定义只用 `generic` 组件 |
 | schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ |
+
+## 信号源的组件粒度与信号源模板；幅度单位 dBm（Issue 144，instrument-authoring.md 7.4）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 波形合成、幅度与偏置的定义、输出级、参考时钟各自成模块；现有信号源定义改用它们，行为不变 | ✅ `waveform_synth`、`amplitude_level`、`output_stage`、`reference_clock`；`sb-awg-2` 与低频校准仪改写后全部测试不改通过（`sb-awg-2` 的用例、低频校准的契约用例与验收） |
+| 示例输入展开后没有诊断；`sb-awg-2` 与低频校准仪可以用模板等价写出，各自的用例通过 | ✅ `tests/test_signal_source.py`：`sb-awg-2` 的回复与 50 Ω 上的输出相同；校准仪替换后 `examples/lowfreq-cal/cases.yaml` 全部通过 |
+| dBm 与 VPP、VRMS 的换算（50 Ω 与高阻） | ✅ 0 dBm、10 dBm 在 50 Ω 负载上的功率；VRMS 的正弦与方波；高阻设定下 dBm 按 50 Ω 换算、开路为负载上的两倍 |
+| 百分数占空比 0.1 % 在 10 kHz 与 5.5 MHz 的保真度（谐波截断时带说明，D33） | ✅ 10 kHz：谱线上限截断并带说明，高电平约 100 ns；5.5 MHz：截到 1 GHz 带宽，谱线与解析傅里叶系数一致；两者均值精确 |
+| 输入错误各有反例，诊断指向 `template.inputs`；不新增型号专用组件 | ✅ 八个反例；生成的定义只用通用组件 |
+| `scripts/check.sh` 全绿 | ✅ |
