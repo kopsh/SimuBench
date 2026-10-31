@@ -228,11 +228,14 @@ class Session:
                 freqs: set[float] = {0.0}
                 for sig in emf.values():
                     freqs.update(float(f) for f in set(sig.freq.tolist()))
-                started = time.perf_counter()
+                # The calling thread's CPU, not wall time: a solve that was merely descheduled or
+                # waited on a busy machine is not a slower solve, and BLAS pool threads spinning
+                # beside it are not solving (issue 209: the suite runs four-wide under xdist).
+                started = time.thread_time()
                 sol = self.circuit().solve(sorted(freqs))
                 self.stats["solves"] = self.stats.get("solves", 0) + 1
                 self.stats["solve_seconds"] = (
-                    self.stats.get("solve_seconds", 0.0) + time.perf_counter() - started
+                    self.stats.get("solve_seconds", 0.0) + time.thread_time() - started
                 )
                 self._solution = (self._signal_version, sol, emf)
                 # Piecewise-linear devices check their mode against the DC operating point.
