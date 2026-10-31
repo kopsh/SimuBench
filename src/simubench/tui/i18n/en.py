@@ -30,13 +30,13 @@ TERMS: dict = {
     },
     # remote.* in the web i18n (D32 wording).
     "remote": {
-        "local": "Local (LOCAL)",
-        "eventLocal": "taken to local (LOCAL)",
+        "local": "LOCAL",
+        "eventLocal": "to local (LOCAL)",
         "eventRemote": "back to remote",
         "badge": "remote",
     },
     # fault statuses in the web i18n.
-    "fault": {"active": "active", "pending": "pending", "ended": "ended"},
+    "fault": {"active": "Active", "pending": "Pending", "ended": "Ended"},
     "topbar": {
         "connecting": "◌ connecting to {url} …",
         "disconnected": "✕ disconnected · read-only · reconnecting in {seconds} s",

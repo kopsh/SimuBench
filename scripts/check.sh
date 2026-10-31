@@ -8,6 +8,7 @@ if [ -n "$ignored" ]; then echo "ignored by .gitignore but part of the source:";
 uv run ruff check src tests acceptance refcalc
 uv run ruff format --check src tests acceptance refcalc
 uv run pytest -q
+uv run python scripts/check_tui_i18n.py
 uv run simubench schemas --out schemas >/dev/null
 git diff --exit-code --stat schemas || { echo "schemas changed: commit them"; exit 1; }
 cd web
