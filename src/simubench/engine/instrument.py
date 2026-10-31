@@ -259,10 +259,11 @@ class Instrument:
         #: The definition file, as the loader received the path; origin of the definition's own words.
         self.source_file: str | None = str(definition._source_file) if definition._source_file else None
         #: The coverage table's entries and its file; None when the definition has no table (a broken
-        #: or missing table falls back to the definition alone).
+        #: or missing table falls back to the definition alone). Loaded on first use: reading it here
+        #: would put its cost on the session's idle wall clock (D47), shifting every later instant.
         self._coverage: list[_Covered] | None = None
         self._coverage_file: str | None = None
-        self._load_coverage()
+        self._coverage_tried = False
 
     # ---- construction helpers -------------------------------------------------------------------
 
@@ -652,6 +653,13 @@ class Instrument:
         base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
         return f"{base};{NOT_MODELED}"
 
+    def _coverage_entries(self) -> list[_Covered] | None:
+        """The definition's coverage table, loaded on first use (D18)."""
+        if not self._coverage_tried:
+            self._coverage_tried = True
+            self._load_coverage()
+        return self._coverage
+
     def _load_coverage(self) -> None:
         """The coverage table next to the definition file, for runtime lookups (D18); a missing or
         unreadable table leaves the instrument running on the definition alone."""
@@ -678,7 +686,7 @@ class Instrument:
 
     def _classify_header(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[str, str | None, str | None]:
         """(reason, origin, closest) for a header the definition does not execute."""
-        coverage = self._coverage
+        coverage = self._coverage_entries()
         if coverage is not None:
             covered = next((e for e in coverage if self._covered(e, unit, tokens)), None)
             if covered is not None:
@@ -703,7 +711,7 @@ class Instrument:
         if not sent:
             return None
         keys: dict[str, str] = {}
-        for entry in self._coverage or ():
+        for entry in self._coverage_entries() or ():
             try:
                 for form in _header_forms(entry.pattern):
                     keys.setdefault(_header_key(form), entry.header)

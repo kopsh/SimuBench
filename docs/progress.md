@@ -366,7 +366,7 @@
 | --- | --- |
 | 错误 / 忽略事件带六种分类：`not_modeled`（覆盖表中标为未实现）、`not_in_model`（覆盖表中没有）、`not_in_definition`（无覆盖表、定义中没有）、`ignored`、`builtin_excluded`（`builtins` 之外的公共命令）、`bad_parameter`（参数超范围或类型不对，附定义给出的范围）；`unknown_command` 退役 | ✅ `tests/test_error_classification.py` 每种一条；`reason` 字段名不变，取值收敛为六种 |
 | 每条带出处（定义文件或覆盖表文件，按装载得到的路径）与命令树中最接近的命令 | ✅ `origin`、`closest` 随事件给出；最接近的命令按作者命令头的长短两种拼写比较（difflib，0.6 阈值），`tests/test_error_classification.py` 断言出处与最接近命令 |
-| 带覆盖表的定义在运行时按覆盖表查找 | ✅ 引擎按定义文件旁的 `<id>.coverage.yaml` 运行时装载（带 mtime 缓存）；表缺失或读不了时回退到原行为（真实型号仍记 `not_modeled`），不崩溃 |
+| 带覆盖表的定义在运行时按覆盖表查找 | ✅ 引擎按定义文件旁的 `<id>.coverage.yaml` 在首次分类时装载（结果按 mtime 缓存；不在建台时装载，避免把读取开销计入 idle 墙钟，D47）；表缺失或读不了时回退到原行为（真实型号仍记 `not_modeled`），不崩溃 |
 | 事件 schema 与前端类型重新生成；MCP `read_log` 返回同样的分类 | ✅ `schemas/` 与 `web/src/api/generated/` 重新生成；`tests/test_mcp.py` 经 MCP 断言分类、出处与最接近命令；运行记录逐字保存事件，回放不受影响 |
 | Web 措辞覆盖六种分类（中英文） | ✅ `web/src/i18n/{zh,en}.ts` 的 `errors.reasons`；事件面板与运行记录页对 error / ignored 事件显示措辞、参数与范围、最接近命令与出处 |
 | 回复文字不变（#172 的范围） | ✅ `-113` 的应答文本、错误表替换与 "not modeled by SimuBench" 后缀全部保持原样；`builtin_excluded` 也沿用今天的应答 |
