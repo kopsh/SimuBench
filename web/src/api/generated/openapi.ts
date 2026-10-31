@@ -2242,6 +2242,11 @@ export interface components {
              */
             combine_error: number;
             /**
+             * Default
+             * @description type channel_list: the channels used when the optional parameter is omitted, e.g. [1] for an instrument whose (@1) may be left out
+             */
+            default?: number[] | null;
+            /**
              * Duplicate Unit Error
              * @description Error code for a unit given twice in one command
              * @default -224
@@ -2288,7 +2293,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs" | "quantities";
+            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs" | "quantities" | "channel_list";
             /** Unit */
             unit?: string | null;
             /**
@@ -3175,7 +3180,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string";
+            type: "float" | "int" | "bool" | "enum" | "string" | "int_list";
             /**
              * Unit
              * @description Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM
