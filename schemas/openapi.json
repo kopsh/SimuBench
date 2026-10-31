@@ -2219,6 +2219,17 @@
             "title": "State",
             "type": "object"
           },
+          "template": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TemplateSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The template and inputs this definition was expanded from (a record; not used when loading or running)"
+          },
           "unknown_commands": {
             "default": "error",
             "description": "A header the definition does not have: 'error' queues -113; 'ignore' swallows it (no error, no reply) and logs an 'ignored' event. Only for definitions without `reference` (D42)",
@@ -5789,6 +5800,36 @@
           "channel"
         ],
         "title": "StateVarInfo",
+        "type": "object"
+      },
+      "TemplateSource": {
+        "additionalProperties": false,
+        "description": "The template a definition was expanded from and the inputs it was given (instrument-authoring.md\n7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the\ndefinition as the template generated it.",
+        "properties": {
+          "id": {
+            "description": "Template id, e.g. 'oscilloscope'",
+            "title": "Id",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": true,
+            "description": "The inputs, in the template's data-sheet language",
+            "title": "Inputs",
+            "type": "object"
+          },
+          "version": {
+            "description": "Template version the inputs were expanded with",
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "inputs"
+        ],
+        "title": "TemplateSource",
         "type": "object"
       },
       "Trace": {

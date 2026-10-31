@@ -1685,6 +1685,8 @@ export interface components {
             state?: {
                 [key: string]: components["schemas"]["StateSpec"];
             };
+            /** @description The template and inputs this definition was expanded from (a record; not used when loading or running) */
+            template?: components["schemas"]["TemplateSource"] | null;
             /**
              * Unknown Commands
              * @description A header the definition does not have: 'error' queues -113; 'ignore' swallows it (no error, no reply) and logs an 'ignored' event. Only for definitions without `reference` (D42)
@@ -3197,6 +3199,31 @@ export interface components {
             unit: string | null;
             /** Value */
             value: unknown;
+        };
+        /**
+         * TemplateSource
+         * @description The template a definition was expanded from and the inputs it was given (instrument-authoring.md
+         *     7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the
+         *     definition as the template generated it.
+         */
+        TemplateSource: {
+            /**
+             * Id
+             * @description Template id, e.g. 'oscilloscope'
+             */
+            id: string;
+            /**
+             * Inputs
+             * @description The inputs, in the template's data-sheet language
+             */
+            inputs: {
+                [key: string]: unknown;
+            };
+            /**
+             * Version
+             * @description Template version the inputs were expanded with
+             */
+            version: number;
         };
         /** Trace */
         Trace: {

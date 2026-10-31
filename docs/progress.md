@@ -296,3 +296,14 @@
 | 按手册写的 PyVISA 脚本在 SimuBench 上读回测试台的信号 | ✅ `examples/scripts/keysight_dsox_read_waveform.py`、`examples/benches/keysight-dsox2024a.bench.yaml`；`tests/test_keysight_dsox.py`（10 项）：BYTE / WORD / ASCii 三种格式按前导重建的电压与记录一致、与网络上的信号相差在半个码加噪声内；RC 低通后的幅度；`:DIGitize` 后 `*OPC?` 时采集已完成；xorigin 带亚采样的触发偏移；数据手册的增益、偏置、DAC 与时基个体偏差在限值内且随种子复现；偏置超出范围钳到最近值并随档位收紧；RANGe 是档位乘格数；探头比换算档位与偏置 |
 | 为此补的通用能力有单元测试 | ✅ `tests/test_number_formats.py`（14 项）：`significant` 的工程记数、命令 `factor`、保留的空洞码、头字段的 `when` / `else`、参考位置决定触发前的格数；`ascii_block`、16 位字的 y 增量由上面的脚本测试覆盖 |
 | D45、real-models.md 记录基准的变更；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ Python 892 项通过（另 3 项跳过） |
+
+## 仪表模板机制与示波器模板；MCP 模板工具（Issue 125，instrument-authoring.md 7.4，D3）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 模板是生成函数加输入的 JSON Schema（中英文标签、单位、说明）；展开为普通定义，记下 `template: {id, version, inputs}`，加载与运行时忽略 | ✅ `library/templates/`、`InstrumentDefinition.template`；`tests/test_templates.py` 检查 schema 中每个字段都有中英文标题与说明，去掉记录后定义相同 |
+| 示例输入展开后没有诊断；接入信号源后波形读取、自动测量、触发、单次采集同步正确，个体偏差按种子复现 | ✅ 按前导重建的电压与记录一致、记录在 8 位 ADC 的码格上；VPP 与 1 kHz 频率；`:SINGle` 布防后在虚拟时间中完成、触发在参考位置；增益、偏置、DAC 与时基偏差随种子复现且在档位表的限值内 |
+| 用模板写出与 `sb-dso-4` 等价的示波器，`sb-dso-4` 的用例在其上通过 | ✅ 验收场景的命令与更多（三种格式的波形、八种测量、触发电平与沿、单次、耦合、阻抗、带宽限制、超范围、未知命令，共 56 条，34 条查询，32 条有回复）回复与错误队列逐字节相同 |
+| 输入错误各有反例，诊断指向输入字段 | ✅ 档位表非递增、偏置范围缺档、偏置范围没覆盖到最大档位、交织映射指向不存在的通道、通道出现在两组交织、上电点数不在列表中、未知测量、超出 schema 范围、缺少字段、未知字段，共 10 个 |
+| MCP 协议级测试覆盖三个工具；不新增型号专用组件 | ✅ `tests/test_mcp.py::test_an_agent_builds_a_scope_from_a_template`：列出、取 schema 与示例、错误输入不保存、保存后版本历史来源为 agent、按新输入重新展开与过期哈希的冲突；生成的定义只用 `generic` 组件 |
+| schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ |
