@@ -50,24 +50,27 @@ class LogScreen(ShellScreen):
         self._box.can_focus = False
         self._input = Input(id="log-filter")
         self._input.display = False
+        self._input.can_focus = False  # focusable only while the filter is open
         yield Vertical(self._box, self._input)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if event.input is not self._input:
             return
         self._filter_text = event.value.strip()
-        self._input.display = False
-        self._filter_open = False
+        self._close_filter()
         self._last_version = -1
         self.refresh_content()
+
+    def _close_filter(self) -> None:
+        self._input.display = False
+        self._input.can_focus = False
+        self._filter_open = False
         self.set_focus(None)
 
     def on_key(self, event) -> None:
         """Esc inside the filter input clears the filter (tui-screens.md 7.2)."""
         if event.key == "escape" and self._input.has_focus:
-            self._input.display = False
-            self._filter_open = False
-            self.set_focus(None)
+            self._close_filter()
 
     def keys(self) -> list[tuple[str, str]]:
         lang = self.app.lang
@@ -85,12 +88,12 @@ class LogScreen(ShellScreen):
         if app.data_version == self._last_version:
             return
         self._last_version = app.data_version
-        self._render()
+        self._render_log()
 
-    def _render(self) -> None:
+    def _render_log(self) -> None:
         app: Any = self.app
         lang = app.lang
-        inner = max(20, app.size.width - 2)
+        inner = max(20, app.size.width - 4)  # border 2 + the rows' padding 2
         lines = filter_lines(app.lines, self._filter_text.split(), self._errors_only)
         if self._following:
             self._new_count = 0
@@ -126,6 +129,7 @@ class LogScreen(ShellScreen):
     def action_open_filter(self) -> None:
         self._filter_open = True
         self._input.display = True
+        self._input.can_focus = True
         self._input.focus()
 
     def action_errors_only(self) -> None:
@@ -158,12 +162,10 @@ class LogScreen(ShellScreen):
 
     def action_back(self) -> None:
         if self._filter_open or self._filter_text:
-            self._filter_open = False
             self._filter_text = ""
-            self._input.display = False
+            self._close_filter()
             self._last_version = -1
             self.refresh_content()
-            self.set_focus(None)
             return
         super().action_back()
 

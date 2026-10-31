@@ -48,10 +48,10 @@ class PickerScreen(Screen):
             self._rows = await app.client.sessions()
         except Exception as exc:  # the picker stays and shows the reason
             self._error = str(exc)
-        self._render()
+        self._render_picker()
 
     def _poll(self) -> None:
-        self._render()
+        self._render_picker()
 
     def _clock_short(self, mode: str) -> str:
         short = (
@@ -65,7 +65,7 @@ class PickerScreen(Screen):
         )
         return short.get(mode, mode)
 
-    def _render(self) -> None:
+    def _render_picker(self) -> None:
         app: Any = self.app
         lang = app.lang
         width = max(40, app.size.width - 2)
@@ -118,7 +118,7 @@ class PickerScreen(Screen):
         if not self._rows:
             return
         self._cursor = max(0, min(len(self._rows) - 1, self._cursor + (1 if direction == "down" else -1)))
-        self._render()
+        self._render_picker()
 
     async def action_connect(self) -> None:
         if not self._rows:

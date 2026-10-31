@@ -10,6 +10,7 @@ write event, so errors are buffered and matched to the write by instrument and t
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -19,6 +20,15 @@ from .i18n import t
 
 #: A write waits this much virtual time for its reply before it shows ``·`` (tui-screens.md 7.1).
 REPLY_WINDOW_NS = 1_000_000_000
+
+#: The server summarizes non-printable SCPI bytes as a block header or a byte count.
+_BINARY_TEXT = re.compile(r"(… \(\d+ B\)$|^<\d+ B binary>$)")
+
+
+def is_binary(ev: Mapping[str, Any]) -> bool:
+    """Whether a ``scpi`` event carries non-printable data (shown as ``→ #90000…  10 011 B``)."""
+    text = ev.get("text")
+    return text is None or bool(_BINARY_TEXT.search(str(text)))
 
 
 @dataclass
@@ -54,7 +64,7 @@ class LogLine:
         if self.result_kind == "binary":
             head = (self.result or "")[:12].rstrip("…")  # the display adds the ellipsis itself
             size = f"{self.binary_size or 0:,}".replace(",", " ")
-            return t("log.binarySummary", lang, head=head + "…" if head else head, size=size)
+            return "→ " + t("log.binarySummary", lang, head=head + "…" if head else head, size=size)
         prefix = "✗ " if self.result_kind == "error" else "→ "
         return prefix + self.result
 
@@ -107,7 +117,10 @@ def build_lines(
     labels = labels or {}
     lines: list[LogLine] = []
     open_writes: dict[tuple[str, str], LogLine] = {}
-    pending_errors: list[Mapping[str, Any]] = []
+    #: One buffered error. The engine emits it while processing the command, right before the
+    #: write event; the spec words it as following the write. Both orders merge by instrument
+    #: and tick — decided with one event of lookahead when the next event arrives.
+    pending_error: Mapping[str, Any] | None = None
 
     def merge_error(line: LogLine, ev: Mapping[str, Any]) -> None:
         line.has_error = True
@@ -115,26 +128,46 @@ def build_lines(
         line.result = f"{ev.get('code', '')} {ev.get('message', '')}".strip()
         line.fault = ev.get("fault")
 
+    def resolve_pending_error(next_ev: Mapping[str, Any], start_ns: int | None = None) -> Any:
+        """Attach the buffered error now that the next event is known.
+
+        A write of the same instrument and tick claims it (the engine order); otherwise an open
+        write of the same instrument and tick does (the spec's error-follows-the-write order);
+        an error no command owns (a tripped fault) is dropped. Returns the error the caller's
+        write line must merge, if any.
+        """
+        nonlocal pending_error
+        if pending_error is None:
+            return None
+        err, pending_error = pending_error, None
+        inst = err.get("instrument") or ""
+        err_t = int(err.get("t_ns", 0))
+        if (
+            start_ns is not None
+            and next_ev.get("kind") == "scpi"
+            and next_ev.get("dir") == "write"
+            and next_ev.get("instrument") == inst
+            and err_t in (start_ns, int(next_ev.get("t_ns", 0)))
+        ):
+            return err  # the caller merges it into the line it is about to create
+        open_line = next(
+            (
+                line
+                for line in reversed(list(open_writes.values()))
+                if line.instrument == inst and line.t_ns == err_t
+            ),
+            None,
+        )
+        if open_line is not None:
+            merge_error(open_line, err)
+        return None
+
     for ev in events:
         kind = ev.get("kind")
         t_ns = int(ev.get("t_ns", 0))
         _close_expired(open_writes, t_ns)
         if kind == "error":
-            # The engine emits the error while processing the command, before its write event; the
-            # spec words it as following the write. Both orders merge by instrument and tick.
-            inst = ev.get("instrument") or ""
-            open_line = next(
-                (
-                    line
-                    for line in reversed(list(open_writes.values()))
-                    if line.instrument == inst and line.t_ns == t_ns
-                ),
-                None,
-            )
-            if open_line is not None:
-                merge_error(open_line, ev)
-            else:
-                pending_errors.append(ev)
+            pending_error = ev
             continue
         if kind == "scpi":
             client = ev.get("client") or ""
@@ -144,17 +177,7 @@ def build_lines(
                 open_writes.pop(key, None)  # the pair's previous write never got a reply: it shows ·
                 start_ns = ev.get("t_start_ns")
                 start_ns = t_ns if start_ns is None else int(start_ns)
-                # An error raised while processing this command precedes the write event, same tick.
-                err = next(
-                    (
-                        e
-                        for e in pending_errors
-                        if e.get("instrument") == inst and int(e.get("t_ns", 0)) in (start_ns, t_ns)
-                    ),
-                    None,
-                )
-                if err is not None:
-                    pending_errors.remove(err)
+                err = resolve_pending_error(ev, start_ns)
                 line = LogLine(
                     seq=int(ev.get("seq", 0)),
                     t_ns=start_ns,
@@ -169,14 +192,17 @@ def build_lines(
                 lines.append(line)
                 open_writes[key] = line
             else:  # read
+                resolve_pending_error(ev)
                 line = open_writes.pop(key, None)
                 if line is not None:
                     if line.result_kind != "error":  # the error's ✗ wins over the reply text
-                        line.result_kind = "binary" if ev.get("size") else "ok"
+                        binary = is_binary(ev)
+                        line.result_kind = "binary" if binary else "ok"
                         line.result = ev.get("text") or ""
-                        line.binary_size = ev.get("size")
+                        line.binary_size = ev.get("size") if binary else None
                 else:
                     # A reply without its write in the window (the write expired, or an early connect).
+                    binary = is_binary(ev)
                     line = LogLine(
                         seq=int(ev.get("seq", 0)),
                         t_ns=t_ns,
@@ -184,17 +210,18 @@ def build_lines(
                         instrument=inst,
                         source=source_label(ev, lang),
                         command="",
-                        result_kind="binary" if ev.get("size") else "ok",
+                        result_kind="binary" if binary else "ok",
                         result=ev.get("text") or "",
-                        binary_size=ev.get("size"),
+                        binary_size=ev.get("size") if binary else None,
                     )
                     lines.append(line)
             continue
 
         # Everything else is a fullscreen-only line (tui-screens.md 7.1).
+        resolve_pending_error(ev)
         inst = ev.get("instrument") or ""
         source = source_label(ev, lang)
-        base = dict(seq=int(ev.get("seq", 0)), t_ns=t_ns, instrument=inst, source=source)
+        base = dict(seq=int(ev.get("seq", 0)), t_ns=t_ns, instrument=inst, source=source, kind=kind)
         if kind == "state":
             path = ev.get("path") or ""
             label = labels.get((inst, path)) or (path.rsplit(".", 1)[-1] if path else "")
@@ -233,6 +260,9 @@ def build_lines(
             lines.append(LogLine(command=command, **base))
         # Other kinds (session, …) have no line in the log.
 
+    # An error buffered at the very end of the stream still belongs to the open write it follows.
+    if pending_error is not None:
+        resolve_pending_error({"kind": "stream-end"}, None)
     return lines
 
 

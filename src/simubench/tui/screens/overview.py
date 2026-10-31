@@ -43,6 +43,7 @@ class Card(Static):
     Card {
         width: 32;
         height: auto;
+        margin-right: 2;
         border: round $muted 60%;
         padding: 0 0;
         border-title-align: left;
@@ -65,7 +66,8 @@ class Card(Static):
         from ..widgets import style_of
 
         self.border_title = render_segments(self.app, self.card.title)
-        width = max(2, self.size.width - 2) if self.size.width else 30
+        # size is the content area (the border is outside it): 30 columns for a 32-wide card.
+        width = self.size.width or 30
         text = Text()
         for line in self.card.lines:
             used = 0
@@ -152,9 +154,7 @@ class OverviewScreen(ShellScreen):
             grid.mount(Static(i18n.t("connect.screen", app.lang), id="connecting-note"))
             return
         cards = build_cards(session, app.readings, app.levels, app.screen_data, app.catalog, app.lang)
-        columns = (
-            max(1, (grid.size.width + 2) // 34) if grid.size.width else max(1, (app.size.width + 2) // 34)
-        )
+        columns = self._columns()
         for row_start in range(0, len(cards), columns):
             row = cards[row_start : row_start + columns]
             height = max(len(c.lines) for c in row)
@@ -178,7 +178,7 @@ class OverviewScreen(ShellScreen):
         shown = lines[-50:]
         title = i18n.t("log.title", lang)
         count = i18n.t("log.count", lang, count=len(lines))
-        inner = max(20, app.size.width - 2)
+        inner = max(20, app.size.width - 4)  # border 2 + the rows' padding 2
         self._log_box.border_title = _box_title(title, count, inner)
         self._log_box.styles.height = self._log_rows + 2
         self._log.update(log_text(app, shown, lang, width=inner))
@@ -214,7 +214,8 @@ class OverviewScreen(ShellScreen):
         cards[target].focus()
 
     def _columns(self) -> int:
-        return max(1, (self._grid.size.width + 2) // 34) if self._grid.size.width else 3
+        """``floor((W + 2) / 34)`` for the screen width W (tui-screens.md 4.1)."""
+        return max(1, (self.app.size.width + 2) // 34)
 
     def action_focus_next(self) -> None:
         cards = list(self._grid.query(Card))
@@ -250,6 +251,7 @@ class _LogBox(VerticalScroll):
         border: round $muted 60%;
         height: auto;
         border-title-align: left;
+        scrollbar-size-vertical: 0;
     }
     """
 

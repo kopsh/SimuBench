@@ -19,7 +19,7 @@ from textual.binding import Binding
 
 from . import i18n, theme
 from .client import ApiClient, ApiError, stream_events, ws_url
-from .log import LogLine, build_lines, pending_writes
+from .log import LogLine, build_lines
 from .store import EventStore
 from .widgets import clock_activity
 
@@ -55,14 +55,14 @@ class SimuBenchApp(App[None]):
     """``simubench tui``: overview, communication log, and the connection states of section 3."""
 
     CSS = """
-    Screen { background: $background; }
+    Screen { background: $background; scrollbar-size-vertical: 0; scrollbar-size-horizontal: 0; }
     Static#connecting-note { padding: 1 2; color: $muted; }
     Static#message { color: $fg; }
     Static#embedded-log { padding: 0 1; }
     #log-box { border: round $muted 60%; border-title-align: left; }
     #log-rows { padding: 0 1; }
-    #cards { height: 1fr; padding: 0 1; overflow-y: auto; scrollbar-size-vertical: 0; }
-    #cards Horizontal { height: auto; align: left top; }
+    #cards { height: 1fr; overflow-y: auto; scrollbar-size-vertical: 0; }
+    #cards Horizontal { height: auto; align: left top; overflow-x: hidden; }
     #embedded-log { scrollbar-size-vertical: 0; }
     #log-filter { display: none; border: round $focus; }
     """
@@ -110,7 +110,7 @@ class SimuBenchApp(App[None]):
         self.data_version = 0
         self.reason: str | None = None  # why the picker came up again (session closed)
         self._stop = asyncio.Event()
-        self._task: asyncio.Task | None = None
+        self._conn_task: asyncio.Task | None = None
         self._backoff = 1.0
         self._dirty_instr: set[str] = set()
         self._dirty_levels = False
@@ -134,7 +134,7 @@ class SimuBenchApp(App[None]):
         if self.sid:
             self.push_overview()
             self._bench_sha = _hash_file(self.bench_path)
-            self._task = asyncio.create_task(self._connection_loop())
+            self._conn_task = asyncio.create_task(self._connection_loop())
         else:
             await self._attach_flow()
 
@@ -164,29 +164,34 @@ class SimuBenchApp(App[None]):
         await self._show_picker()
 
     async def _show_picker(self, reason: str | None = None) -> None:
+        """Show the session picker, replacing whatever main screen is on top (tui-screens.md 3)."""
         from .screens.states import PickerScreen
 
         self.sid = None
         self.reason = reason or self.reason
-        self.switch_screen(PickerScreen(self.url, reason=self.reason))
-        self.reason = None
-
-    async def connect(self, sid: str) -> None:
-        """Leave the picker (or start up) for a session: show the overview and connect."""
-        from .screens.states import PickerScreen
-
-        if isinstance(self.screen, PickerScreen):
+        while len(self.screen_stack) > 1:  # keep the app's default screen at the bottom
             self.pop_screen()
-        self.sid = sid
-        self.conn = "connecting"
-        self.push_overview()
-        if self._task is None or self._task.done():
-            self._task = asyncio.create_task(self._connection_loop())
+        if not isinstance(self.screen, PickerScreen):
+            self.push_screen(PickerScreen(self.url, reason=self.reason))
+        self.reason = None
 
     def push_overview(self) -> None:
         from .screens.overview import OverviewScreen
 
         self.push_screen(OverviewScreen())
+
+    async def connect(self, sid: str) -> None:
+        """Leave the picker (or start up) for a session: show the overview and connect."""
+        from .screens.overview import OverviewScreen
+        from .screens.states import PickerScreen
+
+        self.sid = sid
+        self.conn = "connecting"
+        if isinstance(self.screen, PickerScreen):
+            self.pop_screen()  # the picker leaves the stack
+        self.push_screen(OverviewScreen())
+        if self._conn_task is None or self._conn_task.done():
+            self._conn_task = asyncio.create_task(self._connection_loop())
 
     def show(self, key: str) -> None:
         """Push a registered screen; no-op when it is already on top (the registry, section 2.3)."""
@@ -443,7 +448,8 @@ class SimuBenchApp(App[None]):
         if self.conn == "disconnected":
             remaining = max(0, round(self.retry_at - time.monotonic()))
             return [("✕ ", "bad"), (i18n.t("topbar.disconnected", lang, seconds=remaining), "bad")]
-        busy = bool(pending_writes(self.lines))
+        events = self.store.events
+        busy = bool(events) and events[-1].get("kind") == "scpi" and events[-1].get("dir") == "write"
         return clock_activity(self, lang, self.clock_mode(), busy)
 
     # ---- quit and rebuild -----------------------------------------------------------------------------

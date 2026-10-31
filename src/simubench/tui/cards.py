@@ -229,7 +229,7 @@ def _channel_rows(
         port = next((p for p in info["ports"] if p.get("channel") == ch), None)
         level = level_of(port.get("net")) if port else None
         wave = braille(level.get("wave", []), 6) if level else "⠀" * 6
-        scale = fmt(_value(state, f"ch{ch}.scale"), "V") + "/div"
+        scale = fmt(_value(state, f"ch{ch}.scale"), "V", digits=4) + "/div"
         coupling = _option(state.get(f"ch{ch}.coupling"), _value(state, f"ch{ch}.coupling"))
         rows.append(
             [
@@ -261,11 +261,11 @@ def scope_rows(
             if screen.get("waiting")
             else (t("cards.running", lang) if screen.get("running") else t("cards.stopped", lang))
         )
-    tb = fmt(_value(state, "timebase.scale"), "S") + "/div"
+    tb = fmt(_value(state, "timebase.scale"), "S", digits=4) + "/div"
     rows.append([(t("cards.timebase", lang) + " ", "muted"), (tb + (f" · {run}" if run else ""), "")])
     src = _option(state.get("trigger.source"), _value(state, "trigger.source"))
     slope = "↑" if str(_value(state, "trigger.slope")).lower().startswith("ri") else "↓"
-    level = fmt(_value(state, "trigger.level"), "V")
+    level = fmt(_value(state, "trigger.level"), "V", digits=4)
     mode = _option(state.get("trigger.mode"), _value(state, "trigger.mode"))
     rows.append([(t("cards.trigger", lang) + " ", "muted"), (f"{src} {slope} {level} {mode}", "")])
     return rows
@@ -279,8 +279,8 @@ def generator_rows(info: Mapping[str, Any], state: Mapping[str, dict], lang: str
     for ch in channels:
         on = bool(_value(state, f"ch{ch}.output"))
         wave = _option(state.get(f"ch{ch}.function"), _value(state, f"ch{ch}.function"))
-        freq = fmt(_value(state, f"ch{ch}.frequency"), "HZ")
-        amp = fmt(_value(state, f"ch{ch}.amplitude"), "V")
+        freq = fmt(_value(state, f"ch{ch}.frequency"), "HZ", digits=4)
+        amp = fmt(_value(state, f"ch{ch}.amplitude"), "V", digits=4)
         rows.append(
             [
                 (f"CH{ch} ", "muted"),
