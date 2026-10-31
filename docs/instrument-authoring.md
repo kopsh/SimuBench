@@ -205,6 +205,7 @@ params:
 | `validate_definition` | 5.1 |
 | `draft_definition_from_script` | 在 `draft_bench_from_script` 的静态分析之上，为模型不支持的命令生成命令与状态量草稿（类型按参数推测，标为待确认） |
 | `run_cases` | 5.5，返回每条用例的结果 |
+| `list_templates` / `get_template` / `create_definition_from_template` | 7.4：用数据手册的语言填写模板的输入，展开为定义 |
 
 工具共享现有的限流与 `guard`；不写代码文件。
 
@@ -338,6 +339,16 @@ display:
 | `get_template` | 输入的 JSON Schema 与一份示例输入 |
 | `create_definition_from_template` | 按输入展开并保存；输入的诊断指向 `template.inputs` 下的字段 |
 | `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录 |
+
+**T1 的实现（#125）**：
+
+- `library/templates/`：每个模板是一个 `Template`（`id`、`version`、类别、中英文名称、说明），带一个输入的 pydantic 模型（导出 JSON Schema，每个字段有 `title`、`title_en`、`description`，有单位的带 `unit`）、一份示例输入、生成函数 `build` 与检查函数 `check`。`check` 做 schema 表达不了的检查（顺序、覆盖、引用），诊断码 `E-TPL-*`，指针在 `/template/inputs` 下；输入有错时不生成定义。
+- 展开得到普通定义，`template: {id, version, inputs}` 原样记下输入；`InstrumentDefinition.template` 只是记录，加载与运行时忽略它（去掉它，仪表的行为不变）。
+- 示波器模板（`oscilloscope`，版本 1）的输入：身份；通道（数量、输入阻抗的关键字与电阻电容、带宽与响应形状、带宽限制、耦合、上电显示的通道）；垂直（档位范围、按 V/div 递增的档位表：偏置范围、噪声、增益误差限与偏置误差限，超范围报错或钳位，探头比的范围与换算，偏置 DAC 误差限）；ADC（位数、每格码值、格数、最高采样率、交织映射与成对时的采样率、偏置方向）；时基（范围、记录长度列表、存储深度、参考位置、时基误差限）；触发（触发方式、触发沿、外触发、电源触发、迟滞、电平范围、抖动）；采集（方式、平均次数、同步规则）；自动测量；波形传输（格式、每格码值、字节序、无符号）；命令方言（通用 SCPI 示波器命令集，`:SINGle` 为采集一次、布防或没有，可选 `:RUN` / `:STOP`）；技术指标。个体偏差的范围写在档位表与时基中，与技术指标分开（D3）。
+- 响应形状目前只有一阶低通（`scope_vertical` 只模拟这一种），输入中只列这一项；高斯与频响表要先有组件能力。
+- 给了存储深度时，记录按存储深度与 1-2-5 采样率取得，`:WAVeform:POINts` 的点数在记录上均匀抽取，`:WAVeform:PREamble?` 用 `waveform_transfer` 的声明式前导描述实际发送的点；不给时记录就是点数设置，前导用 `scope_acquisition` 的通用前导（与 `sb-dso-4` 相同）。
+- MCP：`list_templates`、`get_template`（schema 与示例）、`create_definition_from_template`（输入有错时返回诊断、不保存；保存进入版本历史，来源 `agent`；给出 `base_sha256` 时按新输入重新展开、覆盖已有文件）。
+- 验收（`tests/test_templates.py`、`tests/test_mcp.py`）：示例输入展开后没有诊断，只用通用组件；按 `sb-dso-4` 的数据填写的输入生成的示波器，对验收场景的 56 条命令（34 条查询，32 条有回复）的回复与 `sb-dso-4` 逐字节相同；示例接入信号源后，按前导重建的波形与记录一致、测量与触发正确、`:SINGle` 在虚拟时间中完成；个体偏差随种子复现且在档位表的限值内；十个错误输入各有诊断，指针指向输入字段。
 
 Web 验收页需要的读接口（7.2）由 HTTP 提供：定义的概览与命令表、修改记录与变更说明、试运行与用例运行。HTTP 不提供写定义的接口。
 

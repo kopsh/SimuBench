@@ -309,6 +309,16 @@ class Reference(_Model):
     firmware: str | None = Field(None, description="Firmware version the manual describes")
 
 
+class TemplateSource(_Model):
+    """The template a definition was expanded from and the inputs it was given (instrument-authoring.md
+    7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the
+    definition as the template generated it."""
+
+    id: str = Field(..., description="Template id, e.g. 'oscilloscope'")
+    version: int = Field(..., ge=1, description="Template version the inputs were expanded with")
+    inputs: dict[str, Any] = Field(..., description="The inputs, in the template's data-sheet language")
+
+
 class Identity(_Model):
     idn: str = "{manufacturer},{model},{serial},{firmware}"
     serial: str = "SB000001"
@@ -477,6 +487,11 @@ class InstrumentDefinition(_Model):
     commands: list[CommandSpec] = Field(default_factory=list)
     display: Display = Field(default_factory=Display)
     capabilities: list[str] = Field(default_factory=list)
+    template: TemplateSource | None = Field(
+        None,
+        description="The template and inputs this definition was expanded from (a record; not used when "
+        "loading or running)",
+    )
     # ---- real models (D42, docs/real-models.md) ----
     reference: Reference | None = Field(
         None,

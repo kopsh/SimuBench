@@ -30,6 +30,8 @@ from .engine.edit import EditError, EditOp
 from .engine.faults import LinkDown
 from .engine.jsonpatch import PatchError, PatchOp
 from .engine.scriptscan import draft_bench, draft_definition
+from .library.templates import get_template as template_by_id
+from .library.templates import templates as instrument_templates
 from .models.bench import Fault
 from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
@@ -47,8 +49,9 @@ marked as the DUT, the object under test or calibration (dut: true). Typical flo
    or draft_bench_from_script to start from an existing PyVISA test program;
 3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
    run_cases checks instruments against a cases file of commands and expected replies;
-   to build an instrument the library lacks: draft_definition_from_script or create_definition,
-   then edit_definition (JSON Patch) / validate_definition until clean, then run_cases;
+   to build an instrument the library lacks: list_templates / get_template and
+   create_definition_from_template (fill in the data sheet), draft_definition_from_script or
+   create_definition, then edit_definition (JSON Patch) / validate_definition until clean, then run_cases;
 4. start_session deploys the bench: instruments answer SCPI at the returned addresses, and the
    engineer watches it in the Web Bench;
 5. send_scpi / get_instrument_state / read_log to drive and observe it;
@@ -444,6 +447,56 @@ def build_server(
         except Exception as exc:
             raise fail(exc) from None
         return out
+
+    @mcp.tool()
+    def list_templates() -> list[dict[str, Any]]:
+        """Instrument templates: fill in a model's data sheet and the template generates the definition
+        (components, settings, commands), so an instrument need not be built from components."""
+        guard()
+        return [t.summary() for t in instrument_templates()]
+
+    @mcp.tool()
+    def get_template(template_id: str) -> dict[str, Any]:
+        """A template's inputs as a JSON Schema (each field with its Chinese and English label, unit and
+        description) and an example input that expands clean."""
+        guard()
+        try:
+            t = template_by_id(template_id)
+        except KeyError as exc:
+            raise ToolError(str(exc.args[0])) from None
+        return {**t.summary(), "schema": t.schema(), "example": t.example()}
+
+    @mcp.tool()
+    def create_definition_from_template(
+        template_id: str,
+        definition_id: str = Field(..., description="The new id; the file is instruments/<id>.yaml"),
+        inputs: dict[str, Any] = Field(
+            ..., description="The template's inputs (get_template has the schema)"
+        ),
+        base_sha256: str | None = Field(
+            None, description="Expand again over an existing workspace definition: the sha256 you read"
+        ),
+    ) -> dict[str, Any]:
+        """Expand a template into a definition and save it in the workspace's instruments/ (the version
+        history records the agent). The file records template: {id, version, inputs}; later changes are
+        either new inputs (expand again with base_sha256) or edit_definition on the result. Diagnostics
+        on the inputs point under /template/inputs and nothing is saved until they are fixed."""
+        guard()
+        try:
+            t = template_by_id(template_id)
+        except KeyError as exc:
+            raise ToolError(str(exc.args[0])) from None
+        out = t.expand(inputs, definition_id)
+        if out.definition is None:
+            return {"saved": False, "diagnostics": [d.as_dict() for d in out.diagnostics]}
+        try:
+            if base_sha256 is None:
+                doc = definitions.create(definition_id, out.definition, "agent")
+            else:
+                doc = definitions.save(definition_id, base_sha256, out.definition, "agent")
+        except Exception as exc:
+            raise fail(exc) from None
+        return {"saved": True, **definition_out(doc)}
 
     @mcp.tool()
     def draft_bench_from_script(
