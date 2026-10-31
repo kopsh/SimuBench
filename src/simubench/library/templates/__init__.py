@@ -38,6 +38,25 @@ class InputProblem:
 
 
 @dataclass
+class Filled:
+    """Where a pre-filled input came from: a line of the script, or a default to confirm."""
+
+    pointer: str  # under /template/inputs
+    value: Any
+    source: str  # "script" | "default"
+    line: int | None = None
+    note: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        out = {"pointer": self.pointer, "value": self.value, "source": self.source}
+        if self.line is not None:
+            out["line"] = self.line
+        if self.note:
+            out["note"] = self.note
+        return out
+
+
+@dataclass
 class Expansion:
     """What expanding a template gave: the definition (None when the inputs have errors) and the
     diagnostics, those on the inputs first."""
@@ -64,6 +83,11 @@ class Template:
     build: Callable[[Any], dict[str, Any]]
     #: problems the schema cannot express
     check: Callable[[Any], list[InputProblem]] = lambda _inputs: []
+    #: command-set variant -> inputs that switch on everything the variant can answer (its command
+    #: signature, used to recognise a script's instrument, #145)
+    variants: Callable[[], dict[str, dict[str, Any]]] = lambda: {}
+    #: (variant, the script's commands to this instrument, hints) -> (inputs, where each came from)
+    prefill: Callable[[str, list[Any], dict[str, Any]], tuple[dict[str, Any], list[Filled]]] | None = None
 
     def summary(self) -> dict[str, Any]:
         return {

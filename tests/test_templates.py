@@ -4,6 +4,7 @@ the oscilloscope template generates section 8's modules and a generic SCPI comma
 from __future__ import annotations
 
 import copy
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -107,7 +108,7 @@ def _bench(
     single acquisitions complete in virtual time needs a clock that moves with the commands."""
     (tmp_path / "instruments").mkdir(exist_ok=True)
     (tmp_path / "instruments" / f"{definition['id']}.yaml").write_text(
-        yaml.safe_dump(definition, allow_unicode=True), "utf-8"
+        yaml.safe_dump(definition, allow_unicode=True, sort_keys=False), "utf-8"
     )
     bench = yaml.safe_load((ROOT / "acceptance" / "benches" / "awg_rc_scope.bench.yaml").read_text("utf-8"))
     bench["instruments"]["scope"] = {"model": definition["id"], "deviation": deviation}
@@ -350,3 +351,73 @@ def test_a_definition_expanded_by_hand_runs_like_any_other():
         assert float(s.read("scope")) == pytest.approx(2.0)
     finally:
         s.close()
+
+
+#: The low-frequency bench's reference scope as a data sheet, in LeCroy's command set (#145).
+LFCAL_SCOPE_INPUTS = {
+    "identity": {
+        "manufacturer": "LeCroy", "model": "LFCAL-REFSCOPE", "serial": "LCRY0000001", "firmware": "9.6.0",
+        "idn": "{manufacturer},{model},{serial},{firmware}",
+    },
+    "channels": {
+        "count": 4, "bandwidth_hz": 2.5e9, "couplings": ["DC", "AC", "GND"],
+        "impedances": [
+            {"name": "ONEMeg", "ohms": 1.0e6, "capacitance_f": 1.6e-11},
+            {"name": "FIFTy", "ohms": 50.0, "capacitance_f": 1.6e-11},
+        ],
+    },
+    "vertical": {
+        "scale_range": [1e-3, 10.0], "default_scale": 0.05, "ladder": False, "offset_max_v": 100.0,
+        "probe_range": [1e-4, 1e4], "table": [{"v_div": 1e-3, "noise_v_rms": 2e-4}],
+    },
+    "adc": {"bits": 12, "divisions": 10.0, "max_rate": 2e10},
+    "timebase": {
+        "scale_range": [2e-11, 1000.0], "default_scale": 1e-3, "ladder": False,
+        "memory_sizes": {"min": 500, "max": 50_000_000, "default": 10_000},
+    },
+    "trigger": {"slopes": ["POSitive", "NEGative"], "external": True, "line": True, "auto_windows": 2},
+    "measurements": ["VAMPlitude", "VPP", "VMAX", "VMIN", "VAVerage", "VRMS", "FREQuency", "PERiod"],
+    "transfer": {"max_points": 30000},
+    "dialect": {"command_set": "lecroy-scope", "unknown_commands": "ignore"},
+}  # fmt: skip
+
+
+def test_the_lecroy_command_set_writes_the_low_frequency_reference_scope(tmp_path):
+    from simubench.library.coverage import run_cases
+    from test_signal_source import LFCAL_INPUTS, SOURCE
+
+    work = tmp_path / "lowfreq-cal"
+    shutil.copytree(ROOT / "examples" / "lowfreq-cal", work, ignore=shutil.ignore_patterns("__pycache__"))
+    scope = _expand(LFCAL_SCOPE_INPUTS, "lfcal-reference-scope")
+    source = SOURCE.expand(LFCAL_INPUTS, "lfcal-scope-calibrator")
+    assert source.ok and source.definition is not None
+    for definition in (scope, source.definition):
+        (work / "instruments" / f"{definition['id']}.yaml").write_text(
+            yaml.safe_dump(definition, allow_unicode=True, sort_keys=False), "utf-8"
+        )
+    results = run_cases(work / "cases.yaml")
+    failed = [(r.name, r.command, r.expected, r.actual, r.error) for r in results if not r.passed]
+    assert len(results) == 11 and not failed, failed
+
+
+@pytest.mark.parametrize(
+    ("change", "expected"),
+    [
+        pytest.param(
+            lambda x: x["timebase"].pop("memory_sizes"),
+            ("E-TPL-MISSING", "/timebase/memory_sizes"),
+            id="lecroy-without-memory-sizes",
+        ),
+        pytest.param(
+            lambda x: x["channels"]["impedances"][1].update(ohms=75.0),
+            ("E-TPL-UNSUPPORTED", "/channels/impedances/1/ohms"),
+            id="lecroy-75-ohm",
+        ),
+    ],
+)
+def test_a_wrong_lecroy_input_is_named_by_its_pointer(change, expected):
+    inputs = copy.deepcopy(LFCAL_SCOPE_INPUTS)
+    change(inputs)
+    code, path = expected
+    out = SCOPE.expand(inputs, "bad")
+    assert (code, INPUTS + path) in [(d.code, d.pointer) for d in out.diagnostics]

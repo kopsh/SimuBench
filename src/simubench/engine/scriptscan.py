@@ -234,33 +234,101 @@ def instance_name(key: str, taken: set[str]) -> str:
     return name
 
 
+#: A template suggestion for a scanned instrument: (resource, instance name) -> the suggestion, or None.
+Suggest = Callable[[ScannedResource, str], "dict[str, Any] | None"]
+CHANNEL_NUMBER = re.compile(
+    r"(?:^|[:;])\s*(?:C|CH|CHAN|CHANNEL|SOUR|SOURCE|OUTP|OUTPUT)(\d+)\b", re.IGNORECASE
+)
+
+
+def _first_channel(res: ScannedResource) -> int:
+    found = [int(m.group(1)) for c in res.commands for m in CHANNEL_NUMBER.finditer(c.text)]
+    return min(found) if found else 1
+
+
 def draft_bench(
     source: str,
     definitions: Callable[[], list[InstrumentDefinition]],
     name: str = "draft",
+    suggest: Suggest | None = None,
 ) -> dict[str, Any]:
-    """Scan ``source`` and return ``{"bench": <bench data>, "report": [...], "notes": [...]}``."""
+    """Scan ``source`` and return ``{"bench": <bench data>, "report": [...], "notes": [...]}``.
+
+    An instrument no library definition speaks gets a template suggestion from ``suggest`` (#145):
+    the template, its command set and pre-filled inputs; the bench names the definition the agent
+    then creates with create_definition_from_template."""
     scan = scan_python(source)
     defs = definitions()
+    by_id = {d.id: d for d in defs}
     taken: set[str] = set()
     instruments: dict[str, Any] = {}
     layout: dict[str, Any] = {}
     report = []
     notes = [*scan.notes]
+    # instance -> (instrument class, channel port pattern, first channel the script names)
+    roles: dict[str, tuple[str, str | None, int]] = {}
     for res in scan.resources:
         ranked = rank(res, defs)
         best = ranked[0] if ranked else None
         if best is not None and best.total and not best.supported:
             best = None  # nothing in the library speaks this instrument's commands
+        if best is not None and not best.total and res.commands:
+            # Only common commands (*IDN?, *RST): they say nothing about which instrument it is.
+            notes.append(f"{res.key}：只发了公共命令（如 *IDN?），看不出是哪台仪表，未加入草稿")
+            continue
         inst = instance_name(res.key, taken)
-        if best is not None:
-            entry: dict[str, Any] = {"model": best.definition_id}
+        template = None
+        if suggest is not None and (best is None or best.supported < best.total):
+            template = suggest(res, inst)
+            if template is not None and best is not None and template.get("supported", 0) <= best.supported:
+                template = None  # the library already does as well
+        if template is not None:
+            entry: dict[str, Any] = {"model": template["definition_id"]}
             if res.address:
                 entry["address"] = res.address
             instruments[inst] = entry
             layout[inst] = {"x": len(layout) * 320.0, "y": 60.0}
+            roles[inst] = (
+                template.get("instrument_class", ""),
+                template.get("channel_port"),
+                _first_channel(res),
+            )
+            notes.append(
+                f"{res.key}：仪表定义库中没有完整支持其命令的仪表；建议用模板 {template['template']}"
+                f"（{template['variant']}）创建 {template['definition_id']}：create_definition_from_template 直接接收"
+                "报告中的 inputs，其中来源为 default 的项待确认"
+            )
+        elif best is not None:
+            entry = {"model": best.definition_id}
+            if res.address:
+                entry["address"] = res.address
+            instruments[inst] = entry
+            layout[inst] = {"x": len(layout) * 320.0, "y": 60.0}
+            d = by_id.get(best.definition_id)
+            if d is not None:
+                roles[inst] = (d.instrument_class, next(iter(d.ports.channel), None), _first_channel(res))
         else:
             notes.append(f"{res.key}：仪表定义库中没有支持其命令的仪表，未加入草稿")
+        if template is not None:
+            report.append(
+                {
+                    "instance": inst,
+                    "receiver": res.key,
+                    "address": res.address,
+                    "line": res.line,
+                    "model": template["definition_id"],
+                    "commands": len(res.commands),
+                    "supported": template.get("supported", 0),
+                    "checked": template.get("checked", 0),
+                    "unsupported": template.get("unsupported", []),
+                    "template": template,
+                    "alternatives": [
+                        {"model": c.definition_id, "supported": c.supported, "checked": c.total}
+                        for c in ranked[:2]
+                    ],
+                }
+            )
+            continue
         report.append(
             {
                 "instance": inst,
@@ -283,16 +351,41 @@ def draft_bench(
                 ],
             }
         )
-    if instruments:
+    wires: list[dict[str, Any]] = []
+    inferred: list[dict[str, Any]] = []
+    scopes = [i for i, r in roles.items() if r[0] == "oscilloscope" and r[1]]
+    sources = [i for i, r in roles.items() if r[0] in ("function_generator", "calibrator") and r[1]]
+    if len(scopes) == 1 and len(sources) == 1:
+        (s_inst,), (g_inst,) = scopes, sources
+        g_port = str(roles[g_inst][1]).replace("{n}", str(roles[g_inst][2]))
+        s_port = str(roles[s_inst][1]).replace("{n}", str(roles[s_inst][2]))
+        wires.append({"from": f"{g_inst}.{g_port}", "to": f"{s_inst}.{s_port}"})
+        inferred.append(
+            {
+                "from": f"{g_inst}.{g_port}",
+                "to": f"{s_inst}.{s_port}",
+                "why": f"推断：脚本中信号源用通道 {roles[g_inst][2]}，示波器读通道 {roles[s_inst][2]}，按直连线缆接上",
+            }
+        )
+        notes.append(
+            f"连线 {g_inst}.{g_port} → {s_inst}.{s_port} 是推断的（脚本中看不出接线）；有 DUT 时请改为经过 DUT"
+        )
+    elif instruments:
         notes.append("脚本中看不出接线：草稿只有仪表，请补充 DUT 与连线")
-    bench = {
+    bench: dict[str, Any] = {
         "schema": "simubench.bench/2",
         "name": name,
         "description": "由脚本生成的草稿",
         "instruments": instruments,
         "layout": layout,
     }
-    return {"bench": bench, "report": report, "notes": notes}
+    if wires:
+        bench["wires"] = wires
+    if instruments:
+        # The same script gives the same numbers: a fixed seed, time moving with the commands, no idle drift.
+        bench["run"] = {"seed": 1, "clock": "command", "idle": "off"}
+        notes.append("运行方式取确定性的默认：固定种子 1、clock: command（虚拟时间随命令推进）、idle: off")
+    return {"bench": bench, "report": report, "notes": notes, "inferred_wires": inferred}
 
 
 # ---- definition drafts (instrument-authoring.md 5.4) --------------------------------------------------
