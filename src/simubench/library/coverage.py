@@ -303,14 +303,15 @@ class CaseResult:
 def open_case_bench(cases_file: Path, cases: Cases, definition_dirs: list[Path] | None = None) -> Session:
     """A freshly powered bench for one case: the cases' bench file, or the instrument alone.
 
-    Definitions are looked up next to the cases file (a model under development), in
-    ``definition_dirs`` and in the library."""
+    Idle time does not move virtual time (``idle: off``, D47): a case's result depends on its commands
+    alone, not on how fast the machine running it is. Definitions are looked up next to the cases
+    file (a model under development), in ``definition_dirs`` and in the library."""
     from ..api import open_bench
     from ..models.bench import BenchDefinition
 
     dirs = [cases_file.parent, *(definition_dirs or [])]
     if cases.bench:
-        return open_bench(cases_file.parent / cases.bench, definition_dirs=dirs)
+        return open_bench(cases_file.parent / cases.bench, idle="off", definition_dirs=dirs)
     bench = BenchDefinition.model_validate(
         {
             "schema": "simubench.bench/2",
@@ -318,7 +319,7 @@ def open_case_bench(cases_file: Path, cases: Cases, definition_dirs: list[Path] 
             "instruments": {cases.instrument: {"model": cases.model}},
         }
     )
-    return open_bench(bench, definition_dirs=dirs)
+    return open_bench(bench, idle="off", definition_dirs=dirs)
 
 
 def _reply(session: Session, instrument: str, step: Step) -> str | None:
