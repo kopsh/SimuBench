@@ -184,6 +184,7 @@ TERMS: dict = {
         "actual": "实际",
         "limit": "限值",
         "regulation": "调节",
+        "probe": "探头",
         "function": "功能",
         "readonlyHint": "{instrument} 正被 {source} 远程控制：设置只读。L 本地接管（脚本下一条命令会收回）",
         "stepHint": "按 e 输入数值",

@@ -157,8 +157,9 @@ def limited_report(
         return None
     regulation = str(values.get("core.regulation") or "CC")
     instrument = info.get("name", "")
-    set_path = "source.voltage.level" if regulation == "CV" else "source.current.level"
-    limit_path = "compliance.voltage.limit" if regulation == "CV" else "compliance.current.limit"
+    # CC: the current limit is active while the source forces a voltage; CV the other way round.
+    set_path = "source.current.level" if regulation == "CV" else "source.voltage.level"
+    limit_path = "compliance.current.limit"
     if regulation == "CC":
         conclusion = t(
             "reason.limitedCC",

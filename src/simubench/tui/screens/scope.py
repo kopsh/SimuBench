@@ -60,7 +60,8 @@ def trace_frame(trace: dict[str, Any], cols: int, rows: int) -> tuple[list[list[
         char_col, side = divmod(col, 2)
         if char_col >= cols:
             continue
-        for r in range(max(0, r_bottom), min(total_rows - 1, r_top) + 1):
+        # Dot row 0 is the top: the higher voltage paints the smaller row index.
+        for r in range(max(0, r_top), min(total_rows - 1, r_bottom) + 1):
             grid[r // 4][char_col] |= _BRAILLE[r % 4][side]
     return grid, clipped
 
@@ -174,6 +175,15 @@ class ScopeScreen(ShellScreen):
         self._last_rows = 0
         self._cursor_channel = 1
 
+    DEFAULT_CSS = """
+    #scope-top { height: 1fr; }
+    #wave-box { width: 1fr; }
+    #settings-box { width: 26; margin-left: 1; }
+    #settings-scroll { height: 1fr; }
+    .button-row { height: auto; }
+    .flash-line { color: $bad; }
+    """
+
     # ---- data ----------------------------------------------------------------------------------------
 
     @property
@@ -185,7 +195,8 @@ class ScopeScreen(ShellScreen):
         return {}
 
     @property
-    def screen(self) -> dict[str, Any] | None:
+    def frame(self) -> dict[str, Any] | None:
+        """The instrument's latest /screen payload (never Textual's ``screen``)."""
         app: Any = self.app
         return app.screen_data.get(self.instrument_name)
 
@@ -201,35 +212,33 @@ class ScopeScreen(ShellScreen):
 
     def body(self) -> ComposeResult:
         with Horizontal(id="scope-top"):
-            self._wave_box = _Box(id="wave-box")
-            self._wave_box.can_focus = False
             self._wave_silence = Static(id="wave-silence")
             self._wave_silence.can_focus = False
             self._wave_static = Static(id="wave-text")
             self._wave_static.can_focus = False
-            self._wave_box.mount(self._wave_silence, self._wave_static)
+            self._wave_box = _Box(self._wave_silence, self._wave_static, id="wave-box")
+            self._wave_box.can_focus = False
             yield self._wave_box
-            self._settings_box = _Box(id="settings-box")
-            self._settings_box.can_focus = False
-            self._settings_scroll = VerticalScroll(id="settings-scroll")
-            self._settings_scroll.can_focus = False
             self._settings_static = Static(id="settings-text")
             self._settings_static.can_focus = False
             self._settings_buttons = Vertical(id="scope-buttons")
             self._settings_flash = Static(classes="flash-line")
             self._settings_flash.can_focus = False
             self._settings_flash.display = False
-            self._settings_scroll.mount(self._settings_static, self._settings_buttons, self._settings_flash)
-            self._settings_box.mount(self._settings_scroll)
+            self._settings_scroll = VerticalScroll(
+                self._settings_static, self._settings_buttons, self._settings_flash, id="settings-scroll"
+            )
+            self._settings_scroll.can_focus = False
+            self._settings_box = _Box(self._settings_scroll, id="settings-box")
+            self._settings_box.can_focus = False
             yield self._settings_box
-        self._log_box = _Box(id="inst-log")
-        self._log_box.can_focus = False
         self._log_static = Static(id="inst-log-text")
         self._log_static.can_focus = False
-        self._log_box.mount(self._log_static)
+        self._log_box = _Box(self._log_static, id="inst-log")
+        self._log_box.can_focus = False
         yield self._log_box
-        self._console = ScpiConsole(self.instrument_name, self._console_submit)
-        yield self._console
+        self._scpi = ScpiConsole(self.instrument_name, self._console_submit)
+        yield self._scpi
 
     def on_mount(self) -> None:
         super().on_mount()
@@ -240,7 +249,7 @@ class ScopeScreen(ShellScreen):
         app: Any = self.app
         if app.sid is None or app.conn != "connected":
             return
-        data = self.screen
+        data = self.frame
         if data is None or not data.get("running"):
             return
         cols, _rows = self._wave_size()
@@ -270,9 +279,9 @@ class ScopeScreen(ShellScreen):
         self._last_version = app.data_version
         cols, rows = self._wave_size()
         state = {sv["path"]: sv for sv in self.info.get("state", [])}
-        text, clipped = render_wave(app, self.screen, cols, rows, state, app.lang, self._open_channels())
+        text, clipped = render_wave(app, self.frame, cols, rows, state, app.lang, self._open_channels())
         self._wave_static.update(text)
-        silences = silence_lines(app, self.screen, state, app.lang)
+        silences = silence_lines(app, self.frame, state, app.lang)
         self._wave_silence.update(silences)
         self._wave_silence.display = silences.plain != ""
         self._wave_box.border_title = self._wave_title(clipped)
@@ -297,7 +306,7 @@ class ScopeScreen(ShellScreen):
             left += f" · {tb}"
         else:
             left = tb
-        data = self.screen or {}
+        data = self.frame or {}
         if data.get("waiting"):
             run = (i18n.t("cards.waiting", lang), "focus")
         elif data.get("running"):
@@ -310,8 +319,12 @@ class ScopeScreen(ShellScreen):
         )
         for ch in clipped:
             left += "  " + i18n.t("scope.outOfScreen", lang, ch=f"CH{ch}")
-        self._wave_box.border_subtitle = right  # the right side of the title bar (6.1)
-        return left
+        # One title row: left, dashes, right (this Textual does not render border_subtitle).
+        from ..fmt import cell_len
+
+        width = max(30, self._wave_box.size.width + 2)  # the border row spans size + 2
+        gap = max(1, width - cell_len(left) - cell_len(right) - 4)
+        return f" {left} " + "─" * gap + f" {right} "
 
     # -- the settings column (6.2) -------------------------------------------------------------------------
 
@@ -427,14 +440,13 @@ class ScopeScreen(ShellScreen):
             impedance = C.summary_text(
                 (state.get(f"ch{ch}.impedance") or {}).get("value"), state.get(f"ch{ch}.impedance"), lang
             )
-            probe = fmt((state.get(f"ch{ch}.probe") or {}).get("value"), "×", digits=2)
+            probe = (state.get(f"ch{ch}.probe") or {}).get("value")
+            probe_text = f"{probe:g}" if isinstance(probe, (int, float)) else "?"
             rows.append(
                 [
-                    ("    ", "muted"),
+                    ("  ", "muted"),
                     (
-                        f"{coupling} · {impedance} · 探头 {probe}"
-                        if lang == "zh"
-                        else f"{coupling} · {impedance} · probe {probe}",
+                        f"{coupling} · {impedance} · {i18n.t('instrument.probe', lang)} {probe_text}",
                         "",
                     ),
                 ]
@@ -449,11 +461,11 @@ class ScopeScreen(ShellScreen):
                     ]
                 )
             else:
-                rows.append([("    " + i18n.t("scope.unwired", lang), "muted")])
+                rows.append([("  " + i18n.t("scope.unwired", lang), "muted")])
         if app.theme == "simubench-mono":
             rows.append([("", "")])
             rows.append([(i18n.t("scope.legend", lang, items="CH1 CH2 CH3 CH4"), "muted")])
-        width = SETTINGS_WIDTH - 2
+        width = max(16, self._settings_box.size.width)
         self._settings_static.update(box_text(app, rows, width))
         self._settings_box.border_title = i18n.t("scope.settings", lang)
 
@@ -656,7 +668,7 @@ class ScopeScreen(ShellScreen):
         app: Any = self.app
         if self._readonly_guard():
             return
-        data = self.screen or {}
+        data = self.frame or {}
         app.run_worker(self._panel("stop" if data.get("running") else "run"), exclusive=True)
 
     def action_single(self) -> None:
@@ -666,7 +678,7 @@ class ScopeScreen(ShellScreen):
         app.run_worker(self._panel("single"), exclusive=True)
 
     def action_console(self) -> None:
-        self._console.open()
+        self._scpi.open()
 
     async def _console_submit(self, command: str) -> tuple[str | None, str | None]:
         app: Any = self.app
@@ -696,7 +708,7 @@ class ScopeScreen(ShellScreen):
         info = self.info
         if not info:
             return None
-        data = self.screen or {}
+        data = self.frame or {}
         button = self._focused_button()
         channel = self._cursor_channel
         if button is not None and button.control.path and button.control.path.startswith("ch"):

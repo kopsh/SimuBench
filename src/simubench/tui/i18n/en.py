@@ -182,6 +182,7 @@ TERMS: dict = {
         "actual": "Actual",
         "limit": "Limit",
         "regulation": "Mode",
+        "probe": "probe",
         "function": "Function",
         "readonlyHint": "{instrument} is remote-controlled by {source}: settings are read-only. L takes it local (the script's next command takes it back)",
         "stepHint": "press e to enter a value",

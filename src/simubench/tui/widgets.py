@@ -228,7 +228,9 @@ def box_text(app: Any, lines: list[list[tuple[str, str]]], width: int) -> Text:
     from .fmt import cell_len, fit
 
     text = Text()
-    for line in lines:
+    for n, line in enumerate(lines):
+        if n:
+            text.append("\n")
         used = 0
         for value, tokens in line:
             room = width - used
@@ -242,7 +244,6 @@ def box_text(app: Any, lines: list[list[tuple[str, str]]], width: int) -> Text:
             used += cell_len(value)
         if width - used > 0:
             text.append(" " * (width - used))
-        text.append("\n")
     return text
 
 

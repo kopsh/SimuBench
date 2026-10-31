@@ -19,7 +19,7 @@ from textual.widgets import Static
 from .. import controls as C
 from .. import i18n
 from ..cards import ARROWS, opposite_ends
-from ..fmt import cell_len, fmt, fmt_ns, pad
+from ..fmt import cell_len, fmt, fmt_ns, pad, ralign
 from ..log import source_label
 from ..reasons import ReasonReport, error_report, fault_report, limited_report, setting_report
 from ..widgets import box_text, box_title, log_text, render_segments
@@ -88,6 +88,20 @@ class InstrumentScreen(ShellScreen):
         self._boxes: list[dict[str, Any]] = []
         self._other_entry: dict[str, Any] | None = None
 
+    DEFAULT_CSS = """
+    #remote-hint { color: $muted; }
+    #main-row { height: 1fr; }
+    #channel-area { width: 1fr; }
+    #wiring-box { width: 16; }
+    #load-box { width: 19; margin-left: 1; }
+    #side-row { height: auto; }
+    #other-box { width: 2fr; }
+    #error-box { width: 1fr; margin-left: 1; }
+    .button-row { height: auto; }
+    .flash-line { color: $bad; }
+    .reason-line { color: $fg; }
+    """
+
     # ---- data ----------------------------------------------------------------------------------------
 
     @property
@@ -117,53 +131,47 @@ class InstrumentScreen(ShellScreen):
         self._remote_hint = Static(id="remote-hint")
         self._remote_hint.display = False
         yield self._remote_hint
-        self._identity = _Box(id="identity")
-        self._identity.can_focus = False
         self._identity_static = Static(id="identity-text")
         self._identity_static.can_focus = False
-        self._identity.mount(self._identity_static)
+        self._identity = _Box(self._identity_static, id="identity")
+        self._identity.can_focus = False
         yield self._identity
         with Horizontal(id="main-row"):
             self._channels = VerticalScroll(id="channel-area")
             self._channels.can_focus = False
             yield self._channels
-            self._wiring = _Box(id="wiring-box")
-            self._wiring.can_focus = False
             self._wiring_static = Static(id="wiring-text")
             self._wiring_static.can_focus = False
-            self._wiring.mount(self._wiring_static)
+            self._wiring = _Box(self._wiring_static, id="wiring-box")
+            self._wiring.can_focus = False
             yield self._wiring
-            self._load = _Box(id="load-box")
-            self._load.can_focus = False
             self._load_static = Static(id="load-text")
             self._load_static.can_focus = False
-            self._load.mount(self._load_static)
+            self._load = _Box(self._load_static, id="load-box")
+            self._load.can_focus = False
             yield self._load
         with Horizontal(id="side-row"):
-            self._other = _Box(id="other-box")
-            self._other.can_focus = False
             self._other_static = Static(id="other-text")
             self._other_static.can_focus = False
             self._other_buttons = Horizontal(classes="button-row")
             self._other_flash = Static(classes="flash-line")
             self._other_flash.can_focus = False
             self._other_flash.display = False
-            self._other.mount(self._other_static, self._other_buttons, self._other_flash)
+            self._other = _Box(self._other_static, self._other_buttons, self._other_flash, id="other-box")
+            self._other.can_focus = False
             yield self._other
-            self._errors = _Box(id="error-box")
-            self._errors.can_focus = False
             self._error_static = Static(id="error-text")
             self._error_static.can_focus = False
-            self._errors.mount(self._error_static)
+            self._errors = _Box(self._error_static, id="error-box")
+            self._errors.can_focus = False
             yield self._errors
-        self._log_box = _Box(id="inst-log")
-        self._log_box.can_focus = False
         self._log_static = Static(id="inst-log-text")
         self._log_static.can_focus = False
-        self._log_box.mount(self._log_static)
+        self._log_box = _Box(self._log_static, id="inst-log")
+        self._log_box.can_focus = False
         yield self._log_box
-        self._console = ScpiConsole(self.instrument_name, self._console_submit)
-        yield self._console
+        self._scpi = ScpiConsole(self.instrument_name, self._console_submit)
+        yield self._scpi
 
     # ---- rendering ------------------------------------------------------------------------------------
 
@@ -283,20 +291,22 @@ class InstrumentScreen(ShellScreen):
         else:
             boxes = [("main", None)]
         for key, channel in boxes:
-            box = _Box(classes="channel-box")
-            box.can_focus = False
             rows = Static(classes="box-rows")
             rows.can_focus = False
             reason = Static(classes="reason-line")
             reason.can_focus = False
             reason.display = False
-            buttons = Horizontal(classes="button-row")
             flash = Static(classes="flash-line")
             flash.can_focus = False
             flash.display = False
-            self._channels.mount(box)
-            box.mount(rows, reason, buttons, flash)
             controls = self._controls_for(channel)
+            buttons = Horizontal(
+                *[ControlButton(c, f"ch:{key}") for c in controls if c.writable or c.kind == "buttons"],
+                classes="button-row",
+            )
+            box = _Box(rows, reason, buttons, flash, classes="channel-box")
+            box.can_focus = False
+            self._channels.mount(box)
             entry: dict[str, Any] = {
                 "box": box,
                 "rows": rows,
@@ -307,9 +317,6 @@ class InstrumentScreen(ShellScreen):
                 "key": key,
                 "controls": controls,
             }
-            buttons.mount(
-                *[ControlButton(c, f"ch:{key}") for c in controls if c.writable or c.kind == "buttons"]
-            )
             self._boxes.append(entry)
 
     def _controls_for(self, channel: int | None) -> list[C.Control]:
@@ -330,7 +337,9 @@ class InstrumentScreen(ShellScreen):
         return C.generic_controls(info, lang)
 
     def _channel_width(self) -> int:
-        return max(30, self.app.size.width - 4 - 30)  # the wiring and load boxes take ~14 each + gap
+        """The channel boxes' inner width: what the main row leaves for them (6.1's share)."""
+        area = self._channels.container_size.width or (self.app.size.width - 38)
+        return max(30, area)
 
     def _refresh_channels(self) -> None:
         app: Any = self.app
@@ -384,6 +393,7 @@ class InstrumentScreen(ShellScreen):
         regulation = str(readings.get("core.regulation") or "")
         voltage_limited = limited and regulation == "CV"
         current_limited = limited and regulation == "CC"
+        label_w, value_w = 4, 12
 
         def sv_text(path: str) -> str:
             sv = state.get(path) or {}
@@ -392,15 +402,16 @@ class InstrumentScreen(ShellScreen):
         def cell(label: str, value: str, mark: str = "") -> list[tuple[str, str]]:
             bold = value not in ("开", "关")
             return [
-                (pad(label, 4), "muted"),
-                (pad(value, 13), "bold" if bold else ""),
-                (mark, "bad" if mark else ""),
+                (pad(label, label_w), "muted"),
+                (ralign(value, value_w), "bold" if bold else ""),
+                (" " + mark if mark else "", "bad" if mark else ""),
             ]
 
+        col = label_w + value_w + 2
         header = [
-            (pad(i18n.t("instrument.colStatus", lang), 17), "muted"),
-            (pad(i18n.t("instrument.colVoltage", lang), 21), "muted"),
-            (pad(i18n.t("instrument.colCurrent", lang), 21), "muted"),
+            (pad(i18n.t("instrument.colStatus", lang), col), "muted"),
+            (pad(i18n.t("instrument.colVoltage", lang), col), "muted"),
+            (pad(i18n.t("instrument.colCurrent", lang), col), "muted"),
         ]
         status_rows = [
             self._row(i18n.t("cards.output", lang), sv_text("output.enabled"), bold=False),
@@ -408,7 +419,7 @@ class InstrumentScreen(ShellScreen):
         ]
         regulation_row: list[tuple[str, str]] = [(pad(i18n.t("instrument.regulation", lang), 6), "muted")]
         regulation_row.append((regulation or "—", "bad" if limited else ""))
-        gap = (" " * 4, "")
+        gap = [(" " * 2, "")]
         v1 = cell(i18n.t("instrument.set", lang), sv_text("source.voltage.level"))
         c1 = cell(i18n.t("instrument.set", lang), sv_text("source.current.level"))
         v2 = cell(i18n.t("instrument.actual", lang), fmt(readings.get("core.voltage"), "V"))
@@ -539,7 +550,7 @@ class InstrumentScreen(ShellScreen):
         info = self.info
         if template == "smu" and readings.get("core.limited"):
             regulation = str(readings.get("core.regulation") or "CC")
-            set_path = "source.voltage.level" if regulation == "CV" else "source.current.level"
+            set_path = "source.current.level" if regulation == "CV" else "source.voltage.level"
             state = {sv["path"]: sv for sv in info.get("state", [])}
             setting = C.summary_text((state.get(set_path) or {}).get("value"), state.get(set_path), lang)
             if regulation == "CV":
@@ -613,7 +624,7 @@ class InstrumentScreen(ShellScreen):
         groups: dict[str, list[str]] = {}
         for path in paths:
             groups.setdefault(path.split(".", 1)[0], []).append(path)
-        width = self._channel_width()
+        width = max(20, self._other.size.width)
         columns: list[list[list[tuple[str, str]]]] = []
         for name in list(groups)[:3]:
             col: list[list[tuple[str, str]]] = [[(name, "muted")]]
@@ -744,7 +755,7 @@ class InstrumentScreen(ShellScreen):
         if not info:
             return
         queue = info.get("errors", [])
-        width = self._channel_width()
+        width = max(20, self._errors.size.width)  # .size already excludes border and padding
         lines: list[list[tuple[str, str]]] = []
         for e in queue:
             lines.append([(str(e["code"]), "bad"), ("  " + e["message"], "bad")])
@@ -760,7 +771,7 @@ class InstrumentScreen(ShellScreen):
         self._errors.border_title = box_title(
             i18n.t("instrument.errorBox", lang),
             i18n.t("instrument.queueN", lang, count=len(queue)),
-            width,
+            max(22, self._errors.size.width + 2),
         )
         self._error_static.update(box_text(app, lines, width))
 
@@ -818,7 +829,7 @@ class InstrumentScreen(ShellScreen):
     # -- the log (5.1 #5) ------------------------------------------------------------------------------------
 
     def _log_rows(self) -> int:
-        return max(4, min(10, self.app.size.height - 22))
+        return max(4, min(6, self.app.size.height - 26))
 
     def _refresh_log(self) -> None:
         app: Any = self.app
@@ -1120,7 +1131,7 @@ class InstrumentScreen(ShellScreen):
             self.run_worker(self._run_writes(C.apply_sets(control), button), exclusive=True)
 
     def action_console(self) -> None:
-        self._console.open()
+        self._scpi.open()
 
     async def _console_submit(self, command: str) -> tuple[str | None, str | None]:
         """POST /scpi; the reply as text, an error as ``✗ code message`` (tui-screens.md 10.3)."""
