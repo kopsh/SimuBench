@@ -553,13 +553,13 @@ class SessionManager:
     # ---- actions ------------------------------------------------------------------------------------
 
     @staticmethod
-    def scpi(served: ServedSession, instrument: str, command: str) -> M.ScpiResponse:
+    def scpi(served: ServedSession, instrument: str, command: str, client: str = "ui") -> M.ScpiResponse:
         s = served.session
         inst = s.instrument(instrument)
         before = len(inst.errors)
         try:
             # Write and read in one action: a script's response cannot end up here (#121).
-            got = s.exchange(instrument, command.encode(), client="ui", reads=1)
+            got = s.exchange(instrument, command.encode(), client=client, reads=1)
             out = got[0] if got else None
         except LinkDown as exc:
             return M.ScpiResponse(link_error=str(exc), now_ns=s.now_ns)
@@ -572,9 +572,11 @@ class SessionManager:
         )
 
     @staticmethod
-    def configure(served: ServedSession, instrument: str, path: str, value: Any) -> M.ConfigureResponse:
+    def configure(
+        served: ServedSession, instrument: str, path: str, value: Any, client: str = "ui"
+    ) -> M.ConfigureResponse:
         s = served.session
-        err = s.try_configure(instrument, path, value, client="ui")
+        err = s.try_configure(instrument, path, value, client=client)
         current = _plain(s.instrument(instrument).state.get(path))
         if err is None:
             return M.ConfigureResponse(ok=True, value=current)
@@ -583,9 +585,9 @@ class SessionManager:
         )
 
     @staticmethod
-    def panel(served: ServedSession, instrument: str, action: str) -> M.PanelResponse:
+    def panel(served: ServedSession, instrument: str, action: str, client: str = "ui") -> M.PanelResponse:
         try:
-            served.session.panel(instrument, action, client="ui")
+            served.session.panel(instrument, action, client=client)
         except ScpiError as err:
             return M.PanelResponse(ok=False, error=M.ErrorItem(code=err.code, message=err.message))
         return M.PanelResponse(ok=True)
