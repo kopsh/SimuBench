@@ -30,8 +30,8 @@ from ..models import api as M
 from ..models.bench import Fault
 from ..models.definition import InstrumentDefinition
 from .benchfiles import Conflict, diagnostics
-from .definitionfiles import DefinitionFiles
 from .catalog import components as component_catalog
+from .definitionfiles import DefinitionFiles
 from .manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager, _plain
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -393,7 +393,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         """The changes between any two versions (base 0 compares against nothing: the creation)."""
         try:
             return definition_files.changes_between(def_id, base, target)
-        except FileNotFoundError as exc:
+        except FileNotFoundError:
             raise HTTPException(404, "no such version") from None
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None

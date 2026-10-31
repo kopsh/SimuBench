@@ -68,9 +68,7 @@ def definition_changes(old: dict[str, Any], new: dict[str, Any]) -> list[M.Defin
             out.append(_item(kind, "removed", name))
         for name in sorted(a.keys() & b.keys()):
             if a[name].get("type") != b[name].get("type"):
-                out.append(
-                    _item(kind, "changed", name, "type", a[name].get("type"), b[name].get("type"))
-                )
+                out.append(_item(kind, "changed", name, "type", a[name].get("type"), b[name].get("type")))
             pa, pb = a[name].get("params") or {}, b[name].get("params") or {}
             for param in sorted(pa.keys() | pb.keys()):
                 out += _value(kind, f"{name}.{param}", pa.get(param), pb.get(param))

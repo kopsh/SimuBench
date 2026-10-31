@@ -3,10 +3,8 @@ in the instrument's language; comments and key order say nothing; real models ge
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
-import pytest
 import yaml
 from fastapi.testclient import TestClient
 
@@ -77,7 +75,7 @@ def test_saving_reordered_keys_records_a_version_without_changes(tmp_path):
 
 def test_a_comment_only_external_change_says_nothing(tmp_path):
     files = make_files(tmp_path)
-    doc = files.create("acme-x1", MINIMAL, "api")
+    files.create("acme-x1", MINIMAL, "api")
     path = tmp_path / "instruments" / "acme-x1.yaml"
     commented = "# 台账：样品机\n" + path.read_text(encoding="utf-8")
     path.write_text(commented, encoding="utf-8")  # outside SimuBench, seen at the next save
@@ -88,7 +86,9 @@ def test_a_comment_only_external_change_says_nothing(tmp_path):
     assert [v.source for v in versions] == ["agent", "external", "api"]
     external = next(v for v in versions if v.source == "external")
     assert external.changes == []  # only comments moved: no description
-    assert as_tuples(edited.changes) == [("description", "changed", "description", None, "一台虚构的万用表", "改过的说明")]
+    assert as_tuples(edited.changes) == [
+        ("description", "changed", "description", None, "一台虚构的万用表", "改过的说明")
+    ]
 
 
 def _sha_of(path: Path) -> str:
@@ -115,13 +115,17 @@ def test_definition_history_and_changes_endpoints(tmp_path):
         assert [v["seq"] for v in history] == [3, 2, 1]
         assert [v["source"] for v in history] == ["agent", "agent", "api"]
         assert history[0]["changes"] == [
-            {"kind": "state", "action": "changed", "target": "sense.nplc", "detail": "max",
-             "old": 100, "new": 10}
+            {
+                "kind": "state",
+                "action": "changed",
+                "target": "sense.nplc",
+                "detail": "max",
+                "old": 100,
+                "new": 10,
+            }
         ]
         assert history[2]["changes"][0]["action"] == "added"  # the creation describes everything
-        between = c.get(
-            "/api/definitions/acme-x1/history/changes", params={"base": 1, "target": 3}
-        ).json()
+        between = c.get("/api/definitions/acme-x1/history/changes", params={"base": 1, "target": 3}).json()
         assert between["base"] == 1 and between["target"] == 3
         assert {(x["kind"], x["action"]) for x in between["changes"]} == {
             ("description", "changed"),
