@@ -382,3 +382,59 @@ async def test_a_session_names_the_definitions_to_restart_for(ws):
         [sid] = manager.sessions
         assert edited["sessions_to_restart"] == [sid]
         assert manager.describe(manager.sessions[sid]).stale_definitions == ["sb-awg-2"]
+
+
+async def test_an_agent_builds_a_scope_from_a_template(ws):
+    """Issue 125: list_templates -> get_template -> create_definition_from_template, saved by the agent."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        assert [t["id"] for t in await call(c, "list_templates")] == ["oscilloscope"]
+        tpl = await call(c, "get_template", template_id="oscilloscope")
+        assert tpl["schema"]["properties"]["vertical"]["title_en"] == "Vertical"
+        missing = await call(c, "get_template", template_id="nothing")
+        assert "oscilloscope" in missing["error"]
+
+        inputs = tpl["example"]
+        wrong = json.loads(json.dumps(inputs))
+        wrong["vertical"]["table"][1]["v_div"] = 0.001  # the same as the row before
+        refused = await call(
+            c,
+            "create_definition_from_template",
+            template_id="oscilloscope",
+            definition_id="agent-dso",
+            inputs=wrong,
+        )
+        assert refused["saved"] is False
+        assert [(d["code"], d["pointer"]) for d in refused["diagnostics"]] == [
+            ("E-TPL-ORDER", "/template/inputs/vertical/table/1/v_div")
+        ]
+        assert not (ws / "instruments" / "agent-dso.yaml").exists()
+
+        doc = await call(
+            c,
+            "create_definition_from_template",
+            template_id="oscilloscope",
+            definition_id="agent-dso",
+            inputs=inputs,
+        )
+        assert doc["saved"] and doc["ok"] and doc["diagnostics"] == [], doc["diagnostics"]
+        assert doc["data"]["template"] == {"id": "oscilloscope", "version": 1, "inputs": inputs}
+
+        # New inputs, expanded again over the saved file.
+        inputs["channels"]["count"] = 2
+        inputs["adc"]["rate_pairs"] = [[1, 2]]
+        again = await call(
+            c, "create_definition_from_template", template_id="oscilloscope", definition_id="agent-dso",
+            inputs=inputs, base_sha256=doc["sha256"],
+        )  # fmt: skip
+        assert again["saved"] and again["data"]["channels"]["count"] == 2
+        stale = await call(
+            c, "create_definition_from_template", template_id="oscilloscope", definition_id="agent-dso",
+            inputs=inputs, base_sha256=doc["sha256"],
+        )  # fmt: skip
+        assert "error" in stale
+    history = ws / ".simubench" / "history" / "instruments" / "agent-dso.yaml" / "index.jsonl"
+    assert [json.loads(line)["source"] for line in history.read_text(encoding="utf-8").splitlines()] == [
+        "agent",
+        "agent",
+    ]
