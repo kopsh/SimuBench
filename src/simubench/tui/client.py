@@ -163,6 +163,10 @@ class ApiClient:
             "POST", f"/api/sessions/{sid}/instruments/{name}/panel", json={"action": action}, ok=(200,)
         )
 
+    async def local(self, sid: str, name: str) -> dict[str, Any]:
+        """LOCAL: take an instrument in remote control back (tui-screens.md 12, D32)."""
+        return await self._request("POST", f"/api/sessions/{sid}/instruments/{name}/local")
+
 
 async def stream_events(
     url: str,
