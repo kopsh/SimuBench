@@ -2575,6 +2575,11 @@ export interface components {
             } | null;
             /** Client */
             client: string | null;
+            /**
+             * Closest
+             * @description The author's command header closest to the one sent, when one is close
+             */
+            closest: string | null;
             /** Code */
             code: number | null;
             /** Dir */
@@ -2588,6 +2593,11 @@ export interface components {
              * @description Fault id, for fault events and messages a fault affected
              */
             fault: string | null;
+            /**
+             * Header
+             * @description The header that was ignored, for ignored events
+             */
+            header: string | null;
             /** Instrument */
             instrument: string | null;
             /**
@@ -2601,9 +2611,32 @@ export interface components {
             new: unknown;
             /** Old */
             old: unknown;
+            /**
+             * Origin
+             * @description The file the classification's declaration comes from (the definition or its coverage table), as the loader received the path
+             */
+            origin: string | null;
+            /**
+             * Param
+             * @description The parameter or state path, for bad_parameter
+             */
+            param: string | null;
             /** Path */
             path: string | null;
-            /** Reason */
+            /**
+             * Query
+             * @description Whether the ignored header was a query
+             */
+            query: boolean | null;
+            /**
+             * Range
+             * @description The range or options the definition declares, for bad_parameter
+             */
+            range: string | null;
+            /**
+             * Reason
+             * @description For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault and advance events carry their own kind-specific reason
+             */
             reason: string | null;
             /**
              * Recipe

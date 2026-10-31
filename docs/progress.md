@@ -359,3 +359,16 @@
 | `sb-awg-2` 与低频校准契约用例不改通过 | ✅ 全量 990 项通过，无既有用例改动（`LFCAL_INPUTS` 的 min 按新模板规则 0.0 → 0.001，属模板输入数据） |
 | 仓库里由模板展开的定义重新展开 | ⬜ 仓库中没有带 `template:` 记录的定义文件（此前的匹配是 `display.template` 面板键），无需重展 |
 | `scripts/check.sh` 全绿 | ✅ Python 990 项（新增 11 项）、schema 与 Web 检查通过；Web 面板无需改动（数值控件本就按无范围处理，`PanelScreen` 的钳制以 ±Infinity 兜底） |
+
+## 错误事件给出命令未被执行的原因分类（Issue 174，tui-design.md 1.1、D18）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 错误 / 忽略事件带六种分类：`not_modeled`（覆盖表中标为未实现）、`not_in_model`（覆盖表中没有）、`not_in_definition`（无覆盖表、定义中没有）、`ignored`、`builtin_excluded`（`builtins` 之外的公共命令）、`bad_parameter`（参数超范围或类型不对，附定义给出的范围）；`unknown_command` 退役 | ✅ `tests/test_error_classification.py` 每种一条；`reason` 字段名不变，取值收敛为六种 |
+| 每条带出处（定义文件或覆盖表文件，按装载得到的路径）与命令树中最接近的命令 | ✅ `origin`、`closest` 随事件给出；最接近的命令按作者命令头的长短两种拼写比较（difflib，0.6 阈值），`tests/test_error_classification.py` 断言出处与最接近命令 |
+| 带覆盖表的定义在运行时按覆盖表查找 | ✅ 引擎按定义文件旁的 `<id>.coverage.yaml` 在首次分类时装载（结果按 mtime 缓存；不在建台时装载，避免把读取开销计入 idle 墙钟，D47）；表缺失或读不了时回退到原行为（真实型号仍记 `not_modeled`），不崩溃 |
+| 事件 schema 与前端类型重新生成；MCP `read_log` 返回同样的分类 | ✅ `schemas/` 与 `web/src/api/generated/` 重新生成；`tests/test_mcp.py` 经 MCP 断言分类、出处与最接近命令；运行记录逐字保存事件，回放不受影响 |
+| Web 措辞覆盖六种分类（中英文） | ✅ `web/src/i18n/{zh,en}.ts` 的 `errors.reasons`；事件面板与运行记录页对 error / ignored 事件显示措辞、参数与范围、最接近命令与出处 |
+| 回复文字不变（#172 的范围） | ✅ `-113` 的应答文本、错误表替换与 "not modeled by SimuBench" 后缀全部保持原样；`builtin_excluded` 也沿用今天的应答 |
+| 六种情况各有内置真实型号与工作区定义的覆盖 | ✅ not_modeled / not_in_model / builtin_excluded / bad_parameter 用内置真实型号（Siglent SDS2104X Plus、Fluke 5522A），not_in_definition / ignored / bad_parameter 用工作区定义（`sb-smu-1`、`examples/lowfreq-cal/`） |
+| `scripts/check.sh` 通过 | ✅ Python 1002 项（新增 8 项）、schema 与 Web 检查通过；`tests/test_siglent_sds.py` 的 `*CLS` 断言改为 `builtin_excluded`（分类按设计变更，应答未变） |

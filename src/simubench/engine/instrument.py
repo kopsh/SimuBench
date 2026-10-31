@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import datetime as dt
+import difflib
+import itertools
 import logging
 import math
 import re
 import time
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..library.loader import COVERAGE_SUFFIX, _load_coverage_file
 from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, ResponseFormat, StateSpec
 from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
@@ -54,6 +58,56 @@ BUILTIN_HEADERS = (
 def _header_key(header: str) -> str:
     """A header as written in a definition, compared without case, spaces or the root colon."""
     return "".join(header.split()).lstrip(":").upper()
+
+
+#: The built-in headers a ``builtins`` list can leave out: the common ones (*IDN…); the :SYSTem: ones
+#: are matched through their patterns (they are not common commands).
+COMMON_BUILTINS = frozenset(_header_key(h) for h in BUILTIN_HEADERS if h.startswith("*"))
+#: Parameter errors a definition's declaration explains (tui-design.md 1.1): out of range (-222),
+#: wrong type (-104), a value outside the declared options (-224). -224 with the "not modeled by
+#: SimuBench" marker is a declared modeling gap instead, not a bad parameter.
+BAD_PARAMETER_CODES = frozenset({-104, -222, -224})
+
+
+def _header_forms(pattern: Pattern) -> list[str]:
+    """Every spelling the header pattern accepts, long and short, for closest-match comparison."""
+    choices: list[list[str | None]] = []
+    for node in pattern.nodes:
+        words = [node.long] if node.short == node.long else [node.long, node.short]
+        if node.suffix:
+            words = [w + "1" for w in words]
+        choices.append([None, *words] if node.optional else words)
+    out = []
+    for combo in itertools.islice(itertools.product(*choices), 512):
+        parts = [p for p in combo if p is not None]
+        if parts:
+            out.append(":".join(parts))
+    return out
+
+
+def _declared_range(spec: StateSpec | ParamSpec | None) -> str | None:
+    """The range or options a definition declares, compactly: '-210 … 210 V' or 'SINusoid, SQUARE'."""
+    if spec is None:
+        return None
+    options = getattr(spec, "options", None)
+    if options:
+        return ", ".join(options)
+    lo, hi = getattr(spec, "min", None), getattr(spec, "max", None)
+    if lo is None and hi is None:
+        return None
+    unit = getattr(spec, "unit", None) or ""
+    low = "-∞" if lo is None else f"{lo:g}"
+    high = "∞" if hi is None else f"{hi:g}"
+    return f"{low} … {high}{f' {unit}' if unit else ''}"
+
+
+@dataclass
+class _Covered:
+    """One entry of the definition's coverage table, ready for runtime lookups (D18)."""
+
+    pattern: Pattern
+    header: str
+    level: str
 
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
@@ -201,6 +255,15 @@ class Instrument:
         #: Built-in headers this model answers; a real model's manual may document only a few (D42).
         allowed = definition.builtins
         self._builtins = None if allowed is None else {_header_key(h) for h in allowed}
+        # ---- why a command was not executed: the declarations to cite (tui-design.md 1.1, D18) ----
+        #: The definition file, as the loader received the path; origin of the definition's own words.
+        self.source_file: str | None = str(definition._source_file) if definition._source_file else None
+        #: The coverage table's entries and its file; None when the definition has no table (a broken
+        #: or missing table falls back to the definition alone). Loaded on first use: reading it here
+        #: would put its cost on the session's idle wall clock (D47), shifting every later instant.
+        self._coverage: list[_Covered] | None = None
+        self._coverage_file: str | None = None
+        self._coverage_tried = False
 
     # ---- construction helpers -------------------------------------------------------------------
 
@@ -459,7 +522,7 @@ class Instrument:
                 if resp is not None:
                     responses.append(resp)
             except ScpiError as e:
-                self._push(e)
+                self._push(self._parameter_error(e))
             except Exception as e:  # a model defect must not take the client's script down
                 log.exception("%s: internal error executing %r", self.name, unit.raw_header)
                 self._push(
@@ -524,23 +587,33 @@ class Instrument:
             table = self.definition.errors.get(err.code)
             if table is not None or self.real:
                 # A real model answers with its manual's text only; the detail stays in the event.
-                err = ScpiError(err.code, err.detail, text=table if table is not None else err.standard_text)
+                err = replace(err, text=table if table is not None else err.standard_text)
         self.errors.push(err)
         self.esr |= 1 << ESR_BITS[err.esr_class]
         data: dict[str, Any] = {"code": err.code, "message": err.message}
         if err.text is not None and detail and detail not in err.message:
             data["message"] = f"{err.message} ({detail})"
-        if (err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail:
-            data["reason"] = "not_modeled"  # a command, or a parameter value, SimuBench does not model
+        reason = err.reason
+        if reason is None and (
+            (err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail
+        ):
+            reason = "not_modeled"  # a command, or a parameter value, SimuBench does not model
+        if reason is not None:
+            data["reason"] = reason
+        for key in ("origin", "closest", "param", "range"):
+            value = getattr(err, key)
+            if value is not None:
+                data[key] = value
         self.session.instrument_event(self, "error", data)
 
-    def _builtin_header(self, tokens: tuple[Token, ...]) -> bool:
-        """Whether the tokens name a built-in header this model is allowed to answer."""
+    def _builtin_named(self, tokens: tuple[Token, ...]) -> str | None:
+        """The built-in :SYSTem: header the tokens name (the common * ones go through
+        :meth:`_common`), or None."""
         for header in BUILTIN_HEADERS:
             pattern = Pattern.compile(header)
             if not pattern.common and pattern.match(tokens) is not None:
-                return self._builtin_allowed(header)
-        return False
+                return header
+        return None
 
     def _error_reply(self, err: ScpiError) -> bytes:
         """An error queue entry as :SYSTem:ERRor? writes it, in the manual's form for a real model."""
@@ -549,21 +622,129 @@ class Instrument:
         sign = "+" if self.definition.format.error_code == "signed" and err.code >= 0 else ""
         return f'{sign}{err.code},"{err.message}"'.encode()
 
-    def _undefined(self, header: str) -> ScpiError:
-        """-113 for a header the definition does not have; a real model says it is not modeled.
+    def _undefined(self, unit: Unit, tokens: tuple[Token, ...], *, builtin: bool = False) -> ScpiError:
+        """-113 for a header the definition does not have, classified by where its declaration
+        lives (tui-design.md 1.1): the coverage table, the definition, or the model's ``builtins``.
+        The reply text is unchanged — rewording is another issue's decision (#172).
 
-        Raises :class:`_Ignored` instead when the definition ignores unknown commands.
+        ``builtin``: a built-in header the definition's ``builtins`` leaves out. Raises
+        :class:`_Ignored` instead when the definition ignores unknown commands.
         """
+        header = unit.raw_header
         if self.definition.unknown_commands == "ignore":
             raise _Ignored(header)
+        if builtin:
+            return ScpiError(
+                -113,
+                header,
+                text=self._undefined_text(header),
+                reason="builtin_excluded",
+                origin=self.source_file,
+            )
+        reason, origin, closest = self._classify_header(unit, tokens)
+        return ScpiError(
+            -113, header, text=self._undefined_text(header), reason=reason, origin=origin, closest=closest
+        )
+
+    def _undefined_text(self, header: str) -> str | None:
+        """The -113 reply as it reads today: a real model says the header is not modeled."""
         if not self.real:
-            return ScpiError(-113, header)
+            return None
         base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
-        return ScpiError(-113, header, text=f"{base};{NOT_MODELED}")
+        return f"{base};{NOT_MODELED}"
+
+    def _coverage_entries(self) -> list[_Covered] | None:
+        """The definition's coverage table, loaded on first use (D18)."""
+        if not self._coverage_tried:
+            self._coverage_tried = True
+            self._load_coverage()
+        return self._coverage
+
+    def _load_coverage(self) -> None:
+        """The coverage table next to the definition file, for runtime lookups (D18); a missing or
+        unreadable table leaves the instrument running on the definition alone."""
+        if self.source_file is None:
+            return
+        path = Path(self.source_file)
+        table = path.with_name(path.stem + COVERAGE_SUFFIX)
+        if not table.is_file():
+            return
+        cov = _load_coverage_file(table, table.stat().st_mtime)
+        if cov is None:
+            return
+        entries: list[_Covered] = []
+        try:
+            for _, entry in cov.entries():  # type: ignore[union-attr]
+                try:
+                    entries.append(_Covered(Pattern.compile(entry.header), entry.header, entry.level))
+                except ValueError:
+                    continue  # a header the pattern language cannot read: no runtime match for it
+        except Exception:
+            return  # an unexpected table shape: the definition alone decides
+        self._coverage = entries
+        self._coverage_file = str(table)
+
+    def _classify_header(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[str, str | None, str | None]:
+        """(reason, origin, closest) for a header the definition does not execute."""
+        coverage = self._coverage_entries()
+        if coverage is not None:
+            covered = next((e for e in coverage if self._covered(e, unit, tokens)), None)
+            if covered is not None:
+                # A command the author listed (or one of theirs used in a form the model lacks).
+                return "not_modeled", self._coverage_file, None
+            return "not_in_model", self._coverage_file, self._closest_header(unit)
+        if not self.real:
+            return "not_in_definition", self.source_file, self._closest_header(unit)
+        return "not_modeled", self.source_file, None  # no coverage table: the old classification
+
+    @staticmethod
+    def _covered(entry: _Covered, unit: Unit, tokens: tuple[Token, ...]) -> bool:
+        """Whether the message unit uses the coverage entry's command (library/coverage.py `_matches`)."""
+        if entry.pattern.common:
+            return unit.common and unit.tokens[0].keyword == entry.pattern.nodes[0].long
+        return not unit.common and entry.pattern.match(tokens) is not None
+
+    def _closest_header(self, unit: Unit) -> str | None:
+        """The author's command closest to the one the client sent (its own long and short
+        spellings), or None when none is reasonably close."""
+        sent = _header_key(unit.raw_header)
+        if not sent:
+            return None
+        keys: dict[str, str] = {}
+        for entry in self._coverage_entries() or ():
+            try:
+                for form in _header_forms(entry.pattern):
+                    keys.setdefault(_header_key(form), entry.header)
+            except Exception:
+                continue
+        for compiled in self._commands:
+            for form in _header_forms(compiled.pattern):
+                keys.setdefault(_header_key(form), compiled.spec.header)
+        hit = difflib.get_close_matches(sent, list(keys), n=1, cutoff=0.6)
+        return keys[hit[0]] if hit else None
 
     def push_error(self, code: int, detail: str = "") -> None:
         """Queue a device error from a component (e.g. an overload)."""
         self._push(ScpiError(code, detail))
+
+    def _parameter_error(self, err: ScpiError) -> ScpiError:
+        """A parameter error a command raised without naming its parameter (a component's check):
+        still classified, with the declared range left out (tui-design.md 1.1). Device errors never
+        come through here — they are queued with :meth:`push_error` instead."""
+        if err.reason is None and err.code in BAD_PARAMETER_CODES and NOT_MODELED not in err.detail:
+            return replace(err, reason="bad_parameter")
+        return err
+
+    def _bad_parameter(
+        self, err: ScpiError, param: str | None, spec: StateSpec | ParamSpec | None
+    ) -> ScpiError:
+        """A parameter error raised where the definition's declaration is known: name the parameter
+        and its declared range. The "not modeled by SimuBench" refusals keep their own category."""
+        if err.reason is not None or err.code not in BAD_PARAMETER_CODES or NOT_MODELED in err.detail:
+            return err
+        return replace(
+            err, reason="bad_parameter", origin=self.source_file, param=param, range=_declared_range(spec)
+        )
 
     # ---- command execution --------------------------------------------------------------------------
 
@@ -577,7 +758,9 @@ class Instrument:
             pass
         # unknown_commands: ignore — swallowed without an error or a reply, but never silently (D16).
         self.session.instrument_event(
-            self, "ignored", {"header": unit.raw_header, "query": unit.query, "reason": "unknown_command"}
+            self,
+            "ignored",
+            {"header": unit.raw_header, "query": unit.query, "reason": "ignored", "origin": self.source_file},
         )
         return None, 0
 
@@ -588,9 +771,9 @@ class Instrument:
             for compiled in self._commands:
                 if compiled.pattern.common and compiled.pattern.match(tokens) is not None:
                     return self._run(compiled, unit, None, {})
-            if not self._builtin_allowed(f"*{unit.tokens[0].keyword}"):
-                raise self._undefined(unit.raw_header)
             word = unit.tokens[0].keyword
+            if not self._builtin_allowed(f"*{word}"):
+                raise self._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
             if word == "OPC" and unit.query:
                 return self.opc_query()
             if word == "WAI":
@@ -616,14 +799,15 @@ class Instrument:
             return self._run(compiled, unit, channel, {k: (1 if v is None else v) for k, v in caps.items()})
         if refused is not None:
             raise ScpiError(-224, f"{unit.raw_header}: parameter not modeled by SimuBench")
-        builtin = (
-            self._builtin(unit, tokens) if self._builtins is None or self._builtin_header(tokens) else None
-        )
+        named = self._builtin_named(tokens)
+        if named is not None and not self._builtin_allowed(named):
+            raise self._undefined(unit, tokens, builtin=True)  # the definition's builtins leave it out
+        builtin = self._builtin(unit, tokens) if self._builtins is None or named is not None else None
         if builtin is _HANDLED:
             return None, 0
         if builtin is not None:
             return builtin, 0
-        raise self._undefined(unit.raw_header)
+        raise self._undefined(unit, tokens)
 
     @staticmethod
     def _when(spec: CommandSpec, unit: Unit) -> bool:
@@ -739,17 +923,20 @@ class Instrument:
             raise ScpiError(-109)
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
-        if spec.factor != 1:
-            # The command's number is the setting times factor (:TIMebase:RANGe is ten :SCALe).
-            word = V.parse_string(unit.params[0]).strip().upper()
-            keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or word in (
-                st.special or {}
-            )
-            v = V.parse_float(unit.params[0], st.unit)
-            value = self._parse_state(st, unit.params[0]) if keyword else v / spec.factor
-        else:
-            value = self._parse_state(st, unit.params[0])
-        self.set_state(path, value)
+        try:
+            if spec.factor != 1:
+                # The command's number is the setting times factor (:TIMebase:RANGe is ten :SCALe).
+                word = V.parse_string(unit.params[0]).strip().upper()
+                keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or word in (
+                    st.special or {}
+                )
+                v = V.parse_float(unit.params[0], st.unit)
+                value = self._parse_state(st, unit.params[0]) if keyword else v / spec.factor
+            else:
+                value = self._parse_state(st, unit.params[0])
+            self.set_state(path, value)
+        except ScpiError as e:
+            raise self._bad_parameter(e, path, st) from e
         return None
 
     def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
@@ -763,7 +950,7 @@ class Instrument:
                     raise ScpiError(-109, f"missing {ps.name}")
                 value = V.parse_int(raw.pop(0))
                 if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
-                    raise ScpiError(-222, f"{ps.name} {value} out of range")
+                    raise self._bad_parameter(ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps)
                 index[ps.name] = value
 
         def at(ref: str) -> str:
@@ -796,7 +983,10 @@ class Instrument:
                         continue
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(at(ps.state), channel)
-                new[path] = self._parse_state(self.specs[path], raw.pop(0))
+                try:
+                    new[path] = self._parse_state(self.specs[path], raw.pop(0))
+                except ScpiError as e:
+                    raise self._bad_parameter(e, path, self.specs[path]) from e
                 continue
             items, raw = raw, []
             if not items and not ps.optional:
@@ -814,7 +1004,12 @@ class Instrument:
                     new[path] = self._parse_state(self.specs[path], value_raw)
         if raw:
             raise ScpiError(-108)
-        checked = {path: self._validate(self.specs[path], v) for path, v in new.items()}
+        checked: dict[str, Any] = {}
+        for path, v in new.items():
+            try:
+                checked[path] = self._validate(self.specs[path], v)
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, self.specs[path]) from e
         for path, v in checked.items():
             self.set_state(path, v)
         return None
@@ -834,8 +1029,16 @@ class Instrument:
             return b""  # the reply template composes the answer from the settings
         if not unit.params:
             raise ScpiError(-109)
-        writes = self._parse_quantities(ps, unit.params, channel)
-        checked = {path: self._validate(self.specs[path], v) for path, v in writes.items()}
+        try:
+            writes = self._parse_quantities(ps, unit.params, channel)
+        except ScpiError as e:
+            raise self._bad_parameter(e, ps.name, ps) from e
+        checked: dict[str, Any] = {}
+        for path, v in writes.items():
+            try:
+                checked[path] = self._validate(self.specs[path], v)
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, self.specs[path]) from e
         for path, v in checked.items():
             self.set_state(path, v)
         return None
@@ -987,21 +1190,24 @@ class Instrument:
                 continue
             r = raw[i]
             i += 1
-            if ps.type == "float":
-                v = V.parse_float(r, ps.unit, ps.min, ps.max)
-                if (ps.min is not None and v < ps.min) or (ps.max is not None and v > ps.max):
-                    raise ScpiError(-222)
-                out[ps.name] = v
-            elif ps.type == "int":
-                out[ps.name] = V.parse_int(r)
-            elif ps.type == "bool":
-                out[ps.name] = V.parse_bool(r)
-            elif ps.type == "enum":
-                out[ps.name] = V.parse_enum(r, ps.options or [])
-            elif ps.type == "block":
-                out[ps.name] = V.parse_block(r)
-            else:
-                out[ps.name] = V.parse_string(r)
+            try:
+                if ps.type == "float":
+                    v = V.parse_float(r, ps.unit, ps.min, ps.max)
+                    if (ps.min is not None and v < ps.min) or (ps.max is not None and v > ps.max):
+                        raise ScpiError(-222)
+                    out[ps.name] = v
+                elif ps.type == "int":
+                    out[ps.name] = V.parse_int(r)
+                elif ps.type == "bool":
+                    out[ps.name] = V.parse_bool(r)
+                elif ps.type == "enum":
+                    out[ps.name] = V.parse_enum(r, ps.options or [])
+                elif ps.type == "block":
+                    out[ps.name] = V.parse_block(r)
+                else:
+                    out[ps.name] = V.parse_string(r)
+            except ScpiError as e:
+                raise self._bad_parameter(e, ps.name, ps) from e
         if i < len(raw):
             raise ScpiError(-108)
         return out
@@ -1060,7 +1266,7 @@ class Instrument:
             return str(self.stb()).encode()
         if word == "TST" and q:
             return b"0"
-        raise self._undefined(unit.raw_header)
+        raise self._undefined(unit, unit.tokens)
 
     def _bus_trigger(self, unit: Unit) -> tuple[bytes | None, int]:
         """``*TRG``: the bus trigger of the first component with a ``bus_trigger`` operation."""
@@ -1069,7 +1275,7 @@ class Instrument:
             if fn is not None:
                 result = fn()
                 return result.response, result.duration_ns
-        raise self._undefined(unit.raw_header)
+        raise self._undefined(unit, unit.tokens)
 
     _SYST_ERR = Pattern.compile(":SYSTem:ERRor[:NEXT]")
     _SYST_ERR_COUNT = Pattern.compile(":SYSTem:ERRor:COUNt")

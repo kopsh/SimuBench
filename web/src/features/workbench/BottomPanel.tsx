@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
 import { formatClock, formatEng } from "@/lib/format";
+import { notExecutedSuffix } from "@/lib/notexecuted";
 import { cn } from "@/lib/utils";
 import { useWorkbench } from "./store";
 
@@ -192,7 +193,9 @@ function EventRow({ e }: { e: Event }) {
       : e.kind === "advance"
         ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${e.reason ?? ""}`
         : e.kind === "error"
-          ? `${e.instrument}  ${e.code}, ${e.message}`
+          ? `${e.instrument}  ${e.code}, ${e.message}${notExecutedSuffix(e, t)}`
+          : e.kind === "ignored"
+          ? `${e.instrument}  ${e.header ?? ""}${notExecutedSuffix(e, t)}`
           : JSON.stringify(e);
   return (
     <div className="hover:bg-accent/60 grid h-full grid-cols-[96px_72px_1fr] items-center gap-2 px-3 text-[11.5px]">

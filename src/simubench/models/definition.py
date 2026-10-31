@@ -8,9 +8,10 @@ used to validate definition files (D21).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .deviation import DeviationSpec
 
@@ -467,6 +468,11 @@ class Display(_Model):
 
 class InstrumentDefinition(_Model):
     schema_: Literal["simubench.instrument/1"] = Field("simubench.instrument/1", alias="schema")
+
+    #: The file the definition was loaded from, as the loader received the path; the loader sets it
+    #: (events that classify a command name the declaration's file, tui-design.md 1.1). Definitions
+    #: built in memory have none.
+    _source_file: Path | None = PrivateAttr(default=None)
 
     @model_validator(mode="before")
     @classmethod
