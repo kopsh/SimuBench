@@ -214,7 +214,8 @@ params:
 - `read_definition` 返回文件内容、`sha256` 与诊断；工作区之外的定义（内置、搜索路径上的）`editable: false`，要修改就以新 id（或同 id，工作区的文件优先）`create_definition` 一份副本。
 - `create_definition` / `edit_definition` 写 `instruments/<id>.yaml`；没有通过校验的内容也保存（与测试台相同，进行中的工作不丢），诊断随结果返回。`edit_definition` 的补丁整体应用或整体不应用；`sha256` 过期时报冲突并提示先 `read_definition`。每次保存进入版本历史（`.simubench/history/instruments/<id>.yaml/`，来源 `agent`）。
 - JSON 中没有无穷大：定义里的 `.inf` 在 MCP 中写作 `"INF"`（与测试台文件相同），保存后照常加载。
-- `draft_definition_from_script`：对脚本中的一台仪器（多台时用 `receiver` 指定），在 `base_definition`（不给时为空骨架）之上，为它不支持的每个命令头生成状态量与命令：数值（带 V、HZ、S 等单位）、ON/OFF、单词（枚举）、带引号（字符串）；多个参数的命令生成多个状态量与绑定参数的命令；只查询的命令为只读字符串。起草的条目在 `label` 与 `doc` 中标为“草稿（待确认）”，并列在返回的 `drafted` 中。f-string 的占位符按 `1` 读取，所以循环里的通道号只看得到 1，通道数需要 Agent 自己改。
+- `draft_definition_from_script`：对脚本中的一台仪器（多台时用 `receiver` 指定），在 `base_definition`（不给时为空骨架）之上，为它不支持的每个命令头生成状态量与命令：数值（带 V、HZ、S 等单位）、ON/OFF、单词（枚举）、带引号（字符串）；多个参数的命令生成多个状态量与绑定参数的命令；只查询的命令为只读字符串。起草的条目在 `label` 与 `doc` 中标为“草稿（待确认）”，并列在返回的 `drafted` 中。f-string 的占位符按 `1` 读取，所以循环里的通道号只看得到 1，通道数需要 Agent 自己改。就地把扩展存回同一份工作区定义（`base_definition = definition_id`）时，带上刚读到的 `base_sha256`，一次调用完成保存（#169）；不带 `base_sha256` 的 `save=True` 仍是首建。
+- **在模板定义上补命令**（#169）：Agent 先 `draft_definition_from_script`（`base_definition` = 定义自身，`save=True` 带 `base_sha256`）覆盖保存；之后若用 `create_definition_from_template(base_sha256=...)` 按模板重新展开，平台先用文件里记录的 `template.inputs` 再展开一遍，与现有内容比较——发现模板之外的改动（起草的命令、`edit_definition` 的修改）时拒绝展开，列出这些条目的 JSON Pointer，由 Agent 把改动并入模板输入，或用 `discard_edits` 确认丢弃。文件没有 `template` 记录、或记录的是另一个模板时，不比较，行为同从前。
 - 保存后，使用该定义旧版本的会话列在结果的 `sessions_to_restart` 中；会话信息的 `stale_definitions` 同样列出，界面顶栏显示“仪表定义已修改”，点击即重置（按新定义重建）。
 
 ### 5.5 用例运行命令（G8）
