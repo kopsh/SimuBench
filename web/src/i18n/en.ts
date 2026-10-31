@@ -576,5 +576,14 @@ export const en: Widen<Messages> = {
     generic: "Operation failed",
     network: "Cannot reach the SimuBench service. Make sure simubench serve is running.",
     notFound: "This session no longer exists; it may be closed.",
+    // Why a command was not executed (tui-design.md 1.1, D18): the definition author's own words.
+    reasons: {
+      not_modeled: "Not modeled: listed as not modeled in the coverage table",
+      not_in_model: "Not in the coverage table",
+      not_in_definition: "Not in the definition",
+      ignored: "Ignored: the definition ignores unknown commands",
+      builtin_excluded: "The definition's builtins leave this common command out",
+      bad_parameter: "Parameter out of range or of the wrong type",
+    },
   },
 };

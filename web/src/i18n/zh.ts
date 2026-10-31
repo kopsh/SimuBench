@@ -565,6 +565,15 @@ export const zh = {
     generic: "操作失败",
     network: "无法连接到 SimuBench 服务。请确认 simubench serve 正在运行。",
     notFound: "找不到该会话，可能已关闭。",
+    // 命令没被执行的原因（tui-design.md 1.1，D18）：只转述定义作者声明的内容。
+    reasons: {
+      not_modeled: "未建模：覆盖表中标为未实现",
+      not_in_model: "覆盖表中没有这条命令",
+      not_in_definition: "定义中没有这条命令",
+      ignored: "已忽略：定义设为 ignore",
+      builtin_excluded: "定义的 builtins 不含这条公共命令",
+      bad_parameter: "参数超出范围或类型不对",
+    },
   },
 } as const;
 
