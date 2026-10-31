@@ -75,6 +75,53 @@ def _fault(f: Any) -> dict[str, Any]:
     }
 
 
+def _pointer_diff(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
+    """The entries where two definitions differ, as JSON pointers under their top-level member
+    (issue 169): `/commands/12`, `/channel_state/amplitude_unit` — entries, not deep paths."""
+    out: list[str] = []
+    for member in sorted(set(expected) | set(actual)):
+        e, a = expected.get(member), actual.get(member)
+        if e == a:
+            continue
+        if isinstance(e, list) and isinstance(a, list):
+            for i in range(max(len(e), len(a))):
+                ei = e[i] if i < len(e) else None
+                ai = a[i] if i < len(a) else None
+                if ei != ai:
+                    out.append(f"/{member}/{i}")
+        elif isinstance(e, dict) and isinstance(a, dict):
+            out += [f"/{member}/{k}" for k in sorted(set(e) | set(a)) if e.get(k) != a.get(k)]
+        else:
+            out.append(f"/{member}")
+    return out
+
+
+def _refuse_lost_edits(definitions: DefinitionFiles, t: Any, definition_id: str, discard: bool) -> None:
+    """Re-expanding a template must not silently drop what was drafted or edited into the file
+    afterwards (issue 169): expand the recorded inputs again and compare with the file."""
+    if discard:
+        return
+    doc = definitions.read(definition_id)
+    recorded = doc.data.get("template")
+    if (
+        not isinstance(recorded, dict)
+        or recorded.get("id") != t.id
+        or not isinstance(recorded.get("inputs"), dict)
+    ):
+        return  # no template record, or a different template: re-expanding replaces it as before
+    again = t.expand(recorded["inputs"], definition_id)
+    if again.definition is None:
+        return  # the recorded inputs no longer expand (the template moved on); the new inputs decide
+    current = {k: v for k, v in doc.data.items() if k != "template"}
+    diffs = _pointer_diff({k: v for k, v in again.definition.items() if k != "template"}, current)
+    if diffs:
+        shown = ", ".join(diffs[:8]) + (" …" if len(diffs) > 8 else "")
+        raise ToolError(
+            f"{definition_id} 在模板之外被改过（{shown}）：重新展开会丢弃这些改动。"
+            "把改动并入模板输入，或者确认丢弃（discard_edits）。"
+        )
+
+
 class RateLimiter:
     """Token bucket shared by all tools."""
 
@@ -432,10 +479,17 @@ def build_server(
             None, description="Start from this definition and draft only what it does not support"
         ),
         save: bool = Field(False, description="Also create instruments/<definition_id>.yaml"),
+        base_sha256: str | None = Field(
+            None,
+            description="With save: extend the definition in place (base_definition = definition_id)"
+            " — the sha256 you read, so the draft is saved over the file instead of created",
+        ),
     ) -> dict[str, Any]:
         """Read a test program without running it and draft an instrument definition for one of its
         instruments: a setting and a command for every header the base does not support, typed from
-        the values the script writes and marked 草稿（待确认）. Check them, then edit_definition."""
+        the values the script writes and marked 草稿（待确认）. Check them, then edit_definition — or
+        extend a workspace definition in place by passing base_definition = definition_id together
+        with the sha256 you read as base_sha256."""
         guard()
         try:
             script = files.resolve(script_path)
@@ -443,8 +497,12 @@ def build_server(
             lib = files.library(script)
             base = lib.get(base_definition) if base_definition else None
             out = draft_definition(source, definition_id, receiver=receiver, base=base)
-            if save:
+            if save and base_sha256 is None:
                 out["saved"] = definition_out(definitions.create(definition_id, out["definition"], "agent"))
+            elif save:
+                out["saved"] = definition_out(
+                    definitions.save(definition_id, base_sha256, out["definition"], "agent")
+                )
         except Exception as exc:
             raise fail(exc) from None
         return out
@@ -477,11 +535,18 @@ def build_server(
         base_sha256: str | None = Field(
             None, description="Expand again over an existing workspace definition: the sha256 you read"
         ),
+        discard_edits: bool = Field(
+            False,
+            description="With base_sha256: overwrite what was drafted or edited into the file after"
+            " the template created it. False (the default) refuses the expansion and lists those edits",
+        ),
     ) -> dict[str, Any]:
         """Expand a template into a definition and save it in the workspace's instruments/ (the version
         history records the agent). The file records template: {id, version, inputs}; later changes are
         either new inputs (expand again with base_sha256) or edit_definition on the result. Diagnostics
-        on the inputs point under /template/inputs and nothing is saved until they are fixed."""
+        on the inputs point under /template/inputs and nothing is saved until they are fixed. Expanding
+        again over a definition that was changed outside the template since (a drafted command, an
+        edit_definition) is refused: merge those changes into the inputs, or pass discard_edits."""
         guard()
         try:
             t = template_by_id(template_id)
@@ -490,6 +555,8 @@ def build_server(
         out = t.expand(inputs, definition_id)
         if out.definition is None:
             return {"saved": False, "diagnostics": [d.as_dict() for d in out.diagnostics]}
+        if base_sha256 is not None:
+            _refuse_lost_edits(definitions, t, definition_id, discard_edits)
         try:
             if base_sha256 is None:
                 doc = definitions.create(definition_id, out.definition, "agent")

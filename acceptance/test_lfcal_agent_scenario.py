@@ -93,21 +93,14 @@ async def _build(c: Client) -> dict:
     assert scope_doc["saved"] and scope_doc["ok"], scope_doc["diagnostics"]
     assert cal_doc["saved"] and cal_doc["ok"], cal_doc["diagnostics"]
 
-    # The agent teaches the scope the command the script needs, drafting on the template expansion.
+    # The agent teaches the scope the command the script needs, drafted on the template expansion
+    # and saved over it in one call (issue 169).
     merged = await _call(
         c, "draft_definition_from_script", script_path="host.py", definition_id="lfcal-refscope",
-        receiver="scope", base_definition="lfcal-refscope",
+        receiver="scope", base_definition="lfcal-refscope", save=True, base_sha256=scope_doc["sha256"],
     )  # fmt: skip
     assert [d["header"] for d in merged["drafted"]] == [":PERSIST"]
-    cmd = next(x for x in merged["definition"]["commands"] if x["header"].upper() == ":PERSIST")
-    fixed = await _call(
-        c, "edit_definition", definition_id="lfcal-refscope", base_sha256=scope_doc["sha256"],
-        patch=[
-            {"op": "add", "path": "/state/persist", "value": merged["definition"]["state"]["persist"]},
-            {"op": "add", "path": "/commands/-", "value": cmd},
-        ],
-    )  # fmt: skip
-    assert fixed["ok"], fixed["diagnostics"]
+    assert merged["saved"]["ok"], merged["saved"]["diagnostics"]
 
     bench = await _call(
         c, "edit_bench", path="lfcal.bench.yaml", base_sha256=draft["saved"]["sha256"], ops=[
