@@ -1,6 +1,6 @@
 # 终端控制台（TUI）设计
 
-状态：设计已确认（D18），按第 9 节分期实现。
+状态：设计已确认（D18），按第 9 节分期实现。每个屏幕的内容、数据来源、按键与文案见 [tui-screens.md](tui-screens.md)（实现规格，与本文不一致时以它为准）。
 
 参考：EdgeSim 的终端仪表控制台（Galois Labs，*Terminal instrument console*，`edgesim tui`，Textual 实现）。本文只借鉴它“在终端里看着测试台、动手操作、与脚本共用同一个世界”的形态，概念与术语一律按 SimuBench（[glossary.md](glossary.md)）。
 
