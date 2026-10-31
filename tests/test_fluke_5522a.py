@@ -205,7 +205,10 @@ def test_opc_sets_esr_bit_zero_once_settled():
 
 
 def test_the_example_bench_shows_dc_and_1khz_ac_on_the_scope():
-    s = open_bench(SCOPE_BENCH)
+    # Idle time off: the bench's default lets wall time between commands move virtual time, so each run
+    # would acquire at another instant (another noise realisation), and a frequency measured to three
+    # digits from a noisy 10-cycle record can round either way.
+    s = open_bench(SCOPE_BENCH, idle="off")
     try:
         q(s, "dut", ":MEASure ON;:MEASure:MODE SIMPle;:MEASure:SIMPle:SOURce C1")
         q(s, "cal", "OUT 10 V")
