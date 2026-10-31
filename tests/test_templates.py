@@ -140,15 +140,19 @@ def _expand(inputs: dict, def_id: str = "acme-dso-204") -> dict:
 # ---- the mechanism -------------------------------------------------------------------------------
 
 
-def test_the_schema_labels_every_input_in_both_languages():
-    assert [t.id for t in templates()] == ["oscilloscope"]
-    schema = SCOPE.schema()
-    groups = [schema, *schema["$defs"].values()]
+@pytest.mark.parametrize("template", templates(), ids=lambda t: t.id)
+def test_the_schema_labels_every_input_in_both_languages(template):
+    schema = template.schema()
+    groups = [schema, *schema.get("$defs", {}).values()]
     for group in groups:
         for name, field in group.get("properties", {}).items():
             assert field.get("title") and field.get("title_en"), (group.get("title"), name)
             assert field.get("description"), (group.get("title"), name)
-    assert schema["$defs"]["ScaleRowIn"]["properties"]["noise_v_rms"]["unit"] == "V rms"
+
+
+def test_the_templates_and_their_units():
+    assert [t.id for t in templates()] == ["oscilloscope", "signal_source"]
+    assert SCOPE.schema()["$defs"]["ScaleRowIn"]["properties"]["noise_v_rms"]["unit"] == "V rms"
 
 
 def test_the_example_expands_clean_and_records_its_template():
