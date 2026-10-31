@@ -419,11 +419,7 @@ class SimuBenchApp(App[None]):
 
     async def _screen(self, name: str, points: int | None = None) -> dict[str, Any]:
         assert self.sid is not None
-        suffix = f"?points={points}" if points else ""
-        r = await self.client.http.get(f"/api/sessions/{self.sid}/instruments/{name}/screen{suffix}")
-        if r.status_code != 200:
-            raise ApiError(r.status_code, r.text)
-        return r.json()  # type: ignore[no-any-return]
+        return await self.client.screen(self.sid, name, points)
 
     async def refresh_scope_frame(self, name: str, points: int) -> None:
         """The scope screen's frame at its own dot width (tui-screens.md 1.6, 6.1).
