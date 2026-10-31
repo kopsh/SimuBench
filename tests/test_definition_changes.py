@@ -21,7 +21,7 @@ BASE = {
     ],
     "commands": [
         {"header": ":MEASure:VOLTage[:DC]", "query": {"reply": "+1.00000000E+00"}},
-        {"header": ":SYSTem:ERRor?", "query": {"reply": "0,\"no error\""}},
+        {"header": ":SYSTem:ERRor?", "query": {"reply": '0,"no error"'}},
     ],
     "specs": {"dc_accuracy": "0.0035% of reading + 0.0005% of range"},
     "deviations": [{"param": "meter.gain", "limit": 0.0001, "unit": "ppm"}],
@@ -40,11 +40,14 @@ def as_tuples(changes: list) -> list[tuple]:
 def test_a_changed_command_reply_is_described():
     commands = [
         {"header": ":MEASure:VOLTage[:DC]", "query": {"reply": "+2.00000000E+00"}},
-        {"header": ":SYSTem:ERRor?", "query": {"reply": "0,\"no error\""}},
+        {"header": ":SYSTem:ERRor?", "query": {"reply": '0,"no error"'}},
     ]
     [item] = definition_changes(BASE, changed(commands=commands))
     assert (item.kind, item.action, item.target, item.detail) == (
-        "command", "changed", ":MEASure:VOLTage[:DC]", "query.reply"
+        "command",
+        "changed",
+        ":MEASure:VOLTage[:DC]",
+        "query.reply",
     )
     assert item.old == "+1.00000000E+00" and item.new == "+2.00000000E+00"
 
@@ -123,7 +126,11 @@ def test_template_inputs_and_a_port_are_described():
         {"ports": {"instrument": {"OUT": "src.out"}}}, {"ports": {"instrument": {"OUT": "amp.out"}}}
     )
     assert (port.kind, port.target, port.detail, port.old, port.new) == (
-        "ports", "ports", "instrument.OUT", "src.out", "amp.out"
+        "ports",
+        "ports",
+        "instrument.OUT",
+        "src.out",
+        "amp.out",
     )
 
 

@@ -104,7 +104,10 @@ class DefinitionFiles:
             older = _parse(self.files.history.content(rel, saved[i + 1].seq)) if i + 1 < len(saved) else {}
             out.append(
                 M.DefinitionVersion(
-                    seq=v.seq, sha256=v.sha256, source=v.source, saved_at=v.saved_at,
+                    seq=v.seq,
+                    sha256=v.sha256,
+                    source=v.source,
+                    saved_at=v.saved_at,
                     changes=definition_changes(older, data),
                 )
             )
