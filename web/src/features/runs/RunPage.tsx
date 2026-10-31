@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock, formatEng } from "@/lib/format";
+import { notExecutedSuffix } from "@/lib/notexecuted";
 import { cn } from "@/lib/utils";
 
 type RunEvent = Schemas["RunEvent"];
@@ -310,7 +311,8 @@ function describe(e: RunEvent, t: (k: string, o?: Record<string, unknown>) => st
     return (e.text ?? `<${e.size ?? 0} bytes>`).trim();
   }
   if (e.kind === "state") return `${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}${e.source && e.source !== "scpi" ? ` (${e.source})` : ""}`;
-  if (e.kind === "error") return `${e.code}, ${e.message ?? ""}`;
+  if (e.kind === "error") return `${e.code}, ${e.message ?? ""}${notExecutedSuffix(e, t)}`;
+  if (e.kind === "ignored") return `${e.header ?? ""}${notExecutedSuffix(e, t)}`;
   if (e.kind === "fault") return `${e.reason ?? ""} · ${e.message ?? ""}`;
   if (e.kind === "acquisition") {
     const chans = Object.entries(e.channels ?? {}).map(([ch, c]) => {

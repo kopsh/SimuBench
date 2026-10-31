@@ -224,9 +224,11 @@ async def test_the_log_shows_every_query_answered_and_unknown_commands_per_polic
         await asyncio.to_thread(_run_script, instruments, host)
         log = await _call(c, "read_log", kinds=["scpi", "ignored"], limit=1000)
         assert _pairing_problems(log["events"]) == []
-        # The beeper probe: swallowed without an error, but never silently (D16).
+        # The beeper probe: swallowed without an error, but never silently (D16); the event names
+        # the reason (D18) and the definition file that set the policy.
         ignored = [e for e in log["events"] if e["kind"] == "ignored"]
-        assert [(e["instrument"], e["reason"]) for e in ignored] == [("cal", "unknown_command")]
+        assert [(e["instrument"], e["reason"]) for e in ignored] == [("cal", "ignored")]
+        assert ignored[0]["origin"].endswith("lfcal-calibrator.yaml")
 
         # The scope is strict: a command outside its definition queues -113, on record as an event.
         def strict():
@@ -240,6 +242,7 @@ async def test_the_log_shows_every_query_answered_and_unknown_commands_per_polic
         assert (await asyncio.to_thread(strict)).startswith("-113")
         errors = (await _call(c, "read_log", kinds=["error"], limit=100))["events"]
         assert [(e["instrument"], e["code"]) for e in errors] == [("scope", -113)]
+        assert errors[-1]["reason"] == "not_in_definition"  # the classification reaches MCP too (D18)
     await manager.stop(next(iter(manager.sessions)))
 
 

@@ -176,7 +176,8 @@ def test_only_the_common_commands_of_the_manual_answer(scope):
     sds.write("*CLS")
     sds.write(":SYSTem:ERRor?")
     errors = [e for e in session.history if e.get("kind") == "error"]
-    assert [e.get("reason") for e in errors[-2:]] == ["not_modeled", "not_modeled"]
+    # The model's builtins are *IDN, *OPC and *RST (D45): the rest is excluded, not a modeling gap.
+    assert [e.get("reason") for e in errors[-2:]] == ["builtin_excluded", "builtin_excluded"]
     assert sds.query("*OPC?").strip() == "1"  # and nothing was queued for the script to read
 
 

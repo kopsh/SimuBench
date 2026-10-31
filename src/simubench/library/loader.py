@@ -67,7 +67,21 @@ def env_definition_dirs() -> list[Path]:
 @lru_cache(maxsize=256)
 def _load_definition_file(path: Path, mtime: float) -> InstrumentDefinition:
     data, _ = upgrade(_read_yaml(path), "instrument")
-    return InstrumentDefinition.model_validate(data)
+    definition = InstrumentDefinition.model_validate(data)
+    definition._source_file = path  # events that classify a command name this file (D18)
+    return definition
+
+
+@lru_cache(maxsize=256)
+def _load_coverage_file(path: Path, mtime: float) -> object | None:
+    """The coverage table next to a definition, for the runtime classification (D18); None when it
+    cannot be read (an instrument must still run when its table is broken)."""
+    try:
+        from .coverage import load_coverage
+
+        return load_coverage(path)
+    except Exception:
+        return None
 
 
 class DefinitionLibrary:
