@@ -329,3 +329,18 @@
 | `draft_bench_from_script` 在内置库没有匹配时返回模板建议；`create_definition_from_template` 直接接收草稿的输入；展开后仍不支持的命令按行号列出 | ✅ 报告的 `template`；加入一条 `HISTOGRAM_MODE ON` 时按行号报告 |
 | 低频校准示例脚本与类 Keysight 示波器脚本：只用内置库与模板，选对模板与变体，预填输入展开后没有诊断，全部命令被支持 | ✅ `tests/test_template_draft.py`；按草稿建好定义与测试台后脚本跑通，幅值 1 Vpp ±2 % |
 | 推断项与默认项可区分；MCP 协议级测试；`scripts/check.sh` 全绿 | ✅ |
+
+## 验收：只给脚本，Agent 经 MCP 搭出低频定标台面并跑通（Issue 146，instrument-authoring.md 7.0、7.6 的 T7）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 替身 PyVISA 脚本放进 `acceptance/`，只用公开的命令风格：参考示波器（LeCroy 风格）+ 4 通道校准源（按通道 SCPI 树），两个流程：幅值测量（约 10 kHz–5.5 MHz 的窄脉冲，占空比 0.1 %–5 %，毫伏级）与幅值定标（直流–交流，产出校准表） | ✅ `acceptance/lowfreq_cal_host.py`：脉冲占空比按高电平约 200 ns 随频率取 0.2 %–5 %，幅度 50 mVpp；定标流程为 5 个直流电平的均值与 3 个交流幅度，0.5 Vpp 一点分别以 VPP、VRMS、dBm 写入并测得同一波形 |
+| 测试扮演 Agent：空工作区、只有内置库与模板、只用 MCP 工具，从 `draft_bench_from_script` 到 `start_session`，不复制定义文件；脚本对拿到的地址运行到底 | ✅ `acceptance/test_lfcal_agent_scenario.py`：工作区里只有 `host.py`；选出 `lecroy-scope` 与 `channel-base`，两份定义经 `create_definition_from_template` 创建，测试台经 `validate_bench`，脚本经 `@py` 连 `start_session` 返回的 SOCKET 地址跑完两个流程 |
+| 两台 `*IDN?` 可区分（按测试台 `idn`） | ✅ Agent 以 `edit_bench` 的 `set_identity` 写入两台不同的 `idn`，脚本按型号段校验 |
+| 分块回读 12 345、30 000、100 000 点拼接即完整记录 | ✅ 三种点数按 FP 分块拼接，长度恰为点数；整周期方波的逐点对照（含分块边界）证明各块是同一条连续记录 |
+| 查询都有应答、设置都无应答 | ✅ 通信日志按仪器配对：每个带 `?` 的写入都有一条读取应答，没有无查询的应答 |
+| 同一种子、同一命令序列结果逐位一致 | ✅ 同一测试台部署两次（seed 1），响应与校准表逐位相等 |
+| 未建模命令按定义的策略：严格时报错并记录，宽松时忽略并记录 | ✅ 示波器定义取严格：脚本外的一条未知命令排入 -113 并在事件历史中记录；校准源取宽松：脚本的蜂鸣器探询被忽略，日志记 `ignored`（D16） |
+| 故意加一条模板不支持的命令：报告给出行号，Agent 用 `draft_definition_from_script(base_definition=...)` 补上后通过 | ✅ 脚本的 `PERSist 5` 按行号报告；Agent 以模板展开的定义为底起草出 `:PERSIST` 状态与命令，经 `edit_definition` 补上后重扫不再报告，脚本收尾的错误队列为空 |
+| 物理：负载 50 Ω / 高阻改变到达示波器的幅度；频率–幅值响应的量级与单调性合理；dBm、Vrms 与 Vpp 一致 | ✅ 负载设定高阻时进入示波器 50 Ω 输入的幅度减半、进入 1 MΩ 输入翻倍；响应在设值的 ±2 % 内随频率单调不增（1.002 → 0.984）；同一 0.5 Vpp 方波以三种单位写入测得同一幅度 |
+| `scripts/check.sh` 全绿 | ✅ Python 979 项（其中新增验收 5 项）、schema 与 Web 检查通过 |
