@@ -23,6 +23,9 @@ BUILTIN_DIR = Path(__file__).parent / "instruments"
 DEFINITIONS_ENV = "SIMUBENCH_DEFINITIONS"
 #: Coverage tables live next to their definitions (D42) and are not definitions themselves.
 COVERAGE_SUFFIX = ".coverage.yaml"
+#: Folders that never hold the user's files: SimuBench's own state (history versions are folders
+#: named after the file) and tool folders.
+SKIP_DIRS = frozenset({".simubench", ".git", ".venv", "node_modules"})
 
 
 class YamlLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # libyaml's parser when present

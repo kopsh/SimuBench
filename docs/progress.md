@@ -318,3 +318,12 @@
 | 百分数占空比 0.1 % 在 10 kHz 与 5.5 MHz 的保真度（谐波截断时带说明，D33） | ✅ 10 kHz：谱线上限截断并带说明，高电平约 100 ns；5.5 MHz：截到 1 GHz 带宽，谱线与解析傅里叶系数一致；两者均值精确 |
 | 输入错误各有反例，诊断指向 `template.inputs`；不新增型号专用组件 | ✅ 八个反例；生成的定义只用通用组件 |
 | `scripts/check.sh` 全绿 | ✅ |
+
+## 试运行一台仪表：MCP try_definition 与 HTTP 的临时会话、用例运行（Issue 126，instrument-authoring.md 7.2、7.4）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| `try_definition` 对 `sb-dmm-1` 与 `keysight-34465a` 返回的回复，与在测试台上发送相同命令一致 | ✅ `tests/test_mcp.py::test_try_definition_agrees_with_a_bench_session`：两个型号各 4 条命令（`*IDN?`、配置、测量、读），部署的测试台上 `send_scpi` 与 `try_definition` 的回复逐条相同；危险命令在临时会话中不需要 confirm，效果可见（`:SOUR1:FREQ?`） |
+| 临时会话存在时打开的测试台不受影响（端口、记录、状态）；空闲超时后被回收 | ✅ `tests/test_server.py::test_try_session_runs_alone_and_leaves_the_bench_alone`（`/api/sessions` 只列测试台、回复一致、收发/面板/设置可用、关闭后 404）；`test_try_session_binds_no_ports_and_writes_no_record`（`scpi_base_port=0` 下不发端口、`record_dir` 为空）；`test_try_session_is_reaped_after_the_idle_timeout`（超时后下一次访问回收） |
+| 用例运行结果与 `simubench cases` 一致（含一条失败用例的步骤、预期与实际） | ✅ 运行器加 `collect`（`tests/test_cases.py::test_steps_are_collected_only_when_asked`，默认报告不变）；HTTP `POST /api/definitions/{id}/cases/run` 逐条返回步骤（`test_definition_cases_are_listed_and_run_with_steps`，失败用例给出步号、命令、预期与实际）；`GET /api/definitions/{id}/cases` 按模型列出工作区用例文件 |
+| HTTP 与 MCP 各有测试；`scripts/check.sh` 全绿 | ✅ HTTP 四个新测试 + MCP 三个；974 项 pytest 通过；schemas 与 `web/src/api/generated/` 重新生成 |

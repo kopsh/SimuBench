@@ -215,6 +215,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Cases
+         * @description The workspace's cases files whose model is this definition (the acceptance page's case tab).
+         */
+        get: operations["listDefinitionCases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/{def_id}/cases/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Definition Cases
+         * @description Run a cases file the way `simubench cases` does (each case on a freshly powered bench)
+         *     and return every step with what was expected and got.
+         */
+        post: operations["runDefinitionCases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/diagnostics": {
         parameters: {
             query?: never;
@@ -711,6 +752,128 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/try": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Try Sessions
+         * @description The open try sessions (temporary sessions with one instrument each).
+         */
+        get: operations["listTrySessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{def_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Try
+         * @description Open a try session: the definition's instrument alone, no bench file, no SCPI port, no
+         *     run record. Opening the same definition again replaces the previous session.
+         */
+        post: operations["openTrySession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{sid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Close Try
+         * @description Close a try session (closing an unknown one does nothing).
+         */
+        delete: operations["closeTrySession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{sid}/configure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Configure
+         * @description Set one of the try session's settings (the same interface as a bench session's).
+         */
+        post: operations["tryConfigure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{sid}/panel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Panel
+         * @description A front-panel button on the try session's instrument (D32).
+         */
+        post: operations["tryPanel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{sid}/scpi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Scpi
+         * @description Send one program message to the try session's instrument (the same reply format as a
+         *     bench session's scpi interface).
+         */
+        post: operations["tryScpi"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -944,6 +1107,67 @@ export interface components {
             /** Path */
             path: string;
             version: components["schemas"]["BenchVersion"];
+        };
+        /**
+         * CaseFile
+         * @description A cases file in the workspace whose model is the definition.
+         */
+        CaseFile: {
+            /** Cases */
+            cases: number;
+            /**
+             * Path
+             * @description Workspace-relative cases file
+             */
+            path: string;
+        };
+        /**
+         * CaseRun
+         * @description One case as run: its outcome (as `simubench cases` reports it) and every step in order.
+         */
+        CaseRun: {
+            /** Actual */
+            actual: string | null;
+            /** Command */
+            command: string | null;
+            /** Error */
+            error: string | null;
+            /** Expected */
+            expected: string | null;
+            /** Manual */
+            manual: string | null;
+            /** Name */
+            name: string;
+            /** Passed */
+            passed: boolean;
+            /** Seconds */
+            seconds: number;
+            /**
+             * Step
+             * @description The failing step, counted from 1
+             */
+            step: number | null;
+            /** Steps */
+            steps: components["schemas"]["StepResult"][];
+        };
+        /** CaseRunRequest */
+        CaseRunRequest: {
+            /**
+             * Path
+             * @description Workspace-relative cases file
+             */
+            path: string;
+        };
+        /** CaseRunResult */
+        CaseRunResult: {
+            /** Cases */
+            cases: components["schemas"]["CaseRun"][];
+            /** Failed */
+            failed: number;
+            /** Passed */
+            passed: number;
+            /** Path */
+            path: string;
         };
         /**
          * Catalog
@@ -3195,6 +3419,40 @@ export interface components {
             value: unknown;
         };
         /**
+         * StepResult
+         * @description One step of a case as it ran: the command, and (a query) what was expected and got.
+         */
+        StepResult: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "send" | "query";
+            /**
+             * Actual
+             * @description A query: the reply, truncated like a failure report
+             */
+            actual: string | null;
+            /** Command */
+            command: string;
+            /**
+             * Error
+             * @description Why the step could not run at all
+             */
+            error: string | null;
+            /**
+             * Expected
+             * @description A query: what the case expected (a query only)
+             */
+            expected: string | null;
+            /** Index */
+            index: number;
+            /** Instrument */
+            instrument: string;
+            /** Ok */
+            ok: boolean;
+        };
+        /**
          * TemplateSource
          * @description The template a definition was expanded from and the inputs it was given (instrument-authoring.md
          *     7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the
@@ -3243,6 +3501,24 @@ export interface components {
             triggered: boolean;
             /** Volts */
             volts: number[];
+        };
+        /**
+         * TryOpened
+         * @description A temporary session that serves the definition's instrument alone: no bench file, no SCPI
+         *     ports, no run record, and no effect on an open bench session.
+         */
+        TryOpened: {
+            /** Definition Id */
+            definition_id: string;
+            /**
+             * Instrument
+             * @description The instrument's name in the session: the definition id
+             */
+            instrument: string;
+            /** Now Ns */
+            now_ns: number;
+            /** Session Id */
+            session_id: string;
         };
         /** ValidateRequest */
         ValidateRequest: {
@@ -3698,6 +3974,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstrumentDefinition"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listDefinitionCases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFile"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    runDefinitionCases: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseRunResult"];
                 };
             };
             /** @description Validation Error */
@@ -4645,6 +4987,191 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listTrySessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryOpened"][];
+                };
+            };
+        };
+    };
+    openTrySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TryOpened"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    closeTrySession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tryConfigure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfigureRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tryPanel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PanelRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PanelResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    tryScpi: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScpiRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScpiResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

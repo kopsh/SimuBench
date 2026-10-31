@@ -21,16 +21,13 @@ import yaml
 from ..engine import edit
 from ..engine.component import component_types
 from ..engine.validate import Report, validate_data
-from ..library.loader import DefinitionLibrary, load_yaml
+from ..library.loader import SKIP_DIRS, DefinitionLibrary, load_yaml
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
-#: Folders that never hold the user's benches: SimuBench's own state (history versions are folders
-#: named after the bench file) and tool folders.
-SKIP_DIRS = frozenset({".simubench", ".git", ".venv", "node_modules"})
 
 
 def scan(workspace: Path) -> list[Path]:

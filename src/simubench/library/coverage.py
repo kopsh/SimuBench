@@ -13,6 +13,7 @@ implemented or accepted command of the table is in the definition and has at lea
 
 from __future__ import annotations
 
+import os
 import re
 import time
 from collections import Counter
@@ -275,8 +276,26 @@ def leading_comments(text: str) -> str:
 
 
 @dataclass
+class StepResult:
+    """One step of a case as it ran: the command, and (a query) what was expected and got."""
+
+    index: int
+    action: Literal["send", "query"]
+    instrument: str
+    command: str
+    ok: bool
+    expected: str | None = None
+    actual: str | None = None
+    error: str | None = None
+
+
+@dataclass
 class CaseResult:
-    """The outcome of one case; a failure names its step, the command, and what was expected and got."""
+    """The outcome of one case; a failure names its step, the command, and what was expected and got.
+
+    With ``collect`` the outcome also carries every step in order (``steps``), for an interface that
+    shows what ran; without it ``steps`` stays ``None`` and the runner reports a failure only.
+    """
 
     name: str
     manual: str | None
@@ -287,6 +306,7 @@ class CaseResult:
     actual: str | None = None
     error: str | None = None
     seconds: float = 0.0
+    steps: list[StepResult] | None = None
 
     def describe(self) -> str:
         if self.passed:
@@ -349,11 +369,16 @@ def _check(step: Step, reply: str | None) -> tuple[str, bool]:
 
 
 def run_case(
-    cases_file: Path, cases: Cases, case: Case, definition_dirs: list[Path] | None = None
+    cases_file: Path,
+    cases: Cases,
+    case: Case,
+    definition_dirs: list[Path] | None = None,
+    *,
+    collect: bool = False,
 ) -> CaseResult:
-    """Run one case on a freshly powered bench."""
+    """Run one case on a freshly powered bench; with ``collect``, every step's outcome is kept."""
     t0 = time.perf_counter()
-    result = CaseResult(case.name, case.manual, passed=True)
+    result = CaseResult(case.name, case.manual, passed=True, steps=[] if collect else None)
     try:
         session = open_case_bench(cases_file, cases, definition_dirs)
     except Exception as exc:  # the bench or a definition does not load
@@ -363,15 +388,35 @@ def run_case(
     try:
         for i, step in enumerate(case.steps, 1):
             instrument = step.instrument or cases.instrument
+            entry: StepResult | None = (
+                StepResult(
+                    index=i,
+                    action="query" if step.query is not None else "send",
+                    instrument=instrument,
+                    command=step.command,
+                    ok=True,
+                )
+                if collect
+                else None
+            )
             try:
                 reply = _reply(session, instrument, step)
             except Exception as exc:
                 result.passed, result.step, result.command = False, i, step.command
                 result.error = f"{type(exc).__name__}: {exc}"
+                if entry is not None:
+                    entry.ok, entry.error = False, result.error
+                    result.steps.append(entry)
                 break
+            if entry is not None:
+                result.steps.append(entry)
             if step.query is None:
                 continue
             expected, ok = _check(step, reply)
+            if entry is not None:
+                entry.expected = expected
+                entry.actual = "(no reply)" if reply is None else reply[:200]
+                entry.ok = ok
             if not ok:
                 result.passed, result.step, result.command = False, i, step.command
                 result.expected = expected
@@ -383,10 +428,12 @@ def run_case(
     return result
 
 
-def run_cases(cases_file: Path, definition_dirs: list[Path] | None = None) -> list[CaseResult]:
+def run_cases(
+    cases_file: Path, definition_dirs: list[Path] | None = None, *, collect: bool = False
+) -> list[CaseResult]:
     """Run every case of a cases file, each on a freshly powered bench."""
     cases = load_cases(cases_file)
-    return [run_case(cases_file, cases, case, definition_dirs) for case in cases.cases]
+    return [run_case(cases_file, cases, case, definition_dirs, collect=collect) for case in cases.cases]
 
 
 def junit_xml(suites: list[tuple[str, list[CaseResult]]]) -> str:
@@ -414,3 +461,35 @@ def junit_xml(suites: list[tuple[str, list[CaseResult]]]) -> str:
         lines.append("  </testsuite>")
     lines.append("</testsuites>")
     return "\n".join(lines) + "\n"
+
+
+# ---- finding a model's cases ------------------------------------------------------------------------
+
+
+def find_cases_files(workspace: Path) -> list[Path]:
+    """The case files in a workspace: named ``cases.yaml`` or ``<something>.cases.yaml``.
+
+    Folders that never hold the user's files (SimuBench's own state, tool folders) are skipped, as
+    :func:`simubench.server.benchfiles.scan` does for bench files."""
+    from .loader import SKIP_DIRS
+
+    found = []
+    for root, dirs, files in os.walk(workspace):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        found.extend(Path(root) / f for f in files if f.endswith("cases.yaml"))
+    return sorted(found, key=lambda p: p.relative_to(workspace).as_posix())
+
+
+def cases_for_model(workspace: Path, def_id: str) -> list[tuple[str, int]]:
+    """Case files in the workspace whose model is ``def_id``, workspace-relative, with case counts.
+
+    A YAML file that merely ends in ``cases.yaml`` but is not one is skipped."""
+    out: list[tuple[str, int]] = []
+    for path in find_cases_files(workspace):
+        try:
+            cases = load_cases(path)
+        except Exception:
+            continue
+        if cases.model == def_id:
+            out.append((path.relative_to(workspace).as_posix(), len(cases.cases)))
+    return out

@@ -493,6 +493,176 @@
         "title": "BenchVersionDocument",
         "type": "object"
       },
+      "CaseFile": {
+        "description": "A cases file in the workspace whose model is the definition.",
+        "properties": {
+          "cases": {
+            "title": "Cases",
+            "type": "integer"
+          },
+          "path": {
+            "description": "Workspace-relative cases file",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "cases"
+        ],
+        "title": "CaseFile",
+        "type": "object"
+      },
+      "CaseRun": {
+        "description": "One case as run: its outcome (as `simubench cases` reports it) and every step in order.",
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "manual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "seconds": {
+            "title": "Seconds",
+            "type": "number"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The failing step, counted from 1",
+            "title": "Step"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepResult"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "manual",
+          "passed",
+          "seconds",
+          "step",
+          "command",
+          "expected",
+          "actual",
+          "error",
+          "steps"
+        ],
+        "title": "CaseRun",
+        "type": "object"
+      },
+      "CaseRunRequest": {
+        "properties": {
+          "path": {
+            "description": "Workspace-relative cases file",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "CaseRunRequest",
+        "type": "object"
+      },
+      "CaseRunResult": {
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CaseRun"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "integer"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "passed",
+          "failed",
+          "cases"
+        ],
+        "title": "CaseRunResult",
+        "type": "object"
+      },
       "Catalog": {
         "description": "What can be placed on a bench: instrument definitions, DUT and accessory types.",
         "properties": {
@@ -5796,6 +5966,83 @@
         "title": "StateVarInfo",
         "type": "object"
       },
+      "StepResult": {
+        "description": "One step of a case as it ran: the command, and (a query) what was expected and got.",
+        "properties": {
+          "action": {
+            "enum": [
+              "send",
+              "query"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actual": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A query: the reply, truncated like a failure report",
+            "title": "Actual"
+          },
+          "command": {
+            "title": "Command",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the step could not run at all",
+            "title": "Error"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A query: what the case expected (a query only)",
+            "title": "Expected"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "index",
+          "action",
+          "instrument",
+          "command",
+          "ok",
+          "expected",
+          "actual",
+          "error"
+        ],
+        "title": "StepResult",
+        "type": "object"
+      },
       "TemplateSource": {
         "additionalProperties": false,
         "description": "The template a definition was expanded from and the inputs it was given (instrument-authoring.md\n7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the\ndefinition as the template generated it.",
@@ -5880,6 +6127,36 @@
           "silence"
         ],
         "title": "Trace",
+        "type": "object"
+      },
+      "TryOpened": {
+        "description": "A temporary session that serves the definition's instrument alone: no bench file, no SCPI\nports, no run record, and no effect on an open bench session.",
+        "properties": {
+          "definition_id": {
+            "title": "Definition Id",
+            "type": "string"
+          },
+          "instrument": {
+            "description": "The instrument's name in the session: the definition id",
+            "title": "Instrument",
+            "type": "string"
+          },
+          "now_ns": {
+            "title": "Now Ns",
+            "type": "integer"
+          },
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "definition_id",
+          "instrument",
+          "now_ns"
+        ],
+        "title": "TryOpened",
         "type": "object"
       },
       "ValidateRequest": {
@@ -6528,6 +6805,100 @@
           }
         },
         "summary": "Definition"
+      }
+    },
+    "/api/definitions/{def_id}/cases": {
+      "get": {
+        "description": "The workspace's cases files whose model is this definition (the acceptance page's case tab).",
+        "operationId": "listDefinitionCases",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseFile"
+                  },
+                  "title": "Response Listdefinitioncases",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Cases"
+      }
+    },
+    "/api/definitions/{def_id}/cases/run": {
+      "post": {
+        "description": "Run a cases file the way `simubench cases` does (each case on a freshly powered bench)\nand return every step with what was expected and got.",
+        "operationId": "runDefinitionCases",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseRunResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run Definition Cases"
       }
     },
     "/api/diagnostics": {
@@ -7774,6 +8145,252 @@
           }
         },
         "summary": "Reset"
+      }
+    },
+    "/api/try": {
+      "get": {
+        "description": "The open try sessions (temporary sessions with one instrument each).",
+        "operationId": "listTrySessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TryOpened"
+                  },
+                  "title": "Response Listtrysessions",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Try Sessions"
+      }
+    },
+    "/api/try/{def_id}": {
+      "post": {
+        "description": "Open a try session: the definition's instrument alone, no bench file, no SCPI port, no\nrun record. Opening the same definition again replaces the previous session.",
+        "operationId": "openTrySession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TryOpened"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Try"
+      }
+    },
+    "/api/try/{sid}": {
+      "delete": {
+        "description": "Close a try session (closing an unknown one does nothing).",
+        "operationId": "closeTrySession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Close Try"
+      }
+    },
+    "/api/try/{sid}/configure": {
+      "post": {
+        "description": "Set one of the try session's settings (the same interface as a bench session's).",
+        "operationId": "tryConfigure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Configure"
+      }
+    },
+    "/api/try/{sid}/panel": {
+      "post": {
+        "description": "A front-panel button on the try session's instrument (D32).",
+        "operationId": "tryPanel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PanelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PanelResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Panel"
+      }
+    },
+    "/api/try/{sid}/scpi": {
+      "post": {
+        "description": "Send one program message to the try session's instrument (the same reply format as a\nbench session's scpi interface).",
+        "operationId": "tryScpi",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScpiRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScpiResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Scpi"
       }
     }
   }

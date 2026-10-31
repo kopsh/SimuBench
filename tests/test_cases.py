@@ -89,3 +89,33 @@ def test_a_file_that_does_not_read_exits_2(tmp_path, capsys):
     path.write_text("cases: [{name: x, steps: [{send: a, query: b}]}]\n")
     assert main(["cases", str(path)]) == 2
     assert "exactly one of send or query" in capsys.readouterr().err
+
+
+def test_steps_are_collected_only_when_asked(tmp_path):
+    path = _cases(
+        tmp_path,
+        [
+            {
+                "name": "good",
+                "steps": [{"send": "*RST"}, {"query": "*IDN?", "expect_match": "ACME Instruments,DM1,.*"}],
+            },
+            {
+                "name": "bad",
+                "manual": "Common Commands > *IDN?",
+                "steps": [{"send": "*CLS"}, {"query": "*IDN?", "expect": "ACME,DM2"}],
+            },
+        ],
+    )
+    [good, bad] = run_cases(path, collect=True)
+    assert good.passed
+    assert [(s.index, s.action, s.ok) for s in good.steps] == [(1, "send", True), (2, "query", True)]
+    assert good.steps[0].actual is None and good.steps[0].expected is None
+    assert good.steps[1].expected.startswith("a match") and good.steps[1].actual.startswith(
+        "ACME Instruments,DM1,"
+    )
+    assert not bad.passed and bad.step == 2 and bad.command == "*IDN?"
+    [entry] = bad.steps[1:]
+    assert entry.index == 2 and entry.ok is False
+    assert entry.expected == "'ACME,DM2'" and entry.actual.startswith("ACME Instruments,DM1,")
+    # the default report is unchanged: no steps
+    assert all(r.steps is None for r in run_cases(path))

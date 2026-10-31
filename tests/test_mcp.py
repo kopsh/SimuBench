@@ -439,3 +439,56 @@ async def test_an_agent_builds_a_scope_from_a_template(ws):
         "agent",
         "agent",
     ]
+
+
+async def test_try_definition_agrees_with_a_bench_session(ws):
+    """try_definition's replies are what the same commands get on a deployed bench (T2 acceptance)."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "create_bench", path="try.bench.yaml", name="try")
+        ops = [
+            {"op": "add_instrument", "name": "dmm", "model": "sb-dmm-1"},
+            {"op": "add_instrument", "name": "dmm2", "model": "keysight-34465a"},
+        ]
+        doc = await call(c, "edit_bench", path="try.bench.yaml", base_sha256=doc["sha256"], ops=ops)
+        assert doc["ok"], doc
+        await call(c, "start_session", path="try.bench.yaml")
+        commands = {
+            "sb-dmm-1": ("dmm", ["*IDN?", "*RST", ":MEAS:VOLT:DC?", ":MEAS:VOLT:AC?", ":CALibration:COUNt?"]),
+            "keysight-34465a": ("dmm2", ["*IDN?", ":CONF:VOLT:DC 10,0.001", ":MEAS:VOLT:DC?", ":READ?"]),
+        }
+        for model, (name, cmds) in commands.items():
+            on_bench = [await call(c, "send_scpi", instrument=name, command=cmd) for cmd in cmds]
+            tried = await call(c, "try_definition", definition_id=model, commands=cmds)
+            assert tried["definition"] == model and tried["instrument"] == model
+            assert [r["response"] for r in tried["results"]] == [r["response"] for r in on_bench]
+            assert tried["results"][0]["response"]  # the *IDN? reply came through in both worlds
+
+
+async def test_try_definition_reports_errors_and_captures_state(ws):
+    _, server = make(ws)
+    async with Client(server) as c:
+        tried = await call(
+            c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?", ":NOPE?", ":MEAS:VOLT:DC?"]
+        )
+        [idn, nope, meas] = tried["results"]
+        assert idn["response"].startswith("SIMUBENCH,SB-DMM-1,") and idn["errors"] == []
+        assert nope["errors"] and nope["errors"][0]["code"] == -113
+        assert meas["response"] is not None and meas["errors"] == []
+        assert c is not None
+        # the open bench (none here) is untouched: try sessions are not bench sessions
+        assert await call(c, "list_sessions") == []
+        unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
+        assert "no-such-model" in unknown["error"]
+
+
+async def test_try_definition_runs_dangerous_commands_without_confirm(ws):
+    """The sandbox is the simulation: the command send_scpi refuses without confirm (see
+    test_build_deploy_drive_observe) runs in a try session, and its effect is visible."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        dangerous = ":SOUR1:FREQ 1000;:OUTP1 ON"  # outputs on: send_scpi asks for confirm=true
+        tried = await call(
+            c, "try_definition", definition_id="sb-awg-2", commands=[dangerous, ":SOUR1:FREQ?"]
+        )
+        assert tried["results"][1]["response"] == "+1.000000E+03"

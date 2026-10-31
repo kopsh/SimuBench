@@ -49,6 +49,7 @@ marked as the DUT, the object under test or calibration (dut: true). Typical flo
    or draft_bench_from_script to start from an existing PyVISA test program;
 3. validate_bench and fix every error the diagnostics point at (pointer + suggestion);
    run_cases checks instruments against a cases file of commands and expected replies;
+   try_definition sends commands to one instrument alone, without a bench;
    to build an instrument the library lacks: list_templates / get_template and
    create_definition_from_template (fill in the data sheet), draft_definition_from_script or
    create_definition, then edit_definition (JSON Patch) / validate_definition until clean, then run_cases;
@@ -354,6 +355,76 @@ def build_server(
             "failed": sum(not r.passed for r in results),
             "cases": [r.as_dict() | {"summary": r.describe()} for r in results],
         }
+
+    @mcp.tool()
+    async def try_definition(
+        definition_id: str = Field(..., description="The definition to try (list_catalog has the ids)"),
+        commands: list[str] = Field(
+            ..., description="Program messages, sent in order to the instrument alone", max_length=200
+        ),
+    ) -> dict[str, Any]:
+        """Send commands to a definition's instrument alone, without a bench: a temporary session is
+        opened for the batch and closed after it, no SCPI port is bound, no run record is written,
+        and the engineer's open bench is untouched. Each result carries the reply, the errors the
+        command added to the queue and the virtual time, as send_scpi returns them. Commands marked
+        dangerous in the definition run without confirm: the simulation is the sandbox."""
+        guard()
+        from .api import open_bench
+        from .models.bench import BenchDefinition
+
+        try:
+            files.library(None).get(definition_id)  # unknown id fails before anything is built
+        except Exception as exc:
+            raise fail(exc) from None
+        bench = BenchDefinition.model_validate(
+            {
+                "schema": "simubench.bench/2",
+                "name": f"try-{definition_id}",
+                "instruments": {definition_id: {"model": definition_id}},
+            }
+        )
+
+        def run() -> list[dict[str, Any]]:
+            session = open_bench(bench, definition_dirs=[files.workspace / "instruments"])
+            try:
+                inst = session.instrument(definition_id)
+                out: list[dict[str, Any]] = []
+                for command in commands:
+                    before = len(inst.errors)
+                    try:
+                        session.write(definition_id, command.encode(), client="mcp")
+                        reply = session.read(definition_id, client="mcp")
+                    except LinkDown as exc:
+                        out.append(
+                            {
+                                "command": command,
+                                "response": None,
+                                "link_error": str(exc),
+                                "now_s": session.now_ns / 1e9,
+                            }
+                        )
+                        continue
+                    errors = inst.errors.peek_all()[before:]
+                    item: dict[str, Any] = {
+                        "command": command,
+                        "response": reply.decode(errors="replace").rstrip("\n")
+                        if reply is not None
+                        else None,
+                        "errors": [{"code": e.code, "message": e.message} for e in errors],
+                        "now_s": session.now_ns / 1e9,
+                    }
+                    if reply is None and "?" in command:
+                        item["timed_out"] = True
+                    out.append(item)
+                return out
+            finally:
+                session.close()
+
+        try:
+            results = await asyncio.to_thread(run)
+        except Exception as exc:
+            raise fail(exc) from None
+        return {"definition": definition_id, "instrument": definition_id, "results": results}
 
     # ---- instrument definitions (instrument-authoring.md 5.4) --------------------------------------
 

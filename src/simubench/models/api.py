@@ -667,6 +667,65 @@ class Event(_Model):
     )
 
 
+# ---- try a definition without a bench (7.2, T2) ---------------------------------------------------
+
+
+class TryOpened(_Model):
+    """A temporary session that serves the definition's instrument alone: no bench file, no SCPI
+    ports, no run record, and no effect on an open bench session."""
+
+    session_id: str
+    definition_id: str
+    instrument: str = Field(..., description="The instrument's name in the session: the definition id")
+    now_ns: int
+
+
+class StepResult(_Model):
+    """One step of a case as it ran: the command, and (a query) what was expected and got."""
+
+    index: int
+    action: Literal["send", "query"]
+    instrument: str
+    command: str
+    ok: bool
+    expected: str | None = Field(None, description="A query: what the case expected (a query only)")
+    actual: str | None = Field(None, description="A query: the reply, truncated like a failure report")
+    error: str | None = Field(None, description="Why the step could not run at all")
+
+
+class CaseRun(_Model):
+    """One case as run: its outcome (as `simubench cases` reports it) and every step in order."""
+
+    name: str
+    manual: str | None = None
+    passed: bool
+    seconds: float
+    step: int | None = Field(None, description="The failing step, counted from 1")
+    command: str | None = None
+    expected: str | None = None
+    actual: str | None = None
+    error: str | None = None
+    steps: list[StepResult] = Field(default_factory=list)
+
+
+class CaseRunRequest(_Model):
+    path: str = Field(..., description="Workspace-relative cases file")
+
+
+class CaseRunResult(_Model):
+    path: str
+    passed: int
+    failed: int
+    cases: list[CaseRun]
+
+
+class CaseFile(_Model):
+    """A cases file in the workspace whose model is the definition."""
+
+    path: str = Field(..., description="Workspace-relative cases file")
+    cases: int
+
+
 # ---- run records (D36) ---------------------------------------------------------------------------
 
 
