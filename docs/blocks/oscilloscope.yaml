@@ -1,0 +1,23 @@
+# 示波器的真实功能块(D49,依据见 docs/component-map.md 的 oscilloscope 节)。
+# 块覆盖测试(tests/test_block_coverage.py)检查内置定义的组件(含通道组件)覆盖每一块。
+schema: simubench.blocks/1
+class: oscilloscope
+blocks:
+  - block: input_port          # 输入端口(BNC,1 MΩ/50 Ω 到地)
+    components: [input_port]
+  - block: vertical            # 垂直通道:耦合、带宽、档位与偏置
+    components: [scope_vertical, scope_frontend]   # scope_frontend 是 scope_vertical 的旧名(仅为加载保留)
+  - block: probe               # 探头(通道配件,比例换算)
+    components: [scope_probe]
+  - block: adc                 # ADC:分辨率、最高采样率与交织
+    components: [scope_adc]
+  - block: acquisition         # 采集与运行控制(run/stop/single、存储)
+    components: [scope_acquisition]
+  - block: timebase            # 时基
+    components: [scope_timebase]
+  - block: trigger             # 触发
+    components: [scope_trigger]
+  - block: measurements        # 测量(自动测量、光标)
+    components: [scope_measurements]
+  - block: waveform_transfer   # 波形传输(前导码与数据块)
+    components: [waveform_transfer]

@@ -17,7 +17,7 @@ Every issue carries exactly one of two labels, set when the issue is opened:
 
 Claim only a `可认领` issue unless you are the lead agent. When a claimable issue turns out to need
 a capability the platform lacks, do not build it inside that issue: open a `核心` issue for the
-capability (under the umbrella issue it belongs to, e.g. #86) and comment on yours that it is
+capability (under the umbrella issue it belongs to; the first-wave category-expansion umbrella is #181) and comment on yours that it is
 blocked by it. Whoever opens an issue labels it; one without a label is not claimable.
 
 ## Steps
