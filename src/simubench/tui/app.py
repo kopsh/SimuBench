@@ -139,6 +139,21 @@ class SimuBenchApp(App[None]):
         else:
             await self._attach_flow()
 
+    async def on_unmount(self) -> None:
+        """The app is gone: stop the connection loop and close the client, so the websocket
+        closes cleanly instead of leaking until the process ends. Requests in flight land
+        first, or closing the client under them would crash the loop's task."""
+        self._stop.set()
+        tasks = [
+            t
+            for t in (self._conn_task, self._maint_task, self._session_task, self._picker_task)
+            if t is not None and not t.done()
+        ]
+        if tasks:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=2)
+        await self.client.close()
+
     async def _attach_flow(self) -> None:
         """``--attach``: one session connects directly, several show the picker, none a message."""
         from .screens.states import MessageScreen

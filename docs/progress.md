@@ -372,3 +372,13 @@
 | 回复文字不变（#172 的范围） | ✅ `-113` 的应答文本、错误表替换与 "not modeled by SimuBench" 后缀全部保持原样；`builtin_excluded` 也沿用今天的应答 |
 | 六种情况各有内置真实型号与工作区定义的覆盖 | ✅ not_modeled / not_in_model / builtin_excluded / bad_parameter 用内置真实型号（Siglent SDS2104X Plus、Fluke 5522A），not_in_definition / ignored / bad_parameter 用工作区定义（`sb-smu-1`、`examples/lowfreq-cal/`） |
 | `scripts/check.sh` 通过 | ✅ Python 1002 项（新增 8 项）、schema 与 Web 检查通过；`tests/test_siglent_sds.py` 的 `*CLS` 断言改为 `builtin_excluded`（分类按设计变更，应答未变） |
+
+## pytest 全量回到 60 s 预算内（Issue 209）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 贴出 `--durations=50` 并处理耗时靠前的用例（TUI 两个 10 s 以上先查等待/超时），不放宽断言 | ✅ 根因是真实 bug：`/api/sessions/{sid}/events` 在队列空闲时不感知客户端断开（卡在 `queue.get()`），uvicorn 优雅关停等它到强退；TUI 退出也不停连接循环。修后 `test_disconnect…` 12.19 s→2.6 s、`test_file_changed…` 13.64 s→3.5 s、8 处 10 s 的 fixture/finally 关停全部落到 1 s 内；断言一字未动 |
+| 必要时引入 `pytest-xdist`（`-n auto`），`scripts/check.sh` 与 CI 一致，确认用例间无共享可写状态 | ✅ 两处均为 `pytest -n 4`（等于 4 核开发容器上的 `-n auto`）；全部端口 0 号动态分配、工作区在 `tmp_path`、用例不写仓库文件（跑后 `git status` 干净） |
+| 开发容器上总耗时 < 60 s，不删除、不跳过、不隔离任何测试，用例数不减少 | ✅ 用例数 1057 不变；串行 243 s→172 s（修 TUI 挂起，开发笔记本实测；CI 的 4 vCPU 即验收环境的四路并行），`solve_seconds` 改按调用线程 CPU 计（被调度走不算变慢），阈值不变 |
+| Windows 任务（main 上）仍然通过 | ✅ CI 矩阵含 windows-latest（合并后 main 上运行）；xdist 与非阻塞关停均为纯 socket/线程，无信号依赖 |
+| 新增用例不再把全量拉回 60 s | ✅ AGENTS.md 第 4 步新增规则：全量超过 60 s 必须在当前任务内立即处理，不许留给后续 issue |
