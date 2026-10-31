@@ -1,0 +1,10 @@
+# 多功能校准源的真实功能块(D49,依据见 docs/component-map.md 的 calibrator 节)。
+# calibrator_output 是整块(源与输出控制都在其中):该类别的拆分尚未设计(第二波评估,
+# 缺口清单),不存在目标组件类型,块清单以现有组件为覆盖者——这不是豁免,是现状。
+schema: simubench.blocks/1
+class: calibrator
+blocks:
+  - block: setpoint_and_range  # 设定值与量程生成(DAC 与量程放大)
+    components: [calibrator_output]
+  - block: output_control      # 输出控制:工作/待机、输出端子
+    components: [calibrator_output]

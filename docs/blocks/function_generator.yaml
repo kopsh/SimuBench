@@ -1,0 +1,16 @@
+# 函数/任意波发生器的真实功能块(D49,依据见 docs/component-map.md 的 function_generator 节)。
+schema: simubench.blocks/1
+class: function_generator
+blocks:
+  - block: reference           # 参考/时基(内部振荡器、外部参考)
+    components: [reference_clock]
+  - block: synthesis           # 波形合成(标准波形相位连续;任意波走 arb_table)
+    components: [waveform_synth, function_generator_core]
+  - block: amplitude           # 幅度与偏置(D13、D48 的多单位)
+    components: [amplitude_level]
+  - block: output              # 输出级(戴维南源、输出阻抗)
+    components: [output_stage]
+  - block: arb_memory          # 任意波表(按 rate 播放)
+    components: [arb_table]
+  - block: modulation          # 调制(AM/FM/PM、扫频)——组件尚不存在,第二波拆出(缺口清单)
+    components: [awg_modulator]
