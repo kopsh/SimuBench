@@ -1,5 +1,7 @@
 import json
 import shutil
+
+import yaml
 from pathlib import Path
 
 import pytest
@@ -492,3 +494,25 @@ async def test_try_definition_runs_dangerous_commands_without_confirm(ws):
             c, "try_definition", definition_id="sb-awg-2", commands=[dangerous, ":SOUR1:FREQ?"]
         )
         assert tried["results"][1]["response"] == "+1.000000E+03"
+
+
+async def test_edit_definition_reports_what_changed(ws):
+    """create/edit_definition return the change description (T3): the agent can report it verbatim."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        data = json.loads(json.dumps(yaml.safe_load((ROOT / "validation/instruments/sb-dmm-1.yaml").read_text(encoding="utf-8"))))
+        doc = await call(c, "create_definition", definition_id="sb-dmm-1", data=data)
+        assert doc["changes"] and doc["changes"][0]["action"] == "added"  # the creation, described
+        edited = await call(
+            c,
+            "edit_definition",
+            definition_id="sb-dmm-1",
+            base_sha256=doc["sha256"],
+            patch=[{"op": "replace", "path": "/components/0/params/z_in", "value": 1.0e9}],
+        )
+        assert edited["changes"] == [
+            {"kind": "component", "action": "changed", "target": "input.z_in", "detail": None,
+             "old": 10.0e6, "new": 1.0e9}
+        ]
+        again = await call(c, "read_definition", definition_id="sb-dmm-1")
+        assert again["changes"] == []  # a read reports nothing

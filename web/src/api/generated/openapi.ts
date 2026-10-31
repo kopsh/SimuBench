@@ -256,6 +256,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition History
+         * @description Saved versions of a workspace definition, newest first, each with what it changed since
+         *     the previous one, in the instrument's language (the acceptance page's change log, T3).
+         */
+        get: operations["definitionHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/{def_id}/history/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Change List
+         * @description The changes between any two versions (base 0 compares against nothing: the creation).
+         */
+        get: operations["definitionChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/diagnostics": {
         parameters: {
             query?: never;
@@ -1439,6 +1480,59 @@ export interface components {
             /** To */
             to: string;
         };
+        /**
+         * DefinitionChange
+         * @description One change between two versions of a definition, in the instrument's language (T3): the
+         *     category, the object, and the old and new values. Labels (新增、删除、范围…) are the
+         *     interface's (i18n); the values are the definition's own.
+         */
+        DefinitionChange: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "added" | "removed" | "changed";
+            /**
+             * Detail
+             * @description What changed within the object: a field ('reply', 'min', 'limit', 'DC', ...)
+             */
+            detail: string | null;
+            /**
+             * Kind
+             * @description command | deviation | state | component | channel_component | identity | specs | template | channels, or the top-level key for anything else (ports, wiring, display…)
+             */
+            kind: string;
+            /**
+             * New
+             * @description The value after (None for a removed object)
+             */
+            new: unknown;
+            /**
+             * Old
+             * @description The value before (None for an added object)
+             */
+            old: unknown;
+            /**
+             * Target
+             * @description The object: a command header, a setting path, '<component>.<param>', 'identity.idn'
+             */
+            target: string;
+        };
+        /**
+         * DefinitionChangeList
+         * @description The changes between two chosen versions of a definition.
+         */
+        DefinitionChangeList: {
+            /**
+             * Base
+             * @description The seq the comparison starts from (0: nothing, i.e. creation)
+             */
+            base: number;
+            /** Changes */
+            changes: components["schemas"]["DefinitionChange"][];
+            /** Target */
+            target: number;
+        };
         /** DefinitionSummary */
         DefinitionSummary: {
             /** Channels */
@@ -1457,6 +1551,32 @@ export interface components {
             ports: string[];
             /** Template */
             template: string | null;
+        };
+        /**
+         * DefinitionVersion
+         * @description One saved version of a definition (D35), with what changed since the one before it.
+         */
+        DefinitionVersion: {
+            /**
+             * Changes
+             * @description Relative to the previous version (the first: everything)
+             */
+            changes: components["schemas"]["DefinitionChange"][];
+            /**
+             * Saved At
+             * @description UTC, ISO 8601
+             */
+            saved_at: string;
+            /** Seq */
+            seq: number;
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Source
+             * @description Who wrote it; external: changed outside SimuBench, seen at the next save
+             * @enum {string}
+             */
+            source: "ui" | "agent" | "api" | "external" | "restore";
         };
         /**
          * DeviationInfo
@@ -4040,6 +4160,71 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseRunResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    definitionHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionVersion"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    definitionChanges: {
+        parameters: {
+            query: {
+                base: number;
+                target: number;
+            };
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionChangeList"];
                 };
             };
             /** @description Validation Error */

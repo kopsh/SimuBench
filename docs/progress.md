@@ -327,3 +327,12 @@
 | 临时会话存在时打开的测试台不受影响（端口、记录、状态）；空闲超时后被回收 | ✅ `tests/test_server.py::test_try_session_runs_alone_and_leaves_the_bench_alone`（`/api/sessions` 只列测试台、回复一致、收发/面板/设置可用、关闭后 404）；`test_try_session_binds_no_ports_and_writes_no_record`（`scpi_base_port=0` 下不发端口、`record_dir` 为空）；`test_try_session_is_reaped_after_the_idle_timeout`（超时后下一次访问回收） |
 | 用例运行结果与 `simubench cases` 一致（含一条失败用例的步骤、预期与实际） | ✅ 运行器加 `collect`（`tests/test_cases.py::test_steps_are_collected_only_when_asked`，默认报告不变）；HTTP `POST /api/definitions/{id}/cases/run` 逐条返回步骤（`test_definition_cases_are_listed_and_run_with_steps`，失败用例给出步号、命令、预期与实际）；`GET /api/definitions/{id}/cases` 按模型列出工作区用例文件 |
 | HTTP 与 MCP 各有测试；`scripts/check.sh` 全绿 | ✅ HTTP 四个新测试 + MCP 三个；974 项 pytest 通过；schemas 与 `web/src/api/generated/` 重新生成 |
+
+## 定义的变更说明：比较两版，生成仪表语言的说明；HTTP 的修改记录接口（Issue 127，instrument-authoring.md 7.2）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 每类变化有一个用例：改命令的回复、增删设置、改量程、改组件参数、改偏差限值、只改说明文字 | ✅ `tests/test_definition_changes.py`：回复（`command` / `query.reply`，含旧新值）、增删设置与范围（`state` / `min`）、量程（`meter.ranges` / `DC` 以多重集比较：新增 1000 V、重排不算变化）、组件参数（`input.z_in` 10 MΩ → 1 GΩ）、偏差限值（`meter.gain` / `limit`）、只改说明文字（`description` 一条）；身份、specs、模板输入与 version、端口走同一比较器 |
+| 对 `sb-dmm-1` 与 34465A 的真实修改各给出一份说明快照 | ✅ `tests/test_definition_history.py`：sb-dmm-1 改 `z_in` → `[(component, changed, input.z_in, None, 10.0e6, 1.0e9)]`；34465A 的直流档位表增加 0.01 → `[(component, added, meter.ranges, DC, None, 0.01)]` |
+| 只改注释或键的顺序时没有说明 | ✅ 重排键后保存：新版本、`changes == []`；外部只加注释的修改以 external 版本进入历史，其说明为空 |
+| `scripts/check.sh` 全绿 | ✅ MCP `create_definition` / `edit_definition` 返回 `changes`（`tests/test_mcp.py::test_edit_definition_reports_what_changed`，read 不返回）；HTTP `GET /api/definitions/{id}/history`（每版带相对上一版的说明）与 `GET /api/definitions/{id}/history/changes?base=&target=`（任意两版，base 0 = 创建）；schemas 与前端类型重新生成 |

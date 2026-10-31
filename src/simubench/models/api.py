@@ -48,6 +48,49 @@ class Diagnostic(_Model):
     subject: str | None = Field(None, description="Instrument, DUT or wire the diagnostic is about")
 
 
+class DefinitionChange(_Model):
+    """One change between two versions of a definition, in the instrument's language (T3): the
+    category, the object, and the old and new values. Labels (新增、删除、范围…) are the
+    interface's (i18n); the values are the definition's own."""
+
+    kind: str = Field(
+        ...,
+        description="command | deviation | state | component | channel_component | identity | specs"
+        " | template | channels, or the top-level key for anything else (ports, wiring, display…)",
+    )
+    action: Literal["added", "removed", "changed"]
+    target: str = Field(
+        ..., description="The object: a command header, a setting path, '<component>.<param>', 'identity.idn'"
+    )
+    detail: str | None = Field(
+        None, description="What changed within the object: a field ('reply', 'min', 'limit', 'DC', ...)"
+    )
+    old: Any = Field(None, description="The value before (None for an added object)")
+    new: Any = Field(None, description="The value after (None for a removed object)")
+
+
+class DefinitionVersion(_Model):
+    """One saved version of a definition (D35), with what changed since the one before it."""
+
+    seq: int
+    sha256: str
+    source: Literal["ui", "agent", "api", "external", "restore"] = Field(
+        ..., description="Who wrote it; external: changed outside SimuBench, seen at the next save"
+    )
+    saved_at: str = Field(..., description="UTC, ISO 8601")
+    changes: list[DefinitionChange] = Field(
+        default_factory=list, description="Relative to the previous version (the first: everything)"
+    )
+
+
+class DefinitionChangeList(_Model):
+    """The changes between two chosen versions of a definition."""
+
+    base: int = Field(..., description="The seq the comparison starts from (0: nothing, i.e. creation)")
+    target: int
+    changes: list[DefinitionChange]
+
+
 class DefinitionDocument(_Model):
     """An instrument definition's content as stored, with its static-check diagnostics."""
 
@@ -63,6 +106,11 @@ class DefinitionDocument(_Model):
     diagnostics: list[Diagnostic]
     sessions_to_restart: list[str] = Field(
         default_factory=list, description="Running sessions that use an older version of this definition"
+    )
+    changes: list[DefinitionChange] = Field(
+        default_factory=list,
+        description="What this save changed (edit, create, restore): relative to the previous version "
+        "of the file; empty when nothing did (a read, or a save that only reorders keys)",
     )
 
 

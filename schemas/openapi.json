@@ -1272,6 +1272,88 @@
         "title": "Connect",
         "type": "object"
       },
+      "DefinitionChange": {
+        "description": "One change between two versions of a definition, in the instrument's language (T3): the\ncategory, the object, and the old and new values. Labels (新增、删除、范围…) are the\ninterface's (i18n); the values are the definition's own.",
+        "properties": {
+          "action": {
+            "enum": [
+              "added",
+              "removed",
+              "changed"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What changed within the object: a field ('reply', 'min', 'limit', 'DC', ...)",
+            "title": "Detail"
+          },
+          "kind": {
+            "description": "command | deviation | state | component | channel_component | identity | specs | template | channels, or the top-level key for anything else (ports, wiring, display…)",
+            "title": "Kind",
+            "type": "string"
+          },
+          "new": {
+            "description": "The value after (None for a removed object)",
+            "title": "New"
+          },
+          "old": {
+            "description": "The value before (None for an added object)",
+            "title": "Old"
+          },
+          "target": {
+            "description": "The object: a command header, a setting path, '<component>.<param>', 'identity.idn'",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "action",
+          "target",
+          "detail",
+          "old",
+          "new"
+        ],
+        "title": "DefinitionChange",
+        "type": "object"
+      },
+      "DefinitionChangeList": {
+        "description": "The changes between two chosen versions of a definition.",
+        "properties": {
+          "base": {
+            "description": "The seq the comparison starts from (0: nothing, i.e. creation)",
+            "title": "Base",
+            "type": "integer"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/DefinitionChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "target": {
+            "title": "Target",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "base",
+          "target",
+          "changes"
+        ],
+        "title": "DefinitionChangeList",
+        "type": "object"
+      },
       "DefinitionSummary": {
         "properties": {
           "channels": {
@@ -1335,6 +1417,53 @@
           "template"
         ],
         "title": "DefinitionSummary",
+        "type": "object"
+      },
+      "DefinitionVersion": {
+        "description": "One saved version of a definition (D35), with what changed since the one before it.",
+        "properties": {
+          "changes": {
+            "description": "Relative to the previous version (the first: everything)",
+            "items": {
+              "$ref": "#/components/schemas/DefinitionChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "saved_at": {
+            "description": "UTC, ISO 8601",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source": {
+            "description": "Who wrote it; external: changed outside SimuBench, seen at the next save",
+            "enum": [
+              "ui",
+              "agent",
+              "api",
+              "external",
+              "restore"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "sha256",
+          "source",
+          "saved_at",
+          "changes"
+        ],
+        "title": "DefinitionVersion",
         "type": "object"
       },
       "DeviationInfo": {
@@ -6899,6 +7028,108 @@
           }
         },
         "summary": "Run Definition Cases"
+      }
+    },
+    "/api/definitions/{def_id}/history": {
+      "get": {
+        "description": "Saved versions of a workspace definition, newest first, each with what it changed since\nthe previous one, in the instrument's language (the acceptance page's change log, T3).",
+        "operationId": "definitionHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DefinitionVersion"
+                  },
+                  "title": "Response Definitionhistory",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition History"
+      }
+    },
+    "/api/definitions/{def_id}/history/changes": {
+      "get": {
+        "description": "The changes between any two versions (base 0 compares against nothing: the creation).",
+        "operationId": "definitionChanges",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "base",
+            "required": true,
+            "schema": {
+              "title": "Base",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target",
+            "required": true,
+            "schema": {
+              "title": "Target",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionChangeList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Change List"
       }
     },
     "/api/diagnostics": {

@@ -451,8 +451,9 @@ def build_server(
         data: dict[str, Any] = Field(..., description="The definition (simubench.instrument/1)"),
     ) -> dict[str, Any]:
         """Write a new instrument definition into the workspace's instruments/ (never code: the
-        building blocks are list_components). The file is kept even when it does not pass the
-        checks yet; fix what the diagnostics point at with edit_definition."""
+        building blocks are list_components). The result reports what was created (changes, in the
+        instrument's language). The file is kept even when it does not pass the checks yet; fix what
+        the diagnostics point at with edit_definition."""
         guard()
         try:
             return definition_out(definitions.create(definition_id, data, "agent"))
@@ -466,8 +467,10 @@ def build_server(
         patch: list[PatchOp] = Field(..., description="JSON Patch (RFC 6902) operations, applied in order"),
     ) -> dict[str, Any]:
         """Edit a workspace definition with JSON Patch, e.g. {"op": "replace", "path":
-        "/channel_state/scale/max", "value": 10}. Every save enters the version history. Sessions that
-        use the definition keep the old one until restarted (sessions_to_restart)."""
+        "/channel_state/scale/max", "value": 10}. The result reports what changed (changes, in the
+        instrument's language — report that to the engineer). Every save enters the version history
+        (the Web acceptance page shows it with these descriptions). Sessions that use the definition
+        keep the old one until restarted (sessions_to_restart)."""
         guard()
         try:
             return definition_out(definitions.edit(definition_id, base_sha256, patch, "agent"))
