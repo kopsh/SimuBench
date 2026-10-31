@@ -28,7 +28,9 @@ def test_marker_fixtures_and_fresh_benches(pytester):
             assert "SB-AWG-2" in instruments["TCPIP0::192.168.1.20::5025::SOCKET"].query("*IDN?")
         """
     )
-    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(passed=3)
+    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
+        passed=3
+    )
 
 
 def test_failure_names_the_record(pytester, tmp_path):
@@ -88,7 +90,9 @@ def test_sleep_is_virtual_time_by_default(pytester):
             assert lia.query(":MEASure:R?") == SEEN["r"]  # the same instant, the same reading
         """
     )
-    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
+        passed=2
+    )
 
 
 def test_marker_opts_back_into_wall_idle(pytester):
@@ -103,4 +107,6 @@ def test_marker_opts_back_into_wall_idle(pytester):
             assert time.perf_counter() - t0 > 0.1  # the historical behaviour, on request
         """
     )
-    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
+        passed=1
+    )
