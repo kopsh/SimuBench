@@ -1566,7 +1566,7 @@ export interface components {
             remaining: number | null;
             /**
              * Source
-             * @description bench (preset), ui, mcp or api
+             * @description bench (preset), ui, tui, mcp or api
              */
             source: string;
             spec: components["schemas"]["Fault"];

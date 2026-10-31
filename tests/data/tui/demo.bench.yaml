@@ -1,0 +1,58 @@
+# The TUI spec's demo bench (tui-screens.md 1.3, 14): the awg → rc → 10x probe → scope chain of
+# examples/benches/siglent_scope_rc.bench.yaml merged with the SMU bench of
+# validation/benches/smu.bench.yaml. Deterministic: a fixed seed, the command clock, idle off
+# (D47), so the same command sequence produces byte-identical snapshots.
+schema: simubench.bench/2
+name: 示例测试台
+description: >-
+  TUI 快照用的示例：Siglent 信号源经 RC 低通与 10x 探头接到示波器，另有 SMU（受限于 CC）对地电阻与万用表。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.frequency: 1000
+      ch1.amplitude: 2.0
+  scope:
+    model: siglent-sds2104xplus
+    label: 示波器
+    address: "TCPIP0::192.168.1.31::INSTR"
+    state:
+      timebase.scale: 1.0e-3
+      ch1.scale: 0.05
+  smu:
+    model: sb-smu-1
+    label: 源测量单元
+    address: TCPIP0::192.168.1.60::5025::SOCKET
+    state:
+      source.voltage.level: 15.0
+      compliance.current.limit: 0.01
+      output.enabled: true
+  dmm: {model: sb-dmm-1, label: 万用表}
+parts:
+  rc:
+    type: rc_lowpass
+    dut: true
+    label: RC 低通
+    params: {r: 1000.0, c: 1.0e-7}
+  r1: {type: load_resistor, dut: true, params: {r: 1000.0}}
+wires:
+  - {from: awg.CH1, to: rc.IN}
+  - from: rc.OUT
+    to: scope.CH1
+    accessories:
+      - {type: passive_probe, params: {attenuation: 10, r_tip: 1.0e7}}
+  - {from: smu.HI, to: r1.A}
+  - {from: smu.HI, to: dmm.IN}
+run:
+  seed: 7
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  rc: {x: 360, y: 100}
+  scope: {x: 640, y: 40}
+  smu: {x: 0, y: 240}
+  r1: {x: 360, y: 260}
+  dmm: {x: 640, y: 280}
