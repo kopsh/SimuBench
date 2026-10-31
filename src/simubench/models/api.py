@@ -433,7 +433,7 @@ class FaultInfo(_Model):
     id: str
     status: Literal["pending", "active", "ended"]
     description: str
-    source: str = Field(..., description="bench (preset), ui, mcp or api")
+    source: str = Field(..., description="bench (preset), ui, tui, mcp or api")
     started_ns: int | None = None
     ends_ns: int | None = None
     remaining: int | None = Field(None, description="Messages left for a counted link fault")

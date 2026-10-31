@@ -83,6 +83,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         if not supplied or not secrets.compare_digest(supplied, token):
             raise HTTPException(status_code=401, detail="missing or wrong access token")
 
+    def client_of(request: Request) -> str:
+        """The client a write comes from: 'ui' (Web Bench) by default, 'tui' from the terminal
+        console (D18). Strict: a wrong header value is a 400 rather than a mislabelled record."""
+        value = request.headers.get("x-simubench-client") or "ui"
+        if value not in ("ui", "tui"):
+            raise HTTPException(400, f"unknown X-SimuBench-Client {value!r}: must be 'ui' or 'tui'")
+        return value
+
     def served(sid: str) -> ServedSession:
         try:
             return manager.get(sid)
@@ -477,11 +485,13 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         dependencies=[Depends(auth)],
         responses=IN_USE,
     )
-    async def scpi(sid: str, name: str, req: M.ScpiRequest) -> M.ScpiResponse:
+    async def scpi(
+        sid: str, name: str, req: M.ScpiRequest, client: str = Depends(client_of)
+    ) -> M.ScpiResponse:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.scpi, s, name, req.command)
+            return await asyncio.to_thread(manager.scpi, s, name, req.command, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -494,11 +504,13 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         dependencies=[Depends(auth)],
         responses=IN_USE,
     )
-    async def configure(sid: str, name: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
+    async def configure(
+        sid: str, name: str, req: M.ConfigureRequest, client: str = Depends(client_of)
+    ) -> M.ConfigureResponse:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.configure, s, name, req.path, req.value)
+            return await asyncio.to_thread(manager.configure, s, name, req.path, req.value, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -524,12 +536,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         dependencies=[Depends(auth)],
         responses=IN_USE,
     )
-    async def panel(sid: str, name: str, req: M.PanelRequest) -> M.PanelResponse:
+    async def panel(
+        sid: str, name: str, req: M.PanelRequest, client: str = Depends(client_of)
+    ) -> M.PanelResponse:
         """A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32)."""
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.panel, s, name, req.action)
+            return await asyncio.to_thread(manager.panel, s, name, req.action, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -541,12 +555,12 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="goLocal",
         dependencies=[Depends(auth)],
     )
-    def go_local(sid: str, name: str) -> M.InstrumentInfo:
+    def go_local(sid: str, name: str, client: str = Depends(client_of)) -> M.InstrumentInfo:
         """LOCAL: take an instrument in remote control back to the UI, until a remote client's next
         command (as the LOCAL key of an instrument). Recorded as a ``remote`` event (#121)."""
         s = served(sid)
         try:
-            s.go_local(name)
+            s.go_local(name, client)
         except KeyError as exc:
             raise not_found(exc) from None
         return instrument(sid, name)
@@ -660,11 +674,11 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="injectFault",
         dependencies=[Depends(auth)],
     )
-    def inject_fault(sid: str, spec: Fault) -> M.FaultInfo:
+    def inject_fault(sid: str, spec: Fault, client: str = Depends(client_of)) -> M.FaultInfo:
         s = served(sid)
         try:
             with s.session._lock:
-                return fault_info(s.session.faults.inject(spec, source="ui"))
+                return fault_info(s.session.faults.inject(spec, source=client))
         except KeyError as exc:
             raise not_found(exc) from None
         except ValueError as exc:

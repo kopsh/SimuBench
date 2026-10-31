@@ -91,6 +91,25 @@ def _free_port(port: int) -> int:
         return int(sock.getsockname()[1])
 
 
+def _tui(args: argparse.Namespace) -> int:
+    """The terminal console (D18): without Textual installed it only names the install command."""
+    from importlib.util import find_spec
+
+    if find_spec("textual") is None:
+        print("终端控制台需要可选依赖：pip install 'simubench[tui]'", file=sys.stderr)
+        return 2
+    from .tui.launch import run_attach, run_bench
+
+    if args.attach is not None or getattr(args, "session", None):
+        return run_attach(
+            args.attach if args.attach is not None else "http://127.0.0.1:8000",
+            args.session,
+            args.token,
+            args.lang,
+        )
+    return run_bench(args)
+
+
 def _mcp(args: argparse.Namespace) -> int:
     """stdio MCP service; the Web Bench runs in the same process so the engineer sees the agent's work.
 
@@ -492,6 +511,32 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--log-format", choices=["text", "json"], default="text", help="json: one object per line")
     p.add_argument("--log-file", help="also write the log here")
     p.set_defaults(fn=_serve)
+
+    p = sub.add_parser("tui", help="terminal console for a running bench (optional dependency, D18)")
+    p.add_argument("bench", nargs="?", help="bench file to start in this process, then observe")
+    p.add_argument("--workspace", help="folder searched for bench files (default: the bench's folder)")
+    p.add_argument(
+        "--attach",
+        nargs="?",
+        const="http://127.0.0.1:8000",
+        default=None,
+        metavar="URL",
+        help="connect to a running serve/mcp instead of starting one (default URL: 127.0.0.1:8000)",
+    )
+    p.add_argument("--session", help="the session id to attach to (default: only one, else pick)")
+    p.add_argument("--clock", choices=["command", "wall", "stepped"], help="clock mode for a started bench")
+    p.add_argument("--seed", type=int, help="bench seed for a started bench")
+    p.add_argument("--scpi-base-port", type=int, default=5025, help="first SCPI port; 0 lets the OS choose")
+    p.add_argument("--hislip-port", type=int, default=4880)
+    p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
+    p.add_argument("--record-dir", help="write run records here")
+    p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
+    p.add_argument(
+        "--allow-plugins", action="store_true", help="run components/*.py from the workspace as plugins"
+    )
+    p.add_argument("--token", help="access token of the service (default: no token, D43)")
+    p.add_argument("--lang", choices=["zh", "en"], help="UI language (default: follow LANG, zh fallback)")
+    p.set_defaults(fn=_tui)
 
     p = sub.add_parser("mcp", help="MCP service on stdio for AI agents, with the Web Bench alongside")
     p.add_argument("--workspace", default=".", help="folder with bench files (default: current folder)")

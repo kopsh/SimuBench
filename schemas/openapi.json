@@ -1964,7 +1964,7 @@
             "title": "Remaining"
           },
           "source": {
-            "description": "bench (preset), ui, mcp or api",
+            "description": "bench (preset), ui, tui, mcp or api",
             "title": "Source",
             "type": "string"
           },
