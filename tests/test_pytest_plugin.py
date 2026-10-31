@@ -28,7 +28,7 @@ def test_marker_fixtures_and_fresh_benches(pytester):
             assert "SB-AWG-2" in instruments["TCPIP0::192.168.1.20::5025::SOCKET"].query("*IDN?")
         """
     )
-    pytester.runpytest_subprocess("-p", "no:cacheprovider").assert_outcomes(passed=3)
+    pytester.runpytest_subprocess("--rootdir=.", "-p", "no:cacheprovider").assert_outcomes(passed=3)
 
 
 def test_failure_names_the_record(pytester, tmp_path):
@@ -39,8 +39,11 @@ def test_failure_names_the_record(pytester, tmp_path):
         """
     )
     runs = tmp_path / "runs"
+    # --rootdir keeps the subprocess's collection in this folder: with the repo's pyproject.toml
+    # as the configfile, pytest 8.4 walks the parent directories up to the drive root, which on
+    # Windows fails at the protected C:\Documents and Settings junction.
     result = pytester.runpytest_subprocess(
-        "--simubench-bench", str(BENCH), "--simubench-record-dir", str(runs)
+        "--rootdir=.", "--simubench-bench", str(BENCH), "--simubench-record-dir", str(runs)
     )
     result.assert_outcomes(failed=1)
     result.stdout.fnmatch_lines(["*SimuBench run record*", "*reproduce: simubench replay *run-*.jsonl"])
@@ -49,7 +52,7 @@ def test_failure_names_the_record(pytester, tmp_path):
 
 def test_missing_bench_is_explained(pytester):
     pytester.makepyfile("def test_x(instruments):\n    pass\n")
-    result = pytester.runpytest_subprocess()
+    result = pytester.runpytest_subprocess("--rootdir=.")
     result.assert_outcomes(errors=1)
     result.stdout.fnmatch_lines(["*no bench: use @pytest.mark.bench(path)*"])
 
@@ -84,7 +87,7 @@ def test_sleep_is_virtual_time_by_default(pytester):
             assert lia.query(":MEASure:R?") == SEEN["r"]  # the same instant, the same reading
         """
     )
-    pytester.runpytest_subprocess("-p", "no:cacheprovider").assert_outcomes(passed=2)
+    pytester.runpytest_subprocess("--rootdir=.", "-p", "no:cacheprovider").assert_outcomes(passed=2)
 
 
 def test_marker_opts_back_into_wall_idle(pytester):
@@ -99,4 +102,4 @@ def test_marker_opts_back_into_wall_idle(pytester):
             assert time.perf_counter() - t0 > 0.1  # the historical behaviour, on request
         """
     )
-    pytester.runpytest_subprocess("-p", "no:cacheprovider").assert_outcomes(passed=1)
+    pytester.runpytest_subprocess("--rootdir=.", "-p", "no:cacheprovider").assert_outcomes(passed=1)
