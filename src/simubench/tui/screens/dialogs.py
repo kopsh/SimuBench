@@ -23,6 +23,40 @@ from ..fmt import cell_len, fmt
 from ..reasons import ReasonReport, plain_text
 
 
+class HistoryInput(Input):
+    """An ``Input`` whose ↑↓ walk a history instead of moving the cursor (10.2, 10.3).
+
+    Textual's ``Input`` binds no arrow keys, so without these the keys would bubble to the
+    screen and move the focus instead.
+    """
+
+    BINDINGS: ClassVar = [
+        Binding("up", "history_up", show=False),
+        Binding("down", "history_down", show=False),
+    ]
+
+    def __init__(self, history: Sequence[str] | None = None, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._history: Sequence[str] = history or []
+        self._index = len(self._history)
+
+    def set_history(self, history: Sequence[str]) -> None:
+        self._history = history
+        self._index = len(history)
+
+    def action_history_up(self) -> None:
+        if self._history:
+            self._index = max(0, self._index - 1)
+            self.value = self._history[self._index]
+            self.cursor_position = len(self.value)
+
+    def action_history_down(self) -> None:
+        if self._history:
+            self._index = min(len(self._history), self._index + 1)
+            self.value = self._history[self._index] if self._index < len(self._history) else ""
+            self.cursor_position = len(self.value)
+
+
 class NumberEditScreen(ModalScreen[bool]):
     """Edit a numeric setting (tui-screens.md 10.2): unit conversion, range check, write errors."""
 
@@ -35,6 +69,8 @@ class NumberEditScreen(ModalScreen[bool]):
         align: center middle;
         background: $background 60%;
         #edit-box { width: 62; height: auto; border: thick $focus; padding: 1 2; }
+        #edit-box Horizontal { height: auto; }
+        #edit-box Vertical { height: auto; }
         #edit-error { color: $bad; }
         #edit-range { color: $muted; }
         #edit-accepted { color: $muted; }
@@ -70,7 +106,7 @@ class NumberEditScreen(ModalScreen[bool]):
             yield Static(i18n.t("edit.current", lang) + "  " + shown, id="edit-current")
             with Horizontal():
                 yield Static(i18n.t("edit.newValue", lang) + "  ")
-                yield Input(id="edit-input")
+                yield HistoryInput(self._history, id="edit-input")
                 yield Static(" " + unit if unit else "")
             yield Static(i18n.t("edit.range", lang) + "  " + (range_text(self._spec) or "—"), id="edit-range")
             yield Static(i18n.t("edit.accepted", lang), id="edit-accepted")
@@ -129,21 +165,11 @@ class NumberEditScreen(ModalScreen[bool]):
         self.run_worker(self._do_submit(text), exclusive=True)
 
     def on_key(self, event) -> None:
-        """↑↓ walk this dialog's own history; Esc cancels (tui-screens.md 10.2)."""
+        """Esc cancels here; the event must not also reach the screen below (it would pop it)."""
         if event.key == "escape":
+            event.stop()
+            event.prevent_default()
             self.action_cancel()
-            return
-        inp = self.query_one("#edit-input", Input)
-        if not inp.has_focus or not self._history:
-            return
-        if event.key == "up":
-            self._history_index = max(0, self._history_index - 1)
-            inp.value = self._history[self._history_index]
-            inp.cursor_position = len(inp.value)
-        elif event.key == "down":
-            self._history_index = min(len(self._history), self._history_index + 1)
-            inp.value = self._history[self._history_index] if self._history_index < len(self._history) else ""
-            inp.cursor_position = len(inp.value)
 
     def action_cancel(self) -> None:
         if not self._busy:
@@ -174,17 +200,18 @@ class SelectScreen(ModalScreen[str | None]):
         self._options = list(options)
         self._current = current
         self._cursor = next((i for i, (v, _) in enumerate(self._options) if v == current), 0)
+        self._rows_static: Static | None = None
 
     def compose(self) -> ComposeResult:
-        yield Static("", id="select-rows")
+        self._rows_static = Static(self._rows_text(), id="select-rows")
+        yield Vertical(self._rows_static, id="select-box")
 
     def on_mount(self) -> None:
         self.query_one("#select-box", Vertical).border_title = i18n.t(
             "edit.selectTitle", self.app.lang, label=self._label
         )
-        self._render()
 
-    def _render(self) -> None:
+    def _rows_text(self) -> str:
         from ..fmt import fit
 
         rows = []
@@ -192,13 +219,17 @@ class SelectScreen(ModalScreen[str | None]):
             mark = "▸ " if i == self._cursor else "  "
             mark += "● " if value == self._current else "  "
             rows.append(mark + fit(label, 34))
-        self.query_one("#select-rows", Static).update("\n".join(rows))
+        return "\n".join(rows)
+
+    def _redraw(self) -> None:
+        if self._rows_static is not None:
+            self._rows_static.update(self._rows_text())
 
     def action_cursor(self, direction: str) -> None:
         if not self._options:
             return
         self._cursor = (self._cursor + (1 if direction == "down" else -1)) % len(self._options)
-        self._render()
+        self._redraw()
 
     def action_pick(self) -> None:
         if self._options:
@@ -253,8 +284,7 @@ class ReasonScreen(ModalScreen[None]):
                     body.append(Text(ev.source, style=self._style("muted")))
                     body.append("\n")
             yield Static(body, id="reason-evidences")
-            if self._report.hint:
-                yield Static(self._report.hint, id="reason-hint")
+            yield Static(self._report.hint or "", id="reason-hint")
             yield Static(i18n.t("reason.jumpKeys", lang), id="reason-keys")
 
     def _style(self, token: str) -> str:
@@ -331,10 +361,11 @@ class ScpiConsole(Vertical):
     #console-row { height: 1; }
     #console-prompt { color: $focus; }
     #console-input { width: 1fr; border: none; height: 1; padding: 0; }
+    #console-hints { color: $muted; width: auto; }
     #console-reply { height: 1; color: $muted; padding-left: 2; }
     """
 
-    BINDINGS: ClassVar = [Binding("escape", "close", show=False)]
+    BINDINGS: ClassVar = []
 
     def __init__(
         self, instrument: str, submit: Callable[[str], Awaitable[tuple[str | None, str | None]]]
@@ -343,16 +374,28 @@ class ScpiConsole(Vertical):
         self.instrument = instrument
         self._submit = submit
         self._history: list[str] = []
-        self._index = 0
         self._busy = False
+
+    def compose(self) -> ComposeResult:
+        with Horizontal(id="console-row"):
+            yield Static(
+                i18n.t("console.prompt", self.app.lang, instrument=self.instrument), id="console-prompt"
+            )
+            yield HistoryInput(id="console-input")
+            yield Static(
+                i18n.t("console.send", self.app.lang) + "  " + i18n.t("console.history", self.app.lang)
+                + "  " + i18n.t("console.close", self.app.lang),
+                id="console-hints",
+            )
+        yield Static("", id="console-reply")
 
     def open(self) -> None:
         app: Any = self.app
-        histories = app.scpi_history
-        self._history = list(histories.get(self.instrument, []))
-        self._index = len(self._history)
+        self._history = list(app.scpi_history.get(self.instrument, []))
+        inp = self.query_one("#console-input", HistoryInput)
+        inp.set_history(self._history)
         self.add_class("-open")
-        self.query_one("#console-input", Input).focus()
+        inp.focus()
 
     def close(self) -> None:
         self.remove_class("-open")
@@ -367,13 +410,15 @@ class ScpiConsole(Vertical):
     async def _run(self, command: str) -> None:
         reply, error = await self._submit(command)
         lang = self.app.lang
+        from rich.text import Text
+
         row = self.query_one("#console-reply", Static)
         if error:
-            row.update(error, style=self._style("bad"))
+            row.update(Text(error, style=self._style("bad")))
         elif reply is None:
-            row.update(i18n.t("console.noReply", lang), style=self._style("muted"))
+            row.update(Text(i18n.t("console.noReply", lang), style=self._style("muted")))
         else:
-            row.update("→ " + reply, style=self._style(""))
+            row.update(Text("→ " + reply))
         self._busy = False
 
     def _style(self, token: str) -> str:
@@ -388,23 +433,16 @@ class ScpiConsole(Vertical):
         if command:
             if command not in self._history:
                 self._history.append(command)
-            self._index = len(self._history)
             app: Any = self.app
             app.scpi_history[self.instrument] = self._history
             save_history(app.scpi_history)
+            self.query_one("#console-input", HistoryInput).set_history(self._history)
         self._busy = True
         self.run_worker(self._run(command), exclusive=True)
 
     def on_key(self, event) -> None:
-        if event.key == "up" or event.key == "down":
-            inp = self.query_one("#console-input", Input)
-            if not self._history:
-                return
-            if event.key == "up":
-                self._index = max(0, self._index - 1)
-            else:
-                self._index = min(len(self._history), self._index + 1)
-            inp.value = self._history[self._index] if self._index < len(self._history) else ""
-            inp.cursor_position = len(inp.value)
+        """Esc closes the console and stays on the screen (the event stops here)."""
+        if event.key == "escape":
             event.stop()
             event.prevent_default()
+            self.close()

@@ -104,16 +104,16 @@ def trace_source(events: Sequence[Mapping[str, Any]], instrument: str, path: str
                     source=label,
                     command=write.get("text") or "",
                 )
-            return "← " + t("reason.fromEvent", lang, time=fmt_ns(t_ns))
+            return t("reason.fromEvent", lang, time=fmt_ns(t_ns))
         if src == "configure":
-            return "← " + t("reason.fromSettings", lang, time=fmt_ns(t_ns))
+            return t("reason.fromSettings", lang, time=fmt_ns(t_ns))
         if src == "fault":
             fault = _fault_event_for(events, t_ns)
             if fault is not None:
-                return "← " + t("reason.fromFault", lang, id=fault.get("fault", ""))
-            return "← " + t("reason.fromEvent", lang, time=fmt_ns(t_ns))
+                return t("reason.fromFault", lang, id=fault.get("fault", ""))
+            return t("reason.fromEvent", lang, time=fmt_ns(t_ns))
         if src:
-            return "← " + t("reason.fromEvent", lang, time=fmt_ns(t_ns))
+            return t("reason.fromEvent", lang, time=fmt_ns(t_ns))
         return None  # a state change with no source is the bench file's initial value
     return None
 
@@ -184,14 +184,14 @@ def limited_report(
             f"{_label_of(info, set_path, lang)} {_value_text(info, set_path, lang)}",
             set_path,
             trace_source(events, instrument, set_path, lang)
-            or "← " + t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
+            or t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
         ),
         Evidence(
             t("reason.evLimit", lang),
             f"{_label_of(info, limit_path, lang)} {_value_text(info, limit_path, lang)}",
             limit_path,
             trace_source(events, instrument, limit_path, lang)
-            or "← " + t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
+            or t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
         ),
         Evidence(
             t("reason.evReading", lang),
@@ -232,7 +232,7 @@ def fault_report(
             t("reason.evFault", lang),
             description,
             "",
-            "← " + t("reason.fromFaultSource", lang, id=fid, source=source),
+            t("reason.fromFaultSource", lang, id=fid, source=source),
         )
     ]
     if kind == "trip" and info is not None:
@@ -315,7 +315,7 @@ def setting_report(
         t("reason.evSetting", lang),
         f"{label} {value}",
         path,
-        source or "← " + t("reason.fromBench", lang, pointer=bench_pointer(instrument, path)),
+        source or t("reason.fromBench", lang, pointer=bench_pointer(instrument, path)),
     )
     conclusion = t("reason.settingIs", lang, label=label, value=value)
     return ReasonReport(

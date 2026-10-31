@@ -1222,10 +1222,23 @@ class InstrumentScreen(ShellScreen):
         return None
 
     def _active_faults(self) -> list[dict[str, Any]]:
+        """Faults that still explain this instrument's state (tui-screens.md 5.4, 8).
+
+        A ``trip`` is a one-shot: the engine fires it and ends it at once, so it is never
+        ``active`` — it still explains things for as long as the error it queued is readable.
+        Communication faults explain while they are active or pending.
+        """
         app: Any = self.app
-        return [
-            f
-            for f in (app.faults or [])
-            if f.get("status") in ("active", "pending")
-            and (f.get("spec") or {}).get("instrument") == self.instrument_name
-        ]
+        queue_codes = {int(e["code"]) for e in self.info.get("errors", [])}
+        out: list[dict[str, Any]] = []
+        for f in app.faults or []:
+            spec = f.get("spec") or {}
+            if spec.get("instrument") != self.instrument_name:
+                continue
+            status = f.get("status")
+            if spec.get("kind") == "trip":
+                if status == "active" or (status == "ended" and spec.get("code", -300) in queue_codes):
+                    out.append(f)
+            elif status in ("active", "pending"):
+                out.append(f)
+        return out

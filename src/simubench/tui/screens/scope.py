@@ -456,7 +456,7 @@ class ScopeScreen(ShellScreen):
                 arrow = "←"
                 rows.append(
                     [
-                        ("    " + arrow + " ", "muted"),
+                        (" " + arrow + " ", "muted"),
                         (" · ".join(ends) if ends else (port.get("net") or ""), ""),
                     ]
                 )
