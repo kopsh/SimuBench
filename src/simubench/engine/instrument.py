@@ -396,6 +396,14 @@ class Instrument:
             return value
         if spec.type == "bool":
             return bool(value)
+        if spec.type == "int_list":
+            out = [int(v) for v in value]
+            for v in out:
+                if spec.min is not None and v < spec.min:
+                    raise ScpiError(-222)
+                if spec.max is not None and v > spec.max:
+                    raise ScpiError(-222)
+            return out
         return str(value)
 
     # ---- operations that finish later --------------------------------------------------------------
@@ -830,11 +838,10 @@ class Instrument:
         if spec.state is not None:
             body = self._state_command(spec, unit, channel)
         elif spec.op is not None:
-            result = self._op_command(spec, unit, channel, suffixes)
-            response = result.response
-            if response is not None and spec.reply is not None:  # an operation's reply in a template
-                response = self._reply(compiled, response, channel, suffixes, result.fields)
-            return response, result.duration_ns + parse_duration(spec.duration)
+            result = self._op_command(compiled, spec, unit, channel, suffixes)
+            return result.response, result.duration_ns + parse_duration(spec.duration)
+        elif any(p.type == "channel_list" for p in spec.params):
+            body = self._channel_list_command(spec, unit, channel)
         elif any(p.type == "quantities" for p in spec.params):
             body = self._quantities_command(spec, unit, channel)
         else:
@@ -1018,6 +1025,59 @@ class Instrument:
         path = self._resolve(ref, channel)
         return self._format(self.specs[path], self.state[path], spec.format).decode()
 
+    def _channel_list_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+        """A command with a channel list parameter (``VOLT 5,(@1:3)``) expands over the channels:
+        a write happens once per channel (each channel's own range applies), a query answers the
+        channels in list order, comma-joined. The command's parameters carry the value(s); the
+        list itself writes no setting."""
+        raw = list(unit.params)
+        channels: list[int] = []
+        values: list[tuple[ParamSpec, bytes]] = []
+        for ps in spec.params:
+            if ps.type == "channel_list":
+                if raw:
+                    channels = V.parse_channel_list(raw.pop(0))
+                elif ps.optional:
+                    channels = list(ps.default or [1])
+                else:
+                    raise ScpiError(-109, f"missing {ps.name}")
+            elif unit.query:
+                continue  # a query carries only the channel list
+            elif not raw:
+                if ps.optional:
+                    continue
+                raise ScpiError(-109, f"missing {ps.name}")
+            else:
+                values.append((ps, raw.pop(0)))
+        if raw:
+            raise ScpiError(-108)
+        for n in channels:
+            if not 1 <= n <= self.channel_count:
+                raise ScpiError(-114, f"channel {n} does not exist")
+        if unit.query:
+            parts = []
+            for n in channels:
+                for ps in spec.params:
+                    if ps.type == "channel_list" or ps.state is None:
+                        continue
+                    path = self._resolve(ps.state, n)
+                    parts.append(self._format(self.specs[path], self.state[path], spec.format).decode())
+            return ",".join(parts).encode()
+        writes: dict[str, bytes] = {}
+        for n in channels:
+            for ps, r in values:
+                writes[self._resolve(ps.state, n)] = r  # type: ignore[index]
+        checked: dict[str, Any] = {}
+        for path, r in writes.items():
+            st = self.specs[path]
+            try:
+                checked[path] = self._validate(st, self._parse_state(st, r))
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, st) from e
+        for path, v in checked.items():
+            self.set_state(path, v)
+        return None
+
     def _quantities_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         """A command whose parameters are 'value unit' pairs (``OUT 1 V, 1 kHz``), each written into
         the setting its unit names, a combination writing more (metrology-authoring.md 5.2). All
@@ -1118,6 +1178,8 @@ class Instrument:
             return V.parse_bool(raw)
         if st.type == "enum":
             return V.parse_enum(raw, st.options or [])
+        if st.type == "int_list":
+            return V.parse_channel_list(raw)
         return V.parse_string(raw)
 
     def format_number(self, value: float) -> bytes:
@@ -1153,21 +1215,60 @@ class Instrument:
             return V.format_bool(value, word=f.boolean == "word")
         if st.type == "enum":
             return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
+        if st.type == "int_list":
+            return V.format_channel_list(value)
         return V.format_string(str(value))
 
     def _op_command(
-        self, spec: CommandSpec, unit: Unit, channel: int | None, suffixes: dict[str, int]
+        self,
+        compiled: _Compiled,
+        spec: CommandSpec,
+        unit: Unit,
+        channel: int | None,
+        suffixes: dict[str, int],
     ) -> OpResult:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
+        args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+        list_spec = next((p for p in spec.params if p.type == "channel_list"), None)
+        if list_spec is None:
+            result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)
+            response = result.response
+            if response is not None and spec.reply is not None:  # an operation's reply in a template
+                response = self._reply(compiled, response, channel, suffixes, result.fields)
+            return OpResult(response=response, duration_ns=result.duration_ns)
+        responses = []
+        duration = 0
+        for n in args.pop(list_spec.name):
+            # the operation runs once per channel; each reply is templated in its channel's
+            # context, then the replies join in list order
+            result = self._run_op(comp_ref, op_name, unit, n, suffixes, args)
+            duration += result.duration_ns
+            response = result.response
+            if response is not None and spec.reply is not None:
+                response = self._reply(compiled, response, n, suffixes, result.fields)
+            if unit.query and response is not None:
+                responses.append(response)
+        if not unit.query:
+            return OpResult(duration_ns=duration)
+        return OpResult(response=b",".join(responses), duration_ns=duration)
+
+    def _run_op(
+        self,
+        comp_ref: str,
+        op_name: str,
+        unit: Unit,
+        channel: int | None,
+        suffixes: dict[str, int],
+        args: dict[str, Any],
+    ) -> OpResult:
         comp_name = self._resolve(comp_ref, channel)
         comp = self.components.get(comp_name)
         if comp is None:
             raise ScpiError(-300, f"component {comp_name!r} missing")
         fn = comp.operation(op_name)
         if fn is None:
-            raise ScpiError(-300, f"operation {spec.op!r} missing")
-        args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+            raise ScpiError(-300, f"operation {comp_ref}.{op_name!r} missing")
         result = fn(query=unit.query, channel=channel, suffixes=suffixes, **args)
         return result if isinstance(result, OpResult) else OpResult()
 
@@ -1175,6 +1276,15 @@ class Instrument:
         out: dict[str, Any] = {}
         i = 0
         for ps in specs:
+            if ps.type == "channel_list":
+                if i < len(raw):
+                    out[ps.name] = V.parse_channel_list(raw[i])
+                    i += 1
+                elif ps.optional:
+                    out[ps.name] = list(ps.default or [1])
+                else:
+                    raise ScpiError(-109, f"missing {ps.name}")
+                continue
             if ps.type == "float_list":
                 out[ps.name] = V.parse_float_list(raw[i:], ps.unit) if i < len(raw) else []
                 i = len(raw)

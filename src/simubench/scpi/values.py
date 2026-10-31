@@ -124,6 +124,48 @@ def parse_block(raw: bytes) -> bytes:
     return payload
 
 
+def parse_channel_list(raw: bytes) -> list[int]:
+    """A SCPI channel list ``(@1)``, ``(@1:3)``, ``(@101,102:110)`` — expanded, in list order.
+
+    ``@`` is required; a descending range, a given-twice channel and an empty list are errors.
+    """
+    t = _text(raw).strip()
+    if not (t.startswith("(@") and t.endswith(")")):
+        raise ScpiError(-102, f"expected a channel list (@…), got {t!r}")
+    body = t[2:-1].strip()
+    if not body:
+        raise ScpiError(-108, "the channel list is empty")
+    out: list[int] = []
+    for part in (p.strip() for p in body.split(",")):
+        first, sep, last = part.partition(":")
+        try:
+            lo = int(first.strip())
+            hi = int(last.strip()) if sep else lo
+        except ValueError:
+            raise ScpiError(-102, f"bad channel {part!r}") from None
+        if hi < lo:
+            raise ScpiError(-222, f"channel range {part!r} descends")
+        for n in range(lo, hi + 1):
+            if n in out:
+                raise ScpiError(-108, f"channel {n} is given twice")
+            out.append(n)
+    return out
+
+
+def format_channel_list(channels: Sequence[int], ranges: bool = True) -> bytes:
+    """A stored channel list as ``(@101:110)``: consecutive numbers collapsed when `ranges`."""
+    ch = [int(c) for c in channels]
+    parts: list[str] = []
+    i = 0
+    while i < len(ch):
+        j = i
+        while ranges and j + 1 < len(ch) and ch[j + 1] == ch[j] + 1:
+            j += 1
+        parts.append(f"{ch[i]}:{ch[j]}" if j > i else str(ch[i]))
+        i = j + 1
+    return ("(@" + ",".join(parts) + ")").encode()
+
+
 # ---- responses ----------------------------------------------------------------------------------
 
 

@@ -95,6 +95,22 @@ params:
 - **通用组件与操作**：`system`（`clear_status`：`*CLS` 及其查询的回复；`reset`：与 `*RST` 相同的预置）；`scope_acquisition.measurement`（按 `measurements` 表的命名测量，值不能测量时为 `invalid_value` 与 `status` 的第二项）；`waveform_transfer.describe`（按 `descriptor` 的格式写出记录的点数、首点、抽点、采样间隔、偏移、增益、时基与采集次数）。输入阻抗、前端耦合用 `input_port` 与 `scope_frontend` 加参数映射表达。
 - **测试台编辑** `set_identity`：设置实例的 `idn`、`serial`、`firmware`（MCP 原来无法写出 `*IDN?` 的型号串）。
 
+### 2.6 通道列表参数（#183）
+
+电源与 DAQ 的命令带通道列表参数：`VOLT 5,(@1:3)`、`MEAS:VOLT? (@1:3)`、`ROUT:SCAN (@101:110)`。声明与语义：
+
+- **参数 `type: channel_list`**：声明通道列表，展开（expand）语义——命令对列表中每个通道各执行一次；查询按列表顺序逗号拼接回复。命令的其他参数经 `state` 绑定设置，通道前缀走既有的 `ch.` 机制（`channel_state` 的键，如 `state: "ch.volt"`）；每通道自己的量程（`channels.overrides`）对同一次写入分别生效。`optional: true` 与 `default: [1]` 表示列表可省略（B2901A 的 `(@1)`），省略时用 `default`。每条命令至多一个通道列表参数；它本身不写设置。
+  ```yaml
+  - header: "VOLTage"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.volt"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  ```
+- **操作命令**也可以带通道列表参数（`MEAS:VOLT? (@1:3)`）：操作逐通道执行，回复在各自通道的上下文里过 `reply` 模板后按列表顺序拼接。
+- **作为值保存**（`ROUT:SCAN (@101:110)` 把列表存为状态、查询按手册格式回读）不需要专门的参数类型：状态的 `type: int_list` 接收 `(@…)` 与回读 `(@101:103,110)`（连续通道折叠为 `a:b`；状态 `min`/`max` 对列表中每个通道号生效）。
+- **解析**：`(@` 开头、`)` 结尾；逗号分隔、`a:b` 范围展开（含于参数括号分组内，`split_params` 把括号组当一个程序数据）；列表顺序即展开与回复顺序。空列表（-108）、重复通道（-108）、倒序范围（-222）、格式错（-102）、通道超出仪表（-114，同 `<n>` 后缀的既有行为）都报错。
+- **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；`INST:NSEL` 目前按「接受」实现（保存并回读选择），带通道列表的命令是常用子集的取数路径——若某型号必须经 NSEL 选择取值，另立能力 issue。
+
 ## 3. 通用波形传输与采集（G2、G3）
 
 ### 3.1 `waveform_transfer`

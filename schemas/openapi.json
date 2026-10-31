@@ -3512,6 +3512,21 @@
             "title": "Combine Error",
             "type": "integer"
           },
+          "default": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "type channel_list: the channels used when the optional parameter is omitted, e.g. [1] for an instrument whose (@1) may be left out",
+            "title": "Default"
+          },
           "duplicate_unit_error": {
             "default": -224,
             "description": "Error code for a unit given twice in one command",
@@ -3620,7 +3635,8 @@
               "block",
               "raw",
               "pairs",
-              "quantities"
+              "quantities",
+              "channel_list"
             ],
             "title": "Type",
             "type": "string"
@@ -5696,7 +5712,8 @@
               "int",
               "bool",
               "enum",
-              "string"
+              "string",
+              "int_list"
             ],
             "title": "Type",
             "type": "string"
