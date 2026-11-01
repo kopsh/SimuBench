@@ -1304,6 +1304,50 @@
         "title": "Connect",
         "type": "object"
       },
+      "CoverageEntryInfo": {
+        "description": "One command of a real model's coverage table (D42).",
+        "properties": {
+          "header": {
+            "description": "Header as the definition writes it, e.g. '[:SENSe]:VOLTage:NPLC'",
+            "title": "Header",
+            "type": "string"
+          },
+          "level": {
+            "description": "implemented: modeled; accepted: parsed and stored without effect on the data; not_modeled: answers -113",
+            "enum": [
+              "implemented",
+              "accepted",
+              "not_modeled"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "section": {
+            "description": "The manual section the command is listed under",
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "section",
+          "header",
+          "level",
+          "note"
+        ],
+        "title": "CoverageEntryInfo",
+        "type": "object"
+      },
       "DefinitionChange": {
         "description": "One change between two versions of a definition, in the instrument's language (T3): the\ncategory, the object, and the old and new values. Labels (新增、删除、范围…) are the\ninterface's (i18n); the values are the definition's own.",
         "properties": {
@@ -1384,6 +1428,113 @@
           "changes"
         ],
         "title": "DefinitionChangeList",
+        "type": "object"
+      },
+      "DefinitionCoverage": {
+        "description": "A real model's coverage table: every command of its manual and how far SimuBench goes\n(the acceptance page's command list; none for definitions without a reference).",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/CoverageEntryInfo"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "stats": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Counts by level: implemented, accepted, not_modeled",
+            "title": "Stats",
+            "type": "object"
+          }
+        },
+        "required": [
+          "model",
+          "stats",
+          "entries"
+        ],
+        "title": "DefinitionCoverage",
+        "type": "object"
+      },
+      "DefinitionDocument": {
+        "description": "An instrument definition's content as stored, with its static-check diagnostics.",
+        "properties": {
+          "changes": {
+            "description": "What this save changed (edit, create, restore): relative to the previous version of the file; empty when nothing did (a read, or a save that only reorders keys)",
+            "items": {
+              "$ref": "#/components/schemas/DefinitionChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "editable": {
+            "description": "False for definitions outside the workspace (built in or on the search path): create a copy under a new id to change one",
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Workspace-relative file, e.g. instruments/acme-x1.yaml",
+            "title": "Path"
+          },
+          "sessions_to_restart": {
+            "description": "Running sessions that use an older version of this definition",
+            "items": {
+              "type": "string"
+            },
+            "title": "Sessions To Restart",
+            "type": "array"
+          },
+          "sha256": {
+            "description": "Hash of the file bytes; pass back as base_sha256 to edit",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "path",
+          "editable",
+          "sha256",
+          "data",
+          "ok",
+          "diagnostics",
+          "sessions_to_restart",
+          "changes"
+        ],
+        "title": "DefinitionDocument",
         "type": "object"
       },
       "DefinitionSummary": {
@@ -7174,6 +7325,94 @@
         "summary": "Run Definition Cases"
       }
     },
+    "/api/definitions/{def_id}/coverage": {
+      "get": {
+        "description": "The real model's coverage table next to the definition (D42): every command of the manual\nand how far SimuBench goes; null when the definition has none.",
+        "operationId": "getDefinitionCoverage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/DefinitionCoverage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Getdefinitioncoverage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Coverage"
+      }
+    },
+    "/api/definitions/{def_id}/document": {
+      "get": {
+        "description": "The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance\npage to notice a change made elsewhere and reload.",
+        "operationId": "getDefinitionDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Document"
+      }
+    },
     "/api/definitions/{def_id}/history": {
       "get": {
         "description": "Saved versions of a workspace definition, newest first, each with what it changed since\nthe previous one, in the instrument's language (the acceptance page's change log, T3).",
@@ -8685,6 +8924,86 @@
           }
         },
         "summary": "Try Configure"
+      }
+    },
+    "/api/try/{sid}/instrument": {
+      "get": {
+        "description": "The try session's instrument: identity, ports, settings, front panel and deviations (the\nacceptance page's overview and settings tables).",
+        "operationId": "getTryInstrument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Instrument"
+      }
+    },
+    "/api/try/{sid}/internals": {
+      "get": {
+        "description": "The try session's read-only component graph (issue 20), as the acceptance page shows it.",
+        "operationId": "getTryInstrumentInternals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentInternals"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Internals"
       }
     },
     "/api/try/{sid}/panel": {

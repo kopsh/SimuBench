@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
+import { Blocks, ClipboardCheck, Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -26,6 +26,7 @@ import { Inspector } from "./Inspector";
 import { instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { InternalsView } from "./internals/InternalsView";
+import { InstrumentAcceptance } from "@/features/instrument/InstrumentAcceptance";
 import { LiveValuesBanner } from "./edit/LiveValuesBanner";
 import { RemoteBanner } from "./RemoteBanner";
 import { GeneratorPanel } from "./screens/GeneratorPanel";
@@ -217,11 +218,14 @@ function CenterTabs({
     if (tab.kind === "canvas") return t("workbench.canvas");
     const inst = session.instruments.find((i) => i.name === tab.instrument);
     const name = inst ? instrumentTitle(inst) : tab.instrument;
-    return tab.kind === "internals" ? t("internals.tab", { name }) : name;
+    if (tab.kind === "internals") return t("internals.tab", { name });
+    if (tab.kind === "acceptance") return t("acceptance.tab", { name });
+    return name;
   };
   const icon = (tab: Tab) => {
     if (tab.kind === "canvas") return <LayoutGrid className="size-3.5" />;
     if (tab.kind === "internals") return <Blocks className="size-3.5" />;
+    if (tab.kind === "acceptance") return <ClipboardCheck className="size-3.5" />;
     const cls = session.instruments.find((i) => i.name === tab.instrument)?.instrument_class;
     const Icon = CLASS_ICON[cls ?? ""] ?? Cpu;
     return <Icon className="size-3.5" />;
@@ -269,6 +273,8 @@ function CenterTabs({
           <BenchCanvas session={session} view={view} doc={doc} editing={editing} previewError={previewError} omitted={omitted} />
         ) : current.kind === "internals" ? (
           <Internals session={session} instrument={current.instrument} />
+        ) : current.kind === "acceptance" ? (
+          <Acceptance session={session} instrument={current.instrument} />
         ) : (
           <div className="flex h-full flex-col">
             {editing && (() => {
@@ -298,6 +304,12 @@ function CenterTabs({
 function Internals({ session, instrument }: { session: SessionInfo; instrument: string }) {
   const inst = session.instruments.find((i) => i.name === instrument);
   return inst ? <InternalsView key={inst.name} session={session} inst={inst} /> : null;
+}
+
+/** The instrument's definition acceptance page, as a workbench tab beside the internals view. */
+function Acceptance({ session, instrument }: { session: SessionInfo; instrument: string }) {
+  const inst = session.instruments.find((i) => i.name === instrument);
+  return inst ? <InstrumentAcceptance key={inst.definition_id} definitionId={inst.definition_id} /> : null;
 }
 
 function Screen({

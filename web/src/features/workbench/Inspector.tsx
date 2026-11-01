@@ -1,4 +1,4 @@
-import { AlertTriangle, Blocks, Check, ChevronDown, Copy, MonitorPlay, MousePointerClick, Send } from "lucide-react";
+import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, MonitorPlay, MousePointerClick, Send } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, SessionInfo } from "@/api/client";
@@ -102,18 +102,22 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
   const { t } = useTranslation();
   const openScreen = useWorkbench((s) => s.openScreen);
   const openInternals = useWorkbench((s) => s.openInternals);
+  const openAcceptance = useWorkbench((s) => s.openAcceptance);
   const globals = globalVars(inst);
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
   return (
     <div className="space-y-4 p-3">
       <RemoteBanner sid={sid} inst={inst} className="-mx-3 -mt-3" />
       <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} />
-      <div className="grid grid-cols-2 gap-1.5">
+      <div className="grid gap-1.5">
         <Button variant="outline" size="sm" onClick={() => openScreen(inst.name)}>
           <MonitorPlay className="size-4" /> {t("workbench.openScreen")}
         </Button>
         <Button variant="outline" size="sm" onClick={() => openInternals(inst.name)}>
           <Blocks className="size-4" /> {t("internals.open")}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => openAcceptance(inst.name)}>
+          <ClipboardCheck className="size-4" /> {t("acceptance.open")}
         </Button>
       </div>
       <Section title={t("workbench.identitySection")}>
