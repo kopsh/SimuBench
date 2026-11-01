@@ -665,7 +665,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Screen */
+        /**
+         * Screen
+         * @description ``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample.
+         */
         get: operations["getScopeScreen"];
         put?: never;
         post?: never;
@@ -1790,7 +1793,7 @@ export interface components {
             remaining: number | null;
             /**
              * Source
-             * @description bench (preset), ui, mcp or api
+             * @description bench (preset), ui, tui, mcp or api
              */
             source: string;
             spec: components["schemas"]["Fault"];
@@ -2466,6 +2469,11 @@ export interface components {
              */
             combine_error: number;
             /**
+             * Default
+             * @description type channel_list: the channels used when the optional parameter is omitted, e.g. [1] for an instrument whose (@1) may be left out
+             */
+            default?: number[] | null;
+            /**
              * Duplicate Unit Error
              * @description Error code for a unit given twice in one command
              * @default -224
@@ -2512,7 +2520,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs" | "quantities";
+            type: "float" | "int" | "bool" | "enum" | "string" | "float_list" | "block" | "raw" | "pairs" | "quantities" | "channel_list";
             /** Unit */
             unit?: string | null;
             /**
@@ -2799,6 +2807,11 @@ export interface components {
             } | null;
             /** Client */
             client: string | null;
+            /**
+             * Closest
+             * @description The author's command header closest to the one sent, when one is close
+             */
+            closest: string | null;
             /** Code */
             code: number | null;
             /** Dir */
@@ -2812,6 +2825,11 @@ export interface components {
              * @description Fault id, for fault events and messages a fault affected
              */
             fault: string | null;
+            /**
+             * Header
+             * @description The header that was ignored, for ignored events
+             */
+            header: string | null;
             /** Instrument */
             instrument: string | null;
             /**
@@ -2825,9 +2843,32 @@ export interface components {
             new: unknown;
             /** Old */
             old: unknown;
+            /**
+             * Origin
+             * @description The file the classification's declaration comes from (the definition or its coverage table), as the loader received the path
+             */
+            origin: string | null;
+            /**
+             * Param
+             * @description The parameter or state path, for bad_parameter
+             */
+            param: string | null;
             /** Path */
             path: string | null;
-            /** Reason */
+            /**
+             * Query
+             * @description Whether the ignored header was a query
+             */
+            query: boolean | null;
+            /**
+             * Range
+             * @description The range or options the definition declares, for bad_parameter
+             */
+            range: string | null;
+            /**
+             * Reason
+             * @description For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault and advance events carry their own kind-specific reason
+             */
             reason: string | null;
             /**
              * Recipe
@@ -3366,7 +3407,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string";
+            type: "float" | "int" | "bool" | "enum" | "string" | "int_list";
             /**
              * Unit
              * @description Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM
@@ -3483,6 +3524,11 @@ export interface components {
             channel: number;
             /** Dt S */
             dt_s: number;
+            /**
+             * Minmax
+             * @description When the request passed ``points``: per bin the minimum and the maximum, 2 values per bin in order (``2*points`` values) — the pixel extraction of architecture.md 8.3 for a renderer with a fixed dot width. ``volts`` comes back empty then, so a terminal asks for exactly the bins it can draw and never receives all samples
+             */
+            minmax: number[] | null;
             /** Offset */
             offset: number;
             /** Scale */
@@ -4829,7 +4875,9 @@ export interface operations {
     };
     getScopeScreen: {
         parameters: {
-            query?: never;
+            query?: {
+                points?: number | null;
+            };
             header?: never;
             path: {
                 name: string;

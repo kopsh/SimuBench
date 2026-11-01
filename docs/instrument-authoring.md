@@ -95,6 +95,22 @@ params:
 - **通用组件与操作**：`system`（`clear_status`：`*CLS` 及其查询的回复；`reset`：与 `*RST` 相同的预置）；`scope_acquisition.measurement`（按 `measurements` 表的命名测量，值不能测量时为 `invalid_value` 与 `status` 的第二项）；`waveform_transfer.describe`（按 `descriptor` 的格式写出记录的点数、首点、抽点、采样间隔、偏移、增益、时基与采集次数）。输入阻抗、前端耦合用 `input_port` 与 `scope_frontend` 加参数映射表达。
 - **测试台编辑** `set_identity`：设置实例的 `idn`、`serial`、`firmware`（MCP 原来无法写出 `*IDN?` 的型号串）。
 
+### 2.6 通道列表参数（#183）
+
+电源与 DAQ 的命令带通道列表参数：`VOLT 5,(@1:3)`、`MEAS:VOLT? (@1:3)`、`ROUT:SCAN (@101:110)`。声明与语义：
+
+- **参数 `type: channel_list`**：声明通道列表，展开（expand）语义——命令对列表中每个通道各执行一次；查询按列表顺序逗号拼接回复。命令的其他参数经 `state` 绑定设置，通道前缀走既有的 `ch.` 机制（`channel_state` 的键，如 `state: "ch.volt"`）；每通道自己的量程（`channels.overrides`）对同一次写入分别生效。`optional: true` 与 `default: [1]` 表示列表可省略（B2901A 的 `(@1)`），省略时用 `default`。每条命令至多一个通道列表参数；它本身不写设置。
+  ```yaml
+  - header: "VOLTage"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.volt"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  ```
+- **操作命令**也可以带通道列表参数（`MEAS:VOLT? (@1:3)`）：操作逐通道执行，回复在各自通道的上下文里过 `reply` 模板后按列表顺序拼接。
+- **作为值保存**（`ROUT:SCAN (@101:110)` 把列表存为状态、查询按手册格式回读）不需要专门的参数类型：状态的 `type: int_list` 接收 `(@…)` 与回读 `(@101:103,110)`（连续通道折叠为 `a:b`；状态 `min`/`max` 对列表中每个通道号生效）。
+- **解析**：`(@` 开头、`)` 结尾；逗号分隔、`a:b` 范围展开（含于参数括号分组内，`split_params` 把括号组当一个程序数据）；列表顺序即展开与回复顺序。空列表（-108）、重复通道（-108）、倒序范围（-222）、格式错（-102）、通道超出仪表（-114，同 `<n>` 后缀的既有行为）都报错。
+- **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；`INST:NSEL` 目前按「接受」实现（保存并回读选择），带通道列表的命令是常用子集的取数路径——若某型号必须经 NSEL 选择取值，另立能力 issue。
+
 ## 3. 通用波形传输与采集（G2、G3）
 
 ### 3.1 `waveform_transfer`
@@ -214,7 +230,8 @@ params:
 - `read_definition` 返回文件内容、`sha256` 与诊断；工作区之外的定义（内置、搜索路径上的）`editable: false`，要修改就以新 id（或同 id，工作区的文件优先）`create_definition` 一份副本。
 - `create_definition` / `edit_definition` 写 `instruments/<id>.yaml`；没有通过校验的内容也保存（与测试台相同，进行中的工作不丢），诊断随结果返回。`edit_definition` 的补丁整体应用或整体不应用；`sha256` 过期时报冲突并提示先 `read_definition`。每次保存进入版本历史（`.simubench/history/instruments/<id>.yaml/`，来源 `agent`）。
 - JSON 中没有无穷大：定义里的 `.inf` 在 MCP 中写作 `"INF"`（与测试台文件相同），保存后照常加载。
-- `draft_definition_from_script`：对脚本中的一台仪器（多台时用 `receiver` 指定），在 `base_definition`（不给时为空骨架）之上，为它不支持的每个命令头生成状态量与命令：数值（带 V、HZ、S 等单位）、ON/OFF、单词（枚举）、带引号（字符串）；多个参数的命令生成多个状态量与绑定参数的命令；只查询的命令为只读字符串。起草的条目在 `label` 与 `doc` 中标为“草稿（待确认）”，并列在返回的 `drafted` 中。f-string 的占位符按 `1` 读取，所以循环里的通道号只看得到 1，通道数需要 Agent 自己改。
+- `draft_definition_from_script`：对脚本中的一台仪器（多台时用 `receiver` 指定），在 `base_definition`（不给时为空骨架）之上，为它不支持的每个命令头生成状态量与命令：数值（带 V、HZ、S 等单位）、ON/OFF、单词（枚举）、带引号（字符串）；多个参数的命令生成多个状态量与绑定参数的命令；只查询的命令为只读字符串。起草的条目在 `label` 与 `doc` 中标为“草稿（待确认）”，并列在返回的 `drafted` 中。f-string 的占位符按 `1` 读取，所以循环里的通道号只看得到 1，通道数需要 Agent 自己改。就地把扩展存回同一份工作区定义（`base_definition = definition_id`）时，带上刚读到的 `base_sha256`，一次调用完成保存（#169）；不带 `base_sha256` 的 `save=True` 仍是首建。
+- **在模板定义上补命令**（#169）：Agent 先 `draft_definition_from_script`（`base_definition` = 定义自身，`save=True` 带 `base_sha256`）覆盖保存；之后若用 `create_definition_from_template(base_sha256=...)` 按模板重新展开，平台先用文件里记录的 `template.inputs` 再展开一遍，与现有内容比较——发现模板之外的改动（起草的命令、`edit_definition` 的修改）时拒绝展开，列出这些条目的 JSON Pointer，由 Agent 把改动并入模板输入，或用 `discard_edits` 确认丢弃。文件没有 `template` 记录、或记录的是另一个模板时，不比较，行为同从前。
 - 保存后，使用该定义旧版本的会话列在结果的 `sessions_to_restart` 中；会话信息的 `stale_definitions` 同样列出，界面顶栏显示“仪表定义已修改”，点击即重置（按新定义重建）。
 
 ### 5.5 用例运行命令（G8）
@@ -356,8 +373,16 @@ display:
 - 组件的 `optional_refs`：引用其他组件的参数中可以不填的（不填即没有，例如没有参考时钟的信号源）。
 - **dBm**：Vrms = √(10^(dBm/10) · 1 mW · R)，R 为负载设定；负载设定为高阻（`inf`，或不小于 `hiz_from`）时幅度是开路电压，dBm 按 `dbm_hiz_ohms`（50 Ω）换算。各波形的峰值与有效值之比沿用原有换算（正弦 2√2、方波与脉冲 2、斜波 2√3 Vpp/Vrms）。
 - **占空比按声明读写**：`waveform_synth` 的 `duty_unit` 为 `percent` 或 `ratio`；状态量的 `ratio`（“大于 1 的值按百分数读”）取消，写了它的定义会得到说明如何改写的错误。低频校准仪的占空比是比例：`0.001` 即 0.1 %，`40` 超出范围（-222）。
-- **信号源模板**（`signal_source`，版本 1）：身份、通道数、波形（命令关键字与形状）、频率（范围、方波与斜波上限、谐波带宽）、幅度（范围、单位、显示名）、偏置、相位、占空比（表示与范围）、负载设定（范围、高阻关键字、高阻阈值）、输出（阻抗与误差限、开输出是否需确认）、参考时钟（时钟源关键字、误差限、参考输入）、命令方言（`scpi-source`：`[:SOURce<n>]:FUNCtion`、`:VOLTage`、`:OUTPut<n>`；`channel-base`：`:CHANnel<n>:BASE:*` 树、`:LOAD`、`:OUTPut`、`:SYSTem:CLKSource`；未知命令报错或忽略）、技术指标。
+- **信号源模板**（`signal_source`，版本 1）：身份、通道数、波形（命令关键字与形状）、频率（范围、方波与斜波上限、谐波带宽）、幅度（负载设定下 Vpp 口径的范围（D48）、单位、显示名；上电值按上电单位填写）、偏置、相位、占空比（表示与范围）、负载设定（范围、高阻关键字、高阻阈值）、输出（阻抗与误差限、开输出是否需确认）、参考时钟（时钟源关键字、误差限、参考输入）、命令方言（`scpi-source`：`[:SOURce<n>]:FUNCtion`、`:VOLTage`、`:OUTPut<n>`；`channel-base`：`:CHANnel<n>:BASE:*` 树、`:LOAD`、`:OUTPut`、`:SYSTem:CLKSource`；未知命令报错或忽略）、技术指标。多单位（或首单位不是 VPP）时幅度状态没有静态范围，范围由 `amplitude_level` 的 `vpp_min` / `vpp_max` 检查，切单位换算数值（D48）。
 - 验收（`tests/test_signal_source.py`）：按 `sb-awg-2` 的数据填写的输入生成的信号源，对一串命令的回复与 `sb-awg-2` 相同，接 50 Ω 负载时输出相同；按校准仪的数据生成的信号源替换低频校准工作台的校准仪后，契约用例全部通过；VPP、VRMS、dBm 在 50 Ω 负载设定下与负载上的实测一致，高阻设定下 dBm 按 50 Ω 换算；0.1 % 的脉冲在 10 kHz（谱线上限截断，带说明，高电平时间约 100 ns）与 5.5 MHz（截到信号源自己的带宽，谱线与解析傅里叶系数一致，无说明）；比例占空比的 0.001 不被读成 10 %；参考时钟的个体偏差随种子复现并进入输出频率；八个错误输入各有诊断。
+
+**由脚本选模板并预填输入（#145）**：
+
+- 每个模板声明自己的命令集变体（`variants`：每个变体一份打开全部功能的输入）。变体展开后的定义就是它的命令特征：扫描脚本时，与选择内置定义一样用 `engine/scriptscan.py` 的 `rank` 计数，命中最多的变体胜出，依据是它支持的命令与行号。示波器模板有 `scpi-scope` 与 `lecroy-scope` 两个变体，信号源模板有 `scpi-source` 与 `channel-base`。
+- 示波器模板的 `lecroy-scope` 命令集：`C<n>:VDIV`、`TDIV`、`MSIZ`（记录恰为该点数）、`TRSE`、`TRMD`（`SINGLE` 后变为 `STOP`）、`PACU` / `C<n>:PAVA?`、`WAVEFORM_SETUP` 与 `C<n>:INSPECT?` 的文本回读（`max_points` 为每次读取上限）、`COMM_HEADER` 回显命令头；耦合关键字 `D1M`、`A1M`、`D50`、`GND` 同时说耦合与输入阻抗。另加输入：档位与时基是否按 1-2-5（`ladder`）、存储深度设定、自动触发等待的记录数、`scpi-scope` 的 `:WAVeform:POINts:MODE`、未知命令报错或忽略。低频校准工作台的参考示波器与校准仪都可以由模板写出，契约用例全部通过。
+- **预填**（模板的 `prefill`）：从脚本中能读出的值填进输入，每项记下来源——`script` 带行号（如 `*IDN?` 校验的型号串取自 `--scope-model` 的默认值或 `*_MODEL` 常量），`default` 为待确认的默认值。占空比按脚本写的值推断表示：都不大于 1 时按比例并提示待确认，有大于 1 的值时按百分数。f-string 的占位符读作 `1`，所以循环里的通道号看不出来，通道数按脚本中最大的通道号与变体的默认值取大者，并标为待确认。
+- `draft_bench_from_script`：内置库没有完整支持某台仪器的命令时，报告的 `template` 给出模板、变体、定义 id、`inputs`（`create_definition_from_template` 直接接收）、`filled`、展开后仍不支持的命令（行号）；测试台草稿中这台仪器的型号就是该定义 id。只有一台示波器与一台信号源时，按两边脚本中最先用到的通道给出直连线缆（`inferred_wires`，标为推断）；运行方式取确定性的默认（种子 1、`clock: command`、`idle: off`）并说明。只发公共命令（如 `*IDN?`）的资源看不出是哪台仪表，不加入草稿。
+- 验收（`tests/test_template_draft.py`）：低频校准示例脚本只用内置库与模板，选出 `lecroy-scope` 与 `channel-base`，预填输入展开后没有诊断，脚本的全部命令被支持；按草稿创建两份定义、用草稿测试台运行脚本，1 kHz–100 kHz 的幅值为 1 Vpp（±2 %）；类 Keysight 脚本在没有对应型号时选出 `scpi-scope`、全部命令被支持，有内置型号时直接选型号；加一条模板没有的命令时按行号报告；MCP 协议级测试从 `draft_bench_from_script` 到两份定义与 `validate_bench`。
 
 Web 验收页需要的读接口（7.2）由 HTTP 提供：定义的概览与命令表、修改记录与变更说明、试运行与用例运行。HTTP 不提供写定义的接口。
 

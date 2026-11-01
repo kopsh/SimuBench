@@ -84,6 +84,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         if not supplied or not secrets.compare_digest(supplied, token):
             raise HTTPException(status_code=401, detail="missing or wrong access token")
 
+    def client_of(request: Request) -> str:
+        """The client a write comes from: 'ui' (Web Bench) by default, 'tui' from the terminal
+        console (D18). Strict: a wrong header value is a 400 rather than a mislabelled record."""
+        value = request.headers.get("x-simubench-client") or "ui"
+        if value not in ("ui", "tui"):
+            raise HTTPException(400, f"unknown X-SimuBench-Client {value!r}: must be 'ui' or 'tui'")
+        return value
+
     def served(sid: str) -> ServedSession:
         try:
             return manager.get(sid)
@@ -631,11 +639,13 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         dependencies=[Depends(auth)],
         responses=IN_USE,
     )
-    async def scpi(sid: str, name: str, req: M.ScpiRequest) -> M.ScpiResponse:
+    async def scpi(
+        sid: str, name: str, req: M.ScpiRequest, client: str = Depends(client_of)
+    ) -> M.ScpiResponse:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.scpi, s, name, req.command)
+            return await asyncio.to_thread(manager.scpi, s, name, req.command, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -648,11 +658,13 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         dependencies=[Depends(auth)],
         responses=IN_USE,
     )
-    async def configure(sid: str, name: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
+    async def configure(
+        sid: str, name: str, req: M.ConfigureRequest, client: str = Depends(client_of)
+    ) -> M.ConfigureResponse:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.configure, s, name, req.path, req.value)
+            return await asyncio.to_thread(manager.configure, s, name, req.path, req.value, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -664,10 +676,11 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="getScopeScreen",
         dependencies=[Depends(auth)],
     )
-    async def screen(sid: str, name: str) -> M.ScopeScreen:
+    async def screen(sid: str, name: str, points: int | None = Query(None, ge=2, le=4096)) -> M.ScopeScreen:
+        """``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample."""
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.scope_screen, s, name)
+            return await asyncio.to_thread(manager.scope_screen, s, name, points)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -678,12 +691,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         dependencies=[Depends(auth)],
         responses=IN_USE,
     )
-    async def panel(sid: str, name: str, req: M.PanelRequest) -> M.PanelResponse:
+    async def panel(
+        sid: str, name: str, req: M.PanelRequest, client: str = Depends(client_of)
+    ) -> M.PanelResponse:
         """A front-panel button (Run, Stop, Single), inside the instrument: not a SCPI command (D32)."""
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.panel, s, name, req.action)
+            return await asyncio.to_thread(manager.panel, s, name, req.action, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -695,12 +710,12 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="goLocal",
         dependencies=[Depends(auth)],
     )
-    def go_local(sid: str, name: str) -> M.InstrumentInfo:
+    def go_local(sid: str, name: str, client: str = Depends(client_of)) -> M.InstrumentInfo:
         """LOCAL: take an instrument in remote control back to the UI, until a remote client's next
         command (as the LOCAL key of an instrument). Recorded as a ``remote`` event (#121)."""
         s = served(sid)
         try:
-            s.go_local(name)
+            s.go_local(name, client)
         except KeyError as exc:
             raise not_found(exc) from None
         return instrument(sid, name)
@@ -814,11 +829,11 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="injectFault",
         dependencies=[Depends(auth)],
     )
-    def inject_fault(sid: str, spec: Fault) -> M.FaultInfo:
+    def inject_fault(sid: str, spec: Fault, client: str = Depends(client_of)) -> M.FaultInfo:
         s = served(sid)
         try:
             with s.session._lock:
-                return fault_info(s.session.faults.inject(spec, source="ui"))
+                return fault_info(s.session.faults.inject(spec, source=client))
         except KeyError as exc:
             raise not_found(exc) from None
         except ValueError as exc:
@@ -869,13 +884,29 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         for ev in backlog:
             counter["seq"] += 1
             await ws.send_json(to_event(ev, counter["seq"]))
+
+        async def wait_disconnect() -> None:
+            """Return only when the client goes away; non-disconnect frames are ignored."""
+            while True:
+                message = await ws.receive()
+                if message["type"] == "websocket.disconnect":
+                    raise WebSocketDisconnect(message.get("code"))
+
+        listener = asyncio.create_task(wait_disconnect())
         try:
             while True:
-                msg = await queue.get()
-                await ws.send_json(msg)
+                get = asyncio.create_task(queue.get())
+                done, _ = await asyncio.wait({get, listener}, return_when=asyncio.FIRST_COMPLETED)
+                if listener in done:
+                    get.cancel()
+                    listener.result()  # re-raise the disconnect; a non-disconnect frame continues below
+                    listener = asyncio.create_task(wait_disconnect())
+                    continue
+                await ws.send_json(get.result())
         except (WebSocketDisconnect, RuntimeError):
             pass
         finally:
+            listener.cancel()
             unsubscribe()
 
     dist = web_dist or WEB_DIST
@@ -919,6 +950,12 @@ def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
         "wall",
         "fault",
         "action",
+        "header",
+        "query",
+        "origin",
+        "closest",
+        "param",
+        "range",
     ):
         if key in ev:
             out[key] = ev[key]

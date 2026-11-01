@@ -132,6 +132,9 @@ class VerticalIn(_In):
     default_probe: float = _f(
         1.0, "上电探头衰减比", "Power-on probe ratio", "Probe setting at power-on", gt=0
     )
+    ladder: bool = _f(
+        True, "1-2-5 档位", "1-2-5 steps", "Scale writes snap to 1-2-5; off: any value in range"
+    )
     probe_rescales: bool = _f(
         False, "探头比换算档位", "Probe ratio rescales", "Changing the probe ratio rescales scale and offset"
     )
@@ -166,6 +169,12 @@ class AdcIn(_In):
     )
 
 
+class MemoryIn(_In):
+    min: int = _f(..., "最小", "Minimum", "Smallest memory size, points", gt=0)
+    max: int = _f(..., "最大", "Maximum", "Largest memory size, points", gt=0)
+    default: int = _f(..., "上电值", "Power-on value", "Memory size at power-on, points", gt=0)
+
+
 class TimebaseIn(_In):
     scale_range: tuple[float, float] = _f(..., "时基范围", "Timebase range", "[min, max] s/div", "s/div")
     default_scale: float = _f(1e-3, "上电时基", "Power-on timebase", "s/div at power-on", "s/div", gt=0)
@@ -183,6 +192,11 @@ class TimebaseIn(_In):
     reference_divs: float = _f(
         5.0, "参考位置", "Reference position", "Divisions from the left the trigger sits at"
     )
+    ladder: bool = _f(True, "1-2-5 时基", "1-2-5 timebase", "Timebase writes snap to 1-2-5; off: any value")
+    memory_sizes: MemoryIn | None = _f(
+        None, "存储深度设定", "Memory size setting",
+        "lecroy-scope: the record is exactly this many points over ten divisions (MSIZ)",
+    )  # fmt: skip
     clock_ppm: float | None = _f(
         None, "时基误差限", "Timebase error limit", "± ppm a unit's sample clock may deviate by (individual deviation)",
         "ppm", ge=0,
@@ -210,6 +224,13 @@ class TriggerIn(_In):
         gt=0,
     )
     jitter_s: float = _f(0.0, "触发抖动", "Trigger jitter", "rms jitter of the trigger instant", "s", ge=0)
+    auto_windows: int = _f(
+        4,
+        "自动触发等待",
+        "Auto timeout",
+        "Records an auto mode looks ahead for an edge before it free-runs",
+        ge=1,
+    )
 
 
 class AcquisitionIn(_In):
@@ -245,12 +266,30 @@ class TransferIn(_In):
     )
     byteorder: Literal["LSBFirst", "MSBFirst"] = _f("LSBFirst", "字节序", "Byte order", "At power-on")
     unsigned: bool = _f(False, "无符号", "Unsigned", "Codes unsigned at power-on")
+    max_points: int | None = _f(
+        None,
+        "每次读取上限",
+        "Points per read",
+        "lecroy-scope: most points one INSPECT? returns; omit: no limit",
+        gt=0,
+    )
 
 
 class DialectIn(_In):
-    command_set: Literal["scpi-scope"] = _f(
+    command_set: Literal["scpi-scope", "lecroy-scope"] = _f(
         "scpi-scope", "命令集", "Command set",
-        "The generic SCPI oscilloscope set: :CHANnel<n>, :TIMebase, :TRIGger, :DIGitize, :WAVeform, :MEASure",
+        "scpi-scope: :CHANnel<n>, :TIMebase, :TRIGger, :DIGitize, :WAVeform, :MEASure; lecroy-scope: C<n>:VDIV, "
+        "TDIV, MSIZ, TRSE, TRMD, PACU / C<n>:PAVA?, WAVEFORM_SETUP and C<n>:INSPECT? text readback, echoed headers",
+    )  # fmt: skip
+    unknown_commands: Literal["error", "ignore"] = _f(
+        "error",
+        "未知命令",
+        "Unknown commands",
+        "error: -113; ignore: swallowed and logged (a contract bench)",
+    )
+    points_mode: bool = _f(
+        False, ":WAVeform:POINts:MODE", ":WAVeform:POINts:MODE",
+        "scpi-scope: NORMal (at most 1000 points), MAXimum and RAW points modes",
     )  # fmt: skip
     single: Literal["digitize", "arm", "none"] = _f(
         "digitize", ":SINGle", ":SINGle",
@@ -385,6 +424,27 @@ def check(x: OscilloscopeInputs) -> list[InputProblem]:
                 "E-TPL-UNKNOWN", ("measurements", i), f"没有测量 {m}",
                 f"可用的测量：{', '.join(MEASUREMENTS)}",
             )  # fmt: skip
+    if x.dialect.command_set == "lecroy-scope":
+        if tb.memory_sizes is None:
+            bad(
+                "E-TPL-MISSING",
+                ("timebase", "memory_sizes"),
+                "lecroy-scope 的记录长度由 MSIZ 设定，要给存储深度设定的范围",
+            )
+        else:
+            m = tb.memory_sizes
+            if not m.min <= m.default <= m.max:
+                bad(
+                    "E-TPL-DEFAULT",
+                    ("timebase", "memory_sizes", "default"),
+                    f"上电存储深度 {m.default} 不在 [{m.min}, {m.max}] 内",
+                )
+        for i, z in enumerate(ch.impedances):
+            if not (z.ohms >= 1e5 or abs(z.ohms - 50.0) < 1e-6):
+                bad(
+                    "E-TPL-UNSUPPORTED", ("channels", "impedances", i, "ohms"),
+                    "lecroy-scope 的耦合关键字（D1M、A1M、D50）只表示 1 MΩ 或 50 Ω 的输入",
+                )  # fmt: skip
     if "AVERage" in x.acquisition.types and not x.acquisition.average_counts:
         bad("E-TPL-MISSING", ("acquisition", "average_counts"), "有平均采集方式，还要给平均次数")
     return out
@@ -402,7 +462,74 @@ def _setting(**kw: Any) -> dict[str, Any]:
     return {k: v for k, v in kw.items() if v is not None}
 
 
+def _front(x: OscilloscopeInputs, coupling: Any, bw_limit: bool = True) -> dict[str, Any]:
+    ch, v = x.channels, x.vertical
+    rows = v.table
+    front: dict[str, Any] = {"coupling": coupling, "bandwidth": ch.bandwidth_hz, "probe_ratio": "$ch.probe"}
+    if ch.bandwidth_limit_hz and bw_limit:
+        front |= {"bw_limit": "$ch.bwlimit", "bw_limit_hz": ch.bandwidth_limit_hz}
+    if ch.ac_corner_hz != 10.0:
+        front["ac_corner"] = ch.ac_corner_hz
+    if rows:
+        front["scale_range"] = list(v.scale_range)
+    if rows and rows[0].offset_v is not None:
+        front["offset_ranges"] = [[r.v_div, r.offset_v] for r in rows]
+    if rows and rows[0].noise_v_rms is not None:
+        front["noise_table"] = [[r.v_div, r.noise_v_rms] for r in rows]
+    if v.out_of_range != "error":
+        front["out_of_range"] = v.out_of_range
+    return front
+
+
+def _adc(x: OscilloscopeInputs) -> dict[str, Any]:
+    adc = x.adc
+    out: dict[str, Any] = {}
+    if adc.bits:
+        out |= {"bits": adc.bits, "divs": adc.divisions}
+        if adc.codes_per_div:
+            out["codes_per_div"] = adc.codes_per_div
+    if adc.offset_sign != "add":
+        out["offset_sign"] = adc.offset_sign
+    if adc.max_rate:
+        out["max_rate"] = adc.max_rate
+    if adc.rate_pairs:
+        out |= {"rate_pairs": adc.rate_pairs, "max_rate_paired": adc.max_rate_paired}
+    return out
+
+
+def _deviations(x: OscilloscopeInputs) -> list[dict[str, Any]]:
+    rows, v, tb = x.vertical.table, x.vertical, x.timebase
+    out: list[dict[str, Any]] = []
+    by = {"scale": [r.v_div for r in rows]}
+    if rows and rows[0].gain_error_pct is not None:
+        limit = {r.v_div: r.gain_error_pct * 1e4 for r in rows}  # % -> ppm
+        out.append({"param": "front.gain_error_ppm", "by": by, "limit": limit, "distribution": "uniform"})
+    if rows and rows[0].offset_error_v is not None:
+        limit = {r.v_div: r.offset_error_v for r in rows}
+        out.append({"param": "front.offset_error", "by": by, "limit": limit, "distribution": "uniform"})
+    if v.offset_dac_error_pct:
+        out.append(
+            {"param": "front.dac_error_ppm", "limit": v.offset_dac_error_pct * 1e4, "distribution": "uniform"}
+        )
+    if tb.clock_ppm:
+        out.append({"param": "timebase.clock_ppm", "limit": tb.clock_ppm, "distribution": "uniform"})
+    return out
+
+
+def _sync(x: OscilloscopeInputs) -> dict[str, Any]:
+    aq, tr = x.acquisition, x.trigger
+    out: dict[str, Any] = {}
+    for key in ("completion", "opc_waits", "while_waiting", "no_trigger"):
+        if getattr(aq, key) != AcquisitionIn.model_fields[key].default:
+            out[key] = getattr(aq, key)
+    if tr.jitter_s:
+        out["trigger_jitter_s"] = tr.jitter_s
+    return out
+
+
 def build(x: OscilloscopeInputs) -> dict[str, Any]:
+    if x.dialect.command_set == "lecroy-scope":
+        return _build_lecroy(x)
     ch, v, adc, tb, tr, aq, xf, di = (
         x.channels, x.vertical, x.adc, x.timebase, x.trigger, x.acquisition, x.transfer, x.dialect,
     )  # fmt: skip
@@ -423,7 +550,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     state: dict[str, Any] = {
         "timebase.scale": _setting(
             type="float", unit="S", min=tb.scale_range[0], max=tb.scale_range[1], default=tb.default_scale,
-            ladder="1-2-5", label="时基", label_en="Timebase",
+            ladder="1-2-5" if tb.ladder else None, label="时基", label_en="Timebase",
         ),
         "trigger.source": _setting(
             type="enum", options=trig_sources, option_labels=trig_labels, default=names[0],
@@ -454,6 +581,11 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
             label="记录长度", label_en="Record length",
         ),
     }  # fmt: skip
+    if di.points_mode:
+        state["waveform.points_mode"] = _setting(
+            type="enum", options=["NORMal", "MAXimum", "RAW"], default="NORMal",
+            label="点数模式", label_en="Points mode",
+        )  # fmt: skip
     if has_types:
         state["acquire.type"] = _setting(
             type="enum",
@@ -470,8 +602,8 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
 
     channel_state: dict[str, Any] = {
         "scale": _setting(
-            type="float", unit="V", min=slo * plo, max=shi * phi, default=v.default_scale, ladder="1-2-5",
-            label="垂直档位", label_en="Scale",
+            type="float", unit="V", min=slo * plo, max=shi * phi, default=v.default_scale,
+            ladder="1-2-5" if v.ladder else None, label="垂直档位", label_en="Scale",
         ),
         "offset": _setting(
             type="float", unit="V", min=-offset_max, max=offset_max, default=0.0, label="偏置", label_en="Offset"
@@ -501,11 +633,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     sweeps = {s.upper() for s in tr.sweeps}
     if "SINGLE" in sweeps:
         acq["single"] = [s for s in tr.sweeps if s.upper() == "SINGLE"]
-    for key in ("completion", "opc_waits", "while_waiting", "no_trigger"):
-        if getattr(aq, key) != AcquisitionIn.model_fields[key].default:
-            acq[key] = getattr(aq, key)
-    if tr.jitter_s:
-        acq["trigger_jitter_s"] = tr.jitter_s
+    acq |= _sync(x)
     if has_types:
         kinds = {"AVERage": "average", "PEAK": "peak"}
         acq["processing"] = {
@@ -520,21 +648,13 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     if tb.reference_divs != 5.0:
         timebase["reference_divs"] = tb.reference_divs
     trigger: dict[str, Any] = {}
+    if tr.auto_windows != 4:
+        trigger["search_windows"] = tr.auto_windows
     if tr.hysteresis_divs != 0.16:
         trigger["hysteresis_divs"] = tr.hysteresis_divs
     if tr.level_range_divs:
         trigger["level_range_divs"] = tr.level_range_divs
-    adc_p: dict[str, Any] = {}
-    if adc.bits:
-        adc_p |= {"bits": adc.bits, "divs": adc.divisions}
-        if adc.codes_per_div:
-            adc_p["codes_per_div"] = adc.codes_per_div
-    if adc.offset_sign != "add":
-        adc_p["offset_sign"] = adc.offset_sign
-    if adc.max_rate:
-        adc_p["max_rate"] = adc.max_rate
-    if adc.rate_pairs:
-        adc_p |= {"rate_pairs": adc.rate_pairs, "max_rate_paired": adc.max_rate_paired}
+    adc_p = _adc(x)
 
     per_div = adc.codes_per_div or ((1 << adc.bits) / adc.divisions if adc.bits else 32.0)
     byte_cpd = xf.byte_codes_per_div or per_div
@@ -567,6 +687,11 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
             if "AVERage" in aq.types
             else {"value": 1}
         )
+        if di.points_mode:  # NORMal: the screen's 1000 points at most
+            xfer |= {
+                "max_points": {"from": "$waveform.points_mode", "map": {"NORMal": 1000}, "default": 0},
+                "over_limit": "truncate",
+            }
         xfer |= {
             "count": "$waveform.points",
             "count_mode": "spread",
@@ -591,43 +716,12 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     zmap = {z.name: z.ohms for z in ch.impedances}
     cmap = {z.name: z.capacitance_f for z in ch.impedances}
     caps = set(cmap.values())
-    front: dict[str, Any] = {
-        "coupling": "$ch.coupling", "bandwidth": ch.bandwidth_hz, "probe_ratio": "$ch.probe",
-    }  # fmt: skip
-    if ch.bandwidth_limit_hz:
-        front |= {"bw_limit": "$ch.bwlimit", "bw_limit_hz": ch.bandwidth_limit_hz}
-    if ch.ac_corner_hz != 10.0:
-        front["ac_corner"] = ch.ac_corner_hz
-    if rows:
-        front["scale_range"] = [slo, shi]
-    if offsets:
-        front["offset_ranges"] = offsets
-    if rows and rows[0].noise_v_rms is not None:
-        front["noise_table"] = [[r.v_div, r.noise_v_rms] for r in rows]
-    if v.out_of_range != "error":
-        front["out_of_range"] = v.out_of_range
+    front = _front(x, "$ch.coupling")
     probe: dict[str, Any] = {}
     if v.probe_rescales:
         probe["rescales"] = ["$ch.scale", "$ch.offset"]
 
-    deviations: list[dict[str, Any]] = []
-    by = {"scale": [r.v_div for r in rows]}
-    if rows and rows[0].gain_error_pct is not None:
-        limit = {r.v_div: r.gain_error_pct * 1e4 for r in rows}  # % -> ppm
-        deviations.append(
-            {"param": "front.gain_error_ppm", "by": by, "limit": limit, "distribution": "uniform"}
-        )
-    if rows and rows[0].offset_error_v is not None:
-        limit = {r.v_div: r.offset_error_v for r in rows}
-        deviations.append(
-            {"param": "front.offset_error", "by": by, "limit": limit, "distribution": "uniform"}
-        )
-    if v.offset_dac_error_pct:
-        deviations.append(
-            {"param": "front.dac_error_ppm", "limit": v.offset_dac_error_pct * 1e4, "distribution": "uniform"}
-        )
-    if tb.clock_ppm:
-        deviations.append({"param": "timebase.clock_ppm", "limit": tb.clock_ppm, "distribution": "uniform"})
+    deviations = _deviations(x)
 
     commands: list[dict[str, Any]] = [
         {"header": ":CHANnel<ch>:SCALe", "state": "ch.scale"},
@@ -668,6 +762,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         {"header": ":WAVeform:BYTeorder", "state": "waveform.byteorder"},
         {"header": ":WAVeform:UNSigned", "state": "waveform.unsigned"},
         {"header": ":WAVeform:POINts", "state": "waveform.points"},
+        *([{"header": ":WAVeform:POINts:MODE", "state": "waveform.points_mode"}] if di.points_mode else []),
         {"header": ":WAVeform:PREamble", "op": "xfer.header" if declared else "acq.preamble", "set": False},
         {"header": ":WAVeform:DATA", "op": "xfer.data", "set": False},
     ]
@@ -731,12 +826,272 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         out["components"].append({"name": "extin", "type": "input_port", "params": {"z_in": 1.0e6}})
         out["wiring"]["instrument"].append(["extin.out", "trigger.ext"])
         out["ports"]["instrument"] = {"EXT": "extin.pin"}
+    if di.unknown_commands != "error":
+        out["unknown_commands"] = di.unknown_commands
     if x.specs:
         out["specs"] = x.specs
     if deviations:
         out["deviations"] = deviations
     if not out["description"]:
         del out["description"]
+    return out
+
+
+#: LeCroy's measurement names (PACU, C<n>:PAVA?) for the engine's measurements.
+LECROY_MEASUREMENTS = {
+    "VAMPlitude": "AMPL", "VPP": "PKPK", "VMAX": "MAX", "VMIN": "MIN", "VAVerage": "MEAN", "VRMS": "RMS",
+    "FREQuency": "FREQ", "PERiod": "PER",
+}  # fmt: skip
+UNITS = {"FREQuency": "HZ", "PERiod": "S"}
+
+
+def _lecroy_couplings(
+    x: OscilloscopeInputs,
+) -> tuple[list[str], dict[str, str], dict[str, float], dict[str, str]]:
+    """LeCroy's coupling keywords say coupling and input together: D1M, A1M, D50, GND."""
+    ch = x.channels
+    options: list[str] = []
+    labels: dict[str, str] = {}
+    ohms: dict[str, float] = {}
+    kind: dict[str, str] = {}
+    for z in ch.impedances:
+        high = z.ohms >= 1e5
+        for c in ch.couplings:
+            if c == "GND" or (c == "AC" and not high):
+                continue
+            key = f"{c[0]}{'1M' if high else '50'}"
+            if key not in options:
+                options.append(key)
+                labels[key] = f"{c} {'1 MΩ' if high else '50 Ω'}"
+                ohms[key] = z.ohms
+                kind[key] = c
+    if "GND" in ch.couplings:
+        options.append("GND")
+        labels["GND"] = "GND"
+        ohms["GND"] = ch.impedances[0].ohms
+        kind["GND"] = "GND"
+    return options, labels, ohms, kind
+
+
+def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
+    """A LeCroy-style scope: short and long headers echoed in replies (COMM_HEADER), engineering
+    numbers, per-channel trigger level and slope, measurement slots, text waveform readback."""
+    ch, v, tb, tr, xf, di = x.channels, x.vertical, x.timebase, x.trigger, x.transfer, x.dialect
+    n = ch.count
+    mem = tb.memory_sizes
+    assert mem is not None  # check() requires it
+    chans = [f"C{i}" for i in range(1, n + 1)]
+    sources = list(chans) + (["EX", "EX10"] if tr.external else []) + (["LINE"] if tr.line else [])
+    couplings, coupling_labels, ohms, kind = _lecroy_couplings(x)
+    plo, phi = v.probe_range
+    slo, shi = v.scale_range
+    offsets = [r.offset_v for r in v.table if r.offset_v is not None]
+    offset_max = max(offsets) * phi if offsets else v.offset_max_v
+    meas_names = [LECROY_MEASUREMENTS[m] for m in x.measurements]
+    slot = {"type": "enum", "options": ["NULL", *meas_names], "default": "NULL"}
+
+    state: dict[str, Any] = {
+        "timebase.scale": _setting(
+            type="float", unit="S", min=tb.scale_range[0], max=tb.scale_range[1], default=tb.default_scale,
+            ladder="1-2-5" if tb.ladder else None, label="时基", label_en="Timebase",
+        ),
+        "memory.size": _setting(
+            type="int", min=mem.min, max=mem.max, default=mem.default, label="存储深度", label_en="Memory size"
+        ),
+        "trigger.mode": _setting(
+            type="enum", options=["AUTO", "NORMal", "SINGLE", "STOP"], default="AUTO",
+            label="触发方式", label_en="Trigger mode",
+        ),
+        "trigger.type": {"type": "enum", "options": ["EDGE"], "default": "EDGE"},
+        "trigger.source": _setting(
+            type="enum", options=sources, default="C1", label="触发源", label_en="Trigger source"
+        ),
+        "trigger.hold": {"type": "enum", "options": ["OFF", "TI", "PS", "PL", "IS", "IL", "P2", "I2"], "default": "OFF"},
+        "interleaved": _setting(type="bool", default=False, label="随机交错采样", label_en="Random interleaved sampling"),
+        "refclock": _setting(
+            type="enum", options=["INTERNAL", "EXTERNAL"], default="INTERNAL", label="参考时钟", label_en="Reference clock"
+        ),
+        "comm.header": {"type": "enum", "options": ["OFF", "SHORT", "LONG"], "default": "SHORT"},
+        "waveform.sp": {"type": "int", "min": 0, "max": mem.max, "default": 0},
+        "waveform.np": {"type": "int", "min": 0, "max": mem.max, "default": 0},
+        "waveform.fp": {"type": "int", "min": 0, "max": mem.max, "default": 0},
+        "waveform.sn": {"type": "int", "min": 0, "max": 10000, "default": 0},
+    }  # fmt: skip
+    for i in range(1, 9):
+        state[f"measure.p{i}.kind"] = dict(slot)
+        state[f"measure.p{i}.source"] = {"type": "enum", "options": list(chans), "default": ""}
+    channel_state: dict[str, Any] = {
+        "display": _setting(type="bool", default=False, label="显示", label_en="Trace"),
+        "coupling": _setting(
+            type="enum", options=couplings, default=couplings[0], electrical=True, label="耦合", label_en="Coupling",
+            option_labels=coupling_labels,
+        ),
+        "scale": _setting(
+            type="float", unit="V", min=slo * plo, max=shi * phi, default=v.default_scale,
+            ladder="1-2-5" if v.ladder else None, label="垂直档位", label_en="Scale",
+        ),
+        "offset": _setting(
+            type="float", unit="V", min=-offset_max, max=offset_max, default=0.0, label="偏移", label_en="Offset"
+        ),
+        "trigger_level": _setting(
+            type="float", unit="V", min=-offset_max, max=offset_max, default=0.0,
+            label="触发电平", label_en="Trigger level",
+        ),
+        "trigger_slope": _setting(
+            type="enum", options=list(tr.slopes), default=tr.slopes[0], label="触发沿", label_en="Trigger slope"
+        ),
+        "probe": _setting(type="float", min=plo, max=phi, default=v.default_probe, label="衰减", label_en="Attenuation"),
+    }  # fmt: skip
+
+    acq: dict[str, Any] = {
+        "horizontal": "timebase", "trigger": "trigger", "adc": "adc", "vertical": "front", "probe": "probe",
+        # TRMD SINGLE acquires once and becomes STOP; a read from the first point takes a new acquisition
+        # in AUTO and NORM, the following pieces read the same record; a channel without a record is
+        # acquired when read.
+        "single": ["SINGLE"], "stop": ["STOP"], "after_single": "STOP",
+        "reacquire": "on_read_start", "missing": "acquire", "untriggered": "record",
+        **_sync(x),
+    }  # fmt: skip
+    trigger: dict[str, Any] = {"level": "$ch{n}.trigger_level", "slope": "$ch{n}.trigger_slope"}
+    if tr.auto_windows != 4:
+        trigger["search_windows"] = tr.auto_windows
+    if tr.hysteresis_divs != 0.16:
+        trigger["hysteresis_divs"] = tr.hysteresis_divs
+    xfer: dict[str, Any] = {
+        "first": "$waveform.fp", "count": "$waveform.np", "step": "$waveform.sp",
+        **({"max_points": xf.max_points} if xf.max_points else {}),
+        "encoding": "text", "values": "volts", "format": "%.6e", "separator": " ",
+        "descriptor": {
+            "WAVE_ARRAY_COUNT": "{points}", "FIRST_POINT": "{first}", "SPARSING_FACTOR": "{step}",
+            "HORIZ_INTERVAL": "{dt:.9e}", "HORIZ_OFFSET": "{x_offset:.9e}", "VERTICAL_OFFSET": "{offset:.6e}",
+            "VERTICAL_GAIN": "{gain:.6e}", "TIMEBASE": "{timebase:.6e}", "VOLT_PER_DIV": "{scale:.6e}",
+            "ACQ_COUNT": "{count}",
+        },
+    }  # fmt: skip
+    names = {LECROY_MEASUREMENTS[m]: [m, UNITS.get(m, "V")] for m in x.measurements}
+    caps = {z.capacitance_f for z in ch.impedances}
+    inp: dict[str, Any] = {
+        "z_in": {"from": "$ch.coupling", "map": ohms},
+        "c_in": caps.pop() if len(caps) == 1 else {"from": "$ch.coupling", "map": {
+            k: next(z.capacitance_f for z in ch.impedances if z.ohms == r) for k, r in ohms.items()
+        }},
+    }  # fmt: skip
+    inquire = [
+        {"name": "name", "type": "string"},
+        {"name": "fmt", "type": "enum", "options": ["FLOAT"], "optional": True},
+    ]
+    commands: list[dict[str, Any]] = [
+        {"header": "*CLS", "op": "sys.clear_status"},
+        {"header": "*OPC", "op": "acq.opc"},
+        {"header": ":SYSTem:PRESet", "op": "sys.reset", "query": False},
+        {"header": "Comm_HeaDeR", "state": "comm.header"},
+        {"header": "C<ch>:TRAce", "state": "ch.display"},
+        {"header": "C<ch>:CouPLing", "state": "ch.coupling"},
+        {"header": "C<ch>:Volt_DIV", "state": "ch.scale", "reply": "{header} {value} V"},
+        {"header": "C<ch>:OFfSeT", "state": "ch.offset", "reply": "{header} {value} V"},
+        {"header": "C<ch>:ATTeNuation", "state": "ch.probe"},
+        {"header": "C<ch>:TRig_LeVel", "state": "ch.trigger_level", "reply": "{header} {value} V"},
+        {"header": "C<ch>:TRig_SLope", "state": "ch.trigger_slope"},
+        {"header": "Time_DIV", "state": "timebase.scale", "reply": "{header} {value} S"},
+        {"header": "Memory_SIZe", "state": "memory.size", "format": {"integer": "engineering"}},
+        {"header": "InterLeaVeD", "state": "interleaved"},
+        {"header": "Reference_CLocK", "state": "refclock"},
+        {
+            "header": "TRig_SElect",
+            "params": [
+                {"name": "type", "type": "enum", "state": "trigger.type"},
+                {"name": "rest", "type": "pairs", "optional": True,
+                 "keys": {"SR": "trigger.source", "HT": "trigger.hold", "HV": None}},
+            ],
+        },
+        {
+            "header": "TRig_MoDe", "op": "acq.run_mode", "reply": "{header} {value}",
+            "params": [{"name": "mode", "type": "enum", "options": ["AUTO", "NORMal", "SINGLE", "STOP"], "optional": True}],
+        },
+        {"header": "ARM_acquisition", "op": "acq.single", "query": False},
+        {"header": "STOP", "op": "acq.stop", "query": False},
+        {"header": "FoRce_TRigger", "op": "acq.force_trigger", "query": False},
+        {"header": "WAIT", "op": "acq.wait", "query": False,
+         "params": [{"name": "timeout", "type": "float", "unit": "S", "optional": True}]},
+        {
+            "header": "PArameter_CUstom",
+            "params": [
+                {"name": "slot", "type": "int", "index": True, "min": 1, "max": 8},
+                {"name": "kind", "type": "enum", "state": "measure.p{slot}.kind"},
+                {"name": "source", "type": "enum", "state": "measure.p{slot}.source", "optional": True},
+            ],
+        },
+        {"header": "C<ch>:PArameter_VAlue", "op": "meas.named", "set": False,
+         "reply": "{header} {kind},{value} {unit},{status}", "params": [{"name": "kind", "type": "string"}]},
+        {"header": "WaveForm_SetUp", "params": [
+            {"name": "setup", "type": "pairs", "keys": {"SP": "waveform.sp", "NP": "waveform.np", "FP": "waveform.fp", "SN": "waveform.sn"}}
+        ]},
+        {"header": "C<ch>:INSPect", "when": {"name": "DATA_ARRAY_1"}, "op": "xfer.data", "set": False,
+         "reply": '{header} " {value} "', "params": inquire},
+        {"header": "C<ch>:INSPect", "when": {"name": "SIMPLE"}, "op": "xfer.data", "set": False,
+         "reply": '{header} " {value} "', "params": inquire},
+        {"header": "C<ch>:INSPect", "when": {"name": "WAVEDESC"}, "op": "xfer.describe", "set": False,
+         "reply": '{header} " {value} "', "params": [{"name": "name", "type": "string"}]},
+    ]  # fmt: skip
+    channels: dict[str, Any] = {"count": n}
+    shown = {i: {"display": {"default": True}} for i in ch.displayed}
+    if shown:
+        channels["overrides"] = shown
+    identity: dict[str, Any] = {"serial": x.identity.serial, "firmware": x.identity.firmware}
+    if x.identity.idn:
+        identity["idn"] = x.identity.idn
+    out: dict[str, Any] = {
+        "manufacturer": x.identity.manufacturer,
+        "model": x.identity.model,
+        "class": "oscilloscope",
+        "identity": identity,
+        "dialect": {"echo_header": "$comm.header", "multipliers": {"K": 1.0e3, "M": 1.0e6, "MA": 1.0e6, "G": 1.0e9}},
+        "format": {"number": "engineering", "boolean": "word", "enum": "short"},
+        "channels": channels,
+        "state": state,
+        "channel_state": channel_state,
+        "components": [
+            {"name": "sys", "type": "system"},
+            {"name": "acq", "type": "scope_acquisition", "params": acq},
+            {"name": "timebase", "type": "scope_timebase", "params": {"record_length": "exact", "points": "$memory.size"}},
+            {"name": "trigger", "type": "scope_trigger", "params": trigger},
+            {"name": "adc", "type": "scope_adc", "params": _adc(x)},
+            {"name": "xfer", "type": "waveform_transfer", "params": xfer},
+            {"name": "meas", "type": "scope_measurements", "params": {"record": "acq", "names": names}},
+        ],
+        "channel_components": [
+            {"name": "inp", "type": "input_port", "params": inp},
+            {"name": "front", "type": "scope_vertical",
+             "params": _front(x, {"from": "$ch.coupling", "map": kind}, bw_limit=False)},
+            {"name": "probe", "type": "scope_probe"},
+        ],
+        "wiring": {
+            "channel": [["inp.out", "front.in"], ["front.out", "probe.in"]],
+            "instrument": [["ch{n}.probe.out", "acq.in{n}"]],
+        },
+        "ports": {"channel": {"CH{n}": "inp.pin"}},
+        "display": {
+            "template": "oscilloscope",
+            "summary": ["timebase.scale", "memory.size", "trigger.mode", "trigger.source"],
+            "channel_summary": ["display", "scale", "offset", "coupling", "trigger_level"],
+            "actions": {"single": "TRMD SINGLE"},
+        },
+        "capabilities": ["oscilloscope"],
+        "commands": commands,
+    }  # fmt: skip
+    if x.identity.description:
+        out["description"] = x.identity.description
+    if di.unknown_commands != "error":
+        out["unknown_commands"] = di.unknown_commands
+    if tr.external:
+        out["components"].append({"name": "extin", "type": "input_port", "params": {"z_in": 1.0e6}})
+        out["wiring"]["instrument"].append(["extin.out", "trigger.ext"])
+        out["ports"]["instrument"] = {"EXT": "extin.pin"}
+    if x.specs:
+        out["specs"] = x.specs
+    deviations = _deviations(x)
+    if deviations:
+        out["deviations"] = deviations
     return out
 
 
@@ -793,6 +1148,125 @@ def example() -> dict[str, Any]:
     }
 
 
+# ---- from a script (#145) ---------------------------------------------------------------------------
+
+
+def _base(variant: str) -> dict[str, Any]:
+    """A variant's inputs before the script is read: generic values a data sheet would replace."""
+    common: dict[str, Any] = {
+        "identity": {"manufacturer": "Unknown", "model": "SCOPE"},
+        "channels": {
+            "count": 4,
+            "impedances": [
+                {"name": "ONEMeg", "ohms": 1.0e6, "capacitance_f": 1.5e-11, "label": "1 MΩ"},
+                {"name": "FIFTy", "ohms": 50.0, "capacitance_f": 1.5e-11, "label": "50 Ω"},
+            ],
+            "bandwidth_hz": 2.0e8,
+            "bandwidth_limit_hz": 2.0e7,
+            "couplings": ["DC", "AC", "GND"],
+        },
+        "adc": {"bits": 8, "divisions": 10.0, "max_rate": 2.0e9},
+    }
+    if variant == "lecroy-scope":
+        return {
+            **common,
+            "vertical": {"scale_range": [1.0e-3, 10.0], "default_scale": 0.05, "ladder": False, "offset_max_v": 100.0,
+                         "probe_range": [1.0e-4, 1.0e4]},
+            "adc": {"bits": 12, "divisions": 10.0, "max_rate": 2.0e10},
+            "timebase": {"scale_range": [2.0e-11, 1000.0], "default_scale": 1.0e-3, "ladder": False,
+                         "memory_sizes": {"min": 500, "max": 50_000_000, "default": 10_000}},
+            "trigger": {"slopes": ["POSitive", "NEGative"], "external": True, "line": True},
+            "dialect": {"command_set": "lecroy-scope"},
+        }  # fmt: skip
+    return {
+        **common,
+        "vertical": {"scale_range": [1.0e-3, 10.0], "default_scale": 1.0, "probe_range": [0.1, 1000.0]},
+        "timebase": {
+            "scale_range": [1.0e-9, 50.0],
+            "points": [100, 250, 500, 1000, 2000, 5000, 10000, 100000],
+        },
+        "trigger": {"sweeps": ["AUTO", "NORMal", "SINGle"], "external": True, "line": True},
+        "acquisition": {"types": ["NORMal", "AVERage", "PEAK"]},
+        "dialect": {"command_set": "scpi-scope", "run_stop": True, "points_mode": True},
+    }
+
+
+def variants() -> dict[str, dict[str, Any]]:
+    out = {}
+    for name in ("scpi-scope", "lecroy-scope"):
+        base = _base(name)
+        base["channels"] = {**base["channels"], "count": 8}  # every channel a script may name
+        out[name] = base
+    return out
+
+
+def prefill(variant: str, commands: list[Any], hints: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
+    from .draft import channels_used, default, found, matching, number, units
+
+    x = _base(variant)
+    filled = []
+    us = units(commands)
+    model = hints.get("model")
+    if model:
+        x["identity"]["model"] = model[0]
+        filled.append(found(("identity", "model"), model[0], model[1], "*IDN? 校验的型号串"))
+    else:
+        filled.append(default(("identity", "model"), "SCOPE"))
+    filled.append(default(("identity", "manufacturer"), "Unknown"))
+    used = channels_used(commands)
+    if used:
+        n, line = max(used)
+        x["channels"]["count"] = max(n, 4)
+        filled.append(
+            found(("channels", "count"), x["channels"]["count"], line,
+                  f"脚本中最大的通道号为 {n}（循环里的通道号读作 1）；少于 4 时按 4 通道，待确认")
+        )  # fmt: skip
+    for key in ("bandwidth_hz",):
+        filled.append(default(("channels", key), x["channels"][key]))
+    filled.append(default(("vertical", "scale_range"), x["vertical"]["scale_range"]))
+    filled.append(default(("timebase", "scale_range"), x["timebase"]["scale_range"]))
+    filled.append(default(("adc", "bits"), x["adc"]["bits"]))
+    if variant == "lecroy-scope":
+        sizes = [(number(u.args[0]), u.line) for u in matching(us, r"MSIZ|MEMORY_SIZE") if u.args]
+        sizes = [(v, ln) for v, ln in sizes if v and v > 1]
+        if sizes:
+            top, line = max(sizes)
+            mem = x["timebase"]["memory_sizes"]
+            mem["max"] = max(mem["max"], int(top))
+            filled.append(found(("timebase", "memory_sizes", "max"), mem["max"], line))
+        filled.append(
+            default(("dialect", "unknown_commands"), "error", "契约若要求忽略未建模命令，改为 ignore")
+        )
+        return x, filled
+    pts = [(number(u.args[0]), u.line) for u in matching(us, r"WAV(EFORM)?:POIN(TS)?") if u.args]
+    pts = [(int(v), ln) for v, ln in pts if v and v > 1]
+    points = x["timebase"]["points"]
+    for v, line in pts:
+        if v not in points:
+            points.append(v)
+            filled.append(found(("timebase", "points"), v, line, "脚本读取的点数"))
+    points.sort()
+    if matching(us, r"WAV(EFORM)?:POIN(TS)?:MODE"):
+        x["timebase"]["memory_depth"] = 100_000
+        filled.append(
+            default(("timebase", "memory_depth"), 100_000, "脚本用了点数模式：存储深度取 100 kpts，待确认")
+        )
+    fmts = {a.upper()[:3] for u in matching(us, r"WAV(EFORM)?:FORM(AT)?") for a in u.args}
+    order = [f for f in ("BYTE", "WORD", "ASCii") if f.upper()[:3] in fmts] or ["WORD", "BYTE", "ASCii"]
+    x["transfer"] = {"formats": order + [f for f in ("WORD", "BYTE", "ASCii") if f not in order]}
+    meas = sorted(
+        {u.header.lstrip(":").split(":")[1].rstrip("?").upper() for u in matching(us, r"MEAS(URE)?:\w+")}
+    )
+    known = {m.upper()[:4]: m for m in MEASUREMENTS}
+    x["measurements"] = sorted({known[m[:4]] for m in meas if m[:4] in known} | set(MEASUREMENTS))
+    filled.append(
+        default(
+            ("acquisition", "completion"), "immediate", "单次采集当场完成；真机在虚拟时间中完成时改为 pending"
+        )
+    )
+    return x, filled
+
+
 TEMPLATE = register(
     Template(
         id="oscilloscope",
@@ -806,5 +1280,7 @@ TEMPLATE = register(
         example=example,
         build=build,
         check=check,
+        variants=variants,
+        prefill=prefill,
     )
 )

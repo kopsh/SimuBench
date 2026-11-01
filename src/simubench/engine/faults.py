@@ -60,7 +60,9 @@ class FaultState:
             "drift": f" {s.param} {s.drift_per_s or 0:+g}/s",
             "hidden": f" {s.param} = {s.value!r}",
         }.get(s.kind, "")
-        return f"{s.kind} {target}{extra}".strip()
+        # The message is part of what an error/trip says (tui-screens.md 7.1's 故障行).
+        message = f" {s.message}" if s.kind in ("error", "trip") and s.message else ""
+        return f"{s.kind} {target}{extra}{message}".strip()
 
 
 class FaultManager:
@@ -143,8 +145,12 @@ class FaultManager:
         inst = self.session.instrument(s.instrument or "")
         code = s.code if s.code is not None else -300
         if s.kind == "trip":
+            # An output is a bool named `output` (sources) or under it (`output.enabled`), so the
+            # trip switches off every output the instrument has, not just the bare path.
             for path, spec in inst.specs.items():
-                if spec.type == "bool" and path.rsplit(".", 1)[-1] == "output" and inst.state.get(path):
+                head, _, tail = path.partition(".")
+                output = head == "output" or tail.rpartition(".")[-1] == "output"
+                if spec.type == "bool" and output and inst.state.get(path):
                     inst.set_state(path, False, source="fault")
             inst.push_error(code, s.message or "protection tripped")
         else:

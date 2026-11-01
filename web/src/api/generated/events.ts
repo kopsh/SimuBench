@@ -5,6 +5,10 @@
  */
 export type Action = string | null;
 export type Client = string | null;
+/**
+ * The author's command header closest to the one sent, when one is close
+ */
+export type Closest = string | null;
 export type Code = number | null;
 export type Dir = ("write" | "read") | null;
 export type DtNs = number | null;
@@ -13,13 +17,36 @@ export type DurationNs = number | null;
  * Fault id, for fault events and messages a fault affected
  */
 export type Fault = string | null;
+/**
+ * The header that was ignored, for ignored events
+ */
+export type Header = string | null;
 export type Instrument = string | null;
 /**
  * scpi | state | advance | error | fault | acquisition | panel | remote | session
  */
 export type Kind = string;
 export type Message = string | null;
+/**
+ * The file the classification's declaration comes from (the definition or its coverage table), as the loader received the path
+ */
+export type Origin = string | null;
+/**
+ * The parameter or state path, for bad_parameter
+ */
+export type Param = string | null;
 export type Path = string | null;
+/**
+ * Whether the ignored header was a query
+ */
+export type Query = boolean | null;
+/**
+ * The range or options the definition declares, for bad_parameter
+ */
+export type Range = string | null;
+/**
+ * For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault and advance events carry their own kind-specific reason
+ */
 export type Reason = string | null;
 export type Seq = number;
 /**
@@ -40,17 +67,23 @@ export type Wall = number | null;
 export interface Event {
   action?: Action;
   client?: Client;
+  closest?: Closest;
   code?: Code;
   dir?: Dir;
   dt_ns?: DtNs;
   duration_ns?: DurationNs;
   fault?: Fault;
+  header?: Header;
   instrument?: Instrument;
   kind: Kind;
   message?: Message;
   new?: New;
   old?: Old;
+  origin?: Origin;
+  param?: Param;
   path?: Path;
+  query?: Query;
+  range?: Range;
   reason?: Reason;
   seq: Seq;
   size?: Size;

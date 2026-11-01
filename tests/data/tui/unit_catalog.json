@@ -1,0 +1,4079 @@
+{
+ "amplitude_level": {
+  "type": "amplitude_level",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The amplitude and offset of a 1 Vpp waveform, as the instrument defines them (D13, D48).\n\n``amplitude`` is in ``unit``: VPP, VPK, VRMS (through each function's peak-to-RMS ratio: sine\n2√2, square and pulse 2, ramp 2√3 Vpp per Vrms) or DBM (the power into the load setting:\nVrms = √(10^(dBm/10) · 1 mW · R)). The level is what a load of ``load_setting`` ohms would see\nbehind ``output``'s impedance, so the EMF is raised by (R + Z) / R; ``inf``, or ``hiz_from`` ohms\nand more, is high-Z: the level is the open-circuit voltage and dBm is referred to\n``dbm_hiz_ohms`` (50 Ω, the usual convention when the load is unknown).\n\n``vpp_min`` / ``vpp_max`` bound the amplitude as volts peak-to-peak into the load setting, the\none physical limit a source has (D48): a write in any unit is converted and checked, refusing\nwith -222; a change of the waveform or the load setting that would leave the range is refused\nwith -221. Switching the unit converts the value, so the output does not move (a real source's\n``VOLT:UNIT``); there is no dBm expression of 0 Vpp, so that switch is refused with -221.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "amplitude",
+    "default": 0.1,
+    "unit": null,
+    "doc": "in unit"
+   },
+   {
+    "name": "unit",
+    "default": "VPP",
+    "unit": null,
+    "doc": "VPP | VPK | VRMS | DBM"
+   },
+   {
+    "name": "offset",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "V, defined for the load setting like the amplitude"
+   },
+   {
+    "name": "load_setting",
+    "default": "INF",
+    "unit": "ohm",
+    "doc": "ohm the amplitude is defined for; inf: open circuit"
+   },
+   {
+    "name": "hiz_from",
+    "default": "INF",
+    "unit": "ohm",
+    "doc": "a load setting of this many ohms or more counts as high-Z"
+   },
+   {
+    "name": "dbm_hiz_ohms",
+    "default": 50.0,
+    "unit": "ohm",
+    "doc": "the resistance dBm is referred to when the load setting is high-Z"
+   },
+   {
+    "name": "vpp_min",
+    "default": null,
+    "unit": "V",
+    "doc": "V, the smallest Vpp into the load setting (None: not checked)"
+   },
+   {
+    "name": "vpp_max",
+    "default": null,
+    "unit": "V",
+    "doc": "V, the largest Vpp into the load setting (None: not checked)"
+   },
+   {
+    "name": "synth",
+    "default": "synth",
+    "unit": null,
+    "doc": "the waveform_synth (its function sets the VRMS and DBM conversion)"
+   },
+   {
+    "name": "output",
+    "default": "out",
+    "unit": null,
+    "doc": "the output_stage (its impedance raises the EMF for the load setting)"
+   }
+  ],
+  "operations": []
+ },
+ "arb_table": {
+  "type": "arb_table",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "An arbitrary waveform: a table played at ``rate`` samples per second, linearly interpolated.\n\nThe output is periodic with fundamental ``rate / N``. Linear interpolation between samples is a\nconvolution with a triangle, so harmonic k carries ``X[k mod N] / N · sinc²(k / N)``: the\nspectrum is exact, not sampled (validation-lockin.md 6). Harmonics are kept up to ``max_lines``.",
+  "ports": [
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "table",
+    "default": [
+     0.0
+    ],
+    "unit": null,
+    "doc": "one period of the waveform, sampled"
+   },
+   {
+    "name": "rate",
+    "default": 16000.0,
+    "unit": null,
+    "doc": "samples per second"
+   },
+   {
+    "name": "scale",
+    "default": 1.0,
+    "unit": null,
+    "doc": "volts per unit of the table"
+   },
+   {
+    "name": "max_lines",
+    "default": 1024,
+    "unit": null,
+    "doc": "harmonics kept"
+   }
+  ],
+  "operations": []
+ },
+ "calibration_store": {
+  "type": "calibration_store",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.\n\nA measuring core references the store with ``store: <this component's name>`` and reads its\nreading as ``(raw − offset[key]) × gain[key]``; a key never adjusted gives gain 1 and offset 0.\nThe key comes from the ``key`` parameter, one entry per key dimension:\n\n* ``$path`` - the value of that instrument state (e.g. ``$sense.function``);\n* ``component.param`` - that component's parameter; for the calibrated core itself,\n  ``function`` is the function of the measurement being made and ``range`` the range actually\n  in use (the auto-chosen one included), e.g. ``[meter.function, meter.range]``.\n\n``adjust`` (a reference of 0 adjusts the zero, anything else the gain) checks the core's raw\ninput against the reference first: the deviation must stay within ``tolerance`` of the\nreference (of ``max(|reference|, 1)`` for the zero, where the reference itself is 0). A failed\ncheck pushes the calibration error (702 by default) and replies ``fail_reply``. Adjusted\ncoefficients take effect at once and become permanent when ``store`` commits them; whether an\nun-stored adjustment survives ``*RST`` is ``volatile_until_store``. The ledger (``count``,\n``date``, ``time``, ``string``) and the security ``code`` are never touched by ``*RST``.\n``secured`` and ``value`` may be bound to instrument state (``$cal.secured``); set through the\nops they write that state back, so the store follows the instrument's own variables.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "secured",
+    "default": true,
+    "unit": null,
+    "doc": "calibration secured: adjusting needs the security code"
+   },
+   {
+    "name": "code",
+    "default": "SIMUBENCH",
+    "unit": null,
+    "doc": "the factory security code"
+   },
+   {
+    "name": "key",
+    "default": [],
+    "unit": null,
+    "doc": "key dimensions: '$state.path' or 'component.param' entries"
+   },
+   {
+    "name": "value",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "the reference a gain adjustment assumes on the input (a setting)"
+   },
+   {
+    "name": "tolerance",
+    "default": 0.1,
+    "unit": null,
+    "doc": "fraction of the reference the input may be off by"
+   },
+   {
+    "name": "ok_reply",
+    "default": "+0",
+    "unit": null,
+    "doc": "reply of a successful adjustment"
+   },
+   {
+    "name": "fail_reply",
+    "default": "+1",
+    "unit": null,
+    "doc": "reply of a failed adjustment"
+   },
+   {
+    "name": "volatile_until_store",
+    "default": false,
+    "unit": null,
+    "doc": "*RST drops adjustments that were not stored"
+   }
+  ],
+  "operations": [
+   {
+    "name": "adjust",
+    "doc": "Adjust for the current key: a reference of 0 zeroes, any other adjusts the gain.",
+    "params": [
+     {
+      "name": "reference",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "code",
+    "doc": "A new security code; the calibration must be unsecured.",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "count",
+    "doc": "How many calibrations have been stored (a query; the count is not settable).",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "date",
+    "doc": "The date of the last stored calibration (a query).",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "secure",
+    "doc": ":CALibration:SECure:STATe {ON|OFF},<code>: unsecuring needs the security code.",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "store",
+    "doc": ":CALibration:STORe - keep the adjustments; counts the calibration and dates it.",
+    "params": []
+   },
+   {
+    "name": "string",
+    "doc": "The calibration message; written by the user, survives *RST.",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "time",
+    "doc": "The time of the last stored calibration (a query).",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "value",
+    "doc": "The reference a gain adjustment assumes on the input.",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "calibrator_output": {
+  "type": "calibrator_output",
+  "category": "internal",
+  "role": "driver",
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "A calibrator's output: ``function`` (DCV | ACV), ``level`` (V; RMS for ACV), ``frequency``\n(Hz; 0 for DCV), ``operate``, ``z_out``, ``i_max``, ``settle`` (s, or a table per function),\n``standby_above`` (V), and the hidden ``gain_error_ppm`` / ``offset`` of the output stage, the\ninstrument's own errors and the truth behind a calibration (like the meter core's).\n\nThe settings are bound to instrument state (``function: $out.function`` ...); the commands\nwrite the state and the component follows. ``settle`` is taken from the table by the target\nfunction when it is a dict (``{DCV: 1.0, ACV: 2.0}``).",
+  "ports": [
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "function",
+    "default": "DCV",
+    "unit": null,
+    "doc": "DCV | ACV"
+   },
+   {
+    "name": "level",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "V, the set amplitude (RMS volts for ACV)"
+   },
+   {
+    "name": "frequency",
+    "default": 0.0,
+    "unit": null,
+    "doc": "Hz, the AC line (0 with DCV)"
+   },
+   {
+    "name": "operate",
+    "default": false,
+    "unit": null,
+    "doc": "False: standby, the terminal is disconnected"
+   },
+   {
+    "name": "z_out",
+    "default": 0.0,
+    "unit": "OHM",
+    "doc": "ohm, output impedance (0: an ideal source)"
+   },
+   {
+    "name": "i_max",
+    "default": 0.05,
+    "unit": null,
+    "doc": "A, beyond this load current the output trips to standby (<= 0: never)"
+   },
+   {
+    "name": "settle",
+    "default": 1.0,
+    "unit": null,
+    "doc": "s until a new value is reached, or a table per function"
+   },
+   {
+    "name": "standby_above",
+    "default": null,
+    "unit": "V",
+    "doc": "V, a change of the output settings to or from above it -> standby"
+   },
+   {
+    "name": "overload_error",
+    "default": 0,
+    "unit": null,
+    "doc": "device error code queued on a trip (text from the definition; 0: none)"
+   },
+   {
+    "name": "gain_error_ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "the output's own gain error, ppm (hidden)"
+   },
+   {
+    "name": "offset",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "the output's own DC offset error, V (hidden, DCV only)"
+   }
+  ],
+  "operations": [
+   {
+    "name": "operate",
+    "doc": "``OPER`` (value true) or ``STBY`` (false): enter or leave operate; entering starts the\nsettling of the level.",
+    "params": [
+     {
+      "name": "value",
+      "type": "bool",
+      "default": true,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "coax_cable": {
+  "type": "coax_cable",
+  "category": "accessory",
+  "role": "series",
+  "generic": true,
+  "label": "同轴线缆",
+  "label_en": "Coax cable",
+  "doc": "A short cable: a small series resistance (no delay or reflections).\n\n``r_skin_1mhz`` adds the skin effect: a series impedance ``r_skin_1mhz * sqrt(f / 1 MHz) * (1 + j)``\n(resistance and internal reactance rise together with the square root of frequency), which\nmakes a 50 Ω path lose a little more at higher frequencies and a square wave settle slowly\nafter each edge. A lumped model, valid while the cable is short against the wavelength.",
+  "ports": [
+   {
+    "name": "IN",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "OUT",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "r",
+    "default": 0.05,
+    "unit": "OHM",
+    "doc": "series resistance"
+   },
+   {
+    "name": "length_m",
+    "default": 1.0,
+    "unit": "m",
+    "doc": "cable length (no delay is modeled)"
+   },
+   {
+    "name": "r_skin_1mhz",
+    "default": 0.0,
+    "unit": "OHM",
+    "doc": "skin impedance at 1 MHz, rising as the square root of frequency"
+   }
+  ],
+  "operations": []
+ },
+ "dc_supply": {
+  "type": "dc_supply",
+  "category": "part",
+  "role": "driver",
+  "generic": true,
+  "label": "直流电源",
+  "label_en": "DC supply",
+  "doc": "A fixed DC source with an output resistance (a bench supply or a battery), to ground.",
+  "ports": [
+   {
+    "name": "OUT",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "v",
+    "default": 12.0,
+    "unit": "V",
+    "doc": "EMF"
+   },
+   {
+    "name": "r",
+    "default": 1000.0,
+    "unit": "OHM",
+    "doc": "output resistance"
+   }
+  ],
+  "operations": []
+ },
+ "dmm_core": {
+  "type": "dmm_core",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "DC (mean) and true-rms AC voltage of the net on its input.\n\nAC is the rms of the lines above ``ac_low`` Hz (the AC path's coupling), DC is the mean. The\nmeasurement path has a hidden gain error (ppm) and offset (V), the instrument's own errors;\ncalibration coefficients correct them::\n\n    raw     = true × (1 + gain_error_ppm·1e-6) + offset\n    reading = (raw − cal.offset) × cal.gain\n\nBecause the hidden errors are known, the true as-found and as-left errors are known too, and a\ncalibration script's conclusions can be checked (calibration-notes.md 3).\n\nWith ``ranges`` the meter ranges (metrology-authoring.md 2): the function's full-scale values,\na manual ``range`` (a value the range must be able to measure; the smallest fitting range is\nused, as SCPI prescribes) and ``autorange`` (the range follows the true value; above\n``autorange_up`` × full scale or below ``autorange_down`` × it, the smallest range that fits\nthe value is taken). A reading beyond ``overrange`` × full scale reads ``overload_value``, and\nwith ``resolution`` (a fraction of full scale, or a ``table`` mapping of a setting such as the\nNPLC) a reading is quantized to resolution × full scale. The hidden errors may be one number\n(every range alike) or per function and range: ``{DC: {0.1: 8, 1: 3}, AC: 60}``.\n\nThe ``function`` (DC / AC) may be mapped from a setting; a command that names its function\n(``what``) measures that one. With ``z_in`` the meter models its own input stage: the ``in``\nport is then the instrument's electrical terminal, and the resistance to ground enters the\nbench circuit — ``z_in_high`` when ``high_z`` is set and the range in use is one of\n``high_z_ranges``. Without ``z_in`` the meter reads the signal it is wired, and an\n``input_port`` in front owns the electrical side (as on sb-dmm-1).\n\nCalibration: with ``store`` naming a ``calibration_store`` component, the reading is corrected\nwith the store's per-key coefficients (metrology-authoring.md 4) and the ``cal_*`` operations\ndelegate to it. Without a store the single legacy coefficient set below applies.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "ac_low",
+    "default": 3.0,
+    "unit": null,
+    "doc": "Hz above which lines count into the AC reading"
+   },
+   {
+    "name": "digits",
+    "default": 7,
+    "unit": null,
+    "doc": "display digits of a reading"
+   },
+   {
+    "name": "function",
+    "default": "DC",
+    "unit": null,
+    "doc": "DC | AC: what a command without one measures; what sample() reads"
+   },
+   {
+    "name": "ranges",
+    "default": null,
+    "unit": null,
+    "doc": "full-scale value of each range, per function ({DC: [...]}) or one list"
+   },
+   {
+    "name": "range",
+    "default": null,
+    "unit": null,
+    "doc": "manual range: a value the range must be able to measure (None, <= 0: auto)"
+   },
+   {
+    "name": "autorange",
+    "default": true,
+    "unit": null,
+    "doc": "the range follows the true value"
+   },
+   {
+    "name": "autorange_up",
+    "default": 1.2,
+    "unit": null,
+    "doc": "fraction of full scale above which the range switches up"
+   },
+   {
+    "name": "autorange_down",
+    "default": 0.1,
+    "unit": null,
+    "doc": "fraction of full scale below which the range switches down"
+   },
+   {
+    "name": "overrange",
+    "default": 1.2,
+    "unit": null,
+    "doc": "a reading beyond this fraction of full scale is an overload"
+   },
+   {
+    "name": "overload_value",
+    "default": 9.9e+37,
+    "unit": null,
+    "doc": "the reading an overload produces"
+   },
+   {
+    "name": "resolution",
+    "default": null,
+    "unit": null,
+    "doc": "quantization step as a fraction of full scale (a mapping of a setting)"
+   },
+   {
+    "name": "z_in",
+    "default": null,
+    "unit": "OHM",
+    "doc": "input resistance the meter puts on the net itself, ohm (None: the wiring's)"
+   },
+   {
+    "name": "z_in_high",
+    "default": null,
+    "unit": "OHM",
+    "doc": "input resistance when high_z applies, ohm"
+   },
+   {
+    "name": "high_z",
+    "default": false,
+    "unit": null,
+    "doc": "high input impedance (a setting)"
+   },
+   {
+    "name": "high_z_ranges",
+    "default": [],
+    "unit": null,
+    "doc": "the ranges on which high_z applies (full-scale values)"
+   },
+   {
+    "name": "gain_error_ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "the meter's own gain error, ppm (hidden); per function and range"
+   },
+   {
+    "name": "offset",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "the meter's own DC offset error, V (hidden); per function and range"
+   },
+   {
+    "name": "reading_time",
+    "default": 0.0,
+    "unit": null,
+    "doc": "s of virtual time one reading takes (integration and overhead)"
+   },
+   {
+    "name": "store",
+    "default": "",
+    "unit": null,
+    "doc": "the calibration_store whose per-key coefficients correct the reading"
+   },
+   {
+    "name": "cal_gain",
+    "default": 1.0,
+    "unit": null,
+    "doc": "legacy (no store): calibration gain coefficient"
+   },
+   {
+    "name": "cal_offset",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "legacy (no store): calibration zero (offset) coefficient"
+   },
+   {
+    "name": "cal_value",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "legacy (no store): the reference a gain calibration assumes on the input"
+   },
+   {
+    "name": "cal_secured",
+    "default": true,
+    "unit": null,
+    "doc": "legacy (no store): calibration secured: changing it needs cal_code"
+   },
+   {
+    "name": "cal_code",
+    "default": "SIMUBENCH",
+    "unit": null,
+    "doc": "legacy (no store): calibration security code"
+   },
+   {
+    "name": "cal_tolerance",
+    "default": 0.1,
+    "unit": null,
+    "doc": "legacy (no store): fraction of the cal value the input may be off by"
+   }
+  ],
+  "operations": [
+   {
+    "name": "cal_gain",
+    "doc": ":CALibration[:GAIN]? — with :CALibration:VALue applied, make the reading equal it.",
+    "params": []
+   },
+   {
+    "name": "cal_secure",
+    "doc": ":CALibration:SECure:STATe {ON|OFF},<code>: unsecuring needs the security code.",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "cal_store",
+    "doc": ":CALibration:STORe — keep the coefficients; counts the calibration and dates it.",
+    "params": []
+   },
+   {
+    "name": "cal_zero",
+    "doc": ":CALibration:ZERO? — with 0 V applied, make the reading zero. Replies 0 (done) or 1 (failed).",
+    "params": []
+   },
+   {
+    "name": "measure",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "range",
+    "doc": "The range in use, the auto-chosen one included (the definition's range query).",
+    "params": []
+   }
+  ]
+ },
+ "electronic_load": {
+  "type": "electronic_load",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Constant-current or constant-resistance sink on IN.\n\nIn CC mode it sinks its setting wherever the input voltage allows; below the knee\n(setting × ``r_min``) its minimum operating resistance limits it, so 0 V sinks nothing.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "function",
+    "default": "CC",
+    "unit": null,
+    "doc": "CC | CR: constant-current sink or constant resistance"
+   },
+   {
+    "name": "current",
+    "default": 0.0,
+    "unit": null,
+    "doc": "A, set current in CC"
+   },
+   {
+    "name": "resistance",
+    "default": 1000.0,
+    "unit": null,
+    "doc": "ohm, set resistance in CR"
+   },
+   {
+    "name": "enabled",
+    "default": false,
+    "unit": null,
+    "doc": "False: the input floats"
+   },
+   {
+    "name": "r_min",
+    "default": 0.0367,
+    "unit": "OHM",
+    "doc": "minimum operating resistance: below set*r_min the CC mode sinks less"
+   }
+  ],
+  "operations": [
+   {
+    "name": "measure",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "voltage",
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "function_generator_core": {
+  "type": "function_generator_core",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Standard waveforms with phase-continuous frequency changes.\n\nParameters: ``function`` (SINusoid, SQUare, RAMP, DC; Siglent's SINE, SQUARE are the same),\n``frequency`` (Hz), ``amplitude`` (Vpp), ``offset`` (V), ``phase`` (degrees), ``duty`` (% high,\nsquare), ``symmetry`` (% rising, ramp; 100 is a sawtooth), ``bandwidth`` (Hz, harmonic limit for\nsquare and ramp), ``square_max`` (Hz, highest square/ramp frequency), ``amplitude_unit`` (what\n``amplitude`` means: VPP, VPK or VRMS of the waveform).",
+  "ports": [
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "function",
+    "default": "SINusoid",
+    "unit": null,
+    "doc": "SINusoid | SQUare | RAMP | DC (SINE, SQUARE are aliases)"
+   },
+   {
+    "name": "frequency",
+    "default": 1000.0,
+    "unit": null,
+    "doc": "Hz"
+   },
+   {
+    "name": "amplitude",
+    "default": 0.1,
+    "unit": null,
+    "doc": "in amplitude_unit"
+   },
+   {
+    "name": "offset",
+    "default": 0.0,
+    "unit": null,
+    "doc": "V"
+   },
+   {
+    "name": "phase",
+    "default": 0.0,
+    "unit": null,
+    "doc": "degrees"
+   },
+   {
+    "name": "bandwidth",
+    "default": 100000000.0,
+    "unit": null,
+    "doc": "Hz, harmonic limit for square and ramp"
+   },
+   {
+    "name": "square_max",
+    "default": "INF",
+    "unit": null,
+    "doc": "Hz, highest square/ramp frequency (inf: none)"
+   },
+   {
+    "name": "duty",
+    "default": 50.0,
+    "unit": null,
+    "doc": "percent high time of the square"
+   },
+   {
+    "name": "symmetry",
+    "default": 100.0,
+    "unit": null,
+    "doc": "percent rising half of the ramp (100: sawtooth)"
+   },
+   {
+    "name": "amplitude_unit",
+    "default": "VPP",
+    "unit": null,
+    "doc": "VPP | VPK | VRMS: what amplitude means"
+   }
+  ],
+  "operations": []
+ },
+ "input_port": {
+  "type": "input_port",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
+  "ports": [
+   {
+    "name": "pin",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "z_in",
+    "default": 1000000.0,
+    "unit": "OHM",
+    "doc": "input resistance to ground (FIFTY and ONEMEG are named values)"
+   },
+   {
+    "name": "c_in",
+    "default": 0.0,
+    "unit": "F",
+    "doc": "input capacitance to ground"
+   }
+  ],
+  "operations": []
+ },
+ "lead": {
+  "type": "lead",
+  "category": "accessory",
+  "role": null,
+  "generic": true,
+  "label": "测试导线",
+  "label_en": "Test lead",
+  "doc": "A test lead on a wire: a real series resistance (metrology-authoring.md 6).\n\nUnlike a ``series`` accessory such as a cable, it is not negligible: the termination check does\nnot look through it and the bench circuit solves the drop across it.",
+  "ports": [
+   {
+    "name": "IN",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "OUT",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "r",
+    "default": 0.1,
+    "unit": "OHM",
+    "doc": "series resistance"
+   }
+  ],
+  "operations": []
+ },
+ "load_resistor": {
+  "type": "load_resistor",
+  "category": "part",
+  "role": null,
+  "generic": true,
+  "label": "对地电阻",
+  "label_en": "Resistor to ground",
+  "doc": "A resistor from its one terminal to the bench ground (a load on a single-ended net).",
+  "ports": [
+   {
+    "name": "A",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "r",
+    "default": 1000.0,
+    "unit": "OHM",
+    "doc": "resistance to ground"
+   }
+  ],
+  "operations": []
+ },
+ "lockin_demodulator": {
+  "type": "lockin_demodulator",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Coupling, front-end noise, dual-phase mixing, n-pole filter, overload detection.\n\nReadings are input-referred rms volts and degrees. ``sensitivity`` sets full scale for the\noverload flags and the auto-gain ladder, not the scaling of X, Y and R.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "ref",
+    "direction": "in",
+    "medium": "reference",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "sensitivity",
+    "default": 1.0,
+    "unit": null,
+    "doc": "V rms full scale: overload flags and auto gain, not the scaling of X, Y, R"
+   },
+   {
+    "name": "time_constant",
+    "default": 0.1,
+    "unit": null,
+    "doc": "s, filter time constant T"
+   },
+   {
+    "name": "slope",
+    "default": "24",
+    "unit": null,
+    "doc": "dB/octave of the low-pass; 6 per pole (24: 4 poles)"
+   },
+   {
+    "name": "coupling",
+    "default": "DC",
+    "unit": null,
+    "doc": "DC | AC input coupling"
+   },
+   {
+    "name": "ac_corner",
+    "default": 0.16,
+    "unit": "Hz",
+    "doc": "corner of the AC coupling high-pass"
+   },
+   {
+    "name": "noise_density",
+    "default": 5e-09,
+    "unit": "V/√Hz",
+    "doc": "V/√Hz, hidden state"
+   },
+   {
+    "name": "input_limit",
+    "default": 1.4,
+    "unit": "V",
+    "doc": "V peak"
+   },
+   {
+    "name": "reserve",
+    "default": 10.0,
+    "unit": null,
+    "doc": "20 dB of dynamic reserve over the sensitivity"
+   },
+   {
+    "name": "truncation_limit",
+    "default": 1e-06,
+    "unit": null,
+    "doc": "filter gain past which truncated input raises error 329"
+   }
+  ],
+  "operations": [
+   {
+    "name": "auto_gain",
+    "doc": "Smallest 1-2-5 sensitivity that keeps R under 90 % of full scale and the input in range.",
+    "params": []
+   },
+   {
+    "name": "auto_phase",
+    "doc": "Move the reference phase so that the settled output has θ = 0.",
+    "params": []
+   },
+   {
+    "name": "filter_info",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "enbw",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "measure",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "R",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "overload",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "all",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "snap",
+    "doc": null,
+    "params": [
+     {
+      "name": "names",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "lockin_reference": {
+  "type": "lockin_reference",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Internal oscillator or tracking of the fundamental on REF_IN; harmonic n; SINE_OUT drive.\n\nOutputs: ``ref``, a unit line at the detection frequency n·f whose phase is n·ψ + φ (the\ndemodulator's reference), and ``sine``, the SINE_OUT drive at f (``amplitude`` in V rms).\nAn external reference needs at least ``min_vpp`` peak to peak; when it disappears the\noscillator keeps running at the last frequency and error 327 is queued once.",
+  "ports": [
+   {
+    "name": "ext",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "ref",
+    "direction": "out",
+    "medium": "reference",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "sine",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "source",
+    "default": "INTernal",
+    "unit": null,
+    "doc": "INTernal | EXTernal: track the fundamental on REF_IN"
+   },
+   {
+    "name": "frequency",
+    "default": 1000.0,
+    "unit": null,
+    "doc": "Hz of the internal oscillator"
+   },
+   {
+    "name": "phase",
+    "default": 0.0,
+    "unit": null,
+    "doc": "degrees, phase of the detection reference"
+   },
+   {
+    "name": "harmonic",
+    "default": 1,
+    "unit": null,
+    "doc": "detection at harmonic n x f"
+   },
+   {
+    "name": "amplitude",
+    "default": 1.0,
+    "unit": null,
+    "doc": "V rms of the SINE_OUT drive"
+   },
+   {
+    "name": "min_vpp",
+    "default": 0.4,
+    "unit": null,
+    "doc": "V peak to peak an external reference needs to lock"
+   }
+  ],
+  "operations": [
+   {
+    "name": "frequency",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "actual",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "locked",
+    "doc": null,
+    "params": []
+   }
+  ]
+ },
+ "output_stage": {
+  "type": "output_stage",
+  "category": "internal",
+  "role": "driver",
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "A Thevenin source driving an electrical pin from a signal input.\n\n``load_setting`` is the load the instrument assumes when it defines its amplitude (D13): the\nsource EMF is scaled so that a load of that value would see the requested voltage. ``inf`` means\nthe amplitude is the open-circuit voltage; so does any setting of ``hiz_from`` ohms or more, for\ninstruments whose high-impedance setting is a number (a calibrator's ``LOAD 10000``).",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "pin",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "z_out",
+    "default": 50.0,
+    "unit": null,
+    "doc": "series output impedance, ohm"
+   },
+   {
+    "name": "enabled",
+    "default": true,
+    "unit": null,
+    "doc": "False: the pin floats"
+   },
+   {
+    "name": "load_setting",
+    "default": "INF",
+    "unit": null,
+    "doc": "load the amplitude is defined for (D13), ohm; inf: open circuit"
+   },
+   {
+    "name": "invert",
+    "default": false,
+    "unit": null,
+    "doc": "invert the polarity of the output"
+   },
+   {
+    "name": "hiz_from",
+    "default": "INF",
+    "unit": null,
+    "doc": "a load_setting of this many ohms or more counts as high-Z, ohm"
+   }
+  ],
+  "operations": []
+ },
+ "passive_probe": {
+  "type": "passive_probe",
+  "category": "accessory",
+  "role": null,
+  "generic": true,
+  "label": "无源探头",
+  "label_en": "Passive probe",
+  "doc": "A divider probe: series resistance from tip (IN) to the scope connector (OUT).\n\nWith ``attenuation`` N and ``r_tip`` the total tip resistance into the nominal scope input\n``r_scope`` (1 MΩ), the series element is ``r_tip - r_scope`` (9 MΩ for a 10x, 10 MΩ probe).\nThe division then follows from the scope's actual input impedance, as on a real bench.\nProbe capacitance and compensation are not modeled (transients are out of scope, D10).",
+  "ports": [
+   {
+    "name": "IN",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "OUT",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "attenuation",
+    "default": 10.0,
+    "unit": null,
+    "doc": "nominal division ratio (10: a 10x probe)"
+   },
+   {
+    "name": "r_tip",
+    "default": 10000000.0,
+    "unit": "OHM",
+    "doc": "total resistance from the tip into the scope input"
+   },
+   {
+    "name": "r_scope",
+    "default": 1000000.0,
+    "unit": "OHM",
+    "doc": "the nominal scope input resistance the series element assumes"
+   },
+   {
+    "name": "c_pf",
+    "default": 0.0,
+    "unit": "pF",
+    "doc": "probe capacitance (not modeled, D10)"
+   }
+  ],
+  "operations": []
+ },
+ "prbs_source": {
+  "type": "prbs_source",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "A pseudo-random bit stream, NRZ at ``rate`` bits/s between ±``level``.\n\nPeriodic with 2^n − 1 bits, so its spectrum is lines at k·rate/N: the DFT of the sequence times\nthe rectangular pulse's sinc. Exact, not estimated by an FFT of samples (D13); lines are kept\nfor ``lobes`` sinc lobes, within the line limit.",
+  "ports": [
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "order",
+    "default": 7,
+    "unit": null,
+    "doc": "LFSR order n: period 2^n - 1 bits (one of 5, 6, 7, 9, 10, 11, 15)"
+   },
+   {
+    "name": "rate",
+    "default": 100000.0,
+    "unit": null,
+    "doc": "bit rate, bits/s"
+   },
+   {
+    "name": "level",
+    "default": 0.25,
+    "unit": null,
+    "doc": "V: the bits swing between +level and -level"
+   },
+   {
+    "name": "lobes",
+    "default": 8,
+    "unit": null,
+    "doc": "sinc lobes of spectrum kept"
+   }
+  ],
+  "operations": []
+ },
+ "rc_lowpass": {
+  "type": "rc_lowpass",
+  "category": "part",
+  "role": null,
+  "generic": true,
+  "label": "RC 低通",
+  "label_en": "RC low-pass",
+  "doc": "Series R from IN to OUT, C from OUT to ground. ``tol_r`` / ``tol_c`` are hidden tolerances.",
+  "ports": [
+   {
+    "name": "IN",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "OUT",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "r",
+    "default": 1000.0,
+    "unit": "OHM",
+    "doc": "series resistance"
+   },
+   {
+    "name": "c",
+    "default": 1e-07,
+    "unit": "F",
+    "doc": "capacitance to ground"
+   },
+   {
+    "name": "tol_r",
+    "default": 0.0,
+    "unit": null,
+    "doc": "relative tolerance of r, hidden (0.1: +10%)"
+   },
+   {
+    "name": "tol_c",
+    "default": 0.0,
+    "unit": null,
+    "doc": "relative tolerance of c, hidden"
+   }
+  ],
+  "operations": []
+ },
+ "reading_buffer": {
+  "type": "reading_buffer",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Named reading buffers: a DMM's reading memory, an SMU's ``defbuffer1`` and the ones a script\nmakes. Commands name a buffer with ``name``; without one they use ``default``.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "default",
+    "default": "defbuffer1",
+    "unit": null,
+    "doc": "the buffer commands use when they name none"
+   },
+   {
+    "name": "capacity",
+    "default": 10000,
+    "unit": null,
+    "doc": "readings a buffer keeps (a made buffer gives its own)"
+   },
+   {
+    "name": "when_full",
+    "default": "stop",
+    "unit": null,
+    "doc": "stop: new readings are dropped | overwrite: the oldest go"
+   },
+   {
+    "name": "digits",
+    "default": null,
+    "unit": null,
+    "doc": "readings with a fixed number of digits (None: the definition's format)"
+   },
+   {
+    "name": "max_buffers",
+    "default": 8,
+    "unit": null,
+    "doc": "buffers there may be, the default one included"
+   },
+   {
+    "name": "missing_error",
+    "default": -222,
+    "unit": null,
+    "doc": "a buffer name, index or count that does not exist"
+   },
+   {
+    "name": "empty_error",
+    "default": -230,
+    "unit": null,
+    "doc": "reading from an empty buffer"
+   }
+  ],
+  "operations": [
+   {
+    "name": "actual",
+    "doc": "``TRACe:ACTual?``: readings in the buffer (an SMU's name for ``points``).",
+    "params": [
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "clear",
+    "doc": "``TRACe:CLEar``: empty the buffer.",
+    "params": [
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "data",
+    "doc": "``TRACe:DATA? start,end,\"buffer\",READ,REL``: readings start to end (from 1), each with the\nelements asked for (READ: the reading, REL: seconds since the first, or a sampler field).",
+    "params": [
+     {
+      "name": "start",
+      "type": "int",
+      "default": 1,
+      "required": false
+     },
+     {
+      "name": "end",
+      "type": "int | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "elements",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "delete",
+    "doc": "``TRACe:DELete \"name\"``: remove a buffer that was made (the default one stays).",
+    "params": [
+     {
+      "name": "name",
+      "type": "str",
+      "default": "",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "make",
+    "doc": "``TRACe:MAKE \"name\",n``: a new buffer of ``n`` readings.",
+    "params": [
+     {
+      "name": "name",
+      "type": "str",
+      "default": "",
+      "required": false
+     },
+     {
+      "name": "capacity",
+      "type": "int | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "points",
+    "doc": "``DATA:POINts?``: readings in the buffer.",
+    "params": [
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "read_clear",
+    "doc": "``R? [max]``: the oldest readings (all, or at most ``count``) as an IEEE 488.2 definite-length\nblock of comma-separated numbers, taken out of the buffer.",
+    "params": [
+     {
+      "name": "count",
+      "type": "int | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "remove",
+    "doc": "``DATA:REMove? n``: the n oldest readings, taken out of the buffer.",
+    "params": [
+     {
+      "name": "count",
+      "type": "int",
+      "default": 1,
+      "required": false
+     },
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "reference_clock": {
+  "type": "reference_clock",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The source's frequency reference: an internal oscillator off by ``ppm`` (hidden; a deviations\nentry), or with ``source`` EXTernal the 10 MHz on ``ref`` when one within ±10 ppm is there (the\ninternal oscillator otherwise, as a real source falls back when it cannot lock).",
+  "ports": [
+   {
+    "name": "ref",
+    "direction": "ref",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "source",
+    "default": "INTernal",
+    "unit": null,
+    "doc": "INTernal | EXTernal (a setting such as $clock_source)"
+   },
+   {
+    "name": "ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "the internal oscillator's frequency error, ppm (hidden)"
+   },
+   {
+    "name": "nominal_hz",
+    "default": 10000000.0,
+    "unit": null,
+    "doc": "the external reference's frequency"
+   }
+  ],
+  "operations": []
+ },
+ "resistor": {
+  "type": "resistor",
+  "category": "part",
+  "role": null,
+  "generic": true,
+  "label": "电阻",
+  "label_en": "Resistor",
+  "doc": "Base class for every component type.",
+  "ports": [
+   {
+    "name": "A",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "B",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "r",
+    "default": 1000.0,
+    "unit": "OHM",
+    "doc": "resistance"
+   }
+  ],
+  "operations": []
+ },
+ "rf_generator_core": {
+  "type": "rf_generator_core",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Lines of the RF output and the 10 MHz reference output.\n\n``offset_ppm`` is the timebase error: hidden state (D9), readable only by measuring.",
+  "ports": [
+   {
+    "name": "rf",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "ref",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "ext",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "frequency",
+    "default": 1000000000.0,
+    "unit": null,
+    "doc": "Hz of the CW carrier"
+   },
+   {
+    "name": "level",
+    "default": -20.0,
+    "unit": null,
+    "doc": "dBm into a matched load"
+   },
+   {
+    "name": "mode",
+    "default": "CW",
+    "unit": null,
+    "doc": "CW | LIST | otherwise the start/stop sweep"
+   },
+   {
+    "name": "am",
+    "default": false,
+    "unit": null,
+    "doc": "amplitude modulation on"
+   },
+   {
+    "name": "am_depth",
+    "default": 0.0,
+    "unit": null,
+    "doc": "percent modulation depth"
+   },
+   {
+    "name": "am_rate",
+    "default": 1000.0,
+    "unit": null,
+    "doc": "Hz of the AM tone"
+   },
+   {
+    "name": "fm",
+    "default": false,
+    "unit": null,
+    "doc": "frequency modulation on (FM and PM are exclusive)"
+   },
+   {
+    "name": "fm_dev",
+    "default": 0.0,
+    "unit": null,
+    "doc": "Hz peak deviation"
+   },
+   {
+    "name": "fm_rate",
+    "default": 1000.0,
+    "unit": null,
+    "doc": "Hz of the FM tone"
+   },
+   {
+    "name": "pm",
+    "default": false,
+    "unit": null,
+    "doc": "phase modulation on (FM and PM are exclusive)"
+   },
+   {
+    "name": "pm_dev",
+    "default": 0.0,
+    "unit": null,
+    "doc": "rad of phase deviation (the modulation index beta)"
+   },
+   {
+    "name": "pm_rate",
+    "default": 1000.0,
+    "unit": null,
+    "doc": "Hz of the PM tone"
+   },
+   {
+    "name": "pulm",
+    "default": false,
+    "unit": null,
+    "doc": "pulse modulation (setting it errors: not simulated)"
+   },
+   {
+    "name": "ref_out",
+    "default": true,
+    "unit": null,
+    "doc": "the 10 MHz reference output on"
+   },
+   {
+    "name": "ref_source",
+    "default": "INTernal",
+    "unit": null,
+    "doc": "INTernal | EXTernal 10 MHz timebase"
+   },
+   {
+    "name": "offset_ppm",
+    "default": 0.0,
+    "unit": "ppm",
+    "doc": "timebase error, ppm (hidden state, D9)"
+   },
+   {
+    "name": "manual",
+    "default": 1,
+    "unit": null,
+    "doc": "current sweep point, 1-based"
+   },
+   {
+    "name": "start",
+    "default": 1000000000.0,
+    "unit": null,
+    "doc": "Hz, first frequency of the sweep"
+   },
+   {
+    "name": "stop",
+    "default": 2000000000.0,
+    "unit": null,
+    "doc": "Hz, last frequency of the sweep"
+   },
+   {
+    "name": "points",
+    "default": 2,
+    "unit": null,
+    "doc": "points of the sweep"
+   },
+   {
+    "name": "spacing",
+    "default": "LINear",
+    "unit": null,
+    "doc": "LINear | LOGarithmic"
+   }
+  ],
+  "operations": [
+   {
+    "name": "initiate",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "list_freq",
+    "doc": "``:LIST:FREQ 1e9,2.4e9`` or ``\"1e9,2.4e9\"``: real instruments take both forms (D13).",
+    "params": [
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "list_points",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "trigger",
+    "doc": null,
+    "params": []
+   }
+  ]
+ },
+ "scope_acquisition": {
+  "type": "scope_acquisition",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Run control, sampling and the records of a scope, built from the scope's modules.\n\nOne component for every oscilloscope model, set by parameters (instrument-authoring.md 3.2, 8.4).\nIt names the modules it reads: ``horizontal`` (a ``scope_timebase``), ``trigger`` (a\n``scope_trigger``), ``adc`` (a ``scope_adc``), and per channel ``vertical`` (a\n``scope_vertical``: the scale and offset) and ``probe`` (a ``scope_probe``, whose output is wired\nto ``in<n>``). Written the earlier way, with the modules' parameters on the acquisition itself and\nno module named, the definition is expanded into the modules when it loads (a macro):\n\n* **run control** ``mode`` and the values that mean ``auto``, ``normal``, ``single``, ``stop``\n  and ``force`` (one frame whatever the trigger, then stop); ``after_single`` is the mode a\n  completed single acquisition leaves (empty: the mode stays and the scope stops).\n  ``reacquire`` says when a read gets a new acquisition from a running scope: ``explicit``\n  (only a digitize command), ``every_read`` or ``on_read_start`` (a read from the first point;\n  later pieces read the same record). A pending single acquisition is retried on every read.\n  ``missing: acquire`` reads a channel that has no record yet, ``error`` refuses it;\n* **noise** the input noise comes from the channel's ``scope_vertical`` ``noise_table``, per\n  division at the input connector, in display volts times the probe ratio; it is keyed by\n  ``noise_key``: ``time`` (the absolute sample instants, D46; ``noise_stream`` names a setting\n  that selects another stream) or ``acquisition`` (the acquisition count, so pauses of any\n  real length between commands give the same numbers); ``trigger_jitter_s``;\n  * **processing** (F4, D46) what the quantized codes go through: ``normal`` keeps them;\n    ``average`` (``averages``) is the mean of that many acquisitions, each of them noisy and\n    quantized, so the noise falls by √N and the resolution gains (it takes N acquisitions'\n    time); ``peak`` examines each record interval at the ADC's native rate (at most\n    ``peak_max_oversample`` samples per record sample) and keeps, of the interval's smallest\n    and largest code, the one that departs farther from its ends — a pulse the record rate\n    would step over shows up; ``eres`` smooths ``4**eres_bits`` codes (a boxcar), so the\n    noise falls by ``2**eres_bits`` — that many more effective bits, at the boxcar's\n    bandwidth.\n\n* **synchronization** (instrument-authoring.md 8.4, G2): ``completion: immediate`` finishes a\n  single acquisition, a digitize or a forced frame within the command that starts it;\n  ``pending`` makes it an operation that finishes in virtual time, when the record after the\n  trigger is full: until then the trigger status is waiting (then triggered), a read gets the\n  previous record (``while_waiting: previous``) or an error (``error``), ``*OPC?`` and ``*WAI``\n  wait for it unless ``opc_waits`` is false, and a digitize waits for it. Without a trigger it\n  waits for one, looking again whenever a command arrives; ``no_trigger: wait`` leaves ``*OPC?``\n  unanswered meanwhile (the client times out), ``return`` answers it at once.\n\nPer-channel ``ch<n>.display`` says which channels are acquired. The trigger status\n(``status_text``), an acquisition type with its count (``acquire_type``, ``acquire_counts``)\nand the read-only figures (op ``figure``: points, sample rate, acquisitions) are declared.\nMeasurements are a ``scope_measurements`` module, the transfer and its preamble a\n``waveform_transfer``.",
+  "ports": [],
+  "port_pattern": "in\\d+",
+  "params": [
+   {
+    "name": "horizontal",
+    "default": "",
+    "unit": null,
+    "doc": "the scope_timebase component"
+   },
+   {
+    "name": "trigger",
+    "default": "",
+    "unit": null,
+    "doc": "the scope_trigger component"
+   },
+   {
+    "name": "adc",
+    "default": "",
+    "unit": null,
+    "doc": "the scope_adc component"
+   },
+   {
+    "name": "vertical",
+    "default": "",
+    "unit": null,
+    "doc": "the per-channel scope_vertical component (its name without ch<n>.)"
+   },
+   {
+    "name": "probe",
+    "default": "",
+    "unit": null,
+    "doc": "the per-channel scope_probe component (its name without ch<n>.)"
+   },
+   {
+    "name": "overhead_s",
+    "default": 0.001,
+    "unit": null,
+    "doc": "virtual time an acquisition takes besides its record, s"
+   },
+   {
+    "name": "mode",
+    "default": "$trigger.mode",
+    "unit": null,
+    "doc": "the run mode setting"
+   },
+   {
+    "name": "auto",
+    "default": [
+     "AUTO"
+    ],
+    "unit": null,
+    "doc": "modes that keep untriggered acquisitions"
+   },
+   {
+    "name": "normal",
+    "default": [
+     "NORMal"
+    ],
+    "unit": null,
+    "doc": "modes that wait for a trigger"
+   },
+   {
+    "name": "single",
+    "default": [],
+    "unit": null,
+    "doc": "modes that acquire once on the next trigger"
+   },
+   {
+    "name": "stop",
+    "default": [],
+    "unit": null,
+    "doc": "modes that stop (none: a stop command stops)"
+   },
+   {
+    "name": "force",
+    "default": [],
+    "unit": null,
+    "doc": "modes that take one frame whatever the trigger, then stop"
+   },
+   {
+    "name": "after_single",
+    "default": "",
+    "unit": null,
+    "doc": "the mode a completed single acquisition sets (empty: unchanged)"
+   },
+   {
+    "name": "reacquire",
+    "default": "explicit",
+    "unit": null,
+    "doc": "explicit | every_read | on_read_start"
+   },
+   {
+    "name": "missing",
+    "default": "error",
+    "unit": null,
+    "doc": "error | acquire"
+   },
+   {
+    "name": "untriggered",
+    "default": "search",
+    "unit": null,
+    "doc": "the time an untriggered acquisition takes: search | record"
+   },
+   {
+    "name": "noise_key",
+    "default": "acquisition",
+    "unit": null,
+    "doc": "acquisition | time"
+   },
+   {
+    "name": "noise_stream",
+    "default": "",
+    "unit": null,
+    "doc": "a setting that selects another noise stream (time key)"
+   },
+   {
+    "name": "trigger_jitter_s",
+    "default": 0.0,
+    "unit": null,
+    "doc": "rms offset of each record around the trigger, s"
+   },
+   {
+    "name": "processing",
+    "default": "normal",
+    "unit": null,
+    "doc": "normal | average | peak | eres: what the quantized codes go through"
+   },
+   {
+    "name": "averages",
+    "default": 1,
+    "unit": null,
+    "doc": "acquisitions an average is the mean of (processing: average)"
+   },
+   {
+    "name": "eres_bits",
+    "default": 0.0,
+    "unit": null,
+    "doc": "effective bits a high-resolution acquisition gains (boxcar of 4^b codes)"
+   },
+   {
+    "name": "peak_max_oversample",
+    "default": 64,
+    "unit": null,
+    "doc": "native samples a peak-detect interval examines at most"
+   },
+   {
+    "name": "status_text",
+    "default": {
+     "stopped": "STOP",
+     "waiting": "READY",
+     "triggered": "TRIG'D",
+     "auto": "AUTO"
+    },
+    "unit": null,
+    "doc": "op status: the trigger status as the model words it (stopped, waiting for a trigger, triggered, running untriggered in an auto mode)"
+   },
+   {
+    "name": "acquire_type",
+    "default": "",
+    "unit": null,
+    "doc": "op acquire_type: the acquisition type setting and, per type that takes a count, the setting the count writes, its allowed values and how a query writes it, e.g. {AVERage: {setting: acquire.average, values: [4, 16], format: \"{kind},{value:d}\"}}"
+   },
+   {
+    "name": "acquire_counts",
+    "default": {},
+    "unit": null,
+    "doc": "type -> {setting, values, format} for the types that take a count"
+   },
+   {
+    "name": "completion",
+    "default": "immediate",
+    "unit": null,
+    "doc": "immediate | pending: when a single acquisition or digitize is done"
+   },
+   {
+    "name": "opc_waits",
+    "default": true,
+    "unit": null,
+    "doc": "*OPC?, *OPC and *WAI wait for a pending acquisition"
+   },
+   {
+    "name": "while_waiting",
+    "default": "previous",
+    "unit": null,
+    "doc": "previous | error: a read while an acquisition is pending"
+   },
+   {
+    "name": "no_trigger",
+    "default": "wait",
+    "unit": null,
+    "doc": "wait | return: *OPC? while armed for a trigger that has not come"
+   }
+  ],
+  "operations": [
+   {
+    "name": "acquire_type",
+    "doc": "``:ACQuire:TYPE AVERage,64``: the type, and the count a type takes (``acquire_counts``);\na count not in the type's ``values`` is refused (-224). The query writes the type, with its\ncount by the type's ``format``.",
+    "params": [
+     {
+      "name": "kind",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "value",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "digitize",
+    "doc": null,
+    "params": [
+     {
+      "name": "sources",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "figure",
+    "doc": "A read-only figure of the acquisition: ``points`` (record length), ``sample_rate`` or\n``count`` (acquisitions so far, an integer). Numbers come in the definition's number\nformat, as an integer with ``integer``, or in engineering notation with ``significant``\ndigits.",
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "points",
+      "required": false
+     },
+     {
+      "name": "integer",
+      "type": "bool",
+      "default": false,
+      "required": false
+     },
+     {
+      "name": "significant",
+      "type": "int",
+      "default": 0,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "force_trigger",
+    "doc": "``FRTR``: one acquisition now, triggered or not; a single acquisition then stops.",
+    "params": []
+   },
+   {
+    "name": "opc",
+    "doc": "``*OPC?`` answers ``1`` once a pending single acquisition is done; ``*OPC`` sets the ESR bit.",
+    "params": []
+   },
+   {
+    "name": "preamble",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "run",
+    "doc": "``:TRIGger:RUN``: run again; in a single mode, arm one acquisition. A model whose stop is a\nmode (LeCroy's STOP) runs in its first auto mode.",
+    "params": []
+   },
+   {
+    "name": "run_mode",
+    "doc": "``:TRIGger:MODE``, ``TRMD``: a single mode arms one acquisition (and acquires at once if\nit can), a force mode takes one frame and stops, a stop mode stops.",
+    "params": [
+     {
+      "name": "mode",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "self_cal",
+    "doc": "A user self-calibration: every channel re-derives its calibration constants against the\nscope's internal references (``scope_vertical.self_calibrate``; a channel without a\ncalibration store has nothing to write). The reply is the diagnostic code ``0``; the\ncommand's ``reply`` template gives the model's words (e.g. ``*CAL {value}``).",
+    "params": []
+   },
+   {
+    "name": "single",
+    "doc": "``ARM``: one acquisition, like setting the first single mode.",
+    "params": []
+   },
+   {
+    "name": "status",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "stop",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "wait",
+    "doc": "``WAIT [timeout]``: until a pending single acquisition is done (or the timeout passes).",
+    "params": [
+     {
+      "name": "timeout",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "scope_adc": {
+  "type": "scope_adc",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The ADC group shared by a scope's channels: resolution, top sample rates and interleaving.\n\n``bits`` (0: records are not quantized) and ``codes_per_div`` (0: ``2**bits / divs``) set the\nquantization; ``offset_sign`` says whether the offset setting is added to or subtracted from the\nvolts. ``max_rate`` is the top sample rate (0: no limit); channels of a ``rate_pairs`` pair share\na converter, so with both on the top rate is ``max_rate_paired``.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "bits",
+    "default": 0,
+    "unit": null,
+    "doc": "0: records are not quantized"
+   },
+   {
+    "name": "codes_per_div",
+    "default": 0.0,
+    "unit": null,
+    "doc": "0: 2**bits / divs"
+   },
+   {
+    "name": "divs",
+    "default": 10.0,
+    "unit": null,
+    "doc": "divisions the ADC spans"
+   },
+   {
+    "name": "offset_sign",
+    "default": "add",
+    "unit": null,
+    "doc": "add | subtract: how the offset setting enters the codes"
+   },
+   {
+    "name": "max_rate",
+    "default": 0.0,
+    "unit": "Sa/s",
+    "doc": "top sample rate, Sa/s (0: no limit)"
+   },
+   {
+    "name": "max_rate_paired",
+    "default": 0.0,
+    "unit": "Sa/s",
+    "doc": "the top rate when both channels of a rate pair are on"
+   },
+   {
+    "name": "rate_pairs",
+    "default": [],
+    "unit": null,
+    "doc": "channels sharing a converter, e.g. [[1, 2], [3, 4]]"
+   }
+  ],
+  "operations": []
+ },
+ "scope_frontend": {
+  "type": "scope_frontend",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The earlier name of ``scope_vertical`` (same behavior), kept so existing definitions load.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "coupling",
+    "default": "DC",
+    "unit": null,
+    "doc": "DC | AC | GND"
+   },
+   {
+    "name": "bandwidth",
+    "default": 200000000.0,
+    "unit": "Hz",
+    "doc": "-3 dB point of the first-order low-pass"
+   },
+   {
+    "name": "bw_limit",
+    "default": false,
+    "unit": null,
+    "doc": "bandwidth limit on, or a named filter (FULL, 20M)"
+   },
+   {
+    "name": "bw_limit_hz",
+    "default": 20000000.0,
+    "unit": "Hz",
+    "doc": "the limit when bw_limit is on"
+   },
+   {
+    "name": "ac_corner",
+    "default": 10.0,
+    "unit": "Hz",
+    "doc": "corner of the AC coupling high-pass"
+   },
+   {
+    "name": "scale",
+    "default": "$ch.scale",
+    "unit": "V",
+    "doc": "V/div as displayed"
+   },
+   {
+    "name": "offset",
+    "default": "$ch.offset",
+    "unit": "V",
+    "doc": "V as displayed"
+   },
+   {
+    "name": "probe_ratio",
+    "default": 1.0,
+    "unit": null,
+    "doc": "the probe setting the displayed scale and offset include"
+   },
+   {
+    "name": "scale_range",
+    "default": null,
+    "unit": null,
+    "doc": "[min, max] V/div at the input connector (None: any); may map a setting"
+   },
+   {
+    "name": "offset_ranges",
+    "default": null,
+    "unit": null,
+    "doc": "[[up to V/div, +-limit V], ...] at the input connector (None: any)"
+   },
+   {
+    "name": "out_of_range",
+    "default": "error",
+    "unit": null,
+    "doc": "error: refuse with -222 | clamp: take the nearest legal value"
+   },
+   {
+    "name": "noise_table",
+    "default": null,
+    "unit": null,
+    "doc": "[[V/div, noise V rms], ...] at the input, per division (None: quiet)"
+   },
+   {
+    "name": "gain_error_ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "this unit's gain error, ppm (hidden); a number or by input V/div"
+   },
+   {
+    "name": "offset_error",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "this unit's offset error, V at the input (hidden); a number or by V/div"
+   },
+   {
+    "name": "dac_error_ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "the offset DAC's gain error, ppm of the offset setting (hidden)"
+   },
+   {
+    "name": "store",
+    "default": "",
+    "unit": null,
+    "doc": "the calibration_store correcting the record, keyed by the displayed V/div"
+   }
+  ],
+  "operations": []
+ },
+ "scope_measurements": {
+  "type": "scope_measurements",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Automatic measurements on a scope's records (instrument-authoring.md 8.4).\n\nThe engine's measurements are VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base),\nFREQuency and PERiod. ``names`` maps the model's names to them and to a unit (``C1:PAVA? AMPL``,\n``:MEASure:SIMPle:VALue? PKPK``). How they are taken is declared:\n\n* the top and the base: the modes of the record's histogram (``histogram``) or its extremes;\n* the crossing level a period is counted on: ``mid`` percent of top minus base, or volts with\n  ``levels: absolute``; ``hysteresis`` is half the counter's band, of top minus base;\n* ``min_cycles`` complete cycles a period needs, else it cannot be measured;\n* ``clipped: invalid``: a record that reaches the ADC's limits cannot be measured;\n* ``gate``: [from, to] divisions of the record (0 to 10) the measurement looks at;\n* what cannot be measured answers ``invalid_value`` with the second ``status`` word.\n\nEvery value taken is kept for ``statistics`` (count, mean, sdev, min, max) until cleared.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "record",
+    "default": "acq",
+    "unit": null,
+    "doc": "the acquisition component holding the records"
+   },
+   {
+    "name": "source",
+    "default": "",
+    "unit": null,
+    "doc": "the channel measured (a setting such as $measure.source); empty: the command's"
+   },
+   {
+    "name": "names",
+    "default": {},
+    "unit": null,
+    "doc": "model name -> [engine measurement, unit], e.g. {AMPL: [VAMPlitude, V]}"
+   },
+   {
+    "name": "top_base",
+    "default": "histogram",
+    "unit": null,
+    "doc": "histogram | extremes"
+   },
+   {
+    "name": "levels",
+    "default": "percent",
+    "unit": null,
+    "doc": "percent | absolute: what mid is"
+   },
+   {
+    "name": "mid",
+    "default": 50.0,
+    "unit": null,
+    "doc": "the crossing level a period is counted on"
+   },
+   {
+    "name": "hysteresis",
+    "default": 0.1,
+    "unit": null,
+    "doc": "half the counter's band, of top minus base"
+   },
+   {
+    "name": "min_cycles",
+    "default": 1,
+    "unit": null,
+    "doc": "complete cycles a period needs"
+   },
+   {
+    "name": "clipped",
+    "default": "measure",
+    "unit": null,
+    "doc": "measure | invalid: a record at the ADC's limits"
+   },
+   {
+    "name": "gate",
+    "default": null,
+    "unit": null,
+    "doc": "[from, to] divisions of the record; None: all of it"
+   },
+   {
+    "name": "invalid_value",
+    "default": "UNDEF",
+    "unit": null,
+    "doc": "what an unmeasurable value answers"
+   },
+   {
+    "name": "status",
+    "default": [
+     "OK",
+     "UF"
+    ],
+    "unit": null,
+    "doc": "measured, cannot be measured"
+   }
+  ],
+  "operations": [
+   {
+    "name": "clear_statistics",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "measure",
+    "doc": "``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the\ncommand) in the definition's number format; what cannot be measured is NaN's sentinel.",
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "",
+      "required": false
+     },
+     {
+      "name": "source",
+      "type": "Any",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "named",
+    "doc": "A measurement by the model's name (``names``): the value, or ``invalid_value`` when it\ncannot be measured; the reply template also gets {kind}, {unit} and {status}, e.g.\n'{header} {kind},{value} {unit},{status}'.",
+    "params": [
+     {
+      "name": "kind",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "statistics",
+    "doc": "The statistics of the values taken so far of a measurement: ``count``, ``mean``,\n``sdev``, ``min`` or ``max`` (``item``, a constant argument or a parameter).",
+    "params": [
+     {
+      "name": "kind",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "item",
+      "type": "str",
+      "default": "mean",
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "scope_probe": {
+  "type": "scope_probe",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The probe setting of one channel: display volts are the volts at the input times ``ratio``.\n\nA display conversion, not part of the analog path (instrument-authoring.md 8.4). ``skew``\n(bound to the model's channel-skew setting where it has one) and ``skew_error`` (this unit's\nown, a ``deviations`` draw) delay the channel's record by that many seconds: the acquisition\nsamples the channel's signal that much earlier (instrument-authoring.md 8.4, G3). A real\nscope applies the delay after the ADC, so the trigger path — which detects on the analog\nsignal — is not delayed with it.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "ratio",
+    "default": "$ch.probe",
+    "unit": null,
+    "doc": "probe attenuation the display assumes (1, 10, ...)"
+   },
+   {
+    "name": "keywords",
+    "default": {
+     "DEFault": 1.0,
+     "VALue": "value"
+    },
+    "unit": null,
+    "doc": "op set_ratio: what the probe command's keywords mean (a ratio, or \"value\": the number that follows), the range of a ratio, and the display settings that scale with it"
+   },
+   {
+    "name": "ratio_range",
+    "default": null,
+    "unit": null,
+    "doc": "[min, max]; None: any positive ratio"
+   },
+   {
+    "name": "rescales",
+    "default": [],
+    "unit": null,
+    "doc": "settings in display units that follow the ratio, e.g. [$ch.scale, $ch.offset]"
+   },
+   {
+    "name": "skew",
+    "default": null,
+    "unit": "s",
+    "doc": "the channel's skew setting, s (unbound: the model has none)"
+   },
+   {
+    "name": "skew_error",
+    "default": 0.0,
+    "unit": "s",
+    "doc": "this unit's own skew error, s (hidden; a deviations entry)"
+   }
+  ],
+  "operations": [
+   {
+    "name": "set_ratio",
+    "doc": "``:CHANnel<n>:PROBe VALue,10`` / ``DEFault``: a keyword gives the ratio or says the number\nthat follows is; the ``rescales`` settings scale with it (the display shows probe-tip\nvolts). The query answers the ratio in the definition's number format.",
+    "params": [
+     {
+      "name": "mode",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "value",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "scope_timebase": {
+  "type": "scope_timebase",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The horizontal system: time per division, the record length rule and the trigger position.\n\n``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is\n``points / 10 div`` up to the ADC group's top rate) or ``rate_ladder`` (that rate rounded down\nto a 1-2-5 step; samples ``1 / rate`` apart). The trigger sits at the centre, or ``delay``\nseconds before it when that is bound.\n\nThe sampling clock has a frequency error ``clock_ppm`` (this unit's own, a ``deviations``\ndraw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional\nerror the instrument inherits (instrument-authoring.md 8.4, G3). A fast clock takes samples\ncloser together than the nominal interval, so the records keep the nominal dt the scope\nreports and time measurements read low — the spectrum analyzer's reference convention.",
+  "ports": [
+   {
+    "name": "ref",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "scale",
+    "default": "$timebase.scale",
+    "unit": "s",
+    "doc": "seconds per division (ten divisions across)"
+   },
+   {
+    "name": "delay",
+    "default": null,
+    "unit": "s",
+    "doc": "unbound: the trigger at the centre of the record"
+   },
+   {
+    "name": "record_length",
+    "default": "fixed",
+    "unit": null,
+    "doc": "fixed | exact | rate_ladder"
+   },
+   {
+    "name": "points",
+    "default": "$waveform.points",
+    "unit": null,
+    "doc": "record points or memory depth (10000, \"10k\")"
+   },
+   {
+    "name": "delay_range_divs",
+    "default": null,
+    "unit": null,
+    "doc": "[min, max] of delay in divisions, e.g. [-5000, 5]; None: any"
+   },
+   {
+    "name": "reference_divs",
+    "default": 5.0,
+    "unit": null,
+    "doc": "where the trigger (delay 0) sits, divisions from the left; may map a setting"
+   },
+   {
+    "name": "clock_ppm",
+    "default": 0.0,
+    "unit": "ppm",
+    "doc": "the sampling clock's frequency error, ppm (hidden)"
+   },
+   {
+    "name": "rosc",
+    "default": "INTernal",
+    "unit": null,
+    "doc": "INTernal | EXTernal: the clock follows the 10 MHz on ref"
+   }
+  ],
+  "operations": []
+ },
+ "scope_trigger": {
+  "type": "scope_trigger",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).\n\nThe trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table\n``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency\nreject), a ``reject`` filter alongside it and ``hf_reject`` (filters keyed HF), with its own\n``noise_rms``. An edge counts once the signal has been beyond the\n``hysteresis_divs`` band on the far side of the level (``reject_hysteresis_divs`` while\n``noise_reject`` is on); the instant is interpolated between samples, so a record reports the\ntrigger to a fraction of a sample. After a trigger, the next is not taken before ``holdoff``\nseconds (while ``holdoff_on``).\n\n``source``, ``level`` and ``slope`` select the edge (``rising`` and ``falling`` list the slope\nnames that take each); a level or slope per channel is bound with the channel number written\n``{n}``: ``$ch{n}.trigger_level``. ``external`` sources read the ``ext`` port (wired from an\ninstrument input); ``line`` sources trigger on the rising zero crossings of the mains\n(``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``\nrecords ahead (its auto timeout); a normal or single acquisition waits up to\n``search_horizon_s`` of virtual time for its edge.",
+  "ports": [
+   {
+    "name": "ext",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "source",
+    "default": "$trigger.source",
+    "unit": null,
+    "doc": "a channel (C1, CHANnel1), an external or a line source"
+   },
+   {
+    "name": "level",
+    "default": "$trigger.level",
+    "unit": "V",
+    "doc": "display volts; per channel: $ch{n}.trigger_level"
+   },
+   {
+    "name": "slope",
+    "default": "$trigger.slope",
+    "unit": null,
+    "doc": "per channel: $ch{n}.trigger_slope"
+   },
+   {
+    "name": "rising",
+    "default": [
+     "POSitive",
+     "EITHer",
+     "RISing",
+     "ALTernate"
+    ],
+    "unit": null,
+    "doc": "slope values that take a rising edge"
+   },
+   {
+    "name": "falling",
+    "default": [
+     "NEGative",
+     "EITHer",
+     "FALLing",
+     "ALTernate"
+    ],
+    "unit": null,
+    "doc": "slope values that take a falling edge"
+   },
+   {
+    "name": "search_windows",
+    "default": 4,
+    "unit": null,
+    "doc": "records an auto mode looks ahead for an edge (its auto timeout)"
+   },
+   {
+    "name": "search_horizon_s",
+    "default": 10.0,
+    "unit": "s",
+    "doc": "virtual time a normal or single acquisition waits for an edge, s"
+   },
+   {
+    "name": "max_search_points",
+    "default": 4000000,
+    "unit": null,
+    "doc": "samples a search may take (a long horizon is searched coarser)"
+   },
+   {
+    "name": "level_range_divs",
+    "default": null,
+    "unit": null,
+    "doc": "the level stays within +-this many divisions of the source's screen"
+   },
+   {
+    "name": "coupling",
+    "default": "DC",
+    "unit": null,
+    "doc": "the trigger path's coupling: a key of filters, or DC"
+   },
+   {
+    "name": "reject",
+    "default": "",
+    "unit": null,
+    "doc": "a reject filter alongside the coupling (LFReject, HFReject): a key of filters"
+   },
+   {
+    "name": "hf_reject",
+    "default": false,
+    "unit": null,
+    "doc": "on: the filters keyed HF as well (a separate high-frequency reject)"
+   },
+   {
+    "name": "filters",
+    "default": {},
+    "unit": null,
+    "doc": "coupling or reject -> [[highpass | lowpass, corner Hz], ...], e.g. {AC: [[highpass, 8]]}"
+   },
+   {
+    "name": "hysteresis_divs",
+    "default": 0.16,
+    "unit": null,
+    "doc": "half the band an edge must cross, in divisions of the source"
+   },
+   {
+    "name": "noise_reject",
+    "default": false,
+    "unit": null,
+    "doc": "on: the wider band below"
+   },
+   {
+    "name": "reject_hysteresis_divs",
+    "default": 0.5,
+    "unit": null,
+    "doc": "the band while noise_reject is on"
+   },
+   {
+    "name": "noise_rms",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "the trigger path's own noise, display volts rms"
+   },
+   {
+    "name": "holdoff_on",
+    "default": true,
+    "unit": null,
+    "doc": "whether holdoff applies (e.g. a holdoff mode that is TIME)"
+   },
+   {
+    "name": "holdoff",
+    "default": 0.0,
+    "unit": "s",
+    "doc": "s after a trigger before the next one is taken"
+   },
+   {
+    "name": "external",
+    "default": [
+     "EX",
+     "EX5",
+     "EXTernal",
+     "EXT"
+    ],
+    "unit": null,
+    "doc": "sources read from the ext port"
+   },
+   {
+    "name": "line",
+    "default": [
+     "LINE"
+    ],
+    "unit": null,
+    "doc": "sources that trigger on the mains"
+   },
+   {
+    "name": "line_hz",
+    "default": 50.0,
+    "unit": "Hz",
+    "doc": "mains frequency"
+   }
+  ],
+  "operations": []
+ },
+ "scope_vertical": {
+  "type": "scope_vertical",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.\n\nAnalog first-order filters (physics, D13): AC coupling is a ``ac_corner`` high-pass and the\nbandwidth a first-order low-pass at ``bandwidth`` (or ``bw_limit_hz`` when the limit is on).\nThe ``scale`` (V/div) and ``offset`` (V) are display values; with ``scale_range`` and\n``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The\nranges are given at the input connector, i.e. the display values divided by ``probe_ratio``\n(instrument-authoring.md 8.4). The input noise is a ``noise_table`` row of the scale: real\nscopes' noise rides the vertical setting (the front-end gain sets it at the ADC), so a fixed\ninput value would leave the coarse divisions far quieter than 1 LSB and averaging could not\nresolve more (F4, D46).\n\nThe unit's own metrology (instrument-authoring.md 8.4, G3). Each V/div at the input\nconnector has its own attenuator and gain stage: ``gain_error_ppm`` (relative) and\n``offset_error`` (V at the input) are what this unit adds there — a number, or one per input\nV/div, the table a ``deviations`` entry with ``by: {scale: …}`` draws; a scale the table does\nnot list has no characterized error and contributes 0. ``dac_error_ppm`` is the offset DAC's\ngain error, referred to the displayed offset setting: a display offset of V moves the record\nby V·(1 + d), i.e. the reading is off by V·d. The vertical runs before the probe (which is a\ndisplay conversion), so the errors ride the input path and the DAC term is divided by\n``probe_ratio`` here. They sit in signal order — coupling, the attenuator's gain, the bias,\nthen the bandwidth — and the record shows them, since it is reconstructed with the nominal\nscale and offset. ``store`` names a ``calibration_store`` whose coefficients correct the\nrecord digitally, (raw − offset) × gain, keyed by the displayed V/div\n(metrology-authoring.md 4); :meth:`self_calibrate` writes them for every tabulated scale.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "coupling",
+    "default": "DC",
+    "unit": null,
+    "doc": "DC | AC | GND"
+   },
+   {
+    "name": "bandwidth",
+    "default": 200000000.0,
+    "unit": "Hz",
+    "doc": "-3 dB point of the first-order low-pass"
+   },
+   {
+    "name": "bw_limit",
+    "default": false,
+    "unit": null,
+    "doc": "bandwidth limit on, or a named filter (FULL, 20M)"
+   },
+   {
+    "name": "bw_limit_hz",
+    "default": 20000000.0,
+    "unit": "Hz",
+    "doc": "the limit when bw_limit is on"
+   },
+   {
+    "name": "ac_corner",
+    "default": 10.0,
+    "unit": "Hz",
+    "doc": "corner of the AC coupling high-pass"
+   },
+   {
+    "name": "scale",
+    "default": "$ch.scale",
+    "unit": "V",
+    "doc": "V/div as displayed"
+   },
+   {
+    "name": "offset",
+    "default": "$ch.offset",
+    "unit": "V",
+    "doc": "V as displayed"
+   },
+   {
+    "name": "probe_ratio",
+    "default": 1.0,
+    "unit": null,
+    "doc": "the probe setting the displayed scale and offset include"
+   },
+   {
+    "name": "scale_range",
+    "default": null,
+    "unit": null,
+    "doc": "[min, max] V/div at the input connector (None: any); may map a setting"
+   },
+   {
+    "name": "offset_ranges",
+    "default": null,
+    "unit": null,
+    "doc": "[[up to V/div, +-limit V], ...] at the input connector (None: any)"
+   },
+   {
+    "name": "out_of_range",
+    "default": "error",
+    "unit": null,
+    "doc": "error: refuse with -222 | clamp: take the nearest legal value"
+   },
+   {
+    "name": "noise_table",
+    "default": null,
+    "unit": null,
+    "doc": "[[V/div, noise V rms], ...] at the input, per division (None: quiet)"
+   },
+   {
+    "name": "gain_error_ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "this unit's gain error, ppm (hidden); a number or by input V/div"
+   },
+   {
+    "name": "offset_error",
+    "default": 0.0,
+    "unit": "V",
+    "doc": "this unit's offset error, V at the input (hidden); a number or by V/div"
+   },
+   {
+    "name": "dac_error_ppm",
+    "default": 0.0,
+    "unit": null,
+    "doc": "the offset DAC's gain error, ppm of the offset setting (hidden)"
+   },
+   {
+    "name": "store",
+    "default": "",
+    "unit": null,
+    "doc": "the calibration_store correcting the record, keyed by the displayed V/div"
+   }
+  ],
+  "operations": []
+ },
+ "siglent_sdg": {
+  "type": "siglent_sdg",
+  "category": "internal",
+  "role": null,
+  "generic": false,
+  "label": null,
+  "label_en": null,
+  "doc": "C<n>:BSWV, C<n>:OUTP, C<n>:INVT, C<n>:SYNC, PACP and BUZZ of an SDG2000X.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [],
+  "operations": [
+   {
+    "name": "bswv",
+    "doc": null,
+    "params": [
+     {
+      "name": "params",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "buzz",
+    "doc": null,
+    "params": [
+     {
+      "name": "state",
+      "type": "bool | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "invt",
+    "doc": null,
+    "params": [
+     {
+      "name": "state",
+      "type": "bool | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "outp",
+    "doc": null,
+    "params": [
+     {
+      "name": "params",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "pacp",
+    "doc": "ParaCoPy <destination>,<source>: every channel parameter from one channel to the other.",
+    "params": [
+     {
+      "name": "params",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "sync",
+    "doc": "Dynamic components: note what changed at the current instant (see :attr:`dynamic`).",
+    "params": [
+     {
+      "name": "params",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "siglent_sdg_channel_limits": {
+  "type": "siglent_sdg_channel_limits",
+  "category": "internal",
+  "role": null,
+  "generic": false,
+  "label": null,
+  "label_en": null,
+  "doc": "Checks a channel's ranges whenever one of its settings changes outside a command (UI, bench).",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "function",
+    "default": "$ch.function",
+    "unit": null,
+    "doc": "the channel's waveform type"
+   },
+   {
+    "name": "frequency",
+    "default": "$ch.frequency",
+    "unit": null,
+    "doc": "Hz"
+   },
+   {
+    "name": "amplitude",
+    "default": "$ch.amplitude",
+    "unit": null,
+    "doc": "Vpp"
+   },
+   {
+    "name": "offset",
+    "default": "$ch.offset",
+    "unit": null,
+    "doc": "V"
+   },
+   {
+    "name": "load",
+    "default": "$ch.load",
+    "unit": null,
+    "doc": "ohm, or inf for HiZ: what the amplitude is defined into"
+   }
+  ],
+  "operations": []
+ },
+ "smu_core": {
+  "type": "smu_core",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "Source with a limit and a meter on HI/LO, with optional remote sense (four-wire).\n\nThe voltage loop regulates the metered points: ``V(sense_hi) − V(sense_lo)`` with remote sense\non, otherwise the force terminals (``V(hi) − V(lo)``; with ``floating: false`` the LO is bonded\nto the bench ground, the model's original behaviour). The current always flows through the\nforce terminals. A sense terminal left unconnected while remote sense is on makes the reading\noperations raise an error (the loop falls back to the force terminals); the bench validator\nwarns about such a bench (metrology-authoring.md 6).\n\nNot a ``driver`` for bench checks: at its limit it sinks current, so a supply on the same net\nis a valid bench (quadrant 2).\n\nReadings go through a ``trigger_model`` (the ``sampler`` protocol, metrology-authoring.md 3.4):\none reading takes its NPLC time plus the source delay; a sweep's points are the readings of one\nrun, each point's level driving the terminal while the run lasts. The measure side ranges like\nthe meter core (#87): ``measure_ranges`` (per function: the voltage and current readings), the\nmanual ``measure_range_voltage`` / ``measure_range_current``, ``measure_autorange`` with the\nsame hysteresis, and a reading beyond ``overrange`` × full scale reads ``overload_value``.\n\nThe source envelope comes from ``source_ranges`` (the full-scale values per function) with\n``range_limits``: per function, the cap the other quantity's limit gets on each range — the\ndefault table carries the 21 V / 105 mA boundary (210 V range: 105 mA). A manual\n``source_range`` takes the smallest fitting range (the meter's rule) and the envelope follows\nit; ``source_autorange`` follows the level instead.",
+  "ports": [
+   {
+    "name": "hi",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "lo",
+    "direction": "inout",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "sense_hi",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "sense_lo",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "function",
+    "default": "VOLTage",
+    "unit": null,
+    "doc": "VOLTage | CURRent: what the terminal is forced to"
+   },
+   {
+    "name": "v_level",
+    "default": 0.0,
+    "unit": null,
+    "doc": "V, setpoint in voltage mode"
+   },
+   {
+    "name": "i_level",
+    "default": 0.0,
+    "unit": null,
+    "doc": "A, setpoint in current mode"
+   },
+   {
+    "name": "i_limit",
+    "default": 0.000105,
+    "unit": null,
+    "doc": "A, current limit in voltage mode"
+   },
+   {
+    "name": "v_limit",
+    "default": 21.0,
+    "unit": null,
+    "doc": "V, voltage limit in current mode"
+   },
+   {
+    "name": "output",
+    "default": false,
+    "unit": null,
+    "doc": "False: the terminal floats"
+   },
+   {
+    "name": "remote_sense",
+    "default": false,
+    "unit": null,
+    "doc": "False: sense internally connected to the force terminals"
+   },
+   {
+    "name": "floating",
+    "default": false,
+    "unit": null,
+    "doc": "False: LO bonded to the bench ground"
+   },
+   {
+    "name": "nplc",
+    "default": 1.0,
+    "unit": null,
+    "doc": "reading time in power line cycles"
+   },
+   {
+    "name": "autozero",
+    "default": true,
+    "unit": null,
+    "doc": "autozero on: an extra phase and firmware per reading"
+   },
+   {
+    "name": "line_freq",
+    "default": 60.0,
+    "unit": null,
+    "doc": "Hz, mains frequency nplc refers to"
+   },
+   {
+    "name": "delay",
+    "default": 0.0,
+    "unit": null,
+    "doc": "s, wait before each reading"
+   },
+   {
+    "name": "source_ranges",
+    "default": {
+     "VOLTage": [
+      2.1,
+      21.0,
+      210.0
+     ]
+    },
+    "unit": null,
+    "doc": "full-scale value of each source range, per function"
+   },
+   {
+    "name": "source_range",
+    "default": null,
+    "unit": "V",
+    "doc": "manual source range: a value the range must be able to source"
+   },
+   {
+    "name": "source_autorange",
+    "default": true,
+    "unit": null,
+    "doc": "the source range follows the level"
+   },
+   {
+    "name": "range_limits",
+    "default": {
+     "VOLTage": {
+      "2.1": 1.05,
+      "21.0": 1.05,
+      "210.0": 0.105
+     }
+    },
+    "unit": null,
+    "doc": "limit cap per source range"
+   },
+   {
+    "name": "measure_ranges",
+    "default": null,
+    "unit": null,
+    "doc": "full-scale value of each measure range, per function"
+   },
+   {
+    "name": "measure_range_voltage",
+    "default": null,
+    "unit": "V",
+    "doc": "manual measure range of the voltage reading (None: auto)"
+   },
+   {
+    "name": "measure_range_current",
+    "default": null,
+    "unit": "A",
+    "doc": "manual measure range of the current reading (None: auto)"
+   },
+   {
+    "name": "measure_autorange",
+    "default": true,
+    "unit": null,
+    "doc": "the measure range follows the reading"
+   },
+   {
+    "name": "autorange_up",
+    "default": 1.2,
+    "unit": null,
+    "doc": "fraction of full scale above which the range switches up"
+   },
+   {
+    "name": "autorange_down",
+    "default": 0.1,
+    "unit": null,
+    "doc": "fraction of full scale below which the range switches down"
+   },
+   {
+    "name": "overrange",
+    "default": 1.2,
+    "unit": null,
+    "doc": "a reading beyond this fraction of full scale is an overload"
+   },
+   {
+    "name": "overload_value",
+    "default": 9.9e+37,
+    "unit": null,
+    "doc": "the reading an overload produces"
+   },
+   {
+    "name": "buffer",
+    "default": "",
+    "unit": null,
+    "doc": "the reading_buffer whose contents the front panel shows ('' for none)"
+   },
+   {
+    "name": "sweep_mode",
+    "default": "NONE",
+    "unit": null,
+    "doc": "NONE | LINear | LOGarithmic | LIST"
+   },
+   {
+    "name": "sweep_function",
+    "default": "VOLTage",
+    "unit": null,
+    "doc": "VOLTage | CURRent: what a sweep varies"
+   },
+   {
+    "name": "sweep_start",
+    "default": 0.0,
+    "unit": null,
+    "doc": "V or A, first level"
+   },
+   {
+    "name": "sweep_stop",
+    "default": 1.0,
+    "unit": null,
+    "doc": "V or A, last level"
+   },
+   {
+    "name": "sweep_points",
+    "default": 2,
+    "unit": null,
+    "doc": "points of a linear or log sweep"
+   },
+   {
+    "name": "sweep_delay",
+    "default": 0.0,
+    "unit": null,
+    "doc": "s, wait before each sweep point"
+   },
+   {
+    "name": "sweep_list",
+    "default": "",
+    "unit": null,
+    "doc": "comma-separated levels of a LIST sweep"
+   }
+  ],
+  "operations": [
+   {
+    "name": "condition",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "measure",
+    "doc": "One reading with the source as configured, whatever the sweep mode; it replaces the\nreading memory (one reading is what the panel and ``FETCh?`` show until the next run).",
+    "params": []
+   },
+   {
+    "name": "range",
+    "doc": "The measure range a function uses (the auto-chosen one included; reports it, the\nauto-range decision happens in a reading).",
+    "params": [
+     {
+      "name": "function",
+      "type": "str",
+      "default": "VOLTage",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "regulation",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "sweep",
+    "doc": null,
+    "params": [
+     {
+      "name": "function",
+      "type": "str",
+      "default": "VOLTage",
+      "required": false
+     },
+     {
+      "name": "kind",
+      "type": "str",
+      "default": "LINear",
+      "required": false
+     },
+     {
+      "name": "start",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "stop",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "points",
+      "type": "int | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "delay",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     },
+     {
+      "name": "values",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "tripped",
+    "doc": null,
+    "params": [
+     {
+      "name": "kind",
+      "type": "str",
+      "default": "current",
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "spectrum_analyzer": {
+  "type": "spectrum_analyzer",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The analyzer core. Settings live in instrument state; this component applies the couplings.",
+  "ports": [
+   {
+    "name": "in",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "ref",
+    "direction": "in",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "z_in",
+    "default": 50.0,
+    "unit": null,
+    "doc": "input impedance, ohm"
+   },
+   {
+    "name": "noise_figure",
+    "default": 24.0,
+    "unit": "dB",
+    "doc": "receiver noise figure over kT0"
+   },
+   {
+    "name": "mixer_limit",
+    "default": -10.0,
+    "unit": null,
+    "doc": "dBm at the mixer: total input minus attenuation above it overloads"
+   },
+   {
+    "name": "maxhold_limit",
+    "default": 999,
+    "unit": null,
+    "doc": "sweeps max hold keeps (older ones are dropped, with a warning)"
+   },
+   {
+    "name": "rosc",
+    "default": "INTernal",
+    "unit": null,
+    "doc": "INTernal | EXTernal 10 MHz reference"
+   }
+  ],
+  "operations": [
+   {
+    "name": "coupled",
+    "doc": "RBW, VBW, sweep time and attenuation: a manual value turns that coupling off.",
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "rbw",
+      "required": false
+     },
+     {
+      "name": "value",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "frequency",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "center",
+      "required": false
+     },
+     {
+      "name": "value",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "initiate",
+    "doc": "Single sweep(s): the averaging count in AVERage mode, else one; takes their sweep time.",
+    "params": []
+   },
+   {
+    "name": "marker",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "x",
+      "required": false
+     },
+     {
+      "name": "value",
+      "type": "float | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "status",
+    "doc": null,
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "overload",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "trace_clear",
+    "doc": null,
+    "params": []
+   },
+   {
+    "name": "trace_data",
+    "doc": null,
+    "params": [
+     {
+      "name": "name",
+      "type": "str | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   }
+  ]
+ },
+ "system": {
+  "type": "system",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "``*CLS`` with a reply to its query form, a preset that is ``*RST`` under another header, and\nthe error queue under the model's own headers (metrology-authoring.md 5.3): ``next_error`` and\n``error_count`` let a definition declare an error query that is not ``:SYSTem:ERRor?`` (Fluke's\n``ERR?``), with the reply format given by the command's ``reply`` template (``{code},{text}``).",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "clear_reply",
+    "default": "0",
+    "unit": null,
+    "doc": "what the query form of the clear-status command answers (*CLS? on LeCroy)"
+   }
+  ],
+  "operations": [
+   {
+    "name": "clear_status",
+    "doc": "Clear the error queue and the event status; a query also answers ``clear_reply``.",
+    "params": []
+   },
+   {
+    "name": "error_count",
+    "doc": "How many entries the error queue holds (a model's own error count query).",
+    "params": []
+   },
+   {
+    "name": "next_error",
+    "doc": "The next entry of the error queue, as the ``{code}`` and ``{text}`` fields of the\ncommand's reply template; an empty queue gives code 0. The code is written like\n``:SYSTem:ERRor?`` writes it (a ``+`` when the definition's ``format.error_code`` is\nsigned), the text is the definition's ``errors`` entry when it has one.",
+    "params": []
+   },
+   {
+    "name": "reset",
+    "doc": "The same default setup as ``*RST`` (``:SYSTem:PRESet``).",
+    "params": []
+   }
+  ]
+ },
+ "trigger_model": {
+  "type": "trigger_model",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "INITiate, triggers and FETCh? of a meter: ``trigger_count`` × ``sample_count`` readings of the\n``sampler`` component, kept in ``buffer`` when one is named.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "sampler",
+    "default": "",
+    "unit": null,
+    "doc": "the component that takes the readings (a Sampler: a meter's core, an SMU)"
+   },
+   {
+    "name": "source",
+    "default": "immediate",
+    "unit": null,
+    "doc": "immediate | bus (*TRG) | external; map the model's names to these"
+   },
+   {
+    "name": "trigger_count",
+    "default": 1,
+    "unit": null,
+    "doc": "triggers in one run"
+   },
+   {
+    "name": "sample_count",
+    "default": 1,
+    "unit": null,
+    "doc": "readings per trigger"
+   },
+   {
+    "name": "delay",
+    "default": 0.0,
+    "unit": null,
+    "doc": "s, from each trigger to its first reading"
+   },
+   {
+    "name": "buffer",
+    "default": "",
+    "unit": null,
+    "doc": "the reading_buffer component that keeps the readings ('' for none)"
+   },
+   {
+    "name": "digits",
+    "default": null,
+    "unit": null,
+    "doc": "readings with a fixed number of digits (None: the definition's format)"
+   },
+   {
+    "name": "fetch_from_buffer",
+    "default": false,
+    "unit": null,
+    "doc": "FETCh? answers from the reading buffer, not the last run"
+   },
+   {
+    "name": "max_readings",
+    "default": 1000000,
+    "unit": null,
+    "doc": "trigger_count × sample_count above this is refused"
+   },
+   {
+    "name": "waiting_error",
+    "default": -230,
+    "unit": null,
+    "doc": "a fetch with no readings to give (waiting for a trigger, none taken)"
+   },
+   {
+    "name": "ignored_error",
+    "default": -213,
+    "unit": null,
+    "doc": "INITiate while a run is in progress (SCPI: Init ignored)"
+   },
+   {
+    "name": "deadlock_error",
+    "default": -214,
+    "unit": null,
+    "doc": "READ? with a bus or external trigger (SCPI: Trigger deadlock)"
+   },
+   {
+    "name": "trigger_ignored_error",
+    "default": -211,
+    "unit": null,
+    "doc": "a bus trigger while not waiting for one (SCPI: Trigger ignored)"
+   }
+  ],
+  "operations": [
+   {
+    "name": "abort",
+    "doc": "``ABORt``: stop the run; readings already taken stay.",
+    "params": []
+   },
+   {
+    "name": "bus_trigger",
+    "doc": "``*TRG`` (and the model's bus trigger command): one trigger, when waiting for a bus one.",
+    "params": []
+   },
+   {
+    "name": "fetch",
+    "doc": "``FETCh?``: the readings of the last run, once they are taken (waiting for them). With\n``fetch_from_buffer`` the reading buffer answers instead (an SMU's ``FETCh?`` is its trace\nmemory: ``TRAC:CLE`` empties it), each reading with the ``elements`` named.",
+    "params": [
+     {
+      "name": "elements",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "initiate",
+    "doc": "``INITiate``: start a run. With an immediate trigger the readings start now; otherwise the\nmodel waits for its triggers. Readings of the previous run are cleared.",
+    "params": []
+   },
+   {
+    "name": "read",
+    "doc": "``READ?``: INITiate and FETCh?; with a bus or external trigger nothing would ever arrive.",
+    "params": [
+     {
+      "name": "elements",
+      "type": "list[bytes] | None",
+      "default": null,
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "state",
+    "doc": "The trigger model's phase: IDLE, WAITING or MEASURING (for a status query).",
+    "params": []
+   }
+  ]
+ },
+ "unity_buffer": {
+  "type": "unity_buffer",
+  "category": "part",
+  "role": "driver",
+  "generic": true,
+  "label": "单位增益缓冲器",
+  "label_en": "Unity-gain buffer",
+  "doc": "Unity-gain buffer: high-impedance input, low-impedance output.",
+  "ports": [
+   {
+    "name": "IN",
+    "direction": "in",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   },
+   {
+    "name": "OUT",
+    "direction": "out",
+    "medium": "electrical",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "z_in",
+    "default": 1000000.0,
+    "unit": "OHM",
+    "doc": "input resistance to ground"
+   },
+   {
+    "name": "z_out",
+    "default": 50.0,
+    "unit": "OHM",
+    "doc": "output impedance"
+   },
+   {
+    "name": "gain",
+    "default": 1.0,
+    "unit": null,
+    "doc": "voltage gain, V/V"
+   }
+  ],
+  "operations": []
+ },
+ "waveform_synth": {
+  "type": "waveform_synth",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "A standard waveform at 1 Vpp around zero, phase-continuous across frequency changes.\n\n``function``: SINusoid, SQUare (with ``duty``: a pulse when it is not 50 %), RAMP (``symmetry`` %\nrising; 50 is a triangle), DC (zero: the level module adds the offset). ``duty`` is a percentage or\na ratio as ``duty_unit`` declares; nothing is guessed from its size (0.1 is 0.1 % or 10 %, by the\ndeclaration). Square, pulse and ramp keep harmonics up to ``bandwidth`` (and the line limit, with a\nfidelity note, D33). ``clock`` names a reference_clock whose error scales the frequency.",
+  "ports": [
+   {
+    "name": "out",
+    "direction": "out",
+    "medium": "signal",
+    "net": null,
+    "channel": null
+   }
+  ],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "function",
+    "default": "SINusoid",
+    "unit": null,
+    "doc": "SINusoid | SQUare | RAMP | DC (SINE, SQUARE, PULSe, TRIangle as below)"
+   },
+   {
+    "name": "frequency",
+    "default": 1000.0,
+    "unit": "Hz",
+    "doc": "Hz"
+   },
+   {
+    "name": "phase",
+    "default": 0.0,
+    "unit": "deg",
+    "doc": "degrees"
+   },
+   {
+    "name": "duty",
+    "default": 50.0,
+    "unit": null,
+    "doc": "high time of a square or pulse, in duty_unit"
+   },
+   {
+    "name": "duty_unit",
+    "default": "percent",
+    "unit": null,
+    "doc": "percent | ratio: what duty means"
+   },
+   {
+    "name": "symmetry",
+    "default": 100.0,
+    "unit": null,
+    "doc": "percent rising half of the ramp (100: sawtooth)"
+   },
+   {
+    "name": "bandwidth",
+    "default": 100000000.0,
+    "unit": "Hz",
+    "doc": "Hz, harmonic limit for square, pulse and ramp"
+   },
+   {
+    "name": "square_max",
+    "default": "INF",
+    "unit": "Hz",
+    "doc": "Hz, highest square/ramp frequency (inf: none)"
+   },
+   {
+    "name": "clock",
+    "default": "",
+    "unit": null,
+    "doc": "the reference_clock component (empty: an exact clock)"
+   }
+  ],
+  "operations": []
+ },
+ "waveform_transfer": {
+  "type": "waveform_transfer",
+  "category": "internal",
+  "role": null,
+  "generic": true,
+  "label": null,
+  "label_en": null,
+  "doc": "The selected points of a channel's record, encoded as text, an ASCII list or a binary block.",
+  "ports": [],
+  "port_pattern": null,
+  "params": [
+   {
+    "name": "record",
+    "default": "acq",
+    "unit": null,
+    "doc": "the acquisition component holding the records"
+   },
+   {
+    "name": "source",
+    "default": "",
+    "unit": null,
+    "doc": "the channel (C1, CHANnel1, 1); empty: the command's channel"
+   },
+   {
+    "name": "first",
+    "default": 0,
+    "unit": null,
+    "doc": "index of the first point sent"
+   },
+   {
+    "name": "count",
+    "default": 0,
+    "unit": null,
+    "doc": "points sent; 0: to the end, at most max_points when that is set"
+   },
+   {
+    "name": "step",
+    "default": 1,
+    "unit": null,
+    "doc": "send every step-th point"
+   },
+   {
+    "name": "count_mode",
+    "default": "first",
+    "unit": null,
+    "doc": "first: the first count points; spread: count points over the record"
+   },
+   {
+    "name": "max_points",
+    "default": 0,
+    "unit": null,
+    "doc": "0: no limit"
+   },
+   {
+    "name": "over_limit",
+    "default": "allow",
+    "unit": null,
+    "doc": "an explicit count above max_points: allow | truncate | error (-222)"
+   },
+   {
+    "name": "encoding",
+    "default": "block",
+    "unit": null,
+    "doc": "block | ascii | ascii_block | text"
+   },
+   {
+    "name": "values",
+    "default": "codes",
+    "unit": null,
+    "doc": "codes | volts"
+   },
+   {
+    "name": "float",
+    "default": 0,
+    "unit": null,
+    "doc": "block of volts as IEEE floats: 32 | 64 (0: codes or volts as integers)"
+   },
+   {
+    "name": "format",
+    "default": "%.6e",
+    "unit": null,
+    "doc": "text"
+   },
+   {
+    "name": "separator",
+    "default": " ",
+    "unit": null,
+    "doc": "text"
+   },
+   {
+    "name": "digits",
+    "default": 8,
+    "unit": null,
+    "doc": "ascii"
+   },
+   {
+    "name": "codes_per_div",
+    "default": 25.0,
+    "unit": null,
+    "doc": "ADC codes per division of the record scale"
+   },
+   {
+    "name": "offset",
+    "default": "subtract",
+    "unit": null,
+    "doc": "subtract: (v - offset); add: (v + offset), the record's offset setting"
+   },
+   {
+    "name": "adc_bits",
+    "default": 8,
+    "unit": null,
+    "doc": "bits of the ADC codes (signed around zero)"
+   },
+   {
+    "name": "width",
+    "default": 8,
+    "unit": null,
+    "doc": "bits of a block word: codes shift up or down to fit"
+   },
+   {
+    "name": "unsigned",
+    "default": false,
+    "unit": null,
+    "doc": "block codes offset by 2**(width-1)"
+   },
+   {
+    "name": "reserve_lowest",
+    "default": false,
+    "unit": null,
+    "doc": "the lowest output code means \"no data\" (a hole): samples stay above it"
+   },
+   {
+    "name": "byteorder",
+    "default": "little",
+    "unit": null,
+    "doc": "little | big (also LSBFirst | MSBFirst)"
+   },
+   {
+    "name": "block_digits",
+    "default": 0,
+    "unit": null,
+    "doc": "0: as few as the length needs"
+   },
+   {
+    "name": "trailer",
+    "default": "",
+    "unit": null,
+    "doc": "appended after a block, e.g. a line feed"
+   },
+   {
+    "name": "no_record",
+    "default": "no acquisition for this source",
+    "unit": null,
+    "doc": "the -230 message when there is no record"
+   },
+   {
+    "name": "descriptor",
+    "default": {},
+    "unit": null,
+    "doc": "describe: NAME -> a format of the record's figures (points, first, step, dt, x_offset, offset, scale, gain, timebase, count), e.g. {HORIZ_INTERVAL: \"{dt:.9e}\"}"
+   },
+   {
+    "name": "descriptor_item",
+    "default": "{name} : {value}",
+    "unit": null,
+    "doc": "how describe writes one entry"
+   },
+   {
+    "name": "descriptor_separator",
+    "default": " ",
+    "unit": null,
+    "doc": "between describe's entries"
+   },
+   {
+    "name": "header",
+    "default": null,
+    "unit": null,
+    "doc": "header: a declared preamble (op header). {encoding: binary | text, size: bytes (binary), byteorder, block_digits, trailer, separator (text), fields: [{at: byte offset (binary), type: i8 | u8 | i16 | u16 | i32 | u32 | i64 | f32 | f64 | str, value | figure | setting, map, nearest, scale, format (text: a printf format), when: {setting: value} with else}]}"
+   }
+  ],
+  "operations": [
+   {
+    "name": "data",
+    "doc": "``:WAVeform:DATA?``, ``C1:INSPECT?``: the selected points of the source's record.",
+    "params": []
+   },
+   {
+    "name": "describe",
+    "doc": "A text descriptor of the record a transfer reads (LeCroy's ``C1:INSPECT? \"WAVEDESC\"``):\none ``descriptor_item`` per ``descriptor`` entry, figures of the record, this transfer's\nselection and the acquisition (``count``: acquisitions so far).",
+    "params": []
+   },
+   {
+    "name": "figure",
+    "doc": "One figure of the source's record and this transfer's selection (``figures``), e.g.\n``:WAVeform:XINCrement?``; ``format`` is a printf format, else the definition's numbers.",
+    "params": [
+     {
+      "name": "what",
+      "type": "str",
+      "default": "points",
+      "required": false
+     },
+     {
+      "name": "format",
+      "type": "str",
+      "default": "",
+      "required": false
+     }
+    ]
+   },
+   {
+    "name": "header",
+    "doc": "The declared preamble of the source's record: a binary block (``block_digits``, then\n``trailer``) or a text line. Without a record: an empty block and -230.",
+    "params": []
+   }
+  ]
+ }
+}

@@ -433,7 +433,7 @@ class FaultInfo(_Model):
     id: str
     status: Literal["pending", "active", "ended"]
     description: str
-    source: str = Field(..., description="bench (preset), ui, mcp or api")
+    source: str = Field(..., description="bench (preset), ui, tui, mcp or api")
     started_ns: int | None = None
     ends_ns: int | None = None
     remaining: int | None = Field(None, description="Messages left for a counted link fault")
@@ -526,6 +526,13 @@ class Trace(_Model):
     triggered: bool
     silence: list[SilenceReason] = Field(
         default_factory=list, description="Why the channel's input reads 0 V; empty when it carries a signal"
+    )
+    minmax: list[float] | None = Field(
+        None,
+        description="When the request passed ``points``: per bin the minimum and the maximum, 2 values "
+        "per bin in order (``2*points`` values) — the pixel extraction of architecture.md 8.3 for a "
+        "renderer with a fixed dot width. ``volts`` comes back empty then, so a terminal asks for "
+        "exactly the bins it can draw and never receives all samples",
     )
 
 
@@ -658,8 +665,27 @@ class Event(_Model):
     code: int | None = None
     message: str | None = None
     dt_ns: int | None = None
-    reason: str | None = None
+    reason: str | None = Field(
+        None,
+        description="For error and ignored events: why the command was not executed — not_modeled | "
+        "not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). "
+        "Fault and advance events carry their own kind-specific reason",
+    )
     wall: float | None = None
+    header: str | None = Field(None, description="The header that was ignored, for ignored events")
+    query: bool | None = Field(None, description="Whether the ignored header was a query")
+    origin: str | None = Field(
+        None,
+        description="The file the classification's declaration comes from (the definition or its "
+        "coverage table), as the loader received the path",
+    )
+    closest: str | None = Field(
+        None, description="The author's command header closest to the one sent, when one is close"
+    )
+    param: str | None = Field(None, description="The parameter or state path, for bad_parameter")
+    range: str | None = Field(
+        None, description="The range or options the definition declares, for bad_parameter"
+    )
     action: str | None = Field(
         None,
         description="A front-panel button, for panel events: run | stop | single; "

@@ -50,12 +50,27 @@ ESR_BITS = {"command": 5, "execution": 4, "device": 3, "query": 2}
 
 @dataclass(frozen=True)
 class ScpiError(Exception):
-    """An error raised while executing a command; queued and flagged in the ESR."""
+    """An error raised while executing a command; queued and flagged in the ESR.
+
+    The last four fields carry the classification of a command that was not executed
+    (tui-design.md 1.1, D18): ordinary device errors leave them unset.
+    """
 
     code: int
     detail: str = ""
     #: The instrument's own text for this code (a real model's error table), replacing the standard one.
     text: str | None = None
+    #: Why the command was not executed: not_modeled | not_in_model | not_in_definition | ignored |
+    #: builtin_excluded | bad_parameter. None for an ordinary device error.
+    reason: str | None = None
+    #: The file the classification's declaration comes from (the definition or its coverage table).
+    origin: str | None = None
+    #: The author's header closest to the one the client sent, when one is close.
+    closest: str | None = None
+    #: The parameter or state path, for a bad parameter.
+    param: str | None = None
+    #: The range (or the options) the definition declares, for a bad parameter.
+    range: str | None = None
 
     @property
     def message(self) -> str:

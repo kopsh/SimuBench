@@ -319,6 +319,84 @@
 | 输入错误各有反例，诊断指向 `template.inputs`；不新增型号专用组件 | ✅ 八个反例；生成的定义只用通用组件 |
 | `scripts/check.sh` 全绿 | ✅ |
 
+## 由脚本选模板并预填输入（Issue 145，instrument-authoring.md 5.4、7.4）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 命令族识别：模板的每个方言变体声明自己的命令特征，扫描脚本时按命中数选出模板与变体，列出依据的行号 | ✅ 模板的 `variants` 展开为变体定义，用 `scriptscan.rank` 计数；示波器 `scpi-scope` / `lecroy-scope`，信号源 `scpi-source` / `channel-base` |
+| 预填输入，每项标明来源（脚本第几行）或“默认值，待确认” | ✅ `filled` 的 `source` 为 `script`（带行号与说明）或 `default`；型号串取自 `--scope-model` 等的默认值；占空比按写入的值推断比例或百分数并提示 |
+| 测试台草稿：连线按通道对应关系给出建议（标为推断），运行方式给出确定性的默认 | ✅ `inferred_wires`；`run: {seed: 1, clock: command, idle: off}` 与说明 |
+| `draft_bench_from_script` 在内置库没有匹配时返回模板建议；`create_definition_from_template` 直接接收草稿的输入；展开后仍不支持的命令按行号列出 | ✅ 报告的 `template`；加入一条 `HISTOGRAM_MODE ON` 时按行号报告 |
+| 低频校准示例脚本与类 Keysight 示波器脚本：只用内置库与模板，选对模板与变体，预填输入展开后没有诊断，全部命令被支持 | ✅ `tests/test_template_draft.py`；按草稿建好定义与测试台后脚本跑通，幅值 1 Vpp ±2 % |
+| 推断项与默认项可区分；MCP 协议级测试；`scripts/check.sh` 全绿 | ✅ |
+
+## 验收：只给脚本，Agent 经 MCP 搭出低频定标台面并跑通（Issue 146，instrument-authoring.md 7.0、7.6 的 T7）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 替身 PyVISA 脚本放进 `acceptance/`，只用公开的命令风格：参考示波器（LeCroy 风格）+ 4 通道校准源（按通道 SCPI 树），两个流程：幅值测量（约 10 kHz–5.5 MHz 的窄脉冲，占空比 0.1 %–5 %，毫伏级）与幅值定标（直流–交流，产出校准表） | ✅ `acceptance/lowfreq_cal_host.py`：脉冲占空比按高电平约 200 ns 随频率取 0.2 %–5 %，幅度 50 mVpp；定标流程为 5 个直流电平的均值与 3 个交流幅度，0.5 Vpp 一点分别以 VPP、VRMS、dBm 写入并测得同一波形 |
+| 测试扮演 Agent：空工作区、只有内置库与模板、只用 MCP 工具，从 `draft_bench_from_script` 到 `start_session`，不复制定义文件；脚本对拿到的地址运行到底 | ✅ `acceptance/test_lfcal_agent_scenario.py`：工作区里只有 `host.py`；选出 `lecroy-scope` 与 `channel-base`，两份定义经 `create_definition_from_template` 创建，测试台经 `validate_bench`，脚本经 `@py` 连 `start_session` 返回的 SOCKET 地址跑完两个流程 |
+| 两台 `*IDN?` 可区分（按测试台 `idn`） | ✅ Agent 以 `edit_bench` 的 `set_identity` 写入两台不同的 `idn`，脚本按型号段校验 |
+| 分块回读 12 345、30 000、100 000 点拼接即完整记录 | ✅ 三种点数按 FP 分块拼接，长度恰为点数；整周期方波的逐点对照（含分块边界）证明各块是同一条连续记录 |
+| 查询都有应答、设置都无应答 | ✅ 通信日志按仪器配对：每个带 `?` 的写入都有一条读取应答，没有无查询的应答 |
+| 同一种子、同一命令序列结果逐位一致 | ✅ 同一测试台部署两次（seed 1），响应与校准表逐位相等 |
+| 未建模命令按定义的策略：严格时报错并记录，宽松时忽略并记录 | ✅ 示波器定义取严格：脚本外的一条未知命令排入 -113 并在事件历史中记录；校准源取宽松：脚本的蜂鸣器探询被忽略，日志记 `ignored`（D16） |
+| 故意加一条模板不支持的命令：报告给出行号，Agent 用 `draft_definition_from_script(base_definition=...)` 补上后通过 | ✅ 脚本的 `PERSist 5` 按行号报告；Agent 以模板展开的定义为底起草出 `:PERSIST` 状态与命令，经 `edit_definition` 补上后重扫不再报告，脚本收尾的错误队列为空 |
+| 物理：负载 50 Ω / 高阻改变到达示波器的幅度；频率–幅值响应的量级与单调性合理；dBm、Vrms 与 Vpp 一致 | ✅ 负载设定高阻时进入示波器 50 Ω 输入的幅度减半、进入 1 MΩ 输入翻倍；响应在设值的 ±2 % 内随频率单调不增（1.002 → 0.984）；同一 0.5 Vpp 方波以三种单位写入测得同一幅度 |
+| `scripts/check.sh` 全绿 | ✅ Python 979 项（其中新增验收 5 项）、schema 与 Web 检查通过 |
+
+## 幅度的多单位：范围按 Vpp 检查，切单位换算数值（Issue 168，D48）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 负 dBm 可以写入，输出与 Vrms = √(10^(dBm/10)·1 mW·R) 一致（有限负载用负载设定，高阻按 `dbm_hiz_ohms`） | ✅ `tests/test_signal_source.py`：-10 dBm 入 50 Ω 实测功率 -10 dBm ±0.02，高阻时开路电压按 50 Ω 参考折算 |
+| 任一单位写入越界报 -222，界限按当前单位给出；覆盖 VPP、VRMS、DBM | ✅ 11 VPP、6 VRMS（方波 12 Vpp）、-60 dBm 各报 -222，消息为 `amplitude … out of range [下限, 上限] 单位`，状态回滚到写入前 |
+| 波形或负载设定导致越界报 -221 并拒绝 | ✅ VRMS 下正弦→方波跌破 `vpp_min`、方波→正弦超出 `vpp_max`、LOAD 50→1000 使 dBm 波形超界，各报 -221 且波形/负载不变 |
+| VPP→VRMS→DBM→VPP 切换：输出不变，查询返回换算值，回到原值（1e-9） | ✅ 状态逐次为 1/(2√2)、+3.98 dBm、1.0（rel 1e-9），示波器测得的 Vpp 每步 1.0 ±2e-3；应答按格式精度（1e-6）核对 |
+| 回滚与零幅度规则各有用例 | ✅ 单位监听内部写回的幅度在同一次 `set_state` 被后续监听拒绝时一并恢复（`set_state` 快照回滚，引擎层）；模板含 DBM 时 `min ≤ 0` 报 E-TPL-RANGE，组件在 Vpp ≤ 0 切 DBM 时报 -221、单位不变 |
+| #146 的定标流程加负 dBm 点并断言 | ✅ `acceptance/lowfreq_cal_host.py` 的定标表加 -19.03 dBm（50 mVpp 方波）一点，`test_lfcal_agent_scenario.py` 断言测得 0.05 Vpp |
+| D48 入 `docs/decisions.md`；模板口径文档更新 | ✅ D48 原文照抄（编号未被占用）；`instrument-authoring.md` 7.4 的幅度口径与多单位说明已更新（`real-models.md` 无幅度范围的记载，无需改） |
+| `sb-awg-2` 与低频校准契约用例不改通过 | ✅ 全量 990 项通过，无既有用例改动（`LFCAL_INPUTS` 的 min 按新模板规则 0.0 → 0.001，属模板输入数据） |
+| 仓库里由模板展开的定义重新展开 | ⬜ 仓库中没有带 `template:` 记录的定义文件（此前的匹配是 `display.template` 面板键），无需重展 |
+| `scripts/check.sh` 全绿 | ✅ Python 990 项（新增 11 项）、schema 与 Web 检查通过；Web 面板无需改动（数值控件本就按无范围处理，`PanelScreen` 的钳制以 ±Infinity 兜底） |
+
+## 错误事件给出命令未被执行的原因分类（Issue 174，tui-design.md 1.1、D18）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 错误 / 忽略事件带六种分类：`not_modeled`（覆盖表中标为未实现）、`not_in_model`（覆盖表中没有）、`not_in_definition`（无覆盖表、定义中没有）、`ignored`、`builtin_excluded`（`builtins` 之外的公共命令）、`bad_parameter`（参数超范围或类型不对，附定义给出的范围）；`unknown_command` 退役 | ✅ `tests/test_error_classification.py` 每种一条；`reason` 字段名不变，取值收敛为六种 |
+| 每条带出处（定义文件或覆盖表文件，按装载得到的路径）与命令树中最接近的命令 | ✅ `origin`、`closest` 随事件给出；最接近的命令按作者命令头的长短两种拼写比较（difflib，0.6 阈值），`tests/test_error_classification.py` 断言出处与最接近命令 |
+| 带覆盖表的定义在运行时按覆盖表查找 | ✅ 引擎按定义文件旁的 `<id>.coverage.yaml` 在首次分类时装载（结果按 mtime 缓存；不在建台时装载，避免把读取开销计入 idle 墙钟，D47）；表缺失或读不了时回退到原行为（真实型号仍记 `not_modeled`），不崩溃 |
+| 事件 schema 与前端类型重新生成；MCP `read_log` 返回同样的分类 | ✅ `schemas/` 与 `web/src/api/generated/` 重新生成；`tests/test_mcp.py` 经 MCP 断言分类、出处与最接近命令；运行记录逐字保存事件，回放不受影响 |
+| Web 措辞覆盖六种分类（中英文） | ✅ `web/src/i18n/{zh,en}.ts` 的 `errors.reasons`；事件面板与运行记录页对 error / ignored 事件显示措辞、参数与范围、最接近命令与出处 |
+| 回复文字不变（#172 的范围） | ✅ `-113` 的应答文本、错误表替换与 "not modeled by SimuBench" 后缀全部保持原样；`builtin_excluded` 也沿用今天的应答 |
+| 六种情况各有内置真实型号与工作区定义的覆盖 | ✅ not_modeled / not_in_model / builtin_excluded / bad_parameter 用内置真实型号（Siglent SDS2104X Plus、Fluke 5522A），not_in_definition / ignored / bad_parameter 用工作区定义（`sb-smu-1`、`examples/lowfreq-cal/`） |
+| `scripts/check.sh` 通过 | ✅ Python 1002 项（新增 8 项）、schema 与 Web 检查通过；`tests/test_siglent_sds.py` 的 `*CLS` 断言改为 `builtin_excluded`（分类按设计变更，应答未变） |
+
+## pytest 全量回到 60 s 预算内（Issue 209）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 贴出 `--durations=50` 并处理耗时靠前的用例（TUI 两个 10 s 以上先查等待/超时），不放宽断言 | ✅ 根因是真实 bug：`/api/sessions/{sid}/events` 在队列空闲时不感知客户端断开（卡在 `queue.get()`），uvicorn 优雅关停等它到强退；TUI 退出也不停连接循环。修后 `test_disconnect…` 12.19 s→2.6 s、`test_file_changed…` 13.64 s→3.5 s、8 处 10 s 的 fixture/finally 关停全部落到 1 s 内；断言一字未动 |
+| 必要时引入 `pytest-xdist`（`-n auto`），`scripts/check.sh` 与 CI 一致，确认用例间无共享可写状态 | ✅ 两处均为 `pytest -n 4`（等于 4 核开发容器上的 `-n auto`）；全部端口 0 号动态分配、工作区在 `tmp_path`、用例不写仓库文件（跑后 `git status` 干净） |
+| 开发容器上总耗时 < 60 s，不删除、不跳过、不隔离任何测试，用例数不减少 | ✅ 用例数 1057 不变；串行 243 s→172 s（修 TUI 挂起，开发笔记本实测；CI 的 4 vCPU 即验收环境的四路并行），`solve_seconds` 改按调用线程 CPU 计（被调度走不算变慢），阈值不变 |
+| Windows 任务（main 上）仍然通过 | ✅ CI 矩阵含 windows-latest（合并后 main 上运行）；xdist 与非阻塞关停均为纯 socket/线程，无信号依赖。合并后 Windows 首跑暴露 `test_amplitude_of_a_sine_reads_the_peaks` 容差未按噪声物理给足（既有边界抖动，非本次引入；AMPL 与 PKPK 的天然差为几 σ + 一个码，原 2% 容差不够），已按同文件惯例 `8σ + 0.5/30` 修正 |
+| 新增用例不再把全量拉回 60 s | ✅ AGENTS.md 第 4 步新增规则：全量超过 60 s 必须在当前任务内立即处理，不许留给后续 issue |
+
+## 终端控制台 T4：可复现截图、演示录制、运行记录与文档（Issue 178，tui-design.md 6，D18、D47）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| `--script` 的步骤：`key`、`scpi`（外部客户端）、`advance`、`wait`、`caption`、`highlight`、`screenshot`；一个步骤里按键与字幕/高亮/停留可组合 | ✅ `tests/test_tui_t4_units.py`（解析与校验：未知字段、空步骤、`1.5s` / `200ms` 时长）、`tests/test_tui_t4.py` 与 `docs/tui/find-the-trip.steps.yaml`；`caption` 与 `highlight` 是修饰字段，可与 `key` 同步（tui-design.md 6 的例子现在合法） |
+| 输出 SVG；`--record` 输出逐帧 SVG 与 asciinema `.cast` | ✅ `test_record_writes_frames_and_a_playable_cast`：每个停留按 1/8 s 一帧、SVG 与同名截图相同、每帧一个终端文本事件且时间轴连续；CLI 端到端 `tests/test_tui_t4_e2e.py` 走 `simubench tui --script --record` |
+| `idle: off` + 固定种子 → 同一测试台 + 同一步骤逐字节相同的 SVG | ✅ `test_scripted_screenshots_are_byte_identical`（两次运行逐字节比较）；演示另固定 SCPI/HiSLIP 端口与外部客户端的源端口（`scpi.source_port`），日志里的 `脚本 :5401` 因此可复现 |
+| 运行记录屏幕（`R`）：列表、摘要、回放并报告第一处不同 | ✅ `screens/runs.py`：定宽列（开始/测试台/时钟/种子/事件/虚拟时长/大小）、选中行与“运行中（本会话）”、回放/摘要框；`test_runs_screen_lists_and_replays` 与 4 张 runs 快照（zh/en × 100×32、80×24）；修掉 `_render` 覆写（Textual 内部方法）与 `float` CSS 两处启动错误 |
+| README 与用户文档的 TUI 章节；“找到跳闸”演示 | ✅ README「终端控制台（TUI）」（两种启动方式、按键表入口、截图与 `--script` 命令）；`docs/tui/find-the-trip.steps.yaml` + `validation/benches/find-the-trip.bench.yaml`（预设跳闸）；`docs/tui/find-the-trip{,-error}.svg` 由该步骤生成 |
+| CI 重新生成文档截图逐字节一致 | ✅ `test_the_demo_regenerates_the_docs_screenshots`：在固定端口上重跑演示步骤，两张 SVG 与已提交文件逐字节相同 |
+| 演示脚本同时产生运行记录，截图中的状态可在记录中复核 | ✅ 同一测试断言 `--record-dir` 里恰有一条记录，含外部客户端 `socket:127.0.0.1:5401` 的 `:SYSTem:ERRor?`、预设跳闸的 `-300` 与 `fault` 事件（来源 `bench`）；CLI 端到端测试也确认只开一个会话、只留一条记录 |
+| `scripts/check.sh` 全绿 | ✅ 快速层 1088 项约 45 s；`-m "tui_boot"` 87 项约 44 s；ruff、schema、Web 的 check:api/typecheck/lint/test 全绿 |
+| 顺带修掉的问题 | ✅ 跳闸只关 `output`、漏掉 `output.enabled`（`sb-smu-1` 的输出没关，`tests/test_faults.py`）；字幕与底栏两个 bottom dock 落同一行（改为同一个 footer）；`NO_COLOR` 主题用空串当颜色让样式表解析失败、整个 TUI 起不来（改 `ansi_default`，快照测试固定颜色主题）；CLI 无头路径的相对导入、`describe()` 调用、`asyncio.run` 参数位置与重复开会话四处错误（`tests/test_tui_t4_e2e.py`） |
+
 ## 试运行一台仪表：MCP try_definition 与 HTTP 的临时会话、用例运行（Issue 126，instrument-authoring.md 7.2、7.4）
 
 | 验收标准 | 自检 |

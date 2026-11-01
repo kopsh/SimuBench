@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=2.3,<3"]
+tui = ["textual>=8.2", "httpx>=0.27"]
 
 [project.scripts]
 simubench = "simubench.cli:main"
@@ -32,11 +33,13 @@ default = true
 dev = [
   "pytest>=8",
   "pytest-asyncio>=0.23",
+  "pytest-xdist>=3.6",
   "httpx>=0.27",
   "ruff>=0.6",
   "mypy>=1.11",
   "types-PyYAML",
   "pyvisa-py>=0.8.1",
+  "pytest-textual-snapshot>=1.1",
 ]
 
 [build-system]
@@ -70,6 +73,15 @@ ignore = ["RUF001", "RUF002", "RUF003", "E501"]
 testpaths = ["tests", "acceptance"]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
+markers = [
+  # Boots a Textual app or a real server (screens, keys, snapshots, 找到跳闸): seconds per test.
+  # The fast checks run `-m "not tui_boot"`; the whole set runs on main after the merge —
+  # the same tiering as the end-to-end and visual tests (AGENTS.md).
+  "tui_boot: needs a running Textual app or server",
+  "unit: pure logic, the D49 budget guard applies (<=100 ms per test)",
+  # Wall-clock budgets (test_performance.py): red on a busy machine, green on an idle one.
+  "load_sensitive: needs an idle machine; runs on main, not in the fast checks",
+]
 
 [tool.mypy]
 python_version = "3.11"

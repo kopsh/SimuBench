@@ -8,13 +8,14 @@ used to validate definition files (D21).
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .deviation import DeviationSpec
 
-StateType = Literal["float", "int", "bool", "enum", "string"]
+StateType = Literal["float", "int", "bool", "enum", "string", "int_list"]
 
 
 class _Model(BaseModel):
@@ -124,7 +125,17 @@ class ParamSpec(_Model):
 
     name: str
     type: Literal[
-        "float", "int", "bool", "enum", "string", "float_list", "block", "raw", "pairs", "quantities"
+        "float",
+        "int",
+        "bool",
+        "enum",
+        "string",
+        "float_list",
+        "block",
+        "raw",
+        "pairs",
+        "quantities",
+        "channel_list",
     ]
     unit: str | None = None
     options: list[str] | None = None
@@ -166,6 +177,11 @@ class ParamSpec(_Model):
     combine_error: int = Field(
         -224, description="Error code for a combination of units `combine` does not list"
     )
+    default: list[int] | None = Field(
+        None,
+        description="type channel_list: the channels used when the optional parameter is omitted, "
+        "e.g. [1] for an instrument whose (@1) may be left out",
+    )
 
     @model_validator(mode="after")
     def _check(self) -> ParamSpec:
@@ -173,6 +189,13 @@ class ParamSpec(_Model):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
         if self.index and (self.type != "int" or self.state is not None):
             raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
+        if self.type == "channel_list" and (
+            self.state is not None or self.keys is not None or self.units is not None or self.index
+        ):
+            raise ValueError(
+                f"parameter {self.name!r}: a channel list selects the channels the command acts on "
+                "and writes nothing itself"
+            )
         if self.type == "quantities":
             if not self.units:
                 raise ValueError(f"parameter {self.name!r}: quantities need a units table")
@@ -265,7 +288,15 @@ class CommandSpec(_Model):
                 f"command {self.header!r}: give one of state, op, or parameters bound to settings"
             )
         indexes = [p for p in self.params if p.index]
-        if self.bound_params and len(self.bound_params) + len(indexes) != len(self.params):
+        lists = [p for p in self.params if p.type == "channel_list"]
+        if len(lists) > 1:
+            raise ValueError(f"command {self.header!r}: at most one channel list parameter")
+        if lists and self.state is not None:
+            raise ValueError(
+                f"command {self.header!r}: a channel list parameter expands the command over the "
+                "channels; bind values through the parameters' state, not the command's"
+            )
+        if self.bound_params and len(self.bound_params) + len(indexes) + len(lists) != len(self.params):
             raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
         if indexes and not self.bound_params:
             raise ValueError(f"command {self.header!r}: an index parameter picks the settings others write")
@@ -467,6 +498,11 @@ class Display(_Model):
 
 class InstrumentDefinition(_Model):
     schema_: Literal["simubench.instrument/1"] = Field("simubench.instrument/1", alias="schema")
+
+    #: The file the definition was loaded from, as the loader received the path; the loader sets it
+    #: (events that classify a command name the declaration's file, tui-design.md 1.1). Definitions
+    #: built in memory have none.
+    _source_file: Path | None = PrivateAttr(default=None)
 
     @model_validator(mode="before")
     @classmethod
