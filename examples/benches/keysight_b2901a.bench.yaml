@@ -1,0 +1,26 @@
+schema: simubench.bench/2
+name: keysight_b2901a_iv
+description: >-
+  Keysight B2901A（真实型号，D42）对 1 kΩ DUT 做直流 I-V：电压源时电流为 V/1 kΩ，超过电流
+  限值即转入 CC；电流源时端电压为 I × 1 kΩ。测试台只用真实型号，脚本
+  examples/scripts/keysight_b2901a_sweep.py 按真机写法运行（tests/test_keysight_b2901a.py）。
+instruments:
+  smu:
+    model: keysight-b2901a
+    label: 精密源表
+    address: "TCPIP0::192.168.1.40::INSTR"
+parts:
+  dut:
+    type: resistor
+    dut: true
+    label: 1 kΩ DUT
+    params: {r: 1000.0}
+wires:
+  - {from: smu.HI, to: dut.A}
+  - {from: smu.LO, to: dut.B}
+run:
+  seed: 7
+  clock: command
+layout:
+  smu: {x: 0, y: 80}
+  dut: {x: 320, y: 80}

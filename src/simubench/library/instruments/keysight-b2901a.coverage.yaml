@@ -1,0 +1,924 @@
+# Keysight B2901A 的覆盖表：命令按 Agilent B2900 Series SCPI Command Reference
+# （B2910-90030, Edition 2, July 2011）的命令索引逐条列出，程度与说明手写；第 6 章
+# “Using Your Existing Programs”的 conventional 命令集是兼容层，不在本定义范围。
+# 说明：源量程 V/I 共用一组设置（按当前源功能解释）；FETCh/READ/TRACe 固定输出
+# VOLT,CURR,RES,TIME,STAT 五个元素（元素选择与 SOUR、标量“最新一条”未实现）。
+schema: simubench.coverage/1
+model: keysight-b2901a
+sections:
+- section: Common Commands
+  commands:
+  - header: '*CAL?'
+    level: not_modeled
+    note: 自校验是硬件流程；仿真的仪表无漂移可校准。
+  - header: '*CLS'
+    level: implemented
+    note: 清状态字节、标准事件寄存器与错误队列；不清使能寄存器。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器（引擎内置，整数回复）。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器（引擎内置，整数回复）。
+  - header: '*IDN'
+    level: implemented
+    note: Agilent Technologies,B2901A,<serial>,<firmware>。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1（等待按 NPLC 计的运行）。'
+  - header: '*RCL'
+    level: not_modeled
+    note: 状态存储（0–9）未实现。
+  - header: '*RST'
+    level: implemented
+    note: 恢复本定义的初始设置（值见各命令的 default/rst）。
+  - header: '*SAV'
+    level: not_modeled
+    note: 状态存储（0–9）未实现。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器（引擎内置，整数回复）。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节寄存器（引擎内置，整数回复）。
+  - header: '*TRG'
+    level: implemented
+    note: 总线触发：仅触发源 BUS 且等待触发时接受，否则 -211。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过，回复 0。
+  - header: '*WAI'
+    level: implemented
+    note: 等待全部待完成操作。
+- section: CALCulate Subsystem
+  commands:
+  - header: :CALCulate[c]:CLIMits:CLEar:AUTO
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:CLEar:AUTO:DELay
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:CLEar[:IMMediate]
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:<FAIL|PASS>:DIGital[:DATA]
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:MODE
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:STATe
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:STATe:ANY?
+    level: not_modeled
+  - header: :CALCulate[c]:CLIMits:UPDate
+    level: not_modeled
+  - header: :CALCulate[c]:DATA?
+    level: not_modeled
+    note: 计算/极限测试数据未实现。
+  - header: :CALCulate[c]:DATA:LATest?
+    level: not_modeled
+  - header: :CALCulate[c]:DIGital:BIT
+    level: not_modeled
+  - header: :CALCulate[c]:DIGital:<BUSY|EOT|SOT>
+    level: not_modeled
+  - header: :CALCulate[c]:FEED
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:COMPliance:DIGital[:DATA]
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:COMPliance:FAIL
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:FAIL?
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:FUNCtion
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:<LOWer|UPPer>
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:<LOWer|UPPer>:DIGital[:DATA]
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:PASS:DIGital[:DATA]
+    level: not_modeled
+  - header: :CALCulate[c]:LIMit[m]:STATe
+    level: not_modeled
+  - header: :CALCulate[c]:MATH:DATA?
+    level: not_modeled
+  - header: :CALCulate[c]:MATH:DATA:LATest?
+    level: not_modeled
+  - header: :CALCulate[c]:MATH[:EXPRession]:CATalog?
+    level: not_modeled
+  - header: :CALCulate[c]:MATH[:EXPRession][:DEFine]
+    level: not_modeled
+    note: 数学表达式未实现。
+  - header: :CALCulate[c]:MATH[:EXPRession]:DELete:ALL
+    level: not_modeled
+  - header: :CALCulate[c]:MATH[:EXPRession]:DELete[:SELected]
+    level: not_modeled
+  - header: :CALCulate[c]:MATH[:EXPRession]:NAME
+    level: not_modeled
+  - header: :CALCulate[c]:MATH:STATe
+    level: not_modeled
+  - header: :CALCulate[c]:MATH:UNITs
+    level: not_modeled
+  - header: :CALCulate[c]:OFFSet
+    level: not_modeled
+  - header: :CALCulate[c]:OFFSet:ACQuire
+    level: not_modeled
+  - header: :CALCulate[c]:OFFSet:STATe
+    level: not_modeled
+- section: DISPlay Subsystem
+  commands:
+  - header: :DISPlay:CSET
+    level: accepted
+    affects_data: false
+    note: 配色 1/2 保存并回读；不影响测量。
+  - header: :DISPlay:DIGits
+    level: accepted
+    affects_data: false
+    note: 显示分辨率 4–7 保存并回读；不影响测量。
+  - header: :DISPlay:ENABle
+    level: accepted
+    affects_data: false
+    note: 远程时前面板显示开关保存并回读；不影响测量。
+  - header: :DISPlay:VIEW
+    level: accepted
+    affects_data: false
+    note: 显示视图保存并回读；1 通道型号的 SINGle1、GRAPh、ROLL。
+  - header: :DISPlay[:WINDow[d]]:DATA?
+    level: not_modeled
+    note: 前面板显示数据未实现。
+  - header: :DISPlay[:WINDow[d]]:TEXT:DATA
+    level: not_modeled
+    note: 显示文本未实现。
+  - header: :DISPlay[:WINDow[d]]:TEXT:STATe
+    level: not_modeled
+    note: 显示文本未实现。
+  - header: :DISPlay:ZOOM
+    level: accepted
+    affects_data: false
+    note: 显示缩放保存并回读；不影响测量。
+- section: FETCh Subsystem
+  commands:
+  - header: :FETCh:ARRay
+    level: implemented
+    note: 本次运行的全部读数，元素顺序 VOLT,CURR,RES,TIME,STAT（SOUR 元素未实现）。
+  - header: :FETCh:ARRay:VOLTage
+    level: implemented
+    note: 本次运行全部读数的电压元素。
+  - header: :FETCh:ARRay:CURRent
+    level: implemented
+    note: 本次运行全部读数的电流元素。
+  - header: :FETCh:ARRay:RESistance
+    level: implemented
+    note: 本次运行全部读数的电阻元素（V/I 计算，无电流时为 +9.91E+37）。
+  - header: :FETCh:ARRay:TIME
+    level: implemented
+    note: 本次运行全部读数的时刻元素。
+  - header: :FETCh:ARRay:STATus
+    level: implemented
+    note: 本次运行全部读数的状态元素（按数字格式回复，手册为 NR1）。
+  - header: :FETCh:ARRay:SOURce?
+    level: not_modeled
+    note: 源输出值元素未实现（测量组件只给出 V/I/R/TIME/STAT）。
+  - header: :FETCh[:SCALar]?
+    level: not_modeled
+    note: 只取最新一条的标量形式未实现（数组形式给出整次运行的数据）。
+  - header: :FETCh[:SCALar]:<CURRent|RESistance|SOURce|STATus|TIME|VOLTage>?
+    level: not_modeled
+    note: 标量形式与 SOUR 元素未实现。
+- section: FORMat Subsystem
+  commands:
+  - header: :FORMat:BORDer
+    level: not_modeled
+    note: 只支持 ASCII 数据格式；字节序未实现。
+  - header: :FORMat[:DATA]
+    level: accepted
+    affects_data: false
+    note: 只接受 ASCii（默认）；REAL,32/64 未实现。
+  - header: :FORMat:DIGital
+    level: not_modeled
+    note: 数字量（GPIO/极限测试）回复格式未实现。
+  - header: :FORMat:ELEMents:CALCulate
+    level: not_modeled
+    note: 计算结果元素选择未实现。
+  - header: :FORMat:ELEMents:SENSe
+    level: not_modeled
+    note: 元素选择未实现：FETCh/READ/TRACe 固定给出 VOLT,CURR,RES,TIME,STAT。
+  - header: :FORMat:SREGister
+    level: not_modeled
+    note: 状态寄存器回复格式选择未实现（固定十进制）。
+- section: HCOPy Subsystem
+  commands:
+  - header: :HCOPy:SDUMp:DATA?
+    level: not_modeled
+  - header: :HCOPy:SDUMp:FORMat
+    level: not_modeled
+- section: LXI Subsystem
+  commands:
+  - header: :LXI:IDENtify[:STATe]
+    level: accepted
+    affects_data: false
+    note: LAN 指示灯保存并回读；不影响测量。
+  - header: :LXI:MDNS:ENABle
+    level: not_modeled
+  - header: :LXI:MDNS:HNAMe[:RESolved]?
+    level: not_modeled
+  - header: :LXI:MDNS:SNAMe:DESired
+    level: not_modeled
+  - header: :LXI:MDNS:SNAMe[:RESolved]?
+    level: not_modeled
+- section: MEASure Subsystem
+  commands:
+  - header: :MEASure
+    level: implemented
+    note: 一次单点测量，回复 VOLT,CURR,RES,TIME,STAT（SOUR 元素未实现）。
+  - header: :MEASure:VOLTage[:DC]
+    level: implemented
+    note: 单点测量，只回复电压。
+  - header: :MEASure:CURRent[:DC]
+    level: implemented
+    note: 单点测量，只回复电流。
+  - header: :MEASure:RESistance
+    level: implemented
+    note: 单点测量，回复 V/I 计算的电阻。
+- section: MMEMory Subsystem
+  commands:
+  - header: :MMEMory:CATalog?
+    level: not_modeled
+  - header: :MMEMory:CDIRectory
+    level: not_modeled
+  - header: :MMEMory:COPY
+    level: not_modeled
+  - header: :MMEMory:DELete
+    level: not_modeled
+  - header: :MMEMory:LOAD:MACRo
+    level: not_modeled
+  - header: :MMEMory:LOAD:STATe
+    level: not_modeled
+  - header: :MMEMory:MDIRectory
+    level: not_modeled
+  - header: :MMEMory:MOVE
+    level: not_modeled
+  - header: :MMEMory:RDIRectory
+    level: not_modeled
+  - header: :MMEMory:STORe:DATA<:LIMit|:MATH|:SENSe|[:ALL]>
+    level: not_modeled
+  - header: :MMEMory:STORe:MACRo
+    level: not_modeled
+  - header: :MMEMory:STORe:STATe
+    level: not_modeled
+  - header: :MMEMory:STORe:TRACe
+    level: not_modeled
+- section: OUTPut Subsystem
+  commands:
+  - header: :OUTPut[c]:FILTer:AUTO
+    level: not_modeled
+    note: 输出滤波器未接入电路求解，未实现。
+  - header: :OUTPut[c]:FILTer[:LPASs]:FREQuency
+    level: not_modeled
+    note: 输出滤波器未接入电路求解，未实现。
+  - header: :OUTPut[c]:FILTer[:LPASs][:STATe]
+    level: not_modeled
+    note: 输出滤波器未接入电路求解，未实现。
+  - header: :OUTPut[c]:FILTer[:LPASs]:TCONstant
+    level: not_modeled
+    note: 输出滤波器未接入电路求解，未实现。
+  - header: :OUTPut[c]:HCAPacitance[:STATe]
+    level: not_modeled
+  - header: :OUTPut[c]:LOW
+    level: not_modeled
+    note: 低端子浮地/接地未实现（本定义固定为接地）。
+  - header: :OUTPut[c]:OFF:AUTO
+    level: not_modeled
+    note: 自动关输出与关输出后的状态未实现。
+  - header: :OUTPut[c]:OFF:MODE
+    level: not_modeled
+    note: 自动关输出与关输出后的状态未实现。
+  - header: :OUTPut[c]:ON:AUTO
+    level: not_modeled
+    note: INIT/READ 时自动开输出未实现。
+  - header: :OUTPut[c]:PROTection[:STATe]
+    level: not_modeled
+    note: 合规时自动关输出（OVP/OCP 保护）未实现。
+  - header: :OUTPut[c]:RECall
+    level: not_modeled
+    note: 通道设置存储未实现。
+  - header: :OUTPut[c]:SAVE
+    level: not_modeled
+    note: 通道设置存储未实现。
+  - header: :OUTPut[:STATe]
+    level: implemented
+    note: 源输出继电器；开/关改变电路。
+- section: PROGram Subsystem
+  commands:
+  - header: :PROGram:CATalog?
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram:PON:COPY
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram:PON:DELete
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram:PON:RUN
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:APPend
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:DEFine
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:DELete:ALL
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:DELete[:SELected]
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:EXECute
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:NAME
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:STATe
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram[:SELected]:WAIT?
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+  - header: :PROGram:VARiable[h]
+    level: not_modeled
+    note: 程序内存（TSP/内置宏）未实现。
+- section: READ Subsystem
+  commands:
+  - header: :READ:ARRay
+    level: implemented
+    note: INITiate + FETCh:ARRay：本次运行的全部读数（元素 VOLT,CURR,RES,TIME,STAT）。
+  - header: :READ:ARRay:VOLTage
+    level: implemented
+    note: 本次运行全部读数的电压。
+  - header: :READ:ARRay:CURRent
+    level: implemented
+    note: 本次运行全部读数的电流。
+  - header: :READ:ARRay:RESistance
+    level: implemented
+    note: 本次运行全部读数的电阻。
+  - header: :READ:ARRay:TIME
+    level: implemented
+    note: 本次运行全部读数的时刻。
+  - header: :READ:ARRay:STATus
+    level: implemented
+    note: 本次运行全部读数的状态（按数字格式回复，手册为 NR1）。
+  - header: :READ:ARRay:SOURce?
+    level: not_modeled
+    note: 源输出值元素未实现。
+  - header: :READ[:SCALar]?
+    level: not_modeled
+    note: 只取最新一条的标量形式未实现（数组形式给出整次运行的数据）。
+  - header: :READ[:SCALar]:<CURRent|RESistance|SOURce|STATus|TIME|VOLTage>?
+    level: not_modeled
+    note: 标量形式与 SOUR 元素未实现。
+- section: SENSe Subsystem
+  commands:
+  - header: :SENSe:VOLTage[:DC]:NPLCycles
+    level: implemented
+    note: NPLC 为全部测量项共用（默认 0.1）；读数时间 = NPLC/线频率 + 开销。
+  - header: :SENSe:CURRent[:DC]:NPLCycles
+    level: implemented
+    note: 与电压 NPLC 同一设置。
+  - header: :SENSe:RESistance:NPLCycles
+    level: implemented
+    note: 与电压 NPLC 同一设置。
+  - header: :SENSe:VOLTage[:DC]:RANGe
+    level: implemented
+    note: 手动电压测量量程；写入后关闭自动量程。
+  - header: :SENSe:CURRent[:DC]:RANGe
+    level: implemented
+    note: 手动电流测量量程；写入后关闭自动量程。
+  - header: :SENSe:VOLTage[:DC]:RANGe:AUTO
+    level: implemented
+    note: 电压测量自动量程（默认开）。
+  - header: :SENSe:CURRent[:DC]:RANGe:AUTO
+    level: implemented
+    note: 电流测量自动量程（默认开；与电压共用开关）。
+  - header: :SENSe:VOLTage[:DC]:PROTection[:LEVel]
+    level: implemented
+    note: 电流源时的电压限值（默认 2 V）。
+  - header: :SENSe:CURRent[:DC]:PROTection[:LEVel]
+    level: implemented
+    note: 电压源时的电流限值（默认 100 µA）。
+  - header: :SENSe:VOLTage[:DC]:PROTection:TRIPped
+    level: implemented
+    note: 是否处于电压限值（CC）。
+  - header: :SENSe:CURRent[:DC]:PROTection:TRIPped
+    level: implemented
+    note: 是否处于电流限值（CV 源的 CL）。
+  - header: :SENSe:REMote
+    level: implemented
+    note: 四线远端检测；改变检测点。
+  - header: :SENSe:RESistance:RANGe
+    level: not_modeled
+    note: 电阻测量量程未实现（电阻按 V/I 计算，无量程）。
+  - header: :SENSe:RESistance:RANGe:AUTO
+    level: not_modeled
+    note: 电阻测量量程未实现。
+  - header: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:APERture
+    level: not_modeled
+    note: 积分时间 APERture 未实现（NPLC 命令已实现，两者在真机上耦合）。
+  - header: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:APERture:AUTO
+    level: not_modeled
+    note: 积分时间 APERture 未实现（NPLC 命令已实现，两者在真机上耦合）。
+  - header: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:NPLCycles:AUTO
+    level: not_modeled
+    note: 自动 NPLC 未实现。
+  - header: :SENSe[c]:<CURRent[:DC]|RESistance|VOLTage[:DC]>:RANGe:AUTO:LLIMit
+    level: not_modeled
+    note: 自动量程的上下限/模式/阈值未实现（使用固定滞回带）。
+  - header: :SENSe[c]:<CURRent[:DC]|VOLTage[:DC]>:RANGe:AUTO:MODE
+    level: not_modeled
+    note: 自动量程的上下限/模式/阈值未实现（使用固定滞回带）。
+  - header: :SENSe[c]:<CURRent[:DC]|VOLTage[:DC]>:RANGe:AUTO:THReshold
+    level: not_modeled
+    note: 自动量程的上下限/模式/阈值未实现（使用固定滞回带）。
+  - header: :SENSe[c]:RESistance:RANGe:AUTO:ULIMit
+    level: not_modeled
+    note: 自动量程的上下限/模式/阈值未实现（使用固定滞回带）。
+  - header: :SENSe[c]:DATA?
+    level: not_modeled
+    note: 数据缓冲读取命令未实现（用 FETCh/TRACe）。
+  - header: :SENSe:DATA:LATest?
+    level: not_modeled
+    note: 数据缓冲读取命令未实现（用 FETCh/TRACe）。
+  - header: :SENSe[c]:FUNCtion:OFF
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:FUNCtion:OFF:ALL
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:FUNCtion:OFF:COUNt?
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:FUNCtion[:ON]
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:FUNCtion[:ON]:ALL
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:FUNCtion[:ON]:COUNt?
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:FUNCtion:STATe?
+    level: not_modeled
+    note: 测量功能使能未实现（V/I/R 总是可用）。
+  - header: :SENSe[c]:RESistance:MODE
+    level: not_modeled
+    note: 电阻测量模式（自动换源）未实现。
+  - header: :SENSe[c]:RESistance:OCOMpensated
+    level: not_modeled
+    note: 偏置补偿电阻测量未实现。
+  - header: :SENSe[c]:TOUTput:SIGNal
+    level: not_modeled
+    note: 触发输出端口未实现。
+  - header: :SENSe[c]:TOUTput[:STATe]
+    level: not_modeled
+    note: 触发输出端口未实现。
+  - header: :SENSe[c]:WAIT:AUTO
+    level: not_modeled
+    note: 源/测量等待时间未实现。
+  - header: :SENSe[c]:WAIT:GAIN
+    level: not_modeled
+    note: 源/测量等待时间未实现。
+  - header: :SENSe[c]:WAIT:OFFSet
+    level: not_modeled
+    note: 源/测量等待时间未实现。
+  - header: :SENSe[c]:WAIT[:STATe]
+    level: not_modeled
+    note: 源/测量等待时间未实现。
+- section: SOURce Subsystem
+  commands:
+  - header: '[:SOURce]:FUNCtion:MODE'
+    level: implemented
+    note: 电压源或电流源；切换源功能。
+  - header: '[:SOURce]:FUNCtion[:SHAPe]'
+    level: accepted
+    affects_data: false
+    note: 只接受 DC；PULSe 未实现。
+  - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]'
+    level: implemented
+    note: 电压设定（-210…210 V）。
+  - header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]'
+    level: implemented
+    note: 电流设定（-3.03…3.03 A）。
+  - header: '[:SOURce]:VOLTage:RANGe'
+    level: implemented
+    note: 电压源量程；写入后关闭自动量程。V/I 共用一组量程设置（按当前源功能解释）。
+  - header: '[:SOURce]:CURRent:RANGe'
+    level: implemented
+    note: 电流源量程；写入后关闭自动量程。
+  - header: '[:SOURce]:VOLTage:RANGe:AUTO'
+    level: implemented
+    note: 电压源自动量程（默认开）。
+  - header: '[:SOURce]:CURRent:RANGe:AUTO'
+    level: implemented
+    note: 电流源自动量程（默认开；与电压共用开关）。
+  - header: '[:SOURce]:VOLTage:MODE'
+    level: implemented
+    note: FIXed（直流）或 SWEep（线性阶梯扫描）。
+  - header: '[:SOURce]:VOLTage:STARt'
+    level: implemented
+    note: 扫描起始电平。
+  - header: '[:SOURce]:VOLTage:STOP'
+    level: implemented
+    note: 扫描终止电平。
+  - header: '[:SOURce]:VOLTage:POINts'
+    level: implemented
+    note: 扫描点数（1–2500）。
+  - header: '[:SOURce]:SWEep:POINts'
+    level: implemented
+    note: 扫描点数（与 :VOLTage:POINts 同一设置）。
+  - header: '[:SOURce]:CURRent:MODE'
+    level: not_modeled
+    note: 电流扫描未实现。
+  - header: '[:SOURce]:CURRent:POINts'
+    level: not_modeled
+    note: 电流扫描未实现。
+  - header: '[:SOURce]:CURRent:STARt'
+    level: not_modeled
+    note: 电流扫描未实现。
+  - header: '[:SOURce]:CURRent:STOP'
+    level: not_modeled
+    note: 电流扫描未实现。
+  - header: '[:SOURce[c]]:<CURRent|VOLTage>:<CENTer|SPAN>'
+    level: not_modeled
+    note: 扫描中心/跨度未实现（用 :STARt/:STOP）。
+  - header: '[:SOURce[c]]:<CURRent|VOLTage>[:LEVel]:TRIGgered[:AMPLitude]'
+    level: not_modeled
+  - header: '[:SOURce[c]]:<CURRent|VOLTage>:RANGe:AUTO:LLIMit'
+    level: not_modeled
+  - header: '[:SOURce[c]]:<CURRent|VOLTage>:STEP'
+    level: not_modeled
+    note: 扫描步长未实现（用点数定义）。
+  - header: '[:SOURce]:DIGital:DATA'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce]:DIGital:EXTernal[n][:FUNCtion]'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce]:DIGital:EXTernal[n]:POLarity'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce]:DIGital:EXTernal[n]:TOUTput[:EDGE]:POSition'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce]:DIGital:EXTernal[n]:TOUTput[:EDGE]:WIDTh'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce]:DIGital:EXTernal[n]:TOUTput:TYPE'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce]:DIGital:INTernal[c]:TOUTput[:EDGE]:POSition'
+    level: not_modeled
+    note: GPIO 数字 I/O 与触发引脚未实现。
+  - header: '[:SOURce[c]]:FUNCtion:TRIGgered:CONTinuous'
+    level: not_modeled
+    note: 连续触发输出未实现。
+  - header: '[:SOURce[c]]:LIST:<CURRent|VOLTage>'
+    level: not_modeled
+    note: 列表扫描未实现。
+  - header: '[:SOURce[c]]:LIST:<CURRent|VOLTage>:APPend'
+    level: not_modeled
+    note: 列表扫描未实现。
+  - header: '[:SOURce[c]]:LIST:<CURRent|VOLTage>:POINts?'
+    level: not_modeled
+    note: 列表扫描未实现。
+  - header: '[:SOURce[c]]:LIST:<CURRent|VOLTage>:STARt'
+    level: not_modeled
+    note: 列表扫描未实现。
+  - header: '[:SOURce[c]]:PULSe:DELay'
+    level: not_modeled
+    note: 脉冲输出未实现（只做直流）。
+  - header: '[:SOURce[c]]:PULSe:WIDTh'
+    level: not_modeled
+    note: 脉冲输出未实现（只做直流）。
+  - header: '[:SOURce[c]]:SWEep:DIRection'
+    level: not_modeled
+    note: 扫描方向未实现（只从起始扫到终止）。
+  - header: '[:SOURce[c]]:SWEep:RANGing'
+    level: not_modeled
+    note: 扫描量程模式未实现（按自动量程跟随）。
+  - header: '[:SOURce[c]]:SWEep:SPACing'
+    level: not_modeled
+    note: 对数扫描未实现（只做线性）。
+  - header: '[:SOURce[c]]:SWEep:STAir'
+    level: not_modeled
+    note: 单次/双向扫描未实现（只做单次）。
+  - header: '[:SOURce[c]]:TOUTput:SIGNal'
+    level: not_modeled
+    note: 触发输出端口未实现。
+  - header: '[:SOURce[c]]:TOUTput[:STATe]'
+    level: not_modeled
+    note: 触发输出端口未实现。
+  - header: '[:SOURce[c]]:WAIT:AUTO'
+    level: not_modeled
+    note: 源等待时间未实现。
+  - header: '[:SOURce[c]]:WAIT:GAIN'
+    level: not_modeled
+    note: 源等待时间未实现。
+  - header: '[:SOURce[c]]:WAIT:OFFSet'
+    level: not_modeled
+    note: 源等待时间未实现。
+  - header: '[:SOURce[c]]:WAIT[:STATe]'
+    level: not_modeled
+    note: 源等待时间未实现。
+- section: STATus Subsystem
+  commands:
+  - header: :STATus:<MEASurement|OPERation|QUEStionable>:CONDition?
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:<MEASurement|OPERation|QUEStionable>:ENABle
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:<MEASurement|OPERation|QUEStionable>[:EVENt]?
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:<MEASurement|OPERation|QUEStionable>:NTRansition
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:<MEASurement|OPERation|QUEStionable>:PTRansition
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:PRESet
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:CONDition?
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:ENABle
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>[:EVENt]?
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:NTRansition
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:PTRansition
+    level: not_modeled
+    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+- section: SYSTem Subsystem
+  commands:
+  - header: :SYSTem:BEEPer:STATe
+    level: accepted
+    affects_data: false
+    note: 蜂鸣器开关保存并回读；不影响测量。
+  - header: :SYSTem:COMMunicate:GPIB[:SELF]:ADDRess
+    level: accepted
+    affects_data: false
+    note: GPIB 地址保存并回读（不影响仿真）。
+  - header: :SYSTem:COMMunicate:LAN:DHCP
+    level: accepted
+    affects_data: false
+    note: DHCP 开关保存并回读（不影响仿真）。
+  - header: :SYSTem:DATA:QUANtity
+    level: implemented
+    note: 数据缓冲中的点数。
+  - header: :SYSTem:DATE
+    level: implemented
+    note: 虚拟仪表的日期（引擎内置）。
+  - header: :SYSTem:ERRor:ALL
+    level: implemented
+    note: 清空并给出全部错误队列条目（引擎内置）。
+  - header: :SYSTem:ERRor:COUNt
+    level: implemented
+    note: 错误队列条目数（引擎内置；回复不带 + 号）。
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 取下一条错误（引擎内置；+0,"No error"）。
+  - header: :SYSTem:FAN:MODE
+    level: accepted
+    affects_data: false
+    note: 风扇模式保存并回读（不影响仿真）。
+  - header: :SYSTem:INTerlock:TRIPped
+    level: implemented
+    note: 互锁未触发，回复 0。
+  - header: :SYSTem:LFRequency
+    level: implemented
+    note: 线频率 50/60 Hz；决定 NPLC 读数时间。
+  - header: :SYSTem:TIME
+    level: implemented
+    note: 虚拟仪表的时间（引擎内置）。
+  - header: :SYSTem:VERSion
+    level: implemented
+    note: SCPI 版本 1999.0。
+  - header: :SYSTem:BEEPer[:IMMediate]
+    level: not_modeled
+    note: 立即鸣叫是面板动作，未实现（开关已建模）。
+  - header: :SYSTem:COMMunicate:ENABle
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:ADDRess
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:BSTatus?
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:<LAN|TCPip>:CONTrol?
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:DNS[c]
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:DOMain?
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:<GATE|GATeway>
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:<HNAMe|HOSTname>
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:MAC?
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:SMASk
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:TELNet:PROMpt
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:TELNet:WMESsage
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:UPDate
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:COMMunicate:LAN:WINS[c]
+    level: not_modeled
+    note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+  - header: :SYSTem:ERRor:CODE:ALL?
+    level: not_modeled
+    note: 只给错误码的查询未实现（用 :SYSTem:ERRor?）。
+  - header: :SYSTem:ERRor:CODE[:NEXT]?
+    level: not_modeled
+    note: 只给错误码的查询未实现（用 :SYSTem:ERRor?）。
+  - header: :SYSTem:GROup[:DEFine]
+    level: not_modeled
+    note: 通道分组未实现（单通道）。
+  - header: :SYSTem:GROup:RESet
+    level: not_modeled
+    note: 通道分组未实现（单通道）。
+  - header: :SYSTem:LANGuage
+    level: not_modeled
+    note: 命令集语言（DEF/2400）未实现。
+  - header: :SYSTem:LOCK:NAME?
+    level: not_modeled
+    note: 接口锁定未实现。
+  - header: :SYSTem:LOCK:OWNer?
+    level: not_modeled
+    note: 接口锁定未实现。
+  - header: :SYSTem:LOCK:RELease
+    level: not_modeled
+    note: 接口锁定未实现。
+  - header: :SYSTem:LOCK:REQuest?
+    level: not_modeled
+    note: 接口锁定未实现。
+  - header: :SYSTem:PON
+    level: not_modeled
+    note: 上电状态、预置与设置块未实现。
+  - header: :SYSTem:PRESet
+    level: not_modeled
+    note: 上电状态、预置与设置块未实现。
+  - header: :SYSTem:SET
+    level: not_modeled
+    note: 上电状态、预置与设置块未实现。
+  - header: :SYSTem:TIME:TIMer:COUNt?
+    level: not_modeled
+    note: 计时器未实现。
+  - header: :SYSTem:TIME:TIMer:COUNt:RESet:AUTO
+    level: not_modeled
+    note: 计时器未实现。
+  - header: :SYSTem:TIME:TIMer:COUNt:RESet[:IMMediate]
+    level: not_modeled
+    note: 计时器未实现。
+- section: TRACe Subsystem
+  commands:
+  - header: :TRACe:CLEar
+    level: implemented
+    note: 清空读数缓冲。
+  - header: :TRACe:DATA
+    level: implemented
+    note: 读出全部缓冲读数，元素 VOLT,CURR,RES,TIME,STAT（分页参数与 SOUR 未实现）。
+  - header: :TRACe:POINts:ACTual
+    level: implemented
+    note: 缓冲中的读数条数。
+  - header: :TRACe[c]:FEED
+    level: not_modeled
+    note: 缓冲数据源选择未实现（固定为测量数据）。
+  - header: :TRACe[c]:FEED:CONTrol
+    level: not_modeled
+    note: 缓冲写入控制未实现。
+  - header: :TRACe[c]:FREE?
+    level: not_modeled
+    note: 剩余缓冲大小未实现。
+  - header: :TRACe[c]:POINts
+    level: not_modeled
+    note: 缓冲大小设置未实现（固定 100000 点）。
+  - header: :TRACe[c]:STATistic:DATA?
+    level: not_modeled
+    note: 统计未实现。
+  - header: :TRACe[c]:STATistic:FORMat
+    level: not_modeled
+    note: 统计未实现。
+  - header: :TRACe[c]:TSTamp:FORMat
+    level: not_modeled
+    note: 时间戳格式未实现。
+- section: TRIGger Subsystem
+  commands:
+  - header: :ABORt
+    level: implemented
+    note: 停止等待/进行中的触发运行（全部设备动作）。
+  - header: :ABORt:ACQuire
+    level: implemented
+    note: 停止测量动作（与全局 ABORt 同一实现）。
+  - header: :ABORt:TRANsient
+    level: not_modeled
+    note: 只停止源输出动作未实现。
+  - header: :INITiate[:IMMediate]
+    level: implemented
+    note: 开始一次运行；立即触发时立即取数，BUS 时等待触发。
+  - header: :INITiate:ACQuire
+    level: implemented
+    note: 开始测量动作（与 INITiate 同一实现）。
+  - header: :INITiate:TRANsient
+    level: not_modeled
+    note: 只开始源输出动作未实现。
+  - header: :TRIGger:SOURce[:SIGNal]
+    level: implemented
+    note: 触发源 AINT（自动内部）或 BUS（*TRG）；TIMer/INT/LAN/EXT 未实现。
+  - header: :TRIGger:ACQuire:SOURce[:SIGNal]
+    level: implemented
+    note: 与 ALL 的触发源共用一组设置。
+  - header: :TRIGger:TRANsient:SOURce[:SIGNal]
+    level: implemented
+    note: 与 ALL 的触发源共用一组设置。
+  - header: :TRIGger:COUNt
+    level: implemented
+    note: 一次运行的触发次数（1–100000）。
+  - header: :TRIGger:ACQuire:COUNt
+    level: implemented
+    note: 与 ALL 的触发次数共用一组设置。
+  - header: :TRIGger:TRANsient:COUNt
+    level: implemented
+    note: 与 ALL 的触发次数共用一组设置。
+  - header: :TRIGger:DELay
+    level: implemented
+    note: 每个触发到取数的延迟。
+  - header: :TRIGger:ACQuire:DELay
+    level: implemented
+    note: 与 ALL 的触发延迟共用一组设置。
+  - header: :TRIGger:TRANsient:DELay
+    level: implemented
+    note: 与 ALL 的触发延迟共用一组设置。
+  - header: :ARM<:ACQuire|:TRANsient|[:ALL]>[:IMMediate]
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:BYPass
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:COUNt
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:DELay
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:SOURce:LAN
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:SOURce[:SIGNal]
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:TIMer
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:TOUTput:SIGNal
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :ARM[c]<:ACQuire|:TRANsient|[:ALL]>[:LAYer]:TOUTput[:STATe]
+    level: not_modeled
+    note: ARM 层未实现（单层触发模型）。
+  - header: :IDLE[c]<:ACQuire|:TRANsient|[:ALL]>?
+    level: not_modeled
+    note: 等待空闲的查询未实现（用 *OPC?）。
+  - header: :TRIGger[c]<:ACQuire|:TRANsient|[:ALL]>:BYPass
+    level: not_modeled
+    note: 触发/ARM 旁路未实现。
+  - header: :TRIGger<:ACQuire|:TRANsient|[:ALL]>[:IMMediate]
+    level: not_modeled
+    note: 立即触发命令未实现（AINT 时 INIT 即取数，BUS 时用 *TRG）。
+  - header: :TRIGger[c]<:ACQuire|:TRANsient|[:ALL]>:SOURce:LAN
+    level: not_modeled
+    note: LXI 触发未实现。
+  - header: :TRIGger[c]<:ACQuire|:TRANsient|[:ALL]>:TIMer
+    level: not_modeled
+    note: 定时触发源未实现。
+  - header: :TRIGger[c]<:ACQuire|:TRANsient|[:ALL]>:TOUTput:SIGNal
+    level: not_modeled
+    note: 触发输出端口未实现。
+  - header: :TRIGger[c]<:ACQuire|:TRANsient|[:ALL]>:TOUTput[:STATe]
+    level: not_modeled
+    note: 触发输出端口未实现。
