@@ -9,4 +9,4 @@ instruments:
     model: siglent-sds2104xplus
 wires:
   - {from: awg.OUT1, to: scope.CH1}
-run: {seed: 1, clock: command}
+run: {seed: 1, clock: command, idle: "off"}
