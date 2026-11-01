@@ -197,14 +197,14 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| input | `counter_input`(尚不存在) | 电路(阻抗/耦合)+ 数据(阈值、低通) | F(#192)拆出 |
-| gate | `counter_gate`(尚不存在) | 数据(门时间、门控源) | F 拆出 |
-| timebase | `counter_timebase`(尚不存在)或 `reference_clock` | 数据(时基与参考) | F 拆出 |
-| counter | `counter_core`(尚不存在) | 数据(计数、内插、时间间隔) | F 拆出 |
-| statistics | `counter_statistics`(尚不存在) | 数据(均值/最小/最大/标准差) | F 拆出 |
-| trigger | `trigger_model` | 数据 | — |
+| input | `counter_input`(每通道一个) | 电路(阻抗 1 MΩ/50 Ω)+ 数据(耦合、阈值、灵敏度) | — |
+| gate | `counter_gate` | 数据(门时间、门控源、时基带来的真实门长) | — |
+| timebase | `reference_clock`(现有) | 数据(内部/外部 10 MHz 时基误差) | — |
+| counter | `counter_core` | 数据(频率、周期、累加、时间间隔;采样器接口给触发模型) | — |
+| statistics | `counter_statistics` | 数据(均值/最小/最大/样本标准差) | — |
+| trigger | `trigger_model`(现有) | 数据 | — |
 
-53230A 的无间隙连续测量与时间戳不在首波,记入缺口清单。
+F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控、时基、计数、统计与触发),类别默认面板见 `library/panels.py` 的 `_counter`。计数按主谱线的周期事件建模:阈值穿越的波形用 `sample_rel` 在一个周期上采样并线性内插;非谐波相关的多音信号按最强谱线计数(模型边界)。时间间隔加两个通道各自的触发误差(默认 1 ns,模型值,按虚拟时刻与种子确定)。门控「外部」表示由触发模型开始这一轮(触发源),门长仍由门时间给出。53230A 的无间隙连续测量与时间戳不在首波,记入缺口清单。
 
 ## 首波缺口(随类别节记录,第 4 步汇总)
 

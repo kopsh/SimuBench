@@ -571,3 +571,19 @@
 | 视觉基线与本地结果 | ✅ Storybook 构建通过；`pnpm visual` 在 macOS 上按已知平台差异失败（Linux 基线），本 PR 未改组件库样式，不更新基线 |
 | 缺口（记入清单） | ✅ 缓冲的暂停/续采（SR830 的 PAUS/REST）不在首波，触发模型按一次运行取满点数；AUX 的 DAC 精度与噪声未建模；SR830 的 IGND/ISRC 等接地与输入方式命令留给 #195 按手册核对（本模型单端输入，必要时另开能力 issue）；锁相的 1/f 噪声、真实 PLL 捕获时间与通信延迟仍不建模（validation-lockin.md 已写明） |
 | `scripts/check.sh` 通过 | ✅ 1193 项 pytest 全绿 |
+
+## F：频率计数器的输入调理、门控、时基与测量模式（Issue 192，#181 的 F）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 输入调理按通道实例化（53220A 两个通道） | ✅ `counter_input`：引脚阻抗在电路层（1 MΩ / 50 Ω 设置，`electrical` 状态触发重解），耦合、阈值与灵敏度在数据层；`sb-counter-1` 的 `a`、`b` 两个实例接 CH1/CH2 |
+| 门控组件：门时间、门控源（内部/外部） | ✅ `counter_gate`：门时间与门控源；真实门长 = 门时间 /（1 + 时基误差），外部源表示这一轮由触发模型开始 |
+| 时基组件：内部/外部参考，复用 `reference_clock` | ✅ `sb-counter-1` 用 `reference_clock`（`ROSCillator:SOURce` 切换），时基误差按频谱仪同一约定缩放读数 |
+| 测量模式：频率、周期、累加、时间间隔（两通道事件） | ✅ `counter_core`：频率/周期用门内事件的倒数计数（快时基读低 ε），累加数门内事件，时间间隔取 A 的首个事件到 B 的下一个事件并加两通道触发误差；SCPI `:MEASure:FREQuency/PERiod/TOTalize/TINTerval?`，门时间计入虚拟时间 |
+| 统计：均值/最小/最大/标准差 | ✅ `counter_statistics`：`:CALCulate:STATistics:MEAN/MINimum/MAXimum/SDEViation/COUNt/CLEar`，样本标准差（n−1） |
+| 粒度与命名按 D50 | ✅ 每个块是真实功能块（`counter_input`、`counter_gate`、`counter_core`、`counter_statistics`），参数参与仿真；阈值穿越按主谱线周期建模，多音/非谐波信号按最强谱线计数（模型边界，记入 component-map） |
+| 计数器类别的默认面板 | ✅ `panels._counter`：按功能切换的主读数（频率/周期/累加/时间间隔）、统计均值/标准差/点数，测量模式按键、门控（门时间/门控源/每轮读数）与两路输入的耦合/阻抗/阈值/灵敏度；本地 e2e 冒烟通过 |
+| 块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_counter_is_built_from_its_real_blocks`：输入、门控、时基、计数、统计、触发六块全覆盖 |
+| 新组件有单元与场景测试 | ✅ `tests/test_counter.py` 9 项：频率/周期与门时间的虚拟时间、时基 2 ppm、累加计数、两通道时间间隔与触发误差、阈值/灵敏度拒绝、50 Ω 加载、AC 耦合去直流、统计、触发模型一次运行多读数 |
+| 缺口（记入清单） | ✅ 53230A 的无间隙连续测量与时间戳不在首波；触发误差是模型值（1 ns，按虚拟时刻与种子确定），不是手册指标；非谐波信号按最强谱线计数（模型边界）；外部门控只表示触发源，门输入信号电平不建模 |
+| `scripts/check.sh` 通过 | ✅ 1206 项 pytest 全绿 |
