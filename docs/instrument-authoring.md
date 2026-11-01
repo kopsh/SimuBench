@@ -137,6 +137,21 @@ params:
   ```
 - 静态校验：`read` 的路径必须存在（`E-DEF-STATE`）；`read` 只能与 `op` 同用，`set_value` 只能与无参数的状态命令同用（模型校验）。运行时写入的常量仍按状态的类型、范围与枚举校验。
 
+### 2.8 命令头写常量（#117）
+
+`CONFigure` 一类命令用命令头选择功能，同时带量程/分辨率参数。多状态命令可以加 `writes: {<设置>: <常量>}`：参数全部校验通过后，先写常量（参数因此在新功能下生效），再按参数顺序写设置；常量不合法时整条命令不生效，错误码同参数。
+
+```yaml
+- header: ":CONFigure[:VOLTage]:DC"
+  query: false
+  writes: {sense.function: VOLT}
+  params:
+    - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range}
+    - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
+```
+
+查询仍只回答参数（常量不是参数）。`writes` 只能与写设置的参数同用（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。
+
 ## 3. 通用波形传输与采集（G2、G3）
 
 ### 3.1 `waveform_transfer`
@@ -224,6 +239,7 @@ params:
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
 | `E-DEF-PANEL-STATE`、`E-DEF-PANEL-CONTROL`、`E-DEF-PANEL-VALUE` | 面板（`display.panel`，7.3）引用的设置不存在；控件与设置的类型不相容（`switch` 用于布尔、`select` 用于枚举、`number` 用于数值，数值或字符串的 `buttons` 要写出 `keys`）或设置只读；按键、软键、`sets` 与 `when` 的取值不是可选项、超出范围或类型不符（#128） |
+| `E-DEF-WRITE` | 命令 `writes` 的常量不是该设置的选项、类型不符或超出范围（#117） |
 | `E-DEF-PANEL-READING`、`E-DEF-PANEL-ACTION`、`W-DEF-PANEL-IGNORED` | 读数不是 `<组件>.<读数>` 或组件不存在；软键的面板动作既不在 `display.actions` 中也没有采集组件执行；有专用屏幕的类别声明了面板（不使用） |
 
 ### 5.2 组件元数据（G7）

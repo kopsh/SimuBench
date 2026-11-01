@@ -264,6 +264,12 @@ class CommandSpec(_Model):
     args: dict[str, Any] = Field(
         default_factory=dict, description="Constant arguments passed to the operation"
     )
+    writes: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Settings a multi-setting command writes along with its parameters, e.g. "
+        "{sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the "
+        "function. Validated like a parameter and written before them (the parameters win)",
+    )
     factor: float = Field(
         1.0,
         description="The command's number is the bound setting times factor: :TIMebase:RANGe is "
@@ -300,6 +306,11 @@ class CommandSpec(_Model):
         if self.read is not None and self.op is None:
             raise ValueError(
                 f"command {self.header!r}: read (the setting a query reads) goes with an operation command"
+            )
+        if self.writes and not self.bound_params:
+            raise ValueError(
+                f"command {self.header!r}: writes goes with parameters that write settings "
+                "(it selects e.g. a function beside them)"
             )
         if self.set_value is not None:
             if self.state is None:
