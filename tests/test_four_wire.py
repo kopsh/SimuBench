@@ -82,8 +82,8 @@ def row(s, cmd: str = ":MEAS?") -> tuple[float, ...]:
 
 
 def force_hi(s) -> float:
-    core = s.instruments["smu"].components["core"]
-    return core.pin_signal("hi").mean()
+    out = s.instruments["smu"].components["out"]
+    return out.pin_signal("hi").mean()
 
 
 # ---- the acceptance readings: 11 V two-wire, 10 V four-wire ----------------------------------------
@@ -197,9 +197,9 @@ def test_floating_lo_reads_across_its_own_terminals(open_):
     # Manual: 1 A x 10 = 10 V across the resistor; nothing else references ground, so the solver
     # splits it symmetrically (GMIN): +5 V and -5 V, and the meter reads their difference.
     assert row(s) == pytest.approx((10.0, 1.0, 10.0, 5.24e-2, 0.0), abs=5e-5)
-    core = s.instruments["smu"].components["core"]
-    assert core.pin_signal("hi").mean() == pytest.approx(5.0, abs=5e-5)
-    assert core.pin_signal("lo").mean() == pytest.approx(-5.0, abs=5e-5)
+    out = s.instruments["smu"].components["out"]
+    assert out.pin_signal("hi").mean() == pytest.approx(5.0, abs=5e-5)
+    assert out.pin_signal("lo").mean() == pytest.approx(-5.0, abs=5e-5)
 
 
 def test_ground_lo_bonds_the_low_wire(open_):
@@ -212,8 +212,8 @@ def test_ground_lo_bonds_the_low_wire(open_):
     # With floating: false the LO net is bonded to ground (1e-6 ohm): the whole 10 V appears
     # against ground, the bond lifts it by 1 µV.
     assert row(s)[0] == pytest.approx(10.0, abs=5e-5)
-    core = s.instruments["smu"].components["core"]
-    assert core.pin_signal("lo").mean() == pytest.approx(0.0, abs=5e-5)
+    out = s.instruments["smu"].components["out"]
+    assert out.pin_signal("lo").mean() == pytest.approx(0.0, abs=5e-5)
 
 
 # ---- a sense terminal left unconnected ---------------------------------------------------------------

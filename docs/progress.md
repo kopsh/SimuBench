@@ -461,3 +461,15 @@
 | 号域可校验：号码块覆盖全部通道、号码不重复 | ✅ `test_numbering_must_cover_every_channel`、`test_numbering_must_not_repeat_a_channel_number`；`schemas/instrument.schema.json` 与 `openapi.json` 重新生成 |
 | 决定可查 | ✅ `docs/decisions.md` D51 |
 | `scripts/check.sh` 全绿 | ✅ 提交前全绿 |
+
+## B1：拆分 smu_core 为真实框图组件（Issue 184，#181 的 B1）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 按 component-map 的框图拆：源 DAC → V/I 控制环 → 输出级 → V/I 测量；每块先定求解层级 | ✅ `library/components/smu.py`：`smu_source`（设置/数据：源量程、包络、扫描）、`output_control_loop`（电路决策：D34 的模式与限值，持有 mode）、`smu_output`（电路：HI/LO、sense、浮地、继电器，piecewise 逐点更新模式）、`smu_meter`（电路量程电阻 + 数据：NPLC、A/D、sampler）；`docs/blocks/smu.yaml` 与 component-map 的 smu 节同步 |
+| 为 B2 定接口：限值切换控制环可被电源输出级复用 | ✅ `output_control_loop` 不引用 SMU 的任何组件：function/v_level/i_level/i_limit/v_limit/output 全部经参数绑定，输出级把量得的端电压与源电流传给 `update_mode`；`envelope` 是可选引用（SMU 的源量程封顶），电源没有它 |
+| D34 限值切换、四线、浮地的行为不变；`sb-smu-1` 与相关场景迁移到新组件 | ✅ `tests/test_smu_migration.py` 的 34 条金标准消息回复与虚拟时间逐条不变；`acceptance/test_smu_scenario.py` 11 项、`test_four_wire.py` 15 项、`test_smu_trigger.py` 7 项通过；`validation/instruments/sb-smu-1.yaml` 与 `tests/definitions/test-smu-trigger.yaml` 已改成四块（测量组件仍名 `core`） |
+| 金标准与现有 sb-* 验收场景不改通过；`tests/test_model_components.py` 通过 | ✅ `ALLOWED` 未新增（四个组件都是通用组件）；扫描的点仍按 D34 逐点求解，`run_begin`/`run_done` 恢复被驱动设置 |
+| SMU 类别的块覆盖检查（S1 建立）通过 | ✅ `tests/test_block_coverage.py::test_the_validation_smu_is_built_from_its_real_blocks` 对 `sb-smu-1` 逐块检查，六块全覆盖 |
+| 界面不坏：Web 专用屏幕与 TUI 仪表屏幕 | ✅ 读数仍在名为 `core` 的 `smu_meter` 上（`core.voltage`/`core.regulation`/`core.buffer_*` 键不变），面板与快照未改；Web 的组件标签补了四个新类型 |
+| `scripts/check.sh` 通过 | ✅ 提交前全绿 |

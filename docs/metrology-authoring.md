@@ -115,7 +115,7 @@
 
 ### 3.4 `smu_core` 迁移（#94）
 
-`smu_core` 实现 `sampler` 协议，扫描的每一点也经它产生读数；它自己的缓冲区删除，`sb-smu-1` 改用 `trigger_model` 与 `reading_buffer`，回复、虚拟时间与运行记录逐条不变。源与测量的量程（`source_ranges`、`measure_ranges` 与自动量程）和第 2 节共用量程选择的实现，现在的 21 V / 105 mA 包络成为默认表中的一项。
+`smu_core` 实现 `sampler` 协议，扫描的每一点也经它产生读数；它自己的缓冲区删除，`sb-smu-1` 改用 `trigger_model` 与 `reading_buffer`，回复、虚拟时间与运行记录逐条不变。源与测量的量程（`source_ranges`、`measure_ranges` 与自动量程）和第 2 节共用量程选择的实现，现在的 21 V / 105 mA 包络成为默认表中的一项。B1（#184）之后这一块按真实框图拆成 `smu_source`、`output_control_loop`、`smu_output`、`smu_meter`：`sampler` 与量程（本节与 3.6）现在在 `smu_meter` 上，本节以下的 `smu_core` 指它当时的整块实现。
 
 ### 3.6 实现（#94）
 

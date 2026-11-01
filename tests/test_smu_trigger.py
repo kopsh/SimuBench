@@ -11,7 +11,7 @@ from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
 DEFS = Path(__file__).parent / "definitions"
-# One reading at 1 PLC with autozero on: 50 µs + 3 phases + firmware, the rule smu_core shares.
+# One reading at 1 PLC with autozero on: 50 µs + 3 phases + firmware, the rule the SMU meter shares.
 NPLC_S = 50e-6 + 3 * (1.0 / 60.0 + 185e-6) + 1.8e-3
 OVERLOAD = 9.9e37
 
