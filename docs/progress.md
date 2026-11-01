@@ -511,3 +511,18 @@
 | 界面不坏：LoadScreen 与 TUI | ✅ 测量组件仍名 `load`，`load.voltage/current/power/regulating` 键不变；本地 e2e 42/42、TUI 启动级 87 项与 24 个快照通过 |
 | 缺口（记入清单） | ✅ Von 在阈值附近没有滞回、DC 模型可能模式抖动；动态/列表（C2）另排；OTP 与 DL3000 的 OCP/OPP/OVP 命令映射留给 #194（手册的 OCP/OPP 是测试模式命令组） |
 | `scripts/check.sh` 通过 | ✅ 1159 项 pytest 全绿 |
+
+## B2：可编程电源的设定、控制环、功率级、输出、回读、保护与组合（Issue 185，#181 的 B2）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 输出级组件，每路一块：设定 → CV/CC 行为复用 B1 的限值切换控制环 → 输出继电器/sense → 回读 | ✅ `sb-ps-1` 三路（CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 −25 V/1 A）：`power_supply_setpoint`、`output_control_loop`（复用，新增 `channel_envelope` 接口接通道的功率级）、`power_stage`（v_max/i_max/p_max 包络）、`power_output`（继电器、sense、输出阻抗，盖章的源）、`supply_readback` |
+| OVP/OCP 的锁定与恢复 | ✅ `supply_protection`：越限锁定、以 E36300 的 **729** 拒绝开输出、`OUTP:PROT:CLE` 恢复故障前的输出状态；故障后输入停止导通 |
+| 组合模式只在输出 2 与 3：跟踪、并联、串联；不做成任意路的通用组合 | ✅ `supply_tracking`：跟踪 `CH3=−|CH2|`、并联/串联 `CH3=−CH2`，两路输出必须关闭才能切换；物理连接由测试台连线表示（并联把负输出交叉、串联共负端），文档写明 |
+| 多路输出实例化（D15）；输出时序计入虚拟时间（D12） | ✅ 每路是通道组件实例；继电器动作时间 `relay_s`（初始状态就是输出开也生效），回读含约 0.5 mV 的输出阻抗压降 |
+| 电源类别的默认面板 | ✅ `panels._power_supply`：每路的电压/电流回读与保护状态，输出开关与电压/电流设定，输出 2/3 的组合键 |
+| 金标准测试与现有 sb-* 验收场景不改通过 | ✅ 类别新建、无金标准；1176 项 pytest 与既有验收场景通过 |
+| 新组件有单元测试与场景测试（OVP/OCP 触发、输出 2/3 组合模式） | ✅ `tests/test_power_supply.py` 11 项（CV/继电器、CC、负输出、OVP/OCP 锁定与清除、729、跟踪镜像、切换需关闭、并联 4.12 V/2.06 A、串联 10 V/0.1 A、读数键）；`acceptance/test_ps_scenario.py` 2 项（`ps_combo.bench.yaml`） |
+| 电源类别的块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_power_supply_is_built_from_its_real_blocks`：设定、控制环、功率级、输出、回读、保护、组合七块全覆盖 |
+| 缺口（记入清单） | ✅ 动态/列表、触发、数据记录与校准不在首波；组合时禁用 CH3 单独编程（手册 720）与设备错误码留给 #198；输出 3 在组合中的端子约定按测试台连线 |
+| `scripts/check.sh` 通过 | ✅ 提交前全绿 |

@@ -231,7 +231,11 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                 cmd.header,
             )
             continue
-        per_channel = any(n.suffix == "ch" for n in pattern.nodes)
+        # A channel-list parameter also runs the command per channel (#183): its settings and
+        # operations are channel state, even without a <ch> header suffix.
+        per_channel = any(n.suffix == "ch" for n in pattern.nodes) or any(
+            p.type == "channel_list" for p in cmd.params
+        )
         if cmd.state is not None:
             _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
         if cmd.op is not None:

@@ -1,0 +1,19 @@
+schema: simubench.bench/2
+name: ps_combo
+description: >-
+  三路电源（B2 #185 场景）：CH1 接 10 Ω；CH2 与 CH3 按并联接法驱动 2 Ω——CH2+ 与 CH3−、CH2− 与
+  CH3+ 相连（负输出交叉），两路以同一极性向负载供电。
+instruments:
+  ps:
+    model: sb-ps-1
+parts:
+  r1: {type: resistor, params: {r: 10.0}}
+  r2: {type: resistor, params: {r: 2.0}}
+wires:
+  - {from: ps.OUT1+, to: r1.A}
+  - {from: r1.B, to: ps.OUT1-}
+  - {from: ps.OUT2+, to: r2.A}
+  - {from: ps.OUT3-, to: r2.A}
+  - {from: r2.B, to: ps.OUT2-}
+  - {from: r2.B, to: ps.OUT3+}
+run: {clock: command, seed: 1}
