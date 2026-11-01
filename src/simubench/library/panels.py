@@ -196,7 +196,35 @@ def _calibrator(d: InstrumentDefinition) -> Panel | None:
     return Panel(readouts=readouts, groups=groups, softkeys=_action_keys(d))
 
 
-_DEFAULTS = {"multimeter": _multimeter, "calibrator": _calibrator}
+def _daq(d: InstrumentDefinition) -> Panel | None:
+    """DAQ class default (#191 E2): the reading of the channel just scanned, the scan list and
+    the closed relays, with the scan's own settings and Run / Stop. The scan table carries all of
+    them, so a new DAQ with the components gets the same panel."""
+    scan = _first(d, "scan_table")
+    mux = _first(d, "mux_card")
+    if scan is None or mux is None:
+        return None
+    readouts = [
+        PanelReadout(reading=f"{scan.name}.channel", label="通道", label_en="Channel", digits=3),
+        PanelReadout(reading=f"{scan.name}.reading", label="读数", label_en="Reading", unit="V", digits=7),
+        PanelReadout(reading=f"{scan.name}.list", label="扫描表", label_en="Scan list"),
+        PanelReadout(reading=f"{mux.name}.closed", label="闭合通道", label_en="Closed channels"),
+    ]
+
+    used: set[str] = set()
+    groups: list[PanelGroup] = []
+    dmm = _first(d, "dmm_conditioning")
+    adc = _first(d, "dmm_adc")
+    measure = _controls(d, [c for c in (dmm, adc) if c is not None], used)
+    if measure:
+        groups.append(PanelGroup(label="测量", label_en="Measure", controls=measure))
+    scanning = _controls(d, [scan], used)
+    if scanning:
+        groups.append(PanelGroup(label="扫描", label_en="Scan", controls=scanning))
+    return Panel(readouts=readouts, groups=groups, softkeys=_action_keys(d))
+
+
+_DEFAULTS = {"multimeter": _multimeter, "calibrator": _calibrator, "daq": _daq}
 _FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V"}
 
 

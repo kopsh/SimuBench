@@ -485,3 +485,16 @@
 | 金标准测试、sb-* 验收场景与 34465A 手册用例不改通过 | ✅ 1127 项 pytest；`tests/models/keysight-34465a/cases.yaml` 与 `tests/test_keysight_34465a.py` 通过；`sb-dmm-1`、`meter-core-test`、`cal-store-test`、`test-range-meter`、`test-trigger-meter` 与 e2e 的 panel fixture 迁移到三组件 |
 | 界面不坏：34465A 的 Web 面板与 TUI 仪表屏幕仍工作；PR 在本地跑端到端与视觉并记录 | ✅ 读数仍在名为 `meter` 的 `dmm_adc` 上（`meter.DC`/`meter.AC` 不变）；`pnpm e2e` 42/42 通过，TUI 启动级 87 项与 24 个快照通过；视觉在本机 macOS 与 Linux 基线有平台差异（未更新基线，main 的 Linux runner 跑） |
 | `scripts/check.sh` 通过 | ✅ 提交前全绿 |
+
+## E2：DAQ 背板、多路复用卡与扫描表（Issue 191，#181 的 E2）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 首波固定配置（34970A + 槽 1 的 34901A）；插卡表达不引入新格式 | ✅ `sb-daq-1`：`channels.numbering` 101–120（#207），`daq_backplane` 声明三个槽位与槽 1 的 34901A；可配置插卡、数字 I/O 与总加器进缺口清单，不新增文件格式 |
+| 多路复用卡：继电器状态、闭合限制、通道到内部 DMM 的切换；**继电器在电路层** | ✅ `mux_card`：20 路 H/L 继电器经触点电阻接模拟总线，总线载内部 DMM 的输入阻抗（取自 `dmm_input_terminal`，高阻量程会改变它）；闭合限制默认 1（扫描时 break-before-make），第二路闭合报 -221；`tests/test_daq.py` 覆盖闭合/查询、限制、加载效应（5 V 经 1 MΩ 分压为 4.545 V）与断开 |
+| 扫描表：通道列表、计数与间隔；与内部 DMM、触发、缓冲联动 | ✅ `scan_table` 作为 sampler：列表 × 扫描次数、升序扫描（34970A 规则；写下的顺序保留在 `ROUT:SCAN?`）、每点先断后合、读数带 `CHAN` 字段；`:READ?` 返回通道与读数、`:DATA:POIN?` 计数；扫描间隔是设置（首波计时 = 继电器建立时间 + DMM 读数时间） |
+| DAQ 类别默认面板 | ✅ `panels._daq`：刚扫描的通道与读数、扫描表、闭合通道；功能与 NPLC、扫描次数与间隔；Run / Stop 软键（`display.actions`）；`test_panel_layout.py` 的用例 |
+| DAQ 块覆盖检查（S1 建立）通过 | ✅ `test_block_coverage.py::test_the_validation_daq_is_built_from_its_real_blocks`：背板、卡、扫描表、内部 DMM、触发、缓冲六块全覆盖 |
+| 新组件有单元测试与场景测试 | ✅ `tests/test_daq.py` 11 项：号域（101 与内部序号 1、121 越界）、闭合/限制、加载效应、扫描顺序与次数、空扫描表、间隔、扫描后开路、定义校验；`acceptance/test_daq_scenario.py` 2 项（`acceptance/benches/daq_scan.bench.yaml`：1 V / 2 V / 4 V 经 1 MΩ 的 10/11 分压与升序扫描、闭合限制） |
+| 顺带修掉的问题 | ✅ `_parse_params` 的 `channel_list` 参数没有按号域映射（操作命令的逐通道上下文会用外部号码）：改为与 `channel_list` 命令同一套 `channel_index`/`channel_number`，DAQ 的 `ROUT:CLOS (@101)` 因此落到 `ch1.closed`；扫描的每点读数经新增的 `dmm_adc.measure()`，与测量命令一样先做自动量程判定（否则第二路 2 V 在 1 V 档读成超量程） |
+| `scripts/check.sh` 通过 | ✅ 提交前全绿 |

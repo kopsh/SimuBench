@@ -78,6 +78,29 @@ def test_calibrator_default_is_the_output_with_operate_and_standby_keys():
     assert [(k.label, k.value) for k in operate.keys or []] == [("OPER", True), ("STBY", False)]
 
 
+def test_daq_default_is_the_scan_and_the_closed_relays():
+    panel, source = effective_panel(definition(ROOT / "validation" / "instruments" / "sb-daq-1.yaml"))
+    assert source == "class_default" and panel is not None
+    # The channel just read, the reading, the scan list and the closed relays.
+    assert [r.reading for r in panel.readouts] == [
+        "scan.channel",
+        "scan.reading",
+        "scan.list",
+        "mux.closed",
+    ]
+    groups = {g.label: g.controls for g in panel.groups}
+    assert list(groups) == ["测量", "扫描"]
+    assert [(c.state, c.control) for c in groups["测量"]] == [
+        ("sense.function", "select"),
+        ("sense.nplc", "number"),
+    ]
+    assert [(c.state, c.control) for c in groups["扫描"]] == [
+        ("scan.count", "number"),
+        ("scan.interval", "number"),
+    ]
+    assert [s.action for s in panel.softkeys] == ["run", "stop"]
+
+
 def test_declared_panel_wins_and_dedicated_screens_have_none():
     panel, source = effective_panel(definition(PANEL))
     assert (
