@@ -548,7 +548,12 @@ export const zh = {
       output_control_loop: "CV/CC 控制环",
       smu_output: "输出级",
       smu_meter: "V/I 测量",
-      spectrum_analyzer: "频谱分析",
+      specan_input: "输入衰减",
+      specan_mixer: "混频与参考",
+      specan_if: "中频滤波",
+      specan_detector: "检波",
+      specan_vbw: "视频滤波",
+      specan_trace: "迹线与扫描",
     },
   },
   clients: {

@@ -551,7 +551,12 @@ export const en: Widen<Messages> = {
       output_control_loop: "CV/CC control loop",
       smu_output: "Output stage",
       smu_meter: "V/I meter",
-      spectrum_analyzer: "Spectrum analysis",
+      specan_input: "Input attenuator",
+      specan_mixer: "Mixer and reference",
+      specan_if: "IF filter",
+      specan_detector: "Detector",
+      specan_vbw: "Video filter",
+      specan_trace: "Trace and scan",
     },
   },
   clients: {
