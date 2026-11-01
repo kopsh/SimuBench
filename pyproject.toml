@@ -79,6 +79,8 @@ markers = [
   # the same tiering as the end-to-end and visual tests (AGENTS.md).
   "tui_boot: needs a running Textual app or server",
   "unit: pure logic, the D49 budget guard applies (<=100 ms per test)",
+  # Wall-clock budgets (test_performance.py): red on a busy machine, green on an idle one.
+  "load_sensitive: needs an idle machine; runs on main, not in the fast checks",
 ]
 
 [tool.mypy]

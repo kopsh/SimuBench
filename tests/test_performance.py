@@ -5,6 +5,10 @@ import time
 import tracemalloc
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.load_sensitive  # wall-clock budgets: runs on main, not in the fast checks (D49)
+
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
