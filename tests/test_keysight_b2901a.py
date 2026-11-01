@@ -3,7 +3,8 @@
 The manual cases (tests/models/keysight-b2901a/) check command by command; these tests run the
 real-instrument-style sweep script (examples/scripts/keysight_b2901a_sweep.py) on the example
 bench, the compliance limit switch against a hand calculation, and the virtual time of a reading
-and a staircase sweep.
+and a staircase sweep. The script reads the measurement array with FETCh:ARRay? (not the trace
+buffer, which needs TRACe:FEED:CONTrol NEXT on a real instrument).
 """
 
 import importlib.util
