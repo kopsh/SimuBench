@@ -47,7 +47,7 @@ def bench() -> BenchDefinition:
                         "am.depth": 30.0,
                         "am.rate": 1e6,
                     },
-                    "hidden": {"core": {"offset_ppm": 2.0}},
+                    "hidden": {"reference": {"ppm": 2.0}},
                 },
                 "sa": {
                     "model": "sb-sa-1",

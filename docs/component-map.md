@@ -146,14 +146,15 @@ D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路�
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| reference | `reference_clock`(现有)或 `rf_reference`(尚不存在) | 数据(时基误差) | D2(#188)拆出 |
-| synthesizer | `rf_synthesizer`(尚不存在) | 数据(载波频率) | D2 拆出 |
-| modulator | `rf_modulator`(尚不存在) | 数据(AM/FM/PM 与卡森规则) | D2 拆出 |
-| level_control | `rf_level_control`(尚不存在) | 数据(电平、ALC) | D2 拆出 |
-| attenuator | `rf_attenuator`(尚不存在) | 数据/电路(输出衰减) | D2 拆出 |
-| output | `rf_output`(尚不存在) | 电路(50 Ω 输出) | D2 拆出 |
+| reference | `rf_reference`(`reference_clock` 加 REF_OUT) | 数据(时基误差) | — |
+| synthesizer | `rf_synthesizer` | 数据(载波频率、列表与步进扫描) | — |
+| modulation_source | `rf_mod_source` | 数据(调制频率,随同一时基;相位约定) | — |
+| modulator | `rf_modulator` | 数据(AM/FM/PM 与卡森规则、谱线预算) | — |
+| level_control | `rf_level_control` | 数据(电平,ALC 的 dBm→EMF) | — |
+| attenuator | `rf_attenuator` | 数据(输出衰减;本模型 0 dB) | — |
+| output | `output_stage`(通用) | 电路(50 Ω 戴维南输出) | — |
 
-现有 `sb-sg-1` 用整块 `rf_generator_core`;D2 拆分后 validation 定义改用它,金标准与射频源验收场景不改通过。脉冲/任意波调制不由首波块清单承担,记入缺口清单。
+D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migration.py`)与射频源验收场景不改通过。电平是理想的、衰减器固定 0 dB(`validation-rfgen.md`),所以输出级用通用的 `output_stage`(D50:同一行为不另造装饰组件)。脉冲/任意波调制不由首波块清单承担,记入缺口清单。
 
 ## lockin
 
@@ -211,4 +212,4 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 - 射频源的脉冲调制与任意波调制(#197 的未实现范围)。
 - DAQ 的可配置插卡、数字 I/O 与总加器(34907A,第二波)。
 - 频率计数器的 53230A 独有功能(无间隙测量、时间戳)。
-- 现有整块组件的债务:`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。
+- 现有整块组件的债务:`lockin_demodulator` 由 D3(#189)替换;5522A、SDG2042X 的拆分在第二波。

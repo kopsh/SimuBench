@@ -540,3 +540,18 @@
 | 界面不坏：SpectrumScreen 与 TUI | ✅ 读数与迹线键不变；本地 e2e 42/42、TUI 启动级 87 项与 24 快照通过 |
 | 缺口（记入清单） | ✅ N9320B 的型号命令组、触发/门控与列表扫描不在首波（型号 #196）；迹线噪声按基准走，未加参考相位噪声 |
 | `scripts/check.sh` 通过 | ✅ 1179 项 pytest 全绿 |
+
+## D2：拆分射频源为真实框图组件（Issue 188，#181 的 D2）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 第一步：重构前录金标准（消息、回复、虚拟时间），单独提交；隐藏时基与卡森规则拒绝也录进去 | ✅ 首个提交 `7d240a5`：`tests/test_rfgen_migration.py` + `tests/data/rfgen_gold.json`（132 步）；覆盖载波与电平、AM、FM/PM 到卡森规则、999 条谱线预算的 −222 与状态回滚（含运行中改调制频率触发的那一条）、脉冲调制 −221、超范围 −222、列表与步进扫描（线性/对数）、REF_OUT 开关、EXT 无参考时回退内部、隐藏时基（2 ppm：`:FREQ?` 读设定值而线上每条谱线带误差）、0.5 s 时钟推进；信号记录的是 RF_OUT 与 REF_OUT 两个网上的谱线；所有命令 0 ns。拆分前在 monolith 上通过 |
+| 按 component-map 框图拆分；每块定求解层级 | ✅ `rf_reference`（`reference_clock` 加 REF_OUT，时基误差与锁定）、`rf_synthesizer`（载波、列表/步进计划、`:INIT`/`:TRIG`）、`rf_mod_source`（内部低频调制源：三个调制频率随同一时基、FM 的 −π/2 相位）、`rf_modulator`（AM/FM/PM、卡森截断、β 与谱线预算）、`rf_level_control`（dBm→EMF）、`rf_attenuator`（步进衰减器）；50 Ω 输出用通用 `output_stage`（D50：同一行为不另造 `rf_output`）。除输出在电路层（戴维南源）外都是数据层 |
+| 低频源（调制信号）单列 | ✅ `rf_mod_source`：调制频率在低频源上乘以时基误差（FM/PM 边带的位置），调制器用同一频率算 β = 频偏/频率；两者都绑定同一组 `am.rate`/`fm.rate`/`pm.rate`，改频率时由调制器做预算检查 |
+| 隐藏状态只由测量发现；同步不在求解中读输入 | ✅ `rf_reference.sync()` 在信号变化时读 REF_IN 并缓存锁定状态（与旧整块相同的 invalidate 规则）；`error()` 只读缓存，避免求解电路时再次读输入 |
+| `sb-sg-1` 定义与相关验收场景迁移 | ✅ 九个组件（reference/synth/mod_source/mod/level/att/rf/ref_out/ref_in）；隐藏状态路径改为 `reference.ppm`（`validation/benches/rfgen.bench.yaml`、`acceptance/benches/rfgen.bench.yaml`、`tests/test_internals.py` 同步）；金标准 2 项、`validation-rfgen.md` 的验收场景 34 项、`tests/test_model_components.py` 不改通过 |
+| 射频源类别的块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_rf_generator_is_built_from_its_real_blocks`：参考、合成器、调制源、调制器、电平、衰减器、输出七块全覆盖；`docs/blocks/rf_generator.yaml` 增加调制源块，输出块接受通用 `output_stage` |
+| 界面不坏：射频源的 Web 屏幕与 TUI 仪表屏幕 | ✅ 读数键改为组件限定：`synth.frequency/point/points`、`mod.lines/beta/omitted_power`、`reference.locked`；`RfGeneratorScreen` 与 i18n 的六个新组件类型同步；读数契约由 `tests/test_server.py` 的新用例守住（频率在合成器、谱线数与 β 在调制器、锁定在参考）。本地 e2e 42/42，另跑一次射频源屏幕冒烟（载波读数 1 GHz、谱线数 1、内部时基）；TUI 启动级 87 项与 24 快照通过（TUI 仪表屏幕按模板通用渲染，射频源没有专用读数键） |
+| 视觉基线与本地结果 | ✅ Storybook 构建通过；`pnpm visual` 在 macOS 上按已知平台差异失败（Linux 基线），本 PR 未改组件库样式，不更新基线 |
+| 缺口（记入清单） | ✅ 衰减器固定 0 dB（电平在全程精确，`validation-rfgen.md`）；脉冲/任意波调制不由首波块清单承担；型号 #197 现在可以开始 |
+| `scripts/check.sh` 通过 | ✅ 1183 项 pytest 全绿 |

@@ -20,7 +20,7 @@ export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: 
   const on = (k: string) => vars.get(k)?.value === true;
   const mode = String(vars.get("freq.mode")?.value ?? "CW");
   const external = vars.get("rosc.source")?.value === "EXTernal";
-  const locked = v["core.reference_locked"] !== false;
+  const locked = v["reference.locked"] !== false;
 
   const groups: [string, string[]][] = [
     [t("rfgen.carrier"), ["freq.cw", "power.level", "output.enabled"]],
@@ -53,25 +53,25 @@ export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: 
           {mode !== "CW" && (
             <span className="text-muted-foreground num ml-auto">
               {t("rfgen.point", {
-                point: num("core.point"),
-                points: num("core.points"),
+                point: num("synth.point"),
+                points: num("synth.points"),
               })}
             </span>
           )}
         </header>
         <div className="grid grid-cols-2 divide-x" aria-live="polite">
-          <Readout label={t("rfgen.frequency")} value={num("core.frequency")} unit="Hz" strong digits={10} testId="F" />
+          <Readout label={t("rfgen.frequency")} value={num("synth.frequency")} unit="Hz" strong digits={10} testId="F" />
           <Readout label={t("rfgen.level")} value={numeric(vars.get("power.level")?.value)} unit="dBm" plain testId="L" />
         </div>
         <footer className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 border-t px-3 py-2 text-[11px]">
           <span>
-            {t("rfgen.lines")} {num("core.lines")}
+            {t("rfgen.lines")} {num("mod.lines")}
           </span>
-          {num("core.beta") > 0 && (
+          {num("mod.beta") > 0 && (
             <>
-              <span>β {num("core.beta").toPrecision(4)}</span>
+              <span>β {num("mod.beta").toPrecision(4)}</span>
               <span>
-                {t("rfgen.omitted")} {(num("core.omitted_power") * 100).toFixed(3)} %
+                {t("rfgen.omitted")} {(num("mod.omitted_power") * 100).toFixed(3)} %
               </span>
             </>
           )}
