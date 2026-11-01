@@ -162,17 +162,33 @@ state:
     label_en: Timebase
     option_labels: {INTernal: 内部, EXTernal: 外部 10 MHz}
 components:
-  - name: core
-    type: rf_generator_core
+  # 射频源的真实功能块（D2 #188、D50）：参考/时基 → 合成器 → 调制源与调制器 → 电平（ALC）→ 衰减器 → 输出。
+  - name: reference
+    type: rf_reference
+    params:
+      source: $rosc.source
+      ref_out: $rosc.output
+  - name: synth
+    type: rf_synthesizer
     params:
       frequency: $freq.cw
-      level: $power.level
       mode: $freq.mode
       start: $sweep.start
       stop: $sweep.stop
       points: $sweep.points
       spacing: $sweep.spacing
       manual: $list.manual
+      clock: reference
+  - name: mod_source
+    type: rf_mod_source
+    params:
+      am_rate: $am.rate
+      fm_rate: $fm.rate
+      pm_rate: $pm.rate
+      clock: reference
+  - name: mod
+    type: rf_modulator
+    params:
       am: $am.state
       am_depth: $am.depth
       am_rate: $am.rate
@@ -183,8 +199,12 @@ components:
       pm_dev: $pm.dev
       pm_rate: $pm.rate
       pulm: $pulm.state
-      ref_out: $rosc.output
-      ref_source: $rosc.source
+      source: mod_source
+  - name: level
+    type: rf_level_control
+    params: {level: $power.level}
+  - name: att
+    type: rf_attenuator
   - name: rf
     type: output_stage
     params: {z_out: 50.0, enabled: $output.enabled}
@@ -196,9 +216,12 @@ components:
     params: {z_in: 50.0}
 wiring:
   instrument:
-    - [core.rf, rf.in]
-    - [core.ref, ref_out.in]
-    - [ref_in.out, core.ext]
+    - [reference.out, ref_out.in]
+    - [ref_in.out, reference.ref]
+    - [synth.out, mod.in]
+    - [mod.out, level.in]
+    - [level.out, att.in]
+    - [att.out, rf.in]
 ports:
   instrument:
     RF_OUT: rf.pin
@@ -227,18 +250,18 @@ commands:
   - header: "[:SOURce]:SWEep:DWELl"
     state: sweep.dwell
   - header: "[:SOURce]:LIST:FREQuency:POINts"
-    op: core.list_points
+    op: synth.list_points
     set: false
   - header: "[:SOURce]:LIST:FREQuency"
-    op: core.list_freq
+    op: synth.list_freq
     params: [{name: values, type: raw}]
   - header: "[:SOURce]:LIST:MANual"
     state: list.manual
   - header: ":INITiate[:IMMediate]"
-    op: core.initiate
+    op: synth.initiate
     query: false
   - header: ":TRIGger[:IMMediate]"
-    op: core.trigger
+    op: synth.trigger
     query: false
   - header: "[:SOURce]:POWer[:LEVel][:IMMediate][:AMPLitude]"
     state: power.level

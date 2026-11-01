@@ -6,7 +6,7 @@ instruments:
     model: sb-sg-1
     label: 射频信号源
     state: {freq.cw: 1.0e9, power.level: 0.0, output.enabled: true, am.depth: 30.0, am.rate: 1.0e6}
-    hidden: {core: {offset_ppm: 2.0}}
+    hidden: {reference: {ppm: 2.0}}
   sa:
     model: sb-sa-1
     label: 频谱仪
