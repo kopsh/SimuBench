@@ -147,3 +147,18 @@ def test_a_created_definition_describes_everything():
     kinds = {c.kind for c in out}
     assert {"command", "state", "component", "identity", "specs", "deviation", "description"} <= kinds
     assert all(c.action == "added" for c in out)
+
+
+def test_mapping_keys_of_different_types_compare_without_a_type_error():
+    """Specs keyed by range numbers and by function names together: YAML allows it, so the
+    comparison must sort them by type rather than compare int < str."""
+    old = {"specs": {"accuracy": {0.1: "0.02%", "DC": "0.01%"}}}
+    new = {"specs": {"accuracy": {0.1: "0.005%", "DC": "0.01%"}}}
+    [item] = definition_changes(old, new)
+    assert (item.kind, item.target, item.detail, item.old, item.new) == (
+        "specs",
+        "specs",
+        "accuracy.0.1",
+        "0.02%",
+        "0.005%",
+    )

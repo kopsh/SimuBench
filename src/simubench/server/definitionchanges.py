@@ -102,8 +102,10 @@ def _value(kind: str, target: str, a: Any, b: Any, detail: str | None = None) ->
         return [_item(kind, "removed", target, detail, a, None)]
     if isinstance(a, dict) and isinstance(b, dict):
         out: list[M.DefinitionChange] = []
-        for key in sorted(a.keys() | b.keys()):
-            out += _value(kind, target, a.get(key), b.get(key), key if detail is None else f"{detail}.{key}")
+        for key in sorted(a.keys() | b.keys(), key=_sort_key):
+            out += _value(
+                kind, target, a.get(key), b.get(key), str(key) if detail is None else f"{detail}.{key}"
+            )
         return out
     if isinstance(a, list) and isinstance(b, list) and all(_scalar(v) for v in [*a, *b]):
         out = [
