@@ -37,6 +37,7 @@ class FakeClient:
         self._fixture = fixture
         self.sid = fixture["session"]["id"]
         self.writes: list[tuple[str, str]] = []  # (instrument, command) via scpi
+        self.screen_requests: list[tuple[str, int | None]] = []  # (instrument, points)
         self.configures: list[tuple[str, str, Any]] = []  # (instrument, path, value)
         self.panels: list[tuple[str, str]] = []  # (instrument, action)
         self.locals: list[str] = []
@@ -80,6 +81,7 @@ class FakeClient:
         return list(self.fault_list)
 
     async def screen(self, sid: str, name: str, points: int | None = None) -> dict[str, Any]:
+        self.screen_requests.append((name, points))
         key = f"screen_{name}_{points}" if points else f"screen_{name}"
         return self._fixture[key]
 
