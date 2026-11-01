@@ -119,6 +119,24 @@ params:
   ```
 - **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；`INST:NSEL` 目前按「接受」实现（保存并回读选择），带通道列表的命令是常用子集的取数路径——若某型号必须经 NSEL 选择取值，另立能力 issue。
 
+### 2.7 无参数命令（#119）
+
+- **同一命令头：set 调操作，query 读设置**（`OPER` / `OPER?`）。操作命令加 `read: <设置>`：query 形式不调用操作，按 `reply` 模板回读该设置（默认 `{value}`），set 形式仍调操作。`{value}` 按定义/命令的 `format` 格式化，所以布尔量在 Fluke 的 numeric 格式下回 `1` / `0`。
+  ```yaml
+  - header: OPER
+    op: out.operate
+    args: {value: true}
+    read: out.operate
+  ```
+- **无参数、只置态的命令**（`LOCAL` / `REMOTE` / `LOCKOUT`）：状态命令加 `set_value`，没有参数时把该常量写入绑定设置，`query: false` 时没有查询；带参数的 set 仍按参数解析，两者不能同时用。
+  ```yaml
+  - header: LOCAL
+    state: interface
+    set_value: LOCAL
+    query: false
+  ```
+- 静态校验：`read` 的路径必须存在（`E-DEF-STATE`）；`read` 只能与 `op` 同用，`set_value` 只能与无参数的状态命令同用（模型校验）。运行时写入的常量仍按状态的类型、范围与枚举校验。
+
 ## 3. 通用波形传输与采集（G2、G3）
 
 ### 3.1 `waveform_transfer`

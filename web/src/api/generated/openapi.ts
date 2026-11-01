@@ -1429,6 +1429,11 @@ export interface components {
              */
             query: boolean;
             /**
+             * Read
+             * @description An operation command's query reads this setting instead of calling the operation: 'OPER' enters operate, 'OPER?' reads it (the setting the operation writes)
+             */
+            read?: string | null;
+            /**
              * Reply
              * @description Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply) and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
              */
@@ -1438,6 +1443,11 @@ export interface components {
              * @default true
              */
             set: boolean;
+            /**
+             * Set Value
+             * @description A setting command without parameters writes this constant and its query reads it back (LOCAL / REMOTE / LOCKOUT, which only set the interface state)
+             */
+            set_value?: unknown;
             /**
              * State
              * @description State path bound to the command, e.g. 'ch.frequency'

@@ -263,3 +263,22 @@ def test_the_output_floats_above_the_threshold_boundary():
         assert reading(s) == 0.0
     finally:
         s.close()
+
+
+def test_operate_query_and_the_host_port_commands():
+    """#119: OPER? reads the operate setting, and LOCAL / REMOTE / LOCKOUT save the interface state."""
+    s = open_bench(DMM_BENCH)
+    try:
+        q(s, "cal", "*RST")
+        assert q(s, "cal", "OPER?") == "0"
+        q(s, "cal", "OUT 10 V;OPER")
+        assert q(s, "cal", "OPER?") == "1"
+        q(s, "cal", "STBY")
+        assert q(s, "cal", "OPER?") == "0"
+        cal = s.instrument("cal")
+        for command in ("REMOTE", "LOCKOUT", "LOCAL"):
+            q(s, "cal", command)
+            assert cal.state["interface"] == command
+        assert q(s, "cal", "ERR?") == '0,"No Error"'
+    finally:
+        s.close()

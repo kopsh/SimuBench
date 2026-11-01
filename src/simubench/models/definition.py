@@ -248,6 +248,16 @@ class CommandSpec(_Model):
     header: str = Field(..., description="Header pattern, e.g. '[:SOURce<ch>]:FREQuency[:CW]'")
     state: str | None = Field(None, description="State path bound to the command, e.g. 'ch.frequency'")
     op: str | None = Field(None, description="Component operation, e.g. 'acq.digitize'")
+    read: str | None = Field(
+        None,
+        description="An operation command's query reads this setting instead of calling the operation: "
+        "'OPER' enters operate, 'OPER?' reads it (the setting the operation writes)",
+    )
+    set_value: Any = Field(
+        None,
+        description="A setting command without parameters writes this constant and its query reads it "
+        "back (LOCAL / REMOTE / LOCKOUT, which only set the interface state)",
+    )
     set: bool = True
     query: bool = True
     params: list[ParamSpec] = Field(default_factory=list)
@@ -287,6 +297,15 @@ class CommandSpec(_Model):
             raise ValueError(
                 f"command {self.header!r}: give one of state, op, or parameters bound to settings"
             )
+        if self.read is not None and self.op is None:
+            raise ValueError(
+                f"command {self.header!r}: read (the setting a query reads) goes with an operation command"
+            )
+        if self.set_value is not None:
+            if self.state is None:
+                raise ValueError(f"command {self.header!r}: set_value writes a setting; bind one with state")
+            if self.params:
+                raise ValueError(f"command {self.header!r}: set_value goes with a command without parameters")
         indexes = [p for p in self.params if p.index]
         lists = [p for p in self.params if p.type == "channel_list"]
         if len(lists) > 1:
