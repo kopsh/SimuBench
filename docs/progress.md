@@ -414,3 +414,28 @@
 | 对 `sb-dmm-1` 与 34465A 的真实修改各给出一份说明快照 | ✅ `tests/test_definition_history.py`：sb-dmm-1 改 `z_in` → `[(component, changed, input.z_in, None, 10.0e6, 1.0e9)]`；34465A 的直流档位表增加 0.01 → `[(component, added, meter.ranges, DC, None, 0.01)]` |
 | 只改注释或键的顺序时没有说明 | ✅ 重排键后保存：新版本、`changes == []`；外部只加注释的修改以 external 版本进入历史，其说明为空 |
 | `scripts/check.sh` 全绿 | ✅ MCP `create_definition` / `edit_definition` 返回 `changes`（`tests/test_mcp.py::test_edit_definition_reports_what_changed`，read 不返回）；HTTP `GET /api/definitions/{id}/history`（每版带相对上一版的说明）与 `GET /api/definitions/{id}/history/changes?base=&target=`（任意两版，base 0 = 创建）；schemas 与前端类型重新生成 |
+
+## SCPI 通道列表参数（Issue 183，#181 的 A）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 解析 `(@…)`：单通道、逗号列表、`:` 范围、数字间空格；空列表、重复通道与格式错各有错误 | ✅ `tests/test_channel_list.py` 的五组解析参数、`test_a_repeated_channel_is_an_error`、`test_a_descending_range_is_an_error`、`test_a_malformed_list_is_an_error` |
+| 展开语义：写入对列表中的每个通道各执行一次，每通道自己的量程生效；查询按列表顺序逗号拼接 | ✅ `test_a_write_expands_over_the_channels_with_each_channels_own_range`、`test_a_query_answers_the_channels_in_list_order`、`test_an_operation_with_a_list_runs_once_per_channel_and_joins` |
+| 作为值保存：`int_list` 状态接收 `(@…)`，查询把连续通道折叠成 `a:b` 回读 | ✅ `test_a_stored_list_saves_and_reads_back_as_a_list`、`test_a_stored_list_reads_back_collapsed` |
+| 与 `<n>` 数字后缀、`INST:SEL`/`INST:NSEL` 并存；每条命令至多一个通道列表参数 | ✅ 展开路径按参数声明执行；`docs/instrument-authoring.md` 2.6 写明声明方法 |
+| 非法通道报 -114；空列表与重复通道报 -108；倒序范围报 -222 | ✅ `test_a_channel_outside_the_instrument_is_an_error` 与上面两条 |
+| schemas 重新生成；`instrument-authoring.md` 写明声明方法；`scripts/check.sh` 全绿 | ✅ 提交前全绿 |
+| **已知缺口**：三位「槽位+通道」号域（34970A 的 101–320）在展开路径上仍按 `1..channel_count` 校验，跨槽位范围没有用例 | ⚠️ 本 issue 验收原文要求覆盖；由 **#207** 跟踪，E2（#191）之前解决 |
+
+## 就地扩展定义与模板重新展开的保护（Issue 169）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 就地扩展一次调用完成保存（`base_definition = definition_id`、`save=True`、带 `base_sha256`），来源 `agent`，进版本历史 | ✅ `tests/test_template_draft.py::test_the_draft_extends_a_template_definition_in_place_and_reexpansion_keeps_it`：补入 `:PERSIST`，最新一条历史来源为 `agent` |
+| 过期的 `base_sha256` 报 Conflict，文件不变 | ✅ 同一用例 |
+| 在模板定义上补命令后，不带 `discard_edits` 重新展开被拒绝，消息列出新增命令的 pointer，文件不变 | ✅ 同一用例：拒绝且列出 `/commands/<n>` |
+| 带 `discard_edits=True` 重新展开成功，补上的命令被移除 | ✅ 同一用例 |
+| 未经手工修改的模板定义重新展开，行为与现在一致 | ✅ 同一用例末段 |
+| #167 的验收流改为一次工具调用，其余断言不变 | ✅ `acceptance/test_lfcal_agent_scenario.py` 的 `_build` 用 `base_definition` + `save` + `base_sha256` 一次保存 |
+| #46 的既有起草流程（首建）不改通过 | ✅ `tests/test_mcp.py` 的起草用例 |
+| `scripts/check.sh` 全绿 | ✅ 提交前全绿 |
