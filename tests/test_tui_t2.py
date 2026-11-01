@@ -387,9 +387,8 @@ async def test_scope_screen_renders_traces_settings_and_actions():
         from simubench.tui.screens.scope import ScopeScreen
 
         assert isinstance(tui.screen, ScopeScreen)
-        text = await wait_flat(pilot, tui, "CH1 50.0 mV/div")
-        assert "1.000 ms/div" in text and "运行" in text and "采集" in text
-        assert "← rc.OUT · 10x 探头" in text  # the settings column's wiring line
+        text = await wait_flat(pilot, tui, "CH1 50.0 mV/div", "← rc.OUT · 10x 探头", "采集")
+        assert "1.000 ms/div" in text and "运行" in text
         assert "⠂" in text or "⠁" in text  # a braille trace rendered from the binned frame
         frame = tui.screen_data["scope"]
         assert frame["traces"][0]["minmax"] and frame["traces"][0]["volts"] == []
@@ -420,8 +419,8 @@ async def test_screen_points_requested_at_dot_width():
         await settle(pilot, tui)
         await open_instrument(pilot, tui, "scope")
         await wait_flat(pilot, tui, "CH1 50.0 mV/div")
-        # The frame the screen displays was fetched through client.screen(name, points).
-        assert tui.screen_data["scope"] is fake._fixture["screen_scope_140"]
+        # The screen fetched its frame at its own dot width (100 − 30) × 2.
+        await wait_for(pilot, lambda: ("scope", 140) in fake.screen_requests, message="points request")
 
 
 # ---- the reason dialog (tui-screens.md 9.1) ------------------------------------------------------------
