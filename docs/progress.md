@@ -396,3 +396,12 @@
 | 演示脚本同时产生运行记录，截图中的状态可在记录中复核 | ✅ 同一测试断言 `--record-dir` 里恰有一条记录，含外部客户端 `socket:127.0.0.1:5401` 的 `:SYSTem:ERRor?`、预设跳闸的 `-300` 与 `fault` 事件（来源 `bench`）；CLI 端到端测试也确认只开一个会话、只留一条记录 |
 | `scripts/check.sh` 全绿 | ✅ 快速层 1088 项约 45 s；`-m "tui_boot"` 87 项约 44 s；ruff、schema、Web 的 check:api/typecheck/lint/test 全绿 |
 | 顺带修掉的问题 | ✅ 跳闸只关 `output`、漏掉 `output.enabled`（`sb-smu-1` 的输出没关，`tests/test_faults.py`）；字幕与底栏两个 bottom dock 落同一行（改为同一个 footer）；`NO_COLOR` 主题用空串当颜色让样式表解析失败、整个 TUI 起不来（改 `ansi_default`，快照测试固定颜色主题）；CLI 无头路径的相对导入、`describe()` 调用、`asyncio.run` 参数位置与重复开会话四处错误（`tests/test_tui_t4_e2e.py`） |
+
+## 试运行一台仪表：MCP try_definition 与 HTTP 的临时会话、用例运行（Issue 126，instrument-authoring.md 7.2、7.4）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| `try_definition` 对 `sb-dmm-1` 与 `keysight-34465a` 返回的回复，与在测试台上发送相同命令一致 | ✅ `tests/test_mcp.py::test_try_definition_agrees_with_a_bench_session`：两个型号各 4 条命令（`*IDN?`、配置、测量、读），部署的测试台上 `send_scpi` 与 `try_definition` 的回复逐条相同；危险命令在临时会话中不需要 confirm，效果可见（`:SOUR1:FREQ?`） |
+| 临时会话存在时打开的测试台不受影响（端口、记录、状态）；空闲超时后被回收 | ✅ `tests/test_server.py::test_try_session_runs_alone_and_leaves_the_bench_alone`（`/api/sessions` 只列测试台、回复一致、收发/面板/设置可用、关闭后 404）；`test_try_session_binds_no_ports_and_writes_no_record`（`scpi_base_port=0` 下不发端口、`record_dir` 为空）；`test_try_session_is_reaped_after_the_idle_timeout`（超时后下一次访问回收） |
+| 用例运行结果与 `simubench cases` 一致（含一条失败用例的步骤、预期与实际） | ✅ 运行器加 `collect`（`tests/test_cases.py::test_steps_are_collected_only_when_asked`，默认报告不变）；HTTP `POST /api/definitions/{id}/cases/run` 逐条返回步骤（`test_definition_cases_are_listed_and_run_with_steps`，失败用例给出步号、命令、预期与实际）；`GET /api/definitions/{id}/cases` 按模型列出工作区用例文件 |
+| HTTP 与 MCP 各有测试；`scripts/check.sh` 全绿 | ✅ HTTP 四个新测试 + MCP 三个；974 项 pytest 通过；schemas 与 `web/src/api/generated/` 重新生成 |

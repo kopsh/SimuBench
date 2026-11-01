@@ -5,7 +5,10 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import threading
+import time
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -61,6 +64,93 @@ class ClientsConnected(RuntimeError):
 def is_remote(client: str | None) -> bool:
     """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
     return bool(client) and client.startswith(("socket:", "hislip:"))  # type: ignore[union-attr]
+
+
+@dataclass
+class TryEntry:
+    """One try session: which definition it serves, and when it was last used."""
+
+    served: ServedSession
+    definition: str
+    used: float
+
+
+class TrySessions:
+    """Temporary sessions with one instrument each (T2, instrument-authoring.md 7.2 and 7.4): try a
+    definition without a bench file, from the acceptance page or ``try_definition``.
+
+    A try session binds no SCPI port, writes no run record and never touches the bench session the
+    engineer has open (starting a bench stops other *bench* sessions only). It is closed explicitly,
+    or reaped after :data:`IDLE_S` of disuse; opening beyond :data:`MAX` retires the least recently
+    used one.
+    """
+
+    #: Concurrent try sessions: the page tries one instrument at a time, a few more for compares.
+    MAX = 4
+    #: A try session unused for this long (wall time) is closed at the next look.
+    IDLE_S = 600.0
+
+    def __init__(self, files: BenchFiles, idle_s: float = IDLE_S) -> None:
+        self.files = files
+        self.idle_s = idle_s
+        self._tries: dict[str, TryEntry] = {}
+        self._lock = threading.Lock()
+
+    def open(self, def_id: str) -> TryEntry:
+        """A fresh session with the definition's instrument alone; another for the same definition
+        replaces the previous one (it is a scratch session)."""
+        with self._lock:
+            self._sweep()
+            self.files.library(None).get(def_id)  # KeyError for an unknown id, before building
+            for sid, entry in list(self._tries.items()):
+                if entry.definition == def_id:
+                    self._close(sid)
+            while len(self._tries) >= self.MAX:
+                self._close(min(self._tries, key=lambda sid: self._tries[sid].used))
+            bench = BenchDefinition.model_validate(
+                {
+                    "schema": "simubench.bench/2",
+                    "name": f"try-{def_id}",
+                    "instruments": {def_id: {"model": def_id}},
+                }
+            )
+            session = open_bench(bench, definition_dirs=[self.files.workspace / "instruments"])
+            served = ServedSession(uuid.uuid4().hex[:12], session, None)
+            entry = TryEntry(served=served, definition=def_id, used=time.monotonic())
+            self._tries[served.id] = entry
+            return entry
+
+    def get(self, sid: str) -> TryEntry:
+        with self._lock:
+            entry = self._tries.get(sid)
+            if entry is None:
+                raise KeyError(sid)
+            if time.monotonic() - entry.used > self.idle_s:
+                self._close(sid)
+                raise KeyError(sid)
+            entry.used = time.monotonic()
+            return entry
+
+    def all(self) -> list[TryEntry]:
+        """The open try sessions, oldest use first, after reaping the expired ones."""
+        with self._lock:
+            self._sweep()
+            return sorted(self._tries.values(), key=lambda e: e.used)
+
+    def close(self, sid: str) -> None:
+        """Close a try session; closing an unknown or already closed one does nothing."""
+        with self._lock:
+            self._close(sid)
+
+    def _close(self, sid: str) -> None:
+        entry = self._tries.pop(sid, None)
+        if entry is not None:
+            entry.served.session.close()
+
+    def _sweep(self) -> None:
+        now = time.monotonic()
+        for sid in [sid for sid, e in self._tries.items() if now - e.used > self.idle_s]:
+            self._close(sid)
 
 
 class ServedSession:
@@ -153,6 +243,7 @@ class SessionManager:
         self.sessions: dict[str, ServedSession] = {}
         self.files = BenchFiles(workspace)
         self.runs = Runs(record_dir, [self.workspace / "instruments"])
+        self.tries = TrySessions(self.files)
         # Workspace plugins run code from the workspace: only with the engineer's consent (D3),
         # and before any bench is validated, so plugin types are known to the checks.
         if self.plugins_allowed():

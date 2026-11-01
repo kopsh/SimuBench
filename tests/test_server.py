@@ -200,3 +200,107 @@ def test_connected_scripts_are_listed_for_the_switch_confirm():
             time.sleep(0.05)  # gone once the script disconnects
         assert c.get(f"/api/sessions/{sid}").json()["clients"] == []
         c.delete(f"/api/sessions/{sid}")
+
+
+def test_try_session_runs_alone_and_leaves_the_bench_alone(client):
+    """A try session serves one instrument without a bench and without touching the open bench (T2)."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    t = client.post("/api/try/sb-dso-4").json()
+    assert t["instrument"] == "sb-dso-4" and t["session_id"] not in ("", None)
+    tried = client.post(f"/api/try/{t['session_id']}/scpi", json={"command": "*IDN?"}).json()
+    assert tried["response"].startswith("SIMUBENCH,SB-DSO-4")
+    same = client.post(f"/api/sessions/{sid}/instruments/scope/scpi", json={"command": "*IDN?"}).json()
+    assert same["response"] == tried["response"]  # the same model answers the same in both worlds
+    bad = client.post(f"/api/try/{t['session_id']}/scpi", json={"command": ":CHAN9:SCAL 1"}).json()
+    assert bad["errors"][0]["code"] == -114
+    panel = client.post(f"/api/try/{t['session_id']}/panel", json={"action": "stop"}).json()
+    assert panel["ok"]
+    ok = client.post(
+        f"/api/try/{t['session_id']}/configure", json={"path": "ch1.scale", "value": 0.05}
+    ).json()
+    assert ok["ok"] and ok["value"] == 0.05
+    # the try session is not a bench session: /api/sessions still lists only the bench
+    assert [s["id"] for s in client.get("/api/sessions").json()] == [sid]
+    assert [x["definition_id"] for x in client.get("/api/try").json()] == ["sb-dso-4"]
+    client.delete(f"/api/try/{t['session_id']}")
+    assert client.get("/api/try").json() == []
+    assert client.post(f"/api/try/{t['session_id']}/scpi", json={"command": "*IDN?"}).status_code == 404
+    assert client.post("/api/try/no-such-definition").status_code == 404
+
+
+def test_try_session_binds_no_ports_and_writes_no_record(tmp_path):
+    manager = SessionManager(ROOT / "validation", scpi_base_port=0, record_dir=tmp_path)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        t = c.post("/api/try/sb-dmm-1").json()
+        c.post(f"/api/try/{t['session_id']}/scpi", json={"command": "*IDN?"})
+        assert manager.tries.all()[0].served.scpi is None
+        assert manager.tries.all()[0].served.hislip is None
+        assert list(tmp_path.iterdir()) == []  # commands ran, nothing was recorded
+        c.delete(f"/api/try/{t['session_id']}")
+
+
+def test_try_session_is_reaped_after_the_idle_timeout():
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
+    manager.tries.idle_s = 0.0
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        t = c.post("/api/try/sb-dmm-1").json()
+        r = c.post(f"/api/try/{t['session_id']}/scpi", json={"command": "*IDN?"})
+        assert r.status_code == 404  # unused past the timeout: closed at the next look
+        assert manager.tries.all() == []
+
+
+def test_definition_cases_are_listed_and_run_with_steps(tmp_path):
+    import yaml
+
+    cases_dir = tmp_path / "cases"
+    cases_dir.mkdir()
+    (cases_dir / "dmm.cases.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "model": "sb-dmm-1",
+                "cases": [
+                    {"name": "idn", "steps": [{"query": "*IDN?", "expect_match": "SIMUBENCH,SB-DMM-1.*"}]},
+                    {
+                        "name": "bad",
+                        "manual": "Common Commands > *IDN?",
+                        "steps": [{"send": "*RST"}, {"query": "*IDN?", "expect": "ACME,DM2"}],
+                    },
+                ],
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    (cases_dir / "other.cases.yaml").write_text(
+        yaml.safe_dump({"model": "sb-awg-2", "cases": []}), encoding="utf-8"
+    )
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        assert c.get("/api/definitions/sb-dmm-1/cases").json() == [
+            {"path": "cases/dmm.cases.yaml", "cases": 2}
+        ]
+        assert c.get("/api/definitions/sb-awg-2/cases").json() == [
+            {"path": "cases/other.cases.yaml", "cases": 0}
+        ]
+        run = c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "cases/dmm.cases.yaml"}).json()
+        assert run["path"] == "cases/dmm.cases.yaml" and run["passed"] == 1 and run["failed"] == 1
+        idn, bad = run["cases"]
+        assert idn["passed"] and [(s["index"], s["ok"]) for s in idn["steps"]] == [(1, True)]
+        assert not bad["passed"] and bad["step"] == 2 and bad["command"] == "*IDN?"
+        assert bad["expected"] == "'ACME,DM2'" and bad["actual"].startswith("SIMUBENCH,SB-DMM-1,")
+        assert [(s["index"], s["action"], s["ok"]) for s in bad["steps"]] == [
+            (1, "send", True),
+            (2, "query", False),
+        ]
+        assert c.get("/api/definitions/no-such-def/cases").status_code == 404
+        assert (
+            c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "cases/none.cases.yaml"}).status_code
+            == 404
+        )
+        assert c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "../x.yaml"}).status_code == 403
