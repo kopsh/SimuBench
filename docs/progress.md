@@ -425,7 +425,7 @@
 | 与 `<n>` 数字后缀、`INST:SEL`/`INST:NSEL` 并存；每条命令至多一个通道列表参数 | ✅ 展开路径按参数声明执行；`docs/instrument-authoring.md` 2.6 写明声明方法 |
 | 非法通道报 -114；空列表与重复通道报 -108；倒序范围报 -222 | ✅ `test_a_channel_outside_the_instrument_is_an_error` 与上面两条 |
 | schemas 重新生成；`instrument-authoring.md` 写明声明方法；`scripts/check.sh` 全绿 | ✅ 提交前全绿 |
-| **已知缺口**：三位「槽位+通道」号域（34970A 的 101–320）在展开路径上仍按 `1..channel_count` 校验，跨槽位范围没有用例 | ⚠️ 本 issue 验收原文要求覆盖；由 **#207** 跟踪，E2（#191）之前解决 |
+| **已知缺口**：三位「槽位+通道」号域（34970A 的 101–320）在展开路径上仍按 `1..channel_count` 校验，跨槽位范围没有用例 | ✅ 已由 **#207** 补上号域、跨槽位范围与用例（见下节），E2（#191）不再被它阻塞 |
 
 ## 就地扩展定义与模板重新展开的保护（Issue 169）
 
@@ -450,3 +450,14 @@
 | 回填型号 issue #193–#200 的常用子集、`*IDN?`、手册来源 | ✅ 各 issue 的「S1 回填（#201）」评论；B2901A 的手册库文件是 User's Guide，命令参考另为 B2910-90030（Edition 2, July 2011） |
 | D50（粒度与命名）与 D42（2450 第二波）落地；AGENTS.md 与 real-model/SKILL.md 同步 | ✅ #204 已合并；SKILL.md 的「能力 issue 挂 #181」与块清单步骤已同步 |
 | `scripts/check.sh` 全绿 | ✅ |
+
+## 通道列表的号域：槽位+通道的号码（Issue 207，#183 的遗漏）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 三位槽位号域的定义：`(@101:103)` 展开写入与查询各有用例；非法槽位/通道报错 | ✅ `tests/test_channel_list.py` 的 DAQ 定义（`channels.numbering` = 101、102、201、202）：`test_a_write_and_a_query_use_the_declared_numbers`、`test_a_default_channel_list_uses_the_declared_numbers`、`test_a_suffix_uses_the_declared_number`、`test_a_number_the_numbering_does_not_declare_is_an_error`（-114）与倒序范围（-222） |
+| 跨槽位范围（`(@101:205)`）按 34970A 手册处理：无效通道忽略、首尾必须有效 | ✅ `test_a_range_may_span_slots_and_skips_numbers_the_numbering_does_not_declare`（`(@101:202)` 展开为 4 个已声明通道；首尾未声明 → -114） |
+| `instrument-authoring.md` 写明号域的声明方法；号域也作用于 `<n>` 后缀与 `int_list` 状态 | ✅ 2.6 新增「通道号域」；`test_a_stored_list_uses_the_declared_numbers` |
+| 号域可校验：号码块覆盖全部通道、号码不重复 | ✅ `test_numbering_must_cover_every_channel`、`test_numbering_must_not_repeat_a_channel_number`；`schemas/instrument.schema.json` 与 `openapi.json` 重新生成 |
+| 决定可查 | ✅ `docs/decisions.md` D51 |
+| `scripts/check.sh` 全绿 | ✅ 提交前全绿 |

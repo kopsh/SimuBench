@@ -1223,6 +1223,22 @@ export interface components {
             /** Instruments */
             instruments: components["schemas"]["DefinitionSummary"][];
         };
+        /**
+         * ChannelNumbering
+         * @description One block of channel numbers: ``first`` .. ``first + count - 1``, numbers SCPI uses.
+         */
+        ChannelNumbering: {
+            /**
+             * Count
+             * @description How many channels the block has, e.g. 20
+             */
+            count: number;
+            /**
+             * First
+             * @description The block's first channel number, e.g. 101
+             */
+            first: number;
+        };
         /** Channels */
         Channels: {
             /**
@@ -1230,6 +1246,11 @@ export interface components {
              * @default 1
              */
             count: number;
+            /**
+             * Numbering
+             * @description The numbers SCPI uses for the channels, when they are not 1..count: blocks in channel order, e.g. a 3-slot DAQ's 101-120, 201-220, 301-320. State paths and channels.overrides keep the channel index (1..count).
+             */
+            numbering?: components["schemas"]["ChannelNumbering"][];
             /**
              * Overrides
              * @description Per-channel overrides of channel_state specs, e.g. {3: {frequency: {max: 2e8}}}
