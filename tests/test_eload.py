@@ -29,7 +29,7 @@ def bench(source_v: float = 5.0, source_r: float = 1e-6, *, state: dict | None =
             "instruments": {"el": {"model": "sb-el-1", **({"state": state} if state else {})}},
             "parts": {"src": {"type": "dc_supply", "params": {"v": source_v, "r": source_r}}},
             "wires": [{"from": "src.OUT", "to": "el.IN"}],
-            "run": {"clock": "command", "seed": 1},
+            "run": {"clock": "command", "seed": 1, "idle": "off"},
         }
     )
 
