@@ -42,7 +42,7 @@ def load_bench() -> BenchDefinition:
             "instruments": {"dut": {"model": "rigol-dl3021"}},
             "parts": {"src": {"type": "dc_supply", "params": {"v": 10.0, "r": 0.1}}},
             "wires": [{"from": "src.OUT", "to": "dut.IN"}],
-            "run": {"clock": "command", "seed": 3},
+            "run": {"clock": "command", "seed": 3, "idle": "off"},
         }
     )
 
