@@ -3,8 +3,9 @@
 The flow follows the Command Reference's source/trigger chapters: select the voltage source, set
 the current compliance, turn the output on, take a spot reading with MEASure, configure a linear
 staircase sweep (source mode SWE, start/stop/points, trigger count = points), start it with
-INITiate, wait with *OPC?, and read the trace buffer with TRACe:DATA?. It runs unchanged against a
-real B2901A or a SimuBench bench:
+INITiate, wait with *OPC?, and read the measurement array with FETCh:ARRay?. FETCh does not need
+the trace buffer to be armed (TRACe:FEED:CONTrol defaults to NEVer), so the same script runs
+against a real B2901A or a SimuBench bench:
 
     python keysight_b2901a_sweep.py TCPIP0::192.168.1.40::INSTR
     python keysight_b2901a_sweep.py smu --bench examples/benches/keysight_b2901a.bench.yaml
@@ -54,8 +55,8 @@ def main() -> None:
     smu.write(f":TRIG:COUN {POINTS}")
     smu.write(":INIT")
     smu.query("*OPC?")
-    measured = int(smu.query(":TRAC:POIN:ACT?"))
-    values = numbers(smu.query(":TRAC:DATA?"))
+    measured = int(smu.query(":SYST:DATA:QUAN?"))
+    values = numbers(smu.query(":FETC:ARR?"))
     error = smu.query(":SYST:ERR?")
     smu.write(":OUTP OFF;:SOUR:VOLT:MODE FIX")
     smu.close()
