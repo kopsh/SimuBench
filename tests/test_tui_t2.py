@@ -554,7 +554,7 @@ HINTS = [
             "reason": "not_modeled",
             "origin": "siglent-sds2104xplus.coverage.yaml",
         },
-        "未实现 · 覆盖表 siglent-sds2104xplus.coverage.yaml 中标为未实现",
+        "未建模 · 覆盖表 siglent-sds2104xplus.coverage.yaml 中标为未实现",
     ),
     (
         "error",

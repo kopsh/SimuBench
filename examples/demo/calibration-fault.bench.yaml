@@ -1,0 +1,42 @@
+schema: simubench.bench/2
+name: calibration_demo_fault
+description: >-
+  定标演示的故障版本：参考源在第 2 秒断开 30 秒，脚本应报错退出。
+  其余与 calibration.bench.yaml 相同。定标演示：Fluke 5522A 作参考源接到 Keysight 34465A 的输入。34465A 带按量程的隐藏增益与零点
+  误差（部分量程超差、交流 1 V 点在限值内），校准后各点回到限值内；运行开始日期固定，便于讲解
+  台账与到期日。
+instruments:
+  cal:
+    model: fluke-5522a
+    state: {out.function: DCV, out.level: 0.0}
+  dut:
+    model: keysight-34465a
+    hidden:
+      path:
+        gain_error_ppm:
+          DC: {0.1: 400.0, 1: 250.0, 10: 200.0, 100: 180.0, 1000: 150.0}
+          AC: 350.0
+        offset: 3.0e-4
+wires:
+  - {from: cal.OUT, to: dut.IN}
+assets:
+  - serial: MY57440001
+    model: 34465A
+    status: in_use
+    cal_date: 2025-05-01
+    cal_due: 2026-05-20
+    certificate: CAL-2025-0417
+    notes: 演示用万用表，校准即将到期
+  - serial: "5248101"
+    model: 5522A
+    status: in_use
+    cal_date: 2026-01-10
+    cal_due: 2027-01-10
+    certificate: REF-2026-0031
+    notes: 参考源，在有效期内
+run: {seed: 7, clock: command, idle: "off", start: "2026-05-04T09:00:00Z"}
+faults:
+  - {kind: disconnect, instrument: cal, at_s: 2.0, duration_s: 30.0}
+layout:
+  cal: {x: 0, y: 0}
+  dut: {x: 340, y: 0}

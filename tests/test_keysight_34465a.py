@@ -272,3 +272,37 @@ def test_deviation_shifts_the_reading_within_the_data_sheet_limit():
         assert reading == pytest.approx(10.0, abs=30e-6 * 10 + 4e-6 + 1e-6)
     finally:
         s.close()
+
+
+def test_the_calibration_set_form_adjusts_without_answering():
+    """#9: a set operation never answers; ``CAL`` adjusts silently, ``CAL?`` reports the result."""
+    s = open_bench(cal_bench())
+    try:
+
+        def q(inst, cmd):
+            s.write(inst, (cmd + "\n").encode())
+            out = s.read(inst)
+            return out.decode().strip() if out else None
+
+        def level(v):
+            q("src", f":SOUR:VOLT {v}")
+
+        q("dmm", "*RST")
+        level(0.0)
+        q("dmm", 'CAL:SEC:STAT OFF,"AT3446XA"')
+        s.write("dmm", b":VOLT:DC:RANG 1;:VOLT:DC:RANG:AUTO OFF\n")
+        s.write("dmm", b":CAL:VAL 0\n")
+        assert s.read("dmm") is None  # an operation's set form does not answer
+        s.write("dmm", b":CAL\n")
+        assert s.read("dmm") is None
+        level(1.0)
+        s.write("dmm", b":CAL:VAL 1\n")
+        s.write("dmm", b":CAL\n")
+        s.write("dmm", b":CAL:STOR\n")
+        reading = float(q("dmm", ":MEASure:VOLTage:DC?").lstrip("+"))
+        assert reading == pytest.approx(1.0, abs=1e-9)  # adjusted on the 1 V range
+        # The query form still reports the adjustment result.
+        s.write("dmm", b":CAL:VAL 1\n")
+        assert q("dmm", ":CAL?") == "+0"
+    finally:
+        s.close()

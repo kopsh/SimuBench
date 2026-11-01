@@ -131,6 +131,20 @@
 | 内置仪表只有真实型号，`sb-*` 不发布（issue 35） | ✅ `sb-*` 定义移到 `validation/instruments/`，演示台移到 `validation/benches/`；定义搜索路径 `SIMUBENCH_DEFINITIONS`，测试经 `conftest.py` 加载；服务启动会话与回放运行记录也搜索工作区的 `instruments/`（此前只有校验搜索）；`tests/test_release.py` 与 CI 打包任务检查内置定义、`examples/` 与 wheel 中没有 `sb-*` |
 | Keysight B2901A 精密源表（issue 193，只写 YAML） | ✅ 定义 `src/simubench/library/instruments/keysight-b2901a.yaml`（`reference` = B2900 Series SCPI Command Reference B2910-90030, Edition 2, July 2011；User's Guide B2910-90010 Edition 6 用于前面板与量程说明），覆盖表 307 条（实现 77 · 接受 12 · 未实现 218）；手册用例 `tests/models/keysight-b2901a/cases.yaml` 19 条，逐条带 Command Reference 章节；示例测试台 `examples/benches/keysight_b2901a.bench.yaml`（1 kΩ DUT）与真机写法脚本 `examples/scripts/keysight_b2901a_sweep.py`（MEASure 单点 + 线性阶梯扫描 + TRACe:DATA?）在 `tests/test_keysight_b2901a.py` 中不改一行运行（4 项：脚本、合规转 CC、电流源、NPLC 与扫描虚拟时间）；`src/simubench/library/components/` 无改动（`tests/test_model_components.py` 通过），`simubench validate` 无诊断。已知偏差写在覆盖表说明：源量程 V/I 共用一组设置（按当前源功能解释），FETCh/READ/TRACe 固定给出 VOLT,CURR,RES,TIME,STAT（元素选择、SOUR 元素、标量“最新一条”未实现），STAT 元素按数字格式回复 |
 | 型号：Keysight 34465A、Fluke 5522A、Keithley 2450 | ⏳ 各自的 issue |
+
+## 定标演示：Fluke 5522A 校准 34465A（Issue 9）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 测试台与台账 | ✅ `examples/demo/calibration.bench.yaml`：5522A OUT 接 34465A IN；万用表带按量程的隐藏增益与零点误差（DC 各档 +180…+400 ppm、交流 +350 ppm、零点 +300 µV）；`assets` 登记两台仪表，万用表校准即将到期（运行开始日 2026-05-04，due_in_days = 16）；`run` 固定日期、命令时钟、`idle: off` |
+| 定标脚本只用标准命令与 PyVISA | ✅ `examples/demo/calibrate_34465a.py` 不 import SimuBench；读 `*IDN?`、查台账、as-found（0、±1、±10、100 V；1 年指标 + 20 % 保护带）、解锁后逐量程调零/调增益并 `CAL:STOR`、as-left；报告 CSV 含每点的相位、设定值、读数、限值与判定；交流点单独一次运行（列映射一次一种功能） |
+| 调整命令按真机语义 | ✅ `:CALibration[:ALL]` 允许 set 形式：set 调操作且不应答，query 返回结果（引擎通用修正：操作命令的 set 形式不再把操作的返回值发到线上）；演示用 `CAL` + `:SYSTem:ERRor?`，不产生额外的数字回复，`simubench verdicts` 的读数序列不被校准状态打乱 |
+| 真值核对 | ✅ `simubench verdicts` 用 `verdict-dc.yaml` / `verdict-ac.yaml`：DC 12/12 correct、AC 2/2 correct，无 false_accept/false_reject/withheld；真值含参考源 5 mΩ 与万用表 10 MΩ 的分压 |
+| 故障演示 | ✅ `examples/demo/calibration-fault.bench.yaml`：参考源第 2 s 断开 30 s，脚本得到 `VI_ERROR_CONN_LOST`，不写报告；台账过期/停用时脚本拒绝运行（测试覆盖） |
+| 讲解文档 | ✅ `docs/demo-calibration.md`：准备、运行、真值核对、故障、界面观察、讲解要点、已知限制 |
+| 自动测试 | ✅ `acceptance/test_calibration_demo.py` 4 项：DC as-found 6 点全超差、as-left 全合格、verdicts 判定正确；AC 两点在限值内；断开时脚本报错；台账过期时拒绝 |
+| 检查 | ✅ `uv run simubench validate` 无诊断；`scripts/check.sh` 全绿 |
+
 ## 覆盖表的“接受”只用于不影响数据的命令（Issue 132，D42）
 
 | 完成条件 | 自检 |
