@@ -26,6 +26,8 @@ def style_of(app: Any, tokens: str) -> str:
     out = []
     for token in tokens.split():
         value = variables.get(token)
+        if value == "ansi_default":
+            value = "default"  # rich's name for the terminal's own colour (the mono theme)
         out.append(value if value else (token if token in ("bold", "reverse", "dim") else ""))
     return " ".join(s for s in out if s)
 
@@ -122,6 +124,34 @@ class BottomBar(Static):
         if left_w + gap + right_w < width:
             text.append(" " * (width - left_w - gap - right_w), style="reverse")
         self.update(text)
+
+
+class CaptionBar(Static):
+    """The scripted demo's subtitle, docked above the bottom bar (tui-screens.md 6).
+
+    Hidden until the first caption; the right side names the key or command the viewer is
+    watching (`key ▸ enter`, `script ▸ :SYSTem:ERRor?`).
+    """
+
+    DEFAULT_CSS = """
+    CaptionBar {
+        height: auto;
+        display: none;
+        padding: 0 1;
+        background: $background;
+    }
+    CaptionBar.-show { display: block; }
+    """
+
+    def set_caption(self, text: str, right: str = "") -> None:
+        from rich.text import Text
+
+        t = Text(text)
+        if right:
+            t.append("    " + right, style="bold")
+        self.update(t)
+        self.add_class("-show")
+        self.screen.refresh(layout=True)  # showing a docked widget makes the body give up a row
 
 
 def remote_status(session: dict[str, Any] | None, lang: str) -> str:

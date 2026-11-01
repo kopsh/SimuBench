@@ -1,0 +1,25 @@
+schema: simubench.bench/2
+name: find-the-trip
+description: 与 smu.bench.yaml 相同，另预设一次跳闸：SMU 的输出已关闭，错误队列里有一条 -300。演示“在测试台上找到跳闸的那台”。
+instruments:
+  smu:
+    model: sb-smu-1
+    label: 源测量单元
+    address: TCPIP0::192.168.1.60::5025::SOCKET
+    state:
+      source.voltage.level: 5.0
+      compliance.current.limit: 0.01
+      output.enabled: true
+      sweep.mode: LINear
+      sweep.start: 0.0
+      sweep.stop: 8.0
+      sweep.points: 9
+  dmm: {model: sb-dmm-1, label: 万用表}
+parts:
+  r1: {type: load_resistor, dut: true, params: {r: 1000.0}}
+wires:
+  - {from: smu.HI, to: r1.A}
+  - {from: smu.HI, to: dmm.IN}
+run: {seed: 5, clock: command, idle: "off"}
+faults:
+  - {kind: trip, instrument: smu, code: -300, message: Overvoltage}
