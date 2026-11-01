@@ -56,7 +56,7 @@ cases:
       - query: "*ESR?"
         expect: "32"
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "*WAI"
       - query: "*OPC?"
         expect: "1"
@@ -455,16 +455,16 @@ cases:
       - send: "*CLS"
       - send: "CURR:DC:NPLC 1"
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "MEAS:RES?"
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "TRIG:LEV 0.5"
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "SAMP:SOUR TIM"
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "DATA:LAST?"
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'

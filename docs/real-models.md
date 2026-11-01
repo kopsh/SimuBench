@@ -6,24 +6,24 @@
 
 ## 1. 命名与身份
 
-- 定义文件：`src/simubench/library/instruments/<厂商>-<型号>.yaml`，id 全小写，如 `keysight-34465a`、`fluke-5522a`。
-- `manufacturer`、`model` 与 `identity.idn` 按手册中 `*IDN?` 的返回格式填写，如 `Keysight Technologies,34465A,<序列号>,<固件版本>`。序列号与固件版本的格式也与真机一致。
-- 新字段 `reference`：所依据的手册（名称、文档编号、版本或日期、对应的固件版本）。同一型号不同固件的命令可能不同，以此为准。
+- 定义文件：`src/simubench/library/instruments/<厂商>-<型号>.yaml`，id 全小写，如 `keysight-34465a`、`fluke-5522a`。用户自建的定义放在工作区的 `instruments/`（见第 9 节）。
+- `manufacturer`、`model` 与 `identity.idn` 按依据中 `*IDN?` 的返回格式填写，如 `Keysight Technologies,34465A,<序列号>,<固件版本>`。序列号与固件版本的格式也与真机一致；用户自建的仪表由作者定义 `*IDN?` 的写法。
+- 依据字段 `reference`：作者选定、提供并维护的依据（厂商手册、自己的设计规格或接口契约），记名称、文档编号、版本或日期、对应的固件/规格版本。同一型号不同固件或不同规格草案的命令可能不同，以此为准。带 `reference` 的定义不论内置或工作区，都按真实型号的规则检查（第 6 节）。
 - 内置仪表只有真实型号（D42）。`sb-*` 是 SimuBench 自造的验证仪表，定义在仓库的 `validation/instruments/`，不随软件包发布；测试与验收通过定义搜索路径加载（见第 9 节）。
 
 ## 2. 命令的三种实现程度
 
-手册命令参考中的每条命令，属于以下之一，并记入覆盖表（第 6 节）：
+依据中的每条命令，属于以下之一，并记入覆盖表（第 6 节）：
 
 | 程度 | 含义 | 例子 |
 | --- | --- | --- |
-| 实现 | 语法、参数范围、默认值、返回格式、错误与对测量的影响都按手册 | `:MEASure:VOLTage:DC?`、`:SENSe:VOLTage:DC:NPLC` |
-| 接受 | 按手册解析、校验并保存，查询返回保存的值，但**不改变采集、测量、传输与回复的数值** | 显示、蜂鸣器、界面语言、只影响面板显示的单位 |
-| 未实现 | 回复 `-113,"Undefined header;not modeled by SimuBench"`，并在事件历史中标注 | 尚未做的功能 |
+| 实现 | 语法、参数范围、默认值、返回格式、错误与对测量的影响都按依据 | `:MEASure:VOLTage:DC?`、`:SENSe:VOLTage:DC:NPLC` |
+| 接受 | 按依据解析、校验并保存，查询返回保存的值，但**不改变采集、测量、传输与回复的数值** | 显示、蜂鸣器、界面语言、只影响面板显示的单位 |
+| 未实现 | 回复 `-113,"Undefined header;not implemented in this definition"`，并在事件历史中标注 | 尚未做的功能 |
 
-未实现的命令必须报错，不能静默接受：脚本在虚拟环境里通过、上了真机却失败，比报错更糟。因此"接受"只用于与数据无关的命令，覆盖表中每条"接受"都必须写 `affects_data: false`（一致性检查对缺少它或写为 `true` 的条目报错）。会改变数据的命令只有两条路：按手册实现；或者标为"未实现"（一条命令只有一部分取值能实现时，把不能实现的取值从枚举/范围中去掉，使设置它们按手册报错，例如只支持 `ASCii` 的 `FORMat[:DATA]`）。
+未实现的命令必须报错，不能静默接受：脚本在虚拟环境里通过、上了真机却失败，比报错更糟。因此"接受"只用于与数据无关的命令，覆盖表中每条"接受"都必须写 `affects_data: false`（一致性检查对缺少它或写为 `true` 的条目报错）。会改变数据的命令只有两条路：按依据实现；或者标为"未实现"（一条命令只有一部分取值能实现时，把不能实现的取值从枚举/范围中去掉，使设置它们按依据报错，例如只支持 `ASCii` 的 `FORMat[:DATA]`）。"未实现"的回复是 `-113,"Undefined header;not implemented in this definition"`：说明的是**这个定义尚未实现**，不把责任归给 SimuBench（依据由作者提供，#172）。
 
-## 3. 按手册对齐的细节
+## 3. 按依据对齐的细节
 
 - **语法**：长短格式、可省略的节点、数字后缀（通道号）、单位与倍率后缀（`MV`、`KHZ`）、`MIN`/`MAX`/`DEF`、列表与字符串参数的写法。
 - **默认值**：`default` 为上电值，`rst` 为 `*RST` 之后的值，与手册的默认值表逐行一致。
@@ -35,7 +35,7 @@
 
 ## 4. 手册用例
 
-每个型号在 `tests/models/<id>/cases.yaml` 中写测试用例。每条用例是一串命令与预期，注明依据手册的哪一节：
+每个型号在 `tests/models/<id>/cases.yaml` 中写测试用例；工作区中的自建定义把 `cases.yaml` 放在定义旁边或工作区的任意位置（运行器按 `model` 找定义）。每条用例是一串命令与预期，`manual` 写依据文件中的章节或条目（厂商手册、设计规格或接口契约）：
 
 ```yaml
 - name: "*RST 后的直流电压量程为自动"
@@ -52,9 +52,9 @@
       expect_match: '^-222,"Data out of range'
 ```
 
-一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期可以是精确字符串（`expect`）、正则（`expect_match`）或数值与容差（`expect_value` + `tolerance`）。用例应覆盖覆盖表中每条“实现”和“接受”的命令；真实型号的每条用例都要写 `manual`（覆盖检查报告缺少的）。
+一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期可以是精确字符串（`expect`）、正则（`expect_match`）或数值与容差（`expect_value` + `tolerance`）。用例应覆盖覆盖表中每条“实现”和“接受”的命令；带 `reference` 的定义每条用例都要写 `manual`（覆盖检查报告缺少的）。
 
-同一种文件也用来写**契约用例**：按既有测试程序的接口契约而不是编程手册编写，`manual` 写契约条目（例如 `examples/lowfreq-cal/cases.yaml`）。步骤可以用 `instrument` 发给测试台中的另一台仪器。运行：
+同一种文件也用来写**契约用例**：按既有测试程序的接口契约而不是厂商手册编写，`manual` 写契约条目（例如 `examples/lowfreq-cal/cases.yaml`）。步骤可以用 `instrument` 发给测试台中的另一台仪器。运行：
 
 ```bash
 simubench cases examples/lowfreq-cal/cases.yaml --junit cases.xml   # 失败时给出步骤、命令、预期与实际回复，退出码 1
@@ -68,11 +68,11 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 
 ## 6. 覆盖表
 
-每个型号一个 `src/simubench/library/instruments/<id>.coverage.yaml`，按手册章节列出全部命令及其程度（实现、接受、未实现）与说明。
+每个型号一个 `src/simubench/library/instruments/<id>.coverage.yaml`（工作区中的定义放在定义旁边），按作者所依据的文件列出全部命令及其程度（实现、接受、未实现）与说明。
 
-- CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有手册用例；“接受”条目必须有 `affects_data: false`。
+- CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有用例；“接受”条目必须有 `affects_data: false`。带 `reference` 的工作区定义同样适用（`simubench coverage`、`simubench cases`、MCP `run_cases`）。
 - `simubench coverage <id>` 打印覆盖表与统计，用于演示时说明做到了什么程度。
-- `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
+- `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄依据中的命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
 - 内置的真实型号只使用通用组件（`generic`），例外清单在 `tests/test_model_components.py`，只能缩短（[metrology-authoring.md](metrology-authoring.md) 第 9 节）。
 
 ## 7. 版权与商标
@@ -84,11 +84,11 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 
 ## 8. 字段说明（框架已实现）
 
-以下字段都是可选的，`sb-*` 定义不用改。带 `reference` 的定义即为真实型号；内置定义都必须带 `reference`（`tests/test_release.py`）。
+以下字段都是可选的，`sb-*` 定义不用改。带 `reference` 的定义即为真实型号（内置或工作区自建）；内置定义都必须带 `reference`（`tests/test_release.py`）。
 
 | 字段 | 位置 | 说明 |
 | --- | --- | --- |
-| `reference` | 定义 | 所依据的手册：`title`（名称）、`document`（文档编号）、`version`（版本或日期）、`firmware`（对应的固件版本）。有此字段时：未定义的命令回复 `-113,"Undefined header;not modeled by SimuBench"`，事件历史中该错误带 `reason: not_modeled`；错误信息只用手册文字，不附带 SimuBench 的诊断细节（细节仍记入事件历史）。 |
+| `reference` | 定义 | 所依据的文件，由作者提供和管理：厂商手册、设计规格或接口契约。`title`（名称）、`document`（文档编号）、`version`（版本或日期）、`firmware`（对应的固件/规格版本）。有此字段时：未定义的命令回复 `-113,"Undefined header;not implemented in this definition"`，事件历史中该错误带 `reason: not_modeled`；错误信息只用依据文件里的文字，不附带 SimuBench 的诊断细节（细节仍记入事件历史）。 |
 | `errors` | 定义 | 错误表 `{错误码: 信息文字}`。覆盖标准文字，也可新增设备专用错误码（如 `501`）；`0` 的文字用于“无错误”。 |
 | `error_queue` | 定义 | 错误队列长度（默认 20）。队列满时最后一格变为 `-350`（SCPI-99 21.8），其文字也可在 `errors` 中给出。 |
 | `format` | 定义 | 默认返回格式：`number`（`nr3` / `nr2` / `nr1` / `engineering`，后者即 `200E-3`）、`digits`（小数位数）、`sign`（非负数是否带 `+`）、`exponent_digits`、`integer`（`plain` / `signed` / `engineering`）、`boolean`（`numeric` 即 1/0，`word` 即 ON/OFF）、`enum`（`short` / `long`）、`error_code`（`:SYSTem:ERRor?` 中的错误码是否带 `+`，如 Keysight 的 `+0,"No error"`）。默认值即 `sb-*` 一直以来的格式（`+1.000000E+03`）。 |

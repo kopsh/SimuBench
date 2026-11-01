@@ -100,7 +100,7 @@ class SiglentSdg(Component):
         return [(items[i].upper(), items[i + 1]) for i in range(0, len(items), 2)]
 
     def _not_modeled(self, what: str) -> ScpiError:
-        return ScpiError(-224, f"{what} not modeled by SimuBench")
+        return ScpiError(-224, f"{what} not implemented in this definition")
 
     # ---- C<n>:BaSic_WaVe ---------------------------------------------------------------------------
 

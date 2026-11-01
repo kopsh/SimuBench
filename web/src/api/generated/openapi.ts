@@ -2217,7 +2217,7 @@ export interface components {
             /** Model */
             model: string;
             ports?: components["schemas"]["Ports"];
-            /** @description The manual this definition follows; a definition with a reference is a real model: unknown commands answer -113 'not modeled by SimuBench', error texts follow `errors` */
+            /** @description The manual this definition follows; a definition with a reference is a real model: unknown commands answer -113 'not implemented in this definition', error texts follow `errors` */
             reference?: components["schemas"]["Reference"] | null;
             /**
              * Schema
@@ -2930,27 +2930,29 @@ export interface components {
         };
         /**
          * Reference
-         * @description The manual a real-model definition follows (D42): behavior is checked against this edition.
+         * @description The basis a definition follows (D42), provided and maintained by its author: a vendor manual,
+         *     the author's own design specification, or an interface contract. A definition with a reference
+         *     is a real model: unknown commands answer -113 and `unknown_commands: ignore` is refused.
          */
         Reference: {
             /**
              * Document
-             * @description Document or part number
+             * @description Document or part number; an internal specification's identifier
              */
             document?: string | null;
             /**
              * Firmware
-             * @description Firmware version the manual describes
+             * @description Firmware version the basis describes
              */
             firmware?: string | null;
             /**
              * Title
-             * @description e.g. 'Keysight Truevolt Series Operating and Service Guide'
+             * @description e.g. 'Keysight Truevolt Series Operating and Service Guide' or 'XX 型 SCPI 接口规格 草案 v0.3'
              */
             title: string;
             /**
              * Version
-             * @description Edition, revision or date
+             * @description Edition, revision or date of the basis
              */
             version?: string | null;
         };

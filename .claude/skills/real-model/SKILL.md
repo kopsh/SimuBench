@@ -64,7 +64,7 @@ When the platform cannot express something the manual requires:
 
 - A coverage `header` must be written as the definition writes it (case, `[optional]` nodes,
   `<n>` suffixes); the check compares them normalized.
-- A real model answers undefined commands with `-113 … not modeled by SimuBench` — silence is
+- A real model answers undefined commands with `-113 … not implemented in this definition` — silence is
   never acceptable (real-models.md 2).
 - Defaults: `default` is the power-on value, `rst` the value after `*RST`; check both against the
   manual's table.

@@ -23,7 +23,7 @@ labels: ["可认领"]
 ### 接受（解析并保存，不影响仿真）
 - 
 
-### 未实现（列入覆盖表，回复 `-113 … not modeled by SimuBench`）
+### 未实现（列入覆盖表，回复 `-113 … not implemented in this definition`）
 - 
 
 ## 交付
