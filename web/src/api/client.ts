@@ -26,6 +26,24 @@ export type EditOp = Schemas["EditBenchRequest"]["ops"][number];
 export type BenchData = Record<string, unknown>;
 export type FaultSpec = Schemas["Fault"];
 export type FaultInfo = Schemas["FaultInfo"];
+export type InstrumentDefinition = Schemas["InstrumentDefinition"];
+export type DefinitionDocument = Schemas["DefinitionDocument"];
+export type DefinitionCoverage = Schemas["DefinitionCoverage"];
+export type CoverageEntryInfo = Schemas["CoverageEntryInfo"];
+export type DefinitionVersion = Schemas["DefinitionVersion"];
+export type DefinitionChange = Schemas["DefinitionChange"];
+export type DefinitionChangeList = Schemas["DefinitionChangeList"];
+export type CommandSpec = Schemas["CommandSpec"];
+export type ParamSpec = Schemas["ParamSpec"];
+export type Panel = Schemas["Panel"];
+export type PanelControl = Schemas["PanelControl"];
+export type PanelGroup = Schemas["PanelGroup"];
+export type CaseFile = Schemas["CaseFile"];
+export type CaseRun = Schemas["CaseRun"];
+export type CaseRunResult = Schemas["CaseRunResult"];
+export type StepResult = Schemas["StepResult"];
+export type TryOpened = Schemas["TryOpened"];
+export type ErrorItem = Schemas["ErrorItem"];
 
 export class ApiError extends Error {
   constructor(

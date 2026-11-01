@@ -1,0 +1,14 @@
+# Acceptance-page end-to-end fixture: a small all-pass file for the workspace copy of the 34465A.
+model: keysight-34465a
+cases:
+  - name: "身份查询按手册格式回复"
+    manual: "IEEE 488.2 Common Commands > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,34465A,MY57440001,2.6.1-2.0.0-0.0.0-0.0-0-0"
+  - name: "NPLC 写入后回读"
+    manual: "SENSe Subsystem > NPLCycles"
+    steps:
+      - send: "VOLT:DC:NPLC 1"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+00"

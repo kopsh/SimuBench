@@ -114,6 +114,28 @@ class DefinitionDocument(_Model):
     )
 
 
+class CoverageEntryInfo(_Model):
+    """One command of a real model's coverage table (D42)."""
+
+    section: str = Field(..., description="The manual section the command is listed under")
+    header: str = Field(..., description="Header as the definition writes it, e.g. '[:SENSe]:VOLTage:NPLC'")
+    level: Literal["implemented", "accepted", "not_modeled"] = Field(
+        ...,
+        description="implemented: modeled; accepted: parsed and stored without effect on the data; "
+        "not_modeled: answers -113",
+    )
+    note: str | None = None
+
+
+class DefinitionCoverage(_Model):
+    """A real model's coverage table: every command of its manual and how far SimuBench goes
+    (the acceptance page's command list; none for definitions without a reference)."""
+
+    model: str
+    stats: dict[str, int] = Field(..., description="Counts by level: implemented, accepted, not_modeled")
+    entries: list[CoverageEntryInfo]
+
+
 class BenchDocument(_Model):
     """A bench file's content as stored, with its diagnostics."""
 

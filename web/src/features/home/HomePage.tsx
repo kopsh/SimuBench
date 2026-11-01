@@ -1,10 +1,10 @@
-import { FileWarning, FolderOpen, Plug, Search, Workflow } from "lucide-react";
+import { Cpu, FileWarning, FolderOpen, Plug, Search, Workflow } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { BenchFile, SessionInfo } from "@/api/client";
-import { useBenches, useSessions, useStartSession } from "@/api/hooks";
+import { useBenches, useCatalog, useSessions, useStartSession } from "@/api/hooks";
 import { isCancelled } from "@/components/app/ClientsConfirm";
 import { Logo } from "@/components/app/Logo";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock } from "@/lib/format";
+import { CLASS_ICON } from "@/features/workbench/canvas/InstrumentNode";
 import { RecentRuns } from "../runs/RecentRuns";
 import { GettingStarted } from "./GettingStarted";
 import { NewBenchDialog } from "./NewBenchDialog";
@@ -30,6 +31,7 @@ import { NewBenchDialog } from "./NewBenchDialog";
 export function HomePage() {
   const { t } = useTranslation();
   const benches = useBenches();
+  const catalog = useCatalog();
   const sessions = useSessions();
   const start = useStartSession();
   const navigate = useNavigate();
@@ -158,6 +160,43 @@ export function HomePage() {
                   })}
                 </ul>
               )}
+            </section>
+            <section className="mt-8" data-testid="instrument-list">
+              <div className="mb-2 flex items-center gap-3">
+                <h2 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{t("home.instrumentsTitle")}</h2>
+                <span className="text-muted-foreground text-[11px]">{t("home.instrumentsHint")}</span>
+              </div>
+              <ul className="grid gap-2 md:grid-cols-2">
+                {(catalog.data?.instruments ?? []).map((i) => {
+                  const Icon = CLASS_ICON[i.instrument_class] ?? Cpu;
+                  return (
+                    <li key={i.id}>
+                      <Link
+                        to={`/i/${i.id}`}
+                        className="bg-card hover:bg-accent/50 flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors"
+                      >
+                        <Icon className="text-muted-foreground size-4 shrink-0" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate text-sm font-medium">
+                              {i.manufacturer} {i.model}
+                            </span>
+                            {i.template && (
+                              <Badge variant="outline" className="font-normal">
+                                {t("acceptance.templateBadge")}
+                              </Badge>
+                            )}
+                          </span>
+                          <span className="text-muted-foreground block truncate text-[11px]">{i.description || i.id}</span>
+                        </span>
+                        <span className="text-muted-foreground num text-[10.5px]">
+                          {i.channels > 1 ? t("home.channelCount", { count: i.channels }) : ""}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </section>
             <RecentRuns />
           </>

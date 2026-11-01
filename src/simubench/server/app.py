@@ -24,7 +24,7 @@ from .. import __version__
 from ..engine.edit import EditError
 from ..engine.faults import FaultState
 from ..engine.record import encode_bytes
-from ..library.coverage import cases_for_model, run_cases
+from ..library.coverage import cases_for_model, coverage_path, load_coverage, run_cases
 from ..library.loader import DefinitionLibrary
 from ..models import api as M
 from ..models.bench import Fault
@@ -376,6 +376,50 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise not_found(exc) from None
 
     @app.get(
+        "/api/definitions/{def_id}/document",
+        response_model=M.DefinitionDocument,
+        operation_id="getDefinitionDocument",
+        dependencies=[Depends(auth)],
+    )
+    def definition_document(def_id: str) -> M.DefinitionDocument:
+        """The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance
+        page to notice a change made elsewhere and reload."""
+        try:
+            return definition_files.read(def_id)
+        except KeyError as exc:
+            raise not_found(exc) from None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc).splitlines()[0]) from None
+
+    @app.get(
+        "/api/definitions/{def_id}/coverage",
+        response_model=M.DefinitionCoverage | None,
+        operation_id="getDefinitionCoverage",
+        dependencies=[Depends(auth)],
+    )
+    def definition_coverage(def_id: str) -> M.DefinitionCoverage | None:
+        """The real model's coverage table next to the definition (D42): every command of the manual
+        and how far SimuBench goes; null when the definition has none."""
+        try:
+            path = coverage_path(library.path(def_id))
+        except KeyError as exc:
+            raise not_found(exc) from None
+        if not path.is_file():
+            return None
+        try:
+            cov = load_coverage(path)
+        except Exception as exc:  # a broken table is reported, not hidden
+            raise HTTPException(422, f"{path.name}: {str(exc).splitlines()[0]}") from None
+        return M.DefinitionCoverage(
+            model=cov.model,
+            stats=cov.stats(),
+            entries=[
+                M.CoverageEntryInfo(section=section, header=e.header, level=e.level, note=e.note)
+                for section, e in cov.entries()
+            ],
+        )
+
+    @app.get(
         "/api/definitions/{def_id}/history",
         response_model=list[M.DefinitionVersion],
         operation_id="definitionHistory",
@@ -497,6 +541,40 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         """A front-panel button on the try session's instrument (D32)."""
         e = try_entry(sid)
         return await asyncio.to_thread(manager.panel, e.served, e.definition, req.action)
+
+    @app.get(
+        "/api/try/{sid}/instrument",
+        response_model=M.InstrumentInfo,
+        operation_id="getTryInstrument",
+        dependencies=[Depends(auth)],
+    )
+    def try_instrument(sid: str) -> M.InstrumentInfo:
+        """The try session's instrument: identity, ports, settings, front panel and deviations (the
+        acceptance page's overview and settings tables)."""
+        e = try_entry(sid)
+        name = e.definition
+        try:
+            inst = e.served.session.instrument(name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+        index = list(e.served.session.instruments).index(name)
+        info = manager.describe_instrument(e.served.session, inst, index, None)
+        info.remote, info.local = e.served.remote_clients(name), name in e.served.local
+        return info
+
+    @app.get(
+        "/api/try/{sid}/internals",
+        response_model=M.InstrumentInternals,
+        operation_id="getTryInstrumentInternals",
+        dependencies=[Depends(auth)],
+    )
+    def try_internals(sid: str) -> M.InstrumentInternals:
+        """The try session's read-only component graph (issue 20), as the acceptance page shows it."""
+        e = try_entry(sid)
+        try:
+            return manager.internals(e.served, e.definition)
+        except KeyError as exc:
+            raise not_found(exc) from None
 
     @app.get(
         "/api/definitions/{def_id}/cases",
