@@ -260,6 +260,15 @@ TERMS: dict = {
         "advanceForce": "Advance {seconds} s. Connected scripts will see time move; this runs with force.",
         "wallHint": "Under the wall clock time walks on its own and cannot be advanced",
     },
+    "runs": {
+        "title": "Runs",
+        "header": "started             bench         clock    seed  events  virtual",
+        "row": "{started}  {bench}  {clock}  {seed}  {events}  {duration}  {marker}",
+        "live": "live",
+        "summaryLine": "Run · {bench} · {events} events · {size} B",
+        "replayOk": "Replayed {actions} commands, {replies} replies, all equal",
+        "firstMismatch": "first mismatch  #{seq}  {instrument}  {command}  recorded {expected} → replayed {actual}",
+    },
     "reason": {
         "netSilent": "no signal on {net}",
         "evNetSilence": "Reason",

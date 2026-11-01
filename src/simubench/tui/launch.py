@@ -129,6 +129,13 @@ def run_bench(args: Any) -> int:
         bench_path=bench,
         bench_name=info.get("bench_name", bench.stem),
     )
+
+    script_path = Path(args.script).resolve() if getattr(args, "script", None) else None
+    if script_path is not None:
+        return asyncio.run(
+            _run_script(app, script_path, Path(args.out), bool(args.record)), server, thread, url, info, token
+        )
+
     try:
         app.run()
     finally:
@@ -151,3 +158,46 @@ def run_attach(url: str, session: str | None, token: str | None, lang: str | Non
     app = SimuBenchApp(url.rstrip("/"), sid=session, token=resolve_token(token), lang=lang or default_lang())
     app.run()
     return 0
+
+
+async def _run_script(
+    app: SimuBenchApp,
+    script_path: Path,
+    out_dir: Path,
+    record: bool,
+    server: Any,
+    thread: Any,
+    url: str,
+    info: dict[str, Any],
+    token: str | None,
+) -> int:
+    """--script: drive the app headlessly through the steps, write the SVGs, shut down (6)."""
+    from .script import Steps, run_steps, validate
+
+    steps = Steps.load(script_path)
+    problems = validate(steps)
+    if problems:
+        for line in problems:
+            print(line, file=sys.stderr)
+        return 2
+    try:
+        async with app.run_test(size=steps.size) as pilot:
+            for _ in range(200):
+                await pilot.pause(0.05)
+                if app.conn == "connected" and app.session_info:
+                    break
+            written = await run_steps(app, pilot, steps, out_dir, record)
+        print(f"{len(written)} SVG(s) in {out_dir}")
+        return 0
+    finally:
+        with contextlib.suppress(Exception):
+            import httpx as _httpx
+
+            _httpx.delete(
+                f"{url}/api/sessions/{info['id']}",
+                params={"force": "true"},
+                headers=_headers(token),
+                timeout=10,
+            )
+        server.should_exit = True
+        thread.join(timeout=10)

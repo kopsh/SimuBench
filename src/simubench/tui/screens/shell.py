@@ -58,6 +58,9 @@ class ShellScreen(Screen):
 
         with Vertical(id="body"):
             yield from self.body()
+        from ..widgets import CaptionBar
+
+        yield CaptionBar(id="caption")
         yield BottomBar(id="bottombar")
         yield Static("", id="minsize")
 

@@ -262,6 +262,15 @@ TERMS: dict = {
         "advanceForce": "推进 {seconds} s。连着的脚本会看到时间前进，确认以 force 执行。",
         "wallHint": "墙钟下时间自己走动，不能推进",
     },
+    "runs": {
+        "title": "运行记录",
+        "header": "开始                测试台        时钟     种子  事件  虚拟时长",
+        "row": "{started}  {bench}  {clock}  {seed}  {events}  {duration}  {marker}",
+        "live": "运行中",
+        "summaryLine": "运行记录 · {bench} · {events} 条事件 · {size} B",
+        "replayOk": "回放完成：{actions} 条命令，{replies} 条回复，全部一致",
+        "firstMismatch": "第一处不同  #{seq}  {instrument}  {command}  记录 {expected} → 重放 {actual}",
+    },
     "reason": {
         "netSilent": "{net} 上没有信号",
         "evNetSilence": "原因",

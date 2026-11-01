@@ -36,6 +36,7 @@ class ControlButton(Static):
     ControlButton:focus { background: $focus; color: $background; text-style: none; }
     ControlButton.-readonly { color: $muted; }
     ControlButton.-lit { text-style: reverse; }
+    ControlButton.-highlighted { border: thick $focus; }
     """
 
     can_focus = True

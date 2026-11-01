@@ -124,6 +124,35 @@ class BottomBar(Static):
         self.update(text)
 
 
+class CaptionBar(Static):
+    """The scripted demo's subtitle, docked above the bottom bar (tui-screens.md 6).
+
+    Hidden until the first caption; the right side names the key or command the viewer is
+    watching (`key ▸ enter`, `script ▸ :SYSTem:ERRor?`).
+    """
+
+    DEFAULT_CSS = """
+    CaptionBar {
+        dock: bottom;
+        height: auto;
+        display: none;
+        padding: 0 1;
+        background: $background;
+    }
+    CaptionBar.-show { display: block; }
+    #caption-right { float: right; color: $focus; }
+    """
+
+    def set_caption(self, text: str, right: str = "") -> None:
+        from rich.text import Text
+
+        t = Text(text)
+        if right:
+            t.append("    " + right, style="bold")
+        self.update(t)
+        self.add_class("-show")
+
+
 def remote_status(session: dict[str, Any] | None, lang: str) -> str:
     """``远程：无``, ``远程：smu ← 脚本 :53122``, or ``远程：2 台`` (tui-screens.md 2.2)."""
     prefix = "远程：" if i18n.table(lang) is i18n.LANGS["zh"] else "remote: "

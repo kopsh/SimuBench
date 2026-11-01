@@ -73,7 +73,7 @@ class SimuBenchApp(App[None]):
         Binding("n", "open('nets')", "", show=False),
         Binding("f", "fault", "", show=False),
         Binding("a", "advance", "", show=False),
-        Binding("R", "rebuild", "", show=False),
+        Binding("R", "r_key", "", show=False),
     ]
 
     def __init__(
@@ -201,6 +201,13 @@ class SimuBenchApp(App[None]):
         if not isinstance(self.screen, PickerScreen):
             self.push_screen(PickerScreen(self.url, reason=self.reason))
         self.reason = None
+
+    def set_caption(self, text: str, right: str = "") -> None:
+        """The scripted demo's bottom subtitle (6): left the caption, right `key ▸ enter`."""
+        from .widgets import CaptionBar
+
+        bar = self.screen.query_one(CaptionBar)
+        bar.set_caption(text, right)
 
     def push_overview(self) -> None:
         from .screens.overview import OverviewScreen
@@ -575,6 +582,14 @@ class SimuBenchApp(App[None]):
         self._advance_default = format_duration(seconds)
         await self.client.advance(self.sid, seconds, force=bool((self.session_info or {}).get("clients")))
 
+    def action_r_key(self) -> None:
+        """`R`: the runs screen; when the bench file changed, rebuild instead (7, D25, 11.3)."""
+        if self.file_changed:
+            self.action_rebuild()
+            return
+        if self.conn == "connected":
+            self.show("runs")
+
     def action_rebuild(self) -> None:
         """``R`` when the bench file changed: confirm, then reset with force (D25)."""
         from .screens.states import confirm_rebuild
@@ -609,12 +624,14 @@ def _default_screens() -> None:
     from .screens.instrument import InstrumentScreen
     from .screens.logscreen import LogScreen
     from .screens.nets import NetsScreen
+    from .screens.runs import RunsScreen
     from .screens.scope import ScopeScreen
 
     register_screen("log", LogScreen)
     register_screen("instrument", InstrumentScreen)
     register_screen("scope", ScopeScreen)
     register_screen("nets", NetsScreen)
+    register_screen("runs", RunsScreen)
 
 
 _default_screens()
