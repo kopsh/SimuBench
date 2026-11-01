@@ -454,7 +454,6 @@ commands:
     params: [{name: values, type: raw}]
   - header: ":CALibration[:ALL]"
     op: cal.adjust
-    set: false
   - header: ":CALibration:STORe"
     op: cal.store
     query: false

@@ -1287,6 +1287,10 @@ class Instrument:
         list_spec = next((p for p in spec.params if p.type == "channel_list"), None)
         if list_spec is None:
             result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)
+            if not unit.query:
+                # A set never answers, even when the operation returns a result (CAL adjusts; CAL?
+                # reports it). Only a query's reply goes on the wire.
+                return OpResult(duration_ns=result.duration_ns)
             response = result.response
             if response is not None and spec.reply is not None:  # an operation's reply in a template
                 response = self._reply(compiled, response, channel, suffixes, result.fields)
