@@ -66,7 +66,7 @@ def bench() -> BenchDefinition:
                 {"from": "awg.OUT1", "to": "sa.RF_IN"},
                 {"from": "ref.OUT1", "to": "sa.REF_IN"},
             ],
-            "run": {"seed": GOLD["seed"], "clock": "command"},
+            "run": {"seed": GOLD["seed"], "clock": "command", "idle": "off"},
         }
     )
 
