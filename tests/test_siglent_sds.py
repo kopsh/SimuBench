@@ -408,7 +408,7 @@ def test_the_reference_position_places_the_trigger_in_the_record(tmp_path):
 def test_commands_the_model_does_not_have_are_refused(scope):
     """#132: settings that would change acquisition or the trigger path are refused, not stored."""
     sds, session = scope
-    sds.write(":ACQuire:MMANagement AUTO;:CHANnel:REFerence OFFSet;:TRIGger:EDGE:COUPling DC")
+    sds.write(":ACQuire:MMANagement AUTO;:CHANnel:REFerence OFFSet;:TRIGger:EDGE:HLDEVent EVENT")
     errors = [e for e in session.history if e.get("kind") == "error"]
     assert [e["code"] for e in errors[-3:]] == [-113, -113, -113]
     sds.write(":ACQuire:MODE ROLL")  # the scope acquires in YT only
@@ -418,3 +418,49 @@ def test_commands_the_model_does_not_have_are_refused(scope):
     sds.write(":ACQuire:MODE YT;:ACQuire:TYPE PEAK")
     assert sds.query(":ACQuire:MODE?") == "YT"
     assert sds.query(":ACQuire:TYPE?") == "PEAK"
+
+
+def test_trigger_coupling_noise_reject_and_holdoff_reach_the_trigger_module(scope):
+    """#159: the edge-trigger settings filter the trigger path, without changing the record."""
+    sds, session = scope
+    inst = session.instruments["scope"]
+    trig = inst.components["trigger"]
+    acq = inst.components["acq"]
+    peak = float(np.max(np.abs(acq._display_signal(1).amp)))
+
+    sds.write(":TRIGger:EDGE:COUPling DC")
+    assert trig.param("coupling") == "DC" and trig.param("reject") == ""
+    assert float(np.max(np.abs(trig.path_signal(acq._display_signal(1)).amp))) == pytest.approx(
+        peak, rel=0.05
+    )
+    sds.write(":TRIGger:EDGE:COUPling LFREJ")
+    assert trig.param("reject") == "LF"
+    assert float(np.max(np.abs(trig.path_signal(acq._display_signal(1)).amp))) < peak * 0.05  # 1 kHz blocked
+    sds.write(":TRIGger:EDGE:COUPling HFREJ")
+    assert trig.param("reject") == "HF"
+    assert float(np.max(np.abs(trig.path_signal(acq._display_signal(1)).amp))) == pytest.approx(
+        peak, rel=0.05
+    )
+    sds.write(":TRIGger:EDGE:COUPling AC")
+    assert trig.param("coupling") == "AC"
+    sds.write(":TRIGger:EDGE:NREJect ON")
+    assert bool(trig.param("noise_reject")) is True
+    sds.write(":TRIGger:EDGE:HOLDoff 1E-3")
+    assert float(trig.param("holdoff")) == pytest.approx(1e-3)
+
+
+def test_holdoff_delays_the_next_trigger(scope):
+    """#159: the trigger search ignores edges until the holdoff after the previous trigger."""
+    sds, session = scope
+    trig = session.instruments["scope"].components["trigger"]
+    acq = session.instruments["scope"].components["acq"]
+    sig = acq._display_signal(1)
+    sds.write(":TRIGger:EDGE:HOLDoff 0")
+    trig.last_ns = 0
+    free = trig.search(sig, 0, 1e-6, 0, 200_000, 1, 0.5)
+    sds.write(":TRIGger:EDGE:HOLDoff 5E-3")
+    trig.last_ns = 0
+    held = trig.search(sig, 0, 1e-6, 0, 200_000, 1, 0.5)
+    assert free is not None and held is not None
+    assert free.t_s < 2e-3  # a 1 kHz edge, after the arming band
+    assert held.t_s >= 5e-3 - 1e-6  # nothing before the holdoff has passed
