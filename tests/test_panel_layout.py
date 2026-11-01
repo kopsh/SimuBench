@@ -127,6 +127,40 @@ def test_power_supply_default_is_each_output_and_the_combination():
     assert [k.value for k in mode.keys or []] == ["OFF", "PARallel", "SERies", "TRACk"]
 
 
+def test_counter_default_is_the_reading_its_gate_and_both_inputs():
+    panel, source = effective_panel(definition(ROOT / "validation" / "instruments" / "sb-counter-1.yaml"))
+    assert source == "class_default" and panel is not None
+    assert [r.reading for r in panel.readouts] == [
+        "core.value",
+        "core.value",
+        "core.value",
+        "core.value",
+        "stats.mean",
+        "stats.sdev",
+        "stats.count",
+    ]
+    groups = {g.label: g.controls for g in panel.groups}
+    assert list(groups) == ["测量", "门控", "输入 A", "输入 B"]
+    assert [(c.state, c.control) for c in groups["测量"]] == [("function", "buttons")]
+    assert [(c.state, c.control) for c in groups["门控"]] == [
+        ("gate.time", "number"),
+        ("gate.source", "select"),
+        ("count", "number"),
+    ]
+    assert [(c.state, c.control) for c in groups["输入 A"]] == [
+        ("input.a.impedance", "select"),
+        ("input.a.coupling", "select"),
+        ("input.a.threshold", "number"),
+        ("input.a.sensitivity", "number"),
+    ]
+    assert [c.state for c in groups["输入 B"]] == [
+        "input.b.impedance",
+        "input.b.coupling",
+        "input.b.threshold",
+        "input.b.sensitivity",
+    ]
+
+
 def test_declared_panel_wins_and_dedicated_screens_have_none():
     panel, source = effective_panel(definition(PANEL))
     assert (

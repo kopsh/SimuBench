@@ -1,0 +1,237 @@
+schema: simubench.instrument/1
+id: sb-counter-1
+manufacturer: SimuBench
+model: SB-CNT-1
+class: frequency_counter
+version: 1
+description: 双通道频率计数器，1 mHz–100 MHz（模型范围）；频率、周期、累加与时间间隔；1 MΩ 或 50 Ω 输入、阈值与灵敏度；内部或外部 10 MHz 时基；门控与统计。
+identity:
+  serial: SBCNT000001
+  firmware: "1.0.0"
+state:
+  input.a.coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: CH1 耦合
+    label_en: CH1 coupling
+  input.a.impedance:
+    type: enum
+    options: ["1M", "50"]
+    default: "1M"
+    electrical: true
+    label: CH1 阻抗
+    label_en: CH1 impedance
+  input.a.threshold:
+    type: float
+    unit: V
+    min: -5.0
+    max: 5.0
+    default: 0.0
+    label: CH1 阈值
+    label_en: CH1 threshold
+  input.a.sensitivity:
+    type: float
+    unit: V
+    min: 0.01
+    max: 5.0
+    default: 0.1
+    label: CH1 灵敏度
+    label_en: CH1 sensitivity
+  input.b.coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: CH2 耦合
+    label_en: CH2 coupling
+  input.b.impedance:
+    type: enum
+    options: ["1M", "50"]
+    default: "1M"
+    electrical: true
+    label: CH2 阻抗
+    label_en: CH2 impedance
+  input.b.threshold:
+    type: float
+    unit: V
+    min: -5.0
+    max: 5.0
+    default: 0.0
+    label: CH2 阈值
+    label_en: CH2 threshold
+  input.b.sensitivity:
+    type: float
+    unit: V
+    min: 0.01
+    max: 5.0
+    default: 0.1
+    label: CH2 灵敏度
+    label_en: CH2 sensitivity
+  gate.time:
+    type: float
+    unit: S
+    min: 1.0e-6
+    max: 10.0
+    ladder: 1-2-5
+    default: 0.1
+    label: 门时间
+    label_en: Gate time
+  gate.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 门控源
+    label_en: Gate source
+    option_labels: {INTernal: 内部, EXTernal: 外部}
+  timebase.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 时基
+    label_en: Timebase
+    option_labels: {INTernal: 内部, EXTernal: 外部 10 MHz}
+  function:
+    type: enum
+    options: [FREQuency, PERiod, TOTalize, TINTerval]
+    default: FREQuency
+    label: 测量功能
+    label_en: Function
+    option_labels: {FREQuency: 频率, PERiod: 周期, TOTalize: 累加, TINTerval: 时间间隔}
+  count:
+    type: int
+    min: 1
+    max: 10000
+    default: 1
+    label: 每次读数
+    label_en: Readings per run
+components:
+  # 频率计数器的真实功能块（F #192、D50）：输入调理（两通道）→ 门控 ← 时基 → 计数 → 统计；
+  # 触发由通用的 trigger_model 承担。
+  - name: a
+    type: counter_input
+    params:
+      z_in: {from: $input.a.impedance, map: {"1M": 1.0e6, "50": 50.0}}
+      coupling: $input.a.coupling
+      threshold: $input.a.threshold
+      sensitivity: $input.a.sensitivity
+  - name: b
+    type: counter_input
+    params:
+      z_in: {from: $input.b.impedance, map: {"1M": 1.0e6, "50": 50.0}}
+      coupling: $input.b.coupling
+      threshold: $input.b.threshold
+      sensitivity: $input.b.sensitivity
+  - name: clock
+    type: reference_clock
+    params: {source: $timebase.source}
+  - name: gate
+    type: counter_gate
+    params:
+      time: $gate.time
+      source: $gate.source
+      clock: clock
+  - name: stats
+    type: counter_statistics
+  - name: core
+    type: counter_core
+    params:
+      function: $function
+      gate: gate
+      clock: clock
+      a_input: a
+      b_input: b
+      statistics: stats
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: core
+      source: immediate
+      trigger_count: 1
+      sample_count: $count
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+wiring:
+  instrument:
+    - [a.out, core.a]
+    - [b.out, core.b]
+    - [ref_in.out, clock.ref]
+ports:
+  instrument:
+    CH1: a.pin
+    CH2: b.pin
+    REF_IN: ref_in.pin
+  media: {REF_IN: reference}
+display:
+  summary: [function, gate.time, count, input.a.coupling, input.a.threshold]
+capabilities: [frequency_counter]
+commands:
+  - header: ":INPut:A:COUPling"
+    state: input.a.coupling
+  - header: ":INPut:A:IMPedance"
+    state: input.a.impedance
+  - header: ":INPut:A:LEVel"
+    state: input.a.threshold
+  - header: ":INPut:A:SENSitivity"
+    state: input.a.sensitivity
+  - header: ":INPut:B:COUPling"
+    state: input.b.coupling
+  - header: ":INPut:B:IMPedance"
+    state: input.b.impedance
+  - header: ":INPut:B:LEVel"
+    state: input.b.threshold
+  - header: ":INPut:B:SENSitivity"
+    state: input.b.sensitivity
+  - header: ":GATe:TIME"
+    state: gate.time
+  - header: ":GATe:SOURce"
+    state: gate.source
+  - header: ":ROSCillator:SOURce"
+    state: timebase.source
+  - header: ":FUNCtion"
+    state: function
+  - header: ":SAMPle:COUNt"
+    state: count
+  - header: ":MEASure:FREQuency"
+    op: core.measure
+    set: false
+    args: {what: FREQuency}
+  - header: ":MEASure:PERiod"
+    op: core.measure
+    set: false
+    args: {what: PERiod}
+  - header: ":MEASure:TOTalize"
+    op: core.measure
+    set: false
+    args: {what: TOTalize}
+  - header: ":MEASure:TINTerval"
+    op: core.measure
+    set: false
+    args: {what: TINTerval}
+  - header: ":INITiate"
+    op: trig.initiate
+    query: false
+  - header: ":FETCh"
+    op: trig.fetch
+    set: false
+  - header: ":READ"
+    op: trig.read
+    set: false
+  - header: ":CALCulate:STATistics:MEAN"
+    op: stats.mean
+    set: false
+  - header: ":CALCulate:STATistics:MINimum"
+    op: stats.minimum
+    set: false
+  - header: ":CALCulate:STATistics:MAXimum"
+    op: stats.maximum
+    set: false
+  - header: ":CALCulate:STATistics:SDEViation"
+    op: stats.sdev
+    set: false
+  - header: ":CALCulate:STATistics:COUNt"
+    op: stats.count
+    set: false
+  - header: ":CALCulate:STATistics:CLEar"
+    op: stats.clear
+    query: false

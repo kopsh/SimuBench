@@ -1,0 +1,362 @@
+"""Frequency counter as its real blocks (D50, F #192): input conditioning per channel, the gate, the
+timebase, the counting core with its measurement modes, and the statistics block.
+
+``counter_input`` is the input terminal: the impedance is circuit level (a resistor to ground that
+the setting switches), the coupling is a data-level high-pass, and the threshold and sensitivity are
+the trigger level and the smallest peak-to-peak amplitude the input counts. ``counter_gate`` gives
+the gate duration from the gate time and the timebase (a fast timebase makes the gate shorter in
+true time). ``counter_core`` counts the positive-going threshold crossings: frequency and period
+from reciprocal counting over the gate (a fast timebase reads low, as on the spectrum analyzer),
+totalize the crossings inside the gate, and a time interval between the first event on channel A
+and the next one on channel B, with the trigger error of two channels that do not share it.
+``counter_statistics`` keeps the measurements for mean / minimum / maximum / standard deviation.
+
+The counting model is periodic: the events come from the dominant spectral line of a harmonic signal
+(``counter_input``'s threshold crossing of the synthesized waveform, sampled with sub-nanosecond
+interpolation). A signal that is not on one harmonic grid is counted at its strongest line — a model
+limit recorded in docs/component-map.md.
+"""
+
+from __future__ import annotations
+
+import math
+from typing import Any
+
+import numpy as np
+
+from ...engine.circuit import GROUND, Circuit
+from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.noise import gaussian, stream_key
+from ...engine.signal import Signal
+from ...scpi import values as V
+from ...scpi.errors import ScpiError
+
+POINTS_PER_PERIOD = 2048  # resolution of the threshold-crossing search (linear interpolation between)
+
+
+@component("counter_input")
+class CounterInput(Component):
+    """One input channel (F #192): impedance (1 MΩ or 50 Ω) at the pin, AC/DC coupling, the trigger
+    level and the sensitivity (the smallest peak-to-peak amplitude the channel counts; below it the
+    signal is rejected as noise)."""
+
+    ports = {
+        "pin": PortSpec("in", "electrical"),
+        "out": PortSpec("out", "signal"),
+    }
+    defaults = {
+        "z_in": 1e6,  # input resistance to ground, ohm (the 1 MΩ / 50 Ω setting)
+        "coupling": "DC",  # DC | AC input coupling
+        "ac_corner": 10.0,  # Hz, corner of the AC coupling high-pass
+        "threshold": 0.0,  # V, trigger level
+        "sensitivity": 0.1,  # V peak to peak below which the input is not counted
+    }
+    units = {"z_in": "OHM", "ac_corner": "Hz", "threshold": "V", "sensitivity": "V"}
+
+    def stamp(self, circuit: Circuit, node: Any) -> None:
+        circuit.resistor(node("pin"), GROUND, float(self.param("z_in")))
+
+    def output(self, port: str) -> Signal:
+        if port != "out":
+            raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
+        sig = self.pin_signal("pin")
+        if self.param("coupling") == "AC":
+            fc = float(self.param("ac_corner"))
+            sig = sig.transfer(lambda f: (1j * np.asarray(f) / fc) / (1 + 1j * np.asarray(f) / fc))
+        return sig
+
+    # ---- events ---------------------------------------------------------------------------------
+
+    def crossings(self, start_ns: int) -> tuple[float, float] | None:
+        """(period_s, first positive-going threshold crossing at or after ``start_ns``), or None.
+
+        The waveform is sampled over one period of its dominant line (``sample_rel`` keeps the
+        sub-nanosecond phase of the line origins) and the crossings are interpolated linearly.
+        """
+        sig = self.output("out").merged()
+        pos = sig.freq > 0
+        if not pos.any():
+            return None
+        freq, amp = sig.freq[pos], sig.amp[pos]
+        f0 = float(freq[int(np.argmax(np.abs(amp)))])
+        if f0 <= 0:
+            return None
+        period = 1.0 / f0
+        offsets = np.linspace(-period, period, POINTS_PER_PERIOD)
+        volts = sig.sample_rel(start_ns, offsets)
+        if float(np.max(volts) - np.min(volts)) < float(self.param("sensitivity")):
+            return None
+        level = float(self.param("threshold"))
+        rising = np.nonzero((volts[:-1] < level) & (volts[1:] >= level))[0]
+        if not rising.size:
+            return None
+        for i in rising:
+            v0, v1 = float(volts[i]), float(volts[i + 1])
+            frac = 0.0 if v1 == v0 else (level - v0) / (v1 - v0)
+            offset = float(offsets[i] + frac * (offsets[i + 1] - offsets[i]))
+            if offset >= -1e-12:  # a crossing at the start instant counts as at the start
+                return period, start_ns + max(0.0, offset) * 1e9
+        # The only crossing in [-T, T) came before the start: the next one is one period on.
+        i = int(rising[0])
+        v0, v1 = float(volts[i]), float(volts[i + 1])
+        frac = 0.0 if v1 == v0 else (level - v0) / (v1 - v0)
+        offset = float(offsets[i] + frac * (offsets[i + 1] - offsets[i]))
+        return period, start_ns + (offset + period) * 1e9
+
+    def events(self, start_ns: int, end_ns: int) -> tuple[int, float, float]:
+        """(count, first_ns, last_ns) of the positive-going threshold crossings in the window."""
+        found = self.crossings(start_ns)
+        if found is None or end_ns < start_ns:
+            return 0, float(start_ns), float(start_ns)
+        period, first = found
+        if first > end_ns:
+            return 0, first, first
+        count = math.floor((end_ns - first) / (period * 1e9) + 1e-9) + 1
+        return count, first, first + (count - 1) * period * 1e9
+
+
+@component("counter_gate")
+class CounterGate(Component):
+    """The gate (F #192): its time and source, and the true duration the timebase produces. A fast
+    timebase makes the instrument's second short, so the gate lasts ``T / (1 + ε)`` of true time."""
+
+    refs = {"clock": ("reference_clock", "instrument")}
+    defaults = {
+        "time": 0.1,  # s, the gate time
+        "source": "INTernal",  # INTernal | EXTernal (who starts the gate: the trigger model)
+        "clock": "",  # the reference_clock the gate time is counted on
+    }
+    units = {"time": "s"}
+
+    def error(self) -> float:
+        assert self.owner is not None
+        return float(self.owner.components[str(self.param("clock"))].error())
+
+    def duration_ns(self) -> int:
+        """The gate's true length in virtual nanoseconds."""
+        return max(1, round(float(self.param("time")) / (1 + self.error()) * 1e9))
+
+
+@component("counter_statistics")
+class CounterStatistics(Component):
+    """The statistics block (F #192): the measurements taken, and their mean, minimum, maximum and
+    standard deviation (sample standard deviation, n − 1)."""
+
+    defaults = {"capacity": 10000}  # measurements kept (the oldest go past this)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.samples: list[float] = []
+
+    def reset(self) -> None:
+        self.samples.clear()
+
+    def add(self, value: float) -> None:
+        self.samples.append(float(value))
+        if len(self.samples) > int(self.param("capacity")):
+            del self.samples[: -int(self.param("capacity"))]
+
+    def mean(self) -> float:
+        return float(np.mean(self.samples)) if self.samples else 0.0
+
+    def minimum(self) -> float:
+        return float(min(self.samples)) if self.samples else 0.0
+
+    def maximum(self) -> float:
+        return float(max(self.samples)) if self.samples else 0.0
+
+    def sdev(self) -> float:
+        return float(np.std(self.samples, ddof=1)) if len(self.samples) > 1 else 0.0
+
+    def readings(self) -> dict[str, Any]:
+        return {
+            "values": {
+                "count": len(self.samples),
+                "mean": self.mean(),
+                "minimum": self.minimum(),
+                "maximum": self.maximum(),
+                "sdev": self.sdev(),
+            }
+        }
+
+    @op("mean")
+    def op_mean(self, **_: Any) -> OpResult:
+        return OpResult(V.format_float(self.mean(), 10))
+
+    @op("minimum")
+    def op_minimum(self, **_: Any) -> OpResult:
+        return OpResult(V.format_float(self.minimum(), 10))
+
+    @op("maximum")
+    def op_maximum(self, **_: Any) -> OpResult:
+        return OpResult(V.format_float(self.maximum(), 10))
+
+    @op("sdev")
+    def op_sdev(self, **_: Any) -> OpResult:
+        return OpResult(V.format_float(self.sdev(), 10))
+
+    @op("count")
+    def op_count(self, **_: Any) -> OpResult:
+        return OpResult(V.format_int(len(self.samples)))
+
+    @op("clear")
+    def op_clear(self, **_: Any) -> OpResult:
+        self.samples.clear()
+        return OpResult()
+
+
+@component("counter_core")
+class CounterCore(Component):
+    """The counting core (F #192): frequency, period, totalize and time interval over the gate.
+
+    Frequency and period use reciprocal counting over the events inside the gate, so a fast
+    timebase reads low by ε (the same convention as the spectrum analyzer's display); totalize
+    reports the crossings inside the gate; time interval is measured between the first event on
+    channel A and the next on channel B, plus each channel's trigger error (normal, seeded by the
+    virtual instant, so two readings at one instant agree).
+    """
+
+    ports = {
+        "a": PortSpec("in", "signal"),
+        "b": PortSpec("in", "signal"),
+    }
+    refs = {
+        "gate": ("counter_gate", "instrument"),
+        "clock": ("reference_clock", "instrument"),
+        "a_input": ("counter_input", "instrument"),
+        "b_input": ("counter_input", "instrument"),
+        "statistics": ("counter_statistics", "instrument"),
+    }
+    optional_refs = frozenset({"statistics"})
+    defaults = {
+        "function": "FREQuency",  # FREQuency | PERiod | TOTalize | TINTerval
+        "gate": "",  # the counter_gate
+        "clock": "",  # the reference_clock (timebase)
+        "a_input": "",  # the counter_input of channel A (threshold, sensitivity)
+        "b_input": "",  # the counter_input of channel B
+        "statistics": "",  # the counter_statistics (empty: no statistics)
+        "trigger_error": 1e-9,  # s, one channel's trigger error (model value)
+    }
+    units = {"trigger_error": "s"}
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._run_start_ns: int | None = None
+
+    # ---- the blocks -----------------------------------------------------------------------------
+
+    def _block(self, key: str) -> Any:
+        assert self.owner is not None
+        return self.owner.components[str(self.param(key))]
+
+    def _gate(self) -> CounterGate:
+        return self._block("gate")
+
+    def error(self) -> float:
+        return float(self._block("clock").error())
+
+    def function(self) -> str:
+        return str(self.param("function"))
+
+    def _input(self, channel: str) -> CounterInput:
+        return self._block(f"{channel}_input")
+
+    # ---- the measurement ------------------------------------------------------------------------
+
+    def _trigger_error(self, at_ns: int) -> float:
+        sigma = float(self.param("trigger_error"))
+        if sigma <= 0:
+            return 0.0
+        assert self.owner is not None
+        key = stream_key(self.session.seed, self.owner.name, self.uid, sigma)
+        return sigma * float(gaussian(key, np.array([int(at_ns)]))[0])
+
+    def measure(self, function: str | None, start_ns: int) -> float:
+        """One measurement over the gate starting at ``start_ns`` (true-time windows)."""
+        kind = (function or self.function()).upper()
+        gate = self._gate()
+        eps = self.error()
+        end_ns = start_ns + gate.duration_ns()
+        if kind.startswith("FREQ") or kind.startswith("PER"):
+            count, first, last = self._input("a").events(start_ns, end_ns)
+            if count >= 2 and last > first:
+                f_true = (count - 1) / ((last - first) * 1e-9)
+            else:
+                found = self._input("a").crossings(start_ns)
+                f_true = 1.0 / found[0] if found is not None else 0.0
+            reported = f_true / (1 + eps)  # a fast timebase reads low
+            return 1.0 / reported if kind.startswith("PER") and reported else reported
+        if kind.startswith("TOT"):
+            count, _, _ = self._input("a").events(start_ns, end_ns)
+            return float(count)
+        if kind.startswith("TINT") or kind.startswith("TIME") or kind.startswith("INT"):
+            a = self._input("a").crossings(start_ns)
+            if a is None:
+                return 0.0
+            _, a_first = a
+            b = self._input("b").crossings(math.ceil(a_first))
+            if b is None:
+                return 0.0
+            _, b_first = b
+            interval = (b_first - a_first) * 1e-9 * (1 + eps)
+            return interval + self._trigger_error(int(a_first))
+        raise ScpiError(-224, f"unknown measurement {function!r}")
+
+    def _record(self, function: str | None, start_ns: int) -> float:
+        value = self.measure(function, start_ns)
+        if str(self.param("statistics")):
+            self._block("statistics").add(value)
+        return value
+
+    @op("measure")
+    def op_measure(self, what: str | None = None, **_: Any) -> OpResult:
+        """``:MEASure:<function>?``: one gated measurement, taking the gate time."""
+        value = self._record(what, self.session.now_ns)
+        return OpResult(V.format_float(value, 12), duration_ns=self._gate().duration_ns())
+
+    # ---- the trigger model's sampler ------------------------------------------------------------
+
+    def sample_time_ns(self) -> int:
+        return self._gate().duration_ns()
+
+    def run_begin(self) -> None:
+        self._run_start_ns = self.session.now_ns
+
+    def sample(self, index: int) -> float:
+        start = self._run_start_ns if self._run_start_ns is not None else self.session.now_ns
+        return self._record(None, int(start + index * self.sample_time_ns()))
+
+    # ---- readings -------------------------------------------------------------------------------
+
+    def value_now(self) -> float:
+        """The current setting's value from the signals as they are, without a gated measurement
+        (what the front panel shows between readings)."""
+        now = self.session.now_ns
+        kind = self.function().upper()
+        eps = self.error()
+        gate = float(self._gate().param("time"))
+        a = self._input("a").crossings(now)
+        if a is None:
+            return 0.0
+        period, a_first = a
+        reported = 1.0 / period / (1 + eps)
+        if kind.startswith("FREQ"):
+            return reported
+        if kind.startswith("PER"):
+            return 1.0 / reported
+        if kind.startswith("TOT"):
+            return float(math.floor(gate / (period * (1 + eps)) + 1e-9)) + 1.0
+        if kind.startswith("TINT") or kind.startswith("TIME") or kind.startswith("INT"):
+            b = self._input("b").crossings(now)
+            if b is None:
+                return 0.0
+            return ((b[1] - a_first) % (period * 1e9)) * 1e-9 * (1 + eps)
+        return 0.0
+
+    def readings(self) -> dict[str, Any]:
+        return {
+            "values": {
+                "value": self.value_now(),
+                "gate": float(self._gate().param("time")),
+            }
+        }
