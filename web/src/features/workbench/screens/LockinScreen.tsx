@@ -44,7 +44,20 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
   const vars = stateMap(inst);
   const groups: [string, string[]][] = [
     [t("lockin.reference"), ["reference.source", "reference.frequency", "reference.phase", "reference.harmonic"]],
-    [t("lockin.settings"), ["input.sensitivity", "input.coupling", "filter.time_constant", "filter.slope"]],
+    [
+      t("lockin.settings"),
+      [
+        "input.sensitivity",
+        "input.coupling",
+        "input.reserve",
+        "input.notch",
+        "input.notch_2x",
+        "input.line_frequency",
+        "filter.time_constant",
+        "filter.slope",
+      ],
+    ],
+    [t("lockin.display"), ["output.offset_x", "output.offset_y", "output.expand", "buffer.rate", "buffer.points"]],
     ["SINE OUT", ["sine_out.amplitude", "sine_out.enabled"]],
   ];
 
@@ -96,7 +109,7 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
         <p className="text-muted-foreground border-t px-3 py-1.5 text-[11px]">{t("lockin.chartHint")}</p>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
         {groups.map(([title, keys]) => (
           <div key={title} className="bg-card space-y-1.5 rounded-lg border p-3">
             <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{title}</h3>

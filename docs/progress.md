@@ -555,3 +555,19 @@
 | 视觉基线与本地结果 | ✅ Storybook 构建通过；`pnpm visual` 在 macOS 上按已知平台差异失败（Linux 基线），本 PR 未改组件库样式，不更新基线 |
 | 缺口（记入清单） | ✅ 衰减器固定 0 dB（电平在全程精确，`validation-rfgen.md`）；脉冲/任意波调制不由首波块清单承担；型号 #197 现在可以开始 |
 | `scripts/check.sh` 通过 | ✅ 1183 项 pytest 全绿 |
+
+## D3：拆分锁相放大器为真实框图组件；补数据缓冲、AUX、偏置与输入配置（Issue 189，#181 的 D3）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 第一步：重构前录金标准（消息、回复、虚拟时间），单独提交 | ✅ 首个提交 `95d4f51`：`tests/test_lockin_migration.py` + `tests/data/lockin_gold.json`，两条场景（RC 台的四种斜率 ENBW/建立、阶跃后的 n 阶指数建立、四个 Bode 点、同一虚拟时刻的噪声、灵敏度阶梯与 325/326、自动增益/相位；斩波台的外部参考与 1/3/5 次谐波、谐波上限拒绝、参考丢失 327 与恢复、截断方波 329、DC 背景下的 AC 耦合）。数值回复按 1e-9 比较、状态与错误文字逐字比较；拆分前在 monolith 上通过 |
+| 按 component-map 框图拆分；每块定求解层级 | ✅ `lockin_input_filter`（AC 耦合与工频/二次工频陷波，数据层；输入阻抗仍在端子）、`lockin_input_amp`（灵敏度满量程、动态储备、输入限幅、噪声密度，数据层，读数是输入折算）、`lockin_mixer`（相敏检波，数据层）、`lockin_lowpass`（时间常数、斜率、闭式建立、329，数据层）、`lockin_output`（X/Y 偏置与扩展、R/θ、过载、自动功能、缓冲采样，数据层）、`lockin_reference`（现有）；端子与 AUX 在电路层 |
+| 数据缓冲复用通用组件 | ✅ `sb-lia-1` 用 `trigger_model` + `reading_buffer`（#88），没有新做缓冲组件；输出组件实现 sampler 协议，采样点取自滤波器闭式解在该时刻的值（含该时刻的噪声），`sample_fields` 给 X/Y/R/θ/TIME |
+| AUX 是电路层端口 | ✅ `lockin_aux`：4 路 ADC 输入（1 MΩ 对地）与 4 路 DAC 输出（1 kΩ 戴维南源），定义端口 `AUX_IN1..4`、`AUX_OUT1..4` 出现在测试台上；`:AUX:OUTPut n,v` 经定义的 `aux.output<n>` 状态设置，`:AUX:INPut? n` 读解出的输入电压 |
+| 补偏置/扩展与输入配置 | ✅ X/Y 偏置（满量程百分比）与 ×1/×10/×100 扩展只作用于显示值，R/θ 保持原始；工频与二次工频陷波（Q = 10）、动态储备随灵敏度改变输入限幅（封顶 1.4 V 峰值）、耦合沿用 AC 0.16 Hz |
+| `sb-lia-1` 与相关验收场景迁移 | ✅ 十二个组件（osc/out/sig_in/ref_in/front/amp/mixer/filter/demod/trig/buffer/aux）；`validation-lockin.md` 的验收场景 20 项、金标准 4 项、`tests/test_model_components.py` 不改通过；新增能力用例 `tests/test_lockin.py` 5 项 |
+| 锁相类别的块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_lockin_is_built_from_its_real_blocks`：输入滤波、输入放大、混频、参考、低通、输出、缓冲、AUX 八块全覆盖；`docs/blocks/lockin.yaml` 注明缓冲复用通用组件 |
+| 界面不坏：锁相 Web 屏幕与 TUI 仪表屏幕 | ✅ `LockinScreen` 增加“显示与缓冲”分组与储备/陷波设置，读数键（`demod.*`、`osc.*`）不变；本地 e2e 42/42 与一次锁相屏幕冒烟通过；TUI 启动级 87 项与 24 快照通过 |
+| 视觉基线与本地结果 | ✅ Storybook 构建通过；`pnpm visual` 在 macOS 上按已知平台差异失败（Linux 基线），本 PR 未改组件库样式，不更新基线 |
+| 缺口（记入清单） | ✅ 缓冲的暂停/续采（SR830 的 PAUS/REST）不在首波，触发模型按一次运行取满点数；AUX 的 DAC 精度与噪声未建模；SR830 的 IGND/ISRC 等接地与输入方式命令留给 #195 按手册核对（本模型单端输入，必要时另开能力 issue）；锁相的 1/f 噪声、真实 PLL 捕获时间与通信延迟仍不建模（validation-lockin.md 已写明） |
+| `scripts/check.sh` 通过 | ✅ 1193 项 pytest 全绿 |

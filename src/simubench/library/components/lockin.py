@@ -1,11 +1,25 @@
-"""Lock-in amplifier components: reference oscillator and dual-phase demodulator.
+"""Lock-in amplifier as its real blocks (D50, D3 #189): input filter and amplifier, the phase
+sensitive detector, the low-pass filter, the DC output, the reference oscillator, the data buffer
+and the AUX ports.
 
-The demodulator is exact. Every spectral line on the input, multiplied by the reference, becomes a
-complex exponential; the cascade of n identical first-order low-pass stages has a closed-form
-response to a sum of exponentials (a particular solution plus a homogeneous part
-``e^(-t/T) * polynomial``). So settling after any change follows the order-n exponential in virtual
-time without sampling anything (validation-lockin.md 1). Each change of signal or setting starts a
-new regime from the filter state at that instant.
+The chain is data-level except the terminals: ``lockin_input_filter`` (AC coupling and the
+line-frequency notches), ``lockin_input_amp`` (sensitivity, dynamic reserve, the input limit and
+the front-end noise), ``lockin_mixer`` (multiplication by the reference: every input line becomes a
+complex exponential at Δf), ``lockin_lowpass`` (the n-pole RC filter, its time constant and slope,
+the settling and the truncation check), ``lockin_output`` (X/Y with offset and expansion, R/θ, the
+overload flags, auto gain and auto phase, and the sampler the data buffer reads) and
+``lockin_reference`` (the oscillator or the PLL tracking REF_IN). ``lockin_aux`` is the circuit
+level AUX block: four ADC inputs and four DAC outputs on the bench. The data buffer is the generic
+``trigger_model`` + ``reading_buffer`` (#88), not a new component (D3 #189).
+
+The demodulator is exact: the cascade of n identical first-order stages has a closed-form response
+to a sum of exponentials (a particular solution plus a homogeneous part ``e^(-t/T) · polynomial``),
+so settling after any change follows the order-n exponential in virtual time without sampling
+anything (validation-lockin.md 1). Each change of signal or setting starts a new regime from the
+filter state at that instant; the output component samples that closed form at the instants the
+data buffer asks for.
+
+The split keeps the behaviour of the old monolith exactly (``tests/test_lockin_migration.py``).
 """
 
 from __future__ import annotations
@@ -18,6 +32,7 @@ from typing import Any
 
 import numpy as np
 
+from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.noise import gaussian, stream_key
 from ...engine.signal import NS, Signal, phase_cycles
@@ -26,6 +41,7 @@ from ...scpi.errors import ScpiError
 
 TWO_PI = 2 * math.pi
 F_MAX = 500e3  # highest detection frequency, n * f
+HISTORY = 256  # filter regimes kept for sampling instants in the past
 
 
 @cache
@@ -173,7 +189,144 @@ class LockinReference(Component):
         return OpResult(V.format_float(f, 10))
 
 
-# ---- demodulator --------------------------------------------------------------------------------
+# ---- input filter -------------------------------------------------------------------------------
+
+
+@component("lockin_input_filter")
+class LockinInputFilter(Component):
+    """The input coupling and the line-frequency notches (D3 #189, SR830 block diagram).
+
+    AC coupling is a first-order high-pass at ``ac_corner``; the line notch (and its second
+    harmonic) is a second-order band-stop of quality ``notch_q`` at ``line_frequency``. Both act on
+    the spectral lines (data level, like the coupling the old monolith applied); the input
+    impedance, shielding and the differential pair are the circuit part of the input terminal.
+    """
+
+    ports = {
+        "in": PortSpec("in", "signal"),
+        "out": PortSpec("out", "signal"),
+    }
+    defaults = {
+        "coupling": "DC",  # DC | AC input coupling
+        "ac_corner": 0.16,  # Hz, corner of the AC coupling high-pass
+        "line_notch": False,  # the line-frequency notch on
+        "notch_2x": False,  # the notch at twice the line frequency on
+        "line_frequency": 50.0,  # Hz the notches sit on
+        "notch_q": 10.0,  # quality factor of the notches (a model value)
+    }
+    units = {"ac_corner": "Hz", "line_frequency": "Hz"}
+
+    def _notch(self, f0: float) -> Any:
+        q = float(self.param("notch_q"))
+        w0 = TWO_PI * f0
+
+        def response(f: Any) -> Any:
+            f = np.asarray(f, dtype=float)
+            w = TWO_PI * f
+            return (w0**2 - w**2) / (w0**2 - w**2 + 1j * w * w0 / q)
+
+        return response
+
+    def output(self, port: str) -> Signal:
+        if port != "out":
+            raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
+        sig = self.input("in")
+        if self.param("coupling") == "AC":
+            fc = float(self.param("ac_corner"))
+            sig = sig.transfer(lambda f: (1j * np.asarray(f) / fc) / (1 + 1j * np.asarray(f) / fc))
+        line = float(self.param("line_frequency"))
+        if self.param("line_notch"):
+            sig = sig.transfer(self._notch(line))
+        if self.param("notch_2x"):
+            sig = sig.transfer(self._notch(2 * line))
+        return sig
+
+
+# ---- input amplifier ----------------------------------------------------------------------------
+
+
+@component("lockin_input_amp")
+class LockinInputAmp(Component):
+    """The low-noise front-end amplifier (D3 #189): the sensitivity full scale, the dynamic reserve,
+    the absolute input limit and the front-end noise density.
+
+    Readings are input-referred (the gain does not scale X, Y or R); sensitivity sets full scale for
+    the overload limits and the auto-gain ladder, and the reserve widens the limit over it. The
+    signal itself passes through unchanged, which is what makes the outputs input-referred.
+    """
+
+    ports = {
+        "in": PortSpec("in", "signal"),
+        "out": PortSpec("out", "signal"),
+    }
+    defaults = {
+        "sensitivity": 1.0,  # V rms full scale: overload flags and auto gain, not the scaling of X, Y, R
+        "reserve": 10.0,  # 20 dB of dynamic reserve over the sensitivity
+        "input_limit": 1.4,  # V peak
+        "noise_density": 5e-9,  # V/√Hz, hidden state
+    }
+    units = {"noise_density": "V/√Hz", "input_limit": "V"}
+
+    def output(self, port: str) -> Signal:
+        if port != "out":
+            raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
+        return self.input("in")
+
+    def sensitivity(self) -> float:
+        return float(self.param("sensitivity"))
+
+    def peak(self) -> float:
+        """Peak of the signal at the amplifier's input, V."""
+        return self.input("in").peak()
+
+    def limit(self) -> float:
+        """Peak above which the front end overloads, V."""
+        reserve = float(self.param("reserve"))
+        return min(math.sqrt(2) * reserve * self.sensitivity(), float(self.param("input_limit")))
+
+    def noise_density(self) -> float:
+        return float(self.param("noise_density"))
+
+
+# ---- mixer --------------------------------------------------------------------------------------
+
+
+@component("lockin_mixer")
+class LockinMixer(Component):
+    """The phase-sensitive detector (D3 #189): the input's spectral lines multiplied by the
+    reference, each becoming a complex exponential at Δf = f − f_detect, plus the input's DC term.
+    The low-pass filter is applied to those exponentials by ``lockin_lowpass``."""
+
+    ports = {"ref": PortSpec("in", "reference")}
+
+    def mix(self, sig: Signal, now: int) -> tuple[np.ndarray, np.ndarray]:
+        """(coefficients, angular frequencies) of the mixed signal at ``now``."""
+        ref = self.input("ref")
+        coefs: list[np.ndarray] = []
+        deltas: list[np.ndarray] = []
+        if ref.freq.size:
+            fd = float(ref.freq[0])
+            wd = TWO_PI * fd
+            # e^{-iΦ(t_s)} with Φ(t) = arg(r) + ω_d (t − t0_r)
+            phi = cmath.phase(complex(ref.amp[0])) + TWO_PI * float(
+                phase_cycles(np.array([fd]), np.array([now - int(ref.t0_ns[0])]))[0]
+            )
+            back = cmath.exp(-1j * phi)
+            if sig.freq.size:
+                rot = np.exp(2j * np.pi * phase_cycles(sig.freq, now - sig.t0_ns))
+                a_now = sig.amp * rot  # each line's phasor at t_s
+                w = TWO_PI * sig.freq
+                coefs += [(math.sqrt(2) / 2) * a_now * back, (math.sqrt(2) / 2) * np.conj(a_now) * back]
+                deltas += [w - wd, -(w + wd)]
+            if sig.dc:
+                coefs.append(np.array([math.sqrt(2) * sig.dc * back]))
+                deltas.append(np.array([-wd]))
+        c = np.concatenate(coefs) if coefs else np.zeros(0, dtype=complex)
+        delta = np.concatenate(deltas) if deltas else np.zeros(0)
+        return c, delta
+
+
+# ---- low-pass filter ----------------------------------------------------------------------------
 
 
 @dataclass
@@ -203,37 +356,34 @@ class _Regime:
         return part + hom
 
 
-@component("lockin_demodulator")
-class LockinDemodulator(Component):
-    """Coupling, front-end noise, dual-phase mixing, n-pole filter, overload detection.
+@component("lockin_lowpass")
+class LockinLowpass(Component):
+    """The n-pole RC low-pass (D3 #189): time constant, slope (6 dB/oct per pole), the closed-form
+    settling from a new regime, the equivalent noise bandwidth, and the truncation check that
+    queues 329 when a truncated input still passes the filter."""
 
-    Readings are input-referred rms volts and degrees. ``sensitivity`` sets full scale for the
-    overload flags and the auto-gain ladder, not the scaling of X, Y and R.
-    """
-
-    ports = {"in": PortSpec("in", "signal"), "ref": PortSpec("in", "reference")}
+    ports = {
+        "in": PortSpec("in", "signal"),
+        "ref": PortSpec("in", "reference"),
+    }
+    refs = {"mixer": ("lockin_mixer", "instrument")}
     defaults = {
-        "sensitivity": 1.0,  # V rms full scale: overload flags and auto gain, not the scaling of X, Y, R
         "time_constant": 0.1,  # s, filter time constant T
         "slope": "24",  # dB/octave of the low-pass; 6 per pole (24: 4 poles)
-        "coupling": "DC",  # DC | AC input coupling
-        "ac_corner": 0.16,  # corner of the AC coupling high-pass
-        "noise_density": 5e-9,  # V/√Hz, hidden state
-        "input_limit": 1.4,  # V peak
-        "reserve": 10.0,  # 20 dB of dynamic reserve over the sensitivity
         "truncation_limit": 1e-6,  # filter gain past which truncated input raises error 329
+        "mixer": "",  # the lockin_mixer that multiplies the input by the reference
     }
-    units = {"noise_density": "V/√Hz", "input_limit": "V", "ac_corner": "Hz"}
+    units = {"time_constant": "s"}
     dynamic = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._regime: _Regime | None = None
+        self._history: list[_Regime] = []  # regimes since the restart, for sampling past instants
         self._seen = -1
-        self._in_peak = 0.0
-        self._flags = 0
         self._limit_flag = False
         self._zero_start = False
+        self._serial = 0  # regimes built so far: the output updates its flags when this moves
 
     # ---- settings -------------------------------------------------------------------------------
 
@@ -243,23 +393,28 @@ class LockinDemodulator(Component):
     def _poles(self) -> int:
         return round(float(self.param("slope")) / 6)
 
+    def _mixer(self) -> LockinMixer:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("mixer"))]
+
     def enbw(self) -> float:
         return enbw(self._poles(), self._tc())
 
     def settling(self) -> float:
         return settling_multiple(self._poles()) * self._tc()
 
-    # ---- regimes --------------------------------------------------------------------------------
+    def regime(self) -> _Regime | None:
+        return self._regime
 
-    def _coupled_input(self) -> Signal:
-        sig = self.input("in")
-        if self.param("coupling") == "AC":
-            fc = float(self.param("ac_corner"))
-            sig = sig.transfer(lambda f: (1j * np.asarray(f) / fc) / (1 + 1j * np.asarray(f) / fc))
-        return sig
+    def serial(self) -> int:
+        """How many regimes have been built since the restart (the output's overload trigger)."""
+        return self._serial
+
+    # ---- regimes --------------------------------------------------------------------------------
 
     def reset(self) -> None:
         self._regime = None  # the filter restarts from zero at the next sync
+        self._history.clear()
         self._seen = -1
         self._zero_start = True
 
@@ -268,7 +423,7 @@ class LockinDemodulator(Component):
             return
         self._seen = self.session._signal_version
         now = self.session.now_ns
-        sig = self._coupled_input()
+        sig = self.input("in")
         ref = self.input("ref")
         tc, poles = self._tc(), self._poles()
         source = (
@@ -293,42 +448,23 @@ class LockinDemodulator(Component):
             # Fewer stages keep the first ones; added stages start at the value of the last one.
             start = x[:poles] if poles <= x.size else np.concatenate([x, np.full(poles - x.size, x[-1])])
         self._zero_start = False
-        self._regime = self._build(now, sig, ref, tc, poles, start, source)
-        self._in_peak = sig.peak()
+        self._regime = self._build(now, sig, tc, poles, start, source)
+        self._serial += 1
+        self._history.append(self._regime)
+        if len(self._history) > HISTORY:
+            del self._history[:-HISTORY]
         self._check_truncation(sig, ref, tc, poles)
-        self._update_flags()
 
     def _build(
         self,
         now: int,
         sig: Signal,
-        ref: Signal,
         tc: float,
         poles: int,
         start: np.ndarray | None,
         source: tuple[Any, ...],
     ) -> _Regime:
-        coefs: list[np.ndarray] = []
-        deltas: list[np.ndarray] = []
-        if ref.freq.size:
-            fd = float(ref.freq[0])
-            wd = TWO_PI * fd
-            # e^{-iΦ(t_s)} with Φ(t) = arg(r) + ω_d (t − t0_r)
-            phi = cmath.phase(complex(ref.amp[0])) + TWO_PI * float(
-                phase_cycles(np.array([fd]), np.array([now - int(ref.t0_ns[0])]))[0]
-            )
-            back = cmath.exp(-1j * phi)
-            if sig.freq.size:
-                rot = np.exp(2j * np.pi * phase_cycles(sig.freq, now - sig.t0_ns))
-                a_now = sig.amp * rot  # each line's phasor at t_s
-                w = TWO_PI * sig.freq
-                coefs += [(math.sqrt(2) / 2) * a_now * back, (math.sqrt(2) / 2) * np.conj(a_now) * back]
-                deltas += [w - wd, -(w + wd)]
-            if sig.dc:
-                coefs.append(np.array([math.sqrt(2) * sig.dc * back]))
-                deltas.append(np.array([-wd]))
-        c = np.concatenate(coefs) if coefs else np.zeros(0, dtype=complex)
-        delta = np.concatenate(deltas) if deltas else np.zeros(0)
+        c, delta = self._mixer().mix(sig, now)
         stages = np.arange(1, poles + 1)[:, None]
         w = (
             1.0 / (1.0 + 1j * delta[None, :] * tc) ** stages
@@ -352,21 +488,90 @@ class LockinDemodulator(Component):
             self.owner.push_error(329, "Input beyond the model's limits")
         self._limit_flag = flag
 
-    # ---- readings -------------------------------------------------------------------------------
+    # ---- future and past instants ---------------------------------------------------------------
+
+    def _regime_for(self, t_ns: int) -> _Regime | None:
+        """The regime in force at ``t_ns``: the latest one built at or before it."""
+        chosen = None
+        for r in self._history:
+            if r.t_ns <= t_ns:
+                chosen = r
+        return chosen or self._regime
+
+    def state_at(self, t_ns: int) -> np.ndarray:
+        r = self._regime_for(t_ns)
+        return r.state(t_ns) if r is not None else np.zeros(self._poles(), dtype=complex)
+
+    def value_at(self, t_ns: int) -> complex:
+        """The filter's output at ``t_ns`` (past, present or future)."""
+        return complex(self.state_at(t_ns)[-1])
+
+    @op("filter_info")
+    def op_filter_info(self, what: str = "enbw", **_: Any) -> OpResult:
+        return OpResult(V.format_float(self.enbw() if what == "enbw" else self.settling(), 8))
+
+
+# ---- output -------------------------------------------------------------------------------------
+
+
+@component("lockin_output")
+class LockinOutput(Component):
+    """The DC output (D3 #189): X/Y with offset and expansion, R/θ, the overload flags and their
+    errors, the front-end noise of the reading, auto gain and auto phase — and the sampler the data
+    buffer reads (X/Y/R/θ at the buffer's instants).
+
+    Offset and expansion are display-level: ``offset_x``/``offset_y`` are percent of full scale
+    (subtracted) and ``expand`` multiplies the deviation from the offset; R and θ always show the
+    raw outputs. The defaults (0 %, x1) leave X and Y untouched.
+    """
+
+    refs = {
+        "filter": ("lockin_lowpass", "instrument"),
+        "amp": ("lockin_input_amp", "instrument"),
+    }
+    defaults = {
+        "filter": "",  # the lockin_lowpass (the settling output)
+        "amp": "",  # the lockin_input_amp (sensitivity, reserve, noise)
+        "sample_rate": 10.0,  # Hz, the data buffer's sampling rate (SRAT)
+        "offset_x": 0.0,  # percent of full scale subtracted from X (display level)
+        "offset_y": 0.0,  # percent of full scale subtracted from Y
+        "expand": 1.0,  # 1 | 10 | 100: the deviation from the offset is multiplied by this
+    }
+    units = {"sample_rate": "Hz"}
+    dynamic = True
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._flags = 0
+        self._seen_serial = -1
+        self._run_start_ns: int | None = None
+        self._run_point: dict[str, float] | None = None
+
+    # ---- the blocks -----------------------------------------------------------------------------
+
+    def _filter(self) -> LockinLowpass:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("filter"))]
+
+    def _amp(self) -> LockinInputAmp:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("amp"))]
+
+    # ---- the reading ----------------------------------------------------------------------------
 
     def _clean(self) -> complex:
         self.session._sync()
-        r = self._regime
-        return complex(r.state(self.session.now_ns)[-1]) if r is not None else 0j
+        return self._filter().value_at(self.session.now_ns)
 
-    def _noise(self) -> complex:
+    def _noise(self, now_ns: int | None = None) -> complex:
         """Filtered white front-end noise, σ = e_n·√ENBW per quadrature, a function of virtual time."""
-        en = float(self.param("noise_density"))
+        en = self._amp().noise_density()
         if en <= 0:
             return 0j
-        tc, poles = self._tc(), self._poles()
+        filter = self._filter()
+        tc, poles = filter._tc(), filter._poles()
         dt_ns = max(1, round(tc * 1e9 / 16))
-        now = self.session.now_ns
+        now = self.session.now_ns if now_ns is None else now_ns
         count = int((8 + 6 * poles) * 16)
         idx = now // dt_ns - np.arange(count, dtype=np.int64)
         tau = (now - idx * dt_ns) * NS
@@ -379,14 +584,45 @@ class LockinDemodulator(Component):
         y = float(g @ gaussian(key ^ 0x1F2E3D4C, idx)) / norm
         return sigma * complex(x, y)
 
+    def xy_at(self, t_ns: int) -> complex:
+        return self._filter().value_at(t_ns) + self._noise(t_ns)
+
     def xy(self) -> complex:
         return self._clean() + self._noise()
 
+    def settling(self) -> float:
+        return self._filter().settling()
+
+    def enbw(self) -> float:
+        return self._filter().enbw()
+
+    # ---- display transform ----------------------------------------------------------------------
+
+    def _display(self, value: float, kind: str) -> float:
+        show = kind.upper()
+        if show not in ("X", "Y"):
+            return value
+        offset = float(self.param("offset_x" if show == "X" else "offset_y"))
+        return (value - offset / 100 * self._amp().sensitivity()) * float(self.param("expand"))
+
+    def _value(self, name: str, z: complex) -> float:
+        key = name.upper()
+        if key == "X":
+            return self._display(z.real, "X")
+        if key == "Y":
+            return self._display(z.imag, "Y")
+        if key == "R":
+            return abs(z)
+        if key in ("THETA", "THET", "TH", "T", "PHASE"):
+            return math.degrees(math.atan2(z.imag, z.real))
+        raise ScpiError(-224, f"unknown output {name!r}; use X, Y, R or THETa")
+
+    # ---- overload flags -------------------------------------------------------------------------
+
     def _update_flags(self) -> None:
-        sens = float(self.param("sensitivity"))
-        limit = min(math.sqrt(2) * float(self.param("reserve")) * sens, float(self.param("input_limit")))
-        z = self._regime.state(self.session.now_ns)[-1] if self._regime is not None else 0j
-        flags = (1 if self._in_peak > limit * (1 + 1e-12) else 0) | (
+        sens = self._amp().sensitivity()
+        z = self._filter().value_at(self.session.now_ns)
+        flags = (1 if self._amp().peak() > self._amp().limit() * (1 + 1e-12) else 0) | (
             2 if max(abs(z.real), abs(z.imag)) > sens * (1 + 1e-12) else 0
         )
         rising = flags & ~self._flags
@@ -398,17 +634,25 @@ class LockinDemodulator(Component):
         self._flags = flags
 
     def _flags_now(self) -> int:
-        sens = float(self.param("sensitivity"))
-        limit = min(math.sqrt(2) * float(self.param("reserve")) * sens, float(self.param("input_limit")))
+        sens = self._amp().sensitivity()
         z = self._clean()
-        return (1 if self._in_peak > limit * (1 + 1e-12) else 0) | (
+        return (1 if self._amp().peak() > self._amp().limit() * (1 + 1e-12) else 0) | (
             2 if max(abs(z.real), abs(z.imag)) > sens * (1 + 1e-12) else 0
         )
+
+    def sync(self) -> None:
+        """Update the overload flags when the filter started a new regime (a signal or filter
+        change); a setting such as sensitivity alone reaches them at the next reading, as before."""
+        serial = self._filter().serial()
+        if serial == self._seen_serial:
+            return
+        self._seen_serial = serial
+        self._update_flags()
 
     def readings(self) -> dict[str, Any]:
         """Outputs now, and where the filter is heading: R over the next 1.5 settling times."""
         z = self.xy()
-        r = self._regime
+        r = self._filter().regime()
         now = self.session.now_ns
         span = 1.5 * self.settling()
         points = 121
@@ -419,14 +663,14 @@ class LockinDemodulator(Component):
                 trace.append(abs(complex(r.state(now + round(i * dt * 1e9))[-1])))
         return {
             "values": {
-                "X": z.real,
-                "Y": z.imag,
+                "X": self._display(z.real, "X"),
+                "Y": self._display(z.imag, "Y"),
                 "R": abs(z),
                 "THETA": math.degrees(math.atan2(z.imag, z.real)),
                 "overload": self._flags_now(),
                 "enbw": self.enbw(),
                 "settling": self.settling(),
-                "noise_sigma": float(self.param("noise_density")) * math.sqrt(self.enbw()),
+                "noise_sigma": self._amp().noise_density() * math.sqrt(self.enbw()),
             },
             "traces": [{"name": "R_projected", "t0_s": 0.0, "dt_s": dt, "values": trace}] if trace else [],
         }
@@ -437,18 +681,6 @@ class LockinDemodulator(Component):
         return self._flags
 
     # ---- operations -----------------------------------------------------------------------------
-
-    def _value(self, name: str, z: complex) -> float:
-        key = name.upper()
-        if key == "X":
-            return z.real
-        if key == "Y":
-            return z.imag
-        if key == "R":
-            return abs(z)
-        if key in ("THETA", "THET", "TH", "T", "PHASE"):
-            return math.degrees(math.atan2(z.imag, z.real))
-        raise ScpiError(-224, f"unknown output {name!r}; use X, Y, R or THETa")
 
     @op("measure")
     def op_measure(self, what: str = "R", **_: Any) -> OpResult:
@@ -465,10 +697,6 @@ class LockinDemodulator(Component):
         z = self.xy()  # one instant for every value
         return OpResult(b",".join(V.format_float(self._value(i, z), 8) for i in items))
 
-    @op("filter_info")
-    def op_filter_info(self, what: str = "enbw", **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.enbw() if what == "enbw" else self.settling(), 8))
-
     @op("overload")
     def op_overload(self, what: str = "all", **_: Any) -> OpResult:
         flags = self.overload()
@@ -478,7 +706,7 @@ class LockinDemodulator(Component):
     @op("auto_gain")
     def op_auto_gain(self, **_: Any) -> OpResult:
         """Smallest 1-2-5 sensitivity that keeps R under 90 % of full scale and the input in range."""
-        if self._tc() > 1.0:
+        if self._filter()._tc() > 1.0:
             raise ScpiError(-221, "auto gain needs a time constant of 1 s or less")
         assert self.owner is not None
         r = abs(self.xy())
@@ -494,11 +722,11 @@ class LockinDemodulator(Component):
                 if lo * 0.999 <= m * 10.0**k <= hi * 1.001
             }
         )
-        limit_v = float(self.param("input_limit"))
-        reserve = float(self.param("reserve"))
+        reserve = float(self._amp().param("reserve"))
+        limit_v = float(self._amp().param("input_limit"))
         choice = rungs[-1]
         for s in rungs:
-            if r < 0.9 * s and self._in_peak <= min(math.sqrt(2) * reserve * s, limit_v):
+            if r < 0.9 * s and self._amp().peak() <= min(math.sqrt(2) * reserve * s, limit_v):
                 choice = s
                 break
         self.owner.set_state("input.sensitivity", choice)
@@ -515,3 +743,94 @@ class LockinDemodulator(Component):
         phase = (phase + 180.0) % 360.0 - 180.0
         self.owner.set_state("reference.phase", phase)
         return OpResult()
+
+    # ---- the data buffer's sampler --------------------------------------------------------------
+
+    def sample_time_ns(self) -> int:
+        """One buffer reading: the interval the sampling rate sets."""
+        return max(1, round(1e9 / float(self.param("sample_rate"))))
+
+    def run_begin(self) -> None:
+        """A buffer run starts now; the readings are taken at the sampler's own instants."""
+        self._run_start_ns = self.session.now_ns
+        self._run_point = None
+
+    def sample(self, index: int) -> float:
+        """The R at this reading's instant (the buffer keeps READ = R; X, Y, θ are fields)."""
+        start = self._run_start_ns if self._run_start_ns is not None else self.session.now_ns
+        step = self.sample_time_ns()
+        t = start + (index + 1) * step
+        z = self.xy_at(t)
+        theta = math.degrees(math.atan2(z.imag, z.real))
+        self._run_point = {
+            "X": self._display(z.real, "X"),
+            "Y": self._display(z.imag, "Y"),
+            "R": abs(z),
+            "THETA": theta,
+            "TIME": (index + 1) * step * 1e-9,
+        }
+        return abs(z)
+
+    def sample_fields(self, index: int) -> dict[str, float]:
+        return dict(self._run_point) if self._run_point is not None else {}
+
+
+# ---- AUX ----------------------------------------------------------------------------------------
+
+
+@component("lockin_aux")
+class LockinAux(Component):
+    """The AUX block (D3 #189): four ADC inputs and four DAC outputs on the bench, circuit level.
+
+    Each input is a high-impedance (``z_in`` to ground) ADC terminal; each output is a Thevenin
+    source of ``dac`` volts behind ``z_out``. The inputs read the solved voltage of their nets, so a
+    wire to another instrument or a DUT matters exactly as it does for any other circuit block.
+    """
+
+    ports = {
+        **{f"in{n}": PortSpec("in", "electrical") for n in range(1, 5)},
+        **{f"out{n}": PortSpec("out", "electrical") for n in range(1, 5)},
+    }
+    defaults = {
+        "dac1": 0.0,  # V, DAC output 1
+        "dac2": 0.0,  # V, DAC output 2
+        "dac3": 0.0,  # V, DAC output 3
+        "dac4": 0.0,  # V, DAC output 4
+        "z_in": 1e6,  # input resistance to ground, ohm
+        "z_out": 1e3,  # series output impedance of a DAC, ohm
+    }
+    units = {"z_in": "OHM", "z_out": "OHM"}
+
+    def _source_id(self, n: int) -> str:
+        return f"{self.uid}.out{n}"
+
+    def stamp(self, circuit: Circuit, node: Any) -> None:
+        for n in range(1, 5):
+            circuit.resistor(node(f"in{n}"), GROUND, float(self.param("z_in")))
+        for n in range(1, 5):
+            circuit.source(node(f"out{n}"), self._source_id(n), float(self.param("z_out")))
+
+    def emf(self) -> dict[str, Signal]:
+        return {self._source_id(n): Signal.constant(float(self.param(f"dac{n}"))) for n in range(1, 5)}
+
+    def read(self, index: str | int = "1") -> float:
+        """The DC voltage on an AUX input, V."""
+        return float(self.pin_signal(f"in{int(index)}").dc)
+
+    @op("read")
+    def op_read(self, index: str | int = "1", **_: Any) -> OpResult:
+        return OpResult(V.format_float(self.read(index), 8))
+
+    @op("set_dac")
+    def op_set_dac(self, index: int = 1, voltage: float = 0.0, **_: Any) -> OpResult:
+        """``AUXV n,v``: set DAC output ``index`` (1..4) to ``voltage`` through the definition's
+        ``aux.output<n>`` state, so the value is a setting of the instrument like any other."""
+        n = int(index)
+        if not 1 <= n <= 4:
+            raise ScpiError(-222, "an AUX output is 1 to 4")
+        assert self.owner is not None
+        self.owner.set_state(f"aux.output{n}", float(voltage))
+        return OpResult()
+
+    def readings(self) -> dict[str, Any]:
+        return {"values": {f"in{n}": self.read(str(n)) for n in range(1, 5)}}
