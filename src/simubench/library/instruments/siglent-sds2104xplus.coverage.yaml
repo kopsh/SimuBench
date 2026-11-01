@@ -28,18 +28,20 @@ sections:
   commands:
   - header: :ACQuire:AMODe
     level: accepted
+    affects_data: false
     note: waveform capture rate has no effect on the simulation
   - header: :ACQuire:CSWeep
     level: not_modeled
   - header: :ACQuire:INTerpolation
     level: accepted
+    affects_data: false
     note: display interpolation only
   - header: :ACQuire:MMANagement
-    level: accepted
-    note: 'stored; the record length always follows AUTO: rate = min(maximum rate, depth / 10 div) on a 1-2-5 ladder'
+    level: not_modeled
+    note: 记录长度固定按 AUTO（采样率 = min(最高采样率, 深度 / 10 格)，取 1-2-5 档）；FSRate / FMDepth 会改变记录长度与采样率，未实现。
   - header: :ACQuire:MODE
-    level: accepted
-    note: YT only; XY and ROLL are stored
+    level: implemented
+    note: 只在 YT 下采集；XY 与 ROLL 会改变采集方式，设置它们报 -222。
   - header: :ACQuire:MDEPth
     level: implemented
     note: sets the record length with the timebase; *RST value 10k is a SimuBench default
@@ -71,7 +73,8 @@ sections:
 - section: CHANnel Commands (EN11F)
   commands:
   - header: :CHANnel:REFerence
-    level: accepted
+    level: not_modeled
+    note: 垂直参考 OFFSet / POSition 只改变显示坐标；本模型不模拟显示参考。
   - header: :CHANnel<ch>:BWLimit
     level: implemented
     note: first-order low-pass at 20 MHz; 200M has no effect on the 100 MHz model
@@ -104,8 +107,10 @@ sections:
     note: channels on decide interleaving (2 or 1 GSa/s)
   - header: :CHANnel<ch>:UNIT
     level: accepted
+    affects_data: false
   - header: :CHANnel<ch>:VISible
     level: accepted
+    affects_data: false
 - section: COUNter Commands (EN11F)
   commands:
   - header: :COUNter
@@ -534,6 +539,7 @@ sections:
   commands:
   - header: :MEASure
     level: accepted
+    affects_data: false
     note: measurement values are available whatever this switch says
   - header: :MEASure:ADVanced:CLEar
     level: not_modeled
@@ -577,6 +583,7 @@ sections:
     level: not_modeled
   - header: :MEASure:MODE
     level: accepted
+    affects_data: false
   - header: :MEASure:SIMPle:CLEar
     level: not_modeled
   - header: :MEASure:SIMPle:ITEM
@@ -819,9 +826,11 @@ sections:
     level: implemented
     note: '[-5000 div, 5 div]; sample 0 is at delay - 5 div'
   - header: :TIMebase:REFerence
-    level: accepted
+    level: implemented
+    note: POSition 时触发位置由 :TIMebase:REFerence:POSition 决定；DELay 时触发在记录中央，由 :TIMebase:DELay 移动。
   - header: :TIMebase:REFerence:POSition
-    level: accepted
+    level: implemented
+    note: 0–100 %，决定触发在记录中的位置（记录点数 × 百分比）；改变后记录的时间起点与触发位置随之改变。
   - header: :TIMebase:SCALe
     level: implemented
     note: 1 ns/div to 1000 s/div on 1-2-5 steps
@@ -851,8 +860,8 @@ sections:
 - section: TRIGger Commands > :TRIGger:EDGE Commands (EN11F)
   commands:
   - header: :TRIGger:EDGE:COUPling
-    level: accepted
-    note: the trigger path has no filters
+    level: not_modeled
+    note: 触发路径的 AC / 低频抑制 / 高频抑制滤波器未实现；触发按未滤波的信号判断。
   - header: :TRIGger:EDGE:HLDEVent
     level: not_modeled
   - header: :TRIGger:EDGE:HLDTime

@@ -18,10 +18,10 @@
 | 程度 | 含义 | 例子 |
 | --- | --- | --- |
 | 实现 | 语法、参数范围、默认值、返回格式、错误与对测量的影响都按手册 | `:MEASure:VOLTage:DC?`、`:SENSe:VOLTage:DC:NPLC` |
-| 接受 | 按手册解析、校验并保存，查询返回保存的值，但不影响仿真 | 显示、蜂鸣器、界面语言 |
+| 接受 | 按手册解析、校验并保存，查询返回保存的值，但**不改变采集、测量、传输与回复的数值** | 显示、蜂鸣器、界面语言、只影响面板显示的单位 |
 | 未实现 | 回复 `-113,"Undefined header;not modeled by SimuBench"`，并在事件历史中标注 | 尚未做的功能 |
 
-未实现的命令必须报错，不能静默接受：脚本在虚拟环境里通过、上了真机却失败，比报错更糟。
+未实现的命令必须报错，不能静默接受：脚本在虚拟环境里通过、上了真机却失败，比报错更糟。因此"接受"只用于与数据无关的命令，覆盖表中每条"接受"都必须写 `affects_data: false`（一致性检查对缺少它或写为 `true` 的条目报错）。会改变数据的命令只有两条路：按手册实现；或者标为"未实现"（一条命令只有一部分取值能实现时，把不能实现的取值从枚举/范围中去掉，使设置它们按手册报错，例如只支持 `ASCii` 的 `FORMat[:DATA]`）。
 
 ## 3. 按手册对齐的细节
 
@@ -70,7 +70,7 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 
 每个型号一个 `src/simubench/library/instruments/<id>.coverage.yaml`，按手册章节列出全部命令及其程度（实现、接受、未实现）与说明。
 
-- CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有手册用例。
+- CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有手册用例；“接受”条目必须有 `affects_data: false`。
 - `simubench coverage <id>` 打印覆盖表与统计，用于演示时说明做到了什么程度。
 - `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
 - 内置的真实型号只使用通用组件（`generic`），例外清单在 `tests/test_model_components.py`，只能缩短（[metrology-authoring.md](metrology-authoring.md) 第 9 节）。
@@ -116,7 +116,7 @@ sections:
     commands:
       - {header: "[:SENSe]:VOLTage[:DC]:NPLC", level: implemented}
       - {header: "[:SENSe]:CURRent[:DC]:NPLC", level: not_modeled, note: 之后实现}
-      - {header: ":DISPlay[:STATe]", level: accepted}
+      - {header: ":DISPlay[:STATe]", level: accepted, affects_data: false}
 ```
 
 `header` 与定义中的写法一致（比较时忽略大小写、空格和开头的冒号）。`*IDN`、`*RST`、`:SYSTem:ERRor[:NEXT]` 等内置命令不在定义里，也可以列为“实现”。CI（`tests/test_real_models.py`）检查：定义中的每条命令都在覆盖表中且不是“未实现”；标为“实现”或“接受”的命令都在定义中（或是内置命令），并且至少有一条手册用例使用它。不一致时，失败信息写出是哪一条命令。
@@ -148,7 +148,7 @@ cases:
 - 返回格式 `significant`：有效数字位数固定的工程记数（`+40.0E+00`、`+60.0000000000000E-09`），由命令级 `format` 逐条给出；
 - 命令的 `factor`：命令的数是设置乘以系数（`:CHANnel<n>:RANGe` 为 8 格，`:TIMebase:RANGe` 为 10 格），写入时除回去，范围仍按设置检查；
 - 组件的 `on_state` 可以返回调整后的值：`scope_vertical` 的 `out_of_range: clamp` 把超出范围的档位与偏置设为最近的合法值（手册的写法），改档位时偏置随之收进新的范围；探头比改变时按 `rescales` 换算档位与偏置；
-- `scope_timebase.reference_divs`：参考位置（左、中、右）决定触发前的格数；
+- `scope_timebase.reference_divs`：参考位置（左、中、右）决定触发前的格数；`reference_mode` / `reference_position`：型号用“参考方式 + 百分比”时（SDS 的 `:TIMebase:REFerence` / `:REFerence:POSition`），POSition 按记录点数的百分比放置触发，DELay 仍由延迟移动；
 - `waveform_transfer`：`reserve_lowest`（最低码表示无数据，数据不落在它上面）、`ascii_block`（ASCII 列表放在定长块里）、头字段的 `when` / `else`、op `figure` 单独读出 x/y 增量、原点与参考；16 位字的 y 增量按移位后的码计算；
 - `scope_trigger` 的 `reject` / `hf_reject`：触发路径上的低频、高频抑制滤波。
 

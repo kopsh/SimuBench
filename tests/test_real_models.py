@@ -226,3 +226,14 @@ def test_several_parameters_with_units_and_a_header_without_colons():
 )
 def test_number_formats(kw, value, text):
     assert V.format_float(value, **kw) == text
+
+
+def test_check_requires_an_accepted_entry_to_declare_it_changes_no_data():
+    """#132: "accepted" is for commands without an effect on the data, and the table must say so."""
+    defn, cov, cases = _acme()
+    data = cov.model_dump(by_alias=True)
+    for section in data["sections"]:
+        if section["section"].startswith("Command Reference > DISPlay"):
+            del section["commands"][0]["affects_data"]
+    problems = check(defn, Coverage.model_validate(data), cases)
+    assert any("accepted but does not declare affects_data: false" in p for p in problems), problems

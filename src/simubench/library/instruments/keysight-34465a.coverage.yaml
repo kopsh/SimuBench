@@ -16,6 +16,7 @@ sections:
     note: 进入等待触发态并清空读数存储器；测量按 NPLC 计入虚拟时间，INIT 即时返回。
   - header: OUTPut:TRIGger:SLOPe
     level: accepted
+    affects_data: false
     note: VM Comp BNC 的硬件握手信号不在仿真中，设定保存并回读。
   - header: R
     level: implemented
@@ -121,9 +122,11 @@ sections:
   commands:
   - header: :DISPlay[:STATe]
     level: accepted
+    affects_data: false
     note: 显示开关保存并回读，不影响仿真。
   - header: :DISPlay:TEXT[:DATA]
     level: accepted
+    affects_data: false
     note: 显示文本保存并回读（带引号）；40 字符上限未强制。
   - header: DISPlay:TEXT:CLEar
     level: not_modeled
@@ -135,10 +138,11 @@ sections:
   commands:
   - header: FORMat:BORDer
     level: accepted
+    affects_data: false
     note: 字节序保存并回读；二进制块传输未实现。
   - header: FORMat[:DATA]
-    level: accepted
-    note: ASCii|REAL 与长度保存并回读；REAL 的二进制传输未实现，读数仍按 ASCII 返回。
+    level: implemented
+    note: ASCii 与长度保存并回读；REAL 的二进制传输未实现，FORM:DATA REAL 报 -224（不静默按 ASCII 返回）。
 - section: HCOPy Subsystem
   commands:
   - header: HCOPy:SDUMp:DATA
@@ -592,12 +596,15 @@ sections:
     note: 自动校准未实现。
   - header: SYSTem:BEEPer[:IMMediate]
     level: accepted
+    affects_data: false
     note: 立即蜂鸣：接受、无回复；蜂鸣在仿真中没有效果。
   - header: SYSTem:BEEPer:STATe
     level: accepted
+    affects_data: false
     note: 蜂鸣器开关保存并回读（真机为非易失设定，*RST 不清除；仿真 *RST 恢复出厂默认）。
   - header: SYSTem:CLICk:STATe
     level: accepted
+    affects_data: false
     note: 按键音开关保存并回读。
   - header: SYSTem:DATE
     level: implemented
@@ -619,6 +626,7 @@ sections:
     note: 电源频率 50 Hz（读数时间按 50 Hz 的 PLC 周期）。
   - header: SYSTem:LOCal
     level: accepted
+    affects_data: false
     note: 回到本地；接受、无回复，不影响仿真。
   - header: SYSTem:PRESet
     level: implemented
@@ -716,6 +724,7 @@ sections:
     note: 电平触发需要 DIG 选项与内部触发源，未实现。
   - header: TRIGger:SLOPe
     level: accepted
+    affects_data: false
     note: 外部触发沿保存；外部触发连线不在本期（按'等待外部触发'处理）。
   - header: TRIGger:SOURce
     level: implemented

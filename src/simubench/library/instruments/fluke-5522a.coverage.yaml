@@ -80,9 +80,11 @@ sections:
     note: '电流输出的接线端子选择（CUR_POST/CUR_POST?）；电流未建模。'
   - header: 'EARTH'
     level: accepted
+    affects_data: false
     note: 'NORMAL LO 接/断机壳地（TIED/OPEN），查询 EARTH? 回读；解析并保存，不影响仿真中的电路。*RST 后 OPEN。'
   - header: 'EXTGUARD'
     level: accepted
+    affects_data: false
     note: '内部保护屏蔽接/断 LO（ON/OFF），查询 EXTGUARD? 回读；解析并保存，不影响仿真。*RST 后 OFF。'
   - header: 'LOWS'
     level: not_modeled
@@ -220,12 +222,15 @@ sections:
   commands:
   - header: 'LOCAL'
     level: accepted
+    affects_data: false
     note: '回到本地并解除锁定（等价 IEEE-488 GTL）。手册无参数；无参数置态命令的声明是能力缺口（能力 issue），命令被接受（不报错、不回复）但不写状态，仿真中本地/远程不影响行为。'
   - header: 'LOCKOUT'
     level: accepted
+    affects_data: false
     note: '前面板锁定（等价 IEEE-488 LLO）；同 LOCAL 的限制。'
   - header: 'REMOTE'
     level: accepted
+    affects_data: false
     note: '进入远程状态（等价 IEEE-488 REN）；同 LOCAL 的限制。'
   - header: 'SPLSTR'
     level: not_modeled
