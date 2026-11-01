@@ -1,0 +1,19 @@
+# 可编程电源的真实功能块(D50,依据见 docs/component-map.md 的 power_supply 节)。
+# 每路一条链;跟踪/串并联在通道之间。组件类型是 B2(#185)的设计默认。
+schema: simubench.blocks/1
+class: power_supply
+blocks:
+  - block: setpoint_dac        # 每路设定值与量程
+    components: [power_supply_setpoint]
+  - block: cv_cc_loop          # CV/CC 误差放大(复用 SMU 的限值切换环)
+    components: [output_control_loop]
+  - block: power_stage         # 功率级
+    components: [power_stage]
+  - block: output_stage        # 输出继电器与 sense
+    components: [power_output]
+  - block: readback_adc        # 电压/电流回读
+    components: [supply_readback]
+  - block: protection          # OVP/OCP 设定与锁定
+    components: [supply_protection]
+  - block: tracking            # 跟踪/串并联(多路)
+    components: [supply_tracking]

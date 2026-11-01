@@ -1,0 +1,17 @@
+# 频率计数器的真实功能块(D50,依据见 docs/component-map.md 的 frequency_counter 节)。
+# 组件类型是 F(#192)的设计默认;53230A 独有功能不在首波。
+schema: simubench.blocks/1
+class: frequency_counter
+blocks:
+  - block: input               # 输入调理(耦合、阻抗、阈值)
+    components: [counter_input]
+  - block: gate                # 门控(门时间、门控源)
+    components: [counter_gate]
+  - block: timebase            # 时基/参考
+    components: [counter_timebase, reference_clock]
+  - block: counter             # 计数/内插(频率、周期、累加、时间间隔)
+    components: [counter_core]
+  - block: statistics          # 均值/最小/最大/标准差
+    components: [counter_statistics]
+  - block: trigger             # 触发
+    components: [trigger_model]
