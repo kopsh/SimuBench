@@ -339,7 +339,7 @@ display:
       - {label: 精确, state: sense.nplc, value: 10}
 ```
 
-枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键；DAQ 由 `scan_table` 生成：刚扫描的通道与读数、扫描表、闭合通道，功能与 NPLC、扫描次数与间隔，以及 Run / Stop 软键。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
+枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键；DAQ 由 `scan_table` 生成：刚扫描的通道与读数、扫描表、闭合通道，功能与 NPLC、扫描次数与间隔，以及 Run / Stop 软键；电源由每路的回读、保护状态、输出开关与电压/电流设定，以及输出 2/3 的组合键生成。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
 
 ### 7.4 MCP：模板与试运行（W4、W5）
 

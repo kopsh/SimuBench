@@ -224,7 +224,72 @@ def _daq(d: InstrumentDefinition) -> Panel | None:
     return Panel(readouts=readouts, groups=groups, softkeys=_action_keys(d))
 
 
-_DEFAULTS = {"multimeter": _multimeter, "calibrator": _calibrator, "daq": _daq}
+def _power_supply(d: InstrumentDefinition) -> Panel | None:
+    """Power supply class default (B2 #185): each output's readback and protection status, its
+    output switch and voltage/current settings, and the ±25 V combination (channels 2 and 3)."""
+    read = next((c for c in d.channel_components if c.type == "supply_readback"), None)
+    if read is None:
+        return None
+    protection = next((c for c in d.channel_components if c.type == "supply_protection"), None)
+    count = d.channels.count
+    readouts = []
+    for n in range(1, count + 1):
+        readouts.append(
+            PanelReadout(
+                reading=f"ch{n}.{read.name}.voltage",
+                label=f"CH{n} 电压",
+                label_en=f"CH{n} voltage",
+                unit="V",
+                digits=7,
+            )
+        )
+        readouts.append(
+            PanelReadout(
+                reading=f"ch{n}.{read.name}.current",
+                label=f"CH{n} 电流",
+                label_en=f"CH{n} current",
+                unit="A",
+                digits=7,
+            )
+        )
+        if protection is not None:
+            readouts.append(
+                PanelReadout(
+                    reading=f"ch{n}.{protection.name}.tripped",
+                    label=f"CH{n} 保护",
+                    label_en=f"CH{n} protection",
+                )
+            )
+    groups = []
+    for n in range(1, count + 1):
+        groups.append(
+            PanelGroup(
+                label=f"CH{n}",
+                controls=[
+                    PanelControl(state=f"ch{n}.output", control="switch"),
+                    PanelControl(state=f"ch{n}.voltage", control="number"),
+                    PanelControl(state=f"ch{n}.current", control="number"),
+                ],
+            )
+        )
+    tracking = _first(d, "supply_tracking")
+    mode_state = _bound(tracking, "mode") if tracking is not None else None
+    mode_spec = d.state.get(mode_state) if mode_state else None
+    if mode_state and mode_spec is not None and mode_spec.type == "enum":
+        keys = [
+            PanelKey(value=o, label=(mode_spec.option_labels or {}).get(o)) for o in mode_spec.options or []
+        ]
+        groups.append(
+            PanelGroup(
+                label="组合",
+                label_en="Combination",
+                controls=[PanelControl(state=mode_state, control="buttons", keys=keys)],
+            )
+        )
+    return Panel(readouts=readouts, groups=groups, softkeys=[])
+
+
+_DEFAULTS = {"multimeter": _multimeter, "calibrator": _calibrator, "daq": _daq, "power_supply": _power_supply}
 _FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V"}
 
 

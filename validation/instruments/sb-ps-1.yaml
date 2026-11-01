@@ -1,0 +1,178 @@
+schema: simubench.instrument/1
+id: sb-ps-1
+manufacturer: SimuBench
+model: SB-PS-1
+class: power_supply
+version: 1
+description: >-
+  三路可编程直流电源（验证用，E36312A 的架构）：CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 −25 V/1 A；
+  每路是设定 → CV/CC 控制环（复用 B1）→ 功率级 → 输出继电器/sense → 回读与 OVP/OCP 锁定；
+  CH2 与 CH3 可跟踪、并联或串联。
+identity:
+  serial: SBPS0000001
+  firmware: "1.0.0"
+channels:
+  count: 3
+  overrides:
+    1:
+      voltage: {max: 6.18}
+      current: {max: 5.15}
+      v_max: {default: 6.18}
+      i_max: {default: 5.15}
+    3:
+      voltage: {min: -25.75, max: 0.0}
+channel_state:
+  voltage:
+    type: float
+    unit: V
+    min: 0.0
+    max: 25.75
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage
+  current:
+    type: float
+    unit: A
+    min: 0.001
+    max: 1.03
+    default: 1.0
+    label: 电流限值
+    label_en: Current limit
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  ovp:
+    type: float
+    unit: V
+    min: 0.0
+    max: 27.0
+    default: 0.0
+    label: 过压保护
+    label_en: OVP
+  ocp:
+    type: float
+    unit: A
+    min: 0.0
+    max: 6.0
+    default: 0.0
+    label: 过流保护
+    label_en: OCP
+  v_max:
+    type: float
+    default: 25.75
+    readonly: true
+  i_max:
+    type: float
+    default: 1.03
+    readonly: true
+state:
+  output.mode:
+    type: enum
+    options: ["OFF", PARallel, SERies, TRACk]
+    default: "OFF"
+    label: 组合
+    label_en: Combination
+    option_labels: {"OFF": 独立, PARallel: 并联, SERies: 串联, TRACk: 跟踪}
+channel_components:
+  - name: set
+    type: power_supply_setpoint
+    params: {stage: stage}
+  - name: stage
+    type: power_stage
+    params: {v_max: $ch.v_max, i_max: $ch.i_max, p_max: 26.0}
+  - name: loop
+    type: output_control_loop
+    params:
+      function: VOLTage
+      v_level: $ch.voltage
+      i_level: 0.0
+      i_limit: $ch.current
+      v_limit: 0.0
+      output: $ch.output
+      channel_envelope: stage
+  - name: out
+    type: power_output
+    params: {output: $ch.output, loop: loop, stage: stage, protection: prot}
+  - name: prot
+    type: supply_protection
+    params: {ovp: $ch.ovp, ocp: $ch.ocp, output: $ch.output}
+  - name: read
+    type: supply_readback
+    params: {output: out}
+components:
+  - name: track
+    type: supply_tracking
+    params:
+      mode: $output.mode
+      voltage2: $ch2.voltage
+      voltage3: $ch3.voltage
+      output2: $ch2.output
+      output3: $ch3.output
+ports:
+  channel:
+    "OUT{n}+": out.pos
+    "OUT{n}-": out.neg
+display:
+  template: power_supply
+  summary: [ch1.voltage, ch1.current, ch2.voltage, ch3.voltage, output.mode]
+capabilities: [power_supply]
+commands:
+  # 设定与回读：每条命令对通道列表展开（A/#183），电平写该通道的状态。
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.voltage"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPlitude]"
+    params:
+      - {name: level, type: float, unit: A, state: "ch.current"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:VOLTage:PROTection[:LEVel]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.ovp"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent:PROTection[:LEVel]"
+    params:
+      - {name: level, type: float, unit: A, state: "ch.ocp"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "OUTPut[:STATe]"
+    params:
+      - {name: state, type: bool, state: "ch.output"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+    dangerous: true
+  - header: "MEASure:VOLTage[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: voltage}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "MEASure:CURRent[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: current}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "MEASure:POWer[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: power}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  # 保护：查询锁定、清除（清除后恢复故障前的输出状态）。
+  - header: "OUTPut:PROTection:TRIPped"
+    op: ch.prot.tripped
+    set: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "OUTPut:PROTection:KIND"
+    op: ch.prot.kind
+    set: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "OUTPut:PROTection:CLEar"
+    op: ch.prot.clear
+    query: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  # 组合：并联/串联/独立，以及跟踪开关（跟踪也反映在组合查询里）。
+  - header: "OUTPut:PAIR"
+    state: output.mode
+  - header: "OUTPut:TRACk[:STATe]"
+    op: track.track
+    params: [{name: enabled, type: bool, optional: true}]

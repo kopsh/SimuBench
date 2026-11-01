@@ -8,6 +8,7 @@ from . import (  # noqa: F401
     eload,
     lockin,
     meters,
+    power,
     rfgen,
     scope,
     siglent_sdg,
