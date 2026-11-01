@@ -1,0 +1,17 @@
+# DAQ/开关单元的真实功能块(D50,依据见 docs/component-map.md 的 daq 节)。
+# 首波固定 34970A + 槽 1 的 34901A;数字 I/O 与总加器不在首波。
+schema: simubench.blocks/1
+class: daq
+blocks:
+  - block: backplane           # 插槽与模拟/数字背板总线
+    components: [daq_backplane]
+  - block: mux_card            # 多路复用卡(34901A)与继电器
+    components: [mux_card]
+  - block: scan_table          # 扫描表与扫描控制
+    components: [scan_table]
+  - block: internal_dmm        # 内部 DMM(E1 拆分后的 dmm_core)
+    components: [dmm_core, dmm_input_terminal, dmm_conditioning, dmm_adc]
+  - block: trigger             # 扫描/测量触发
+    components: [trigger_model]
+  - block: buffer              # 读数缓冲
+    components: [reading_buffer]

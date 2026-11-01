@@ -1,0 +1,17 @@
+# 射频信号源的真实功能块(D50,依据见 docs/component-map.md 的 rf_generator 节)。
+# 组件类型是 D2(#188)拆分的设计默认。
+schema: simubench.blocks/1
+class: rf_generator
+blocks:
+  - block: reference           # 内部/外部 10 MHz 时基
+    components: [rf_reference, reference_clock]
+  - block: synthesizer         # 载波合成(PLL/VCO)
+    components: [rf_synthesizer]
+  - block: modulator           # AM/FM/PM
+    components: [rf_modulator]
+  - block: level_control       # 电平与 ALC
+    components: [rf_level_control]
+  - block: attenuator          # 输出衰减器
+    components: [rf_attenuator]
+  - block: output              # RF 输出(50 Ω)
+    components: [rf_output]
