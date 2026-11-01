@@ -361,7 +361,7 @@
 | 覆盖表与用例 | ✅ 487 条：实现 74（67 → 74；新增 6 条、补上原先漏掉的 `:RSTate?` 与 `:ACQuire?`，并把 `:SYSTem:ERRor[:NEXT]` 从“未实现”改正）、接受 8、未实现 405；每条“接受”标 `affects_data: false` 并说明。`tests/models/keysight-dsox2024a/cases.yaml` 30 条（17 → 30），每条新命令至少一条，`manual` 引用手册章节；`simubench cases` 30/30 通过 |
 | 影响数据的命令有行为测试 | ✅ `tests/test_keysight_dsox.py` 14 项（新增 4）：`*TRG` 在停止时也采一帧并让 `*OPC?` 等到记录填满、`:TRIGger:FORCe` 在触发条件不满足时仍采一帧（记录的 `triggered` 为假）、`:SYSTem:PRESet` 恢复 `*RST` 条件并让示波器重新运行、PEAK 保留记录速率跨过的摆幅（40 MHz 正弦、50 ms/div：NORMal 混叠成单一电平，PEAK 到满摆幅） |
 | 表达不了的命令在覆盖表写原因，需要新能力的登记 | ✅ `:AER`/`:TER`/`:RSTate?`/`:OPEE`/`:OPERegister*`（运行与触发状态寄存器）、按参数选通道的 `:BLANk`/`:VIEW`/`:STATus`/`:TRIGger:LEVel <level>,<source>`、分段存储、其它触发类型、`:SYSTem:DATE`/`TIME`、RLOGger、SETup 均写明原因；能力 issue #248（`核心`）记录缺口 |
-| 检查 | ✅ `uv run simubench validate` 无诊断；覆盖表一致性检查通过；`scripts/check.sh` 全绿（pytest 1214 项通过、6 项跳过；ruff、生成 schema、Web 类型与测试通过） |
+| 检查 | ✅ `uv run simubench validate` 无诊断；覆盖表一致性检查通过；`scripts/check.sh` 全绿（pytest 1243 项通过、6 项跳过；ruff、生成 schema、Web 类型与测试通过） |
 
 ## 仪表模板机制与示波器模板；MCP 模板工具（Issue 125，instrument-authoring.md 7.4，D3）
 
