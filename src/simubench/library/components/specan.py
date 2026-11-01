@@ -1,11 +1,19 @@
-"""Swept spectrum analyzer: lines through a Gaussian RBW filter, receiver noise, detectors, trace
-modes in virtual time, markers and a 10 MHz reference input (validation-specan.md).
+"""Swept spectrum analyzer as its real blocks (D50, D1 #187).
+
+The receiver chain is data-level except the input port: ``specan_input`` (the step attenuator and
+the mixer-overload check), ``specan_mixer`` (the ±10 ppm 10 MHz reference and the display-frequency
+scale), ``specan_if`` (the Gaussian RBW filter and the receiver noise floor), ``specan_detector``
+(positive peak / sample / average / RMS and the log conversion), ``specan_vbw`` (the video filter's
+bandwidth) and ``specan_trace`` (sweep timing, the RF history, the trace modes in virtual time,
+markers and the settings couplings the scan owns). The 50 Ω termination is the generic
+``input_port``; ``reference_clock`` is the 10 MHz reference block.
 
 Lines are exact: every spectral line on RF_IN is drawn through the RBW filter at its power V²/2R.
 Noise is the receiver's kT0·F·NBW plus the attenuation, drawn per resolution cell from a
 counter-based generator keyed by (seed, sweep, point, cell), so a trace is a pure function of the
 settings, the signals RF_IN carried, the seed and the sweep number: two reads at one virtual
-instant are identical.
+instant are identical. The split keeps that property and every reply of the old monolith (see
+``tests/test_specan_migration.py``).
 """
 
 from __future__ import annotations
@@ -52,6 +60,7 @@ def line_response(d: np.ndarray, rbw: float, bucket: float, detector: str) -> np
 
 
 def snap_rbw(value: float) -> float:
+    """The nearest 1-3-10 RBW setting."""
     return min(RBW_LADDER, key=lambda r: abs(math.log10(r) - math.log10(max(value, 1e-12))))
 
 
@@ -70,19 +79,232 @@ class _Settings:
         return (self.start, self.stop, self.points, self.rbw, self.sweep, self.att, self.detector, self.nf)
 
 
-@component("spectrum_analyzer")
-class SpectrumAnalyzer(Component):
-    """The analyzer core. Settings live in instrument state; this component applies the couplings."""
+@component("specan_input")
+class SpecanInput(Component):
+    """The input attenuator and overload check (D1 #187): the RF input port is the generic
+    ``input_port`` (50 Ω to ground, the only circuit-layer part of the analyzer). The step
+    attenuator is automatic (reference level kept at the mixer limit, 2 dB steps) or manual; the
+    receiver overloads when the total input power minus the attenuation passes the mixer limit."""
 
-    ports = {"in": PortSpec("in", "signal", "RF_IN"), "ref": PortSpec("in", "signal", "REF_IN")}
+    ports = {"in": PortSpec("in", "signal")}
     defaults = {
         "z_in": 50.0,  # input impedance, ohm
-        "noise_figure": 24.0,  # receiver noise figure over kT0
         "mixer_limit": -10.0,  # dBm at the mixer: total input minus attenuation above it overloads
-        "maxhold_limit": 999,  # sweeps max hold keeps (older ones are dropped, with a warning)
-        "rosc": "INTernal",  # INTernal | EXTernal 10 MHz reference
+        "att": 10.0,  # dB, manual attenuation (a setting such as $power.att)
+        "att_auto": True,  # the attenuation is automatic (a setting)
+        "ref_level": 0.0,  # dBm, the reference level the automatic attenuation holds (a setting)
     }
-    units = {"noise_figure": "dB"}
+
+    def signal(self) -> Signal:
+        return self.input("in")
+
+    def attenuation(self) -> float:
+        if bool(self.param("att_auto")):
+            # Keep the reference level at the mixer limit, in 2 dB steps.
+            need = float(self.param("ref_level")) - float(self.param("mixer_limit"))
+            return float(min(70.0, max(0.0, 2 * math.ceil(need / 2 - 1e-9))))
+        return float(self.param("att"))
+
+    def overload(self) -> bool:
+        sig = self.signal().merged()
+        total_mw = float(np.sum(np.abs(sig.amp) ** 2)) / (2 * float(self.param("z_in"))) * 1e3
+        total_mw += sig.dc**2 / float(self.param("z_in")) * 1e3
+        if total_mw <= 0:
+            return False
+        return 10 * math.log10(total_mw) - self.attenuation() > float(self.param("mixer_limit"))
+
+    @op("coupled_att")
+    def op_coupled_att(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
+        """The attenuation: a manual value turns the automatic coupling off."""
+        if query:
+            return OpResult(V.format_float(self.attenuation(), 10))
+        assert value is not None
+        if not 0 <= value <= 70:
+            raise ScpiError(-222)
+        assert self.owner is not None
+        self.owner.set_state("power.att", 2 * round(value / 2))
+        self.owner.set_state("power.att_auto", False)
+        return OpResult()
+
+    @op("overload")
+    def op_overload(self, query: bool = False, **_: Any) -> OpResult:
+        return OpResult(V.format_bool(self.overload()))
+
+
+@component("specan_mixer")
+class SpecanMixer(Component):
+    """The mixer's local oscillator and the reference block (D1 #187).
+
+    The 10 MHz reference is a ``reference_clock``: its fractional error scales the display
+    frequency axis (a true f displays at f / (1 + ε)) and the ``:ROSCillator`` status says whether
+    the external reference is in use. Switching to EXTernal without a usable 10 MHz sine keeps the
+    internal oscillator and reports -221, as the old monolith did. The receiver noise figure lives
+    here too.
+    """
+
+    refs = {"clock": ("reference_clock", "instrument")}
+    defaults = {
+        "noise_figure": 24.0,  # receiver noise figure over kT0, dB
+        "clock": "",  # the reference_clock on REF_IN
+        "source": "INTernal",  # watched: $rosc.source (INTernal | EXTernal)
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._error = 0.0  # fractional frequency error of the reference in use
+        self._locked = False
+
+    def _clock(self) -> Any:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("clock"))]
+
+    def refresh(self) -> None:
+        """Read the reference's error and lock state (called when the receiver syncs)."""
+        clock = self._clock()
+        self._error = float(clock.error())
+        self._locked = bool(clock.locked())
+
+    def error(self) -> float:
+        return self._error
+
+    def locked(self) -> bool:
+        return self._locked
+
+    def in_use(self) -> str:
+        return "EXT" if self._locked else "INT"
+
+    def display(self, f: Any) -> Any:
+        return f / (1 + self._error)
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        if path == self.bound_paths().get("source") and new == "EXTernal":
+            self.session._sync()
+            self.refresh()
+            if not self._locked:
+                assert self.owner is not None
+                self.owner.push_error(
+                    -221,
+                    "external reference unusable: REF_IN needs a 10 MHz sine within 10 ppm, "
+                    "the analyzer stays on its internal reference",
+                )
+
+    @op("status")
+    def op_status(self, what: str = "locked", **_: Any) -> OpResult:
+        self.session._sync()
+        if what == "locked":
+            return OpResult(V.format_bool(self.locked()))
+        return OpResult(self.in_use().encode())
+
+
+@component("specan_if")
+class SpecanIf(Component):
+    """The IF filter (D1 #187): the resolution bandwidth (auto: span / 100, snapped to the 1-3-10
+    ladder; manual otherwise), the Gaussian passband lines are drawn through, and the receiver noise
+    floor kT0·F·NBW at the RBW in use."""
+
+    defaults = {
+        "rbw": 3.0e6,  # Hz, manual RBW (a setting such as $bw.res)
+        "rbw_auto": True,  # the RBW follows the span (a setting)
+        "span": 7.5e9,  # Hz, the span the automatic RBW uses (a setting)
+    }
+
+    def rbw(self) -> float:
+        if bool(self.param("rbw_auto")):
+            return snap_rbw(float(self.param("span")) / 100)
+        return float(self.param("rbw"))
+
+    def response(self, d: np.ndarray, rbw: float, bucket: float, detector: str) -> np.ndarray:
+        return line_response(d, rbw, bucket, detector)
+
+    def noise_floor_mw(self, att: float, nf: float) -> float:
+        return 10 ** ((KT0_DBM_HZ + nf + att + 10 * math.log10(NBW_FACTOR * self.rbw())) / 10)
+
+    @op("coupled_rbw")
+    def op_coupled_rbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
+        if query:
+            return OpResult(V.format_float(self.rbw(), 10))
+        assert value is not None
+        if not 1.0 <= value <= 3e6:
+            raise ScpiError(-222)
+        assert self.owner is not None
+        self.owner.set_state("bw.res", snap_rbw(value))
+        self.owner.set_state("bw.res_auto", False)
+        return OpResult()
+
+
+@component("specan_detector")
+class SpecanDetector(Component):
+    """The detector and log conversion (D1 #187): positive peak / sample / average / RMS per
+    resolution cell, then the level in dBm."""
+
+    defaults = {"detector": "POSitive"}  # POSitive | SAMPle | AVERage | RMS (a setting)
+
+    def detect(self, v: np.ndarray, power: np.ndarray) -> np.ndarray:
+        mode = str(self.param("detector"))
+        if mode == "POSitive":
+            out = power.max(axis=1)
+        elif mode == "AVERage":
+            out = np.abs(v).mean(axis=1) ** 2
+        elif mode == "RMS":
+            out = power.mean(axis=1)
+        else:
+            out = power[:, 0]
+        return 10 * np.log10(out)
+
+
+@component("specan_vbw")
+class SpecanVbw(Component):
+    """The video filter's bandwidth (D1 #187): auto follows the RBW; the manual value stretches the
+    sweep the same way the old monolith did (its auto sweep time uses min(RBW, VBW))."""
+
+    refs = {"if_filter": ("specan_if", "instrument")}
+    defaults = {
+        "vid": 3.0e6,  # Hz, manual VBW (a setting such as $bw.vid)
+        "vid_auto": True,  # the VBW follows the RBW (a setting)
+        "if_filter": "",  # the specan_if it reads the RBW from
+    }
+
+    def vbw(self) -> float:
+        if bool(self.param("vid_auto")):
+            assert self.owner is not None
+            return float(self.owner.components[str(self.param("if_filter"))].rbw())
+        return float(self.param("vid"))
+
+    @op("coupled_vbw")
+    def op_coupled_vbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
+        if query:
+            return OpResult(V.format_float(self.vbw(), 10))
+        assert value is not None
+        if not 1.0 <= value <= 3e6:
+            raise ScpiError(-222)
+        assert self.owner is not None
+        self.owner.set_state("bw.vid", snap_rbw(value))
+        self.owner.set_state("bw.vid_auto", False)
+        return OpResult()
+
+
+@component("specan_trace")
+class SpecanTrace(Component):
+    """The trace and scan engine (D1 #187): the analysis window and its settings couplings, the
+    sweep timing in virtual time, the RF history, the trace modes (write / average / max hold), the
+    markers, and the SCPI operations of the display. It sequences the blocks above; all of them are
+    data-level, so the analyzer touches the circuit only at its input port."""
+
+    refs = {
+        "input": ("specan_input", "instrument"),
+        "mixer": ("specan_mixer", "instrument"),
+        "if_filter": ("specan_if", "instrument"),
+        "detector": ("specan_detector", "instrument"),
+        "vbw": ("specan_vbw", "instrument"),
+    }
+    defaults = {
+        "input": "",  # the specan_input (attenuation, overload)
+        "mixer": "",  # the specan_mixer (reference error, noise figure)
+        "if_filter": "",  # the specan_if (RBW)
+        "detector": "",  # the specan_detector
+        "vbw": "",  # the specan_vbw
+        "maxhold_limit": 999,  # sweeps max hold keeps (older ones are dropped, with a warning)
+    }
     dynamic = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -96,10 +318,27 @@ class SpectrumAnalyzer(Component):
         self._held_upto = -1
         self._frozen: np.ndarray | None = None
         self._warned_hold = False
-        self._ref_error = 0.0  # fractional frequency error of the reference in use
-        self._ref_locked = False
 
-    # ---- state helpers --------------------------------------------------------------------------
+    # ---- the blocks ------------------------------------------------------------------------------
+
+    def _block(self, key: str) -> Any:
+        assert self.owner is not None
+        return self.owner.components[str(self.param(key))]
+
+    def _input(self) -> SpecanInput:
+        return self._block("input")
+
+    def _mixer(self) -> SpecanMixer:
+        return self._block("mixer")
+
+    def _if(self) -> SpecanIf:
+        return self._block("if_filter")
+
+    def _detector(self) -> SpecanDetector:
+        return self._block("detector")
+
+    def _vbw(self) -> SpecanVbw:
+        return self._block("vbw")
 
     def _st(self, path: str) -> Any:
         assert self.owner is not None
@@ -110,12 +349,10 @@ class SpectrumAnalyzer(Component):
         self.owner.set_state(path, value)
 
     def rbw(self) -> float:
-        if self._st("bw.res_auto"):
-            return snap_rbw(float(self._st("freq.span")) / 100)
-        return float(self._st("bw.res"))
+        return self._if().rbw()
 
     def vbw(self) -> float:
-        return self.rbw() if self._st("bw.vid_auto") else float(self._st("bw.vid"))
+        return self._vbw().vbw()
 
     def auto_sweep(self) -> float:
         rbw = self.rbw()
@@ -125,11 +362,7 @@ class SpectrumAnalyzer(Component):
         return self.auto_sweep() if self._st("sweep.time_auto") else float(self._st("sweep.time"))
 
     def attenuation(self) -> float:
-        if self._st("power.att_auto"):
-            # Keep the reference level at the mixer limit, in 2 dB steps.
-            need = float(self._st("display.ref_level")) - float(self.param("mixer_limit"))
-            return float(min(70.0, max(0.0, 2 * math.ceil(need / 2 - 1e-9))))
-        return float(self._st("power.att"))
+        return self._input().attenuation()
 
     def window(self) -> tuple[float, float]:
         c, s = float(self._st("freq.center")), float(self._st("freq.span"))
@@ -145,18 +378,23 @@ class SpectrumAnalyzer(Component):
             self.sweep_time(),
             self.attenuation(),
             str(self._st("detector")),
-            float(self.param("noise_figure")),
+            float(self._mixer().param("noise_figure")),
         )
 
     # ---- restarts and signal history ------------------------------------------------------------
 
     def _trace_key(self) -> tuple[Any, ...]:
-        return (*self.settings().key(), self._st("trace.type"), int(self._st("aver.count")), self._ref_error)
+        return (
+            *self.settings().key(),
+            self._st("trace.type"),
+            int(self._st("aver.count")),
+            self._mixer().error(),
+        )
 
     def restart(self) -> None:
         now = self.session.now_ns
         self._restart_ns = now
-        current = self._history[-1][1] if self._history else self.input("in")
+        current = self._history[-1][1] if self._history else self._input().signal()
         self._history = [(now, current)]
         self._cache.clear()
         self._held = None
@@ -171,47 +409,17 @@ class SpectrumAnalyzer(Component):
         if self._seen == self.session._signal_version:
             return
         self._seen = self.session._signal_version
-        self._update_reference()
+        self._mixer().refresh()
         key = self._trace_key()
         if key != self._key:
             self._key = key
-            self._history = [(self.session.now_ns, self.input("in"))]
+            self._history = [(self.session.now_ns, self._input().signal())]
             self.restart()
             return
-        sig = self.input("in")
+        sig = self._input().signal()
         last = self._history[-1][1] if self._history else None
         if last is None or not _same(last, sig):
             self._history.append((self.session.now_ns, sig))
-
-    def _update_reference(self) -> None:
-        if self._st("rosc.source") != "EXTernal":
-            self._ref_error, self._ref_locked = 0.0, False
-            return
-        sig = self.input("ref").merged()
-        ok = False
-        if sig.freq.size:
-            k = int(np.argmax(np.abs(sig.amp)))
-            f = float(sig.freq[k])
-            if abs(f - 10e6) <= 10e6 * 10e-6 and abs(sig.amp[k]) > 0.05:
-                self._ref_error, ok = f / 10e6 - 1, True
-        if not ok:
-            self._ref_error = 0.0
-        self._ref_locked = ok
-
-    def ref_in_use(self) -> str:
-        return "EXT" if self._ref_locked else "INT"
-
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        if path == self.bound_paths().get("rosc") and new == "EXTernal":
-            self.session._sync()
-            self._update_reference()
-            if not self._ref_locked:
-                assert self.owner is not None
-                self.owner.push_error(
-                    -221,
-                    "external reference unusable: REF_IN needs a 10 MHz sine within 10 ppm, "
-                    "the analyzer stays on its internal reference",
-                )
 
     # ---- traces ---------------------------------------------------------------------------------
 
@@ -235,7 +443,7 @@ class SpectrumAnalyzer(Component):
 
     def _lines_in_window(self, sig: Signal, st: _Settings) -> tuple[np.ndarray, np.ndarray, bool]:
         m = sig.merged()
-        r = float(self.param("z_in"))
+        r = float(self._input().param("z_in"))
         pos = m.freq > 0
         f = m.freq[pos]
         p_mw = np.abs(m.amp[pos]) ** 2 / (2 * r) * 1e3
@@ -244,7 +452,7 @@ class SpectrumAnalyzer(Component):
             f = np.concatenate([[0.0], f])
             p_mw = np.concatenate([[dc * dc / r * 1e3], p_mw])
         # The analyzer's frequency axis runs off its reference: a true f displays at f / (1 + ε).
-        f_disp = f / (1 + self._ref_error)
+        f_disp = self._mixer().display(f)
         margin = 6 * st.rbw
         sel = (f_disp >= st.start - margin) & (f_disp <= st.stop + margin)
         f_disp, p_mw = f_disp[sel], p_mw[sel]
@@ -259,7 +467,7 @@ class SpectrumAnalyzer(Component):
         notes = [n for n in sig.notes if n.kind == "truncated"]
         if notes and sig.freq.size > 1:
             f = np.sort(sig.freq)
-            f_next = (f[-1] + (f[-1] - f[-2])) / (1 + self._ref_error)
+            f_next = self._mixer().display(f[-1] + (f[-1] - f[-2]))
             if f_next <= st.stop + 3 * st.rbw:
                 return f"too many lines for one trace: the weakest were dropped (lines above {f[-1]:.6g} Hz are not modeled)"
         _, _, dropped = self._lines_in_window(sig, st)
@@ -284,8 +492,10 @@ class SpectrumAnalyzer(Component):
         if f.size:
             for i in range(0, f.size, 512):
                 d = x[:, None] - f[None, i : i + 512]
-                line_mw += (p[None, i : i + 512] * line_response(d, st.rbw, bucket, st.detector)).sum(axis=1)
-        floor_mw = 10 ** ((KT0_DBM_HZ + st.nf + st.att + 10 * math.log10(NBW_FACTOR * st.rbw)) / 10)
+                line_mw += (p[None, i : i + 512] * self._if().response(d, st.rbw, bucket, st.detector)).sum(
+                    axis=1
+                )
+        floor_mw = self._if().noise_floor_mw(st.att, st.nf)
         cells = int(min(MAX_CELLS, max(1, round(bucket / st.rbw))))
         if st.detector == "SAMPle":
             cells = 1
@@ -297,15 +507,7 @@ class SpectrumAnalyzer(Component):
         n = (gaussian(key, idx) + 1j * gaussian(key ^ 0x2545F491, idx)) * math.sqrt(floor_mw / 2)
         v = np.sqrt(line_mw)[:, None] + n
         power = np.abs(v) ** 2
-        if st.detector == "POSitive":
-            out = power.max(axis=1)
-        elif st.detector == "AVERage":
-            out = np.abs(v).mean(axis=1) ** 2
-        elif st.detector == "RMS":
-            out = power.mean(axis=1)
-        else:
-            out = power[:, 0]
-        trace = 10 * np.log10(out)
+        trace = self._detector().detect(v, power)
         if len(self._cache) > 4096:
             self._cache.clear()
         self._cache[(s, version)] = trace
@@ -349,12 +551,7 @@ class SpectrumAnalyzer(Component):
     # ---- overload -------------------------------------------------------------------------------
 
     def overload(self) -> bool:
-        sig = self.input("in").merged()
-        total_mw = float(np.sum(np.abs(sig.amp) ** 2)) / (2 * float(self.param("z_in"))) * 1e3
-        total_mw += sig.dc**2 / float(self.param("z_in")) * 1e3
-        if total_mw <= 0:
-            return False
-        return 10 * math.log10(total_mw) - self.attenuation() > float(self.param("mixer_limit"))
+        return self._input().overload()
 
     # ---- readings (UI) --------------------------------------------------------------------------
 
@@ -376,7 +573,7 @@ class SpectrumAnalyzer(Component):
                 "ref_level": float(self._st("display.ref_level")),
                 "marker_x": float(x[i]),
                 "marker_y": float(y[i]),
-                "reference": self.ref_in_use(),
+                "reference": self._mixer().in_use(),
                 "sweep": self.current_sweep(st),
             },
             "traces": [
@@ -417,45 +614,21 @@ class SpectrumAnalyzer(Component):
             self._window_set((start + value) / 2, value - start)
         return OpResult()
 
-    @op("coupled")
-    def op_coupled(
-        self, query: bool = False, what: str = "rbw", value: float | None = None, **_: Any
-    ) -> OpResult:
-        """RBW, VBW, sweep time and attenuation: a manual value turns that coupling off."""
-        effective = {"rbw": self.rbw, "vbw": self.vbw, "sweep": self.sweep_time, "att": self.attenuation}[
-            what
-        ]
+    @op("coupled_sweep")
+    def op_coupled_sweep(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
+        """The sweep time: a manual value turns the automatic coupling off."""
         if query:
-            return OpResult(V.format_float(effective(), 10))
+            return OpResult(V.format_float(self.sweep_time(), 10))
         assert value is not None
-        if what in ("rbw", "vbw"):
-            if not 1.0 <= value <= 3e6:
-                raise ScpiError(-222)
-            path = "bw.res" if what == "rbw" else "bw.vid"
-            self._set(path, snap_rbw(value))
-            self._set(path + "_auto", False)
-        elif what == "sweep":
-            if not 1e-3 <= value <= 10e3:
-                raise ScpiError(-222)
-            self._set("sweep.time", value)
-            self._set("sweep.time_auto", False)
-        else:
-            if not 0 <= value <= 70:
-                raise ScpiError(-222)
-            self._set("power.att", 2 * round(value / 2))
-            self._set("power.att_auto", False)
+        if not 1e-3 <= value <= 10e3:
+            raise ScpiError(-222)
+        self._set("sweep.time", value)
+        self._set("sweep.time_auto", False)
         return OpResult()
 
     @op("status")
-    def op_status(self, what: str = "overload", **_: Any) -> OpResult:
-        if what == "overload":
-            return OpResult(V.format_bool(self.overload()))
-        if what == "uncal":
-            return OpResult(V.format_bool(self.sweep_time() < self.auto_sweep() * (1 - 1e-9)))
-        if what == "locked":
-            self.session._sync()
-            return OpResult(V.format_bool(self._ref_locked))
-        return OpResult(self.ref_in_use().encode())
+    def op_status(self, what: str = "uncal", **_: Any) -> OpResult:
+        return OpResult(V.format_bool(self.sweep_time() < self.auto_sweep() * (1 - 1e-9)))
 
     @op("trace_data")
     def op_trace_data(self, name: str | None = None, **_: Any) -> OpResult:
@@ -573,3 +746,16 @@ def _same(a: Signal, b: Signal) -> bool:
         and bool(np.array_equal(a.amp, b.amp))
         and bool(np.array_equal(a.t0_ns, b.t0_ns))
     )
+
+
+__all__ = [
+    "F_MAX",
+    "SpecanDetector",
+    "SpecanIf",
+    "SpecanInput",
+    "SpecanMixer",
+    "SpecanTrace",
+    "SpecanVbw",
+    "line_response",
+    "snap_rbw",
+]

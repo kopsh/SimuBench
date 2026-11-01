@@ -118,16 +118,28 @@ class ReferenceClock(Component):
         "nominal_hz": 10e6,  # the external reference's frequency
     }
 
+    def _external_hz(self) -> float | None:
+        """The REF_IN frequency when a usable external reference is there, else None."""
+        if not str(self.param("source")).upper().startswith("EXT"):
+            return None
+        nominal = float(self.param("nominal_hz"))
+        sig = self.input("ref").merged()
+        if sig.freq.size:
+            k = int(np.argmax(np.abs(sig.amp)))
+            f = float(sig.freq[k])
+            if abs(f - nominal) <= nominal * 10e-6 and abs(sig.amp[k]) > 0.05:
+                return f
+        return None
+
+    def locked(self) -> bool:
+        """Whether an external reference is locking the source (False on the internal one)."""
+        return self._external_hz() is not None
+
     def error(self) -> float:
         """The fractional frequency error every synthesized frequency carries."""
-        if str(self.param("source")).upper().startswith("EXT"):
-            nominal = float(self.param("nominal_hz"))
-            sig = self.input("ref").merged()
-            if sig.freq.size:
-                k = int(np.argmax(np.abs(sig.amp)))
-                f = float(sig.freq[k])
-                if abs(f - nominal) <= nominal * 10e-6 and abs(sig.amp[k]) > 0.05:
-                    return f / nominal - 1
+        f = self._external_hz()
+        if f is not None:
+            return f / float(self.param("nominal_hz")) - 1
         return float(self.param("ppm")) * 1e-6
 
 
