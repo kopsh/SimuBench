@@ -1,12 +1,12 @@
 # 源测量单元的真实功能块(D50,依据见 docs/component-map.md 的 smu 节)。
-# 组件类型是 B1(#184)拆分的设计默认;拆分时可随本清单调整,同时更新 component-map。
+# 组件类型随 B1(#184)的拆分落地;改清单时同时更新 component-map。
 schema: simubench.blocks/1
 class: smu
 blocks:
   - block: source_dac          # 设定值:源功能(V/I)、电平、源量程
     components: [smu_source]
-  - block: control_loop        # V/I 控制环:CV/CC 交叉与限值(D34)
-    components: [smu_control_loop]
+  - block: control_loop        # V/I 控制环:CV/CC 交叉与限值(D34;B2 复用)
+    components: [output_control_loop]
   - block: output_stage        # 输出级:HI/LO、sense、浮地与输出继电器
     components: [smu_output]
   - block: meter               # 测量:V/I 量程电阻、NPLC 与读数

@@ -1,5 +1,12 @@
 """Source-measure unit, electronic load and a DC supply: piecewise-linear devices (validation-smu.md).
 
+Since #184 (B1) the source-measure unit is built from its real functional blocks (D50,
+component-map.md smu), not one block: ``smu_source`` (the source DAC's setting and sweep),
+``output_control_loop`` (the voltage/current loop and its limit switch, D34), ``smu_output``
+(HI/LO, sense, floating and the output relay) and ``smu_meter`` (the V/I meter, its ranges and the
+sampler the trigger model reads). The loop is generic — a definition binds the setpoint, limits
+and output setting to it — so a power supply's output stage reuses it (B2, #185).
+
 An SMU forces voltage or current and limits the other quantity in all four quadrants. When the
 limit takes over, the device changes mode (CV <-> CC); the session re-solves until every
 piecewise-linear device's mode agrees with the operating point, so a limit against any load,
@@ -39,9 +46,235 @@ def _flag(value: Any) -> bool:
     return value if not isinstance(value, str) else value.upper() in ("1", "ON", "TRUE")
 
 
-@component("smu_core")
-class SmuCore(Component):
-    """Source with a limit and a meter on HI/LO, with optional remote sense (four-wire).
+@component("smu_source")
+class SmuSource(Component):
+    """The source DAC's setting (#184 B1): source range, the sweep, and the range envelope.
+
+    It stamps no circuit element. The control loop takes the level from its own bindings and the
+    output stage turns the loop's target into a circuit source; this component owns the *ranges*:
+    ``source_ranges`` (full-scale values per function) with ``range_limits`` (the cap the other
+    quantity's limit gets on each range, the 21 V / 105 mA boundary by default), and the sweep
+    (linear, logarithmic or list) that drives a run's levels. The control loop asks it to cap a
+    limit for the level in use (:meth:`limit_cap`), so the envelope follows a sweep point too.
+    """
+
+    units = {"source_range": "V"}
+    defaults = {
+        "source_ranges": {
+            "VOLTage": [2.1, 21.0, 210.0]
+        },  # full-scale value of each source range, per function
+        "source_range": None,  # manual source range: a value the range must be able to source
+        "source_autorange": True,  # the source range follows the level
+        "range_limits": {"VOLTage": {2.1: 1.05, 21.0: 1.05, 210.0: 0.105}},  # limit cap per range
+        "sweep_mode": "NONE",  # NONE | LINear | LOGarithmic | LIST
+        "sweep_function": "VOLTage",  # VOLTage | CURRent: what a sweep varies
+        "sweep_start": 0.0,  # V or A, first level
+        "sweep_stop": 1.0,  # V or A, last level
+        "sweep_points": 2,  # points of a linear or log sweep
+        "sweep_delay": 0.0,  # s, wait before each sweep point
+        "sweep_list": "",  # comma-separated levels of a LIST sweep
+    }
+
+    def source_range(self, function: str, level: float) -> float | None:
+        """The source range in use for a function at a level (None: the function does not range):
+        the manual setting's, or the auto one, which follows the level."""
+        ranges = ranges_of(self.param("source_ranges"), function)
+        if not ranges:
+            return None
+        if not _flag(self.param("source_autorange")):
+            return range_of_setting(ranges, self.param("source_range"))
+        return fitting_range(ranges, abs(level))
+
+    def limit_cap(self, function: str, level: float) -> float | None:
+        """The cap the envelope puts on the other quantity's limit on the range in use."""
+        range_used = self.source_range(function, level)
+        return (self.param("range_limits") or {}).get(function, {}).get(range_used)
+
+    def sweep_levels(self) -> list[float]:
+        mode = self.param("sweep_mode")
+        start, stop = float(self.param("sweep_start")), float(self.param("sweep_stop"))
+        n = int(self.param("sweep_points"))
+        if mode == "LINear":
+            return [float(x) for x in np.linspace(start, stop, n)]
+        if mode == "LOGarithmic":
+            return [float(x) for x in np.geomspace(start, stop, n)]
+        if mode == "LIST":
+            return [float(x) for x in str(self.param("sweep_list")).split(",") if x.strip()]
+        return []
+
+    @op("sweep")
+    def op_sweep(
+        self,
+        function: str = "VOLTage",
+        kind: str = "LINear",
+        start: float | None = None,
+        stop: float | None = None,
+        points: int | None = None,
+        delay: float | None = None,
+        values: list[bytes] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        assert self.owner is not None
+        limit = 210.0 if function == "VOLTage" else 1.05
+        if kind == "LIST":
+            levels = V.parse_float_list(tuple(values or ()))  # quoted or not (D13)
+            if not 1 <= len(levels) <= 2500 or any(abs(x) > limit for x in levels):
+                raise ScpiError(-222)
+            self.owner.set_state("sweep.list", ",".join(repr(x) for x in levels))
+        else:
+            assert start is not None and stop is not None and points is not None
+            if not 2 <= points <= 2500 or abs(start) > limit or abs(stop) > limit:
+                raise ScpiError(-222)
+            if kind == "LOGarithmic" and (start == 0 or stop == 0 or (start > 0) != (stop > 0)):
+                raise ScpiError(-221, "a log sweep needs non-zero levels of one sign")
+            self.owner.set_state("sweep.start", start)
+            self.owner.set_state("sweep.stop", stop)
+            self.owner.set_state("sweep.points", points)
+        self.owner.set_state("sweep.delay", delay or 0.0)
+        self.owner.set_state("sweep.function", function)
+        self.owner.set_state("sweep.mode", kind)
+        return OpResult()
+
+
+@component("output_control_loop")
+class OutputControlLoop(Component):
+    """The voltage/current control loop and its limit switch (D34), reusable by any output stage.
+
+    A definition binds the setpoint (``function``, ``v_level``, ``i_level``), the limits
+    (``i_limit``, ``v_limit``) and the output setting to it. The piecewise output stage calls
+    :meth:`update_mode` with the metered terminal voltage and the source current; the loop picks
+    CV or CC and the sign of a current-limited source, as the SMU's output stage does.
+
+    ``envelope`` optionally names a component whose ``limit_cap(function, level)`` caps a limit by
+    the range in use (the SMU's source DAC); a supply that has no such table leaves it empty.
+    """
+
+    refs = {"envelope": ("smu_source", "instrument")}
+    optional_refs = frozenset({"envelope"})
+    defaults = {
+        "function": "VOLTage",  # VOLTage | CURRent: what the terminal is forced to
+        "v_level": 0.0,  # V, setpoint in voltage mode
+        "i_level": 0.0,  # A, setpoint in current mode
+        "i_limit": 105e-6,  # A, current limit in voltage mode
+        "v_limit": 21.0,  # V, voltage limit in current mode
+        "output": False,  # the output stage is enabled
+        "envelope": "",  # component capping the limits by the range in use ('' for none)
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.mode = "V"  # which quantity the terminal is held to: V (voltage loop) or I (current loop)
+        self.limit_sign = 1.0
+
+    # ---- the settings ----------------------------------------------------------------------------
+
+    def forcing_voltage(self) -> bool:
+        return self.param("function") == "VOLTage"
+
+    def on(self) -> bool:
+        return bool(self.param("output"))
+
+    def _envelope(self) -> Component | None:
+        name = str(self.param("envelope") or "")
+        if not name or self.owner is None:
+            return None
+        return self.owner.components.get(name)
+
+    def i_limit(self) -> float:
+        """The current limit, within the terminal envelope: the range_limits cap of the source
+        range in use (the default table's last entry is the 21 V / 105 mA boundary)."""
+        lim = abs(float(self.param("i_limit")))
+        envelope = self._envelope()
+        if self.forcing_voltage() and envelope is not None:
+            cap = envelope.limit_cap("VOLTage", float(self.param("v_level")))
+            if cap is not None:
+                lim = min(lim, abs(float(cap)))
+        return lim
+
+    def v_limit(self) -> float:
+        lim = abs(float(self.param("v_limit")))
+        envelope = self._envelope()
+        if not self.forcing_voltage() and envelope is not None:
+            cap = envelope.limit_cap("CURRent", float(self.param("i_level")))
+            if cap is not None:
+                lim = min(lim, abs(float(cap)))
+        return lim
+
+    def limited(self) -> bool:
+        """True when the limit, not the setpoint, holds the terminal."""
+        if not self.on():
+            return False
+        return (self.mode == "I") if self.forcing_voltage() else (self.mode == "V")
+
+    def targets(self) -> tuple[float, float]:
+        """(voltage EMF in voltage mode, current in current mode)."""
+        if self.forcing_voltage():
+            return float(self.param("v_level")), self.limit_sign * self.i_limit()
+        return self.limit_sign * self.v_limit(), float(self.param("i_level"))
+
+    # ---- the mode --------------------------------------------------------------------------------
+
+    def restart(self) -> None:
+        """Start again from the setpoint's own loop (a new function, a restarted output, a
+        re-wired sense, or a sweep point)."""
+        self.mode = "V" if self.forcing_voltage() else "I"
+        self.limit_sign = 1.0
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        bound = {v: k for k, v in self.bound_paths().items()}
+        if bound.get(path) in ("function", "output"):
+            self.restart()
+
+    def reset(self) -> None:
+        self.mode, self.limit_sign = "V", 1.0
+
+    def update_mode(self, metered_v: float, current: float) -> bool:
+        """Choose the mode the DC operating point calls for; the output stage supplies the values:
+        the metered terminal voltage and the current out of the force HI terminal."""
+        if not self.on():
+            return False
+        old = (self.mode, self.limit_sign)
+        if self.forcing_voltage():
+            setpoint = float(self.param("v_level"))
+            if self.mode == "V":
+                if abs(current) > self.i_limit() * (1 + 1e-9):
+                    self.mode, self.limit_sign = "I", _sign(current)
+            elif self.limit_sign * (setpoint - metered_v) < 0:
+                self.mode, self.limit_sign = "V", 1.0  # the setpoint is reachable again
+        else:
+            setpoint = float(self.param("i_level"))
+            if self.mode == "I":
+                if abs(metered_v) > self.v_limit() * (1 + 1e-9):
+                    self.mode, self.limit_sign = "V", _sign(metered_v)
+            else:
+                if self.limit_sign * (setpoint - current) < 0:
+                    self.mode, self.limit_sign = "I", 1.0
+        return (self.mode, self.limit_sign) != old
+
+    # ---- operations ------------------------------------------------------------------------------
+
+    @op("regulation")
+    def op_regulation(self, **_: Any) -> OpResult:
+        self.session._solve()
+        if not self.on():
+            return OpResult(b"OFF")
+        return OpResult(b"CV" if self.mode == "V" else b"CC")
+
+    @op("tripped")
+    def op_tripped(self, kind: str = "current", **_: Any) -> OpResult:
+        self.session._solve()
+        tripped = self.limited() and (kind == "current") == self.forcing_voltage()
+        return OpResult(V.format_bool(tripped))
+
+    @op("condition")
+    def op_condition(self, **_: Any) -> OpResult:
+        self.session._solve()
+        return OpResult(V.format_int(CONDITION_LIMIT if self.limited() else 0))
+
+
+@component("smu_output")
+class SmuOutput(Component):
+    """The output stage (#184 B1): HI/LO, remote sense, floating LO and the output relay.
 
     The voltage loop regulates the metered points: ``V(sense_hi) − V(sense_lo)`` with remote sense
     on, otherwise the force terminals (``V(hi) − V(lo)``; with ``floating: false`` the LO is bonded
@@ -51,20 +284,7 @@ class SmuCore(Component):
     warns about such a bench (metrology-authoring.md 6).
 
     Not a ``driver`` for bench checks: at its limit it sinks current, so a supply on the same net
-    is a valid bench (quadrant 2).
-
-    Readings go through a ``trigger_model`` (the ``sampler`` protocol, metrology-authoring.md 3.4):
-    one reading takes its NPLC time plus the source delay; a sweep's points are the readings of one
-    run, each point's level driving the terminal while the run lasts. The measure side ranges like
-    the meter core (#87): ``measure_ranges`` (per function: the voltage and current readings), the
-    manual ``measure_range_voltage`` / ``measure_range_current``, ``measure_autorange`` with the
-    same hysteresis, and a reading beyond ``overrange`` × full scale reads ``overload_value``.
-
-    The source envelope comes from ``source_ranges`` (the full-scale values per function) with
-    ``range_limits``: per function, the cap the other quantity's limit gets on each range — the
-    default table carries the 21 V / 105 mA boundary (210 V range: 105 mA). A manual
-    ``source_range`` takes the smallest fitting range (the meter's rule) and the envelope follows
-    it; ``source_autorange`` follows the level instead.
+    is a valid bench (quadrant 2). The control loop it drives holds the mode (D34).
     """
 
     ports = {
@@ -75,107 +295,27 @@ class SmuCore(Component):
     }
     sense_ports = ("sense_hi", "sense_lo")
     sense_param = "remote_sense"
-    units = {"source_range": "V", "measure_range_voltage": "V", "measure_range_current": "A"}
+    refs = {"loop": ("output_control_loop", "instrument")}
     defaults = {
-        "function": "VOLTage",  # VOLTage | CURRent: what the terminal is forced to
-        "v_level": 0.0,  # V, setpoint in voltage mode
-        "i_level": 0.0,  # A, setpoint in current mode
-        "i_limit": 105e-6,  # A, current limit in voltage mode
-        "v_limit": 21.0,  # V, voltage limit in current mode
         "output": False,  # False: the terminal floats
         "remote_sense": False,  # False: sense internally connected to the force terminals
         "floating": False,  # False: LO bonded to the bench ground
-        "nplc": 1.0,  # reading time in power line cycles
-        "autozero": True,  # autozero on: an extra phase and firmware per reading
-        "line_freq": 60.0,  # Hz, mains frequency nplc refers to
-        "delay": 0.0,  # s, wait before each reading
-        "source_ranges": {
-            "VOLTage": [2.1, 21.0, 210.0]
-        },  # full-scale value of each source range, per function
-        "source_range": None,  # manual source range: a value the range must be able to source
-        "source_autorange": True,  # the source range follows the level
-        "range_limits": {"VOLTage": {2.1: 1.05, 21.0: 1.05, 210.0: 0.105}},  # limit cap per source range
-        "measure_ranges": None,  # full-scale value of each measure range, per function
-        "measure_range_voltage": None,  # manual measure range of the voltage reading (None: auto)
-        "measure_range_current": None,  # manual measure range of the current reading (None: auto)
-        "measure_autorange": True,  # the measure range follows the reading
-        "autorange_up": 1.2,  # fraction of full scale above which the range switches up
-        "autorange_down": 0.1,  # fraction of full scale below which the range switches down
-        "overrange": 1.2,  # a reading beyond this fraction of full scale is an overload
-        "overload_value": 9.9e37,  # the reading an overload produces
-        "buffer": "",  # the reading_buffer whose contents the front panel shows ('' for none)
-        "sweep_mode": "NONE",  # NONE | LINear | LOGarithmic | LIST
-        "sweep_function": "VOLTage",  # VOLTage | CURRent: what a sweep varies
-        "sweep_start": 0.0,  # V or A, first level
-        "sweep_stop": 1.0,  # V or A, last level
-        "sweep_points": 2,  # points of a linear or log sweep
-        "sweep_delay": 0.0,  # s, wait before each sweep point
-        "sweep_list": "",  # comma-separated levels of a LIST sweep
+        "loop": "",  # the control loop holding the mode
     }
     piecewise = True
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.mode = "V"  # which quantity the terminal is held to: V (voltage loop) or I (current loop)
-        self.limit_sign = 1.0
-        self._auto_range: dict[str, float] = {}  # each measure function's auto-chosen range
-        self._saved: dict[str, Any] | None = None  # source settings a run drove (restored on run_done)
-        self._point: tuple[float, float, float, float] = (0.0, 0.0, OPEN, 0.0)  # the last reading
+    def _loop(self) -> OutputControlLoop:
+        assert self.owner is not None
+        loop = self.owner.components[str(self.param("loop"))]
+        assert isinstance(loop, OutputControlLoop)
+        return loop
 
-    # ---- settings -------------------------------------------------------------------------------
-
-    def _forcing_voltage(self) -> bool:
-        return self.param("function") == "VOLTage"
-
-    def _source_range(self) -> float | None:
-        """The source range in use for the function being forced (None: the function does not
-        range): the manual setting's, or the auto one, which follows the level."""
-        function = self.param("function")
-        ranges = ranges_of(self.param("source_ranges"), function)
-        if not ranges:
-            return None
-        if not _flag(self.param("source_autorange")):
-            return range_of_setting(ranges, self.param("source_range"))
-        return fitting_range(
-            ranges, abs(float(self.param("v_level" if function == "VOLTage" else "i_level")))
-        )
-
-    def i_limit(self) -> float:
-        """The current limit, within the terminal envelope: the range_limits cap of the source
-        range in use (the default table's last entry is the 21 V / 105 mA boundary)."""
-        lim = abs(float(self.param("i_limit")))
-        if self._forcing_voltage():
-            cap = (self.param("range_limits") or {}).get("VOLTage", {}).get(self._source_range())
-            if cap is not None:
-                lim = min(lim, abs(float(cap)))
-        return lim
-
-    def v_limit(self) -> float:
-        lim = abs(float(self.param("v_limit")))
-        if not self._forcing_voltage():
-            cap = (self.param("range_limits") or {}).get("CURRent", {}).get(self._source_range())
-            if cap is not None:
-                lim = min(lim, abs(float(cap)))
-        return lim
-
-    def on(self) -> bool:
+    def enabled(self) -> bool:
         return bool(self.param("output"))
 
-    def limited(self) -> bool:
-        """True when the limit, not the setpoint, holds the terminal."""
-        if not self.on():
-            return False
-        return (self.mode == "I") if self._forcing_voltage() else (self.mode == "V")
+    # ---- circuit ---------------------------------------------------------------------------------
 
-    def _targets(self) -> tuple[float, float]:
-        """(voltage EMF in voltage mode, current in current mode)."""
-        if self._forcing_voltage():
-            return float(self.param("v_level")), self.limit_sign * self.i_limit()
-        return self.limit_sign * self.v_limit(), float(self.param("i_level"))
-
-    # ---- circuit --------------------------------------------------------------------------------
-
-    def _remote(self) -> bool:
+    def remote(self) -> bool:
         """Remote sense in force: the setting is on and both sense terminals are wired, apart."""
         if not (bool(self.param("remote_sense")) and self.wired("sense_hi") and self.wired("sense_lo")):
             return False
@@ -184,23 +324,30 @@ class SmuCore(Component):
 
     def sense_fault(self) -> bool:
         """Remote sense is switched on but the sense terminals cannot serve it."""
-        return bool(self.param("remote_sense")) and not self._remote()
+        return bool(self.param("remote_sense")) and not self.remote()
 
-    def _low_node(self) -> str | None:
+    def low_node(self) -> str | None:
         """The node the meter's low terminal references: the LO net when floating, else ground."""
         return "lo" if self.param("floating") else None
+
+    def metered_voltage(self, dc_voltage: Callable[[str], float]) -> float:
+        """The DC voltage the loop regulates and the meter reads, from solved port voltages."""
+        if self.remote():
+            return dc_voltage("sense_hi") - dc_voltage("sense_lo")
+        low = self.low_node()
+        return dc_voltage("hi") - (dc_voltage(low) if low else 0.0)
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         floating = bool(self.param("floating"))
         if not floating and self.wired("lo"):
             # LO bonded to the bench ground: anything wired to LO reaches ground through it.
             circuit.resistor(node("lo"), GROUND, BOND_R)
-        if not self.on():
+        if not self.enabled():
             return
         if floating and self.session.node_of(self, "hi") == self.session.node_of(self, "lo"):
             floating = False  # force terminals shorted: drive them against ground, not themselves
-        if self.mode == "V":
-            if self._remote():
+        if self._loop().mode == "V":
+            if self.remote():
                 circuit.loop_source(
                     node("sense_hi"),
                     node("sense_lo"),
@@ -217,60 +364,87 @@ class SmuCore(Component):
                 circuit.current(node("lo"), self.uid + "/i", sign=-1.0)
 
     def emf(self) -> dict[str, Signal]:
-        if not self.on():
+        if not self.enabled():
             return {}
-        v, i = self._targets()
-        if self.mode == "V":
+        v, i = self._loop().targets()
+        if self._loop().mode == "V":
             return {self.uid + "/v": Signal.constant(v)}
         return {self.uid + "/i": Signal.constant(i)}
 
-    def _metered_dc(self, dc_voltage: Callable[[str], float]) -> float:
-        """The DC voltage the loop regulates and the meter reads, from solved port voltages."""
-        if self._remote():
-            return dc_voltage("sense_hi") - dc_voltage("sense_lo")
-        low = self._low_node()
-        return dc_voltage("hi") - (dc_voltage(low) if low else 0.0)
-
     def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
-        if not self.on():
+        if not self.enabled():
             return False
-        v_node = self._metered_dc(dc_voltage)
-        old = (self.mode, self.limit_sign)
-        if self._forcing_voltage():
-            setpoint = float(self.param("v_level"))
-            if self.mode == "V":
-                current = self.session.source_current(self.uid + "/v")
-                if abs(current) > self.i_limit() * (1 + 1e-9):
-                    self.mode, self.limit_sign = "I", _sign(current)
-            elif self.limit_sign * (setpoint - v_node) < 0:
-                self.mode, self.limit_sign = "V", 1.0  # the setpoint is reachable again
-        else:
-            setpoint = float(self.param("i_level"))
-            if self.mode == "I":
-                if abs(v_node) > self.v_limit() * (1 + 1e-9):
-                    self.mode, self.limit_sign = "V", _sign(v_node)
-            else:
-                current = self.session.source_current(self.uid + "/v")
-                if self.limit_sign * (setpoint - current) < 0:
-                    self.mode, self.limit_sign = "I", 1.0
-        return (self.mode, self.limit_sign) != old
+        loop = self._loop()
+        metered = self.metered_voltage(dc_voltage)
+        current = self.session.source_current(self.uid + "/v") if loop.mode == "V" else 0.0
+        return loop.update_mode(metered, current)
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         bound = {v: k for k, v in self.bound_paths().items()}
-        if bound.get(path) == "line_freq" and float(new) not in (50.0, 60.0):
-            raise ScpiError(-222, "line frequency is 50 or 60 Hz")
-        if bound.get(path) in ("function", "output", "remote_sense", "floating"):
-            # A new source function, a restarted output or a re-wired sense starts from the
-            # setpoint's own loop.
-            self.mode = "V" if self._forcing_voltage() else "I"
-            self.limit_sign = 1.0
+        if bound.get(path) in ("remote_sense", "floating"):
+            # A re-wired sense starts from the setpoint's own loop (D34).
+            self._loop().restart()
 
-    def reset(self) -> None:
-        self.mode, self.limit_sign = "V", 1.0
-        self._auto_range = {}
-        self.run_done()
 
-    # ---- measuring ------------------------------------------------------------------------------
+@component("smu_meter")
+class SmuMeter(Component):
+    """The V/I meter (#184 B1): range resistors, A/D, NPLC and the reading memory handoff.
+
+    Readings go through a ``trigger_model`` (the ``sampler`` protocol, metrology-authoring.md 3.4):
+    one reading takes its NPLC time plus the source delay; a sweep's points are the readings of one
+    run, each point's level driving the terminal while the run lasts. The measure side ranges like
+    the meter core (#87): ``measure_ranges`` (per function: the voltage and current readings), the
+    manual ``measure_range_voltage`` / ``measure_range_current``, ``measure_autorange`` with the
+    same hysteresis, and a reading beyond ``overrange`` × full scale reads ``overload_value``.
+
+    The bench front panel reads this component's values (``core.voltage`` …), so the SMU
+    definitions keep naming it ``core``.
+    """
+
+    refs = {
+        "source": ("smu_source", "instrument"),
+        "loop": ("output_control_loop", "instrument"),
+        "output": ("smu_output", "instrument"),
+    }
+    units = {"measure_range_voltage": "V", "measure_range_current": "A"}
+    defaults = {
+        "nplc": 1.0,  # reading time in power line cycles
+        "autozero": True,  # autozero on: an extra phase and firmware per reading
+        "line_freq": 60.0,  # Hz, mains frequency nplc refers to
+        "delay": 0.0,  # s, wait before each reading
+        "measure_ranges": None,  # full-scale value of each measure range, per function
+        "measure_range_voltage": None,  # manual measure range of the voltage reading (None: auto)
+        "measure_range_current": None,  # manual measure range of the current reading (None: auto)
+        "measure_autorange": True,  # the measure range follows the reading
+        "autorange_up": 1.2,  # fraction of full scale above which the range switches up
+        "autorange_down": 0.1,  # fraction of full scale below which the range switches down
+        "overrange": 1.2,  # a reading beyond this fraction of full scale is an overload
+        "overload_value": 9.9e37,  # the reading an overload produces
+        "buffer": "",  # the reading_buffer whose contents the front panel shows ('' for none)
+        "source": "",  # the source DAC (sweep levels, the function being forced)
+        "loop": "",  # the control loop (mode, limits)
+        "output": "",  # the output stage (metered voltage, current, sense)
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._auto_range: dict[str, float] = {}  # each measure function's auto-chosen range
+        self._saved: dict[str, dict[str, Any]] | None = None  # settings a run drove (restored on run_done)
+        self._point: tuple[float, float, float, float] = (0.0, 0.0, OPEN, 0.0)  # the last reading
+
+    def _source(self) -> SmuSource:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("source"))]  # type: ignore[return-value]
+
+    def _loop(self) -> OutputControlLoop:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("loop"))]  # type: ignore[return-value]
+
+    def _output(self) -> SmuOutput:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("output"))]  # type: ignore[return-value]
+
+    # ---- measuring -------------------------------------------------------------------------------
 
     def reading(self) -> tuple[float, float]:
         """(metered voltage, current out of the force HI terminal) at the operating point.
@@ -279,15 +453,16 @@ class SmuCore(Component):
         the force terminals (against ground unless the LO floats). With remote sense on but a sense
         terminal unconnected, the reading operations report an error instead of a number.
         """
-        if not self.on():
+        output, loop = self._output(), self._loop()
+        if not output.enabled():
             return 0.0, 0.0
-        v_node = self._metered_dc(lambda p: self.pin_signal(p).mean())
-        if self.mode == "V":
-            return v_node, self.session.source_current(self.uid + "/v")
-        return v_node, self._targets()[1]
+        v_node = output.metered_voltage(lambda p: output.pin_signal(p).mean())
+        if loop.mode == "V":
+            return v_node, self.session.source_current(output.uid + "/v")
+        return v_node, loop.targets()[1]
 
     def _check_sense(self) -> None:
-        if self.sense_fault():
+        if self._output().sense_fault():
             raise ScpiError(-221, "remote sense is on but a sense terminal is not connected")
 
     def _measure_range(self, function: str, value: float) -> float | None:
@@ -331,18 +506,20 @@ class SmuCore(Component):
         v_raw, i_raw = self.reading()
         v, i = self._clipped(v_raw, i_raw)
         res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
-        return [v, i, res, t, float(STAT_LIMIT if self.limited() else 0)]
+        return [v, i, res, t, float(STAT_LIMIT if self._loop().limited() else 0)]
 
-    def _format(self, rows: list[list[float]]) -> bytes:
+    @staticmethod
+    def _format(rows: list[list[float]]) -> bytes:
         return b",".join(V.format_float(x, 7) for row in rows for x in row)
 
-    # ---- a Sampler for trigger_model (metrology-authoring.md 3.4) -----------------------------------
+    # ---- a Sampler for trigger_model (metrology-authoring.md 3.4) ---------------------------------
 
     def reading_time(self, sweep_delay: float | None = None) -> float:
         """Modelled time of one reading: 50 µs + delay + phases × (NPLC / line + 185 µs) + firmware
         (the rule the meter core shares, ranging.py)."""
         if sweep_delay is None:
-            sweep_delay = float(self.param("sweep_delay")) if self.sweep_levels() else 0.0
+            source = self._source()
+            sweep_delay = float(source.param("sweep_delay")) if source.sweep_levels() else 0.0
         return (
             reading_time(
                 float(self.param("nplc")), float(self.param("line_freq")), bool(self.param("autozero"))
@@ -356,44 +533,57 @@ class SmuCore(Component):
 
     def run_samples(self) -> int | None:
         """A run is the configured sweep: as many readings as it has points (None: one reading)."""
-        levels = self.sweep_levels()
+        levels = self._source().sweep_levels()
         return len(levels) or None
 
     def run_begin(self) -> None:
-        """A run starts: remember the source settings; the sweep drives them until run_done."""
+        """A run starts: remember the settings the sweep drives, so that :meth:`run_done` can give
+        the operator's own values back."""
         self._check_sense()  # the run's readings would report the fallback loop, refuse instead
-        self._saved = {k: self.overrides.get(k) for k in ("v_level", "i_level", "function", "output")}
+        loop, output = self._loop(), self._output()
+        self._saved = {
+            "loop": {k: loop.overrides.get(k) for k in ("function", "v_level", "i_level", "output")},
+            "output": {k: output.overrides.get(k) for k in ("output",)},
+        }
 
     def run_done(self) -> None:
-        """The run is over: the source settings are the operator's again."""
+        """The run is over: the operator's settings are back."""
         saved, self._saved = self._saved, None
         if saved is None:
             return
-        for k, v in saved.items():
-            if v is None:
-                self.overrides.pop(k, None)
+        loop, output = self._loop(), self._output()
+        for key, value in saved["loop"].items():
+            if value is None:
+                loop.overrides.pop(key, None)
             else:
-                self.overrides[k] = v
-        self.mode, self.limit_sign = ("V" if self._forcing_voltage() else "I"), 1.0
+                loop.overrides[key] = value
+        for key, value in saved["output"].items():
+            if value is None:
+                output.overrides.pop(key, None)
+            else:
+                output.overrides[key] = value
+        loop.restart()
         self.session.invalidate(electrical=True)
 
     def sample(self, index: int) -> float:
         """One reading of a run: a sweep's point ``index`` drives the terminal while it is taken
         (validation-smu.md: every point is solved against the bench as it is)."""
-        levels = self.sweep_levels()
+        source, loop, output = self._source(), self._loop(), self._output()
+        levels = source.sweep_levels()
         if levels:
-            function = str(self.param("sweep_function"))
+            function = str(source.param("sweep_function"))
             key = "v_level" if function == "VOLTage" else "i_level"
-            self.overrides["function"] = function
-            self.overrides["output"] = True  # a sweep drives the output for its duration
-            self.overrides[key] = levels[min(index, len(levels) - 1)]
-            self.mode, self.limit_sign = ("V" if key == "v_level" else "I"), 1.0
+            loop.overrides["function"] = function
+            loop.overrides["output"] = True  # a sweep drives the output for its duration
+            loop.overrides[key] = levels[min(index, len(levels) - 1)]
+            output.overrides["output"] = True
+            loop.restart()
             self.session.invalidate(electrical=True)
         v_raw, i_raw = self.reading()
         v, i = self._clipped(v_raw, i_raw)
         res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
-        self._point = (v, i, res, float(STAT_LIMIT if self.limited() else 0))
-        return v if self._forcing_voltage() else i
+        self._point = (v, i, res, float(STAT_LIMIT if loop.limited() else 0))
+        return v if loop.forcing_voltage() else i
 
     def sample_fields(self, index: int) -> dict[str, float]:
         """The reading's own elements: TIME is the reading's place in the run (the reading times,
@@ -401,23 +591,16 @@ class SmuCore(Component):
         v, i, res, stat = self._point
         return {"VOLT": v, "CURR": i, "RES": res, "TIME": (index + 1) * self.reading_time(), "STAT": stat}
 
-    def sweep_levels(self) -> list[float]:
-        mode = self.param("sweep_mode")
-        start, stop = float(self.param("sweep_start")), float(self.param("sweep_stop"))
-        n = int(self.param("sweep_points"))
-        if mode == "LINear":
-            return [float(x) for x in np.linspace(start, stop, n)]
-        if mode == "LOGarithmic":
-            return [float(x) for x in np.geomspace(start, stop, n)]
-        if mode == "LIST":
-            return [float(x) for x in str(self.param("sweep_list")).split(",") if x.strip()]
-        return []
+    # ---- state, reset and operations -------------------------------------------------------------
 
-    @staticmethod
-    def _format(rows: list[list[float]]) -> bytes:
-        return b",".join(V.format_float(x, 7) for row in rows for x in row)
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        bound = {v: k for k, v in self.bound_paths().items()}
+        if bound.get(path) == "line_freq" and float(new) not in (50.0, 60.0):
+            raise ScpiError(-222, "line frequency is 50 or 60 Hz")
 
-    # ---- operations -----------------------------------------------------------------------------
+    def reset(self) -> None:
+        self._auto_range = {}
+        self.run_done()
 
     @op("measure")
     def op_measure(self, **_: Any) -> OpResult:
@@ -431,7 +614,7 @@ class SmuCore(Component):
             buffer.clear_buffer()
             buffer.append(
                 Reading(
-                    row[0] if self._forcing_voltage() else row[1],
+                    row[0] if self._loop().forcing_voltage() else row[1],
                     self.owner.now_ns() + round((t + float(self.param("delay"))) * 1e9),
                     {"VOLT": row[0], "CURR": row[1], "RES": row[2], "TIME": t, "STAT": row[4]},
                 )
@@ -459,69 +642,19 @@ class SmuCore(Component):
             raise ValueError(f"{self.uid}: the {function} function has no usable measure range")
         return OpResult(V.format_float(r, 7))
 
-    @op("sweep")
-    def op_sweep(
-        self,
-        function: str = "VOLTage",
-        kind: str = "LINear",
-        start: float | None = None,
-        stop: float | None = None,
-        points: int | None = None,
-        delay: float | None = None,
-        values: list[bytes] | None = None,
-        **_: Any,
-    ) -> OpResult:
-        assert self.owner is not None
-        limit = 210.0 if function == "VOLTage" else 1.05
-        if kind == "LIST":
-            levels = V.parse_float_list(tuple(values or ()))  # quoted or not (D13)
-            if not 1 <= len(levels) <= 2500 or any(abs(x) > limit for x in levels):
-                raise ScpiError(-222)
-            self.owner.set_state("sweep.list", ",".join(repr(x) for x in levels))
-        else:
-            assert start is not None and stop is not None and points is not None
-            if not 2 <= points <= 2500 or abs(start) > limit or abs(stop) > limit:
-                raise ScpiError(-222)
-            if kind == "LOGarithmic" and (start == 0 or stop == 0 or (start > 0) != (stop > 0)):
-                raise ScpiError(-221, "a log sweep needs non-zero levels of one sign")
-            self.owner.set_state("sweep.start", start)
-            self.owner.set_state("sweep.stop", stop)
-            self.owner.set_state("sweep.points", points)
-        self.owner.set_state("sweep.delay", delay or 0.0)
-        self.owner.set_state("sweep.function", function)
-        self.owner.set_state("sweep.mode", kind)
-        return OpResult()
-
-    @op("regulation")
-    def op_regulation(self, **_: Any) -> OpResult:
-        self.session._solve()
-        if not self.on():
-            return OpResult(b"OFF")
-        return OpResult(b"CV" if self.mode == "V" else b"CC")
-
-    @op("tripped")
-    def op_tripped(self, kind: str = "current", **_: Any) -> OpResult:
-        self.session._solve()
-        tripped = self.limited() and (kind == "current") == self._forcing_voltage()
-        return OpResult(V.format_bool(tripped))
-
-    @op("condition")
-    def op_condition(self, **_: Any) -> OpResult:
-        self.session._solve()
-        return OpResult(V.format_int(CONDITION_LIMIT if self.limited() else 0))
-
     def readings(self) -> dict[str, Any]:
         self.session._solve()
         v, i = self._measured()
+        loop = self._loop()
         points = self._buffer_points()
         return {
             "values": {
                 "voltage": v,
                 "current": i,
-                "regulation": "OFF" if not self.on() else ("CV" if self.mode == "V" else "CC"),
-                "limited": self.limited(),
-                "forcing": "VOLTage" if self._forcing_voltage() else "CURRent",
-                "limit": self.i_limit() if self._forcing_voltage() else self.v_limit(),
+                "regulation": "OFF" if not loop.on() else ("CV" if loop.mode == "V" else "CC"),
+                "limited": loop.limited(),
+                "forcing": "VOLTage" if loop.forcing_voltage() else "CURRent",
+                "limit": loop.i_limit() if loop.forcing_voltage() else loop.v_limit(),
                 "reading_time": self.reading_time(0.0),
                 "buffer_points": len(points),
             },
@@ -641,4 +774,12 @@ class DcSupply(Component):
         return {self.uid: Signal.constant(float(self.param("v")))}
 
 
-__all__ = ["OPEN", "DcSupply", "ElectronicLoad", "SmuCore"]
+__all__ = [
+    "OPEN",
+    "DcSupply",
+    "ElectronicLoad",
+    "OutputControlLoop",
+    "SmuMeter",
+    "SmuOutput",
+    "SmuSource",
+]

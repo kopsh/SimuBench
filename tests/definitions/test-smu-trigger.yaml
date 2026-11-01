@@ -116,23 +116,13 @@ state:
     type: string
     default: ""
 components:
-  - name: core
-    type: smu_core
+  - name: source
+    type: smu_source
     params:
-      function: $source.function
-      v_level: $source.voltage.level
-      i_level: $source.current.level
-      i_limit: $compliance.current.limit
-      output: $output.enabled
-      nplc: $sense.nplc
       source_ranges: {VOLTage: [1.0, 10.0]}
       source_range: $source.range
       source_autorange: $source.range.auto
       range_limits: {VOLTage: {1.0: 0.005, 10.0: 0.05}}
-      measure_ranges: {VOLTage: [0.1, 1.0, 10.0], CURRent: [1.0e-4, 1.0e-3, 0.1]}
-      measure_range_voltage: $measure.range.voltage
-      measure_range_current: $measure.range.current
-      measure_autorange: $measure.range.auto
       sweep_mode: $sweep.mode
       sweep_function: $sweep.function
       sweep_start: $sweep.start
@@ -140,6 +130,32 @@ components:
       sweep_points: $sweep.points
       sweep_delay: $sweep.delay
       sweep_list: $sweep.list
+  - name: loop
+    type: output_control_loop
+    params:
+      function: $source.function
+      v_level: $source.voltage.level
+      i_level: $source.current.level
+      i_limit: $compliance.current.limit
+      output: $output.enabled
+      envelope: source
+  - name: out
+    type: smu_output
+    params:
+      output: $output.enabled
+      loop: loop
+  - name: core
+    type: smu_meter
+    params:
+      source: source
+      loop: loop
+      output: out
+      nplc: $sense.nplc
+      measure_ranges: {VOLTage: [0.1, 1.0, 10.0], CURRent: [1.0e-4, 1.0e-3, 0.1]}
+      measure_range_voltage: $measure.range.voltage
+      measure_range_current: $measure.range.current
+      measure_autorange: $measure.range.auto
+      buffer: mem
   - name: trig
     type: trigger_model
     params:
@@ -154,7 +170,7 @@ components:
     params: {capacity: 100}
 ports:
   instrument:
-    HI: core.hi
+    HI: out.hi
 capabilities: [smu]
 commands:
   - {header: "[:SOURce]:FUNCtion[:MODE]", state: source.function}
@@ -193,6 +209,6 @@ commands:
       - {name: name, type: string, optional: true}
       - {name: elements, type: raw}
   - header: "[:SOURce]:SWEep:VOLTage:LINear"
-    op: core.sweep
+    op: source.sweep
     query: false
     params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]

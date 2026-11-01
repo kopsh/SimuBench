@@ -130,6 +130,17 @@ def test_a_paid_off_block_must_leave_the_list():
         EXEMPT.update(old)
 
 
+def test_the_validation_smu_is_built_from_its_real_blocks():
+    """#184 B1: the split is checkable on the definition the SMU tests actually run (validation/
+    instruments), not only on built-in models — every smu block is covered by a real component."""
+    root = Path(__file__).resolve().parent.parent
+    d = DefinitionLibrary([root / "validation" / "instruments"]).get("sb-smu-1")
+    blocks = _blocks(d.instrument_class)
+    assert blocks is not None
+    types = {c.type for c in [*d.components, *d.channel_components]}
+    assert [block for block, accepted in blocks.items() if not accepted & types] == []
+
+
 def test_block_lists_are_well_formed():
     classes = {d.instrument_class for d in builtin_definitions()}
     listed = {p.stem for p in BLOCKS_DIR.glob("*.yaml")}
