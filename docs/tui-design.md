@@ -211,24 +211,10 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 
 `simubench tui <bench.yaml> --script <steps.yaml> --out <dir>`：无头运行，按步骤文件执行，输出 SVG 截图，或一段带字幕的演示（参考视频就是这样做的）。
 
-```yaml
-# docs/tui/find-the-trip.steps.yaml
-size: [100, 34]
-steps:
-  - caption: 测试台上有一台 SMU 跳闸了
-    wait: 1.5s
-  - key: "1"
-    caption: 数字键把焦点移到这张卡片
-  - key: enter
-    caption: 打开它：设定 5 V，电流限值 1.05 mA
-    highlight: [ch1.voltage.set, ch1.current.limit]
-  - scpi: { instrument: smu, command: ":SYSTem:ERRor?" }   # 以另一个客户端发出，与脚本相同
-    caption: 读错误队列，返回 -5000 并清空
-    highlight: [identity.errors, log.last]
-  - screenshot: find-the-trip
-```
+步骤文件的实例见 `docs/tui/find-the-trip.steps.yaml`，随它用的测试台是 `validation/benches/find-the-trip.bench.yaml`（与 `smu.bench.yaml` 相同，另预设一次跳闸）。
 
-- 步骤：`key`（按键）、`scpi`（以外部客户端发命令，验证“脚本操作实时出现在屏幕上”）、`advance`（推进虚拟时间）、`wait`（演示中停留的时长，不推进虚拟时间）、`caption`（底部字幕，右侧自动写出按键或命令，如 `key ▸ enter`）、`highlight`（给控件加琥珀色框）、`screenshot`；
+- 步骤：`key`（按键）、`scpi`（以外部客户端发命令，验证“脚本操作实时出现在屏幕上”）、`advance`（推进虚拟时间）、`wait`（演示中停留的时长，不推进虚拟时间）、`caption`（底部字幕，右侧自动写出按键或命令，如 `key ▸ enter`）、`highlight`（给控件加琥珀色框）、`screenshot`；一个步骤可以组合按键与修饰字段（`caption`、`highlight`、`wait`、`screenshot`），`wait` / `advance` 接受秒数或带单位（`1.5s`、`200ms`）；
+- `scpi` 的 `source_port` 固定那个外部客户端的本地端口：日志把端口写成来源（`脚本 :5401`），所以可复现的截图必须把它固定，否则每次运行都不同；
 - 输出：每个 `screenshot` 一张 SVG；`--record` 时按 `wait` 输出逐帧 SVG 与 asciinema `.cast`，需要视频时由文档构建脚本转成 MP4 / GIF（不进入运行时依赖）；
 - 使用 `idle: off` 与固定种子（D47），虚拟时间只由步骤推进，同一测试台 + 同一步骤 → 逐字节相同的 SVG；
 - 文档中的 TUI 截图由它生成，CI 重新生成并比较（与 Web 的视觉回归同理）；

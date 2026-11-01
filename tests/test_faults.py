@@ -102,6 +102,29 @@ def test_error_and_trip(tmp_path):
     rm.close()
 
 
+def test_trip_switches_off_a_nested_output_state(tmp_path):
+    """`output.enabled` (sb-smu-1) is an output as much as the sources' bare `output`."""
+    path = tmp_path / "smu-trip.bench.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.bench/1",
+                "name": "smu-trip",
+                "instruments": {"smu": {"model": "sb-smu-1", "state": {"output.enabled": True}}},
+                "run": {"clock": "command", "seed": 3},
+            }
+        ),
+        encoding="utf-8",
+    )
+    rm = pyvisa.ResourceManager(f"{path}@simubench")
+    smu = rm.open_resource("smu", read_termination="\n", write_termination="\n", timeout=500)
+    s = rm.visalib.bench
+    s.faults.inject(Fault(kind="trip", instrument="smu"))
+    assert smu.query(":OUTPut?").lower() in ("0", "off")
+    assert smu.query(":SYSTem:ERRor?").startswith("-300")
+    rm.close()
+
+
 def test_hidden_and_drift_change_the_circuit_and_are_undone(tmp_path):
     rm, awg, s = open_bench(tmp_path)
     awg.write(":SOURce1:FREQuency 1600")

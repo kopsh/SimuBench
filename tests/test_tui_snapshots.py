@@ -22,6 +22,14 @@ pytestmark = (
 )  # boots a Textual app or a real server: runs on main, not in the fast checks
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def color_theme(monkeypatch):
+    """Snapshots are the colour theme's: a developer's ``NO_COLOR`` must not change them."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+
 DEMO = ROOT / "tests/data/tui/demo.bench.yaml"
 EXAMPLES_DIR = ROOT / "examples/benches"
 
@@ -320,5 +328,113 @@ def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
                 if "超时" in text or "Timeout" in text:
                     return
         raise AssertionError("the fault dialog never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+# ---- the runs screen (tui-screens.md 11.3) ----------------------------------------------------------
+
+
+@pytest.fixture
+def fixed_times(monkeypatch):
+    """Run records show wall-clock start times: pin them to UTC so the snapshot is the same
+    in every time zone (Windows has no ``time.tzset``)."""
+    import time as time_module
+
+    monkeypatch.setattr("simubench.tui.screens.runs.time.localtime", time_module.gmtime)
+
+
+def _runs_app(lang: str):
+    """The overview's mock session plus two recorded runs (one still running) and a mismatch."""
+    import copy
+
+    from tui_mock import load, unit_app
+
+    fixture = copy.deepcopy(load("unit_smu.json"))
+    fixture["runs"] = [
+        {
+            "run_id": "run-abc",
+            "bench": "示例测试台",
+            "started": 1793577600.0,
+            "ended": None,
+            "clock": "command",
+            "seed": 5,
+            "events": 1284,
+            "duration_ns": 4_210_000_000,
+            "instruments": ["smu"],
+            "size": 217_088,
+        },
+        {
+            "run_id": "run-def",
+            "bench": "siglent_scope_rc",
+            "started": 1793491200.0,
+            "ended": 1793491230.0,
+            "clock": "stepped",
+            "seed": 7,
+            "events": 56,
+            "duration_ns": 31_000_000,
+            "instruments": ["scope"],
+            "size": 1_500_000,
+        },
+    ]
+    fixture["run_detail"] = {"summary": fixture["runs"][0]}
+    fixture["replay"] = {
+        "run_id": "run-abc",
+        "ok": False,
+        "actions": 56,
+        "replies": 56,
+        "mismatches": [
+            {
+                "seq": 31,
+                "instrument": "scope",
+                "command": ":WAV:DATA?",
+                "expected": "0x7F",
+                "actual": "0x80",
+            }
+        ],
+        "warnings": [],
+    }
+    return unit_app(fixture, lang=lang)[0]
+
+
+RUN_SIZES = [
+    ("zh", (100, 32), "runs-zh-100x32"),
+    ("en", (100, 32), "runs-en-100x32"),
+    ("zh", (80, 24), "runs-zh-80x24"),
+    ("en", (80, 24), "runs-en-80x24"),
+]
+
+
+@pytest.mark.parametrize(("lang", "size", "name"), RUN_SIZES)
+def test_runs_snapshot(snap_compare, fixed_times, lang, size, name):
+    """`R`: the list, the live session line, and `p`'s first difference (11.3)."""
+    tui = _runs_app(lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        from simubench.tui.screens.runs import RunsScreen
+
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.05)
+            if tui.conn != "connected" or not tui.session_info:
+                continue
+            screen = tui.screen
+            if not isinstance(screen, RunsScreen):
+                await pilot.press("R")
+                await pilot.pause(0.1)
+                continue
+            if not screen.runs:  # the list's fetch has not landed yet
+                await pilot.pause(0.1)
+                continue
+            await pilot.press("p")  # the replay of the selected run reports its first difference
+            end = asyncio.get_running_loop().time() + 30
+            while asyncio.get_running_loop().time() < end:
+                await pilot.pause(0.05)
+                if screen.replay is not None:
+                    return
+            break
+        raise AssertionError("the runs screen never settled")
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)

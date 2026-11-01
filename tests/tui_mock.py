@@ -139,6 +139,18 @@ class FakeClient:
         self.fault_list = [f for f in self.fault_list if f["id"] != fault_id]
         return {"id": fault_id, "status": "ended"}
 
+    async def runs(self, sid: str | None = None) -> list[dict[str, Any]]:
+        return list(self._fixture.get("runs", []))
+
+    async def run_detail(self, run_id: str) -> dict[str, Any]:
+        return self._fixture.get("run_detail", {"summary": {"run_id": run_id}})
+
+    async def replay(self, run_id: str) -> dict[str, Any]:
+        return self._fixture.get(
+            "replay",
+            {"run_id": run_id, "ok": True, "actions": 0, "replies": 0, "mismatches": [], "warnings": []},
+        )
+
     async def advance(self, sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
         self.advances.append((seconds, force))
         self._fixture["clock"]["now_ns"] += int(seconds * 1e9)

@@ -26,7 +26,8 @@ class ShellScreen(Screen):
     ShellScreen {
         layout: vertical;
         #topbar { dock: top; }
-        #bottombar { dock: bottom; }
+        #foot { dock: bottom; height: auto; }
+        #bottombar { height: 1; }
         #minsize { display: none; width: 1fr; height: 1fr; content-align: center middle; }
         #minsize.-show { display: block; }
         .-too-small #body { display: none; }
@@ -58,7 +59,13 @@ class ShellScreen(Screen):
 
         with Vertical(id="body"):
             yield from self.body()
-        yield BottomBar(id="bottombar")
+        from ..widgets import CaptionBar
+
+        # One docked footer: the caption (0 or 1 row) above the keys. Two separate bottom docks
+        # would be placed on the same row, so they share a container (tui-screens.md 2.2, 6).
+        with Vertical(id="foot"):
+            yield CaptionBar(id="caption")
+            yield BottomBar(id="bottombar")
         yield Static("", id="minsize")
 
     def action_back(self) -> None:

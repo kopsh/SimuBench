@@ -145,8 +145,12 @@ class FaultManager:
         inst = self.session.instrument(s.instrument or "")
         code = s.code if s.code is not None else -300
         if s.kind == "trip":
+            # An output is a bool named `output` (sources) or under it (`output.enabled`), so the
+            # trip switches off every output the instrument has, not just the bare path.
             for path, spec in inst.specs.items():
-                if spec.type == "bool" and path.rsplit(".", 1)[-1] == "output" and inst.state.get(path):
+                head, _, tail = path.partition(".")
+                output = head == "output" or tail.rpartition(".")[-1] == "output"
+                if spec.type == "bool" and output and inst.state.get(path):
                     inst.set_state(path, False, source="fault")
             inst.push_error(code, s.message or "protection tripped")
         else:

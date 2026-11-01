@@ -190,6 +190,15 @@ class ApiClient:
     async def revoke_fault(self, sid: str, fault_id: str) -> dict[str, Any]:
         return await self._request("DELETE", f"/api/sessions/{sid}/faults/{fault_id}")
 
+    async def runs(self, sid: str | None = None) -> list[dict[str, Any]]:
+        return await self._request("GET", "/api/runs")  # type: ignore[no-any-return]
+
+    async def run_detail(self, run_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/api/runs/{run_id}")  # type: ignore[no-any-return]
+
+    async def replay(self, run_id: str) -> dict[str, Any]:
+        return await self._request("POST", f"/api/runs/{run_id}/replay", ok=(200,))
+
     async def advance(self, sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
         """Step the virtual clock; `force` for when scripts are connected (tui-screens.md 11.2)."""
         return await self._request(
