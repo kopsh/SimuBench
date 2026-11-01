@@ -652,3 +652,14 @@
 | 新组件有单元与场景测试 | ✅ `tests/test_counter.py` 9 项：频率/周期与门时间的虚拟时间、时基 2 ppm、累加计数、两通道时间间隔与触发误差、阈值/灵敏度拒绝、50 Ω 加载、AC 耦合去直流、统计、触发模型一次运行多读数 |
 | 缺口（记入清单） | ✅ 53230A 的无间隙连续测量与时间戳不在首波；触发误差是模型值（1 ns，按虚拟时刻与种子确定），不是手册指标；非谐波信号按最强谱线计数（模型边界）；外部门控只表示触发源，门输入信号电平不建模 |
 | `scripts/check.sh` 通过 | ✅ 1206 项 pytest 全绿 |
+
+## SDS2104X Plus 的触发耦合、噪声抑制与释抑（Issue 159）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff`（0–1.5 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑默认 100 ns（SimuBench 默认） |
+| 接到已有的触发模块 | ✅ `scope_trigger` 的 `coupling` / `reject` / `filters` / `noise_reject` / `holdoff`；定义里用参数映射与状态绑定，没有改组件 |
+| 手册用例 | ✅ `tests/models/siglent-sds2104xplus/cases.yaml` 新增“触发耦合、噪声抑制与释抑”：AC / LFREJect 回读、NREJ ON/OFF、HOLDoff 时间与格式，恢复 DC / OFF / 100 ns |
+| 行为测试 | ✅ `tests/test_siglent_sds.py` 两项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过、NREJ / HOLDoff 参数到位）；释抑使下一次触发不早于 5 ms（与无释抑的 2 ms 内触发对照） |
+| 检查 | ✅ `simubench validate` 无诊断；`simubench cases` 全部通过；`src/simubench/library/components/` 无改动；`scripts/check.sh` 全绿 |
+
