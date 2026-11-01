@@ -134,6 +134,11 @@ class ApiClient:
     async def readings(self, sid: str, name: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/sessions/{sid}/instruments/{name}/readings")  # type: ignore[no-any-return]
 
+    async def screen(self, sid: str, name: str, points: int | None = None) -> dict[str, Any]:
+        """The scope screen's frame; ``points`` (tui-screens.md 6.1) bins each trace."""
+        suffix = f"?points={points}" if points else ""
+        return await self._request("GET", f"/api/sessions/{sid}/instruments/{name}/screen{suffix}")  # type: ignore[no-any-return]
+
     async def levels(self, sid: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/sessions/{sid}/levels")  # type: ignore[no-any-return]
 
@@ -162,6 +167,10 @@ class ApiClient:
         return await self._request(
             "POST", f"/api/sessions/{sid}/instruments/{name}/panel", json={"action": action}, ok=(200,)
         )
+
+    async def local(self, sid: str, name: str) -> dict[str, Any]:
+        """LOCAL: take an instrument in remote control back (tui-screens.md 12, D32)."""
+        return await self._request("POST", f"/api/sessions/{sid}/instruments/{name}/local")
 
 
 async def stream_events(

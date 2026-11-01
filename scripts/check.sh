@@ -8,8 +8,13 @@ if [ -n "$ignored" ]; then echo "ignored by .gitignore but part of the source:";
 uv run ruff check src tests acceptance refcalc
 uv run ruff format --check src tests acceptance refcalc
 # -n 4: pytest-xdist, the same width the 4-core dev container's `-n auto` gives; see issue #209.
-uv run pytest -n 4 -q
+# --dist loadscope: a module runs whole on one worker, so the TUI snapshot module's server —
+# whose fixed SCPI port the SVGs show — is set up exactly once (tui-screens.md 14).
+# not tui_boot: the Textual-boot tier (screens, keys, snapshots, real-server scenarios) runs on
+# main after the merge; the fast checks verify the interface logic (see tests/test_tui_units.py).
+uv run pytest -n 4 --dist loadscope -q -m "not tui_boot"
 uv run python scripts/check_tui_i18n.py
+uv run python scripts/check_test_rules.py
 uv run simubench schemas --out schemas >/dev/null
 git diff --exit-code --stat schemas || { echo "schemas changed: commit them"; exit 1; }
 cd web

@@ -169,8 +169,11 @@ class ConfirmScreen(ModalScreen[bool]):
     ConfirmScreen {
         align: center middle;
         background: $background 60%;
-        #confirm-box { width: 60; height: auto; border: thick $focus; padding: 1 2; }
+        #confirm-box { width: auto; max-width: 90%; height: auto; max-height: 80%; border: thick $focus; padding: 1 2; }
+        #confirm-title { color: $focus; margin-bottom: 1; }
         #confirm-body { margin-bottom: 1; }
+        #confirm-buttons { height: auto; }
+        #confirm-buttons Button { margin-right: 2; min-width: 10; }
     }
     """
 
@@ -182,10 +185,12 @@ class ConfirmScreen(ModalScreen[bool]):
         self._cancel = cancel
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="confirm-box"):
+        from textual.containers import Vertical
+
+        with Vertical(id="confirm-box"):
             yield Label(f"━━ {self._title} " + "━" * 8, id="confirm-title")
             yield Static("\n".join(self._body), id="confirm-body")
-            with Horizontal():
+            with Horizontal(id="confirm-buttons"):
                 yield Button(self._confirm, variant="primary", id="confirm-yes")
                 yield Button(self._cancel, id="confirm-no")
 

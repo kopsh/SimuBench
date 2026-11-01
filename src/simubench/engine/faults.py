@@ -60,7 +60,9 @@ class FaultState:
             "drift": f" {s.param} {s.drift_per_s or 0:+g}/s",
             "hidden": f" {s.param} = {s.value!r}",
         }.get(s.kind, "")
-        return f"{s.kind} {target}{extra}".strip()
+        # The message is part of what an error/trip says (tui-screens.md 7.1's 故障行).
+        message = f" {s.message}" if s.kind in ("error", "trip") and s.message else ""
+        return f"{s.kind} {target}{extra}{message}".strip()
 
 
 class FaultManager:

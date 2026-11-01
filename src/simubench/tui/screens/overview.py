@@ -106,6 +106,7 @@ class OverviewScreen(ShellScreen):
         Binding("right", "cursor('right')", show=False),
         Binding("tab", "focus_next", show=False),
         Binding("shift+tab", "focus_previous", show=False),
+        Binding("enter", "open_card", show=False),
     ]
 
     def __init__(self) -> None:
@@ -128,9 +129,19 @@ class OverviewScreen(ShellScreen):
     def keys(self) -> list[tuple[str, str]]:
         lang = self.app.lang
         keys = [("1-9", i18n.t("keys.select", lang)), ("Tab", i18n.t("keys.move", lang))]
+        focused = self.focused
+        if isinstance(focused, Card):
+            if self._is_instrument(focused.card.name):
+                keys.append(("⏎", i18n.t("keys.open", lang)))
+            else:
+                keys.append(("⏎", i18n.t("keys.partNets", lang)))
         keys.append(("l", i18n.t("keys.log", lang)))
         keys.append(("q", i18n.t("common.quit", lang)))
         return keys
+
+    def _is_instrument(self, name: str) -> bool:
+        app: Any = self.app
+        return any(i.get("name") == name for i in (app.session_info or {}).get("instruments", []))
 
     def refresh_content(self) -> None:
         super().refresh_content()
@@ -195,6 +206,24 @@ class OverviewScreen(ShellScreen):
         cards = list(self._grid.query(Card))
         if 1 <= n <= len(cards):
             cards[n - 1].focus()
+
+    def action_open_card(self) -> None:
+        """``⏎`` on a focused card (tui-screens.md 4.4): an instrument opens its screen; a part's
+        nets screen is T3's, so the bottom bar names it and nothing happens yet."""
+        focused = self.focused
+        if not isinstance(focused, Card):
+            return
+        name = focused.card.name
+        if not self._is_instrument(name):
+            self._last_version = -1  # the hint line already says what Enter would do
+            return
+        app: Any = self.app
+        info = next((i for i in (app.session_info or {}).get("instruments", []) if i.get("name") == name), {})
+        template = (info.get("display") or {}).get("template")
+        if template == "oscilloscope":
+            app.show("scope", name)
+        else:
+            app.show("instrument", name)
 
     def action_cursor(self, direction: str) -> None:
         cards = list(self._grid.query(Card))

@@ -1,0 +1,1263 @@
+{
+ "session": {
+  "id": "e9da73f795ec",
+  "bench_name": "smu",
+  "bench_path": "benches/smu.bench.yaml",
+  "description": "SMU 的 HI 端接 1 kΩ 对地电阻，同一网络上挂一台万用表；终端看到 999.9 Ω。初始强制 5 V、电流限值 10 mA、输出开启。",
+  "clock_mode": "command",
+  "now_ns": 0,
+  "seed": 5,
+  "reveal_true_values": false,
+  "bench_sha256": "96b43989b6c10d1b11da15bd7ba32a27911464e2919118dc9d46a942bce6adca",
+  "bench_fingerprint": "dc0d7c6a0e273f790b767d3c568ff45093aaa3d8d8f7ea4a4b51e5418541adba",
+  "stale_definitions": [],
+  "record_path": null,
+  "clients": [],
+  "instruments": [
+   {
+    "name": "smu",
+    "label": "源测量单元",
+    "model": "SB-SMU-1",
+    "manufacturer": "SimuBench",
+    "definition_id": "sb-smu-1",
+    "instrument_class": "smu",
+    "description": "源测量单元，强制电压或电流（210 V、1.05 A；21 V 以上 105 mA），四象限限值；远端检测（四线）与浮地 LO；线性、对数、列表扫描与测量缓冲区；读数时间由 NPLC 计算。",
+    "idn": "SIMUBENCH,SB-SMU-1,SBSMU000001,1.0.0",
+    "channels": 1,
+    "address_virtual": "TCPIP0::127.0.0.1::61705::SOCKET",
+    "address_real": "TCPIP0::192.168.1.60::5025::SOCKET",
+    "address_hislip": "TCPIP0::127.0.0.1::hislip0,61707::INSTR",
+    "scpi_port": 61705,
+    "display": {
+     "template": "smu",
+     "summary": [
+      "source.function",
+      "source.voltage.level",
+      "source.current.level",
+      "compliance.current.limit",
+      "compliance.voltage.limit",
+      "output.enabled"
+     ],
+     "channel_summary": [],
+     "actions": {},
+     "panel": null,
+     "panel_source": null
+    },
+    "ports": [
+     {
+      "name": "HI",
+      "direction": "inout",
+      "medium": "electrical",
+      "net": "net-0",
+      "channel": null
+     },
+     {
+      "name": "LO",
+      "direction": "inout",
+      "medium": "electrical",
+      "net": null,
+      "channel": null
+     },
+     {
+      "name": "SENSE_HI",
+      "direction": "in",
+      "medium": "electrical",
+      "net": null,
+      "channel": null
+     },
+     {
+      "name": "SENSE_LO",
+      "direction": "in",
+      "medium": "electrical",
+      "net": null,
+      "channel": null
+     }
+    ],
+    "state": [
+     {
+      "path": "source.function",
+      "type": "enum",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": [
+       "VOLTage",
+       "CURRent"
+      ],
+      "option_labels": {
+       "VOLTage": "电压源",
+       "CURRent": "电流源"
+      },
+      "display_unit": null,
+      "label": "源功能",
+      "label_en": "Source function",
+      "readonly": false,
+      "electrical": true,
+      "dangerous": false,
+      "value": "VOLTage",
+      "channel": null
+     },
+     {
+      "path": "source.voltage.level",
+      "type": "float",
+      "unit": "V",
+      "min": -210.0,
+      "max": 210.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "电压设定",
+      "label_en": "Voltage level",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 15.0,
+      "channel": null
+     },
+     {
+      "path": "source.current.level",
+      "type": "float",
+      "unit": "A",
+      "min": -1.05,
+      "max": 1.05,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "电流设定",
+      "label_en": "Current level",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 0.0,
+      "channel": null
+     },
+     {
+      "path": "compliance.current.limit",
+      "type": "float",
+      "unit": "A",
+      "min": 1e-09,
+      "max": 1.05,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "电流限值",
+      "label_en": "Current limit",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 0.01,
+      "channel": null
+     },
+     {
+      "path": "compliance.voltage.limit",
+      "type": "float",
+      "unit": "V",
+      "min": 0.02,
+      "max": 210.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "电压限值",
+      "label_en": "Voltage limit",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 21.0,
+      "channel": null
+     },
+     {
+      "path": "output.enabled",
+      "type": "bool",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "输出",
+      "label_en": "Output",
+      "readonly": false,
+      "electrical": true,
+      "dangerous": true,
+      "value": true,
+      "channel": null
+     },
+     {
+      "path": "sense.remote",
+      "type": "bool",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "远端检测",
+      "label_en": "Remote sense",
+      "readonly": false,
+      "electrical": true,
+      "dangerous": false,
+      "value": false,
+      "channel": null
+     },
+     {
+      "path": "terminal.floating",
+      "type": "bool",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "浮地 LO",
+      "label_en": "Floating LO",
+      "readonly": false,
+      "electrical": true,
+      "dangerous": false,
+      "value": false,
+      "channel": null
+     },
+     {
+      "path": "sense.nplc",
+      "type": "float",
+      "unit": null,
+      "min": 0.01,
+      "max": 10.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": "PLC",
+      "label": "积分时间",
+      "label_en": "Integration time",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 1.0,
+      "channel": null
+     },
+     {
+      "path": "sense.autozero",
+      "type": "bool",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "自动调零",
+      "label_en": "Auto zero",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": true,
+      "channel": null
+     },
+     {
+      "path": "system.line_freq",
+      "type": "float",
+      "unit": "HZ",
+      "min": 50.0,
+      "max": 60.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "电源频率",
+      "label_en": "Line frequency",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 60.0,
+      "channel": null
+     },
+     {
+      "path": "source.delay",
+      "type": "float",
+      "unit": "S",
+      "min": 0.0,
+      "max": 10000.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "源延迟",
+      "label_en": "Source delay",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 0.0,
+      "channel": null
+     },
+     {
+      "path": "sweep.mode",
+      "type": "enum",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": [
+       "NONE",
+       "LINear",
+       "LOGarithmic",
+       "LIST"
+      ],
+      "option_labels": {
+       "NONE": "关",
+       "LINear": "线性",
+       "LOGarithmic": "对数",
+       "LIST": "列表"
+      },
+      "display_unit": null,
+      "label": "扫描",
+      "label_en": "Sweep",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": "LINear",
+      "channel": null
+     },
+     {
+      "path": "sweep.function",
+      "type": "enum",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": [
+       "VOLTage",
+       "CURRent"
+      ],
+      "option_labels": {
+       "VOLTage": "电压",
+       "CURRent": "电流"
+      },
+      "display_unit": null,
+      "label": "扫描量",
+      "label_en": "Swept quantity",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": "VOLTage",
+      "channel": null
+     },
+     {
+      "path": "sweep.start",
+      "type": "float",
+      "unit": null,
+      "min": -210.0,
+      "max": 210.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "起始",
+      "label_en": "Start",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 0.0,
+      "channel": null
+     },
+     {
+      "path": "sweep.stop",
+      "type": "float",
+      "unit": null,
+      "min": -210.0,
+      "max": 210.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "终止",
+      "label_en": "Stop",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 8.0,
+      "channel": null
+     },
+     {
+      "path": "sweep.points",
+      "type": "int",
+      "unit": null,
+      "min": 2.0,
+      "max": 2500.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "点数",
+      "label_en": "Points",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 9,
+      "channel": null
+     },
+     {
+      "path": "sweep.delay",
+      "type": "float",
+      "unit": "S",
+      "min": 0.0,
+      "max": 10000.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "点延迟",
+      "label_en": "Point delay",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 0.0,
+      "channel": null
+     },
+     {
+      "path": "sweep.list",
+      "type": "string",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "列表",
+      "label_en": "List",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": "",
+      "channel": null
+     }
+    ],
+    "errors": [
+     {
+      "code": -222,
+      "message": "Data out of range"
+     }
+    ],
+    "dut": false,
+    "deviation": "nominal",
+    "deviations": [],
+    "remote": [],
+    "local": false
+   },
+   {
+    "name": "dmm",
+    "label": "万用表",
+    "model": "SB-DMM-1",
+    "manufacturer": "SimuBench",
+    "definition_id": "sb-dmm-1",
+    "instrument_class": "multimeter",
+    "description": "数字万用表（电压功能），输入阻抗 10 MΩ；DC 为平均值，AC 为真有效值。测量通道有隐藏的增益与零点误差，可经 :CALibration 命令校准（安全码保护），系数保存在校准存储中。",
+    "idn": "SIMUBENCH,SB-DMM-1,SBDMM000001,1.0.0",
+    "channels": 1,
+    "address_virtual": "TCPIP0::127.0.0.1::61706::SOCKET",
+    "address_real": null,
+    "address_hislip": "TCPIP0::127.0.0.1::hislip1,61707::INSTR",
+    "scpi_port": 61706,
+    "display": {
+     "template": "multimeter",
+     "summary": [],
+     "channel_summary": [],
+     "actions": {},
+     "panel": {
+      "readouts": [
+       {
+        "reading": "meter.DC",
+        "label": "直流电压",
+        "label_en": "DC voltage",
+        "unit": "V",
+        "digits": 7,
+        "when": {}
+       },
+       {
+        "reading": "meter.AC",
+        "label": "交流电压",
+        "label_en": "AC voltage",
+        "unit": "V",
+        "digits": 7,
+        "when": {}
+       }
+      ],
+      "groups": [],
+      "softkeys": []
+     },
+     "panel_source": "class_default"
+    },
+    "ports": [
+     {
+      "name": "IN",
+      "direction": "in",
+      "medium": "electrical",
+      "net": "net-0",
+      "channel": null
+     }
+    ],
+    "state": [
+     {
+      "path": "cal.secured",
+      "type": "bool",
+      "unit": null,
+      "min": null,
+      "max": null,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "校准保护",
+      "label_en": "Calibration secured",
+      "readonly": true,
+      "electrical": false,
+      "dangerous": false,
+      "value": true,
+      "channel": null
+     },
+     {
+      "path": "cal.value",
+      "type": "float",
+      "unit": "V",
+      "min": -1000.0,
+      "max": 1000.0,
+      "options": null,
+      "option_labels": null,
+      "display_unit": null,
+      "label": "校准值",
+      "label_en": "Calibration value",
+      "readonly": false,
+      "electrical": false,
+      "dangerous": false,
+      "value": 10.0,
+      "channel": null
+     }
+    ],
+    "errors": [],
+    "dut": false,
+    "deviation": "nominal",
+    "deviations": [
+     {
+      "param": "meter.gain_error_ppm",
+      "limit": 20.0,
+      "unit": null,
+      "distribution": "uniform",
+      "by": null,
+      "value": null,
+      "drawn": false
+     },
+     {
+      "param": "meter.offset",
+      "limit": 5e-06,
+      "unit": null,
+      "distribution": "normal",
+      "by": null,
+      "value": null,
+      "drawn": false
+     }
+    ],
+    "remote": [],
+    "local": false
+   }
+  ],
+  "parts": [
+   {
+    "name": "r1",
+    "type": "load_resistor",
+    "label": null,
+    "params": {
+     "r": 1000.0
+    },
+    "ports": [
+     {
+      "name": "A",
+      "direction": "inout",
+      "medium": "electrical",
+      "net": "net-0",
+      "channel": null
+     }
+    ],
+    "dut": true,
+    "deviations": []
+   }
+  ],
+  "duts": [
+   "r1"
+  ],
+  "wires": [
+   {
+    "index": 0,
+    "from_": "smu.HI",
+    "to": "r1.A",
+    "label": null,
+    "accessories": [],
+    "net": "net-0"
+   },
+   {
+    "index": 1,
+    "from_": "smu.HI",
+    "to": "dmm.IN",
+    "label": null,
+    "accessories": [],
+    "net": "net-0"
+   }
+  ],
+  "nets": [
+   {
+    "id": "net-0",
+    "members": [
+     "smu.HI",
+     "r1.A",
+     "dmm.IN"
+    ],
+    "notes": []
+   }
+  ],
+  "layout": {}
+ },
+ "instruments": {
+  "smu": {
+   "name": "smu",
+   "label": "源测量单元",
+   "model": "SB-SMU-1",
+   "manufacturer": "SimuBench",
+   "definition_id": "sb-smu-1",
+   "instrument_class": "smu",
+   "description": "源测量单元，强制电压或电流（210 V、1.05 A；21 V 以上 105 mA），四象限限值；远端检测（四线）与浮地 LO；线性、对数、列表扫描与测量缓冲区；读数时间由 NPLC 计算。",
+   "idn": "SIMUBENCH,SB-SMU-1,SBSMU000001,1.0.0",
+   "channels": 1,
+   "address_virtual": "TCPIP0::127.0.0.1::61705::SOCKET",
+   "address_real": "TCPIP0::192.168.1.60::5025::SOCKET",
+   "address_hislip": null,
+   "scpi_port": 61705,
+   "display": {
+    "template": "smu",
+    "summary": [
+     "source.function",
+     "source.voltage.level",
+     "source.current.level",
+     "compliance.current.limit",
+     "compliance.voltage.limit",
+     "output.enabled"
+    ],
+    "channel_summary": [],
+    "actions": {},
+    "panel": null,
+    "panel_source": null
+   },
+   "ports": [
+    {
+     "name": "HI",
+     "direction": "inout",
+     "medium": "electrical",
+     "net": "net-0",
+     "channel": null
+    },
+    {
+     "name": "LO",
+     "direction": "inout",
+     "medium": "electrical",
+     "net": null,
+     "channel": null
+    },
+    {
+     "name": "SENSE_HI",
+     "direction": "in",
+     "medium": "electrical",
+     "net": null,
+     "channel": null
+    },
+    {
+     "name": "SENSE_LO",
+     "direction": "in",
+     "medium": "electrical",
+     "net": null,
+     "channel": null
+    }
+   ],
+   "state": [
+    {
+     "path": "source.function",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "VOLTage",
+      "CURRent"
+     ],
+     "option_labels": {
+      "VOLTage": "电压源",
+      "CURRent": "电流源"
+     },
+     "display_unit": null,
+     "label": "源功能",
+     "label_en": "Source function",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": "VOLTage",
+     "channel": null
+    },
+    {
+     "path": "source.voltage.level",
+     "type": "float",
+     "unit": "V",
+     "min": -210.0,
+     "max": 210.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电压设定",
+     "label_en": "Voltage level",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 15.0,
+     "channel": null
+    },
+    {
+     "path": "source.current.level",
+     "type": "float",
+     "unit": "A",
+     "min": -1.05,
+     "max": 1.05,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电流设定",
+     "label_en": "Current level",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "compliance.current.limit",
+     "type": "float",
+     "unit": "A",
+     "min": 1e-09,
+     "max": 1.05,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电流限值",
+     "label_en": "Current limit",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.01,
+     "channel": null
+    },
+    {
+     "path": "compliance.voltage.limit",
+     "type": "float",
+     "unit": "V",
+     "min": 0.02,
+     "max": 210.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电压限值",
+     "label_en": "Voltage limit",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 21.0,
+     "channel": null
+    },
+    {
+     "path": "output.enabled",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "输出",
+     "label_en": "Output",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": true,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "sense.remote",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "远端检测",
+     "label_en": "Remote sense",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "terminal.floating",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "浮地 LO",
+     "label_en": "Floating LO",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "sense.nplc",
+     "type": "float",
+     "unit": null,
+     "min": 0.01,
+     "max": 10.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": "PLC",
+     "label": "积分时间",
+     "label_en": "Integration time",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1.0,
+     "channel": null
+    },
+    {
+     "path": "sense.autozero",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "自动调零",
+     "label_en": "Auto zero",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "system.line_freq",
+     "type": "float",
+     "unit": "HZ",
+     "min": 50.0,
+     "max": 60.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电源频率",
+     "label_en": "Line frequency",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 60.0,
+     "channel": null
+    },
+    {
+     "path": "source.delay",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0,
+     "max": 10000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "源延迟",
+     "label_en": "Source delay",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "sweep.mode",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "NONE",
+      "LINear",
+      "LOGarithmic",
+      "LIST"
+     ],
+     "option_labels": {
+      "NONE": "关",
+      "LINear": "线性",
+      "LOGarithmic": "对数",
+      "LIST": "列表"
+     },
+     "display_unit": null,
+     "label": "扫描",
+     "label_en": "Sweep",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "LINear",
+     "channel": null
+    },
+    {
+     "path": "sweep.function",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "VOLTage",
+      "CURRent"
+     ],
+     "option_labels": {
+      "VOLTage": "电压",
+      "CURRent": "电流"
+     },
+     "display_unit": null,
+     "label": "扫描量",
+     "label_en": "Swept quantity",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "VOLTage",
+     "channel": null
+    },
+    {
+     "path": "sweep.start",
+     "type": "float",
+     "unit": null,
+     "min": -210.0,
+     "max": 210.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "起始",
+     "label_en": "Start",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "sweep.stop",
+     "type": "float",
+     "unit": null,
+     "min": -210.0,
+     "max": 210.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "终止",
+     "label_en": "Stop",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 8.0,
+     "channel": null
+    },
+    {
+     "path": "sweep.points",
+     "type": "int",
+     "unit": null,
+     "min": 2.0,
+     "max": 2500.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "点数",
+     "label_en": "Points",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 9,
+     "channel": null
+    },
+    {
+     "path": "sweep.delay",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0,
+     "max": 10000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "点延迟",
+     "label_en": "Point delay",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "sweep.list",
+     "type": "string",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "列表",
+     "label_en": "List",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "",
+     "channel": null
+    }
+   ],
+   "errors": [
+    {
+     "code": -222,
+     "message": "Data out of range"
+    }
+   ],
+   "dut": false,
+   "deviation": "nominal",
+   "deviations": [],
+   "remote": [],
+   "local": false
+  },
+  "dmm": {
+   "name": "dmm",
+   "label": "万用表",
+   "model": "SB-DMM-1",
+   "manufacturer": "SimuBench",
+   "definition_id": "sb-dmm-1",
+   "instrument_class": "multimeter",
+   "description": "数字万用表（电压功能），输入阻抗 10 MΩ；DC 为平均值，AC 为真有效值。测量通道有隐藏的增益与零点误差，可经 :CALibration 命令校准（安全码保护），系数保存在校准存储中。",
+   "idn": "SIMUBENCH,SB-DMM-1,SBDMM000001,1.0.0",
+   "channels": 1,
+   "address_virtual": "TCPIP0::127.0.0.1::61706::SOCKET",
+   "address_real": null,
+   "address_hislip": null,
+   "scpi_port": 61706,
+   "display": {
+    "template": "multimeter",
+    "summary": [],
+    "channel_summary": [],
+    "actions": {},
+    "panel": {
+     "readouts": [
+      {
+       "reading": "meter.DC",
+       "label": "直流电压",
+       "label_en": "DC voltage",
+       "unit": "V",
+       "digits": 7,
+       "when": {}
+      },
+      {
+       "reading": "meter.AC",
+       "label": "交流电压",
+       "label_en": "AC voltage",
+       "unit": "V",
+       "digits": 7,
+       "when": {}
+      }
+     ],
+     "groups": [],
+     "softkeys": []
+    },
+    "panel_source": "class_default"
+   },
+   "ports": [
+    {
+     "name": "IN",
+     "direction": "in",
+     "medium": "electrical",
+     "net": "net-0",
+     "channel": null
+    }
+   ],
+   "state": [
+    {
+     "path": "cal.secured",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "校准保护",
+     "label_en": "Calibration secured",
+     "readonly": true,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "cal.value",
+     "type": "float",
+     "unit": "V",
+     "min": -1000.0,
+     "max": 1000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "校准值",
+     "label_en": "Calibration value",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 10.0,
+     "channel": null
+    }
+   ],
+   "errors": [],
+   "dut": false,
+   "deviation": "nominal",
+   "deviations": [
+    {
+     "param": "meter.gain_error_ppm",
+     "limit": 20.0,
+     "unit": null,
+     "distribution": "uniform",
+     "by": null,
+     "value": null,
+     "drawn": false
+    },
+    {
+     "param": "meter.offset",
+     "limit": 5e-06,
+     "unit": null,
+     "distribution": "normal",
+     "by": null,
+     "value": null,
+     "drawn": false
+    }
+   ],
+   "remote": [],
+   "local": false
+  }
+ },
+ "readings": {
+  "smu": {
+   "instrument": "smu",
+   "now_ns": 0,
+   "values": {
+    "core.voltage": 9.999000089992,
+    "core.current": 0.01,
+    "core.regulation": "CC",
+    "core.limited": true,
+    "core.forcing": "VOLTage",
+    "core.limit": 0.01,
+    "core.reading_time": 0.05240500000000001,
+    "core.buffer_points": 0
+   },
+   "traces": [
+    {
+     "name": "core.buffer_v",
+     "t0_s": 0.0,
+     "dt_s": 1.0,
+     "values": []
+    },
+    {
+     "name": "core.buffer_i",
+     "t0_s": 0.0,
+     "dt_s": 1.0,
+     "values": []
+    },
+    {
+     "name": "core.buffer_r",
+     "t0_s": 0.0,
+     "dt_s": 1.0,
+     "values": []
+    },
+    {
+     "name": "core.buffer_t",
+     "t0_s": 0.0,
+     "dt_s": 1.0,
+     "values": []
+    },
+    {
+     "name": "core.buffer_stat",
+     "t0_s": 0.0,
+     "dt_s": 1.0,
+     "values": []
+    }
+   ]
+  },
+  "dmm": {
+   "instrument": "dmm",
+   "now_ns": 0,
+   "values": {
+    "meter.DC": 9.999000089992,
+    "meter.AC": 0.0
+   },
+   "traces": []
+  }
+ },
+ "levels": {
+  "t_ns": 0,
+  "nets": [
+   {
+    "net": "net-0",
+    "dc": 9.999000089992,
+    "rms": 9.999000089992,
+    "peak": 9.999000089992,
+    "active": true,
+    "window_s": 0.002,
+    "wave": [
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992,
+     9.999000089992
+    ]
+   }
+  ]
+ },
+ "clock": {
+  "mode": "command",
+  "now_ns": 0
+ }
+}

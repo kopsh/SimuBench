@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from .fmt import cell_len, fmt, fmt_ns, fmt_seconds
@@ -48,6 +49,16 @@ class LogLine:
     has_error: bool = False  # an error event merged into this line
     path: str | None = None  # state path, for a `state` line
     fault: str | None = None
+    # The merged error/ignored event, with #174's classification (tui-screens.md 9.2).
+    error_seq: int | None = None  # seq of the merged event; None when the line has none
+    error_code: int | None = None
+    error_message: str | None = None
+    ignored: bool = False  # the command was ignored (unknown_commands: ignore), no error queued
+    reason: str | None = None  # not_modeled | not_in_model | not_in_definition | ignored | …
+    origin: str | None = None  # the file the classification's declaration comes from
+    closest: str | None = None  # the author's command closest to the one sent
+    param: str | None = None  # bad_parameter: the parameter or state path
+    declared_range: str | None = None  # bad_parameter: the range the definition declares
 
     @property
     def time_text(self) -> str:
@@ -78,6 +89,43 @@ def _format_value(value: Any, lang: str) -> str:
     return str(value)
 
 
+def _merge_classification(line: LogLine, ev: Mapping[str, Any]) -> None:
+    """Copy #174's classification fields off the merged event (tui-screens.md 9.2)."""
+    line.reason = ev.get("reason")
+    line.origin = ev.get("origin")
+    line.closest = ev.get("closest")
+    line.param = ev.get("param")
+    declared = ev.get("range")
+    line.declared_range = declared
+
+
+def hint_text(line: LogLine, lang: str) -> str | None:
+    """Why the command was not executed, per its classification (tui-screens.md 9.2).
+
+    ``None`` when the line's command executed (or the classification is missing). The file is
+    shown by its name; a closest command completes the sentence when the author's command space
+    has one.
+    """
+    reason = line.reason
+    if not reason:
+        return None
+    file = Path(line.origin).name if line.origin else ""
+    closest = f"{t('reason.closest', lang, command=line.closest)}" if line.closest else ""
+    if reason == "not_modeled":
+        return t("reason.notModeled", lang, file=file)
+    if reason == "not_in_model":
+        return t("reason.notInModel", lang, file=file, closest=closest)
+    if reason == "not_in_definition":
+        return t("reason.notInDefinition", lang, file=file, closest=closest)
+    if reason == "ignored":
+        return t("reason.ignored", lang)
+    if reason == "builtin_excluded":
+        return t("reason.builtinExcluded", lang, command=line.command)
+    if reason == "bad_parameter":
+        return t("reason.badParameter", lang, param=line.param or "", rng=line.declared_range or "")
+    return None
+
+
 def source_label(ev: Mapping[str, Any], lang: str = "zh") -> str:
     """The ``client`` (or ``source``) as shown in the log (tui-screens.md 1.5)."""
     client = ev.get("client") or ev.get("source") or ""
@@ -90,7 +138,9 @@ def source_label(ev: Mapping[str, Any], lang: str = "zh") -> str:
         return t(f"source.{client}", lang)
     for scheme in ("socket:", "hislip:"):
         if client.startswith(scheme):
-            host, _, port = client[len(scheme) :].rpartition(":")
+            # A HiSLIP client is `hislip:<host>:<port>#<session>`; the label shows the port (1.5).
+            endpoint = client[len(scheme) :].split("#", 1)[0]
+            host, _, port = endpoint.rpartition(":")
             if host in ("", "127.0.0.1", "localhost"):
                 return t("source.script_port", lang, port=port)
             return t("source.script_host_port", lang, host=host, port=port)
@@ -117,29 +167,40 @@ def build_lines(
     labels = labels or {}
     lines: list[LogLine] = []
     open_writes: dict[tuple[str, str], LogLine] = {}
-    #: One buffered error. The engine emits it while processing the command, right before the
-    #: write event; the spec words it as following the write. Both orders merge by instrument
-    #: and tick — decided with one event of lookahead when the next event arrives.
-    pending_error: Mapping[str, Any] | None = None
+    #: One buffered error or ignored event. The engine emits it while processing the command,
+    #: right before the write event; the spec words it as following the write. Both orders merge
+    #: by instrument and tick — decided with one event of lookahead when the next event arrives.
+    pending: tuple[str, Mapping[str, Any]] | None = None
 
     def merge_error(line: LogLine, ev: Mapping[str, Any]) -> None:
         line.has_error = True
         line.result_kind = "error"
         line.result = f"{ev.get('code', '')} {ev.get('message', '')}".strip()
         line.fault = ev.get("fault")
+        line.error_seq = ev.get("seq")
+        line.error_code = ev.get("code")
+        line.error_message = ev.get("message")
+        _merge_classification(line, ev)
 
-    def resolve_pending_error(next_ev: Mapping[str, Any], start_ns: int | None = None) -> Any:
-        """Attach the buffered error now that the next event is known.
+    def merge_ignored(line: LogLine, ev: Mapping[str, Any]) -> None:
+        """An ignored command: no error, no reply — the write keeps its ``·`` (tui-screens.md 9.2)."""
+        line.ignored = True
+        line.error_seq = ev.get("seq")
+        _merge_classification(line, ev)
+
+    def resolve_pending(next_ev: Mapping[str, Any], start_ns: int | None = None) -> Any:
+        """Attach the buffered error/ignored event now that the next event is known.
 
         A write of the same instrument and tick claims it (the engine order); otherwise an open
         write of the same instrument and tick does (the spec's error-follows-the-write order);
-        an error no command owns (a tripped fault) is dropped. Returns the error the caller's
-        write line must merge, if any.
+        an error no command owns (a tripped fault) is dropped. Returns ``(merge, ev)`` the
+        caller's write line must apply, if any.
         """
-        nonlocal pending_error
-        if pending_error is None:
+        nonlocal pending
+        if pending is None:
             return None
-        err, pending_error = pending_error, None
+        pending_kind, err = pending
+        pending = None
         inst = err.get("instrument") or ""
         err_t = int(err.get("t_ns", 0))
         if (
@@ -149,7 +210,7 @@ def build_lines(
             and next_ev.get("instrument") == inst
             and err_t in (start_ns, int(next_ev.get("t_ns", 0)))
         ):
-            return err  # the caller merges it into the line it is about to create
+            return (merge_error if pending_kind == "error" else merge_ignored), err
         open_line = next(
             (
                 line
@@ -159,15 +220,15 @@ def build_lines(
             None,
         )
         if open_line is not None:
-            merge_error(open_line, err)
+            (merge_error if pending_kind == "error" else merge_ignored)(open_line, err)
         return None
 
     for ev in events:
         kind = ev.get("kind")
         t_ns = int(ev.get("t_ns", 0))
         _close_expired(open_writes, t_ns)
-        if kind == "error":
-            pending_error = ev
+        if kind in ("error", "ignored"):
+            pending = (kind, ev)
             continue
         if kind == "scpi":
             client = ev.get("client") or ""
@@ -177,7 +238,7 @@ def build_lines(
                 open_writes.pop(key, None)  # the pair's previous write never got a reply: it shows ·
                 start_ns = ev.get("t_start_ns")
                 start_ns = t_ns if start_ns is None else int(start_ns)
-                err = resolve_pending_error(ev, start_ns)
+                merged = resolve_pending(ev, start_ns)
                 line = LogLine(
                     seq=int(ev.get("seq", 0)),
                     t_ns=start_ns,
@@ -187,12 +248,13 @@ def build_lines(
                     command=ev.get("text") or f"<{ev.get('size', 0)} B binary>",
                     path=None,
                 )
-                if err is not None:
-                    merge_error(line, err)
+                if merged is not None:
+                    merge, err = merged
+                    merge(line, err)
                 lines.append(line)
                 open_writes[key] = line
             else:  # read
-                resolve_pending_error(ev)
+                resolve_pending(ev)
                 line = open_writes.pop(key, None)
                 if line is not None:
                     if line.result_kind != "error":  # the error's ✗ wins over the reply text
@@ -218,7 +280,7 @@ def build_lines(
             continue
 
         # Everything else is a fullscreen-only line (tui-screens.md 7.1).
-        resolve_pending_error(ev)
+        resolve_pending(ev)
         inst = ev.get("instrument") or ""
         source = source_label(ev, lang)
         base = dict(seq=int(ev.get("seq", 0)), t_ns=t_ns, instrument=inst, source=source, kind=kind)
@@ -261,8 +323,8 @@ def build_lines(
         # Other kinds (session, …) have no line in the log.
 
     # An error buffered at the very end of the stream still belongs to the open write it follows.
-    if pending_error is not None:
-        resolve_pending_error({"kind": "stream-end"}, None)
+    if pending is not None:
+        resolve_pending({"kind": "stream-end"}, None)
     return lines
 
 

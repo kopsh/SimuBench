@@ -527,6 +527,13 @@ class Trace(_Model):
     silence: list[SilenceReason] = Field(
         default_factory=list, description="Why the channel's input reads 0 V; empty when it carries a signal"
     )
+    minmax: list[float] | None = Field(
+        None,
+        description="When the request passed ``points``: per bin the minimum and the maximum, 2 values "
+        "per bin in order (``2*points`` values) — the pixel extraction of architecture.md 8.3 for a "
+        "renderer with a fixed dot width. ``volts`` comes back empty then, so a terminal asks for "
+        "exactly the bins it can draw and never receives all samples",
+    )
 
 
 class ScopeScreen(_Model):
