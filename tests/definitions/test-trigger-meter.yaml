@@ -37,12 +37,16 @@ state:
     default: 1
 components:
   - name: input
-    type: input_port
-    params: {z_in: 10.0e6}
-  - name: meter
-    type: dmm_core
+    type: dmm_input_terminal
+    params: {z_in: 10.0e6, conditioning: path}
+  - name: path
+    type: dmm_conditioning
     params:
       function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
+  - name: meter
+    type: dmm_adc
+    params:
+      conditioning: path
       reading_time: {from: $sense.nplc, scale: 0.02}   # 1 PLC at 50 Hz = 20 ms
   - name: trig
     type: trigger_model
@@ -58,7 +62,7 @@ components:
     params: {capacity: 100}
 wiring:
   instrument:
-    - [input.out, meter.in]
+    - [input.out, path.in]
 ports:
   instrument:
     IN: input.pin

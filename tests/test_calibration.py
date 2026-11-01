@@ -40,7 +40,7 @@ def bench(**run) -> BenchDefinition:
                     "model": "sb-dmm-1",
                     "serial": "MY12345",
                     "firmware": "2.1.0",
-                    "hidden": {"meter": {"gain_error_ppm": 150.0, "offset": 200e-6}},
+                    "hidden": {"path": {"gain_error_ppm": 150.0, "offset": 200e-6}},
                 },
             },
             "wires": [{"from": "src.HI", "to": "dmm.IN"}],

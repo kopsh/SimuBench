@@ -53,15 +53,15 @@ def test_34465a_real_edit_is_described(tmp_path):
     )
     files = make_files(tmp_path)
     doc = files.create("keysight-34465a", data, "api")
-    dc = data["components"][1]["params"]["ranges"]["DC"]
+    dc = data["components"][2]["params"]["ranges"]["DC"]
     edited = files.edit(
         "keysight-34465a",
         doc.sha256,
-        [PatchOp(op="replace", path="/components/1/params/ranges/DC", value=[0.01, *dc])],
+        [PatchOp(op="replace", path="/components/2/params/ranges/DC", value=[0.01, *dc])],
         "agent",
     )
     # "直流量程增加 100 mV": the range list gains a value, the rest of the definition says nothing
-    assert as_tuples(edited.changes) == [("component", "added", "meter.ranges", "DC", None, 0.01)]
+    assert as_tuples(edited.changes) == [("component", "added", "path.ranges", "DC", None, 0.01)]
 
 
 def test_saving_reordered_keys_records_a_version_without_changes(tmp_path):

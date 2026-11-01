@@ -292,7 +292,7 @@ params:
 | W1 | Web 中看不懂一台仪表：只有检查器的设置列表和只读的内部结构图（#20）。看不到它支持哪些功能与量程、哪些命令，也没法在不建测试台的情况下试 | `Inspector.tsx`、`internals/` |
 | W2 | Web 看不懂 Agent 改了什么：定义的版本历史只在文件中（`.simubench/history/instruments/`），界面没有入口；测试台的差异审阅（D35）按字段显示，对定义来说是 YAML 结构，不是仪表的语言 | `edit/HistoryDialog.tsx` 只处理测试台 |
 | W3 | 万用表、校准源等没有真机式面板：没有专用类别模板的仪表用通用布局，即读数加设置列表 | `screens/ReadingsScreen.tsx` |
-| W4 | Agent 搭建要从组件写起：万用表要懂 `dmm_core`、`trigger_model`、`calibration_store` 的参数与绑定，34465A 的定义约 500 行，出错多、轮次多 | `library/instruments/keysight-34465a.yaml` |
+| W4 | Agent 搭建要从组件写起：万用表要懂 `dmm_input_terminal`、`dmm_conditioning`、`dmm_adc`、`trigger_model`、`calibration_store` 的参数与绑定，34465A 的定义约 500 行，出错多、轮次多 | `library/instruments/keysight-34465a.yaml` |
 | W5 | Agent 没法单独试一台仪表：要先建测试台、开会话；`run_cases` 只跑写好的用例 | `mcp_server.py` |
 
 ### 7.2 Web：仪表验收页（W1、W2）
@@ -339,7 +339,7 @@ display:
       - {label: 精确, state: sense.nplc, value: 10}
 ```
 
-枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 `dmm_core` 的绑定生成：所选功能的读数，功能键，按 `ranges` 的量程键加 AUTO（量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时），测量核心与触发模型绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
+枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
 
 ### 7.4 MCP：模板与试运行（W4、W5）
 
@@ -426,7 +426,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 | 类别 | 现在的组件 | 粒度 |
 | --- | --- | --- |
 | 示波器 | `input_port` → `scope_frontend` → `scope_acquisition` → `waveform_transfer`；型号专用的 `siglent_sds_acquisition`、`siglent_sds_channel_limits` | 前端已经拆开，采集仍是一整块 |
-| 万用表 | `dmm_core`（输入阻抗、检波、量程、误差、量化、校准修正）+ `trigger_model`、`reading_buffer`、`calibration_store` | 测量链是一整块，只有电压功能 |
+| 万用表 | `dmm_input_terminal`（端子与输入阻抗）→ `dmm_conditioning`（检波、量程、模拟误差）→ `dmm_adc`（量化、校准修正、读数）+ `trigger_model`、`reading_buffer`、`calibration_store` | 只有电压功能 |
 | SMU、频谱仪、射频源、校准源、负载、电源 | 各一个组件 | 一整块 |
 
 粗粒度的代价：

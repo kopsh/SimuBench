@@ -139,7 +139,7 @@ def test_gain_error_per_range(open_):
         level=10.0,
         **{"sense.range": 10, "sense.nplc": 10},
     )
-    s.instruments["dmm"].components["meter"].overrides["gain_error_ppm"] = {"DC": {1: 100.0, 10: 5.0}}
+    s.instruments["dmm"].components["path"].overrides["gain_error_ppm"] = {"DC": {1: 100.0, 10: 5.0}}
     assert reading(s) == pytest.approx(10.00005, abs=3e-6)  # 5 ppm on the 10 V range
     q(s, "dmm", "SENS:VOLT:RANG 1")
     q(s, "src", "SOUR:VOLT 1.0")
@@ -185,21 +185,21 @@ def test_autorange_into_high_z_re_stamps_the_circuit(open_):
 def test_catalog_lists_the_new_parameters_with_descriptions():
     from simubench.server.catalog import param_docs
 
-    cls = component_type("dmm_core")
-    docs = param_docs(cls)
-    for name in (
-        "function",
-        "ranges",
-        "range",
-        "autorange",
-        "autorange_up",
-        "autorange_down",
-        "overrange",
-        "overload_value",
-        "resolution",
-        "z_in",
-        "z_in_high",
-        "high_z",
-        "high_z_ranges",
-    ):
-        assert name in cls.defaults and docs.get(name), name
+    expected = {
+        "dmm_conditioning": (
+            "function",
+            "ranges",
+            "range",
+            "autorange",
+            "autorange_up",
+            "autorange_down",
+            "ac_low",
+        ),
+        "dmm_adc": ("overrange", "overload_value", "resolution", "digits", "reading_time"),
+        "dmm_input_terminal": ("z_in", "z_in_high", "high_z", "high_z_ranges"),
+    }
+    for type_name, names in expected.items():
+        cls = component_type(type_name)
+        docs = param_docs(cls)
+        for name in names:
+            assert name in cls.defaults and docs.get(name), f"{type_name}.{name}"

@@ -47,21 +47,32 @@ state:
     label: 蜂鸣器
     label_en: Beeper
 components:
-  - name: meter
-    type: dmm_core
+  - name: input
+    type: dmm_input_terminal
+    params:
+      z_in: 1.0e7
+      z_in_high: 1.0e10
+      high_z: {from: $input.impedance, map: {TENMeg: false, HIGH: true}}
+      conditioning: path
+  - name: path
+    type: dmm_conditioning
     params:
       function: $sense.function
       ranges: [1, 10, 100]
       range: $sense.range
       autorange: $sense.range_auto
+  - name: meter
+    type: dmm_adc
+    params:
+      conditioning: path
       overrange: 1.2
       overload_value: 9.9e37
-      z_in: 1.0e7
-      z_in_high: 1.0e10
-      high_z: {from: $input.impedance, map: {TENMeg: false, HIGH: true}}
+wiring:
+  instrument:
+    - [input.out, path.in]
 ports:
   instrument:
-    IN: meter.in
+    IN: input.pin
 display:
   summary: [sense.function, sense.range]
   panel:

@@ -132,7 +132,7 @@ def cal_bench() -> BenchDefinition:
                 "src": {"model": "sb-smu-1", "state": {"source.voltage.level": 0.0, "output.enabled": True}},
                 "dmm": {
                     "model": "keysight-34465a",
-                    "hidden": {"meter": {"gain_error_ppm": 150.0, "offset": 200e-6}},
+                    "hidden": {"path": {"gain_error_ppm": 150.0, "offset": 200e-6}},
                 },
             },
             "wires": [{"from": "src.HI", "to": "dmm.IN"}],

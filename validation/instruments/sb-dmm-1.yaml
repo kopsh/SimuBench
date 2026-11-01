@@ -25,8 +25,11 @@ state:
     label_en: Calibration value
 components:
   - name: input
-    type: input_port
-    params: {z_in: 10.0e6}
+    type: dmm_input_terminal
+    params: {z_in: 10.0e6, conditioning: path}
+  - name: path
+    type: dmm_conditioning
+    params: {}
   - name: cal
     type: calibration_store
     params:
@@ -36,12 +39,13 @@ components:
       fail_reply: "1"
       volatile_until_store: true
   - name: meter
-    type: dmm_core
+    type: dmm_adc
     params:
+      conditioning: path
       store: cal
 wiring:
   instrument:
-    - [input.out, meter.in]
+    - [input.out, path.in]
 ports:
   instrument:
     IN: input.pin
@@ -87,10 +91,10 @@ commands:
     params: [{name: values, type: raw}]
 # Individual deviations (个体偏差): a bench instance with deviation: from_specs draws them from its seed.
 deviations:
-  - param: meter.gain_error_ppm
+  - param: path.gain_error_ppm
     limit: 20.0
     distribution: uniform
-  - param: meter.offset
+  - param: path.offset
     limit: 5.0e-6
     distribution: normal
     coverage: 2

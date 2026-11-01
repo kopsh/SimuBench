@@ -13,7 +13,7 @@ from simubench.models.bench import BenchDefinition
 DEFINITIONS = Path(__file__).resolve().parent / "models" / "cal-store-test"
 
 HIDDEN = {
-    "meter": {"gain_error_ppm": {"DC": {1: 200.0, 10: 50.0}, "AC": {1: 400.0, 10: 100.0}}, "offset": 300e-6}
+    "path": {"gain_error_ppm": {"DC": {1: 200.0, 10: 50.0}, "AC": {1: 400.0, 10: 100.0}}, "offset": 300e-6}
 }
 
 

@@ -9,7 +9,7 @@
 - 一块可接受多个组件类型(如合成块收 `waveform_synth` 与 `function_generator_core`);块清单可写**尚不存在的组件类型**(未来的拆分),测试只对内置定义生效。
 - 组件类型名是设计默认;拆分 PR 落地时可随块清单一次提交调整,同时在本文登记。
 - **求解层级**:进电路求解(stamp/emf,参与网络求解)还是设置/数据层(只参与设置与数据计算)。**拆分前必须先定**,否则要么块是装饰,要么要改求解器。
-- **已有债务**:`dmm_core` 的输入端子/调理/A/D(E1,#190);5522A 与 SDG2042X 的拆分(第二波,缺口清单);偏软件命名的已有组件——`specan` 的 `mixer_limit`、`maxhold_limit`(命名审计,拆分时更名)。
+- **已有债务**:5522A 与 SDG2042X 的拆分(第二波,缺口清单);偏软件命名的已有组件——`specan` 的 `mixer_limit`、`maxhold_limit`(命名审计,拆分时更名)。
 
 ## oscilloscope
 
@@ -53,13 +53,13 @@
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| input_terminal | `dmm_input_terminal`(尚不存在) | 电路 | E1(#190)拆出 |
-| signal_conditioning | `dmm_conditioning`(尚不存在) | 电路 + 数据 | E1(#190)拆出 |
-| adc | `dmm_adc`(尚不存在) | 数据 | E1(#190)拆出 |
+| input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定) | — |
+| signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | — |
+| adc | `dmm_adc` | 数据(NPLC 读数时间、分辨率、校准、读数;sampler) | — |
 | trigger | `trigger_model` | 数据 | — |
 | buffer | `reading_buffer` | 数据 | — |
 
-keysight-34465a 的三个缺口在例外清单;E1 落地后更新定义、删除豁免。E1 只拆新块——`trigger_model`、`reading_buffer`、`calibration_store` 已是独立组件,不重做。
+E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 `out` 经 signal 连线到调理块;`meter.function`/`meter.range` 的校准键仍由 ADC 转发测量上下文,校准存储接口未改。34+15 条金标准消息(读数与虚拟时间)逐条不变;块覆盖例外清单里 34465A 的三项已删除。
 
 ## calibrator
 
@@ -183,7 +183,7 @@ B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_out
 | backplane | `daq_backplane`(尚不存在) | 电路/设置(插槽、模拟与数字总线) | E2(#191)拆出 |
 | mux_card | `mux_card`(尚不存在) | 电路(继电器闭合改变负载) | E2 拆出 |
 | scan_table | `scan_table`(尚不存在) | 数据(通道列表、每通道配置、计数与间隔) | E2 拆出 |
-| internal_dmm | `dmm_core` 或 E1 拆出的 `dmm_input_terminal`/`dmm_conditioning`/`dmm_adc` | 电路 + 数据 | E1(#190) |
+| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | —（34970A 复用它） |
 | trigger | `trigger_model` | 数据 | — |
 | buffer | `reading_buffer` | 数据 | — |
 

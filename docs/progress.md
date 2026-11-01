@@ -473,3 +473,15 @@
 | SMU 类别的块覆盖检查（S1 建立）通过 | ✅ `tests/test_block_coverage.py::test_the_validation_smu_is_built_from_its_real_blocks` 对 `sb-smu-1` 逐块检查，六块全覆盖 |
 | 界面不坏：Web 专用屏幕与 TUI 仪表屏幕 | ✅ 读数仍在名为 `core` 的 `smu_meter` 上（`core.voltage`/`core.regulation`/`core.buffer_*` 键不变），面板与快照未改；Web 的组件标签补了四个新类型 |
 | `scripts/check.sh` 通过 | ✅ 提交前全绿 |
+
+
+## E1：拆分 dmm_core 为输入端子、信号调理与 A/D（Issue 190，#181 的 E1）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 第一步先录金标准（读数与虚拟时间，单独提交），再重构 | ✅ 首个提交 `tests/test_dmm_migration.py`：直流测试台（SMU 作源）34 条消息、交流测试台（信号源）15 条消息，逐条记录回复与虚拟时间；拆分后一条不改仍通过 |
+| 只拆新块：输入端子（前/后、耦合）、信号调理（量程、滤波）、A/D（NPLC、分辨率）；`trigger_model`、`reading_buffer`、`calibration_store` 不重做 | ✅ `dmm_input_terminal`（端子、输入阻抗、high_z 按量程）、`dmm_conditioning`（功能、量程、AC 滤波、模拟误差）、`dmm_adc`（NPLC 读数时间、分辨率、校准、读数、sampler）；校准存储接口未改（A/D 转发 function/range/raw/effective_range） |
+| 同步改面板取法；34465A 从块覆盖例外清单删去 | ✅ `panels._multimeter` 从调理块取 function/range/ranges、从 A/D 取 digits 与读数、设置控件由三个组件汇总；`test_block_coverage.py` 中 34465A 的三项豁免删除 |
+| 金标准测试、sb-* 验收场景与 34465A 手册用例不改通过 | ✅ 1127 项 pytest；`tests/models/keysight-34465a/cases.yaml` 与 `tests/test_keysight_34465a.py` 通过；`sb-dmm-1`、`meter-core-test`、`cal-store-test`、`test-range-meter`、`test-trigger-meter` 与 e2e 的 panel fixture 迁移到三组件 |
+| 界面不坏：34465A 的 Web 面板与 TUI 仪表屏幕仍工作；PR 在本地跑端到端与视觉并记录 | ✅ 读数仍在名为 `meter` 的 `dmm_adc` 上（`meter.DC`/`meter.AC` 不变）；`pnpm e2e` 42/42 通过，TUI 启动级 87 项与 24 个快照通过；视觉在本机 macOS 与 Linux 基线有平台差异（未更新基线，main 的 Linux runner 跑） |
+| `scripts/check.sh` 通过 | ✅ 提交前全绿 |
