@@ -339,7 +339,7 @@ display:
       - {label: 精确, state: sense.nplc, value: 10}
 ```
 
-枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
+枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键；DAQ 由 `scan_table` 生成：刚扫描的通道与读数、扫描表、闭合通道，功能与 NPLC、扫描次数与间隔，以及 Run / Stop 软键。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
 
 ### 7.4 MCP：模板与试运行（W4、W5）
 
@@ -427,6 +427,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 | --- | --- | --- |
 | 示波器 | `input_port` → `scope_frontend` → `scope_acquisition` → `waveform_transfer`；型号专用的 `siglent_sds_acquisition`、`siglent_sds_channel_limits` | 前端已经拆开，采集仍是一整块 |
 | 万用表 | `dmm_input_terminal`（端子与输入阻抗）→ `dmm_conditioning`（检波、量程、模拟误差）→ `dmm_adc`（量化、校准修正、读数）+ `trigger_model`、`reading_buffer`、`calibration_store` | 只有电压功能 |
+| DAQ | `daq_backplane`（插槽与模块）+ `mux_card`（继电器与模拟总线）→ 内部 DMM（E1 的测量链）+ `scan_table`、`trigger_model`、`reading_buffer` | 首波固定 34970A + 34901A；每通道测量配置与可配置插卡在缺口清单 |
 | SMU、频谱仪、射频源、校准源、负载、电源 | 各一个组件 | 一整块 |
 
 粗粒度的代价：

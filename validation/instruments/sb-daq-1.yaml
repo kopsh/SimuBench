@@ -1,0 +1,211 @@
+schema: simubench.instrument/1
+id: sb-daq-1
+manufacturer: SimuBench
+model: SB-DAQ-1
+class: daq
+version: 1
+description: >-
+  数据采集/开关单元（验证用）：34970A 主机 + 槽 1 的 34901A 20 通道多路复用卡；内部 DMM 复用
+  E1 拆出的 dmm_input_terminal / dmm_conditioning / dmm_adc；扫描表按通道列表逐个闭合继电器并读数。
+identity:
+  serial: SBDAQ000001
+  firmware: "1.0.0"
+channels:
+  count: 20
+  numbering:
+    - {first: 101, count: 20}
+channel_state:
+  closed:
+    type: bool
+    default: false
+    label: 通道闭合
+    label_en: Channel closed
+state:
+  sense.function:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: 测量功能
+    label_en: Function
+  sense.nplc:
+    type: float
+    min: 0.02
+    max: 100.0
+    default: 1.0
+    label: 积分时间
+    label_en: Integration time
+  scan.list:
+    type: int_list
+    min: 1
+    max: 320
+    default: [101]
+    label: 扫描表
+    label_en: Scan list
+  scan.count:
+    type: int
+    min: 1
+    max: 100000
+    default: 1
+    label: 扫描次数
+    label_en: Scan count
+  scan.interval:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.0
+    label: 扫描间隔
+    label_en: Scan interval
+components:
+  # 主机背板：三个槽位，槽 1 装 34901A（20 通道）。
+  - name: bp
+    type: daq_backplane
+    params:
+      slots: 3
+      modules: [{slot: 1, model: "34901A", channels: 20}]
+  # 多路复用卡：20 路双线输入、模拟总线、闭合限制（扫描时 break-before-make）。
+  - name: mux
+    type: mux_card
+    params:
+      slot: 1
+      backplane: bp
+      dmm: inp
+      close_limit: 1
+  # 内部 DMM：E1 拆出的测量链（端子只提供输入阻抗，信号来自 mux 的模拟总线）。
+  - name: inp
+    type: dmm_input_terminal
+    params: {z_in: 1.0e7, conditioning: path}
+  - name: path
+    type: dmm_conditioning
+    params:
+      function: $sense.function
+      ranges: {DC: [0.1, 1.0, 10.0, 100.0], AC: [0.1, 1.0, 10.0, 100.0]}
+  - name: adc
+    type: dmm_adc
+    params:
+      conditioning: path
+      digits: 7
+      reading_time: {from: $sense.nplc, scale: 0.02}
+  # 扫描表：列表、扫描次数与间隔；由触发模型逐点采样。
+  - name: scan
+    type: scan_table
+    params:
+      mux: mux
+      dmm: adc
+      backplane: bp
+      list: $scan.list
+      count: $scan.count
+      interval: $scan.interval
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: scan
+      buffer: mem
+      digits: 7
+      fetch_from_buffer: true
+  - name: mem
+    type: reading_buffer
+    params: {capacity: 1000}
+wiring:
+  instrument:
+    - [mux.out, inp.pin]
+    - [inp.out, path.in]
+ports:
+  instrument:
+    H101: mux.ch101H
+    L101: mux.ch101L
+    H102: mux.ch102H
+    L102: mux.ch102L
+    H103: mux.ch103H
+    L103: mux.ch103L
+    H104: mux.ch104H
+    L104: mux.ch104L
+    H105: mux.ch105H
+    L105: mux.ch105L
+    H106: mux.ch106H
+    L106: mux.ch106L
+    H107: mux.ch107H
+    L107: mux.ch107L
+    H108: mux.ch108H
+    L108: mux.ch108L
+    H109: mux.ch109H
+    L109: mux.ch109L
+    H110: mux.ch110H
+    L110: mux.ch110L
+    H111: mux.ch111H
+    L111: mux.ch111L
+    H112: mux.ch112H
+    L112: mux.ch112L
+    H113: mux.ch113H
+    L113: mux.ch113L
+    H114: mux.ch114H
+    L114: mux.ch114L
+    H115: mux.ch115H
+    L115: mux.ch115L
+    H116: mux.ch116H
+    L116: mux.ch116L
+    H117: mux.ch117H
+    L117: mux.ch117L
+    H118: mux.ch118H
+    L118: mux.ch118L
+    H119: mux.ch119H
+    L119: mux.ch119L
+    H120: mux.ch120H
+    L120: mux.ch120L
+display:
+  template: daq
+  summary: [scan.list, scan.count, sense.function]
+  actions:
+    run: ":INITiate"
+    stop: ":ABORt"
+capabilities: [daq]
+commands:
+  # 继电器：闭合/查询（通道列表按 101..120 的号域），断开。
+  - header: "ROUTe:CLOSe"
+    op: mux.close
+    params: [{name: channels, type: channel_list}]
+  - header: "ROUTe:OPEN"
+    op: mux.open
+    query: false
+    params: [{name: channels, type: channel_list}]
+  - header: "ROUTe:OPEN:ALL"
+    op: mux.open_all
+    query: false
+  # 扫描表、次数与间隔（间隔是本验证定义的设置，真实型号按手册的命令映射）。
+  - header: "ROUTe:SCAN"
+    state: scan.list
+  - header: "TRIGger:COUNt"
+    state: scan.count
+  - header: "SCAN:INTerval"
+    state: scan.interval
+  # 内部 DMM 的功能与积分时间。
+  - header: "SENSe:FUNCtion"
+    state: sense.function
+  - header: "SENSe:NPLCycles"
+    state: sense.nplc
+  # 当前闭合通道的单次读数（面板与手动闭合后的测量）。
+  - header: ":MEASure[:VOLTage][:DC]"
+    op: adc.measure
+    set: false
+    args: {what: DC}
+  # 扫描运行：READ? 一次运行（列表 × 次数），INIT 启动，ABOR 停止。
+  - header: ":READ"
+    op: trig.read
+    set: false
+    args: {elements: [CHAN, READ]}
+  - header: ":FETCh"
+    op: trig.fetch
+    set: false
+    args: {elements: [CHAN, READ]}
+  - header: ":INITiate"
+    op: trig.initiate
+    query: false
+  - header: ":ABORt"
+    op: trig.abort
+    query: false
+  - header: ":DATA:POINts"
+    op: mem.points
+    set: false
+  - header: ":TRACe:CLEar"
+    op: mem.clear
+    query: false

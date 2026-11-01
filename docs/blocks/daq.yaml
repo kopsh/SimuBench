@@ -1,5 +1,5 @@
 # DAQ/开关单元的真实功能块(D50,依据见 docs/component-map.md 的 daq 节)。
-# 首波固定 34970A + 槽 1 的 34901A;数字 I/O 与总加器不在首波。
+# 首波固定 34970A + 槽 1 的 34901A;组件由 E2(#191)落地,数字 I/O 与总加器不在首波。
 schema: simubench.blocks/1
 class: daq
 blocks:

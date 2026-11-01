@@ -598,6 +598,11 @@ class SessionManager:
             for end, direction in ((a, "out"), (b, "in")):
                 cname, port = end.rsplit(".", 1)
                 wired.setdefault(cname, {})[port] = direction
+        # Ports a component exposes without declaring them (a multiplexer's channel terminals,
+        # created by the class's port_pattern).
+        exposed: dict[str, set[str]] = {}
+        for _pname, (cname, cport) in inst.ports.items():
+            exposed.setdefault(cname, set()).add(cport)
         with s._lock:
             components = [
                 M.InternalComponent(
@@ -617,6 +622,11 @@ class SessionManager:
                         M.PortInfo(name=p, direction=d, medium="signal", channel=comp.channel)
                         for p, d in wired.get(name, {}).items()
                         if p not in comp.ports
+                    ]
+                    + [
+                        M.PortInfo(name=p, direction="inout", medium="electrical", channel=comp.channel)
+                        for p in sorted(exposed.get(name, ()))
+                        if p not in comp.ports and p not in wired.get(name, {})
                     ],
                 )
                 for name, comp in inst.components.items()
@@ -624,13 +634,13 @@ class SessionManager:
         ports = []
         for pname, (cname, cport) in inst.ports.items():
             comp = inst.components[cname]
-            spec = comp.ports[cport]
+            spec = comp.ports.get(cport)  # a pattern port (a mux channel) is not declared
             ports.append(
                 M.InternalPort(
                     name=pname,
                     target=f"{cname}.{cport}",
-                    direction=spec.direction,
-                    medium=inst.definition.ports.media.get(pname, spec.medium),
+                    direction=spec.direction if spec else "inout",
+                    medium=inst.definition.ports.media.get(pname, spec.medium if spec else "electrical"),
                     channel=comp.channel,
                 )
             )
