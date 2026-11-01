@@ -108,10 +108,6 @@ state:
     default: RISing
     label: 触发沿
     label_en: Trigger slope
-  trigger.coupling:
-    type: enum
-    options: [DC, AC, LFREJect, HFREJect]
-    default: DC
   acquire.type:
     type: enum
     options: [NORMal, PEAK, AVERage, ERES]
@@ -140,13 +136,9 @@ state:
     default: 10k
     label: 存储深度
     label_en: Memory depth
-  acquire.mmanagement:
-    type: enum
-    options: [AUTO, FSRate, FMDepth]
-    default: AUTO
   acquire.mode:
     type: enum
-    options: [YT, XY, ROLL]
+    options: [YT]
     default: YT
   acquire.amode:
     type: enum
@@ -155,10 +147,6 @@ state:
   acquire.interpolation:
     type: bool
     default: true
-  channel.reference:
-    type: enum
-    options: [OFFSet, POSition]
-    default: OFFSet
   waveform.source:
     type: enum
     options: [C1, C2, C3, C4]
@@ -327,6 +315,10 @@ components:
       delay_range_divs: [-5000, 5]
       record_length: rate_ladder
       points: $acquire.mdepth
+      # :TIMebase:REFerence：POSition 时触发在记录中的位置由 :TIMebase:REFerence:POSition
+      # （0–100 %）决定；DELay 时触发在记录中央，由 :TIMebase:DELay 移动。
+      reference_mode: $timebase.reference
+      reference_position: $timebase.reference_position
   # 边沿触发；电平在触发源通道偏置附近 ±4.1 格内（数据手册）。
   - name: trigger
     type: scope_trigger
@@ -470,7 +462,6 @@ commands:
   # ---- ACQUire ----
   - {header: ":ACQuire:AMODe", state: acquire.amode}
   - {header: ":ACQuire:INTerpolation", state: acquire.interpolation}
-  - {header: ":ACQuire:MMANagement", state: acquire.mmanagement}
   - {header: ":ACQuire:MODE", state: acquire.mode}
   - {header: ":ACQuire:MDEPth", state: acquire.mdepth}
   - {header: ":ACQuire:NUMAcq", op: acq.figure, args: {what: count}, set: false}
@@ -483,7 +474,6 @@ commands:
       - {name: kind, type: enum, options: [NORMal, PEAK, AVERage, ERES], optional: true}
       - {name: value, type: float, optional: true}
   # ---- CHANnel ----
-  - {header: ":CHANnel:REFerence", state: channel.reference}
   - {header: ":CHANnel<ch>:BWLimit", state: ch.bwlimit}
   - {header: ":CHANnel<ch>:COUPling", state: ch.coupling}
   - {header: ":CHANnel<ch>:IMPedance", state: ch.impedance}
@@ -519,7 +509,6 @@ commands:
   - {header: ":TRIGger:STATus", op: acq.status, set: false}
   - {header: ":TRIGger:STOP", op: acq.stop, query: false}
   - {header: ":TRIGger:TYPE", state: trigger.type}
-  - {header: ":TRIGger:EDGE:COUPling", state: trigger.coupling}
   - {header: ":TRIGger:EDGE:LEVel", state: trigger.level}
   - {header: ":TRIGger:EDGE:SLOPe", state: trigger.slope}
   - {header: ":TRIGger:EDGE:SOURce", state: trigger.source}

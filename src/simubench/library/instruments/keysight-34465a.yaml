@@ -213,7 +213,7 @@ state:
     label_en: Key click
   format.data:
     type: enum
-    options: [ASCii, REAL]
+    options: [ASCii]
     default: ASCii
     label: 数据格式
     label_en: Data format
@@ -501,9 +501,9 @@ commands:
     state: display.text
   - header: "FORMat[:DATA]"
     params:
-      - {name: data, type: enum, options: [ASCii, REAL], state: format.data}
+      - {name: data, type: enum, options: [ASCii], state: format.data}
       - {name: length, type: int, min: 9, max: 64, optional: true, state: format.length}
-    doc: REAL 与二进制块传输未实现，读数仍按 ASCII 返回。
+    doc: 只支持 ASCii；REAL 的二进制块传输未实现，FORM:DATA REAL 报 -224（不静默按 ASCII 返回）。
   - header: "FORMat:BORDer"
     state: format.border
 # 个体偏差（#34，metrology-authoring.md 7）：1 年、10 PLC 的直流精度（数据表）按量程抽到增益

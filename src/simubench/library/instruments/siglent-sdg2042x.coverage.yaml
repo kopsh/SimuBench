@@ -172,6 +172,7 @@ sections:
   commands:
   - header: C<ch>:SYNC
     level: accepted
+    affects_data: false
     note: ON|OFF and TYPE are stored; there is no sync output port
 - section: 3.11 Equal Phase Command (PG02_E05C)
   commands:
@@ -208,6 +209,7 @@ sections:
   commands:
   - header: BUZZer
     level: accepted
+    affects_data: false
     note: ON|OFF stored; reply BUZZ ON
 - section: 3.19 Channel Trigger Source Setting Command (PG02_E05C)
   commands:

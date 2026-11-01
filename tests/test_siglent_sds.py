@@ -380,3 +380,41 @@ def test_without_deviations_the_unit_is_nominal(scope):
     assert scope.components["timebase"].clock_error() == 0.0
     assert scope.components["ch1.front"]._error("gain_error_ppm") == 0.0
     assert scope.components["ch1.probe"].delay() == 0.0
+
+
+def test_the_reference_position_places_the_trigger_in_the_record(tmp_path):
+    """#132: in POSition mode :TIMebase:REFerence:POSition puts the trigger across the record;
+    DELay mode returns it to the centre, where :TIMebase:DELay moves it."""
+    rm, sds = _open(_metering_bench(tmp_path))
+    acq = rm.visalib.bench.instruments["scope"].components["acq"]
+    sds.write(":TIMebase:SCALe 1E-4;:TIMebase:REFerence POSition;:TIMebase:REFerence:POSition 20")
+
+    def single():
+        sds.write(":TRIGger:MODE SINGle")
+        sds.query("*OPC?")
+        sds.query(":MEASure:SIMPle:VALue? PKPK")  # settles the completed record
+        return acq.records[1]
+
+    # 10k points over 10 divisions of 100 us: 20 % is 2000 samples = 200 us before the trigger.
+    rec = single()
+    assert rec.trigger_index == pytest.approx(2000, abs=2)
+    assert rec.origin == pytest.approx(-200e-6, abs=3e-6)
+    sds.write(":TIMebase:REFerence DELay")
+    rec = single()
+    assert rec.trigger_index == pytest.approx(5000, abs=2)
+    rm.close()
+
+
+def test_commands_the_model_does_not_have_are_refused(scope):
+    """#132: settings that would change acquisition or the trigger path are refused, not stored."""
+    sds, session = scope
+    sds.write(":ACQuire:MMANagement AUTO;:CHANnel:REFerence OFFSet;:TRIGger:EDGE:COUPling DC")
+    errors = [e for e in session.history if e.get("kind") == "error"]
+    assert [e["code"] for e in errors[-3:]] == [-113, -113, -113]
+    sds.write(":ACQuire:MODE ROLL")  # the scope acquires in YT only
+    refused = [e for e in session.history if e.get("kind") == "error"]
+    assert refused[-1]["code"] in (-222, -224)
+    # YT is what the scope acquires in, and PEAK/ERES are implemented processing modes (D46).
+    sds.write(":ACQuire:MODE YT;:ACQuire:TYPE PEAK")
+    assert sds.query(":ACQuire:MODE?") == "YT"
+    assert sds.query(":ACQuire:TYPE?") == "PEAK"

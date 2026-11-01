@@ -131,6 +131,15 @@
 | 内置仪表只有真实型号，`sb-*` 不发布（issue 35） | ✅ `sb-*` 定义移到 `validation/instruments/`，演示台移到 `validation/benches/`；定义搜索路径 `SIMUBENCH_DEFINITIONS`，测试经 `conftest.py` 加载；服务启动会话与回放运行记录也搜索工作区的 `instruments/`（此前只有校验搜索）；`tests/test_release.py` 与 CI 打包任务检查内置定义、`examples/` 与 wheel 中没有 `sb-*` |
 | 型号：Keysight 34465A、Fluke 5522A、Keithley 2450 | ⏳ 各自的 issue |
 
+## 覆盖表的“接受”只用于不影响数据的命令（Issue 132，D42）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 覆盖表格式与一致性检查 | ✅ `CoverageEntry.affects_data`：只在“接受”上要求为 `false`，缺少它或写为 `true` 由 `check()` 报错（`tests/test_real_models.py` 反例）；`docs/real-models.md` 第 2、6 节写明规则；SDS、SDG、34465A、DSO-X、5522A 与虚构样例 acme-dm1 的“接受”条目全部标注 |
+| SDS2104X Plus 的 7 条命令 | ✅ `:CHANnel<ch>:SKEW` 已在 G3 实现（数字延迟进入记录，手册用例）；`:TIMebase:REFerence` / `:TIMebase:REFerence:POSition` 实现：`scope_timebase` 新增 `reference_mode` / `reference_position`，POSition 时按百分比决定触发在记录中的位置，DELay 时仍由延迟移动（`tests/test_siglent_sds.py` 用记录的触发序号与原点验证）；`:ACQuire:MMANagement`、`:CHANnel:REFerence`、`:TRIGger:EDGE:COUPling` 改为未实现（-113，覆盖表写明原因，手册用例去掉这些步骤）；`:ACQuire:MODE` 只保留 YT，XY / ROLL 报 -224；`:ACQuire:TYPE` 的 PEAK / ERES 已由 D46 实现，覆盖表注明 |
+| 其他真实型号中影响数据的“接受”条目 | ✅ 34465A 的 `FORMat[:DATA]` 只接受 ASCii，`REAL` 报 -224（不再静默按 ASCII 返回）；`FORMat:BORDer` 只影响未实现的二进制传输，保持“接受”并标注；其余（显示、蜂鸣器、按键音、LOCAL / REMOTE / LOCKOUT、EARTH / EXTGUARD、SYNC、外部触发沿）逐条核对，均不影响数据 |
+| 手册用例与测试 | ✅ 34465A 的格式用例改为 REAL 报错、ASC 回读；SDS 用例去掉未实现命令并保留 MODE YT；新增 `tests/test_siglent_sds.py` 两项（参考位置改变触发序号与原点、未实现命令 -113、MODE YT / TYPE PEAK）；`scripts/check.sh` 全绿 |
+
 ## 低频校准工作台（lowfreq-cal.md）
 
 | 交付物 / 验收标准 | 自检 |

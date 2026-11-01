@@ -3,6 +3,19 @@
     "CoverageEntry": {
       "additionalProperties": false,
       "properties": {
+        "affects_data": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "accepted commands must say false: parsing, storing and returning the value changes no acquisition, measurement, transfer or reply. A command that does change one is implemented or not modeled instead (real-models.md 2)",
+          "title": "Affects Data"
+        },
         "header": {
           "description": "Header as the definition writes it, e.g. '[:SENSe]:VOLTage[:DC]:NPLC'",
           "title": "Header",

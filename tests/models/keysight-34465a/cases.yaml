@@ -431,12 +431,16 @@ cases:
       - query: "DISP:TEXT?"
         expect: '"Test in progress..."'
 
-  - name: "FORMat:DATA 与 FORMat:BORDer（保存并回读；REAL 仍按 ASCII 传输）"
+  - name: "FORMat:DATA 只接受 ASCii（REAL 报 -222）与 FORMat:BORDer"
     manual: "FORMat Subsystem > FORMat[:DATA] / :BORDer"
     steps:
+      - send: "*CLS"
       - send: "FORM:DATA REAL,64"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value"'
+      - send: "FORM:DATA ASC,64"
       - query: "FORM?"
-        expect: "REAL,64"
+        expect: "ASC,64"
       - send: "FORM:BORD SWAP"
       - query: "FORM:BORD?"
         expect: "SWAP"
