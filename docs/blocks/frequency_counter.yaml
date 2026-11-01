@@ -1,5 +1,5 @@
 # 频率计数器的真实功能块(D50,依据见 docs/component-map.md 的 frequency_counter 节)。
-# 组件类型是 F(#192)的设计默认;53230A 独有功能不在首波。
+# 组件由 F(#192)落地(时基与触发复用通用组件);53230A 独有功能不在首波。
 schema: simubench.blocks/1
 class: frequency_counter
 blocks:

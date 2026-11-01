@@ -1,0 +1,22 @@
+schema: simubench.bench/2
+name: counter
+description: 频率计数器接函数发生器（1 kHz 正弦到 CH1）；面板与手动测量用。
+instruments:
+  cnt:
+    model: sb-counter-1
+    label: 频率计数器
+  awg:
+    model: sb-awg-2
+    label: 函数发生器
+    state:
+      ch1.function: SINusoid
+      ch1.frequency: 1000.0
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+wires:
+  - {from: awg.OUT1, to: cnt.CH1}
+run: {seed: 5}
+layout:
+  cnt: {x: 0, y: 60}
+  awg: {x: 420, y: 60}

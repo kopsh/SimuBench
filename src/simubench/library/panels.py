@@ -289,7 +289,81 @@ def _power_supply(d: InstrumentDefinition) -> Panel | None:
     return Panel(readouts=readouts, groups=groups, softkeys=[])
 
 
-_DEFAULTS = {"multimeter": _multimeter, "calibrator": _calibrator, "daq": _daq, "power_supply": _power_supply}
+def _counter(d: InstrumentDefinition) -> Panel | None:
+    """Frequency counter class default (F #192): the reading of the selected function, the gate and
+    the two inputs' conditioning, and the statistics of the measurements taken."""
+    core = _first(d, "counter_core")
+    if core is None:
+        return None
+    stats = _first(d, "counter_statistics")
+    fn_state = _bound(core, "function")
+    fn_spec = d.state.get(fn_state) if fn_state else None
+    units = {"FREQuency": "Hz", "PERiod": "s", "TOTalize": "", "TINTerval": "s"}
+    labels = {
+        "FREQuency": ("频率", "Frequency"),
+        "PERiod": ("周期", "Period"),
+        "TOTalize": ("累加", "Totalize"),
+        "TINTerval": ("时间间隔", "Time interval"),
+    }
+    readouts: list[PanelReadout] = []
+    if fn_state and fn_spec is not None and fn_spec.type == "enum":
+        for option in fn_spec.options or []:
+            label, label_en = labels.get(option, (option, option))
+            readouts.append(
+                PanelReadout(
+                    reading=f"{core.name}.value",
+                    label=label,
+                    label_en=label_en,
+                    unit=units.get(option) or None,
+                    digits=10,
+                    when={fn_state: option},
+                )
+            )
+    else:
+        readouts.append(
+            PanelReadout(reading=f"{core.name}.value", label="读数", label_en="Reading", digits=10)
+        )
+    if stats is not None:
+        readouts.append(
+            PanelReadout(reading=f"{stats.name}.mean", label="统计均值", label_en="Mean", digits=8)
+        )
+        readouts.append(
+            PanelReadout(reading=f"{stats.name}.sdev", label="统计标准差", label_en="Std dev", digits=8)
+        )
+        readouts.append(PanelReadout(reading=f"{stats.name}.count", label="统计点数", label_en="Points"))
+
+    groups: list[PanelGroup] = []
+    used: set[str] = set()
+    if fn_state and fn_spec is not None and fn_spec.type == "enum" and not fn_spec.readonly:
+        keys = [PanelKey(value=o, label=(fn_spec.option_labels or {}).get(o)) for o in fn_spec.options or []]
+        groups.append(
+            PanelGroup(
+                label="测量",
+                label_en="Measure",
+                controls=[PanelControl(state=fn_state, control="buttons", keys=keys)],
+            )
+        )
+        used.add(fn_state)
+    gate = _first(d, "counter_gate")
+    trig = _first(d, "trigger_model")
+    gating = _controls(d, [c for c in (gate, trig) if c is not None], used)
+    if gating:
+        groups.append(PanelGroup(label="门控", label_en="Gate", controls=gating))
+    for index, spec in enumerate([c for c in d.components if c.type == "counter_input"]):
+        controls = _controls(d, [spec], used)
+        if controls:
+            channel = chr(ord("A") + index)
+            groups.append(PanelGroup(label=f"输入 {channel}", label_en=f"Input {channel}", controls=controls))
+    return Panel(readouts=readouts, groups=groups, softkeys=[])
+
+
+_DEFAULTS = {
+    "multimeter": _multimeter,
+    "calibrator": _calibrator,
+    "daq": _daq,
+    "power_supply": _power_supply,
+    "frequency_counter": _counter,
+}
 _FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V"}
 
 
