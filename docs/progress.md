@@ -130,6 +130,7 @@
 | Siglent SDG2042X（D45，替代 33500B） | ✅ 手册用例 11 条；覆盖表 193 条（实现 7、接受 2、未实现 184）；负载设定（HZ / 50 Ω）与实际负载（1 MΩ / 50 Ω）四种组合下示波器读到的幅度与手工计算一致；占空比、对称度、反相；示例测试台 `siglent_scope_rc` 改为两台 Siglent |
 | Keysight 53220A（D42，issue 200） | ✅ 手册用例 20 条；覆盖表 198 条（实现 45、接受 9、未实现 144）；频率/周期（`MEASure?` 与 `CONFigure`+`READ?`，`(@1)`/`(@2)` 路由到对应输入）、门控累加、两通道时间间隔、输入耦合/阻抗/阈值、内部/外部时基、统计（均值/最小/最大/标准差/点数/清空）；`SAMPle:COUNt`×`TRIGger:COUNt` 与总线触发；示例测试台 `examples/benches/keysight_53220a.bench.yaml`，真机风格脚本 `examples/scripts/keysight_53220a_measure.py` 在 `tests/test_keysight_53220a.py` 中运行；`src/simubench/library/components/` 未改动。未建模：53230A 的无间隙连续测量/时间戳/突发与脉冲测量、读数存储器与文件系统、相位/脉宽/占空比/上升下降时间、外部门控与高级门控、状态寄存器组。组件限制：`counter_core`/`counter_statistics` 的操作应答由组件写成 13/11 位有效数字，不随定义的 15 位格式变化（记入缺口清单）；统计不在每次 `INITiate` 时自动清空，脚本在取统计前按手册用 `CALCulate:AVERage:CLEar` 清零 |
 | 内置仪表只有真实型号，`sb-*` 不发布（issue 35） | ✅ `sb-*` 定义移到 `validation/instruments/`，演示台移到 `validation/benches/`；定义搜索路径 `SIMUBENCH_DEFINITIONS`，测试经 `conftest.py` 加载；服务启动会话与回放运行记录也搜索工作区的 `instruments/`（此前只有校验搜索）；`tests/test_release.py` 与 CI 打包任务检查内置定义、`examples/` 与 wheel 中没有 `sb-*` |
+| Keysight B2901A 精密源表（issue 193，只写 YAML） | ✅ 定义 `src/simubench/library/instruments/keysight-b2901a.yaml`（`reference` = B2900 Series SCPI Command Reference B2910-90030, Edition 2, July 2011；User's Guide B2910-90010 Edition 6 用于前面板与量程说明），覆盖表 307 条（实现 77 · 接受 12 · 未实现 218）；手册用例 `tests/models/keysight-b2901a/cases.yaml` 19 条，逐条带 Command Reference 章节；示例测试台 `examples/benches/keysight_b2901a.bench.yaml`（1 kΩ DUT）与真机写法脚本 `examples/scripts/keysight_b2901a_sweep.py`（MEASure 单点 + 线性阶梯扫描 + FETC:ARR? 读测量数组）在 `tests/test_keysight_b2901a.py` 中不改一行运行（4 项：脚本、合规转 CC、电流源、NPLC 与扫描虚拟时间）；`src/simubench/library/components/` 无改动（`tests/test_model_components.py` 通过），`simubench validate` 无诊断。已知偏差写在覆盖表说明：源量程 V/I 共用一组设置（按当前源功能解释），FETCh/READ/TRACe 固定给出 VOLT,CURR,RES,TIME,STAT（元素选择、SOUR 元素、标量“最新一条”未实现），STAT 元素按数字格式回复 |
 | 型号：Keysight 34465A、Fluke 5522A、Keithley 2450 | ⏳ 各自的 issue |
 
 ## 定标演示：Fluke 5522A 校准 34465A（Issue 9）
@@ -652,3 +653,14 @@
 | 新组件有单元与场景测试 | ✅ `tests/test_counter.py` 9 项：频率/周期与门时间的虚拟时间、时基 2 ppm、累加计数、两通道时间间隔与触发误差、阈值/灵敏度拒绝、50 Ω 加载、AC 耦合去直流、统计、触发模型一次运行多读数 |
 | 缺口（记入清单） | ✅ 53230A 的无间隙连续测量与时间戳不在首波；触发误差是模型值（1 ns，按虚拟时刻与种子确定），不是手册指标；非谐波信号按最强谱线计数（模型边界）；外部门控只表示触发源，门输入信号电平不建模 |
 | `scripts/check.sh` 通过 | ✅ 1206 项 pytest 全绿 |
+
+## SDS2104X Plus 的触发耦合、噪声抑制与释抑（Issue 159）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff`（0–1.5 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑默认 100 ns（SimuBench 默认） |
+| 接到已有的触发模块 | ✅ `scope_trigger` 的 `coupling` / `reject` / `filters` / `noise_reject` / `holdoff`；定义里用参数映射与状态绑定，没有改组件 |
+| 手册用例 | ✅ `tests/models/siglent-sds2104xplus/cases.yaml` 新增“触发耦合、噪声抑制与释抑”：AC / LFREJect 回读、NREJ ON/OFF、HOLDoff 时间与格式，恢复 DC / OFF / 100 ns |
+| 行为测试 | ✅ `tests/test_siglent_sds.py` 两项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过、NREJ / HOLDoff 参数到位）；释抑使下一次触发不早于 5 ms（与无释抑的 2 ms 内触发对照） |
+| 检查 | ✅ `simubench validate` 无诊断；`simubench cases` 全部通过；`src/simubench/library/components/` 无改动；`scripts/check.sh` 全绿 |
+

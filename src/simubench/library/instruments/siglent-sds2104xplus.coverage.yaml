@@ -860,14 +860,16 @@ sections:
 - section: TRIGger Commands > :TRIGger:EDGE Commands (EN11F)
   commands:
   - header: :TRIGger:EDGE:COUPling
-    level: not_modeled
-    note: 触发路径的 AC / 低频抑制 / 高频抑制滤波器未实现；触发按未滤波的信号判断。
+    level: implemented
+    note: 'DC / AC / LFReject / HFReject 在触发路径上滤波，采集数据不变：AC 高通 5 Hz（数据手册的交流耦合转折）、LFReject 高通 50 kHz 与 HFReject 低通 1 MHz（数据手册没有给出抑制滤波的转折，取 SimuBench 默认值）。'
   - header: :TRIGger:EDGE:HLDEVent
     level: not_modeled
+    note: 释抑方式（时间/事件）未实现；释抑时间可用 :TRIGger:EDGE:HOLDoff。
   - header: :TRIGger:EDGE:HLDTime
     level: not_modeled
   - header: :TRIGger:EDGE:HOLDoff
-    level: not_modeled
+    level: implemented
+    note: '0–1.5 s；触发后至少等这么久才接受下一次触发。默认 100 ns 是 SimuBench 的默认值（手册未给出时按覆盖表说明处理）。'
   - header: :TRIGger:EDGE:HSTart
     level: not_modeled
   - header: :TRIGger:EDGE:IMPedance
@@ -876,7 +878,8 @@ sections:
     level: implemented
     note: within +-4.1 div around the offset
   - header: :TRIGger:EDGE:NREJect
-    level: not_modeled
+    level: implemented
+    note: 'ON：触发迟滞带从 0.16 格扩大到 0.5 格，噪声不再产生重复触发；OFF 恢复。'
   - header: :TRIGger:EDGE:SLOPe
     level: implemented
   - header: :TRIGger:EDGE:SOURce
