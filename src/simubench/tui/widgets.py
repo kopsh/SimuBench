@@ -85,11 +85,33 @@ class BottomBar(Static):
     BottomBar { width: 1fr; height: 1; }
     """
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._last: tuple[list[tuple[str, str]], str, str] = ([], "", "zh")
+        self._flash_text: str | None = None
+
     def update_bar(self, keys: list[tuple[str, str]], remote_text: str, lang: str) -> None:
-        _ = lang
+        self._last = (keys, remote_text, lang)
+        self._repaint()
+
+    def flash(self, text: str, seconds: float = 3.0) -> None:
+        """One transient message in place of the keys (11.2's 墙钟 hint), then back (2.2)."""
+        self._flash_text = text
+        self.set_timer(seconds, self._clear_flash)
+        self._repaint()
+
+    def _clear_flash(self) -> None:
+        self._flash_text = None
+        self._repaint()
+
+    def _repaint(self) -> None:
+        keys, remote_text, _lang = self._last
         width = self.size.width or 80
-        left = "  ".join(f"{key} {action}" for key, action in keys)
-        right = remote_text
+        if self._flash_text:
+            left, right = self._flash_text, ""
+        else:
+            left = "  ".join(f"{key} {action}" for key, action in keys)
+            right = remote_text
         text = Text(style="reverse")
         left_w = cell_len(left)
         right_w = cell_len(right)

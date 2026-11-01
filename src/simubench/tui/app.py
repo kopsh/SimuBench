@@ -70,6 +70,9 @@ class SimuBenchApp(App[None]):
     BINDINGS: ClassVar = [
         Binding("q", "quit_app", "", show=False),
         Binding("l", "open('log')", "", show=False),
+        Binding("n", "open('nets')", "", show=False),
+        Binding("f", "fault", "", show=False),
+        Binding("a", "advance", "", show=False),
         Binding("R", "rebuild", "", show=False),
     ]
 
@@ -111,6 +114,7 @@ class SimuBenchApp(App[None]):
         self.retry_seconds = 0
         self.file_changed = False
         self.data_version = 0
+        self._advance_default = "1 s"
         self.scope_version = 0  # the scope screen's frame alone (display data, not session data)
         self.reason: str | None = None  # why the picker came up again (session closed)
         self._stop = asyncio.Event()
@@ -511,6 +515,66 @@ class SimuBenchApp(App[None]):
         else:
             self.exit()
 
+    def action_fault(self) -> None:
+        """``f``: inject a fault on the session (tui-screens.md 8); works while remote (D32)."""
+        from .screens.faultdialog import FaultDialog
+
+        if self.conn != "connected":
+            return
+        self.push_screen(FaultDialog())
+
+    def action_advance(self) -> None:
+        """``a``: step the virtual clock (tui-screens.md 11.2)."""
+        from .screens.clockdialog import AdvanceDialog
+
+        if self.conn != "connected" or self.sid is None:
+            return
+        mode = self.clock_mode()
+        if mode == "wall":
+            self.call_after_refresh(self._advance_wall_hint)
+            return
+        default = self._advance_default
+        self.push_screen(AdvanceDialog(default), self._advance_done)
+
+    async def _advance_wall_hint(self) -> None:
+        from textual.widgets import Static
+
+        from .widgets import BottomBar
+
+        bars = [w for w in self.screen.query(BottomBar)]
+        target = bars[0] if bars else self.screen.query_one(Static)
+        target.flash(i18n.t("clock.wallHint", self.lang))
+
+    def _advance_done(self, seconds: float | None) -> None:
+        if seconds is None:
+            return
+
+        def on_done(ok: bool) -> None:
+            if ok:
+                self.run_worker(self._do_advance(seconds), exclusive=True)
+
+        from .screens.states import ConfirmScreen
+
+        if (self.session_info or {}).get("clients"):
+            lang = self.lang
+            self.push_screen(
+                ConfirmScreen(
+                    i18n.t("clock.advanceTitle", lang),
+                    [i18n.t("clock.advanceForce", lang, seconds=seconds)],
+                    i18n.t("common.confirm", lang),
+                    i18n.t("common.cancel", lang),
+                ),
+                on_done,
+            )
+        else:
+            on_done(True)
+
+    async def _do_advance(self, seconds: float) -> None:
+        from .screens.clockdialog import format_duration
+
+        self._advance_default = format_duration(seconds)
+        await self.client.advance(self.sid, seconds, force=bool((self.session_info or {}).get("clients")))
+
     def action_rebuild(self) -> None:
         """``R`` when the bench file changed: confirm, then reset with force (D25)."""
         from .screens.states import confirm_rebuild
@@ -544,11 +608,13 @@ class SimuBenchApp(App[None]):
 def _default_screens() -> None:
     from .screens.instrument import InstrumentScreen
     from .screens.logscreen import LogScreen
+    from .screens.nets import NetsScreen
     from .screens.scope import ScopeScreen
 
     register_screen("log", LogScreen)
     register_screen("instrument", InstrumentScreen)
     register_screen("scope", ScopeScreen)
+    register_screen("nets", NetsScreen)
 
 
 _default_screens()

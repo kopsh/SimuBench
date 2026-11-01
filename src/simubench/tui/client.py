@@ -172,6 +172,33 @@ class ApiClient:
         """LOCAL: take an instrument in remote control back (tui-screens.md 12, D32)."""
         return await self._request("POST", f"/api/sessions/{sid}/instruments/{name}/local")
 
+    # ---- observing and steering the session (T3, tui-screens.md 8, 11.1–11.3) --------------------------
+
+    async def probe(self, sid: str, net: str) -> dict[str, Any]:
+        """The virtual probe on one net: level, waveform, sources, lines (D37)."""
+        return await self._request("GET", f"/api/sessions/{sid}/nets/{net}/probe")  # type: ignore[no-any-return]
+
+    async def net_waveform(self, sid: str, net: str, window_s: float, points: int) -> dict[str, Any]:
+        return await self._request(
+            "GET", f"/api/sessions/{sid}/nets/{net}/waveform", params={"window_s": window_s, "points": points}
+        )  # type: ignore[no-any-return]
+
+    async def inject_fault(self, sid: str, spec: dict[str, Any]) -> dict[str, Any]:
+        """Inject a fault; the source becomes 终端 through the client header (tui-screens.md 8)."""
+        return await self._request("POST", f"/api/sessions/{sid}/faults", json=spec, ok=(200,))
+
+    async def revoke_fault(self, sid: str, fault_id: str) -> dict[str, Any]:
+        return await self._request("DELETE", f"/api/sessions/{sid}/faults/{fault_id}")
+
+    async def advance(self, sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
+        """Step the virtual clock; `force` for when scripts are connected (tui-screens.md 11.2)."""
+        return await self._request(
+            "POST",
+            f"/api/sessions/{sid}/clock/advance",
+            json={"seconds": seconds, "force": force},
+            ok=(200, 409),
+        )
+
 
 async def stream_events(
     url: str,
