@@ -21,8 +21,8 @@ type Story = StoryObj<typeof WaveformCanvas>;
 export const TwoChannels: Story = {
   args: {
     traces: [
-      { channel: 1, t0_s: (-N / 2) * dt, dt_s: dt, volts: sine(1, 1000), scale: 0.5, offset: 0, triggered: true, silence: [] },
-      { channel: 2, t0_s: (-N / 2) * dt, dt_s: dt, volts: sine(0.707, 1000, -Math.PI / 4), scale: 0.5, offset: 0, triggered: true, silence: [] },
+      { channel: 1, t0_s: (-N / 2) * dt, dt_s: dt, volts: sine(1, 1000), scale: 0.5, offset: 0, triggered: true, silence: [], minmax: null },
+      { channel: 2, t0_s: (-N / 2) * dt, dt_s: dt, volts: sine(0.707, 1000, -Math.PI / 4), scale: 0.5, offset: 0, triggered: true, silence: [], minmax: null },
     ],
     triggerLevel: 0,
     triggerChannel: 1,

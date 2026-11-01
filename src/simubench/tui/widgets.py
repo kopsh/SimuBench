@@ -131,11 +131,15 @@ def log_text(
     virtual: bool = True,
     header: bool = False,
     older_available: bool = False,
+    hints: bool = False,
+    highlight_seq: int | None = None,
 ) -> Text:
     """The log's rows as rich Text (tui-screens.md 7.1): fixed columns, semantic colors.
 
     Time and source are muted; the command in the foreground; the result colored by kind
-    (``·`` muted, ``→`` foreground, ``✗`` bad). ``width`` is the box's inner width.
+    (``·`` muted, ``→`` foreground, ``✗`` bad). ``width`` is the box's inner width. ``hints``
+    renders the not-executed wording under the line, indented (the fullscreen view, 9.2).
+    ``highlight_seq`` reverses one row: the command the reason dialog jumped to (9.1).
     """
     text = Text()
     if header:
@@ -152,18 +156,29 @@ def log_text(
         text.append(i18n.t("log.olderInRuns", lang), style=style_of(app, "muted"))
         text.append("\n")
     muted = style_of(app, "muted")
+    from .log import hint_text
+
     for line in lines:
         time_cell = fmt_ns(line.t_ns) if virtual else _wall_cell(line)
-        text.append(_pad_cell(time_cell, LOG_WIDTHS[0]) + _pad_cell(line.source, LOG_WIDTHS[1]), style=muted)
-        text.append(_pad_cell(line.instrument, LOG_WIDTHS[2]))
-        text.append(_pad_cell(line.command, LOG_WIDTHS[3]))
-        result_style = ""
+        base = "reverse" if (highlight_seq is not None and line.seq == highlight_seq) else ""
+        text.append(
+            _pad_cell(time_cell, LOG_WIDTHS[0]) + _pad_cell(line.source, LOG_WIDTHS[1]),
+            style=(base + " " + muted).strip(),
+        )
+        text.append(_pad_cell(line.instrument, LOG_WIDTHS[2]), style=base)
+        text.append(_pad_cell(line.command, LOG_WIDTHS[3]), style=base)
+        result_style = base
         if line.result_kind == "error":
-            result_style = style_of(app, "bad")
+            result_style = (base + " " + style_of(app, "bad")).strip()
         elif line.result_kind == "none":
-            result_style = muted
+            result_style = (base + " " + muted).strip()
         text.append(_pad_cell(line.result_text(lang), max(0, width - sum(LOG_WIDTHS))), style=result_style)
         text.append("\n")
+        if hints:
+            hint = hint_text(line, lang)
+            if hint:
+                text.append("  " + hint, style=muted)
+                text.append("\n")
     return text
 
 
@@ -203,3 +218,37 @@ def clock_activity(app: Any, lang: str, mode: str | None, busy: bool) -> list[tu
 
 def seconds_until(ts: float) -> int:
     return max(0, round(ts - time.monotonic()))
+
+
+def box_text(app: Any, lines: list[list[tuple[str, str]]], width: int) -> Text:
+    """A box's fixed-width lines as rich Text: segments per line, padded to ``width`` cells.
+
+    The last segment of an overflowing line is truncated with … (as the overview cards do).
+    """
+    from .fmt import cell_len, fit
+
+    text = Text()
+    for n, line in enumerate(lines):
+        if n:
+            text.append("\n")
+        used = 0
+        for value, tokens in line:
+            room = width - used
+            if room <= 0:
+                break
+            if cell_len(value) > room:
+                text.append(fit(value, room), style=style_of(app, tokens))
+                used = width
+                break
+            text.append(value, style=style_of(app, tokens))
+            used += cell_len(value)
+        if width - used > 0:
+            text.append(" " * (width - used))
+    return text
+
+
+def box_title(title: str, right: str, width: int) -> str:
+    """``┌─ 错误 ───── 队列 2 ─┐``'s title row: title left, counter right."""
+    suffix = f" {right} " if right else ""
+    total = max(0, width - cell_len(title) - cell_len(suffix) - 6)
+    return f" {title} " + "─" * total + suffix

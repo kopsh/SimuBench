@@ -41,6 +41,7 @@ class LogScreen(ShellScreen):
         self._filter_open = False
         self._errors_only = False
         self._virtual = True
+        self._highlight_seq: int | None = None  # the row the reason dialog jumped to (9.1)
 
     def screen_title(self) -> str:
         return i18n.t("log.title", self.app.lang)
@@ -116,6 +117,8 @@ class LogScreen(ShellScreen):
                 virtual=self._virtual,
                 header=True,
                 older_available=bool(app.store.dropped),
+                hints=True,
+                highlight_seq=self._highlight_seq,
             )
         )
         if self._following:
@@ -145,7 +148,30 @@ class LogScreen(ShellScreen):
     def action_follow(self) -> None:
         self._following = True
         self._new_count = 0
+        self._highlight_seq = None
         self._box.scroll_end(animate=False, force=True)
+
+    def focus_seq(self, seq: int) -> None:
+        """Select one command's row and scroll to it — the reason dialog's ⏎ jump (9.1).
+
+        The jump can arrive before the just-shown screen has mounted its children, so the
+        highlight is applied after the next refresh cycle.
+        """
+        self._highlight_seq = seq
+        self._last_version = -1
+        self.call_after_refresh(self._apply_focus_seq, seq)
+
+    def _apply_focus_seq(self, seq: int) -> None:
+        from ..log import filter_lines
+
+        self.refresh_content()
+        lines = filter_lines(self.app.lines, self._filter_text.split(), self._errors_only)
+        index = next((i for i, line in enumerate(lines) if line.seq == seq), None)
+        if index is None:
+            return
+        # The Static holds one Text row per line (plus header and hint rows); scroll roughly there.
+        hints_above = sum(1 for line in lines[:index] if line.has_error or line.ignored)
+        self._box.scroll_to(y=index + hints_above + 1, animate=False)
         self._last_version = -1
         self.refresh_content()
 

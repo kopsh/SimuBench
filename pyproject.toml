@@ -73,6 +73,13 @@ ignore = ["RUF001", "RUF002", "RUF003", "E501"]
 testpaths = ["tests", "acceptance"]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
+markers = [
+  # Boots a Textual app or a real server (screens, keys, snapshots, 找到跳闸): seconds per test.
+  # The fast checks run `-m "not tui_boot"`; the whole set runs on main after the merge —
+  # the same tiering as the end-to-end and visual tests (AGENTS.md).
+  "tui_boot: needs a running Textual app or server",
+  "unit: pure logic, the D49 budget guard applies (<=100 ms per test)",
+]
 
 [tool.mypy]
 python_version = "3.11"

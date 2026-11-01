@@ -89,6 +89,8 @@ class ShellScreen(Screen):
 
     def refresh_content(self) -> None:
         """Re-render from the app's state; subclasses compare versions to skip work."""
+        if not self.is_mounted:  # a just-shown screen may be refreshed before its children exist
+            return
         app: Any = self.app
         self.query_one(TopBar).update_bar(
             app.bench_name(),
