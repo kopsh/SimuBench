@@ -73,24 +73,28 @@ cases:
       - query: "MEAS:VOLT?"
         expect: "+2.00000000E-04"
 
-  - name: "CONFigure 设置量程与分辨率；CONF? 查询"
+  - name: "CONFigure 命令头选择功能并设置量程与分辨率；CONF? 查询"
     manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC} / CONFigure?"
     steps:
+      - send: ":CONF:VOLT:AC 100"
+      - query: "FUNC?"
+        expect: '"VOLT:AC"'
+      - query: "VOLT:AC:RANG?"
+        expect: "+1.00000000E+02"
+      - query: "VOLT:AC:RANG:AUTO?"
+        expect: "1"
       - send: ":CONF:VOLT:DC 10,0.001"
       - query: "CONF?"
         expect: '"VOLT+1.00000000E+01,+1.00000000E-03"'
+      - query: "FUNC?"
+        expect: '"VOLT"'
       - query: "VOLT:DC:RANG?"
         expect: "+1.00000000E+01"
       - send: ":CONF:VOLT:DC AUTO"
       - query: "CONF?"
         expect: '"VOLT+0.00000000E+00,+1.00000000E-03"'
-      - send: ":CONF:VOLT:AC 100"
-      - query: "VOLT:AC:RANG?"
-        expect: "+1.00000000E+02"
-      - query: "VOLT:AC:RANG:AUTO?"
+      - query: "VOLT:DC:RANG:AUTO?"
         expect: "1"
-      - query: "FUNC?"
-        expect: '"VOLT"'
 
   - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
     manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"

@@ -242,6 +242,8 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
         if cmd.read is not None:
             _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
+        for state, value in cmd.writes.items():
+            _check_write(d, state, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
         indexes = _index_values(cmd)
         for k, ps in enumerate(cmd.params):
             if ps.state is not None:
@@ -471,6 +473,36 @@ def _state_spec(d: InstrumentDefinition, path: str, per_channel: bool) -> tuple[
 
 def _state_options(d: InstrumentDefinition, per_channel: bool) -> list[str]:
     return list(d.state) + ([f"ch.{k}" for k in d.channel_state] if per_channel else [])
+
+
+def _check_write(
+    d: InstrumentDefinition,
+    path: str,
+    value: Any,
+    per_channel: bool,
+    pointer: str,
+    subject: str,
+    report: Report,
+) -> None:
+    """A constant written by a command fits its setting: an option, a boolean, or a number in range."""
+    spec = _check_state_ref(d, path, per_channel, pointer, subject, report)
+    if spec is None:
+        return
+    problem = None
+    if spec.type == "enum":
+        if str(value).upper() not in {o.upper() for o in spec.options or []}:
+            problem = f"{path!r} does not accept {value!r}"
+    elif spec.type == "bool":
+        if not isinstance(value, bool):
+            problem = f"{path!r} is a boolean; {value!r} is not one"
+    elif spec.type in ("float", "int"):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            problem = f"{path!r} is a number; {value!r} is not one"
+        elif (spec.min is not None and value < spec.min) or (spec.max is not None and value > spec.max):
+            problem = f"{value!r} is outside {spec.min} .. {spec.max}"
+    if problem:
+        hint = f"可选值：{', '.join(spec.options or [])}" if spec.type == "enum" else None
+        report.add("error", "E-DEF-WRITE", pointer, problem, hint, subject)
 
 
 def _check_state_ref(

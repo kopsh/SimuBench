@@ -1056,6 +1056,13 @@ class Instrument:
         if raw:
             raise ScpiError(-108)
         checked: dict[str, Any] = {}
+        # The command's constants first: the function it selects applies to the parameters after it.
+        for ref, value in spec.writes.items():
+            path = self._resolve(at(ref), channel)
+            try:
+                checked[path] = self._validate(self.specs[path], value)
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, self.specs[path]) from e
         for path, v in new.items():
             try:
                 checked[path] = self._validate(self.specs[path], v)
