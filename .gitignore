@@ -18,3 +18,4 @@ web/visual-report/
 src/simubench/web_dist/
 .codegraph/
 snapshot_report.html
+.gh-cache/

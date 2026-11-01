@@ -96,11 +96,10 @@ sections:
     note: 温度功能未实现（另开 issue）。
   - header: :CONFigure[:VOLTage]:DC
     level: implemented
-    note: 量程与分辨率参数保存；'选择功能并恢复触发默认值'需要'命令头写常量'的能力（能力 issue 待建），换功能须用 [SENSe:]FUNCtion。AUTO 关键字接受为自动量程（设定值
-      0）。
+    note: 命令头选择直流电压功能（writes 写 sense.function）并保存量程与分辨率；AUTO 关键字接受为自动量程（设定值 0）。手册的“恢复触发默认值”未实现。
   - header: :CONFigure[:VOLTage]:AC
     level: implemented
-    note: 同 :CONFigure[:VOLTage]:DC；功能切换须用 [SENSe:]FUNCtion。
+    note: 命令头选择交流电压功能并保存量程与分辨率（同 :CONFigure[:VOLTage]:DC）；手册的“恢复触发默认值”未实现。
   - header: CONFigure[:VOLTage][:DC]:RATio
     level: not_modeled
     note: 比值测量需要 Sense 端口，未实现（另开 issue）。

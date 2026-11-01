@@ -75,6 +75,11 @@ DEMO = {
             ],
         },
         {
+            "header": "CONFigure<ch>",
+            "writes": {"ch.wave": "SINe"},
+            "params": [{"name": "scale", "type": "float", "unit": "V", "state": "ch.scale"}],
+        },
+        {
             "header": "TimeBase_SUmmary",
             "set": False,
             "params": [{"name": "x", "type": "pairs", "keys": {"MS": "memory.size"}}],
@@ -397,3 +402,38 @@ def test_static_checks_of_index_states_when_and_reply_fields():
         InstrumentDefinition.model_validate(
             {**DEMO, "commands": [{"header": "X", "op": "a.b", "when": {"y": "1"}}]}
         )
+
+
+# ---- writes: a command header selects a setting beside its parameters (#117) -----------------------
+
+
+def test_writes_selects_a_setting_along_with_the_parameters():
+    _, _, query, write = open_demo()
+    write("C2:WAV SQU")
+    assert query("C2:WAV?") == "C2:WAV SQU"
+    write("CONF2 1")
+    assert query("C2:WAV?") == "C2:WAV SIN"
+    assert query("C2:VDIV?") == "C2:VDIV 1E+0 V"
+
+
+def test_a_bad_parameter_leaves_the_written_constant_alone():
+    _, _, query, write = open_demo()
+    write("C2:WAV SQU")
+    write("CONF2 100")  # the scale's maximum is 10 V
+    assert error(query).startswith("-222")
+    assert query("C2:WAV?") == "C2:WAV SQU"
+
+
+def test_a_written_constant_must_fit_its_setting():
+    data = copy.deepcopy(DEMO)
+    conf = next(c for c in data["commands"] if c["header"] == "CONFigure<ch>")
+    conf["writes"]["ch.wave"] = "NOPE"
+    report = validate_definition_data(data)[1]
+    assert {d.code for d in report.diagnostics if d.severity == "error"} == {"E-DEF-WRITE"}
+
+
+def test_writes_needs_parameters_that_write_settings():
+    data = copy.deepcopy(DEMO)
+    data["commands"].append({"header": "NOPE", "state": "timebase.scale", "writes": {"comm.header": "OFF"}})
+    with pytest.raises(ValidationError, match="writes"):
+        InstrumentDefinition.model_validate(data)

@@ -1460,6 +1460,13 @@ export interface components {
             when?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Writes
+             * @description Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win)
+             */
+            writes?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * ComponentDoc

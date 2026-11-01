@@ -948,6 +948,12 @@
             ],
             "description": "Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? \"WAVEDESC\")",
             "title": "When"
+          },
+          "writes": {
+            "additionalProperties": true,
+            "description": "Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win)",
+            "title": "Writes",
+            "type": "object"
           }
         },
         "required": [
