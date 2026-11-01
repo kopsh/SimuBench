@@ -13,7 +13,7 @@ sections:
       - {header: "[:SENSe]:CURRent[:DC]:NPLC", level: not_modeled, note: current measurement comes later}
   - section: "Command Reference > DISPlay Subsystem"
     commands:
-      - {header: ":DISPlay[:STATe]", level: accepted, note: no display in the simulation}
+      - {header: ":DISPlay[:STATe]", level: accepted, affects_data: false, note: no display in the simulation}
   - section: "Command Reference > Source (Fluke-style, no colon hierarchy)"
     commands:
       - {header: "OUT", level: implemented}

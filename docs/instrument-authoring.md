@@ -537,7 +537,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
   - 浮点块：`values: volts` 加 `float: 32 | 64`（R&S 的 `FORMat REAL,32`）；
   - 点数模式：`count_mode: spread` 在整条记录上均匀取 `count` 点；
   - 每次读取的上限：`max_points` 加 `over_limit`（`allow` 照旧、`truncate` 截断、`error` 报 -222）。
-- 其余声明化：`scope_acquisition` 的 `status_text`（停止、等待触发、已触发、自动模式未触发的文字，op `status`）、`acquire_type` 与 `acquire_counts`（带次数的采集方式、允许的次数与查询格式，op `acquire_type`）、op `figure`（点数、采样率、采集次数）；`scope_trigger` 的 `level_range_divs`（电平在信源屏幕偏置附近的格数范围）；`scope_timebase` 的 `delay_range_divs`；`scope_probe` 的 op `set_ratio`（关键字与比值、比值范围，`rescales` 列出随探头比缩放的显示设置）。
+- 其余声明化：`scope_acquisition` 的 `status_text`（停止、等待触发、已触发、自动模式未触发的文字，op `status`）、`acquire_type` 与 `acquire_counts`（带次数的采集方式、允许的次数与查询格式，op `acquire_type`）、op `figure`（点数、采样率、采集次数）；`scope_trigger` 的 `level_range_divs`（电平在信源屏幕偏置附近的格数范围）；`scope_timebase` 的 `delay_range_divs`、`reference_mode` / `reference_position`（参考方式与触发位置）；`scope_probe` 的 op `set_ratio`（关键字与比值、比值范围，`rescales` 列出随探头比缩放的显示设置）。
 - SDS2104X Plus 只用通用模块写成，`siglent_sds_acquisition` 与 `siglent_sds_channel_limits` 已删除。改写前后对同一串 105 条命令（前导块、波形数据、状态、采集方式、探头、测量、各项限值与它们的错误码）的回复逐字节相同。`sb-dso-4`、`sb-dso-2x` 显式写出 `meas`。
 - 契约定义：`tests/models/contract-float-scope/` 是一台类 R&S 的示波器（float32 块、点数模式、文本前导、按名称的测量与统计），只用通用模块，用例全部通过。
 

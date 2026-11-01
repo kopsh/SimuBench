@@ -46,6 +46,12 @@ class CoverageEntry(_Model):
         ..., description="Header as the definition writes it, e.g. '[:SENSe]:VOLTage[:DC]:NPLC'"
     )
     level: Level
+    affects_data: bool | None = Field(
+        None,
+        description="accepted commands must say false: parsing, storing and returning the value "
+        "changes no acquisition, measurement, transfer or reply. A command that does change one is "
+        "implemented or not modeled instead (real-models.md 2)",
+    )
     note: str | None = None
 
 
@@ -174,6 +180,11 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
         if key in listed:
             problems.append(
                 f"{entry.header}: listed twice in the coverage table ({listed[key][0]}, {section})"
+            )
+        if entry.level == "accepted" and entry.affects_data is not False:
+            problems.append(
+                f"{entry.header}: accepted but does not declare affects_data: false ({section}); a "
+                "command that changes data is implemented or not modeled"
             )
         listed[key] = (section, entry)
     for key, header in defined.items():

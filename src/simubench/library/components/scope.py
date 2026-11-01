@@ -436,7 +436,9 @@ class ScopeTimebase(Component):
     ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is
     ``points / 10 div`` up to the ADC group's top rate) or ``rate_ladder`` (that rate rounded down
     to a 1-2-5 step; samples ``1 / rate`` apart). The trigger sits at the centre, or ``delay``
-    seconds before it when that is bound.
+    seconds before it when that is bound. A model with a reference mode setting places it from
+    ``reference_mode`` (DELay / POSition) and, in POSition mode, from ``reference_position``
+    percent across the record.
 
     The sampling clock has a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
     draw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional
@@ -453,6 +455,11 @@ class ScopeTimebase(Component):
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
         "reference_divs": 5.0,  # where the trigger (delay 0) sits, divisions from the left; may map a setting
+        # A model with a reference mode setting (DELay | POSition) places the trigger from it: in
+        # POSition mode the trigger sits `reference_position` percent across the record and the
+        # delay setting does not move it; in DELay mode it starts at the centre, moved by `delay`.
+        "reference_mode": "",  # the reference mode setting; empty: the delay alone places the trigger
+        "reference_position": None,  # the trigger position setting, 0..100 percent (POSition mode)
         "clock_ppm": 0.0,  # the sampling clock's frequency error, ppm (hidden)
         "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
     }
@@ -499,12 +506,23 @@ class ScopeTimebase(Component):
             points = max(2, round(rate * window))
             dt = 1.0 / rate if rule == "rate_ladder" else window / points
         # Sample 0 is at delay - 5 div: the trigger sits (5 div - delay) / dt in (no delay: the centre).
+        # A reference mode setting places the trigger differently: in POSition mode the position
+        # setting puts it that far across the record (the delay setting no longer moves it).
         delay = self.param("delay")
-        ref = float(self.param("reference_divs")) * float(self.param("scale"))  # trigger from the left edge
-        if delay in (None, "") and abs(ref - window / 2) < 1e-15 * window:
-            pre = points // 2
+        mode = str(self.param("reference_mode") or "").upper()
+        position = self.param("reference_position")
+        if mode.startswith("POS") and position not in (None, ""):
+            ref = window * float(position) / 100.0
+            pre = round(ref / dt)
+            pre = max(0, min(points - 1, pre))  # the record still has one sample after the trigger
         else:
-            pre = round((ref - float(delay or 0.0)) / dt)
+            ref = float(self.param("reference_divs")) * float(
+                self.param("scale")
+            )  # trigger from the left edge
+            if delay in (None, "") and abs(ref - window / 2) < 1e-15 * window:
+                pre = points // 2
+            else:
+                pre = round((ref - float(delay or 0.0)) / dt)
         return points, dt, pre, points - pre
 
     def clock_error(self) -> float:

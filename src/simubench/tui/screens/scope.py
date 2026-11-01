@@ -402,13 +402,11 @@ class ScopeScreen(ShellScreen):
         )
         level = fmt((state.get("trigger.level") or {}).get("value"), "V", digits=4)
         rows.append(row(i18n.t("scope.trigger", lang), f"{src} {slope} {level}"))
+        coupling = state.get("trigger.coupling")
         rows.append(
             row(
                 "",
-                C.summary_text(
-                    (state.get("trigger.coupling") or {}).get("value"), state.get("trigger.coupling"), lang
-                )
-                + " · "
+                (C.summary_text(coupling.get("value"), coupling, lang) + " · " if coupling else "")
                 + C.summary_text(
                     (state.get("trigger.mode") or {}).get("value"), state.get("trigger.mode"), lang
                 ),
