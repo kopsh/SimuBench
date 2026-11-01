@@ -208,14 +208,21 @@ class OverviewScreen(ShellScreen):
             cards[n - 1].focus()
 
     def action_open_card(self) -> None:
-        """``⏎`` on a focused card (tui-screens.md 4.4): an instrument opens its screen; a part's
-        nets screen is T3's, so the bottom bar names it and nothing happens yet."""
+        """``⏎`` on a focused card (tui-screens.md 4.4): an instrument opens its screen; a part
+        opens the nets screen on its first net (2.3)."""
         focused = self.focused
         if not isinstance(focused, Card):
             return
         name = focused.card.name
+        app: Any = self.app
         if not self._is_instrument(name):
-            self._last_version = -1  # the hint line already says what Enter would do
+            for part in (app.session_info or {}).get("parts", []):
+                if part.get("name") == name:
+                    for port in part.get("ports", []):
+                        if port.get("net"):
+                            app.show("nets", port["net"])
+                            return
+            app.show("nets")
             return
         app: Any = self.app
         info = next((i for i in (app.session_info or {}).get("instruments", []) if i.get("name") == name), {})

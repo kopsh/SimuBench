@@ -38,6 +38,7 @@ class FakeClient:
         self.sid = fixture["session"]["id"]
         self.writes: list[tuple[str, str]] = []  # (instrument, command) via scpi
         self.screen_requests: list[tuple[str, int | None]] = []  # (instrument, points)
+        self.advances: list[tuple[float, bool]] = []  # (seconds, force)
         self.configures: list[tuple[str, str, Any]] = []  # (instrument, path, value)
         self.panels: list[tuple[str, str]] = []  # (instrument, action)
         self.locals: list[str] = []
@@ -85,6 +86,16 @@ class FakeClient:
         key = f"screen_{name}_{points}" if points else f"screen_{name}"
         return self._fixture[key]
 
+    async def probe(self, sid: str, net: str) -> dict[str, Any]:
+        """The dumped probe of one net; the session-wide advance moves the clock only."""
+        probe = self._fixture.get(f"probe_{net}")
+        if probe is None:
+            raise KeyError(net)
+        return probe
+
+    async def net_waveform(self, sid: str, net: str, window_s: float, points: int) -> dict[str, Any]:
+        return (await self.probe(sid, net))["waveform"]
+
     # ---- writing --------------------------------------------------------------------------------------
 
     async def scpi(self, sid: str, name: str, command: str) -> dict[str, Any]:
@@ -129,6 +140,7 @@ class FakeClient:
         return {"id": fault_id, "status": "ended"}
 
     async def advance(self, sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
+        self.advances.append((seconds, force))
         self._fixture["clock"]["now_ns"] += int(seconds * 1e9)
         return self._fixture["clock"]
 
