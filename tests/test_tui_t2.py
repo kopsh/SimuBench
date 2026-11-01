@@ -625,19 +625,20 @@ async def test_hint_wording_per_classification(kind, fields, wording):
                 assert origin in text
 
 
-async def test_overview_enter_opens_screens_and_parts_say_not_implemented():
-    """Enter opens the instrument screen; a part's Enter says the nets screen comes with T3."""
+async def test_overview_enter_opens_screens_and_parts_open_nets():
+    """Enter opens an instrument's screen (the scope's own); a part's Enter opens the nets screen."""
     tui, _fake = unit_app(fresh(SCOPE_BENCH))
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
-        # rc is the 3rd card (a part): Enter does nothing and the bottom bar says why.
+        # rc is the 3rd card (a part): Enter opens the nets screen on its first net (2.3).
         await focus_card(pilot, tui, "rc")
         await pilot.press("enter")
-        await pilot.pause(0.1)
-        from simubench.tui.screens.overview import OverviewScreen
+        from simubench.tui.screens.nets import NetsScreen
 
-        assert isinstance(tui.screen, OverviewScreen)
-        assert "网络屏幕尚未实现" in _flat(tui)
+        await wait_for(pilot, lambda: isinstance(tui.screen, NetsScreen), message="nets screen")
+        assert tui.screen.selected == "net-0"
+        await pilot.press("escape")
+        await pilot.pause(0.1)
         # Enter on the scope card opens the scope screen.
         await focus_card(pilot, tui, "scope")
         await pilot.press("enter")

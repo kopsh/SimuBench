@@ -343,3 +343,52 @@ def setting_report(
     return ReasonReport(
         t("reason.titleFor", lang, instrument=instrument, subject=label), conclusion, [evidence]
     )
+
+
+def net_report(
+    probe: Mapping[str, Any], session: Mapping[str, Any], events: Sequence[Mapping[str, Any]], lang: str
+) -> ReasonReport:
+    """Why a net reads what it reads (tui-screens.md 11.1, D37).
+
+    The engine's probe already breaks the signal down by independent source — the dialog quotes
+    those contributions (电动势 × 传递 = 贡献) instead of recomputing anything; a silent net
+    names its silence reasons instead.
+    """
+    net = probe.get("net", "")
+    silence = probe.get("silence") or []
+    if silence:
+        from .screens.nets import silence_text
+
+        conclusion = t("reason.netSilent", lang, net=net)
+        evidence = Evidence(t("reason.evSilence", lang), silence_text(silence, lang), net)
+        return ReasonReport(t("reason.titleNet", lang, net=net), conclusion, [evidence])
+    conclusion = t(
+        "reason.netLevel",
+        lang,
+        net=net,
+        rms=fmt(float(probe.get("rms") or 0), "V"),
+        peak=fmt(float(probe.get("peak") or 0), "V"),
+    )
+    evidences = []
+    for s in (probe.get("sources") or [])[:4]:
+        value = t(
+            "reason.netSource",
+            lang,
+            source=s.get("source", ""),
+            rms=fmt(float(s.get("rms_contribution") or 0), "V"),
+        )
+        evidences.append(Evidence(t("reason.evContribution", lang), value, net))
+    for ln in (probe.get("lines") or [])[:3]:
+        evidences.append(
+            Evidence(
+                t("reason.evLine", lang),
+                t(
+                    "reason.netLine",
+                    lang,
+                    freq=fmt(float(ln.get("freq_hz") or 0), "Hz"),
+                    amp=fmt(float(ln.get("amplitude") or 0), "V"),
+                ),
+                net,
+            )
+        )
+    return ReasonReport(t("reason.titleNet", lang, net=net), conclusion, evidences)

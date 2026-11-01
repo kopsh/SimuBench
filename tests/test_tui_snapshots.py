@@ -23,6 +23,7 @@ pytestmark = (
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "tests/data/tui/demo.bench.yaml"
+EXAMPLES_DIR = ROOT / "examples/benches"
 
 
 @pytest.fixture(scope="module")
@@ -217,5 +218,107 @@ def test_scope_snapshot(snap_compare, demo_server, lang, size, name):
             if "50.0 mV" in text:
                 return
         raise AssertionError("the scope screen never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+@pytest.fixture(scope="module")
+def scope_server():
+    """The scope_rc bench's session for the nets screen: deterministic, command clock."""
+    import asyncio
+    import socket
+
+    import uvicorn
+
+    manager = SessionManager(EXAMPLES_DIR, scpi_base_port=5185, hislip_port=4895)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    config = uvicorn.Config(
+        create_app(manager, web_dist=Path("/nonexistent")),
+        host="127.0.0.1",
+        port=port,
+        log_config=None,
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 20
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.02)
+    served = asyncio.run(manager.start("siglent_scope_rc.bench.yaml", seed=7, clock="command"))
+    served.session.exchange("awg", b"C1:OUTP ON", client="ui", reads=1)
+    manager.panel(served, "scope", "stop", client="ui")  # a stopped scope shows its last acquisition
+    yield f"http://127.0.0.1:{port}", served.id
+    server.should_exit = True
+    thread.join(timeout=10)
+
+
+NET_SIZES = [
+    ("zh", (100, 32), "nets-zh-100x32"),
+    ("en", (100, 32), "nets-en-100x32"),
+    ("zh", (80, 24), "nets-zh-80x24"),
+    ("en", (80, 24), "nets-en-80x24"),
+]
+
+
+@pytest.mark.parametrize(("lang", "size", "name"), NET_SIZES)
+def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
+    """`n`: the nets list with levels and the selected net's probe (tui-screens.md 11.1)."""
+    url, sid = scope_server
+    tui = SimuBenchApp(url, sid=sid, lang=lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.05)
+            if tui.conn != "connected" or not tui.session_info:
+                continue
+            await pilot.press("n")
+            await pilot.pause(0.1)
+            from simubench.tui.screens.nets import NetsScreen
+
+            if isinstance(tui.screen, NetsScreen):
+                text = "\n".join(
+                    "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+                )
+                if "net-0" in text and "直流" in text or ("DC" in text and "net-0" in text):
+                    return
+        raise AssertionError("the nets screen never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+FAULT_SIZES = [(lang, size, name.replace("nets", "fault")) for lang, size, name in NET_SIZES]
+
+
+@pytest.mark.parametrize(("lang", "size", "name"), FAULT_SIZES)
+def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
+    """`f`: the injection dialog with its kind groups (tui-screens.md 8)."""
+    url, sid = scope_server
+    tui = SimuBenchApp(url, sid=sid, lang=lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.05)
+            if tui.conn != "connected" or not tui.session_info:
+                continue
+            await pilot.press("f")
+            await pilot.pause(0.1)
+            from simubench.tui.screens.faultdialog import FaultDialog
+
+            if isinstance(tui.screen, FaultDialog):
+                text = "\n".join(
+                    "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+                )
+                if "超时" in text or "Timeout" in text:
+                    return
+        raise AssertionError("the fault dialog never settled")
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
