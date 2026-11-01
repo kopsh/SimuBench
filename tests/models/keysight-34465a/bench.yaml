@@ -11,7 +11,7 @@ instruments:
   dut:
     model: keysight-34465a
     hidden:
-      meter:
+      path:
         gain_error_ppm: {DC: {0.1: 100.0, 1: 80.0, 10: 150.0, 100: 120.0, 1000: 90.0}, AC: 300.0}
         offset: 2.0e-4
 wires:

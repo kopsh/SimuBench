@@ -61,18 +61,22 @@ def effective_panel(d: InstrumentDefinition) -> tuple[Panel | None, PanelSource 
 
 
 def _multimeter(d: InstrumentDefinition) -> Panel | None:
-    meter = _first(d, "dmm_core")
-    if meter is None:
+    # Since E1 (#190) the measurement chain is several components: the conditioning block carries
+    # the function and the ranges, the A/D the digits and the readings, the terminal the input stage.
+    path = _first(d, "dmm_conditioning")
+    adc = _first(d, "dmm_adc")
+    if path is None or adc is None:
         return None
-    fn_state = _bound(meter, "function")
+    terminal = _first(d, "dmm_input_terminal")
+    fn_state = _bound(path, "function")
     fn_spec = d.state.get(fn_state) if fn_state else None
-    digits = meter.params.get("digits")
+    digits = adc.params.get("digits")
     digits = int(digits) if isinstance(digits, (int, float)) and not isinstance(digits, bool) else 7
     digits = min(digits, 8)
 
     # The main display: the reading of the selected function.
     readouts: list[PanelReadout] = []
-    to_function = _function_map(meter, fn_spec)
+    to_function = _function_map(path, fn_spec)
     for function, label, label_en in (("DC", "直流电压", "DC voltage"), ("AC", "交流电压", "AC voltage")):
         when: dict[str, Any] = {}
         if fn_state and to_function:
@@ -82,7 +86,7 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
             when = {fn_state: options[0]}
         readouts.append(
             PanelReadout(
-                reading=f"{meter.name}.{function}",
+                reading=f"{adc.name}.{function}",
                 label=label,
                 label_en=label_en,
                 unit="V",
@@ -108,12 +112,12 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
         used.add(fn_state)
 
     # Range keys: one per full-scale value, and AUTO.
-    range_state, auto_state = _bound(meter, "range"), _bound(meter, "autorange")
+    range_state, auto_state = _bound(path, "range"), _bound(path, "autorange")
     range_spec = d.state.get(range_state) if range_state else None
     auto_spec = d.state.get(auto_state) if auto_state else None
     controls: list[PanelControl] = []
     if range_state and range_spec and range_spec.type in ("float", "int") and not range_spec.readonly:
-        values = _ranges(meter.params.get("ranges"))
+        values = _ranges(path.params.get("ranges"))
         if values:
             off = {auto_state: False} if auto_spec and auto_spec.type == "bool" else {}
             keys = [PanelKey(value=v, label=_eng(v, range_spec.unit or "V"), sets=off) for v in values]
@@ -132,7 +136,7 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
         groups.append(PanelGroup(label="量程", label_en="Range", controls=controls))
 
     # Further settings of the measurement (NPLC, input impedance, AC filter) and of the trigger.
-    settings = _controls(d, [meter], used)
+    settings = _controls(d, [c for c in (adc, terminal, path) if c is not None], used)
     if settings:
         groups.append(PanelGroup(label="设置", label_en="Settings", controls=settings))
     trigger = _controls(d, [c for c in d.components if c.type == "trigger_model"], used)

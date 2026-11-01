@@ -13,22 +13,31 @@ state:
     max: 100.0
     default: 10.0
 components:
-  - name: meter
-    type: dmm_core
+  - name: input
+    type: dmm_input_terminal
+    params: {z_in: 1.0e7, conditioning: path}   # the terminal is the input stage on the bench net
+  - name: path
+    type: dmm_conditioning
     params:
       ranges: {DC: [1.0, 10.0, 100.0]}
       range: $sense.range
       autorange: false
-      digits: 12
-      z_in: 1.0e7                  # the meter is its own input stage on the bench net
       gain_error_ppm: {DC: {1.0: 0.0, 10.0: 0.0, 100.0: 0.0}}
+  - name: meter
+    type: dmm_adc
+    params:
+      conditioning: path
+      digits: 12
+wiring:
+  instrument:
+    - [input.out, path.in]
 ports:
   instrument:
-    IN: meter.in
+    IN: input.pin
 commands:
   - {header: "[:SENSe]:VOLTage[:DC]:RANGe", state: sense.range}
   - {header: ":MEASure:VOLTage[:DC]", op: meter.measure, set: false, args: {what: DC}}
 deviations:
-  - param: meter.gain_error_ppm
+  - param: path.gain_error_ppm
     by: {function: [DC], range: [1.0, 10.0, 100.0]}
     limit: {1.0: 30, 10.0: 20, 100.0: 40}

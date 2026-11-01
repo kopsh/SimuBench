@@ -34,6 +34,8 @@
 
 扩展 `dmm_core`，不改名，`sb-dmm-1` 的回复逐条不变。每项都是普通组件参数，可以绑定或映射设置（instrument-authoring.md 2.3）：
 
+（E1，#190 之后这个整块拆成 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc`：量程与功能在调理块，输入阻抗在端子，量化、校准与读数在 A/D。下面的 `dmm_core` 是 C1 当时的设计与实现记录。）
+
 ```yaml
 - name: meter
   type: dmm_core

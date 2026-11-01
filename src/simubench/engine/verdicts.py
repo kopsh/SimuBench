@@ -176,7 +176,7 @@ class VerdictReport:
 
 
 def _core(inst: Any) -> Any | None:
-    """The instrument's measurable core: the component that knows the true input (a dmm_core)."""
+    """The instrument's measurable core: the component that knows the true input (a dmm_conditioning)."""
     return next((c for c in inst.components.values() if hasattr(c, "true_values")), None)
 
 

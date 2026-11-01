@@ -9,8 +9,8 @@ blocks:
     components: [mux_card]
   - block: scan_table          # 扫描表与扫描控制
     components: [scan_table]
-  - block: internal_dmm        # 内部 DMM(E1 拆分后的 dmm_core)
-    components: [dmm_core, dmm_input_terminal, dmm_conditioning, dmm_adc]
+  - block: internal_dmm        # 内部 DMM(34970A 复用 E1 拆出的测量链)
+    components: [dmm_input_terminal, dmm_conditioning, dmm_adc]
   - block: trigger             # 扫描/测量触发
     components: [trigger_model]
   - block: buffer              # 读数缓冲

@@ -1,13 +1,13 @@
 # 万用表的真实功能块(D50,依据见 docs/component-map.md 的 multimeter 节)。
-# 三个新块由 E1(#190)拆出;组件类型名是设计默认,E1 落地时可随本清单一起调整。
+# 三个测量块由 E1(#190)拆出;组件类型由该 issue 落地(见 component-map.md 的 multimeter 节)。
 schema: simubench.blocks/1
 class: multimeter
 blocks:
-  - block: input_terminal      # 输入端子:前/后面板端子、耦合(E1 拆出 dmm_input_terminal)
+  - block: input_terminal      # 输入端子:前/后面板端子、耦合
     components: [dmm_input_terminal]
-  - block: signal_conditioning # 信号调理:量程、滤波(E1 拆出 dmm_conditioning)
+  - block: signal_conditioning # 信号调理:量程、滤波
     components: [dmm_conditioning]
-  - block: adc                 # A/D:NPLC、分辨率(E1 拆出 dmm_adc)
+  - block: adc                 # A/D:NPLC、分辨率
     components: [dmm_adc]
   - block: trigger             # 触发
     components: [trigger_model]

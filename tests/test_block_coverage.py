@@ -25,10 +25,6 @@ BLOCKS_DIR = Path(__file__).resolve().parent.parent / "docs" / "blocks"
 #: The debt each entry names is tracked in docs/component-map.md. May only shrink: a paid-off
 #: entry fails the test until it is removed.
 EXEMPT: set[tuple[str, str]] = {
-    # keysight-34465a: 输入端子、信号调理、A/D 在 dmm_core 整块内;E1(#190)拆出后删除。
-    ("keysight-34465a", "input_terminal"),
-    ("keysight-34465a", "signal_conditioning"),
-    ("keysight-34465a", "adc"),
     # siglent-sdg2042x: 参考、幅度、任意波表、调制由 siglent_sdg 专用组件或通道整块承担;
     # 拆分在第二波(缺口清单)。
     ("siglent-sdg2042x", "reference"),

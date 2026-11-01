@@ -16,8 +16,8 @@ BASE = {
         "sense.nplc": {"type": "number", "min": 0.01, "max": 100, "default": 1},
     },
     "components": [
-        {"name": "input", "type": "input_port", "params": {"z_in": 10.0e6}},
-        {"name": "meter", "type": "dmm_core", "params": {"ranges": {"DC": [0.1, 1, 10, 100]}}},
+        {"name": "input", "type": "dmm_input_terminal", "params": {"z_in": 10.0e6, "conditioning": "path"}},
+        {"name": "path", "type": "dmm_conditioning", "params": {"ranges": {"DC": [0.1, 1, 10, 100]}}},
     ],
     "commands": [
         {"header": ":MEASure:VOLTage[:DC]", "query": {"reply": "+1.00000000E+00"}},
@@ -72,20 +72,20 @@ def test_a_state_is_added_removed_and_its_range_changes():
 
 def test_a_range_gains_a_value_and_an_impedance_changes():
     components = [
-        {"name": "input", "type": "input_port", "params": {"z_in": 1.0e9}},
-        {"name": "meter", "type": "dmm_core", "params": {"ranges": {"DC": [0.1, 1, 10, 100, 1000]}}},
+        {"name": "input", "type": "dmm_input_terminal", "params": {"z_in": 1.0e9, "conditioning": "path"}},
+        {"name": "path", "type": "dmm_conditioning", "params": {"ranges": {"DC": [0.1, 1, 10, 100, 1000]}}},
     ]
     out = definition_changes(BASE, changed(components=components))
     assert [(c.action, c.target, c.detail, c.old, c.new) for c in out] == [
         ("changed", "input.z_in", None, 10.0e6, 1.0e9),  # 输入阻抗 10 MΩ → 1 GΩ
-        ("added", "meter.ranges", "DC", None, 1000),  # 直流量程增加 1000 V
+        ("added", "path.ranges", "DC", None, 1000),  # 直流量程增加 1000 V
     ]
 
 
 def test_a_reordered_range_list_is_no_change():
     components = [
-        {"name": "input", "type": "input_port", "params": {"z_in": 10.0e6}},
-        {"name": "meter", "type": "dmm_core", "params": {"ranges": {"DC": [100, 10, 1, 0.1]}}},
+        {"name": "input", "type": "dmm_input_terminal", "params": {"z_in": 10.0e6, "conditioning": "path"}},
+        {"name": "path", "type": "dmm_conditioning", "params": {"ranges": {"DC": [100, 10, 1, 0.1]}}},
     ]
     assert definition_changes(BASE, changed(components=components)) == []
 
