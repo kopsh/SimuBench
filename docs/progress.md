@@ -439,3 +439,14 @@
 | #167 的验收流改为一次工具调用，其余断言不变 | ✅ `acceptance/test_lfcal_agent_scenario.py` 的 `_build` 用 `base_definition` + `save` + `base_sha256` 一次保存 |
 | #46 的既有起草流程（首建）不改通过 | ✅ `tests/test_mcp.py` 的起草用例 |
 | `scripts/check.sh` 全绿 | ✅ 提交前全绿 |
+
+## S1：component-map v1 与首波 8 类的块清单（Issue 201，#181 第 1 步）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 机器可读块清单 `docs/blocks/<class>.yaml`（`schema: simubench.blocks/1`），按定义的 `class` 字段对应；一块可接受多个组件类型，尚不存在的组件类型允许入清单 | ✅ 12 份（已有 4 类 + 首波 8 类）；`tests/test_block_coverage.py` 的 `test_block_lists_are_well_formed` 与 `test_a_new_definition_must_cover_every_block` |
+| 块覆盖测试与例外清单：内置定义覆盖类别的每一块；`EXEMPT` 只能缩短 | ✅ 两台示波器全覆盖；34465A 的三个缺口（E1 #190）、SDG2042X 的四个缺口（第二波）在例外清单中；`test_builtin_real_models_cover_their_blocks` |
+| `docs/component-map.md` 的方法：真实框图、依据、求解层级、债务；首波 8 类逐类一节 | ✅ 已有 4 类 + smu、power_supply、electronic_load、spectrum_analyzer、rf_generator、lockin、daq、frequency_counter；各节写明手册名、文档编号与版本，或注明“无公开框图，按类别架构” |
+| 回填型号 issue #193–#200 的常用子集、`*IDN?`、手册来源 | ✅ 各 issue 的「S1 回填（#201）」评论；B2901A 的手册库文件是 User's Guide，命令参考另为 B2910-90030（Edition 2, July 2011） |
+| D50（粒度与命名）与 D42（2450 第二波）落地；AGENTS.md 与 real-model/SKILL.md 同步 | ✅ #204 已合并；SKILL.md 的「能力 issue 挂 #181」与块清单步骤已同步 |
+| `scripts/check.sh` 全绿 | ✅ |

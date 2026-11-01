@@ -1,0 +1,21 @@
+# 锁相放大器的真实功能块(D50,依据见 docs/component-map.md 的 lockin 节)。
+# 组件类型是 D3(#189)拆分的设计默认;参考与解调器已存在,拆分时调整。
+schema: simubench.blocks/1
+class: lockin
+blocks:
+  - block: input_filter        # 输入耦合与 50/60 Hz、100/120 Hz 陷波
+    components: [lockin_input_filter]
+  - block: input_amp           # 低噪声差分放大与增益
+    components: [lockin_input_amp]
+  - block: mixer               # 相敏检波
+    components: [lockin_mixer]
+  - block: reference           # 参考 PLL/移相与内部振荡器
+    components: [lockin_reference]
+  - block: lowpass             # 低通(时间常数与斜率)
+    components: [lockin_lowpass]
+  - block: output              # DC 增益/偏置/扩展、X/Y/R/θ
+    components: [lockin_output]
+  - block: buffer              # SRAT/TRCA 数据缓冲
+    components: [reading_buffer]
+  - block: aux                 # AUX 输入输出(4×4)
+    components: [lockin_aux]

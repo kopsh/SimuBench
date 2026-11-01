@@ -1,0 +1,21 @@
+# 频谱分析仪的真实功能块(D50,依据见 docs/component-map.md 的 spectrum_analyzer 节)。
+# 组件类型是 D1(#187)拆分的设计默认。
+schema: simubench.blocks/1
+class: spectrum_analyzer
+blocks:
+  - block: input_port          # RF 输入(50 Ω)
+    components: [input_port]
+  - block: input_attenuator    # 输入衰减器
+    components: [specan_input]
+  - block: mixer               # 混频器(本振)
+    components: [specan_mixer]
+  - block: if_filter           # 中频滤波(RBW)
+    components: [specan_if]
+  - block: log_detector        # 对数检波
+    components: [specan_detector]
+  - block: vbw_filter          # 视频滤波(VBW)
+    components: [specan_vbw]
+  - block: trace               # 检波器、迹线模式与标记
+    components: [specan_trace]
+  - block: reference           # 10 MHz 参考
+    components: [reference_clock]
