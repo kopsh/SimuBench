@@ -17,18 +17,44 @@ from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
 
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
+
 ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(autouse=True)
+def color_theme(monkeypatch):
+    """Snapshots are the colour theme's: a developer's ``NO_COLOR`` must not change them."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+
+
 DEMO = ROOT / "tests/data/tui/demo.bench.yaml"
+EXAMPLES_DIR = ROOT / "examples/benches"
 
 
 @pytest.fixture(scope="module")
 def demo_server():
-    """A real uvicorn server with the demo bench session and the section 4 log already written."""
+    """A real uvicorn server with the demo bench session and the section 4 log already written.
+
+    The SCPI and HiSLIP ports are fixed: the instrument screen shows the resource address
+    (tui-screens.md 5.1), so the SVG is only reproducible when the ports are (5175–5178, 4891).
+    """
     import socket
 
     import uvicorn
 
-    manager = SessionManager(ROOT / "tests/data/tui", scpi_base_port=0, hislip_port=0)
+    for port in (5175, 5275, 5375):
+        with socket.socket() as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+            except OSError:
+                continue
+            break
+    else:
+        raise RuntimeError("none of the fixed snapshot SCPI ports 5175/5275/5375 is free")
+    manager = SessionManager(ROOT / "tests/data/tui", scpi_base_port=port, hislip_port=4891)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -60,6 +86,9 @@ def demo_server():
     session.exchange("smu", b":SOUR:VOLT 999", client="pyvisa", reads=1)
     session.exchange("smu", b":MEAS:CURR?", client="pyvisa", reads=1)
     session.exchange("dmm", b":MEAS:VOLT:DC?", client="mcp", reads=1)
+    # A running scope redraws its live frame with fresh noise on every poll (D32), so the SVGs
+    # could never match; stopped, it shows its last acquisition, which is deterministic.
+    manager.panel(served, "scope", "stop", client="ui")
     yield f"http://127.0.0.1:{port}", served.id
     server.should_exit = True
     thread.join(timeout=10)
@@ -100,5 +129,312 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
             if "measured" in flat_text or "9.9" in flat_text:  # the smu card's readings rendered
                 return
         raise AssertionError("the overview never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+async def _settle(pilot, tui, deadline_s: float = 30.0) -> str:
+    """Wait for the connection, a quiet data version and a stable render; return the screen text."""
+    import asyncio
+
+    loop = asyncio.get_running_loop()
+    end = loop.time() + deadline_s
+    while loop.time() < end:
+        await pilot.pause(0.05)
+        if tui.conn != "connected" or not tui.session_info:
+            continue
+        version, stable = tui.data_version, 0
+        while loop.time() < end:
+            await pilot.pause(0.05)
+            if tui.data_version == version:
+                stable += 1
+                if stable >= 8:
+                    break
+            else:
+                stable, version = 0, tui.data_version
+        text = "\n".join(
+            "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+        )
+        if text.strip():
+            return text
+    raise AssertionError("the screen never settled")
+
+
+@pytest.mark.parametrize(
+    ("lang", "size", "name"),
+    [
+        ("zh", (100, 32), "instrument-smu-zh-100x32"),
+        ("en", (100, 32), "instrument-smu-en-100x32"),
+        ("zh", (80, 24), "instrument-smu-zh-80x24"),
+        ("en", (80, 24), "instrument-smu-en-80x24"),
+    ],
+)
+def test_instrument_smu_snapshot(snap_compare, demo_server, lang, size, name):
+    """Two keystrokes from the overview (14): the digit 3, then Enter (tui-screens.md 5)."""
+    url, sid = demo_server
+    tui = SimuBenchApp(url, sid=sid, lang=lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        await _settle(pilot, tui)
+        await pilot.press("3")
+        await pilot.pause(0.2)
+        await pilot.press("enter")
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.1)
+            text = "\n".join(
+                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+            )
+            # The identity box of the §5 mock (at 80 cols the narrow columns truncate CC).
+            if "SB-SMU-1" in text and "-222" in text:
+                return
+        raise AssertionError("the smu screen never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+@pytest.mark.parametrize(
+    ("lang", "size", "name"),
+    [
+        ("zh", (100, 32), "scope-zh-100x32"),
+        ("en", (100, 32), "scope-en-100x32"),
+        ("zh", (80, 24), "scope-zh-80x24"),
+        ("en", (80, 24), "scope-en-80x24"),
+    ],
+)
+def test_scope_snapshot(snap_compare, demo_server, lang, size, name):
+    """Enter on the scope card (14): braille trace, settings column, log (tui-screens.md 6)."""
+    url, sid = demo_server
+    tui = SimuBenchApp(url, sid=sid, lang=lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        await _settle(pilot, tui)
+        await pilot.press("2")
+        await pilot.pause(0.2)
+        await pilot.press("enter")
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.1)
+            text = "\n".join(
+                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+            )
+            # The settings column (ch1's scale) of the §6 mock.
+            if "50.0 mV" in text:
+                return
+        raise AssertionError("the scope screen never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+@pytest.fixture(scope="module")
+def scope_server():
+    """The scope_rc bench's session for the nets screen: deterministic, command clock."""
+    import asyncio
+    import socket
+
+    import uvicorn
+
+    manager = SessionManager(EXAMPLES_DIR, scpi_base_port=5185, hislip_port=4895)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    config = uvicorn.Config(
+        create_app(manager, web_dist=Path("/nonexistent")),
+        host="127.0.0.1",
+        port=port,
+        log_config=None,
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 20
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.02)
+    served = asyncio.run(manager.start("siglent_scope_rc.bench.yaml", seed=7, clock="command"))
+    served.session.exchange("awg", b"C1:OUTP ON", client="ui", reads=1)
+    manager.panel(served, "scope", "stop", client="ui")  # a stopped scope shows its last acquisition
+    yield f"http://127.0.0.1:{port}", served.id
+    server.should_exit = True
+    thread.join(timeout=10)
+
+
+NET_SIZES = [
+    ("zh", (100, 32), "nets-zh-100x32"),
+    ("en", (100, 32), "nets-en-100x32"),
+    ("zh", (80, 24), "nets-zh-80x24"),
+    ("en", (80, 24), "nets-en-80x24"),
+]
+
+
+@pytest.mark.parametrize(("lang", "size", "name"), NET_SIZES)
+def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
+    """`n`: the nets list with levels and the selected net's probe (tui-screens.md 11.1)."""
+    url, sid = scope_server
+    tui = SimuBenchApp(url, sid=sid, lang=lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.05)
+            if tui.conn != "connected" or not tui.session_info:
+                continue
+            await pilot.press("n")
+            await pilot.pause(0.1)
+            from simubench.tui.screens.nets import NetsScreen
+
+            if isinstance(tui.screen, NetsScreen):
+                text = "\n".join(
+                    "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+                )
+                if ("net-0" in text and "直流" in text) or ("DC" in text and "net-0" in text):
+                    return
+        raise AssertionError("the nets screen never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+FAULT_SIZES = [(lang, size, name.replace("nets", "fault")) for lang, size, name in NET_SIZES]
+
+
+@pytest.mark.parametrize(("lang", "size", "name"), FAULT_SIZES)
+def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
+    """`f`: the injection dialog with its kind groups (tui-screens.md 8)."""
+    url, sid = scope_server
+    tui = SimuBenchApp(url, sid=sid, lang=lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.05)
+            if tui.conn != "connected" or not tui.session_info:
+                continue
+            await pilot.press("f")
+            await pilot.pause(0.1)
+            from simubench.tui.screens.faultdialog import FaultDialog
+
+            if isinstance(tui.screen, FaultDialog):
+                text = "\n".join(
+                    "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+                )
+                if "超时" in text or "Timeout" in text:
+                    return
+        raise AssertionError("the fault dialog never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+# ---- the runs screen (tui-screens.md 11.3) ----------------------------------------------------------
+
+
+@pytest.fixture
+def fixed_times(monkeypatch):
+    """Run records show wall-clock start times: pin them to UTC so the snapshot is the same
+    in every time zone (Windows has no ``time.tzset``)."""
+    import time as time_module
+
+    monkeypatch.setattr("simubench.tui.screens.runs.time.localtime", time_module.gmtime)
+
+
+def _runs_app(lang: str):
+    """The overview's mock session plus two recorded runs (one still running) and a mismatch."""
+    import copy
+
+    from tui_mock import load, unit_app
+
+    fixture = copy.deepcopy(load("unit_smu.json"))
+    fixture["runs"] = [
+        {
+            "run_id": "run-abc",
+            "bench": "示例测试台",
+            "started": 1793577600.0,
+            "ended": None,
+            "clock": "command",
+            "seed": 5,
+            "events": 1284,
+            "duration_ns": 4_210_000_000,
+            "instruments": ["smu"],
+            "size": 217_088,
+        },
+        {
+            "run_id": "run-def",
+            "bench": "siglent_scope_rc",
+            "started": 1793491200.0,
+            "ended": 1793491230.0,
+            "clock": "stepped",
+            "seed": 7,
+            "events": 56,
+            "duration_ns": 31_000_000,
+            "instruments": ["scope"],
+            "size": 1_500_000,
+        },
+    ]
+    fixture["run_detail"] = {"summary": fixture["runs"][0]}
+    fixture["replay"] = {
+        "run_id": "run-abc",
+        "ok": False,
+        "actions": 56,
+        "replies": 56,
+        "mismatches": [
+            {
+                "seq": 31,
+                "instrument": "scope",
+                "command": ":WAV:DATA?",
+                "expected": "0x7F",
+                "actual": "0x80",
+            }
+        ],
+        "warnings": [],
+    }
+    return unit_app(fixture, lang=lang)[0]
+
+
+RUN_SIZES = [
+    ("zh", (100, 32), "runs-zh-100x32"),
+    ("en", (100, 32), "runs-en-100x32"),
+    ("zh", (80, 24), "runs-zh-80x24"),
+    ("en", (80, 24), "runs-en-80x24"),
+]
+
+
+@pytest.mark.parametrize(("lang", "size", "name"), RUN_SIZES)
+def test_runs_snapshot(snap_compare, fixed_times, lang, size, name):
+    """`R`: the list, the live session line, and `p`'s first difference (11.3)."""
+    tui = _runs_app(lang)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        from simubench.tui.screens.runs import RunsScreen
+
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.05)
+            if tui.conn != "connected" or not tui.session_info:
+                continue
+            screen = tui.screen
+            if not isinstance(screen, RunsScreen):
+                await pilot.press("R")
+                await pilot.pause(0.1)
+                continue
+            if not screen.runs:  # the list's fetch has not landed yet
+                await pilot.pause(0.1)
+                continue
+            await pilot.press("p")  # the replay of the selected run reports its first difference
+            end = asyncio.get_running_loop().time() + 30
+            while asyncio.get_running_loop().time() < end:
+                await pilot.pause(0.05)
+                if screen.replay is not None:
+                    return
+            break
+        raise AssertionError("the runs screen never settled")
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)

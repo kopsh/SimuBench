@@ -536,6 +536,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--token", help="access token of the service (default: no token, D43)")
     p.add_argument("--lang", choices=["zh", "en"], help="UI language (default: follow LANG, zh fallback)")
+    p.add_argument("--script", metavar="STEPS_YAML", help="run these steps headlessly and exit (6)")
+    p.add_argument("--out", metavar="DIR", default="tui-shots", help="where the SVGs go (default: tui-shots)")
+    p.add_argument("--record", action="store_true", help="also write per-frame SVGs and a .cast (6)")
     p.set_defaults(fn=_tui)
 
     p = sub.add_parser("mcp", help="MCP service on stdio for AI agents, with the Web Bench alongside")

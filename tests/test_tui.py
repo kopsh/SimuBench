@@ -26,6 +26,10 @@ from simubench.tui.fmt import braille, fmt, fmt_ns
 from simubench.tui.log import build_lines, pending_writes, source_label
 from simubench.tui.store import EventStore
 
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
+
 TEXT = "终端控制台需要可选依赖：pip install 'simubench[tui]'"
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -321,9 +325,9 @@ class Served:
         await self.manager.start("siglent_scope_rc.bench.yaml", seed=8, clock="wall", sid="second-session")
         self.manager.sessions.update(saved)
 
-    def restart(self) -> None:
+    async def restart(self) -> None:
         """Stop and start uvicorn again on the same port (for the disconnect test)."""
-        self.stop()
+        await self.stop()
         import uvicorn
 
         self.server = uvicorn.Server(self.config)
@@ -331,21 +335,36 @@ class Served:
         self.thread.start()
         deadline = time.monotonic() + 20
         while not self.server.started and time.monotonic() < deadline:
-            time.sleep(0.02)
+            await asyncio.sleep(0.02)
 
-    def stop(self) -> None:
-        self.server.should_exit = True
-        self.thread.join(timeout=10)
+    async def stop(self) -> None:
+        await stop_uvicorn(self.server, self.thread)
 
     def http(self) -> httpx.Client:
         return httpx.Client(base_url=self.url, headers={"X-SimuBench-Client": "tui"}, timeout=10)
 
 
-@pytest.fixture
+async def stop_uvicorn(server, thread: threading.Thread) -> None:
+    """Shut uvicorn down without blocking the caller's loop.
+
+    The graceful shutdown completes through the websocket clients this very loop serves: a
+    blocking ``thread.join`` would freeze the loop, the close handshake could not be answered
+    and every stop would burn its whole 10 s timeout. Yield instead; force-exit as a fallback.
+    """
+    server.should_exit = True
+    deadline = time.monotonic() + 10
+    while thread.is_alive() and time.monotonic() < deadline:
+        await asyncio.sleep(0.02)
+    if thread.is_alive():
+        server.force_exit = True
+        thread.join(timeout=5)
+
+
+@pytest.fixture(scope="module")
 async def served() -> AsyncIterator[Served]:
     s = Served(ROOT / "examples/benches")
     yield s
-    s.stop()
+    await s.stop()
 
 
 def loop_time() -> float:
@@ -456,7 +475,7 @@ async def test_disconnect_readonly_and_backfill_without_dupes(served):
         await wait_quiet(pilot, tui)
         before = len(tui.store.events)
 
-        served.stop()  # the engine lives on in this process; only the service drops
+        await served.stop()  # the engine lives on in this process; only the service drops
         end = loop_time() + 15
         while loop_time() < end and tui.conn != "disconnected":
             await pilot.pause(0.1)
@@ -467,7 +486,7 @@ async def test_disconnect_readonly_and_backfill_without_dupes(served):
         # Events emitted while the service is down land in the history (the engine is in-process).
         served.manager.get(sid).session.exchange("awg", b"*IDN?", client="pyvisa", reads=1)
 
-        served.restart()
+        await served.restart()
         end = loop_time() + 20
         while loop_time() < end:
             await pilot.pause(0.1)
@@ -542,8 +561,7 @@ async def test_attach_token_invalid_screen(served):
             assert isinstance(tui.screen, MessageScreen)
             assert "访问令牌无效" in flat(tui)
     finally:
-        server.should_exit = True
-        thread.join(timeout=10)
+        await stop_uvicorn(server, thread)
 
 
 async def test_attach_session_picker(served):
@@ -659,8 +677,7 @@ async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
             # The bench was rebuilt from the new file: its hash changed.
             assert tui.session_info["bench_sha256"] not in (None, sha_before)
     finally:
-        server.should_exit = True
-        thread.join(timeout=10)
+        await stop_uvicorn(server, thread)
 
 
 async def test_quit_with_clients_connected_confirms(served):
@@ -694,6 +711,17 @@ def test_no_color_uses_the_mono_theme(monkeypatch):
     monkeypatch.delenv("NO_COLOR")
     app2 = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
     assert app2.theme == "simubench"
+
+
+async def test_no_color_boots_its_stylesheet(monkeypatch):
+    """The mono theme's tokens are terminal-default colours, not empty strings (which fail
+    Textual's stylesheet parse and take the whole TUI with them)."""
+    monkeypatch.setenv("NO_COLOR", "1")
+    tui = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await pilot.pause(0.3)
+        assert tui.theme == "simubench-mono"
+        assert type(tui.screen).__name__ == "OverviewScreen"
 
 
 def test_lang_default_follows_env(monkeypatch):

@@ -1,4 +1,4 @@
-# 示波器的真实功能块(D49,依据见 docs/component-map.md 的 oscilloscope 节)。
+# 示波器的真实功能块(D50,依据见 docs/component-map.md 的 oscilloscope 节)。
 # 块覆盖测试(tests/test_block_coverage.py)检查内置定义的组件(含通道组件)覆盖每一块。
 schema: simubench.blocks/1
 class: oscilloscope

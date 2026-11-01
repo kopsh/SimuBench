@@ -1,4 +1,4 @@
-# 函数/任意波发生器的真实功能块(D49,依据见 docs/component-map.md 的 function_generator 节)。
+# 函数/任意波发生器的真实功能块(D50,依据见 docs/component-map.md 的 function_generator 节)。
 schema: simubench.blocks/1
 class: function_generator
 blocks:

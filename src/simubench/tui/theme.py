@@ -32,7 +32,9 @@ THEME = Theme(
     variables={**COLORS, "success": COLORS["ok"], "error": COLORS["bad"]},
 )
 
-MONO_VARS = {k: "" for k in COLORS}
+#: `ansi_default` is the terminal's own foreground: no colour of ours, and still a valid
+#: Textual colour (an empty string fails the stylesheet parse, taking the whole TUI with it).
+MONO_VARS = {k: "ansi_default" for k in COLORS}
 
 
 def mono_theme() -> Theme:
@@ -40,7 +42,7 @@ def mono_theme() -> Theme:
     return Theme(
         name="simubench-mono",
         primary="#e8e8e8",
-        variables={**MONO_VARS, "success": "", "error": ""},
+        variables={**MONO_VARS, "success": "ansi_default", "error": "ansi_default"},
     )
 
 

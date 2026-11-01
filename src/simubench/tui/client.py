@@ -134,6 +134,11 @@ class ApiClient:
     async def readings(self, sid: str, name: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/sessions/{sid}/instruments/{name}/readings")  # type: ignore[no-any-return]
 
+    async def screen(self, sid: str, name: str, points: int | None = None) -> dict[str, Any]:
+        """The scope screen's frame; ``points`` (tui-screens.md 6.1) bins each trace."""
+        suffix = f"?points={points}" if points else ""
+        return await self._request("GET", f"/api/sessions/{sid}/instruments/{name}/screen{suffix}")  # type: ignore[no-any-return]
+
     async def levels(self, sid: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/sessions/{sid}/levels")  # type: ignore[no-any-return]
 
@@ -161,6 +166,46 @@ class ApiClient:
     async def panel(self, sid: str, name: str, action: str) -> dict[str, Any]:
         return await self._request(
             "POST", f"/api/sessions/{sid}/instruments/{name}/panel", json={"action": action}, ok=(200,)
+        )
+
+    async def local(self, sid: str, name: str) -> dict[str, Any]:
+        """LOCAL: take an instrument in remote control back (tui-screens.md 12, D32)."""
+        return await self._request("POST", f"/api/sessions/{sid}/instruments/{name}/local")
+
+    # ---- observing and steering the session (T3, tui-screens.md 8, 11.1–11.3) --------------------------
+
+    async def probe(self, sid: str, net: str) -> dict[str, Any]:
+        """The virtual probe on one net: level, waveform, sources, lines (D37)."""
+        return await self._request("GET", f"/api/sessions/{sid}/nets/{net}/probe")  # type: ignore[no-any-return]
+
+    async def net_waveform(self, sid: str, net: str, window_s: float, points: int) -> dict[str, Any]:
+        return await self._request(
+            "GET", f"/api/sessions/{sid}/nets/{net}/waveform", params={"window_s": window_s, "points": points}
+        )  # type: ignore[no-any-return]
+
+    async def inject_fault(self, sid: str, spec: dict[str, Any]) -> dict[str, Any]:
+        """Inject a fault; the source becomes 终端 through the client header (tui-screens.md 8)."""
+        return await self._request("POST", f"/api/sessions/{sid}/faults", json=spec, ok=(200,))
+
+    async def revoke_fault(self, sid: str, fault_id: str) -> dict[str, Any]:
+        return await self._request("DELETE", f"/api/sessions/{sid}/faults/{fault_id}")
+
+    async def runs(self, sid: str | None = None) -> list[dict[str, Any]]:
+        return await self._request("GET", "/api/runs")  # type: ignore[no-any-return]
+
+    async def run_detail(self, run_id: str) -> dict[str, Any]:
+        return await self._request("GET", f"/api/runs/{run_id}")  # type: ignore[no-any-return]
+
+    async def replay(self, run_id: str) -> dict[str, Any]:
+        return await self._request("POST", f"/api/runs/{run_id}/replay", ok=(200,))
+
+    async def advance(self, sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
+        """Step the virtual clock; `force` for when scripts are connected (tui-screens.md 11.2)."""
+        return await self._request(
+            "POST",
+            f"/api/sessions/{sid}/clock/advance",
+            json={"seconds": seconds, "force": force},
+            ok=(200, 409),
         )
 
 

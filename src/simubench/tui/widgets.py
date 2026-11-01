@@ -26,6 +26,8 @@ def style_of(app: Any, tokens: str) -> str:
     out = []
     for token in tokens.split():
         value = variables.get(token)
+        if value == "ansi_default":
+            value = "default"  # rich's name for the terminal's own colour (the mono theme)
         out.append(value if value else (token if token in ("bold", "reverse", "dim") else ""))
     return " ".join(s for s in out if s)
 
@@ -85,11 +87,33 @@ class BottomBar(Static):
     BottomBar { width: 1fr; height: 1; }
     """
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._last: tuple[list[tuple[str, str]], str, str] = ([], "", "zh")
+        self._flash_text: str | None = None
+
     def update_bar(self, keys: list[tuple[str, str]], remote_text: str, lang: str) -> None:
-        _ = lang
+        self._last = (keys, remote_text, lang)
+        self._repaint()
+
+    def flash(self, text: str, seconds: float = 3.0) -> None:
+        """One transient message in place of the keys (11.2's 墙钟 hint), then back (2.2)."""
+        self._flash_text = text
+        self.set_timer(seconds, self._clear_flash)
+        self._repaint()
+
+    def _clear_flash(self) -> None:
+        self._flash_text = None
+        self._repaint()
+
+    def _repaint(self) -> None:
+        keys, remote_text, _lang = self._last
         width = self.size.width or 80
-        left = "  ".join(f"{key} {action}" for key, action in keys)
-        right = remote_text
+        if self._flash_text:
+            left, right = self._flash_text, ""
+        else:
+            left = "  ".join(f"{key} {action}" for key, action in keys)
+            right = remote_text
         text = Text(style="reverse")
         left_w = cell_len(left)
         right_w = cell_len(right)
@@ -100,6 +124,34 @@ class BottomBar(Static):
         if left_w + gap + right_w < width:
             text.append(" " * (width - left_w - gap - right_w), style="reverse")
         self.update(text)
+
+
+class CaptionBar(Static):
+    """The scripted demo's subtitle, docked above the bottom bar (tui-screens.md 6).
+
+    Hidden until the first caption; the right side names the key or command the viewer is
+    watching (`key ▸ enter`, `script ▸ :SYSTem:ERRor?`).
+    """
+
+    DEFAULT_CSS = """
+    CaptionBar {
+        height: auto;
+        display: none;
+        padding: 0 1;
+        background: $background;
+    }
+    CaptionBar.-show { display: block; }
+    """
+
+    def set_caption(self, text: str, right: str = "") -> None:
+        from rich.text import Text
+
+        t = Text(text)
+        if right:
+            t.append("    " + right, style="bold")
+        self.update(t)
+        self.add_class("-show")
+        self.screen.refresh(layout=True)  # showing a docked widget makes the body give up a row
 
 
 def remote_status(session: dict[str, Any] | None, lang: str) -> str:
@@ -131,11 +183,15 @@ def log_text(
     virtual: bool = True,
     header: bool = False,
     older_available: bool = False,
+    hints: bool = False,
+    highlight_seq: int | None = None,
 ) -> Text:
     """The log's rows as rich Text (tui-screens.md 7.1): fixed columns, semantic colors.
 
     Time and source are muted; the command in the foreground; the result colored by kind
-    (``·`` muted, ``→`` foreground, ``✗`` bad). ``width`` is the box's inner width.
+    (``·`` muted, ``→`` foreground, ``✗`` bad). ``width`` is the box's inner width. ``hints``
+    renders the not-executed wording under the line, indented (the fullscreen view, 9.2).
+    ``highlight_seq`` reverses one row: the command the reason dialog jumped to (9.1).
     """
     text = Text()
     if header:
@@ -152,18 +208,29 @@ def log_text(
         text.append(i18n.t("log.olderInRuns", lang), style=style_of(app, "muted"))
         text.append("\n")
     muted = style_of(app, "muted")
+    from .log import hint_text
+
     for line in lines:
         time_cell = fmt_ns(line.t_ns) if virtual else _wall_cell(line)
-        text.append(_pad_cell(time_cell, LOG_WIDTHS[0]) + _pad_cell(line.source, LOG_WIDTHS[1]), style=muted)
-        text.append(_pad_cell(line.instrument, LOG_WIDTHS[2]))
-        text.append(_pad_cell(line.command, LOG_WIDTHS[3]))
-        result_style = ""
+        base = "reverse" if (highlight_seq is not None and line.seq == highlight_seq) else ""
+        text.append(
+            _pad_cell(time_cell, LOG_WIDTHS[0]) + _pad_cell(line.source, LOG_WIDTHS[1]),
+            style=(base + " " + muted).strip(),
+        )
+        text.append(_pad_cell(line.instrument, LOG_WIDTHS[2]), style=base)
+        text.append(_pad_cell(line.command, LOG_WIDTHS[3]), style=base)
+        result_style = base
         if line.result_kind == "error":
-            result_style = style_of(app, "bad")
+            result_style = (base + " " + style_of(app, "bad")).strip()
         elif line.result_kind == "none":
-            result_style = muted
+            result_style = (base + " " + muted).strip()
         text.append(_pad_cell(line.result_text(lang), max(0, width - sum(LOG_WIDTHS))), style=result_style)
         text.append("\n")
+        if hints:
+            hint = hint_text(line, lang)
+            if hint:
+                text.append("  " + hint, style=muted)
+                text.append("\n")
     return text
 
 
@@ -203,3 +270,37 @@ def clock_activity(app: Any, lang: str, mode: str | None, busy: bool) -> list[tu
 
 def seconds_until(ts: float) -> int:
     return max(0, round(ts - time.monotonic()))
+
+
+def box_text(app: Any, lines: list[list[tuple[str, str]]], width: int) -> Text:
+    """A box's fixed-width lines as rich Text: segments per line, padded to ``width`` cells.
+
+    The last segment of an overflowing line is truncated with … (as the overview cards do).
+    """
+    from .fmt import cell_len, fit
+
+    text = Text()
+    for n, line in enumerate(lines):
+        if n:
+            text.append("\n")
+        used = 0
+        for value, tokens in line:
+            room = width - used
+            if room <= 0:
+                break
+            if cell_len(value) > room:
+                text.append(fit(value, room), style=style_of(app, tokens))
+                used = width
+                break
+            text.append(value, style=style_of(app, tokens))
+            used += cell_len(value)
+        if width - used > 0:
+            text.append(" " * (width - used))
+    return text
+
+
+def box_title(title: str, right: str, width: int) -> str:
+    """``┌─ 错误 ───── 队列 2 ─┐``'s title row: title left, counter right."""
+    suffix = f" {right} " if right else ""
+    total = max(0, width - cell_len(title) - cell_len(suffix) - 6)
+    return f" {title} " + "─" * total + suffix

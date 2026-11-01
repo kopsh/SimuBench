@@ -70,7 +70,10 @@ class SimuBenchApp(App[None]):
     BINDINGS: ClassVar = [
         Binding("q", "quit_app", "", show=False),
         Binding("l", "open('log')", "", show=False),
-        Binding("R", "rebuild", "", show=False),
+        Binding("n", "open('nets')", "", show=False),
+        Binding("f", "fault", "", show=False),
+        Binding("a", "advance", "", show=False),
+        Binding("R", "r_key", "", show=False),
     ]
 
     def __init__(
@@ -98,6 +101,8 @@ class SimuBenchApp(App[None]):
         self.levels: dict[str, Any] | None = None
         self.readings: dict[str, dict[str, Any]] = {}
         self.screen_data: dict[str, dict[str, Any]] = {}  # per-instrument /screen payloads
+        self.faults: list[dict[str, Any]] = []  # GET /faults, refetched on fault events (section 1.6)
+        self.scpi_history: dict[str, list[str]] = {}  # per-instrument console history (10.3)
         self.catalog: dict[str, Any] = {}
         self.clock: dict[str, Any] | None = None
         self.lines: list[LogLine] = []
@@ -109,6 +114,8 @@ class SimuBenchApp(App[None]):
         self.retry_seconds = 0
         self.file_changed = False
         self.data_version = 0
+        self._advance_default = "1 s"
+        self.scope_version = 0  # the scope screen's frame alone (display data, not session data)
         self.reason: str | None = None  # why the picker came up again (session closed)
         self._stop = asyncio.Event()
         self._conn_task: asyncio.Task | None = None
@@ -117,6 +124,7 @@ class SimuBenchApp(App[None]):
         self._dirty_levels = False
         self._dirty_lines = False
         self._dirty_clock = False
+        self._dirty_faults = False
         self._maintaining = False
         self._maint_task: asyncio.Task | None = None
         self._session_task: asyncio.Task | None = None
@@ -128,6 +136,9 @@ class SimuBenchApp(App[None]):
     # ---- startup ------------------------------------------------------------------------------------
 
     async def on_mount(self) -> None:
+        from .screens.dialogs import load_history
+
+        self.scpi_history = load_history()
         self.set_interval(0.1, self._tick)
         self.set_interval(1.0, self._tick_wall)
         self.set_interval(2.0, self._tick_bench)
@@ -138,6 +149,21 @@ class SimuBenchApp(App[None]):
             self._conn_task = asyncio.create_task(self._connection_loop())
         else:
             await self._attach_flow()
+
+    async def on_unmount(self) -> None:
+        """The app is gone: stop the connection loop and close the client, so the websocket
+        closes cleanly instead of leaking until the process ends. Requests in flight land
+        first, or closing the client under them would crash the loop's task."""
+        self._stop.set()
+        tasks = [
+            t
+            for t in (self._conn_task, self._maint_task, self._session_task, self._picker_task)
+            if t is not None and not t.done()
+        ]
+        if tasks:
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(asyncio.gather(*tasks, return_exceptions=True), timeout=2)
+        await self.client.close()
 
     async def _attach_flow(self) -> None:
         """``--attach``: one session connects directly, several show the picker, none a message."""
@@ -176,6 +202,13 @@ class SimuBenchApp(App[None]):
             self.push_screen(PickerScreen(self.url, reason=self.reason))
         self.reason = None
 
+    def set_caption(self, text: str, right: str = "") -> None:
+        """The scripted demo's bottom subtitle (6): left the caption, right `key ▸ enter`."""
+        from .widgets import CaptionBar
+
+        bar = self.screen.query_one(CaptionBar)
+        bar.set_caption(text, right)
+
     def push_overview(self) -> None:
         from .screens.overview import OverviewScreen
 
@@ -194,15 +227,18 @@ class SimuBenchApp(App[None]):
         if self._conn_task is None or self._conn_task.done():
             self._conn_task = asyncio.create_task(self._connection_loop())
 
-    def show(self, key: str) -> None:
-        """Push a registered screen; no-op when it is already on top (the registry, section 2.3)."""
+    def show(self, key: str, *args: Any) -> None:
+        """Push a registered screen; no-op when it is already on top (the registry, section 2.3).
+
+        Factories may take arguments (the instrument screen opens with the instrument's name).
+        """
         factory = SCREENS.get(key)
         if factory is None:
             return
         current = self.screen
-        if type(current) is factory:
+        if isinstance(factory, type) and type(current) is factory and not args:
             return
-        self.push_screen(factory())
+        self.push_screen(factory(*args))
 
     # ---- connection loop ----------------------------------------------------------------------------
 
@@ -279,6 +315,8 @@ class SimuBenchApp(App[None]):
             self._dirty_clock = True
         if kind == "state":
             self._dirty_levels = True
+        if kind == "fault":
+            self._dirty_faults = True
         if kind in ("session", "remote"):
             self._session_task = asyncio.create_task(self._refresh_session())
         self._dirty_lines = True
@@ -301,7 +339,9 @@ class SimuBenchApp(App[None]):
         with contextlib.suppress(ApiError):
             self.levels = await self.client.levels(self.sid)
             self.clock = await self.client.clock(self.sid)
+            self.faults = await self.client.faults(self.sid)
         self._dirty_levels = False
+        self._dirty_faults = False
         self._dirty_lines = True
         self.bump()
 
@@ -362,6 +402,10 @@ class SimuBenchApp(App[None]):
             self._dirty_clock = False
             with contextlib.suppress(ApiError):
                 self.clock = await self.client.clock(self.sid)
+        if self._dirty_faults:
+            self._dirty_faults = False
+            with contextlib.suppress(ApiError):
+                self.faults = await self.client.faults(self.sid)
         if self._dirty_lines:
             self._dirty_lines = False
             self.lines = build_lines(self.store.events, self.lang, self.labels)
@@ -377,19 +421,29 @@ class SimuBenchApp(App[None]):
                 continue
             self._merge_instrument(info)
             template = (info.get("display") or {}).get("template")
-            if template in ("smu", "multimeter", "calibrator"):
+            if template in ("smu", "multimeter", "calibrator") or (info.get("display") or {}).get("panel"):
                 with contextlib.suppress(ApiError):
                     self.readings[name] = await self.client.readings(self.sid, name)
             if template == "oscilloscope":
                 with contextlib.suppress(ApiError):
                     self.screen_data[name] = await self._screen(name)
 
-    async def _screen(self, name: str) -> dict[str, Any]:
+    async def _screen(self, name: str, points: int | None = None) -> dict[str, Any]:
         assert self.sid is not None
-        r = await self.client.http.get(f"/api/sessions/{self.sid}/instruments/{name}/screen")
-        if r.status_code != 200:
-            raise ApiError(r.status_code, r.text)
-        return r.json()  # type: ignore[no-any-return]
+        return await self.client.screen(self.sid, name, points)
+
+    async def refresh_scope_frame(self, name: str, points: int) -> None:
+        """The scope screen's frame at its own dot width (tui-screens.md 1.6, 6.1).
+
+        The frame is display data of one screen, not session data: it moves ``scope_version``
+        — watched by the scope screen alone — and leaves ``data_version``, and with it "the
+        app has settled", untouched.
+        """
+        try:
+            self.screen_data[name] = await self._screen(name, points)
+        except ApiError:
+            return
+        self.scope_version += 1
 
     def _merge_instrument(self, info: dict[str, Any]) -> None:
         if self.session_info is None:
@@ -468,6 +522,74 @@ class SimuBenchApp(App[None]):
         else:
             self.exit()
 
+    def action_fault(self) -> None:
+        """``f``: inject a fault on the session (tui-screens.md 8); works while remote (D32)."""
+        from .screens.faultdialog import FaultDialog
+
+        if self.conn != "connected":
+            return
+        self.push_screen(FaultDialog())
+
+    def action_advance(self) -> None:
+        """``a``: step the virtual clock (tui-screens.md 11.2)."""
+        from .screens.clockdialog import AdvanceDialog
+
+        if self.conn != "connected" or self.sid is None:
+            return
+        mode = self.clock_mode()
+        if mode == "wall":
+            self.call_after_refresh(self._advance_wall_hint)
+            return
+        default = self._advance_default
+        self.push_screen(AdvanceDialog(default), self._advance_done)
+
+    async def _advance_wall_hint(self) -> None:
+        from textual.widgets import Static
+
+        from .widgets import BottomBar
+
+        bars = [w for w in self.screen.query(BottomBar)]
+        target = bars[0] if bars else self.screen.query_one(Static)
+        target.flash(i18n.t("clock.wallHint", self.lang))
+
+    def _advance_done(self, seconds: float | None) -> None:
+        if seconds is None:
+            return
+
+        def on_done(ok: bool) -> None:
+            if ok:
+                self.run_worker(self._do_advance(seconds), exclusive=True)
+
+        from .screens.states import ConfirmScreen
+
+        if (self.session_info or {}).get("clients"):
+            lang = self.lang
+            self.push_screen(
+                ConfirmScreen(
+                    i18n.t("clock.advanceTitle", lang),
+                    [i18n.t("clock.advanceForce", lang, seconds=seconds)],
+                    i18n.t("common.confirm", lang),
+                    i18n.t("common.cancel", lang),
+                ),
+                on_done,
+            )
+        else:
+            on_done(True)
+
+    async def _do_advance(self, seconds: float) -> None:
+        from .screens.clockdialog import format_duration
+
+        self._advance_default = format_duration(seconds)
+        await self.client.advance(self.sid, seconds, force=bool((self.session_info or {}).get("clients")))
+
+    def action_r_key(self) -> None:
+        """`R`: the runs screen; when the bench file changed, rebuild instead (7, D25, 11.3)."""
+        if self.file_changed:
+            self.action_rebuild()
+            return
+        if self.conn == "connected":
+            self.show("runs")
+
     def action_rebuild(self) -> None:
         """``R`` when the bench file changed: confirm, then reset with force (D25)."""
         from .screens.states import confirm_rebuild
@@ -488,6 +610,8 @@ class SimuBenchApp(App[None]):
         self.file_changed = False
         self._bench_sha = _hash_file(self.bench_path)
         self._dirty_instr = set()
+        self._dirty_faults = False
+        self.faults = []
         await self._full_refresh()
         self.bump()
 
@@ -497,9 +621,17 @@ class SimuBenchApp(App[None]):
 
 
 def _default_screens() -> None:
+    from .screens.instrument import InstrumentScreen
     from .screens.logscreen import LogScreen
+    from .screens.nets import NetsScreen
+    from .screens.runs import RunsScreen
+    from .screens.scope import ScopeScreen
 
     register_screen("log", LogScreen)
+    register_screen("instrument", InstrumentScreen)
+    register_screen("scope", ScopeScreen)
+    register_screen("nets", NetsScreen)
+    register_screen("runs", RunsScreen)
 
 
 _default_screens()

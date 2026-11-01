@@ -522,10 +522,11 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         operation_id="getScopeScreen",
         dependencies=[Depends(auth)],
     )
-    async def screen(sid: str, name: str) -> M.ScopeScreen:
+    async def screen(sid: str, name: str, points: int | None = Query(None, ge=2, le=4096)) -> M.ScopeScreen:
+        """``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample."""
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.scope_screen, s, name)
+            return await asyncio.to_thread(manager.scope_screen, s, name, points)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -729,13 +730,29 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         for ev in backlog:
             counter["seq"] += 1
             await ws.send_json(to_event(ev, counter["seq"]))
+
+        async def wait_disconnect() -> None:
+            """Return only when the client goes away; non-disconnect frames are ignored."""
+            while True:
+                message = await ws.receive()
+                if message["type"] == "websocket.disconnect":
+                    raise WebSocketDisconnect(message.get("code"))
+
+        listener = asyncio.create_task(wait_disconnect())
         try:
             while True:
-                msg = await queue.get()
-                await ws.send_json(msg)
+                get = asyncio.create_task(queue.get())
+                done, _ = await asyncio.wait({get, listener}, return_when=asyncio.FIRST_COMPLETED)
+                if listener in done:
+                    get.cancel()
+                    listener.result()  # re-raise the disconnect; a non-disconnect frame continues below
+                    listener = asyncio.create_task(wait_disconnect())
+                    continue
+                await ws.send_json(get.result())
         except (WebSocketDisconnect, RuntimeError):
             pass
         finally:
+            listener.cancel()
             unsubscribe()
 
     dist = web_dist or WEB_DIST

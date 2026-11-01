@@ -1,4 +1,4 @@
-"""Built-in real models cover the real block diagram of their class (D49, #201).
+"""Built-in real models cover the real block diagram of their class (D50, #201).
 
 ``docs/blocks/<class>.yaml`` lists, per instrument class, the real functional blocks and the
 component types that may cover each. A definition covers a block when one of its components or
@@ -71,7 +71,7 @@ def problems(definitions: list[InstrumentDefinition]) -> list[str]:
                 out.append(
                     f"{d.id}: block {block!r} of class {d.instrument_class!r} is not covered "
                     f"(accepted: {sorted(accepted)}); name it in EXEMPT (tests/test_block_coverage.py) "
-                    "or cover it with a real component (D49)"
+                    "or cover it with a real component (D50)"
                 )
     out += [
         f"{d}: block {b!r} no longer needs its exemption; remove it from EXEMPT "
