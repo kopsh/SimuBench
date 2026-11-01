@@ -498,3 +498,16 @@
 | 新组件有单元测试与场景测试 | ✅ `tests/test_daq.py` 11 项：号域（101 与内部序号 1、121 越界）、闭合/限制、加载效应、扫描顺序与次数、空扫描表、间隔、扫描后开路、定义校验；`acceptance/test_daq_scenario.py` 2 项（`acceptance/benches/daq_scan.bench.yaml`：1 V / 2 V / 4 V 经 1 MΩ 的 10/11 分压与升序扫描、闭合限制） |
 | 顺带修掉的问题 | ✅ `_parse_params` 的 `channel_list` 参数没有按号域映射（操作命令的逐通道上下文会用外部号码）：改为与 `channel_list` 命令同一套 `channel_index`/`channel_number`，DAQ 的 `ROUT:CLOS (@101)` 因此落到 `ch1.closed`；扫描的每点读数经新增的 `dmm_adc.measure()`，与测量命令一样先做自动量程判定（否则第二路 2 V 在 1 V 档读成超量程） |
 | `scripts/check.sh` 通过 | ✅ 提交前全绿 |
+
+## C1：电子负载的输入、功率级、模式环、测量与保护（Issue 186，#181 的 C1）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 第一步：重构前录金标准（消息、回复、虚拟时间），单独提交 | ✅ 首个提交 `tests/test_eload_migration.py`：CC/CR 26 条与拐点 5 条逐条记录回复与虚拟时间；拆分后一条不改仍通过 |
+| 先移模块，再按框图拆 | ✅ `ElectronicLoad` 移出 `smu.py`，新的 `library/components/eload.py` 拆成 `eload_input`（端子、开关、输入电容，盖章电路）、`eload_power_stage`（r_min 拐点、i_max、p_max 包络）、`eload_mode_loop`（CC/CV/CR/CP、Von、CC 斜率）、`eload_meter`（`load.*` 读数）、`eload_protection`（OVP/OCP/OPP 锁定） |
+| CP 语义有决策记录（如适用） | ✅ **D52**：I=P/V 用 D34 的模式迭代（定点）求解；CV 用 `loop_source`；多解以迭代到达者为准，不收敛按引擎上限停止并记警告，不扩展电路求解器 |
+| CV/CP、斜率、Von、保护各有用例 | ✅ `tests/test_eload.py` 12 项：CC 与拐点、CR、CV（10 V/10 Ω → 5 V/0.5 A；3 V 源开路）、CP（10 V/1 Ω/20 W → 7.236 V / 2.764 A）、Von、0.5 A/µs 斜率（0/2/4 µs → 0/1/2 A）、OVP/OCP/OPP 触发与清除、面板读数键 |
+| 电子负载类别的块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_eload_is_built_from_its_real_blocks`：输入、功率级、模式环、测量、保护五块全覆盖 |
+| 界面不坏：LoadScreen 与 TUI | ✅ 测量组件仍名 `load`，`load.voltage/current/power/regulating` 键不变；本地 e2e 42/42、TUI 启动级 87 项与 24 个快照通过 |
+| 缺口（记入清单） | ✅ Von 在阈值附近没有滞回、DC 模型可能模式抖动；动态/列表（C2）另排；OTP 与 DL3000 的 OCP/OPP/OVP 命令映射留给 #194（手册的 OCP/OPP 是测试模式命令组） |
+| `scripts/check.sh` 通过 | ✅ 1159 项 pytest 全绿 |

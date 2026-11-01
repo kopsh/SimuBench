@@ -4,19 +4,21 @@ manufacturer: SimuBench
 model: SB-EL-1
 class: electronic_load
 version: 1
-description: 直流电子负载，恒流（CC）或恒阻（CR）；最小工作电阻 0.0367 Ω，恒流模式在拐点（设定电流 × 最小电阻）以下由该电阻限制。
+description: >-
+  直流电子负载，恒流（CC）、恒压（CV）、恒阻（CR）或恒功率（CP）；最小工作电阻 0.0367 Ω，
+  恒流模式在拐点（设定电流 × 最小电阻）以下由该电阻限制；起始电压 Von、电流斜率与 OVP/OCP/OPP 保护。
 identity:
   serial: SBEL0000001
   firmware: "1.0.0"
 state:
   function.mode:
     type: enum
-    options: [CC, CR]
+    options: [CC, CV, CR, CP]
     default: CC
     electrical: true
     label: 模式
     label_en: Mode
-    option_labels: {CC: 恒流, CR: 恒阻}
+    option_labels: {CC: 恒流, CV: 恒压, CR: 恒阻, CP: 恒功率}
   source.current.level:
     type: float
     unit: A
@@ -25,6 +27,14 @@ state:
     default: 0.0
     label: 电流设定
     label_en: Current
+  source.voltage.level:
+    type: float
+    unit: V
+    min: 0.0
+    max: 150.0
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage
   source.resistance.level:
     type: float
     unit: OHM
@@ -34,6 +44,54 @@ state:
     electrical: true
     label: 电阻设定
     label_en: Resistance
+  source.power.level:
+    type: float
+    unit: W
+    min: 0.0
+    max: 300.0
+    default: 0.0
+    label: 功率设定
+    label_en: Power
+  source.von:
+    type: float
+    unit: V
+    min: 0.0
+    max: 150.0
+    default: 0.0
+    label: 起始电压
+    label_en: Starting voltage
+  source.slew:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 0.0
+    label: 电流斜率
+    label_en: Current slew
+    display_unit: A/µs
+  protection.ovp:
+    type: float
+    unit: V
+    min: 0.0
+    max: 150.0
+    default: 0.0
+    label: 过压保护
+    label_en: OVP
+  protection.ocp:
+    type: float
+    unit: A
+    min: 0.0
+    max: 30.0
+    default: 0.0
+    label: 过流保护
+    label_en: OCP
+  protection.opp:
+    type: float
+    unit: W
+    min: 0.0
+    max: 300.0
+    default: 0.0
+    label: 过功率保护
+    label_en: OPP
   input.enabled:
     type: bool
     default: false
@@ -41,30 +99,69 @@ state:
     label: 输入
     label_en: Input
 components:
-  - name: load
-    type: electronic_load
+  - name: stage
+    type: eload_power_stage
+    params: {r_min: 0.0367, i_max: 30.0, p_max: 300.0}
+  - name: loop
+    type: eload_mode_loop
     params:
+      stage: stage
       function: $function.mode
       current: $source.current.level
+      voltage: $source.voltage.level
       resistance: $source.resistance.level
-      enabled: $input.enabled
+      power: $source.power.level
+      von: $source.von
+      slew: $source.slew
+  - name: inp
+    type: eload_input
+    params: {enabled: $input.enabled, loop: loop, protection: prot}
+  - name: load
+    type: eload_meter
+    params: {input: inp}
+  - name: prot
+    type: eload_protection
+    params: {ovp: $protection.ovp, ocp: $protection.ocp, opp: $protection.opp}
 ports:
   instrument:
-    IN: load.in
+    IN: inp.in
 display:
   template: electronic_load
-  summary: [function.mode, source.current.level, source.resistance.level, input.enabled]
+  summary: [function.mode, source.current.level, source.voltage.level, source.resistance.level, input.enabled]
 capabilities: [electronic_load]
 commands:
   - header: "[:SOURce]:FUNCtion[:MODE]"
     state: function.mode
   - header: "[:SOURce]:CURRent[:LEVel][:IMMediate]"
     state: source.current.level
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate]"
+    state: source.voltage.level
   - header: "[:SOURce]:RESistance[:LEVel][:IMMediate]"
     state: source.resistance.level
+  - header: "[:SOURce]:POWer[:LEVel][:IMMediate]"
+    state: source.power.level
+  - header: "[:SOURce]:CURRent:VON"
+    state: source.von
+  - header: "[:SOURce]:CURRent:SLEW[:BOTH]"
+    state: source.slew
+  - header: "[:SOURce]:OVP[:LEVel]"
+    state: protection.ovp
+  - header: "[:SOURce]:OCP[:LEVel]"
+    state: protection.ocp
+  - header: "[:SOURce]:OPP[:LEVel]"
+    state: protection.opp
   - header: ":INPut[:STATe]"
     state: input.enabled
     dangerous: true
+  - header: ":SYSTem:PROTection:TRIPped"
+    op: prot.tripped
+    set: false
+  - header: ":SYSTem:PROTection:KIND"
+    op: prot.kind
+    set: false
+  - header: ":SYSTem:PROTection:CLEar"
+    op: prot.clear
+    query: false
   - header: ":MEASure[:SCALar]:VOLTage[:DC]"
     op: load.measure
     set: false

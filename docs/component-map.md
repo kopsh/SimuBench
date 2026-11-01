@@ -113,13 +113,13 @@ B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_out
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| input | `eload_input`(尚不存在) | 电路(输入端子与输入开关) | C1(#186)拆出 |
-| power_stage | `eload_power_stage`(尚不存在) | 电路 | C1 拆出 |
-| mode_loop | `eload_mode_loop`(尚不存在) | 电路(CC/CV/CR;CP 非线性另定) | C1 拆出 |
-| meter | `eload_meter`(尚不存在) | 电路(分流/分压)+ 数据 | C1 拆出 |
-| protection | `eload_protection`(尚不存在) | 设置/数据(OVP/OCP/OPP/OTP) | C1 拆出 |
+| input | `eload_input` | 电路(输入端子、开关、输入电容;盖章) | — |
+| power_stage | `eload_power_stage` | 电路(r_min 拐点、i_max、p_max 包络) | — |
+| mode_loop | `eload_mode_loop` | 电路决策(CC/CV/CR/CP;Von 与 CC 斜率) | CP 为迭代解(D52) |
+| meter | `eload_meter` | 数据(V/I/P 读数;`load.*` 供前面板) | — |
+| protection | `eload_protection` | 设置/数据(OVP/OCP/OPP 阈值与锁定) | OTP 与型号命令映射在 #194 |
 
-现有 `sb-el-1` 用整块 `electronic_load`(在 `smu.py`);C1 先移模块再拆分。**动态/列表(C2)** 记入缺口清单另排;DL3000 手册只有 `VON`(单一启动电压),`Voff` 的回差行为在 #194 中按手册核对。
+C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面板的 `load.voltage/current/power/regulating` 键不变)。行为:CC 带 r_min 拐点;CV 用 `loop_source` 把输入调在设定电压,源电压低于设定值时开路(负载不能灌电流);CR 为设定电阻;CP 按 D52 用 D34 定点迭代;Von 是 CC/CP 的起始电压;CC 斜率按虚拟时间渐变;slew 0 时瞬时;OVP/OCP/OPP 锁定后输入停止导通,保护清除后可恢复。**动态/列表(C2)** 与 Von 阈值附近的模式抖动(DC 模型无滞回)记入缺口清单另排;DL3000 手册只有 `VON`(单一启动电压),`Voff` 的回差行为在 #194 中按手册核对。
 
 ## spectrum_analyzer
 
@@ -211,4 +211,4 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 - 射频源的脉冲调制与任意波调制(#197 的未实现范围)。
 - DAQ 的可配置插卡、数字 I/O 与总加器(34907A,第二波)。
 - 频率计数器的 53230A 独有功能(无间隙测量、时间戳)。
-- 现有整块组件的债务:`electronic_load`、`spectrum_analyzer`、`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。
+- 现有整块组件的债务:`spectrum_analyzer`、`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。
