@@ -26,8 +26,15 @@ state:
     label_en: Range
 components:
   - name: input
-    type: input_port
-    params: {z_in: 10.0e6}
+    type: dmm_input_terminal
+    params: {z_in: 10.0e6, conditioning: path}
+  - name: path
+    type: dmm_conditioning
+    params:
+      function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
+      ranges: {DC: [1, 10], AC: [1, 10]}
+      range: $sense.range
+      autorange: false
   - name: cal
     type: calibration_store
     params:
@@ -38,17 +45,14 @@ components:
       fail_reply: "+1"
       volatile_until_store: true
   - name: meter
-    type: dmm_core
+    type: dmm_adc
     params:
+      conditioning: path
       store: cal
-      function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
-      ranges: {DC: [1, 10], AC: [1, 10]}
-      range: $sense.range
-      autorange: false
       digits: 9
 wiring:
   instrument:
-    - [input.out, meter.in]
+    - [input.out, path.in]
 ports:
   instrument:
     IN: input.pin

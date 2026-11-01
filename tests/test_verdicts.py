@@ -53,7 +53,7 @@ def bench() -> BenchDefinition:
             "name": "verdicts",
             "instruments": {
                 "src": {"model": "sb-smu-1", "state": {"output.enabled": True}},
-                "dmm": {"model": "sb-dmm-1", "hidden": {"meter": {"gain_error_ppm": 400.0, "offset": 0.0}}},
+                "dmm": {"model": "sb-dmm-1", "hidden": {"path": {"gain_error_ppm": 400.0, "offset": 0.0}}},
             },
             "parts": {"lead": {"type": "resistor", "params": {"r": 1000.0}}},
             "wires": [

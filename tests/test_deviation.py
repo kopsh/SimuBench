@@ -55,8 +55,8 @@ def test_same_seed_same_unit_other_seed_other_unit():
     assert set(first) == {
         "awg/ch1.out.z_out",
         "awg/ch2.out.z_out",
-        "dmm/meter.gain_error_ppm",
-        "dmm/meter.offset",
+        "dmm/path.gain_error_ppm",
+        "dmm/path.offset",
         "r1.r",
     }
     assert all(first[k] != other[k] for k in first)
@@ -66,8 +66,8 @@ def test_same_seed_same_unit_other_seed_other_unit():
 def test_every_value_is_inside_its_range():
     for seed in range(200):
         d = deviations(bench(seed))
-        assert abs(d["dmm/meter.gain_error_ppm"]) <= 20.0
-        assert abs(d["dmm/meter.offset"]) <= 5e-6  # normal, truncated at the limit
+        assert abs(d["dmm/path.gain_error_ppm"]) <= 20.0
+        assert abs(d["dmm/path.offset"]) <= 5e-6  # normal, truncated at the limit
         assert all(49.0 <= d[f"awg/ch{n}.out.z_out"] <= 51.0 for n in (1, 2))  # 50 Ω ± 2 %
         assert 990.0 <= d["r1.r"] <= 1010.0
 
@@ -95,11 +95,11 @@ def test_a_unit_does_not_depend_on_the_rest_of_the_bench():
 
 def test_hidden_values_win_and_nominal_draws_nothing():
     b = bench(1)
-    b.instruments["dmm"].hidden = {"meter": {"gain_error_ppm": 150.0}}
+    b.instruments["dmm"].hidden = {"path": {"gain_error_ppm": 150.0}}
     b.parts["r1"].hidden = {"r": 1002.0}
     d = deviations(b)
-    assert "dmm/meter.gain_error_ppm" not in d and "r1.r" not in d
-    assert "dmm/meter.offset" in d
+    assert "dmm/path.gain_error_ppm" not in d and "r1.r" not in d
+    assert "dmm/path.offset" in d
     nominal = bench(1, deviation="nominal")
     nominal.parts["r1"].deviation = {}
     assert deviations(nominal) == {}
@@ -126,7 +126,7 @@ def test_the_drawn_error_is_what_the_meter_reads():
     finally:
         s.close()
     true_v = 10.0 * 10e6 / (10e6 + 0.0)  # the SMU holds 10 V at its terminal
-    expect = true_v * (1 + d["dmm/meter.gain_error_ppm"] * 1e-6) + d["dmm/meter.offset"]
+    expect = true_v * (1 + d["dmm/path.gain_error_ppm"] * 1e-6) + d["dmm/path.offset"]
     assert reading == pytest.approx(expect, abs=2e-6)
 
 
@@ -158,9 +158,9 @@ def test_the_record_carries_the_draws_and_a_replay_checks_them(tmp_path):
     # A record whose draws differ (other ranges when it was made) is replayed with a warning.
     lines = record.read_text("utf-8").splitlines()
     head = json.loads(lines[0])
-    head["deviations"]["dmm/meter.offset"] = 1.0
+    head["deviations"]["dmm/path.offset"] = 1.0
     record.write_text("\n".join([json.dumps(head), *lines[1:]]) + "\n", "utf-8")
-    assert any(w.startswith("deviation dmm/meter.offset") for w in replay(record).warnings)
+    assert any(w.startswith("deviation dmm/path.offset") for w in replay(record).warnings)
 
 
 def test_validation_names_wrong_deviations():
@@ -168,8 +168,8 @@ def test_validation_names_wrong_deviations():
     dmm = lib.get("sb-dmm-1").model_dump(by_alias=True)
     dmm["deviations"] = [
         {"param": "metre.offset", "limit": 1e-6},
-        {"param": "meter.ofset", "limit": 1e-6},
-        {"param": "meter.offset", "limit": 1, "unit": "%"},
+        {"param": "path.ofset", "limit": 1e-6},
+        {"param": "path.offset", "limit": 1, "unit": "%"},
     ]
     report = validate_definition(InstrumentDefinition.model_validate(dmm))
     codes = [(d.code, d.pointer) for d in report.diagnostics]
@@ -222,7 +222,7 @@ def test_the_session_view_hides_drawn_values_unless_revealed(tmp_path):
         awg = next(i for i in view.instruments if i.name == "awg")
         r1 = next(d for d in view.parts if d.name == "r1")
         assert dmm.deviation == "from_specs"
-        assert [x.param for x in dmm.deviations] == ["meter.gain_error_ppm", "meter.offset"]
+        assert [x.param for x in dmm.deviations] == ["path.gain_error_ppm", "path.offset"]
         assert [x.param for x in awg.deviations] == ["ch1.out.z_out", "ch2.out.z_out"]
         assert all(x.drawn for x in dmm.deviations + awg.deviations + r1.deviations)
         if reveal:
@@ -257,7 +257,7 @@ def test_per_range_deviations_reach_the_reading_of_each_range():
     )
     s = open_bench(b, definition_dirs=[defs])
     try:
-        table = s.deviations()["dmm/meter.gain_error_ppm"]["DC"]
+        table = s.deviations()["dmm/path.gain_error_ppm"]["DC"]
         assert abs(table[1.0]) <= 30 and abs(table[10.0]) <= 20 and abs(table[100.0]) <= 40
         assert len({table[1.0], table[10.0], table[100.0]}) == 3
         for r in (1.0, 10.0, 100.0):

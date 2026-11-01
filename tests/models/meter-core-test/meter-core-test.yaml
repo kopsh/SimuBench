@@ -1,4 +1,4 @@
-# A multimeter on the ranged dmm_core (issue 87, metrology-authoring.md 2): ranges, autorange,
+# A multimeter on the ranged measurement chain (issue 87, metrology-authoring.md 2): ranges, autorange,
 # overload, resolution and a switchable high-impedance input. Test-only, not in the product
 # library (D42).
 schema: simubench.instrument/1
@@ -41,8 +41,16 @@ state:
     label: 高阻抗输入
     label_en: High-Z input
 components:
-  - name: meter
-    type: dmm_core
+  - name: input
+    type: dmm_input_terminal
+    params:
+      z_in: 1.0e7
+      z_in_high: 1.0e10
+      high_z: $input.high_z
+      high_z_ranges: [0.1, 1, 10]
+      conditioning: path
+  - name: path
+    type: dmm_conditioning
     params:
       function: {from: $sense.function, map: {DCV: DC, ACV: AC}}
       ranges: {DC: [0.1, 1, 10, 100, 1000], AC: [0.1, 1, 10, 100, 750]}
@@ -50,17 +58,20 @@ components:
       autorange: $sense.range_auto
       autorange_up: 1.2
       autorange_down: 0.1
+  - name: meter
+    type: dmm_adc
+    params:
+      conditioning: path
       overrange: 1.2
       overload_value: 9.9e37
       resolution: {from: $sense.nplc, table: {0.02: 3.0e-4, 0.2: 3.0e-5, 1: 3.0e-6, 10: 3.0e-7}}
       digits: 9
-      z_in: 1.0e7
-      z_in_high: 1.0e10
-      high_z: $input.high_z
-      high_z_ranges: [0.1, 1, 10]
+wiring:
+  instrument:
+    - [input.out, path.in]
 ports:
   instrument:
-    IN: meter.in
+    IN: input.pin
 commands:
   - header: ":MEASure:VOLTage[:DC]"
     op: meter.measure

@@ -1,7 +1,7 @@
 """Range selection and reading-time rules shared by the meter core and the source-measure unit
 (metrology-authoring.md 2, 3.4).
 
-The rules are the ones SCPI prescribes and #87 introduced on ``dmm_core``: a manual range setting
+The rules are the ones SCPI prescribes and #87 introduced on ``dmm_conditioning``: a manual range setting
 takes the smallest range that can measure it; the auto range follows the true value, switching
 when it leaves the hysteresis band ``[autorange_down, autorange_up] × full scale``. Choosing a
 range takes no virtual time.

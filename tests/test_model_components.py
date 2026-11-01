@@ -69,5 +69,5 @@ def test_the_catalog_says_which_components_are_generic():
     from simubench.server.catalog import components
 
     by_type = {c.type: c.generic for c in components()}
-    assert by_type["siglent_sdg"] is False and by_type["dmm_core"] is True
+    assert by_type["siglent_sdg"] is False and by_type["dmm_conditioning"] is True
     assert {t for t, g in by_type.items() if not g} == {c for _, c in ALLOWED}
