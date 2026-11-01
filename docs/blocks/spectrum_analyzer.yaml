@@ -1,5 +1,5 @@
 # 频谱分析仪的真实功能块(D50,依据见 docs/component-map.md 的 spectrum_analyzer 节)。
-# 组件类型是 D1(#187)拆分的设计默认。
+# 组件由 D1(#187)落地。
 schema: simubench.blocks/1
 class: spectrum_analyzer
 blocks:

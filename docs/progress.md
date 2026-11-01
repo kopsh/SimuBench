@@ -526,3 +526,17 @@
 | 电源类别的块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_power_supply_is_built_from_its_real_blocks`：设定、控制环、功率级、输出、回读、保护、组合七块全覆盖 |
 | 缺口（记入清单） | ✅ 动态/列表、触发、数据记录与校准不在首波；组合时禁用 CH3 单独编程（手册 720）与设备错误码留给 #198；输出 3 在组合中的端子约定按测试台连线 |
 | `scripts/check.sh` 通过 | ✅ 提交前全绿 |
+
+## D1：频谱仪的衰减、混频/参考、中频、检波、视频与迹线拆分（Issue 187，#181 的 D1）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 第一步：重构前录金标准（消息、回复、虚拟时间、迹线数据），单独提交 | ✅ 首个提交 `5fbe2cc`：`tests/test_specan_migration.py` + `tests/data/specan_gold.json`（76 步、6 条 1001 点迹线：写/平均/最大保持/冻结/清除）；开头 `:TRAC:CLE` 锚定重启，避免定义装载的墙钟时间影响扫描序号；拆分前在 monolith 工作树复核通过 |
+| 按 component-map 框图拆分；每块定求解层级 | ✅ `specan_input`（衰减、过载）、`specan_mixer`（本振/参考误差、频率轴）、`specan_if`（RBW、高斯响应、噪声底）、`specan_detector`（四种检波与对数）、`specan_vbw`、`specan_trace`（扫描时间、RF 历史、迹线模式、标记、显示操作）；50 Ω 输入仍是 `input_port`，参考是 `reference_clock` |
+| 求解层级写明：大多数据层，只有输入端口在电路层 | ✅ component-map 频谱仪节写明；组件之间没有内部信号连线（频谱是确定性数据计算） |
+| 设置耦合的归属写明 | ✅ 自动衰减 → `specan_input`；自动 RBW → `specan_if`；自动 VBW → `specan_vbw`；自动扫描时间 → `specan_trace`（用 RBW 与 VBW）；参考误差/锁定 → `specan_mixer`/`reference_clock`；过载判断 → `specan_input` |
+| `sb-sa-1` 定义与相关验收场景迁移 | ✅ 改为九个组件（rf_in/ref_in/clock/input/mixer/if_filter/detector/vbw/trace）；金标准 2 项、`validation-specan.md` 的验收场景 17 项、`tests/test_model_components.py` 均不改通过 |
+| 频谱仪类别的块覆盖检查通过 | ✅ `test_block_coverage.py::test_the_validation_spectrum_analyzer_is_built_from_its_real_blocks`：输入、混频、中频、检波、视频、迹线、参考七块全覆盖 |
+| 界面不坏：SpectrumScreen 与 TUI | ✅ 读数与迹线键不变；本地 e2e 42/42、TUI 启动级 87 项与 24 快照通过 |
+| 缺口（记入清单） | ✅ N9320B 的型号命令组、触发/门控与列表扫描不在首波（型号 #196）；迹线噪声按基准走，未加参考相位噪声 |
+| `scripts/check.sh` 通过 | ✅ 1179 项 pytest 全绿 |

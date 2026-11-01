@@ -129,15 +129,15 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
 | input_port | `input_port` | 电路(50 Ω 到地) | — |
-| input_attenuator | `specan_input`(尚不存在) | 设置/数据(衰减、输入阻抗) | D1(#187)拆出 |
-| mixer | `specan_mixer`(尚不存在) | 数据(频率搬移与本振) | D1 拆出 |
-| if_filter | `specan_if`(尚不存在) | 数据(RBW 与噪声带宽) | D1 拆出 |
-| log_detector | `specan_detector`(尚不存在) | 数据(对数检波) | D1 拆出 |
-| vbw_filter | `specan_vbw`(尚不存在) | 数据(VBW) | D1 拆出 |
-| trace | `specan_trace`(尚不存在) | 数据(检波器、平均/最大保持、标记) | D1 拆出 |
+| input_attenuator | `specan_input` | 数据(衰减、输入阻抗、过载判断) | — |
+| mixer | `specan_mixer` | 数据(本振/参考误差、显示频率轴) | — |
+| if_filter | `specan_if` | 数据(RBW、高斯响应、噪声底) | — |
+| log_detector | `specan_detector` | 数据(检波与对数) | — |
+| vbw_filter | `specan_vbw` | 数据(VBW) | — |
+| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | — |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | — |
 
-现有 `sb-sa-1` 用整块 `spectrum_analyzer`;D1 拆分后 validation 定义改用它,金标准与频谱仪验收场景不改通过。
+D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层,其余都是数据层(频谱是确定性的数据计算,不经过信号连线)。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(`span/100` 取 1-3-10 梯级);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_mixer` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
 
 ## rf_generator
 
@@ -211,4 +211,4 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 - 射频源的脉冲调制与任意波调制(#197 的未实现范围)。
 - DAQ 的可配置插卡、数字 I/O 与总加器(34907A,第二波)。
 - 频率计数器的 53230A 独有功能(无间隙测量、时间戳)。
-- 现有整块组件的债务:`spectrum_analyzer`、`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。
+- 现有整块组件的债务:`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。

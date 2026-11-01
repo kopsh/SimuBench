@@ -148,6 +148,17 @@ def test_the_validation_daq_is_built_from_its_real_blocks():
     assert [block for block, accepted in blocks.items() if not accepted & types] == []
 
 
+def test_the_validation_spectrum_analyzer_is_built_from_its_real_blocks():
+    """#187 D1: the analyzer definition covers the input, mixer, IF, detector, VBW, trace and the
+    10 MHz reference."""
+    root = Path(__file__).resolve().parent.parent
+    d = DefinitionLibrary([root / "validation" / "instruments"]).get("sb-sa-1")
+    blocks = _blocks(d.instrument_class)
+    assert blocks is not None
+    types = {c.type for c in [*d.components, *d.channel_components]}
+    assert [block for block, accepted in blocks.items() if not accepted & types] == []
+
+
 def test_the_validation_power_supply_is_built_from_its_real_blocks():
     """#185 B2: the supply definition covers the setpoint, loop, power stage, output, readback,
     protection and the cross-channel tracking."""

@@ -156,13 +156,42 @@ components:
   - name: ref_in
     type: input_port
     params: {z_in: 50.0}
+  - name: clock
+    type: reference_clock
+    params: {source: $rosc.source, nominal_hz: 10e6}
+  - name: input
+    type: specan_input
+    params:
+      z_in: 50.0
+      mixer_limit: -10.0
+      att: $power.att
+      att_auto: $power.att_auto
+      ref_level: $display.ref_level
+  - name: mixer
+    type: specan_mixer
+    params: {noise_figure: 24.0, clock: clock, source: $rosc.source}
+  - name: if_filter
+    type: specan_if
+    params: {rbw: $bw.res, rbw_auto: $bw.res_auto, span: $freq.span}
+  - name: detector
+    type: specan_detector
+    params: {detector: $detector}
+  - name: vbw
+    type: specan_vbw
+    params: {vid: $bw.vid, vid_auto: $bw.vid_auto, if_filter: if_filter}
   - name: sa
-    type: spectrum_analyzer
-    params: {rosc: $rosc.source}
+    type: specan_trace
+    params:
+      input: input
+      mixer: mixer
+      if_filter: if_filter
+      detector: detector
+      vbw: vbw
+      maxhold_limit: 999
 wiring:
   instrument:
-    - [rf_in.out, sa.in]
-    - [ref_in.out, sa.ref]
+    - [rf_in.out, input.in]
+    - [ref_in.out, clock.ref]
 ports:
   instrument:
     RF_IN: rf_in.pin
@@ -192,14 +221,12 @@ commands:
   - header: "[:SENSe]:BANDwidth[:RESolution]:AUTO"
     state: bw.res_auto
   - header: "[:SENSe]:BANDwidth[:RESolution]"
-    op: sa.coupled
-    args: {what: rbw}
+    op: if_filter.coupled_rbw
     params: [{name: value, type: float, unit: HZ, optional: true}]
   - header: "[:SENSe]:BANDwidth:VIDeo:AUTO"
     state: bw.vid_auto
   - header: "[:SENSe]:BANDwidth:VIDeo"
-    op: sa.coupled
-    args: {what: vbw}
+    op: vbw.coupled_vbw
     params: [{name: value, type: float, unit: HZ, optional: true}]
   - header: "[:SENSe]:SWEep:TIME:AUTO"
     state: sweep.time_auto
@@ -208,8 +235,7 @@ commands:
     set: false
     args: {what: uncal}
   - header: "[:SENSe]:SWEep:TIME"
-    op: sa.coupled
-    args: {what: sweep}
+    op: sa.coupled_sweep
     params: [{name: value, type: float, unit: S, optional: true}]
   - header: "[:SENSe]:SWEep:POINts"
     state: sweep.points
@@ -218,13 +244,11 @@ commands:
   - header: "[:SENSe]:POWer[:RF]:ATTenuation:AUTO"
     state: power.att_auto
   - header: "[:SENSe]:POWer[:RF]:ATTenuation"
-    op: sa.coupled
-    args: {what: att}
+    op: input.coupled_att
     params: [{name: value, type: float, optional: true}]
   - header: "[:SENSe]:POWer[:RF]:OVERload"
-    op: sa.status
+    op: input.overload
     set: false
-    args: {what: overload}
   - header: "[:SENSe]:DETector[:FUNCtion]"
     state: detector
   - header: ":TRACe<t>:TYPE"  # one trace: TRAC:TYPE and TRAC1:TYPE
@@ -265,11 +289,11 @@ commands:
   - header: "[:SENSe]:ROSCillator:SOURce"
     state: rosc.source
   - header: "[:SENSe]:ROSCillator:LOCKed"
-    op: sa.status
+    op: mixer.status
     set: false
     args: {what: locked}
   - header: "[:SENSe]:ROSCillator:ACTive"
-    op: sa.status
+    op: mixer.status
     set: false
     args: {what: active}
   - header: ":INITiate:CONTinuous"
