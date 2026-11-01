@@ -42,7 +42,7 @@ def _blocks(class_name: str) -> dict[str, set[str]] | None:
     path = BLOCKS_DIR / f"{class_name}.yaml"
     if not path.exists():
         return None
-    doc = yaml.safe_load(path.read_text())
+    doc = yaml.safe_load(path.read_text(encoding="utf-8"))
     if doc.get("schema") != "simubench.blocks/1" or doc.get("class") != class_name:
         raise ValueError(f"{path}: bad schema or class")
     return {b["block"]: set(b["components"]) for b in doc["blocks"]}
@@ -135,7 +135,7 @@ def test_block_lists_are_well_formed():
     listed = {p.stem for p in BLOCKS_DIR.glob("*.yaml")}
     assert classes <= listed, f"built-in classes without a block list: {sorted(classes - listed)}"
     for path in BLOCKS_DIR.glob("*.yaml"):
-        doc = yaml.safe_load(path.read_text())
+        doc = yaml.safe_load(path.read_text(encoding="utf-8"))
         assert doc.get("schema") == "simubench.blocks/1"
         names = [b["block"] for b in doc["blocks"]]
         assert len(names) == len(set(names)), f"{path.name}: duplicate blocks"
