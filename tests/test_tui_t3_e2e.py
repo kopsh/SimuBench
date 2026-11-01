@@ -153,4 +153,4 @@ async def test_rc_sweep_shows_the_amplitude_falling(served_examples):
         assert float(tui.screen.probe.get("rms") or 0) < 0.5
         # And the screen marks the net as carrying a signal.
         rows, _ = tui.screen._rows()
-        assert [r for r in rows if r["net"] == "net-1"][0]["active"] is True
+        assert next(r for r in rows if r["net"] == "net-1")["active"] is True

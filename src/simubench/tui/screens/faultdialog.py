@@ -196,7 +196,7 @@ class FaultDialog(ModalScreen[dict | None]):
             return
         finally:
             self._busy = False
-        app.faults = list(app.faults or []) + [info]
+        app.faults = [*list(app.faults or []), info]
         self.dismiss(info)
 
     def _refresh_active(self) -> None:

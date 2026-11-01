@@ -262,7 +262,7 @@ TERMS: dict = {
     },
     "reason": {
         "netSilent": "no signal on {net}",
-        "evSilence": "Reason",
+        "evNetSilence": "Reason",
         "titleNet": "Why · {net}",
         "netLevel": "{net}: RMS {rms}, peak {peak}",
         "evContribution": "Contribution",

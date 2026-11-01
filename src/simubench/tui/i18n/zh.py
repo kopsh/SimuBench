@@ -264,7 +264,7 @@ TERMS: dict = {
     },
     "reason": {
         "netSilent": "{net} 上没有信号",
-        "evSilence": "原因",
+        "evNetSilence": "原因",
         "titleNet": "原因 · {net}",
         "netLevel": "{net} 的有效值 {rms}、峰值 {peak}",
         "evContribution": "来源贡献",

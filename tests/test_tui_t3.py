@@ -11,10 +11,8 @@ import asyncio
 import copy
 from typing import Any
 
-import pytest
-
 from simubench.tui.app import SimuBenchApp
-from tui_mock import ev, feed, load, unit_app
+from tui_mock import load, unit_app
 
 SCOPE_BENCH = load("unit_scope_rc.json")
 SMU_BENCH = load("unit_smu.json")
@@ -184,8 +182,8 @@ async def test_fault_dialog_revoke_with_confirm():
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await pilot.press("f")
-        from simubench.tui.screens.states import ConfirmScreen
         from simubench.tui.screens.faultdialog import FaultDialog
+        from simubench.tui.screens.states import ConfirmScreen
 
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
         from textual.widgets import Button
@@ -215,7 +213,6 @@ async def test_advance_dialog_steps_the_clock():
         from simubench.tui.screens.clockdialog import AdvanceDialog
 
         await wait_for(pilot, lambda: isinstance(tui.screen, AdvanceDialog), message="advance dialog")
-        from simubench.tui.screens.clockdialog import AdvanceDialog
 
         dlg = tui.screen
         assert isinstance(dlg, AdvanceDialog)

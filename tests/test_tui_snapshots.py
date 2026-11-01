@@ -285,7 +285,7 @@ def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
                 text = "\n".join(
                     "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
                 )
-                if "net-0" in text and "直流" in text or ("DC" in text and "net-0" in text):
+                if ("net-0" in text and "直流" in text) or ("DC" in text and "net-0" in text):
                     return
         raise AssertionError("the nets screen never settled")
 

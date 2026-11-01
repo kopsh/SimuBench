@@ -360,7 +360,7 @@ def net_report(
         from .screens.nets import silence_text
 
         conclusion = t("reason.netSilent", lang, net=net)
-        evidence = Evidence(t("reason.evSilence", lang), silence_text(silence, lang), net)
+        evidence = Evidence(t("reason.evNetSilence", lang), silence_text(silence, lang), net)
         return ReasonReport(t("reason.titleNet", lang, net=net), conclusion, [evidence])
     conclusion = t(
         "reason.netLevel",
