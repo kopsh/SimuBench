@@ -71,10 +71,10 @@ def test_scope_chain_and_bindings():
 def test_per_unit_overrides_are_not_part_of_the_model():
     """The bench's per-unit deviation (offset_ppm) belongs to the unit, not the model (issue 34)."""
     view = internals(
-        {"instruments": {"rf": {"model": "sb-sg-1", "hidden": {"core": {"offset_ppm": 2.0}}}}}, "rf"
+        {"instruments": {"rf": {"model": "sb-sg-1", "hidden": {"reference": {"ppm": 2.0}}}}}, "rf"
     )
-    core = next(c for c in view.components if c.name == "core")
-    offset = next(p for p in core.params if p.name == "offset_ppm")
+    reference = next(c for c in view.components if c.name == "reference")
+    offset = next(p for p in reference.params if p.name == "ppm")
     assert offset.value == 0.0 and offset.unit == "ppm"
 
 

@@ -118,6 +118,26 @@ def test_reference_ports_are_reported_as_reference(client):
     client.delete(f"/api/sessions/{info['id']}")
 
 
+def test_rf_generator_panel_readings_come_from_its_blocks(client):
+    """#188 D2: the panel reads ``<component>.<key>``; after the split the frequency is the
+    synthesizer's, the line count and β the modulator's, the lock state the reference's."""
+    info = client.post("/api/sessions", json={"bench_path": "benches/rfgen.bench.yaml"}).json()
+    sid = info["id"]
+    try:
+        values = client.get(f"/api/sessions/{sid}/instruments/rf/readings").json()["values"]
+        assert values["synth.frequency"] == 1e9 and values["synth.points"] == 0
+        assert values["mod.lines"] == 1 and values["mod.beta"] == 0
+        assert values["reference.locked"] is True
+        client.post(f"/api/sessions/{sid}/instruments/rf/scpi", json={"command": ":SOUR:FM:DEV 1e6"})
+        client.post(f"/api/sessions/{sid}/instruments/rf/scpi", json={"command": ":SOUR:FM:INT:FREQ 1e6"})
+        client.post(f"/api/sessions/{sid}/instruments/rf/scpi", json={"command": ":SOUR:FM:STAT ON"})
+        values = client.get(f"/api/sessions/{sid}/instruments/rf/readings").json()["values"]
+        assert values["mod.beta"] == 1 and values["mod.lines"] == 5
+        assert values["mod.omitted_power"] == pytest.approx(0.00078, abs=1e-5)
+    finally:
+        client.delete(f"/api/sessions/{sid}")
+
+
 def test_virtual_probe_explains_the_value(client):
     info = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()
     sid = info["id"]

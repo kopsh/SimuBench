@@ -5,7 +5,7 @@ instruments:
   rf:
     model: sb-sg-1
     state: {freq.cw: 1.0e9, power.level: 0.0, output.enabled: true}
-    hidden: {core: {offset_ppm: 2.0}}
+    hidden: {reference: {ppm: 2.0}}
   sa:
     model: sb-sa-1
     state: {freq.center: 1.0e9, freq.span: 5.0e6, display.ref_level: 10.0}
