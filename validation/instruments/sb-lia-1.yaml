@@ -83,7 +83,103 @@ state:
     default: "24"
     label: 斜率 (dB/oct)
     label_en: Slope (dB/oct)
+  input.reserve:
+    type: float
+    min: 1.0
+    max: 1000.0
+    default: 10.0
+    label: 动态储备
+    label_en: Dynamic reserve
+  input.notch:
+    type: bool
+    default: false
+    label: 工频陷波
+    label_en: Line notch
+  input.notch_2x:
+    type: bool
+    default: false
+    label: 二次工频陷波
+    label_en: Line notch (2x)
+  input.line_frequency:
+    type: float
+    unit: HZ
+    min: 45.0
+    max: 65.0
+    default: 50.0
+    label: 工频
+    label_en: Line frequency
+  output.offset_x:
+    type: float
+    min: -105.0
+    max: 105.0
+    default: 0.0
+    display_unit: "%"
+    label: X 偏置
+    label_en: X offset
+  output.offset_y:
+    type: float
+    min: -105.0
+    max: 105.0
+    default: 0.0
+    display_unit: "%"
+    label: Y 偏置
+    label_en: Y offset
+  output.expand:
+    type: enum
+    options: ["1", "10", "100"]
+    default: "1"
+    label: 扩展
+    label_en: Expand
+  buffer.rate:
+    type: float
+    unit: HZ
+    min: 0.0625
+    max: 512.0
+    default: 10.0
+    label: 采样率
+    label_en: Sample rate
+  buffer.points:
+    type: int
+    min: 1
+    max: 16384
+    default: 10
+    label: 缓冲点数
+    label_en: Points
+  aux.output1:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    label: AUX 输出 1
+    label_en: AUX out 1
+  aux.output2:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    label: AUX 输出 2
+    label_en: AUX out 2
+  aux.output3:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    label: AUX 输出 3
+    label_en: AUX out 3
+  aux.output4:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    label: AUX 输出 4
+    label_en: AUX out 4
 components:
+  # 真实框图（D3 #189、D50）：输入滤波与放大 → 相敏检波 ← 参考 → 低通 → 输出；数据缓冲复用
+  # 通用的 trigger_model + reading_buffer，AUX 是电路层的四个输入与四个输出。
   - name: osc
     type: lockin_reference
     params:
@@ -101,24 +197,75 @@ components:
   - name: ref_in
     type: input_port
     params: {z_in: 1.0e6}
-  - name: demod
-    type: lockin_demodulator
+  - name: front
+    type: lockin_input_filter
+    params:
+      coupling: $input.coupling
+      line_notch: $input.notch
+      notch_2x: $input.notch_2x
+      line_frequency: $input.line_frequency
+  - name: amp
+    type: lockin_input_amp
     params:
       sensitivity: $input.sensitivity
-      coupling: $input.coupling
+      reserve: $input.reserve
+  - name: mixer
+    type: lockin_mixer
+  - name: filter
+    type: lockin_lowpass
+    params:
       time_constant: $filter.time_constant
       slope: $filter.slope
+      mixer: mixer
+  - name: demod
+    type: lockin_output
+    params:
+      filter: filter
+      amp: amp
+      sample_rate: $buffer.rate
+      offset_x: $output.offset_x
+      offset_y: $output.offset_y
+      expand: {from: $output.expand, map: {"1": 1.0, "10": 10.0, "100": 100.0}}
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: demod
+      buffer: buffer
+      source: immediate
+      trigger_count: 1
+      sample_count: $buffer.points
+  - name: buffer
+    type: reading_buffer
+    params: {capacity: 16384, when_full: stop}
+  - name: aux
+    type: lockin_aux
+    params:
+      dac1: $aux.output1
+      dac2: $aux.output2
+      dac3: $aux.output3
+      dac4: $aux.output4
 wiring:
   instrument:
     - [osc.sine, out.in]
     - [ref_in.out, osc.ext]
-    - [sig_in.out, demod.in]
-    - [osc.ref, demod.ref]
+    - [sig_in.out, front.in]
+    - [front.out, amp.in]
+    - [amp.out, filter.in]
+    - [osc.ref, filter.ref]
+    - [osc.ref, mixer.ref]
 ports:
   instrument:
     SIG_IN: sig_in.pin
     REF_IN: ref_in.pin
     SINE_OUT: out.pin
+    AUX_IN1: aux.in1
+    AUX_IN2: aux.in2
+    AUX_IN3: aux.in3
+    AUX_IN4: aux.in4
+    AUX_OUT1: aux.out1
+    AUX_OUT2: aux.out2
+    AUX_OUT3: aux.out3
+    AUX_OUT4: aux.out4
   media: {REF_IN: reference}
 display:
   template: lockin
@@ -157,11 +304,11 @@ commands:
   - header: ":FILTer:SLOPe"
     state: filter.slope
   - header: ":FILTer:ENBW"
-    op: demod.filter_info
+    op: filter.filter_info
     set: false
     args: {what: enbw}
   - header: ":FILTer:SETTling"
-    op: demod.filter_info
+    op: filter.filter_info
     set: false
     args: {what: settling}
     doc: Seconds to settle within 1 % of a step
@@ -203,3 +350,44 @@ commands:
   - header: ":AUTO:PHASe"
     op: demod.auto_phase
     query: false
+  - header: ":INPut:REServe"
+    state: input.reserve
+  - header: ":INPut:NOTCh"
+    state: input.notch
+  - header: ":INPut:NOTCh:TWOx"
+    state: input.notch_2x
+  - header: ":INPut:LINefrequency"
+    state: input.line_frequency
+  - header: ":DISPlay:OFFSet:X"
+    state: output.offset_x
+  - header: ":DISPlay:OFFSet:Y"
+    state: output.offset_y
+  - header: ":DISPlay:EXPand"
+    state: output.expand
+  # 数据缓冲（D3）：采样率与点数交给通用的触发模型与读数缓冲，不写专用缓冲组件。
+  - header: ":BUFFer:RATE"
+    state: buffer.rate
+  - header: ":BUFFer:POINts"
+    state: buffer.points
+  - header: ":BUFFer:STARt"
+    op: trig.initiate
+    query: false
+  - header: ":BUFFer:STOReD"
+    op: buffer.points
+    set: false
+  - header: ":BUFFer:CLEar"
+    op: buffer.clear
+    query: false
+  - header: ":BUFFer:DATA"
+    op: buffer.data
+    set: false
+    params: [{name: start, type: int, optional: true}, {name: end, type: int, optional: true}, {name: elements, type: raw}]
+  # AUX：一个命令带通道号设置四个 DAC 输出，一个查询读四个 ADC 输入（SR830 的 AUXV/AUXI 写法）。
+  - header: ":AUX:OUTPut"
+    op: aux.set_dac
+    query: false
+    params: [{name: index, type: int}, {name: voltage, type: float, unit: V}]
+  - header: ":AUX:INPut"
+    op: aux.read
+    set: false
+    params: [{name: index, type: int}]

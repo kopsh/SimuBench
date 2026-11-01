@@ -191,6 +191,17 @@ def test_the_validation_eload_is_built_from_its_real_blocks():
     assert [block for block, accepted in blocks.items() if not accepted & types] == []
 
 
+def test_the_validation_lockin_is_built_from_its_real_blocks():
+    """#189 D3: the lock-in definition covers the input filter and amplifier, the mixer, the
+    reference, the low-pass, the output, the data buffer and the AUX block."""
+    root = Path(__file__).resolve().parent.parent
+    d = DefinitionLibrary([root / "validation" / "instruments"]).get("sb-lia-1")
+    blocks = _blocks(d.instrument_class)
+    assert blocks is not None
+    types = {c.type for c in [*d.components, *d.channel_components]}
+    assert [block for block, accepted in blocks.items() if not accepted & types] == []
+
+
 def test_block_lists_are_well_formed():
     classes = {d.instrument_class for d in builtin_definitions()}
     listed = {p.stem for p in BLOCKS_DIR.glob("*.yaml")}

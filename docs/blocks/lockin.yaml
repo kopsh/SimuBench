@@ -1,5 +1,5 @@
 # 锁相放大器的真实功能块(D50,依据见 docs/component-map.md 的 lockin 节)。
-# 组件类型是 D3(#189)拆分的设计默认;参考与解调器已存在,拆分时调整。
+# 组件由 D3(#189)落地;数据缓冲复用通用的 trigger_model + reading_buffer。
 schema: simubench.blocks/1
 class: lockin
 blocks:
