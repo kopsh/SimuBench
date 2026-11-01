@@ -688,6 +688,30 @@
         "title": "Catalog",
         "type": "object"
       },
+      "ChannelNumbering": {
+        "additionalProperties": false,
+        "description": "One block of channel numbers: ``first`` .. ``first + count - 1``, numbers SCPI uses.",
+        "properties": {
+          "count": {
+            "description": "How many channels the block has, e.g. 20",
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "first": {
+            "description": "The block's first channel number, e.g. 101",
+            "minimum": 1.0,
+            "title": "First",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "count"
+        ],
+        "title": "ChannelNumbering",
+        "type": "object"
+      },
       "Channels": {
         "additionalProperties": false,
         "properties": {
@@ -695,6 +719,14 @@
             "default": 1,
             "title": "Count",
             "type": "integer"
+          },
+          "numbering": {
+            "description": "The numbers SCPI uses for the channels, when they are not 1..count: blocks in channel order, e.g. a 3-slot DAQ's 101-120, 201-220, 301-320. State paths and channels.overrides keep the channel index (1..count).",
+            "items": {
+              "$ref": "#/components/schemas/ChannelNumbering"
+            },
+            "title": "Numbering",
+            "type": "array"
           },
           "overrides": {
             "additionalProperties": {

@@ -363,12 +363,41 @@ class Identity(_Model):
     firmware: str = "1.0.0"
 
 
+class ChannelNumbering(_Model):
+    """One block of channel numbers: ``first`` .. ``first + count - 1``, numbers SCPI uses."""
+
+    first: int = Field(..., ge=1, description="The block's first channel number, e.g. 101")
+    count: int = Field(..., ge=1, description="How many channels the block has, e.g. 20")
+
+
 class Channels(_Model):
     count: int = 1
+    numbering: list[ChannelNumbering] = Field(
+        default_factory=list,
+        description="The numbers SCPI uses for the channels, when they are not 1..count: blocks in "
+        "channel order, e.g. a 3-slot DAQ's 101-120, 201-220, 301-320. State paths and "
+        "channels.overrides keep the channel index (1..count).",
+    )
     overrides: dict[int, dict[str, dict[str, Any]]] = Field(
         default_factory=dict,
         description="Per-channel overrides of channel_state specs, e.g. {3: {frequency: {max: 2e8}}}",
     )
+
+    @model_validator(mode="after")
+    def _check_numbering(self) -> Channels:
+        if not self.numbering:
+            return self
+        total = sum(block.count for block in self.numbering)
+        if total != self.count:
+            raise ValueError(f"channels.numbering covers {total} channels but channels.count is {self.count}")
+        seen: set[int] = set()
+        for block in self.numbering:
+            numbers = set(range(block.first, block.first + block.count))
+            repeated = sorted(numbers & seen)
+            if repeated:
+                raise ValueError(f"channels.numbering repeats channel numbers {repeated}")
+            seen |= numbers
+        return self
 
 
 class Wiring(_Model):
