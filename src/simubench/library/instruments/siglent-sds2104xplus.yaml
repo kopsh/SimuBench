@@ -108,6 +108,25 @@ state:
     default: RISing
     label: 触发沿
     label_en: Trigger slope
+  trigger.coupling:
+    type: enum
+    options: [DC, AC, LFREJect, HFREJect]
+    default: DC
+    label: 触发耦合
+    label_en: Trigger coupling
+  trigger.nreject:
+    type: bool
+    default: false
+    label: 噪声抑制
+    label_en: Noise reject
+  trigger.holdoff:
+    type: float
+    unit: S
+    min: 0.0
+    max: 1.5
+    default: 1.0e-7
+    label: 释抑时间
+    label_en: Holdoff
   acquire.type:
     type: enum
     options: [NORMal, PEAK, AVERage, ERES]
@@ -319,11 +338,21 @@ components:
       # （0–100 %）决定；DELay 时触发在记录中央，由 :TIMebase:DELay 移动。
       reference_mode: $timebase.reference
       reference_position: $timebase.reference_position
-  # 边沿触发；电平在触发源通道偏置附近 ±4.1 格内（数据手册）。
+  # 边沿触发；电平在触发源通道偏置附近 ±4.1 格内（数据手册）。触发路径有自己的耦合滤波与
+  # 噪声抑制；释抑时间在触发后推迟下一次触发。耦合与抑制的转折频率：AC 用数据手册的 5 Hz，
+  # 低/高频抑制数据手册没有给出，取 SimuBench 的默认值（覆盖表注明）。
   - name: trigger
     type: scope_trigger
     params:
       level_range_divs: 4.1
+      coupling: {from: $trigger.coupling, map: {DC: DC, AC: AC, LFREJect: DC, HFREJect: DC}}
+      reject: {from: $trigger.coupling, map: {LFREJect: LF, HFREJect: HF}, default: ""}
+      filters:
+        AC: [[highpass, 5.0]]
+        LF: [[highpass, 50.0e3]]
+        HF: [[lowpass, 1.0e6]]
+      noise_reject: $trigger.nreject
+      holdoff: $trigger.holdoff
   # ADC：8 位每格 30 码，10 位每格 120 码；偏移设置加到电压上（volts = code / 每格码数 * vdiv - offset）；
   # CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
   - name: adc
@@ -509,7 +538,10 @@ commands:
   - {header: ":TRIGger:STATus", op: acq.status, set: false}
   - {header: ":TRIGger:STOP", op: acq.stop, query: false}
   - {header: ":TRIGger:TYPE", state: trigger.type}
+  - {header: ":TRIGger:EDGE:COUPling", state: trigger.coupling}
+  - {header: ":TRIGger:EDGE:HOLDoff", state: trigger.holdoff}
   - {header: ":TRIGger:EDGE:LEVel", state: trigger.level}
+  - {header: ":TRIGger:EDGE:NREJect", state: trigger.nreject}
   - {header: ":TRIGger:EDGE:SLOPe", state: trigger.slope}
   - {header: ":TRIGger:EDGE:SOURce", state: trigger.source}
   # ---- WAVeform ----
