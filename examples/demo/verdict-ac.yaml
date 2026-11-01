@@ -1,0 +1,13 @@
+# simubench verdicts 的列映射：AC 报告（examples/demo/calibrate_34465a.py --function AC）。
+instrument: dut
+function: AC
+columns:
+  nominal: nominal
+  reading: reading
+  low: limit_low
+  high: limit_high
+  decision: verdict
+decisions:
+  PASS: pass
+  FAIL: fail
+  "N/A": no_statement
