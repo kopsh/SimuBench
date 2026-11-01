@@ -170,7 +170,7 @@ sections:
     note: '交流电流的电感负载补偿（LCOMP/LCOMP?）；电流未建模。'
   - header: 'OPER'
     level: implemented
-    note: '进入工作，输出经建立时间（<5 s，按手册计入虚拟时间）到达设定值。手册的“错误队列非空时 ≥33 V 禁止 OPER”（错误 1331）未实现（能力 issue）；查询形式 OPER? 与无参数的 OPER 同头，声明式定义无法表达“set 调操作、query 回读状态”（同一能力 issue），OPER? 现报 -113。'
+    note: '进入工作，输出经建立时间（<5 s，按手册计入虚拟时间）到达设定值；OPER? 回读工作状态（1 = 工作，0 = 待机）。手册的“错误队列非空时 ≥33 V 禁止 OPER”（错误 1331）未实现（能力 issue）。'
   - header: 'OUT'
     level: implemented
     note: '设定输出：OUT 10 V 直流、OUT 1 V, 1 kHz 交流、OUT 60 HZ 只更新频率。手册允许省略单位的裸数值（沿用当前单位），quantities 参数无法表达“单位取自状态”，缺单位报手册的 519；量程超限报 -222（SCPI 码，手册的 1300 系列错误码无法由状态范围检查给出）。'
@@ -223,15 +223,15 @@ sections:
   - header: 'LOCAL'
     level: accepted
     affects_data: false
-    note: '回到本地并解除锁定（等价 IEEE-488 GTL）。手册无参数；无参数置态命令的声明是能力缺口（能力 issue），命令被接受（不报错、不回复）但不写状态，仿真中本地/远程不影响行为。'
+    note: '回到本地并解除锁定（等价 IEEE-488 GTL）；无参数，写入接口状态。仿真中本地/远程不影响行为，也没有查询。'
   - header: 'LOCKOUT'
     level: accepted
     affects_data: false
-    note: '前面板锁定（等价 IEEE-488 LLO）；同 LOCAL 的限制。'
+    note: '前面板锁定（等价 IEEE-488 LLO）；无参数，写入接口状态，同 LOCAL。'
   - header: 'REMOTE'
     level: accepted
     affects_data: false
-    note: '进入远程状态（等价 IEEE-488 REN）；同 LOCAL 的限制。'
+    note: '进入远程状态（等价 IEEE-488 REN）；无参数，写入接口状态，同 LOCAL。'
   - header: 'SPLSTR'
     level: not_modeled
     note: '串口轮询应答串（SPLSTR/SPLSTR?）；RS-232 串口层不在仿真中。'

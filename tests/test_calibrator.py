@@ -388,3 +388,48 @@ def test_reply_template_must_name_declared_states():
     out["reply"] = "{out.nope},V"
     report = validate_definition_data(data)[1]
     assert {d.code for d in report.diagnostics if d.severity == "error"} == {"E-DEF-REPLY"}
+
+
+# ---- parameterless commands (#119): query reads the setting, set writes a constant -----------------
+
+
+def test_operate_query_reads_the_setting_the_set_form_writes(s):
+    assert q(s, "OPER?") == "0"
+    q(s, "OPER")
+    assert q(s, "OPER?") == "1"
+    q(s, "STBY")
+    assert q(s, "OPER?") == "0"
+
+
+def test_parameterless_commands_write_the_interface_state(s):
+    cal = s.instrument("cal")
+    for command, expected in (("REMOTE", "REMOTE"), ("LOCKOUT", "LOCKOUT"), ("LOCAL", "LOCAL")):
+        q(s, command)
+        assert cal.state["interface"] == expected
+
+
+def test_read_must_name_an_existing_setting():
+    data = load_def()
+    oper = next(c for c in data["commands"] if c["header"] == "OPER")
+    oper["read"] = "out.nothing"
+    assert codes(data) == {"E-DEF-STATE-UNKNOWN"}
+
+
+def test_read_and_set_value_go_with_their_command_kinds():
+    from simubench.models.definition import InstrumentDefinition
+
+    data = load_def()
+    local = next(c for c in data["commands"] if c["header"] == "LOCAL")
+    local["read"] = "interface"
+    with pytest.raises(ValueError, match="read"):
+        InstrumentDefinition.model_validate(data)
+    data = load_def()
+    oper = next(c for c in data["commands"] if c["header"] == "OPER")
+    oper["set_value"] = "x"
+    with pytest.raises(ValueError, match="set_value"):
+        InstrumentDefinition.model_validate(data)
+    data = load_def()
+    out = next(c for c in data["commands"] if c["header"] == "OUT")
+    out["set_value"] = "V"
+    with pytest.raises(ValueError, match="set_value"):
+        InstrumentDefinition.model_validate(data)

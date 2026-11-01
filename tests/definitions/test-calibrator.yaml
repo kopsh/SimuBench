@@ -49,6 +49,13 @@ state:
     default: V
     label: 单位
     label_en: Unit
+  interface:
+    type: enum
+    options: [LOCAL, REMOTE, LOCKOUT]
+    default: LOCAL
+    rst: LOCAL
+    label: 接口状态
+    label_en: Interface state
 components:
   - name: out
     type: calibrator_output
@@ -70,12 +77,24 @@ ports:
 commands:
   - header: "OPER"
     op: out.operate
-    query: false
+    read: out.operate
     args: {value: true}
   - header: "STBY"
     op: out.operate
     query: false
     args: {value: false}
+  - header: "LOCAL"
+    state: interface
+    set_value: LOCAL
+    query: false
+  - header: "REMOTE"
+    state: interface
+    set_value: REMOTE
+    query: false
+  - header: "LOCKOUT"
+    state: interface
+    set_value: LOCKOUT
+    query: false
   - header: "OUT"
     params:
       - name: q

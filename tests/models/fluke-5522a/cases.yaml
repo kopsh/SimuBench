@@ -2,7 +2,7 @@
 #（PN 3795084, January 2011），第 6 章远程命令的命令条目与示例、第 1 章的 *RST 表与
 # 规格（建立时间 <5 s）、第 3 章的 ≥33 V 自动回待机。回复格式：数字 nr3 6 位尾数无 + 号，
 # 错误码无 + 号（ERR? 回 0,"No Error"）。测试台的万用表与校准源隐藏误差均为零，
-# 读数期望即设定值；MODEL 说明里记录的与手册的偏差（OPER? 的查询形式等）按现状期望。
+# 读数期望即设定值；MODEL 说明里记录的与手册的偏差按现状期望。
 model: fluke-5522a
 bench: bench.yaml
 instrument: dut
@@ -209,12 +209,18 @@ cases:
         instrument: dmm
         expect: "+1.0000000E+02"
 
-  - name: "OPER? 的查询形式报 -113（能力缺口，见覆盖表 OPER 说明）"
-    manual: "Remote Commands > Output Commands > OPER?（本模型未实现的查询形式）"
+  - name: "OPER? 回读工作状态（1 = 工作，0 = 待机）"
+    manual: "Remote Commands > Output Commands > OPER / OPER?"
     steps:
-      - send: "OPER?"
-      - query: "ERR?"
-        expect: '-113,"Undefined header"'
+      - send: "*RST"
+      - query: "OPER?"
+        expect: "0"
+      - send: "OUT 10 V;OPER"
+      - query: "OPER?"
+        expect: "1"
+      - send: "STBY"
+      - query: "OPER?"
+        expect: "0"
 
   - name: "ERR? 取出最早错误并删除，空队列回 0"
     manual: "Remote Commands > Status Commands > ERR?"
@@ -250,7 +256,7 @@ cases:
       - query: "EXTGUARD?"
         expect: "OFF"
 
-  - name: "LOCAL、REMOTE、LOCKOUT 被接受（不影响仿真）"
+  - name: "LOCAL、REMOTE、LOCKOUT 置态（不影响仿真）"
     manual: "Remote Commands > RS-232 Host Port Commands > LOCAL / REMOTE / LOCKOUT"
     steps:
       - send: "REMOTE"

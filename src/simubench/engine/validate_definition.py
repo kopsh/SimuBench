@@ -240,6 +240,8 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
         if cmd.op is not None:
             _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
+        if cmd.read is not None:
+            _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
         indexes = _index_values(cmd)
         for k, ps in enumerate(cmd.params):
             if ps.state is not None:
