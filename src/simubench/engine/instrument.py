@@ -874,6 +874,11 @@ class Instrument:
         if spec.state is not None:
             body = self._state_command(spec, unit, channel)
         elif spec.op is not None:
+            if unit.query and spec.read is not None:
+                # The same header: set calls the operation, query reads the setting it writes.
+                path = self._resolve(spec.read, channel)
+                body = self._format(self.specs[path], self.state[path], spec.format)
+                return body, parse_duration(spec.duration)
             result = self._op_command(compiled, spec, unit, channel, suffixes)
             return result.response, result.duration_ns + parse_duration(spec.duration)
         elif any(p.type == "channel_list" for p in spec.params):
@@ -963,7 +968,10 @@ class Instrument:
             value = self.state[path]
             return self._format(st, value * spec.factor if spec.factor != 1 else value, spec.format)
         if not unit.params:
-            raise ScpiError(-109)
+            if spec.set_value is None:
+                raise ScpiError(-109)
+            self.set_state(path, spec.set_value)
+            return None
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
         try:

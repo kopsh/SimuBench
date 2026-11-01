@@ -178,11 +178,11 @@ commands:
     doc: 返回当前输出功能（DCV / ACV；手册还有电流、电阻等功能的返回，未建模）。
   - header: OPER
     op: out.operate
+    read: out.operate
     args: {value: true}
-    query: false
     doc: >-
-      进入工作，输出经建立时间到达设定值。手册的错误队列非空时 ≥33 V 禁止 OPER（1331）未实现
-      （能力 issue）；OPER? 查询形式无法与无参数的 OPER 同头声明（同一能力 issue），现报 -113。
+      进入工作，输出经建立时间到达设定值；OPER? 回读工作状态（1 = 工作，0 = 待机）。手册的错误
+      队列非空时 ≥33 V 禁止 OPER（1331）未实现（能力 issue）。
   - header: STBY
     op: out.operate
     args: {value: false}
@@ -208,19 +208,20 @@ commands:
     doc: 内部保护屏蔽接/断 LO 端子；仿真中不影响电路。
   # ---- RS-232 主机口命令（接受：不影响仿真） ----
   - header: LOCAL
+    state: interface
+    set_value: LOCAL
     query: false
-    params: [{name: state, type: enum, options: [LOCAL, REMOTE, LOCKOUT], optional: true, state: interface}]
-    doc: >-
-      回到本地并解除锁定。手册无参数；无参数置态命令的声明是能力缺口（能力 issue），命令被
-      接受但不写状态，仿真中本地/远程不影响行为。
+    doc: 回到本地并解除锁定（等价 IEEE-488 GTL）；写入接口状态，仿真中本地/远程不影响行为。
   - header: REMOTE
+    state: interface
+    set_value: REMOTE
     query: false
-    params: [{name: state, type: enum, options: [LOCAL, REMOTE, LOCKOUT], optional: true, state: interface}]
-    doc: 进入远程状态（等价 IEEE-488 REN）；同 LOCAL 的限制。
+    doc: 进入远程状态（等价 IEEE-488 REN）；写入接口状态。
   - header: LOCKOUT
+    state: interface
+    set_value: LOCKOUT
     query: false
-    params: [{name: state, type: enum, options: [LOCAL, REMOTE, LOCKOUT], optional: true, state: interface}]
-    doc: 前面板锁定（等价 IEEE-488 LLO）；同 LOCAL 的限制。
+    doc: 前面板锁定（等价 IEEE-488 LLO）；写入接口状态。
   # ---- 选件 ----
   - header: "*OPT"
     state: installed_options

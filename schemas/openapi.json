@@ -889,6 +889,18 @@
             "title": "Query",
             "type": "boolean"
           },
+          "read": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An operation command's query reads this setting instead of calling the operation: 'OPER' enters operate, 'OPER?' reads it (the setting the operation writes)",
+            "title": "Read"
+          },
           "reply": {
             "anyOf": [
               {
@@ -905,6 +917,10 @@
             "default": true,
             "title": "Set",
             "type": "boolean"
+          },
+          "set_value": {
+            "description": "A setting command without parameters writes this constant and its query reads it back (LOCAL / REMOTE / LOCKOUT, which only set the interface state)",
+            "title": "Set Value"
           },
           "state": {
             "anyOf": [
