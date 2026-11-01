@@ -146,11 +146,15 @@ class OutputControlLoop(Component):
     CV or CC and the sign of a current-limited source, as the SMU's output stage does.
 
     ``envelope`` optionally names a component whose ``limit_cap(function, level)`` caps a limit by
-    the range in use (the SMU's source DAC); a supply that has no such table leaves it empty.
+    the range in use (the SMU's source DAC); a supply that has no such table leaves it empty. A
+    channel-level loop names its channel's ``power_stage`` in ``channel_envelope`` instead (B2).
     """
 
-    refs = {"envelope": ("smu_source", "instrument")}
-    optional_refs = frozenset({"envelope"})
+    refs = {
+        "envelope": ("smu_source", "instrument"),
+        "channel_envelope": ("power_stage", "channel"),
+    }
+    optional_refs = frozenset({"envelope", "channel_envelope"})
     defaults = {
         "function": "VOLTage",  # VOLTage | CURRent: what the terminal is forced to
         "v_level": 0.0,  # V, setpoint in voltage mode
@@ -158,7 +162,8 @@ class OutputControlLoop(Component):
         "i_limit": 105e-6,  # A, current limit in voltage mode
         "v_limit": 21.0,  # V, voltage limit in current mode
         "output": False,  # the output stage is enabled
-        "envelope": "",  # component capping the limits by the range in use ('' for none)
+        "envelope": "",  # instrument-level component capping the limits by the range in use
+        "channel_envelope": "",  # a channel's power_stage (B2), same interface
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -175,10 +180,20 @@ class OutputControlLoop(Component):
         return bool(self.param("output"))
 
     def _envelope(self) -> Component | None:
-        name = str(self.param("envelope") or "")
-        if not name or self.owner is None:
+        if self.owner is None:
             return None
-        return self.owner.components.get(name)
+        for key in ("envelope", "channel_envelope"):
+            name = str(self.param(key) or "")
+            if not name:
+                continue
+            names = [name]
+            if self.channel is not None:
+                names.insert(0, f"ch{self.channel}.{name}")
+            for candidate in names:
+                comp = self.owner.components.get(candidate)
+                if comp is not None:
+                    return comp
+        return None
 
     def i_limit(self) -> float:
         """The current limit, within the terminal envelope: the range_limits cap of the source

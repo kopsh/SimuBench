@@ -1,5 +1,5 @@
 # 可编程电源的真实功能块(D50,依据见 docs/component-map.md 的 power_supply 节)。
-# 每路一条链;跟踪/串并联在通道之间。组件类型是 B2(#185)的设计默认。
+# 每路一条链;跟踪/串并联在通道之间。组件由 B2(#185)落地。
 schema: simubench.blocks/1
 class: power_supply
 blocks:

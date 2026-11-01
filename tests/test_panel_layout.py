@@ -101,6 +101,32 @@ def test_daq_default_is_the_scan_and_the_closed_relays():
     assert [s.action for s in panel.softkeys] == ["run", "stop"]
 
 
+def test_power_supply_default_is_each_output_and_the_combination():
+    panel, source = effective_panel(definition(ROOT / "validation" / "instruments" / "sb-ps-1.yaml"))
+    assert source == "class_default" and panel is not None
+    assert [r.reading for r in panel.readouts] == [
+        "ch1.read.voltage",
+        "ch1.read.current",
+        "ch1.prot.tripped",
+        "ch2.read.voltage",
+        "ch2.read.current",
+        "ch2.prot.tripped",
+        "ch3.read.voltage",
+        "ch3.read.current",
+        "ch3.prot.tripped",
+    ]
+    groups = {g.label: g.controls for g in panel.groups}
+    assert list(groups) == ["CH1", "CH2", "CH3", "组合"]
+    assert [(c.state, c.control) for c in groups["CH1"]] == [
+        ("ch1.output", "switch"),
+        ("ch1.voltage", "number"),
+        ("ch1.current", "number"),
+    ]
+    [mode] = groups["组合"]
+    assert mode.control == "buttons"
+    assert [k.value for k in mode.keys or []] == ["OFF", "PARallel", "SERies", "TRACk"]
+
+
 def test_declared_panel_wins_and_dedicated_screens_have_none():
     panel, source = effective_panel(definition(PANEL))
     assert (

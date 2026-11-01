@@ -96,15 +96,15 @@ B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_out
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| setpoint_dac | `power_supply_setpoint`(尚不存在) | 设置/数据(每路电平、量程) | B2(#185)拆出 |
-| cv_cc_loop | `output_control_loop` | 电路(CV/CC 交叉;复用 B1 的限值切换环) | B1 已拆出,B2 绑定每路的设定 |
-| power_stage | `power_stage`(尚不存在) | 电路 | B2 |
-| output_stage | `power_output`(尚不存在) | 电路(继电器、sense) | B2 |
-| readback_adc | `supply_readback`(尚不存在) | 数据(电压/电流回读) | B2 |
-| protection | `supply_protection`(尚不存在) | 设置/数据(OVP/OCP 锁定) | B2 |
-| tracking | `supply_tracking`(尚不存在) | 设置/数据(跟踪/串并联) | B2 |
+| setpoint_dac | `power_supply_setpoint` | 设置/数据(每路电压/电流与量程上限) | — |
+| cv_cc_loop | `output_control_loop` | 电路(CV/CC 交叉;复用 B1 的限值切换环) | — |
+| power_stage | `power_stage` | 电路/数据(v_max、i_max、p_max 包络) | — |
+| output_stage | `power_output` | 电路(继电器,动作时间计入虚拟时间;sense;输出阻抗) | — |
+| readback_adc | `supply_readback` | 数据(电压/电流/功率回读与 CV/CC 状态) | — |
+| protection | `supply_protection` | 设置/数据(OVP/OCP 阈值、锁定与恢复) | OCP/OVP 的型号命令映射在 #198 |
+| tracking | `supply_tracking` | 设置/数据(仅输出 2/3:跟踪、并联、串联) | 组合时禁用 CH3 单独编程(手册 720)未强制 |
 
-`DcSupply` 是固定 EMF 的台面配件,不是可编程电源,不计入本类别。
+B2(#185)已拆分:`sb-ps-1` 是三路电源(CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 −25 V/1 A)。每路:设定 → B1 的控制环(CV,电流限值触发 CC)→ 功率级包络 → 输出继电器/sense(0.01 s 动作时间,回读 ≈ 0.5 mV 的输出阻抗压降)→ 回读与 OVP/OCP 锁定;锁定后用型号的 729 拒绝开输出,清除恢复故障前的输出状态。**组合**在设置层保持两路电平一致:跟踪 `CH3 = −|CH2|`、并联/串联 `CH3 = −CH2`,物理连接由测试台连线表示(并联交叉接负输出、串联共负端);PAIR/TRACK 改变时两路必须关闭。缺口:动态/列表、触发、数据记录与校准不在首波;组合时 CH3 单独编程的限制与设备错误码留给 #198。`DcSupply` 是固定 EMF 的台面配件,不是可编程电源,不计入本类别。
 
 ## electronic_load
 
