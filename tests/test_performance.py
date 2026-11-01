@@ -7,10 +7,10 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.load_sensitive  # wall-clock budgets: runs on main, not in the fast checks (D49)
-
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
+
+pytestmark = pytest.mark.load_sensitive  # wall-clock budgets: runs on main, not in the fast checks (D49)
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCHES = ROOT / "acceptance" / "benches"
