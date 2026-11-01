@@ -6,16 +6,33 @@ it, reporting the first difference (11.3).
 from __future__ import annotations
 
 import copy
+import json
+import socket
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
 import pytest
+import uvicorn
 import yaml
 
+from simubench.server.app import create_app
+from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
 from tui_mock import load, unit_app
 
+pytestmark = pytest.mark.tui_boot  # boots a Textual app or a real server: runs on main, not the fast checks
+
+ROOT = Path(__file__).resolve().parents[1]
+DOCS = ROOT / "docs/tui"
 SCOPE_BENCH = load("unit_scope_rc.json")
+
+
+@pytest.fixture(autouse=True)
+def color_theme(monkeypatch):
+    """The committed demo screenshots are the colour theme's, like CI's."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
 
 
 def fresh(fixture: dict[str, Any]) -> dict[str, Any]:
@@ -69,22 +86,33 @@ async def test_runs_screen_lists_and_replays(tmp_path: Path):
     The record is written by a scripted exchange against the mock's session — the real
     record/replay round trip is covered by tests/test_replay.py; here the screen shows it.
     """
-    from simubench.tui.screens.runs import RunsScreen
-
     fixture = fresh(load("unit_smu.json"))
-    fixture["runs"] = [{
-        "run_id": "run-abc", "bench": "smu", "started": 1793577600.0, "ended": 1793577630.0,
-        "clock": "command", "seed": 5, "events": 9, "duration_ns": 25_000_000,
-        "instruments": ["smu"], "size": 3072,
-    }]
+    fixture["runs"] = [
+        {
+            "run_id": "run-abc",
+            "bench": "smu",
+            "started": 1793577600.0,
+            "ended": 1793577630.0,
+            "clock": "command",
+            "seed": 5,
+            "events": 9,
+            "duration_ns": 25_000_000,
+            "instruments": ["smu"],
+            "size": 3072,
+        }
+    ]
     fixture["run_detail"] = {"summary": fixture["runs"][0]}
     fixture["replay"] = {
-        "run_id": "run-abc", "ok": False, "actions": 9, "replies": 9,
-        "mismatches": [{"seq": 3, "instrument": "smu", "command": ":MEAS:VOLT?",
-                        "expected": "+5", "actual": "+6"}],
+        "run_id": "run-abc",
+        "ok": False,
+        "actions": 9,
+        "replies": 9,
+        "mismatches": [
+            {"seq": 3, "instrument": "smu", "command": ":MEAS:VOLT?", "expected": "+5", "actual": "+6"}
+        ],
         "warnings": [],
     }
-    tui, fake = unit_app(fixture)
+    tui, _fake = unit_app(fixture)
 
     async with tui.run_test(size=(100, 32)) as pilot:
         await _settle(pilot, tui)
@@ -112,3 +140,117 @@ async def wait_true(pilot, predicate, timeout: float = 20.0) -> None:
         if predicate():
             return
     raise AssertionError("the condition never became true")
+
+
+# ---- --record (tui-screens.md 6) -------------------------------------------------------------------
+
+
+async def test_record_writes_frames_and_a_playable_cast(tmp_path: Path):
+    """`--record` turns each hold into frames plus an asciinema v2 cast, and it really moves."""
+    from simubench.tui.script import Steps, run_steps
+
+    path = tmp_path / "steps.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "size": [100, 32],
+                "steps": [
+                    {"caption": "总览", "wait": 0.5},
+                    {"screenshot": "one"},
+                    {"key": "l", "wait": 0.25},
+                    {"screenshot": "two"},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    out = tmp_path / "recorded"
+    steps = Steps.load(path)
+    async with tui.run_test(size=steps.size) as pilot:
+        await _settle(pilot, tui)
+        written = await run_steps(tui, pilot, steps, out, record=True)
+
+    assert [p.name for p in written] == ["one.svg", "two.svg"]
+    frames = sorted(out.glob("frame-*.svg"))
+    assert len(frames) == round(0.5 * 8) + round(0.25 * 8)  # one frame per 1/8 s of each hold
+    assert frames[0].read_bytes() == (out / "one.svg").read_bytes()  # a frame is a screenshot
+    assert frames[0].read_bytes() != frames[-1].read_bytes()  # the key moved the focus
+
+    lines = (out / "demo.cast").read_text(encoding="utf-8").splitlines()
+    header = json.loads(lines[0])
+    assert header["version"] == 2 and (header["width"], header["height"]) == (100, 32)
+    events = [json.loads(line) for line in lines[1:]]
+    assert len(events) == len(frames)
+    assert all(event[1] == "o" for event in events)
+    assert [event[0] for event in events] == [i / 8 for i in range(len(frames))]
+    assert "\x1b[2J" in events[0][2] and "总览" in events[0][2]  # a terminal frame, not a file name
+
+
+# ---- the demo and the docs screenshots (6, issue 178's acceptance) ---------------------------------
+
+
+@pytest.fixture(scope="module")
+def demo_server(tmp_path_factory):
+    """The demo bench on fixed ports: its screenshots show the SCPI address, so it must be fixed."""
+    records = tmp_path_factory.mktemp("runs")
+    manager = SessionManager(ROOT / "validation", scpi_base_port=5195, hislip_port=4899, record_dir=records)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    server = uvicorn.Server(
+        uvicorn.Config(
+            create_app(manager, web_dist=Path("/nonexistent")),
+            host="127.0.0.1",
+            port=port,
+            log_config=None,
+            access_log=False,
+        )
+    )
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 20
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.02)
+    yield f"http://127.0.0.1:{port}", manager, records
+    server.should_exit = True
+    thread.join(timeout=10)
+
+
+async def test_the_demo_regenerates_the_docs_screenshots(demo_server, tmp_path: Path):
+    """`docs/tui/find-the-trip.steps.yaml` → byte-identical SVGs, and the run record reviews it."""
+    from simubench.tui.script import Steps, run_steps, validate
+
+    url, manager, records = demo_server
+    steps = Steps.load(DOCS / "find-the-trip.steps.yaml")
+    assert validate(steps) == []
+    served = await manager.start("benches/find-the-trip.bench.yaml", seed=5, clock="command")
+    try:
+        tui = SimuBenchApp(url, sid=served.id, lang="zh")
+        async with tui.run_test(size=steps.size) as pilot:
+            await _settle(pilot, tui)
+            written = await run_steps(tui, pilot, steps, tmp_path)
+        assert [p.name for p in written] == ["find-the-trip.svg", "find-the-trip-error.svg"]
+        for path in written:
+            assert path.read_bytes() == (DOCS / path.name).read_bytes()
+
+        # The same demo left a run record: the external client's command and the preset trip's
+        # error are in it, so the screenshots' state can be reviewed afterwards (issue 178).
+        record_files = list(records.glob("run-*.jsonl"))
+        assert len(record_files) == 1  # the demo wrote the run record it can be reviewed from
+        runs = manager.runs.list()
+        assert [run.bench for run in runs] == ["find-the-trip"]
+        detail = manager.runs.detail(runs[0].run_id)
+        reads = [
+            e
+            for e in detail.events
+            if e.kind == "scpi" and e.dir == "write" and (e.text or "").strip() == ":SYSTem:ERRor?"
+        ]
+        assert reads and reads[0].client and reads[0].client.startswith("socket:")
+        assert reads[0].client.endswith(":5401")  # the pinned source port, from the steps file
+        errors = [e for e in detail.events if e.kind == "error"]
+        assert [e.code for e in errors] == [-300]
+        assert any("Overvoltage" in (e.message or "") for e in errors)
+        assert any(e.kind == "fault" and e.source == "bench" for e in detail.events)
+    finally:
+        await manager.stop(served.id)

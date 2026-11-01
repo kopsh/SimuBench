@@ -713,6 +713,17 @@ def test_no_color_uses_the_mono_theme(monkeypatch):
     assert app2.theme == "simubench"
 
 
+async def test_no_color_boots_its_stylesheet(monkeypatch):
+    """The mono theme's tokens are terminal-default colours, not empty strings (which fail
+    Textual's stylesheet parse and take the whole TUI with them)."""
+    monkeypatch.setenv("NO_COLOR", "1")
+    tui = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await pilot.pause(0.3)
+        assert tui.theme == "simubench-mono"
+        assert type(tui.screen).__name__ == "OverviewScreen"
+
+
 def test_lang_default_follows_env(monkeypatch):
     from simubench.tui.i18n import default_lang
 

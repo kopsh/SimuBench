@@ -89,8 +89,8 @@ def _free_port() -> int:
 
 def run_bench(args: Any) -> int:
     """``simubench tui <bench.yaml> …``: serve in-process, open a session, run the TUI."""
-    from .server.app import create_app
-    from .server.manager import SessionManager
+    from ..server.app import create_app
+    from ..server.manager import SessionManager
 
     bench = Path(args.bench).resolve()
     workspace = Path(args.workspace).resolve() if args.workspace else bench.parent
@@ -110,10 +110,11 @@ def run_bench(args: Any) -> int:
     rel = bench.relative_to(workspace).as_posix() if bench.is_relative_to(workspace) else str(bench)
 
     try:
-        served = asyncio.run(manager.start(rel, clock=args.clock, seed=args.seed))
-        info = served.describe().model_dump(by_alias=True)
-        _print_addresses(info)
+        # One session, opened through the served API (the same call the Web Bench makes); the
+        # response carries the address table. Starting one in-process first would leave a second,
+        # unobserved session — and a second run record — behind.
         info = _open_session(url, rel, args.clock, args.seed, token)
+        _print_addresses(info)
     except Exception as exc:
         print(f"{exc}", file=sys.stderr)
         server.should_exit = True
@@ -133,7 +134,17 @@ def run_bench(args: Any) -> int:
     script_path = Path(args.script).resolve() if getattr(args, "script", None) else None
     if script_path is not None:
         return asyncio.run(
-            _run_script(app, script_path, Path(args.out), bool(args.record)), server, thread, url, info, token
+            _run_script(
+                app,
+                script_path,
+                Path(args.out).resolve(),
+                bool(args.record),
+                server,
+                thread,
+                url,
+                info,
+                token,
+            )
         )
 
     try:
@@ -186,6 +197,9 @@ async def _run_script(
                 await pilot.pause(0.05)
                 if app.conn == "connected" and app.session_info:
                     break
+            else:
+                print(f"the TUI never connected to {url}", file=sys.stderr)
+                return 2
             written = await run_steps(app, pilot, steps, out_dir, record)
         print(f"{len(written)} SVG(s) in {out_dir}")
         return 0

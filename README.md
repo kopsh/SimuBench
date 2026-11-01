@@ -53,6 +53,31 @@ scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::hislip1,4880:
 
 默认不需要访问令牌；在多人共用的电脑上请加 `--require-token`。安全设计与自检见 [docs/security.md](docs/security.md)。
 
+## 终端控制台（TUI）
+
+不想开浏览器时，在终端里观察和操作同一场会话（可选依赖，D18）：
+
+```bash
+pip install "simubench[tui]"                                               # 或 uv sync --extra tui
+simubench tui examples/benches/siglent_scope_rc.bench.yaml                 # 启动服务并进入 TUI
+simubench tui --attach http://127.0.0.1:8000 --session <会话 id>           # 连到已运行的 serve / mcp
+```
+
+总览卡片、通信记录、仪表与示波器屏幕、网络电平与探针、故障注入、时钟推进都在终端里；`R` 打开运行记录并回放（报告第一处不同），`?` 给出仪表当前状态的原因链。按键表与每个屏幕的说明见 [docs/tui-screens.md](docs/tui-screens.md)。
+
+![找到跳闸：终端控制台](docs/tui/find-the-trip.svg)
+
+截图与演示可复现：`--script` 按步骤文件驱动界面（`key`、`scpi`、`advance`、`caption`、`highlight`、`screenshot`），用 `idle: off` 与固定种子得到逐字节相同的 SVG（D47）；`--record` 另外写逐帧 SVG 与 asciinema `.cast`。文档里的截图由同一条命令重新生成，CI 逐字节比较：
+
+```bash
+SIMUBENCH_DEFINITIONS=validation/instruments \
+simubench tui validation/benches/find-the-trip.bench.yaml --workspace validation \
+  --scpi-base-port 5195 --hislip-port 4899 \
+  --script docs/tui/find-the-trip.steps.yaml --out docs/tui --record --record-dir runs
+```
+
+演示脚本同时写一份运行记录（`runs/`），截图里的状态可以在 `R` 的运行记录里复核：外部客户端读走 `-300` 的那条命令、来源与回复都在记录中。
+
 ## 在 pytest 中使用
 
 安装后自动注册 pytest 插件。每个测试得到一台刚上电的测试台：

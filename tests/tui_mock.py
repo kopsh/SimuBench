@@ -146,8 +146,10 @@ class FakeClient:
         return self._fixture.get("run_detail", {"summary": {"run_id": run_id}})
 
     async def replay(self, run_id: str) -> dict[str, Any]:
-        return self._fixture.get("replay", {"run_id": run_id, "ok": True, "actions": 0, "replies": 0,
-                                            "mismatches": [], "warnings": []})
+        return self._fixture.get(
+            "replay",
+            {"run_id": run_id, "ok": True, "actions": 0, "replies": 0, "mismatches": [], "warnings": []},
+        )
 
     async def advance(self, sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
         self.advances.append((seconds, force))

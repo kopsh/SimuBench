@@ -382,3 +382,17 @@
 | 开发容器上总耗时 < 60 s，不删除、不跳过、不隔离任何测试，用例数不减少 | ✅ 用例数 1057 不变；串行 243 s→172 s（修 TUI 挂起，开发笔记本实测；CI 的 4 vCPU 即验收环境的四路并行），`solve_seconds` 改按调用线程 CPU 计（被调度走不算变慢），阈值不变 |
 | Windows 任务（main 上）仍然通过 | ✅ CI 矩阵含 windows-latest（合并后 main 上运行）；xdist 与非阻塞关停均为纯 socket/线程，无信号依赖。合并后 Windows 首跑暴露 `test_amplitude_of_a_sine_reads_the_peaks` 容差未按噪声物理给足（既有边界抖动，非本次引入；AMPL 与 PKPK 的天然差为几 σ + 一个码，原 2% 容差不够），已按同文件惯例 `8σ + 0.5/30` 修正 |
 | 新增用例不再把全量拉回 60 s | ✅ AGENTS.md 第 4 步新增规则：全量超过 60 s 必须在当前任务内立即处理，不许留给后续 issue |
+
+## 终端控制台 T4：可复现截图、演示录制、运行记录与文档（Issue 178，tui-design.md 6，D18、D47）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| `--script` 的步骤：`key`、`scpi`（外部客户端）、`advance`、`wait`、`caption`、`highlight`、`screenshot`；一个步骤里按键与字幕/高亮/停留可组合 | ✅ `tests/test_tui_t4_units.py`（解析与校验：未知字段、空步骤、`1.5s` / `200ms` 时长）、`tests/test_tui_t4.py` 与 `docs/tui/find-the-trip.steps.yaml`；`caption` 与 `highlight` 是修饰字段，可与 `key` 同步（tui-design.md 6 的例子现在合法） |
+| 输出 SVG；`--record` 输出逐帧 SVG 与 asciinema `.cast` | ✅ `test_record_writes_frames_and_a_playable_cast`：每个停留按 1/8 s 一帧、SVG 与同名截图相同、每帧一个终端文本事件且时间轴连续；CLI 端到端 `tests/test_tui_t4_e2e.py` 走 `simubench tui --script --record` |
+| `idle: off` + 固定种子 → 同一测试台 + 同一步骤逐字节相同的 SVG | ✅ `test_scripted_screenshots_are_byte_identical`（两次运行逐字节比较）；演示另固定 SCPI/HiSLIP 端口与外部客户端的源端口（`scpi.source_port`），日志里的 `脚本 :5401` 因此可复现 |
+| 运行记录屏幕（`R`）：列表、摘要、回放并报告第一处不同 | ✅ `screens/runs.py`：定宽列（开始/测试台/时钟/种子/事件/虚拟时长/大小）、选中行与“运行中（本会话）”、回放/摘要框；`test_runs_screen_lists_and_replays` 与 4 张 runs 快照（zh/en × 100×32、80×24）；修掉 `_render` 覆写（Textual 内部方法）与 `float` CSS 两处启动错误 |
+| README 与用户文档的 TUI 章节；“找到跳闸”演示 | ✅ README「终端控制台（TUI）」（两种启动方式、按键表入口、截图与 `--script` 命令）；`docs/tui/find-the-trip.steps.yaml` + `validation/benches/find-the-trip.bench.yaml`（预设跳闸）；`docs/tui/find-the-trip{,-error}.svg` 由该步骤生成 |
+| CI 重新生成文档截图逐字节一致 | ✅ `test_the_demo_regenerates_the_docs_screenshots`：在固定端口上重跑演示步骤，两张 SVG 与已提交文件逐字节相同 |
+| 演示脚本同时产生运行记录，截图中的状态可在记录中复核 | ✅ 同一测试断言 `--record-dir` 里恰有一条记录，含外部客户端 `socket:127.0.0.1:5401` 的 `:SYSTem:ERRor?`、预设跳闸的 `-300` 与 `fault` 事件（来源 `bench`）；CLI 端到端测试也确认只开一个会话、只留一条记录 |
+| `scripts/check.sh` 全绿 | ✅ 快速层 1088 项约 45 s；`-m "tui_boot"` 87 项约 44 s；ruff、schema、Web 的 check:api/typecheck/lint/test 全绿 |
+| 顺带修掉的问题 | ✅ 跳闸只关 `output`、漏掉 `output.enabled`（`sb-smu-1` 的输出没关，`tests/test_faults.py`）；字幕与底栏两个 bottom dock 落同一行（改为同一个 footer）；`NO_COLOR` 主题用空串当颜色让样式表解析失败、整个 TUI 起不来（改 `ansi_default`，快照测试固定颜色主题）；CLI 无头路径的相对导入、`describe()` 调用、`asyncio.run` 参数位置与重复开会话四处错误（`tests/test_tui_t4_e2e.py`） |
