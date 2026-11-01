@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import numpy as np
 
@@ -124,10 +124,13 @@ def parse_block(raw: bytes) -> bytes:
     return payload
 
 
-def parse_channel_list(raw: bytes) -> list[int]:
+def parse_channel_list(raw: bytes, exists: Callable[[int], bool] | None = None) -> list[int]:
     """A SCPI channel list ``(@1)``, ``(@1:3)``, ``(@101,102:110)`` — expanded, in list order.
 
     ``@`` is required; a descending range, a given-twice channel and an empty list are errors.
+    ``exists`` is the instrument's channel-number domain (#207): an explicitly written number and
+    both ends of a range must exist (-114), and numbers inside a range that the domain does not
+    declare are skipped — the 34970A manual's rule for a range that spans slots.
     """
     t = _text(raw).strip()
     if not (t.startswith("(@") and t.endswith(")")):
@@ -145,7 +148,13 @@ def parse_channel_list(raw: bytes) -> list[int]:
             raise ScpiError(-102, f"bad channel {part!r}") from None
         if hi < lo:
             raise ScpiError(-222, f"channel range {part!r} descends")
+        if exists is not None:
+            for n in (lo, hi):
+                if not exists(n):
+                    raise ScpiError(-114, f"channel {n} does not exist")
         for n in range(lo, hi + 1):
+            if exists is not None and not exists(n):
+                continue  # a gap between declared channels, e.g. 121-199 of a 3-slot DAQ
             if n in out:
                 raise ScpiError(-108, f"channel {n} is given twice")
             out.append(n)

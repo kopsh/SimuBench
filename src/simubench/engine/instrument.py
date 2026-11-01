@@ -162,6 +162,16 @@ class Instrument:
         self.instance = instance
         self.session = session
         self.channel_count = definition.channels.count
+        #: The numbers SCPI uses for the channels (#207, D51): number -> channel index, and back.
+        #: Empty when the definition declares no numbering: the numbers are the indexes 1..count.
+        self._channels_by_number: dict[int, int] = {}
+        self._numbers_by_channel: dict[int, int] = {}
+        offset = 0
+        for block in definition.channels.numbering:
+            for i in range(block.count):
+                self._channels_by_number[block.first + i] = offset + i + 1
+                self._numbers_by_channel[offset + i + 1] = block.first + i
+            offset += block.count
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
         #: A real model (D42): follows its manual's error texts and refuses what it does not model.
         self.real = definition.reference is not None
@@ -772,6 +782,29 @@ class Instrument:
         )
         return None, 0
 
+    # ---- the instrument's channel numbers (#207, D51) -------------------------------------------
+
+    def channel_number(self, channel: int) -> int:
+        """The channel's number on the bus: 101 for a DAQ's first channel, else its index."""
+        return self._numbers_by_channel.get(channel, channel)
+
+    def channel_exists(self, number: int) -> bool:
+        """Whether a SCPI channel number names a channel of this instrument."""
+        if self._channels_by_number:
+            return number in self._channels_by_number
+        return 1 <= number <= self.channel_count
+
+    def channel_index(self, number: int) -> int:
+        """The channel index (``ch<n>`` in the definition) that a SCPI channel number names."""
+        if self._channels_by_number:
+            index = self._channels_by_number.get(number)
+            if index is None:
+                raise ScpiError(-114, f"channel {number} does not exist")
+            return index
+        if not 1 <= number <= self.channel_count:
+            raise ScpiError(-114, f"channel {number} does not exist")
+        return number
+
     def _dispatch(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         self.settle_pending()
         if unit.common:
@@ -800,11 +833,14 @@ class Instrument:
                 refused = compiled.spec
                 continue
             channel = caps.get("ch")
-            if "ch" in caps:
-                channel = 1 if channel is None else channel
-                if not 1 <= channel <= self.channel_count:
-                    raise ScpiError(-114, f"channel {channel} does not exist")
-            return self._run(compiled, unit, channel, {k: (1 if v is None else v) for k, v in caps.items()})
+            if "ch" in caps and channel is not None:
+                channel = self.channel_index(channel)
+            elif "ch" in caps:
+                channel = 1  # no suffix written: the first channel
+            suffixes = {k: (1 if v is None else v) for k, v in caps.items()}
+            if "ch" in caps and caps["ch"] is None:
+                suffixes["ch"] = self.channel_number(1)  # the default channel's own number
+            return self._run(compiled, unit, channel, suffixes)
         if refused is not None:
             raise ScpiError(-224, f"{unit.raw_header}: parameter not modeled by SimuBench")
         named = self._builtin_named(tokens)
@@ -1036,11 +1072,12 @@ class Instrument:
         for ps in spec.params:
             if ps.type == "channel_list":
                 if raw:
-                    channels = V.parse_channel_list(raw.pop(0))
+                    numbers = V.parse_channel_list(raw.pop(0), self.channel_exists)
                 elif ps.optional:
-                    channels = list(ps.default or [1])
+                    numbers = ps.default or [self.channel_number(1)]
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
+                channels = [self.channel_index(n) for n in numbers]
             elif unit.query:
                 continue  # a query carries only the channel list
             elif not raw:
@@ -1051,9 +1088,6 @@ class Instrument:
                 values.append((ps, raw.pop(0)))
         if raw:
             raise ScpiError(-108)
-        for n in channels:
-            if not 1 <= n <= self.channel_count:
-                raise ScpiError(-114, f"channel {n} does not exist")
         if unit.query:
             parts = []
             for n in channels:
@@ -1179,7 +1213,9 @@ class Instrument:
         if st.type == "enum":
             return V.parse_enum(raw, st.options or [])
         if st.type == "int_list":
-            return V.parse_channel_list(raw)
+            # A declared channel numbering is the list's domain too (#207); without one the
+            # state's own min/max check the numbers, as before.
+            return V.parse_channel_list(raw, self.channel_exists if self._channels_by_number else None)
         return V.parse_string(raw)
 
     def format_number(self, value: float) -> bytes:
