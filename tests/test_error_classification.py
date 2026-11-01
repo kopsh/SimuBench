@@ -38,7 +38,7 @@ def test_a_command_the_coverage_marks_not_modeled(tmp_path):
         assert e["code"] == -113
         assert e["reason"] == "not_modeled"
         assert e["origin"].endswith("siglent-sds2104xplus.coverage.yaml")
-        assert "not modeled by SimuBench" in e["message"]  # the reply text stays (#172)
+        assert "not implemented in this definition" in e["message"]  # the reply text stays (#172)
     finally:
         s.close()
 
@@ -102,7 +102,7 @@ def test_a_builtin_the_definition_leaves_out(tmp_path):
         assert e["code"] == -113
         assert e["reason"] == "builtin_excluded"
         assert e["origin"].endswith("fluke-5522a.yaml")
-        assert "not modeled by SimuBench" in e["message"]  # the reply text stays (#172)
+        assert "not implemented in this definition" in e["message"]  # the reply text stays (#172)
     finally:
         s.close()
 

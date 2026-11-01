@@ -54,4 +54,4 @@
   steps:
     - send: "*CLS;CURR:NPLC 1"
     - query: ":SYST:ERR?"
-      expect: '-113,"Undefined header;not modeled by SimuBench"'
+      expect: '-113,"Undefined header;not implemented in this definition"'

@@ -4,7 +4,7 @@
 
 ## 0. 目标与衡量
 
-SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是**搭建仪表的能力**：工程师或 Agent（经 MCP）根据编程手册、或既有测试程序的接口契约，自己写出仪表定义，不需要修改 SimuBench 的源码。
+SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是**搭建仪表的能力**：工程师或 Agent（经 MCP）根据厂商手册、自己的设计规格、或在研仪表的接口契约，自己写出仪表定义，不需要修改 SimuBench 的源码。依据由作者提供和管理；带 `reference` 的定义与内置真实型号适用同一套检查（D42）。
 
 **衡量标准**：不改平台代码，只用 YAML 定义（第二遍：只通过 MCP 工具）重建低频校准工作台（[lowfreq-cal.md](lowfreq-cal.md)），并通过同一组验收测试（`tests/test_lowfreq_cal.py`、`acceptance/test_lowfreq_cal_scenario.py`）。
 

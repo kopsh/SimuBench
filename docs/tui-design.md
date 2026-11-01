@@ -61,7 +61,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 
 | 情况 | 依据 | 提示 |
 | --- | --- | --- |
-| 带覆盖表，覆盖表中有这条命令、标为“未实现” | 覆盖表 `<id>.coverage.yaml` | `未建模 · 覆盖表 <文件> 中标为未实现`：按作者的声明，是模型缺口而不是脚本的问题 |
+| 带覆盖表，覆盖表中有这条命令、标为“未实现” | 覆盖表 `<id>.coverage.yaml` | `未实现 · 覆盖表 <文件> 中标为未实现`：按作者的声明，是模型缺口而不是脚本的问题 |
 | 带覆盖表，覆盖表中没有这条命令 | 覆盖表中查不到 | `覆盖表 <文件> 中没有这条命令`：按作者的声明这个型号没有它，多半是脚本写错；附命令树中最接近的命令 |
 | 无覆盖表，定义中没有这条命令 | 定义文件 | `定义 <文件> 中没有这条命令`：可能是脚本写错，也可能是定义没写全；附最接近的命令与“在 Web 中打开定义” |
 | 定义设 `unknown_commands: ignore` | 定义文件 | `已忽略 · 定义设为 ignore` |
@@ -70,7 +70,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 
 带覆盖表时能按作者的声明区分“模型没做”与“脚本写错”，覆盖表是否完整、是否与依据一致由作者负责；没有覆盖表时，TUI 只如实说“定义中没有”，给出最接近的命令，由工程师判断，不替他下结论。
 
-**需要的引擎改动**：现在 `engine/instrument.py` 对带 `reference` 的定义中没有的命令一律记为 `reason: not_modeled`（回复 `-113,"…;not modeled by SimuBench"`），不区分“覆盖表中有、未实现”与“覆盖表中没有”；自建定义的 `-113` 没有分类，`ignore` 记为 `reason: unknown_command`。需要在错误事件中给出完整分类（`not_modeled`、`not_in_model`、`not_in_definition`、`ignored`、`builtin_excluded`、`bad_parameter`），带覆盖表的定义运行时按覆盖表查找，并附上最接近的命令；事件 schema 随之重新生成。覆盖表中没有的命令是否还应在回复中带 `not modeled by SimuBench`（这条命令本来就不属于这个型号）另开 issue 讨论，不在 TUI 范围内。
+**需要的引擎改动**：现在 `engine/instrument.py` 对带 `reference` 的定义中没有的命令一律记为 `reason: not_modeled`（回复 `-113,"…;not implemented in this definition"`），不区分“覆盖表中有、未实现”与“覆盖表中没有”；自建定义的 `-113` 没有分类，`ignore` 记为 `reason: unknown_command`。需要在错误事件中给出完整分类（`not_modeled`、`not_in_model`、`not_in_definition`、`ignored`、`builtin_excluded`、`bad_parameter`），带覆盖表的定义运行时按覆盖表查找，并附上最接近的命令；事件 schema 随之重新生成。覆盖表中没有的命令是否还应在回复中带 `not implemented in this definition`（这条命令本来就不属于这个型号）另开 issue 讨论，不在 TUI 范围内。
 
 ## 2. 架构：TUI 是服务的一个客户端
 
