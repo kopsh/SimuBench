@@ -36,7 +36,7 @@ def test_manifest_lists_definitions_with_hashes():
     ids = {d["id"] for d in m["definitions"]}
     assert {"sb-dso-4", "sb-smu-1", "sb-sg-1"} <= ids
     assert all(len(d["sha256"]) == 64 for d in m["definitions"])
-    assert m["dependencies"]["pydantic"] and "smu_core" in m["component_types"]
+    assert m["dependencies"]["pydantic"] and "smu_meter" in m["component_types"]
 
 
 def test_doctor_passes_here_and_reports_broken_benches(tmp_path):

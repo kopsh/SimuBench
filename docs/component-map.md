@@ -80,14 +80,14 @@ keysight-34465a 的三个缺口在例外清单;E1 落地后更新定义、删除
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| source_dac | `smu_source`(尚不存在) | 设置/数据(源功能、电平、源量程) | B1(#184)拆出 |
-| control_loop | `smu_control_loop`(尚不存在) | 电路(V/I 环与限值切换,D34) | B1 拆出 |
-| output_stage | `smu_output`(尚不存在) | 电路(HI/LO、sense、浮地、输出继电器) | B1 拆出 |
-| meter | `smu_meter`(尚不存在) | 电路(量程电阻)+ 数据(NPLC、A/D) | B1 拆出 |
+| source_dac | `smu_source` | 设置/数据(源功能、电平、源量程) | — |
+| control_loop | `output_control_loop` | 电路(V/I 环与限值切换,D34;B2 复用) | — |
+| output_stage | `smu_output` | 电路(HI/LO、sense、浮地、输出继电器;逐点更新模式) | — |
+| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | — |
 | trigger | `trigger_model` | 数据 | — |
 | buffer | `reading_buffer` | 数据 | — |
 
-现有 `sb-smu-1` 用整块 `smu_core`;B1 拆分后 validation 定义改用它,金标准与 SMU 验收场景不改通过。
+B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_output`、`smu_meter` 四个组件组成(测量组件仍名 `core`,前面板按 `core.voltage` 等取读数),34 条金标准消息的回复与虚拟时间逐条不变;控制环不引用 SMU 的组件,设定/限值/输出都经参数绑定,电源输出级(B2)直接复用。
 
 ## power_supply
 
@@ -97,7 +97,7 @@ keysight-34465a 的三个缺口在例外清单;E1 落地后更新定义、删除
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
 | setpoint_dac | `power_supply_setpoint`(尚不存在) | 设置/数据(每路电平、量程) | B2(#185)拆出 |
-| cv_cc_loop | `output_control_loop`(尚不存在) | 电路(CV/CC 交叉;复用 B1 的限值切换环) | B1 定接口,B2 落地 |
+| cv_cc_loop | `output_control_loop` | 电路(CV/CC 交叉;复用 B1 的限值切换环) | B1 已拆出,B2 绑定每路的设定 |
 | power_stage | `power_stage`(尚不存在) | 电路 | B2 |
 | output_stage | `power_output`(尚不存在) | 电路(继电器、sense) | B2 |
 | readback_adc | `supply_readback`(尚不存在) | 数据(电压/电流回读) | B2 |
@@ -211,4 +211,4 @@ keysight-34465a 的三个缺口在例外清单;E1 落地后更新定义、删除
 - 射频源的脉冲调制与任意波调制(#197 的未实现范围)。
 - DAQ 的可配置插卡、数字 I/O 与总加器(34907A,第二波)。
 - 频率计数器的 53230A 独有功能(无间隙测量、时间戳)。
-- 现有整块组件的债务:`smu_core`、`electronic_load`、`spectrum_analyzer`、`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。
+- 现有整块组件的债务:`electronic_load`、`spectrum_analyzer`、`rf_generator_core`、`lockin_demodulator` 由各自的拆分 issue 替换;5522A、SDG2042X 的拆分在第二波。

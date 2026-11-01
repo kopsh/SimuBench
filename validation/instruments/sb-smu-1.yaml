@@ -145,21 +145,9 @@ state:
     label: 列表
     label_en: List
 components:
-  - name: core
-    type: smu_core
+  - name: source
+    type: smu_source
     params:
-      function: $source.function
-      v_level: $source.voltage.level
-      i_level: $source.current.level
-      i_limit: $compliance.current.limit
-      v_limit: $compliance.voltage.limit
-      output: $output.enabled
-      remote_sense: $sense.remote
-      floating: $terminal.floating
-      nplc: $sense.nplc
-      autozero: $sense.autozero
-      line_freq: $system.line_freq
-      delay: $source.delay
       sweep_mode: $sweep.mode
       sweep_function: $sweep.function
       sweep_start: $sweep.start
@@ -167,6 +155,33 @@ components:
       sweep_points: $sweep.points
       sweep_delay: $sweep.delay
       sweep_list: $sweep.list
+  - name: loop
+    type: output_control_loop
+    params:
+      function: $source.function
+      v_level: $source.voltage.level
+      i_level: $source.current.level
+      i_limit: $compliance.current.limit
+      v_limit: $compliance.voltage.limit
+      output: $output.enabled
+      envelope: source
+  - name: out
+    type: smu_output
+    params:
+      output: $output.enabled
+      remote_sense: $sense.remote
+      floating: $terminal.floating
+      loop: loop
+  - name: core
+    type: smu_meter
+    params:
+      source: source
+      loop: loop
+      output: out
+      nplc: $sense.nplc
+      autozero: $sense.autozero
+      line_freq: $system.line_freq
+      delay: $source.delay
       buffer: mem
   - name: trig
     type: trigger_model
@@ -180,10 +195,10 @@ components:
     params: {digits: 7}
 ports:
   instrument:
-    HI: core.hi
-    LO: core.lo
-    SENSE_HI: core.sense_hi
-    SENSE_LO: core.sense_lo
+    HI: out.hi
+    LO: out.lo
+    SENSE_HI: out.sense_hi
+    SENSE_LO: out.sense_lo
 display:
   template: smu
   summary: [source.function, source.voltage.level, source.current.level, compliance.current.limit, compliance.voltage.limit, output.enabled]
@@ -198,11 +213,11 @@ commands:
   - header: "[:SOURce]:DELay"
     state: source.delay
   - header: "[:SENSe]:CURRent[:DC]:PROTection:TRIPped"
-    op: core.tripped
+    op: loop.tripped
     set: false
     args: {kind: current}
   - header: "[:SENSe]:VOLTage[:DC]:PROTection:TRIPped"
-    op: core.tripped
+    op: loop.tripped
     set: false
     args: {kind: voltage}
   - header: "[:SENSe]:CURRent[:DC]:PROTection[:LEVel]"
@@ -227,43 +242,43 @@ commands:
   - header: ":SYSTem:FLOATing"
     state: terminal.floating
   - header: ":OUTPut:REGulation"
-    op: core.regulation
+    op: loop.regulation
     set: false
   - header: ":STATus:MEASurement:CONDition"
-    op: core.condition
+    op: loop.condition
     set: false
   - header: "[:SOURce]:SWEep:VOLTage:LINear"
-    op: core.sweep
+    op: source.sweep
     query: false
     dangerous: true
     args: {function: VOLTage, kind: LINear}
     params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
   - header: "[:SOURce]:SWEep:CURRent:LINear"
-    op: core.sweep
+    op: source.sweep
     query: false
     dangerous: true
     args: {function: CURRent, kind: LINear}
     params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
   - header: "[:SOURce]:SWEep:VOLTage:LOGarithmic"
-    op: core.sweep
+    op: source.sweep
     query: false
     dangerous: true
     args: {function: VOLTage, kind: LOGarithmic}
     params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
   - header: "[:SOURce]:SWEep:CURRent:LOGarithmic"
-    op: core.sweep
+    op: source.sweep
     query: false
     dangerous: true
     args: {function: CURRent, kind: LOGarithmic}
     params: [{name: start, type: float}, {name: stop, type: float}, {name: points, type: int}, {name: delay, type: float, optional: true}]
   - header: "[:SOURce]:SWEep:VOLTage:LIST"
-    op: core.sweep
+    op: source.sweep
     query: false
     dangerous: true
     args: {function: VOLTage, kind: LIST}
     params: [{name: values, type: raw}]
   - header: "[:SOURce]:SWEep:CURRent:LIST"
-    op: core.sweep
+    op: source.sweep
     query: false
     dangerous: true
     args: {function: CURRent, kind: LIST}
