@@ -256,6 +256,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Coverage
+         * @description The real model's coverage table next to the definition (D42): every command of the manual
+         *     and how far SimuBench goes; null when the definition has none.
+         */
+        get: operations["getDefinitionCoverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/{def_id}/document": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Document
+         * @description The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance
+         *     page to notice a change made elsewhere and reload.
+         */
+        get: operations["getDefinitionDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions/{def_id}/history": {
         parameters: {
             query?: never;
@@ -871,6 +913,47 @@ export interface paths {
          * @description Set one of the try session's settings (the same interface as a bench session's).
          */
         post: operations["tryConfigure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{sid}/instrument": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Try Instrument
+         * @description The try session's instrument: identity, ports, settings, front panel and deviations (the
+         *     acceptance page's overview and settings tables).
+         */
+        get: operations["getTryInstrument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/try/{sid}/internals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Try Internals
+         * @description The try session's read-only component graph (issue 20), as the acceptance page shows it.
+         */
+        get: operations["getTryInstrumentInternals"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1505,6 +1588,30 @@ export interface components {
             to: string;
         };
         /**
+         * CoverageEntryInfo
+         * @description One command of a real model's coverage table (D42).
+         */
+        CoverageEntryInfo: {
+            /**
+             * Header
+             * @description Header as the definition writes it, e.g. '[:SENSe]:VOLTage:NPLC'
+             */
+            header: string;
+            /**
+             * Level
+             * @description implemented: modeled; accepted: parsed and stored without effect on the data; not_modeled: answers -113
+             * @enum {string}
+             */
+            level: "implemented" | "accepted" | "not_modeled";
+            /** Note */
+            note: string | null;
+            /**
+             * Section
+             * @description The manual section the command is listed under
+             */
+            section: string;
+        };
+        /**
          * DefinitionChange
          * @description One change between two versions of a definition, in the instrument's language (T3): the
          *     category, the object, and the old and new values. Labels (新增、删除、范围…) are the
@@ -1556,6 +1663,65 @@ export interface components {
             changes: components["schemas"]["DefinitionChange"][];
             /** Target */
             target: number;
+        };
+        /**
+         * DefinitionCoverage
+         * @description A real model's coverage table: every command of its manual and how far SimuBench goes
+         *     (the acceptance page's command list; none for definitions without a reference).
+         */
+        DefinitionCoverage: {
+            /** Entries */
+            entries: components["schemas"]["CoverageEntryInfo"][];
+            /** Model */
+            model: string;
+            /**
+             * Stats
+             * @description Counts by level: implemented, accepted, not_modeled
+             */
+            stats: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * DefinitionDocument
+         * @description An instrument definition's content as stored, with its static-check diagnostics.
+         */
+        DefinitionDocument: {
+            /**
+             * Changes
+             * @description What this save changed (edit, create, restore): relative to the previous version of the file; empty when nothing did (a read, or a save that only reorders keys)
+             */
+            changes: components["schemas"]["DefinitionChange"][];
+            /** Data */
+            data: {
+                [key: string]: unknown;
+            };
+            /** Diagnostics */
+            diagnostics: components["schemas"]["Diagnostic"][];
+            /**
+             * Editable
+             * @description False for definitions outside the workspace (built in or on the search path): create a copy under a new id to change one
+             */
+            editable: boolean;
+            /** Id */
+            id: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Path
+             * @description Workspace-relative file, e.g. instruments/acme-x1.yaml
+             */
+            path: string | null;
+            /**
+             * Sessions To Restart
+             * @description Running sessions that use an older version of this definition
+             */
+            sessions_to_restart: string[];
+            /**
+             * Sha256
+             * @description Hash of the file bytes; pass back as base_sha256 to edit
+             */
+            sha256: string;
         };
         /** DefinitionSummary */
         DefinitionSummary: {
@@ -4240,6 +4406,68 @@ export interface operations {
             };
         };
     };
+    getDefinitionCoverage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionCoverage"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDefinitionDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionDocument"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     definitionHistory: {
         parameters: {
             query?: never;
@@ -5355,6 +5583,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConfigureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getTryInstrument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getTryInstrumentInternals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentInternals"];
                 };
             };
             /** @description Validation Error */

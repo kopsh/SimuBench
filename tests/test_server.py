@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import socket
 import threading
 import time
@@ -324,3 +325,45 @@ def test_definition_cases_are_listed_and_run_with_steps(tmp_path):
             == 404
         )
         assert c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "../x.yaml"}).status_code == 403
+
+
+def test_definition_document_and_coverage_are_served():
+    """The acceptance page reloads on the file hash and shows a real model's coverage (T4)."""
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        doc = c.get("/api/definitions/sb-dmm-1/document").json()
+        assert doc["editable"] and doc["path"] == "instruments/sb-dmm-1.yaml" and doc["ok"]
+        assert (
+            doc["sha256"]
+            == hashlib.sha256(
+                (ROOT / "validation" / "instruments" / "sb-dmm-1.yaml").read_bytes()
+            ).hexdigest()
+        )
+        # a built-in definition is read only: the page can show it, the agent must copy it to edit
+        builtin = c.get("/api/definitions/keysight-34465a/document").json()
+        assert builtin["editable"] is False and builtin["path"] is None and builtin["ok"]
+        cov = c.get("/api/definitions/keysight-34465a/coverage").json()
+        assert cov["model"] == "keysight-34465a"
+        assert sum(cov["stats"].values()) == len(cov["entries"])
+        assert cov["stats"]["implemented"] > 0 and cov["stats"]["not_modeled"] > 0
+        assert all(e["section"] and e["header"] for e in cov["entries"])
+        assert c.get("/api/definitions/sb-dmm-1/coverage").json() is None  # not a real model
+        assert c.get("/api/definitions/no-such-def/document").status_code == 404
+        assert c.get("/api/definitions/no-such-def/coverage").status_code == 404
+
+
+def test_try_session_instrument_and_internals(client):
+    """A try session is inspectable like a bench instrument, without a bench (T4)."""
+    sid = client.post("/api/try/sb-dmm-1").json()["session_id"]
+    inst = client.get(f"/api/try/{sid}/instrument").json()
+    assert inst["name"] == "sb-dmm-1" and inst["definition_id"] == "sb-dmm-1"
+    assert inst["idn"].startswith("SIMUBENCH,SB-DMM-1")
+    assert {p["name"] for p in inst["ports"]} == {"IN"}
+    assert inst["state"] and inst["deviation"] == "nominal"
+    view = client.get(f"/api/try/{sid}/internals").json()
+    assert view["definition_id"] == "sb-dmm-1" and view["components"]
+    client.delete(f"/api/try/{sid}")
+    assert client.get(f"/api/try/{sid}/instrument").status_code == 404
+    assert client.get(f"/api/try/{sid}/internals").status_code == 404

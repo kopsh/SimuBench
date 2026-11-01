@@ -7,7 +7,11 @@ export type Selection =
   | { kind: "net"; id: string }
   | null;
 
-export type Tab = { kind: "canvas" } | { kind: "screen"; instrument: string } | { kind: "internals"; instrument: string };
+export type Tab =
+  | { kind: "canvas" }
+  | { kind: "screen"; instrument: string }
+  | { kind: "internals"; instrument: string }
+  | { kind: "acceptance"; instrument: string };
 export type Mode = "run" | "edit";
 
 interface WorkbenchState {
@@ -25,6 +29,8 @@ interface WorkbenchState {
   openScreen: (instrument: string) => void;
   /** The read-only view of an instrument's components (issue 20). */
   openInternals: (instrument: string) => void;
+  /** The definition's acceptance page (T4): overview, commands, internals, try run, cases, history. */
+  openAcceptance: (instrument: string) => void;
   closeTab: (key: string) => void;
   setActive: (key: string) => void;
   setPalette: (open: boolean) => void;
@@ -62,6 +68,7 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   select: (selection) => set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection })),
   openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
   openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),
+  openAcceptance: (instrument) => set((s) => openTab(s.tabs, { kind: "acceptance", instrument })),
   closeTab: (key) =>
     set((s) => {
       if (key === "canvas") return s;

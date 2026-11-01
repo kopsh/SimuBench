@@ -2,6 +2,18 @@ import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tansta
 import i18n from "@/i18n";
 import { toast } from "sonner";
 import { confirmClients, remoteInstrument } from "@/components/app/ClientsConfirm";
+import type {
+  CaseFile,
+  DefinitionDocument,
+  CaseRunResult,
+  DefinitionChangeList,
+  DefinitionCoverage,
+  DefinitionVersion,
+  InstrumentInfo,
+  InstrumentInternals,
+  ScpiResponse,
+  TryOpened,
+} from "./client";
 import { type FaultSpec, api, unwrap } from "./client";
 
 export const keys = {
@@ -20,6 +32,14 @@ export const keys = {
   version: (path: string, seq: number) => ["bench-version", path, seq] as const,
   runs: ["runs"] as const,
   run: (id: string) => ["run", id] as const,
+  definition: (id: string) => ["definition", id] as const,
+  definitionDoc: (id: string) => ["definition-document", id] as const,
+  coverage: (id: string) => ["definition-coverage", id] as const,
+  definitionHistory: (id: string) => ["definition-history", id] as const,
+  definitionChanges: (id: string, base: number, target: number) => ["definition-changes", id, base, target] as const,
+  definitionCases: (id: string) => ["definition-cases", id] as const,
+  tryInstrument: (sid: string) => ["try-instrument", sid] as const,
+  tryInternals: (sid: string) => ["try-internals", sid] as const,
 };
 
 export function useCatalog() {
@@ -299,5 +319,134 @@ export function useNetProbe(sid: string, net: string | null | undefined, version
     queryFn: () => unwrap(api.GET("/api/sessions/{sid}/nets/{net}/probe", { params: { path: { sid, net: net! } } })),
     enabled: !!net,
     placeholderData: (prev) => prev,
+  });
+}
+
+// ---- an instrument definition's acceptance page (T4, instrument-authoring.md 7.2) -----------------
+
+/** The definition as stored (hash, diagnostics); polled so a change made elsewhere is noticed. */
+export function useDefinitionDocument(id: string, pollMs: number | false = 2000) {
+  return useQuery<DefinitionDocument>({
+    queryKey: keys.definitionDoc(id),
+    queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/document", { params: { path: { def_id: id } } })),
+    enabled: !!id,
+    refetchInterval: pollMs,
+  });
+}
+
+/** The definition as the engine loads it (defaults applied); fetched again when the file hash moves. */
+async function fetchDefinition(id: string) {
+  return unwrap(api.GET("/api/definitions/{def_id}", { params: { path: { def_id: id } } }));
+}
+
+/** A definition as the engine loads it, the shape every acceptance tab reads. */
+export type DefinitionData = Awaited<ReturnType<typeof fetchDefinition>>;
+
+export function useDefinition(id: string, sha = "") {
+  return useQuery({
+    queryKey: [...keys.definition(id), sha],
+    queryFn: () => fetchDefinition(id),
+    enabled: !!id,
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
+  });
+}
+
+/** A real model's coverage table; null for definitions without one (D42). */
+export function useDefinitionCoverage(id: string, sha = "") {
+  return useQuery<DefinitionCoverage | null>({
+    queryKey: [...keys.coverage(id), sha],
+    queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/coverage", { params: { path: { def_id: id } } })),
+    enabled: !!id,
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
+  });
+}
+
+/** Saved versions of a workspace definition, newest first, with what each one changed (T3). */
+export function useDefinitionHistory(id: string, sha = "", enabled = true) {
+  return useQuery<DefinitionVersion[]>({
+    queryKey: [...keys.definitionHistory(id), sha],
+    queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/history", { params: { path: { def_id: id } } })),
+    enabled: enabled && !!id,
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
+  });
+}
+
+/** The changes between two saved versions (base 0: the creation); versions never change. */
+export function useDefinitionChanges(id: string, base: number, target: number) {
+  return useQuery<DefinitionChangeList>({
+    queryKey: keys.definitionChanges(id, base, target),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/definitions/{def_id}/history/changes", {
+          params: { path: { def_id: id }, query: { base, target } },
+        }),
+      ),
+    enabled: target > 0,
+    staleTime: Infinity,
+  });
+}
+
+/** The workspace's cases files whose model is this definition. */
+export function useDefinitionCases(id: string) {
+  return useQuery<CaseFile[]>({
+    queryKey: keys.definitionCases(id),
+    queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/cases", { params: { path: { def_id: id } } })),
+    enabled: !!id,
+  });
+}
+
+/** Run a cases file: every case on a freshly powered bench, each step with expected and got. */
+export function useRunDefinitionCases(id: string) {
+  return useMutation<CaseRunResult, Error, string>({
+    mutationFn: (path: string) =>
+      unwrap(api.POST("/api/definitions/{def_id}/cases/run", { params: { path: { def_id: id } }, body: { path } })),
+  });
+}
+
+/** Open (or reopen: it replaces the same definition's session) a try session. */
+export function useOpenTry() {
+  return useMutation<TryOpened, Error, string>({
+    mutationFn: (defId: string) => unwrap(api.POST("/api/try/{def_id}", { params: { path: { def_id: defId } } })),
+  });
+}
+
+export function useCloseTry() {
+  return useMutation<void, Error, string>({
+    mutationFn: (sid: string) => unwrap(api.DELETE("/api/try/{sid}", { params: { path: { sid } } })),
+  });
+}
+
+/** The try session's instrument (identity, settings, panel, deviations); polled, which also keeps
+ * the temporary session from being reaped while the page is open. */
+export function useTryInstrument(sid: string | undefined, version = 0) {
+  return useQuery<InstrumentInfo>({
+    queryKey: [...keys.tryInstrument(sid ?? ""), version],
+    queryFn: () => unwrap(api.GET("/api/try/{sid}/instrument", { params: { path: { sid: sid! } } })),
+    enabled: !!sid,
+    placeholderData: (prev) => prev,
+    refetchInterval: 3000,
+    retry: (count, err) => (err as { status?: number }).status !== 404 && count < 2,
+  });
+}
+
+/** The try session's component graph (issue 20): the acceptance page's internals tab. */
+export function useTryInternals(sid: string | undefined, version = 0) {
+  return useQuery<InstrumentInternals>({
+    queryKey: [...keys.tryInternals(sid ?? ""), version],
+    queryFn: () => unwrap(api.GET("/api/try/{sid}/internals", { params: { path: { sid: sid! } } })),
+    enabled: !!sid,
+    placeholderData: (prev) => prev,
+    staleTime: Infinity,
+  });
+}
+
+/** One program message to the try session's instrument. */
+export function useTryScpi(sid: string | undefined) {
+  return useMutation<ScpiResponse, Error, string>({
+    mutationFn: (command: string) =>
+      unwrap(api.POST("/api/try/{sid}/scpi", { params: { path: { sid: sid! } }, body: { command } })),
   });
 }

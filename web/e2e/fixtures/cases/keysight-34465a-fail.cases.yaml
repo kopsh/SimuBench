@@ -1,0 +1,8 @@
+# Acceptance-page end-to-end fixture: one case that fails, so expected and actual are both shown.
+model: keysight-34465a
+cases:
+  - name: "故意写错的期望值"
+    manual: "Acceptance page test"
+    steps:
+      - query: "*IDN?"
+        expect: "ACME,DM1"
