@@ -31,6 +31,7 @@ from ..models.bench import Fault
 from ..models.definition import InstrumentDefinition
 from .benchfiles import Conflict, diagnostics
 from .catalog import components as component_catalog
+from .definitionfiles import DefinitionFiles
 from .manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager, _plain
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -131,6 +132,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return manager.bench_files()
 
     files = manager.files
+    definition_files = DefinitionFiles(files)
 
     def file_errors(fn: Any) -> Any:
         try:
@@ -372,6 +374,37 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             return library.get(def_id)
         except KeyError as exc:
             raise not_found(exc) from None
+
+    @app.get(
+        "/api/definitions/{def_id}/history",
+        response_model=list[M.DefinitionVersion],
+        operation_id="definitionHistory",
+        dependencies=[Depends(auth)],
+    )
+    def definition_history(def_id: str) -> list[M.DefinitionVersion]:
+        """Saved versions of a workspace definition, newest first, each with what it changed since
+        the previous one, in the instrument's language (the acceptance page's change log, T3)."""
+        try:
+            return definition_files.versions(def_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @app.get(
+        "/api/definitions/{def_id}/history/changes",
+        response_model=M.DefinitionChangeList,
+        operation_id="definitionChanges",
+        dependencies=[Depends(auth)],
+    )
+    def definition_change_list(
+        def_id: str, base: int = Query(...), target: int = Query(...)
+    ) -> M.DefinitionChangeList:
+        """The changes between any two versions (base 0 compares against nothing: the creation)."""
+        try:
+            return definition_files.changes_between(def_id, base, target)
+        except FileNotFoundError:
+            raise HTTPException(404, "no such version") from None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
 
     # ---- try a definition without a bench (7.2, T2) ---------------------------------------------------
 
