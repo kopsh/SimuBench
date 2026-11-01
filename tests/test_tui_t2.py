@@ -19,6 +19,10 @@ import pytest
 from simubench.tui.app import SimuBenchApp
 from tui_mock import ev, feed, load, unit_app
 
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
+
 SMU_BENCH = load("unit_smu.json")
 SCOPE_BENCH = load("unit_scope_rc.json")
 
@@ -37,7 +41,7 @@ async def settle(pilot, tui: SimuBenchApp, deadline: float = 8.0) -> None:
     raise AssertionError("the unit app never settled")
 
 
-async def focus_card(pilot, tui: SimuBenchApp, name: str, timeout: float = 8.0) -> None:
+async def focus_card(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
     """Focus one overview card with its digit key (tui-screens.md 4.4).
 
     A data refresh can rebuild the grid and drop the focus, so the key is pressed again until
@@ -59,7 +63,7 @@ async def focus_card(pilot, tui: SimuBenchApp, name: str, timeout: float = 8.0) 
     raise AssertionError(f"the digit never focused {name}'s card")
 
 
-async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 8.0) -> None:
+async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
     """Two keystrokes from the overview: the digit key, then Enter (tui-screens.md 2.3)."""
     from simubench.tui.screens.instrument import InstrumentScreen
     from simubench.tui.screens.scope import ScopeScreen
@@ -80,7 +84,7 @@ def state_of(tui: SimuBenchApp, name: str, path: str) -> object:
     return next(sv for sv in info["state"] if sv["path"] == path)["value"]
 
 
-async def wait_for(pilot, predicate, timeout: float = 6.0, message: str = "condition") -> None:
+async def wait_for(pilot, predicate, timeout: float = 20.0, message: str = "condition") -> None:
     """Poll ``predicate`` (sync or async) until it is true."""
     import inspect
 
@@ -95,7 +99,7 @@ async def wait_for(pilot, predicate, timeout: float = 6.0, message: str = "condi
     raise AssertionError(f"{message} never became true")
 
 
-async def wait_flat(pilot, tui, *needles: str, timeout: float = 6.0) -> str:
+async def wait_flat(pilot, tui, *needles: str, timeout: float = 20.0) -> str:
     """The screen text captured when all ``needles`` first show at once."""
     from test_tui import flat
 

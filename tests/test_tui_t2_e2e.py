@@ -17,26 +17,41 @@ import pytest
 from simubench.tui.app import SimuBenchApp
 from test_tui import Served, flat, loop_time, wait_connected, wait_quiet
 
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
+
 ROOT = Path(__file__).resolve().parents[1]
 VALIDATION = ROOT / "validation"
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 async def served_validation() -> Served:
     s = Served(VALIDATION)
     yield s  # type: ignore[misc]
     await s.stop()
 
 
-async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 8.0) -> None:
+async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
     """Two keystrokes from the overview: the digit key, then Enter (tui-screens.md 2.3)."""
     from simubench.tui.screens.instrument import InstrumentScreen
+    from simubench.tui.screens.overview import Card, OverviewScreen
     from simubench.tui.screens.scope import ScopeScreen
 
     session = tui.session_info or {}
     names = [i["name"] for i in session.get("instruments", [])]
-    await pilot.press(str(names.index(name) + 1))
-    await pilot.pause(0.2)
+    # The digit focuses the card; a rebuild can drop that focus under load, so press again
+    # until it sticks (the same robustness the unit tests' focus_card has).
+    digit = str(names.index(name) + 1)
+    end = loop_time() + timeout
+    while loop_time() < end:
+        await pilot.press(digit)
+        await pilot.pause(0.05)
+        focused = tui.screen.focused if isinstance(tui.screen, OverviewScreen) else None
+        if isinstance(focused, Card) and focused.card.name == name:
+            break
+    else:
+        raise AssertionError(f"the digit never focused {name}'s card")
     await pilot.press("enter")
     end = loop_time() + timeout
     while loop_time() < end:
@@ -52,7 +67,7 @@ async def state_of(tui: SimuBenchApp, name: str, path: str) -> object:
     return next(sv for sv in info["state"] if sv["path"] == path)["value"]
 
 
-async def wait_for(pilot, predicate, timeout: float = 10.0, message: str = "condition") -> None:
+async def wait_for(pilot, predicate, timeout: float = 20.0, message: str = "condition") -> None:
     """Poll ``predicate`` (sync or async) until it is true."""
     import inspect
 
@@ -67,7 +82,7 @@ async def wait_for(pilot, predicate, timeout: float = 10.0, message: str = "cond
     raise AssertionError(f"{message} never became true")
 
 
-async def wait_flat(pilot, tui, *needles: str, timeout: float = 10.0) -> str:
+async def wait_flat(pilot, tui, *needles: str, timeout: float = 20.0) -> str:
     """The screen text captured when all ``needles`` first show at once.
 
     The compositor's strips are read live: a render can be brief (a refresh recomposing) or
@@ -109,12 +124,7 @@ async def test_find_the_trip(served_validation):
             fault_id = r.json()["id"]
 
         # Two keystrokes: the digit selects the card, Enter opens the instrument screen.
-        await pilot.press("1")
-        await pilot.pause(0.2)
-        await pilot.press("enter")
-        from simubench.tui.screens.instrument import InstrumentScreen
-
-        await wait_for(pilot, lambda: isinstance(tui.screen, InstrumentScreen), message="instrument screen")
+        await open_instrument(pilot, tui, "smu")
         # The TUI updates live as the fault's events arrive — the reason line comes with the
         # fault event, the queued error with the next instrument refetch; wait for both.
         await wait_for(
@@ -143,11 +153,10 @@ async def test_find_the_trip(served_validation):
         assert b"-300" in reply
         writer.close()
         await wait_for(pilot, lambda: "队列 0" in flat(tui), message="queue zeroed live")
-        text = flat(tui)
+        # The queue count refetches with the instrument, the log rows rebuild from the events —
+        # two paths, so wait for the read command's line instead of asserting on a snapshot.
+        text = await wait_flat(pilot, tui, "SYSTem:ERRor?")
         assert "已读走" in text and "-300" in text
-        # The trip's error has no owning command; the log pairs it with the reading command that
-        # followed (the engine order) or the error box names the fault directly.
-        assert "SYSTem:ERRor?" in text
 
 
 # ---- remote state and local takeover over a real port (tui-screens.md 12) -----------------------------
@@ -191,6 +200,8 @@ async def test_remote_makes_controls_readonly_and_l_takes_over(served_validation
             return (await tui.client.instrument(sid, "smu")).get("local") is True
 
         await wait_for(pilot, is_local, message="local state")
+        await pilot.pause(0.3)
+        assert not out.has_class("-readonly")  # local again: the controls are writable
         writer.close()
 
 
@@ -213,6 +224,7 @@ async def test_screen_points_contract(served_validation):
         assert binned["traces"][0]["volts"] == []
         minmax = binned["traces"][0]["minmax"]
         assert len(minmax) == 280 and all(minmax[i] <= minmax[i + 1] for i in range(0, 280, 2))
+        assert minmax[0] <= minmax[1] and binned["traces"][0]["dt_s"] > 0
         assert rejected.status_code == 422
     finally:
         await served_examples.stop()

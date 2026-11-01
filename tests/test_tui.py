@@ -26,6 +26,10 @@ from simubench.tui.fmt import braille, fmt, fmt_ns
 from simubench.tui.log import build_lines, pending_writes, source_label
 from simubench.tui.store import EventStore
 
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
+
 TEXT = "终端控制台需要可选依赖：pip install 'simubench[tui]'"
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -356,7 +360,7 @@ async def stop_uvicorn(server, thread: threading.Thread) -> None:
         thread.join(timeout=5)
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 async def served() -> AsyncIterator[Served]:
     s = Served(ROOT / "examples/benches")
     yield s

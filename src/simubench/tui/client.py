@@ -137,9 +137,7 @@ class ApiClient:
     async def screen(self, sid: str, name: str, points: int | None = None) -> dict[str, Any]:
         """The scope screen's frame; ``points`` (tui-screens.md 6.1) bins each trace."""
         suffix = f"?points={points}" if points else ""
-        return await self._request(
-            "GET", f"/api/sessions/{sid}/instruments/{name}/screen{suffix}"
-        )  # type: ignore[no-any-return]
+        return await self._request("GET", f"/api/sessions/{sid}/instruments/{name}/screen{suffix}")  # type: ignore[no-any-return]
 
     async def levels(self, sid: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/sessions/{sid}/levels")  # type: ignore[no-any-return]

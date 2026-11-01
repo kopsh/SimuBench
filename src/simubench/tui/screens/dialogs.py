@@ -387,7 +387,10 @@ class ScpiConsole(Vertical):
                 Static(i18n.t("console.prompt", lang, instrument=instrument), id="console-prompt"),
                 self._input,
                 Static(
-                    i18n.t("console.send", lang) + "  " + i18n.t("console.history", lang) + "  "
+                    i18n.t("console.send", lang)
+                    + "  "
+                    + i18n.t("console.history", lang)
+                    + "  "
                     + i18n.t("console.close", lang),
                     id="console-hints",
                 ),
@@ -404,7 +407,10 @@ class ScpiConsole(Vertical):
             i18n.t("console.prompt", lang, instrument=self.instrument)
         )
         self.query_one("#console-hints", Static).update(
-            i18n.t("console.send", lang) + "  " + i18n.t("console.history", lang) + "  "
+            i18n.t("console.send", lang)
+            + "  "
+            + i18n.t("console.history", lang)
+            + "  "
             + i18n.t("console.close", lang)
         )
 

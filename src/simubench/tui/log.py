@@ -138,7 +138,9 @@ def source_label(ev: Mapping[str, Any], lang: str = "zh") -> str:
         return t(f"source.{client}", lang)
     for scheme in ("socket:", "hislip:"):
         if client.startswith(scheme):
-            host, _, port = client[len(scheme) :].rpartition(":")
+            # A HiSLIP client is `hislip:<host>:<port>#<session>`; the label shows the port (1.5).
+            endpoint = client[len(scheme) :].split("#", 1)[0]
+            host, _, port = endpoint.rpartition(":")
             if host in ("", "127.0.0.1", "localhost"):
                 return t("source.script_port", lang, port=port)
             return t("source.script_host_port", lang, host=host, port=port)

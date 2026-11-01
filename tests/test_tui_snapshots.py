@@ -17,6 +17,10 @@ from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
 
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
+
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "tests/data/tui/demo.bench.yaml"
 
