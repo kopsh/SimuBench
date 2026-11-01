@@ -1,0 +1,24 @@
+schema: simubench.bench/2
+name: daq_scan
+description: >-
+  DAQ 场景（E2 #191）：三个 1 V / 2 V / 4 V 参考（各经 1 MΩ）接在 34901A 的 101/102/103 通道，
+  L 端共 0 V。闭合继电器后内部 DMM 的 10 MΩ 与源内阻分压，读数约为设定的 10/11。
+instruments:
+  daq:
+    model: sb-daq-1
+    state:
+      scan.list: [101, 102, 103]
+      scan.count: 1
+parts:
+  v1: {type: dc_supply, params: {v: 1.0, r: 1.0e6}}
+  v2: {type: dc_supply, params: {v: 2.0, r: 1.0e6}}
+  v3: {type: dc_supply, params: {v: 4.0, r: 1.0e6}}
+  v0: {type: dc_supply, params: {v: 0.0, r: 1.0e-6}}
+wires:
+  - {from: v1.OUT, to: daq.H101}
+  - {from: v2.OUT, to: daq.H102}
+  - {from: v3.OUT, to: daq.H103}
+  - {from: v0.OUT, to: daq.L101}
+  - {from: v0.OUT, to: daq.L102}
+  - {from: v0.OUT, to: daq.L103}
+run: {clock: command, seed: 1}

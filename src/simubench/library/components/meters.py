@@ -327,6 +327,15 @@ class DmmAdc(Component):
             return store.coefficients(function)
         return float(self.param("cal_gain")), float(self.param("cal_offset"))
 
+    def measure(self, what: str | None = None) -> float:
+        """One reading with the auto-range decision a measurement command makes (the reading
+        itself, unformatted): what the trigger's sampler and the scan table take per point."""
+        conditioning = self._conditioning()
+        function = conditioning.active_function(what)
+        if _flag(conditioning.param("autorange")) and conditioning.ranges(function):
+            conditioning.autorange_to(function, conditioning.true_values()[function])
+        return self.reading(function)
+
     def readings(self) -> dict[str, Any]:
         values: dict[str, Any] = {"DC": self.reading("DC"), "AC": self.reading("AC")}
         if self.session.reveal_true_values:
@@ -343,11 +352,7 @@ class DmmAdc(Component):
 
     @op("measure")
     def op_measure(self, what: str | None = None, **_: Any) -> OpResult:
-        conditioning = self._conditioning()
-        function = conditioning.active_function(what)
-        if _flag(conditioning.param("autorange")) and conditioning.ranges(function):
-            conditioning.autorange_to(function, conditioning.true_values()[function])
-        return OpResult(V.format_float(self.reading(function), int(self.param("digits"))))
+        return OpResult(V.format_float(self.measure(what), int(self.param("digits"))))
 
     @op("range")
     def op_range(self, query: bool = False, **_: Any) -> OpResult:

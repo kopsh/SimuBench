@@ -1314,12 +1314,15 @@ class Instrument:
         for ps in specs:
             if ps.type == "channel_list":
                 if i < len(raw):
-                    out[ps.name] = V.parse_channel_list(raw[i])
+                    numbers = V.parse_channel_list(raw[i], self.channel_exists)
                     i += 1
                 elif ps.optional:
-                    out[ps.name] = list(ps.default or [1])
+                    numbers = ps.default or [self.channel_number(1)]
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
+                # Operations run once per channel with the channel index (as a <n> suffix does);
+                # the list's numbers are the instrument's own (#207).
+                out[ps.name] = [self.channel_index(n) for n in numbers]
                 continue
             if ps.type == "float_list":
                 out[ps.name] = V.parse_float_list(raw[i:], ps.unit) if i < len(raw) else []
