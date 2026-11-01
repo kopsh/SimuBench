@@ -125,7 +125,9 @@ class TrySessions:
             entry = self._tries.get(sid)
             if entry is None:
                 raise KeyError(sid)
-            if time.monotonic() - entry.used > self.idle_s:
+            # ``>=``: with ``idle_s == 0`` the session is reaped on the first look even when the
+            # clock tick has not advanced (Windows' monotonic resolution is ~15.6 ms).
+            if time.monotonic() - entry.used >= self.idle_s:
                 self._close(sid)
                 raise KeyError(sid)
             entry.used = time.monotonic()
@@ -149,7 +151,7 @@ class TrySessions:
 
     def _sweep(self) -> None:
         now = time.monotonic()
-        for sid in [sid for sid, e in self._tries.items() if now - e.used > self.idle_s]:
+        for sid in [sid for sid, e in self._tries.items() if now - e.used >= self.idle_s]:
             self._close(sid)
 
 
