@@ -393,13 +393,15 @@
 
 ## D42 内置仪表都是真实型号
 
-- **结论**：内置仪表（随软件包发布、出现在元件库、MCP `list_catalog` 与命令行中的仪表）都是按真实型号实现的定义（如 Siglent SDS2104X Plus、Keysight 34465A）。命令行为以该型号的编程手册为准；测量值仍来自电路求解（D13）。规则见 [real-models.md](real-models.md)。
+- **结论**：内置仪表（随软件包发布、出现在元件库、MCP `list_catalog` 与命令行中的仪表）都是按真实型号实现的定义（如 Siglent SDS2104X Plus、Keysight 34465A）。每份定义的 `reference` 是**作者选定并提供的依据**：内置型号是厂商手册，用户自建或在研仪表可以是自己的设计规格、接口契约。命令行为以该依据为准；测量值仍来自电路求解（D13）。规则见 [real-models.md](real-models.md)。
+
+- **依据由作者提供和管理**：`reference` 的 title / document / version / firmware 由定义作者填写，SimuBench 只保存和展示它。带 `reference` 的定义——不论内置还是工作区的——适用同一套规则：未实现的命令必须报错、不允许 `unknown_commands: ignore`、覆盖表与依据一致并与定义、用例互相检查。用户自己造成什么样的仪表由用户控制（[instrument-authoring.md](instrument-authoring.md) 第 0 节）。
 - **`sb-*` 只用于开发验证，不发布**：SimuBench 自造的 `sb-*` 定义放在仓库的 `validation/instruments/`，不进 wheel；测试、验收与开发时通过定义搜索路径加载（工作区的 `instruments/` 目录，或环境变量 `SIMUBENCH_DEFINITIONS`）。用到它们的测试台在 `validation/benches/` 与 `acceptance/benches/`，`examples/` 只放真实型号的测试台。CI 检查 wheel 与 `examples/` 中没有 `sb-*`（issue 35）。
 - **理由**：自造型号没有手册可依，脚本在它上面通过不能说明在真机上也通过（D4、D5）；它们的价值是在没有对应真实型号时验证引擎与组件。只被 `sb-*` 使用的组件（锁相、频谱仪、SMU、电子负载、射频源、PRBS）保留在引擎中，供验证与以后的真实型号使用。
 - **代价**：在有对应真实型号之前，发布版中没有锁相放大器、频谱仪、SMU、电子负载、射频信号源、万用表等类别。
-- **三种实现程度**：手册中的每条命令属于“实现”“接受”（解析并保存，不影响仿真）或“未实现”之一。未实现的命令回复 `-113` 并标注 “not modeled by SimuBench”，不静默接受，避免脚本在虚拟环境通过、在真机失败。
-- **按接口契约编写的定义**：没有手册可依、但有既定主机程序的接口契约时（如低频校准工作台，[lowfreq-cal.md](lowfreq-cal.md)），定义按契约编写，不带 `reference`，不进内置仪表库，放在工作区的 `instruments/`（可以在 `examples/` 下的工作区中）。契约要求未知命令不报错时，定义设 `unknown_commands: ignore`：未知命令头不进错误队列、不回复，事件历史记为 `ignored`。真实型号不允许 `ignore`（定义校验拒绝）。主机按 `*IDN?` 校验型号时，型号串由测试台实例的 `idn` 给出，不写死在定义里。
-- **可验证**：每个型号有覆盖表（按手册章节列出全部命令及其程度）和手册用例（命令与预期返回，注明手册章节），CI 检查两者与定义一致。
+- **三种实现程度**：依据中的每条命令属于“实现”“接受”（解析并保存，不影响仿真）或“未实现”之一。未实现的命令回复 `-113,"…;not implemented in this definition"`，说明的是“这个定义尚未实现”，不把责任归给 SimuBench，也不静默接受，避免脚本在虚拟环境通过、在真机失败。
+- **按接口契约编写的定义**：有既定主机程序、按接口契约实现的仪表（如低频校准工作台，[lowfreq-cal.md](lowfreq-cal.md)）可以带 `reference`（指向契约或设计规格），此时与真实型号同一套规则；也可以不带 `reference`，此时契约要求未知命令不报错时允许设 `unknown_commands: ignore`：未知命令头不进错误队列、不回复，事件历史记为 `ignored`。带 `reference` 的定义不允许 `ignore`（定义校验拒绝）。这类定义不进内置仪表库，放在工作区的 `instruments/`（可以在 `examples/` 下的工作区中）。主机按 `*IDN?` 校验型号时，型号串由测试台实例的 `idn` 给出，不写死在定义里。
+- **可验证**：每个型号有覆盖表（按作者所依据的文件列出全部命令及其程度）和用例（命令与预期返回，注明依据的章节或条目），CI 检查两者与定义一致。工作区中的自建定义同样可以用 `simubench coverage`、`simubench cases` 与 MCP `run_cases` 检查。
 - **首批型号**：Keysight 34465A 与 Fluke 5522A（定标演示）；此后按 D45（Siglent SDS2104X Plus、SDG2042X 替代了原计划的 33500B 与 InfiniiVision 3000T）与 #181 的类别铺开推进，Keithley 2450（#12）在第二波。
 - **商标**：`*IDN?` 返回真实厂商与型号，这是脚本不改即可运行（D5）的前提，发布版也如此。只以名称指明所模拟的型号：不使用厂商标志与商业外观，不复制手册原文，文档声明 SimuBench 与各厂商无关联、商标归各自所有者（real-models.md 第 7 节）。
 

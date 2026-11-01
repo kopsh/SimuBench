@@ -1970,7 +1970,7 @@ class ScopeMeasurements(Component):
         table = {str(k).upper(): v for k, v in (self.param("names") or {}).items()}
         name = kind.strip().upper()
         if name not in table:
-            raise ScpiError(-224, f"measurement {kind} not modeled by SimuBench")
+            raise ScpiError(-224, f"measurement {kind} not implemented in this definition")
         engine_name, unit = table[name]
         n = self._channel(channel)
         value, used = self.value(str(engine_name), n)

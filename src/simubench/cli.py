@@ -378,7 +378,7 @@ def _cases(args: argparse.Namespace) -> int:
     """Run cases files, each case on a freshly powered bench; exit 1 when a case fails (D6)."""
     from .library.coverage import junit_xml, run_cases
 
-    dirs = [Path(d) for d in args.definitions]
+    dirs = [Path(d) for d in args.definitions] + [Path.cwd() / "instruments"]
     suites = []
     for path in args.files:
         try:
@@ -398,7 +398,7 @@ def _cases(args: argparse.Namespace) -> int:
 
 
 def _coverage(args: argparse.Namespace) -> int:
-    """A real model's coverage table (D42): every command of the manual and how far SimuBench goes."""
+    """A definition's coverage table (D42): every command of the basis and how far it is implemented."""
     from .library.coverage import LEVEL_TEXT, coverage_path, load_coverage
     from .library.loader import DefinitionLibrary
 
@@ -590,9 +590,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--json", action="store_true", help="print the report as JSON")
     p.set_defaults(fn=_replay)
 
-    p = sub.add_parser(
-        "coverage", help="a real model's coverage table: commands of the manual by level (D42)"
-    )
+    p = sub.add_parser("coverage", help="a definition's coverage table: commands of its basis by level (D42)")
     p.add_argument("id", help="definition id, e.g. keysight-34465a")
     p.add_argument("--definitions", action="append", default=[], help="also look for definitions here")
     p.add_argument(

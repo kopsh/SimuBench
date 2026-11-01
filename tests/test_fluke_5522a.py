@@ -243,9 +243,9 @@ def test_identity_and_restricted_builtins():
         q(s, "cal", "OUT 10")
         assert q(s, "cal", "ERR?") == '519,"Must specify an output unit"'
         assert q(s, "cal", ":SYST:ERR?") is None
-        assert q(s, "cal", "ERR?") == '-113,"Undefined header;not modeled by SimuBench"'
+        assert q(s, "cal", "ERR?") == '-113,"Undefined header;not implemented in this definition"'
         assert q(s, "cal", "*TRG") is None  # TC measurement on the real instrument; not modeled
-        assert q(s, "cal", "ERR?") == '-113,"Undefined header;not modeled by SimuBench"'
+        assert q(s, "cal", "ERR?") == '-113,"Undefined header;not implemented in this definition"'
     finally:
         s.close()
 

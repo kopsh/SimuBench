@@ -550,11 +550,11 @@ HINTS = [
         "error",
         {
             "code": -113,
-            "message": "Undefined header;not modeled by SimuBench",
+            "message": "Undefined header;not implemented in this definition",
             "reason": "not_modeled",
             "origin": "siglent-sds2104xplus.coverage.yaml",
         },
-        "未建模 · 覆盖表 siglent-sds2104xplus.coverage.yaml 中标为未实现",
+        "未实现 · 覆盖表 siglent-sds2104xplus.coverage.yaml 中标为未实现",
     ),
     (
         "error",

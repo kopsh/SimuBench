@@ -2,7 +2,7 @@
 
 A coverage table (``<id>.coverage.yaml`` next to the definition) lists every command of the manual,
 by section, with how far SimuBench goes: implemented, accepted (parsed and stored, no effect on the
-simulation) or not modeled (answers -113). Cases (``cases.yaml``) are command sequences with
+simulation) or not implemented in the definition (answers -113). Cases (``cases.yaml``) are command sequences with
 expected replies: manual cases of a real model (``tests/models/<id>/cases.yaml``) cite the manual
 section they check, contract cases the interface contract of an existing test program. Both run the
 same way: each case on a freshly powered bench (:func:`run_cases`, ``simubench cases``).

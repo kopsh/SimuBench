@@ -411,9 +411,18 @@
 | 带覆盖表的定义在运行时按覆盖表查找 | ✅ 引擎按定义文件旁的 `<id>.coverage.yaml` 在首次分类时装载（结果按 mtime 缓存；不在建台时装载，避免把读取开销计入 idle 墙钟，D47）；表缺失或读不了时回退到原行为（真实型号仍记 `not_modeled`），不崩溃 |
 | 事件 schema 与前端类型重新生成；MCP `read_log` 返回同样的分类 | ✅ `schemas/` 与 `web/src/api/generated/` 重新生成；`tests/test_mcp.py` 经 MCP 断言分类、出处与最接近命令；运行记录逐字保存事件，回放不受影响 |
 | Web 措辞覆盖六种分类（中英文） | ✅ `web/src/i18n/{zh,en}.ts` 的 `errors.reasons`；事件面板与运行记录页对 error / ignored 事件显示措辞、参数与范围、最接近命令与出处 |
-| 回复文字不变（#172 的范围） | ✅ `-113` 的应答文本、错误表替换与 "not modeled by SimuBench" 后缀全部保持原样；`builtin_excluded` 也沿用今天的应答 |
+| 回复文字 | ✅ 当时保持不变；#172 之后改为中性的 "not implemented in this definition"（见下文），分类不受影响 |
 | 六种情况各有内置真实型号与工作区定义的覆盖 | ✅ not_modeled / not_in_model / builtin_excluded / bad_parameter 用内置真实型号（Siglent SDS2104X Plus、Fluke 5522A），not_in_definition / ignored / bad_parameter 用工作区定义（`sb-smu-1`、`examples/lowfreq-cal/`） |
 | `scripts/check.sh` 通过 | ✅ Python 1002 项（新增 8 项）、schema 与 Web 检查通过；`tests/test_siglent_sds.py` 的 `*CLS` 断言改为 `builtin_excluded`（分类按设计变更，应答未变） |
+
+## 依据由作者提供；未实现命令的中性措辞（Issue 172）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 声明与文档 | ✅ 编辑 D42（不新增）：`reference` 是作者选定并提供、维护的依据（厂商手册、设计规格或接口契约）；带 `reference` 的定义不论内置或工作区适用同一套规则（未实现报错、不允许 ignore、覆盖表与用例一致）。`docs/real-models.md`、`docs/instrument-authoring.md`、`docs/glossary.md` 与 schema 的 `Reference` 说明同步 |
+| 未实现命令的回复 | ✅ `-113,"Undefined header;not implemented in this definition"`：说明这个定义尚未实现，不把责任归给 SimuBench；事件分类仍为 `not_modeled`，出处是定义或覆盖表。全部真实型号用例、错误分类测试与文档随之更新；`NOT_MODELED` 也用于参数级的未建模提示 |
+| 工作区自建定义 | ✅ `tests/test_user_models.py` 5 项：`reference` 指向作者内部规格的定义 + 覆盖表 + 用例，`simubench validate`、`simubench coverage`、`simubench cases`（工作区根目录与子目录中的用例）与 MCP `run_cases` 全部通过；用例的 `manual` 写规格条目；未知命令的回复不含 "SimuBench" 字样 |
+| 检查 | ✅ `scripts/check.sh` 全绿（见提交前运行） |
 
 ## pytest 全量回到 60 s 预算内（Issue 209）
 

@@ -286,7 +286,7 @@ cases:
       - query: "*ESR?"
         expect: "32"
       - query: "ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
 
   - name: "*OPC 在输出建立完成时置 ESR 位 0；*WAI 等待建立"
     manual: "Remote Commands > Common Commands > *OPC / *WAI；第 1 章 Settling Time（<5 s）"
@@ -318,7 +318,7 @@ cases:
     steps:
       - send: "RANGELCK ON"
       - query: "ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "SCOPE ACV"
       - query: "ERR?"
-        expect: '-113,"Undefined header;not modeled by SimuBench"'
+        expect: '-113,"Undefined header;not implemented in this definition"'

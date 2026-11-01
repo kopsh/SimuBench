@@ -33,7 +33,7 @@ _LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0
 log = logging.getLogger(__name__)
 _HANDLED = b"\x00handled"  # a built-in command that sends no reply
 #: Appended to -113 when a real model gets a command its definition does not have (D42).
-NOT_MODELED = "not modeled by SimuBench"
+NOT_MODELED = "not implemented in this definition"
 #: Headers every instrument answers without a definition entry (coverage tables list them too).
 BUILTIN_HEADERS = (
     "*IDN",
@@ -615,7 +615,7 @@ class Instrument:
         if reason is None and (
             (err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail
         ):
-            reason = "not_modeled"  # a command, or a parameter value, SimuBench does not model
+            reason = "not_modeled"  # a command, or a parameter value, this definition does not implement
         if reason is not None:
             data["reason"] = reason
         for key in ("origin", "closest", "param", "range"):
@@ -643,7 +643,8 @@ class Instrument:
     def _undefined(self, unit: Unit, tokens: tuple[Token, ...], *, builtin: bool = False) -> ScpiError:
         """-113 for a header the definition does not have, classified by where its declaration
         lives (tui-design.md 1.1): the coverage table, the definition, or the model's ``builtins``.
-        The reply text is unchanged — rewording is another issue's decision (#172).
+        The reply says the header is not implemented *in this definition*: the basis (a vendor
+        manual, a design specification or a contract) belongs to the definition's author (#172).
 
         ``builtin``: a built-in header the definition's ``builtins`` leaves out. Raises
         :class:`_Ignored` instead when the definition ignores unknown commands.
@@ -665,7 +666,7 @@ class Instrument:
         )
 
     def _undefined_text(self, header: str) -> str | None:
-        """The -113 reply as it reads today: a real model says the header is not modeled."""
+        """The -113 reply: a definition with a reference says the header is not implemented in it."""
         if not self.real:
             return None
         base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
@@ -757,7 +758,7 @@ class Instrument:
         self, err: ScpiError, param: str | None, spec: StateSpec | ParamSpec | None
     ) -> ScpiError:
         """A parameter error raised where the definition's declaration is known: name the parameter
-        and its declared range. The "not modeled by SimuBench" refusals keep their own category."""
+        and its declared range. The "not implemented in this definition" refusals keep their own category."""
         if err.reason is not None or err.code not in BAD_PARAMETER_CODES or NOT_MODELED in err.detail:
             return err
         return replace(
@@ -842,7 +843,7 @@ class Instrument:
                 suffixes["ch"] = self.channel_number(1)  # the default channel's own number
             return self._run(compiled, unit, channel, suffixes)
         if refused is not None:
-            raise ScpiError(-224, f"{unit.raw_header}: parameter not modeled by SimuBench")
+            raise ScpiError(-224, f"{unit.raw_header}: parameter not implemented in this definition")
         named = self._builtin_named(tokens)
         if named is not None and not self._builtin_allowed(named):
             raise self._undefined(unit, tokens, builtin=True)  # the definition's builtins leave it out
@@ -1048,7 +1049,9 @@ class Instrument:
             for name_raw, value_raw in zip(items[::2], items[1::2], strict=True):
                 name = V.parse_string(name_raw).upper()
                 if name not in keys:
-                    raise ScpiError(-224, f"{unit.raw_header} parameter {name} not modeled by SimuBench")
+                    raise ScpiError(
+                        -224, f"{unit.raw_header} parameter {name} not implemented in this definition"
+                    )
                 ref = keys[name]
                 if ref is not None:
                     path = self._resolve(at(ref), channel)
