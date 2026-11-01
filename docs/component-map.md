@@ -163,16 +163,16 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 
 | 块 | 组件 | 求解层级 | 债务 |
 | --- | --- | --- | --- |
-| input_filter | `lockin_input_filter`(尚不存在) | 电路(耦合、陷波) | D3(#189)拆出 |
-| input_amp | `lockin_input_amp`(尚不存在) | 电路/数据(差分放大与增益) | D3 拆出 |
-| mixer | `lockin_mixer`(尚不存在) | 数据(相敏检波) | D3 拆出 |
-| reference | `lockin_reference`(现有) | 数据(PLL、移相、内部/外部参考) | — |
-| lowpass | `lockin_lowpass`(尚不存在) | 数据(时间常数、斜率、建立) | D3 从 `lockin_demodulator` 拆出 |
-| output | `lockin_output`(尚不存在) | 数据(DC 增益/偏置/扩展、X/Y/R/θ) | D3 拆出 |
-| buffer | `reading_buffer` | 数据(SRAT/TRCA) | D3 接入 |
-| aux | `lockin_aux`(尚不存在) | 电路(AUX 输入输出 4×4) | D3 拆出 |
+| input_filter | `lockin_input_filter` | 数据(耦合高通、工频与二次工频陷波;输入阻抗与屏蔽在输入端子) | — |
+| input_amp | `lockin_input_amp` | 数据(灵敏度满量程、动态储备、输入限幅、前端噪声密度) | — |
+| mixer | `lockin_mixer` | 数据(相敏检波) | — |
+| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT) | — |
+| lowpass | `lockin_lowpass` | 数据(时间常数、斜率、闭式建立、329 截断检查) | — |
+| output | `lockin_output` | 数据(X/Y 偏置与扩展、R/θ、过载、自动增益/相位、缓冲采样) | — |
+| buffer | `trigger_model` + `reading_buffer`(通用) | 数据(SRAT/TRCA;不新做缓冲组件) | — |
+| aux | `lockin_aux` | 电路(AUX 4 路 ADC 输入与 4 路 DAC 输出,出现在测试台上) | — |
 
-现有 `sb-lia-1` 用 `lockin_reference` + `lockin_demodulator` 两块;D3 拆分后 validation 定义改用它,金标准与锁相验收场景不改通过。
+D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migration.py`)与锁相验收场景不改通过。新增能力:输入配置(耦合、陷波、动态储备)、X/Y 偏置与扩展、数据缓冲(SRAT/TRCA 经通用的触发模型与读数缓冲)、AUX 电路端口。
 
 ## daq
 
@@ -212,4 +212,4 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 - 射频源的脉冲调制与任意波调制(#197 的未实现范围)。
 - DAQ 的可配置插卡、数字 I/O 与总加器(34907A,第二波)。
 - 频率计数器的 53230A 独有功能(无间隙测量、时间戳)。
-- 现有整块组件的债务:`lockin_demodulator` 由 D3(#189)替换;5522A、SDG2042X 的拆分在第二波。
+- 现有整块组件的债务:无;5522A、SDG2042X 的拆分在第二波。

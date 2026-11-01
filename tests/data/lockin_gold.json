@@ -1,0 +1,843 @@
+{
+ "seed": 5,
+ "sequences": [
+  {
+   "name": "rc",
+   "bench": "lockin_rc.bench.yaml",
+   "steps": [
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:ENBW?",
+     "ns": 0,
+     "reply": "+2.60416667E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SETTling?",
+     "ns": 0,
+     "reply": "+3.01353525E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:SENSitivity?",
+     "ns": 0,
+     "reply": "+1.000000E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:COUPling?",
+     "ns": 0,
+     "reply": "DC",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:TCONstant?",
+     "ns": 0,
+     "reply": "+3.000000E-02",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe?",
+     "ns": 0,
+     "reply": "24",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe 6",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:ENBW?",
+     "ns": 0,
+     "reply": "+8.33333333E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SETTling?",
+     "ns": 0,
+     "reply": "+1.38155106E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe 12",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:ENBW?",
+     "ns": 0,
+     "reply": "+4.16666667E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SETTling?",
+     "ns": 0,
+     "reply": "+1.99150562E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe 18",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:ENBW?",
+     "ns": 0,
+     "reply": "+3.12500000E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SETTling?",
+     "ns": 0,
+     "reply": "+2.52178407E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe 24",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:ENBW?",
+     "ns": 0,
+     "reply": "+2.60416667E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SETTling?",
+     "ns": 0,
+     "reply": "+3.01353525E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SOURce:VOLTage 0.5",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":OUTPut:STATe OFF",
+     "ns": 0
+    },
+    {
+     "advance_s": 2.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":OUTPut:STATe ON",
+     "ns": 0
+    },
+    {
+     "advance_s": 0.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+7.04741285E-09",
+     "floats": true
+    },
+    {
+     "advance_s": 0.015
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+6.06614463E-04",
+     "floats": true
+    },
+    {
+     "advance_s": 0.015
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+6.55967735E-03",
+     "floats": true
+    },
+    {
+     "advance_s": 0.03
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+4.92998105E-02",
+     "floats": true
+    },
+    {
+     "advance_s": 0.06
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+1.95375401E-01",
+     "floats": true
+    },
+    {
+     "advance_s": 0.06
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+2.92677195E-01",
+     "floats": true
+    },
+    {
+     "advance_s": 0.12135000000000001
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+3.41346335E-01",
+     "floats": true
+    },
+    {
+     "advance_s": 0.11864999999999998
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+3.44629619E-01",
+     "floats": true
+    },
+    {
+     "advance_s": 0.18
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+3.44791978E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency 100",
+     "ns": 0
+    },
+    {
+     "advance_s": 0.6028
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? X,Y,R,THETa",
+     "ns": 0,
+     "reply": "+4.97728625E-01,-3.28305337E-02,+4.98810212E-01,-3.77380362E+00",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency 1000",
+     "ns": 0
+    },
+    {
+     "advance_s": 0.6028
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? X,Y,R,THETa",
+     "ns": 0,
+     "reply": "+3.48343107E-01,-2.29764848E-01,+4.17294627E-01,-3.34085844E+01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency 1515.76",
+     "ns": 0
+    },
+    {
+     "advance_s": 0.6028
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? X,Y,R,THETa",
+     "ns": 0,
+     "reply": "+2.50000519E-01,-2.49947454E-01,+3.53516604E-01,-4.49939185E+01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency 20000",
+     "ns": 0
+    },
+    {
+     "advance_s": 0.6028
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? X,Y,R,THETa",
+     "ns": 0,
+     "reply": "+2.85683550E-03,-3.76781668E-02,+3.77863172E-02,-8.56640135E+01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":OUTPut:STATe OFF",
+     "ns": 0
+    },
+    {
+     "advance_s": 0.8999999999999999
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:X?",
+     "ns": 0,
+     "reply": "-3.39883873E-10",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:X?",
+     "ns": 0,
+     "reply": "-3.39883873E-10",
+     "floats": true
+    },
+    {
+     "advance_s": 0.003
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:X?",
+     "ns": 0,
+     "reply": "-7.53571253E-11",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? X,Y,R,THETa",
+     "ns": 0,
+     "reply": "-7.53571253E-11,+4.01917951E-09,+4.01988590E-09,+9.10741345E+01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":OUTPut:STATe ON",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SOURce:VOLTage 0.5",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency 1515.76",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:SENSitivity 0.3",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:SENSitivity?",
+     "ns": 0,
+     "reply": "+2.000000E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload?",
+     "ns": 0,
+     "reply": "2",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload:INPut?",
+     "ns": 0,
+     "reply": "0",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "326,\"Output overload\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:SENSitivity 0.01",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload?",
+     "ns": 0,
+     "reply": "3",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload:INPut?",
+     "ns": 0,
+     "reply": "1",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload:OUTPut?",
+     "ns": 0,
+     "reply": "1",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "325,\"Input overload\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":AUTO:GAIN",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:SENSitivity?",
+     "ns": 0,
+     "reply": "+5.000000E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload?",
+     "ns": 0,
+     "reply": "0",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:PHASe 30",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? THETa,Y",
+     "ns": 0,
+     "reply": "-7.49939568E+01,-3.41460996E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":AUTO:PHASe",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:PHASe?",
+     "ns": 0,
+     "reply": "-4.499396E+01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:THETa?",
+     "ns": 0,
+     "reply": "-7.49939568E+01",
+     "floats": true
+    },
+    {
+     "advance_s": 0.6028
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:SNAP? X,Y,THETa",
+     "ns": 0,
+     "reply": "+3.53515655E-01,-1.01820543E-06,-1.65024867E-04",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:TCONstant 3",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":AUTO:GAIN",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "-221,\"Settings conflict; auto gain needs a time constant of 1 s or less\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "0,\"No error\"",
+     "floats": false
+    }
+   ]
+  },
+  {
+   "name": "chopper",
+   "bench": "lockin_chopper.bench.yaml",
+   "steps": [
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:LOCKed?",
+     "ns": 0,
+     "reply": "1",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency:ACTual?",
+     "ns": 0,
+     "reply": "+1.0000000000E+03",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:HARMonic 1",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:DETect:FREQuency?",
+     "ns": 0,
+     "reply": "+1.0000000000E+03",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+9.00311817E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:HARMonic 3",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:DETect:FREQuency?",
+     "ns": 0,
+     "reply": "+3.0000000000E+03",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+3.00103939E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:HARMonic 5",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:DETect:FREQuency?",
+     "ns": 0,
+     "reply": "+5.0000000000E+03",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+1.80062362E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:SOURce INTernal",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:FREQuency 10000",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:HARMonic 51",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "-221,\"Settings conflict; harmonic 51 x 10000 Hz exceeds 500000 Hz\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:HARMonic?",
+     "ns": 0,
+     "reply": "5",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:HARMonic 1",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:SOURce EXTernal",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:LOCKed?",
+     "ns": 0,
+     "reply": "1",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+9.00311806E-01",
+     "floats": true
+    },
+    {
+     "instrument": "ref",
+     "cmd": ":OUTPut1:STATe OFF",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:LOCKed?",
+     "ns": 0,
+     "reply": "0",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "327,\"Reference unlock\"",
+     "floats": false
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+9.00311813E-01",
+     "floats": true
+    },
+    {
+     "instrument": "ref",
+     "cmd": ":OUTPut1:STATe ON",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":REFerence:LOCKed?",
+     "ns": 0,
+     "reply": "1",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "0,\"No error\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe 24",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:TCONstant 0.03",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "0,\"No error\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:SLOPe 6",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:TCONstant 1e-4",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":FILTer:ENBW?",
+     "ns": 0,
+     "reply": "+2.50000000E+03",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "329,\"Input beyond the model's limits\"",
+     "floats": false
+    },
+    {
+     "instrument": "sig",
+     "cmd": ":SOURce1:FUNCtion SINusoid",
+     "ns": 0
+    },
+    {
+     "instrument": "sig",
+     "cmd": ":SOURce1:VOLTage 0.002",
+     "ns": 0
+    },
+    {
+     "instrument": "sig",
+     "cmd": ":SOURce1:VOLTage:OFFSet 0.5",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:SENSitivity 0.002",
+     "ns": 0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "326,\"Output overload\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:COUPling DC",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+5.98205707E-01",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload?",
+     "ns": 0,
+     "reply": "3",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "325,\"Input overload\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "0,\"No error\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":INPut:COUPling AC",
+     "ns": 0
+    },
+    {
+     "advance_s": 1.0
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":MEASure:R?",
+     "ns": 0,
+     "reply": "+5.52883749E-04",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":STATus:OVERload?",
+     "ns": 0,
+     "reply": "0",
+     "floats": true
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "0,\"No error\"",
+     "floats": false
+    },
+    {
+     "instrument": "lia",
+     "cmd": ":SYSTem:ERRor?",
+     "ns": 0,
+     "reply": "0,\"No error\"",
+     "floats": false
+    }
+   ]
+  }
+ ]
+}
