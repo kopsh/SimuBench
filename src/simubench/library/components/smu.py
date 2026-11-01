@@ -679,79 +679,6 @@ class SmuMeter(Component):
         return list(buffer.buffers[buffer._default()]) if buffer is not None else []
 
 
-@component("electronic_load")
-class ElectronicLoad(Component):
-    """Constant-current or constant-resistance sink on IN.
-
-    In CC mode it sinks its setting wherever the input voltage allows; below the knee
-    (setting × ``r_min``) its minimum operating resistance limits it, so 0 V sinks nothing.
-    """
-
-    ports = {"in": PortSpec("in", "electrical")}
-    defaults = {
-        "function": "CC",  # CC | CR: constant-current sink or constant resistance
-        "current": 0.0,  # A, set current in CC
-        "resistance": 1000.0,  # ohm, set resistance in CR
-        "enabled": False,  # False: the input floats
-        "r_min": 0.0367,  # minimum operating resistance: below set*r_min the CC mode sinks less
-    }
-    units = {"r_min": "OHM"}
-    piecewise = True
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.mode = "R"  # R: limited by r_min; I: sinking the set current
-
-    def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
-        if not self.param("enabled"):
-            return
-        if self.param("function") == "CR":
-            circuit.resistor(node("in"), GROUND, float(self.param("resistance")))
-        elif self.mode == "R":
-            circuit.resistor(node("in"), GROUND, float(self.param("r_min")))
-        else:
-            circuit.current(node("in"), self.uid)
-
-    def emf(self) -> dict[str, Signal]:
-        if self.param("enabled") and self.param("function") == "CC" and self.mode == "I":
-            return {self.uid: Signal.constant(-float(self.param("current")))}  # sinks
-        return {}
-
-    def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
-        if not self.param("enabled") or self.param("function") != "CC":
-            return False
-        v = dc_voltage("in")
-        i_set = float(self.param("current"))
-        old = self.mode
-        if self.mode == "R" and v / float(self.param("r_min")) > i_set * (1 + 1e-9):
-            self.mode = "I"
-        elif self.mode == "I" and v < i_set * float(self.param("r_min")):
-            self.mode = "R"
-        return self.mode != old
-
-    def measured(self) -> tuple[float, float]:
-        if not self.param("enabled"):
-            return self.pin_signal("in").mean(), 0.0
-        v = self.pin_signal("in").mean()
-        if self.param("function") == "CR":
-            return v, v / float(self.param("resistance"))
-        if self.mode == "R":
-            return v, v / float(self.param("r_min"))
-        return v, float(self.param("current"))
-
-    @op("measure")
-    def op_measure(self, what: str = "voltage", **_: Any) -> OpResult:
-        self.session._solve()
-        v, i = self.measured()
-        value = {"voltage": v, "current": i, "power": v * i}[what]
-        return OpResult(V.format_float(value, 7))
-
-    def readings(self) -> dict[str, Any]:
-        self.session._solve()
-        v, i = self.measured()
-        return {"values": {"voltage": v, "current": i, "power": v * i, "regulating": self.mode == "I"}}
-
-
 @component("dc_supply")
 class DcSupply(Component):
     """A fixed DC source with an output resistance (a bench supply or a battery), to ground."""
@@ -777,7 +704,6 @@ class DcSupply(Component):
 __all__ = [
     "OPEN",
     "DcSupply",
-    "ElectronicLoad",
     "OutputControlLoop",
     "SmuMeter",
     "SmuOutput",

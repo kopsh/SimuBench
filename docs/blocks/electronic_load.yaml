@@ -1,5 +1,5 @@
 # 电子负载的真实功能块(D50,依据见 docs/component-map.md 的 electronic_load 节)。
-# 动态/列表(C2)不在首波块清单:见 component-map 的债务列。
+# 组件由 C1(#186)落地;动态/列表(C2)不在首波块清单:见 component-map 的债务列。
 schema: simubench.blocks/1
 class: electronic_load
 blocks:
@@ -7,7 +7,7 @@ blocks:
     components: [eload_input]
   - block: power_stage         # 功率级
     components: [eload_power_stage]
-  - block: mode_loop           # CC/CV/CR/CP 模式环(C1;CP 非线性另定)
+  - block: mode_loop           # CC/CV/CR/CP 模式环(C1;CP 见 D52)
     components: [eload_mode_loop]
   - block: meter               # V/I 测量
     components: [eload_meter]
