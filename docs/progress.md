@@ -659,9 +659,19 @@
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff`（0–1.5 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑默认 100 ns（SimuBench 默认） |
+| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff_type`（OFF / TIME）与 `trigger.holdoff_time`（8 ns–30 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`、`:TRIGger:EDGE:HLDTime`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑类型与时间按 EN11F p.423–424（EVENts 未实现，设置它报错） |
 | 接到已有的触发模块 | ✅ `scope_trigger` 的 `coupling` / `reject` / `filters` / `noise_reject` / `holdoff`；定义里用参数映射与状态绑定，没有改组件 |
 | 手册用例 | ✅ `tests/models/siglent-sds2104xplus/cases.yaml` 新增“触发耦合、噪声抑制与释抑”：AC / LFREJect 回读、NREJ ON/OFF、HOLDoff 时间与格式，恢复 DC / OFF / 100 ns |
-| 行为测试 | ✅ `tests/test_siglent_sds.py` 两项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过、NREJ / HOLDoff 参数到位）；释抑使下一次触发不早于 5 ms（与无释抑的 2 ms 内触发对照） |
+| 行为测试 | ✅ `tests/test_siglent_sds.py` 四项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过）；释抑只在类型 TIME 时推迟下一次触发（OFF 不推迟，EN11F 的 EVENts 设置报错）；带直流偏置的信号在 DC 耦合下不触发、AC 耦合后在交流过零处触发；带噪声的慢边沿 NREJ OFF 时同一沿重复触发、ON 后只触发一次 |
 | 检查 | ✅ `simubench validate` 无诊断；`simubench cases` 全部通过；`src/simubench/library/components/` 无改动；`scripts/check.sh` 全绿 |
 
+
+
+## SDS 触发释抑语义与行为测试（Issue 250、251）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| HOLDoff 是释抑类型、HLDTime 是时间 | ✅ `:TRIGger:EDGE:HOLDoff {OFF|TIME}`（复位 OFF；EVENts 未实现，设置它按值域报错）与 `:TRIGger:EDGE:HLDTime`（8 ns–30 s，EN11F p.423–424）分别绑定 `trigger.holdoff_type` / `trigger.holdoff_time`；组件 `holdoff_on` 只在类型 TIME 时为真，OFF 时释抑不生效 |
+| 手册用例 | ✅ `TRIG:EDGE:HOLD TIME` → `TIME`、`HLDT 1E-3` → `1.00E-03`、恢复 `HOLD OFF`；不再锁定“HOLDoff 收秒数”的错误行为 |
+| 行为测试补齐 #159 的三项 | ✅ `tests/test_siglent_sds.py`：DC 偏置下 DC 耦合不触发、AC 耦合在交流过零触发；噪声慢边沿 NREJ OFF 重复触发、ON 只触发一次；释抑类型 OFF 不推迟、TIME 推迟 HLDTime |
+| 检查 | ✅ 定义校验、手册用例、覆盖表一致性、`scripts/check.sh` 全绿；组件无改动 |
