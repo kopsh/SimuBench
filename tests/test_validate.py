@@ -55,6 +55,18 @@ def test_high_z_setting_clears_the_hint():
             "ch1.frequency",
         ),
         (
+            lambda d: d["instruments"]["awg"].update(hidden={"nope": {"z_out": 50.0}}),
+            "E-HIDDEN-COMPONENT",
+            "/instruments/awg/hidden/nope",
+            "ch1.out",
+        ),
+        (
+            lambda d: d["instruments"]["awg"].update(hidden={"ch1.out": {"z_outt": 50.0}}),
+            "E-HIDDEN-PARAM",
+            "/instruments/awg/hidden/ch1.out/z_outt",
+            "z_out",
+        ),
+        (
             lambda d: d["instruments"]["awg"].update(state={"ch1.frequency": 1e12}),
             "E-STATE-RANGE",
             "/instruments/awg/state/ch1.frequency",
@@ -107,3 +119,14 @@ def test_a_50_ohm_input_terminates_the_net():
     data["instruments"]["scope"]["state"] = {"ch2.impedance": "FIFTy"}
     found, _ = codes(data)
     assert found == []
+
+
+def test_open_bench_refuses_an_unknown_hidden_parameter():
+    """#256: a bench naming a component or parameter the model does not have must not open."""
+    from simubench.api import open_bench
+    from simubench.models.bench import BenchDefinition
+
+    data = copy.deepcopy(BASE)
+    data["instruments"]["awg"]["hidden"] = {"ch1.out": {"z_outt": 50.0}}
+    with pytest.raises(ValueError, match=r"unknown parameter ch1\.out\.z_outt"):
+        open_bench(BenchDefinition.model_validate(data))
