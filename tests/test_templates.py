@@ -397,7 +397,7 @@ def test_the_lecroy_command_set_writes_the_low_frequency_reference_scope(tmp_pat
         )
     results = run_cases(work / "cases.yaml")
     failed = [(r.name, r.command, r.expected, r.actual, r.error) for r in results if not r.passed]
-    assert len(results) == 11 and not failed, failed
+    assert len(results) == 12 and not failed, failed
 
 
 @pytest.mark.parametrize(

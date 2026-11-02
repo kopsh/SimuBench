@@ -119,3 +119,28 @@ cases:
       - instrument: calibrator
         query: ":CHANnel2:LOAD?"
         expect_value: 50.0
+  - name: "幅度按 dBm 写入：负 dBm 可写可读回，越界报当前单位下的界限（#261）"
+    manual: "§7 示波器校准仪；D48 幅度按负载设定下的 Vpp 检查"
+    steps:
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:WAVe SQUare;:CHANnel1:LOAD 50;:CHANnel1:AMPLitude:UNIT DBM"
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:AMPLitude -5"
+      - instrument: calibrator
+        query: ":CHANnel1:BASE:AMPLitude?"
+        expect: "-5.000000E+00"
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:AMPLitude -40"
+      - instrument: calibrator
+        query: ":CHANnel1:BASE:AMPLitude?"
+        expect: "-4.000000E+01"
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:AMPLitude -70"
+      - instrument: calibrator
+        query: ":SYSTem:ERRor?"
+        expect: '-222,"Data out of range; amplitude -70 DBM out of range [-53.0103, 53.0103] DBM"'
+      - instrument: calibrator
+        send: ":CHANnel1:BASE:AMPLitude 60"
+      - instrument: calibrator
+        query: ":SYSTem:ERRor?"
+        expect: '-222,"Data out of range; amplitude 60 DBM out of range [-53.0103, 53.0103] DBM"'
