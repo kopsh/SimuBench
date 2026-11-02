@@ -14,7 +14,7 @@ sections:
         note: 参考源 0 外部 / 1 内部；内部振荡器与 REF_IN 锁相接 lockin_reference。
       - header: FREQ
         level: implemented
-        note: 内部参考频率 0.001…102000 Hz；真机只允许内部参考模式下设置，lockin_reference 在外部模式下也接受（偏差）。
+        note: 参考频率 0.001…102000 Hz。两处偏差：真机只允许在内部参考模式下设置，lockin_reference 在外部模式下也接受；外部参考锁定时真机 FREQ? 回参考频率，本定义回内部振荡器的设定值（实际检测频率见 osc.frequency 读数）。
       - header: RSLP
         level: implemented
         note: 只声明正弦过零（0）；TTL 上升/下降沿（1、2）需要参考沿的相位定义，#273 第 4 节。

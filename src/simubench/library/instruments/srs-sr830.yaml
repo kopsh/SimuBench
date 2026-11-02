@@ -19,6 +19,10 @@ identity:
   idn: "Stanford_Research_Systems,SR830,{serial},{firmware}"
   serial: "s/n00111"
   firmware: "ver1.000"
+# SR830 is not SCPI: four-letter mnemonics with comma-separated parameters, and the queries answer
+# with a bare value (no header, no unit). That is the default framing, written out for the record.
+dialect:
+  echo_header: "off"
 format:
   number: nr2
   digits: 3
