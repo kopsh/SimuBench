@@ -1036,9 +1036,12 @@ class Instrument:
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(at(ps.state), channel)
                 try:
-                    new[path] = self._parse_state(self.specs[path], raw.pop(0))
+                    value = self._parse_state(self.specs[path], raw.pop(0))
                 except ScpiError as e:
                     raise self._bad_parameter(e, path, self.specs[path]) from e
+                for ref, constant in (ps.sets or {}).items():
+                    new[self._resolve(at(ref), channel)] = constant
+                new[path] = value
                 continue
             items, raw = raw, []
             if not items and not ps.optional:

@@ -36,9 +36,11 @@ def _script():
 reader = _script()
 
 
-def _open(tmp_path, source=CASES_BENCH, **instrument):
+def _open(tmp_path, source=CASES_BENCH, awg_state=None, **instrument):
     data = yaml.safe_load(source.read_text("utf-8"))
     data["instruments"]["scope"].update(instrument)
+    if awg_state:
+        data["instruments"]["awg"]["state"].update(awg_state)
     bench = tmp_path / "bench.yaml"
     bench.write_text(yaml.safe_dump(data), "utf-8")
     rm = pyvisa.ResourceManager(f"{bench}@simubench")
@@ -178,3 +180,70 @@ def test_probe_ratio_rescales_scale_and_offset(scope):
     assert float(dso.query(":CHANnel1:OFFSet?")) == pytest.approx(2.0)
     dso.write(":CHANnel1:PROBe X1")
     assert float(dso.query(":CHANnel1:SCALe?")) == pytest.approx(0.5)
+
+
+# ---- issue 160: run control, trigger force, preset and the acquisition types ------------------------
+
+
+def test_bus_trigger_is_digitize_without_parameters(tmp_path):
+    """The guide: *TRG has the same effect as :DIGitize with no parameters (Root/Common commands)."""
+    rm, dso = _open(tmp_path)
+    try:
+        dso.write(":STOP;*TRG")
+        assert dso.query("*OPC?").strip() == "1"
+        assert dso.query(":WAVeform:PREamble?").split(",")[2] == "1000"
+        assert _record(rm.visalib.bench).volts.size == 100_000
+        assert dso.query(":SYSTem:ERRor?").startswith("+0,")
+    finally:
+        rm.close()
+
+
+def test_force_trigger_takes_a_frame_without_a_trigger(tmp_path):
+    """A trigger level above the signal leaves :DIGitize waiting; :TRIGger:FORCe still captures."""
+    rm, dso = _open(tmp_path)
+    try:
+        dso.write(":TRIGger:SWEep NORMal;:TRIGger:LEVel 20;:TRIGger:FORCe")
+        assert dso.query("*OPC?").strip() == "1"
+        # The forced frame completes in virtual time; the next command settles it.
+        assert dso.query(":WAVeform:PREamble?").split(",")[2] == "1000"
+        rec = _record(rm.visalib.bench)
+        assert rec.triggered is False  # the frame was forced, not triggered
+        assert rec.volts.size == 100_000
+        assert dso.query(":SYSTem:ERRor?").startswith("+0,")
+    finally:
+        rm.close()
+
+
+def test_preset_restores_the_default_setup_and_runs_again(tmp_path):
+    rm, dso = _open(tmp_path)
+    try:
+        dso.write(":CHANnel1:SCALe 0.2;:TIMebase:SCALe 1E-3;:TRIGger:SOURce CHANnel2;:STOP")
+        acq = rm.visalib.bench.instruments["scope"].components["acq"]
+        assert acq.running is False
+        dso.write(":SYSTem:PRESet")
+        assert acq.running is True  # the guide's Reset conditions: "Scope is running"
+        assert float(dso.query(":CHANnel1:SCALe?")) == pytest.approx(5.0)
+        assert dso.query(":TIMebase:SCALe?").strip() == "+100E-06"
+        assert dso.query(":TRIGger:SOURce?").strip() == "CHAN1"
+        assert dso.query(":ACQuire:TYPE?").strip() == "NORM"
+    finally:
+        rm.close()
+
+
+def test_peak_detect_keeps_the_excursion_the_record_rate_steps_over(tmp_path):
+    """A 40 MHz sine into 5 us record samples aliases to one phase; PEAK examines 64 native samples
+    in each interval and keeps the extreme, so the 2 Vpp sine shows at full swing (D46, F4)."""
+    rm, dso = _open(tmp_path, awg_state={"ch1.frequency": 40.0e6, "ch1.function": "SINE"})
+    try:
+        session = rm.visalib.bench
+        dso.write(":TIMebase:SCALe 50E-3;:CHANnel1:PROBe 1;:CHANnel1:SCALe 0.5")
+        dso.write(":ACQuire:TYPE NORMal;:DIGitize CHANnel1")
+        assert dso.query("*OPC?").strip() == "1"
+        normal = _record(session).volts
+        dso.write(":ACQuire:TYPE PEAK;:DIGitize CHANnel1")
+        assert dso.query("*OPC?").strip() == "1"
+        peak = _record(session).volts
+        assert np.max(np.abs(normal)) < 0.5
+        assert np.max(np.abs(peak)) > 0.9
+    finally:
+        rm.close()

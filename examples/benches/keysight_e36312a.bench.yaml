@@ -1,0 +1,47 @@
+schema: simubench.bench/2
+name: keysight_e36312a_outputs
+description: >-
+  Keysight E36312A 的三路输出分别接到电阻负载：CH1 10 Ω（同时接 4 线 SENSE 端子，便于验证
+  远端检测），CH2/CH3 各 100 Ω。示例脚本 examples/scripts/keysight_e36312a_check.py 按
+  E36300 系列编程指南的通道列表与 MEASure 流程测三路输出、OVP 与错误队列，在真机和
+  SimuBench 上都不改一行。
+instruments:
+  psu:
+    model: keysight-e36312a
+    label: 可编程电源
+    address: "TCPIP0::192.168.1.30::INSTR"
+parts:
+  r1:
+    type: resistor
+    dut: true
+    label: CH1 负载
+    params: {r: 10.0}
+  r2:
+    type: resistor
+    dut: true
+    label: CH2 负载
+    params: {r: 100.0}
+  r3:
+    type: resistor
+    dut: true
+    label: CH3 负载
+    params: {r: 100.0}
+wires:
+  - {from: psu.OUT1+, to: r1.A}
+  - {from: r1.B, to: psu.OUT1-}
+  # CH1 的四线检测端子接在负载两端；VOLT:SENS INT 时内部接通，EXT 时由这组线检测。
+  - {from: psu.SENSE1+, to: r1.A}
+  - {from: r1.B, to: psu.SENSE1-}
+  - {from: psu.OUT2+, to: r2.A}
+  - {from: r2.B, to: psu.OUT2-}
+  - {from: psu.OUT3+, to: r3.A}
+  - {from: r3.B, to: psu.OUT3-}
+run:
+  seed: 7
+  clock: command
+  idle: "off"
+layout:
+  psu: {x: 0, y: 80}
+  r1: {x: 440, y: 40}
+  r2: {x: 440, y: 160}
+  r3: {x: 440, y: 280}
