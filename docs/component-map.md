@@ -87,7 +87,7 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 | trigger | `trigger_model` | 数据 | — |
 | buffer | `reading_buffer` | 数据 | — |
 
-B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_output`、`smu_meter` 四个组件组成(测量组件仍名 `core`,前面板按 `core.voltage` 等取读数),34 条金标准消息的回复与虚拟时间逐条不变;控制环不引用 SMU 的组件,设定/限值/输出都经参数绑定,电源输出级(B2)直接复用。
+B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_output`、`smu_meter` 四个组件组成(测量组件仍名 `core`,前面板按 `core.voltage` 等取读数),34 条金标准消息的回复与虚拟时间逐条不变;控制环不引用 SMU 的组件,设定/限值/输出都经参数绑定,电源输出级(B2)直接复用。`smu_meter` 的 `function` 参数(#299)可选 VOLTage / CURRent / RESistance,把读数变成测量功能选的量(V/I/V÷I,无电流时为过载值);不绑定(默认 None)时仍是原来的“强制量”,`sb-smu-1` 与 B2901A 的金标准不变。
 
 ## power_supply
 
