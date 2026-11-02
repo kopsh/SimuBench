@@ -154,3 +154,26 @@ async def test_rc_sweep_shows_the_amplitude_falling(served_examples):
         # And the screen marks the net as carrying a signal.
         rows, _ = tui.screen._rows()
         assert next(r for r in rows if r["net"] == "net-1")["active"] is True
+
+
+@pytest.mark.tui_boot
+async def test_spectrum_generic_view_reads_auto_for_a_coupled_manual_value(served_validation):
+    """#279/#345: at power-on the RBW is coupled, so the generic view shows AUTO, not the stored
+    manual 3 MHz; turning the coupling off brings the manual value back."""
+    served_session = await served_validation.start("benches/specan.bench.yaml", seed=5, clock="command")
+    tui = SimuBenchApp(served_validation.url, sid=served_session.id)
+    async with tui.run_test(size=(120, 36)) as pilot:
+        await wait_connected(pilot, tui)
+        await wait_quiet(pilot, tui)
+        tui.show("instrument", "sa")
+        text = await wait_flat(pilot, tui, "RBW (manual)")
+        words = " ".join(text.split())
+        assert "RBW (manual) AUTO" in words
+        assert "VBW (manual) AUTO" in words and "Sweep time (manual) AUTO" in words  # all coupled
+        assert "RBW auto On" in words
+        assert "3.0000 MHz" not in text
+        served_session.session.exchange("sa", b":BAND:AUTO OFF", client="pyvisa", reads=0)
+        text = await wait_flat(pilot, tui, "3.0000 MHz")
+        words = " ".join(text.split())
+        assert "RBW (manual) 3.0000 MHz" in words and "RBW auto Off" in words
+        assert "VBW (manual) AUTO" in words  # the other couplings stay on

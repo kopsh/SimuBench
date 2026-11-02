@@ -45,16 +45,32 @@ test("spectrum analyzer screen: peak search walks the harmonics", async ({ page 
   await expect(page.getByText("RBW 100 kHz")).toBeVisible(); // the analyzer's coupling, not the UI's
 });
 
-test("spectrum analyzer: all-auto shows no UNCAL and no stale manual RBW; a short sweep time does", async ({ page }) => {
+test("spectrum analyzer: power-on shows no UNCAL and no stale manual RBW; a short sweep time does", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: /^specan/ }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+  const specan = page.getByRole("listitem").filter({ hasText: /^specan/ });
+  await specan.getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  // A new session at power-on (#345): the service is shared by the tests, and the peak-search
+  // test left a 10 MHz span on this bench, so close it and open the bench again.
+  await page.getByRole("button", { name: "关闭测试台" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await specan.getByRole("button", { name: "打开测试台" }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  const sid = page.url().split("/s/")[1]?.split("?")[0];
+  const scpi = async (command: string) =>
+    ((await (
+      await page.request.post(`/api/sessions/${sid}/instruments/sa/scpi`, {
+        headers: { "x-simubench-token": TOKEN },
+        data: { command },
+      })
+    ).json()) as { response: string }).response.trim();
+  expect(await scpi(":SWE:TIME:UNC?")).toBe("0");
+  const rbwHz = Number(await scpi(":BAND?"));
+
   await page.locator(".react-flow__node").filter({ hasText: "频谱仪" }).dblclick();
-  // Power-on state: RBW, VBW and sweep time are coupled. The screen reads the coupled RBW and the
-  // inspector does not put the stored manual 3 MHz beside it (#279).
-  // (The service is shared by the tests: the peak-search test left a 10 MHz span, RBW 100 kHz.)
-  await page.getByRole("button", { name: "全部自动" }).click();
-  await expect(page.getByText(/RBW \d+ kHz/)).toBeVisible();
+  // Power-on state: RBW, VBW and sweep time are coupled. The screen reads the coupled RBW the
+  // instrument reports, and the inspector does not put the stored manual 3 MHz beside it (#279).
+  await expect(page.getByText(`RBW ${rbwHz / 1e3} kHz`)).toBeVisible();
   await expect(page.getByTestId("uncal")).toHaveCount(0);
   const manualRbw = page.getByRole("textbox", { name: "分辨率带宽 (手动)" }).first();
   await expect(manualRbw).toHaveValue("自动");
