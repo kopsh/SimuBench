@@ -357,8 +357,9 @@ sections:
     level: implemented
     note: >-
       Numeric value only; UP/DOWN and the negative part of the guide range (-80 MHz) are not
-      modeled. A center frequency too small for the current span slides the window to span/2 (the
-      component's rule), so the manual's centre-then-span order needs the span first.
+      modeled. A center frequency the window cannot hold at the current span keeps the center and
+      narrows the span to fit (#292), so *RST; :FREQ:CENT 10 MHz; :FREQ:SPAN 2 MHz works in that
+      order.
   - header: '[:SENSe]:FREQuency:SPAN'
     level: implemented
     note: Zero span (span 0) is not modeled; the state range starts at 10 Hz.
@@ -397,16 +398,16 @@ sections:
   - header: '[:SENSe]:SWEep:TIME'
     level: implemented
     note: >-
-      Automatic sweep time follows the component rule; at the reset settings it is 0.833 ms, the
-      guide's reset table says 100.2 ms.
+      Automatic sweep time is the larger of the RBW/VBW settling time and the LO sweep rate floor
+      (#292): 100.2 ms at the reset full span, as the guide's reset table says. The LO rate is
+      derived from that value; the guide does not state it.
   - header: '[:SENSe]:POWer[:RF]:ATTenuation:AUTO'
     level: implemented
   - header: '[:SENSe]:POWer[:RF]:ATTenuation'
     level: implemented
     note: >-
-      Automatic attenuation follows the component rule (reference level held at the mixer limit,
-      2 dB steps): with the 0 dBm reset reference level it is 10 dB, the guide's reset table says
-      20 dB.
+      Automatic attenuation holds the reference level at the -20 dBm mixer limit in 2 dB steps
+      (#292): 20 dB at the 0 dBm reset reference level, as the guide's reset table says.
   - header: '[:SENSe]:DETector[:FUNCtion]'
     level: implemented
     note: POSitive/SAMPle/AVERage/RMS; NEGative and NORMAL are not modeled.

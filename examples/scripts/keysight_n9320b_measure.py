@@ -38,10 +38,8 @@ def main() -> None:
 
     print(sa.query("*IDN?"))
     sa.write("*RST")
-    # Set the span first: the N9320B keeps the center inside the window, so a 3 GHz default span
-    # would slide a 10 MHz center to 1.5 GHz.
-    sa.write(f":FREQ:SPAN {SPAN_HZ}")
     sa.write(f":FREQ:CENT {CENTER_HZ}")
+    sa.write(f":FREQ:SPAN {SPAN_HZ}")
     sa.write(":BAND:RES:AUTO ON")
     sa.write(":BAND:VID:AUTO ON")
     sa.write(":SWE:TIME:AUTO ON")

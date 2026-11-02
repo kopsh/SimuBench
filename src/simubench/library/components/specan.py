@@ -304,7 +304,13 @@ class SpecanTrace(Component):
         "detector": "",  # the specan_detector
         "vbw": "",  # the specan_vbw
         "maxhold_limit": 999,  # sweeps max hold keeps (older ones are dropped, with a warning)
+        # A center the window cannot hold at the present span (#292): "slide" keeps the span and
+        # moves the center inside the band; "span" keeps the center and narrows the span to fit.
+        "center_fit": "slide",
+        "lo_rate": 0.0,  # Hz/s, the fastest LO sweep (0: no limit); sets a floor on the auto sweep time
+        "sweep_overhead": 0.0,  # s added to the LO-rate floor (retrace and settling)
     }
+    units = {"lo_rate": "Hz/s", "sweep_overhead": "S"}
     dynamic = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -355,8 +361,14 @@ class SpecanTrace(Component):
         return self._vbw().vbw()
 
     def auto_sweep(self) -> float:
+        """The coupled sweep time: what the RBW/VBW need to settle over the span, and no faster
+        than the LO can sweep it (``lo_rate``, #292)."""
         rbw = self.rbw()
-        return max(1e-3, 2.5 * float(self._st("freq.span")) / (rbw * min(rbw, self.vbw())))
+        span = float(self._st("freq.span"))
+        settle = 2.5 * span / (rbw * min(rbw, self.vbw()))
+        rate = float(self.param("lo_rate"))
+        lo = span / rate + float(self.param("sweep_overhead")) if rate > 0 else 0.0
+        return max(1e-3, settle, lo)
 
     def sweep_time(self) -> float:
         return self.auto_sweep() if self._st("sweep.time_auto") else float(self._st("sweep.time"))
@@ -591,6 +603,9 @@ class SpecanTrace(Component):
     def _window_set(self, center: float, span: float) -> None:
         if not 10.0 <= span <= F_MAX or not 0.0 <= center <= F_MAX:
             raise ScpiError(-222)
+        if str(self.param("center_fit")) == "span":
+            # keep the center, narrow the span to what the band leaves around it
+            span = max(10.0, min(span, 2 * center, 2 * (F_MAX - center)))
         center = min(max(center, span / 2), F_MAX - span / 2)  # the window slides, no error
         self._set("freq.span", span)
         self._set("freq.center", center)

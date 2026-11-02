@@ -81,8 +81,9 @@ def test_automatic_rbw_vbw_and_sweep_time_couple_to_the_span():
         assert q(s, ":BAND:VID:AUTO?") == "1"
         assert float(q(s, ":SWE:TIME?")) == pytest.approx(max(1.0e-3, 2.5 * 2.0e6 / (1.0e5**2)), rel=1e-9)
 
-        # Automatic attenuation holds the reference level at the mixer limit in 2 dB steps.
-        assert float(q(s, ":POW:ATT?")) == pytest.approx(10.0, abs=1e-9)
+        # Automatic attenuation holds the reference level at the -20 dBm mixer limit in 2 dB steps:
+        # 20 dB at the 0 dBm reference level, the manual's *RST value (#292).
+        assert float(q(s, ":POW:ATT?")) == pytest.approx(20.0, abs=1e-9)
         assert q(s, ":POW:ATT:AUTO?") == "1"
     finally:
         s.close()

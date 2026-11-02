@@ -20,6 +20,12 @@ cases:
         tolerance: 1.0
       - query: ":POW:ATT:AUTO?"
         expect: "1"
+      - query: ":POW:ATT?"
+        expect_value: 20.0
+        tolerance: 1.0e-9
+      - query: ":SWE:TIME?"
+        expect_value: 0.1002
+        tolerance: 1.0e-9
       - query: ":DET?"
         expect: "POS"
       - query: ":TRAC:MODE?"
@@ -87,6 +93,24 @@ cases:
       - query: ":SYST:ERR?"
         expect: '-222,"Data out of range"'
       - send: "*CLS"
+
+  - name: "*RST 后先设中心后设跨度：中心保持、跨度缩到频段允许的宽度（#292）"
+    manual: "SENSe Subsystem > [:SENSe]:FREQuency:CENTer / SPAN"
+    steps:
+      - send: "*RST"
+      - send: ":FREQ:CENT 10e6"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - query: ":FREQ:SPAN?"
+        expect_value: 2.0e7
+        tolerance: 1.0
+      - send: ":FREQ:SPAN 2e6"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
 
   - name: "RBW/VBW：自动耦合、手动关闭自动、BANDwidth 与 BWIDth 两种写法"
     manual: "SENSe Subsystem > [:SENSe]:BANDwidth|BWIDth[:RESolution] / :AUTO；BANDwidth|BWIDth:VIDeo / :AUTO"
@@ -201,7 +225,7 @@ cases:
         tolerance: 1.0e-9
       - send: ":DISP:WIND:TRAC:Y:RLEV 10"
       - query: ":POW:ATT?"
-        expect_value: 20.0
+        expect_value: 30.0
         tolerance: 1.0e-9
       - send: ":UNIT:POW DBM"
       - query: ":UNIT:POW?"
