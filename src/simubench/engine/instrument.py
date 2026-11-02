@@ -226,8 +226,20 @@ class Instrument:
         ]
         for comp_name, params in instance.hidden.items():
             if comp_name not in self.components:
-                raise ValueError(f"instrument {name!r}: hidden state for unknown component {comp_name!r}")
-            self.components[comp_name].overrides.update(params)
+                options = ", ".join(sorted(self.components))
+                raise ValueError(
+                    f"instrument {name!r}: hidden state for unknown component {comp_name!r} "
+                    f"(components: {options})"
+                )
+            component = self.components[comp_name]
+            for param_name in params:
+                if param_name not in component._params:
+                    options = ", ".join(sorted(component._params))
+                    raise ValueError(
+                        f"instrument {name!r}: hidden state for unknown parameter "
+                        f"{comp_name}.{param_name} (parameters: {options})"
+                    )
+            component.overrides.update(params)
         #: This unit's drawn deviations, '<component>.<parameter>' -> value (empty when nominal).
         self.deviations: dict[str, Any] = {}
         if instance.deviation == "from_specs":
@@ -293,6 +305,10 @@ class Instrument:
                 comp = self.components.get(cname)
                 if comp is None:
                     raise ValueError(f"instrument {self.name!r}: deviation of unknown component {cname!r}")
+                if spec.parameter not in comp._params:
+                    raise ValueError(
+                        f"instrument {self.name!r}: deviation of unknown parameter {cname}.{spec.parameter!r}"
+                    )
                 if spec.parameter in comp.overrides:
                     continue
                 value = draw(
