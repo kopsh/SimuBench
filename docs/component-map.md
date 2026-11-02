@@ -208,16 +208,16 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 ## 缺口清单 v1(#309 定稿)
 
-首波核对(#181 与各型号 issue)发现的通用缺口,分三部分。每条指向对应 open issue;没有 issue 的标「暂不排期」,是否立项由第二波选型(#317)决定。`not_modeled` 的逐条明细在各型号 `.coverage.yaml`(13 台共 2430 条),本文按主题归并,不重复罗列。
+首波核对(#181 与各型号 issue)发现的通用缺口,分三部分。每条指向对应 open issue;没有 issue 的标「暂不排期」。第二波选型已在 #317 定稿:12 个类别各补一台旗舰型号(型号 issue #330–#341,新开核心 issue #327–#329),各型号开工前的能力核对结果补回本清单。`not_modeled` 的逐条明细在各型号 `.coverage.yaml`(13 台共 2430 条),本文按主题归并,不重复罗列。
 
 ### 一、缺的组件(块清单已声明或核对指认,尚不存在)
 
 | 组件 | 对应块 | 现状 | 排期 |
 | --- | --- | --- | --- |
-| `awg_modulator` | function_generator.modulation | 块清单已声明;siglent-sdg2042x 由专用组件临时承担 | 暂不排期,随 SDG 拆分评估落地 |
-| `counter_timebase` | frequency_counter.timebase | 块清单已声明(与 `reference_clock` 并列);53230A 无间隙/时间戳测量的前置 | 暂不排期,随 53230A 选型评估 |
+| `awg_modulator` | function_generator.modulation | 块清单已声明;siglent-sdg2042x 由专用组件临时承担 | #327(第二波,33622A #334 的调制前置;评估 SDG 迁移) |
+| `counter_timebase` | frequency_counter.timebase | 块清单已声明(与 `reference_clock` 并列);53230A 无间隙/时间戳测量的前置 | #328(第二波,53230A #331 的时间戳/无间隙前置) |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
-| `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | 暂不排期,第二波评估 |
+| `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | #329(第二波,5730A #341 的前置) |
 | 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | 多台型号的状态寄存器组整体 not_modeled;dl3021 覆盖表已注记「平台缺口」 | 由 #248(示波器)、#271(电源)、#273(SR830)各自的最小实现推进;三处收敛后评估是否立项通用组件 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
