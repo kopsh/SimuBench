@@ -9,7 +9,7 @@ description: >-
   Real model（D42）：命令、参数、默认值与回复按 SR830 DSP Lock-In Amplifier Manual
   （Revision 2.5，10/2011，firmware 6-1）第 5 章 Computer Interface；第 4 章的默认设置表
   给出上电与 *RST 的值。SR830 不是 SCPI：四条助记符 + 逗号分隔的参数，查询回复是不带命令头
-  的裸数值，未实现命令按平台的真实型号规则回复 -113（真机只置状态位，见覆盖表说明）。
+  的裸数值，未实现的命令按平台的真实型号规则记 -113 事件（SR830 没有错误队列查询；真机对未知命令也只置状态位、不回复）。
 reference:
   title: SR830 DSP Lock-In Amplifier Manual
   document: SR830m
@@ -162,6 +162,11 @@ state:
       "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"]
     default: "26"
     rst: "26"
+    option_labels: {"0": 2 nV, "1": 5 nV, "2": 10 nV, "3": 20 nV, "4": 50 nV, "5": 100 nV,
+      "6": 200 nV, "7": 500 nV, "8": 1 µV, "9": 2 µV, "10": 5 µV, "11": 10 µV, "12": 20 µV,
+      "13": 50 µV, "14": 100 µV, "15": 200 µV, "16": 500 µV, "17": 1 mV, "18": 2 mV,
+      "19": 5 mV, "20": 10 mV, "21": 20 mV, "22": 50 mV, "23": 100 mV, "24": 200 mV,
+      "25": 500 mV, "26": 1 V}
     label: 灵敏度档（0 = 2 nV，26 = 1 V）
     label_en: Sensitivity index (0 = 2 nV, 26 = 1 V)
   input.reserve:
@@ -178,6 +183,9 @@ state:
       "14", "15", "16", "17", "18", "19"]
     default: "8"
     rst: "8"
+    option_labels: {"0": 10 µs, "1": 30 µs, "2": 100 µs, "3": 300 µs, "4": 1 ms, "5": 3 ms,
+      "6": 10 ms, "7": 30 ms, "8": 100 ms, "9": 300 ms, "10": 1 s, "11": 3 s, "12": 10 s,
+      "13": 30 s, "14": 100 s, "15": 300 s, "16": 1 ks, "17": 3 ks, "18": 10 ks, "19": 30 ks}
     label: 时间常数档（0 = 10 µs，19 = 30 ks）
     label_en: Time constant index (0 = 10 us, 19 = 30 ks)
   filter.slope:
