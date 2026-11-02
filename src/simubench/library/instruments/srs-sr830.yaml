@@ -1,0 +1,545 @@
+schema: simubench.instrument/1
+id: srs-sr830
+manufacturer: Stanford Research Systems
+model: SR830
+class: lockin
+version: 1
+description: >-
+  Stanford Research Systems SR830 DSP 锁相放大器（单输入、双相解调，GPIB/RS-232 行式命令集）。
+  Real model（D42）：命令、参数、默认值与回复按 SR830 DSP Lock-In Amplifier Manual
+  （Revision 2.5，10/2011，firmware 6-1）第 5 章 Computer Interface；第 4 章的默认设置表
+  给出上电与 *RST 的值。SR830 不是 SCPI：四条助记符 + 逗号分隔的参数，查询回复是不带命令头
+  的裸数值，未实现命令按平台的真实型号规则回复 -113（真机只置状态位，见覆盖表说明）。
+reference:
+  title: SR830 DSP Lock-In Amplifier Manual
+  document: SR830m
+  version: Revision 2.5 (10/2011)
+  firmware: firmware 6-1（第 5 章 Computer Interface 的命令集）
+identity:
+  idn: "Stanford_Research_Systems,SR830,{serial},{firmware}"
+  serial: "s/n00111"
+  firmware: "ver1.000"
+format:
+  number: nr2
+  digits: 3
+  sign: false
+  exponent_digits: 2
+  integer: plain
+  boolean: numeric
+  enum: short
+  error_code: plain
+errors:
+  0: No error
+  -104: Data type error
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -113: Undefined header
+  -211: Trigger ignored
+  -213: Init ignored
+  -221: Settings conflict
+  -222: Data out of range
+  -224: Illegal parameter value
+  -230: Data corrupt or stale
+builtins: ["*IDN", "*RST", "*CLS"]
+specs:
+  source: Manual chapter 5 (Computer Interface) and chapter 4 (default settings)
+  sensitivity_rms_full_scale_v: [2.0e-9, 5.0e-9, 1.0e-8, 2.0e-8, 5.0e-8, 1.0e-7, 2.0e-7, 5.0e-7,
+    1.0e-6, 2.0e-6, 5.0e-6, 1.0e-5, 2.0e-5, 5.0e-5, 1.0e-4, 2.0e-4, 5.0e-4, 1.0e-3, 2.0e-3,
+    5.0e-3, 1.0e-2, 2.0e-2, 5.0e-2, 0.1, 0.2, 0.5, 1.0]
+  time_constant_s: [1.0e-5, 3.0e-5, 1.0e-4, 3.0e-4, 1.0e-3, 3.0e-3, 1.0e-2, 3.0e-2, 0.1, 0.3,
+    1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0, 30000.0]
+  filter_slope_db_per_octave: [6, 12, 18, 24]
+  reference_frequency_hz: 0.001–102000（检测频率 n×f ≤ 102 kHz）
+  harmonic: 1–19999（n×f > 102 kHz 时手册把谐波钳到最大可用值；本定义未实现钳位，见覆盖表）
+  input_impedance_ohm: 10.0e6
+  reserve_db_by_sensitivity:
+    source: Manual p.4-8, actual dynamic reserves (Low Noise / Normal / High Reserve)
+    "1 V": [0, 0, 0]
+    "100 mV": [0, 10, 20]
+    "10 mV": [0, 20, 40]
+    "1 mV": [10, 40, 60]
+    "100 uV": [30, 60, 80]
+    "10 uV": [50, 80, 100]
+    "1 uV": [70, 100, 120]
+    "100 nV": [90, 120, 140]
+    "10 nV": [110, 140, 160]
+    "1 nV": [124, 154, 174]
+state:
+  # ---- reference and phase (manual 5-4) ------------------------------------------------------
+  reference.source:
+    type: enum
+    options: ["0", "1"]
+    default: "1"
+    rst: "1"
+    option_labels: {"0": 外部, "1": 内部}
+    label: 参考源
+    label_en: Reference source
+  reference.frequency:
+    type: float
+    unit: HZ
+    min: 0.001
+    max: 102000.0
+    default: 1000.0
+    rst: 1000.0
+    label: 参考频率
+    label_en: Reference frequency
+  reference.phase:
+    type: float
+    unit: DEG
+    min: -360.0
+    max: 729.99
+    default: 0.0
+    rst: 0.0
+    display_unit: "°"
+    label: 相位
+    label_en: Phase
+  reference.harmonic:
+    type: int
+    min: 1
+    max: 19999
+    default: 1
+    rst: 1
+    label: 检测谐波
+    label_en: Detection harmonic
+  reference.slope:
+    type: enum
+    options: ["0"]
+    default: "0"
+    rst: "0"
+    option_labels: {"0": 正弦过零}
+    label: 外部参考触发（仅正弦过零）
+    label_en: External reference slope (sine zero crossing only)
+  sine_out.amplitude:
+    type: float
+    unit: V
+    min: 0.004
+    max: 5.0
+    default: 1.0
+    rst: 1.0
+    label: 正弦输出幅度 (Vrms)
+    label_en: Sine output amplitude (Vrms)
+  # ---- input and filters (manual 5-5) ---------------------------------------------------------
+  input.source:
+    type: enum
+    options: ["0"]
+    default: "0"
+    rst: "0"
+    option_labels: {"0": A}
+    label: 输入方式（仅单端 A）
+    label_en: Input configuration (single-ended A only)
+  input.shield_ground:
+    type: enum
+    options: ["0", "1"]
+    default: "0"
+    rst: "0"
+    option_labels: {"0": 浮地, "1": 接地}
+    label: 输入屏蔽接地
+    label_en: Input shield grounding
+  input.coupling:
+    type: enum
+    options: ["0", "1"]
+    default: "0"
+    rst: "0"
+    option_labels: {"0": AC, "1": DC}
+    label: 输入耦合
+    label_en: Input coupling
+  input.line_notches:
+    type: enum
+    options: ["0", "1", "2", "3"]
+    default: "0"
+    rst: "0"
+    option_labels: {"0": 关, "1": 工频, "2": 二次工频, "3": 两者}
+    label: 工频陷波
+    label_en: Line notches
+  # ---- gain and time constant (manual 5-6, 5-7) -----------------------------------------------
+  input.sensitivity:
+    type: enum
+    options: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+      "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26"]
+    default: "26"
+    rst: "26"
+    label: 灵敏度档（0 = 2 nV，26 = 1 V）
+    label_en: Sensitivity index (0 = 2 nV, 26 = 1 V)
+  input.reserve:
+    type: enum
+    options: ["0", "1", "2"]
+    default: "2"
+    rst: "2"
+    option_labels: {"0": 高, "1": 正常, "2": 低噪声}
+    label: 动态储备
+    label_en: Dynamic reserve
+  filter.time_constant:
+    type: enum
+    options: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13",
+      "14", "15", "16", "17", "18", "19"]
+    default: "8"
+    rst: "8"
+    label: 时间常数档（0 = 10 µs，19 = 30 ks）
+    label_en: Time constant index (0 = 10 us, 19 = 30 ks)
+  filter.slope:
+    type: enum
+    options: ["0", "1", "2", "3"]
+    default: "1"
+    rst: "1"
+    option_labels: {"0": 6 dB/oct, "1": 12 dB/oct, "2": 18 dB/oct, "3": 24 dB/oct}
+    label: 滤波斜率
+    label_en: Filter slope
+  # ---- interface and setup (manual 5-10, 5-19; all accepted) ------------------------------------
+  interface.output:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 输出接口（0 RS232，1 GPIB）
+    label_en: Output interface (0 RS232, 1 GPIB)
+  interface.override_remote:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 覆盖远程（0 否，1 是）
+    label_en: Override remote (0 no, 1 yes)
+  interface.key_click:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 按键声
+    label_en: Key click
+  interface.alarms:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 报警声
+    label_en: Alarms
+  interface.local:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: 本地/远程（0 本地，1 远程，2 本地锁定）
+    label_en: Local/remote (0 local, 1 remote, 2 local lockout)
+  # ---- AUX outputs (manual 5-9) ----------------------------------------------------------------
+  aux.output1:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 1
+    label_en: AUX output 1
+  aux.output2:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 2
+    label_en: AUX output 2
+  aux.output3:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 3
+    label_en: AUX output 3
+  aux.output4:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 4
+    label_en: AUX output 4
+components:
+  # Real block diagram (D3 #189, D50): input filter and amplifier -> PSD <- reference -> low-pass ->
+  # output; the AUX ports are circuit level. Terminals: SIG_IN is a 10 MOhm voltage input, REF_IN is
+  # a 1 MOhm reference input, SINE_OUT is a 50 Ohm source.
+  - name: osc
+    type: lockin_reference
+    params:
+      source: {from: $reference.source, map: {"0": EXTernal, "1": INTernal}}
+      frequency: $reference.frequency
+      phase: $reference.phase
+      harmonic: $reference.harmonic
+      amplitude: $sine_out.amplitude
+  - name: out
+    type: output_stage
+    params: {z_out: 50.0, enabled: true}
+  - name: sig_in
+    type: input_port
+    params: {z_in: 10.0e6, c_in: 25.0e-12}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 1.0e6}
+  - name: front
+    type: lockin_input_filter
+    params:
+      coupling: {from: $input.coupling, map: {"0": AC, "1": DC}}
+      line_notch: {from: $input.line_notches, map: {"0": false, "1": true, "2": false, "3": true}}
+      notch_2x: {from: $input.line_notches, map: {"0": false, "1": false, "2": true, "3": true}}
+      line_frequency: 50.0
+  - name: amp
+    type: lockin_input_amp
+    params:
+      sensitivity:
+        from: $input.sensitivity
+        table:
+          0: 2.0e-9
+          1: 5.0e-9
+          2: 1.0e-8
+          3: 2.0e-8
+          4: 5.0e-8
+          5: 1.0e-7
+          6: 2.0e-7
+          7: 5.0e-7
+          8: 1.0e-6
+          9: 2.0e-6
+          10: 5.0e-6
+          11: 1.0e-5
+          12: 2.0e-5
+          13: 5.0e-5
+          14: 1.0e-4
+          15: 2.0e-4
+          16: 5.0e-4
+          17: 1.0e-3
+          18: 2.0e-3
+          19: 5.0e-3
+          20: 1.0e-2
+          21: 2.0e-2
+          22: 5.0e-2
+          23: 1.0e-1
+          24: 0.2
+          25: 0.5
+          26: 1.0
+      reserve: {from: $input.reserve, map: {"0": 100.0, "1": 10.0, "2": 1.0}}
+  - name: mixer
+    type: lockin_mixer
+  - name: filter
+    type: lockin_lowpass
+    params:
+      time_constant:
+        from: $filter.time_constant
+        table:
+          0: 1.0e-5
+          1: 3.0e-5
+          2: 1.0e-4
+          3: 3.0e-4
+          4: 1.0e-3
+          5: 3.0e-3
+          6: 1.0e-2
+          7: 3.0e-2
+          8: 0.1
+          9: 0.3
+          10: 1.0
+          11: 3.0
+          12: 10.0
+          13: 30.0
+          14: 100.0
+          15: 300.0
+          16: 1000.0
+          17: 3000.0
+          18: 10000.0
+          19: 30000.0
+      slope: {from: $filter.slope, map: {"0": "6", "1": "12", "2": "18", "3": "24"}}
+      mixer: mixer
+  - name: demod
+    type: lockin_output
+    params:
+      filter: filter
+      amp: amp
+  - name: trig
+    type: trigger_model
+    params: {sampler: demod, buffer: buffer}
+  - name: buffer
+    type: reading_buffer
+    params: {capacity: 16383}
+  - name: aux
+    type: lockin_aux
+    params:
+      dac1: $aux.output1
+      dac2: $aux.output2
+      dac3: $aux.output3
+      dac4: $aux.output4
+wiring:
+  instrument:
+    - [osc.sine, out.in]
+    - [ref_in.out, osc.ext]
+    - [sig_in.out, front.in]
+    - [front.out, amp.in]
+    - [amp.out, filter.in]
+    - [osc.ref, filter.ref]
+    - [osc.ref, mixer.ref]
+ports:
+  instrument:
+    SIG_IN: sig_in.pin
+    REF_IN: ref_in.pin
+    SINE_OUT: out.pin
+    AUX_IN1: aux.in1
+    AUX_IN2: aux.in2
+    AUX_IN3: aux.in3
+    AUX_IN4: aux.in4
+    AUX_OUT1: aux.out1
+    AUX_OUT2: aux.out2
+    AUX_OUT3: aux.out3
+    AUX_OUT4: aux.out4
+  media: {REF_IN: reference}
+display:
+  template: lockin
+  summary: [reference.source, reference.frequency, reference.harmonic, input.sensitivity, filter.time_constant, filter.slope]
+capabilities: [lockin]
+commands:
+  # ---- reference and phase (manual 5-4) ------------------------------------------------------
+  - header: PHAS
+    state: reference.phase
+    format: {number: nr2, digits: 2, sign: false}
+  - header: FMOD
+    state: reference.source
+  - header: FREQ
+    state: reference.frequency
+    format: {number: nr2, digits: 3, sign: false}
+  - header: HARM
+    state: reference.harmonic
+  - header: RSLP
+    state: reference.slope
+  - header: SLVL
+    state: sine_out.amplitude
+    format: {number: nr2, digits: 3, sign: false}
+  # ---- input and filter (manual 5-5) ---------------------------------------------------------
+  - header: ISRC
+    state: input.source
+  - header: IGND
+    state: input.shield_ground
+  - header: ICPL
+    state: input.coupling
+  - header: ILIN
+    state: input.line_notches
+  # ---- gain and time constant (manual 5-6, 5-7) ----------------------------------------------
+  - header: SENS
+    state: input.sensitivity
+  - header: RMOD
+    state: input.reserve
+  - header: OFLT
+    state: filter.time_constant
+  - header: OFSL
+    state: filter.slope
+  # ---- readings (manual 5-15): OUTP? i is X, Y, R or theta; OUTR? i is display 1 or 2 ---------
+  - header: OUTP
+    set: false
+    op: demod.measure
+    args: {what: X}
+    when: {i: "1"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OUTP
+    set: false
+    op: demod.measure
+    args: {what: Y}
+    when: {i: "2"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OUTP
+    set: false
+    op: demod.measure
+    args: {what: R}
+    when: {i: "3"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OUTP
+    set: false
+    op: demod.measure
+    args: {what: THETa}
+    when: {i: "4"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OUTR
+    set: false
+    op: demod.measure
+    args: {what: X}
+    when: {i: "1"}
+    params: [{name: i, type: int, min: 1, max: 2}]
+  - header: OUTR
+    set: false
+    op: demod.measure
+    args: {what: Y}
+    when: {i: "2"}
+    params: [{name: i, type: int, min: 1, max: 2}]
+  # ---- AUX input and output (manual 5-9) -----------------------------------------------------
+  - header: OAUX
+    set: false
+    op: aux.read
+    args: {index: 1}
+    when: {i: "1"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OAUX
+    set: false
+    op: aux.read
+    args: {index: 2}
+    when: {i: "2"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OAUX
+    set: false
+    op: aux.read
+    args: {index: 3}
+    when: {i: "3"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: OAUX
+    set: false
+    op: aux.read
+    args: {index: 4}
+    when: {i: "4"}
+    params: [{name: i, type: int, min: 1, max: 4}]
+  - header: AUXV
+    op: aux.set_dac
+    read: aux.output1
+    args: {index: 1}
+    when: {i: "1"}
+    params:
+      - {name: i, type: int, min: 1, max: 4}
+      - {name: voltage, type: float, unit: V, min: -10.5, max: 10.5}
+  - header: AUXV
+    op: aux.set_dac
+    read: aux.output2
+    args: {index: 2}
+    when: {i: "2"}
+    params:
+      - {name: i, type: int, min: 1, max: 4}
+      - {name: voltage, type: float, unit: V, min: -10.5, max: 10.5}
+  - header: AUXV
+    op: aux.set_dac
+    read: aux.output3
+    args: {index: 3}
+    when: {i: "3"}
+    params:
+      - {name: i, type: int, min: 1, max: 4}
+      - {name: voltage, type: float, unit: V, min: -10.5, max: 10.5}
+  - header: AUXV
+    op: aux.set_dac
+    read: aux.output4
+    args: {index: 4}
+    when: {i: "4"}
+    params:
+      - {name: i, type: int, min: 1, max: 4}
+      - {name: voltage, type: float, unit: V, min: -10.5, max: 10.5}
+  # ---- interface and setup (manual 5-10, 5-19): accepted, they change no measured value ---------
+  - header: OUTX
+    state: interface.output
+  - header: OVRM
+    state: interface.override_remote
+  - header: KCLK
+    state: interface.key_click
+  - header: ALRM
+    state: interface.alarms
+  - header: LOCL
+    state: interface.local
+  # ---- auto functions (manual 5-11) ----------------------------------------------------------
+  - header: APHS
+    op: demod.auto_phase
+    query: false
