@@ -273,3 +273,53 @@ def test_the_store_dedupes_replayed_sequences_and_stays_bounded():
         store.add({"seq": seq})
     assert len(store) == 8 and store.events[0]["seq"] == 22  # the oldest were dropped, not the newest
     assert BUFFER_LIMIT >= 10_000  # the session buffer the spec requires (7.2)
+
+
+# ---- instrument screen values (#283) ---------------------------------------------------------------
+
+
+def test_an_int_setting_reads_as_an_integer():
+    from simubench.tui.controls import summary_text
+
+    assert summary_text(1.0, {"type": "int"}, "zh") == "1"
+    assert summary_text(101, {"type": "int", "unit": "S"}, "zh") == "101 s"
+
+
+def test_an_angle_reads_in_degrees():
+    assert fmt(0.0, "DEG") == "0.0000°"
+    assert fmt(-45.5, "DEG") == "-45.500°"
+
+
+def test_an_infinite_load_sent_as_inf_reads_as_on_the_overview_card():
+    from simubench.tui.controls import summary_text
+
+    spec = {"type": "float", "unit": "OHM"}
+    assert summary_text("INF", spec, "zh") == fmt(float("inf"), "OHM") == "高阻"
+
+
+def test_each_generator_channel_box_gets_its_own_buttons():
+    from simubench.tui.controls import generator_controls
+
+    info = {
+        "state": [
+            {"path": f"ch{ch}.{k}", "channel": ch, "type": "float", "value": 0.0}
+            for ch in (1, 2)
+            for k in ("frequency", "amplitude")
+        ]
+    }
+    assert [c.path for c in generator_controls(info, "zh", 2)] == ["ch2.frequency", "ch2.amplitude"]
+    assert len(generator_controls(info, "zh")) == 4
+
+
+def test_a_manual_value_under_its_auto_switch_is_not_in_effect():
+    from simubench.tui.controls import inactive_under_auto
+
+    state = {
+        "bw.res": {"type": "float", "value": 3e6},
+        "bw.res_auto": {"type": "bool", "value": True},
+        "sweep.time": {"type": "float", "value": 1e-3},
+        "sweep.time_auto": {"type": "bool", "value": False},
+    }
+    assert inactive_under_auto(state, "bw.res")
+    assert not inactive_under_auto(state, "sweep.time")
+    assert not inactive_under_auto(state, "freq.center")

@@ -335,7 +335,7 @@ class InstrumentScreen(ShellScreen):
         if template == "smu":
             return C.smu_controls(info, lang)
         if template == "function_generator":
-            return C.generator_controls(info, lang)
+            return C.generator_controls(info, lang, channel)
         panel = (info.get("display") or {}).get("panel")
         if panel:
             controls: list[C.Control] = []
@@ -521,34 +521,52 @@ class InstrumentScreen(ShellScreen):
 
     def _generic_lines(self, state: dict[str, dict]) -> list[list[tuple[str, str]]]:
         """State variables grouped by first path segment, up to three columns (5.2)."""
-        lang = self.app.lang
         groups: dict[str, list[str]] = {}
         for path in state:
             groups.setdefault(path.split(".", 1)[0], []).append(path)
-        columns: list[list[list[tuple[str, str]]]] = []
+        return self._grouped_columns(groups, state)
+
+    def _grouped_columns(
+        self, groups: dict[str, list[str]], state: dict[str, dict]
+    ) -> list[list[tuple[str, str]]]:
+        """Up to three columns of ``label value`` rows under their group name. Each column is as
+        wide as its widest row (labels and values aligned), so nothing is cut while the box has
+        the room (#283)."""
+        lang = self.app.lang
+        columns: list[list[tuple[str, str]]] = []  # per column: (label, value) rows; row 0 = title
         for name in list(groups)[:3]:
-            col: list[list[tuple[str, str]]] = [[(name, "muted")]]
+            col: list[tuple[str, str]] = [(name, "")]
             for path in groups[name]:
-                sv = state[path]
+                sv = state.get(path)
+                if sv is None:
+                    continue
                 label = C.label_of(sv, lang, fallback=path.rsplit(".", 1)[-1])
-                col.append(
-                    [
-                        (pad(label, 12), "muted"),
-                        (
-                            C.summary_text(sv.get("value"), sv, lang),
-                            "bold" if isinstance(sv.get("value"), (int, float)) else "",
-                        ),
-                    ]
+                value = (
+                    "AUTO"
+                    if C.inactive_under_auto(state, path)
+                    else C.summary_text(sv.get("value"), sv, lang)
                 )
+                col.append((label, value))
             columns.append(col)
+        label_w = [max((cell_len(lab) for lab, _ in col[1:]), default=0) for col in columns]
+        col_w = [
+            max(cell_len(col[0][0]), max((label_w[k] + 1 + cell_len(v) for _, v in col[1:]), default=0))
+            for k, col in enumerate(columns)
+        ]
         rows: list[list[tuple[str, str]]] = []
         for n in range(max((len(c) for c in columns), default=0)):
             row: list[tuple[str, str]] = []
-            for col in columns:
-                if n < len(col):
-                    row.extend(col[n])
+            for k, col in enumerate(columns):
+                if n == 0:
+                    row.append((pad(col[0][0], col_w[k]), "muted"))
+                elif n < len(col):
+                    label, value = col[n]
+                    row.append((pad(label, label_w[k] + 1), "muted"))
+                    row.append((pad(value, col_w[k] - label_w[k] - 1), "bold"))
+                else:
+                    row.append((" " * col_w[k], ""))
                 row.append((" " * 3, ""))
-            if any(cell_len(v) for v, _ in row):
+            if any(cell_len(v.strip()) for v, _ in row):
                 rows.append(row)
         return rows
 
@@ -633,34 +651,10 @@ class InstrumentScreen(ShellScreen):
         groups: dict[str, list[str]] = {}
         for path in paths:
             groups.setdefault(path.split(".", 1)[0], []).append(path)
-        width = max(20, self._other.size.width)
-        columns: list[list[list[tuple[str, str]]]] = []
-        for name in list(groups)[:3]:
-            col: list[list[tuple[str, str]]] = [[(name, "muted")]]
-            for path in groups[name]:
-                sv = state.get(path)
-                if sv is None:
-                    continue
-                label = C.label_of(sv, lang, fallback=path.rsplit(".", 1)[-1])
-                col.append(
-                    [
-                        (pad(label, 10), "muted"),
-                        (
-                            C.summary_text(sv.get("value"), sv, lang),
-                            "bold" if isinstance(sv.get("value"), (int, float)) else "",
-                        ),
-                    ]
-                )
-            columns.append(col)
-        rows: list[list[tuple[str, str]]] = []
-        for n in range(max((len(c) for c in columns), default=0)):
-            row: list[tuple[str, str]] = []
-            for col in columns:
-                if n < len(col):
-                    row.extend(col[n])
-                row.append((" " * 3, ""))
-            if any(cell_len(v) for v, _ in row):
-                rows.append(row)
+        # Before the first layout the box has no size yet: take the row's share of the screen
+        # (#other-box is 2fr of the side row) rather than cutting at a 20-cell guess (#283).
+        width = self._other.content_size.width or max(20, (app.size.width * 2) // 3 - 4)
+        rows = self._grouped_columns(groups, state)
         self._other.display = True
         self._other.border_title = i18n.t("instrument.otherSettings", lang)
         self._other_static.update(box_text(app, rows, width))

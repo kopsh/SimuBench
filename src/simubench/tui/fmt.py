@@ -10,7 +10,18 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
-UNIT_FIXES = {"OHM": "Ω", "HZ": "Hz", "S": "s"}
+UNIT_FIXES = {"OHM": "Ω", "HZ": "Hz", "S": "s", "DEG": "°"}
+
+#: How the server spells the numbers JSON cannot carry (manager.py).
+_SPECIAL_NUMBERS = {"INF": math.inf, "-INF": -math.inf, "NAN": math.nan}
+
+
+def as_number(value: object) -> object:
+    """A value as the server sent it, with ``"INF"`` / ``"-INF"`` / ``"NAN"`` back as floats."""
+    if isinstance(value, str) and value.upper() in _SPECIAL_NUMBERS:
+        return _SPECIAL_NUMBERS[value.upper()]
+    return value
+
 
 _PREFIXES: list[tuple[float, str]] = [
     (1e9, "G"),
@@ -25,7 +36,7 @@ _PREFIXES: list[tuple[float, str]] = [
 
 
 def fix_unit(unit: str | None) -> str:
-    """``HZ`` → ``Hz``, ``OHM`` → ``Ω``, ``S`` → ``s``; anything else unchanged."""
+    """``HZ`` → ``Hz``, ``OHM`` → ``Ω``, ``S`` → ``s``, ``DEG`` → ``°``; anything else unchanged."""
     return UNIT_FIXES.get((unit or "").upper(), unit) if unit else ""
 
 
@@ -59,11 +70,19 @@ def fmt(value: float | int | None, unit: str | None = None, digits: int = 5) -> 
     whole = len(str(int(abs(mantissa)))) if abs(mantissa) >= 1 else 1
     decimals = max(0, min(digits - whole, 12))
     text = f"{mantissa:.{decimals}f}"
+    if unit == "°" and not prefix:
+        return text + "°"  # an angle takes its sign without a space
     if unit:
         text += f" {prefix}{unit}"
     elif prefix:
         text = f"{mantissa:.{decimals}f} {prefix}"  # a bare prefix keeps its spacing
     return text
+
+
+def fmt_int(value: float | int, unit: str | None = None) -> str:
+    """A count, point number or other integer setting: ``1``, ``101``, ``5 s`` (no decimals)."""
+    unit = fix_unit(unit)
+    return f"{round(float(value))}" + (f" {unit}" if unit else "")
 
 
 def fmt_ns(now_ns: int | float | None) -> str:

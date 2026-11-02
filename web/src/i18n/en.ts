@@ -103,6 +103,8 @@ export const en: Widen<Messages> = {
     settings: "Settings",
     state: "State",
     refused: "Setting refused",
+    autoInactive: "Not in effect while auto is on",
+    auto: "Auto",
     sendCommand: "Send SCPI command",
     commandPlaceholder: "e.g. :CHANnel1:SCALe 0.05 or *IDN?",
     send: "Send",
@@ -276,6 +278,7 @@ export const en: Widen<Messages> = {
   },
   spectrum: {
     overload: "Mixer overload",
+    uncalReason: "The sweep time is shorter than the current RBW/VBW need; amplitudes are uncalibrated",
     reference: "Reference",
     sweep: "Sweep",
     start: "Start",
