@@ -411,3 +411,25 @@ cases:
       - send: "*CLS"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: "INSTrument:SELect 选中输出：省略通道列表的 VOLT 作用于它（#295）"
+    manual: "INSTrument Subsystem > INSTrument[:SELect] / INSTrument:NSELect"
+    steps:
+      - query: "INST:SEL?"
+        expect: "CH1"
+      - send: "INST:SEL P25V"
+      - send: "VOLT 5"
+      - query: "VOLT? (@2)"
+        expect: "+5.00000000E+00"
+      - query: "VOLT? (@1)"
+        expect: "+0.00000000E+00"
+      - query: "INST:NSEL?"
+        expect: "2"
+      - send: "INST:NSEL 3"
+      - query: "INST:SEL?"
+        expect: "CH3"
+      - send: "*RST"
+      - query: "INST:SEL?"
+        expect: "CH1"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

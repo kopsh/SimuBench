@@ -75,6 +75,19 @@
           "description": "Per-channel overrides of channel_state specs, e.g. {3: {frequency: {max: 2e8}}}",
           "title": "Overrides",
           "type": "object"
+        },
+        "selected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An int setting holding the selected output's channel number (INSTrument:SELect / NSELect, #295): a channel list parameter left out uses it instead of the parameter's default",
+          "title": "Selected"
         }
       },
       "title": "Channels",

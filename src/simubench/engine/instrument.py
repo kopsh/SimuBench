@@ -1144,7 +1144,7 @@ class Instrument:
                 if raw:
                     numbers = V.parse_channel_list(raw.pop(0), self.channel_exists, **self._list_rules())
                 elif ps.optional:
-                    numbers = ps.default or [self.channel_number(1)]
+                    numbers = self._omitted_list(ps)
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
                 channels = [self.channel_index(n) for n in numbers]
@@ -1283,6 +1283,14 @@ class Instrument:
     def format_setting(self, path: str) -> bytes:
         """The setting at ``path`` as the definition formats replies."""
         return self._format(self.specs[path], self.state[path])
+
+    def _omitted_list(self, ps: ParamSpec) -> list[int]:
+        """The channels of a channel list left out: the selected output when the definition
+        declares one (#295), else the parameter's default, else the first channel."""
+        selected = self.definition.channels.selected
+        if selected is not None:
+            return [int(self.state[selected])]
+        return ps.default or [self.channel_number(1)]
 
     def _list_rules(self) -> dict[str, bool]:
         """The definition's channel list rules (#260): descending ranges, repeated channels."""
@@ -1431,7 +1439,7 @@ class Instrument:
                     numbers = V.parse_channel_list(raw[i], self.channel_exists, **self._list_rules())
                     i += 1
                 elif ps.optional:
-                    numbers = ps.default or [self.channel_number(1)]
+                    numbers = self._omitted_list(ps)
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
                 # Operations run once per channel with the channel index (as a <n> suffix does);

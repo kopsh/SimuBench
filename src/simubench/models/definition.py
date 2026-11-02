@@ -457,6 +457,12 @@ class ChannelListRules(_Model):
 
 class Channels(_Model):
     count: int = 1
+    selected: str | None = Field(
+        None,
+        description="An int setting holding the selected output's channel number "
+        "(INSTrument:SELect / NSELect, #295): a channel list parameter left out uses it instead "
+        "of the parameter's default",
+    )
     lists: ChannelListRules = Field(
         default_factory=ChannelListRules,
         description="Channel list parameters (@…): whether descending ranges and repeated channels "
@@ -694,6 +700,9 @@ class InstrumentDefinition(_Model):
 
     @model_validator(mode="after")
     def _check_unknown(self) -> InstrumentDefinition:
+        selected = self.channels.selected
+        if selected is not None and (selected not in self.state or self.state[selected].type != "int"):
+            raise ValueError(f"channels.selected names {selected!r}, which is not an int state")
         if self.unknown_commands == "ignore" and self.reference is not None:
             raise ValueError(
                 "a real model (with `reference`) refuses unknown commands; unknown_commands: ignore"
