@@ -1,0 +1,530 @@
+# Rigol DSG815 的手册用例：DSG800 系列编程指南（PGG02104-1110，Sept. 2018，软件版本 00.01.07）
+# 第 2 章各命令条目与第 5 章 Appendix A（出厂设置）。用例按手册的写法发送，查询按本定义的
+# 回读格式核对：频率/时间量是工程记数（手册写成带 SI 前缀单位的 4.00000000MHz，引擎还写不出
+# 单位后缀，见覆盖表的说明），电平与深度是两位小数、不带 +。
+# 每个用例在一台刚上电的测试台上跑（只有这台仪表），默认值即 Appendix A 的出厂值。
+model: rigol-dsg815
+cases:
+  - name: "*IDN? 按四字段返回厂商、型号、序列号与固件"
+    manual: "IEEE488.2 Common Commands > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "Rigol Technologies,DSG815,DSG8A170200001,00.01.07."
+
+  - name: "*RST 恢复 Appendix A 的出厂设置（DSG815 的 1.5 GHz 载波）"
+    manual: "Appendix A: Factory Setting；*RST（IEEE 488.2 公共命令）"
+    steps:
+      - send: ":FREQ 1GHz"
+      - send: ":LEV 0"
+      - send: ":OUTP ON"
+      - send: ":AM:DEPT 30"
+      - send: ":AM:FREQ 2kHz"
+      - send: ":AM:STAT ON"
+      - send: ":FM:DEV 50kHz"
+      - send: ":PM:DEV 1"
+      - send: ":SWE:STEP:STAR:FREQ 200MHz"
+      - send: ":SWE:STEP:STOP:FREQ 300MHz"
+      - send: ":SWE:STEP:POIN 11"
+      - send: ":SWE:STEP:SPAC LOG"
+      - send: ":SWE:STAT FREQ"
+      - send: ":UNIT:POW V"
+      - send: "*RST"
+      - query: ":FREQ?"
+        expect: "1.50000000E+09"
+      - query: ":LEV?"
+        expect: "-110.00"
+      - query: ":OUTP?"
+        expect: "0"
+      - query: ":AM:DEPT?"
+        expect: "50.00"
+      - query: ":AM:FREQ?"
+        expect: "10.00000E+03"
+      - query: ":AM:STAT?"
+        expect: "0"
+      - query: ":FM:DEV?"
+        expect: "10.00000E+03"
+      - query: ":PM:DEV?"
+        expect: "5.000000"
+      - query: ":SWE:STEP:STAR:FREQ?"
+        expect: "100.000000E+06"
+      - query: ":SWE:STEP:STOP:FREQ?"
+        expect: "1.00000000E+09"
+      - query: ":SWE:STEP:POIN?"
+        expect: "91"
+      - query: ":SWE:STEP:SPAC?"
+        expect: "LIN"
+      - query: ":SWE:STAT?"
+        expect: "OFF"
+
+  - name: ":SYSTem:PRESet 与 Preset 键等价：恢复出厂设置"
+    manual: "Command System > :SYSTem:PRESet"
+    steps:
+      - send: ":FREQ 4MHz"
+      - send: ":OUTP ON"
+      - send: ":SYST:PRES"
+      - query: ":FREQ?"
+        expect: "1.50000000E+09"
+      - query: ":OUTP?"
+        expect: "0"
+
+  - name: ":SYSTem:PRESet:TYPE 默认出厂、写 FACtory 后回读 FACTORY"
+    manual: "Command System > :SYSTem:PRESet:TYPE"
+    steps:
+      - query: ":SYST:PRES:TYPE?"
+        expect: "FACTORY"
+      - send: ":SYST:PRES:TYPE FAC"
+      - query: ":SYST:PRES:TYPE?"
+        expect: "FACTORY"
+
+  - name: ":OUTPut 上电关、ON/OFF 与查询"
+    manual: "Command System > :OUTPut[:STATe]"
+    steps:
+      - query: ":OUTP?"
+        expect: "0"
+      - send: ":OUTP ON"
+      - query: ":OUTP?"
+        expect: "1"
+      - send: ":OUTP OFF"
+      - query: ":OUTP?"
+        expect: "0"
+
+  - name: "频率的默认值、带单位写入与回读"
+    manual: "Command System > [:SOURce]:FREQuency"
+    steps:
+      - query: ":FREQ?"
+        expect: "1.50000000E+09"
+      - send: ":FREQ 4MHz"
+      - query: ":FREQ?"
+        expect: "4.00000000E+06"
+      - send: ":FREQ 9kHz"
+      - query: ":FREQ?"
+        expect: "9.00000000E+03"
+
+  - name: "频率步进默认 100 MHz，写入 3 kHz 后回读"
+    manual: "Command System > [:SOURce]:FREQuency:STEP"
+    steps:
+      - query: ":FREQ:STEP?"
+        expect: "100.000E+06"
+      - send: ":FREQ:STEP 3kHz"
+      - query: ":FREQ:STEP?"
+        expect: "3.00000E+03"
+
+  - name: "频率超出 9 kHz–1.5 GHz 报 -222"
+    manual: "Command System > [:SOURce]:FREQuency（参数范围 9kHz to 3GHz，DSG815 为 1.5GHz）"
+    steps:
+      - send: ":FREQ 2GHz"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+      - send: ":FREQ 8kHz"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "电平默认 -110 dBm，写入 2dBm 后回读 2.00，超范围报 -222"
+    manual: "Command System > [:SOURce]:LEVel"
+    steps:
+      - query: ":LEV?"
+        expect: "-110.00"
+      - send: ":LEV 2dBm"
+      - query: ":LEV?"
+        expect: "2.00"
+      - send: ":LEV 30"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "电平步进默认 10 dB，写入 20dB 后回读 20.00"
+    manual: "Command System > [:SOURce]:LEVel:STEP"
+    steps:
+      - query: ":LEV:STEP?"
+        expect: "10.00"
+      - send: ":LEV:STEP 20dB"
+      - query: ":LEV:STEP?"
+        expect: "20.00"
+
+  - name: "AM 深度默认 50%，写入 80 回读 80.00，超过 100 报 -222"
+    manual: "Command System > [:SOURce]:AM[:DEPTh]"
+    steps:
+      - query: ":AM:DEPT?"
+        expect: "50.00"
+      - send: ":AM:DEPT 80"
+      - query: ":AM:DEPT?"
+        expect: "80.00"
+      - send: ":AM:DEPT 101"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "AM 深度步进默认 10%，写入 0.2 回读 0.20"
+    manual: "Command System > [:SOURce]:AM[:DEPTh]:STEP[:INCRement]"
+    steps:
+      - query: ":AM:DEPT:STEP?"
+        expect: "10.00"
+      - send: ":AM:DEPT:STEP 0.2"
+      - query: ":AM:DEPT:STEP?"
+        expect: "0.20"
+
+  - name: "AM 调制频率默认 10 kHz，写入 20kHz 后回读"
+    manual: "Command System > [:SOURce]:AM:FREQuency"
+    steps:
+      - query: ":AM:FREQ?"
+        expect: "10.00000E+03"
+      - send: ":AM:FREQ 20kHz"
+      - query: ":AM:FREQ?"
+        expect: "20.00000E+03"
+      - send: ":AM:FREQ 5"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "AM 频率步进默认 1 kHz，写入 3.55kHz 后回读"
+    manual: "Command System > [:SOURce]:AM:FREQuency:STEP[:INCRement]"
+    steps:
+      - query: ":AM:FREQ:STEP?"
+        expect: "1.00000E+03"
+      - send: ":AM:FREQ:STEP 3.55kHz"
+      - query: ":AM:FREQ:STEP?"
+        expect: "3.55000E+03"
+
+  - name: "AM 调制源默认 INT，只建模内部源（EXT 报 -224）"
+    manual: "Command System > [:SOURce]:AM:SOURce"
+    steps:
+      - query: ":AM:SOUR?"
+        expect: "INT"
+      - send: ":AM:SOUR INT"
+      - send: ":AM:SOUR EXT"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+
+  - name: "AM 波形默认 SINE，只建模正弦（SQUA 报 -224）"
+    manual: "Command System > [:SOURce]:AM:WAVEform"
+    steps:
+      - query: ":AM:WAVE?"
+        expect: "SINE"
+      - send: ":AM:WAVE SINE"
+      - send: ":AM:WAVE SQUA"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+
+  - name: "AM 外部调制耦合与阻抗的默认值与回读"
+    manual: "Command System > [:SOURce]:AM:EXT:COUP、[:SOURce]:AM:EXT:IMP"
+    steps:
+      - query: ":AM:EXT:COUP?"
+        expect: "AC"
+      - query: ":AM:EXT:IMP?"
+        expect: "100k"
+      - send: ":AM:EXT:COUP DC"
+      - send: ":AM:EXT:IMP 600"
+      - query: ":AM:EXT:COUP?"
+        expect: "DC"
+      - query: ":AM:EXT:IMP?"
+        expect: "600"
+
+  - name: "AM 开关默认关，打开后查询为 1"
+    manual: "Command System > [:SOURce]:AM:STATe"
+    steps:
+      - query: ":AM:STAT?"
+        expect: "0"
+      - send: ":AM:STAT ON"
+      - query: ":AM:STAT?"
+        expect: "1"
+
+  - name: "FM 频偏默认 10 kHz，写入 20kHz 后回读，超过 1 MHz 报 -222"
+    manual: "Command System > [:SOURce]:FM[:DEViation]"
+    steps:
+      - query: ":FM:DEV?"
+        expect: "10.00000E+03"
+      - send: ":FM:DEV 20kHz"
+      - query: ":FM:DEV?"
+        expect: "20.00000E+03"
+      - send: ":FM:DEV 2MHz"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "FM 频偏步进默认 1 kHz，写入 5kHz 后回读"
+    manual: "Command System > [:SOURce]:FM[:DEViation]:STEP[:INCRement]"
+    steps:
+      - query: ":FM:DEV:STEP?"
+        expect: "1.00000E+03"
+      - send: ":FM:DEV:STEP 5kHz"
+      - query: ":FM:DEV:STEP?"
+        expect: "5.00000E+03"
+
+  - name: "FM 调制频率默认 10 kHz，写入 20kHz 后回读"
+    manual: "Command System > [:SOURce]:FM:FREQuency"
+    steps:
+      - query: ":FM:FREQ?"
+        expect: "10.00000E+03"
+      - send: ":FM:FREQ 20kHz"
+      - query: ":FM:FREQ?"
+        expect: "20.00000E+03"
+      - send: ":FM:FREQ 2"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "FM 频率步进默认 1 kHz，写入 5kHz 后回读"
+    manual: "Command System > [:SOURce]:FM:FREQuency:STEP[:INCRement]"
+    steps:
+      - query: ":FM:FREQ:STEP?"
+        expect: "1.00000E+03"
+      - send: ":FM:FREQ:STEP 5kHz"
+      - query: ":FM:FREQ:STEP?"
+        expect: "5.00000E+03"
+
+  - name: "FM 调制源默认 INT；EXT 与方波波形报 -224"
+    manual: "Command System > [:SOURce]:FM:SOURce、[:SOURce]:FM:WAVEform"
+    steps:
+      - query: ":FM:SOUR?"
+        expect: "INT"
+      - query: ":FM:WAVE?"
+        expect: "SINE"
+      - send: ":FM:SOUR EXT"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+      - send: ":FM:WAVE SQUA"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+
+  - name: "FM 外部调制耦合与阻抗的默认值与回读"
+    manual: "Command System > [:SOURce]:FM:EXT:COUP、[:SOURce]:FM:EXT:IMP"
+    steps:
+      - query: ":FM:EXT:COUP?"
+        expect: "AC"
+      - query: ":FM:EXT:IMP?"
+        expect: "100k"
+      - send: ":FM:EXT:COUP DC"
+      - send: ":FM:EXT:IMP 50"
+      - query: ":FM:EXT:COUP?"
+        expect: "DC"
+      - query: ":FM:EXT:IMP?"
+        expect: "50"
+
+  - name: "FM 与 ΦM 互斥：后打开的生效，先打开的关闭并报 -221"
+    manual: "Command System > [:SOURce]:FM:STATe、[:SOURce]:PM:STATe"
+    steps:
+      - send: ":FM:STAT ON"
+      - query: ":FM:STAT?"
+        expect: "1"
+      - send: ":PM:STAT ON"
+      - query: ":SYST:ERR?"
+        expect_match: '^-221,"Settings conflict.*'
+      - query: ":FM:STAT?"
+        expect: "0"
+      - query: ":PM:STAT?"
+        expect: "1"
+
+  - name: "ΦM 相偏默认 5 rad，写入 2rad 后回读 2.000000，超过 5 报 -222"
+    manual: "Command System > [:SOURce]:PM[:DEViation]"
+    steps:
+      - query: ":PM:DEV?"
+        expect: "5.000000"
+      - send: ":PM:DEV 2rad"
+      - query: ":PM:DEV?"
+        expect: "2.000000"
+      - send: ":PM:DEV 6"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "ΦM 相偏步进默认 1 rad，写入 1rad 后回读 1.000000"
+    manual: "Command System > [:SOURce]:PM[:DEViation]:STEP[:INCRement]"
+    steps:
+      - query: ":PM:DEV:STEP?"
+        expect: "1.000000"
+      - send: ":PM:DEV:STEP 0.5rad"
+      - query: ":PM:DEV:STEP?"
+        expect: "0.500000"
+
+  - name: "ΦM 调制频率默认 10 kHz，写入 20kHz 后回读"
+    manual: "Command System > [:SOURce]:PM:FREQuency"
+    steps:
+      - query: ":PM:FREQ?"
+        expect: "10.00000E+03"
+      - send: ":PM:FREQ 20kHz"
+      - query: ":PM:FREQ?"
+        expect: "20.00000E+03"
+
+  - name: "ΦM 频率步进默认 1 kHz，写入 5kHz 后回读"
+    manual: "Command System > [:SOURce]:PM:FREQuency:STEP[:INCRement]"
+    steps:
+      - query: ":PM:FREQ:STEP?"
+        expect: "1.00000E+03"
+      - send: ":PM:FREQ:STEP 5kHz"
+      - query: ":PM:FREQ:STEP?"
+        expect: "5.00000E+03"
+
+  - name: "ΦM 调制源默认 INT；EXT 与方波波形报 -224"
+    manual: "Command System > [:SOURce]:PM:SOURce、[:SOURce]:PM:WAVEform"
+    steps:
+      - query: ":PM:SOUR?"
+        expect: "INT"
+      - query: ":PM:WAVE?"
+        expect: "SINE"
+      - send: ":PM:SOUR EXT"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+      - send: ":PM:WAVE SQUA"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+
+  - name: "ΦM 外部调制耦合与阻抗的默认值与回读"
+    manual: "Command System > [:SOURce]:PM:EXT:COUP、[:SOURce]:PM:EXT:IMP"
+    steps:
+      - query: ":PM:EXT:COUP?"
+        expect: "AC"
+      - query: ":PM:EXT:IMP?"
+        expect: "100k"
+      - send: ":PM:EXT:COUP DC"
+      - send: ":PM:EXT:IMP 50"
+      - query: ":PM:EXT:COUP?"
+        expect: "DC"
+      - query: ":PM:EXT:IMP?"
+        expect: "50"
+
+  - name: "ΦM 开关默认关，打开后查询为 1"
+    manual: "Command System > [:SOURce]:PM:STATe"
+    steps:
+      - query: ":PM:STAT?"
+        expect: "0"
+      - send: ":PM:STAT ON"
+      - query: ":PM:STAT?"
+        expect: "1"
+
+  - name: "FMPM:TYPE 默认 ΦM，写 FM 后回读 FM"
+    manual: "Command System > [:SOURce]:FMPM:TYPE"
+    steps:
+      - query: ":FMPM:TYPE?"
+        expect: "PM"
+      - send: ":FMPM:TYPE FM"
+      - query: ":FMPM:TYPE?"
+        expect: "FM"
+
+  - name: "步进扫描的默认值与各项设置"
+    manual: "Command System > [:SOURce]:SWEep:STATe、:TYPE、:STEP:STARt/STOP:FREQuency、:POINts、:SPACing、:POINts:STEP"
+    steps:
+      - query: ":SWE:STAT?"
+        expect: "OFF"
+      - query: ":SWE:TYPE?"
+        expect: "STEP"
+      - query: ":SWE:STEP:STAR:FREQ?"
+        expect: "100.000000E+06"
+      - query: ":SWE:STEP:STOP:FREQ?"
+        expect: "1.00000000E+09"
+      - query: ":SWE:STEP:POIN?"
+        expect: "91"
+      - query: ":SWE:STEP:POIN:STEP?"
+        expect: "1"
+      - query: ":SWE:STEP:SPAC?"
+        expect: "LIN"
+      - send: ":SWE:TYPE STEP"
+      - send: ":SWE:STEP:STAR:FREQ 4MHz"
+      - send: ":SWE:STEP:STOP:FREQ 1.2GHz"
+      - send: ":SWE:STEP:POIN 10"
+      - send: ":SWE:STEP:POIN:STEP 2"
+      - send: ":SWE:STEP:SPAC LOG"
+      - query: ":SWE:STEP:STAR:FREQ?"
+        expect: "4.00000000E+06"
+      - query: ":SWE:STEP:STOP:FREQ?"
+        expect: "1.20000000E+09"
+      - query: ":SWE:STEP:POIN?"
+        expect: "10"
+      - query: ":SWE:STEP:POIN:STEP?"
+        expect: "2"
+      - query: ":SWE:STEP:SPAC?"
+        expect: "LOG"
+      - send: ":SWE:STEP:POIN 70000"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "扫描方式 FREQuency 打开频率扫描；只建模频率（LEVel 报 -224）"
+    manual: "Command System > [:SOURce]:SWEep:STATe"
+    steps:
+      - send: ":SWE:STEP:STAR:FREQ 100MHz"
+      - send: ":SWE:STEP:STOP:FREQ 200MHz"
+      - send: ":SWE:STAT FREQ"
+      - query: ":SWE:STAT?"
+        expect: "FREQ"
+      - send: ":SWE:STAT OFF"
+      - query: ":SWE:STAT?"
+        expect: "OFF"
+      - send: ":SWE:STAT LEV"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
+
+  - name: "执行、复位与触发扫描都不报错（*TRG 与 :TRIGger[:SWEep] 等价）"
+    manual: "Command System > [:SOURce]:SWEep:EXECute、:RESet[:ALL]、:TRIGger[:SWEep][:IMMediate]；*TRG"
+    steps:
+      - send: ":SWE:STEP:STAR:FREQ 100MHz"
+      - send: ":SWE:STEP:STOP:FREQ 200MHz"
+      - send: ":SWE:STEP:POIN 5"
+      - send: ":SWE:STAT FREQ"
+      - send: ":SWE:EXEC"
+      - send: ":TRIG:SWE"
+      - send: "*TRG"
+      - send: ":SWE:RESET"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: "幅度单位默认 DBM，写 V 与 DBUV 后回读（只影响显示）"
+    manual: "Command System > :UNIT:POWer"
+    steps:
+      - query: ":UNIT:POW?"
+        expect: "DBM"
+      - send: ":UNIT:POW V"
+      - query: ":UNIT:POW?"
+        expect: "V"
+      - send: ":UNIT:POW DBUV"
+      - query: ":UNIT:POW?"
+        expect: "DBUV"
+      - query: ":LEV?"
+        expect: "-110.00"
+
+  - name: "亮度默认 4，写 3 后回读，超过 8 报 -222"
+    manual: "Command System > :SYSTem:BRIGhtness"
+    steps:
+      - query: ":SYST:BRIG?"
+        expect: "4"
+      - send: ":SYST:BRIG 3"
+      - query: ":SYST:BRIG?"
+        expect: "3"
+      - send: ":SYST:BRIG 9"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "界面语言默认 ENGLISH，写 CHIN 后回读 CHINESE"
+    manual: "Command System > :SYSTem:LANGuage"
+    steps:
+      - query: ":SYST:LANG?"
+        expect: "ENGLISH"
+      - send: ":SYST:LANG CHIN"
+      - query: ":SYST:LANG?"
+        expect: "CHINESE"
+
+  - name: "上电设置默认 PRESET，写 LAST 后回读 LAST"
+    manual: "Command System > :SYSTem:POWer:ON:TYPE"
+    steps:
+      - query: ":SYST:POW:ON:TYPE?"
+        expect: "PRESET"
+      - send: ":SYST:POW:ON:TYPE LAST"
+      - query: ":SYST:POW:ON:TYPE?"
+        expect: "LAST"
+
+  - name: "屏幕更新默认开，关屏后查询为 0"
+    manual: "Command System > :SYSTem:DISPlay:UPDate[:STATe]"
+    steps:
+      - query: ":SYST:DISP:UPD?"
+        expect: "1"
+      - send: ":SYST:DISP:UPD OFF"
+      - query: ":SYST:DISP:UPD?"
+        expect: "0"
+
+  - name: "时间/日期显示默认 OFF，打开后查询回 ON（手册的单词格式）"
+    manual: "Command System > :SYSTem:TIME:STATe"
+    steps:
+      - query: ":SYST:TIME:STAT?"
+        expect: "OFF"
+      - send: ":SYST:TIME:STAT ON"
+      - query: ":SYST:TIME:STAT?"
+        expect: "ON"
+
+  - name: "未建模的命令回 -113，不静默接受"
+    manual: "Command System > [:SOURce]:MODulation:STATe（未建模，见覆盖表）"
+    steps:
+      - send: ":MOD:STAT ON"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'

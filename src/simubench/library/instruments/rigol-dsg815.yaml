@@ -1,0 +1,516 @@
+schema: simubench.instrument/1
+id: rigol-dsg815
+manufacturer: Rigol Technologies
+model: DSG815
+class: rf_generator
+version: 1
+description: >-
+  Rigol DSG815，9 kHz–1.5 GHz 射频信号源。Real model（D42）：命令、参数范围、默认值与返回格式
+  按 DSG800 系列编程指南（PGG02104-1110，Sept. 2018，软件版本 00.01.07）第 2 章的
+  :OUTPut、:SOURce（频率、电平、AM、FM/ΦM、扫描）、:TRIGger、:UNIT 与 :SYSTem 的常用子集。
+  载波、调制边带与扫描点由 #188 拆出的射频源组件按信号求解得到（D13）：参考/时基 → 合成器 →
+  调制源与调制器 → 电平（ALC）→ 衰减器 → 50 Ω 输出，射频输出接到别的仪表上就能测到。
+reference:
+  title: Rigol DSG800 Series RF Signal Generator Programming Guide
+  document: PGG02104-1110
+  version: Sept. 2018（软件版本 00.01.07）
+  # 手册示例的 *IDN? 固件字段带末尾的点（00.01.01.）；本定义用手册内页的软件版本。
+  firmware: "00.01.07."
+identity:
+  # 手册 *IDN?：Rigol Technologies,DSG830,DSG8A170200001,00.01.01.（四字段，固件带末尾的点）。
+  idn: "Rigol Technologies,DSG815,{serial},{firmware}"
+  serial: DSG8A170200001
+  firmware: "00.01.07."
+# 手册的 IEEE488.2 一节只列出 *IDN? 与 *TRG，但 :STATus 一章使用标准事件状态寄存器、状态字节
+# 寄存器与错误队列，因此实现 SCPI-99 的公共命令；:SYSTem:ERRor? 手册未单列，按公共错误查询回答。
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", ":SYSTem:ERRor[:NEXT]"]
+format:
+  # 手册没有给出统一格式：电平与深度是两位小数、不带 +（2.00、80.00），频率走工程记数（见各命令）。
+  number: nr2
+  digits: 2
+  sign: false
+  boolean: numeric
+  enum: short
+  error_code: plain
+specs:
+  source: DSG800 Series RF Signal Generator Programming Guide（PGG02104-1110）的参数表与出厂设置
+  frequency_range_hz: [9.0e3, 1.5e9]
+  level_range_dbm: [-110.0, 20.0]
+  level_resolution_db: 0.01
+  level_units: [DBM, DBMV, DBUV, V, W]
+  am: {depth_percent: [0.0, 100.0], rate_hz: [10.0, 1.0e5], waveform: SINE}
+  fm: {deviation_hz: [0.1, 1.0e6], rate_hz: [10.0, 1.0e5], waveform: SINE}
+  pm: {deviation_rad: [0.0, 5.0], rate_hz: [10.0, 1.0e5], waveform: SINE}
+  sweep: {step_points: [2, 65535], spacing: [LINear, LOGarithmic]}
+  timebase: "10 MHz；REF OUT 携带时基误差（内部参考，手册没有远程命令）"
+state:
+  freq.cw:
+    type: float
+    unit: HZ
+    min: 9.0e3
+    max: 1.5e9
+    default: 1.5e9
+    label: 载波频率
+    label_en: Frequency
+  freq.step:
+    type: float
+    unit: HZ
+    min: 0.01
+    max: 1.0e9
+    default: 100.0e6
+    label: 频率步进
+    label_en: Frequency step
+  power.level:
+    type: float
+    unit: DBM
+    min: -110.0
+    max: 20.0
+    default: -110.0
+    label: 电平
+    label_en: Level
+  power.step:
+    type: float
+    unit: DB
+    min: 0.01
+    max: 100.0
+    default: 10.0
+    label: 电平步进
+    label_en: Level step
+  power.unit:
+    type: enum
+    options: [DBM, DBMV, DBUV, V, W]
+    default: DBM
+    label: 幅度单位（只影响显示，手册未说它改变 :LEVel 的数值）
+    label_en: Level unit
+  output.enabled:
+    type: bool
+    default: false
+    label: 射频输出
+    label_en: RF output
+  am.state:
+    type: bool
+    default: false
+    label: AM
+    label_en: AM
+  am.depth:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 50.0
+    display_unit: "%"
+    label: AM 深度
+    label_en: AM depth
+  am.depth_step:
+    type: float
+    min: 0.1
+    max: 50.0
+    default: 10.0
+    display_unit: "%"
+    label: AM 深度步进
+    label_en: AM depth step
+  am.rate:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 1.0e5
+    default: 10.0e3
+    label: AM 调制频率
+    label_en: AM frequency
+  am.rate_step:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 50.0e3
+    default: 1.0e3
+    label: AM 频率步进
+    label_en: AM frequency step
+  am.source:
+    type: enum
+    options: [INTernal]
+    default: INTernal
+    label: AM 调制源（只建模内部）
+    label_en: AM source
+  am.waveform:
+    type: enum
+    options: [SINE]
+    default: SINE
+    label: AM 波形（只建模正弦）
+    label_en: AM waveform
+  am.ext_coupling:
+    type: enum
+    options: [AC, DC]
+    default: AC
+    label: AM 外部调制耦合
+    label_en: AM external coupling
+  am.ext_impedance:
+    type: enum
+    options: ["50", "600", "100k"]
+    default: "100k"
+    label: AM 外部调制阻抗
+    label_en: AM external impedance
+  fm.state:
+    type: bool
+    default: false
+    label: FM
+    label_en: FM
+  fm.dev:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 1.0e6
+    default: 10.0e3
+    label: FM 频偏
+    label_en: FM deviation
+  fm.dev_step:
+    type: float
+    unit: HZ
+    min: 0.01
+    max: 500.0e3
+    default: 1.0e3
+    label: FM 频偏步进
+    label_en: FM deviation step
+  fm.rate:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 1.0e5
+    default: 10.0e3
+    label: FM 调制频率
+    label_en: FM frequency
+  fm.rate_step:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 50.0e3
+    default: 1.0e3
+    label: FM 频率步进
+    label_en: FM frequency step
+  fm.source:
+    type: enum
+    options: [INTernal]
+    default: INTernal
+    label: FM 调制源（只建模内部）
+    label_en: FM source
+  fm.waveform:
+    type: enum
+    options: [SINE]
+    default: SINE
+    label: FM 波形（只建模正弦）
+    label_en: FM waveform
+  fm.ext_coupling:
+    type: enum
+    options: [AC, DC]
+    default: AC
+    label: FM 外部调制耦合
+    label_en: FM external coupling
+  fm.ext_impedance:
+    type: enum
+    options: ["50", "600", "100k"]
+    default: "100k"
+    label: FM 外部调制阻抗
+    label_en: FM external impedance
+  pm.state:
+    type: bool
+    default: false
+    label: ΦM
+    label_en: PM
+  pm.dev:
+    type: float
+    unit: RAD
+    min: 0.0
+    max: 5.0
+    default: 5.0
+    label: ΦM 相偏
+    label_en: PM deviation
+  pm.dev_step:
+    type: float
+    unit: RAD
+    min: 0.01
+    max: 2.5
+    default: 1.0
+    label: ΦM 相偏步进
+    label_en: PM deviation step
+  pm.rate:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 1.0e5
+    default: 10.0e3
+    label: ΦM 调制频率
+    label_en: PM frequency
+  pm.rate_step:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 50.0e3
+    default: 1.0e3
+    label: ΦM 频率步进
+    label_en: PM frequency step
+  pm.source:
+    type: enum
+    options: [INTernal]
+    default: INTernal
+    label: ΦM 调制源（只建模内部）
+    label_en: PM source
+  pm.waveform:
+    type: enum
+    options: [SINE]
+    default: SINE
+    label: ΦM 波形（只建模正弦）
+    label_en: PM waveform
+  pm.ext_coupling:
+    type: enum
+    options: [AC, DC]
+    default: AC
+    label: ΦM 外部调制耦合
+    label_en: PM external coupling
+  pm.ext_impedance:
+    type: enum
+    options: ["50", "600", "100k"]
+    default: "100k"
+    label: ΦM 外部调制阻抗
+    label_en: PM external impedance
+  fmpm.type:
+    type: enum
+    options: [FM, PM]
+    default: PM
+    label: 面板的调制类型
+    label_en: FM/PM type
+  sweep.manner:
+    type: enum
+    options: ["OFF", FREQuency]
+    default: "OFF"
+    label: 扫描方式
+    label_en: Sweep state
+    option_labels: {"OFF": 关闭, FREQuency: 频率扫描}
+  sweep.type:
+    type: enum
+    options: [STEP]
+    default: STEP
+    label: 扫描类型（只建模步进）
+    label_en: Sweep type
+  sweep.start:
+    type: float
+    unit: HZ
+    min: 9.0e3
+    max: 1.5e9
+    default: 100.0e6
+    label: 扫描起始频率
+    label_en: Sweep start
+  sweep.stop:
+    type: float
+    unit: HZ
+    min: 9.0e3
+    max: 1.5e9
+    default: 1.0e9
+    label: 扫描终止频率
+    label_en: Sweep stop
+  sweep.points:
+    type: int
+    min: 2
+    max: 65535
+    default: 91
+    label: 扫描点数
+    label_en: Sweep points
+  sweep.points_step:
+    type: int
+    min: 1
+    max: 10000
+    default: 1
+    label: 扫描点数步进
+    label_en: Sweep points step
+  sweep.spacing:
+    type: enum
+    options: [LINear, LOGarithmic]
+    default: LINear
+    label: 扫描间隔
+    label_en: Sweep spacing
+  sweep.point:
+    type: int
+    min: 1
+    max: 65535
+    default: 1
+    label: 当前扫描点
+    label_en: Sweep point
+  system.preset_type:
+    type: enum
+    options: [FACtory]
+    default: FACtory
+    label: 预设类型
+    label_en: Preset type
+  system.power_on:
+    type: enum
+    options: [LAST, PRESet]
+    default: PRESet
+    label: 上电设置
+    label_en: Power-on setting
+  system.brightness:
+    type: int
+    min: 1
+    max: 8
+    default: 4
+    label: 屏幕亮度
+    label_en: Brightness
+  system.language:
+    type: enum
+    options: [CHINese, ENGLish]
+    default: ENGLish
+    label: 界面语言
+    label_en: Language
+  system.screen:
+    type: bool
+    default: true
+    label: 屏幕更新
+    label_en: Screen update
+  system.time_display:
+    type: bool
+    default: false
+    label: 时间/日期显示
+    label_en: Time/date display
+components:
+  # 射频源的通用功能块（D2 #188、D50）：参考/时基 → 合成器 → 调制源与调制器 → 电平（ALC）→
+  # 衰减器 → 输出。DSG815 的 10 MHz 参考没有远程命令，用组件默认值（内部参考、REF OUT 开启）。
+  - name: reference
+    type: rf_reference
+  - name: synth
+    type: rf_synthesizer
+    params:
+      frequency: $freq.cw
+      # 扫描方式 OFF 合成器停在 CW，FREQuency 走步进扫描；电平扫描没有组件能力（覆盖表注明）。
+      mode: {from: $sweep.manner, map: {"OFF": CW, FREQuency: SWEep}, default: SWEep}
+      start: $sweep.start
+      stop: $sweep.stop
+      points: $sweep.points
+      spacing: $sweep.spacing
+      manual: $sweep.point
+      clock: reference
+  - name: mod_source
+    type: rf_mod_source
+    params:
+      am_rate: $am.rate
+      fm_rate: $fm.rate
+      pm_rate: $pm.rate
+      clock: reference
+  - name: mod
+    type: rf_modulator
+    params:
+      am: $am.state
+      am_depth: $am.depth
+      am_rate: $am.rate
+      fm: $fm.state
+      fm_dev: $fm.dev
+      fm_rate: $fm.rate
+      pm: $pm.state
+      pm_dev: $pm.dev
+      pm_rate: $pm.rate
+      source: mod_source
+  - name: level
+    type: rf_level_control
+    params: {level: $power.level}
+  - name: att
+    type: rf_attenuator
+  - name: rf
+    type: output_stage
+    params: {z_out: 50.0, enabled: $output.enabled}
+  - name: ref_out
+    type: output_stage
+    params: {z_out: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: system
+    type: system
+wiring:
+  instrument:
+    - [reference.out, ref_out.in]
+    - [ref_in.out, reference.ref]
+    - [synth.out, mod.in]
+    - [mod.out, level.in]
+    - [level.out, att.in]
+    - [att.out, rf.in]
+ports:
+  instrument:
+    RF_OUT: rf.pin
+    REF_OUT: ref_out.pin
+    REF_IN: ref_in.pin
+  media: {REF_OUT: reference, REF_IN: reference}
+display:
+  template: rf_generator
+  summary: [freq.cw, power.level, output.enabled, sweep.manner, am.state, fm.state, pm.state]
+capabilities: [rf_generator]
+commands:
+  # ---- IEEE 488.2 公共命令（手册 2-2）-----------------------------------------------------------
+  - {header: "*TRG", op: synth.trigger, query: false}
+
+  # ---- 输出（手册 2-11）------------------------------------------------------------------------
+  - {header: ":OUTPut[:STATe]", state: output.enabled, dangerous: true}
+
+  # ---- 频率（手册 2-26）------------------------------------------------------------------------
+  - {header: "[:SOURce]:FREQuency", state: freq.cw, format: {number: engineering, significant: 9, sign: false}}
+  - {header: "[:SOURce]:FREQuency:STEP", state: freq.step, format: {number: engineering, significant: 6, sign: false}}
+
+  # ---- 电平（手册 2-41）------------------------------------------------------------------------
+  - {header: "[:SOURce]:LEVel", state: power.level}
+  - {header: "[:SOURce]:LEVel:STEP", state: power.step}
+
+  # ---- AM（手册 2-12 – 2-17）-------------------------------------------------------------------
+  - {header: "[:SOURce]:AM[:DEPTh]", state: am.depth}
+  - {header: "[:SOURce]:AM[:DEPTh]:STEP[:INCRement]", state: am.depth_step}
+  - {header: "[:SOURce]:AM:EXT:COUP", state: am.ext_coupling}
+  - {header: "[:SOURce]:AM:EXT:IMP", state: am.ext_impedance, format: {enum: as_defined}}
+  - {header: "[:SOURce]:AM:FREQuency", state: am.rate, format: {number: engineering, significant: 7, sign: false}}
+  - {header: "[:SOURce]:AM:FREQuency:STEP[:INCRement]", state: am.rate_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:AM:SOURce", state: am.source}
+  - {header: "[:SOURce]:AM:STATe", state: am.state}
+  - {header: "[:SOURce]:AM:WAVEform", state: am.waveform}
+
+  # ---- FM/ΦM 类型（手册 2-25）------------------------------------------------------------------
+  - {header: "[:SOURce]:FMPM:TYPE", state: fmpm.type}
+
+  # ---- FM（手册 2-20 – 2-24）-------------------------------------------------------------------
+  - {header: "[:SOURce]:FM[:DEViation]", state: fm.dev, format: {number: engineering, significant: 7, sign: false}}
+  - {header: "[:SOURce]:FM[:DEViation]:STEP[:INCRement]", state: fm.dev_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:FM:EXT:COUP", state: fm.ext_coupling}
+  - {header: "[:SOURce]:FM:EXT:IMP", state: fm.ext_impedance, format: {enum: as_defined}}
+  - {header: "[:SOURce]:FM:FREQuency", state: fm.rate, format: {number: engineering, significant: 7, sign: false}}
+  - {header: "[:SOURce]:FM:FREQuency:STEP[:INCRement]", state: fm.rate_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:FM:SOURce", state: fm.source}
+  - {header: "[:SOURce]:FM:STATe", state: fm.state}
+  - {header: "[:SOURce]:FM:WAVEform", state: fm.waveform}
+
+  # ---- ΦM（手册 2-46 – 2-51）-------------------------------------------------------------------
+  - {header: "[:SOURce]:PM[:DEViation]", state: pm.dev, format: {number: nr2, digits: 6, sign: false}}
+  - {header: "[:SOURce]:PM[:DEViation]:STEP[:INCRement]", state: pm.dev_step, format: {number: nr2, digits: 6, sign: false}}
+  - {header: "[:SOURce]:PM:EXT:COUP", state: pm.ext_coupling}
+  - {header: "[:SOURce]:PM:EXT:IMP", state: pm.ext_impedance, format: {enum: as_defined}}
+  - {header: "[:SOURce]:PM:FREQuency", state: pm.rate, format: {number: engineering, significant: 7, sign: false}}
+  - {header: "[:SOURce]:PM:FREQuency:STEP[:INCRement]", state: pm.rate_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:PM:SOURce", state: pm.source}
+  - {header: "[:SOURce]:PM:STATe", state: pm.state}
+  - {header: "[:SOURce]:PM:WAVEform", state: pm.waveform}
+
+  # ---- 扫描（手册 2-61 – 2-70）：只建模步进频率扫描 ------------------------------------------
+  - {header: "[:SOURce]:SWEep:STATe", state: sweep.manner}
+  - {header: "[:SOURce]:SWEep:TYPE", state: sweep.type}
+  - {header: "[:SOURce]:SWEep:STEP:STARt:FREQuency", state: sweep.start, format: {number: engineering, significant: 9, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:STOP:FREQuency", state: sweep.stop, format: {number: engineering, significant: 9, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:POINts", state: sweep.points}
+  - {header: "[:SOURce]:SWEep:STEP:POINts:STEP", state: sweep.points_step}
+  - {header: "[:SOURce]:SWEep:STEP:SPACing", state: sweep.spacing}
+  - {header: "[:SOURce]:SWEep:EXECute", op: synth.initiate, query: false}
+  - {header: "[:SOURce]:SWEep:RESet[:ALL]", op: synth.initiate, query: false}
+
+  # ---- 触发（手册 2-108）-----------------------------------------------------------------------
+  - {header: ":TRIGger[:SWEep][:IMMediate]", op: synth.trigger, query: false}
+
+  # ---- 幅度单位（手册 2-109）-------------------------------------------------------------------
+  - {header: ":UNIT:POWer", state: power.unit}
+
+  # ---- 系统（手册 2-97 – 2-107）----------------------------------------------------------------
+  - {header: ":SYSTem:PRESet", op: system.reset, query: false}
+  - {header: ":SYSTem:PRESet:TYPE", state: system.preset_type, format: {enum: long}}
+  - {header: ":SYSTem:POWer:ON:TYPE", state: system.power_on, format: {enum: long}}
+  - {header: ":SYSTem:BRIGhtness", state: system.brightness}
+  - {header: ":SYSTem:LANGuage", state: system.language, format: {enum: long}}
+  - {header: ":SYSTem:DISPlay:UPDate[:STATe]", state: system.screen}
+  - {header: ":SYSTem:TIME:STATe", state: system.time_display, format: {boolean: word}}

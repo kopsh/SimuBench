@@ -1,0 +1,32 @@
+schema: simubench.bench/2
+name: rigol_dsg815_scope
+description: >-
+  Rigol DSG815（真实型号，D42）的 RF_OUT 接到 Keysight DSO-X 2024A 的 CH1：10 MHz 载波在
+  示波器的 1 MΩ 输入上是开路电压，0 dBm 时 Vpp 为 1.26 V（匹配 50 Ω 负载上的一半）；电平降
+  20 dB 时 Vpp 也降 10 倍，AM 50% 时包络峰值是载波的 1.5 倍。示例脚本
+  examples/scripts/rigol_dsg815_generate.py 按真机写法运行（tests/test_rigol_dsg815.py）。
+instruments:
+  sg:
+    model: rigol-dsg815
+    label: 射频信号源
+    address: "TCPIP0::192.168.1.50::INSTR"
+    state:
+      freq.cw: 1.0e7
+      power.level: 0.0
+      output.enabled: true
+  scope:
+    model: keysight-dsox2024a
+    label: 示波器
+    address: "TCPIP0::192.168.1.32::INSTR"
+    state:
+      timebase.scale: 2.0e-7
+      ch1.scale: 0.5
+      ch1.probe: 1.0
+wires:
+  - {from: sg.RF_OUT, to: scope.CH1}
+run:
+  seed: 7
+  clock: command
+layout:
+  sg: {x: 0, y: 80}
+  scope: {x: 420, y: 60}
