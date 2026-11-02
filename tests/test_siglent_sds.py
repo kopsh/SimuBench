@@ -445,22 +445,70 @@ def test_trigger_coupling_noise_reject_and_holdoff_reach_the_trigger_module(scop
     assert trig.param("coupling") == "AC"
     sds.write(":TRIGger:EDGE:NREJect ON")
     assert bool(trig.param("noise_reject")) is True
-    sds.write(":TRIGger:EDGE:HOLDoff 1E-3")
+    sds.write(":TRIGger:EDGE:HOLDoff TIME;:TRIGger:EDGE:HLDTime 1E-3")
+    assert trig.param("holdoff_on") is True
     assert float(trig.param("holdoff")) == pytest.approx(1e-3)
+    sds.write(":TRIGger:EDGE:HOLDoff OFF")
+    assert trig.param("holdoff_on") is False
 
 
-def test_holdoff_delays_the_next_trigger(scope):
-    """#159: the trigger search ignores edges until the holdoff after the previous trigger."""
+def test_holdoff_delays_the_next_trigger_only_when_its_type_is_time(scope):
+    """#159/#250: HOLDoff selects OFF or TIME; only TIME makes HLDTime postpone the edge."""
     sds, session = scope
     trig = session.instruments["scope"].components["trigger"]
     acq = session.instruments["scope"].components["acq"]
     sig = acq._display_signal(1)
-    sds.write(":TRIGger:EDGE:HOLDoff 0")
-    trig.last_ns = 0
-    free = trig.search(sig, 0, 1e-6, 0, 200_000, 1, 0.5)
-    sds.write(":TRIGger:EDGE:HOLDoff 5E-3")
-    trig.last_ns = 0
-    held = trig.search(sig, 0, 1e-6, 0, 200_000, 1, 0.5)
-    assert free is not None and held is not None
-    assert free.t_s < 2e-3  # a 1 kHz edge, after the arming band
-    assert held.t_s >= 5e-3 - 1e-6  # nothing before the holdoff has passed
+
+    def next_trigger() -> float:
+        trig.last_ns = 0
+        hit = trig.search(sig, 0, 1e-6, 0, 200_000, 1, 0.5)
+        assert hit is not None
+        return hit.t_s
+
+    sds.write(":TRIGger:EDGE:HOLDoff OFF")
+    free = next_trigger()
+    sds.write(":TRIGger:EDGE:HOLDoff TIME;:TRIGger:EDGE:HLDTime 5E-3")
+    held = next_trigger()
+    assert free < 2e-3  # a 1 kHz edge, after the arming band
+    assert held >= 5e-3 - 1e-6  # nothing before the holdoff has passed
+
+
+def test_ac_coupling_moves_the_trigger_to_the_ac_zero_crossing(scope):
+    """#159/#251: with a DC offset the trigger the level cannot reach in DC fires in AC coupling."""
+    from simubench.engine.signal import Signal, sine
+
+    sds, session = scope
+    trig = session.instruments["scope"].components["trigger"]
+    sig = Signal.constant(2.0) + sine(1000.0, 0.5)  # 1.5..2.5 V: never below the 1 V level
+    sds.write(":TRIGger:EDGE:COUPling DC;:TRIGger:EDGE:LEVel 0.2")
+    trig.last_ns = None
+    assert trig.search(sig, 0, 1e-6, 10, 20_000, 1, 0.5) is None
+    sds.write(":TRIGger:EDGE:COUPling AC")
+    trig.last_ns = None
+    hit = trig.search(sig, 0, 1e-6, 10, 20_000, 1, 0.5)
+    assert hit is not None and hit.t_s < 1e-3  # the 1 kHz sine crosses 0.2 V twice a period
+    sds.write(":TRIGger:EDGE:COUPling DC")
+
+
+def test_noise_reject_stops_false_triggers_on_a_noisy_slow_edge(scope):
+    """#159/#251: NREJect widens the arming band, so one edge triggers once."""
+    sds, session = scope
+    inst = session.instruments["scope"]
+    trig = inst.components["trigger"]
+    sig = inst.components["acq"]._display_signal(1)
+    trig.overrides.update(noise_rms=0.05, hysteresis_divs=0.01)
+    sds.write(":TRIGger:EDGE:HOLDoff TIME;:TRIGger:EDGE:HLDTime 8E-9")  # the smallest holdoff
+
+    def next_trigger() -> float:
+        trig.last_ns = 0
+        first = trig.search(sig, 0, 1e-7, 100, 10_000, 1, 0.5)
+        assert first is not None
+        trig.last_ns = round(first.t_s * 1e9)
+        second = trig.search(sig, 0, 1e-7, 100, 10_000, 1, 0.5)
+        assert second is not None
+        return second.t_s - first.t_s
+
+    sds.write(":TRIGger:EDGE:NREJect OFF")
+    assert next_trigger() < 1e-4  # the same edge again, within its noise
+    sds.write(":TRIGger:EDGE:NREJect ON")
+    assert next_trigger() == pytest.approx(1e-3, rel=0.05)  # the next period's edge

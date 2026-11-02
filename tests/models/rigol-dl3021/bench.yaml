@@ -1,0 +1,19 @@
+schema: simubench.bench/2
+name: rigol_dl3021_cases
+description: >-
+  Rigol DL3021 手册用例的测试台：10 V、0.1 Ω 的直流源接电子负载输入。源内阻取得足够小，
+  使 CC 2 A 的输入电压约 9.8 V（功率 19.6 W，低于 200 W 的 OPP），CC 30 A 时输入电压约 7 V、
+  功率 210 W 触发 OPP；CV 9 V 时电流约 10 A，CR 5 Ω 与 CP 20 W 的工作点也都低于保护阈值。
+instruments:
+  dut:
+    model: rigol-dl3021
+parts:
+  src:
+    type: dc_supply
+    label: 直流源
+    params: {v: 10.0, r: 0.1}
+wires:
+  - {from: src.OUT, to: dut.IN}
+run:
+  seed: 3
+  clock: command
