@@ -269,3 +269,47 @@ def test_statistics_sdev_is_nonzero_for_frequency():
         assert 0.0 < sdev < 1.0  # a few 1e-8 of 1000 Hz at the 0.1 s gate
     finally:
         session.close()
+
+
+# ---- the timebase: timestamps and gap-free gates (#328) ----------------------------------------------
+
+
+def _off_grid() -> BenchDefinition:
+    """1234.567 Hz into CH1: the 10 ms gates hold 12 or 13 edges, never a whole number of periods."""
+    return bench(
+        {"cnt": {"model": "sb-counter-1"}, "awg": awg(frequency=1234.567)},
+        [{"from": "awg.OUT1", "to": "cnt.CH1"}],
+    )
+
+
+def test_gap_free_readings_add_up_to_the_edges_counted():
+    session = open_bench(_off_grid(), definition_dirs=[DEFS])
+    try:
+        q_ = lambda t: session.write("cnt", (t + "\n").encode())  # noqa: E731
+        q_(":GATe:TIME 0.01")
+        q_(":FREQuency:MODE:GAPFree ON")
+        core = session.instruments["cnt"].components["core"]
+        core.run_begin()
+        start = session.now_ns
+        readings, spans = [], []
+        for i in range(8):
+            readings.append(core.sample(i))
+            spans.append(core.sample_fields(i)["SPAN"])
+        gate = core._gate().duration_ns()
+        counted, _, _ = core._input("a").events(start, start + 8 * gate)
+        # each reading × its span is the edges of its gate; adjacent gates share their boundary
+        assert sum(f * s for f, s in zip(readings, spans, strict=True)) == pytest.approx(counted, rel=1e-9)
+        assert all(r == pytest.approx(1234.567, rel=1e-6) for r in readings)
+    finally:
+        session.close()
+
+
+def test_timestamps_follow_the_edges_on_the_timebase():
+    session = open_bench(_off_grid(), definition_dirs=[DEFS])
+    try:
+        stamps = [float(x) for x in q(session, "cnt", ":MEASure:TSTamp? 4").split(",")]
+        steps = [b - a for a, b in zip(stamps, stamps[1:], strict=False)]
+        # one period apart, within the 20 ps single-shot resolution
+        assert all(st == pytest.approx(1 / 1234.567, abs=1e-10) for st in steps)
+    finally:
+        session.close()
