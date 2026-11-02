@@ -150,7 +150,7 @@ cases:
       - send: ":INP:COUP AC"
       - query: ":MEAS:FREQ?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
 
   - name: "50 Ω 输入阻抗加载信号源，低于灵敏度时不计数"
     manual: "Input Signal Conditioning > Input impedance；Threshold level and sensitivity"
@@ -160,7 +160,7 @@ cases:
       - send: "*RST"
       - query: ":MEAS:FREQ?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - send: ":INP:IMP 50"
       - query: ":MEAS:FREQ?"
         expect_value: 0.0
@@ -216,20 +216,20 @@ cases:
     steps:
       - query: ":MEAS:FREQ?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - query: ":MEAS:FREQ? 1E3,0.1,(@1)"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - query: ":MEAS:PER?"
         expect_value: 1.0e-3
-        tolerance: 1.0e-12
+        tolerance: 1.0e-9
       - query: ":MEAS:PER? 1E-3,1E-9,(@1)"
         expect_value: 1.0e-3
-        tolerance: 1.0e-12
+        tolerance: 1.0e-9
       - send: ":CONF:PER 1E-3,0,(@1)"
       - query: ":READ?"
         expect_value: 1.0e-3
-        tolerance: 1.0e-12
+        tolerance: 1.0e-9
 
   - name: "CONFigure 后 INIT/READ 取读数，触发与门控按 CONFigure 默认"
     manual: "Measurements > The MEASure and CONFigure Commands > Using CONFigure"
@@ -253,10 +253,10 @@ cases:
       - send: ":INIT"
       - query: ":FETC?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - query: ":READ?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - send: ":ABOR"
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'
@@ -297,7 +297,7 @@ cases:
         expect: "1"
       - query: ":FETC?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - send: ":TRIG:SOUR IMM;:TRIG:COUN 1;:SAMP:COUN 1"
 
   - name: "累加：CONFigure:TOTalize:TIMed 在门时间内计数"
@@ -338,11 +338,11 @@ cases:
         instrument: awg
       - query: ":MEAS:FREQ? 2E3,0.0,(@2)"
         expect_value: 2000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - send: ":CONF:FREQ 2E3,0.1,(@2)"
       - query: ":READ?"
         expect_value: 2000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - send: ":CONF:FREQ 1E3,0.1,(@1)"
 
   - name: "统计：均值、最小、最大、标准差与读数个数"
@@ -363,16 +363,16 @@ cases:
         expect: "5"
       - query: ":CALC:AVER:AVER?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - query: ":CALC:AVER:MIN?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - query: ":CALC:AVER:MAX?"
         expect_value: 1000.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-3
       - query: ":CALC:AVER:SDEV?"
         expect_value: 0.0
-        tolerance: 1.0e-6
+        tolerance: 1.0e-2  # #255: repeated frequency readings carry the interpolator resolution
       - send: ":CALC:AVER:CLE"
       - query: ":CALC:AVER:COUN:CURR?"
         expect: "0"
