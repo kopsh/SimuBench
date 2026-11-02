@@ -54,7 +54,7 @@ def bench(wires: list[dict] | None = None, r: float = 10.0) -> BenchDefinition:
             "instruments": {"ps": {"model": "sb-ps-1"}},
             "parts": {"r1": {"type": "resistor", "params": {"r": r}}},
             "wires": CH1 if wires is None else wires,
-            "run": {"clock": "command", "seed": 1},
+            "run": {"clock": "command", "seed": 1, "idle": "off"},
         }
     )
 
