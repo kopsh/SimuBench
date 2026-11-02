@@ -19,7 +19,7 @@ cases:
       - send: "FUNC \"VOLT:AC\";:VOLT:DC:RANG 1;:VOLT:DC:NPLC 0.2;:VOLT:DC:ZERO:AUTO OFF;:VOLT:DC:IMP:AUTO ON;:TRIG:SOUR BUS"
       - send: "*RST"
       - query: "CONF?"
-        expect: '"VOLT+0.00000000E+00,+0.00000000E+00"'
+        expect: '"VOLT +1.00000000E-01,+1.00000000E-08"'
       - query: "VOLT:DC:NPLC?"
         expect: "+1.00000000E+01"
       - query: "VOLT:DC:RANG:AUTO?"
@@ -82,17 +82,17 @@ cases:
       - query: "VOLT:AC:RANG?"
         expect: "+1.00000000E+02"
       - query: "VOLT:AC:RANG:AUTO?"
-        expect: "1"
+        expect: "0"
       - send: ":CONF:VOLT:DC 10,0.001"
       - query: "CONF?"
-        expect: '"VOLT+1.00000000E+01,+1.00000000E-03"'
+        expect: '"VOLT +1.00000000E+01,+1.00000000E-06"'
       - query: "FUNC?"
         expect: '"VOLT"'
       - query: "VOLT:DC:RANG?"
         expect: "+1.00000000E+01"
-      - send: ":CONF:VOLT:DC AUTO"
+      - send: ":CONF:VOLT:DC"
       - query: "CONF?"
-        expect: '"VOLT+0.00000000E+00,+1.00000000E-03"'
+        expect: '"VOLT +1.00000000E-01,+1.00000000E-08"'
       - query: "VOLT:DC:RANG:AUTO?"
         expect: "1"
 

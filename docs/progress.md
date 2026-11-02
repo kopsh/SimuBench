@@ -685,3 +685,13 @@
 | 手册用例 | ✅ `TRIG:EDGE:HOLD TIME` → `TIME`、`HLDT 1E-3` → `1.00E-03`、恢复 `HOLD OFF`；不再锁定“HOLDoff 收秒数”的错误行为 |
 | 行为测试补齐 #159 的三项 | ✅ `tests/test_siglent_sds.py`：DC 偏置下 DC 耦合不触发、AC 耦合在交流过零触发；噪声慢边沿 NREJ OFF 重复触发、ON 只触发一次；释抑类型 OFF 不推迟、TIME 推迟 HLDTime |
 | 检查 | ✅ 定义校验、手册用例、覆盖表一致性、`scripts/check.sh` 全绿；组件无改动 |
+
+
+## 34465A CONFigure 的回复与默认值（Issue 262）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `CONF?` 格式 | ✅ `"<功能> <量程>,<分辨率>"`（功能与量程间一个空格）：`meter.configure` 给出实际使用的量程（自动量程取当前档）与量程 × 当前 NPLC 分辨率，例如 `"VOLT +1.00000000E+01,+1.00000000E-06"`；手册用例按 p.240 的 Typical Return 改写 |
+| CONFigure 恢复默认值 | ✅ `:CONFigure[:VOLTage]:{DC|AC}` 用 `writes` 恢复手册默认值表（量程自动、分辨率自动、NPLC 10、自动调零开、立即触发、触发/采样计数 1、自动触发延迟），再应用量程/分辨率参数；参数新增 `sets`，给量程即关闭自动量程。手册默认值表中平台没有的设置（如显示、格式）不在复位范围，覆盖表说明 |
+| 现有用例与脚本 | ✅ 手册用例、`examples/scripts/keysight_34465a_measure.py` 的读数期望按 10 V 量程的 NPLC 分辨率更新；`tests/test_keysight_34465a.py` 通过 |
+| 检查 | ✅ 定义校验、覆盖表一致性、`scripts/check.sh` 全绿 |
