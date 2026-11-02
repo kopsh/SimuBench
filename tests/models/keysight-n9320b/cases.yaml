@@ -1,0 +1,389 @@
+# N9320B 的手册用例：命令、参数与回复格式按 *N9320B RF Spectrum Analyzer Programmer's Guide*
+# （N9320-90029, Edition 5, December 2020）。测试台 examples/benches/keysight_n9320b.bench.yaml：
+# Siglent SDG2042X 的 10 MHz、2 Vpp 正弦（HiZ 负载设定）接到 RF_IN，50 Ω 上约 +3.98 dBm。
+# 每个用例在一个刚上电的测试台上运行；数值查询用容差，格式与枚举用精确回复。
+model: keysight-n9320b
+bench: ../../../examples/benches/keysight_n9320b.bench.yaml
+instrument: sa
+cases:
+  - name: "身份、复位与状态系统：*IDN? 四字段、*RST 默认值、事件/状态寄存器"
+    manual: "IEEE Common Commands > *IDN? / *RST / *CLS / *ESE / *ESR / *SRE / *STB / *TST / *OPC / *WAI；SYSTem > DATE / TIME / ERRor"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,N9320B,A.01.01.CIDKMNEW,0B.03.03"
+      - send: "*RST"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.5e9
+        tolerance: 1.0
+      - query: ":FREQ:SPAN?"
+        expect_value: 3.0e9
+        tolerance: 1.0
+      - query: ":POW:ATT:AUTO?"
+        expect: "1"
+      - query: ":DET?"
+        expect: "POS"
+      - query: ":TRAC:MODE?"
+        expect: "WRIT"
+      - query: ":INIT:CONT?"
+        expect: "1"
+      - query: "*TST?"
+        expect: "0"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*ESE 36"
+      - query: "*ESE?"
+        expect: "36"
+      - send: "*SRE 16"
+      - query: "*SRE?"
+        expect: "16"
+      - query: "*ESR?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
+      - send: "*WAI"
+      - send: "*CLS"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - query: ":SYST:DATE?"
+        expect_match: '^\d{4},\d{2},\d{2}$'
+      - query: ":SYST:TIME?"
+        expect_match: '^\d{2},\d{2},\d{2}\.\d{3}$'
+
+  - name: "频率：中心/跨度/起止，窗口滑动；跨度 0 报 -222"
+    manual: "SENSe Subsystem > [:SENSe]:FREQuency:CENTer / SPAN / STARt / STOP"
+    steps:
+      - send: ":FREQ:CENT 10 MHz"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - send: ":FREQ:SPAN 2 MHz"
+      - query: ":FREQ:SPAN?"
+        expect_value: 2.0e6
+        tolerance: 1.0
+      - query: ":FREQ:STAR?"
+        expect_value: 9.0e6
+        tolerance: 1.0
+      - query: ":FREQ:STOP?"
+        expect_value: 1.1e7
+        tolerance: 1.0
+      - send: ":FREQ:STAR 1 MHz"
+      - query: ":FREQ:STAR?"
+        expect_value: 1.0e6
+        tolerance: 1.0
+      - query: ":FREQ:STOP?"
+        expect_value: 1.1e7
+        tolerance: 1.0
+      - query: ":FREQ:CENT?"
+        expect_value: 6.0e6
+        tolerance: 1.0
+      - send: ":FREQ:STOP 21 MHz"
+      - query: ":FREQ:STOP?"
+        expect_value: 2.1e7
+        tolerance: 1.0
+      - query: ":FREQ:SPAN?"
+        expect_value: 2.0e7
+        tolerance: 1.0
+      - send: ":FREQ:SPAN 0"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "*CLS"
+
+  - name: "RBW/VBW：自动耦合、手动关闭自动、BANDwidth 与 BWIDth 两种写法"
+    manual: "SENSe Subsystem > [:SENSe]:BANDwidth|BWIDth[:RESolution] / :AUTO；BANDwidth|BWIDth:VIDeo / :AUTO"
+    steps:
+      - send: ":FREQ:SPAN 2 MHz"
+      - query: ":BAND?"
+        expect_value: 3.0e4
+        tolerance: 1.0
+      - query: ":BAND:AUTO?"
+        expect: "1"
+      - send: ":BAND 100 kHz"
+      - query: ":BAND?"
+        expect_value: 1.0e5
+        tolerance: 1.0
+      - query: ":BAND:AUTO?"
+        expect: "0"
+      - query: ":BAND:VID?"
+        expect_value: 1.0e5
+        tolerance: 1.0
+      - query: ":BAND:VID:AUTO?"
+        expect: "1"
+      - send: ":BAND:VID 10 kHz"
+      - query: ":BAND:VID?"
+        expect_value: 1.0e4
+        tolerance: 1.0
+      - query: ":BAND:VID:AUTO?"
+        expect: "0"
+      - send: ":BAND:VID:AUTO ON"
+      - query: ":BAND:VID?"
+        expect_value: 1.0e5
+        tolerance: 1.0
+      - query: ":BAND:VID:AUTO?"
+        expect: "1"
+      - send: ":BAND:AUTO ON"
+      - query: ":BAND?"
+        expect_value: 3.0e4
+        tolerance: 1.0
+      - query: ":BAND:AUTO?"
+        expect: "1"
+      - send: ":BWID 300 kHz"
+      - query: ":BAND?"
+        expect_value: 3.0e5
+        tolerance: 1.0
+      - query: ":BWID:AUTO?"
+        expect: "0"
+      - send: ":BWID:VID 30 kHz"
+      - query: ":BAND:VID?"
+        expect_value: 3.0e4
+        tolerance: 1.0
+      - query: ":BWID:VID:AUTO?"
+        expect: "0"
+      - send: ":BWID:AUTO ON"
+      - send: ":BWID:VID:AUTO ON"
+      - query: ":BAND?"
+        expect_value: 3.0e4
+        tolerance: 1.0
+      - send: ":BAND 5"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "*CLS"
+
+  - name: "扫描时间：自动耦合值、手动设置、自动恢复与超范围"
+    manual: "SENSe Subsystem > [:SENSe]:SWEep:TIME / :TIME:AUTO"
+    steps:
+      - send: ":FREQ:CENT 10 MHz"
+      - send: ":FREQ:SPAN 2 MHz"
+      - query: ":SWE:TIME?"
+        expect_value: 5.5555555556e-3
+        tolerance: 1.0e-8
+      - query: ":SWE:TIME:AUTO?"
+        expect: "1"
+      - send: ":SWE:TIME 50 ms"
+      - query: ":SWE:TIME?"
+        expect_value: 0.05
+        tolerance: 1.0e-9
+      - query: ":SWE:TIME:AUTO?"
+        expect: "0"
+      - send: ":SWE:TIME:AUTO ON"
+      - query: ":SWE:TIME:AUTO?"
+        expect: "1"
+      - query: ":SWE:TIME?"
+        expect_value: 5.5555555556e-3
+        tolerance: 1.0e-8
+      - send: ":SWE:TIME 0.0001"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "*CLS"
+
+  - name: "参考电平与输入衰减：参考电平驱动自动衰减，手动衰减关闭自动"
+    manual: "SENSe Subsystem > [:SENSe]:POWer[:RF]:ATTenuation / :AUTO；DISPlay > Y[:SCALe]:RLEVel"
+    steps:
+      - send: ":DISP:WIND:TRAC:Y:RLEV -20"
+      - query: ":DISP:WIND:TRAC:Y:RLEV?"
+        expect_value: -20.0
+        tolerance: 1.0e-9
+      - query: ":POW:ATT?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: ":POW:ATT:AUTO?"
+        expect: "1"
+      - send: ":POW:ATT 30"
+      - query: ":POW:ATT?"
+        expect_value: 30.0
+        tolerance: 1.0e-9
+      - query: ":POW:ATT:AUTO?"
+        expect: "0"
+      - send: ":POW:ATT:AUTO ON"
+      - query: ":POW:ATT:AUTO?"
+        expect: "1"
+      - query: ":POW:ATT?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":DISP:WIND:TRAC:Y:RLEV 10"
+      - query: ":POW:ATT?"
+        expect_value: 20.0
+        tolerance: 1.0e-9
+      - send: ":UNIT:POW DBM"
+      - query: ":UNIT:POW?"
+        expect: "DBM"
+      - send: ":UNIT:POW V"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "*CLS"
+
+  - name: "检波器、迹线模式与平均次数；迹线数据 1001 点"
+    manual: "SENSe Subsystem > [:SENSe]:DETector[:FUNCtion] / AVERage:COUNt；TRACe Subsystem > :MODE / [:DATA]?"
+    steps:
+      - send: ":DET SAMP"
+      - query: ":DET?"
+        expect: "SAMP"
+      - send: ":DET AVER"
+      - query: ":DET?"
+        expect: "AVER"
+      - send: ":DET RMS"
+      - query: ":DET?"
+        expect: "RMS"
+      - send: ":DET POS"
+      - query: ":DET?"
+        expect: "POS"
+      - send: ":DET NEG"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "*CLS"
+      - send: ":SENS:AVER:COUN 4"
+      - query: ":SENS:AVER:COUN?"
+        expect: "4"
+      - send: ":TRAC:MODE AVER"
+      - query: ":TRAC:MODE?"
+        expect: "AVER"
+      - send: ":TRAC:MODE MAXH"
+      - query: ":TRAC:MODE?"
+        expect: "MAXH"
+      - send: ":TRAC:MODE WRIT"
+      - query: ":TRAC:MODE?"
+        expect: "WRIT"
+      - send: ":TRAC:MODE MINH"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "*CLS"
+      - query: ":TRAC:DATA? TRACE1"
+        expect_match: '^(?:[+-]\d\.\d{7}E[+-]\d{2},){1000}[+-]\d\.\d{7}E[+-]\d{2}$'
+
+  - name: "标记：峰值搜索、频率与电平、频率计数器、门限与偏移、下一个峰"
+    manual: "CALCulate Subsystem > CALCulate:MARKer > MAXimum / MAXimum:NEXT / X / Y / FCOunt:X / PEAK:THReshold / PEAK:EXCursion"
+    steps:
+      - send: ":FREQ:CENT 10 MHz"
+      - send: ":FREQ:SPAN 2 MHz"
+      - send: ":CALC:MARK:PEAK:THR -30"
+      - query: ":CALC:MARK:PEAK:THR?"
+        expect_value: -30.0
+        tolerance: 1.0e-9
+      - send: ":CALC:MARK:PEAK:EXC 10"
+      - query: ":CALC:MARK:PEAK:EXC?"
+        expect_value: 10.0
+        tolerance: 1.0e-9
+      - send: ":CALC:MARK:MAX"
+      - query: ":CALC:MARK:X?"
+        expect_value: 1.0e7
+        tolerance: 2.0e3
+      - query: ":CALC:MARK:Y?"
+        expect_value: 3.9793921
+        tolerance: 0.01
+      - query: ":CALC:MARK:FCO:X?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - send: ":CALC:MARK:X 9.5 MHz"
+      - query: ":CALC:MARK:X?"
+        expect_value: 9.5e6
+        tolerance: 1.0
+      - send: ":CALC:MARK:PEAK:THR 0"
+      - send: ":CALC:MARK:MAX"
+      - send: ":CALC:MARK:MAX:NEXT"
+      - query: ":SYST:ERR?"
+        expect: '-200,"Execution error"'
+      - send: "*CLS"
+
+  - name: "显示设置（接受）：活动功能位置、时钟、显示线、噪声底、每格、参考偏移、刻度"
+    manual: "DISPlay Subsystem > AFUnction:POSition / ANNotation:CLOCk / ENABle / WINDow:TRACe:Y:DLINe / NRLevel / NRPosition / PDIVision / RLEVel:OFFSet / SPACing"
+    steps:
+      - send: ":DISP:AFU:POS TOP"
+      - query: ":DISP:AFU:POS?"
+        expect: "TOP"
+      - send: ":DISP:ANN:CLOC:DATE:FORM DMY"
+      - query: ":DISP:ANN:CLOC:DATE:FORM?"
+        expect: "DMY"
+      - send: ":DISP:ANN:CLOC OFF"
+      - query: ":DISP:ANN:CLOC?"
+        expect: "0"
+      - send: ":DISP:ANN:CLOC ON"
+      - send: ":DISP:ENAB OFF"
+      - query: ":DISP:ENAB?"
+        expect: "0"
+      - send: ":DISP:ENAB ON"
+      - send: ":DISP:WIND:TRAC:Y:DLIN -10"
+      - query: ":DISP:WIND:TRAC:Y:DLIN?"
+        expect_value: -10.0
+        tolerance: 1.0e-9
+      - send: ":DISP:WIND:TRAC:Y:DLIN:STAT ON"
+      - query: ":DISP:WIND:TRAC:Y:DLIN:STAT?"
+        expect: "1"
+      - send: ":DISP:WIND:TRAC:Y:NRL 3"
+      - query: ":DISP:WIND:TRAC:Y:NRL?"
+        expect_value: 3.0
+        tolerance: 1.0e-9
+      - send: ":DISP:WIND:TRAC:Y:NRP 5"
+      - query: ":DISP:WIND:TRAC:Y:NRP?"
+        expect: "5"
+      - send: ":DISP:WIND:TRAC:Y:PDIV 5"
+      - query: ":DISP:WIND:TRAC:Y:PDIV?"
+        expect_value: 5.0
+        tolerance: 1.0e-9
+      - send: ":DISP:WIND:TRAC:Y:RLEV:OFFS 1.5"
+      - query: ":DISP:WIND:TRAC:Y:RLEV:OFFS?"
+        expect_value: 1.5
+        tolerance: 1.0e-9
+      - send: ":DISP:WIND:TRAC:Y:SPAC LOG"
+      - query: ":DISP:WIND:TRAC:Y:SPAC?"
+        expect: "LOG"
+      - send: ":DISP:WIND:TRAC:Y:SPAC LIN"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "*CLS"
+
+  - name: "系统配置（接受）：亮度、GPIB 地址、配置显示、上电类型、预置类型、VGA；SYSTem:PRESet 复位"
+    manual: "SYSTem Subsystem > BRIGhtness / COMMunicate:GPIB:ADDRess / CONFigure / PON:TYPE / PRESet / PRESet:TYPE / VGAOput"
+    steps:
+      - send: ":SYST:BRIG MIDDLE"
+      - query: ":SYST:BRIG?"
+        expect: "MIDDLE"
+      - send: ":SYST:COMM:GPIB:ADDR 10"
+      - query: ":SYST:COMM:GPIB:ADDR?"
+        expect: "10"
+      - send: ":SYST:CONF:HARD:STAT ON"
+      - query: ":SYST:CONF:HARD:STAT?"
+        expect: "1"
+      - send: ":SYST:CONF:SOFT:STAT ON"
+      - query: ":SYST:CONF:SOFT:STAT?"
+        expect: "1"
+      - send: ":SYST:CONF:SYST:STAT ON"
+      - query: ":SYST:CONF:SYST:STAT?"
+        expect: "1"
+      - send: ":SYST:PON:TYPE LAST"
+      - query: ":SYST:PON:TYPE?"
+        expect: "LAST"
+      - send: ":SYST:PRES:TYPE USER"
+      - query: ":SYST:PRES:TYPE?"
+        expect: "USER"
+      - send: ":SYST:VGAO:STAT ON"
+      - query: ":SYST:VGAO:STAT?"
+        expect: "1"
+      - send: ":SYST:PRES"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.5e9
+        tolerance: 1.0
+      - query: ":SYST:BRIG?"
+        expect: "HIGH"
+      - query: ":SYST:PRES:TYPE?"
+        expect: "FACT"
+      - query: ":SYST:COMM:GPIB:ADDR?"
+        expect: "18"
+
+  - name: "初始化：连续扫描关/开，单次扫描"
+    manual: "INITiate Subsystem > [:INITiate]:CONTinuous / [:IMMediate]"
+    steps:
+      - send: ":INIT:CONT OFF"
+      - query: ":INIT:CONT?"
+        expect: "0"
+      - send: ":INIT:IMM"
+      - query: ":INIT:CONT?"
+        expect: "0"
+      - send: ":INIT:CONT ON"
+      - query: ":INIT:CONT?"
+        expect: "1"
+
+  - name: "未实现命令：-113，并在事件历史中标注 not_modeled"
+    manual: "TRIGger Subsystem（覆盖表：not_modeled）"
+    steps:
+      - send: ":TRIG:SOUR IMM"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
