@@ -267,6 +267,7 @@ class DmmAdc(Component):
         "overrange": 1.2,  # a reading beyond this fraction of full scale is an overload
         "overload_value": 9.9e37,  # the reading an overload produces
         "resolution": None,  # quantization step as a fraction of full scale (a mapping of a setting)
+        "set_resolution": None,  # resolution given to CONFigure (a setting); CONFigure? returns it when > 0
         "reading_time": 0.0,  # s of virtual time one reading takes (integration and overhead)
         "store": "",  # the calibration_store whose per-key coefficients correct the reading
         "cal_gain": 1.0,  # legacy (no store): calibration gain coefficient
@@ -277,7 +278,7 @@ class DmmAdc(Component):
         "cal_tolerance": 0.1,  # legacy (no store): fraction of the cal value the input may be off by
         "conditioning": "",  # the signal-conditioning block it reads
     }
-    units = {"cal_offset": "V", "cal_value": "V"}
+    units = {"cal_offset": "V", "cal_value": "V", "set_resolution": "V"}
 
     def _conditioning(self) -> DmmConditioning:
         assert self.owner is not None
@@ -366,13 +367,20 @@ class DmmAdc(Component):
 
     @op("configure")
     def op_configure(self, **_: Any) -> OpResult:
-        """CONFigure?'s range and resolution: the effective range, and the resolution step in use."""
+        """CONFigure?'s range and resolution: the effective range, and the resolution step in use.
+
+        The resolution is the one CONFigure was given (``set_resolution``, #286: the manual says
+        the argument specifies the measurement resolution and CONFigure? reports it); when it is
+        unset the step comes from the ``resolution`` mapping of the integration time, as before.
+        The readings themselves quantize by ``resolution`` either way — the model boundary is
+        noted in the definition's coverage table."""
         conditioning = self._conditioning()
         function = conditioning.active_function()
         r = conditioning.effective_range(function)
         if r is None:
             raise ValueError(f"{self.uid}: no ranges configured for the {function} function")
-        step = float(self.param("resolution") or 0.0) * r
+        given = self.param("set_resolution")
+        step = float(given) if given else float(self.param("resolution") or 0.0) * r
         return OpResult(V.format_float(r, 8) + b"," + V.format_float(step, 8))
 
     # ---- calibration -----------------------------------------------------------------------------

@@ -78,14 +78,17 @@ EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
     ("dut", "*IDN?", "Keysight Technologies,34465A,MY57440001,2.6.1-2.0.0-0.0.0-0.0-0-0", 0),
     ("dut", "*RST", None, 0),
     ("dut", ":CONF:VOLT:DC 10,0.001", None, 0),
-    ("dut", ":CONF?", '"VOLT +1.00000000E+01,+1.00000000E-06"', 0),
+    # #286: the resolution CONFigure was given is now reflected (was +1.00000000E-06, the NPLC step).
+    ("dut", ":CONF?", '"VOLT +1.00000000E+01,+1.00000000E-03"', 0),
     ("dut", ":SENS:VOLT:DC:NPLCycles 1", None, 0),
     ("src", ":SOUR:VOLT 5", None, 0),
     ("dut", ":MEAS:VOLT:DC?", "+5.00000100E+00", 0),
     ("dut", ":SENS:VOLT:DC:NPLCycles 10", None, 0),
     ("dut", ":MEAS:VOLT:DC?", "+5.00000000E+00", 0),
     ("dut", ":SENS:VOLT:DC:RANGe 1", None, 0),
-    ("dut", ":CONF?", '"VOLT +1.00000000E+00,+1.00000000E-07"', 0),
+    # The resolution CONFigure gave is a setting: it persists across range changes (#286), so
+    # CONF? still reports it (was +1.00000000E-07, range × NPLC step).
+    ("dut", ":CONF?", '"VOLT +1.00000000E+00,+1.00000000E-03"', 0),
     ("dut", ":SENS:VOLT:DC:RANGe:AUTO ON", None, 0),
     ("src", ":SOUR:VOLT 0.2", None, 0),
     ("dut", ":MEAS:VOLT:DC?", "+2.00000000E-01", 0),
