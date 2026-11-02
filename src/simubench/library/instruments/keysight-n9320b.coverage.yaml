@@ -74,9 +74,9 @@ sections:
     level: not_modeled
   - header: :CALCulate:LLINe[1]|2:TYPE
     level: not_modeled
-  - header: :CALCulate:MARKer:AOFF
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+  - header: ':CALCulate:MARKer:AOFF'
+    level: implemented
+    note: 'Turns the marker off and back to normal mode (#274).'
   - header: :CALCulate:MARKer[n]:CPEak[:STATe]
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
@@ -86,24 +86,24 @@ sections:
   - header: :CALCulate:MARKer:FCOunt:RESolution:AUTO
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:FCOunt[:STATe]
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer:PEAK:SEARch:MODE
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:MAXimum:LEFT
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:MAXimum:RIGHt
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:MINimum
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:MODE
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+  - header: ':CALCulate:MARKer<m>:FCOunt[:STATe]'
+    level: implemented
+    note: 'Marker counter switch, off after *RST; FCOunt:X? reads 0 while off (#274).'
+  - header: ':CALCulate:MARKer:PEAK:SEARch:MODE'
+    level: implemented
+    note: 'PARameter applies the threshold and excursion; MAXimum takes the highest point (#274).'
+  - header: ':CALCulate:MARKer<m>:MAXimum:LEFT'
+    level: implemented
+    note: 'The nearest peak left of the marker that meets the criteria; -200 when none (#274).'
+  - header: ':CALCulate:MARKer<m>:MAXimum:RIGHt'
+    level: implemented
+    note: 'The nearest peak right of the marker that meets the criteria; -200 when none (#274).'
+  - header: ':CALCulate:MARKer<m>:MINimum'
+    level: implemented
+    note: 'The lowest point of the trace (#274).'
+  - header: ':CALCulate:MARKer<m>:MODE'
+    level: implemented
+    note: 'POSition or DELTa; DELTa fixes a reference marker where the marker is, Y? then reads the level difference in dB (#274).'
   - header: :CALCulate:MARKer:PEAK:THReshold:STATe
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
@@ -143,9 +143,9 @@ sections:
   - header: :CALCulate:MARKer[n][:SET]:STOP
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:STATe
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+  - header: ':CALCulate:MARKer<m>:STATe'
+    level: implemented
+    note: 'Marker on/off, off after *RST; turning it on puts it at the center; peak search and X turn it on; reading an off marker is -221 (#274).'
   - header: :CALCulate:MARKer:TABLe:STATe
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
@@ -161,9 +161,9 @@ sections:
   - header: :CALCulate:MARKer[n]:X:CENTer
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
-  - header: :CALCulate:MARKer[n]:X:DELTa
-    level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+  - header: ':CALCulate:MARKer<m>:X:DELTa'
+    level: implemented
+    note: 'Frequency from the fixed reference marker in delta mode; 0 in normal mode (#274).'
   - header: :CALCulate:MARKer[n]:X:REFerence
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'

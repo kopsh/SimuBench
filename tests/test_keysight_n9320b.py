@@ -96,6 +96,8 @@ def test_marker_peak_search_reads_the_10_mhz_tone():
         assert q(s, ":CALC:MARK:MAX") is None
         assert float(q(s, ":CALC:MARK:X?")) == pytest.approx(10.0e6, abs=2.0e3)
         assert float(q(s, ":CALC:MARK:Y?")) == pytest.approx(LEVEL_DBM, abs=0.01)
+        assert float(q(s, ":CALC:MARK:FCO:X?")) == 0.0  # the counter is off after *RST (#274)
+        assert q(s, ":CALC:MARK:FCO ON") is None
         assert float(q(s, ":CALC:MARK:FCO:X?")) == pytest.approx(10.0e6, abs=1.0)
         assert q(s, ":SYST:ERR?") == '+0,"No error"'
     finally:

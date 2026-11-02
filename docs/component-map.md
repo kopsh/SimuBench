@@ -136,7 +136,7 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | if_filter | `specan_if` | 数据(RBW、高斯响应、噪声底) | 已实现 | — |
 | log_detector | `specan_detector` | 数据(检波与对数) | 已实现 | — |
 | vbw_filter | `specan_vbw` | 数据(VBW) | 已实现 | — |
-| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 部分(差值/固定参考标记、标记开关、最小/左右峰值:#274) | 命名审计:`maxhold_limit`(缺口清单) |
+| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记) | 命名审计:`maxhold_limit`(缺口清单) |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | 已实现 | — |
 
 D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层,其余都是数据层(频谱是确定性的数据计算,不经过信号连线)。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(`span/100` 取 1-3-10 梯级);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_mixer` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
@@ -244,7 +244,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 13. **示波器**:更多自动测量与运行/触发状态寄存器(#248)、Web 屏幕的光标与自动测量(#280);协议解码/串行触发、mask 测试(MTESt)、search、history、分段存储、数字通道(MSO)、内置波形发生器、FFT 暂不排期。
 14. **电源**:列表/动态扫描与数据记录(DLOG)暂不排期。
 15. **电子负载**:动态/列表(C2);CP 未收敛时的确定行为已按 D52 落定(#258);MAX/MIN 读数、电阻读数、电池测试暂不排期。
-16. **频谱仪**:标记组(#274);N9320B 复位默认值与设置顺序已由 #292 补上(`specan_trace` 的 `center_fit`/`lo_rate`);测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。
+16. **频谱仪**:多个独立标记(目前只有标记 1;标记组由 #274、N9320B 复位默认值与设置顺序由 #292 补上(`specan_trace` 的 `center_fit`/`lo_rate`));测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。
 17. **射频源**:带电平与驻留的列表扫描行(DSG800 的 `:SWE:LIST:*`;电平扫描、驻留与连续/单次已由 #291 补上,调制总开关由 #290);平坦度校准表、脉冲/任意波调制暂不排期。
 18. **锁相放大器**:状态字节、曲线缓冲、按索引查询、输入前端、SYNC(#273,含第 5 节的型号参数化)。
 19. **DAQ**:温度测量、数字 I/O 与总加器(34907A)、外部扫描推进、监视通道、报警系统暂不排期。

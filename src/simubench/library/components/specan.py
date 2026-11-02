@@ -354,6 +354,12 @@ class SpecanTrace(Component):
         assert self.owner is not None
         self.owner.set_state(path, value)
 
+    def _opt(self, path: str, default: Any) -> Any:
+        """A setting the definition may leave out (the #274 marker group): its value, else the
+        behaviour of an analyzer with one always-on normal marker."""
+        assert self.owner is not None
+        return self.owner.get_state(path) if path in self.owner.specs else default
+
     def rbw(self) -> float:
         return self._if().rbw()
 
@@ -707,6 +713,36 @@ class SpecanTrace(Component):
                 out.append(i)
         return out
 
+    watches = ("marker.mode", "marker.enabled")
+
+    # The marker group (#274), on settings the definition may declare: marker.enabled (on/off;
+    # absent: always on), marker.mode (POSition | DELTa), marker.ref_x / marker.ref_y (the fixed
+    # reference a delta marker reads against, set when DELTa is chosen), marker.count (the counter
+    # switch; absent: always counting) and marker.search (PARameter | MAXimum: whether peak search
+    # applies the threshold and excursion).
+
+    def _marker_on(self) -> bool:
+        return bool(self._opt("marker.enabled", True))
+
+    def _turn_on(self) -> None:
+        if "marker.enabled" in self.owner.specs and not self._st("marker.enabled"):  # type: ignore[union-attr]
+            self._set("marker.enabled", True)
+
+    def _delta(self) -> bool:
+        return self._marker_on() and str(self._opt("marker.mode", "POSition")).upper().startswith("DELT")
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        if path == "marker.mode" and str(new).upper().startswith("DELT") and new != old:
+            # DELTa fixes a reference marker where the marker is now; the marker itself moves on.
+            x, y = self.trace()
+            i = int(np.argmin(np.abs(x - float(self._st("marker.x")))))
+            self._set("marker.ref_x", float(x[i]))
+            self._set("marker.ref_y", float(y[i]))
+            self._turn_on()
+        if path == "marker.enabled" and new and not old:
+            # A marker turned on starts at the center of the screen, as the analyzers do.
+            self._set("marker.x", float(self._st("freq.center")))
+
     @op("marker")
     def op_marker(
         self, query: bool = False, what: str = "x", value: float | None = None, **_: Any
@@ -714,18 +750,44 @@ class SpecanTrace(Component):
         x, y = self.trace()
         mx = float(self._st("marker.x"))
         i = int(np.argmin(np.abs(x - mx)))
+        reads = query if what == "x" else what in ("y", "count", "dx")
+        if reads and not self._marker_on():
+            raise ScpiError(-221, "the marker is off")
         if what == "x":
             if query:
                 return OpResult(V.format_float(float(x[i]), 15))
             assert value is not None
             j = int(np.argmin(np.abs(x - value)))
+            self._turn_on()
             self._set("marker.x", float(x[j]))
             return OpResult()
         if what == "y":
-            return OpResult(V.format_float(float(y[i]), 7))
+            level = float(y[i])
+            if self._delta():
+                level -= float(self._st("marker.ref_y"))  # dB from the fixed reference
+            return OpResult(V.format_float(level, 7))
+        if what == "dx":
+            ref = float(self._st("marker.ref_x")) if self._delta() else float(x[i])
+            return OpResult(V.format_float(float(x[i]) - ref, 15))
         if what == "count":
+            if not bool(self._opt("marker.count", True)):
+                return OpResult(V.format_float(0.0, 12))  # the counter is off
             return OpResult(V.format_float(self._count(float(x[i])), 12))
+        best = int(np.argmin(y)) if what == "min" else self._search(what, x, y, i)
+        self._turn_on()
+        self._set("marker.x", float(x[best]))
+        return OpResult()
+
+    def _search(self, what: str, x: np.ndarray, y: np.ndarray, i: int) -> int:
+        """Peak search: max, next (by level), left / right (the nearest peak that way)."""
+        if what == "max" and str(self._opt("marker.search", "PARameter")).upper().startswith("MAX"):
+            return int(np.argmax(y))  # MAXimum mode: the highest point, criteria ignored
         peaks = self._peaks(y)
+        if what in ("left", "right"):
+            side = [p for p in peaks if (p < i if what == "left" else p > i)]
+            if not side:
+                raise ScpiError(-200, "no peak on that side")
+            return max(side) if what == "left" else min(side)
         # Peaks in display order: level, then frequency. MAXimum takes the first; NEXT the one after
         # the marker's, so equal-level twins (two sidebands) are both visited.
         order = sorted(peaks, key=lambda p: (-y[p], p))
@@ -737,8 +799,15 @@ class SpecanTrace(Component):
             cands = [p for p in order if (-y[p], p) > (-y[i], i)]
         if not cands:
             raise ScpiError(-200, "")
-        best = cands[0]
-        self._set("marker.x", float(x[best]))
+        return cands[0]
+
+    @op("marker_off")
+    def op_marker_off(self, **_: Any) -> OpResult:
+        """:CALCulate:MARKer:AOFF — every marker off (and back to normal mode)."""
+        if "marker.enabled" in self.owner.specs:  # type: ignore[union-attr]
+            self._set("marker.enabled", False)
+        if "marker.mode" in self.owner.specs:  # type: ignore[union-attr]
+            self._set("marker.mode", "POSition")
         return OpResult()
 
     def _count(self, x: float) -> float:

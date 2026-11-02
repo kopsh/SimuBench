@@ -50,6 +50,7 @@ def main() -> None:
     marker_hz = float(sa.query(":CALC:MARK:X?"))
     marker_dbm = float(sa.query(":CALC:MARK:Y?"))
     print(f"marker: {marker_hz:.0f} Hz, {marker_dbm:.3f} dBm")
+    sa.write(":CALC:MARK:FCO ON")  # the marker counter is off after *RST
     counter_hz = float(sa.query(":CALC:MARK:FCO:X?"))
     print(f"counter: {counter_hz:.0f} Hz")
     trace = levels(sa.query(":TRAC:DATA? TRACE1"))

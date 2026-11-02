@@ -294,6 +294,10 @@ cases:
         expect_value: 3.9793921
         tolerance: 0.01
       - query: ":CALC:MARK:FCO:X?"
+        expect_value: 0.0
+        tolerance: 0.0
+      - send: ":CALC:MARK:FCO ON"
+      - query: ":CALC:MARK:FCO:X?"
         expect_value: 1.0e7
         tolerance: 1.0
       - send: ":CALC:MARK:X 9.5 MHz"
@@ -411,3 +415,54 @@ cases:
       - send: ":TRIG:SOUR IMM"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: "标记组：开关、差值模式与固定参考、左右与最小搜索、搜索方式、全部关闭（#274）"
+    manual: "CALCulate Subsystem > CALCulate:MARKer > STATe / MODE / X:DELTa / MAXimum:LEFT / MAXimum:RIGHt / MINimum / PEAK:SEARch:MODE / AOFF"
+    steps:
+      - query: ":CALC:MARK:STAT?"
+        expect: "0"
+      - send: ":CALC:MARK:Y?"
+      - query: ":SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - send: ":FREQ:CENT 10 MHz"
+      - send: ":FREQ:SPAN 4 MHz"
+      - send: ":CALC:MARK:PEAK:THR -30"
+      - send: ":CALC:MARK:STAT ON"
+      - query: ":CALC:MARK:X?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - send: ":CALC:MARK:MAX"
+      - send: ":CALC:MARK:MODE DELT"
+      - query: ":CALC:MARK:MODE?"
+        expect: "DELT"
+      - query: ":CALC:MARK:Y?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":CALC:MARK:X 11 MHz"
+      - query: ":CALC:MARK:X:DELT?"
+        expect_value: 1.0e6
+        tolerance: 1.0e4
+      - query: ":CALC:MARK:Y?"
+        expect_match: '^-[0-9]\.[0-9]{7}E\+0[12]$'
+      - send: ":CALC:MARK:MAX:LEFT"
+      - query: ":CALC:MARK:X:DELT?"
+        expect_value: 0.0
+        tolerance: 1.0e4
+      - send: ":CALC:MARK:MAX:RIGH"
+      - query: ":SYST:ERR?"
+        expect_match: '^-200,.*'
+      - send: ":CALC:MARK:MIN"
+      - query: ":CALC:MARK:Y?"
+        expect_match: '^-[0-9]\.[0-9]{7}E\+0[12]$'
+      - send: ":CALC:MARK:PEAK:SEAR:MODE MAX"
+      - query: ":CALC:MARK:PEAK:SEAR:MODE?"
+        expect: "MAX"
+      - send: ":CALC:MARK:MAX"
+      - query: ":CALC:MARK:X:DELT?"
+        expect_value: 0.0
+        tolerance: 1.0e4
+      - send: ":CALC:MARK:AOFF"
+      - query: ":CALC:MARK:STAT?"
+        expect: "0"
+      - query: ":CALC:MARK:MODE?"
+        expect: "POS"

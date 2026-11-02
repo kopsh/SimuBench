@@ -252,6 +252,9 @@ class Instrument:
         for comp in self.components.values():
             for path in comp.bound_paths().values():
                 self._watchers[path].append(comp)
+            for path in comp.watches:  # read by path, still told of changes (#274)
+                if path in self.specs and comp not in self._watchers[path]:
+                    self._watchers[path].append(comp)
 
         # ---- signal wiring: (dst component, dst port) -> (src component, src port) ----
         self._upstream: dict[tuple[str, str], tuple[str, str]] = {}
