@@ -32,7 +32,8 @@ sections:
   - header: '*STB'
     level: implemented
   - header: '*TRG'
-    level: not_modeled
+    level: implemented
+    note: 'the guide: the same effect as :DIGitize with no parameters; acquires the displayed channels and waits until their records are full'
   - header: '*TST'
     level: implemented
   - header: '*WAI'
@@ -43,6 +44,7 @@ sections:
     level: not_modeled
   - header: :AER
     level: not_modeled
+    note: 'the Arm Event Register needs the trigger system to report its armed/waiting state; the acquisition component has no such register (#160 noted the gap)'
   - header: :AUToscale
     level: not_modeled
   - header: :AUToscale:AMODE
@@ -53,6 +55,7 @@ sections:
     level: not_modeled
   - header: :BLANk
     level: not_modeled
+    note: 'blanking a channel named by a parameter (a query may name it too) is not expressible: a command''s state must be selected by the header, not by an enum parameter'
   - header: :DIGitize
     level: implemented
     note: 'acquires the displayed channels (or the ones named) and stops; returns once the record is full (virtual time), and waits while there is no trigger. FUNCtion, MATH, SBUS1 and digital sources are not modeled'
@@ -62,31 +65,41 @@ sections:
     level: not_modeled
   - header: :OPEE
     level: not_modeled
+    note: 'the Operation Status Enable Register needs the operation status registers below; the engine only has the standard event and status byte registers'
   - header: :OPERegister:CONDition
     level: not_modeled
+    note: 'the Operation Status registers (RUN/TRIG/WAIT bits) are not modeled; the same capability issue as :AER and :TER'
   - header: :OPERegister[:EVENt]
     level: not_modeled
+    note: 'as :OPERegister:CONDition'
   - header: :OVLenable
     level: not_modeled
   - header: :OVLRegister
     level: not_modeled
   - header: :PRINt
     level: not_modeled
+  - header: :RSTate?
+    level: not_modeled
+    note: 'RUN/STOP/SING needs the run state and the single-acquisition arming state as a query; the acquisition component reports the trigger status in its own words (RUN/STOP/SING is not expressible from it)'
   - header: :RUN
     level: implemented
   - header: :SERial
-    level: not_modeled
+    level: implemented
+    note: 'the unquoted serial number (MY58260001, the value *IDN? carries); a read-only setting with one value'
   - header: :SINGle
     level: implemented
     note: 'takes one acquisition the way :DIGitize does and stops'
   - header: :STATus
     level: not_modeled
+    note: 'whether the channel named by a parameter is displayed; a query may name the source too, which a setting command cannot take (the same limit as :BLANk)'
   - header: :STOP
     level: implemented
   - header: :TER
     level: not_modeled
+    note: 'the Trigger Event Register (set by a trigger, cleared when read) is not modeled; the acquisition component keeps the acquisition count but no cleared-on-read trigger flag (the same capability issue as :AER)'
   - header: :VIEW
     level: not_modeled
+    note: 'turning on the channel named by a parameter is not expressible, as :BLANk'
 - section: :ACQuire Commands (Programmer's Guide 02.66, ch. 7)
   commands:
   - header: :ACQuire:COMPlete
@@ -103,16 +116,22 @@ sections:
     note: 'the record length: 100 kpts (standard memory, data sheet)'
   - header: :ACQuire:SEGMented:ANALyze
     level: not_modeled
+    note: 'segmented memory (SGM option) is not modeled; :ACQuire:MODE SEGMented is stored but acquires one real-time record'
   - header: :ACQuire:SEGMented:COUNt
     level: not_modeled
+    note: 'as :ACQuire:SEGMented:ANALyze; the count is not stored, :ACQuire? reports the guide''s reset value 2'
   - header: :ACQuire:SEGMented:INDex
     level: not_modeled
+    note: 'as :ACQuire:SEGMented:ANALyze'
   - header: :ACQuire:SRATe
     level: implemented
     note: 'min(2 GSa/s, 1 GSa/s with both channels of a pair on, 100 kpts / 10 div) on a 1-2-5 ladder (data sheet); reply digits are a SimuBench choice (the guide shows none)'
   - header: :ACQuire:TYPE
     level: implemented
-    note: 'NORMal and AVERage change the data; HRESolution and PEAK are stored and acquire as NORMal'
+    note: 'NORMal; AVERage,count is the mean of count quantized acquisitions; PEAK examines each record interval at up to 64 samples (64 x the record rate when the ADC is faster, capped there) and keeps the extreme that departs farther from the interval ends, so a signal the record rate steps over shows; HRESolution is a boxcar of 8 codes (4^1.5, a SimuBench value: the guide only says slower sweeps average more)'
+  - header: :ACQuire
+    level: implemented
+    note: 'the setup query of the chapter''s Reporting the Setup: the guide''s *RST sample ":ACQ:MODE RTIM;TYPE NORM;COMP 100;COUNT 8;SEGM:COUN 2"; SEGM:COUN is the reset value (segmented memory is not modeled, see :ACQuire:SEGMented:COUNt)'
 - section: :BUS<n> Commands (Programmer's Guide 02.66, ch. 8)
   commands:
   - header: :BUS<n>:BIT<m>
@@ -777,38 +796,59 @@ sections:
   commands:
   - header: :SYSTem:DATE
     level: not_modeled
+    note: 'the scope''s real-time clock is not simulated (only virtual time); the date is not stored'
   - header: :SYSTem:DIDentifier
-    level: not_modeled
+    level: implemented
+    note: 'the quoted host ID; the guide''s example is "<model>,<serial>,<host id>" and calls the content product-specific: "DSO-X 2024A,MY58260001,SIMUBENCH2024A" is a SimuBench value'
   - header: :SYSTem:DSP
-    level: not_modeled
-  - header: :SYSTem:ERRor
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'the text written to the middle of the display; parsed and stored, no display shows it (the guide has no query; the 75-character limit is not enforced)'
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 'the error queue (30 deep, the guide); the guide''s sample replies write the code with a sign, e.g. +0,"No error"'
   - header: :SYSTem:LOCK
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'front-panel lock (the interface state); parsed, stored and read back, nothing in the simulation is locked. The guide gives no *RST value: OFF is the SimuBench default'
   - header: :SYSTem:MENU
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'the front-panel softkey menu; parsed and stored, no display shows it (the guide gives no query and no *RST value: MEASure is the SimuBench default)'
   - header: :SYSTem:PRESet
-    level: not_modeled
+    level: implemented
+    note: 'the same reset conditions as *RST (the guide''s PRESet list matches the *RST table; only preferences remain, and SimuBench has none), and it makes the scope run again'
   - header: :SYSTem:PROTection:LOCK
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'locks the 50 ohm impedance setting; this model only has 1 MOhm (:CHANnel<n>:IMPedance takes ONEMeg), so it is stored and read back only. The guide gives no *RST value: OFF is the SimuBench default'
   - header: :SYSTem:RLOGger
     level: not_modeled
+    note: 'remote command logging needs a log file or the screen; not modeled, and its settings (the :RLOGger sub-commands below) are not stored'
   - header: :SYSTem:RLOGger:DESTination
     level: not_modeled
+    note: 'as :SYSTem:RLOGger'
   - header: :SYSTem:RLOGger:DISPlay
     level: not_modeled
+    note: 'as :SYSTem:RLOGger'
   - header: :SYSTem:RLOGger:FNAMe
     level: not_modeled
+    note: 'as :SYSTem:RLOGger'
   - header: :SYSTem:RLOGger:STATe
     level: not_modeled
+    note: 'as :SYSTem:RLOGger'
   - header: :SYSTem:RLOGger:TRANsparent
     level: not_modeled
+    note: 'as :SYSTem:RLOGger'
   - header: :SYSTem:RLOGger:WMODe
     level: not_modeled
+    note: 'as :SYSTem:RLOGger'
   - header: :SYSTem:SETup
     level: not_modeled
+    note: 'the setup (learn) block needs a whole-instrument serialization; not modeled (the same for *LRN)'
   - header: :SYSTem:TIME
     level: not_modeled
+    note: 'as :SYSTem:DATE: no real-time clock is simulated'
 - section: :TIMebase Commands (Programmer's Guide 02.66, ch. 28)
   commands:
   - header: :TIMebase:MODE
@@ -827,17 +867,26 @@ sections:
     level: implemented
     note: '2 ns/div to 50 s/div (data sheet)'
   - header: :TIMebase:VERNier
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'the time base knob''s fine adjustment; stored and read back, the SCPI-set :TIMebase:SCALe is unchanged. Off after *RST and :SYSTem:PRESet (the guide''s reset tables)'
   - header: :TIMebase:WINDow:POSition
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'the zoomed (delayed) time base is not modeled: stored and read back, the main time base and the acquisition are unchanged. 0 s after *RST (the guide''s reset table); the -500 s to 500 s limit is the main position''s (a SimuBench choice: the guide only says the zoomed window must stay within the main sweep, which is not checked)'
   - header: :TIMebase:WINDow:RANGe
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'ten divisions of :TIMebase:WINDow:SCALe (the guide); as :TIMebase:WINDow:POSition. 5 us after *RST (500 ns/div, the guide''s reset table)'
   - header: :TIMebase:WINDow:SCALe
-    level: not_modeled
+    level: accepted
+    affects_data: false
+    note: 'the zoomed (delayed) time base is not modeled: stored and read back, the main time base and the acquisition are unchanged. 500 ns/div after *RST (the guide''s reset table); 2 ns/div to 25 s/div is a SimuBench choice (the guide''s rule, half of the current :TIMebase:SCALe, is not checked)'
 - section: :TRIGger Commands (Programmer's Guide 02.66, ch. 29)
   commands:
   - header: :TRIGger:FORCe
-    level: not_modeled
+    level: implemented
+    note: 'takes one frame whatever the trigger condition (the acquisition component''s force_trigger); it does not stop a running acquisition and does not arm a single one'
   - header: :TRIGger:HFReject
     level: implemented
     note: 'a 50 kHz low-pass in the trigger path (the guide)'

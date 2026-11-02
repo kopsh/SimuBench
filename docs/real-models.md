@@ -143,7 +143,7 @@ cases:
 
 **第二个产品型号**：`siglent-sdg2042x`（D45）。SDG 的命令不是 SCPI 树，而是 Siglent 自己的键值写法（`C1:BSWV WVTP,SINE,FRQ,1000`），回复带命令头与单位（`C1:BSWV WVTP,SINE,FRQ,100HZ,...`），所以这些命令都是组件操作（`library/components/siglent_sdg.py`），由组件拼出完整回复。手册的命令头写法也不全是 SCPI 的长短格式：`ParaCoPy` 的短格式是 `PACP`，定义中写成 `PAraCoPy`，使大写字母就是短格式。组合消息里重复通道前缀的第二条单元（`C1:BSWV …;C1:OUTP ON`）按真机接受，第一条单元重新从该节点起，不按 SCPI 相对路径重复拼接成 `C1:C1:…`（issue 149；PG02_E05C 未单列组合命令一节，规则在 `scpi/parse.py` 的 `resolve_tokens`，引擎与静态分类共用）。
 
-**第三个产品型号**：`keysight-dsox2024a`（D45，示波器的开发验证基准）。覆盖表由编程手册的命令索引生成（485 条），`*RST` 的示例回复逐条对过；`examples/scripts/keysight_dsox_read_waveform.py` 按手册的波形章节编写（`:DIGitize`、`:WAVeform:PREamble?`、`(code - yreference) * yincrement + yorigin`），在真机和 SimuBench 上都能直接运行（`tests/test_keysight_dsox.py`）。为它补上的通用能力（`tests/test_number_formats.py`）：
+**第三个产品型号**：`keysight-dsox2024a`（D45，示波器的开发验证基准）。覆盖表由编程手册的命令索引生成（487 条），`*RST` 的示例回复逐条对过；第一批按手册补齐的命令（#160：`*TRG`、`:TRIGger:FORCe`、`:SYSTem:PRESet`、`:SERial?`、`:ACQuire?`、`:SYSTem:DIDentifier?`、前面板/菜单与缩放时基的“接受”命令，以及 `:ACQuire:TYPE` 的 PEAK 与 HRESolution 处理）逐条记在覆盖表中；状态寄存器、逐通道触发电平与更多自动测量所需的通用能力记在 #248；`examples/scripts/keysight_dsox_read_waveform.py` 按手册的波形章节编写（`:DIGitize`、`:WAVeform:PREamble?`、`(code - yreference) * yincrement + yorigin`），在真机和 SimuBench 上都能直接运行（`tests/test_keysight_dsox.py`）。为它补上的通用能力（`tests/test_number_formats.py`）：
 
 - 返回格式 `significant`：有效数字位数固定的工程记数（`+40.0E+00`、`+60.0000000000000E-09`），由命令级 `format` 逐条给出；
 - 命令的 `factor`：命令的数是设置乘以系数（`:CHANnel<n>:RANGe` 为 8 格，`:TIMebase:RANGe` 为 10 格），写入时除回去，范围仍按设置检查；
