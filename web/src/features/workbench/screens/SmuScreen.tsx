@@ -5,7 +5,7 @@ import type { InstrumentInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
 import { useReadings, useScpi } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
-import { formatEng } from "@/lib/format";
+import { formatEng, isOverload, resistance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stateMap } from "../model";
 import { StateField } from "../StateField";
@@ -82,21 +82,21 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
           </span>
         </header>
         <div className="grid grid-cols-2 divide-x divide-y md:grid-cols-4 md:divide-y-0" aria-live="polite">
-          {/* Fixed digits with the sign, as the instrument's display shows them; with no current the
-              resistance has no value (the instrument reads 9.91E+37), not 0 Ω (#278). */}
-          <Readout label={t("smu.voltage")} value={volts} unit="V" strong={forcingVoltage === limited} digits={6} fixed signed testId="V" />
-          <Readout label={t("smu.current")} value={amps} unit="A" strong={forcingVoltage !== limited} digits={6} fixed signed testId="I" />
+          {/* Fixed digits with the sign, as the instrument's display shows them; an overload reading
+              (9.9E+37 / 9.91E+37) or a resistance with no current shows the overflow word (#278, #313). */}
+          <Readout label={t("smu.voltage")} value={volts} unit="V" strong={forcingVoltage === limited} digits={6} fixed signed overflow={t("smu.overflow")} testId="V" />
+          <Readout label={t("smu.current")} value={amps} unit="A" strong={forcingVoltage !== limited} digits={6} fixed signed overflow={t("smu.overflow")} testId="I" />
+          <Readout label={t("smu.resistance")} value={resistance(volts, amps)} unit="Ω" digits={5} fixed signed overflow={t("smu.overflow")} testId="R" />
           <Readout
-            label={t("smu.resistance")}
-            value={amps !== 0 ? volts / amps : 0}
-            unit="Ω"
+            label={t("smu.power")}
+            value={isOverload(volts) || isOverload(amps) ? Infinity : volts * amps}
+            unit="W"
             digits={5}
             fixed
             signed
-            overflow={amps === 0 ? t("smu.overflow") : undefined}
-            testId="R"
+            overflow={t("smu.overflow")}
+            testId="P"
           />
-          <Readout label={t("smu.power")} value={volts * amps} unit="W" digits={5} fixed signed testId="P" />
         </div>
         <footer className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 border-t px-3 py-2 text-[11px]">
           <span>

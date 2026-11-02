@@ -8,7 +8,7 @@ import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { pickLabel } from "@/i18n";
-import { displayUnit, engParts } from "@/lib/format";
+import { displayUnit, formatReadout } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { applyOps } from "../edit/editor";
 import { labelOf, numeric, optionLabel, stateMap } from "../model";
@@ -19,8 +19,6 @@ type PanelControl = Schemas["PanelControl"];
 type PanelReadout = Schemas["PanelReadout"];
 type PanelKey = Schemas["PanelKey"];
 type Changes = [path: string, value: unknown][];
-
-const OVERLOAD = 9.9e37;
 
 /**
  * A front panel drawn from the definition's `display.panel`, or from its class's default layout
@@ -169,14 +167,15 @@ function ReadoutView({ r, value, big }: { r: PanelReadout; value: unknown; big?:
   let mantissa: string;
   let unit = "";
   if (typeof value === "number") {
-    if (Math.abs(value) >= OVERLOAD) mantissa = t("instPanel.overload");
     // A count (no unit, a whole number: points, totalize, a channel) is shown as one, not "0.00000".
-    else if (!r.unit && Number.isInteger(value)) mantissa = String(value);
-    else {
-      const p = engParts(value, r.unit ? displayUnit(r.unit) : "", r.digits ?? 6, true);
-      mantissa = p.mantissa;
-      unit = `${p.prefix}${p.unit}`;
-    }
+    const p = formatReadout(value, {
+      unit: r.unit ? displayUnit(r.unit) : "",
+      digits: r.digits ?? 6,
+      fixed: true,
+      count: !r.unit && Number.isInteger(value),
+    });
+    mantissa = p.overload ? t("instPanel.overload") : p.mantissa;
+    unit = p.overload ? "" : `${p.prefix}${p.unit}`;
   } else if (typeof value === "boolean") mantissa = value ? t("instPanel.on") : t("instPanel.off");
   else mantissa = value == null ? t("instPanel.noReading") : String(value);
   return (

@@ -67,6 +67,55 @@ export function formatEng(value: number, unit = "", digits = 4): string {
   return `${p.mantissa.replace("-", "−")} ${p.prefix}${p.unit}`.trim();
 }
 
+// ---- instrument readouts (#278, #313) ----------------------------------------------------------
+
+/**
+ * An instrument's overload reading: SCPI instruments answer +9.9E+37 (Keysight DMMs) or
+ * +9.91E+37 (the IEEE "not a number" of SMUs); either, or a non-finite value, is overload.
+ */
+export const OVERLOAD = 9.9e37;
+
+export function isOverload(value: number): boolean {
+  return !Number.isFinite(value) || Math.abs(value) >= OVERLOAD * (1 - 1e-9);
+}
+
+/** V / I as an SMU's resistance readout computes it: no current is overload, not 0 Ω. */
+export function resistance(volts: number, amps: number): number {
+  return amps === 0 ? Infinity : volts / amps;
+}
+
+export interface ReadoutOptions {
+  /** Display unit ("V", "Ω", …); empty for a count. */
+  unit?: string;
+  /** Significant digits: 6 for a 5½-digit display, 7 for 6½ digits (the leading 1 counts). */
+  digits?: number;
+  /** Keep trailing zeros, as an instrument's display shows all its digits ("0.00000", not "0"). */
+  fixed?: boolean;
+  /** Show the sign of a positive value too ("+1.00000"), as a source-measure display does. */
+  signed?: boolean;
+  /** A count (points, totalize, a channel): a whole number, no prefix. */
+  count?: boolean;
+}
+
+export interface Readout {
+  /** The number as the display shows it; "" when `overload`. */
+  mantissa: string;
+  prefix: string;
+  unit: string;
+  /** The value is the instrument's overload: the caller shows its overload word instead. */
+  overload: boolean;
+}
+
+/** One readout's text: the one place digits, sign, overload and counts are decided (#313). */
+export function formatReadout(value: number, options: ReadoutOptions = {}): Readout {
+  const { unit = "", digits = 5, fixed = false, signed = false, count = false } = options;
+  if (isOverload(value)) return { mantissa: "", prefix: "", unit, overload: true };
+  if (count) return { mantissa: String(Math.round(value)), prefix: "", unit, overload: false };
+  const p = engParts(value, unit, digits, fixed);
+  const mantissa = signed && !p.mantissa.startsWith("-") ? `+${p.mantissa}` : p.mantissa;
+  return { mantissa, prefix: p.prefix, unit: p.unit, overload: false };
+}
+
 /** Virtual time as hh:mm:ss.mmm (ns input). */
 export function formatClock(ns: number): string {
   const totalMs = Math.floor(ns / 1e6);

@@ -5,10 +5,11 @@ import fixture from "./panel.fixture.json";
 import { PanelScreen } from "./PanelScreen";
 
 /**
- * Front panels from the class default layout (issue 128): the 34465A of examples/benches/keysight-34465a
- * and the 5522A of examples/benches/fluke-5522a at 10 V in operate, from real sessions.
+ * Front panels from the class default layout (issue 128): the 34465A of examples/benches/keysight-34465a,
+ * the 5522A of examples/benches/fluke-5522a at 10 V in operate and the 53220A of
+ * examples/benches/keysight_53220a after one frequency measurement (#313), from real sessions.
  */
-function Panel({ which }: { which: "multimeter" | "calibrator" }) {
+function Panel({ which }: { which: "multimeter" | "calibrator" | "counter" }) {
   const entry = fixture[which];
   return (
     <QueryClientProvider client={new QueryClient()}>
@@ -25,3 +26,4 @@ type Story = StoryObj<typeof Panel>;
 
 export const Multimeter: Story = { args: { which: "multimeter" } };
 export const Calibrator: Story = { args: { which: "calibrator" } };
+export const Counter: Story = { args: { which: "counter" } };
