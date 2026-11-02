@@ -65,7 +65,7 @@ async def test_a_lost_reply_fault_and_the_clients_retry(served_validation):
     its retry succeeds, the fault ends, and the run record names the source 终端."""
     served_session = await served_validation.start("benches/smu.bench.yaml", seed=5, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served_validation.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served_validation.url, sid=sid)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -114,7 +114,7 @@ async def test_rc_sweep_shows_the_amplitude_falling(served_examples):
     level for rc.OUT falls monotonically — the same numbers the canvas shows."""
     served_session = await served_examples.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served_examples.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served_examples.url, sid=sid)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)

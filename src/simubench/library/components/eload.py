@@ -288,8 +288,9 @@ class EloadInput(Component):
         return v, 0.0
 
     def regulating(self) -> bool:
-        """The load holds its regulated quantity (not the knee/open): for the panel's warning."""
-        return self.conducting() and self._loop().mode_value()[0] == "i"
+        """The load holds its regulated quantity (not the knee/open, and the mode loop settled,
+        D52/#258): for the panel's warning."""
+        return self.conducting() and self._loop().mode_value()[0] == "i" and not self.session.unsettled
 
 
 @component("eload_meter")

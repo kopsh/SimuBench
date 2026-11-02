@@ -24,6 +24,8 @@ from .smu import OutputControlLoop
 
 #: Device error of E36300 series: the output cannot be enabled while a protection fault stands.
 OUTPUT_DISABLED = 729
+#: Device error of E36300 series: output 3 cannot be programmed while it is part of a combination.
+CH3_COMBINED = 720
 
 
 @component("power_supply_setpoint")
@@ -94,7 +96,9 @@ class PowerOutput(Component):
         "loop": ("output_control_loop", "channel"),
         "stage": ("power_stage", "channel"),
         "protection": ("supply_protection", "channel"),
+        "combination": ("supply_tracking", "instrument"),
     }
+    optional_refs = frozenset({"combination"})
     ports = {
         "pos": PortSpec("inout", "electrical", "the positive output terminal"),
         "neg": PortSpec("inout", "electrical", "the negative output terminal"),
@@ -112,6 +116,7 @@ class PowerOutput(Component):
         "loop": "",  # this channel's output_control_loop (the reused B1 loop)
         "stage": "",  # this channel's power_stage (the envelope)
         "protection": "",  # this channel's supply_protection (the trip latch)
+        "combination": "",  # the instrument's supply_tracking (an internal pair idles output 3; "" none)
     }
     piecewise = True
     dynamic = True
@@ -135,8 +140,17 @@ class PowerOutput(Component):
     def _protection(self) -> SupplyProtection:
         return self._sibling(str(self.param("protection")))
 
+    def idle(self) -> bool:
+        """Out of operation: output 3 while output 2 carries an internal series/parallel pair."""
+        name = str(self.param("combination") or "")
+        if not name:
+            return False
+        assert self.owner is not None
+        combination: SupplyTracking = self.owner.components[name]  # type: ignore[assignment]
+        return combination.idle(self.channel)
+
     def conducting(self) -> bool:
-        return self._closed and not self._protection().tripped()
+        return self._closed and not self._protection().tripped() and not self.idle()
 
     def remote(self) -> bool:
         if not (bool(self.param("remote_sense")) and self.wired("sense_pos") and self.wired("sense_neg")):
@@ -399,19 +413,32 @@ class SupplyProtection(Component):
 
 @component("supply_tracking")
 class SupplyTracking(Component):
-    """The ±25 V outputs' combination (B2 #185): track, parallel or series (channels 2 and 3 only).
+    """The combination of outputs 2 and 3 (B2 #185, #259): track, parallel or series.
 
     ``mode`` is the instrument's combination state (OFF / TRAC / PAR / SER). Enabling a combination
-    requires both outputs off (the manual's constraint); afterwards a change of either programmed
-    voltage is mirrored to the other — track keeps ``CH3 = −|CH2|``, parallel ``CH3 = CH2`` and
-    series ``CH3 = −CH2``. The physical connection is the bench wiring: this component keeps the
-    programmed levels consistent, which is what the instrument does.
+    requires both outputs off (the manual's constraint). ``topology`` says how the model combines:
+
+    - ``split`` (E36311A, ±25 V): output 3 is the negative supply. A change of either programmed
+      voltage is mirrored to the other — track keeps ``CH3 = −|CH2|``, parallel ``CH3 = CH2`` and
+      series ``CH3 = −CH2``; the physical connection is the bench wiring.
+    - ``internal`` (E36312A / E36313A, two +25 V outputs, user's guide "Specifying the Operation
+      Mode" and "Using the Tracking Operation"): track sets output 3 to the same voltage as
+      output 2 and vice versa; series and parallel are made inside the instrument — output 2
+      delivers the combination (twice the voltage, or twice the current) and output 3 no longer
+      operates, so programming it is refused with error 720 (the manual's "CH3 is not allowed
+      when serial/parallel/track is enabled"; tracking keeps output 3 programmable, the guide's
+      "and vice versa"). Output 2's range follows (its voltage/current settings' limits and the
+      ``v_max``/``i_max``/``p_max`` of its stage); leaving the combination brings the
+      independent range back and clips a level above it.
     """
 
     defaults = {
         "mode": "OFF",  # OFF | TRAC | PAR | SER (the instrument's combination state)
+        "track": False,  # a separate tracking switch (OUTPut:TRACk) for a mode without TRAC
+        "topology": "split",  # split (E36311A ±25 V) | internal (E36312A: output 2 carries the pair)
         "voltage2": 0.0,  # CH2's programmed voltage (watched)
         "voltage3": 0.0,  # CH3's programmed voltage (watched)
+        "current3": 0.0,  # CH3's current limit (watched: refused while output 3 idles)
         "output2": False,  # CH2's output state (must be off to change the combination)
         "output3": False,  # CH3's output state
     }
@@ -419,6 +446,7 @@ class SupplyTracking(Component):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._mirroring = False
+        self._widened = ""  # the internal combination output 2's range is widened for ("SER"/"PAR")
 
     _MODES = {
         "OFF": "OFF",
@@ -431,13 +459,25 @@ class SupplyTracking(Component):
     }
 
     def mode(self) -> str:
-        return self._MODES.get(str(self.param("mode")).upper(), "OFF")
+        mode = self._MODES.get(str(self.param("mode")).upper(), "OFF")
+        if mode == "OFF" and bool(self.param("track")):
+            return "TRAC"
+        return mode
+
+    def internal(self) -> bool:
+        return str(self.param("topology")) == "internal"
+
+    def idle(self, channel: int | None) -> bool:
+        """Output 3 no longer operates while output 2 carries an internal series/parallel pair."""
+        return channel == 3 and self.internal() and self.mode() in ("SER", "PAR")
 
     def _voltage(self, channel: int) -> float:
         assert self.owner is not None
         return float(self.owner.get_state(f"ch{channel}.voltage"))
 
     def _target(self, mode: str, master: float) -> float:
+        if self.internal():
+            return master  # tracking: the same voltage (series/parallel do not mirror)
         # Both combined modes put CH3 at the negative level: the series connection stacks the two
         # outputs, the parallel connection crosses the negative output's terminals (the two then
         # push the same polarity into the load).
@@ -445,13 +485,73 @@ class SupplyTracking(Component):
             return -abs(master)
         return -master  # SER and PAR
 
+    def _mirrors(self, mode: str) -> bool:
+        return mode != "OFF" and not (self.internal() and mode in ("SER", "PAR"))
+
     def _apply(self) -> None:
         mode = self.mode()
-        if mode == "OFF":
-            return
-        if bool(self.param("output2")) or bool(self.param("output3")):
+        # Series/parallel change with outputs 2 and 3 off; the internal topology's tracking is a
+        # level link and is not held to that here.
+        rebuild = mode in ("SER", "PAR") or (mode == "TRAC" and not self.internal())
+        if rebuild and (bool(self.param("output2")) or bool(self.param("output3"))):
             raise ScpiError(-221, "outputs 2 and 3 must be off to change the combination mode")
-        self._push(3, self._target(mode, self._voltage(2)))
+        self._range(mode if self.internal() and mode in ("SER", "PAR") else "")
+        if self._mirrors(mode):
+            self._push(3, self._target(mode, self._voltage(2)))
+        self.session.invalidate(electrical=True)
+
+    # ---- output 2's range under an internal combination ----------------------------------------------
+
+    def _range(self, combination: str) -> None:
+        """Widen output 2's range for SER (2× voltage) or PAR (2× current); "" restores it."""
+        if combination == self._widened:
+            return
+        owner = self.owner
+        assert owner is not None
+        self._restore_range()
+        if combination:
+            factor_v, factor_i = (2.0, 1.0) if combination == "SER" else (1.0, 2.0)
+            v_max = float(owner.specs["ch2.v_max"].default) * factor_v
+            i_max = float(owner.specs["ch2.i_max"].default) * factor_i
+            p_max = float(owner.specs["ch2.p_max"].default) * 2.0
+            for path, value in (("ch2.v_max", v_max), ("ch2.i_max", i_max), ("ch2.p_max", p_max)):
+                owner.set_state(path, value, internal=True)
+            voltage, current = owner.specs["ch2.voltage"], owner.specs["ch2.current"]
+            owner.set_bounds("ch2.voltage", maximum=float(voltage.max or 0.0) * factor_v)
+            owner.set_bounds("ch2.current", maximum=float(current.max or 0.0) * factor_i)
+            ovp = owner.specs.get("ch2.ovp")
+            if ovp is not None and ovp.max is not None and factor_v != 1.0:
+                at_top = float(owner.get_state("ch2.ovp")) >= float(ovp.max) * (1 - 1e-12)
+                owner.set_bounds("ch2.ovp", maximum=float(ovp.max) * factor_v)
+                if at_top:  # an OVP left at its maximum follows the pair's maximum
+                    owner.set_state("ch2.ovp", float(ovp.max) * factor_v, internal=True)
+        self._widened = combination
+
+    def _restore_range(self) -> None:
+        owner = self.owner
+        assert owner is not None
+        if not self._widened:
+            return
+        self._widened = ""
+        for path in ("ch2.voltage", "ch2.current", "ch2.ovp"):
+            owner.restore_bounds(path)
+        for path in ("ch2.voltage", "ch2.current", "ch2.ovp"):
+            if path not in owner.specs:
+                continue
+            top = owner.specs[path].max
+            if top is not None and float(owner.get_state(path)) > top:
+                owner.set_state(path, top, internal=True)
+        for path in ("ch2.v_max", "ch2.i_max", "ch2.p_max"):
+            owner.set_state(path, owner.specs[path].default, internal=True)
+
+    def reset(self) -> None:
+        """*RST: the states are back at their defaults, so is output 2's range."""
+        owner = self.owner
+        assert owner is not None
+        if self._widened:
+            self._widened = ""
+            for path in ("ch2.voltage", "ch2.current", "ch2.ovp"):
+                owner.restore_bounds(path)
 
     def _push(self, channel: int, value: float) -> None:
         assert self.owner is not None
@@ -481,19 +581,25 @@ class SupplyTracking(Component):
     def on_state(self, path: str, old: Any, new: Any) -> None:
         bound = {v: k for k, v in self.bound_paths().items()}
         key = bound.get(path)
-        if key == "mode":
+        if key in ("mode", "track"):
             self._apply()
             return
-        if self._mirroring or self.mode() == "OFF":
+        if not self._mirroring and self.idle(3) and key in ("voltage3", "current3", "output3"):
+            raise ScpiError(CH3_COMBINED, "output 3 is part of the series/parallel pair")
+        if self._mirroring or not self._mirrors(self.mode()):
             return
         if key == "voltage2":
             self._push(3, self._target(self.mode(), float(new)))
         elif key == "voltage3":
-            master = abs(float(new)) if self.mode() == "TRAC" else -float(new)
+            if self.internal():
+                master = float(new)
+            else:
+                master = abs(float(new)) if self.mode() == "TRAC" else -float(new)
             self._push(2, master)
 
 
 __all__ = [
+    "CH3_COMBINED",
     "OUTPUT_DISABLED",
     "PowerOutput",
     "PowerStage",

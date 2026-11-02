@@ -157,14 +157,14 @@ class FakeClient:
         return self._fixture["clock"]
 
 
-def unit_app(fixture: dict[str, Any], lang: str = "zh") -> tuple[SimuBenchApp, FakeClient]:
+def unit_app(fixture: dict[str, Any], lang: str = "en") -> tuple[SimuBenchApp, FakeClient]:
     """The real app over a FakeClient: connected immediately, no sockets.
 
     Events reach the app the same way the WS stream delivers them: ``await feed(app, *events)``
     (which is ``_on_event``). Tests drive the screens with Textual's Pilot.
     """
     fake = FakeClient(fixture)
-    tui = SimuBenchApp("http://unit.test", sid=fake.sid, lang=lang)
+    tui = SimuBenchApp("http://unit.test", sid=fake.sid)
     tui.client = fake  # type: ignore[assignment]
 
     async def connected_loop() -> None:

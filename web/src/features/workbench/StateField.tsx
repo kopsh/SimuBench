@@ -31,10 +31,12 @@ interface Props {
   onCommit?: (value: unknown) => void;
   /** Shown after the control, e.g. a reset button. */
   trailing?: ReactNode;
+  /** A manual value its automatic switch overrides: dimmed, with a note (#279). */
+  inactive?: boolean;
 }
 
 /** One editable state variable; edits are out-of-band "configure" actions (architecture.md 5.2). */
-export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing }: Props) {
+export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive }: Props) {
   const { t } = useTranslation();
   const configure = useConfigure(sid);
   const [error, setError] = useState<string | null>(null);
@@ -88,17 +90,23 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
       </Select>
     );
   } else if (v.type === "float" || v.type === "int") {
-    control = <NumberInput v={v} disabled={readonly} onCommit={commit} onInvalid={() => setError(t("workbench.refused"))} />;
+    control = (
+      <NumberInput v={v} disabled={readonly} inactive={inactive} onCommit={commit} onInvalid={() => setError(t("workbench.refused"))} />
+    );
   } else {
     control = <span className="num">{String(v.value)}</span>;
   }
 
   return (
-    <div className={cn("grid items-center gap-x-3", compact ? "grid-cols-[1fr_auto]" : "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]")}>
-      <label className="text-muted-foreground truncate text-xs" title={v.path}>
+    <div
+      className={cn("grid items-center gap-x-3", compact ? "grid-cols-[1fr_auto]" : "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]")}
+      data-inactive={inactive || undefined}
+    >
+      <label className="text-muted-foreground truncate text-xs" title={inactive ? `${v.path} · ${t("workbench.autoInactive")}` : v.path}>
         {labelOf(v)}
+        {inactive && <span className="text-muted-foreground/70 block text-[10px]">{t("workbench.autoInactive")}</span>}
       </label>
-      <div className="flex min-w-0 items-center justify-end gap-1.5">
+      <div className={cn("flex min-w-0 items-center justify-end gap-1.5", inactive && "opacity-50")}>
         {control}
         {trailing}
         {error && (
@@ -145,11 +153,14 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
 function NumberInput({
   v,
   disabled,
+  inactive,
   onCommit,
   onInvalid,
 }: {
   v: StateVarInfo;
   disabled?: boolean;
+  /** The automatic switch overrides the stored value: the field reads "Auto" until focused (#279). */
+  inactive?: boolean;
   onCommit: (value: number | string) => void;
   onInvalid: () => void;
 }) {
@@ -172,7 +183,7 @@ function NumberInput({
     : v.type === "int"
       ? `${Math.round(n)}${unit ? ` ${unit}` : ""}`
       : `${parts.mantissa} ${parts.prefix}${unit}`.trim();
-  const text = draft ?? rest;
+  const text = draft ?? (inactive ? t("workbench.auto") : rest);
 
   const submit = () => {
     if (draft === null) return;

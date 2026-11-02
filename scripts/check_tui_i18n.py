@@ -1,11 +1,8 @@
-"""The TUI's shared wording must match the Web Bench's i18n exactly (tui-screens.md 13).
+"""The TUI's shared wording must match the Web Bench's English i18n exactly (tui-screens.md 13).
 
-Parses ``web/src/i18n/{zh,en}.ts`` (nested ``as const`` objects) with a tolerant tokenizer,
-imports ``simubench.tui.i18n``, and checks:
-
-1. the TUI's zh and en key sets are identical;
-2. every shared entry (the mapping below) has the same text in the TUI as in the web i18n,
-   in both languages.
+The terminal console is English only (D23). Parses ``web/src/i18n/en.ts`` (a nested ``as const``
+object) with a tolerant tokenizer, imports ``simubench.tui.i18n``, and checks that every shared
+entry (the mapping below) has the same text in the TUI as in the web i18n.
 
 Fast and offline: part of ``scripts/check.sh``.
 """
@@ -132,37 +129,26 @@ def flatten(node: dict, prefix: str = "") -> dict[str, str]:
 def main() -> int:
     sys.path.insert(0, str(ROOT / "src"))
     from simubench.tui.i18n import en as tui_en
-    from simubench.tui.i18n import zh as tui_zh
 
-    tui = {"zh": flatten(tui_zh.TERMS), "en": flatten(tui_en.TERMS)}
-    web = {"zh": flatten(parse_ts(WEB / "zh.ts")), "en": flatten(parse_ts(WEB / "en.ts"))}
+    tui = flatten(tui_en.TERMS)
+    web = flatten(parse_ts(WEB / "en.ts"))
     problems: list[str] = []
-
-    if set(tui["zh"]) != set(tui["en"]):
-        only_zh = sorted(set(tui["zh"]) - set(tui["en"]))
-        only_en = sorted(set(tui["en"]) - set(tui["zh"]))
-        problems.append(f"TUI zh/en key sets differ: only zh {only_zh}, only en {only_en}")
-
-    for lang in ("zh", "en"):
-        for tui_key, web_key in SHARED.items():
-            if tui_key not in tui[lang]:
-                problems.append(f"[{lang}] tui key missing: {tui_key}")
-                continue
-            if web_key not in web[lang]:
-                problems.append(f"[{lang}] web key missing: {web_key} (for tui {tui_key})")
-                continue
-            if tui[lang][tui_key] != web[lang][web_key]:
-                problems.append(
-                    f"[{lang}] {tui_key} = {tui[lang][tui_key]!r} differs from "
-                    f"web {web_key} = {web[lang][web_key]!r}"
-                )
+    for tui_key, web_key in SHARED.items():
+        if tui_key not in tui:
+            problems.append(f"tui key missing: {tui_key}")
+            continue
+        if web_key not in web:
+            problems.append(f"web key missing: {web_key} (for tui {tui_key})")
+            continue
+        if tui[tui_key] != web[web_key]:
+            problems.append(f"{tui_key} = {tui[tui_key]!r} differs from web {web_key} = {web[web_key]!r}")
 
     if problems:
         for p in problems:
             print(p, file=sys.stderr)
         print(f"tui i18n: {len(problems)} problem(s)", file=sys.stderr)
         return 1
-    print(f"tui i18n: {len(SHARED)} shared terms match web/src/i18n in zh and en")
+    print(f"tui i18n: {len(SHARED)} shared terms match web/src/i18n/en.ts")
     return 0
 
 

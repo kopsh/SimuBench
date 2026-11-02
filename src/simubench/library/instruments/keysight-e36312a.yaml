@@ -194,6 +194,20 @@ channel_state:
     label: 功率上限
     label_en: Power maximum
 state:
+  # 组合（手册 Specifying the Operation Mode / Using the Tracking Operation，#259）：
+  # OUTPut:PAIR 选独立、内部并联或内部串联（由输出 2 输出，输出 3 停用）；跟踪是另一个开关。
+  output.pair:
+    type: enum
+    options: ["OFF", PARallel, SERies]
+    default: "OFF"
+    label: 组合
+    label_en: Pairing
+    option_labels: {"OFF": 独立, PARallel: 并联, SERies: 串联}
+  output.track:
+    type: bool
+    default: false
+    label: 跟踪
+    label_en: Tracking
   display.enabled:
     type: bool
     default: true
@@ -275,6 +289,7 @@ channel_components:
       loop: loop
       stage: stage
       protection: prot
+      combination: track
   - name: prot
     type: supply_protection
     params: {ovp: $ch.ovp, ocp: 0.0, output: $ch.output}
@@ -282,11 +297,19 @@ channel_components:
     type: supply_readback
     params: {output: out}
 components:
-  # 组合（CH2/CH3 的跟踪/串联/并联）的语义仍是 E36311A 的 ±25 V 拓扑（#259），本定义的
-  # OUTPut:PAIR / OUTPut:TRACk 因此未建模；保留组件只为覆盖 component-map 的 tracking 块，
-  # 不绑定任何状态，面板因此也不显示组合键（#259 修正后再接上）。
+  # 组合（#259）：内部拓扑——串联时输出 2 为 0–50 V/1 A、并联时 0–25 V/2 A，输出 3 停止工作；
+  # 跟踪时输出 3 与输出 2 同电压（同号）。
   - name: track
     type: supply_tracking
+    params:
+      mode: $output.pair
+      track: $output.track
+      topology: internal
+      voltage2: $ch2.voltage
+      voltage3: $ch3.voltage
+      current3: $ch3.current
+      output2: $ch2.output
+      output3: $ch3.output
 ports:
   channel:
     "OUT{n}+": out.pos
@@ -355,9 +378,15 @@ commands:
     doc: >-
       每路只有一个电压量程（手册：接受并回显与该单一量程对应的值）；保存的值不参与仿真，
       覆盖表按“接受”登记。
-  # ---- 组合（#259 阻塞） -----------------------------------------------------
-  # OUTPut:PAIR / OUTPut:TRACk 未建模：B2 的 supply_tracking 是 E36311A 的 ±25 V 拓扑，
-  # E36312A 的串/并联由输出 2 输出、输出 3 停用、跟踪同号（#259 修正后另行接入）。
+  # ---- 组合（#259） ----------------------------------------------------------
+  - header: "OUTPut:PAIR"
+    state: output.pair
+    doc: >-
+      OFF（独立）、PARallel（输出 2 为 25 V/2 A）、SERies（输出 2 为 50 V/1 A）；输出 3 在串并联时
+      停止工作。改组合需要输出 2、3 都关闭（否则 -221）。
+  - header: "OUTPut:TRACk[:STATe]"
+    state: output.track
+    doc: 跟踪开启后输出 3 与输出 2 设为同一电压，改其中一路另一路随之变化。
   # ---- 显示（接受） ----------------------------------------------------------
   - header: ":DISPlay[:WINDow][:STATe]"
     state: display.enabled

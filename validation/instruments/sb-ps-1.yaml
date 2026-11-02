@@ -5,9 +5,9 @@ model: SB-PS-1
 class: power_supply
 version: 1
 description: >-
-  三路可编程直流电源（验证用，E36312A 的架构）：CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 −25 V/1 A；
+  三路可编程直流电源（验证用，模仿 E36311A 的 ±25 V 架构，#259）：CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 −25 V/1 A；
   每路是设定 → CV/CC 控制环（复用 B1）→ 功率级 → 输出继电器/sense → 回读与 OVP/OCP 锁定；
-  CH2 与 CH3 可跟踪、并联或串联。
+  CH2 与 CH3 可跟踪（CH3 = −|CH2|）、并联或串联（物理连接由测试台接线；E36312A 的内部组合见 keysight-e36312a）。
 identity:
   serial: SBPS0000001
   firmware: "1.0.0"
@@ -107,6 +107,7 @@ components:
     type: supply_tracking
     params:
       mode: $output.mode
+      topology: split
       voltage2: $ch2.voltage
       voltage3: $ch3.voltage
       output2: $ch2.output

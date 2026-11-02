@@ -45,6 +45,30 @@ test("spectrum analyzer screen: peak search walks the harmonics", async ({ page 
   await expect(page.getByText("RBW 100 kHz")).toBeVisible(); // the analyzer's coupling, not the UI's
 });
 
+test("spectrum analyzer: all-auto shows no UNCAL and no stale manual RBW; a short sweep time does", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("listitem").filter({ hasText: /^specan/ }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await page.locator(".react-flow__node").filter({ hasText: "频谱仪" }).dblclick();
+  // Power-on state: RBW, VBW and sweep time are coupled. The screen reads the coupled RBW and the
+  // inspector does not put the stored manual 3 MHz beside it (#279).
+  // (The service is shared by the tests: the peak-search test left a 10 MHz span, RBW 100 kHz.)
+  await page.getByRole("button", { name: "全部自动" }).click();
+  await expect(page.getByText(/RBW \d+ kHz/)).toBeVisible();
+  await expect(page.getByTestId("uncal")).toHaveCount(0);
+  const manualRbw = page.getByRole("textbox", { name: "分辨率带宽 (手动)" }).first();
+  await expect(manualRbw).toHaveValue("自动");
+  await expect(page.getByText("自动时不生效").first()).toBeVisible();
+  await expect(page.getByText("3 MHz")).toHaveCount(0);
+
+  // 1 ms is shorter than the coupled RBW needs over this span: the amplitudes are uncalibrated.
+  const sweep = page.getByRole("textbox", { name: "扫描时间" }).first();
+  await sweep.fill("1m");
+  await sweep.press("Enter");
+  await expect(page.getByTestId("uncal")).toBeVisible();
+  await expect(page.getByTestId("uncal")).toHaveAttribute("title", /扫描时间短于/);
+});
+
 test("SMU screen: the limit takes over, a sweep fills the I–V curve and the buffer", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
   await page.getByRole("listitem").filter({ hasText: /^smu/ }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();

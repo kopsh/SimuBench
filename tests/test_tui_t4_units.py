@@ -35,7 +35,7 @@ def _steps(tmp_path: Path, data: dict) -> Steps:
 def test_steps_load_size_and_items(tmp_path: Path):
     steps = _steps(
         tmp_path,
-        {"size": [120, 36], "steps": [{"caption": "开始"}, {"key": "enter"}, {"screenshot": "overview"}]},
+        {"size": [120, 36], "steps": [{"caption": "started"}, {"key": "enter"}, {"screenshot": "overview"}]},
     )
     assert steps.size == (120, 36)
     assert [list(s) for s in steps.items] == [["caption"], ["key"], ["screenshot"]]
@@ -77,7 +77,7 @@ def test_validate_accepts_the_design_example(tmp_path: Path):
             tmp_path,
             {
                 "steps": [
-                    {"key": "enter", "caption": "打开它", "wait": "1s", "highlight": ["output.enabled"]},
+                    {"key": "enter", "caption": "Open it", "wait": "1s", "highlight": ["output.enabled"]},
                 ]
             },
         )
@@ -156,13 +156,13 @@ def test_run_rows_keep_the_columns_and_name_the_live_session():
             "size": 3_072,
         },
     ]
-    rows = run_rows(runs, None, "zh")
-    header = run_header("zh")
-    assert rows[0].startswith("20") and "运行中" not in "\n".join(rows)  # the selection line marks it
+    rows = run_rows(runs, None, "en")
+    header = run_header("en")
+    assert rows[0].startswith("20") and "live" not in "\n".join(rows)  # the selection line marks it
     assert all(cell_len(row) == cell_len(header) for row in rows)  # one width: nothing wraps
     assert "1.4 MB" in rows[0] and "3 KB" in rows[1] and "0.025 s" in rows[1]
-    assert "运行中（本会话）" in selection_text(runs[0], "zh")
-    assert "运行中" not in selection_text(runs[1], "zh")
+    assert "live (this session)" in selection_text(runs[0], "en")
+    assert "live" not in selection_text(runs[1], "en")
 
 
 def test_duration_and_size_wording():
@@ -175,8 +175,8 @@ def test_duration_and_size_wording():
 
 
 def test_replay_wording_ok_and_first_mismatch():
-    ok = first_mismatch_text({"actions": 56, "replies": 56, "mismatches": []}, "zh")
-    assert "56" in ok and "一致" in ok
+    ok = first_mismatch_text({"actions": 56, "replies": 56, "mismatches": []}, "en")
+    assert "56" in ok and "all equal" in ok
     bad = first_mismatch_text(
         {
             "actions": 56,
@@ -191,6 +191,6 @@ def test_replay_wording_ok_and_first_mismatch():
                 }
             ],
         },
-        "zh",
+        "en",
     )
     assert "#31" in bad and "scope" in bad and "0x7F" in bad and "0x80" in bad

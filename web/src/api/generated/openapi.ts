@@ -2837,7 +2837,7 @@ export interface components {
             options?: string[] | null;
             /**
              * Sets
-             * @description Settings this parameter writes along with its own when it is given, e.g. {sense.range_auto: false} for a range argument that leaves autorange
+             * @description Settings this parameter writes along with its own when it is given, e.g. {sense.range_auto: false} for a range argument that leaves autorange; not written when the argument is DEF or a special word of the setting (AUTO)
              */
             sets?: {
                 [key: string]: unknown;
@@ -3167,7 +3167,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | fault | acquisition | panel | remote | session
+             * @description scpi | state | advance | error | fault | acquisition | panel | remote | session | solver
              */
             kind: string;
             /** Message */
@@ -3200,7 +3200,7 @@ export interface components {
             range: string | null;
             /**
              * Reason
-             * @description For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault and advance events carry their own kind-specific reason
+             * @description For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault, advance and solver events carry their own kind-specific reason (solver: unsettled, D52)
              */
             reason: string | null;
             /**

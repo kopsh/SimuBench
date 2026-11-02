@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { stateMap } from "../model";
 import { StateField } from "../StateField";
 
@@ -47,8 +46,8 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
         <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-2 text-xs">
           <span className="font-medium">{inst.label || inst.name}</span>
           <span className="text-muted-foreground num">{inst.model}</span>
-          <Flag on={!!v["sa.uncal"]} label="UNCAL" />
-          <Flag on={!!v["sa.overload"]} label={t("spectrum.overload")} />
+          <Flag on={!!v["sa.uncal"]} label="UNCAL" title={t("spectrum.uncalReason")} testId="uncal" />
+          <Flag on={!!v["sa.overload"]} label={t("spectrum.overload")} testId="overload" />
           <span className="text-muted-foreground num ml-auto">
             {t("spectrum.reference")} {String(v["sa.reference"] ?? "INT")} · {t("spectrum.sweep")} #{n("sweep")}
           </span>
@@ -126,9 +125,11 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
   );
 }
 
-function Flag({ on, label }: { on: boolean; label: string }) {
+/** A warning badge, shown only while it holds (an unlit UNCAL read as a warning, #279). */
+function Flag({ on, label, title, testId }: { on: boolean; label: string; title?: string; testId?: string }) {
+  if (!on) return null;
   return (
-    <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-medium", on ? "bg-error/15 text-error" : "bg-muted text-muted-foreground/70")} aria-pressed={on}>
+    <span className="bg-error/15 text-error rounded px-1.5 py-0.5 text-[11px] font-medium" title={title} data-testid={testId} role="status">
       {label}
     </span>
   );

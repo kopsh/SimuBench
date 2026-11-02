@@ -160,7 +160,8 @@ class ParamSpec(_Model):
     sets: dict[str, Any] | None = Field(
         None,
         description="Settings this parameter writes along with its own when it is given, e.g. "
-        "{sense.range_auto: false} for a range argument that leaves autorange",
+        "{sense.range_auto: false} for a range argument that leaves autorange; not written when the "
+        "argument is DEF or a special word of the setting (AUTO)",
     )
     units: dict[str, QuantityUnit] | None = Field(
         None,

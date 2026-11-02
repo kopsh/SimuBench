@@ -113,7 +113,7 @@ TUI 只调用以下接口（D18），不新增端点；括号内是本文规定�
 
 ## 3. 启动与连接
 
-- `simubench tui <bench.yaml> [--clock …] [--seed …] [--idle …] [--hislip-port …] [--lang zh|en]`：在本进程启动服务（只监听 127.0.0.1，端口自动分配），打开会话后进入总览。启动时在 stderr 打印 SCPI 地址表（与 `serve` 相同），退出 TUI 前恢复终端再打印“已关闭会话”。
+- `simubench tui <bench.yaml> [--clock …] [--seed …] [--idle …] [--hislip-port …]`（界面只有英文，D23）：在本进程启动服务（只监听 127.0.0.1，端口自动分配），打开会话后进入总览。启动时在 stderr 打印 SCPI 地址表（与 `serve` 相同），退出 TUI 前恢复终端再打印“已关闭会话”。
 - `simubench tui --attach [URL] [--session SID] [--token …]`：URL 缺省 `http://127.0.0.1:8000`；只有一个会话时直接进入，多个时显示会话选择，没有时显示“这个服务上没有运行中的测试台。用 Web 或 `simubench tui <bench>` 打开一个。”。
 - 令牌：`--token` 或环境变量 `SIMUBENCH_TOKEN`；401 时显示“访问令牌无效：用 --token 或 SIMUBENCH_TOKEN 给出 serve 打印的令牌”，不重试。
 - 未安装 Textual：`simubench tui` 打印“终端控制台需要可选依赖：pip install 'simubench[tui]'”，退出码 2。
@@ -641,13 +641,13 @@ TUI 只调用以下接口（D18），不新增端点；括号内是本文规定�
 
 ## 13. 文案
 
-- 所有界面文字放在 `tui/i18n/zh.py`、`tui/i18n/en.py`；与 Web 相同的词（状态、按钮、错误提示）用同一个键，由 `scripts/check.sh` 比对 `web/src/i18n` 中对应词条的文字是否一致。
+- 界面只有英文（D23），文字放在 `tui/i18n/en.py`；与 Web 相同的词（状态、按钮、错误提示）用同一个键，由 `scripts/check.sh` 比对 `web/src/i18n/en.ts` 中对应词条的文字是否一致。
 - 术语按 [glossary.md](glossary.md)：测试台、仪表、元件、DUT、连线、网络、通信、运行记录、故障、远程、本地。
 - 句子不以句号结尾的场合：按钮、标签、底栏；提示与对话框正文用完整句子。
 
 ## 14. 验收
 
-每个屏幕的快照测试（`pytest-textual-snapshot`），在 100 × 32 与 80 × 24、中英文下各一张，对应本文的示意图：
+每个屏幕的快照测试（`pytest-textual-snapshot`），在 100 × 32 与 80 × 24 下各一张（英文，D23），对应本文的示意图：
 
 | 快照 | 测试台与操作 | 对应 |
 | --- | --- | --- |

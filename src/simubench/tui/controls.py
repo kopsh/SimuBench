@@ -13,7 +13,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from .fmt import fmt
+from .fmt import as_number, fmt, fmt_int
 from .i18n import t
 
 #: Prefixes a number input may carry (``5000 mV``, ``1 kHz``); case matters for m/M.
@@ -144,9 +144,12 @@ def smu_controls(info: Mapping[str, Any], lang: str) -> list[Control]:
     return out
 
 
-def generator_controls(info: Mapping[str, Any], lang: str) -> list[Control]:
-    """每通道：输出、波形、频率、幅度、偏置、负载."""
+def generator_controls(info: Mapping[str, Any], lang: str, channel: int | None = None) -> list[Control]:
+    """每通道：输出、波形、频率、幅度、偏置、负载 (only ``channel``'s when it is given: each
+    channel box carries its own buttons, #283)."""
     channels = sorted({sv.get("channel") for sv in info.get("state", []) if sv.get("channel")})
+    if channel is not None:
+        channels = [ch for ch in channels if ch == channel]
     suffixes = ["output", "function", "frequency", "amplitude", "offset", "load"]
     out: list[Control] = []
     for ch in channels:
@@ -340,24 +343,33 @@ def range_text(spec: Mapping[str, Any]) -> str:
 
 
 def options_of(spec: Mapping[str, Any]) -> list[tuple[str, str]]:
-    """An enum's options with their labels (tui-screens.md 1.4)."""
-    labels = spec.get("option_labels") or {}
-    return [(o, labels.get(o, o)) for o in spec.get("options") or []]
+    """An enum's options as the instrument spells them: the definitions' ``option_labels`` are
+    Chinese and the terminal console is English only (D23)."""
+    return [(o, o) for o in spec.get("options") or []]
 
 
 def summary_text(value: Any, spec: Mapping[str, Any] | None, lang: str) -> str:
     """A state value as the channel rows show it: 开/关, option labels, or an engineering number."""
     if isinstance(value, bool):
         return t("common.on" if value else "common.off", lang)
+    value = as_number(value)
+    if spec and spec.get("type") == "int" and isinstance(value, (int, float)) and math.isfinite(value):
+        return fmt_int(value, spec.get("display_unit") or spec.get("unit"))
     if spec and spec.get("type") == "enum" and isinstance(value, str):
-        labels = spec.get("option_labels") or {}
-        return labels.get(value, value)
+        return value  # the mnemonic: option_labels are Chinese, the TUI is English only (D23)
     if spec and isinstance(value, (int, float)) and not isinstance(value, bool):
         unit = spec.get("display_unit") or spec.get("unit")
         return fmt(float(value), unit)
     if value is None:
         return "—"
     return str(value)
+
+
+def inactive_under_auto(state: Mapping[str, Mapping[str, Any]], path: str) -> bool:
+    """A manual setting whose automatic switch (``<path>_auto``) is on: the stored value is not
+    the one in effect, so the rows read ``AUTO`` (docs/ui-design.md, #279/#283)."""
+    auto = state.get(f"{path}_auto")
+    return bool(auto) and auto.get("type") == "bool" and auto.get("value") is True
 
 
 def channel_paths(info: Mapping[str, Any], channel: int | None) -> list[str]:

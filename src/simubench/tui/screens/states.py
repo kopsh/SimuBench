@@ -54,15 +54,7 @@ class PickerScreen(Screen):
         self._render_picker()
 
     def _clock_short(self, mode: str) -> str:
-        short = (
-            {"command": "命令", "wall": "墙钟", "stepped": "步进"}
-            if self.app.lang == "zh"
-            else {
-                "command": "command",
-                "wall": "wall",
-                "stepped": "stepped",
-            }
-        )
+        short = {"command": "command", "wall": "wall", "stepped": "stepped"}
         return short.get(mode, mode)
 
     def _render_picker(self) -> None:
