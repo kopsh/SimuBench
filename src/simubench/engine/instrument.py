@@ -1384,6 +1384,14 @@ class Instrument:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
         args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+        if spec.writes:
+            # The command selects settings before its operation runs (#308).
+            checked = {}
+            for ref, value in spec.writes.items():
+                path = self._resolve(ref, channel)
+                checked[path] = self._validate(self.specs[path], value)
+            for path, value in checked.items():
+                self.set_state(path, value)
         list_spec = next((p for p in spec.params if p.type == "channel_list"), None)
         if list_spec is None:
             result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)

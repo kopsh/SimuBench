@@ -162,7 +162,7 @@ params:
     - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
 ```
 
-查询仍只回答参数（常量不是参数）。`writes` 只能与写设置的参数同用（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。
+查询仍只回答参数（常量不是参数）。`writes` 用在写设置的命令上，或用在操作命令上：操作执行前先写常量（#308：`:MEASure:CURRent?` 同时把测量功能切到电流，`writes: {sense.function: CURRent}`）；状态命令不能带 `writes`（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
@@ -245,6 +245,7 @@ params:
 | `W-DEF-PARAM-UNKNOWN` | 组件没有这个参数（警告：不会起作用） |
 | `E-DEF-STATE-UNKNOWN` | 组件参数或命令绑定的状态不存在；通道状态（`ch.`）用在没有通道号的地方 |
 | `E-DEF-PARAM-TYPE` | 组件参数与绑定状态的类型不相容（数值、布尔量接受枚举：组件读取 `FIFTy`、`OFF` 这样的名称） |
+| `E-DEF-PARAM-VALUE` | 取词参数（组件的 `choices`，如 `smu_meter.function` 只认 VOLTage/CURRent/RESistance）写了不认识的词，或绑定的状态可取其他值（字符串状态、枚举里有多余的选项，#308） |
 | `E-DEF-OP-UNKNOWN` | 组件或操作不存在；通道组件的操作用在没有 `<ch>` 的命令头上 |
 | `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举；参数映射的表中有设置取不到的值（#42） |

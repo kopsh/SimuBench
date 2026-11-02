@@ -172,6 +172,11 @@ class Component:
     generic: ClassVar[bool] = True
     defaults: ClassVar[dict[str, Any]] = {}
     units: ClassVar[dict[str, str]] = {}
+    #: Word parameters that take one of a set of SCPI words (long or short form, any case), e.g.
+    #: {"function": ("VOLTage", "CURRent", "RESistance")}. Definition validation refuses a literal
+    #: or a bound setting that can take another word (E-DEF-PARAM-VALUE, #308); :meth:`choice`
+    #: reads the parameter as its canonical word.
+    choices: ClassVar[dict[str, tuple[str, ...]]] = {}
     #: Parameters that name another component of the instrument: parameter -> (the component type
     #: it must be, or derive from; "instrument" or "channel" for where it is declared). Definition
     #: validation checks them (E-DEF-COMPONENT-REF).
@@ -209,6 +214,16 @@ class Component:
         return f"{self.owner.name}/{self.name}" if self.owner else self.name
 
     # ---- parameters --------------------------------------------------------------------------
+
+    def choice(self, key: str) -> str | None:
+        """A word parameter (``choices``) as its canonical word, None when unset; a word outside
+        the set is a -224 (a bound setting cannot reach here once validation passed)."""
+        value = self.param(key)
+        if value is None:
+            return None
+        from ..scpi import values as V
+
+        return V.parse_enum(str(value).encode(), self.choices[key])
 
     def param(self, key: str) -> Any:
         if key in self.overrides:

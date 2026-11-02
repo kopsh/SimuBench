@@ -987,7 +987,7 @@
           },
           "writes": {
             "additionalProperties": true,
-            "description": "Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win)",
+            "description": "Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win). On an operation's command they are written before the operation runs (#308: MEASure:CURRent? selects the current function, as the instrument does)",
             "title": "Writes",
             "type": "object"
           }

@@ -302,7 +302,9 @@ class CommandSpec(_Model):
         default_factory=dict,
         description="Settings a multi-setting command writes along with its parameters, e.g. "
         "{sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the "
-        "function. Validated like a parameter and written before them (the parameters win)",
+        "function. Validated like a parameter and written before them (the parameters win). On an "
+        "operation's command they are written before the operation runs (#308: MEASure:CURRent? "
+        "selects the current function, as the instrument does)",
     )
     factor: float = Field(
         1.0,
@@ -341,7 +343,7 @@ class CommandSpec(_Model):
             raise ValueError(
                 f"command {self.header!r}: read (the setting a query reads) goes with an operation command"
             )
-        if self.writes and not self.bound_params:
+        if self.writes and not self.bound_params and self.op is None:
             raise ValueError(
                 f"command {self.header!r}: writes goes with parameters that write settings "
                 "(it selects e.g. a function beside them)"

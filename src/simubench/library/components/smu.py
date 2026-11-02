@@ -439,6 +439,7 @@ class SmuMeter(Component):
         "output": ("smu_output", "instrument"),
     }
     units = {"measure_range_voltage": "V", "measure_range_current": "A"}
+    choices = {"function": ("VOLTage", "CURRent", "RESistance")}
     defaults = {
         "function": None,  # active sense function: VOLTage | CURRent | RESistance (None: the forced quantity)
         "nplc": 1.0,  # reading time in power line cycles
@@ -616,15 +617,13 @@ class SmuMeter(Component):
         v, i = self._clipped(v_raw, i_raw)
         res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
         self._point = (v, i, res, float(STAT_LIMIT if loop.limited() else 0))
-        function = self.param("function")
-        if function is not None:
-            key = str(function).upper()
-            if key.startswith("V"):
-                return v
-            if key.startswith("C"):
-                return i
-            if key.startswith("R"):
-                return res
+        function = self.choice("function")  # VOLTage | CURRent | RESistance; a bad word is -224
+        if function == "VOLTage":
+            return v
+        if function == "CURRent":
+            return i
+        if function == "RESistance":
+            return res
         return v if loop.forcing_voltage() else i
 
     def sample_fields(self, index: int) -> dict[str, float]:

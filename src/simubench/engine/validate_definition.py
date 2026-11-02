@@ -558,11 +558,30 @@ def _check_params(
             )
         mapping = value if isinstance(value, dict) and "from" in value else None
         ref = binding_of(value)
+        words = cls.choices.get(key)
+        if words and ref is None and isinstance(value, str):
+            _check_choice(value, words, pp, f"{spec.type}.{key}", spec.name, report)
         if ref is None:
             continue
         st = _check_state_ref(
             d, ref, channel, _ptr(*p, "params", key, "from") if mapping else pp, spec.name, report
         )
+        if st is not None and words:
+            # Every value the setting can take must be a word the parameter knows (#308).
+            if st.type != "enum":
+                report.add(
+                    "error",
+                    "E-DEF-PARAM-VALUE",
+                    pp,
+                    f"{spec.type}.{key} 只取 {', '.join(words)}，绑定的状态 {ref!r} 是 {st.type}，可取其他值",
+                    "绑定一个枚举状态",
+                    spec.name,
+                )
+            else:
+                table = (mapping or {}).get("map") or {}
+                for option in st.options or []:
+                    word = table.get(option, (mapping or {}).get("default", option))
+                    _check_choice(str(word), words, pp, f"{spec.type}.{key}", spec.name, report)
         if st is not None and mapping and mapping.get("map"):
             _check_map_keys(st, mapping["map"], (*p, "params", key, "map"), spec.name, report)
             continue  # the table decides the parameter's type
@@ -576,6 +595,24 @@ def _check_params(
                 f"绑定一个{_kind(default)}状态",
                 spec.name,
             )
+
+
+def _check_choice(
+    word: str, words: tuple[str, ...], pointer: str, what: str, subject: str, report: Report
+) -> None:
+    """A word parameter's value must be one of its words, long or short form (#308)."""
+    from ..scpi.values import short_form
+
+    if word.upper() in {w.upper() for w in words} | {short_form(w) for w in words}:
+        return
+    report.add(
+        "error",
+        "E-DEF-PARAM-VALUE",
+        pointer,
+        f"{what} 不认 {word!r}",
+        f"可选值：{', '.join(words)}",
+        subject,
+    )
 
 
 def _check_map_keys(
