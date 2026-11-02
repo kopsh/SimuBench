@@ -14,7 +14,8 @@ reference:
   title: Rigol DSG800 Series RF Signal Generator Programming Guide
   document: PGG02104-1110
   version: Sept. 2018（软件版本 00.01.07）
-  firmware: "00.01.07.：手册示例的 *IDN? 固件字段带末尾的点（00.01.01.）"
+  # 手册示例的 *IDN? 固件字段带末尾的点（00.01.01.）；本定义用手册内页的软件版本。
+  firmware: "00.01.07."
 identity:
   # 手册 *IDN?：Rigol Technologies,DSG830,DSG8A170200001,00.01.01.（四字段，固件带末尾的点）。
   idn: "Rigol Technologies,DSG815,{serial},{firmware}"
