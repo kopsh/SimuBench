@@ -17,7 +17,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - `web/src/components/ui/` — primitives (button, dialog, tabs, table, select…): reuse, don't add a
   new one for a one-off. `components/app/` — app-level pieces.
 - `web/src/i18n/{zh,en}.ts` — all text; `t("area.key")`. zh is primary (D23).
-- `web/e2e/*.spec.ts` (Playwright, served by `e2e/serve.mjs`), `web/visual/` (story snapshots).
+- `web/e2e/*.spec.ts` (Playwright, served by `e2e/serve.mjs`), `web/visual/` (story snapshots);
+  full-app screenshots at 1280/1440 live in `web/e2e/layout-visual.spec.ts` (baselines beside it,
+  `pnpm e2e e2e/layout-visual.spec.ts --update-snapshots` after an intended change).
 
 ## Rules
 
