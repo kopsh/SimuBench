@@ -1,0 +1,200 @@
+# SRS SR830 的手册用例：SR830 DSP Lock-In Amplifier Manual（Revision 2.5，10/2011，
+# firmware 6-1）第 5 章 Detailed Command List 与第 4 章的默认设置表。每条用例都在刚上电的
+# examples/benches/srs_sr830.bench.yaml 上运行（SINE_OUT → 1 kΩ/100 nF RC → SIG_IN，
+# AUX_OUT2 → AUX_IN2）。读数用例使用出厂设置下的稳态：1 Vrms、1 kHz、内部参考，RC 后的
+# X ≈ 0.69668 V、Y ≈ −0.45953 V、R ≈ 0.83459 V、θ ≈ −33.41°。
+model: srs-sr830
+bench: ../../../examples/benches/srs_sr830.bench.yaml
+instrument: lia
+cases:
+  - name: "*IDN? 按手册 5-19 的格式返回厂商、型号、序列号与固件"
+    manual: "5-19 > *IDN?：Stanford_Research_Systems,SR830,s/n00111,ver1.000"
+    steps:
+      - send: "*CLS"
+      - query: "*IDN?"
+        expect: "Stanford_Research_Systems,SR830,s/n00111,ver1.000"
+
+  - name: "*RST 恢复第 4 章默认设置表的全部位"
+    manual: "Front Panel > STANDARD SETTINGS；5-19 > *RST"
+    steps:
+      - send: "PHAS 45.5;FMOD 0;FREQ 10E3;HARM 3;SLVL 0.5;ISRC 0;IGND 1;ICPL 1;ILIN 3"
+      - send: "SENS 0;RMOD 0;OFLT 0;OFSL 0;RSLP 0;OUTX 0;OVRM 0;KCLK 0;ALRM 0;LOCL 2"
+      - send: "*RST"
+      - query: "PHAS?"
+        expect: "0.00"
+      - query: "FMOD?"
+        expect: "1"
+      - query: "FREQ?"
+        expect: "1000.000"
+      - query: "HARM?"
+        expect: "1"
+      - query: "SLVL?"
+        expect: "1.000"
+      - query: "ISRC?"
+        expect: "0"
+      - query: "IGND?"
+        expect: "0"
+      - query: "ICPL?"
+        expect: "0"
+      - query: "ILIN?"
+        expect: "0"
+      - query: "SENS?"
+        expect: "26"
+      - query: "RMOD?"
+        expect: "2"
+      - query: "OFLT?"
+        expect: "8"
+      - query: "OFSL?"
+        expect: "1"
+      - query: "RSLP?"
+        expect: "0"
+      - query: "OUTX?"
+        expect: "1"
+      - query: "OVRM?"
+        expect: "1"
+      - query: "KCLK?"
+        expect: "1"
+      - query: "ALRM?"
+        expect: "1"
+      - query: "LOCL?"
+        expect: "0"
+
+  - name: "参考、相位与正弦输出：设置与回读（PHAS/FMOD/FREQ/HARM/SLVL/RSLP）"
+    manual: "5-4 > PHAS、FMOD、FREQ、RSLP、HARM、SLVL"
+    steps:
+      - send: "PHAS 45.5"
+      - query: "PHAS?"
+        expect: "45.50"
+      - send: "PHAS -90.25"
+      - query: "PHAS?"
+        expect: "-90.25"
+      - send: "FMOD 0"
+      - query: "FMOD?"
+        expect: "0"
+      - send: "FMOD 1"
+      - query: "FMOD?"
+        expect: "1"
+      - send: "FREQ 10E3"
+      - query: "FREQ?"
+        expect: "10000.000"
+      - send: "HARM 3"
+      - query: "HARM?"
+        expect: "3"
+      - send: "SLVL 0.5"
+      - query: "SLVL?"
+        expect: "0.500"
+      - send: "RSLP 0"
+      - query: "RSLP?"
+        expect: "0"
+
+  - name: "输入与滤波：ISRC/IGND/ICPL/ILIN、灵敏度、储备、时间常数与斜率"
+    manual: "5-5 > ISRC、IGND、ICPL、ILIN；5-6 > SENS、RMOD、OFLT、OFSL"
+    steps:
+      - send: "ISRC 0"
+      - query: "ISRC?"
+        expect: "0"
+      - send: "IGND 1"
+      - query: "IGND?"
+        expect: "1"
+      - send: "ICPL 1"
+      - query: "ICPL?"
+        expect: "1"
+      - send: "ILIN 3"
+      - query: "ILIN?"
+        expect: "3"
+      - send: "SENS 18"
+      - query: "SENS?"
+        expect: "18"
+      - send: "RMOD 0"
+      - query: "RMOD?"
+        expect: "0"
+      - send: "OFLT 4"
+      - query: "OFLT?"
+        expect: "4"
+      - send: "OFSL 3"
+      - query: "OFSL?"
+        expect: "3"
+
+  - name: "接口与系统配置（接受）：OUTX/OVRM/KCLK/ALRM/LOCL 保存并回读"
+    manual: "5-10 > OUTX、OVRM、KCLK、ALRM；5-19 > LOCL"
+    steps:
+      - send: "OUTX 0"
+      - query: "OUTX?"
+        expect: "0"
+      - send: "OVRM 0"
+      - query: "OVRM?"
+        expect: "0"
+      - send: "KCLK 0"
+      - query: "KCLK?"
+        expect: "0"
+      - send: "ALRM 0"
+      - query: "ALRM?"
+        expect: "0"
+      - send: "LOCL 2"
+      - query: "LOCL?"
+        expect: "2"
+      - send: "LOCL 0;OUTX 1;OVRM 1;KCLK 1;ALRM 1"
+      - query: "OUTX?"
+        expect: "1"
+
+  - name: "解调输出：X/Y/R/θ 与两个显示通道（出厂设置下的 RC 稳态）"
+    manual: "5-15 > OUTP?、OUTR?；3-3 > X/Y/R/θ 的定义"
+    steps:
+      - query: "OUTP? 1"
+        expect_value: 0.696682
+        tolerance: 1.0e-4
+      - query: "OUTP? 2"
+        expect_value: -0.459532
+        tolerance: 1.0e-4
+      - query: "OUTP? 3"
+        expect_value: 0.834587
+        tolerance: 1.0e-4
+      - query: "OUTP? 4"
+        expect_value: -33.409
+        tolerance: 0.05
+      - query: "OUTR? 1"
+        expect_value: 0.696682
+        tolerance: 1.0e-4
+      - query: "OUTR? 2"
+        expect_value: -0.459532
+        tolerance: 1.0e-4
+
+  - name: "AUX：DAC 输出回读与 ADC 输入（AUX_OUT2 接到 AUX_IN2）"
+    manual: "5-9 > OAUX?、AUXV"
+    steps:
+      - send: "AUXV 2,1.5"
+      - query: "AUXV? 2"
+        expect: "1.500"
+      - query: "OAUX? 2"
+        expect_value: 1.4985015
+        tolerance: 1.0e-6
+      - send: "AUXV 4,-3.25"
+      - query: "AUXV? 4"
+        expect: "-3.250"
+      - query: "OAUX? 1"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+
+  - name: "自动相位把检测相位移到 θ=0（APHS）"
+    manual: "5-11 > APHS"
+    steps:
+      - send: "APHS"
+      - query: "PHAS?"
+        expect_value: -33.409
+        tolerance: 0.05
+
+  - name: "档位索引与小数格式：整数档位、三位小数、负电压"
+    manual: "5-6 > SENS、OFLT；5-9 > AUXV"
+    steps:
+      - send: "SENS 0"
+      - query: "SENS?"
+        expect: "0"
+      - send: "OFLT 19"
+      - query: "OFLT?"
+        expect: "19"
+      - send: "AUXV 1,0.1234"
+      - query: "AUXV? 1"
+        expect: "0.123"
+      - send: "AUXV 1,0"
+      - query: "AUXV? 1"
+        expect: "0.000"
