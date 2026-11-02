@@ -364,6 +364,17 @@ class DmmAdc(Component):
             raise ValueError(f"{self.uid}: no ranges configured for the {function} function")
         return OpResult(V.format_float(r, int(self.param("digits"))))
 
+    @op("configure")
+    def op_configure(self, **_: Any) -> OpResult:
+        """CONFigure?'s range and resolution: the effective range, and the resolution step in use."""
+        conditioning = self._conditioning()
+        function = conditioning.active_function()
+        r = conditioning.effective_range(function)
+        if r is None:
+            raise ValueError(f"{self.uid}: no ranges configured for the {function} function")
+        step = float(self.param("resolution") or 0.0) * r
+        return OpResult(V.format_float(r, 8) + b"," + V.format_float(step, 8))
+
     # ---- calibration -----------------------------------------------------------------------------
 
     def _set(self, key: str, value: Any) -> None:

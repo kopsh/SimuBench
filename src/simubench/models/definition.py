@@ -157,6 +157,11 @@ class ParamSpec(_Model):
         description="An int that picks which settings the other parameters write: their state paths name "
         "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
     )
+    sets: dict[str, Any] | None = Field(
+        None,
+        description="Settings this parameter writes along with its own when it is given, e.g. "
+        "{sense.range_auto: false} for a range argument that leaves autorange",
+    )
     units: dict[str, QuantityUnit] | None = Field(
         None,
         description="type quantities: comma-separated 'value unit' parameters, each written into the "
@@ -189,6 +194,11 @@ class ParamSpec(_Model):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
         if self.index and (self.type != "int" or self.state is not None):
             raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
+        if self.sets is not None and self.state is None:
+            raise ValueError(
+                f"parameter {self.name!r}: sets writes settings along with the argument; give the "
+                "parameter a state"
+            )
         if self.type == "channel_list" and (
             self.state is not None or self.keys is not None or self.units is not None or self.index
         ):

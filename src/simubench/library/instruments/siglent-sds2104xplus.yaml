@@ -119,14 +119,20 @@ state:
     default: false
     label: 噪声抑制
     label_en: Noise reject
-  trigger.holdoff:
+  trigger.holdoff_type:
+    type: enum
+    options: ["OFF", TIME]
+    default: "OFF"
+    label: 释抑类型
+    label_en: Holdoff type
+  trigger.holdoff_time:
     type: float
     unit: S
-    min: 0.0
-    max: 1.5
+    min: 8.0e-9
+    max: 30.0
     default: 1.0e-7
     label: 释抑时间
-    label_en: Holdoff
+    label_en: Holdoff time
   acquire.type:
     type: enum
     options: [NORMal, PEAK, AVERage, ERES]
@@ -352,7 +358,8 @@ components:
         LF: [[highpass, 50.0e3]]
         HF: [[lowpass, 1.0e6]]
       noise_reject: $trigger.nreject
-      holdoff: $trigger.holdoff
+      holdoff: $trigger.holdoff_time
+      holdoff_on: {from: $trigger.holdoff_type, map: {TIME: true}, default: false}
   # ADC：8 位每格 30 码，10 位每格 120 码；偏移设置加到电压上（volts = code / 每格码数 * vdiv - offset）；
   # CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
   - name: adc
@@ -539,7 +546,8 @@ commands:
   - {header: ":TRIGger:STOP", op: acq.stop, query: false}
   - {header: ":TRIGger:TYPE", state: trigger.type}
   - {header: ":TRIGger:EDGE:COUPling", state: trigger.coupling}
-  - {header: ":TRIGger:EDGE:HOLDoff", state: trigger.holdoff}
+  - {header: ":TRIGger:EDGE:HLDTime", state: trigger.holdoff_time}
+  - {header: ":TRIGger:EDGE:HOLDoff", state: trigger.holdoff_type}
   - {header: ":TRIGger:EDGE:LEVel", state: trigger.level}
   - {header: ":TRIGger:EDGE:NREJect", state: trigger.nreject}
   - {header: ":TRIGger:EDGE:SLOPe", state: trigger.slope}

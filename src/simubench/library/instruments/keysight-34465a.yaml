@@ -345,25 +345,49 @@ commands:
     format: {enum: as_defined}
     reply: '"{value}"'
     doc: 查询返回带引号的短格式（"VOLT" / "VOLT:AC"）。
+  # CONFigure 把测量与触发参数恢复为手册的默认值（Default Settings for the CONFigure
+  # Command），再用量程/分辨率参数覆盖；范围参数一给就关闭自动量程。
   - header: ":CONFigure[:VOLTage]:DC"
     query: false
-    writes: {sense.function: VOLT}
+    writes:
+      sense.function: VOLT
+      sense.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
     params:
-      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range}
+      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range, sets: {sense.range_auto: false}}
       - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
-    doc: 选择直流电压功能并保存量程与分辨率；AUTO 关键字按孔径/量程的 special 字接受为 0（自动）。手册的“恢复触发默认值”未实现。
+    doc: 选择直流电压功能，恢复测量与触发默认值，再保存量程与分辨率；AUTO 关键字按量程的 special 字接受为 0（自动）。
   - header: ":CONFigure[:VOLTage]:AC"
     query: false
-    writes: {sense.function: "VOLT:AC"}
+    writes:
+      sense.function: "VOLT:AC"
+      sense.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
     params:
-      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range}
+      - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range, sets: {sense.range_auto: false}}
       - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
-    doc: 选择交流电压功能并保存量程与分辨率；AUTO 同直流，手册的“恢复触发默认值”未实现。
+    doc: 选择交流电压功能，恢复测量与触发默认值，再保存量程与分辨率；AUTO 同直流。
   - header: CONFigure
-    state: sense.function
+    op: meter.configure
     set: false
-    format: {number: nr3, digits: 8, sign: true, exponent_digits: 2, enum: as_defined}
-    reply: '"{value}{sense.range},{sense.resolution}"'
+    format: {enum: as_defined}
+    reply: '"{sense.function} {value}"'
   - header: ":MEASure[:VOLTage][:DC]"
     op: meter.measure
     set: false

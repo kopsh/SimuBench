@@ -1,0 +1,492 @@
+schema: simubench.instrument/1
+id: keysight-n9320b
+manufacturer: Keysight Technologies
+model: N9320B
+class: spectrum_analyzer
+version: 1
+description: >-
+  Keysight (Agilent) N9320B RF spectrum analyzer, 9 kHz to 3 GHz. Real model (D42). Commands,
+  replies, defaults and settings follow the N9320B RF Spectrum Analyzer Programmer's Guide
+  (N9320-90029, Edition 5, December 2020); the receiver chain is the split spectrum-analyzer
+  blocks (D1 #187). Limits the guide does not state are SimuBench values, listed in the coverage
+  table. Only trace 1 and marker 1 exist, only the positive/sample/average/RMS detectors and the
+  write/average/max-hold trace modes are modeled; the coverage table names every remaining gap.
+  Delta/fixed-reference markers, marker on/off, minimum and left/right peak search and the marker
+  counter state need the capability issue #274 and are not modeled.
+reference:
+  title: Keysight N9320B RF Spectrum Analyzer Programmer's Guide
+  document: N9320-90029
+  version: Edition 5, December 2020
+  firmware: "A.01.01, as covered by the guide"
+identity:
+  # The telnet greeting of the guide: Keysight Technologies,N9320B,<serial>,<software>.
+  idn: "Keysight Technologies,N9320B,{serial},{firmware}"
+  serial: "A.01.01.CIDKMNEW"
+  firmware: "0B.03.03"
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST", ":SYSTem:ERRor[:NEXT]", ":SYSTem:DATE", ":SYSTem:TIME"]
+error_queue: 20
+# The guide's telnet sample: :CALCulate:MARKer:X? answers +2.5000000000000000E+009 (16 decimals,
+# three exponent digits). The same format is used for every numeric setting query.
+format:
+  number: nr3
+  digits: 16
+  sign: true
+  exponent_digits: 3
+  boolean: numeric
+  enum: short
+  error_code: signed
+state:
+  freq.center:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 3.08e9
+    default: 1.5e9
+    label: 中心频率
+    label_en: Center
+  freq.span:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 3.0e9
+    default: 3.0e9
+    label: 跨度
+    label_en: Span
+  bw.res:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 分辨率带宽（手动）
+    label_en: RBW (manual)
+  bw.res_auto:
+    type: bool
+    default: true
+    label: RBW 自动
+    label_en: RBW auto
+  bw.vid:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 视频带宽（手动）
+    label_en: VBW (manual)
+  bw.vid_auto:
+    type: bool
+    default: true
+    label: VBW 自动
+    label_en: VBW auto
+  sweep.time:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 10.0e3
+    default: 0.1002
+    label: 扫描时间（手动）
+    label_en: Sweep time (manual)
+  sweep.time_auto:
+    type: bool
+    default: true
+    label: 扫描时间自动
+    label_en: Sweep time auto
+  sweep.points:
+    type: int
+    min: 101
+    max: 40001
+    default: 1001
+    label: 迹线点数
+    label_en: Points
+  power.att:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 70.0
+    default: 20.0
+    label: 衰减（手动）
+    label_en: Attenuation (manual)
+  power.att_auto:
+    type: bool
+    default: true
+    label: 衰减自动
+    label_en: Attenuation auto
+  display.ref_level:
+    type: float
+    unit: DBM
+    min: -150.0
+    max: 30.0
+    default: 0.0
+    label: 参考电平
+    label_en: Reference level
+  detector:
+    type: enum
+    options: [POSitive, SAMPle, AVERage, RMS]
+    default: POSitive
+    label: 检波器
+    label_en: Detector
+    option_labels: {POSitive: 正峰值, SAMPle: 采样, AVERage: 平均, RMS: 均方根}
+  trace.type:
+    type: enum
+    options: [WRITe, AVERage, MAXHold]
+    default: WRITe
+    label: 迹线模式
+    label_en: Trace mode
+    option_labels: {WRITe: 刷新, AVERage: 平均, MAXHold: 最大保持}
+  aver.count:
+    type: int
+    min: 1
+    max: 1000
+    default: 1
+    label: 平均次数
+    label_en: Average count
+  marker.x:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 3.08e9
+    default: 1.5e9
+    label: 标记频率
+    label_en: Marker
+  marker.threshold:
+    type: float
+    unit: DBM
+    min: -200.0
+    max: 30.0
+    default: -130.0
+    label: 峰值门限
+    label_en: Peak threshold
+  marker.excursion:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 100.0
+    default: 6.0
+    label: 峰值偏移
+    label_en: Peak excursion
+  init.continuous:
+    type: bool
+    default: true
+    label: 连续扫描
+    label_en: Continuous
+  unit.power:
+    type: enum
+    options: [DBM]
+    default: DBM
+    label: 电平单位
+    label_en: Amplitude unit
+  # ---- display settings (accepted: they change the panel only) ----
+  display.afunction:
+    type: enum
+    options: [CENTer, TOP, BOTTom]
+    default: CENTer
+    label: 活动功能位置
+    label_en: Active function position
+  display.clock:
+    type: bool
+    default: true
+    label: 显示日期时间
+    label_en: Clock display
+  display.clock_format:
+    type: enum
+    options: [MDY, DMY]
+    default: MDY
+    label: 日期格式
+    label_en: Date format
+  display.enable:
+    type: bool
+    default: true
+    label: 显示
+    label_en: Display
+  display.dline:
+    type: float
+    unit: DBM
+    min: -200.0
+    max: 30.0
+    default: -25.0
+    label: 显示线
+    label_en: Display line
+  display.dline_on:
+    type: bool
+    default: false
+    label: 显示线开关
+    label_en: Display line on
+  display.nr_level:
+    type: float
+    unit: DB
+    min: -120.0
+    max: 120.0
+    default: 0.0
+    label: 噪声底参考电平
+    label_en: Noise floor reference level
+  display.nr_position:
+    type: int
+    min: 0
+    max: 10
+    default: 10
+    label: 噪声底参考位置
+    label_en: Noise floor position
+  display.pdiv:
+    type: float
+    unit: DB
+    min: 0.1
+    max: 20.0
+    default: 10.0
+    label: 每格电平
+    label_en: Level per division
+  display.ref_offset:
+    type: float
+    unit: DB
+    min: -100.0
+    max: 100.0
+    default: 0.0
+    label: 参考电平偏移
+    label_en: Reference level offset
+  display.spacing:
+    type: enum
+    options: [LOGarithmic]
+    default: LOGarithmic
+    label: 幅度刻度
+    label_en: Scale spacing
+  # ---- system settings (accepted: no effect on a measurement) ----
+  system.brightness:
+    type: enum
+    options: [HIGH, MIDDLE, LOW]
+    default: HIGH
+    label: 亮度
+    label_en: Brightness
+  system.gpib_address:
+    type: int
+    min: 0
+    max: 30
+    default: 18
+    label: GPIB 地址
+    label_en: GPIB address
+  system.pon_type:
+    type: enum
+    options: [PRESet, LAST]
+    default: PRESet
+    label: 上电状态
+    label_en: Power-on type
+  system.preset_type:
+    type: enum
+    options: [FACTory, USER, LAST]
+    default: FACTory
+    label: 预置类型
+    label_en: Preset type
+  system.vga:
+    type: bool
+    default: false
+    label: VGA 输出
+    label_en: VGA output
+  system.config_hardware:
+    type: bool
+    default: false
+    label: 显示硬件配置
+    label_en: Show hardware
+  system.config_software:
+    type: bool
+    default: false
+    label: 显示软件配置
+    label_en: Show software
+  system.config_system:
+    type: bool
+    default: false
+    label: 显示系统配置
+    label_en: Show system
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: clock
+    type: reference_clock
+    params: {source: INTernal, nominal_hz: 10e6}
+  - name: input
+    type: specan_input
+    params:
+      z_in: 50.0
+      att: $power.att
+      att_auto: $power.att_auto
+      ref_level: $display.ref_level
+  - name: mixer
+    type: specan_mixer
+    params: {noise_figure: 24.0, clock: clock, source: INTernal}
+  - name: if_filter
+    type: specan_if
+    params: {rbw: $bw.res, rbw_auto: $bw.res_auto, span: $freq.span}
+  - name: detector
+    type: specan_detector
+    params: {detector: $detector}
+  - name: vbw
+    type: specan_vbw
+    params: {vid: $bw.vid, vid_auto: $bw.vid_auto, if_filter: if_filter}
+  - name: sa
+    type: specan_trace
+    params:
+      input: input
+      mixer: mixer
+      if_filter: if_filter
+      detector: detector
+      vbw: vbw
+      maxhold_limit: 999
+  - name: sys
+    type: system
+wiring:
+  instrument:
+    - [rf_in.out, input.in]
+    - [ref_in.out, clock.ref]
+ports:
+  instrument:
+    RF_IN: rf_in.pin
+    REF_IN: ref_in.pin
+  media: {REF_IN: reference}
+display:
+  template: spectrum_analyzer
+  summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
+capabilities: [spectrum_analyzer]
+commands:
+  # ---- frequency -------------------------------------------------------------------------------
+  - header: "[:SENSe]:FREQuency:CENTer"
+    op: sa.frequency
+    args: {what: center}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:SPAN"
+    op: sa.frequency
+    args: {what: span}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STARt"
+    op: sa.frequency
+    args: {what: start}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STOP"
+    op: sa.frequency
+    args: {what: stop}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  # ---- resolution and video bandwidth ----------------------------------------------------------
+  # The guide writes BANDwidth|BWIDth; the engine's header patterns have one spelling each, so
+  # both spellings are declared (they are one manual command, listed twice in the coverage table).
+  - header: "[:SENSe]:BANDwidth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BWIDth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BANDwidth[:RESolution]"
+    op: if_filter.coupled_rbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BWIDth[:RESolution]"
+    op: if_filter.coupled_rbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth:VIDeo:AUTO"
+    state: bw.vid_auto
+  - header: "[:SENSe]:BWIDth:VIDeo:AUTO"
+    state: bw.vid_auto
+  - header: "[:SENSe]:BANDwidth:VIDeo"
+    op: vbw.coupled_vbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BWIDth:VIDeo"
+    op: vbw.coupled_vbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  # ---- sweep -----------------------------------------------------------------------------------
+  - header: "[:SENSe]:SWEep:TIME:AUTO"
+    state: sweep.time_auto
+  - header: "[:SENSe]:SWEep:TIME"
+    op: sa.coupled_sweep
+    params: [{name: value, type: float, unit: S, optional: true}]
+  # ---- input attenuation, reference level ------------------------------------------------------
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation:AUTO"
+    state: power.att_auto
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation"
+    op: input.coupled_att
+    params: [{name: value, type: float, unit: DB, optional: true}]
+  - header: ":DISPlay:WINDow[:TRACe]:Y[:SCALe]:RLEVel"
+    state: display.ref_level
+  # ---- detector, trace, average ----------------------------------------------------------------
+  - header: "[:SENSe]:DETector[:FUNCtion]"
+    state: detector
+  - header: ":TRACe<t>:MODE"
+    state: trace.type
+  - header: ":TRACe[:DATA]"
+    op: sa.trace_data
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: "[:SENSe]:AVERage:COUNt"
+    state: aver.count
+  # ---- markers ---------------------------------------------------------------------------------
+  - header: ":CALCulate:MARKer<m>:MAXimum[:PEAK]"
+    op: sa.marker
+    query: false
+    args: {what: max}
+  - header: ":CALCulate:MARKer<m>:MAXimum:NEXT"
+    op: sa.marker
+    query: false
+    args: {what: next}
+  - header: ":CALCulate:MARKer<m>:X"
+    op: sa.marker
+    args: {what: x}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: ":CALCulate:MARKer<m>:Y"
+    op: sa.marker
+    set: false
+    args: {what: y}
+  - header: ":CALCulate:MARKer<m>:FCOunt:X"
+    op: sa.marker
+    set: false
+    args: {what: count}
+  - header: ":CALCulate:MARKer:PEAK:THReshold"
+    state: marker.threshold
+  - header: ":CALCulate:MARKer:PEAK:EXCursion"
+    state: marker.excursion
+  # ---- reference oscillator, initiate ----------------------------------------------------------
+  - header: ":INITiate:CONTinuous"
+    state: init.continuous
+  - header: ":INITiate[:IMMediate]"
+    op: sa.initiate
+    query: false
+  # ---- units and preset ------------------------------------------------------------------------
+  - header: ":UNIT:POWer"
+    state: unit.power
+  - header: ":SYSTem:PRESet"
+    op: sys.reset
+    query: false
+  # ---- display (accepted: panel only) ----------------------------------------------------------
+  - header: ":DISPlay:AFUnction:POSition"
+    state: display.afunction
+  - header: ":DISPlay:ANNotation:CLOCk:DATE:FORMat"
+    state: display.clock_format
+  - header: ":DISPlay:ANNotation:CLOCk[:STATe]"
+    state: display.clock
+  - header: ":DISPlay:ENABle"
+    state: display.enable
+  - header: ":DISPlay:WINDow:TRACe:Y:DLINe"
+    state: display.dline
+  - header: ":DISPlay:WINDow:TRACe:Y:DLINe:STATe"
+    state: display.dline_on
+  - header: ":DISPlay:WINDow:TRACe:Y[:SCALe]:NRLevel"
+    state: display.nr_level
+  - header: ":DISPlay:WINDow:TRACe:Y[:SCALe]:NRPosition"
+    state: display.nr_position
+  - header: ":DISPlay:WINDow:TRACe:Y[:SCALe]:PDIVision"
+    state: display.pdiv
+  - header: ":DISPlay:WINDow:TRACe:Y[:SCALe]:RLEVel:OFFSet"
+    state: display.ref_offset
+  - header: ":DISPlay:WINDow:TRACe:Y[:SCALe]:SPACing"
+    state: display.spacing
+  # ---- system (accepted: configuration only) ---------------------------------------------------
+  - header: ":SYSTem:BRIGhtness"
+    state: system.brightness
+  - header: ":SYSTem:COMMunicate:GPIB<n>[:SELF]:ADDRess"
+    state: system.gpib_address
+  - header: ":SYSTem:CONFigure:HARDware:STATe"
+    state: system.config_hardware
+  - header: ":SYSTem:CONFigure:SOFTware:STATe"
+    state: system.config_software
+  - header: ":SYSTem:CONFigure[:SYSTem]:STATe"
+    state: system.config_system
+  - header: ":SYSTem:PON:TYPE"
+    state: system.pon_type
+  - header: ":SYSTem:PRESet:TYPE"
+    state: system.preset_type
+  - header: ":SYSTem:VGAOput[:STATe]"
+    state: system.vga

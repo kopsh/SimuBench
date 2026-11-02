@@ -1,0 +1,412 @@
+schema: simubench.coverage/1
+model: rigol-dl3021
+sections:
+- section: IEEE 488.2 Common Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: 清事件寄存器与错误队列（内置）。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器（内置）。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器，读后清零（内置）。
+  - header: '*IDN'
+    level: implemented
+    note: RIGOL TECHNOLOGIES,DL3021,DL3000A000001,00.01.00.04.05（手册示例的序列号与固件串格式）。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 置位操作完成位；*OPC? 回 1（内置）。'
+  - header: '*OPT'
+    level: implemented
+    note: DL3021 出厂未装选件，四个选件位都回 0；安装选件的 :LIC:SET 未建模。
+  - header: '*PSC'
+    level: accepted
+    note: 上电清状态使能寄存器的开关，保存与回读；跨上电行为不在仿真中体现。
+    affects_data: false
+  - header: '*RST'
+    level: implemented
+    note: 恢复附录 A 的默认值；附录以 DL3031A 为例，DL3021 按数据表取值：CC、0 A、4 A 量程、0.001 A/μs、Von 0 V、V_LIMIT 155 V、C_LIMIT 70 A、输入关。
+  - header: '*SRE'
+    level: implemented
+    note: 状态字节使能寄存器（内置）。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节（内置；含错误队列、MAV 与标准事件汇总）。
+  - header: '*TRG'
+    level: accepted
+    note: 总线触发；动态/列表（C2）未建模，触发只置位、不改变静态工作点。
+    affects_data: false
+  - header: '*TST'
+    level: implemented
+    note: 手册的自检项与 PASS 写法；返回固定字符串（自检在仿真中恒通过）。
+  - header: '*WAI'
+    level: implemented
+    note: 等待待完成操作（内置）。
+- section: :STATus Commands
+  commands:
+  - header: :STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+  - header: :STATus:QUEStionable:ENABle
+    level: accepted
+    note: 使能寄存器保存与回读；条件/事件寄存器未建模（平台缺通用状态寄存器组件），该使能不参与 *STB 汇总。
+    affects_data: false
+  - header: :STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+  - header: :STATus:PRESet
+    level: accepted
+    note: 清事件使能寄存器的命令；仿真里只记录动作，不改变任何数据。
+    affects_data: false
+  - header: :STATus:OPERation:CONDition
+    level: not_modeled
+    note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+  - header: :STATus:OPERation:ENABle
+    level: accepted
+    note: 使能寄存器保存与回读；条件/事件寄存器未建模。
+    affects_data: false
+  - header: :STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+- section: :MEASure commands and :FETCh commands
+  commands:
+  - header: :FETCh:VOLTage[:DC]
+    level: implemented
+    note: 返回输入电压的当前工作点。读数为 7 位尾数的 nr3（+1.0000000E+00）；每次读数另计 200 ms 积分时间。
+  - header: :MEASure:VOLTage[:DC]
+    level: implemented
+    note: 同 :FETCh:VOLTage[:DC]；理想模型里 FETCh 与 MEASure 都取当前解（没有读数缓冲）。
+  - header: :FETCh:VOLTage:MAX
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :MEASure:VOLTage:MAX
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :FETCh:VOLTage:MIN
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :MEASure:VOLTage:MIN
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :FETCh:CURRent[:DC]
+    level: implemented
+    note: 返回灌入电流的当前工作点；格式与积分时间同电压读数。
+  - header: :MEASure:CURRent[:DC]
+    level: implemented
+    note: 同 :FETCh:CURRent[:DC]（理想模型没有读数缓冲）。
+  - header: :FETCh:CURRent:MAX
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :MEASure:CURRent:MAX
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :FETCh:CURRent:MIN
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :MEASure:CURRent:MIN
+    level: not_modeled
+    note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+  - header: :FETCh:RESistance[:DC]
+    level: not_modeled
+    note: 电阻读数（V/I）未建模；只做 V/I/P 回读。
+  - header: :MEASure:RESistance[:DC]
+    level: not_modeled
+    note: 电阻读数（V/I）未建模；只做 V/I/P 回读。
+  - header: :FETCh:POWer[:DC]
+    level: implemented
+    note: 返回 V×I；格式与积分时间同电压读数。
+  - header: :MEASure:POWer[:DC]
+    level: implemented
+    note: 同 :FETCh:POWer[:DC]。
+  - header: :FETCh:CAPability
+    level: not_modeled
+    note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+  - header: :MEASure:CAPability
+    level: not_modeled
+    note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+  - header: :FETCh:WATThours
+    level: not_modeled
+    note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+  - header: :MEASure:WATThours
+    level: not_modeled
+    note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+  - header: :FETCh:DISChargingTime
+    level: not_modeled
+    note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+  - header: :MEASure:DISChargingTime
+    level: not_modeled
+    note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+  - header: :FETCh:TIME
+    level: implemented
+    note: 固定 200（10 PLC）；只读。
+  - header: :MEASure:TIME
+    level: implemented
+    note: 固定 200（10 PLC）；只读。
+  - header: :FETCh:WAVedata
+    level: not_modeled
+    note: 波形显示的数据缓存未建模。
+  - header: :MEASure:WAVedata
+    level: not_modeled
+    note: 波形显示的数据缓存未建模。
+- section: :TRIGger Commands
+  commands:
+  - header: :TRIGger[:IMMediate]
+    level: accepted
+    note: 同 *TRG；动态/列表未建模，触发不改变静态工作点。
+    affects_data: false
+  - header: :TRIGger:SOURce
+    level: accepted
+    note: 触发源保存与回读（MANUal 为默认）；本模型没有可触发的动态功能。
+    affects_data: false
+- section: '[:SOURce] Commands'
+  commands:
+  - header: '[:SOURce]:INPut[:STATe]'
+    level: implemented
+    note: 输入开关；输入断开时高阻、不灌电流，Von 以下也不灌电流。
+  - header: '[:SOURce]:FUNCtion'
+    level: implemented
+    note: 手册接受 CURRent/RESistance/VOLTage/POWer；查询按状态枚举的短格式回 CURR/RES/VOLT/POW（真机回 CC/CV/CR/CP）。平台的状态枚举只有一种写法，放宽为“设置词即查询词”是已知差异（需要设置词与回读词不同的枚举能力）。
+  - header: '[:SOURce]:FUNCtion:MODE'
+    level: implemented
+    note: 只实现 FIXed（由 FUNCtion 决定工作点）；LIST/WAVe/BATTery/OCP/OPP 未建模（C2），设置它们按依据报 -224。
+  - header: '[:SOURce]:TRANsient[:STATe]'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent[:LEVel][:IMMediate]'
+    level: implemented
+    note: CC 设定电流 0–40 A，默认 0 A；支撑 MIN/MAX/DEF。
+  - header: '[:SOURce]:CURRent:RANGe'
+    level: implemented
+    note: 低/高量程 4 A / 40 A；保存与回读，MIN 为低量程、MAX 为高量程。理想模型的分辨率不随量程变化（数据表的分辨率与精度记入 specs）。
+  - header: '[:SOURce]:CURRent:SLEW[:BOTH]'
+    level: implemented
+    note: CC 斜率 0.001–1 A/μs（默认 0.001）；按虚拟时间线性渐变，0.001 A/μs 在 200 ms 的读数量程内已足够到达 40 A。
+  - header: '[:SOURce]:CURRent:SLEW:POSitive'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:SLEW:NEGative'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:VON'
+    level: implemented
+    note: CC 起始电压 0–150 V（默认 0）；输入电压低于 Von 时不灌电流，手册只有一个 VON，没有 Voff。
+  - header: '[:SOURce]:CURRent:VLIMt'
+    level: implemented
+    note: 电压上限 0–155 V（默认 155 V）。四种模式的 VLIM 共用一个设定（真机按模式独立记忆），并作为 OVP 跳闸阈值：输入电压超过它时输入关断，EVENt 的 VF/OV 位在真机上置位（状态寄存器未建模）。
+  - header: '[:SOURce]:CURRent:ILIMt'
+    level: implemented
+    note: 电流上限 0–70 A（默认 70 A）。四种模式的 ILIM 共用一个设定（真机按模式独立记忆），并作为 OCP 跳闸阈值：灌入电流超过它时输入关断。
+  - header: '[:SOURce]:CURRent:TRANsient:MODE'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:ALEVel'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:BLEVel'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:AWIDth'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:BWIDth'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:FREQuency'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:PERiod'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:CURRent:TRANsient:ADUTy'
+    level: not_modeled
+    note: 动态/瞬时功能（C2）未建模。
+  - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate]'
+    level: implemented
+    note: CV 设定电压 0–150 V，默认 0 V；源电压低于设定值时负载开路（负载不能灌出电流）。
+  - header: '[:SOURce]:VOLTage:RANGe'
+    level: implemented
+    note: 低/高量程 15 V / 150 V；保存与回读，分辨率不随量程变化。
+  - header: '[:SOURce]:VOLTage:VLIMt'
+    level: implemented
+    note: 与 CC 的 VLIM 共用电压上限设定与 OVP 阈值。
+  - header: '[:SOURce]:VOLTage:ILIMt'
+    level: implemented
+    note: 与 CC 的 ILIM 共用电流上限设定与 OCP 阈值。
+  - header: '[:SOURce]:RESistance[:LEVel][:IMMediate]'
+    level: implemented
+    note: CR 设定电阻 0.08 Ω–15 kΩ，默认 2 Ω；内部按最小工作电阻与电流/功率能力限幅。
+  - header: '[:SOURce]:RESistance:RANGe'
+    level: implemented
+    note: 低/高量程 15 Ω / 15 kΩ；保存与回读，分辨率不随量程变化。
+  - header: '[:SOURce]:RESistance:VLIMt'
+    level: implemented
+    note: 与 CC 的 VLIM 共用电压上限设定与 OVP 阈值。
+  - header: '[:SOURce]:RESistance:ILIMt'
+    level: implemented
+    note: 与 CC 的 ILIM 共用电流上限设定与 OCP 阈值。
+  - header: '[:SOURce]:POWer[:LEVel][:IMMediate]'
+    level: implemented
+    note: CP 设定功率 0–200 W，默认 0 W；按 D52 的定点迭代求自洽工作点。
+  - header: '[:SOURce]:POWer:VLIMt'
+    level: implemented
+    note: 与 CC 的 VLIM 共用电压上限设定与 OVP 阈值。
+  - header: '[:SOURce]:POWer:ILIMt'
+    level: implemented
+    note: 与 CC 的 ILIM 共用电流上限设定与 OCP 阈值。
+  - header: '[:SOURce]:LIST:MODE'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:RANGe'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:COUNt'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:STEP'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:LEVel'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:WIDth'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:SLEW'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:LIST:END'
+    level: not_modeled
+    note: 列表功能（C2）未建模。
+  - header: '[:SOURce]:BATTary:RANGe'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary[:LEVel][:IMMediate]'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:VSTop'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:CSTop'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:TIMestop'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:VON'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:VENabstop'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:CENabstop'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:BATTary:TENabstop'
+    level: not_modeled
+    note: 电池测试功能未建模。
+  - header: '[:SOURce]:OCP:RANGe'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:VON'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:VONDelay'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:ISET'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:ISTep'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:IDELaystep'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:IMAX'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:IMIN'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:VOCP'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OCP:TOCP'
+    level: not_modeled
+    note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+  - header: '[:SOURce]:OPP:VON'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:VONDelay'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:PSET'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:PSTep'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:PDELaystep'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:PMAX'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:PMIN'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:VOPP'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:OPP:TOPP'
+    level: not_modeled
+    note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+  - header: '[:SOURce]:WAVe:TIMe'
+    level: not_modeled
+    note: 波形显示功能未建模。
+  - header: '[:SOURce]:WAVe:TSTep'
+    level: not_modeled
+    note: 波形显示功能未建模。
+  - header: '[:SOURce]:SENSe'
+    level: accepted
+    note: 远端 Sense 开关保存与回读；引线压降不在理想模型中出现，读数不受影响。
+    affects_data: false
+- section: :SYSTem Commands
+  commands:
+  - header: :SYSTem:KEY
+    level: not_modeled
+    note: 前面板按键仿真未建模（界面/交互属核心）。
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 错误队列（内置）；无错误回 0,"No error"，未建模命令回 -113,"…not implemented in this definition"。
+  - header: :SYSTem:VERSion
+    level: implemented
+    note: 固定回 1999.0（手册示例的 YYYY.V 字符串）。
+  - header: :SYSTem:IDN:SET
+    level: not_modeled
+    note: 运行时改 *IDN? 需要身份覆盖能力（平台缺口），未建模。
+- section: :LXI Commands
+  commands:
+  - header: LXI:IDENtify[:STATe]
+    level: accepted
+    note: LXI 网络标识开关保存与回读；网络不在仿真中。
+    affects_data: false
+  - header: LXI:MDNS[:ENABle]
+    level: accepted
+    note: mDNS 开关保存与回读；网络不在仿真中。
+    affects_data: false
+  - header: LXI:RESet
+    level: accepted
+    note: 把 LAN 设置恢复默认（DHCP ON、AutoIP ON、ManualIP OFF）；只记录动作，网络不在仿真中。
+    affects_data: false
+  - header: LXI:RESTart
+    level: accepted
+    note: 应用当前 LAN 设置；只记录动作，网络不在仿真中。
+    affects_data: false
+- section: :LIC Command
+  commands:
+  - header: :LIC:SET
+    level: not_modeled
+    note: 选件安装（LAN/数字 I/O/高分辨率/高频）会改变量程与接口能力，未建模。

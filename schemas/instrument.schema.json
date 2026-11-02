@@ -912,6 +912,20 @@
           "default": null,
           "title": "Options"
         },
+        "sets": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Settings this parameter writes along with its own when it is given, e.g. {sense.range_auto: false} for a range argument that leaves autorange",
+          "title": "Sets"
+        },
         "state": {
           "anyOf": [
             {

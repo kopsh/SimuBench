@@ -1,0 +1,29 @@
+schema: simubench.bench/2
+name: rigol_dl3021_cc_cv
+description: >-
+  Siglent SDG2042X（DC 5 V，HiZ 负载设定，输出内阻 50 Ω）接到 Rigol DL3021 电子负载的输入
+  （真实型号，D42）。负载在 CC 模式灌 1 mA 时输入约 4.95 V；切到 CV 2 V 时电流约 60 mA，
+  功率都远低于 200 W 的 OPP。示例脚本 examples/scripts/rigol_dl3021_measure.py 按真机写法
+  在这个测试台与真机上都能运行。
+instruments:
+  src:
+    model: siglent-sdg2042x
+    label: 直流源（函数发生器 DC 输出）
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.function: DC
+      ch1.offset: 5.0
+      ch1.load: .inf
+      ch1.output: true
+  dut:
+    model: rigol-dl3021
+    label: 电子负载
+    address: "TCPIP0::192.168.1.41::INSTR"
+wires:
+  - {from: src.CH1, to: dut.IN}
+run:
+  seed: 5
+  clock: command
+layout:
+  src: {x: 0, y: 80}
+  dut: {x: 400, y: 80}
