@@ -20,7 +20,7 @@ sections:
         note: 只声明正弦过零（0）；TTL 上升/下降沿（1、2）需要参考沿的相位定义，#273 第 4 节。
       - header: HARM
         level: implemented
-        note: 1…19999；检测频率上限由 lockin_reference 的 500 kHz 实现，真机是 102 kHz 且超限时把 n 钳到最大可用值（偏差，#273 第 5 节）。
+        note: "1…19999；检测频率 n×f 上限 102 kHz，超限时按手册把 n 钳到最大可用值、不报错（lockin_reference 的 f_max 与 over_limit: clamp，#273）。"
       - header: SLVL
         level: implemented
         note: 正弦输出幅度 0.004…5.000 Vrms；真机四舍五入到 0.002 V，本定义保留写入值（偏差）。
@@ -59,14 +59,16 @@ sections:
   - section: "DISPLAY and OUTPUT (5-8)"
     commands:
       - header: DDEF
-        level: not_modeled
-        note: 显示选择影响数据缓冲的内容；按索引的查询回复不回显索引、缓冲按显示通道取元素都缺能力，#273 第 2、3 节。
+        level: accepted
+        note: CH1/CH2 的显示量与比值，保存并回读，DDEF? i 回 j,k（#273）；按显示通道存入数据缓冲属于 #273 第 2 节（缓冲未建模）。
+        affects_data: false
       - header: FPOP
-        level: not_modeled
-        note: CH1/CH2 输出源；按索引的查询回复不回显索引，#273 第 3 节。
+        level: accepted
+        note: CH1/CH2 前面板输出源，保存并回读，FPOP? i 只回 j（#273）；前面板 BNC 输出未建模。
+        affects_data: false
       - header: OEXP
-        level: not_modeled
-        note: X/Y/R 各自的偏置与扩展；查询不回显索引、lockin_output 缺 R 的偏置与按量 expand，#273 第 3 节。
+        level: implemented
+        note: X/Y/R 各自的偏置（满量程 %）与扩展（×1/×10/×100），OEXP? i 回 x,j（#273）；X/Y 的作用于 OUTP?，R 的只作用于显示。
       - header: AOFF
         level: not_modeled
         note: 自动偏置（X/Y/R 归零）没有通用操作；手册在 5-8 与 5-11 各列一次，覆盖表只列一条。
@@ -181,34 +183,35 @@ sections:
     commands:
       - header: '*CLS'
         level: implemented
-        note: 清引擎的错误/事件状态；SRS 的四个状态字节未建模（见 #273 第 1 节）。
+        note: 清四个状态字节的事件位与错误（使能寄存器保留，#273）。
       - header: '*ESE'
-        level: not_modeled
-        note: SRS 标准事件使能寄存器；内置的 SCPI 语义与位定义不同（位 0 是 INP，且 i,j 是设某一位），#273 第 1 节。
+        level: implemented
+        note: "标准事件使能；*ESE j 写整字节，*ESE i,j 设第 i 位（status_register 的 mirror: esr，#273）。"
       - header: '*ESR'
-        level: not_modeled
-        note: SRS 标准事件字节（含位查询与读后清零）；内置 SCPI 语义不同，#273 第 1 节。
+        level: implemented
+        note: 标准事件字节，读整字节清零，*ESR? i 只读并清第 i 位（#273）。INP（输入队列溢出）与 PON 在仿真中不会出现。
       - header: '*SRE'
-        level: not_modeled
-        note: 串行轮询使能寄存器；内置语义不同，#273 第 1 节。
+        level: implemented
+        note: 串行轮询使能，整字节或 i,j 按位（#273）。
       - header: '*STB'
-        level: not_modeled
-        note: 串行轮询字节（SCN/IFC/ERR/LIA/MAV/ESB/SRQ）；内置 SCPI 语义不同，#273 第 1 节。
+        level: implemented
+        note: 串行轮询字节：SCN（无扫描进行）、IFC（无命令执行，恒 1）、ERR/LIA（使能后的错误/LIA 字节）、MAV、ESB、SRQ（#273）；*STB? i 读第 i 位。
       - header: '*PSC'
-        level: not_modeled
-        note: 上电状态清除位，随状态字节一起（#273 第 1 节）。
+        level: accepted
+        note: 保存并回读（仿真不经历上电，#273）。
+        affects_data: false
       - header: ERRE
-        level: not_modeled
-        note: 错误状态使能寄存器（#273 第 1 节）。
+        level: implemented
+        note: 错误状态使能，整字节或 i,j 按位（#273）。
       - header: ERRS
-        level: not_modeled
-        note: 错误状态字节（硬件自检位，读后清零；#273 第 1 节）。
+        level: implemented
+        note: 错误状态字节（电池/RAM/ROM/GPIB/DSP/数学），仿真里没有硬件错误，恒 0；读后清零（#273）。
       - header: LIAE
-        level: not_modeled
-        note: LIA 状态使能寄存器（#273 第 1 节）。
+        level: implemented
+        note: LIA 状态使能，整字节或 i,j 按位；使能后的位汇总到串行轮询字节位 3（#273）。
       - header: LIAS
-        level: not_modeled
-        note: LIA 状态字节（过载、失锁、量程、时间常数、触发；#273 第 1 节）。
+        level: implemented
+        note: 位 0 输入/储备过载、2 输出过载、3 失锁、4 量程改变、5 时间常数改变、6 收到触发；读后清零，LIAS? i 读并清第 i 位（#273）。位 1 滤波器过载没有模型。
   - section: "Using SR530 Programs (5-31)"
     commands:
       - {header: AX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}

@@ -6,6 +6,7 @@ import math
 from typing import Any
 
 import numpy as np
+from scipy.special import jv
 
 from ...engine.component import Component, PortSpec, component
 from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
@@ -236,6 +237,178 @@ class WaveformSynth(Component):
             )
             return triangle(freq, 0.5, sym / 100.0, bw, phase, self._t0)
         raise ScpiError(-224, f"function {fn!r} not supported")
+
+
+def _carson(beta: float) -> int:
+    """Sideband orders kept on each side of an angle-modulated line: floor(β) + 1 (Carson)."""
+    return math.floor(abs(beta)) + 1 if beta else 0
+
+
+class _Lines:
+    """Phasor lines being assembled (cosine convention); negative frequencies fold over."""
+
+    def __init__(self) -> None:
+        self.freq: list[float] = []
+        self.amp: list[complex] = []
+        self.dc = 0.0
+
+    def add(self, f: float, a: complex) -> None:
+        if abs(a) < 1e-15:
+            return
+        if f < 0:
+            f, a = -f, a.conjugate()
+        if f == 0:
+            self.dc += a.real
+            return
+        self.freq.append(f)
+        self.amp.append(a)
+
+    def signal(self, notes: tuple[FidelityNote, ...] = ()) -> Signal:
+        return Signal.lines(self.freq, self.amp, dc=self.dc, notes=notes).merged()
+
+
+@component("awg_modulator")
+class AwgModulator(Component):
+    """A function generator's modulation (#327, component-map function_generator.modulation):
+    between the waveform synthesis and the amplitude/offset, so the level settings scale the
+    modulated wave as the instrument's do. The modulating wave is a sine, internal (``int_rate``)
+    or the strongest line on the ``ext`` input (its depth scaled by ``ext_full_scale``).
+
+    - AM: the waveform times (1 + m·sin), m = ``am_depth`` %: sidebands of m/2 on every line;
+    - FM / PM: Bessel lines to Carson's rule, the deviation scaled by the harmonic number for the
+      harmonics of a square or ramp (each harmonic moves k times as far);
+    - FSK: the waveform alternates with a copy at ``fsk_hop`` Hz at ``fsk_rate`` (a 50 % square
+      gate): each copy at half amplitude with the gate's odd sidebands;
+    - PWM: the pulse's duty swings by ± ``pwm_dev`` % of the period (the synth's pulse, rebuilt with
+      the Bessel expansion of its duty), so the edges move and the mean follows.
+
+    ``enabled`` is the master switch (the 33600A's MOD state per type, Siglent's MOD STATE);
+    ``type`` picks one modulation. Off, the waveform passes untouched.
+    """
+
+    ports = {
+        "in": PortSpec("in", "signal", "the synthesized waveform (1 Vpp)"),
+        "ext": PortSpec("in", "signal", "the external modulation input"),
+        "out": PortSpec("out", "signal", "the modulated waveform, to the level block"),
+    }
+    refs = {"synth": ("waveform_synth", "channel")}
+    optional_refs = frozenset({"synth"})
+    defaults = {
+        "enabled": False,  # modulation on (a setting such as $ch.mod.state)
+        "type": "AM",  # AM | FM | PM | FSK | PWM
+        "source": "INTernal",  # INTernal | EXTernal: where the modulating wave comes from
+        "int_rate": 100.0,  # Hz, the internal modulating sine (AM/FM/PM/PWM)
+        "ext_full_scale": 5.0,  # V peak on the ext input that gives the full depth / deviation
+        "am_depth": 100.0,  # percent AM depth
+        "fm_dev": 100.0,  # Hz peak frequency deviation of the fundamental
+        "pm_dev": 180.0,  # degrees peak phase deviation of the fundamental
+        "fsk_hop": 100.0,  # Hz, the hop frequency of the fundamental
+        "fsk_rate": 10.0,  # Hz, how often it alternates (one carrier then the other per period)
+        "pwm_dev": 10.0,  # percent of the period the duty swings by (peak)
+        "synth": "",  # the waveform_synth whose pulse PWM rebuilds
+        "line_budget": 2000,  # lines the modulated spectrum may hold before it is refused (-222)
+    }
+    units = {
+        "int_rate": "Hz",
+        "ext_full_scale": "V",
+        "fm_dev": "Hz",
+        "fsk_hop": "Hz",
+        "fsk_rate": "Hz",
+        "pm_dev": "deg",
+    }
+    choices = {"type": ("AM", "FM", "PM", "FSK", "PWM"), "source": ("INTernal", "EXTernal")}
+
+    def _tone(self) -> tuple[float, float, float]:
+        """The modulating sine: (rate Hz, depth scale 0..1, phase rad at t = 0)."""
+        if self.choice("source") == "EXTernal":
+            ext = self.input("ext").merged()
+            if not ext.freq.size:
+                return 0.0, 0.0, 0.0
+            k = int(np.argmax(np.abs(ext.amp)))
+            a = complex(ext.amp[k])
+            scale = abs(a) / float(self.param("ext_full_scale"))
+            return float(ext.freq[k]), min(scale, 1.0), math.atan2(a.imag, a.real) + math.pi / 2
+        return float(self.param("int_rate")), 1.0, 0.0
+
+    def output(self, port: str) -> Signal:
+        carrier = self.input("in")
+        if not bool(self.param("enabled")):
+            return carrier
+        kind = self.choice("type")
+        if kind == "PWM":
+            return self._pwm()
+        c = carrier.merged()
+        rate, scale, phi = self._tone()
+        if rate <= 0 or scale <= 0:
+            return carrier
+        out = _Lines()
+        f0 = float(c.freq.min()) if c.freq.size else 0.0
+        if kind == "AM":
+            m = float(self.param("am_depth")) / 100.0 * scale
+            side = m / 2 / 1j * complex(math.cos(phi), math.sin(phi))
+            for f, a in zip(c.freq, c.amp, strict=True):
+                out.add(f, a)
+                out.add(f + rate, a * side)
+                out.add(f - rate, a * side.conjugate())
+            out.add(0.0, c.dc)
+            out.add(rate, c.dc * 2 * side)
+        elif kind in ("FM", "PM"):
+            if kind == "FM":
+                beta1 = float(self.param("fm_dev")) * scale / rate
+            else:
+                beta1 = math.radians(float(self.param("pm_dev"))) * scale
+            for f, a in zip(c.freq, c.amp, strict=True):
+                beta = beta1 * (f / f0 if f0 > 0 else 1.0)
+                k = _carson(beta)
+                for n in range(-k, k + 1):
+                    out.add(f + n * rate, a * jv(n, beta) * complex(math.cos(n * phi), math.sin(n * phi)))
+            out.add(0.0, c.dc)
+        elif kind == "FSK":
+            fsk_rate = float(self.param("fsk_rate"))
+            shift = float(self.param("fsk_hop")) - f0
+            harmonics = range(1, 32, 2)
+            for f, a in zip(c.freq, c.amp, strict=True):
+                hop = f + shift * (f / f0 if f0 > 0 else 1.0)
+                for fc, sign in ((f, 1.0), (hop, -1.0)):
+                    out.add(fc, a / 2)
+                    for h in harmonics:
+                        side = sign * a / (math.pi * h) / 1j
+                        out.add(fc + h * fsk_rate, side)
+                        out.add(fc - h * fsk_rate, -side)
+            out.add(0.0, c.dc)
+        if len(out.freq) > int(self.param("line_budget")):
+            raise ScpiError(-222, "the modulation needs more lines than the model keeps")
+        return out.signal(carrier.notes)
+
+    def _pwm(self) -> Signal:
+        """The synth's pulse with its duty swinging by ±``pwm_dev`` % at the modulating rate."""
+        name = str(self.param("synth") or "")
+        if not name or self.owner is None:
+            raise ScpiError(-221, "PWM needs the pulse synthesizer (the modulator's synth)")
+        synth = self.owner.components[f"ch{self.channel}.{name}" if self.channel is not None else name]
+        return self._pwm_from(synth)
+
+    def _pwm_from(self, synth: Any) -> Signal:
+        if synth.function() != "SQUare":  # type: ignore[attr-defined]
+            raise ScpiError(-221, "PWM modulates a pulse")
+        f = synth.frequency()  # type: ignore[attr-defined]
+        d0 = synth.duty_ratio()  # type: ignore[attr-defined]
+        bw = float(synth.param("bandwidth"))
+        rate, scale, phi = self._tone()
+        delta = float(self.param("pwm_dev")) / 100.0 * scale
+        out = _Lines()
+        out.add(0.0, d0 - 0.5)  # levels ±0.5, as the synth's pulse
+        out.add(rate, delta * complex(math.cos(phi - math.pi / 2), math.sin(phi - math.pi / 2)))
+        for k in range(1, max(1, int(bw // f)) + 1):
+            out.add(k * f, 1 / (math.pi * k) * -1j)
+            b = 2 * math.pi * k * delta
+            psi = 2 * math.pi * k * d0
+            for n in range(-_carson(b), _carson(b) + 1):
+                rot = complex(math.cos(-psi - n * phi - math.pi / 2), math.sin(-psi - n * phi - math.pi / 2))
+                out.add(k * f - n * rate, -jv(n, b) / (math.pi * k) * rot)
+            if len(out.freq) > int(self.param("line_budget")):
+                break  # the pulse's harmonics are cut here; the note says so
+        return out.signal((FidelityNote("truncated", "PWM pulse: harmonics kept within the line budget"),))
 
 
 @component("amplitude_level")

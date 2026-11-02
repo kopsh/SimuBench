@@ -240,11 +240,15 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
         if cmd.op is not None:
             _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
+        for key, value in cmd.args.items():
+            if isinstance(value, str) and value.startswith("$"):  # an argument bound to a setting (#252)
+                _check_state_ref(d, value[1:], per_channel, _ptr(*p, "args", key), cmd.header, report)
         if cmd.read is not None:
             _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
-        for state, value in cmd.writes.items():
-            _check_write(d, state, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
         indexes = _index_values(cmd)
+        for state, value in cmd.writes.items():
+            for ref in _expand(state, indexes):  # an index may pick the setting (#248: VIEW CHAN2)
+                _check_write(d, ref, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
         for k, ps in enumerate(cmd.params):
             if ps.state is not None:
                 for ref in _expand(ps.state, indexes):  # every setting an index can pick
@@ -264,6 +268,18 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                     _check_write(
                         d, ref, value, per_channel, _ptr(*p, "params", k, "sets", state), cmd.header, report
                     )
+            for word, writes in (ps.keywords or {}).items():
+                for state, value in writes.items():
+                    for ref in _expand(state, indexes):
+                        _check_write(
+                            d,
+                            ref,
+                            value,
+                            per_channel,
+                            _ptr(*p, "params", k, "keywords", word, state),
+                            cmd.header,
+                            report,
+                        )
         if cmd.reply is not None:
             fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
             _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
@@ -348,7 +364,9 @@ def _index_values(cmd: CommandSpec) -> dict[str, list[int]]:
     """The values each index parameter can take (at most 64 checked)."""
     out = {}
     for ps in cmd.params:
-        if ps.index:
+        if ps.index and ps.index_words:
+            out[ps.name] = sorted(set(ps.index_words.values()))
+        elif ps.index:
             lo = int(ps.min) if ps.min is not None else 1
             hi = int(ps.max) if ps.max is not None else lo
             out[ps.name] = list(range(lo, min(hi, lo + 63) + 1))
@@ -546,11 +564,30 @@ def _check_params(
             )
         mapping = value if isinstance(value, dict) and "from" in value else None
         ref = binding_of(value)
+        words = cls.choices.get(key)
+        if words and ref is None and isinstance(value, str):
+            _check_choice(value, words, pp, f"{spec.type}.{key}", spec.name, report)
         if ref is None:
             continue
         st = _check_state_ref(
             d, ref, channel, _ptr(*p, "params", key, "from") if mapping else pp, spec.name, report
         )
+        if st is not None and words:
+            # Every value the setting can take must be a word the parameter knows (#308).
+            if st.type != "enum":
+                report.add(
+                    "error",
+                    "E-DEF-PARAM-VALUE",
+                    pp,
+                    f"{spec.type}.{key} 只取 {', '.join(words)}，绑定的状态 {ref!r} 是 {st.type}，可取其他值",
+                    "绑定一个枚举状态",
+                    spec.name,
+                )
+            else:
+                table = (mapping or {}).get("map") or {}
+                for option in st.options or []:
+                    word = table.get(option, (mapping or {}).get("default", option))
+                    _check_choice(str(word), words, pp, f"{spec.type}.{key}", spec.name, report)
         if st is not None and mapping and mapping.get("map"):
             _check_map_keys(st, mapping["map"], (*p, "params", key, "map"), spec.name, report)
             continue  # the table decides the parameter's type
@@ -564,6 +601,24 @@ def _check_params(
                 f"绑定一个{_kind(default)}状态",
                 spec.name,
             )
+
+
+def _check_choice(
+    word: str, words: tuple[str, ...], pointer: str, what: str, subject: str, report: Report
+) -> None:
+    """A word parameter's value must be one of its words, long or short form (#308)."""
+    from ..scpi.values import short_form
+
+    if word.upper() in {w.upper() for w in words} | {short_form(w) for w in words}:
+        return
+    report.add(
+        "error",
+        "E-DEF-PARAM-VALUE",
+        pointer,
+        f"{what} 不认 {word!r}",
+        f"可选值：{', '.join(words)}",
+        subject,
+    )
 
 
 def _check_map_keys(

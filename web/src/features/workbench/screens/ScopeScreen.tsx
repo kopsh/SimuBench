@@ -1,8 +1,8 @@
-import { Info, Play, Square, StepForward } from "lucide-react";
-import { useDeferredValue } from "react";
+import { Crosshair, Info, Play, Square, StepForward } from "lucide-react";
+import { useDeferredValue, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { InstrumentInfo, SessionInfo, Trace } from "@/api/client";
+import type { InstrumentInfo, ScopeScreen as ScopeScreenData, SessionInfo, Trace } from "@/api/client";
 import { useEvents } from "@/api/events";
 import { usePanel, useScopeScreen } from "@/api/hooks";
 import { remoteInstrument } from "@/components/app/ClientsConfirm";
@@ -35,6 +35,8 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
     });
   const running = !!data?.running;
   const hint = running ? t("scope.liveHint") : t("scope.recordHint");
+  const [cursors, setCursors] = useState<Cursors | null>(null);
+  const channelScale = (n: number) => Number(vars.get(`ch${n}.scale`)?.value ?? 1);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -66,6 +68,16 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">{hint}</TooltipContent>
         </Tooltip>
+        <Button
+          size="sm"
+          variant={cursors ? "default" : "outline"}
+          className="h-7 gap-1.5 text-xs"
+          aria-pressed={!!cursors}
+          onClick={() => setCursors(cursors ? null : DEFAULT_CURSORS)}
+        >
+          <Crosshair className="size-3.5" />
+          {t("scope.cursors.toggle")}
+        </Button>
         {data && (
           <div className="text-muted-foreground ml-auto flex items-center gap-4 text-xs">
             <span>
@@ -79,9 +91,14 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
               </span>{" "}
               <span className="num text-foreground">{formatEng(data.trigger_level, "V", 3)}</span>
             </span>
-            <span>
-              {t("scope.acquisitions")} <span className="num text-foreground">{data.acquisitions}</span>
-            </span>
+            {/* A running screen draws live frames, not acquisitions (#280): say so rather than "0". */}
+            {data.source === "live" ? (
+              <span data-testid="scope-source">{t("scope.liveFrame")}</span>
+            ) : (
+              <span data-testid="scope-source">
+                {t("scope.acquisitions")} <span className="num text-foreground">{data.acquisitions}</span>
+              </span>
+            )}
             {data.traces[0] && (
               <span
                 className={cn(
@@ -112,9 +129,21 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
               triggerChannel={data?.trigger_source}
             />
             {data && <SilenceNotice session={session} traces={data.traces} />}
+            {cursors && <CursorOverlay cursors={cursors} />}
           </>
         )}
       </div>
+
+      {cursors && data && (
+        <CursorBar
+          cursors={cursors}
+          onChange={setCursors}
+          timePerDiv={data.timebase_scale}
+          voltsPerDiv={channelScale(cursors.channel)}
+          channels={inst.channels}
+        />
+      )}
+      {data && data.measurements.length > 0 && <MeasurementTable data={data} />}
 
       <div className="grid shrink-0 grid-cols-4 gap-2">
         {Array.from({ length: inst.channels }, (_, i) => i + 1).map((n) => {
@@ -194,5 +223,134 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
         }),
       )}
     </div>
+  );
+}
+
+/** Two time cursors (divisions from the left edge) and two voltage cursors (divisions from the
+ * center) on one channel's scale; the screen's graticule is 10 × 8 divisions (#280). */
+type Cursors = { x1: number; x2: number; y1: number; y2: number; channel: number };
+const DEFAULT_CURSORS: Cursors = { x1: 2, x2: 8, y1: 2, y2: -2, channel: 1 };
+
+function CursorOverlay({ cursors }: { cursors: Cursors }) {
+  const color = channelColor(cursors.channel);
+  const xs = [cursors.x1, cursors.x2].map((x) => `${(x / 10) * 100}%`);
+  const ys = [cursors.y1, cursors.y2].map((y) => `${((4 - y) / 8) * 100}%`);
+  return (
+    <div className="pointer-events-none absolute inset-0" aria-hidden data-testid="scope-cursors">
+      {xs.map((left, i) => (
+        <div key={`x${i}`} className="absolute top-0 bottom-0 border-l border-dashed border-white/70" style={{ left }} />
+      ))}
+      {ys.map((top, i) => (
+        <div key={`y${i}`} className="absolute right-0 left-0 border-t border-dashed" style={{ top, borderColor: color }} />
+      ))}
+    </div>
+  );
+}
+
+function CursorBar({
+  cursors,
+  onChange,
+  timePerDiv,
+  voltsPerDiv,
+  channels,
+}: {
+  cursors: Cursors;
+  onChange: (c: Cursors) => void;
+  timePerDiv: number;
+  voltsPerDiv: number;
+  channels: number;
+}) {
+  const { t } = useTranslation();
+  const dt = (cursors.x2 - cursors.x1) * timePerDiv;
+  const dv = (cursors.y1 - cursors.y2) * voltsPerDiv;
+  const slider = (key: "x1" | "x2" | "y1" | "y2", min: number, max: number) => (
+    <label className="flex items-center gap-1.5">
+      <span className="text-muted-foreground">{t(`scope.cursors.${key}`)}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={0.1}
+        value={cursors[key]}
+        aria-label={t(`scope.cursors.${key}`)}
+        onChange={(e) => onChange({ ...cursors, [key]: Number(e.target.value) })}
+        className="w-24"
+      />
+    </label>
+  );
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-2.5 py-1.5 text-xs" role="group" aria-label={t("scope.cursors.title")}>
+      {slider("x1", 0, 10)}
+      {slider("x2", 0, 10)}
+      {slider("y1", -4, 4)}
+      {slider("y2", -4, 4)}
+      <label className="flex items-center gap-1.5">
+        <span className="text-muted-foreground">{t("scope.cursors.channel")}</span>
+        <select
+          className="bg-background rounded border px-1"
+          value={cursors.channel}
+          onChange={(e) => onChange({ ...cursors, channel: Number(e.target.value) })}
+        >
+          {Array.from({ length: channels }, (_, i) => i + 1).map((n) => (
+            <option key={n} value={n}>
+              CH{n}
+            </option>
+          ))}
+        </select>
+      </label>
+      <span className="ml-auto flex gap-4">
+        <span>
+          Δt <span className="num" data-testid="cursor-dt">{formatEng(dt, "s", 4)}</span>
+        </span>
+        <span>
+          1/Δt <span className="num" data-testid="cursor-inv-dt">{dt !== 0 ? formatEng(1 / Math.abs(dt), "Hz", 4) : "—"}</span>
+        </span>
+        <span>
+          ΔV <span className="num" data-testid="cursor-dv">{formatEng(dv, "V", 4)}</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/** Per displayed channel, the scope's own automatic measurements of the record on screen (#280):
+ * the same rules as its :MEASure? replies. */
+function MeasurementTable({ data }: { data: ScopeScreenData }) {
+  const { t } = useTranslation();
+  const cell = (v: number | null | undefined, unit: string) => (v == null ? "—" : formatEng(v, unit, 4));
+  const columns: { key: "vpp" | "frequency" | "period" | "mean" | "rms"; unit: string }[] = [
+    { key: "vpp", unit: "V" },
+    { key: "frequency", unit: "Hz" },
+    { key: "period", unit: "s" },
+    { key: "mean", unit: "V" },
+    { key: "rms", unit: "V" },
+  ];
+  return (
+    <table className="shrink-0 text-xs" aria-label={t("scope.measure.title")}>
+      <thead>
+        <tr className="text-muted-foreground">
+          <th className="pr-4 text-left font-normal">{t("scope.measure.title")}</th>
+          {columns.map((c) => (
+            <th key={c.key} className="pr-4 text-right font-normal">
+              {t(`scope.measure.${c.key}`)}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data.measurements.map((m) => (
+          <tr key={m.channel}>
+            <td className="num pr-4 font-semibold" style={{ color: channelColor(m.channel) }}>
+              CH{m.channel}
+            </td>
+            {columns.map((c) => (
+              <td key={c.key} className="num pr-4 text-right" data-testid={`meas-ch${m.channel}-${c.key}`}>
+                {cell(m[c.key], c.unit)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

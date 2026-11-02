@@ -55,6 +55,11 @@ BUILTIN_HEADERS = (
 )
 
 
+def _is_channel_list(raw: bytes) -> bool:
+    """A program data element that is a channel list ``(@…)``."""
+    return raw.lstrip().startswith(b"(@")
+
+
 def _header_key(header: str) -> str:
     """A header as written in a definition, compared without case, spaces or the root colon."""
     return "".join(header.split()).lstrip(":").upper()
@@ -252,6 +257,9 @@ class Instrument:
         for comp in self.components.values():
             for path in comp.bound_paths().values():
                 self._watchers[path].append(comp)
+            for path in comp.watches:  # read by path, still told of changes (#274)
+                if path in self.specs and comp not in self._watchers[path]:
+                    self._watchers[path].append(comp)
 
         # ---- signal wiring: (dst component, dst port) -> (src component, src port) ----
         self._upstream: dict[tuple[str, str], tuple[str, str]] = {}
@@ -441,6 +449,13 @@ class Instrument:
             return value
         if spec.type == "bool":
             return bool(value)
+        if spec.type == "enum_list":
+            # A set of options kept in the options' order, whatever order it was written in
+            # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
+            chosen = set(value)
+            if not chosen or not chosen <= set(spec.options or []):
+                raise ScpiError(-224)
+            return [o for o in spec.options or [] if o in chosen]
         if spec.type == "int_list":
             out = [int(v) for v in value]
             for v in out:
@@ -1008,6 +1023,12 @@ class Instrument:
                 raise ScpiError(-109)
             self.set_state(path, spec.set_value)
             return None
+        if st.type == "enum_list":
+            try:
+                self.set_state(path, [V.parse_enum(p, st.options or []) for p in unit.params])
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, st) from e
+            return None
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
         try:
@@ -1031,14 +1052,27 @@ class Instrument:
         before any is set. The query answers the settings in the same order and form."""
         raw = list(unit.params)
         index: dict[str, int] = {}
-        for ps in spec.params:  # index parameters come first: they pick the settings
-            if ps.index:
-                if not raw:
+        # Index parameters pick the settings. A query carries them alone, in order; a set carries
+        # each at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2; PACU 1,AMPL,C1).
+        index_params = [(k, ps) for k, ps in enumerate(spec.params) if ps.index]
+        tokens: dict[str, bytes | None] = {}
+        if unit.query:
+            for _k, ps in index_params:
+                tokens[ps.name] = raw.pop(0) if raw else None
+        else:
+            for k, ps in reversed(index_params):
+                tokens[ps.name] = raw.pop(k) if k < len(raw) else None
+        for _k, ps in index_params:
+            token = tokens[ps.name]
+            if token is None:
+                if ps.index_default is None:
                     raise ScpiError(-109, f"missing {ps.name}")
-                value = V.parse_int(raw.pop(0))
-                if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
-                    raise self._bad_parameter(ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps)
-                index[ps.name] = value
+                value = self._index_value(ps, ps.index_default, channel)
+            else:
+                value = self._index_value(ps, token, channel)
+            if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
+                raise self._bad_parameter(ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps)
+            index[ps.name] = value
 
         def at(ref: str) -> str:
             for name, value in index.items():
@@ -1050,8 +1084,8 @@ class Instrument:
                 raise ScpiError(-108)
             parts: list[str] = []
             for ps in spec.params:
-                if ps.index:
-                    parts.append(str(index[ps.name]))
+                if ps.index and ps.echo:
+                    parts.append(self._index_text(ps, index[ps.name]))
                 if ps.state is not None:
                     parts.append(self._format_path(at(ps.state), channel, spec))
                 for key, ref in (ps.keys or {}).items():
@@ -1071,6 +1105,12 @@ class Instrument:
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(at(ps.state), channel)
                 token = raw.pop(0)
+                instead = self._keyword_writes(ps, token)
+                if instead is not None:
+                    # A keyword with its own settings (#344: resolution MIN picks the finest NPLC).
+                    for ref, constant in instead.items():
+                        new[self._resolve(at(ref), channel)] = constant
+                    continue
                 try:
                     value = self._parse_state(self.specs[path], token)
                 except ScpiError as e:
@@ -1133,15 +1173,18 @@ class Instrument:
         form: str | None = None
         channels: list[int] = []
         values: list[tuple[ParamSpec, bytes]] = []
+        whole: tuple[str, list[int]] | None = None
         for ps in spec.params:
             if ps.type == "channel_list":
                 if raw:
-                    numbers = V.parse_channel_list(raw.pop(0), self.channel_exists)
+                    numbers = V.parse_channel_list(raw.pop(0), self.channel_exists, **self._list_rules())
                 elif ps.optional:
-                    numbers = ps.default or [self.channel_number(1)]
+                    numbers = self._omitted_list(ps)
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
                 channels = [self.channel_index(n) for n in numbers]
+                if ps.state is not None and not unit.query:
+                    whole = (ps.state, list(numbers))  # written whole with the rest (#300)
             elif unit.query:
                 if form is None and raw:
                     word = V.parse_string(raw[0]).upper()
@@ -1149,9 +1192,9 @@ class Instrument:
                         form = word
                         raw.pop(0)
                 continue  # beyond the form word a query carries only the channel list
-            elif not raw:
+            elif not raw or (ps.optional and _is_channel_list(raw[0])):
                 if ps.optional:
-                    continue
+                    continue  # left out: a (@…) here is the channel list after it (#300)
                 raise ScpiError(-109, f"missing {ps.name}")
             else:
                 values.append((ps, raw.pop(0)))
@@ -1178,10 +1221,28 @@ class Instrument:
                         parts.append(self._format(st, self.state[path], spec.format).decode())
             return ",".join(parts).encode()
         writes: dict[str, bytes] = {}
+        constants: dict[str, Any] = {}
+        # The command's own constants first (#300: CONF:VOLT:AC 10,(@101) selects the function),
+        # per channel when they name a channel setting; then each parameter's `sets` beside its
+        # value (not for DEF or a special word, as on a command without a list).
+        for n in channels:
+            for ref, value in spec.writes.items():
+                constants[self._resolve(ref, n)] = value
         for n in channels:
             for ps, r in values:
-                writes[self._resolve(ps.state, n)] = r  # type: ignore[index]
+                path = self._resolve(ps.state, n)  # type: ignore[arg-type]
+                writes[path] = r
+                if ps.sets and not self._keyword_argument(self.specs[path], r):
+                    for ref, value in ps.sets.items():
+                        constants[self._resolve(ref, n)] = value
+        if whole is not None:
+            constants[whole[0]] = whole[1]
         checked: dict[str, Any] = {}
+        for path, value in constants.items():
+            try:
+                checked[path] = self._validate(self.specs[path], value)
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, self.specs[path]) from e
         for path, r in writes.items():
             st = self.specs[path]
             try:
@@ -1278,6 +1339,48 @@ class Instrument:
         """The setting at ``path`` as the definition formats replies."""
         return self._format(self.specs[path], self.state[path])
 
+    def _index_value(self, ps: ParamSpec, raw: Any, channel: int | None) -> int:
+        """An index parameter's number: an int, an index word (``CHANnel2`` -> 2), or for a
+        left-out one its ``index_default`` (a number or a $setting holding a word or number)."""
+        if isinstance(raw, str) and raw.startswith("$"):
+            raw = self.state[self._resolve(raw[1:], channel)]
+        if isinstance(raw, int | float) and not isinstance(raw, bool):
+            return int(raw)
+        text = raw if isinstance(raw, bytes) else str(raw).encode()
+        if ps.index_words:
+            word = V.parse_enum(text, list(ps.index_words))
+            return int(ps.index_words[word])
+        return V.parse_int(text)
+
+    def _index_text(self, ps: ParamSpec, value: int) -> str:
+        if ps.index_words:
+            for word, n in ps.index_words.items():
+                if n == value:
+                    return V.short_form(word)
+        return str(value)
+
+    def _omitted_list(self, ps: ParamSpec) -> list[int]:
+        """The channels of a channel list left out: the selected output when the definition
+        declares one (#295), else the parameter's default, else the first channel."""
+        selected = self.definition.channels.selected
+        if selected is not None:
+            return [int(self.state[selected])]
+        return ps.default or [self.channel_number(1)]
+
+    def _list_rules(self) -> dict[str, bool]:
+        """The definition's channel list rules (#260): descending ranges, repeated channels."""
+        rules = self.definition.channels.lists
+        return {"descending": rules.descending, "repeated": rules.repeated}
+
+    @staticmethod
+    def _keyword_writes(ps: ParamSpec, raw: bytes) -> dict[str, Any] | None:
+        """The settings a parameter's ``keywords`` table gives for this argument, if it names it."""
+        if not ps.keywords:
+            return None
+        word = V.parse_string(raw).strip().upper()
+        word = {"MINIMUM": "MIN", "MAXIMUM": "MAX", "DEFAULT": "DEF"}.get(word, word)
+        return ps.keywords.get(word)
+
     @staticmethod
     def _keyword_argument(st: StateSpec, raw: bytes) -> bool:
         """Whether a numeric argument is DEF or one of the setting's special words (AUTO)."""
@@ -1301,7 +1404,9 @@ class Instrument:
         if st.type == "int_list":
             # A declared channel numbering is the list's domain too (#207); without one the
             # state's own min/max check the numbers, as before.
-            return V.parse_channel_list(raw, self.channel_exists if self._channels_by_number else None)
+            return V.parse_channel_list(
+                raw, self.channel_exists if self._channels_by_number else None, **self._list_rules()
+            )
         return V.parse_string(raw)
 
     def format_number(self, value: float) -> bytes:
@@ -1320,6 +1425,8 @@ class Instrument:
         if st.type == "float":
             if st.special and value in st.special.values() and not math.isfinite(value):
                 return next(k for k, v in st.special.items() if v == value).encode()
+            if f.number == "si":
+                return V.format_si(value, f.significant or 9, f.unit or st.unit or "", sign=f.sign)
             if f.number == "engineering":
                 if f.significant:
                     return V.format_engineering_digits(
@@ -1336,7 +1443,13 @@ class Instrument:
         if st.type == "bool":
             return V.format_bool(value, word=f.boolean == "word")
         if st.type == "enum":
+            if st.replies and value in st.replies:
+                return st.replies[value].encode()  # the instrument's own query word (#268)
             return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
+        if st.type == "enum_list":
+            return b",".join(
+                V.format_enum(v, long=f.enum == "long", as_defined=f.enum == "as_defined") for v in value
+            )
         if st.type == "int_list":
             return V.format_channel_list(value)
         return V.format_string(str(value))
@@ -1352,7 +1465,27 @@ class Instrument:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
         args = {**spec.args, **self._parse_params(spec.params, unit.params)}
-        list_spec = next((p for p in spec.params if p.type == "channel_list"), None)
+        bound = {}
+        for ps in spec.params:  # an operation's parameter bound to a setting writes it (#300)
+            if ps.type != "channel_list" and ps.state is not None and args.get(ps.name) is not None:
+                path = self._resolve(ps.state, channel)
+                value = args[ps.name]
+                bound[path] = self._validate(self.specs[path], value)
+                for ref, constant in (ps.sets or {}).items():
+                    bound[self._resolve(ref, channel)] = self._validate(
+                        self.specs[self._resolve(ref, channel)], constant
+                    )
+        if spec.writes:
+            # The command selects settings before its operation runs (#308).
+            checked = {}
+            for ref, value in spec.writes.items():
+                path = self._resolve(ref, channel)
+                checked[path] = self._validate(self.specs[path], value)
+            for path, value in checked.items():
+                self.set_state(path, value)
+        for path, value in bound.items():  # after the command's constants: the arguments win
+            self.set_state(path, value)
+        list_spec = next((p for p in spec.params if p.type == "channel_list" and p.state is None), None)
         if list_spec is None:
             result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)
             if not unit.query:
@@ -1395,6 +1528,12 @@ class Instrument:
         fn = comp.operation(op_name)
         if fn is None:
             raise ScpiError(-300, f"operation {comp_ref}.{op_name!r} missing")
+        # An argument written as $path is that setting's value (#252: the elements a FETCh? answers
+        # follow :FORMat:ELEMents:SENSe).
+        args = {
+            k: self.state[self._resolve(v[1:], channel)] if isinstance(v, str) and v.startswith("$") else v
+            for k, v in args.items()
+        }
         result = fn(query=unit.query, channel=channel, suffixes=suffixes, **args)
         return result if isinstance(result, OpResult) else OpResult()
 
@@ -1404,12 +1543,17 @@ class Instrument:
         for ps in specs:
             if ps.type == "channel_list":
                 if i < len(raw):
-                    numbers = V.parse_channel_list(raw[i], self.channel_exists)
+                    numbers = V.parse_channel_list(raw[i], self.channel_exists, **self._list_rules())
                     i += 1
                 elif ps.optional:
-                    numbers = ps.default or [self.channel_number(1)]
+                    numbers = self._omitted_list(ps)
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
+                if ps.state is not None:
+                    # A list with a setting is written whole into it (an int_list, e.g. the scan
+                    # list) and the operation runs once over it (#300: MEAS:VOLT:DC? (@101:110)).
+                    self.set_state(ps.state, list(numbers))
+                    continue
                 # Operations run once per channel with the channel index (as a <n> suffix does);
                 # the list's numbers are the instrument's own (#207).
                 out[ps.name] = [self.channel_index(n) for n in numbers]
@@ -1422,10 +1566,10 @@ class Instrument:
                 out[ps.name] = list(raw[i:])
                 i = len(raw)
                 continue
-            if i >= len(raw):
+            if i >= len(raw) or (ps.optional and _is_channel_list(raw[i])):
                 if not ps.optional:
                     raise ScpiError(-109, f"missing {ps.name}")
-                out[ps.name] = None
+                out[ps.name] = None  # left out: a (@…) here belongs to a channel list (#300)
                 continue
             r = raw[i]
             i += 1
@@ -1460,8 +1604,20 @@ class Instrument:
             manufacturer=d.manufacturer.upper(), model=d.model, serial=self.serial, firmware=self.firmware
         )
 
+    def status_event(self, name: str) -> None:
+        """A momentary event (a trigger, a range change) for the instrument's status registers:
+        every ``status_register`` with a bit of that name latches it (#248, #273)."""
+        for comp in self.components.values():
+            latch = getattr(comp, "event", None)
+            if comp.type_name == "status_register" and latch is not None:
+                latch(name)
+
     def stb(self) -> int:
         stb = 0
+        for comp in self.components.values():  # status registers' summary bits (#248, #273)
+            bit = comp.param("summary_bit") if comp.type_name == "status_register" else None
+            if bit is not None and comp.summary():  # type: ignore[attr-defined]
+                stb |= 1 << int(bit)
         if len(self.errors):
             stb |= 1 << 2
         if self._output:
@@ -1483,6 +1639,9 @@ class Instrument:
         if word == "CLS" and not q:
             self.errors.clear()
             self.esr = 0
+            for comp in self.components.values():
+                if comp.type_name == "status_register":
+                    comp.clear()  # type: ignore[attr-defined]
             self._opc_armed = False
             return None
         if word == "OPC" and not q:

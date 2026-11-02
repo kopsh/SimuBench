@@ -172,3 +172,94 @@ def test_a_resistance_reading_without_current_is_the_overload_value():
         assert core.sample(0) == pytest.approx(OVERLOAD, rel=0.01)
     finally:
         s.close()
+
+
+def _bound_function_definition(
+    tmp_path: Path, state: dict | None = None, value: str = "$sense.function"
+) -> Path:
+    """test-smu-trigger with its meter's function bound to a :SENS:FUNC setting (#308)."""
+    import yaml
+
+    data = yaml.safe_load((DEFS / "test-smu-trigger.yaml").read_text("utf-8"))
+    data["id"] = "test-smu-sense-function"
+    data["state"]["sense.function"] = state or {
+        "type": "enum",
+        "options": ["VOLTage", "CURRent", "RESistance"],
+        "default": "VOLTage",
+    }
+    data["commands"].append({"header": "[:SENSe]:FUNCtion[:ON]", "state": "sense.function"})
+    if state is None:
+        data["commands"].append(
+            {
+                "header": ":MEASure:CURRent",
+                "op": "core.measure",
+                "set": False,
+                "writes": {"sense.function": "CURRent"},
+            }
+        )
+    core = next(c for c in data["components"] if c["name"] == "core")
+    core["params"]["function"] = value
+    (tmp_path / "test-smu-sense-function.yaml").write_text(yaml.safe_dump(data, allow_unicode=True), "utf-8")
+    return tmp_path
+
+
+def _new_codes(report) -> list[str]:
+    """Diagnostics beyond the base test definition's two known duplicate headers."""
+    return [d.code for d in report.diagnostics if d.code != "E-DEF-HEADER-DUPLICATE"]
+
+
+def test_the_sense_function_binds_to_a_setting(tmp_path):
+    """#308: a definition binds `function: $sense.function`; :SENS:FUNC switches the reading and
+    the definition validates clean."""
+    from simubench.engine.validate_definition import validate_definition
+    from simubench.library.loader import DefinitionLibrary
+
+    defs = _bound_function_definition(tmp_path)
+    report = validate_definition(DefinitionLibrary([defs]).get("test-smu-sense-function"))
+    assert _new_codes(report) == []  # nothing beyond the base definition's own diagnostics
+    data = bench().model_dump(by_alias=True)
+    data["instruments"]["smu"]["model"] = "test-smu-sense-function"
+    session = open_bench(BenchDefinition.model_validate(data), definition_dirs=[defs])
+    try:
+        assert values(q(session, ":READ?")) == pytest.approx([1.0])
+        q(session, ":SENS:FUNC CURR")
+        assert values(q(session, ":READ?")) == pytest.approx([1.0e-3], rel=1e-6)
+        q(session, ":SENS:FUNC RES")
+        assert values(q(session, ":READ?")) == pytest.approx([1000.0], rel=1e-6)
+        q(session, ":SENS:FUNC VOLT")
+        q(session, ":MEAS:CURR?")  # MEASure:<function>? selects that function, as the instrument does
+        assert q(session, ":SENS:FUNC?") == "CURR"
+        assert values(q(session, ":READ?")) == pytest.approx([1.0e-3], rel=1e-6)
+        q(session, ":SENS:FUNC RES")
+        q(session, ":SENS:FUNC FOO")  # the setting refuses a word the meter does not know
+        assert err(session).startswith("-224")
+        assert values(q(session, ":READ?")) == pytest.approx([1000.0], rel=1e-6)
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize(
+    ("state", "value"),
+    [
+        (None, "FOO"),  # a literal the meter does not know
+        ({"type": "string", "default": "VOLT"}, "$sense.function"),  # a setting that can take anything
+        ({"type": "enum", "options": ["VOLTage", "POWer"], "default": "VOLTage"}, "$sense.function"),
+    ],
+)
+def test_a_sense_function_outside_the_meters_words_is_refused(tmp_path, state, value):
+    from simubench.engine.validate_definition import validate_definition
+    from simubench.library.loader import DefinitionLibrary
+
+    defs = _bound_function_definition(tmp_path, state, value)
+    report = validate_definition(DefinitionLibrary([defs]).get("test-smu-sense-function"))
+    assert _new_codes(report) == ["E-DEF-PARAM-VALUE"]
+
+
+def test_an_unknown_function_word_is_an_error_not_a_guess(s):
+    from simubench.scpi.errors import ScpiError
+
+    core = s.instruments["smu"].components["core"]
+    core.overrides.update(function="FOO")
+    with pytest.raises(ScpiError) as e:
+        core.sample(0)
+    assert e.value.code == -224

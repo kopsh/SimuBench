@@ -606,6 +606,21 @@ class Trace(_Model):
     )
 
 
+class ScopeMeasurement(_Model):
+    """One channel's automatic measurements on the record the screen shows (#280), taken by the
+    scope's own measurement rules, so they agree with its :MEASure? replies on the same record.
+    None: not measurable (fewer cycles than a period needs, a clipped record)."""
+
+    channel: int
+    vpp: float | None = None
+    vmax: float | None = None
+    vmin: float | None = None
+    mean: float | None = None
+    rms: float | None = None
+    frequency: float | None = None
+    period: float | None = None
+
+
 class ScopeScreen(_Model):
     """What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:
     noise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition."""
@@ -618,7 +633,13 @@ class ScopeScreen(_Model):
     trigger_level: float
     trigger_source: int
     traces: list[Trace]
-    acquisitions: int
+    acquisitions: int = Field(
+        description="Acquisitions taken (commands, single, a stop); a running screen draws live frames, "
+        "which are not acquisitions"
+    )
+    measurements: list[ScopeMeasurement] = Field(
+        default_factory=list, description="Per displayed channel, on the record shown (#280)"
+    )
 
 
 class ReadingTrace(_Model):

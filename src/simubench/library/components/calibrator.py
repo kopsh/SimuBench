@@ -32,12 +32,315 @@ def _flag(value: Any) -> bool:
     return bool(value) if not isinstance(value, str) else value.upper() in ("1", "ON", "TRUE")
 
 
+class _Setpoint:
+    """The setpoint and range generation (DAC, range amplifier): function, level, frequency, the
+    settling transition and the stage's hidden errors. Mixed into ``calibrator_setpoint`` and the
+    combined ``calibrator_output``; ``_control()`` is the output control that operates it."""
+
+    owner: Any
+    session: Any
+    uid: str
+
+    def _control(self) -> Any:  # the output control block (self in the combined form)
+        raise NotImplementedError
+
+    def _settle_s(self) -> float:
+        """The settling time of the target function (a ``settle`` table is taken by function)."""
+        s = self.param("settle")  # type: ignore[attr-defined]
+        if isinstance(s, dict):
+            s = s.get(str(self.param("function")).upper(), 0.0)  # type: ignore[attr-defined]
+        try:
+            v = float(s)
+        except (TypeError, ValueError):
+            v = 0.0
+        return max(v, 0.0)
+
+    def _level_now(self) -> float:
+        """The raw amplitude at this instant: the settling transition followed (5.1)."""
+        return self._level_at(self.session.now_ns)
+
+    def _level_at(self, ns: int) -> float:
+        """The raw amplitude at ``ns`` (the value a new transition starts from)."""
+        if self._trans is None:
+            return self._settled
+        start, dur, v0, v1 = self._trans
+        elapsed = ns - start
+        if elapsed >= dur:
+            return v1
+        return v1 + (v0 - v1) * math.exp(-elapsed / (dur / 5.0))
+
+    def _true_level(self) -> float:
+        """The amplitude the output stage actually makes: the setting through the transition and
+        its own hidden errors (the truth a calibrated meter is checked against)."""
+        true = self._level_now() * (1 + float(self.param("gain_error_ppm")) * 1e-6)  # type: ignore[attr-defined]
+        if str(self.param("function")).upper() != "ACV":  # type: ignore[attr-defined]
+            true += float(self.param("offset"))  # type: ignore[attr-defined]
+        return true
+
+    def setpoint_signal(self) -> Signal:
+        """What the source drives: the level as DC (DCV) or one line of that RMS value (ACV)."""
+        level = self._true_level()
+        if str(self.param("function")).upper() == "ACV":  # type: ignore[attr-defined]
+            f = float(self.param("frequency"))  # type: ignore[attr-defined]
+            if f <= 0:
+                return Signal.constant(0.0)
+            return Signal.lines([f], [complex(level * math.sqrt(2.0))])  # peak phasor of the RMS level
+        return Signal.constant(level)
+
+    def start_settling(self, target: float | None = None) -> None:
+        """The amplitude moves to ``target`` (the level) through a first-order transition, done
+        after ``settle``; that moment is a pending operation (*OPC? waits for it, 3.3)."""
+        if target is None:
+            target = float(self.param("level"))  # type: ignore[attr-defined]
+        settle_ns = round(self._settle_s() * 1e9)
+        now = self.session.now_ns
+        v0 = self._level_at(now)  # before _settled moves: where the output is right now
+        self._settled = target
+        if settle_ns <= 0:
+            self._trans = None
+            return
+        self._trans = (now, settle_ns, v0, target)
+        if self.owner is not None:
+            self.owner.register_pending(self.uid, now + settle_ns)
+
+    def drop(self) -> None:
+        """The output was disconnected: the amplitude starts again from 0, nothing pending."""
+        self._trans = None
+        self._settled = 0.0
+        if self.owner is not None:
+            self.owner.cancel_pending(self.uid)
+
+    def settling(self) -> bool:
+        return self._trans is not None
+
+    def setpoint_changed(self, key: str, old: Any, new: Any) -> None:
+        """A setting of the setpoint moved: the output control decides (standby above its limit,
+        else settle to the new value)."""
+        self._control().output_changed(key, old, new, self)
+
+
+class _Control:
+    """The output control: operate and standby, the terminal (``z_out``), the overload trip and the
+    high-voltage standby rule. Mixed into ``calibrator_control`` and the combined form;
+    ``_setpoint()`` is the setpoint block it drives."""
+
+    owner: Any
+    session: Any
+    uid: str
+
+    def _setpoint(self) -> Any:
+        raise NotImplementedError
+
+    def _drive(self) -> Signal:
+        raise NotImplementedError
+
+    def on(self) -> bool:
+        """The terminal is in the circuit: the instrument is in operate."""
+        return _flag(self.param("operate"))  # type: ignore[attr-defined]
+
+    def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
+        if not self.on():
+            return  # standby: the terminal is out of the circuit (5.1)
+        z = float(self.param("z_out") or 0.0)  # type: ignore[attr-defined]
+        if z <= 0:
+            # An ideal source with a tracked branch current: the overload check reads it.
+            circuit.loop_source(node("out"), GROUND, node("out"), GROUND, self.uid)
+        else:
+            circuit.source(node("out"), self.uid, z)
+
+    def emf(self) -> dict[str, Signal]:
+        if not self.on():
+            return {}
+        return {self.uid: self._drive()}
+
+    def _load_current(self, dc_voltage: Callable[[str], float]) -> float:
+        """The current the operating point draws from the terminal (D34)."""
+        z = float(self.param("z_out") or 0.0)  # type: ignore[attr-defined]
+        if z <= 0:
+            return self.session.source_current(self.uid)
+        return (self._drive().dc - dc_voltage("out")) / z
+
+    def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
+        if not self.on():
+            return False
+        i_max = float(self.param("i_max") or 0.0)  # type: ignore[attr-defined]
+        if i_max <= 0:
+            return False
+        current = self._load_current(dc_voltage)
+        if abs(current) <= i_max * (1 + 1e-9):
+            return False
+        self._trip(i_max, current)
+        return True  # the session re-solves: the output is out of the circuit now
+
+    def _trip(self, i_max: float, current: float) -> None:
+        """The load drew more than ``i_max``: the output returns to standby (the operate setting
+        follows, so the next OPER re-enables it) and the definition's error is queued (5.1, D34)."""
+        self._set_operate(False)
+        self.tripped = True
+        if self.owner is not None:
+            code = int(self.param("overload_error") or 0)  # type: ignore[attr-defined]
+            if code:
+                self.owner.push_error(
+                    code, f"load current {abs(current):.4g} A exceeds the {i_max:.4g} A capability"
+                )
+
+    def _operate_changed(self, old: Any, new: Any) -> None:
+        """Leaving or entering operate: the output starts from 0 (it was disconnected) and settles
+        to the level; anything pending is dropped. OPER from a tripped standby tries again."""
+        if _flag(new):
+            self.tripped = False
+        sp = self._setpoint()
+        sp.drop()
+        if _flag(new):
+            sp.start_settling()
+
+    def output_changed(self, key: str, old: Any, new: Any, sp: Any) -> None:
+        """A change of the output settings while operating: above ``standby_above`` (old or new) it
+        returns the instrument to standby, otherwise the new value is settled to."""
+        was_on = self.on()
+        sa = self.param("standby_above")  # type: ignore[attr-defined]
+        level = float(sp.param("level"))
+        if was_on and sa is not None:
+            lo = float(old) if key == "level" else level
+            ln = float(new) if key == "level" else level
+            if abs(lo) > float(sa) or abs(ln) > float(sa):
+                self._set_operate(False)
+                return
+        if self.on():
+            sp.start_settling()
+
+    def _set_operate(self, value: bool) -> None:
+        """Operate through the bound state (the normal path) or the component's own attribute."""
+        path = self.bound_paths().get("operate") if self.owner is not None else None  # type: ignore[attr-defined]
+        if path is None:
+            old = _flag(self.param("operate"))  # type: ignore[attr-defined]
+            if old == value:
+                return
+            self.overrides["operate"] = value  # type: ignore[attr-defined]
+            self._operate_changed(old, value)
+            self.session.invalidate(electrical=True)
+            return
+        assert self.owner is not None
+        self.owner.set_state(path, value, internal=True)
+
+    def control_readings(self) -> dict[str, Any]:
+        self.session._solve()
+        sp = self._setpoint()
+        values: dict[str, Any] = {
+            "output": "OPER" if self.on() else "STBY",
+            "function": str(sp.param("function")),
+            "level": float(sp.param("level")),
+            "frequency": float(sp.param("frequency")),
+            "tripped": self.tripped,
+            "settling": sp.settling(),
+        }
+        if self.wired("out"):  # type: ignore[attr-defined]
+            values["voltage"] = self.pin_signal("out").mean()  # type: ignore[attr-defined]
+        return {"values": values}
+
+
+@component("calibrator_setpoint")
+class CalibratorSetpoint(_Setpoint, Component):
+    """The calibrator's setpoint and range generation (#329): ``function`` (DCV | ACV), ``level``
+    (V; RMS for ACV), ``frequency``, ``settle`` (s, or a table per function) and the hidden
+    ``gain_error_ppm`` / ``offset``. Its ``out`` is the signal the output control drives onto the
+    terminal; it settles in virtual time when the control operates it."""
+
+    ports = {"out": PortSpec("out", "signal", "the generated setpoint, to the output control")}
+    refs = {"control": ("calibrator_control", "instrument")}
+    units = {"level": "V", "offset": "V"}
+    defaults = {
+        "function": "DCV",  # DCV | ACV
+        "level": 0.0,  # V, the set amplitude (RMS volts for ACV)
+        "frequency": 0.0,  # Hz, the AC line (0 with DCV)
+        "settle": 1.0,  # s until a new value is reached, or a table per function
+        "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
+        "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)
+        "control": "",  # the calibrator_control that operates this setpoint
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._trans: tuple[int, int, float, float] | None = None  # (start ns, ns, from, to)
+        self._settled = 0.0  # the amplitude the output rests at (0.0 while disconnected)
+
+    def _control(self) -> Any:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("control"))]
+
+    def output(self, port: str) -> Signal:
+        return self.setpoint_signal()
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        key = {v: k for k, v in self.bound_paths().items()}.get(path)
+        if key in ("level", "function", "frequency"):
+            self.setpoint_changed(key, old, new)
+
+    def reset(self) -> None:
+        self.drop()
+
+
+@component("calibrator_control")
+class CalibratorControl(_Control, Component):
+    """The calibrator's output control (#329): ``operate`` (standby disconnects the terminal),
+    ``z_out``, ``i_max`` (the overload trip back to standby with ``overload_error``) and
+    ``standby_above`` (a change of the output to or from above it returns to standby). It drives
+    the setpoint block's signal onto the electrical terminal."""
+
+    role = "driver"
+    ports = {
+        "in": PortSpec("in", "signal", "the setpoint, from the setpoint block"),
+        "out": PortSpec("out", "electrical", "the output terminal"),
+    }
+    refs = {"setpoint": ("calibrator_setpoint", "instrument")}
+    units = {"standby_above": "V", "z_out": "OHM"}
+    defaults = {
+        "operate": False,  # False: standby, the terminal is disconnected
+        "z_out": 0.0,  # ohm, output impedance (0: an ideal source)
+        "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
+        "standby_above": None,  # V, a change of the output settings to or from above it -> standby
+        "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
+        "setpoint": "",  # the calibrator_setpoint this control operates
+    }
+    piecewise = True
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.tripped = False  # the last overload sent the output to standby; the next OPER clears it
+
+    def _setpoint(self) -> Any:
+        assert self.owner is not None
+        return self.owner.components[str(self.param("setpoint"))]
+
+    def _drive(self) -> Signal:
+        return self.input("in")
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        if {v: k for k, v in self.bound_paths().items()}.get(path) == "operate":
+            self._operate_changed(old, new)
+
+    def reset(self) -> None:
+        self.tripped = False
+
+    @op("operate")
+    def op_operate(self, value: bool = True, **_: Any) -> OpResult:
+        """``OPER`` (value true) or ``STBY`` (false): enter or leave operate; entering starts the
+        settling of the level."""
+        self._set_operate(_flag(value))
+        return OpResult()
+
+    def readings(self) -> dict[str, Any]:
+        return self.control_readings()
+
+
 @component("calibrator_output")
-class CalibratorOutput(Component):
-    """A calibrator's output: ``function`` (DCV | ACV), ``level`` (V; RMS for ACV), ``frequency``
-    (Hz; 0 for DCV), ``operate``, ``z_out``, ``i_max``, ``settle`` (s, or a table per function),
-    ``standby_above`` (V), and the hidden ``gain_error_ppm`` / ``offset`` of the output stage, the
-    instrument's own errors and the truth behind a calibration (like the meter core's).
+class CalibratorOutput(_Setpoint, _Control, Component):
+    """A calibrator's setpoint and output control in one block: ``function`` (DCV | ACV),
+    ``level`` (V; RMS for ACV), ``frequency`` (Hz; 0 for DCV), ``operate``, ``z_out``, ``i_max``,
+    ``settle`` (s, or a table per function), ``standby_above`` (V), and the hidden
+    ``gain_error_ppm`` / ``offset`` of the output stage. The same behaviour as
+    ``calibrator_setpoint`` + ``calibrator_control`` (#329), for definitions written before the
+    split.
 
     The settings are bound to instrument state (``function: $out.function`` ...); the commands
     write the state and the component follows. ``settle`` is taken from the table by the target
@@ -63,179 +366,32 @@ class CalibratorOutput(Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.tripped = False  # the last overload sent the output to standby; the next OPER clears it
-        self._trans: tuple[int, int, float, float] | None = None  # (start ns, ns, from, to)
-        self._settled = 0.0  # the amplitude the output rests at (0.0 in standby)
-
-    # ---- output state ---------------------------------------------------------------------------
-
-    def on(self) -> bool:
-        """The terminal is in the circuit: the instrument is in operate."""
-        return _flag(self.param("operate"))
-
-    def _settle_s(self) -> float:
-        """The settling time of the target function (a ``settle`` table is taken by function)."""
-        s = self.param("settle")
-        if isinstance(s, dict):
-            s = s.get(str(self.param("function")).upper(), 0.0)
-        try:
-            v = float(s)
-        except (TypeError, ValueError):
-            v = 0.0
-        return max(v, 0.0)
-
-    def _level_now(self) -> float:
-        """The raw amplitude at this instant: the settling transition followed (5.1)."""
-        return self._level_at(self.session.now_ns)
-
-    def _level_at(self, ns: int) -> float:
-        """The raw amplitude at ``ns`` (the value a new transition starts from)."""
-        if self._trans is None:
-            return self._settled
-        start, dur, v0, v1 = self._trans
-        elapsed = ns - start
-        if elapsed >= dur:
-            return v1
-        return v1 + (v0 - v1) * math.exp(-elapsed / (dur / 5.0))
-
-    def _true_level(self) -> float:
-        """The amplitude the output stage actually makes: the setting through the transition and
-        its own hidden errors (the truth a calibrated meter is checked against)."""
-        true = self._level_now() * (1 + float(self.param("gain_error_ppm")) * 1e-6)
-        if str(self.param("function")).upper() != "ACV":  # an offset is a DC concept, as on the meter
-            true += float(self.param("offset"))
-        return true
-
-    def _output_signal(self) -> Signal:
-        """What the source drives: the level as DC (DCV) or one line of that RMS value (ACV)."""
-        level = self._true_level()
-        if str(self.param("function")).upper() == "ACV":
-            f = float(self.param("frequency"))
-            if f <= 0:
-                return Signal.constant(0.0)
-            return Signal.lines([f], [complex(level * math.sqrt(2.0))])  # peak phasor of the RMS level
-        return Signal.constant(level)
-
-    # ---- circuit --------------------------------------------------------------------------------
-
-    def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
-        if not self.on():
-            return  # standby: the terminal is out of the circuit (5.1)
-        z = float(self.param("z_out") or 0.0)
-        if z <= 0:
-            # An ideal source with a tracked branch current: the overload check reads it.
-            circuit.loop_source(node("out"), GROUND, node("out"), GROUND, self.uid)
-        else:
-            circuit.source(node("out"), self.uid, z)
-
-    def emf(self) -> dict[str, Signal]:
-        if not self.on():
-            return {}
-        return {self.uid: self._output_signal()}
-
-    def _load_current(self, dc_voltage: Callable[[str], float]) -> float:
-        """The current the operating point draws from the terminal (D34)."""
-        z = float(self.param("z_out") or 0.0)
-        if z <= 0:
-            return self.session.source_current(self.uid)
-        return (self._output_signal().dc - dc_voltage("out")) / z
-
-    def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
-        if not self.on():
-            return False
-        i_max = float(self.param("i_max") or 0.0)
-        if i_max <= 0:
-            return False
-        current = self._load_current(dc_voltage)
-        if abs(current) <= i_max * (1 + 1e-9):
-            return False
-        self._trip(i_max, current)
-        return True  # the session re-solves: the output is out of the circuit now
-
-    def _trip(self, i_max: float, current: float) -> None:
-        """The load drew more than ``i_max``: the output returns to standby (the operate setting
-        follows, so the next OPER re-enables it) and the definition's error is queued (5.1, D34)."""
-        self._set_operate(False)
-        self.tripped = True
-        if self.owner is not None:
-            code = int(self.param("overload_error") or 0)
-            if code:
-                self.owner.push_error(
-                    code, f"load current {abs(current):.4g} A exceeds the {i_max:.4g} A capability"
-                )
-
-    # ---- settings ---------------------------------------------------------------------------------
-
-    def _start_settling(self, target: float) -> None:
-        """The amplitude moves to ``target`` through a first-order transition, done after
-        ``settle``; that moment is a pending operation (*OPC? waits for it, 3.3)."""
-        settle_ns = round(self._settle_s() * 1e9)
-        now = self.session.now_ns
-        v0 = self._level_at(now)  # before _settled moves: where the output is right now
-        self._settled = target
-        if settle_ns <= 0:
-            self._trans = None
-            return
-        self._trans = (now, settle_ns, v0, target)
-        if self.owner is not None:
-            self.owner.register_pending(self.uid, now + settle_ns)
-
-    def _operate_changed(self, old: Any, new: Any) -> None:
-        """Leaving or entering operate: the output starts from 0 (it was disconnected) and settles
-        to the level; anything pending is dropped. OPER from a tripped standby tries again."""
-        if _flag(new):
-            self.tripped = False
-        self._trans = None
+        self.tripped = False
+        self._trans: tuple[int, int, float, float] | None = None
         self._settled = 0.0
-        if self.owner is not None:
-            self.owner.cancel_pending(self.uid)
-        if _flag(new):
-            self._start_settling(float(self.param("level")))
 
-    def _output_changed(self, key: str, old: Any, new: Any) -> None:
-        """A change of the output settings while operating: above ``standby_above`` (old or new) it
-        returns the instrument to standby, otherwise the new value is settled to."""
-        was_on = self.on()
-        sa = self.param("standby_above")
-        if was_on and sa is not None:
-            lo = float(old) if key == "level" else float(self.param("level"))
-            ln = float(new) if key == "level" else float(self.param("level"))
-            if abs(lo) > float(sa) or abs(ln) > float(sa):
-                self._set_operate(False)
-                return
-        if self.on():
-            self._start_settling(float(self.param("level")))
+    def _control(self) -> Any:
+        return self
 
-    def _set_operate(self, value: bool) -> None:
-        """Operate through the bound state (the normal path) or the component's own attribute."""
-        path = self.bound_paths().get("operate") if self.owner is not None else None
-        if path is None:
-            old = _flag(self.param("operate"))
-            if old == value:
-                return
-            self.overrides["operate"] = value
-            self._operate_changed(old, value)
-            self.session.invalidate(electrical=True)
-            return
-        assert self.owner is not None
-        self.owner.set_state(path, value, internal=True)
+    def _setpoint(self) -> Any:
+        return self
+
+    def _drive(self) -> Signal:
+        return self.setpoint_signal()
+
+    def _output_signal(self) -> Signal:  # the name earlier code and tests use
+        return self.setpoint_signal()
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+        key = {v: k for k, v in self.bound_paths().items()}.get(path)
         if key == "operate":
             self._operate_changed(old, new)
         elif key in ("level", "function", "frequency"):
-            self._output_changed(key, old, new)
+            self.setpoint_changed(key, old, new)
 
     def reset(self) -> None:
         self.tripped = False
-        self._trans = None
-        self._settled = 0.0
-        if self.owner is not None:
-            self.owner.cancel_pending(self.uid)
-
-    # ---- operations -------------------------------------------------------------------------------
+        self.drop()
 
     @op("operate")
     def op_operate(self, value: bool = True, **_: Any) -> OpResult:
@@ -244,18 +400,5 @@ class CalibratorOutput(Component):
         self._set_operate(_flag(value))
         return OpResult()
 
-    # ---- observability ----------------------------------------------------------------------------
-
     def readings(self) -> dict[str, Any]:
-        self.session._solve()
-        values: dict[str, Any] = {
-            "output": "OPER" if self.on() else "STBY",
-            "function": str(self.param("function")),
-            "level": float(self.param("level")),
-            "frequency": float(self.param("frequency")),
-            "tripped": self.tripped,
-            "settling": self._trans is not None,
-        }
-        if self.wired("out"):
-            values["voltage"] = self.pin_signal("out").mean()
-        return {"values": values}
+        return self.control_readings()

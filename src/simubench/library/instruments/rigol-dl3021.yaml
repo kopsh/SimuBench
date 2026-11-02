@@ -53,8 +53,8 @@ specs:
   integration_time: "10 PLC = 200 ms（:FETCh:TIME?）"
   protection: "OVP / OCP / OPP / OTP / LRV / RRV；手册未给保护阈值命令，V_LIMIT/C_LIMIT 是各模式的工作上限"
 state:
-  # 手册命令接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP。平台的状态枚举只有一个
-  # 写法：这里按“设置词”保存，查询返回短格式 CURR/RES/VOLT/POW（覆盖面逐条注明与该差异）。
+  # 手册命令接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP：按设置词保存，`replies`
+  # 给出查询回复词（#268）。
   function.mode:
     type: enum
     options: [CURRent, RESistance, VOLTage, POWer]
@@ -63,6 +63,8 @@ state:
     label: 模式
     label_en: Mode
     option_labels: {CURRent: 恒流 CC, RESistance: 恒阻 CR, VOLTage: 恒压 CV, POWer: 恒功率 CP}
+    # 手册：设置接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CR/CV/CP（#268）。
+    replies: {CURRent: CC, RESistance: CR, VOLTage: CV, POWer: CP}
   function.control:
     type: enum
     options: [FIXed]
@@ -371,9 +373,7 @@ commands:
   # ---- 源：模式、设定值、量程、斜率、Von、输入 ----
   - header: "[:SOURce]:FUNCtion"
     state: function.mode
-    doc: >-
-      手册接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP。平台的状态枚举只有一种写法，
-      这里保存设置词、查询回短格式（CURR/RES/VOLT/POW）；覆盖面注明差异。
+    doc: 手册接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP（状态的 replies）。
   - header: "[:SOURce]:FUNCtion:MODE"
     state: function.control
     doc: 只有 FIXed（由 FUNCtion 决定）；LIST/WAVe/BATTery/OCP/OPP 未建模（C2），设置它们报 -224。

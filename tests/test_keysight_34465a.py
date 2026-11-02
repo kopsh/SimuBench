@@ -308,3 +308,91 @@ def test_the_calibration_set_form_adjusts_without_answering():
         assert q("dmm", ":CAL?") == "+0"
     finally:
         s.close()
+
+
+# ---- resistance and current from the circuit (#301) ---------------------------------------------------
+
+
+def _bench(parts: dict, wires: list) -> "BenchDefinition":
+    from simubench.models.bench import BenchDefinition
+
+    return BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/2",
+            "name": "dmm-301",
+            "instruments": {"dmm": {"model": "keysight-34465a"}},
+            "parts": parts,
+            "wires": wires,
+            "run": {"clock": "command", "idle": "off"},
+        }
+    )
+
+
+def _q(s, cmd: str) -> str:
+    s.write("dmm", (cmd + "\n").encode())
+    out = s.read("dmm")
+    return out.decode().strip() if out else ""
+
+
+def test_two_wire_reads_the_leads_four_wire_does_not():
+    """A 1 kΩ DUT behind a 10 Ω lead: 2-wire reads 1010 Ω; 4-wire senses at the DUT, 1000 Ω."""
+    from simubench.api import open_bench
+
+    bench = _bench(
+        {
+            "lead": {"type": "resistor", "params": {"r": 10.0}},
+            "dut": {"type": "load_resistor", "params": {"r": 1000.0}},
+        },
+        [
+            {"from": "dmm.IN", "to": "lead.A"},
+            {"from": "lead.B", "to": "dut.A"},
+            {"from": "dmm.SENSE", "to": "dut.A"},
+        ],
+    )
+    s = open_bench(bench)
+    try:
+        two = float(_q(s, "MEAS:RES?"))
+        four = float(_q(s, "MEAS:FRES?"))
+        assert _q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+    assert four == pytest.approx(two - 10.0, abs=0.5)
+
+
+def test_an_open_input_and_a_too_small_range_read_overload():
+    from simubench.api import open_bench
+
+    s = open_bench(
+        _bench({"r1": {"type": "load_resistor", "params": {"r": 4700.0}}}, [{"from": "dmm.IN", "to": "r1.A"}])
+    )
+    try:
+        assert float(_q(s, "MEAS:RES?")) == pytest.approx(4700.0, rel=1e-6)
+        _q(s, "CONF:RES 1000")  # 4.7 kΩ on the 1 kΩ range: past its overrange
+        assert float(_q(s, "READ?")) == pytest.approx(9.9e37)
+        assert _q(s, "CONF?") == '"RES +1.00000000E+03,+1.00000000E-04"'
+    finally:
+        s.close()
+    s = open_bench(_bench({}, []))
+    try:
+        assert float(_q(s, "MEAS:RES?")) == pytest.approx(9.9e37)  # nothing on the input
+    finally:
+        s.close()
+
+
+def test_current_flows_through_the_shunt_into_the_circuit():
+    """5 V behind 1 kΩ into the current input: the shunt (10 Ω on the 10 mA range) is in the loop."""
+    from simubench.api import open_bench
+
+    s = open_bench(
+        _bench(
+            {"src": {"type": "dc_supply", "params": {"v": 5.0, "r": 1000.0}}},
+            [{"from": "src.OUT", "to": "dmm.IN"}],
+        )
+    )
+    try:
+        _q(s, "CONF:CURR 0.01")
+        i = float(_q(s, "READ?"))
+        assert i == pytest.approx(5.0 / (1000.0 + 10.0), rel=1e-6)
+        assert _q(s, "FUNC?") == '"CURR"'
+    finally:
+        s.close()

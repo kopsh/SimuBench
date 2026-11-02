@@ -52,6 +52,14 @@ channels:
   overrides:
     1: {display: {default: true}}
 state:
+  # 操作状态使能寄存器（:OPEE，#248）：位 3 RUN、位 5 WAIT TRIG；摘要进 *STB 位 7（OPER）。
+  status.opee:
+    type: int
+    min: 0
+    max: 32767
+    default: 0
+    label: 操作状态使能
+    label_en: Operation status enable
   timebase.scale:
     type: float
     unit: S
@@ -121,14 +129,47 @@ state:
     default: CHANnel1
     label: 触发源
     label_en: Trigger source
-  trigger.level:
+  # 每个触发源各有自己的电平（手册 :TRIGger[:EDGE]:LEVel <level>[,<source>]，#248）。
+  trigger.level1:
     type: float
     unit: V
     min: -1.0e6
     max: 1.0e6
     default: 0.0
-    label: 触发电平
-    label_en: Trigger level
+    label: 触发电平 CH1
+    label_en: Trigger level CH1
+  trigger.level2:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发电平 CH2
+    label_en: Trigger level CH2
+  trigger.level3:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发电平 CH3
+    label_en: Trigger level CH3
+  trigger.level4:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发电平 CH4
+    label_en: Trigger level CH4
+  trigger.level5:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发电平 EXT
+    label_en: Trigger level EXT
   trigger.slope:
     type: enum
     options: [NEGative, POSitive, EITHer, ALTernate]
@@ -345,10 +386,22 @@ deviations:
     limit: 25.0
     distribution: uniform
 components:
+  # 状态寄存器（#248）：触发事件（:TER?，读后清零，摘要进 *STB 位 0 TRG）、布防事件（:AER?）、
+  # 操作状态（RUN / WAIT TRIG）。
+  - name: ter
+    type: status_register
+    params: {bits: {TRG: 0}, enable: 1, summary_bit: 0, width: 1}
+  - name: aer
+    type: status_register
+    params: {bits: {ARM: 0}, width: 1}
+  - name: oper
+    type: status_register
+    params: {bits: {RUN: 3, WAIT: 5}, enable: $status.opee, summary_bit: 7, width: 15}
   # 示波器由通用模块组成（instrument-authoring.md 8.4）。
   - name: acq
     type: scope_acquisition
     params:
+      digitize_stops: true  # :DIGitize 采完即停（手册），:RSTate? 回 STOP（#248）
       horizontal: timebase
       trigger: trigger
       adc: adc
@@ -391,7 +444,13 @@ components:
     type: scope_trigger
     params:
       source: $trigger.source
-      level: $trigger.level
+      level: $trigger.level1
+      level_by_source:
+        CHANnel1: trigger.level1
+        CHANnel2: trigger.level2
+        CHANnel3: trigger.level3
+        CHANnel4: trigger.level4
+        EXTernal: trigger.level5
       slope: $trigger.slope
       rising: [POSitive, EITHer, ALTernate]
       falling: [NEGative, EITHer, ALTernate]
@@ -515,7 +574,7 @@ ports:
     EXT: extin.pin
 display:
   template: oscilloscope
-  summary: [timebase.scale, trigger.source, trigger.level, trigger.slope]
+  summary: [timebase.scale, trigger.source, trigger.slope]
   channel_summary: [display, scale, offset, coupling, probe]
 capabilities: [oscilloscope]
 commands:
@@ -523,6 +582,12 @@ commands:
   # 手册 *TRG：“与不带参数的 :DIGitize 相同”。
   - {header: "*TRG", op: acq.digitize, query: false}
   # ---- Root ----
+  - {header: ":TER", op: ter.event, set: false}
+  - {header: ":AER", op: aer.event, set: false}
+  - {header: ":RSTate", op: acq.run_state, set: false}
+  - {header: ":OPEE", state: status.opee}
+  - {header: ":OPERegister:CONDition", op: oper.condition, set: false}
+  - {header: ":OPERegister[:EVENt]", op: oper.event, set: false}
   - {header: ":RUN", op: acq.run, query: false}
   - {header: ":STOP", op: acq.stop, query: false}
   - {header: ":SINGle", op: acq.digitize, query: false}
@@ -567,6 +632,22 @@ commands:
   - {header: ":MEASure:VRMS", op: meas.measure, set: false, args: {what: VRMS}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:FREQuency", op: meas.measure, set: false, args: {what: FREQuency}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:PERiod", op: meas.measure, set: false, args: {what: PERiod}, params: [{name: source, type: raw}]}
+  # 波形形状（#248）：顶/底值、过冲/预冲（%）、10–90 % 上升/下降时间、中间电平处的脉宽与占空比、
+  # 记录上的边沿与脉冲计数。
+  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:DUTYcycle", op: meas.measure, set: false, args: {what: DUTYcycle}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NDUTy", op: meas.measure, set: false, args: {what: NDUTy}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PEDGes", op: meas.measure, set: false, args: {what: PEDGes}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NEDGes", op: meas.measure, set: false, args: {what: NEDGes}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PPULses", op: meas.measure, set: false, args: {what: PPULses}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NPULses", op: meas.measure, set: false, args: {what: NPULses}, params: [{name: source, type: raw}]}
   # ---- TIMebase ----
   - {header: ":TIMebase:SCALe", state: timebase.scale, format: {number: engineering, significant: 3}}
   - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0, format: {number: engineering, significant: 3}}
@@ -585,7 +666,50 @@ commands:
   - {header: ":TRIGger:HFReject", state: trigger.hfreject}
   - {header: ":TRIGger:HOLDoff", state: trigger.holdoff, format: {number: engineering, significant: 15}}
   - {header: ":TRIGger[:EDGE]:SOURce", state: trigger.source}
-  - {header: ":TRIGger[:EDGE]:LEVel", state: trigger.level, format: {number: engineering, significant: 6}}
+  - header: ":TRIGger[:EDGE]:LEVel"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: level, type: float, unit: V, state: "trigger.level{source}"}
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, EXTernal]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, EXTernal: 5}
+        index_default: $trigger.source
+        echo: false
+        optional: true
+    doc: 不给信源时写当前触发源的电平；每个信源各有自己的电平（#248）。
+  - header: ":VIEW"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+    writes: {"ch{source}.display": true}
+    query: false
+    doc: 打开参数指定的通道（#248）。
+  - header: ":BLANk"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+    writes: {"ch{source}.display": false}
+    query: false
+    doc: 关闭参数指定的通道（#248）。
+  - header: ":STATus"
+    set: false
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        echo: false
+      - {name: shown, type: bool, state: "ch{source}.display"}
+    doc: 参数指定的通道是否显示（#248）。
   - {header: ":TRIGger[:EDGE]:SLOPe", state: trigger.slope}
   - {header: ":TRIGger[:EDGE]:COUPling", state: trigger.coupling}
   - {header: ":TRIGger[:EDGE]:REJect", state: trigger.reject}

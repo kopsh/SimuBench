@@ -130,12 +130,94 @@ class RfSynthesizer(Component):
         "spacing": "LINear",  # LINear | LOGarithmic
         "manual": 1,  # current sweep point, 1-based
         "clock": "",  # the rf_reference (empty: an exact clock)
+        # What sweeps, as the instrument's sweep-state words (#291): a list such as [FREQuency],
+        # [LEVel], [LEVel, FREQuency] or [OFF]; None leaves it to `mode` (frequency only).
+        "manner": None,
+        "level_start": -20.0,  # dBm, first level of a level sweep
+        "level_stop": 0.0,  # dBm, last level of a level sweep
+        # How the points advance (#291): TRIGger — one point per :TRIGger (`manual`); TIME — one
+        # point per `dwell` of virtual time from the sweep's start (D12).
+        "step_by": "TRIGger",
+        "dwell": 0.0,  # s per point when stepping by time
+        "run": "SINGle",  # SINGle: one pass, then the last point holds; CONTinuous: the pass repeats
     }
-    units = {"frequency": "Hz", "start": "Hz", "stop": "Hz"}
+    units = {
+        "frequency": "Hz",
+        "start": "Hz",
+        "stop": "Hz",
+        "level_start": "dBm",
+        "level_stop": "dBm",
+        "dwell": "S",
+    }
+    choices = {"step_by": ("TRIGger", "TIME"), "run": ("SINGle", "CONTinuous")}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.list_freqs: list[float] = []
+        self._t0: int | None = None  # when the timed sweep started (None: not started)
+
+    # ---- what sweeps and where the sweep is (#291) -------------------------------------------------
+
+    def _manner(self) -> set[str] | None:
+        words = self.param("manner")
+        if words is None:
+            return None
+        return {str(w).upper()[:4] for w in (words if isinstance(words, list) else [words])}
+
+    def sweeps_frequency(self) -> bool:
+        manner = self._manner()
+        if manner is None:
+            return self.param("mode") != "CW"
+        return "FREQ" in manner
+
+    def sweeps_level(self) -> bool:
+        manner = self._manner()
+        return manner is not None and "LEVE" in manner
+
+    def sweeping(self) -> bool:
+        return self.sweeps_frequency() or self.sweeps_level()
+
+    def point_count(self) -> int:
+        if self.sweeps_frequency():
+            return max(len(self.sweep_points()), 1)
+        return max(int(self.param("points")), 1)
+
+    def point_index(self) -> int:
+        """The current point, 0-based: from :TRIGger steps, or from virtual time and the dwell."""
+        n = self.point_count()
+        dwell = float(self.param("dwell"))
+        if self.choice("step_by") == "TIME" and dwell > 0 and self._t0 is not None and self.owner is not None:
+            k = max(0, self.owner.now_ns() - self._t0) // round(dwell * 1e9)
+            return int(k % n) if self.choice("run") == "CONTinuous" else int(min(k, n - 1))
+        return min(max(int(self.param("manual")), 1), n) - 1
+
+    def swept_level(self) -> float:
+        """The level of the current point of a level sweep, linear in dB from start to stop."""
+        n = self.point_count()
+        a, b = float(self.param("level_start")), float(self.param("level_stop"))
+        return a if n < 2 else a + (b - a) * self.point_index() / (n - 1)
+
+    def _start_run(self) -> None:
+        if self.owner is not None:
+            self._t0 = self.owner.now_ns()
+            self.session.invalidate()
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        bound = {v: k for k, v in self.bound_paths().items()}
+        key = bound.get(path)
+        if key == "manner":
+            manner = self._manner() or set()
+            if "OFF" in manner and len(manner) > 1:
+                raise ScpiError(-224, "OFF cannot combine with a sweep")
+        if (
+            key in ("manner", "mode", "run", "step_by")
+            and self.sweeping()
+            and self.choice("run") == "CONTinuous"
+        ):
+            self._start_run()  # a continuous sweep runs as soon as it is on
+
+    def reset(self) -> None:
+        self._t0 = None
 
     def _clock(self) -> ReferenceClock:
         assert self.owner is not None
@@ -158,13 +240,12 @@ class RfSynthesizer(Component):
 
     def frequency(self) -> float:
         """The frequency the generator is set to (before the timebase error)."""
-        if self.param("mode") == "CW":
+        if not self.sweeps_frequency():
             return float(self.param("frequency"))
         pts = self.sweep_points()
         if not pts:
             return float(self.param("frequency"))
-        i = min(max(int(self.param("manual")), 1), len(pts)) - 1
-        return pts[i]
+        return pts[self.point_index()]
 
     def output(self, port: str) -> Signal:
         if port != "out":
@@ -191,8 +272,11 @@ class RfSynthesizer(Component):
 
     @op("initiate")
     def op_initiate(self, **_: Any) -> OpResult:
+        """Start the sweep again from its first point (and, stepping by time, from now)."""
         assert self.owner is not None
-        self.owner.set_state(self.bound_paths()["manual"], 1)
+        if "manual" in self.bound_paths():
+            self.owner.set_state(self.bound_paths()["manual"], 1)
+        self._start_run()
         return OpResult()
 
     @op("trigger")
@@ -251,7 +335,8 @@ class RfModulator(Component):
     """The modulator (D2 #188): AM, and Bessel FM/PM truncated at Carson's rule, applied to the
     carrier line. FM and PM are exclusive (the later one wins with -221), AM may be added to
     either, pulse modulation is refused (-221), and a modulation index needing more than
-    ``LINE_BUDGET`` lines is refused (-222) on the setting that causes it."""
+    ``LINE_BUDGET`` lines is refused (-222) on the setting that causes it. ``enabled`` is the
+    master switch (#290): off, the carrier passes bare and every modulation keeps its settings."""
 
     ports = {
         "in": PortSpec("in", "signal"),
@@ -259,6 +344,7 @@ class RfModulator(Component):
     }
     refs = {"source": ("rf_mod_source", "instrument")}
     defaults = {
+        "enabled": True,  # the master modulation switch (Mod/on, :MODulation:STATe, #290)
         "am": False,  # amplitude modulation on
         "am_depth": 0.0,  # percent modulation depth
         "am_rate": 1e3,  # Hz of the AM tone (the modulator forms the sidebands at it)
@@ -277,8 +363,15 @@ class RfModulator(Component):
         assert self.owner is not None
         return self.owner.components[str(self.param("source"))]
 
+    def enabled(self) -> bool:
+        """The master switch: off, the output is the bare carrier while each modulation keeps its
+        own settings and switch (#290)."""
+        return bool(self.param("enabled"))
+
     def angle_kind(self) -> str | None:
         """Which angle modulation is active: 'fm', 'pm' or None."""
+        if not self.enabled():
+            return None
         if self.param("fm"):
             return "fm"
         if self.param("pm"):
@@ -336,7 +429,7 @@ class RfModulator(Component):
             freqs = carrier.freq
             amps = carrier.amp
         # AM multiplies every line by (1 + m·sin ω_m t): two sidebands of m/2 each.
-        if self.param("am"):
+        if self.param("am") and self.enabled():
             m = float(self.param("am_depth")) / 100
             fa = self._source().frequency("am")
             side = m / 2 / 1j
@@ -366,13 +459,27 @@ class RfLevelControl(Component):
         "in": PortSpec("in", "signal"),
         "out": PortSpec("out", "signal"),
     }
-    defaults = {"level": -20.0}  # dBm into a matched load (a setting such as $power.level)
+    refs = {"synthesizer": ("rf_synthesizer", "instrument")}
+    optional_refs = frozenset({"synthesizer"})
+    defaults = {
+        "level": -20.0,  # dBm into a matched load (a setting such as $power.level)
+        "synthesizer": "",  # the rf_synthesizer whose level sweep sets the level (#291; empty: none)
+    }
     units = {"level": "dBm"}
+
+    def level(self) -> float:
+        """The level in use: the sweep's point while a level sweep runs, else the set level."""
+        name = str(self.param("synthesizer"))
+        if name and self.owner is not None:
+            synth = self.owner.components[name]
+            if synth.sweeps_level():  # type: ignore[attr-defined]
+                return float(synth.swept_level())  # type: ignore[attr-defined]
+        return float(self.param("level"))
 
     def output(self, port: str) -> Signal:
         if port != "out":
             raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
-        return self.input("in").scale(emf_peak(float(self.param("level"))))
+        return self.input("in").scale(emf_peak(self.level()))
 
 
 @component("rf_attenuator")

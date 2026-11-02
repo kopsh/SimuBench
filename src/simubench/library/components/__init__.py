@@ -16,6 +16,7 @@ from . import (  # noqa: F401
     smu,
     sources,
     specan,
+    status,
     system,
     transfer,
     trigger,

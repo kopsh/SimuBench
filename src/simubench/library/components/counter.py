@@ -206,6 +206,44 @@ class CounterStatistics(Component):
         return OpResult()
 
 
+@component("counter_timebase")
+class CounterTimebase(Component):
+    """The counter's timebase (#328, component-map frequency_counter.timebase): the reference clock
+    turned into the instrument's time scale. A timestamp is the true instant on that scale — a fast
+    clock reads time long by its error ε — with the interpolator's single-shot resolution (normal,
+    seeded by the instant, so a repeated reading agrees).
+
+    ``gap_free`` is continuous measurement without dead time: each frequency reading spans from the
+    previous gate's last edge to this gate's last edge, so adjacent readings share their boundary
+    edge and the readings times their spans add up exactly to the edges counted (the 53230A's
+    gap-free mode; without it each gate measures its own first-to-last edge span).
+    """
+
+    refs = {"clock": ("reference_clock", "instrument")}
+    defaults = {
+        "clock": "",  # the reference_clock the timebase runs on
+        "single_shot_s": 0.0,  # s, the interpolator's single-shot resolution (rms)
+        "gap_free": False,  # continuous gates without dead time (a setting)
+    }
+    units = {"single_shot_s": "s"}
+
+    def error(self) -> float:
+        assert self.owner is not None
+        return float(self.owner.components[str(self.param("clock"))].error())
+
+    def timestamp(self, at_ns: float) -> float:
+        """The instrument's timestamp (s) of a true instant (ns)."""
+        t = float(at_ns) * 1e-9 * (1 + self.error())
+        sigma = float(self.param("single_shot_s"))
+        if sigma > 0 and self.owner is not None:
+            key = stream_key(self.session.seed, self.owner.name, self.uid, "stamp", sigma)
+            t += sigma * float(gaussian(key, np.array([round(at_ns)]))[0])
+        return t
+
+    def gap_free(self) -> bool:
+        return bool(self.param("gap_free"))
+
+
 @component("counter_core")
 class CounterCore(Component):
     """The counting core (F #192): frequency, period, totalize and time interval over the gate.
@@ -227,8 +265,9 @@ class CounterCore(Component):
         "a_input": ("counter_input", "instrument"),
         "b_input": ("counter_input", "instrument"),
         "statistics": ("counter_statistics", "instrument"),
+        "timebase": ("counter_timebase", "instrument"),
     }
-    optional_refs = frozenset({"statistics"})
+    optional_refs = frozenset({"statistics", "timebase"})
     defaults = {
         "function": "FREQuency",  # FREQuency | PERiod | TOTalize | TINTerval
         "gate": "",  # the counter_gate
@@ -236,6 +275,7 @@ class CounterCore(Component):
         "a_input": "",  # the counter_input of channel A (threshold, sensitivity)
         "b_input": "",  # the counter_input of channel B
         "statistics": "",  # the counter_statistics (empty: no statistics)
+        "timebase": "",  # the counter_timebase: timestamps and gap-free gates (empty: none, #328)
         "trigger_error": 1e-9,  # s, one channel's trigger error (model value)
         "single_shot_s": 1e-9,  # s, the interpolator's single-shot resolution (model value)
     }
@@ -244,6 +284,7 @@ class CounterCore(Component):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._run_start_ns: int | None = None
+        self._span_s = 0.0  # the last reading's span on the timebase (gap-free), s
 
     # ---- the blocks -----------------------------------------------------------------------------
 
@@ -341,7 +382,63 @@ class CounterCore(Component):
 
     def sample(self, index: int) -> float:
         start = self._run_start_ns if self._run_start_ns is not None else self.session.now_ns
-        return self._record(None, int(start + index * self.sample_time_ns()))
+        at = int(start + index * self.sample_time_ns())
+        timebase = self._timebase()
+        kind = self.function().upper()
+        if (
+            timebase is not None
+            and timebase.gap_free()
+            and (kind.startswith("FREQ") or kind.startswith("PER"))
+        ):
+            value = self._gap_free(at, timebase)
+            if kind.startswith("PER"):
+                value = 1.0 / value if value else 0.0
+            if str(self.param("statistics")):
+                self._block("statistics").add(value)
+            return value
+        return self._record(None, at)
+
+    def _timebase(self) -> CounterTimebase | None:
+        name = str(self.param("timebase") or "")
+        if not name or self.owner is None:
+            return None
+        return self.owner.components[name]  # type: ignore[return-value]
+
+    def _last_edge_before(self, at_ns: int) -> float | None:
+        """The last rising edge strictly before ``at_ns`` (the boundary edge of the gate ending there)."""
+        count, _, last = self._input("a").events(at_ns - self._gate().duration_ns(), at_ns)
+        return last if count else None
+
+    def _gap_free(self, start_ns: int, timebase: CounterTimebase) -> float:
+        """A gate without dead time (#328): from the previous gate's last edge to this one's, the
+        edges in between counted, on the timebase."""
+        end_ns = start_ns + self._gate().duration_ns()
+        count, _, last = self._input("a").events(start_ns, end_ns)
+        prev = self._last_edge_before(start_ns)
+        if count == 0 or prev is None:
+            self._span_s = 0.0
+            return 0.0
+        span = timebase.timestamp(last) - timebase.timestamp(prev)
+        self._span_s = span
+        return count / span if span > 0 else 0.0
+
+    def sample_fields(self, index: int) -> dict[str, float]:
+        """The gap-free reading's span on the timebase (``SPAN``, s): readings × spans add up to
+        the edges counted (#328)."""
+        return {"SPAN": self._span_s}
+
+    @op("timestamps")
+    def op_timestamps(self, count: int = 1, **_: Any) -> OpResult:
+        """The timebase's timestamps (s) of the next ``count`` rising edges on channel A (#328)."""
+        timebase = self._timebase()
+        if timebase is None:
+            raise ScpiError(-221, "this counter has no timebase block for timestamps")
+        found = self._input("a").crossings(self.session.now_ns)
+        if found is None:
+            return OpResult(b"")
+        period, first = found
+        stamps = [timebase.timestamp(first + k * period * 1e9) for k in range(max(1, int(count)))]
+        return OpResult(b",".join(V.format_float(t, 12) for t in stamps))
 
     # ---- readings -------------------------------------------------------------------------------
 

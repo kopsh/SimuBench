@@ -82,7 +82,7 @@ specs:
 state:
   sense.function:
     type: enum
-    options: [VOLT, "VOLT:AC"]
+    options: [VOLT, "VOLT:AC", RES, FRES, CURR, "CURR:AC"]
     default: VOLT
     label: 测量功能
     label_en: Function
@@ -95,6 +95,25 @@ state:
     special: {AUTO: 0.0}
     label: 量程设定
     label_en: Range setting
+  # 电阻与电流的量程设定（#301）：各功能自己的量程，与电压量程分开保存。
+  sense.res.range:
+    type: float
+    unit: OHM
+    min: 100.0
+    max: 1.0e9
+    default: 0.0
+    special: {AUTO: 0.0}
+    label: 电阻量程设定
+    label_en: Resistance range setting
+  sense.curr.range:
+    type: float
+    unit: A
+    min: 1.0e-4
+    max: 3.0
+    default: 0.0
+    special: {AUTO: 0.0}
+    label: 电流量程设定
+    label_en: Current range setting
   sense.range_auto:
     type: bool
     default: true
@@ -285,14 +304,27 @@ components:
       high_z: $sense.imp_auto
       high_z_ranges: [0.1, 1, 10]
       conditioning: path
+      # 电阻与电流（#301）：电阻按量程送数据表的测试电流、读 V/I（四线读 SENSE 端子）；电流在输入上
+      # 并分流电阻、读 V/R。分流电阻取 0.1 V 量级的负担电压（数据表未给分流值，模型取值）。
+      mode: {from: $sense.function, map: {VOLT: VOLTage, "VOLT:AC": VOLTage, RES: RESistance, FRES: FRESistance, CURR: CURRent, "CURR:AC": CURRent}}
+      test_current: {100: 1.0e-3, 1000: 1.0e-3, 10000: 1.0e-4, 100000: 1.0e-5, 1000000: 5.0e-6, 10000000: 5.0e-7, 100000000: 5.0e-7, 1000000000: 5.0e-7}
+      shunt: {0.0001: 1000.0, 0.001: 100.0, 0.01: 10.0, 0.1: 1.0, 1: 0.1, 3: 0.1}
   # 信号调理：功能（DC/AC）、量程 100 mV–1000 V（AC 按手册的命令表同为 1000 V 档；数据表的 ACV
   # 量程上限 750 Vrms 是安全限值）、AC 滤波与量程选择。
   - name: path
     type: dmm_conditioning
     params:
-      function: {from: $sense.function, map: {VOLT: DC, "VOLT:AC": AC}}
-      ranges: {DC: [0.1, 1, 10, 100, 1000], AC: [0.1, 1, 10, 100, 1000]}
+      function: {from: $sense.function, map: {VOLT: DC, "VOLT:AC": AC, RES: RES, FRES: FRES, CURR: DCI, "CURR:AC": ACI}}
+      ranges:
+        DC: [0.1, 1, 10, 100, 1000]
+        AC: [0.1, 1, 10, 100, 1000]
+        RES: [100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000]
+        FRES: [100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000]
+        DCI: [0.0001, 0.001, 0.01, 0.1, 1, 3]
+        ACI: [0.0001, 0.001, 0.01, 0.1, 1, 3]
       range: $sense.range
+      range_res: $sense.res.range
+      range_curr: $sense.curr.range
       autorange: $sense.range_auto
       autorange_up: 1.2
       autorange_down: 0.1
@@ -338,6 +370,8 @@ ports:
   instrument:
     # 输入端子是仪表的电气端子：10 MΩ（或 >10 GΩ）进入电路求解。
     IN: input.pin
+    # 四线电阻的 HI 检测端（#301）：接到 DUT 时 FRES 读这里的电压。
+    SENSE: input.sense
 display:
   template: multimeter
   summary: [sense.function, sense.range, sense.nplc, trigger.source]
@@ -367,7 +401,18 @@ commands:
       trigger.delay_auto: true
     params:
       - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range, sets: {sense.range_auto: false}}
-      - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
+      # MIN / MAX 是最细 / 最粗的分辨率：手册里分辨率决定积分时间，这里选 NPLC 表的两端
+      # （100 PLC 与 0.02 PLC），CONF? 回量程 × 表中分辨率（#344）。
+      - name: resolution
+        type: float
+        unit: V
+        min: 0.0
+        max: 1000.0
+        optional: true
+        state: sense.resolution
+        keywords:
+          MIN: {sense.resolution: 0.0, sense.nplc: 100.0}
+          MAX: {sense.resolution: 0.0, sense.nplc: 0.02}
     doc: 选择直流电压功能，恢复测量与触发默认值，再保存量程与分辨率；AUTO 关键字按量程的 special 字接受为 0（自动）。
   - header: ":CONFigure[:VOLTage]:AC"
     query: false
@@ -385,7 +430,17 @@ commands:
       trigger.delay_auto: true
     params:
       - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range, sets: {sense.range_auto: false}}
-      - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
+      # 交流的分辨率不随积分时间变：MIN / MAX 回到当前分辨率，不取声明的上下限（#344）。
+      - name: resolution
+        type: float
+        unit: V
+        min: 0.0
+        max: 1000.0
+        optional: true
+        state: sense.resolution
+        keywords:
+          MIN: {sense.resolution: 0.0}
+          MAX: {sense.resolution: 0.0}
     doc: 选择交流电压功能，恢复测量与触发默认值，再保存量程与分辨率；AUTO 同直流。
   - header: CONFigure
     op: meter.configure
@@ -406,6 +461,123 @@ commands:
     params:
       - {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true}
       - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true}
+  # ---- 电阻与电流（#301）：读数由电路求解（测试电流、分流电阻），不按命令伪造 ----
+  - header: ":CONFigure:RESistance"
+    query: false
+    writes:
+      sense.function: "RES"
+      sense.res.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
+    params:
+      - {name: range, type: float, unit: OHM, min: 100.0, max: 1000000000.0, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, min: 0.0, max: 1000000000.0, optional: true, state: sense.resolution}
+    doc: 两线电阻：按量程的测试电流流过 DUT，读 V/I。
+  - header: ":CONFigure:FRESistance"
+    query: false
+    writes:
+      sense.function: "FRES"
+      sense.res.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
+    params:
+      - {name: range, type: float, unit: OHM, min: 100.0, max: 1000000000.0, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, min: 0.0, max: 1000000000.0, optional: true, state: sense.resolution}
+    doc: 四线电阻：电流经 IN，电压读 SENSE 端子（未接时读 IN）。
+  - header: ":CONFigure:CURRent[:DC]"
+    query: false
+    writes:
+      sense.function: "CURR"
+      sense.curr.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
+    params:
+      - {name: range, type: float, unit: A, min: 0.0001, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true, state: sense.resolution}
+    doc: 直流电流：输入并分流电阻，读 V/R。
+  - header: ":CONFigure:CURRent:AC"
+    query: false
+    writes:
+      sense.function: "CURR:AC"
+      sense.curr.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
+    params:
+      - {name: range, type: float, unit: A, min: 0.0001, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true, state: sense.resolution}
+    doc: 交流电流（真有效值）。
+  - header: ":MEASure:RESistance"
+    op: meter.measure
+    set: false
+    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
+    writes: {sense.function: "RES", sense.res.range: 0.0, sense.range_auto: true}
+    args: {what: RES}
+    params:
+      - {name: range, type: float, unit: OHM, min: 100.0, max: 1.0e9, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, min: 0.0, max: 1.0e9, optional: true}
+  - header: ":MEASure:FRESistance"
+    op: meter.measure
+    set: false
+    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
+    writes: {sense.function: "FRES", sense.res.range: 0.0, sense.range_auto: true}
+    args: {what: FRES}
+    params:
+      - {name: range, type: float, unit: OHM, min: 100.0, max: 1.0e9, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, min: 0.0, max: 1.0e9, optional: true}
+  - header: ":MEASure:CURRent[:DC]"
+    op: meter.measure
+    set: false
+    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
+    writes: {sense.function: "CURR", sense.curr.range: 0.0, sense.range_auto: true}
+    args: {what: DCI}
+    params:
+      - {name: range, type: float, unit: A, min: 1.0e-4, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true}
+  - header: ":MEASure:CURRent:AC"
+    op: meter.measure
+    set: false
+    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
+    writes: {sense.function: "CURR:AC", sense.curr.range: 0.0, sense.range_auto: true}
+    args: {what: ACI}
+    params:
+      - {name: range, type: float, unit: A, min: 1.0e-4, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true}
+  - header: "[:SENSe]:RESistance:RANGe"
+    state: sense.res.range
+  - header: "[:SENSe]:FRESistance:RANGe"
+    state: sense.res.range
+  - header: "[:SENSe]:CURRent[:DC]:RANGe"
+    state: sense.curr.range
+  - header: "[:SENSe]:CURRent:AC:RANGe"
+    state: sense.curr.range
   - header: "[:SENSe]:VOLTage[:DC]:RANGe"
     state: sense.range
   - header: "[:SENSe]:VOLTage:AC:RANGe"

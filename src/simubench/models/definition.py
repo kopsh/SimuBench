@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .deviation import DeviationSpec
 
-StateType = Literal["float", "int", "bool", "enum", "string", "int_list"]
+StateType = Literal["float", "int", "bool", "enum", "string", "int_list", "enum_list"]
 
 
 class _Model(BaseModel):
@@ -37,6 +37,12 @@ class StateSpec(_Model):
     )
     special: dict[str, float] | None = Field(
         None, description="Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load"
+    )
+    replies: dict[str, str] | None = Field(
+        None,
+        description="Enum: the word a query answers for an option, when the instrument answers with a "
+        "different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR "
+        "reads back CC (#268); options not listed answer as usual",
     )
     option_labels: dict[str, str] | None = Field(
         None, description="How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}"
@@ -63,8 +69,14 @@ class StateSpec(_Model):
 
     @model_validator(mode="after")
     def _check(self) -> StateSpec:
-        if self.type == "enum" and not self.options:
-            raise ValueError("enum state needs options")
+        if self.type in ("enum", "enum_list") and not self.options:
+            raise ValueError(f"{self.type} state needs options")
+        if self.replies is not None:
+            if self.type != "enum":
+                raise ValueError("replies go with an enum state")
+            unknown = set(self.replies) - set(self.options or [])
+            if unknown:
+                raise ValueError(f"replies name options the state does not have: {sorted(unknown)}")
         return self
 
 
@@ -155,13 +167,37 @@ class ParamSpec(_Model):
     index: bool = Field(
         False,
         description="An int that picks which settings the other parameters write: their state paths name "
-        "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+        "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1). "
+        "A set takes it at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2); a query takes the index "
+        "parameters alone, in order",
+    )
+    index_words: dict[str, int] | None = Field(
+        None,
+        description="An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} "
+        "for :VIEW CHANnel2; the query answer echoes the word's short form",
+    )
+    index_default: int | str | None = Field(
+        None,
+        description="An optional index's value when it is left out: a number, or a $setting whose value "
+        "(an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]",
+    )
+    echo: bool = Field(
+        True,
+        description="Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for "
+        "instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)",
     )
     sets: dict[str, Any] | None = Field(
         None,
         description="Settings this parameter writes along with its own when it is given, e.g. "
         "{sense.range_auto: false} for a range argument that leaves autorange; not written when the "
         "argument is DEF or a special word of the setting (AUTO)",
+    )
+    keywords: dict[str, dict[str, Any]] | None = Field(
+        None,
+        description="Settings a keyword argument writes in place of the parameter's own value, keyed "
+        "by MIN, MAX, DEF or a special word, e.g. {MIN: {sense.nplc: 100, sense.resolution: 0}} for a "
+        "resolution argument whose MIN selects the finest integration time; the parameter's own "
+        "setting is written only when the table names it",
     )
     units: dict[str, QuantityUnit] | None = Field(
         None,
@@ -193,19 +229,26 @@ class ParamSpec(_Model):
     def _check(self) -> ParamSpec:
         if (self.type == "pairs") != (self.keys is not None):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
-        if self.index and (self.type != "int" or self.state is not None):
-            raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
+        if self.index and (
+            (self.type != "int" and not (self.type == "enum" and self.index_words)) or self.state is not None
+        ):
+            raise ValueError(
+                f"parameter {self.name!r}: an index is an int (or an enum with index_words) and writes "
+                "no setting itself"
+            )
+        if self.keywords is not None and self.state is None:
+            raise ValueError(
+                f"parameter {self.name!r}: keywords stand in for a setting; give the parameter a state"
+            )
         if self.sets is not None and self.state is None:
             raise ValueError(
                 f"parameter {self.name!r}: sets writes settings along with the argument; give the "
                 "parameter a state"
             )
-        if self.type == "channel_list" and (
-            self.state is not None or self.keys is not None or self.units is not None or self.index
-        ):
+        if self.type == "channel_list" and (self.keys is not None or self.units is not None or self.index):
             raise ValueError(
-                f"parameter {self.name!r}: a channel list selects the channels the command acts on "
-                "and writes nothing itself"
+                f"parameter {self.name!r}: a channel list selects the channels the command acts on; "
+                "its only setting is a `state` that takes the whole list"
             )
         if self.type == "quantities":
             if not self.units:
@@ -225,10 +268,14 @@ class ResponseFormat(_Model):
     The defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.
     """
 
-    number: Literal["nr3", "nr2", "nr1", "engineering"] = Field(
+    number: Literal["nr3", "nr2", "nr1", "engineering", "si"] = Field(
         "nr3",
         description="nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, "
-        "200E-3 (exponent a multiple of 3, shortest mantissa)",
+        "200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` "
+        "digits with an SI prefix and `unit` (#289)",
+    )
+    unit: str | None = Field(
+        None, description="number: si — the unit written after the prefix, e.g. Hz (default: the setting's)"
     )
     digits: int = Field(6, ge=0, le=17, description="Digits after the decimal point (nr3 mantissa, nr2)")
     significant: int | None = Field(
@@ -279,7 +326,9 @@ class CommandSpec(_Model):
         default_factory=dict,
         description="Settings a multi-setting command writes along with its parameters, e.g. "
         "{sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the "
-        "function. Validated like a parameter and written before them (the parameters win)",
+        "function. Validated like a parameter and written before them (the parameters win). On an "
+        "operation's command they are written before the operation runs (#308: MEASure:CURRent? "
+        "selects the current function, as the instrument does)",
     )
     factor: float = Field(
         1.0,
@@ -305,11 +354,25 @@ class CommandSpec(_Model):
 
     @property
     def bound_params(self) -> list[ParamSpec]:
-        return [p for p in self.params if p.state is not None or p.keys is not None or p.type == "quantities"]
+        return [
+            p
+            for p in self.params
+            if p.type != "channel_list"
+            and (p.state is not None or p.keys is not None or p.type == "quantities")
+        ]
 
     @model_validator(mode="after")
     def _check(self) -> CommandSpec:
-        kinds = (self.state is not None) + (self.op is not None) + bool(self.bound_params)
+        # An index parameter with `writes` alone is a settings command too (#248: VIEW CHAN2
+        # writes ch2.display: the index picks the setting, the constant is its value).
+        indexed_writes = bool(self.writes) and any(p.index for p in self.params)
+        # An operation's parameter may bind a setting too (#300: MEAS:VOLT:DC? 10,(@101) sets the
+        # range before the reading): it is still an operation command.
+        kinds = (
+            (self.state is not None)
+            + (self.op is not None)
+            + bool((self.bound_params or indexed_writes) and self.op is None)
+        )
         if kinds != 1:
             raise ValueError(
                 f"command {self.header!r}: give one of state, op, or parameters bound to settings"
@@ -318,7 +381,7 @@ class CommandSpec(_Model):
             raise ValueError(
                 f"command {self.header!r}: read (the setting a query reads) goes with an operation command"
             )
-        if self.writes and not self.bound_params:
+        if self.writes and not self.bound_params and self.op is None and not indexed_writes:
             raise ValueError(
                 f"command {self.header!r}: writes goes with parameters that write settings "
                 "(it selects e.g. a function beside them)"
@@ -337,9 +400,13 @@ class CommandSpec(_Model):
                 f"command {self.header!r}: a channel list parameter expands the command over the "
                 "channels; bind values through the parameters' state, not the command's"
             )
-        if self.bound_params and len(self.bound_params) + len(indexes) + len(lists) != len(self.params):
+        if (
+            self.op is None
+            and self.bound_params
+            and len(self.bound_params) + len(indexes) + len(lists) != len(self.params)
+        ):
             raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
-        if indexes and not self.bound_params:
+        if indexes and not self.bound_params and not indexed_writes:
             raise ValueError(f"command {self.header!r}: an index parameter picks the settings others write")
         quantities = [p for p in self.params if p.type == "quantities"]
         if quantities:
@@ -419,8 +486,32 @@ class ChannelNumbering(_Model):
     count: int = Field(..., ge=1, description="How many channels the block has, e.g. 20")
 
 
+class ChannelListRules(_Model):
+    """What a channel list parameter accepts beyond the default, per the manual (#260)."""
+
+    descending: bool = Field(
+        False,
+        description="A descending range (@2:1) is accepted and expands in its written order (2, 1), "
+        "as the B2900 manual lists; false: -222",
+    )
+    repeated: bool = Field(
+        False, description="A channel may appear more than once, answered each time; false: -108"
+    )
+
+
 class Channels(_Model):
     count: int = 1
+    selected: str | None = Field(
+        None,
+        description="An int setting holding the selected output's channel number "
+        "(INSTrument:SELect / NSELect, #295): a channel list parameter left out uses it instead "
+        "of the parameter's default",
+    )
+    lists: ChannelListRules = Field(
+        default_factory=ChannelListRules,
+        description="Channel list parameters (@…): whether descending ranges and repeated channels "
+        "are accepted (#260)",
+    )
     numbering: list[ChannelNumbering] = Field(
         default_factory=list,
         description="The numbers SCPI uses for the channels, when they are not 1..count: blocks in "
@@ -653,6 +744,9 @@ class InstrumentDefinition(_Model):
 
     @model_validator(mode="after")
     def _check_unknown(self) -> InstrumentDefinition:
+        selected = self.channels.selected
+        if selected is not None and (selected not in self.state or self.state[selected].type != "int"):
+            raise ValueError(f"channels.selected names {selected!r}, which is not an int state")
         if self.unknown_commands == "ignore" and self.reference is not None:
             raise ValueError(
                 "a real model (with `reference`) refuses unknown commands; unknown_commands: ignore"

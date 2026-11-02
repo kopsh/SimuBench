@@ -148,6 +148,42 @@ state:
     default: 1.5e9
     label: 标记频率
     label_en: Marker
+  # 标记组（#274）：开关、普通/差值模式（差值时固定参考标记在切换那一刻的位置与电平）、
+  # 频率计数器开关与峰值搜索方式。
+  marker.enabled:
+    type: bool
+    default: false
+    label: 标记
+    label_en: Marker
+  marker.mode:
+    type: enum
+    options: [POSition, DELTa]
+    default: POSition
+    label: 标记模式
+    label_en: Marker mode
+  marker.ref_x:
+    type: float
+    unit: HZ
+    default: 0.0
+    label: 参考标记频率
+    label_en: Reference marker
+  marker.ref_y:
+    type: float
+    unit: DBM
+    default: 0.0
+    label: 参考标记电平
+    label_en: Reference marker level
+  marker.count:
+    type: bool
+    default: false
+    label: 标记计数器
+    label_en: Marker counter
+  marker.search:
+    type: enum
+    options: [PARameter, MAXimum]
+    default: PARameter
+    label: 峰值搜索方式
+    label_en: Peak search mode
   marker.threshold:
     type: float
     unit: DBM
@@ -308,6 +344,9 @@ components:
     type: specan_input
     params:
       z_in: 50.0
+      # 自动衰减把参考电平保持在混频器上限：手册 *RST 的参考电平 0 dBm 对应衰减 20 dB（#292），
+      # 即上限 -20 dBm。
+      mixer_limit: -20.0
       att: $power.att
       att_auto: $power.att_auto
       ref_level: $display.ref_level
@@ -332,6 +371,12 @@ components:
       detector: detector
       vbw: vbw
       maxhold_limit: 999
+      # 中心频率放不进当前跨度时，保持中心、缩小跨度（#292：*RST 后 :FREQ:CENT 10 MHz 不再被滑走）。
+      center_fit: span
+      # 自动扫描时间不快于本振扫速：3 GHz 全跨度 100.2 ms（手册 *RST 值；扫速由该值反推，
+      # 手册没有单独给出）。
+      lo_rate: 3.0e10
+      sweep_overhead: 2.0e-4
   - name: sys
     type: system
 wiring:
@@ -434,6 +479,35 @@ commands:
     op: sa.marker
     set: false
     args: {what: count}
+  - header: ":CALCulate:MARKer<m>:MINimum"
+    op: sa.marker
+    query: false
+    args: {what: min}
+  - header: ":CALCulate:MARKer<m>:MAXimum:LEFT"
+    op: sa.marker
+    query: false
+    args: {what: left}
+  - header: ":CALCulate:MARKer<m>:MAXimum:RIGHt"
+    op: sa.marker
+    query: false
+    args: {what: right}
+  - header: ":CALCulate:MARKer<m>:X:DELTa"
+    op: sa.marker
+    set: false
+    args: {what: dx}
+    doc: 差值模式下回标记与固定参考标记的频率差；普通模式回 0。
+  - header: ":CALCulate:MARKer<m>:MODE"
+    state: marker.mode
+    doc: DELTa 把参考标记固定在当前标记处，Y? 回与它的电平差（dB）。
+  - header: ":CALCulate:MARKer<m>:STATe"
+    state: marker.enabled
+  - header: ":CALCulate:MARKer:AOFF"
+    op: sa.marker_off
+    query: false
+  - header: ":CALCulate:MARKer<m>:FCOunt[:STATe]"
+    state: marker.count
+  - header: ":CALCulate:MARKer:PEAK:SEARch:MODE"
+    state: marker.search
   - header: ":CALCulate:MARKer:PEAK:THReshold"
     state: marker.threshold
   - header: ":CALCulate:MARKer:PEAK:EXCursion"

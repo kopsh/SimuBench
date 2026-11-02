@@ -84,7 +84,7 @@ test("the scope's run, stop and single are front-panel buttons, not SCPI", async
   await controls.getByRole("button", { name: "运行" }).click();
   await expect(page.getByText("运行中", { exact: true })).toBeVisible();
   await page.waitForTimeout(1000); // the screen redraws while running: frames, not acquisitions
-  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  await expect(page.getByTestId("scope-source")).toHaveText("实时画面"); // said so, not a count (#280)
   await expect(page.getByText(":SINGle")).toHaveCount(0); // nothing in the communication log
   await page.getByRole("tab", { name: "事件" }).click();
   await expect(page.getByText(/scope 面板: 单次/)).toBeVisible();

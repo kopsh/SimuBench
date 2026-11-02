@@ -213,7 +213,7 @@ cases:
       - query: ":FETC:ARR:CURR?"
         expect: "+0.000000E+00,+5.000000E-04,+1.000000E-03,+1.500000E-03,+2.000000E-03"
       - query: ":TRAC:DATA?"
-        expect_match: '^[+-][0-9]\.[0-9]{6}E[+-][0-9]{2}(,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2}){24}$'
+        expect_match: '^[+-][0-9]\.[0-9]{6}E[+-][0-9]{2}(,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2}){29}$'
       - send: ":TRAC:CLE"
       - query: ":TRAC:POIN:ACT?"
         expect: "0"
@@ -289,7 +289,7 @@ cases:
     steps:
       - send: ":SOUR:FUNC:MODE VOLT;:SOUR:VOLT 1;:SENS:CURR:PROT 0.01;:OUTP ON"
       - query: ":MEAS?"
-        expect_match: '^\+1\.000000E\+00,\+1\.000000E-03,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00$'
+        expect_match: '^\+1\.000000E\+00,\+1\.000000E-03,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00,\+1\.000000E\+00$'
       - query: ":MEAS:VOLT?"
         expect: "+1.000000E+00"
       - query: ":MEAS:CURR?"
@@ -309,7 +309,7 @@ cases:
       - query: ":READ:ARR:STAT?"
         expect: "+0.000000E+00"
       - query: ":READ:ARR?"
-        expect_match: '^\+1\.000000E\+00,\+1\.000000E-03,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00$'
+        expect_match: '^\+1\.000000E\+00,\+1\.000000E-03,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00,\+1\.000000E\+00$'
 
   - name: "FETCh 取本次运行的数据（数组与单元素）"
     manual: "FETCh Subsystem > :FETCh:ARRay? / :FETCh:ARRay:<CURRent|RESistance|STATus|TIME|VOLTage>?"
@@ -330,7 +330,28 @@ cases:
       - query: ":FETC:ARR:STAT?"
         expect: "+0.000000E+00"
       - query: ":FETC:ARR?"
-        expect_match: '^\+1\.000000E\+00,\+1\.000000E-03,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00$'
+        expect_match: '^\+1\.000000E\+00,\+1\.000000E-03,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00,\+1\.000000E\+00$'
+
+  - name: "读数元素：*RST 为六个（含 SOUR）；FORM:ELEM:SENS 选择元素，顺序固定（#252）"
+    manual: "FORMat Subsystem > :FORMat:ELEMents:SENSe（p.2-41）；FETCh Subsystem > :FETCh:ARRay?"
+    steps:
+      - query: ":FORM:ELEM:SENS?"
+        expect: "VOLT,CURR,RES,TIME,STAT,SOUR"
+      - send: ":FORM:ELEM:SENS CURR,VOLT"
+      - query: ":FORM:ELEM:SENS?"
+        expect: "VOLT,CURR"
+      - send: ":SOUR:FUNC:MODE VOLT;:SOUR:VOLT 1;:SENS:CURR:PROT 0.01;:OUTP ON"
+      - query: ":MEAS?"
+        expect: "+1.000000E+00,+1.000000E-03"
+      - send: ":FORM:ELEM:SENS SOUR"
+      - query: ":READ:ARR?"
+        expect: "+1.000000E+00"
+      - send: ":FORM:ELEM:SENS POW"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "*RST"
+      - query: ":FORM:ELEM:SENS?"
+        expect: "VOLT,CURR,RES,TIME,STAT,SOUR"
 
   - name: "远端检测设置保存并回读"
     manual: "SENSe Subsystem > :REMote"

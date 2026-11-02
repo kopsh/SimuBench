@@ -439,6 +439,7 @@ class SmuMeter(Component):
         "output": ("smu_output", "instrument"),
     }
     units = {"measure_range_voltage": "V", "measure_range_current": "A"}
+    choices = {"function": ("VOLTage", "CURRent", "RESistance")}
     defaults = {
         "function": None,  # active sense function: VOLTage | CURRent | RESistance (None: the forced quantity)
         "nplc": 1.0,  # reading time in power line cycles
@@ -616,22 +617,33 @@ class SmuMeter(Component):
         v, i = self._clipped(v_raw, i_raw)
         res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
         self._point = (v, i, res, float(STAT_LIMIT if loop.limited() else 0))
-        function = self.param("function")
-        if function is not None:
-            key = str(function).upper()
-            if key.startswith("V"):
-                return v
-            if key.startswith("C"):
-                return i
-            if key.startswith("R"):
-                return res
+        function = self.choice("function")  # VOLTage | CURRent | RESistance; a bad word is -224
+        if function == "VOLTage":
+            return v
+        if function == "CURRent":
+            return i
+        if function == "RESistance":
+            return res
         return v if loop.forcing_voltage() else i
 
     def sample_fields(self, index: int) -> dict[str, float]:
         """The reading's own elements: TIME is the reading's place in the run (the reading times,
         not counting the source delay between them)."""
         v, i, res, stat = self._point
-        return {"VOLT": v, "CURR": i, "RES": res, "TIME": (index + 1) * self.reading_time(), "STAT": stat}
+        return {
+            "VOLT": v,
+            "CURR": i,
+            "RES": res,
+            "TIME": (index + 1) * self.reading_time(),
+            "STAT": stat,
+            "SOUR": self._source_level(),
+        }
+
+    def _source_level(self) -> float:
+        """The SOUR element (#252): the source output's setting, the level being forced (a sweep's
+        point while it runs)."""
+        loop = self._loop()
+        return float(loop.param("v_level" if loop.forcing_voltage() else "i_level"))
 
     # ---- state, reset and operations -------------------------------------------------------------
 
@@ -658,7 +670,14 @@ class SmuMeter(Component):
                 Reading(
                     row[0] if self._loop().forcing_voltage() else row[1],
                     self.owner.now_ns() + round((t + float(self.param("delay"))) * 1e9),
-                    {"VOLT": row[0], "CURR": row[1], "RES": row[2], "TIME": t, "STAT": row[4]},
+                    {
+                        "VOLT": row[0],
+                        "CURR": row[1],
+                        "RES": row[2],
+                        "TIME": t,
+                        "STAT": row[4],
+                        "SOUR": self._source_level(),
+                    },
                 )
             )
         return OpResult(self._format([row]), duration_ns=round((t + float(self.param("delay"))) * 1e9))

@@ -46,6 +46,8 @@ def parse_number(text: str, unit: str | None = None) -> float:
     base = (unit or "").upper()
     if base and suffix == base:
         return value
+    if base == "PCT" and suffix == "%":  # a percentage may be written 80% (#289)
+        return value
     # Mega for frequency and resistance: MHZ, MOHM.
     if base in ("HZ", "OHM") and suffix == "M" + base:
         return value * 1e6

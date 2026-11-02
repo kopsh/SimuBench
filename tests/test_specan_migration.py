@@ -114,3 +114,23 @@ def test_the_gold_covers_the_whole_receiver_chain():
     assert {"max hold after two sweeps", "average", "frozen single", "after trace clear"} <= traces
     assert GOLD["steps"][-2] == {"instrument": "sa", "cmd": ":SYST:ERR?", "reply": '0,"No error"', "ns": 0}
     assert pytest.approx(10e9) == next(s["ns"] for s in GOLD["steps"] if s.get("cmd") == ":INIT")
+
+
+def test_power_on_is_calibrated_and_the_screen_reads_the_coupled_rbw():
+    """#279/#345: at power-on RBW, VBW and sweep time are coupled — the sweep is not short of what
+    the RBW needs (no UNCAL), and the screen's RBW is the one the instrument reports."""
+    session = open_bench(bench(), definition_dirs=[DEFS])
+    try:
+
+        def q(cmd: str) -> str:
+            session.write("sa", cmd.encode() + b"\n")
+            out = session.read("sa")
+            return out.decode().strip() if out else ""
+
+        assert q(":SWE:TIME:UNC?") == "0"
+        values = session.instruments["sa"].components["sa"].readings()["values"]
+        assert values["uncal"] is False
+        assert values["rbw"] == pytest.approx(float(q(":BAND?")))
+        assert values["rbw"] != pytest.approx(3e6)  # not the stored manual RBW
+    finally:
+        session.close()

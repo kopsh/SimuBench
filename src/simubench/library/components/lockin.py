@@ -88,7 +88,13 @@ class LockinReference(Component):
         "harmonic": 1,  # detection at harmonic n x f
         "amplitude": 1.0,  # V rms of the SINE_OUT drive
         "min_vpp": 0.4,  # V peak to peak an external reference needs to lock
+        "f_max": F_MAX,  # Hz, the highest detection frequency n x f (#273: the SR830's 102 kHz)
+        # Past f_max: "refuse" the setting (-221), or "clamp" the harmonic to the largest that fits
+        # (the SR830 manual's rule for HARM and FREQ).
+        "over_limit": "refuse",
     }
+    units = {"f_max": "Hz"}
+    choices = {"over_limit": ("refuse", "clamp")}
     dynamic = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -116,15 +122,25 @@ class LockinReference(Component):
         self._psi = 0.0
         self._freq = float(self.param("frequency"))
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def _largest_harmonic(self, f: float) -> int:
+        return max(1, int(float(self.param("f_max")) * (1 + 1e-12) // f)) if f > 0 else 1
+
+    def on_state(self, path: str, old: Any, new: Any) -> Any:
         bound = self.bound_paths()
         n = int(self.param("harmonic"))
-        if path == bound.get("harmonic") and n * self._freq > F_MAX * (1 + 1e-12):
-            raise ScpiError(-221, f"harmonic {n} x {self._freq:g} Hz exceeds {F_MAX:g} Hz")
+        f_max = float(self.param("f_max"))
+        clamp = self.choice("over_limit") == "clamp"
+        if path == bound.get("harmonic") and n * self._freq > f_max * (1 + 1e-12):
+            if clamp:
+                return self._largest_harmonic(self._freq)  # the largest harmonic that fits (#273)
+            raise ScpiError(-221, f"harmonic {n} x {self._freq:g} Hz exceeds {f_max:g} Hz")
         if path == bound.get("frequency"):
             f = float(new)
-            if n * f > F_MAX * (1 + 1e-12):
-                raise ScpiError(-221, f"harmonic {n} x {f:g} Hz exceeds {F_MAX:g} Hz")
+            if n * f > f_max * (1 + 1e-12):
+                if not clamp:
+                    raise ScpiError(-221, f"harmonic {n} x {f:g} Hz exceeds {f_max:g} Hz")
+                assert self.owner is not None
+                self.owner.set_state(bound["harmonic"], self._largest_harmonic(f))
             if self.param("source") != "EXTernal":
                 self._retune(f)
         if path == bound.get("source"):
@@ -143,7 +159,7 @@ class LockinReference(Component):
             k = int(np.argmax(np.abs(sig.amp) * (sig.freq > 0)))
             if sig.freq[k] > 0 and 2 * abs(sig.amp[k]) >= float(self.param("min_vpp")):
                 line = (float(sig.freq[k]), complex(sig.amp[k]))
-        if line is not None and 1e-3 <= line[0] <= F_MAX:
+        if line is not None and 1e-3 <= line[0] <= float(self.param("f_max")):
             freq, a = line
             # Lock to the fundamental: ψ(t) = arg(a) + 2π f t (merged lines are referenced to t = 0).
             psi = cmath.phase(a) % TWO_PI
@@ -159,6 +175,10 @@ class LockinReference(Component):
             self.locked = False  # free-runs on the last frequency and phase
             assert self.owner is not None
             self.owner.push_error(327, "Reference unlock")
+
+    def status_flags(self) -> dict[str, bool]:
+        """UNLK while an external reference is not locked (the SRS LIA status bit 3, #273)."""
+        return {"UNLK": self.param("source") == "EXTernal" and not self.locked}
 
     def output(self, port: str) -> Signal:
         if port == "ref":
@@ -536,6 +556,12 @@ class LockinOutput(Component):
         "offset_x": 0.0,  # percent of full scale subtracted from X (display level)
         "offset_y": 0.0,  # percent of full scale subtracted from Y
         "expand": 1.0,  # 1 | 10 | 100: the deviation from the offset is multiplied by this
+        # Per quantity (#273, the SR830's OEXP): X, Y and R each with their own expand (None:
+        # `expand`); R's offset and expand act on the displayed R only, the R output stays raw.
+        "expand_x": None,  # X's own expand (None: expand)
+        "expand_y": None,  # Y's own expand (None: expand)
+        "offset_r": 0.0,  # percent of full scale subtracted from the displayed R
+        "expand_r": None,  # the displayed R's expand (None: expand)
     }
     units = {"sample_rate": "Hz"}
     dynamic = True
@@ -603,7 +629,16 @@ class LockinOutput(Component):
         if show not in ("X", "Y"):
             return value
         offset = float(self.param("offset_x" if show == "X" else "offset_y"))
-        return (value - offset / 100 * self._amp().sensitivity()) * float(self.param("expand"))
+        return (value - offset / 100 * self._amp().sensitivity()) * self._expand(show)
+
+    def _expand(self, show: str) -> float:
+        own = self.param(f"expand_{show.lower()}")
+        return float(own if own is not None else self.param("expand"))
+
+    def displayed_r(self, z: complex) -> float:
+        """R as the display shows it: its own offset and expand (the R output stays raw, #273)."""
+        offset = float(self.param("offset_r"))
+        return (abs(z) - offset / 100 * self._amp().sensitivity()) * self._expand("R")
 
     def _value(self, name: str, z: complex) -> float:
         key = name.upper()
@@ -666,6 +701,7 @@ class LockinOutput(Component):
                 "X": self._display(z.real, "X"),
                 "Y": self._display(z.imag, "Y"),
                 "R": abs(z),
+                "R_display": self.displayed_r(z),
                 "THETA": math.degrees(math.atan2(z.imag, z.real)),
                 "overload": self._flags_now(),
                 "enbw": self.enbw(),
@@ -679,6 +715,12 @@ class LockinOutput(Component):
         self.session._sync()
         self._update_flags()
         return self._flags
+
+    def status_flags(self) -> dict[str, bool]:
+        """INPUT (input or reserve overload) and OUTPT (output overload) for the SRS LIA status
+        byte (#273)."""
+        flags = self._flags_now()
+        return {"INPUT": bool(flags & 1), "OUTPT": bool(flags & 2)}
 
     # ---- operations -----------------------------------------------------------------------------
 

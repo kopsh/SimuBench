@@ -9,6 +9,8 @@ identity:
   serial: SBCNT000001
   firmware: "1.0.0"
 state:
+  # 无间隙连续测量（#328，counter_timebase）。
+  sense.gap_free: {type: bool, default: false, label: 无间隙测量, label_en: Gap-free}
   input.a.coupling:
     type: enum
     options: [DC, AC]
@@ -132,6 +134,9 @@ components:
       clock: clock
   - name: stats
     type: counter_statistics
+  - name: tb
+    type: counter_timebase
+    params: {clock: clock, single_shot_s: 2.0e-11, gap_free: $sense.gap_free}
   - name: core
     type: counter_core
     params:
@@ -141,6 +146,7 @@ components:
       a_input: a
       b_input: b
       statistics: stats
+      timebase: tb
   - name: trig
     type: trigger_model
     params:
@@ -166,6 +172,8 @@ display:
   summary: [function, gate.time, count, input.a.coupling, input.a.threshold]
 capabilities: [frequency_counter]
 commands:
+  - {header: "[:SENSe]:FREQuency:MODE:GAPFree", state: sense.gap_free}
+  - {header: ":MEASure:TSTamp", op: core.timestamps, set: false, params: [{name: count, type: int, optional: true}]}
   - header: ":INPut:A:COUPling"
     state: input.a.coupling
   - header: ":INPut:A:IMPedance"

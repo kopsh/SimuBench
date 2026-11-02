@@ -124,10 +124,18 @@ def parse_block(raw: bytes) -> bytes:
     return payload
 
 
-def parse_channel_list(raw: bytes, exists: Callable[[int], bool] | None = None) -> list[int]:
+def parse_channel_list(
+    raw: bytes,
+    exists: Callable[[int], bool] | None = None,
+    *,
+    descending: bool = False,
+    repeated: bool = False,
+) -> list[int]:
     """A SCPI channel list ``(@1)``, ``(@1:3)``, ``(@101,102:110)`` — expanded, in list order.
 
-    ``@`` is required; a descending range, a given-twice channel and an empty list are errors.
+    ``@`` is required; an empty list is an error. A descending range (-222) and a given-twice
+    channel (-108) are errors too unless the instrument declares them (#260): ``descending``
+    expands ``(@2:1)`` in its written order, 2 then 1; ``repeated`` keeps every occurrence.
     ``exists`` is the instrument's channel-number domain (#207): an explicitly written number and
     both ends of a range must exist (-114), and numbers inside a range that the domain does not
     declare are skipped — the 34970A manual's rule for a range that spans slots.
@@ -146,16 +154,17 @@ def parse_channel_list(raw: bytes, exists: Callable[[int], bool] | None = None) 
             hi = int(last.strip()) if sep else lo
         except ValueError:
             raise ScpiError(-102, f"bad channel {part!r}") from None
-        if hi < lo:
+        if hi < lo and not descending:
             raise ScpiError(-222, f"channel range {part!r} descends")
         if exists is not None:
             for n in (lo, hi):
                 if not exists(n):
                     raise ScpiError(-114, f"channel {n} does not exist")
-        for n in range(lo, hi + 1):
+        step = 1 if hi >= lo else -1
+        for n in range(lo, hi + step, step):
             if exists is not None and not exists(n):
                 continue  # a gap between declared channels, e.g. 121-199 of a 3-slot DAQ
-            if n in out:
+            if n in out and not repeated:
                 raise ScpiError(-108, f"channel {n} is given twice")
             out.append(n)
     return out
@@ -199,6 +208,29 @@ def format_float(
     mantissa, exp = f"{a:.{digits}E}".split("E")
     e = int(exp)
     return f"{lead}{mantissa}E{'+' if e >= 0 else '-'}{abs(e):0{exponent_digits}d}".encode()
+
+
+_SI = {12: "T", 9: "G", 6: "M", 3: "k", 0: "", -3: "m", -6: "u", -9: "n", -12: "p"}
+
+
+def format_si(v: float, significant: int = 9, unit: str = "", *, sign: bool = False) -> bytes:
+    """A number with an SI prefix and a unit, ``significant`` digits in all (#289): ``4.00000000MHz``
+    (9), ``1.50000000000GHz`` (12), ``400.000000MHz`` (9). The prefix is the one that puts the
+    mantissa in [1, 1000); infinity and NaN fall back to the SCPI sentinels in NR3."""
+    v = float(v)
+    if not math.isfinite(v):
+        return format_float(v)
+    lead = "-" if v < 0 else ("+" if sign else "")
+    a = abs(v)
+    exp3 = 0 if a == 0 else max(-12, min(12, math.floor(math.log10(a) / 3) * 3))
+    for _ in range(2):  # rounding can carry the mantissa to 1000: take the next prefix
+        m = a / 10.0**exp3
+        whole = len(str(int(m))) if m >= 1 else 1
+        text = f"{m:.{max(0, significant - whole)}f}"
+        if float(text) < 1000 or exp3 >= 12:
+            break
+        exp3 += 3
+    return f"{lead}{text}{_SI[exp3]}{unit}".encode()
 
 
 def format_engineering(v: float) -> bytes:

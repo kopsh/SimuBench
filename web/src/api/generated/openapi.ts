@@ -1307,6 +1307,24 @@ export interface components {
             instruments: components["schemas"]["DefinitionSummary"][];
         };
         /**
+         * ChannelListRules
+         * @description What a channel list parameter accepts beyond the default, per the manual (#260).
+         */
+        ChannelListRules: {
+            /**
+             * Descending
+             * @description A descending range (@2:1) is accepted and expands in its written order (2, 1), as the B2900 manual lists; false: -222
+             * @default false
+             */
+            descending: boolean;
+            /**
+             * Repeated
+             * @description A channel may appear more than once, answered each time; false: -108
+             * @default false
+             */
+            repeated: boolean;
+        };
+        /**
          * ChannelNumbering
          * @description One block of channel numbers: ``first`` .. ``first + count - 1``, numbers SCPI uses.
          */
@@ -1329,6 +1347,8 @@ export interface components {
              * @default 1
              */
             count: number;
+            /** @description Channel list parameters (@…): whether descending ranges and repeated channels are accepted (#260) */
+            lists?: components["schemas"]["ChannelListRules"];
             /**
              * Numbering
              * @description The numbers SCPI uses for the channels, when they are not 1..count: blocks in channel order, e.g. a 3-slot DAQ's 101-120, 201-220, 301-320. State paths and channels.overrides keep the channel index (1..count).
@@ -1345,6 +1365,11 @@ export interface components {
                     };
                 };
             };
+            /**
+             * Selected
+             * @description An int setting holding the selected output's channel number (INSTrument:SELect / NSELect, #295): a channel list parameter left out uses it instead of the parameter's default
+             */
+            selected?: string | null;
         };
         /**
          * ClientInfo
@@ -1462,7 +1487,7 @@ export interface components {
             } | null;
             /**
              * Writes
-             * @description Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win)
+             * @description Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win). On an operation's command they are written before the operation runs (#308: MEASure:CURRent? selects the current function, as the instrument does)
              */
             writes?: {
                 [key: string]: unknown;
@@ -2804,17 +2829,44 @@ export interface components {
              */
             duplicate_unit_error: number;
             /**
+             * Echo
+             * @description Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)
+             * @default true
+             */
+            echo: boolean;
+            /**
              * Index
-             * @description An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)
+             * @description An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1). A set takes it at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2); a query takes the index parameters alone, in order
              * @default false
              */
             index: boolean;
+            /**
+             * Index Default
+             * @description An optional index's value when it is left out: a number, or a $setting whose value (an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]
+             */
+            index_default?: number | string | null;
+            /**
+             * Index Words
+             * @description An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} for :VIEW CHANnel2; the query answer echoes the word's short form
+             */
+            index_words?: {
+                [key: string]: number;
+            } | null;
             /**
              * Keys
              * @description type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set
              */
             keys?: {
                 [key: string]: string | null;
+            } | null;
+            /**
+             * Keywords
+             * @description Settings a keyword argument writes in place of the parameter's own value, keyed by MIN, MAX, DEF or a special word, e.g. {MIN: {sense.nplc: 100, sense.resolution: 0}} for a resolution argument whose MIN selects the finest integration time; the parameter's own setting is written only when the table names it
+             */
+            keywords?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
             } | null;
             /** Max */
             max?: number | null;
@@ -3083,11 +3135,11 @@ export interface components {
             integer: "plain" | "signed" | "engineering";
             /**
              * Number
-             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa)
+             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289)
              * @default nr3
              * @enum {string}
              */
-            number: "nr3" | "nr2" | "nr1" | "engineering";
+            number: "nr3" | "nr2" | "nr1" | "engineering" | "si";
             /**
              * Sign
              * @description Write '+' before non-negative numbers
@@ -3099,6 +3151,11 @@ export interface components {
              * @description engineering with this many significant digits, signed and with exponent_digits: +40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own
              */
             significant?: number | null;
+            /**
+             * Unit
+             * @description number: si — the unit written after the prefix, e.g. Hz (default: the setting's)
+             */
+            unit?: string | null;
         };
         /** RestoreBenchRequest */
         RestoreBenchRequest: {
@@ -3288,15 +3345,47 @@ export interface components {
             source: "ui" | "agent" | "api";
         };
         /**
+         * ScopeMeasurement
+         * @description One channel's automatic measurements on the record the screen shows (#280), taken by the
+         *     scope's own measurement rules, so they agree with its :MEASure? replies on the same record.
+         *     None: not measurable (fewer cycles than a period needs, a clipped record).
+         */
+        ScopeMeasurement: {
+            /** Channel */
+            channel: number;
+            /** Frequency */
+            frequency: number | null;
+            /** Mean */
+            mean: number | null;
+            /** Period */
+            period: number | null;
+            /** Rms */
+            rms: number | null;
+            /** Vmax */
+            vmax: number | null;
+            /** Vmin */
+            vmin: number | null;
+            /** Vpp */
+            vpp: number | null;
+        };
+        /**
          * ScopeScreen
          * @description What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:
          *     noise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition.
          */
         ScopeScreen: {
-            /** Acquisitions */
+            /**
+             * Acquisitions
+             * @description Acquisitions taken (commands, single, a stop); a running screen draws live frames, which are not acquisitions
+             */
             acquisitions: number;
             /** Instrument */
             instrument: string;
+            /**
+             * Measurements
+             * @description Per displayed channel, on the record shown (#280)
+             */
+            measurements: components["schemas"]["ScopeMeasurement"][];
             /**
              * Running
              * @description Running in an auto or normal mode: the screen follows the signal
@@ -3725,6 +3814,13 @@ export interface components {
              */
             readonly: boolean;
             /**
+             * Replies
+             * @description Enum: the word a query answers for an option, when the instrument answers with a different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR reads back CC (#268); options not listed answer as usual
+             */
+            replies?: {
+                [key: string]: string;
+            } | null;
+            /**
              * Rst
              * @description Value after *RST; defaults to `default`
              */
@@ -3740,7 +3836,7 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "float" | "int" | "bool" | "enum" | "string" | "int_list";
+            type: "float" | "int" | "bool" | "enum" | "string" | "int_list" | "enum_list";
             /**
              * Unit
              * @description Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM

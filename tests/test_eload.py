@@ -152,6 +152,32 @@ def test_an_unsettled_loop_is_a_run_record_event_and_not_regulating(open_):
     assert not s.unsettled
 
 
+def test_the_questionable_condition_register_carries_the_unregulated_bit(open_):
+    """#343: a SCPI script sees the unsettled loop — STAT:QUES:COND? bit 10 (UNR) — and the bit
+    clears once a reachable setpoint settles."""
+    unr = 1 << 10
+    s = open_(source_v=10.0, source_r=1.0)
+    q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:INP ON")
+    assert q(s, ":STAT:QUES:COND?") == "0"
+    q(s, ":SOUR:POW 30")  # beyond the 25 W the source can give
+    assert int(q(s, ":STAT:QUES:COND?")) & unr
+    q(s, ":SOUR:POW 20")
+    assert q(s, ":STAT:QUES:COND?") == "0"
+    q(s, ":INP OFF")
+    assert q(s, ":STAT:QUES:COND?") == "0"  # an open input regulates nothing: no UNR
+
+
+def test_the_unregulated_bit_follows_the_knee_and_a_trip_sets_its_own_bit(open_):
+    s = open_(source_v=5e-5)  # below the CC knee: the minimum resistance holds the sink
+    q(s, ":SOUR:FUNC CC;:SOUR:CURR 0.002;:INP ON")
+    assert int(q(s, ":STAT:QUES:COND?")) == 1 << 10
+    s = open_(source_r=0.1)
+    q(s, ":SOUR:FUNC CC;:SOUR:CURR 2;:SOUR:OCP 1.5;:INP ON")
+    assert int(q(s, ":STAT:QUES:COND?")) == 1 << 1  # OC; the tripped input is not unregulated
+    q(s, ":SOUR:CURR 0.5;:SYST:PROT:CLE")
+    assert q(s, ":STAT:QUES:COND?") == "0"
+
+
 # ---- Von and the CC slew rate ------------------------------------------------------------------------
 
 
