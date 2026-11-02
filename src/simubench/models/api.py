@@ -719,7 +719,7 @@ class Event(_Model):
     t_ns: int
     kind: str = Field(
         ...,
-        description="scpi | state | advance | error | fault | acquisition | panel | remote | session",
+        description="scpi | state | advance | error | fault | acquisition | panel | remote | session | solver",
     )
     instrument: str | None = None
     dir: Literal["write", "read"] | None = None
@@ -739,7 +739,7 @@ class Event(_Model):
         None,
         description="For error and ignored events: why the command was not executed — not_modeled | "
         "not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). "
-        "Fault and advance events carry their own kind-specific reason",
+        "Fault, advance and solver events carry their own kind-specific reason (solver: unsettled, D52)",
     )
     wall: float | None = None
     header: str | None = Field(None, description="The header that was ignored, for ignored events")

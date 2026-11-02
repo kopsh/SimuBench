@@ -23,7 +23,7 @@ export type Fault = string | null;
 export type Header = string | null;
 export type Instrument = string | null;
 /**
- * scpi | state | advance | error | fault | acquisition | panel | remote | session
+ * scpi | state | advance | error | fault | acquisition | panel | remote | session | solver
  */
 export type Kind = string;
 export type Message = string | null;
@@ -45,7 +45,7 @@ export type Query = boolean | null;
  */
 export type Range = string | null;
 /**
- * For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault and advance events carry their own kind-specific reason
+ * For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault, advance and solver events carry their own kind-specific reason (solver: unsettled, D52)
  */
 export type Reason = string | null;
 export type Seq = number;
