@@ -259,6 +259,11 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                     )
             if ps.type == "quantities":
                 _check_quantities(d, ps, per_channel, _ptr(*p, "params", k), cmd.header, report)
+            for state, value in (ps.sets or {}).items():
+                for ref in _expand(state, indexes):
+                    _check_write(
+                        d, ref, value, per_channel, _ptr(*p, "params", k, "sets", state), cmd.header, report
+                    )
         if cmd.reply is not None:
             fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
             _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
@@ -498,7 +503,9 @@ def _check_write(
     elif spec.type in ("float", "int"):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             problem = f"{path!r} is a number; {value!r} is not one"
-        elif (spec.min is not None and value < spec.min) or (spec.max is not None and value > spec.max):
+        elif (
+            (spec.min is not None and value < spec.min) or (spec.max is not None and value > spec.max)
+        ) and not any(value == v for v in (spec.special or {}).values()):  # AUTO and the like
             problem = f"{value!r} is outside {spec.min} .. {spec.max}"
     if problem:
         hint = f"可选值：{', '.join(spec.options or [])}" if spec.type == "enum" else None
