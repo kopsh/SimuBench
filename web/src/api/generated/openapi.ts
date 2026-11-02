@@ -3117,11 +3117,11 @@ export interface components {
             integer: "plain" | "signed" | "engineering";
             /**
              * Number
-             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa)
+             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289)
              * @default nr3
              * @enum {string}
              */
-            number: "nr3" | "nr2" | "nr1" | "engineering";
+            number: "nr3" | "nr2" | "nr1" | "engineering" | "si";
             /**
              * Sign
              * @description Write '+' before non-negative numbers
@@ -3133,6 +3133,11 @@ export interface components {
              * @description engineering with this many significant digits, signed and with exponent_digits: +40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own
              */
             significant?: number | null;
+            /**
+             * Unit
+             * @description number: si — the unit written after the prefix, e.g. Hz (default: the setting's)
+             */
+            unit?: string | null;
         };
         /** RestoreBenchRequest */
         RestoreBenchRequest: {

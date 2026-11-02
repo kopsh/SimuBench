@@ -50,6 +50,8 @@ format:
   enum: short
 ```
 
+**数值也可以按手册写成 SI 前缀加单位（#289）：`format: {number: si, significant: 9, unit: Hz}` 把 4 MHz 回成 `4.00000000MHz`、400 MHz 回成 `400.000000MHz`（有效数字合计 `significant` 位，前缀取使尾数落在 1–1000 的那一档，舍入进位到 1000 时换下一档；`unit` 不写时用设置的单位）。百分比参数把设置的 `unit` 写成 `PCT`：`80` 与 `80%` 都写入 80，回读按原格式。
+
 **枚举列表** `type: enum_list`（#252）：一个设置保存几项选项，如读数元素 `:FORM:ELEM:SENS VOLT,CURR`。写入接受逗号分隔的多个词（长短形式均可），按 `options` 的顺序保存与回读，与写入顺序无关；不认识的词报 -224，原值不变。操作命令的 `args` 可以写 `$<设置路径>`，执行时取该设置的当前值：B2901A 的 `MEASure?`、`FETCh:ARRay?` 等写 `args: {elements: $format.elements.sense}`，回的元素随 `:FORM:ELEM:SENS` 变化。
 
 枚举的查询回复默认是选项的短格式（`enum: short`）或定义里的写法（`as_defined`）。仪表的回复词与它接受的设置词不同时，在状态上写 `replies`，按选项给出回复词，未列出的选项照常回复。例如 DL3021 的 `:FUNC CURRent` 查询回 `CC`（#268）：

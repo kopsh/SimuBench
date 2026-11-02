@@ -248,10 +248,14 @@ class ResponseFormat(_Model):
     The defaults are what ``sb-*`` instruments have always returned, e.g. ``+1.000000E+03``.
     """
 
-    number: Literal["nr3", "nr2", "nr1", "engineering"] = Field(
+    number: Literal["nr3", "nr2", "nr1", "engineering", "si"] = Field(
         "nr3",
         description="nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, "
-        "200E-3 (exponent a multiple of 3, shortest mantissa)",
+        "200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` "
+        "digits with an SI prefix and `unit` (#289)",
+    )
+    unit: str | None = Field(
+        None, description="number: si — the unit written after the prefix, e.g. Hz (default: the setting's)"
     )
     digits: int = Field(6, ge=0, le=17, description="Digits after the decimal point (nr3 mantissa, nr2)")
     significant: int | None = Field(

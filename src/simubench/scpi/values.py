@@ -210,6 +210,29 @@ def format_float(
     return f"{lead}{mantissa}E{'+' if e >= 0 else '-'}{abs(e):0{exponent_digits}d}".encode()
 
 
+_SI = {12: "T", 9: "G", 6: "M", 3: "k", 0: "", -3: "m", -6: "u", -9: "n", -12: "p"}
+
+
+def format_si(v: float, significant: int = 9, unit: str = "", *, sign: bool = False) -> bytes:
+    """A number with an SI prefix and a unit, ``significant`` digits in all (#289): ``4.00000000MHz``
+    (9), ``1.50000000000GHz`` (12), ``400.000000MHz`` (9). The prefix is the one that puts the
+    mantissa in [1, 1000); infinity and NaN fall back to the SCPI sentinels in NR3."""
+    v = float(v)
+    if not math.isfinite(v):
+        return format_float(v)
+    lead = "-" if v < 0 else ("+" if sign else "")
+    a = abs(v)
+    exp3 = 0 if a == 0 else max(-12, min(12, math.floor(math.log10(a) / 3) * 3))
+    for _ in range(2):  # rounding can carry the mantissa to 1000: take the next prefix
+        m = a / 10.0**exp3
+        whole = len(str(int(m))) if m >= 1 else 1
+        text = f"{m:.{max(0, significant - whole)}f}"
+        if float(text) < 1000 or exp3 >= 12:
+            break
+        exp3 += 3
+    return f"{lead}{text}{_SI[exp3]}{unit}".encode()
+
+
 def format_engineering(v: float) -> bytes:
     """Engineering notation, shortest mantissa: ``200E-3``, ``10E+3``, ``1.5E+0`` (LeCroy-style replies)."""
     v = float(v)

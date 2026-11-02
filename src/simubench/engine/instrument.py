@@ -1363,6 +1363,8 @@ class Instrument:
         if st.type == "float":
             if st.special and value in st.special.values() and not math.isfinite(value):
                 return next(k for k, v in st.special.items() if v == value).encode()
+            if f.number == "si":
+                return V.format_si(value, f.significant or 9, f.unit or st.unit or "", sign=f.sign)
             if f.number == "engineering":
                 if f.significant:
                     return V.format_engineering_digits(
