@@ -442,8 +442,26 @@ class ChannelNumbering(_Model):
     count: int = Field(..., ge=1, description="How many channels the block has, e.g. 20")
 
 
+class ChannelListRules(_Model):
+    """What a channel list parameter accepts beyond the default, per the manual (#260)."""
+
+    descending: bool = Field(
+        False,
+        description="A descending range (@2:1) is accepted and expands in its written order (2, 1), "
+        "as the B2900 manual lists; false: -222",
+    )
+    repeated: bool = Field(
+        False, description="A channel may appear more than once, answered each time; false: -108"
+    )
+
+
 class Channels(_Model):
     count: int = 1
+    lists: ChannelListRules = Field(
+        default_factory=ChannelListRules,
+        description="Channel list parameters (@…): whether descending ranges and repeated channels "
+        "are accepted (#260)",
+    )
     numbering: list[ChannelNumbering] = Field(
         default_factory=list,
         description="The numbers SCPI uses for the channels, when they are not 1..count: blocks in "

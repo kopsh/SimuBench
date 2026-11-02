@@ -1142,7 +1142,7 @@ class Instrument:
         for ps in spec.params:
             if ps.type == "channel_list":
                 if raw:
-                    numbers = V.parse_channel_list(raw.pop(0), self.channel_exists)
+                    numbers = V.parse_channel_list(raw.pop(0), self.channel_exists, **self._list_rules())
                 elif ps.optional:
                     numbers = ps.default or [self.channel_number(1)]
                 else:
@@ -1284,6 +1284,11 @@ class Instrument:
         """The setting at ``path`` as the definition formats replies."""
         return self._format(self.specs[path], self.state[path])
 
+    def _list_rules(self) -> dict[str, bool]:
+        """The definition's channel list rules (#260): descending ranges, repeated channels."""
+        rules = self.definition.channels.lists
+        return {"descending": rules.descending, "repeated": rules.repeated}
+
     @staticmethod
     def _keyword_writes(ps: ParamSpec, raw: bytes) -> dict[str, Any] | None:
         """The settings a parameter's ``keywords`` table gives for this argument, if it names it."""
@@ -1316,7 +1321,9 @@ class Instrument:
         if st.type == "int_list":
             # A declared channel numbering is the list's domain too (#207); without one the
             # state's own min/max check the numbers, as before.
-            return V.parse_channel_list(raw, self.channel_exists if self._channels_by_number else None)
+            return V.parse_channel_list(
+                raw, self.channel_exists if self._channels_by_number else None, **self._list_rules()
+            )
         return V.parse_string(raw)
 
     def format_number(self, value: float) -> bytes:
@@ -1421,7 +1428,7 @@ class Instrument:
         for ps in specs:
             if ps.type == "channel_list":
                 if i < len(raw):
-                    numbers = V.parse_channel_list(raw[i], self.channel_exists)
+                    numbers = V.parse_channel_list(raw[i], self.channel_exists, **self._list_rules())
                     i += 1
                 elif ps.optional:
                     numbers = ps.default or [self.channel_number(1)]

@@ -688,6 +688,26 @@
         "title": "Catalog",
         "type": "object"
       },
+      "ChannelListRules": {
+        "additionalProperties": false,
+        "description": "What a channel list parameter accepts beyond the default, per the manual (#260).",
+        "properties": {
+          "descending": {
+            "default": false,
+            "description": "A descending range (@2:1) is accepted and expands in its written order (2, 1), as the B2900 manual lists; false: -222",
+            "title": "Descending",
+            "type": "boolean"
+          },
+          "repeated": {
+            "default": false,
+            "description": "A channel may appear more than once, answered each time; false: -108",
+            "title": "Repeated",
+            "type": "boolean"
+          }
+        },
+        "title": "ChannelListRules",
+        "type": "object"
+      },
       "ChannelNumbering": {
         "additionalProperties": false,
         "description": "One block of channel numbers: ``first`` .. ``first + count - 1``, numbers SCPI uses.",
@@ -719,6 +739,10 @@
             "default": 1,
             "title": "Count",
             "type": "integer"
+          },
+          "lists": {
+            "$ref": "#/components/schemas/ChannelListRules",
+            "description": "Channel list parameters (@…): whether descending ranges and repeated channels are accepted (#260)"
           },
           "numbering": {
             "description": "The numbers SCPI uses for the channels, when they are not 1..count: blocks in channel order, e.g. a 3-slot DAQ's 101-120, 201-220, 301-320. State paths and channels.overrides keep the channel index (1..count).",

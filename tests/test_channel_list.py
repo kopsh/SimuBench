@@ -46,6 +46,15 @@ def test_a_descending_range_is_an_error():
     assert e.value.code == -222
 
 
+def test_a_declared_descending_range_and_repeat_expand_in_written_order():
+    """#260: the B2900 manual lists (@2:1); a definition may declare it (and repeats)."""
+    assert parse_channel_list(b"(@3:1)", descending=True) == [3, 2, 1]
+    assert parse_channel_list(b"(@1,2,1)", repeated=True) == [1, 2, 1]
+    with pytest.raises(ScpiError) as e:
+        parse_channel_list(b"(@1,2,1)", descending=True)  # repeats stay an error unless declared
+    assert e.value.code == -108
+
+
 @pytest.mark.parametrize("text", ["(@)", "(1:3)", "(@1:3", "1:3", "(@a)"])
 def test_a_malformed_list_is_an_error(text):
     with pytest.raises(ScpiError) as e:
@@ -140,6 +149,27 @@ def test_a_query_answers_the_channels_in_list_order():
     assert query("VOLT? (@3,1)") == "+3.000000E+00,+1.000000E+00"
     # the list may be left out where the definition says so: it defaults to channel 1
     assert query("VOLT?") == "+1.000000E+00"
+
+
+def test_a_definition_declares_descending_ranges_for_writes_and_queries():
+    """#260: with channels.lists.descending, (@2:1) writes and answers channel 2 then 1; the
+    default definition still refuses it (-222)."""
+    import copy
+
+    data = copy.deepcopy(PSU)
+    data["channels"]["lists"] = {"descending": True, "repeated": True}
+    session, query = open_definition(data)
+    query("VOLT 2,(@3:2)")
+    assert session.instruments["x"].get_state("ch2.volt") == 2.0
+    assert session.instruments["x"].get_state("ch3.volt") == 2.0
+    session.instruments["x"].set_state("ch1.volt", 1.0)
+    assert query("VOLT? (@2:1)") == "+2.000000E+00,+1.000000E+00"
+    assert query("VOLT? (@1,2,1)") == "+1.000000E+00,+2.000000E+00,+1.000000E+00"
+    assert query("SYST:ERR?") == '0,"No error"'
+
+    _, query = open_psu()
+    assert query("VOLT? (@2:1)") == ""
+    assert query("SYST:ERR?").startswith("-222")
 
 
 def test_a_query_form_returns_each_channels_limit_or_default():
