@@ -58,13 +58,21 @@ class SmuSource(Component):
     limit for the level in use (:meth:`limit_cap`), so the envelope follows a sweep point too.
     """
 
-    units = {"source_range": "V"}
+    units = {
+        "source_range": "V",  # legacy: both functions
+        "source_range_voltage": "V",
+        "source_range_current": "A",
+    }
     defaults = {
         "source_ranges": {
             "VOLTage": [2.1, 21.0, 210.0]
         },  # full-scale value of each source range, per function
-        "source_range": None,  # manual source range: a value the range must be able to source
-        "source_autorange": True,  # the source range follows the level
+        "source_range": None,  # legacy manual range for both functions (new definitions bind per function)
+        "source_range_voltage": None,  # manual voltage-source range
+        "source_range_current": None,  # manual current-source range
+        "source_autorange": True,  # legacy: both functions follow the level
+        "source_autorange_voltage": None,  # per-function autorange; None falls back to source_autorange
+        "source_autorange_current": None,  # per-function autorange; None falls back to source_autorange
         "range_limits": {"VOLTage": {2.1: 1.05, 21.0: 1.05, 210.0: 0.105}},  # limit cap per range
         "sweep_mode": "NONE",  # NONE | LINear | LOGarithmic | LIST
         "sweep_function": "VOLTage",  # VOLTage | CURRent: what a sweep varies
@@ -75,14 +83,23 @@ class SmuSource(Component):
         "sweep_list": "",  # comma-separated levels of a LIST sweep
     }
 
+    def _per_function(self, function: str, key: str, legacy: str) -> Any:
+        """The per-function setting, or the legacy shared one when it is not bound."""
+        value = self.param(f"{key}_{'voltage' if function.lower().startswith('v') else 'current'}")
+        return self.param(legacy) if value is None else value
+
+    def manual_source_range(self, function: str) -> Any:
+        return self._per_function(function, "source_range", "source_range")
+
     def source_range(self, function: str, level: float) -> float | None:
         """The source range in use for a function at a level (None: the function does not range):
-        the manual setting's, or the auto one, which follows the level."""
+        the manual setting's, or the auto one, which follows the level. The manual range and the
+        autorange are each kept per function (voltage and current do not move one another)."""
         ranges = ranges_of(self.param("source_ranges"), function)
         if not ranges:
             return None
-        if not _flag(self.param("source_autorange")):
-            return range_of_setting(ranges, self.param("source_range"))
+        if not _flag(self._per_function(function, "source_autorange", "source_autorange")):
+            return range_of_setting(ranges, self.manual_source_range(function))
         return fitting_range(ranges, abs(level))
 
     def limit_cap(self, function: str, level: float) -> float | None:

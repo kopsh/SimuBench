@@ -138,18 +138,32 @@ state:
     default: 0.0
     label: 电流设定
     label_en: Current level
-  source.range:
+  source.range_voltage:
     type: float
-    min: 1.0e-7
+    unit: V
+    min: 0.2
     max: 200.0
     default: 2.0
-    label: 源量程
-    label_en: Source range
-  source.autorange:
+    label: 电压源量程
+    label_en: Voltage source range
+  source.range_current:
+    type: float
+    unit: A
+    min: 1.0e-7
+    max: 3.0
+    default: 1.0e-4
+    label: 电流源量程
+    label_en: Current source range
+  source.autorange_voltage:
     type: bool
     default: true
-    label: 源自动量程
-    label_en: Source auto range
+    label: 电压源自动量程
+    label_en: Voltage source auto range
+  source.autorange_current:
+    type: bool
+    default: true
+    label: 电流源自动量程
+    label_en: Current source auto range
   source.shape:
     type: enum
     options: [DC]
@@ -357,8 +371,10 @@ components:
       range_limits:
         VOLTage: {0.2: 3.03, 2.0: 3.03, 20.0: 1.515, 200.0: 0.105}
         CURRent: {1.0e-7: 210.0, 1.0e-6: 210.0, 1.0e-5: 210.0, 1.0e-4: 210.0, 1.0e-3: 210.0, 1.0e-2: 210.0, 0.1: 210.0, 1.0: 21.0, 1.5: 21.0, 3.0: 6.0}
-      source_range: $source.range
-      source_autorange: $source.autorange
+      source_range_voltage: $source.range_voltage
+      source_range_current: $source.range_current
+      source_autorange_voltage: $source.autorange_voltage
+      source_autorange_current: $source.autorange_current
       sweep_mode: {from: $sweep.mode, map: {FIXed: NONE, SWEep: LINear}}
       sweep_function: VOLTage
       sweep_start: $sweep.start
@@ -444,16 +460,16 @@ commands:
     state: source.current.level
   - header: "[:SOURce]:VOLTage:RANGe"
     params:
-      - {name: range, type: float, state: source.range}
-    writes: {source.autorange: false}
+      - {name: range, type: float, unit: V, min: 0.2, max: 200.0, state: source.range_voltage}
+    writes: {source.autorange_voltage: false}
   - header: "[:SOURce]:CURRent:RANGe"
     params:
-      - {name: range, type: float, state: source.range}
-    writes: {source.autorange: false}
+      - {name: range, type: float, unit: A, min: 1.0e-7, max: 3.0, state: source.range_current}
+    writes: {source.autorange_current: false}
   - header: "[:SOURce]:VOLTage:RANGe:AUTO"
-    state: source.autorange
+    state: source.autorange_voltage
   - header: "[:SOURce]:CURRent:RANGe:AUTO"
-    state: source.autorange
+    state: source.autorange_current
   - header: "[:SOURce]:VOLTage:MODE"
     state: sweep.mode
   - header: "[:SOURce]:VOLTage:STARt"
