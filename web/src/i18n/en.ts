@@ -291,6 +291,7 @@ export const en: Widen<Messages> = {
     display: "Display and detector",
   },
   smu: {
+    overflow: "OVRFLO",
     source: "Source",
     limits: "Limits",
     measure: "Measure",

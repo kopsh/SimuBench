@@ -34,8 +34,9 @@ function PartNodeImpl({ data, selected }: NodeProps<PartNodeType>) {
         <CircuitBoard className="text-muted-foreground size-4 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] leading-tight font-medium">{part.label || part.name}</div>
-          <div className="text-muted-foreground num truncate text-[11px] leading-tight">
-            {part.dut ? "DUT" : t("workbench.part")} · {part.type}
+          {/* The DUT badge already says DUT: the subtitle keeps its width for the type (#277). */}
+          <div className="text-muted-foreground num truncate text-[11px] leading-tight" title={part.type}>
+            {part.dut ? part.type : `${t("workbench.part")} · ${part.type}`}
           </div>
         </div>
         {part.dut && <DutBadge />}

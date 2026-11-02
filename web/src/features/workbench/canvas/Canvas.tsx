@@ -235,8 +235,10 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
     };
   }, [flow]);
 
+  // Opening a bench fits it at a zoom where the node text stays readable (not below 0.93, so
+  // 13 px titles stay ≥ 12 px) and no larger than life, the same for every bench (#277).
   useEffect(() => {
-    const id = window.setTimeout(() => flow.fitView({ padding: 0.25, duration: 0 }), 0);
+    const id = window.setTimeout(() => flow.fitView({ padding: 0.08, minZoom: 0.93, maxZoom: 1, duration: 0 }), 0);
     return () => window.clearTimeout(id);
   }, [flow, view.id]);
 

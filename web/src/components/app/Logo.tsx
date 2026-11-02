@@ -1,6 +1,8 @@
+import { cn } from "@/lib/utils";
+
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={className} aria-label="SimuBench">
+    <span className={cn("whitespace-nowrap", className)} aria-label="SimuBench">
       <svg viewBox="0 0 32 32" className="inline-block size-5 align-[-4px]" aria-hidden>
         <rect width="32" height="32" rx="7" fill="currentColor" className="text-foreground" />
         <path

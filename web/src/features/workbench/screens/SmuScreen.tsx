@@ -73,7 +73,8 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
           <span className="num rounded border px-1.5 py-0.5 text-[11px] font-semibold" data-testid="smu-regulation">
             {regulation}
           </span>
-          <Chip on={limited} tone="warn">
+          {/* A limit holds the terminal only while the output is on (#278). */}
+          <Chip on={on && limited} tone="warn">
             {forcingVoltage ? t("smu.currentLimit") : t("smu.voltageLimit")}
           </Chip>
           <span className="text-muted-foreground num ml-auto">
@@ -81,10 +82,21 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
           </span>
         </header>
         <div className="grid grid-cols-2 divide-x divide-y md:grid-cols-4 md:divide-y-0" aria-live="polite">
-          <Readout label={t("smu.voltage")} value={volts} unit="V" strong={forcingVoltage === limited} digits={6} testId="V" />
-          <Readout label={t("smu.current")} value={amps} unit="A" strong={forcingVoltage !== limited} digits={6} testId="I" />
-          <Readout label={t("smu.resistance")} value={amps !== 0 ? volts / amps : 0} unit="Ω" digits={5} testId="R" />
-          <Readout label={t("smu.power")} value={volts * amps} unit="W" digits={4} testId="P" />
+          {/* Fixed digits with the sign, as the instrument's display shows them; with no current the
+              resistance has no value (the instrument reads 9.91E+37), not 0 Ω (#278). */}
+          <Readout label={t("smu.voltage")} value={volts} unit="V" strong={forcingVoltage === limited} digits={6} fixed signed testId="V" />
+          <Readout label={t("smu.current")} value={amps} unit="A" strong={forcingVoltage !== limited} digits={6} fixed signed testId="I" />
+          <Readout
+            label={t("smu.resistance")}
+            value={amps !== 0 ? volts / amps : 0}
+            unit="Ω"
+            digits={5}
+            fixed
+            signed
+            overflow={amps === 0 ? t("smu.overflow") : undefined}
+            testId="R"
+          />
+          <Readout label={t("smu.power")} value={volts * amps} unit="W" digits={5} fixed signed testId="P" />
         </div>
         <footer className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 border-t px-3 py-2 text-[11px]">
           <span>

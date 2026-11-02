@@ -10,6 +10,71 @@ export function shortForm(word: string): string {
   return s || word.toUpperCase();
 }
 
+/**
+ * The words SCPI settings commonly take, in the panel's language (#281): a setting without its own
+ * option_labels shows "正弦 SIN", not the raw mnemonic "SIN SINusoid". Keyed by the short form.
+ */
+const WORDS: Record<string, [string, string]> = {
+  SIN: ["正弦", "Sine"],
+  SINE: ["正弦", "Sine"],
+  SQU: ["方波", "Square"],
+  SQUARE: ["方波", "Square"],
+  RAMP: ["锯齿波", "Ramp"],
+  PULS: ["脉冲", "Pulse"],
+  PULSE: ["脉冲", "Pulse"],
+  NOIS: ["噪声", "Noise"],
+  NOISE: ["噪声", "Noise"],
+  ARB: ["任意波", "Arbitrary"],
+  IMM: ["立即", "Immediate"],
+  BUS: ["总线", "Bus"],
+  EXT: ["外部", "External"],
+  INT: ["内部", "Internal"],
+  CENT: ["居中", "Center"],
+  LEFT: ["左", "Left"],
+  RIGH: ["右", "Right"],
+  POS: ["上升沿", "Rising"],
+  NEG: ["下降沿", "Falling"],
+  EITH: ["双沿", "Either"],
+  RIS: ["上升沿", "Rising"],
+  FALL: ["下降沿", "Falling"],
+  EDGE: ["边沿", "Edge"],
+  AUTO: ["自动", "Auto"],
+  NORM: ["正常", "Normal"],
+  SING: ["单次", "Single"],
+  MAIN: ["主时基", "Main"],
+  AVER: ["平均", "Average"],
+  PEAK: ["峰值", "Peak"],
+  SAMP: ["采样", "Sample"],
+  RMS: ["有效值", "RMS"],
+  LIN: ["线性", "Linear"],
+  LOG: ["对数", "Logarithmic"],
+  FIX: ["固定", "Fixed"],
+  SWE: ["扫描", "Sweep"],
+  LIST: ["列表", "List"],
+  HIGH: ["高", "High"],
+  LOW: ["低", "Low"],
+  VOLT: ["电压", "Voltage"],
+  VOLTAC: ["交流电压", "AC voltage"],
+  CURR: ["电流", "Current"],
+  FREQ: ["频率", "Frequency"],
+  PER: ["周期", "Period"],
+  TOT: ["累加", "Totalize"],
+  TINT: ["时间间隔", "Time interval"],
+  LINE: ["电源线", "Line"],
+  MAXH: ["最大保持", "Max hold"],
+  WRIT: ["刷新", "Clear/write"],
+  ERES: ["高分辨率", "High resolution"],
+};
+
+/** A setting's option as the panel shows it: its own label, a common word, or the short form. */
+export function optionLabel(v: Pick<StateVarInfo, "option_labels">, option: string): string {
+  const own = v.option_labels?.[option];
+  if (own) return own;
+  const word = WORDS[shortForm(option)];
+  if (word) return i18n.language === "en" ? word[1] : word[0];
+  return shortForm(option);
+}
+
 export function stateMap(inst: InstrumentInfo): Map<string, StateVarInfo> {
   return new Map(inst.state.map((s) => [s.path, s]));
 }

@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { displayUnit, engParts, parseEngineering } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { labelOf, numeric, shortForm } from "./model";
+import { labelOf, numeric, optionLabel, shortForm } from "./model";
 
 interface Props {
   sid: string;
@@ -79,8 +79,9 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
         <SelectContent>
           {(v.options ?? []).map((o) => (
             <SelectItem key={o} value={o} className="num text-xs">
-              {v.option_labels?.[o] ?? shortForm(o)}{" "}
-              <span className="text-muted-foreground">{o !== shortForm(o) && !v.option_labels?.[o] ? o : ""}</span>
+              {optionLabel(v, o)}{" "}
+              {/* The mnemonic a script sends, beside the plain word (#281). */}
+              <span className="text-muted-foreground">{optionLabel(v, o) !== shortForm(o) ? shortForm(o) : ""}</span>
             </SelectItem>
           ))}
         </SelectContent>
@@ -152,19 +153,36 @@ function NumberInput({
   onCommit: (value: number | string) => void;
   onInvalid: () => void;
 }) {
+  const { t } = useTranslation();
   const unit = v.display_unit ?? displayUnit(v.unit);
   const n = numeric(v.value);
   const parts = engParts(n, unit, 6);
   // Counts (points, averages, harmonics) read as plain integers, not engineering notation.
-  const shown = !Number.isFinite(n) ? "INF" : v.type === "int" ? String(Math.round(n)) : `${parts.mantissa} ${parts.prefix}`;
+  const finite = Number.isFinite(n);
   // While editing, the draft is what the user types; otherwise the field shows the live value.
   const [draft, setDraft] = useState<string | null>(null);
-  const text = draft ?? shown.trim();
+  // The field reads as the value is written, "100 ms" or "1.5 kHz", the prefix next to its unit
+  // rather than split across the field ("100 m" … "s", #278). An infinite resistance is the
+  // instrument's high-impedance setting, worded as on the canvas and generator screen (#281).
+  const hiZ = !finite && displayUnit(v.unit) === "Ω";
+  const rest = !finite
+    ? hiZ
+      ? t("generator.highZ")
+      : "INF"
+    : v.type === "int"
+      ? `${Math.round(n)}${unit ? ` ${unit}` : ""}`
+      : `${parts.mantissa} ${parts.prefix}${unit}`.trim();
+  const text = draft ?? rest;
 
   const submit = () => {
     if (draft === null) return;
     setDraft(null);
-    const parsed = parseEngineering(draft);
+    let typed = draft.trim();
+    if (typed === rest) return; // focused and left without a change
+    if (typed === t("generator.highZ")) typed = "INF";
+    // The unit may be typed or kept ("2.5 kHz"); a number alone is in the base unit, as before.
+    if (unit && typed.endsWith(unit)) typed = typed.slice(0, -unit.length);
+    const parsed = parseEngineering(typed);
     if (parsed === null) {
       onInvalid();
       return;
@@ -177,7 +195,8 @@ function NumberInput({
       <Input
         value={text}
         disabled={disabled}
-        onFocus={() => setDraft(shown.trim())}
+        // Focusing does not change the text, so selecting it and typing replaces it cleanly.
+        onFocus={() => setDraft(rest)}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={submit}
         onKeyDown={(e) => {
@@ -187,10 +206,9 @@ function NumberInput({
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="num h-7 pr-8 text-right text-xs"
+        className="num h-7 text-right text-xs"
         aria-label={labelOf(v)}
       />
-      <span className="text-muted-foreground pointer-events-none absolute right-2 text-[11px]">{unit}</span>
     </div>
   );
 }

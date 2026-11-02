@@ -149,7 +149,9 @@ export function HomePage() {
                         )}
                         <Button
                           size="sm"
-                          variant={session ? "secondary" : "default"}
+                          // One primary action on the list: continuing the open bench; opening the
+                          // others is secondary, so a dozen rows are not a dozen blue buttons (#281).
+                          variant={session ? "default" : "outline"}
                           disabled={!!b.error || start.isPending}
                           onClick={() => (session ? navigate(`/s/${session.id}`) : openBench(b))}
                         >

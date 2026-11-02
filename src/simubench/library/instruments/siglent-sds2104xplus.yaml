@@ -71,10 +71,14 @@ state:
     label_en: Delay
   timebase.reference:
     type: enum
+    label: 时基参考
+    label_en: Timebase reference
     options: [DELay, POSition]
     default: DELay
   timebase.reference_position:
     type: int
+    label: 参考位置
+    label_en: Reference position
     min: 0
     max: 100
     default: 50
@@ -86,6 +90,8 @@ state:
     label_en: Trigger mode
   trigger.type:
     type: enum
+    label: 触发类型
+    label_en: Trigger type
     options: [EDGE]
     default: EDGE
   trigger.source:
@@ -141,11 +147,15 @@ state:
     label_en: Acquisition type
   acquire.average:
     type: int
+    label: 平均次数
+    label_en: Averages
     min: 4
     max: 8192
     default: 16
   acquire.eres:
     type: float
+    label: 增强分辨率位数
+    label_en: ERES bits
     min: 0.5
     max: 4.0
     default: 0.5
@@ -163,14 +173,20 @@ state:
     label_en: Memory depth
   acquire.mode:
     type: enum
+    label: 采集模式
+    label_en: Acquire mode
     options: [YT]
     default: YT
   acquire.amode:
     type: enum
+    label: 波形刷新
+    label_en: Acquisition rate mode
     options: [FAST, SLOW]
     default: FAST
   acquire.interpolation:
     type: bool
+    label: 插值
+    label_en: Interpolation
     default: true
   waveform.source:
     type: enum
@@ -186,35 +202,49 @@ state:
     label_en: Waveform width
   waveform.start:
     type: int
+    label: 波形起点
+    label_en: Waveform start
     min: 0
     max: 200000000
     default: 0
   waveform.point:
     type: int
+    label: 波形点数
+    label_en: Waveform points
     min: 0
     max: 200000000
     default: 0
   waveform.interval:
     type: int
+    label: 波形抽点间隔
+    label_en: Waveform interval
     min: 1
     max: 200000000
     default: 1
   # :WAVeform:MAXPoint?：一次可读出的最多点数（手册示例的取值）。
   waveform.maxpoint:
     type: int
+    label: 最大波形点数
+    label_en: Max waveform points
     min: 10000000
     max: 10000000
     default: 10000000
     readonly: true
   measure.state:
     type: bool
+    label: 测量开关
+    label_en: Measure
     default: false
   measure.mode:
     type: enum
+    label: 测量模式
+    label_en: Measure mode
     options: [SIMPle, ADVanced]
     default: SIMPle
   measure.source:
     type: enum
+    label: 测量信源
+    label_en: Measure source
     options: [C1, C2, C3, C4]
     default: C1
 channel_state:
@@ -269,16 +299,22 @@ channel_state:
     label_en: Display
   skew:
     type: float
+    label: 通道延迟校正
+    label_en: Skew
     unit: S
     min: -1.0e-7
     max: 1.0e-7
     default: 0.0
   unit:
     type: enum
+    label: 单位
+    label_en: Unit
     options: [V, A]
     default: V
   visible:
     type: bool
+    label: 显示
+    label_en: Visible
     default: true
 # 个体偏差（D3，metrology-authoring.md 7）：测试台 deviation: from_specs 时按种子抽取。
 # 直流增益精度 ±3%（specs.dc_gain_accuracy，EN01D）：每个 V/div 档（输入端，1X 探头）各有自己的
