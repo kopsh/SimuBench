@@ -103,7 +103,7 @@ specs:
     3: {name: N25V, voltage_v: "0 … 25.75（E36312A 正常模式；-25.75 … 0 仅 E36311A/E3631A persona）", current_a: "0.001 … 1.03", current_rst_a: 1}
   ovp_rst_v: {1: 6.6, 2: 27.5, 3: 27.5}
   ovp_rst_note: 通道 1 的设置范围 0.5–6.6 V，通道 2/3 为 1.5–27.5 V
-  current_resolution: "编程 1 mV / 0.1 mA（手册未给出读数分辨率）"
+  resolution: "手册未给出电压/电流的编程或读数分辨率，只给出编程范围与 *RST 值"
   relay_time_s: 0.01
 channels:
   count: 3

@@ -29,8 +29,7 @@ sections:
   - {header: 'CALibration:VOLTage:LEVel', level: not_modeled, note: 校准不在首波。}
 - section: CURRent Subsystem
   commands:
-  - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15
-      A（CH1）/1.03 A（CH2、CH3）。}
+  - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15 A（CH1）/1.03 A（CH2、CH3）。查询的 MIN/MAX/DEF 形式未实现。}
   - {header: '[SOURce:]CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]CURRent:MODE', level: not_modeled}
   - {header: '[SOURce:]CURRent:PROTection:CLEar', level: not_modeled, note: OCP 未建模（#271）。}
@@ -100,9 +99,8 @@ sections:
   - {header: 'LXI:MDNS[:STATe]', level: accepted, note: 接受：mDNS 开关。, affects_data: false}
 - section: MEASure Subsystem
   commands:
-  - {header: 'MEASure[:SCALar]:CURRent[:DC]', level: implemented, note: 每路回读电流（幅值），来自电路求解；通道列表按顺序逗号拼接。手册没有功率查询，功率按 V×I 计算。}
-  - {header: 'MEASure[:SCALar]:VOLTage[:DC]', level: implemented, note: 每路回读电压，来自输出端口的电路求解；通道列表按顺序逗号拼接。回读由 supply_readback
-      写成 7 位尾数。}
+  - {header: 'MEASure[:SCALar]:CURRent[:DC]', level: implemented, note: 每路回读电流（幅值），来自电路求解；通道列表按顺序逗号拼接。手册没有功率查询，功率按 V×I 计算；手册可选的输出标识前缀未实现。}
+  - {header: 'MEASure[:SCALar]:VOLTage[:DC]', level: implemented, note: 每路回读电压，来自输出端口的电路求解；通道列表按顺序逗号拼接。回读由 supply_readback 写成 7 位尾数。手册可选的 P6V/P25V/N25V/CH1… 输出标识前缀未实现。}
 - section: MMEMory Subsystem
   commands:
   - {header: 'MMEMory:EXPort:DLOG', level: not_modeled, note: 数据记录文件不在首波。}
@@ -161,14 +159,11 @@ sections:
   - {header: 'TRIGger[:SEQuence]:SOURce', level: not_modeled, note: 触发系统不在首波。}
 - section: VOLTage Subsystem
   commands:
-  - {header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电压设定；通道列表展开，省略时按通道 1。量程 0–6.18
-      V（CH1）/25.75 V（CH2、CH3）。}
+  - {header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电压设定；通道列表展开，省略时按通道 1。量程 0–6.18 V（CH1）/25.75 V（CH2、CH3）。查询的 MIN/MAX/DEF 形式与 P6V/P25V 输出标识前缀未实现。}
   - {header: '[SOURce:]VOLTage[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]VOLTage:MODE', level: not_modeled}
-  - {header: '[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]', level: implemented, note: 每路 OVP 阈值；CH1 0.5–6.6 V，CH2/3 1.5–27.5
-      V，*RST 为各量程最大值。}
+  - {header: '[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]', level: implemented, note: 每路 OVP 阈值；CH1 0.5–6.6 V，CH2/3 1.5–27.5 V，*RST 为各量程最大值。}
   - {header: '[:SOURce]:VOLTage:PROTection:CLEar', level: implemented, note: 清除 OVP 锁定并恢复故障前的输出状态。}
   - {header: '[:SOURce]:VOLTage:RANGe', level: accepted, affects_data: false, note: 接受：单一电压量程，保存并回显（P6V/P25V/LOW/HIGH）；不参与仿真。}
-  - {header: '[:SOURce]:VOLTage:PROTection:TRIPped', level: implemented, note: '查询 OVP 锁定；手册的裸查询按当前选中的输出回答，本定义的 INSTrument:SELect
-      未建模，裸查询固定按通道 1。'}
+  - {header: '[:SOURce]:VOLTage:PROTection:TRIPped', level: implemented, note: '查询 OVP 锁定；手册的裸查询按当前选中的输出回答，本定义的 INSTrument:SELect 未建模，裸查询固定按通道 1。'}
   - {header: '[:SOURce]:VOLTage:SENSe[:SOURce]', level: implemented, note: 内部（两线）/外部（四线）检测；外部检测需要测试台把 SENSE 端子接到负载。}
