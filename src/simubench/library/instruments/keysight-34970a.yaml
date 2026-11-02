@@ -1,0 +1,434 @@
+schema: simubench.instrument/1
+id: keysight-34970a
+manufacturer: Keysight Technologies
+model: 34970A
+class: daq
+version: 1
+description: >-
+  Keysight 34970A 数据采集/开关单元（固定配置：主机 + 槽 1 的 34901A 20 通道多路复用卡；
+  常开 60 个 SCPI 通道号 101–120、201–220、301–320，槽 2/3 为空，访问报 -114）。
+  真实型号（D42）：命令、参数、默认值与回复按 34970A/34972A 用户指南（34972-90001,
+  Edition 6, November 2019）核对；扫描把通道列表逐点闭合继电器、经模拟总线交给内部 DMM
+  （直流电压），读数由电路求解得到。ACV、电阻、电流与 CONFigure/MEASure 的通道列表形式
+  受能力 issue #300/#301 阻塞，覆盖表逐条写明。
+reference:
+  title: Keysight 34970A/34972A Data Acquisition/Switch Unit User's Guide
+  document: 34972-90001
+  version: Edition 6, November 2019
+  firmware: "34970A as covered by Edition 6"
+identity:
+  idn: "Keysight Technologies,34970A,{serial},{firmware}"
+  serial: "0"
+  firmware: "1.0-1.0-1.0"
+format:
+  number: nr3
+  digits: 8
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+# 手册有、但本定义不回答的内置命令：SYSTem:DATE/TIME（实时时钟，引擎内置回复格式与手册不同）、
+# SYSTem:ERRor:COUNt/ALL（手册未列）。其余公共命令由引擎内置，见覆盖表。
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TRG", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
+error_queue: 10
+errors:
+  0: "No error"
+  -100: "Command error"
+  -101: "Invalid character"
+  -102: "Syntax error"
+  -103: "Invalid separator"
+  -104: "Data type error"
+  -105: "GET not allowed"
+  -108: "Parameter not allowed"
+  -109: "Missing parameter"
+  -110: "Command header error"
+  -111: "Header separator error"
+  -112: "Program mnemonic too long"
+  -113: "Undefined header"
+  -114: "Header suffix out of range"
+  -120: "Numeric data error"
+  -121: "Invalid character in number"
+  -123: "Numeric overflow"
+  -124: "Too many digits"
+  -128: "Numeric data not allowed"
+  -130: "Suffix error"
+  -131: "Invalid suffix"
+  -134: "Suffix too long"
+  -138: "Suffix not allowed"
+  -140: "Character data error"
+  -141: "Invalid character data"
+  -144: "Character data too long"
+  -148: "Character data not allowed"
+  -150: "String data error"
+  -151: "Invalid string data"
+  -158: "String data not allowed"
+  -160: "Block data error"
+  -161: "Invalid block data"
+  -168: "Block data not allowed"
+  -170: "Expression error"
+  -171: "Invalid expression"
+  -178: "Expression data not allowed"
+  -200: "Execution error"
+  -211: "Trigger ignored"
+  -213: "INIT ignored"
+  -214: "Trigger deadlock"
+  -220: "Parameter error"
+  -221: "Settings conflict"
+  -222: "Data out of range"
+  -223: "Too much data"
+  -224: "Illegal parameter value"
+  -225: "Out of memory"
+  -230: "Data stale"
+  -231: "Data questionable"
+  -240: "Hardware error"
+  -241: "Hardware missing"
+  -260: "Expression error"
+  -261: "Math error in expression"
+  -300: "Device-specific error"
+  -310: "System error"
+  -350: "Error queue overflow"
+  -400: "Query error"
+  -410: "Query INTERRUPTED"
+  -420: "Query UNTERMINATED"
+  -430: "Query DEADLOCKED"
+  -440: "Query UNTERMINATED after indefinite response"
+  111: "Channel list: slot number out of range"
+  112: "Channel list: channel number out of range"
+  113: "Channel list: empty scan list"
+  201: "Memory lost: stored state"
+  202: "Memory lost: power-on state"
+  203: "Memory lost: stored readings"
+  204: "Memory lost: time and date"
+  221: "Settings conflict: calculate limit state forced off"
+  222: "Settings conflict: module type does not match stored state"
+  223: "Settings conflict: trig source changed to IMM"
+  224: "Settings conflict: chan adv source changed to IMM"
+  225: "Settings conflict: DMM disabled or missing"
+  226: "Settings conflict: DMM enabled"
+  251: "Unsupported temperature transducer type"
+  261: "Not able to execute while scan initiated"
+  271: "Not able to accept unit names longer than 3 characters"
+  272: "Not able to accept character in unit name"
+  281: "Not able to perform on more than one channel"
+  291: "Not able to recall state: it is empty"
+  292: "Not able to recall state: DMM enable changed"
+  301: "Module currently committed to scan"
+  303: "Module not able to perform requested operation"
+specs:
+  source: 用户指南第 4 章 General Measurement Configuration 与第 8 章规格；扫描见第 4 章 Scanning
+  slots: 3（固定配置：槽 1 装 34901A，槽 2/3 空）
+  channels: "34901A 20 通道（101–120，双线）；槽 2/3 号域 201–220/301–320 存在但无模块"
+  dcv_ranges_v: [0.1, 1, 10, 100, 300]
+  acv_ranges_v: [0.1, 1, 10, 100, 300]
+  dci_channels: "34901A 的 21/22 电流通道（本定义未建模，见 #301）"
+  nplc: [0.02, 0.2, 1, 2, 10, 20, 100, 200]
+  reading_memory: "50,000 readings；溢出后覆盖最旧的"
+  scan_count: "1–50,000 次扫描（或连续；连续未建模）"
+  scan_interval_s: "0–359,999，1 ms 分辨率；间隔不计入首波的虚拟时间"
+  channel_delay_s: "0–60（每通道；未建模）"
+  relay_r_ohm: 0.5
+  relay_settle_s: 0.003
+channels:
+  count: 60
+  numbering:
+    - {first: 101, count: 20}
+    - {first: 201, count: 20}
+    - {first: 301, count: 20}
+channel_state:
+  closed:
+    type: bool
+    default: false
+    label: 通道闭合
+    label_en: Channel closed
+state:
+  sense.function:
+    type: enum
+    options: [VOLT, "VOLT:AC"]
+    default: VOLT
+    rst: VOLT
+    label: 测量功能
+    label_en: Function
+  sense.range:
+    type: float
+    unit: V
+    min: 0.0
+    max: 300.0
+    default: 0.0
+    rst: 0.0
+    special: {AUTO: 0.0}
+    label: 量程设定
+    label_en: Range setting
+  sense.range_auto:
+    type: bool
+    default: true
+    rst: true
+    label: 自动量程
+    label_en: Autorange
+  sense.nplc:
+    type: float
+    min: 0.02
+    max: 200.0
+    default: 1.0
+    rst: 1.0
+    label: 积分时间（PLC）
+    label_en: Integration time (PLC)
+  sense.imp_auto:
+    type: bool
+    default: false
+    rst: false
+    label: 输入阻抗自动（10 MΩ ↔ >10 GΩ）
+    label_en: Input impedance AUTO
+  scan.list:
+    type: int_list
+    min: 1
+    max: 320
+    default: []
+    rst: []
+    label: 扫描表
+    label_en: Scan list
+  scan.count:
+    type: int
+    min: 1
+    max: 50000
+    default: 1
+    rst: 1
+    label: 扫描次数
+    label_en: Scan count
+  scan.interval:
+    type: float
+    unit: S
+    min: 0.0
+    max: 359999.0
+    default: 10.0
+    rst: 0.0
+    label: 扫描间隔
+    label_en: Scan interval
+  trigger.source:
+    type: enum
+    options: [IMMediate, BUS, EXTernal, TIMer]
+    default: IMMediate
+    rst: IMMediate
+    label: 触发源
+    label_en: Trigger source
+  display.state:
+    type: bool
+    default: true
+    rst: true
+    label: 显示
+    label_en: Display
+  display.text:
+    type: string
+    default: ""
+    rst: ""
+    label: 显示文本
+    label_en: Display text
+  system.version:
+    type: string
+    default: "1994.0"
+    label: SCPI 版本
+    label_en: SCPI version
+components:
+  # 主机背板：三个槽位，槽 1 装 34901A（20 通道）。
+  - name: bp
+    type: daq_backplane
+    params:
+      slots: 3
+      modules: [{slot: 1, model: "34901A", channels: 20}]
+  # 多路复用卡：20 路双线输入、模拟总线；扫描时先断后合。
+  # close_limit 0：未配置扫描表时手册允许多路同时闭合；「配置扫描表后只能闭一路」未建模。
+  - name: mux
+    type: mux_card
+    params:
+      slot: 1
+      backplane: bp
+      dmm: inp
+      close_limit: 0
+      relay_settle: 0.003
+  # 内部 DMM：E1 拆出的测量链（端子只提供输入阻抗，信号来自 mux 的模拟总线）。
+  - name: inp
+    type: dmm_input_terminal
+    params:
+      z_in: 1.0e7
+      z_in_high: 1.0e10
+      high_z: $sense.imp_auto
+      high_z_ranges: [0.1, 1, 10]
+      conditioning: path
+  - name: path
+    type: dmm_conditioning
+    params:
+      function: {from: $sense.function, map: {VOLT: DC, "VOLT:AC": AC}}
+      ranges: {DC: [0.1, 1, 10, 100, 300], AC: [0.1, 1, 10, 100, 300]}
+      range: $sense.range
+      autorange: $sense.range_auto
+      autorange_up: 1.2
+      autorange_down: 0.1
+  # A/D：8 位尾数；分辨率与读数时间按手册的 NPLC 表（50 Hz 电源；读数时间含自动调零的模型值）。
+  - name: meter
+    type: dmm_adc
+    params:
+      conditioning: path
+      digits: 8
+      overrange: 1.2
+      overload_value: 9.9e37
+      resolution: {from: $sense.nplc, table: {0.02: 1.0e-4, 0.2: 1.0e-5, 1: 3.0e-6, 2: 2.2e-6, 10: 1.0e-6, 20: 8.0e-7, 100: 3.0e-7, 200: 2.2e-7}}
+      reading_time: {from: $sense.nplc, table: {0.02: 0.001, 0.2: 0.005, 1: 0.021, 2: 0.041, 10: 0.201, 20: 0.401, 100: 2.001, 200: 4.001}}
+  # 扫描表：列表、次数与间隔；由触发模型逐点采样，读数带 CHAN 字段。
+  - name: scan
+    type: scan_table
+    params:
+      mux: mux
+      dmm: meter
+      backplane: bp
+      list: $scan.list
+      count: $scan.count
+      interval: $scan.interval
+      ascending: true
+  # 读数存储器（INITiate 存入；READ? 不存，见两个触发模型）。
+  - name: mem
+    type: reading_buffer
+    params:
+      capacity: 50000
+      when_full: overwrite
+  # INITiate/FETCh?/DATA 的触发模型：读数写入存储器。
+  - name: st
+    type: trigger_model
+    params:
+      sampler: scan
+      source: {from: $trigger.source, map: {IMMediate: immediate, TIMer: immediate, BUS: bus, EXTernal: external}}
+      buffer: mem
+      fetch_from_buffer: true
+      waiting_error: -230
+  # READ? 的触发模型：一次运行直接回到输出缓冲，不写入存储器（手册 p.122）。
+  - name: rd
+    type: trigger_model
+    params:
+      sampler: scan
+      source: {from: $trigger.source, map: {IMMediate: immediate, TIMer: immediate, BUS: bus, EXTernal: external}}
+      waiting_error: -230
+wiring:
+  instrument:
+    - [mux.out, inp.pin]
+    - [inp.out, path.in]
+ports:
+  instrument:
+    H101: mux.ch101H
+    L101: mux.ch101L
+    H102: mux.ch102H
+    L102: mux.ch102L
+    H103: mux.ch103H
+    L103: mux.ch103L
+    H104: mux.ch104H
+    L104: mux.ch104L
+    H105: mux.ch105H
+    L105: mux.ch105L
+    H106: mux.ch106H
+    L106: mux.ch106L
+    H107: mux.ch107H
+    L107: mux.ch107L
+    H108: mux.ch108H
+    L108: mux.ch108L
+    H109: mux.ch109H
+    L109: mux.ch109L
+    H110: mux.ch110H
+    L110: mux.ch110L
+    H111: mux.ch111H
+    L111: mux.ch111L
+    H112: mux.ch112H
+    L112: mux.ch112L
+    H113: mux.ch113H
+    L113: mux.ch113L
+    H114: mux.ch114H
+    L114: mux.ch114L
+    H115: mux.ch115H
+    L115: mux.ch115L
+    H116: mux.ch116H
+    L116: mux.ch116L
+    H117: mux.ch117H
+    L117: mux.ch117L
+    H118: mux.ch118H
+    L118: mux.ch118L
+    H119: mux.ch119H
+    L119: mux.ch119L
+    H120: mux.ch120H
+    L120: mux.ch120L
+display:
+  template: daq
+  summary: [scan.list, scan.count, trigger.source]
+  actions:
+    run: ":INITiate"
+    stop: ":ABORt"
+capabilities: [daq]
+commands:
+  # ---- 通道与继电器 ----------------------------------------------------------
+  - header: "ROUTe:CLOSe"
+    op: mux.close
+    params: [{name: channels, type: channel_list}]
+  - header: "ROUTe:OPEN"
+    op: mux.open
+    query: false
+    params: [{name: channels, type: channel_list}]
+  - header: "ROUTe:OPEN:ALL"
+    op: mux.open_all
+    query: false
+  - header: "ROUTe:SCAN"
+    state: scan.list
+  # ---- 扫描与触发 ------------------------------------------------------------
+  - header: "TRIGger:SOURce"
+    state: trigger.source
+  - header: "TRIGger:COUNt"
+    state: scan.count
+  - header: "TRIGger:TIMer"
+    state: scan.interval
+  # ---- 读数 ------------------------------------------------------------------
+  - header: "READ"
+    op: rd.read
+    set: false
+    args: {elements: [READ]}
+  - header: "FETCh"
+    op: st.fetch
+    set: false
+    args: {elements: [READ]}
+  - header: "INITiate"
+    op: st.initiate
+    query: false
+  - header: "ABORt"
+    op: st.abort
+    query: false
+  - header: "DATA:POINts"
+    op: mem.points
+    set: false
+  - header: "DATA:REMove"
+    op: mem.remove
+    set: false
+    params: [{name: count, type: int, min: 1, max: 50000}]
+  # ---- 内部 DMM：直流电压的常用配置（通道列表按 D51/#207 的槽位号域） ----------
+  - header: "SENSe:VOLTage:DC:NPLCycles"
+    params:
+      - {name: nplc, type: float, min: 0.02, max: 200.0, state: sense.nplc}
+      - {name: channels, type: channel_list}
+  - header: "SENSe:VOLTage:DC:RANGe"
+    params:
+      - {name: range, type: float, unit: V, state: sense.range}
+      - {name: channels, type: channel_list}
+  - header: "SENSe:VOLTage:DC:RANGe:AUTO"
+    params:
+      - {name: auto, type: bool, state: sense.range_auto}
+      - {name: channels, type: channel_list}
+  - header: "INPut:IMPedance:AUTO"
+    params:
+      - {name: auto, type: bool, state: sense.imp_auto}
+      - {name: channels, type: channel_list}
+  # ---- 显示与版本（接受：保存并回读，不影响读数） -----------------------------
+  - header: "DISPlay[:STATe]"
+    state: display.state
+  - header: "DISPlay:TEXT"
+    state: display.text
+  - header: "DISPlay:TEXT:CLEar"
+    state: display.text
+    set_value: ""
+    query: false
+  - header: "SYSTem:VERSion"
+    state: system.version
+    set: false
+    reply: "1994.0"

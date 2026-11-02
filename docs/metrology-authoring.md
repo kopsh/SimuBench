@@ -239,11 +239,11 @@
 
 ```yaml
 deviations:
-  - param: meter.gain_error_ppm   # 参数本身就是误差（ppm）：不写 unit，值 = 标称 + 偏差
+  - param: path.gain_error_ppm   # 参数本身就是误差（ppm）：不写 unit，值 = 标称 + 偏差
     by: {function: [DC], range: [0.1, 1, 10, 100, 1000]}   # 可选：按表抽取，每格一个值
     limit: {0.1: 30, 1: 20, 10: 15, 100: 20, 1000: 20}     # 每格的 ±limit；一个数则各格相同
     distribution: uniform          # uniform：±limit 内均匀；normal：σ = limit / coverage，截断在 ±limit
-  - param: meter.offset
+  - param: path.offset
     limit: 2.0e-6
     unit: V
     distribution: normal
@@ -258,9 +258,9 @@ deviations:
 ```yaml
 instruments:
   dmm:
-    definition: keysight-34465a
+    model: keysight-34465a
     deviation: from_specs          # 按 deviations 抽取
-    hidden: {meter: {offset: 0.0}} # 写死的值优先，逐项覆盖
+    hidden: {path: {offset: 0.0}} # 写死的值优先，逐项覆盖
 parts:
   r1:
     type: resistor

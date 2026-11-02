@@ -1,0 +1,30 @@
+schema: simubench.bench/2
+name: srs_sr830_rc
+description: >-
+  SRS SR830（真实型号，D42）驱动 1 kΩ / 100 nF RC 低通：SINE_OUT → RC → SIG_IN，内部参考。
+  SR830 只有 GPIB/RS-232，测试台把真机脚本里的 GPIB0::8::INSTR 声明为实例地址；进程内
+  PyVISA 后端按声明的地址映射到这台仪表。AUX_OUT2 接到 AUX_IN2，脚本用来核对电路层的 AUX
+  输入输出。run.idle 取 sleep：真机脚本的 time.sleep(建立时间) 不改一行，在虚拟时间里精确推进
+  （D47）。
+instruments:
+  lia:
+    model: srs-sr830
+    label: 锁相放大器
+    address: "GPIB0::8::INSTR"
+parts:
+  rc:
+    type: rc_lowpass
+    dut: true
+    label: RC 低通（1 kΩ / 100 nF）
+    params: {r: 1000.0, c: 1.0e-7}
+wires:
+  - {from: lia.SINE_OUT, to: rc.IN}
+  - {from: rc.OUT, to: lia.SIG_IN}
+  - {from: lia.AUX_OUT2, to: lia.AUX_IN2}
+run:
+  seed: 5
+  clock: command
+  idle: sleep
+layout:
+  lia: {x: 0, y: 80}
+  rc: {x: 360, y: 160}

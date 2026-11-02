@@ -106,12 +106,13 @@ class CounterInput(Component):
     def events(self, start_ns: int, end_ns: int) -> tuple[int, float, float]:
         """(count, first_ns, last_ns) of the positive-going threshold crossings in the window."""
         found = self.crossings(start_ns)
-        if found is None or end_ns < start_ns:
+        if found is None or end_ns <= start_ns:
             return 0, float(start_ns), float(start_ns)
         period, first = found
-        if first > end_ns:
+        if first >= end_ns:
             return 0, first, first
-        count = math.floor((end_ns - first) / (period * 1e9) + 1e-9) + 1
+        # The gate is half-open [start, end): an event exactly at the end belongs to the next one.
+        count = math.floor((end_ns - first) / (period * 1e9) - 1e-12) + 1
         return count, first, first + (count - 1) * period * 1e9
 
 
@@ -236,8 +237,9 @@ class CounterCore(Component):
         "b_input": "",  # the counter_input of channel B
         "statistics": "",  # the counter_statistics (empty: no statistics)
         "trigger_error": 1e-9,  # s, one channel's trigger error (model value)
+        "single_shot_s": 1e-9,  # s, the interpolator's single-shot resolution (model value)
     }
-    units = {"trigger_error": "s"}
+    units = {"trigger_error": "s", "single_shot_s": "s"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -263,12 +265,14 @@ class CounterCore(Component):
 
     # ---- the measurement ------------------------------------------------------------------------
 
-    def _trigger_error(self, at_ns: int) -> float:
-        sigma = float(self.param("trigger_error"))
+    def _event_error(self, at_ns: int, channel: str) -> float:
+        """One event's time error: the interpolator's single-shot resolution ⊕ the channel's
+        trigger error, normal and seeded by the event's virtual instant (so it repeats)."""
+        sigma = math.hypot(float(self.param("trigger_error")), float(self.param("single_shot_s")))
         if sigma <= 0:
             return 0.0
         assert self.owner is not None
-        key = stream_key(self.session.seed, self.owner.name, self.uid, sigma)
+        key = stream_key(self.session.seed, self.owner.name, self.uid, "event", channel, sigma)
         return sigma * float(gaussian(key, np.array([int(at_ns)]))[0])
 
     def measure(self, function: str | None, start_ns: int) -> float:
@@ -280,10 +284,23 @@ class CounterCore(Component):
         if kind.startswith("FREQ") or kind.startswith("PER"):
             count, first, last = self._input("a").events(start_ns, end_ns)
             if count >= 2 and last > first:
-                f_true = (count - 1) / ((last - first) * 1e-9)
+                span = (
+                    (last - first) * 1e-9
+                    + self._event_error(int(last), "a")
+                    - self._event_error(int(first), "a")
+                )
+                f_true = (count - 1) / span
             else:
                 found = self._input("a").crossings(start_ns)
-                f_true = 1.0 / found[0] if found is not None else 0.0
+                if found is None:
+                    f_true = 0.0
+                else:
+                    period = (
+                        found[0]
+                        + self._event_error(int(found[1] + found[0] * 1e9), "a")
+                        - self._event_error(int(found[1]), "a")
+                    )
+                    f_true = 1.0 / period
             reported = f_true / (1 + eps)  # a fast timebase reads low
             return 1.0 / reported if kind.startswith("PER") and reported else reported
         if kind.startswith("TOT"):
@@ -299,7 +316,7 @@ class CounterCore(Component):
                 return 0.0
             _, b_first = b
             interval = (b_first - a_first) * 1e-9 * (1 + eps)
-            return interval + self._trigger_error(int(a_first))
+            return interval + self._event_error(int(a_first), "a") - self._event_error(int(b_first), "b")
         raise ScpiError(-224, f"unknown measurement {function!r}")
 
     def _record(self, function: str | None, start_ns: int) -> float:

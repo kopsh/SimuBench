@@ -1,0 +1,169 @@
+# Keysight E36312A 的覆盖表：按 E36300 系列编程指南（E36311-90008, Edition 12, June 2025）
+# 的命令索引与命令条目逐条列出，程度与说明手写。范围：三路独立输出的设定/回读、OVP、远端检测、
+# 显示/蜂鸣/系统接受命令与公共命令；组合/跟踪被 #259 阻塞，OCP 与状态寄存器被 #271 阻塞。
+# 未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
+schema: simubench.coverage/1
+model: keysight-e36312a
+sections:
+- section: ABORt Subsystem
+  commands:
+  - {header: ABORt, level: not_modeled, note: 触发/列表系统不在首波（component-map 的缺口）。}
+  - {header: 'ABORt:DLOG', level: not_modeled, note: 触发/列表系统不在首波（component-map 的缺口）。}
+- section: APPLy Subsystem
+  commands:
+  - {header: APPLy, level: not_modeled, note: '组合选择+设定；INSTrument:SELect 未建模。用 VOLT/CURR/MEAS 的通道列表。'}
+- section: CALibration Subsystem
+  commands:
+  - {header: 'CALibration:ASAVE', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:COUNt', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:CURRent[:DATA][:HIGH]', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:CURRent[:DATA]:LOW', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:CURRent:LEVel[:HIGH]', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:CURRent:LEVel:LOW', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:DATE', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:SAVE', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:SECure:CODE', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:SECure:STATe', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:STRing', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:VOLTage[:DATA]', level: not_modeled, note: 校准不在首波。}
+  - {header: 'CALibration:VOLTage:LEVel', level: not_modeled, note: 校准不在首波。}
+- section: CURRent Subsystem
+  commands:
+  - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15 A（CH1）/1.03 A（CH2、CH3）。查询的 MIN/MAX/DEF 形式未实现。}
+  - {header: '[SOURce:]CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
+  - {header: '[SOURce:]CURRent:MODE', level: not_modeled}
+  - {header: '[SOURce:]CURRent:PROTection:CLEar', level: not_modeled, note: OCP 未建模（#271）。}
+  - {header: '[SOURce:]CURRent:PROTection:DELay[:TIME]', level: not_modeled, note: OCP 按 CC 持续时间的跳闸未建模（#271）。}
+  - {header: '[SOURce:]CURRent:PROTection:DELay:STARt', level: not_modeled, note: OCP 按 CC 持续时间的跳闸未建模（#271）。}
+  - {header: '[SOURce:]CURRent:PROTection:STATe', level: not_modeled, note: OCP 的使能与 CC 持续时间跳闸未建模（#271）。}
+  - {header: '[SOURce:]CURRent:PROTection:TRIPped', level: not_modeled, note: 按种类的 OVP/OCP 锁定查询未建模（#271）。}
+- section: DIGital Subsystem
+  commands:
+  - {header: '[SOURce:]DIGital:INPut:DATA', level: not_modeled, note: 数字控制口不在首波。}
+  - {header: '[SOURce:]DIGital:OUTPut:DATA', level: not_modeled, note: 数字控制口不在首波。}
+  - {header: '[SOURce:]DIGital:PIN<1-3>:FUNCtion', level: not_modeled, note: 数字控制口不在首波。}
+  - {header: '[SOURce:]DIGital:PIN<1-3>:POLarity', level: not_modeled, note: 数字控制口不在首波。}
+  - {header: '[SOURce:]DIGital:TOUTput:BUS[:ENABle]', level: not_modeled, note: 数字控制口不在首波。}
+- section: DISPlay Subsystem
+  commands:
+  - {header: 'DISPlay[:WINDow][:STATe]', level: accepted, note: 接受：显示开关保存并回读，不影响仿真。, affects_data: false}
+  - {header: 'DISPlay[:WINDow]:TEXT[:DATA]', level: accepted, note: 接受：显示文本保存并回读，不影响仿真。, affects_data: false}
+  - {header: 'DISPlay[:WINDow]:VIEW', level: accepted, note: 接受：1/3 通道视图保存并回读。, affects_data: false}
+- section: FETCh Subsystem
+  commands:
+  - {header: 'FETCh[:SCALar]:DLOG', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+- section: IEEE-488 Subsystem
+  commands:
+  - {header: '*CLS', level: implemented, note: 清状态字节、标准事件寄存器与错误队列。}
+  - {header: '*ESE', level: implemented, note: 标准事件使能寄存器（引擎内置，整数回复）。}
+  - {header: '*ESR', level: implemented, note: 标准事件寄存器（引擎内置，整数回复）。}
+  - {header: '*IDN', level: implemented, note: 'Keysight Technologies,E36312A,<序列号>,<控制器/前面板/主板固件版本>。'}
+  - {header: '*OPC', level: implemented, note: '*OPC 置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1。'}
+  - {header: '*PSC', level: not_modeled, note: 上电清除使能寄存器；未建模。}
+  - {header: '*RCL', level: not_modeled, note: 状态存储（0–9）未实现。}
+  - {header: '*RST', level: implemented, note: '*RST 恢复本定义的初始设置：0 V、电流 5 A/1 A/1 A、OVP 6.6/27.5/27.5 V、输出全关。'}
+  - {header: '*SAV', level: not_modeled, note: 状态存储（0–9）未实现。}
+  - {header: '*SRE', level: implemented, note: 服务请求使能寄存器（引擎内置）。}
+  - {header: '*STB', level: implemented, note: 状态字节（引擎内置）。}
+  - {header: '*TRG', level: not_modeled, note: 触发系统不在首波。}
+  - {header: '*TST', level: implemented, note: 自检通过，回复 0。}
+  - {header: '*WAI', level: implemented, note: 等待全部待完成操作（输出继电器的 0.01 s 动作计入虚拟时间）。}
+- section: INITiate Subsystem
+  commands:
+  - {header: 'INITiate[:IMMediate]', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'INITiate:CONTinuous', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'INITiate[:IMMediate]:DLOG', level: not_modeled, note: 触发系统不在首波。}
+- section: INSTrument Subsystem
+  commands:
+  - {header: 'INSTrument[:SELect]', level: not_modeled, note: 选中输出的默认通道未建模（选中输出影响省略通道列表的命令）；带通道列表的命令不需要它。}
+  - {header: 'INSTrument:COUPle[:TRIGger]', level: not_modeled, note: 选中输出的默认通道未建模（选中输出影响省略通道列表的命令）；带通道列表的命令不需要它。}
+  - {header: 'INSTrument:NSELect', level: not_modeled, note: 选中输出的默认通道未建模（选中输出影响省略通道列表的命令）；带通道列表的命令不需要它。}
+- section: LIST Subsystem
+  commands:
+  - {header: '[SOURce:]LIST:COUNt', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:CURRent[:LEVel]', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:CURRent:POINts', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:DWELl', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:DWELl:POINts', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:STEP', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:TERMinate:LAST', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:TOUTput:BOSTep[:DATA]', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:TOUTput:BOSTep:POINts', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:TOUTput:EOSTep[:DATA]', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:TOUTput:EOSTep:POINts', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:VOLTage[:LEVel]', level: not_modeled, note: 列表/任意波形输出不在首波。}
+  - {header: '[SOURce:]LIST:VOLTage:POINts', level: not_modeled, note: 列表/任意波形输出不在首波。}
+- section: LXI Subsystem
+  commands:
+  - {header: 'LXI:IDENtify[:STATe]', level: accepted, note: 接受：LXI 指示灯状态。, affects_data: false}
+  - {header: 'LXI:MDNS[:STATe]', level: accepted, note: 接受：mDNS 开关。, affects_data: false}
+- section: MEASure Subsystem
+  commands:
+  - {header: 'MEASure[:SCALar]:CURRent[:DC]', level: implemented, note: 每路回读电流（幅值），来自电路求解；通道列表按顺序逗号拼接。手册没有功率查询，功率按 V×I 计算；手册可选的输出标识前缀未实现。}
+  - {header: 'MEASure[:SCALar]:VOLTage[:DC]', level: implemented, note: 每路回读电压，来自输出端口的电路求解；通道列表按顺序逗号拼接。回读由 supply_readback 写成 7 位尾数。手册可选的 P6V/P25V/N25V/CH1… 输出标识前缀未实现。}
+- section: MMEMory Subsystem
+  commands:
+  - {header: 'MMEMory:EXPort:DLOG', level: not_modeled, note: 数据记录文件不在首波。}
+- section: OUTPut Subsystem
+  commands:
+  - {header: 'OUTPut[:STATe]', level: implemented, note: 每路输出开关；查询回设定的状态（不等待继电器）。}
+  - {header: 'OUTPut[:STATe]:COUPle:CHANnel', level: not_modeled, note: 输出耦合会改变输出行为，不在首波。}
+  - {header: 'OUTPut[:STATe]:DELay:FALL', level: not_modeled, note: 输出延迟影响时序，不在首波。}
+  - {header: 'OUTPut[:STATe]:DELay:RISE', level: not_modeled, note: 输出延迟影响时序，不在首波。}
+  - {header: 'OUTPut:INHibit:MODE', level: accepted, note: 接受：外部禁止输入模式保存并回读；没有禁止输入硬件。, affects_data: false}
+  - {header: 'OUTPut:PAIR', level: not_modeled, note: '组合语义按 E36312A 手册由输出 2 输出、输出 3 停用；B2 组件仍是 E36311A 拓扑，被 #259 阻塞。'}
+  - {header: 'OUTPut:PON:STATe', level: accepted, note: 接受：上电状态（RST 或 RCL0–9）保存并回读；状态存储本身未实现。, affects_data: false}
+  - {header: 'OUTPut:PROTection:CLEar', level: implemented, note: '清除 OVP 锁定（与 VOLT:PROT:CLE 同一锁定）；OCP 未建模。'}
+  - {header: 'OUTPut:TRACk[:STATe]', level: not_modeled, note: '跟踪按 E36312A 手册是同号；B2 组件仍是 E36311A 的 ± 跟踪，被 #259 阻塞。'}
+- section: SENSe Subsystem
+  commands:
+  - {header: 'SENSe:DLOG:FUNCtion:CURRent', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+  - {header: 'SENSe:DLOG:FUNCtion:MINM', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+  - {header: 'SENSe:DLOG:FUNCtion:VOLTage', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+  - {header: 'SENSe:DLOG:PER', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+  - {header: 'SENSe:DLOG:TIME', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+  - {header: 'SENSe:DLOG:TINTerval', level: not_modeled, note: 数据记录（DLOG）不在首波。}
+- section: STATus Subsystem
+  commands:
+  - {header: 'STATus:PRESet', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:CONDition', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+- section: SYSTem Subsystem
+  commands:
+  - {header: 'SYSTem:BEEPer[:IMMediate]', level: accepted, note: 接受：立即蜂鸣无参数、无回复；仿真中没有声音。, affects_data: false}
+  - {header: 'SYSTem:BEEPer:STATe', level: accepted, note: 接受：蜂鸣器使能保存并回读。, affects_data: false}
+  - {header: 'SYSTem:COMMunicate:RLSTate', level: accepted, note: 接受：远程/本地状态。, affects_data: false}
+  - {header: 'SYSTem:DATE', level: not_modeled, note: 实时时钟未建模；引擎内置回复的格式与手册不同。}
+  - {header: 'SYSTem:ERRor[:NEXT]', level: implemented, note: '错误队列 20 条，FIFO；回复形如 +0,"No error"（error_code: signed）。'}
+  - {header: 'SYSTem:LOCal', level: accepted, note: 接受：回到本地；仿真中没有前面板锁。, affects_data: false}
+  - {header: 'SYSTem:PERSona:MANufacturer', level: not_modeled, note: 实时时钟、身份切换、安全擦除与状态存储不在首波。}
+  - {header: 'SYSTem:PERSona:MANufacturer:DEFault', level: not_modeled, note: 实时时钟、身份切换、安全擦除与状态存储不在首波。}
+  - {header: 'SYSTem:PERSona:MODel', level: not_modeled, note: 实时时钟、身份切换、安全擦除与状态存储不在首波。}
+  - {header: 'SYSTem:PERSona:MODel:DEFault', level: not_modeled, note: 实时时钟、身份切换、安全擦除与状态存储不在首波。}
+  - {header: 'SYSTem:REMote', level: accepted, note: 接受：进入远程；仿真中没有前面板锁。, affects_data: false}
+  - {header: 'SYSTem:RWLock', level: accepted, note: 接受：远程锁定；仿真中没有前面板锁。, affects_data: false}
+  - {header: 'SYSTem:SECurity:IMMediate', level: not_modeled, note: 实时时钟、身份切换、安全擦除与状态存储不在首波。}
+  - {header: 'SYSTem:SET', level: not_modeled, note: 实时时钟、身份切换、安全擦除与状态存储不在首波。}
+  - {header: 'SYSTem:TIME', level: not_modeled, note: 实时时钟未建模；引擎内置回复带毫秒且没有 + 号。}
+  - {header: 'SYSTem:VERSion', level: accepted, note: 接受：SCPI 版本 1999.0。, affects_data: false}
+- section: Trigger Subsystem
+  commands:
+  - {header: 'TRIGger:DLOG[:IMMediate]', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'TRIGger:DLOG:SOURce', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'TRIGger[:SEQuence]:DELay', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'TRIGger[:SEQuence]:SOURce', level: not_modeled, note: 触发系统不在首波。}
+- section: VOLTage Subsystem
+  commands:
+  - {header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电压设定；通道列表展开，省略时按通道 1。量程 0–6.18 V（CH1）/25.75 V（CH2、CH3）。查询的 MIN/MAX/DEF 形式与 P6V/P25V 输出标识前缀未实现。}
+  - {header: '[SOURce:]VOLTage[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
+  - {header: '[SOURce:]VOLTage:MODE', level: not_modeled}
+  - {header: '[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]', level: implemented, note: 每路 OVP 阈值；CH1 0.5–6.6 V，CH2/3 1.5–27.5 V，*RST 为各量程最大值。}
+  - {header: '[:SOURce]:VOLTage:PROTection:CLEar', level: implemented, note: 清除 OVP 锁定并恢复故障前的输出状态。}
+  - {header: '[:SOURce]:VOLTage:RANGe', level: accepted, affects_data: false, note: 接受：单一电压量程，保存并回显（P6V/P25V/LOW/HIGH）；不参与仿真。}
+  - {header: '[:SOURce]:VOLTage:PROTection:TRIPped', level: implemented, note: '查询 OVP 锁定；手册的裸查询按当前选中的输出回答，本定义的 INSTrument:SELect 未建模，裸查询固定按通道 1。'}
+  - {header: '[:SOURce]:VOLTage:SENSe[:SOURce]', level: implemented, note: 内部（两线）/外部（四线）检测；外部检测需要测试台把 SENSE 端子接到负载。}
