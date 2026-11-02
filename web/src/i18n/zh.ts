@@ -288,6 +288,7 @@ export const zh = {
     display: "显示与检波",
   },
   smu: {
+    overflow: "OVRFLO",
     source: "源",
     limits: "限值",
     measure: "测量",

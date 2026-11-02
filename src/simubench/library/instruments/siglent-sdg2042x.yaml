@@ -35,6 +35,8 @@ state:
   buzzer:
     type: bool
     default: true
+    label: 蜂鸣器
+    label_en: Buzzer
 channel_state:
   function:
     type: enum
@@ -68,6 +70,7 @@ channel_state:
     label_en: Offset
   phase:
     type: float
+    unit: DEG
     min: 0.0
     max: 360.0
     default: 0.0
@@ -75,16 +78,22 @@ channel_state:
     label_en: Phase
   duty:
     type: float
+    label: 占空比
+    label_en: Duty cycle
     min: 0.001
     max: 99.999
     default: 50.0
   symmetry:
     type: float
+    label: 对称度
+    label_en: Symmetry
     min: 0.0
     max: 100.0
     default: 50.0
   max_output_amp:
     type: float
+    label: 最大输出幅度
+    label_en: Max output amplitude
     min: 1.0
     max: 20.0
     default: 20.0
@@ -110,9 +119,13 @@ channel_state:
     label_en: Invert
   sync:
     type: bool
+    label: 同步输出
+    label_en: Sync output
     default: false
   sync_type:
     type: enum
+    label: 同步类型
+    label_en: Sync type
     options: [CH1, CH2, MOD_CH1, MOD_CH2]
     default: CH1
 components:

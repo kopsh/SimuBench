@@ -45,6 +45,8 @@ def test_multimeter_default_is_a_reading_with_function_and_range_keys():
         ("meter.DC", "V", {"sense.function": "VOLT"}),
         ("meter.AC", "V", {"sense.function": "VOLT:AC"}),
     ]
+    # A 6½-digit meter shows 7 significant digits, not the 9 of its SCPI reply (#278).
+    assert {r.digits for r in panel.readouts} == {7}
     groups = {g.label: g.controls for g in panel.groups}
     assert list(groups) == ["测量", "量程", "设置", "触发"]
     [function] = groups["测量"]
@@ -135,10 +137,15 @@ def test_counter_default_is_the_reading_its_gate_and_both_inputs():
         "core.value",
         "core.value",
         "core.value",
-        "stats.mean",
-        "stats.sdev",
+        *["stats.mean"] * 4,
+        *["stats.sdev"] * 4,
         "stats.count",
     ]
+    # The statistics carry the selected function's unit, as the main reading does (#278).
+    stats = [(r.reading, r.unit, r.when) for r in panel.readouts if r.reading in ("stats.mean", "stats.sdev")]
+    assert ("stats.mean", "Hz", {"function": "FREQuency"}) in stats
+    assert ("stats.sdev", "s", {"function": "PERiod"}) in stats
+    assert ("stats.mean", None, {"function": "TOTalize"}) in stats
     groups = {g.label: g.controls for g in panel.groups}
     assert list(groups) == ["测量", "门控", "输入 A", "输入 B"]
     assert [(c.state, c.control) for c in groups["测量"]] == [("function", "buttons")]

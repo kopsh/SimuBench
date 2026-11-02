@@ -1,4 +1,4 @@
-import { AlertCircle, Minus, Plus } from "lucide-react";
+import { AlertCircle, Info, Minus, Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, Schemas, StateVarInfo } from "@/api/client";
@@ -6,11 +6,12 @@ import { useEvents } from "@/api/events";
 import { useConfigure, usePanel, useReadings } from "@/api/hooks";
 import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { pickLabel } from "@/i18n";
 import { displayUnit, engParts } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { applyOps } from "../edit/editor";
-import { labelOf, numeric, shortForm, stateMap } from "../model";
+import { labelOf, numeric, optionLabel, stateMap } from "../model";
 import { StateField } from "../StateField";
 
 type Panel = Schemas["Panel"];
@@ -87,9 +88,20 @@ export function PanelScreen({
         <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs">
           <span className="font-medium">{inst.label || inst.name}</span>
           <span className="text-muted-foreground num">{inst.model}</span>
-          <span className="text-muted-foreground ml-auto text-[11px]">
-            {inst.display.panel_source === "declared" ? t("instPanel.declared") : t("instPanel.classDefault")}
-          </span>
+          {/* Where the layout comes from is for whoever builds the instrument, not part of its
+              display: an info mark with the explanation on hover (#281). */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Info
+                className="text-muted-foreground ml-auto size-3.5"
+                aria-label={inst.display.panel_source === "declared" ? t("instPanel.declared") : t("instPanel.classDefault")}
+                data-testid="panel-source"
+              />
+            </TooltipTrigger>
+            <TooltipContent>
+              {inst.display.panel_source === "declared" ? t("instPanel.declared") : t("instPanel.classDefault")}
+            </TooltipContent>
+          </Tooltip>
         </header>
         <div aria-live="polite">
           {primary && <ReadoutView r={primary} value={readings[primary.reading]} big />}
@@ -158,6 +170,8 @@ function ReadoutView({ r, value, big }: { r: PanelReadout; value: unknown; big?:
   let unit = "";
   if (typeof value === "number") {
     if (Math.abs(value) >= OVERLOAD) mantissa = t("instPanel.overload");
+    // A count (no unit, a whole number: points, totalize, a channel) is shown as one, not "0.00000".
+    else if (!r.unit && Number.isInteger(value)) mantissa = String(value);
     else {
       const p = engParts(value, r.unit ? displayUnit(r.unit) : "", r.digits ?? 6, true);
       mantissa = p.mantissa;
@@ -217,7 +231,7 @@ function ControlView({
             { value: true, label: t("instPanel.on"), sets: {} },
             { value: false, label: t("instPanel.off"), sets: {} },
           ]
-        : (v.options ?? []).map((o) => ({ value: o, label: v.option_labels?.[o] ?? shortForm(o), sets: {} })));
+        : (v.options ?? []).map((o) => ({ value: o, label: optionLabel(v, o), sets: {} })));
     return (
       <div className="space-y-1">
         <div className="text-muted-foreground text-xs">{label}</div>
