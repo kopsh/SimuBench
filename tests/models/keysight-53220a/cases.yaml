@@ -1,0 +1,416 @@
+# Keysight 53220A 的手册用例：53220A/53230A User's Guide（53220-90001，Edition 4，April 2023）
+# 第 3–8 章的 Command 条目与示例。读数格式为 15 位有效数字（+4.57538162393720E+006），
+# 错误码带 + 号；MEASure 的应答由计数组件给出 13 位有效数字，用例按实际格式核对。
+# 测试台：两路 1 kHz、2 Vpp 正弦（高阻负载设定），CH2 相位 90°。
+model: keysight-53220a
+bench: bench.yaml
+instrument: dut
+cases:
+  - name: "*IDN? 按四字段返回厂商、型号、序列号与固件"
+    manual: "IEEE 488.2 Common Commands > *IDN?（手册未给示例，S1 回填的四字段格式）"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,53220A,MY53001234,3.00"
+
+  - name: "*RST 恢复手册的上电默认值"
+    manual: "Preparation for Use > Utility Functions；Table 4-1 Input channel reset/preset settings；Table 5-1 Trigger and gate settings"
+    steps:
+      - send: ":INP:COUP DC"
+      - send: ":INP:IMP 50"
+      - send: ":INP:LEV 1"
+      - send: ":SENS:FREQ:GATE:TIME 1"
+      - send: ":SENS:FREQ:GATE:SOUR EXT"
+      - send: ":SENS:ROSC:SOUR EXT"
+      - send: ":TRIG:SOUR BUS"
+      - send: ":TRIG:COUN 5"
+      - send: ":SAMP:COUN 10"
+      - send: ":CALC:STAT ON"
+      - send: ":CALC:AVER:STAT ON"
+      - send: ":SYST:TIMeout 5"
+      - send: ":DISP:MODE HIST"
+      - send: "*RST"
+      - query: ":INP:COUP?"
+        expect: "AC"
+      - query: ":INP:IMP?"
+        expect: "+1.00000000000000E+006"
+      - query: ":INP:LEV?"
+        expect: "+0.00000000000000E+000"
+      - query: ":SENS:FREQ:GATE:TIME?"
+        expect: "+1.00000000000000E-001"
+      - query: ":SENS:FREQ:GATE:SOUR?"
+        expect: "TIME"
+      - query: ":SENS:ROSC:SOUR?"
+        expect: "INT"
+      - query: ":TRIG:SOUR?"
+        expect: "IMM"
+      - query: ":TRIG:COUN?"
+        expect: "1"
+      - query: ":SAMP:COUN?"
+        expect: "1"
+      - query: ":CALC:STAT?"
+        expect: "0"
+      - query: ":CALC:AVER:STAT?"
+        expect: "0"
+      - query: ":SYST:TIMeout?"
+        expect: "+1.00000000000000E+000"
+      - query: ":DISP:MODE?"
+        expect: "NUM"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "状态与事件寄存器：*CLS、*ESE、*ESR?、*SRE、*STB?、*TST?、*OPC?"
+    manual: "Instrument Status > Standard Event Register；Status Byte Register；Service Request Enable Register"
+    steps:
+      - send: "*CLS"
+      - query: "*TST?"
+        expect: "0"
+      - send: "*ESE 1;*SRE 32"
+      - query: "*ESE?"
+        expect: "1"
+      - query: "*SRE?"
+        expect: "32"
+      - query: "*ESR?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
+      - send: "NONSUCH"
+      - query: "*STB?"
+        expect: "4"
+      - query: "*ESR?"
+        expect: "32"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+      - send: "*WAI"
+      - query: "*OPC?"
+        expect: "1"
+
+  - name: "系统设置：日期/时间、预置、超时、自动电平频率、语言与电池"
+    manual: "Preparation for Use > Utility Functions > Reference settings / User interaction；Chapter 3 Setting the Measurement Time Out"
+    steps:
+      - query: ":SYSTem:DATE?"
+        expect_match: '^\d{4},\d{2},\d{2}$'
+      - query: ":SYSTem:TIME?"
+        expect_match: '^\d{2},\d{2},\d{2}\.\d{3}$'
+      - send: ":SYST:TIMeout 2"
+      - query: ":SYST:TIMeout?"
+        expect: "+2.00000000000000E+000"
+      - send: ":SYST:ALEV:FREQ 10E3"
+      - query: ":SYST:ALEV:FREQ?"
+        expect: "+1.00000000000000E+004"
+      - send: ":SYST:LANGuage \"53230A\""
+      - query: ":SYST:LANGuage?"
+        expect: '"53230A"'
+      - send: ":SYST:BATT:ENAB ON"
+      - query: ":SYST:BATT:ENAB?"
+        expect: "1"
+      - send: ":SYST:PRESet"
+      - query: ":SYST:LANGuage?"
+        expect: '"53220A"'
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "输入调理：两通道各自的耦合、阻抗与阈值"
+    manual: "Input Signal Conditioning > Input coupling / Input impedance / Threshold level and sensitivity"
+    steps:
+      - send: ":INP2:COUP DC"
+      - query: ":INP1:COUP?"
+        expect: "AC"
+      - query: ":INP2:COUP?"
+        expect: "DC"
+      - send: ":INP:IMP 50"
+      - query: ":INP:IMP?"
+        expect: "+5.00000000000000E+001"
+      - query: ":INP2:IMP?"
+        expect: "+1.00000000000000E+006"
+      - send: ":INP:LEV 0.25"
+      - send: ":INP2:LEV -1.5"
+      - query: ":INP:LEV?"
+        expect: "+2.50000000000000E-001"
+      - query: ":INP2:LEV?"
+        expect: "-1.50000000000000E+000"
+      - send: ":INP:LEV:ABS 1.0"
+      - query: ":INP:LEV?"
+        expect: "+1.00000000000000E+000"
+      - send: ":INP:COUP XYZ"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal Parameter Value"'
+      - send: ":INP:LEV 6"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "DC 耦合下直流偏置使阈值不穿越，AC 耦合恢复计数"
+    manual: "Input Signal Conditioning > Input coupling > Input coupling and threshold levels"
+    steps:
+      - send: "C1:BSWV OFST,2"
+        instrument: awg
+      - send: ":INP:COUP DC"
+      - query: ":MEAS:FREQ?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":INP:COUP AC"
+      - query: ":MEAS:FREQ?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+
+  - name: "50 Ω 输入阻抗加载信号源，低于灵敏度时不计数"
+    manual: "Input Signal Conditioning > Input impedance；Threshold level and sensitivity"
+    steps:
+      - send: "C1:BSWV AMP,0.15"
+        instrument: awg
+      - send: "*RST"
+      - query: ":MEAS:FREQ?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - send: ":INP:IMP 50"
+      - query: ":MEAS:FREQ?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+
+  - name: "门时间与门控源：默认值、范围与查询"
+    manual: "Triggering and Gating > Measurement Gate > Frequency measurements > Setting the gate time"
+    steps:
+      - query: ":SENS:FREQ:GATE:TIME? MIN"
+        expect: "+1.00000000000000E-004"
+      - query: ":SENS:FREQ:GATE:TIME? MAX"
+        expect: "+1.00000000000000E+003"
+      - query: ":SENS:FREQ:GATE:TIME? DEF"
+        expect: "+1.00000000000000E-001"
+      - send: ":SENS:FREQ:GATE:TIME 1E-3"
+      - query: ":SENS:FREQ:GATE:TIME?"
+        expect: "+1.00000000000000E-003"
+      - send: ":SENS:FREQ:GATE:SOUR EXT"
+      - query: ":SENS:FREQ:GATE:SOUR?"
+        expect: "EXT"
+      - send: ":SENS:FREQ:GATE:TIME 2000"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":SENS:FREQ:GATE:SOUR INPut1"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal Parameter Value"'
+
+  - name: "时基：内部/外部参考、外部参考频率与自动选择"
+    manual: "Measurements > Reference Oscillator Configuration"
+    steps:
+      - query: ":SENS:ROSC:SOUR?"
+        expect: "INT"
+      - query: ":SENS:ROSC:SOUR:AUTO?"
+        expect: "1"
+      - query: ":SENS:ROSC:INT:POW:STAN?"
+        expect: "0"
+      - send: ":SENS:ROSC:EXT:FREQ 5E6"
+      - query: ":SENS:ROSC:EXT:FREQ?"
+        expect: "+5.00000000000000E+006"
+      - send: ":SENS:ROSC:SOUR EXT"
+      - query: ":SENS:ROSC:SOUR?"
+        expect: "EXT"
+      - send: ":SENS:ROSC:EXT:FREQ 20E6"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":SENS:ROSC:EXT:CHEC ONCE"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+      - send: ":SENS:ROSC:SOUR INT;:SENS:ROSC:EXT:FREQ 10E6"
+
+  - name: "频率与周期：MEASure 的一条命令测量"
+    manual: "Measurements > Frequency and Period Measurements > Frequency / Period"
+    steps:
+      - query: ":MEAS:FREQ?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:FREQ? 1E3,0.1,(@1)"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:PER?"
+        expect_value: 1.0e-3
+        tolerance: 1.0e-12
+      - query: ":MEAS:PER? 1E-3,1E-9,(@1)"
+        expect_value: 1.0e-3
+        tolerance: 1.0e-12
+      - send: ":CONF:PER 1E-3,0,(@1)"
+      - query: ":READ?"
+        expect_value: 1.0e-3
+        tolerance: 1.0e-12
+
+  - name: "CONFigure 后 INIT/READ 取读数，触发与门控按 CONFigure 默认"
+    manual: "Measurements > The MEASure and CONFigure Commands > Using CONFigure"
+    steps:
+      - send: ":INP2:COUP DC"
+      - send: ":SENS:FREQ:GATE:TIME 0.01"
+      - send: ":TRIG:SOUR BUS"
+      - send: ":CONF:FREQ 1E3,0.1,(@1)"
+      - query: ":TRIG:SOUR?"
+        expect: "IMM"
+      - query: ":TRIG:COUN?"
+        expect: "1"
+      - query: ":SAMP:COUN?"
+        expect: "1"
+      - query: ":SENS:FREQ:GATE:TIME?"
+        expect: "+1.00000000000000E-001"
+      - query: ":SENS:FREQ:GATE:SOUR?"
+        expect: "TIME"
+      - query: ":INP2:COUP?"
+        expect: "DC"
+      - send: ":INIT"
+      - query: ":FETC?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - query: ":READ?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - send: ":ABOR"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "SAMPle:COUNt 与 TRIGger:COUNt 的触发运行"
+    manual: "Triggering and Gating > System Trigger > System trigger count / Sample count"
+    steps:
+      - send: ":CONF:FREQ 1E3,0.1,(@1)"
+      - send: ":TRIG:SOUR BUS"
+      - send: ":TRIG:COUN 2"
+      - send: ":SAMP:COUN 3"
+      - send: ":TRIG:DEL 0.001"
+      - query: ":TRIG:COUN?"
+        expect: "2"
+      - query: ":SAMP:COUN?"
+        expect: "3"
+      - query: ":TRIG:DEL?"
+        expect: "+1.00000000000000E-003"
+      - send: ":INIT"
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":FETC?"
+        expect_match: '^\+\S+(,\+\S+){5}$'
+      - send: ":TRIG:SOUR IMM;:TRIG:COUN 1;:SAMP:COUN 1"
+
+  - name: "总线触发：TRIGger:SOURce BUS 下 *TRG 取一次读数"
+    manual: "Triggering and Gating > System Trigger > System trigger source"
+    steps:
+      - send: ":CONF:FREQ 1E3,0.1,(@1)"
+      - send: ":TRIG:SOUR BUS"
+      - send: ":INIT"
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":FETC?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - send: ":TRIG:SOUR IMM;:TRIG:COUN 1;:SAMP:COUN 1"
+
+  - name: "累加：CONFigure:TOTalize:TIMed 在门时间内计数"
+    manual: "Measurements > Totalizing Measurements > Gated"
+    steps:
+      - send: ":SENS:TOT:GATE:SOUR TIME"
+      - query: ":SENS:TOT:GATE:SOUR?"
+        expect: "TIME"
+      - send: ":CONF:TOT:TIM 0.1,(@1)"
+      - query: ":SENS:TOT:GATE:TIME?"
+        expect: "+1.00000000000000E-001"
+      - send: ":INIT"
+      - query: ":FETC?"
+        expect_value: 100.0
+        tolerance: 1.0
+      - send: ":CONF:TOT:TIM 1E-3,(@1)"
+      - query: ":READ?"
+        expect_value: 1.0
+        tolerance: 1.0
+
+  - name: "时间间隔：CONFigure:TINTerval 选择起/停通道"
+    manual: "Measurements > Time Interval Measurements > Time interval"
+    steps:
+      - send: ":CONF:TINT (@1),(@2)"
+      - send: ":INIT"
+      - query: ":FETC?"
+        expect_value: 7.5e-4
+        tolerance: 5.0e-9
+      - send: ":CONF:TINT (@2),(@1)"
+      - query: ":READ?"
+        expect_value: 2.5e-4
+        tolerance: 5.0e-9
+
+  - name: "通道 2 的测量：CONFigure 与 MEASure 的 (@2) 走第二路输入"
+    manual: "Input Signal Conditioning > Channel Characteristics；Measurements > Using MEASure"
+    steps:
+      - send: "C2:BSWV FRQ,2000"
+        instrument: awg
+      - query: ":MEAS:FREQ? 2E3,0.0,(@2)"
+        expect_value: 2000.0
+        tolerance: 1.0e-6
+      - send: ":CONF:FREQ 2E3,0.1,(@2)"
+      - query: ":READ?"
+        expect_value: 2000.0
+        tolerance: 1.0e-6
+      - send: ":CONF:FREQ 1E3,0.1,(@1)"
+
+  - name: "统计：均值、最小、最大、标准差与读数个数"
+    manual: "Math, Graphing, and Data Logging > Statistics > Enabling statistics / Mean, standard deviation, minimum value, maximum value"
+    steps:
+      - send: "*RST"
+      - send: ":CALC:STAT ON"
+      - send: ":CALC:AVER:STAT ON"
+      - query: ":CALC:STAT?"
+        expect: "1"
+      - query: ":CALC:AVER:STAT?"
+        expect: "1"
+      - send: ":CONF:FREQ 1E3,0.1,(@1)"
+      - send: ":SAMP:COUN 5"
+      - send: ":INIT"
+      - send: "*WAI"
+      - query: ":CALC:AVER:COUN:CURR?"
+        expect: "5"
+      - query: ":CALC:AVER:AVER?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - query: ":CALC:AVER:MIN?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - query: ":CALC:AVER:MAX?"
+        expect_value: 1000.0
+        tolerance: 1.0e-6
+      - query: ":CALC:AVER:SDEV?"
+        expect_value: 0.0
+        tolerance: 1.0e-6
+      - send: ":CALC:AVER:CLE"
+      - query: ":CALC:AVER:COUN:CURR?"
+        expect: "0"
+
+  - name: "显示方式：DISPlay:MODE 保存并回读"
+    manual: "Math, Graphing, and Data Logging > Histograms > Displaying histograms；Trend Charts > Viewing trend charts"
+    steps:
+      - query: ":DISP:MODE?"
+        expect: "NUM"
+      - send: ":DISP:MODE HIST"
+      - query: ":DISP:MODE?"
+        expect: "HIST"
+      - send: ":DISP:MODE TCH"
+      - query: ":DISP:MODE?"
+        expect: "TCH"
+      - send: ":DISP:MODE NUM"
+
+  - name: "数据格式：只支持 ASCII"
+    manual: "Formats and Data Flow > Reading Formats and Data Flow > Specifying a format"
+    steps:
+      - query: ":FORM:DATA?"
+        expect: "ASCII"
+      - send: ":FORM ASCII"
+      - query: ":FORM:DATA?"
+        expect: "ASCII"
+      - send: ":FORM REAL"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal Parameter Value"'
+
+  - name: "未实现命令报 -113 并记入错误队列"
+    manual: "Appendix A 53220A/53230A Error Messages > -113 Undefined header"
+    steps:
+      - send: ":CALC:AVER:ALL?"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+      - send: ":MEAS:TOT:TIM? 1E-3,(@1)"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+      - send: "*SAV 1"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
