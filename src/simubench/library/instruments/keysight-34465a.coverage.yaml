@@ -72,7 +72,7 @@ sections:
   commands:
   - header: CONFigure
     level: implemented
-    note: 带引号的功能、量程与分辨率设定；量程设定为 0 表示自动（真机给出实际量程）。
+    note: 带引号的功能、当前量程与分辨率（`"VOLT +1.00000000E+01,+1.00000000E-06"`，功能与量程之间一个空格）；量程为实际使用的量程（自动量程时取当前档），分辨率为量程 × 当前 NPLC 分辨率。
   - header: CONFigure:CAPacitance
     level: not_modeled
     note: 电容功能未实现（另开 issue）。
@@ -96,10 +96,10 @@ sections:
     note: 温度功能未实现（另开 issue）。
   - header: :CONFigure[:VOLTage]:DC
     level: implemented
-    note: 命令头选择直流电压功能（writes 写 sense.function）并保存量程与分辨率；AUTO 关键字接受为自动量程（设定值 0）。手册的“恢复触发默认值”未实现。
+    note: 命令头选择直流电压功能，并把测量与触发参数恢复为手册 CONFigure 默认值（量程自动、分辨率自动、NPLC 10、自动调零开、立即触发、触发/采样计数 1、自动触发延迟），再用量程/分辨率参数覆盖；给量程参数即关闭自动量程。AUTO 关键字接受为自动量程（0）。
   - header: :CONFigure[:VOLTage]:AC
     level: implemented
-    note: 命令头选择交流电压功能并保存量程与分辨率（同 :CONFigure[:VOLTage]:DC）；手册的“恢复触发默认值”未实现。
+    note: 选择交流电压功能，其余默认值与量程/分辨率语义同 :CONFigure[:VOLTage]:DC。
   - header: CONFigure[:VOLTage][:DC]:RATio
     level: not_modeled
     note: 比值测量需要 Sense 端口，未实现（另开 issue）。
