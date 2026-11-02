@@ -154,10 +154,15 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
 
 
 def _calibrator(d: InstrumentDefinition) -> Panel | None:
-    out = _first(d, "calibrator_output")
+    # The combined block, or the split pair (#329): readings and operate on the control,
+    # function / level / frequency on the setpoint.
+    out = _first(d, "calibrator_output") or _first(d, "calibrator_control")
     if out is None:
         return None
-    fn_state = _bound(out, "function")
+    setpoint = _first(d, "calibrator_setpoint") if out.type == "calibrator_control" else out
+    if setpoint is None:
+        return None
+    fn_state = _bound(setpoint, "function")
     fn_spec = d.state.get(fn_state) if fn_state else None
     ac = {fn_state: "ACV"} if fn_state and fn_spec and "ACV" in (fn_spec.options or []) else None
 
@@ -183,7 +188,7 @@ def _calibrator(d: InstrumentDefinition) -> Panel | None:
         controls.append(PanelControl(state=fn_state, control="buttons"))
         used.add(fn_state)
     for param in ("level", "frequency"):
-        path = _bound(out, param)
+        path = _bound(setpoint, param)
         spec = d.state.get(path) if path else None
         if path and spec and spec.type in ("float", "int") and not spec.readonly and path not in used:
             controls.append(PanelControl(state=path, control="number"))

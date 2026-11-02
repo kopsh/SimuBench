@@ -7,7 +7,7 @@ version: 1
 description: >-
   Fluke 5522A 多功能校准源（NORMAL 端子的直流与交流电压输出）。Real model (D42)：命令、回复与
   错误文字按 Fluke 5522A Operators Manual 的远程编程章节（第 5、6 章，Fluke 风格命令，非 SCPI 树）。
-  输出由 calibrator_output 建模：待机断开、建立时间、过载跳回待机、≥33 V 改变输出回待机；
+  输出由 calibrator_setpoint（设定值与量程）+ calibrator_control（输出控制）建模：待机断开、建立时间、过载跳回待机、≥33 V 改变输出回待机；
   电流、电阻、电容、温度与示波器校准选件未实现（覆盖表逐条列出，回复 -113）。
 reference:
   title: Fluke 5522A Multi-Product Calibrator Operators Manual
@@ -124,22 +124,30 @@ state:
 components:
   # 输出级：输出端电阻 <5 mΩ（手册第 1 章）；电压功能的负载电流上限取最小的 5 mA（手册允许
   # 2–20 mA 按量程与频率，超限跳回待机并报 1503）；建立时间 <5 s；≥33 V 改变输出回待机。
-  - name: out
-    type: calibrator_output
+  # 设定值与量程生成（#329）：功能、电平、频率、建立时间与输出级的隐藏误差。
+  - name: dac
+    type: calibrator_setpoint
     params:
       function: $out.function
       level: $out.level
       frequency: $out.frequency
+      settle: 5.0
+      control: out
+  # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 回待机。
+  - name: out
+    type: calibrator_control
+    params:
       operate: $out.operate
       z_out: 0.005
       i_max: 0.005
-      settle: 5.0
       standby_above: 33.0
       overload_error: 1503
+      setpoint: dac
   - name: sys
     type: system
 wiring:
-  instrument: []
+  instrument:
+    - [dac.out, out.in]
 ports:
   instrument:
     # NORMAL 端子的 HI；LO 是机内地（输出以测试台地为参考），不单独成端口。
@@ -227,15 +235,15 @@ commands:
     state: installed_options
     set: false
     doc: 已安装选件列表；按无选件的 5522A 建模，回 0。
-# 个体偏差（#34，metrology-authoring.md 7）：calibrator_output 的隐藏误差是单一标量（无按量程
+# 个体偏差（#34，metrology-authoring.md 7）：calibrator_setpoint 的隐藏误差是单一标量（无按量程
 # 的表），取各量程 1 年指标中最紧的一档，使任何设定值都落在手册的 1 年包络内：直流增益 20 ppm
 # （330 mV 档），零点 1 µV（330 mV 档的 floor）；交流按 45 Hz–10 kHz 的 150–300 ppm 建模得更紧
 # （ specs 记完整表格）。limit 表按 by 的最后一个键取值，DC/AC 两套限值无法在同一参数上表达，
 # 故取直流档（注释于此）。
 deviations:
-  - param: out.gain_error_ppm
+  - param: dac.gain_error_ppm
     limit: 20.0
     distribution: uniform
-  - param: out.offset
+  - param: dac.offset
     limit: 1.0e-6
     distribution: uniform

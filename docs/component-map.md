@@ -68,8 +68,10 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| setpoint_and_range | `calibrator_output` | 电路(源)+ 数据 | 已实现(整块) | `calibrator_output` 为整块;拆分未设计(第二波评估,缺口清单) |
-| output_control | `calibrator_output` | 设置 | 已实现(整块) | 同上 |
+| setpoint_and_range | `calibrator_setpoint` | 信号(功能、电平、频率、建立过渡与隐藏误差) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
+| output_control | `calibrator_control` | 电路(工作/待机断开端子、`z_out`、过载跳闸、`standby_above`) | 已实现(#329;5522A 已迁移) | 只有一个输出端子:5730A 的宽带输出(Wideband)与外部放大器接口要另一个端子与选择,需要时另开核心 issue |
+
+5730A 与 5522A 的远程方言(#329 的评估,未按 5730A 手册正文核实):两者同属 Fluke 校准器命令集——`OUT <值>[,<频率>]`、`OPER`/`STBY`、`ERR?`、`*OPC?` 与按单位分派的参数,拆分后的两块与已有的 `quantities` 参数足以表达;差别在输出端:5730A 有宽带输出选件与 5725A 放大器接口(另一套端子与选择命令),以及更细的量程结构。前者需要输出控制块支持多个端子(上表),后者只是定义里的量程表。型号 issue(#341)开工时按手册核对这些命令,确需平台能力再开核心 issue。
 
 内置 fluke-5522a 全覆盖。该类别没有已设计的拆分,不存在目标组件类型,块清单以现有组件为覆盖者——这是现状记录,不是豁免;拆分设计立项时改写本节。
 
@@ -217,7 +219,6 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | 组件 | 对应块 | 现状 | 排期 |
 | --- | --- | --- | --- |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
-| `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | #329(第二波,5730A #341 的前置) |
 | 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;DSO-X 的 :TER/:AER/:OPER 已用上 | 其余型号(DL3021、E36312A 的事件寄存器、SR830 的四个字节)按需接上 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)

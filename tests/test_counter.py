@@ -8,6 +8,7 @@ channels is the phase between them plus the trigger error of the two channels th
 
 from __future__ import annotations
 
+import itertools
 import math
 from pathlib import Path
 
@@ -308,7 +309,7 @@ def test_timestamps_follow_the_edges_on_the_timebase():
     session = open_bench(_off_grid(), definition_dirs=[DEFS])
     try:
         stamps = [float(x) for x in q(session, "cnt", ":MEASure:TSTamp? 4").split(",")]
-        steps = [b - a for a, b in zip(stamps, stamps[1:], strict=False)]
+        steps = [b - a for a, b in itertools.pairwise(stamps)]
         # one period apart, within the 20 ps single-shot resolution
         assert all(st == pytest.approx(1 / 1234.567, abs=1e-10) for st in steps)
     finally:
