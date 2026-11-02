@@ -44,15 +44,32 @@ for (const [width, height] of [
   });
 }
 
-test("the canvas opens at a zoom where node titles are at least 12 px", async ({ page }) => {
-  await open(page, "benches/awg_rc_scope.bench.yaml", 3);
-  const title = page.locator(".react-flow__node").first().locator(".font-medium").first();
-  const size = await title.evaluate((el) => {
-    const zoom = new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".react-flow__viewport")!).transform).a;
-    return parseFloat(getComputedStyle(el).fontSize) * zoom;
+// The benches #277 named (titles near 8 px before) and the counter (#314): at the default view the
+// node titles are at least 12 px and every node is inside the canvas.
+for (const [bench, nodes] of [
+  ["benches/awg_rc_scope.bench.yaml", 3],
+  ["benches/keysight-dsox2024a.bench.yaml", 3],
+  ["benches/keysight-34465a.bench.yaml", 4],
+  ["benches/keysight_b2901a.bench.yaml", 2],
+  ["benches/counter.bench.yaml", 2],
+] as const) {
+  test(`${bench}: the canvas opens with node titles at least 12 px and every node in view`, async ({ page }) => {
+    await open(page, bench, nodes);
+    const title = page.locator(".react-flow__node").first().locator(".font-medium").first();
+    const size = await title.evaluate((el) => {
+      const zoom = new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".react-flow__viewport")!).transform).a;
+      return parseFloat(getComputedStyle(el).fontSize) * zoom;
+    });
+    expect(size).toBeGreaterThanOrEqual(12);
+    const outside = await page.evaluate(() => {
+      const pane = document.querySelector(".react-flow")!.getBoundingClientRect();
+      return [...document.querySelectorAll(".react-flow__node")]
+        .map((n) => n.getBoundingClientRect())
+        .filter((r) => r.left < pane.left - 1 || r.right > pane.right + 1 || r.top < pane.top - 1 || r.bottom > pane.bottom + 1).length;
+    });
+    expect(outside).toBe(0);
   });
-  expect(size).toBeGreaterThanOrEqual(12);
-});
+}
 
 const WIDTHS: [number, number][] = [
   [1280, 800],
