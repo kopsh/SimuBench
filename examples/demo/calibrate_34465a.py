@@ -157,7 +157,7 @@ def as_found(cal: Any, dut: Any, function: str, points: tuple[float, ...]) -> li
 
 def adjust(cal: Any, dut: Any) -> None:
     """The service guide's DC adjustment: unsecure, zero and gain per range, store, secure."""
-    dut.write("CAL:SEC:STAT OFF,\"AT3446XA\"")
+    dut.write('CAL:SEC:STAT OFF,"AT3446XA"')
     dut.write(":VOLT:DC:RANG:AUTO OFF")
     for range_v in DC_RANGES:
         dut.write(f":VOLT:DC:RANG {range_v:g}")
@@ -195,7 +195,9 @@ def write_report(path: Path, points: list[Point]) -> None:
         writer = csv.writer(f)
         writer.writerow(["phase", "nominal", "reading", "limit_low", "limit_high", "verdict"])
         for p in points:
-            writer.writerow([p.phase, f"{p.nominal:.9g}", f"{p.reading:.9g}", f"{p.low:.9g}", f"{p.high:.9g}", p.decision])
+            writer.writerow(
+                [p.phase, f"{p.nominal:.9g}", f"{p.reading:.9g}", f"{p.low:.9g}", f"{p.high:.9g}", p.decision]
+            )
 
 
 def print_table(points: list[Point]) -> None:
@@ -209,11 +211,19 @@ def print_table(points: list[Point]) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--bench", help="SimuBench bench file: use the in-process backend instead of VISA addresses")
-    parser.add_argument("--cal", default="cal", help="calibrator VISA address (or instrument name with --bench)")
+    parser.add_argument(
+        "--bench", help="SimuBench bench file: use the in-process backend instead of VISA addresses"
+    )
+    parser.add_argument(
+        "--cal", default="cal", help="calibrator VISA address (or instrument name with --bench)"
+    )
     parser.add_argument("--dut", default="dut", help="DUT VISA address (or instrument name with --bench)")
-    parser.add_argument("--assets", required=True, help="calibration register JSON (simubench assets --format json)")
-    parser.add_argument("--function", choices=["DC", "AC"], default="DC", help="measurement function to calibrate")
+    parser.add_argument(
+        "--assets", required=True, help="calibration register JSON (simubench assets --format json)"
+    )
+    parser.add_argument(
+        "--function", choices=["DC", "AC"], default="DC", help="measurement function to calibrate"
+    )
     parser.add_argument("--report", required=True, help="CSV report to write")
     args = parser.parse_args(argv)
 
@@ -230,7 +240,9 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError(f"the DUT is a {dut_model}, not a Keysight 34465A")
         check_register(register, cal_serial, "reference")
         dut_asset = check_register(register, dut_serial, "DUT")
-        print(f"{dut_model} {dut_serial}: calibration due in {dut_asset['due_in_days']} days (bench calendar)")
+        print(
+            f"{dut_model} {dut_serial}: calibration due in {dut_asset['due_in_days']} days (bench calendar)"
+        )
 
         points = as_found(cal, dut, args.function, DC_POINTS if args.function == "DC" else AC_POINTS)
         if args.function == "DC":

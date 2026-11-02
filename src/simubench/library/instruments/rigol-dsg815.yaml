@@ -87,6 +87,11 @@ state:
     default: false
     label: 射频输出
     label_en: RF output
+  mod.state:
+    type: bool
+    default: false
+    label: 调制总开关
+    label_en: Modulation on
   am.state:
     type: bool
     default: false
@@ -394,6 +399,7 @@ components:
   - name: mod
     type: rf_modulator
     params:
+      enabled: $mod.state
       am: $am.state
       am_depth: $am.depth
       am_rate: $am.rate
@@ -452,6 +458,9 @@ commands:
   # ---- 电平（手册 2-41）------------------------------------------------------------------------
   - {header: "[:SOURce]:LEVel", state: power.level}
   - {header: "[:SOURce]:LEVel:STEP", state: power.step}
+
+  # ---- 调制总开关（手册 2-45；出厂 Off：各调制的开关打开后还要打开它才有调制，#290）--------
+  - {header: "[:SOURce]:MODulation:STATe", state: mod.state}
 
   # ---- AM（手册 2-12 – 2-17）-------------------------------------------------------------------
   - {header: "[:SOURce]:AM[:DEPTh]", state: am.depth}

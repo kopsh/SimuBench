@@ -251,7 +251,8 @@ class RfModulator(Component):
     """The modulator (D2 #188): AM, and Bessel FM/PM truncated at Carson's rule, applied to the
     carrier line. FM and PM are exclusive (the later one wins with -221), AM may be added to
     either, pulse modulation is refused (-221), and a modulation index needing more than
-    ``LINE_BUDGET`` lines is refused (-222) on the setting that causes it."""
+    ``LINE_BUDGET`` lines is refused (-222) on the setting that causes it. ``enabled`` is the
+    master switch (#290): off, the carrier passes bare and every modulation keeps its settings."""
 
     ports = {
         "in": PortSpec("in", "signal"),
@@ -259,6 +260,7 @@ class RfModulator(Component):
     }
     refs = {"source": ("rf_mod_source", "instrument")}
     defaults = {
+        "enabled": True,  # the master modulation switch (Mod/on, :MODulation:STATe, #290)
         "am": False,  # amplitude modulation on
         "am_depth": 0.0,  # percent modulation depth
         "am_rate": 1e3,  # Hz of the AM tone (the modulator forms the sidebands at it)
@@ -277,8 +279,15 @@ class RfModulator(Component):
         assert self.owner is not None
         return self.owner.components[str(self.param("source"))]
 
+    def enabled(self) -> bool:
+        """The master switch: off, the output is the bare carrier while each modulation keeps its
+        own settings and switch (#290)."""
+        return bool(self.param("enabled"))
+
     def angle_kind(self) -> str | None:
         """Which angle modulation is active: 'fm', 'pm' or None."""
+        if not self.enabled():
+            return None
         if self.param("fm"):
             return "fm"
         if self.param("pm"):
@@ -336,7 +345,7 @@ class RfModulator(Component):
             freqs = carrier.freq
             amps = carrier.amp
         # AM multiplies every line by (1 + m·sin ω_m t): two sidebands of m/2 each.
-        if self.param("am"):
+        if self.param("am") and self.enabled():
             m = float(self.param("am_depth")) / 100
             fa = self._source().frequency("am")
             side = m / 2 / 1j

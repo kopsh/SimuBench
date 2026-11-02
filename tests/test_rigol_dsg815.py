@@ -123,6 +123,7 @@ def test_am_puts_sidebands_at_the_modulation_rate(session):
             "power.level": 0.0,
             "output.enabled": True,
             "freq.cw": 10e6,
+            "mod.state": True,
             "am.state": True,
             "am.depth": 50.0,
             "am.rate": 10e3,
@@ -144,6 +145,7 @@ def test_fm_keeps_the_envelope_and_spreads_the_lines(session):
             "power.level": 0.0,
             "output.enabled": True,
             "freq.cw": 10e6,
+            "mod.state": True,
             "fm.state": True,
             "fm.dev": 20e3,
             "fm.rate": 10e3,
@@ -201,10 +203,23 @@ def test_a_hidden_timebase_error_moves_the_carrier(session):
     assert float(sg.state["freq.cw"]) == 10e6
 
 
-def test_the_modulation_master_switch_is_not_modeled(session):
-    """The gap the coverage table records: :MODulation:STATe needs a master enable in the modulator."""
-    s = session()
-    s.write("sg", b":MOD:STAT ON\n")
-    assert s.read("sg") is None
-    s.write("sg", b":SYST:ERR?\n")
-    assert s.read("sg").decode().strip().startswith('-113,"Undefined header')
+def test_the_modulation_master_switch_gates_every_modulation(session):
+    """#290: Mod/on (:MODulation:STATe, factory Off) — with it off the carrier is bare and the AM
+    settings stay; on, the sidebands appear."""
+    s = session(state={"power.level": 0.0, "output.enabled": True, "freq.cw": 10e6})
+    sg = s.instruments["sg"]
+
+    def q(cmd: str) -> str:
+        s.write("sg", cmd.encode() + b"\n")
+        out = s.read("sg")
+        return out.decode().strip() if out else ""
+
+    q(":AM:DEPT 50;:AM:FREQ 10kHz;:AM:STAT ON")
+    assert q(":MOD:STAT?") == "0"
+    assert carrier(sg)[0].size == 1  # the carrier alone
+    q(":MOD:STAT ON")
+    assert q(":MOD:STAT?") == "1"
+    assert sorted(carrier(sg)[0]) == pytest.approx([9.99e6, 10e6, 10.01e6])
+    q(":MOD:STAT OFF")
+    assert carrier(sg)[0].size == 1 and q(":AM:STAT?") == "1"  # the AM switch keeps its setting
+    assert q(":SYST:ERR?") == '0,"No error"'

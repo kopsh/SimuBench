@@ -225,6 +225,21 @@ cases:
       - query: ":AM:STAT?"
         expect: "1"
 
+  - name: "调制总开关出厂关；打开后查询为 1，关闭后 AM 开关保留（#290）"
+    manual: "Command System > [:SOURce]:MODulation:STATe；Chapter 3 To Output RF Modulated Signal"
+    steps:
+      - query: ":MOD:STAT?"
+        expect: "0"
+      - send: ":AM:STAT ON"
+      - send: ":MOD:STAT ON"
+      - query: ":MOD:STAT?"
+        expect: "1"
+      - send: ":MOD:STAT OFF"
+      - query: ":MOD:STAT?"
+        expect: "0"
+      - query: ":AM:STAT?"
+        expect: "1"
+
   - name: "FM 频偏默认 10 kHz，写入 20kHz 后回读，超过 1 MHz 报 -222"
     manual: "Command System > [:SOURce]:FM[:DEViation]"
     steps:
@@ -523,8 +538,8 @@ cases:
         expect: "ON"
 
   - name: "未建模的命令回 -113，不静默接受"
-    manual: "Command System > [:SOURce]:MODulation:STATe（未建模，见覆盖表）"
+    manual: "Command System > [:SOURce]:LFOutput:FREQuency（LF 输出未建模，见覆盖表）"
     steps:
-      - send: ":MOD:STAT ON"
+      - send: ":LFO:FREQ 1kHz"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'

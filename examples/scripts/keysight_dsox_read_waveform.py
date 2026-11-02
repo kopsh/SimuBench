@@ -19,7 +19,9 @@ import numpy as np
 import pyvisa
 
 
-def read_waveform(scope, source: str = "CHANnel1", fmt: str = "BYTE", points: int | str = 1000) -> tuple[np.ndarray, np.ndarray]:
+def read_waveform(
+    scope, source: str = "CHANnel1", fmt: str = "BYTE", points: int | str = 1000
+) -> tuple[np.ndarray, np.ndarray]:
     """Times and voltages of one acquisition of ``source``."""
     scope.write(f":DIGitize {source}")
     scope.write(f":WAVeform:SOURce {source}")
@@ -54,7 +56,9 @@ def main() -> None:
     scope = rm.open_resource(args.resource, read_termination="\n", write_termination="\n", timeout=10000)
     try:
         times, volts = read_waveform(scope, args.source)
-        print(f"{len(volts)} points, {times[0]:.6g} s to {times[-1]:.6g} s, {volts.min():.4g} V to {volts.max():.4g} V")
+        print(
+            f"{len(volts)} points, {times[0]:.6g} s to {times[-1]:.6g} s, {volts.min():.4g} V to {volts.max():.4g} V"
+        )
     finally:
         rm.close()
 

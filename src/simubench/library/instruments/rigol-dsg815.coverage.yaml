@@ -249,8 +249,8 @@ sections:
 - section: ':SOURce Commands > [:SOURce]:MODulation:STATe'
   commands:
   - header: '[:SOURce]:MODulation:STATe'
-    level: not_modeled
-    note: 调制总开关（MOD/ON）需要一个“总使能”组件参数：#188 的 rf_modulator 没有；本定义在 AM/FM/ΦM:STATe 打开时即有调制。能力 issue #290。
+    level: implemented
+    note: 调制总开关（前面板 Mod/on，出厂 Off）：rf_modulator 的 enabled（#290）。关时射频只有载波，AM/FM/ΦM 的设定与开关保留；开时按各调制开关生效。
 - section: ':SOURce Commands > [:SOURce]:PM Command Subsystem'
   commands:
   - header: '[:SOURce]:PM[:DEViation]'
