@@ -107,3 +107,21 @@ def test_reading_time_and_sweep_time_follow_nplc():
         assert (s.now_ns - t0) / 1e9 == pytest.approx(5 * READING_TIME, abs=1e-9)
     finally:
         s.close()
+
+
+def test_source_ranges_and_autoranges_are_kept_per_function():
+    """#253: voltage and current source ranges are independent settings (and autoranges too)."""
+    s = session()
+    try:
+        q(s, ":SOUR:VOLT:RANG 20")
+        q(s, ":SOUR:CURR:RANG 1E-3")
+        source = s.instruments["smu"].components["source"]
+        assert source.source_range("VOLTage", 1.0) == 20.0
+        assert source.source_range("CURRent", 1.0e-3) == 1.0e-3
+        assert q(s, ":SOUR:VOLT:RANG?") == "+2.000000E+01"
+        assert q(s, ":SOUR:CURR:RANG?") == "+1.000000E-03"
+        q(s, ":SOUR:CURR:RANG:AUTO ON")
+        assert q(s, ":SOUR:CURR:RANG:AUTO?") == "1"
+        assert q(s, ":SOUR:VOLT:RANG:AUTO?") == "0"  # the current autorange did not move the voltage one
+    finally:
+        s.close()

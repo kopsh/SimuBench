@@ -506,16 +506,16 @@ sections:
     note: 电流设定（-3.03…3.03 A）。
   - header: '[:SOURce]:VOLTage:RANGe'
     level: implemented
-    note: 电压源量程；写入后关闭自动量程。V/I 共用一组量程设置（按当前源功能解释）。
+    note: 电压源量程；复位 2 V；写入后关闭电压源自动量程，不影响电流源量程与自动量程（Command Reference p.2-7）。
   - header: '[:SOURce]:CURRent:RANGe'
     level: implemented
-    note: 电流源量程；写入后关闭自动量程。
+    note: 电流源量程；复位 100 µA；写入后关闭电流源自动量程，不影响电压源量程与自动量程。
   - header: '[:SOURce]:VOLTage:RANGe:AUTO'
     level: implemented
-    note: 电压源自动量程（默认开）。
+    note: 电压源自动量程（默认开；与电流源自动量程相互独立）。
   - header: '[:SOURce]:CURRent:RANGe:AUTO'
     level: implemented
-    note: 电流源自动量程（默认开；与电压共用开关）。
+    note: 电流源自动量程（默认开；与电压源自动量程相互独立）。
   - header: '[:SOURce]:VOLTage:MODE'
     level: implemented
     note: FIXed（直流）或 SWEep（线性阶梯扫描）。

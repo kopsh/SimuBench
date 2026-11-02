@@ -720,6 +720,16 @@
 | 文档 | ✅ `docs/component-map.md` 的模型限制同步说明单次分辨率与门时间的关系 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 
+## SMU 源量程按功能分开（Issue 253）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件按功能保存手动源量程 | ✅ `smu_source` 新增 `source_range_voltage` / `source_range_current` 与 `source_autorange_voltage` / `source_autorange_current`，旧的 `source_range` / `source_autorange` 保留并作为未绑定时的回退；`source_range(function, level)` 取当前功能的设置 |
+| B2901A 定义 | ✅ `source.range_voltage`（复位 2 V）与 `source.range_current`（复位 100 µA）拆成两个状态，`:SOUR:VOLT:RANG` / `:SOUR:CURR:RANG` 各自写自己的；自动量程也拆成两个状态，复位都开 |
+| 手册用例 | ✅ 复位用例增加 `:SOUR:CURR:RANG?`（100 µA）与两个自动量程查询；源量程用例断言设电压不动电流、设电流不动电压 |
+| 组件/型号测试 | ✅ `tests/test_keysight_b2901a.py` 直接检查 `source.source_range("VOLTage"/"CURRent")` 两套值；全部 B2901A 与手册用例通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
 ## 频率计数器的门边界与统计断言（Issue 264）
 
 | 完成条件 | 自检 |
