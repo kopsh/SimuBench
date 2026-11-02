@@ -96,6 +96,34 @@ cases:
       - query: "VOLT:DC:RANG:AUTO?"
         expect: "1"
 
+  - name: "CONFigure 的量程写 AUTO 或 DEF：保持自动量程，CONF? 回当前档（#325）"
+    manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}（range: {<range>|MIN|MAX|DEF|AUTO}）/ CONFigure?"
+    steps:
+      - send: ":CONF:VOLT:DC AUTO"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E-01,+1.00000000E-08"'
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: ":CONF:VOLT:DC DEF,DEF"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E-01,+1.00000000E-08"'
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC AUTO,0.001"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E-01,+1.00000000E-03"'
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC MAX"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+03,+1.00000000E-04"'
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "0"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
   - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
     manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"
     steps:

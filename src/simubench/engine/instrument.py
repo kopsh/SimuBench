@@ -1051,12 +1051,17 @@ class Instrument:
                         continue
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(at(ps.state), channel)
+                token = raw.pop(0)
                 try:
-                    value = self._parse_state(self.specs[path], raw.pop(0))
+                    value = self._parse_state(self.specs[path], token)
                 except ScpiError as e:
                     raise self._bad_parameter(e, path, self.specs[path]) from e
-                for ref, constant in (ps.sets or {}).items():
-                    new[self._resolve(at(ref), channel)] = constant
+                # `sets` goes with an explicit value (a number, MIN, MAX): a special word of the
+                # setting (AUTO) or DEF keeps what the command's `writes` chose (#325:
+                # CONF:VOLT:DC AUTO leaves autorange on).
+                if not self._keyword_argument(self.specs[path], token):
+                    for ref, constant in (ps.sets or {}).items():
+                        new[self._resolve(at(ref), channel)] = constant
                 new[path] = value
                 continue
             items, raw = raw, []
@@ -1253,6 +1258,12 @@ class Instrument:
     def format_setting(self, path: str) -> bytes:
         """The setting at ``path`` as the definition formats replies."""
         return self._format(self.specs[path], self.state[path])
+
+    @staticmethod
+    def _keyword_argument(st: StateSpec, raw: bytes) -> bool:
+        """Whether a numeric argument is DEF or one of the setting's special words (AUTO)."""
+        word = raw.decode(errors="replace").strip().upper()
+        return word.startswith("DEF") or bool(st.special and word in st.special)
 
     def _parse_state(self, st: StateSpec, raw: bytes) -> Any:
         if st.type in ("float", "int"):
