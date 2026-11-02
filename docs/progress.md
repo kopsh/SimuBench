@@ -355,6 +355,16 @@
 | 为此补的通用能力有单元测试 | ✅ `tests/test_number_formats.py`（14 项）：`significant` 的工程记数、命令 `factor`、保留的空洞码、头字段的 `when` / `else`、参考位置决定触发前的格数；`ascii_block`、16 位字的 y 增量由上面的脚本测试覆盖 |
 | D45、real-models.md 记录基准的变更；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ Python 892 项通过（另 3 项跳过） |
 
+## 真实型号：Keysight DSO-X 2024A 按手册补齐常用命令（第一批，Issue 160，D42）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 定义按手册补命令，只用通用组件（#93 检查） | ✅ `keysight-dsox2024a.yaml` 新增 `*TRG`（手册：与不带参数的 `:DIGitize` 相同）、`:TRIGger:FORCe`（`acq.force_trigger`）、`:SYSTem:PRESet`（`sys.reset`，重置条件与 `*RST` 相同）、`:SERial?`、`:ACQuire?`（手册的 `*RST` 示例回复逐字一致）、`:SYSTem:DIDentifier?`，以及 8 条“接受”（`:TIMebase:VERNier`、`:TIMebase:WINDow:SCALe`/`:RANGe`/`:POSition`、`:SYSTem:LOCK`、`:SYSTem:PROTection:LOCK`、`:SYSTem:MENU`、`:SYSTem:DSP`）；`:ACQuire:TYPE` 的 PEAK 与 HRESolution 改由 `scope_acquisition` 的处理级实现（HRESolution 的 8 码 boxcar 是 SimuBench 值，覆盖表注明）。`src/simubench/library/components/` 未改，`tests/test_model_components.py` 通过 |
+| 覆盖表与用例 | ✅ 487 条：实现 74（67 → 74；新增 6 条、补上原先漏掉的 `:RSTate?` 与 `:ACQuire?`，并把 `:SYSTem:ERRor[:NEXT]` 从“未实现”改正）、接受 8、未实现 405；每条“接受”标 `affects_data: false` 并说明。`tests/models/keysight-dsox2024a/cases.yaml` 30 条（17 → 30），每条新命令至少一条，`manual` 引用手册章节；`simubench cases` 30/30 通过 |
+| 影响数据的命令有行为测试 | ✅ `tests/test_keysight_dsox.py` 14 项（新增 4）：`*TRG` 在停止时也采一帧并让 `*OPC?` 等到记录填满、`:TRIGger:FORCe` 在触发条件不满足时仍采一帧（记录的 `triggered` 为假）、`:SYSTem:PRESet` 恢复 `*RST` 条件并让示波器重新运行、PEAK 保留记录速率跨过的摆幅（40 MHz 正弦、50 ms/div：NORMal 混叠成单一电平，PEAK 到满摆幅） |
+| 表达不了的命令在覆盖表写原因，需要新能力的登记 | ✅ `:AER`/`:TER`/`:RSTate?`/`:OPEE`/`:OPERegister*`（运行与触发状态寄存器）、按参数选通道的 `:BLANk`/`:VIEW`/`:STATus`/`:TRIGger:LEVel <level>,<source>`、分段存储、其它触发类型、`:SYSTem:DATE`/`TIME`、RLOGger、SETup 均写明原因；能力 issue #248（`核心`）记录缺口 |
+| 检查 | ✅ `uv run simubench validate` 无诊断；覆盖表一致性检查通过；`scripts/check.sh` 全绿（pytest 1243 项通过、6 项跳过；ruff、生成 schema、Web 类型与测试通过） |
+
 ## 仪表模板机制与示波器模板；MCP 模板工具（Issue 125，instrument-authoring.md 7.4，D3）
 
 | 验收标准 | 自检 |

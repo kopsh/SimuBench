@@ -80,6 +80,28 @@ state:
     default: MAIN
     label: 时基模式
     label_en: Time base mode
+  # 手册的 *RST 重置条件表：Vernier Off；Delay time/division 500 ns、Delay time base delay 0.00 s。
+  timebase.vernier:
+    type: bool
+    default: false
+    label: 时基微调
+    label_en: Vernier
+  timebase.window_scale:
+    type: float
+    unit: S
+    min: 2.0e-9
+    max: 25.0
+    default: 5.0e-7
+    label: 缩放时基档位
+    label_en: Zoom time/div
+  timebase.window_position:
+    type: float
+    unit: S
+    min: -500.0
+    max: 500.0
+    default: 0.0
+    label: 缩放时基位置
+    label_en: Zoom position
   trigger.mode:
     type: enum
     options: [EDGE]
@@ -204,6 +226,31 @@ state:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
     default: CHANnel2
+  # :SYSTem 的界面与身份：前面板锁定、选件保护、软键菜单与显示文本都不改变数据；序列号与主机 ID
+  # 是只读的身份串（手册的 *IDN? 与 :SYSTem:DIDentifier?）。
+  system.lock:
+    type: bool
+    default: false
+  system.protection_lock:
+    type: bool
+    default: false
+  system.menu:
+    type: enum
+    options: [MASK, MEASure, SEGMented, LISTer]
+    default: MEASure
+  system.display_text:
+    type: string
+    default: ""
+  system.serial:
+    # 只有一个取值的枚举：:SERial? 才按手册回“不带引号的字符串”（字符串状态会加引号）。
+    type: enum
+    options: [MY58260001]
+    default: MY58260001
+    readonly: true
+  system.host_id:
+    type: string
+    default: "DSO-X 2024A,MY58260001,SIMUBENCH2024A"
+    readonly: true
 channel_state:
   display:
     type: bool
@@ -294,8 +341,13 @@ components:
       opc_waits: true
       while_waiting: previous
       no_trigger: wait
-      processing: {from: $acquire.type, map: {AVERage: average}, default: normal}
+      # :ACQuire:TYPE 的处理级（D46）：NORMal 原样、AVERage 取 count 次量化采集的均值、PEAK 在每个记录
+      # 间隔内按 ADC 原生速率取至多 64 个码保留极值（记录速率跨过的窄脉冲进得来）、HRESolution 为
+      # 8 个码（4^1.5）的 boxcar。手册只说高分辨率“扫速越慢平均的样点越多”，没有给系数：1.5 位是
+      # SimuBench 的默认值（覆盖表注明）。
+      processing: {from: $acquire.type, map: {AVERage: average, PEAK: peak, HRESolution: eres}, default: normal}
       averages: $acquire.count
+      eres_bits: 1.5
   # 时基：存储深度 100 kpts，采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；参考位置 LEFT /
   # CENTer / RIGHt 为离左边 1 格、中央、离右边 1 格（手册 :TIMebase:REFerence）。
   - name: timebase
@@ -354,6 +406,10 @@ components:
     params:
       source: $measure.source
       invalid_value: "+9.9E+37"
+  # 系统：:SYSTem:PRESet 与 *RST 相同的预置（手册的 PRESet 重置条件与 *RST 表一致，仅“偏好”不同，
+  # 仿真没有偏好设置）。
+  - name: sys
+    type: system
   - name: xfer
     type: waveform_transfer
     params:
@@ -437,6 +493,9 @@ display:
   channel_summary: [display, scale, offset, coupling, probe]
 capabilities: [oscilloscope]
 commands:
+  # ---- Common ----
+  # 手册 *TRG：“与不带参数的 :DIGitize 相同”。
+  - {header: "*TRG", op: acq.digitize, query: false}
   # ---- Root ----
   - {header: ":RUN", op: acq.run, query: false}
   - {header: ":STOP", op: acq.stop, query: false}
@@ -445,6 +504,8 @@ commands:
     op: acq.digitize
     query: false
     params: [{name: sources, type: raw}]
+  # 手册 :SERial? 回不带引号的序列号（与 *IDN? 中的同一个值）。
+  - {header: ":SERial", state: system.serial, set: false}
   # ---- ACQuire ----
   - {header: ":ACQuire:TYPE", state: acquire.type}
   - {header: ":ACQuire:COUNt", state: acquire.count}
@@ -452,6 +513,11 @@ commands:
   - {header: ":ACQuire:COMPlete", state: acquire.complete}
   - {header: ":ACQuire:POINts", op: acq.figure, args: {what: points, integer: true}, set: false}
   - {header: ":ACQuire:SRATe", op: acq.figure, args: {what: sample_rate, significant: 3}, set: false}
+  # 手册“Reporting the Setup”的 *RST 示例回复（分段存储器未建模，SEGM:COUN 取复位值 2）。
+  - header: ":ACQuire"
+    state: acquire.mode
+    set: false
+    reply: ":ACQ:MODE {acquire.mode};TYPE {acquire.type};COMP {acquire.complete};COUNT {acquire.count};SEGM:COUN 2"
   # ---- CHANnel<n> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale, format: {number: engineering, significant: 3}}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0, format: {number: engineering, significant: 3}}
@@ -481,8 +547,13 @@ commands:
   - {header: ":TIMebase:POSition", state: timebase.position, format: {number: engineering, significant: 2}}
   - {header: ":TIMebase:REFerence", state: timebase.reference}
   - {header: ":TIMebase:MODE", state: timebase.mode}
+  - {header: ":TIMebase:VERNier", state: timebase.vernier}
+  - {header: ":TIMebase:WINDow:SCALe", state: timebase.window_scale, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:WINDow:RANGe", state: timebase.window_scale, factor: 10.0, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:WINDow:POSition", state: timebase.window_position, format: {number: engineering, significant: 2}}
   # ---- TRIGger ----
   - {header: ":TRIGger:MODE", state: trigger.mode}
+  - {header: ":TRIGger:FORCe", op: acq.force_trigger, query: false}
   - {header: ":TRIGger:SWEep", state: trigger.sweep}
   - {header: ":TRIGger:NREJect", state: trigger.nreject}
   - {header: ":TRIGger:HFReject", state: trigger.hfreject}
@@ -508,3 +579,13 @@ commands:
   - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment, format: "%+.5E"}}
   - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin, format: "%+.5E"}}
   - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
+  # ---- SYSTem ----
+  # 手册 PRESet 与 *RST 的重置条件相同，只有“偏好”（仿真没有）不同。
+  - {header: ":SYSTem:PRESet", op: sys.reset, query: false}
+  # :SYSTem:DIDentifier? 回带引号的主机 ID（手册：格式因产品而异，示例为型号、序列号、主机 ID）。
+  - {header: ":SYSTem:DIDentifier", state: system.host_id, set: false}
+  # 前面板锁定、50 Ω 保护锁与软键菜单只影响界面：保存并回读，不改变数据。
+  - {header: ":SYSTem:LOCK", state: system.lock}
+  - {header: ":SYSTem:PROTection:LOCK", state: system.protection_lock}
+  - {header: ":SYSTem:MENU", state: system.menu, query: false}
+  - {header: ":SYSTem:DSP", state: system.display_text, query: false}
