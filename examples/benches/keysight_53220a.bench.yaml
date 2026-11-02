@@ -1,0 +1,38 @@
+schema: simubench.bench/2
+name: keysight_53220a_frequency
+description: >-
+  Siglent SDG2042X 两路 1 kHz、2 Vpp 正弦（高阻负载设定）接到 Keysight 53220A 的 CH1 与 CH2；
+  CH2 相位 90°，两通道时间间隔因此是一个已知的固定值。示例脚本
+  examples/scripts/keysight_53220a_measure.py 按 53220A/53230A User's Guide 的 CONFigure/INIT/
+  FETCh 流程测频率、时间间隔与累加，在真机和 SimuBench 上都不改一行。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.function: SINE
+      ch1.frequency: 1000.0
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+      ch2.function: SINE
+      ch2.frequency: 1000.0
+      ch2.amplitude: 2.0
+      ch2.phase: 90.0
+      ch2.load: .inf
+      ch2.output: true
+  cnt:
+    model: keysight-53220a
+    label: 频率计数器
+    address: "TCPIP0::192.168.1.33::INSTR"
+wires:
+  - {from: awg.CH1, to: cnt.CH1}
+  - {from: awg.CH2, to: cnt.CH2}
+run:
+  seed: 7
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  cnt: {x: 440, y: 80}
