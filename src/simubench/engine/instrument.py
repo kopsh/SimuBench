@@ -1101,9 +1101,12 @@ class Instrument:
     def _channel_list_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         """A command with a channel list parameter (``VOLT 5,(@1:3)``) expands over the channels:
         a write happens once per channel (each channel's own range applies), a query answers the
-        channels in list order, comma-joined. The command's parameters carry the value(s); the
-        list itself writes no setting."""
+        channels in list order, comma-joined. A query may lead with MIN/MAX/DEF
+        (``VOLT? MAX,(@1)``) and answers each channel's range limit or default, like the plain
+        state query. The command's parameters carry the value(s); the list itself writes no
+        setting."""
         raw = list(unit.params)
+        form: str | None = None
         channels: list[int] = []
         values: list[tuple[ParamSpec, bytes]] = []
         for ps in spec.params:
@@ -1116,7 +1119,12 @@ class Instrument:
                     raise ScpiError(-109, f"missing {ps.name}")
                 channels = [self.channel_index(n) for n in numbers]
             elif unit.query:
-                continue  # a query carries only the channel list
+                if form is None and raw:
+                    word = V.parse_string(raw[0]).upper()
+                    if word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT"):
+                        form = word
+                        raw.pop(0)
+                continue  # beyond the form word a query carries only the channel list
             elif not raw:
                 if ps.optional:
                     continue
@@ -1132,7 +1140,18 @@ class Instrument:
                     if ps.type == "channel_list" or ps.state is None:
                         continue
                     path = self._resolve(ps.state, n)
-                    parts.append(self._format(self.specs[path], self.state[path], spec.format).decode())
+                    st = self.specs[path]
+                    if form is not None and st.type in ("float", "int"):
+                        v = (
+                            st.min
+                            if form.startswith("MIN")
+                            else st.max
+                            if form.startswith("MAX")
+                            else st.default
+                        )
+                        parts.append(self._format(st, v, spec.format).decode())
+                    else:
+                        parts.append(self._format(st, self.state[path], spec.format).decode())
             return ",".join(parts).encode()
         writes: dict[str, bytes] = {}
         for n in channels:

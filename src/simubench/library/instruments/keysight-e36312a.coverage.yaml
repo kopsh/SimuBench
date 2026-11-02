@@ -11,7 +11,7 @@ sections:
   - {header: 'ABORt:DLOG', level: not_modeled, note: 触发/列表系统不在首波（component-map 的缺口）。}
 - section: APPLy Subsystem
   commands:
-  - {header: APPLy, level: not_modeled, note: '组合选择+设定；INSTrument:SELect 未建模。用 VOLT/CURR/MEAS 的通道列表。'}
+  - {header: APPLy, level: not_modeled, note: '组合选择+设定；INSTrument:SELect 未建模。回 -113 入错误队列（#297 已验证），用 VOLT/CURR/MEAS 的通道列表。'}
 - section: CALibration Subsystem
   commands:
   - {header: 'CALibration:ASAVE', level: not_modeled, note: 校准不在首波。}
@@ -29,7 +29,7 @@ sections:
   - {header: 'CALibration:VOLTage:LEVel', level: not_modeled, note: 校准不在首波。}
 - section: CURRent Subsystem
   commands:
-  - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15 A（CH1）/1.03 A（CH2、CH3）。查询的 MIN/MAX/DEF 形式未实现。}
+  - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15 A（CH1）/1.03 A（CH2、CH3）。查询的 MIN/MAX/DEF 形式按该路的量程下限/上限/默认值回答（#297）。}
   - {header: '[SOURce:]CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]CURRent:MODE', level: not_modeled}
   - {header: '[SOURce:]CURRent:PROTection:CLEar', level: not_modeled, note: OCP 未建模（#271）。}
@@ -159,7 +159,7 @@ sections:
   - {header: 'TRIGger[:SEQuence]:SOURce', level: not_modeled, note: 触发系统不在首波。}
 - section: VOLTage Subsystem
   commands:
-  - {header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电压设定；通道列表展开，省略时按通道 1。量程 0–6.18 V（CH1）/25.75 V（CH2、CH3）。查询的 MIN/MAX/DEF 形式与 P6V/P25V 输出标识前缀未实现。}
+  - {header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电压设定；通道列表展开，省略时按通道 1。量程 0–6.18 V（CH1）/25.75 V（CH2、CH3）。查询的 MIN/MAX/DEF 形式按该路的量程下限/上限/默认值回答（#297）；P6V/P25V 输出标识前缀未实现。}
   - {header: '[SOURce:]VOLTage[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]VOLTage:MODE', level: not_modeled}
   - {header: '[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]', level: implemented, note: 每路 OVP 阈值；CH1 0.5–6.6 V，CH2/3 1.5–27.5 V，*RST 为各量程最大值。}
