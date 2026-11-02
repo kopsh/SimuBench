@@ -271,12 +271,9 @@ def test_validator_warns_when_remote_sense_is_left_unconnected():
 
 def test_validator_passes_a_wired_four_wire_bench():
     _, report = validate_data(smu_bench(state={"sense.remote": True}), LIB)
-    # Only the shared-port notes: the sense wires land on the same DUT terminals as the force
-    # wires, the normal Kelvin connection.
-    assert [(d.code, d.pointer) for d in report.diagnostics] == [
-        ("W-PORT-SHARED", "/wires/2/to"),
-        ("W-PORT-SHARED", "/wires/3/to"),
-    ]
+    # The sense wires land on the same DUT terminals as the force wires, the normal Kelvin
+    # connection: a star join, no diagnostic (#316).
+    assert report.diagnostics == []
 
 
 def test_validator_rejects_sense_terminals_on_one_net():
@@ -288,11 +285,7 @@ def test_validator_rejects_sense_terminals_on_one_net():
         {"from": "smu.SENSE_LO", "to": "r1.A"},
     ]
     _, report = validate_data(raw, LIB)
-    assert [(d.code, d.severity) for d in report.diagnostics] == [
-        ("W-PORT-SHARED", "warning"),
-        ("W-PORT-SHARED", "warning"),
-        ("E-SENSE-SHORT", "error"),
-    ]
+    assert [(d.code, d.severity) for d in report.diagnostics] == [("E-SENSE-SHORT", "error")]
 
 
 # ---- the lead is a real series element ---------------------------------------------------------------

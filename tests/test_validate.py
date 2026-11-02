@@ -130,3 +130,20 @@ def test_open_bench_refuses_an_unknown_hidden_parameter():
     data["instruments"]["awg"]["hidden"] = {"ch1.out": {"z_outt": 50.0}}
     with pytest.raises(ValueError, match=r"unknown parameter ch1\.out\.z_outt"):
         open_bench(BenchDefinition.model_validate(data))
+
+
+def _example_benches():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    return sorted((root / "examples" / "benches").glob("*.bench.yaml"))
+
+
+@pytest.mark.parametrize("path", _example_benches(), ids=lambda p: p.name)
+def test_every_example_bench_opens_without_a_diagnostic(path):
+    """#316: a built-in example opens with no warning; star joins (a divider's middle, a Kelvin
+    pair) are not suspicious — two outputs on one net still are (E-NET-MULTIDRIVER above)."""
+    import yaml
+
+    _, report = validate_data(yaml.safe_load(path.read_text("utf-8")), LIB)
+    assert [(d.code, d.pointer) for d in report.diagnostics] == []

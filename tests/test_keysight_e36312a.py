@@ -45,9 +45,8 @@ def session():
 
 
 def sense_wired_session():
-    """The example bench plus the SENSE1 wires. The example ships without them: a 2-terminal
-    part has no third terminal to host the Kelvin join, so wiring the sense pair would leave
-    the load ports with two wires each (W-PORT-SHARED)."""
+    """The example bench plus the SENSE1 wires: the sense pair joins the force wires on the
+    load's two terminals (a star join, no diagnostic since #316)."""
     from simubench.models.bench import BenchDefinition
 
     data = yaml.safe_load(BENCH.read_text(encoding="utf-8"))

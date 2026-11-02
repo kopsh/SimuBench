@@ -298,7 +298,6 @@ def validate_bench(
         port_info[name] = {pn: (ps.medium, ps.direction, None) for pn, ps in cls.ports.items()}
 
     # ---- wires ----
-    connected: set[str] = set()
     for i, w in enumerate(bench.wires):
         for end, ref in (("from", w.from_), ("to", w.to)):
             owner, _, port = ref.rpartition(".")
@@ -327,16 +326,9 @@ def validate_bench(
                     f"wire:{i}",
                 )
                 continue
-            if ref in connected:
-                report.add(
-                    "warning",
-                    "W-PORT-SHARED",
-                    pp,
-                    f"端口 {ref} 连了多根线，它们会并在同一个网络上",
-                    None,
-                    f"wire:{i}",
-                )
-            connected.add(ref)
+            # Several wires on one port are a star join, the normal way to tie a node (a divider's
+            # middle, a Kelvin pair on a DUT terminal): no warning (#316). What is really wrong on
+            # a shared net — two outputs driving it — is E-NET-MULTIDRIVER.
         for k, acc in enumerate(w.accessories):
             if acc.type not in known_types:
                 hint = _closest(acc.type, list(known_types))
