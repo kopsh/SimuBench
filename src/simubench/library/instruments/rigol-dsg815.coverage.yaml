@@ -1,0 +1,586 @@
+# Rigol DSG815 的覆盖表：命令按 DSG800 系列编程指南（PGG02104-1110，Sept. 2018，软件版本
+# 00.01.07）第 2 章的命令索引逐条列出；程度与说明手写。与手册的已知偏差写在对应命令的说明里：
+#   * 频率/时间类回读按工程记数、但没有手册的 SI 前缀单位后缀（手册示例 4.00000000MHz，本定义
+#     回 4.00000000E+06）；引擎的数字格式还不支持带前缀的单位后缀，能力 issue 见 #197 的留言。
+#   * 只实现手册里与输出有关的常用子集：频率、电平、AM/FM/ΦM、步进频率扫描、触发、输出与
+#     系统显示；其余按命令逐条标未实现（任意波/IQ、脉冲、LF 输出、列表与电平扫描、文件系统、
+#     状态寄存器、通信配置）。
+schema: simubench.coverage/1
+model: rigol-dsg815
+sections:
+- section: 'IEEE488.2 Common Commands'
+  commands:
+  - header: '*IDN'
+    level: implemented
+  - header: '*TRG'
+    level: implemented
+- section: ':MMEMory Commands'
+  commands:
+  - header: ':MMEMory:CATalog'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:CATalog:LENGth'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:COPY'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:DATA:IQ'
+    level: not_modeled
+    note: IQ 选件与文件系统未建模。
+  - header: ':MMEMory:DATA:IQ:LIST'
+    level: not_modeled
+    note: IQ 选件与文件系统未建模。
+  - header: ':MMEMory:DELete'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:DISK:FORMat'
+    level: not_modeled
+    note: 文件系统未建模；不实现格式化磁盘这类破坏性命令。
+  - header: ':MMEMory:DISK:INFormation'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:FILEtype'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:LDISk:SPACe'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:LOAD'
+    level: not_modeled
+    note: 仪器状态文件未建模。
+  - header: ':MMEMory:MDIRectory'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:MOVE'
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: ':MMEMory:PNAMe:EDIT'
+    level: not_modeled
+    note: 文件名前缀未建模。
+  - header: ':MMEMory:PNAMe:STATe'
+    level: not_modeled
+    note: 文件名前缀未建模。
+  - header: ':MMEMory:SAVe'
+    level: not_modeled
+    note: 仪器状态文件未建模。
+- section: ':OUTPut Command'
+  commands:
+  - header: ':OUTPut[:STATe]'
+    level: implemented
+- section: ':SOURce Commands > [:SOURce]:AM Command Subsystem'
+  commands:
+  - header: '[:SOURce]:AM[:DEPTh]'
+    level: implemented
+    note: 手册允许百分比写法（80%）；引擎的数字参数后缀表没有 %，这种写法回 -131（能力 issue 见 #197 的留言）。
+  - header: '[:SOURce]:AM[:DEPTh]:STEP[:INCRement]'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进，不改变调制深度；查询回读。
+  - header: '[:SOURce]:AM:EXT:COUP'
+    level: accepted
+    affects_data: false
+    note: 外部调制输入的耦合；外部调制源未建模，因此该设置不改变输出。
+  - header: '[:SOURce]:AM:EXT:IMP'
+    level: accepted
+    affects_data: false
+    note: 外部调制输入的阻抗；外部调制源未建模，因此该设置不改变输出。
+  - header: '[:SOURce]:AM:FREQuency'
+    level: implemented
+    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口）。
+  - header: '[:SOURce]:AM:FREQuency:STEP[:INCRement]'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进；查询回读。
+  - header: '[:SOURce]:AM:SOURce'
+    level: implemented
+  - header: '[:SOURce]:AM:STATe'
+    level: implemented
+  - header: '[:SOURce]:AM:WAVEform'
+    level: implemented
+- section: ':SOURce Commands > [:SOURce]:CORRection Command Subsystem'
+  commands:
+  - header: '[:SOURce]:CORRection:FLATness:COUNt'
+    level: not_modeled
+    note: 平坦度校准表未建模（无对应组件能力）。
+  - header: '[:SOURce]:CORRection:FLATness:LIST'
+    level: not_modeled
+    note: 平坦度校准表未建模。
+  - header: '[:SOURce]:CORRection:FLATness[:STATe]'
+    level: not_modeled
+    note: 平坦度校准表未建模。
+- section: ':SOURce Commands > [:SOURce]:FM Command Subsystem'
+  commands:
+  - header: '[:SOURce]:FM[:DEViation]'
+    level: implemented
+    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口）。
+  - header: '[:SOURce]:FM[:DEViation]:STEP[:INCRement]'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进；查询回读。
+  - header: '[:SOURce]:FM:EXT:COUP'
+    level: accepted
+    affects_data: false
+    note: 外部调制输入的耦合；外部调制源未建模，因此该设置不改变输出。
+  - header: '[:SOURce]:FM:EXT:IMP'
+    level: accepted
+    affects_data: false
+    note: 外部调制输入的阻抗；外部调制源未建模，因此该设置不改变输出。
+  - header: '[:SOURce]:FM:FREQuency'
+    level: implemented
+    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口）。
+  - header: '[:SOURce]:FM:FREQuency:STEP[:INCRement]'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进；查询回读。
+  - header: '[:SOURce]:FM:SOURce'
+    level: implemented
+  - header: '[:SOURce]:FM:STATe'
+    level: implemented
+  - header: '[:SOURce]:FM:WAVEform'
+    level: implemented
+- section: ':SOURce Commands > [:SOURce]:FMPM:TYPE'
+  commands:
+  - header: '[:SOURce]:FMPM:TYPE'
+    level: accepted
+    affects_data: false
+    note: 面板显示/编辑 FM 还是 ΦM；手册没有说它与 FM/PM:STATe 的关系，本定义只保存，调制是否生效由 FM:STATe / PM:STATe 决定（两者互斥，后打开的那个生效）。
+- section: ':SOURce Commands > [:SOURce]:FREQuency Command Subsystem'
+  commands:
+  - header: '[:SOURce]:FREQuency'
+    level: implemented
+    note: 手册的回读带 SI 前缀单位（例如 4.00000000MHz）；本定义给同样的有效数字、工程记数但没有单位后缀（4.00000000E+06），能力 issue 见 #197 的留言。
+  - header: '[:SOURce]:FREQuency:STEP'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进，不改变输出；查询回读（手册 2-27）。
+- section: ':SOURce Commands > [:SOURce]:INPut:TRIGger:SLOPe'
+  commands:
+  - header: '[:SOURce]:INPut:TRIGger:SLOPe'
+    level: not_modeled
+    note: 外部触发输入未建模（扫描只由 :TRIGger / *TRG 推进）。
+- section: ':SOURce Commands > [:SOURce]:IQ Command Subsystem'
+  commands:
+  - header: '[:SOURce]:IQ:BASeout:LEVel'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:BASeout:LEVel:STEP'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:BASeout:STATe'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:MODe'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:MODe:STATe'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:SAMPle'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:SAMPle:STEP'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:ARB'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:DELay'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:DELay:STEP'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:DURation'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:DURation:STEP'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:DURation:UNIT'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:INHibit'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:INHibit:STEP'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:MODe'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:OPTMode'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:SEGMent:CURRent?'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:SEGMent:EXECute'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:SEGMent:MODE'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: '[:SOURce]:IQ:TRIGger:SEGMent:NEXT'
+    level: not_modeled
+    note: IQ 选件未建模。
+- section: ':SOURce Commands > [:SOURce]:LEVel Command Subsystem'
+  commands:
+  - header: '[:SOURce]:LEVel'
+    level: implemented
+  - header: '[:SOURce]:LEVel:STEP'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进，不改变输出；查询回读。
+- section: ':SOURce Commands > [:SOURce]:LFOutput Command Subsystem'
+  commands:
+  - header: '[:SOURce]:LFOutput:FREQuency'
+    level: not_modeled
+    note: LF 输出（前面板的低频输出）未建模。
+  - header: '[:SOURce]:LFOutput:LEVel'
+    level: not_modeled
+    note: LF 输出未建模。
+  - header: '[:SOURce]:LFOutput:SHAPe'
+    level: not_modeled
+    note: LF 输出未建模。
+  - header: '[:SOURce]:LFOutput[:STATe]'
+    level: not_modeled
+    note: LF 输出未建模。
+- section: ':SOURce Commands > [:SOURce]:MODulation:STATe'
+  commands:
+  - header: '[:SOURce]:MODulation:STATe'
+    level: not_modeled
+    note: 调制总开关（MOD/ON）需要一个“总使能”组件参数：#188 的 rf_modulator 没有；本定义在 AM/FM/ΦM:STATe 打开时即有调制。能力 issue 见 #197 的留言。
+- section: ':SOURce Commands > [:SOURce]:PM Command Subsystem'
+  commands:
+  - header: '[:SOURce]:PM[:DEViation]'
+    level: implemented
+  - header: '[:SOURce]:PM[:DEViation]:STEP[:INCRement]'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进；查询回读。
+  - header: '[:SOURce]:PM:EXT:COUP'
+    level: accepted
+    affects_data: false
+    note: 外部调制输入的耦合；外部调制源未建模，因此该设置不改变输出。
+  - header: '[:SOURce]:PM:EXT:IMP'
+    level: accepted
+    affects_data: false
+    note: 外部调制输入的阻抗；外部调制源未建模，因此该设置不改变输出。
+  - header: '[:SOURce]:PM:FREQuency'
+    level: implemented
+    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口）。
+  - header: '[:SOURce]:PM:FREQuency:STEP[:INCRement]'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进；查询回读。
+  - header: '[:SOURce]:PM:SOURce'
+    level: implemented
+  - header: '[:SOURce]:PM:STATe'
+    level: implemented
+  - header: '[:SOURce]:PM:WAVEform'
+    level: implemented
+- section: ':SOURce Commands > [:SOURce]:PULM Command Subsystem'
+  commands:
+  - header: '[:SOURce]:PULM:MODE'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:OUT:STATe'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:PERiod'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:PERiod:STEP'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:POLarity'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:SOURce'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:STATe'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRAin:LIST:COUNt'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRAin:LIST:GET'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRIGger:DELay'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRIGger:DELay:STEP'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRIGger:EXTernal:GATE:POLarity'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRIGger:EXTernal:SLOPe'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:TRIGger:MODE'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:WIDTh'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: '[:SOURce]:PULM:WIDTh:STEP'
+    level: not_modeled
+    note: 脉冲调制未建模。
+- section: ':SOURce Commands > [:SOURce]:SWEep Command Subsystem'
+  commands:
+  - header: '[:SOURce]:SWEep:DIRection'
+    level: not_modeled
+    note: 扫描方向（正向/反向）未建模；扫描点固定从起始到终止。
+  - header: '[:SOURce]:SWEep:EXECute'
+    level: implemented
+  - header: '[:SOURce]:SWEep:LIST:CPOint'
+    level: not_modeled
+    note: 列表扫描未建模。
+  - header: '[:SOURce]:SWEep:LIST:INITialize:FSTep'
+    level: not_modeled
+    note: 列表扫描未建模。
+  - header: '[:SOURce]:SWEep:LIST:INITialize:PRESet'
+    level: not_modeled
+    note: 列表扫描未建模。
+  - header: '[:SOURce]:SWEep:LIST:LIST'
+    level: not_modeled
+    note: 列表扫描未建模。
+  - header: '[:SOURce]:SWEep:MODE'
+    level: not_modeled
+    note: 连续/单次扫描时序未建模：扫描只由 :TRIGger / *TRG / :SWE:EXECute 推进。
+  - header: '[:SOURce]:SWEep:POINt:TRIGger:TYPE'
+    level: not_modeled
+    note: 扫描点触发源（AUTO/KEY/BUS/EXT）未建模；扫描点由命令推进。
+  - header: '[:SOURce]:SWEep:RESet[:ALL]'
+    level: implemented
+  - header: '[:SOURce]:SWEep:STATe'
+    level: implemented
+    note: 只接受 OFF 与 FREQuency；LEVel / LEVel,FREQuency 回错误（电平扫描未建模）。
+  - header: '[:SOURce]:SWEep:STEP:DWELl'
+    level: not_modeled
+    note: 驻留时间未建模：本模型的扫描由触发命令逐点推进，连续/单次时序不仿真（validation-rfgen.md）。
+  - header: '[:SOURce]:SWEep:STEP:DWELl:STEP'
+    level: not_modeled
+    note: 驻留时间未建模。
+  - header: '[:SOURce]:SWEep:STEP:POINts'
+    level: implemented
+  - header: '[:SOURce]:SWEep:STEP:POINts:STEP'
+    level: accepted
+    affects_data: false
+    note: 只影响旋钮步进；查询回读。
+  - header: '[:SOURce]:SWEep:STEP:SHAPe'
+    level: not_modeled
+    note: 扫描形状（三角/斜坡）未建模：连续扫描的时序不仿真。
+  - header: '[:SOURce]:SWEep:STEP:SPACing'
+    level: implemented
+  - header: '[:SOURce]:SWEep:STEP:STARt:FREQuency'
+    level: implemented
+    note: 手册回读 4.00000000MHz；本定义给 4.00000000E+06（同一能力缺口）。
+  - header: '[:SOURce]:SWEep:STEP:STARt:FREQuency:STEP'
+    level: not_modeled
+    note: 只影响旋钮步进；未建模（与扫描步进无关）。
+  - header: '[:SOURce]:SWEep:STEP:STARt:LEVel'
+    level: not_modeled
+    note: 电平扫描未建模：#188 的 rf_synthesizer 只规划频率扫描（覆盖表与组件图）。
+  - header: '[:SOURce]:SWEep:STEP:STARt:LEVel:STEP'
+    level: not_modeled
+    note: 电平扫描未建模。
+  - header: '[:SOURce]:SWEep:STEP:STOP:FREQuency'
+    level: implemented
+    note: 手册回读 4.00000000MHz；本定义给 4.00000000E+06（同一能力缺口）。
+  - header: '[:SOURce]:SWEep:STEP:STOP:FREQuency:STEP'
+    level: not_modeled
+    note: 只影响旋钮步进；未建模。
+  - header: '[:SOURce]:SWEep:STEP:STOP:LEVel'
+    level: not_modeled
+    note: 电平扫描未建模。
+  - header: '[:SOURce]:SWEep:STEP:STOP:LEVel:STEP'
+    level: not_modeled
+    note: 电平扫描未建模。
+  - header: '[:SOURce]:SWEep:SWEep:TRIGger:TYPE'
+    level: not_modeled
+    note: 扫描周期触发源（AUTO/KEY/BUS/EXT）未建模。
+  - header: '[:SOURce]:SWEep:TYPE'
+    level: accepted
+    affects_data: false
+    note: 只接受 STEP（列表扫描未建模）；查询回 STEP。
+- section: ':STATus Commands'
+  commands:
+    # 状态寄存器组未建模；*ESR?/*STB?/*SRE/*ESE 覆盖常用状态位。
+  - header: ':STATus:OPERation:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:OPERation:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:OPERation[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CALibration:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CALibration:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CALibration[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CONNect:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CONNect:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:CONNect[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:FREQuency:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:FREQuency:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:FREQuency[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:MODulation:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:MODulation:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:MODulation[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:POWer:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:POWer:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:POWer[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:SELFtest:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:SELFtest:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:SELFtest[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:TEMP:CONDition'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:TEMP:ENABle'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+  - header: ':STATus:QUEStionable:TEMP[:EVENt]'
+    level: not_modeled
+    note: 状态寄存器组未建模。
+- section: ':SYSTem Commands'
+  commands:
+  - header: ':SYSTem:BRIGhtness'
+    level: accepted
+    affects_data: false
+    note: 只影响面板亮度；保存回读（出厂 4）。
+  - header: ':SYSTem:CLEar'
+    level: not_modeled
+    note: 清除全部用户数据（格式化 NAND、恢复出厂）；没有用户存储可清，不实现破坏性操作。
+  - header: ':SYSTem:COMMunication:INTerface'
+    level: not_modeled
+    note: 通信接口未建模（仿真中始终在线）。
+  - header: ':SYSTem:COMMunication:LAN:DHCP'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:IP:ADDress'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:IP:AUTO'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:IP:GATeway'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:IP:MANual'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:IP:SET'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:IP:SUBnet:MASK'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN:RESet'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:COMMunication:LAN[:SELF]:PREFerred'
+    level: not_modeled
+    note: LAN 配置未建模。
+  - header: ':SYSTem:DATE'
+    level: not_modeled
+    note: 仪器时钟未建模（界面没有日期时间来源）。
+  - header: ':SYSTem:DISPlay:UPDate[:STATe]'
+    level: accepted
+    affects_data: false
+    note: 屏幕更新开关；不影响仿真，保存回读。
+  - header: ':SYSTem:FSWitch:STATe'
+    level: not_modeled
+    note: 未建模。
+  - header: ':SYSTem:LANGuage'
+    level: accepted
+    affects_data: false
+    note: 只影响界面语言；保存回读。
+  - header: ':SYSTem:LKEY'
+    level: not_modeled
+    note: 选件许可证未建模。
+  - header: ':SYSTem:POWer:ON:TYPE'
+    level: accepted
+    affects_data: false
+    note: 上电时装 LAST 还是预设；不影响本次仿真，保存回读。
+  - header: ':SYSTem:PRESet'
+    level: implemented
+  - header: ':SYSTem:PRESet:TYPE'
+    level: accepted
+    affects_data: false
+    note: 只接受 FACtory（用户预设存储未建模）；查询回 FACTORY。
+  - header: ':SYSTem:PRESet:SAVE'
+    level: not_modeled
+    note: 用户预设存储未建模（预设类型只接受 FACtory）。
+  - header: ':SYSTem:TIME'
+    level: not_modeled
+    note: 仪器时钟未建模。
+  - header: ':SYSTem:TIME:STATe'
+    level: accepted
+    affects_data: false
+    note: 时间/日期显示开关；不影响仿真，保存回读；查询回 ON/OFF（手册的单词格式）。
+- section: ':TRIGger Commands'
+  commands:
+  - header: ':TRIGger:IQ[:IMMediate]'
+    level: not_modeled
+    note: IQ 选件未建模。
+  - header: ':TRIGger:PULSe[:IMMediate]'
+    level: not_modeled
+    note: 脉冲调制未建模。
+  - header: ':TRIGger[:SWEep][:IMMediate]'
+    level: implemented
+- section: ':UNIT Command'
+  commands:
+  - header: ':UNIT:POWer'
+    level: accepted
+    affects_data: false
+    note: 电平的显示/输出单位；:LEVel 的参数与回读始终是 dBm（手册 2-41、2-109），只保存单位。
