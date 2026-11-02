@@ -1,0 +1,43 @@
+# 手册用例的测试台:examples/benches/keysight_e36312a.bench.yaml 的接线,另加 CH1 的
+# 4 线 SENSE——远端检测用例(EXT 时在负载端把电压调到设定值)需要它。示例测试台本身不带
+# 这两根线(负载端口会连多根线,触发 W-PORT-SHARED,见 #296),所以用例单独用这一份。
+schema: simubench.bench/2
+name: keysight_e36312a_cases
+description: >-
+  Keysight E36312A:CH1 10 Ω(SENSE1 四线接负载两端)、CH2/CH3 各 100 Ω;手册用例的电气测试台。
+instruments:
+  psu:
+    model: keysight-e36312a
+    label: 可编程电源
+    address: "TCPIP0::192.168.1.30::INSTR"
+parts:
+  r1:
+    type: resistor
+    dut: true
+    label: CH1 负载
+    params: {r: 10.0}
+  r2:
+    type: resistor
+    dut: true
+    label: CH2 负载
+    params: {r: 100.0}
+  r3:
+    type: resistor
+    dut: true
+    label: CH3 负载
+    params: {r: 100.0}
+wires:
+  - {from: psu.OUT1+, to: r1.A}
+  - {from: r1.B, to: psu.OUT1-}
+  # CH1 的四线检测端子接在负载两端;VOLT:SENS EXT 时由这组线检测(端口共享告警在本
+  # 测试台上是有意的,用例不跑 validate)。
+  - {from: psu.SENSE1+, to: r1.A}
+  - {from: r1.B, to: psu.SENSE1-}
+  - {from: psu.OUT2+, to: r2.A}
+  - {from: r2.B, to: psu.OUT2-}
+  - {from: psu.OUT3+, to: r3.A}
+  - {from: r3.B, to: psu.OUT3-}
+run:
+  seed: 7
+  clock: command
+  idle: "off"
