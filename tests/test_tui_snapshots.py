@@ -97,15 +97,13 @@ def demo_server():
 @pytest.mark.parametrize(
     ("lang", "size", "name"),
     [
-        ("zh", (100, 32), "overview-zh-100x32"),
         ("en", (100, 32), "overview-en-100x32"),
-        ("zh", (80, 24), "overview-zh-80x24"),
         ("en", (80, 24), "overview-en-80x24"),
     ],
 )
 def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
     url, sid = demo_server
-    tui = SimuBenchApp(url, sid=sid, lang=lang)
+    tui = SimuBenchApp(url, sid=sid)
 
     async def run_before(pilot) -> None:
         import asyncio
@@ -163,16 +161,14 @@ async def _settle(pilot, tui, deadline_s: float = 30.0) -> str:
 @pytest.mark.parametrize(
     ("lang", "size", "name"),
     [
-        ("zh", (100, 32), "instrument-smu-zh-100x32"),
         ("en", (100, 32), "instrument-smu-en-100x32"),
-        ("zh", (80, 24), "instrument-smu-zh-80x24"),
         ("en", (80, 24), "instrument-smu-en-80x24"),
     ],
 )
 def test_instrument_smu_snapshot(snap_compare, demo_server, lang, size, name):
     """Two keystrokes from the overview (14): the digit 3, then Enter (tui-screens.md 5)."""
     url, sid = demo_server
-    tui = SimuBenchApp(url, sid=sid, lang=lang)
+    tui = SimuBenchApp(url, sid=sid)
 
     async def run_before(pilot) -> None:
         import asyncio
@@ -198,16 +194,14 @@ def test_instrument_smu_snapshot(snap_compare, demo_server, lang, size, name):
 @pytest.mark.parametrize(
     ("lang", "size", "name"),
     [
-        ("zh", (100, 32), "scope-zh-100x32"),
         ("en", (100, 32), "scope-en-100x32"),
-        ("zh", (80, 24), "scope-zh-80x24"),
         ("en", (80, 24), "scope-en-80x24"),
     ],
 )
 def test_scope_snapshot(snap_compare, demo_server, lang, size, name):
     """Enter on the scope card (14): braille trace, settings column, log (tui-screens.md 6)."""
     url, sid = demo_server
-    tui = SimuBenchApp(url, sid=sid, lang=lang)
+    tui = SimuBenchApp(url, sid=sid)
 
     async def run_before(pilot) -> None:
         import asyncio
@@ -264,9 +258,7 @@ def scope_server():
 
 
 NET_SIZES = [
-    ("zh", (100, 32), "nets-zh-100x32"),
     ("en", (100, 32), "nets-en-100x32"),
-    ("zh", (80, 24), "nets-zh-80x24"),
     ("en", (80, 24), "nets-en-80x24"),
 ]
 
@@ -275,7 +267,7 @@ NET_SIZES = [
 def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
     """`n`: the nets list with levels and the selected net's probe (tui-screens.md 11.1)."""
     url, sid = scope_server
-    tui = SimuBenchApp(url, sid=sid, lang=lang)
+    tui = SimuBenchApp(url, sid=sid)
 
     async def run_before(pilot) -> None:
         import asyncio
@@ -307,7 +299,7 @@ FAULT_SIZES = [(lang, size, name.replace("nets", "fault")) for lang, size, name 
 def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
     """`f`: the injection dialog with its kind groups (tui-screens.md 8)."""
     url, sid = scope_server
-    tui = SimuBenchApp(url, sid=sid, lang=lang)
+    tui = SimuBenchApp(url, sid=sid)
 
     async def run_before(pilot) -> None:
         import asyncio
@@ -325,7 +317,7 @@ def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
                 text = "\n".join(
                     "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
                 )
-                if "超时" in text or "Timeout" in text:
+                if "Timeout" in text or "Timeout" in text:
                     return
         raise AssertionError("the fault dialog never settled")
 
@@ -398,9 +390,7 @@ def _runs_app(lang: str):
 
 
 RUN_SIZES = [
-    ("zh", (100, 32), "runs-zh-100x32"),
     ("en", (100, 32), "runs-en-100x32"),
-    ("zh", (80, 24), "runs-zh-80x24"),
     ("en", (80, 24), "runs-en-80x24"),
 ]
 

@@ -81,7 +81,6 @@ class SimuBenchApp(App[None]):
         url: str,
         sid: str | None = None,
         token: str | None = None,
-        lang: str | None = None,
         launched: bool = False,
         bench_path: Path | None = None,
         bench_name: str = "SimuBench",
@@ -90,7 +89,7 @@ class SimuBenchApp(App[None]):
         self.url = url.rstrip("/")
         self.sid = sid
         self.token = token
-        self.lang = lang or i18n.default_lang()
+        self.lang = i18n.default_lang()  # English only (D23)
         self.launched = launched  # the TUI started this service: quit closes it, R rebuilds
         self.bench_path = bench_path
         self._bench_sha: str | None = None

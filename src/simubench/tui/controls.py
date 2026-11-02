@@ -343,9 +343,9 @@ def range_text(spec: Mapping[str, Any]) -> str:
 
 
 def options_of(spec: Mapping[str, Any]) -> list[tuple[str, str]]:
-    """An enum's options with their labels (tui-screens.md 1.4)."""
-    labels = spec.get("option_labels") or {}
-    return [(o, labels.get(o, o)) for o in spec.get("options") or []]
+    """An enum's options as the instrument spells them: the definitions' ``option_labels`` are
+    Chinese and the terminal console is English only (D23)."""
+    return [(o, o) for o in spec.get("options") or []]
 
 
 def summary_text(value: Any, spec: Mapping[str, Any] | None, lang: str) -> str:
@@ -356,8 +356,7 @@ def summary_text(value: Any, spec: Mapping[str, Any] | None, lang: str) -> str:
     if spec and spec.get("type") == "int" and isinstance(value, (int, float)) and math.isfinite(value):
         return fmt_int(value, spec.get("display_unit") or spec.get("unit"))
     if spec and spec.get("type") == "enum" and isinstance(value, str):
-        labels = spec.get("option_labels") or {}
-        return labels.get(value, value)
+        return value  # the mnemonic: option_labels are Chinese, the TUI is English only (D23)
     if spec and isinstance(value, (int, float)) and not isinstance(value, bool):
         unit = spec.get("display_unit") or spec.get("unit")
         return fmt(float(value), unit)

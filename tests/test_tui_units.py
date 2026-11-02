@@ -34,7 +34,7 @@ def ev(seq: int, t_ns: int, kind: str, **fields: Any) -> dict[str, Any]:
 
 
 def lines_of(*events: dict[str, Any]) -> list[Any]:
-    return build_lines(list(events), "zh")
+    return build_lines(list(events), "en")
 
 
 # ---- the communication log's pairing (tui-screens.md 7.1) --------------------------------------------
@@ -94,7 +94,7 @@ def test_the_embedded_log_shows_only_commands():
     lines = lines_of(*events)
     embedded = visible(lines, embedded=True)
     assert [ln.command for ln in embedded] == [":OUTP ON", ":MEAS:VOLT?"]
-    assert [ln.command for ln in lines] == [":OUTP ON", "面板：enabled", "推进 10.000 ms", ":MEAS:VOLT?"]
+    assert [ln.command for ln in lines] == [":OUTP ON", "Panel: enabled", "Advance 10.000 ms", ":MEAS:VOLT?"]
 
 
 # ---- the source labels (tui-screens.md 1.5) ------------------------------------------------------------
@@ -103,18 +103,18 @@ def test_the_embedded_log_shows_only_commands():
 @pytest.mark.parametrize(
     ("client", "label"),
     [
-        ("ui", "界面"),
-        ("tui", "终端"),
+        ("ui", "UI"),
+        ("tui", "Terminal"),
         ("mcp", "Agent"),
-        ("pyvisa", "脚本"),
-        ("socket:127.0.0.1:53122", "脚本 :53122"),
-        ("hislip:127.0.0.1:4880#0001", "脚本 :4880"),
-        ("replay", "回放"),
-        ("", "事件"),
+        ("pyvisa", "Script"),
+        ("socket:127.0.0.1:53122", "Script :53122"),
+        ("hislip:127.0.0.1:4880#0001", "Script :4880"),
+        ("replay", "Replay"),
+        ("", "Event"),
     ],
 )
 def test_source_labels(client: str, label: str):
-    assert source_label({"client": client, "kind": "scpi"}, "zh") == label
+    assert source_label({"client": client, "kind": "scpi"}, "en") == label
 
 
 # ---- the not-executed wording (tui-screens.md 9.2, #174's classifications) ------------------------------
@@ -125,14 +125,14 @@ def hint_line(**fields: Any) -> str | None:
         ev(1, 20_000_000, "scpi", instrument="smu", dir="write", client="pyvisa", text=":FOO 1"),
         ev(2, 20_000_000, "error", instrument="smu", client="pyvisa", **fields),
     ]
-    return hint_text(lines_of(*events)[0], "zh")
+    return hint_text(lines_of(*events)[0], "en")
 
 
 def test_hint_not_modeled_names_the_coverage_file():
     text = hint_line(
         code=-113, message="Undefined header", reason="not_modeled", origin="/x/sds.coverage.yaml"
     )
-    assert text == "未建模 · 覆盖表 sds.coverage.yaml 中标为未实现"
+    assert text == "Not modeled · listed as not implemented in sds.coverage.yaml"
 
 
 def test_hint_not_in_model_names_the_closest():
@@ -143,7 +143,7 @@ def test_hint_not_in_model_names_the_closest():
         origin="sds.coverage.yaml",
         closest=":SYSTem:ERRor",
     )
-    assert text is not None and "sds.coverage.yaml 中没有这条命令" in text and "SYSTem:ERRor" in text
+    assert text is not None and "Not in the coverage table sds.coverage.yaml" in text and "SYSTem:ERRor" in text
 
 
 def test_hint_not_in_definition():
@@ -154,11 +154,11 @@ def test_hint_not_in_definition():
         origin="sb-smu-1.yaml",
         closest=":SOURce:VOLTage",
     )
-    assert text is not None and "定义 sb-smu-1.yaml 中没有这条命令" in text
+    assert text is not None and "Not in the definition sb-smu-1.yaml" in text
 
 
 def test_hint_ignored():
-    assert hint_line(reason="ignored") == "已忽略 · 定义设为 unknown_commands: ignore"
+    assert hint_line(reason="ignored") == "Ignored · the definition sets unknown_commands: ignore"
 
 
 def test_hint_builtin_excluded():
@@ -177,7 +177,7 @@ def test_hint_builtin_excluded():
         ),
     ]
     lines = lines_of(*events)
-    assert hint_text(lines[0], "zh") == "这个型号不回答 *TRG · 定义的 builtins"
+    assert hint_text(lines[0], "en") == "This model does not answer *TRG · builtins in the definition"
 
 
 def test_hint_bad_parameter_carries_the_range():
@@ -188,7 +188,7 @@ def test_hint_bad_parameter_carries_the_range():
         param="source.voltage.level",
         range="-210 … 210 V",
     )
-    assert text == "参数不合法：source.voltage.level 应在 -210 … 210 V 内"
+    assert text == "Bad parameter: source.voltage.level must be within -210 … 210 V"
 
 
 def test_an_ordinary_device_error_has_no_hint():
@@ -221,10 +221,10 @@ def test_limited_report_conclusion_and_traced_command():
             new=15.0,
         ),
     ]
-    report = limited_report(SMU_INFO, readings, events, "zh")
-    assert report is not None and "恒流（CC）" in report.conclusion
+    report = limited_report(SMU_INFO, readings, events, "en")
+    assert report is not None and "constant current (CC)" in report.conclusion
     setting = report.evidences[0]
-    assert ":SOUR:VOLT 15" in (setting.source or "") and "脚本" in (setting.source or "")
+    assert ":SOUR:VOLT 15" in (setting.source or "") and "Script" in (setting.source or "")
     assert report.jump_seq == 1  # ⏎ jumps to the write's log line
 
 
@@ -245,9 +245,9 @@ def test_error_report_names_the_command_and_classification():
         ),
     ]
     lines = lines_of(*events)
-    report = error_report(lines[0], "zh")
-    assert report.title == "原因 · smu 错误 -222"
-    assert report.hint is not None and "参数不合法" in report.hint
+    report = error_report(lines[0], "en")
+    assert report.title == "Reason · smu error -222"
+    assert report.hint is not None and "Bad parameter" in report.hint
     assert report.jump_seq == 1
 
 
@@ -281,8 +281,8 @@ def test_the_store_dedupes_replayed_sequences_and_stays_bounded():
 def test_an_int_setting_reads_as_an_integer():
     from simubench.tui.controls import summary_text
 
-    assert summary_text(1.0, {"type": "int"}, "zh") == "1"
-    assert summary_text(101, {"type": "int", "unit": "S"}, "zh") == "101 s"
+    assert summary_text(1.0, {"type": "int"}, "en") == "1"
+    assert summary_text(101, {"type": "int", "unit": "S"}, "en") == "101 s"
 
 
 def test_an_angle_reads_in_degrees():
@@ -294,7 +294,7 @@ def test_an_infinite_load_sent_as_inf_reads_as_on_the_overview_card():
     from simubench.tui.controls import summary_text
 
     spec = {"type": "float", "unit": "OHM"}
-    assert summary_text("INF", spec, "zh") == fmt(float("inf"), "OHM") == "高阻"
+    assert summary_text("INF", spec, "en") == fmt(float("inf"), "OHM") == "High Z"
 
 
 def test_each_generator_channel_box_gets_its_own_buttons():
@@ -307,8 +307,8 @@ def test_each_generator_channel_box_gets_its_own_buttons():
             for k in ("frequency", "amplitude")
         ]
     }
-    assert [c.path for c in generator_controls(info, "zh", 2)] == ["ch2.frequency", "ch2.amplitude"]
-    assert len(generator_controls(info, "zh")) == 4
+    assert [c.path for c in generator_controls(info, "en", 2)] == ["ch2.frequency", "ch2.amplitude"]
+    assert len(generator_controls(info, "en")) == 4
 
 
 def test_a_manual_value_under_its_auto_switch_is_not_in_effect():

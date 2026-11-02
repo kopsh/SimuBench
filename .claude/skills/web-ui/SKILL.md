@@ -25,7 +25,8 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `uv run simubench schemas --out schemas` then `cd web && pnpm gen:api`; commit `schemas/` and
   `web/src/api/generated/`. `pnpm check:api` fails on stale output.
 - New text: add the key to **both** `zh.ts` and `en.ts`. If the TUI shows the same wording, the
-  TUI copy (`src/simubench/tui/i18n/`) must match exactly — `scripts/check_tui_i18n.py`.
+  TUI copy (`src/simubench/tui/i18n/en.py`, English only, D23) must match `en.ts` exactly —
+  `scripts/check_tui_i18n.py`.
 - Wording follows `docs/glossary.md`; errors read "what happened → where → what to do".
 - Interaction rules: `docs/ui-design.md` 6 (selection sync, ⌘K palette, feedback within 100 ms,
   progress after 1 s, empty states with a next step, read-only on disconnect,

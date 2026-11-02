@@ -94,7 +94,7 @@ def test_net_rows_list_endpoints_levels_and_the_unconnected():
             {"net": "net-1", "rms": 0.0, "dc": 5.0, "active": False},
         ]
     }
-    rows, unconnected = net_rows(_session(), levels, "zh")
+    rows, unconnected = net_rows(_session(), levels, "en")
     assert [r["net"] for r in rows] == ["net-0", "net-1"]
     assert rows[0]["active"] is True and "697.10 mV" in rows[0]["value"]
     assert rows[1]["active"] is False and rows[1]["value"] == "5.0000 V"  # a DC net shows its DC
@@ -104,6 +104,6 @@ def test_net_rows_list_endpoints_levels_and_the_unconnected():
 def test_silence_wording_per_reason_kind():
     text = silence_text(
         [{"kind": "source_off", "source": "awg"}, {"kind": "fault", "fault_id": "f-2"}],
-        "zh",
+        "en",
     )
-    assert "awg" in text and "f-2" in text and "故障" in text
+    assert "awg" in text and "f-2" in text and "fault" in text

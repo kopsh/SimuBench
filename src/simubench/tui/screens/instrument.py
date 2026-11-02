@@ -106,7 +106,7 @@ class InstrumentScreen(ShellScreen):
     #error-box { width: 1fr; margin-left: 1; }
     .button-row { height: auto; }
     .flash-line { color: $bad; }
-    .reason-line { color: $fg; }
+    .reason-line { color: $fg; text-wrap: nowrap; text-overflow: ellipsis; }
     """
 
     # ---- data ----------------------------------------------------------------------------------------
@@ -223,14 +223,17 @@ class InstrumentScreen(ShellScreen):
         lang = app.lang
         info = self.info
         width = max(40, app.size.width - 4)
+        # Label columns as wide as their longest label, one space after it.
+        lw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.id", "instrument.address"))
+        rw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.definition", "instrument.real"))
         rows: list[list[tuple[str, str]]] = [
             [
-                (pad(i18n.t("instrument.id", lang), 6), "muted"),
+                (pad(i18n.t("instrument.id", lang), lw), "muted"),
                 (info.get("idn", ""), ""),
             ]
         ]
         addr_row: list[tuple[str, str]] = [
-            (pad(i18n.t("instrument.address", lang), 6), "muted"),
+            (pad(i18n.t("instrument.address", lang), lw), "muted"),
             (info.get("address_virtual", ""), ""),
         ]
         if info.get("address_hislip"):
@@ -240,7 +243,7 @@ class InstrumentScreen(ShellScreen):
         right: list[list[tuple[str, str]]] = []
         right.append(
             [
-                (pad(i18n.t("instrument.definition", lang), 6), "muted"),
+                (pad(i18n.t("instrument.definition", lang), rw), "muted"),
                 (info.get("definition_id", ""), ""),
             ]
         )
@@ -255,7 +258,7 @@ class InstrumentScreen(ShellScreen):
         else:
             right.append([(i18n.t("instrument.errors", lang) + "  ", "muted"), ("0", "")])
         if info.get("address_real"):
-            right.append([(pad(i18n.t("instrument.real", lang), 6), "muted"), (info["address_real"], "")])
+            right.append([(pad(i18n.t("instrument.real", lang), rw), "muted"), (info["address_real"], "")])
         for fault in self._active_faults():
             right.append([(i18n.t("log.faultActive", lang, id=fault.get("id", "")), "bad")])
         half = width // 2
@@ -387,9 +390,11 @@ class InstrumentScreen(ShellScreen):
             return self._panel_lines()
         return self._generic_lines(state)
 
-    def _row(self, label: str, value: str, *, bold: bool = True, mark: str = "") -> list[tuple[str, str]]:
+    def _row(
+        self, label: str, value: str, *, bold: bool = True, mark: str = "", width: int = 6
+    ) -> list[tuple[str, str]]:
         return [
-            (pad(label, 6), "muted"),
+            (pad(label, max(width, cell_len(label) + 1)), "muted"),
             (value, "bold" if bold else ""),
             (" " + mark if mark else "", "bad"),
         ]
@@ -402,14 +407,19 @@ class InstrumentScreen(ShellScreen):
         regulation = str(readings.get("core.regulation") or "")
         voltage_limited = limited and regulation == "CV"
         current_limited = limited and regulation == "CC"
-        label_w, value_w = 4, 12
+        label_w = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.set", "instrument.actual", "instrument.limit"))
+        value_w = 10
+        status_w = 1 + max(
+            cell_len(i18n.t(k, lang)) for k in ("cards.output", "instrument.function", "instrument.regulation")
+        )
+        status_col = status_w + 8  # On / Off, VOLTage / CURRent, CV / CC
 
         def sv_text(path: str) -> str:
             sv = state.get(path) or {}
             return C.summary_text(sv.get("value"), sv, lang)
 
         def cell(label: str, value: str, mark: str = "") -> list[tuple[str, str]]:
-            bold = value not in ("开", "关")
+            bold = value not in (i18n.t("common.on", lang), i18n.t("common.off", lang))
             return [
                 (pad(label, label_w), "muted"),
                 (ralign(value, value_w), "bold" if bold else ""),
@@ -418,16 +428,19 @@ class InstrumentScreen(ShellScreen):
 
         col = label_w + value_w + 2
         header = [
-            (pad(i18n.t("instrument.colStatus", lang), col), "muted"),
+            (pad(i18n.t("instrument.colStatus", lang), status_col + 2), "muted"),
             (pad(i18n.t("instrument.colVoltage", lang), col), "muted"),
             (pad(i18n.t("instrument.colCurrent", lang), col), "muted"),
         ]
+
+        def status(label: str, value: str, tokens: str = "") -> list[tuple[str, str]]:
+            return [(pad(label, status_w), "muted"), (pad(value, max(1, status_col - status_w)), tokens)]
+
         status_rows = [
-            self._row(i18n.t("cards.output", lang), sv_text("output.enabled"), bold=False),
-            self._row(i18n.t("instrument.function", lang), sv_text("source.function"), bold=False),
+            status(i18n.t("cards.output", lang), sv_text("output.enabled")),
+            status(i18n.t("instrument.function", lang), sv_text("source.function")),
         ]
-        regulation_row: list[tuple[str, str]] = [(pad(i18n.t("instrument.regulation", lang), 6), "muted")]
-        regulation_row.append((regulation or "—", "bad" if limited else ""))
+        regulation_row = status(i18n.t("instrument.regulation", lang), regulation or "—", "bad" if limited else "")
         gap = [(" " * 2, "")]
         v1 = cell(i18n.t("instrument.set", lang), sv_text("source.voltage.level"))
         c1 = cell(i18n.t("instrument.set", lang), sv_text("source.current.level"))
@@ -452,7 +465,7 @@ class InstrumentScreen(ShellScreen):
 
     def _generator_lines(self, state: dict[str, dict], channel: int) -> list[list[tuple[str, str]]]:
         lang = self.app.lang
-        rows: list[list[tuple[str, str]]] = []
+        rows: list[tuple[str, str, bool]] = []
         for path in (
             f"ch{channel}.output",
             f"ch{channel}.function",
@@ -468,8 +481,9 @@ class InstrumentScreen(ShellScreen):
                 continue
             label = C.label_of(sv, lang, fallback=path.rsplit(".", 1)[-1])
             value = C.summary_text(sv.get("value"), sv, lang)
-            rows.append(self._row(label, value, bold=isinstance(sv.get("value"), (int, float))))
-        return rows
+            rows.append((label, value, isinstance(sv.get("value"), (int, float))))
+        width = 1 + max((cell_len(label) for label, _, _ in rows), default=5)
+        return [self._row(label, value, bold=bold, width=width) for label, value, bold in rows]
 
     def _panel_lines(self) -> list[list[tuple[str, str]]]:
         """Readouts on top (numbers bold), then one column per panel group (tui-screens.md 5.2)."""
@@ -1098,10 +1112,8 @@ class InstrumentScreen(ShellScreen):
             ref = f"{info.get('name', '')}.{p['name']}"
             ends = opposite_ends(ref, session, lang)
             if ends:
-                joined = " 与 ".join(ends) if lang == "zh" else " and ".join(ends)
-                verb = " 接 " if lang == "zh" else " to "
-                parts.append(f"{p['name']}{verb}{joined}")
-        return "；".join(parts) if lang == "zh" else "; ".join(parts)
+                parts.append(f"{p['name']} to {' and '.join(ends)}")
+        return "; ".join(parts)
 
     def action_step(self, direction: int) -> None:
         app: Any = self.app

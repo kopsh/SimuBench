@@ -44,7 +44,7 @@ def fmt(value: float | int | None, unit: str | None = None, digits: int = 5) -> 
     """One value with its unit: ``15.000 V``, ``10.000 mA``, ``1.0000 kHz``.
 
     ``digits`` significant digits, engineering prefix, one space before the unit. An infinite
-    resistance is a high-impedance load (高阻); other infinities and NaN read ``∞`` / ``—``.
+    resistance is a high-impedance load (High Z, the Web Bench's word); other infinities and NaN read ``∞`` / ``—``.
     """
     unit = fix_unit(unit)
     if value is None:
@@ -56,7 +56,7 @@ def fmt(value: float | int | None, unit: str | None = None, digits: int = 5) -> 
         return "—"
     if math.isinf(value):
         if unit == "Ω" and value > 0:
-            return "高阻"
+            return "High Z"
         return ("∞" if value > 0 else "-∞") + (f" {unit}" if unit else "")
     scale, prefix = 1.0, ""
     if value != 0:
