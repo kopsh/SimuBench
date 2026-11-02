@@ -55,8 +55,11 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
    the merge, and a red one there is fixed first, before new work.
 6. Never push to `main` directly, and never weaken, skip or delete tests to get CI green.
 
-Before changing behaviour, read `docs/decisions.md` (the recorded decisions) and
-`docs/progress.md` (what is done). A decision entry is written only for a choice that satisfies
+Before changing behaviour, check `docs/decisions.md` (the recorded decisions) and
+`docs/progress.md` (what is done), **by section, not whole** (together they are about 70k tokens):
+`grep -n '^## D' docs/decisions.md` for the list, then read the entries your change touches
+(`sed -n '<from>,<to>p'`); `grep -n '<keyword or #issue>' docs/progress.md` and read only the
+matching rows. A decision entry is written only for a choice that satisfies
 both:
 
 1. **Real alternatives existed** — either path would have worked, and someone may want to reverse
