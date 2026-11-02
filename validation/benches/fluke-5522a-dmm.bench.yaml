@@ -12,7 +12,7 @@ instruments:
   dmm:
     model: sb-dmm-1
     hidden:
-      meter:
+      path:
         gain_error_ppm: 0.0
         offset: 0.0
 wires:

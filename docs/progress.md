@@ -730,6 +730,15 @@
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 
 
+## 隐式状态引用不存在组件/参数时给出诊断（Issue 256）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 测试台校验报错 | ✅ `validate_bench` 对 `hidden` 中不存在的组件报 `E-HIDDEN-COMPONENT`（指针 `/instruments/<名>/hidden/<组件>`，给出最接近的组件）；对存在的组件里不存在的参数报 `E-HIDDEN-PARAM`（指针带参数，给出可用参数）；个体偏差的参数不存在报 `E-DEVIATION-PARAM`；反例测试在 `tests/test_validate.py` |
+| 打开测试台不再静默 | ✅ `Instrument` 构造时对未知的 hidden 组件或参数抛 `ValueError`（列出可用组件/参数），`open_bench` 不再继续；运行时测试覆盖 |
+| 改名不兼容 | ✅ 不做 `meter` → `path` 兼容别名：旧测试台若写 `hidden: {meter: {offset: …}}` 现在会报 `E-HIDDEN-PARAM`（`meter` 是 ADC 组件，没有 `offset`），按诊断改成 `path`；`docs/metrology-authoring.md` 的示例已在 #257 改正 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
 ## SMU 的测量功能（Issue 299）
 
 | 完成条件 | 自检 |
