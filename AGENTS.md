@@ -3,9 +3,23 @@
 Any coding agent (or person) works the same way. Tasks are GitHub issues; a pull request that
 passes CI merges itself into `main`, with no review.
 
-Short task guides live in `.claude/skills/<name>/SKILL.md` (any agent can read them): `dev-workflow`
-(this loop, commands, test rules, traps), `codebase-map` (which file/doc for what), `real-model`,
-`component`, `web-ui`. Read the matching one first and the long docs only by section.
+## Skills: read these first
+
+Short task guides in `.claude/skills/<name>/SKILL.md`. Any agent can read them (Claude Code loads
+them itself). Read the one that matches your task before the long docs, and read long docs only by
+section (`grep -n '^#' docs/<file>.md`, then `sed -n`). That saves most of the tokens.
+
+- `dev-workflow`: this loop, the check commands, test rules (D49), CI traps. Read it for every task.
+- `codebase-map`: which file or doc answers what.
+- `real-model`: a real instrument model (definition YAML, coverage, cases, example bench).
+- `component`: a new or split generic component (`核心`).
+- `web-ui`: the Web Bench (`web/`), API types, i18n.
+
+**Skills must not go stale.** A pull request that changes something a skill states (a path, a
+command, a check, a rule, a workflow step, a decision it cites) updates that skill in the same pull
+request. A new recurring kind of task gets a new skill, listed here. `scripts/check_skills.py`
+(part of `scripts/check.sh`) fails when a skill names a path that no longer exists or this list
+and `.claude/skills/` disagree. Wording it cannot check is the author's job.
 
 ## Who takes which issue
 

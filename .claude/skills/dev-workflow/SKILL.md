@@ -45,6 +45,7 @@ uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
 uv run pytest tests/test_x.py -q                          # while iterating
 uv run python scripts/check_tui_i18n.py                   # TUI wording == web i18n
 uv run python scripts/check_test_rules.py                 # D49 rules
+uv run python scripts/check_skills.py                     # skills name only existing paths
 uv run simubench schemas --out schemas                    # then commit schemas/ if changed
 cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```
@@ -60,6 +61,12 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
 - Server fixtures must be `module`/`session` scoped (function scope is rejected by the script).
 - Windows, wheel, e2e, visual, `tui_boot`, `load_sensitive` run after merge. Red on `main` is
   fixed before new work.
+
+## Keep the skills current
+
+Changed a path, command, check, rule or workflow step that a skill states? Update that skill
+(`.claude/skills/*/SKILL.md`) in the same PR. A new skill also goes in the `AGENTS.md` Skills list.
+`scripts/check_skills.py` catches dead paths and list mismatches; stale wording is yours to catch.
 
 ## Traps
 

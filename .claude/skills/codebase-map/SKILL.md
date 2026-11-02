@@ -43,7 +43,7 @@ plausible fake).
 
 - `web/` — React + Vite + TanStack Query + xyflow; see the `web-ui` skill.
 - `schemas/` — generated (`simubench schemas --out schemas`), committed, never hand-edited.
-- `validation/instruments|benches` — `sb-*` validation instruments (not shipped);
+- `validation/instruments/`, `validation/benches/` — `sb-*` validation instruments (not shipped);
   `acceptance/` — scenario tests + benches; `refcalc/` — reference calculations.
 - `examples/benches` — real-model benches only.
 - `tests/models/<id>/cases.yaml` — manual cases per model; `tests/definitions/` — test-only defs.
