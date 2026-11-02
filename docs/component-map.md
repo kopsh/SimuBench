@@ -116,7 +116,7 @@ B2(#185)已拆分:`sb-ps-1` 是三路电源(CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 �
 | input | `eload_input` | 电路(输入端子、开关、输入电容;盖章) | 已实现 | — |
 | power_stage | `eload_power_stage` | 电路(r_min 拐点、i_max、p_max 包络) | 已实现 | — |
 | mode_loop | `eload_mode_loop` | 电路决策(CC/CV/CR/CP;Von 与 CC 斜率) | 已实现(CP 未收敛时取最后一轮模式的工作点并记 solver 事件:D52、#258) | CP 为迭代解(D52) |
-| meter | `eload_meter` | 数据(V/I/P 读数;`load.*` 供前面板) | 已实现 | — |
+| meter | `eload_meter` | 数据(V/I/P 读数;`load.*` 供前面板;STATus:QUEStionable 条件寄存器,#343) | 已实现 | — |
 | protection | `eload_protection` | 设置/数据(OVP/OCP/OPP 阈值与锁定) | 已实现 | OTP 不在 DL3021 命令集(类别能力见缺口清单);型号命令映射已在 #194 |
 
 C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面板的 `load.voltage/current/power/regulating` 键不变)。行为:CC 带 r_min 拐点;CV 用 `loop_source` 把输入调在设定电压,源电压低于设定值时开路(负载不能灌电流);CR 为设定电阻;CP 按 D52 用 D34 定点迭代;Von 是 CC/CP 的起始电压;CC 斜率按虚拟时间渐变;slew 0 时瞬时;OVP/OCP/OPP 锁定后输入停止导通,保护清除后可恢复。**动态/列表(C2)** 与 Von 阈值附近的模式抖动(DC 模型无滞回)记入缺口清单另排;DL3000 手册只有 `VON`(单一启动电压),`Voff` 的回差行为在 #194 中按手册核对。
@@ -218,7 +218,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | `counter_timebase` | frequency_counter.timebase | 块清单已声明(与 `reference_clock` 并列);53230A 无间隙/时间戳测量的前置 | #328(第二波,53230A #331 的时间戳/无间隙前置) |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
 | `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | #329(第二波,5730A #341 的前置) |
-| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | 多台型号的状态寄存器组整体 not_modeled;dl3021 覆盖表已注记「平台缺口」 | 由 #248(示波器)、#271(电源)、#273(SR830)各自的最小实现推进;三处收敛后评估是否立项通用组件 |
+| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | 多台型号的状态寄存器组整体 not_modeled;dl3021 覆盖表已注记「平台缺口」 | 由 #248(示波器)、#271(电源)、#273(SR830)、#343(电子负载 `eload_meter` 的可疑条件寄存器,位号为参数)各自的最小实现推进;三处收敛后评估是否立项通用组件 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 

@@ -162,6 +162,12 @@ commands:
   - header: ":SYSTem:PROTection:CLEar"
     op: prot.clear
     query: false
+  # 可疑状态条件寄存器（#343）：位 0/1/3 为 OVP/OCP/OPP 跳闸，位 10 UNR 为输入开启却未保持设定值
+  # （模式环未收敛、拐点、功率/电流包络、Von 或斜率未到），恢复后清零。
+  - header: ":STATus:QUEStionable:CONDition"
+    op: load.questionable
+    set: false
+    doc: 条件寄存器实时反映当前状态；位 0 OV、位 1 OC、位 3 OP、位 10 UNR（未调节）。
   - header: ":MEASure[:SCALar]:VOLTage[:DC]"
     op: load.measure
     set: false

@@ -287,6 +287,27 @@ class EloadInput(Component):
             return v, max(0.0, -self.session.source_current(self.uid))
         return v, 0.0
 
+    def unregulated(self) -> bool:
+        """The input is on but does not hold its set quantity (#343): the mode loop did not settle
+        (D52), or the solved point misses the setpoint — the knee, the power/current envelope, Von
+        or a CC ramp still on its way. The status register's UNR bit reads this."""
+        if not self.conducting():
+            return False
+        if self.session.unsettled:
+            return True
+        loop = self._loop()
+        mode, value = loop.mode_value()
+        function = str(loop.param("function"))
+        if function == "CR":
+            return mode != "r" or abs(value - float(loop.param("resistance"))) > CP_TOLERANCE * value
+        if function == "CV":
+            return mode != "v"
+        v, i = self.measured()
+        target, got = (
+            (float(loop.param("power")), v * i) if function == "CP" else (float(loop.param("current")), i)
+        )
+        return abs(got - target) > 1e-6 * max(1.0, abs(target))
+
     def regulating(self) -> bool:
         """The load holds its regulated quantity (not the knee/open, and the mode loop settled,
         D52/#258): for the panel's warning."""
@@ -299,7 +320,14 @@ class EloadMeter(Component):
     panel uses; the input stage supplies the solved values."""
 
     refs = {"input": ("eload_input", "instrument")}
-    defaults = {"input": ""}  # the eload_input whose solved values are read
+    defaults = {
+        "input": "",  # the eload_input whose solved values are read
+        # STATus:QUEStionable bit positions (#343).
+        "ov_bit": 0,  # questionable bit set while OVP is tripped
+        "oc_bit": 1,  # questionable bit set while OCP is tripped
+        "op_bit": 3,  # questionable bit set while OPP is tripped
+        "unr_bit": 10,  # questionable bit set while the input is on but unregulated
+    }
 
     def _input(self) -> EloadInput:
         assert self.owner is not None
@@ -310,6 +338,22 @@ class EloadMeter(Component):
         v, i = self._input().measured()
         value = {"voltage": v, "current": i, "power": v * i}[what]
         return OpResult(V.format_float(value, 7))
+
+    @op("questionable")
+    def op_questionable(self, query: bool = False, **_: Any) -> OpResult:
+        """STATus:QUEStionable:CONDition? (#343): the condition register, live — OV / OC / OP while
+        that protection is tripped, UNR while the input is unregulated (:meth:`EloadInput.unregulated`).
+        The bit positions are parameters, so a model maps its own manual's register."""
+        self.session._solve()
+        inp = self._input()
+        bits = 0
+        kind = inp._protection().kind()
+        for name, param in (("OVP", "ov_bit"), ("OCP", "oc_bit"), ("OPP", "op_bit")):
+            if kind == name:
+                bits |= 1 << int(self.param(param))
+        if inp.unregulated():
+            bits |= 1 << int(self.param("unr_bit"))
+        return OpResult(str(bits).encode())
 
     def readings(self) -> dict[str, Any]:
         v, i = self._input().measured()
