@@ -6297,7 +6297,8 @@
               "bool",
               "enum",
               "string",
-              "int_list"
+              "int_list",
+              "enum_list"
             ],
             "title": "Type",
             "type": "string"

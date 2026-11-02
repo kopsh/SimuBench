@@ -50,6 +50,8 @@ format:
   enum: short
 ```
 
+**枚举列表** `type: enum_list`（#252）：一个设置保存几项选项，如读数元素 `:FORM:ELEM:SENS VOLT,CURR`。写入接受逗号分隔的多个词（长短形式均可），按 `options` 的顺序保存与回读，与写入顺序无关；不认识的词报 -224，原值不变。操作命令的 `args` 可以写 `$<设置路径>`，执行时取该设置的当前值：B2901A 的 `MEASure?`、`FETCh:ARRay?` 等写 `args: {elements: $format.elements.sense}`，回的元素随 `:FORM:ELEM:SENS` 变化。
+
 枚举的查询回复默认是选项的短格式（`enum: short`）或定义里的写法（`as_defined`）。仪表的回复词与它接受的设置词不同时，在状态上写 `replies`，按选项给出回复词，未列出的选项照常回复。例如 DL3021 的 `:FUNC CURRent` 查询回 `CC`（#268）：
 
 ```yaml

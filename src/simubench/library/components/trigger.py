@@ -52,8 +52,10 @@ def format_readings(
     seconds since the first reading, else a field the sampler gave it)."""
     out: list[bytes] = []
     first = readings[0].t_ns if readings else 0
+    # An element may be written long (VOLTage, from an enum_list setting, #252) or short (VOLT).
+    names = [V.short_form(x) if x.upper() not in ("READ", "REL") else x.upper() for x in elements or ["READ"]]
     for r in readings:
-        for e in [x.upper() for x in elements or ["READ"]]:
+        for e in names:
             if e.startswith("READ"):
                 out.append(number(r.value))
             elif e.startswith("REL"):

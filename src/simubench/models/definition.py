@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .deviation import DeviationSpec
 
-StateType = Literal["float", "int", "bool", "enum", "string", "int_list"]
+StateType = Literal["float", "int", "bool", "enum", "string", "int_list", "enum_list"]
 
 
 class _Model(BaseModel):
@@ -69,8 +69,8 @@ class StateSpec(_Model):
 
     @model_validator(mode="after")
     def _check(self) -> StateSpec:
-        if self.type == "enum" and not self.options:
-            raise ValueError("enum state needs options")
+        if self.type in ("enum", "enum_list") and not self.options:
+            raise ValueError(f"{self.type} state needs options")
         if self.replies is not None:
             if self.type != "enum":
                 raise ValueError("replies go with an enum state")

@@ -446,6 +446,28 @@ def test_an_enum_answers_its_reply_word():
         InstrumentDefinition.model_validate(data)
 
 
+def test_an_enum_list_keeps_the_options_order():
+    """`enum_list` (#252): several words in one setting, stored and answered in the options'
+    order whatever order they were written in; an unknown word is -224 and changes nothing."""
+    data = copy.deepcopy(DEMO)
+    data["state"]["format.elements"] = {
+        "type": "enum_list",
+        "options": ["VOLTage", "CURRent", "TIME"],
+        "default": ["VOLTage", "CURRent", "TIME"],
+    }
+    data["commands"].append({"header": "FORMat:ELEMents", "state": "format.elements"})
+    _, _, query, write = open_demo(data)
+    write("FORM:ELEM TIME,VOLT")
+    assert query("FORM:ELEM?") == "FORM:ELEM VOLT,TIME"
+    write("FORM:ELEM CURR,POWer")
+    assert error(query).startswith("-224")
+    assert query("FORM:ELEM?") == "FORM:ELEM VOLT,TIME"
+    with pytest.raises(ValidationError, match="options"):
+        InstrumentDefinition.model_validate(
+            {**data, "state": {**data["state"], "bad": {"type": "enum_list", "default": []}}}
+        )
+
+
 def _with_keywords(keywords: dict) -> dict:
     data = copy.deepcopy(DEMO)
     conf = next(c for c in data["commands"] if c["header"] == "CONFigure<ch>")

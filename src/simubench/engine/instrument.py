@@ -441,6 +441,13 @@ class Instrument:
             return value
         if spec.type == "bool":
             return bool(value)
+        if spec.type == "enum_list":
+            # A set of options kept in the options' order, whatever order it was written in
+            # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
+            chosen = set(value)
+            if not chosen or not chosen <= set(spec.options or []):
+                raise ScpiError(-224)
+            return [o for o in spec.options or [] if o in chosen]
         if spec.type == "int_list":
             out = [int(v) for v in value]
             for v in out:
@@ -1008,6 +1015,12 @@ class Instrument:
                 raise ScpiError(-109)
             self.set_state(path, spec.set_value)
             return None
+        if st.type == "enum_list":
+            try:
+                self.set_state(path, [V.parse_enum(p, st.options or []) for p in unit.params])
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, st) from e
+            return None
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
         try:
@@ -1369,6 +1382,10 @@ class Instrument:
             if st.replies and value in st.replies:
                 return st.replies[value].encode()  # the instrument's own query word (#268)
             return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
+        if st.type == "enum_list":
+            return b",".join(
+                V.format_enum(v, long=f.enum == "long", as_defined=f.enum == "as_defined") for v in value
+            )
         if st.type == "int_list":
             return V.format_channel_list(value)
         return V.format_string(str(value))
@@ -1435,6 +1452,12 @@ class Instrument:
         fn = comp.operation(op_name)
         if fn is None:
             raise ScpiError(-300, f"operation {comp_ref}.{op_name!r} missing")
+        # An argument written as $path is that setting's value (#252: the elements a FETCh? answers
+        # follow :FORMat:ELEMents:SENSe).
+        args = {
+            k: self.state[self._resolve(v[1:], channel)] if isinstance(v, str) and v.startswith("$") else v
+            for k, v in args.items()
+        }
         result = fn(query=unit.query, channel=channel, suffixes=suffixes, **args)
         return result if isinstance(result, OpResult) else OpResult()
 
