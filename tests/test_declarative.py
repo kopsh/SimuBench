@@ -432,6 +432,20 @@ def test_a_written_constant_must_fit_its_setting():
     assert {d.code for d in report.diagnostics if d.severity == "error"} == {"E-DEF-WRITE"}
 
 
+def test_an_enum_answers_its_reply_word():
+    """`replies` (#268): the set word is stored, the query answers the instrument's own word."""
+    data = copy.deepcopy(DEMO)
+    data["channel_state"]["wave"]["replies"] = {"SQUare": "SQ"}
+    _, _, query, write = open_demo(data)
+    write("C2:WAV SQU")
+    assert query("C2:WAV?") == "C2:WAV SQ"
+    write("C2:WAV SIN")
+    assert query("C2:WAV?") == "C2:WAV SIN"  # an option not listed answers as usual
+    data["channel_state"]["wave"]["replies"] = {"NOPE": "N"}
+    with pytest.raises(ValidationError, match="replies"):
+        InstrumentDefinition.model_validate(data)
+
+
 def _with_keywords(keywords: dict) -> dict:
     data = copy.deepcopy(DEMO)
     conf = next(c for c in data["commands"] if c["header"] == "CONFigure<ch>")

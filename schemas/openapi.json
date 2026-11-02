@@ -6220,6 +6220,21 @@
             "title": "Readonly",
             "type": "boolean"
           },
+          "replies": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Enum: the word a query answers for an option, when the instrument answers with a different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR reads back CC (#268); options not listed answer as usual",
+            "title": "Replies"
+          },
           "rst": {
             "description": "Value after *RST; defaults to `default`",
             "title": "Rst"

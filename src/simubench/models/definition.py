@@ -38,6 +38,12 @@ class StateSpec(_Model):
     special: dict[str, float] | None = Field(
         None, description="Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load"
     )
+    replies: dict[str, str] | None = Field(
+        None,
+        description="Enum: the word a query answers for an option, when the instrument answers with a "
+        "different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR "
+        "reads back CC (#268); options not listed answer as usual",
+    )
     option_labels: dict[str, str] | None = Field(
         None, description="How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}"
     )
@@ -65,6 +71,12 @@ class StateSpec(_Model):
     def _check(self) -> StateSpec:
         if self.type == "enum" and not self.options:
             raise ValueError("enum state needs options")
+        if self.replies is not None:
+            if self.type != "enum":
+                raise ValueError("replies go with an enum state")
+            unknown = set(self.replies) - set(self.options or [])
+            if unknown:
+                raise ValueError(f"replies name options the state does not have: {sorted(unknown)}")
         return self
 
 

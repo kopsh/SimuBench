@@ -50,6 +50,15 @@ format:
   enum: short
 ```
 
+枚举的查询回复默认是选项的短格式（`enum: short`）或定义里的写法（`as_defined`）。仪表的回复词与它接受的设置词不同时，在状态上写 `replies`，按选项给出回复词，未列出的选项照常回复。例如 DL3021 的 `:FUNC CURRent` 查询回 `CC`（#268）：
+
+```yaml
+function.mode:
+  type: enum
+  options: [CURRent, RESistance, VOLTage, POWer]
+  replies: {CURRent: CC, RESistance: CR, VOLTage: CV, POWer: CP}
+```
+
 ### 2.2 应答模板
 
 命令可给 `reply` 模板；`{header}` 按 `echo_header` 展开（含通道前缀 `C1:`，`off` 时为空并去掉其后的空格），`{value}` 是绑定状态量按方言格式化的值，`{<状态路径>}` 引用其他状态量：

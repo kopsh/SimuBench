@@ -1351,6 +1351,8 @@ class Instrument:
         if st.type == "bool":
             return V.format_bool(value, word=f.boolean == "word")
         if st.type == "enum":
+            if st.replies and value in st.replies:
+                return st.replies[value].encode()  # the instrument's own query word (#268)
             return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
         if st.type == "int_list":
             return V.format_channel_list(value)

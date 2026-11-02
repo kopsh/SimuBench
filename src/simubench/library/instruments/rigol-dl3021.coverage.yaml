@@ -167,7 +167,7 @@ sections:
     note: 输入开关；输入断开时高阻、不灌电流，Von 以下也不灌电流。
   - header: '[:SOURce]:FUNCtion'
     level: implemented
-    note: 手册接受 CURRent/RESistance/VOLTage/POWer；查询按状态枚举的短格式回 CURR/RES/VOLT/POW（真机回 CC/CV/CR/CP）。平台的状态枚举只有一种写法，放宽为“设置词即查询词”是已知差异（需要设置词与回读词不同的枚举能力）。
+    note: 手册接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP（状态枚举的 replies，#268）。
   - header: '[:SOURce]:FUNCtion:MODE'
     level: implemented
     note: 只实现 FIXed（由 FUNCtion 决定工作点）；LIST/WAVe/BATTery/OCP/OPP 未建模（C2），设置它们按依据报 -224。
