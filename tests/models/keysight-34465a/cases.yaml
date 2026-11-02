@@ -85,7 +85,7 @@ cases:
         expect: "0"
       - send: ":CONF:VOLT:DC 10,0.001"
       - query: "CONF?"
-        expect: '"VOLT +1.00000000E+01,+1.00000000E-06"'
+        expect: '"VOLT +1.00000000E+01,+1.00000000E-03"'
       - query: "FUNC?"
         expect: '"VOLT"'
       - query: "VOLT:DC:RANG?"

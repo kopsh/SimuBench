@@ -72,7 +72,7 @@ sections:
   commands:
   - header: CONFigure
     level: implemented
-    note: 带引号的功能、当前量程与分辨率（`"VOLT +1.00000000E+01,+1.00000000E-06"`，功能与量程之间一个空格）；量程为实际使用的量程（自动量程时取当前档），分辨率为量程 × 当前 NPLC 分辨率。
+    note: 带引号的功能、当前量程与分辨率（`"VOLT +1.00000000E+01,+1.00000000E-06"`，功能与量程之间一个空格）；量程为实际使用的量程（自动量程时取当前档），分辨率为 CONFigure 给定的值（#286，手册：resolution 参数指定测量分辨率），未给时按量程 × 当前 NPLC 分辨率表算。读数本身的量化始终跟随 NPLC 表（模型边界：给定的分辨率不改读数量化与积分时间）。
   - header: CONFigure:CAPacitance
     level: not_modeled
     note: 电容功能未实现（另开 issue）。

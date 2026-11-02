@@ -56,9 +56,12 @@ def test_multimeter_default_is_a_reading_with_function_and_range_keys():
     assert [k.label for k in keys] == ["100 mV", "1 V", "10 V", "100 V", "1000 V", "AUTO"]
     assert keys[2].value == 10.0 and keys[2].sets == {"sense.range_auto": False}
     assert keys[-1].sets == {"sense.range_auto": True}
-    # NPLC and input impedance, as the acceptance in 7.0 asks; the trigger model's settings.
+    # NPLC, the CONFigure resolution and input impedance, as the acceptance in 7.0 asks; the
+    # trigger model's settings. The resolution joined with #286: the ADC's set_resolution is
+    # bound to the setting, and a bound setting gets a control.
     assert [(c.state, c.control) for c in groups["设置"]] == [
         ("sense.nplc", "number"),
+        ("sense.resolution", "number"),
         ("sense.imp_auto", "switch"),
         ("sense.ac.bandwidth", "number"),
     ]
