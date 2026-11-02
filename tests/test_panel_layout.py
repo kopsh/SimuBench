@@ -44,13 +44,24 @@ def test_multimeter_default_is_a_reading_with_function_and_range_keys():
     assert [(r.reading, r.unit, r.when) for r in panel.readouts] == [
         ("meter.DC", "V", {"sense.function": "VOLT"}),
         ("meter.AC", "V", {"sense.function": "VOLT:AC"}),
+        ("meter.RES", "Ω", {"sense.function": "RES"}),  # resistance and current (#301)
+        ("meter.FRES", "Ω", {"sense.function": "FRES"}),
+        ("meter.DCI", "A", {"sense.function": "CURR"}),
+        ("meter.ACI", "A", {"sense.function": "CURR:AC"}),
     ]
     # A 6½-digit meter shows 7 significant digits, not the 9 of its SCPI reply (#278).
     assert {r.digits for r in panel.readouts} == {7}
     groups = {g.label: g.controls for g in panel.groups}
     assert list(groups) == ["测量", "量程", "设置", "触发"]
     [function] = groups["测量"]
-    assert function.control == "buttons" and [k.label for k in function.keys or []] == ["DC V", "AC V"]
+    assert function.control == "buttons" and [k.label for k in function.keys or []] == [
+        "DC V",
+        "AC V",
+        "Ω 2W",
+        "Ω 4W",
+        "DC I",
+        "AC I",
+    ]
     [ranges] = groups["量程"]
     keys = ranges.keys or []
     assert [k.label for k in keys] == ["100 mV", "1 V", "10 V", "100 V", "1000 V", "AUTO"]
@@ -63,6 +74,8 @@ def test_multimeter_default_is_a_reading_with_function_and_range_keys():
         ("sense.nplc", "number"),
         ("sense.resolution", "number"),
         ("sense.imp_auto", "switch"),
+        ("sense.res.range", "number"),  # the ohms and current functions' own ranges (#301)
+        ("sense.curr.range", "number"),
         ("sense.ac.bandwidth", "number"),
     ]
     assert ("trigger.source", "select") in [(c.state, c.control) for c in groups["触发"]]

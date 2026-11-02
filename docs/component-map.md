@@ -53,8 +53,8 @@
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定) | 已实现 | — |
-| signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | 部分(电阻/电流的内部激励、分流与四线配对:#301) | — |
+| input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定;`mode` 电阻送按量程的测试电流、四线读 SENSE 端子,电流并分流电阻,#301) | 已实现 | — |
+| signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | 已实现(RES/FRES/DCI/ACI 功能与各自量程 `range_res`/`range_curr`,#301) | — |
 | adc | `dmm_adc` | 数据(NPLC 读数时间、分辨率、校准、读数;sampler) | 已实现 | — |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
@@ -186,7 +186,7 @@ D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migrat
 | backplane | `daq_backplane` | 设置/数据(插槽与已装模块;SCPI 号域的槽位检查) | 已实现 | — |
 | mux_card | `mux_card` | 电路(20 路双线继电器 + 模拟总线;闭合计入电路求解) | 已实现 | — |
 | scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 已实现(CONFigure/MEASure 的通道列表整表写进扫描表并启动一次扫描,#300) | 每通道测量配置(#300 一并承担) |
-| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 部分(电阻/电流随 #301;DCV/ACV 已实现) | —(34970A 复用它) |
+| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 部分(34465A 的电阻/电流已实现;34970A 的电阻/电流需按 n 与 n+10 配对四线通道,#301 剩余) | —(34970A 复用它) |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 
@@ -240,7 +240,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 类别内的功能缺口:
 
-12. **DMM**:电阻/电流的内部激励、分流与四线配对(#301);温度、频率/周期、电容、通断、二极管、比值测量暂不排期。
+12. **DMM**:DAQ 内部 DMM 的电阻/电流与 34901A 的 n/n+10 四线配对(#301 剩余;34465A 已实现);温度、频率/周期、电容、通断、二极管、比值测量暂不排期。
 13. **示波器**:更多自动测量与运行/触发状态寄存器(#248)、Web 屏幕的光标与自动测量(#280);协议解码/串行触发、mask 测试(MTESt)、search、history、分段存储、数字通道(MSO)、内置波形发生器、FFT 暂不排期。
 14. **电源**:列表/动态扫描与数据记录(DLOG)暂不排期。
 15. **电子负载**:动态/列表(C2);CP 未收敛时的确定行为已按 D52 落定(#258);MAX/MIN 读数、电阻读数、电池测试暂不排期。

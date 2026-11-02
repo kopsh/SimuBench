@@ -47,16 +47,25 @@ class DmmInputTerminal(Component):
     refs = {"conditioning": ("dmm_conditioning", "instrument")}
     ports = {
         "pin": PortSpec("in", "electrical", "the instrument's input terminal"),
+        "sense": PortSpec("in", "electrical", "the four-wire HI sense terminal (FRES)"),
         "out": PortSpec("out", "signal", "the measured signal, to the conditioning block"),
     }
-    units = {"z_in": "OHM", "z_in_high": "OHM"}
+    units = {"z_in": "OHM", "z_in_high": "OHM", "compliance": "V"}
     defaults = {
         "z_in": None,  # input resistance the terminal puts on the net itself, ohm (None: the wiring's)
         "z_in_high": None,  # input resistance when high_z applies, ohm
         "high_z": False,  # high input impedance (a setting)
         "high_z_ranges": [],  # the ranges on which high_z applies (full-scale values)
         "conditioning": "",  # the conditioning block whose range decides high_z
+        # What the terminal does (#301): VOLT reads the net; RES/FRES push the range's test current
+        # into the DUT and read V/I (FRES: V on the sense terminal, the four-wire pair); CURR puts
+        # the range's shunt across the input and reads V/R. The reading comes from the circuit.
+        "mode": "VOLT",
+        "test_current": {},  # A per resistance range (full-scale ohm -> A), or one number
+        "shunt": {},  # ohm per current range (full-scale A -> ohm), or one number
+        "compliance": 12.0,  # V the resistance source can reach: above it the reading is an overload
     }
+    choices = {"mode": ("VOLTage", "RESistance", "FRESistance", "CURRent")}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -66,10 +75,49 @@ class DmmInputTerminal(Component):
         assert self.owner is not None
         return self.owner.components[str(self.param("conditioning"))]  # type: ignore[return-value]
 
+    def _mode(self) -> str:
+        return self.choice("mode") or "VOLTage"
+
+    def _per_range(self, key: str) -> float:
+        """``test_current`` / ``shunt`` for the range in use: one number, or a table by range."""
+        spec = self.param(key)
+        if not isinstance(spec, dict):
+            return float(spec)
+        conditioning = self._conditioning()
+        r = conditioning.effective_range(conditioning.active_function(), derive=False)
+        table = sorted((float(k), float(v)) for k, v in spec.items())
+        if not table:
+            raise ValueError(f"{self.uid}: {key} has no entries")
+        if r is None:
+            return table[0][1]
+        for k, v in table:
+            if k >= r * (1 - 1e-12):
+                return v
+        return table[-1][1]
+
+    def emf(self) -> dict[str, Signal]:
+        """The resistance modes' test current (A) into the terminal."""
+        if self._mode() in ("RESistance", "FRESistance") and self.session.port_ref(self, "pin") is not None:
+            return {self.uid: Signal.constant(self._per_range("test_current"))}
+        return {}
+
     def signal(self) -> Signal:
         """The signal the meter measures: the net on its own terminal when it models the input
-        stage, else the signal wired to it."""
-        if self.param("z_in") is not None and self.session.port_ref(self, "pin") is not None:
+        stage, else the signal wired to it; in the resistance modes V/I (ohm), in the current mode
+        V/shunt (A) — the quantity, as the conditioning block ranges it (#301)."""
+        mode = self._mode()
+        wired = self.session.port_ref(self, "pin") is not None
+        if mode in ("RESistance", "FRESistance") and not self.wired("pin"):
+            return Signal.constant(math.inf)  # an open input: the source runs to its compliance
+        if mode in ("RESistance", "FRESistance") and wired:
+            use_sense = mode == "FRESistance" and self.wired("sense")
+            v = (self.pin_signal("sense") if use_sense else self.pin_signal("pin")).mean()
+            if abs(v) > float(self.param("compliance")):
+                return Signal.constant(math.inf)  # the source cannot drive the DUT: overload
+            return Signal.constant(v / self._per_range("test_current"))
+        if mode == "CURRent" and wired:
+            return self.pin_signal("pin").scale(1.0 / self._per_range("shunt"))
+        if self.param("z_in") is not None and wired:
             return self.pin_signal("pin")
         return self.input("pin")
 
@@ -100,12 +148,27 @@ class DmmInputTerminal(Component):
         self._input_changed()
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
-        if self.param("z_in") is None or self.session.port_ref(self, "pin") is None:
+        if self.session.port_ref(self, "pin") is None:
+            return
+        mode = self._mode()
+        if mode == "CURRent":
+            circuit.resistor(node("pin"), GROUND, self._per_range("shunt"))  # the current shunt
+            return
+        if self.param("z_in") is None:
             return  # no input stage modeled here: an input_port in front owns the electrical side
-        z = self.effective_z_in(derive=False)
-        assert z is not None
-        self._stamped_z = z
-        circuit.resistor(node("pin"), GROUND, z)
+        if mode in ("RESistance", "FRESistance"):
+            # The test current into the DUT; the stage behind it draws (almost) nothing, so an open
+            # input drives the voltage past the compliance: an overload.
+            self._stamped_z = 1e12
+            circuit.resistor(node("pin"), GROUND, 1e12)
+            circuit.current(node("pin"), self.uid)
+        else:
+            z = self.effective_z_in(derive=False)
+            assert z is not None
+            self._stamped_z = z
+            circuit.resistor(node("pin"), GROUND, z)
+        if self.wired("sense"):
+            circuit.resistor(node("sense"), GROUND, 1e12)  # the sense input draws (almost) nothing
 
 
 @component("dmm_conditioning")
@@ -133,6 +196,8 @@ class DmmConditioning(Component):
         "function": "DC",  # DC | AC: what a command without one measures; what sample() reads
         "ranges": None,  # full-scale value of each range, per function ({DC: [...]}) or one list
         "range": None,  # manual range: a value the range must be able to measure (None, <= 0: auto)
+        "range_res": None,  # the RES/FRES functions' own manual range, ohm (None: `range`, #301)
+        "range_curr": None,  # the DCI/ACI functions' own manual range, A (None: `range`, #301)
         "autorange": True,  # the range follows the true value
         "autorange_up": 1.2,  # fraction of full scale above which the range switches up
         "autorange_down": 0.1,  # fraction of full scale below which the range switches down
@@ -156,13 +221,19 @@ class DmmConditioning(Component):
         ac = sig.amp[sig.freq >= float(self.param("ac_low"))]
         return {"DC": sig.mean(), "AC": math.sqrt(float(np.sum(np.abs(ac) ** 2)) / 2)}
 
+    @staticmethod
+    def _kind(function: str) -> str:
+        """DC or AC: how a function reads its input — RES, FRES and DCI are DC-like (the terminal
+        hands over ohm or ampere), ACI and AC are the rms (#301)."""
+        return "AC" if str(function).upper().endswith("AC") or str(function).upper() == "ACI" else "DC"
+
     def raw(self, what: str) -> float:
         """The uncorrected reading: the true value through the meter's own errors."""
-        true = self.true_values()[what]
+        true = self.true_values()[self._kind(what)]
         function = self.active_function(what)
         r = self.effective_range(function)
         gained = true * (1 + self._hidden("gain_error_ppm", function, r) * 1e-6)
-        return gained + self._hidden("offset", function, r) if function == "DC" else gained
+        return gained + self._hidden("offset", function, r) if self._kind(function) == "DC" else gained
 
     def _hidden(self, key: str, function: str, r: float | None) -> float:
         """The meter's own error (``gain_error_ppm``, ``offset``): a number for every range, or a
@@ -206,6 +277,11 @@ class DmmConditioning(Component):
     def range_of_setting(self, function: str) -> float | None:
         """The manual range: the smallest range that can measure the range setting."""
         value = self.param("range")
+        upper = str(function).upper()
+        if upper in ("RES", "FRES") and self.param("range_res") is not None:
+            value = self.param("range_res")
+        elif upper in ("DCI", "ACI") and self.param("range_curr") is not None:
+            value = self.param("range_curr")
         if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
             return None  # nothing usable is set: the meter autoranges
         return self.fitting_range(function, value)
@@ -219,7 +295,9 @@ class DmmConditioning(Component):
             return self.range_of_setting(function)
         r = self._auto_range.get(function)
         if r is None and derive:
-            self._adopt_range(function, self.fitting_range(function, abs(self.true_values()[function])))
+            self._adopt_range(
+                function, self.fitting_range(function, abs(self.true_values()[self._kind(function)]))
+            )
             r = self._auto_range[function]
         return r
 
@@ -305,6 +383,8 @@ class DmmAdc(Component):
         value = (conditioning.raw(function) - (cal_offset if function == "DC" else 0.0)) * gain
         r = conditioning.effective_range(function)
         if r is not None:
+            if not math.isfinite(value) or abs(value) > float(self.param("overrange")) * r:
+                return float(self.param("overload_value"))  # past the range (an open ohms input too)
             step = float(self.param("resolution") or 0.0) * r
             if step > 0:
                 value = round(value / step) * step
@@ -334,11 +414,20 @@ class DmmAdc(Component):
         conditioning = self._conditioning()
         function = conditioning.active_function(what)
         if _flag(conditioning.param("autorange")) and conditioning.ranges(function):
-            conditioning.autorange_to(function, conditioning.true_values()[function])
+            # The ohms ranges set the test current, so the value seen depends on the range taken:
+            # settle the decision (each move re-solves the circuit with the new current, #301).
+            for _ in range(len(conditioning.ranges(function)) + 1):
+                before = conditioning.effective_range(function, derive=False)
+                conditioning.autorange_to(function, conditioning.true_values()[conditioning._kind(function)])
+                if conditioning.effective_range(function, derive=False) == before:
+                    break
         return self.reading(function)
 
     def readings(self) -> dict[str, Any]:
         values: dict[str, Any] = {"DC": self.reading("DC"), "AC": self.reading("AC")}
+        active = self._conditioning().active_function()
+        if active not in ("DC", "AC"):
+            values[active] = self.reading(active)  # the selected ohms or current function (#301)
         if self.session.reveal_true_values:
             values.update({f"true_{k}": v for k, v in self._conditioning().true_values().items()})
         return {"values": values}
