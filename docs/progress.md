@@ -720,3 +720,14 @@
 | 时间间隔两个通道独立 | ✅ 已由 #255 改为 A/B 两个事件各自抽误差，`SDEV` 的理论值为 √2 ns 量级 |
 | 统计断言不再允许 0 | ✅ `tests/test_counter.py` 断言 `1e-9 < SDEV < 4e-9`（20 个样本、两个独立通道），0 不再通过 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+
+## SMU 的测量功能（Issue 299）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `smu_meter` 增加测量功能 | ✅ 参数 `function`（VOLTage / CURRent / RESistance；None 保持“强制量”的旧行为）；`sample()` 按它返回 V / I / V÷I，无电流时 RES 为过载值；`sample_fields` 的 VOLT/CURR/RES/TIME/STAT 不变 |
+| 不绑定保持金标准 | ✅ `tests/test_smu_migration.py` 的 34 条金标准逐条通过；`sb-smu-1`、B2901A 的用例与脚本按原样通过 |
+| 测试 | ✅ `tests/test_smu_trigger.py` 新增两项：三种测量功能的读数；输出关闭时 RES 为过载值 |
+| 文档 | ✅ `docs/component-map.md` 的 SMU 块说明测量功能；2450 可在定义里把 `function` 绑到 `:SENS:FUNC` 状态 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
