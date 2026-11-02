@@ -1,0 +1,263 @@
+# Keysight 34970A 的手册用例：34970A/34972A 用户指南（34972-90001, Edition 6, November 2019）的
+# 扫描、读数存储器、触发与测量配置章节。测试台 examples/benches/keysight_34970a.bench.yaml：
+# 通道 101/102/103 各接 1 V/2 V/4 V、内阻 1 MΩ 的源，L 端共 0 V；闭合继电器后内部 DMM 的
+# 10 MΩ 与源内阻分压，读数约为设定的 10/11（1 PLC、手动 10 V 量程）。
+model: keysight-34970a
+bench: ../../../examples/benches/keysight_34970a.bench.yaml
+instrument: daq
+cases:
+  - name: "*IDN? 返回厂商、型号、序列号与三段固件版本"
+    manual: "System-Related Operations > Firmware revision query（p.176）"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,34970A,0,1.0-1.0-1.0"
+
+  - name: "*RST 恢复出厂状态：扫描表空、计数 1、间隔 0、触发立即、继电器全开"
+    manual: "Factory Reset State（p.203–204）"
+    steps:
+      - send: "ROUT:SCAN (@101:103);:TRIG:COUN 5;:TRIG:SOUR BUS;:TRIG:TIMER 5"
+      - send: "ROUT:CLOS (@101);:DISP OFF;:DISP:TEXT 'SCANNING';:SENS:VOLT:DC:NPLC 10,(@101)"
+      - send: "*RST"
+      - query: "ROUT:SCAN?"
+        expect: "(@)"
+      - query: "TRIG:COUN?"
+        expect: "1"
+      - query: "TRIG:SOUR?"
+        expect: "IMM"
+      - query: "TRIG:TIMER?"
+        expect: "+0.00000000E+00"
+      - query: "ROUT:CLOS? (@101:103)"
+        expect: "0,0,0"
+      - query: "DISP?"
+        expect: "1"
+      - query: "DISP:TEXT?"
+        expect: '""'
+      - query: "SENS:VOLT:DC:NPLC? (@101)"
+        expect: "+1.00000000E+00"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "1"
+      - query: "INP:IMP:AUTO? (@101)"
+        expect: "0"
+
+  - name: "通道号域：槽 1 的 101–120 可访问，槽 2 的号已声明但没有模块报 -114"
+    manual: "Rules for using a channel list（p.103）；Module Overview（p.209）"
+    steps:
+      - send: "ROUT:CLOS (@101)"
+      - query: "ROUT:CLOS? (@101)"
+        expect: "1"
+      - send: "ROUT:CLOS (@201)"
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - send: "ROUT:CLOS (@121)"
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - send: "ROUT:OPEN:ALL"
+      - query: "ROUT:CLOS? (@101)"
+        expect: "0"
+
+  - name: "继电器：多路闭合、按列表顺序查询、断开与全部断开"
+    manual: "Features and Functions > To Close a Channel（p.47）"
+    steps:
+      - send: "ROUT:CLOS (@101,102)"
+      - query: "ROUT:CLOS? (@102,101)"
+        expect: "1,1"
+      - send: "ROUT:OPEN (@101)"
+      - query: "ROUT:CLOS? (@101,102)"
+        expect: "0,1"
+      - send: "ROUT:OPEN:ALL"
+      - query: "ROUT:CLOS? (@101,102)"
+        expect: "0,0"
+
+  - name: "扫描表保存列表并回读；跨槽位范围跳过未声明的号"
+    manual: "Rules for using a channel list（p.103）；Adding channels to a scan list（p.108–109）"
+    steps:
+      - send: "ROUT:SCAN (@101:103,110)"
+      - query: "ROUT:SCAN?"
+        expect: "(@101:103,110)"
+      - send: "ROUT:SCAN (@101:205)"
+      - query: "ROUT:SCAN?"
+        expect: "(@101:120,201:205)"
+      - send: "ROUT:SCAN (@205:101)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "ROUT:SCAN (@121)"
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+
+  - name: "扫描按通道号升序，扫描计数重复列表；READ? 直接回读数"
+    manual: "Rules for scanning（p.104）；Scan count（p.117）"
+    steps:
+      - send: "ROUT:SCAN (@102,101);:TRIG:COUN 2"
+      - query: "READ?"
+        expect: "+9.09090000E-01,+1.81818000E+00,+9.09090000E-01,+1.81818000E+00"
+
+  - name: "READ? 的读数不写入存储器，FETCh? 报 -230"
+    manual: "Viewing readings stored in memory（p.122）"
+    steps:
+      - send: "ROUT:SCAN (@101)"
+      - query: "READ?"
+        expect: "+9.09090000E-01"
+      - query: "DATA:POIN?"
+        expect: "0"
+      - send: "FETC?"
+      - query: "SYST:ERR?"
+        expect: '-230,"Data stale"'
+
+  - name: "INITiate 存入读数；FETCh? 读出不清除，DATA:REMove? 取走最旧的"
+    manual: "Viewing readings stored in memory（p.122–124）"
+    steps:
+      - send: "ROUT:SCAN (@101:103);:TRIG:COUN 2;:INIT"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "FETC?"
+        expect: "+9.09090000E-01,+1.81818000E+00,+3.63636000E+00,+9.09090000E-01,+1.81818000E+00,+3.63636000E+00"
+      - query: "DATA:POIN?"
+        expect: "6"
+      - query: "DATA:REM? 3"
+        expect: "+9.09090000E-01,+1.81818000E+00,+3.63636000E+00"
+      - query: "DATA:POIN?"
+        expect: "3"
+      - query: "FETC?"
+        expect: "+9.09090000E-01,+1.81818000E+00,+3.63636000E+00"
+
+  - name: "扫描触发源 BUS：INIT 后由 *TRG 开始扫描"
+    manual: "Scan once（p.112–113）"
+    steps:
+      - send: "ROUT:SCAN (@101);:TRIG:SOUR BUS;:TRIG:COUN 1;:INIT"
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "FETC?"
+        expect: "+9.09090000E-01"
+      - query: "TRIG:SOUR?"
+        expect: "BUS"
+
+  - name: "BUS 触发源下 READ? 报 -214 触发死锁"
+    manual: "Execution Errors > -214 Trigger deadlock（p.235）"
+    steps:
+      - send: "TRIG:SOUR BUS"
+      - send: "READ?"
+      - query: "SYST:ERR?"
+        expect: '-214,"Trigger deadlock"'
+
+  - name: "ABORt 停止等待触发的扫描；之后的 *TRG 报 -211"
+    manual: "Rules for scanning（p.104–105）"
+    steps:
+      - send: "ROUT:SCAN (@101);:TRIG:SOUR BUS;:INIT;:ABOR"
+      - send: "*TRG"
+      - query: "SYST:ERR?"
+        expect: '-211,"Trigger ignored"'
+
+  - name: "扫描间隔（TRIGger:TIMer）保存并回读，范围 0–359,999 s"
+    manual: "Scan interval（p.110–111）"
+    steps:
+      - send: "TRIG:TIMER 5"
+      - query: "TRIG:TIMER?"
+        expect: "+5.00000000E+00"
+      - send: "TRIG:TIMER 359999"
+      - query: "TRIG:TIMER?"
+        expect: "+3.59999000E+05"
+      - send: "TRIG:TIMER 400000"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "TRIG:SOUR TIMER"
+      - query: "TRIG:SOUR?"
+        expect: "TIM"
+
+  - name: "内部 DMM 的积分时间、量程与自动量程按通道列表读写"
+    manual: "Custom A/D integration time（p.133–134）；Measurement range（p.129–130）"
+    steps:
+      - send: "SENS:VOLT:DC:NPLC 10,(@101:103)"
+      - query: "SENS:VOLT:DC:NPLC? (@101:103)"
+        expect: "+1.00000000E+01,+1.00000000E+01,+1.00000000E+01"
+      - send: "SENS:VOLT:DC:RANG 10,(@101)"
+      - query: "SENS:VOLT:DC:RANG? (@101:102)"
+        expect: "+1.00000000E+01,+1.00000000E+01"
+      - send: "SENS:VOLT:DC:RANG:AUTO OFF,(@101:103)"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101:103)"
+        expect: "0,0,0"
+      - send: "SENS:VOLT:DC:RANG 400,(@101)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "输入阻抗 AUTO：10 MΩ 时分压，>10 GΩ 时读到设定值"
+    manual: "Voltage Measurement Configuration > DC input resistance（p.142–143）"
+    steps:
+      - send: "SENS:VOLT:DC:RANG 10,(@101);:SENS:VOLT:DC:RANG:AUTO OFF,(@101)"
+      - send: "ROUT:SCAN (@101);:TRIG:SOUR IMM;:TRIG:COUN 1"
+      - query: "READ?"
+        expect: "+9.09090000E-01"
+      - send: "INP:IMP:AUTO ON,(@101)"
+      - query: "INP:IMP:AUTO? (@101)"
+        expect: "1"
+      - query: "READ?"
+        expect: "+9.99900000E-01"
+
+  - name: "显示开关、显示文本与 SCPI 版本：接受并回读，不影响读数"
+    manual: "System-Related Operations > Display control（p.174）；SCPI language version query（p.180）"
+    steps:
+      - send: "DISP OFF"
+      - query: "DISP?"
+        expect: "0"
+      - send: "DISP:TEXT 'SCANNING'"
+      - query: "DISP:TEXT?"
+        expect: '"SCANNING"'
+      - send: "DISP:TEXT:CLE"
+      - query: "DISP:TEXT?"
+        expect: '""'
+      - query: "SYST:VERS?"
+        expect: "1994.0"
+
+  - name: "错误队列 FIFO 长度 10：满后代之以 -350，*CLS 清空"
+    manual: "System-Related Operations > Error conditions（p.172）；-350 Error queue overflow（p.236）"
+    steps:
+      - send: "ROUT:CLOS (@201);:ROUT:CLOS (@201);:ROUT:CLOS (@201);:ROUT:CLOS (@201);:ROUT:CLOS (@201)"
+      - send: "ROUT:CLOS (@201);:ROUT:CLOS (@201);:ROUT:CLOS (@201);:ROUT:CLOS (@201);:ROUT:CLOS (@201)"
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "SYST:ERR?"
+        expect: '-350,"Error queue overflow"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: "*CLS"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "公共命令：*ESE/*ESR/*SRE/*STB/*OPC/*WAI/*TST"
+    manual: "IEEE-488 Common Commands；Self-test（p.173）"
+    steps:
+      - send: "*CLS"
+      - send: "*ESE 1"
+      - query: "*ESE?"
+        expect: "1"
+      - send: "*SRE 32"
+      - query: "*SRE?"
+        expect: "32"
+      - query: "*STB?"
+        expect: "0"
+      - send: "*OPC"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "*ESR?"
+        expect: "1"
+      - query: "*TST?"
+        expect: "0"
+      - send: "*WAI"
+      - query: "*OPC?"
+        expect: "1"
