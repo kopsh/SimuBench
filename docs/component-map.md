@@ -24,8 +24,8 @@
 | adc | `scope_adc` | 数据(量化与噪声) | 已实现 | — |
 | acquisition | `scope_acquisition` | 数据 | 已实现 | — |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
-| trigger | `scope_trigger` | 数据 | 已实现 | — |
-| measurements | `scope_measurements` | 数据 | 部分(自动测量子集;#248) | — |
+| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248) | 已实现 | — |
+| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248) | 两源 DELay/PHASe、测量列表与分段存储未建模 |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 
 两台内置型号(keysight-dsox2024a、siglent-sds2104xplus)全覆盖,无豁免。
@@ -220,7 +220,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | `counter_timebase` | frequency_counter.timebase | 块清单已声明(与 `reference_clock` 并列);53230A 无间隙/时间戳测量的前置 | #328(第二波,53230A #331 的时间戳/无间隙前置) |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
 | `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | #329(第二波,5730A #341 的前置) |
-| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | 多台型号的状态寄存器组整体 not_modeled;dl3021 覆盖表已注记「平台缺口」 | 由 #248(示波器)、#271(电源)、#273(SR830)、#343(电子负载 `eload_meter` 的可疑条件寄存器,位号为参数)各自的最小实现推进;三处收敛后评估是否立项通用组件 |
+| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;DSO-X 的 :TER/:AER/:OPER 已用上 | 其余型号(DL3021、E36312A 的事件寄存器、SR830 的四个字节)按需接上 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 

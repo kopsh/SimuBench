@@ -313,6 +313,11 @@ class Component:
         """
         return False
 
+    def status_flags(self) -> dict[str, bool]:
+        """Level conditions a ``status_register`` may show as bits, by name (#248, #273): e.g. an
+        acquisition's ``RUN``. Momentary events go through :meth:`Instrument.status_event`."""
+        return {}
+
     def sync(self) -> None:
         """Dynamic components: note what changed at the current instant (see :attr:`dynamic`)."""
 

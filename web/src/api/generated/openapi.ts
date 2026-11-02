@@ -2829,11 +2829,29 @@ export interface components {
              */
             duplicate_unit_error: number;
             /**
+             * Echo
+             * @description Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)
+             * @default true
+             */
+            echo: boolean;
+            /**
              * Index
-             * @description An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)
+             * @description An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1). A set takes it at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2); a query takes the index parameters alone, in order
              * @default false
              */
             index: boolean;
+            /**
+             * Index Default
+             * @description An optional index's value when it is left out: a number, or a $setting whose value (an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]
+             */
+            index_default?: number | string | null;
+            /**
+             * Index Words
+             * @description An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} for :VIEW CHANnel2; the query answer echoes the word's short form
+             */
+            index_words?: {
+                [key: string]: number;
+            } | null;
             /**
              * Keys
              * @description type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set

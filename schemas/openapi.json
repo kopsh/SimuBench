@@ -4073,11 +4073,47 @@
             "title": "Duplicate Unit Error",
             "type": "integer"
           },
+          "echo": {
+            "default": true,
+            "description": "Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)",
+            "title": "Echo",
+            "type": "boolean"
+          },
           "index": {
             "default": false,
-            "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+            "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1). A set takes it at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2); a query takes the index parameters alone, in order",
             "title": "Index",
             "type": "boolean"
+          },
+          "index_default": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An optional index's value when it is left out: a number, or a $setting whose value (an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]",
+            "title": "Index Default"
+          },
+          "index_words": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} for :VIEW CHANnel2; the query answer echoes the word's short form",
+            "title": "Index Words"
           },
           "keys": {
             "anyOf": [

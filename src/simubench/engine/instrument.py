@@ -1047,14 +1047,27 @@ class Instrument:
         before any is set. The query answers the settings in the same order and form."""
         raw = list(unit.params)
         index: dict[str, int] = {}
-        for ps in spec.params:  # index parameters come first: they pick the settings
-            if ps.index:
-                if not raw:
+        # Index parameters pick the settings. A query carries them alone, in order; a set carries
+        # each at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2; PACU 1,AMPL,C1).
+        index_params = [(k, ps) for k, ps in enumerate(spec.params) if ps.index]
+        tokens: dict[str, bytes | None] = {}
+        if unit.query:
+            for _k, ps in index_params:
+                tokens[ps.name] = raw.pop(0) if raw else None
+        else:
+            for k, ps in reversed(index_params):
+                tokens[ps.name] = raw.pop(k) if k < len(raw) else None
+        for _k, ps in index_params:
+            token = tokens[ps.name]
+            if token is None:
+                if ps.index_default is None:
                     raise ScpiError(-109, f"missing {ps.name}")
-                value = V.parse_int(raw.pop(0))
-                if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
-                    raise self._bad_parameter(ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps)
-                index[ps.name] = value
+                value = self._index_value(ps, ps.index_default, channel)
+            else:
+                value = self._index_value(ps, token, channel)
+            if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
+                raise self._bad_parameter(ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps)
+            index[ps.name] = value
 
         def at(ref: str) -> str:
             for name, value in index.items():
@@ -1066,8 +1079,8 @@ class Instrument:
                 raise ScpiError(-108)
             parts: list[str] = []
             for ps in spec.params:
-                if ps.index:
-                    parts.append(str(index[ps.name]))
+                if ps.index and ps.echo:
+                    parts.append(self._index_text(ps, index[ps.name]))
                 if ps.state is not None:
                     parts.append(self._format_path(at(ps.state), channel, spec))
                 for key, ref in (ps.keys or {}).items():
@@ -1300,6 +1313,26 @@ class Instrument:
         """The setting at ``path`` as the definition formats replies."""
         return self._format(self.specs[path], self.state[path])
 
+    def _index_value(self, ps: ParamSpec, raw: Any, channel: int | None) -> int:
+        """An index parameter's number: an int, an index word (``CHANnel2`` -> 2), or for a
+        left-out one its ``index_default`` (a number or a $setting holding a word or number)."""
+        if isinstance(raw, str) and raw.startswith("$"):
+            raw = self.state[self._resolve(raw[1:], channel)]
+        if isinstance(raw, int | float) and not isinstance(raw, bool):
+            return int(raw)
+        text = raw if isinstance(raw, bytes) else str(raw).encode()
+        if ps.index_words:
+            word = V.parse_enum(text, list(ps.index_words))
+            return int(ps.index_words[word])
+        return V.parse_int(text)
+
+    def _index_text(self, ps: ParamSpec, value: int) -> str:
+        if ps.index_words:
+            for word, n in ps.index_words.items():
+                if n == value:
+                    return V.short_form(word)
+        return str(value)
+
     def _omitted_list(self, ps: ParamSpec) -> list[int]:
         """The channels of a channel list left out: the selected output when the definition
         declares one (#295), else the parameter's default, else the first channel."""
@@ -1528,8 +1561,20 @@ class Instrument:
             manufacturer=d.manufacturer.upper(), model=d.model, serial=self.serial, firmware=self.firmware
         )
 
+    def status_event(self, name: str) -> None:
+        """A momentary event (a trigger, a range change) for the instrument's status registers:
+        every ``status_register`` with a bit of that name latches it (#248, #273)."""
+        for comp in self.components.values():
+            latch = getattr(comp, "event", None)
+            if comp.type_name == "status_register" and latch is not None:
+                latch(name)
+
     def stb(self) -> int:
         stb = 0
+        for comp in self.components.values():  # status registers' summary bits (#248, #273)
+            bit = comp.param("summary_bit") if comp.type_name == "status_register" else None
+            if bit is not None and comp.summary():  # type: ignore[attr-defined]
+                stb |= 1 << int(bit)
         if len(self.errors):
             stb |= 1 << 2
         if self._output:
@@ -1551,6 +1596,9 @@ class Instrument:
         if word == "CLS" and not q:
             self.errors.clear()
             self.esr = 0
+            for comp in self.components.values():
+                if comp.type_name == "status_register":
+                    comp.clear()  # type: ignore[attr-defined]
             self._opc_armed = False
             return None
         if word == "OPC" and not q:

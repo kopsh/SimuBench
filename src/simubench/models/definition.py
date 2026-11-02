@@ -167,7 +167,24 @@ class ParamSpec(_Model):
     index: bool = Field(
         False,
         description="An int that picks which settings the other parameters write: their state paths name "
-        "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+        "it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1). "
+        "A set takes it at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2); a query takes the index "
+        "parameters alone, in order",
+    )
+    index_words: dict[str, int] | None = Field(
+        None,
+        description="An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} "
+        "for :VIEW CHANnel2; the query answer echoes the word's short form",
+    )
+    index_default: int | str | None = Field(
+        None,
+        description="An optional index's value when it is left out: a number, or a $setting whose value "
+        "(an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]",
+    )
+    echo: bool = Field(
+        True,
+        description="Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for "
+        "instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)",
     )
     sets: dict[str, Any] | None = Field(
         None,
@@ -212,8 +229,13 @@ class ParamSpec(_Model):
     def _check(self) -> ParamSpec:
         if (self.type == "pairs") != (self.keys is not None):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
-        if self.index and (self.type != "int" or self.state is not None):
-            raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
+        if self.index and (
+            (self.type != "int" and not (self.type == "enum" and self.index_words)) or self.state is not None
+        ):
+            raise ValueError(
+                f"parameter {self.name!r}: an index is an int (or an enum with index_words) and writes "
+                "no setting itself"
+            )
         if self.keywords is not None and self.state is None:
             raise ValueError(
                 f"parameter {self.name!r}: keywords stand in for a setting; give the parameter a state"
@@ -338,7 +360,10 @@ class CommandSpec(_Model):
 
     @model_validator(mode="after")
     def _check(self) -> CommandSpec:
-        kinds = (self.state is not None) + (self.op is not None) + bool(self.bound_params)
+        # An index parameter with `writes` alone is a settings command too (#248: VIEW CHAN2
+        # writes ch2.display: the index picks the setting, the constant is its value).
+        indexed_writes = bool(self.writes) and any(p.index for p in self.params)
+        kinds = (self.state is not None) + (self.op is not None) + bool(self.bound_params or indexed_writes)
         if kinds != 1:
             raise ValueError(
                 f"command {self.header!r}: give one of state, op, or parameters bound to settings"
@@ -347,7 +372,7 @@ class CommandSpec(_Model):
             raise ValueError(
                 f"command {self.header!r}: read (the setting a query reads) goes with an operation command"
             )
-        if self.writes and not self.bound_params and self.op is None:
+        if self.writes and not self.bound_params and self.op is None and not indexed_writes:
             raise ValueError(
                 f"command {self.header!r}: writes goes with parameters that write settings "
                 "(it selects e.g. a function beside them)"
@@ -368,7 +393,7 @@ class CommandSpec(_Model):
             )
         if self.bound_params and len(self.bound_params) + len(indexes) + len(lists) != len(self.params):
             raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
-        if indexes and not self.bound_params:
+        if indexes and not self.bound_params and not indexed_writes:
             raise ValueError(f"command {self.header!r}: an index parameter picks the settings others write")
         quantities = [p for p in self.params if p.type == "quantities"]
         if quantities:

@@ -245,9 +245,10 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                 _check_state_ref(d, value[1:], per_channel, _ptr(*p, "args", key), cmd.header, report)
         if cmd.read is not None:
             _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
-        for state, value in cmd.writes.items():
-            _check_write(d, state, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
         indexes = _index_values(cmd)
+        for state, value in cmd.writes.items():
+            for ref in _expand(state, indexes):  # an index may pick the setting (#248: VIEW CHAN2)
+                _check_write(d, ref, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
         for k, ps in enumerate(cmd.params):
             if ps.state is not None:
                 for ref in _expand(ps.state, indexes):  # every setting an index can pick
@@ -363,7 +364,9 @@ def _index_values(cmd: CommandSpec) -> dict[str, list[int]]:
     """The values each index parameter can take (at most 64 checked)."""
     out = {}
     for ps in cmd.params:
-        if ps.index:
+        if ps.index and ps.index_words:
+            out[ps.name] = sorted(set(ps.index_words.values()))
+        elif ps.index:
             lo = int(ps.min) if ps.min is not None else 1
             hi = int(ps.max) if ps.max is not None else lo
             out[ps.name] = list(range(lo, min(hi, lo + 63) + 1))
