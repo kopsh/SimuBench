@@ -124,6 +124,33 @@ cases:
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
+  - name: "CONFigure 的分辨率写 MIN / MAX / DEF：取 NPLC 表两端 × 量程，不取参数声明的上下限（#344）"
+    manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}（resolution: {<resolution>|MIN|MAX|DEF}）/ CONFigure?"
+    steps:
+      - send: ":CONF:VOLT:DC 10,MAX"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+2.00000000E-02"
+      - send: ":CONF:VOLT:DC 10,MIN"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-07"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+02"
+      - send: ":CONF:VOLT:DC 10,DEF"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+1.00000000E-06"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01"
+      - send: ":CONF:VOLT:DC 10,MAXIMUM"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05"'
+      - send: ":CONF:VOLT:AC 10,MAX"
+      - query: "CONF?"
+        expect: '"VOLT:AC +1.00000000E+01,+1.00000000E-06"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
   - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
     manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"
     steps:

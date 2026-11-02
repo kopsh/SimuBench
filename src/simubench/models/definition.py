@@ -163,6 +163,13 @@ class ParamSpec(_Model):
         "{sense.range_auto: false} for a range argument that leaves autorange; not written when the "
         "argument is DEF or a special word of the setting (AUTO)",
     )
+    keywords: dict[str, dict[str, Any]] | None = Field(
+        None,
+        description="Settings a keyword argument writes in place of the parameter's own value, keyed "
+        "by MIN, MAX, DEF or a special word, e.g. {MIN: {sense.nplc: 100, sense.resolution: 0}} for a "
+        "resolution argument whose MIN selects the finest integration time; the parameter's own "
+        "setting is written only when the table names it",
+    )
     units: dict[str, QuantityUnit] | None = Field(
         None,
         description="type quantities: comma-separated 'value unit' parameters, each written into the "
@@ -195,6 +202,10 @@ class ParamSpec(_Model):
             raise ValueError(f"parameter {self.name!r}: keys go with type pairs, and pairs need keys")
         if self.index and (self.type != "int" or self.state is not None):
             raise ValueError(f"parameter {self.name!r}: an index is an int and writes no setting itself")
+        if self.keywords is not None and self.state is None:
+            raise ValueError(
+                f"parameter {self.name!r}: keywords stand in for a setting; give the parameter a state"
+            )
         if self.sets is not None and self.state is None:
             raise ValueError(
                 f"parameter {self.name!r}: sets writes settings along with the argument; give the "

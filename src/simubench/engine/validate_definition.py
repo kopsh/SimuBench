@@ -264,6 +264,18 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                     _check_write(
                         d, ref, value, per_channel, _ptr(*p, "params", k, "sets", state), cmd.header, report
                     )
+            for word, writes in (ps.keywords or {}).items():
+                for state, value in writes.items():
+                    for ref in _expand(state, indexes):
+                        _check_write(
+                            d,
+                            ref,
+                            value,
+                            per_channel,
+                            _ptr(*p, "params", k, "keywords", word, state),
+                            cmd.header,
+                            report,
+                        )
         if cmd.reply is not None:
             fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
             _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)

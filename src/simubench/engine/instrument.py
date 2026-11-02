@@ -1071,6 +1071,12 @@ class Instrument:
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(at(ps.state), channel)
                 token = raw.pop(0)
+                instead = self._keyword_writes(ps, token)
+                if instead is not None:
+                    # A keyword with its own settings (#344: resolution MIN picks the finest NPLC).
+                    for ref, constant in instead.items():
+                        new[self._resolve(at(ref), channel)] = constant
+                    continue
                 try:
                     value = self._parse_state(self.specs[path], token)
                 except ScpiError as e:
@@ -1277,6 +1283,15 @@ class Instrument:
     def format_setting(self, path: str) -> bytes:
         """The setting at ``path`` as the definition formats replies."""
         return self._format(self.specs[path], self.state[path])
+
+    @staticmethod
+    def _keyword_writes(ps: ParamSpec, raw: bytes) -> dict[str, Any] | None:
+        """The settings a parameter's ``keywords`` table gives for this argument, if it names it."""
+        if not ps.keywords:
+            return None
+        word = V.parse_string(raw).strip().upper()
+        word = {"MINIMUM": "MIN", "MAXIMUM": "MAX", "DEFAULT": "DEF"}.get(word, word)
+        return ps.keywords.get(word)
 
     @staticmethod
     def _keyword_argument(st: StateSpec, raw: bytes) -> bool:

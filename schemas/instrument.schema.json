@@ -858,6 +858,23 @@
           "description": "type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set",
           "title": "Keys"
         },
+        "keywords": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Settings a keyword argument writes in place of the parameter's own value, keyed by MIN, MAX, DEF or a special word, e.g. {MIN: {sense.nplc: 100, sense.resolution: 0}} for a resolution argument whose MIN selects the finest integration time; the parameter's own setting is written only when the table names it",
+          "title": "Keywords"
+        },
         "max": {
           "anyOf": [
             {

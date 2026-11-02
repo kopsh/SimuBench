@@ -432,6 +432,29 @@ def test_a_written_constant_must_fit_its_setting():
     assert {d.code for d in report.diagnostics if d.severity == "error"} == {"E-DEF-WRITE"}
 
 
+def _with_keywords(keywords: dict) -> dict:
+    data = copy.deepcopy(DEMO)
+    conf = next(c for c in data["commands"] if c["header"] == "CONFigure<ch>")
+    conf["params"][0]["keywords"] = keywords
+    return data
+
+
+def test_a_keyword_writes_its_settings_instead_of_the_value():
+    """`keywords` (#344): MAX writes the table's settings, not the parameter's declared maximum."""
+    _, _, query, write = open_demo(_with_keywords({"MAX": {"ch.scale": 2.0, "ch.wave": "SQUare"}}))
+    write("CONF2 MAXimum")
+    assert query("C2:VDIV?") == "C2:VDIV 2E+0 V"
+    assert query("C2:WAV?") == "C2:WAV SQU"
+    write("CONF2 MIN")  # a keyword the table does not name keeps its meaning
+    assert query("C2:WAV?") == "C2:WAV SIN"
+    assert error(query) == '0,"No error"'
+
+
+def test_a_keyword_constant_must_fit_its_setting():
+    report = validate_definition_data(_with_keywords({"MAX": {"ch.wave": "NOPE"}}))[1]
+    assert {d.code for d in report.diagnostics if d.severity == "error"} == {"E-DEF-WRITE"}
+
+
 def test_writes_needs_parameters_that_write_settings():
     data = copy.deepcopy(DEMO)
     data["commands"].append({"header": "NOPE", "state": "timebase.scale", "writes": {"comm.header": "OFF"}})
