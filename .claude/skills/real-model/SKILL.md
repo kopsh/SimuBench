@@ -59,7 +59,8 @@ When the platform cannot express something the manual requires:
    ```
 7. **Example bench** in `examples/benches/` with real models only (`sb-*` benches go to
    `validation/benches/`). A script written the way a real-instrument script is written, run in a test.
-8. **Check and record**: `scripts/check.sh`; add the self-check rows to `docs/progress.md`.
+8. **Check and record**: `scripts/check.sh`; append a self-check section to the end of `docs/progress-log.md`
+   (`docs/progress.md` says how).
 9. **Pull request** with `Closes #<n>`; it merges itself when CI is green.
 
 ## What tends to go wrong

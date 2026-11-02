@@ -56,9 +56,10 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
 6. Never push to `main` directly, and never weaken, skip or delete tests to get CI green.
 
 Before changing behaviour, check `docs/decisions.md` (the recorded decisions) and
-`docs/progress.md` (what is done), **by section, not whole** (together they are about 70k tokens):
+`docs/progress.md` (milestone status; details in `docs/progress-log.md`), **by section, not whole**
+(`decisions.md` and `progress-log.md` together are about 70k tokens):
 `grep -n '^## D' docs/decisions.md` for the list, then read the entries your change touches
-(`sed -n '<from>,<to>p'`); `grep -n '<keyword or #issue>' docs/progress.md` and read only the
+(`sed -n '<from>,<to>p'`); `grep -n '<keyword or #issue>' docs/progress-log.md` and read only the
 matching rows. A decision entry is written only for a choice that satisfies
 both:
 
