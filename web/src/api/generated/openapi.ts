@@ -2836,6 +2836,13 @@ export interface components {
             /** Options */
             options?: string[] | null;
             /**
+             * Sets
+             * @description Settings this parameter writes along with its own when it is given, e.g. {sense.range_auto: false} for a range argument that leaves autorange
+             */
+            sets?: {
+                [key: string]: unknown;
+            } | null;
+            /**
              * State
              * @description Setting this parameter writes (a command without `state` or `op`); it is parsed as that setting reads values
              */

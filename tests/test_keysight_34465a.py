@@ -70,8 +70,9 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out.splitlines()
     assert out[0].startswith("Keysight Technologies,34465A,MY57440001,")
     assert out[-1] == '+0,"No error"'
-    # NPLC 10 (the *RST default): the resolution is 0.1 ppm of the auto-chosen 0.1 V range.
-    want = round(solve(False) / 1e-8) * 1e-8
+    # CONF:VOLT:DC 10 selects the 10 V range; NPLC 10 quantizes to 1e-6 there (the model's
+    # resolution table; the CONF resolution argument is stored but not used by the ADC model).
+    want = round(solve(False) / 1e-6) * 1e-6
     readings = [float(x) for x in out[-2].split(": ")[1].split(" ... ")]
     assert len(readings) == 2 and readings[0] == readings[-1]
     assert readings[0] == pytest.approx(want, abs=1e-12)
