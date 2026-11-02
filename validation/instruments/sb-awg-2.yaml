@@ -11,12 +11,6 @@ identity:
 channels:
   count: 2
 channel_state:
-  # 调制（#327，awg_modulator）：总开关、类型、内部调制频率与各类型的深度/频偏。
-  mod_state: {type: bool, default: false, label: 调制, label_en: Modulation}
-  mod_type: {type: enum, options: [AM, FM, PM, FSK, PWM], default: AM, label: 调制类型, label_en: Modulation type}
-  mod_rate: {type: float, unit: HZ, min: 1.0e-3, max: 1.0e6, default: 100.0, label: 调制频率, label_en: Modulation rate}
-  am_depth: {type: float, min: 0.0, max: 120.0, default: 100.0, display_unit: "%", label: AM 深度, label_en: AM depth}
-  fm_dev: {type: float, unit: HZ, min: 0.0, max: 1.0e7, default: 100.0, label: FM 频偏, label_en: FM deviation}
   function:
     type: enum
     options: [SINusoid, SQUare, RAMP, DC]
@@ -70,6 +64,12 @@ channel_state:
     special: {INF: .inf, INFinity: .inf}
     label: 输出负载设定
     label_en: Output load
+  # 调制（#327，awg_modulator）：总开关、类型、内部调制频率与各类型的深度/频偏。
+  mod_state: {type: bool, default: false, label: 调制, label_en: Modulation}
+  mod_type: {type: enum, options: [AM, FM, PM, FSK, PWM], default: AM, label: 调制类型, label_en: Modulation type}
+  mod_rate: {type: float, unit: HZ, min: 1.0e-3, max: 1.0e6, default: 100.0, label: 调制频率, label_en: Modulation rate}
+  am_depth: {type: float, min: 0.0, max: 120.0, default: 100.0, display_unit: "%", label: AM 深度, label_en: AM depth}
+  fm_dev: {type: float, unit: HZ, min: 0.0, max: 1.0e7, default: 100.0, label: FM 频偏, label_en: FM deviation}
 channel_components:
   # 信号源由模块组成（#144）：波形合成（1 Vpp）→ 幅度与偏置（按负载设定定义，D13）→ 输出级。
   - name: synth
