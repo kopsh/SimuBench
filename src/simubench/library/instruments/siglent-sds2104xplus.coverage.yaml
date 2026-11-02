@@ -864,12 +864,13 @@ sections:
     note: 'DC / AC / LFReject / HFReject 在触发路径上滤波，采集数据不变：AC 高通 5 Hz（数据手册的交流耦合转折）、LFReject 高通 50 kHz 与 HFReject 低通 1 MHz（数据手册没有给出抑制滤波的转折，取 SimuBench 默认值）。'
   - header: :TRIGger:EDGE:HLDEVent
     level: not_modeled
-    note: 释抑方式（时间/事件）未实现；释抑时间可用 :TRIGger:EDGE:HOLDoff。
+    note: 释抑类型 EVENts 的事件计数（1–100000000）未实现；OFF / TIME 可用。
   - header: :TRIGger:EDGE:HLDTime
-    level: not_modeled
+    level: implemented
+    note: 释抑时间 8 ns–30 s（EN11F p.423–424）；只有 :TRIGger:EDGE:HOLDoff 为 TIME 时生效。复位值 100 ns 是 SimuBench 默认（手册的复位表未给出时按覆盖表说明处理）。
   - header: :TRIGger:EDGE:HOLDoff
     level: implemented
-    note: '0–1.5 s；触发后至少等这么久才接受下一次触发。默认 100 ns 是 SimuBench 的默认值（手册未给出时按覆盖表说明处理）。'
+    note: '释抑类型 OFF / TIME，复位 OFF（EN11F p.423–424）；TIME 时按 :HLDTime 推迟下一次触发。EVENts（事件计数）未实现：设置它按值域报错，不静默当作 OFF。'
   - header: :TRIGger:EDGE:HSTart
     level: not_modeled
   - header: :TRIGger:EDGE:IMPedance
