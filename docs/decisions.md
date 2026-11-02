@@ -389,7 +389,7 @@
   3. **不实现加密与凭证认证**：客户端请求 StartTLS 等按规范以 Error 回复。只绑定 127.0.0.1（D38/安全自检同款约束）。
 - **理由**：很多现有脚本与 LabVIEW/C# 程序用 HiSLIP 地址；raw socket 以换行结尾，二进制块中的 0x0A 只能靠解析长度，HiSLIP 用 `DataEnd` 标出消息边界，且只有它支持设备清除、读 STB 与 SRQ 这些 IEEE 488.2 语义。
 - **实现位置**：`access/hislip_server.py`（服务器）；`Session.clear_output` 提取为 PyVISA 后端与 HiSLIP 服务器共用的设备清除语义；PyVISA 后端地址表加入 HiSLIP 形式（含 Bench 中配置的 HiSLIP 真实地址直接打开），TCPIP INSTR 资源的 VISA 属性（`TCPIP_IS_HISLIP`、`TCPIP_DEVICE_NAME` 等）按 PyVISA 属性表填齐。
-- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、VXI-11、USBTMC、GPIB、监听本机以外地址。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress.md 留待进行。
+- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、VXI-11、USBTMC、GPIB、监听本机以外地址。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
 
 ## D42 内置仪表都是真实型号
 

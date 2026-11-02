@@ -6,8 +6,10 @@ description: Add or extend a real instrument model (a built-in definition with `
 # Adding a real model
 
 The rules are in `docs/real-models.md` (D42) and `docs/instrument-authoring.md`; this file is the
-order of work and the commands. Read both docs first, and `docs/metrology-authoring.md` for meters,
-calibrators and SMUs.
+order of work and the commands. Read `real-models.md` first. `instrument-authoring.md` is long
+(~28k tokens): list it with `grep -n '^#'` and read only the sections you need (2: declarative
+commands, replies, mappings; 2.6: channel lists; 3: waveform transfer). For meters, calibrators and
+SMUs, read the matching section of `docs/metrology-authoring.md` the same way.
 
 ## The one rule that stops you
 
@@ -57,7 +59,8 @@ When the platform cannot express something the manual requires:
    ```
 7. **Example bench** in `examples/benches/` with real models only (`sb-*` benches go to
    `validation/benches/`). A script written the way a real-instrument script is written, run in a test.
-8. **Check and record**: `scripts/check.sh`; add the self-check rows to `docs/progress.md`.
+8. **Check and record**: `scripts/check.sh`; append a self-check section to the end of `docs/progress-log.md`
+   (`docs/progress.md` says how).
 9. **Pull request** with `Closes #<n>`; it merges itself when CI is green.
 
 ## What tends to go wrong
