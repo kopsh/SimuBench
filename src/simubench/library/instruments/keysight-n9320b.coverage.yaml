@@ -50,13 +50,10 @@ sections:
     level: not_modeled
   - header: :CALCulate:BWIDth|BANDwidth:NDB
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: :CALCulate:BWIDth|BANDwidth[:STATe]
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: :CALCulate:BWIDth|BANDwidth:RESult
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: :CALCulate:CLIMits:FAIL
     level: not_modeled
   - header: :CALCulate:LLINe:ALL:DELete
@@ -79,100 +76,100 @@ sections:
     level: not_modeled
   - header: :CALCulate:MARKer:AOFF
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:CPEak[:STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:FCOunt:RESolution
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:FCOunt:RESolution:AUTO
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:FCOunt[:STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PEAK:SEARch:MODE
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:MAXimum:LEFT
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:MAXimum:RIGHt
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:MINimum
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:MODE
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PEAK:THReshold:STATe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:PTPeak
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:PHNoise:[STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PHNoise:Y
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PHNoise:OFFSet:FREQuency
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PHNoise:OFFSet:FRRQuency
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PHNoise:OFFSet
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:PHNoise:OPTimize
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n][:SET]:CENTer
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n][:SET]:RLEVel
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n][:SET]:STARt
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n][:SET]:STEP
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n][:SET]:STOP
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:STATe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer:TABLe:STATe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:TRACe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:TRACe:AUTO
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:TRCKing[:STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:X:CENTer
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:X:DELTa
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:X:REFerence
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:MARKer[n]:X:SPAN
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled (capability issue under #181).'
+    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
   - header: :CALCulate:NTData[:STATe]
     level: not_modeled
 - section: CALibration Subsystem
@@ -358,7 +355,10 @@ sections:
   commands:
   - header: '[:SENSe]:FREQuency:CENTer'
     level: implemented
-    note: Numeric value only; UP/DOWN and the negative part of the guide range (-80 MHz) are not modeled.
+    note: >-
+      Numeric value only; UP/DOWN and the negative part of the guide range (-80 MHz) are not
+      modeled. A center frequency too small for the current span slides the window to span/2 (the
+      component's rule), so the manual's centre-then-span order needs the span first.
   - header: '[:SENSe]:FREQuency:SPAN'
     level: implemented
     note: Zero span (span 0) is not modeled; the state range starts at 10 Hz.
@@ -396,10 +396,17 @@ sections:
     level: implemented
   - header: '[:SENSe]:SWEep:TIME'
     level: implemented
+    note: >-
+      Automatic sweep time follows the component rule; at the reset settings it is 0.833 ms, the
+      guide's reset table says 100.2 ms.
   - header: '[:SENSe]:POWer[:RF]:ATTenuation:AUTO'
     level: implemented
   - header: '[:SENSe]:POWer[:RF]:ATTenuation'
     level: implemented
+    note: >-
+      Automatic attenuation follows the component rule (reference level held at the mixer limit,
+      2 dB steps): with the 0 dBm reset reference level it is 10 dB, the guide's reset table says
+      20 dB.
   - header: '[:SENSe]:DETector[:FUNCtion]'
     level: implemented
     note: POSitive/SAMPle/AVERage/RMS; NEGative and NORMAL are not modeled.
@@ -414,7 +421,6 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:ACPower:BANDwidth|BWIDth:INTegration'
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: '[:SENSe]:ACPower:CARRier:AUTO[:STATe]'
     level: not_modeled
   - header: '[:SENSe]:ACPower:CARRier[:POWer]'
@@ -437,7 +443,6 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:CHPower:BANDwidth|BWIDth:INTegration'
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: '[:SENSe]:CHPower:FREQuency:SPAN'
     level: not_modeled
   - header: '[:SENSe]:CORRection:OFFSet[:MAGNitude]'
@@ -480,7 +485,6 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:SEMask:BANDwidth|BWIDth:INTegration'
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: '[:SENSe]:SEMask:FREQuency:SPAN'
     level: not_modeled
   - header: '[:SENSe]:SEMask:OFFSet:LIST:FREQuency:STARt'
@@ -517,10 +521,8 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:BANDwidth|BWIDth:VIDeo:RATio'
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: '[:SENSe]:BANDwidth|BWIDth:VIDeo:RATio:AUTO'
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
   - header: '[:SENSe]:DETector:AUTO'
     level: not_modeled
   - header: '[:SENSe]:FREQuency:CENTer:STEP:AUTO'
@@ -539,7 +541,6 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:ACPower:OFFSet:LIST:BANDwidth[:INTegration]'
     level: not_modeled
-    note: The guide writes BANDwidth|BWIDth; both spellings are declared.
 - section: SOURce Subsystem
   commands:
   - header: :SOURce:CORRection:OFFSet

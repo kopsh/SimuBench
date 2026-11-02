@@ -11,6 +11,8 @@ description: >-
   blocks (D1 #187). Limits the guide does not state are SimuBench values, listed in the coverage
   table. Only trace 1 and marker 1 exist, only the positive/sample/average/RMS detectors and the
   write/average/max-hold trace modes are modeled; the coverage table names every remaining gap.
+  Delta/fixed-reference markers, marker on/off, minimum and left/right peak search and the marker
+  counter state need the capability issue #274 and are not modeled.
 reference:
   title: Keysight N9320B RF Spectrum Analyzer Programmer's Guide
   document: N9320-90029
