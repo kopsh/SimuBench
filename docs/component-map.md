@@ -42,7 +42,7 @@
 | amplitude | `amplitude_level` | 数据(标量) | 已实现 | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现 | siglent-sdg2042x 无(例外清单) |
-| modulation | `awg_modulator`(尚不存在) | 待拆分时定 | 未动(通用组件不存在;SDG2042X 由专用组件承担) | 第二波(缺口清单) |
+| modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
 
 内置 siglent-sdg2042x 由专用组件 `siglent_sdg` 承担(test_model_components.py 已记账),缺口在例外清单;拆分在第二波。
 
@@ -216,7 +216,6 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 | 组件 | 对应块 | 现状 | 排期 |
 | --- | --- | --- | --- |
-| `awg_modulator` | function_generator.modulation | 块清单已声明;siglent-sdg2042x 由专用组件临时承担 | #327(第二波,33622A #334 的调制前置;评估 SDG 迁移) |
 | `counter_timebase` | frequency_counter.timebase | 块清单已声明(与 `reference_clock` 并列);53230A 无间隙/时间戳测量的前置 | #328(第二波,53230A #331 的时间戳/无间隙前置) |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
 | `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | #329(第二波,5730A #341 的前置) |
@@ -250,7 +249,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 19. **DAQ**:温度测量、数字 I/O 与总加器(34907A)、外部扫描推进、监视通道、报警系统暂不排期。
 20. **频率计数器**:连续累加(TOTalize)的读数路径、派生测量(单周期/上升/下降/占空比/相位)、频率比、时间戳与无间隙测量(53230A)暂不排期。
 21. **SMU**:数字量格式与 GPIO、输出滤波器接入电路、程序内存(TSP)、电阻量程暂不排期;测量功能与按功能的源量程已由 #299/#253 合并,#12(Keithley 2450)的依赖就绪。
-22. **函数发生器**:调制块(见缺的组件 `awg_modulator`);内置计数器(SDG)、IQ 调制暂不排期。
+22. **函数发生器**:非正弦调制波形、BPSK/ASK/Sum 与扫频(`awg_modulator` 已由 #327 补上 AM/FM/PM/FSK/PWM);内置计数器(SDG)、IQ 调制暂不排期。
 23. **校准器(5522A)**:UUT 误差模式、温度/压力/电容/电阻测量模式、双输出、示波器校准选件(-SC600/-SC1100)、非正弦波形与谐波、交流直流偏置(#90 已知边界)、量程符号名查询(回复需按幅值查表)、不确定度查询、ISR/ISCE/ISCR 状态;负 dBm 写入 bug(#261)。除 #261 外暂不排期。
 
 ### 三、已有债务

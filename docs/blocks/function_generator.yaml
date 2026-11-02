@@ -12,5 +12,5 @@ blocks:
     components: [output_stage]
   - block: arb_memory          # 任意波表(按 rate 播放)
     components: [arb_table]
-  - block: modulation          # 调制(AM/FM/PM、扫频)——组件尚不存在,第二波拆出(缺口清单)
+  - block: modulation          # 调制(AM/FM/PM/FSK/PWM,#327);扫频未建模
     components: [awg_modulator]
