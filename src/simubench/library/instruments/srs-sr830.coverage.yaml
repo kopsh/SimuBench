@@ -1,0 +1,247 @@
+# SRS SR830 的覆盖表：按 SR830 DSP Lock-In Amplifier Manual（Revision 2.5，10/2011，
+# firmware 6-1）第 1 章的 Command List 与第 5 章的 Detailed Command List 逐条列出。SR830 不是 SCPI，
+# 命令是四条助记符，查询回复不带命令头。被 #273（#181 下的能力 issue）阻塞的命令组在 note 中注明。
+schema: simubench.coverage/1
+model: srs-sr830
+sections:
+  - section: "REFERENCE and PHASE (5-4)"
+    commands:
+      - header: PHAS
+        level: implemented
+        note: 相位设定/查询，范围 -360.00…729.99；真机四舍五入到 0.01° 并在 ±180° 回绕，本定义保留写入值（数据按模 360 等价）。
+      - header: FMOD
+        level: implemented
+        note: 参考源 0 外部 / 1 内部；内部振荡器与 REF_IN 锁相接 lockin_reference。
+      - header: FREQ
+        level: implemented
+        note: 参考频率 0.001…102000 Hz。两处偏差：真机只允许在内部参考模式下设置，lockin_reference 在外部模式下也接受；外部参考锁定时真机 FREQ? 回参考频率，本定义回内部振荡器的设定值（实际检测频率见 osc.frequency 读数）。
+      - header: RSLP
+        level: implemented
+        note: 只声明正弦过零（0）；TTL 上升/下降沿（1、2）需要参考沿的相位定义，#273 第 4 节。
+      - header: HARM
+        level: implemented
+        note: 1…19999；检测频率上限由 lockin_reference 的 500 kHz 实现，真机是 102 kHz 且超限时把 n 钳到最大可用值（偏差，#273 第 5 节）。
+      - header: SLVL
+        level: implemented
+        note: 正弦输出幅度 0.004…5.000 Vrms；真机四舍五入到 0.002 V，本定义保留写入值（偏差）。
+  - section: "INPUT and FILTER (5-5)"
+    commands:
+      - header: ISRC
+        level: implemented
+        note: 只声明单端电压输入 A（0）；A-B、I(1 MΩ)、I(100 MΩ) 取值为非法参数，#273 第 4 节。
+      - header: IGND
+        level: accepted
+        affects_data: false
+        note: 屏蔽接地只保存/回读；测试台的输入是单端对地阻抗，没有屏蔽节点，#273 第 4 节。
+      - header: ICPL
+        level: implemented
+        note: 0 AC（0.16 Hz 高通）/ 1 DC，接到 lockin_input_filter。
+      - header: ILIN
+        level: implemented
+        note: 0 关 / 1 工频 / 2 二次工频 / 3 两者；陷波 Q=10，工频固定 50 Hz（真机在 [Setup] 里设，无远程命令）。
+  - section: "GAIN and TIME CONSTANT (5-6, 5-7)"
+    commands:
+      - header: SENS
+        level: implemented
+        note: 0…26 档（2 nV…1 V 满量程），经表格映射到 lockin_input_amp 的灵敏度。
+      - header: RMOD
+        level: implemented
+        note: 0 高 / 1 正常 / 2 低噪声；储备按固定 40/20/0 dB 映射，真机随灵敏度变化（0–174 dB，p.4-8），偏差见 #273 第 5 节。
+      - header: OFLT
+        level: implemented
+        note: 0…19 档（10 µs…30 ks），经表格映射到 lockin_lowpass 的时间常数。
+      - header: OFSL
+        level: implemented
+        note: 0/1/2/3 = 6/12/18/24 dB/oct。
+      - header: SYNC
+        level: not_modeled
+        note: 同步滤波（检测频率 <200 Hz 时抑制 2f 纹波）在 lockin_lowpass 里没有模型，#273 第 5 节。
+  - section: "DISPLAY and OUTPUT (5-8)"
+    commands:
+      - header: DDEF
+        level: not_modeled
+        note: 显示选择影响数据缓冲的内容；按索引的查询回复不回显索引、缓冲按显示通道取元素都缺能力，#273 第 2、3 节。
+      - header: FPOP
+        level: not_modeled
+        note: CH1/CH2 输出源；按索引的查询回复不回显索引，#273 第 3 节。
+      - header: OEXP
+        level: not_modeled
+        note: X/Y/R 各自的偏置与扩展；查询不回显索引、lockin_output 缺 R 的偏置与按量 expand，#273 第 3 节。
+      - header: AOFF
+        level: not_modeled
+        note: 自动偏置（X/Y/R 归零）没有通用操作；手册在 5-8 与 5-11 各列一次，覆盖表只列一条。
+  - section: "AUX INPUT and OUTPUT (5-9)"
+    commands:
+      - header: OAUX
+        level: implemented
+        note: AUX 输入 1…4，读的是测试台上解出的电压（电路层，1 MΩ）。
+      - header: AUXV
+        level: implemented
+        note: AUX 输出 1…4，±10.5 V，1 kΩ 戴维南源；真机取整到 1 mV，本定义不取整（偏差）。
+  - section: "SETUP (5-10)"
+    commands:
+      - header: OUTX
+        level: accepted
+        affects_data: false
+        note: 输出接口选择（0 RS232 / 1 GPIB）只保存/回读；模型只有一种接入。
+      - header: OVRM
+        level: accepted
+        affects_data: false
+        note: 覆盖远程只影响前面板锁定，数据无关。
+      - header: KCLK
+        level: accepted
+        affects_data: false
+        note: 按键声只保存/回读。
+      - header: ALRM
+        level: accepted
+        affects_data: false
+        note: 报警声只保存/回读。
+      - header: SSET
+        level: not_modeled
+        note: 设置缓冲（1…9）的保存未实现。
+      - header: RSET
+        level: not_modeled
+        note: 调用设置缓冲会改变全部设置，需要设置缓冲能力。
+  - section: "AUTO FUNCTIONS (5-11)"
+    commands:
+      - header: AGAN
+        level: not_modeled
+        note: 自动增益写回的是灵敏度电压，而本定义的 SENS 状态是档位索引；需要按档位写回的能力（#273 第 5 节）。
+      - header: ARSV
+        level: not_modeled
+        note: 自动储备没有通用操作。
+      - header: APHS
+        level: implemented
+        note: 自动相位，按当前滤波输出把参考相位移到 θ=0（lockin_output.auto_phase）。
+  - section: "DATA STORAGE (5-12, 5-13)"
+    commands:
+      - header: SRAT
+        level: not_modeled
+        note: 数据缓冲整组被 #273 第 2 节阻塞；采样率无法接到可用的扫描。
+      - header: SEND
+        level: not_modeled
+        note: 缓冲满后停止/循环的语义随数据缓冲一起阻塞（#273 第 2 节）。
+      - header: TRIG
+        level: not_modeled
+        note: 软件触发只在触发采样/触发启动扫描时有意义，这两项在 #273 第 2 节。
+      - header: TSTR
+        level: not_modeled
+        note: 触发启动扫描需要扫描的暂停/续采语义（#273 第 2 节）。
+      - header: STRT
+        level: not_modeled
+        note: 开始/继续扫描：通用触发模型 INITiate 会清空缓冲，不能续采（#273 第 2 节）。
+      - header: PAUS
+        level: not_modeled
+        note: 暂停扫描并保留数据（#273 第 2 节）。
+      - header: REST
+        level: not_modeled
+        note: 复位扫描并丢弃数据（#273 第 2 节）。
+  - section: "DATA TRANSFER (5-15, 5-16, 5-17)"
+    commands:
+      - header: OUTP
+        level: implemented
+        note: OUTP? 1/2/3/4 = X/Y/R/θ；数值由相敏检波与低通求得。回复格式为引擎的工程记数（真机是 6 位有效数字的裸浮点，偏差）。
+      - header: OUTR
+        level: implemented
+        note: OUTR? 1/2 = CH1/CH2 显示值；显示在模型中固定为 X/Y（DDEF 未实现，见上）。
+      - header: SNAP
+        level: not_modeled
+        note: 2…6 个编号（1…11，含 X/Y/R/θ、AUX、频率、显示值）在同一时刻读取；lockin_output.snap 只认名字，需要编号选择能力（#273 第 2 节）。
+      - header: SPTS
+        level: not_modeled
+        note: 缓冲点数，随数据缓冲阻塞（#273 第 2 节）。
+      - header: TRCA
+        level: not_modeled
+        note: 0 基 bin + 点数的 ASCII 曲线读取，需要双通道缓冲与 0 基索引（#273 第 2 节）。
+      - header: TRCB
+        level: not_modeled
+        note: IEEE 浮点二进制曲线读取（#273 第 2 节）。
+      - header: TRCL
+        level: not_modeled
+        note: 16 位 non-normalized 二进制格式（#273 第 2 节）。
+      - header: FAST
+        level: not_modeled
+        note: GPIB 快速传输模式（#273 第 2 节）。
+      - header: STRD
+        level: not_modeled
+        note: 快速传输下延迟 0.5 s 启动扫描（#273 第 2 节）。
+  - section: "INTERFACE (5-19)"
+    commands:
+      - header: '*RST'
+        level: implemented
+        note: 恢复第 4 章默认设置表（引擎内置 reset）；通信与状态寄存器按手册不变。
+      - header: '*IDN'
+        level: implemented
+        note: Stanford_Research_Systems,SR830,s/n00111,ver1.000（手册 5-19 的格式）。
+      - header: LOCL
+        level: accepted
+        affects_data: false
+        note: 本地/远程/本地锁定只保存/回读，不影响数据。
+  - section: "STATUS (5-20)"
+    commands:
+      - header: '*CLS'
+        level: implemented
+        note: 清引擎的错误/事件状态；SRS 的四个状态字节未建模（见 #273 第 1 节）。
+      - header: '*ESE'
+        level: not_modeled
+        note: SRS 标准事件使能寄存器；内置的 SCPI 语义与位定义不同（位 0 是 INP，且 i,j 是设某一位），#273 第 1 节。
+      - header: '*ESR'
+        level: not_modeled
+        note: SRS 标准事件字节（含位查询与读后清零）；内置 SCPI 语义不同，#273 第 1 节。
+      - header: '*SRE'
+        level: not_modeled
+        note: 串行轮询使能寄存器；内置语义不同，#273 第 1 节。
+      - header: '*STB'
+        level: not_modeled
+        note: 串行轮询字节（SCN/IFC/ERR/LIA/MAV/ESB/SRQ）；内置 SCPI 语义不同，#273 第 1 节。
+      - header: '*PSC'
+        level: not_modeled
+        note: 上电状态清除位，随状态字节一起（#273 第 1 节）。
+      - header: ERRE
+        level: not_modeled
+        note: 错误状态使能寄存器（#273 第 1 节）。
+      - header: ERRS
+        level: not_modeled
+        note: 错误状态字节（硬件自检位，读后清零；#273 第 1 节）。
+      - header: LIAE
+        level: not_modeled
+        note: LIA 状态使能寄存器（#273 第 1 节）。
+      - header: LIAS
+        level: not_modeled
+        note: LIA 状态字节（过载、失锁、量程、时间常数、触发；#273 第 1 节）。
+  - section: "Using SR530 Programs (5-31)"
+    commands:
+      - {header: AX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: AY, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: AR, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: AP, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: B, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: C, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: D, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: E, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: F, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: G, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: H, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: I, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: J, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: K, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: L, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: M, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: N, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: OX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: OY, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: OR, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: P, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: Q1, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: Q2, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: QX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: QY, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: R, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: S, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: T, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: U, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: V, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: W, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: X, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: Y, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: Z, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
