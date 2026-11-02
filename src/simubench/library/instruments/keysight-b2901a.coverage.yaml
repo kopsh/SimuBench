@@ -196,8 +196,8 @@ sections:
     level: not_modeled
     note: 计算结果元素选择未实现。
   - header: :FORMat:ELEMents:SENSe
-    level: not_modeled
-    note: 元素选择未实现：FETCh/READ/TRACe 固定给出 VOLT,CURR,RES,TIME,STAT。
+    level: implemented
+    note: 选择 MEASure?/FETCh:ARRay?/READ:ARRay?/TRACe:DATA? 回的元素（#252）；顺序固定为 VOLT,CURR,RES,TIME,STAT,SOUR，与写入顺序无关，*RST 为全部六个。SOUR 是源输出设定值。
   - header: :FORMat:SREGister
     level: not_modeled
     note: 状态寄存器回复格式选择未实现（固定十进制）。

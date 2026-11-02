@@ -38,10 +38,8 @@ def main() -> None:
 
     print(sa.query("*IDN?"))
     sa.write("*RST")
-    # Set the span first: the N9320B keeps the center inside the window, so a 3 GHz default span
-    # would slide a 10 MHz center to 1.5 GHz.
-    sa.write(f":FREQ:SPAN {SPAN_HZ}")
     sa.write(f":FREQ:CENT {CENTER_HZ}")
+    sa.write(f":FREQ:SPAN {SPAN_HZ}")
     sa.write(":BAND:RES:AUTO ON")
     sa.write(":BAND:VID:AUTO ON")
     sa.write(":SWE:TIME:AUTO ON")
@@ -52,6 +50,7 @@ def main() -> None:
     marker_hz = float(sa.query(":CALC:MARK:X?"))
     marker_dbm = float(sa.query(":CALC:MARK:Y?"))
     print(f"marker: {marker_hz:.0f} Hz, {marker_dbm:.3f} dBm")
+    sa.write(":CALC:MARK:FCO ON")  # the marker counter is off after *RST
     counter_hz = float(sa.query(":CALC:MARK:FCO:X?"))
     print(f"counter: {counter_hz:.0f} Hz")
     trace = levels(sa.query(":TRAC:DATA? TRACE1"))

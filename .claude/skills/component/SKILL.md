@@ -33,6 +33,7 @@ class CounterGate(Component):
         "time": 0.1,  # s, the gate time   <- this comment IS the catalog description (required)
     }
     units = {"time": "s"}
+    choices = {"mode": ("TIMe", "COUNt")}  # word params: validation refuses other words; read with self.choice("mode")
     refs = {"clock": ("reference_clock", "instrument")}   # links to sibling components
     generic = True                     # False = model-specific (tracked in ALLOWED, only shrinks)
 

@@ -54,7 +54,7 @@ specs:
     1.0, 3.0, 10.0, 30.0, 100.0, 300.0, 1000.0, 3000.0, 10000.0, 30000.0]
   filter_slope_db_per_octave: [6, 12, 18, 24]
   reference_frequency_hz: 0.001–102000（检测频率 n×f ≤ 102 kHz）
-  harmonic: 1–19999（n×f > 102 kHz 时手册把谐波钳到最大可用值；本定义未实现钳位，见覆盖表）
+  harmonic: 1–19999（n×f > 102 kHz 时按手册把谐波钳到最大可用值，#273）
   input_impedance_ohm: 10.0e6
   reserve_db_by_sensitivity:
     source: Manual p.4-8, actual dynamic reserves (Low Noise / Normal / High Reserve)
@@ -69,6 +69,47 @@ specs:
     "10 nV": [110, 140, 160]
     "1 nV": [124, 154, 174]
 state:
+  # 状态字节的使能寄存器（手册 5-20 – 5-23，#273）。
+  # 显示与偏置/扩展（手册 5-8，#273）：CH1/CH2 的显示量与比值、前面板输出源；X/Y/R 各自的偏置（满量程的
+  # 百分数）与扩展（0/1/2 = ×1/×10/×100）。R 的偏置与扩展只作用于显示，OUTP? 3 仍是原始 R。
+  display.quantity1: {type: int, min: 0, max: 4, default: 0, label: CH1 显示, label_en: CH1 display}
+  display.quantity2: {type: int, min: 0, max: 4, default: 0, label: CH2 显示, label_en: CH2 display}
+  display.ratio1: {type: int, min: 0, max: 2, default: 0, label: CH1 比值, label_en: CH1 ratio}
+  display.ratio2: {type: int, min: 0, max: 2, default: 0, label: CH2 比值, label_en: CH2 ratio}
+  display.source1: {type: int, min: 0, max: 1, default: 0, label: CH1 输出源, label_en: CH1 output source}
+  display.source2: {type: int, min: 0, max: 1, default: 0, label: CH2 输出源, label_en: CH2 output source}
+  output.offset1: {type: float, min: -105.0, max: 105.0, default: 0.0, display_unit: "%", label: X 偏置, label_en: X offset}
+  output.offset2: {type: float, min: -105.0, max: 105.0, default: 0.0, display_unit: "%", label: Y 偏置, label_en: Y offset}
+  output.offset3: {type: float, min: -105.0, max: 105.0, default: 0.0, display_unit: "%", label: R 偏置, label_en: R offset}
+  output.expand1: {type: int, min: 0, max: 2, default: 0, label: X 扩展, label_en: X expand}
+  output.expand2: {type: int, min: 0, max: 2, default: 0, label: Y 扩展, label_en: Y expand}
+  output.expand3: {type: int, min: 0, max: 2, default: 0, label: R 扩展, label_en: R expand}
+  status.sre:
+    type: int
+    min: 0
+    max: 255
+    default: 0
+    label: 串行轮询使能
+    label_en: Serial poll enable
+  status.err_enable:
+    type: int
+    min: 0
+    max: 255
+    default: 0
+    label: 错误状态使能
+    label_en: Error status enable
+  status.lia_enable:
+    type: int
+    min: 0
+    max: 255
+    default: 0
+    label: LIA 状态使能
+    label_en: LIA status enable
+  status.psc:
+    type: bool
+    default: true
+    label: 上电状态清除
+    label_en: Power-on status clear
   # ---- reference and phase (manual 5-4) ------------------------------------------------------
   reference.source:
     type: enum
@@ -286,6 +327,9 @@ components:
       phase: $reference.phase
       harmonic: $reference.harmonic
       amplitude: $sine_out.amplitude
+      # 检测频率 n×f 上限 102 kHz；超过时按手册把谐波钳到最大可用值，不报错（#273）。
+      f_max: 102.0e3
+      over_limit: clamp
   - name: out
     type: output_stage
     params: {z_out: 50.0, enabled: true}
@@ -371,12 +415,43 @@ components:
     params:
       filter: filter
       amp: amp
+      offset_x: $output.offset1
+      offset_y: $output.offset2
+      offset_r: $output.offset3
+      expand_x: {from: $output.expand1, table: {0: 1.0, 1: 10.0, 2: 100.0}}
+      expand_y: {from: $output.expand2, table: {0: 1.0, 1: 10.0, 2: 100.0}}
+      expand_r: {from: $output.expand3, table: {0: 1.0, 1: 10.0, 2: 100.0}}
   - name: trig
     type: trigger_model
     params: {sampler: demod, buffer: buffer}
   - name: buffer
     type: reading_buffer
     params: {capacity: 16383}
+  # 四个状态字节（#273）：LIA（过载、失锁、量程/时间常数改变、触发）、错误字节（硬件自检位，仿真恒 0）、
+  # 标准事件（引擎的事件寄存器，SRS 的按位写法）与串行轮询字节（SCN/IFC/ERR/LIA/MAV/ESB/SRQ）。
+  - name: lia
+    type: status_register
+    params:
+      bits: {INPUT: 0, FILTR: 1, OUTPT: 2, UNLK: 3, RANGE: 4, TC: 5, TRIG: 6}
+      enable: $status.lia_enable
+      width: 8
+      changes: {RANGE: $input.sensitivity, TC: $filter.time_constant}
+  - name: err
+    type: status_register
+    params:
+      bits: {BACKUP: 1, RAM: 2, ROM: 4, GPIB: 5, DSP: 6, MATH: 7}
+      enable: $status.err_enable
+      width: 8
+  - name: esr
+    type: status_register
+    params: {mirror: esr, width: 8}
+  - name: spoll
+    type: status_register
+    params:
+      bits: {SCN: 0, IFC: 1, ERR: 2, LIA: 3, MAV: 4, ESB: 5}
+      enable: $status.sre
+      request_bit: 6
+      width: 8
   - name: aux
     type: lockin_aux
     params:
@@ -412,6 +487,33 @@ display:
   summary: [reference.source, reference.frequency, reference.harmonic, input.sensitivity, filter.time_constant, filter.slope]
 capabilities: [lockin]
 commands:
+  # ---- display and output (manual 5-8, #273): the index i picks the channel or quantity; a query
+  #      answers the settings without repeating it (DDEF? 1 -> j,k) ---------------------------------
+  - header: DDEF
+    params:
+      - {name: channel, type: int, min: 1, max: 2, index: true, echo: false}
+      - {name: quantity, type: int, state: "display.quantity{channel}"}
+      - {name: ratio, type: int, state: "display.ratio{channel}"}
+  - header: FPOP
+    params:
+      - {name: channel, type: int, min: 1, max: 2, index: true, echo: false}
+      - {name: source, type: int, state: "display.source{channel}"}
+  - header: OEXP
+    format: {number: nr2, digits: 2, sign: false}
+    params:
+      - {name: quantity, type: int, min: 1, max: 3, index: true, echo: false}
+      - {name: offset, type: float, state: "output.offset{quantity}"}
+      - {name: expand, type: int, state: "output.expand{quantity}"}
+  # ---- status (manual 5-20 – 5-23, #273): "i" reads or sets one bit, a byte read clears it -------
+  - {header: "*ESE", op: esr.enable, params: [{name: bit, type: int, optional: true}, {name: value, type: int, optional: true}]}
+  - {header: "*ESR", op: esr.event, set: false, params: [{name: bit, type: int, optional: true}]}
+  - {header: "*SRE", op: spoll.enable, params: [{name: bit, type: int, optional: true}, {name: value, type: int, optional: true}]}
+  - {header: "*STB", op: spoll.condition, set: false, params: [{name: bit, type: int, optional: true}]}
+  - {header: "*PSC", state: status.psc}
+  - {header: ERRE, op: err.enable, params: [{name: bit, type: int, optional: true}, {name: value, type: int, optional: true}]}
+  - {header: ERRS, op: err.event, set: false, params: [{name: bit, type: int, optional: true}]}
+  - {header: LIAE, op: lia.enable, params: [{name: bit, type: int, optional: true}, {name: value, type: int, optional: true}]}
+  - {header: LIAS, op: lia.event, set: false, params: [{name: bit, type: int, optional: true}]}
   # ---- reference and phase (manual 5-4) ------------------------------------------------------
   - header: PHAS
     state: reference.phase

@@ -25,7 +25,7 @@ identity:
 # 寄存器与错误队列，因此实现 SCPI-99 的公共命令；:SYSTem:ERRor? 手册未单列，按公共错误查询回答。
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", ":SYSTem:ERRor[:NEXT]"]
 format:
-  # 手册没有给出统一格式：电平与深度是两位小数、不带 +（2.00、80.00），频率走工程记数（见各命令）。
+  # 手册没有给出统一格式：电平与深度是两位小数、不带 +（2.00、80.00），频率按手册带 SI 前缀与单位（4.00000000MHz，number: si，#289）。
   number: nr2
   digits: 2
   sign: false
@@ -87,6 +87,11 @@ state:
     default: false
     label: 射频输出
     label_en: RF output
+  mod.state:
+    type: bool
+    default: false
+    label: 调制总开关
+    label_en: Modulation on
   am.state:
     type: bool
     default: false
@@ -94,6 +99,7 @@ state:
     label_en: AM
   am.depth:
     type: float
+    unit: PCT
     min: 0.0
     max: 100.0
     default: 50.0
@@ -102,6 +108,7 @@ state:
     label_en: AM depth
   am.depth_step:
     type: float
+    unit: PCT
     min: 0.1
     max: 50.0
     default: 10.0
@@ -276,13 +283,50 @@ state:
     default: PM
     label: 面板的调制类型
     label_en: FM/PM type
+  # 扫描状态（手册 :SWEep:STATe OFF|FREQuency|LEVel|LEVel,FREQuency，#291）：一组词，回读按
+  # LEV,FREQ 的顺序；OFF 不能与其他词同用。
   sweep.manner:
-    type: enum
-    options: ["OFF", FREQuency]
-    default: "OFF"
+    type: enum_list
+    options: [LEVel, FREQuency, "OFF"]
+    default: ["OFF"]
     label: 扫描方式
     label_en: Sweep state
-    option_labels: {"OFF": 关闭, FREQuency: 频率扫描}
+  sweep.level_start:
+    type: float
+    unit: DBM
+    min: -110.0
+    max: 20.0
+    default: -20.0
+    label: 扫描起始电平
+    label_en: Sweep start level
+  sweep.level_stop:
+    type: float
+    unit: DBM
+    min: -110.0
+    max: 20.0
+    default: 0.0
+    label: 扫描终止电平
+    label_en: Sweep stop level
+  sweep.dwell:
+    type: float
+    unit: S
+    min: 0.02
+    max: 100.0
+    default: 0.02
+    label: 驻留时间
+    label_en: Dwell time
+  sweep.mode:
+    type: enum
+    options: [CONTinue, SINGle]
+    default: CONTinue
+    label: 扫描模式
+    label_en: Sweep mode
+  sweep.point_trigger:
+    type: enum
+    options: [AUTO, KEY, BUS, EXTernal]
+    default: AUTO
+    label: 扫描点触发
+    label_en: Point trigger
   sweep.type:
     type: enum
     options: [STEP]
@@ -376,8 +420,14 @@ components:
     type: rf_synthesizer
     params:
       frequency: $freq.cw
-      # 扫描方式 OFF 合成器停在 CW，FREQuency 走步进扫描；电平扫描没有组件能力（覆盖表注明）。
-      mode: {from: $sweep.manner, map: {"OFF": CW, FREQuency: SWEep}, default: SWEep}
+      # 扫描状态决定扫频率、电平或两者（#291）；AUTO 的扫描点按驻留时间在虚拟时间里推进，
+      # KEY/BUS/EXT 由 :TRIGger / *TRG 逐点推进（外部触发输入未建模）。
+      manner: $sweep.manner
+      level_start: $sweep.level_start
+      level_stop: $sweep.level_stop
+      dwell: $sweep.dwell
+      run: {from: $sweep.mode, map: {CONTinue: CONTinuous, SINGle: SINGle}}
+      step_by: {from: $sweep.point_trigger, map: {AUTO: TIME}, default: TRIGger}
       start: $sweep.start
       stop: $sweep.stop
       points: $sweep.points
@@ -394,6 +444,7 @@ components:
   - name: mod
     type: rf_modulator
     params:
+      enabled: $mod.state
       am: $am.state
       am_depth: $am.depth
       am_rate: $am.rate
@@ -406,7 +457,7 @@ components:
       source: mod_source
   - name: level
     type: rf_level_control
-    params: {level: $power.level}
+    params: {level: $power.level, synthesizer: synth}
   - name: att
     type: rf_attenuator
   - name: rf
@@ -446,20 +497,23 @@ commands:
   - {header: ":OUTPut[:STATe]", state: output.enabled, dangerous: true}
 
   # ---- 频率（手册 2-26）------------------------------------------------------------------------
-  - {header: "[:SOURce]:FREQuency", state: freq.cw, format: {number: engineering, significant: 9, sign: false}}
-  - {header: "[:SOURce]:FREQuency:STEP", state: freq.step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:FREQuency", state: freq.cw, format: {number: si, significant: 9, sign: false, unit: Hz}}
+  - {header: "[:SOURce]:FREQuency:STEP", state: freq.step, format: {number: si, significant: 6, sign: false, unit: Hz}}
 
   # ---- 电平（手册 2-41）------------------------------------------------------------------------
   - {header: "[:SOURce]:LEVel", state: power.level}
   - {header: "[:SOURce]:LEVel:STEP", state: power.step}
+
+  # ---- 调制总开关（手册 2-45；出厂 Off：各调制的开关打开后还要打开它才有调制，#290）--------
+  - {header: "[:SOURce]:MODulation:STATe", state: mod.state}
 
   # ---- AM（手册 2-12 – 2-17）-------------------------------------------------------------------
   - {header: "[:SOURce]:AM[:DEPTh]", state: am.depth}
   - {header: "[:SOURce]:AM[:DEPTh]:STEP[:INCRement]", state: am.depth_step}
   - {header: "[:SOURce]:AM:EXT:COUP", state: am.ext_coupling}
   - {header: "[:SOURce]:AM:EXT:IMP", state: am.ext_impedance, format: {enum: as_defined}}
-  - {header: "[:SOURce]:AM:FREQuency", state: am.rate, format: {number: engineering, significant: 7, sign: false}}
-  - {header: "[:SOURce]:AM:FREQuency:STEP[:INCRement]", state: am.rate_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:AM:FREQuency", state: am.rate, format: {number: si, significant: 7, sign: false, unit: Hz}}
+  - {header: "[:SOURce]:AM:FREQuency:STEP[:INCRement]", state: am.rate_step, format: {number: si, significant: 6, sign: false, unit: Hz}}
   - {header: "[:SOURce]:AM:SOURce", state: am.source}
   - {header: "[:SOURce]:AM:STATe", state: am.state}
   - {header: "[:SOURce]:AM:WAVEform", state: am.waveform}
@@ -468,12 +522,12 @@ commands:
   - {header: "[:SOURce]:FMPM:TYPE", state: fmpm.type}
 
   # ---- FM（手册 2-20 – 2-24）-------------------------------------------------------------------
-  - {header: "[:SOURce]:FM[:DEViation]", state: fm.dev, format: {number: engineering, significant: 7, sign: false}}
-  - {header: "[:SOURce]:FM[:DEViation]:STEP[:INCRement]", state: fm.dev_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:FM[:DEViation]", state: fm.dev, format: {number: si, significant: 7, sign: false, unit: Hz}}
+  - {header: "[:SOURce]:FM[:DEViation]:STEP[:INCRement]", state: fm.dev_step, format: {number: si, significant: 6, sign: false, unit: Hz}}
   - {header: "[:SOURce]:FM:EXT:COUP", state: fm.ext_coupling}
   - {header: "[:SOURce]:FM:EXT:IMP", state: fm.ext_impedance, format: {enum: as_defined}}
-  - {header: "[:SOURce]:FM:FREQuency", state: fm.rate, format: {number: engineering, significant: 7, sign: false}}
-  - {header: "[:SOURce]:FM:FREQuency:STEP[:INCRement]", state: fm.rate_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:FM:FREQuency", state: fm.rate, format: {number: si, significant: 7, sign: false, unit: Hz}}
+  - {header: "[:SOURce]:FM:FREQuency:STEP[:INCRement]", state: fm.rate_step, format: {number: si, significant: 6, sign: false, unit: Hz}}
   - {header: "[:SOURce]:FM:SOURce", state: fm.source}
   - {header: "[:SOURce]:FM:STATe", state: fm.state}
   - {header: "[:SOURce]:FM:WAVEform", state: fm.waveform}
@@ -483,8 +537,8 @@ commands:
   - {header: "[:SOURce]:PM[:DEViation]:STEP[:INCRement]", state: pm.dev_step, format: {number: nr2, digits: 6, sign: false}}
   - {header: "[:SOURce]:PM:EXT:COUP", state: pm.ext_coupling}
   - {header: "[:SOURce]:PM:EXT:IMP", state: pm.ext_impedance, format: {enum: as_defined}}
-  - {header: "[:SOURce]:PM:FREQuency", state: pm.rate, format: {number: engineering, significant: 7, sign: false}}
-  - {header: "[:SOURce]:PM:FREQuency:STEP[:INCRement]", state: pm.rate_step, format: {number: engineering, significant: 6, sign: false}}
+  - {header: "[:SOURce]:PM:FREQuency", state: pm.rate, format: {number: si, significant: 7, sign: false, unit: Hz}}
+  - {header: "[:SOURce]:PM:FREQuency:STEP[:INCRement]", state: pm.rate_step, format: {number: si, significant: 6, sign: false, unit: Hz}}
   - {header: "[:SOURce]:PM:SOURce", state: pm.source}
   - {header: "[:SOURce]:PM:STATe", state: pm.state}
   - {header: "[:SOURce]:PM:WAVEform", state: pm.waveform}
@@ -492,8 +546,13 @@ commands:
   # ---- 扫描（手册 2-61 – 2-70）：只建模步进频率扫描 ------------------------------------------
   - {header: "[:SOURce]:SWEep:STATe", state: sweep.manner}
   - {header: "[:SOURce]:SWEep:TYPE", state: sweep.type}
-  - {header: "[:SOURce]:SWEep:STEP:STARt:FREQuency", state: sweep.start, format: {number: engineering, significant: 9, sign: false}}
-  - {header: "[:SOURce]:SWEep:STEP:STOP:FREQuency", state: sweep.stop, format: {number: engineering, significant: 9, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:STARt:LEVel", state: sweep.level_start, format: {number: nr2, digits: 2, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:STOP:LEVel", state: sweep.level_stop, format: {number: nr2, digits: 2, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:DWELl", state: sweep.dwell, format: {number: si, significant: 6, sign: false, unit: s}}
+  - {header: "[:SOURce]:SWEep:MODE", state: sweep.mode}
+  - {header: "[:SOURce]:SWEep:POINt:TRIGger:TYPE", state: sweep.point_trigger}
+  - {header: "[:SOURce]:SWEep:STEP:STARt:FREQuency", state: sweep.start, format: {number: si, significant: 9, sign: false, unit: Hz}}
+  - {header: "[:SOURce]:SWEep:STEP:STOP:FREQuency", state: sweep.stop, format: {number: si, significant: 9, sign: false, unit: Hz}}
   - {header: "[:SOURce]:SWEep:STEP:POINts", state: sweep.points}
   - {header: "[:SOURce]:SWEep:STEP:POINts:STEP", state: sweep.points_step}
   - {header: "[:SOURce]:SWEep:STEP:SPACing", state: sweep.spacing}

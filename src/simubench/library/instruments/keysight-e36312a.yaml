@@ -107,6 +107,8 @@ specs:
   relay_time_s: 0.01
 channels:
   count: 3
+  # 省略通道列表的命令作用于 INSTrument:SELect / NSELect 选中的输出（#295）。
+  selected: instrument.nselect
   overrides:
     1:
       voltage: {max: 6.18}
@@ -129,6 +131,26 @@ channels:
       p_max: {default: 26.5225}
       range: {default: P25V}
 channel_state:
+  # OCP（#271）：手册没有电流阈值命令；使能后输出处于 CC 的时间超过延迟即跳闸、关输出。
+  ocp_enabled:
+    type: bool
+    default: false
+    label: 过流保护
+    label_en: Over-current protection
+  ocp_delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.05
+    label: 过流保护延迟
+    label_en: OCP delay
+  ocp_start:
+    type: enum
+    options: [SCHange, CCTRans]
+    default: SCHange
+    label: 过流延迟起点
+    label_en: OCP delay start
   voltage:
     type: float
     unit: V
@@ -194,6 +216,16 @@ channel_state:
     label: 功率上限
     label_en: Power maximum
 state:
+  # 选中的输出（INSTrument:SELect 的 CH1/CH2/CH3 与 E3631A 式的 P6V/P25V/N25V，NSELect 的 1–3；
+  # *RST 回到输出 1）。
+  instrument.nselect:
+    type: int
+    min: 1
+    max: 3
+    default: 1
+    special: {CH1: 1, CH2: 2, CH3: 3, P6V: 1, P25V: 2, N25V: 3}
+    label: 选中的输出
+    label_en: Selected output
   # 组合（手册 Specifying the Operation Mode / Using the Tracking Operation，#259）：
   # OUTPut:PAIR 选独立、内部并联或内部串联（由输出 2 输出，输出 3 停用）；跟踪是另一个开关。
   output.pair:
@@ -292,7 +324,15 @@ channel_components:
       combination: track
   - name: prot
     type: supply_protection
-    params: {ovp: $ch.ovp, ocp: 0.0, output: $ch.output}
+    params:
+      ovp: $ch.ovp
+      ocp: 0.0
+      output: $ch.output
+      ocp_enabled: $ch.ocp_enabled
+      ocp_delay: $ch.ocp_delay
+      ocp_start: $ch.ocp_start
+      voltage: $ch.voltage
+      current: $ch.current
   - name: read
     type: supply_readback
     params: {output: out}
@@ -321,6 +361,13 @@ display:
   summary: [ch1.voltage, ch1.current, ch2.voltage, ch3.voltage, ch1.output]
 capabilities: [power_supply]
 commands:
+  # ---- 选中的输出（#295）：省略通道列表的命令作用于它 ------------------------------------
+  - header: "INSTrument[:SELect]"
+    state: instrument.nselect
+    reply: "CH{value}"
+    doc: 接受 CH1/CH2/CH3 与 P6V/P25V/N25V；查询回 CH1/CH2/CH3。
+  - header: "INSTrument:NSELect"
+    state: instrument.nselect
   # ---- 设定与回读（通道列表展开，#183） ------------------------------------
   - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
     params:
@@ -345,7 +392,7 @@ commands:
     set: false
     args: {what: current}
     params: [{name: channels, type: channel_list, optional: true, default: [1]}]
-  # ---- 保护：OVP 的设定、查询、清除（OCP 见覆盖表，未建模） -----------------
+  # ---- 保护：OVP 的设定、查询、清除；OCP 按 CC 持续时间（#271） ----------------
   - header: "[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]"
     params:
       - {name: level, type: float, unit: V, state: "ch.ovp"}
@@ -353,14 +400,40 @@ commands:
   - header: "[:SOURce]:VOLTage:PROTection:CLEar"
     op: ch.prot.clear
     query: false
+    args: {kind: OVP}
     params: [{name: channels, type: channel_list, optional: true, default: [1]}]
   - header: "[:SOURce]:VOLTage:PROTection:TRIPped"
     op: ch.prot.tripped
     set: false
+    args: {kind: OVP}
     params: [{name: channels, type: channel_list, optional: true, default: [1]}]
-    doc: >-
-      手册的查询没有通道列表（按当前选中的输出回答）；本定义的 INSTrument:SELect 未建模，
-      裸查询固定按通道 1 回答，显式通道列表是额外的写法。
+  - header: "[:SOURce]:CURRent:PROTection:STATe"
+    params:
+      - {name: state, type: bool, state: "ch.ocp_enabled"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent:PROTection:DELay[:TIME]"
+    params:
+      - {name: delay, type: float, unit: S, state: "ch.ocp_delay"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent:PROTection:DELay:STARt"
+    params:
+      - {name: start, type: enum, options: [SCHange, CCTRans], state: "ch.ocp_start"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent:PROTection:TRIPped"
+    op: ch.prot.tripped
+    set: false
+    args: {kind: OCP}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "[:SOURce]:CURRent:PROTection:CLEar"
+    op: ch.prot.clear
+    query: false
+    args: {kind: OCP}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "STATus:QUEStionable:INSTrument:ISUMmary<ch>:CONDition"
+    op: ch.read.condition
+    set: false
+    doc: 0 关或未调节、1 恒流、2 恒压（#271）。
+    doc: 手册的查询没有通道列表，按 INSTrument:SELect 选中的输出回答（#295）；显式通道列表是额外的写法。
   - header: "OUTPut:PROTection:CLEar"
     op: ch.prot.clear
     query: false

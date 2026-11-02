@@ -20,6 +20,12 @@ cases:
         tolerance: 1.0
       - query: ":POW:ATT:AUTO?"
         expect: "1"
+      - query: ":POW:ATT?"
+        expect_value: 20.0
+        tolerance: 1.0e-9
+      - query: ":SWE:TIME?"
+        expect_value: 0.1002
+        tolerance: 1.0e-9
       - query: ":DET?"
         expect: "POS"
       - query: ":TRAC:MODE?"
@@ -87,6 +93,24 @@ cases:
       - query: ":SYST:ERR?"
         expect: '-222,"Data out of range"'
       - send: "*CLS"
+
+  - name: "*RST 后先设中心后设跨度：中心保持、跨度缩到频段允许的宽度（#292）"
+    manual: "SENSe Subsystem > [:SENSe]:FREQuency:CENTer / SPAN"
+    steps:
+      - send: "*RST"
+      - send: ":FREQ:CENT 10e6"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - query: ":FREQ:SPAN?"
+        expect_value: 2.0e7
+        tolerance: 1.0
+      - send: ":FREQ:SPAN 2e6"
+      - query: ":FREQ:CENT?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
 
   - name: "RBW/VBW：自动耦合、手动关闭自动、BANDwidth 与 BWIDth 两种写法"
     manual: "SENSe Subsystem > [:SENSe]:BANDwidth|BWIDth[:RESolution] / :AUTO；BANDwidth|BWIDth:VIDeo / :AUTO"
@@ -201,7 +225,7 @@ cases:
         tolerance: 1.0e-9
       - send: ":DISP:WIND:TRAC:Y:RLEV 10"
       - query: ":POW:ATT?"
-        expect_value: 20.0
+        expect_value: 30.0
         tolerance: 1.0e-9
       - send: ":UNIT:POW DBM"
       - query: ":UNIT:POW?"
@@ -269,6 +293,10 @@ cases:
       - query: ":CALC:MARK:Y?"
         expect_value: 3.9793921
         tolerance: 0.01
+      - query: ":CALC:MARK:FCO:X?"
+        expect_value: 0.0
+        tolerance: 0.0
+      - send: ":CALC:MARK:FCO ON"
       - query: ":CALC:MARK:FCO:X?"
         expect_value: 1.0e7
         tolerance: 1.0
@@ -387,3 +415,54 @@ cases:
       - send: ":TRIG:SOUR IMM"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: "标记组：开关、差值模式与固定参考、左右与最小搜索、搜索方式、全部关闭（#274）"
+    manual: "CALCulate Subsystem > CALCulate:MARKer > STATe / MODE / X:DELTa / MAXimum:LEFT / MAXimum:RIGHt / MINimum / PEAK:SEARch:MODE / AOFF"
+    steps:
+      - query: ":CALC:MARK:STAT?"
+        expect: "0"
+      - send: ":CALC:MARK:Y?"
+      - query: ":SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - send: ":FREQ:CENT 10 MHz"
+      - send: ":FREQ:SPAN 4 MHz"
+      - send: ":CALC:MARK:PEAK:THR -30"
+      - send: ":CALC:MARK:STAT ON"
+      - query: ":CALC:MARK:X?"
+        expect_value: 1.0e7
+        tolerance: 1.0
+      - send: ":CALC:MARK:MAX"
+      - send: ":CALC:MARK:MODE DELT"
+      - query: ":CALC:MARK:MODE?"
+        expect: "DELT"
+      - query: ":CALC:MARK:Y?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":CALC:MARK:X 11 MHz"
+      - query: ":CALC:MARK:X:DELT?"
+        expect_value: 1.0e6
+        tolerance: 1.0e4
+      - query: ":CALC:MARK:Y?"
+        expect_match: '^-[0-9]\.[0-9]{7}E\+0[12]$'
+      - send: ":CALC:MARK:MAX:LEFT"
+      - query: ":CALC:MARK:X:DELT?"
+        expect_value: 0.0
+        tolerance: 1.0e4
+      - send: ":CALC:MARK:MAX:RIGH"
+      - query: ":SYST:ERR?"
+        expect_match: '^-200,.*'
+      - send: ":CALC:MARK:MIN"
+      - query: ":CALC:MARK:Y?"
+        expect_match: '^-[0-9]\.[0-9]{7}E\+0[12]$'
+      - send: ":CALC:MARK:PEAK:SEAR:MODE MAX"
+      - query: ":CALC:MARK:PEAK:SEAR:MODE?"
+        expect: "MAX"
+      - send: ":CALC:MARK:MAX"
+      - query: ":CALC:MARK:X:DELT?"
+        expect_value: 0.0
+        tolerance: 1.0e4
+      - send: ":CALC:MARK:AOFF"
+      - query: ":CALC:MARK:STAT?"
+        expect: "0"
+      - query: ":CALC:MARK:MODE?"
+        expect: "POS"

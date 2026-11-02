@@ -24,8 +24,8 @@
 | adc | `scope_adc` | 数据(量化与噪声) | 已实现 | — |
 | acquisition | `scope_acquisition` | 数据 | 已实现 | — |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
-| trigger | `scope_trigger` | 数据 | 已实现 | — |
-| measurements | `scope_measurements` | 数据 | 部分(自动测量子集;#248) | — |
+| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248) | 已实现 | — |
+| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248) | 两源 DELay/PHASe、测量列表与分段存储未建模 |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 
 两台内置型号(keysight-dsox2024a、siglent-sds2104xplus)全覆盖,无豁免。
@@ -42,7 +42,7 @@
 | amplitude | `amplitude_level` | 数据(标量) | 已实现 | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现 | siglent-sdg2042x 无(例外清单) |
-| modulation | `awg_modulator`(尚不存在) | 待拆分时定 | 未动(通用组件不存在;SDG2042X 由专用组件承担) | 第二波(缺口清单) |
+| modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
 
 内置 siglent-sdg2042x 由专用组件 `siglent_sdg` 承担(test_model_components.py 已记账),缺口在例外清单;拆分在第二波。
 
@@ -53,8 +53,8 @@
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定) | 已实现 | — |
-| signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | 部分(电阻/电流的内部激励、分流与四线配对:#301) | — |
+| input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定;`mode` 电阻送按量程的测试电流、四线读 SENSE 端子,电流并分流电阻,#301) | 已实现 | — |
+| signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | 已实现(RES/FRES/DCI/ACI 功能与各自量程 `range_res`/`range_curr`,#301) | — |
 | adc | `dmm_adc` | 数据(NPLC 读数时间、分辨率、校准、读数;sampler) | 已实现 | — |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
@@ -68,8 +68,10 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| setpoint_and_range | `calibrator_output` | 电路(源)+ 数据 | 已实现(整块) | `calibrator_output` 为整块;拆分未设计(第二波评估,缺口清单) |
-| output_control | `calibrator_output` | 设置 | 已实现(整块) | 同上 |
+| setpoint_and_range | `calibrator_setpoint` | 信号(功能、电平、频率、建立过渡与隐藏误差) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
+| output_control | `calibrator_control` | 电路(工作/待机断开端子、`z_out`、过载跳闸、`standby_above`) | 已实现(#329;5522A 已迁移) | 只有一个输出端子:5730A 的宽带输出(Wideband)与外部放大器接口要另一个端子与选择,需要时另开核心 issue |
+
+5730A 与 5522A 的远程方言(#329 的评估,未按 5730A 手册正文核实):两者同属 Fluke 校准器命令集——`OUT <值>[,<频率>]`、`OPER`/`STBY`、`ERR?`、`*OPC?` 与按单位分派的参数,拆分后的两块与已有的 `quantities` 参数足以表达;差别在输出端:5730A 有宽带输出选件与 5725A 放大器接口(另一套端子与选择命令),以及更细的量程结构。前者需要输出控制块支持多个端子(上表),后者只是定义里的量程表。型号 issue(#341)开工时按手册核对这些命令,确需平台能力再开核心 issue。
 
 内置 fluke-5522a 全覆盖。该类别没有已设计的拆分,不存在目标组件类型,块清单以现有组件为覆盖者——这是现状记录,不是豁免;拆分设计立项时改写本节。
 
@@ -83,11 +85,13 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 | source_dac | `smu_source` | 设置/数据(源功能、电平、源量程) | 已实现 | — |
 | control_loop | `output_control_loop` | 电路(V/I 环与限值切换,D34;B2 复用) | 已实现 | — |
 | output_stage | `smu_output` | 电路(HI/LO、sense、浮地、输出继电器;逐点更新模式) | 已实现 | — |
-| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299) | — |
+| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252) | 按功能分开的测量设置未建模(见下) |
 | trigger | `trigger_model` | 数据 | 已实现(单层) | ARM 层未建模(B2901A 覆盖表) |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 
 B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_output`、`smu_meter` 四个组件组成(测量组件仍名 `core`,前面板按 `core.voltage` 等取读数),34 条金标准消息的回复与虚拟时间逐条不变;控制环不引用 SMU 的组件,设定/限值/输出都经参数绑定,电源输出级(B2)直接复用。`smu_meter` 的 `function` 参数(#299)可选 VOLTage / CURRent / RESistance,把读数变成测量功能选的量(V/I/V÷I,无电流时为过载值);不绑定(默认 None)时仍是原来的“强制量”,`sb-smu-1` 与 B2901A 的金标准不变。
+
+测量功能的两点结论(#308):`:MEASure:<function>?` 改变当前测量功能的副作用,由命令的 `writes` 表达(操作命令执行前先写设置,如 `writes: {sense.function: CURRent}`);按功能分开的测量设置(各功能各自的 NPLC 与自动量程,2450 的写法)未建模,`smu_meter` 的 `nplc` 与 `measure_autorange` 对所有功能共用一份。Keithley 2450(#12)开工时若需要按功能记忆,另开核心 issue 加按功能的设置组。
 
 ## power_supply
 
@@ -100,8 +104,8 @@ B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_out
 | cv_cc_loop | `output_control_loop` | 电路(CV/CC 交叉;复用 B1 的限值切换环) | 已实现 | — |
 | power_stage | `power_stage` | 电路/数据(v_max、i_max、p_max 包络) | 已实现 | — |
 | output_stage | `power_output` | 电路(继电器,动作时间计入虚拟时间;sense;输出阻抗) | 已实现 | — |
-| readback_adc | `supply_readback` | 数据(电压/电流/功率回读与 CV/CC 状态) | 部分(CV/CC 状态寄存器回读:#271) | — |
-| protection | `supply_protection` | 设置/数据(OVP/OCP 阈值、锁定与恢复) | 部分(OCP 按 CC 持续时间跳闸:#271) | 型号命令映射已在 #198,剩余时序与回读在 #271 |
+| readback_adc | `supply_readback` | 数据(电压/电流/功率回读与 CV/CC 状态;`condition` 操作按 0/1/2 回读,#271) | 已实现 | — |
+| protection | `supply_protection` | 设置/数据(OVP/OCP 阈值、锁定与恢复;OCP 按 CC 持续时间跳闸,延迟起点 SCHange/CCTRans;按种类查询与清除,#271) | 已实现 | 保护只在模式迭代稳定后判断(#271 修复:提高电流限值时不再误报 OVP) |
 | tracking | `supply_tracking` | 设置/数据(仅输出 2/3:跟踪、并联、串联) | 已实现:`topology` 取 `internal`(E36312A:串并联由输出 2 输出、输出 3 停用并拒绝编程 +720,跟踪同号)或 `split`(E36311A ±25 V,物理连接靠接线)(#259) | — |
 
 B2(#185)已拆分:`sb-ps-1` 是三路电源(CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 −25 V/1 A)。每路:设定 → B1 的控制环(CV,电流限值触发 CC)→ 功率级包络 → 输出继电器/sense(0.01 s 动作时间,回读 ≈ 0.5 mV 的输出阻抗压降)→ 回读与 OVP/OCP 锁定;锁定后用型号的 729 拒绝开输出,清除恢复故障前的输出状态。**组合**在设置层保持两路电平一致:跟踪 `CH3 = −|CH2|`、并联/串联 `CH3 = −CH2`,物理连接由测试台连线表示(并联交叉接负输出、串联共负端);PAIR/TRACK 改变时两路必须关闭。缺口:动态/列表、触发、数据记录与校准不在首波;组合时 CH3 单独编程的限制与设备错误码留给 #198。`DcSupply` 是固定 EMF 的台面配件,不是可编程电源,不计入本类别。
@@ -116,7 +120,7 @@ B2(#185)已拆分:`sb-ps-1` 是三路电源(CH1 +6 V/5 A、CH2 +25 V/1 A、CH3 �
 | input | `eload_input` | 电路(输入端子、开关、输入电容;盖章) | 已实现 | — |
 | power_stage | `eload_power_stage` | 电路(r_min 拐点、i_max、p_max 包络) | 已实现 | — |
 | mode_loop | `eload_mode_loop` | 电路决策(CC/CV/CR/CP;Von 与 CC 斜率) | 已实现(CP 未收敛时取最后一轮模式的工作点并记 solver 事件:D52、#258) | CP 为迭代解(D52) |
-| meter | `eload_meter` | 数据(V/I/P 读数;`load.*` 供前面板) | 已实现 | — |
+| meter | `eload_meter` | 数据(V/I/P 读数;`load.*` 供前面板;STATus:QUEStionable 条件寄存器,#343) | 已实现 | — |
 | protection | `eload_protection` | 设置/数据(OVP/OCP/OPP 阈值与锁定) | 已实现 | OTP 不在 DL3021 命令集(类别能力见缺口清单);型号命令映射已在 #194 |
 
 C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面板的 `load.voltage/current/power/regulating` 键不变)。行为:CC 带 r_min 拐点;CV 用 `loop_source` 把输入调在设定电压,源电压低于设定值时开路(负载不能灌电流);CR 为设定电阻;CP 按 D52 用 D34 定点迭代;Von 是 CC/CP 的起始电压;CC 斜率按虚拟时间渐变;slew 0 时瞬时;OVP/OCP/OPP 锁定后输入停止导通,保护清除后可恢复。**动态/列表(C2)** 与 Von 阈值附近的模式抖动(DC 模型无滞回)记入缺口清单另排;DL3000 手册只有 `VON`(单一启动电压),`Voff` 的回差行为在 #194 中按手册核对。
@@ -134,7 +138,7 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | if_filter | `specan_if` | 数据(RBW、高斯响应、噪声底) | 已实现 | — |
 | log_detector | `specan_detector` | 数据(检波与对数) | 已实现 | — |
 | vbw_filter | `specan_vbw` | 数据(VBW) | 已实现 | — |
-| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 部分(差值/固定参考标记、标记开关、最小/左右峰值:#274) | 命名审计:`maxhold_limit`(缺口清单) |
+| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记) | 命名审计:`maxhold_limit`(缺口清单) |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | 已实现 | — |
 
 D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层,其余都是数据层(频谱是确定性的数据计算,不经过信号连线)。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(`span/100` 取 1-3-10 梯级);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_mixer` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
@@ -147,10 +151,10 @@ D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路�
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | reference | `rf_reference`(`reference_clock` 加 REF_OUT) | 数据(时基误差) | 已实现 | — |
-| synthesizer | `rf_synthesizer` | 数据(载波频率、列表与步进扫描) | 部分(电平扫描、列表扫描、驻留与连续/单次:#291) | — |
+| synthesizer | `rf_synthesizer` | 数据(载波频率、列表与步进扫描;频率/电平/两者同扫,按触发或按驻留在虚拟时间里推进,连续/单次,#291) | 已实现 | 仪表自己的列表扫描行(频率,电平,时间)未建模 |
 | modulation_source | `rf_mod_source` | 数据(调制频率,随同一时基;相位约定) | 已实现 | — |
-| modulator | `rf_modulator` | 数据(AM/FM/PM 与卡森规则、谱线预算) | 部分(调制总使能:#290) | — |
-| level_control | `rf_level_control` | 数据(电平,ALC 的 dBm→EMF) | 已实现 | — |
+| modulator | `rf_modulator` | 数据(AM/FM/PM 与卡森规则、谱线预算;调制总开关 `enabled`,#290) | 已实现 | — |
+| level_control | `rf_level_control` | 数据(电平,ALC 的 dBm→EMF;电平扫描时取合成器当前点的电平,#291) | 已实现 | — |
 | attenuator | `rf_attenuator` | 数据(输出衰减;本模型 0 dB) | 已实现(固定 0 dB) | — |
 | output | `output_stage`(通用) | 电路(50 Ω 戴维南输出) | 已实现 | 块清单的 `rf_output` 为第二波前置声明 |
 
@@ -166,9 +170,9 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 | input_filter | `lockin_input_filter` | 数据(耦合高通、工频与二次工频陷波;输入阻抗与屏蔽在输入端子) | 部分(差分/电流输入端子:#273 第 4 节) | — |
 | input_amp | `lockin_input_amp` | 数据(灵敏度满量程、动态储备、输入限幅、前端噪声密度) | 已实现 | — |
 | mixer | `lockin_mixer` | 数据(相敏检波) | 已实现 | — |
-| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT) | 已实现 | — |
+| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT;检测频率上限 `f_max` 与超限时钳位谐波,#273) | 已实现 | — |
 | lowpass | `lockin_lowpass` | 数据(时间常数、斜率、闭式建立、329 截断检查) | 部分(SYNC 同步滤波:#273 第 5 节) | — |
-| output | `lockin_output` | 数据(X/Y 偏置与扩展、R/θ、过载、自动增益/相位、缓冲采样) | 部分(R 的偏置与按量 expand、按索引查询:#273 第 3 节) | — |
+| output | `lockin_output` | 数据(X/Y/R 各自的偏置与扩展(R 只作用于显示)、R/θ、过载、自动增益/相位、缓冲采样;过载与失锁报为状态位,#273) | 已实现 | — |
 | buffer | `trigger_model` + `reading_buffer`(通用) | 数据(SRAT/TRCA;不新做缓冲组件) | 部分(按 bin 的曲线读取、扫描暂停/续采:#273 第 2 节) | — |
 | aux | `lockin_aux` | 电路(AUX 4 路 ADC 输入与 4 路 DAC 输出,出现在测试台上) | 已实现 | — |
 
@@ -183,8 +187,8 @@ D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migrat
 | --- | --- | --- | --- | --- |
 | backplane | `daq_backplane` | 设置/数据(插槽与已装模块;SCPI 号域的槽位检查) | 已实现 | — |
 | mux_card | `mux_card` | 电路(20 路双线继电器 + 模拟总线;闭合计入电路求解) | 已实现 | — |
-| scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 部分(CONFigure/MEASure 的通道列表选功能与启动扫描:#300) | 每通道测量配置(#300 一并承担) |
-| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 部分(ACV 随 #300;电阻/电流随 #301) | —(34970A 复用它) |
+| scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 已实现(CONFigure/MEASure 的通道列表整表写进扫描表并启动一次扫描,#300) | 每通道测量配置(#300 一并承担) |
+| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 部分(34465A 的电阻/电流已实现;34970A 的电阻/电流需按 n 与 n+10 配对四线通道,#301 剩余) | —(34970A 复用它) |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 
@@ -199,7 +203,7 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 | --- | --- | --- | --- | --- |
 | input | `counter_input`(每通道一个) | 电路(阻抗 1 MΩ/50 Ω)+ 数据(耦合、阈值、灵敏度) | 已实现 | — |
 | gate | `counter_gate` | 数据(门时间、门控源、时基带来的真实门长) | 已实现 | — |
-| timebase | `reference_clock`(现有) | 数据(内部/外部 10 MHz 时基误差) | 已实现 | 块清单的 `counter_timebase` 为第二波前置声明(53230A) |
+| timebase | `reference_clock` + `counter_timebase` | 数据(内部/外部 10 MHz 时基误差;`counter_timebase` 把真实时刻变成仪表时标,含单次分辨率,并提供无间隙连续门,#328) | 已实现(`sb-counter-1` 用上) | — |
 | counter | `counter_core` | 数据(频率、周期、累加、时间间隔;采样器接口给触发模型) | 已实现 | — |
 | statistics | `counter_statistics` | 数据(均值/最小/最大/样本标准差) | 已实现 | — |
 | trigger | `trigger_model`(现有) | 数据 | 已实现 | — |
@@ -214,17 +218,14 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 | 组件 | 对应块 | 现状 | 排期 |
 | --- | --- | --- | --- |
-| `awg_modulator` | function_generator.modulation | 块清单已声明;siglent-sdg2042x 由专用组件临时承担 | #327(第二波,33622A #334 的调制前置;评估 SDG 迁移) |
-| `counter_timebase` | frequency_counter.timebase | 块清单已声明(与 `reference_clock` 并列);53230A 无间隙/时间戳测量的前置 | #328(第二波,53230A #331 的时间戳/无间隙前置) |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
-| `calibrator_output` 拆分 | calibrator.setpoint_and_range / output_control | 整块承担两块,拆分未设计 | #329(第二波,5730A #341 的前置) |
-| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | 多台型号的状态寄存器组整体 not_modeled;dl3021 覆盖表已注记「平台缺口」 | 由 #248(示波器)、#271(电源)、#273(SR830)各自的最小实现推进;三处收敛后评估是否立项通用组件 |
+| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;DSO-X 的 :TER/:AER/:OPER 已用上 | 其余型号(DL3021、E36312A 的事件寄存器、SR830 的四个字节)按需接上 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 
 跨类别的平台能力:
 
-1. **按参数选择组件 / 通道列表启动**:通道列表已由 A(#183)落地,剩余:倒序范围与重复通道(#260)、示波器按参数选通道(#248)、电源 INST:SEL 选中输出(#295)、DAQ 通道列表选功能与启动扫描(#300)。
+1. **按参数选择组件 / 通道列表启动**:已全部落地——通道列表(#183)、倒序范围与重复通道(#260)、示波器按参数选通道(#248)、电源 INST:SEL 选中输出(#295)、DAQ 通道列表选功能与启动扫描(#300)。
 2. **读数元素与格式**:`:FORMat:ELEMents:SENSe/SOUR`(#252)、数值应答带 SI 前缀单位后缀与 `%` 后缀(#289)。二进制传输(FORMat:BORDer,多型号)暂不排期。
 3. **读数存储器的高级访问**:`DATA:LAST/POINts/REMove`、按通道统计(CALCulate:AVERage)、FETCh/MEASure 的 MAX/MIN(34465A、53220A、34970A、DL3021 覆盖表)。暂不排期。
 4. **状态存储与学习串**:`*SAV/*RCL`、`MEMory:STATe`、`:SYSTem:SETup`、`:LRN?`(需要整机设置的序列化)。暂不排期。
@@ -238,22 +239,22 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 类别内的功能缺口:
 
-12. **DMM**:电阻/电流的内部激励、分流与四线配对(#301);温度、频率/周期、电容、通断、二极管、比值测量暂不排期。
+12. **DMM**:DAQ 内部 DMM 的电阻/电流与 34901A 的 n/n+10 四线配对(#301 剩余;34465A 已实现);温度、频率/周期、电容、通断、二极管、比值测量暂不排期。
 13. **示波器**:更多自动测量与运行/触发状态寄存器(#248)、Web 屏幕的光标与自动测量(#280);协议解码/串行触发、mask 测试(MTESt)、search、history、分段存储、数字通道(MSO)、内置波形发生器、FFT 暂不排期。
-14. **电源**:OCP 按 CC 持续时间跳闸与 CV/CC 状态回读(#271)、列表/动态扫描与数据记录(DLOG)暂不排期。
+14. **电源**:列表/动态扫描与数据记录(DLOG)暂不排期。
 15. **电子负载**:动态/列表(C2);CP 未收敛时的确定行为已按 D52 落定(#258);MAX/MIN 读数、电阻读数、电池测试暂不排期。
-16. **频谱仪**:标记组(#274)、N9320B 复位默认值与设置顺序(#292);测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。
-17. **射频源**:调制总使能(#290)、电平/列表扫描与驻留(#291);平坦度校准表、脉冲/任意波调制暂不排期。
-18. **锁相放大器**:状态字节、曲线缓冲、按索引查询、输入前端、SYNC(#273,含第 5 节的型号参数化)。
+16. **频谱仪**:多个独立标记(目前只有标记 1;标记组由 #274、N9320B 复位默认值与设置顺序由 #292 补上(`specan_trace` 的 `center_fit`/`lo_rate`));测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。
+17. **射频源**:带电平与驻留的列表扫描行(DSG800 的 `:SWE:LIST:*`;电平扫描、驻留与连续/单次已由 #291 补上,调制总开关由 #290);平坦度校准表、脉冲/任意波调制暂不排期。
+18. **锁相放大器**:曲线缓冲(按 bin 读取、扫描暂停/续采、二进制格式)、输入前端(差分与电流输入)、SYNC 与随灵敏度变化的储备表(#273 第 2、4、5 节;状态字节、按索引查询与检测频率上限已补上)。
 19. **DAQ**:温度测量、数字 I/O 与总加器(34907A)、外部扫描推进、监视通道、报警系统暂不排期。
-20. **频率计数器**:连续累加(TOTalize)的读数路径、派生测量(单周期/上升/下降/占空比/相位)、频率比、时间戳与无间隙测量(53230A)暂不排期。
+20. **频率计数器**:连续累加(TOTalize)的读数路径、派生测量(单周期/上升/下降/占空比/相位)、频率比暂不排期;时间戳与无间隙连续测量已由 #328 的 `counter_timebase` 补上。
 21. **SMU**:数字量格式与 GPIO、输出滤波器接入电路、程序内存(TSP)、电阻量程暂不排期;测量功能与按功能的源量程已由 #299/#253 合并,#12(Keithley 2450)的依赖就绪。
-22. **函数发生器**:调制块(见缺的组件 `awg_modulator`);内置计数器(SDG)、IQ 调制暂不排期。
+22. **函数发生器**:非正弦调制波形、BPSK/ASK/Sum 与扫频(`awg_modulator` 已由 #327 补上 AM/FM/PM/FSK/PWM);内置计数器(SDG)、IQ 调制暂不排期。
 23. **校准器(5522A)**:UUT 误差模式、温度/压力/电容/电阻测量模式、双输出、示波器校准选件(-SC600/-SC1100)、非正弦波形与谐波、交流直流偏置(#90 已知边界)、量程符号名查询(回复需按幅值查表)、不确定度查询、ISR/ISCE/ISCR 状态;负 dBm 写入 bug(#261)。除 #261 外暂不排期。
 
 ### 三、已有债务
 
-- **bug(核心)**:#279(Web 频谱仪)、#280(Web 示波器)、#292(N9320B 默认值)、#295(INST:SEL)、#282/#283(TUI 新类别读数与仪表屏幕)。
+- **bug(核心)**:#279(Web 频谱仪)、#280(Web 示波器)、#282/#283(TUI 新类别读数与仪表屏幕)。
 - **bug(可认领)**:#261(负 dBm)、#286(CONF 分辨率)、#296(W-PORT-SHARED)、#297(MAX|MIN 无应答)。
 - **文档(可认领)**:#269、#293、#310。
 - **验收债务**:#313、#314、#315、#316(昨日 #312 合并后遗留的快照与 e2e 口径)。

@@ -1,5 +1,25 @@
 {
   "$defs": {
+    "ChannelListRules": {
+      "additionalProperties": false,
+      "description": "What a channel list parameter accepts beyond the default, per the manual (#260).",
+      "properties": {
+        "descending": {
+          "default": false,
+          "description": "A descending range (@2:1) is accepted and expands in its written order (2, 1), as the B2900 manual lists; false: -222",
+          "title": "Descending",
+          "type": "boolean"
+        },
+        "repeated": {
+          "default": false,
+          "description": "A channel may appear more than once, answered each time; false: -108",
+          "title": "Repeated",
+          "type": "boolean"
+        }
+      },
+      "title": "ChannelListRules",
+      "type": "object"
+    },
     "ChannelNumbering": {
       "additionalProperties": false,
       "description": "One block of channel numbers: ``first`` .. ``first + count - 1``, numbers SCPI uses.",
@@ -32,6 +52,10 @@
           "title": "Count",
           "type": "integer"
         },
+        "lists": {
+          "$ref": "#/$defs/ChannelListRules",
+          "description": "Channel list parameters (@…): whether descending ranges and repeated channels are accepted (#260)"
+        },
         "numbering": {
           "description": "The numbers SCPI uses for the channels, when they are not 1..count: blocks in channel order, e.g. a 3-slot DAQ's 101-120, 201-220, 301-320. State paths and channels.overrides keep the channel index (1..count).",
           "items": {
@@ -51,6 +75,19 @@
           "description": "Per-channel overrides of channel_state specs, e.g. {3: {frequency: {max: 2e8}}}",
           "title": "Overrides",
           "type": "object"
+        },
+        "selected": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An int setting holding the selected output's channel number (INSTrument:SELect / NSELect, #295): a channel list parameter left out uses it instead of the parameter's default",
+          "title": "Selected"
         }
       },
       "title": "Channels",
@@ -214,7 +251,7 @@
         },
         "writes": {
           "additionalProperties": true,
-          "description": "Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win)",
+          "description": "Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win). On an operation's command they are written before the operation runs (#308: MEASure:CURRent? selects the current function, as the instrument does)",
           "title": "Writes",
           "type": "object"
         }
@@ -829,11 +866,49 @@
           "title": "Duplicate Unit Error",
           "type": "integer"
         },
+        "echo": {
+          "default": true,
+          "description": "Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)",
+          "title": "Echo",
+          "type": "boolean"
+        },
         "index": {
           "default": false,
-          "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1)",
+          "description": "An int that picks which settings the other parameters write: their state paths name it in braces, e.g. 'measure.p{slot}.kind' (PACU 1,AMPL,C1); a query takes it too (PACU? 1). A set takes it at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2); a query takes the index parameters alone, in order",
           "title": "Index",
           "type": "boolean"
+        },
+        "index_default": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An optional index's value when it is left out: a number, or a $setting whose value (an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]",
+          "title": "Index Default"
+        },
+        "index_words": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} for :VIEW CHANnel2; the query answer echoes the word's short form",
+          "title": "Index Words"
         },
         "keys": {
           "anyOf": [
@@ -857,6 +932,23 @@
           "default": null,
           "description": "type pairs: 'name,value,name,value...'; each name writes the setting it maps to, null accepts the name and ignores its value. All values are checked before any is set",
           "title": "Keys"
+        },
+        "keywords": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Settings a keyword argument writes in place of the parameter's own value, keyed by MIN, MAX, DEF or a special word, e.g. {MIN: {sense.nplc: 100, sense.resolution: 0}} for a resolution argument whose MIN selects the finest integration time; the parameter's own setting is written only when the table names it",
+          "title": "Keywords"
         },
         "max": {
           "anyOf": [
@@ -1174,12 +1266,13 @@
         },
         "number": {
           "default": "nr3",
-          "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa)",
+          "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289)",
           "enum": [
             "nr3",
             "nr2",
             "nr1",
-            "engineering"
+            "engineering",
+            "si"
           ],
           "title": "Number",
           "type": "string"
@@ -1204,6 +1297,19 @@
           "default": null,
           "description": "engineering with this many significant digits, signed and with exponent_digits: +40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own",
           "title": "Significant"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "number: si — the unit written after the prefix, e.g. Hz (default: the setting's)",
+          "title": "Unit"
         }
       },
       "title": "ResponseFormat",
@@ -1340,6 +1446,22 @@
           "title": "Readonly",
           "type": "boolean"
         },
+        "replies": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Enum: the word a query answers for an option, when the instrument answers with a different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR reads back CC (#268); options not listed answer as usual",
+          "title": "Replies"
+        },
         "rst": {
           "default": null,
           "description": "Value after *RST; defaults to `default`",
@@ -1368,7 +1490,8 @@
             "bool",
             "enum",
             "string",
-            "int_list"
+            "int_list",
+            "enum_list"
           ],
           "title": "Type",
           "type": "string"

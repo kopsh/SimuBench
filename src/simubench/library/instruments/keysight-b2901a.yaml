@@ -114,6 +114,14 @@ specs:
   reading_memory: 100000
   compliance_default: "电流 100 µA、电压 2 V"
 state:
+  # :FORMat:ELEMents:SENSe（手册 p.2-41）：读数命令回哪些元素；顺序固定为电压、电流、电阻、时间、
+  # 状态、源，与写入顺序无关；*RST 为全部六个（#252）。
+  format.elements.sense:
+    type: enum_list
+    options: [VOLTage, CURRent, RESistance, TIME, STATus, SOURce]
+    default: [VOLTage, CURRent, RESistance, TIME, STATus, SOURce]
+    label: 读数元素
+    label_en: Reading elements
   source.function:
     type: enum
     options: [VOLTage, CURRent]
@@ -518,7 +526,7 @@ commands:
     op: trig.read
     set: false
     dangerous: true
-    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
+    args: {elements: $format.elements.sense}
   - header: ":MEASure:VOLTage[:DC]"
     op: trig.read
     set: false
@@ -534,7 +542,7 @@ commands:
   - header: ":FETCh:ARRay"
     op: trig.fetch
     set: false
-    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
+    args: {elements: $format.elements.sense}
   - header: ":FETCh:ARRay:VOLTage"
     op: trig.fetch
     set: false
@@ -559,7 +567,7 @@ commands:
     op: trig.read
     set: false
     dangerous: true
-    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
+    args: {elements: $format.elements.sense}
   - header: ":READ:ARRay:VOLTage"
     op: trig.read
     set: false
@@ -595,7 +603,7 @@ commands:
   - header: ":TRACe:DATA"
     op: mem.data
     set: false
-    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
+    args: {elements: $format.elements.sense}
   # ---- trigger ---------------------------------------------------------------
   - header: ":TRIGger:SOURce[:SIGNal]"
     state: trigger.source
@@ -657,6 +665,8 @@ commands:
     state: system.lxi_identify
   - header: ":FORMat[:DATA]"
     state: format.data
+  - header: ":FORMat:ELEMents:SENSe"
+    state: format.elements.sense
   - header: ":SYSTem:LFRequency"
     state: system.line_freq
   - header: ":SYSTem:VERSion"

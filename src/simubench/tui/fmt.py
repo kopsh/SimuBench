@@ -162,6 +162,41 @@ def _braille_column(chunk: list[float], lo: float, span: float, side: int) -> in
     return bits
 
 
+def braille_rows(wave: list[float], cols: int, rows: int) -> list[str]:
+    """A trace ``cols`` braille characters wide and ``rows`` text rows high (4 dot rows each),
+    top row first: each dot column lights from its samples' minimum to maximum, scaled to the
+    trace's own range (#282: the spectrum analyzer's trace)."""
+    if not wave or cols <= 0 or rows <= 0:
+        return ["⠀" * max(cols, 0)] * max(rows, 0)
+    lo, hi = min(wave), max(wave)
+    span = (hi - lo) or 1.0
+    height = rows * 4
+    per = max(1, math.ceil(len(wave) / (cols * 2)))
+    grid = [[False] * (cols * 2) for _ in range(height)]  # grid[y][x], y = 0 at the top
+    for x in range(cols * 2):
+        chunk = wave[x * per : (x + 1) * per]
+        if not chunk:
+            continue
+        top = height - 1 - round((max(chunk) - lo) / span * (height - 1))
+        bottom = height - 1 - round((min(chunk) - lo) / span * (height - 1))
+        for y in range(top, bottom + 1):
+            grid[y][x] = True
+    dots = ((0x01, 0x08), (0x02, 0x10), (0x04, 0x20), (0x40, 0x80))  # (left, right) per dot row
+    out = []
+    for r in range(rows):
+        line = []
+        for c in range(cols):
+            bits = 0
+            for k in range(4):
+                if grid[r * 4 + k][2 * c]:
+                    bits |= dots[k][0]
+                if grid[r * 4 + k][2 * c + 1]:
+                    bits |= dots[k][1]
+            line.append(chr(0x2800 + bits))
+        out.append("".join(line))
+    return out
+
+
 def braille(wave: list[float], cols: int) -> str:
     """A waveform thumbnail ``cols`` braille characters wide, 4 dot rows high.
 

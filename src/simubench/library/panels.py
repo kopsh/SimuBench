@@ -76,7 +76,16 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
     # The main display: the reading of the selected function.
     readouts: list[PanelReadout] = []
     to_function = _function_map(path, fn_spec)
-    for function, label, label_en in (("DC", "直流电压", "DC voltage"), ("AC", "交流电压", "AC voltage")):
+    for function, label, label_en, unit in (
+        ("DC", "直流电压", "DC voltage", "V"),
+        ("AC", "交流电压", "AC voltage", "V"),
+        ("RES", "电阻", "Resistance", "Ω"),
+        ("FRES", "四线电阻", "4-wire resistance", "Ω"),
+        ("DCI", "直流电流", "DC current", "A"),
+        ("ACI", "交流电流", "AC current", "A"),
+    ):
+        if function not in ("DC", "AC") and not (fn_state and to_function):
+            continue  # a meter without a function setting reads voltage only
         when: dict[str, Any] = {}
         if fn_state and to_function:
             options = [o for o, f in to_function.items() if f == function]
@@ -88,7 +97,7 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
                 reading=f"{adc.name}.{function}",
                 label=label,
                 label_en=label_en,
-                unit="V",
+                unit=unit,
                 digits=digits,
                 when=when,
             )
@@ -145,10 +154,15 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
 
 
 def _calibrator(d: InstrumentDefinition) -> Panel | None:
-    out = _first(d, "calibrator_output")
+    # The combined block, or the split pair (#329): readings and operate on the control,
+    # function / level / frequency on the setpoint.
+    out = _first(d, "calibrator_output") or _first(d, "calibrator_control")
     if out is None:
         return None
-    fn_state = _bound(out, "function")
+    setpoint = _first(d, "calibrator_setpoint") if out.type == "calibrator_control" else out
+    if setpoint is None:
+        return None
+    fn_state = _bound(setpoint, "function")
     fn_spec = d.state.get(fn_state) if fn_state else None
     ac = {fn_state: "ACV"} if fn_state and fn_spec and "ACV" in (fn_spec.options or []) else None
 
@@ -174,7 +188,7 @@ def _calibrator(d: InstrumentDefinition) -> Panel | None:
         controls.append(PanelControl(state=fn_state, control="buttons"))
         used.add(fn_state)
     for param in ("level", "frequency"):
-        path = _bound(out, param)
+        path = _bound(setpoint, param)
         spec = d.state.get(path) if path else None
         if path and spec and spec.type in ("float", "int") and not spec.readonly and path not in used:
             controls.append(PanelControl(state=path, control="number"))
@@ -379,7 +393,7 @@ _DEFAULTS = {
     "power_supply": _power_supply,
     "frequency_counter": _counter,
 }
-_FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V"}
+_FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V", "RES": "Ω 2W", "FRES": "Ω 4W", "DCI": "DC I", "ACI": "AC I"}
 
 
 # ---- helpers -----------------------------------------------------------------------------------------
@@ -415,7 +429,7 @@ def _bound(spec: ComponentSpec, param: str) -> str | None:
 
 
 def _function_map(meter: ComponentSpec, fn_spec: StateSpec | None) -> dict[str, str]:
-    """Setting value -> the meter's function (DC / AC)."""
+    """Setting value -> the meter's function (DC / AC, and RES / FRES / DCI / ACI, #301)."""
     if fn_spec is None or fn_spec.type != "enum":
         return {}
     value = meter.params.get("function")
@@ -423,14 +437,19 @@ def _function_map(meter: ComponentSpec, fn_spec: StateSpec | None) -> dict[str, 
     out: dict[str, str] = {}
     for option in fn_spec.options or []:
         target = (mapping or {}).get(option, option)
-        if isinstance(target, str) and target.upper() in ("DC", "AC"):
+        if isinstance(target, str) and target.upper() in _FUNCTION_KEYS:
             out[option] = target.upper()
     return out
 
 
 def _ranges(value: Any) -> list[float]:
-    """The full-scale values of a meter's ``ranges`` (one list, or one per function)."""
-    lists = value.values() if isinstance(value, dict) else [value] if isinstance(value, list) else []
+    """The full-scale values of a meter's voltage ``ranges`` (one list, or one per function: the
+    DC and AC ones — the range keys write the voltage range setting; ohms and current keep their
+    own range settings, #301)."""
+    if isinstance(value, dict):
+        lists = [v for k, v in value.items() if str(k).upper() in ("DC", "AC")]
+    else:
+        lists = [value] if isinstance(value, list) else []
     found = {float(v) for lst in lists if isinstance(lst, list) for v in lst if isinstance(v, (int, float))}
     return sorted(found)
 

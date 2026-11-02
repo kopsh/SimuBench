@@ -43,8 +43,8 @@ sections:
   - header: :ACTivity
     level: not_modeled
   - header: :AER
-    level: not_modeled
-    note: 'the Arm Event Register needs the trigger system to report its armed/waiting state; the acquisition component has no such register (#160 noted the gap)'
+    level: implemented
+    note: 'Arm Event Register (status_register, #248): 1 once the trigger system was armed (:RUN, a single acquisition) since the last read; reading clears it'
   - header: :AUToscale
     level: not_modeled
   - header: :AUToscale:AMODE
@@ -54,8 +54,8 @@ sections:
   - header: :AUToscale:FDEBug
     level: not_modeled
   - header: :BLANk
-    level: not_modeled
-    note: 'blanking a channel named by a parameter (a query may name it too) is not expressible: a command''s state must be selected by the header, not by an enum parameter'
+    level: implemented
+    note: 'turns off the channel the parameter names (an index word picks the setting, #248)'
   - header: :DIGitize
     level: implemented
     note: 'acquires the displayed channels (or the ones named) and stops; returns once the record is full (virtual time), and waits while there is no trigger. FUNCtion, MATH, SBUS1 and digital sources are not modeled'
@@ -64,23 +64,23 @@ sections:
   - header: :MTERegister[:EVENt]
     level: not_modeled
   - header: :OPEE
-    level: not_modeled
-    note: 'the Operation Status Enable Register needs the operation status registers below; the engine only has the standard event and status byte registers'
+    level: implemented
+    note: 'Operation Status Enable mask (#248); the enabled events summarize into *STB bit 7 (OPER)'
   - header: :OPERegister:CONDition
-    level: not_modeled
-    note: 'the Operation Status registers (RUN/TRIG/WAIT bits) are not modeled; the same capability issue as :AER and :TER'
+    level: implemented
+    note: 'bit 3 RUN (acquiring), bit 5 WAIT TRIG (waiting for a trigger), #248; the mask-test, overload and hardware bits are not modeled'
   - header: :OPERegister[:EVENt]
-    level: not_modeled
-    note: 'as :OPERegister:CONDition'
+    level: implemented
+    note: 'the latched RUN/WAIT TRIG bits since the last read; reading clears (#248)'
   - header: :OVLenable
     level: not_modeled
   - header: :OVLRegister
     level: not_modeled
   - header: :PRINt
     level: not_modeled
-  - header: :RSTate?
-    level: not_modeled
-    note: 'RUN/STOP/SING needs the run state and the single-acquisition arming state as a query; the acquisition component reports the trigger status in its own words (RUN/STOP/SING is not expressible from it)'
+  - header: :RSTate
+    level: implemented
+    note: 'RUN, STOP or SING (a single acquisition armed and not yet done), #248'
   - header: :RUN
     level: implemented
   - header: :SERial
@@ -90,16 +90,16 @@ sections:
     level: implemented
     note: 'takes one acquisition the way :DIGitize does and stops'
   - header: :STATus
-    level: not_modeled
-    note: 'whether the channel named by a parameter is displayed; a query may name the source too, which a setting command cannot take (the same limit as :BLANk)'
+    level: implemented
+    note: 'whether the channel the parameter names is displayed (#248)'
   - header: :STOP
     level: implemented
   - header: :TER
-    level: not_modeled
-    note: 'the Trigger Event Register (set by a trigger, cleared when read) is not modeled; the acquisition component keeps the acquisition count but no cleared-on-read trigger flag (the same capability issue as :AER)'
+    level: implemented
+    note: 'Trigger Event Register (#248): 1 once an acquisition triggered since the last read; reading clears it; summarized into *STB bit 0 (TRG)'
   - header: :VIEW
-    level: not_modeled
-    note: 'turning on the channel named by a parameter is not expressible, as :BLANk'
+    level: implemented
+    note: 'turns on the channel the parameter names (#248)'
 - section: :ACQuire Commands (Programmer's Guide 02.66, ch. 7)
   commands:
   - header: :ACQuire:COMPlete
@@ -414,39 +414,51 @@ sections:
   - header: :MEASure:DELay
     level: not_modeled
   - header: :MEASure:DUTYcycle
-    level: not_modeled
+    level: implemented
+    note: 'positive width over the period, percent, of the first full cycle (#248); query only'
   - header: :MEASure:FALLtime
-    level: not_modeled
+    level: implemented
+    note: '90 %–10 % of the first complete falling edge on the record (#248); query only'
   - header: :MEASure:FREQuency
     level: implemented
     note: 'on the whole record (the guide: the cycle closest to the trigger); query only, the command form is not modeled; unmeasurable: +9.9E+37'
   - header: :MEASure:NDUTy
-    level: not_modeled
+    level: implemented
+    note: 'negative width over the period, percent, of the first full cycle (#248); query only'
   - header: :MEASure:NEDGes
-    level: not_modeled
+    level: implemented
+    note: 'falling edges across the middle level on the record (#248); query only'
   - header: :MEASure:NPULses
-    level: not_modeled
+    level: implemented
+    note: 'negative pulses on the record (#248); query only'
   - header: :MEASure:NWIDth
-    level: not_modeled
+    level: implemented
+    note: 'the first negative pulse''s width at the middle level (#248); query only'
   - header: :MEASure:OVERshoot
-    level: not_modeled
+    level: implemented
+    note: '(VMAX − VTOP) / (VTOP − VBASe), percent, over the record (#248); query only'
   - header: :MEASure:PEDGes
-    level: not_modeled
+    level: implemented
+    note: 'rising edges across the middle level on the record (#248); query only'
   - header: :MEASure:PERiod
     level: implemented
     note: 'as :MEASure:FREQuency'
   - header: :MEASure:PHASe
     level: not_modeled
   - header: :MEASure:PPULses
-    level: not_modeled
+    level: implemented
+    note: 'positive pulses on the record (#248); query only'
   - header: :MEASure:PREShoot
-    level: not_modeled
+    level: implemented
+    note: '(VBASe − VMIN) / (VTOP − VBASe), percent, over the record (#248); query only'
   - header: :MEASure:PWIDth
-    level: not_modeled
+    level: implemented
+    note: 'the first positive pulse''s width at the middle level (#248); query only'
   - header: :MEASure:RESults
     level: not_modeled
   - header: :MEASure:RISetime
-    level: not_modeled
+    level: implemented
+    note: '10 %–90 % of the first complete rising edge on the record (#248); query only'
   - header: :MEASure:SHOW
     level: not_modeled
   - header: :MEASure:SOURce
@@ -463,7 +475,8 @@ sections:
     level: implemented
     note: 'on the whole record (<interval> CYCLe is taken as DISPlay); query only'
   - header: :MEASure:VBASe
-    level: not_modeled
+    level: implemented
+    note: 'the base level from the record''s histogram (#248); query only'
   - header: :MEASure:VMAX
     level: implemented
     note: 'query only'
@@ -479,7 +492,8 @@ sections:
   - header: :MEASure:VTIMe
     level: not_modeled
   - header: :MEASure:VTOP
-    level: not_modeled
+    level: implemented
+    note: 'the top level from the record''s histogram (#248); query only'
   - header: :MEASure:WINDow
     level: not_modeled
   - header: :MEASure:XMAX
@@ -932,7 +946,7 @@ sections:
     note: 'AC: 10 Hz high-pass; LFReject: 50 kHz high-pass (the guide). The coupling with :REJect is not modeled: each keeps its own value'
   - header: :TRIGger[:EDGE]:LEVel
     level: implemented
-    note: 'within ±0.75 full scale (6 div) of the source''s centre screen; the optional <source> parameter is not modeled (-108)'
+    note: 'within ±0.75 full scale (6 div) of the source''s centre screen; each source (CHANnel1–4, EXTernal) keeps its own level and the optional <source> names it (#248); without it the current trigger source'
   - header: :TRIGger[:EDGE]:REJect
     level: implemented
     note: 'LFReject: 50 kHz high-pass; HFReject: 50 kHz low-pass (the guide)'

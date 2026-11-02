@@ -64,6 +64,12 @@ channel_state:
     special: {INF: .inf, INFinity: .inf}
     label: 输出负载设定
     label_en: Output load
+  # 调制（#327，awg_modulator）：总开关、类型、内部调制频率与各类型的深度/频偏。
+  mod_state: {type: bool, default: false, label: 调制, label_en: Modulation}
+  mod_type: {type: enum, options: [AM, FM, PM, FSK, PWM], default: AM, label: 调制类型, label_en: Modulation type}
+  mod_rate: {type: float, unit: HZ, min: 1.0e-3, max: 1.0e6, default: 100.0, label: 调制频率, label_en: Modulation rate}
+  am_depth: {type: float, min: 0.0, max: 120.0, default: 100.0, display_unit: "%", label: AM 深度, label_en: AM depth}
+  fm_dev: {type: float, unit: HZ, min: 0.0, max: 1.0e7, default: 100.0, label: FM 频偏, label_en: FM deviation}
 channel_components:
   # 信号源由模块组成（#144）：波形合成（1 Vpp）→ 幅度与偏置（按负载设定定义，D13）→ 输出级。
   - name: synth
@@ -85,9 +91,20 @@ channel_components:
     params:
       z_out: 50.0
       enabled: $ch.output
+  # 调制（#327）：接在合成与幅度之间（见 wiring）。
+  - name: mod
+    type: awg_modulator
+    params:
+      enabled: $ch.mod_state
+      type: $ch.mod_type
+      int_rate: $ch.mod_rate
+      am_depth: $ch.am_depth
+      fm_dev: $ch.fm_dev
+      synth: synth
 wiring:
   channel:
-    - [synth.out, level.in]
+    - [synth.out, mod.in]
+    - [mod.out, level.in]
     - [level.out, out.in]
 ports:
   channel:
@@ -97,6 +114,16 @@ display:
   channel_summary: [function, frequency, amplitude, offset, output, load]
 capabilities: [function_generator]
 commands:
+  - header: "[:SOURce<ch>]:MOD:STATe"
+    state: ch.mod_state
+  - header: "[:SOURce<ch>]:MOD:TYPE"
+    state: ch.mod_type
+  - header: "[:SOURce<ch>]:MOD:FREQuency"
+    state: ch.mod_rate
+  - header: "[:SOURce<ch>]:AM:DEPTh"
+    state: ch.am_depth
+  - header: "[:SOURce<ch>]:FM:DEViation"
+    state: ch.fm_dev
   - header: "[:SOURce<ch>]:FUNCtion[:SHAPe]"
     state: ch.function
   - header: "[:SOURce<ch>]:FREQuency[:CW]"

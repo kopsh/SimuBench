@@ -46,6 +46,15 @@ def test_a_descending_range_is_an_error():
     assert e.value.code == -222
 
 
+def test_a_declared_descending_range_and_repeat_expand_in_written_order():
+    """#260: the B2900 manual lists (@2:1); a definition may declare it (and repeats)."""
+    assert parse_channel_list(b"(@3:1)", descending=True) == [3, 2, 1]
+    assert parse_channel_list(b"(@1,2,1)", repeated=True) == [1, 2, 1]
+    with pytest.raises(ScpiError) as e:
+        parse_channel_list(b"(@1,2,1)", descending=True)  # repeats stay an error unless declared
+    assert e.value.code == -108
+
+
 @pytest.mark.parametrize("text", ["(@)", "(1:3)", "(@1:3", "1:3", "(@a)"])
 def test_a_malformed_list_is_an_error(text):
     with pytest.raises(ScpiError) as e:
@@ -140,6 +149,27 @@ def test_a_query_answers_the_channels_in_list_order():
     assert query("VOLT? (@3,1)") == "+3.000000E+00,+1.000000E+00"
     # the list may be left out where the definition says so: it defaults to channel 1
     assert query("VOLT?") == "+1.000000E+00"
+
+
+def test_a_definition_declares_descending_ranges_for_writes_and_queries():
+    """#260: with channels.lists.descending, (@2:1) writes and answers channel 2 then 1; the
+    default definition still refuses it (-222)."""
+    import copy
+
+    data = copy.deepcopy(PSU)
+    data["channels"]["lists"] = {"descending": True, "repeated": True}
+    session, query = open_definition(data)
+    query("VOLT 2,(@3:2)")
+    assert session.instruments["x"].get_state("ch2.volt") == 2.0
+    assert session.instruments["x"].get_state("ch3.volt") == 2.0
+    session.instruments["x"].set_state("ch1.volt", 1.0)
+    assert query("VOLT? (@2:1)") == "+2.000000E+00,+1.000000E+00"
+    assert query("VOLT? (@1,2,1)") == "+1.000000E+00,+2.000000E+00,+1.000000E+00"
+    assert query("SYST:ERR?") == '0,"No error"'
+
+    _, query = open_psu()
+    assert query("VOLT? (@2:1)") == ""
+    assert query("SYST:ERR?").startswith("-222")
 
 
 def test_a_query_form_returns_each_channels_limit_or_default():
@@ -295,3 +325,57 @@ def test_numbering_must_not_repeat_a_channel_number():
     )
     with pytest.raises(ValidationError, match="repeats channel numbers"):
         InstrumentDefinition.model_validate(data)
+
+
+# ---- a channel list with the command's constants and a whole-list setting (#300) -------------------
+
+DAQ_CONF = {
+    "schema": "simubench.instrument/1",
+    "id": "daq-conf",
+    "manufacturer": "ACME",
+    "model": "DAQ",
+    "class": "data_acquisition",
+    "channels": {"count": 2, "numbering": [{"first": 101, "count": 2}]},
+    "state": {
+        "sense.function": {"type": "enum", "options": ["DC", "AC"], "default": "DC"},
+        "sense.range": {"type": "float", "min": 0, "max": 1000, "default": 0.0},
+        "sense.range_auto": {"type": "bool", "default": True},
+        "scan.list": {"type": "int_list", "default": []},
+    },
+    "components": [{"type": "system", "name": "sys"}],
+    "commands": [
+        {
+            "header": ":CONFigure[:VOLTage]:AC",
+            "query": False,
+            "writes": {"sense.function": "AC"},
+            "params": [
+                {
+                    "name": "range",
+                    "type": "float",
+                    "state": "sense.range",
+                    "optional": True,
+                    "sets": {"sense.range_auto": False},
+                },
+                {"name": "channels", "type": "channel_list", "state": "scan.list"},
+            ],
+        },
+        {"header": "ROUTe:SCAN", "state": "scan.list"},
+        {"header": "FUNCtion", "state": "sense.function"},
+    ],
+}
+
+
+def test_a_list_command_writes_its_constants_sets_and_the_whole_list():
+    """The issue's reproduction: CONF:VOLT:AC 10,(@101) selects AC, sets the range and leaves
+    autorange, and writes the list into the scan list; the range may be left out."""
+    session, query = open_definition(DAQ_CONF)
+    inst = session.instruments["x"]
+    query("CONF:VOLT:AC 10,(@101)")
+    assert inst.get_state("sense.function") == "AC"
+    assert inst.get_state("sense.range") == 10.0 and inst.get_state("sense.range_auto") is False
+    assert query("ROUT:SCAN?") == "(@101)"
+    inst.set_state("sense.function", "DC")
+    query("CONF:VOLT:AC (@101:102)")  # the optional range left out: the list is not taken for it
+    assert inst.get_state("sense.function") == "AC"
+    assert query("ROUT:SCAN?") == "(@101:102)"
+    assert query("SYST:ERR?") == '0,"No error"'

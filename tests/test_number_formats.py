@@ -131,3 +131,44 @@ def test_the_reference_position_sets_how_much_of_the_record_precedes_the_trigger
     xorigin = float(q(":WAVeform:XORigin?"))
     assert xorigin == pytest.approx(-divs * 1e-4, abs=1e-6)  # plus the trigger's fraction of a sample
     assert float(q(":WAVeform:XINCrement?")) == pytest.approx(1e-6)
+
+
+# ---- SI prefix and unit replies, percentage parameters (#289) -----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "significant", "text"),
+    [
+        (4e6, 9, b"4.00000000MHz"),  # DSG800 :FREQuency? example
+        (1.5e9, 12, b"1.50000000000GHz"),  # DSG800 MATLAB example
+        (4e8, 9, b"400.000000MHz"),
+        (3e3, 6, b"3.00000kHz"),
+        (999999.9999, 6, b"1.00000MHz"),  # rounding carries to the next prefix
+        (0.0, 4, b"0.000Hz"),
+        (-2.5e-3, 4, b"-2.500mHz"),
+    ],
+)
+def test_si_replies_carry_a_prefix_and_the_unit(value, significant, text):
+    from simubench.scpi.values import format_si
+
+    assert format_si(value, significant, "Hz") == text
+
+
+def test_si_replies_keep_the_sentinels():
+    from simubench.scpi.values import format_si
+
+    assert format_si(float("inf"), 9, "Hz") == b"+9.90000E+37"
+
+
+@pytest.mark.parametrize("text", ["80%", "80", "80PCT", "80 %"])
+def test_a_percentage_takes_the_percent_sign(text):
+    from simubench.units import parse_number
+
+    assert parse_number(text, "PCT") == 80.0
+
+
+def test_a_percent_sign_on_another_unit_is_a_bad_suffix():
+    from simubench.units import UnitError, parse_number
+
+    with pytest.raises(UnitError):
+        parse_number("80%", "V")

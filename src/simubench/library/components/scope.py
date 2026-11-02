@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import itertools
 import math
 from dataclasses import dataclass
 from typing import Any
@@ -581,6 +582,9 @@ class ScopeTrigger(_ChannelBound):
     defaults = {
         "source": "$trigger.source",  # a channel (C1, CHANnel1), an external or a line source
         "level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
+        # Each source's own level setting, by source word (#248), e.g. {CHANnel1: trigger.level1,
+        # EXTernal: trigger.level5}; a source not listed uses `level`.
+        "level_by_source": {},
         "slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
         "rising": RISING,  # slope values that take a rising edge
         "falling": FALLING,  # slope values that take a falling edge
@@ -647,7 +651,14 @@ class ScopeTrigger(_ChannelBound):
         return "none"
 
     def level(self) -> float:
-        """The trigger level in display volts (the scope screen draws it)."""
+        """The trigger level in display volts (the scope screen draws it). With ``level_by_source``
+        each source keeps its own level (#248: :TRIGger:LEVel <level>,<source>)."""
+        by_source = {str(k).upper(): str(v) for k, v in dict(self.param("level_by_source") or {}).items()}
+        if by_source and self.owner is not None:
+            src = str(self.param("source")).upper()
+            for word, path in by_source.items():
+                if src in (word, V.short_form(word)):
+                    return float(self.owner.get_state(path))
         level = self.channel_param("level", self.source_channel())
         return 0.0 if level is None else float(level)
 
@@ -907,6 +918,7 @@ class ScopeAcquisition(Component):
         "vertical": "",  # the per-channel scope_vertical component (its name without ch<n>.)
         "probe": "",  # the per-channel scope_probe component (its name without ch<n>.)
         "overhead_s": 1e-3,  # virtual time an acquisition takes besides its record, s
+        "digitize_stops": False,  # :DIGitize leaves the scope stopped (the InfiniiVision's rule, #248)
         "mode": "$trigger.mode",  # the run mode setting
         "auto": ["AUTO"],  # modes that keep untriggered acquisitions
         "normal": ["NORMal"],  # modes that wait for a trigger
@@ -1287,6 +1299,8 @@ class ScopeAcquisition(Component):
         instants = [r.trigger_ns for r in records.values() if r.triggered and r.trigger_ns is not None]
         if instants:
             self.trigger_unit().last_ns = max(instants)  # the holdoff runs from here
+            if self.owner is not None:
+                self.owner.status_event("TRG")  # the trigger event register (:TER?, #248)
         self.acq_count += 1
         self.session.invalidate()
         if self.owner is not None:
@@ -1315,6 +1329,22 @@ class ScopeAcquisition(Component):
         return used
 
     # ---- run control ------------------------------------------------------------------------------
+
+    def run_state(self) -> str:
+        """RUN, STOP or SING (``:RSTate?``, #248): a single acquisition armed and not yet done reads
+        SING, a stopped scope STOP, a running one RUN."""
+        if self.armed and self._is("single"):
+            return "SING"
+        return "RUN" if self.is_running() else "STOP"
+
+    def status_flags(self) -> dict[str, bool]:
+        """RUN while acquiring, WAIT while waiting for a trigger (the operation status register)."""
+        running = self.run_state() != "STOP"
+        return {"RUN": running, "WAIT": running and (self.waiting() or not self.last_triggered)}
+
+    @op("run_state")
+    def op_run_state(self, **_: Any) -> OpResult:
+        return OpResult(self.run_state().encode())
 
     def is_running(self) -> bool:
         """Stopped by a stop mode (when the model has one) or by a stop command."""
@@ -1497,6 +1527,8 @@ class ScopeAcquisition(Component):
             return OpResult(duration_ns=used)
         if self._is("single", mode):
             self.running, self.armed = True, True
+            if self.owner is not None:
+                self.owner.status_event("ARM")  # armed for a trigger (:AER?, #248)
             return OpResult(duration_ns=self.acquire_now())
         self.running, self.armed = not self._is("stop", mode), False
         return OpResult()
@@ -1513,6 +1545,8 @@ class ScopeAcquisition(Component):
         self.running = True
         if self.param("stop") and self._is("stop"):
             self._set_mode(str(self.param("auto")[0]))
+        if self.owner is not None:
+            self.owner.status_event("ARM")  # armed for a trigger (:AER?, #248)
         if self._is("single"):
             self.armed = True
             return OpResult(duration_ns=self.acquire_now())
@@ -1644,6 +1678,8 @@ class ScopeAcquisition(Component):
         used = self.acquire_now(chans, stopped_too=True)  # whatever the run state
         if self.pending_mode() and self.due_ns is not None and self.owner is not None:
             used += self.owner.wait_until(self.due_ns)  # a digitize returns once its record is full
+        if self.param("digitize_stops"):
+            self.running, self.armed = False, False  # the InfiniiVision stops after :DIGitize (#248)
         return OpResult(duration_ns=used)
 
     @op("self_cal")
@@ -1805,7 +1841,8 @@ def _measure(
     hysteresis: float = FREQ_HYSTERESIS,
     min_cycles: int = 1,
 ) -> float:
-    """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod.
+    """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod, and the
+    shape measurements of ``_PULSE_MEASUREMENTS`` (#248).
 
     ``top_base``: the levels from the histogram (``histogram``) or the extremes (``extremes``);
     ``mid``: the crossing level in volts (None: halfway between top and base); ``hysteresis``: half
@@ -1834,7 +1871,104 @@ def _measure(
         if period is None:
             return math.nan
         return 1.0 / period if what == "FREQuency" else period
+    if what in _PULSE_MEASUREMENTS:
+        return _pulse_measure(what, v, dt, levels, mid, hysteresis, min_cycles)
     raise ScpiError(-113, f"measurement {what!r} not supported")
+
+
+#: Measurements of a waveform's shape (#248): top/base, overshoot/preshoot (percent of top minus
+#: base), 10–90 % rise and fall times, pulse widths at the middle level, duty cycles (percent),
+#: and edge and pulse counts over the record.
+_PULSE_MEASUREMENTS = (
+    "VTOP",
+    "VBASe",
+    "OVERshoot",
+    "PREShoot",
+    "RISetime",
+    "FALLtime",
+    "PWIDth",
+    "NWIDth",
+    "DUTYcycle",
+    "NDUTy",
+    "PEDGes",
+    "NEDGes",
+    "PPULses",
+    "NPULses",
+)
+
+
+def _crossings(v: np.ndarray, dt: float, level: float, band: float) -> list[tuple[float, int]]:
+    """Times (s) the record crosses ``level`` with ``band`` of hysteresis: (time, +1 rising /
+    -1 falling), each linearly interpolated between the two samples around the level."""
+    out: list[tuple[float, int]] = []
+    state = 0  # +1 above level + band, -1 below level - band
+    for k in range(v.size):
+        x = float(v[k])
+        new = 1 if x > level + band else -1 if x < level - band else state
+        if state != 0 and new != state:
+            j = k
+            while j > 0 and (float(v[j - 1]) - level) * new > 0:
+                j -= 1  # back to the sample that crosses the level itself
+            a, b = float(v[j - 1]) if j > 0 else x, float(v[j])
+            frac = 0.0 if a == b else (level - a) / (b - a)
+            out.append(((j - 1 + min(max(frac, 0.0), 1.0)) * dt, new))
+        state = new
+    return out
+
+
+def _pulse_measure(
+    what: str,
+    v: np.ndarray,
+    dt: float,
+    levels: tuple[float, float] | None,
+    mid: float | None,
+    hysteresis: float,
+    min_cycles: int,
+) -> float:
+    vmax, vmin = float(v.max()), float(v.min())
+    top, base = levels if levels else (vmax, vmin)
+    amp = top - base
+    if what == "VTOP":
+        return top
+    if what == "VBASe":
+        return base
+    if amp <= 0:
+        return math.nan
+    if what == "OVERshoot":
+        return max(0.0, vmax - top) / amp * 100.0
+    if what == "PREShoot":
+        return max(0.0, base - vmin) / amp * 100.0
+    band = hysteresis * amp
+    if what in ("RISetime", "FALLtime"):
+        low = _crossings(v, dt, base + 0.1 * amp, band / 4)
+        high = _crossings(v, dt, base + 0.9 * amp, band / 4)
+        sign = 1 if what == "RISetime" else -1
+        for t0, d in low if sign > 0 else high:
+            if d != sign:
+                continue
+            ends = [t for t, e in (high if sign > 0 else low) if e == sign and t >= t0]
+            if ends:
+                return ends[0] - t0  # the first complete edge on the record
+        return math.nan
+    level = mid if mid is not None else base + amp / 2
+    cross = _crossings(v, dt, level, band)
+    if what in ("PEDGes", "NEDGes"):
+        return float(sum(1 for _t, d in cross if d == (1 if what == "PEDGes" else -1)))
+    if what in ("PPULses", "NPULses"):
+        first = 1 if what == "PPULses" else -1
+        return float(sum(1 for (_t, a), (_u, b) in itertools.pairwise(cross) if a == first and b == -first))
+    widths = {1: [], -1: []}  # positive / negative pulse widths
+    for (t, a), (u, b) in itertools.pairwise(cross):
+        if b == -a:
+            widths[a].append(u - t)
+    if what in ("PWIDth", "NWIDth"):
+        w = widths[1 if what == "PWIDth" else -1]
+        return w[0] if w else math.nan
+    pos, neg = widths[1], widths[-1]
+    if not pos or not neg:
+        return math.nan
+    period = pos[0] + neg[0]
+    return (pos[0] if what == "DUTYcycle" else neg[0]) / period * 100.0
 
 
 @component("scope_measurements")
@@ -1901,9 +2035,15 @@ class ScopeMeasurements(Component):
     def value(self, what: str, n: int) -> tuple[float, int]:
         """The engine measurement ``what`` on channel n's record (NaN: cannot be measured), and the
         virtual time getting the record took."""
+        rec, used = self._acq().measure_record(n)
+        return self.record_value(what, rec), used
+
+    def record_value(self, what: str, rec: Any) -> float:
+        """The engine measurement ``what`` on a record by this model's rules (gate, clipping, top
+        and base, crossing level): what :MEASure? answers, and what the screen's measurement
+        panel shows for the record on screen (#280)."""
         acq = self._acq()
-        rec, used = acq.measure_record(n)
-        v = rec.volts
+        v = np.asarray(rec.volts, dtype=float)
         gate = self.param("gate")
         if gate:
             lo, hi = (max(0, min(v.size, round(float(g) / 10 * v.size))) for g in gate)
@@ -1911,7 +2051,7 @@ class ScopeMeasurements(Component):
         if v.size and str(self.param("clipped")) == "invalid":
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
-                return math.nan, used
+                return math.nan
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
             m = float(self.param("mid"))
@@ -1930,7 +2070,7 @@ class ScopeMeasurements(Component):
             hysteresis=float(self.param("hysteresis")),
             min_cycles=int(self.param("min_cycles")),
         )
-        return value, used
+        return value
 
     def _follow(self, n: int, source: Any) -> None:
         """A measurement that names its source makes it the default one (the bound ``source``)."""

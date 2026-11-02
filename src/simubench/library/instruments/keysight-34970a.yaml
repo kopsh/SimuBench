@@ -159,6 +159,15 @@ state:
     special: {AUTO: 0.0}
     label: 量程设定
     label_en: Range setting
+  sense.resolution:
+    type: float
+    unit: V
+    min: 0.0
+    max: 300.0
+    default: 0.0
+    rst: 0.0
+    label: 分辨率设定
+    label_en: Resolution setting
   sense.range_auto:
     type: bool
     default: true
@@ -380,6 +389,41 @@ commands:
     state: scan.count
   - header: "TRIGger:TIMer"
     state: scan.interval
+  # ---- CONFigure / MEASure（#300）：命令头选功能，量程参数关闭自动量程，通道列表整表写进扫描表；
+  #      MEASure? 再按扫描表跑一次扫描、回读数（与 READ? 同一路径）。功能与量程在本模型里是整机设定
+  #      （真机按通道记忆），见覆盖表。
+  - header: "CONFigure:VOLTage[:DC]"
+    query: false
+    writes: {sense.function: VOLT, sense.range_auto: true}
+    params:
+      - {name: range, type: float, unit: V, optional: true, state: sense.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: V, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "CONFigure:VOLTage:AC"
+    query: false
+    writes: {sense.function: "VOLT:AC", sense.range_auto: true}
+    params:
+      - {name: range, type: float, unit: V, optional: true, state: sense.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: V, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "MEASure:VOLTage[:DC]"
+    op: rd.read
+    set: false
+    writes: {sense.function: VOLT, sense.range_auto: true}
+    args: {elements: [READ]}
+    params:
+      - {name: range, type: float, unit: V, optional: true, state: sense.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: V, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "MEASure:VOLTage:AC"
+    op: rd.read
+    set: false
+    writes: {sense.function: "VOLT:AC", sense.range_auto: true}
+    args: {elements: [READ]}
+    params:
+      - {name: range, type: float, unit: V, optional: true, state: sense.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: V, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
   # ---- 读数 ------------------------------------------------------------------
   - header: "READ"
     op: rd.read

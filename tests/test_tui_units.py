@@ -325,3 +325,16 @@ def test_a_manual_value_under_its_auto_switch_is_not_in_effect():
     assert inactive_under_auto(state, "bw.res")
     assert not inactive_under_auto(state, "sweep.time")
     assert not inactive_under_auto(state, "freq.center")
+
+
+def test_braille_rows_draw_a_peak_at_the_top_and_the_floor_at_the_bottom():
+    """#282: the analyzer's trace — a peak in the middle reaches the top row, the floor stays in
+    the bottom one, every row is exactly ``cols`` characters."""
+    from simubench.tui.fmt import braille_rows
+
+    wave = [-100.0] * 50 + [0.0] + [-100.0] * 49
+    rows = braille_rows(wave, 20, 3)
+    assert len(rows) == 3 and all(len(r) == 20 for r in rows)
+    assert rows[0].strip("⠀") != ""  # the peak lights the top row
+    assert rows[0][0] == "⠀" and rows[-1][0] != "⠀"  # the floor sits on the bottom row
+    assert braille_rows([], 5, 2) == ["⠀" * 5] * 2

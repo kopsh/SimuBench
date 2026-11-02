@@ -1,7 +1,6 @@
 # Rigol DSG815 的覆盖表：命令按 DSG800 系列编程指南（PGG02104-1110，Sept. 2018，软件版本
 # 00.01.07）第 2 章的命令索引逐条列出；程度与说明手写。与手册的已知偏差写在对应命令的说明里：
-#   * 频率/时间类回读按工程记数、但没有手册的 SI 前缀单位后缀（手册示例 4.00000000MHz，本定义
-#     回 4.00000000E+06）；引擎的数字格式还不支持带前缀的单位后缀，能力 issue #289。
+#   * 频率类回读按手册带 SI 前缀与单位（4.00000000MHz，格式 number: si，#289）。
 #   * 只实现手册里与输出有关的常用子集：频率、电平、AM/FM/ΦM、步进频率扫描、触发、输出与
 #     系统显示；其余按命令逐条标未实现（任意波/IQ、脉冲、LF 输出、列表与电平扫描、文件系统、
 #     状态寄存器、通信配置）。
@@ -72,7 +71,7 @@ sections:
   commands:
   - header: '[:SOURce]:AM[:DEPTh]'
     level: implemented
-    note: 手册允许百分比写法（80%）；引擎的数字参数后缀表没有 %，这种写法回 -131（能力 issue #289）。
+    note: 接受 80 与 80%（状态单位 PCT，#289），回读 80.00。
   - header: '[:SOURce]:AM[:DEPTh]:STEP[:INCRement]'
     level: accepted
     affects_data: false
@@ -87,7 +86,7 @@ sections:
     note: 外部调制输入的阻抗；外部调制源未建模，因此该设置不改变输出。
   - header: '[:SOURce]:AM:FREQuency'
     level: implemented
-    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口，#289）。
+    note: 回读按手册带 SI 前缀与单位，如 20.00000kHz（#289）。
   - header: '[:SOURce]:AM:FREQuency:STEP[:INCRement]'
     level: accepted
     affects_data: false
@@ -113,7 +112,7 @@ sections:
   commands:
   - header: '[:SOURce]:FM[:DEViation]'
     level: implemented
-    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口，#289）。
+    note: 回读按手册带 SI 前缀与单位，如 20.00000kHz（#289）。
   - header: '[:SOURce]:FM[:DEViation]:STEP[:INCRement]'
     level: accepted
     affects_data: false
@@ -128,7 +127,7 @@ sections:
     note: 外部调制输入的阻抗；外部调制源未建模，因此该设置不改变输出。
   - header: '[:SOURce]:FM:FREQuency'
     level: implemented
-    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口，#289）。
+    note: 回读按手册带 SI 前缀与单位，如 20.00000kHz（#289）。
   - header: '[:SOURce]:FM:FREQuency:STEP[:INCRement]'
     level: accepted
     affects_data: false
@@ -149,7 +148,7 @@ sections:
   commands:
   - header: '[:SOURce]:FREQuency'
     level: implemented
-    note: 手册的回读带 SI 前缀单位（例如 4.00000000MHz）；本定义给同样的有效数字、工程记数但没有单位后缀（4.00000000E+06），能力 issue #289。
+    note: 回读带 SI 前缀与单位，如 4.00000000MHz（#289）。
   - header: '[:SOURce]:FREQuency:STEP'
     level: accepted
     affects_data: false
@@ -249,8 +248,8 @@ sections:
 - section: ':SOURce Commands > [:SOURce]:MODulation:STATe'
   commands:
   - header: '[:SOURce]:MODulation:STATe'
-    level: not_modeled
-    note: 调制总开关（MOD/ON）需要一个“总使能”组件参数：#188 的 rf_modulator 没有；本定义在 AM/FM/ΦM:STATe 打开时即有调制。能力 issue #290。
+    level: implemented
+    note: 调制总开关（前面板 Mod/on，出厂 Off）：rf_modulator 的 enabled（#290）。关时射频只有载波，AM/FM/ΦM 的设定与开关保留；开时按各调制开关生效。
 - section: ':SOURce Commands > [:SOURce]:PM Command Subsystem'
   commands:
   - header: '[:SOURce]:PM[:DEViation]'
@@ -269,7 +268,7 @@ sections:
     note: 外部调制输入的阻抗；外部调制源未建模，因此该设置不改变输出。
   - header: '[:SOURce]:PM:FREQuency'
     level: implemented
-    note: 手册回读 20.00000kHz；本定义给 20.00000E+03（同一能力缺口，#289）。
+    note: 回读按手册带 SI 前缀与单位，如 20.00000kHz（#289）。
   - header: '[:SOURce]:PM:FREQuency:STEP[:INCRement]'
     level: accepted
     affects_data: false
@@ -339,30 +338,30 @@ sections:
     level: implemented
   - header: '[:SOURce]:SWEep:LIST:CPOint'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:LIST:INITialize:FSTep'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:LIST:INITialize:PRESet'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:LIST:LIST'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:MODE'
-    level: not_modeled
-    note: 连续/单次扫描时序未建模：扫描只由 :TRIGger / *TRG / :SWE:EXECute 推进。
+    level: implemented
+    note: CONTinue 时扫描一打开就按驻留在虚拟时间里循环；SINGle 时 :SWE:EXEC 起扫一次，停在最后一点（#291）。*RST 值 CONTinue 未能按手册正文核实。
   - header: '[:SOURce]:SWEep:POINt:TRIGger:TYPE'
-    level: not_modeled
-    note: 扫描点触发源（AUTO/KEY/BUS/EXT）未建模；扫描点由命令推进。
+    level: implemented
+    note: AUTO 按驻留时间推进扫描点；KEY/BUS/EXT 由 :TRIGger / *TRG 逐点推进（外部触发输入未建模，#291）。
   - header: '[:SOURce]:SWEep:RESet[:ALL]'
     level: implemented
   - header: '[:SOURce]:SWEep:STATe'
     level: implemented
-    note: 只接受 OFF 与 FREQuency；LEVel / LEVel,FREQuency 回错误（电平扫描未建模）。
+    note: OFF、FREQuency、LEVel 或 LEVel,FREQuency（#291）；回读按 LEV,FREQ 顺序，OFF 与其他同用回 -224。
   - header: '[:SOURce]:SWEep:STEP:DWELl'
-    level: not_modeled
-    note: 驻留时间未建模：本模型的扫描由触发命令逐点推进，连续/单次时序不仿真（validation-rfgen.md）；能力 issue #291。
+    level: implemented
+    note: 每点驻留 20 ms–100 s，AUTO 触发时按虚拟时间推进扫描点（#291）；回读带单位（500.000ms）。*RST 值 20 ms 未能按手册正文核实。
   - header: '[:SOURce]:SWEep:STEP:DWELl:STEP'
     level: not_modeled
     note: 驻留时间未建模。
@@ -379,25 +378,25 @@ sections:
     level: implemented
   - header: '[:SOURce]:SWEep:STEP:STARt:FREQuency'
     level: implemented
-    note: 手册回读 4.00000000MHz；本定义给 4.00000000E+06（同一能力缺口，#289）。
+    note: 回读按手册带 SI 前缀与单位，如 4.00000000MHz（#289）。
   - header: '[:SOURce]:SWEep:STEP:STARt:FREQuency:STEP'
     level: not_modeled
     note: 只影响旋钮步进；未建模（与扫描步进无关）。
   - header: '[:SOURce]:SWEep:STEP:STARt:LEVel'
-    level: not_modeled
-    note: 电平扫描未建模：#188 的 rf_synthesizer 只规划频率扫描（覆盖表与组件图）；能力 issue #291。
+    level: implemented
+    note: 电平扫描的起始电平（#291），各点按 dB 线性分布；*RST 值未能按手册正文核实。
   - header: '[:SOURce]:SWEep:STEP:STARt:LEVel:STEP'
     level: not_modeled
     note: 电平扫描未建模。
   - header: '[:SOURce]:SWEep:STEP:STOP:FREQuency'
     level: implemented
-    note: 手册回读 4.00000000MHz；本定义给 4.00000000E+06（同一能力缺口，#289）。
+    note: 回读按手册带 SI 前缀与单位，如 4.00000000MHz（#289）。
   - header: '[:SOURce]:SWEep:STEP:STOP:FREQuency:STEP'
     level: not_modeled
     note: 只影响旋钮步进；未建模。
   - header: '[:SOURce]:SWEep:STEP:STOP:LEVel'
-    level: not_modeled
-    note: 电平扫描未建模。
+    level: implemented
+    note: 电平扫描的终止电平（#291）。
   - header: '[:SOURce]:SWEep:STEP:STOP:LEVel:STEP'
     level: not_modeled
     note: 电平扫描未建模。

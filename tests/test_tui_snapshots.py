@@ -428,3 +428,71 @@ def test_runs_snapshot(snap_compare, fixed_times, lang, size, name):
         raise AssertionError("the runs screen never settled")
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+# ---- the new categories' instrument screens (#282) ----------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def category_server():
+    """A server over the validation benches with fixed SCPI/HiSLIP ports (the identity box shows
+    the addresses): one session per category bench, started by the test."""
+    import socket
+
+    import uvicorn
+
+    manager = SessionManager(ROOT / "validation", scpi_base_port=5585, hislip_port=4899)
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+    config = uvicorn.Config(
+        create_app(manager, web_dist=Path("/nonexistent")),
+        host="127.0.0.1",
+        port=port,
+        log_config=None,
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    deadline = time.monotonic() + 20
+    while not server.started and time.monotonic() < deadline:
+        time.sleep(0.02)
+    yield f"http://127.0.0.1:{port}", manager
+    server.should_exit = True
+    thread.join(timeout=10)
+
+
+CATEGORY_SCREENS = [
+    ("benches/counter.bench.yaml", "cnt", "1.000000000 kHz", "counter"),
+    ("benches/specan.bench.yaml", "sa", "Marker", "specan"),
+    ("benches/lockin_rc.bench.yaml", "lia", "θ", "lockin"),
+]
+
+
+@pytest.mark.parametrize(
+    ("bench", "instrument", "needle", "kind"), CATEGORY_SCREENS, ids=[c[3] for c in CATEGORY_SCREENS]
+)
+@pytest.mark.parametrize("size", [(100, 32), (80, 24)], ids=["100x32", "80x24"])
+def test_category_instrument_snapshot(snap_compare, category_server, bench, instrument, needle, kind, size):
+    """The counter's reading, the analyzer's trace and marker, the lock-in's X/Y/R/θ (#282)."""
+    import asyncio
+
+    url, manager = category_server
+    served = asyncio.run(manager.start(bench, seed=5, clock="command"))
+    tui = SimuBenchApp(url, sid=served.id)
+
+    async def run_before(pilot) -> None:
+        await _settle(pilot, tui)
+        tui.show("instrument", instrument)
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.1)
+            text = "\n".join(
+                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+            )
+            if needle in text:
+                return
+        raise AssertionError(f"the {kind} screen never showed {needle!r}")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)

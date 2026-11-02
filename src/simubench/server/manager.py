@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import logging
+import math
 import threading
 import time
 import uuid
@@ -742,6 +743,24 @@ class SessionManager:
                         minmax=minmax,
                     )
                 )
+            meas = next((c for c in inst.components.values() if c.type_name == "scope_measurements"), None)
+            measurements = []
+            if meas is not None:
+                names = {
+                    "vpp": "VPP",
+                    "vmax": "VMAX",
+                    "vmin": "VMIN",
+                    "mean": "VAVerage",
+                    "rms": "VRMS",
+                    "frequency": "FREQuency",
+                    "period": "PERiod",
+                }
+                for n, r in sorted(records.items()):
+                    row: dict[str, Any] = {"channel": n}
+                    for key, what in names.items():
+                        value = float(meas.record_value(what, r))  # type: ignore[attr-defined]
+                        row[key] = value if math.isfinite(value) else None
+                    measurements.append(M.ScopeMeasurement(**row))
             return M.ScopeScreen(
                 instrument=instrument,
                 source="live" if live else "record",
@@ -752,6 +771,7 @@ class SessionManager:
                 trigger_source=channel_index(inst.get_state("trigger.source")),
                 traces=traces,
                 acquisitions=int(acq.acq_count),  # type: ignore[attr-defined]
+                measurements=measurements,
             )
 
     @staticmethod

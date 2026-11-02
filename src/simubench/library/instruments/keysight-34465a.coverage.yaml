@@ -72,25 +72,31 @@ sections:
   commands:
   - header: CONFigure
     level: implemented
-    note: 带引号的功能、当前量程与分辨率（`"VOLT +1.00000000E+01,+1.00000000E-06"`，功能与量程之间一个空格）；量程为实际使用的量程（自动量程时取当前档），分辨率为 CONFigure 给定的值（#286，手册：resolution 参数指定测量分辨率），未给时按量程 × 当前 NPLC 分辨率表算。读数本身的量化始终跟随 NPLC 表（模型边界：给定的分辨率不改读数量化与积分时间）。
+    note: 带引号的功能、当前量程与分辨率（`"VOLT +1.00000000E+01,+1.00000000E-06"`，功能与量程之间一个空格）；量程为实际使用的量程（自动量程时取当前档），分辨率为 CONFigure 给定的值（#286，手册：resolution 参数指定测量分辨率），未给时按量程 × 当前 NPLC 分辨率表算；分辨率写 MIN / MAX 选 NPLC 表两端（100 / 0.02 PLC），回量程 × 表中分辨率（#344；交流回当前分辨率）。读数本身的量化始终跟随 NPLC 表（模型边界：给定的分辨率不改读数量化与积分时间）。
   - header: CONFigure:CAPacitance
     level: not_modeled
     note: 电容功能未实现（另开 issue）。
   - header: CONFigure:CONTinuity
     level: not_modeled
     note: 通断测试未实现（另开 issue）。
-  - header: CONFigure:CURRent:{AC|DC}
-    level: not_modeled
-    note: 电流功能未实现（另开 issue）。
+  - header: ':CONFigure:CURRent[:DC]'
+    level: implemented
+    note: 直流电流：输入并分流电阻进入电路求解，读 V/R（#301）；量程 100 µA–3 A。分流值是模型取值（数据表未给），10 A 端子未建模。
+  - header: ':CONFigure:CURRent:AC'
+    level: implemented
+    note: 交流电流（真有效值），同直流的分流（#301）。
   - header: CONFigure:DIODe
     level: not_modeled
     note: 二极管测试未实现（另开 issue）。
   - header: CONFigure:{FREQuency|PERiod}
     level: not_modeled
     note: 频率/周期功能未实现（另开 issue）。
-  - header: CONFigure:{RESistance|FRESistance}
-    level: not_modeled
-    note: 电阻功能未实现（另开 issue）。
+  - header: ':CONFigure:RESistance'
+    level: implemented
+    note: 两线电阻：按量程的测试电流（数据表：100 Ω/1 kΩ 1 mA … 10 MΩ 以上 500 nA）流过 DUT，读 V/I（#301）；开路或超量程回 +9.9E+37。偏置补偿与功率限制未建模。
+  - header: ':CONFigure:FRESistance'
+    level: implemented
+    note: 四线电阻：电流经 IN，电压读 SENSE 端子（未接时读 IN），引线电阻不计入（#301）。
   - header: CONFigure:TEMPerature
     level: not_modeled
     note: 温度功能未实现（另开 issue）。
@@ -234,18 +240,24 @@ sections:
   - header: MEASure:CONTinuity?
     level: not_modeled
     note: 通断测试未实现（另开 issue）。
-  - header: MEASure:CURRent:{AC|DC}?
-    level: not_modeled
-    note: 电流功能未实现（另开 issue）。
+  - header: ':MEASure:CURRent[:DC]'
+    level: implemented
+    note: 先选直流电流功能，再读一次（#301）。
+  - header: ':MEASure:CURRent:AC'
+    level: implemented
+    note: 先选交流电流功能，再读一次（#301）。
   - header: MEASure:DIODe?
     level: not_modeled
     note: 二极管测试未实现（另开 issue）。
   - header: MEASure:{FREQuency|PERiod}?
     level: not_modeled
     note: 频率/周期功能未实现（另开 issue）。
-  - header: MEASure:{RESistance|FRESistance}?
-    level: not_modeled
-    note: 电阻功能未实现（另开 issue）。
+  - header: ':MEASure:RESistance'
+    level: implemented
+    note: 先选两线电阻功能，再读一次（#301）。
+  - header: ':MEASure:FRESistance'
+    level: implemented
+    note: 先选四线电阻功能，再读一次（#301）。
   - header: MEASure:TEMPerature?
     level: not_modeled
     note: 温度功能未实现（另开 issue）。
@@ -421,9 +433,12 @@ sections:
   - header: '[SENSe:]{RESistance|FRESistance}:POWer:LIMit[:STATe]'
     level: not_modeled
     note: 电阻功能未实现。
-  - header: '[SENSe:]{RESistance|FRESistance}:RANGe'
-    level: not_modeled
-    note: 电阻功能未实现。
+  - header: '[:SENSe]:RESistance:RANGe'
+    level: implemented
+    note: 电阻功能自己的量程设定（与电压量程分开，#301）。
+  - header: '[:SENSe]:FRESistance:RANGe'
+    level: implemented
+    note: 与两线电阻共用量程设定（#301）。
   - header: '[SENSe:]{RESistance|FRESistance}:RANGe:AUTO'
     level: not_modeled
     note: 电阻功能未实现。
@@ -448,9 +463,12 @@ sections:
   - header: '[SENSe:]CURRent:{AC|DC}:NULL:VALue:AUTO'
     level: not_modeled
     note: 电流功能未实现。
-  - header: '[SENSe:]CURRent:{AC|DC}:RANGe'
-    level: not_modeled
-    note: 电流功能未实现。
+  - header: '[:SENSe]:CURRent[:DC]:RANGe'
+    level: implemented
+    note: 电流功能自己的量程设定（#301）。
+  - header: '[:SENSe]:CURRent:AC:RANGe'
+    level: implemented
+    note: 与直流电流共用量程设定（#301）。
   - header: '[SENSe:]CURRent:{AC|DC}:RANGe:AUTO'
     level: not_modeled
     note: 电流功能未实现。

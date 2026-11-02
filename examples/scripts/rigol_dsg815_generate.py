@@ -71,12 +71,12 @@ def main() -> None:
         low = vpp(scope)
         sg.write(":LEVel 0")
 
-        # 50 % AM: the envelope's peak is 1 + m = 1.5 times the carrier. (A real DSG815 also needs
-        # :MODulation:STATe ON; this definition does not model the master switch, see its coverage
-        # table, so AM applies as soon as :AM:STATe is on.)
+        # 50 % AM: the envelope's peak is 1 + m = 1.5 times the carrier. As in the manual's example,
+        # the AM switch and the master Mod/on switch must both be on.
         sg.write(":AM:DEPTh 50")
         sg.write(":AM:FREQuency 10kHz")
         sg.write(":AM:STATe ON")
+        sg.write(":MODulation:STATe ON")
         scope.write(":TIMebase:SCALe 2E-5")
         modulated = vpp(scope)
         sg.write(":AM:STATe OFF")

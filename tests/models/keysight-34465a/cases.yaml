@@ -124,6 +124,33 @@ cases:
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
+  - name: "CONFigure 的分辨率写 MIN / MAX / DEF：取 NPLC 表两端 × 量程，不取参数声明的上下限（#344）"
+    manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}（resolution: {<resolution>|MIN|MAX|DEF}）/ CONFigure?"
+    steps:
+      - send: ":CONF:VOLT:DC 10,MAX"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+2.00000000E-02"
+      - send: ":CONF:VOLT:DC 10,MIN"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-07"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+02"
+      - send: ":CONF:VOLT:DC 10,DEF"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+1.00000000E-06"'
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01"
+      - send: ":CONF:VOLT:DC 10,MAXIMUM"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05"'
+      - send: ":CONF:VOLT:AC 10,MAX"
+      - query: "CONF?"
+        expect: '"VOLT:AC +1.00000000E+01,+1.00000000E-06"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
   - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
     manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"
     steps:
@@ -484,7 +511,7 @@ cases:
       - send: "CURR:DC:NPLC 1"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
-      - send: "MEAS:RES?"
+      - send: "MEAS:TEMP?"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "TRIG:LEV 0.5"
@@ -496,3 +523,46 @@ cases:
       - send: "DATA:LAST?"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: "电阻与电流：CONFigure 选功能与各自的量程，MEASure 先配置再读（#301）"
+    manual: "CONFigure Subsystem > CONFigure:{RESistance|FRESistance} / CONFigure:CURRent:{AC|DC}；MEASure Subsystem；SENSe Subsystem > {RESistance|FRESistance}:RANGe / CURRent:{AC|DC}:RANGe"
+    steps:
+      - send: ":CONF:RES 1E4"
+      - query: "FUNC?"
+        expect: '"RES"'
+      - query: "RES:RANG?"
+        expect: "+1.00000000E+04"
+      - query: "CONF?"
+        expect: '"RES +1.00000000E+04,+1.00000000E-03"'
+      - send: ":RES:RANG 1E5"
+      - query: "FRES:RANG?"
+        expect: "+1.00000000E+05"
+      - send: ":CONF:FRES"
+      - query: "FUNC?"
+        expect: '"FRES"'
+      - send: ":FRES:RANG 1E6"
+      - query: "RES:RANG?"
+        expect: "+1.00000000E+06"
+      - send: ":CONF:CURR 0.001"
+      - query: "FUNC?"
+        expect: '"CURR"'
+      - query: "CURR:RANG?"
+        expect: "+1.00000000E-03"
+      - send: ":CONF:CURR:AC"
+      - query: "FUNC?"
+        expect: '"CURR:AC"'
+      - send: ":CURR:AC:RANG 0.1"
+      - query: "CURR:AC:RANG?"
+        expect: "+1.00000000E-01"
+      - query: "MEAS:RES?"
+        expect_match: '^\+\d\.\d{8}E[+-]\d{2}$'
+      - query: "FUNC?"
+        expect: '"RES"'
+      - query: "MEAS:FRES?"
+        expect_match: '^\+\d\.\d{8}E[+-]\d{2}$'
+      - query: "MEAS:CURR?"
+        expect_match: '^[+-]\d\.\d{8}E[+-]\d{2}$'
+      - query: "MEAS:CURR:AC?"
+        expect_match: '^[+-]\d\.\d{8}E[+-]\d{2}$'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

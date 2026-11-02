@@ -50,6 +50,19 @@ format:
   enum: short
 ```
 
+**数值也可以按手册写成 SI 前缀加单位（#289）：`format: {number: si, significant: 9, unit: Hz}` 把 4 MHz 回成 `4.00000000MHz`、400 MHz 回成 `400.000000MHz`（有效数字合计 `significant` 位，前缀取使尾数落在 1–1000 的那一档，舍入进位到 1000 时换下一档；`unit` 不写时用设置的单位）。百分比参数把设置的 `unit` 写成 `PCT`：`80` 与 `80%` 都写入 80，回读按原格式。
+
+**枚举列表** `type: enum_list`（#252）：一个设置保存几项选项，如读数元素 `:FORM:ELEM:SENS VOLT,CURR`。写入接受逗号分隔的多个词（长短形式均可），按 `options` 的顺序保存与回读，与写入顺序无关；不认识的词报 -224，原值不变。操作命令的 `args` 可以写 `$<设置路径>`，执行时取该设置的当前值：B2901A 的 `MEASure?`、`FETCh:ARRay?` 等写 `args: {elements: $format.elements.sense}`，回的元素随 `:FORM:ELEM:SENS` 变化。
+
+枚举的查询回复默认是选项的短格式（`enum: short`）或定义里的写法（`as_defined`）。仪表的回复词与它接受的设置词不同时，在状态上写 `replies`，按选项给出回复词，未列出的选项照常回复。例如 DL3021 的 `:FUNC CURRent` 查询回 `CC`（#268）：
+
+```yaml
+function.mode:
+  type: enum
+  options: [CURRent, RESistance, VOLTage, POWer]
+  replies: {CURRent: CC, RESistance: CR, VOLTage: CV, POWer: CP}
+```
+
 ### 2.2 应答模板
 
 命令可给 `reply` 模板；`{header}` 按 `echo_header` 展开（含通道前缀 `C1:`，`off` 时为空并去掉其后的空格），`{value}` 是绑定状态量按方言格式化的值，`{<状态路径>}` 引用其他状态量：
@@ -91,7 +104,9 @@ params:
 
 - **按参数区分的命令** `when`：几条命令共用一个命令头，按参数的取值选择（`C1:INSPECT? "DATA_ARRAY_1"` 回读数据，`"WAVEDESC"` 给出描述）；都不匹配时回复 -224。静态校验只在 `when` 能区分时才不报 `E-DEF-HEADER-DUPLICATE`。
 - **参数的连带设置** `sets`：一个写设置的参数可以同时写一组常量，例如 CONFigure 的量程参数 `sets: {sense.range_auto: false}`（量程一给就关闭自动量程）。连带设置只跟随明确的取值（数值、MIN、MAX）：参数写的是该设置的特殊字（`special`，如 AUTO）或 DEF 时不写，保留命令 `writes` 的选择（#325：`CONF:VOLT:DC AUTO` 仍为自动量程）。常量与参数一起校验、一起生效；静态校验用 `E-DEF-WRITE` 检查常量。
+- **关键字代写** `keywords`：参数写某个关键字（MIN、MAX、DEF 或特殊字；MINimum 等长形式同义）时，改写表中给出的设置，参数自己的设置只在表里写出时才写。用于关键字的含义不是"参数声明的上下限"的场合，例如 34465A 的 CONFigure 分辨率 `keywords: {MIN: {sense.resolution: 0, sense.nplc: 100}}`（最细分辨率选最长积分时间，#344）。表中常量同样由 `E-DEF-WRITE` 检查。
 - **索引参数** `index: true`：多状态命令的一个整数参数选择其他参数写哪组设置，状态路径中写作 `{名称}`：`PACU 1,AMPL,C1` 写 `measure.p1.kind` 与 `measure.p1.source`；查询也带它（`PACU? 1` → `PACU 1,AMPL,C1`），没有设置的可选值不写出（`PACU 1,NULL`）。静态校验按索引的取值范围检查每个状态。枚举的默认值可以是 `""`（尚未设置）。
+- **按词选择的索引**（#248）：索引也可以是一个词，`index_words` 给出每个词对应的号，例如 DSO-X 的 `:VIEW CHANnel2` 写 `ch2.display`（`{name: source, type: enum, index: true, index_words: {CHANnel1: 1, …}}`，命令只有索引参数时用 `writes: {"ch{source}.display": true}` 给值）。设置时索引按它自己的位置取（`:TRIG:LEV 0.5,CHAN2` 的第二个参数），查询时只带索引参数；可省略的索引用 `index_default` 给号或 `$设置`（`:TRIG:LEV?` 不带信源时取当前触发源）。`echo: false` 让查询回复不重复索引（SR830 的 `DDEF? 1` 只回 `j,k`，#273）。
 - **操作应答的字段**：操作可以在结果中给出命名字段（`@op(fields=...)`），命令的 `reply` 模板引用它们：`'{header} {kind},{value} {unit},{status}'`（`C1:PAVA AMPL,200.1E-3 V,OK`）。组件目录与静态校验都认得这些字段。
 - **通用组件与操作**：`system`（`clear_status`：`*CLS` 及其查询的回复；`reset`：与 `*RST` 相同的预置）；`scope_acquisition.measurement`（按 `measurements` 表的命名测量，值不能测量时为 `invalid_value` 与 `status` 的第二项）；`waveform_transfer.describe`（按 `descriptor` 的格式写出记录的点数、首点、抽点、采样间隔、偏移、增益、时基与采集次数）。输入阻抗、前端耦合用 `input_port` 与 `scope_frontend` 加参数映射表达。
 - **测试台编辑** `set_identity`：设置实例的 `idn`、`serial`、`firmware`（MCP 原来无法写出 `*IDN?` 的型号串）。
@@ -109,7 +124,7 @@ params:
   ```
 - **操作命令**也可以带通道列表参数（`MEAS:VOLT? (@1:3)`）：操作逐通道执行，回复在各自通道的上下文里过 `reply` 模板后按列表顺序拼接。
 - **作为值保存**（`ROUT:SCAN (@101:110)` 把列表存为状态、查询按手册格式回读）不需要专门的参数类型：状态的 `type: int_list` 接收 `(@…)` 与回读 `(@101:103,110)`（连续通道折叠为 `a:b`；状态 `min`/`max` 对列表中每个通道号生效）。
-- **解析**：`(@` 开头、`)` 结尾；逗号分隔、`a:b` 范围展开（含于参数括号分组内，`split_params` 把括号组当一个程序数据）；列表顺序即展开与回复顺序。空列表（-108）、重复通道（-108）、倒序范围（-222）、格式错（-102）、通道不在号域内（-114，同 `<n>` 后缀）都报错。
+- **解析**：`(@` 开头、`)` 结尾；逗号分隔、`a:b` 范围展开（含于参数括号分组内，`split_params` 把括号组当一个程序数据）；列表顺序即展开与回复顺序。空列表（-108）、重复通道（-108）、倒序范围（-222）、格式错（-102）、通道不在号域内（-114，同 `<n>` 后缀）都报错。倒序范围与重复通道由定义声明（#260）：`channels.lists: {descending: true}` 接受 `(@2:1)` 并按书写顺序展开（2、1，B2900 手册的写法），`repeated: true` 接受重复通道、每次出现各答一次；默认两者都报错。
 - **通道号域**（#207，D51）：通道号不是 `1..count` 时，用 `channels.numbering` 按通道顺序声明号码块；第 k 块从内部序号 `sum(前块 count)+1` 起，覆盖 `first .. first+count-1`。SCPI 里出现的通道号——`(@…)` 列表及其 `default`（`default: [101]` 写仪表的号）、命令头的 `<n>` 后缀、`int_list` 状态（`ROUT:SCAN`）——都按声明的号码读写；状态路径 `ch<n>.*`、组件名、`channels.overrides`、连线与端口的 `{n}` 仍用 1..count 的序号。范围的中间号可以不声明（跨槽位的 `(@101:205)` 只保留已声明的通道），但显式写出的号与范围首尾必须是已声明的通道，否则 -114。
   ```yaml
   channels:
@@ -118,7 +133,9 @@ params:
       - {first: 101, count: 2}
       - {first: 201, count: 2}
   ```
-- **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；`INST:NSEL` 目前按「接受」实现（保存并回读选择），带通道列表的命令是常用子集的取数路径——若某型号必须经 NSEL 选择取值，另立能力 issue。
+- **整表写入与常量**（#300）：通道列表参数可以带 `state`（一个 `int_list` 设置）：列表按仪表的号整表写进它，写设置的命令照常展开到各通道，操作命令只执行一次（34970A 的 `MEAS:VOLT:DC? (@101:110)` 写扫描表后跑一次扫描）。带通道列表的命令同样先写 `writes` 常量、再写参数的 `sets`（`CONF:VOLT:AC 10,(@101)` 选交流并关闭自动量程）；可省略的参数遇到 `(@…)` 视为省略，列表留给后面的通道列表参数。操作命令的参数也可以带 `state`：先写设置（连同 `sets`），再执行操作（`MEAS:VOLT:DC? 10,(@101)` 用 10 V 量程）。
+- **选中的输出**（#295）：`channels.selected` 指向一个 int 设置（选中输出的通道号），省略通道列表时命令作用于它，而不是参数的 `default`。`INSTrument[:SELect]` 与 `NSELect` 写同一个设置；名称写法用设置的 `special`（`{CH1: 1, P25V: 2}`），查询用 `reply: "CH{value}"`。E36312A 采用：`INST:SEL P25V; VOLT 5` 改输出 2。
+- **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；选中输出见上一条。
 
 ### 2.7 无参数命令（#119）
 
@@ -151,7 +168,7 @@ params:
     - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
 ```
 
-查询仍只回答参数（常量不是参数）。`writes` 只能与写设置的参数同用（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。
+查询仍只回答参数（常量不是参数）。`writes` 用在写设置的命令上，或用在操作命令上：操作执行前先写常量（#308：`:MEASure:CURRent?` 同时把测量功能切到电流，`writes: {sense.function: CURRent}`）；状态命令不能带 `writes`（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
@@ -234,6 +251,7 @@ params:
 | `W-DEF-PARAM-UNKNOWN` | 组件没有这个参数（警告：不会起作用） |
 | `E-DEF-STATE-UNKNOWN` | 组件参数或命令绑定的状态不存在；通道状态（`ch.`）用在没有通道号的地方 |
 | `E-DEF-PARAM-TYPE` | 组件参数与绑定状态的类型不相容（数值、布尔量接受枚举：组件读取 `FIFTy`、`OFF` 这样的名称） |
+| `E-DEF-PARAM-VALUE` | 取词参数（组件的 `choices`，如 `smu_meter.function` 只认 VOLTage/CURRent/RESistance）写了不认识的词，或绑定的状态可取其他值（字符串状态、枚举里有多余的选项，#308） |
 | `E-DEF-OP-UNKNOWN` | 组件或操作不存在；通道组件的操作用在没有 `<ch>` 的命令头上 |
 | `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举；参数映射的表中有设置取不到的值（#42） |
