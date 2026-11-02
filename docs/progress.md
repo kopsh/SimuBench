@@ -293,6 +293,7 @@
 | 定标判定的真值核对 | ✅ issue 92：不 import SimuBench 的定标脚本（设参考点、读被校表、按守卫带规则判定）写出的报告，`simubench verdicts` 逐点给出 `false_accept` / `withheld` / `correct`，真误差（读数 − 真输入）与手工计算一致到纳伏；报告行按顺序对上运行记录中被校仪表的数字读数回复（按回复的位数比较），对不上的行、映射外的决策值、颠倒的限值、缺失的列都指明行号报出，不猜；`instrument` 可以是测试台实例名或报告的列名；多余的数字回复警告；退出码：有误判 1、输入对不上 2；MCP `check_verdicts` 返回同样的结果、与 `read_true_values` 一样需 `--allow-control`；运行时保密规则不变（`docs/security.md`）；`tests/test_verdicts.py` 13 项（MCP 协议级含内） |
 | Keysight 34465A（只写 YAML） | ✅ issue 7：定义 `src/simubench/library/instruments/keysight-34465a.yaml`（reference = Truevolt 系列 Operating and Service Guide 34460-90901, Edition 13, 2025-09；specs 记数据表 5991-1983EN 的直流/交流精度；deviations 按 1 年、10 PLC 的直流精度抽增益与零点），覆盖表 233 条（实现 56 · 接受 10 · 未实现 167），手册用例 `tests/models/keysight-34465a/`（26 条）与输入阻抗对照用例 `tests/models/keysight-34465a-impedance/`（2 条，跑在示例测试台 `examples/benches/keysight-34465a.bench.yaml` 上：SDG2042X 经 900 kΩ/100 kΩ 分压，10 MΩ 与 >10 GΩ 读数不同且与手工计算一致，含求解器每节点 1e-12 S 的 GMIN 与 SDG 的 50 Ω 内阻）；PyVISA 脚本 `examples/scripts/keysight_34465a_measure.py`（CONFigure、BUS 触发、多次 `*TRG`、`R?` 取回）按真机写法、不改一行在测试中运行（`tests/test_keysight_34465a.py`，7 项：脚本、阻抗与 ACV 手工计算、校准 as-found/as-left < 1 ppm、按量程调整、NPLC 计入虚拟时间、偏差抽取）；校准用 `calibration_store`，键 =（功能， 实际量程），出厂安全码 AT3446XA；`src/simubench/library/components/` 无改动（#93 检查通过）。CONFigure 的命令头选择功能（`writes`，issue 117）。与手册的已知偏差逐条写进覆盖表说明（CONFigure 手册的“恢复触发默认值”未实现、读数时间单一映射、AC 沿用 DC 表，TRIG:DEL 在每触发前而非每测量间，校准错误码 701/702 对应手册 702/703/708 等）。`scripts/check.sh` 全绿 |
 | Fluke 5522A（只写 YAML） | ✅ issue 8：定义 `src/simubench/library/instruments/fluke-5522a.yaml`（reference = Fluke 5522A Multi-Product Calibrator Operators Manual，PN 3795084, January 2011，从 fluke.com 下载的 PDF 核对；`*IDN?` 格式 `FLUKE,5522A,<序列号>,<主 CPU+前面板 CPU+inguard PGA 固件>`；builtins 限定为手册的公共命令——:SYSTem:* 一类 SCPI 头不是 5522A 的命令，错误队列用 `ERR?`/`FAULT?`（`system.next_error`，回复 `{code},"{text}"`，空队列 `0,"No Error"`），日期时间用 CLOCK）；输出经 `calibrator_output`：`OUT 10 V` 直流、`OUT 1 V, 1 kHz` 交流、`OUT 60 HZ` 只更新频率（quantities：units V/HZ，combine "V"→DCV、"V,HZ"→if_zero、"HZ"→空更新；缺单位报手册的 519、未知单位 1305、同单位两次（双输出未建模）506）；量程 ±1020 V / 500 kHz（超限报 -222，SCPI 码——手册的 1300 系列错误码无法由状态范围检查给出）；待机上电与 *RST、待机输出端断开进电路求解、z_out 5 mΩ、i_max 5 mA（过载跳回待机报手册的 1503 "Output current lim exceeded"）、settle 5 s（手册 <5 s，`*OPC?`/`*WAI` 等待并计入虚拟时间）、`standby_above` 33 V（≥33 V 改设定回待机需再 OPER，手册第 3/4 章）；隐藏 gain/offset 作真值，deviations 取 1 年指标最紧档（增益 20 ppm、零点 1 µV，标量——calibrator_output 无按量程表，DC/AC 两套限值表达不了）；1 年精度规格表记 specs。覆盖表 100 条（实现 16 · 接受 5 · 未实现 79），手册用例 `tests/models/fluke-5522a/cases.yaml` 27 条（跑在带 sb-dmm-1 负载的 bench 上，一致性检查通过）；示例台 `examples/benches/fluke-5522a.bench.yaml`（5522A → SDS2104X Plus：直流 10 V 与 1 kHz 交流 1 V 在示波器可见，含 8-bit ADC 量化），精度台 `validation/benches/fluke-5522a-dmm.bench.yaml`（deviation: from_specs：OPER 后读设定值、误差在 ±20 ppm + 1 µV 内且随种子可复现，STBY 后 0 V）；`tests/test_fluke_5522a.py` 13 项。`OPER?` 回读工作状态、`LOCAL`/`REMOTE`/`LOCKOUT` 保存接口状态（#119）。与手册的已知偏差逐条写进覆盖表说明：`OUT` 裸数值形式（沿用当前单位）不建模、`ERR?` 队列溢出按 SCPI-99 报 -350（手册为仪器码 1）、正错误码在 *ESR? 记为 DDE 位（手册的 CME/EXE 类）、NORMAL LO 是机内地不单独成端口、EARTH/EXTGUARD 只接受不影响仿真。`src/simubench/library/components/` 无改动（#93 检查通过）；`scripts/check.sh` 全绿 |
+| Rigol DL3021 电子负载（只写 YAML） | ✅ issue 194：定义 `src/simubench/library/instruments/rigol-dl3021.yaml`（reference = *DL3000 Series Programmable DC Electronic Load Programming Guide* PGJ01106-1110, Oct. 2025，软件版本 00.01.06；`*IDN?` = `RIGOL TECHNOLOGIES,DL3021,DL3000A000001,00.01.00.04.05`，四字段格式按手册示例；DL3021 的量程与额定值按 DL3000 数据表：CC 4 A/40 A、CV 15 V/150 V、CR 0.08 Ω–15 kΩ、200 W、最小工作电压 1 V @ 40 A → 拐点电阻 0.025 Ω）。五个 C1 组件按 component-map 的块：`eload_power_stage`（r_min/i_max；p_max 交给 200 W 的 OPP 保护）、`eload_mode_loop`（CC/CV/CR/CP、斜率、Von）、`eload_input`、`eload_meter`、`eload_protection`。覆盖表 127 条（实现 41 · 接受 12 · 未实现 74）：实现 CC/CV/CR/CP、四种设定值与量程、斜率、Von、输入开关、V/I/P 回读（MEASure/FETCh，含 200 ms 积分时间与 FETCh:TIME?）、V_LIMIT/ILIM（作为 OVP/OCP 阈值）与 200 W 的 OPP；接受显示/系统/接口类（*PSC、触发源、状态使能与预置、SENSE、LXI）。手册用例 `tests/models/rigol-dl3021/cases.yaml` 18 条（跑在 10 V、0.1 Ω 直流源的 `bench.yaml` 上）全部通过；示例台 `examples/benches/rigol_dl3021.bench.yaml`（SDG2042X DC 5 V → DL3021：CC 1 mA 读 4.95 V、4.95 mW，CV 2 V 读 60 mA/0.12 W）；真机写法的 PyVISA 脚本 `examples/scripts/rigol_dl3021_measure.py` 在测试中运行（`tests/test_rigol_dl3021.py` 5 项：脚本、CC 斜率按虚拟时间、OVP/OCP 跳闸、OPP 在 210 W 跳闸）；`tests/test_model_components.py`、`test_block_coverage.py` 通过，`src/simubench/library/components/` 无改动；`simubench validate` 无诊断，`scripts/check.sh` 全绿。与手册的已知偏差逐条写进覆盖表：`:SOURce:FUNCtion?` 回短格式 CURR/RES/VOLT/POW（真机回 CC/CV/CR/CP；平台的状态枚举只有一种写法，设置词与回读词不能分开）；四种模式共用一个 V_LIMIT/ILIM 设定（真机按模式独立记忆）；OVP/OCP 阈值借用 V_LIMIT/ILIM、OPP 取额定 200 W（手册没有单独的保护阈值命令）；保护跳闸后没有远程清除命令（真机用前面板 OK）；状态寄存器的条件/事件位与 LIST/电池/OCP/OPP 测试/动态（C2）未建模；读数由组件写成 7 位尾数、测量各计 200 ms；`*TST?`/`*OPT?` 返回固定内容 |
 | 衡量：34465A、5522A、2450 只写定义（issue 7、8、12），定标演示的核对不写专用代码（issue 9） | ⏳（issue 7、8 ✅；12、9 待做） |
 
 ## DUT 是角色而不是一类对象（Issue 100，D8）
@@ -354,6 +355,16 @@
 | 按手册写的 PyVISA 脚本在 SimuBench 上读回测试台的信号 | ✅ `examples/scripts/keysight_dsox_read_waveform.py`、`examples/benches/keysight-dsox2024a.bench.yaml`；`tests/test_keysight_dsox.py`（10 项）：BYTE / WORD / ASCii 三种格式按前导重建的电压与记录一致、与网络上的信号相差在半个码加噪声内；RC 低通后的幅度；`:DIGitize` 后 `*OPC?` 时采集已完成；xorigin 带亚采样的触发偏移；数据手册的增益、偏置、DAC 与时基个体偏差在限值内且随种子复现；偏置超出范围钳到最近值并随档位收紧；RANGe 是档位乘格数；探头比换算档位与偏置 |
 | 为此补的通用能力有单元测试 | ✅ `tests/test_number_formats.py`（14 项）：`significant` 的工程记数、命令 `factor`、保留的空洞码、头字段的 `when` / `else`、参考位置决定触发前的格数；`ascii_block`、16 位字的 y 增量由上面的脚本测试覆盖 |
 | D45、real-models.md 记录基准的变更；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ Python 892 项通过（另 3 项跳过） |
+
+## 真实型号：Keysight DSO-X 2024A 按手册补齐常用命令（第一批，Issue 160，D42）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 定义按手册补命令，只用通用组件（#93 检查） | ✅ `keysight-dsox2024a.yaml` 新增 `*TRG`（手册：与不带参数的 `:DIGitize` 相同）、`:TRIGger:FORCe`（`acq.force_trigger`）、`:SYSTem:PRESet`（`sys.reset`，重置条件与 `*RST` 相同）、`:SERial?`、`:ACQuire?`（手册的 `*RST` 示例回复逐字一致）、`:SYSTem:DIDentifier?`，以及 8 条“接受”（`:TIMebase:VERNier`、`:TIMebase:WINDow:SCALe`/`:RANGe`/`:POSition`、`:SYSTem:LOCK`、`:SYSTem:PROTection:LOCK`、`:SYSTem:MENU`、`:SYSTem:DSP`）；`:ACQuire:TYPE` 的 PEAK 与 HRESolution 改由 `scope_acquisition` 的处理级实现（HRESolution 的 8 码 boxcar 是 SimuBench 值，覆盖表注明）。`src/simubench/library/components/` 未改，`tests/test_model_components.py` 通过 |
+| 覆盖表与用例 | ✅ 487 条：实现 74（67 → 74；新增 6 条、补上原先漏掉的 `:RSTate?` 与 `:ACQuire?`，并把 `:SYSTem:ERRor[:NEXT]` 从“未实现”改正）、接受 8、未实现 405；每条“接受”标 `affects_data: false` 并说明。`tests/models/keysight-dsox2024a/cases.yaml` 30 条（17 → 30），每条新命令至少一条，`manual` 引用手册章节；`simubench cases` 30/30 通过 |
+| 影响数据的命令有行为测试 | ✅ `tests/test_keysight_dsox.py` 14 项（新增 4）：`*TRG` 在停止时也采一帧并让 `*OPC?` 等到记录填满、`:TRIGger:FORCe` 在触发条件不满足时仍采一帧（记录的 `triggered` 为假）、`:SYSTem:PRESet` 恢复 `*RST` 条件并让示波器重新运行、PEAK 保留记录速率跨过的摆幅（40 MHz 正弦、50 ms/div：NORMal 混叠成单一电平，PEAK 到满摆幅） |
+| 表达不了的命令在覆盖表写原因，需要新能力的登记 | ✅ `:AER`/`:TER`/`:RSTate?`/`:OPEE`/`:OPERegister*`（运行与触发状态寄存器）、按参数选通道的 `:BLANk`/`:VIEW`/`:STATus`/`:TRIGger:LEVel <level>,<source>`、分段存储、其它触发类型、`:SYSTem:DATE`/`TIME`、RLOGger、SETup 均写明原因；能力 issue #248（`核心`）记录缺口 |
+| 检查 | ✅ `uv run simubench validate` 无诊断；覆盖表一致性检查通过；`scripts/check.sh` 全绿（pytest 1243 项通过、6 项跳过；ruff、生成 schema、Web 类型与测试通过） |
 
 ## 仪表模板机制与示波器模板；MCP 模板工具（Issue 125，instrument-authoring.md 7.4，D3）
 
@@ -659,9 +670,29 @@
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff`（0–1.5 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑默认 100 ns（SimuBench 默认） |
+| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff_type`（OFF / TIME）与 `trigger.holdoff_time`（8 ns–30 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`、`:TRIGger:EDGE:HLDTime`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑类型与时间按 EN11F p.423–424（EVENts 未实现，设置它报错） |
 | 接到已有的触发模块 | ✅ `scope_trigger` 的 `coupling` / `reject` / `filters` / `noise_reject` / `holdoff`；定义里用参数映射与状态绑定，没有改组件 |
 | 手册用例 | ✅ `tests/models/siglent-sds2104xplus/cases.yaml` 新增“触发耦合、噪声抑制与释抑”：AC / LFREJect 回读、NREJ ON/OFF、HOLDoff 时间与格式，恢复 DC / OFF / 100 ns |
-| 行为测试 | ✅ `tests/test_siglent_sds.py` 两项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过、NREJ / HOLDoff 参数到位）；释抑使下一次触发不早于 5 ms（与无释抑的 2 ms 内触发对照） |
+| 行为测试 | ✅ `tests/test_siglent_sds.py` 四项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过）；释抑只在类型 TIME 时推迟下一次触发（OFF 不推迟，EN11F 的 EVENts 设置报错）；带直流偏置的信号在 DC 耦合下不触发、AC 耦合后在交流过零处触发；带噪声的慢边沿 NREJ OFF 时同一沿重复触发、ON 后只触发一次 |
 | 检查 | ✅ `simubench validate` 无诊断；`simubench cases` 全部通过；`src/simubench/library/components/` 无改动；`scripts/check.sh` 全绿 |
 
+
+
+## SDS 触发释抑语义与行为测试（Issue 250、251）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| HOLDoff 是释抑类型、HLDTime 是时间 | ✅ `:TRIGger:EDGE:HOLDoff {OFF|TIME}`（复位 OFF；EVENts 未实现，设置它按值域报错）与 `:TRIGger:EDGE:HLDTime`（8 ns–30 s，EN11F p.423–424）分别绑定 `trigger.holdoff_type` / `trigger.holdoff_time`；组件 `holdoff_on` 只在类型 TIME 时为真，OFF 时释抑不生效 |
+| 手册用例 | ✅ `TRIG:EDGE:HOLD TIME` → `TIME`、`HLDT 1E-3` → `1.00E-03`、恢复 `HOLD OFF`；不再锁定“HOLDoff 收秒数”的错误行为 |
+| 行为测试补齐 #159 的三项 | ✅ `tests/test_siglent_sds.py`：DC 偏置下 DC 耦合不触发、AC 耦合在交流过零触发；噪声慢边沿 NREJ OFF 重复触发、ON 只触发一次；释抑类型 OFF 不推迟、TIME 推迟 HLDTime |
+| 检查 | ✅ 定义校验、手册用例、覆盖表一致性、`scripts/check.sh` 全绿；组件无改动 |
+
+
+## 34465A CONFigure 的回复与默认值（Issue 262）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `CONF?` 格式 | ✅ `"<功能> <量程>,<分辨率>"`（功能与量程间一个空格）：`meter.configure` 给出实际使用的量程（自动量程取当前档）与量程 × 当前 NPLC 分辨率，例如 `"VOLT +1.00000000E+01,+1.00000000E-06"`；手册用例按 p.240 的 Typical Return 改写 |
+| CONFigure 恢复默认值 | ✅ `:CONFigure[:VOLTage]:{DC|AC}` 用 `writes` 恢复手册默认值表（量程自动、分辨率自动、NPLC 10、自动调零开、立即触发、触发/采样计数 1、自动触发延迟），再应用量程/分辨率参数；参数新增 `sets`，给量程即关闭自动量程。手册默认值表中平台没有的设置（如显示、格式）不在复位范围，覆盖表说明 |
+| 现有用例与脚本 | ✅ 手册用例、`examples/scripts/keysight_34465a_measure.py` 的读数期望按 10 V 量程的 NPLC 分辨率更新；`tests/test_keysight_34465a.py` 通过 |
+| 检查 | ✅ 定义校验、覆盖表一致性、`scripts/check.sh` 全绿 |

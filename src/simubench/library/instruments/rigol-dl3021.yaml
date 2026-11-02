@@ -1,0 +1,429 @@
+schema: simubench.instrument/1
+id: rigol-dl3021
+manufacturer: RIGOL TECHNOLOGIES
+model: DL3021
+class: electronic_load
+version: 1
+description: >-
+  RIGOL DL3021 可编程直流电子负载（150 V / 40 A / 200 W，单通道）。Real model (D42)：命令、
+  回复与错误行为按 DL3000 系列编程指南（PGJ01106-1110, Oct. 2025，软件版本 00.01.06）；量程与
+  额定值按 DL3000 数据表（DL3021：CC 4 A/40 A，CV 15 V/150 V，CR 0.08 Ω–15 kΩ，最小工作电压
+  1 V @ 40 A）。静态模式 CC/CV/CR/CP、斜率、Von、输入开关、V/I/P 回读、V_LIMIT/C_LIMIT 与
+  硬件 OPP 保护由 C1 的 eload_* 组件承担；LIST、电池、OCP/OPP 测试、动态（C2）与波形显示功能
+  未建模，回复 -113。
+reference:
+  title: DL3000 Series Programmable DC Electronic Load Programming Guide
+  document: PGJ01106-1110
+  version: Oct. 2025
+  firmware: 00.01.06（手册 Software Version；*IDN? 示例固件串 00.01.00.04.05）
+identity:
+  # 手册 *IDN? 的四字段：厂商、型号、序列号、数字板版本（示例
+  # RIGOL TECHNOLOGIES,DL3031A,LS000001,00.01.00.04.05）。
+  idn: "RIGOL TECHNOLOGIES,{model},{serial},{firmware}"
+  serial: DL3000A000001
+  firmware: "00.01.00.04.05"
+format:
+  # 手册只写“returns a real number”，未给位数与指数写法；按 SCPI 常用的 nr3、6 位尾数回读。
+  # eload_meter 的读数由组件写成 7 位尾数（+1.0000000E+00），覆盖面逐条注明。
+  number: nr3
+  digits: 6
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: plain
+builtins:
+  # 手册列出的公共命令与 :SYSTem:ERRor?（其余内置命令，如 :SYSTem:DATE，按未建模回复 -113）。
+  ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*TRG", "*ESR", "*ESE", "*SRE", "*STB", "*TST",
+   ":SYSTem:ERRor[:NEXT]"]
+specs:
+  source: >-
+    DL3000 Series Data Sheet（DL3021 档）与 DL3000 Programming Guide Appendix A（附录以 DL3031A
+    为例，逐项按 DL3021 数据表取值）
+  voltage_current_power: "150 V / 40 A / 200 W；最小工作电压 1 V @ 40 A（恒流拐点电阻 0.025 Ω）"
+  ranges:
+    cc: [4.0, 40.0]
+    cv: [15.0, 150.0]
+    cr: [0.08, 15000.0]
+    cp: [200.0]
+  programmable_resolution: {cc: 0.001, cv_high: 0.001, cv_range: 0.005, cr: "2 mA/Vsense", cp: 0.1}
+  readback_resolution: {voltage: 0.0001, current: 0.001, power: 0.1}
+  readback_accuracy: {voltage: "±(0.05% + 0.02% FS)", current: "±(0.1% + 0.1% FS)", power: "按 V/I 读数"}
+  slew_rate: "0.001 A/μs – 1 A/μs（分辨率 0.001 A/μs）"
+  integration_time: "10 PLC = 200 ms（:FETCh:TIME?）"
+  protection: "OVP / OCP / OPP / OTP / LRV / RRV；手册未给保护阈值命令，V_LIMIT/C_LIMIT 是各模式的工作上限"
+state:
+  # 手册命令接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP。平台的状态枚举只有一个
+  # 写法：这里按“设置词”保存，查询返回短格式 CURR/RES/VOLT/POW（覆盖面逐条注明与该差异）。
+  function.mode:
+    type: enum
+    options: [CURRent, RESistance, VOLTage, POWer]
+    default: CURRent
+    electrical: true
+    label: 模式
+    label_en: Mode
+    option_labels: {CURRent: 恒流 CC, RESistance: 恒阻 CR, VOLTage: 恒压 CV, POWer: 恒功率 CP}
+  function.control:
+    type: enum
+    options: [FIXed]
+    default: FIXed
+    label: 输入调节方式
+    label_en: Regulation mode
+  current.level:
+    type: float
+    unit: A
+    min: 0.0
+    max: 40.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 40.0, MAXIMUM: 40.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 电流设定
+    label_en: Current
+  current.range:
+    type: float
+    unit: A
+    min: 4.0
+    max: 40.0
+    default: 4.0
+    special: {MIN: 4.0, MINIMUM: 4.0, MAX: 40.0, MAXIMUM: 40.0, DEF: 4.0, DEFAULT: 4.0}
+    label: 电流量程
+    label_en: Current range
+  current.slew:
+    type: float
+    min: 0.001
+    max: 1.0
+    default: 0.001
+    special: {MIN: 0.001, MINIMUM: 0.001, MAX: 1.0, MAXIMUM: 1.0, DEF: 0.001, DEFAULT: 0.001}
+    label: 电流斜率
+    label_en: Current slew
+    display_unit: A/µs
+  current.von:
+    type: float
+    unit: V
+    min: 0.0
+    max: 150.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 150.0, MAXIMUM: 150.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 起始电压
+    label_en: Starting voltage
+  voltage.level:
+    type: float
+    unit: V
+    min: 0.0
+    max: 150.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 150.0, MAXIMUM: 150.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 电压设定
+    label_en: Voltage
+  voltage.range:
+    type: float
+    unit: V
+    min: 15.0
+    max: 150.0
+    default: 150.0
+    special: {MIN: 15.0, MINIMUM: 15.0, MAX: 150.0, MAXIMUM: 150.0, DEF: 150.0, DEFAULT: 150.0}
+    label: 电压量程
+    label_en: Voltage range
+  resistance.level:
+    type: float
+    unit: OHM
+    min: 0.08
+    max: 15000.0
+    default: 2.0
+    special: {MIN: 0.08, MINIMUM: 0.08, MAX: 15000.0, MAXIMUM: 15000.0, DEF: 2.0, DEFAULT: 2.0}
+    label: 电阻设定
+    label_en: Resistance
+  resistance.range:
+    type: float
+    unit: OHM
+    min: 15.0
+    max: 15000.0
+    default: 15000.0
+    special: {MIN: 15.0, MINIMUM: 15.0, MAX: 15000.0, MAXIMUM: 15000.0, DEF: 15000.0, DEFAULT: 15000.0}
+    label: 电阻量程
+    label_en: Resistance range
+  power.level:
+    type: float
+    unit: W
+    min: 0.0
+    max: 200.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 200.0, MAXIMUM: 200.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 功率设定
+    label_en: Power
+  source.limit.voltage:
+    type: float
+    unit: V
+    min: 0.0
+    max: 155.0
+    default: 155.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 155.0, MAXIMUM: 155.0, DEF: 155.0, DEFAULT: 155.0}
+    label: 电压上限
+    label_en: Voltage limit
+  source.limit.current:
+    type: float
+    unit: A
+    min: 0.0
+    max: 70.0
+    default: 70.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 70.0, MAXIMUM: 70.0, DEF: 70.0, DEFAULT: 70.0}
+    label: 电流上限
+    label_en: Current limit
+  input.enabled:
+    type: bool
+    default: false
+    electrical: true
+    label: 输入
+    label_en: Input
+  sense.enabled:
+    type: bool
+    default: false
+    label: 远端 Sense
+    label_en: Remote sense
+  measure.time:
+    type: int
+    default: 200
+    min: 200
+    max: 200
+    readonly: true
+    label: 积分时间
+    label_en: Integration time
+    display_unit: ms
+  trigger.source:
+    type: enum
+    options: [BUS, EXTernal, MANUal]
+    default: MANUal
+    label: 触发源
+    label_en: Trigger source
+  trigger.armed:
+    type: bool
+    default: false
+    label: 触发
+    label_en: Trigger
+  status.questionable.enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: 可疑状态使能
+    label_en: Questionable enable
+  status.operation.enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: 运行状态使能
+    label_en: Operation enable
+  status.preset:
+    type: bool
+    default: false
+    label: 状态预置
+    label_en: Status preset
+  system.psc:
+    type: bool
+    default: false
+    label: 上电清使能
+    label_en: Power-on clear
+  system.selftest:
+    type: string
+    default: ""
+    readonly: true
+  system.options:
+    type: string
+    default: "0,0,0,0"
+    readonly: true
+  system.scpi_version:
+    type: string
+    default: "1999.0"
+    readonly: true
+  interface.lxi.identify:
+    type: bool
+    default: false
+    label: LXI 标识
+    label_en: LXI identify
+  interface.lxi.mdns:
+    type: bool
+    default: true
+    label: mDNS
+    label_en: mDNS
+  interface.lxi.action:
+    type: enum
+    options: [RESET, RESTART]
+    default: RESET
+components:
+  # 输入 → 功率级 → 模式环 → 测量 → 保护（component-map 的 electronic_load 块）。
+  - name: stage
+    type: eload_power_stage
+    # r_min = 1 V / 40 A（数据表的最小工作电压）；p_max 交给人对 200 W 的 OPP 保护
+    # （功率级不先截断，否则 OPP 永远不会动作）。
+    params: {r_min: 0.025, i_max: 40.0, p_max: 0.0}
+  - name: loop
+    type: eload_mode_loop
+    params:
+      stage: stage
+      function: {from: $function.mode, map: {CURRent: CC, RESistance: CR, VOLTage: CV, POWer: CP}}
+      current: $current.level
+      voltage: $voltage.level
+      resistance: $resistance.level
+      power: $power.level
+      von: $current.von
+      slew: $current.slew
+  - name: inp
+    type: eload_input
+    params: {enabled: $input.enabled, loop: loop, protection: prot}
+  - name: load
+    type: eload_meter
+    params: {input: inp}
+  - name: prot
+    type: eload_protection
+    # 手册没有单独的保护阈值命令：各模式的 V_LIMIT/ILIMIT 是工作上限，这里让它们同时作为
+    # OVP/OCP 的跳闸阈值；OPP 取 DL3021 的额定 200 W（手册：输入功率超过保护功率时输入关断）。
+    params: {ovp: $source.limit.voltage, ocp: $source.limit.current, opp: 200.0}
+ports:
+  instrument:
+    IN: inp.in
+display:
+  template: electronic_load
+  summary: [function.mode, current.level, voltage.level, resistance.level, input.enabled]
+capabilities: [electronic_load]
+commands:
+  # ---- IEEE 488.2 公共命令（内置之外的，按手册行为定义） ----
+  - header: "*TST"
+    state: system.selftest
+    set: false
+    reply: "OppRef: PASS,VmonTrig: PASS,ImonTrig: PASS,OcpRef: PASS,OvpRef: PASS,Temp1: PASS,Temp2: PASS"
+    doc: 手册 *TST? 的自检项与 PASS 写法（手册把它们列在一行，项间用逗号）。
+  - header: "*OPT"
+    state: system.options
+    set: false
+    reply: "0,0,0,0"
+    doc: DL3021 出厂未装选件，四个选件位都回 0；安装选件的 :LIC:SET 未建模。
+  - header: "*PSC"
+    state: system.psc
+    doc: 上电是否清状态使能寄存器；保存与回读（跨上电行为不在仿真中体现）。
+  - header: "*TRG"
+    state: trigger.armed
+    set_value: true
+    query: false
+    doc: 总线触发；动态/列表（C2）未建模，触发只置位、不改变工作点。
+  # ---- 触发 ----
+  - header: ":TRIGger[:IMMediate]"
+    state: trigger.armed
+    set_value: true
+    query: false
+    doc: 同 *TRG；动态/列表未建模，触发不改变静态工作点。
+  - header: ":TRIGger:SOURce"
+    state: trigger.source
+  # ---- 测量回读 ----
+  - header: ":FETCh:VOLTage[:DC]"
+    op: load.measure
+    set: false
+    args: {what: voltage}
+    duration: 0.2
+  - header: ":MEASure:VOLTage[:DC]"
+    op: load.measure
+    set: false
+    args: {what: voltage}
+    duration: 0.2
+  - header: ":FETCh:CURRent[:DC]"
+    op: load.measure
+    set: false
+    args: {what: current}
+    duration: 0.2
+  - header: ":MEASure:CURRent[:DC]"
+    op: load.measure
+    set: false
+    args: {what: current}
+    duration: 0.2
+  - header: ":FETCh:POWer[:DC]"
+    op: load.measure
+    set: false
+    args: {what: power}
+    duration: 0.2
+  - header: ":MEASure:POWer[:DC]"
+    op: load.measure
+    set: false
+    args: {what: power}
+    duration: 0.2
+  - header: ":FETCh:TIME"
+    state: measure.time
+    set: false
+    doc: 手册给出固定的 10 PLC（200 ms）；只读。
+  - header: ":MEASure:TIME"
+    state: measure.time
+    set: false
+  # ---- 状态系统（条件/事件寄存器查询未建模；使能与预置只保存） ----
+  - header: ":STATus:QUEStionable:ENABle"
+    state: status.questionable.enable
+  - header: ":STATus:OPERation:ENABle"
+    state: status.operation.enable
+  - header: ":STATus:PRESet"
+    state: status.preset
+    set_value: true
+    query: false
+  # ---- 源：模式、设定值、量程、斜率、Von、输入 ----
+  - header: "[:SOURce]:FUNCtion"
+    state: function.mode
+    doc: >-
+      手册接受 CURRent/RESistance/VOLTage/POWer，查询回 CC/CV/CR/CP。平台的状态枚举只有一种写法，
+      这里保存设置词、查询回短格式（CURR/RES/VOLT/POW）；覆盖面注明差异。
+  - header: "[:SOURce]:FUNCtion:MODE"
+    state: function.control
+    doc: 只有 FIXed（由 FUNCtion 决定）；LIST/WAVe/BATTery/OCP/OPP 未建模（C2），设置它们报 -224。
+  - header: "[:SOURce]:INPut[:STATe]"
+    state: input.enabled
+    dangerous: true
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate]"
+    state: current.level
+  - header: "[:SOURce]:CURRent:RANGe"
+    state: current.range
+  - header: "[:SOURce]:CURRent:SLEW[:BOTH]"
+    state: current.slew
+  - header: "[:SOURce]:CURRent:VON"
+    state: current.von
+  - header: "[:SOURce]:CURRent:VLIMt"
+    state: source.limit.voltage
+  - header: "[:SOURce]:CURRent:ILIMt"
+    state: source.limit.current
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate]"
+    state: voltage.level
+  - header: "[:SOURce]:VOLTage:RANGe"
+    state: voltage.range
+  - header: "[:SOURce]:VOLTage:VLIMt"
+    state: source.limit.voltage
+  - header: "[:SOURce]:VOLTage:ILIMt"
+    state: source.limit.current
+  - header: "[:SOURce]:RESistance[:LEVel][:IMMediate]"
+    state: resistance.level
+  - header: "[:SOURce]:RESistance:RANGe"
+    state: resistance.range
+  - header: "[:SOURce]:RESistance:VLIMt"
+    state: source.limit.voltage
+  - header: "[:SOURce]:RESistance:ILIMt"
+    state: source.limit.current
+  - header: "[:SOURce]:POWer[:LEVel][:IMMediate]"
+    state: power.level
+  - header: "[:SOURce]:POWer:VLIMt"
+    state: source.limit.voltage
+  - header: "[:SOURce]:POWer:ILIMt"
+    state: source.limit.current
+  - header: "[:SOURce]:SENSe"
+    state: sense.enabled
+    doc: 远端 Sense 开关；端子压降未建模，保存与回读不影响读数。
+  # ---- 系统与接口 ----
+  - header: ":SYSTem:VERSion"
+    state: system.scpi_version
+    set: false
+    reply: "1999.0"
+    doc: 手册示例 1999.0（YYYY.V 字符串）。
+  - header: "LXI:IDENtify[:STATe]"
+    state: interface.lxi.identify
+  - header: "LXI:MDNS[:ENABle]"
+    state: interface.lxi.mdns
+  - header: "LXI:RESet"
+    state: interface.lxi.action
+    set_value: RESET
+    query: false
+  - header: "LXI:RESTart"
+    state: interface.lxi.action
+    set_value: RESTART
+    query: false

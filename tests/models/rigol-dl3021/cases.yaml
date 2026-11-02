@@ -1,0 +1,407 @@
+# Rigol DL3021 的手册用例：DL3000 Series Programmable DC Electronic Load Programming
+# Guide（PGJ01106-1110, Oct. 2025）第 2 章的命令条目、第 5 章 Appendix A 的默认值，量程与额定
+# 值按 DL3000 数据表的 DL3021 档。测试台见 bench.yaml（10 V、0.1 Ω 的直流源）。
+#
+# 读数格式：状态量按 nr3、6 位尾数（+1.000000E+00）；eload_meter 的操作应答是组件写好的
+# 7 位尾数（+1.0000000E+00）。测量命令各计 200 ms 的积分时间（手册 :FETCh:TIME? 的 10 PLC），
+# 所以设置电流后的第一次读数在斜率起点（0），第二次在 200 ms 之后读到稳定值。
+model: rigol-dl3021
+bench: bench.yaml
+instrument: dut
+cases:
+  - name: "*IDN? 按手册四字段返回厂商、型号、序列号与固件版本"
+    manual: "Chapter 2 Command System > IEEE 488.2 Common Commands > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "RIGOL TECHNOLOGIES,DL3021,DL3000A000001,00.01.00.04.05"
+
+  - name: "*RST 恢复附录 A 的出厂默认值（DL3021 的量程按数据表）"
+    manual: "Chapter 2 > IEEE 488.2 Common Commands > *RST；Chapter 5 > Appendix A: Default Settings"
+    steps:
+      - send: >-
+          :SOUR:FUNC VOLT;:SOUR:CURR 5;:SOUR:CURR:RANG 40;:SOUR:CURR:SLEW 1;
+          :SOUR:CURR:VON 10;:SOUR:CURR:VLIM 10;:SOUR:CURR:ILIM 1;:SOUR:INP 1;
+          :TRIG:SOUR BUS;*PSC 1;:STAT:QUES:ENAB 3;:STAT:OPER:ENAB 3;
+          :SOUR:SENS 1;LXI:IDEN 1;LXI:MDNS 0
+      - send: "*RST"
+      - query: ":SOUR:FUNC?"
+        expect: "CURR"
+      - query: ":SOUR:CURR?"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:CURR:RANG?"
+        expect: "+4.000000E+00"
+      - query: ":SOUR:CURR:SLEW?"
+        expect: "+1.000000E-03"
+      - query: ":SOUR:CURR:VON?"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:CURR:VLIM?"
+        expect: "+1.550000E+02"
+      - query: ":SOUR:CURR:ILIM?"
+        expect: "+7.000000E+01"
+      - query: ":SOUR:VOLT?"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:VOLT:RANG?"
+        expect: "+1.500000E+02"
+      - query: ":SOUR:RES?"
+        expect: "+2.000000E+00"
+      - query: ":SOUR:RES:RANG?"
+        expect: "+1.500000E+04"
+      - query: ":SOUR:POW?"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:INP?"
+        expect: "0"
+      - query: ":SOUR:FUNC:MODE?"
+        expect: "FIX"
+      - query: ":TRIG:SOUR?"
+        expect: "MANU"
+      - query: ":SOUR:SENS?"
+        expect: "0"
+      - query: "*PSC?"
+        expect: "0"
+      - query: ":STAT:QUES:ENAB?"
+        expect: "0"
+      - query: ":STAT:OPER:ENAB?"
+        expect: "0"
+      - query: "LXI:IDEN?"
+        expect: "0"
+      - query: "LXI:MDNS?"
+        expect: "1"
+      - query: ":FETC:TIME?"
+        expect: "200"
+      - query: ":MEAS:TIME?"
+        expect: "200"
+      - query: "*OPT?"
+        expect: "0,0,0,0"
+
+  - name: "公共命令与状态寄存器：*CLS、*ESE、*ESR?、*SRE、*STB?、*OPC、*WAI、*TST?、*TRG 与使能寄存器"
+    manual: "Chapter 2 > IEEE 488.2 Common Commands；Chapter 2 > :STATus Commands"
+    steps:
+      - send: "*CLS;*ESE 20;*SRE 24;*PSC 1"
+      - query: "*ESE?"
+        expect: "20"
+      - query: "*SRE?"
+        expect: "24"
+      - query: "*ESR?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*WAI"
+      - query: "*TST?"
+        expect: "OppRef: PASS,VmonTrig: PASS,ImonTrig: PASS,OcpRef: PASS,OvpRef: PASS,Temp1: PASS,Temp2: PASS"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+      - send: "*TRG;:TRIG"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+      - send: ":STAT:QUES:ENAB 17;:STAT:OPER:ENAB 17"
+      - query: ":STAT:QUES:ENAB?"
+        expect: "17"
+      - query: ":STAT:OPER:ENAB?"
+        expect: "17"
+      - send: ":STAT:PRES"
+      - query: "*PSC?"
+        expect: "1"
+
+  - name: "工作模式的设置词都接受；查询回设置词的短格式（真机回 CC/CV/CR/CP，见覆盖表）"
+    manual: "Chapter 2 > [:SOURce] Commands > [:SOURce]:FUNCtion"
+    steps:
+      - send: ":SOUR:FUNC CURR"
+      - query: ":SOUR:FUNC?"
+        expect: "CURR"
+      - send: ":SOUR:FUNC VOLT"
+      - query: ":SOUR:FUNC?"
+        expect: "VOLT"
+      - send: ":SOUR:FUNC RES"
+      - query: ":SOUR:FUNC?"
+        expect: "RES"
+      - send: ":SOUR:FUNC POW"
+      - query: ":SOUR:FUNC?"
+        expect: "POW"
+      - send: ":SOUR:FUNC CURR"
+      - query: ":SOUR:FUNC?"
+        expect: "CURR"
+
+  - name: "CC 设定值与量程：MIN/MAX/DEF 与超范围错误"
+    manual: "Chapter 2 > [:SOURce]:CURRent[:LEVel][:IMMediate]；[:SOURce]:CURRent:RANGe"
+    steps:
+      - send: ":SOUR:CURR 2;:SOUR:CURR:RANG 4"
+      - query: ":SOUR:CURR?"
+        expect: "+2.000000E+00"
+      - query: ":SOUR:CURR? MAX"
+        expect: "+4.000000E+01"
+      - query: ":SOUR:CURR? MIN"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:CURR? DEF"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:CURR:RANG?"
+        expect: "+4.000000E+00"
+      - send: ":SOUR:CURR:RANG MAX"
+      - query: ":SOUR:CURR:RANG?"
+        expect: "+4.000000E+01"
+      - send: ":SOUR:CURR:RANG MIN"
+      - query: ":SOUR:CURR:RANG?"
+        expect: "+4.000000E+00"
+      - send: ":SOUR:CURR:RANG DEF"
+      - query: ":SOUR:CURR:RANG?"
+        expect: "+4.000000E+00"
+      - send: ":SOUR:CURR 45"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+
+  - name: "CV/CR/CP 设定值与量程的 MIN/MAX/DEF"
+    manual: >-
+      Chapter 2 > [:SOURce]:VOLTage[:LEVel][:IMMediate]、[:SOURce]:VOLTage:RANGe、
+      [:SOURce]:RESistance[:LEVel][:IMMediate]、[:SOURce]:RESistance:RANGe、
+      [:SOURce]:POWer[:LEVel][:IMMediate]
+    steps:
+      - send: ":SOUR:VOLT 9;:SOUR:RES 5;:SOUR:POW 20"
+      - query: ":SOUR:VOLT?"
+        expect: "+9.000000E+00"
+      - query: ":SOUR:VOLT? MAX"
+        expect: "+1.500000E+02"
+      - query: ":SOUR:VOLT:RANG?"
+        expect: "+1.500000E+02"
+      - send: ":SOUR:VOLT:RANG MIN"
+      - query: ":SOUR:VOLT:RANG?"
+        expect: "+1.500000E+01"
+      - send: ":SOUR:VOLT:RANG MAX"
+      - query: ":SOUR:VOLT:RANG?"
+        expect: "+1.500000E+02"
+      - query: ":SOUR:RES?"
+        expect: "+5.000000E+00"
+      - query: ":SOUR:RES? MAX"
+        expect: "+1.500000E+04"
+      - query: ":SOUR:RES? MIN"
+        expect: "+8.000000E-02"
+      - query: ":SOUR:RES? DEF"
+        expect: "+2.000000E+00"
+      - query: ":SOUR:RES:RANG?"
+        expect: "+1.500000E+04"
+      - send: ":SOUR:RES:RANG MIN"
+      - query: ":SOUR:RES:RANG?"
+        expect: "+1.500000E+01"
+      - send: ":SOUR:RES:RANG MAX"
+      - query: ":SOUR:RES:RANG?"
+        expect: "+1.500000E+04"
+      - query: ":SOUR:POW?"
+        expect: "+2.000000E+01"
+      - query: ":SOUR:POW? MAX"
+        expect: "+2.000000E+02"
+      - query: ":SOUR:POW? MIN"
+        expect: "+0.000000E+00"
+      - query: ":SOUR:POW? DEF"
+        expect: "+0.000000E+00"
+
+  - name: "斜率与起始电压 Von：Von 以上才灌电流，斜率从 0 开始渐变"
+    manual: "Chapter 2 > [:SOURce]:CURRent:SLEW[:BOTH]、[:SOURce]:CURRent:VON"
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 0.001;:SOUR:CURR 2;:SOUR:CURR:VON 10.5;:SOUR:INP 1"
+      - query: ":SOUR:CURR:SLEW?"
+        expect: "+1.000000E-03"
+      - query: ":SOUR:CURR:VON?"
+        expect: "+1.050000E+01"
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":SOUR:CURR:VON 0"
+      - query: ":MEAS:CURR?"
+        expect_value: 2.0
+        tolerance: 1.0e-6
+      - query: ":SOUR:CURR:SLEW? MIN"
+        expect: "+1.000000E-03"
+      - query: ":SOUR:CURR:SLEW? MAX"
+        expect: "+1.000000E+00"
+      - query: ":SOUR:CURR:SLEW? DEF"
+        expect: "+1.000000E-03"
+      - query: ":SOUR:CURR:VON? MAX"
+        expect: "+1.500000E+02"
+      - query: ":SOUR:CURR:VON? MIN"
+        expect: "+0.000000E+00"
+
+  - name: "CC 斜率：设置后的第一次读数在斜率起点，200 ms 后到设定值"
+    manual: "Chapter 2 > [:SOURce]:CURRent:SLEW[:BOTH]"
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 0.001;:SOUR:CURR 5;:SOUR:INP 1"
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: ":MEAS:CURR?"
+        expect_value: 5.0
+        tolerance: 1.0e-6
+      - send: ":SOUR:CURR:SLEW MAX"
+      - query: ":SOUR:CURR:SLEW?"
+        expect: "+1.000000E+00"
+
+  - name: "CC 模式的工作点：电压/电流/功率回读（MEASure 与 FETCh 都可用）"
+    manual: >-
+      Chapter 2 > :MEASure commands and :FETCh commands > :MEASure:VOLTage[:DC]、
+      :MEASure:CURRent[:DC]、:MEASure:POWer[:DC] 与对应的 :FETCh 命令
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR 2;:SOUR:INP 1"
+      - query: ":MEAS:VOLT?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:CURR?"
+        expect_value: 2.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:POW?"
+        expect_value: 19.6
+        tolerance: 1.0e-5
+      - query: ":FETC:VOLT?"
+        expect_value: 9.8
+        tolerance: 1.0e-6
+      - query: ":FETC:CURR?"
+        expect_value: 2.0
+        tolerance: 1.0e-6
+      - query: ":FETC:POW?"
+        expect_value: 19.6
+        tolerance: 1.0e-5
+
+  - name: "CV 模式：输入保持在设定电压，电流由源决定"
+    manual: "Chapter 2 > [:SOURce]:VOLTage[:LEVel][:IMMediate]；:MEASure commands"
+    steps:
+      - send: ":SOUR:FUNC VOLT;:SOUR:VOLT 9;:SOUR:INP 1"
+      - query: ":MEAS:VOLT?"
+        expect_value: 9.0
+        tolerance: 1.0e-6
+      - query: ":FETC:CURR?"
+        expect_value: 10.0
+        tolerance: 1.0e-5
+      - query: ":FETC:POW?"
+        expect_value: 90.0
+        tolerance: 1.0e-4
+      - query: ":SOUR:INP?"
+        expect: "1"
+
+  - name: "CR 模式：按设定电阻取电流"
+    manual: "Chapter 2 > [:SOURce]:RESistance[:LEVel][:IMMediate]；:MEASure commands"
+    steps:
+      - send: ":SOUR:FUNC RES;:SOUR:RES 5;:SOUR:INP 1"
+      - query: ":MEAS:VOLT?"
+        expect_value: 9.8039215686
+        tolerance: 1.0e-6
+      - query: ":MEAS:CURR?"
+        expect_value: 1.9607843137
+        tolerance: 1.0e-6
+      - query: ":MEAS:POW?"
+        expect_value: 19.22337624
+        tolerance: 1.0e-5
+
+  - name: "CP 模式：V×I 保持在设定功率（D52 的定点迭代）"
+    manual: "Chapter 2 > [:SOURce]:POWer[:LEVel][:IMMediate]；:MEASure commands"
+    steps:
+      - send: ":SOUR:FUNC POW;:SOUR:POW 20;:SOUR:INP 1"
+      - query: ":MEAS:VOLT?"
+        expect_value: 9.7958315233
+        tolerance: 1.0e-6
+      - query: ":MEAS:CURR?"
+        expect_value: 2.0416847985
+        tolerance: 1.0e-6
+      - query: ":MEAS:POW?"
+        expect_value: 20.0
+        tolerance: 1.0e-5
+
+  - name: "OVP：V_LIMIT 作为过压阈值，输入电压超过它时输入关断"
+    manual: "Chapter 2 > [:SOURce]:CURRent:VLIMt、[:SOURce]:VOLTage:VLIMt、[:SOURce]:RESistance:VLIMt、[:SOURce]:POWer:VLIMt；用户指南 2.4 保护功能"
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR:VLIM 9;:SOUR:CURR 2;:SOUR:INP 1"
+      - query: ":SOUR:CURR:VLIM?"
+        expect: "+9.000000E+00"
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: ":MEAS:VOLT?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - send: ":SOUR:VOLT:VLIM 9;:SOUR:RES:VLIM 9;:SOUR:POW:VLIM 9"
+      - query: ":SOUR:CURR:VLIM?"
+        expect: "+9.000000E+00"
+      - query: ":SOUR:VOLT:VLIM? MAX"
+        expect: "+1.550000E+02"
+
+  - name: "OCP：I_LIMIT 作为过流阈值，灌入电流超过它时输入关断"
+    manual: "Chapter 2 > [:SOURce]:CURRent:ILIMt、[:SOURce]:VOLTage:ILIMt、[:SOURce]:RESistance:ILIMt、[:SOURce]:POWer:ILIMt；用户指南 2.4 保护功能"
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR:ILIM 1;:SOUR:CURR 2;:SOUR:INP 1"
+      - query: ":SOUR:CURR:ILIM?"
+        expect: "+1.000000E+00"
+      - query: ":MEAS:VOLT?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":SOUR:VOLT:ILIM 1;:SOUR:RES:ILIM 1;:SOUR:POW:ILIM 1"
+      - query: ":SOUR:CURR:ILIM?"
+        expect: "+1.000000E+00"
+      - query: ":SOUR:CURR:ILIM? MAX"
+        expect: "+7.000000E+01"
+
+  - name: "OPP：输入功率超过 200 W 时输入关断（手册的保护功率由额定功率给出）"
+    manual: "Chapter 2 > [:SOURce]:POWer[:LEVel][:IMMediate]；用户指南 2.4 保护功能（Overpower Protection）"
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR 30;:SOUR:INP 1"
+      - query: ":MEAS:VOLT?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: ":MEAS:VOLT?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+
+  - name: "输入开关：断开时输入高阻、不灌电流"
+    manual: "Chapter 2 > [:SOURce]:INPut[:STATe]"
+    steps:
+      - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR 2"
+      - query: ":SOUR:INP?"
+        expect: "0"
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: ":SOUR:INP 1"
+      - query: ":MEAS:CURR?"
+        expect_value: 2.0
+        tolerance: 1.0e-6
+      - send: ":SOUR:INP 0"
+      - query: ":MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+
+  - name: "触发系统、远端 Sense、LXI 与系统版本（接受类命令）"
+    manual: >-
+      Chapter 2 > :TRIGger Commands、[:SOURce]:SENSe、:SYSTem:VERSion?、:LXI Commands
+    steps:
+      - send: ":TRIG:SOUR BUS"
+      - query: ":TRIG:SOUR?"
+        expect: "BUS"
+      - send: ":TRIG:SOUR MANU"
+      - query: ":TRIG:SOUR?"
+        expect: "MANU"
+      - send: ":SOUR:SENS 1"
+      - query: ":SOUR:SENS?"
+        expect: "1"
+      - query: ":SYST:VERS?"
+        expect: "1999.0"
+      - send: "LXI:IDEN 1;LXI:MDNS 0"
+      - query: "LXI:IDEN?"
+        expect: "1"
+      - query: "LXI:MDNS?"
+        expect: "0"
+      - send: "LXI:RES"
+      - send: "LXI:REST"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: "未建模的功能按 -113 拒绝（LIST/动态/电池/OCP/OPP 测试）"
+    manual: "Chapter 2 > [:SOURce]:LIST:*、[:SOURce]:OCP:*、[:SOURce]:OPP:*、[:SOURce]:BATTary:*（本定义未建模）"
+    steps:
+      - send: ":SOUR:LIST:MODE CC"
+      - query: ":SYST:ERR?"
+        expect_match: '^-113,"Undefined header;not implemented in this definition".*'
+      - send: ":SOUR:FUNC:MODE LIST"
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,"Illegal parameter value.*'
