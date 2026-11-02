@@ -214,6 +214,25 @@ def test_calibrator_settings_and_queries(rig):
     assert session.instruments["calibrator"].get_state("ch2.duty") == pytest.approx(0.001)
 
 
+def test_negative_dbm_amplitude_writes_and_reports_bounds(rig):
+    """#261: the amplitude range is checked as Vpp into the load setting (D48), so negative dBm
+    writes are accepted and an out-of-range one names the bounds in the current unit."""
+    _, cal, _ = rig
+    cal.write(":CHANnel1:BASE:WAVe SQUare;:CHANnel1:LOAD 50")
+    cal.write(":CHANnel1:AMPLitude:UNIT DBM")
+    cal.write(":CHANnel1:BASE:AMPLitude -5")
+    assert float(cal.query(":CHANnel1:BASE:AMPLitude?")) == pytest.approx(-5.0)
+    cal.write(":CHANnel1:BASE:AMPLitude -40")  # 4.5 mVpp: within the 1 mVpp floor
+    assert float(cal.query(":CHANnel1:BASE:AMPLitude?")) == pytest.approx(-40.0)
+    cal.write(":CHANnel1:BASE:AMPLitude -70")  # 141 µVpp: below the floor
+    assert cal.query(":SYSTem:ERRor?") == (
+        '-222,"Data out of range; amplitude -70 DBM out of range [-53.0103, 53.0103] DBM"'
+    )
+    cal.write(":CHANnel1:AMPLitude:UNIT VPP")
+    # switching the unit converts the value: -40 dBm square into 50 Ω is 2·√(5e-6) Vpp
+    assert float(cal.query(":CHANnel1:BASE:AMPLitude?")) == pytest.approx(2 * (5e-6) ** 0.5)
+
+
 def test_unknown_commands_are_ignored_and_logged(rig):
     scope, cal, session = rig
     seen = []

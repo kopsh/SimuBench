@@ -41,8 +41,6 @@ channel_state:
   amplitude:
     type: float
     unit: V
-    min: 0.0
-    max: 200.0
     default: 0.1
     label: 幅度
     label_en: Amplitude
@@ -103,6 +101,10 @@ channel_components:
       unit: $ch.amplitude_unit
       offset: $ch.offset
       load_setting: $ch.load
+      # 幅度范围按负载设定下的 Vpp 检查(D48;#261 起因场景的修复):任一单位写入先换算到
+      # Vpp 再比较,含 DBM 时下限必须大于 0;越界报 -222,消息给出当前单位下的界限。
+      vpp_min: 0.001
+      vpp_max: 200.0
       hiz_from: 10000.0
   - name: out
     type: output_stage
