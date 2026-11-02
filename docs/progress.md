@@ -356,6 +356,16 @@
 | 为此补的通用能力有单元测试 | ✅ `tests/test_number_formats.py`（14 项）：`significant` 的工程记数、命令 `factor`、保留的空洞码、头字段的 `when` / `else`、参考位置决定触发前的格数；`ascii_block`、16 位字的 y 增量由上面的脚本测试覆盖 |
 | D45、real-models.md 记录基准的变更；schemas 与前端类型重新生成；`scripts/check.sh` 全绿 | ✅ Python 892 项通过（另 3 项跳过） |
 
+## 真实型号：Keysight DSO-X 2024A 按手册补齐常用命令（第一批，Issue 160，D42）
+
+| 验收标准 | 自检 |
+| --- | --- |
+| 定义按手册补命令，只用通用组件（#93 检查） | ✅ `keysight-dsox2024a.yaml` 新增 `*TRG`（手册：与不带参数的 `:DIGitize` 相同）、`:TRIGger:FORCe`（`acq.force_trigger`）、`:SYSTem:PRESet`（`sys.reset`，重置条件与 `*RST` 相同）、`:SERial?`、`:ACQuire?`（手册的 `*RST` 示例回复逐字一致）、`:SYSTem:DIDentifier?`，以及 8 条“接受”（`:TIMebase:VERNier`、`:TIMebase:WINDow:SCALe`/`:RANGe`/`:POSition`、`:SYSTem:LOCK`、`:SYSTem:PROTection:LOCK`、`:SYSTem:MENU`、`:SYSTem:DSP`）；`:ACQuire:TYPE` 的 PEAK 与 HRESolution 改由 `scope_acquisition` 的处理级实现（HRESolution 的 8 码 boxcar 是 SimuBench 值，覆盖表注明）。`src/simubench/library/components/` 未改，`tests/test_model_components.py` 通过 |
+| 覆盖表与用例 | ✅ 487 条：实现 74（67 → 74；新增 6 条、补上原先漏掉的 `:RSTate?` 与 `:ACQuire?`，并把 `:SYSTem:ERRor[:NEXT]` 从“未实现”改正）、接受 8、未实现 405；每条“接受”标 `affects_data: false` 并说明。`tests/models/keysight-dsox2024a/cases.yaml` 30 条（17 → 30），每条新命令至少一条，`manual` 引用手册章节；`simubench cases` 30/30 通过 |
+| 影响数据的命令有行为测试 | ✅ `tests/test_keysight_dsox.py` 14 项（新增 4）：`*TRG` 在停止时也采一帧并让 `*OPC?` 等到记录填满、`:TRIGger:FORCe` 在触发条件不满足时仍采一帧（记录的 `triggered` 为假）、`:SYSTem:PRESet` 恢复 `*RST` 条件并让示波器重新运行、PEAK 保留记录速率跨过的摆幅（40 MHz 正弦、50 ms/div：NORMal 混叠成单一电平，PEAK 到满摆幅） |
+| 表达不了的命令在覆盖表写原因，需要新能力的登记 | ✅ `:AER`/`:TER`/`:RSTate?`/`:OPEE`/`:OPERegister*`（运行与触发状态寄存器）、按参数选通道的 `:BLANk`/`:VIEW`/`:STATus`/`:TRIGger:LEVel <level>,<source>`、分段存储、其它触发类型、`:SYSTem:DATE`/`TIME`、RLOGger、SETup 均写明原因；能力 issue #248（`核心`）记录缺口 |
+| 检查 | ✅ `uv run simubench validate` 无诊断；覆盖表一致性检查通过；`scripts/check.sh` 全绿（pytest 1243 项通过、6 项跳过；ruff、生成 schema、Web 类型与测试通过） |
+
 ## 仪表模板机制与示波器模板；MCP 模板工具（Issue 125，instrument-authoring.md 7.4，D3）
 
 | 验收标准 | 自检 |
@@ -660,9 +670,29 @@
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff`（0–1.5 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑默认 100 ns（SimuBench 默认） |
+| 按 EN11F 的命令与取值 | ✅ 定义新增 `trigger.coupling`（DC / AC / LFREJect / HFREJect）、`trigger.nreject`（ON / OFF）、`trigger.holdoff_type`（OFF / TIME）与 `trigger.holdoff_time`（8 ns–30 s），命令 `:TRIGger:EDGE:COUPling`、`:TRIGger:EDGE:NREJect`、`:TRIGger:EDGE:HOLDoff`、`:TRIGger:EDGE:HLDTime`；覆盖表由未实现改为实现并写明：AC 高通 5 Hz（数据手册的交流耦合转折），LFREJ 高通 50 kHz、HFREJ 低通 1 MHz（数据手册未给，SimuBench 默认值），释抑类型与时间按 EN11F p.423–424（EVENts 未实现，设置它报错） |
 | 接到已有的触发模块 | ✅ `scope_trigger` 的 `coupling` / `reject` / `filters` / `noise_reject` / `holdoff`；定义里用参数映射与状态绑定，没有改组件 |
 | 手册用例 | ✅ `tests/models/siglent-sds2104xplus/cases.yaml` 新增“触发耦合、噪声抑制与释抑”：AC / LFREJect 回读、NREJ ON/OFF、HOLDoff 时间与格式，恢复 DC / OFF / 100 ns |
-| 行为测试 | ✅ `tests/test_siglent_sds.py` 两项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过、NREJ / HOLDoff 参数到位）；释抑使下一次触发不早于 5 ms（与无释抑的 2 ms 内触发对照） |
+| 行为测试 | ✅ `tests/test_siglent_sds.py` 四项：耦合与抑制接到触发路径（DC 不变、LFREJ 把 1 kHz 压到 5 % 以下、HFREJ 通过）；释抑只在类型 TIME 时推迟下一次触发（OFF 不推迟，EN11F 的 EVENts 设置报错）；带直流偏置的信号在 DC 耦合下不触发、AC 耦合后在交流过零处触发；带噪声的慢边沿 NREJ OFF 时同一沿重复触发、ON 后只触发一次 |
 | 检查 | ✅ `simubench validate` 无诊断；`simubench cases` 全部通过；`src/simubench/library/components/` 无改动；`scripts/check.sh` 全绿 |
 
+
+
+## SDS 触发释抑语义与行为测试（Issue 250、251）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| HOLDoff 是释抑类型、HLDTime 是时间 | ✅ `:TRIGger:EDGE:HOLDoff {OFF|TIME}`（复位 OFF；EVENts 未实现，设置它按值域报错）与 `:TRIGger:EDGE:HLDTime`（8 ns–30 s，EN11F p.423–424）分别绑定 `trigger.holdoff_type` / `trigger.holdoff_time`；组件 `holdoff_on` 只在类型 TIME 时为真，OFF 时释抑不生效 |
+| 手册用例 | ✅ `TRIG:EDGE:HOLD TIME` → `TIME`、`HLDT 1E-3` → `1.00E-03`、恢复 `HOLD OFF`；不再锁定“HOLDoff 收秒数”的错误行为 |
+| 行为测试补齐 #159 的三项 | ✅ `tests/test_siglent_sds.py`：DC 偏置下 DC 耦合不触发、AC 耦合在交流过零触发；噪声慢边沿 NREJ OFF 重复触发、ON 只触发一次；释抑类型 OFF 不推迟、TIME 推迟 HLDTime |
+| 检查 | ✅ 定义校验、手册用例、覆盖表一致性、`scripts/check.sh` 全绿；组件无改动 |
+
+
+## 34465A CONFigure 的回复与默认值（Issue 262）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `CONF?` 格式 | ✅ `"<功能> <量程>,<分辨率>"`（功能与量程间一个空格）：`meter.configure` 给出实际使用的量程（自动量程取当前档）与量程 × 当前 NPLC 分辨率，例如 `"VOLT +1.00000000E+01,+1.00000000E-06"`；手册用例按 p.240 的 Typical Return 改写 |
+| CONFigure 恢复默认值 | ✅ `:CONFigure[:VOLTage]:{DC|AC}` 用 `writes` 恢复手册默认值表（量程自动、分辨率自动、NPLC 10、自动调零开、立即触发、触发/采样计数 1、自动触发延迟），再应用量程/分辨率参数；参数新增 `sets`，给量程即关闭自动量程。手册默认值表中平台没有的设置（如显示、格式）不在复位范围，覆盖表说明 |
+| 现有用例与脚本 | ✅ 手册用例、`examples/scripts/keysight_34465a_measure.py` 的读数期望按 10 V 量程的 NPLC 分辨率更新；`tests/test_keysight_34465a.py` 通过 |
+| 检查 | ✅ 定义校验、覆盖表一致性、`scripts/check.sh` 全绿 |
