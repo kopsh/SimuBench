@@ -172,3 +172,42 @@ test("fidelity: a wire whose signal is truncated is marked ≈ with the reason",
   await expect(mark).toHaveText("≈");
   await expect(mark).toHaveAttribute("title", /square wave: \d+ harmonics/);
 });
+
+test("scope screen: the measurement table matches :MEASure? on the record shown, and cursors read Δt/ΔV", async ({ page }) => {
+  const headers = { "x-simubench-token": TOKEN };
+  const start = await page.request.post("/api/sessions", {
+    headers,
+    data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true },
+  });
+  expect(start.ok(), await start.text()).toBeTruthy();
+  const sid = ((await start.json()) as { id: string }).id;
+  const scpi = async (command: string) =>
+    ((await (
+      await page.request.post(`/api/sessions/${sid}/instruments/scope/scpi`, { headers, data: { command } })
+    ).json()) as { response: string | null }).response?.trim() ?? "";
+  // :DIGitize takes one acquisition and stops (#248): the screen then shows that record.
+  await scpi(":DIGitize CHANnel1");
+  const vpp = Number(await scpi(":MEASure:VPP? CHANnel1"));
+  const freq = Number(await scpi(":MEASure:FREQuency? CHANnel1"));
+  expect(freq).toBeGreaterThan(900);
+
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).dblclick();
+  await expect(page.getByTestId("scope-source")).toContainText("采集次数"); // a record, not live frames
+  const cellValue = async (id: string) => {
+    const text = (await page.getByTestId(id).textContent()) ?? "";
+    const m = text.match(/(-?[\d.]+)\s*([munµkM]?)/);
+    const scale: Record<string, number> = { m: 1e-3, u: 1e-6, µ: 1e-6, n: 1e-9, k: 1e3, M: 1e6, "": 1 };
+    return m ? Number(m[1]) * scale[m[2]] : NaN;
+  };
+  await expect(page.getByTestId("meas-ch1-vpp")).not.toHaveText("—");
+  expect(await cellValue("meas-ch1-vpp")).toBeCloseTo(vpp, 3);
+  expect(Math.abs((await cellValue("meas-ch1-frequency")) - freq) / freq).toBeLessThan(1e-3);
+
+  // Cursors: 6 divisions apart at 200 µs/div is 1.2 ms; 4 divisions at 500 mV/div is 2 V.
+  await page.getByRole("button", { name: "光标" }).click();
+  await expect(page.getByTestId("scope-cursors")).toBeVisible();
+  await expect(page.getByTestId("cursor-dt")).toHaveText(/1\.2\d* ms/);
+  await expect(page.getByTestId("cursor-dv")).toHaveText(/2(\.0+)? V/);
+});

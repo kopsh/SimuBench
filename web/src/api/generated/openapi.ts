@@ -3345,15 +3345,47 @@ export interface components {
             source: "ui" | "agent" | "api";
         };
         /**
+         * ScopeMeasurement
+         * @description One channel's automatic measurements on the record the screen shows (#280), taken by the
+         *     scope's own measurement rules, so they agree with its :MEASure? replies on the same record.
+         *     None: not measurable (fewer cycles than a period needs, a clipped record).
+         */
+        ScopeMeasurement: {
+            /** Channel */
+            channel: number;
+            /** Frequency */
+            frequency: number | null;
+            /** Mean */
+            mean: number | null;
+            /** Period */
+            period: number | null;
+            /** Rms */
+            rms: number | null;
+            /** Vmax */
+            vmax: number | null;
+            /** Vmin */
+            vmin: number | null;
+            /** Vpp */
+            vpp: number | null;
+        };
+        /**
          * ScopeScreen
          * @description What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:
          *     noise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition.
          */
         ScopeScreen: {
-            /** Acquisitions */
+            /**
+             * Acquisitions
+             * @description Acquisitions taken (commands, single, a stop); a running screen draws live frames, which are not acquisitions
+             */
             acquisitions: number;
             /** Instrument */
             instrument: string;
+            /**
+             * Measurements
+             * @description Per displayed channel, on the record shown (#280)
+             */
+            measurements: components["schemas"]["ScopeMeasurement"][];
             /**
              * Running
              * @description Running in an auto or normal mode: the screen follows the signal

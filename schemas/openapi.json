@@ -5269,16 +5269,123 @@
         "title": "SaveBenchRequest",
         "type": "object"
       },
+      "ScopeMeasurement": {
+        "description": "One channel's automatic measurements on the record the screen shows (#280), taken by the\nscope's own measurement rules, so they agree with its :MEASure? replies on the same record.\nNone: not measurable (fewer cycles than a period needs, a clipped record).",
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "integer"
+          },
+          "frequency": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frequency"
+          },
+          "mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "rms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rms"
+          },
+          "vmax": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vmax"
+          },
+          "vmin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vmin"
+          },
+          "vpp": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vpp"
+          }
+        },
+        "required": [
+          "channel",
+          "vpp",
+          "vmax",
+          "vmin",
+          "mean",
+          "rms",
+          "frequency",
+          "period"
+        ],
+        "title": "ScopeMeasurement",
+        "type": "object"
+      },
       "ScopeScreen": {
         "description": "What the scope's screen shows: while it runs, a frame of the signal now (not an acquisition:\nnoise of its own, no virtual time); stopped or waiting for a single trigger, the last acquisition.",
         "properties": {
           "acquisitions": {
+            "description": "Acquisitions taken (commands, single, a stop); a running screen draws live frames, which are not acquisitions",
             "title": "Acquisitions",
             "type": "integer"
           },
           "instrument": {
             "title": "Instrument",
             "type": "string"
+          },
+          "measurements": {
+            "description": "Per displayed channel, on the record shown (#280)",
+            "items": {
+              "$ref": "#/components/schemas/ScopeMeasurement"
+            },
+            "title": "Measurements",
+            "type": "array"
           },
           "running": {
             "description": "Running in an auto or normal mode: the screen follows the signal",
@@ -5327,7 +5434,8 @@
           "trigger_level",
           "trigger_source",
           "traces",
-          "acquisitions"
+          "acquisitions",
+          "measurements"
         ],
         "title": "ScopeScreen",
         "type": "object"

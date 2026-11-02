@@ -2035,9 +2035,15 @@ class ScopeMeasurements(Component):
     def value(self, what: str, n: int) -> tuple[float, int]:
         """The engine measurement ``what`` on channel n's record (NaN: cannot be measured), and the
         virtual time getting the record took."""
+        rec, used = self._acq().measure_record(n)
+        return self.record_value(what, rec), used
+
+    def record_value(self, what: str, rec: Any) -> float:
+        """The engine measurement ``what`` on a record by this model's rules (gate, clipping, top
+        and base, crossing level): what :MEASure? answers, and what the screen's measurement
+        panel shows for the record on screen (#280)."""
         acq = self._acq()
-        rec, used = acq.measure_record(n)
-        v = rec.volts
+        v = np.asarray(rec.volts, dtype=float)
         gate = self.param("gate")
         if gate:
             lo, hi = (max(0, min(v.size, round(float(g) / 10 * v.size))) for g in gate)
@@ -2045,7 +2051,7 @@ class ScopeMeasurements(Component):
         if v.size and str(self.param("clipped")) == "invalid":
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
-                return math.nan, used
+                return math.nan
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
             m = float(self.param("mid"))
@@ -2064,7 +2070,7 @@ class ScopeMeasurements(Component):
             hysteresis=float(self.param("hysteresis")),
             min_cycles=int(self.param("min_cycles")),
         )
-        return value, used
+        return value
 
     def _follow(self, n: int, source: Any) -> None:
         """A measurement that names its source makes it the default one (the bound ``source``)."""
