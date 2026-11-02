@@ -97,9 +97,10 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
           </Badge>
         </div>
         <div className="text-muted-foreground ml-auto flex items-center gap-2 text-[11px]">
-          <span className="num hidden break-all md:inline">{inst.data?.idn ?? "—"}</span>
+          {/* The overview shows the *IDN? reply in full; the header keeps only the copy action (#281). */}
           <button
             type="button"
+            title={inst.data?.idn}
             className="hover:text-foreground underline-offset-2 hover:underline"
             onClick={() => void navigator.clipboard?.writeText(inst.data?.idn ?? "")}
             disabled={!inst.data?.idn}

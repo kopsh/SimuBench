@@ -1,4 +1,4 @@
-import { BaseEdge, type Edge, EdgeLabelRenderer, type EdgeProps, getBezierPath } from "@xyflow/react";
+import { BaseEdge, type Edge, EdgeLabelRenderer, type EdgeProps, getBezierPath, Position, useStore } from "@xyflow/react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { NetLevel } from "@/api/client";
@@ -21,8 +21,79 @@ export type WireEdgeData = {
 };
 export type WireEdgeType = Edge<WireEdgeData, "wire">;
 
-function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, selected }: EdgeProps<WireEdgeType>) {
-  const [path, labelX, labelY] = getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
+/** How far a wire runs straight out of its pin before it turns (past the pin name), and its clearance above a node. */
+const STUB = 40;
+
+const outward = (p: Position) => (p === Position.Left ? -1 : p === Position.Right ? 1 : 0);
+
+interface Box {
+  top: number;
+  left: number;
+  right: number;
+}
+
+/**
+ * A wire whose pins face away from each other (an output on the right of a node that sits to the
+ * right of its load) would bend back underneath both nodes as a curve, hiding which pins it joins
+ * (#277). Such a wire leaves each pin straight, then runs above both nodes. Null when the pins
+ * face each other and the usual curve reads well.
+ */
+export function aroundPath(
+  s: { x: number; y: number; side: Position },
+  t: { x: number; y: number; side: Position },
+  boxes: Box[],
+): [string, number, number] | null {
+  const ds = outward(s.side);
+  const dt = outward(t.side);
+  if (!ds || !dt) return null;
+  // The pins face each other when each points toward the other end, however close the nodes are.
+  const facing = (t.x - s.x) * ds > 0 && (s.x - t.x) * dt > 0;
+  if (facing) return null;
+  const sx = s.x + ds * STUB;
+  const tx = t.x + dt * STUB;
+  // Above every node the run would cross, not only the two it joins.
+  const lo = Math.min(sx, tx);
+  const hi = Math.max(sx, tx);
+  const crossed = boxes.filter((b) => b.right >= lo && b.left <= hi);
+  const top = Math.min(s.y, t.y, ...crossed.map((b) => b.top)) - STUB;
+  // Straight segments with rounded joins (stroke-linejoin) read as a drawn schematic wire.
+  const path = [`M ${s.x} ${s.y}`, `L ${sx} ${s.y}`, `L ${sx} ${top}`, `L ${tx} ${top}`, `L ${tx} ${t.y}`, `L ${t.x} ${t.y}`].join(" ");
+  return [path, (sx + tx) / 2, top];
+}
+
+/** The nodes' outlines, as one string so a wire re-renders only when a node moves or resizes. */
+function boxesKey(state: { nodeLookup: Map<string, { internals: { positionAbsolute: { x: number; y: number } }; measured: { width?: number } }> }): string {
+  const out: number[] = [];
+  for (const n of state.nodeLookup.values()) {
+    const { x, y } = n.internals.positionAbsolute;
+    out.push(Math.round(y), Math.round(x), Math.round(x + (n.measured.width ?? 0)));
+  }
+  return out.join(",");
+}
+
+function parseBoxes(key: string): Box[] {
+  if (!key) return [];
+  const v = key.split(",").map(Number);
+  const out: Box[] = [];
+  for (let i = 0; i + 2 < v.length; i += 3) out.push({ top: v[i], left: v[i + 1], right: v[i + 2] });
+  return out;
+}
+
+function WireEdgeImpl({
+  id,
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  data,
+  selected,
+}: EdgeProps<WireEdgeType>) {
+  const boxes = parseBoxes(useStore(boxesKey));
+  const [path, labelX, labelY] =
+    aroundPath({ x: sourceX, y: sourceY, side: sourcePosition }, { x: targetX, y: targetY, side: targetPosition }, boxes) ??
+    getBezierPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition });
   const color =
     data?.issue === "error" ? "var(--status-error)" : data?.reference ? "var(--medium-reference)" : (data?.color ?? "var(--medium-electrical)");
   const approx = (data?.notes?.length ?? 0) > 0;
@@ -41,6 +112,7 @@ function WireEdgeImpl({ id, sourceX, sourceY, targetX, targetY, sourcePosition, 
         style={{
           stroke: silent ? "var(--muted-foreground)" : color,
           strokeWidth: emphasis ? 3.5 : 2,
+          strokeLinejoin: "round",
           opacity: emphasis ? 1 : silent ? 0.45 : 0.85,
           strokeDasharray: data?.issue ? "6 4" : data?.reference ? "10 3 2 3" : undefined,
           animationDirection: live && data?.reverse ? "reverse" : undefined,

@@ -52,13 +52,13 @@ test("SMU screen: the limit takes over, a sweep fills the I–V curve and the bu
   await page.locator(".react-flow__node").filter({ hasText: "源测量单元" }).dblclick();
   // 5 V into 1 kΩ ∥ 10 MΩ = 999.9 Ω
   await expect(page.getByTestId("smu-regulation")).toHaveText("CV");
-  await expect(page.getByTestId("readout-I")).toHaveText(/^5\.0005/);
+  await expect(page.getByTestId("readout-I")).toHaveText(/^\+5\.0005/); // signed, as the SMU display shows it
 
   const limit = page.getByRole("textbox", { name: "电流限值" }).first();
   await limit.fill("4m");
   await limit.press("Enter");
   await expect(page.getByTestId("smu-regulation")).toHaveText("CC");
-  await expect(page.getByTestId("readout-V")).toHaveText(/^3\.9996/);
+  await expect(page.getByTestId("readout-V")).toHaveText(/^\+3\.9996/);
 
   const console = page.getByRole("textbox", { name: "发送 SCPI 命令" });
   await console.fill(":READ?");

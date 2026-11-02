@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, NetLevel, StateVarInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { cn } from "@/lib/utils";
-import { formatValue, instrumentTitle, stateMap, varName } from "../model";
+import { formatValue, instrumentTitle, labelOf, stateMap, varName } from "../model";
 import { useWorkbench } from "../store";
 
 export type Issue = "error" | "warning";
@@ -87,13 +87,14 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
         <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 border-b px-3 py-1.5 text-[11px]">
           {globalKeys.map((k) => {
             const v = vars.get(k);
-            return v ? <Summary key={k} v={v} /> : null;
+            return v ? <Summary key={k} v={v} labelled={!isScope} /> : null;
           })}
         </div>
       )}
 
       <div className="divide-y">
-        {visibleChannels.map((n) => (
+        {/* A channel row with nothing to summarize (a single-channel SMU) is left out (#281). */}
+        {(isScope || chanKeys.some((k) => k !== "display")) && visibleChannels.map((n) => (
           <div key={n} className="flex items-center gap-2 px-3 py-1.5">
             <span className="num w-8 shrink-0 text-[11px] font-semibold" style={{ color: channelColor(n) }}>
               CH{n}
@@ -157,8 +158,16 @@ function Thumbnail({ level, channel }: { level?: NetLevel; channel: number }) {
   );
 }
 
-function Summary({ v, channelRow }: { v: StateVarInfo; channelRow?: boolean }) {
+function Summary({ v, channelRow, labelled }: { v: StateVarInfo; channelRow?: boolean; labelled?: boolean }) {
   const name = varName(v);
+  // An instrument-wide summary names each value ("电流限值 100 µA"), or a row of bare numbers
+  // leaves the reader guessing which is the setting and which the limit (#281).
+  if (labelled && v.type !== "bool")
+    return (
+      <span className="whitespace-nowrap" title={labelOf(v)}>
+        <span className="text-muted-foreground/80">{labelOf(v)}</span> <span className="num text-foreground">{formatValue(v)}</span>
+      </span>
+    );
   if (v.type === "bool") {
     // Output switches and similar are state words, not just colors (ui-design.md 4.2).
     return (
@@ -168,7 +177,11 @@ function Summary({ v, channelRow }: { v: StateVarInfo; channelRow?: boolean }) {
       </span>
     );
   }
-  return <span className={cn("num", channelRow ? "text-foreground" : "")}>{formatValue(v)}</span>;
+  return (
+    <span className={cn("num", channelRow ? "text-foreground" : "")} title={labelOf(v)}>
+      {formatValue(v)}
+    </span>
+  );
 }
 
 export function PortHandle({
@@ -209,12 +222,14 @@ export function PortHandle({
           background: connected ? color : "var(--card)",
         }}
       />
+      {/* The name sits above the pin, where the wire leaves horizontally, so no wire runs through
+          it (#277); the backing keeps it legible where another wire passes. */}
       <span
-        className="num text-muted-foreground pointer-events-none absolute text-[10px]"
+        className="num text-muted-foreground bg-background/85 pointer-events-none absolute rounded-sm px-0.5 text-[10px] leading-none"
         style={{
           top,
-          transform: "translateY(-50%)",
-          ...(side === Position.Left ? { right: "100%", marginRight: 8 } : { left: "100%", marginLeft: 8 }),
+          transform: "translateY(calc(-100% - 4px))",
+          ...(side === Position.Left ? { right: "100%", marginRight: 2 } : { left: "100%", marginLeft: 2 }),
         }}
       >
         {name}

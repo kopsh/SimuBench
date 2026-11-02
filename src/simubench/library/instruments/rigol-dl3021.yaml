@@ -225,14 +225,20 @@ state:
     label_en: Power-on clear
   system.selftest:
     type: string
+    label: 自检结果
+    label_en: Self-test
     default: ""
     readonly: true
   system.options:
     type: string
+    label: 选件
+    label_en: Options
     default: "0,0,0,0"
     readonly: true
   system.scpi_version:
     type: string
+    label: SCPI 版本
+    label_en: SCPI version
     default: "1999.0"
     readonly: true
   interface.lxi.identify:
@@ -247,6 +253,8 @@ state:
     label_en: mDNS
   interface.lxi.action:
     type: enum
+    label: LXI 操作
+    label_en: LXI action
     options: [RESET, RESTART]
     default: RESET
 components:

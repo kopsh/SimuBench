@@ -49,7 +49,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
         </TooltipTrigger>
         <TooltipContent>{t("workbench.backHome")}</TooltipContent>
       </Tooltip>
-      <Logo className="hidden sm:inline" />
+      <Logo className="hidden shrink-0 lg:inline" />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <div className="min-w-0">
         <div className="truncate text-[13px] leading-tight font-medium">{session.bench_name}</div>
@@ -98,9 +98,14 @@ export function TopBar({ session }: { session: SessionInfo }) {
         </Tooltip>
       )}
 
-      <div className="mx-auto flex items-center gap-2">
-        <div className="bg-background flex h-8 items-center gap-3 rounded-md border px-3" aria-live="polite">
-          <span className="text-muted-foreground text-[11px]">{t(`workbench.clockMode.${session.clock_mode}`)}</span>
+      <div className="mx-auto flex shrink-0 items-center gap-2">
+        <div
+          className="bg-background flex h-8 items-center gap-3 rounded-md border px-3 whitespace-nowrap"
+          aria-live="polite"
+          title={t(`workbench.clockMode.${session.clock_mode}`)}
+        >
+          {/* The mode name gives way first on a narrow window; the tooltip still names it (#276). */}
+          <span className="text-muted-foreground hidden text-[11px] xl:inline">{t(`workbench.clockMode.${session.clock_mode}`)}</span>
           <span className="num text-[13px] font-medium" title={t("workbench.clock")}>
             t = {formatClock(nowNs)}
           </span>
@@ -132,9 +137,9 @@ export function TopBar({ session }: { session: SessionInfo }) {
         )}
       </div>
 
-      <Button variant="outline" size="sm" className="text-muted-foreground h-8 gap-2" onClick={() => setPalette(true)}>
+      <Button variant="outline" size="sm" className="text-muted-foreground h-8 shrink-0 gap-2" onClick={() => setPalette(true)}>
         <Command className="size-3.5" />
-        <span className="hidden md:inline">{t("workbench.commandPalette")}</span>
+        <span className="hidden xl:inline">{t("workbench.commandPalette")}</span>
         <Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd>
       </Button>
       {session.bench_path && (
@@ -201,7 +206,7 @@ function ConnectionBadge({ status, clockMode }: { status: ConnectionState; clock
   };
   const [dot, label] = map[status];
   const badge = (
-    <span className="text-muted-foreground ml-2 inline-flex items-center gap-1.5 text-[11px]" data-testid="session-activity">
+    <span className="text-muted-foreground ml-2 inline-flex shrink-0 items-center gap-1.5 text-[11px] whitespace-nowrap" data-testid="session-activity">
       <span className={cn("size-2 rounded-full", dot)} aria-hidden />
       {label}
     </span>

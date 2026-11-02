@@ -11,6 +11,7 @@ panel; the others without one keep the generic layout (readings and the settings
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Literal
 
 from ..models.definition import (
@@ -70,9 +71,7 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
     terminal = _first(d, "dmm_input_terminal")
     fn_state = _bound(path, "function")
     fn_spec = d.state.get(fn_state) if fn_state else None
-    digits = adc.params.get("digits")
-    digits = int(digits) if isinstance(digits, (int, float)) and not isinstance(digits, bool) else 7
-    digits = min(digits, 8)
+    digits = _display_digits(d, adc.params.get("digits"))
 
     # The main display: the reading of the selected function.
     readouts: list[PanelReadout] = []
@@ -324,12 +323,28 @@ def _counter(d: InstrumentDefinition) -> Panel | None:
             PanelReadout(reading=f"{core.name}.value", label="读数", label_en="Reading", digits=10)
         )
     if stats is not None:
-        readouts.append(
-            PanelReadout(reading=f"{stats.name}.mean", label="统计均值", label_en="Mean", digits=8)
+        # The statistics are in the selected function's unit (Hz for frequency, s for a period),
+        # so they follow the function as the main reading does (#278).
+        options = (
+            list(fn_spec.options or []) if fn_state and fn_spec is not None and fn_spec.type == "enum" else []
         )
-        readouts.append(
-            PanelReadout(reading=f"{stats.name}.sdev", label="统计标准差", label_en="Std dev", digits=8)
-        )
+        for reading, label, label_en in (("mean", "统计均值", "Mean"), ("sdev", "统计标准差", "Std dev")):
+            if options:
+                for option in options:
+                    readouts.append(
+                        PanelReadout(
+                            reading=f"{stats.name}.{reading}",
+                            label=label,
+                            label_en=label_en,
+                            unit=units.get(option) or None,
+                            digits=8,
+                            when={fn_state: option},
+                        )
+                    )
+            else:
+                readouts.append(
+                    PanelReadout(reading=f"{stats.name}.{reading}", label=label, label_en=label_en, digits=8)
+                )
         readouts.append(PanelReadout(reading=f"{stats.name}.count", label="统计点数", label_en="Points"))
 
     groups: list[PanelGroup] = []
@@ -368,6 +383,21 @@ _FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V"}
 
 
 # ---- helpers -----------------------------------------------------------------------------------------
+
+
+def _display_digits(d: InstrumentDefinition, response_digits: Any) -> int:
+    """Significant digits of a meter's front-panel reading: its resolution in digits ("6½" shows 7),
+    not the digits of its SCPI reply, which carries more (#278); 7 when the definition says nothing."""
+    spec = d.specs.get("digits")
+    if isinstance(spec, str):
+        m = re.match(r"\s*(\d+)\s*(½|1/2)?\s*$", spec)
+        if m:
+            return int(m.group(1)) + (1 if m.group(2) else 0)
+    if isinstance(spec, (int, float)) and not isinstance(spec, bool):
+        return int(spec)
+    if isinstance(response_digits, (int, float)) and not isinstance(response_digits, bool):
+        return min(int(response_digits), 7)
+    return 7
 
 
 def _first(d: InstrumentDefinition, type_name: str) -> ComponentSpec | None:

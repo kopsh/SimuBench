@@ -180,10 +180,14 @@ state:
     label_en: Averages
   acquire.mode:
     type: enum
+    label: 采集模式
+    label_en: Acquire mode
     options: [RTIMe, SEGMented]
     default: RTIMe
   acquire.complete:
     type: int
+    label: 采集完成判据
+    label_en: Acquire complete
     min: 100
     max: 100
     default: 100
@@ -202,10 +206,14 @@ state:
     label_en: Waveform format
   waveform.byteorder:
     type: enum
+    label: 波形字节序
+    label_en: Waveform byte order
     options: [LSBFirst, MSBFirst]
     default: MSBFirst
   waveform.unsigned:
     type: bool
+    label: 波形无符号
+    label_en: Waveform unsigned
     default: true
   waveform.points:
     type: int
@@ -216,39 +224,57 @@ state:
     label_en: Waveform points
   waveform.points_mode:
     type: enum
+    label: 波形点数模式
+    label_en: Waveform points mode
     options: [NORMal, MAXimum, RAW]
     default: NORMal
   measure.source:
     type: enum
+    label: 测量信源
+    label_en: Measure source
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
     default: CHANnel1
   measure.source2:
     type: enum
+    label: 测量信源 2
+    label_en: Measure source 2
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
     default: CHANnel2
   # :SYSTem 的界面与身份：前面板锁定、选件保护、软键菜单与显示文本都不改变数据；序列号与主机 ID
   # 是只读的身份串（手册的 *IDN? 与 :SYSTem:DIDentifier?）。
   system.lock:
     type: bool
+    label: 前面板锁定
+    label_en: Front panel lock
     default: false
   system.protection_lock:
     type: bool
+    label: 保护锁定
+    label_en: Protection lock
     default: false
   system.menu:
     type: enum
+    label: 菜单
+    label_en: Menu
     options: [MASK, MEASure, SEGMented, LISTer]
     default: MEASure
   system.display_text:
     type: string
+    label: 屏幕文字
+    label_en: Display text
     default: ""
   system.serial:
     # 只有一个取值的枚举：:SERial? 才按手册回“不带引号的字符串”（字符串状态会加引号）。
     type: enum
+    label: 序列号
+    label_en: Serial number
     options: [MY58260001]
     default: MY58260001
     readonly: true
   system.host_id:
     type: string
+    label: 主机 ID
+    label_en: Host ID
     default: "DSO-X 2024A,MY58260001,SIMUBENCH2024A"
     readonly: true
 channel_state:

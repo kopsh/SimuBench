@@ -10,6 +10,9 @@ export function Readout({
   strong,
   plain,
   digits = 5,
+  fixed,
+  signed,
+  overflow,
   testId,
 }: {
   label: string;
@@ -18,9 +21,20 @@ export function Readout({
   strong?: boolean;
   plain?: boolean;
   digits?: number;
+  /** Keep trailing zeros: an instrument display shows all its digits ("0.00000", not "0"). */
+  fixed?: boolean;
+  /** Show the sign of a positive value too ("+1.00000"), as a source-measure display does. */
+  signed?: boolean;
+  /** No value to show (an open circuit's resistance): the display's overflow mark instead. */
+  overflow?: string;
   testId?: string;
 }) {
-  const p = plain ? { mantissa: value.toFixed(3), prefix: "", unit } : engParts(value, unit, digits);
+  const p = overflow
+    ? { mantissa: overflow, prefix: "", unit: "" }
+    : plain
+      ? { mantissa: value.toFixed(3), prefix: "", unit }
+      : engParts(value, unit, digits, fixed);
+  if (signed && !overflow && !p.mantissa.startsWith("-")) p.mantissa = `+${p.mantissa}`;
   return (
     <div className="px-4 py-3">
       <div className="text-muted-foreground text-xs font-medium">{label}</div>

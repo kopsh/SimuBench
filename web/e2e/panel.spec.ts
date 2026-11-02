@@ -20,7 +20,7 @@ async function open(page: Page, bench: string, node: string, nodes: number) {
 
 test("34465A default panel: function and range keys change the reading", async ({ page }) => {
   await open(page, "benches/keysight-34465a.bench.yaml", "数字万用表", 4);
-  await expect(page.getByText("类别默认布局")).toBeVisible();
+  await expect(page.getByTestId("panel-source")).toHaveAccessibleName("类别默认布局"); // a hint, not display text (#281)
   const display = panel(page).getByTestId("panel-readout-meter.DC");
   // 1 V into 900 kΩ / (100 kΩ ∥ 10 MΩ): 99.103 mV on the 100 mV range the bench sets.
   await expect(display).toHaveText(/^99\.103/);
@@ -82,7 +82,7 @@ test("5522A default panel: set the output, operate and standby", async ({ page }
 
 test("a declared panel: its groups, controls and softkeys", async ({ page }) => {
   await open(page, "benches/panel.bench.yaml", "面板万用表", 2);
-  await expect(page.getByText("定义的面板")).toBeVisible();
+  await expect(page.getByTestId("panel-source")).toHaveAccessibleName("定义的面板"); // a hint, not display text (#281)
   for (const name of ["功能", "量程", "高级"]) await expect(panel(page).getByRole("region", { name })).toBeVisible();
   await expect(panel(page).getByTestId("panel-readout-meter.DC")).toHaveText(/^4\.99|^5\.00/);
 
