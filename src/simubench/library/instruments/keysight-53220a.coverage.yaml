@@ -1,0 +1,628 @@
+# Keysight 53220A 的覆盖表：命令按 53220A/53230A User's Guide（53220-90001，Edition 4，
+# April 2023）第 3–8 章与命令索引逐条列出；程度与说明手写。手册没有单独的 Programmer's Reference
+# 章节，未在正文给出语法的命令不收。首波实现频率/周期/门控累加/两通道时间间隔、输入调理、
+# 时基、触发与统计；53230A 独有功能与其余命令标未实现。
+schema: simubench.coverage/1
+model: keysight-53220a
+sections:
+- section: IEEE 488.2 Common Commands
+  commands:
+  - header: '*IDN'
+    level: implemented
+    note: 按手册的四字段格式返回厂商、型号、序列号与固件；手册没有示例，序列号与固件串按 S1 回填待真机核对。
+  - header: '*RST'
+    level: implemented
+    note: 上电默认值：频率、0.1 s 门时间、TIME 门控源、立即触发/1 次/1 读数、AC 耦合、1 MΩ、0 V 阈值；统计与运算关闭。
+  - header: '*CLS'
+    level: implemented
+    note: 清除错误队列、标准事件寄存器与状态字节（第 8 章）。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器；查询返回十进制加权和。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器；读后清零。
+  - header: '*OPC'
+    level: implemented
+    note: 操作完成位；查询等待未完成的测量（虚拟时间按门时间推进）。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器；查询返回十进制加权和。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节；错误队列与测量完成状态位。
+  - header: '*TRG'
+    level: implemented
+    note: 总线触发：TRIGger:SOURce BUS 时接受一次触发，取 SAMPle:COUNt 个读数。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过返回 0。
+  - header: '*WAI'
+    level: implemented
+    note: 等待本次触发/测量完成。
+  - header: '*SAV'
+    level: not_modeled
+    note: 仪器状态存储（位置 0–4）未建模；不写文件系统。
+  - header: '*RCL'
+    level: not_modeled
+    note: 仪器状态调用未建模。
+- section: Chapter 1 Preparation for Use > Utility Functions (system settings)
+  commands:
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 错误队列的下一条；空队列返回 +0,"No error"；队列长度 20，满后最后一条为 -350。
+  - header: :SYSTem:DATE
+    level: implemented
+    note: 实时时钟日期 yyyy,mm,dd（IEEE 488.2；按会话日历）。
+  - header: :SYSTem:TIME
+    level: implemented
+    note: 实时时钟时间 hh,mm,ss.sss；短格式 SYST:TIM 与 TIMeout 的短格式相同，定义按长格式区分。
+  - header: :SYSTem:PRESet
+    level: implemented
+    note: 与 *RST 相同的仪器预置。
+  - header: :SYSTem:TIMeout
+    level: accepted
+    affects_data: false
+    note: 测量超时 10 ms–2000 s，默认 1 s；仿真中的测量按门时间完成，不会超时。
+  - header: :SYSTem:ALEVel:FREQuency
+    level: accepted
+    affects_data: false
+    note: 自动电平的最低频率 50 Hz–10 kHz，默认 50 Hz；自动电平本身未建模。
+  - header: :SYSTem:LANGuage
+    level: accepted
+    affects_data: false
+    note: 只接受 53220A/53230A；53132A 仿真模式未建模，设定按 -224 拒绝。
+  - header: :SYSTem:BATTery:ENABle
+    level: accepted
+    affects_data: false
+    note: 电池使能标志保存并回读；Option 300 电池未建模。
+  - header: :SYSTem:BATTery:LEVel
+    level: not_modeled
+    note: Option 300 电池未建模，电量查询无意义。
+  - header: :SYSTem:BATTery:STATus
+    level: not_modeled
+    note: AC/BATT 电源状态查询；Option 300 电池未建模。
+  - header: :SYSTem:SECure:IMMediate
+    level: not_modeled
+    note: NISPOM 安全擦除未建模。
+  - header: :SYSTem:SECurity:IMMediate
+    level: not_modeled
+    note: NISPOM 安全擦除未建模（手册的另一种拼写）。
+  - header: :SYSTem:LOCK:REQuest
+    level: not_modeled
+    note: 接口锁定未建模。
+  - header: :CALibration:COUNt
+    level: not_modeled
+    note: 校准计数未建模。
+  - header: :CALibration:SECurity:STATe
+    level: not_modeled
+    note: 校准安全未建模。
+- section: Chapter 3 Measurements > CONFigure and MEASure
+  commands:
+  - header: :CONFigure:FREQuency
+    level: implemented
+    note: 选择频率测量，保存预期值与分辨率，并把触发（立即/1 次/1 读数）与门控（TIME/0.1 s）置为手册默认；分辨率到门时间的换算未建模。
+  - header: :MEASure:FREQuency
+    level: implemented
+    note: 在指定通道（默认 (@1)）立即测一次频率，门时间计入虚拟时间；通道由测量核心选择。预期值与分辨率按范围接受，不改变门时间（分辨率到门时间的换算未建模）。组件应答为 13 位有效数字（见 docs/progress.md）。
+  - header: :CONFigure:PERiod
+    level: implemented
+    note: 选择周期测量，保存预期值与分辨率，触发与门控置为手册默认；分辨率到门时间的换算未建模。
+  - header: :MEASure:PERiod
+    level: implemented
+    note: 在指定通道（默认 (@1)）立即测一次周期，门时间计入虚拟时间；预期值与分辨率按范围接受，不改变门时间。
+  - header: :CONFigure:FREQuency:RATio
+    level: not_modeled
+    note: 频率比测量未建模（需要两通道同时计数）。
+  - header: :MEASure:FREQuency:RATio
+    level: not_modeled
+    note: 频率比测量未建模。
+  - header: :CONFigure:SPERiod
+    level: not_modeled
+    note: 单周期测量未建模（时间间隔的派生模式）。
+  - header: :MEASure:SPERiod
+    level: not_modeled
+    note: 单周期测量未建模。
+  - header: :CONFigure:FREQuency:BURSt
+    level: not_modeled
+    note: 突发测量是 53230A Option 150（通道 3）独有，未建模。
+  - header: :MEASure:FREQuency:BURSt
+    level: not_modeled
+    note: 突发测量是 53230A Option 150（通道 3）独有，未建模。
+  - header: :CONFigure:FREQuency:PRF
+    level: not_modeled
+    note: PRF 是 53230A Option 150（通道 3）独有，未建模。
+  - header: :MEASure:FREQuency:PRF
+    level: not_modeled
+    note: PRF 是 53230A Option 150（通道 3）独有，未建模。
+  - header: :CONFigure:FREQuency:PRI
+    level: not_modeled
+    note: PRI 是 53230A Option 150（通道 3）独有，未建模。
+  - header: :MEASure:FREQuency:PRI
+    level: not_modeled
+    note: PRI 是 53230A Option 150（通道 3）独有，未建模。
+  - header: :CONFigure:PWIDth:BURSt
+    level: not_modeled
+    note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+  - header: :MEASure:PWIDth:BURSt
+    level: not_modeled
+    note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+  - header: :CONFigure:NWIDth:BURSt
+    level: not_modeled
+    note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+  - header: :MEASure:NWIDth:BURSt
+    level: not_modeled
+    note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+  - header: :CONFigure:TINTerval
+    level: implemented
+    note: 选择两通道时间间隔，起/停通道参数默认 (@1),(@2)；触发置为立即。
+  - header: :MEASure:TINTerval
+    level: not_modeled
+    note: 通道对参数未建模；时间间隔用 CONFigure:TINTerval + READ?。
+  - header: :CONFigure:RTIMe
+    level: not_modeled
+    note: 上升时间测量未建模（时间间隔的派生模式）。
+  - header: :MEASure:RTIMe
+    level: not_modeled
+    note: 上升时间测量未建模。
+  - header: :CONFigure:FTIMe
+    level: not_modeled
+    note: 下降时间测量未建模。
+  - header: :MEASure:FTIMe
+    level: not_modeled
+    note: 下降时间测量未建模。
+  - header: :CONFigure:NDUTycycle
+    level: not_modeled
+    note: 占空比测量未建模。
+  - header: :MEASure:NDUTycycle
+    level: not_modeled
+    note: 占空比测量未建模。
+  - header: :CONFigure:PDUTycycle
+    level: not_modeled
+    note: 占空比测量未建模。
+  - header: :MEASure:PDUTycycle
+    level: not_modeled
+    note: 占空比测量未建模。
+  - header: :CONFigure:NWIDth
+    level: not_modeled
+    note: 脉宽测量未建模。
+  - header: :MEASure:NWIDth
+    level: not_modeled
+    note: 脉宽测量未建模。
+  - header: :CONFigure:PWIDth
+    level: not_modeled
+    note: 脉宽测量未建模。
+  - header: :MEASure:PWIDth
+    level: not_modeled
+    note: 脉宽测量未建模。
+  - header: :CONFigure:PHASe
+    level: not_modeled
+    note: 相位测量未建模。
+  - header: :MEASure:PHASe
+    level: not_modeled
+    note: 相位测量未建模。
+  - header: :CONFigure:TOTalize:CONTinuous
+    level: not_modeled
+    note: 连续累加未建模（首波缺口：需要 ABORt/DATA 读数路径）。
+  - header: :CONFigure:TOTalize:TIMed
+    level: implemented
+    note: 选择门控累加，门时间参数写门时间（100 µs–1000 s，默认 0.1 s），触发置为立即。
+  - header: :MEASure:TOTalize:TIMed
+    level: not_modeled
+    note: 单次累加的门时间参数无法在操作命令里写设置；用 CONFigure:TOTalize:TIMed + READ?。
+  - header: :CONFigure:ARRay:TSTamp
+    level: not_modeled
+    note: 时间戳是 53230A 独有，未建模。
+  - header: :MEASure:ARRay:TSTamp
+    level: not_modeled
+    note: 时间戳是 53230A 独有，未建模。
+  - header: '[:SENSe]:TSTamp:RATE'
+    level: not_modeled
+    note: 时间戳速率是 53230A 独有，未建模。
+  - header: :SENSe:FREQuency:MODE
+    level: not_modeled
+    note: 测量模式 AUTO/RECiprocal/CONTinuous 未建模；CONTinuous 是 53230A 独有。
+- section: Chapter 3 Measurements > Reference Oscillator Configuration
+  commands:
+  - header: '[:SENSe]:ROSCillator:SOURce'
+    level: implemented
+    note: 内部 10 MHz 或外部参考；外部参考无效时 reference_clock 回落到内部（手册：EXT 需在 Ext Ref In 上有 1/5/10 MHz 信号）。
+  - header: '[:SENSe]:ROSCillator:SOURce:AUTO'
+    level: accepted
+    affects_data: false
+    note: 自动选择标志保存并回读；仿真按显式 source 选择，EXT 下按参考信号是否有效自动回落（与手册的 AUTO 行为一致）。
+  - header: '[:SENSe]:ROSCillator:EXTernal:FREQuency'
+    level: implemented
+    note: 外部参考频率 1/5/10 MHz，默认 10 MHz；状态范围校验 1–10 MHz，其它值按 -222 拒绝。
+  - header: '[:SENSe]:ROSCillator:EXTernal:CHECk'
+    level: not_modeled
+    note: 外部参考检测未建模；SOURce EXT 下 reference_clock 自行判断参考是否有效并回落。
+  - header: '[:SENSe]:ROSCillator:INTernal:POWer:STANdby'
+    level: accepted
+    affects_data: false
+    note: Option 010 保持加温标志保存并回读；温度与稳定度未建模。
+- section: Chapter 4 Input Signal Conditioning
+  commands:
+  - header: '[:INPut<ch>]:IMPedance'
+    level: implemented
+    note: 50 Ω 或 1 MΩ，默认 1 MΩ；阻抗在电路层加载信号源，50 Ω 输入会改变源幅度。
+  - header: :INPut<ch>:RANGe
+    level: not_modeled
+    note: 输入量程（5/50/500 V）未建模；阈值按 5 V 量程校验。
+  - header: '[:INPut<ch>]:COUPling'
+    level: implemented
+    note: AC/DC 耦合，默认 AC；AC 为 10 Hz 高通（手册：AC 10 Hz–350 MHz，DC 1 mHz–350 MHz）。
+  - header: :INPut<ch>:FILTer[:LPASs][:STATe]
+    level: not_modeled
+    note: 100 kHz 低通滤波未建模。
+  - header: '[:INPut<ch>]:LEVel[:ABSolute]'
+    level: implemented
+    note: 触发电平（5 V 量程 ±5.125 V），默认 0 V；绝对电平写入后按该电平计阈值穿越。
+  - header: :INPut<ch>:LEVel<lv>[:ABSolute]
+    level: not_modeled
+    note: LEVel1/LEVel2 双阈值（单通道时间间隔、上升/下降时间）未建模。
+  - header: :INPut<ch>:LEVel<lv>:AUTO
+    level: not_modeled
+    note: 自动电平未建模。
+  - header: :INPut<ch>:LEVel<lv>:RELative
+    level: not_modeled
+    note: 相对阈值（p-p 百分比）未建模。
+  - header: :INPut<ch>:LEVel:MINimum
+    level: not_modeled
+    note: 输入电平测量未建模。
+  - header: :INPut<ch>:LEVel:MAXimum
+    level: not_modeled
+    note: 输入电平测量未建模。
+  - header: :INPut<ch>:LEVel:PTPeak
+    level: not_modeled
+    note: 输入电平测量未建模。
+  - header: :INPut<ch>:NREJection
+    level: not_modeled
+    note: 噪声抑制（迟滞）未建模。
+  - header: :INPut<ch>:SLOPe<lv>
+    level: not_modeled
+    note: 触发沿未建模；计数核心只数正向穿越。
+  - header: :INPut<ch>:PROTection
+    level: not_modeled
+    note: 输入保护继电器未建模。
+  - header: :INPut<ch>:PROTection:CLEar
+    level: not_modeled
+    note: 输入保护继电器未建模。
+  - header: :INPut<ch>:PROBe
+    level: not_modeled
+    note: 探头比未建模。
+  - header: :INPut3:BURSt:LEVel
+    level: not_modeled
+    note: 通道 3（Option 106/115）未建模。
+  - header: :INPut3:STRength
+    level: not_modeled
+    note: 通道 3（Option 106/115）未建模。
+- section: Chapter 5 Triggering and Gating
+  commands:
+  - header: :ABORt
+    level: implemented
+    note: 中止测量，已取读数保留。
+  - header: :INITiate[:IMMediate]
+    level: implemented
+    note: 进入等待触发状态并清空上次运行的读数；立即触发时开始测量。
+  - header: :FETCh
+    level: implemented
+    note: 等待本次运行完成后给出全部读数；无读数时按手册报 -230。
+  - header: :READ
+    level: implemented
+    note: INITiate + FETCh?；总线或外部触发时报 -214（触发死锁）。
+  - header: :TRIGger:SOURce
+    level: implemented
+    note: IMMediate/EXTernal/BUS，默认 IMMediate；外部触发（Trig In）未接线，只实现总线触发。
+  - header: :TRIGger:SLOPe
+    level: not_modeled
+    note: 外部触发沿未建模（Trig In 不产生触发）。
+  - header: :TRIGger:DELay
+    level: implemented
+    note: 触发到第一次测量的延迟 0–10000 s，默认 0；计入虚拟时间。
+  - header: :TRIGger:COUNt
+    level: implemented
+    note: 触发次数 1–1,000,000，默认 1。
+  - header: :SAMPle:COUNt
+    level: implemented
+    note: 每次触发的读数 1–1,000,000，默认 1。
+  - header: '[:SENSe]:FREQuency:GATE:SOURce'
+    level: implemented
+    note: TIME 或 EXTernal，默认 TIME；EXTernal 表示由触发模型开始这一轮，门长仍由门时间给出（component-map 的模型边界）。
+  - header: '[:SENSe]:FREQuency:GATE:TIME'
+    level: implemented
+    note: 频率测量的门时间 100 µs–1000 s，默认 0.1 s；真实门长按 1/(1+时基误差) 计入虚拟时间。
+  - header: '[:SENSe]:FREQuency:GATE:POLarity'
+    level: not_modeled
+    note: 外部门控极性未建模。
+  - header: '[:SENSe]:TOTalize:GATE:SOURce'
+    level: implemented
+    note: 累加门控源 TIME/EXTernal；仿真中与频率门控源共用一个设置（手册中两功能各自保存）。
+  - header: '[:SENSe]:TOTalize:GATE:TIME'
+    level: implemented
+    note: 累加门时间 100 µs–1000 s；仿真中与频率门时间共用一个设置。
+  - header: '[:SENSe]:TOTalize:GATE:POLarity'
+    level: not_modeled
+    note: 外部门控极性未建模。
+  - header: '[:SENSe]:TINTerval:GATE:SOURce'
+    level: not_modeled
+    note: 时间间隔门控（IMMediate/EXTernal/ADVanced）未建模；间隔按通道事件直接求。
+  - header: '[:SENSe]:TINTerval:GATE:POLarity'
+    level: not_modeled
+    note: 时间间隔门控极性未建模。
+  - header: '[:SENSe]:GATE:STARt:SOURce'
+    level: not_modeled
+    note: 高级门控未建模（首波只做 TIME/EXTernal 门控源与门时间）。
+  - header: '[:SENSe]:GATE:STARt:SLOPe'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:EXTernal:SOURce'
+    level: not_modeled
+    note: 高级门控与外部门控信号源未建模。
+  - header: '[:SENSe]:GATE:STARt:DELay:SOURce'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STARt:DELay:EVENts'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STARt:DELay:TIME'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STOP:SOURce'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STOP:SLOPe'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STOP:HOLDoff:SOURce'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STOP:HOLDoff:EVENts'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:GATE:STOP:HOLDoff:TIME'
+    level: not_modeled
+    note: 高级门控未建模。
+  - header: '[:SENSe]:FREQuency:BURSt:GATE:AUTO'
+    level: not_modeled
+    note: 突发门控是 53230A Option 150 独有，未建模。
+  - header: '[:SENSe]:FREQuency:BURSt:GATE:DELay'
+    level: not_modeled
+    note: 突发门控是 53230A Option 150 独有，未建模。
+  - header: '[:SENSe]:FREQuency:BURSt:GATE:TIME'
+    level: not_modeled
+    note: 突发门控是 53230A Option 150 独有，未建模。
+  - header: '[:SENSe]:FREQuency:BURSt:GATE:NARRow'
+    level: not_modeled
+    note: 突发门控是 53230A Option 150 独有，未建模。
+  - header: :OUTPut[:STATe]
+    level: not_modeled
+    note: Gate In/Out 输出未建模。
+  - header: :OUTPut:POLarity
+    level: not_modeled
+    note: Gate In/Out 输出未建模。
+- section: Chapter 6 Math, Graphing, and Data Logging
+  commands:
+  - header: CALCulate<ch>[:STATe]
+    level: accepted
+    affects_data: false
+    note: 运算子系统的使能标志，保存并回读；仿真中统计随每次读数累计，不由此标志门控。
+  - header: CALCulate<ch>:SMOothing[:STATe]
+    level: not_modeled
+    note: 平滑（移动平均）未建模。
+  - header: CALCulate<ch>:SMOothing:RESPonse
+    level: not_modeled
+    note: 平滑（移动平均）未建模。
+  - header: CALCulate<ch>:SCALe[:STATe]
+    level: not_modeled
+    note: 缩放/偏移运算未建模。
+  - header: CALCulate<ch>:SCALe:FUNCtion
+    level: not_modeled
+    note: 缩放函数（NULL/PCT/PPM/PPB/SCALe）未建模。
+  - header: CALCulate<ch>:SCALe:REFerence:AUTO
+    level: not_modeled
+    note: 缩放参考未建模。
+  - header: CALCulate<ch>:SCALe:REFerence
+    level: not_modeled
+    note: 缩放参考未建模。
+  - header: CALCulate<ch>:SCALe:GAIN
+    level: not_modeled
+    note: 缩放增益未建模。
+  - header: CALCulate<ch>:SCALe:OFFSet
+    level: not_modeled
+    note: 缩放偏移未建模。
+  - header: CALCulate<ch>:SCALe:INVert
+    level: not_modeled
+    note: 读数取倒数未建模。
+  - header: CALCulate<ch>:SCALe:UNIT
+    level: not_modeled
+    note: 用户读数单位未建模。
+  - header: CALCulate<ch>:SCALe:UNIT:STATe
+    level: not_modeled
+    note: 用户读数单位未建模。
+  - header: CALCulate<ch>:AVERage[:STATe]
+    level: accepted
+    affects_data: false
+    note: 统计使能标志，保存并回读；统计值由统计组件给出，不由此标志门控。
+  - header: CALCulate<ch>:AVERage:AVERage
+    level: implemented
+    note: 已取读数的均值（统计组件，11 位有效数字）。
+  - header: CALCulate<ch>:AVERage:MINimum
+    level: implemented
+    note: 已取读数的最小值。
+  - header: CALCulate<ch>:AVERage:MAXimum
+    level: implemented
+    note: 已取读数的最大值。
+  - header: CALCulate<ch>:AVERage:PTPeak
+    level: not_modeled
+    note: 平均峰峰值未建模（统计组件没有该读数）。
+  - header: CALCulate<ch>:AVERage:SDEViation
+    level: implemented
+    note: 样本标准差（n−1）；不足 2 个读数时为 0。
+  - header: CALCulate<ch>:AVERage:ADEViation
+    level: not_modeled
+    note: 阿伦偏差未建模。
+  - header: CALCulate<ch>:AVERage:ALL
+    level: not_modeled
+    note: 一次返回均值/标准差/最小/最大四个值未建模；分别查询 AVERage/MINimum/MAXimum/SDEViation。
+  - header: CALCulate<ch>:AVERage:COUNt:CURRent
+    level: implemented
+    note: 当前统计的读数个数。
+  - header: CALCulate<ch>:AVERage:CLEar[:IMMediate]
+    level: implemented
+    note: 清空统计（不改变读数存储器；仿真没有读数存储器）。
+  - header: CALCulate<ch>:LIMit[:STATe]
+    level: not_modeled
+    note: 限值检查未建模。
+  - header: CALCulate<ch>:LIMit:LOWer[:DATA]
+    level: not_modeled
+    note: 限值检查未建模。
+  - header: CALCulate<ch>:LIMit:UPPer[:DATA]
+    level: not_modeled
+    note: 限值检查未建模。
+  - header: CALCulate<ch>:LIMit:CLEar[:IMMediate]
+    level: not_modeled
+    note: 限值检查未建模。
+  - header: CALCulate2:TRANsform:HISTogram[:STATe]
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:POINts
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:COUNt
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:ALL
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:DATA
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:RANGe:AUTO
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:RANGe:AUTO:COUNt
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:RANGe:LOWer
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:RANGe:UPPer
+    level: not_modeled
+    note: 直方图未建模。
+  - header: CALCulate2:TRANsform:HISTogram:CLEar
+    level: not_modeled
+    note: 直方图未建模。
+  - header: :DISPlay[:WINDow]:MODE
+    level: accepted
+    affects_data: false
+    note: 显示方式 NUMeric/HISTogram/TCHart 保存并回读；直方图与趋势图未建模，不影响数据。
+- section: Chapter 7 Formats and Data Flow
+  commands:
+  - header: FORMat[:DATA]
+    level: implemented
+    note: 只支持 ASCII（15 位有效数字）；手册的 REAL 格式未建模，设定 REAL 按 -224 拒绝。
+  - header: FORMat:BORDer
+    level: not_modeled
+    note: 只支持 ASCII，字节序未建模。
+  - header: FORMat:PHASe
+    level: not_modeled
+    note: 相位测量未建模。
+  - header: DATA:LAST
+    level: not_modeled
+    note: 读数存储器未建模；读数由触发模型取回（FETCh?/READ?）。
+  - header: DATA:POINts:EVENt:THReshold
+    level: not_modeled
+    note: 读数存储阈值未建模。
+  - header: DATA:POINts
+    level: not_modeled
+    note: 读数存储器未建模。
+  - header: DATA:REMove
+    level: not_modeled
+    note: 读数存储器未建模。
+  - header: R
+    level: not_modeled
+    note: 定长块读数存储器未建模；批量读数用 FETCh?/READ?。
+  - header: MMEMory:CDIRectory
+    level: not_modeled
+    note: 文件系统（内部闪存/U 盘）未建模。
+  - header: MMEMory:MDIRectory
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:RDIRectory
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:DELete
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:COPY
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:MOVE
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:CATalog
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:CATalog:DATA
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:CATalog:STATe
+    level: not_modeled
+    note: 文件系统未建模。
+  - header: MMEMory:LOAD:STATe
+    level: not_modeled
+    note: 仪器状态文件未建模。
+  - header: MMEMory:STORe:STATe
+    level: not_modeled
+    note: 仪器状态文件未建模。
+  - header: MMEMory:LOAD:PREFerences
+    level: not_modeled
+    note: 用户偏好文件未建模。
+  - header: MMEMory:STORe:PREFerences
+    level: not_modeled
+    note: 用户偏好文件未建模。
+  - header: MMEMory:STORe:DATA
+    level: not_modeled
+    note: 读数存文件未建模。
+  - header: MMEMory:DOWNload:DATA
+    level: not_modeled
+    note: 文件下载未建模。
+  - header: MMEMory:UPload
+    level: not_modeled
+    note: 文件上传未建模。
+  - header: MEMory:STATe:DELete
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:DELete:ALL
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:RECall:AUTO
+    level: not_modeled
+    note: 上电状态自动调用未建模。
+  - header: MEMory:STATe:RECall:SELect
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:VALid
+    level: not_modeled
+    note: 状态存储未建模。
+- section: Chapter 8 Instrument Status
+  commands:
+  - header: STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:QUEStionable:ENABle
+    level: not_modeled
+    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:OPERation:CONDition
+    level: not_modeled
+    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:OPERation:ENABle
+    level: not_modeled
+    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
