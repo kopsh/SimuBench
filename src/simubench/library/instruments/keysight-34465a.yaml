@@ -307,6 +307,10 @@ components:
       overrange: 1.2
       overload_value: 9.9e37
       resolution: {from: $sense.nplc, table: {0.02: 3.0e-6, 0.06: 1.5e-6, 0.2: 7.0e-7, 1: 3.0e-7, 10: 1.0e-7, 100: 3.0e-8}}
+      # CONFigure 给的分辨率原样反映在 CONF? 里(#286;手册:resolution 参数指定测量分辨率);
+      # 0 表示未给,此时按上一行的 NPLC 表算。读数本身的量化始终跟随 NPLC 表(模型边界,
+      # 覆盖表说明)。
+      set_resolution: $sense.resolution
       digits: 8
       reading_time: {from: $sense.nplc, table: {0.02: 0.0009, 0.06: 0.00253, 0.2: 0.00813, 1: 0.04013, 10: 0.40016, 100: 4.00016}}
   # 触发模型与读数存储器（50,000 readings，溢出覆盖最旧的）。

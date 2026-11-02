@@ -70,8 +70,9 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out.splitlines()
     assert out[0].startswith("Keysight Technologies,34465A,MY57440001,")
     assert out[-1] == '+0,"No error"'
-    # CONF:VOLT:DC 10 selects the 10 V range; NPLC 10 quantizes to 1e-6 there (the model's
-    # resolution table; the CONF resolution argument is stored but not used by the ADC model).
+    # CONF:VOLT:DC 10 selects the 10 V range; the readings quantize by the NPLC table (1e-6 at
+    # NPLC 10) — the CONF resolution argument is reflected in CONF? only (#286), not in the
+    # quantization (the model boundary the coverage table notes).
     want = round(solve(False) / 1e-6) * 1e-6
     readings = [float(x) for x in out[-2].split(": ")[1].split(" ... ")]
     assert len(readings) == 2 and readings[0] == readings[-1]
