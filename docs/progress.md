@@ -140,10 +140,10 @@
 | 测试台与台账 | ✅ `examples/demo/calibration.bench.yaml`：5522A OUT 接 34465A IN；万用表带按量程的隐藏增益与零点误差（DC 各档 +180…+400 ppm、交流 +350 ppm、零点 +300 µV）；`assets` 登记两台仪表，万用表校准即将到期（运行开始日 2026-05-04，due_in_days = 16）；`run` 固定日期、命令时钟、`idle: off` |
 | 定标脚本只用标准命令与 PyVISA | ✅ `examples/demo/calibrate_34465a.py` 不 import SimuBench；读 `*IDN?`、查台账、as-found（0、±1、±10、100 V；1 年指标 + 20 % 保护带）、解锁后逐量程调零/调增益并 `CAL:STOR`、as-left；报告 CSV 含每点的相位、设定值、读数、限值与判定；交流点单独一次运行（列映射一次一种功能） |
 | 调整命令按真机语义 | ✅ `:CALibration[:ALL]` 允许 set 形式：set 调操作且不应答，query 返回结果（引擎通用修正：操作命令的 set 形式不再把操作的返回值发到线上）；演示用 `CAL` + `:SYSTem:ERRor?`，不产生额外的数字回复，`simubench verdicts` 的读数序列不被校准状态打乱 |
-| 真值核对 | ✅ `simubench verdicts` 用 `verdict-dc.yaml` / `verdict-ac.yaml`：DC 12/12 correct、AC 2/2 correct，无 false_accept/false_reject/withheld；真值含参考源 5 mΩ 与万用表 10 MΩ 的分压 |
+| 真值核对 | ✅ `simubench verdicts` 用 `verdict-dc.yaml` / `verdict-ac.yaml`：DC 12/12 correct；AC 2/2 withheld（1 V 点误差 8.0e-4 落在保护带内，演示“不作符合性声明”），无 false_accept/false_reject；真值含参考源 5 mΩ 与万用表 10 MΩ 的分压 |
 | 故障演示 | ✅ `examples/demo/calibration-fault.bench.yaml`：参考源第 2 s 断开 30 s，脚本得到 `VI_ERROR_CONN_LOST`，不写报告；台账过期/停用时脚本拒绝运行（测试覆盖） |
 | 讲解文档 | ✅ `docs/demo-calibration.md`：准备、运行、真值核对、故障、界面观察、讲解要点、已知限制 |
-| 自动测试 | ✅ `acceptance/test_calibration_demo.py` 4 项：DC as-found 6 点全超差、as-left 全合格、verdicts 判定正确；AC 两点在限值内；断开时脚本报错；台账过期时拒绝 |
+| 自动测试 | ✅ `acceptance/test_calibration_demo.py` 4 项：DC as-found 5 点超差、100 V 点合格，as-left 全合格，verdicts 判定正确；AC 两点在保护带内（N/A → withheld）；断开时脚本报错；台账过期时拒绝 |
 | 检查 | ✅ `uv run simubench validate` 无诊断；`scripts/check.sh` 全绿 |
 
 ## 覆盖表的“接受”只用于不影响数据的命令（Issue 132，D42）
@@ -695,3 +695,13 @@
 | CONFigure 恢复默认值 | ✅ `:CONFigure[:VOLTage]:{DC|AC}` 用 `writes` 恢复手册默认值表（量程自动、分辨率自动、NPLC 10、自动调零开、立即触发、触发/采样计数 1、自动触发延迟），再应用量程/分辨率参数；参数新增 `sets`，给量程即关闭自动量程。手册默认值表中平台没有的设置（如显示、格式）不在复位范围，覆盖表说明 |
 | 现有用例与脚本 | ✅ 手册用例、`examples/scripts/keysight_34465a_measure.py` 的读数期望按 10 V 量程的 NPLC 分辨率更新；`tests/test_keysight_34465a.py` 通过 |
 | 检查 | ✅ 定义校验、覆盖表一致性、`scripts/check.sh` 全绿 |
+
+
+## 定标演示的保护带与判定（Issue 254、263）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| as-found 同时出现 FAIL / PASS / N/A | ✅ 隐藏误差调整：100 V 量程 +20 ppm（as-found 2.3 mV，限值 4 mV，合格）、其余 DC 量程超差（FAIL）、交流 1 V +800 ppm（误差 8.0e-4 落在 w = 1.8e-4 的保护带内，N/A）；AC 报告的 `simubench verdicts` 为 2/2 withheld |
+| 保护带的表述与依据 | ✅ 讲稿改为“|误差| ≤ 限值 − w 合格、超出限值 + w 不合格、其间不作声明”（与 `decide` 一致）；脚本说明改为 ILAC-G8 的非二元判定；`GUARD = 0.2` 注明是演示取值，实际 w 应由扩展不确定度 U 得出，不要照抄 |
+| as-left 恰好为 0 的说明 | ✅ 讲稿的讲解要点注明：34465A 定义没有读数噪声，调整后的 as-left 完美到 0；噪声下的表现属于模型边界 |
+| 检查 | ✅ 演示文档、脚本、测试台与 acceptance 测试同步；`scripts/check.sh` 全绿 |

@@ -11,8 +11,9 @@ The calibration procedure follows the 34465A service guide: as-found measurement
 gain adjustment per DC range while the security is off, then as-left measurements. The reference
 source is checked against the bench's calibration register before anything is measured (the CSV
 or JSON that ``simubench assets`` prints). The report is a CSV: phase, nominal, reading, limits
-and the conformity statement with a guard band (ILAC-G8: pass inside the guard band, fail
-outside the limits, no statement in between).
+and the conformity statement with a guard band (ILAC-G8's non-binary decision: pass when the
+error is inside the limits shrunk by w, fail when it is beyond the limits widened by w, and no
+statement in between).
 
 The script does not import SimuBench. The truth of each statement is checked afterwards with
 ``simubench verdicts`` (see docs/demo-calibration.md).
@@ -39,7 +40,8 @@ DC_LIMITS = {
 }
 #: 1-year AC limit at 1 V, 1 kHz: 0.06 % of reading + 0.03 % of range (1 V range).
 AC_LIMIT_1V = 9.0e-4
-#: Guard band: pass only when the error is inside the limit by this fraction (k = 2, ILAC-G8).
+#: Guard band w: the demo takes 20 % of the limit as w so the three decisions all occur. A real
+#: procedure derives w from the expanded uncertainty U (ILAC-G8); do not copy this ratio.
 GUARD = 0.2
 #: The points of the demo; 0 V uses the 0.1 V range automatically.
 DC_POINTS = (0.0, 1.0, -1.0, 10.0, -10.0, 100.0)

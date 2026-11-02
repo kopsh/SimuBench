@@ -48,13 +48,14 @@ phase       nominal         reading         error       limit  verdict
 as-found          0          0.0003     3.000e-04   5.000e-06  FAIL
 as-found          1         1.00055     5.500e-04   4.000e-05  FAIL
 ...
+as-found        100        100.0023     2.300e-03   4.000e-03  PASS
 as-left          10              10     0.000e+00   4.000e-04  PASS
 as-left         100             100     0.000e+00   4.000e-03  PASS
-as-found failures: 6; as-left failures: 0; report: /tmp/report-dc.csv
+as-found failures: 5; as-left failures: 0; report: /tmp/report-dc.csv
 ```
 
 流程：读 `*IDN?` 校验型号与台账；as-found 在 0、±1、±10、100 V 各点测量并按 1 年指标
-判定（保护带：限值的 20 % 内才算合格，带内但接近限值不作符合性声明）；按手册解锁、逐量程
+判定（保护带：w 取限值的 20 %，误差在 |误差| ≤ 限值 − w 时合格，超出限值 + w 时不合格，两者之间不作符合性声明；实际定标中 w 应由扩展不确定度 U 得出）；按手册解锁、逐量程
 调零与调增益、`CAL:STOR`、重新上锁；as-left 重复测量。`CAL` 是 set 命令，不应答；脚本用
 `:SYSTem:ERRor?` 检查校准是否被接受。
 
@@ -64,7 +65,7 @@ as-found failures: 6; as-left failures: 0; report: /tmp/report-dc.csv
 ... --function AC --report /tmp/report-ac.csv
 ```
 
-预期 as-found 与 as-left 都是 `PASS`（交流 1 V 点的隐藏误差在 0.06 % + 0.03 % 的限值内）。
+预期 as-found 与 as-left 都是 `N/A`：交流 1 V 点的隐藏误差 8.0e-4 落在保护带内（限值 9.0e-4，w = 1.8e-4：合格上限 7.2e-4，不合格下限 1.08e-3），演示“不作符合性声明”；`simubench verdicts` 把它核对为 `withheld`。
 
 ## 3. 用真值核对脚本的判定
 
@@ -75,7 +76,7 @@ uv run simubench verdicts /tmp/demo-runs-ac/run-*.jsonl /tmp/report-ac.csv --map
 ```
 
 输出逐点给出脚本的判定与真值：`correct`（正确）、`false_accept`（误判合格）、`false_reject`
-（误判不合格）、`withheld`（不作声明）。演示的两份报告都是 12/12 与 2/2 `correct`。
+（误判不合格）、`withheld`（不作声明）。DC 报告 12/12 `correct`（其中 100 V 点是 as-found 合格、其余 as-found 超差，as-left 全部合格）；AC 报告两点都是 `withheld`。
 “真值”是测试台求解出的实际输入（参考源 5 mΩ 输出阻抗、万用表 10 MΩ 输入的分压也计入）。
 
 `simubench verdicts` 是从运行记录离线重放的：不改变会话的保密规则，也不需要脚本配合。
