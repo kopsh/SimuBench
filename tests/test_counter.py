@@ -114,9 +114,11 @@ def test_totalize_counts_the_events_inside_the_gate():
     session = open_bench(one_channel(), definition_dirs=[DEFS])
     try:
         session.write("cnt", b":GATe:TIME 0.1\n")
-        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(101.0)  # 0, 1 ms, ..., 100 ms
+        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(
+            100.0
+        )  # [0, 100 ms): the crossing at 100 ms is out
         session.write("cnt", b":GATe:TIME 0.01\n")
-        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(11.0)
+        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(10.0)
     finally:
         session.close()
 
@@ -212,7 +214,7 @@ def test_statistics_summarize_the_measurements():
         sdev = num(session, "cnt", ":CALCulate:STATistics:SDEViation?")
         assert mean == pytest.approx(0.5e-3, abs=6e-9)
         assert low <= mean <= high
-        assert 0.0 <= sdev <= 6e-9  # the 1 ns trigger error of the two channels
+        assert 1e-9 < sdev < 4e-9  # two independent channels: √2 ns each, √2 ns on the difference
         session.write("cnt", b":CALCulate:STATistics:CLEar\n")
         assert num(session, "cnt", ":CALCulate:STATistics:COUNt?") == 0.0
     finally:

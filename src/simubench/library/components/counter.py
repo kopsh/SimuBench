@@ -106,12 +106,13 @@ class CounterInput(Component):
     def events(self, start_ns: int, end_ns: int) -> tuple[int, float, float]:
         """(count, first_ns, last_ns) of the positive-going threshold crossings in the window."""
         found = self.crossings(start_ns)
-        if found is None or end_ns < start_ns:
+        if found is None or end_ns <= start_ns:
             return 0, float(start_ns), float(start_ns)
         period, first = found
-        if first > end_ns:
+        if first >= end_ns:
             return 0, first, first
-        count = math.floor((end_ns - first) / (period * 1e9) + 1e-9) + 1
+        # The gate is half-open [start, end): an event exactly at the end belongs to the next one.
+        count = math.floor((end_ns - first) / (period * 1e9) - 1e-12) + 1
         return count, first, first + (count - 1) * period * 1e9
 
 
