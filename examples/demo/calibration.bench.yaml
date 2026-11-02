@@ -13,8 +13,8 @@ instruments:
     hidden:
       path:
         gain_error_ppm:
-          DC: {0.1: 400.0, 1: 250.0, 10: 200.0, 100: 180.0, 1000: 150.0}
-          AC: 350.0
+          DC: {0.1: 400.0, 1: 250.0, 10: 200.0, 100: 20.0, 1000: 150.0}
+          AC: 800.0
         offset: 3.0e-4
 wires:
   - {from: cal.OUT, to: dut.IN}
