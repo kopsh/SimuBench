@@ -3,6 +3,10 @@
 Any coding agent (or person) works the same way. Tasks are GitHub issues; a pull request that
 passes CI merges itself into `main`, with no review.
 
+Short task guides live in `.claude/skills/<name>/SKILL.md` (any agent can read them): `dev-workflow`
+(this loop, commands, test rules, traps), `codebase-map` (which file/doc for what), `real-model`,
+`component`, `web-ui`. Read the matching one first and the long docs only by section.
+
 ## Who takes which issue
 
 Every issue carries exactly one of two labels, set when the issue is opened:
