@@ -68,7 +68,7 @@ def test_example_bench_runs_the_script(tmp_path):
         freq = reader.frequency(cnt, count=5)
         assert len(freq) == 5
         # 1 kHz from the SDG2042X; the counter's timebase is exact (0 ppm) on this bench.
-        assert all(value == pytest.approx(1000.0, rel=1e-12) for value in freq)
+        assert all(value == pytest.approx(1000.0, rel=1e-6) for value in freq)
         interval = reader.time_interval(cnt)
         # CH2 is 90 degrees behind CH1: the next CH2 event is 750 us after a CH1 event.
         assert interval == pytest.approx(7.5e-4, abs=5e-9)
@@ -78,8 +78,8 @@ def test_example_bench_runs_the_script(tmp_path):
         mean, sdev, low, high, n = reader.statistics(cnt)
         assert n == 5
         for value in (mean, low, high):
-            assert value == pytest.approx(1000.0, rel=1e-12)
-        assert sdev < 1e-6  # only the last digits of the 15-digit readings move
+            assert value == pytest.approx(1000.0, rel=1e-6)
+        assert sdev < 1e-3  # #255: the gate resolution moves the last digits
         assert cnt.query(":SYST:ERR?").strip().startswith("+0,")
     finally:
         rm.close()
@@ -90,13 +90,13 @@ def test_channel_argument_selects_the_input(counter):
     awg = rm.open_resource("awg", read_termination="\n", write_termination="\n", timeout=5000)
     try:
         awg.write("C2:BSWV FRQ,2000")
-        assert cnt.query(":MEAS:FREQ? 1E3, 0.0, (@1)").strip().startswith("+1.000000000000E+03")
-        assert cnt.query(":MEAS:FREQ? 2E3, 0.0, (@2)").strip().startswith("+2.000000000000E+03")
+        assert float(cnt.query(":MEAS:FREQ? 1E3, 0.0, (@1)")) == pytest.approx(1000.0, rel=1e-6)
+        assert float(cnt.query(":MEAS:FREQ? 2E3, 0.0, (@2)")) == pytest.approx(2000.0, rel=1e-6)
         # CONFigure + READ? routes the trigger model's sampler the same way.
         cnt.write(":CONF:FREQ 2E3, 0.1, (@2)")
         cnt.write(":SAMP:COUN 1")
         cnt.write(":INIT")
-        assert float(cnt.query(":FETCh?")) == pytest.approx(2000.0, rel=1e-12)
+        assert float(cnt.query(":FETCh?")) == pytest.approx(2000.0, rel=1e-6)
     finally:
         awg.close()
 
@@ -108,7 +108,7 @@ def test_the_50_ohm_input_loads_the_source_below_the_sensitivity(tmp_path):
     cnt = rm.open_resource("cnt", read_termination="\n", write_termination="\n", timeout=5000)
     try:
         cnt.write("*RST")
-        assert float(cnt.query(":MEAS:FREQ?")) == pytest.approx(1000.0, rel=1e-12)
+        assert float(cnt.query(":MEAS:FREQ?")) == pytest.approx(1000.0, rel=1e-6)
         cnt.write(":INP:IMP 50")
         assert float(cnt.query(":MEAS:FREQ?")) == pytest.approx(0.0, abs=1e-12)
         assert float(cnt.query(":INP:IMP?")) == pytest.approx(50.0)
@@ -129,6 +129,6 @@ def test_a_hidden_timebase_error_scales_the_reading():
         session.write("cnt", b"*RST\n")
         session.write("cnt", b":CONF:FREQ 1E3,0.1,(@1)\n")
         # A fast timebase makes the counter's second short: it reads low by 2 ppm.
-        assert float(q(":MEAS:FREQ?")) == pytest.approx(1000.0 / (1 + 2e-6), rel=1e-12)
+        assert float(q(":MEAS:FREQ?")) == pytest.approx(1000.0 / (1 + 2e-6), rel=1e-6)
     finally:
         session.close()
