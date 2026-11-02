@@ -236,8 +236,14 @@ class TriggerModel(Component):
         """``*TRG`` (and the model's bus trigger command): one trigger, when waiting for a bus one."""
         if self.phase != "waiting" or self._source() != "bus":
             raise ScpiError(int(self.param("trigger_ignored_error")), "Trigger ignored")
+        if self.owner is not None:
+            self.owner.status_event("TRIG")  # a trigger was received (the SRS LIA bit 6, #273)
         self._start(1)
         return OpResult()
+
+    def status_flags(self) -> dict[str, bool]:
+        """SCN while no scan is in progress (the SRS serial poll bit 0, #273)."""
+        return {"SCN": self.phase in ("idle", "done") or not self.phase}
 
     @op("fetch")
     def fetch(self, elements: list[bytes] | None = None, **_: Any) -> OpResult:

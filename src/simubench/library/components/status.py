@@ -37,29 +37,70 @@ class StatusRegister(Component):
         "enable": 0,  # the enable mask (a setting such as $status.lia_enable)
         "summary_bit": None,  # the status-byte bit set while (event & enable) != 0 (None: none)
         "width": 16,  # bits in the register (8 for an SRS byte)
+        # Settings whose change is an event of this register (#273), flag -> $setting, e.g.
+        # {TC: $filter.time_constant, RANGE: $input.sensitivity}.
+        "changes": {},
+        # "esr": this register is the engine's standard event register (the bits *OPC and command
+        # errors set, the *ESE mask), so a model can give it its own forms (*ESE i,j; *ESR? i).
+        "mirror": "",
+        "request_bit": None,  # a serial-poll register: this bit is set while (condition & enable) != 0
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._events = 0
         self._seen = 0  # the condition at the last look: events latch its rising edges
+        self._busy = False  # computing a summary: other registers read none from this one
+
+    def bound_paths(self) -> dict[str, str]:
+        out = super().bound_paths()
+        for flag, ref in dict(self._params.get("changes") or {}).items():
+            if isinstance(ref, str) and ref.startswith("$"):
+                out[f"change:{str(flag).upper()}"] = self.resolve_path(ref[1:])
+        return out
+
+    def on_state(self, path: str, old: Any, new: Any) -> None:
+        for key, bound in self.bound_paths().items():
+            if key.startswith("change:") and bound == path:
+                self.event(key.split(":", 1)[1])
+
+    def status_flags(self) -> dict[str, bool]:
+        """This register's summary as a flag named after it (a serial-poll register's LIA bit)."""
+        if self._busy or not self.name:
+            return {}
+        return {self.name.upper(): self.summary()}
+
+    def _mirror(self) -> bool:
+        return str(self.param("mirror")).lower() == "esr"
 
     def _bits(self) -> dict[str, int]:
         return {str(k).upper(): int(v) for k, v in dict(self.param("bits") or {}).items()}
 
     def condition(self) -> int:
-        """The condition register: every bit whose flag a component reports true now."""
+        """The condition register: every bit whose flag a component reports true now, with the
+        instrument's own MAV (output waiting), ESB (enabled standard events) and IFC (idle)."""
         assert self.owner is not None
-        flags: dict[str, bool] = {}
-        self.session._solve()
-        for comp in self.owner.components.values():
-            if comp is not self:
-                for name, on in comp.status_flags().items():
-                    flags[name.upper()] = flags.get(name.upper(), False) or bool(on)
+        self._busy = True
+        try:
+            flags: dict[str, bool] = {
+                "MAV": bool(self.owner._output),
+                "ESB": bool(self.owner.esr & self.owner.ese),
+                "IFC": True,
+            }
+            self.session._solve()
+            for comp in self.owner.components.values():
+                if comp is not self:
+                    for name, on in comp.status_flags().items():
+                        flags[name.upper()] = flags.get(name.upper(), False) or bool(on)
+        finally:
+            self._busy = False
         value = 0
         for name, bit in self._bits().items():
             if flags.get(name):
                 value |= 1 << bit
+        request = self.param("request_bit")
+        if request is not None and value & int(self.param("enable") or 0) & ~(1 << int(request)):
+            value |= 1 << int(request)
         return value
 
     def event(self, name: str) -> bool:
@@ -73,13 +114,33 @@ class StatusRegister(Component):
     def events(self) -> int:
         """The event register: pushed events and every condition bit that went true since the
         last look (a condition that stays true does not set it again once read)."""
+        if self._mirror():
+            assert self.owner is not None
+            return int(self.owner.esr)
         now = self.condition()
         self._events |= now & ~self._seen
         self._seen = now
         return self._events
 
+    def _enable(self) -> int:
+        if self._mirror():
+            assert self.owner is not None
+            return int(self.owner.ese)
+        return int(self.param("enable") or 0)
+
     def summary(self) -> bool:
-        return bool(self.events() & int(self.param("enable") or 0))
+        self._busy = True
+        try:
+            return bool(self.events() & self._enable())
+        finally:
+            self._busy = False
+
+    def _clear_events(self, mask: int) -> None:
+        if self._mirror():
+            assert self.owner is not None
+            self.owner.esr &= ~mask
+        else:
+            self._events &= ~mask
 
     def reset(self) -> None:
         self._events = 0
@@ -108,10 +169,10 @@ class StatusRegister(Component):
         bit = self._one(bit)
         value = self.events()
         if bit is None:
-            self._events = 0
+            self._clear_events(-1)
             return OpResult(V.format_int(value))
         b = self._bit(bit)
-        self._events &= ~(1 << b)
+        self._clear_events(1 << b)
         return OpResult(V.format_int((value >> b) & 1))
 
     @op("condition")
@@ -128,7 +189,7 @@ class StatusRegister(Component):
         assert self.owner is not None
         bit, value = self._one(bit), self._one(value)
         path = self.bound_paths().get("enable")
-        mask = int(self.param("enable") or 0)
+        mask = self._enable()
         if query:
             if bit is None:
                 return OpResult(V.format_int(mask))
@@ -141,6 +202,9 @@ class StatusRegister(Component):
             b = self._bit(bit)
             on = int(V.parse_int(value) if isinstance(value, bytes) else value)
             new = mask | (1 << b) if on else mask & ~(1 << b)
+        if self._mirror():
+            self.owner.ese = new & ((1 << int(self.param("width"))) - 1)
+            return OpResult()
         if path is None:
             raise ScpiError(-221, "the enable mask is not a setting of this definition")
         self.owner.set_state(path, new)
