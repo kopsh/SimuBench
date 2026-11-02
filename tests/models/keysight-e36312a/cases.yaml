@@ -1,9 +1,9 @@
 # Keysight E36312A 的手册用例：E36300 系列编程指南（E36311-90008, Edition 12, June 2025）的
-# 命令条目与示例。测试台 examples/benches/keysight_e36312a.bench.yaml：CH1 10 Ω（含 4 线
-# SENSE）、CH2/CH3 各 100 Ω。设定值回复 8 位尾数（+5.00000000E+00）；回读由 supply_readback
+# 命令条目与示例。测试台 bench.yaml（本目录）：CH1 10 Ω（含 4 线 SENSE）、CH2/CH3 各 100 Ω。
+# 设定值回复 8 位尾数（+5.00000000E+00）；回读由 supply_readback
 # 写成 7 位尾数，功率按 V×I 计算（手册没有功率查询）。
 model: keysight-e36312a
-bench: ../../../examples/benches/keysight_e36312a.bench.yaml
+bench: bench.yaml
 instrument: psu
 cases:
   - name: "*IDN? 返回厂商、型号、序列号与三段固件版本"
