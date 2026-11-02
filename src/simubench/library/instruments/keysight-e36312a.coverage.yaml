@@ -1,6 +1,6 @@
 # Keysight E36312A 的覆盖表：按 E36300 系列编程指南（E36311-90008, Edition 12, June 2025）
 # 的命令索引与命令条目逐条列出，程度与说明手写。范围：三路独立输出的设定/回读、OVP、远端检测、
-# 显示/蜂鸣/系统接受命令与公共命令；组合/跟踪被 #259 阻塞，OCP 与状态寄存器被 #271 阻塞。
+# 显示/蜂鸣/系统接受命令与公共命令；组合/跟踪按手册实现（#259），OCP 与状态寄存器被 #271 阻塞。
 # 未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
 schema: simubench.coverage/1
 model: keysight-e36312a
@@ -111,10 +111,10 @@ sections:
   - {header: 'OUTPut[:STATe]:DELay:FALL', level: not_modeled, note: 输出延迟影响时序，不在首波。}
   - {header: 'OUTPut[:STATe]:DELay:RISE', level: not_modeled, note: 输出延迟影响时序，不在首波。}
   - {header: 'OUTPut:INHibit:MODE', level: accepted, note: 接受：外部禁止输入模式保存并回读；没有禁止输入硬件。, affects_data: false}
-  - {header: 'OUTPut:PAIR', level: not_modeled, note: '组合语义按 E36312A 手册由输出 2 输出、输出 3 停用；B2 组件仍是 E36311A 拓扑，被 #259 阻塞。'}
+  - {header: 'OUTPut:PAIR', level: implemented, note: '内部串联（输出 2 为 50 V/1 A）与并联（25 V/2 A），输出 3 停止工作；改组合需输出 2、3 关闭（-221）。组合下输出 2 的 VOLT/CURR/OVP 上限与 MIN/MAX 随之变化（#259）。'}
   - {header: 'OUTPut:PON:STATe', level: accepted, note: 接受：上电状态（RST 或 RCL0–9）保存并回读；状态存储本身未实现。, affects_data: false}
   - {header: 'OUTPut:PROTection:CLEar', level: implemented, note: '清除 OVP 锁定（与 VOLT:PROT:CLE 同一锁定）；OCP 未建模。'}
-  - {header: 'OUTPut:TRACk[:STATe]', level: not_modeled, note: '跟踪按 E36312A 手册是同号；B2 组件仍是 E36311A 的 ± 跟踪，被 #259 阻塞。'}
+  - {header: 'OUTPut:TRACk[:STATe]', level: implemented, note: '跟踪：输出 3 与输出 2 同电压（同号），改任一路另一路随之变化（#259）。'}
 - section: SENSe Subsystem
   commands:
   - {header: 'SENSe:DLOG:FUNCtion:CURRent', level: not_modeled, note: 数据记录（DLOG）不在首波。}

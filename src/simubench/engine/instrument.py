@@ -206,6 +206,8 @@ class Instrument:
             for key, spec in definition.channel_state.items():
                 patch = over.get(key)
                 self.specs[f"ch{n}.{key}"] = spec.model_copy(update=patch) if patch else spec
+        #: The definition's spec of a setting whose bounds a component moved at run time.
+        self._spec_origin: dict[str, StateSpec] = {}
         self.state: dict[str, Any] = {}
         self._reset_state()
         for path, value in instance.state.items():
@@ -363,6 +365,23 @@ class Instrument:
         return self.session.cached_output(self.components[src[0]], src[1])
 
     # ---- state --------------------------------------------------------------------------------------
+
+    def set_bounds(self, path: str, *, minimum: float | None = None, maximum: float | None = None) -> None:
+        """Move a numeric setting's limits at run time, relative to the definition's: a combination
+        that widens a channel's range (#259: the E36312A's series pair programs output 2 to 50 V).
+        Validation, MIN/MAX and the state view follow; ``None`` keeps the definition's limit."""
+        origin = self._spec_origin.setdefault(path, self.specs[path])
+        update = {
+            "min": origin.min if minimum is None else minimum,
+            "max": origin.max if maximum is None else maximum,
+        }
+        self.specs[path] = origin.model_copy(update=update)
+
+    def restore_bounds(self, path: str) -> None:
+        """The definition's limits again (see :meth:`set_bounds`)."""
+        origin = self._spec_origin.pop(path, None)
+        if origin is not None:
+            self.specs[path] = origin
 
     def get_state(self, path: str) -> Any:
         try:

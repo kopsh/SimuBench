@@ -79,6 +79,88 @@ cases:
       - query: "CURR? DEF,(@1)"
         expect: "+5.00000000E+00"
 
+  - name: "内部串联：输出 2 为 0–50 V，输出 3 停止工作；回到独立时输出 2 的设定回到 25 V 量程内（#259）"
+    manual: "User's Guide > Specifying the Operation Mode (E36312A and E36313A Only)；OUTPut Subsystem > OUTPut:PAIR"
+    steps:
+      - send: "VOLT 10,(@3)"
+      - send: "OUTP:PAIR SER"
+      - query: "OUTP:PAIR?"
+        expect: "SER"
+      - query: "VOLT? MAX,(@2)"
+        expect: "+5.15000000E+01"
+      - send: "VOLT 40,(@2)"
+      - send: "OUTP ON,(@2)"
+      - send: "*WAI"
+      - query: "MEAS:VOLT? (@2)"
+        expect_value: 39.9992
+        tolerance: 1.0e-4
+      - query: "MEAS:VOLT? (@3)"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: "VOLT 5,(@3)"
+      - query: "SYST:ERR?"
+        expect: '+720,"CH3 is not allowed when serial/parallel/track is enabled"'
+      - query: "VOLT? (@3)"
+        expect: "+1.00000000E+01"
+      - send: "OUTP OFF,(@2)"
+      - send: "OUTP:PAIR OFF"
+      - query: "VOLT? (@2)"
+        expect: "+2.57500000E+01"
+      - query: "VOLT? MAX,(@2)"
+        expect: "+2.57500000E+01"
+
+  - name: "内部并联：输出 2 为 25 V/2 A，电压仍以 25 V 为限（#259）"
+    manual: "User's Guide > Specifying the Operation Mode (E36312A and E36313A Only)；OUTPut Subsystem > OUTPut:PAIR"
+    steps:
+      - send: "OUTP:PAIR PAR"
+      - query: "OUTP:PAIR?"
+        expect: "PAR"
+      - query: "CURR? MAX,(@2)"
+        expect: "+2.06000000E+00"
+      - send: "CURR 2,(@2)"
+      - query: "CURR? (@2)"
+        expect: "+2.00000000E+00"
+      - send: "VOLT 30,(@2)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "*RST"
+      - query: "OUTP:PAIR?"
+        expect: "OFF"
+      - query: "CURR? MAX,(@2)"
+        expect: "+1.03000000E+00"
+
+  - name: "改组合需要输出 2、3 关闭，否则 -221（#259）"
+    manual: "User's Guide > Specifying the Operation Mode (E36312A and E36313A Only)"
+    steps:
+      - send: "OUTP ON,(@2)"
+      - send: "OUTP:PAIR SER"
+      - query: "SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - query: "OUTP:PAIR?"
+        expect: "OFF"
+
+  - name: "跟踪：输出 3 与输出 2 设为同一电压（同号），改任一路另一路随之变化（#259）"
+    manual: "User's Guide > Using the Tracking Operation；OUTPut Subsystem > OUTPut:TRACk[:STATe]"
+    steps:
+      - send: "VOLT 5,(@2)"
+      - send: "OUTP:TRAC ON"
+      - query: "OUTP:TRAC?"
+        expect: "1"
+      - query: "VOLT? (@3)"
+        expect: "+5.00000000E+00"
+      - send: "VOLT 12,(@2)"
+      - query: "VOLT? (@2:3)"
+        expect: "+1.20000000E+01,+1.20000000E+01"
+      - send: "VOLT 7,(@3)"
+      - query: "VOLT? (@2:3)"
+        expect: "+7.00000000E+00,+7.00000000E+00"
+      - send: "OUTP:TRAC OFF"
+      - send: "VOLT 3,(@2)"
+      - query: "VOLT? (@2:3)"
+        expect: "+3.00000000E+00,+7.00000000E+00"
+
   - name: "APPLy 未建模：不超时，入错误队列回 -113（#297）"
     manual: "APPLy Subsystem > APPLy"
     steps:
