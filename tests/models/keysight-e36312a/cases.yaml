@@ -1,0 +1,306 @@
+# Keysight E36312A 的手册用例：E36300 系列编程指南（E36311-90008, Edition 12, June 2025）的
+# 命令条目与示例。测试台 examples/benches/keysight_e36312a.bench.yaml：CH1 10 Ω（含 4 线
+# SENSE）、CH2/CH3 各 100 Ω。设定值回复 8 位尾数（+5.00000000E+00）；回读由 supply_readback
+# 写成 7 位尾数，功率按 V×I 计算（手册没有功率查询）。
+model: keysight-e36312a
+bench: ../../../examples/benches/keysight_e36312a.bench.yaml
+instrument: psu
+cases:
+  - name: "*IDN? 返回厂商、型号、序列号与三段固件版本"
+    manual: "IEEE-488 Subsystem > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,E36312A,MY59000001,1.0.0-1.0.0-1.0.0"
+
+  - name: "*RST 恢复三路的电压、电流、OVP、输出与显示视图为手册的出厂值"
+    manual: "Reset and Non-volatile Settings > Reset (*RST) settings"
+    steps:
+      - send: "VOLT 5,(@1);:CURR 0.2,(@1);:VOLT:PROT 4,(@1);:OUTP ON,(@1)"
+      - send: "CURR 0.5,(@2);:OUTP ON,(@2);:DISP:VIEW METER1"
+      - send: "*RST"
+      - query: "VOLT? (@1:3)"
+        expect: "+0.00000000E+00,+0.00000000E+00,+0.00000000E+00"
+      - query: "CURR? (@1:3)"
+        expect: "+5.00000000E+00,+1.00000000E+00,+1.00000000E+00"
+      - query: "VOLT:PROT? (@1:3)"
+        expect: "+6.60000000E+00,+2.75000000E+01,+2.75000000E+01"
+      - query: "OUTP? (@1:3)"
+        expect: "0,0,0"
+      - query: "DISP:VIEW?"
+        expect: "METER3"
+
+  - name: "VOLT 按通道列表逐路写入，查询按列表顺序回答；超出该路量程报 -222"
+    manual: "VOLTage Subsystem > [SOURce:]VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    steps:
+      - send: "VOLT 5,(@1)"
+      - query: "VOLT? (@1)"
+        expect: "+5.00000000E+00"
+      - send: "VOLT 2.5,(@1,2)"
+      - query: "VOLT? (@2,1)"
+        expect: "+2.50000000E+00,+2.50000000E+00"
+      - send: "VOLT 20,(@2)"
+      - query: "VOLT? (@2)"
+        expect: "+2.00000000E+01"
+      - send: "VOLT 7,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "CURR 按通道列表写入电流限值，每路的量程上限不同；CH1 6 A 报 -222"
+    manual: "CURRent Subsystem > [SOURce:]CURRent[:LEVel][:IMMediate][:AMPLitude]"
+    steps:
+      - send: "CURR 0.25,(@1,2)"
+      - query: "CURR? (@1:2)"
+        expect: "+2.50000000E-01,+2.50000000E-01"
+      - send: "CURR 1.03,(@2,3)"
+      - query: "CURR? (@2:3)"
+        expect: "+1.03000000E+00,+1.03000000E+00"
+      - send: "CURR 6,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "CURR 1.5,(@2)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "输出开关与回读：*WAI 等继电器动作后，CH1 接 10 Ω 的电压/电流与计算一致"
+    manual: "OUTPut Subsystem > OUTPut[:STATe]；MEASure Subsystem > MEASure[:SCALar]:VOLTage[:DC] / CURRent[:DC]"
+    steps:
+      - send: "VOLT 5,(@1);:CURR 1,(@1)"
+      - send: "OUTP ON,(@1)"
+      - query: "OUTP? (@1)"
+        expect: "1"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: "*WAI"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 4.9990002
+        tolerance: 1.0e-6
+      - query: "MEAS:CURR? (@1)"
+        expect_value: 0.49990002
+        tolerance: 1.0e-7
+      - query: "OUTP? (@1:3)"
+        expect: "1,0,0"
+
+  - name: "电流限值把输出从 CV 拉到 CC：1 A 限值接 10 Ω 时电压为 1 V、电流为 0.1 A"
+    manual: "CURRent Subsystem > [SOURce:]CURRent[:LEVel][:IMMediate][:AMPLitude]（电流限值）"
+    steps:
+      - send: "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 1.0
+        tolerance: 1.0e-3
+      - query: "MEAS:CURR? (@1)"
+        expect_value: 0.1
+        tolerance: 1.0e-6
+
+  - name: "MEAS:VOLT? (@1:3) 按通道列表序回答三路，功率按 V×I"
+    manual: "MEASure Subsystem > MEASure[:SCALar]:VOLTage[:DC]? / CURRent[:DC]?"
+    steps:
+      - send: "VOLT 5,(@1);:VOLT 2,(@2);:VOLT 1,(@3);:CURR 1,(@1:3);:OUTP ON,(@1:3);*WAI"
+      - query: "MEAS:VOLT? (@1:3)"
+        expect_match: '^\+4\.9990002E\+00,\+1\.9999600E\+00,\+9\.9998000E-01$'
+      - query: "MEAS:CURR? (@1:3)"
+        expect_match: '^\+4\.9990002E-01,\+1\.9999600E-02,\+9\.9998000E-03$'
+
+  - name: "OVP 阈值每路默认是量程最大值，可在各自范围内设定；低于下限报 -222"
+    manual: "VOLTage Subsystem > [SOURce:]VOLTage:PROTection[:LEVel][:AMPLitude]"
+    steps:
+      - query: "VOLT:PROT? (@1:3)"
+        expect: "+6.60000000E+00,+2.75000000E+01,+2.75000000E+01"
+      - send: "VOLT:PROT 4.5,(@1)"
+      - query: "VOLT:PROT? (@1)"
+        expect: "+4.50000000E+00"
+      - send: "VOLT:PROT 20,(@2)"
+      - query: "VOLT:PROT? (@2)"
+        expect: "+2.00000000E+01"
+      - send: "VOLT:PROT 0.4,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "VOLT:PROT 30,(@2)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "OVP 跳闸：电压超过阈值时输出关断，开输出报 729；提高阈值并清除后恢复故障前状态"
+    manual: "VOLTage Subsystem > [SOURce:]VOLTage:PROTection:TRIPped? / CLEar"
+    steps:
+      - send: "VOLT 5,(@1);:VOLT:PROT 4,(@1);:CURR 1,(@1);:OUTP ON,(@1);*WAI"
+      - query: "VOLT:PROT:TRIP?"
+        expect: "1"
+      - query: "OUTP? (@1)"
+        expect: "0"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: "OUTP ON,(@1)"
+      - query: "SYST:ERR?"
+        expect: '+729,"Not allow to enable output"'
+      - send: "VOLT:PROT 6,(@1);:VOLT:PROT:CLE (@1)"
+      - query: "OUTP? (@1)"
+        expect: "1"
+      - send: "*WAI"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 4.9990002
+        tolerance: 1.0e-6
+
+  - name: "OUTPut:PROTection:CLEar 清除 OVP 锁定并恢复故障前的输出状态"
+    manual: "OUTPut Subsystem > OUTPut:PROTection:CLEar"
+    steps:
+      - send: "VOLT 5,(@2);:VOLT:PROT 3,(@2);:OUTP ON,(@2);*WAI"
+      - query: "VOLT:PROT:TRIP? (@2)"
+        expect: "1"
+      - query: "OUTP? (@2)"
+        expect: "0"
+      - send: "VOLT:PROT 6,(@2);:OUTP:PROT:CLE (@2)"
+      - query: "OUTP? (@2)"
+        expect: "1"
+
+  - name: "远端检测：EXT 时在负载端把电压调到设定值，INT 时读到输出端的分压"
+    manual: "VOLTage Subsystem > [SOURce:]VOLTage:SENSe[:SOURce]"
+    steps:
+      - send: "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1);*WAI"
+      - query: "VOLT:SENS? (@1)"
+        expect: "INT"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 4.9990002
+        tolerance: 1.0e-6
+      - send: "VOLT:SENS EXT,(@1)"
+      - query: "VOLT:SENS? (@1)"
+        expect: "EXT"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 5.0
+        tolerance: 1.0e-7
+      - send: "VOLT:SENS INT,(@1)"
+      - query: "VOLT:SENS? (@1)"
+        expect: "INT"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 4.9990002
+        tolerance: 1.0e-6
+
+  - name: "VOLT:RANGe 接受并回显单一量程对应的值"
+    manual: "VOLTage Subsystem > [SOURce:]VOLTage:RANGe"
+    steps:
+      - query: "VOLT:RANG?"
+        expect: "P6V"
+      - send: "VOLT:RANG LOW,(@1)"
+      - query: "VOLT:RANG? (@1)"
+        expect: "LOW"
+      - send: "VOLT:RANG P25V,(@2,3)"
+      - query: "VOLT:RANG? (@2:3)"
+        expect: "P25V,P25V"
+
+  - name: "显示命令按接受处理：开关、文本与 1/3 通道视图保存并回读"
+    manual: "DISPlay Subsystem > DISPlay[:WINDow][:STATe] / TEXT / VIEW"
+    steps:
+      - query: "DISP?"
+        expect: "1"
+      - send: "DISP OFF"
+      - query: "DISP?"
+        expect: "0"
+      - send: 'DISP:TEXT "Keysight"'
+      - query: "DISP:TEXT?"
+        expect: '"Keysight"'
+      - send: "DISP:VIEW METER1"
+      - query: "DISP:VIEW?"
+        expect: "METER1"
+
+  - name: "蜂鸣器命令按接受处理：使能状态保存并回读，立即蜂鸣无回复"
+    manual: "SYSTem Subsystem > SYSTem:BEEPer[:IMMediate] / STATe"
+    steps:
+      - query: "SYST:BEEP:STAT?"
+        expect: "1"
+      - send: "SYST:BEEP:STAT OFF"
+      - query: "SYST:BEEP:STAT?"
+        expect: "0"
+      - send: "SYST:BEEP"
+
+  - name: "上电状态与禁止输入模式按接受处理"
+    manual: "OUTPut Subsystem > OUTPut:PON:STATe / OUTPut:INHibit:MODE"
+    steps:
+      - query: "OUTP:PON:STAT?"
+        expect: "RST"
+      - send: "OUTP:PON:STAT RCL3"
+      - query: "OUTP:PON:STAT?"
+        expect: "RCL3"
+      - query: "OUTP:INH:MODE?"
+        expect: "OFF"
+      - send: "OUTP:INH:MODE LATC"
+      - query: "OUTP:INH:MODE?"
+        expect: "LATC"
+      - send: "OUTP:INH:MODE LIVE"
+      - query: "OUTP:INH:MODE?"
+        expect: "LIVE"
+
+  - name: "LXI 指示灯与 mDNS 按接受处理"
+    manual: "LXI Subsystem > LXI:IDENtify[:STATe] / LXI:MDNS[:STATe]"
+    steps:
+      - query: "LXI:IDEN?"
+        expect: "0"
+      - send: "LXI:IDEN ON"
+      - query: "LXI:IDEN?"
+        expect: "1"
+      - query: "LXI:MDNS?"
+        expect: "0"
+      - send: "LXI:MDNS ON"
+      - query: "LXI:MDNS?"
+        expect: "1"
+
+  - name: "远程/本地状态按接受处理，LOC/REM/RWL 写同一个状态"
+    manual: "SYSTem Subsystem > SYSTem:COMMunicate:RLSTate / LOCal / REMote / RWLock"
+    steps:
+      - query: "SYST:COMM:RLST?"
+        expect: "LOC"
+      - send: "SYST:COMM:RLST REM"
+      - query: "SYST:COMM:RLST?"
+        expect: "REM"
+      - send: "SYST:LOC"
+      - query: "SYST:COMM:RLST?"
+        expect: "LOC"
+      - send: "SYST:REM"
+      - query: "SYST:COMM:RLST?"
+        expect: "REM"
+      - send: "SYST:RWL"
+      - query: "SYST:COMM:RLST?"
+        expect: "RWL"
+
+  - name: "SYSTem:VERSion? 回复 SCPI 版本"
+    manual: "SYSTem Subsystem > SYSTem:VERSion?"
+    steps:
+      - query: "SYST:VERS?"
+        expect: "1999.0"
+
+  - name: "公共命令：*CLS/*ESE/*ESR/*SRE/*STB/*OPC/*TST/*WAI"
+    manual: "IEEE-488 Subsystem > *CLS / *ESE / *ESR? / *SRE / *STB? / *OPC / *TST? / *WAI"
+    steps:
+      - send: "*CLS"
+      - query: "*ESR?"
+        expect: "0"
+      - send: "*ESE 32"
+      - query: "*ESE?"
+        expect: "32"
+      - send: "*SRE 32"
+      - query: "*SRE?"
+        expect: "32"
+      - query: "*STB?"
+        expect: "0"
+      - send: "*OPC"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "*ESR?"
+        expect: "1"
+      - query: "*TST?"
+        expect: "0"
+      - send: "*WAI"
+      - query: "*OPC?"
+        expect: "1"
+
+  - name: "错误队列 FIFO，错误码带 + 号，*CLS 清空队列"
+    manual: "SYSTem Subsystem > SYSTem:ERRor[:NEXT]?；IEEE-488 Subsystem > *CLS"
+    steps:
+      - send: "VOLT 7,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: "VOLT 7,(@1)"
+      - send: "*CLS"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
