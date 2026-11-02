@@ -25,6 +25,10 @@ cases:
         expect: "+2.000000E+00"
       - query: ":SOUR:VOLT:RANG:AUTO?"
         expect: "1"
+      - query: ":SOUR:CURR:RANG?"
+        expect: "+1.000000E-04"
+      - query: ":SOUR:CURR:RANG:AUTO?"
+        expect: "1"
       - query: ":SENS:VOLT:NPLC?"
         expect: "+1.000000E-01"
       - query: ":SENS:VOLT:RANG:AUTO?"
@@ -118,6 +122,10 @@ cases:
         expect: "+2.000000E+01"
       - query: ":SOUR:VOLT:RANG:AUTO?"
         expect: "0"
+      - query: ":SOUR:CURR:RANG?"  # the voltage range did not move the current one
+        expect: "+1.000000E-04"
+      - query: ":SOUR:CURR:RANG:AUTO?"
+        expect: "1"
       - send: ":SOUR:VOLT:RANG:AUTO ON"
       - query: ":SOUR:VOLT:RANG:AUTO?"
         expect: "1"
@@ -128,6 +136,10 @@ cases:
         expect: "+1.000000E-02"
       - query: ":SOUR:CURR:RANG:AUTO?"
         expect: "0"
+      - query: ":SOUR:VOLT:RANG?"  # and the current range did not move the voltage one
+        expect: "+2.000000E+01"
+      - query: ":SOUR:VOLT:RANG:AUTO?"
+        expect: "1"
       - send: ":SOUR:CURR:RANG:AUTO ON"
 
   - name: "测量量程与自动量程"
