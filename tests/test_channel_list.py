@@ -142,6 +142,20 @@ def test_a_query_answers_the_channels_in_list_order():
     assert query("VOLT?") == "+1.000000E+00"
 
 
+def test_a_query_form_returns_each_channels_limit_or_default():
+    """``VOLT? MAX,(@2:3)`` answers the range limit per channel, not the setting (#297)."""
+    session, query = open_psu()
+    session.instruments["x"].set_state("ch1.volt", 6.0)
+    # the list may be left out: channel 1 answers with its own override's max
+    assert query("VOLT? MAX") == "+6.000000E+00"
+    assert query("VOLT? MIN") == "+0.000000E+00"
+    assert query("VOLT? MAX,(@2:3)") == "+2.500000E+01,+2.500000E+01"
+    assert query("VOLT? DEF,(@1)") == "+0.000000E+00"
+    # the long forms work too, and the plain query still answers the current setting
+    assert query("VOLT? MAXimum,(@2)") == "+2.500000E+01"
+    assert query("VOLT? (@1)") == "+6.000000E+00"
+
+
 def test_a_channel_outside_the_instrument_is_an_error():
     _, query = open_psu()
     query("VOLT 1,(@4)")

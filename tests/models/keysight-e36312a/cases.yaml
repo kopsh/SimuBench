@@ -61,6 +61,31 @@ cases:
       - query: "SYST:ERR?"
         expect: '-222,"Data out of range"'
 
+  - name: "VOLT?/CURR? 的 MIN/MAX/DEF 形式按每路的量程上下限与默认值回答（#297）"
+    manual: "VOLTage/CURRent Subsystem > [SOURce:]VOLTage[:LEVel]?/[SOURce:]CURRent[:LEVel]?"
+    steps:
+      - query: "VOLT? MAX"
+        expect: "+6.18000000E+00"
+      - query: "VOLT? MIN,(@1)"
+        expect: "+0.00000000E+00"
+      - query: "VOLT? DEF,(@1)"
+        expect: "+0.00000000E+00"
+      - query: "VOLT? MAX,(@2:3)"
+        expect: "+2.57500000E+01,+2.57500000E+01"
+      - query: "CURR? MAX,(@1)"
+        expect: "+5.15000000E+00"
+      - query: "CURR? MIN,(@2)"
+        expect: "+1.00000000E-03"
+      - query: "CURR? DEF,(@1)"
+        expect: "+5.00000000E+00"
+
+  - name: "APPLy 未建模：不超时，入错误队列回 -113（#297）"
+    manual: "APPLy Subsystem > APPLy"
+    steps:
+      - send: "APPL P25V,5,0.5"
+      - query: "SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+
   - name: "输出开关与回读：*WAI 等继电器动作后，CH1 接 10 Ω 的电压/电流与计算一致"
     manual: "OUTPut Subsystem > OUTPut[:STATe]；MEASure Subsystem > MEASure[:SCALar]:VOLTage[:DC] / CURRent[:DC]"
     steps:
