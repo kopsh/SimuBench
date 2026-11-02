@@ -248,15 +248,24 @@ class PowerOutput(Component):
 
     def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
         if not self.conducting():
+            self._protection().watch_cc(False)
             return False
         loop = self._loop()
         v = self._metered(dc_voltage)
         current = self.session.source_current(self.uid) if loop.mode == "V" else 0.0
         changed = loop.update_mode(v, current)
+        if changed:
+            # The operating point just solved belongs to the old mode (e.g. CC at a raised limit
+            # would read the load's full I·R): protection judges only a settled point (#271).
+            return True
         i = current if loop.mode == "V" else loop.targets()[1]
         protection = self._protection()
+        protection.watch_cc(loop.mode != "V")
         if not protection.tripped() and protection.check(v, i):
             protection.trip(v, i)
+            changed = True
+        elif not protection.tripped() and loop.mode != "V" and protection.cc_due_now():
+            protection.trip_ocp()
             changed = True
         return changed
 
@@ -306,6 +315,13 @@ class SupplyReadback(Component):
         value = {"voltage": v, "current": i, "power": v * i}[what]
         return OpResult(V.format_float(value, 7))
 
+    @op("condition")
+    def op_condition(self, query: bool = False, **_: Any) -> OpResult:
+        """The regulation as a status condition (#271, STAT:QUES:INST:ISUM<n>:COND?): 0 off or
+        unregulated, 1 constant current, 2 constant voltage."""
+        self.session._solve()
+        return OpResult(V.format_int({"CC": 1, "CV": 2}.get(self._output().regulation(), 0)))
+
     def readings(self) -> dict[str, Any]:
         v, i = self._output().measured()
         return {
@@ -332,14 +348,62 @@ class SupplyProtection(Component):
         "ovp": 0.0,  # over-voltage threshold, V (0: off)
         "ocp": 0.0,  # over-current threshold, A (0: off)
         "output": False,  # the channel's output setting (watched)
+        # OCP by time in CC (#271, the E36300's form): enabled, the output trips once it has been
+        # in constant current for ocp_delay. The timer starts on entering CC; with "SCHange" a
+        # settings change (voltage, current, output) while in CC starts it again, with "CCTRans"
+        # only a transition into CC does.
+        "ocp_enabled": False,  # OCP by CC duration on (CURR:PROT:STAT)
+        "ocp_delay": 0.0,  # s in CC before the trip (CURR:PROT:DEL)
+        "ocp_start": "SCHange",  # what starts the delay: SCHange | CCTRans (CURR:PROT:DEL:STAR)
+        "voltage": 0.0,  # the channel's voltage setting (watched: a settings change)
+        "current": 0.0,  # the channel's current setting (watched: a settings change)
     }
-    units = {"ovp": "V", "ocp": "A"}
+    units = {"ovp": "V", "ocp": "A", "ocp_delay": "S", "voltage": "V", "current": "A"}
+    choices = {"ocp_start": ("SCHange", "CCTRans")}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._tripped = ""  # "OVP" | "OCP" | ""
         self._restore = False  # was the output on when the fault came?
         self._disabling = False
+        self._in_cc = False  # the output's last solved mode was constant current
+        self._cc_since: int | None = None  # when the OCP delay started (None: not running)
+
+    # ---- OCP by time in constant current (#271) ---------------------------------------------------
+
+    def watch_cc(self, in_cc: bool) -> None:
+        """The output's solved mode: entering CC starts the OCP delay, leaving it stops it."""
+        if in_cc and not self._in_cc:
+            self._start_delay()
+        elif not in_cc and self._in_cc:
+            self._stop_delay()
+        self._in_cc = in_cc
+
+    def _start_delay(self) -> None:
+        if self.owner is None or self._tripped or not bool(self.param("ocp_enabled")):
+            return
+        now = self.owner.now_ns()
+        self._cc_since = now
+        due = now + round(float(self.param("ocp_delay")) * 1e9)
+        self.owner.register_pending(f"{self.uid}/ocp", due, self._ocp_due, waited=False)
+
+    def _stop_delay(self) -> None:
+        self._cc_since = None
+        if self.owner is not None:
+            self.owner.cancel_pending(f"{self.uid}/ocp")
+
+    def _ocp_due(self) -> None:
+        if self._tripped or self._cc_since is None or not self._in_cc or not bool(self.param("ocp_enabled")):
+            return
+        self._cc_since = None
+        self._restore = bool(self.param("output"))
+        self._tripped = "OCP"
+        self._disable_output()
+        self.session.invalidate(electrical=True)
+
+    def cc_due_now(self) -> bool:
+        """A zero OCP delay trips on entering CC, inside the solve like a threshold."""
+        return bool(self.param("ocp_enabled")) and float(self.param("ocp_delay")) <= 0
 
     def tripped(self) -> bool:
         return bool(self._tripped)
@@ -367,6 +431,15 @@ class SupplyProtection(Component):
             key = f"{self.uid}/trip"
             self.owner.register_pending(key, self.owner.now_ns(), self._disable_output)
 
+    def trip_ocp(self) -> None:
+        """OCP with no delay: the output trips on entering constant current."""
+        if self._tripped:
+            return
+        self._restore = bool(self.param("output"))
+        self._tripped = "OCP"
+        if self.owner is not None:
+            self.owner.register_pending(f"{self.uid}/trip", self.owner.now_ns(), self._disable_output)
+
     def _disable_output(self) -> None:
         if self.owner is None or not self._restore:
             return
@@ -376,7 +449,11 @@ class SupplyProtection(Component):
         finally:
             self._disabling = False
 
-    def clear(self) -> None:
+    def clear(self, kind: str | None = None) -> None:
+        """Remove the latch (only a ``kind`` fault when one is named: CURR:PROT:CLE clears OCP,
+        VOLT:PROT:CLE OVP) and restore the output state from before the fault."""
+        if kind is not None and self._tripped != kind.upper():
+            return
         restore = self._restore
         self._tripped = ""
         self._restore = False
@@ -385,16 +462,33 @@ class SupplyProtection(Component):
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         bound = {v: k for k, v in self.bound_paths().items()}
-        if bound.get(path) == "output" and new and self._tripped and not self._disabling:
+        key = bound.get(path)
+        if key == "output" and new and self._tripped and not self._disabling:
             raise ScpiError(OUTPUT_DISABLED, "the output is disabled by a protection fault")
+        if key in ("voltage", "current", "output", "ocp_enabled") and bool(self.param("ocp_enabled")):
+            # Solving is lazy: bring the CC state up to now before judging the change. The OCP
+            # timer runs from when the simulator sees CC (a command or a query), not before.
+            self.session._solve()
+        if key in ("voltage", "current", "output") and self._in_cc and self.choice("ocp_start") == "SCHange":
+            self._start_delay()  # a settings change restarts the delay while in CC
+        if key == "ocp_enabled":
+            if new and self._in_cc:
+                self._start_delay()  # enabled while already in CC: the delay runs from now
+            elif not new:
+                self._stop_delay()
 
     def reset(self) -> None:
         self._tripped = ""
         self._restore = False
+        self._in_cc = False
+        self._stop_delay()
 
     @op("tripped")
-    def op_tripped(self, query: bool = False, **_: Any) -> OpResult:
+    def op_tripped(self, query: bool = False, kind: str | None = None, **_: Any) -> OpResult:
+        """Whether a fault is latched; with ``kind`` (OVP / OCP) whether that one is."""
         self.session._solve()
+        if kind is not None:
+            return OpResult(V.format_bool(self._tripped == kind.upper()))
         return OpResult(V.format_bool(self.tripped()))
 
     @op("kind")
@@ -403,8 +497,8 @@ class SupplyProtection(Component):
         return OpResult(V.format_string(self.kind()))
 
     @op("clear")
-    def op_clear(self, **_: Any) -> OpResult:
-        self.clear()
+    def op_clear(self, kind: str | None = None, **_: Any) -> OpResult:
+        self.clear(kind)
         return OpResult()
 
     def readings(self) -> dict[str, Any]:

@@ -198,3 +198,61 @@ def test_ovp_trip_clear_and_the_729_output_refusal():
         assert close_enough(float(q(s, "VOLT? (@1)")), 5.0, rel=1e-9)
     finally:
         s.close()
+
+
+# ---- OCP by time in constant current and the CV/CC condition (#271) ----------------------------------
+
+
+def cc_session():
+    """CH1 at 5 V with a 10 mA limit into 10 Ω: constant current once the relay has closed."""
+    s = session()
+    q(s, "VOLT 5,(@1);:CURR 0.01,(@1);:OUTP ON,(@1)")
+    s.advance(0.02)  # the relay closes after 10 ms
+    return s
+
+
+def test_the_condition_register_reads_cc_and_cv():
+    s = cc_session()
+    try:
+        assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "1"  # constant current
+        assert q(s, "STAT:QUES:INST:ISUM2:COND?") == "0"  # output 2 off
+        q(s, "CURR 1,(@1)")
+        assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "2"  # constant voltage
+    finally:
+        s.close()
+
+
+def test_ocp_trips_after_the_delay_in_cc_and_only_its_own_clear_removes_it():
+    s = cc_session()
+    try:
+        assert q(s, "CURR:PROT:STAT?") == "0"  # *RST: off — CC alone never trips
+        s.advance(1.0)
+        assert q(s, "CURR:PROT:TRIP? (@1)") == "0" and q(s, "OUTP? (@1)") == "1"
+        q(s, "CURR:PROT:DEL 0.2,(@1);:CURR:PROT:STAT ON,(@1)")
+        s.advance(0.1)
+        assert q(s, "CURR:PROT:TRIP? (@1)") == "0"  # 100 ms of the 200 ms delay
+        s.advance(0.2)
+        assert q(s, "CURR:PROT:TRIP? (@1)") == "1"
+        assert q(s, "VOLT:PROT:TRIP? (@1)") == "0"  # the OVP query answers OVP only
+        assert q(s, "OUTP? (@1)") == "0"
+        q(s, "VOLT:PROT:CLE (@1)")  # an OVP clear leaves the OCP latch
+        assert q(s, "CURR:PROT:TRIP? (@1)") == "1"
+        q(s, "CURR 1,(@1);:CURR:PROT:CLE (@1)")
+        assert q(s, "CURR:PROT:TRIP? (@1)") == "0" and q(s, "OUTP? (@1)") == "1"  # restored
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
+@pytest.mark.parametrize(("start", "tripped"), [("SCH", "0"), ("CCTR", "1")])
+def test_the_delay_start_decides_whether_a_settings_change_restarts_it(start, tripped):
+    """SCHange: a settings change while in CC starts the delay again; CCTRans: only entering CC."""
+    s = cc_session()
+    try:
+        q(s, f"CURR:PROT:DEL:STAR {start},(@1);:CURR:PROT:DEL 0.2,(@1);:CURR:PROT:STAT ON,(@1)")
+        s.advance(0.15)
+        q(s, "CURR 0.02,(@1)")  # still CC: a settings change
+        s.advance(0.1)
+        assert q(s, "CURR:PROT:TRIP? (@1)") == tripped
+    finally:
+        s.close()

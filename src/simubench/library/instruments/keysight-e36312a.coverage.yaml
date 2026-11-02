@@ -32,11 +32,11 @@ sections:
   - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15 A（CH1）/1.03 A（CH2、CH3）。查询的 MIN/MAX/DEF 形式按该路的量程下限/上限/默认值回答（#297）。}
   - {header: '[SOURce:]CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]CURRent:MODE', level: not_modeled}
-  - {header: '[SOURce:]CURRent:PROTection:CLEar', level: not_modeled, note: OCP 未建模（#271）。}
-  - {header: '[SOURce:]CURRent:PROTection:DELay[:TIME]', level: not_modeled, note: OCP 按 CC 持续时间的跳闸未建模（#271）。}
-  - {header: '[SOURce:]CURRent:PROTection:DELay:STARt', level: not_modeled, note: OCP 按 CC 持续时间的跳闸未建模（#271）。}
-  - {header: '[SOURce:]CURRent:PROTection:STATe', level: not_modeled, note: OCP 的使能与 CC 持续时间跳闸未建模（#271）。}
-  - {header: '[SOURce:]CURRent:PROTection:TRIPped', level: not_modeled, note: 按种类的 OVP/OCP 锁定查询未建模（#271）。}
+  - {header: '[:SOURce]:CURRent:PROTection:CLEar', level: implemented, note: 只清除 OCP 锁定并恢复故障前的输出状态（#271）；OVP 锁定不受影响。}
+  - {header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]', level: implemented, note: '输出处于 CC 超过该时间即跳闸（#271）；0–3600 s。*RST 值 50 ms 未能按手册正文核实。计时从仿真看到 CC 起（下一条命令或查询），不早于此。'}
+  - {header: '[:SOURce]:CURRent:PROTection:DELay:STARt', level: implemented, note: SCHange：进入 CC 或在 CC 中改设定（电压、电流、输出）都重新计时；CCTRans：只在进入 CC 时计时（#271）。}
+  - {header: '[:SOURce]:CURRent:PROTection:STATe', level: implemented, note: OCP 使能，*RST 关（#271）；手册没有电流阈值命令，跳闸按 CC 持续时间。}
+  - {header: '[:SOURce]:CURRent:PROTection:TRIPped', level: implemented, note: 只回 OCP 锁定（#271）；VOLT:PROT:TRIP? 只回 OVP。}
 - section: DIGital Subsystem
   commands:
   - {header: '[SOURce:]DIGital:INPut:DATA', level: not_modeled, note: 数字控制口不在首波。}
@@ -113,7 +113,7 @@ sections:
   - {header: 'OUTPut:INHibit:MODE', level: accepted, note: 接受：外部禁止输入模式保存并回读；没有禁止输入硬件。, affects_data: false}
   - {header: 'OUTPut:PAIR', level: implemented, note: '内部串联（输出 2 为 50 V/1 A）与并联（25 V/2 A），输出 3 停止工作；改组合需输出 2、3 关闭（-221）。组合下输出 2 的 VOLT/CURR/OVP 上限与 MIN/MAX 随之变化（#259）。'}
   - {header: 'OUTPut:PON:STATe', level: accepted, note: 接受：上电状态（RST 或 RCL0–9）保存并回读；状态存储本身未实现。, affects_data: false}
-  - {header: 'OUTPut:PROTection:CLEar', level: implemented, note: '清除 OVP 锁定（与 VOLT:PROT:CLE 同一锁定）；OCP 未建模。'}
+  - {header: 'OUTPut:PROTection:CLEar', level: implemented, note: '清除 OVP 与 OCP 锁定（#271），恢复故障前的输出状态。'}
   - {header: 'OUTPut:TRACk[:STATe]', level: implemented, note: '跟踪：输出 3 与输出 2 同电压（同号），改任一路另一路随之变化（#259）。'}
 - section: SENSe Subsystem
   commands:
@@ -131,7 +131,7 @@ sections:
   - {header: 'STATus:QUEStionable:INSTrument[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
   - {header: 'STATus:QUEStionable:INSTrument:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
   - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
-  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:CONDition', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:CONDition', level: implemented, note: 0 关或未调节、1 恒流、2 恒压（#271）。}
   - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
 - section: SYSTem Subsystem
   commands:
@@ -163,7 +163,7 @@ sections:
   - {header: '[SOURce:]VOLTage[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]VOLTage:MODE', level: not_modeled}
   - {header: '[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]', level: implemented, note: 每路 OVP 阈值；CH1 0.5–6.6 V，CH2/3 1.5–27.5 V，*RST 为各量程最大值。}
-  - {header: '[:SOURce]:VOLTage:PROTection:CLEar', level: implemented, note: 清除 OVP 锁定并恢复故障前的输出状态。}
+  - {header: '[:SOURce]:VOLTage:PROTection:CLEar', level: implemented, note: 只清除 OVP 锁定并恢复故障前的输出状态（#271）。}
   - {header: '[:SOURce]:VOLTage:RANGe', level: accepted, affects_data: false, note: 接受：单一电压量程，保存并回显（P6V/P25V/LOW/HIGH）；不参与仿真。}
   - {header: '[:SOURce]:VOLTage:PROTection:TRIPped', level: implemented, note: '查询 OVP 锁定；裸查询按 INSTrument:SELect 选中的输出回答（#295）。'}
   - {header: '[:SOURce]:VOLTage:SENSe[:SOURce]', level: implemented, note: 内部（两线）/外部（四线）检测；外部检测需要测试台把 SENSE 端子接到负载。}
