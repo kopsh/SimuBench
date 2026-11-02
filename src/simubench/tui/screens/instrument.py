@@ -19,7 +19,7 @@ from textual.widgets import Static
 from .. import controls as C
 from .. import i18n
 from ..cards import ARROWS, opposite_ends
-from ..fmt import cell_len, fmt, fmt_ns, pad, ralign
+from ..fmt import braille_rows, cell_len, fmt, fmt_ns, pad, ralign
 from ..log import source_label
 from ..reasons import ReasonReport, error_report, fault_report, limited_report, setting_report
 from ..widgets import box_text, box_title, log_text, render_segments
@@ -386,9 +386,13 @@ class InstrumentScreen(ShellScreen):
             return self._smu_lines(state)
         if template == "function_generator":
             return self._generator_lines(state, channel or 1)
+        if template == "spectrum_analyzer":
+            return self._spectrum_lines(state, width)
+        if template == "lockin":
+            return self._lockin_lines(state, width)
         if (info.get("display") or {}).get("panel"):
-            return self._panel_lines()
-        return self._generic_lines(state)
+            return self._panel_lines(width)
+        return self._readings_lines(width) + self._generic_lines(state, width)
 
     def _row(
         self, label: str, value: str, *, bold: bool = True, mark: str = "", width: int = 6
@@ -490,72 +494,126 @@ class InstrumentScreen(ShellScreen):
         width = 1 + max((cell_len(label) for label, _, _ in rows), default=5)
         return [self._row(label, value, bold=bold, width=width) for label, value, bold in rows]
 
-    def _panel_lines(self) -> list[list[tuple[str, str]]]:
-        """Readouts on top (numbers bold), then one column per panel group (tui-screens.md 5.2)."""
+    def _panel_lines(self, width: int | None = None) -> list[list[tuple[str, str]]]:
+        """Readouts on top (numbers bold), then one column per panel group, as many as fit
+        (tui-screens.md 5.2)."""
         lang = self.app.lang
         info = self.info
         panel = info["display"]["panel"]
         state = {sv["path"]: sv for sv in info.get("state", [])}
         values = self.readings.get("values", {})
         rows: list[list[tuple[str, str]]] = []
+        shown = []
         for ro in panel.get("readouts", []):
             when = ro.get("when") or {}
             if when and not all((state.get(p) or {}).get("value") == v for p, v in when.items()):
                 continue
-            label = ro.get("label" if lang == "zh" else "label_en") or ro.get("reading", "")
+            shown.append(ro)
+        label_w = max((cell_len(ro.get("label_en") or ro.get("label") or "") for ro in shown), default=0) + 1
+        for ro in shown:
+            label = ro.get("label_en") or ro.get("label") or ro.get("reading", "")
             value = values.get(ro.get("reading", ""))
-            if isinstance(value, (int, float)):
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
                 text = fmt(value, ro.get("unit"), ro.get("digits") or 5)
-                rows.append([(label + " ", "muted"), (text, "bold")])
+                rows.append([(pad(label, label_w), "muted"), (text, "bold")])
             else:
-                rows.append([(label + " ", "muted"), (C.summary_text(value, None, lang), "")])
+                rows.append([(pad(label, label_w), "muted"), (C.summary_text(value, None, lang), "")])
         if rows:
             rows.append([("", "")])
-        columns: list[list[list[tuple[str, str]]]] = []
-        for group in panel.get("groups", [])[:3]:
-            col: list[list[tuple[str, str]]] = [
-                [(group.get("label" if lang == "zh" else "label_en") or group.get("label", ""), "muted")]
+        groups = {
+            (group.get("label_en") or group.get("label") or ""): [
+                pc["state"] for pc in group.get("controls", []) if pc.get("state")
             ]
-            for pc in group.get("controls", []):
-                path = pc.get("state")
-                sv = state.get(path)
-                if sv is None:
-                    continue
-                col.append(
-                    [
-                        (pad(C.label_of(sv, lang, fallback=path.rsplit(".", 1)[-1]), 10), "muted"),
-                        (C.summary_text(sv.get("value"), sv, lang), ""),
-                    ]
-                )
-            columns.append(col)
-        for n in range(max((len(c) for c in columns), default=0)):
-            row: list[tuple[str, str]] = []
-            for col in columns:
-                if n < len(col):
-                    row.extend(col[n])
-                row.append((" " * 3, ""))
-            if any(cell_len(v) for v, _ in row):
-                rows.append(row)
-        return rows
+            for group in panel.get("groups", [])
+        }
+        return rows + self._grouped_columns(groups, state, width)
 
-    def _generic_lines(self, state: dict[str, dict]) -> list[list[tuple[str, str]]]:
-        """State variables grouped by first path segment, up to three columns (5.2)."""
+    def _readings_lines(self, width: int | None = None) -> list[list[tuple[str, str]]]:
+        """The numeric readings of an instrument without a template view (an electronic load, an RF
+        generator): ``component.name value`` (#282)."""
+        values = self.readings.get("values", {})
+        items = [(k, v) for k, v in values.items() if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        if not items:
+            return []
+        label_w = max(cell_len(k) for k, _ in items) + 1
+        rows = [[(pad(k, label_w), "muted"), (fmt(float(v), None, 5), "bold")] for k, v in items[:8]]
+        return [*rows, [("", "")]]
+
+    def _spectrum_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+        """The analyzer's trace as braille (4 rows of dots per text row), the marker, RBW/VBW and
+        sweep time, then its settings (#282) — the same data the web screen draws."""
+        readings = self.readings
+        values = readings.get("values", {})
+        traces = readings.get("traces") or []
+        cols = max(10, width - 4)
+        rows: list[list[tuple[str, str]]] = []
+        trace = next((t for t in traces if t.get("name") == "trace1"), traces[0] if traces else None)
+        if trace and trace.get("values"):
+            wave = [float(v) for v in trace["values"]]
+            for line in braille_rows(wave, cols, 4):
+                rows.append([(line, "ch1")])
+            lo, hi = min(wave), max(wave)
+            rows.append([(f"{fmt(hi, 'dBm', 4)} top · {fmt(lo, 'dBm', 4)} floor", "muted")])
+        key = next((k for k in values if k.endswith(".marker_x")), None)
+        if key:
+            base = key.rsplit(".", 1)[0]
+            mx, my = values.get(f"{base}.marker_x"), values.get(f"{base}.marker_y")
+            rows.append(
+                [
+                    ("Marker ", "muted"),
+                    (fmt(float(mx), "Hz", 6), "bold"),
+                    ("  ", ""),
+                    (fmt(float(my), "dBm", 4), "bold"),
+                ]
+            )
+            line: list[tuple[str, str]] = []
+            for name, label, unit in (
+                ("rbw", "RBW", "Hz"),
+                ("vbw", "VBW", "Hz"),
+                ("sweep_time", "Sweep", "s"),
+            ):
+                v = values.get(f"{base}.{name}")
+                if isinstance(v, (int, float)):
+                    line += [(f"{label} ", "muted"), (fmt(float(v), unit, 3), ""), ("   ", "")]
+            if values.get(f"{base}.uncal"):
+                line.append(("UNCAL", "bad"))
+            if line:
+                rows.append(line)
+        rows.append([("", "")])
+        return rows + self._generic_lines(state, width)
+
+    def _lockin_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+        """X, Y, R and θ of the lock-in's output (#282), then its settings."""
+        values = self.readings.get("values", {})
+        rows: list[list[tuple[str, str]]] = []
+        for name, unit in (("X", "V"), ("Y", "V"), ("R", "V"), ("THETA", "DEG")):
+            key = next((k for k in values if k.rsplit(".", 1)[-1] == name), None)
+            if key is None:
+                continue
+            label = "θ" if name == "THETA" else name
+            rows.append([(pad(label, 3), "muted"), (fmt(float(values[key]), unit, 5), "bold")])
+        if rows:
+            rows.append([("", "")])
+        return rows + self._generic_lines(state, width)
+
+    def _generic_lines(self, state: dict[str, dict], width: int | None = None) -> list[list[tuple[str, str]]]:
+        """State variables grouped by first path segment, as many columns as fit (5.2)."""
         groups: dict[str, list[str]] = {}
         for path in state:
             groups.setdefault(path.split(".", 1)[0], []).append(path)
-        return self._grouped_columns(groups, state)
+        return self._grouped_columns(groups, state, width)
 
     def _grouped_columns(
-        self, groups: dict[str, list[str]], state: dict[str, dict]
+        self, groups: dict[str, list[str]], state: dict[str, dict], width: int | None = None
     ) -> list[list[tuple[str, str]]]:
-        """Up to three columns of ``label value`` rows under their group name. Each column is as
-        wide as its widest row (labels and values aligned), so nothing is cut while the box has
-        the room (#283)."""
+        """``label value`` rows under their group name, one column per group. Each column is as
+        wide as its widest row (labels and values aligned, #283); as many columns go side by side
+        as ``width`` holds, and the next ones form a block below — nothing wraps or is cut (#282)."""
         lang = self.app.lang
         columns: list[list[tuple[str, str]]] = []  # per column: (label, value) rows; row 0 = title
-        for name in list(groups)[:3]:
+        for name, paths in list(groups.items())[:3]:  # up to three groups, as before (5.2)
             col: list[tuple[str, str]] = [(name, "")]
-            for path in groups[name]:
+            for path in paths:
                 sv = state.get(path)
                 if sv is None:
                     continue
@@ -566,27 +624,39 @@ class InstrumentScreen(ShellScreen):
                     else C.summary_text(sv.get("value"), sv, lang)
                 )
                 col.append((label, value))
-            columns.append(col)
+            if len(col) > 1:
+                columns.append(col)
         label_w = [max((cell_len(lab) for lab, _ in col[1:]), default=0) for col in columns]
         col_w = [
             max(cell_len(col[0][0]), max((label_w[k] + 1 + cell_len(v) for _, v in col[1:]), default=0))
             for k, col in enumerate(columns)
         ]
+        limit = width - 2 if width and width > 2 else 10_000  # the box's padding
+        blocks: list[list[int]] = []
+        for k in range(len(columns)):
+            if blocks and sum(col_w[j] + 3 for j in blocks[-1]) + col_w[k] <= limit:
+                blocks[-1].append(k)
+            else:
+                blocks.append([k])
         rows: list[list[tuple[str, str]]] = []
-        for n in range(max((len(c) for c in columns), default=0)):
-            row: list[tuple[str, str]] = []
-            for k, col in enumerate(columns):
-                if n == 0:
-                    row.append((pad(col[0][0], col_w[k]), "muted"))
-                elif n < len(col):
-                    label, value = col[n]
-                    row.append((pad(label, label_w[k] + 1), "muted"))
-                    row.append((pad(value, col_w[k] - label_w[k] - 1), "bold"))
-                else:
-                    row.append((" " * col_w[k], ""))
-                row.append((" " * 3, ""))
-            if any(cell_len(v.strip()) for v, _ in row):
-                rows.append(row)
+        for b, block in enumerate(blocks):
+            if b:
+                rows.append([("", "")])
+            for n in range(max((len(columns[k]) for k in block), default=0)):
+                row: list[tuple[str, str]] = []
+                for k in block:
+                    col = columns[k]
+                    if n == 0:
+                        row.append((pad(col[0][0], col_w[k]), "muted"))
+                    elif n < len(col):
+                        label, value = col[n]
+                        row.append((pad(label, label_w[k] + 1), "muted"))
+                        row.append((pad(value, col_w[k] - label_w[k] - 1), "bold"))
+                    else:
+                        row.append((" " * col_w[k], ""))
+                    row.append((" " * 3, ""))
+                if any(cell_len(v.strip()) for v, _ in row):
+                    rows.append(row)
         return rows
 
     def _reason_line(self, template: str) -> list[tuple[str, str]] | None:
@@ -673,7 +743,7 @@ class InstrumentScreen(ShellScreen):
         # Before the first layout the box has no size yet: take the row's share of the screen
         # (#other-box is 2fr of the side row) rather than cutting at a 20-cell guess (#283).
         width = self._other.content_size.width or max(20, (app.size.width * 2) // 3 - 4)
-        rows = self._grouped_columns(groups, state)
+        rows = self._grouped_columns(groups, state, width)
         self._other.display = True
         self._other.border_title = i18n.t("instrument.otherSettings", lang)
         self._other_static.update(box_text(app, rows, width))

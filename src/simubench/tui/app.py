@@ -51,6 +51,22 @@ def _hash_file(path: Path | None) -> str | None:
         return None
 
 
+#: Templates whose screens show readings (or a trace) from /readings (#282); oscilloscopes also use
+#: /screen.
+READING_TEMPLATES = (
+    "smu",
+    "multimeter",
+    "calibrator",
+    "oscilloscope",
+    "spectrum_analyzer",
+    "lockin",
+    "power_supply",
+    "electronic_load",
+    "rf_generator",
+    "daq",
+)
+
+
 class SimuBenchApp(App[None]):
     """``simubench tui``: overview, communication log, and the connection states of section 3."""
 
@@ -357,13 +373,14 @@ class SimuBenchApp(App[None]):
         self.bump()
 
     def _mark_template_instruments(self) -> None:
-        """Readings for the templates that show them (smu, multimeter, calibrator) and /screen
-        for the oscilloscopes' run state (section 4.2)."""
+        """Readings for the instruments that show them — the templates with readouts and every
+        instrument with a panel (its class default included, #282) — and /screen for the
+        oscilloscopes' run state (section 4.2)."""
         if self.session_info is None:
             return
         for info in self.session_info.get("instruments", []):
-            template = (info.get("display") or {}).get("template")
-            if template in ("smu", "multimeter", "calibrator", "oscilloscope"):
+            display = info.get("display") or {}
+            if display.get("template") in READING_TEMPLATES or display.get("panel"):
                 self._dirty_instr.add(info["name"])
 
     def _tick(self) -> None:
@@ -420,7 +437,7 @@ class SimuBenchApp(App[None]):
                 continue
             self._merge_instrument(info)
             template = (info.get("display") or {}).get("template")
-            if template in ("smu", "multimeter", "calibrator") or (info.get("display") or {}).get("panel"):
+            if template in READING_TEMPLATES or (info.get("display") or {}).get("panel"):
                 with contextlib.suppress(ApiError):
                     self.readings[name] = await self.client.readings(self.sid, name)
             if template == "oscilloscope":
