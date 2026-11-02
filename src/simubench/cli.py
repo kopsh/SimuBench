@@ -96,7 +96,10 @@ def _tui(args: argparse.Namespace) -> int:
     from importlib.util import find_spec
 
     if find_spec("textual") is None:
-        print("终端控制台需要可选依赖：pip install 'simubench[tui]'", file=sys.stderr)
+        print(
+            "The terminal console needs the optional dependency: pip install 'simubench[tui]'",
+            file=sys.stderr,
+        )
         return 2
     from .tui.launch import run_attach, run_bench
 
@@ -105,7 +108,6 @@ def _tui(args: argparse.Namespace) -> int:
             args.attach if args.attach is not None else "http://127.0.0.1:8000",
             args.session,
             args.token,
-            args.lang,
         )
     return run_bench(args)
 
@@ -535,7 +537,6 @@ def main(argv: list[str] | None = None) -> int:
         "--allow-plugins", action="store_true", help="run components/*.py from the workspace as plugins"
     )
     p.add_argument("--token", help="access token of the service (default: no token, D43)")
-    p.add_argument("--lang", choices=["zh", "en"], help="UI language (default: follow LANG, zh fallback)")
     p.add_argument("--script", metavar="STEPS_YAML", help="run these steps headlessly and exit (6)")
     p.add_argument("--out", metavar="DIR", default="tui-shots", help="where the SVGs go (default: tui-shots)")
     p.add_argument("--record", action="store_true", help="also write per-frame SVGs and a .cast (6)")

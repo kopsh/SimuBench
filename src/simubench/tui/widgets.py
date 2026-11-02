@@ -156,7 +156,7 @@ class CaptionBar(Static):
 
 def remote_status(session: dict[str, Any] | None, lang: str) -> str:
     """``远程：无``, ``远程：smu ← 脚本 :53122``, or ``远程：2 台`` (tui-screens.md 2.2)."""
-    prefix = "远程：" if i18n.table(lang) is i18n.LANGS["zh"] else "remote: "
+    prefix = "remote: "
     clients = (session or {}).get("clients", [])
     if not clients:
         return prefix + i18n.t("common.none", lang)

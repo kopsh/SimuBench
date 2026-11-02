@@ -1112,5 +1112,912 @@
    "out.settling": true,
    "out.voltage": 0.0
   }
+ },
+ "counter": {
+  "instrument": {
+   "name": "cnt",
+   "label": "频率计数器",
+   "model": "53220A",
+   "manufacturer": "Keysight Technologies",
+   "definition_id": "keysight-53220a",
+   "instrument_class": "frequency_counter",
+   "description": "Keysight 53220A，350 MHz 双通道通用频率计数器/计时器。Real model（D42）：命令、参数范围、 *RST 默认值与返回格式按 53220A/53230A User's Guide（53220-90001，Edition 4，April 2023） 的第 3–8 章；频率、周期、累加与时间间隔由计数器组件按输入信号求出，门时间计入虚拟时间。 首波只做通道 1/2 的常用子集：53230A 独有功能（无间隙连续测量、时间戳、突发/脉冲测量）与 手册的其余命令在覆盖表中标未实现。",
+   "idn": "Keysight Technologies,53220A,MY53001234,3.00",
+   "channels": 2,
+   "address_virtual": "TCPIP0::127.0.0.1::5026::SOCKET",
+   "address_real": "TCPIP0::192.168.1.33::INSTR",
+   "address_hislip": null,
+   "scpi_port": null,
+   "display": {
+    "template": null,
+    "summary": [
+     "function",
+     "gate.time",
+     "trigger.source"
+    ],
+    "channel_summary": [],
+    "actions": {},
+    "panel": {
+     "readouts": [
+      {
+       "reading": "ch1.core.value",
+       "label": "频率",
+       "label_en": "Frequency",
+       "unit": "Hz",
+       "digits": 10,
+       "when": {
+        "function": "FREQuency"
+       }
+      },
+      {
+       "reading": "ch1.core.value",
+       "label": "周期",
+       "label_en": "Period",
+       "unit": "s",
+       "digits": 10,
+       "when": {
+        "function": "PERiod"
+       }
+      },
+      {
+       "reading": "ch1.core.value",
+       "label": "累加",
+       "label_en": "Totalize",
+       "unit": null,
+       "digits": 10,
+       "when": {
+        "function": "TOTalize"
+       }
+      },
+      {
+       "reading": "ch1.core.value",
+       "label": "时间间隔",
+       "label_en": "Time interval",
+       "unit": "s",
+       "digits": 10,
+       "when": {
+        "function": "TINTerval"
+       }
+      },
+      {
+       "reading": "stats.mean",
+       "label": "统计均值",
+       "label_en": "Mean",
+       "unit": "Hz",
+       "digits": 8,
+       "when": {
+        "function": "FREQuency"
+       }
+      },
+      {
+       "reading": "stats.mean",
+       "label": "统计均值",
+       "label_en": "Mean",
+       "unit": "s",
+       "digits": 8,
+       "when": {
+        "function": "PERiod"
+       }
+      },
+      {
+       "reading": "stats.mean",
+       "label": "统计均值",
+       "label_en": "Mean",
+       "unit": null,
+       "digits": 8,
+       "when": {
+        "function": "TOTalize"
+       }
+      },
+      {
+       "reading": "stats.mean",
+       "label": "统计均值",
+       "label_en": "Mean",
+       "unit": "s",
+       "digits": 8,
+       "when": {
+        "function": "TINTerval"
+       }
+      },
+      {
+       "reading": "stats.sdev",
+       "label": "统计标准差",
+       "label_en": "Std dev",
+       "unit": "Hz",
+       "digits": 8,
+       "when": {
+        "function": "FREQuency"
+       }
+      },
+      {
+       "reading": "stats.sdev",
+       "label": "统计标准差",
+       "label_en": "Std dev",
+       "unit": "s",
+       "digits": 8,
+       "when": {
+        "function": "PERiod"
+       }
+      },
+      {
+       "reading": "stats.sdev",
+       "label": "统计标准差",
+       "label_en": "Std dev",
+       "unit": null,
+       "digits": 8,
+       "when": {
+        "function": "TOTalize"
+       }
+      },
+      {
+       "reading": "stats.sdev",
+       "label": "统计标准差",
+       "label_en": "Std dev",
+       "unit": "s",
+       "digits": 8,
+       "when": {
+        "function": "TINTerval"
+       }
+      },
+      {
+       "reading": "stats.count",
+       "label": "统计点数",
+       "label_en": "Points",
+       "unit": null,
+       "digits": null,
+       "when": {}
+      }
+     ],
+     "groups": [
+      {
+       "label": "测量",
+       "label_en": "Measure",
+       "controls": [
+        {
+         "state": "function",
+         "control": "buttons",
+         "label": null,
+         "label_en": null,
+         "keys": [
+          {
+           "value": "FREQuency",
+           "label": "频率",
+           "label_en": null,
+           "sets": {}
+          },
+          {
+           "value": "PERiod",
+           "label": "周期",
+           "label_en": null,
+           "sets": {}
+          },
+          {
+           "value": "TOTalize",
+           "label": "累加",
+           "label_en": null,
+           "sets": {}
+          },
+          {
+           "value": "TINTerval",
+           "label": "时间间隔",
+           "label_en": null,
+           "sets": {}
+          }
+         ],
+         "step": null,
+         "unit": null
+        }
+       ]
+      },
+      {
+       "label": "门控",
+       "label_en": "Gate",
+       "controls": [
+        {
+         "state": "gate.time",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "gate.source",
+         "control": "select",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "measure.channels",
+         "control": "select",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "trigger.source",
+         "control": "select",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "trigger.count",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "sample.count",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        },
+        {
+         "state": "trigger.delay",
+         "control": "number",
+         "label": null,
+         "label_en": null,
+         "keys": null,
+         "step": null,
+         "unit": null
+        }
+       ]
+      }
+     ],
+     "softkeys": []
+    },
+    "panel_source": "class_default"
+   },
+   "ports": [
+    {
+     "name": "CH1",
+     "direction": "in",
+     "medium": "electrical",
+     "net": "net-0",
+     "channel": null
+    },
+    {
+     "name": "CH2",
+     "direction": "in",
+     "medium": "electrical",
+     "net": "net-1",
+     "channel": null
+    },
+    {
+     "name": "REF_IN",
+     "direction": "in",
+     "medium": "reference",
+     "net": null,
+     "channel": null
+    }
+   ],
+   "state": [
+    {
+     "path": "function",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "FREQuency",
+      "PERiod",
+      "TOTalize",
+      "TINTerval"
+     ],
+     "option_labels": {
+      "FREQuency": "频率",
+      "PERiod": "周期",
+      "TOTalize": "累加",
+      "TINTerval": "时间间隔"
+     },
+     "display_unit": null,
+     "label": "测量功能",
+     "label_en": "Function",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "FREQuency",
+     "channel": null
+    },
+    {
+     "path": "gate.time",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0001,
+     "max": 1000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "门时间",
+     "label_en": "Gate time",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.1,
+     "channel": null
+    },
+    {
+     "path": "gate.source",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "TIME",
+      "EXTernal"
+     ],
+     "option_labels": {
+      "TIME": "门时间",
+      "EXTernal": "外部"
+     },
+     "display_unit": null,
+     "label": "门控源",
+     "label_en": "Gate source",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "TIME",
+     "channel": null
+    },
+    {
+     "path": "timebase.source",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "INTernal",
+      "EXTernal"
+     ],
+     "option_labels": {
+      "INTernal": "内部",
+      "EXTernal": "外部参考"
+     },
+     "display_unit": null,
+     "label": "时基",
+     "label_en": "Timebase",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "INTernal",
+     "channel": null
+    },
+    {
+     "path": "timebase.external_frequency",
+     "type": "float",
+     "unit": "HZ",
+     "min": 1000000.0,
+     "max": 10000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "外部参考频率",
+     "label_en": "External reference frequency",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 10000000.0,
+     "channel": null
+    },
+    {
+     "path": "timebase.auto",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "自动选择时基",
+     "label_en": "Auto reference selection",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": true,
+     "channel": null
+    },
+    {
+     "path": "timebase.standby",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "参考振荡器保持加温",
+     "label_en": "Reference oscillator standby",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "trigger.source",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "IMMediate",
+      "EXTernal",
+      "BUS"
+     ],
+     "option_labels": {
+      "IMMediate": "立即",
+      "EXTernal": "外部",
+      "BUS": "总线"
+     },
+     "display_unit": null,
+     "label": "触发源",
+     "label_en": "Trigger source",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "IMMediate",
+     "channel": null
+    },
+    {
+     "path": "trigger.count",
+     "type": "int",
+     "unit": null,
+     "min": 1.0,
+     "max": 1000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "触发次数",
+     "label_en": "Trigger count",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1,
+     "channel": null
+    },
+    {
+     "path": "trigger.delay",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0,
+     "max": 10000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "触发延迟",
+     "label_en": "Trigger delay",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "sample.count",
+     "type": "int",
+     "unit": null,
+     "min": 1.0,
+     "max": 1000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "每次触发的读数",
+     "label_en": "Readings per trigger",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1,
+     "channel": null
+    },
+    {
+     "path": "measure.expected_frequency",
+     "type": "float",
+     "unit": "HZ",
+     "min": 0.1,
+     "max": 350000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "预期频率",
+     "label_en": "Expected frequency",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 10000000.0,
+     "channel": null
+    },
+    {
+     "path": "measure.resolution_frequency",
+     "type": "float",
+     "unit": "HZ",
+     "min": 0.0,
+     "max": 3500.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "频率分辨率",
+     "label_en": "Frequency resolution",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "measure.expected_period",
+     "type": "float",
+     "unit": "S",
+     "min": 2.8e-09,
+     "max": 10.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "预期周期",
+     "label_en": "Expected period",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1e-07,
+     "channel": null
+    },
+    {
+     "path": "measure.resolution_period",
+     "type": "float",
+     "unit": "S",
+     "min": 0.0,
+     "max": 0.0001,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "周期分辨率",
+     "label_en": "Period resolution",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": null
+    },
+    {
+     "path": "measure.channels",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "(@1)",
+      "(@2)"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "测量通道",
+     "label_en": "Measurement channel",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "(@1)",
+     "channel": null
+    },
+    {
+     "path": "measure.stop_channel",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "(@1)",
+      "(@2)"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "时间间隔停止通道",
+     "label_en": "Time interval stop channel",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "(@2)",
+     "channel": null
+    },
+    {
+     "path": "calculate.enabled",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "运算功能",
+     "label_en": "Math",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "statistics.enabled",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "统计",
+     "label_en": "Statistics",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "display.mode",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "NUMeric",
+      "HISTogram",
+      "TCHart"
+     ],
+     "option_labels": {
+      "NUMeric": "数值",
+      "HISTogram": "直方图",
+      "TCHart": "趋势图"
+     },
+     "display_unit": null,
+     "label": "显示方式",
+     "label_en": "Display mode",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "NUMeric",
+     "channel": null
+    },
+    {
+     "path": "system.timeout",
+     "type": "float",
+     "unit": "S",
+     "min": 0.01,
+     "max": 2000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "测量超时",
+     "label_en": "Measurement timeout",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 1.0,
+     "channel": null
+    },
+    {
+     "path": "system.auto_level_frequency",
+     "type": "float",
+     "unit": "HZ",
+     "min": 50.0,
+     "max": 10000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "自动电平最低频率",
+     "label_en": "Auto-level frequency",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 50.0,
+     "channel": null
+    },
+    {
+     "path": "system.language",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "53220A",
+      "53230A"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "命令集语言",
+     "label_en": "SCPI language",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "53220A",
+     "channel": null
+    },
+    {
+     "path": "system.battery",
+     "type": "bool",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "电池使能",
+     "label_en": "Battery enable",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": false,
+     "channel": null
+    },
+    {
+     "path": "data_format",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "ASCII"
+     ],
+     "option_labels": null,
+     "display_unit": null,
+     "label": "数据格式",
+     "label_en": "Data format",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "ASCII",
+     "channel": null
+    },
+    {
+     "path": "ch1.coupling",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "AC",
+      "DC"
+     ],
+     "option_labels": {
+      "AC": "交流",
+      "DC": "直流"
+     },
+     "display_unit": null,
+     "label": "耦合",
+     "label_en": "Coupling",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "AC",
+     "channel": 1
+    },
+    {
+     "path": "ch1.impedance",
+     "type": "float",
+     "unit": "OHM",
+     "min": 50.0,
+     "max": 1000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "输入阻抗",
+     "label_en": "Input impedance",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": 1000000.0,
+     "channel": 1
+    },
+    {
+     "path": "ch1.threshold",
+     "type": "float",
+     "unit": "V",
+     "min": -5.125,
+     "max": 5.125,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "阈值电平",
+     "label_en": "Threshold level",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": 1
+    },
+    {
+     "path": "ch2.coupling",
+     "type": "enum",
+     "unit": null,
+     "min": null,
+     "max": null,
+     "options": [
+      "AC",
+      "DC"
+     ],
+     "option_labels": {
+      "AC": "交流",
+      "DC": "直流"
+     },
+     "display_unit": null,
+     "label": "耦合",
+     "label_en": "Coupling",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": "AC",
+     "channel": 2
+    },
+    {
+     "path": "ch2.impedance",
+     "type": "float",
+     "unit": "OHM",
+     "min": 50.0,
+     "max": 1000000.0,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "输入阻抗",
+     "label_en": "Input impedance",
+     "readonly": false,
+     "electrical": true,
+     "dangerous": false,
+     "value": 1000000.0,
+     "channel": 2
+    },
+    {
+     "path": "ch2.threshold",
+     "type": "float",
+     "unit": "V",
+     "min": -5.125,
+     "max": 5.125,
+     "options": null,
+     "option_labels": null,
+     "display_unit": null,
+     "label": "阈值电平",
+     "label_en": "Threshold level",
+     "readonly": false,
+     "electrical": false,
+     "dangerous": false,
+     "value": 0.0,
+     "channel": 2
+    }
+   ],
+   "errors": [
+    {
+     "code": -104,
+     "message": "Data type error"
+    }
+   ],
+   "dut": false,
+   "deviation": "nominal",
+   "deviations": [],
+   "remote": [],
+   "local": false
+  },
+  "readings": {
+   "stats.count": 1,
+   "stats.mean": 1000.0000033817702,
+   "stats.minimum": 1000.0000033817702,
+   "stats.maximum": 1000.0000033817702,
+   "stats.sdev": 0.0,
+   "ch1.core.value": 1000.0,
+   "ch1.core.gate": 0.1,
+   "ch2.core.value": 1000.0,
+   "ch2.core.gate": 0.1
+  }
  }
 }

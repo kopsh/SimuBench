@@ -29,7 +29,7 @@ def test_the_cli_runs_a_script_and_leaves_one_reviewable_run(tmp_path: Path):
             {
                 "size": [100, 32],
                 "steps": [
-                    {"caption": "终端里的演示", "wait": 0.5},
+                    {"caption": "A demo in the terminal", "wait": 0.5},
                     {"screenshot": "cli"},
                 ],
             }

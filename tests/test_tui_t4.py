@@ -55,7 +55,7 @@ async def test_scripted_screenshots_are_byte_identical(tmp_path: Path):
     steps_yaml = {
         "size": [100, 32],
         "steps": [
-            {"caption": "示例测试台的总览", "wait": 0.2},
+            {"caption": "The example bench's overview", "wait": 0.2},
             {"key": "1"},
             {"screenshot": "instrument"},
             {"key": "escape"},
@@ -125,10 +125,10 @@ async def test_runs_screen_lists_and_replays(tmp_path: Path):
         assert isinstance(tui.screen, R)
         text = flat(tui)
         assert "run-abc" not in text  # the list shows the row, not the id — assert on the bench
-        assert "smu" in text and "运行中" not in text
+        assert "smu" in text and "live" not in text
         tui.screen.index = 0
         await pilot.press("p")
-        await wait_true(pilot, lambda: "第一处不同" in flat(tui) or "#3" in flat(tui))
+        await wait_true(pilot, lambda: "first mismatch" in flat(tui) or "#3" in flat(tui))
 
 
 async def wait_true(pilot, predicate, timeout: float = 20.0) -> None:
@@ -155,7 +155,7 @@ async def test_record_writes_frames_and_a_playable_cast(tmp_path: Path):
             {
                 "size": [100, 32],
                 "steps": [
-                    {"caption": "总览", "wait": 0.5},
+                    {"caption": "Overview", "wait": 0.5},
                     {"screenshot": "one"},
                     {"key": "l", "wait": 0.25},
                     {"screenshot": "two"},
@@ -184,7 +184,7 @@ async def test_record_writes_frames_and_a_playable_cast(tmp_path: Path):
     assert len(events) == len(frames)
     assert all(event[1] == "o" for event in events)
     assert [event[0] for event in events] == [i / 8 for i in range(len(frames))]
-    assert "\x1b[2J" in events[0][2] and "总览" in events[0][2]  # a terminal frame, not a file name
+    assert "\x1b[2J" in events[0][2] and "Overview" in events[0][2]  # a terminal frame, not a file name
 
 
 # ---- the demo and the docs screenshots (6, issue 178's acceptance) ---------------------------------
@@ -226,7 +226,7 @@ async def test_the_demo_regenerates_the_docs_screenshots(demo_server, tmp_path: 
     assert validate(steps) == []
     served = await manager.start("benches/find-the-trip.bench.yaml", seed=5, clock="command")
     try:
-        tui = SimuBenchApp(url, sid=served.id, lang="zh")
+        tui = SimuBenchApp(url, sid=served.id)
         async with tui.run_test(size=steps.size) as pilot:
             await _settle(pilot, tui)
             written = await run_steps(tui, pilot, steps, tmp_path)

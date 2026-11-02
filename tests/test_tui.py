@@ -30,7 +30,7 @@ pytestmark = (
     pytest.mark.tui_boot
 )  # boots a Textual app or a real server: runs on main, not in the fast checks
 
-TEXT = "终端控制台需要可选依赖：pip install 'simubench[tui]'"
+TEXT = "The terminal console needs the optional dependency: pip install 'simubench[tui]'"
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -215,18 +215,18 @@ def test_embedded_view_hides_non_command_lines():
 
 
 def test_source_labels():
-    lang = "zh"
-    assert source_label({"kind": "scpi", "client": "ui"}, lang) == "界面"
-    assert source_label({"kind": "scpi", "client": "tui"}, lang) == "终端"
+    lang = "en"
+    assert source_label({"kind": "scpi", "client": "ui"}, lang) == "UI"
+    assert source_label({"kind": "scpi", "client": "tui"}, lang) == "Terminal"
     assert source_label({"kind": "scpi", "client": "mcp"}, lang) == "Agent"
-    assert source_label({"kind": "scpi", "client": "pyvisa"}, lang) == "脚本"
-    assert source_label({"kind": "scpi", "client": "replay"}, lang) == "回放"
-    assert source_label({"kind": "scpi", "client": "socket:127.0.0.1:53122"}, lang) == "脚本 :53122"
+    assert source_label({"kind": "scpi", "client": "pyvisa"}, lang) == "Script"
+    assert source_label({"kind": "scpi", "client": "replay"}, lang) == "Replay"
+    assert source_label({"kind": "scpi", "client": "socket:127.0.0.1:53122"}, lang) == "Script :53122"
     assert (
-        source_label({"kind": "scpi", "client": "socket:192.168.1.5:1234"}, lang) == "脚本 192.168.1.5:1234"
+        source_label({"kind": "scpi", "client": "socket:192.168.1.5:1234"}, lang) == "Script 192.168.1.5:1234"
     )
-    assert source_label({"kind": "fault", "source": "bench"}, lang) == "预设"
-    assert source_label({"kind": "advance"}, lang) == "事件"
+    assert source_label({"kind": "fault", "source": "bench"}, lang) == "Preset"
+    assert source_label({"kind": "advance"}, lang) == "Event"
 
 
 def test_pending_writes_is_the_busy_state():
@@ -269,7 +269,7 @@ def test_fmt_engineering_prefixes():
     assert fmt(1000.0, "HZ") == "1.0000 kHz"
     assert fmt(1e7, "OHM") == "10.000 MΩ"
     assert fmt(0.001, "S") == "1.0000 ms"
-    assert fmt(float("inf"), "OHM") == "高阻"
+    assert fmt(float("inf"), "OHM") == "High Z"
     assert fmt(None) == "—"
 
 
@@ -401,7 +401,7 @@ async def wait_quiet(pilot, tui: SimuBenchApp, deadline: float = 8.0) -> None:
 
 async def test_overview_renders_cards_from_the_real_session(served):
     served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
-    tui = SimuBenchApp(served.url, sid=served_session.id, lang="zh")
+    tui = SimuBenchApp(served.url, sid=served_session.id)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -414,9 +414,9 @@ async def test_overview_renders_cards_from_the_real_session(served):
         assert "1 awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text
         assert "SDG2042X" in text and "SDS2104X Plus" in text
         # The top bar carries the D44 activity, the clock mode and the virtual time.
-        assert "● 等待命令 · 命令驱动时钟" in text
+        assert "● waiting for commands · Command-driven clock" in text
         # The bottom bar shows the keys and the remote status.
-        assert "1-9 选择" in text and "远程：无" in text
+        assert "1-9 select" in text and "remote: None" in text
         # Digit keys move the focus.
         await pilot.press("2")
         await pilot.pause()
@@ -427,7 +427,7 @@ async def test_socket_client_updates_cards_and_log_with_script_source(served):
     """A script on the raw socket drives SCPI while the TUI runs: the log shows `脚本 :<port>`."""
     served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served.url, sid=sid)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -449,7 +449,7 @@ async def test_socket_client_updates_cards_and_log_with_script_source(served):
         else:
             raise AssertionError("the script's command never appeared in the log")
         line = next(ln for ln in tui.lines if ":CHAN1:SCAL" in ln.command)
-        assert re.fullmatch(r"脚本 :\d+", line.source), line.source
+        assert re.fullmatch(r"Script :\d+", line.source), line.source
         assert line.result_text().startswith("→")
         # The card reflects the new scale (the startup setting was 50.0 mV/div, now 200 mV/div).
         from simubench.tui.screens.overview import Card
@@ -469,7 +469,7 @@ async def test_disconnect_readonly_and_backfill_without_dupes(served):
     """Server down: the top bar shows the red read-only state; back up: backfill, no duplicates."""
     served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served.url, sid=sid)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -481,7 +481,7 @@ async def test_disconnect_readonly_and_backfill_without_dupes(served):
             await pilot.pause(0.1)
         assert tui.conn == "disconnected"
         top = "".join(v for v, _ in tui.status_segments())
-        assert "已断开" in top and "只读" in top and "重连" in top
+        assert "disconnected" in top and "read-only" in top and "reconnecting" in top
 
         # Events emitted while the service is down land in the history (the engine is in-process).
         served.manager.get(sid).session.exchange("awg", b"*IDN?", client="pyvisa", reads=1)
@@ -503,7 +503,7 @@ async def test_fullscreen_log_filter_and_errors_only(served):
     session = served_session.session
     session.exchange("scope", b":FOO", client="pyvisa", reads=1)  # an error
     session.exchange("awg", b"*IDN?", client="pyvisa", reads=1)
-    tui = SimuBenchApp(served.url, sid=served_session.id, lang="zh")
+    tui = SimuBenchApp(served.url, sid=served_session.id)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -511,7 +511,7 @@ async def test_fullscreen_log_filter_and_errors_only(served):
         await pilot.pause(0.2)
         assert tui.screen.screen_key == "log"
         text = flat(tui)
-        assert "时间（虚拟）" in text and "回复 / 结果" in text
+        assert "Virtual time" in text and "Reply / result" in text
         assert "✗ -113" in text and "→ Siglent" in text
 
         await pilot.press("e")  # errors only
@@ -551,7 +551,7 @@ async def test_attach_token_invalid_screen(served):
     while not server.started:
         time.sleep(0.02)
     try:
-        tui = SimuBenchApp(f"http://127.0.0.1:{port}", token="wrong", lang="zh")
+        tui = SimuBenchApp(f"http://127.0.0.1:{port}", token="wrong")
         async with tui.run_test(size=(100, 32)) as pilot:
             from simubench.tui.screens.states import MessageScreen
 
@@ -559,7 +559,7 @@ async def test_attach_token_invalid_screen(served):
             while loop_time() < end and not isinstance(tui.screen, MessageScreen):
                 await pilot.pause(0.1)
             assert isinstance(tui.screen, MessageScreen)
-            assert "访问令牌无效" in flat(tui)
+            assert "Invalid access token" in flat(tui)
     finally:
         await stop_uvicorn(server, thread)
 
@@ -568,7 +568,7 @@ async def test_attach_session_picker(served):
     """Two sessions: the picker lists them with the mock's columns; Enter connects."""
     await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
     await served.two_sessions()
-    tui = SimuBenchApp(served.url, lang="zh")
+    tui = SimuBenchApp(served.url)
     async with tui.run_test(size=(100, 32)) as pilot:
         end = loop_time() + 10
         while loop_time() < end:
@@ -584,7 +584,7 @@ async def test_attach_session_picker(served):
         while loop_time() < end and not tui.screen._rows:
             await pilot.pause(0.1)
         text = flat(tui)
-        for column in ("会话", "测试台", "时钟", "虚拟时间", "客户端"):
+        for column in ("Session", "Bench", "Clock", "Virtual time", "Clients"):
             assert column in text, column
         assert "siglent_scope_rc" in text
         await pilot.press("enter")
@@ -595,25 +595,25 @@ async def test_attach_session_picker(served):
 async def test_min_size_guard(served):
     """Below 80×24 the whole screen shows the warning line (tui-screens.md 1.1)."""
     served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
-    tui = SimuBenchApp(served.url, sid=served_session.id, lang="zh")
+    tui = SimuBenchApp(served.url, sid=served_session.id)
     async with tui.run_test(size=(70, 20)) as pilot:
         end = loop_time() + 10
-        while loop_time() < end and "窗口太小" not in flat(tui):
+        while loop_time() < end and "Window too small" not in flat(tui):
             await pilot.pause(0.1)
         text = flat(tui)
-        assert "窗口太小：至少 80 × 24，当前 70 × 20" in text
+        assert "Window too small: at least 80 × 24, now 70 × 20" in text
         assert "awg" not in text
     # At exactly the minimum the content shows.
-    tui2 = SimuBenchApp(served.url, sid=served_session.id, lang="zh")
+    tui2 = SimuBenchApp(served.url, sid=served_session.id)
     async with tui2.run_test(size=(80, 24)) as pilot:
         await wait_connected(pilot, tui2)
         end = loop_time() + 10
-        while loop_time() < end and "窗口太小" in flat(tui2):
+        while loop_time() < end and "Window too small" in flat(tui2):
             await pilot.pause(0.1)
         end = loop_time() + 10
         while loop_time() < end and "awg" not in flat(tui2):
             await pilot.pause(0.1)
-        assert "窗口太小" not in flat(tui2)
+        assert "Window too small" not in flat(tui2)
         assert "awg" in flat(tui2)
 
 
@@ -646,7 +646,6 @@ async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
         tui = SimuBenchApp(
             f"http://127.0.0.1:{port}",
             sid=served_session.id,
-            lang="zh",
             launched=True,
             bench_path=bench,
         )
@@ -660,9 +659,9 @@ async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
                 await pilot.pause(0.1)
             assert tui.file_changed
             end = loop_time() + 8
-            while loop_time() < end and "文件已改 · R 重建" not in flat(tui):
+            while loop_time() < end and "file changed · R rebuild" not in flat(tui):
                 await pilot.pause(0.1)
-            assert "文件已改 · R 重建" in flat(tui)
+            assert "file changed · R rebuild" in flat(tui)
             sha_before = tui.session_info["bench_sha256"]
             await pilot.press("R")
             await pilot.pause(0.3)
@@ -687,7 +686,7 @@ async def test_quit_with_clients_connected_confirms(served):
     port = served.http().get(f"/api/sessions/{sid}/instruments/scope").json()["scpi_port"]
     _reader, writer = await asyncio.open_connection("127.0.0.1", port)
     await asyncio.sleep(0.3)  # let the session list the client
-    tui = SimuBenchApp(served.url, sid=sid, lang="zh", launched=True)
+    tui = SimuBenchApp(served.url, sid=sid, launched=True)
     try:
         async with tui.run_test(size=(100, 32)) as pilot:
             await wait_connected(pilot, tui)
@@ -696,7 +695,7 @@ async def test_quit_with_clients_connected_confirms(served):
             from simubench.tui.screens.states import ConfirmScreen
 
             assert isinstance(tui.screen, ConfirmScreen)
-            assert "退出" in flat(tui)
+            assert "Quit" in flat(tui)
             await pilot.press("n")  # cancel: still running
             await pilot.pause(0.3)
             assert not tui._exit
@@ -706,10 +705,10 @@ async def test_quit_with_clients_connected_confirms(served):
 
 def test_no_color_uses_the_mono_theme(monkeypatch):
     monkeypatch.setenv("NO_COLOR", "1")
-    app = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    app = SimuBenchApp("http://127.0.0.1:1", sid="x")
     assert app.theme == "simubench-mono"
     monkeypatch.delenv("NO_COLOR")
-    app2 = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    app2 = SimuBenchApp("http://127.0.0.1:1", sid="x")
     assert app2.theme == "simubench"
 
 
@@ -717,7 +716,7 @@ async def test_no_color_boots_its_stylesheet(monkeypatch):
     """The mono theme's tokens are terminal-default colours, not empty strings (which fail
     Textual's stylesheet parse and take the whole TUI with them)."""
     monkeypatch.setenv("NO_COLOR", "1")
-    tui = SimuBenchApp("http://127.0.0.1:1", sid="x", lang="zh")
+    tui = SimuBenchApp("http://127.0.0.1:1", sid="x")
     async with tui.run_test(size=(100, 32)) as pilot:
         await pilot.pause(0.3)
         assert tui.theme == "simubench-mono"
@@ -731,16 +730,16 @@ def test_lang_default_follows_env(monkeypatch):
     monkeypatch.delenv("SIMUBENCH_LANG", raising=False)
     assert default_lang() == "en"
     monkeypatch.setenv("LANG", "zh_CN.UTF-8")
-    assert default_lang() == "zh"
+    assert default_lang() == "en"
     monkeypatch.delenv("LANG")
-    assert default_lang() == "zh"  # the fallback
+    assert default_lang() == "en"  # the fallback
 
 
 async def test_api_client_sends_the_tui_header(served):
     """Every TUI request carries X-SimuBench-Client: tui (the server records 终端 as the source)."""
     served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served.url, sid=sid)
     async with tui.run_test(size=(80, 24)):
         await tui.client.open()
         assert tui.client.http.headers["x-simubench-client"] == "tui"

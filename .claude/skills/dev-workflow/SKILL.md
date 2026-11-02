@@ -74,8 +74,8 @@ Changed a path, command, check, rule or workflow step that a skill states? Updat
 - Files hidden by `.gitignore` under `src tests acceptance refcalc web/src web/e2e` fail check.sh.
 - Changing a Pydantic model / API → regenerate `schemas/` **and** `web/src/api/generated`
   (`pnpm gen:api`), commit both.
-- Changing TUI wording that is shared with the web → both `web/src/i18n/{zh,en}.ts` and
-  `src/simubench/tui/i18n/{zh,en}.py`.
+- Changing TUI wording that is shared with the web → `web/src/i18n/{zh,en}.ts` and
+  `src/simubench/tui/i18n/en.py` (the TUI is English only, D23).
 - YAML floats follow YAML 1.2 (D28): `1e-3` is a float.
 - Built-in instruments are real models only (D42); `sb-*` validation instruments live in
   `validation/instruments/` and are auto-loaded by tests (`conftest.py`).

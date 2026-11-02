@@ -105,6 +105,9 @@ class Session:
         self.replaying = False
         #: Counters for metrics (M4): events by kind, circuit solves and the time they took.
         self.stats: dict[str, float] = {}
+        #: The last solve ended without the piecewise-linear devices agreeing on a mode (D52): the
+        #: operating point is the last iteration's, consistent but not regulated as asked.
+        self.unsettled = False
 
         # ---- instruments and bench components ----
         self.instruments: dict[str, Instrument] = {}
@@ -250,12 +253,40 @@ class Session:
 
                     changed |= comp.update_mode(dc)
                 if not changed:
+                    self.unsettled = False
                     break
                 self._signal_version += 1
                 self._electrical_version += 1
             else:
-                log.warning("piecewise-linear devices did not settle on a mode")
+                self._settle_unsettled()
         return self._solution[1], self._solution[2]
+
+    def _settle_unsettled(self) -> None:
+        """No mode agreed within MAX_MODE_ITERATIONS (D52): solve once more with the modes the
+        last iteration chose and keep that, without asking the devices again. Every reading then
+        comes from one operating point that satisfies the circuit (V and I agree with the source,
+        P = V·I) and repeated queries answer the same until something changes. The first time it
+        happens a ``solver`` event (reason ``unsettled``) goes into the run record (#258)."""
+        emf: dict[str, Signal] = {}
+        for comp in self._all_components():
+            emf.update(comp.emf())
+        freqs: set[float] = {0.0}
+        for sig in emf.values():
+            freqs.update(float(f) for f in set(sig.freq.tolist()))
+        sol = self.circuit().solve(sorted(freqs))
+        self.stats["solves"] = self.stats.get("solves", 0) + 1
+        self._solution = (self._signal_version, sol, emf)
+        if not self.unsettled:
+            self.unsettled = True
+            log.warning("piecewise-linear devices did not settle on a mode")
+            self.emit(
+                {
+                    "kind": "solver",
+                    "reason": "unsettled",
+                    "message": "piecewise-linear devices did not settle on a mode; "
+                    "the readings are the last iteration's operating point",
+                }
+            )
 
     def node_signal(self, node: str) -> Signal:
         sol, emf = self._solve()

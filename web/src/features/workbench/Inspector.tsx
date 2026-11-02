@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, channelVars, globalVars, instrumentTitle, numeric } from "./model";
+import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
@@ -104,6 +104,7 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
   const openInternals = useWorkbench((s) => s.openInternals);
   const openAcceptance = useWorkbench((s) => s.openAcceptance);
   const globals = globalVars(inst);
+  const vars = stateMap(inst);
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
   return (
     <div className="space-y-4 p-3">
@@ -143,7 +144,7 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
         <Section title={t("workbench.settings")}>
           <div className="space-y-1.5">
             {globals.map((v) => (
-              <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} />
+              <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(vars, v.path)} />
             ))}
           </div>
         </Section>
@@ -161,7 +162,7 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
         >
           <div className="space-y-1.5">
             {channelVars(inst, n).map((v) => (
-              <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} />
+              <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(vars, v.path)} />
             ))}
           </div>
         </Section>

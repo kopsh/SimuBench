@@ -100,6 +100,8 @@ export const zh = {
     settings: "设置",
     state: "状态",
     refused: "设置被拒绝",
+    autoInactive: "自动时不生效",
+    auto: "自动",
     sendCommand: "发送 SCPI 命令",
     commandPlaceholder: "例如 :CHANnel1:SCALe 0.05 或 *IDN?",
     send: "发送",
@@ -273,6 +275,7 @@ export const zh = {
   },
   spectrum: {
     overload: "混频器过载",
+    uncalReason: "扫描时间短于当前 RBW/VBW 所需时间，幅度读数未校准",
     reference: "参考",
     sweep: "扫描",
     start: "起始",

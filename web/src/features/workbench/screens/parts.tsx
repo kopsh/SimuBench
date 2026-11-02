@@ -1,4 +1,4 @@
-import { engParts } from "@/lib/format";
+import { formatReadout, isOverload } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /** Pieces shared by instrument screens: large readouts, status chips, chart legends. */
@@ -25,16 +25,14 @@ export function Readout({
   fixed?: boolean;
   /** Show the sign of a positive value too ("+1.00000"), as a source-measure display does. */
   signed?: boolean;
-  /** No value to show (an open circuit's resistance): the display's overflow mark instead. */
+  /** The display's overload word, shown when the value is an overload (9.9E+37 / 9.91E+37). */
   overflow?: string;
   testId?: string;
 }) {
-  const p = overflow
-    ? { mantissa: overflow, prefix: "", unit: "" }
-    : plain
-      ? { mantissa: value.toFixed(3), prefix: "", unit }
-      : engParts(value, unit, digits, fixed);
-  if (signed && !overflow && !p.mantissa.startsWith("-")) p.mantissa = `+${p.mantissa}`;
+  const r = plain
+    ? { mantissa: isOverload(value) ? "" : value.toFixed(3), prefix: "", unit, overload: isOverload(value) }
+    : formatReadout(value, { unit, digits, fixed, signed });
+  const p = r.overload ? { mantissa: overflow ?? "OVLD", prefix: "", unit: "" } : r;
   return (
     <div className="px-4 py-3">
       <div className="text-muted-foreground text-xs font-medium">{label}</div>

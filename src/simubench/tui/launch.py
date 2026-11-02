@@ -20,9 +20,9 @@ import httpx
 
 from .app import SimuBenchApp
 from .client import CLIENT_HEADER
-from .i18n import default_lang, t
+from .i18n import t
 
-MISSING_TEXTUAL = "终端控制台需要可选依赖：pip install 'simubench[tui]'"
+MISSING_TEXTUAL = "The terminal console needs the optional dependency: pip install 'simubench[tui]'"
 
 
 def has_textual() -> bool:
@@ -125,7 +125,6 @@ def run_bench(args: Any) -> int:
         url,
         sid=info["id"],
         token=token,
-        lang=args.lang or default_lang(),
         launched=True,
         bench_path=bench,
         bench_name=info.get("bench_name", bench.stem),
@@ -164,9 +163,9 @@ def run_bench(args: Any) -> int:
     return 0
 
 
-def run_attach(url: str, session: str | None, token: str | None, lang: str | None) -> int:
+def run_attach(url: str, session: str | None, token: str | None) -> int:
     """``simubench tui --attach [URL] [--session SID]``: connect to a running service."""
-    app = SimuBenchApp(url.rstrip("/"), sid=session, token=resolve_token(token), lang=lang or default_lang())
+    app = SimuBenchApp(url.rstrip("/"), sid=session, token=resolve_token(token))
     app.run()
     return 0
 

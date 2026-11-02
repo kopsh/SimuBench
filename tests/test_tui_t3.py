@@ -73,7 +73,7 @@ async def test_nets_screen_lists_levels_and_probe():
         line = SCOPE_BENCH["probe_net-0"]["lines"][0]
         # The probe arrives asynchronously after the list; wait for the level line and the
         # strongest line it quotes — the braille waveform renders in the same pass.
-        text = await wait_for_text(pilot, tui, "net-0", "直流", fmt(float(line["freq_hz"]), "Hz"))
+        text = await wait_for_text(pilot, tui, "net-0", "DC ", fmt(float(line["freq_hz"]), "Hz"))
         assert rms_text in text
         assert "net-1" in text and "net-2" in text  # the other rows
         assert "awg.CH1" in text and "●" in text  # endpoints and the signal mark
@@ -86,7 +86,7 @@ async def wait_for_text(pilot, tui, *needles: str, timeout: float = 20.0) -> str
         text = _flat(tui)
         if all(needle in text for needle in needles):
             return text
-    raise AssertionError(f"{needles} never appeared on {type(tui.screen).__name__}")
+    raise AssertionError(f"{needles} never appeared on {type(tui.screen).__name__}:\n{_flat(tui)}")
 
 
 async def test_nets_screen_selection_and_driver():
@@ -117,9 +117,9 @@ async def test_nets_screen_silence_and_reason_dialog():
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await open_nets(pilot, tui)
-        text = await wait_for_text(pilot, tui, "未接线", "awg.CH1 的输出关闭")
+        text = await wait_for_text(pilot, tui, "Unconnected ports", "awg.CH1's output is off")
         await pilot.press("question_mark")
-        text = await wait_for_text(pilot, tui, "原因", "输出关闭")
+        text = await wait_for_text(pilot, tui, "Reason", "output is off")
         assert "net-0" in text
 
 
@@ -151,8 +151,10 @@ async def test_fault_dialog_injects_and_lists():
 
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
         text = _flat(tui)
-        assert "超时" in text and "保护跳闸" in text and "参数漂移" in text  # the three groups
-        assert "注入" in text
+        assert (
+            "Timeout" in text and "Protection trip" in text and "Parameter drift" in text
+        )  # the three groups
+        assert "Inject" in text
         # Inject the default (timeout, count empty = until cleared).
         from textual.widgets import Button
 
@@ -192,7 +194,7 @@ async def test_fault_dialog_revoke_with_confirm():
         await wait_for(pilot, lambda: bool(fake.fault_list), message="injected")
         await pilot.press("f")
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog again")
-        await wait_for(pilot, lambda: "1 个故障在作用" in _flat(tui), message="active fault listed")
+        await wait_for(pilot, lambda: "1 fault(s) in effect" in _flat(tui), message="active fault listed")
         await pilot.press("delete")
         await wait_for(pilot, lambda: isinstance(tui.screen, ConfirmScreen), message="revoke confirm")
         await pilot.press("y")
@@ -259,7 +261,7 @@ async def test_advance_on_wall_clock_says_so():
         assert fake.advances == []
         from test_tui import flat
 
-        assert "墙钟" in flat(tui)
+        assert "Wall clock" in flat(tui)
 
 
 # ---- the reason dialog on the nets screen uses the probe's own breakdown (11.1, D37) ---------------------
@@ -276,7 +278,7 @@ async def test_nets_reason_quotes_sources_and_lines():
         rms_text = fmt(SCOPE_BENCH["probe_net-0"]["rms"], "V")
         await wait_for_text(pilot, tui, "net-0", rms_text)
         await pilot.press("question_mark")
-        text = await wait_for_text(pilot, tui, "原因 · net-0")
+        text = await wait_for_text(pilot, tui, "Why · net-0")
         assert rms_text in text
         assert "awg" in text  # the source contribution names its source
         line = SCOPE_BENCH["probe_net-0"]["lines"][0]

@@ -107,7 +107,7 @@ async def test_find_the_trip(served_validation):
     an external :SYSTem:ERRor? zeroes the count live while the history keeps the entry."""
     served_session = await served_validation.start("benches/smu.bench.yaml", seed=5, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served_validation.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served_validation.url, sid=sid)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -128,18 +128,18 @@ async def test_find_the_trip(served_validation):
         # The TUI updates live as the fault's events arrive — the reason line comes with the
         # fault event, the queued error with the next instrument refetch; wait for both.
         await wait_for(
-            pilot, lambda: f"原因  故障 {fault_id} 跳闸（终端）" in flat(tui), message="reason line"
+            pilot, lambda: f"Reason  fault {fault_id} tripped (Terminal)" in flat(tui), message="reason line"
         )
         # The identity box and the error box carry the queued error (at 100 cols the message is
         # truncated with … per 4.2; the full text is one Enter away, asserted below).
-        text = await wait_flat(pilot, tui, "队列 1", "-300")
+        text = await wait_flat(pilot, tui, "queue 1", "-300")
         # and the fault id shows in the identity box (8).
-        assert f"故障 {fault_id} 生效" in text
+        assert f"Fault {fault_id} active" in text
 
         # ``?`` opens the causal chain without any test-provided text.
         await pilot.press("question_mark")
-        text = await wait_flat(pilot, tui, f"故障 {fault_id} 跳闸（终端）", "Overvoltage")
-        assert "←" in text and f"故障 {fault_id}（终端）" in text
+        text = await wait_flat(pilot, tui, f"fault {fault_id} tripped (Terminal)", "Overvoltage")
+        assert "←" in text and f"fault {fault_id} (Terminal)" in text
         await pilot.press("escape")
         await pilot.pause(0.3)
 
@@ -152,11 +152,11 @@ async def test_find_the_trip(served_validation):
         reply = await asyncio.wait_for(reader.readline(), timeout=10)
         assert b"-300" in reply
         writer.close()
-        await wait_for(pilot, lambda: "队列 0" in flat(tui), message="queue zeroed live")
+        await wait_for(pilot, lambda: "queue 0" in flat(tui), message="queue zeroed live")
         # The queue count refetches with the instrument, the log rows rebuild from the events —
         # two paths, so wait for the read command's line instead of asserting on a snapshot.
         text = await wait_flat(pilot, tui, "SYSTem:ERRor?")
-        assert "已读走" in text and "-300" in text
+        assert "read away" in text and "-300" in text
 
 
 # ---- remote state and local takeover over a real port (tui-screens.md 12) -----------------------------
@@ -166,7 +166,7 @@ async def test_remote_makes_controls_readonly_and_l_takes_over(served_validation
     """A socket client makes the screen read-only; L (capital) takes over until its next command."""
     served_session = await served_validation.start("benches/smu.bench.yaml", seed=5, clock="command")
     sid = served_session.id
-    tui = SimuBenchApp(served_validation.url, sid=sid, lang="zh")
+    tui = SimuBenchApp(served_validation.url, sid=sid)
     async with tui.run_test(size=(100, 32)) as pilot:
         await wait_connected(pilot, tui)
         await wait_quiet(pilot, tui)
@@ -185,7 +185,7 @@ async def test_remote_makes_controls_readonly_and_l_takes_over(served_validation
         await pilot.pause(0.2)
         await pilot.press("space")
         await pilot.pause(0.5)
-        assert "正被" in flat(tui) and "远程控制" in flat(tui)
+        assert "is remote-controlled by" in flat(tui)
         assert await state_of(tui, "smu", "output.enabled") is True
 
         # L (capital, 5.5): confirm, then the instrument goes local.

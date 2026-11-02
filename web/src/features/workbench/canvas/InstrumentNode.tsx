@@ -66,8 +66,13 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
       <div className="flex items-center gap-2 border-b px-3 py-2">
         <Icon className="text-muted-foreground size-4 shrink-0" />
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] leading-tight font-medium">{instrumentTitle(inst)}</div>
-          <div className="text-muted-foreground num truncate text-[11px] leading-tight">{inst.model}</div>
+          <div className="truncate text-[13px] leading-tight font-medium" title={instrumentTitle(inst)}>
+            {instrumentTitle(inst)}
+          </div>
+          {/* Cut to the node's width; the full model on hover (#314). */}
+          <div className="text-muted-foreground num truncate text-[11px] leading-tight" title={inst.model}>
+            {inst.model}
+          </div>
         </div>
         {inst.dut && <DutBadge />}
         {issue && <IssueMark issue={issue} />}

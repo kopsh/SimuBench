@@ -123,19 +123,24 @@ async def test_smu_screen_renders_identity_columns_and_reason():
         await open_instrument(pilot, tui, "smu")
         text = await wait_flat(pilot, tui, "SIMUBENCH,SB-SMU-1", "HI → net-0", "r1 · DUT")
         # The identity box (5.1 #1).
-        assert "定义  sb-smu-1" in text
-        assert "TCPIP0::127.0.0.1" in text and "真实  TCPIP0::192.168.1.60" in text
+        assert "Definition sb-smu-1" in text
+        assert "TCPIP0::127.0.0.1" in text and "TCPIP0::192.168.1.60" in text and "Real " in text
         # The columns with the setting next to the limit (5.2), and the CC reason line (5.4).
-        assert "状态" in text and "电压" in text and "电流" in text
-        assert "设定" in text and "限值   10.000 mA" in text
-        assert "原因" in text and "CC" in text
+        assert "Status" in text and "Voltage" in text and "Current" in text
+        assert "Set" in text and "Limit   10.000 mA ▲" in text
+        assert "reason" in text and "CC" in text
         # The buttons (5.3) and the per-instrument log (5.1 #5).
-        assert "[输出] [源功能] [电压设定]" in text
-        assert "通信 · smu" in text
+        # (At 100 × 32 the English rows push the button row below the channel area's fold; it
+        # scrolls into view with Tab, so the buttons are asserted as widgets.)
+        from simubench.tui.screens.instrument import ControlButton
+
+        labels = [b.control.label for b in tui.screen.query(ControlButton) if b.box_id == "ch:main"]
+        assert labels[:3] == ["Output", "Source function", "Voltage level"]
+        assert "Log · smu" in text
         # Wiring and load boxes beside the channel box (5.1 #2).
         assert "1.0000 kΩ" in text
         # The queue carries the -222 from the dumped session.
-        assert "队列 1" in text and "已读走：无" in text
+        assert "queue 1" in text and "read away: none" in text
 
 
 async def test_generator_screen_has_a_box_per_channel():
@@ -149,8 +154,8 @@ async def test_generator_screen_has_a_box_per_channel():
         assert isinstance(tui.screen, InstrumentScreen)
         text = await wait_flat(pilot, tui, "CH1")
         assert "CH2" in text
-        assert "正弦" in text or "SINE" in text  # the option label of ch1.function
-        assert "通信 · awg" in text
+        assert "SINE" in text  # ch1.function as the instrument spells it
+        assert "Log · awg" in text
 
 
 async def test_multimeter_screen_shows_panel_readouts():
@@ -159,9 +164,9 @@ async def test_multimeter_screen_shows_panel_readouts():
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await open_instrument(pilot, tui, "dmm")
-        text = await wait_flat(pilot, tui, "直流电压")
-        assert "交流电压" in text
-        assert "通信 · dmm" in text
+        text = await wait_flat(pilot, tui, "DC voltage")
+        assert "AC voltage" in text
+        assert "Log · dmm" in text
 
 
 # ---- edits write through configure (the dialog rejects out-of-range before any write) ----------------
@@ -181,8 +186,8 @@ async def test_edit_number_writes_configure_and_shows_range_error():
         await pilot.pause(0.1)
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(tui.screen, NumberEditScreen), message="edit dialog")
-        text = await wait_flat(pilot, tui, "范围")
-        assert "当前  15.000 V" in text and "-210.000 V … 210.000 V" in text
+        text = await wait_flat(pilot, tui, "Range")
+        assert "Current  15.000 V" in text and "-210.000 V … 210.000 V" in text
         for ch in "7.5V":
             await pilot.press(ch)
         await pilot.press("enter")
@@ -201,7 +206,7 @@ async def test_edit_number_writes_configure_and_shows_range_error():
             await pilot.press(ch)
         await pilot.press("enter")
         await pilot.pause(0.2)
-        assert "超出范围" in _flat(tui)
+        assert "out of range" in _flat(tui)
         await pilot.press("escape")
         await pilot.pause(0.1)
         assert state_of(tui, "smu", "source.voltage.level") == 7.5
@@ -229,7 +234,7 @@ async def test_select_dialog_writes_option():
         await pilot.press("enter")
         await wait_for(pilot, lambda: isinstance(tui.screen, SelectScreen), message="select dialog")
         text = _flat(tui)
-        assert "电压源" in text and "电流源" in text
+        assert "VOLTage" in text and "CURRent" in text
         await pilot.press("down")
         await pilot.press("enter")
         await wait_for(
@@ -261,7 +266,7 @@ async def test_step_and_switch_writes():
         volt.focus()
         await pilot.pause(0.1)
         await pilot.press("plus")
-        await wait_flat(pilot, tui, "按 e 输入数值")
+        await wait_flat(pilot, tui, "press e to enter a value")
         assert state_of(tui, "smu", "source.voltage.level") == 15.0
         assert len(fake.configures) == 1
 
@@ -289,10 +294,10 @@ async def test_dangerous_switch_confirms_before_writing():
         def confirm_ready() -> bool:
             text = _flat(tui)
             return (
-                "打开输出？" in text
-                and "output.enabled → 开" in text
-                and "连着的脚本会看到输出改变" in text
-                and "HI 接 dmm.IN 与 r1.A" in text
+                "Turn the output on?" in text
+                and "output.enabled → On" in text
+                and "Connected scripts will see the output change" in text
+                and "HI to dmm.IN and r1.A" in text
             )
 
         await wait_for(pilot, confirm_ready, message="confirm content")
@@ -335,7 +340,7 @@ async def test_console_sends_reply_and_lands_in_the_log():
             pilot, lambda: any(":MEAS:VOLT?" in ln.command for ln in tui.lines), message="log line"
         )
         line = next(ln for ln in tui.lines if ":MEAS:VOLT?" in ln.command)
-        assert line.source == "终端" and line.result_text().startswith("→ +9.9")
+        assert line.source == "Terminal" and line.result_text().startswith("→ +9.9")
 
 
 async def test_console_history_persists_across_reopen(monkeypatch, tmp_path):
@@ -387,8 +392,8 @@ async def test_scope_screen_renders_traces_settings_and_actions():
         from simubench.tui.screens.scope import ScopeScreen
 
         assert isinstance(tui.screen, ScopeScreen)
-        text = await wait_flat(pilot, tui, "CH1 50.0 mV/div", "← rc.OUT · 10x 探头", "采集")
-        assert "1.000 ms/div" in text and "运行" in text
+        text = await wait_flat(pilot, tui, "CH1 50.0 mV/div", "← rc.OUT · 10x probe", "Acquisition")
+        assert "1.000 ms/div" in text and "Running" in text
         assert "⠂" in text or "⠁" in text  # a braille trace rendered from the binned frame
         frame = tui.screen_data["scope"]
         assert frame["traces"][0]["minmax"] and frame["traces"][0]["volts"] == []
@@ -409,7 +414,7 @@ async def test_scope_screen_shows_silence_reason():
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await open_instrument(pilot, tui, "scope")
-        await wait_flat(pilot, tui, "无信号", "未接线")
+        await wait_flat(pilot, tui, "no signal", "not wired")
 
 
 async def test_screen_points_requested_at_dot_width():
@@ -448,13 +453,13 @@ async def test_reason_dialog_on_limited_smu():
         await settle(pilot, tui)
         await feed(tui, *LIMITED_EVENTS)
         await open_instrument(pilot, tui, "smu")
-        text = await wait_flat(pilot, tui, "原因", "CC", "▲")  # the 5.4 reason line
-        assert "电流达到限值" in text
+        text = await wait_flat(pilot, tui, "reason", "CC", "▲")  # the 5.4 reason line
+        assert "current reached its limit" in text
         await pilot.press("question_mark")
-        text = await wait_flat(pilot, tui, "恒流（CC）")
+        text = await wait_flat(pilot, tui, "constant current (CC)")
         assert "source.voltage.level" in text and "15.000 V" in text
-        assert "← 00:00:00.020" in text and "脚本" in text and ":SOUR:VOLT 15" in text
-        assert "compliance.current.limit" in text and "测试台文件" in text
+        assert "← 00:00:00.020" in text and "Script" in text and ":SOUR:VOLT 15" in text
+        assert "compliance.current.limit" in text and "bench file" in text
         await pilot.press("c")  # copy as plain text
         await pilot.pause(0.1)
         await pilot.press("enter")  # jump to the command in the fullscreen log
@@ -490,9 +495,9 @@ async def test_reason_dialog_names_error_and_classification():
         )
         await open_instrument(pilot, tui, "smu")
         await pilot.press("question_mark")
-        text = await wait_flat(pilot, tui, "原因 · smu 错误 -222")
-        assert ":SOUR:VOLT 999" in text and "脚本" in text
-        assert "参数不合法" in text and "source.voltage.level" in text and "-210 … 210 V" in text
+        text = await wait_flat(pilot, tui, "Reason · smu error -222")
+        assert ":SOUR:VOLT 999" in text and "Script" in text
+        assert "Bad parameter" in text and "source.voltage.level" in text and "-210 … 210 V" in text
 
 
 # ---- the error history (tui-screens.md 5.1 #4) ---------------------------------------------------------
@@ -528,8 +533,8 @@ async def test_error_history_greys_read_away_errors():
             ),
         )
         await open_instrument(pilot, tui, "smu")
-        text = await wait_flat(pilot, tui, "队列 0")
-        assert "已读走" in text and "-222" in text and ":SOUR:VOLT 999" in text
+        text = await wait_flat(pilot, tui, "queue 0")
+        assert "read away" in text and "-222" in text and ":SOUR:VOLT 999" in text
 
 
 # ---- the command-not-executed hints (tui-screens.md 9.2, six categories of #174) ------------------------
@@ -554,7 +559,7 @@ HINTS = [
             "reason": "not_modeled",
             "origin": "siglent-sds2104xplus.coverage.yaml",
         },
-        "未建模 · 覆盖表 siglent-sds2104xplus.coverage.yaml 中标为未实现",
+        "Not modeled · listed as not implemented in siglent-sds2104xplus.coverage.yaml",
     ),
     (
         "error",
@@ -565,7 +570,7 @@ HINTS = [
             "origin": "siglent.coverage.yaml",
             "closest": ":SYSTem:ERRor",
         },
-        "覆盖表 siglent.coverage.yaml 中没有这条命令",
+        "Not in the coverage table siglent.coverage.yaml",
     ),
     (
         "error",
@@ -576,12 +581,12 @@ HINTS = [
             "origin": "sb-smu-1.yaml",
             "closest": ":SOURce:VOLTage",
         },
-        "定义 sb-smu-1.yaml 中没有这条命令",
+        "Not in the definition sb-smu-1.yaml",
     ),
     (
         "ignored",
         {"reason": "ignored", "origin": "lfcal-reference-scope.yaml"},
-        "已忽略 · 定义设为 unknown_commands: ignore",
+        "Ignored · the definition sets unknown_commands: ignore",
     ),
     (
         "error",
@@ -591,7 +596,7 @@ HINTS = [
             "reason": "builtin_excluded",
             "origin": "fluke-5522a.yaml",
         },
-        "这个型号不回答",
+        "This model does not answer",
     ),
     (
         "error",
@@ -602,14 +607,14 @@ HINTS = [
             "param": "source.voltage.level",
             "range": "-210 … 210 V",
         },
-        "参数不合法：source.voltage.level 应在 -210 … 210 V 内",
+        "Bad parameter: source.voltage.level must be within -210 … 210 V",
     ),
 ]
 
 
 @pytest.mark.parametrize(("kind", "fields", "wording"), HINTS, ids=[h[1]["reason"] for h in HINTS])
 async def test_hint_wording_per_classification(kind, fields, wording):
-    """The log renders the 9.2 wording under the line, with the origin file (zh)."""
+    """The log renders the 9.2 wording under the line, with the origin file."""
     tui, _fake = unit_app(fresh(SMU_BENCH))
     async with tui.run_test(size=(120, 36)) as pilot:
         await settle(pilot, tui)
@@ -618,7 +623,7 @@ async def test_hint_wording_per_classification(kind, fields, wording):
         await pilot.press("l")
         text = await wait_flat(pilot, tui, wording)
         if fields.get("closest"):
-            assert "最接近的：" in text
+            assert "closest:" in text
         if fields.get("origin"):
             origin = Path(fields["origin"]).name
             if fields["reason"] in ("not_modeled", "not_in_model", "not_in_definition"):

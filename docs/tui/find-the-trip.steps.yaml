@@ -9,19 +9,19 @@
 # 再由另一个客户端读错误队列：TUI 自己说出原因，截图里的状态都能在运行记录里复核。
 size: [100, 34]
 steps:
-  - caption: 测试台上有一台 SMU 跳闸了
+  - caption: One SMU on the bench has tripped
     wait: 1.5s
   - key: "1"
-    caption: 数字键把焦点移到这张卡片
+    caption: A digit key moves the focus to its card
     wait: 1s
   - key: enter
-    caption: 打开它：输出已被跳闸关闭，错误队列里有一条 -300
+    caption: "Open it: the trip turned the output off and queued a -300"
     wait: 1.5s
   - highlight: [output.enabled]
-    caption: 输出停在关；读错误队列的是另一个客户端
+    caption: The output stays off; another client reads the error queue
     wait: 1s
     screenshot: find-the-trip
   - scpi: {instrument: smu, command: ":SYSTem:ERRor?", source_port: 5401}
-    caption: 读走 -300，队列随即清空，错误历史保留
+    caption: "-300 is read away: the queue empties, the error history stays"
     wait: 1.5s
   - screenshot: find-the-trip-error

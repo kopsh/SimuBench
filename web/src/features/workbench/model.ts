@@ -79,6 +79,15 @@ export function stateMap(inst: InstrumentInfo): Map<string, StateVarInfo> {
   return new Map(inst.state.map((s) => [s.path, s]));
 }
 
+/**
+ * A manual setting whose automatic switch is on (``bw.res`` beside ``bw.res_auto``): the stored
+ * value is not the one in effect, so it is shown dimmed (docs/ui-design.md, #279).
+ */
+export function inactiveUnderAuto(vars: Map<string, StateVarInfo>, path: string): boolean {
+  const auto = vars.get(`${path}_auto`);
+  return auto?.type === "bool" && auto.value === true;
+}
+
 export function channelVars(inst: InstrumentInfo, channel: number): StateVarInfo[] {
   return inst.state.filter((s) => s.channel === channel);
 }

@@ -55,11 +55,7 @@ def _value(state: Mapping[str, dict], path: str) -> Any:
 
 
 def _option(sv: Mapping[str, Any] | None, value: Any) -> str:
-    """An enum with its option_labels when the definition gives them (tui-screens.md 1.4)."""
-    if sv and isinstance(value, str):
-        labels = sv.get("option_labels") or {}
-        if value in labels:
-            return labels[value]
+    """An enum as the instrument spells it (option_labels are Chinese; the TUI is English, D23)."""
     return "" if value is None else str(value)
 
 

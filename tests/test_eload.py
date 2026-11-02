@@ -113,6 +113,45 @@ def test_cp_finds_a_self_consistent_power(open_):
     assert v * i == pytest.approx(20.0, rel=1e-6)
 
 
+def _three_readings_agree(s, source_v: float, source_r: float) -> tuple[float, float]:
+    v, i, p = number(s, ":MEAS:VOLT?"), number(s, ":MEAS:CURR?"), number(s, ":MEAS:POW?")
+    assert v == pytest.approx(source_v - i * source_r, abs=1e-5)  # the source's line
+    assert p == pytest.approx(v * i, rel=1e-5, abs=1e-6)
+    return v, i
+
+
+def test_cp_beyond_the_source_reads_one_operating_point_on_the_circuit(open_):
+    # 10 V behind 1 Ω gives at most 25 W: 30 W has no solution and the loop does not settle
+    # (#258). The readings come from one operating point on the source's line, and repeat.
+    s = open_(source_v=10.0, source_r=1.0)
+    q(s, ":SOUR:FUNC CP;:SOUR:POW 30;:INP ON")
+    first = _three_readings_agree(s, 10.0, 1.0)
+    assert _three_readings_agree(s, 10.0, 1.0) == first
+    assert first[0] * first[1] <= 25.0 + 1e-6
+
+
+def test_cp_flapping_at_von_reads_one_operating_point_on_the_circuit(open_):
+    s = open_(source_v=10.0, source_r=1.0)
+    q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:SOUR:CURR:VON 8;:INP ON")
+    first = _three_readings_agree(s, 10.0, 1.0)
+    assert _three_readings_agree(s, 10.0, 1.0) == first
+
+
+def test_an_unsettled_loop_is_a_run_record_event_and_not_regulating(open_):
+    s = open_(source_v=10.0, source_r=1.0)
+    q(s, ":SOUR:FUNC CP;:SOUR:POW 30;:INP ON")
+    number(s, ":MEAS:VOLT?")
+    events = [e for e in s.history if e["kind"] == "solver"]
+    assert [e["reason"] for e in events] == ["unsettled"]
+    assert s.unsettled
+    assert s.instruments["el"].components["load"].readings()["values"]["regulating"] is False
+
+    # A setpoint the source can give settles again.
+    q(s, ":SOUR:POW 20")
+    assert number(s, ":MEAS:POW?") == pytest.approx(20.0, rel=1e-6)
+    assert not s.unsettled
+
+
 # ---- Von and the CC slew rate ------------------------------------------------------------------------
 
 
