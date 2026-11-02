@@ -151,7 +151,9 @@ async def test_fault_dialog_injects_and_lists():
 
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
         text = _flat(tui)
-        assert "Timeout" in text and "Protection trip" in text and "Parameter drift" in text  # the three groups
+        assert (
+            "Timeout" in text and "Protection trip" in text and "Parameter drift" in text
+        )  # the three groups
         assert "Inject" in text
         # Inject the default (timeout, count empty = until cleared).
         from textual.widgets import Button

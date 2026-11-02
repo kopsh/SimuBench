@@ -407,10 +407,13 @@ class InstrumentScreen(ShellScreen):
         regulation = str(readings.get("core.regulation") or "")
         voltage_limited = limited and regulation == "CV"
         current_limited = limited and regulation == "CC"
-        label_w = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.set", "instrument.actual", "instrument.limit"))
+        label_w = 1 + max(
+            cell_len(i18n.t(k, lang)) for k in ("instrument.set", "instrument.actual", "instrument.limit")
+        )
         value_w = 10
         status_w = 1 + max(
-            cell_len(i18n.t(k, lang)) for k in ("cards.output", "instrument.function", "instrument.regulation")
+            cell_len(i18n.t(k, lang))
+            for k in ("cards.output", "instrument.function", "instrument.regulation")
         )
         status_col = status_w + 8  # On / Off, VOLTage / CURRent, CV / CC
 
@@ -440,7 +443,9 @@ class InstrumentScreen(ShellScreen):
             status(i18n.t("cards.output", lang), sv_text("output.enabled")),
             status(i18n.t("instrument.function", lang), sv_text("source.function")),
         ]
-        regulation_row = status(i18n.t("instrument.regulation", lang), regulation or "—", "bad" if limited else "")
+        regulation_row = status(
+            i18n.t("instrument.regulation", lang), regulation or "—", "bad" if limited else ""
+        )
         gap = [(" " * 2, "")]
         v1 = cell(i18n.t("instrument.set", lang), sv_text("source.voltage.level"))
         c1 = cell(i18n.t("instrument.set", lang), sv_text("source.current.level"))

@@ -96,7 +96,10 @@ def _tui(args: argparse.Namespace) -> int:
     from importlib.util import find_spec
 
     if find_spec("textual") is None:
-        print("The terminal console needs the optional dependency: pip install 'simubench[tui]'", file=sys.stderr)
+        print(
+            "The terminal console needs the optional dependency: pip install 'simubench[tui]'",
+            file=sys.stderr,
+        )
         return 2
     from .tui.launch import run_attach, run_bench
 

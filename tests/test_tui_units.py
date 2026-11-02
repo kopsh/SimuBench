@@ -143,7 +143,9 @@ def test_hint_not_in_model_names_the_closest():
         origin="sds.coverage.yaml",
         closest=":SYSTem:ERRor",
     )
-    assert text is not None and "Not in the coverage table sds.coverage.yaml" in text and "SYSTem:ERRor" in text
+    assert (
+        text is not None and "Not in the coverage table sds.coverage.yaml" in text and "SYSTem:ERRor" in text
+    )
 
 
 def test_hint_not_in_definition():
