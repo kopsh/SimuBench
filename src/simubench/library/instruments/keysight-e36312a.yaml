@@ -1,0 +1,400 @@
+schema: simubench.instrument/1
+id: keysight-e36312a
+manufacturer: Keysight Technologies
+model: E36312A
+class: power_supply
+version: 1
+description: >-
+  Keysight E36312A 三路可编程直流电源（CH1 6 V/5 A、CH2 25 V/1 A、CH3 25 V/1 A；常用命令子集）。
+  Real model (D42)：命令、参数、默认值与回复按 E36300 系列编程指南（E36311-90008, Edition 12,
+  June 2025）核对；每路输出是设定 → 复用 B1 的 CV/CC 控制环 → 功率级 → 输出继电器/sense →
+  回读与 OVP 锁定，电压/电流/功率由电路求解得到。三个输出都按 E36312A 的正电压量程
+  （-25 V 只属于 E36311A；手册的 N25V 在 E36312A 正常模式下输出 +25 V）。
+  列表/任意波、触发、数据记录、校准、数字口与状态寄存器组不在本定义范围（覆盖表逐条列出）。
+reference:
+  title: Keysight E36300 Series Programmable DC Power Supplies Programming Guide
+  document: E36311-90008
+  version: Edition 12, June 2025
+  firmware: E36312A as covered by Edition 12
+identity:
+  idn: "Keysight Technologies,E36312A,{serial},{firmware}"
+  serial: MY59000001
+  firmware: "1.0.0-1.0.0-1.0.0"
+format:
+  number: nr3
+  digits: 8
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+# 手册有、但本定义不回答的内置命令：*TRG（触发系统不在首波）、*PSC/*RCL/*SAV（状态存储）、
+# SYSTem:DATE/TIME（实时时钟；引擎内置的回复格式与手册不同，见覆盖表）、SYSTem:ERRor:COUNt/ALL
+# （手册没有）。其余公共命令由引擎内置，见覆盖表。
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
+errors:
+  0: No error
+  -100: Command error
+  -101: Invalid character
+  -102: Syntax error
+  -103: Invalid separator
+  -104: Data type error
+  -105: GET not allowed
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -110: Command header error
+  -111: Header separator error
+  -112: Program mnemonic too long
+  -113: Undefined header
+  -114: Header suffix out of range
+  -120: Numeric data error
+  -121: Invalid character in number
+  -123: Numeric overflow
+  -124: Too many digits
+  -128: Numeric data not allowed
+  -130: Suffix error
+  -131: Invalid suffix
+  -134: Suffix too long
+  -138: Suffix not allowed
+  -140: Character data error
+  -141: Invalid character data
+  -144: Character data too long
+  -148: Character data not allowed
+  -150: String data error
+  -151: Invalid string data
+  -158: String data not allowed
+  -160: Block data error
+  -161: Invalid block data
+  -168: Block data not allowed
+  -170: Expression error
+  -171: Invalid expression
+  -178: Expression data not allowed
+  -200: Execution error
+  -220: Parameter error
+  -221: Settings conflict
+  -222: Data out of range
+  -223: Too much data
+  -224: Illegal parameter value
+  -225: Out of memory
+  -230: Data corrupt or stale
+  -231: Data questionable
+  -240: Hardware error
+  -241: Hardware missing
+  -260: Expression error
+  -261: Math error in expression
+  -400: Query error
+  -410: Query INTERRUPTED
+  -420: Query UNTERMINATED
+  -430: Query DEADLOCKED
+  -440: Query UNTERMINATED after indefinite response
+  304: Voltage and current cannot be in Step and List mode at the same time
+  307: List lengths are not equivalent
+  308: This command is not allowed while list is running
+  720: CH3 is not allowed when serial/parallel/track is enabled
+  721: Calibration is not allowed when serial/parallel is enabled
+  722: Multiple channels selection is not allowed during calibration
+  729: Not allow to enable output
+  735: Cannot change while trigger is initiated
+specs:
+  source: Command Reference 第 1 章 Programming Ranges and Output Identifiers；Reset and Non-volatile Settings 的 *RST 表
+  outputs:
+    1: {name: P6V, voltage_v: "0 … 6.18", current_a: "0.001 … 5.15", current_rst_a: 5}
+    2: {name: P25V, voltage_v: "0 … 25.75", current_a: "0.001 … 1.03", current_rst_a: 1}
+    3: {name: N25V, voltage_v: "0 … 25.75（E36312A 正常模式；-25.75 … 0 仅 E36311A/E3631A persona）", current_a: "0.001 … 1.03", current_rst_a: 1}
+  ovp_rst_v: {1: 6.6, 2: 27.5, 3: 27.5}
+  ovp_rst_note: 通道 1 的设置范围 0.5–6.6 V，通道 2/3 为 1.5–27.5 V
+  resolution: "手册未给出电压/电流的编程或读数分辨率，只给出编程范围与 *RST 值"
+  relay_time_s: 0.01
+channels:
+  count: 3
+  overrides:
+    1:
+      voltage: {max: 6.18}
+      current: {max: 5.15, default: 5.0}
+      ovp: {min: 0.5, max: 6.6, default: 6.6}
+      v_max: {default: 6.18}
+      i_max: {default: 5.15}
+      p_max: {default: 31.827}
+      range: {default: P6V}
+    2:
+      ovp: {min: 1.5, max: 27.5, default: 27.5}
+      v_max: {default: 25.75}
+      i_max: {default: 1.03}
+      p_max: {default: 26.5225}
+      range: {default: P25V}
+    3:
+      ovp: {min: 1.5, max: 27.5, default: 27.5}
+      v_max: {default: 25.75}
+      i_max: {default: 1.03}
+      p_max: {default: 26.5225}
+      range: {default: P25V}
+channel_state:
+  voltage:
+    type: float
+    unit: V
+    min: 0.0
+    max: 25.75
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage setting
+  current:
+    type: float
+    unit: A
+    min: 0.001
+    max: 1.03
+    default: 1.0
+    label: 电流限值
+    label_en: Current limit
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  ovp:
+    type: float
+    unit: V
+    min: 0.5
+    max: 27.5
+    default: 27.5
+    label: 过压保护
+    label_en: OVP level
+  sense:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 远端检测
+    label_en: Remote sense
+    option_labels: {INTernal: 内部, EXTernal: 外部}
+  range:
+    type: enum
+    options: [P6V, P25V, LOW, HIGH]
+    default: P6V
+    label: 电压量程
+    label_en: Voltage range
+  v_max:
+    type: float
+    unit: V
+    default: 25.75
+    readonly: true
+    label: 电压上限
+    label_en: Voltage maximum
+  i_max:
+    type: float
+    unit: A
+    default: 1.03
+    readonly: true
+    label: 电流上限
+    label_en: Current maximum
+  p_max:
+    type: float
+    unit: W
+    default: 25.75
+    readonly: true
+    label: 功率上限
+    label_en: Power maximum
+state:
+  display.enabled:
+    type: bool
+    default: true
+    label: 显示
+    label_en: Display
+  display.text:
+    type: string
+    default: ""
+    label: 显示文本
+    label_en: Display text
+  display.view:
+    type: enum
+    options: [METER1, METER3]
+    default: METER3
+    label: 显示视图
+    label_en: Display view
+  beeper.state:
+    type: bool
+    default: true
+    label: 蜂鸣器
+    label_en: Beeper
+  system.pon:
+    type: enum
+    options: [RST, RCL0, RCL1, RCL2, RCL3, RCL4, RCL5, RCL6, RCL7, RCL8, RCL9]
+    default: RST
+    label: 上电状态
+    label_en: Power-on state
+  system.inhibit:
+    type: enum
+    options: [LATChing, LIVE, "OFF"]
+    default: "OFF"
+    label: 禁止输入模式
+    label_en: Inhibit mode
+  system.rlst:
+    type: enum
+    options: [LOCal, REMote, RWLock]
+    default: LOCal
+    label: 远程/本地
+    label_en: Remote/local state
+  system.lxi_identify:
+    type: bool
+    default: false
+    label: LXI 指示灯
+    label_en: LXI identify
+  system.mdns:
+    type: bool
+    default: false
+    label: mDNS
+    label_en: mDNS
+  system.scpi_version:
+    type: float
+    default: 1999.0
+    readonly: true
+    label: SCPI 版本
+    label_en: SCPI version
+channel_components:
+  # 每路：设定 DAC → B1 控制环（CV，电流限值触发 CC）→ 功率级 → 输出继电器/sense → 回读与 OVP。
+  - name: set
+    type: power_supply_setpoint
+    params: {stage: stage, voltage: $ch.voltage, current: $ch.current}
+  - name: stage
+    type: power_stage
+    params: {v_max: $ch.v_max, i_max: $ch.i_max, p_max: $ch.p_max}
+  - name: loop
+    type: output_control_loop
+    params:
+      function: VOLTage
+      v_level: $ch.voltage
+      i_level: 0.0
+      i_limit: $ch.current
+      v_limit: 0.0
+      output: $ch.output
+      channel_envelope: stage
+  - name: out
+    type: power_output
+    params:
+      output: $ch.output
+      remote_sense: {from: $ch.sense, map: {INTernal: false, EXTernal: true}}
+      loop: loop
+      stage: stage
+      protection: prot
+  - name: prot
+    type: supply_protection
+    params: {ovp: $ch.ovp, ocp: 0.0, output: $ch.output}
+  - name: read
+    type: supply_readback
+    params: {output: out}
+components:
+  # 组合（CH2/CH3 的跟踪/串联/并联）的语义仍是 E36311A 的 ±25 V 拓扑（#259），本定义的
+  # OUTPut:PAIR / OUTPut:TRACk 因此未建模；保留组件只为覆盖 component-map 的 tracking 块，
+  # 不绑定任何状态，面板因此也不显示组合键（#259 修正后再接上）。
+  - name: track
+    type: supply_tracking
+ports:
+  channel:
+    "OUT{n}+": out.pos
+    "OUT{n}-": out.neg
+    "SENSE{n}+": out.sense_pos
+    "SENSE{n}-": out.sense_neg
+display:
+  template: power_supply
+  summary: [ch1.voltage, ch1.current, ch2.voltage, ch3.voltage, ch1.output]
+capabilities: [power_supply]
+commands:
+  # ---- 设定与回读（通道列表展开，#183） ------------------------------------
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.voltage"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: A, state: "ch.current"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "OUTPut[:STATe]"
+    params:
+      - {name: state, type: bool, state: "ch.output"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+    dangerous: true
+  - header: "MEASure[:SCALar]:VOLTage[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: voltage}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "MEASure[:SCALar]:CURRent[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: current}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  # ---- 保护：OVP 的设定、查询、清除（OCP 见覆盖表，未建模） -----------------
+  - header: "[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.ovp"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:VOLTage:PROTection:CLEar"
+    op: ch.prot.clear
+    query: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "[:SOURce]:VOLTage:PROTection:TRIPped"
+    op: ch.prot.tripped
+    set: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+    doc: >-
+      手册的查询没有通道列表（按当前选中的输出回答）；本定义的 INSTrument:SELect 未建模，
+      裸查询固定按通道 1 回答，显式通道列表是额外的写法。
+  - header: "OUTPut:PROTection:CLEar"
+    op: ch.prot.clear
+    query: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  # ---- 远端检测与量程 --------------------------------------------------------
+  - header: "[:SOURce]:VOLTage:SENSe[:SOURce]"
+    params:
+      - {name: sense, type: enum, options: [INTernal, EXTernal], state: "ch.sense"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+    doc: 选择内部（两线）或外部（四线）检测；外部检测需要测试台把 SENSE 端子接到负载。
+  - header: "[:SOURce]:VOLTage:RANGe"
+    params:
+      - {name: range, type: enum, options: [P6V, P25V, LOW, HIGH], state: "ch.range"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+    doc: >-
+      每路只有一个电压量程（手册：接受并回显与该单一量程对应的值）；保存的值不参与仿真，
+      覆盖表按“接受”登记。
+  # ---- 组合（#259 阻塞） -----------------------------------------------------
+  # OUTPut:PAIR / OUTPut:TRACk 未建模：B2 的 supply_tracking 是 E36311A 的 ±25 V 拓扑，
+  # E36312A 的串/并联由输出 2 输出、输出 3 停用、跟踪同号（#259 修正后另行接入）。
+  # ---- 显示（接受） ----------------------------------------------------------
+  - header: ":DISPlay[:WINDow][:STATe]"
+    state: display.enabled
+  - header: ":DISPlay[:WINDow]:TEXT[:DATA]"
+    state: display.text
+  - header: ":DISPlay[:WINDow]:VIEW"
+    state: display.view
+  # ---- 系统配置（接受） ------------------------------------------------------
+  - header: "SYSTem:BEEPer:STATe"
+    state: beeper.state
+  - header: "SYSTem:BEEPer[:IMMediate]"
+    query: false
+    params: [{name: state, type: bool, optional: true, state: beeper.state}]
+    doc: 立即蜂鸣无参数、无回复；蜂鸣在仿真中没有效果。
+  - header: "OUTPut:PON:STATe"
+    state: system.pon
+  - header: "OUTPut:INHibit:MODE"
+    state: system.inhibit
+  - header: "LXI:IDENtify[:STATe]"
+    state: system.lxi_identify
+  - header: "LXI:MDNS[:STATe]"
+    state: system.mdns
+  - header: "SYSTem:COMMunicate:RLSTate"
+    state: system.rlst
+  - header: "SYSTem:LOCal"
+    query: false
+    state: system.rlst
+    set_value: LOCal
+  - header: "SYSTem:REMote"
+    query: false
+    state: system.rlst
+    set_value: REMote
+  - header: "SYSTem:RWLock"
+    query: false
+    state: system.rlst
+    set_value: RWLock
+  - header: "SYSTem:VERSion"
+    state: system.scpi_version
+    set: false
+    format: {number: nr2, digits: 1, sign: false}
