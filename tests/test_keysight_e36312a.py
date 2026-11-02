@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 import pyvisa
+import yaml
 
 from simubench.api import open_bench
 
@@ -41,6 +42,21 @@ script = _script()
 
 def session():
     return open_bench(BENCH, idle="off")
+
+
+def sense_wired_session():
+    """The example bench plus the SENSE1 wires. The example ships without them: a 2-terminal
+    part has no third terminal to host the Kelvin join, so wiring the sense pair would leave
+    the load ports with two wires each (W-PORT-SHARED)."""
+    from simubench.models.bench import BenchDefinition
+
+    data = yaml.safe_load(BENCH.read_text(encoding="utf-8"))
+    data["wires"] += [
+        {"from": "psu.SENSE1+", "to": "r1.A"},
+        {"from": "r1.B", "to": "psu.SENSE1-"},
+    ]
+    bench = BenchDefinition.model_validate(data)
+    return open_bench(bench, idle="off")
 
 
 def q(s, command: str) -> str | None:
@@ -98,7 +114,7 @@ def test_the_relay_closes_in_virtual_time():
 
 
 def test_remote_sense_regulates_the_voltage_at_the_load():
-    s = session()
+    s = sense_wired_session()
     try:
         assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1);*WAI") is None
         assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
@@ -137,6 +153,18 @@ def test_the_three_outputs_are_independent_and_the_channel_list_expands():
         assert q(s, "VOLT? (@2,1)") == "+3.30000000E+00,+5.00000000E+00"
     finally:
         s.close()
+
+
+def test_the_example_bench_validates_without_diagnostics():
+    """#296 acceptance: `simubench validate` on the example bench reports nothing."""
+    from simubench.engine.validate import validate_data
+    from simubench.library.loader import DefinitionLibrary
+
+    _, report = validate_data(
+        yaml.safe_load(BENCH.read_text(encoding="utf-8")),
+        DefinitionLibrary([BENCH.parent / "instruments"]),
+    )
+    assert report.diagnostics == []
 
 
 def test_out_of_range_values_name_the_channel_limits():
