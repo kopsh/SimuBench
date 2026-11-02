@@ -1,7 +1,7 @@
 # Keysight 34970A 的覆盖表：按 34970A/34972A 用户指南（34972-90001, Edition 6, November 2019）
 # 第 4 章 Features and Functions 的命令条目与命令索引逐条列出，程度与说明手写。
 # 范围：固定配置 34970A + 槽 1 的 34901A（60 个号 101–120/201–220/301–320，槽 2/3 空）；
-# DCV、继电器、扫描表、触发与读数缓冲；CONFigure/MEASure 的通道列表形式被 #300 阻塞，
+# DCV/ACV、继电器、扫描表、触发与读数缓冲、CONFigure/MEASure 的通道列表形式（#300）；
 # 电阻/电流被 #301 阻塞。未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
 schema: simubench.coverage/1
 model: keysight-34970a
@@ -61,8 +61,8 @@ sections:
   - {header: 'CONFigure:FRESistance', level: not_modeled, note: '四线电阻被 #301 阻塞（需要激励与 n/n+10 配对）。'}
   - {header: 'CONFigure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'CONFigure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。'}
-  - {header: 'CONFigure:VOLTage:AC', level: not_modeled, note: 'ACV 的功能选择被 #300 阻塞；只建模 DCV。'}
-  - {header: 'CONFigure:VOLTage:DC', level: not_modeled, note: '通道列表形式被 #300 阻塞：命令头选功能与扫描表重定义无法声明；用 ROUT:SCAN + SENSe + READ?/FETCh?。'}
+  - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能与量程是整机设定（真机按通道记忆）。'}
+  - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能与量程是整机设定（真机按通道记忆）。'}
   - {header: 'CONFigure:CURRent:AC', level: not_modeled, note: '电流测量被 #301 阻塞（内部 DMM 没有分流）。'}
   - {header: 'CONFigure:CURRent:DC', level: not_modeled, note: '电流测量被 #301 阻塞（内部 DMM 没有分流）。'}
 - section: DATA Subsystem
@@ -108,8 +108,8 @@ sections:
   - {header: 'MEMory:STATe:RECall:AUTO', level: not_modeled, note: '上电恢复方式不在首波。'}
 - section: MEASure Subsystem
   commands:
-  - {header: 'MEASure:VOLTage:DC', level: not_modeled, note: '通道列表形式被 #300 阻塞：通道列表不能写入扫描表并启动一次扫描；用 READ?/FETCh?。'}
-  - {header: 'MEASure:VOLTage:AC', level: not_modeled, note: 'ACV 功能与通道列表形式被 #300 阻塞。'}
+  - {header: 'MEASure:VOLTage[:DC]', level: implemented, note: '与 CONFigure 相同的设定后按扫描表跑一次扫描并回读数（READ? 的路径，#300）。'}
+  - {header: 'MEASure:VOLTage:AC', level: implemented, note: '交流电压的 MEASure?，同 MEASure:VOLTage:DC（#300）。'}
   - {header: 'MEASure:CURRent:DC', level: not_modeled, note: '电流测量被 #301 阻塞。'}
   - {header: 'MEASure:CURRent:AC', level: not_modeled, note: '电流测量被 #301 阻塞。'}
   - {header: 'MEASure:RESistance', level: not_modeled, note: '电阻测量被 #301 阻塞。'}

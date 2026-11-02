@@ -261,3 +261,38 @@ cases:
       - send: "*WAI"
       - query: "*OPC?"
         expect: "1"
+
+  - name: "CONFigure 带通道列表：选功能、量程关闭自动量程、列表写进扫描表（#300）"
+    manual: "Measurement Configuration > CONFigure:VOLTage:{DC|AC} [{<range>|AUTO|MIN|MAX|DEF} [,<resolution>]] ,(@<scan_list>)"
+    steps:
+      - send: "CONF:VOLT:DC 10,(@101:103)"
+      - query: "ROUT:SCAN?"
+        expect: "(@101:103)"
+      - query: "SENS:VOLT:DC:RANG? (@101)"
+        expect: "+1.00000000E+01"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "0"
+      - send: "CONF:VOLT:DC (@102)"
+      - query: "ROUT:SCAN?"
+        expect: "(@102)"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "1"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "MEASure? 带通道列表：按列表扫描一次并回读数（#300）"
+    manual: "Measurement Configuration > MEASure:VOLTage:DC? [{<range>|AUTO|MIN|MAX|DEF} [,<resolution>]] ,(@<scan_list>)"
+    steps:
+      - query: "MEAS:VOLT:DC? (@101,102)"
+        expect_match: '^\+9\.09\d+E-01,\+1\.818\d+E\+00$'
+      - query: "ROUT:SCAN?"
+        expect: "(@101:102)"
+      - query: "MEAS:VOLT:DC? 10,(@103)"
+        expect_match: '^\+3\.636\d+E\+00$'
+      - query: "MEAS:VOLT:AC? (@101)"
+        expect_match: '^\+\d\.\d+E[+-]\d+$'
+      - send: "CONF:VOLT:AC (@102)"
+      - query: "ROUT:SCAN?"
+        expect: "(@102)"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

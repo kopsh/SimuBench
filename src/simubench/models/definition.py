@@ -245,12 +245,10 @@ class ParamSpec(_Model):
                 f"parameter {self.name!r}: sets writes settings along with the argument; give the "
                 "parameter a state"
             )
-        if self.type == "channel_list" and (
-            self.state is not None or self.keys is not None or self.units is not None or self.index
-        ):
+        if self.type == "channel_list" and (self.keys is not None or self.units is not None or self.index):
             raise ValueError(
-                f"parameter {self.name!r}: a channel list selects the channels the command acts on "
-                "and writes nothing itself"
+                f"parameter {self.name!r}: a channel list selects the channels the command acts on; "
+                "its only setting is a `state` that takes the whole list"
             )
         if self.type == "quantities":
             if not self.units:
@@ -356,14 +354,25 @@ class CommandSpec(_Model):
 
     @property
     def bound_params(self) -> list[ParamSpec]:
-        return [p for p in self.params if p.state is not None or p.keys is not None or p.type == "quantities"]
+        return [
+            p
+            for p in self.params
+            if p.type != "channel_list"
+            and (p.state is not None or p.keys is not None or p.type == "quantities")
+        ]
 
     @model_validator(mode="after")
     def _check(self) -> CommandSpec:
         # An index parameter with `writes` alone is a settings command too (#248: VIEW CHAN2
         # writes ch2.display: the index picks the setting, the constant is its value).
         indexed_writes = bool(self.writes) and any(p.index for p in self.params)
-        kinds = (self.state is not None) + (self.op is not None) + bool(self.bound_params or indexed_writes)
+        # An operation's parameter may bind a setting too (#300: MEAS:VOLT:DC? 10,(@101) sets the
+        # range before the reading): it is still an operation command.
+        kinds = (
+            (self.state is not None)
+            + (self.op is not None)
+            + bool((self.bound_params or indexed_writes) and self.op is None)
+        )
         if kinds != 1:
             raise ValueError(
                 f"command {self.header!r}: give one of state, op, or parameters bound to settings"
@@ -391,7 +400,11 @@ class CommandSpec(_Model):
                 f"command {self.header!r}: a channel list parameter expands the command over the "
                 "channels; bind values through the parameters' state, not the command's"
             )
-        if self.bound_params and len(self.bound_params) + len(indexes) + len(lists) != len(self.params):
+        if (
+            self.op is None
+            and self.bound_params
+            and len(self.bound_params) + len(indexes) + len(lists) != len(self.params)
+        ):
             raise ValueError(f"command {self.header!r}: bind every parameter to a setting, or none")
         if indexes and not self.bound_params and not indexed_writes:
             raise ValueError(f"command {self.header!r}: an index parameter picks the settings others write")

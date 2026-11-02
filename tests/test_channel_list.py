@@ -325,3 +325,57 @@ def test_numbering_must_not_repeat_a_channel_number():
     )
     with pytest.raises(ValidationError, match="repeats channel numbers"):
         InstrumentDefinition.model_validate(data)
+
+
+# ---- a channel list with the command's constants and a whole-list setting (#300) -------------------
+
+DAQ_CONF = {
+    "schema": "simubench.instrument/1",
+    "id": "daq-conf",
+    "manufacturer": "ACME",
+    "model": "DAQ",
+    "class": "data_acquisition",
+    "channels": {"count": 2, "numbering": [{"first": 101, "count": 2}]},
+    "state": {
+        "sense.function": {"type": "enum", "options": ["DC", "AC"], "default": "DC"},
+        "sense.range": {"type": "float", "min": 0, "max": 1000, "default": 0.0},
+        "sense.range_auto": {"type": "bool", "default": True},
+        "scan.list": {"type": "int_list", "default": []},
+    },
+    "components": [{"type": "system", "name": "sys"}],
+    "commands": [
+        {
+            "header": ":CONFigure[:VOLTage]:AC",
+            "query": False,
+            "writes": {"sense.function": "AC"},
+            "params": [
+                {
+                    "name": "range",
+                    "type": "float",
+                    "state": "sense.range",
+                    "optional": True,
+                    "sets": {"sense.range_auto": False},
+                },
+                {"name": "channels", "type": "channel_list", "state": "scan.list"},
+            ],
+        },
+        {"header": "ROUTe:SCAN", "state": "scan.list"},
+        {"header": "FUNCtion", "state": "sense.function"},
+    ],
+}
+
+
+def test_a_list_command_writes_its_constants_sets_and_the_whole_list():
+    """The issue's reproduction: CONF:VOLT:AC 10,(@101) selects AC, sets the range and leaves
+    autorange, and writes the list into the scan list; the range may be left out."""
+    session, query = open_definition(DAQ_CONF)
+    inst = session.instruments["x"]
+    query("CONF:VOLT:AC 10,(@101)")
+    assert inst.get_state("sense.function") == "AC"
+    assert inst.get_state("sense.range") == 10.0 and inst.get_state("sense.range_auto") is False
+    assert query("ROUT:SCAN?") == "(@101)"
+    inst.set_state("sense.function", "DC")
+    query("CONF:VOLT:AC (@101:102)")  # the optional range left out: the list is not taken for it
+    assert inst.get_state("sense.function") == "AC"
+    assert query("ROUT:SCAN?") == "(@101:102)"
+    assert query("SYST:ERR?") == '0,"No error"'

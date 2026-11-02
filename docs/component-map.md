@@ -185,8 +185,8 @@ D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migrat
 | --- | --- | --- | --- | --- |
 | backplane | `daq_backplane` | 设置/数据(插槽与已装模块;SCPI 号域的槽位检查) | 已实现 | — |
 | mux_card | `mux_card` | 电路(20 路双线继电器 + 模拟总线;闭合计入电路求解) | 已实现 | — |
-| scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 部分(CONFigure/MEASure 的通道列表选功能与启动扫描:#300) | 每通道测量配置(#300 一并承担) |
-| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 部分(ACV 随 #300;电阻/电流随 #301) | —(34970A 复用它) |
+| scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 已实现(CONFigure/MEASure 的通道列表整表写进扫描表并启动一次扫描,#300) | 每通道测量配置(#300 一并承担) |
+| internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 部分(电阻/电流随 #301;DCV/ACV 已实现) | —(34970A 复用它) |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 
@@ -226,7 +226,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 跨类别的平台能力:
 
-1. **按参数选择组件 / 通道列表启动**:通道列表已由 A(#183)落地,剩余:倒序范围与重复通道(#260)、示波器按参数选通道(#248)、电源 INST:SEL 选中输出(#295)、DAQ 通道列表选功能与启动扫描(#300)。
+1. **按参数选择组件 / 通道列表启动**:已全部落地——通道列表(#183)、倒序范围与重复通道(#260)、示波器按参数选通道(#248)、电源 INST:SEL 选中输出(#295)、DAQ 通道列表选功能与启动扫描(#300)。
 2. **读数元素与格式**:`:FORMat:ELEMents:SENSe/SOUR`(#252)、数值应答带 SI 前缀单位后缀与 `%` 后缀(#289)。二进制传输(FORMat:BORDer,多型号)暂不排期。
 3. **读数存储器的高级访问**:`DATA:LAST/POINts/REMove`、按通道统计(CALCulate:AVERage)、FETCh/MEASure 的 MAX/MIN(34465A、53220A、34970A、DL3021 覆盖表)。暂不排期。
 4. **状态存储与学习串**:`*SAV/*RCL`、`MEMory:STATe`、`:SYSTem:SETup`、`:LRN?`(需要整机设置的序列化)。暂不排期。

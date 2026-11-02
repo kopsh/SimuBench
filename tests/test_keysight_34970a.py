@@ -250,7 +250,7 @@ def test_display_and_scpi_version_are_accepted_without_changing_the_reading():
 def test_an_undefined_command_says_not_modeled_in_this_definition():
     s = session()
     try:
-        assert q(s, "CONF:VOLT:DC 10,(@101)") is None
+        assert q(s, "CONF:FREQ (@101)") is None  # frequency is not in this definition
         error = q(s, "SYST:ERR?")
         assert error.startswith('-113,"Undefined header;not implemented in this definition"'), error
     finally:

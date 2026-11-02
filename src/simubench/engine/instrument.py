@@ -55,6 +55,11 @@ BUILTIN_HEADERS = (
 )
 
 
+def _is_channel_list(raw: bytes) -> bool:
+    """A program data element that is a channel list ``(@…)``."""
+    return raw.lstrip().startswith(b"(@")
+
+
 def _header_key(header: str) -> str:
     """A header as written in a definition, compared without case, spaces or the root colon."""
     return "".join(header.split()).lstrip(":").upper()
@@ -1168,6 +1173,7 @@ class Instrument:
         form: str | None = None
         channels: list[int] = []
         values: list[tuple[ParamSpec, bytes]] = []
+        whole: tuple[str, list[int]] | None = None
         for ps in spec.params:
             if ps.type == "channel_list":
                 if raw:
@@ -1177,6 +1183,8 @@ class Instrument:
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
                 channels = [self.channel_index(n) for n in numbers]
+                if ps.state is not None and not unit.query:
+                    whole = (ps.state, list(numbers))  # written whole with the rest (#300)
             elif unit.query:
                 if form is None and raw:
                     word = V.parse_string(raw[0]).upper()
@@ -1184,9 +1192,9 @@ class Instrument:
                         form = word
                         raw.pop(0)
                 continue  # beyond the form word a query carries only the channel list
-            elif not raw:
+            elif not raw or (ps.optional and _is_channel_list(raw[0])):
                 if ps.optional:
-                    continue
+                    continue  # left out: a (@…) here is the channel list after it (#300)
                 raise ScpiError(-109, f"missing {ps.name}")
             else:
                 values.append((ps, raw.pop(0)))
@@ -1213,10 +1221,28 @@ class Instrument:
                         parts.append(self._format(st, self.state[path], spec.format).decode())
             return ",".join(parts).encode()
         writes: dict[str, bytes] = {}
+        constants: dict[str, Any] = {}
+        # The command's own constants first (#300: CONF:VOLT:AC 10,(@101) selects the function),
+        # per channel when they name a channel setting; then each parameter's `sets` beside its
+        # value (not for DEF or a special word, as on a command without a list).
+        for n in channels:
+            for ref, value in spec.writes.items():
+                constants[self._resolve(ref, n)] = value
         for n in channels:
             for ps, r in values:
-                writes[self._resolve(ps.state, n)] = r  # type: ignore[index]
+                path = self._resolve(ps.state, n)  # type: ignore[arg-type]
+                writes[path] = r
+                if ps.sets and not self._keyword_argument(self.specs[path], r):
+                    for ref, value in ps.sets.items():
+                        constants[self._resolve(ref, n)] = value
+        if whole is not None:
+            constants[whole[0]] = whole[1]
         checked: dict[str, Any] = {}
+        for path, value in constants.items():
+            try:
+                checked[path] = self._validate(self.specs[path], value)
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, self.specs[path]) from e
         for path, r in writes.items():
             st = self.specs[path]
             try:
@@ -1439,6 +1465,16 @@ class Instrument:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
         args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+        bound = {}
+        for ps in spec.params:  # an operation's parameter bound to a setting writes it (#300)
+            if ps.type != "channel_list" and ps.state is not None and args.get(ps.name) is not None:
+                path = self._resolve(ps.state, channel)
+                value = args[ps.name]
+                bound[path] = self._validate(self.specs[path], value)
+                for ref, constant in (ps.sets or {}).items():
+                    bound[self._resolve(ref, channel)] = self._validate(
+                        self.specs[self._resolve(ref, channel)], constant
+                    )
         if spec.writes:
             # The command selects settings before its operation runs (#308).
             checked = {}
@@ -1447,7 +1483,9 @@ class Instrument:
                 checked[path] = self._validate(self.specs[path], value)
             for path, value in checked.items():
                 self.set_state(path, value)
-        list_spec = next((p for p in spec.params if p.type == "channel_list"), None)
+        for path, value in bound.items():  # after the command's constants: the arguments win
+            self.set_state(path, value)
+        list_spec = next((p for p in spec.params if p.type == "channel_list" and p.state is None), None)
         if list_spec is None:
             result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)
             if not unit.query:
@@ -1511,6 +1549,11 @@ class Instrument:
                     numbers = self._omitted_list(ps)
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
+                if ps.state is not None:
+                    # A list with a setting is written whole into it (an int_list, e.g. the scan
+                    # list) and the operation runs once over it (#300: MEAS:VOLT:DC? (@101:110)).
+                    self.set_state(ps.state, list(numbers))
+                    continue
                 # Operations run once per channel with the channel index (as a <n> suffix does);
                 # the list's numbers are the instrument's own (#207).
                 out[ps.name] = [self.channel_index(n) for n in numbers]
@@ -1523,10 +1566,10 @@ class Instrument:
                 out[ps.name] = list(raw[i:])
                 i = len(raw)
                 continue
-            if i >= len(raw):
+            if i >= len(raw) or (ps.optional and _is_channel_list(raw[i])):
                 if not ps.optional:
                     raise ScpiError(-109, f"missing {ps.name}")
-                out[ps.name] = None
+                out[ps.name] = None  # left out: a (@…) here belongs to a channel list (#300)
                 continue
             r = raw[i]
             i += 1
