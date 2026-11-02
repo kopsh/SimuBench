@@ -170,6 +170,7 @@ def test_the_sweep_advances_on_the_trigger(session):
             "sweep.start": 100e6,
             "sweep.stop": 200e6,
             "sweep.points": 3,
+            "sweep.point_trigger": "BUS",  # points advance on :TRIGger / *TRG (AUTO: by dwell)
         }
     )
     sg = s.instruments["sg"]
@@ -223,3 +224,45 @@ def test_the_modulation_master_switch_gates_every_modulation(session):
     q(":MOD:STAT OFF")
     assert carrier(sg)[0].size == 1 and q(":AM:STAT?") == "1"  # the AM switch keeps its setting
     assert q(":SYST:ERR?") == '0,"No error"'
+
+
+def _level_dbm(sg) -> float:
+    _freq, amp = carrier(sg)
+    from simubench.library.components.rfgen import emf_peak
+
+    return 20 * np.log10(float(amp[0]) / emf_peak(0.0))
+
+
+def test_a_level_and_frequency_sweep_steps_by_the_dwell_in_virtual_time(session):
+    """#291, the manual's chapter 3 sweep: LEV,FREQ together, AUTO point trigger, 500 ms dwell."""
+    s = session(state={"power.level": -50.0, "output.enabled": True})
+    sg = s.instruments["sg"]
+    for command in (
+        ":SWE:STEP:STAR:FREQ 1GHz;:SWE:STEP:STOP:FREQ 1.4GHz",
+        ":SWE:STEP:STAR:LEV -20;:SWE:STEP:STOP:LEV 0",
+        ":SWE:STEP:POIN 5;:SWE:STEP:DWEL 500ms",
+        ":SWE:STAT LEV,FREQ",
+    ):
+        s.write("sg", (command + "\n").encode())
+    assert float(carrier(sg)[0][0]) == pytest.approx(1.0e9, rel=1e-9)
+    assert _level_dbm(sg) == pytest.approx(-20.0, abs=1e-9)
+    s.advance(1.2)  # the third point (0.5 s per point)
+    assert float(carrier(sg)[0][0]) == pytest.approx(1.2e9, rel=1e-9)
+    assert _level_dbm(sg) == pytest.approx(-10.0, abs=1e-9)
+    s.advance(1.5)  # continuous: past the fifth point the pass repeats
+    assert float(carrier(sg)[0][0]) == pytest.approx(1.0e9, rel=1e-9)
+
+
+def test_a_single_sweep_runs_once_from_execute_and_holds_the_last_point(session):
+    s = session(state={"power.level": -50.0, "output.enabled": True})
+    sg = s.instruments["sg"]
+    s.write("sg", b":SWE:STEP:STAR:LEV -30;:SWE:STEP:STOP:LEV -10;:SWE:STEP:POIN 3;:SWE:STEP:DWEL 100ms\n")
+    s.write("sg", b":SWE:MODE SING;:SWE:STAT LEV\n")
+    assert _level_dbm(sg) == pytest.approx(-30.0, abs=1e-9)  # not started: the first point
+    s.write("sg", b":SWE:EXEC\n")
+    s.advance(0.15)
+    assert _level_dbm(sg) == pytest.approx(-20.0, abs=1e-9)
+    s.advance(1.0)
+    assert _level_dbm(sg) == pytest.approx(-10.0, abs=1e-9)  # held at the last point
+    s.write("sg", b":SWE:STAT OFF\n")
+    assert _level_dbm(sg) == pytest.approx(-50.0, abs=1e-9)  # back to the set level

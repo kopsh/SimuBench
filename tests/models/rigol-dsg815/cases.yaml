@@ -452,7 +452,7 @@ cases:
       - query: ":SYST:ERR?"
         expect_match: '^-222,"Data out of range.*'
 
-  - name: "扫描方式 FREQuency 打开频率扫描；只建模频率（LEVel 报 -224）"
+  - name: "扫描状态：频率、电平或两者（回读 LEV,FREQ），OFF 不能与其他同用（#291）"
     manual: "Command System > [:SOURce]:SWEep:STATe"
     steps:
       - send: ":SWE:STEP:STAR:FREQ 100MHz"
@@ -464,8 +464,38 @@ cases:
       - query: ":SWE:STAT?"
         expect: "OFF"
       - send: ":SWE:STAT LEV"
+      - query: ":SWE:STAT?"
+        expect: "LEV"
+      - send: ":SWE:STAT FREQ,LEV"
+      - query: ":SWE:STAT?"
+        expect: "LEV,FREQ"
+      - send: ":SWE:STAT OFF,FREQ"
       - query: ":SYST:ERR?"
         expect_match: '^-224,"Illegal parameter value.*'
+      - query: ":SWE:STAT?"
+        expect: "LEV,FREQ"
+
+  - name: "电平扫描起止、驻留、扫描模式与扫描点触发的设定与回读（#291）"
+    manual: "Command System > [:SOURce]:SWEep:STEP:STARt:LEVel / STOP:LEVel / DWELl；:SWEep:MODE；:SWEep:POINt:TRIGger:TYPE"
+    steps:
+      - send: ":SWE:STEP:STAR:LEV -20"
+      - send: ":SWE:STEP:STOP:LEV 0"
+      - query: ":SWE:STEP:STAR:LEV?"
+        expect: "-20.00"
+      - query: ":SWE:STEP:STOP:LEV?"
+        expect: "0.00"
+      - send: ":SWE:STEP:DWEL 500ms"
+      - query: ":SWE:STEP:DWEL?"
+        expect: "500.000ms"
+      - send: ":SWE:STEP:DWEL 10ms"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,"Data out of range.*'
+      - send: ":SWE:MODE SING"
+      - query: ":SWE:MODE?"
+        expect: "SING"
+      - send: ":SWE:POIN:TRIG:TYPE BUS"
+      - query: ":SWE:POIN:TRIG:TYPE?"
+        expect: "BUS"
 
   - name: "执行、复位与触发扫描都不报错（*TRG 与 :TRIGger[:SWEep] 等价）"
     manual: "Command System > [:SOURce]:SWEep:EXECute、:RESet[:ALL]、:TRIGger[:SWEep][:IMMediate]；*TRG"

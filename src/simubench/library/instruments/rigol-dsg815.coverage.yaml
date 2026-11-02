@@ -338,30 +338,30 @@ sections:
     level: implemented
   - header: '[:SOURce]:SWEep:LIST:CPOint'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:LIST:INITialize:FSTep'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:LIST:INITialize:PRESet'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:LIST:LIST'
     level: not_modeled
-    note: 列表扫描未建模；能力 issue #291。
+    note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
   - header: '[:SOURce]:SWEep:MODE'
-    level: not_modeled
-    note: 连续/单次扫描时序未建模：扫描只由 :TRIGger / *TRG / :SWE:EXECute 推进。
+    level: implemented
+    note: CONTinue 时扫描一打开就按驻留在虚拟时间里循环；SINGle 时 :SWE:EXEC 起扫一次，停在最后一点（#291）。*RST 值 CONTinue 未能按手册正文核实。
   - header: '[:SOURce]:SWEep:POINt:TRIGger:TYPE'
-    level: not_modeled
-    note: 扫描点触发源（AUTO/KEY/BUS/EXT）未建模；扫描点由命令推进。
+    level: implemented
+    note: AUTO 按驻留时间推进扫描点；KEY/BUS/EXT 由 :TRIGger / *TRG 逐点推进（外部触发输入未建模，#291）。
   - header: '[:SOURce]:SWEep:RESet[:ALL]'
     level: implemented
   - header: '[:SOURce]:SWEep:STATe'
     level: implemented
-    note: 只接受 OFF 与 FREQuency；LEVel / LEVel,FREQuency 回错误（电平扫描未建模）。
+    note: OFF、FREQuency、LEVel 或 LEVel,FREQuency（#291）；回读按 LEV,FREQ 顺序，OFF 与其他同用回 -224。
   - header: '[:SOURce]:SWEep:STEP:DWELl'
-    level: not_modeled
-    note: 驻留时间未建模：本模型的扫描由触发命令逐点推进，连续/单次时序不仿真（validation-rfgen.md）；能力 issue #291。
+    level: implemented
+    note: 每点驻留 20 ms–100 s，AUTO 触发时按虚拟时间推进扫描点（#291）；回读带单位（500.000ms）。*RST 值 20 ms 未能按手册正文核实。
   - header: '[:SOURce]:SWEep:STEP:DWELl:STEP'
     level: not_modeled
     note: 驻留时间未建模。
@@ -383,8 +383,8 @@ sections:
     level: not_modeled
     note: 只影响旋钮步进；未建模（与扫描步进无关）。
   - header: '[:SOURce]:SWEep:STEP:STARt:LEVel'
-    level: not_modeled
-    note: 电平扫描未建模：#188 的 rf_synthesizer 只规划频率扫描（覆盖表与组件图）；能力 issue #291。
+    level: implemented
+    note: 电平扫描的起始电平（#291），各点按 dB 线性分布；*RST 值未能按手册正文核实。
   - header: '[:SOURce]:SWEep:STEP:STARt:LEVel:STEP'
     level: not_modeled
     note: 电平扫描未建模。
@@ -395,8 +395,8 @@ sections:
     level: not_modeled
     note: 只影响旋钮步进；未建模。
   - header: '[:SOURce]:SWEep:STEP:STOP:LEVel'
-    level: not_modeled
-    note: 电平扫描未建模。
+    level: implemented
+    note: 电平扫描的终止电平（#291）。
   - header: '[:SOURce]:SWEep:STEP:STOP:LEVel:STEP'
     level: not_modeled
     note: 电平扫描未建模。

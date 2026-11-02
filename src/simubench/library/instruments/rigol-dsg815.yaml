@@ -283,13 +283,50 @@ state:
     default: PM
     label: 面板的调制类型
     label_en: FM/PM type
+  # 扫描状态（手册 :SWEep:STATe OFF|FREQuency|LEVel|LEVel,FREQuency，#291）：一组词，回读按
+  # LEV,FREQ 的顺序；OFF 不能与其他词同用。
   sweep.manner:
-    type: enum
-    options: ["OFF", FREQuency]
-    default: "OFF"
+    type: enum_list
+    options: [LEVel, FREQuency, "OFF"]
+    default: ["OFF"]
     label: 扫描方式
     label_en: Sweep state
-    option_labels: {"OFF": 关闭, FREQuency: 频率扫描}
+  sweep.level_start:
+    type: float
+    unit: DBM
+    min: -110.0
+    max: 20.0
+    default: -20.0
+    label: 扫描起始电平
+    label_en: Sweep start level
+  sweep.level_stop:
+    type: float
+    unit: DBM
+    min: -110.0
+    max: 20.0
+    default: 0.0
+    label: 扫描终止电平
+    label_en: Sweep stop level
+  sweep.dwell:
+    type: float
+    unit: S
+    min: 0.02
+    max: 100.0
+    default: 0.02
+    label: 驻留时间
+    label_en: Dwell time
+  sweep.mode:
+    type: enum
+    options: [CONTinue, SINGle]
+    default: CONTinue
+    label: 扫描模式
+    label_en: Sweep mode
+  sweep.point_trigger:
+    type: enum
+    options: [AUTO, KEY, BUS, EXTernal]
+    default: AUTO
+    label: 扫描点触发
+    label_en: Point trigger
   sweep.type:
     type: enum
     options: [STEP]
@@ -383,8 +420,14 @@ components:
     type: rf_synthesizer
     params:
       frequency: $freq.cw
-      # 扫描方式 OFF 合成器停在 CW，FREQuency 走步进扫描；电平扫描没有组件能力（覆盖表注明）。
-      mode: {from: $sweep.manner, map: {"OFF": CW, FREQuency: SWEep}, default: SWEep}
+      # 扫描状态决定扫频率、电平或两者（#291）；AUTO 的扫描点按驻留时间在虚拟时间里推进，
+      # KEY/BUS/EXT 由 :TRIGger / *TRG 逐点推进（外部触发输入未建模）。
+      manner: $sweep.manner
+      level_start: $sweep.level_start
+      level_stop: $sweep.level_stop
+      dwell: $sweep.dwell
+      run: {from: $sweep.mode, map: {CONTinue: CONTinuous, SINGle: SINGle}}
+      step_by: {from: $sweep.point_trigger, map: {AUTO: TIME}, default: TRIGger}
       start: $sweep.start
       stop: $sweep.stop
       points: $sweep.points
@@ -414,7 +457,7 @@ components:
       source: mod_source
   - name: level
     type: rf_level_control
-    params: {level: $power.level}
+    params: {level: $power.level, synthesizer: synth}
   - name: att
     type: rf_attenuator
   - name: rf
@@ -503,6 +546,11 @@ commands:
   # ---- 扫描（手册 2-61 – 2-70）：只建模步进频率扫描 ------------------------------------------
   - {header: "[:SOURce]:SWEep:STATe", state: sweep.manner}
   - {header: "[:SOURce]:SWEep:TYPE", state: sweep.type}
+  - {header: "[:SOURce]:SWEep:STEP:STARt:LEVel", state: sweep.level_start, format: {number: nr2, digits: 2, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:STOP:LEVel", state: sweep.level_stop, format: {number: nr2, digits: 2, sign: false}}
+  - {header: "[:SOURce]:SWEep:STEP:DWELl", state: sweep.dwell, format: {number: si, significant: 6, sign: false, unit: s}}
+  - {header: "[:SOURce]:SWEep:MODE", state: sweep.mode}
+  - {header: "[:SOURce]:SWEep:POINt:TRIGger:TYPE", state: sweep.point_trigger}
   - {header: "[:SOURce]:SWEep:STEP:STARt:FREQuency", state: sweep.start, format: {number: si, significant: 9, sign: false, unit: Hz}}
   - {header: "[:SOURce]:SWEep:STEP:STOP:FREQuency", state: sweep.stop, format: {number: si, significant: 9, sign: false, unit: Hz}}
   - {header: "[:SOURce]:SWEep:STEP:POINts", state: sweep.points}
