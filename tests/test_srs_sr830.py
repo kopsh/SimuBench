@@ -20,6 +20,8 @@ from pathlib import Path
 import pytest
 import pyvisa
 
+from simubench.api import open_bench
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "srs_sr830.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "srs_sr830_rc_sweep.py"
@@ -110,3 +112,30 @@ def test_the_readings_are_one_coherent_phasor():
     assert r == pytest.approx(math.hypot(x, y), abs=1e-9)
     assert theta == pytest.approx(math.degrees(math.atan2(y, x)), abs=1e-6)
     assert r == pytest.approx(2 * abs(expected(1000.0)), rel=2e-3)
+
+
+def _errors(session, command: bytes) -> list[dict]:
+    before = len(session.history)
+    session.write("lia", command)
+    return [
+        e for i in range(before, len(session.history)) if (e := session.history[i]).get("kind") == "error"
+    ]
+
+
+def test_the_unsupported_values_of_the_reduced_sets_are_refused_loudly():
+    """ISRC only models input A and RSLP only the sine slope: the other values are refused (-224),
+    never silently accepted; a not-modeled command is recorded with its coverage origin and no
+    reply (the real SR830 also does not answer an unknown command)."""
+    s = open_bench(BENCH)
+    try:
+        [isrc] = _errors(s, b"ISRC 1\n")
+        assert (isrc["code"], isrc["reason"], isrc["range"]) == (-224, "bad_parameter", "0")
+        [rslp] = _errors(s, b"RSLP 2\n")
+        assert (rslp["code"], rslp["reason"], rslp["range"]) == (-224, "bad_parameter", "0")
+        [trca] = _errors(s, b"TRCA? 1,0,10\n")
+        assert trca["code"] == -113 and trca["reason"] == "not_modeled"
+        assert trca["origin"].endswith("srs-sr830.coverage.yaml")
+        [outp] = _errors(s, b"OUTP? 5\n")
+        assert outp["code"] == -224 and outp["reason"] == "not_modeled"
+    finally:
+        s.close()
