@@ -141,6 +141,55 @@ def validate_bench(
         for n in range(1, d.channels.count + 1):
             for k, s in d.channel_state.items():
                 specs[f"ch{n}.{k}"] = s
+        comp_params: dict[str, set[str]] = {}
+        for spec in d.components:
+            comp_params[spec.name] = set(known_types[spec.type].defaults) | set(spec.params)
+        for n in range(1, d.channels.count + 1):
+            for spec in d.channel_components:
+                comp_params[f"ch{n}.{spec.name}"] = set(known_types[spec.type].defaults) | set(spec.params)
+        for cname, params in inst.hidden.items():
+            cp = ("instruments", name, "hidden", cname)
+            if cname not in comp_params:
+                hint = _closest(cname, list(comp_params))
+                report.add(
+                    "error",
+                    "E-HIDDEN-COMPONENT",
+                    _ptr(*cp),
+                    f"隐式状态指向不存在的组件 {cname!r}",
+                    f"改为 {hint!r}" if hint else f"可用组件：{', '.join(sorted(comp_params))}",
+                    name,
+                )
+                continue
+            for pname in params:
+                if pname in comp_params[cname]:
+                    continue
+                hint = _closest(pname, sorted(comp_params[cname]))
+                report.add(
+                    "error",
+                    "E-HIDDEN-PARAM",
+                    _ptr(*cp, pname),
+                    f"隐式状态指向组件 {cname!r} 不存在的参数 {pname!r}",
+                    f"改为 {hint!r}" if hint else f"可用参数：{', '.join(sorted(comp_params[cname]))}",
+                    name,
+                )
+        per_channel = {c.name for c in d.channel_components}
+        for spec in d.deviations:
+            names = (
+                [f"ch{n}.{spec.component}" for n in range(1, d.channels.count + 1)]
+                if spec.component in per_channel
+                else [spec.component]
+            )
+            for cname in names:
+                if cname not in comp_params or spec.parameter in comp_params[cname]:
+                    continue
+                report.add(
+                    "error",
+                    "E-DEVIATION-PARAM",
+                    _ptr("instruments", name, "deviation", cname, spec.parameter),
+                    f"个体偏差指向组件 {cname!r} 不存在的参数 {spec.parameter!r}",
+                    f"可用参数：{', '.join(sorted(comp_params[cname]))}",
+                    name,
+                )
         for path, value in inst.state.items():
             sp = ("instruments", name, "state", path)
             spec = specs.get(path)
