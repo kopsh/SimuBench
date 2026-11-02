@@ -1,0 +1,32 @@
+schema: simubench.bench/2
+name: keysight_n9320b_tone
+description: >-
+  Keysight N9320B（真实型号，D42）测量 Siglent SDG2042X 的 10 MHz 正弦：函数发生器 2 Vpp、
+  HiZ 负载设定，经 50 Ω 输出直接接到频谱仪的 RF_IN。示例脚本
+  examples/scripts/keysight_n9320b_measure.py 按真机写法运行（tests/test_keysight_n9320b.py）。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.frequency: 10.0e6
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+  sa:
+    model: keysight-n9320b
+    label: 频谱分析仪
+    address: "TCPIP0::192.168.1.30::INSTR"
+    state:
+      freq.center: 10.0e6
+      freq.span: 2.0e6
+      display.ref_level: 0.0
+wires:
+  - {from: awg.CH1, to: sa.RF_IN}
+run:
+  seed: 7
+  clock: command
+layout:
+  awg: {x: 0, y: 100}
+  sa: {x: 400, y: 60}
