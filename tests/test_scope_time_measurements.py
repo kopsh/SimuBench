@@ -102,3 +102,57 @@ def test_trigger_high_low_are_kept_per_source_and_asetup_takes_the_middle(scope)
     q(scope, ":TRIGger:LEVel:ASETup")
     assert q(scope, ":TRIGger:LEVel? CHANnel2") == 0.0  # AC coupling: 0 V
     assert q(scope, ":SYSTem:ERRor?") == '+0,"No error"'
+
+
+# ---- the screen's measurement list (#373) ---------------------------------------------------------
+
+
+def _results(scope) -> list[list[str]]:
+    scope.write("scope", b":MEASure:RESults?\n")
+    text = scope.read("scope").decode().strip()
+    fields = text.split(",") if text else []
+    return [fields[i : i + 7] for i in range(0, len(fields), 7)]
+
+
+def test_a_measurement_without_a_question_mark_goes_on_the_list_of_four(scope):
+    q(scope, ":DIGitize CHANnel1,CHANnel2")
+    assert _results(scope) == []
+    for item in ("FREQuency CHANnel1", "VPP CHANnel1", "VMAX CHANnel2", "VMIN CHANnel1"):
+        assert q(scope, f":MEASure:{item}") is None
+    assert [r[0] for r in _results(scope)] == ["FREQuency(1)", "VPP(1)", "VMAX(2)", "VMIN(1)"]
+    q(scope, ":MEASure:VRMS CHANnel1")  # a fifth: the oldest leaves
+    assert [r[0] for r in _results(scope)] == ["VPP(1)", "VMAX(2)", "VMIN(1)", "VRMS(1)"]
+    q(scope, ":MEASure:VMAX CHANnel2")  # installed again: it moves to the end
+    assert [r[0] for r in _results(scope)] == ["VPP(1)", "VMIN(1)", "VRMS(1)", "VMAX(2)"]
+
+
+def test_results_carry_the_statistics_and_clear_empties_the_list(scope):
+    q(scope, ":DIGitize CHANnel1")
+    q(scope, ":MEASure:FREQuency CHANnel1")
+    _results(scope)
+    [[label, current, low, high, mean, sdev, count]] = _results(scope)
+    assert label == "FREQuency(1)" and int(count) == 2  # each read takes one more value
+    assert float(current) == float(low) == float(high) == float(mean) == pytest.approx(F, rel=1e-3)
+    assert float(sdev) == 0.0  # the same record twice
+    assert float(q(scope, ":MEASure:FREQuency? CHANnel1")) == pytest.approx(F, rel=1e-3)
+    q(scope, ":MEASure:CLEar")
+    assert _results(scope) == []
+
+
+def test_all_is_a_snapshot_of_every_single_source_measurement(scope):
+    q(scope, ":DIGitize CHANnel1")
+    scope.write("scope", b":MEASure:ALL? CHANnel1\n")
+    values = [float(v) for v in scope.read("scope").decode().strip().split(",")]
+    assert len(values) == 19
+    assert values[0] == q(scope, ":MEASure:VPP? CHANnel1")
+    assert values[11] == pytest.approx(F, rel=1e-3)  # FREQuency
+    assert values[18] == pytest.approx(2 * F, rel=1e-3)  # BRATe
+    assert _results(scope) == []  # a snapshot installs nothing
+
+
+def test_show_and_window_are_kept(scope):
+    assert q(scope, ":MEASure:SHOW?") == 1.0
+    q(scope, ":MEASure:SHOW OFF")
+    assert q(scope, ":MEASure:SHOW?") == 0.0
+    q(scope, ":MEASure:WINDow ZOOM")
+    assert q(scope, ":MEASure:WINDow?") == "ZOOM"
