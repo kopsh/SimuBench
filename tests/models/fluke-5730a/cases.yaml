@@ -105,6 +105,43 @@ cases:
         query: ":READ?"
         expect_value: 25.0
         tolerance: 1.0e-3
+      # 已在 ≥22 V：再改到 30 V 不跨越阈值，保持工作（#553）
+      - send: "OUT 30 V"
+      - query: "*OPC?"
+        expect: "1"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 30.0
+        tolerance: 1.0e-3
+
+  - name: "改变输出功能（直流 ↔ 交流）自动回待机"
+    manual: "Chapter 4 Operate and Standby Modes（The output function is changed from one function to another）"
+    steps:
+      - send: "OUT 1 V, 0 HZ;OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "OUT 1 V, 1 KHZ"
+      - instrument: dmm
+        send: ":CONF:VOLT:AC 1"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: "OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 1.0
+        tolerance: 1.0e-4
+      # 同一功能内改频率不回待机
+      - send: "OUT 2 KHZ"
+      - query: "*OPC?"
+        expect: "1"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 1.0
+        tolerance: 1.0e-4
 
   - name: "外部保护、亮度、接口状态与公共命令"
     manual: "Table 6-5 > EXTGUARD / BRIGHTNESS / LOCAL / REMOTE / LOCKOUT; *CLS / *ESE / *ESR? / *SRE / *STB? / *OPC / *WAI / *TST?"
