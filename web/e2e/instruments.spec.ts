@@ -202,7 +202,9 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
     return m ? Number(m[1]) * scale[m[2]] : NaN;
   };
   await expect(page.getByTestId("meas-ch1-vpp")).not.toHaveText("—");
-  expect(await cellValue("meas-ch1-vpp")).toBeCloseTo(vpp, 3);
+  // The table shows four significant digits: a relative error of at most half a unit in the
+  // fourth digit (5e-4); 1e-3 leaves room for the rounding of the reply itself (#356).
+  expect(Math.abs((await cellValue("meas-ch1-vpp")) - vpp) / vpp).toBeLessThan(1e-3);
   expect(Math.abs((await cellValue("meas-ch1-frequency")) - freq) / freq).toBeLessThan(1e-3);
 
   // Cursors: 6 divisions apart at 200 µs/div is 1.2 ms; 4 divisions at 500 mV/div is 2 V.
@@ -210,4 +212,15 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   await expect(page.getByTestId("scope-cursors")).toBeVisible();
   await expect(page.getByTestId("cursor-dt")).toHaveText(/1\.2\d* ms/);
   await expect(page.getByTestId("cursor-dv")).toHaveText(/2(\.0+)? V/);
+  await expect(page.getByTestId("cursor-readout")).toContainText("1.2");
+
+  // Drag X2 on the screen to the middle (5 div): 3 divisions from X1 at 200 µs/div is 600 µs (#356).
+  const box = (await page.getByTestId("scope-cursors").boundingBox())!;
+  const handle = (await page.getByTestId("cursor-x2").boundingBox())!;
+  await page.mouse.move(handle.x + handle.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
+  await page.mouse.up();
+  await expect(page.getByTestId("cursor-dt")).toHaveText(/600(\.0+)? µs/);
+  await expect(page.getByTestId("cursor-readout")).toContainText("600");
 });
