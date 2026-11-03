@@ -364,7 +364,12 @@ class WaveformSynth(Component):
             return OpResult(self.owner.format_number(1.0 / float(self.param("frequency"))))
         lo, default, hi = self._pulse_bounds(freq_path)
         # A shorter period is a higher frequency: the period's minimum is 1 over the maximum.
-        period = V.parse_float(self._pulse_raw(value), "S", 1.0 / hi, 1.0 / lo, 1.0 / default)
+        # parse_float resolves the words from these but does not police plain numbers (#503): a
+        # 0 or negative period would reach the 1/period below and blow up as an internal error.
+        p_min, p_max = 1.0 / hi, 1.0 / lo
+        period = V.parse_float(self._pulse_raw(value), "S", p_min, p_max, 1.0 / default)
+        if not p_min <= period <= p_max:
+            raise ScpiError(-222, f"a pulse period is between {p_min:g} and {p_max:g} s")
         if query:
             return OpResult(self.owner.format_number(period))
         self.owner.set_state(freq_path, 1.0 / period)
