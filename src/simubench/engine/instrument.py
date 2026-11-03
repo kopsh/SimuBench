@@ -919,6 +919,9 @@ class Instrument:
             elif "ch" in caps:
                 channel = 1  # no suffix written: the first channel
             suffixes = {k: (1 if v is None else v) for k, v in caps.items()}
+            for name, allowed in (compiled.spec.suffixes or {}).items():
+                if suffixes.get(name, 1) not in allowed:
+                    raise ScpiError(-114, f"{unit.raw_header}: suffix {suffixes.get(name)} is not {allowed}")
             if "ch" in caps and caps["ch"] is None:
                 suffixes["ch"] = self.channel_number(1)  # the default channel's own number
             return self._run(compiled, unit, channel, suffixes)

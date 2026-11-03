@@ -1095,3 +1095,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 结论 | ⚠️ 模型保持“越限即跳闸”，在覆盖表 `CURRent:VLIMt/ILIMt`、定义注释与 `tests/test_rigol_dl3021.py` 的断言说明里标为模型选择、未经核实；依赖钳位行为的脚本会得到关断 |
 | 远程清除 | ⚠️ 本节更新 issue 194 记录中“保护跳闸后没有远程清除命令”一条：手册仍无清除命令（真机按前面板 OK）；模型中跳闸锁存，输入开关与 `*RST` 都不清除，只有重新打开测试台（已核对，写入覆盖表 `CURRent:VLIMt` 为已知偏差） |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## R&S SMA100B 射频与微波信号源（Issue 335）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `rs-sma100b.yaml`：R&S SMA100B User Manual 1178.3834.02 Version 14（固件 5.40.102.xx，已入 `manuals/1178.3834.02/`）；选件 B106（8 kHz–6 GHz），电平 −120…+18 dBm；射频源通用组件链（参考 → 合成器 → LF1 调制源与调制器 → 电平 → 衰减器 → 50 Ω 输出）；数值应答为 R&S 的最短十进制（`format.number: general`，15 位）；`simubench validate` 无诊断 |
+| 实现范围 | ✅ 频率（CW/FIXed）、电平、RF 输出、参考 INT/EXT、AM/FM/PM 参数与按类型开关、调制总开关（#290）、LF1 频率、频率/电平扫描（AUTO/STEP、单次/连续、驻留，#291）、触发、`*TRG`、预置与公共命令 |
+| 平台能力 | ✅ 命令的 `suffixes`（`[:SOURce<hw>]:AM<n>` 只收 1，其余 -114）；静态校验对嵌套映射逐层检查取值（`manner`/`step_by`/`run` 由频率与电平两种模式共同决定） |
+| 覆盖、用例与示例 | ✅ 覆盖表按 List of Commands 855 条：实现 50 · 未实现 805；`tests/models/rs-sma100b/cases.yaml` 6 条全部通过；示例台 `examples/benches/rs-sma100b.bench.yaml`（接 DSO-X 2024A）与脚本 `examples/scripts/rs_sma100b_generate.py` 在 `tests/test_rs_sma100b.py` 中运行；另测匹配负载电平、LF1 的 AM 边带与总开关、步进扫频与电平扫描 |
+| 未实现 | ⚠️ 频率偏置/倍频与电平偏置（合成器不做 (f−offset)/mult 换算）、AM2/FM2/PM2 与 LF2/噪声/外部调制、列表扫描、FREQ:MANual、脉冲调制与脉冲发生器、UCOR、LF 输出等逐条标注 |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

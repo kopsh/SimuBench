@@ -245,3 +245,14 @@ def test_an_omitted_channel_list_read_from_a_setting():
     unknown = copy.deepcopy(daq)
     command(unknown, "[:SENSe]:VOLTage[:DC]:NPLCycles")["params"][1]["default"] = "$scan.lst"
     assert codes(unknown) == [("E-DEF-STATE-UNKNOWN", f"/commands/{i}/params/1/default")]
+
+
+def test_a_nested_mapping_is_checked_against_the_inner_settings_words():
+    """#335: a mapped value may itself map another setting (the SMA100B's step mode comes from the
+    frequency or the level sweep's); its words are checked like a plain mapping's."""
+    sma = load_yaml((ROOT / "src/simubench/library/instruments/rs-sma100b.yaml").read_text("utf-8"))
+    assert codes(sma) == []
+    bad = copy.deepcopy(sma)
+    synth = next(c for c in bad["components"] if c["name"] == "synth")
+    synth["params"]["step_by"]["map"]["SWEep"]["map"]["STEP"] = "STAIRS"
+    assert ("E-DEF-PARAM-VALUE", "/components/1/params/step_by") in codes(bad)

@@ -1,0 +1,418 @@
+schema: simubench.instrument/1
+id: rs-sma100b
+manufacturer: Rohde & Schwarz
+model: SMA100B
+class: rf_generator
+version: 1
+description: >-
+  R&S SMA100B 射频与微波信号源（选件 B106：8 kHz–6 GHz）。Real model（D42）：命令、参数范围、*RST 值与
+  返回格式按 R&S SMA100B User Manual（1178.3834.02，Version 14，固件 5.40.102.xx）第 15 章 Remote
+  control commands 的 OUTPut、SOURce（FREQuency、POWer、AM/FM/PM、LFOutput、MODulation、ROSCillator、
+  SWEep）、TRIGger、UNIT 与 SYSTem/STATus 的常用子集。载波、调制边带与扫描点由射频源的通用组件按信号求解
+  （D13）：参考 → 合成器 → 调制源（LF1 发生器）与调制器 → 电平 → 衰减器 → 50 Ω 输出。频率偏置/倍频与
+  电平偏置、脉冲调制、列表扫描、LF 输出与校正表在覆盖表中逐条标未实现。
+reference:
+  title: R&S SMA100B RF and Microwave Signal Generator User Manual
+  document: 1178.3834.02
+  version: Version 14
+  firmware: "5.40.102.xx"
+identity:
+  # 手册 *IDN? 示例：Rohde&Schwarz,SMA100B,1419.8888K02/0,4.00.033（制造商、型号、物料号/序列号、固件）。
+  idn: "Rohde&Schwarz,SMA100B,{serial},{firmware}"
+  serial: 1419.8888K02/101234
+  firmware: "5.40.102.48"
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", ":SYSTem:ERRor[:NEXT]"]
+format:
+  # R&S 的数值应答是最短的十进制写法（FREQ? → 1000000000，POW? → -30，AM? → 30）：%g 取 15 位有效数字、不带 +。
+  number: general
+  digits: 15
+  sign: false
+  boolean: numeric
+  enum: short
+  error_code: plain
+specs:
+  source: R&S SMA100B User Manual（1178.3834.02 v14）第 15 章各命令的 Range 与 *RST
+  frequency_range_hz: [8.0e3, 6.0e9]
+  frequency_note: "频率上限依选件（3/6/12.75/20/31.8/40/50/67 GHz）；本定义取 B106（6 GHz），*RST 频率依选件，取 1 GHz"
+  level_range_dbm: [-120.0, 18.0]
+  am: {depth_percent: [0.0, 100.0], rst_depth: 30}
+  fm: {rst_deviation_hz: 1.0e3}
+  pm: {rst_deviation_rad: 1.0}
+  lf_generator: {frequency_hz: [0.1, 1.0e6], rst: 1000}
+  sweep: {dwell_s: [0.001, 100.0], rst_dwell: 0.01, rst_start: 1.0e8, rst_stop: 5.0e8, level_rst: [-30, -10]}
+state:
+  freq.cw:
+    type: float
+    unit: HZ
+    min: 8.0e3
+    max: 6.0e9
+    default: 1.0e9
+    label: 载波频率
+    label_en: Frequency
+  freq.mode:
+    type: enum
+    options: [CW, FIXed, SWEep, LIST, COMBined]
+    default: CW
+    not_modeled: {LIST: list mode is not modeled, COMBined: the combined frequency/level sweep is not modeled}
+    label: 频率模式
+    label_en: Frequency mode
+  power.level:
+    type: float
+    unit: DBM
+    min: -120.0
+    max: 18.0
+    default: -30.0
+    label: 电平
+    label_en: Level
+  power.mode:
+    type: enum
+    options: [CW, FIXed, SWEep, LIST]
+    default: CW
+    not_modeled: {LIST: list mode is not modeled}
+    label: 电平模式
+    label_en: Level mode
+  power.unit:
+    type: enum
+    options: [DBM, DBUV, V]
+    default: DBM
+    not_modeled: {DBUV: only dBm is modeled, V: only dBm is modeled}
+    label: 电平单位
+    label_en: Level unit
+  output.enabled:
+    type: bool
+    default: false
+    label: 射频输出
+    label_en: RF output
+  rosc.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 参考源
+    label_en: Reference source
+  mod.state:
+    type: bool
+    default: false
+    label: 调制总开关
+    label_en: Modulation on
+  am.state:
+    type: bool
+    default: false
+    label: AM
+    label_en: AM
+  am.depth:
+    type: float
+    unit: PCT
+    min: 0.0
+    max: 100.0
+    default: 30.0
+    display_unit: "%"
+    label: AM 深度
+    label_en: AM depth
+  am.source:
+    type: enum
+    options: [LF1, LF2, NOISe, EXT1, EXT2, INTB]
+    default: LF1
+    not_modeled: {LF2: only the LF1 generator is modeled, NOISe: noise modulation is not modeled, EXT1: external modulation inputs are not modeled, EXT2: external modulation inputs are not modeled, INTB: only the LF1 generator is modeled}
+    label: AM 调制源
+    label_en: AM source
+  fm.state:
+    type: bool
+    default: false
+    label: FM
+    label_en: FM
+  fm.dev:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 1.6e7
+    default: 1.0e3
+    label: FM 频偏
+    label_en: FM deviation
+  fm.source:
+    type: enum
+    options: [LF1, LF2, NOISe, EXT1, EXT2, INTB]
+    default: LF1
+    not_modeled: {LF2: only the LF1 generator is modeled, NOISe: noise modulation is not modeled, EXT1: external modulation inputs are not modeled, EXT2: external modulation inputs are not modeled, INTB: only the LF1 generator is modeled}
+    label: FM 调制源
+    label_en: FM source
+  pm.state:
+    type: bool
+    default: false
+    label: PM
+    label_en: PM
+  pm.dev:
+    type: float
+    unit: RAD
+    min: 0.0
+    max: 16.0
+    default: 1.0
+    label: PM 相偏
+    label_en: PM deviation
+  pm.source:
+    type: enum
+    options: [LF1, LF2, NOISe, EXT1, EXT2, INTB]
+    default: LF1
+    not_modeled: {LF2: only the LF1 generator is modeled, NOISe: noise modulation is not modeled, EXT1: external modulation inputs are not modeled, EXT2: external modulation inputs are not modeled, INTB: only the LF1 generator is modeled}
+    label: PM 调制源
+    label_en: PM source
+  lf.freq:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 1.0e6
+    default: 1000.0
+    label: LF1 频率
+    label_en: LF1 frequency
+  sweep.start:
+    type: float
+    unit: HZ
+    min: 3.0e5
+    max: 6.0e9
+    default: 1.0e8
+    label: 扫频起始
+    label_en: Sweep start
+  sweep.stop:
+    type: float
+    unit: HZ
+    min: 3.0e5
+    max: 6.0e9
+    default: 5.0e8
+    label: 扫频终止
+    label_en: Sweep stop
+  sweep.points:
+    type: int
+    min: 2
+    max: 100001
+    default: 101
+    label: 扫频点数
+    label_en: Sweep points
+  sweep.spacing:
+    type: enum
+    options: [LINear, LOGarithmic]
+    default: LINear
+    label: 扫频间隔
+    label_en: Sweep spacing
+  sweep.dwell:
+    type: float
+    unit: S
+    min: 0.001
+    max: 100.0
+    default: 0.01
+    label: 扫频驻留
+    label_en: Sweep dwell
+  sweep.fmode:
+    type: enum
+    options: [AUTO, MANual, STEP]
+    default: AUTO
+    not_modeled: {MANual: the manual sweep (FREQ:MAN) is not modeled}
+    label: 扫频方式
+    label_en: Sweep mode
+  sweep.fsource:
+    type: enum
+    options: [AUTO, IMMediate, SINGle, BUS, EXTernal, EAUTo]
+    default: AUTO
+    not_modeled: {EXTernal: the external trigger input is not modeled, EAUTo: the external trigger input is not modeled}
+    label: 扫频触发源
+    label_en: Sweep trigger
+  # 扫描的当前点（1 起）：没有对应的远程命令（手册的 FREQ:MANual 写频率，未建模），由扫描推进。
+  sweep.point:
+    type: int
+    min: 1
+    max: 100001
+    default: 1
+    label: 扫描当前点
+    label_en: Sweep point
+  sweep.level_start:
+    type: float
+    unit: DBM
+    min: -120.0
+    max: 18.0
+    default: -30.0
+    label: 电平扫描起始
+    label_en: Level sweep start
+  sweep.level_stop:
+    type: float
+    unit: DBM
+    min: -120.0
+    max: 18.0
+    default: -10.0
+    label: 电平扫描终止
+    label_en: Level sweep stop
+  sweep.ppoints:
+    type: int
+    min: 2
+    max: 100001
+    default: 21
+    label: 电平扫描点数
+    label_en: Level sweep points
+  sweep.pdwell:
+    type: float
+    unit: S
+    min: 0.001
+    max: 100.0
+    default: 0.01
+    label: 电平扫描驻留
+    label_en: Level sweep dwell
+  sweep.pmode:
+    type: enum
+    options: [AUTO, MANual, STEP]
+    default: AUTO
+    not_modeled: {MANual: the manual sweep (POW:MAN) is not modeled}
+    label: 电平扫描方式
+    label_en: Level sweep mode
+  sweep.psource:
+    type: enum
+    options: [AUTO, IMMediate, SINGle, BUS, EXTernal, EAUTo]
+    default: AUTO
+    not_modeled: {EXTernal: the external trigger input is not modeled, EAUTo: the external trigger input is not modeled}
+    label: 电平扫描触发源
+    label_en: Level sweep trigger
+components:
+  # 射频源的通用功能块（D2 #188、D50）：参考 → 合成器 → 调制源与调制器 → 电平 → 衰减器 → 输出。
+  - name: reference
+    type: rf_reference
+    params: {source: $rosc.source}
+  - name: synth
+    type: rf_synthesizer
+    params:
+      frequency: $freq.cw
+      # FREQ:MODE SWE 扫频率、POW:MODE SWE 扫电平、两者都 SWE 时同扫（#291 的 manner）。
+      manner:
+        from: $freq.mode
+        map:
+          SWEep: {from: $power.mode, map: {SWEep: [LEVel, FREQuency]}, default: FREQuency}
+        default: {from: $power.mode, map: {SWEep: LEVel}, default: "OFF"}
+      level_start: $sweep.level_start
+      level_stop: $sweep.level_stop
+      # 扫频时用扫频的点数、驻留、方式与触发；只扫电平时用电平扫描的。
+      points: {from: $freq.mode, map: {SWEep: $sweep.points}, default: $sweep.ppoints}
+      dwell: {from: $freq.mode, map: {SWEep: $sweep.dwell}, default: $sweep.pdwell}
+      # SWE:MODE AUTO：每个触发跑完一整次扫描（按驻留在虚拟时间里推进）；STEP：每个触发走一步。
+      step_by:
+        from: $freq.mode
+        map: {SWEep: {from: $sweep.fmode, map: {STEP: TRIGger}, default: TIME}}
+        default: {from: $sweep.pmode, map: {STEP: TRIGger}, default: TIME}
+      # TRIG:FSW:SOUR AUTO：连续扫描；SINGle/IMMediate/BUS：一次触发一次扫描。
+      run:
+        from: $freq.mode
+        map: {SWEep: {from: $sweep.fsource, map: {AUTO: CONTinuous}, default: SINGle}}
+        default: {from: $sweep.psource, map: {AUTO: CONTinuous}, default: SINGle}
+      start: $sweep.start
+      stop: $sweep.stop
+      manual: $sweep.point
+      spacing: $sweep.spacing
+      clock: reference
+  - name: mod_source
+    type: rf_mod_source
+    params:
+      # 内部调制由 LF1 发生器提供，AM/FM/PM 共用其频率（LFOutput1:FREQuency 的说明）。
+      am_rate: $lf.freq
+      fm_rate: $lf.freq
+      pm_rate: $lf.freq
+      clock: reference
+  - name: mod
+    type: rf_modulator
+    params:
+      enabled: $mod.state
+      am: $am.state
+      am_depth: $am.depth
+      am_rate: $lf.freq
+      fm: $fm.state
+      fm_dev: $fm.dev
+      fm_rate: $lf.freq
+      pm: $pm.state
+      pm_dev: $pm.dev
+      pm_rate: $lf.freq
+      source: mod_source
+  - name: level
+    type: rf_level_control
+    params: {level: $power.level, synthesizer: synth}
+  - name: att
+    type: rf_attenuator
+  - name: rf
+    type: output_stage
+    params: {z_out: 50.0, enabled: $output.enabled}
+  - name: ref_out
+    type: output_stage
+    params: {z_out: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: system
+    type: system
+wiring:
+  instrument:
+    - [reference.out, ref_out.in]
+    - [ref_in.out, reference.ref]
+    - [synth.out, mod.in]
+    - [mod.out, level.in]
+    - [level.out, att.in]
+    - [att.out, rf.in]
+ports:
+  instrument:
+    RF_OUT: rf.pin
+    REF_OUT: ref_out.pin
+    REF_IN: ref_in.pin
+  media: {REF_OUT: reference, REF_IN: reference}
+display:
+  template: rf_generator
+  summary: [freq.cw, power.level, output.enabled, freq.mode, am.state, fm.state, pm.state]
+capabilities: [rf_generator]
+commands:
+  # ---- 公共命令（15.4）-------------------------------------------------------------------------
+  - {header: "*TRG", op: synth.trigger, query: false}
+
+  # ---- OUTPut（15.12）--------------------------------------------------------------------------
+  - {header: ":OUTPut<hw>[:STATe]", state: output.enabled, dangerous: true, suffixes: {hw: [1]}}
+
+  # ---- 频率（SOURce:FREQuency）-----------------------------------------------------------------
+  - {header: "[:SOURce<hw>]:FREQuency[:CW]", state: freq.cw, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:FREQuency:FIXed", state: freq.cw, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:FREQuency:MODE", state: freq.mode, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:FREQuency:STARt", state: sweep.start, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:FREQuency:STOP", state: sweep.stop, suffixes: {hw: [1]}}
+
+  # ---- 电平（SOURce:POWer）---------------------------------------------------------------------
+  - {header: "[:SOURce<hw>]:POWer[:LEVel][:IMMediate][:AMPLitude]", state: power.level, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:POWer:MODE", state: power.mode, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:POWer:STARt", state: sweep.level_start, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:POWer:STOP", state: sweep.level_stop, suffixes: {hw: [1]}}
+  - {header: ":UNIT:POWer", state: power.unit}
+
+  # ---- 参考振荡器（SOURce:ROSCillator）---------------------------------------------------------
+  - {header: "[:SOURce]:ROSCillator:SOURce", state: rosc.source}
+
+  # ---- 调制（SOURce:MODulation、AM、FM、PM、LFOutput）------------------------------------------
+  - {header: "[:SOURce<hw>]:MODulation[:ALL][:STATe]", state: mod.state, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:AM<n>[:DEPTh]", state: am.depth, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:AM<n>:SOURce", state: am.source, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:AM<n>:STATe", state: am.state, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:FM<n>[:DEViation]", state: fm.dev, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:FM<n>:SOURce", state: fm.source, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:FM<n>:STATe", state: fm.state, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:PM<n>[:DEViation]", state: pm.dev, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:PM<n>:SOURce", state: pm.source, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:PM<n>:STATe", state: pm.state, suffixes: {hw: [1], n: [1]}}
+  - {header: "[:SOURce<hw>]:LFOutput<n>:FREQuency", state: lf.freq, suffixes: {hw: [1], n: [1]}}
+
+  # ---- 扫描（SOURce:SWEep，15.18.x）-----------------------------------------------------------
+  - {header: "[:SOURce<hw>]:SWEep[:FREQuency]:MODE", state: sweep.fmode, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep[:FREQuency]:POINts", state: sweep.points, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep[:FREQuency]:SPACing", state: sweep.spacing, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep[:FREQuency]:DWELl", state: sweep.dwell, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep[:FREQuency]:EXECute", op: synth.initiate, query: false, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep:POWer:MODE", state: sweep.pmode, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep:POWer:POINts", state: sweep.ppoints, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep:POWer:DWELl", state: sweep.pdwell, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep:POWer:EXECute", op: synth.initiate, query: false, suffixes: {hw: [1]}}
+  - {header: "[:SOURce<hw>]:SWEep:RESet[:ALL]", op: synth.initiate, query: false, suffixes: {hw: [1]}}
+
+  # ---- 触发（TRIGger）--------------------------------------------------------------------------
+  - {header: ":TRIGger<hw>:FSWeep:SOURce", state: sweep.fsource, suffixes: {hw: [1]}}
+  - {header: ":TRIGger<hw>:PSWeep:SOURce", state: sweep.psource, suffixes: {hw: [1]}}
+  - {header: ":TRIGger<hw>:FSWeep[:IMMediate]", op: synth.trigger, query: false, suffixes: {hw: [1]}}
+  - {header: ":TRIGger<hw>:PSWeep[:IMMediate]", op: synth.trigger, query: false, suffixes: {hw: [1]}}
+  - {header: ":TRIGger<hw>[:SWEep][:IMMediate]", op: synth.trigger, query: false, suffixes: {hw: [1]}}
+
+  # ---- 系统（SYSTem）---------------------------------------------------------------------------
+  - {header: ":SYSTem:PRESet", op: system.reset, query: false}
