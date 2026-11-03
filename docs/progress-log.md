@@ -822,3 +822,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | N9320B 统一 16 位 | ✅ 定义 `readings: format`：标记 X/Y、迹线 1001 点、RBW 等都回 `+1.0000000000000000E+005` 形式；手册用例两条与 `tests/test_keysight_n9320b.py` 的 RBW 断言按 16 位更新 |
 | 同类型号 | ✅ 53220A 采用 `readings: format`（读数与统计 15 位有效数字，Table 7-1）；覆盖表的 13/11 位说明更正 |
 | 检查 | ✅ `scripts/check.sh` 全绿；schemas 与 Web API 类型已重新生成 |
+
+## 示波器屏幕测量表的后端测试、Siglent 对照与光标拖动（Issue 356）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 后端测试：经 `/screen` 对照 SCPI 测量，覆盖运行中与无记录 | ✅ `tests/test_scope_screen_measurements.py`：DSO-X `:DIGitize` 后测量表逐项等于 `:MEASure:<item>? CHANnel1`、两次读取相同；SDS2104X Plus 单次采集后等于 `:MEASure:SIMPle:VALue?`（三位有效数字内）；运行中按实时画面测量；停止且无记录时无迹线无测量；采集未取的通道不进表；测不出（无信号的频率/周期）为 null |
+| 光标交互（核心决定） | ✅ 决定在波形上直接拖动：竖线改时间、横线改电压，读数画在屏幕右上角，滑块保留为键盘途径；`docs/ui-design.md` 已写；e2e 拖动 X2 到中线读 600 µs |
+| e2e 容差 | ✅ 测量表比较改为相对误差 < 1e-3（界面 4 位有效数字，注明依据） |
+| 检查 | ✅ `scripts/check.sh` 全绿；`instruments.spec.ts` 的示波器屏幕用例与 `visual -g scope` 通过 |
