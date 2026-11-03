@@ -1,0 +1,97 @@
+"""The override write protocol (#462): hidden state has one door — ``Session.set_parameter`` at
+runtime, the ``engine.deviation`` primitives underneath it — so the priority hidden > drawn
+deviation > ``$state`` binding is one place's business, and it is tested directly here."""
+
+import pytest
+import yaml
+
+from simubench.api import open_bench
+from simubench.engine.component import component_type
+from simubench.engine.deviation import draw_overrides, set_override
+from simubench.models.deviation import DeviationRange
+
+BENCH = {
+    "schema": "simubench.bench/2",
+    "name": "protocol",
+    "parts": {"rc": {"type": "rc_lowpass", "dut": True, "params": {"r": 1000.0, "c": 1.0e-7}}},
+    "run": {"seed": 3, "clock": "command", "idle": "off"},
+}
+
+
+def open_protocol(tmp_path, **part):
+    path = tmp_path / "protocol.bench.yaml"
+    path.write_text(
+        yaml.safe_dump({**BENCH, "parts": {"rc": {**BENCH["parts"]["rc"], **part}}}), encoding="utf-8"
+    )
+    return open_bench(path)
+
+
+def test_hidden_beats_the_draw(tmp_path):
+    """A part's ``hidden`` occupies the parameter: the draw skips it and records nothing."""
+    s = open_protocol(tmp_path, hidden={"r": 1234.0}, deviation={"r": {"limit": 10.0, "unit": "%"}})
+    assert s.components["rc"].param("r") == 1234.0
+    assert s.part_deviations == {}
+
+
+def test_the_draw_lands_where_hidden_leaves_it_free(tmp_path):
+    s = open_protocol(tmp_path, deviation={"r": {"limit": 10.0, "unit": "%"}})
+    drawn = s.part_deviations["rc.r"]
+    assert drawn != 1000.0  # it deviates from the nominal…
+    assert s.components["rc"].param("r") == drawn  # …and it is what the parameter reads
+
+
+def test_a_drawn_value_beats_the_state_binding():
+    """Read order on the component: an occupied override answers before the ``$`` binding would."""
+    comp = component_type("rc_lowpass")("rc", {"r": {"from": 1000.0}}, None, None)
+    assert comp.param("r") == 1000.0  # the binding answers while nothing occupies it
+    drawn = draw_overrides(comp, [("r", DeviationRange(limit=10.0, unit="%"))], 3)
+    assert drawn["r"] != 1000.0
+    assert comp.param("r") == drawn["r"]  # the draw, not the binding
+
+
+def test_an_override_short_circuits_even_an_unreadable_binding():
+    comp = component_type("rc_lowpass")("rc", {"r": {"from": "$nowhere"}}, None, None)
+    with pytest.raises(ValueError, match="outside an instrument"):
+        comp.param("r")  # the binding alone cannot be resolved
+    set_override(comp, "r", 1234.0, invalidate=False)  # no session: nothing to invalidate
+    assert comp.param("r") == 1234.0
+
+
+def test_set_parameter_writes_and_emits_once(tmp_path):
+    s = open_protocol(tmp_path)
+    try:
+        seen: list[dict] = []
+        unsubscribe = s.subscribe(seen.append)
+        s.set_parameter("rc", "", "r", 1234.0, client="t")
+        assert s.components["rc"].param("r") == 1234.0
+        hidden = [e for e in seen if e.get("kind") == "hidden"]
+        assert [(e["owner"], e["component"], e["parameter"], e["value"], e["source"]) for e in hidden] == [
+            ("rc", "", "r", 1234.0, "t")
+        ]
+        assert s.seq == 0  # not in the communication record (D32, like a panel operation)
+        unsubscribe()
+    finally:
+        s.close()
+
+
+def test_set_parameter_can_occupy_a_drawn_parameter(tmp_path):
+    s = open_protocol(tmp_path, deviation={"r": {"limit": 10.0, "unit": "%"}})
+    try:
+        assert s.part_deviations  # the draw landed
+        s.set_parameter("rc", "", "r", 999.0)
+        assert s.components["rc"].param("r") == 999.0  # hidden beats the drawn value
+    finally:
+        s.close()
+
+
+def test_set_parameter_validates(tmp_path):
+    s = open_protocol(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="no parameter"):
+            s.set_parameter("rc", "", "nope", 1.0)
+        with pytest.raises(KeyError, match="no part"):
+            s.set_parameter("nope", "", "r", 1.0)
+        with pytest.raises(KeyError, match="is a part"):
+            s.set_parameter("rc", "nope", "r", 1.0)
+    finally:
+        s.close()

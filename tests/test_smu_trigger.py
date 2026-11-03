@@ -156,11 +156,11 @@ def test_the_active_sense_function_selects_the_reading(s):
     """#299: :SENS:FUNC selects the measured quantity; unbound keeps the forced quantity."""
     core = s.instruments["smu"].components["core"]
     assert core.sample(0) == pytest.approx(1.0)  # forcing voltage: the old default
-    core.overrides.update(function="CURRent")
+    s.set_parameter("smu", "core", "function", "CURRent")
     assert core.sample(0) == pytest.approx(1.0e-3, rel=1e-6)
-    core.overrides.update(function="RESistance")
+    s.set_parameter("smu", "core", "function", "RESistance")
     assert core.sample(0) == pytest.approx(1000.0, rel=1e-6)
-    core.overrides.update(function="VOLTage")
+    s.set_parameter("smu", "core", "function", "VOLTage")
     assert core.sample(0) == pytest.approx(1.0)
 
 
@@ -168,7 +168,7 @@ def test_a_resistance_reading_without_current_is_the_overload_value():
     s = open_bench(bench(**{"output.enabled": False}), definition_dirs=[DEFS])
     try:
         core = s.instruments["smu"].components["core"]
-        core.overrides.update(function="RESistance")
+        s.set_parameter("smu", "core", "function", "RESistance")
         assert core.sample(0) == pytest.approx(OVERLOAD, rel=0.01)
     finally:
         s.close()
@@ -259,7 +259,7 @@ def test_an_unknown_function_word_is_an_error_not_a_guess(s):
     from simubench.scpi.errors import ScpiError
 
     core = s.instruments["smu"].components["core"]
-    core.overrides.update(function="FOO")
+    s.set_parameter("smu", "core", "function", "FOO")
     with pytest.raises(ScpiError) as e:
         core.sample(0)
     assert e.value.code == -224

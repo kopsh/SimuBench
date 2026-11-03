@@ -139,7 +139,7 @@ def test_gain_error_per_range(open_):
         level=10.0,
         **{"sense.range": 10, "sense.nplc": 10},
     )
-    s.instruments["dmm"].components["path"].overrides["gain_error_ppm"] = {"DC": {1: 100.0, 10: 5.0}}
+    s.set_parameter("dmm", "path", "gain_error_ppm", {"DC": {1: 100.0, 10: 5.0}})
     assert reading(s) == pytest.approx(10.00005, abs=3e-6)  # 5 ppm on the 10 V range
     q(s, "dmm", "SENS:VOLT:RANG 1")
     q(s, "src", "SOUR:VOLT 1.0")

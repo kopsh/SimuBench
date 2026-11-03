@@ -10,6 +10,7 @@ import time
 import numpy as np
 import pytest
 
+from simubench.engine.deviation import set_override
 from simubench.engine.signal import pulse_train, sine
 from simubench.library.components.sources import AwgModulator
 from simubench.scpi.errors import ScpiError
@@ -96,7 +97,7 @@ def test_pwm_swings_the_mean_with_the_duty():
 def test_off_passes_the_wave_and_ext_sets_the_rate():
     carrier = sine(1000.0, 0.5)
     stub = _Stub(carrier, type="AM")
-    stub.overrides["enabled"] = False
+    set_override(stub, "enabled", False)
     assert stub.output("out") is carrier
     out = _Stub(carrier, ext=sine(250.0, 2.5), type="AM", source="EXTernal", am_depth=100.0).output("out")
     m = out.merged()

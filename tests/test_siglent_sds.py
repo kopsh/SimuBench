@@ -496,7 +496,8 @@ def test_noise_reject_stops_false_triggers_on_a_noisy_slow_edge(scope):
     inst = session.instruments["scope"]
     trig = inst.components["trigger"]
     sig = inst.components["acq"]._display_signal(1)
-    trig.overrides.update(noise_rms=0.05, hysteresis_divs=0.01)
+    session.set_parameter("scope", "trigger", "noise_rms", 0.05)
+    session.set_parameter("scope", "trigger", "hysteresis_divs", 0.01)
     sds.write(":TRIGger:EDGE:HOLDoff TIME;:TRIGger:EDGE:HLDTime 8E-9")  # the smallest holdoff
 
     def next_trigger() -> float:

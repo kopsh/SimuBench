@@ -512,3 +512,9 @@
 - **结论**：对外读运行中测试台的一致视图只有一个入口：会话的 `view()`。它与动作互斥（同一把会话锁）但不是动作：不推进虚拟时间（D47 的空闲只属于动作）、不发事件、不进通信记录（D32）。`view()` 内跟随墙钟；到期的等待操作由调用点显式要求结算（`settle`）——屏幕类读点结算，画布与探针不结算。引擎之外不直接拿会话 `_lock`、不直接调 `follow_wall`/`settle_pending`；故障的列出、注入与清除由 FaultManager 自持会话锁。
 - **理由**：锁、墙钟跟随、结算的协议曾在 manager/app/MCP 的 16 个调用点各自手写，漏一行就读到撕裂或陈旧的数据——MCP 的真实值读取就漏过 `follow_wall`（wall 时钟下读到旧时刻）。该协议在任何接口上都测不到，因为它只存在于调用方代码里；收进 `view()` 后成为会话接口上可直接测试的行为。备选一是具名快照方法（每种读一个方法，协议全藏）——DTO 组装需要的中间量得再从快照对象取，会长出平行的快照对象层；备选二是维持调用方仪式——协议继续漂移。均不采用。
 - **影响**：WS 事件流的「快照+订阅」也在 `view()` 内组合（单一调用方，不加 Session 方法）；`read_true_values` 的陈旧读由构造消除。测试面：墙钟跟随、被动读不推进命令时钟、按调用点结算、动作内嵌套视图可重入（`tests/test_passive_view.py`）。术语见 glossary「被动视图 / passive view」。
+
+## D56 运行时写隐藏状态：`Session.set_parameter` 是唯一产品入口，覆盖写收口 `engine/deviation.py`
+
+- **结论**：运行中写一个隐藏参数只有 `Session.set_parameter(owner, component, parameter, value)` 一条路（动作：持锁校验 → 写覆盖 → 一条 `hidden` 事件 → invalidate；不进通信记录，D32）。所有对 `comp.overrides` 的运行时写——会话的 hidden 装配、个体偏差抽取、故障的注入/漂移/恢复、`set_parameter`——都经 `engine/deviation.py` 的原语：`set_override`（校验+写+invalidate，唯一写点；构造期传 `invalidate=False`）、`clear_override`（撤销）、`draw_overrides`（hidden 占住的跳过 → 抽取 → 记录）；`ch<n>.` 键命名规则只在 `deviation_keys` 一处（#462）。
+- **理由**：「hidden 压过抽取、压过 `$state` 绑定」这条不变式曾分居四处（session 装配跳过、instrument 抽取跳过、component 读序、fault 恢复），抽取流与键规则也各写一遍，任何一处改动都可能静默破坏优先级或同种子的可复现性。收口后不变式成为模块上可直接测试的行为。备选一是只加注释与交叉测试（写点继续分居）；备选二是给 Component 加可变参数对象（把覆盖从 dict 换成受控类型，改动面大而收益相同）。均不采用。故障保留自己的事件节奏（每拍漂移不发事件），只复用原语。
+- **影响**：`set_parameter` 是 D39 定标系数写入的地基；此后任何「运行时改隐藏状态」的需求都走它，不再新开私有锁仪式或直写 `overrides`。测试里 `comp.overrides[` 直写清零（读取型交叉核对保留），优先级不变式有直接单元测试（`tests/test_deviation_protocol.py`）；同种子抽取值由既有 golden 测试守护，抽取流未变。库组件为自身机制写的内部覆盖（如 SMU 触发模型驱动其子组件）不在此协议内。

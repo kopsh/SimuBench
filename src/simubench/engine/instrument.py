@@ -311,16 +311,11 @@ class Instrument:
     def _draw_deviations(self) -> None:
         """Individual deviations within the definition's ranges, from the bench seed; a value the
         bench writes in ``hidden`` stays (metrology-authoring.md 7)."""
-        from .deviation import draw
+        from .deviation import deviation_keys, draw_overrides
 
-        per_channel = {c.name for c in self.definition.channel_components}
         for spec in self.definition.deviations:
-            names = (
-                [f"ch{n}.{spec.component}" for n in range(1, self.channel_count + 1)]
-                if spec.component in per_channel
-                else [spec.component]
-            )
-            for cname in names:
+            for key in deviation_keys(self, spec.component, spec.parameter):
+                cname = key.removesuffix(f".{spec.parameter}")
                 comp = self.components.get(cname)
                 if comp is None:
                     raise ValueError(f"instrument {self.name!r}: deviation of unknown component {cname!r}")
@@ -328,13 +323,11 @@ class Instrument:
                     raise ValueError(
                         f"instrument {self.name!r}: deviation of unknown parameter {cname}.{spec.parameter!r}"
                     )
-                if spec.parameter in comp.overrides:
-                    continue
-                value = draw(
-                    spec, comp.param(spec.parameter), self.session.seed, self.name, cname, spec.parameter
-                )
-                comp.overrides[spec.parameter] = value
-                self.deviations[f"{cname}.{spec.parameter}"] = value
+                # draw_overrides appends (comp.name, parameter) itself: the stream stays
+                # (instrument, component, parameter), exactly as the draws have always been keyed.
+                drawn = draw_overrides(comp, [(spec.parameter, spec)], self.session.seed, self.name)
+                for param, value in drawn.items():
+                    self.deviations[f"{cname}.{param}"] = value
 
     def _add_component(self, name: str, type_name: str, params: dict[str, Any], channel: int | None) -> None:
         cls = component_type(type_name)

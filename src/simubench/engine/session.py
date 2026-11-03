@@ -23,7 +23,7 @@ from ..scpi.errors import ScpiError
 from . import sleep_mode
 from .circuit import Circuit, Solution
 from .component import Component, component_type
-from .deviation import draw as draw_deviation
+from .deviation import draw_overrides, set_override
 from .faults import FaultManager, LinkDown
 from .instrument import Instrument
 from .record import Recorder
@@ -130,12 +130,11 @@ class Session:
             if name in self.instruments:
                 raise ValueError(f"name {name!r} used by both an instrument and a part")
             comp = component_type(part.type)(name, part.params, None, self)
-            comp.overrides.update(part.hidden)
-            for param, rng in part.deviation.items():
-                if param not in comp.overrides:
-                    value = draw_deviation(rng, comp.param(param), self.seed, name, param)
-                    comp.overrides[param] = value
-                    self.part_deviations[f"{name}.{param}"] = value
+            for param, value in part.hidden.items():
+                set_override(comp, param, value, invalidate=False)  # construction: nothing solved yet
+            self.part_deviations.update(
+                {f"{name}.{p}": v for p, v in draw_overrides(comp, part.deviation.items(), self.seed).items()}
+            )
             self.components[name] = comp
 
         # ---- nets ----
@@ -620,6 +619,39 @@ class Session:
             try:
                 self.instrument(name).panel(action)
                 self.emit({"kind": "panel", "instrument": name, "action": action, "source": client})
+            finally:
+                self._end_action()
+
+    def set_parameter(
+        self, owner: str, component: str, parameter: str, value: Any, client: str = "api"
+    ) -> None:
+        """Write a hidden parameter of the running bench (action: set_parameter): the one product
+        door to the hidden state, and the ground D39's calibration-coefficient writes stand on.
+        ``owner`` is the instrument or part name, ``component`` the component inside the
+        instrument (empty for a part, which is its own component). Not in the communication
+        record (D32, like a panel operation); one ``hidden`` event."""
+        with self._lock:
+            self._begin_action()
+            try:
+                if owner in self.components:
+                    if component and component != owner:
+                        raise KeyError(f"{owner} is a part: it has no component {component!r}")
+                    comp = self.components[owner]
+                elif owner in self.instruments and component in self.instruments[owner].components:
+                    comp = self.instruments[owner].components[component]
+                else:
+                    raise KeyError(f"no part {owner!r} or component {owner}/{component!r}")
+                set_override(comp, parameter, value)
+                self.emit(
+                    {
+                        "kind": "hidden",
+                        "owner": owner,
+                        "component": component,
+                        "parameter": parameter,
+                        "value": value,
+                        "source": client,
+                    }
+                )
             finally:
                 self._end_action()
 

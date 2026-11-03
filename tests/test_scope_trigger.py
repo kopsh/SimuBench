@@ -31,8 +31,8 @@ def acquisitions(jitter: float, n: int = 120) -> np.ndarray:
     try:
         inst = s.instruments["scope"]
         acq = inst.components["acq"]
-        inst.components["adc"].overrides["bits"] = 0  # no quantization: the samples are the signal
-        acq.overrides["trigger_jitter_s"] = jitter
+        s.set_parameter("scope", "adc", "bits", 0)  # no quantization: the samples are the signal
+        s.set_parameter("scope", "acq", "trigger_jitter_s", jitter)
         times = []
         s.advance(0.01)  # the generator's output is on
         for _ in range(n):
@@ -88,7 +88,9 @@ def noisy_retriggers(noise_reject: bool) -> float:
     try:
         inst = s.instruments["scope"]
         trig = inst.components["trigger"]
-        trig.overrides.update(noise_rms=0.05, hysteresis_divs=0.01, noise_reject=noise_reject)
+        s.set_parameter("scope", "trigger", "noise_rms", 0.05)
+        s.set_parameter("scope", "trigger", "hysteresis_divs", 0.01)
+        s.set_parameter("scope", "trigger", "noise_reject", noise_reject)
         sig = inst.components["acq"]._display_signal(1)
         t0, dt = s.now_ns, 1e-7
         first = trig.search(sig, t0, dt, 100, 10000, 1, 0.5)
@@ -108,17 +110,20 @@ def test_coupling_filters_reach_the_trigger_only():
     s = open_bench(CONTRACT)
     try:
         trig = s.instruments["scope"].components["trigger"]
-        trig.overrides.update(filters={"AC": [["highpass", 8.0]], "HFREJect": [["lowpass", 500e3]]})
+        s.set_parameter(
+            "scope", "trigger", "filters", {"AC": [["highpass", 8.0]], "HFREJect": [["lowpass", 500e3]]}
+        )
         sig = Signal.constant(2.0) + sine(1000.0, 0.5)
-        trig.overrides["level"] = 1.0  # above the sine alone, crossed with its DC
-        trig.overrides["coupling"] = "DC"
+        s.set_parameter("scope", "trigger", "level", 1.0)  # above the sine alone, crossed with its DC
+        s.set_parameter("scope", "trigger", "coupling", "DC")
         assert trig.search(sig, 0, 1e-6, 10, 1000, None, 0.5) is None  # 1.5..2.5 V never falls below 1 V
-        trig.overrides.update(coupling="AC", level=0.0)
+        s.set_parameter("scope", "trigger", "coupling", "AC")
+        s.set_parameter("scope", "trigger", "level", 0.0)
         hit = trig.search(sig, 0, 1e-6, 10, 1000, None, 0.5)
         assert hit is not None  # without the DC the sine crosses 0 V
         fast = sine(5e6, 1.0)
-        trig.overrides["coupling"] = "HFREJect"
-        trig.overrides["level"] = 0.5
+        s.set_parameter("scope", "trigger", "coupling", "HFREJect")
+        s.set_parameter("scope", "trigger", "level", 0.5)
         assert trig.search(fast, 0, 1e-9, 10, 1000, None, 0.5) is None  # 5 MHz attenuated tenfold
     finally:
         s.close()
@@ -128,10 +133,11 @@ def test_line_and_external_sources():
     s = open_bench(CONTRACT)
     try:
         trig = s.instruments["scope"].components["trigger"]
-        trig.overrides["source"] = "LINE"
+        s.set_parameter("scope", "trigger", "source", "LINE")
         hit = trig.search(Signal.zero(), 0, 1e-5, 10, 1000, None, 0.5)
         assert hit.t_s == pytest.approx(0.02)  # the next 50 Hz zero crossing after the pre-trigger
-        trig.overrides.update(source="EX", level=0.2)
+        s.set_parameter("scope", "trigger", "source", "EX")
+        s.set_parameter("scope", "trigger", "level", 0.2)
         assert trig.source_kind() == "external"
     finally:
         s.close()
@@ -142,11 +148,13 @@ def test_holdoff_skips_edges_within_it():
     try:
         trig = s.instruments["scope"].components["trigger"]
         sig = sine(1000.0, 1.0)
-        trig.overrides.update(source="C1", level=0.0, slope="POSitive")
+        s.set_parameter("scope", "trigger", "source", "C1")
+        s.set_parameter("scope", "trigger", "level", 0.0)
+        s.set_parameter("scope", "trigger", "slope", "POSitive")
         first = trig.search(sig, 0, 1e-6, 10, 1000, 1, 0.5)
         assert first.t_s == pytest.approx(1e-3, abs=1e-8)
         trig.last_ns = round(first.t_s * 1e9)
-        trig.overrides["holdoff"] = 2.5e-3
+        s.set_parameter("scope", "trigger", "holdoff", 2.5e-3)
         second = trig.search(sig, 0, 1e-6, 10, 1000, 1, 0.5, 1.0)
         assert second.t_s == pytest.approx(4e-3, abs=1e-8)  # 2 and 3 ms are within the holdoff
     finally:
