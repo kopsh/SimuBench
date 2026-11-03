@@ -841,3 +841,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 射频源、电子负载、电源、DAQ 各有 80×24 与 100×32 快照 | ✅ `CATEGORY_SCREENS` 增加 rfgen（sb-sg-1）、eload（DL3021）、psu（E36312A）、daq（34970A）；后三台在示例工作区，测试加第二个服务 |
 | 服务描述 34970A | ✅ 修复：`port_pattern` 生成的端口（继电器端子）在 `describe_instrument` 中 KeyError，示例台此前在服务与 Web 中打不开；`Component.port_spec` |
 | 检查 | ✅ `scripts/check.sh` 全绿；TUI 慢层串行通过 |
+
+## DSO-X 时间测量与双电平触发（Issue 350）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `:TRIGger:LEVel:HIGH/LOW/ASETup` | ✅ HIGH/LOW 每个信源各一个设置、保存回读（欠幅/转换时间触发未建模，覆盖表记为接受）；ASETup 把每个显示通道的边沿触发电平设到波形 50 %（顶/底之间），AC 耦合时为 0 V（`scope_measurements.auto_trigger_levels`） |
+| 其余测量名 | ✅ `scope_measurements`：XMAX/XMIN（第一个极值的时刻）、BRATe（1/最窄脉宽）、VTIMe（某时刻的电压）、TEDGe/TVALue（第 n 个边沿/穿越，从记录左端数）、DELay/PHASe（两源第一个上升沿的时间差与相位，不给信源时用 :MEASure:SOURce 的两个）；时间都相对触发点。测量列表（ALL/RESults/CLEar/SHOW/WINDow）拆为 #373，覆盖表链接 |
+| 测试与用例 | ✅ `tests/test_scope_time_measurements.py`（RC 台的闭式解：极值时刻、2 kbit/s、正弦在给定时刻的值、过零时刻、RC 相位滞后 atan(ωRC) 的延迟与相位、ASETup 跟随偏置与 AC 耦合）；手册用例新增一条 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

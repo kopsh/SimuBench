@@ -1972,6 +1972,32 @@ def _pulse_measure(
     return (pos[0] if what == "DUTYcycle" else neg[0]) / period * 100.0
 
 
+#: Time measurements (#350): relative to the trigger (the record's origin), at the middle level.
+_TIME_MEASUREMENTS = ("XMAX", "XMIN", "BRATe")
+
+
+def _mid_crossings(v: np.ndarray, dt: float, hysteresis: float) -> list[tuple[float, int]]:
+    """The record's crossings of its middle level (halfway between top and base), as in
+    :func:`_pulse_measure`."""
+    levels = _top_base(v)
+    top, base = levels if levels else (float(v.max()), float(v.min()))
+    amp = top - base
+    if amp <= 0:
+        return []
+    return _crossings(v, dt, base + amp / 2, hysteresis * amp)
+
+
+def _edge_spec(word: str | None) -> tuple[int, int]:
+    """``+2`` / ``-1`` / ``3``: the slope (+1 rising, -1 falling; rising when unsigned) and the
+    occurrence (1 = the first), as :MEASure:TEDGe? and TVALue? take them."""
+    text = (word or "+1").strip()
+    sign = -1 if text.startswith("-") else 1
+    digits = text.lstrip("+-")
+    if not digits.isdigit() or int(digits) < 1:
+        raise ScpiError(-224, f"edge {word!r}: a slope (+/-) and an occurrence from 1")
+    return sign, int(digits)
+
+
 @component("scope_measurements")
 class ScopeMeasurements(Component):
     """Automatic measurements on a scope's records (instrument-authoring.md 8.4).
@@ -2005,6 +2031,8 @@ class ScopeMeasurements(Component):
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
         "status": ["OK", "UF"],  # measured, cannot be measured
+        "sources": [],  # the two settings DELay?/PHASe? use without sources, e.g. [measure.source, ...]
+        "trigger_levels": {},  # channel -> its trigger level setting, for :TRIGger:LEVel:ASETup
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -2053,6 +2081,8 @@ class ScopeMeasurements(Component):
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
                 return math.nan
+        if what in _TIME_MEASUREMENTS:
+            return self._time_value(what, v, rec)
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
             m = float(self.param("mid"))
@@ -2072,6 +2102,127 @@ class ScopeMeasurements(Component):
             min_cycles=int(self.param("min_cycles")),
         )
         return value
+
+    def _time_value(self, what: str, v: np.ndarray, rec: Any) -> float:
+        """XMAX/XMIN: the time of the first maximum / minimum, from the trigger; BRATe: the bit rate,
+        1 / the narrowest pulse (positive or negative) at the middle level (#350)."""
+        if v.size == 0:
+            return math.nan
+        if what in ("XMAX", "XMIN"):
+            k = int(np.argmax(v) if what == "XMAX" else np.argmin(v))
+            return rec.origin + k * rec.dt_s
+        cross = _mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
+        widths = [u - t for (t, a), (u, b) in itertools.pairwise(cross) if b == -a and u > t]
+        return 1.0 / min(widths) if widths else math.nan
+
+    def _sources(self, raw: list[bytes] | None) -> tuple[list[str], list[int]]:
+        """Raw parameters split into the arguments and the channels named (CHANnel<n>)."""
+        words = [V.parse_string(b).strip() for b in raw or []]
+        channels = [self._channel(None, w) for w in words if w.upper().startswith("CH")]
+        return [w for w in words if not w.upper().startswith("CH")], channels
+
+    def _reply(self, value: float, used: int) -> OpResult:
+        assert self.owner is not None
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return OpResult(str(self.param("invalid_value")).encode(), used)
+        return OpResult(self.owner.format_number(value), used)
+
+    @op("at")
+    def op_at(
+        self, what: str = "", source: list[bytes] | None = None, channel: int | None = None, **_: Any
+    ) -> OpResult:
+        """Measurements with arguments (#350), times from the trigger:
+
+        * ``VTIMe? <time>[,<source>]`` — the voltage at that time (linear between samples);
+        * ``TEDGe? <slope><occurrence>[,<source>]`` — the time of that edge at the middle level;
+        * ``TVALue? <value>[,<slope><occurrence>][,<source>]`` — the time the record crosses
+          ``value`` that way.
+        """
+        args, channels = self._sources(source)
+        n = channels[0] if channels else self._channel(channel)
+        if channels:
+            self._follow(n, f"CHANnel{n}")
+        rec, used = self._acq().measure_record(n)
+        v = np.asarray(rec.volts, dtype=float)
+        dt, origin = rec.dt_s, rec.origin
+        if what == "VTIMe":
+            if not args:
+                raise ScpiError(-109, "VTIMe? takes a time")
+            x = (V.parse_float(args[0].encode(), "S") - origin) / dt
+            if v.size == 0 or not 0 <= x <= v.size - 1:
+                return self._reply(math.nan, used)
+            k = min(int(x), v.size - 2) if v.size > 1 else 0
+            frac = x - k
+            value = float(v[k]) if v.size == 1 else float(v[k] + (v[k + 1] - v[k]) * frac)
+            return self._reply(value, used)
+        if what == "TEDGe":
+            sign, occurrence = _edge_spec(args[0] if args else None)
+            cross = [t for t, d in _mid_crossings(v, dt, float(self.param("hysteresis"))) if d == sign]
+        elif what == "TVALue":
+            if not args:
+                raise ScpiError(-109, "TVALue? takes a value")
+            level = V.parse_float(args[0].encode(), "V")
+            sign, occurrence = _edge_spec(args[1] if len(args) > 1 else None)
+            span = float(v.max() - v.min()) if v.size else 0.0
+            cross = [
+                t for t, d in _crossings(v, dt, level, float(self.param("hysteresis")) * span) if d == sign
+            ]
+        else:
+            raise ScpiError(-224, f"measurement {what!r} takes no arguments here")
+        value = origin + cross[occurrence - 1] if len(cross) >= occurrence else math.nan
+        return self._reply(value, used)
+
+    @op("pair")
+    def op_pair(self, what: str = "", source: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``DELay? [<source1>][,<source2>]``: the time from source 1's first rising edge to source 2's
+        first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
+        degrees (#350). Without sources, :MEASure:SOURce's two (``sources``)."""
+        assert self.owner is not None
+        _, channels = self._sources(source)
+        if len(channels) < 2:
+            pair = [channel_index(self.owner.get_state(p)) for p in (self.param("sources") or [])]
+            channels = (channels + pair[len(channels) :])[:2]
+        if len(channels) < 2:
+            raise ScpiError(-109, f"{what}? needs two sources")
+        hyst = float(self.param("hysteresis"))
+        times, used = [], 0
+        first = None
+        for n in channels:
+            rec, u = self._acq().measure_record(n)
+            used += u
+            v = np.asarray(rec.volts, dtype=float)
+            first = first or (v, rec)
+            rising = [t for t, d in _mid_crossings(v, rec.dt_s, hyst) if d == 1]
+            times.append(rec.origin + rising[0] if rising else math.nan)
+        delay = times[1] - times[0]
+        if what == "DELay":
+            return self._reply(delay, used)
+        assert first is not None
+        period = _measure("PERiod", first[0], first[1].dt_s, hysteresis=hyst)
+        return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
+
+    @op("auto_trigger_levels")
+    def op_auto_trigger_levels(self, **_: Any) -> OpResult:
+        """``:TRIGger:LEVel:ASETup``: every displayed channel's trigger level to its waveform's 50 %
+        (halfway between top and base; 0 V with AC coupling) — the levels of ``trigger_levels``,
+        channel -> setting (#350)."""
+        assert self.owner is not None
+        acq = self._acq()
+        for key, path in (self.param("trigger_levels") or {}).items():
+            n = int(key)
+            if n not in acq.displayed():
+                continue
+            coupling = str(self.owner.state.get(f"ch{n}.coupling", "DC")).upper()
+            if coupling.startswith("AC"):
+                level = 0.0
+            else:
+                rec, _ = acq.measure_record(n)
+                v = np.asarray(rec.volts, dtype=float)
+                levels = _top_base(v) if v.size else None
+                top, base = levels if levels else ((float(v.max()), float(v.min())) if v.size else (0.0, 0.0))
+                level = (top + base) / 2
+            self.owner.set_state(str(path), level)
+        return OpResult()
 
     def _follow(self, n: int, source: Any) -> None:
         """A measurement that names its source makes it the default one (the bound ``source``)."""

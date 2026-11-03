@@ -517,3 +517,43 @@ cases:
         expect: "+500.000E-03"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
+
+  - name: "时间测量与双电平触发（#350）：相对触发点的时间、中间电平的边沿、两源延迟与相位"
+    manual: ":MEASure Commands > XMAX / XMIN / BRATe / VTIMe / TEDGe / TVALue / DELay / PHASe；:TRIGger Commands > :LEVel:HIGH / :LEVel:LOW / :LEVel:ASETup"
+    steps:
+      # 1 kHz 正弦，200 µs/div：记录为触发点前后各 1 ms；探头 10:1，峰值显示为 10 V。
+      - send: ":TIMebase:SCALe 2E-4"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:BRATe? CHANnel1"
+        expect: "+2.00000E+03"
+      # 第一个最大值在 −0.75 ms 附近（8 位量化的平顶取第一个样点），最小值在 −0.25 ms 附近。
+      - query: ":MEASure:XMAX? CHANnel1"
+        expect_match: '^-7\.[5-9]\d+E-04$'
+      - query: ":MEASure:XMIN? CHANnel1"
+        expect_match: '^-2\.[5-9]\d+E-04$'
+      - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
+        expect: "+1.00000E+01"
+      # 第一个上升沿就是触发点；第一个下降过零在 −0.5 ms。
+      - query: ":MEASure:TEDGe? +1,CHANnel1"
+        expect_match: '^\+\d\.\d+E-0[67]$'
+      - query: ":MEASure:TVALue? 0,-1,CHANnel1"
+        expect_match: '^-4\.9\d+E-04$'
+      - query: ":MEASure:TEDGe? +2,CHANnel1"
+        expect: "+9.9E+37"
+      - query: ":MEASure:DELay? CHANnel1,CHANnel1"
+        expect: "+0.00000E+00"
+      - query: ":MEASure:PHASe? CHANnel1,CHANnel1"
+        expect: "+0.00000E+00"
+      # 欠幅/转换时间触发的高低电平：每个信源各一，保存回读；ASETup 把边沿电平设到波形的 50 %。
+      - send: ":TRIGger:LEVel:HIGH 1.5,CHANnel1"
+      - query: ":TRIGger:LEVel:HIGH? CHANnel1"
+        expect: "+1.50000E+00"
+      - send: ":TRIGger:LEVel:LOW -0.5"
+      - query: ":TRIGger:LEVel:LOW?"
+        expect: "-500.000E-03"
+      - send: ":TRIGger:LEVel 0.7"
+      - send: ":TRIGger:LEVel:ASETup"
+      - query: ":TRIGger:LEVel?"
+        expect: "+0.00000E+00"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'

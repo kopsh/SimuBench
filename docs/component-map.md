@@ -25,7 +25,7 @@
 | acquisition | `scope_acquisition` | 数据 | 已实现 | — |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
 | trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248) | 已实现 | — |
-| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248) | 两源 DELay/PHASe、测量列表与分段存储未建模 |
+| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350) | 测量列表(ALL/RESults/CLEar/SHOW/WINDow,#373)与分段存储未建模 |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 
 两台内置型号(keysight-dsox2024a、siglent-sds2104xplus)全覆盖,无豁免。
