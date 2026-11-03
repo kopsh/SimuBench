@@ -1047,3 +1047,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | waveform_synth | ✅ 可选引用 `arb`（同通道 `arb_table`）与 `prbs`（`prbs_source`）：函数为 ARBitrary/PRBS 时输出它们的信号 |
 | 测试 | ✅ `tests/test_arb_memory.py` 4 项：装载/选择/播放（8 点方波 4 kSa/s → 500 Hz、±0.5）、DAC 码与目录/清除、拒绝情形、PRBS |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 静态校验：bool 设置映射为词（Issue 429）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 规则 | ✅ 绑定词参数的 bool 设置，其映射同时写出 True/False（或 1/0）时按词逐个校验，值为嵌套映射时留到运行时（Trueform 每种调制一个开关，`awg_modulator.type` 按一串 bool 映射取词） |
+| 测试 | ✅ `tests/test_bool_mapped_words.py`：两值映射与嵌套映射通过；直接绑定 bool、只写一个值、未知词仍报 E-DEF-PARAM-VALUE |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

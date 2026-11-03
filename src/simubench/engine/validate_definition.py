@@ -585,8 +585,11 @@ def _check_params(
                 # A small int setting whose every value the map turns into a word (the SR86x's
                 # enumerations are indexes with word aliases, #333); a nested mapping as a value
                 # is resolved at run time from its own setting.
-                for i in range(int(st.min), int(st.max) + 1):  # type: ignore[arg-type]
-                    word = table.get(str(i), table.get(i))
+                values = (
+                    [True, False] if st.type == "bool" else range(int(st.min), int(st.max) + 1)  # type: ignore[arg-type]
+                )
+                for i in values:
+                    word = table.get(str(i), table.get(i, table.get(str(int(i)))))
                     if not isinstance(word, dict):
                         _check_choice(str(word), words, pp, f"{spec.type}.{key}", spec.name, report)
             elif st.type != "enum":
@@ -619,8 +622,11 @@ def _check_params(
 
 
 def _int_range_mapped(st: Any, mapping: dict[str, Any] | None) -> bool:
-    """An int setting with a small declared range (at most 64 values) whose map names every value."""
+    """An int setting with a small declared range (at most 64 values) whose map names every value,
+    or a bool setting whose map names both (keys "True"/"False" or "1"/"0", #429)."""
     table = (mapping or {}).get("map") or {}
+    if st.type == "bool" and table:
+        return all(any(k in table for k in keys) for keys in (("True", "1", True), ("False", "0", False)))
     if st.type != "int" or st.min is None or st.max is None or not table:
         return False
     lo, hi = int(st.min), int(st.max)
