@@ -1593,6 +1593,14 @@ class Instrument:
                 if isinstance(v, dict) and isinstance(v.get("from"), str)
                 else self.state[self._resolve(v[1:], channel)]
                 if isinstance(v, str) and v.startswith("$")
+                # a list's $path items too (#383: SNAPD? reads the four data-channel assignments)
+                else [
+                    self.state[self._resolve(x[1:], channel)]
+                    if isinstance(x, str) and x.startswith("$")
+                    else x
+                    for x in v
+                ]
+                if isinstance(v, list)
                 else v
             )
             for k, v in args.items()

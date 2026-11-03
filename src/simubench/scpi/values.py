@@ -203,7 +203,8 @@ def format_channel_list(channels: Sequence[int], ranges: bool = True) -> bytes:
 def format_float(
     v: float, digits: int = 6, *, style: str = "nr3", sign: bool = True, exponent_digits: int = 2
 ) -> bytes:
-    """A number as a response: NR3 ``+1.000000E+03`` (default), NR2 ``+1000.000000`` or NR1 ``+1000``.
+    """A number as a response: NR3 ``+1.000000E+03`` (default), NR2 ``+1000.000000``, NR1 ``+1000``
+    or general (C ``%g``, ``digits`` significant: ``2.3346669042e-09``, ``19.749698639``).
 
     Infinity and NaN are written as the SCPI sentinels 9.9E+37 and 9.91E+37 in the same format.
     """
@@ -218,6 +219,8 @@ def format_float(
         return f"{lead}{round(a)}".encode()
     if style == "nr2":
         return f"{lead}{a:.{digits}f}".encode()
+    if style == "general":  # C %g: `digits` significant, lowercase e, no trailing zeros (#383)
+        return f"{lead}{a:.{max(1, digits)}g}".encode()
     mantissa, exp = f"{a:.{digits}E}".split("E")
     e = int(exp)
     return f"{lead}{mantissa}E{'+' if e >= 0 else '-'}{abs(e):0{exponent_digits}d}".encode()
