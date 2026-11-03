@@ -22,7 +22,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
 from ..engine.edit import EditError
-from ..engine.faults import FaultState
 from ..engine.record import encode_bytes
 from ..library.coverage import cases_for_model, coverage_path, load_coverage, run_cases
 from ..library.loader import DefinitionLibrary
@@ -32,7 +31,15 @@ from ..models.definition import InstrumentDefinition
 from .benchfiles import Conflict, diagnostics
 from .catalog import components as component_catalog
 from .definitionfiles import DefinitionFiles
-from .manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager, _plain
+from .manager import (
+    BenchInvalid,
+    ClientsConnected,
+    InstrumentRemote,
+    ServedSession,
+    SessionManager,
+    _plain,
+    fault_info,
+)
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 #: The built UI: inside an installed wheel (scripts/build-wheel.sh), else web/dist in a checkout.
@@ -1077,19 +1084,6 @@ def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
         out["size"] = len(data)
         out["text"] = enc.get("text") if "text" in enc else _summary(data)
     return M.Event.model_validate(out).model_dump(exclude_none=True)
-
-
-def fault_info(f: FaultState) -> M.FaultInfo:
-    return M.FaultInfo(
-        id=f.id,
-        status=f.status,
-        description=f.describe(),
-        source=f.source,
-        started_ns=f.started_ns,
-        ends_ns=f.ends_ns,
-        remaining=f.remaining,
-        spec=f.spec,
-    )
 
 
 def _summary(data: bytes) -> str:
