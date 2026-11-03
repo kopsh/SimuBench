@@ -105,15 +105,21 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                 name = str(spec.params.get(param, cls.defaults.get(param)) or "")  # type: ignore[union-attr]
                 if not name and param in cls.optional_refs:  # type: ignore[union-attr]
                     continue
-                target = declared[where].get(name, False)
+                # A channel component resolves a name in its own channel first, then at instrument
+                # level (Component.peer, #382): an instrument-level reference may name a sibling.
+                scopes = ["channel", "instrument"] if section == "channel_components" else [where]
+                if where == "channel":
+                    scopes = ["channel"]
+                pool = {k: v for scope in reversed(scopes) for k, v in declared[scope].items()}
+                target = pool.get(name, False)
                 want = known.get(base)
                 if target is False:
-                    options = [n for n, c in declared[where].items() if c and want and issubclass(c, want)]
+                    options = [n for n, c in pool.items() if c and want and issubclass(c, want)]
                     report.add(
                         "error",
                         "E-DEF-COMPONENT-REF",
                         _ptr(section, i, "params", param),
-                        f"{spec.name}.{param} 应指向一个 {base} 组件（{'每通道' if where == 'channel' else '仪表级'}），"
+                        f"{spec.name}.{param} 应指向一个 {base} 组件（{'每通道' if scopes == ['channel'] else '本通道或仪表级' if 'channel' in scopes else '仪表级'}），"
                         + (f"没有名为 {name!r} 的组件" if name else "没有填写"),
                         f"改为 {options[0]!r}" if options else f"添加一个 {base} 组件",
                         spec.name,

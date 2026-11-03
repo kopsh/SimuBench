@@ -442,6 +442,7 @@ display:
 
 - 信号源拆成模块：`waveform_synth`（1 Vpp 的标准波形，频率改变时相位连续；方波、脉冲、斜波、三角波的谐波到 `bandwidth` 为止，超出谱线上限时带保真度说明，D33）→ `amplitude_level`（幅度与偏置，单位 VPP / VPK / VRMS / DBM，按负载设定定义，D13）→ `output_stage`（输出阻抗、开关）；`reference_clock` 给出合成频率的误差（内部 ppm，或锁定 REF IN 上 ±10 ppm 内的 10 MHz，锁不上时用内部）。`sb-awg-2` 与低频校准工作台的校准仪改用这些模块，用例不改通过；`function_generator_core` 保留给用它写成的定义。
 - 组件的 `optional_refs`：引用其他组件的参数中可以不填的（不填即没有，例如没有参考时钟的信号源）。
+- 引用的解析（#382）：通道组件引用的名字先找本通道的 `ch<n>.<名>`，再找仪表级的同名组件（`Component.peer`）；所以整条链可以放进 `channel_components`，每个通道各自一条（双通道 SMU `sb-smu-2`），单通道定义照旧。静态校验同样先查本通道、再查仪表级。`*TRG` 触发所有带 `bus_trigger` 的组件：没在等总线触发的被跳过，没有一个接受时报第一个的错误（单个触发模型的行为不变）。
 - **dBm**：Vrms = √(10^(dBm/10) · 1 mW · R)，R 为负载设定；负载设定为高阻（`inf`，或不小于 `hiz_from`）时幅度是开路电压，dBm 按 `dbm_hiz_ohms`（50 Ω）换算。各波形的峰值与有效值之比沿用原有换算（正弦 2√2、方波与脉冲 2、斜波 2√3 Vpp/Vrms）。
 - **占空比按声明读写**：`waveform_synth` 的 `duty_unit` 为 `percent` 或 `ratio`；状态量的 `ratio`（“大于 1 的值按百分数读”）取消，写了它的定义会得到说明如何改写的错误。低频校准仪的占空比是比例：`0.001` 即 0.1 %，`40` 超出范围（-222）。
 - **信号源模板**（`signal_source`，版本 1）：身份、通道数、波形（命令关键字与形状）、频率（范围、方波与斜波上限、谐波带宽）、幅度（负载设定下 Vpp 口径的范围（D48）、单位、显示名；上电值按上电单位填写）、偏置、相位、占空比（表示与范围）、负载设定（范围、高阻关键字、高阻阈值）、输出（阻抗与误差限、开输出是否需确认）、参考时钟（时钟源关键字、误差限、参考输入）、命令方言（`scpi-source`：`[:SOURce<n>]:FUNCtion`、`:VOLTage`、`:OUTPut<n>`；`channel-base`：`:CHANnel<n>:BASE:*` 树、`:LOAD`、`:OUTPut`、`:SYSTem:CLKSource`；未知命令报错或忽略）、技术指标。多单位（或首单位不是 VPP）时幅度状态没有静态范围，范围由 `amplitude_level` 的 `vpp_min` / `vpp_max` 检查，切单位换算数值（D48）。

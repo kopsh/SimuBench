@@ -200,16 +200,9 @@ class OutputControlLoop(Component):
         if self.owner is None:
             return None
         for key in ("envelope", "channel_envelope"):
-            name = str(self.param(key) or "")
-            if not name:
-                continue
-            names = [name]
-            if self.channel is not None:
-                names.insert(0, f"ch{self.channel}.{name}")
-            for candidate in names:
-                comp = self.owner.components.get(candidate)
-                if comp is not None:
-                    return comp
+            comp = self.peer(str(self.param(key) or ""))
+            if comp is not None:
+                return comp
         return None
 
     def i_limit(self) -> float:
@@ -338,7 +331,7 @@ class SmuOutput(Component):
 
     def _loop(self) -> OutputControlLoop:
         assert self.owner is not None
-        loop = self.owner.components[str(self.param("loop"))]
+        loop = self.peer(str(self.param("loop")))
         assert isinstance(loop, OutputControlLoop)
         return loop
 
@@ -468,15 +461,15 @@ class SmuMeter(Component):
 
     def _source(self) -> SmuSource:
         assert self.owner is not None
-        return self.owner.components[str(self.param("source"))]  # type: ignore[return-value]
+        return self.peer(str(self.param("source")))  # type: ignore[return-value]
 
     def _loop(self) -> OutputControlLoop:
         assert self.owner is not None
-        return self.owner.components[str(self.param("loop"))]  # type: ignore[return-value]
+        return self.peer(str(self.param("loop")))  # type: ignore[return-value]
 
     def _output(self) -> SmuOutput:
         assert self.owner is not None
-        return self.owner.components[str(self.param("output"))]  # type: ignore[return-value]
+        return self.peer(str(self.param("output")))  # type: ignore[return-value]
 
     # ---- measuring -------------------------------------------------------------------------------
 
@@ -730,7 +723,7 @@ class SmuMeter(Component):
         name = str(self.param("buffer") or "")
         if not name or self.owner is None:
             return None
-        buffer = self.owner.components.get(name)
+        buffer = self.peer(name)
         return buffer if isinstance(buffer, ReadingBuffer) else None
 
     def _buffer_points(self) -> list[Any]:

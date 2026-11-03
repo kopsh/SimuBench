@@ -275,6 +275,18 @@ class Component:
                     pass
         return value
 
+    def peer(self, name: str) -> Component | None:
+        """The component another one names (a ``refs`` parameter): for a channel component its own
+        channel's ``ch<n>.<name>`` first, then the instrument-level ``name`` (#382). None when the
+        name is empty or names nothing."""
+        if not name or self.owner is None:
+            return None
+        if self.channel is not None:
+            comp = self.owner.components.get(f"ch{self.channel}.{name}")
+            if comp is not None:
+                return comp
+        return self.owner.components.get(name)
+
     def resolve_path(self, path: str) -> str:
         """Expand channel-relative state paths: 'ch.scale' -> 'ch2.scale' for channel 2."""
         if path.startswith("ch.") and self.channel is not None:

@@ -1,0 +1,164 @@
+schema: simubench.instrument/1
+id: sb-smu-2
+manufacturer: SimuBench
+model: SB-SMU-2
+class: smu
+version: 1
+description: >-
+  双通道源测量单元（验证仪表，#382）：每个通道一条完整的 SMU 链——源 DAC、控制环、输出级、
+  测量核心、触发模型与读数缓冲——都是通道组件，组件引用解析到本通道；命令用 <ch> 后缀
+  （:SOUR2:VOLT）与通道列表（:MEAS:CURR? (@1,2)、:INIT (@1,2)）；*TRG 触发所有在等总线触发的通道。
+identity:
+  serial: SBSMU200001
+  firmware: "1.0.0"
+channels:
+  count: 2
+  lists: {descending: true}
+channel_state:
+  function:
+    type: enum
+    options: [VOLTage, CURRent]
+    default: VOLTage
+    electrical: true
+    label: 源功能
+    label_en: Source function
+  voltage:
+    type: float
+    unit: V
+    min: -210.0
+    max: 210.0
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage level
+  current:
+    type: float
+    unit: A
+    min: -1.05
+    max: 1.05
+    default: 0.0
+    label: 电流设定
+    label_en: Current level
+  i_limit:
+    type: float
+    unit: A
+    min: 1.0e-9
+    max: 1.05
+    default: 105.0e-6
+    label: 电流限值
+    label_en: Current compliance
+  v_limit:
+    type: float
+    unit: V
+    min: 0.02
+    max: 210.0
+    default: 21.0
+    label: 电压限值
+    label_en: Voltage compliance
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  nplc:
+    type: float
+    min: 0.01
+    max: 10.0
+    default: 1.0
+    display_unit: PLC
+    label: 积分时间
+    label_en: Integration time
+  trigger_source:
+    type: enum
+    options: [AINT, BUS]
+    default: AINT
+    label: 触发源
+    label_en: Trigger source
+channel_components:
+  - name: source
+    type: smu_source
+  - name: loop
+    type: output_control_loop
+    params:
+      function: $ch.function
+      v_level: $ch.voltage
+      i_level: $ch.current
+      i_limit: $ch.i_limit
+      v_limit: $ch.v_limit
+      output: $ch.output
+      envelope: source
+  - name: out
+    type: smu_output
+    params:
+      output: $ch.output
+      loop: loop
+  - name: core
+    type: smu_meter
+    params:
+      source: source
+      loop: loop
+      output: out
+      nplc: $ch.nplc
+      line_freq: 50.0
+      buffer: mem
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: core
+      source: {from: $ch.trigger_source, map: {AINT: immediate, BUS: bus}}
+      buffer: mem
+      digits: 7
+  - name: mem
+    type: reading_buffer
+    params: {digits: 7}
+ports:
+  channel:
+    "HI{n}": out.hi
+    "LO{n}": out.lo
+display:
+  template: smu
+  summary: [ch1.function, ch1.voltage, ch1.output, ch2.function, ch2.voltage, ch2.output]
+capabilities: [smu]
+commands:
+  - header: "[:SOURce<ch>]:FUNCtion[:MODE]"
+    state: ch.function
+  - header: "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    state: ch.voltage
+  - header: "[:SOURce<ch>]:CURRent[:LEVel][:IMMediate][:AMPLitude]"
+    state: ch.current
+  - header: "[:SENSe<ch>]:CURRent[:DC]:PROTection[:LEVel]"
+    state: ch.i_limit
+  - header: "[:SENSe<ch>]:VOLTage[:DC]:PROTection[:LEVel]"
+    state: ch.v_limit
+  - header: "[:SENSe<ch>]:CURRent[:DC]:NPLCycles"
+    state: ch.nplc
+  - header: "[:SENSe<ch>]:CURRent[:DC]:PROTection:TRIPped"
+    op: ch.loop.tripped
+    set: false
+    args: {kind: current}
+  - header: ":OUTPut<ch>[:STATe]"
+    state: ch.output
+  - header: ":TRIGger<ch>:SOURce"
+    state: ch.trigger_source
+  - header: ":MEASure:VOLTage[:DC]"
+    op: ch.trig.read
+    set: false
+    args: {elements: [VOLT]}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: ":MEASure:CURRent[:DC]"
+    op: ch.trig.read
+    set: false
+    args: {elements: [CURR]}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: ":INITiate[:IMMediate]"
+    op: ch.trig.initiate
+    query: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: ":FETCh:ARRay:CURRent"
+    op: ch.trig.fetch
+    set: false
+    args: {elements: [CURR]}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: ":TRACe<ch>:POINts:ACTual"
+    op: ch.mem.actual
+    set: false

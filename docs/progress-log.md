@@ -898,3 +898,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 0 幅度的决定 | ✅ 不放开 0：含 DBM 的多单位按 D48 无法表示 0 Vpp，放开需改 `amplitude_level` 的检查语义（属核心能力，有真实置零需求再另开核心 issue）；校准流程的置零/本底检查用 `:CHANnel<n>:OUTPut OFF`。下限 1 mVpp 及原因写进定义注释与 `docs/lowfreq-cal.md` §7 |
 | component-map 与 progress 同步（issue 323） | ✅ `docs/component-map.md` 类别 23 的「负 dBm 写入 bug(#261)」旧文改为已修说明（指向 lowfreq-cal.md 的 1 mVpp 限定），债务清单删去已关闭的 #261/#286/#296/#297 行；#261 的完成记录即本节 |
 | 检查 | ✅ `scripts/check.sh` 全绿（仅文档与定义注释，无行为改动） |
+
+## 多通道 SMU：组件引用按通道解析，*TRG 触发全部通道（Issue 382）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 引用按通道解析 | ✅ `Component.peer(name)`：通道组件先找 `ch<n>.<名>`、再找仪表级；`smu_output`、`smu_meter`、`output_control_loop` 的包络、`trigger_model` 的采样器与缓冲改用它；静态校验 `E-DEF-COMPONENT-REF` 对通道组件先查本通道再查仪表级 |
+| *TRG | ✅ 触发所有带 `bus_trigger` 的组件，不在等总线触发的跳过；没有一个接受时报第一个的错误，单个触发模型行为不变 |
+| 双通道验证仪表与测试 | ✅ `validation/instruments/sb-smu-2.yaml`（整条链在 `channel_components`）；`tests/test_smu_channels.py` 8 项：定义无诊断、两路各自 I = V/R、通道列表按书写顺序回复、一路关输出另一路不受影响、限值只在本路跳闸、`*TRG` 两路都触发、只有一路在等时另一路不报错、无人等待时 -211 |
+| 单通道不变 | ✅ B2901A、`sb-smu-1`、E36312A 与其余型号的用例与测试不改通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
