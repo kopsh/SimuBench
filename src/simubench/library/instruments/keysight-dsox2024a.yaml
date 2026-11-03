@@ -170,6 +170,71 @@ state:
     default: 0.0
     label: 触发电平 EXT
     label_en: Trigger level EXT
+  # 双电平触发（欠幅、转换时间）的高/低电平，每个信源各一（#350）；这两种触发未建模，电平只保存回读。
+  trigger.high1:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发高电平 CH1
+    label_en: Trigger high level CH1
+  trigger.high2:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发高电平 CH2
+    label_en: Trigger high level CH2
+  trigger.high3:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发高电平 CH3
+    label_en: Trigger high level CH3
+  trigger.high4:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发高电平 CH4
+    label_en: Trigger high level CH4
+  trigger.low1:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发低电平 CH1
+    label_en: Trigger low level CH1
+  trigger.low2:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发低电平 CH2
+    label_en: Trigger low level CH2
+  trigger.low3:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发低电平 CH3
+    label_en: Trigger low level CH3
+  trigger.low4:
+    type: float
+    unit: V
+    min: -1.0e6
+    max: 1.0e6
+    default: 0.0
+    label: 触发低电平 CH4
+    label_en: Trigger low level CH4
   trigger.slope:
     type: enum
     options: [NEGative, POSitive, EITHer, ALTernate]
@@ -491,6 +556,10 @@ components:
     params:
       source: $measure.source
       invalid_value: "+9.9E+37"
+      # DELay?/PHASe? 不给信源时用 :MEASure:SOURce 的两个（#350）。
+      sources: [measure.source, measure.source2]
+      # :TRIGger:LEVel:ASETup 写各通道的边沿触发电平（#350）。
+      trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
   # 系统：:SYSTem:PRESet 与 *RST 相同的预置（手册的 PRESet 重置条件与 *RST 表一致，仅“偏好”不同，
   # 仿真没有偏好设置）。
   - name: sys
@@ -648,6 +717,15 @@ commands:
   - {header: ":MEASure:NEDGes", op: meas.measure, set: false, args: {what: NEDGes}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:PPULses", op: meas.measure, set: false, args: {what: PPULses}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:NPULses", op: meas.measure, set: false, args: {what: NPULses}, params: [{name: source, type: raw}]}
+  # 时间测量（#350）：相对触发点的时间，中间电平；VTIMe/TEDGe/TVALue 带参数，DELay/PHASe 取两个信源。
+  - {header: ":MEASure:XMAX", op: meas.measure, set: false, args: {what: XMAX}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:XMIN", op: meas.measure, set: false, args: {what: XMIN}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:BRATe", op: meas.measure, set: false, args: {what: BRATe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VTIMe", op: meas.at, set: false, args: {what: VTIMe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:TEDGe", op: meas.at, set: false, args: {what: TEDGe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:TVALue", op: meas.at, set: false, args: {what: TVALue}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:DELay", op: meas.pair, set: false, args: {what: DELay}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PHASe", op: meas.pair, set: false, args: {what: PHASe}, params: [{name: source, type: raw}]}
   # ---- TIMebase ----
   - {header: ":TIMebase:SCALe", state: timebase.scale, format: {number: engineering, significant: 3}}
   - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0, format: {number: engineering, significant: 3}}
@@ -666,6 +744,31 @@ commands:
   - {header: ":TRIGger:HFReject", state: trigger.hfreject}
   - {header: ":TRIGger:HOLDoff", state: trigger.holdoff, format: {number: engineering, significant: 15}}
   - {header: ":TRIGger[:EDGE]:SOURce", state: trigger.source}
+  - header: ":TRIGger:LEVel:HIGH"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: level, type: float, unit: V, state: "trigger.high{source}"}
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        index_default: $trigger.source
+        echo: false
+        optional: true
+  - header: ":TRIGger:LEVel:LOW"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: level, type: float, unit: V, state: "trigger.low{source}"}
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        index_default: $trigger.source
+        echo: false
+        optional: true
+  - {header: ":TRIGger:LEVel:ASETup", op: meas.auto_trigger_levels, query: false}
   - header: ":TRIGger[:EDGE]:LEVel"
     format: {number: engineering, significant: 6}
     params:
