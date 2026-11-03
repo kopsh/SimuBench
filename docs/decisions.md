@@ -518,3 +518,9 @@
 - **结论**：运行中写一个隐藏参数只有 `Session.set_parameter(owner, component, parameter, value)` 一条路（动作：持锁校验 → 写覆盖 → 一条 `hidden` 事件 → invalidate；不进通信记录，D32）。所有对 `comp.overrides` 的运行时写——会话的 hidden 装配、个体偏差抽取、故障的注入/漂移/恢复、`set_parameter`——都经 `engine/deviation.py` 的原语：`set_override`（校验+写+invalidate，唯一写点；构造期传 `invalidate=False`）、`clear_override`（撤销）、`draw_overrides`（hidden 占住的跳过 → 抽取 → 记录）；`ch<n>.` 键命名规则只在 `deviation_keys` 一处（#462）。
 - **理由**：「hidden 压过抽取、压过 `$state` 绑定」这条不变式曾分居四处（session 装配跳过、instrument 抽取跳过、component 读序、fault 恢复），抽取流与键规则也各写一遍，任何一处改动都可能静默破坏优先级或同种子的可复现性。收口后不变式成为模块上可直接测试的行为。备选一是只加注释与交叉测试（写点继续分居）；备选二是给 Component 加可变参数对象（把覆盖从 dict 换成受控类型，改动面大而收益相同）。均不采用。故障保留自己的事件节奏（每拍漂移不发事件），只复用原语。
 - **影响**：`set_parameter` 是 D39 定标系数写入的地基；此后任何「运行时改隐藏状态」的需求都走它，不再新开私有锁仪式或直写 `overrides`。测试里 `comp.overrides[` 直写清零（读取型交叉核对保留），优先级不变式有直接单元测试（`tests/test_deviation_protocol.py`）；同种子抽取值由既有 golden 测试守护，抽取流未变。库组件为自身机制写的内部覆盖（如 SMU 触发模型驱动其子组件）不在此协议内。写入值按参数 `defaults` 的声明类型校验（#495）：数值须有限、数值/字符串参数接受逐格偏差表（叶子递归校验）、`defaults` 为 `None` 的参数不约束、`$state` 绑定参数同按其 `defaults` 类型；故障 `hidden` 注入共用该校验（`_check` 时即拒绝，坏值不到启动才暴露），漂移值由引擎计算不经此路。
+
+## D57 引擎定义 pydantic 契约模型：接口对象与它的数学同居
+
+- **结论**：接口的响应对象可以由引擎定义（pydantic、frozen），`models/api.py` 原样 re-export 为 response_model：`SourceLine`/`SourceContribution` 定义在 `engine/circuit.py`（与 `source_contributions` 同居），`SpectralLine` 定义在 `engine/signal.py`。引擎侧模型配置镜像 `api._Model`（frozen 加 serialize-defaults-required），生成物不变。import 方向 `models/api.py → engine.*`，与 `EditOp` 先例同向，不成环。
+- **理由**：`manager.probe` 曾在服务层手写约 60 行分解数学并逐字段组 DTO，还直调私有 `_solve()`——按源分解是引擎侧知识（「为什么是这个值」，D16/D37），与 `transfer()` 同居才可直接单测。备选一维持 dataclass + manager 显式映射（同一份字段表两处写，漂移只是时间问题）；备选二让 api 定义模型、引擎返回字典（映射仍在，引擎测试断言字典形状）。均不采用。
+- **影响**：`probe` 无私有调用、无逐字段映射，只剩波形采样等视图性计算；`source_contributions` 有双源手算单元测试（幅值、增益、相位、RMS）。D21 的实践边界更新：引擎可定义契约模型；事件投影的收敛（候选 7）有先例可循。

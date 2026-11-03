@@ -16,11 +16,23 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
 import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
 
 NS = 1e-9
 
 #: Upper bound on the lines one signal may carry (architecture.md 2.3).
 MAX_LINES = 4095
+
+
+# The spectrum's contract object (D21, D57): defined where the lines live, re-exported by
+# models/api.py. The config mirrors models/api._Model so the generated schema stays identical.
+class SpectralLine(BaseModel):
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True
+    )
+
+    freq_hz: float
+    amplitude: float = Field(..., description="Peak amplitude, V")
 
 
 def phase_cycles(freq: np.ndarray, delta_ns: np.ndarray) -> np.ndarray:
@@ -203,6 +215,14 @@ class Signal:
         acc = np.zeros(uniq.shape, dtype=complex)
         np.add.at(acc, inv, a0)
         return Signal(uniq, acc, np.zeros(uniq.shape, dtype=np.int64), self.dc, self.notes)
+
+    def spectral_lines(self, *, max_lines: int = 16) -> list[SpectralLine]:
+        """The strongest positive-frequency lines, by amplitude (a probe's spectrum read, #463)."""
+        m = self.merged()
+        pos = m.freq > 0
+        f_pos, a_pos = m.freq[pos], np.abs(m.amp[pos])
+        order = np.argsort(-a_pos)
+        return [SpectralLine(freq_hz=float(f_pos[i]), amplitude=float(a_pos[i])) for i in order[:max_lines]]
 
     def phasor_at(self, f: float, rel_tol: float = 1e-12) -> complex:
         """Complex peak amplitude of the component at frequency ``f`` referenced to t = 0."""

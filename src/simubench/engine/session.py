@@ -433,6 +433,12 @@ class Session:
                 self.instrument(name).settle_pending()
             yield self
 
+    def solution(self) -> tuple[Solution, dict[str, Signal]]:
+        """The solved circuit and every source's EMF signal, at the current instant. A passive
+        view's read (call it inside ``view()``): it solves only when something changed since the
+        last solve, and answers identically until the bench changes (#463)."""
+        return self._solve()
+
     # ---- actions ------------------------------------------------------------------------------------
 
     def instrument(self, name: str) -> Instrument:

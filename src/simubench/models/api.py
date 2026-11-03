@@ -10,7 +10,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..engine.circuit import SourceContribution  # re-export (D57)
+from ..engine.circuit import SourceLine as SourceLine
 from ..engine.edit import EditOp
+from ..engine.signal import SpectralLine
 from .bench import Fault, LayoutItem
 from .definition import Panel
 
@@ -669,32 +672,9 @@ class NetWaveform(_Model):
     notes: list[str] = Field(default_factory=list)
 
 
-class SpectralLine(_Model):
-    freq_hz: float
-    amplitude: float = Field(..., description="Peak amplitude, V")
-
-
-class SourceLine(_Model):
-    freq_hz: float
-    emf: float = Field(
-        ..., description="Peak amplitude of the source at this frequency (V, or A for a current source)"
-    )
-    gain: float = Field(..., description="|transfer| from the source to the net")
-    phase_deg: float = Field(..., description="Phase of the transfer, degrees")
-    contribution: float = Field(..., description="Peak volts this source puts on the net at this frequency")
-
-
-class SourceContribution(_Model):
-    """One independent source's share of a net's signal: its EMF times the circuit's transfer."""
-
-    source: str = Field(..., description="Source id, e.g. 'awg/ch1.out'")
-    instrument: str | None = None
-    component: str
-    dc_emf: float
-    dc_gain: float
-    dc_contribution: float
-    lines: list[SourceLine]
-    rms_contribution: float
+# SpectralLine, SourceLine and SourceContribution are the engine's own pydantic models (D57):
+# defined next to the decomposition math (engine.circuit, engine.signal) and re-exported here, so
+# the interface keeps one source and the probe assembles no field-by-field copies.
 
 
 class NetProbe(_Model):
