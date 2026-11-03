@@ -1207,22 +1207,9 @@ class ScopeAcquisition(Component):
         # read low by that fraction (the spectrum analyzer's reference convention, G3).
         dt = nominal_dt / (1.0 + self.horizontal().clock_error())
         t0 = self.session.now_ns
-        trig = self.trigger_unit()
-        n_trig = trig.source_channel()
-        kind = trig.source_kind()
-        if kind == "channel":
-            sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
-        elif kind == "external":
-            sig, scale_t = trig.input("ext"), 1.0
-        else:
-            sig, scale_t = Signal.zero(), 1.0
         # An auto mode gives up after its auto timeout; a normal or single acquisition waits for
         # its edge, the virtual time it takes included (G5).
-        waits = not self._is("auto") and frame is None
-        hit = trig.search(
-            sig, t0, dt, pre, points, n_trig, scale_t,
-            float(trig.param("search_horizon_s")) if waits else None,
-        )  # fmt: skip
+        hit = self._trigger_hit(t0, dt, pre, points, waits=not self._is("auto") and frame is None)
         triggered = hit is not None
         k = hit.index if hit is not None else pre
         start = k - pre
@@ -1288,9 +1275,33 @@ class ScopeAcquisition(Component):
         if triggered or self.param("untriggered") == "record":
             used = (k + max(post, 0)) * dt
         else:  # the whole trigger search
-            used = points * int(trig.param("search_windows")) * dt
+            used = points * int(self.trigger_unit().param("search_windows")) * dt
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
+
+    def _trigger_hit(self, t0: int, dt: float, pre: int, points: int, waits: bool) -> TriggerHit | None:
+        """The trigger the acquisition starting at ``t0`` finds (``waits``: as far as the trigger's
+        search horizon), or None."""
+        trig = self.trigger_unit()
+        n_trig = trig.source_channel()
+        kind = trig.source_kind()
+        if kind == "channel":
+            sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
+        elif kind == "external":
+            sig, scale_t = trig.input("ext"), 1.0
+        else:
+            sig, scale_t = Signal.zero(), 1.0
+        return trig.search(
+            sig, t0, dt, pre, points, n_trig, scale_t,
+            float(trig.param("search_horizon_s")) if waits else None,
+        )  # fmt: skip
+
+    def triggers_now(self) -> bool:
+        """Whether an acquisition starting now finds its trigger within its search windows (a
+        continuous run's state: it re-arms on every trigger, so it is waiting while none comes)."""
+        points, nominal_dt, pre, _ = self._timing()
+        dt = nominal_dt / (1.0 + self.horizontal().clock_error())
+        return self._trigger_hit(self.session.now_ns, dt, pre, points, waits=False) is not None
 
     def store(self, records: dict[int, Record], used: int, forced: bool = False) -> int:
         """Keep ``records`` as the latest acquisition and log its recipe (D36). Returns ``used``.
@@ -1339,9 +1350,18 @@ class ScopeAcquisition(Component):
         return "RUN" if self.is_running() else "STOP"
 
     def status_flags(self) -> dict[str, bool]:
-        """RUN while acquiring, WAIT while waiting for a trigger (the operation status register)."""
+        """RUN while acquiring, WAIT while waiting for a trigger (the operation status register).
+
+        A single acquisition waits until it is done; a continuous run (auto, normal) waits while
+        its trigger finds no edge now, whatever an earlier acquisition found (#352)."""
         running = self.run_state() != "STOP"
-        return {"RUN": running, "WAIT": running and (self.waiting() or not self.last_triggered)}
+        if not running:
+            return {"RUN": False, "WAIT": False}
+        if self.waiting():
+            return {"RUN": True, "WAIT": True}
+        if self._is("auto") or self._is("normal"):
+            return {"RUN": True, "WAIT": not self.triggers_now()}
+        return {"RUN": True, "WAIT": not self.last_triggered}
 
     @op("run_state")
     def op_run_state(self, **_: Any) -> OpResult:

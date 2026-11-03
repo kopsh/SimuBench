@@ -869,3 +869,23 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | CURR:PROT:DEL 的 *RST 值 | ⚠️ 手边没有编程指南原文，50 ms 仍为模型值，覆盖表如实写明待核对 |
 | 覆盖表不再引用已关闭的 #271 作为阻塞 | ✅ |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## N9320B 覆盖表矛盾、单位依据与应答位数（Issue 293）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 覆盖表同一命令只有一个等级 | ✅ 删去 `:DISPlay:WINDow:TRACe:Y[:SCALe]:RLEVel` 的重复 `not_modeled` 条目（手册 TRACe 必选的拼写是定义 `[:TRACe]` 可选形式的子集，同一条命令）；`coverage.check` 新增「同一命令形式、等级相反」检查：头按可选节点展开（`_forms`）后若两个条目共享一个拼写且等级不同即报矛盾，字面后缀数字（SOURce1/SOURce2）不算同一条；全库 13 台在展开口径下本就只有这一处等级矛盾，规则加上后 `tests/test_real_models.py` 363 项（含新单测）通过 |
+| 单位依据 | ✅ `:UNIT:POWer` 备注写明手册单位表 `DBM|DBMV|DBUV|DBUA|V|W|A`（N9320-90029 Ed.5, p.169）与其余单位回 -224、数据恒为 dBm 的原因；线性刻度显示单位若要建模属组件能力，与 #366 一并看 |
+| 回复位数差异指向缺口 | ✅ progress-log issue 196 行已记「组件应答 7 位、定义 16 位」；component-map 缺口 16 补该条并指向新开的核心 issue #366 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Keysight 53230A 频率计数器（Issue 331）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `keysight-53230a.yaml` 从 53220A 出发（同一手册与命令集），`reference` 为 53220A/53230A User's Guide 53220-90001 Edition 3（September 1, 2017），按手册核对 53230A 的差异：门时间 1 µs–1000 s（频率与累加，p.120、Table 5-2）、单次分辨率 20 ps（Tss）、`SYST:LANG` 默认 `"53230A"`；`simubench validate` 无诊断 |
+| 无间隙连续测量 | ✅ `[:SENSe]:FREQuency:MODE` AUTO/RECiprocal/CONTinuous（*RST AUTO，CONFigure 不改变），CONTinuous 映射到 `counter_timebase.gap_free`；`tests/test_keysight_53230a.py`：CONT 下各读数 × 跨度之和等于 8 个门内计到的沿数，AUTO 下不记跨度 |
+| 时间戳 | ⚠️ 手册语义（比例因子 + 按速率抽取的间隔、经触发模型取回）与 #328 的绝对时刻操作不同，三条命令标未实现，核心能力另开 #385；派生测量与 Option 150 同 53220A 标未实现 |
+| 覆盖、用例与示例 | ✅ 覆盖表 实现 46 · 接受 9 · 未实现 143；`tests/models/keysight-53230a/cases.yaml` 24 条全部通过（新增门时间下限、测量方式、Figure 3-1 的无间隙读数、时间戳 -113）；示例台 `examples/benches/keysight-53230a.bench.yaml` 与脚本 `examples/scripts/keysight_53230a_gap_free.py`（Figure 3-1 设置，由连续读数算阿伦偏差）在测试中运行 |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
