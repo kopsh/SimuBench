@@ -72,3 +72,12 @@ def test_the_block_needs_a_stopped_capture_and_the_rate_reads_in_hertz():
     with pytest.raises(ScpiError):
         cap.op_get(offset_kb=0, length_kb=1)
     assert float(cap.op_rate().response) == pytest.approx(10.0)
+
+
+def test_a_framed_block_carries_the_definite_length_header():
+    cap = _buffer()
+    cap.op_start(fresh=True)
+    _advance(cap, 1.0)
+    framed = cap.op_get(offset_kb=0, length_kb=1, framed=True).response
+    assert framed.startswith(b"#41024")
+    assert framed[6:] == cap.op_get(offset_kb=0, length_kb=1).response

@@ -255,9 +255,10 @@ class CurveBuffer(Component):
         return OpResult(self.reply_number(self._rate(), 8))
 
     @op("get")
-    def op_get(self, offset_kb: int = 0, length_kb: int = 1, **_: Any) -> OpResult:
+    def op_get(self, offset_kb: int = 0, length_kb: int = 1, framed: bool = False, **_: Any) -> OpResult:
         """CAPTUREGET? i, j: ``length_kb`` kB from ``offset_kb`` kB of the buffer as IEEE single
-        precision, little-endian, the traces interleaved point by point; past the data, zeros."""
+        precision, little-endian, the traces interleaved point by point; past the data, zeros.
+        ``framed`` wraps it in a definite-length block header (#ncccc)."""
         self._catch_up()
         if self._state == "run":
             raise ScpiError(-222, "the capture must be stopped to read it as a block")
@@ -268,7 +269,9 @@ class CurveBuffer(Component):
         data = struct.pack(f"<{len(stored)}f", *stored)
         start, size = int(offset_kb) * 1024, int(length_kb) * 1024
         chunk = data[start : start + size]
-        return OpResult(chunk + bytes(size - len(chunk)))
+        payload = chunk + bytes(size - len(chunk))
+        # framed: the IEEE 488.2 definite-length block #ncccc... the SR86x answers with
+        return OpResult(V.format_block(payload) if framed else payload)
 
     def status_flags(self) -> dict[str, bool]:
         """SCN while no scan is in progress (paused counts as none: the SRS serial poll bit 0)."""
