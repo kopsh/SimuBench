@@ -133,6 +133,10 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
             value = table[value]
         elif isinstance(value, str) and (hit := next((k for k in table if k.upper() == value.upper()), None)):
             value = table[hit]
+        elif isinstance(value, bool) and (
+            hit := next((k for k in (str(value), str(int(value))) if k in table), None)
+        ):
+            value = table[hit]  # a bool setting against "True"/"False" or "1"/"0" keys (#429)
         elif isinstance(value, int) and not isinstance(value, bool) and str(value) in table:
             value = table[str(value)]  # an int setting against the map's (string) keys
         elif isinstance(value, float) and value.is_integer() and str(int(value)) in table:
