@@ -777,3 +777,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 缺口清单 v1 定稿 | ✅ 「首波缺口」底稿升级为缺口清单 v1（`docs/component-map.md` 文末）：缺的组件（`awg_modulator`、`counter_timebase`、`rf_output`、`calibrator_output` 拆分、通用状态寄存器组件）、`not_modeled` 暗示的未来能力（13 台 2430 条按主题归并：跨类别平台能力 11 项 + 类别内功能缺口 12 项）、已有债务（bug/文档/验收/模型边界/命名审计/架构目标）；每条指向 open issue 或标「暂不排期」 |
 | 第二波选型草案 issue | ✅ #317 已开（候选：33500B、IT8500+、DAQ970A、53230A、FPC1500；SMU 第二台已是 #12，依赖 #299/#253 已合并）；缺口清单与 #317 互链 |
 | 检查 | ✅ `scripts/check.sh` 全绿（纯文档改动，定义与组件无改动） |
+
+## 低频校准仪负 dBm 的收尾：文档同步与 0 幅度的决定（Issue 261、323）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 负 dBm 可写、越界报当前单位界限（issue 261，PR #322） | ✅ `examples/lowfreq-cal/instruments/lfcal-scope-calibrator.yaml` 的 `amplitude_level` 按 D48 用 `vpp_min: 0.001` / `vpp_max: 200.0` 界定（任一单位写入先换算到 Vpp 再比较，越界报 -222 并给出当前单位下的界限）；`tests/test_lowfreq_cal.py::test_negative_dbm_amplitude_writes_and_reports_bounds`（-5/-40 dBm 可写，-70 dBm 报 -222 带区间，切回 VPP 数值换算）与 `examples/lowfreq-cal/cases.yaml` 的契约用例覆盖 |
+| 0 幅度的决定 | ✅ 不放开 0：含 DBM 的多单位按 D48 无法表示 0 Vpp，放开需改 `amplitude_level` 的检查语义（属核心能力，有真实置零需求再另开核心 issue）；校准流程的置零/本底检查用 `:CHANnel<n>:OUTPut OFF`。下限 1 mVpp 及原因写进定义注释与 `docs/lowfreq-cal.md` §7 |
+| component-map 与 progress 同步（issue 323） | ✅ `docs/component-map.md` 类别 23 的「负 dBm 写入 bug(#261)」旧文改为已修说明（指向 lowfreq-cal.md 的 1 mVpp 限定），债务清单删去已关闭的 #261/#286/#296/#297 行；#261 的完成记录即本节 |
+| 检查 | ✅ `scripts/check.sh` 全绿（仅文档与定义注释，无行为改动） |
