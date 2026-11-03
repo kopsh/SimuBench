@@ -1,0 +1,252 @@
+# Keysight DAQ970A 的手册用例：DAQ970A/DAQ973A Programming Guide（DAQ97-90002, Edition 3, March 2020）的
+# 第 1 章 Factory Reset State 与第 2 章 ROUTe/TRIGger/CONFigure/MEASure/READ/FETCh/DATA/R 子系统。
+# 测试台 examples/benches/keysight-daq970a.bench.yaml：通道 101/102/103 各接 1 V/2 V/4 V、内阻 1 MΩ 的源，
+# L 端共 0 V；闭合继电器后内部 DMM 的 10 MΩ 与源内阻分压，读数约为设定的 10/11（1 PLC、10 V 量程）。
+# 通道 104 接 1 kΩ（114 作四线检测），电流通道 121 接 5 V 经 1 kΩ 的源。
+model: keysight-daq970a
+bench: ../../../examples/benches/keysight-daq970a.bench.yaml
+instrument: daq
+cases:
+  - name: "*IDN? 返回厂商、型号、序列号与修订串"
+    manual: "IEEE-488.2 Common Commands > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,DAQ970A,MY12345678,A.02.04-00.16-11.29-00.02-02-01"
+
+  - name: "*RST 恢复出厂状态：扫描表空、计数 1、间隔 10 s、触发立即、继电器全开"
+    manual: "Remote Operation > Factory Reset State"
+    steps:
+      - send: "ROUT:SCAN (@101:103);:TRIG:COUN 5;:TRIG:SOUR BUS;:TRIG:TIM 5"
+      - send: "ROUT:CLOS (@101)"
+      - send: "*RST"
+      - query: "ROUT:SCAN?"
+        expect: "#13(@)"
+      - query: "TRIG:COUN?"
+        expect: "+1.00000000E+00"
+      - query: "TRIG:SOUR?"
+        expect: "IMM"
+      - query: "TRIG:TIM?"
+        expect: "+1.00000000E+01"
+      - query: "ROUT:CLOS? (@101:103)"
+        expect: "0,0,0"
+
+  - name: "ROUTe:SCAN：查询以定长块返回扫描表，(@) 清空"
+    manual: "ROUTe Subsystem > ROUTe:SCAN"
+    steps:
+      - send: "ROUT:SCAN (@101,103)"
+      - query: "ROUT:SCAN?"
+        expect: "#210(@101,103)"
+      - send: "ROUT:SCAN (@)"
+      - query: "ROUT:SCAN?"
+        expect: "#13(@)"
+
+  - name: "ROUTe:CLOSe/OPEN 与 ROUT:DONE?"
+    manual: "ROUTe Subsystem > ROUTe:CLOSe, ROUTe:OPEN, ROUTe:DONE?"
+    steps:
+      - send: "ROUT:CLOS (@103,113)"
+      - query: "ROUT:CLOS? (@103,113,104)"
+        expect: "1,1,0"
+      - send: "ROUT:OPEN (@103)"
+      - query: "ROUT:CLOS? (@103,113)"
+        expect: "0,1"
+      - query: "ROUT:DONE?"
+        expect: "1"
+
+  - name: "CONFigure + READ?：扫描三个通道，读数约为设定的 10/11，并留在读数存储器"
+    manual: "READ Subsystem > READ?（READ? = INITiate + FETCh?）"
+    steps:
+      - send: "CONF:VOLT:DC 10,DEF,(@101:103)"
+      - query: "READ?"
+        expect_match: '^\+9\.0909\d{4}E-01,\+1\.8181\d{4}E\+00,\+3\.6363\d{4}E\+00$'
+      - query: "DATA:POIN?"
+        expect: "3"
+      - query: "FETC?"
+        expect_match: '^\+9\.0909\d{4}E-01,\+1\.8181\d{4}E\+00,\+3\.6363\d{4}E\+00$'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "CONFigure 把触发次数设 1、间隔设 1 s；TRIG:COUN 重复扫描"
+    manual: "TRIGger Subsystem > TRIGger:COUNt, TRIGger:TIMer"
+    steps:
+      - send: "TRIG:COUN 4;:TRIG:TIM 30E-03"
+      - send: "CONF:VOLT:DC 10,DEF,(@101)"
+      - query: "TRIG:COUN?"
+        expect: "+1.00000000E+00"
+      - query: "TRIG:TIM?"
+        expect: "+1.00000000E+00"
+      - send: "TRIG:COUN 3"
+      - send: "INIT"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "DATA:POIN?"
+        expect: "3"
+
+  - name: "R? 与 DATA:REMove? 取出并清除最旧的读数"
+    manual: "R Subsystem > R?; DATA Subsystem > DATA:REMove?"
+    steps:
+      - send: "CONF:VOLT:DC 10,DEF,(@101:103)"
+      - send: "INIT"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "R? 2"
+        expect_match: '^#231\+9\.0909\d{4}E-01,\+1\.8181\d{4}E\+00$'
+      - query: "DATA:REM? 1"
+        expect_match: '^\+3\.6363\d{4}E\+00$'
+      - query: "DATA:POIN?"
+        expect: "0"
+      - query: "R?"
+        expect: "#10"
+
+  - name: "MEASure? 电阻：两线含引线外的 DMM 读数，四线配对 n+10"
+    manual: "MEASure Subsystem > MEASure:{RESistance|FRESistance}?"
+    steps:
+      - query: "MEAS:RES? (@104)"
+        expect_match: '^\+1\.00\d{6}E\+03$'
+      - query: "MEAS:FRES? (@104)"
+        expect_match: '^\+(1\.0000\d{4}E\+03|9\.9999\d{4}E\+02)$'
+
+  - name: "MEASure:CURRent:DC? 在电流通道 121 上测 5 V 经 1 kΩ 的源"
+    manual: "MEASure Subsystem > MEASure:CURRent:{AC|DC}?（DAQM901A 通道 21、22）"
+    steps:
+      - query: "MEAS:CURR:DC? 0.01,(@121)"
+        expect_match: '^\+4\.9\d{7}E-03$'
+
+  - name: "按通道的 NPLC 与 CONFigure? 回功能、量程与分辨率"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:NPLCycles; CONFigure Subsystem > CONFigure?"
+    steps:
+      - send: "CONF:VOLT:DC 10,DEF,(@101)"
+      - send: "SENS:VOLT:DC:NPLC 10,(@101)"
+      - query: "SENS:VOLT:DC:NPLC? (@101)"
+        expect: "+1.00000000E+01"
+      - query: "CONF? (@101)"
+        expect_match: '^"VOLT \+1\.00000000E\+01,\+\d\.\d{8}E-0\d"$'
+
+  - name: "输入阻抗自动：10 V 档改为 >10 GΩ，读数回到设定值"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:IMPedance:AUTO"
+    steps:
+      - send: "CONF:VOLT:DC 10,DEF,(@101)"
+      - send: "VOLT:DC:IMP:AUTO ON,(@101)"
+      - query: "READ?"
+        expect_match: '^\+(9\.99\d{6}E-01|1\.00\d{6}E\+00)$'
+
+  - name: "BUS 触发：READ? 报触发死锁，INIT 后 *TRG 才扫描"
+    manual: "READ Subsystem > READ?（not valid with *TRG）; TRIGger:SOURce"
+    steps:
+      - send: "CONF:VOLT:DC 10,DEF,(@101)"
+      - send: "TRIG:SOUR BUS"
+      - send: "READ?"
+      - query: "SYST:ERR?"
+        expect: '-214,"Trigger deadlock"'
+      - send: "INIT"
+      - send: "*TRG"
+      - query: "FETC?"
+        expect_match: '^\+9\.0909\d{4}E-01$'
+
+  - name: "连续扫描 INFinity 未建模，回 -224"
+    manual: "TRIGger Subsystem > TRIGger:COUNt（INFinity）"
+    steps:
+      - send: "TRIG:COUN INF"
+      - query: "SYST:ERR?"
+        expect_match: '^-224,.*'
+
+  - name: "未实现的命令回 -113"
+    manual: "CALCulate Subsystem > CALCulate:SCALe:GAIN"
+    steps:
+      - send: "CALC:SCAL:GAIN 2,(@101)"
+      - query: "SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: "显示文本（接受）"
+    manual: "DISPlay Subsystem > DISPlay:TEXT, DISPlay:TEXT:CLEar"
+    steps:
+      - send: "DISP:TEXT 'SCANNING'"
+      - query: "DISP:TEXT?"
+        expect: '"SCANNING"'
+      - send: "DISP:TEXT:CLE"
+      - query: "DISP:TEXT?"
+        expect: '""'
+
+  - name: "CONFigure 各功能写进每个通道的配置，CONFigure? 逐通道回读"
+    manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}, CONFigure:{RESistance|FRESistance}, CONFigure:CURRent:{AC|DC}, CONFigure?"
+    steps:
+      - send: "CONF:VOLT:AC 10,(@101)"
+      - send: "CONF:RES 10000,(@104)"
+      - send: "CONF:FRES (@105)"
+      - send: "CONF:CURR:DC 0.01,(@121)"
+      - send: "CONF:CURR:AC 1,(@122)"
+      - query: "CONF? (@101,104,121,122)"
+        expect_match: '^"VOLT:AC \+1\.0+E\+01,[^"]+","RES \+1\.0+E\+04,[^"]+","CURR \+1\.0+E-02,[^"]+","CURR:AC \+1\.0+E\+00,[^"]+"$'
+      - query: "ROUT:SCAN?"
+        expect: "#16(@122)"
+
+  - name: "MEASure? 的直流与交流电压、交流电流（台上的源都是直流）"
+    manual: "MEASure Subsystem > MEASure[:VOLTage]:{AC|DC}?, MEASure:CURRent:{AC|DC}?"
+    steps:
+      - query: "MEAS:VOLT:DC? 10,DEF,(@102)"
+        expect_match: '^\+1\.8181\d{4}E\+00$'
+      - query: "MEAS:VOLT:AC? (@101)"
+        expect: "+0.00000000E+00"
+      - query: "MEAS:CURR:AC? (@121)"
+        expect: "+0.00000000E+00"
+
+  - name: "SENSe 的电阻、电流与电压配置按通道保存"
+    manual: "SENSe Subsystem > [SENSe:]{RESistance|FRESistance}:NPLCycles/RANGe, [SENSe:]CURRent[:DC]:NPLCycles, [SENSe:]VOLTage:{AC|DC}:RANGe[:AUTO]"
+    steps:
+      - send: "SENS:CURR:DC:NPLC 10,(@121)"
+      - query: "SENS:CURR:DC:NPLC? (@121)"
+        expect: "+1.00000000E+01"
+      - send: "SENS:RES:NPLC 2,(@104)"
+      - query: "SENS:RES:NPLC? (@104)"
+        expect: "+2.00000000E+00"
+      - send: "SENS:RES:RANG 1000,(@104)"
+      - query: "SENS:RES:RANG? (@104)"
+        expect: "+1.00000000E+03"
+      - send: "SENS:VOLT:DC:RANG 1,(@101)"
+      - query: "SENS:VOLT:DC:RANG? (@101)"
+        expect: "+1.00000000E+00"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "0"
+      - send: "SENS:VOLT:DC:RANG:AUTO ON,(@101)"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "1"
+
+  - name: "公共命令：*ESE、*SRE、*ESR、*STB、*CLS、*TST、*WAI"
+    manual: "IEEE-488.2 Common Commands"
+    steps:
+      - send: "*ESE 32"
+      - query: "*ESE?"
+        expect: "32"
+      - send: "*SRE 16"
+      - query: "*SRE?"
+        expect: "16"
+      - query: "*TST?"
+        expect: "0"
+      - send: "FOO"
+      - query: "*ESR?"
+        expect: "32"
+      - send: "*CLS"
+      - query: "*STB?"
+        expect: "0"
+      - send: "*WAI"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "ABORt 停止等待触发的扫描，FETCh? 无读数报 -230"
+    manual: "ABORt Subsystem > ABORt; FETCh Subsystem > FETCh?"
+    steps:
+      - send: "CONF:VOLT:DC (@101)"
+      - send: "TRIG:SOUR BUS"
+      - send: "INIT"
+      - send: "ABOR"
+      - send: "FETC?"
+      - query: "SYST:ERR?"
+        expect: '-230,"Data corrupt or stale"'
+
+  - name: "显示开关与 SCPI 版本"
+    manual: "DISPlay Subsystem > DISPlay; SYSTem Subsystem > SYSTem:VERSion?"
+    steps:
+      - send: "DISP OFF"
+      - query: "DISP?"
+        expect: "0"
+      - query: "SYST:VERS?"
+        expect: "1994.0"

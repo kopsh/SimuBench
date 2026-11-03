@@ -1018,3 +1018,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档与生成物 | ✅ `docs/instrument-authoring.md` 通道列表一节；schema 与 Web API 类型重新生成 |
 | 测试 | ✅ `tests/test_channel_list.py`：声明后 `(@)` 清空存储的扫描表、无错误；默认定义仍报 -108 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Keysight DAQ970A 数据采集系统（Issue 332）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `keysight-daq970a.yaml`：DAQ970A/DAQ973A Programming Guide（DAQ97-90002, Edition 3, March 2020，已入 `manuals/`）；从 34970A 的组件链出发（槽 1 DAQM901A：101–120 电压/电阻、121/122 电流，n 与 n+10 四线配对），按手册改：DCV/ACV 100 mV–300 V、电阻到 1 GΩ、DCI 1 µA–1 A、ACI 100 µA–1 A、NPLC 0.001–200（分辨率表 × 量程）、读数存储器 100,000、触发次数到 1,000,000、间隔 0–360,000 s（*RST 10 s）；`*IDN?` 按手册示例；`simubench validate` 无诊断 |
+| 与 34970A 的差异 | ✅ READ? = INITiate + FETCh?，读数留在存储器；CONFigure/MEASure 把触发次数设 1、间隔设 1 s；`ROUT:SCAN?` 定长块（#415），`ROUT:SCAN (@)` 清空（#418）；`R?` 定长块取出；`ROUT:DONE?` |
+| 覆盖、用例与示例 | ✅ 覆盖表按手册目录 437 条：实现 47 · 接受 3 · 未实现 387；`tests/models/keysight-daq970a/cases.yaml` 21 条全部通过；示例台 `examples/benches/keysight-daq970a.bench.yaml` 与脚本 `examples/scripts/keysight_daq970a_scan.py` 在测试中运行 |
+| 测试 | ✅ `tests/test_keysight_daq970a.py` 6 项：脚本、READ? 存入存储器与新扫描清空、CONFigure 的次数与间隔、继电器加载、四线配对与电流通道、扫描表定长块与清空 |
+| 已知差异 | ⚠️ `CONFigure?` 的数字为 9 位有效（手册示例 7 位）、`DATA:POINts?` 无正号（手册 +320），由共用组件决定，覆盖表注明 |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
