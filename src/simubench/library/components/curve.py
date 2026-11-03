@@ -58,6 +58,12 @@ class CurveBuffer(Component):
         "trace2": "",  # what trace 2 records
         "trace3": "",  # what trace 3 records
         "trace4": "",  # what trace 4 records
+        # A display ratio (#390): <component>.<quantity> each trace's value is divided by (the
+        # SR830's DDEF ratio, X ÷ AUX In 1); empty: none. A denominator of 0 V records 0.
+        "ratio1": "",  # what trace 1 is divided by (empty: nothing)
+        "ratio2": "",  # what trace 2 is divided by
+        "ratio3": "",  # what trace 3 is divided by
+        "ratio4": "",  # what trace 4 is divided by
         "rate": 1.0,  # Hz, samples per second (0: one point per trigger)
         "end": "SHOT",  # SHOT: stop when full | LOOP: keep the newest `capacity` points
         "capacity": 16383,  # points per trace
@@ -101,7 +107,12 @@ class CurveBuffer(Component):
             if not spec:
                 continue
             points = self._points[i]
-            points.append(self._value(spec, t_ns))
+            value = self._value(spec, t_ns)
+            ratio = self.param(f"ratio{i + 1}")
+            if ratio:
+                den = self._value(ratio, t_ns)
+                value = value / den if den else 0.0
+            points.append(value)
             if len(points) > capacity:
                 del points[0]
         self._taken += 1

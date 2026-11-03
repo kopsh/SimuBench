@@ -480,6 +480,9 @@ components:
     params:
       trace1: {from: $display.quantity1, map: {"0": demod.X, "1": demod.R, "2": demod.XNOISE, "3": aux.AUX1, "4": aux.AUX2}}
       trace2: {from: $display.quantity2, map: {"0": demod.Y, "1": demod.THETA, "2": demod.YNOISE, "3": aux.AUX3, "4": aux.AUX4}}
+      # DDEF 的比值同样作用于存储的曲线（显示值即存储值，手册 5-8、5-12，#390）
+      ratio1: {from: $display.ratio1, map: {"0": "", "1": aux.AUX1, "2": aux.AUX2}}
+      ratio2: {from: $display.ratio2, map: {"0": "", "1": aux.AUX3, "2": aux.AUX4}}
       rate:
         from: $buffer.rate
         table: {0: 0.0625, 1: 0.125, 2: 0.25, 3: 0.5, 4: 1.0, 5: 2.0, 6: 4.0, 7: 8.0, 8: 16.0, 9: 32.0, 10: 64.0, 11: 128.0, 12: 256.0, 13: 512.0, 14: 0.0}
@@ -638,13 +641,19 @@ commands:
   - header: OUTR
     set: false
     op: demod.measure_display
-    args: {target: {from: $display.quantity1, map: {0: demod.X, 1: demod.R, 2: demod.XNOISE, 3: aux.AUX1, 4: aux.AUX2}}}
+    args:
+      target: {from: $display.quantity1, map: {0: demod.X, 1: demod.R, 2: demod.XNOISE, 3: aux.AUX1, 4: aux.AUX2}}
+      # DDEF 1,j,k 的比值（手册 5-8）：k = 1、2 时显示量除以 AUX In 1、2（#390）
+      ratio: {from: $display.ratio1, map: {0: "", 1: aux.AUX1, 2: aux.AUX2}}
     when: {i: "1"}
     params: [{name: i, type: int, min: 1, max: 2}]
   - header: OUTR
     set: false
     op: demod.measure_display
-    args: {target: {from: $display.quantity2, map: {0: demod.Y, 1: demod.THETa, 2: demod.YNOISE, 3: aux.AUX3, 4: aux.AUX4}}}
+    args:
+      target: {from: $display.quantity2, map: {0: demod.Y, 1: demod.THETa, 2: demod.YNOISE, 3: aux.AUX3, 4: aux.AUX4}}
+      # DDEF 2,j,k：k = 1、2 时除以 AUX In 3、4（手册 5-8，#390）
+      ratio: {from: $display.ratio2, map: {0: "", 1: aux.AUX3, 2: aux.AUX4}}
     when: {i: "2"}
     params: [{name: i, type: int, min: 1, max: 2}]
   # ---- data storage (manual 5-12 – 5-18, #273) ------------------------------------------------

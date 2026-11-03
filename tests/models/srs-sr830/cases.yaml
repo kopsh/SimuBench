@@ -327,6 +327,29 @@ cases:
       - query: "SPTS?"
         expect: "0"
 
+  - name: "DDEF 的比值作用于 OUTR? 与存储的曲线：X ÷ AUX In 2（#390）"
+    manual: "5-8 > DDEF（k：0 无、1 Aux In 1、2 Aux In 2）；5-16 > OUTR?（显示值）；5-12 > 存储显示值"
+    steps:
+      - send: "AUXV 2,2.0"
+      - query: "OUTR? 1"
+        expect: "+6.96681616E-01"
+      - send: "DDEF 1,0,2"
+      - query: "OUTR? 1"
+        expect: "+3.48689149E-01"
+      - send: "SRAT 14;SEND 0;STRT;TRIG"
+      - query: "TRCA? 1,0,1"
+        expect: "+3.48689149E-01,"
+      - send: "DDEF 1,0,0"
+      - query: "OUTR? 1"
+        expect: "+6.96681616E-01"
+
+  - name: "比值的分母为 0 V 时显示 0（平台规则，手册未写，#390）"
+    manual: "5-8 > DDEF；AUX In 1 未接（0 V）"
+    steps:
+      - send: "DDEF 1,0,1"
+      - query: "OUTR? 1"
+        expect: "+0.00000000E+00"
+
   - name: "数据存储：显示量决定曲线，TSTR 由触发启动扫描，二进制读取（#273）"
     manual: "5-8 > DDEF；5-13 > TSTR；5-16 – 5-17 > TRCB? / TRCL?"
     steps:
