@@ -126,3 +126,35 @@ def test_polarity_inverts_the_output(awg):
     out = awg.instruments["awg"].components["ch1.out"]
     w(awg, "OUTP:POL INV")
     assert out.param("invert") is True
+
+
+@pytest.mark.parametrize(
+    ("command", "error"),
+    [
+        # 33500-90901 DATA:ARBitrary: <arb_name> is an unquoted string of up to 12 characters
+        ("DATA:ARB abcdefghijklm,1,1,1,1,-1,-1,-1,-1", '-224,"Illegal parameter value"'),
+        # a name already in volatile memory: +786 (clearing the memory is the only way to delete)
+        ("DATA:ARB SQ8,1,1,1,1,-1,-1,-1,-1", '+786,"Specified arb waveform already exists"'),
+    ],
+    ids=["name-over-12", "name-exists"],
+)
+def test_arb_names_follow_the_guide(awg, command, error):
+    """#430: the error queue holds the guide's error for a bad name; the memory is unchanged."""
+    w(awg, "DATA:ARB sq8,1,1,1,1,-1,-1,-1,-1")
+    w(awg, command)
+    assert q(awg, "SYST:ERR?") == error
+    assert q(awg, "DATA:VOL:CAT?") == '"sq8"'
+
+
+def test_reset_and_clear_return_to_the_default_arb(awg):
+    """#430: *RST plays the default waveform again but keeps volatile memory (Factory Reset State's
+    Arb); DATA:VOL:CLE of the waveform playing is no error and reloads the default."""
+    w(awg, "DATA:ARB sq8,1,1,1,1,-1,-1,-1,-1;:FUNC:ARB sq8")
+    w(awg, "*RST")
+    assert q(awg, "FUNC:ARB?") == '""'
+    assert q(awg, "DATA:VOL:CAT?") == '"sq8"'
+    w(awg, "FUNC:ARB sq8")
+    w(awg, "DATA:VOL:CLE")
+    assert q(awg, "SYST:ERR?") == '+0,"No error"'
+    assert q(awg, "FUNC:ARB?") == '""'
+    assert q(awg, "DATA:VOL:CAT?") == '""'
