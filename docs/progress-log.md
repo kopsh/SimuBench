@@ -1055,3 +1055,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 规则 | ✅ 绑定词参数的 bool 设置，其映射同时写出 True/False（或 1/0）时按词逐个校验，值为嵌套映射时留到运行时（Trueform 每种调制一个开关，`awg_modulator.type` 按一串 bool 映射取词） |
 | 测试 | ✅ `tests/test_bool_mapped_words.py`：两值映射与嵌套映射通过；直接绑定 bool、只写一个值、未知词仍报 E-DEF-PARAM-VALUE |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## HiSLIP：两个会话时应答被另一会话取走（Issue 431）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 原因 | ✅ 同步通道把写入与取应答分成两次引擎调用，应答队列按仪器共用：会话 B 取完应答后的那次「空读」若排在会话 A 写入之后，就取走 A 的应答，A 超时（`test_two_sessions_and_a_held_query` 在并行负载下间歇失败；超时放宽到 5 s 仍失败，排除了超时过紧） |
+| 修复 | ✅ DataEnd 改用 `Session.exchange`（#121）：写入与全部应答在一次加锁的动作里取出，再逐条发送；中断与设备清除处理不变 |
+| 检查 | ✅ `scripts/check.sh` 连续三次全绿；HiSLIP 与验收测试 8 进程并行通过 |
