@@ -805,3 +805,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 复现步骤读数为电阻与电压各自的值；混合扫描与 `CONF?` 通道列表形式有用例 | ✅ `tests/test_keysight_34970a.py::test_one_scan_mixes_resistance_and_voltage_channels`（两线与四线电阻 + DCV 同一扫描表、NPLC 按通道、`CONF? (@101,102)`）；手册用例新增「电阻、电压、电流混合扫描与 CONF?」；两条旧用例按手册改为按通道的期望（只设 101 的量程不改 102；CONFigure 只改列表中的通道） |
 | 覆盖表与 component-map 的「全局」说明同步 | ✅ 覆盖表 CONFigure/SENSe/INPut 的说明改为按通道，新增 `CONFigure?`；component-map 的 scan_table 行去掉「每通道测量配置」债务 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 未建模的参数词与 INFinity 的错误码（Issue 360）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 同一关键字长短形式同码 | ✅ `scpi/values.py` 的数值关键字加入 INFINITY、NINFINITY（与 INF、NINF 同义）；`tests/test_not_modeled_words.py`：两种形式解析相同，未声明时有界设置上都是 -222 |
+| 定义层能拒绝特定词并给原因 | ✅ 设置与参数的 `not_modeled: {词: 原因}`（D53）：写该词报 -224、事件 reason `not_modeled`；34970A 与 34465A 的 `TRIGger:COUNt` 声明 INFinity，`TRIG:COUN INF/INFinity/infinity` 都回 -224，超出范围的数仍是 -222；覆盖表同步；schemas 与 Web API 类型已重新生成 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

@@ -2881,6 +2881,13 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Not Modeled
+             * @description Words the real instrument takes for this parameter but the model does not implement, with the reason (as on a setting, #360); refused with -224 as not modeled
+             */
+            not_modeled?: {
+                [key: string]: string;
+            } | null;
+            /**
              * Optional
              * @default false
              */
@@ -3796,6 +3803,13 @@ export interface components {
             max?: number | null;
             /** Min */
             min?: number | null;
+            /**
+             * Not Modeled
+             * @description Words the real instrument takes for this setting but the model does not implement, with the reason, e.g. {INFinity: continuous scanning is not modeled} (SCPI mixed case: the short and the long form both match). Writing one is refused with -224 as not modeled, instead of being parsed as a number and rejected as out of range (#360)
+             */
+            not_modeled?: {
+                [key: string]: string;
+            } | null;
             /**
              * Option Labels
              * @description How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}
