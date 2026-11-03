@@ -365,12 +365,12 @@ sections:
   - header: OUTPut:COUPle:MAX:DOFFset
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
-  - header: OUTPut:DELay:FALL
-    level: not_modeled
-    note: 输出开/关时序延时未实现（power_output 没有按通道的延时，#540）。
-  - header: OUTPut:DELay:RISE
-    level: not_modeled
-    note: 输出开/关时序延时未实现（power_output 没有按通道的延时，#540）。
+  - header: OUTPut[:STATe]:DELay:FALL
+    level: implemented
+    note: 通道列表必需；0–1023 s，*RST 0：关输出前等待该时间（计入虚拟时间，期间输出仍导通）；保护动作关输出不受影响（#540）。
+  - header: OUTPut[:STATe]:DELay:RISE
+    level: implemented
+    note: 通道列表必需；0–1023 s，*RST 0：开输出前等待该时间，再加继电器的动作时间（#540）。
   - header: OUTPut:PMODE
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。

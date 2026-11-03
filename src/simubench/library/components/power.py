@@ -113,6 +113,8 @@ class PowerOutput(Component):
         "remote_sense": False,  # regulate the sense pair instead of the force terminals
         "r_out": 1.0e-3,  # output impedance of the pass stage, ohm (parallel outputs stay solvable)
         "relay_s": 0.01,  # s from switching the output on to the relay closing
+        "rise_delay": 0.0,  # s the output waits before turning on, added to relay_s (#540)
+        "fall_delay": 0.0,  # s the output stays on after being switched off; a trip is immediate (#540)
         "loop": "",  # this channel's output_control_loop (the reused B1 loop)
         "stage": "",  # this channel's power_stage (the envelope)
         "protection": "",  # this channel's supply_protection (the trip latch)
@@ -185,14 +187,19 @@ class PowerOutput(Component):
         bound = {v: k for k, v in self.bound_paths().items()}
         key = bound.get(path)
         if key == "output":
+            assert self.owner is not None
             if new:
                 if self._protection().tripped():
                     raise ScpiError(OUTPUT_DISABLED, "the output is disabled by a protection fault")
                 self._open()
-                assert self.owner is not None
-                when = self.owner.now_ns() + round(float(self.param("relay_s")) * 1e9)
+                delay = float(self.param("rise_delay") or 0.0) + float(self.param("relay_s"))
+                when = self.owner.now_ns() + round(delay * 1e9)
                 self.owner.register_pending(self.relay_key, when, self._close)
                 self._relay_pending = True
+            elif float(self.param("fall_delay") or 0.0) > 0 and self._closed:
+                # the output stays on until the fall delay has elapsed (#540)
+                when = self.owner.now_ns() + round(float(self.param("fall_delay")) * 1e9)
+                self.owner.register_pending(self.relay_key, when, self._open)
             else:
                 self._open()
         elif key == "remote_sense":

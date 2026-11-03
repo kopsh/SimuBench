@@ -137,6 +137,27 @@ def test_remote_sense_regulates_past_the_leads():
         s.close()
 
 
+def test_rise_and_fall_delays_sequence_the_outputs():
+    """#540: channel 1 turns on at once, channel 3 0.5 s later; turning both off, channel 3 holds
+    for its 0.2 s fall delay. The relay's 10 ms comes on top of the rise delay."""
+    parts, wires = load(1, 10.0)
+    p3, w3 = load(3, 10.0)
+    s, q = session({**parts, **p3}, wires + w3)
+    try:
+        q("VOLT 5,(@1,3);:CURR 1,(@1,3);:OUTP:DEL:RISE 0.5,(@3);:OUTP:DEL:FALL 0.2,(@3)")
+        q("OUTP ON,(@1,3)")
+        s.advance(0.011)
+        assert [float(x) > 4.9 for x in q("MEAS:VOLT? (@1,3)").split(",")] == [True, False]
+        s.advance(0.5)
+        assert [float(x) > 4.9 for x in q("MEAS:VOLT? (@1,3)").split(",")] == [True, True]
+        q("OUTP OFF,(@1,3)")
+        assert [float(x) > 4.9 for x in q("MEAS:VOLT? (@1,3)").split(",")] == [False, True]
+        s.advance(0.21)
+        assert [float(x) > 4.9 for x in q("MEAS:VOLT? (@1,3)").split(",")] == [False, False]
+    finally:
+        s.close()
+
+
 def test_ovp_latches_until_cleared():
     s, q = session(*load(1, 10.0))
     try:
