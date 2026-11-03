@@ -26,6 +26,8 @@ format:
   digits: 14
   sign: true
   exponent_digits: 3
+  # 读数与统计也按这一格式（Table 7-1 的 ASCII 读数，#366）。
+  readings: format
   boolean: numeric
   enum: short
   error_code: signed
