@@ -43,14 +43,17 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
 1. **Claim** the issue: comment "working on this" first, so two agents don't do the same task.
 2. **Branch** from the latest `main`: `issue-<number>-<short-name>`.
 3. **Stay in scope**: change only what the issue asks for.
-4. **Check** before every push: merge the latest `main` into the branch, then run `scripts/check.sh`
-   (lint, format, tests, generated schemas and API types). If the full test run exceeds 60 s, fix
-   that immediately as part of the current task: profile with `pytest --durations`, address the
-   slowest cases (waits, timeouts) or add parallelism — never leave the overrun for a later issue.
+4. **Check** before every push: run `scripts/check.sh` (lint, format, tests, generated schemas and
+   API types). Merging the latest `main` into the branch first is optional — when the branch is
+   behind, the merge bot merges `main` into it and re-runs CI itself (#481). If the full test run
+   exceeds 60 s, fix that immediately as part of the current task: profile with
+   `pytest --durations`, address the slowest cases (waits, timeouts) or add parallelism — never
+   leave the overrun for a later issue.
 5. **Pull request** into `main` with `Closes #<number>` in the description. It is squash-merged
-   and its branch deleted once CI is green on its latest commit and that commit contains the
-   latest `main` (otherwise merge `main` and push again); open it as a draft if it is not ready
-   yet. If CI fails, push a fix: the new commit runs CI again. Pull requests run the fast checks
+   and its branch deleted once CI is green on its latest commit that contains the latest `main`;
+   when `main` has moved, the merge bot merges it into the branch, re-runs CI, and merges — only
+   a merge conflict comes back to the agent. Open it as a draft if it is not ready yet. If CI
+   fails, push a fix: the new commit runs CI again. Pull requests run the fast checks
    (ubuntu: Python and web); Windows, the wheel, end-to-end and visual tests run on `main` after
    the merge, and a red one there is fixed first, before new work.
 6. Never push to `main` directly, and never weaken, skip or delete tests to get CI green.
