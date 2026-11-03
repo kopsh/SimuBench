@@ -104,7 +104,7 @@ B1(#184)已拆分:`sb-smu-1` 由 `smu_source`、`output_control_loop`、`smu_out
 | --- | --- | --- | --- | --- |
 | setpoint_dac | `power_supply_setpoint` | 设置/数据(每路电压/电流与量程上限) | 已实现 | — |
 | cv_cc_loop | `output_control_loop` | 电路(CV/CC 交叉;复用 B1 的限值切换环) | 已实现 | — |
-| power_stage | `power_stage` | 电路/数据(v_max、i_max、p_max 包络) | 已实现 | — |
+| power_stage | `power_stage` | 电路/数据(v_max、i_max、p_max 包络;超过 p_max 时 `power_output` 按恒功率工作,回报 CP,#533) | 已实现 | — |
 | output_stage | `power_output` | 电路(继电器,动作时间计入虚拟时间;sense;输出阻抗) | 已实现 | — |
 | readback_adc | `supply_readback` | 数据(电压/电流/功率回读与 CV/CC 状态;`condition` 操作按 0/1/2 回读,#271) | 已实现 | — |
 | protection | `supply_protection` | 设置/数据(OVP/OCP 阈值、锁定与恢复;OCP 按 CC 持续时间跳闸,延迟起点 SCHange/CCTRans;按种类查询与清除,#271) | 已实现 | 保护只在模式迭代稳定后判断(#271 修复:提高电流限值时不再误报 OVP) |
