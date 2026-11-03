@@ -195,15 +195,24 @@ class _Control:
             sp.start_settling()
 
     def output_changed(self, key: str, old: Any, new: Any, sp: Any) -> None:
-        """A change of the output settings while operating: above ``standby_above`` (old or new) it
-        returns the instrument to standby, otherwise the new value is settled to."""
+        """A change of the output settings while operating returns the instrument to standby when
+        the model's rule says so, otherwise the new value is settled to. ``standby_rule`` either
+        (5522A: old or new above ``standby_above``) or crossing (5730A: the new output at or above
+        it while the old one was below, #553); ``standby_on_function``: any change of function."""
         was_on = self.on()
+        if was_on and key == "function" and _flag(self.param("standby_on_function")) and old != new:  # type: ignore[attr-defined]
+            self._set_operate(False)
+            return
         sa = self.param("standby_above")  # type: ignore[attr-defined]
         level = float(sp.param("level"))
         if was_on and sa is not None:
-            lo = float(old) if key == "level" else level
-            ln = float(new) if key == "level" else level
-            if abs(lo) > float(sa) or abs(ln) > float(sa):
+            lo = abs(float(old) if key == "level" else level)
+            ln = abs(float(new) if key == "level" else level)
+            if str(self.param("standby_rule") or "either").lower() == "crossing":  # type: ignore[attr-defined]
+                to_standby = ln >= float(sa) > lo
+            else:
+                to_standby = lo > float(sa) or ln > float(sa)
+            if to_standby:
                 self._set_operate(False)
                 return
         if self.on():
@@ -299,6 +308,8 @@ class CalibratorControl(_Control, Component):
         "z_out": 0.0,  # ohm, output impedance (0: an ideal source)
         "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
+        "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
+        "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "setpoint": "",  # the calibrator_setpoint this control operates
     }
@@ -358,6 +369,8 @@ class CalibratorOutput(_Setpoint, _Control, Component):
         "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
         "settle": 1.0,  # s until a new value is reached, or a table per function
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
+        "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
+        "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)
