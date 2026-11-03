@@ -393,3 +393,60 @@ def test_configure_resistance_then_scan_two_channels():
         assert numbers(q(s, "READ?")) == pytest.approx([0.0], abs=1e-6)
     finally:
         s.close()
+
+
+# ---- per-channel measurement configuration (#365) ------------------------------------------------
+
+
+def test_one_scan_mixes_resistance_and_voltage_channels():
+    """The #365 reproduction: CONF:VOLT on 102 must not turn 101's resistance into a voltage."""
+    bench = _bench(
+        {
+            "lead": {"type": "resistor", "params": {"r": 10.0}},
+            "dut": {"type": "load_resistor", "params": {"r": 1000.0}},
+            "v2": {"type": "dc_supply", "params": {"v": 2.5, "r": 1.0e-6}},
+        },
+        [
+            {"from": "daq.H101", "to": "lead.A"},
+            {"from": "lead.B", "to": "dut.A"},
+            {"from": "daq.L101", "to": "v0.OUT"},
+            {"from": "daq.H111", "to": "dut.A"},
+            {"from": "daq.L111", "to": "v0.OUT"},
+            {"from": "daq.H102", "to": "v2.OUT"},
+            {"from": "daq.L102", "to": "v0.OUT"},
+        ],
+    )
+    s = open_bench(bench)
+    try:
+        assert q(s, "CONF:RES (@101)") is None
+        assert q(s, "CONF:VOLT:DC (@102)") is None
+        assert q(s, "ROUT:SCAN (@101,102)") is None
+        assert numbers(q(s, "READ?")) == pytest.approx([1011.0, 2.5], rel=1e-5)
+        assert q(s, "CONF? (@101)").startswith('"RES ')
+        assert q(s, "CONF? (@102)").startswith('"VOLT ')
+        # Four-wire on 101 (sense on 111) in the same scan as the voltage on 102: the sense bus is
+        # switched for 101 only, and the test current is off while 102 is read.
+        assert q(s, "CONF:FRES (@101)") is None
+        assert q(s, "ROUT:SCAN (@101,102)") is None
+        assert numbers(q(s, "READ?")) == pytest.approx([1000.0, 2.5], rel=1e-5)
+        # A per-channel setting stays with its channel.
+        assert q(s, "SENS:VOLT:DC:NPLC 10,(@102)") is None
+        assert q(s, "SENS:VOLT:DC:NPLC? (@101,102)") == "+1.00000000E+00,+1.00000000E+01"
+        assert q(s, "MEAS:VOLT:DC? (@102)") is not None
+        assert q(s, "CONF? (@101,102)").count('"') == 4  # two quoted entries, list order
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
+def test_a_scan_takes_each_channels_own_reading_time():
+    """101 at 1 PLC (21 ms) and 102 at 10 PLC (201 ms), each after the 3 ms relay settling."""
+    s = session()
+    try:
+        assert q(s, "SENS:VOLT:DC:NPLC 10,(@102);:ROUT:SCAN (@101,102)") is None
+        t0 = s.now_ns
+        assert len(numbers(q(s, "READ?"))) == 2
+        expected = 2 * RELAY_SETTLE_S + DMM_READING_S + 0.201
+        assert (s.now_ns - t0) / 1e9 == pytest.approx(expected, abs=1e-3)
+    finally:
+        s.close()

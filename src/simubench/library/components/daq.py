@@ -300,6 +300,11 @@ class ScanTable(Component):
         "mux": "",  # the mux_card that closes the channels
         "dmm": "",  # the dmm_adc that takes each reading
         "backplane": "",  # the daq_backplane that validates the channel numbers
+        # Per-channel measurement configuration (#365): channel setting -> the instrument setting
+        # the internal DMM reads, e.g. {function: sense.function, nplc: sense.nplc}. Before a
+        # channel is checked or read, its own values (ch<n>.<key>) are loaded into the DMM's.
+        "channel_settings": {},
+        "function_setting": "",  # the channel setting CONFigure? names first (e.g. function)
     }
     units = {"interval": "S"}
 
@@ -321,6 +326,14 @@ class ScanTable(Component):
         assert self.owner is not None
         return self.owner.components[str(self.param("backplane"))]  # type: ignore[return-value]
 
+    def configure_for(self, index: int) -> None:
+        """Load channel ``index``'s own measurement configuration into the internal DMM (#365)."""
+        assert self.owner is not None
+        for key, target in (self.param("channel_settings") or {}).items():
+            value = self.owner.get_state(f"ch{index}.{key}")
+            if self.owner.get_state(target) != value:
+                self.owner.set_state(target, value, source="scpi", internal=True)
+
     def channels(self) -> list[int]:
         """The scan list as a list of channel indexes, in list order."""
         assert self.owner is not None
@@ -331,7 +344,8 @@ class ScanTable(Component):
             numbers = sorted(numbers)
         for number in numbers:
             self._backplane().check_channel(number)
-        for number in numbers:  # every channel exists: now whether it can take the function
+        for number in numbers:  # every channel exists: now whether it can take its function
+            self.configure_for(self.owner.channel_index(number))
             self._mux().check_function(number)
         return [self.owner.channel_index(number) for number in numbers]
 
@@ -342,9 +356,22 @@ class ScanTable(Component):
         return len(self.channels()) * max(1, int(self.param("count")))
 
     def sample_time_ns(self) -> int:
-        """One reading of a scan: the relay settling time plus the DMM's own reading time."""
-        settle = float(self._mux().param("relay_settle"))
-        return round(settle * 1e9) + self._dmm().sample_time_ns()
+        """One reading of a scan: the relay settling time plus the DMM's own reading time. With
+        per-channel configurations (#365) the channels' reading times differ (each its own NPLC);
+        the trigger model spaces a run's readings evenly, so this is their mean over the list —
+        the scan as a whole takes exactly the sum."""
+        settle = round(float(self._mux().param("relay_settle")) * 1e9)
+        if not self.param("channel_settings"):
+            return settle + self._dmm().sample_time_ns()
+        try:
+            channels = self.channels()
+        except ScpiError:
+            return settle + self._dmm().sample_time_ns()
+        times = []
+        for index in channels:
+            self.configure_for(index)
+            times.append(self._dmm().sample_time_ns())
+        return settle + round(sum(times) / len(times))
 
     def run_begin(self) -> None:
         self.channels()  # validate the list before the first relay moves
@@ -358,6 +385,7 @@ class ScanTable(Component):
         index_channel = channels[index % len(channels)]
         self._scan = index // len(channels) + 1
         self._mux().open_all()
+        self.configure_for(index_channel)
         self._mux().close_channel(index_channel)
         assert self.owner is not None
         self._channel = self.owner.channel_number(index_channel)
@@ -367,6 +395,17 @@ class ScanTable(Component):
 
     def sample_fields(self, index: int) -> dict[str, float]:
         return {"CHAN": float(self._channel), "SCAN": float(self._scan)}
+
+    @op("configuration")
+    def op_configuration(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``CONFigure? (@101)``: the channel's function, range and resolution as one quoted string,
+        ``"VOLT +1.00000000E+01,+3.00000000E-06"`` (the DMM's CONFigure? for that channel)."""
+        assert self.owner is not None and channel is not None
+        self.configure_for(channel)
+        key = str(self.param("function_setting"))
+        word = str(self.owner.get_state(f"ch{channel}.{key}")) if key else ""
+        detail = self._dmm().op_configure().response or b""
+        return OpResult(b'"' + (word.encode() + b" " if word else b"") + detail + b'"')
 
     # ---- panel / status --------------------------------------------------------------------------
 
