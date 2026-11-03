@@ -353,3 +353,44 @@ cases:
         expect: '"VOLT +1.00000000E+01,+3.00000000E-05","RES +1.00000000E+03,+3.00000000E-03","CURR +1.00000000E-02,+3.00000000E-08"'
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: "量程与分辨率的关键字 AUTO/MIN/MAX/DEF（#354）"
+    manual: "Measurement Configuration（{<range>|AUTO|MIN|MAX|DEF}）；p.130 示例 CONF:VOLT:DC 10,DEF,(@301)"
+    steps:
+      - send: "CONF:VOLT:DC MAX,(@101)"
+      - query: "SENS:VOLT:DC:RANG? (@101)"
+        expect: "+3.00000000E+02"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "0"
+      - send: "CONF:VOLT:DC MIN,MIN,(@101)"
+      - query: "SENS:VOLT:DC:RANG? (@101)"
+        expect: "+1.00000000E-01"
+      - query: "SENS:VOLT:DC:NPLC? (@101)"
+        expect: "+2.00000000E+02"
+      - send: "CONF:VOLT:DC 10,DEF,(@101)"
+      - query: "CONF? (@101)"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05"'
+      - query: "MEAS:VOLT:DC? AUTO,MIN,(@101)"
+        expect_match: '^\+9\.09\d+E-01$'
+      - query: "MEAS:VOLT:DC? MAX,(@102)"
+        expect_match: '^\+1\.81800000E\+00$'
+      - send: "CONF:RES MAX,(@104)"
+      - send: "CONF:RES AUTO,(@104)"
+      - send: "CONF:CURR:AC MIN,(@121)"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "TRIGger:COUNt 的连续扫描关键字 INFinity：真机接受、模型未建模，两词同回 -224（#310，#360 统一）"
+    manual: "Scan count（p.117）：语法 {<count>|MIN|MAX|INFinity}；连续扫描未建模，INF 与 INFinity 同回 -224 由 #360 落地"
+    steps:
+      - send: "TRIG:COUN INFinity"
+      - query: "SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "TRIG:COUN INF"
+      - query: "SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "TRIG:COUN MAX"
+      - query: "TRIG:COUN?"
+        expect: "50000"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

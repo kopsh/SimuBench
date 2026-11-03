@@ -130,3 +130,29 @@ def test_a_single_sweep_takes_the_manual_sweep_time():
         assert q(s, ":INIT:CONT?") == "0"
     finally:
         s.close()
+
+
+def test_delta_marker_starts_at_zero_when_the_marker_was_off():
+    """Entering DELTa with the marker off turns the marker on first (screen center) and fixes
+    the reference there: Y? and X:DELT? start at 0, and the same sequence reads identically in
+    two sessions (issue #349: the reference used to be fixed at the stale off-marker position)."""
+    readings = []
+    for _ in range(2):
+        s = session()
+        try:
+            readings.append(
+                [
+                    q(s, ":CALC:MARK:MODE DELT"),
+                    q(s, ":CALC:MARK:Y?"),
+                    q(s, ":CALC:MARK:X:DELT?"),
+                    q(s, ":CALC:MARK:X 11 MHz"),
+                    q(s, ":CALC:MARK:Y?"),
+                ]
+            )
+        finally:
+            s.close()
+    first, second = readings
+    assert first == second  # deterministic across sessions
+    assert first[0] is None and first[3] is None  # the writes answer nothing
+    assert first[1] == first[2] == "+0.0000000000000000E+000"
+    assert float(first[4]) < -100  # off the 10 MHz reference, at the 11 MHz noise floor

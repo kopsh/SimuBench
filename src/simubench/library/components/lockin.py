@@ -810,6 +810,19 @@ class LockinOutput(Component):
         self.overload()
         return OpResult(self.reply_number(self._value(what, self.xy()), 8))
 
+    @op("measure_display")
+    def op_measure_display(self, target: str = "", **_: Any) -> OpResult:
+        """OUTR? i (SR830 manual 5-16): the value display channel i shows — the quantity its DDEF
+        picks. ``target`` is the definition's ``<component>.<quantity>`` for that setting, the same
+        sources a ``curve_buffer`` trace reads (X/R/XNoise and AUX1/2 on CH1, Y/θ/YNoise and
+        AUX3/4 on CH2)."""
+        name, _, quantity = str(target).partition(".")
+        comp = self.owner.components.get(name) if self.owner is not None else None
+        if comp is None or not hasattr(comp, "trace_value"):
+            raise ScpiError(-224, f"{target!r} is not a display quantity")
+        self.overload()
+        return OpResult(self.reply_number(comp.trace_value(quantity, self.session.now_ns), 8))
+
     @op("snap")
     def op_snap(self, names: list[bytes] | None = None, **_: Any) -> OpResult:
         items = [V.parse_string(r).strip() for r in names or []]

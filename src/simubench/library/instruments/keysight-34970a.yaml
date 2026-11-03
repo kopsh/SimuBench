@@ -171,6 +171,7 @@ channel_state:
     max: 1.0e8
     default: 0.0
     rst: 0.0
+    special: {AUTO: 0.0}
     label: 电阻量程设定
     label_en: Resistance range setting
   curr_range:
@@ -180,6 +181,7 @@ channel_state:
     max: 1.0
     default: 0.0
     rst: 0.0
+    special: {AUTO: 0.0}
     label: 电流量程设定
     label_en: Current range setting
   range_auto:
@@ -514,19 +516,23 @@ commands:
   # ---- CONFigure / MEASure（#300）：命令头选功能，量程参数关闭自动量程，通道列表整表写进扫描表；
   #      MEASure? 再按扫描表跑一次扫描、回读数（与 READ? 同一路径）。功能、量程与分辨率写进列表中
   #      每个通道自己的配置（ch.*，#365），扫描到该通道时装入内部 DMM。
+  #      量程与分辨率的关键字（#354，语法 {<range>|AUTO|MIN|MAX|DEF}，用户指南 p.130 示例
+  #      CONF:VOLT:DC 10,DEF,(@301)）：AUTO 走设置的 special 字（存 0，保持自动量程），DEF 是默认
+  #      （同自动）；量程的 MIN/MAX 是模型保留的两端（真机 DC 到 1000 V、AC 到 750 V，模型上限
+  #      300 V，电阻 100 Ω–100 MΩ 按手册 p.144），分辨率的 MIN/MAX 选 NPLC 表的两端（最细/最粗）。
   - header: "CONFigure:VOLTage[:DC]"
     query: false
     writes: {ch.function: VOLT, ch.range_auto: true}
     params:
-      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.range: 0.1, ch.range_auto: false}, MAX: {ch.range: 300.0, ch.range_auto: false}, DEF: {ch.range: 0.0}}}
+      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "CONFigure:VOLTage:AC"
     query: false
     writes: {ch.function: "VOLT:AC", ch.range_auto: true}
     params:
-      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.range: 0.1, ch.range_auto: false}, MAX: {ch.range: 300.0, ch.range_auto: false}, DEF: {ch.range: 0.0}}}
+      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "MEASure:VOLTage[:DC]"
     op: rd.read
@@ -534,8 +540,8 @@ commands:
     writes: {ch.function: VOLT, ch.range_auto: true}
     args: {elements: [READ]}
     params:
-      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.range: 0.1, ch.range_auto: false}, MAX: {ch.range: 300.0, ch.range_auto: false}, DEF: {ch.range: 0.0}}}
+      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "MEASure:VOLTage:AC"
     op: rd.read
@@ -543,8 +549,8 @@ commands:
     writes: {ch.function: "VOLT:AC", ch.range_auto: true}
     args: {elements: [READ]}
     params:
-      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: V, optional: true, state: ch.range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.range: 0.1, ch.range_auto: false}, MAX: {ch.range: 300.0, ch.range_auto: false}, DEF: {ch.range: 0.0}}}
+      - {name: resolution, type: float, unit: V, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   # ---- 电阻与电流（#301）：读数由电路求解（总线上的测试电流、电流通道的分流电阻）。四线电阻只能
   #      用通道 1–10（n+10 作检测），电流只能用 21/22；不符合的通道在扫描开始时报 -221。
@@ -552,8 +558,8 @@ commands:
     query: false
     writes: {ch.function: "RES", ch.res_range: 0.0, ch.range_auto: true}
     params:
-      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.res_range: 100.0, ch.range_auto: false}, MAX: {ch.res_range: 1.0e8, ch.range_auto: false}, DEF: {ch.res_range: 0.0}}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "MEASure:RESistance"
     op: rd.read
@@ -561,15 +567,15 @@ commands:
     writes: {ch.function: "RES", ch.res_range: 0.0, ch.range_auto: true}
     args: {elements: [READ]}
     params:
-      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.res_range: 100.0, ch.range_auto: false}, MAX: {ch.res_range: 1.0e8, ch.range_auto: false}, DEF: {ch.res_range: 0.0}}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "CONFigure:FRESistance"
     query: false
     writes: {ch.function: "FRES", ch.res_range: 0.0, ch.range_auto: true}
     params:
-      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.res_range: 100.0, ch.range_auto: false}, MAX: {ch.res_range: 1.0e8, ch.range_auto: false}, DEF: {ch.res_range: 0.0}}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "MEASure:FRESistance"
     op: rd.read
@@ -577,15 +583,15 @@ commands:
     writes: {ch.function: "FRES", ch.res_range: 0.0, ch.range_auto: true}
     args: {elements: [READ]}
     params:
-      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: OHM, optional: true, state: ch.res_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.res_range: 100.0, ch.range_auto: false}, MAX: {ch.res_range: 1.0e8, ch.range_auto: false}, DEF: {ch.res_range: 0.0}}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "CONFigure:CURRent[:DC]"
     query: false
     writes: {ch.function: "CURR", ch.curr_range: 0.0, ch.range_auto: true}
     params:
-      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.curr_range: 0.01, ch.range_auto: false}, MAX: {ch.curr_range: 1.0, ch.range_auto: false}, DEF: {ch.curr_range: 0.0}}}
+      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "MEASure:CURRent[:DC]"
     op: rd.read
@@ -593,15 +599,15 @@ commands:
     writes: {ch.function: "CURR", ch.curr_range: 0.0, ch.range_auto: true}
     args: {elements: [READ]}
     params:
-      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.curr_range: 0.01, ch.range_auto: false}, MAX: {ch.curr_range: 1.0, ch.range_auto: false}, DEF: {ch.curr_range: 0.0}}}
+      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "CONFigure:CURRent:AC"
     query: false
     writes: {ch.function: "CURR:AC", ch.curr_range: 0.0, ch.range_auto: true}
     params:
-      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.curr_range: 0.01, ch.range_auto: false}, MAX: {ch.curr_range: 1.0, ch.range_auto: false}, DEF: {ch.curr_range: 0.0}}}
+      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   - header: "MEASure:CURRent:AC"
     op: rd.read
@@ -609,8 +615,8 @@ commands:
     writes: {ch.function: "CURR:AC", ch.curr_range: 0.0, ch.range_auto: true}
     args: {elements: [READ]}
     params:
-      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}}
-      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution}
+      - {name: range, type: float, unit: A, optional: true, state: ch.curr_range, sets: {ch.range_auto: false}, keywords: {MIN: {ch.curr_range: 0.01, ch.range_auto: false}, MAX: {ch.curr_range: 1.0, ch.range_auto: false}, DEF: {ch.curr_range: 0.0}}}
+      - {name: resolution, type: float, unit: A, optional: true, state: ch.resolution, keywords: {MIN: {ch.resolution: 0.0, ch.nplc: 200.0}, MAX: {ch.resolution: 0.0, ch.nplc: 0.02}, DEF: {ch.resolution: 0.0, ch.nplc: 1.0}}}
       - {name: channels, type: channel_list, state: scan.list}
   # CONFigure? (@list)：每个通道一段带引号的「功能 量程,分辨率」，按列表顺序以逗号连接（#365）。
   - header: "CONFigure"

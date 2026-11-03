@@ -637,14 +637,14 @@ commands:
     params: [{name: i, type: int, min: 1, max: 4}]
   - header: OUTR
     set: false
-    op: demod.measure
-    args: {what: X}
+    op: demod.measure_display
+    args: {target: {from: $display.quantity1, map: {0: demod.X, 1: demod.R, 2: demod.XNOISE, 3: aux.AUX1, 4: aux.AUX2}}}
     when: {i: "1"}
     params: [{name: i, type: int, min: 1, max: 2}]
   - header: OUTR
     set: false
-    op: demod.measure
-    args: {what: Y}
+    op: demod.measure_display
+    args: {target: {from: $display.quantity2, map: {0: demod.Y, 1: demod.THETa, 2: demod.YNOISE, 3: aux.AUX3, 4: aux.AUX4}}}
     when: {i: "2"}
     params: [{name: i, type: int, min: 1, max: 2}]
   # ---- data storage (manual 5-12 – 5-18, #273) ------------------------------------------------
