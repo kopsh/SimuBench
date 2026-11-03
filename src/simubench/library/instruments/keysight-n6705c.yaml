@@ -142,6 +142,23 @@ channel_state:
     default: 60.0
     label: 过压保护
     label_en: OVP level
+  # 输出时序（OUTPut:DELay:RISE/FALL，0–1023 s，*RST 0，#540）
+  rise_delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 1023.0
+    default: 0.0
+    label: 开输出延时
+    label_en: Turn-on delay
+  fall_delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 1023.0
+    default: 0.0
+    label: 关输出延时
+    label_en: Turn-off delay
   ocp_enabled:
     type: bool
     default: false
@@ -241,6 +258,8 @@ channel_components:
       loop: loop
       stage: stage
       protection: prot
+      rise_delay: $ch.rise_delay
+      fall_delay: $ch.fall_delay
   - name: prot
     type: supply_protection
     params:
@@ -287,6 +306,16 @@ commands:
       - {name: state, type: bool, state: "ch.output"}
       - {name: channels, type: channel_list}
     dangerous: true
+  - header: "OUTPut[:STATe]:DELay:RISE"
+    params:
+      - {name: delay, type: float, unit: S, state: "ch.rise_delay"}
+      - {name: channels, type: channel_list}
+    doc: 开输出前等待的时间（加在继电器的动作时间上）。
+  - header: "OUTPut[:STATe]:DELay:FALL"
+    params:
+      - {name: delay, type: float, unit: S, state: "ch.fall_delay"}
+      - {name: channels, type: channel_list}
+    doc: 关输出前等待的时间；保护动作关输出不受它影响。
   # ---- 测量 ----
   - header: "MEASure[:SCALar]:VOLTage[:DC]"
     op: ch.read.measure
