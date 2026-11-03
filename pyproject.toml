@@ -51,6 +51,10 @@ packages = ["src/simubench", "src/pyvisa_simubench"]
 # The built UI, copied in by scripts/build-wheel.sh (git-ignored, so listed as an artifact).
 artifacts = ["src/simubench/web_dist/**"]
 
+[tool.hatch.build.targets.sdist]
+# The vendor manuals are for development only, never distributed (real-models.md 7).
+exclude = ["manuals"]
+
 [tool.ruff]
 line-length = 110
 target-version = "py311"
