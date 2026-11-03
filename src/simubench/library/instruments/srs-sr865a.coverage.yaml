@@ -1,0 +1,473 @@
+# SRS SR865A 的覆盖表（#333）：命令按 SR865A Operation Manual（Revision 2.11，文档号 9-01715-903）
+# 卷首的 SR865A Command List 逐条列出（同一命令在两节出现时只收一次）；程度与说明手写。
+schema: simubench.coverage/1
+model: srs-sr865a
+sections:
+- section: Reference Commands
+  commands:
+  - header: TBMODE
+    level: accepted
+    note: 10 MHz 时基 AUTO/INternal 保存并回读；仿真时基理想，不影响测量。
+    affects_data: false
+  - header: TBSTAT
+    level: implemented
+    note: 当前时基：没有外部 10 MHz 输入，恒为内部（1）。
+  - header: PHAS
+    level: implemented
+    note: 参考相位，度；接受 UDEG/MDEG/DEG/URAD/MRAD/RAD（#383），查询回度。手册允许 ±360000° 并回绕到 ±180°，模型只接受 −180…180°，超出报 EXE（回绕未建模）。
+  - header: APHS
+    level: implemented
+    note: 自动相位：把参考相位设为当前 θ，输出经若干时间常数后 θ → 0。
+  - header: FREQ
+    level: implemented
+    note: 内部参考频率 1 mHz–4 MHz，接受 HZ/KHZ/MHZ；查询回 Hz。外部参考时手册回测得的外部频率，模型回设定值（外部参考锁定到输入频率）。
+  - header: FREQINT
+    level: implemented
+    note: 内部参考频率（与 FREQ 同一设置）。
+  - header: FREQEXT
+    level: implemented
+    note: 参考块当前频率；外部参考时为锁定的输入频率。内部参考时手册回 REF IN 上测得的频率，模型回内部频率。
+  - header: FREQDET
+    level: implemented
+    note: 检测频率 = 谐波 × 参考频率（双参考未建模）。
+  - header: HARM
+    level: implemented
+    note: 检测谐波 1–99。
+  - header: HARMDUAL
+    level: not_modeled
+    note: 双参考未建模。
+  - header: BLADESLOTS
+    level: not_modeled
+    note: 斩波器（SR540）参考未建模。
+  - header: BLADEPHASE
+    level: not_modeled
+    note: 斩波器（SR540）参考未建模。
+  - header: SLVL
+    level: implemented
+    note: 正弦输出幅度 1 nV–2 V rms，接受 NV/UV/MV/V。Standard Settings 显示 0.00 Vrms，模型的复位值为下限 1 nV（3 位显示下同为 0.00）。
+  - header: SOFF
+    level: not_modeled
+    note: 正弦输出直流电平未建模（lockin_reference 没有直流偏置）；OUTP? LEVel 恒为 0。
+  - header: REFM
+    level: not_modeled
+    note: 正弦输出直流方式（共模/差分）未建模。
+  - header: RSRC
+    level: implemented
+    note: 参考源 INT/EXT（0/1）；DUAL、CHOP 未建模，写这两个词报 EXE。
+  - header: RTRG
+    level: implemented
+    note: 外部参考触发 SIN/POSttl/NEGttl：正弦过零与上升沿同为零相位点，下降沿晚半个周期。
+  - header: REFZ
+    level: implemented
+    note: 外部参考输入阻抗 50 Ω / 1 MΩ，进入电路。
+  - header: PSTF
+    level: not_modeled
+    note: 前面板预置频率键未建模。
+  - header: PSTA
+    level: not_modeled
+    note: 前面板预置幅度键未建模。
+  - header: PSTL
+    level: not_modeled
+    note: 前面板预置直流电平键未建模。
+- section: Signal Commands
+  commands:
+  - header: IVMD
+    level: implemented
+    note: 电压/电流输入；电流时 SIG_IN（与 I_IN 同一节点，真机为单独的 I 接头）为 100 Ω（1 µA 档）或 1 kΩ（10 nA 档）虚地，读数以 A 计。
+  - header: ISRC
+    level: implemented
+    note: 电压输入 A 或 A−B。
+  - header: ICPL
+    level: implemented
+    note: 输入耦合 AC（160 mHz 高通）/DC。
+  - header: IGND
+    level: implemented
+    note: 屏蔽浮地/接地保存并回读：台架的网络共用一个地，不改变读数（同 SR830）。
+  - header: IRNG
+    level: implemented
+    note: 电压输入量程 1 V/300 mV/100 mV/30 mV/10 mV：峰值超过量程置输入过载（LIA 位 4）。
+  - header: ICUR
+    level: implemented
+    note: 电流增益 1 MΩ（1 µA）/100 MΩ（10 nA）：换算与输入阻抗；两档的噪声与带宽差别未建模。
+  - header: ILVL
+    level: not_modeled
+    note: 信号强度指示（0–4）未建模；输入过载见 CUROVLDSTAT? 位 4。
+  - header: SCAL
+    level: implemented
+    note: 灵敏度 0（1 V）–27（1 nV），1-2-5 序列；电流输入时按 µA…fA 读。只决定输出过载，不缩放 X/Y/R。
+  - header: DUALREFSYNC
+    level: not_modeled
+    note: 双参考未建模。
+  - header: OFLT
+    level: implemented
+    note: 时间常数 0（1 µs）–21（30 ks）。
+  - header: OFSL
+    level: implemented
+    note: 滤波斜率 6/12/18/24 dB/oct。
+  - header: SYNC
+    level: implemented
+    note: 同步滤波：只接受 OFF（复位值）；ON 报 EXE（同步滤波未建模）。
+  - header: ADVFILT
+    level: implemented
+    note: 高级滤波：只接受 ON（复位值，模型的滤波器即理想的高级滤波）；OFF 报 EXE（输出纹波未建模）。
+  - header: ENBW
+    level: implemented
+    note: 输出滤波器的等效噪声带宽，Hz。
+- section: CH1/CH2 Output Commands
+  commands:
+  - header: COUT
+    level: accepted
+    note: CH1/CH2 后面板模拟输出选 XY 或 Rθ：保存并回读；台架上没有 CH1/CH2 输出端口，不影响读数。
+    affects_data: false
+  - header: CEXP
+    level: implemented
+    note: X/Y/R 的扩展 OFF/X10/X100（R 只作用于显示与读数表的 R 显示值，同 SR830）。
+  - header: COFA
+    level: implemented
+    note: X/Y/R 偏置开关：开时偏置为 COFP 的百分数（映射取值引用设置，#400）。
+  - header: COFP
+    level: implemented
+    note: X/Y/R 偏置百分数 −999.99…999.99，满量程的百分数。
+  - header: OAUT
+    level: not_modeled
+    note: 自动偏置未建模。
+  - header: CRAT
+    level: not_modeled
+    note: 以 Aux In 3/4 为分母的比值未建模。
+- section: Aux Input and Output Commands
+  commands:
+  - header: OAUX
+    level: implemented
+    note: AUX 输入 1–4（j = 0–3）的电压，电路层。
+  - header: AUXV
+    level: implemented
+    note: AUX 输出 1–4（j = 0–3）电压 −10.5…10.5 V，接受 NV/UV/MV/V；电路层。
+- section: Auto Function Commands
+  commands:
+  - header: ARNG
+    level: not_modeled
+    note: 自动量程未建模。
+  - header: ASCL
+    level: not_modeled
+    note: 自动定标（灵敏度）未建模。
+- section: Display Commands
+  commands:
+  - header: DBLK
+    level: accepted
+    note: 前面板消隐保存并回读；不影响测量。
+    affects_data: false
+  - header: DLAY
+    level: accepted
+    note: 屏幕布局保存并回读；不影响测量。
+    affects_data: false
+  - header: DCAP
+    level: not_modeled
+    note: 截屏到 U 盘未建模（无文件系统）。
+  - header: CDSP
+    level: implemented
+    note: 数据通道 DAT1–DAT4（j = 0–3）的参数指派（0–16，词或序号），决定 SNAPD?/OUTR? 的读数。
+  - header: CGRF
+    level: accepted
+    note: 数据通道的曲线开关保存并回读；不影响测量。
+    affects_data: false
+  - header: GETSCREEN
+    level: not_modeled
+    note: 截屏图像未建模。
+- section: Strip Chart Commands
+  commands:
+  - header: GSPD
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: GSCL
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: GOFF
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: GAUT
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: GACT
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: GAUF
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: GLIV
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: PCUR
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: CURREL
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: CURDISP
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: CURBUG
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: FCRW
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: SCRY
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: CURDATTIM
+    level: not_modeled
+    note: 条形图显示未建模。
+  - header: CURINTERVAL
+    level: not_modeled
+    note: 条形图显示未建模。
+- section: FFT Screen Commands
+  commands:
+  - header: FFTR
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FFTS
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FFTO
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FAUT
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FFTMAXSPAN
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FFTSPAN
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FFTA
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FFTL
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FCRX
+    level: not_modeled
+    note: FFT 显示未建模。
+  - header: FCRY
+    level: not_modeled
+    note: FFT 显示未建模。
+- section: Scan Commands
+  commands:
+  - header: SCNPAR
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNLOG
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNEND
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNSEC
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNAMPATTN
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNDCATTN
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNINRVL
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNENBL
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNRUN
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNPAUSE
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNRST
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNSTATE
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNFREQ
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNAMP
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNDC
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNAUX1
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+  - header: SCNAUX2
+    level: not_modeled
+    note: 扫描（参数随时间扫描）未建模。
+- section: Data Transfer Commands
+  commands:
+  - header: OUTR
+    level: implemented
+    note: 数据通道 j（DAT1–4 或 0–3）当前指派的参数。
+  - header: OUTP
+    level: implemented
+    note: 参数表（0–16，词或序号，#383）的一项：X/Y/R/θ、AUX 输入、噪声、AUX 输出、相位、正弦幅度、直流电平（恒 0）、内部/外部频率；%g 格式。XNOise/YNOise 为前端噪声密度的模型估计。
+  - header: SNAP
+    level: implemented
+    note: 参数表的 2–3 项，同一时刻求值，按请求顺序逗号分隔。
+  - header: SNAPD
+    level: implemented
+    note: 四个数据通道（CDSP 的指派），同一时刻求值。
+- section: Data Capture Commands
+  commands:
+  - header: CAPTURELEN
+    level: implemented
+    note: 缓冲长度 n kB（1–4096），每 kB 256 个数据点，按 CAPTURECFG 的参数个数分给各曲线；手册的奇数进位到偶数未建模（按写入值），复位值手册未给，取 256。
+  - header: CAPTURECFG
+    level: implemented
+    note: 捕获 X / XY / Rθ / XYRθ（0–3）；R 为显示值（含 R 的偏置与扩展），θ 为度。
+  - header: CAPTURERATEMAX
+    level: not_modeled
+    note: 最大捕获率查询未建模（可由 CAPTURERATE 0 后的 CAPTURERATE? 得到）。
+  - header: CAPTURERATE
+    level: implemented
+    note: 写 n：速率 = 当前时间常数下的最大捕获率 / 2^n（0–20，手册的时间常数–最大速率表；100 µs 一行手册印作 325 kHz，按 1.25 MHz / 4 = 312.5 kHz）；查询回实际速率 Hz。
+  - header: CAPTURESTART
+    level: implemented
+    note: ONEshot/CONTinuous（单次存满停止 / 连续绕回）与 IMMediate：清空后立即开始；TRIGstart、SAMPpertrig（后面板 TRIG IN）未建模，报 EXE。
+  - header: CAPTURESTOP
+    level: implemented
+    note: 停止捕获，已存数据保留。
+  - header: CAPTURESTAT
+    level: implemented
+    note: 位 0 进行中、位 1 已开始、位 2 已绕回（单次存满或连续开始覆盖）。
+  - header: CAPTUREBYTES
+    level: implemented
+    note: 已存数据字节数（点数 × 曲线数 × 4）。
+  - header: CAPTUREPROG
+    level: implemented
+    note: 本次捕获写入的 kB，按 2 kB 块向上取整。
+  - header: CAPTUREVAL
+    level: implemented
+    note: 第 n 个样本（0 为最旧）的 1/2/4 个值，逗号分隔；缓冲内尚未写到的位置读 0。
+  - header: CAPTUREGET
+    level: implemented
+    note: i kB 起 j kB（1–64）的定长块（#ncccc），单精度小端、曲线逐点交织；须停止后读，超出数据补 0。
+- section: Data Streaming Commands
+  commands:
+  - header: STREAMCH
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAMRATEMAX
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAMRATE
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAMFMT
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAMPCKT
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAMPORT
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAMOPTION
+    level: not_modeled
+    note: 以太网数据流未建模。
+  - header: STREAM
+    level: not_modeled
+    note: 以太网数据流未建模。
+- section: System Commands
+  commands:
+  - header: TIME
+    level: not_modeled
+    note: 真实时钟设置未建模。
+  - header: DATE
+    level: not_modeled
+    note: 真实日期设置未建模。
+  - header: BLAZEX
+    level: accepted
+    note: Sync/BlazeX 输出选择保存并回读；该后面板输出不在台架上。
+    affects_data: false
+  - header: KEYC
+    level: accepted
+    note: 按键声开/静音保存并回读；不影响测量。
+    affects_data: false
+  - header: PRMD
+    level: not_modeled
+    note: 截屏方式未建模（无截屏）。
+  - header: SDFM
+    level: not_modeled
+    note: 数据文件格式未建模（无文件系统）。
+  - header: FBAS
+    level: not_modeled
+    note: 文件名前缀未建模。
+  - header: FNUM
+    level: not_modeled
+    note: 文件名后缀未建模。
+  - header: FNXT
+    level: not_modeled
+    note: 文件名查询未建模。
+  - header: SVDT
+    level: not_modeled
+    note: 存数据到 U 盘未建模。
+- section: Interface Commands
+  commands:
+  - header: '*RST'
+    level: implemented
+    note: 恢复 Standard Settings（p.64）。
+  - header: '*IDN'
+    level: implemented
+    note: Stanford_Research_Systems,SR865A,<序列号>,<固件>，格式按手册示例 000111、v1.23。
+  - header: '*TST'
+    level: implemented
+    note: 恒回 0。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 置标准事件位 0；*OPC? 回 1。'
+  - header: LOCL
+    level: accepted
+    note: 本地/远程/本地锁定保存并回读；仿真没有前面板锁定。
+    affects_data: false
+  - header: OVRM
+    level: accepted
+    note: 覆盖远程保存并回读；仿真没有前面板锁定。
+    affects_data: false
+- section: Status Reporting Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: 清全部状态寄存器，不清使能寄存器。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能：整字节或 j, i 按位写，*ESE? j 读一位。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件字节：读整字节清零，读一位只清该位。
+  - header: '*SRE'
+    level: implemented
+    note: 串行轮询使能：整字节或按位。
+  - header: '*STB'
+    level: implemented
+    note: 串行轮询字节（ERR/LIA/MAV/ESB/SRQ）：读取不改变它。
+  - header: '*PSC'
+    level: implemented
+    note: 上电状态清除位保存并回读。
+  - header: ERRE
+    level: implemented
+    note: 错误状态使能：整字节或按位。
+  - header: ERRS
+    level: implemented
+    note: 错误状态字节（CLK/BACKUP/VXI…硬件位，仿真恒 0）：读后清零。
+  - header: LIAE
+    level: implemented
+    note: LIA 状态使能 0–4095：整字或按位。
+  - header: LIAS
+    level: implemented
+    note: LIA 状态字：位 0 CH1 输出过载（模型为输出过载）、位 3 失锁、位 4 输入量程过载、位 7 触发；同步滤波、数据通道与扫描位未建模。读整字清零，读一位只清该位。
+  - header: CUROVLDSTAT
+    level: implemented
+    note: 当前过载状态（不锁存）：位 0 输出过载、位 3 失锁、位 4 输入量程；数据通道位未建模。
