@@ -239,6 +239,25 @@
           "description": "State path bound to the command, e.g. 'ch.frequency'",
           "title": "State"
         },
+        "suffixes": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an omitted suffix counts as 1, any other value is -114",
+          "title": "Suffixes"
+        },
         "when": {
           "anyOf": [
             {
