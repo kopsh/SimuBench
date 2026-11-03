@@ -1,0 +1,1798 @@
+schema: simubench.instrument/1
+id: srs-sr865a
+manufacturer: Stanford Research Systems
+model: SR865A
+class: lockin
+version: 1
+description: Stanford Research Systems SR865A 4 MHz DSP 锁相放大器（SR860 系列；A/A−B 电压输入或电流输入、双相解调、1 V–1 nV 灵敏度、1 µs–30 ks 时间常数）。Real
+  model（D42）：命令、参数、默认值与回复按 SR865A Operation Manual（Revision 2.11，文档号 9-01715-903）第 4 章 Programming；第 3 章的 Standard Settings
+  给出 *RST 的值。SR865A 不是 SCPI：助记符 + 逗号分隔的参数，枚举参数可写序号或词（大写部分或全写），查询回序号；数值可带单位（KHZ、MV、MDEG、RAD 等），查询回基本单位，数值应答为 %g 格式。读数 OUTP?/SNAP?/SNAPD?/OUTR?
+  走 lockin_output 的参数表（#383）。双参考与斩波器、同步滤波、正弦直流电平、扫描、数据捕获与流、FFT 与截屏不在本定义范围（覆盖表逐条列出）。
+reference:
+  title: SR865A 4 MHz DSP Lock-in Amplifier Operation Manual
+  document: 9-01715-903
+  version: Revision 2.11
+  firmware: 第 4 章 Programming 的命令集（手册的 Remote Queue 说明适用于固件 1.55 及以上）
+identity:
+  idn: Stanford_Research_Systems,SR865A,{serial},{firmware}
+  serial: '003210'
+  firmware: v1.55
+dialect:
+  echo_header: 'off'
+format:
+  number: general
+  digits: 11
+  sign: false
+  readings: format
+  integer: plain
+  boolean: numeric
+  enum: short
+  error_code: plain
+errors:
+  0: No error
+  -104: Data type error
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -113: Undefined header
+  -211: Trigger ignored
+  -213: Init ignored
+  -221: Settings conflict
+  -222: Data out of range
+  -224: Illegal parameter value
+  -230: Data corrupt or stale
+builtins:
+- '*IDN'
+- '*RST'
+- '*CLS'
+- '*OPC'
+- '*TST'
+specs:
+  source: Operation Manual Revision 2.11 第 4 章（命令）与第 3 章 Standard Settings
+  sensitivity_full_scale_v:
+  - 1.0
+  - 0.5
+  - 0.2
+  - 0.1
+  - 0.05
+  - 0.02
+  - 0.01
+  - 0.005
+  - 0.002
+  - 0.001
+  - 0.0005
+  - 0.0002
+  - 0.0001
+  - 5.0e-05
+  - 2.0e-05
+  - 1.0e-05
+  - 5.0e-06
+  - 2.0e-06
+  - 1.0e-06
+  - 5.0e-07
+  - 2.0e-07
+  - 1.0e-07
+  - 5.0e-08
+  - 2.0e-08
+  - 1.0e-08
+  - 5.0e-09
+  - 2.0e-09
+  - 1.0e-09
+  time_constant_s:
+  - 1.0e-06
+  - 3.0e-06
+  - 1.0e-05
+  - 3.0e-05
+  - 0.0001
+  - 0.0003
+  - 0.001
+  - 0.003
+  - 0.01
+  - 0.03
+  - 0.1
+  - 0.3
+  - 1.0
+  - 3.0
+  - 10.0
+  - 30.0
+  - 100.0
+  - 300.0
+  - 1000.0
+  - 3000.0
+  - 10000.0
+  - 30000.0
+  filter_slope_db_per_octave:
+  - 6
+  - 12
+  - 18
+  - 24
+  reference_frequency_hz: 1 mHz–4 MHz
+  harmonic: 1–99
+  sine_out_amplitude_vrms: 1 nV–2 V
+  voltage_input: 10 MΩ ∥ 25 pF；量程 1 V/300 mV/100 mV/30 mV/10 mV
+  current_input: 1 µA 档 100 Ω、10 nA 档 1 kΩ 虚地（手册第 3 章）；噪声 130 fA/√Hz、13 fA/√Hz
+state:
+  reference.timebase:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 10 MHz 时基
+    label_en: 10 MHz timebase
+    special:
+      AUTO: 0
+      IN: 1
+      INTERNAL: 1
+  reference.timebase_status:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 当前时基（0 外部，1 内部）
+    label_en: Timebase in use
+    readonly: true
+  reference.phase:
+    type: float
+    unit: DEG
+    min: -180.0
+    max: 180.0
+    default: 0.0
+    rst: 0.0
+    display_unit: °
+    label: 参考相位
+    label_en: Reference phase
+  reference.frequency:
+    type: float
+    unit: HZ
+    min: 0.001
+    max: 4000000.0
+    default: 100000.0
+    rst: 100000.0
+    label: 内部参考频率
+    label_en: Internal frequency
+  reference.harmonic:
+    type: int
+    min: 1
+    max: 99
+    default: 1
+    rst: 1
+    label: 检测谐波
+    label_en: Detection harmonic
+  reference.source:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 参考源
+    label_en: Reference source
+    special:
+      INT: 0
+      EXT: 1
+    not_modeled:
+      DUAL: 双参考未建模
+      CHOP: 斩波器参考未建模
+  reference.trigger:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: 外部参考触发
+    label_en: External reference trigger
+    special:
+      SIN: 0
+      POS: 1
+      POSTTL: 1
+      NEG: 2
+      NEGTTL: 2
+  reference.impedance:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 外部参考输入阻抗
+    label_en: External reference impedance
+    special:
+      '50': 0
+      50OHMS: 0
+      1M: 1
+      1MEG: 1
+  sine_out.amplitude:
+    type: float
+    unit: V
+    min: 1.0e-09
+    max: 2.0
+    default: 1.0e-09
+    rst: 1.0e-09
+    label: 正弦输出幅度 (Vrms)
+    label_en: Sine out amplitude (Vrms)
+  sine_out.dc_level:
+    type: float
+    unit: V
+    min: 0.0
+    max: 0.0
+    default: 0.0
+    readonly: true
+    label: 正弦输出直流电平
+    label_en: Sine out DC level
+  input.mode:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 输入方式
+    label_en: Input
+    special:
+      VOLT: 0
+      VOLTAGE: 0
+      CURR: 1
+      CURRENT: 1
+    electrical: true
+  input.source:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 电压输入方式
+    label_en: Voltage input
+    special:
+      A: 0
+      A-B: 1
+      A−B: 1
+  input.coupling:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 输入耦合
+    label_en: Coupling
+    special:
+      AC: 0
+      DC: 1
+  input.shield_ground:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 屏蔽接地
+    label_en: Shield grounding
+    special:
+      FLO: 0
+      FLOAT: 0
+      GRO: 1
+      GROUND: 1
+  input.range:
+    type: int
+    min: 0
+    max: 4
+    default: 0
+    rst: 0
+    label: 电压输入量程
+    label_en: Voltage input range
+    special:
+      1V: 0
+      1VOLT: 0
+      300M: 1
+      300MVOLT: 1
+      100M: 2
+      100MVOLT: 2
+      30M: 3
+      30MVOLT: 3
+      10M: 4
+      10MVOLT: 4
+  input.current_gain:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 电流输入增益
+    label_en: Current input gain
+    special:
+      1MEG: 0
+      100MEG: 1
+    electrical: true
+  input.sensitivity:
+    type: int
+    min: 0
+    max: 27
+    default: 0
+    rst: 0
+    label: 灵敏度档（0 = 1 V，27 = 1 nV）
+    label_en: Sensitivity index (0 = 1 V, 27 = 1 nV)
+  filter.time_constant:
+    type: int
+    min: 0
+    max: 21
+    default: 10
+    rst: 10
+    label: 时间常数档（0 = 1 µs，21 = 30 ks）
+    label_en: Time constant index (0 = 1 us, 21 = 30 ks)
+  filter.slope:
+    type: int
+    min: 0
+    max: 3
+    default: 0
+    rst: 0
+    label: 滤波斜率
+    label_en: Filter slope
+  filter.sync:
+    type: int
+    min: 0
+    max: 0
+    default: 0
+    rst: 0
+    label: 同步滤波
+    label_en: Sync filter
+    special:
+      'OFF': 0
+    not_modeled:
+      'ON': 同步滤波未建模
+  filter.advanced:
+    type: int
+    min: 1
+    max: 1
+    default: 1
+    rst: 1
+    label: 高级滤波
+    label_en: Advanced filter
+    special:
+      'ON': 1
+    not_modeled:
+      'OFF': 关闭高级滤波（输出纹波）未建模
+  output.cout0:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: CH1 输出
+    label_en: CH1 output
+    special:
+      XY: 0
+      RTH: 1
+      RTHETA: 1
+  output.cout1:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: CH2 输出
+    label_en: CH2 output
+    special:
+      XY: 0
+      RTH: 1
+      RTHETA: 1
+  output.expand0:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: X 扩展
+    label_en: X expand
+    special:
+      'OFF': 0
+      X10: 1
+      X100: 2
+  output.offset_on0:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: X 偏置开关
+    label_en: X offset
+    special:
+      'OFF': 0
+      'ON': 1
+  output.offset0:
+    type: float
+    min: -999.99
+    max: 999.99
+    default: 0.0
+    rst: 0.0
+    display_unit: '%'
+    label: X 偏置
+    label_en: X offset percent
+  output.expand1:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: Y 扩展
+    label_en: Y expand
+    special:
+      'OFF': 0
+      X10: 1
+      X100: 2
+  output.offset_on1:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: Y 偏置开关
+    label_en: Y offset
+    special:
+      'OFF': 0
+      'ON': 1
+  output.offset1:
+    type: float
+    min: -999.99
+    max: 999.99
+    default: 0.0
+    rst: 0.0
+    display_unit: '%'
+    label: Y 偏置
+    label_en: Y offset percent
+  output.expand2:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: R 扩展
+    label_en: R expand
+    special:
+      'OFF': 0
+      X10: 1
+      X100: 2
+  output.offset_on2:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: R 偏置开关
+    label_en: R offset
+    special:
+      'OFF': 0
+      'ON': 1
+  output.offset2:
+    type: float
+    min: -999.99
+    max: 999.99
+    default: 0.0
+    rst: 0.0
+    display_unit: '%'
+    label: R 偏置
+    label_en: R offset percent
+  display.dat0:
+    type: int
+    min: 0
+    max: 16
+    default: 0
+    rst: 0
+    label: 数据通道 1
+    label_en: Data channel 1
+    special: &id001
+      X: 0
+      Y: 1
+      R: 2
+      TH: 3
+      THETA: 3
+      IN1: 4
+      IN2: 5
+      IN3: 6
+      IN4: 7
+      XNO: 8
+      XNOISE: 8
+      YNO: 9
+      YNOISE: 9
+      OUT1: 10
+      OUT2: 11
+      PHA: 12
+      PHASE: 12
+      SAM: 13
+      SAMP: 13
+      LEV: 14
+      LEVEL: 14
+      FI: 15
+      FINT: 15
+      FE: 16
+      FEXT: 16
+  display.graph0:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 数据通道 1 曲线
+    label_en: Data channel 1 graph
+    special:
+      'OFF': 0
+      'ON': 1
+  aux.output1:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 1
+    label_en: AUX output 1
+  display.dat1:
+    type: int
+    min: 0
+    max: 16
+    default: 1
+    rst: 1
+    label: 数据通道 2
+    label_en: Data channel 2
+    special: *id001
+  display.graph1:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 数据通道 2 曲线
+    label_en: Data channel 2 graph
+    special:
+      'OFF': 0
+      'ON': 1
+  aux.output2:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 2
+    label_en: AUX output 2
+  display.dat2:
+    type: int
+    min: 0
+    max: 16
+    default: 2
+    rst: 2
+    label: 数据通道 3
+    label_en: Data channel 3
+    special: *id001
+  display.graph2:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 数据通道 3 曲线
+    label_en: Data channel 3 graph
+    special:
+      'OFF': 0
+      'ON': 1
+  aux.output3:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 3
+    label_en: AUX output 3
+  display.dat3:
+    type: int
+    min: 0
+    max: 16
+    default: 3
+    rst: 3
+    label: 数据通道 4
+    label_en: Data channel 4
+    special: *id001
+  display.graph3:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 数据通道 4 曲线
+    label_en: Data channel 4 graph
+    special:
+      'OFF': 0
+      'ON': 1
+  aux.output4:
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+    default: 0.0
+    rst: 0.0
+    label: AUX 输出 4
+    label_en: AUX output 4
+  display.blank:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 前面板消隐
+    label_en: Display blanking
+    special:
+      'OFF': 0
+      'ON': 1
+  display.layout:
+    type: int
+    min: 0
+    max: 5
+    default: 0
+    rst: 0
+    label: 屏幕布局
+    label_en: Screen layout
+    special:
+      TRE: 0
+      TREND: 0
+      HIST: 1
+      HISTORY: 1
+      BARH: 2
+      BARHIST: 2
+      FFT: 3
+      BARF: 4
+      BARFFT: 4
+      BARE: 5
+      BAREIGHT: 5
+  system.blazex:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: Sync/BlazeX 输出
+    label_en: BlazeX output
+    special:
+      BL: 0
+      BLAZEX: 0
+      BI: 1
+      BISYNC: 1
+      UNI: 2
+      UNISYNC: 2
+  system.sounds:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 按键声
+    label_en: Sounds
+    special:
+      'ON': 0
+      MU: 1
+      MUTE: 1
+  interface.local:
+    type: int
+    min: 0
+    max: 2
+    default: 0
+    rst: 0
+    label: 本地/远程（0 本地，1 远程，2 本地锁定）
+    label_en: Local/remote
+  interface.override_remote:
+    type: int
+    min: 0
+    max: 1
+    default: 1
+    rst: 1
+    label: 覆盖远程
+    label_en: Override remote
+    special:
+      'OFF': 0
+      'ON': 1
+  status.psc:
+    type: bool
+    default: true
+    label: 上电状态清除
+    label_en: Power-on status clear
+  status.sre:
+    type: int
+    min: 0
+    max: 255
+    default: 0
+    rst: 0
+    label: 串行轮询使能
+    label_en: Serial poll enable
+  status.err_enable:
+    type: int
+    min: 0
+    max: 255
+    default: 0
+    rst: 0
+    label: 错误状态使能
+    label_en: Error status enable
+  status.lia_enable:
+    type: int
+    min: 0
+    max: 4095
+    default: 0
+    rst: 0
+    label: LIA 状态使能
+    label_en: LIA status enable
+  capture.length:
+    type: int
+    min: 1
+    max: 4096
+    default: 256
+    rst: 256
+    label: 捕获缓冲长度（kB）
+    label_en: Capture buffer length (kB)
+  capture.config:
+    type: int
+    min: 0
+    max: 3
+    default: 0
+    rst: 0
+    label: 捕获内容
+    label_en: Capture configuration
+    special:
+      X: 0
+      XY: 1
+      RT: 2
+      XYRT: 3
+  capture.rate:
+    type: int
+    min: 0
+    max: 20
+    default: 0
+    rst: 0
+    label: 捕获速率（最大速率 / 2^n）
+    label_en: Capture rate (max / 2^n)
+  capture.end:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    label: 单次/连续
+    label_en: OneShot or continuous
+    special:
+      ONE: 0
+      ONESHOT: 0
+      CONT: 1
+      CONTINUOUS: 1
+  capture.start:
+    type: int
+    min: 0
+    max: 0
+    default: 0
+    rst: 0
+    label: 捕获开始方式
+    label_en: Capture start
+    special:
+      IMM: 0
+      IMMEDIATE: 0
+    not_modeled: &id003
+      TRIGstart: 硬件触发开始/停止未建模（后面板 TRIG IN 不在台架上）
+      SAMPpertrig: 每个硬件触发一个样本未建模
+components:
+- name: osc
+  type: lockin_reference
+  params:
+    source:
+      from: $reference.source
+      map:
+        '0': INTernal
+        '1': EXTernal
+    frequency: $reference.frequency
+    phase: $reference.phase
+    harmonic: $reference.harmonic
+    amplitude: $sine_out.amplitude
+    f_max: 4000000.0
+    ext_slope:
+      from: $reference.trigger
+      map:
+        '0': SINE
+        '1': RISE
+        '2': FALL
+- name: out
+  type: output_stage
+  params:
+    z_out: 50.0
+    enabled: true
+- name: sig_in
+  type: input_port
+  params:
+    z_in:
+      from: $input.mode
+      map:
+        '0': 10000000.0
+        '1':
+          from: $input.current_gain
+          map:
+            '0': 100.0
+            '1': 1000.0
+    c_in: 2.5e-11
+- name: sig_b
+  type: input_port
+  params:
+    z_in: 10000000.0
+    c_in: 2.5e-11
+- name: mode
+  type: lockin_input_mode
+  params:
+    mode:
+      from: $input.mode
+      map:
+        '0':
+          from: $input.source
+          map:
+            '0': A
+            '1': A-B
+        '1': I
+    current_z:
+      from: $input.current_gain
+      map:
+        '0': 100.0
+        '1': 1000.0
+    current_scale:
+      from: $input.current_gain
+      map:
+        '0': 1000000.0
+        '1': 100000000.0
+- name: ref_in
+  type: input_port
+  params:
+    z_in:
+      from: $reference.impedance
+      map:
+        '0': 50.0
+        '1': 1000000.0
+- name: front
+  type: lockin_input_filter
+  params:
+    coupling:
+      from: $input.coupling
+      map:
+        '0': AC
+        '1': DC
+    line_notch: false
+    notch_2x: false
+- name: amp
+  type: lockin_input_amp
+  params:
+    sensitivity:
+      from: $input.sensitivity
+      table:
+        0: 1.0
+        1: 0.5
+        2: 0.2
+        3: 0.1
+        4: 0.05
+        5: 0.02
+        6: 0.01
+        7: 0.005
+        8: 0.002
+        9: 0.001
+        10: 0.0005
+        11: 0.0002
+        12: 0.0001
+        13: 5.0e-05
+        14: 2.0e-05
+        15: 1.0e-05
+        16: 5.0e-06
+        17: 2.0e-06
+        18: 1.0e-06
+        19: 5.0e-07
+        20: 2.0e-07
+        21: 1.0e-07
+        22: 5.0e-08
+        23: 2.0e-08
+        24: 1.0e-08
+        25: 5.0e-09
+        26: 2.0e-09
+        27: 1.0e-09
+    reserve: 1000000000000.0
+    input_limit:
+      from: $input.range
+      table:
+        0: 1.0
+        1: 0.3
+        2: 0.1
+        3: 0.03
+        4: 0.01
+- name: mixer
+  type: lockin_mixer
+- name: filter
+  type: lockin_lowpass
+  params:
+    time_constant:
+      from: $filter.time_constant
+      table:
+        0: 1.0e-06
+        1: 3.0e-06
+        2: 1.0e-05
+        3: 3.0e-05
+        4: 0.0001
+        5: 0.0003
+        6: 0.001
+        7: 0.003
+        8: 0.01
+        9: 0.03
+        10: 0.1
+        11: 0.3
+        12: 1.0
+        13: 3.0
+        14: 10.0
+        15: 30.0
+        16: 100.0
+        17: 300.0
+        18: 1000.0
+        19: 3000.0
+        20: 10000.0
+        21: 30000.0
+    slope:
+      from: $filter.slope
+      map:
+        '0': '6'
+        '1': '12'
+        '2': '18'
+        '3': '24'
+    mixer: mixer
+- name: demod
+  type: lockin_output
+  params:
+    filter: filter
+    amp: amp
+    offset_x:
+      from: $output.offset_on0
+      map:
+        '0': 0.0
+        '1': $output.offset0
+    offset_y:
+      from: $output.offset_on1
+      map:
+        '0': 0.0
+        '1': $output.offset1
+    offset_r:
+      from: $output.offset_on2
+      map:
+        '0': 0.0
+        '1': $output.offset2
+    expand_x:
+      from: $output.expand0
+      table:
+        0: 1.0
+        1: 10.0
+        2: 100.0
+    expand_y:
+      from: $output.expand1
+      table:
+        0: 1.0
+        1: 10.0
+        2: 100.0
+    expand_r:
+      from: $output.expand2
+      table:
+        0: 1.0
+        1: 10.0
+        2: 100.0
+    unit_scale:
+      from: $input.mode
+      map:
+        '0': 1.0
+        '1':
+          from: $input.current_gain
+          map:
+            '0': 1.0e-06
+            '1': 1.0e-08
+    readings:
+    - word: X
+      source: X
+    - word: Y
+      source: Y
+    - word: R
+      source: R
+    - word: THeta
+      source: THETA
+    - word: IN1
+      source: aux.AUX1
+    - word: IN2
+      source: aux.AUX2
+    - word: IN3
+      source: aux.AUX3
+    - word: IN4
+      source: aux.AUX4
+    - word: XNOise
+      source: XNOISE
+    - word: YNOise
+      source: YNOISE
+    - word: OUT1
+      source: $aux.output1
+    - word: OUT2
+      source: $aux.output2
+    - word: PHAse
+      source: $reference.phase
+    - word: SAMp
+      source: $sine_out.amplitude
+    - word: LEVel
+      source: $sine_out.dc_level
+    - word: FInt
+      source: $reference.frequency
+    - word: FExt
+      source: osc.FREQUENCY
+- name: lia
+  type: status_register
+  params:
+    bits:
+      OUTPT: 0
+      UNLK: 3
+      INPUT: 4
+      TRIG: 7
+    enable: $status.lia_enable
+    width: 16
+- name: err
+  type: status_register
+  params:
+    bits:
+      CLK: 0
+      BACKUP: 1
+      VXI: 4
+    enable: $status.err_enable
+    width: 8
+- name: esr
+  type: status_register
+  params:
+    mirror: esr
+    width: 8
+- name: spoll
+  type: status_register
+  params:
+    bits:
+      ERR: 2
+      LIA: 3
+      MAV: 4
+      ESB: 5
+    enable: $status.sre
+    request_bit: 6
+    width: 8
+- name: aux
+  type: lockin_aux
+  params:
+    dac1: $aux.output1
+    dac2: $aux.output2
+    dac3: $aux.output3
+    dac4: $aux.output4
+- name: cap
+  type: curve_buffer
+  params:
+    trace1:
+      from: $capture.config
+      map:
+        '0': demod.X
+        '1': demod.X
+        '2': demod.R
+        '3': demod.X
+    trace2:
+      from: $capture.config
+      map:
+        '0': ''
+        '1': demod.Y
+        '2': demod.THETA
+        '3': demod.Y
+    trace3:
+      from: $capture.config
+      map:
+        '0': ''
+        '1': ''
+        '2': ''
+        '3': demod.R
+    trace4:
+      from: $capture.config
+      map:
+        '0': ''
+        '1': ''
+        '2': ''
+        '3': demod.THETA
+    rate:
+      from: $filter.time_constant
+      table:
+        0:
+          from: $capture.rate
+          map: &id002
+            '0': 1.0
+            '1': 0.5
+            '2': 0.25
+            '3': 0.125
+            '4': 0.0625
+            '5': 0.03125
+            '6': 0.015625
+            '7': 0.0078125
+            '8': 0.00390625
+            '9': 0.001953125
+            '10': 0.0009765625
+            '11': 0.00048828125
+            '12': 0.000244140625
+            '13': 0.0001220703125
+            '14': 6.103515625e-05
+            '15': 3.0517578125e-05
+            '16': 1.52587890625e-05
+            '17': 7.62939453125e-06
+            '18': 3.814697265625e-06
+            '19': 1.9073486328125e-06
+            '20': 9.5367431640625e-07
+          scale: 1250000.0
+        1:
+          from: $capture.rate
+          map: *id002
+          scale: 1250000.0
+        2:
+          from: $capture.rate
+          map: *id002
+          scale: 1250000.0
+        3:
+          from: $capture.rate
+          map: *id002
+          scale: 625000.0
+        4:
+          from: $capture.rate
+          map: *id002
+          scale: 312500.0
+        5:
+          from: $capture.rate
+          map: *id002
+          scale: 156250.0
+        6:
+          from: $capture.rate
+          map: *id002
+          scale: 78125.0
+        7:
+          from: $capture.rate
+          map: *id002
+          scale: 39062.5
+        8:
+          from: $capture.rate
+          map: *id002
+          scale: 39062.5
+        9:
+          from: $capture.rate
+          map: *id002
+          scale: 9765.625
+        10:
+          from: $capture.rate
+          map: *id002
+          scale: 2441.40625
+        11:
+          from: $capture.rate
+          map: *id002
+          scale: 1220.703125
+        12:
+          from: $capture.rate
+          map: *id002
+          scale: 305.17578125
+        13:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        14:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        15:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        16:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        17:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        18:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        19:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        20:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+        21:
+          from: $capture.rate
+          map: *id002
+          scale: 152.587890625
+    end:
+      from: $capture.end
+      map:
+        '0': SHOT
+        '1': LOOP
+    capacity:
+      from: $capture.config
+      map:
+        '0':
+          from: $capture.length
+          scale: 256
+        '1':
+          from: $capture.length
+          scale: 128
+        '2':
+          from: $capture.length
+          scale: 128
+        '3':
+          from: $capture.length
+          scale: 64
+wiring:
+  instrument:
+  - - osc.sine
+    - out.in
+  - - ref_in.out
+    - osc.ext
+  - - sig_in.out
+    - mode.a
+  - - sig_b.out
+    - mode.b
+  - - mode.out
+    - front.in
+  - - front.out
+    - amp.in
+  - - amp.out
+    - filter.in
+  - - osc.ref
+    - filter.ref
+  - - osc.ref
+    - mixer.ref
+ports:
+  instrument:
+    SIG_IN: sig_in.pin
+    SIG_B: sig_b.pin
+    I_IN: sig_in.pin
+    REF_IN: ref_in.pin
+    SINE_OUT: out.pin
+    AUX_IN1: aux.in1
+    AUX_IN2: aux.in2
+    AUX_IN3: aux.in3
+    AUX_IN4: aux.in4
+    AUX_OUT1: aux.out1
+    AUX_OUT2: aux.out2
+    AUX_OUT3: aux.out3
+    AUX_OUT4: aux.out4
+  media:
+    REF_IN: reference
+display:
+  template: lockin
+  summary:
+  - reference.source
+  - reference.frequency
+  - reference.harmonic
+  - input.sensitivity
+  - filter.time_constant
+  - filter.slope
+capabilities:
+- lockin
+commands:
+- header: TBMODE
+  state: reference.timebase
+- header: TBSTAT
+  state: reference.timebase_status
+  set: false
+- header: PHAS
+  state: reference.phase
+- header: APHS
+  op: demod.auto_phase
+  query: false
+- header: FREQ
+  state: reference.frequency
+- header: FREQINT
+  state: reference.frequency
+- header: FREQEXT
+  op: osc.frequency
+  set: false
+  args:
+    what: actual
+- header: FREQDET
+  op: osc.frequency
+  set: false
+  args:
+    what: detect
+- header: HARM
+  state: reference.harmonic
+- header: SLVL
+  state: sine_out.amplitude
+- header: RSRC
+  state: reference.source
+- header: RTRG
+  state: reference.trigger
+- header: REFZ
+  state: reference.impedance
+- header: IVMD
+  state: input.mode
+- header: ISRC
+  state: input.source
+- header: ICPL
+  state: input.coupling
+- header: IGND
+  state: input.shield_ground
+- header: IRNG
+  state: input.range
+- header: ICUR
+  state: input.current_gain
+- header: SCAL
+  state: input.sensitivity
+- header: OFLT
+  state: filter.time_constant
+- header: OFSL
+  state: filter.slope
+- header: SYNC
+  state: filter.sync
+- header: ADVFILT
+  state: filter.advanced
+- header: ENBW
+  op: filter.filter_info
+  set: false
+  args:
+    what: enbw
+- header: COUT
+  params:
+  - name: ch
+    type: int
+    min: 0
+    max: 1
+    index: true
+    index_words:
+      OCH1: 0
+      OCH2: 1
+    echo: false
+    index_numbers: true
+  - name: value
+    type: int
+    state: output.cout{ch}
+- header: CEXP
+  params:
+  - name: q
+    type: int
+    min: 0
+    max: 2
+    index: true
+    index_words:
+      X: 0
+      Y: 1
+      R: 2
+    echo: false
+    index_numbers: true
+  - name: value
+    type: int
+    state: output.expand{q}
+- header: COFA
+  params:
+  - name: q
+    type: int
+    min: 0
+    max: 2
+    index: true
+    index_words:
+      X: 0
+      Y: 1
+      R: 2
+    echo: false
+    index_numbers: true
+  - name: value
+    type: int
+    state: output.offset_on{q}
+- header: COFP
+  params:
+  - name: q
+    type: int
+    min: 0
+    max: 2
+    index: true
+    index_words:
+      X: 0
+      Y: 1
+      R: 2
+    echo: false
+    index_numbers: true
+  - name: value
+    type: float
+    state: output.offset{q}
+- header: CDSP
+  params:
+  - name: ch
+    type: int
+    min: 0
+    max: 3
+    index: true
+    index_words:
+      DAT1: 0
+      DAT2: 1
+      DAT3: 2
+      DAT4: 3
+    echo: false
+    index_numbers: true
+  - name: value
+    type: int
+    state: display.dat{ch}
+- header: CGRF
+  params:
+  - name: ch
+    type: int
+    min: 0
+    max: 3
+    index: true
+    index_words:
+      DAT1: 0
+      DAT2: 1
+      DAT3: 2
+      DAT4: 3
+    echo: false
+    index_numbers: true
+  - name: value
+    type: int
+    state: display.graph{ch}
+- header: DBLK
+  state: display.blank
+- header: DLAY
+  state: display.layout
+- header: OUTP
+  op: demod.readout
+  set: false
+  params:
+  - name: names
+    type: raw
+- header: SNAP
+  op: demod.readout
+  set: false
+  args:
+    minimum: 2
+    maximum: 3
+  params:
+  - name: names
+    type: raw
+- header: SNAPD
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat0
+    - $display.dat1
+    - $display.dat2
+    - $display.dat3
+    minimum: 4
+    maximum: 4
+- header: BLAZEX
+  state: system.blazex
+- header: KEYC
+  state: system.sounds
+- header: LOCL
+  state: interface.local
+- header: OVRM
+  state: interface.override_remote
+- header: '*ESE'
+  op: esr.enable
+  params:
+  - name: bit
+    type: int
+    optional: true
+  - name: value
+    type: int
+    optional: true
+- header: '*ESR'
+  op: esr.event
+  set: false
+  params:
+  - name: bit
+    type: int
+    optional: true
+- header: '*SRE'
+  op: spoll.enable
+  params:
+  - name: bit
+    type: int
+    optional: true
+  - name: value
+    type: int
+    optional: true
+- header: '*STB'
+  op: spoll.condition
+  set: false
+  params:
+  - name: bit
+    type: int
+    optional: true
+- header: '*PSC'
+  state: status.psc
+- header: ERRE
+  op: err.enable
+  params:
+  - name: bit
+    type: int
+    optional: true
+  - name: value
+    type: int
+    optional: true
+- header: ERRS
+  op: err.event
+  set: false
+  params:
+  - name: bit
+    type: int
+    optional: true
+- header: LIAE
+  op: lia.enable
+  params:
+  - name: bit
+    type: int
+    optional: true
+  - name: value
+    type: int
+    optional: true
+- header: LIAS
+  op: lia.event
+  set: false
+  params:
+  - name: bit
+    type: int
+    optional: true
+- header: CUROVLDSTAT
+  op: lia.condition
+  set: false
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat0
+  when:
+    j: DAT1
+  params:
+  - name: j
+    type: raw
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat0
+  when:
+    j: '0'
+  params:
+  - name: j
+    type: raw
+- header: OAUX
+  op: aux.read
+  set: false
+  args:
+    index: 1
+  when:
+    j: '0'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+- header: AUXV
+  op: aux.set_dac
+  read: aux.output1
+  args:
+    index: 1
+  when:
+    j: '0'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+  - name: voltage
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat1
+  when:
+    j: DAT2
+  params:
+  - name: j
+    type: raw
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat1
+  when:
+    j: '1'
+  params:
+  - name: j
+    type: raw
+- header: OAUX
+  op: aux.read
+  set: false
+  args:
+    index: 2
+  when:
+    j: '1'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+- header: AUXV
+  op: aux.set_dac
+  read: aux.output2
+  args:
+    index: 2
+  when:
+    j: '1'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+  - name: voltage
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat2
+  when:
+    j: DAT3
+  params:
+  - name: j
+    type: raw
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat2
+  when:
+    j: '2'
+  params:
+  - name: j
+    type: raw
+- header: OAUX
+  op: aux.read
+  set: false
+  args:
+    index: 3
+  when:
+    j: '2'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+- header: AUXV
+  op: aux.set_dac
+  read: aux.output3
+  args:
+    index: 3
+  when:
+    j: '2'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+  - name: voltage
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat3
+  when:
+    j: DAT4
+  params:
+  - name: j
+    type: raw
+- header: OUTR
+  op: demod.readout
+  set: false
+  args:
+    names:
+    - $display.dat3
+  when:
+    j: '3'
+  params:
+  - name: j
+    type: raw
+- header: OAUX
+  op: aux.read
+  set: false
+  args:
+    index: 4
+  when:
+    j: '3'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+- header: AUXV
+  op: aux.set_dac
+  read: aux.output4
+  args:
+    index: 4
+  when:
+    j: '3'
+  params:
+  - name: j
+    type: int
+    min: 0
+    max: 3
+  - name: voltage
+    type: float
+    unit: V
+    min: -10.5
+    max: 10.5
+- header: CAPTURELEN
+  state: capture.length
+- header: CAPTURECFG
+  state: capture.config
+- header: CAPTURESTART
+  op: cap.start
+  query: false
+  args:
+    fresh: true
+  params:
+  - name: mode
+    type: float
+    state: capture.end
+  - name: start
+    type: float
+    state: capture.start
+    not_modeled: *id003
+- header: CAPTURESTOP
+  op: cap.pause
+  query: false
+- header: CAPTURESTAT
+  op: cap.capture_state
+  set: false
+- header: CAPTUREBYTES
+  op: cap.bytes
+  set: false
+- header: CAPTUREPROG
+  op: cap.progress
+  set: false
+- header: CAPTUREVAL
+  op: cap.sample
+  set: false
+  params:
+  - name: index
+    type: int
+    min: 0
+- header: CAPTUREGET
+  op: cap.get
+  set: false
+  args:
+    framed: true
+  params:
+  - name: offset_kb
+    type: int
+    min: 0
+    max: 4095
+  - name: length_kb
+    type: int
+    min: 1
+    max: 64
+- header: CAPTURERATE
+  op: cap.rate
+  params:
+  - name: n
+    type: float
+    optional: true
+    state: capture.rate

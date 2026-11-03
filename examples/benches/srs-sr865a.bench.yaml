@@ -1,0 +1,32 @@
+schema: simubench.bench/2
+name: srs_sr865a_rc
+description: >-
+  SRS SR865A（真实型号，D42）驱动 1 kΩ / 100 nF RC 低通：SINE_OUT → RC → SIG_IN（A），内部参考
+  1 kHz、0.5 Vrms（RC 后峰值约 0.59 V，在默认 1 V 输入量程内）。AUX_OUT2 接到 AUX_IN2，脚本用来核对电路层的 AUX 输入输出。测试台把真机脚本里
+  的 TCPIP 地址声明为实例地址；run.idle 取 sleep：真机脚本的 time.sleep(建立时间) 不改一行，
+  在虚拟时间里精确推进（D47）。脚本 examples/scripts/srs_sr865a_rc_sweep.py（tests/test_srs_sr865a.py）。
+instruments:
+  lia:
+    model: srs-sr865a
+    label: 锁相放大器
+    address: "TCPIP0::192.168.1.50::INSTR"
+    state:
+      reference.frequency: 1000.0
+      sine_out.amplitude: 0.5
+parts:
+  rc:
+    type: rc_lowpass
+    dut: true
+    label: RC 低通（1 kΩ / 100 nF）
+    params: {r: 1000.0, c: 1.0e-7}
+wires:
+  - {from: lia.SINE_OUT, to: rc.IN}
+  - {from: rc.OUT, to: lia.SIG_IN}
+  - {from: lia.AUX_OUT2, to: lia.AUX_IN2}
+run:
+  seed: 5
+  clock: command
+  idle: sleep
+layout:
+  lia: {x: 0, y: 80}
+  rc: {x: 360, y: 160}

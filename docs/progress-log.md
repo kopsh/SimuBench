@@ -956,4 +956,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | 捕获操作 | ✅ `curve_buffer`：`sample`（CAPTUREVAL?：一个 bin 上全部记录的曲线）、`bytes`、`progress`、`capture_state`（1 进行中、2 已开始、4 已绕回）、`rate`（Hz）、`get`（CAPTUREGET?：交织的单精度小端块，须停止，超出数据补 0；`framed` 加定长块头 #ncccc）；`start` 的 `fresh` 先清空 |
 | 测试 | ✅ `tests/test_curve_buffer_capture.py` 3 项（裸组件 + 已知值的源）：重新开始清空、同一 bin 的两条曲线、未写的 bin 读 0、越界 -222、状态位、单次存满后的交织块与补零、运行中取块 -222、速率；SR830 的数据存储测试不改通过 |
+
+## SRS SR865A 锁相放大器（Issue 333）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `srs-sr865a.yaml`：SR865A Operation Manual（Revision 2.11，9-01715-903）第 4 章与第 3 章 Standard Settings；SR830 的组件链复用，输入量程（IRNG → `input_limit`）、电流输入两档（100 Ω/1 kΩ 虚地，1e6/1e8）、1 V–1 nV 灵敏度与 1 µs–30 ks 时间常数；枚举为整数设置加词（`special`），查询回序号；数值应答 `general`（%g，11 位有效）；`simubench validate` 无诊断 |
+| 读数 | ✅ OUTP?/SNAP?/SNAPD?/OUTR? 走 `lockin_output.readings`（17 项参数表），CDSP 指派数据通道；COFA/COFP 经映射取值引用设置 |
+| 数据捕获 | ✅ `curve_buffer`（块清单的 buffer 块）按 CAPTURECFG 记 X/XY/Rθ/XYRθ，速率 = 时间常数对应的最大捕获率 / 2^n，长度按 kB 分给各曲线；CAPTURESTART 的 IMMediate 单次/连续实现，TRIGstart/SAMPpertrig 未建模 |
+| 覆盖与用例 | ✅ 覆盖表由手册卷首 Command List 生成 143 条：实现 59 · 接受 9 · 未实现 75；`tests/models/srs-sr865a/cases.yaml` 15 条全部通过 |
+| 示例与测试 | ✅ 示例台 `examples/benches/srs-sr865a.bench.yaml`（SINE_OUT → RC → SIG_IN，AUX_OUT2 → AUX_IN2）与脚本 `examples/scripts/srs_sr865a_rc_sweep.py`；`tests/test_srs_sr865a.py`：6 个频率的 R/θ 与闭式解一致、拐点 −45°、自动相位后 θ → 0、AUX 回环、输入量程按峰值过载、电流输入读安培 |
+| 组件不改 | ✅ 本 PR 不改 `src/simubench/library/components/`（所需能力已在 #399、#400、#402、#403、#404、#405 合并）；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
