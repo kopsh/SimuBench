@@ -466,3 +466,17 @@ cases:
         expect: "0"
       - query: ":CALC:MARK:MODE?"
         expect: "POS"
+
+  - name: "标记关闭时进入差值模式：参考固定在开启后的标记位置，Y? 与 X:DELT? 为 0（#349）"
+    manual: "N9320B 编程指南 :CALCulate:MARKer:MODE（DELTa 把参考标记固定在当前标记位置）"
+    steps:
+      - send: ":CALC:MARK:MODE DELT"
+      - query: ":CALC:MARK:Y?"
+        expect: "+0.0000000000000000E+000"
+      - query: ":CALC:MARK:X:DELT?"
+        expect: "+0.0000000000000000E+000"
+      - send: ":CALC:MARK:X 11 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect: "-1.0261377887001903E+002"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

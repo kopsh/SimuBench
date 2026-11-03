@@ -736,11 +736,14 @@ class SpecanTrace(Component):
     def on_state(self, path: str, old: Any, new: Any) -> None:
         if path == "marker.mode" and str(new).upper().startswith("DELT") and new != old:
             # DELTa fixes a reference marker where the marker is now; the marker itself moves on.
+            # A marker that is off turns on first — it starts at the screen center, so the
+            # reference is fixed at the same point and the delta pair starts at 0/0, not at the
+            # stale position the marker had while it was off (issue #349).
+            self._turn_on()
             x, y = self.trace()
             i = int(np.argmin(np.abs(x - float(self._st("marker.x")))))
             self._set("marker.ref_x", float(x[i]))
             self._set("marker.ref_y", float(y[i]))
-            self._turn_on()
         if path == "marker.enabled" and new and not old:
             # A marker turned on starts at the center of the screen, as the analyzers do.
             self._set("marker.x", float(self._st("freq.center")))
