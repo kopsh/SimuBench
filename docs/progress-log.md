@@ -1116,6 +1116,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 实现范围 | ✅ 直流/交流电压、直流/交流电流、两线/四线电阻：`CONFigure`（含 Note 1 的触发设置）、`CONFigure?`、`MEASure?`、`READ?`、`FETCh?`；量程按满度 2.02 倍选择（手册：2.03–20.02 选 10 V），各功能各自的量程设定；自动量程、分辨率、孔径/NPLC（50 Hz）与 Auto/Fast/Manual 孔径方式（读数时间计入虚拟时间）、直流电压输入阻抗 AUTO/1M/10M（进入电路求解）、RMS 滤波、电阻 NORMal/TRUE/HIV 与低电流（测量电流按规格书）；触发层 IMM/BUS/EXT、计数、延迟、`TRIGger:RESet`、`*TRG`；读数存储 15 000 000；显示、字节序、读数存放为接受 |
 | 覆盖、用例与示例 | ✅ 覆盖表按 Table 3/5/6/10/11 与 Trigger Subsystem 共 325 条：实现 79 · 接受 5 · 未实现 241；`tests/models/fluke-8588a/cases.yaml` 15 条全部通过；示例台 `examples/benches/fluke-8588a.bench.yaml`（Fluke 5522A 接 INPUT HI）与真机写法脚本 `examples/scripts/fluke_8588a_verify.py` 在 `tests/test_fluke_8588a.py` 中运行；另测输入阻抗加载源电阻、三种电阻方式的测量电流、四线绕过引线电阻、电流量程的分流、孔径与虚拟时间 |
 | 平台改动（引擎，组件未改） | ✅ 复合枚举词（`"VOLTage:AC"`）逐节点匹配长短格式，短格式保留冒号；`not_modeled` 词可带引号；操作命令的 `int` 参数检查声明的上下限（`FETCh? 2` → -222）；嵌套参数映射里的设定也登记为组件的监听（`sense.impedance` 在 `sense.function` 映射之下，改变时重新盖章电路）。`tests/test_units_scpi.py` 新增复合词用例 |
-| 未实现 | ⚠️ 电容、数字化、频率/周期、温度、射频功率、外接分流、CALCulate、校准、STATus 寄存器、ARM 层（固定 IMMediate、计数 1）、连续触发、`FNOW?`、次读数、前后端子扫描等逐条标注；电阻自动量程下 `READ?`/`INIT` 不落定量程（组件缺口，#522；`MEASure?` 正确） |
+| 未实现 | ⚠️ 电容、数字化、频率/周期、温度、射频功率、外接分流、CALCulate、校准、STATus 寄存器、ARM 层（固定 IMMediate、计数 1）、连续触发、`FNOW?`、次读数、前后端子扫描等逐条标注 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 触发取读数时落定电阻自动量程（Issue 522）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `READ?`/`INIT` 与 `MEASure?` 同样落定自动量程 | ✅ `dmm_adc.sample()` 改为调用 `measure()`（其中的循环：每换一次量程按新的测试电流重解电路，直到量程不变）；此前触发模型取读数直接 `reading()`，固定量程改回自动后第一次按 1 Ω 量程的电流算出开路、选到最大量程并读出过载 |
+| 测试 | ✅ `tests/test_fluke_8588a.py::test_open_input_and_a_too_small_range_overload` 换回 `READ?` 并加 `INIT`/`FETCh?`（修复前失败）；`tests/test_keysight_34465a.py::test_read_settles_the_ohms_autorange_like_measure`（从固定量程回到自动后 `READ?`/`FETCh?`） |
+| 覆盖表 | ✅ 8588A 电阻 `RANGe:AUTO` 的说明去掉 #522 的限制 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
