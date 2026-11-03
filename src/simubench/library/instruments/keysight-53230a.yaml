@@ -1,0 +1,565 @@
+schema: simubench.instrument/1
+id: keysight-53230a
+manufacturer: Keysight Technologies
+model: 53230A
+class: frequency_counter
+version: 1
+description: >-
+  Keysight 53230A，350 MHz 双通道通用频率计数器/计时器（53200 系列顶配：20 ps 单次分辨率、
+  1 µs 门时间、无间隙连续测量与时间戳）。Real model（D42）：命令、参数范围、*RST 默认值与
+  返回格式按 53220A/53230A User's Guide（53220-90001，Edition 3，September 1, 2017）的第 3–8 章；
+  与 53220A 同一手册与命令集，定义从 keysight-53220a 出发，差异是 53230A 的门时间下限、单次
+  分辨率与 SENSe:FREQuency:MODE（CONTinuous 为无间隙连续测量，由 counter_timebase 承担）。
+  时间戳（CONFigure/MEASure:ARRay:TSTamp）、派生测量与 Option 150 脉冲/突发测量在覆盖表中标未实现。
+reference:
+  title: Keysight 53220A/53230A 350 MHz Universal Frequency Counter/Timer User's Guide
+  document: "53220-90001"
+  version: Edition 3, September 1, 2017
+  firmware: "手册适用于 53230A 固件 3.0 或更高；*IDN? 无示例，序列号与固件串待真机核对"
+identity:
+  idn: "Keysight Technologies,53230A,{serial},{firmware}"
+  # 序列号与固件串按 Keysight 的 *IDN? 四字段格式；手册没有示例（待真机核对）。
+  serial: MY53005678
+  firmware: "3.00"
+format:
+  # 手册 Table 7-1：ASCII 读数 15 位有效数字，如 +4.57538162393720E+006；错误码带 + 号。
+  number: nr3
+  digits: 14
+  sign: true
+  exponent_digits: 3
+  # 读数与统计也按这一格式（Table 7-1 的 ASCII 读数，#366）。
+  readings: format
+  boolean: numeric
+  enum: short
+  error_code: signed
+specs:
+  source: 53220A/53230A User's Guide（53220-90001，Edition 3，September 1, 2017）
+  frequency_range_hz: {channels_1_2: [1.0e-3, 3.5e8]}
+  period_range_s: {channels_1_2: [2.8e-9, 10.0]}
+  # 手册 p.120（TOTalize:TIMed 的门时间）与 Table 5-2：53230A 的门时间 1 µs–1000 s（1 µs 分辨率），
+  # 单次分辨率 Tss = 20 ps。
+  gate_time_s: {53230A: [1.0e-6, 1000.0]}
+  single_shot_resolution_s: 2.0e-11
+  resolution_digits_53230a:
+    auto_continuous: {"1us": 4.7, "10us": 5.7, "100us": 6.7, "1ms": 7.7, "10ms": "up to 10", "100ms": "up to 11", "1s": "up to 12", "10s": "up to 13", "100s": "up to 14", "1000s": "up to 15"}
+    reciprocal: {"1us": 4.7, "10us": 5.7, "100us": 6.7, "1ms": 7.7, "10ms": 8.7, "100ms": 9.7, "1s": 10.7, "10s": 11.7, "100s": 12.7, "1000s": 13.7}
+  timestamp_rate_hz: [10.0e3, 100.0e3, 800.0e3, 1.0e6]
+  input: {impedance_ohm: [50.0, 1.0e6], range_v_1to1_probe: [5.0, 50.0], level_5v_range_v: [-5.125, 5.125]}
+  timebase: {internal: "10 MHz TCXO（Option 010 为 OCXO）", external: "1/5/10 MHz，100 mVrms–2.5 Vrms 正弦"}
+  reading_format: "+4.57538162393720E+006（ASCII，15 位有效数字）"
+errors:
+  0: No error
+  -100: Command error
+  -101: Invalid character
+  -102: Syntax error
+  -103: Invalid separator
+  -104: Data type error
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -110: Command header error
+  -113: Undefined header
+  -114: Header suffix out of range
+  -120: Numeric data error
+  -128: Numeric data not allowed
+  -130: Suffix error
+  -131: Invalid suffix
+  -138: Suffix not allowed
+  -141: Invalid character data
+  -148: Character data not allowed
+  -151: Invalid string data
+  -158: String data not allowed
+  -168: Block data not allowed
+  -178: Expression data not allowed
+  -203: Command Protected
+  -211: Trigger ignored
+  -213: INIT ignored
+  -214: Trigger deadlock
+  -221: Settings conflict
+  -222: Data out of range
+  -223: Too much data
+  -224: Illegal Parameter Value
+  -230: Data corrupt or stale
+  -240: Hardware error
+  -241: Hardware missing
+  -310: System Error;internal software error
+  -313: Calibration memory lost;memory corruption detected
+  -314: Save/recall memory lost;memory corruption detected
+  -350: Error queue overflow
+  -410: Query INTERRUPTED
+  -420: Query UNTERMINATED
+  -430: Query DEADLOCKED
+  -440: Query UNTERMINATED after indefinite response
+channels:
+  count: 2
+channel_state:
+  coupling:
+    type: enum
+    options: [AC, DC]
+    default: AC
+    label: 耦合
+    label_en: Coupling
+    option_labels: {AC: 交流, DC: 直流}
+  impedance:
+    type: float
+    unit: OHM
+    min: 50.0
+    max: 1.0e6
+    default: 1.0e6
+    electrical: true
+    label: 输入阻抗
+    label_en: Input impedance
+  threshold:
+    type: float
+    unit: V
+    min: -5.125
+    max: 5.125
+    default: 0.0
+    label: 阈值电平
+    label_en: Threshold level
+state:
+  function:
+    type: enum
+    options: [FREQuency, PERiod, TOTalize, TINTerval]
+    default: FREQuency
+    label: 测量功能
+    label_en: Function
+    option_labels:
+      FREQuency: 频率
+      PERiod: 周期
+      TOTalize: 累加
+      TINTerval: 时间间隔
+  gate.time:
+    type: float
+    unit: S
+    min: 1.0e-6
+    max: 1000.0
+    default: 0.1
+    label: 门时间
+    label_en: Gate time
+  gate.source:
+    type: enum
+    options: [TIME, EXTernal]
+    default: TIME
+    label: 门控源
+    label_en: Gate source
+    option_labels: {TIME: 门时间, EXTernal: 外部}
+  # 测量方式（手册 p.83 Measurement Mode）：AUTO 分辨率增强、RECiprocal 只做倒数测量、CONTinuous
+  # 无间隙连续测量（53230A 独有）；*RST 为 AUTO，CONFigure/MEASure 不改变它。
+  measure.mode:
+    type: enum
+    options: [AUTO, RECiprocal, CONTinuous]
+    default: AUTO
+    label: 测量方式
+    label_en: Measurement mode
+    option_labels: {AUTO: 自动, RECiprocal: 倒数, CONTinuous: 无间隙连续}
+  timebase.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 时基
+    label_en: Timebase
+    option_labels: {INTernal: 内部, EXTernal: 外部参考}
+  timebase.external_frequency:
+    type: float
+    unit: HZ
+    min: 1.0e6
+    max: 10.0e6
+    default: 10.0e6
+    label: 外部参考频率
+    label_en: External reference frequency
+  timebase.auto:
+    type: bool
+    default: true
+    label: 自动选择时基
+    label_en: Auto reference selection
+  timebase.standby:
+    type: bool
+    default: false
+    label: 参考振荡器保持加温
+    label_en: Reference oscillator standby
+  trigger.source:
+    type: enum
+    options: [IMMediate, EXTernal, BUS]
+    default: IMMediate
+    label: 触发源
+    label_en: Trigger source
+    option_labels: {IMMediate: 立即, EXTernal: 外部, BUS: 总线}
+  trigger.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+    label: 触发次数
+    label_en: Trigger count
+  trigger.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 10000.0
+    default: 0.0
+    label: 触发延迟
+    label_en: Trigger delay
+  sample.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+    label: 每次触发的读数
+    label_en: Readings per trigger
+  measure.expected_frequency:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 3.5e8
+    default: 10.0e6
+    label: 预期频率
+    label_en: Expected frequency
+  measure.resolution_frequency:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 3500.0
+    default: 0.0
+    label: 频率分辨率
+    label_en: Frequency resolution
+  measure.expected_period:
+    type: float
+    unit: S
+    min: 2.8e-9
+    max: 10.0
+    default: 100.0e-9
+    label: 预期周期
+    label_en: Expected period
+  measure.resolution_period:
+    type: float
+    unit: S
+    min: 0.0
+    max: 1.0e-4
+    default: 0.0
+    label: 周期分辨率
+    label_en: Period resolution
+  measure.channels:
+    type: enum
+    options: ["(@1)", "(@2)"]
+    default: "(@1)"
+    label: 测量通道
+    label_en: Measurement channel
+  measure.stop_channel:
+    type: enum
+    options: ["(@1)", "(@2)"]
+    default: "(@2)"
+    label: 时间间隔停止通道
+    label_en: Time interval stop channel
+  calculate.enabled:
+    type: bool
+    default: false
+    label: 运算功能
+    label_en: Math
+  statistics.enabled:
+    type: bool
+    default: false
+    label: 统计
+    label_en: Statistics
+  display.mode:
+    type: enum
+    options: [NUMeric, HISTogram, TCHart]
+    default: NUMeric
+    label: 显示方式
+    label_en: Display mode
+    option_labels: {NUMeric: 数值, HISTogram: 直方图, TCHart: 趋势图}
+  system.timeout:
+    type: float
+    unit: S
+    min: 0.01
+    max: 2000.0
+    default: 1.0
+    label: 测量超时
+    label_en: Measurement timeout
+  system.auto_level_frequency:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 10.0e3
+    default: 50.0
+    label: 自动电平最低频率
+    label_en: Auto-level frequency
+  system.language:
+    type: enum
+    options: ["53220A", "53230A"]
+    default: "53230A"
+    label: 命令集语言
+    label_en: SCPI language
+  system.battery:
+    type: bool
+    default: false
+    label: 电池使能
+    label_en: Battery enable
+  data_format:
+    type: enum
+    options: [ASCII]
+    default: ASCII
+    label: 数据格式
+    label_en: Data format
+components:
+  # 频率计数器的真实功能块（F #192、D50）：每个通道一个输入调理，门控由时基给出真实门长，
+  # 两个计数核心共用门控、时基与统计（核心 1 以 A 为起点、核心 2 以 B 为起点，供通道选择与
+  # 两通道时间间隔使用），触发模型按测量通道选择采样核心。
+  - name: a
+    type: counter_input
+    params:
+      z_in: $ch1.impedance
+      coupling: $ch1.coupling
+      threshold: $ch1.threshold
+      # 灵敏度的模型值：手册没有给出可编程的 p-p 门限，取 0.1 V（见覆盖表）。
+      sensitivity: 0.1
+  - name: b
+    type: counter_input
+    params:
+      z_in: $ch2.impedance
+      coupling: $ch2.coupling
+      threshold: $ch2.threshold
+      sensitivity: 0.1
+  - name: clock
+    type: reference_clock
+    params:
+      source: $timebase.source
+      nominal_hz: $timebase.external_frequency
+  - name: gate
+    type: counter_gate
+    params:
+      time: $gate.time
+      source: {from: $gate.source, map: {TIME: INTernal, EXTernal: EXTernal}}
+      clock: clock
+  - name: stats
+    type: counter_statistics
+    params:
+      capacity: 1000000
+  # 时基（#328）：参考时钟变成仪表的时标，单次分辨率 20 ps（Table 5-2 的 Tss）；CONTinuous 方式下
+  # 每个读数从上一门的最后一个沿到本门的最后一个沿，相邻读数共用边界沿（手册 Figure 3-1）。
+  - name: tb
+    type: counter_timebase
+    params:
+      clock: clock
+      single_shot_s: 2.0e-11
+      gap_free: {from: $measure.mode, map: {AUTO: false, RECiprocal: false, CONTinuous: true}}
+  - name: ch1.core
+    type: counter_core
+    params:
+      function: $function
+      gate: gate
+      clock: clock
+      a_input: a
+      b_input: b
+      statistics: stats
+      timebase: tb
+      single_shot_s: 2.0e-11
+  - name: ch2.core
+    type: counter_core
+    params:
+      function: $function
+      gate: gate
+      clock: clock
+      a_input: b
+      b_input: a
+      statistics: stats
+      timebase: tb
+      single_shot_s: 2.0e-11
+  - name: trig
+    type: trigger_model
+    params:
+      sampler:
+        from: $measure.channels
+        map:
+          "(@1)": ch1.core
+          "(@2)": ch2.core
+      source: {from: $trigger.source, map: {IMMediate: immediate, EXTernal: external, BUS: bus}}
+      trigger_count: $trigger.count
+      sample_count: $sample.count
+      delay: $trigger.delay
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: system
+    type: system
+wiring:
+  instrument:
+    - [a.out, ch1.core.a]
+    - [b.out, ch1.core.b]
+    - [b.out, ch2.core.a]
+    - [a.out, ch2.core.b]
+    - [ref_in.out, clock.ref]
+ports:
+  instrument:
+    CH1: a.pin
+    CH2: b.pin
+    REF_IN: ref_in.pin
+  media: {REF_IN: reference}
+display:
+  summary: [function, gate.time, trigger.source]
+capabilities: [frequency_counter]
+commands:
+  # ---- 输入调理（第 4 章，INPut 子系统）----
+  - header: "[:INPut<ch>]:IMPedance"
+    state: ch.impedance
+  - header: "[:INPut<ch>]:COUPling"
+    state: ch.coupling
+  - header: "[:INPut<ch>]:LEVel[:ABSolute]"
+    state: ch.threshold
+  # ---- 时基（第 3 章，参考振荡器）----
+  - header: "[:SENSe]:ROSCillator:SOURce"
+    state: timebase.source
+  - header: "[:SENSe]:ROSCillator:SOURce:AUTO"
+    state: timebase.auto
+  - header: "[:SENSe]:ROSCillator:EXTernal:FREQuency"
+    state: timebase.external_frequency
+  - header: "[:SENSe]:ROSCillator:INTernal:POWer:STANdby"
+    state: timebase.standby
+  # ---- 门控（第 5 章）----
+  - header: "[:SENSe]:FREQuency:GATE:SOURce"
+    state: gate.source
+  - header: "[:SENSe]:FREQuency:GATE:TIME"
+    state: gate.time
+  - header: "[:SENSe]:FREQuency:MODE"
+    state: measure.mode
+  - header: "[:SENSe]:TOTalize:GATE:SOURce"
+    state: gate.source
+  - header: "[:SENSe]:TOTalize:GATE:TIME"
+    state: gate.time
+  # ---- 测量配置（第 3 章，CONFigure）----
+  - header: ":CONFigure:FREQuency"
+    query: false
+    writes:
+      function: FREQuency
+      trigger.source: IMMediate
+      trigger.count: 1
+      sample.count: 1
+      trigger.delay: 0.0
+      gate.source: TIME
+      gate.time: 0.1
+      measure.channels: "(@1)"
+    params:
+      - {name: expected, type: float, unit: HZ, min: 0.1, max: 3.5e8, optional: true, state: measure.expected_frequency}
+      - {name: resolution, type: float, unit: HZ, min: 0.0, max: 3500.0, optional: true, state: measure.resolution_frequency}
+      - {name: channel, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
+  - header: ":CONFigure:PERiod"
+    query: false
+    writes:
+      function: PERiod
+      trigger.source: IMMediate
+      trigger.count: 1
+      sample.count: 1
+      trigger.delay: 0.0
+      gate.source: TIME
+      gate.time: 0.1
+      measure.channels: "(@1)"
+    params:
+      - {name: expected, type: float, unit: S, min: 2.8e-9, max: 10.0, optional: true, state: measure.expected_period}
+      - {name: resolution, type: float, unit: S, min: 0.0, max: 1.0e-4, optional: true, state: measure.resolution_period}
+      - {name: channel, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
+  - header: ":CONFigure:TOTalize:TIMed"
+    query: false
+    writes:
+      function: TOTalize
+      trigger.source: IMMediate
+      trigger.count: 1
+      sample.count: 1
+      trigger.delay: 0.0
+      gate.source: TIME
+      measure.channels: "(@1)"
+    params:
+      - {name: gate_time, type: float, unit: S, min: 1.0e-6, max: 1000.0, optional: true, state: gate.time}
+      - {name: channel, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
+  - header: ":CONFigure:TINTerval"
+    query: false
+    writes:
+      function: TINTerval
+      trigger.source: IMMediate
+      trigger.count: 1
+      sample.count: 1
+      trigger.delay: 0.0
+      measure.channels: "(@1)"
+      measure.stop_channel: "(@2)"
+    params:
+      - {name: start, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
+      - {name: stop, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.stop_channel}
+  # ---- 单次测量（第 3 章，MEASure）----
+  - header: ":MEASure:FREQuency"
+    op: ch.core.measure
+    set: false
+    args: {what: FREQuency}
+    params:
+      - {name: expected, type: float, unit: HZ, min: 0.1, max: 3.5e8, optional: true}
+      - {name: resolution, type: float, unit: HZ, min: 0.0, max: 3500.0, optional: true}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: ":MEASure:PERiod"
+    op: ch.core.measure
+    set: false
+    args: {what: PERiod}
+    params:
+      - {name: expected, type: float, unit: S, min: 2.8e-9, max: 10.0, optional: true}
+      - {name: resolution, type: float, unit: S, min: 0.0, max: 1.0e-4, optional: true}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  # ---- 触发与取数（第 5、7 章）----
+  - header: ":ABORt"
+    op: trig.abort
+    query: false
+  - header: ":INITiate[:IMMediate]"
+    op: trig.initiate
+    query: false
+  - header: ":FETCh"
+    op: trig.fetch
+    set: false
+  - header: ":READ"
+    op: trig.read
+    set: false
+  - header: ":TRIGger:SOURce"
+    state: trigger.source
+  - header: ":TRIGger:COUNt"
+    state: trigger.count
+  - header: ":TRIGger:DELay"
+    state: trigger.delay
+  - header: ":SAMPle:COUNt"
+    state: sample.count
+  # ---- 统计（第 6 章，CALCulate1:AVERage）----
+  - header: "CALCulate<ch>[:STATe]"
+    state: calculate.enabled
+  - header: "CALCulate<ch>:AVERage[:STATe]"
+    state: statistics.enabled
+  - header: "CALCulate<ch>:AVERage:AVERage"
+    op: stats.mean
+    set: false
+  - header: "CALCulate<ch>:AVERage:MINimum"
+    op: stats.minimum
+    set: false
+  - header: "CALCulate<ch>:AVERage:MAXimum"
+    op: stats.maximum
+    set: false
+  - header: "CALCulate<ch>:AVERage:SDEViation"
+    op: stats.sdev
+    set: false
+  - header: "CALCulate<ch>:AVERage:COUNt:CURRent"
+    op: stats.count
+    set: false
+  - header: "CALCulate<ch>:AVERage:CLEar[:IMMediate]"
+    op: stats.clear
+    query: false
+  # ---- 数据格式（第 7 章）----
+  - header: "FORMat[:DATA]"
+    state: data_format
+  # ---- 显示（第 6 章）----
+  - header: "DISPlay[:WINDow]:MODE"
+    state: display.mode
+  # ---- 系统设置（第 1、3 章）----
+  - header: ":SYSTem:TIMeout"
+    state: system.timeout
+  - header: ":SYSTem:ALEVel:FREQuency"
+    state: system.auto_level_frequency
+  - header: ":SYSTem:LANGuage"
+    state: system.language
+    format: {enum: as_defined}
+    reply: '"{value}"'
+  - header: ":SYSTem:BATTery:ENABle"
+    state: system.battery
+  - header: ":SYSTem:PRESet"
+    op: system.reset
+    query: false

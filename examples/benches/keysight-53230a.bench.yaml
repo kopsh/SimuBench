@@ -1,0 +1,38 @@
+schema: simubench.bench/2
+name: keysight_53230a_gap_free
+description: >-
+  Siglent SDG2042X 两路 1 kHz、2 Vpp 正弦（高阻负载设定）接到 Keysight 53230A 的 CH1 与 CH2；
+  CH2 相位 90°。示例脚本 examples/scripts/keysight_53230a_gap_free.py 按 53220A/53230A User's
+  Guide 的 Figure 3-1 设置无间隙连续测量（SENSe:FREQuency:MODE CONTinuous），由连续读数算
+  阿伦偏差，并用同一流程测两通道时间间隔，在真机和 SimuBench 上都不改一行。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.function: SINE
+      ch1.frequency: 1000.0
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+      ch2.function: SINE
+      ch2.frequency: 1000.0
+      ch2.amplitude: 2.0
+      ch2.phase: 90.0
+      ch2.load: .inf
+      ch2.output: true
+  cnt:
+    model: keysight-53230a
+    label: 频率计数器
+    address: "TCPIP0::192.168.1.34::INSTR"
+wires:
+  - {from: awg.CH1, to: cnt.CH1}
+  - {from: awg.CH2, to: cnt.CH2}
+run:
+  seed: 7
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  cnt: {x: 440, y: 80}
