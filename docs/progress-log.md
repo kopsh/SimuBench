@@ -831,3 +831,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 光标交互（核心决定） | ✅ 决定在波形上直接拖动：竖线改时间、横线改电压，读数画在屏幕右上角，滑块保留为键盘途径；`docs/ui-design.md` 已写；e2e 拖动 X2 到中线读 600 µs |
 | e2e 容差 | ✅ 测量表比较改为相对误差 < 1e-3（界面 4 位有效数字，注明依据） |
 | 检查 | ✅ `scripts/check.sh` 全绿；`instruments.spec.ts` 的示波器屏幕用例与 `visual -g scope` 通过 |
+
+## TUI 射频源/电子负载读数、英文标题与各类快照（Issue 355）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 射频源与电子负载不显示组件内部量，整数为整数 | ✅ `rf_generator`：频率、电平、RF/AM/FM/PM/参考标志、`Point n/N`、`Lines n`、β 与被省略功率，再 Carrier/Modulation/Sweep；`electronic_load`：V、I、P、`INPUT`、CC/CV/CR/CP、`UNREG`，再 Settings。面板读数里无单位的整数按整数显示（34970A 的通道号）。`tests/test_tui_snapshots.py::test_the_rf_source_and_load_screens_show_meaningful_readings` 断言读数文字，且屏幕上没有 `synth.point`、`mod.lines` 等 |
+| 标题与分组名无中文（D23） | ✅ 仪表框与身份框的标题只用拉丁字母写的 `label`，否则用型号；同一测试断言整屏无 CJK；原有 SMU、计数器、频谱、锁相快照只因标题变化更新 |
+| 射频源、电子负载、电源、DAQ 各有 80×24 与 100×32 快照 | ✅ `CATEGORY_SCREENS` 增加 rfgen（sb-sg-1）、eload（DL3021）、psu（E36312A）、daq（34970A）；后三台在示例工作区，测试加第二个服务 |
+| 服务描述 34970A | ✅ 修复：`port_pattern` 生成的端口（继电器端子）在 `describe_instrument` 中 KeyError，示例台此前在服务与 Web 中打不开；`Component.port_spec` |
+| 检查 | ✅ `scripts/check.sh` 全绿；TUI 慢层串行通过 |
