@@ -39,7 +39,7 @@
 | --- | --- | --- | --- | --- |
 | reference | `reference_clock` | 数据(基准偏差) | 已实现 | siglent-sdg2042x 无(例外清单) |
 | synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
-| amplitude | `amplitude_level` | 数据(标量) | 已实现 | siglent-sdg2042x 无(例外清单) |
+| amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，#424) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现 | siglent-sdg2042x 无(例外清单) |
 | modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
