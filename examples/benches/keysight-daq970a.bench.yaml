@@ -1,0 +1,49 @@
+schema: simubench.bench/2
+name: keysight_daq970a_scan
+description: >-
+  Keysight DAQ970A 与槽 1 的 DAQM901A（20 个电压/电阻通道 + 2 个电流通道）：三个 1 V / 2 V / 4 V 参考各经
+  1 MΩ 接在通道 101/102/103，L 端共 0 V。闭合继电器后内部 DMM 的 10 MΩ 与源内阻分压，读数约为设定的
+  10/11（VOLT:DC:IMP:AUTO ON 时 10 V 档改为 >10 GΩ，读数回到设定值）。通道 104 接 1 kΩ 对地电阻（114 作
+  四线检测），电流通道 121 接 5 V 经 1 kΩ 的源。示例脚本 examples/scripts/keysight_daq970a_scan.py 按
+  Programming Guide 的扫描流程写，在真机和 SimuBench 上都不改一行。
+instruments:
+  daq:
+    model: keysight-daq970a
+    label: 数据采集系统
+    address: "TCPIP0::192.168.1.40::inst0::INSTR"
+parts:
+  v1: {type: dc_supply, params: {v: 1.0, r: 1.0e6}}
+  v2: {type: dc_supply, params: {v: 2.0, r: 1.0e6}}
+  v3: {type: dc_supply, params: {v: 4.0, r: 1.0e6}}
+  v01: {type: dc_supply, params: {v: 0.0, r: 1.0e-6}}
+  v02: {type: dc_supply, params: {v: 0.0, r: 1.0e-6}}
+  v03: {type: dc_supply, params: {v: 0.0, r: 1.0e-6}}
+  r4: {type: load_resistor, params: {r: 1000.0}}
+  i1: {type: dc_supply, params: {v: 5.0, r: 1000.0}}
+wires:
+  - {from: v1.OUT, to: daq.H101}
+  - {from: v2.OUT, to: daq.H102}
+  - {from: v3.OUT, to: daq.H103}
+  - {from: v01.OUT, to: daq.L101}
+  - {from: v02.OUT, to: daq.L102}
+  - {from: v03.OUT, to: daq.L103}
+  - {from: daq.H104, to: r4.A}
+  - {from: daq.L104, to: v03.OUT}
+  - {from: daq.H114, to: r4.A}
+  - {from: daq.L114, to: v03.OUT}
+  - {from: i1.OUT, to: daq.I121}
+  - {from: daq.L121, to: v03.OUT}
+run:
+  seed: 1
+  clock: command
+  idle: "off"
+layout:
+  daq: {x: 0, y: 80}
+  v1: {x: 440, y: 0}
+  v2: {x: 440, y: 100}
+  v3: {x: 440, y: 200}
+  v01: {x: 220, y: 300}
+  v02: {x: 320, y: 300}
+  v03: {x: 420, y: 300}
+  r4: {x: 560, y: 300}
+  i1: {x: 660, y: 300}
