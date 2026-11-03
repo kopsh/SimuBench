@@ -433,7 +433,7 @@ class InstrumentScreen(ShellScreen):
         if template == "electronic_load":
             return self._load_lines(state, width)
         if (info.get("display") or {}).get("panel"):
-            return self._panel_lines(width)
+            return self._panel_lines(width, budget)
         return self._readings_lines(width) + self._generic_lines(state, width)
 
     def _row(
@@ -536,9 +536,12 @@ class InstrumentScreen(ShellScreen):
         width = 1 + max((cell_len(label) for label, _, _ in rows), default=5)
         return [self._row(label, value, bold=bold, width=width) for label, value, bold in rows]
 
-    def _panel_lines(self, width: int | None = None) -> list[list[tuple[str, str]]]:
+    def _panel_lines(
+        self, width: int | None = None, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
         """Readouts on top (numbers bold), then one column per panel group, as many as fit
-        (tui-screens.md 5.2)."""
+        (tui-screens.md 5.2). A group block the ``budget`` has no room for is left out whole
+        (#374, #454): a group title above the fold misleads."""
         lang = self.app.lang
         info = self.info
         panel = info["display"]["panel"]
@@ -570,7 +573,8 @@ class InstrumentScreen(ShellScreen):
             ]
             for group in panel.get("groups", [])
         }
-        return rows + self._grouped_columns(groups, state, width)
+        group_budget = budget - len(rows) if budget is not None else None
+        return rows + self._grouped_columns(groups, state, width, budget=group_budget)
 
     def _readings_lines(self, width: int | None = None) -> list[list[tuple[str, str]]]:
         """The numeric readings of an instrument without a template view (an electronic load, an RF
