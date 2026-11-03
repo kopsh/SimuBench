@@ -1641,9 +1641,7 @@ class Instrument:
                 if ps.type == "float":
                     # the state's words are the same on every channel: channel 1's spec tells
                     st = self.specs.get(self._resolve(ps.state, 1)) if ps.state is not None else None
-                    if (ps.keywords or (st is not None and st.special)) and self._keyword_word(
-                        ps, st, r
-                    ):
+                    if (ps.keywords or (st is not None and st.special)) and self._keyword_word(ps, st, r):
                         out[ps.name] = r  # a keyword word: the binding layer reads it per state (#354)
                     else:
                         v = V.parse_float(r, ps.unit, ps.min, ps.max)
