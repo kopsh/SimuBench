@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from scipy.special import jv
 
-from ...engine.component import Component, PortSpec, component
+from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
 from ...scpi.errors import ScpiError
 
@@ -566,6 +566,47 @@ class AmplitudeLevel(Component):
         if str(new).upper() == "DBM" and vpp <= 0:
             raise ScpiError(-221, "0 Vpp has no dBm expression")
         self.owner.set_state(amp_path, self._from_vpp(vpp, new), internal=True)
+
+    # ---- high and low levels (#424) -----------------------------------------------------------
+
+    def levels(self) -> tuple[float, float]:
+        """The wave's (low, high) levels into the load setting: offset ∓ Vpp/2."""
+        half = self.vpp() / 2
+        offset = float(self.param("offset"))
+        return offset - half, offset + half
+
+    def _set_levels(self, low: float, high: float) -> None:
+        """Write the bound amplitude (in its unit) and offset so the wave spans low..high."""
+        if high <= low:
+            raise ScpiError(-222, f"the high level {high:.6g} V must be above the low level {low:.6g} V")
+        bound = self.bound_paths()
+        amp_path, off_path = bound.get("amplitude"), bound.get("offset")
+        if self.owner is None or amp_path is None or off_path is None:
+            raise ScpiError(-221, "the amplitude and offset are not settings")
+        unit = str(self.param("unit"))
+        self.owner.set_state(amp_path, self._from_vpp(high - low, unit))
+        self.owner.set_state(off_path, (high + low) / 2)
+
+    def _level(self, which: int, query: bool, value: Any) -> OpResult:
+        assert self.owner is not None
+        levels = list(self.levels())
+        if query:
+            return OpResult(self.owner.format_number(levels[which]))
+        if value is None:
+            raise ScpiError(-109, "missing level")
+        levels[which] = float(value)
+        self._set_levels(*levels)
+        return OpResult()
+
+    @op("high")
+    def op_high(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
+        """``VOLTage:HIGH``: the high level; setting it keeps the low level (amplitude and offset change)."""
+        return self._level(1, query, value)
+
+    @op("low")
+    def op_low(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
+        """``VOLTage:LOW``: the low level; setting it keeps the high level."""
+        return self._level(0, query, value)
 
     def _emf_scale(self) -> float:
         rl = self._load()
