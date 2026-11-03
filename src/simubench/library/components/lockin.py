@@ -216,7 +216,7 @@ class LockinReference(Component):
     @op("frequency")
     def op_frequency(self, what: str = "actual", **_: Any) -> OpResult:
         f = self._freq * (int(self.param("harmonic")) if what == "detect" else 1)
-        return OpResult(V.format_float(f, 10))
+        return OpResult(self.reply_number(f, 10))
 
 
 # ---- input configuration ------------------------------------------------------------------------
@@ -603,7 +603,7 @@ class LockinLowpass(Component):
 
     @op("filter_info")
     def op_filter_info(self, what: str = "enbw", **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.enbw() if what == "enbw" else self.settling(), 8))
+        return OpResult(self.reply_number(self.enbw() if what == "enbw" else self.settling(), 8))
 
 
 # ---- output -------------------------------------------------------------------------------------
@@ -808,7 +808,7 @@ class LockinOutput(Component):
     @op("measure")
     def op_measure(self, what: str = "R", **_: Any) -> OpResult:
         self.overload()
-        return OpResult(V.format_float(self._value(what, self.xy()), 8))
+        return OpResult(self.reply_number(self._value(what, self.xy()), 8))
 
     @op("snap")
     def op_snap(self, names: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -818,7 +818,7 @@ class LockinOutput(Component):
             raise ScpiError(-109, "SNAP? takes one to four of X, Y, R, THETa")
         self.overload()
         z = self.xy()  # one instant for every value
-        return OpResult(b",".join(V.format_float(self._value(i, z), 8) for i in items))
+        return OpResult(b",".join(self.reply_number(self._value(i, z), 8) for i in items))
 
     @op("overload")
     def op_overload(self, what: str = "all", **_: Any) -> OpResult:
@@ -956,7 +956,7 @@ class LockinAux(Component):
 
     @op("read")
     def op_read(self, index: str | int = "1", **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.read(index), 8))
+        return OpResult(self.reply_number(self.read(index), 8))
 
     def trace_value(self, quantity: str, t_ns: int) -> float:
         """``AUX1`` .. ``AUX4``: an AUX input's voltage, for a ``curve_buffer`` trace (#273)."""

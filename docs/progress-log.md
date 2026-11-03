@@ -813,3 +813,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 同一关键字长短形式同码 | ✅ `scpi/values.py` 的数值关键字加入 INFINITY、NINFINITY（与 INF、NINF 同义）；`tests/test_not_modeled_words.py`：两种形式解析相同，未声明时有界设置上都是 -222 |
 | 定义层能拒绝特定词并给原因 | ✅ 设置与参数的 `not_modeled: {词: 原因}`（D53）：写该词报 -224、事件 reason `not_modeled`；34970A 与 34465A 的 `TRIGger:COUNt` 声明 INFinity，`TRIG:COUN INF/INFinity/infinity` 都回 -224，超出范围的数仍是 -222；覆盖表同步；schemas 与 Web API 类型已重新生成 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 组件应答的数值按定义格式（Issue 366）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件应答可随定义格式 | ✅ `Component.reply_number`；`format.readings: format` 时用定义的应答格式（D54）；频谱、计数器、锁相、曲线缓冲、负载/电源回读、射频列表、校准存储、SMU 改用它；默认 `component` 不变（全量测试未改期望通过） |
+| N9320B 统一 16 位 | ✅ 定义 `readings: format`：标记 X/Y、迹线 1001 点、RBW 等都回 `+1.0000000000000000E+005` 形式；手册用例两条与 `tests/test_keysight_n9320b.py` 的 RBW 断言按 16 位更新 |
+| 同类型号 | ✅ 53220A 采用 `readings: format`（读数与统计 15 位有效数字，Table 7-1）；覆盖表的 13/11 位说明更正 |
+| 检查 | ✅ `scripts/check.sh` 全绿；schemas 与 Web API 类型已重新生成 |

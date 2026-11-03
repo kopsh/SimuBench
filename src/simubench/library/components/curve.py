@@ -205,7 +205,7 @@ class CurveBuffer(Component):
             return OpResult(struct.pack(f"<{len(values)}f", *values))
         if kind == "LIA":
             return OpResult(b"".join(lia16(v) for v in values))
-        return OpResult(b"".join(V.format_float(v, 8) + b"," for v in values))
+        return OpResult(b"".join(self.reply_number(v, 8) + b"," for v in values))
 
     def status_flags(self) -> dict[str, bool]:
         """SCN while no scan is in progress (paused counts as none: the SRS serial poll bit 0)."""
