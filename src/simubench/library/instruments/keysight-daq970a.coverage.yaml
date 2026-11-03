@@ -1,0 +1,1428 @@
+# Keysight DAQ970A 的覆盖表：按 DAQ970A/DAQ973A Programming Guide（DAQ97-90002, Edition 3, March 2020）
+# 的目录（第 2 章 SCPI Programming，各子系统的命令条目）逐条列出，程度与说明手写。
+# 范围：固定配置 DAQ970A + 槽 1 的 DAQM901A（101–122；槽 2/3 号域存在但无模块）；直流/交流电压、两线/四线
+# 电阻、直流/交流电流（121/122）、继电器、扫描表、触发与读数存储器、CONFigure/MEASure 的通道列表形式。
+# 未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
+schema: simubench.coverage/1
+model: keysight-daq970a
+sections:
+- section: INSTrument Subsystem
+  commands:
+  - header: INSTrument:DMM
+    level: not_modeled
+    note: 内部 DMM 的开关（切换时执行 *RST）未建模：本配置内部 DMM 恒开。
+- section: R Subsystem
+  commands:
+  - header: R
+    level: implemented
+    note: 'R? [<max>]：取出并清除最旧的读数（全部或至多 max 条），定长块返回；无读数为 #10。'
+- section: READ Subsystem
+  commands:
+  - header: READ
+    level: implemented
+    note: = INITiate 后紧跟 FETCh?：按扫描表扫描，读数进读数存储器并返回；BUS/EXTernal 触发源时 -214。
+- section: TEST Subsystem
+  commands:
+  - header: TEST:ALL
+    level: not_modeled
+    note: TEST:ALL? 完整自检未建模（*TST? 已实现）。
+- section: UNIT Subsystem
+  commands:
+  - header: UNIT:TEMPerature
+    level: not_modeled
+    note: 温度测量未建模。
+- section: ABORt Subsystem
+  commands:
+  - header: ABORt
+    level: implemented
+    note: 停止扫描；已取的读数留在存储器。
+  - header: ABORt3
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: ACQuire Subsystem
+  commands:
+  - header: ACQuire
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:CURRent[:DC]
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:VOLTage[:DC]
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:RESistance
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:FRESistance
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:DIRect
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:FDIRect
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:QUARter
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:HALF:BENDing
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:FULL:BENDing
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:HALF:POISson
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:FULL:POISson
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:STRain:FULL:BENDing:POISson
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:TEMPerature:FRTD
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:TEMPerature:RTD
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+  - header: ACQuire:TEMPerature:TCouple
+    level: not_modeled
+    note: 采集（ACQuire）模式未建模。
+- section: ACQuire3 Subsystem
+  commands:
+  - header: ACQuire3
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:POWer:ANALysis
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:STRain:QUARter
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:STRain:HALF:BENDing
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:STRain:FULL:BENDing
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:STRain:HALF:POISson
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:STRain:FULL:POISson
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:STRain:FULL:BENDing:POISson
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ACQuire3:VOLTage[:DC]
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: ARM3 Subsystem
+  commands:
+  - header: ARM3:COUNt
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: ARM3:SOURce
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: CALCulate:AVERage Subsystem
+  commands:
+  - header: CALCulate:AVERage:ALL
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:AVERage
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:MAXimum
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:MINimum
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:PTPeak
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:SDEViation
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:CLEar
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:COUNt
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:MAXimum:TIME
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:AVERage:MINimum:TIME
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+- section: CALCulate:COMPare Subsystem
+  commands:
+  - header: CALCulate:COMPare:DATA
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:COMPare:MASK
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:COMPare:STATe
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:COMPare:TYPE
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+- section: CALCulate:LIMit Subsystem
+  commands:
+  - header: CALCulate:LIMit:LOWer
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:LIMit:UPPer
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:LIMit:LOWer:STATe
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:LIMit:UPPer:STATe
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:MATH
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+- section: CALCulate:SCALe Subsystem
+  commands:
+  - header: CALCulate:SCALe:DB:REFerence
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:DBM:REFerence
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:FUNCtion
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:GAIN
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:OFFSet
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:OFFSet:NULL
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:REFerence
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:REFerence:AUTO
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:REFerence:IMMEdiate
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe[:STATe]
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:UNIT
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+  - header: CALCulate:SCALe:UNIT:STATe
+    level: not_modeled
+    note: 读数统计、比较、报警限与 mX+b 定标未建模。
+- section: CALibration Subsystem
+  commands:
+  - header: CALibration:ADC
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration[:ALL]
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:COUNt
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:DATE
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:SECure:CODE
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:SECure:STATe
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:STORe
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:STRing
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:TEMPerature
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:TIME
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:VALue
+    level: not_modeled
+    note: 校准未建模。
+- section: CONFigure Subsystem
+  commands:
+  - header: CONFigure
+    level: implemented
+    note: CONFigure? (@list)：每个通道一段带引号的「功能 量程,分辨率」，按列表顺序以逗号连接；数字按内部 DMM 的 9 位有效数字（手册示例为 7 位，数值相同）。
+  - header: CONFigure:CAPacitance
+    level: not_modeled
+    note: 电容测量未建模。
+  - header: CONFigure:CURRent:AC
+    level: implemented
+    note: 选功能、量程（AUTO/MIN/MAX/DEF 或数值）、分辨率（MIN/MAX/DEF 选 NPLC 两端或 1 PLC），通道列表重定义扫描表；触发次数设 1、间隔设 1 s。只在 121/122 上测量。
+  - header: CONFigure:CURRent:DC
+    level: implemented
+    note: 选功能、量程（AUTO/MIN/MAX/DEF 或数值）、分辨率（MIN/MAX/DEF 选 NPLC 两端或 1 PLC），通道列表重定义扫描表；触发次数设 1、间隔设 1 s。只在 121/122 上测量。
+  - header: CONFigure:DAC:OUTPut
+    level: not_modeled
+    note: DAQM907A 多功能模块不在本配置。
+  - header: CONFigure:DAC:SENSe
+    level: not_modeled
+    note: DAQM907A 多功能模块不在本配置。
+  - header: CONFigure:DIGital[:BYTE]
+    level: not_modeled
+    note: DAQM907A 多功能模块不在本配置。
+  - header: CONFigure:DIODe
+    level: not_modeled
+    note: 二极管测试未建模。
+  - header: CONFigure:FREQuency
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: CONFigure:PERiod
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: CONFigure:RESistance
+    level: implemented
+    note: 选功能、量程（AUTO/MIN/MAX/DEF 或数值）、分辨率（MIN/MAX/DEF 选 NPLC 两端或 1 PLC），通道列表重定义扫描表；触发次数设 1、间隔设 1 s。
+  - header: CONFigure:FRESistance
+    level: implemented
+    note: 选功能、量程（AUTO/MIN/MAX/DEF 或数值）、分辨率（MIN/MAX/DEF 选 NPLC 两端或 1 PLC），通道列表重定义扫描表；触发次数设 1、间隔设 1 s。四线：通道 n（1–10）配 n+10。
+  - header: CONFigure:STRain:DIRect
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:FDIRect
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:FULL:BENDing
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:HALF:BENDing
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:FULL:POISson
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:HALF:POISson
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:FULL:BENDing:POISson
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:STRain:QUARter
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: CONFigure:TEMPerature
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: CONFigure:TOTalize
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: CONFigure[:VOLTage]:AC
+    level: implemented
+    note: 选功能、量程（AUTO/MIN/MAX/DEF 或数值）、分辨率（MIN/MAX/DEF 选 NPLC 两端或 1 PLC），通道列表重定义扫描表；触发次数设 1、间隔设 1 s。
+  - header: CONFigure[:VOLTage]:DC
+    level: implemented
+    note: 选功能、量程（AUTO/MIN/MAX/DEF 或数值）、分辨率（MIN/MAX/DEF 选 NPLC 两端或 1 PLC），通道列表重定义扫描表；触发次数设 1、间隔设 1 s。
+- section: DATA Subsystem
+  commands:
+  - header: DATA:LAST
+    level: not_modeled
+    note: 最近读数（带 FORMat 字段、按通道）未建模。
+  - header: DATA:POINts
+    level: implemented
+    note: 读数存储器中的读数个数（回 320，手册示例带正号 +320；数值相同）。
+  - header: DATA:POINts:EVENt:THReshold
+    level: not_modeled
+    note: 读数存储阈值事件位未建模。
+  - header: DATA:REMove
+    level: implemented
+    note: DATA:REMove? n [,WAIT]：取出并清除最旧的 n 个读数；不足 n 个报错（WAIT 解析但不等待，扫描已同步完成）。
+- section: DATA3 Subsystem
+  commands:
+  - header: DATA3:LAST
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: DATA3:POINts
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: DATA3:RECords
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: DISPlay Subsystem
+  commands:
+  - header: DISPlay[:STATe]
+    level: accepted
+    note: 接受：显示开关保存并回读，不影响读数；*RST 置开。
+    affects_data: false
+  - header: DISPlay:TEXT
+    level: accepted
+    note: 接受：显示文本保存并回读，不影响读数。
+    affects_data: false
+  - header: DISPlay:TEXT:CLEar
+    level: accepted
+    note: 接受：清除显示文本。
+    affects_data: false
+- section: FETCh Subsystem
+  commands:
+  - header: FETCh
+    level: implemented
+    note: 读数存储器中的读数（不清除）；无读数报 -230。
+  - header: FETCh:DATA
+    level: not_modeled
+    note: DMM 数字化模式的数据未建模。
+  - header: FETCh:DCYCle
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:DUTYcycle
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:FFTRansform:MAGNitude
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:FFTRansform:PHASe
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:FREQuency
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:FTIMe
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:FALL:TIME
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:NWIDth
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:PERiod
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:PWIDth
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:RMS
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:RTIMe
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:RISE:TIME
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:STATistics
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:THDNoise
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh:THDistortion
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+- section: FETCh3 Subsystem
+  commands:
+  - header: FETCh3
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:DATA
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:DCYCle
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:DUTYcycle
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:FFTRansform:MAGNitude
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:FFTRansform:PHASe
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:FREQuency
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:FTIMe
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:FALL:TIME
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:NWIDth
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:PERiod
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:POWer
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:PWIDth
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:RMS
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:RTIMe
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:RISE:TIME
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:STATistics
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:THDNoise
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+  - header: FETCh3:THDistortion
+    level: not_modeled
+    note: DMM 数字化模式的波形分析未建模。
+- section: FORMat Subsystem
+  commands:
+  - header: FORMat:READing:ALARm
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+  - header: FORMat:READing:CHANnel
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+  - header: FORMat:READing:TIME
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+  - header: FORMat:READing:TIME:TYPE
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+  - header: FORMat:READing:UNIT
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+  - header: FORMat:BORDer
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+  - header: FORMat[:DATA]
+    level: not_modeled
+    note: 读数格式（单位、通道、时间、报警字段，二进制）未建模：读数只回数值。
+- section: FORMat3 Subsystem
+  commands:
+  - header: FORMat3:BORDer
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: FORMat3[:DATA]
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: HCOPy Subsystem
+  commands:
+  - header: HCOPy:SDUMp:DATA
+    level: not_modeled
+    note: 屏幕截图未建模。
+  - header: HCOPy:SDUMp:DATA:FORMat
+    level: not_modeled
+    note: 屏幕截图未建模。
+- section: IEEE-488.2 Common Commands
+  commands:
+  - header: '*CAL'
+    level: not_modeled
+    note: 自动校准未建模。
+  - header: '*CLS'
+    level: implemented
+    note: 清错误队列、状态字节与标准事件寄存器（引擎内置）。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器（引擎内置）。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器（引擎内置，读取后清）。
+  - header: '*IDN'
+    level: implemented
+    note: Keysight Technologies,DAQ970A,MY12345678,A.02.04-00.16-11.29-00.02-02-01（手册 *IDN? 的示例）。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 置 ESR 位 0；*OPC? 等扫描与读数完成后回 1。'
+  - header: '*PSC'
+    level: not_modeled
+    note: 上电清状态未建模。
+  - header: '*RCL'
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: '*RST'
+    level: implemented
+    note: 恢复 Factory Reset State：功能 DCV、量程自动、1 PLC、10 MΩ、扫描表空、计数 1、间隔 10 s、触发源 IMMediate、继电器全开、读数清空、显示开。
+  - header: '*SAV'
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器（引擎内置）。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节（引擎内置）。
+  - header: '*TRG'
+    level: implemented
+    note: 总线触发：触发等待中的扫描（触发源 BUS 时）；否则 -211。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过，回复 0。
+  - header: '*WAI'
+    level: implemented
+    note: 等待扫描与读数完成。
+- section: INITiate Subsystem
+  commands:
+  - header: INITiate[:IMMediate]
+    level: implemented
+    note: 按扫描表扫描，读数进读数存储器（先清空），触发源为立即时立即完成。
+  - header: INITiate3
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: INPut3 Subsystem
+  commands:
+  - header: INPut3:COUPling
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: INPut3:TYPE
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: LXI Subsystem
+  commands:
+  - header: LXI:IDENtify:STATe
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:ENABle
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:HNAMe[:RESolved]
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:SNAMe:DESired
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:SNAMe[:RESolved]
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS[:STATe]
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:RESet
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:RESTart
+    level: not_modeled
+    note: LXI/网络配置未建模。
+- section: MEASure Subsystem
+  commands:
+  - header: MEASure:CAPacitance
+    level: not_modeled
+    note: 电容测量未建模。
+  - header: MEASure:CURRent:AC
+    level: implemented
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+  - header: MEASure:CURRent:DC
+    level: implemented
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+  - header: MEASure:DAC:OUTPut
+    level: not_modeled
+    note: DAQM907A 多功能模块不在本配置。
+  - header: MEASure:DAC:SENSe
+    level: not_modeled
+    note: DAQM907A 多功能模块不在本配置。
+  - header: MEASure:DIGital[:BYTE]
+    level: not_modeled
+    note: DAQM907A 多功能模块不在本配置。
+  - header: MEASure:DIODe
+    level: not_modeled
+    note: 二极管测试未建模。
+  - header: MEASure:FREQuency
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: MEASure:PERiod
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: MEASure:RESistance
+    level: implemented
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+  - header: MEASure:FRESistance
+    level: implemented
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+  - header: MEASure:STRain:DIRect
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:FDIRect
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:FULL:BENDing
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:HALF:BENDing
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:FULL:POISson
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:HALF:POISson
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:FULL:BENDing:POISson
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:STRain:QUARter
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: MEASure:TEMPerature
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: MEASure:TOTalize
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: MEASure[:VOLTage]:AC
+    level: implemented
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+  - header: MEASure[:VOLTage]:DC
+    level: implemented
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+- section: Data Transfer Commands
+  commands:
+  - header: MMEMory:DOWNload:DATA
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:DOWNload:FNAMe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:FORMat:READing:CHEAder
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:FORMat:READing:CSEParator
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:FORMat:READing:RLIMit
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:FORMat:READing:RLIMit:COUNt
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:DATA
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:DATA:AUTO
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:DATA:AUTO:FNAMe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:UPLoad
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+- section: STATe and PREFerence Management Commands
+  commands:
+  - header: MMEMory:LOAD:PREFerences
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:PREFerences
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:LOAD:STATe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:STATe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STATe:RECall:AUTO
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STATe:RECall:SELect
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STATe:VALid
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+- section: General Purpose File Management Commands
+  commands:
+  - header: MMEMory:CATalog[:ALL]
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:CDIRectory
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:MDIRectory
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:RDIRectory
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:COPY
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:DELete
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:LOG[:ENABle]
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:LOG:NEW
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:MOVE
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+- section: MMEMory3 Subsystem
+  commands:
+  - header: MMEMory3:STORe:DATA
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory3:STORe:DATA:AUTO
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory3:STORe:DATA:AUTO:FNAMe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+- section: OUTPut Subsystem
+  commands:
+  - header: OUTPut:ALARm:CLEar:ALL
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm1:CLEar
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm2:CLEar
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm3:CLEar
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm4:CLEar
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm1:SOURce
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm2:SOURce
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm3:SOURce
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm4:SOURce
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm:MODE
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:ALARm:SLOPe
+    level: not_modeled
+    note: 报警输出未建模。
+  - header: OUTPut:TRIGger:SLOPe
+    level: not_modeled
+    note: 报警输出未建模。
+- section: ROUTe Subsystem
+  commands:
+  - header: ROUTe:CHANnel:ADVance:SOURce
+    level: not_modeled
+    note: 通道延时、通道推进源、四线配对设置与通道标签未建模。
+  - header: ROUTe:CHANnel:DELay
+    level: not_modeled
+    note: 通道延时、通道推进源、四线配对设置与通道标签未建模。
+  - header: ROUTe:CHANnel:DELay:AUTO
+    level: not_modeled
+    note: 通道延时、通道推进源、四线配对设置与通道标签未建模。
+  - header: ROUTe:CHANnel:FWIRe
+    level: not_modeled
+    note: 通道延时、通道推进源、四线配对设置与通道标签未建模。
+  - header: ROUTe:CHANnel:LABel
+    level: not_modeled
+    note: 通道延时、通道推进源、四线配对设置与通道标签未建模。
+  - header: ROUTe:CHANnel:LABel:CLEar:MODule
+    level: not_modeled
+    note: 通道延时、通道推进源、四线配对设置与通道标签未建模。
+  - header: ROUTe:CLOSe
+    level: implemented
+    note: 闭合列表中的通道（同 34970A 的 mux_card，DAQM901A 不限闭合数）；ROUT:CLOS? (@list) 逐个回 0/1。
+  - header: ROUTe:CLOSe:EXCLusive
+    level: not_modeled
+    note: 先全开再闭合列表的组合动作未建模（可用 ROUT:OPEN + ROUT:CLOS）。
+  - header: ROUTe:DONE
+    level: implemented
+    note: 继电器动作随命令完成，总回 1。
+  - header: ROUTe:MONitor
+    level: not_modeled
+    note: 监视通道未建模。
+  - header: ROUTe:MONitor:DATA
+    level: not_modeled
+    note: 监视通道未建模。
+  - header: ROUTe:MONitor:DATA:FULL
+    level: not_modeled
+    note: 监视通道未建模。
+  - header: ROUTe:MONitor:STATe
+    level: not_modeled
+    note: 监视通道未建模。
+  - header: ROUTe:MONitor:VIEW
+    level: not_modeled
+    note: 监视通道未建模。
+  - header: ROUTe:OPEN
+    level: implemented
+    note: 断开列表中的通道。ROUT:OPEN? 查询未建模（用 ROUT:CLOS? 查询）。
+  - header: ROUTe:SCAN
+    level: implemented
+    note: '设扫描表（升序、去重）；查询按定长块返回，空表为 #13(@)。'
+  - header: ROUTe:SCAN:SIZE
+    level: not_modeled
+    note: 扫描表长度查询未建模。
+- section: SAMPle Subsystem
+  commands:
+  - header: SAMPle:COUNt
+    level: not_modeled
+    note: 每次触发的采样数与预触发（DMM 数字化模式）未建模。
+  - header: SAMPle:COUNt:PRETrigger
+    level: not_modeled
+    note: 每次触发的采样数与预触发（DMM 数字化模式）未建模。
+  - header: SAMPle:TIMer
+    level: not_modeled
+    note: 每次触发的采样数与预触发（DMM 数字化模式）未建模。
+- section: SAMPle3 Subsystem
+  commands:
+  - header: SAMPle3:COUNt
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SAMPle3:COUNt:PRETrigger
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SAMPle3:RATE
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: '[SENSe:]CAPacitance Subsystem'
+  commands:
+  - header: '[:SENSe]:CAPacitance:RANGe:AUTO'
+    level: not_modeled
+    note: 电容测量未建模。
+  - header: '[:SENSe]:CAPacitance:RANGe'
+    level: not_modeled
+    note: 电容测量未建模。
+- section: '[SENSe:]CURRent Subsystem'
+  commands:
+  - header: '[:SENSe]:CURRent:AC:BANDwidth'
+    level: not_modeled
+    note: 交流滤波带宽未建模。
+  - header: '[:SENSe]:CURRent:AC:RANGe:AUTO'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:CURRent:DC:RANGe:AUTO'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:CURRent:AC:RANGe'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:CURRent:DC:RANGe'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:CURRent[:DC]:APERture'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:CURRent[:DC]:APERture:ENABle'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:CURRent[:DC]:NPLCycles'
+    level: implemented
+    note: 按通道的积分时间（0.001–200 PLC），通道列表必填。
+  - header: '[:SENSe]:CURRent[:DC]:ZERO:AUTO'
+    level: not_modeled
+    note: 自动调零开关未建模（恒开）。
+- section: '[SENSe:]{FREQuency|PERiod} Subsystem'
+  commands:
+  - header: '[:SENSe]:FREQuency:APERture'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:PERiod:APERture'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:FREQuency:RANGe:LOWer'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:PERiod:RANGe:LOWer'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:FREQuency:VOLTage:RANGe:AUTO'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:PERiod:VOLTage:RANGe:AUTO'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:FREQuency:VOLTage:RANGe'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+  - header: '[:SENSe]:PERiod:VOLTage:RANGe'
+    level: not_modeled
+    note: 频率/周期测量未建模。
+- section: '[SENSe:]{RESistance|FRESistance} Subsystem'
+  commands:
+  - header: '[:SENSe]:RESistance:APERture'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:FRESistance:APERture'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:RESistance:APERture:ENABle'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:FRESistance:APERture:ENABle'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:RESistance:NPLCycles'
+    level: implemented
+    note: 按通道的积分时间（0.001–200 PLC），通道列表必填。
+  - header: '[:SENSe]:FRESistance:NPLCycles'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:RESistance:OCOMpensated'
+    level: not_modeled
+    note: 偏置补偿与低功率电阻未建模。
+  - header: '[:SENSe]:FRESistance:OCOMpensated'
+    level: not_modeled
+    note: 偏置补偿与低功率电阻未建模。
+  - header: '[:SENSe]:RESistance:POWer:LIMit[:STATe]'
+    level: not_modeled
+    note: 偏置补偿与低功率电阻未建模。
+  - header: '[:SENSe]:FRESistance:POWer:LIMit[:STATe]'
+    level: not_modeled
+    note: 偏置补偿与低功率电阻未建模。
+  - header: '[:SENSe]:RESistance:RANGe:AUTO'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:FRESistance:RANGe:AUTO'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:RESistance:RANGe'
+    level: implemented
+    note: 按通道的电阻量程（100 Ω–1 GΩ），设定即关自动量程；通道列表必填。
+  - header: '[:SENSe]:FRESistance:RANGe'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:RESistance:ZERO:AUTO'
+    level: not_modeled
+    note: 自动调零开关未建模（恒开）。
+- section: '[SENSe:]STRain Subsystem'
+  commands:
+  - header: '[:SENSe]:STRain:APERture'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:APERture:ENABle'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:EXCitation'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:EXCitation:TYPE'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:GFACtor'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:NPLCycles'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:OCOMpensated'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:POISson'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:RESistance'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:UNSTrained'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:UNSTrained:IMMediate'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:VOLTage:RANGe:AUTO'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:VOLTage:RANGe'
+    level: not_modeled
+    note: 应变测量未建模。
+  - header: '[:SENSe]:STRain:ZERO:AUTO'
+    level: not_modeled
+    note: 应变测量未建模。
+- section: '[SENSe:]TEMPerature Subsystem'
+  commands:
+  - header: '[:SENSe]:TEMPerature:APERture'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:APERture:ENABle'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:NPLCycles'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:RJUNction'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FRTD:OCOMpensated'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:RTD:OCOMpensated'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FRTD:POWer:LIMit[:STATe]'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:RTD:POWer:LIMit[:STATe]'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FRTD:REFerence'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:RTD:REFerence'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FRTD:RESistance[:REFerence]'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:RTD:RESistance[:REFerence]'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FTHermistor:POWer:LIMit[:STATe]'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:THERmistor:POWer:LIMit[:STATe]'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FTHermistor:REFerence'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:THERmistor:REFerence'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:FTHermistor:TYPE'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:THERmistor:TYPE'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:TCouple:CHECk'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:TCouple:RJUNction'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:TCouple:RJUNction:TYPE'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:TCouple:TYPE'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:TRANsducer:TYPE'
+    level: not_modeled
+    note: 温度测量未建模。
+  - header: '[:SENSe]:TEMPerature:ZERO:AUTO'
+    level: not_modeled
+    note: 温度测量未建模。
+- section: '[SENSe:]VOLTage Subsystem'
+  commands:
+  - header: '[:SENSe]:VOLTage:AC:BANDwidth'
+    level: not_modeled
+    note: 交流滤波带宽未建模。
+  - header: '[:SENSe]:VOLTage:AC:RANGe:AUTO'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:VOLTage:DC:RANGe:AUTO'
+    level: implemented
+    note: 按通道的自动量程开关；通道列表必填。
+  - header: '[:SENSe]:VOLTage:AC:RANGe'
+    level: not_modeled
+    note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
+  - header: '[:SENSe]:VOLTage:DC:RANGe'
+    level: implemented
+    note: 按通道的电压量程（100 mV–300 V），设定即关自动量程；通道列表必填。
+  - header: '[:SENSe]:VOLTage[:DC]:APERture'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:VOLTage[:DC]:APERture:ENABle'
+    level: not_modeled
+    note: 以秒计的积分时间未建模（用 NPLC）。
+  - header: '[:SENSe]:VOLTage[:DC]:IMPedance:AUTO'
+    level: implemented
+    note: 按通道的输入阻抗：OFF 10 MΩ，ON 时 100 mV–10 V 档 >10 GΩ；通道列表必填。
+  - header: '[:SENSe]:VOLTage[:DC]:NPLCycles'
+    level: implemented
+    note: 按通道的积分时间（0.001/0.002/0.006/0.02/0.06/0.2/1/2/10/20/100/200 PLC，分辨率按手册表 × 量程）；通道列表必填。
+  - header: '[:SENSe]:VOLTage[:DC]:REFerence'
+    level: not_modeled
+    note: 比率/参考测量未建模。
+  - header: '[:SENSe]:VOLTage[:DC]:ZERO:AUTO'
+    level: not_modeled
+    note: 自动调零开关未建模（恒开）。
+- section: '[SENSe:]TOTalize Subsystem'
+  commands:
+  - header: '[:SENSe]:TOTalize:CLEar:IMMediate'
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: '[:SENSe]:TOTalize:DATA'
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: '[:SENSe]:TOTalize:SLOPe'
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: '[:SENSe]:TOTalize:STARt'
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: '[:SENSe]:TOTalize:STOP'
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+  - header: '[:SENSe]:TOTalize:TYPE'
+    level: not_modeled
+    note: DAQM907A 累加器不在本配置。
+- section: SENSe3 Subsystem
+  commands:
+  - header: SENSe3:FILTer:MODE
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:FUNCtion
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:STRain:EXCitation
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:STRain:GFACtor
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:STRain:POISson
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:STRain:UNSTrained
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:STRain:UNSTrained:IMMediate
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: SENSe3:STRain:VOLTage:RANGe
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+- section: SOURce Subsystem
+  commands:
+  - header: SOURce:CURRent
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+  - header: SOURce:DIGital:DATA[:BYTE]
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+  - header: SOURce:DIGital:DATA:WORD
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+  - header: SOURce:DIGital:STATe
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+  - header: SOURce:MODE
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+  - header: SOURce:MODE:LOCK
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+  - header: SOURce:VOLTage
+    level: not_modeled
+    note: DAQM907A 多功能模块（DAC、数字 I/O）不在本配置。
+- section: STATus Subsystem
+  commands:
+  - header: STATus:ALARm:CONDition
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:ALARm:ENABle
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:ALARm[:EVENt]
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:OPERation:CONDition
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:OPERation:ENABle
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:PRESet
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:QUEStionable:ENABle
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: 操作、可疑数据与报警状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+- section: SYSTem:ACALibration Subsystem
+  commands:
+  - header: SYSTem:ALARm
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:BEEPer
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:BEEPer:STATe
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:CLICk:STATe
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:CPON
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:CTYPe
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:DATE
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 读取并移除最早的错误（引擎内置）；队列 10 条。
+  - header: SYSTem:HELP
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:LOCal
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+- section: SYSTem:PERSona Subsystem
+  commands:
+  - header: SYSTem:PRESet
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+- section: SYStem:RELay Subsystem
+  commands:
+  - header: SYSTem:REMote
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:SECurity:COUNt
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:SECurity:ENABle
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:SECurity:IMMediate
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:SET
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:SLOT:LABel
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:TIME
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:TIME:SCAN
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:TIME:TRIGger
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:TIME:TRIGger3
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:UPTime
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:VERSion
+    level: implemented
+    note: 1994.0。
+  - header: SYSTem:WMESsage
+    level: not_modeled
+    note: 上电消息（非易失）未建模。
+- section: Remote Interface Configuration Commands
+  commands:
+  - header: SYSTem:COMMunicate:ENABle
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:GPIB:ADDRess
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:CONTrol
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:DHCP
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:DNS
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:DOMain
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:GATeway
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:HOSTname
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:IPADdress
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:MAC
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:SMASk
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:TELNet:PROMpt
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:TELNet:WMESsage
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:UPDate
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:COMMunicate:LAN:WINS
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+  - header: SYSTem:USB:HOST:ENABle
+    level: not_modeled
+    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+- section: TRIGger Subsystem
+  commands:
+  - header: TRIGger:COUNt
+    level: implemented
+    note: 扫描次数 1–1,000,000，*RST 1；INFinity（连续）未建模（-224）。
+  - header: TRIGger:DELay
+    level: not_modeled
+    note: 触发延时未建模。
+  - header: TRIGger:LEVel
+    level: not_modeled
+    note: 内部（电平）触发未建模。
+  - header: TRIGger:SLOPe
+    level: not_modeled
+    note: 外部触发沿未建模（外部触发由引擎触发事件给出）。
+  - header: TRIGger:SOURce
+    level: implemented
+    note: IMMediate/BUS/EXTernal/TIMer（TIMer 按立即触发、间隔不计入虚拟时间）；ALARm1–4 未建模。
+  - header: TRIGger:TIMer
+    level: implemented
+    note: 扫描间隔 0–360,000 s，默认与 *RST 为 10 s（Factory Reset State）；CONFigure/MEASure 设 1 s。
+- section: TRIGger3 Subsystem
+  commands:
+  - header: TRIGger3:DELay
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: TRIGger3:LEVel
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: TRIGger3:SLOPe
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: TRIGger3:SOURce
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
+  - header: TRIGger3:WFTRigger
+    level: not_modeled
+    note: DAQM909A 数字化器模块不在本配置。
