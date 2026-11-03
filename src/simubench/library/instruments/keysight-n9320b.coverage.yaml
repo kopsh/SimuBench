@@ -252,8 +252,6 @@ sections:
     note: LOGarithmic only.
   - header: :DISPlay:WINDow:TRACe:X[:SCALe]:OFFSet
     level: not_modeled
-  - header: :DISPlay:WINDow:TRACe:Y[:SCALe]:RLEVel
-    level: not_modeled
 - section: FETCh Subsystem
   commands:
   - header: :FETCh:ACPower
@@ -675,4 +673,6 @@ sections:
   commands:
   - header: :UNIT:POWer
     level: implemented
-    note: dBm only; other units answer -224.
+    note: 'dBm only. The manual lists DBM|DBMV|DBUV|DBUA|V|W|A (N9320-90029 Ed.5, p.169); the other
+      units answer -224: the data is always modeled as dBm and a linear-scale display unit needs
+      component support (#366 records the related reply-format gap).'

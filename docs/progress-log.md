@@ -777,3 +777,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 缺口清单 v1 定稿 | ✅ 「首波缺口」底稿升级为缺口清单 v1（`docs/component-map.md` 文末）：缺的组件（`awg_modulator`、`counter_timebase`、`rf_output`、`calibrator_output` 拆分、通用状态寄存器组件）、`not_modeled` 暗示的未来能力（13 台 2430 条按主题归并：跨类别平台能力 11 项 + 类别内功能缺口 12 项）、已有债务（bug/文档/验收/模型边界/命名审计/架构目标）；每条指向 open issue 或标「暂不排期」 |
 | 第二波选型草案 issue | ✅ #317 已开（候选：33500B、IT8500+、DAQ970A、53230A、FPC1500；SMU 第二台已是 #12，依赖 #299/#253 已合并）；缺口清单与 #317 互链 |
 | 检查 | ✅ `scripts/check.sh` 全绿（纯文档改动，定义与组件无改动） |
+
+## N9320B 覆盖表矛盾、单位依据与应答位数（Issue 293）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 覆盖表同一命令只有一个等级 | ✅ 删去 `:DISPlay:WINDow:TRACe:Y[:SCALe]:RLEVel` 的重复 `not_modeled` 条目（手册 TRACe 必选的拼写是定义 `[:TRACe]` 可选形式的子集，同一条命令）；`coverage.check` 新增「同一命令形式、等级相反」检查：头按可选节点展开（`_forms`）后若两个条目共享一个拼写且等级不同即报矛盾，字面后缀数字（SOURce1/SOURce2）不算同一条；全库 13 台在展开口径下本就只有这一处等级矛盾，规则加上后 `tests/test_real_models.py` 363 项（含新单测）通过 |
+| 单位依据 | ✅ `:UNIT:POWer` 备注写明手册单位表 `DBM|DBMV|DBUV|DBUA|V|W|A`（N9320-90029 Ed.5, p.169）与其余单位回 -224、数据恒为 dBm 的原因；线性刻度显示单位若要建模属组件能力，与 #366 一并看 |
+| 回复位数差异指向缺口 | ✅ progress-log issue 196 行已记「组件应答 7 位、定义 16 位」；component-map 缺口 16 补该条并指向新开的核心 issue #366 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

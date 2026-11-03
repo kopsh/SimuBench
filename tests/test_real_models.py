@@ -124,6 +124,22 @@ def test_check_reports_a_command_without_a_case():
     ]
 
 
+def test_check_reports_two_spellings_of_one_command_with_contradicting_levels():
+    """#293: an entry spelled with an optional node present and another without it are the same
+    command; their levels must agree."""
+    defn, cov, cases = _acme()
+    data = cov.model_dump(by_alias=True)
+    data["sections"][1]["commands"].append(
+        {"header": "[:SENSe]:VOLTage:DC:NPLC", "level": "not_modeled"}
+    )
+    problems = check(defn, Coverage.model_validate(data), cases)
+    assert problems == [
+        "[:SENSe]:VOLTage:DC:NPLC: not_modeled (Command Reference > SENSe Subsystem) contradicts "
+        "[:SENSe]:VOLTage[:DC]:NPLC: implemented (Command Reference > SENSe Subsystem); the two "
+        "spellings name the same command"
+    ]
+
+
 def test_check_reports_a_defined_command_marked_not_modeled():
     defn, cov, cases = _acme()
     data = cov.model_dump(by_alias=True)
