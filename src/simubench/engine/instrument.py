@@ -21,7 +21,7 @@ from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 from ..units import parse_number, parse_quantity
-from .component import Component, OpResult, component_type
+from .component import Component, OpResult, component_type, map_setting
 from .signal import Signal
 
 if TYPE_CHECKING:
@@ -1556,9 +1556,16 @@ class Instrument:
         if fn is None:
             raise ScpiError(-300, f"operation {comp_ref}.{op_name!r} missing")
         # An argument written as $path is that setting's value (#252: the elements a FETCh? answers
-        # follow :FORMat:ELEMents:SENSe).
+        # follow :FORMat:ELEMents:SENSe); as {from: $path, map: {...}} it goes through the same
+        # mapping a parameter or a wiring binding takes (#364: OUTR? reads the quantity DDEF picks).
         args = {
-            k: self.state[self._resolve(v[1:], channel)] if isinstance(v, str) and v.startswith("$") else v
+            k: (
+                map_setting(v, self.state[self._resolve(str(v["from"])[1:], channel)])
+                if isinstance(v, dict) and isinstance(v.get("from"), str)
+                else self.state[self._resolve(v[1:], channel)]
+                if isinstance(v, str) and v.startswith("$")
+                else v
+            )
             for k, v in args.items()
         }
         result = fn(query=unit.query, channel=channel, suffixes=suffixes, **args)
