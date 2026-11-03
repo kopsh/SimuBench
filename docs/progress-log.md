@@ -1198,7 +1198,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 实现范围 | ✅ `OUT`（V 与 HZ，只给一项时另一项不变，0 Hz 直流、非 0 交流，±1100 V、10 Hz–1.2 MHz）、`OUT?`、`OPER`、`STBY`（3 s 建立时间，负载 >50 mA 跳回待机并记故障 210，≥22 V 跨越时回待机）、`FAULT?`、公共命令；`EXTGUARD`、`BRIGHTNESS`、`LOCAL/REMOTE/LOCKOUT` 为接受；故障码 2206（缺单位）、2207（同一单位两次） |
 | 平台改动（引擎） | ✅ `quantities` 参数的 `not_modeled` 也对单位生效：`OUT 1 A`、`OUT 1.9 MOHM`、`OUT 10 DBM` 报 -224（未建模），而不是"无效单位" |
 | 覆盖、用例与示例 | ✅ 覆盖表按 Table 6-4 共 100 条：实现 14 · 接受 5 · 未实现 81；`tests/models/fluke-5730a/cases.yaml` 6 条全部通过；示例台 `examples/benches/fluke-5730a.bench.yaml`（接 8588A）与脚本 `examples/scripts/fluke_5730a_verify.py` 在 `tests/test_fluke_5730a.py` 中运行；另测 3 s 建立时间与过载跳闸 |
-| 能力缺口 | ⚠️ 电流/电阻输出 #550、均登记在 #317 下；外部 sense #551、量程表与 RANGE?/RANGELCK #552；回待机规则（跨越阈值、改变功能）#553 已随后实现；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
+| 能力缺口 | ⚠️ 均登记在 #317 下；电流/电阻输出 #550、外部 sense #551、量程表与 RANGE?/RANGELCK #552；回待机规则（跨越阈值、改变功能）#553 已随后实现；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 
@@ -1225,3 +1225,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 组件 | ✅ `calibrator_control` 新端口 `sense` 与参数 `remote_sense`、`sense_ranges`、`sense_error`：外部 sense 时以反馈源在 SENSE 处调节（SENSE 未接时回退输出端），负载电流取反馈源的支路电流（过载判断不变）；打开外部 sense、或在外部 sense 下改到不允许的量程时按 `sense_error` 拒绝 |
 | 5730A | ✅ 端口 `SENSE`；`EXTSENSE` 实现（直流 2.2 V–1100 V、交流 2.2/22/220/1100 V 量程，其他报 835）；手册用例「EXTSENSE」；`tests/test_fluke_5730a.py::test_external_sense_regulates_at_the_uut`（1 Ω 引线 + 200 Ω：内部 sense 下 UUT 得 5×200/201 V，外部 sense 下 5 V） |
 | 检查 | ✅ `scripts/check.sh` 全绿；不接 SENSE、不开外部 sense 的定义不变 |
+
+## 校准器的电流与电阻输出（Issue 550）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `calibrator_setpoint` 的功能增加 DCI/ACI（电流）与 OHM（电阻）；电阻取量程表中最近的标称值（对数距离，0 为短路）并写回设定；超出该功能最大量程按 `limit_error` 拒绝；`frequency_selects_ac`：只改频率时在直流/交流之间切换（5730A）。`calibrator_control`：电流功能为电流源，端电压超过 `compliance`（数或按量程的表）跳回待机并记 `overload_error`；电阻功能在端子与地之间接入电阻 |
+| 引擎 | ✅ `quantities` 命令先写组合的设定（功能）再写数值，且整条命令要么全部生效、要么全部回退（组件拒绝其中一个写入时） |
+| 5730A | ✅ `OUT` 的 A、OHM 单位（DCI/ACI 220 µA–2.2 A、compliance 10 V、2.2 A 量程 2 V；电阻 0–100 MΩ 的 18 个标称值）；`OUT?` 回 V/A/OHM；手册用例「电流与电阻输出」（含 8588A 读回 1 kΩ 与 1 mA）；`tests/test_fluke_5730a.py` 的 compliance 跳闸与电阻进入电路两项 |
+| 未做 | ⚠️ 5522A 仍只有电压（其电流/电阻的量程与 compliance 另按其手册接上）；四线电阻与 RCOMP 两线补偿未建模 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

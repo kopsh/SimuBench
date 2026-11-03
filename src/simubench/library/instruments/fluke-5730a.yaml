@@ -59,17 +59,17 @@ specs:
 state:
   out.function:
     type: enum
-    options: [DCV, ACV]
+    options: [DCV, ACV, DCI, ACI, OHM]
     default: DCV
     rst: DCV
     electrical: true
     label: 功能
     label_en: Function
+  # 幅值：V、A 或 Ω（单位由 OUT 的单位决定，记在 out.unit）；各功能的范围由量程表限定。
   out.level:
     type: float
-    unit: V
     min: -1100.0
-    max: 1100.0
+    max: 100000000.0
     default: 0.0
     rst: 0.0
     electrical: true
@@ -85,6 +85,13 @@ state:
     electrical: true
     label: 频率（0 Hz 为直流）
     label_en: Frequency
+  out.unit:
+    type: enum
+    options: [V, A, OHM]
+    default: V
+    rst: V
+    label: 幅值单位
+    label_en: Amplitude unit
   out.operate:
     type: bool
     default: false
@@ -133,13 +140,20 @@ components:
       function: $out.function
       level: $out.level
       frequency: $out.frequency
-      settle: 3.0
+      # 建立时间（第 1 章）：直流电压 3 s；电流 µA/mA 量程 1 s（2.2 A 量程 3 s，模型取 1 s）；电阻取 1 s
+      settle: {DCV: 3.0, ACV: 3.0, DCI: 1.0, ACI: 1.0, OHM: 1.0}
       control: out
+      # 只给频率时在直流/交流之间切换（OUT 100 HZ），电压与电流各自保持（#550）
+      frequency_selects_ac: true
       # 量程（Table 6-7 的名字与第 1 章的量程；1100 V 量程最小输出 100 V）与锁定（#552）：
       # 锁定后超出量程报 803、低于最小值报 804；改变功能自动解锁；量程或极性改变多 1 s 建立时间。
       ranges:
         DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC11V, 11.0], [DC22V, 22.0], [DC220V, 220.0], [DC1100V, 1100.0, 100.0]]
         ACV: [[AC2_2MV, 0.0022], [AC22MV, 0.022], [AC220MV, 0.22], [AC2_2V, 2.2], [AC22V, 22.0], [AC220V, 220.0], [AC1100V, 1100.0]]
+        # 电流（#550）：220 µA–2.2 A；电阻的标称值即各自的“量程”（Table 6-7 的 OHM 名字，第 4 章的 Ω Value Table）
+        DCI: [[DC220UA, 0.00022], [DC2_2MA, 0.0022], [DC22MA, 0.022], [DC220MA, 0.22], [DC2_2A, 2.2]]
+        ACI: [[AC220UA, 0.00022], [AC2_2MA, 0.0022], [AC22MA, 0.022], [AC220MA, 0.22], [AC2_2A, 2.2]]
+        OHM: [[OHM0, 0.0], [OHM1, 1.0], [OHM1_9, 1.9], [OHM10, 10.0], [OHM19, 19.0], [OHM100, 100.0], [OHM190, 190.0], [OHM1K, 1000.0], [OHM1_9K, 1900.0], [OHM10K, 10000.0], [OHM19K, 19000.0], [OHM100K, 100000.0], [OHM190K, 190000.0], [OHM1M, 1.0e6], [OHM1_9M, 1.9e6], [OHM10M, 1.0e7], [OHM19M, 1.9e7], [OHM100M, 1.0e8]]
       range_lock: $out.range_lock
       over_range_error: 803
       under_range_error: 804
@@ -162,6 +176,8 @@ components:
       remote_sense: $extsense
       sense_ranges: [DC2_2V, DC11V, DC22V, DC220V, DC1100V, AC2_2V, AC22V, AC220V, AC1100V]
       sense_error: 835
+      # 电流输出的 compliance（第 1 章 DC Current：10 V；2.2 A 量程 3 V，1 A 以上 2 V），超出跳回待机（210）
+      compliance: {"*": 10.0, DC2_2A: 2.0, AC2_2A: 2.0}
   - name: sys
     type: system
 wiring:
@@ -183,23 +199,26 @@ commands:
       - name: q
         type: quantities
         units:
-          V: {state: out.level}
+          V: {state: out.level, sets: {out.unit: V}}
+          A: {state: out.level, sets: {out.unit: A}}
+          OHM: {state: out.level, sets: {out.unit: OHM, out.frequency: 0.0}}
           HZ: {state: out.frequency}
         combine:
           # 只有幅值 → 频率不变（OUT -15.2 V），0 Hz 为直流；带频率 → 0 Hz 为直流、非 0 为交流；
-          # 只有频率 → 仅更新频率（OUT 100 HZ）。
+          # 只有频率 → 改频率，直流/交流随之切换（OUT 100 HZ）；电阻没有频率。
           "V": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
           "V,HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
-          "HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+          "A": {out.function: {if_zero: out.frequency, then: DCI, else: ACI}}
+          "A,HZ": {out.function: {if_zero: out.frequency, then: DCI, else: ACI}}
+          "OHM": {out.function: OHM}
+          "HZ": {}
         not_modeled:
-          A: the current outputs are not modeled
-          OHM: the resistance outputs are not modeled
           DBM: dBm units are not modeled
         missing_unit_error: 2206
         unknown_unit_error: 2206
         duplicate_unit_error: 2207
         combine_error: 2206
-    reply: "{out.level},V,{out.frequency}"
+    reply: "{out.level},{out.unit},{out.frequency}"
     doc: >-
       查询按手册给出 <幅值>,<单位>,<频率>（直流时频率为 0）；各数字按本模型的统一格式（nr3，6 位尾数；
       手册示例中各字段的位数不一，直流的 0 写作 0）。
