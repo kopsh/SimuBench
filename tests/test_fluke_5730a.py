@@ -101,3 +101,25 @@ def test_an_overload_trips_back_to_standby_with_fault_210():
         assert q("FAULT?") == "0"
     finally:
         s.close()
+
+
+def test_a_range_or_polarity_change_adds_a_second_of_settling():
+    """#552: 3 s within a range, 4 s across a range or polarity change (chapter 1 settling time)."""
+    s, q = session(
+        {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}}, [{"from": "cal.OUT", "to": "r.A"}]
+    )
+    try:
+        q("OUT 1 V;OPER")
+        q("*OPC?")
+
+        def settle(cmd: str) -> float:
+            t0 = s.now_ns
+            q(cmd)
+            q("*OPC?")
+            return (s.now_ns - t0) / 1e9
+
+        assert settle("OUT 1.5 V") == pytest.approx(3.0, abs=0.05)  # same 2.2 V range
+        assert settle("OUT -1.5 V") == pytest.approx(4.0, abs=0.05)  # polarity
+        assert settle("OUT -5 V") == pytest.approx(4.0, abs=0.05)  # 2.2 V -> 11 V range
+    finally:
+        s.close()

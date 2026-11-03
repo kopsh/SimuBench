@@ -73,11 +73,12 @@ sections:
     level: not_modeled
     note: 未实现。
   - header: RANGE
-    level: not_modeled
-    note: 量程锁定与量程查询未实现：设定值组件不按量程表选档（#552）。
+    level: implemented
+    note: 当前量程的名字（Table 6-7：DC220MV、DC2_2V、DC11V、DC22V、DC220V、DC1100V；AC2_2MV … AC1100V）：锁定时为锁定的量程，否则为幅值所在的最小量程（#552）。
   - header: RANGELCK
-    level: not_modeled
-    note: 量程锁定与量程查询未实现：设定值组件不按量程表选档（#552）。
+    level: implemented
+    note: ON 锁定当前量程：超出满度报 803、低于量程最小值（1100 V 量程 100 V）报 804，输出不变；OFF 恢复自动量程；改变输出功能自动解锁；*RST 解锁（#552）。量程或极性改变多
+      1 s 建立时间。
   - header: LCOMP_52120
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
@@ -97,7 +98,7 @@ sections:
     note: dBm 单位未实现。
   - header: OPER
     level: implemented
-    note: 进入工作，3 s 建立时间后到达设定值（*OPC? 等待）。故障队列非空时 ≥22 V 禁止 OPER（2232）未实现。
+    note: 进入工作，3 s 建立时间（量程或极性改变 +1 s）后到达设定值（*OPC? 等待）。故障队列非空时 ≥22 V 禁止 OPER（2232）未实现。
   - header: OUT
     level: implemented
     note: OUT <幅值> V[, <频率> HZ]：只给幅值时频率不变，只给频率时只改频率，0 Hz 为直流、非 0 为交流（10 Hz–1.2 MHz，±1100 V）；OUT? 回 <幅值>,V,<频率>（nr3，6

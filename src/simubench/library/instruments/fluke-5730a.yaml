@@ -8,8 +8,8 @@ description: >-
   Fluke 5730A 高性能多功能校准器（直流与交流电压输出）。Real model (D42)：命令、回复与故障码按
   5730A Operators Manual 第 6 章 Remote Commands and Syntax（Fluke 风格命令，非 SCPI 树）与附录 A
   Fault Codes。输出由 calibrator_setpoint（设定值）+ calibrator_control（工作/待机、端子、过载）建模：
-  待机时端子断开、3 s 建立时间、负载超过 50 mA 跳回待机、从 <22 V 改到 ≥22 V 或改变功能时回待机。直流/交流电流、电阻、
-  外部 sense、量程锁定、误差模式、Wideband 与外部放大器未实现（覆盖表逐条列出）。
+  待机时端子断开、3 s 建立时间（量程或极性改变 +1 s）、量程表与锁定、负载超过 50 mA 跳回待机、从 <22 V 改到 ≥22 V 或改变功能时回待机。直流/交流电流、电阻、
+  外部 sense、误差模式、Wideband 与外部放大器未实现（覆盖表逐条列出）。
 reference:
   title: Fluke 5730A High Performance Multifunction Calibrator Operators Manual
   document: 5730A-omeng0100
@@ -35,6 +35,8 @@ builtins:
 errors:
   0: No Error
   210: Output Tripped To Standby
+  803: Over Limits Of Locked Range
+  804: Under Limits Of Locked Range
   2201: Invalid Number Of Parameters
   2206: Invalid Parameter Unit
   2207: Invalid Parameter Value
@@ -89,6 +91,12 @@ state:
     electrical: true
     label: 工作
     label_en: Operate
+  out.range_lock:
+    type: bool
+    default: false
+    rst: false
+    label: 量程锁定
+    label_en: Range lock
   extguard:
     type: enum
     options: ["OFF", "ON"]
@@ -120,6 +128,15 @@ components:
       frequency: $out.frequency
       settle: 3.0
       control: out
+      # 量程（Table 6-7 的名字与第 1 章的量程；1100 V 量程最小输出 100 V）与锁定（#552）：
+      # 锁定后超出量程报 803、低于最小值报 804；改变功能自动解锁；量程或极性改变多 1 s 建立时间。
+      ranges:
+        DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC11V, 11.0], [DC22V, 22.0], [DC220V, 220.0], [DC1100V, 1100.0, 100.0]]
+        ACV: [[AC2_2MV, 0.0022], [AC22MV, 0.022], [AC220MV, 0.22], [AC2_2V, 2.2], [AC22V, 22.0], [AC220V, 220.0], [AC1100V, 1100.0]]
+      range_lock: $out.range_lock
+      over_range_error: 803
+      under_range_error: 804
+      range_settle: 1.0
   # 输出控制：工作/待机、端子、负载超过 50 mA 跳回待机（故障 210）、≥22 V 的改变回待机。
   - name: out
     type: calibrator_control
@@ -182,6 +199,15 @@ commands:
     args: {value: false}
     query: false
     doc: 回到待机，输出端与电路断开。
+  # ---- 量程（#552） ----
+  - header: RANGE
+    op: dac.range
+    set: false
+    doc: 当前输出量程的名字（Table 6-7，例如 DC11V）。
+  - header: RANGELCK
+    state: out.range_lock
+    query: false
+    doc: ON 锁定当前量程，OFF 恢复自动量程；改变输出功能时自动解锁。
   # ---- 故障队列 ----
   - header: FAULT
     op: sys.next_error
