@@ -760,7 +760,7 @@ sections:
   commands:
   - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]'
     level: implemented
-    note: 通道列表必需（省略报 -109）；0–51 V（额定 50 V 的 102 %）。模块的 100 W 功率包络尚未限制输出（power_stage 的 p_max 只保存，#533）：N6752A 在 50 V/10 A 设定下可输出超过 100 W。
+    note: 通道列表必需（省略报 -109）；0–51 V（额定 50 V 的 102 %）；负载要求超过模块额定功率（100 W）时输出按恒功率工作（#533）。
   - header: '[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。

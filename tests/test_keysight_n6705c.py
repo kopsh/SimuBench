@@ -2,7 +2,7 @@
 
 The manual cases (tests/models/keysight-n6705c/cases.yaml) check command by command; these tests run
 the real-instrument script examples/scripts/keysight_n6705c_check.py on the example bench and check
-what a transcript cannot see: each slot's module limits, remote sensing
+what a transcript cannot see: each slot's module limits, the 100 W power envelope (#533), remote sensing
 past lead resistance and the protection latches.
 """
 
@@ -91,6 +91,21 @@ def test_each_slot_takes_its_module_current_range(ch, max_a):
         assert q("SYST:ERR?") == '+0,"No error"'
         q(f"CURR {max_a + 0.1},(@{ch})")
         assert q("SYST:ERR?") == '-222,"Data out of range"'
+    finally:
+        s.close()
+
+
+def test_the_100_watt_envelope_limits_the_output():
+    """#533: 50 V into 5 ohm asks for 10 A (500 W): the N6752A's 100 W rating holds the output
+    to constant power (I = sqrt(100 / 5)); the terminals see V = 5 ohm x I."""
+    s, q = session(*load(3, 5.0))
+    try:
+        q("VOLT 50,(@3);:CURR 10,(@3);:OUTP ON,(@3)")
+        q("*OPC?")
+        v, i = float(q("MEAS:VOLT? (@3)")), float(q("MEAS:CURR? (@3)"))
+        assert i == pytest.approx(20.0**0.5, rel=1e-3)
+        assert v * i == pytest.approx(100.0, rel=1e-3)
+        assert q("SYST:ERR?") == '+0,"No error"'
     finally:
         s.close()
 
