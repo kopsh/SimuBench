@@ -131,7 +131,7 @@ channels:
       p_max: {default: 26.5225}
       range: {default: P25V}
 channel_state:
-  # 可疑仪表汇总寄存器 ISUMmary<n> 的使能（#348）：位 0 CC、位 1 CV。
+  # 可疑仪表汇总寄存器 ISUMmary<n> 的使能（#348）：位 0 CC、位 1 CV（E36311-90008 Ed.3 p.32，#379）。
   isum_enable:
     type: int
     min: 0
@@ -225,7 +225,8 @@ channel_state:
     label: 功率上限
     label_en: Power maximum
 state:
-  # 可疑状态寄存器组的使能（#348）：QUEStionable 的位 13 汇总 INSTrument，INSTrument 的位 1–3 汇总
+  # 可疑状态寄存器组的使能（#348，位号按 E36311-90008 Ed.3 p.31–32 核实，#379）：QUEStionable 的位 13 汇总
+  # INSTrument，INSTrument 的位 1–3 汇总
   # 各路 ISUMmary<n>；QUEStionable 的汇总进状态字节位 3。
   status.ques_enable:
     type: int
