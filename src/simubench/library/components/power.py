@@ -113,10 +113,8 @@ class PowerOutput(Component):
         "remote_sense": False,  # regulate the sense pair instead of the force terminals
         "r_out": 1.0e-3,  # output impedance of the pass stage, ohm (parallel outputs stay solvable)
         "relay_s": 0.01,  # s from switching the output on to the relay closing
-        # Sequencing delays (#540, OUTPut:DELay:RISE/FALL): s the output waits before turning on
-        # (added to relay_s) or off; a protection trip still turns it off at once.
-        "rise_delay": 0.0,
-        "fall_delay": 0.0,
+        "rise_delay": 0.0,  # s the output waits before turning on, added to relay_s (#540)
+        "fall_delay": 0.0,  # s the output stays on after being switched off; a trip is immediate (#540)
         "loop": "",  # this channel's output_control_loop (the reused B1 loop)
         "stage": "",  # this channel's power_stage (the envelope)
         "protection": "",  # this channel's supply_protection (the trip latch)
