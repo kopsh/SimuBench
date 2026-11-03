@@ -894,6 +894,12 @@
           "description": "An optional index's value when it is left out: a number, or a $setting whose value (an index word or a number) picks it, e.g. $trigger.source for :TRIG:LEV <level>[,<source>]",
           "title": "Index Default"
         },
+        "index_numbers": {
+          "default": false,
+          "description": "With index_words: the number may be written instead of the word (SR86x CDSP 0 = CDSP DAT1, #333); a number that is not one of the words' numbers is -222",
+          "title": "Index Numbers",
+          "type": "boolean"
+        },
         "index_words": {
           "anyOf": [
             {

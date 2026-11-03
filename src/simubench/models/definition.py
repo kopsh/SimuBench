@@ -183,6 +183,11 @@ class ParamSpec(_Model):
         description="An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} "
         "for :VIEW CHANnel2; the query answer echoes the word's short form",
     )
+    index_numbers: bool = Field(
+        False,
+        description="With index_words: the number may be written instead of the word (SR86x CDSP 0 = "
+        "CDSP DAT1, #333); a number that is not one of the words' numbers is -222",
+    )
     index_default: int | str | None = Field(
         None,
         description="An optional index's value when it is left out: a number, or a $setting whose value "

@@ -135,6 +135,8 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
             value = table[hit]
         elif isinstance(value, int) and not isinstance(value, bool) and str(value) in table:
             value = table[str(value)]  # an int setting against the map's (string) keys
+        elif isinstance(value, float) and value.is_integer() and str(int(value)) in table:
+            value = table[str(int(value))]  # an int setting written through a word (#333: 1.0)
         elif mapping.get("default") is not None:
             value = mapping["default"]
     ladder = mapping.get("table")
