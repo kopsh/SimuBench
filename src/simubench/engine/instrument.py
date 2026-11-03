@@ -1394,9 +1394,10 @@ class Instrument:
         return ps.default or [self.channel_number(1)]
 
     def _list_rules(self) -> dict[str, bool]:
-        """The definition's channel list rules (#260): descending ranges, repeated channels."""
+        """The definition's channel list rules (#260, #418): descending ranges, repeated channels,
+        an empty list."""
         rules = self.definition.channels.lists
-        return {"descending": rules.descending, "repeated": rules.repeated}
+        return {"descending": rules.descending, "repeated": rules.repeated, "empty": rules.empty}
 
     @staticmethod
     def _keyword_writes(ps: ParamSpec, raw: bytes) -> dict[str, Any] | None:
