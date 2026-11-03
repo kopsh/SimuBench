@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import math
+import statistics
 import subprocess
 import sys
 from pathlib import Path
@@ -76,23 +77,61 @@ def _read(session, rate: float, count: int) -> list[float]:
     return [float(v) for v in session.read("cnt").decode().split(",")]
 
 
+SINGLE_SHOT_S = 2.0e-11  # sb-counter-1's counter_timebase: the interpolator's resolution (rms)
+
+
 @pytest.mark.parametrize(
     ("frequency", "rate", "scale"),
     [
         (2.0e5, 1.0e6, 1),  # below the rate: every edge, the input period itself
         (1.0e7, 1.0e6, 11),  # the guide's example: 10 MHz at 1 MHz gives a scale factor of 11
         (2.5e6, 1.0e6, 3),
+        # an exact multiple (#410): floor(f/rate) + 1, as the guide's 10 MHz example (ceil would
+        # give 10 there) and its "1 for inputs below the rate" — so 1 MHz at 1 MHz gives 2
+        (1.0e6, 1.0e6, 2),
     ],
 )
 def test_the_scale_factor_and_the_intervals(tmp_path, frequency, rate, scale):
     session = _session(frequency, _defs(tmp_path))
     try:
-        values = _read(session, rate, 8)
+        values = _read(session, rate, 200)
         assert values[0] == scale
-        assert len(values) == 9
-        for v in values[1:]:  # scale x period, within the 20 ps single-shot resolution
-            assert v == pytest.approx(scale / frequency, abs=1e-10)
+        assert len(values) == 201
+        intervals = values[1:]
+        # each interval is the difference of two stamps, each with the 20 ps single-shot noise:
+        # sqrt(2) x 20 ps rms (#410: the spread itself, not a 100 ps band around every value)
+        spread = statistics.pstdev(intervals)
+        assert 0.7 * math.sqrt(2) * SINGLE_SHOT_S < spread < 1.3 * math.sqrt(2) * SINGLE_SHOT_S
+        # adjacent intervals share a stamp, so their sum telescopes: the mean is exact to ~1 ps
+        assert statistics.fmean(intervals) == pytest.approx(scale / frequency, abs=1e-12)
         assert values[1] / values[0] == pytest.approx(1 / frequency, rel=1e-3)  # the guide's division
+    finally:
+        session.close()
+
+
+def test_the_same_seed_reads_the_same_stamps_value_for_value(tmp_path):
+    defs = _defs(tmp_path)
+    readings = []
+    for _ in range(2):
+        session = _session(2.5e6, defs)
+        try:
+            readings.append(_read(session, 1.0e6, 5))
+        finally:
+            session.close()
+    assert readings[0] == readings[1]
+
+
+def test_without_a_signal_the_stamps_time_out(tmp_path):
+    """#410: no edge to stamp — as any counter measurement that cannot complete (53220-90001,
+    SYSTem:TIMeout), every reading is 9.91E37 and +321 is queued, never a scale factor of 0."""
+    session = _session(1.0e6, _defs(tmp_path))
+    try:
+        session.write("awg", b":OUTPut1 OFF\n")
+        assert _read(session, 1.0e6, 3) == [9.91e37] * 4
+        session.write("cnt", b":SYST:ERR?\n")
+        assert session.read("cnt").decode().startswith("321,")
+        session.write("cnt", b":SYST:ERR?\n")
+        assert session.read("cnt").decode().startswith("0,")  # queued once per run
     finally:
         session.close()
 

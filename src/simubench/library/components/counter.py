@@ -31,6 +31,8 @@ from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
+NO_READING = 9.91e37  # SCPI "not a number": a measurement that did not complete (timeout)
+
 POINTS_PER_PERIOD = 2048  # resolution of the threshold-crossing search (linear interpolation between)
 
 
@@ -381,14 +383,16 @@ class CounterCore(Component):
 
     def _stamp_plan(self) -> tuple[int, float, float] | None:
         """Time stamps (#385, the 53230A): every ``scale``-th rising edge on channel A from the
-        first one, ``scale`` the smallest number of input cycles whose span is longer than one
-        time-stamp period (1 below the rate; the guide's 10 MHz at 1 MHz gives 11)."""
+        first one, ``scale`` = floor(f/rate) + 1 (the guide, 53220-90001 p.100: 1 for inputs below
+        the rate, and 11 for 10 MHz at 1 MHz — so an input at an exact multiple of the rate takes
+        one cycle more than the multiple, 2 at f = rate; issue #410)."""
         found = self._input("a").crossings(self.session.now_ns)
         if found is None:
             return None
         period, first = found
         rate = float(self.param("timestamp_rate"))
-        scale = math.floor(1.0 / (period * rate)) + 1 if rate > 0 else 1
+        # 1e-9: an exact multiple stays exact although period × rate is a float product
+        scale = math.floor(1.0 / (period * rate) + 1e-9) + 1 if rate > 0 else 1
         return scale, period, first
 
     def sample_time_ns(self) -> int:
@@ -403,9 +407,15 @@ class CounterCore(Component):
 
     def _stamp_sample(self, index: int) -> float:
         """Reading 0 is the scale factor; reading k the time between stamped edges k−1 and k on
-        the timebase (scale × the input period, with the interpolator's resolution)."""
+        the timebase (scale × the input period, with the interpolator's resolution).
+
+        Without a signal on channel A no edge is stamped: as any measurement that cannot
+        complete, each reading is 9.91E37 and +321 "Measurement timeout occurred" is queued once
+        per run (53220-90001 SYSTem:TIMeout and Table A-1; issue #410)."""
         if self._stamps is None:
-            return 0.0
+            if index == 0 and self.owner is not None:
+                self.owner.push_error(321, "Measurement timeout occurred")
+            return NO_READING
         scale, period, first = self._stamps
         if index == 0:
             return float(scale)
