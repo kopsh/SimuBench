@@ -98,6 +98,18 @@ class Raw:
         send_msg(self.sync, DATA_END, rmt, mid, text.encode())
         return mid
 
+    def send_commands(self, *texts: str) -> list[int]:
+        """Several program messages in one send, so they reach the server together: the later
+        ones are queued while the first is answered (an interrupted response, spec 3.1.1-1, then
+        does not depend on how fast the server answers)."""
+        mids, data = [], b""
+        for text in texts:
+            mids.append(self.mid)
+            data += HEADER.pack(b"HS", DATA_END, 0, self.mid, len(text.encode())) + text.encode()
+            self.mid += 2
+        self.sync.sendall(data)
+        return mids
+
     def read_response(self, sock: socket.socket | None = None) -> tuple[int, bytes]:
         """Collect the Data messages of one response and its final DataEnd."""
         sock = sock or self.sync
@@ -254,8 +266,7 @@ async def test_interrupted_query(rig):
 
     def run() -> None:
         c = client(rig)
-        first = c.send_command("*IDN?")
-        second = c.send_command("*OPC?")
+        first, second = c.send_commands("*IDN?", "*OPC?")
         assert second == first + 2
         msg_type, _, parameter, _ = recv_msg(c.async_)
         assert (msg_type, parameter) == (ASYNC_INTERRUPTED, second)  # AsyncInterrupted first (6.11)
@@ -472,6 +483,86 @@ async def test_timeout_fault_is_silence(rig):
         c.sync.settimeout(5)
         rig.bench.faults.clear(fault.id)
         assert c.query("*OPC?") == b"1\n"
+        c.close()
+
+    await asyncio.to_thread(run)
+
+
+# ---- one engine action per program message (#431, #433) ---------------------------------------------
+
+
+async def test_another_sessions_write_between_the_reads_cannot_take_a_response(rig):
+    """#431/#433: session B's program message and its responses are one engine action
+    (``Session.exchange``), so a write by another session lands either before B's message or after
+    B's last read — never between them, where B's final empty read would take its response.
+
+    The order is forced, not left to the scheduler: a hook after B's response is read starts the
+    other session's write on another thread. If the engine lock is free at that point (the
+    write-then-read implementation), the hook waits for the write, so it is queued before B's next
+    read; if the lock is held (``exchange``), the write waits for B's action to end."""
+    import threading
+
+    session = rig.bench
+    original_read = session.read
+    other = {"thread": None}
+
+    def read(name, client="sdk"):
+        out = original_read(name, client)
+        if out == b"1\n" and other["thread"] is None:
+            thread = threading.Thread(target=session.write, args=(name, b"*IDN?\n", "other"))
+            other["thread"] = thread
+            thread.start()
+            if not session._lock._is_owned():
+                thread.join()  # the lock is free: the other write happens right here
+        return out
+
+    session.read = read
+
+    def run() -> None:
+        b = client(rig)
+        mid = b.send_command("*OPC?")
+        assert b.read_response() == (mid, b"1\n")
+        other["thread"].join()
+        session.read = original_read
+        # B's next query gets its own answer, not the other session's *IDN? response
+        mid = b.send_command("*OPC?")
+        assert b.read_response() == (mid, b"1\n")
+        b.close()
+
+    try:
+        await asyncio.to_thread(run)
+    finally:
+        session.read = original_read
+
+
+async def test_an_interrupted_answer_drops_its_remaining_responses():
+    """#433: when the next message arrives where a response is due (3.1.1-1), the rest of that
+    program message's responses are dropped with it; the queued message is processed next."""
+    server = HislipServer.__new__(HislipServer)
+    sent: list[bytes] = []
+    checks = iter([False, True])
+
+    async def interrupted(_sess):
+        return next(checks)
+
+    async def send_response(_mid, out):
+        sent.append(out)
+
+    server._interrupted = interrupted
+    sess = SimpleNamespace(closing=asyncio.Event(), clearing=False, send_response=send_response)
+    await server._answer(sess, 7, [b"first\n", b"second\n", b"third\n"])
+    assert sent == [b"first\n"]  # interrupted before the second: it and the third are dropped
+
+
+async def test_after_an_interrupted_query_the_next_message_is_answered(rig):
+    def run() -> None:
+        c = client(rig)
+        _, second = c.send_commands("*IDN?", "*OPC?")  # sent before the first response was read
+        assert recv_msg(c.async_)[:3:2] == (ASYNC_INTERRUPTED, second)
+        assert recv_msg(c.sync)[:3:2] == (INTERRUPTED, second)
+        assert c.read_response() == (second, b"1\n")
+        mid = c.send_command("*IDN?")  # processed as usual afterwards
+        assert c.read_response() == (mid, b"SIMUBENCH,SB-DSO-4,SBDSO000001,1.0.0\n")
         c.close()
 
     await asyncio.to_thread(run)
