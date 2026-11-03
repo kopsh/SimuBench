@@ -409,13 +409,13 @@ def _check_reply(
     for name in re.findall(r"\{([^{}]*)\}", cmd.reply or ""):
         if name == "header" or name in (fields or ()):
             continue
-        if name == "value":
+        if name in ("value", "value_block"):  # value_block: the same reply as a block (#415)
             if cmd.state is None and cmd.op is None:
                 report.add(
                     "error",
                     "E-DEF-REPLY",
                     pointer,
-                    "{value} 是命令绑定的状态或操作的应答，这条命令两者都没有",
+                    f"{{{name}}} 是命令绑定的状态或操作的应答，这条命令两者都没有",
                     "改用 {<状态路径>}",
                     cmd.header,
                 )
