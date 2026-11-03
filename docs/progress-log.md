@@ -1143,6 +1143,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 模块配置 | ✅ 插槽 1、2 为 N6762A 精密模块（50 V/3 A/100 W），3、4 为 N6752A 自动量程模块（50 V/10 A/100 W）；通道覆盖（`channels.overrides`）给出各插槽的电流范围（102 % 额定：3.06 A / 10.2 A）与 `SYSTem:CHANnel:MODel?` 的型号；电压 0–51 V、OVP 0–60 V（120 %） |
 | 实现范围 | ✅ 电压/电流设定、输出开关、`MEASure` 电压/电流（通道列表必需，多通道逗号分隔，`+n.nnnnnnE+nn`）、OVP 与锁存清除、OCP（状态、0–0.255 s 延迟、SCHange/CCTRans，#271）、远端检测、`SYSTem:CHANnel[:COUNt]/MODel/OPTion`、`SYSTem:VERSion`、显示为接受、公共命令；输出组合块固定 OFF（N6705C 没有跟踪/内部串并联） |
 | 覆盖、用例与示例 | ✅ 覆盖表 316 条：实现 27 · 接受 2 · 未实现 287；`tests/models/keysight-n6705c/cases.yaml` 6 条全部通过；示例台 `examples/benches/keysight-n6705c.bench.yaml`（通道 1 接 10 Ω、通道 3 接 1 Ω）与脚本 `examples/scripts/keysight_n6705c_check.py` 在 `tests/test_keysight_n6705c.py` 中运行；另测各插槽的电流范围、远端检测绕过引线电阻、OVP 锁存直到清除 |
-| 未实现 | ⚠️ 任意波/列表/阶跃瞬变、数据记录与直方图、测量触发系统与 FETCh 统计量、交流/峰值/数组测量、输出与测量量程（量程与电平的耦合规则无法用定义表达）、输出时序延时与耦合、STATus 寄存器组（组件不报告 OFF/OV/OC 条件位）、校准、数字口、分组等逐条标注；模块的 100 W 功率包络未限制输出（组件缺口，#533） |
+| 未实现 | ⚠️ 任意波/列表/阶跃瞬变、数据记录与直方图、测量触发系统与 FETCh 统计量、交流/峰值/数组测量、输出与测量量程（量程与电平的耦合规则无法用定义表达）、输出时序延时与耦合、STATus 寄存器组（组件不报告 OFF/OV/OC 条件位）、校准、数字口、分组等逐条标注 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 电源输出的额定功率包络（Issue 533）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 超过 `p_max` 时按恒功率工作 | ✅ `power_output`：CV 或 CC 的工作点功率超过功率级的 `p_max` 时转为电流源 I_P，按 I ← √(I·p_max/V) 迭代（电阻负载一步落定），V·I = p_max；电压到设定值或 I_P 到电流限值时回到控制环（CV/CC）；读回 `regulation` 为 CP，OCP 不把恒功率当恒流；负输出保持极性 |
+| 测试 | ✅ `tests/test_keysight_n6705c.py::test_the_100_watt_envelope_limits_the_output`（N6752A 50 V/10 A 设定接 5 Ω：I = √20 A、P = 100 W）；`tests/test_power_supply.py::test_the_power_rating_holds_the_output_to_p_max`（sb-ps-1 通道 1 额定 26 W：6 V 接 1.2 Ω 进入 CP，降到 4 V 回到 CV）；E36312A 的矩形额定不受影响（全量测试不改通过） |
+| 文档 | ✅ component-map 的 power_stage 行；N6705C 覆盖表 VOLTage 条目去掉 #533 的限制说明 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |

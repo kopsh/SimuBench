@@ -125,6 +125,10 @@ class PowerOutput(Component):
         super().__init__(*args, **kwargs)
         self._closed = False  # the relay's state (what the circuit sees)
         self._relay_pending = False  # a close is scheduled
+        # Constant power (#533): the output is held to the stage's p_max as a current source of
+        # this value (A) while the load asks for more than p_max; None outside the region.
+        self._p_current: float | None = None
+        self._p_sign = 1.0  # the output's polarity in the region (a negative output sources negative)
 
     def _sibling(self, name: str) -> Any:
         assert self.owner is not None
@@ -172,6 +176,7 @@ class PowerOutput(Component):
         assert self.owner is not None
         self.owner.cancel_pending(self.relay_key)
         self._relay_pending = False
+        self._p_current = None
         if self._closed:
             self._closed = False
             self.session.invalidate(electrical=True)
@@ -216,7 +221,7 @@ class PowerOutput(Component):
             return
         loop = self._loop()
         r = max(float(self.param("r_out")), 1e-9)
-        if loop.mode == "V":
+        if loop.mode == "V" and self._p_current is None:
             if self.remote():
                 circuit.loop_source(node("sense_pos"), node("sense_neg"), node("a"), node("b"), self.uid)
             else:
@@ -235,6 +240,8 @@ class PowerOutput(Component):
             return {}
         loop = self._loop()
         stage = self._stage()
+        if self._p_current is not None:
+            return {self.uid: Signal.constant(self._p_sign * self._p_current)}
         if loop.mode == "V":
             return {self.uid: Signal.constant(self._clipped(loop.targets()[0], float(stage.param("v_max"))))}
         return {self.uid: Signal.constant(self._clipped(loop.targets()[1], float(stage.param("i_max"))))}
@@ -252,6 +259,8 @@ class PowerOutput(Component):
             return False
         loop = self._loop()
         v = self._metered(dc_voltage)
+        if self._p_current is not None:
+            return self._update_power(v)
         current = self.session.source_current(self.uid) if loop.mode == "V" else 0.0
         changed = loop.update_mode(v, current)
         if changed:
@@ -259,6 +268,13 @@ class PowerOutput(Component):
             # would read the load's full I·R): protection judges only a settled point (#271).
             return True
         i = current if loop.mode == "V" else loop.targets()[1]
+        p_max = self._p_max()
+        if p_max > 0 and abs(v * i) > p_max * (1 + 1e-9) and v != 0:
+            # past the stage's power rating: hold the output to p_max (#533)
+            self._p_current = p_max / abs(v)
+            self._p_sign = 1.0 if v > 0 else -1.0
+            self._protection().watch_cc(False)
+            return True
         protection = self._protection()
         protection.watch_cc(loop.mode != "V")
         if not protection.tripped() and protection.check(v, i):
@@ -268,6 +284,30 @@ class PowerOutput(Component):
             protection.trip_ocp()
             changed = True
         return changed
+
+    def _p_max(self) -> float:
+        return float(self._stage().param("p_max") or 0.0)
+
+    def _update_power(self, v: float) -> bool:
+        """The constant-power region (#533): the current that makes V·I = p_max at the load. The
+        update is the geometric mean of the present current and p_max / V, which lands on the
+        operating point in one step for a resistive load and converges for others. The output
+        leaves the region when the voltage setpoint or the current limit holds it below p_max."""
+        assert self._p_current is not None
+        loop = self._loop()
+        v_set, i_lim = abs(loop.targets()[0]), abs(loop.targets()[1])
+        if abs(v) > v_set * (1 + 1e-9) or self._p_current > i_lim * (1 + 1e-9):
+            self._p_current = None  # the setpoint or the limit holds the output again
+            loop.restart()
+            return True
+        if v == 0:
+            return False
+        nxt = math.sqrt(self._p_current * self._p_max() / abs(v))
+        nxt = min(nxt, i_lim)
+        if abs(nxt - self._p_current) <= 1e-12 * max(nxt, 1e-12):
+            return False
+        self._p_current = nxt
+        return True
 
     # ---- the readback -----------------------------------------------------------------------------
 
@@ -282,7 +322,9 @@ class PowerOutput(Component):
         else:
             v = self.pin_signal("pos").mean() - self.pin_signal("neg").mean()
         loop = self._loop()
-        if loop.mode == "V":
+        if self._p_current is not None:
+            i = self._p_current
+        elif loop.mode == "V":
             r = max(float(self.param("r_out")), 1e-9)
             i = (self.pin_signal("a").mean() - self.pin_signal("pos").mean()) / r
         else:
@@ -290,8 +332,11 @@ class PowerOutput(Component):
         return v, abs(i)
 
     def regulation(self) -> str:
+        """CV, CC, CP (held to the stage's power rating, #533) or OFF."""
         if not self.conducting():
             return "OFF"
+        if self._p_current is not None:
+            return "CP"
         return "CV" if self._loop().mode == "V" else "CC"
 
 

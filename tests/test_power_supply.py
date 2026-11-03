@@ -118,6 +118,25 @@ def test_the_current_limit_turns_the_output_into_cc(open_):
     assert values["regulation"] == "CC"
 
 
+def test_the_power_rating_holds_the_output_to_p_max(open_):
+    """#533: CH1 is 6.18 V / 5.15 A but its stage is rated 26 W. 6 V into 1.2 ohm asks for 30 W:
+    the output runs at constant power (I = sqrt(26 / 1.2)) and reports CP; a lower setpoint brings
+    CV back."""
+    s = open_(r=1.2)
+    q(s, "VOLT 6,(@1)")
+    q(s, "CURR 5.15,(@1)")
+    q(s, "OUTP ON,(@1)")
+    relay(s)
+    i = numbers(q(s, "MEAS:CURR? (@1)"))[0]
+    v = numbers(q(s, "MEAS:VOLT? (@1)"))[0]
+    assert i == pytest.approx((26.0 / 1.2) ** 0.5, rel=2e-3)
+    assert v * i == pytest.approx(26.0, rel=2e-3)
+    assert s.instrument("ps").components["ch1.read"].readings()["values"]["regulation"] == "CP"
+    q(s, "VOLT 4,(@1)")  # 13.3 W: inside the rating again
+    assert numbers(q(s, "MEAS:VOLT? (@1)"))[0] == pytest.approx(4.0, rel=2e-3)
+    assert s.instrument("ps").components["ch1.read"].readings()["values"]["regulation"] == "CV"
+
+
 def test_a_negative_output_regulates(open_):
     s = open_(wires=CH3)
     q(s, "VOLT -5,(@3)")
