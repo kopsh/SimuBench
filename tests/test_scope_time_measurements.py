@@ -24,7 +24,9 @@ T = 1 / F
 
 @pytest.fixture
 def scope():
-    data = yaml.safe_load((ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml").read_text())
+    data = yaml.safe_load(
+        (ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml").read_text(encoding="utf-8")
+    )
     data["wires"].append({"from": "awg.CH1", "to": "scope.CH2"})
     data["instruments"]["scope"]["state"].update({"ch2.display": True, "ch2.scale": 0.5, "ch2.probe": 1.0})
     s = open_bench(BenchDefinition.model_validate(data), idle="off")

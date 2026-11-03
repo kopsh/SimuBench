@@ -36,7 +36,10 @@ script = _script()
 
 
 def session():
-    return open_bench(BENCH)
+    # idle='off' (D47): the bench's default wall idle lets real gaps between commands advance the
+    # virtual time, so the sweep a read lands in — and with it the noise a point carries —
+    # depends on machine speed; two sessions then disagree on a slow runner (#455).
+    return open_bench(BENCH, idle="off")
 
 
 def q(s, command: str) -> str | None:
