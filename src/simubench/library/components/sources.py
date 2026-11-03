@@ -489,6 +489,10 @@ class AmplitudeLevel(Component):
         "dbm_hiz_ohms": 50.0,  # the resistance dBm is referred to when the load setting is high-Z
         "vpp_min": None,  # V, the smallest Vpp into the load setting (None: not checked)
         "vpp_max": None,  # V, the largest Vpp into the load setting (None: not checked)
+        # What a change of the load setting keeps (#436): "setting" keeps the amplitude and offset
+        # as set (the EMF follows the new load); "output" keeps the EMF and rescales the amplitude
+        # and offset read back — the Keysight Trueform rule (33500-90901, Output Termination).
+        "load_change": "setting",
         "synth": "synth",  # the waveform_synth (its function sets the VRMS and DBM conversion)
         "output": "out",  # the output_stage (its impedance raises the EMF for the load setting)
     }
@@ -534,15 +538,17 @@ class AmplitudeLevel(Component):
     def _dbm_ohms(self) -> float:
         return self._load() or float(self.param("dbm_hiz_ohms"))
 
-    def _to_vpp(self, amp: float, unit: str) -> float:
-        """The amplitude in ``unit`` as volts peak-to-peak into the load setting."""
+    def _to_vpp(self, amp: float, unit: str, dbm_ohms: float | None = None) -> float:
+        """The amplitude in ``unit`` as volts peak-to-peak into the load setting (``dbm_ohms``: the
+        resistance dBm refers to, if not the current load setting's)."""
         unit = unit.upper()
         if unit == "VPK":
             return 2 * amp
         if unit == "VRMS":
             return amp * self._per_rms()
         if unit == "DBM":
-            return math.sqrt(10 ** (amp / 10) * 1e-3 * self._dbm_ohms()) * self._per_rms()
+            ohms = self._dbm_ohms() if dbm_ohms is None else dbm_ohms
+            return math.sqrt(10 ** (amp / 10) * 1e-3 * ohms) * self._per_rms()
         return amp
 
     def _from_vpp(self, vpp: float, unit: str) -> float:
@@ -567,6 +573,8 @@ class AmplitudeLevel(Component):
         if path == bound.get("unit"):
             self._switch_unit(str(old), str(new))
             return None
+        if path == bound.get("load_setting") and str(self.param("load_change")).lower() == "output":
+            self._keep_output(float(old))
         if path not in (bound.get("amplitude"), bound.get("load_setting"), bound.get("function")):
             return None
         vpp, lo, hi = self.vpp(), self.param("vpp_min"), self.param("vpp_max")
@@ -659,13 +667,37 @@ class AmplitudeLevel(Component):
         """``VOLTage:LOW``: the low level; setting it keeps the high level."""
         return self._level(0, query, value)
 
-    def _emf_scale(self) -> float:
-        rl = self._load()
+    def _emf_scale(self, load_setting: float | None = None) -> float:
+        """The EMF per volt into the load setting: (R + Z) / R, 1 for high-Z. ``load_setting``:
+        that of another load setting (ohms) instead of the current one."""
+        rl = self._load() if load_setting is None else self._load_of(load_setting)
         out = self._sibling("output")
         if rl is None or out is None:
             return 1.0
         z = float(out.param("z_out"))
         return (rl + z) / rl
+
+    def _load_of(self, ohms: float) -> float | None:
+        """A load setting in ohms, None for high-Z (as :meth:`_load`)."""
+        if not math.isfinite(ohms) or ohms <= 0 or ohms >= float(self.param("hiz_from")):
+            return None
+        return ohms
+
+    def _keep_output(self, old_load: float) -> None:
+        """The load setting changed from ``old_load``: rescale the amplitude and offset so the EMF,
+        and with it the voltage on the real load, stays as it was (#436). Written as watcher side
+        effects, so a refusal (the rescaled amplitude out of range) rolls the load change back."""
+        assert self.owner is not None
+        bound = self.bound_paths()
+        amp_path, off_path = bound.get("amplitude"), bound.get("offset")
+        factor = self._emf_scale(old_load) / self._emf_scale()
+        if amp_path is not None:
+            unit = str(self.param("unit"))
+            old_ohms = self._load_of(old_load) or float(self.param("dbm_hiz_ohms"))
+            vpp_old = self._to_vpp(float(self.owner.get_state(amp_path)), unit, dbm_ohms=old_ohms)
+            self.owner.set_state(amp_path, self._from_vpp(vpp_old * factor, unit), internal=True)
+        if off_path is not None:
+            self.owner.set_state(off_path, float(self.owner.get_state(off_path)) * factor, internal=True)
 
     def output(self, port: str) -> Signal:
         wave = self.input("in").scale(self.vpp()) + Signal.constant(float(self.param("offset")))

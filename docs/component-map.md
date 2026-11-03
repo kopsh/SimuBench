@@ -39,7 +39,7 @@
 | --- | --- | --- | --- | --- |
 | reference | `reference_clock` | 数据(基准偏差) | 已实现 | siglent-sdg2042x 无(例外清单) |
 | synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
-| amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，#424) | siglent-sdg2042x 无(例外清单) |
+| amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426) | siglent-sdg2042x 无(例外清单) |
 | modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。谱线超出 `line_budget`(默认 2000)时:FM/PM 拒绝(-222,展开前按 Carson 规则计数,#357);PWM 保留预算内的低次谐波、截掉其余并附 `truncated` 保真度提示(写明保留次数;预算内谐波全保留、不附提示,#440),常规基频(如 1 kHz 方波,300 MHz 带宽)照常输出(#388)。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
@@ -273,7 +273,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 19. **DAQ**:温度测量、数字 I/O 与总加器(34907A/DAQM907A)、外部扫描推进、监视通道、报警系统暂不排期。DAQ970A(#332)沿用 34970A 的组件链（DAQM901A 槽 1），扫描表查询的定长块（#415）与空表 `(@)`（#418）已补；`ROUT:CLOS:EXCL`、`ROUT:SCAN:SIZE?`、`DATA:LAST?`、FORMat:READing 字段与 DMM 数字化模式暂不排期。
 20. **频率计数器**:连续累加(TOTalize)的读数路径、派生测量(单周期/上升/下降/占空比/相位)、频率比暂不排期;无间隙连续测量已由 #328 的 `counter_timebase` 补上,53230A(#331)以 `SENSe:FREQuency:MODE CONTinuous` 用上。时间戳按 53230A 手册是「比例因子 + 按 `TSTamp:RATE` 抽取的相邻间隔」、经触发模型取回:#385 给 `counter_core` 加了测量功能 `TSTamp`(参数 `timestamp_rate`;比例因子 = ⌊f/速率⌋ + 1,读数 0 为比例因子、其后为相邻被打戳沿的间隔,按时基与单次分辨率),括号里的计数 `(200)` 按一个数解析,53230A 的 `CONFigure/MEASure:ARRay:TSTamp` 与 `TSTamp:RATE` 已接上;Option 150 脉冲/突发测量暂不排期。
 21. **SMU**:数字量格式与 GPIO、输出滤波器接入电路、程序内存(TSP)、电阻量程暂不排期;测量功能与按功能的源量程已由 #299/#253 合并,#12(Keithley 2450)的依赖就绪。B2912B(#330)以 #382 的每通道 SMU 链落地;两通道合用电流限制(B2900B SCPI Command Reference Table 2-6,如两路都 ≤ 6 V 时 I1 + I2 ≤ 4 A)与脉冲输出(10.5 A 脉冲档)暂不排期。
-22. **函数发生器**:非正弦调制波形、BPSK/ASK/Sum 与扫频(`awg_modulator` 已由 #327 补上 AM/FM/PM/FSK/PWM);内置计数器(SDG)、IQ 调制暂不排期。33622A(#334)用上高/低电平(#424)、任意波易失存储与 ARB/PRBS 播放(#426)、bool 映射的调制开关(#429);噪声、突发、扫频/列表、通道耦合/合并/跟踪、按幅度的频率上限与改负载时保持输出电压的换算暂不排期。
+22. **函数发生器**:非正弦调制波形、BPSK/ASK/Sum 与扫频(`awg_modulator` 已由 #327 补上 AM/FM/PM/FSK/PWM);内置计数器(SDG)、IQ 调制暂不排期。33622A(#334)用上高/低电平(#424)、任意波易失存储与 ARB/PRBS 播放(#426)、bool 映射的调制开关(#429);噪声、突发、扫频/列表、通道耦合/合并/跟踪、按幅度的频率上限暂不排期;改负载时保持输出电压、换算回读值由 `amplitude_level.load_change: output` 承担(#436,SDG2042X 与 sb-awg-2 仍为默认 `setting`:保持设定值)。
 23. **校准器(5522A)**:UUT 误差模式、温度/压力/电容/电阻测量模式、双输出、示波器校准选件(-SC600/-SC1100)、非正弦波形与谐波、交流直流偏置(#90 已知边界)、量程符号名查询(回复需按幅值查表)、不确定度查询、ISR/ISCE/ISCR 状态暂不排期;负 dBm 写入已按 D48 修复(#261,幅度下限 1 mVpp 不含 0,见 docs/lowfreq-cal.md)。
 
 ### 三、已有债务

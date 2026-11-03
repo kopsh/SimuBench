@@ -262,7 +262,10 @@ class Instrument:
         self._watchers: dict[str, list[Component]] = defaultdict(list)
         for comp in self.components.values():
             for path in comp.bound_paths().values():
-                self._watchers[path].append(comp)
+                # once per component, however many of its parameters bind the path (#436: a load
+                # setting bound both as the level's load and as its range table's key)
+                if comp not in self._watchers[path]:
+                    self._watchers[path].append(comp)
             for path in comp.watches:  # read by path, still told of changes (#274)
                 if path in self.specs and comp not in self._watchers[path]:
                     self._watchers[path].append(comp)
