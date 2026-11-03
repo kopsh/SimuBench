@@ -1,0 +1,1864 @@
+# R&S SMA100B 的覆盖表：命令按 User Manual 1178.3834.02 v14 的 List of Commands 逐条列出（<ch> 记作 <n>：
+# 本平台的 <ch> 指仪表通道）；程度与说明手写。只实现输出、频率、电平、参考、AM/FM/PM（LF1）、调制总开关、
+# 频率/电平扫描、触发、状态与公共命令；其余逐条标未实现。
+schema: simubench.coverage/1
+model: rs-sma100b
+sections:
+- section: Common Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: 清状态与错误队列。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器。
+  - header: '*IDN'
+    level: implemented
+    note: Rohde&Schwarz,SMA100B,<物料号/序列号>,<固件>（15.4 *IDN? 示例的四字段）。
+  - header: '*IST'
+    level: not_modeled
+  - header: '*OPC'
+    level: implemented
+    note: 操作完成。
+  - header: '*OPT'
+    level: not_modeled
+  - header: '*PRE'
+    level: not_modeled
+  - header: '*PSC'
+    level: not_modeled
+  - header: '*RCL'
+    level: not_modeled
+  - header: '*RST'
+    level: implemented
+    note: 按各命令的 *RST 值复位：1 GHz（依选件）、−30 dBm、RF 关、AM 30 %、FM 1 kHz、PM 1 rad、LF 1 kHz、调制关。
+  - header: '*SAV'
+    level: not_modeled
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节。
+  - header: '*TRG'
+    level: implemented
+    note: 触发扫描（触发源为 SINGle/BUS 时开始一次扫描或走一步）。
+  - header: '*TST'
+    level: not_modeled
+  - header: '*WAI'
+    level: implemented
+    note: 等待操作完成。
+- section: CALCulate Subsystem
+  commands:
+  - header: :CALCulate[:POWer]:SWEep:FREQuency:MARKer<n>:FEED
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:FREQuency:MARKer<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:FREQuency:MATH<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:FREQuency:MATH<n>:SUBTract
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:FREQuency:MATH<n>:XVAL
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:FREQuency:MATH<n>:YVAL
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:POWer:MARKer<n>:FEED
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:POWer:MARKer<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:POWer:MATH<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:POWer:MATH<n>:SUBTract
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:POWer:MATH<n>:XVAL
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:POWer:MATH<n>:YVAL
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:GATE<n>:AVERage
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:GATE<n>:FEED
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:GATE<n>:MAXimum
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:GATE<n>:STARt
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:GATE<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:GATE<n>:STOP
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:MARKer<n>:FEED
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:MARKer<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:MATH<n>:STATe
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:MATH<n>:SUBTract
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:MATH<n>:XVAL
+    level: not_modeled
+  - header: :CALCulate[:POWer]:SWEep:TIME:MATH<n>:YVAL
+    level: not_modeled
+- section: CALibration Subsystem
+  commands:
+  - header: :CALibration:ALL[:MEASure]
+    level: not_modeled
+  - header: :CALibration:DATA:EXPort
+    level: not_modeled
+  - header: :CALibration:DATA:FACTory:DATE
+    level: not_modeled
+  - header: :CALibration:DELay:MINutes
+    level: not_modeled
+  - header: :CALibration:DELay:SHUTdown[:STATe]
+    level: not_modeled
+  - header: :CALibration:DELay[:MEASure]
+    level: not_modeled
+  - header: :CALibration<hw>:ALL:DATE
+    level: not_modeled
+  - header: :CALibration<hw>:ALL:INFormation
+    level: not_modeled
+  - header: :CALibration<hw>:ALL:TEMP
+    level: not_modeled
+  - header: :CALibration<hw>:ALL:TIME
+    level: not_modeled
+  - header: :CALibration<hw>:CONTinueonerror
+    level: not_modeled
+  - header: :CALibration<hw>:DEBug
+    level: not_modeled
+- section: CSYNthesis Subsystem
+  commands:
+  - header: :CSYNthesis:FREQuency
+    level: not_modeled
+  - header: :CSYNthesis:FREQuency:STEP
+    level: not_modeled
+  - header: :CSYNthesis:FREQuency:STEP:MODE
+    level: not_modeled
+  - header: :CSYNthesis:OFFSet
+    level: not_modeled
+  - header: :CSYNthesis:OFFSet:STATe
+    level: not_modeled
+  - header: :CSYNthesis:OTYPe
+    level: not_modeled
+  - header: :CSYNthesis:PHASe
+    level: not_modeled
+  - header: :CSYNthesis:PHASe:REFerence
+    level: not_modeled
+  - header: :CSYNthesis:POWer
+    level: not_modeled
+  - header: :CSYNthesis:POWer:STEP:MODE
+    level: not_modeled
+  - header: :CSYNthesis:POWer:STEP[:INCRement]
+    level: not_modeled
+  - header: :CSYNthesis:STATe
+    level: not_modeled
+  - header: :CSYNthesis:VOLTage
+    level: not_modeled
+- section: DEVice Subsystem
+  commands:
+  - header: :DEVice:PRESet
+    level: not_modeled
+- section: DIAGnostic Subsystem
+  commands:
+  - header: :DIAGnostic:INFO:OTIMe
+    level: not_modeled
+  - header: :DIAGnostic:INFO:POCount
+    level: not_modeled
+  - header: :DIAGnostic<hw>:BGINfo:CATalog
+    level: not_modeled
+  - header: :DIAGnostic<hw>:BGINfo
+    level: not_modeled
+  - header: :DIAGnostic<hw>:POINt:CATalog
+    level: not_modeled
+  - header: :DIAGnostic<hw>[:MEASure]:POINt
+    level: not_modeled
+- section: DISPlay Subsystem
+  commands:
+  - header: :DISPlay:ANNotation:AMPLitude
+    level: not_modeled
+  - header: :DISPlay:ANNotation:FREQuency
+    level: not_modeled
+  - header: :DISPlay:ANNotation[:ALL]
+    level: not_modeled
+  - header: :DISPlay:BRIGhtness
+    level: not_modeled
+  - header: :DISPlay:BUTTon:BRIGhtness
+    level: not_modeled
+  - header: :DISPlay:DIALog:CLOSe
+    level: not_modeled
+  - header: :DISPlay:DIALog:CLOSe:ALL
+    level: not_modeled
+  - header: :DISPlay:DIALog:ID
+    level: not_modeled
+  - header: :DISPlay:DIALog:OPEN
+    level: not_modeled
+  - header: :DISPlay:PSAVe:HOLDoff
+    level: not_modeled
+  - header: :DISPlay:PSAVe[:STATe]
+    level: not_modeled
+  - header: :DISPlay:UPDate[:STATe]
+    level: not_modeled
+  - header: :DISPlay[:WINDow][:POWer]:SWEep:BACKground:COLor
+    level: not_modeled
+  - header: :DISPlay[:WINDow][:POWer]:SWEep:GRID:STATe
+    level: not_modeled
+- section: FORMat Subsystem
+  commands:
+  - header: :FORMat:BORDer
+    level: not_modeled
+  - header: :FORMat:SREGister
+    level: not_modeled
+  - header: :FORMat[:DATA]
+    level: not_modeled
+- section: FPANel Subsystem
+  commands:
+  - header: :FPANel:KEYBoard:LAYout
+    level: not_modeled
+- section: HCOPy Subsystem
+  commands:
+  - header: :HCOPy:DATA
+    level: not_modeled
+  - header: :HCOPy:DEVice:LANGuage
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO:DIRectory
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO:DIRectory:CLEar
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO:FILE
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO:STATe
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO[:FILE]:DAY:STATe
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO[:FILE]:MONTh:STATe
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO[:FILE]:NUMBer
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO[:FILE]:PREFix
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO[:FILE]:PREFix:STATe
+    level: not_modeled
+  - header: :HCOPy:FILE[:NAME]:AUTO[:FILE]:YEAR:STATe
+    level: not_modeled
+  - header: :HCOPy:IMAGe:FORMat
+    level: not_modeled
+  - header: :HCOPy:REGion
+    level: not_modeled
+  - header: :HCOPy[:EXECute]
+    level: not_modeled
+- section: INITiate Subsystem
+  commands:
+  - header: :INITiate<hw>[:POWer]:CONTinuous
+    level: not_modeled
+- section: KBOard Subsystem
+  commands:
+  - header: :KBOard:LAYout
+    level: not_modeled
+- section: MEMory Subsystem
+  commands:
+  - header: :MEMory:HFRee
+    level: not_modeled
+- section: MMEMory Subsystem
+  commands:
+  - header: :MMEMory:CATalog:LENGth
+    level: not_modeled
+  - header: :MMEMory:CATalog
+    level: not_modeled
+  - header: :MMEMory:CDIRectory
+    level: not_modeled
+  - header: :MMEMory:COPY
+    level: not_modeled
+  - header: :MMEMory:DATA
+    level: not_modeled
+  - header: :MMEMory:DCATalog:LENGth
+    level: not_modeled
+  - header: :MMEMory:DCATalog
+    level: not_modeled
+  - header: :MMEMory:DELete
+    level: not_modeled
+  - header: :MMEMory:LOAD:STATe
+    level: not_modeled
+  - header: :MMEMory:MDIRectory
+    level: not_modeled
+  - header: :MMEMory:MOVE
+    level: not_modeled
+  - header: :MMEMory:MSIS
+    level: not_modeled
+  - header: :MMEMory:RDIRectory
+    level: not_modeled
+  - header: :MMEMory:RDIRectory:RECursive
+    level: not_modeled
+  - header: :MMEMory:STORe:STATe
+    level: not_modeled
+- section: OUTPut Subsystem
+  commands:
+  - header: :OUTPut:ALL[:STATe]
+    level: not_modeled
+  - header: :OUTPut:FPRoportional:SCALe
+    level: not_modeled
+  - header: :OUTPut:USER:MARKer
+    level: not_modeled
+  - header: :OUTPut<hw>:AFIXed:RANGe:LOWer
+    level: not_modeled
+  - header: :OUTPut<hw>:AFIXed:RANGe:UPPer
+    level: not_modeled
+  - header: :OUTPut<hw>:AMODe
+    level: not_modeled
+  - header: :OUTPut<hw>:FILTer:MODE
+    level: not_modeled
+  - header: :OUTPut<hw>:IMPedance
+    level: not_modeled
+  - header: :OUTPut<hw>:PROTection:CLEar
+    level: not_modeled
+  - header: :OUTPut<hw>:PROTection:TRIPped
+    level: not_modeled
+  - header: :OUTPut<hw>[:STATe]
+    level: implemented
+    note: RF 输出开关，*RST 0；只有一条 RF 通路，OUTPut2 报 -114。
+  - header: :OUTPut<hw>[:STATe]:PON
+    level: not_modeled
+- section: READ Subsystem
+  commands:
+  - header: :READ<n>[:POWer]
+    level: not_modeled
+- section: SCONfiguration Subsystem
+  commands:
+  - header: :SCONfiguration:EXTernal:ACONnect
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:PBEHaviour
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:REMote:CLEan
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:REMote:CONNect[:ALL]
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:REMote:DISConnect[:ALL]
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:REMote:LIST
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:REMote:REName
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:DIRection
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:INAMe
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:RCONnection:STATe
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:REMote:CONNect
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:REMote:DISConnect
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:REMote:ICONnect
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:REMote:INFO
+    level: not_modeled
+  - header: :SCONfiguration:EXTernal:RF<n>:REMote:ISELect
+    level: not_modeled
+- section: SENSe Subsystem
+  commands:
+  - header: :SENSe<n>:UNIT[:POWer]
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:APERture:DEFault:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:APERture:TIMe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:CORRection:SPDevice:LIST
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:CORRection:SPDevice:SELect
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:CORRection:SPDevice:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:DISPlay:PERManent:PRIority
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:DISPlay:PERManent:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FILTer:LENGth:AUTO
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FILTer:LENGth[:USER]
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FILTer:NSRatio
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FILTer:NSRatio:MTIMe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FILTer:SONCe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FILTer:TYPE
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:FREQuency
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:LOGGing:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:OFFSet
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:OFFSet:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SNUMber
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SOURce
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:STATus[:DEVice]
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SVERsion
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:FREQuency[:SENSor]:OFFSet
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:FREQuency[:SENSor]:OFFSet:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:FREQuency[:SENSor]:SRANge:STARt
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:FREQuency[:SENSor]:SRANge:STOP
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:FREQuency[:SENSor]:SRANge[:STATe]
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:POWer[:SENSor]:OFFSet
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:POWer[:SENSor]:OFFSet:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:POWer[:SENSor]:SFRequency
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:POWer[:SENSor]:SFRequency:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:OFFSet
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:OFFSet:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:PULSe:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:PULSe:THReshold:BASE
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:PULSe:THReshold:POWer:HREFerence
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:PULSe:THReshold:POWer:LREFerence
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:PULSe:THReshold:POWer:REFerence
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:SFRequency
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:SFRequency:STATe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:TRIGger:AUTO
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:TRIGger:DTIMe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:TRIGger:HYSTeresis
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:TRIGger:LEVel
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:TRIGger:SLOPe
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:SWEep:TIME[:SENSor]:TRIGger:SOURce
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:TYPE
+    level: not_modeled
+  - header: :SENSe<n>[:POWer]:ZERO
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:ABORt
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:REFerence:DATA:COPY
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:REFerence:DATA:POINts
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:REFerence:DATA:XVALues
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:REFerence:DATA:YVALues
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:RMODe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:SPACing[:MODE]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:STARt
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:STEPs
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:STOP
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:TIMing[:MODE]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:YSCale:AUTO
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:YSCale:AUTO:RESet
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:YSCale:MAXimum
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:FREQuency:YSCale:MINimum
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DATA
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice:LANGuage
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice:LANGuage:CSV:DPOint
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice:LANGuage:CSV:HEADer
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice:LANGuage:CSV:ORIentation
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice:LANGuage:CSV[:COLumn]:SEParator
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:DEVice:SIZE
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO:DIRectory
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO:DIRectory:CLEar
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO:FILE
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO:STATe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:DAY:STATe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:DAY
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:MONTh:STATe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:MONTh
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:NUMBer
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:PREFix
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:PREFix:STATe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:YEAR:STATe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy:FILE[:NAME]:AUTO[:FILE]:YEAR
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:HCOPy[:EXECute]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:INITiate
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:MODE
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:REFerence:DATA:COPY
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:REFerence:DATA:POINts
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:REFerence:DATA:XVALues
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:REFerence:DATA:YVALues
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:RMODe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:SPACing[:MODE]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:STARt
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:STEPs
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:STOP
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:TIMing[:MODE]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:YSCale:AUTO
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:YSCale:AUTO:RESet
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:YSCale:MAXimum
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:POWer:YSCale:MINimum
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:RMODe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:AVERage[:COUNt]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:REFerence:DATA:COPY
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:REFerence:DATA:POINts
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:REFerence:DATA:XVALues
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:REFerence:DATA:YVALues
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:RMODe
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:SPACing[:MODE]
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:STARt
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:STEPs
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:STOP
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:TEVents
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:YSCale:AUTO
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:YSCale:AUTO:RESet
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:YSCale:MAXimum
+    level: not_modeled
+  - header: :SENSe[:POWer]:SWEep:TIME:YSCale:MINimum
+    level: not_modeled
+- section: SLISt Subsystem
+  commands:
+  - header: :SLISt:CLEar:LAN
+    level: not_modeled
+  - header: :SLISt:CLEar:USB
+    level: not_modeled
+  - header: :SLISt:CLEar[:ALL]
+    level: not_modeled
+  - header: :SLISt:ELEMent<n>:MAPPing
+    level: not_modeled
+  - header: :SLISt:SCAN:LSENsor
+    level: not_modeled
+  - header: :SLISt:SCAN:USENsor
+    level: not_modeled
+  - header: :SLISt:SCAN[:STATe]
+    level: not_modeled
+  - header: :SLISt:SENSor:MAP
+    level: not_modeled
+  - header: :SLISt[:LIST]
+    level: not_modeled
+- section: SOURce Subsystem (other) (other)
+  commands:
+  - header: :SOURce<hw>:PRESet
+    level: not_modeled
+  - header: '[:SOURce]:CORRection:CSET:CATalog'
+    level: not_modeled
+  - header: '[:SOURce]:CORRection:CSET:DELete'
+    level: not_modeled
+  - header: '[:SOURce]:INPut:TRIGger:SLOPe'
+    level: not_modeled
+  - header: '[:SOURce]:LFOutput:OFFSet'
+    level: not_modeled
+  - header: '[:SOURce]:LFOutput:VOLTage'
+    level: not_modeled
+  - header: '[:SOURce]:LFOutput<n>:BANDwidth'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:FREQuency'
+    level: implemented
+    note: LF1 频率 0.1 Hz–1 MHz，*RST 1 kHz（手册写作 [:SOURce]:LFOutput<ch>，示例为 SOURce1:LFOutput1）：内部 AM/FM/PM 的调制频率（LFOutput1:FREQuency 的说明）；只建模 LF1。
+  - header: '[:SOURce]:LFOutput<n>:INTernal:VOLTage'
+    level: not_modeled
+  - header: '[:SOURce]:LFOutput<n>:SOURce'
+    level: not_modeled
+  - header: '[:SOURce]:LFOutput<n>:SOURce:PATH'
+    level: not_modeled
+  - header: '[:SOURce]:LFOutput<n>[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PM<n>[:DEViation]'
+    level: implemented
+    note: PM 相偏（rad），*RST 1（手册写作 [:SOURce]:PM<ch>[:DEViation]，示例带 SOURce1:，模型两种都收）；模型上限 16 rad 并受谱线预算约束。
+  - header: '[:SOURce]:POWer:WIGNore'
+    level: not_modeled
+  - header: '[:SOURce]:PULM[:INTernal][:TRAin]:TRIGger:IMMediate'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:EXTernal:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:EXTernal:FREQuency:VARiable'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:EXTernal:MLRange'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:EXTernal:NSBandwidth'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:EXTernal:RFOFf[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:EXTernal:SBANdwidth'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:INTernal:TUNing:SLOPe'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:INTernal:TUNing[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:OUTPut:ALTernate:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:OUTPut:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:PRESet'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator:SOURce'
+    level: implemented
+    note: INTernal/EXTernal；外部时 REF_IN 上 ±10 ppm 内的 10 MHz 锁定并带入其误差。手册 *RST 不改变它（出厂 INT），模型 *RST 回 INT。
+  - header: '[:SOURce]:ROSCillator[:INTernal]:ADJust:VALue'
+    level: not_modeled
+  - header: '[:SOURce]:ROSCillator[:INTernal]:ADJust[:STATe]'
+    level: not_modeled
+- section: STATus Subsystem
+  commands:
+  - header: :STATus:OPERation:CONDition
+    level: not_modeled
+  - header: :STATus:OPERation:ENABle
+    level: not_modeled
+  - header: :STATus:OPERation:NTRansition
+    level: not_modeled
+  - header: :STATus:OPERation:PTRansition
+    level: not_modeled
+  - header: :STATus:OPERation[:EVENt]
+    level: not_modeled
+  - header: :STATus:PRESet
+    level: not_modeled
+  - header: :STATus:QUEStionable:CONDition
+    level: not_modeled
+  - header: :STATus:QUEStionable:ENABle
+    level: not_modeled
+  - header: :STATus:QUEStionable:NTRansition
+    level: not_modeled
+  - header: :STATus:QUEStionable:PTRansition
+    level: not_modeled
+  - header: :STATus:QUEStionable[:EVENt]
+    level: not_modeled
+  - header: :STATus:QUEue[:NEXT]
+    level: not_modeled
+- section: SWEep Subsystem
+  commands:
+  - header: :SWEep:TYPE
+    level: not_modeled
+- section: SYSTem Subsystem
+  commands:
+  - header: :SYSTem:BIOS:VERSion
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:GPIB:LTERminator
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:GPIB:RESource
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:GPIB[:SELF]:ADDRess
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:HISLip:RESource
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork:IPADdress
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork:IPADdress:MODE
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork:MACaddress
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork:RESTart
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork:RESource
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork:STATus
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork[:COMMon]:DOMain
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork[:COMMon]:HOSTname
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork[:COMMon]:WORKgroup
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork[:IPADdress]:DNS
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork[:IPADdress]:GATeway
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:NETWork[:IPADdress]:SUBNet:MASK
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:SERial:BAUD
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:SERial:PARity
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:SERial:RESource
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:SERial:SBITs
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:SOCKet:RESource
+    level: not_modeled
+  - header: :SYSTem:COMMunicate:USB:RESource
+    level: not_modeled
+  - header: :SYSTem:DATE
+    level: not_modeled
+  - header: :SYSTem:DFPRint
+    level: not_modeled
+  - header: :SYSTem:DLOCk
+    level: not_modeled
+  - header: :SYSTem:ERRor:ALL
+    level: not_modeled
+  - header: :SYSTem:ERRor:CODE:ALL
+    level: not_modeled
+  - header: :SYSTem:ERRor:CODE[:NEXT]
+    level: not_modeled
+  - header: :SYSTem:ERRor:COUNt
+    level: not_modeled
+  - header: :SYSTem:ERRor:GNEXt
+    level: not_modeled
+  - header: :SYSTem:ERRor:HISTory:CLEar
+    level: not_modeled
+  - header: :SYSTem:ERRor:STATic
+    level: not_modeled
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 错误队列，格式 code,"text"。
+  - header: :SYSTem:FILes:TEMPorary:DELete
+    level: not_modeled
+  - header: :SYSTem:FPReset
+    level: not_modeled
+  - header: :SYSTem:HELP:EXPort
+    level: not_modeled
+  - header: :SYSTem:IDENtification
+    level: not_modeled
+  - header: :SYSTem:IDENtification:PRESet
+    level: not_modeled
+  - header: :SYSTem:INFormation:SCPI
+    level: not_modeled
+  - header: :SYSTem:IRESponse
+    level: not_modeled
+  - header: :SYSTem:KLOCk
+    level: not_modeled
+  - header: :SYSTem:LANGuage
+    level: not_modeled
+  - header: :SYSTem:LOCK:OWNer
+    level: not_modeled
+  - header: :SYSTem:LOCK:RELease:ALL
+    level: not_modeled
+  - header: :SYSTem:LOCK:REQuest[:EXCLusive]
+    level: not_modeled
+  - header: :SYSTem:MMEMory:PATH:USER
+    level: not_modeled
+  - header: :SYSTem:NINFormation
+    level: not_modeled
+  - header: :SYSTem:NTP:HOSTname
+    level: not_modeled
+  - header: :SYSTem:NTP:STATe
+    level: not_modeled
+  - header: :SYSTem:ORESponse
+    level: not_modeled
+  - header: :SYSTem:OSYStem
+    level: not_modeled
+  - header: :SYSTem:PRESet
+    level: implemented
+    note: 等同 *RST。
+  - header: :SYSTem:PROTect<n>[:STATe]
+    level: not_modeled
+  - header: :SYSTem:RCL
+    level: not_modeled
+  - header: :SYSTem:REBoot
+    level: not_modeled
+  - header: :SYSTem:RESTart
+    level: not_modeled
+  - header: :SYSTem:SAV
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:AVAHi[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:FTP[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:HTTP[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:RAW[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:REMSupport[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:RPC[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:SMB[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:SOE[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:SSH[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:SWUPdate[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork:VNC[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:NETWork[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:SANitize[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SECurity:VOLMode[:STATe]
+    level: not_modeled
+  - header: :SYSTem:SHUTdown
+    level: not_modeled
+  - header: :SYSTem:SPECification:IDENtification:CATalog
+    level: not_modeled
+  - header: :SYSTem:SPECification:PARameter
+    level: not_modeled
+  - header: :SYSTem:SPECification:VERSion
+    level: not_modeled
+  - header: :SYSTem:SPECification:VERSion:CATalog
+    level: not_modeled
+  - header: :SYSTem:SPECification:VERSion:FACTory
+    level: not_modeled
+  - header: :SYSTem:SPECification
+    level: not_modeled
+  - header: :SYSTem:SRData
+    level: not_modeled
+  - header: :SYSTem:STARtup:COMPlete
+    level: not_modeled
+  - header: :SYSTem:TIME
+    level: not_modeled
+  - header: :SYSTem:TIME:PROTocol
+    level: not_modeled
+  - header: :SYSTem:TIME:ZONE
+    level: not_modeled
+  - header: :SYSTem:TIME:ZONE:CATalog
+    level: not_modeled
+  - header: :SYSTem:ULOCk
+    level: not_modeled
+  - header: :SYSTem:UPTime
+    level: not_modeled
+  - header: :SYSTem:VERSion
+    level: not_modeled
+  - header: :SYSTem:WAIT
+    level: not_modeled
+- section: TEST Subsystem
+  commands:
+  - header: :TEST:PIXel:COLor
+    level: not_modeled
+  - header: :TEST:PIXel:GRADient
+    level: not_modeled
+  - header: :TEST:PIXel:POINtsize
+    level: not_modeled
+  - header: :TEST:PIXel:RGBA
+    level: not_modeled
+  - header: :TEST:PIXel:TEXT
+    level: not_modeled
+  - header: :TEST:PIXel:WINDow
+    level: not_modeled
+  - header: :TEST<hw>:ALL:RESult
+    level: not_modeled
+  - header: :TEST<hw>:ALL:STARt
+    level: not_modeled
+- section: TRACe Subsystem
+  commands:
+  - header: :TRACe<n>:FREQ:SWEep:SRC
+    level: not_modeled
+  - header: :TRACe<n>:POW:SWEep:SRC
+    level: not_modeled
+  - header: :TRACe<n>:TIME:SWEep:SRC
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:COLor
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:COPY
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:DATA:POINts
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:DATA:XVALues
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:DATA:YSValue
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:DATA:YVALues
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:FEED
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:AVERage:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:AVERage
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:HREFerence:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:HREFerence
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:LREFerence:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:LREFerence
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:MAXimum:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:MAXimum
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:MINimum:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:MINimum
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:PULSe:BASE:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:PULSe:BASE
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:PULSe:TOP:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:PULSe:TOP
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:REFerence:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:POWer:REFerence
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:ALL:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:DCYCle:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:DCYCle
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:DURation:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:DURation
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:PERiod:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:PERiod
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:SEParation:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:SEParation
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:PULSe:STATe
+    level: not_modeled
+  - header: ':TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:NEGative:DURation:DISPlay:'
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:NEGative:DURation
+    level: not_modeled
+  - header: ':TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:NEGative:OCCurrence:DISPlay:'
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:NEGative:OCCurrence
+    level: not_modeled
+  - header: ':TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:NEGative:OVERshoot:DISPlay:'
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:NEGative:OVERshoot
+    level: not_modeled
+  - header: ':TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:POSitive:DURation:DISPlay:'
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:POSitive:DURation
+    level: not_modeled
+  - header: ':TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:POSitive:OCCurrence:DISPlay:'
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:POSitive:OCCurrence
+    level: not_modeled
+  - header: ':TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:POSitive:OVERshoot:DISPlay:'
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:MEASurement:TRANsition:POSitive:OVERshoot
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:PULSe:THReshold:BASE
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:PULSe:THReshold:POWer:HREFerence
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:PULSe:THReshold:POWer:LREFerence
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:PULSe:THReshold:POWer:REFerence
+    level: not_modeled
+  - header: :TRACe<n>[:POWer]:SWEep:STATe
+    level: not_modeled
+  - header: :TRACe[:POWer]:SWEep:MEASurement:FULLscreen:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe[:POWer]:SWEep:MEASurement:GATE:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe[:POWer]:SWEep:MEASurement:MARKer:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe[:POWer]:SWEep:MEASurement:PULSe:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+  - header: :TRACe[:POWer]:SWEep:MEASurement:STANdard:DISPlay:ANNotation[:STATe]
+    level: not_modeled
+- section: TRIGger Subsystem
+  commands:
+  - header: :TRIGger<hw>:FPSWeep:SOURce
+    level: not_modeled
+  - header: :TRIGger<hw>:FSWeep:SOURce
+    level: implemented
+    note: AUTO（连续）/ IMMediate、SINGle、BUS（一次触发一次扫描）；EXTernal、EAUTo 未建模。*RST AUTO。
+  - header: :TRIGger<hw>:FSWeep[:IMMediate]
+    level: implemented
+    note: 立即触发扫频。
+  - header: :TRIGger<hw>:LFFSweep
+    level: not_modeled
+  - header: :TRIGger<hw>:LFFSweep:IMMediate
+    level: not_modeled
+  - header: :TRIGger<hw>:LFFSweep:SOURce
+    level: not_modeled
+  - header: :TRIGger<hw>:PSWeep:SOURce
+    level: implemented
+    note: 同 FSWeep:SOURce，作用于只扫电平时。
+  - header: :TRIGger<hw>:PSWeep[:IMMediate]
+    level: implemented
+    note: 立即触发电平扫描。
+  - header: :TRIGger<hw>[:SWEep]:SOURce
+    level: not_modeled
+  - header: :TRIGger<hw>[:SWEep][:IMMediate]
+    level: implemented
+    note: 立即触发所有扫描。
+- section: UNIT Subsystem
+  commands:
+  - header: :UNIT:ANGLe
+    level: not_modeled
+  - header: :UNIT:POWer
+    level: implemented
+    note: 只建模 DBM（*RST）；DBUV、V 报 -224。
+- section: SOURce:ADF Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:ADF:COMid:CODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:DASH'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:DEPTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:DOT'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:LETTer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:SYMBol'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid:TSCHema'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:COMid[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:PRESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:SETTing:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:SETTing:DELete'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:SETTing:LOAD'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:SETTing:STORe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ADF:STATe'
+    level: not_modeled
+- section: SOURce:AM Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:AM:DEPTh:SUM'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM:DEViation:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM:RATio'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM:TYPE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM<n>:DEPTh:EXPonential'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM<n>:DEPTh:LINear'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM<n>:SENSitivity:EXPonential'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM<n>:SENSitivity[:LINear]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:AM<n>:SOURce'
+    level: implemented
+    note: 只建模 LF1（*RST）；LF2、NOISe、EXT1/2、INTB 报 -224。
+  - header: '[:SOURce<hw>]:AM<n>:STATe'
+    level: implemented
+    note: AM 开关，*RST 0；与 FM/PM 可叠加。
+  - header: '[:SOURce<hw>]:AM<n>[:DEPTh]'
+    level: implemented
+    note: AM 深度 0–100 %，*RST 30；只建模 AM1（AM2 报 -114）。
+- section: SOURce:CHIRp Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:CHIRp:BANDwidth'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:COMPression:RATio'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:DIRection'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:PULSe:NUMBer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:PULSe:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:PULSe:WIDTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:TRIGger:IMMediate'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CHIRp:TRIGger:MODE'
+    level: not_modeled
+- section: SOURce:COMBined Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:COMBined:FREQuency:STARt'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:COMBined:FREQuency:STOP'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:COMBined:POWer:STARt'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:COMBined:POWer:STOP'
+    level: not_modeled
+- section: SOURce:CORRection Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:CORRection:CSET:DATA:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:CSET:DATA:FREQuency:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:CSET:DATA:POWer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:CSET:DATA:POWer:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:CSET:DATA[:SENSor<n>][:POWer]:SONCe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:CSET[:SELect]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:AFILe:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:AFILe:EXTension'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:AFILe:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:AFILe:SEParator:COLumn'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:AFILe:SEParator:DECimal'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:EXECute'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:DEXChange:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:VALue'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection:ZERoing:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:CORRection[:STATe]'
+    level: not_modeled
+- section: SOURce:EFRontend Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:EFRontend:ALIGnment:FILE:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:ALIGnment:FILE:FREQuency:RANGe:LOWer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:ALIGnment:FILE:FREQuency:RANGe:UPPer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:ALIGnment:FILE[:SELect]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:ALIGnment[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:IDN'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:OPT'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend:SCRew:POSition'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:EFRontend[:FREQuency]:IFRequency[:VALue]'
+    level: not_modeled
+- section: SOURce:FM Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:FM:DEViation:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FM:DEViation:SUM'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FM:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FM:RATio'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FM:SENSitivity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FM<n>:SOURce'
+    level: implemented
+    note: 只建模 LF1（*RST）。
+  - header: '[:SOURce<hw>]:FM<n>:STATe'
+    level: implemented
+    note: FM 开关，*RST 0；FM 与 PM 互斥（后开的报 -221）。
+  - header: '[:SOURce<hw>]:FM<n>[:DEViation]'
+    level: implemented
+    note: FM 频偏，*RST 1 kHz；上限依载波（手册见技术指标），模型 16 MHz 并受谱线预算约束（-222）。
+- section: SOURce:FREQuency Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:FREQuency:CENTer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:MANual'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:MODE'
+    level: implemented
+    note: CW|FIXed / SWEep（扫频，与 POW:MODE SWE 同时为同扫）；LIST、COMBined 未建模（-224）。*RST CW。
+  - header: '[:SOURce<hw>]:FREQuency:MULTiplier'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:OFFSet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:PHASe:CONTinuous:HIGH'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:PHASe:CONTinuous:LOW'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:PHASe:CONTinuous:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:PHASe:CONTinuous:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:PLL:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:SPAN'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:STARt'
+    level: implemented
+    note: 扫频起始，*RST 100 MHz（300 kHz 起）。
+  - header: '[:SOURce<hw>]:FREQuency:STEP:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:STEP[:INCRement]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:FREQuency:STOP'
+    level: implemented
+    note: 扫频终止，*RST 500 MHz。
+  - header: '[:SOURce<hw>]:FREQuency[:CW]'
+    level: implemented
+    note: 载波频率 8 kHz–6 GHz（B106 选件）；*RST 依选件，模型取 1 GHz。频率偏置/倍频未建模（FREQ 即 RF 频率）。
+  - header: '[:SOURce<hw>]:FREQuency:FIXed'
+    level: implemented
+    note: 同 FREQuency[:CW]（CW 与 FIXed 同义）。
+  - header: '[:SOURce<hw>]:FREQuency[:CW]:RCL'
+    level: not_modeled
+- section: SOURce:ILS Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:ILS:GS|GSLope:PRESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:CODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:DASH'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:DEPTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:DOT'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:LETTer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:SYMBol'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid:TSCHema'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:COMid[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:COUPling'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:CURRent'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:DIRection'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:LOGarithmic'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:PCT'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:POLarity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM:STEP'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:DDM[:DEPTh]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:FREQuency:SYNChronize[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:ICAO:CHANnel'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:LLOBe[:FREQuency]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:PHASe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:PRESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:RLOBe[:FREQuency]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:SDM'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:LOCalizer:SOURce'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:PRESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:SETTing:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:SETTing:DELete'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:SETTing:LOAD'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:SETTing:STORe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS:TYPE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:COUPling'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:CURRent'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:DIRection'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:LOGarithmic'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:PCT'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:POLarity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM:STEP'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:DDM[:DEPTh]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:FREQuency:SYNChronize[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:ICAO:CHANnel'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:LLOBe[:FREQuency]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:PHASe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:SDM'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:SOURce'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:ILS[:GS|GSLope]:ULOBe[:FREQuency]'
+    level: not_modeled
+- section: SOURce:INPut Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:INPut:MODext:COUPling<n>'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:INPut:MODext:IMPedance<n>'
+    level: not_modeled
+- section: SOURce:LFOutput Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:LFOutput:FREQuency:MANual'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:FREQuency:STARt'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:FREQuency:STOP'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:DWELl'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:EXECute'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:RETRace'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:RUNNing'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:SHAPe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:SPACing'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:STEP:LOGarithmic'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput:SWEep[:FREQuency]:STEP[:LINear]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:PULSe:DCYCle'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:PULSe:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:PULSe:WIDTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:TRAPeze:FALL'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:TRAPeze:HIGH'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:TRAPeze:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:TRAPeze:RISE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:TRIangle:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LFOutput<n>:SHAPe:TRIangle:RISE'
+    level: not_modeled
+- section: SOURce:LIST Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:LIST:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DELete'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DELete:ALL'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:AFILe:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:AFILe:EXTension'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:AFILe:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:AFILe:SEParator:COLumn'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:AFILe:SEParator:DECimal'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:EXECute'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DEXChange:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DWELl'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DWELl:LIST'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DWELl:LIST:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:DWELl:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:FREE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:FREQuency:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:INDex'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:INDex:STARt'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:INDex:STOP'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:POWer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:POWer:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:RESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:RUNNing'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:TRIGger:EXECute'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:LIST:TRIGger:SOURce'
+    level: not_modeled
+- section: SOURce:MODulation Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:MODulation[:ALL][:STATe]'
+    level: implemented
+    note: 调制总开关，*RST 0：关时各调制保持自己的设置，开时生效（#290）。
+- section: SOURce:NOISe Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:NOISe:BANDwidth|BWIDth'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:NOISe:BWIDth:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:NOISe:DISTribution'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:NOISe:LEVel:RELative'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:NOISe:LEVel[:ABSolute]'
+    level: not_modeled
+- section: SOURce:PGENerator Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:PGENerator:OUTPut:POLarity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PGENerator:OUTPut[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PGENerator:STATe'
+    level: not_modeled
+- section: SOURce:PHASe Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:PHASe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PHASe:REFerence'
+    level: not_modeled
+- section: SOURce:PM Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:PM:DEViation:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PM:DEViation:SUM'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PM:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PM:RATio'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PM:SENSitivity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PM<n>:SOURce'
+    level: implemented
+    note: 只建模 LF1（*RST）。
+  - header: '[:SOURce<hw>]:PM<n>:STATe'
+    level: implemented
+    note: PM 开关，*RST 0；与 FM 互斥。
+- section: SOURce:POWer Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:POWer:ALC:DSENsitivity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:ALC:EDETector:FACTor'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:ALC:EDETector:LEVel'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:ALC:SONCe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:ALC[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:ATTenuation:PATTenuator'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:ATTenuation:RFOFf:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:EMF:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:LBEHaviour'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:LIMit[:AMPLitude]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:MANual'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:MODE'
+    level: implemented
+    note: CW|FIXed / SWEep（电平扫描）；LIST 未建模。*RST CW。
+  - header: '[:SOURce<hw>]:POWer:POWer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:RANGe:LOWer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:RANGe:MAX'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:RANGe:MIN'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:RANGe:UPPer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:CRANge'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:DELay'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:MEASure'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:PEAK'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:SINGle'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:TARGet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:SPC:WARNing'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:STARt'
+    level: implemented
+    note: 电平扫描起始，*RST −30 dBm。
+  - header: '[:SOURce<hw>]:POWer:STEP:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:STEP[:INCRement]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer:STOP'
+    level: implemented
+    note: 电平扫描终止，*RST −10 dBm。
+  - header: '[:SOURce<hw>]:POWer[:LEVel][:IMMediate]:OFFSet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer[:LEVel][:IMMediate]:RCL'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer[:LEVel][:IMMediate]:REFLevel'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:POWer[:LEVel][:IMMediate][:AMPLitude]'
+    level: implemented
+    note: 电平 −120…+18 dBm（匹配 50 Ω），*RST −30；电平偏置与 UP/DOWN 步进未建模。
+- section: SOURce:PULM Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:PULM:DELay'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:DOUBle:DELay'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:DOUBle:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:DOUBle:WIDTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:IMPedance'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:POLarity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:SOURce'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:THReshold'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DELete'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:AFILe:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:AFILe:EXTension'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:AFILe:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:AFILe:SEParator:COLumn'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:AFILe:SEParator:DECimal'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:EXECute'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:DEXChange:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:OFFTime'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:OFFTime:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:ONTime'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:ONTime:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:REPetition'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:REPetition:POINts'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRAin:SELect'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TRIGger:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:TTYPe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:PULM:WIDTh'
+    level: not_modeled
+- section: SOURce:SWEep Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:SWEep:COMBined:COUNt'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:COMBined:DWELl'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:COMBined:EXECute'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:COMBined:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:COMBined:RETRace'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:COMBined:SHAPe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:GENeration'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:MARKer:OUTPut:POLarity'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:POWer:DWELl'
+    level: implemented
+    note: 电平扫描驻留，*RST 10 ms。
+  - header: '[:SOURce<hw>]:SWEep:POWer:EXECute'
+    level: implemented
+    note: 开始一次电平扫描。
+  - header: '[:SOURce<hw>]:SWEep:POWer:MODE'
+    level: implemented
+    note: 同 SWEep[:FREQuency]:MODE，作用于只扫电平时。
+  - header: '[:SOURce<hw>]:SWEep:POWer:POINts'
+    level: implemented
+    note: 电平扫描点数（*RST 21，模型值）。
+  - header: '[:SOURce<hw>]:SWEep:POWer:RETRace'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:POWer:RUNNing'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:POWer:SHAPe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:POWer:SPACing:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:POWer:STEP[:LOGarithmic]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep:RESet[:ALL]'
+    level: implemented
+    note: 扫描回到起点。
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:ANALog:SWPoints'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:DWELl'
+    level: implemented
+    note: 每点驻留 1 ms–100 s，*RST 10 ms，在虚拟时间里推进。
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:EXECute'
+    level: implemented
+    note: 开始一次扫描。
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:MARKer:ACTive'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:MARKer<n>:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:MARKer<n>:FSTate'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:MODE'
+    level: implemented
+    note: AUTO（每个触发跑完一整次，按驻留推进）/ STEP（每个触发一步）；MANual 未建模。*RST AUTO。
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:POINts'
+    level: implemented
+    note: 扫频点数（模型 2–100001，*RST 101）；手册中线性/对数各有一份，模型共用。
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:RETRace'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:RUNNing'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:SHAPe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:SPACing'
+    level: implemented
+    note: LINear / LOGarithmic，*RST LINear。
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:STEP:LOGarithmic'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:STEP[:LINear]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:SWEep[:FREQuency]:TIME'
+    level: not_modeled
+- section: SOURce:VOR Subsystem
+  commands:
+  - header: '[:SOURce<hw>]:VOR:COMid:CODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:DASH'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:DEPTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:DOT'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:LETTer'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:SYMBol'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid:TSCHema'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:COMid[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:ICAO:CHANnel'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:PRESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:REFerence[:DEViation]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SETTing:CATalog'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SETTing:DELete'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SETTing:LOAD'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SETTing:STORe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SOURce'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:STATe'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SUBCarrier:DEPTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:SUBCarrier[:FREQuency]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:VAR:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR:VAR[:DEPTh]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR[:BANGle]'
+    level: not_modeled
+  - header: '[:SOURce<hw>]:VOR[:BANGle]:DIRection'
+    level: not_modeled
+- section: SOURce Subsystem (other)
+  commands:
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:CODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:DASH'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:DEPTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:DOT'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:LETTer'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:PERiod'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:SYMBol'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid:TSCHema'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:COMid[:STATe]'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:FREQuency:MODE'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:MARKer:FREQuency'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon:PRESet'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon[:MARKer]:DEPTh'
+    level: not_modeled
+  - header: '[:SOURce<hw>][:ILS]:MBEacon[:MARKer]:PULSed'
+    level: not_modeled
