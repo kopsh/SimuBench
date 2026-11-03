@@ -95,3 +95,29 @@ def test_auto_mode_measures_each_gate_on_its_own():
     assert all(r == pytest.approx(1234.567, rel=1e-6) for r in readings)
     # no gap-free span is recorded outside continuous mode
     assert all(s == 0.0 for s in spans)
+
+
+@pytest.mark.parametrize(("frequency", "rate", "scale"), [(1.0e3, 1.0e6, 1), (2.5e4, 1.0e4, 3)])
+def test_time_stamps_read_the_scale_factor_and_the_intervals(frequency, rate, scale):
+    """CONFigure:ARRay:TSTamp (guide p.100, #385): the scale factor floor(f/rate)+1, then count
+    intervals of scale input periods; TSTamp:RATE sets the rate; (@2) is an enum value, not skipped."""
+    session = open_bench(BenchDefinition.model_validate(_data(frequency)))
+    try:
+
+        def q(text: str) -> str:
+            session.write("cnt", (text + "\n").encode())
+            reply = session.read("cnt")
+            assert reply is not None, text
+            return reply.decode().strip()
+
+        session.write("cnt", f":CONF:ARR:TST (6),(@1);:SENS:TST:RATE {rate}\n".encode())
+        values = [float(v) for v in q(":READ?").split(",")]
+        assert values[0] == scale and len(values) == 7
+        assert values[1:] == pytest.approx([scale / frequency] * 6, abs=1e-10)
+        assert float(q(":TRIG:COUN?")) == 1
+        assert len(q(":MEAS:ARR:TST? (3),(@2)").split(",")) == 4
+        assert q(":SYST:ERR?") == '+0,"No error"'
+        session.write("cnt", b":CONF:FREQ\n")
+        assert float(q(":READ?")) == pytest.approx(frequency, rel=1e-6)  # one reading again
+    finally:
+        session.close()

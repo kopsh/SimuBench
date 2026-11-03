@@ -119,7 +119,7 @@ channel_state:
 state:
   function:
     type: enum
-    options: [FREQuency, PERiod, TOTalize, TINTerval]
+    options: [FREQuency, PERiod, TOTalize, TINTerval, TSTamp]
     default: FREQuency
     label: 测量功能
     label_en: Function
@@ -128,6 +128,7 @@ state:
       PERiod: 周期
       TOTalize: 累加
       TINTerval: 时间间隔
+      TSTamp: 时间戳
   gate.time:
     type: float
     unit: S
@@ -238,6 +239,21 @@ state:
     default: 0.0
     label: 周期分辨率
     label_en: Period resolution
+  measure.timestamp_count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+    label: 时间戳个数
+    label_en: Timestamp count
+  measure.timestamp_rate:
+    type: float
+    unit: HZ
+    min: 1.0e4
+    max: 1.0e6
+    default: 1.0e6
+    label: 时间戳速率
+    label_en: Timestamp rate
   measure.channels:
     type: enum
     options: ["(@1)", "(@2)"]
@@ -353,6 +369,7 @@ components:
       statistics: stats
       timebase: tb
       single_shot_s: 2.0e-11
+      timestamp_rate: $measure.timestamp_rate
   - name: ch2.core
     type: counter_core
     params:
@@ -364,6 +381,7 @@ components:
       statistics: stats
       timebase: tb
       single_shot_s: 2.0e-11
+      timestamp_rate: $measure.timestamp_rate
   - name: trig
     type: trigger_model
     params:
@@ -374,7 +392,14 @@ components:
           "(@2)": ch2.core
       source: {from: $trigger.source, map: {IMMediate: immediate, EXTernal: external, BUS: bus}}
       trigger_count: $trigger.count
-      sample_count: $sample.count
+      sample_count:  # 时间戳：比例因子 + count 个间隔（手册 p.100）
+        from: $function
+        map:
+          FREQuency: $sample.count
+          PERiod: $sample.count
+          TOTalize: $sample.count
+          TINTerval: $sample.count
+          TSTamp: {from: $measure.timestamp_count, offset: 1}
       delay: $trigger.delay
   - name: ref_in
     type: input_port
@@ -482,7 +507,32 @@ commands:
     params:
       - {name: start, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
       - {name: stop, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.stop_channel}
+  - header: ":CONFigure:ARRay:TSTamp"
+    query: false
+    writes:
+      function: TSTamp
+      trigger.source: IMMediate
+      trigger.count: 1
+      trigger.delay: 0.0
+      measure.channels: "(@1)"
+    params:
+      - {name: count, type: float, min: 1, max: 1000000, optional: true, state: measure.timestamp_count}
+      - {name: channel, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
+  - header: "[:SENSe]:TSTamp:RATE"
+    state: measure.timestamp_rate
   # ---- 单次测量（第 3 章，MEASure）----
+  - header: ":MEASure:ARRay:TSTamp"
+    op: trig.read
+    set: false
+    writes:
+      function: TSTamp
+      trigger.source: IMMediate
+      trigger.count: 1
+      trigger.delay: 0.0
+      measure.channels: "(@1)"
+    params:
+      - {name: count, type: float, min: 1, max: 1000000, optional: true, state: measure.timestamp_count}
+      - {name: input, type: enum, options: ["(@1)", "(@2)"], optional: true, state: measure.channels}
   - header: ":MEASure:FREQuency"
     op: ch.core.measure
     set: false
