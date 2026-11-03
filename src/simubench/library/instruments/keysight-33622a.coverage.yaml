@@ -1,0 +1,905 @@
+# Keysight 33622A 的覆盖表：按 Keysight Trueform Series Operating and Service Guide（33500-90901）的
+# Command Quick Reference 逐条列出，程度与说明手写。范围：两个通道的标准波形、任意波（易失存储）、PRBS、
+# 幅度/偏置/高低电平与单位、输出负载与极性、AM/FM/PM/FSK/PWM 内部调制。
+# 未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
+schema: simubench.coverage/1
+model: keysight-33622a
+sections:
+- section: APPLy Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:APPLy'
+    level: implemented
+    note: APPLy?：带引号的「函数 频率,幅度,偏置」，函数用短形式（SIN、SQU…），幅度按 VOLTage:UNIT。
+  - header: '[:SOURce<ch>]:APPLy:ARBitrary'
+    level: implemented
+    note: 设函数并按顺序写采样率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:DC'
+    level: implemented
+    note: 设函数并按顺序写频率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:NOISe'
+    level: not_modeled
+    note: 高斯噪声未建模。
+  - header: '[:SOURce<ch>]:APPLy:PRBS'
+    level: implemented
+    note: 设函数并按顺序写比特率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:PULSe'
+    level: implemented
+    note: 设函数并按顺序写频率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:RAMP'
+    level: implemented
+    note: 设函数并按顺序写频率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:SINusoid'
+    level: implemented
+    note: 设函数并按顺序写频率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:SQUare'
+    level: implemented
+    note: 设函数并按顺序写频率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+  - header: '[:SOURce<ch>]:APPLy:TRIangle'
+    level: implemented
+    note: 设函数并按顺序写频率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
+- section: DATA Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:DATA:ARBitrary2:FORMat'
+    level: not_modeled
+    note: 双通道 IQ 任意波未建模。
+  - header: '[:SOURce<ch>]:DATA:ARBitrary'
+    level: implemented
+    note: 按名把 -1…+1 的数值装入该通道的易失存储（8 点起）；二进制块形式（FORMat:BORDer）未建模。
+  - header: '[:SOURce<ch>]:DATA:ARBitrary:DAC'
+    level: implemented
+    note: 按名装入 DAC 码（±32767 为满幅）；二进制块形式未建模。
+  - header: '[:SOURce<ch>]:DATA:ATTRibute:AVERage'
+    level: not_modeled
+    note: 任意波属性查询未建模。
+  - header: '[:SOURce<ch>]:DATA:ATTRibute:CFACtor'
+    level: not_modeled
+    note: 任意波属性查询未建模。
+  - header: '[:SOURce<ch>]:DATA:ATTRibute:POINts'
+    level: not_modeled
+    note: 任意波属性查询未建模。
+  - header: '[:SOURce<ch>]:DATA:ATTRibute:PTPeak'
+    level: not_modeled
+    note: 任意波属性查询未建模。
+  - header: '[:SOURce<ch>]:DATA:SEQuence'
+    level: not_modeled
+    note: 任意波序列未建模。
+  - header: '[:SOURce<ch>]:DATA:VOLatile:CATalog'
+    level: implemented
+    note: 易失存储中波形的带引号名字，逗号分隔；内置波形（INT:\BUILTIN）未列出。
+  - header: '[:SOURce<ch>]:DATA:VOLatile:CLEar'
+    level: implemented
+    note: 清空该通道的易失存储。
+  - header: '[:SOURce<ch>]:DATA:VOLatile:FREE'
+    level: not_modeled
+    note: 易失存储剩余点数未建模。
+- section: FUNCtion Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:FUNCtion'
+    level: implemented
+    note: SINusoid/SQUare/TRIangle/RAMP/PULSe/PRBS/DC/ARB；NOISe 未建模（-224）；查询回短形式。
+  - header: '[:SOURce<ch>]:FUNCtion:SQUare:DCYCle'
+    level: implemented
+    note: 方波占空比（%），*RST 50。
+  - header: '[:SOURce<ch>]:FUNCtion:SQUare:PERiod'
+    level: not_modeled
+    note: 以周期设定未建模（用 FREQuency）。
+  - header: '[:SOURce<ch>]:FUNCtion:RAMP:SYMMetry'
+    level: implemented
+    note: 斜波对称度（%），*RST 100。
+  - header: '[:SOURce<ch>]:FUNCtion:NOISe:BANDwidth'
+    level: not_modeled
+    note: 高斯噪声未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:PRBS:BRATe'
+    level: implemented
+    note: PRBS 比特率，*RST 1 kbps。
+  - header: '[:SOURce<ch>]:FUNCtion:PRBS:DATA'
+    level: implemented
+    note: PN7/PN9/PN11/PN15；PN20/PN23 未建模（-224）。
+  - header: '[:SOURce<ch>]:FUNCtion:PRBS:TRANsition[:BOTH]'
+    level: not_modeled
+    note: PRBS 边沿时间未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary'
+    level: implemented
+    note: 选中易失存储中按名装载的波形；查询回带引号的名字；内置波形与文件路径未建模（-224）。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:ADVance'
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:FILTer'
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:FREQuency'
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:PERiod'
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:POINts'
+    level: implemented
+    note: 当前任意波的点数。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:PTPeak'
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:SRATe'
+    level: implemented
+    note: 任意波采样率 1 µSa/s–1 GSa/s，*RST 40 kSa/s；任意波频率 = 采样率 / 点数。
+  - header: FUNCtion:ARBitrary:BALance[:STATe]
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: FUNCtion:ARBitrary:BALance:GAIN
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: FUNCtion:ARBitrary:BALance:OFFSet<ch>
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: FUNCtion:ARBitrary:SKEW[:STATe]
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: FUNCtion:ARBitrary:SKEW:TIME
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:SYNChronize'
+    level: not_modeled
+    note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:DCYCle'
+    level: implemented
+    note: 脉冲占空比（%），*RST 10；以宽度/周期设定（WIDTh、PERiod、HOLD）未建模。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:HOLD'
+    level: not_modeled
+    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:PERiod'
+    level: not_modeled
+    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition[:BOTH]'
+    level: not_modeled
+    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:LEADing'
+    level: not_modeled
+    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:TRAiling'
+    level: not_modeled
+    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+  - header: '[:SOURce<ch>]:FUNCtion:PULSe:WIDTh'
+    level: not_modeled
+    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+- section: FREQuency Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:FREQuency'
+    level: implemented
+    note: 1 µHz–120 MHz；方波/脉冲到 100 MHz；按幅度的频率上限与三角/斜波 800 kHz 未单独检查。*RST 1 kHz。
+  - header: '[:SOURce<ch>]:FREQuency:CENTer'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:FREQuency:COUPle:MODE'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:FREQuency:COUPle:OFFSet'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:FREQuency:COUPle:RATio'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:FREQuency:COUPle[:STATe]'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:FREQuency:MODE'
+    level: not_modeled
+    note: 只建模 CW（扫频与列表未建模）。
+  - header: '[:SOURce<ch>]:FREQuency:SPAN'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:FREQuency:STARt'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:FREQuency:STOP'
+    level: not_modeled
+    note: 扫频未建模。
+- section: LIST Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:LIST:DWELl'
+    level: not_modeled
+    note: 频率列表未建模。
+  - header: '[:SOURce<ch>]:LIST:FREQuency'
+    level: not_modeled
+    note: 频率列表未建模。
+  - header: '[:SOURce<ch>]:LIST:FREQuency:POINts'
+    level: not_modeled
+    note: 频率列表未建模。
+- section: MMEMory Subsystem
+  commands:
+  - header: MMEMory:LOAD:LIST<ch>
+    level: not_modeled
+    note: 频率列表未建模。
+  - header: MMEMory:STORe:LIST<ch>
+    level: not_modeled
+    note: 频率列表未建模。
+  - header: MMEMory:CATalog[:ALL]
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:CATalog:DATA:ARBitrary
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:CATalog:STATe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:CDIRectory
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:COPY
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:COPY:SEQuence
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:DELete
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:DOWNload:DATA
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:DOWNload:FNAMe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:LOAD:ALL
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:LOAD:DATA<ch>
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:LOAD:STATe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:MDIRectory
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:MOVE
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:RDIRectory
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:ALL
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:DATA<ch>
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:STORe:STATe
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+  - header: MMEMory:UPLoad
+    level: not_modeled
+    note: 文件系统与状态存储未建模。
+- section: VOLTage Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:VOLTage'
+    level: implemented
+    note: 幅度按 VOLTage:UNIT（VPP/VRMS/DBM），按负载设定定义（D13）；1 mVpp–10 Vpp（50 Ω）或 20 Vpp（开路）外 -222。*RST 100 mVpp。
+  - header: '[:SOURce<ch>]:VOLTage:COUPle[:STATe]'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:VOLTage:HIGH'
+    level: implemented
+    note: 高电平：偏置 + Vpp/2；设定时保持低电平，幅度与偏置随之改变（#424）。
+  - header: '[:SOURce<ch>]:VOLTage:LOW'
+    level: implemented
+    note: 低电平：偏置 − Vpp/2；设定时保持高电平（#424）。
+  - header: '[:SOURce<ch>]:VOLTage:LIMit:HIGH'
+    level: not_modeled
+    note: 输出电压限制未建模。
+  - header: '[:SOURce<ch>]:VOLTage:LIMit:LOW'
+    level: not_modeled
+    note: 输出电压限制未建模。
+  - header: '[:SOURce<ch>]:VOLTage:LIMit:STATe'
+    level: not_modeled
+    note: 输出电压限制未建模。
+  - header: '[:SOURce<ch>]:VOLTage:OFFSet'
+    level: implemented
+    note: 偏置 ±10 V（按负载设定）；|偏置| + Vpp/2 的峰值限制未检查。
+  - header: '[:SOURce<ch>]:VOLTage:RANGe:AUTO'
+    level: not_modeled
+    note: 电压自动量程开关未建模（不影响模型输出）。
+  - header: '[:SOURce<ch>]:VOLTage:UNIT'
+    level: implemented
+    note: VPP/VRMS/DBM；切换时换算幅度值，输出不变。
+- section: RATE Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:RATE:COUPle[:STATe]'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:RATE:COUPle:MODE'
+    level: not_modeled
+    note: 双通道耦合未建模。
+  - header: '[:SOURce<ch>]:RATE:COUPle:OFFSet'
+    level: not_modeled
+    note: 双通道耦合未建模。
+- section: RATe Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:RATe:COUPle:RATio'
+    level: not_modeled
+    note: 双通道耦合未建模。
+- section: OUTPut Subsystem
+  commands:
+  - header: :OUTPut<ch>
+    level: implemented
+    note: 输出开关（*RST 关）。
+  - header: :OUTPut<ch>:LOAD
+    level: implemented
+    note: 负载设定 1 Ω–10 kΩ 或 INFinity，*RST 50 Ω；幅度与偏置按它定义（D13）。真机改负载时保持输出电压、换算显示值，本模型保持设定值（输出随之改变）；查询 INF 回 INF。
+  - header: :OUTPut<ch>:MODE
+    level: not_modeled
+    note: 该输出设置（门控模式、同步与触发输出）未建模。
+  - header: :OUTPut<ch>:POLarity
+    level: implemented
+    note: NORMal/INVerted：反相输出。
+  - header: :OUTPut:SYNC
+    level: not_modeled
+    note: 该输出设置（门控模式、同步与触发输出）未建模。
+  - header: :OUTPut<ch>:SYNC:MODE
+    level: not_modeled
+    note: 该输出设置（门控模式、同步与触发输出）未建模。
+  - header: :OUTPut<ch>:SYNC:POLarity
+    level: not_modeled
+    note: 该输出设置（门控模式、同步与触发输出）未建模。
+  - header: :OUTPut:SYNC:SOURce
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: :OUTPut:TRIGger
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :OUTPut:TRIGger:SLOPe
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :OUTPut:TRIGger:SOURce
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+- section: AM Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:AM[:DEPTh]'
+    level: implemented
+    note: AM 深度 0–120 %，*RST 100。
+  - header: '[:SOURce<ch>]:AM:DSSC'
+    level: not_modeled
+    note: 双边带抑制载波未建模。
+  - header: '[:SOURce<ch>]:AM:INTernal:FREQuency'
+    level: implemented
+    note: AM 内部调制频率，*RST 100 Hz。
+  - header: '[:SOURce<ch>]:AM:INTernal:FUNCtion'
+    level: not_modeled
+    note: 内部调制波形只建模正弦。
+  - header: '[:SOURce<ch>]:AM:SOURce'
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: '[:SOURce<ch>]:AM:STATe'
+    level: implemented
+    note: AM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
+- section: FM Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:FM[:DEViation]'
+    level: implemented
+    note: FM 频偏，*RST 100 Hz。
+  - header: '[:SOURce<ch>]:FM:INTernal:FREQuency'
+    level: implemented
+    note: FM 内部调制频率，*RST 10 Hz。
+  - header: '[:SOURce<ch>]:FM:INTernal:FUNCtion'
+    level: not_modeled
+    note: 内部调制波形只建模正弦。
+  - header: '[:SOURce<ch>]:FM:SOURce'
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: '[:SOURce<ch>]:FM:STATe'
+    level: implemented
+    note: FM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
+- section: BPSK Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:BPSK:SOURce'
+    level: not_modeled
+    note: BPSK 未建模。
+  - header: '[:SOURce<ch>]:BPSK:STATe'
+    level: not_modeled
+    note: BPSK 未建模。
+  - header: '[:SOURce<ch>]:BPSK:INTernal:RATE'
+    level: not_modeled
+    note: BPSK 未建模。
+  - header: '[:SOURce<ch>]:BPSK[:PHASe]'
+    level: not_modeled
+    note: BPSK 未建模。
+- section: PM Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:PM:DEViation'
+    level: implemented
+    note: PM 相偏 0–360°，*RST 180°。
+  - header: '[:SOURce<ch>]:PM:INTernal:FREQuency'
+    level: implemented
+    note: PM 内部调制频率，*RST 10 Hz。
+  - header: '[:SOURce<ch>]:PM:INTernal:FUNCtion'
+    level: not_modeled
+    note: 内部调制波形只建模正弦。
+  - header: '[:SOURce<ch>]:PM:SOURce'
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: '[:SOURce<ch>]:PM:STATe'
+    level: implemented
+    note: PM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
+- section: FSKey Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:FSKey:FREQuency'
+    level: implemented
+    note: FSK 跳频频率，*RST 100 Hz。
+  - header: '[:SOURce<ch>]:FSKey:INTernal:RATE'
+    level: implemented
+    note: FSK 速率，*RST 10 Hz。
+  - header: '[:SOURce<ch>]:FSKey:SOURce'
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: '[:SOURce<ch>]:FSKey:STATe'
+    level: implemented
+    note: FSK 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
+- section: PWM Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:PWM:DEViation'
+    level: not_modeled
+    note: 以秒为单位的 PWM 偏差未建模（用 PWM:DEViation:DCYCle）。
+  - header: '[:SOURce<ch>]:PWM:DEViation:DCYCle'
+    level: implemented
+    note: PWM 占空比偏差（%），*RST 1 %。
+  - header: '[:SOURce<ch>]:PWM:INTernal:FREQuency'
+    level: implemented
+    note: PWM 内部调制频率，*RST 10 Hz。
+  - header: '[:SOURce<ch>]:PWM:INTernal:FUNCtion'
+    level: not_modeled
+    note: 内部调制波形只建模正弦。
+  - header: '[:SOURce<ch>]:PWM:SOURce'
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: '[:SOURce<ch>]:PWM:STATe'
+    level: implemented
+    note: PWM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
+- section: SUM Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:SUM:AMPLitude'
+    level: not_modeled
+    note: SUM 叠加调制未建模。
+  - header: '[:SOURce<ch>]:SUM:INTernal:FREQuency'
+    level: not_modeled
+    note: SUM 叠加调制未建模。
+  - header: '[:SOURce<ch>]:SUM:INTernal:FUNCtion'
+    level: not_modeled
+    note: SUM 叠加调制未建模。
+  - header: '[:SOURce<ch>]:SUM:SOURce'
+    level: not_modeled
+    note: SUM 叠加调制未建模。
+  - header: '[:SOURce<ch>]:SUM:STATe'
+    level: not_modeled
+    note: SUM 叠加调制未建模。
+- section: SWEep Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:SWEep:HTIMe'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:SWEep:RTIMe'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:SWEep:SPACing'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:SWEep:STATe'
+    level: not_modeled
+    note: 扫频未建模。
+  - header: '[:SOURce<ch>]:SWEep:TIME'
+    level: not_modeled
+    note: 扫频未建模。
+- section: BURSt Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:BURSt:GATE:POLarity'
+    level: not_modeled
+    note: 突发未建模。
+  - header: '[:SOURce<ch>]:BURSt:INTernal:PERiod'
+    level: not_modeled
+    note: 突发未建模。
+  - header: '[:SOURce<ch>]:BURSt:MODE'
+    level: not_modeled
+    note: 突发未建模。
+  - header: '[:SOURce<ch>]:BURSt:NCYCles'
+    level: not_modeled
+    note: 突发未建模。
+  - header: '[:SOURce<ch>]:BURSt:PHASe'
+    level: not_modeled
+    note: 突发未建模。
+  - header: '[:SOURce<ch>]:BURSt:STATe'
+    level: not_modeled
+    note: 突发未建模。
+- section: MARKer Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:MARKer:CYCle'
+    level: not_modeled
+    note: 标记未建模。
+  - header: '[:SOURce<ch>]:MARKer:FREQuency'
+    level: not_modeled
+    note: 标记未建模。
+  - header: '[:SOURce<ch>]:MARKer:POINt'
+    level: not_modeled
+    note: 标记未建模。
+- section: TRIGger Subsystem
+  commands:
+  - header: :TRIGger<ch>
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :TRIGger<ch>:COUNt
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :TRIGger<ch>:DELay
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :TRIGger<ch>:LEVel
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :TRIGger<ch>:SLOPe
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :TRIGger<ch>:SOURce
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+  - header: :TRIGger<ch>:TIMer
+    level: not_modeled
+    note: 触发系统（突发/扫频/列表的触发）未建模。
+- section: MEMory Subsystem
+  commands:
+  - header: MEMory:NSTates
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:CATalog
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:DELete
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:NAME
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:RECall:AUTO
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: MEMory:STATe:VALid
+    level: not_modeled
+    note: 状态存储未建模。
+- section: DISPlay Subsystem
+  commands:
+  - header: DISPlay[:STATe]
+    level: accepted
+    affects_data: false
+    note: 接受：显示开关保存并回读，不影响输出。
+  - header: DISPlay:TEXT
+    level: accepted
+    affects_data: false
+    note: 接受：显示文本保存并回读，不影响输出。
+  - header: DISPlay:TEXT:CLEar
+    level: accepted
+    affects_data: false
+    note: 接受：清除显示文本。
+  - header: DISPlay:UNIT:ARBRate
+    level: not_modeled
+    note: 显示设置未建模。
+  - header: DISPlay:UNIT:PULse
+    level: not_modeled
+    note: 显示设置未建模。
+  - header: DISPlay:UNIT:RATE
+    level: not_modeled
+    note: 显示设置未建模。
+  - header: DISPlay:UNIT:SWEep
+    level: not_modeled
+    note: 扫频未建模。
+  - header: DISPlay:UNIT:VOLT
+    level: not_modeled
+    note: 显示设置未建模。
+  - header: DISPlay:VIEW
+    level: not_modeled
+    note: 显示设置未建模。
+- section: HCOPy Subsystem
+  commands:
+  - header: HCOPy:SDUMp:DATA
+    level: not_modeled
+    note: 屏幕截图未建模。
+  - header: HCOPy:SDUMp:DATA:FORMat
+    level: not_modeled
+    note: 屏幕截图未建模。
+- section: LXI Subsystem
+  commands:
+  - header: LXI:IDENtify[:STATE]
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:ENABle
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:HNAMe:RESolved
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:SNAMe:DESired
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:MDNS:SNAMe[:RESolved]
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:RESet
+    level: not_modeled
+    note: LXI/网络配置未建模。
+  - header: LXI:RESTart
+    level: not_modeled
+    note: LXI/网络配置未建模。
+- section: SYSTem Subsystem
+  commands:
+  - header: :SYSTem:COMMunicate:ENABle
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:GPIB:ADDRess
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:CONTrol
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:DHCP
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:DNS<ch>
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:DOMain
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:GATeway
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:HOSTname
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:IPADdress
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:MAC
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:SMASk
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:TELNet:PROMpt
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:TELNet:WMESsage
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:UPDate
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:COMMunicate:LAN:WINS<ch>
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:BEEPer[:IMMediate]
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:BEEPer:STATe
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:CLICk:STATe
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:DATE
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 读取并移除最早的错误（引擎内置）。
+  - header: :SYSTem:LICense:CATalog
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LICense:DELete
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LICense:DELete:ALL
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LICense:DESCription
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LICense:ERRor
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LICense:ERRor:COUNt
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LICense:INSTall
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LOCK:NAME
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LOCK:OWNer
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LOCK:RELease
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:LOCK:REQuest
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:SECurity:IMMediate
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:TIME
+    level: not_modeled
+    note: 系统配置、远程接口、许可、锁与时钟未建模。
+  - header: :SYSTem:VERSion
+    level: implemented
+    note: 1994.0。
+- section: PHASe Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:PHASe'
+    level: not_modeled
+    note: 相位设置与通道同步未建模。
+  - header: '[:SOURce<ch>]:PHASe:ARBitrary'
+    level: not_modeled
+    note: 相位设置与通道同步未建模。
+  - header: '[:SOURce<ch>]:PHASe:MODulation'
+    level: not_modeled
+    note: 相位设置与通道同步未建模。
+  - header: '[:SOURce<ch>]:PHASe:REFerence'
+    level: not_modeled
+    note: 相位设置与通道同步未建模。
+  - header: '[:SOURce<ch>]:PHASe:SYNChronize'
+    level: not_modeled
+    note: 相位设置与通道同步未建模。
+  - header: '[:SOURce<ch>]:PHASe:UNLock:ERRor:STATe'
+    level: not_modeled
+    note: 相位设置与通道同步未建模。
+- section: ROSCillator Subsystem
+  commands:
+  - header: ROSCillator:SOURce
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: ROSCillator:SOURce:AUTO
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+  - header: ROSCillator:SOURce:CURRent
+    level: not_modeled
+    note: 只建模内部调制源（外部与通道源未建模）。
+- section: CALibration Subsystem
+  commands:
+  - header: CALibration[:ALL]
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:COUNt
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:SECure:CODE
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:SECure:STATe
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:SETup
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:STORe
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:STRing
+    level: not_modeled
+    note: 校准未建模。
+  - header: CALibration:VALue
+    level: not_modeled
+    note: 校准未建模。
+- section: IEEE-488.2 Common Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: 清错误队列与状态寄存器（引擎内置）。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器（引擎内置）。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器（引擎内置，读取后清）。
+  - header: '*IDN'
+    level: implemented
+    note: Keysight Technologies,33622A,MY12345678,0.179-1.19-8.88-52-00（修订串按手册示例格式）。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 置 ESR 位 0；*OPC? 回 1。'
+  - header: '*OPT'
+    level: not_modeled
+    note: 选件查询未建模。
+  - header: '*PSC'
+    level: not_modeled
+    note: 上电清状态未建模。
+  - header: '*RCL'
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: '*RST'
+    level: implemented
+    note: 恢复 Factory Reset State：正弦 1 kHz、100 mVpp、0 V、VPP、50 Ω、输出关、调制关、任意波采样率 40 kSa/s。易失存储中的任意波保留。
+  - header: '*SAV'
+    level: not_modeled
+    note: 状态存储未建模。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器（引擎内置）。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节（引擎内置）。
+  - header: '*TRG'
+    level: not_modeled
+    note: 触发系统未建模。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过，回复 0。
+  - header: '*WAI'
+    level: implemented
+    note: 等待操作完成。
+- section: STATus Subsystem
+  commands:
+  - header: :STATus:OPERation:CONDition
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: :STATus:OPERation:ENABle
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: :STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: :STATus:PRESet
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: :STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: :STATus:QUEStionable:ENABle
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+  - header: :STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+- section: ABORt Subsystem
+  commands:
+  - header: ABORt
+    level: not_modeled
+    note: 触发系统未建模。
+- section: COMBine Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:COMBine:FEED'
+    level: not_modeled
+    note: 通道合并未建模。
+- section: FORMat Subsystem
+  commands:
+  - header: FORMat:BORDer
+    level: not_modeled
+    note: 二进制块字节序未建模。
+- section: INITiate Subsystem
+  commands:
+  - header: INITiate<ch>:CONTinuous
+    level: not_modeled
+    note: 触发系统未建模。
+  - header: INITiate:CONTinuous:ALL
+    level: not_modeled
+    note: 触发系统未建模。
+  - header: INITiate<ch>[:IMMediate]
+    level: not_modeled
+    note: 触发系统未建模。
+  - header: INITiate[:IMMediate]:ALL
+    level: not_modeled
+    note: 触发系统未建模。
+- section: INPut Subsystem
+  commands:
+  - header: INPut:ATTenuation[:STATe]
+    level: not_modeled
+    note: 调制输入衰减未建模。
+- section: TRACk Subsystem
+  commands:
+  - header: '[:SOURce<ch>]:TRACk'
+    level: not_modeled
+    note: 通道跟踪未建模。
+- section: UNIT Subsystem
+  commands:
+  - header: UNIT:ANGLe
+    level: not_modeled
+    note: 角度单位未建模（相位按度）。
+  - header: UNIT:ARBitrary:ANGLe
+    level: not_modeled
+    note: 角度单位未建模（相位按度）。

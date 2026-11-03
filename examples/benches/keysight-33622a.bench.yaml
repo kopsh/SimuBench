@@ -1,0 +1,27 @@
+schema: simubench.bench/2
+name: keysight_33622a_scope
+description: >-
+  Keysight 33622A 的两个通道接到 Keysight DSOX2024A 示波器的通道 1 与 2（示波器 1 MΩ 输入）。示例脚本
+  examples/scripts/keysight_33622a_waves.py 按 Operating and Service Guide 的 APPLy、任意波装载与 AM
+  流程配置两个通道，再用示波器的自动测量核对频率与峰峰值，在真机和 SimuBench 上都不改一行。
+instruments:
+  awg:
+    model: keysight-33622a
+    label: 函数/任意波发生器
+    address: "TCPIP0::192.168.1.50::inst0::INSTR"
+    # 示波器是 1 MΩ 输入：负载设定为高阻，幅度即开路电压
+    state: {ch1.load: .inf, ch2.load: .inf}
+  scope:
+    model: keysight-dsox2024a
+    label: 示波器
+    address: "TCPIP0::192.168.1.51::inst0::INSTR"
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+  - {from: awg.CH2, to: scope.CH2}
+run:
+  seed: 5
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  scope: {x: 440, y: 80}

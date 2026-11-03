@@ -1,0 +1,403 @@
+schema: simubench.instrument/1
+id: keysight-33622a
+manufacturer: Keysight Technologies
+model: 33622A
+class: function_generator
+version: 1
+description: >-
+  Keysight 33622A Trueform 双通道函数/任意波发生器（120 MHz）。真实型号（D42）：命令、参数、默认值与回复按
+  Keysight Trueform Series Operating and Service Guide（33500-90901）核对。每个通道：标准波形（正弦、方波、
+  三角/斜波、脉冲、DC）、任意波（易失存储按名装载，#426）、PRBS、高/低电平（#424）、VPP/VRMS/DBM、
+  输出负载与极性、AM/FM/PM/FSK/PWM 调制（awg_modulator，同一时刻只开一种）；输出阻抗 50 Ω。
+reference:
+  title: Keysight Trueform Series Operating and Service Guide
+  document: 33500-90901
+  version: "© 2013–2015（手册未印版次）"
+  firmware: "*IDN? 按手册示例的修订串格式（示例为 33522B）"
+identity:
+  idn: "Keysight Technologies,33622A,{serial},{firmware}"
+  serial: "MY12345678"
+  firmware: "0.179-1.19-8.88-52-00"
+format:
+  number: nr3
+  digits: 15
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
+error_queue: 20
+errors:
+  0: "No error"
+  -100: "Command error"
+  -101: "Invalid character"
+  -102: "Syntax error"
+  -103: "Invalid separator"
+  -104: "Data type error"
+  -105: "GET not allowed"
+  -108: "Parameter not allowed"
+  -109: "Missing parameter"
+  -110: "Command header error"
+  -111: "Header separator error"
+  -112: "Program mnemonic too long"
+  -113: "Undefined header"
+  -114: "Header suffix out of range"
+  -120: "Numeric data error"
+  -121: "Invalid character in number"
+  -123: "Numeric overflow"
+  -124: "Too many digits"
+  -128: "Numeric data not allowed"
+  -130: "Suffix error"
+  -131: "Invalid suffix"
+  -134: "Suffix too long"
+  -138: "Suffix not allowed"
+  -140: "Character data error"
+  -141: "Invalid character data"
+  -144: "Character data too long"
+  -148: "Character data not allowed"
+  -150: "String data error"
+  -151: "Invalid string data"
+  -158: "String data not allowed"
+  -160: "Block data error"
+  -161: "Invalid block data"
+  -168: "Block data not allowed"
+  -170: "Expression error"
+  -171: "Invalid expression"
+  -178: "Expression data not allowed"
+  -200: "Execution error"
+  -211: "Trigger ignored"
+  -213: "INIT ignored"
+  -214: "Trigger deadlock"
+  -220: "Parameter error"
+  -221: "Settings conflict"
+  -222: "Data out of range"
+  -223: "Too much data"
+  -224: "Illegal parameter value"
+  -225: "Out of memory"
+  -230: "Data stale"
+  -231: "Data questionable"
+  -240: "Hardware error"
+  -241: "Hardware missing"
+  -260: "Expression error"
+  -261: "Math error in expression"
+  -300: "Device-specific error"
+  -310: "System error"
+  -350: "Error queue overflow"
+  -400: "Query error"
+  -410: "Query INTERRUPTED"
+  -420: "Query UNTERMINATED"
+  -430: "Query DEADLOCKED"
+  -440: "Query UNTERMINATED after indefinite response"
+specs:
+  source: 第 1 章 Models and Options（最高频率表）、APPLy 子系统（幅度/偏置/采样率范围）、Factory Reset State
+  frequency_hz: "正弦 1 µHz–120 MHz（10 Vpp 以下到 60 MHz、4 Vpp 以下到 120 MHz，按幅度的上限未建模）；方波/脉冲到 100 MHz；三角/斜波 800 kHz（未单独限制）"
+  amplitude: "1 mVpp–10 Vpp（50 Ω），2 mVpp–20 Vpp（开路）"
+  offset: "±5 V（50 Ω）、±10 V（开路）；|偏置| + Vpp/2 的峰值限制未建模"
+  arb: "易失存储每通道按名装载，8 点起；采样率 1 µSa/s–1 GSa/s；*RST 40 kSa/s"
+  prbs: "PN7/PN9/PN11/PN15（PN20/PN23 未建模）；比特率到 200 Mbps"
+  output_impedance_ohm: 50
+state:
+  display.state: {type: bool, default: true, label: 显示, label_en: Display}
+  display.text: {type: string, default: "", label: 显示文本, label_en: Display text}
+  system.version: {type: string, default: "1994.0", label: SCPI 版本, label_en: SCPI version}
+channels:
+  count: 2
+channel_state:
+  function:
+    type: enum
+    options: [SINusoid, SQUare, TRIangle, RAMP, PULSe, PRBS, NOISe, DC, ARB]
+    default: SINusoid
+    not_modeled: {NOISe: gaussian noise is not modeled}
+    label: 波形
+    label_en: Function
+  frequency: {type: float, unit: HZ, min: 1.0e-6, max: 1.2e8, default: 1000.0, label: 频率, label_en: Frequency}
+  amplitude: {type: float, min: -100.0, max: 40.0, default: 0.1, label: 幅度, label_en: Amplitude}
+  unit: {type: enum, options: [VPP, VRMS, DBM], default: VPP, label: 幅度单位, label_en: Voltage unit}
+  offset: {type: float, unit: V, min: -10.0, max: 10.0, default: 0.0, label: 偏置, label_en: Offset}
+  output: {type: bool, default: false, electrical: true, label: 输出, label_en: Output}
+  load:
+    type: float
+    unit: OHM
+    min: 1.0
+    max: 10000.0
+    default: 50.0
+    special: {INF: .inf, INFinity: .inf}
+    label: 输出负载设定
+    label_en: Output load
+  polarity: {type: enum, options: [NORMal, INVerted], default: NORMal, label: 极性, label_en: Polarity}
+  sq_duty: {type: float, min: 0.01, max: 99.99, default: 50.0, display_unit: "%", label: 方波占空比, label_en: Square duty cycle}
+  pulse_duty: {type: float, min: 0.01, max: 99.99, default: 10.0, display_unit: "%", label: 脉冲占空比, label_en: Pulse duty cycle}
+  ramp_symm: {type: float, min: 0.0, max: 100.0, default: 100.0, display_unit: "%", label: 斜波对称度, label_en: Ramp symmetry}
+  srate: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e9, default: 40000.0, label: 任意波采样率, label_en: Arb sample rate}
+  prbs_data:
+    type: enum
+    options: [PN7, PN9, PN11, PN15, PN20, PN23]
+    default: PN7
+    not_modeled: {PN20: only PN7-PN15 are modeled, PN23: only PN7-PN15 are modeled}
+    label: PRBS 序列
+    label_en: PRBS sequence
+  prbs_rate: {type: float, unit: HZ, min: 1.0e-3, max: 2.0e8, default: 1000.0, label: PRBS 比特率, label_en: PRBS bit rate}
+  # 调制（awg_modulator，#327）：每种一个开关，同一时刻只开一种（开一种时关其余，手册各 :STATe 条目）。
+  am_state: {type: bool, default: false, label: AM, label_en: AM}
+  am_depth: {type: float, min: 0.0, max: 120.0, default: 100.0, display_unit: "%", label: AM 深度, label_en: AM depth}
+  am_freq: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e6, default: 100.0, label: AM 调制频率, label_en: AM rate}
+  fm_state: {type: bool, default: false, label: FM, label_en: FM}
+  fm_dev: {type: float, unit: HZ, min: 1.0e-6, max: 6.0e7, default: 100.0, label: FM 频偏, label_en: FM deviation}
+  fm_freq: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e6, default: 10.0, label: FM 调制频率, label_en: FM rate}
+  pm_state: {type: bool, default: false, label: PM, label_en: PM}
+  pm_dev: {type: float, unit: DEG, min: 0.0, max: 360.0, default: 180.0, label: PM 相偏, label_en: PM deviation}
+  pm_freq: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e6, default: 10.0, label: PM 调制频率, label_en: PM rate}
+  fsk_state: {type: bool, default: false, label: FSK, label_en: FSK}
+  fsk_freq: {type: float, unit: HZ, min: 1.0e-6, max: 1.2e8, default: 100.0, label: FSK 跳频, label_en: FSK hop frequency}
+  fsk_rate: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e6, default: 10.0, label: FSK 速率, label_en: FSK rate}
+  pwm_state: {type: bool, default: false, label: PWM, label_en: PWM}
+  pwm_dev: {type: float, min: 0.0, max: 50.0, default: 1.0, display_unit: "%", label: PWM 占空比偏差, label_en: PWM duty deviation}
+  pwm_freq: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e6, default: 10.0, label: PWM 调制频率, label_en: PWM rate}
+components:
+  # 内部 10 MHz 参考（ROSCillator 的外部参考与选择未建模）：合成的频率误差由它给出（个体偏差为 0 ppm）。
+  - name: clock
+    type: reference_clock
+    params: {source: INTernal}
+channel_components:
+  # 合成（1 Vpp）→ 调制 → 幅度与偏置（按负载设定，D13）→ 输出级（50 Ω，极性）。任意波与 PRBS 由合成按函数播放（#426）。
+  - name: synth
+    type: waveform_synth
+    params:
+      function: $ch.function
+      frequency: $ch.frequency
+      duty: {from: $ch.function, map: {SQUare: $ch.sq_duty, PULSe: $ch.pulse_duty}, default: 50.0}
+      symmetry: $ch.ramp_symm
+      bandwidth: 1.2e8
+      square_max: 1.0e8
+      arb: arb
+      prbs: bits
+      clock: clock
+  - name: arb
+    type: arb_table
+    params:
+      rate: $ch.srate
+      scale: 0.5
+      min_points: 8
+      max_points: 1000000
+  - name: bits
+    type: prbs_source
+    params:
+      order: {from: $ch.prbs_data, map: {PN7: 7, PN9: 9, PN11: 11, PN15: 15}, default: 7}
+      rate: $ch.prbs_rate
+      level: 0.5
+  - name: mod
+    type: awg_modulator
+    params:
+      enabled: {from: $ch.am_state, map: {'False': {from: $ch.fm_state, map: {'False': {from: $ch.pm_state, map: {'False': {from: $ch.fsk_state, map: {'False': {from: $ch.pwm_state, map: {'False': false, 'True': true}}, 'True': true}}, 'True': true}}, 'True': true}}, 'True': true}}
+      type: {from: $ch.am_state, map: {'False': {from: $ch.fm_state, map: {'False': {from: $ch.pm_state, map: {'False': {from: $ch.fsk_state, map: {'False': PWM, 'True': FSK}}, 'True': PM}}, 'True': FM}}, 'True': AM}}
+      int_rate: {from: $ch.am_state, map: {'False': {from: $ch.fm_state, map: {'False': {from: $ch.pm_state, map: {'False': {from: $ch.pwm_state, map: {'False': $ch.am_freq, 'True': $ch.pwm_freq}}, 'True': $ch.pm_freq}}, 'True': $ch.fm_freq}}, 'True': $ch.am_freq}}
+      am_depth: $ch.am_depth
+      fm_dev: $ch.fm_dev
+      pm_dev: $ch.pm_dev
+      fsk_hop: $ch.fsk_freq
+      fsk_rate: $ch.fsk_rate
+      pwm_dev: $ch.pwm_dev
+      synth: synth
+  - name: level
+    type: amplitude_level
+    params:
+      amplitude: $ch.amplitude
+      unit: $ch.unit
+      offset: $ch.offset
+      load_setting: $ch.load
+      vpp_min: 0.001
+      # 10 Vpp 进 50 Ω（开路 20 Vpp）；有限负载按 10 Vpp 处理（模型值）。
+      vpp_max: {from: $ch.load, table: {0: 10.0, 1000000: 20.0}}
+  - name: out
+    type: output_stage
+    params:
+      z_out: 50.0
+      enabled: $ch.output
+      invert: {from: $ch.polarity, map: {NORMal: false, INVerted: true}}
+wiring:
+  channel:
+    - [synth.out, mod.in]
+    - [mod.out, level.in]
+    - [level.out, out.in]
+ports:
+  channel:
+    "CH{n}": out.pin
+display:
+  template: function_generator
+  channel_summary: [function, frequency, amplitude, offset, output, load]
+capabilities: [function_generator]
+commands:
+  # ---- APPLy：一条命令配置波形，打开输出、关闭调制（APPLy 子系统）------------------------------
+  - header: "[:SOURce<ch>]:APPLy"
+    state: ch.function
+    set: false
+    reply: '"{value} {ch.frequency},{ch.amplitude},{ch.offset}"'
+  - header: "[:SOURce<ch>]:APPLy:SINusoid"
+    query: false
+    writes: {ch.function: SINusoid, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.frequency, keywords: {DEF: {ch.frequency: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:SQUare"
+    query: false
+    writes: {ch.function: SQUare, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.frequency, keywords: {DEF: {ch.frequency: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:TRIangle"
+    query: false
+    writes: {ch.function: TRIangle, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.frequency, keywords: {DEF: {ch.frequency: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:RAMP"
+    query: false
+    writes: {ch.function: RAMP, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.frequency, keywords: {DEF: {ch.frequency: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:PULSe"
+    query: false
+    writes: {ch.function: PULSe, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.frequency, keywords: {DEF: {ch.frequency: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:DC"
+    query: false
+    writes: {ch.function: DC, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.frequency, keywords: {DEF: {ch.frequency: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:PRBS"
+    query: false
+    writes: {ch.function: PRBS, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.prbs_rate, keywords: {DEF: {ch.prbs_rate: 1000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  - header: "[:SOURce<ch>]:APPLy:ARBitrary"
+    query: false
+    writes: {ch.function: ARB, ch.output: true, ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params:
+      - {name: first, type: float, unit: HZ, optional: true, state: ch.srate, keywords: {DEF: {ch.srate: 40000.0}}}
+      - {name: amplitude, type: float, optional: true, state: ch.amplitude, keywords: {DEF: {ch.amplitude: 0.1}}}
+      - {name: offset, type: float, unit: V, optional: true, state: ch.offset, keywords: {DEF: {ch.offset: 0.0}}}
+  # ---- 波形与频率（FUNCtion、FREQuency）------------------------------------------------
+  - header: "[:SOURce<ch>]:FUNCtion"
+    state: ch.function
+  - header: "[:SOURce<ch>]:FREQuency"
+    state: ch.frequency
+  - header: "[:SOURce<ch>]:FUNCtion:SQUare:DCYCle"
+    state: ch.sq_duty
+  - header: "[:SOURce<ch>]:FUNCtion:PULSe:DCYCle"
+    state: ch.pulse_duty
+  - header: "[:SOURce<ch>]:FUNCtion:RAMP:SYMMetry"
+    state: ch.ramp_symm
+  - header: "[:SOURce<ch>]:FUNCtion:PRBS:BRATe"
+    state: ch.prbs_rate
+  - header: "[:SOURce<ch>]:FUNCtion:PRBS:DATA"
+    state: ch.prbs_data
+  # ---- 任意波（#426）：易失存储按名装载、选择、采样率 ------------------------------------
+  - header: "[:SOURce<ch>]:DATA:ARBitrary"
+    op: ch.arb.load
+    query: false
+    params:
+      - {name: name, type: string}
+      - {name: values, type: float_list}
+  - header: "[:SOURce<ch>]:DATA:ARBitrary:DAC"
+    op: ch.arb.load_dac
+    query: false
+    params:
+      - {name: name, type: string}
+      - {name: values, type: float_list}
+  - header: "[:SOURce<ch>]:DATA:VOLatile:CATalog"
+    op: ch.arb.catalog
+    set: false
+  - header: "[:SOURce<ch>]:DATA:VOLatile:CLEar"
+    op: ch.arb.clear
+    query: false
+  - header: "[:SOURce<ch>]:FUNCtion:ARBitrary"
+    op: ch.arb.select
+    params: [{name: name, type: string, optional: true}]
+  - header: "[:SOURce<ch>]:FUNCtion:ARBitrary:SRATe"
+    state: ch.srate
+  - header: "[:SOURce<ch>]:FUNCtion:ARBitrary:POINts"
+    op: ch.arb.points
+    set: false
+  # ---- 幅度、偏置、高/低电平与单位（VOLTage）------------------------------------------------
+  - header: "[:SOURce<ch>]:VOLTage"
+    state: ch.amplitude
+  - header: "[:SOURce<ch>]:VOLTage:OFFSet"
+    state: ch.offset
+  - header: "[:SOURce<ch>]:VOLTage:HIGH"
+    op: ch.level.high
+    params: [{name: value, type: float, unit: V, optional: true}]
+  - header: "[:SOURce<ch>]:VOLTage:LOW"
+    op: ch.level.low
+    params: [{name: value, type: float, unit: V, optional: true}]
+  - header: "[:SOURce<ch>]:VOLTage:UNIT"
+    state: ch.unit
+  # ---- 输出（OUTPut）----------------------------------------------------------------------
+  - header: ":OUTPut<ch>"
+    state: ch.output
+    dangerous: true
+  - header: ":OUTPut<ch>:LOAD"
+    state: ch.load
+  - header: ":OUTPut<ch>:POLarity"
+    state: ch.polarity
+  # ---- 调制：开一种时关其余（各 :STATe 条目）---------------------------------------------
+  - header: "[:SOURce<ch>]:AM:STATe"
+    writes: {ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params: [{name: state, type: bool, state: ch.am_state}]
+  - header: "[:SOURce<ch>]:AM[:DEPTh]"
+    state: ch.am_depth
+  - header: "[:SOURce<ch>]:AM:INTernal:FREQuency"
+    state: ch.am_freq
+  - header: "[:SOURce<ch>]:FM:STATe"
+    writes: {ch.am_state: false, ch.pm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params: [{name: state, type: bool, state: ch.fm_state}]
+  - header: "[:SOURce<ch>]:FM[:DEViation]"
+    state: ch.fm_dev
+  - header: "[:SOURce<ch>]:FM:INTernal:FREQuency"
+    state: ch.fm_freq
+  - header: "[:SOURce<ch>]:PM:STATe"
+    writes: {ch.am_state: false, ch.fm_state: false, ch.fsk_state: false, ch.pwm_state: false}
+    params: [{name: state, type: bool, state: ch.pm_state}]
+  - header: "[:SOURce<ch>]:PM:DEViation"
+    state: ch.pm_dev
+  - header: "[:SOURce<ch>]:PM:INTernal:FREQuency"
+    state: ch.pm_freq
+  - header: "[:SOURce<ch>]:FSKey:STATe"
+    writes: {ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.pwm_state: false}
+    params: [{name: state, type: bool, state: ch.fsk_state}]
+  - header: "[:SOURce<ch>]:FSKey:FREQuency"
+    state: ch.fsk_freq
+  - header: "[:SOURce<ch>]:FSKey:INTernal:RATE"
+    state: ch.fsk_rate
+  - header: "[:SOURce<ch>]:PWM:STATe"
+    writes: {ch.am_state: false, ch.fm_state: false, ch.pm_state: false, ch.fsk_state: false}
+    params: [{name: state, type: bool, state: ch.pwm_state}]
+  - header: "[:SOURce<ch>]:PWM:DEViation:DCYCle"
+    state: ch.pwm_dev
+  - header: "[:SOURce<ch>]:PWM:INTernal:FREQuency"
+    state: ch.pwm_freq
+  # ---- 显示与版本（接受：保存并回读，不影响输出）-----------------------------------------------
+  - header: "DISPlay[:STATe]"
+    state: display.state
+  - header: "DISPlay:TEXT"
+    state: display.text
+  - header: "DISPlay:TEXT:CLEar"
+    state: display.text
+    set_value: ""
+    query: false
+  - header: ":SYSTem:VERSion"
+    state: system.version
+    set: false
+    reply: "1994.0"
