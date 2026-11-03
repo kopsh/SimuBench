@@ -28,7 +28,9 @@ def sections(text: str) -> list[str]:
 
 def git(*args: str) -> str | None:
     try:
-        return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout.strip()
+        return subprocess.run(
+            ["git", *args], capture_output=True, text=True, check=True
+        ).stdout.strip()
     except (OSError, subprocess.CalledProcessError):
         return None
 
