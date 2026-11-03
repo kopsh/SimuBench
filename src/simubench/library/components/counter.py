@@ -182,19 +182,19 @@ class CounterStatistics(Component):
 
     @op("mean")
     def op_mean(self, **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.mean(), 10))
+        return OpResult(self.reply_number(self.mean(), 10))
 
     @op("minimum")
     def op_minimum(self, **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.minimum(), 10))
+        return OpResult(self.reply_number(self.minimum(), 10))
 
     @op("maximum")
     def op_maximum(self, **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.maximum(), 10))
+        return OpResult(self.reply_number(self.maximum(), 10))
 
     @op("sdev")
     def op_sdev(self, **_: Any) -> OpResult:
-        return OpResult(V.format_float(self.sdev(), 10))
+        return OpResult(self.reply_number(self.sdev(), 10))
 
     @op("count")
     def op_count(self, **_: Any) -> OpResult:
@@ -370,7 +370,7 @@ class CounterCore(Component):
     def op_measure(self, what: str | None = None, **_: Any) -> OpResult:
         """``:MEASure:<function>?``: one gated measurement, taking the gate time."""
         value = self._record(what, self.session.now_ns)
-        return OpResult(V.format_float(value, 12), duration_ns=self._gate().duration_ns())
+        return OpResult(self.reply_number(value, 12), duration_ns=self._gate().duration_ns())
 
     # ---- the trigger model's sampler ------------------------------------------------------------
 
@@ -438,7 +438,7 @@ class CounterCore(Component):
             return OpResult(b"")
         period, first = found
         stamps = [timebase.timestamp(first + k * period * 1e9) for k in range(max(1, int(count)))]
-        return OpResult(b",".join(V.format_float(t, 12) for t in stamps))
+        return OpResult(b",".join(self.reply_number(t, 12) for t in stamps))
 
     # ---- readings -------------------------------------------------------------------------------
 

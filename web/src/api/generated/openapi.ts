@@ -2881,6 +2881,13 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Not Modeled
+             * @description Words the real instrument takes for this parameter but the model does not implement, with the reason (as on a setting, #360); refused with -224 as not modeled
+             */
+            not_modeled?: {
+                [key: string]: string;
+            } | null;
+            /**
              * Optional
              * @default false
              */
@@ -3140,6 +3147,13 @@ export interface components {
              * @enum {string}
              */
             number: "nr3" | "nr2" | "nr1" | "engineering" | "si";
+            /**
+             * Readings
+             * @description Numbers a component answers (marker values, trace points, counter readings): component — each component's own digits (the default, what sb-* instruments return); format — written in this format like the settings, for a manual whose replies share one format (N9320B: 16 digits, #366). Components whose digits are a definition parameter (a meter's or trigger model's `digits`) keep that parameter
+             * @default component
+             * @enum {string}
+             */
+            readings: "component" | "format";
             /**
              * Sign
              * @description Write '+' before non-negative numbers
@@ -3796,6 +3810,13 @@ export interface components {
             max?: number | null;
             /** Min */
             min?: number | null;
+            /**
+             * Not Modeled
+             * @description Words the real instrument takes for this setting but the model does not implement, with the reason, e.g. {INFinity: continuous scanning is not modeled} (SCPI mixed case: the short and the long form both match). Writing one is refused with -224 as not modeled, instead of being parsed as a number and rejected as out of range (#360)
+             */
+            not_modeled?: {
+                [key: string]: string;
+            } | null;
             /**
              * Option Labels
              * @description How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}

@@ -4,6 +4,7 @@ from . import (  # noqa: F401
     calibrator,
     calstore,
     counter,
+    curve,
     daq,
     electrical,
     eload,

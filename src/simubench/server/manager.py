@@ -520,7 +520,7 @@ class SessionManager:
         ports = []
         for pname, (cname, cport) in inst.ports.items():
             comp = inst.components[cname]
-            spec = comp.ports[cport]
+            spec = comp.port_spec(cport)  # a relay terminal comes from the card's port_pattern
             ports.append(
                 M.PortInfo(
                     name=pname,

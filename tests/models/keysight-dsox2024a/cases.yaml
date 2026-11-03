@@ -451,29 +451,33 @@ cases:
       - query: ":MEASure:NDUTy?"
         expect_value: 50.0
         tolerance: 0.5
+      # 计数是整数：记录按触发对齐，窗口内的边沿/脉冲个数与采集相位无关，精确断言（#352）。
       - query: ":MEASure:PEDGes?"
         expect_value: 9.0
-        tolerance: 1.0
       - query: ":MEASure:NEDGes?"
         expect_value: 10.0
-        tolerance: 1.0
       - query: ":MEASure:PPULses?"
         expect_value: 9.0
-        tolerance: 1.0
       - query: ":MEASure:NPULses?"
         expect_value: 9.0
-        tolerance: 1.0
 
-  - name: "运行与触发状态：:TER? 读后清零、:AER?、:RSTate?、操作状态寄存器与 :OPEE（#248）"
+  - name: "运行与触发状态：:TER?、:AER?、:RSTate?、操作状态寄存器的 WAIT/STOP 路径与 :OPEE（#248、#352）"
     manual: "Root (:) Commands > :TER, :AER, :RSTate, :OPEE, :OPERegister:CONDition, :OPERegister[:EVENt]；*STB?"
     steps:
       - send: "*RST;:CHANnel1:PROBe 1;:DIGitize CHANnel1"
-      - query: ":TER?"
-        expect: "1"
+      # :DIGitize 的记录是否推 TRG 事件取决于采集相位（AUTO 的窗口内搜索）；*CLS 把触发锁存
+      # 确定性清零，:TER? 与 *STB? 的位 0/位 7 才有固定值（#352）。
+      - send: "*CLS"
       - query: ":TER?"
         expect: "0"
       - query: ":RSTate?"
         expect: "STOP"
+      - send: ":OPEE 8"
+      - query: ":OPEE?"
+        expect: "8"
+      # 等待触发路径（WAIT，位 5）：NORMal 加带外电平（±1 V 正弦，1.2 V 合法且永远等不到边沿），
+      # RUN 与 WAIT 与相位无关地保持置位，*STB 位 7 是 OPER 摘要（#352）。
+      - send: ":TRIGger:SWEep NORMal;:TRIGger:LEVel 1.2"
       - send: ":RUN"
       - query: ":RSTate?"
         expect: "RUN"
@@ -481,15 +485,20 @@ cases:
         expect: "1"
       - query: ":AER?"
         expect: "0"
-      - send: ":OPEE 8"
-      - query: ":OPEE?"
-        expect: "8"
       - query: ":OPERegister:CONDition?"
-        expect: "8"
+        expect: "40"
       - query: "*STB?"
-        expect_match: '^(128|129)$'
+        expect: "128"
       - query: ":OPERegister?"
-        expect: "8"
+        expect: "40"
+      - query: ":OPERegister?"
+        expect: "0"
+      # :STOP 清条件位；事件锁存已读完，*STB 的 OPER 摘要随之消失（#352）。
+      - send: ":STOP"
+      - query: ":OPERegister:CONDition?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
       - query: ":OPERegister?"
         expect: "0"
 
@@ -515,5 +524,72 @@ cases:
       - send: ":TRIGger:SOURce CHANnel2"
       - query: ":TRIGger:LEVel?"
         expect: "+500.000E-03"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
+
+  - name: "时间测量与双电平触发（#350）：相对触发点的时间、中间电平的边沿、两源延迟与相位"
+    manual: ":MEASure Commands > XMAX / XMIN / BRATe / VTIMe / TEDGe / TVALue / DELay / PHASe；:TRIGger Commands > :LEVel:HIGH / :LEVel:LOW / :LEVel:ASETup"
+    steps:
+      # 1 kHz 正弦，200 µs/div：记录为触发点前后各 1 ms；探头 10:1，峰值显示为 10 V。
+      - send: ":TIMebase:SCALe 2E-4"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:BRATe? CHANnel1"
+        expect: "+2.00000E+03"
+      # 第一个最大值在 −0.75 ms 附近（8 位量化的平顶取第一个样点），最小值在 −0.25 ms 附近。
+      - query: ":MEASure:XMAX? CHANnel1"
+        expect_match: '^-7\.[5-9]\d+E-04$'
+      - query: ":MEASure:XMIN? CHANnel1"
+        expect_match: '^-2\.[5-9]\d+E-04$'
+      - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
+        expect: "+1.00000E+01"
+      # 第一个上升沿就是触发点；第一个下降过零在 −0.5 ms。
+      - query: ":MEASure:TEDGe? +1,CHANnel1"
+        expect_match: '^\+\d\.\d+E-0[67]$'
+      - query: ":MEASure:TVALue? 0,-1,CHANnel1"
+        expect_match: '^-4\.9\d+E-04$'
+      - query: ":MEASure:TEDGe? +2,CHANnel1"
+        expect: "+9.9E+37"
+      - query: ":MEASure:DELay? CHANnel1,CHANnel1"
+        expect: "+0.00000E+00"
+      - query: ":MEASure:PHASe? CHANnel1,CHANnel1"
+        expect: "+0.00000E+00"
+      # 欠幅/转换时间触发的高低电平：每个信源各一，保存回读；ASETup 把边沿电平设到波形的 50 %。
+      - send: ":TRIGger:LEVel:HIGH 1.5,CHANnel1"
+      - query: ":TRIGger:LEVel:HIGH? CHANnel1"
+        expect: "+1.50000E+00"
+      - send: ":TRIGger:LEVel:LOW -0.5"
+      - query: ":TRIGger:LEVel:LOW?"
+        expect: "-500.000E-03"
+      - send: ":TRIGger:LEVel 0.7"
+      - send: ":TRIGger:LEVel:ASETup"
+      - query: ":TRIGger:LEVel?"
+        expect: "+0.00000E+00"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
+
+  - name: "屏幕测量列表（#373）：不带 ? 的测量命令上屏，最多 4 个，RESults? 带统计，CLEar 清空，ALL? 是快照"
+    manual: ":MEASure Commands > :MEASure:<item> (installs a measurement) / :RESults? / :CLEar / :ALL? / :SHOW / :WINDow"
+    steps:
+      - send: ":TIMebase:SCALe 2E-4"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - send: ":MEASure:FREQuency CHANnel1"
+      - send: ":MEASure:VPP CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect: "FREQuency(1),+1.00000E+03,+1.00000E+03,+1.00000E+03,+1.00000E+03,+0.00000E+00,1,VPP(1),+2.00000E+01,+2.00000E+01,+2.00000E+01,+2.00000E+01,+0.00000E+00,1"
+      - send: ":MEASure:VMAX CHANnel1;:MEASure:VMIN CHANnel1;:MEASure:VRMS CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect_match: '^VPP\(1\),.*,VMAX\(1\),.*,VMIN\(1\),.*,VRMS\(1\),.*$'
+      - query: ":MEASure:ALL? CHANnel1"
+        expect_match: '^\+2\.00000E\+01,(?:[+-]\d\.\d{5}E[+-]\d{2},){17}\+2\.00000E\+03$'
+      - send: ":MEASure:CLEar"
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - query: ":MEASure:SHOW?"
+        expect: "1"
+      - send: ":MEASure:WINDow ZOOM"
+      - query: ":MEASure:WINDow?"
+        expect: "ZOOM"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'

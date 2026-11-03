@@ -1,0 +1,32 @@
+schema: simubench.bench/2
+name: keysight_53230a_cases
+description: >-
+  手册用例的测试台：Siglent SDG2042X 两路 1 kHz、2 Vpp 正弦（高阻负载设定）接到 Keysight 53230A
+  的 CH1 与 CH2；CH2 相位 90°，两通道时间间隔因此为一句已知的固定值。被测仪器是真实型号
+  （D42），信号仍由电路与信号求解得到（D13）。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    state:
+      ch1.function: SINE
+      ch1.frequency: 1000.0
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+      ch2.function: SINE
+      ch2.frequency: 1000.0
+      ch2.amplitude: 2.0
+      ch2.phase: 90.0
+      ch2.load: .inf
+      ch2.output: true
+  dut:
+    model: keysight-53230a
+    label: 频率计数器
+wires:
+  - {from: awg.CH1, to: dut.CH1}
+  - {from: awg.CH2, to: dut.CH2}
+run: {seed: 1, clock: command, idle: "off"}
+layout:
+  awg: {x: 0, y: 80}
+  dut: {x: 420, y: 80}

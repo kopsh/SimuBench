@@ -904,6 +904,7 @@ class ScopeAcquisition(Component):
 
     ports: dict[str, PortSpec] = {}
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
+    pattern_port = PortSpec("in", "signal")
     refs = {
         "horizontal": ("scope_timebase", "instrument"),
         "trigger": ("scope_trigger", "instrument"),
@@ -1206,22 +1207,9 @@ class ScopeAcquisition(Component):
         # read low by that fraction (the spectrum analyzer's reference convention, G3).
         dt = nominal_dt / (1.0 + self.horizontal().clock_error())
         t0 = self.session.now_ns
-        trig = self.trigger_unit()
-        n_trig = trig.source_channel()
-        kind = trig.source_kind()
-        if kind == "channel":
-            sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
-        elif kind == "external":
-            sig, scale_t = trig.input("ext"), 1.0
-        else:
-            sig, scale_t = Signal.zero(), 1.0
         # An auto mode gives up after its auto timeout; a normal or single acquisition waits for
         # its edge, the virtual time it takes included (G5).
-        waits = not self._is("auto") and frame is None
-        hit = trig.search(
-            sig, t0, dt, pre, points, n_trig, scale_t,
-            float(trig.param("search_horizon_s")) if waits else None,
-        )  # fmt: skip
+        hit = self._trigger_hit(t0, dt, pre, points, waits=not self._is("auto") and frame is None)
         triggered = hit is not None
         k = hit.index if hit is not None else pre
         start = k - pre
@@ -1287,9 +1275,33 @@ class ScopeAcquisition(Component):
         if triggered or self.param("untriggered") == "record":
             used = (k + max(post, 0)) * dt
         else:  # the whole trigger search
-            used = points * int(trig.param("search_windows")) * dt
+            used = points * int(self.trigger_unit().param("search_windows")) * dt
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
+
+    def _trigger_hit(self, t0: int, dt: float, pre: int, points: int, waits: bool) -> TriggerHit | None:
+        """The trigger the acquisition starting at ``t0`` finds (``waits``: as far as the trigger's
+        search horizon), or None."""
+        trig = self.trigger_unit()
+        n_trig = trig.source_channel()
+        kind = trig.source_kind()
+        if kind == "channel":
+            sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
+        elif kind == "external":
+            sig, scale_t = trig.input("ext"), 1.0
+        else:
+            sig, scale_t = Signal.zero(), 1.0
+        return trig.search(
+            sig, t0, dt, pre, points, n_trig, scale_t,
+            float(trig.param("search_horizon_s")) if waits else None,
+        )  # fmt: skip
+
+    def triggers_now(self) -> bool:
+        """Whether an acquisition starting now finds its trigger within its search windows (a
+        continuous run's state: it re-arms on every trigger, so it is waiting while none comes)."""
+        points, nominal_dt, pre, _ = self._timing()
+        dt = nominal_dt / (1.0 + self.horizontal().clock_error())
+        return self._trigger_hit(self.session.now_ns, dt, pre, points, waits=False) is not None
 
     def store(self, records: dict[int, Record], used: int, forced: bool = False) -> int:
         """Keep ``records`` as the latest acquisition and log its recipe (D36). Returns ``used``.
@@ -1338,9 +1350,18 @@ class ScopeAcquisition(Component):
         return "RUN" if self.is_running() else "STOP"
 
     def status_flags(self) -> dict[str, bool]:
-        """RUN while acquiring, WAIT while waiting for a trigger (the operation status register)."""
+        """RUN while acquiring, WAIT while waiting for a trigger (the operation status register).
+
+        A single acquisition waits until it is done; a continuous run (auto, normal) waits while
+        its trigger finds no edge now, whatever an earlier acquisition found (#352)."""
         running = self.run_state() != "STOP"
-        return {"RUN": running, "WAIT": running and (self.waiting() or not self.last_triggered)}
+        if not running:
+            return {"RUN": False, "WAIT": False}
+        if self.waiting():
+            return {"RUN": True, "WAIT": True}
+        if self._is("auto") or self._is("normal"):
+            return {"RUN": True, "WAIT": not self.triggers_now()}
+        return {"RUN": True, "WAIT": not self.last_triggered}
 
     @op("run_state")
     def op_run_state(self, **_: Any) -> OpResult:
@@ -1971,6 +1992,32 @@ def _pulse_measure(
     return (pos[0] if what == "DUTYcycle" else neg[0]) / period * 100.0
 
 
+#: Time measurements (#350): relative to the trigger (the record's origin), at the middle level.
+_TIME_MEASUREMENTS = ("XMAX", "XMIN", "BRATe")
+
+
+def _mid_crossings(v: np.ndarray, dt: float, hysteresis: float) -> list[tuple[float, int]]:
+    """The record's crossings of its middle level (halfway between top and base), as in
+    :func:`_pulse_measure`."""
+    levels = _top_base(v)
+    top, base = levels if levels else (float(v.max()), float(v.min()))
+    amp = top - base
+    if amp <= 0:
+        return []
+    return _crossings(v, dt, base + amp / 2, hysteresis * amp)
+
+
+def _edge_spec(word: str | None) -> tuple[int, int]:
+    """``+2`` / ``-1`` / ``3``: the slope (+1 rising, -1 falling; rising when unsigned) and the
+    occurrence (1 = the first), as :MEASure:TEDGe? and TVALue? take them."""
+    text = (word or "+1").strip()
+    sign = -1 if text.startswith("-") else 1
+    digits = text.lstrip("+-")
+    if not digits.isdigit() or int(digits) < 1:
+        raise ScpiError(-224, f"edge {word!r}: a slope (+/-) and an occurrence from 1")
+    return sign, int(digits)
+
+
 @component("scope_measurements")
 class ScopeMeasurements(Component):
     """Automatic measurements on a scope's records (instrument-authoring.md 8.4).
@@ -2004,14 +2051,87 @@ class ScopeMeasurements(Component):
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
         "status": ["OK", "UF"],  # measured, cannot be measured
+        "sources": [],  # the two settings DELay?/PHASe? use without sources, e.g. [measure.source, ...]
+        "trigger_levels": {},  # channel -> its trigger level setting, for :TRIGger:LEVel:ASETup
+        # The screen's measurement list (#373): a measurement command without '?' installs one;
+        # past `slots` the oldest leaves. 0: no list (the query only answers).
+        "slots": 0,
+        "all": [],  # the measurements :MEASure:ALL? answers, in order (engine names)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.history: dict[tuple[str, int], list[float]] = {}
+        self.installed: list[tuple[str, int]] = []  # the screen's measurements, oldest first (#373)
 
     def reset(self) -> None:
         self.history = {}
+        self.installed = []
+
+    # ---- the screen's measurement list (#373) ------------------------------------------------------
+
+    def install(self, what: str, n: int) -> None:
+        """Put a measurement on the screen: a second install of the same one moves it to the end;
+        past ``slots`` the oldest leaves."""
+        slots = int(self.param("slots") or 0)
+        if slots <= 0:
+            raise ScpiError(-113, f"{what}: this model has no measurement list")
+        entry = (what, n)
+        if entry in self.installed:
+            self.installed.remove(entry)
+        self.installed.append(entry)
+        del self.installed[:-slots]
+
+    @op("results")
+    def op_results(self, **_: Any) -> OpResult:
+        """``:MEASure:RESults?``: each installed measurement, oldest first, as
+        ``<label>,<current>,<min>,<max>,<mean>,<std dev>,<count>`` — the statistics of every value
+        taken since the list was cleared (the current one included). Label: ``<name>(<channel>)``.
+        Nothing installed: an empty reply."""
+        assert self.owner is not None
+        parts: list[bytes] = []
+        used = 0
+        for what, n in self.installed:
+            value, u = self.value(what, n)
+            used += u
+            self._keep(what, n, value)
+            values = np.array(self.history.get((what, n)) or [])
+            fields = [f"{what}({n})".encode(), self._number(value)]
+            if values.size:
+                fields += [
+                    self._number(float(f())) for f in (values.min, values.max, values.mean, values.std)
+                ]
+            else:
+                fields += [self._number(math.nan)] * 4
+            fields.append(str(values.size).encode())
+            parts.append(b",".join(fields))
+        return OpResult(b",".join(parts), used)
+
+    def _number(self, value: float) -> bytes:
+        assert self.owner is not None
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return str(self.param("invalid_value")).encode()
+        return self.owner.format_number(value)
+
+    @op("clear_list")
+    def op_clear_list(self, **_: Any) -> OpResult:
+        """``:MEASure:CLEar``: no measurements on the screen, their statistics gone."""
+        self.installed = []
+        self.history = {}
+        return OpResult()
+
+    @op("all")
+    def op_all(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
+        """``:MEASure:ALL?``: the current value of every measurement of ``all`` on one source, in
+        that order (a snapshot; nothing is installed)."""
+        n = self._channel(channel, source)
+        used = 0
+        parts = []
+        for what in self.param("all") or []:
+            value, u = self.value(str(what), n)
+            used += u
+            parts.append(self._number(value))
+        return OpResult(b",".join(parts), used)
 
     def _acq(self) -> ScopeAcquisition:
         assert self.owner is not None
@@ -2052,6 +2172,8 @@ class ScopeMeasurements(Component):
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
                 return math.nan
+        if what in _TIME_MEASUREMENTS:
+            return self._time_value(what, v, rec)
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
             m = float(self.param("mid"))
@@ -2072,6 +2194,127 @@ class ScopeMeasurements(Component):
         )
         return value
 
+    def _time_value(self, what: str, v: np.ndarray, rec: Any) -> float:
+        """XMAX/XMIN: the time of the first maximum / minimum, from the trigger; BRATe: the bit rate,
+        1 / the narrowest pulse (positive or negative) at the middle level (#350)."""
+        if v.size == 0:
+            return math.nan
+        if what in ("XMAX", "XMIN"):
+            k = int(np.argmax(v) if what == "XMAX" else np.argmin(v))
+            return rec.origin + k * rec.dt_s
+        cross = _mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
+        widths = [u - t for (t, a), (u, b) in itertools.pairwise(cross) if b == -a and u > t]
+        return 1.0 / min(widths) if widths else math.nan
+
+    def _sources(self, raw: list[bytes] | None) -> tuple[list[str], list[int]]:
+        """Raw parameters split into the arguments and the channels named (CHANnel<n>)."""
+        words = [V.parse_string(b).strip() for b in raw or []]
+        channels = [self._channel(None, w) for w in words if w.upper().startswith("CH")]
+        return [w for w in words if not w.upper().startswith("CH")], channels
+
+    def _reply(self, value: float, used: int) -> OpResult:
+        assert self.owner is not None
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return OpResult(str(self.param("invalid_value")).encode(), used)
+        return OpResult(self.owner.format_number(value), used)
+
+    @op("at")
+    def op_at(
+        self, what: str = "", source: list[bytes] | None = None, channel: int | None = None, **_: Any
+    ) -> OpResult:
+        """Measurements with arguments (#350), times from the trigger:
+
+        * ``VTIMe? <time>[,<source>]`` — the voltage at that time (linear between samples);
+        * ``TEDGe? <slope><occurrence>[,<source>]`` — the time of that edge at the middle level;
+        * ``TVALue? <value>[,<slope><occurrence>][,<source>]`` — the time the record crosses
+          ``value`` that way.
+        """
+        args, channels = self._sources(source)
+        n = channels[0] if channels else self._channel(channel)
+        if channels:
+            self._follow(n, f"CHANnel{n}")
+        rec, used = self._acq().measure_record(n)
+        v = np.asarray(rec.volts, dtype=float)
+        dt, origin = rec.dt_s, rec.origin
+        if what == "VTIMe":
+            if not args:
+                raise ScpiError(-109, "VTIMe? takes a time")
+            x = (V.parse_float(args[0].encode(), "S") - origin) / dt
+            if v.size == 0 or not 0 <= x <= v.size - 1:
+                return self._reply(math.nan, used)
+            k = min(int(x), v.size - 2) if v.size > 1 else 0
+            frac = x - k
+            value = float(v[k]) if v.size == 1 else float(v[k] + (v[k + 1] - v[k]) * frac)
+            return self._reply(value, used)
+        if what == "TEDGe":
+            sign, occurrence = _edge_spec(args[0] if args else None)
+            cross = [t for t, d in _mid_crossings(v, dt, float(self.param("hysteresis"))) if d == sign]
+        elif what == "TVALue":
+            if not args:
+                raise ScpiError(-109, "TVALue? takes a value")
+            level = V.parse_float(args[0].encode(), "V")
+            sign, occurrence = _edge_spec(args[1] if len(args) > 1 else None)
+            span = float(v.max() - v.min()) if v.size else 0.0
+            cross = [
+                t for t, d in _crossings(v, dt, level, float(self.param("hysteresis")) * span) if d == sign
+            ]
+        else:
+            raise ScpiError(-224, f"measurement {what!r} takes no arguments here")
+        value = origin + cross[occurrence - 1] if len(cross) >= occurrence else math.nan
+        return self._reply(value, used)
+
+    @op("pair")
+    def op_pair(self, what: str = "", source: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``DELay? [<source1>][,<source2>]``: the time from source 1's first rising edge to source 2's
+        first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
+        degrees (#350). Without sources, :MEASure:SOURce's two (``sources``)."""
+        assert self.owner is not None
+        _, channels = self._sources(source)
+        if len(channels) < 2:
+            pair = [channel_index(self.owner.get_state(p)) for p in (self.param("sources") or [])]
+            channels = (channels + pair[len(channels) :])[:2]
+        if len(channels) < 2:
+            raise ScpiError(-109, f"{what}? needs two sources")
+        hyst = float(self.param("hysteresis"))
+        times, used = [], 0
+        first = None
+        for n in channels:
+            rec, u = self._acq().measure_record(n)
+            used += u
+            v = np.asarray(rec.volts, dtype=float)
+            first = first or (v, rec)
+            rising = [t for t, d in _mid_crossings(v, rec.dt_s, hyst) if d == 1]
+            times.append(rec.origin + rising[0] if rising else math.nan)
+        delay = times[1] - times[0]
+        if what == "DELay":
+            return self._reply(delay, used)
+        assert first is not None
+        period = _measure("PERiod", first[0], first[1].dt_s, hysteresis=hyst)
+        return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
+
+    @op("auto_trigger_levels")
+    def op_auto_trigger_levels(self, **_: Any) -> OpResult:
+        """``:TRIGger:LEVel:ASETup``: every displayed channel's trigger level to its waveform's 50 %
+        (halfway between top and base; 0 V with AC coupling) — the levels of ``trigger_levels``,
+        channel -> setting (#350)."""
+        assert self.owner is not None
+        acq = self._acq()
+        for key, path in (self.param("trigger_levels") or {}).items():
+            n = int(key)
+            if n not in acq.displayed():
+                continue
+            coupling = str(self.owner.state.get(f"ch{n}.coupling", "DC")).upper()
+            if coupling.startswith("AC"):
+                level = 0.0
+            else:
+                rec, _ = acq.measure_record(n)
+                v = np.asarray(rec.volts, dtype=float)
+                levels = _top_base(v) if v.size else None
+                top, base = levels if levels else ((float(v.max()), float(v.min())) if v.size else (0.0, 0.0))
+                level = (top + base) / 2
+            self.owner.set_state(str(path), level)
+        return OpResult()
+
     def _follow(self, n: int, source: Any) -> None:
         """A measurement that names its source makes it the default one (the bound ``source``)."""
         path = self.bound_paths().get("source")
@@ -2087,12 +2330,18 @@ class ScopeMeasurements(Component):
             self.history.setdefault((name, n), []).append(value)
 
     @op("measure")
-    def measure(self, what: str = "", source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
+    def measure(
+        self, what: str = "", source: Any = None, channel: int | None = None, query: bool = True, **_: Any
+    ) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
-        command) in the definition's number format; what cannot be measured is NaN's sentinel."""
+        command) in the definition's number format; what cannot be measured is NaN's sentinel.
+        Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373)."""
         assert self.owner is not None
         n = self._channel(channel, source)
         self._follow(n, source)
+        if not query:
+            self.install(what, n)
+            return OpResult()
         value, used = self.value(what, n)
         self._keep(what, n, value)
         if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":

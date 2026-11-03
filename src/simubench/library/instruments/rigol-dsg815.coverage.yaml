@@ -358,13 +358,13 @@ sections:
     level: implemented
   - header: '[:SOURce]:SWEep:STATe'
     level: implemented
-    note: OFF、FREQuency、LEVel 或 LEVel,FREQuency（#291）；回读按 LEV,FREQ 顺序，OFF 与其他同用回 -224。
+    note: OFF、FREQuency、LEVel 或 LEVel,FREQuency（#291）；参数是词的集合：回读按 LEV,FREQ 顺序，重复词合并（LEV,FREQ,LEV 等价于 LEV,FREQ，不报错；手册未写重复词的行为，#353），OFF 与其他同用回 -224。
   - header: '[:SOURce]:SWEep:STEP:DWELl'
     level: implemented
     note: 每点驻留 20 ms–100 s，AUTO 触发时按虚拟时间推进扫描点（#291）；回读带单位（500.000ms）。*RST 值 20 ms 未能按手册正文核实。
   - header: '[:SOURce]:SWEep:STEP:DWELl:STEP'
     level: not_modeled
-    note: 驻留时间未建模。
+    note: 驻留时间的步进量（旋钮/步进键的增量）未建模；驻留本身已建模，见 :SWEep:STEP:DWELl（#291）。
   - header: '[:SOURce]:SWEep:STEP:POINts'
     level: implemented
   - header: '[:SOURce]:SWEep:STEP:POINts:STEP'

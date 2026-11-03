@@ -131,6 +131,15 @@ channels:
       p_max: {default: 26.5225}
       range: {default: P25V}
 channel_state:
+  # 可疑仪表汇总寄存器 ISUMmary<n> 的使能（#348）：位 0 CC、位 1 CV。
+  isum_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    rst: 0
+    label: ISUM 使能
+    label_en: ISUM enable
   # OCP（#271）：手册没有电流阈值命令；使能后输出处于 CC 的时间超过延迟即跳闸、关输出。
   ocp_enabled:
     type: bool
@@ -216,6 +225,24 @@ channel_state:
     label: 功率上限
     label_en: Power maximum
 state:
+  # 可疑状态寄存器组的使能（#348）：QUEStionable 的位 13 汇总 INSTrument，INSTrument 的位 1–3 汇总
+  # 各路 ISUMmary<n>；QUEStionable 的汇总进状态字节位 3。
+  status.ques_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    rst: 0
+    label: QUES 使能
+    label_en: QUES enable
+  status.inst_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    rst: 0
+    label: QUES:INST 使能
+    label_en: QUES:INST enable
   # 选中的输出（INSTrument:SELect 的 CH1/CH2/CH3 与 E3631A 式的 P6V/P25V/N25V，NSELect 的 1–3；
   # *RST 回到输出 1）。
   instrument.nselect:
@@ -336,7 +363,25 @@ channel_components:
   - name: read
     type: supply_readback
     params: {output: out}
+  # 每路的可疑仪表汇总寄存器（#348）：条件位来自本路的调节状态，事件位在条件变为真时置位、读后清零。
+  - name: isum
+    type: status_register
+    params:
+      bits: {CC: 0, CV: 1}
+      enable: $ch.isum_enable
 components:
+  # 可疑状态寄存器组（#348）：INSTrument 汇总各路 ISUM，QUEStionable 汇总 INSTrument 并进状态字节位 3。
+  - name: ques_inst
+    type: status_register
+    params:
+      bits: {CH1.ISUM: 1, CH2.ISUM: 2, CH3.ISUM: 3}
+      enable: $status.inst_enable
+  - name: ques
+    type: status_register
+    params:
+      bits: {QUES_INST: 13}
+      enable: $status.ques_enable
+      summary_bit: 3
   # 组合（#259）：内部拓扑——串联时输出 2 为 0–50 V/1 A、并联时 0–25 V/2 A，输出 3 停止工作；
   # 跟踪时输出 3 与输出 2 同电压（同号）。
   - name: track
@@ -429,6 +474,14 @@ commands:
     query: false
     args: {kind: OCP}
     params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - {header: "STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: "STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:QUEStionable:INSTrument[:EVENt]", op: ques_inst.event, set: false}
+  - {header: "STATus:QUEStionable:INSTrument:ENABle", op: ques_inst.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:QUEStionable:INSTrument:ISUMmary<ch>[:EVENt]", op: ch.isum.event, set: false}
+  - {header: "STATus:QUEStionable:INSTrument:ISUMmary<ch>:ENABle", op: ch.isum.enable, params: [{name: bit, type: raw, optional: true}]}
+  # STATus:PRESet：可疑寄存器组的使能全部清零（SCPI 的 PRESet；事件不变）。
+  - {header: "STATus:PRESet", op: ques.preset, query: false}
   - header: "STATus:QUEStionable:INSTrument:ISUMmary<ch>:CONDition"
     op: ch.read.condition
     set: false
