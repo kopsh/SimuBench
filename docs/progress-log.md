@@ -1189,3 +1189,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | N6705C 接上命令 | ✅ `VOLT|CURR:TRIGgered`、`VOLT|CURR:MODE FIXed|STEP`（LIST/ARB -224 未建模）、`TRIG:TRAN:SOUR BUS|IMM|EXT`（PIN/TRANsient 未建模）、`INIT:TRAN`、`TRIG:TRAN`、`ABOR:TRAN`、`*TRG`；OPER 位 4/6；手册错误列表没有 "Trigger ignored"，未初始化的触发不报错 |
 | 测试 | ✅ 手册用例「瞬变触发」；`tests/test_keysight_n6705c.py::test_a_bus_trigger_steps_only_the_armed_channels`；`tests/test_power_supply.py::test_the_transient_step_writes_the_triggered_levels` |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Fluke 5730A 高性能多功能校准器（Issue 341）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `fluke-5730a.yaml`：5730A Operators Manual（August 2013 Rev. 1, 6/15，已入 `manuals/5730A-omeng0100/`）第 6 章 Remote Commands 与附录 A Fault Codes；`*IDN?` 按手册示例 `FLUKE,5730A,5248000,1.0+B+*`；`simubench validate` 无诊断 |
+| 实现范围 | ✅ `OUT`（V 与 HZ，只给一项时另一项不变，0 Hz 直流、非 0 交流，±1100 V、10 Hz–1.2 MHz）、`OUT?`、`OPER`、`STBY`（3 s 建立时间，负载 >50 mA 跳回待机并记故障 210，≥22 V 跨越时回待机）、`FAULT?`、公共命令；`EXTGUARD`、`BRIGHTNESS`、`LOCAL/REMOTE/LOCKOUT` 为接受；故障码 2206（缺单位）、2207（同一单位两次） |
+| 平台改动（引擎） | ✅ `quantities` 参数的 `not_modeled` 也对单位生效：`OUT 1 A`、`OUT 1.9 MOHM`、`OUT 10 DBM` 报 -224（未建模），而不是"无效单位" |
+| 覆盖、用例与示例 | ✅ 覆盖表按 Table 6-4 共 100 条：实现 14 · 接受 5 · 未实现 81；`tests/models/fluke-5730a/cases.yaml` 6 条全部通过；示例台 `examples/benches/fluke-5730a.bench.yaml`（接 8588A）与脚本 `examples/scripts/fluke_5730a_verify.py` 在 `tests/test_fluke_5730a.py` 中运行；另测 3 s 建立时间与过载跳闸 |
+| 能力缺口 | ⚠️ 电流/电阻输出 #550、外部 sense #551、量程表与 RANGE?/RANGELCK #552、回待机规则（跨越阈值、改变功能）#553，均登记在 #317 下；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

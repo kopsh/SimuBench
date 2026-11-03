@@ -1,0 +1,219 @@
+schema: simubench.instrument/1
+id: fluke-5730a
+manufacturer: Fluke
+model: 5730A
+class: calibrator
+version: 1
+description: >-
+  Fluke 5730A 高性能多功能校准器（直流与交流电压输出）。Real model (D42)：命令、回复与故障码按
+  5730A Operators Manual 第 6 章 Remote Commands and Syntax（Fluke 风格命令，非 SCPI 树）与附录 A
+  Fault Codes。输出由 calibrator_setpoint（设定值）+ calibrator_control（工作/待机、端子、过载）建模：
+  待机时端子断开、3 s 建立时间、负载超过 50 mA 跳回待机、≥22 V 的改变回待机。直流/交流电流、电阻、
+  外部 sense、量程锁定、误差模式、Wideband 与外部放大器未实现（覆盖表逐条列出）。
+reference:
+  title: Fluke 5730A High Performance Multifunction Calibrator Operators Manual
+  document: 5730A-omeng0100
+  version: August 2013 Rev. 1, 6/15
+  firmware: 手册 *IDN? 示例的 1.0+B+*（主 CPU+inguard CPU+无 5725A）
+identity:
+  idn: "FLUKE,5730A,{serial},{firmware}"
+  serial: "5248000"
+  firmware: "1.0+B+*"
+format:
+  number: nr3
+  digits: 6
+  sign: false
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: plain
+builtins:
+  # 手册的公共命令（Table 6-4 Overall Functions 与 Status Commands）；故障队列用 FAULT?，没有 SCPI 的
+  # :SYSTem:ERRor?（回复 -113）。*TRG、*RCL、*SAV 不是 5730A 的命令。
+  ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
+# 附录 A Fault Codes（本模型会产生的条目）。
+errors:
+  0: No Error
+  210: Output Tripped To Standby
+  2201: Invalid Number Of Parameters
+  2206: Invalid Parameter Unit
+  2207: Invalid Parameter Value
+  2224: Too Many Parameters
+specs:
+  source: 5730A Operators Manual 第 1 章 Electrical Specifications（99 % 置信度）
+  dc_voltage_ranges_1year_ppm_plus_uv:
+    220 mV: {gain: 9, floor_uv: 0.5, resolution: 10 nV}
+    2.2 V: {gain: 6, floor_uv: 0.8, resolution: 100 nV}
+    11 V: {gain: 4, floor_uv: 3, resolution: 1 µV}
+    22 V: {gain: 4, floor_uv: 5, resolution: 1 µV}
+    220 V: {gain: 6, floor_uv: 50, resolution: 10 µV}
+    1100 V: {gain: 8, floor_uv: 500, resolution: 100 µV}
+  dc_voltage_max_load: "50 mA（2.2 V–220 V 量程），20 mA（1100 V 量程）；220 mV 量程 50 Ω 输出阻抗 → i_max 取 50 mA"
+  settling_time: "3 s 到全指标；量程或极性改变 +1 s；1100 V 量程 +1 s → settle 取 3 s"
+  load_regulation: "<(0.2 ppm 输出 + 0.1 ppm 量程)，满载到空载 → z_out 取 0.1 mΩ"
+  ac_voltage: "1100 V，10 Hz 到 1.2 MHz（Wideband 选件到 30 MHz，未实现）"
+  standby: "≥22 V 的输出在前一输出 <22 V 时被选中、或改变输出功能时，自动回待机（第 4 章 Operate and Standby Modes）"
+state:
+  out.function:
+    type: enum
+    options: [DCV, ACV]
+    default: DCV
+    rst: DCV
+    electrical: true
+    label: 功能
+    label_en: Function
+  out.level:
+    type: float
+    unit: V
+    min: -1100.0
+    max: 1100.0
+    default: 0.0
+    rst: 0.0
+    electrical: true
+    label: 幅度设定
+    label_en: Level
+  out.frequency:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 1200000.0
+    default: 0.0
+    rst: 0.0
+    electrical: true
+    label: 频率（0 Hz 为直流）
+    label_en: Frequency
+  out.operate:
+    type: bool
+    default: false
+    rst: false
+    electrical: true
+    label: 工作
+    label_en: Operate
+  extguard:
+    type: enum
+    options: ["OFF", "ON"]
+    default: "OFF"
+    rst: "OFF"
+    label: 外部保护（guard 接 LO）
+    label_en: External guard
+  interface:
+    type: enum
+    options: [LOCAL, REMOTE, LOCKOUT]
+    default: LOCAL
+    rst: LOCAL
+    label: 远程接口状态
+    label_en: Remote interface state
+  display.brightness:
+    type: int
+    min: 0
+    max: 100
+    default: 50
+    label: 显示亮度
+    label_en: Display brightness
+components:
+  # 设定值与量程生成（#329）：功能、电平、频率、3 s 建立时间与输出级的隐藏误差。
+  - name: dac
+    type: calibrator_setpoint
+    params:
+      function: $out.function
+      level: $out.level
+      frequency: $out.frequency
+      settle: 3.0
+      control: out
+  # 输出控制：工作/待机、端子、负载超过 50 mA 跳回待机（故障 210）、≥22 V 的改变回待机。
+  - name: out
+    type: calibrator_control
+    params:
+      operate: $out.operate
+      z_out: 0.0001
+      i_max: 0.05
+      standby_above: 22.0
+      overload_error: 210
+      setpoint: dac
+  - name: sys
+    type: system
+wiring:
+  instrument:
+    - [dac.out, out.in]
+ports:
+  instrument:
+    # OUTPUT HI；LO 是机内地（输出以测试台地为参考），不单独成端口。
+    OUT: out.out
+display:
+  summary: [out.function, out.level, out.frequency, out.operate, extguard]
+capabilities: [calibrator]
+commands:
+  # ---- 输出 ----
+  - header: OUT
+    params:
+      - name: q
+        type: quantities
+        units:
+          V: {state: out.level}
+          HZ: {state: out.frequency}
+        combine:
+          # 只有幅值 → 频率不变（OUT -15.2 V），0 Hz 为直流；带频率 → 0 Hz 为直流、非 0 为交流；
+          # 只有频率 → 仅更新频率（OUT 100 HZ）。
+          "V": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+          "V,HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+          "HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+        not_modeled:
+          A: the current outputs are not modeled
+          OHM: the resistance outputs are not modeled
+          DBM: dBm units are not modeled
+        missing_unit_error: 2206
+        unknown_unit_error: 2206
+        duplicate_unit_error: 2207
+        combine_error: 2206
+    reply: "{out.level},V,{out.frequency}"
+    doc: >-
+      查询按手册给出 <幅值>,<单位>,<频率>（直流时频率为 0）；各数字按本模型的统一格式（nr3，6 位尾数；
+      手册示例中各字段的位数不一，直流的 0 写作 0）。
+  - header: OPER
+    op: out.operate
+    query: false
+    args: {value: true}
+    doc: 进入工作，输出经建立时间到达设定值。手册的故障队列非空时 ≥22 V 禁止 OPER（2232）未实现。
+  - header: STBY
+    op: out.operate
+    args: {value: false}
+    query: false
+    doc: 回到待机，输出端与电路断开。
+  # ---- 故障队列 ----
+  - header: FAULT
+    op: sys.next_error
+    set: false
+    reply: "{code}"
+    doc: 取出最早的故障码；空队列回 0（文字用 EXPLAIN?，未实现）。
+  # ---- 外部连接与配置（接受：不影响仿真） ----
+  - header: EXTGUARD
+    state: extguard
+    query: false
+    doc: 内部保护屏蔽接/断 LO 端子；仿真中不影响电路（手册没有 EXTGUARD?）。
+  - header: BRIGHTNESS
+    state: display.brightness
+  # ---- 串口/USB/以太网命令（接受：不影响仿真） ----
+  - header: LOCAL
+    state: interface
+    set_value: LOCAL
+    query: false
+    doc: 回到本地状态；写入接口状态，仿真中本地/远程不影响行为。
+  - header: REMOTE
+    state: interface
+    set_value: REMOTE
+    query: false
+    doc: 进入远程状态；写入接口状态。
+  - header: LOCKOUT
+    state: interface
+    set_value: LOCKOUT
+    query: false
+    doc: 前面板锁定；写入接口状态。
+# 个体偏差（metrology-authoring.md 7）：calibrator_setpoint 的隐藏误差是单一标量，取 1 年 99 % 指标中
+# 最紧的一档使任何设定值都落在包络内：直流增益 4 ppm（11 V/22 V 档）、零点 0.5 µV（220 mV 档）。
+deviations:
+  - param: dac.gain_error_ppm
+    limit: 4.0
+    distribution: uniform
+  - param: dac.offset
+    limit: 5.0e-7
+    distribution: uniform

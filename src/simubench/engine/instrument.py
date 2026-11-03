@@ -1337,6 +1337,9 @@ class Instrument:
                 raise ScpiError(ps.missing_unit_error, f"{text!r}: a unit is required")
             name = next((u for u in ps.units if u.upper() == base), None)
             if name is None:
+                # a unit the real instrument takes but this model does not (OUT 1 A on a model of
+                # the voltage functions only): refused as not modeled, not as a bad unit (#341)
+                self._refuse_not_modeled(ps.not_modeled, base.encode())
                 raise ScpiError(ps.unknown_unit_error, f"unit {base!r} is not one this command takes")
             if name in used:
                 raise ScpiError(ps.duplicate_unit_error, f"unit {name} is given twice")
