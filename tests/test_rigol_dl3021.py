@@ -99,6 +99,9 @@ def test_cc_slew_ramps_the_current_in_virtual_time():
 
 @pytest.mark.parametrize(("command", "kind"), [(":SOUR:CURR:VLIM 9", "OVP"), (":SOUR:CURR:ILIM 1", "OCP")])
 def test_the_voltage_and_current_limits_trip_the_input(command, kind):
+    """The model's choice, not a verified instrument fact (#269): the user's guide calls V_Limit and
+    C_Limit the working limits of each mode and never ties them to OVP/OCP; this fixes that the
+    model trips (opens the input) instead of clamping. See the coverage notes of CURRent:VLIMt."""
     s = open_bench(load_bench())
     try:
         s.write("dut", f":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;{command};:SOUR:CURR 2;:SOUR:INP 1\n".encode())
