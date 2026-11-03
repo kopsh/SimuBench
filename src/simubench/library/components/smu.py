@@ -81,6 +81,18 @@ class SmuSource(Component):
         "sweep_points": 2,  # points of a linear or log sweep
         "sweep_delay": 0.0,  # s, wait before each sweep point
         "sweep_list": "",  # comma-separated levels of a LIST sweep
+        # The B2900's sweep settings (#398): sweep_mode may also be FIXed (no sweep) or SWEep (a
+        # staircase spaced by sweep_spacing); a current sweep may keep its own mode, start, stop
+        # and list (None: the shared ones), chosen by sweep_function.
+        "sweep_spacing": "LINear",  # LINear | LOGarithmic: the steps of a SWEep sweep
+        "sweep_direction": "UP",  # UP: start to stop | DOWN: stop to start
+        "sweep_stair": "SINGle",  # SINGle | DOUBle: a double sweep returns from stop to start
+        "sweep_mode_current": None,  # the current sweep's mode (None: sweep_mode)
+        "sweep_start_current": None,  # A, the current sweep's first level (None: sweep_start)
+        "sweep_stop_current": None,  # A, the current sweep's last level (None: sweep_stop)
+        "list_voltage": None,  # comma-separated voltage list (a string setting; None: sweep_list)
+        "list_current": None,  # comma-separated current list (a string setting; None: sweep_list)
+        "list_start": 1,  # the list index a LIST sweep starts at (1: the first)
     }
 
     def _per_function(self, function: str, key: str, legacy: str) -> Any:
@@ -107,17 +119,99 @@ class SmuSource(Component):
         range_used = self.source_range(function, level)
         return (self.param("range_limits") or {}).get(function, {}).get(range_used)
 
+    def _of_function(self, key: str, shared: str) -> Any:
+        """A current sweep's own setting when it has one (#398), else the shared one."""
+        current = str(self.param("sweep_function")).upper().startswith("CURR")
+        value = self.param(f"{key}_current") if current else None
+        return self.param(shared) if value is None else value
+
+    def sweep_list(self) -> list[float]:
+        """The list of the function swept (LIST:VOLT or LIST:CURR, #398), or the shared one."""
+        current = str(self.param("sweep_function")).upper().startswith("CURR")
+        text = self.param("list_current" if current else "list_voltage")
+        if text is None:
+            text = self.param("sweep_list")
+        return [float(x) for x in str(text or "").split(",") if x.strip()]
+
     def sweep_levels(self) -> list[float]:
-        mode = self.param("sweep_mode")
-        start, stop = float(self.param("sweep_start")), float(self.param("sweep_stop"))
+        mode = str(self._of_function("sweep_mode", "sweep_mode"))
+        word = mode.upper()
+        if word.startswith("FIX") or word == "NONE":
+            return []
+        if word.startswith("SWE"):  # the B2900's SWEep: the spacing setting says which (#398)
+            word = str(self.param("sweep_spacing")).upper()
+        start = float(self._of_function("sweep_start", "sweep_start"))
+        stop = float(self._of_function("sweep_stop", "sweep_stop"))
         n = int(self.param("sweep_points"))
-        if mode == "LINear":
-            return [float(x) for x in np.linspace(start, stop, n)]
-        if mode == "LOGarithmic":
-            return [float(x) for x in np.geomspace(start, stop, n)]
-        if mode == "LIST":
-            return [float(x) for x in str(self.param("sweep_list")).split(",") if x.strip()]
-        return []
+        if word.startswith("LIN"):
+            levels = [float(x) for x in np.linspace(start, stop, n)]
+        elif word.startswith("LOG"):
+            if start == 0 or stop == 0 or (start > 0) != (stop > 0):
+                raise ScpiError(-221, "a log sweep needs non-zero levels of one sign")
+            levels = [float(x) for x in np.geomspace(start, stop, n)]
+        elif word == "LIST":
+            first = max(1, int(self.param("list_start") or 1))
+            levels = self.sweep_list()[first - 1 :]
+        else:
+            return []
+        if word != "LIST" and str(self.param("sweep_direction")).upper().startswith("DOWN"):
+            levels = levels[::-1]  # stop to start (B2910-90130 SWEep:DIRection)
+        if str(self.param("sweep_stair")).upper().startswith("DOUB"):
+            levels = levels + levels[::-1]  # start to stop to start (SWEep:STAir DOUBle)
+        return levels
+
+    # ---- the lists (#398, B2910-90130 p.268–270) -----------------------------------------------
+
+    def _list_path(self, function: str) -> str:
+        key = "list_current" if str(function).upper().startswith("CURR") else "list_voltage"
+        path = self.bound_paths().get(key)
+        if path is None:
+            raise ScpiError(-113, "the list is not a setting of this definition")
+        return path
+
+    def _list_values(self, values: list[bytes] | None) -> list[float]:
+        levels = V.parse_float_list(tuple(values or ()))
+        if not levels:
+            raise ScpiError(-109, "missing list data")
+        return levels
+
+    @op("list")
+    def op_list(
+        self, query: bool = False, function: str = "VOLTage", values: list[bytes] | None = None, **_: Any
+    ) -> OpResult:
+        """``LIST:VOLT 0.1,0.2,…`` / ``LIST:CURR …``: the list; the query answers it in NR3."""
+        assert self.owner is not None
+        path = self._list_path(function)
+        if query:
+            text = str(self.owner.get_state(path) or "")
+            return OpResult(
+                b",".join(self.owner.format_number(float(x)) for x in text.split(",") if x.strip())
+            )
+        self.owner.set_state(path, ",".join(repr(x) for x in self._list_values(values)))
+        return OpResult()
+
+    @op("list_append")
+    def op_list_append(
+        self, function: str = "VOLTage", values: list[bytes] | None = None, **_: Any
+    ) -> OpResult:
+        """``LIST:VOLT:APPend 1.1,1.2``: the data added to the end of the list."""
+        assert self.owner is not None
+        path = self._list_path(function)
+        text = str(self.owner.get_state(path) or "")
+        self.owner.set_state(
+            path,
+            ",".join(
+                [*(x for x in text.split(",") if x.strip()), *(repr(x) for x in self._list_values(values))]
+            ),
+        )
+        return OpResult()
+
+    @op("list_points")
+    def op_list_points(self, function: str = "VOLTage", **_: Any) -> OpResult:
+        """``LIST:VOLT:POINts?``: how many data the list holds."""
+        assert self.owner is not None
+        text = str(self.owner.get_state(self._list_path(function)) or "")
+        return OpResult(V.format_int(len([x for x in text.split(",") if x.strip()])))
 
     @op("sweep")
     def op_sweep(
@@ -451,6 +545,11 @@ class SmuMeter(Component):
         "source": "",  # the source DAC (sweep levels, the function being forced)
         "loop": "",  # the control loop (mode, limits)
         "output": "",  # the output stage (metered voltage, current, sense)
+        # The enabled measurement functions (#397, B2900 :SENSe:FUNCtion[:ON]/OFF): one bool
+        # setting each, so a definition shows and resets them; None: always enabled, no setting.
+        "measure_voltage": None,  # the voltage measurement function is enabled (a bool setting)
+        "measure_current": None,  # the current measurement function is enabled (a bool setting)
+        "measure_resistance": None,  # the resistance measurement function is enabled (a bool setting)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -647,6 +746,76 @@ class SmuMeter(Component):
     def reset(self) -> None:
         self._auto_range = {}
         self.run_done()
+
+    # ---- the enabled measurement functions (#397) ---------------------------------------------
+
+    FUNCTIONS = (("VOLT", "measure_voltage"), ("CURR", "measure_current"), ("RES", "measure_resistance"))
+
+    def _function_key(self, item: Any) -> str:
+        """A function word as written (quoted or not, long or short, with or without :DC)."""
+        text = (V.parse_string(item) if isinstance(item, bytes) else str(item)).strip().strip("'\"")
+        word = text.upper().removesuffix(":DC")
+        for short, key in self.FUNCTIONS:
+            long = {"VOLT": "VOLTAGE", "CURR": "CURRENT", "RES": "RESISTANCE"}[short]
+            if len(word) >= len(short) and long.startswith(word):
+                return key
+        raise ScpiError(-224, f"no measurement function {text!r}")
+
+    def _enabled(self) -> dict[str, bool]:
+        return {key: bool(self.param(key)) for _, key in self.FUNCTIONS}
+
+    def _set_functions(self, keys: list[str], on: bool) -> None:
+        assert self.owner is not None
+        bound = self.bound_paths()
+        missing = [k for k in keys if k not in bound]
+        if missing:
+            raise ScpiError(-113, "the measurement functions are not settings of this definition")
+        for key in keys:
+            self.owner.set_state(bound[key], on)
+
+    def _function_list(self, on: bool) -> bytes:
+        names = [short for short, key in self.FUNCTIONS if self._enabled()[key] is on]
+        return b",".join(V.format_string(n) for n in names) or b'""'
+
+    @op("function_on")
+    def op_function_on(self, query: bool = False, names: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion[:ON] "CURR"[,…]``: enable the functions named (the others stay);
+        the query lists the enabled ones, quoted, ``""`` for none (B2910-90130 p.247)."""
+        if query:
+            return OpResult(self._function_list(True))
+        if not names:
+            raise ScpiError(-109, "missing function")
+        self._set_functions([self._function_key(n) for n in names], True)
+        return OpResult()
+
+    @op("function_off")
+    def op_function_off(self, query: bool = False, names: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion:OFF "RES"[,…]``: disable the functions named; the query lists the
+        disabled ones (B2910-90130 p.246)."""
+        if query:
+            return OpResult(self._function_list(False))
+        if not names:
+            raise ScpiError(-109, "missing function")
+        self._set_functions([self._function_key(n) for n in names], False)
+        return OpResult()
+
+    @op("function_all")
+    def op_function_all(self, on: bool = True, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion[:ON]:ALL`` (``on``) / ``:SENSe:FUNCtion:OFF:ALL``."""
+        self._set_functions([key for _, key in self.FUNCTIONS], bool(on))
+        return OpResult()
+
+    @op("function_count")
+    def op_function_count(self, on: bool = True, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion[:ON]:COUNt?`` / ``:OFF:COUNt?``: how many are enabled / disabled."""
+        return OpResult(V.format_int(sum(1 for v in self._enabled().values() if v is bool(on))))
+
+    @op("function_state")
+    def op_function_state(self, names: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion:STATe? "CURR"``: 1 when the function is enabled, else 0."""
+        if not names:
+            raise ScpiError(-109, "missing function")
+        return OpResult(V.format_bool(self._enabled()[self._function_key(names[0])]))
 
     @op("measure")
     def op_measure(self, **_: Any) -> OpResult:
