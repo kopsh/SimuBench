@@ -1,0 +1,354 @@
+schema: simubench.instrument/1
+id: keysight-n6705c
+manufacturer: Keysight Technologies
+model: N6705C
+class: power_supply
+version: 1
+description: >-
+  Keysight N6705C 直流电源分析仪：模块化主机，四个插槽按一种典型组合配置——插槽 1、2 为 N6762A
+  精密直流模块（50 V/3 A/100 W），插槽 3、4 为 N6752A 高性能自动量程模块（50 V/10 A/100 W）。
+  Real model (D42)：命令与 *RST 值按 N6705C User's Guide（N6705C-90001）的 Command Quick Reference
+  与 N6700C Operating and Service Guide（N6700C-90901）的 SCPI Programming Reference；每路输出复用
+  电源的通用组件链（设定 → CV/CC 控制环 → 功率级 → 输出与 sense → 回读与 OVP/OCP），电压/电流由
+  电路求解。任意波/列表、数据记录、示波器视图、测量触发系统与状态寄存器组未实现（覆盖表逐条列出）。
+reference:
+  title: Keysight N6705C DC Power Analyzer User's Guide; Keysight N6700C Modular Power System Operating and Service Guide (SCPI Programming Reference)
+  document: N6705C-90001
+  version: Edition 3, February 2019（SCPI 细节按 N6700C-90901 Edition 2, February 2019）
+  firmware: E.02.01 and up
+identity:
+  idn: "Keysight Technologies,N6705C,{serial},{firmware}"
+  serial: MY56000123
+  firmware: "E.02.07.3231"
+format:
+  number: nr3
+  digits: 6
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+  # 测量回读也按 +n.nnnnnnE+nn（手册 MEASure 条目），不用组件自己的位数（D54）。
+  readings: format
+# 手册的错误列表（N6700C-90901 第 5 章 SCPI Error Messages 的命令、执行与查询错误）。
+errors:
+  0: No error
+  -100: Command error
+  -101: Invalid character
+  -102: Syntax error
+  -103: Invalid separator
+  -104: Data type error
+  -105: GET not allowed
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -110: Command header error
+  -111: Header separator error
+  -112: Program mnemonic too long
+  -113: Undefined header
+  -114: Header suffix out of range
+  -120: Numeric data error
+  -121: Invalid character in number
+  -123: Exponent too large
+  -124: Too many digits
+  -128: Numeric data not allowed
+  -130: Suffix error
+  -131: Invalid suffix
+  -134: Suffix too long
+  -138: Suffix not allowed
+  -140: Character data error
+  -141: Invalid character data
+  -144: Character data too long
+  -148: Character data not allowed
+  -150: String data error
+  -151: Invalid string data
+  -158: String data not allowed
+  -200: Execution error
+  -220: Parameter error
+  -221: Settings conflict
+  -222: Data out of range
+  -223: Too much data
+  -224: Illegal parameter value
+  -225: Out of memory
+  -230: Data corrupt or stale
+  -231: Data questionable
+  -240: Hardware error
+  -241: Hardware missing
+  -400: Query Error
+  -410: Query INTERRUPTED
+  -420: Query UNTERMINATED
+  -430: Query DEADLOCKED
+  -440: Query UNTERMINATED after indefinite response
+specs:
+  source: N6705C User's Guide（插槽与模块型号）；各命令条目的参数范围（最大值为模块额定值的 102 %，OVP 为 120 %）；模块额定值按 Keysight 产品页的型号名
+  slots:
+    1: {module: N6762A, rating: "50 V / 3 A / 100 W（精密直流模块）"}
+    2: {module: N6762A, rating: "50 V / 3 A / 100 W（精密直流模块）"}
+    3: {module: N6752A, rating: "50 V / 10 A / 100 W（高性能自动量程模块）"}
+    4: {module: N6752A, rating: "50 V / 10 A / 100 W（高性能自动量程模块）"}
+  programming_max: {voltage_v: 51.0, current_a: {N6762A: 3.06, N6752A: 10.2}, ovp_v: 60.0}
+  ocp_delay_s: "0–0.255，*RST 0.020"
+channels:
+  count: 4
+  overrides:
+    3:
+      current: {max: 10.2}
+      i_max: {default: 10.2}
+      module: {default: N6752A}
+    4:
+      current: {max: 10.2}
+      i_max: {default: 10.2}
+      module: {default: N6752A}
+channel_state:
+  module:
+    type: enum
+    options: [N6762A, N6752A]
+    default: N6762A
+    readonly: true
+    label: 模块型号
+    label_en: Module model
+  option:
+    type: string
+    default: ""
+    readonly: true
+    label: 模块选件
+    label_en: Module options
+  voltage:
+    type: float
+    unit: V
+    min: 0.0
+    max: 51.0
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage setting
+  current:
+    type: float
+    unit: A
+    min: 0.0
+    max: 3.06
+    default: 0.0
+    label: 电流设定
+    label_en: Current setting
+  output:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  ovp:
+    type: float
+    unit: V
+    min: 0.0
+    max: 60.0
+    default: 60.0
+    label: 过压保护
+    label_en: OVP level
+  ocp_enabled:
+    type: bool
+    default: false
+    label: 过流保护
+    label_en: Over-current protection
+  ocp_delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 0.255
+    default: 0.02
+    label: 过流保护延迟
+    label_en: OCP delay
+  ocp_start:
+    type: enum
+    options: [SCHange, CCTRans]
+    default: SCHange
+    label: 过流延迟起点
+    label_en: OCP delay start
+  sense:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 远端检测
+    label_en: Remote sense
+    option_labels: {INTernal: 内部, EXTernal: 外部}
+  v_max:
+    type: float
+    unit: V
+    default: 51.0
+    readonly: true
+    label: 电压上限
+    label_en: Voltage maximum
+  i_max:
+    type: float
+    unit: A
+    default: 3.06
+    readonly: true
+    label: 电流上限
+    label_en: Current maximum
+  p_max:
+    type: float
+    unit: W
+    default: 100.0
+    readonly: true
+    label: 功率上限
+    label_en: Power maximum
+state:
+  system.channels:
+    type: int
+    min: 4
+    max: 4
+    default: 4
+    readonly: true
+    label: 通道数
+    label_en: Channel count
+  display.enabled:
+    type: bool
+    default: true
+    label: 显示
+    label_en: Display
+  display.view:
+    type: enum
+    options: [METER1, METER4]
+    default: METER1
+    label: 显示视图
+    label_en: Display view
+  system.scpi_version:
+    type: float
+    default: 1999.0
+    readonly: true
+    label: SCPI 版本
+    label_en: SCPI version
+channel_components:
+  # 每路：设定 → B1 控制环（CV，电流设定触发 CC）→ 功率级（模块额定值）→ 输出与 sense → 回读与 OVP/OCP。
+  - name: set
+    type: power_supply_setpoint
+    params: {stage: stage, voltage: $ch.voltage, current: $ch.current}
+  - name: stage
+    type: power_stage
+    params: {v_max: $ch.v_max, i_max: $ch.i_max, p_max: $ch.p_max}
+  - name: loop
+    type: output_control_loop
+    params:
+      function: VOLTage
+      v_level: $ch.voltage
+      i_level: 0.0
+      i_limit: $ch.current
+      v_limit: 0.0
+      output: $ch.output
+      channel_envelope: stage
+  - name: out
+    type: power_output
+    params:
+      output: $ch.output
+      remote_sense: {from: $ch.sense, map: {INTernal: false, EXTernal: true}}
+      loop: loop
+      stage: stage
+      protection: prot
+  - name: prot
+    type: supply_protection
+    params:
+      ovp: $ch.ovp
+      ocp: 0.0
+      output: $ch.output
+      ocp_enabled: $ch.ocp_enabled
+      ocp_delay: $ch.ocp_delay
+      ocp_start: $ch.ocp_start
+      voltage: $ch.voltage
+      current: $ch.current
+  - name: read
+    type: supply_readback
+    params: {output: out}
+components:
+  - name: sys
+    type: system
+  # 输出组合：N6705C 没有跟踪或内部串/并联（并联只能用 SYSTem:GROup 分组，未实现），组合块固定为 OFF。
+  - name: track
+    type: supply_tracking
+    params: {mode: "OFF"}
+ports:
+  channel:
+    "OUT{n}+": out.pos
+    "OUT{n}-": out.neg
+    "SENSE{n}+": out.sense_pos
+    "SENSE{n}-": out.sense_neg
+display:
+  template: power_supply
+  summary: [ch1.voltage, ch1.current, ch1.output, ch3.voltage, ch3.current]
+capabilities: [power_supply]
+commands:
+  # ---- 设定（通道列表必需，手册：A channel parameter is required with each SCPI command） ----
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.voltage"}
+      - {name: channels, type: channel_list}
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: A, state: "ch.current"}
+      - {name: channels, type: channel_list}
+  - header: "OUTPut[:STATe]"
+    params:
+      - {name: state, type: bool, state: "ch.output"}
+      - {name: channels, type: channel_list}
+    dangerous: true
+  # ---- 测量 ----
+  - header: "MEASure[:SCALar]:VOLTage[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: voltage}
+    params: [{name: channels, type: channel_list}]
+  - header: "MEASure[:SCALar]:CURRent[:DC]"
+    op: ch.read.measure
+    set: false
+    args: {what: current}
+    params: [{name: channels, type: channel_list}]
+  # ---- 保护 ----
+  - header: "[:SOURce]:VOLTage:PROTection[:LOCal][:LEVel]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.ovp"}
+      - {name: channels, type: channel_list}
+  - header: "[:SOURce]:CURRent:PROTection:STATe"
+    params:
+      - {name: state, type: bool, state: "ch.ocp_enabled"}
+      - {name: channels, type: channel_list}
+  - header: "[:SOURce]:CURRent:PROTection:DELay[:TIME]"
+    params:
+      - {name: delay, type: float, unit: S, state: "ch.ocp_delay"}
+      - {name: channels, type: channel_list}
+  - header: "OUTPut:PROTection:DELay"
+    params:
+      - {name: delay, type: float, unit: S, state: "ch.ocp_delay"}
+      - {name: channels, type: channel_list}
+    doc: 与 CURRent:PROTection:DELay 相同（手册）。
+  - header: "[:SOURce]:CURRent:PROTection:DELay:STARt"
+    params:
+      - {name: start, type: enum, options: [SCHange, CCTRans], state: "ch.ocp_start"}
+      - {name: channels, type: channel_list}
+  - header: "OUTPut:PROTection:CLEar"
+    op: ch.prot.clear
+    query: false
+    params: [{name: channels, type: channel_list}]
+  - header: "[:SOURce]:VOLTage:SENSe:SOURce"
+    params:
+      - {name: sense, type: enum, options: [INTernal, EXTernal], state: "ch.sense"}
+      - {name: channels, type: channel_list}
+  # ---- 系统 ----
+  - header: "SYSTem:CHANnel[:COUNt]"
+    state: system.channels
+    set: false
+    format: {integer: plain}
+  - header: "SYSTem:CHANnel:MODel"
+    params:
+      - {name: model, type: enum, options: [N6762A, N6752A], state: "ch.module"}
+      - {name: channels, type: channel_list}
+    set: false
+    format: {enum: as_defined}
+  - header: "SYSTem:CHANnel:OPTion"
+    params:
+      - {name: option, type: string, state: "ch.option"}
+      - {name: channels, type: channel_list}
+    set: false
+  - header: "SYSTem:VERSion"
+    state: system.scpi_version
+    set: false
+    format: {number: nr2, digits: 1, sign: false}
+  - header: "DISPlay[:WINDow][:STATe]"
+    state: display.enabled
+  - header: "DISPlay[:WINDow]:VIEW"
+    state: display.view

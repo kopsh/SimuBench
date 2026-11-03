@@ -1,0 +1,36 @@
+schema: simubench.bench/2
+name: keysight_n6705c_modules
+description: >-
+  Keysight N6705C 直流电源分析仪（插槽 1、2 为 N6762A 精密模块，3、4 为 N6752A 自动量程模块）：
+  通道 1 接 10 Ω，通道 3 接 1 Ω（电流设定低于 V/R 时进入恒流）。示例脚本
+  examples/scripts/keysight_n6705c_check.py 按 N6700 的通道列表写法设定、开输出、测量并检查过流保护，
+  在真机和 SimuBench 上都不改一行。
+instruments:
+  psu:
+    model: keysight-n6705c
+    label: 直流电源分析仪
+    address: "TCPIP0::192.168.1.40::INSTR"
+parts:
+  r1:
+    type: resistor
+    dut: true
+    label: 通道 1 负载
+    params: {r: 10.0}
+  r3:
+    type: resistor
+    dut: true
+    label: 通道 3 负载
+    params: {r: 1.0}
+wires:
+  - {from: psu.OUT1+, to: r1.A}
+  - {from: r1.B, to: psu.OUT1-}
+  - {from: psu.OUT3+, to: r3.A}
+  - {from: r3.B, to: psu.OUT3-}
+run:
+  seed: 7
+  clock: command
+  idle: "off"
+layout:
+  psu: {x: 0, y: 80}
+  r1: {x: 440, y: 40}
+  r3: {x: 440, y: 200}
