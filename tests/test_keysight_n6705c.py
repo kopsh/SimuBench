@@ -181,6 +181,27 @@ def test_status_registers_follow_the_channel(tmp_path):
         s.close()
 
 
+def test_a_bus_trigger_steps_only_the_armed_channels():
+    """#541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
+    output to its triggered level (seen on the load) and leaves channel 3 alone."""
+    parts, wires = load(1, 10.0)
+    p3, w3 = load(3, 10.0)
+    s, q = session({**parts, **p3}, wires + w3)
+    try:
+        q("VOLT 2,(@1,3);:CURR 1,(@1,3);:VOLT:TRIG 6,(@1,3);:VOLT:MODE STEP,(@1,3);:OUTP ON,(@1,3)")
+        q("*OPC?")
+        q("INIT:TRAN (@1)")
+        q("*TRG")
+        volts = [float(x) for x in q("MEAS:VOLT? (@1,3)").split(",")]
+        assert volts == pytest.approx([6.0, 2.0], abs=2e-3)
+        q("INIT:TRAN (@3);:ABOR:TRAN (@3)")
+        q("*TRG")  # nothing armed: no change, no error (the manual lists none)
+        assert float(q("MEAS:VOLT? (@3)")) == pytest.approx(2.0, abs=2e-3)
+        assert q("SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
 def test_ovp_latches_until_cleared():
     s, q = session(*load(1, 10.0))
     try:

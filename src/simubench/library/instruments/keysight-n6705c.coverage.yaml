@@ -42,8 +42,8 @@ sections:
     level: implemented
     note: 状态字节：位 2 错误队列、3 QUES 汇总、5 ESB、6 MSS、7 OPER 汇总（#539）。
   - header: '*TRG'
-    level: not_modeled
-    note: 瞬变与测量触发系统未实现（瞬变触发
+    level: implemented
+    note: 总线触发：触发源为 BUS 且已初始化的通道执行瞬变；否则不动作（#541）。
   - header: '*TST'
     level: implemented
     note: 自检通过回复 0。
@@ -65,8 +65,8 @@ sections:
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
   - header: ABORt:TRANsient
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；取消等待（*RST 也执行）。
 - section: CALibrate
   commands:
   - header: CALibrate:COUNt
@@ -259,8 +259,8 @@ sections:
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
   - header: INITiate[:IMMediate]:TRANsient
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；使瞬变系统等待触发：OPER 条件位 4 WTG-tran、6 TRAN-active；IMMediate 源立即触发（#541）。
   - header: INITiate:CONTinuous:TRANsient
     level: not_modeled
     note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
@@ -592,8 +592,8 @@ sections:
     note: 通道列表必需（省略报 -109）；0 至额定的 102 %（N6762A 3.06 A，N6752A 10.2 A），越界 -222；查询 MIN|MAX 不带通道时按通道 1 回答。是
       CV 模式的电流限值：负载要求超过它时转恒流。
   - header: '[:SOURce]:CURRent[:LEVel]:TRIGgered[:AMPLitude]'
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；触发电流（范围同即时电流，按模块）；STEP 模式下触发时写入（#541）。
   - header: '[:SOURce]:CURRent:LIMit[:POSitive][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
@@ -604,8 +604,8 @@ sections:
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
   - header: '[:SOURce]:CURRent:MODE'
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；FIXed（*RST）/ STEP；LIST、ARB 未建模（-224）（#541）。
   - header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]'
     level: implemented
     note: 通道列表必需（省略报 -109）；0–0.255 s，*RST 0.020；与 OUTPut:PROTection:DELay 同一设定。
@@ -762,8 +762,8 @@ sections:
     level: implemented
     note: 通道列表必需（省略报 -109）；0–51 V（额定 50 V 的 102 %）；负载要求超过模块额定功率（100 W）时输出按恒功率工作（#533）。
   - header: '[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]'
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；触发电平（0–51 V，*RST 0）；STEP 模式下触发时写入即时电压（#541）。
   - header: '[:SOURce]:VOLTage:BWIDth[:RANGe]'
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
@@ -786,8 +786,8 @@ sections:
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
   - header: '[:SOURce]:VOLTage:MODE'
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；FIXed（*RST）/ STEP；LIST、ARB 未建模（-224）（#541）。
   - header: '[:SOURce]:VOLTage:PROTection[:LOCal][:LEVel]'
     level: implemented
     note: 通道列表必需（省略报 -109）；0–60 V（额定的 120 %），*RST MAX；输出超过即关闭并锁存，OUTPut:PROTection:CLEar 清除。
@@ -837,7 +837,8 @@ sections:
     note: 通道列表必需；每路的 Operation 事件寄存器：条件位变为真时置位，读后清零（#539）。
   - header: STATus:OPERation:CONDition
     level: implemented
-    note: 通道列表必需；位 0 CV、1 CC、2 OFF（输出被设为关，包括保护动作关断后）；WTG/MEAS/TRAN 位无来源（触发系统未实现）。
+    note: 通道列表必需；位 0 CV、1 CC、2 OFF（输出被设为关，包括保护动作关断后）、4 WTG-tran、6 TRAN-active（#541）；WTG-meas、MEAS-active
+      无来源（测量触发系统未实现）。
   - header: STATus:OPERation:ENABle
     level: implemented
     note: 通道列表必需；使能（0–65535，*RST 0）；事件 & 使能非零时置状态字节位 7。
@@ -993,8 +994,9 @@ sections:
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
   - header: TRIGger:TRANsient[:IMMediate]
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；立即触发（不论触发源）；未初始化时不动作（手册的错误列表没有对应错误，不报错）。
   - header: TRIGger:TRANsient:SOURce
-    level: not_modeled
-    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    level: implemented
+    note: 通道列表必需；BUS（*RST）/ IMMediate（INIT 即触发）/ EXTernal（台架没有数字口，等不到外部沿，只能用 TRIG:TRAN）；PIN<n>、TRANsient<n>
+      未建模（-224）。
