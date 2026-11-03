@@ -173,7 +173,7 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 | input_filter | `lockin_input_filter` | 数据(耦合高通、工频与二次工频陷波) | 已实现 | — |
 | input_amp | `lockin_input_amp` | 数据(灵敏度满量程、动态储备(固定倍数,或 `reserve_db` 按灵敏度查表、档间对数插值,#273)、输入限幅、前端噪声密度) | 已实现 | — |
 | mixer | `lockin_mixer` | 数据(相敏检波) | 已实现 | — |
-| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT;检测频率上限 `f_max` 与超限时钳位谐波;外部参考的零相位沿 `ext_slope`,#273) | 已实现 | — |
+| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT;检测频率上限 `f_max` 与超限时钳位谐波;外部参考的零相位沿 `ext_slope`,#273;SINE_OUT 的直流电平 `dc_level`,#407) | 已实现 | — |
 | lowpass | `lockin_lowpass` | 数据(时间常数、斜率、闭式建立、329 截断检查) | 部分(SYNC 同步滤波未排期) | — |
 | output | `lockin_output` | 数据(X/Y/R 各自的偏置与扩展(R 只作用于显示)、R/θ、过载、自动增益/相位、缓冲采样与曲线的 `trace_value`;电流输入时 `unit_scale` 把读数换成 A;过载与失锁报为状态位,#273) | 已实现 | — |
 | buffer | `curve_buffer`(SR830);`trigger_model` + `reading_buffer`(sb-lia-1) | 数据(按采样率或每个触发存多条曲线(`<组件>.<量>`),开始/暂停/续采/复位,单次或循环,0 基 bin 读取:ASCII、IEEE 浮点、SR830 的 16 位格式,#273) | 已实现(GPIB 快速流式传输 FAST/STRD 不建模) | — |
