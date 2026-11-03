@@ -451,9 +451,11 @@ class Instrument:
                 return v
             if spec.ladder is not None:
                 v = snap_ladder(v, spec.ladder, spec.min, spec.max)
-            if math.isnan(v) or (spec.min is not None and v < spec.min * (1 - 1e-12) - 1e-300):
+            # The relative tolerance widens the range on both signs (#407: a minimum of -5 V must
+            # accept -5; min * (1 - 1e-12) would move a negative bound inwards).
+            if math.isnan(v) or (spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300):
                 raise ScpiError(-222)
-            if spec.max is not None and v > spec.max * (1 + 1e-12) + 1e-300:
+            if spec.max is not None and v > spec.max + abs(spec.max) * 1e-12 + 1e-300:
                 raise ScpiError(-222)
             return round(v) if spec.type == "int" else v
         if spec.type == "enum":
@@ -850,6 +852,21 @@ class Instrument:
 
     # ---- the instrument's channel numbers (#207, D51) -------------------------------------------
 
+    def limits(self, path: str) -> tuple[float | None, float | None]:
+        """A setting's (min, max) now: the declared ones, narrowed by any component watching it
+        (:meth:`Component.state_limits`, #437)."""
+        st = self.specs[path]
+        lo, hi = st.min, st.max
+        for comp in self._watchers.get(path, ()):
+            narrowed = comp.state_limits(path)
+            if narrowed is None:
+                continue
+            if narrowed[0] is not None:
+                lo = narrowed[0] if lo is None else max(lo, narrowed[0])
+            if narrowed[1] is not None:
+                hi = narrowed[1] if hi is None else min(hi, narrowed[1])
+        return lo, hi
+
     def channel_number(self, channel: int) -> int:
         """The channel's number on the bus: 101 for a DAQ's first channel, else its index."""
         return self._numbers_by_channel.get(channel, channel)
@@ -904,6 +921,9 @@ class Instrument:
             elif "ch" in caps:
                 channel = 1  # no suffix written: the first channel
             suffixes = {k: (1 if v is None else v) for k, v in caps.items()}
+            for name, allowed in (compiled.spec.suffixes or {}).items():
+                if suffixes.get(name, 1) not in allowed:
+                    raise ScpiError(-114, f"{unit.raw_header}: suffix {suffixes.get(name)} is not {allowed}")
             if "ch" in caps and caps["ch"] is None:
                 suffixes["ch"] = self.channel_number(1)  # the default channel's own number
             return self._run(compiled, unit, channel, suffixes)
@@ -1025,13 +1045,8 @@ class Instrument:
                     "DEF",
                     "DEFAULT",
                 ):
-                    v = (
-                        st.min
-                        if which.startswith("MIN")
-                        else st.max
-                        if which.startswith("MAX")
-                        else st.default
-                    )
+                    lo, hi = self.limits(path)
+                    v = lo if which.startswith("MIN") else hi if which.startswith("MAX") else st.default
                     return self._format(st, v * spec.factor if v is not None else v, spec.format)
                 raise ScpiError(-108)
             value = self.state[path]
@@ -1057,9 +1072,9 @@ class Instrument:
                     st.special or {}
                 )
                 v = V.parse_float(unit.params[0], st.unit)
-                value = self._parse_state(st, unit.params[0]) if keyword else v / spec.factor
+                value = self._parse_state(st, unit.params[0], path) if keyword else v / spec.factor
             else:
-                value = self._parse_state(st, unit.params[0])
+                value = self._parse_state(st, unit.params[0], path)
             self.set_state(path, value)
         except ScpiError as e:
             raise self._bad_parameter(e, path, st) from e
@@ -1130,7 +1145,7 @@ class Instrument:
                         new[self._resolve(at(ref), channel)] = constant
                     continue
                 try:
-                    value = self._parse_state(self.specs[path], token)
+                    value = self._parse_state(self.specs[path], token, path)
                 except ScpiError as e:
                     raise self._bad_parameter(e, path, self.specs[path]) from e
                 # `sets` goes with an explicit value (a number, MIN, MAX): a special word of the
@@ -1156,7 +1171,7 @@ class Instrument:
                 ref = keys[name]
                 if ref is not None:
                     path = self._resolve(at(ref), channel)
-                    new[path] = self._parse_state(self.specs[path], value_raw)
+                    new[path] = self._parse_state(self.specs[path], value_raw, path)
         if raw:
             raise ScpiError(-108)
         checked: dict[str, Any] = {}
@@ -1277,7 +1292,7 @@ class Instrument:
         for path, r in writes.items():
             st = self.specs[path]
             try:
-                checked[path] = self._validate(st, self._parse_state(st, r))
+                checked[path] = self._validate(st, self._parse_state(st, r, path))
             except ScpiError as e:
                 raise self._bad_parameter(e, path, st) from e
         for path, v in checked.items():
@@ -1364,7 +1379,7 @@ class Instrument:
 
     def parse_setting(self, path: str, raw: bytes) -> Any:
         """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
-        return self._parse_state(self.specs[path], raw)
+        return self._parse_state(self.specs[path], raw, path)
 
     def format_setting(self, path: str) -> bytes:
         """The setting at ``path`` as the definition formats replies."""
@@ -1458,7 +1473,7 @@ class Instrument:
             if V.matches_word(word, declared):
                 raise ScpiError(-224, f"{declared}: {reason}; {NOT_MODELED}")
 
-    def _parse_state(self, st: StateSpec, raw: bytes) -> Any:
+    def _parse_state(self, st: StateSpec, raw: bytes, path: str | None = None) -> Any:
         self._refuse_not_modeled(st.not_modeled, raw)
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
@@ -1467,7 +1482,8 @@ class Instrument:
             multipliers = self.definition.dialect.multipliers
             v = V.parse_multiplied(raw, multipliers) if multipliers and st.unit is None else None
             if v is None:
-                v = V.parse_float(raw, st.unit, st.min, st.max, st.default)
+                lo, hi = self.limits(path) if path is not None else (st.min, st.max)
+                v = V.parse_float(raw, st.unit, lo, hi, st.default)
             return v
         if st.type == "bool":
             return V.parse_bool(raw)
@@ -1562,7 +1578,7 @@ class Instrument:
                                 bound[ref_path] = self._validate(self.specs[ref_path], constant)
                             continue
                         st = self.specs[path]
-                        bound[path] = self._validate(st, self._parse_state(st, value))
+                        bound[path] = self._validate(st, self._parse_state(st, value, path))
                         continue
                     bound[path] = self._validate(self.specs[path], value)
                     for ref, constant in (ps.sets or {}).items():

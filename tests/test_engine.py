@@ -138,3 +138,18 @@ def test_uniform_sampling_takes_the_matrix_path_and_agrees_with_the_direct_sum()
         axis=1
     )
     assert np.max(np.abs(fast[:500] - direct)) < 1e-10
+
+
+def test_a_negative_range_bound_is_inclusive():
+    """#407: the range check's tolerance widens a negative minimum too (-5 V accepts -5 V)."""
+    from simubench.engine.instrument import Instrument
+    from simubench.models.definition import StateSpec
+    from simubench.scpi.errors import ScpiError
+
+    spec = StateSpec(type="float", min=-5.0, max=-1.0, default=-2.0)
+    validate = Instrument._validate
+    assert validate(None, spec, -5.0) == -5.0
+    assert validate(None, spec, -1.0) == -1.0
+    for outside in (-5.0001, -0.9999):
+        with pytest.raises(ScpiError):
+            validate(None, spec, outside)

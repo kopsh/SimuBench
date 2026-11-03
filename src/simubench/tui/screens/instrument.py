@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -50,7 +51,9 @@ class ControlButton(Static):
     can_focus = True
 
     def __init__(self, control: C.Control, box_id: str) -> None:
-        super().__init__(f"[{control.label}]")
+        # A Text, not a bare string: the brackets would parse as console markup and an ASCII
+        # label (`[Output]`, `[OFF]`) renders as nothing (5.2; found via #454).
+        super().__init__(Text(f"[{control.label}]"))
         self.control = control
         self.box_id = box_id  # where this button's write errors flash (5.3)
 
@@ -1091,7 +1094,9 @@ class InstrumentScreen(ShellScreen):
     # -- the log (5.1 #5) ------------------------------------------------------------------------------------
 
     def _log_rows(self) -> int:
-        return max(4, min(6, self.app.size.height - 26))
+        # 3 at the minimum size (80 × 24): the embedded log scrolls to its end, while the channel
+        # area above it must keep a visible row — at 4 the main row collapses to its borders (#454).
+        return max(3, min(6, self.app.size.height - 26))
 
     def _refresh_log(self) -> None:
         app: Any = self.app
@@ -1185,6 +1190,7 @@ class InstrumentScreen(ShellScreen):
             return
         target.update(text)
         target.display = True
+        target.scroll_visible(animate=False)  # the button row may sit below the fold (5.1 #2)
 
         def clear() -> None:
             target.display = False

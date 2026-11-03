@@ -284,14 +284,28 @@ def ramp(freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: 
 
 
 def pulse_train(
-    freq: float, peak: float, duty: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0
+    freq: float,
+    peak: float,
+    duty: float,
+    f_max: float,
+    phase_rad: float = 0.0,
+    t0_ns: int = 0,
+    lead_s: float = 0.0,
+    trail_s: float = 0.0,
 ) -> Signal:
     """Rectangular wave at ``duty`` (0..1): +peak for duty * T from the rising edge at phase 0, else
-    -peak. Its mean is peak * (2 duty - 1); harmonics up to ``f_max``. Duty 0.5 is :func:`square`."""
+    -peak. Its mean is peak * (2 duty - 1); harmonics up to ``f_max``. Duty 0.5 is :func:`square`.
+
+    ``lead_s`` / ``trail_s`` (#437): linear edges with that 10–90 % time, centred on the ideal
+    edge (the duty is measured between the 50 % points): each edge is the step convolved with a box
+    of the 0–100 % time t / 0.8, so its harmonics are multiplied by sinc(n f t / 0.8)."""
     n, notes = _harmonics(freq, f_max, 1, "pulse train")
     x = 2 * np.pi * n * duty
-    # f = P(2d-1) + sum 2P/(n pi) [sin(x) cos(n w t) + (1 - cos x) sin(n w t)]; a_n = c_n - j s_n.
-    a = (2 * peak / (np.pi * n)) * (np.sin(x) - 1j * (1 - np.cos(x))) * np.exp(1j * n * phase_rad)
+    # f = P(2d-1) + sum 2P/(n pi) [sin(x) cos(n w t) + (1 - cos x) sin(n w t)]; a_n = c_n - j s_n,
+    # that is (2P / (j pi n)) (rise - e^{-jx} fall): the rising edge minus the falling one.
+    rise = np.sinc(n * freq * lead_s / 0.8) if lead_s > 0 else 1.0
+    fall = np.sinc(n * freq * trail_s / 0.8) if trail_s > 0 else 1.0
+    a = (2 * peak / (1j * np.pi * n)) * (rise - np.exp(-1j * x) * fall) * np.exp(1j * n * phase_rad)
     keep = np.abs(a) > 1e-15 * peak
     return Signal.lines(n[keep] * freq, a[keep], t0_ns=t0_ns, notes=notes) + Signal.constant(
         peak * (2 * duty - 1)

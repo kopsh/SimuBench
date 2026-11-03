@@ -38,7 +38,7 @@
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | reference | `reference_clock` | 数据(基准偏差) | 已实现 | siglent-sdg2042x 无(例外清单) |
-| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
+| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现(按波形的最高频率 `max_frequency`:FREQ? MAX 随波形、超限置为上限;脉冲的线性边沿 `lead_time`/`trail_time` 与 `pulse_width`/`pulse_period`/`pulse_edges` 操作,#437) | 按幅度分档的频率上限未建模 |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430) | siglent-sdg2042x 无(例外清单) |
@@ -82,10 +82,10 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| source_dac | `smu_source` | 设置/数据(源功能、电平、源量程) | 已实现 | — |
+| source_dac | `smu_source` | 设置/数据(源功能、电平、源量程) | 已实现(扫描:线性/对数/列表、电压或电流,B2900 的 FIXed/SWEep 词、`sweep_spacing`/`sweep_direction`/`sweep_stair`、按功能的起止与列表 `list_voltage/current` 与 `list`/`list_append`/`list_points` 操作,#398) | 扫描量程模式(SWEep:RANGing)只保存 |
 | control_loop | `output_control_loop` | 电路(V/I 环与限值切换,D34;B2 复用) | 已实现 | — |
 | output_stage | `smu_output` | 电路(HI/LO、sense、浮地、输出继电器;逐点更新模式) | 已实现 | — |
-| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252) | 按功能分开的测量设置未建模(见下) |
+| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252;测量功能使能 `measure_voltage/current/resistance` 与 `function_on/off/all/count/state` 操作,B2900 的 `:SENS:FUNC[:ON]/OFF`,#397,未使能的功能仍出读数) | 按功能分开的测量设置未建模(见下) |
 | trigger | `trigger_model` | 数据 | 已实现(单层;多通道时每通道一个,`*TRG` 触发全部在等总线触发的通道,#382) | ARM 层未建模(B2901A 覆盖表) |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 
@@ -173,7 +173,7 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 | input_filter | `lockin_input_filter` | 数据(耦合高通、工频与二次工频陷波) | 已实现 | — |
 | input_amp | `lockin_input_amp` | 数据(灵敏度满量程、动态储备(固定倍数,或 `reserve_db` 按灵敏度查表、档间对数插值,#273)、输入限幅、前端噪声密度) | 已实现 | — |
 | mixer | `lockin_mixer` | 数据(相敏检波) | 已实现 | — |
-| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT;检测频率上限 `f_max` 与超限时钳位谐波;外部参考的零相位沿 `ext_slope`,#273) | 已实现 | — |
+| reference | `lockin_reference` | 数据(PLL、移相、内部/外部参考、SINE_OUT;检测频率上限 `f_max` 与超限时钳位谐波;外部参考的零相位沿 `ext_slope`,#273;SINE_OUT 的直流电平 `dc_level`,#407) | 已实现 | — |
 | lowpass | `lockin_lowpass` | 数据(时间常数、斜率、闭式建立、329 截断检查) | 部分(SYNC 同步滤波未排期) | — |
 | output | `lockin_output` | 数据(X/Y/R 各自的偏置与扩展(R 只作用于显示)、R/θ、过载、自动增益/相位、缓冲采样与曲线的 `trace_value`;电流输入时 `unit_scale` 把读数换成 A;过载与失锁报为状态位,#273) | 已实现 | — |
 | buffer | `curve_buffer`(SR830);`trigger_model` + `reading_buffer`(sb-lia-1) | 数据(按采样率或每个触发存多条曲线(`<组件>.<量>`),开始/暂停/续采/复位,单次或循环,0 基 bin 读取:ASCII、IEEE 浮点、SR830 的 16 位格式,#273) | 已实现(GPIB 快速流式传输 FAST/STRD 不建模) | — |
@@ -181,7 +181,7 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 
 数据捕获(SR86x 的 CAPTURE*,#333):`curve_buffer` 增加操作 `sample`(某一 bin 上全部记录的曲线,未写到的 bin 读 0)、`bytes`、`progress`(按块向上取整的 kB)、`capture_state`(进行中/已开始/已绕回三位)、`rate`(实际采样率 Hz)、`get`(按 kB 取交织的单精度小端块,须停止后读),`start` 可带 `fresh`(先清空再开始)。
 
-读数参数表(#383,SR86x 的 OUTP?/SNAP?/SNAPD?):`lockin_output.readings` 由定义给出,第 k 项即序号 k,`{word, source}`;`source` 是本块的 X/Y/R/THETA/XNOISE/YNOISE、`$设置` 或 `<组件>.<量>`(另一块的 `trace_value`:AUX 输入、`lockin_reference` 的 FREQUENCY/DETECT)。操作 `readout` 按序号或词(大写短形式或全写)取 `minimum`–`maximum` 项,在同一时刻求值、按请求顺序逗号拼接;操作参数的列表项可以是 `$设置`(SNAPD? 读四个数据通道的指派)。配套:响应格式 `general`(C `%g`)、角度参数的弧度后缀(`RAD`/`MRAD`/`URAD` 换算为度)。
+读数参数表(#383,SR86x 的 OUTP?/SNAP?/SNAPD?):`lockin_output.readings` 由定义给出,第 k 项即序号 k,`{word, source}`;`source` 是本块的 X/Y/R/THETA/XNOISE/YNOISE、`$设置` 或 `<组件>.<量>`(另一块的 `trace_value`:AUX 输入、`lockin_reference` 的 FREQUENCY/DETECT)。操作 `readout` 按序号或词(大写短形式或全写)取 `minimum`–`maximum` 项,在同一时刻求值、按请求顺序逗号拼接;操作参数的列表项可以是 `$设置`(SNAPD? 读四个数据通道的指派)。数据通道的指派与读取(#401):`CDSP j,p` 是带索引参数(`index_words` DAT1–DAT4、`index_numbers`)的设置命令,写 `display.dat{ch}`;`OUTR? j` 写成每个 j 一条带 `when` 的 `readout` 命令(`names: [$display.datN]`,词 DATn 与序号各一条),不在表内的 j 无匹配而记执行错误(EXE)。已知偏差:XNOise 与 YNOise 读同一个前端噪声密度估计(模型不分别估计 X、Y 两路的噪声)。配套:响应格式 `general`(C `%g`)、角度参数的弧度后缀(`RAD`/`MRAD`/`URAD` 换算为度)。
 
 D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migration.py`)与锁相验收场景不改通过。新增能力:输入配置(耦合、陷波、动态储备)、X/Y 偏置与扩展、数据缓冲(SRAT/TRCA 经通用的触发模型与读数缓冲)、AUX 电路端口。
 

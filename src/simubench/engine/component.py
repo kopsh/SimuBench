@@ -346,6 +346,12 @@ class Component:
         """Called after a bound state variable changed; raise ScpiError to refuse the change, or
         return the value to keep instead (e.g. the nearest legal one). None keeps ``new``."""
 
+    def state_limits(self, path: str) -> tuple[float | None, float | None] | None:
+        """Limits narrower than the setting's declared ones, now (#437: a function generator's
+        maximum frequency depends on the waveform): (min, max), either None for the declared
+        one; None when this component has no say. ``MIN``/``MAX`` queries and keywords use them."""
+        return None
+
     def reset(self) -> None:
         """Return runtime state to power-on (``*RST``)."""
 

@@ -614,10 +614,7 @@ def _check_params(
                     spec.name,
                 )
             else:
-                table = (mapping or {}).get("map") or {}
-                for option in st.options or []:
-                    word = table.get(option, (mapping or {}).get("default", option))
-                    _check_choice(str(word), words, pp, f"{spec.type}.{key}", spec.name, report)
+                _check_enum_words(d, st, mapping, words, channel, pp, f"{spec.type}.{key}", spec.name, report)
         if st is not None and mapping and mapping.get("map"):
             _check_map_keys(st, mapping["map"], (*p, "params", key, "map"), spec.name, report)
             continue  # the table decides the parameter's type
@@ -631,6 +628,35 @@ def _check_params(
                 f"绑定一个{_kind(default)}状态",
                 spec.name,
             )
+
+
+def _check_enum_words(
+    d: InstrumentDefinition,
+    st: Any,
+    mapping: dict[str, Any] | None,
+    words: tuple[str, ...],
+    channel: bool,
+    pointer: str,
+    what: str,
+    subject: str,
+    report: Report,
+) -> None:
+    """Every option of an enum setting, through the mapping, must give a word the parameter knows.
+    A mapped value that is itself a mapping of another setting (resolved at run time, e.g. the
+    SMA100B's sweep step mode taken from the frequency or the level sweep's, #335) is checked the
+    same way against that setting's options."""
+    table = (mapping or {}).get("map") or {}
+    for option in st.options or []:
+        word = table.get(option, (mapping or {}).get("default", option))
+        if isinstance(word, dict) and isinstance(word.get("from"), str):
+            ref = binding_of(word)
+            inner = _check_state_ref(d, ref, channel, pointer, subject, report) if ref else None
+            if inner is not None and inner.type == "enum":
+                _check_enum_words(d, inner, word, words, channel, pointer, what, subject, report)
+            continue
+        if isinstance(word, str) and word.startswith("$"):
+            continue  # another setting's value, resolved at run time
+        _check_choice(str(word), words, pointer, what, subject, report)
 
 
 def _int_range_mapped(st: Any, mapping: dict[str, Any] | None) -> bool:

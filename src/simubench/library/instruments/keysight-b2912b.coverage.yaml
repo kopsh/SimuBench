@@ -594,26 +594,26 @@ sections:
     level: not_modeled
     note: 数据缓冲读取命令未实现（用 FETCh/TRACe）。
   - header: :SENSe<ch>:FUNCtion:OFF
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 每通道关闭所列功能（"CURR"/"VOLT"/"RES"，可写长格式与 :DC）；查询回已关闭的功能，无则 ""（p.246，#397）。
   - header: :SENSe<ch>:FUNCtion:OFF:ALL
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 关闭全部测量功能（p.246，#397）。
   - header: :SENSe<ch>:FUNCtion:OFF:COUNt
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 回已关闭的功能个数（p.247，#397）。
   - header: :SENSe<ch>:FUNCtion[:ON]
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 每通道使能所列功能，其余不变；查询回已使能的功能（如 "VOLT","CURR"）；*RST 为 "VOLT","CURR"（p.247，#397）。未建模：未使能的功能在 FETCh/READ/TRACe 的元素中仍返回读数（真机返回 9.91E37，p.246 SENSe:DATA:LATest 一节）。
   - header: :SENSe<ch>:FUNCtion[:ON]:ALL
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 使能全部测量功能（p.247，#397）。
   - header: :SENSe<ch>:FUNCtion[:ON]:COUNt
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 回已使能的功能个数（p.248，#397）。
   - header: :SENSe<ch>:FUNCtion:STATe
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 回 1/0：所给功能是否使能（p.248，#397）。
   - header: :SENSe<ch>:REMote
     level: implemented
     note: 四线远端检测；改变检测点。
@@ -662,14 +662,14 @@ sections:
   - header: '[:SOURce<ch>]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
   - header: '[:SOURce<ch>]:CURRent:MODE'
-    level: not_modeled
-    note: 电流扫描未实现。
+    level: implemented
+    note: FIXed / SWEep / LIST（p.256，#398）；源功能为电流（FUNC:MODE CURR）时决定扫描形式。
   - header: '[:SOURce<ch>]:VOLTage:MODE'
     level: implemented
-    note: FIXed（直流）或 SWEep（线性阶梯扫描）。
+    note: FIXed（直流）/ SWEep（按 SWEep:SPACing 线性或对数阶梯）/ LIST（LIST:VOLT 的数据）（p.256，#398）。
   - header: '[:SOURce<ch>]:CURRent:POINts'
-    level: not_modeled
-    note: 电流扫描未实现。
+    level: implemented
+    note: 扫描点数，与 :VOLTage:POINts、:SWEep:POINts 同一设置（p.256，#398）。
   - header: '[:SOURce<ch>]:VOLTage:POINts'
     level: implemented
     note: 扫描点数（1–2500）。
@@ -694,11 +694,11 @@ sections:
   - header: '[:SOURce<ch>]:VOLTage:RANGe:RPRiority'
     level: not_modeled
   - header: '[:SOURce<ch>]:CURRent:STARt'
-    level: not_modeled
-    note: 电流扫描未实现。
+    level: implemented
+    note: 电流扫描起始电平（±3.03 A，p.260，#398）。
   - header: '[:SOURce<ch>]:CURRent:STOP'
-    level: not_modeled
-    note: 电流扫描未实现。
+    level: implemented
+    note: 电流扫描终止电平（±3.03 A，p.260，#398）。
   - header: '[:SOURce<ch>]:VOLTage:STARt'
     level: implemented
     note: 扫描起始电平。
@@ -745,21 +745,29 @@ sections:
     level: not_modeled
     note: 连续触发输出未实现。
   - header: '[:SOURce<ch>]:LIST:CURRent'
-    level: not_modeled
+    level: implemented
+    note: 列表扫描的数据（逗号分隔，查询按读数格式 NR3 逐项回），*RST 为 0（p.268，#398）。
   - header: '[:SOURce<ch>]:LIST:VOLTage'
-    level: not_modeled
+    level: implemented
+    note: 列表扫描的数据（逗号分隔，查询按读数格式 NR3 逐项回），*RST 为 0（p.268，#398）。
   - header: '[:SOURce<ch>]:LIST:CURRent:APPend'
-    level: not_modeled
+    level: implemented
+    note: 把数据追加到列表末尾（p.269，#398）。
   - header: '[:SOURce<ch>]:LIST:VOLTage:APPend'
-    level: not_modeled
+    level: implemented
+    note: 把数据追加到列表末尾（p.269，#398）。
   - header: '[:SOURce<ch>]:LIST:CURRent:POINts'
-    level: not_modeled
+    level: implemented
+    note: 列表中的数据个数（p.269，#398）。
   - header: '[:SOURce<ch>]:LIST:VOLTage:POINts'
-    level: not_modeled
+    level: implemented
+    note: 列表中的数据个数（p.269，#398）。
   - header: '[:SOURce<ch>]:LIST:CURRent:STARt'
-    level: not_modeled
+    level: implemented
+    note: 列表扫描从第几个数据开始（1 起，*RST 1，p.270，#398）。
   - header: '[:SOURce<ch>]:LIST:VOLTage:STARt'
-    level: not_modeled
+    level: implemented
+    note: 列表扫描从第几个数据开始（1 起，*RST 1，p.270，#398）。
   - header: '[:SOURce<ch>]:PULSe:DELay'
     level: not_modeled
     note: 脉冲输出未实现（只做直流）。
@@ -767,20 +775,21 @@ sections:
     level: not_modeled
     note: 脉冲输出未实现（只做直流）。
   - header: '[:SOURce<ch>]:SWEep:DIRection'
-    level: not_modeled
-    note: 扫描方向未实现（只从起始扫到终止）。
+    level: implemented
+    note: UP（起始→终止，*RST）/ DOWN（终止→起始）（p.271，#398）；只作用于 SWEep，不改列表。
   - header: '[:SOURce<ch>]:SWEep:POINts'
     level: implemented
     note: 扫描点数（与 :VOLTage:POINts 同一设置）。
   - header: '[:SOURce<ch>]:SWEep:RANGing'
-    level: not_modeled
-    note: 扫描量程模式未实现（按自动量程跟随）。
+    level: accepted
+    note: BEST / FIXed / AUTO 只保存回读（p.273，#398）；扫描中源量程仍按源自动量程设置跟随每一点。
+    affects_data: false
   - header: '[:SOURce<ch>]:SWEep:SPACing'
-    level: not_modeled
-    note: 对数扫描未实现（只做线性）。
+    level: implemented
+    note: LINear（*RST）/ LOGarithmic（p.274，#398）；对数扫描的起止须同号且非零，否则启动时 -221。
   - header: '[:SOURce<ch>]:SWEep:STAir'
-    level: not_modeled
-    note: 单次/双向扫描未实现（只做单次）。
+    level: implemented
+    note: SINGle（*RST）/ DOUBle：双向扫描起始→终止→起始，点数加倍、终止点测两次（p.274，#398；终止点是否重复手册未写，模型重复）。
   - header: '[:SOURce<ch>]:TOUTput:SIGNal'
     level: not_modeled
     note: 触发输出端口未实现。

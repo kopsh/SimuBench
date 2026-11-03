@@ -158,3 +158,37 @@ def test_reset_and_clear_return_to_the_default_arb(awg):
     assert q(awg, "SYST:ERR?") == '+0,"No error"'
     assert q(awg, "FUNC:ARB?") == '""'
     assert q(awg, "DATA:VOL:CAT?") == '""'
+
+
+def test_the_pulse_edge_times_shape_the_output():
+    """#437: FUNC:PULS:TRAN:LEAD/TRA set the 10-90 % times of the pulse's edges, and FUNC:PULS:WIDT
+    sets the width between the 50 % points (the duty follows: width x frequency)."""
+    s = open_bench(BENCH, idle="off")
+    try:
+        w(s, ":FUNC PULS;:FREQ 1e5;:VOLT 2;:OUTP:LOAD INF")
+        w(s, ":FUNC:PULS:WIDT 4e-6;:FUNC:PULS:TRAN:LEAD 1e-7;:FUNC:PULS:TRAN:TRA 2e-7")
+        assert float(q(s, ":FUNC:PULS:DCYC?")) == pytest.approx(40.0)
+        sig = wave(s)
+        levels = sig.sample(np.array([2e-6, 7e-6]) * 1e9)  # the flat top and the flat bottom
+        hi, lo = float(levels[0]), float(levels[1])
+        span = hi - lo
+
+        def window(start, stop):
+            t = np.linspace(start, stop, 801)  # 1 ns steps
+            return t, sig.sample(t * 1e9)
+
+        def crossing(level, rising, tv):
+            t, v = tv
+            above = v >= level
+            idx = np.nonzero(above[1:] & ~above[:-1] if rising else ~above[1:] & above[:-1])[0]
+            return t[idx[0]]
+
+        up, down = window(-4e-7, 4e-7), window(3.6e-6, 4.4e-6)  # around the two edges
+        rise = crossing(lo + 0.9 * span, True, up) - crossing(lo + 0.1 * span, True, up)
+        fall = crossing(lo + 0.1 * span, False, down) - crossing(lo + 0.9 * span, False, down)
+        width = crossing(lo + 0.5 * span, False, down) - crossing(lo + 0.5 * span, True, up)
+        assert rise == pytest.approx(1e-7, rel=0.1)
+        assert fall == pytest.approx(2e-7, rel=0.1)
+        assert width == pytest.approx(4e-6, rel=0.01)
+    finally:
+        s.close()

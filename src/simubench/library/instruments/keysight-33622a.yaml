@@ -92,7 +92,7 @@ errors:
   786: "Specified arb waveform already exists"
 specs:
   source: 第 1 章 Models and Options（最高频率表）、APPLy 子系统（幅度/偏置/采样率范围）、Factory Reset State
-  frequency_hz: "正弦 1 µHz–120 MHz（10 Vpp 以下到 60 MHz、4 Vpp 以下到 120 MHz，按幅度的上限未建模）；方波/脉冲到 100 MHz；三角/斜波 800 kHz（未单独限制）"
+  frequency_hz: "正弦 1 µHz–120 MHz（10 Vpp 以下到 60 MHz、4 Vpp 以下到 120 MHz，按幅度的上限未建模）；方波/脉冲到 100 MHz；三角/斜波 800 kHz（按波形限制，#437）"
   amplitude: "1 mVpp–10 Vpp（50 Ω），2 mVpp–20 Vpp（开路）"
   offset: "±5 V（50 Ω）、±10 V（开路）；|偏置| + Vpp/2 的峰值限制未建模"
   arb: "易失存储每通道按名装载，8 点起；采样率 1 µSa/s–1 GSa/s；*RST 40 kSa/s"
@@ -129,6 +129,9 @@ channel_state:
   polarity: {type: enum, options: [NORMal, INVerted], default: NORMal, label: 极性, label_en: Polarity}
   sq_duty: {type: float, min: 0.01, max: 99.99, default: 50.0, display_unit: "%", label: 方波占空比, label_en: Square duty cycle}
   pulse_duty: {type: float, min: 0.01, max: 99.99, default: 10.0, display_unit: "%", label: 脉冲占空比, label_en: Pulse duty cycle}
+  # 脉冲边沿时间（10–90 %）：33600 系列 2.9 ns（4 Vpp 以下）至 1 µs，默认 10 ns（Edge Times，#437）。
+  pulse_lead: {type: float, unit: S, min: 2.9e-9, max: 1.0e-6, default: 1.0e-8, label: 脉冲前沿时间, label_en: Pulse leading edge}
+  pulse_trail: {type: float, unit: S, min: 2.9e-9, max: 1.0e-6, default: 1.0e-8, label: 脉冲后沿时间, label_en: Pulse trailing edge}
   ramp_symm: {type: float, min: 0.0, max: 100.0, default: 100.0, display_unit: "%", label: 斜波对称度, label_en: Ramp symmetry}
   srate: {type: float, unit: HZ, min: 1.0e-6, max: 1.0e9, default: 40000.0, label: 任意波采样率, label_en: Arb sample rate}
   prbs_data:
@@ -170,7 +173,11 @@ channel_components:
       duty: {from: $ch.function, map: {SQUare: $ch.sq_duty, PULSe: $ch.pulse_duty}, default: 50.0}
       symmetry: $ch.ramp_symm
       bandwidth: 1.2e8
-      square_max: 1.0e8
+      # 最高频率按波形（33500-90901 第 1 章 Models and Options，33622A：正弦 120 MHz（4 Vpp 以下）、
+      # 方波/脉冲 100 MHz（4 Vpp 以下）、斜波/三角 800 kHz，#437）；按幅度的分档未建模。
+      max_frequency: {SINusoid: 1.2e8, SQUare: 1.0e8, PULSe: 1.0e8, RAMP: 8.0e5, TRIangle: 8.0e5}
+      lead_time: $ch.pulse_lead
+      trail_time: $ch.pulse_trail
       arb: arb
       prbs: bits
       clock: clock
@@ -306,6 +313,21 @@ commands:
     state: ch.sq_duty
   - header: "[:SOURce<ch>]:FUNCtion:PULSe:DCYCle"
     state: ch.pulse_duty
+  # 脉冲宽度与周期（#437）：宽度 = 占空比 × 周期，写宽度即改脉冲占空比；周期即 1/频率。
+  - header: "[:SOURce<ch>]:FUNCtion:PULSe:WIDTh"
+    op: ch.synth.pulse_width
+    args: {target: ch.pulse_duty}
+    params: [{name: value, type: float, unit: S, optional: true}]
+  - header: "[:SOURce<ch>]:FUNCtion:PULSe:PERiod"
+    op: ch.synth.pulse_period
+    params: [{name: value, type: float, unit: S, optional: true}]
+  - header: "[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:LEADing"
+    state: ch.pulse_lead
+  - header: "[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:TRAiling"
+    state: ch.pulse_trail
+  - header: "[:SOURce<ch>]:FUNCtion:PULSe:TRANsition[:BOTH]"
+    op: ch.synth.pulse_edges
+    params: [{name: value, type: float, unit: S, optional: true}]
   - header: "[:SOURce<ch>]:FUNCtion:RAMP:SYMMetry"
     state: ch.ramp_symm
   - header: "[:SOURce<ch>]:FUNCtion:PRBS:BRATe"

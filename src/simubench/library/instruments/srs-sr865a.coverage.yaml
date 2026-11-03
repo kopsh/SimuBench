@@ -46,11 +46,11 @@ sections:
     level: implemented
     note: 正弦输出幅度 1 nV–2 V rms，接受 NV/UV/MV/V。Standard Settings 显示 0.00 Vrms，模型的复位值为下限 1 nV（3 位显示下同为 0.00）。
   - header: SOFF
-    level: not_modeled
-    note: 正弦输出直流电平未建模（lockin_reference 没有直流偏置）；OUTP? LEVel 恒为 0。
+    level: implemented
+    note: 正弦输出直流电平 −5…+5 V（p.109），叠加在 SINE_OUT 上（lockin_reference.dc_level，#407）；OUTP? LEVel 回读；越界置 EXE；*RST 0。舍入到 3 位/0.1 mV 未建模（保存原值）。
   - header: REFM
-    level: not_modeled
-    note: 正弦输出直流方式（共模/差分）未建模。
+    level: implemented
+    note: 直流方式 COMmon(0)/DIFference(1)（p.110）保存并回读；台架只有 SINE_OUT（+）一路，两种方式下都带 +SOFF，差分方式只影响 − 输出（未建模，#407）。
   - header: RSRC
     level: implemented
     note: 参考源 INT/EXT（0/1）；DUAL、CHOP 未建模，写这两个词报 EXE。
@@ -312,7 +312,7 @@ sections:
     note: 数据通道 j（DAT1–4 或 0–3）当前指派的参数。
   - header: OUTP
     level: implemented
-    note: 参数表（0–16，词或序号，#383）的一项：X/Y/R/θ、AUX 输入、噪声、AUX 输出、相位、正弦幅度、直流电平（恒 0）、内部/外部频率；%g 格式。XNOise/YNOise 为前端噪声密度的模型估计。
+    note: 参数表（0–16，词或序号，#383）的一项：X/Y/R/θ、AUX 输入、噪声、AUX 输出、相位、正弦幅度、直流电平（恒 0）、内部/外部频率；%g 格式。XNOise/YNOise 为前端噪声密度的模型估计，两者读同一个值（模型不分别估计 X、Y 两路的噪声；手册中为两个独立参数，已知偏差，#401）。
   - header: SNAP
     level: implemented
     note: 参数表的 2–3 项，同一时刻求值，按请求顺序逗号分隔。
