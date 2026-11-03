@@ -379,10 +379,12 @@ class HislipServer:
                 await self._await_lock(sess)
                 if sess.closing.is_set():
                     return
-                await self._engine(sess, self._write, sess.instrument, message, sess.client)
+                # Write and take its responses in one engine action (Session.exchange, #121): two
+                # calls would let another session's read take this one's response in between.
+                outs = await self._engine(sess, self._exchange, sess.instrument, message, sess.client)
                 sess.poll_srq()
                 if not sess.clearing:
-                    await self._answer(sess, parameter)
+                    await self._answer(sess, parameter, outs)
             elif msg_type == TRIGGER:
                 await self._await_lock(sess)
                 if sess.closing.is_set():
@@ -400,11 +402,10 @@ class HislipServer:
             else:
                 await sess.send_error(writer, ERR_UNRECOGNIZED_TYPE, b"unsupported message type")
 
-    async def _answer(self, sess: HislipSession, message_id: int) -> None:
-        """Take every response the program message produced and send it with its message ID."""
-        while not sess.closing.is_set() and not sess.clearing:
-            out = await self._engine(sess, self._read, sess.instrument, sess.client)
-            if out is None:
+    async def _answer(self, sess: HislipSession, message_id: int, outs: list[bytes]) -> None:
+        """Send every response the program message produced, with its message ID."""
+        for out in outs:
+            if sess.closing.is_set() or sess.clearing:
                 return
             if await self._interrupted(sess):
                 return  # the response is dropped; the queued message is processed next
@@ -529,8 +530,8 @@ class HislipServer:
     def _write(self, instrument: str, data: bytes, client: str) -> None:
         self.session.write(instrument, data, client=client)
 
-    def _read(self, instrument: str, client: str) -> bytes | None:
-        return self.session.read(instrument, client=client)
+    def _exchange(self, instrument: str, data: bytes, client: str) -> list[bytes]:
+        return self.session.exchange(instrument, data, client=client)
 
     def _clear_output(self, instrument: str, client: str) -> None:
         self.session.clear_output(instrument, client=client)
