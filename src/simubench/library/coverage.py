@@ -13,6 +13,7 @@ implemented or accepted command of the table is in the definition and has at lea
 
 from __future__ import annotations
 
+import itertools
 import os
 import re
 import time
@@ -151,6 +152,17 @@ def _norm(header: str) -> str:
     return re.sub(r"<\w*>", "<>", re.sub(r"\s+", "", header)).lstrip(":").upper()
 
 
+def _forms(header: str) -> set[str]:
+    """The spellings of a header with each optional node present or absent, compared like _norm.
+
+    Two entries that share a spelling name the same concrete command, so their levels must agree
+    (one manual documents ``[:TRACe]`` optional, another spells it out; #293). Literal suffix
+    digits stay in the spelling, so SOURce1 and SOURce2 are different commands."""
+    pieces = re.split(r"(\[[^\]]*\])", _norm(header))
+    choices = [((p[1:-1], "") if p.startswith("[") else (p,)) for p in pieces if p]
+    return {"".join(combo).lstrip(":") for combo in itertools.product(*choices)}
+
+
 def _matches(header: str, command: str) -> bool:
     """Whether a program message (one or more units) uses the command ``header``."""
     try:
@@ -175,12 +187,21 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
     defined = {_norm(c.header): c.header for c in definition.commands}
     builtin = {_norm(h) for h in (BUILTIN_HEADERS if definition.builtins is None else definition.builtins)}
     listed: dict[str, tuple[str, CoverageEntry]] = {}
+    forms: dict[str, tuple[str, CoverageEntry]] = {}
     for section, entry in coverage.entries():
         key = _norm(entry.header)
         if key in listed:
             problems.append(
                 f"{entry.header}: listed twice in the coverage table ({listed[key][0]}, {section})"
             )
+        for form in _forms(entry.header):
+            first = forms.setdefault(form, (section, entry))
+            if first[1] is not entry and first[1].level != entry.level:
+                problems.append(
+                    f"{entry.header}: {entry.level} ({section}) contradicts {first[1].header}: "
+                    f"{first[1].level} ({first[0]}); the two spellings name the same command"
+                )
+                break
         if entry.level == "accepted" and entry.affects_data is not False:
             problems.append(
                 f"{entry.header}: accepted but does not declare affects_data: false ({section}); a "
