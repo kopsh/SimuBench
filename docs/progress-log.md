@@ -1127,4 +1127,10 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `READ?`/`INIT` 与 `MEASure?` 同样落定自动量程 | ✅ `dmm_adc.sample()` 改为调用 `measure()`（其中的循环：每换一次量程按新的测试电流重解电路，直到量程不变）；此前触发模型取读数直接 `reading()`，固定量程改回自动后第一次按 1 Ω 量程的电流算出开路、选到最大量程并读出过载 |
 | 测试 | ✅ `tests/test_fluke_8588a.py::test_open_input_and_a_too_small_range_overload` 换回 `READ?` 并加 `INIT`/`FETCh?`（修复前失败）；`tests/test_keysight_34465a.py::test_read_settles_the_ohms_autorange_like_measure`（从固定量程回到自动后 `READ?`/`FETCh?`） |
 | 覆盖表 | ✅ 8588A 电阻 `RANGe:AUTO` 的说明去掉 #522 的限制 |
+## 33622A 脉冲参数越界的手册用例与回归断言（Issue 510）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `cases.yaml` 有 `PER 0` / `-1` → -222 且 `FREQ?` 不变 | ✅ 新用例「脉冲周期、宽度与边沿为 0 或负值」：`PER 0`、`PER -1` 各回 -222，`FREQ?` 仍为 1 kHz；同一用例检 `WIDT 0`、`TRAN 0` 的 -222 与原值 |
+| pytest 有 `WIDT 0`、`TRAN 0` 的 -222 与值不变 | ✅ `tests/test_keysight_33622a.py` 的脉冲 MIN/MAX/DEF 测试中加入 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
