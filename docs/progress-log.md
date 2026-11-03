@@ -1134,3 +1134,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `cases.yaml` 有 `PER 0` / `-1` → -222 且 `FREQ?` 不变 | ✅ 新用例「脉冲周期、宽度与边沿为 0 或负值」：`PER 0`、`PER -1` 各回 -222，`FREQ?` 仍为 1 kHz；同一用例检 `WIDT 0`、`TRAN 0` 的 -222 与原值 |
 | pytest 有 `WIDT 0`、`TRAN 0` 的 -222 与值不变 | ✅ `tests/test_keysight_33622a.py` 的脉冲 MIN/MAX/DEF 测试中加入 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Keysight N6705C 直流电源分析仪（Issue 339）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `keysight-n6705c.yaml`：N6705C User's Guide（N6705C-90001 Edition 3）的 Command Quick Reference，参数范围与 *RST 值按 N6700C Operating and Service Guide（N6700C-90901 Edition 2）第 5 章；`*IDN?` = `Keysight Technologies,N6705C,<serial>,<firmware>`；`simubench validate` 无诊断 |
+| 模块配置 | ✅ 插槽 1、2 为 N6762A 精密模块（50 V/3 A/100 W），3、4 为 N6752A 自动量程模块（50 V/10 A/100 W）；通道覆盖（`channels.overrides`）给出各插槽的电流范围（102 % 额定：3.06 A / 10.2 A）与 `SYSTem:CHANnel:MODel?` 的型号；电压 0–51 V、OVP 0–60 V（120 %） |
+| 实现范围 | ✅ 电压/电流设定、输出开关、`MEASure` 电压/电流（通道列表必需，多通道逗号分隔，`+n.nnnnnnE+nn`）、OVP 与锁存清除、OCP（状态、0–0.255 s 延迟、SCHange/CCTRans，#271）、远端检测、`SYSTem:CHANnel[:COUNt]/MODel/OPTion`、`SYSTem:VERSion`、显示为接受、公共命令；输出组合块固定 OFF（N6705C 没有跟踪/内部串并联） |
+| 覆盖、用例与示例 | ✅ 覆盖表 316 条：实现 27 · 接受 2 · 未实现 287；`tests/models/keysight-n6705c/cases.yaml` 6 条全部通过；示例台 `examples/benches/keysight-n6705c.bench.yaml`（通道 1 接 10 Ω、通道 3 接 1 Ω）与脚本 `examples/scripts/keysight_n6705c_check.py` 在 `tests/test_keysight_n6705c.py` 中运行；另测各插槽的电流范围、远端检测绕过引线电阻、OVP 锁存直到清除 |
+| 未实现 | ⚠️ 任意波/列表/阶跃瞬变、数据记录与直方图、测量触发系统与 FETCh 统计量、交流/峰值/数组测量、输出与测量量程（量程与电平的耦合规则无法用定义表达）、输出时序延时与耦合、STATus 寄存器组（组件不报告 OFF/OV/OC 条件位）、校准、数字口、分组等逐条标注；模块的 100 W 功率包络未限制输出（组件缺口，#533） |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

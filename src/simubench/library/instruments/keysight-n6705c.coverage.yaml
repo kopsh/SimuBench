@@ -1,0 +1,1000 @@
+# Keysight N6705C 的覆盖表：命令按 N6705C User's Guide（N6705C-90001 Ed.3）的 Command Quick Reference
+# 逐条列出（按组折叠了 ARB 波形的子命令）；参数与 *RST 值按 N6700C-90901 Ed.2；程度与说明手写。
+schema: simubench.coverage/1
+model: keysight-n6705c
+sections:
+- section: IEEE 488.2 Common Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: 清事件寄存器与错误队列。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器。
+  - header: '*IDN'
+    level: implemented
+    note: Keysight Technologies,N6705C,<serial>,<firmware>（手册 *IDN? 的四个字段）。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC? 等输出继电器闭合等待处理完后回 1。'
+  - header: '*OPT'
+    level: not_modeled
+    note: 选件串未实现。
+  - header: '*RCL'
+    level: not_modeled
+    note: 状态存储未实现。
+  - header: '*RDT'
+    level: not_modeled
+    note: 通道描述未实现（型号用 SYSTem:CHANnel:MODel?）。
+  - header: '*RST'
+    level: implemented
+    note: 按 *RST 表：电压/电流 0、输出 OFF、OVP MAX（60 V）、OCP OFF、OCP 延迟 0.020 s、SCHange、内部检测、显示 METER1。
+  - header: '*SAV'
+    level: not_modeled
+    note: 状态存储未实现。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节；OPER/QUES 汇总位无来源（STATus 寄存器组未实现）。
+  - header: '*TRG'
+    level: not_modeled
+    note: 瞬变与测量触发系统未实现。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过回复 0。
+  - header: '*WAI'
+    level: implemented
+    note: 等待全部待完成操作。
+- section: ABORt
+  commands:
+  - header: ABORt:ACQuire
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: ABORt:DLOG
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: ABORt:ELOG
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: ABORt:HISTogram
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: ABORt:TRANsient
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+- section: CALibrate
+  commands:
+  - header: CALibrate:COUNt
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:CURRent[:LEVel]
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:CURRent:LIMit:NEGative
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:CURRent:LIMit:POSitive
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:CURRent:MEASure
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:CURRent:PEAK
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:DATA
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:DATE
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:DPRog
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:LEVel
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:PASSword
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:RESistance
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: CALibrate:SAVE
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:STATe
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:VOLTage[:LEVel]
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:VOLTage:CMRR
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:VOLTage:LIMit:POSitive
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:VOLTage:MEASure
+    level: not_modeled
+    note: 校准流程未实现。
+  - header: CALibrate:VOLTage:MEASure:AUXiliary
+    level: not_modeled
+    note: 校准流程未实现。
+- section: DISPlay
+  commands:
+  - header: DISPlay[:WINDow][:STATe]
+    level: accepted
+    note: 显示开关保存并回读。
+    affects_data: false
+  - header: DISPlay[:WINDow]:VIEW
+    level: accepted
+    note: METER1 / METER4 保存并回读（*RST METER1）；METER_VIP 是 N6700C 的取值，N6705C 手册只列两种。
+    affects_data: false
+- section: FETCh
+  commands:
+  - header: FETCh[:SCALar]:CURRent[:DC]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:CURRent:ACDC
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:CURRent:HIGH
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:CURRent:LOW
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:CURRent:MAXimum
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:CURRent:MINimum
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:POWer[:DC]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:POWer:MAXimum
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:POWer:MINimum
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:VOLTage[:DC]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:VOLTage:ACDC
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:VOLTage:HIGH
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:VOLTage:LOW
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:VOLTage:MAXimum
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh[:SCALar]:VOLTage:MINimum
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh:ARRay:CURRent[:DC]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh:ARRay:POWer[:DC]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh:ARRay:VOLTage[:DC]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: FETCh:DLOG:AHOur
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:CURRent[:DC]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:CURRent:MAXimum
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:CURRent:MINimum
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:CURRent:PTPeak
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:VOLTage[:DC]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:VOLTage:MAXimum
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:VOLTage:MINimum
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:VOLTage:PTPeak
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:DLOG:WHOur
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:ELOG
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: FETCh:HISTogram:CURRent
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+- section: FORMat
+  commands:
+  - header: FORMat[:DATA]
+    level: not_modeled
+    note: 未实现。
+  - header: FORMat:BORDer
+    level: not_modeled
+    note: 未实现。
+- section: HCOPy
+  commands:
+  - header: HCOPy:SDUMp:DATA
+    level: not_modeled
+    note: 未实现。
+  - header: HCOPy:SDUMp:DATA:FORMat
+    level: not_modeled
+    note: 未实现。
+- section: INITiate
+  commands:
+  - header: INITiate[:IMMediate]:ACQuire
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: INITiate[:IMMediate]:DLOG
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: INITiate[:IMMediate]:ELOG
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: INITiate[:IMMediate]:HISTogram
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: INITiate[:IMMediate]:TRANsient
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: INITiate:CONTinuous:TRANsient
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+- section: LXI
+  commands:
+  - header: LXI:IDENtify[:STATe]
+    level: not_modeled
+    note: 未实现。
+  - header: LXI:MDNS[:STATe]
+    level: not_modeled
+    note: 未实现。
+- section: MEASure
+  commands:
+  - header: MEASure[:SCALar]:CURRent[:DC]
+    level: implemented
+    note: 通道列表必需（省略报 -109）；回读由电路求解的输出电流；多通道以逗号分隔。测量即取即回，不经测量触发系统（采样点数、积分时间未建模）。
+  - header: MEASure[:SCALar]:CURRent:ACDC
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:CURRent:HIGH
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:CURRent:LOW
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:CURRent:MAXimum
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:CURRent:MINimum
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:POWer[:DC]
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:POWer:MAXimum
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:POWer:MINimum
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:VOLTage[:DC]
+    level: implemented
+    note: 通道列表必需（省略报 -109）；回读输出端（远端检测时为 sense 端）电压；多通道以逗号分隔。
+  - header: MEASure[:SCALar]:VOLTage:ACDC
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:VOLTage:HIGH
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:VOLTage:LOW
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:VOLTage:MAXimum
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure[:SCALar]:VOLTage:MINimum
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure:ARRay:CURRent[:DC]
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure:ARRay:POWer[:DC]
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+  - header: MEASure:ARRay:VOLTage[:DC]
+    level: not_modeled
+    note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+- section: MMEMory
+  commands:
+  - header: MMEMory:ATTRibute
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: MMEMory:DATA[:DEFinite]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: MMEMory:DELete
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: MMEMory:EXPort:DLOG
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: MMEMory:LOAD:ARB:SEQuence
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: MMEMory:STORe:ARB:SEQuence
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+- section: OUTPut
+  commands:
+  - header: OUTPut[:STATe]
+    level: implemented
+    note: 通道列表必需（省略报 -109）；开/关输出；继电器 10 ms 后闭合（*OPC? 等待）。可选的 NORelay 参数未实现（报错）。
+  - header: OUTPut:COUPle:CHANnel
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:COUPle:DOFFset
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:COUPle:DOFFset:MODE
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: OUTPut:COUPle:MAX:DOFFset
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:DELay:FALL
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:DELay:RISE
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:PMODE
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: OUTPut:TMODE
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: OUTPut:INHibit:MODE
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: OUTPut:PON:STATe
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:PROTection:CLEar
+    level: implemented
+    note: 通道列表必需（省略报 -109）；清除 OVP/OCP 锁存，原因消除后输出恢复到保护前的状态。
+  - header: OUTPut:PROTection:COUPle
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:PROTection:DELay
+    level: implemented
+    note: 通道列表必需（省略报 -109）；与 CURRent:PROTection:DELay 同一设定（手册）。
+  - header: OUTPut:PROTection:OSCillation
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:PROTection:TEMPerature:MARGin
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:PROTection:WDOG[:STATe]
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:PROTection:WDOG:DELay
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:RELay:POLarity
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+  - header: OUTPut:SHORt[:STATe]
+    level: not_modeled
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+- section: SENSe
+  commands:
+  - header: SENSe:CURRent:CCOMpensate
+    level: not_modeled
+    note: 未实现。
+  - header: SENSe:CURRent[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: SENSe:CURRent[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: SENSe:DLOG:CURRent[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:CURRent[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:FUNCtion:CURRent
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:FUNCtion:MINMax
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:FUNCtion:VOLTage
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:MARKer<n>:POINt
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:OFFSet
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:PERiod
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:TIME
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:TINTerval
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:VOLTage[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:DLOG:VOLTage[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:CURRent[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:CURRent[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:FUNCtion:CURRent
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:FUNCtion:CURRent:MINMax
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:FUNCtion:VOLTage
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:FUNCtion:VOLTage:MINMax
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:PERiod
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:VOLTage[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:ELOG:VOLTage[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:FUNCtion
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: SENSe:FUNCtion:CURRent
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: SENSe:FUNCtion:VOLTage
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: SENSe:FUNCtion:VOLTage:INPut
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: SENSe:HISTogram:CURRent[:DC]:BIN:GAIN
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:HISTogram:CURRent[:DC]:BIN:OFFSet
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:HISTogram:CURRent[:DC]:BIN:RANGes
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:HISTogram:CURRent[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:HISTogram:CURRent[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:HISTogram:FUNCtion:CURRent
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: SENSe:SWEep:OFFSet:POINts
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: SENSe:SWEep:POINts
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: SENSe:SWEep:TINTerval
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: SENSe:SWEep:TINTerval:RESolution
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: SENSe:VOLTage[:DC]:RANGe[:UPPer]
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: SENSe:VOLTage[:DC]:RANGe:AUTO
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: SENSe:WINDow[:TYPE]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+- section: 'SOURce: ARB'
+  commands:
+  - header: '[:SOURce]:ARB:COUNt'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:CDWell'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:CONVert'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:EXPonential'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:PULSe'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:RAMP'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:SINusoid'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:STAircase'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:STEP'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:TRAPezoid'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:{CURRent|VOLTage}:UDEFined'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:FUNCtion'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:FUNCtion:SHAPe'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:FUNCtion:TYPE'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:SEQuence'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:ARB:TERMinate:LAST'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+- section: 'SOURce: CURRent'
+  commands:
+  - header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；0 至额定的 102 %（N6762A 3.06 A，N6752A 10.2 A），越界 -222；查询 MIN|MAX 不带通道时按通道 1 回答。是
+      CV 模式的电流限值：负载要求超过它时转恒流。
+  - header: '[:SOURce]:CURRent[:LEVel]:TRIGgered[:AMPLitude]'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:CURRent:LIMit[:POSitive][:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:LIMit:COUPle'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:LIMit:NEGative[:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:MODE'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；0–0.255 s，*RST 0.020；与 OUTPut:PROTection:DELay 同一设定。
+  - header: '[:SOURce]:CURRent:PROTection:DELay:STARt'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；SCHange（设定变化结束后开始计时）/ CCTRans（每次转入恒流即计时）。
+  - header: '[:SOURce]:CURRent:PROTection:STATe'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；开启后输出进入恒流（并持续超过延迟）即关闭并锁存（#271）。
+  - header: '[:SOURce]:CURRent:RANGe'
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: '[:SOURce]:CURRent:SLEW[:POSitive][:IMMediate]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:SLEW[:POSitive]:MAXimum'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:SLEW:COUPle'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:SLEW:NEGative[:IMMediate]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:CURRent:SLEW:NEGative:MAXimum'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+- section: 'SOURce: DIGital'
+  commands:
+  - header: '[:SOURce]:DIGital:INPut:DATA'
+    level: not_modeled
+    note: 数字控制口未实现。
+  - header: '[:SOURce]:DIGital:OUTPut:DATA'
+    level: not_modeled
+    note: 数字控制口未实现。
+  - header: '[:SOURce]:DIGital:PIN<n>:FUNCtion'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:DIGital:PIN<n>:POLarity'
+    level: not_modeled
+    note: 数字控制口未实现。
+  - header: '[:SOURce]:DIGital:TOUTput:BUS[:ENABle]'
+    level: not_modeled
+    note: 数字控制口未实现。
+- section: 'SOURce: EMULation, FUNCtion, LIST'
+  commands:
+  - header: '[:SOURce]:EMULation'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:FUNCtion'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:LIST:COUNt'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:CURRent[:LEVel]'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:CURRent:POINts'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:DWELl'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:DWELl:POINts'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:POWer[:LEVel]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:LIST:POWer:POINts'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:LIST:RESistance[:LEVel]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:LIST:RESistance:POINts'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:LIST:STEP'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:TERMinate:LAST'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:TOUTput:BOSTep[:DATA]'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:TOUTput:BOSTep:POINts'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:TOUTput:EOSTep[:DATA]'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:TOUTput:EOSTep:POINts'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:VOLTage[:LEVel]'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:LIST:VOLTage:POINts'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+- section: 'SOURce: POWer, RESistance, STEP'
+  commands:
+  - header: '[:SOURce]:POWer[:LEVel][:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer[:LEVel]:TRIGgered[:AMPLitude]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer:LIMit'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer:MODE'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer:PROTection:DELay[:TIME]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer:PROTection:STATe'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer:RANGe'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:POWer:SLEW'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:RESistance[:LEVel][:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:RESistance[:LEVel]:TRIGgered[:AMPLitude]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:RESistance:MODE'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:RESistance:RANGe'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:RESistance:SLEW'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:RESistance:STATe'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:STEP:TOUTput'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+- section: 'SOURce: VOLTage'
+  commands:
+  - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；0–51 V（额定 50 V 的 102 %）。模块的 100 W 功率包络尚未限制输出（power_stage 的 p_max 只保存，#533）：N6752A 在 50 V/10 A 设定下可输出超过 100 W。
+  - header: '[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:VOLTage:BWIDth[:RANGe]'
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: '[:SOURce]:VOLTage:BWIDth:LEVel'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:INHibit:VON[:LEVel]'
+    level: not_modeled
+    note: 未实现。
+  - header: '[:SOURce]:VOLTage:INHibit:VON:MODE'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:VOLTage:LIMit[:POSitive][:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:LIMit:COUPle'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:LIMit:NEGative[:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:MODE'
+    level: not_modeled
+    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+  - header: '[:SOURce]:VOLTage:PROTection[:LOCal][:LEVel]'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；0–60 V（额定的 120 %），*RST MAX；输出超过即关闭并锁存，OUTPut:PROTection:CLEar 清除。
+  - header: '[:SOURce]:VOLTage:PROTection:DELay[:TIME]'
+    level: not_modeled
+    note: 未实现。
+  - header: '[:SOURce]:VOLTage:PROTection:REMote[:POSitive][:LEVel]'
+    level: not_modeled
+    note: 未实现。
+  - header: '[:SOURce]:VOLTage:PROTection:REMote:NEGative[:LEVel]'
+    level: not_modeled
+    note: 未实现。
+  - header: '[:SOURce]:VOLTage:PROTection:REVerse:STATe'
+    level: not_modeled
+    note: 未实现。
+  - header: '[:SOURce]:VOLTage:RANGe'
+    level: not_modeled
+    note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+  - header: '[:SOURce]:VOLTage:RESistance[:LEVel][:IMMediate][:AMPLitude]'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:VOLTage:RESistance:STATe'
+    level: not_modeled
+    note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+  - header: '[:SOURce]:VOLTage:SENSe:SOURce'
+    level: implemented
+    note: 通道列表必需（省略报 -109）；INTernal / EXTernal：外部检测时按 SENSE 端子调节；SENSE 未接时回退本地检测。
+  - header: '[:SOURce]:VOLTage:SLEW[:POSitive][:IMMediate]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:SLEW[:POSitive]:MAXimum'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:SLEW:COUPle'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:SLEW:NEGative[:IMMediate]'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+  - header: '[:SOURce]:VOLTage:SLEW:NEGative:MAXimum'
+    level: not_modeled
+    note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+- section: STATus
+  commands:
+  - header: STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:OPERation:CONDition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:OPERation:ENABle
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:OPERation:NTRansition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:OPERation:PTRansition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:PRESet
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:QUEStionable:ENABle
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:QUEStionable:NTRansition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+  - header: STATus:QUEStionable:PTRansition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+- section: SYSTem
+  commands:
+  - header: SYSTem:CHANnel[:COUNt]
+    level: implemented
+    note: 4（本配置四个插槽都装模块）。
+  - header: SYSTem:CHANnel:MODel
+    level: implemented
+    note: 各通道的模块型号：N6762A,N6762A,N6752A,N6752A。
+  - header: SYSTem:CHANnel:OPTion
+    level: implemented
+    note: 各通道的选件，带引号；本配置无选件（""）。
+  - header: SYSTem:CHANnel:SERial
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:COMMunicate:LAN:CONTrol
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:COMMunicate:RLSTate
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:DATE
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 错误队列 FIFO，溢出 -350；文字按手册的错误列表。
+  - header: SYSTem:GROup:CATalog
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:GROup:DEFine
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:GROup:DELete
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:GROup:DELete:ALL
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:PASSword:FPANel:RESet
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:PERSona:MANufacturer
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:PERSona:MANufacturer:DEFault
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:PERSona:MODel
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:PERSona:MODel:DEFault
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:REBoot
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:SECurity:IMMediate
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:SET
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:TIME
+    level: not_modeled
+    note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+  - header: SYSTem:VERSion
+    level: implemented
+    note: 1999.0。
+- section: TRIGger
+  commands:
+  - header: TRIGger:ACQuire[:IMMediate]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ACQuire:CURRent[:LEVel]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ACQuire:CURRent:SLOPe
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ACQuire:SOURce
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ACQuire:TOUTput[:ENABle]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ACQuire:VOLTage[:LEVel]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ACQuire:VOLTage:SLOPe
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:ARB:SOURce
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:DLOG[:IMMediate]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:DLOG:CURRent[:LEVel]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:DLOG:CURRent:SLOPe
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:DLOG:SOURce
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:DLOG:VOLTage[:LEVel]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:DLOG:VOLTage:SLOPe
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:ELOG[:IMMediate]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:ELOG:SOURce
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:HISTogram[:IMMediate]
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:HISTogram:SOURce
+    level: not_modeled
+    note: 数据记录、直方图与文件系统未实现。
+  - header: TRIGger:MEASure:TALign:CORRection[:STATe]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:TRANsient[:IMMediate]
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+  - header: TRIGger:TRANsient:SOURce
+    level: not_modeled
+    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
