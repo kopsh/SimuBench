@@ -451,6 +451,11 @@ class SmuMeter(Component):
         "source": "",  # the source DAC (sweep levels, the function being forced)
         "loop": "",  # the control loop (mode, limits)
         "output": "",  # the output stage (metered voltage, current, sense)
+        # The enabled measurement functions (#397, B2900 :SENSe:FUNCtion[:ON]/OFF): one bool
+        # setting each, so a definition shows and resets them; None: always enabled, no setting.
+        "measure_voltage": None,  # the voltage measurement function is enabled (a bool setting)
+        "measure_current": None,  # the current measurement function is enabled (a bool setting)
+        "measure_resistance": None,  # the resistance measurement function is enabled (a bool setting)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -647,6 +652,76 @@ class SmuMeter(Component):
     def reset(self) -> None:
         self._auto_range = {}
         self.run_done()
+
+    # ---- the enabled measurement functions (#397) ---------------------------------------------
+
+    FUNCTIONS = (("VOLT", "measure_voltage"), ("CURR", "measure_current"), ("RES", "measure_resistance"))
+
+    def _function_key(self, item: Any) -> str:
+        """A function word as written (quoted or not, long or short, with or without :DC)."""
+        text = (V.parse_string(item) if isinstance(item, bytes) else str(item)).strip().strip("'\"")
+        word = text.upper().removesuffix(":DC")
+        for short, key in self.FUNCTIONS:
+            long = {"VOLT": "VOLTAGE", "CURR": "CURRENT", "RES": "RESISTANCE"}[short]
+            if len(word) >= len(short) and long.startswith(word):
+                return key
+        raise ScpiError(-224, f"no measurement function {text!r}")
+
+    def _enabled(self) -> dict[str, bool]:
+        return {key: bool(self.param(key)) for _, key in self.FUNCTIONS}
+
+    def _set_functions(self, keys: list[str], on: bool) -> None:
+        assert self.owner is not None
+        bound = self.bound_paths()
+        missing = [k for k in keys if k not in bound]
+        if missing:
+            raise ScpiError(-113, "the measurement functions are not settings of this definition")
+        for key in keys:
+            self.owner.set_state(bound[key], on)
+
+    def _function_list(self, on: bool) -> bytes:
+        names = [short for short, key in self.FUNCTIONS if self._enabled()[key] is on]
+        return b",".join(V.format_string(n) for n in names) or b'""'
+
+    @op("function_on")
+    def op_function_on(self, query: bool = False, names: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion[:ON] "CURR"[,…]``: enable the functions named (the others stay);
+        the query lists the enabled ones, quoted, ``""`` for none (B2910-90130 p.247)."""
+        if query:
+            return OpResult(self._function_list(True))
+        if not names:
+            raise ScpiError(-109, "missing function")
+        self._set_functions([self._function_key(n) for n in names], True)
+        return OpResult()
+
+    @op("function_off")
+    def op_function_off(self, query: bool = False, names: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion:OFF "RES"[,…]``: disable the functions named; the query lists the
+        disabled ones (B2910-90130 p.246)."""
+        if query:
+            return OpResult(self._function_list(False))
+        if not names:
+            raise ScpiError(-109, "missing function")
+        self._set_functions([self._function_key(n) for n in names], False)
+        return OpResult()
+
+    @op("function_all")
+    def op_function_all(self, on: bool = True, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion[:ON]:ALL`` (``on``) / ``:SENSe:FUNCtion:OFF:ALL``."""
+        self._set_functions([key for _, key in self.FUNCTIONS], bool(on))
+        return OpResult()
+
+    @op("function_count")
+    def op_function_count(self, on: bool = True, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion[:ON]:COUNt?`` / ``:OFF:COUNt?``: how many are enabled / disabled."""
+        return OpResult(V.format_int(sum(1 for v in self._enabled().values() if v is bool(on))))
+
+    @op("function_state")
+    def op_function_state(self, names: list[bytes] | None = None, **_: Any) -> OpResult:
+        """``:SENSe:FUNCtion:STATe? "CURR"``: 1 when the function is enabled, else 0."""
+        if not names:
+            raise ScpiError(-109, "missing function")
+        return OpResult(V.format_bool(self._enabled()[self._function_key(names[0])]))
 
     @op("measure")
     def op_measure(self, **_: Any) -> OpResult:

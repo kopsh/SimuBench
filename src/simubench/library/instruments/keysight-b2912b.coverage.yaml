@@ -594,26 +594,26 @@ sections:
     level: not_modeled
     note: 数据缓冲读取命令未实现（用 FETCh/TRACe）。
   - header: :SENSe<ch>:FUNCtion:OFF
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 每通道关闭所列功能（"CURR"/"VOLT"/"RES"，可写长格式与 :DC）；查询回已关闭的功能，无则 ""（p.246，#397）。
   - header: :SENSe<ch>:FUNCtion:OFF:ALL
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 关闭全部测量功能（p.246，#397）。
   - header: :SENSe<ch>:FUNCtion:OFF:COUNt
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 回已关闭的功能个数（p.247，#397）。
   - header: :SENSe<ch>:FUNCtion[:ON]
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 每通道使能所列功能，其余不变；查询回已使能的功能（如 "VOLT","CURR"）；*RST 为 "VOLT","CURR"（p.247，#397）。未建模：未使能的功能在 FETCh/READ/TRACe 的元素中仍返回读数（真机返回 9.91E37，p.246 SENSe:DATA:LATest 一节）。
   - header: :SENSe<ch>:FUNCtion[:ON]:ALL
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 使能全部测量功能（p.247，#397）。
   - header: :SENSe<ch>:FUNCtion[:ON]:COUNt
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 回已使能的功能个数（p.248，#397）。
   - header: :SENSe<ch>:FUNCtion:STATe
-    level: not_modeled
-    note: 测量功能使能未实现（V/I/R 总是可用）。
+    level: implemented
+    note: 回 1/0：所给功能是否使能（p.248，#397）。
   - header: :SENSe<ch>:REMote
     level: implemented
     note: 四线远端检测；改变检测点。
