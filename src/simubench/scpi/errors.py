@@ -109,20 +109,41 @@ class ScpiError(Exception):
 
 
 class ErrorQueue:
-    """FIFO error queue; the last slot reports -350 on overflow (SCPI-99 21.8.2)."""
+    """FIFO error queue; the last slot reports -350 on overflow (SCPI-99 21.8.2).
+
+    Besides the queue itself (bounded, overflow drops the new error like a real instrument),
+    every push is recorded in a bounded recent log so :meth:`mark`/:meth:`since` can report
+    what an exchange produced even when the queue was full and threw it away (#483).
+    """
+
+    #: The recent log holds this many pushes; one exchange produces far fewer.
+    _RECENT_MAX = 256
 
     def __init__(self, capacity: int = 20, overflow_text: str | None = None) -> None:
         self.capacity = capacity
         self.overflow_text = overflow_text
         self._q: deque[ScpiError] = deque()
+        self._seq = 0  # pushes attempted, monotonic across clears and pops
+        self._recent: deque[tuple[int, ScpiError]] = deque(maxlen=self._RECENT_MAX)
 
     def push(self, err: ScpiError) -> None:
+        self._seq += 1
+        self._recent.append((self._seq, err))
         if len(self._q) >= self.capacity:
             return
         if len(self._q) == self.capacity - 1:
             self._q.append(ScpiError(-350, text=self.overflow_text))
             return
         self._q.append(err)
+
+    def mark(self) -> int:
+        """A point in the push sequence; pass it to :meth:`since`."""
+        return self._seq
+
+    def since(self, mark: int) -> list[ScpiError]:
+        """The errors pushed after ``mark``, oldest first — including ones the queue dropped
+        because it was full, or replaced with -350 in its last slot."""
+        return [err for seq, err in self._recent if seq > mark]
 
     def pop(self) -> ScpiError:
         return self._q.popleft() if self._q else ScpiError(0)
