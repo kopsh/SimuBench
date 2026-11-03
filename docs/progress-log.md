@@ -1180,3 +1180,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | N6705C 接上寄存器组 | ✅ 每路 `status_register`：OPER 位 0 CV、1 CC、2 OFF，汇总进状态字节位 7；QUES 位 0 OV、1 OC、3 CP+，汇总进位 3；`STATus:OPERation/QUEStionable[:EVENt]?/CONDition?/ENABle (@list)` 与 `STATus:PRESet` 实现，PTR/NTR 未实现（事件只记上升沿，即手册的默认过滤） |
 | 测试 | ✅ 手册用例「状态寄存器组」（CV/CC/OFF、CP、OV 与状态字节 136、PRESet）；`tests/test_keysight_n6705c.py::test_status_registers_follow_the_channel`（OCP 跳闸的 OC/OFF、读事件后汇总清除、清除后回到 CC） |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 电源的瞬变触发系统（Issue 541）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 通用组件 | ✅ `supply_transient`（`library/components/power.py`）：`initiate`/`trigger`/`bus_trigger`/`abort`；触发时 STEP 模式的量写入即时设定（FIXed 不动）；IMMediate 源在初始化时即触发；等待期间报告 WTG_TRAN/TRAN_ACTIVE；未初始化时的触发按 `trigger_ignored_error` 报错，0 为不动作；`*TRG` 经引擎分发给各通道 |
+| N6705C 接上命令 | ✅ `VOLT|CURR:TRIGgered`、`VOLT|CURR:MODE FIXed|STEP`（LIST/ARB -224 未建模）、`TRIG:TRAN:SOUR BUS|IMM|EXT`（PIN/TRANsient 未建模）、`INIT:TRAN`、`TRIG:TRAN`、`ABOR:TRAN`、`*TRG`；OPER 位 4/6；手册错误列表没有 "Trigger ignored"，未初始化的触发不报错 |
+| 测试 | ✅ 手册用例「瞬变触发」；`tests/test_keysight_n6705c.py::test_a_bus_trigger_steps_only_the_armed_channels`；`tests/test_power_supply.py::test_the_transient_step_writes_the_triggered_levels` |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
