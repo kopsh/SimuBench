@@ -287,6 +287,8 @@ components:
     type: eload_protection
     # 手册没有单独的保护阈值命令：各模式的 V_LIMIT/ILIMIT 是工作上限，这里让它们同时作为
     # OVP/OCP 的跳闸阈值；OPP 取 DL3021 的额定 200 W（手册：输入功率超过保护功率时输入关断）。
+    # 越限时真机是跳闸还是钳位，用户指南（Aug. 2017）p.2-4–2-9 与 p.2-80 都未写明，未能核实（#269）；
+    # 模型选择跳闸，覆盖表 CURRent:VLIMt/ILIMt 注明。
     params: {ovp: $source.limit.voltage, ocp: $source.limit.current, opp: 200.0}
 ports:
   instrument:

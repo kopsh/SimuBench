@@ -194,10 +194,10 @@ sections:
     note: CC 起始电压 0–150 V（默认 0）；输入电压低于 Von 时不灌电流，手册只有一个 VON，没有 Voff。
   - header: '[:SOURce]:CURRent:VLIMt'
     level: implemented
-    note: 电压上限 0–155 V（默认 155 V）。四种模式的 VLIM 共用一个设定（真机按模式独立记忆），并作为 OVP 跳闸阈值：输入电压超过它时输入关断，EVENt 的 VF/OV 位在真机上置位（状态寄存器未建模）。
+    note: 电压上限 0–155 V（默认 155 V）。四种模式的 VLIM 共用一个设定（真机按模式独立记忆）。依据与结论（#269）：用户指南（DL3000 User's Guide, Aug. 2017）p.2-4–2-9 只把 V_Limit/C_Limit 写作各模式“工作电压/电流的上限”，p.2-80 Protection Function 说输入电压/电流超过“保护电压/电流”时输入关断，但没有把两者关联，也没有设定保护阈值的命令或菜单；编程手册同样只写“上限”。真机越限时是关断（跳闸）还是限制（钳位）未能核实。模型选择跳闸：输入电压超过 VLIM 时输入关断（作为 OVP 阈值，状态寄存器未建模）；依赖限压（钳位）行为的脚本在本模型上得到关断。跳闸后锁存：手册没有远程清除命令（真机按前面板 OK 关掉提示），模型中输入开关与 *RST 都不清除，只有重新打开测试台才清除（已知偏差）。
   - header: '[:SOURce]:CURRent:ILIMt'
     level: implemented
-    note: 电流上限 0–70 A（默认 70 A）。四种模式的 ILIM 共用一个设定（真机按模式独立记忆），并作为 OCP 跳闸阈值：灌入电流超过它时输入关断。
+    note: 电流上限 0–70 A（默认 70 A）。四种模式的 ILIM 共用一个设定（真机按模式独立记忆）。依据与结论同 CURRent:VLIMt（#269，未能核实）：灌入电流超过 ILIM 时输入关断（作为 OCP 阈值），而不是把电流限制在 ILIM。
   - header: '[:SOURce]:CURRent:TRANsient:MODE'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。

@@ -1086,4 +1086,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 无间隙的判据 | ✅ `tests/test_counter.py::test_gap_free_spans_join_end_to_end`：8 个门的 Σ SPAN 等于从首门前的边界沿到末门最后一个沿的时基跨度（rel 1e-12）；原「Σ 读数 × SPAN = Σ 计数」按构造恒成立，仅作附带断言 |
 | 对照 | ✅ `test_without_gap_free_each_gate_loses_the_time_before_its_first_edge`：GAPFree OFF 时各门自身跨度之和比边界跨度少每门一个输入周期 |
 | 经 SCPI 与时基误差 | ✅ `test_gap_free_readings_through_scpi`（`:READ?`，8 个样本）；`test_gap_free_readings_on_a_timebase_with_an_error`（内部振荡器 +5 ppm：读数低 5 ppm，跨度仍首尾相接） |
+
+## DL3021：V_LIMIT/ILIM 借作 OVP/OCP 的依据核查（Issue 269）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 核查 | ✅ DL3000 User's Guide（Aug. 2017）p.2-4–2-9：V_Limit/C_Limit 为各模式工作电压/电流的上限；p.2-80 Protection Function：超过保护电压/电流时输入关断，但未把保护阈值与上限关联，也无设定保护阈值的命令。越限后跳闸还是钳位未能核实 |
+| 结论 | ⚠️ 模型保持“越限即跳闸”，在覆盖表 `CURRent:VLIMt/ILIMt`、定义注释与 `tests/test_rigol_dl3021.py` 的断言说明里标为模型选择、未经核实；依赖钳位行为的脚本会得到关断 |
+| 远程清除 | ⚠️ 本节更新 issue 194 记录中“保护跳闸后没有远程清除命令”一条：手册仍无清除命令（真机按前面板 OK）；模型中跳闸锁存，输入开关与 `*RST` 都不清除，只有重新打开测试台（已核对，写入覆盖表 `CURRent:VLIMt` 为已知偏差） |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
