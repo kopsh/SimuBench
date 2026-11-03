@@ -1,0 +1,1044 @@
+# Fluke 8588A 的覆盖表：命令按 8588A/8558A Remote Programmer's Manual（March 2019）的 Table 3、
+# Table 5、Table 6、Table 10、Table 11 与 Trigger Subsystem 逐条列出；程度与说明手写。
+schema: simubench.coverage/1
+model: fluke-8588a
+sections:
+- section: IEEE 488.2 common commands
+  commands:
+  - header: '*IDN'
+    level: implemented
+    note: FLUKE,8588A,<10 位序列号>,<固件>（手册 GPIB 一节的 Note）。
+  - header: '*RST'
+    level: implemented
+    note: 恢复 *RST 值：DCV、1000 V 量程、自动量程 OFF、Auto 孔径（1 s）、Auto 输入阻抗、INIT:CONT OFF、字节序 SWAPped；错误队列不受影响。
+  - header: '*CLS'
+    level: implemented
+    note: 清事件寄存器与错误队列。
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器（Table 9 的位）。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节；QUES/OPER 汇总位无来源（STATus 子系统未实现）。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 在操作完成时置 ESR 位 0；*OPC? 等运行结束后回 1。'
+  - header: '*WAI'
+    level: implemented
+    note: 等待全部待完成操作。
+  - header: '*TRG'
+    level: implemented
+    note: 总线触发：TRIGger:SOURce BUS 且等待触发时取一个读数，否则 -211。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过回复 0。
+  - header: '*OPT'
+    level: not_modeled
+    note: 选件串未实现。
+  - header: '*PSC'
+    level: not_modeled
+    note: 上电状态清零未实现。
+- section: Measurement commands (CONFigure, MEASure, READ?, FETCh?)
+  commands:
+  - header: :CONFigure:VOLTage[:DC]
+    level: implemented
+    note: 选直流电压，量程/分辨率可选（不给量程时量程不变，给了即关自动量程；分辨率 DEF 为 1E-4）；触发系统按 Note 1 置 INIT:CONT OFF、TRIG:SOUR IMM、COUN
+      1、DEL 0、DEL:AUTO OFF。ARM 层固定为 IMMediate、计数 1（未实现）。
+  - header: :CONFigure:VOLTage:AC
+    level: implemented
+    note: 同直流电压；交流通路 1 MΩ、RMS 滤波按 VOLT:AC:FILTer。
+  - header: :CONFigure:CURRent[:DC]
+    level: implemented
+    note: 选直流电流；输入并入规格书的输入阻抗（10 µA 量程 100 Ω … 30 A 量程 10 mΩ），读数由电路求解。分辨率 DEF 1E-6。
+  - header: :CONFigure:CURRent:AC
+    level: implemented
+    note: 交流电流（真有效值），分流同直流；分辨率 DEF 1E-5。
+  - header: :CONFigure:RESistance
+    level: implemented
+    note: 两线电阻：按方式、低电流与量程送规格书的测量电流，读 V/I；分辨率 DEF 0.01。
+  - header: :CONFigure:FRESistance
+    level: implemented
+    note: 四线电阻：测量电流经 INPUT HI，电压读 SENSE HI（未接时读 INPUT）。
+  - header: :CONFigure:CAPacitance
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:XCURrent:AC
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:XCURrent:DC
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:FREQuency
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:PERiod
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:POWer
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:TEMPerature[:TRANsducer]:TCouple
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:TEMPerature[:TRANsducer]:RTD
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:TEMPerature[:TRANsducer]:TRTD
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :CONFigure:TEMPerature[:TRANsducer]:FRTD
+    level: not_modeled
+    note: 该功能未实现。
+  - header: CONFigure
+    level: implemented
+    note: '"<功能短格式> <量程>,<分辨率>"；数字为 8 位尾数的 NR3（手册例子的 +1.0E+0 写法未按位数对齐）。'
+  - header: :MEASure[:SCALar]:VOLTage[:DC]
+    level: implemented
+    note: = ABORt; CONFigure; READ?：配置同 CONFigure 并回一个读数。
+  - header: :MEASure[:SCALar]:VOLTage:AC
+    level: implemented
+    note: 同直流电压。
+  - header: :MEASure[:SCALar]:CURRent[:DC]
+    level: implemented
+    note: 同 CONFigure:CURRent 并回一个读数。
+  - header: :MEASure[:SCALar]:CURRent:AC
+    level: implemented
+    note: 同 CONFigure:CURRent:AC 并回一个读数。
+  - header: :MEASure[:SCALar]:RESistance
+    level: implemented
+    note: 同 CONFigure:RESistance 并回一个读数。
+  - header: :MEASure[:SCALar]:FRESistance
+    level: implemented
+    note: 同 CONFigure:FRESistance 并回一个读数。
+  - header: :MEASure[:SCALar]:CAPacitance
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:XCURrent:AC
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:XCURrent:DC
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:FREQuency
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:PERiod
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:POWer
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:TEMPerature[:TRANsducer]:TCouple
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:TEMPerature[:TRANsducer]:RTD
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:TEMPerature[:TRANsducer]:TRTD
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :MEASure[:SCALar]:TEMPerature[:TRANsducer]:FRTD
+    level: not_modeled
+    note: 该功能未实现。
+  - header: :READ
+    level: implemented
+    note: = ABORt; INITiate; FETCh?；BUS/EXTernal 触发源下报 -214。
+  - header: :FETCh
+    level: implemented
+    note: 本次运行的全部读数（TRIG:COUN 个），不删除；FETCh? 1 同主读数。次读数（2）、扫描前/后端子（3、4）与时间戳（5）未实现，报 -222。
+  - header: :FNOW
+    level: not_modeled
+    note: 取出并删除读数存储的读数未实现。
+  - header: :TALK
+    level: not_modeled
+    note: 3458A 兼容的 GPIB 讲模式未实现。
+- section: CALCulate subsystem
+  commands:
+  - header: CALCulate:AVERage[:STATe]
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:AVERage:COUNt
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:AVERage:TCONtrol
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit:CLEar[:IMMediate]
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit:LOWer
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit:LOWer:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit:FAIL
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit[:STATe]
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit:UPPer
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:LIMit:UPPer:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:CFACtor
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:CFACtor:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:MFACtor
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:MFACtor:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:MUNits
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:MUNits:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH[:STATe]
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:RESet
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:ZFACtor
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:MATH:ZFACtor:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:AVERage
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:COUNt
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:MAXimum
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:MINimum
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:SDEViation
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:SPAN
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+  - header: CALCulate:SSTatistics:STATe
+    level: not_modeled
+    note: 平均、限值、数学运算与统计未实现。
+- section: CALibration subsystem
+  commands:
+  - header: CALibration:COPY:BASeline
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:SECure
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:SECure:EXIT
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:SECure:PASSword
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:STORe:DATe
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:STORe:USE
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:TARGet:DESCription
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:TARGet:INPut
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:TARGet:STEP
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:TARGet:VALue
+    level: not_modeled
+    note: 校准调整流程未实现。
+  - header: CALibration:TRIGger
+    level: not_modeled
+    note: 校准调整流程未实现。
+- section: DISPlay subsystem
+  commands:
+  - header: DISPlay[:STATe]
+    level: accepted
+    note: 显示开关保存并回读。
+    affects_data: false
+  - header: DISPlay:BRIGhtness
+    level: accepted
+    note: 亮度（%）保存并回读，默认 50。
+    affects_data: false
+  - header: DISPlay:DTIMe
+    level: accepted
+    note: 背光定时（s）保存并回读，默认 1800。
+    affects_data: false
+- section: FORMat subsystem
+  commands:
+  - header: FORMat[:DATA]
+    level: implemented
+    note: 只支持 ASCii；PACKed（二进制）未建模，报 -224。
+  - header: FORMat[:DATA]:SCALe
+    level: implemented
+    note: ASCii 时恒为 1.0（手册）。
+  - header: FORMat:BORDer
+    level: accepted
+    note: 字节序只影响 PACKed 二进制（未实现）；保存并回读，默认 NORMal、*RST 后 SWAPped（手册 Remote Command Examples）。
+    affects_data: false
+- section: MEMory subsystem
+  commands:
+  - header: MEMory:LOCation
+    level: accepted
+    note: 只有 BUFFer（易失缓冲，默认）；BINTernal 未建模（-224）。读数存储：15 000 000 个，满后丢弃新读数。
+    affects_data: false
+- section: ROUTe subsystem
+  commands:
+  - header: ROUTe:INPut:SCAN:CALCulation
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:INPut:FDELay
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:INPut:FDELay:AUTO[:STATe]
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:INPut:GUARd[:STATe]
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:INPut:RDELay
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:INPut:RDELay:AUTO[:STATe]
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:TOUTput
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:TOUTput:ONCE
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:TOUTput:SLOPe
+    level: not_modeled
+    note: 前/后端子扫描、外部保护与 TRIG OUT 未实现。
+  - header: ROUTe:TERMinals
+    level: implemented
+    note: 只建模前面板端子：FRONt；REAR、SCAN、ISOLated 未建模（-224）。
+- section: 'SENSe subsystem: function and zero'
+  commands:
+  - header: '[:SENSe]:FUNCtion'
+    level: implemented
+    note: 字符串参数，长短格式与节点混写均可（"VOLT:AC" 与 "VOLTage:AC"）；VOLTage 与 VOLTage:DC 同义，查询回带引号的短格式（"VOLT"）。电容、数字化、频率、周期、功率、温度与外接分流功能报
+      -224（未建模）。
+  - header: '[:SENSe]:ZERO'
+    level: not_modeled
+    note: 调零：仿真的仪表无残余偏置可去除，未实现。
+  - header: '[:SENSe]:ZCLear'
+    level: not_modeled
+    note: 清零值：同 ZERO? 未实现。
+- section: 'SENSe subsystem: DC voltage'
+  commands:
+  - header: '[:SENSe]:VOLTage[:DC]:APERture'
+    level: implemented
+    note: 孔径时间（0–10 s）各功能共用一个设定；只在 APERture:MODE MANual 时决定读数时间。设定孔径不自动切到 MANual。
+  - header: '[:SENSe]:VOLTage[:DC]:APERture:MODE'
+    level: implemented
+    note: AUTO（默认）/ FAST / MANual：读数时间分别取 1 s、0.2 s（Operators Manual Table 8 的 7 位分辨率一行，不随分辨率变）与手动孔径。各功能共用。
+  - header: '[:SENSe]:VOLTage[:DC]:NPLC'
+    level: implemented
+    note: 按 50 Hz 电源周期换算的孔径（NPLC = 孔径 × 50，0–500，*RST 为 50）；与 APERture 是同一设定。
+  - header: '[:SENSe]:VOLTage[:DC]:IMPedance'
+    level: implemented
+    note: AUTO：100 mV–10 V 量程 >1 TΩ，100 V/1000 V 为 10 MΩ；10M：10 MΩ；1M：1.01 MΩ（规格书 Input Impedance）。进入电路求解。
+  - header: '[:SENSe]:VOLTage[:DC]:RANGe:AUTO[:STATe]'
+    level: implemented
+    note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
+  - header: '[:SENSe]:VOLTage[:DC]:RANGe'
+    level: implemented
+    note: 100 mV–1000 V；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
+      / MEASure 给量程时才关闭）。
+  - header: '[:SENSe]:VOLTage[:DC]:RESolution'
+    level: implemented
+    note: 分辨率保存并由 CONFigure? 返回；读数不按它量化（读数 9 位尾数），也不改变 Auto 孔径。MIN/MAX 取值随量程而定，未建模（-224）。各功能共用一个设定。
+- section: 'SENSe subsystem: AC voltage'
+  commands:
+  - header: '[:SENSe]:VOLTage:AC:BWIDth'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:VOLTage:AC:COUNter:BLIMit[:STATe]'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:VOLTage:AC:COUNter:COUPling'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:VOLTage:AC:COUNter:GATE:AUTO[:STATe]'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:VOLTage:AC:COUNter:GATE'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:VOLTage:AC:COUPling:SIGNal'
+    level: not_modeled
+    note: 信号通路固定为 *RST 的 AC1M（交流耦合、1 MΩ）；其他耦合与阻抗未实现。
+  - header: '[:SENSe]:VOLTage:AC:FILTer'
+    level: implemented
+    note: RMS 滤波 0.1 Hz–1 kHz，取最接近的离散值（0.1、1、10、40、100、1000 Hz）。模型把它当作交流读数的频率下限：低于它的分量不计入（真机在滤波设得过高时给出带纹波的读数，不是零）。与交流电流共用一个设定。
+  - header: '[:SENSe]:VOLTage:AC:RANGe:AUTO[:STATe]'
+    level: implemented
+    note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
+  - header: '[:SENSe]:VOLTage:AC:RANGe'
+    level: implemented
+    note: 10 mV–1000 V；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
+      / MEASure 给量程时才关闭）。
+  - header: '[:SENSe]:VOLTage:AC:RESolution'
+    level: implemented
+    note: 分辨率保存并由 CONFigure? 返回；读数不按它量化（读数 9 位尾数），也不改变 Auto 孔径。MIN/MAX 取值随量程而定，未建模（-224）。各功能共用一个设定。
+  - header: '[:SENSe]:VOLTage:AC:SECondary'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:VOLTage:AC:SECondary:METHod'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+- section: 'SENSe subsystem: DC current'
+  commands:
+  - header: '[:SENSe]:CURRent[:DC]:APERture'
+    level: implemented
+    note: 孔径时间（0–10 s）各功能共用一个设定；只在 APERture:MODE MANual 时决定读数时间。设定孔径不自动切到 MANual。
+  - header: '[:SENSe]:CURRent[:DC]:APERture:MODE'
+    level: implemented
+    note: AUTO（默认）/ FAST / MANual：读数时间分别取 1 s、0.2 s（Operators Manual Table 8 的 7 位分辨率一行，不随分辨率变）与手动孔径。各功能共用。
+  - header: '[:SENSe]:CURRent[:DC]:NPLC'
+    level: implemented
+    note: 按 50 Hz 电源周期换算的孔径（NPLC = 孔径 × 50，0–500，*RST 为 50）；与 APERture 是同一设定。
+  - header: '[:SENSe]:CURRent[:DC]:RANGe:AUTO[:STATe]'
+    level: implemented
+    note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
+  - header: '[:SENSe]:CURRent[:DC]:RANGe'
+    level: implemented
+    note: 10 µA–30 A；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
+      / MEASure 给量程时才关闭）。
+  - header: '[:SENSe]:CURRent[:DC]:RESolution'
+    level: implemented
+    note: 分辨率保存并由 CONFigure? 返回；读数不按它量化（读数 9 位尾数），也不改变 Auto 孔径。MIN/MAX 取值随量程而定，未建模（-224）。各功能共用一个设定。
+- section: 'SENSe subsystem: AC current'
+  commands:
+  - header: '[:SENSe]:CURRent:AC:COUNter:BLIMit[:STATe]'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:CURRent:AC:COUNter:COUPling'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:CURRent:AC:COUNter:GATE:AUTO[:STATe]'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:CURRent:AC:COUPling'
+    level: not_modeled
+    note: 交流电流的信号通路固定为交流耦合（*RST 值）。
+  - header: '[:SENSe]:CURRent:AC:FILTer'
+    level: implemented
+    note: 与交流电压共用 RMS 滤波设定。
+  - header: '[:SENSe]:CURRent:AC:RANGe:AUTO[:STATe]'
+    level: implemented
+    note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
+  - header: '[:SENSe]:CURRent:AC:RANGe'
+    level: implemented
+    note: 10 µA–30 A；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
+      / MEASure 给量程时才关闭）。
+  - header: '[:SENSe]:CURRent:AC:RESolution'
+    level: implemented
+    note: 分辨率保存并由 CONFigure? 返回；读数不按它量化（读数 9 位尾数），也不改变 Auto 孔径。MIN/MAX 取值随量程而定，未建模（-224）。各功能共用一个设定。
+  - header: '[:SENSe]:CURRent:AC:SECondary'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+  - header: '[:SENSe]:CURRent:AC:SECondary:METHod'
+    level: not_modeled
+    note: 次读数、频率通路与带宽设置未实现。
+- section: 'SENSe subsystem: resistance (2-wire)'
+  commands:
+  - header: '[:SENSe]:RESistance:APERture'
+    level: implemented
+    note: 孔径时间（0–10 s）各功能共用一个设定；只在 APERture:MODE MANual 时决定读数时间。设定孔径不自动切到 MANual。
+  - header: '[:SENSe]:RESistance:APERture:MODE'
+    level: implemented
+    note: AUTO（默认）/ FAST / MANual：读数时间分别取 1 s、0.2 s（Operators Manual Table 8 的 7 位分辨率一行，不随分辨率变）与手动孔径。各功能共用。
+  - header: '[:SENSe]:RESistance:NPLC'
+    level: implemented
+    note: 按 50 Hz 电源周期换算的孔径（NPLC = 孔径 × 50，0–500，*RST 为 50）；与 APERture 是同一设定。
+  - header: '[:SENSe]:RESistance:MODE'
+    level: implemented
+    note: NORMal / HIV：测量电流按规格书 Voltage and Current Parameters（HV：10 MΩ 10 µA … 10 GΩ 10 nA，测量电压上限 200
+      V）。HV 只有 10 MΩ 以上量程，模型不据此限制量程（小量程用 10 MΩ 的电流）。
+  - header: '[:SENSe]:RESistance:LOWI[:STATe]'
+    level: implemented
+    note: 低电流：测量电流按规格书 Lo Current 一列（例如 1 kΩ 100 µA、10 kΩ 10 µA）。
+  - header: '[:SENSe]:RESistance:RANGe:AUTO[:STATe]'
+    level: implemented
+    note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
+      READ?/INIT 的读数尚未落定电阻的自动量程（#522）：电阻自动量程请用 MEASure?。
+  - header: '[:SENSe]:RESistance:RANGe'
+    level: implemented
+    note: 1 Ω–10 GΩ；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
+      / MEASure 给量程时才关闭）。
+  - header: '[:SENSe]:RESistance:RESolution'
+    level: implemented
+    note: 分辨率保存并由 CONFigure? 返回；读数不按它量化（读数 9 位尾数），也不改变 Auto 孔径。MIN/MAX 取值随量程而定，未建模（-224）。各功能共用一个设定。
+  - header: '[:SENSe]:RESistance:FILTer[:STATe]'
+    level: not_modeled
+    note: 电阻输入滤波未实现。
+- section: 'SENSe subsystem: resistance (4-wire)'
+  commands:
+  - header: '[:SENSe]:FRESistance:APERture'
+    level: implemented
+    note: 孔径时间（0–10 s）各功能共用一个设定；只在 APERture:MODE MANual 时决定读数时间。设定孔径不自动切到 MANual。
+  - header: '[:SENSe]:FRESistance:APERture:MODE'
+    level: implemented
+    note: AUTO（默认）/ FAST / MANual：读数时间分别取 1 s、0.2 s（Operators Manual Table 8 的 7 位分辨率一行，不随分辨率变）与手动孔径。各功能共用。
+  - header: '[:SENSe]:FRESistance:NPLC'
+    level: implemented
+    note: 按 50 Hz 电源周期换算的孔径（NPLC = 孔径 × 50，0–500，*RST 为 50）；与 APERture 是同一设定。
+  - header: '[:SENSe]:FRESistance:MODE'
+    level: implemented
+    note: NORMal / TRUE / HIV：TRUE（Tru Ohms）用常规测量电流，电流反向消除热电势的过程不建模（台架无热电势）；HIV 同两线。
+  - header: '[:SENSe]:FRESistance:LOWI[:STATe]'
+    level: implemented
+    note: 低电流，同两线。
+  - header: '[:SENSe]:FRESistance:RANGe:AUTO[:STATe]'
+    level: implemented
+    note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
+      READ?/INIT 的读数尚未落定电阻的自动量程（#522）：电阻自动量程请用 MEASure?。
+  - header: '[:SENSe]:FRESistance:RANGe'
+    level: implemented
+    note: 1 Ω–10 GΩ；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
+      / MEASure 给量程时才关闭）。
+  - header: '[:SENSe]:FRESistance:RESolution'
+    level: implemented
+    note: 分辨率保存并由 CONFigure? 返回；读数不按它量化（读数 9 位尾数），也不改变 Auto 孔径。MIN/MAX 取值随量程而定，未建模（-224）。各功能共用一个设定。
+  - header: '[:SENSe]:FRESistance:FILTer[:STATe]'
+    level: not_modeled
+    note: 电阻输入滤波未实现。
+- section: 'SENSe subsystem: capacitance'
+  commands:
+  - header: '[:SENSe]:CAPacitance:LOWI[:STATe]'
+    level: not_modeled
+    note: 电容功能未实现。
+  - header: '[:SENSe]:CAPacitance:RANGe:AUTO[:STATe]'
+    level: not_modeled
+    note: 电容功能未实现。
+  - header: '[:SENSe]:CAPacitance:RANGe'
+    level: not_modeled
+    note: 电容功能未实现。
+  - header: '[:SENSe]:CAPacitance:RESolution'
+    level: not_modeled
+    note: 电容功能未实现。
+- section: 'SENSe subsystem: digitize'
+  commands:
+  - header: '[:SENSe]:DIGitize:APERture'
+    level: not_modeled
+    note: 数字化功能未实现。
+  - header: '[:SENSe]:DIGitize:CURRent:COUPling'
+    level: not_modeled
+    note: 数字化功能未实现。
+  - header: '[:SENSe]:DIGitize:CURRent:RANGe'
+    level: not_modeled
+    note: 数字化功能未实现。
+  - header: '[:SENSe]:DIGitize:FILTer'
+    level: not_modeled
+    note: 数字化功能未实现。
+  - header: '[:SENSe]:DIGitize:VOLTage:COUPling:SIGNal'
+    level: not_modeled
+    note: 数字化功能未实现。
+  - header: '[:SENSe]:DIGitize:VOLTage:RANGe'
+    level: not_modeled
+    note: 数字化功能未实现。
+- section: 'SENSe subsystem: frequency and period'
+  commands:
+  - header: '[:SENSe]:FREQuency:COUPling'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:BWLimit[:STATe]'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:GATE'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:BNC:IMPedance'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:BNC:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:CURRent:RANGe'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:CURRent:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:SIGNal'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:VOLTage:RANGe'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:FREQuency:ROUTe:VOLTage:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:COUPling'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:BWLimit[:STATe]'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:GATE'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:BNC:IMPedance'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:BNC:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:CURRent:RANGe'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:CURRent:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:SIGNal'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:VOLTage:RANGe'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:ROUTe:VOLTage:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+  - header: '[:SENSe]:PERiod:THReshold'
+    level: not_modeled
+    note: 频率/周期计数器未实现。
+- section: 'SENSe subsystem: RF power'
+  commands:
+  - header: '[:SENSe]:POWer:AVERage'
+    level: not_modeled
+    note: 射频功率传感器未实现。
+  - header: '[:SENSe]:POWer:FREQuency'
+    level: not_modeled
+    note: 射频功率传感器未实现。
+  - header: '[:SENSe]:POWer:IDENtity'
+    level: not_modeled
+    note: 射频功率传感器未实现。
+  - header: '[:SENSe]:POWer:RELative'
+    level: not_modeled
+    note: 射频功率传感器未实现。
+  - header: '[:SENSe]:POWer:RELative:REFerence'
+    level: not_modeled
+    note: 射频功率传感器未实现。
+  - header: '[:SENSe]:POWer:UNITs'
+    level: not_modeled
+    note: 射频功率传感器未实现。
+- section: 'SENSe subsystem: temperature'
+  commands:
+  - header: '[:SENSe]:TEMPerature:RTD:APERture'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:RTD:APERture:MODE'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:RTD:NPLC'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:RTD:RESistance:RO'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:RTD:RESolution'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:RTD:SECondary[:STATe]'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:RTD:UNITs'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:APERture'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:APERture:MODE'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:NPLC'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:RESistance:RO'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:RESolution'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:SECondary[:STATe]'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TRTD:UNITs'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:APERture'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:APERture:MODE'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:NPLC'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:RESistance:RO'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:RESolution'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:SECondary[:STATe]'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:FRTD:UNITs'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:APERture'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:APERture:MODE'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:NPLC'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:RESolution'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:SECondary[:STATe]'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:TYPE'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+  - header: '[:SENSe]:TEMPerature:TC:UNITs'
+    level: not_modeled
+    note: 温度（PRT、热电偶）功能未实现。
+- section: 'SENSe subsystem: external-shunt current'
+  commands:
+  - header: '[:SENSe]:XCURrent:AC:COUNter:BLIMit[:STATe]'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:COUNter:COUPling'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:COUNter:GATE:AUTO[:STATe]'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:COUNter:GATE'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:COUPling'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:FILTer'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:RANGe:AUTO[:STATe]'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:RANGe'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:RESolution'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SECondary'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SECondary:METHod'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:ADD'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:COUNt'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:DIFFerence'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:DIFFerence:ADD'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:DIFFerence:REMove'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:LIST'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:MODify'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:PICK'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:REMove'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent:AC:SHUNt:SORT'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:APERture'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:APERture:MODE'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:NPLC'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:RANGe:AUTO[:STATe]'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:RANGe'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:RESolution'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SECondary'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:ADD'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:COUNt'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:LIST'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:MODify'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:PICK'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:REMove'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+  - header: '[:SENSe]:XCURrent[:DC]:SHUNt:SORT'
+    level: not_modeled
+    note: 外接分流电流功能与分流器表未实现。
+- section: STATus subsystem
+  commands:
+  - header: STATus:OPERation:CONDition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+  - header: STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+  - header: STATus:OPERation:ENABle
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+  - header: STATus:PRESet
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+  - header: STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+  - header: STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+  - header: STATus:QUEStionable:ENABle
+    level: not_modeled
+    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
+- section: SYSTem subsystem
+  commands:
+  - header: SYSTem:DATe
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:ERRor[:NEXT]
+    level: implemented
+    note: 错误队列 FIFO，溢出 -350；错误码与文字按手册 Error Codes。
+  - header: SYSTem:LFRequency
+    level: implemented
+    note: 查询回 50（电源频率固定 50 Hz，NPLC 按它换算）；设定未实现。
+  - header: SYSTem:LFRequency:AUTO
+    level: not_modeled
+    note: 电源频率固定为 50 Hz。
+  - header: SYSTem:MLEVel
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:PRESet
+    level: implemented
+    note: NORMal 或无参数：同 *RST；FAST（高速模式）未建模（-224）。
+  - header: SYSTem:TIME
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:TIME:TIMer[:STATe]
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:VERSion
+    level: implemented
+    note: 1999.0（手册：状态系统按 SCPI 1999）。
+  - header: SYSTem:LOCal
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:REMote
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:RWLock
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:TEMPerature
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:ENABle
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:GPIB:ADDRess
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:LAN:CONTrol
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:LAN:DHCP[:STATe]
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:LAN:GATeway
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:LAN:IPADdress
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:LAN:MAC
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+  - header: SYSTem:COMMunicate:LAN:SMASk
+    level: not_modeled
+    note: 系统设置（日期时间、通信口、本地/远程、内部温度等）未实现。
+- section: Trigger subsystem
+  commands:
+  - header: ABORt
+    level: implemented
+    note: 回到空闲态；已取的读数保留。
+  - header: INITiate:CONTinuous[:STATe]
+    level: implemented
+    note: 遥控时为 OFF（Table 12 注 1）；ON（连续触发）未建模，报 -224。
+  - header: INITiate:EPOCh:STARt
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: INITiate:EPOCh:STOP
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: INITiate[:IMMediate]
+    level: implemented
+    note: 离开空闲态开始新的记录（清空读数存储）；读数按孔径计入虚拟时间，INIT 即时返回。
+  - header: ARM[:SEQuence]:LAYer<n>:COUNt
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:COUPling
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:DELay:AUTO
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:DELay
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:ECOunt
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:EXTernal
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:FILTer
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:IMMediate
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:LEVel
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:SIGNal
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:SLOPe
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:SOURce
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: ARM[:SEQuence]:LAYer<n>:TIMer
+    level: not_modeled
+    note: ARM 层固定为 IMMediate、计数 1、延迟 0（Table 12 默认值），命令未实现。
+  - header: TRIGger[:SEQuence]:COUNt
+    level: implemented
+    note: 1–1 000 000；读数个数 = TRIG:COUN（ARM 层计数固定为 1）。
+  - header: TRIGger[:SEQuence]:COUPling
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:DELay:AUTO
+    level: implemented
+    note: 保存并回读；*RST 为 ON，CONFigure 置 OFF。自动延迟的建立时间不建模（见 DELay）。
+  - header: TRIGger[:SEQuence]:DELay
+    level: implemented
+    note: 触发到采集开始的延迟，计入虚拟时间（DEL:AUTO ON 时也用此值，自动延迟只在配置变化后才非零，模型不计）。
+  - header: TRIGger[:SEQuence]:ECOunt
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:EXTernal
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:FILTer
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:HOLDoff:AUTO[:STATe]
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:HOLDoff
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:IMMediate
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:LEVel
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:RESet
+    level: implemented
+    note: 触发层回到 Table 12 的默认值（IMM、计数 1、延迟 0、自动延迟 ON），INIT:CONT 不变；模型同时回到空闲态。
+  - header: TRIGger[:SEQuence]:SIGNal
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:SLOPe
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。
+  - header: TRIGger[:SEQuence]:SOURce
+    level: implemented
+    note: IMMediate / BUS（*TRG）/ EXTernal；HOLD、INTernal、LINE、MANual、SYNChronous、TIMer 未建模（-224）。
+  - header: TRIGger[:SEQuence]:TIMer
+    level: not_modeled
+    note: 触发层的此项（耦合、事件分频、外部沿、滤波、保持、内部电平、定时器、EPOCh）未实现。

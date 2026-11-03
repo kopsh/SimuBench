@@ -16,3 +16,5 @@
 | DAQ97-90002 | Keysight DAQ970A/DAQ973A Data Acquisition System Programming Guide | Edition 3, March 2020 | `keysight-daq970a` | https://www.batronix.com/files/Keysight/DAQ/DAQ970A-973A-Programming.pdf |
 | 33500-90901 | Keysight Trueform Series Operating and Service Guide | © 2013–2015（未印版次） | `keysight-33622a` | https://fotronic.asset.akeneo.cloud/pdfs/media/usedequipment_33500b_33600a_series_manual.pdf |
 | 1178.3834.02 | R&S SMA100B RF and Microwave Signal Generator User Manual | Version 14（固件 5.40.102.xx） | `rs-sma100b` | https://scdn.rohde-schwarz.com/ur/pws/dl_downloads/pdm/cl_manuals/user_manual/1178_3834_01/SMA100B_UserManual_en_14.pdf |
+| 8588A-rpeng0000 | Fluke 8588A/8558A Reference Multimeter and 8½ Digit Multimeter Remote Programmer's Manual | March 2019 | `fluke-8588a` | https://xdevs.com/doc/Fluke/8588A_8558A/8588A___rpeng0000_0.pdf |
+| 8588A-pseng0000 | Fluke 8588A Reference Multimeter Product Specifications（量程、测量电流、输入阻抗） | March 2019, Rev. A | `fluke-8588a` | https://docs.ampnuts.ru/eevblog.docs/Fluke/8588A_8558A/8588Apseng0000.pdf |
