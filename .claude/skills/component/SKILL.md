@@ -35,6 +35,7 @@ class CounterGate(Component):
     units = {"time": "s"}
     choices = {"mode": ("TIMe", "COUNt")}  # word params: validation refuses other words; read with self.choice("mode")
     refs = {"clock": ("reference_clock", "instrument")}   # links to sibling components
+    # resolve a ref with self.peer(name): a channel component finds ch<n>.<name> first (#382)
     generic = True                     # False = model-specific (tracked in ALLOWED, only shrinks)
 
     @op("count", fields=("unit",))     # callable from a definition: op: <component>.count

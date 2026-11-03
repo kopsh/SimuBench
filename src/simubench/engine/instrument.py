@@ -1736,13 +1736,29 @@ class Instrument:
         raise self._undefined(unit, unit.tokens)
 
     def _bus_trigger(self, unit: Unit) -> tuple[bytes | None, int]:
-        """``*TRG``: the bus trigger of the first component with a ``bus_trigger`` operation."""
-        for comp in self.components.values():
-            fn = comp.operation("bus_trigger")
-            if fn is not None:
+        """``*TRG``: the bus trigger of every component with a ``bus_trigger`` operation (each
+        channel's trigger model of a multi-channel SMU, #382). A component that refuses it (not
+        waiting for a trigger) is left out while another one takes it; when none takes it, the
+        first one's error stands — a single trigger model answers exactly as before."""
+        fns = [fn for comp in self.components.values() if (fn := comp.operation("bus_trigger"))]
+        if not fns:
+            raise self._undefined(unit, unit.tokens)
+        response: bytes | None = None
+        duration = 0
+        first_error: ScpiError | None = None
+        taken = False
+        for fn in fns:
+            try:
                 result = fn()
-                return result.response, result.duration_ns
-        raise self._undefined(unit, unit.tokens)
+            except ScpiError as e:
+                first_error = first_error or e
+                continue
+            taken = True
+            response = response if response is not None else result.response
+            duration = max(duration, result.duration_ns)
+        if not taken and first_error is not None:
+            raise first_error
+        return response, duration
 
     _SYST_ERR = Pattern.compile(":SYSTem:ERRor[:NEXT]")
     _SYST_ERR_COUNT = Pattern.compile(":SYSTem:ERRor:COUNt")
