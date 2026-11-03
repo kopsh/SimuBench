@@ -3,7 +3,9 @@
 # head does not contain the latest main is not merged either — two that each pass on an older
 # main can break main together — but the bot heals that itself: it merges main into the branch,
 # dispatches CI on the merged head, and merges once that run passes (#481). Only a merge conflict
-# goes back to the agent. Every merge uses the exact commit CI tested (--match-head-commit).
+# goes back to the agent. Every merge uses the exact commit CI tested (--match-head-commit). A red
+# CI run on a pull-request head is reported on the pull request (#485): the agent can only react
+# to what it sees, and a self-healed branch's red run would otherwise be silent.
 name: Merge when CI passes
 
 on:
@@ -61,3 +63,21 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
+
+  report:
+    # A red CI run on a pull-request head is commented on the pull request (main's own red runs
+    # are already visible; a self-healed branch's red run would otherwise have no watcher).
+    if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          PRS=$(gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
+            --jq ".[] | select(.headRefOid == \"$SHA\" and (.isDraft | not)) | .number")
+          for n in $PRS; do
+            gh pr comment "$n" --repo "$REPO" --body "CI failed on this head ([the run]($RUN)). Push a fix — the new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN: ${{ github.event.workflow_run.html_url }}
