@@ -121,6 +121,62 @@ cases:
       - query: "CONF? (@101)"
         expect_match: '^"VOLT \+1\.00000000E\+01,\+\d\.\d{8}E-0\d"$'
 
+  - name: "NPLC? MIN|MAX|DEF 回表的两端与默认值,带或不带通道列表(#423)"
+    manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:NPLCycles?（语法 NPLCycles? [{(@<ch_list>) | MIN | MAX | DEF}]）"
+    steps:
+      - query: "SENS:VOLT:DC:NPLC? MIN"
+        expect: "+1.00000000E-03"
+      - query: "SENS:VOLT:DC:NPLC? MAX"
+        expect: "+2.00000000E+02"
+      - query: "SENS:VOLT:DC:NPLC? DEF"
+        expect: "+1.00000000E+00"
+      - query: "SENS:VOLT:DC:NPLC? MAX,(@101)"
+        expect: "+2.00000000E+02"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "NPLC 表外的值舍入到表中的值,CONFigure? 的分辨率随之落在手册表上(#423)"
+    manual: "Remote Operation > SCPI parameter types > Numeric parameters（只接受特定值的命令把数值舍入到可接受值）; [SENSe:]VOLTage[:DC]:NPLCycles 的 <PLCs> 表"
+    steps:
+      - send: "CONF:VOLT:DC 10,DEF,(@101)"
+      - send: "SENS:VOLT:DC:NPLC 0.5,(@101)"
+      - query: "SENS:VOLT:DC:NPLC? (@101)"
+        expect: "+1.00000000E+00"
+      - query: "CONF? (@101)"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-06"'
+      - send: "SENS:VOLT:DC:NPLC 3,(@101)"
+      - query: "SENS:VOLT:DC:NPLC? (@101)"
+        expect: "+2.00000000E+00"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "NPLC 不写通道列表时作用于当前扫描表(#423)"
+    manual: "Remote Operation > SCPI channel list（If you omit the optional @<ch_list> parameter, the command applies to the currently defined scan list）"
+    steps:
+      - send: "ROUT:SCAN (@102:103)"
+      - send: "SENS:VOLT:DC:NPLC 10"
+      - query: "SENS:VOLT:DC:NPLC? (@101:103)"
+        expect: "+1.00000000E+00,+1.00000000E+01,+1.00000000E+01"
+      - query: "SENS:VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01,+1.00000000E+01"
+
+  - name: "空槽通道进扫描表:设置时接受,扫描启动时 -114;ROUTe:CLOSe 在命令时即 -114(#423,差异见覆盖表)"
+    manual: "ROUTe Subsystem > ROUTe:SCAN; ROUTe:CLOSe（手册未写明空槽通道进扫描表的行为）"
+    steps:
+      - send: "ROUT:SCAN (@201)"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+      - query: "ROUT:SCAN?"
+        expect: "#16(@201)"
+      - send: "INIT"
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+      - query: "DATA:POIN?"
+        expect: "0"
+      - send: "ROUT:CLOS (@201)"
+      - query: "SYST:ERR?"
+        expect: '-114,"Header suffix out of range"'
+
   - name: "输入阻抗自动：10 V 档改为 >10 GΩ，读数回到设定值"
     manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:IMPedance:AUTO"
     steps:

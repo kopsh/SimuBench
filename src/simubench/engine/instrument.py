@@ -1191,6 +1191,10 @@ class Instrument:
             if ps.type == "channel_list":
                 if raw:
                     numbers = V.parse_channel_list(raw.pop(0), self.channel_exists, **self._list_rules())
+                elif ps.optional and unit.query and form is not None:
+                    # NPLC? MAX: a limit asked without a list is answered once (#423); the
+                    # limits are the same declaration for every channel
+                    numbers = [self.channel_number(1)]
                 elif ps.optional:
                     numbers = self._omitted_list(ps)
                 else:
@@ -1391,6 +1395,12 @@ class Instrument:
         selected = self.definition.channels.selected
         if selected is not None:
             return [int(self.state[selected])]
+        if isinstance(ps.default, str):
+            # a setting holding the list (#423: the DAQ970A's omitted list is the scan list)
+            numbers = [int(n) for n in self.state[ps.default.removeprefix("$")] or []]
+            if not numbers:
+                raise ScpiError(-221, f"no channel list given and {ps.default[1:]} is empty")
+            return numbers
         return ps.default or [self.channel_number(1)]
 
     def _list_rules(self) -> dict[str, bool]:
