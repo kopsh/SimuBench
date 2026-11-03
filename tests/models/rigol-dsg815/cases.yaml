@@ -452,7 +452,7 @@ cases:
       - query: ":SYST:ERR?"
         expect_match: '^-222,"Data out of range.*'
 
-  - name: "扫描状态：频率、电平或两者（回读 LEV,FREQ），OFF 不能与其他同用（#291）"
+  - name: "扫描状态：频率、电平或两者（回读 LEV,FREQ），重复词合并（#353），OFF 不能与其他同用（#291）"
     manual: "Command System > [:SOURce]:SWEep:STATe"
     steps:
       - send: ":SWE:STEP:STAR:FREQ 100MHz"
@@ -469,6 +469,12 @@ cases:
       - send: ":SWE:STAT FREQ,LEV"
       - query: ":SWE:STAT?"
         expect: "LEV,FREQ"
+      # 扫描方式是词的集合（enum_list）：重复词合并、顺序归一，不报错（手册未写重复词的行为，#353）
+      - send: ":SWE:STAT LEV,FREQ,LEV"
+      - query: ":SWE:STAT?"
+        expect: "LEV,FREQ"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
       - send: ":SWE:STAT OFF,FREQ"
       - query: ":SYST:ERR?"
         expect_match: '^-224,"Illegal parameter value.*'

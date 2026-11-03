@@ -543,7 +543,8 @@ commands:
   - {header: "[:SOURce]:PM:STATe", state: pm.state}
   - {header: "[:SOURce]:PM:WAVEform", state: pm.waveform}
 
-  # ---- 扫描（手册 2-61 – 2-70）：只建模步进频率扫描 ------------------------------------------
+  # ---- 扫描（手册 2-61 – 2-70）：步进扫描——频率、电平或同扫，驻留按虚拟时间推进，连续/单次与
+  #      扫描点触发（#291）；列表扫描（:SWEep:LIST:*）未建模，见 docs/component-map.md 缺口 17 ----------
   - {header: "[:SOURce]:SWEep:STATe", state: sweep.manner}
   - {header: "[:SOURce]:SWEep:TYPE", state: sweep.type}
   - {header: "[:SOURce]:SWEep:STEP:STARt:LEVel", state: sweep.level_start, format: {number: nr2, digits: 2, sign: false}}
