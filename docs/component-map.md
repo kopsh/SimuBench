@@ -68,7 +68,7 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| setpoint_and_range | `calibrator_setpoint` | 信号(功能、电平、频率、建立过渡与隐藏误差) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
+| setpoint_and_range | `calibrator_setpoint` | 信号(功能、电平、频率、建立过渡与隐藏误差;量程表、RANGE? 与量程锁定,量程/极性改变的附加建立时间,#552) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
 | output_control | `calibrator_control` | 电路(工作/待机断开端子、`z_out`、过载跳闸、`standby_above`) | 已实现(#329;5522A 已迁移) | 只有一个输出端子:5730A 的宽带输出(Wideband)与外部放大器接口要另一个端子与选择,需要时另开核心 issue |
 
 5730A 与 5522A 的远程方言(#329 的评估,未按 5730A 手册正文核实):两者同属 Fluke 校准器命令集——`OUT <值>[,<频率>]`、`OPER`/`STBY`、`ERR?`、`*OPC?` 与按单位分派的参数,拆分后的两块与已有的 `quantities` 参数足以表达;差别在输出端:5730A 有宽带输出选件与 5725A 放大器接口(另一套端子与选择命令),以及更细的量程结构。前者需要输出控制块支持多个端子(上表),后者只是定义里的量程表。型号 issue(#341)开工时按手册核对这些命令,确需平台能力再开核心 issue。

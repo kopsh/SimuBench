@@ -26,6 +26,7 @@ from typing import Any
 from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
+from ...scpi.errors import ScpiError
 
 
 def _flag(value: Any) -> bool:
@@ -53,7 +54,9 @@ class _Setpoint:
             v = float(s)
         except (TypeError, ValueError):
             v = 0.0
-        return max(v, 0.0)
+        # a range or polarity change adds its own settling (#552), once
+        extra, self._extra_settle = getattr(self, "_extra_settle", 0.0), 0.0
+        return max(v, 0.0) + extra
 
     def _level_now(self) -> float:
         """The raw amplitude at this instant: the settling transition followed (5.1)."""
@@ -266,12 +269,76 @@ class CalibratorSetpoint(_Setpoint, Component):
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)
         "control": "",  # the calibrator_control that operates this setpoint
+        # Ranges (#552): per function a list of [name, full scale] or [name, full scale, minimum],
+        # e.g. {DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC1100V, 1100, 100]]}; the output takes the
+        # smallest range whose full scale is above the level ({}: no ranges)
+        "ranges": {},
+        "range_lock": False,  # the present range is locked (a setting): levels outside it are refused
+        "over_range_error": -222,  # the error a level above the locked range's full scale reports
+        "under_range_error": -222,  # the error a level below the locked range's minimum reports
+        "range_settle": 0.0,  # s of settling added when the range or the polarity changes
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._trans: tuple[int, int, float, float] | None = None  # (start ns, ns, from, to)
         self._settled = 0.0  # the amplitude the output rests at (0.0 while disconnected)
+        self._locked: str | None = None  # the locked range's name
+        self._extra_settle = 0.0
+
+    # ---- ranges (#552) ----------------------------------------------------------------------------
+
+    def _table(self, function: str | None = None) -> list[tuple[str, float, float]]:
+        spec = dict(self.param("ranges") or {})
+        fn = str(function or self.param("function")).upper()
+        rows = next((v for k, v in spec.items() if str(k).upper() == fn), None) or []
+        out = []
+        for row in rows:
+            name, full = str(row[0]), float(row[1])
+            out.append((name, full, float(row[2]) if len(row) > 2 else 0.0))
+        return sorted(out, key=lambda r: r[1])
+
+    def auto_range(self, level: float, function: str | None = None) -> str | None:
+        """The range an unlocked output takes for ``level``: the smallest whose full scale is
+        above it (the largest when none is)."""
+        table = self._table(function)
+        if not table:
+            return None
+        for name, full, _ in table:
+            if abs(level) < full * (1 - 1e-12):
+                return name
+        return table[-1][0]
+
+    def range_name(self) -> str | None:
+        """The range in use: the locked one, or the one the level selects."""
+        return self._locked or self.auto_range(float(self.param("level")))
+
+    @op("range")
+    def op_range(self, **_: Any) -> OpResult:
+        """``RANGE?``: the present range's name."""
+        name = self.range_name()
+        if name is None:
+            raise ScpiError(-221, "this output has no range table")
+        return OpResult(name.encode())
+
+    def _set_lock(self, on: bool) -> None:
+        path = self.bound_paths().get("range_lock")
+        if path is not None and self.owner is not None:
+            self.owner.set_state(path, on, source="scpi", internal=True)
+
+    def _check_locked(self, level: float) -> None:
+        row = next((r for r in self._table() if r[0] == self._locked), None)
+        if row is None:
+            return
+        _, full, minimum = row
+        if abs(level) >= full * (1 - 1e-12):
+            raise ScpiError(
+                int(self.param("over_range_error")), f"{level:g} is over the locked range {row[0]}"
+            )
+        if abs(level) < minimum:
+            raise ScpiError(
+                int(self.param("under_range_error")), f"{level:g} is under the locked range {row[0]}"
+            )
 
     def _control(self) -> Any:
         assert self.owner is not None
@@ -282,11 +349,27 @@ class CalibratorSetpoint(_Setpoint, Component):
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         key = {v: k for k, v in self.bound_paths().items()}.get(path)
+        if key == "range_lock":
+            self._locked = self.auto_range(float(self.param("level"))) if _flag(new) else None
+            return
+        if key == "function" and self._locked is not None and old != new:
+            self._locked = None  # a new function unlocks the range (the 5730A manual)
+            self._set_lock(False)
+        if key == "level":
+            if self._locked is not None:
+                self._check_locked(float(new))
+            before = self._locked or self.auto_range(float(old))
+            after = self._locked or self.auto_range(float(new))
+            flipped = float(old) * float(new) < 0
+            # only a change while operating moves the output across ranges (in standby nothing settles)
+            moved = (before != after or flipped) and self._control().on()
+            self._extra_settle = float(self.param("range_settle") or 0.0) if moved else 0.0
         if key in ("level", "function", "frequency"):
             self.setpoint_changed(key, old, new)
 
     def reset(self) -> None:
         self.drop()
+        self._locked = None
 
 
 @component("calibrator_control")
