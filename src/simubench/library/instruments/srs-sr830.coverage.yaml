@@ -144,7 +144,7 @@ sections:
         note: OUTP? 1/2/3/4 = X/Y/R/θ；数值由相敏检波与低通求得。回复格式为引擎的工程记数（真机是 6 位有效数字的裸浮点，偏差）。
       - header: OUTR
         level: implemented
-        note: OUTR? 1/2 = CH1/CH2 显示值；显示在模型中固定为 X/Y（DDEF 未实现，见上）。
+        note: OUTR? 1/2 = CH1/CH2 显示值，随 DDEF 的量（手册 5-16/5-17）：X/R/XNoise 与 AUX1/2、Y/θ/YNoise 与 AUX3/4，与曲线缓冲的取量同一来源；噪声量是前端噪声密度（模型估计）。
       - header: SNAP
         level: not_modeled
         note: 2…6 个编号（1…11，含 X/Y/R/θ、AUX、频率、显示值）在同一时刻读取；lockin_output.snap 只认名字，需要编号选择能力（#273 第 2 节）。
