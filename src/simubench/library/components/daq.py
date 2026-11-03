@@ -355,6 +355,12 @@ class ScanTable(Component):
         """One run is the list scanned ``count`` times."""
         return len(self.channels()) * max(1, int(self.param("count")))
 
+    def samples_per_trigger(self) -> int:
+        """Each trigger scans the list once: the trigger count is the scan count, so on the bus
+        ``count`` *TRG are accepted before the run is done (DAQ97-90002 TRIGger:COUNt: "For the BUS
+        source, the trigger count sets the number of *TRG commands that will be accepted", #422)."""
+        return len(self.channels())
+
     def sample_time_ns(self) -> int:
         """One reading of a scan: the relay settling time plus the DMM's own reading time. With
         per-channel configurations (#365) the channels' reading times differ (each its own NPLC);
