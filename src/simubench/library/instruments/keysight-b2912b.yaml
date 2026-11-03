@@ -298,6 +298,32 @@ commands:
   state: ch.sweep.points
 - header: '[:SOURce<ch>]:SWEep:POINts'
   state: ch.sweep.points
+# 测量功能使能（#397，B2910-90130 p.246–248）：FUNC[:ON] 使能所列功能（其余不变）、FUNC:OFF 关闭；
+# 查询回带引号的短格式，无则 ""；*RST 为 "VOLT","CURR" 开、"RES" 关。
+- header: :SENSe<ch>:FUNCtion[:ON]
+  op: ch.core.function_on
+  params: [{name: names, type: raw, optional: true}]
+- header: :SENSe<ch>:FUNCtion[:ON]:ALL
+  op: ch.core.function_all
+  query: false
+- header: :SENSe<ch>:FUNCtion[:ON]:COUNt
+  op: ch.core.function_count
+  set: false
+- header: :SENSe<ch>:FUNCtion:OFF
+  op: ch.core.function_off
+  params: [{name: names, type: raw, optional: true}]
+- header: :SENSe<ch>:FUNCtion:OFF:ALL
+  op: ch.core.function_all
+  query: false
+  args: {"on": false}
+- header: :SENSe<ch>:FUNCtion:OFF:COUNt
+  op: ch.core.function_count
+  set: false
+  args: {"on": false}
+- header: :SENSe<ch>:FUNCtion:STATe
+  op: ch.core.function_state
+  set: false
+  params: [{name: names, type: raw}]
 - header: :SENSe<ch>:VOLTage[:DC]:NPLCycles
   state: ch.sense.nplc
 - header: :SENSe<ch>:CURRent[:DC]:NPLCycles
@@ -689,6 +715,21 @@ channel_state:
     electrical: true
     label: 输出
     label_en: Output
+  sense.func.voltage:
+    type: bool
+    default: true
+    label: 电压测量功能
+    label_en: Voltage measurement
+  sense.func.current:
+    type: bool
+    default: true
+    label: 电流测量功能
+    label_en: Current measurement
+  sense.func.resistance:
+    type: bool
+    default: false
+    label: 电阻测量功能
+    label_en: Resistance measurement
   sense.remote:
     type: bool
     default: false
@@ -820,6 +861,9 @@ channel_components:
 - name: core
   type: smu_meter
   params:
+    measure_voltage: $ch.sense.func.voltage
+    measure_current: $ch.sense.func.current
+    measure_resistance: $ch.sense.func.resistance
     source: source
     loop: loop
     output: out

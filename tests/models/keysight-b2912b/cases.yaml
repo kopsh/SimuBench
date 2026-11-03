@@ -440,12 +440,12 @@ cases:
         expect: "0"
 
   - name: "定义范围外的命令回复 -113 not implemented in this definition"
-    manual: "docs/real-models.md 2；Command Reference > 未建模的 PULSe、FUNCtion 等子系统"
+    manual: "docs/real-models.md 2；Command Reference > 未建模的 PULSe、SENSe:DATA 等子系统"
     steps:
       - send: ":SOUR:PULS:WIDT 1E-3"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
-      - send: ":SENS:FUNC \"CURR\""
+      - send: ":SENS:DATA:LAT?"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
       - send: ":SOUR:CURR:MODE SWE"
@@ -579,3 +579,48 @@ cases:
       - send: ":DISP:VIEW SING2"
       - query: ":DISP:VIEW?"
         expect: "SING2"
+
+  - name: "SENSe:FUNCtion[:ON]/OFF：按通道使能/关闭测量功能，按真机写法不再 -113（#397）"
+    manual: "SENSe Subsystem > :SENSe:FUNCtion[:ON] / :ON:ALL / :ON:COUNt? / :OFF / :OFF:ALL / :OFF:COUNt? / :STATe?（B2910-90130 p.246–248；Default \"VOLT\",\"CURR\"）"
+    steps:
+      - query: ":SENS1:FUNC?"
+        expect: '"VOLT","CURR"'
+      - send: ":SENS1:FUNC 'CURR'"
+      - send: ":SENS1:FUNC:ON \"CURR\""
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: ":SENS1:FUNC \"RES\",\"VOLT\""
+      - query: ":SENS1:FUNC:ON?"
+        expect: '"VOLT","CURR","RES"'
+      - send: ":SENS2:FUNC:OFF \"VOLT\""
+      - query: ":SENS2:FUNC?"
+        expect: '"CURR"'
+      - query: ":SENS2:FUNC:OFF?"
+        expect: '"VOLT","RES"'
+      - query: ":SENS2:FUNC:COUN?"
+        expect: "1"
+      - query: ":SENS2:FUNC:OFF:COUN?"
+        expect: "2"
+      - query: ":SENS2:FUNC:STAT? \"CURR\""
+        expect: "1"
+      - query: ":SENS1:FUNC:STAT? \"RES\""
+        expect: "1"
+      - send: ":SENS1:FUNC:OFF:ALL"
+      - query: ":SENS1:FUNC?"
+        expect: '""'
+      - send: ":SENS1:FUNC:ALL"
+      - query: ":SENS1:FUNC:COUN?"
+        expect: "3"
+      - send: "*RST"
+      - query: ":SENS1:FUNC?"
+        expect: '"VOLT","CURR"'
+      - query: ":SENS2:FUNC?"
+        expect: '"VOLT","CURR"'
+
+  - name: "SENSe:FUNCtion 的未知功能词报 -224（#397）"
+    manual: "SENSe Subsystem > :SENSe:FUNCtion[:ON]（function 只取 CURRent[:DC]|VOLTage[:DC]|RESistance）"
+    steps:
+      - send: ":SENS1:FUNC \"POW\""
+      - query: ":SYST:ERR?"
+        expect_match: '^-224,.*'
+

@@ -41,7 +41,7 @@
 | synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
-| arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426) | siglent-sdg2042x 无(例外清单) |
+| arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430) | siglent-sdg2042x 无(例外清单) |
 | modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。谱线超出 `line_budget`(默认 2000)时:FM/PM 拒绝(-222,展开前按 Carson 规则计数,#357);PWM 保留预算内的低次谐波、截掉其余并附 `truncated` 保真度提示(写明保留次数;预算内谐波全保留、不附提示,#440),常规基频(如 1 kHz 方波,300 MHz 带宽)照常输出(#388)。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
 
 内置 siglent-sdg2042x 由专用组件 `siglent_sdg` 承担(test_model_components.py 已记账),缺口在例外清单;拆分在第二波。
@@ -85,7 +85,7 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 | source_dac | `smu_source` | 设置/数据(源功能、电平、源量程) | 已实现 | — |
 | control_loop | `output_control_loop` | 电路(V/I 环与限值切换,D34;B2 复用) | 已实现 | — |
 | output_stage | `smu_output` | 电路(HI/LO、sense、浮地、输出继电器;逐点更新模式) | 已实现 | — |
-| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252) | 按功能分开的测量设置未建模(见下) |
+| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252;测量功能使能 `measure_voltage/current/resistance` 与 `function_on/off/all/count/state` 操作,B2900 的 `:SENS:FUNC[:ON]/OFF`,#397,未使能的功能仍出读数) | 按功能分开的测量设置未建模(见下) |
 | trigger | `trigger_model` | 数据 | 已实现(单层;多通道时每通道一个,`*TRG` 触发全部在等总线触发的通道,#382) | ARM 层未建模(B2901A 覆盖表) |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 

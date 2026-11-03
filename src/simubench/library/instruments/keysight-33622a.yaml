@@ -89,6 +89,7 @@ errors:
   -420: "Query UNTERMINATED"
   -430: "Query DEADLOCKED"
   -440: "Query UNTERMINATED after indefinite response"
+  786: "Specified arb waveform already exists"
 specs:
   source: 第 1 章 Models and Options（最高频率表）、APPLy 子系统（幅度/偏置/采样率范围）、Factory Reset State
   frequency_hz: "正弦 1 µHz–120 MHz（10 Vpp 以下到 60 MHz、4 Vpp 以下到 120 MHz，按幅度的上限未建模）；方波/脉冲到 100 MHz；三角/斜波 800 kHz（未单独限制）"
@@ -180,6 +181,10 @@ channel_components:
       scale: 0.5
       min_points: 8
       max_points: 1000000
+      # <arb_name>：不带引号、至多 12 个字符；已载入的名字再载入报 +786（33500-90901 DATA:ARBitrary，#430）。
+      # 首字符为字母、只含字母数字下划线的规则见于 33200 系列，Trueform 手册未写，不检查。
+      max_name: 12
+      exists_error: 786
   - name: bits
     type: prbs_source
     params:

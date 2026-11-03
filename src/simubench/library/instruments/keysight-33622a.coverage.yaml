@@ -44,10 +44,10 @@ sections:
     note: 双通道 IQ 任意波未建模。
   - header: '[:SOURce<ch>]:DATA:ARBitrary'
     level: implemented
-    note: 按名把 -1…+1 的数值装入该通道的易失存储（8 点起）；二进制块形式（FORMat:BORDer）未建模。
+    note: 按名把 -1…+1 的数值装入该通道的易失存储（8 点起）；二进制块形式（FORMat:BORDer）未建模。名字至多 12 个字符，超出 -224；已载入的名字再载入 +786 "Specified arb waveform already exists"（手册 DATA:ARBitrary，#430；首字符与可用字符手册未写，不检查）。
   - header: '[:SOURce<ch>]:DATA:ARBitrary:DAC'
     level: implemented
-    note: 按名装入 DAC 码（±32767 为满幅）；二进制块形式未建模。
+    note: 按名装入 DAC 码（±32767 为满幅）；二进制块形式未建模。名字规则同 DATA:ARBitrary（#430）。
   - header: '[:SOURce<ch>]:DATA:ATTRibute:AVERage'
     level: not_modeled
     note: 任意波属性查询未建模。
@@ -68,7 +68,7 @@ sections:
     note: 易失存储中波形的带引号名字，逗号分隔；内置波形（INT:\BUILTIN）未列出。
   - header: '[:SOURce<ch>]:DATA:VOLatile:CLEar'
     level: implemented
-    note: 清空该通道的易失存储。
+    note: 清空该通道的易失存储并重新载入默认波形；正在播放的波形一并清除、不报错（手册：Clears waveform memory ... and reloads the default waveform，#430）。
   - header: '[:SOURce<ch>]:DATA:VOLatile:FREE'
     level: not_modeled
     note: 易失存储剩余点数未建模。
@@ -100,7 +100,7 @@ sections:
     note: PRBS 边沿时间未建模。
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary'
     level: implemented
-    note: 选中易失存储中按名装载的波形；查询回带引号的名字；内置波形与文件路径未建模（-224）。
+    note: 选中易失存储中按名装载的波形；查询回带引号的名字；内置波形与文件路径未建模（-224）。*RST 回到默认波形（Factory Reset State 的 Arb），易失存储保留（手册未写 *RST 清空它，#430）；默认波形在模型中名为空串。
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:ADVance'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
