@@ -396,3 +396,32 @@ def test_current_flows_through_the_shunt_into_the_circuit():
         assert _q(s, "FUNC?") == '"CURR"'
     finally:
         s.close()
+
+
+def test_read_fetch_and_measure_agree_under_resistance_autorange():
+    """#522: the trigger-model paths (READ?, INIT+FETCh?) settle the resistance auto range like
+    MEASure? does — a not-yet-settled range read as open circuit."""
+    b = BenchDefinition.model_validate(
+        {
+            "name": "autorange",
+            "instruments": {"dmm": {"model": "keysight-34465a"}},
+            "parts": {"dut": {"type": "load_resistor", "dut": True, "params": {"r": 5000.0}}},
+            "wires": [{"from": "dmm.IN", "to": "dut.A"}],
+        }
+    )
+    s = open_bench(b)
+    try:
+
+        def q(cmd):
+            s.write("dmm", (cmd + "\n").encode())
+            out = s.read("dmm")
+            return out.decode().strip() if out else ""
+
+        q(":CONF:RES")  # the function only: the power-on auto range stays on
+        expect = pytest.approx(5000.0, rel=1e-6)
+        assert float(q(":READ?")) == expect
+        assert float(q(":MEAS:RES?")) == expect
+        q(":INIT")
+        assert float(q(":FETCh?")) == expect
+    finally:
+        s.close()

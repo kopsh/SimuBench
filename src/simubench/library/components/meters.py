@@ -429,19 +429,23 @@ class DmmAdc(Component):
             return store.coefficients(function)
         return float(self.param("cal_gain")), float(self.param("cal_offset"))
 
-    def measure(self, what: str | None = None) -> float:
-        """One reading with the auto-range decision a measurement command makes (the reading
-        itself, unformatted): what the trigger's sampler and the scan table take per point."""
-        conditioning = self._conditioning()
-        function = conditioning.active_function(what)
+    def _settle_autorange(self, conditioning: Any, function: str) -> None:
+        """The auto-range decision a measurement makes, settled: the ohms ranges set the test
+        current, so the value seen depends on the range taken — each move re-solves the circuit
+        with the new current, and the decision repeats until the range stops moving (#301)."""
         if _flag(conditioning.param("autorange")) and conditioning.ranges(function):
-            # The ohms ranges set the test current, so the value seen depends on the range taken:
-            # settle the decision (each move re-solves the circuit with the new current, #301).
             for _ in range(len(conditioning.ranges(function)) + 1):
                 before = conditioning.effective_range(function, derive=False)
                 conditioning.autorange_to(function, conditioning.true_values()[conditioning._kind(function)])
                 if conditioning.effective_range(function, derive=False) == before:
                     break
+
+    def measure(self, what: str | None = None) -> float:
+        """One reading with the auto-range decision a measurement command makes (the reading
+        itself, unformatted): what the trigger's sampler and the scan table take per point."""
+        conditioning = self._conditioning()
+        function = conditioning.active_function(what)
+        self._settle_autorange(conditioning, function)
         return self.reading(function)
 
     def readings(self) -> dict[str, Any]:
@@ -459,7 +463,12 @@ class DmmAdc(Component):
         return round(float(self.param("reading_time")) * 1e9)
 
     def sample(self, index: int) -> float:
-        return self.reading(self._conditioning().active_function())
+        """One sampled reading (the trigger model's): the same auto-range settling a measurement
+        command makes — a not-yet-settled ohms range read as open circuit (#522)."""
+        conditioning = self._conditioning()
+        function = conditioning.active_function()
+        self._settle_autorange(conditioning, function)
+        return self.reading(function)
 
     @op("measure")
     def op_measure(self, what: str | None = None, **_: Any) -> OpResult:

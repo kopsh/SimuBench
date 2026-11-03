@@ -150,7 +150,8 @@ def test_open_input_and_a_too_small_range_overload():
         assert q("dmm", ":READ?") == "+9.910000000E+37"
         # MEASure? settles the auto range (each range has its own measurement current)
         q("dmm", ":RES:RANG:AUTO ON")
-        assert float(q("dmm", ":MEAS:RES?")) == pytest.approx(5000.0, rel=1e-6)
+        # READ? settles the auto range like MEASure? does (#522)
+        assert float(q("dmm", ":READ?")) == pytest.approx(5000.0, rel=1e-6)
         # CONFigure without a resolution leaves it unchanged (Query Commands: MEAS:VOLT:DC? 10)
         assert q("dmm", ":CONF?") == '"RES +1.00000000E+04,+1.00000000E-04"'
     finally:
@@ -211,5 +212,24 @@ def test_the_aperture_sets_the_reading_time():
         t0 = s.now_ns
         q("dmm", ":READ?")
         assert s.now_ns - t0 == pytest.approx(0.6e9, rel=1e-6)
+    finally:
+        s.close()
+
+
+def test_read_fetch_and_measure_agree_under_resistance_autorange():
+    """#522: the trigger-model paths (READ?, INIT+FETCh?) settle the resistance auto range like
+    MEASure? does — a not-yet-settled range read as open circuit."""
+    s, q = session(
+        {"dut": {"type": "load_resistor", "params": {"r": 5000.0}}},
+        [{"from": "dmm.IN", "to": "dut.A"}],
+        with_cal=False,
+    )
+    try:
+        q("dmm", ":CONF:RES 1000;:RES:RANG:AUTO ON")
+        expect = pytest.approx(5000.0, rel=1e-6)
+        assert float(q("dmm", ":READ?")) == expect
+        assert float(q("dmm", ":MEAS:RES?")) == expect
+        q("dmm", ":INIT")
+        assert float(q("dmm", ":FETCh?")) == expect
     finally:
         s.close()
