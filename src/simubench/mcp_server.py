@@ -38,7 +38,7 @@ from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
 from .server.catalog import components as component_catalog
 from .server.definitionfiles import DefinitionFiles
-from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain
+from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain, fault_info
 
 INSTRUCTIONS = """\
 SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), parts (RC networks,
@@ -65,15 +65,8 @@ Bench files are the engineer's: explain what you change.
 
 
 def _fault(f: Any) -> dict[str, Any]:
-    return {
-        "id": f.id,
-        "status": f.status,
-        "description": f.describe(),
-        "source": f.source,
-        "started_s": f.started_ns / 1e9 if f.started_ns is not None else None,
-        "ends_s": f.ends_ns / 1e9 if f.ends_ns is not None else None,
-        "spec": f.spec.model_dump(exclude_none=True),
-    }
+    """The same fault shape the web API returns (fault_info in server.manager): one DTO, two seams."""
+    return fault_info(f).model_dump(mode="json")
 
 
 def _pointer_diff(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
@@ -435,13 +428,10 @@ def build_server(
         def run() -> list[dict[str, Any]]:
             session = open_bench(bench, definition_dirs=[files.workspace / "instruments"])
             try:
-                inst = session.instrument(definition_id)
                 out: list[dict[str, Any]] = []
                 for command in commands:
-                    before = len(inst.errors)
                     try:
-                        session.write(definition_id, command.encode(), client="mcp")
-                        reply = session.read(definition_id, client="mcp")
+                        result = session.command(definition_id, command, client="mcp")
                     except LinkDown as exc:
                         out.append(
                             {
@@ -452,13 +442,13 @@ def build_server(
                             }
                         )
                         continue
-                    errors = inst.errors.peek_all()[before:]
+                    reply = result.reply
                     item: dict[str, Any] = {
                         "command": command,
                         "response": reply.decode(errors="replace").rstrip("\n")
                         if reply is not None
                         else None,
-                        "errors": [{"code": e.code, "message": e.message} for e in errors],
+                        "errors": [{"code": e.code, "message": e.message} for e in result.errors],
                         "now_s": session.now_ns / 1e9,
                     }
                     if reply is None and "?" in command:
@@ -786,21 +776,20 @@ def build_server(
 
         def run() -> dict[str, Any]:
             session = s.session
-            before = len(inst.errors)
             try:
-                session.write(instrument, command.encode(), client="mcp")
-                out = session.read(instrument, client="mcp")
+                # One exchange (#121): a script on the port cannot take this command's response.
+                result = session.command(instrument, command, client="mcp")
             except LinkDown as exc:
                 return {"response": None, "link_error": str(exc), "now_s": session.now_ns / 1e9}
-            errors = inst.errors.peek_all()[before:]
-            result: dict[str, Any] = {
+            out = result.reply
+            reply: dict[str, Any] = {
                 "response": out.decode(errors="replace").rstrip("\n") if out is not None else None,
-                "errors": [{"code": e.code, "message": e.message} for e in errors],
+                "errors": [{"code": e.code, "message": e.message} for e in result.errors],
                 "now_s": session.now_ns / 1e9,
             }
             if out is None and "?" in command:
-                result["timed_out"] = True
-            return result
+                reply["timed_out"] = True
+            return reply
 
         return await asyncio.to_thread(run)
 

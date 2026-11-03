@@ -18,7 +18,7 @@ import numpy as np
 from ..access.hislip_server import HislipServer
 from ..access.scpi_server import ScpiServer
 from ..api import open_bench
-from ..engine.faults import LinkDown
+from ..engine.faults import FaultState, LinkDown
 from ..engine.instrument import Instrument
 from ..engine.record import definition_hash
 from ..engine.session import Session
@@ -659,18 +659,14 @@ class SessionManager:
     @staticmethod
     def scpi(served: ServedSession, instrument: str, command: str, client: str = "ui") -> M.ScpiResponse:
         s = served.session
-        inst = s.instrument(instrument)
-        before = len(inst.errors)
         try:
-            # Write and read in one action: a script's response cannot end up here (#121).
-            got = s.exchange(instrument, command.encode(), client=client, reads=1)
-            out = got[0] if got else None
+            result = s.command(instrument, command, client=client)
         except LinkDown as exc:
             return M.ScpiResponse(link_error=str(exc), now_ns=s.now_ns)
-        new_errors = inst.errors.peek_all()[before:]
+        out = result.reply
         return M.ScpiResponse(
             response=out.decode(errors="replace").rstrip("\n") if out is not None else None,
-            errors=[M.ErrorItem(code=e.code, message=e.message) for e in new_errors],
+            errors=[M.ErrorItem(code=e.code, message=e.message) for e in result.errors],
             timed_out=out is None and "?" in command,
             now_ns=s.now_ns,
         )
@@ -950,6 +946,21 @@ def _net_notes(s: Session, net: str) -> list[str]:
     except Exception as exc:  # describing a session must not fail because one net cannot be solved
         log.exception("net %s of %s", net, s.bench.name)
         return [f"model error: {type(exc).__name__}"]
+
+
+def fault_info(f: FaultState) -> M.FaultInfo:
+    """The one fault shape every consumer assembles: the web API and MCP tools return the same
+    fields (the MCP tools used to carry their own, with seconds instead of ns and no remaining)."""
+    return M.FaultInfo(
+        id=f.id,
+        status=f.status,
+        description=f.describe(),
+        source=f.source,
+        started_ns=f.started_ns,
+        ends_ns=f.ends_ns,
+        remaining=f.remaining,
+        spec=f.spec,
+    )
 
 
 def _silence(x: Any) -> M.SilenceReason:

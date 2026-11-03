@@ -45,6 +45,15 @@ class Net:
     members: list[str] = field(default_factory=list)  # port references, e.g. "awg.OUT1"
 
 
+@dataclass(frozen=True)
+class CommandResult:
+    """What one message did: its reply (None when the message is not a query, or when nothing
+    came back — a timeout fault, a busy instrument) and the error-queue entries it added."""
+
+    reply: bytes | None
+    errors: list[ScpiError]
+
+
 class _UnionFind:
     def __init__(self) -> None:
         self.parent: dict[str, str] = {}
@@ -560,10 +569,22 @@ class Session:
         out = self.read(name, client)
         return out if out is not None else b""
 
+    def command(self, name: str, data: bytes | str, client: str = "sdk") -> CommandResult:
+        """Send one message and take its response as one action, reporting the error-queue
+        entries it added. Write and read are one exchange (#121): no other client's message can
+        land in between, and a script's response cannot be taken here."""
+        if isinstance(data, str):
+            data = data.encode()
+        with self._lock:
+            inst = self.instrument(name)
+            before = len(inst.errors)
+            got = self.exchange(name, data, client, reads=1)
+            return CommandResult(got[0] if got else None, list(inst.errors.peek_all()[before:]))
+
     def scpi(self, name: str, text: str) -> str:
-        """Convenience for tests and notebooks: write text, return the decoded reply (or '')."""
-        out = self.query(name, text)
-        return out.decode(errors="replace").rstrip("\n")
+        """Convenience for tests and notebooks: one message as one command (#121), decoded reply or ''."""
+        out = self.command(name, text).reply
+        return out.decode(errors="replace").rstrip("\n") if out is not None else ""
 
     def calendar(self) -> dt.datetime:
         """Calendar time now: the bench's run.start plus virtual time (instrument clocks, due dates)."""
