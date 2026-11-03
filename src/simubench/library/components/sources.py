@@ -292,51 +292,82 @@ class WaveformSynth(Component):
 
     # ---- pulse width and period (#437, the Trueform's FUNCtion:PULSe:WIDTh / :PERiod) ------------
 
+    def _pulse_bounds(self, path: str, scale: float = 1.0) -> tuple[float, float, float]:
+        """A setting's (min, default, max), scaled into the command's unit. The width and period
+        ranges ride on their settings' (duty, frequency) declared ranges; the manual's own numbers
+        were not verified term by term (#478). MIN/MAX/DEF words are resolved by
+        :func:`simubench.scpi.values.parse_float` from these."""
+        assert self.owner is not None
+        st = self.owner.specs[path]
+        lo, hi = self.owner.limits(path)
+        if lo is None or hi is None or st.default is None:
+            raise ScpiError(-224, f"{path} declares no range")
+        return lo * scale, st.default * scale, hi * scale
+
+    @staticmethod
+    def _pulse_raw(value: Any) -> bytes:
+        """The command's value (a string parameter, so the words reach the operation) as the
+        parser's bytes."""
+        return value.encode("ascii", errors="replace") if isinstance(value, str) else value
+
     @op("pulse_width")
     def op_pulse_width(self, query: bool = False, value: Any = None, target: str = "", **_: Any) -> OpResult:
         """The pulse width (s, 50 % to 50 %) = duty / frequency; setting it writes the duty
-        setting ``target`` (a channel setting such as ``ch.pulse_duty``; default the bound duty)."""
+        setting ``target`` (a channel setting such as ``ch.pulse_duty``; default the bound duty).
+        MIN/MAX/DEF are the duty setting's declared range at the current period (#478)."""
         assert self.owner is not None
         freq = float(self.param("frequency"))
-        if query:
+        if query and value is None:
             return OpResult(self.owner.format_number(self.duty_ratio() / freq))
-        if value is None:
-            raise ScpiError(-109, "missing pulse width")
-        width = float(value)
-        duty = width * freq
-        if not 0 < duty < 1:
-            raise ScpiError(-222, f"a {width:g} s pulse does not fit a {1 / freq:g} s period")
+        # The word's range and the write go to the same setting: ``target`` (the pulse duty), not
+        # the square-wave duty the generic ``duty`` parameter binds to.
         path = self.resolve_path(target) if target else self.bound_paths().get("duty")
         if path is None:
             raise ScpiError(-221, "the duty cycle is not a setting")
+        duty_scale = 1.0 if str(self.param("duty_unit")).lower() == "ratio" else 1e-2
+        duty_lo, duty_def, duty_hi = self._pulse_bounds(path, duty_scale)
+        # The duty range is the width range at the current period: width = duty / frequency.
+        width = V.parse_float(self._pulse_raw(value), "S", duty_lo / freq, duty_hi / freq, duty_def / freq)
+        if query:
+            return OpResult(self.owner.format_number(width))
+        duty = width * freq  # the ratio (width over period)
         ratio = str(self.param("duty_unit")).lower() == "ratio"
         self.owner.set_state(path, duty if ratio else duty * 100.0)
         return OpResult()
 
     @op("pulse_edges")
     def op_pulse_edges(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
-        """Both edge times at once (``TRANsition[:BOTH]``); the query answers the leading one."""
+        """Both edge times at once (``TRANsition[:BOTH]``); the query answers the leading one.
+        MIN/MAX/DEF are the edge settings' own declared range, the same words LEADing/TRAiling
+        take, so ``TRAN? MIN`` answers what ``LEAD? MIN`` does (#478)."""
         assert self.owner is not None
         bound = self.bound_paths()
         if "lead_time" not in bound or "trail_time" not in bound:
             raise ScpiError(-221, "the edge times are not settings")
-        if query:
+        if query and value is None:
             return OpResult(self.owner.format_number(float(self.param("lead_time"))))
-        if value is None:
-            raise ScpiError(-109, "missing edge time")
-        self.owner.set_state(bound["lead_time"], float(value))
-        self.owner.set_state(bound["trail_time"], float(value))
+        lo, default, hi = self._pulse_bounds(bound["lead_time"])
+        edge = V.parse_float(self._pulse_raw(value), "S", lo, hi, default)
+        if query:
+            return OpResult(self.owner.format_number(edge))
+        self.owner.set_state(bound["lead_time"], edge)
+        self.owner.set_state(bound["trail_time"], edge)
         return OpResult()
 
     @op("pulse_period")
     def op_pulse_period(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
-        """The period (s) = 1 / frequency; setting it writes the frequency (the duty is kept)."""
+        """The period (s) = 1 / frequency; setting it writes the frequency (the duty is kept).
+        MIN/MAX/DEF are the inverse of the frequency setting's declared range (#478)."""
         assert self.owner is not None
-        if query:
+        freq_path = self.bound_paths()["frequency"]
+        if query and value is None:
             return OpResult(self.owner.format_number(1.0 / float(self.param("frequency"))))
-        if value is None or float(value) <= 0:
-            raise ScpiError(-222, "a period is positive")
-        self.owner.set_state(self.bound_paths()["frequency"], 1.0 / float(value))
+        lo, default, hi = self._pulse_bounds(freq_path)
+        # A shorter period is a higher frequency: the period's minimum is 1 over the maximum.
+        period = V.parse_float(self._pulse_raw(value), "S", 1.0 / hi, 1.0 / lo, 1.0 / default)
+        if query:
+            return OpResult(self.owner.format_number(period))
+        self.owner.set_state(freq_path, 1.0 / period)
         return OpResult()
 
     def _played(self, key: str) -> Component | None:
