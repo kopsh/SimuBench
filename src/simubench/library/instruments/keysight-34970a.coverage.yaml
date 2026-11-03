@@ -194,7 +194,7 @@ sections:
   - {header: 'SYSTem:VERSion', level: implemented, note: 'SCPI 版本查询，回复 1994.0（手册 p.180）。'}
 - section: TRIGger Subsystem
   commands:
-  - {header: 'TRIGger:COUNt', level: implemented, note: '每次运行的扫描遍数（列表重复次数）；范围 1–50,000。连续扫描（INFINITY）未建模，设置报 -222。'}
+  - {header: 'TRIGger:COUNt', level: implemented, note: '每次运行的扫描遍数（列表重复次数）；范围 1–50,000。连续扫描（INFINITY）未建模：INF 解析为无穷大、报 -222，INFinity 报 -104（两词错误码不一致，统一由 #360 跟踪）。'}
   - {header: 'TRIGger:SOURce', level: implemented, note: '扫描触发源：IMMediate（TIMer 映射为立即执行）、BUS（*TRG）、EXTernal。TIMer 的间隔见 TRIGger:TIMer；EXTernal 没有真实外部沿，INIT 后等待。偏差：scan_table 的 run_samples 把 TRIG:COUN 编进一次运行，BUS 时一次 *TRG 执行整次扫描（列表×计数），之后 *TRG 报 -211；手册中计数是接受的触发次数（读数总数相同）。'}
   - {header: 'TRIGger:TIMer', level: implemented, note: '扫描间隔，0–359,999 s；保存并回读。首波不把间隔计入虚拟时间（scan_table 的已知债务），读数时间只算继电器建立时间 + DMM 读数时间。'}
 - section: UNIT Subsystem
