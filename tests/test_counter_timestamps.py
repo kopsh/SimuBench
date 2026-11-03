@@ -3,7 +3,10 @@ stamped edges, through the trigger model — on sb-counter-1 fed by a sine of kn
 
 from __future__ import annotations
 
+import json
 import math
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -57,7 +60,10 @@ def _session(frequency: float, defs: Path):
                 },
             },
             "wires": [{"from": "awg.OUT1", "to": "cnt.CH1"}],
-            "run": {"seed": 3, "clock": "command"},
+            # idle off (D47): with the default 'wall', idle real time of >= 10 ms between commands
+            # moves virtual time, so a process's first, slower session stamped other edges and
+            # read other single-shot noise than the sessions after it (issue #409).
+            "run": {"seed": 3, "clock": "command", "idle": "off"},
         }
     )
     return open_bench(bench, definition_dirs=[defs, DEFS])
@@ -97,3 +103,38 @@ def test_a_count_in_parentheses_is_a_number():
     with pytest.raises(ScpiError) as e:  # a channel list is not a number
         V.parse_float(b"(@1)")
     assert e.value.code == -104
+
+
+_FRESH_PROCESS = """
+import json, sys, tempfile
+from pathlib import Path
+sys.path[:0] = [sys.argv[1]]
+from test_counter_timestamps import _defs, _read, _session
+s = _session(1.0e6, _defs(Path(tempfile.mkdtemp())))
+try:
+    print(json.dumps(_read(s, 1.0e6, 3)))
+finally:
+    s.close()
+"""
+
+
+def test_the_first_session_of_a_fresh_process_reads_the_same_stamps():
+    """Issue #409: same seed, same commands — the first session in each of two new processes
+    reads the same values, value for value (the in-process tests cannot see this: by then the
+    imports are warm)."""
+    procs = [
+        subprocess.Popen(
+            [sys.executable, "-c", _FRESH_PROCESS, str(ROOT / "tests")],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            cwd=ROOT,
+        )
+        for _ in range(2)
+    ]
+    outs = [p.communicate(timeout=60) for p in procs]
+    assert all(p.returncode == 0 for p in procs), [err for _, err in outs]
+    first, second = (json.loads(out.strip().splitlines()[-1]) for out, _ in outs)
+    assert first[0] == 2.0
+    assert first == second
