@@ -25,6 +25,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # check_progress_log counts progress-log sections against the merge base (issue #380).
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
@@ -33,6 +36,8 @@ jobs:
       - run: uv run ruff format --check src tests acceptance refcalc
       - name: The D49 test rules (budgets, e2e assertions, environment reuse)
         run: uv run python scripts/check_test_rules.py
+      - name: progress-log keeps its appended history (issue #380)
+        run: uv run python scripts/check_progress_log.py
       - name: Unit, service and acceptance tests
         # tui_boot (Textual screens, snapshots, real-server scenarios) runs on main; see the job below.
         run: uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
