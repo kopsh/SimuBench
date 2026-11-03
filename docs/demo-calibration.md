@@ -131,3 +131,5 @@ uv run simubench serve --workspace examples/demo
 `acceptance/test_calibration_demo.py` 运行整套流程：DC 的 as-found 6 点全部超差、调整后
 as-left 全部合格，两份报告的 `simubench verdicts` 均为全部正确；交流点两次都在限值内；
 参考源断开时脚本报连接错误；台账过期时脚本拒绝运行。
+
+<!-- #498 取消演练 P6:一次性标记,随后移除 -->
