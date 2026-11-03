@@ -40,7 +40,7 @@ sections:
     note: 服务请求使能寄存器。
   - header: '*STB'
     level: implemented
-    note: 状态字节（位 2 错误队列、5 ESB、6 MSS）；OPER/QUES 汇总位无来源（STATus 寄存器组未实现，#539）。
+    note: 状态字节：位 2 错误队列、3 QUES 汇总、5 ESB、6 MSS、7 OPER 汇总（#539）。
   - header: '*TRG'
     level: not_modeled
     note: 瞬变与测量触发系统未实现（瞬变触发
@@ -833,38 +833,38 @@ sections:
 - section: STATus
   commands:
   - header: STATus:OPERation[:EVENt]
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 通道列表必需；每路的 Operation 事件寄存器：条件位变为真时置位，读后清零（#539）。
   - header: STATus:OPERation:CONDition
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 通道列表必需；位 0 CV、1 CC、2 OFF（输出被设为关，包括保护动作关断后）；WTG/MEAS/TRAN 位无来源（触发系统未实现）。
   - header: STATus:OPERation:ENABle
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 通道列表必需；使能（0–65535，*RST 0）；事件 & 使能非零时置状态字节位 7。
   - header: STATus:OPERation:NTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    note: 正/负跳变过滤未实现：事件只记条件的上升沿（手册默认 PTR 全 1、NTR 全 0 的效果）。
   - header: STATus:OPERation:PTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    note: 正/负跳变过滤未实现：事件只记条件的上升沿（手册默认 PTR 全 1、NTR 全 0 的效果）。
   - header: STATus:PRESet
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 各通道 OPER/QUES 使能清零，事件不变。PTR/NTR 未实现（事件只记上升沿，即手册的默认过滤）。
   - header: STATus:QUEStionable[:EVENt]
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 通道列表必需；每路的 Questionable 事件寄存器，读后清零（#539）。
   - header: STATus:QUEStionable:CONDition
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 通道列表必需；位 0 OV、1 OC（保护锁存中）、3 CP+（额定功率限住输出，#533）；PF、OT 等无来源。
   - header: STATus:QUEStionable:ENABle
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    level: implemented
+    note: 通道列表必需；使能；事件 & 使能非零时置状态字节位 3。
   - header: STATus:QUEStionable:NTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    note: 正/负跳变过滤未实现：事件只记条件的上升沿（手册默认 PTR 全 1、NTR 全 0 的效果）。
   - header: STATus:QUEStionable:PTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
+    note: 正/负跳变过滤未实现：事件只记条件的上升沿（手册默认 PTR 全 1、NTR 全 0 的效果）。
 - section: SYSTem
   commands:
   - header: SYSTem:CHANnel[:COUNt]
