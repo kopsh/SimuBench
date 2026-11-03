@@ -43,7 +43,7 @@ sections:
     note: 状态字节；OPER/QUES 汇总位无来源（STATus 寄存器组未实现）。
   - header: '*TRG'
     level: not_modeled
-    note: 瞬变与测量触发系统未实现。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）；测量触发（FETCh/ACQuire）同样未实现。
   - header: '*TST'
     level: implemented
     note: 自检通过回复 0。
