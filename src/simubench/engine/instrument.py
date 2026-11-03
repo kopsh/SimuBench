@@ -1234,6 +1234,13 @@ class Instrument:
                 constants[self._resolve(ref, n)] = value
         for n in channels:
             for ps, r in values:
+                instead = self._keyword_writes(ps, r)
+                if instead is not None:
+                    # A keyword with its own settings, per channel (#354: a CONF range MIN/MAX/DEF
+                    # on a per-channel measurement configuration).
+                    for ref, constant in instead.items():
+                        constants[self._resolve(ref, n)] = constant
+                    continue
                 path = self._resolve(ps.state, n)  # type: ignore[arg-type]
                 writes[path] = r
                 if ps.sets and not self._keyword_argument(self.specs[path], r):
@@ -1391,6 +1398,15 @@ class Instrument:
         word = raw.decode(errors="replace").strip().upper()
         return word.startswith("DEF") or bool(st.special and word in st.special)
 
+    @classmethod
+    def _keyword_word(cls, ps: ParamSpec, st: StateSpec | None, raw: bytes) -> bool:
+        """Whether a float argument names a keyword of its parameter or of the state it binds
+        (#354): MIN/MAX/DEF of the parameter's ``keywords`` table, or DEF / a special word of
+        the setting — not a number, and read per state by the binding layer."""
+        if cls._keyword_writes(ps, raw) is not None:
+            return True
+        return st is not None and cls._keyword_argument(st, raw)
+
     @staticmethod
     def _refuse_not_modeled(words: dict[str, str] | None, raw: bytes) -> None:
         """A word the real instrument takes but this definition does not model (``not_modeled``,
@@ -1495,6 +1511,19 @@ class Instrument:
                 for target in listed or [channel]:
                     path = self._resolve(ps.state, target)
                     value = args[ps.name]
+                    if isinstance(value, bytes):
+                        # A keyword word (#354): its own settings, or the value DEF / a special
+                        # word stands for; the parameter's `sets` do not apply, as on a command
+                        # without a list.
+                        instead = self._keyword_writes(ps, value)
+                        if instead is not None:
+                            for ref, constant in instead.items():
+                                ref_path = self._resolve(ref, target)
+                                bound[ref_path] = self._validate(self.specs[ref_path], constant)
+                            continue
+                        st = self.specs[path]
+                        bound[path] = self._validate(st, self._parse_state(st, value))
+                        continue
                     bound[path] = self._validate(self.specs[path], value)
                     for ref, constant in (ps.sets or {}).items():
                         bound[self._resolve(ref, target)] = self._validate(
@@ -1610,10 +1639,17 @@ class Instrument:
             self._refuse_not_modeled(ps.not_modeled, r)
             try:
                 if ps.type == "float":
-                    v = V.parse_float(r, ps.unit, ps.min, ps.max)
-                    if (ps.min is not None and v < ps.min) or (ps.max is not None and v > ps.max):
-                        raise ScpiError(-222)
-                    out[ps.name] = v
+                    # the state's words are the same on every channel: channel 1's spec tells
+                    st = self.specs.get(self._resolve(ps.state, 1)) if ps.state is not None else None
+                    if (ps.keywords or (st is not None and st.special)) and self._keyword_word(
+                        ps, st, r
+                    ):
+                        out[ps.name] = r  # a keyword word: the binding layer reads it per state (#354)
+                    else:
+                        v = V.parse_float(r, ps.unit, ps.min, ps.max)
+                        if (ps.min is not None and v < ps.min) or (ps.max is not None and v > ps.max):
+                            raise ScpiError(-222)
+                        out[ps.name] = v
                 elif ps.type == "int":
                     out[ps.name] = V.parse_int(r)
                 elif ps.type == "bool":

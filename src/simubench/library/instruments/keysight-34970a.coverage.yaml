@@ -58,14 +58,14 @@ sections:
   - {header: 'CONFigure:DIGital:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
   - {header: 'CONFigure:DIGital:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
   - {header: 'CONFigure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。'}
-  - {header: 'CONFigure:RESistance', level: implemented, note: '两线电阻（#301）：按量程的测试电流经模拟总线流过 DUT，读数由电路求解（含继电器触点与引线电阻）；不能用电流通道 21/22（-221，错误码为模型选择）。'}
+  - {header: 'CONFigure:RESistance', level: implemented, note: '两线电阻（#301）：按量程的测试电流经模拟总线流过 DUT，读数由电路求解（含继电器触点与引线电阻）；不能用电流通道 21/22（-221，错误码为模型选择）。量程接受 AUTO/MIN/MAX/DEF（#354），MIN/MAX 是手册 p.144 的两端 100 Ω–100 MΩ；分辨率关键字同 CONFigure:VOLTage[:DC]。'}
   - {header: 'CONFigure:FRESistance', level: implemented, note: '四线电阻（#301）：通道 n（1–10）供电流，n+10 接检测总线；给 11–20 或电流通道报 -221（错误码为模型选择）。'}
   - {header: 'CONFigure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'CONFigure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。'}
-  - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。'}
-  - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。'}
+  - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354），真机 AC 的 750 V 量程未建模。'}
+  - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率接受 AUTO/MIN/MAX/DEF（#354，语法见 34972-90001；用户指南 p.130 示例 CONF:VOLT:DC 10,DEF,(@301)）：量程 MIN/MAX 是模型保留的两端 0.1/300 V（真机 1000 V 量程未建模），分辨率 MIN/MAX 选 NPLC 表两端（200/0.02 PLC，最细/最粗）。'}
   - {header: 'CONFigure:CURRent:AC', level: implemented, note: '交流电流（真有效值，#301），同 CONFigure:CURRent:DC。'}
-  - {header: 'CONFigure:CURRent[:DC]', level: implemented, note: '直流电流（#301）：只在电流通道 21/22（121/122）上，总线并分流电阻读 V/R（分流值为模型值）；其他通道报 -221（错误码为模型选择）。'}
+  - {header: 'CONFigure:CURRent[:DC]', level: implemented, note: '直流电流（#301）：只在电流通道 21/22（121/122）上，总线并分流电阻读 V/R（分流值为模型值）；其他通道报 -221（错误码为模型选择）。量程接受 AUTO/MIN/MAX/DEF（#354），MIN/MAX 是 10 mA/1 A 两端；分辨率关键字同 CONFigure:VOLTage[:DC]。'}
 - section: DATA Subsystem
   commands:
   - {header: 'DATA:LAST', level: not_modeled, note: '读数缓冲没有按通道查询（组件债务）；手册要求单通道参数（错误 281）。'}
@@ -109,12 +109,12 @@ sections:
   - {header: 'MEMory:STATe:RECall:AUTO', level: not_modeled, note: '上电恢复方式不在首波。'}
 - section: MEASure Subsystem
   commands:
-  - {header: 'MEASure:VOLTage[:DC]', level: implemented, note: '与 CONFigure 相同的设定后按扫描表跑一次扫描并回读数（READ? 的路径，#300）。'}
-  - {header: 'MEASure:VOLTage:AC', level: implemented, note: '交流电压的 MEASure?，同 MEASure:VOLTage:DC（#300）。'}
-  - {header: 'MEASure:CURRent[:DC]', level: implemented, note: '与 CONFigure:CURRent:DC 相同的设定后跑一次扫描并回读数（#301）。'}
-  - {header: 'MEASure:CURRent:AC', level: implemented, note: '与 CONFigure:CURRent:AC 相同的设定后跑一次扫描并回读数（#301）。'}
-  - {header: 'MEASure:RESistance', level: implemented, note: '与 CONFigure:RESistance 相同的设定后跑一次扫描并回读数（#301）。'}
-  - {header: 'MEASure:FRESistance', level: implemented, note: '与 CONFigure:FRESistance 相同的设定后跑一次扫描并回读数（#301）。'}
+  - {header: 'MEASure:VOLTage[:DC]', level: implemented, note: '与 CONFigure 相同的设定后按扫描表跑一次扫描并回读数（READ? 的路径，#300）；量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354）。'}
+  - {header: 'MEASure:VOLTage:AC', level: implemented, note: '交流电压的 MEASure?，同 MEASure:VOLTage:DC（#300、#354）。'}
+  - {header: 'MEASure:CURRent[:DC]', level: implemented, note: '与 CONFigure:CURRent:DC 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
+  - {header: 'MEASure:CURRent:AC', level: implemented, note: '与 CONFigure:CURRent:AC 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
+  - {header: 'MEASure:RESistance', level: implemented, note: '与 CONFigure:RESistance 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
+  - {header: 'MEASure:FRESistance', level: implemented, note: '与 CONFigure:FRESistance 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
   - {header: 'MEASure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'MEASure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。'}
   - {header: 'MEASure:PERiod', level: not_modeled, note: '频率/周期测量不在首波。'}
