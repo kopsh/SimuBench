@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 
 from ..models.bench import Fault
-from .deviation import clear_override, set_override
+from .deviation import check_value, clear_override, set_override
 
 if TYPE_CHECKING:
     from .component import Component
@@ -240,8 +240,12 @@ class FaultManager:
                     float(comp.param(spec.param))
                 except (TypeError, ValueError):
                     raise ValueError(f"drift: {spec.component}.{spec.param} is not numeric") from None
-            if spec.kind == "hidden" and spec.value is None:
-                raise ValueError("hidden: value is required")
+            if spec.kind == "hidden":
+                if spec.value is None:
+                    raise ValueError("hidden: value is required")
+                # The value must fit the parameter's declared type now, at the inject, not later
+                # when the fault starts far from the caller (#495).
+                check_value(comp, spec.param or "", spec.value)
         if spec.kind == "latency" and not spec.latency_s:
             raise ValueError("latency: latency_s is required")
 

@@ -7,6 +7,7 @@ and seed always give the same unit, whatever else the bench holds or the order t
 from __future__ import annotations
 
 import itertools
+import math
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
@@ -80,15 +81,60 @@ def draw(rng: DeviationRange, nominal: Any, seed: int, *who: object) -> Any:
 # priority hidden > drawn deviation > ``$state`` binding is one place's business, not four.
 
 
+def check_value(comp: Component, parameter: str, value: Any, path: str | None = None) -> None:
+    """A written value must fit the parameter's declared type — the type of its default (#495):
+    numbers must be finite, and a numeric or string parameter also accepts a per-cell table (a
+    deviation table) whose every leaf fits. A default that declares no type constrains nothing:
+    ``None`` (rfgen's ``manner``), and a ``$state`` binding — a ``"$path"`` string or a mapping —
+    unless the parameter declares a unit, which makes it a finite number (the scope trigger's
+    ``level`` binds to a setting but is volts)."""
+    default = comp.defaults.get(parameter)
+
+    def reject(expected: str, *, path: str | None = path) -> None:
+        where = path if path is not None else f"{getattr(comp, 'name', type(comp).__name__)}.{parameter}"
+        raise ValueError(f"{where} expects {expected}, got {value!r}")
+
+    binding = default is None or (isinstance(default, str) and default.startswith("$"))
+    if binding and parameter in getattr(comp, "units", {}):
+        if not (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)):
+            reject("a finite number")
+        return
+    if binding:
+        return
+    if isinstance(value, dict) and not isinstance(default, dict):
+        base = path if path is not None else f"{getattr(comp, 'name', type(comp).__name__)}.{parameter}"
+        for key, leaf in value.items():
+            check_value(comp, parameter, leaf, path=f"{base}[{key!r}]")
+        return
+    if isinstance(default, bool):
+        ok = isinstance(value, bool)
+        expected = "a bool"
+    elif isinstance(default, (int, float)):
+        expected = "a finite number"
+        ok = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+    elif isinstance(default, str):
+        expected, ok = "a string", isinstance(value, str)
+    elif isinstance(default, (list, tuple)):
+        expected, ok = "a list", isinstance(value, (list, tuple))
+    elif isinstance(default, dict):
+        expected, ok = "a table", isinstance(value, dict)
+    else:
+        return  # no declared shape to check against
+    if not ok:
+        reject(expected)
+
+
 def set_override(comp: Component, parameter: str, value: Any, *, invalidate: bool = True) -> None:
-    """Write one hidden override: validated against the component's parameters, written, and the
-    session told (the signals may change). Construction-time writers pass ``invalidate=False`` —
-    nothing has been solved yet, and the session is still being built."""
+    """Write one hidden override: validated against the component's parameters and the value
+    against the parameter's declared type, written, and the session told (the signals may
+    change). Construction-time writers pass ``invalidate=False`` — nothing has been solved yet,
+    and the session is still being built."""
     known = set(comp._params) | set(comp.defaults)
     if parameter not in known:
         raise ValueError(
             f"{comp.name} has no parameter {parameter!r}; parameters: {', '.join(sorted(known))}"
         )
+    check_value(comp, parameter, value)
     comp.overrides[parameter] = value
     session = getattr(comp, "session", None)
     if invalidate and session is not None:
