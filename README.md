@@ -18,7 +18,7 @@ cd web && pnpm install && pnpm dev                                     # 启动�
 
 内置仪表只有真实型号（D42），随 wheel 发布。`sb-*` 是 SimuBench 自己的验证仪表，不发布：定义在 `validation/instruments/`，用到它们的测试台在 `validation/benches/` 与 `acceptance/benches/`。测试与验收自动加载它们（`conftest.py`）；其他场合把 `validation` 当作工作区，或设置环境变量 `SIMUBENCH_DEFINITIONS=validation/instruments`（多个目录用路径分隔符隔开）。
 
-协作开发（任何 AI agent 或人）：任务是 GitHub Issue，规则见 [AGENTS.md](AGENTS.md)；PR 通过 CI 后自动合并进 `main`。
+协作开发（任何 AI agent 或人）：任务是 GitHub Issue，规则见 [AGENTS.md](AGENTS.md)；PR 通过 CI 后自动合并进 `main`，分支落后 `main` 时合并机器人自行并 main 重测后合并（仅合并冲突回到 agent）。
 
 ## 命令行
 
