@@ -355,6 +355,11 @@ class CalibratorSetpoint(_Setpoint, Component):
         if key == "function" and self._locked is not None and old != new:
             self._locked = None  # a new function unlocks the range (the 5730A manual)
             self._set_lock(False)
+        check = getattr(self._control(), "check_sense", None)
+        if check is not None and key == "level":
+            check(float(new))
+        elif check is not None and key == "function":
+            check(float(self.param("level")), str(new))
         if key == "level":
             if self._locked is not None:
                 self._check_locked(float(new))
@@ -383,6 +388,7 @@ class CalibratorControl(_Control, Component):
     ports = {
         "in": PortSpec("in", "signal", "the setpoint, from the setpoint block"),
         "out": PortSpec("out", "electrical", "the output terminal"),
+        "sense": PortSpec("in", "electrical", "the SENSE HI terminal (external sense, #551)"),
     }
     refs = {"setpoint": ("calibrator_setpoint", "instrument")}
     units = {"standby_above": "V", "z_out": "OHM"}
@@ -395,6 +401,9 @@ class CalibratorControl(_Control, Component):
         "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "setpoint": "",  # the calibrator_setpoint this control operates
+        "remote_sense": False,  # external sense: regulate the SENSE terminal instead of the output (#551)
+        "sense_ranges": [],  # the setpoint ranges where external sense is allowed ([]: every range)
+        "sense_error": -221,  # the error external sense on a range outside sense_ranges reports
     }
     piecewise = True
 
@@ -409,9 +418,56 @@ class CalibratorControl(_Control, Component):
     def _drive(self) -> Signal:
         return self.input("in")
 
+    # ---- external sense (#551) ----------------------------------------------------------------------
+
+    def remote(self) -> bool:
+        """External sense is on and the SENSE terminal is wired (else the output regulates itself,
+        the internal SENSE-to-OUTPUT connection of the manual)."""
+        return _flag(self.param("remote_sense")) and self.wired("sense")
+
+    def _sense_allowed(self, range_name: str | None) -> bool:
+        allowed = [str(r).upper() for r in self.param("sense_ranges") or []]
+        return not allowed or (range_name is not None and range_name.upper() in allowed)
+
+    def check_sense(self, level: float, function: str | None = None) -> None:
+        """A new level or function while external sense is on must stay on a range that allows it."""
+        if not _flag(self.param("remote_sense")):
+            return
+        sp = self._setpoint()
+        name = getattr(sp, "_locked", None) if function is None else None
+        name = name or sp.auto_range(level, function)
+        if not self._sense_allowed(name):
+            raise ScpiError(int(self.param("sense_error")), f"external sense is not available on {name}")
+
+    def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
+        if not (self.on() and self.remote()):
+            super().stamp(circuit, node)
+            return
+        z = float(self.param("z_out") or 0.0)
+        if z <= 0:
+            circuit.loop_source(node("sense"), GROUND, node("out"), GROUND, self.uid)
+        else:
+            circuit.loop_source(node("sense"), GROUND, node("a"), GROUND, self.uid)
+            circuit.resistor(node("a"), node("out"), z)
+
+    def _load_current(self, dc_voltage: Callable[[str], float]) -> float:
+        if self.remote():
+            return self.session.source_current(self.uid)
+        return super()._load_current(dc_voltage)
+
     def on_state(self, path: str, old: Any, new: Any) -> None:
-        if {v: k for k, v in self.bound_paths().items()}.get(path) == "operate":
+        key = {v: k for k, v in self.bound_paths().items()}.get(path)
+        if key == "operate":
             self._operate_changed(old, new)
+        elif key == "remote_sense":
+            if _flag(new):
+                sp = self._setpoint()
+                if not self._sense_allowed(sp.range_name()):
+                    raise ScpiError(
+                        int(self.param("sense_error")),
+                        f"external sense is not available on {sp.range_name()}",
+                    )
+            self.session.invalidate(electrical=True)
 
     def reset(self) -> None:
         self.tripped = False

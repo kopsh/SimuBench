@@ -123,3 +123,33 @@ def test_a_range_or_polarity_change_adds_a_second_of_settling():
         assert settle("OUT -5 V") == pytest.approx(4.0, abs=0.05)  # 2.2 V -> 11 V range
     finally:
         s.close()
+
+
+def test_external_sense_regulates_at_the_uut():
+    """#551: 5 V through a 1 ohm lead into 200 ohm: internal sense leaves the UUT 5 x 200/201;
+    external sense (SENSE HI on the UUT) holds 5 V there."""
+    parts = {
+        "lead": {"type": "resistor", "params": {"r": 1.0}},
+        "dut": {"type": "load_resistor", "params": {"r": 200.0}},
+    }
+    wires = [
+        {"from": "cal.OUT", "to": "lead.A"},
+        {"from": "lead.B", "to": "dut.A"},
+        {"from": "cal.SENSE", "to": "dut.A"},
+    ]
+    s, q = session(parts, wires)
+    try:
+        inst = s.instruments["cal"]
+
+        def at_uut() -> float:
+            return inst.session.port_signal(inst.components["out"], "sense").mean()
+
+        q("OUT 5 V;OPER")
+        q("*OPC?")
+        assert at_uut() == pytest.approx(5.0 * 200 / 201, rel=1e-4)
+        q("EXTSENSE ON")
+        q("*OPC?")
+        assert at_uut() == pytest.approx(5.0, rel=1e-6)
+        assert q("FAULT?") == "0"
+    finally:
+        s.close()
