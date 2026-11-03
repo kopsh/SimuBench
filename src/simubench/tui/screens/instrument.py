@@ -28,6 +28,14 @@ from .shell import ShellScreen
 from .states import ConfirmScreen
 
 
+def _english(text: Any) -> str | None:
+    """``text`` when it is written in Latin script, else None: the TUI shows no CJK (D23)."""
+    if not text:
+        return None
+    t = str(text)
+    return t if all(ord(c) < 0x2E80 for c in t) else None
+
+
 class ControlButton(Static):
     """One ``[label]`` button of a box's button row; focusable, reversed while focused (5.2)."""
 
@@ -278,8 +286,9 @@ class InstrumentScreen(ShellScreen):
         app: Any = self.app
         info = self.info
         title = f"{info.get('name', '')} · {info.get('model', '')}"
-        if info.get("label"):
-            title += f" · {info['label']}"
+        label = _english(info.get("label"))
+        if label:
+            title += f" · {label}"
         if self.remote_controlled:
             title += " " + i18n.t("instrument.remoteBadge", app.lang)
         return title
@@ -377,7 +386,8 @@ class InstrumentScreen(ShellScreen):
         if channel is not None:
             return f"CH{channel}"
         info = self.info
-        return info.get("label") or info.get("model", "")
+        # The TUI is English only (D23): a bench label in another script gives way to the model.
+        return _english(info.get("label")) or info.get("model", "")
 
     def _channel_lines(self, template: str, channel: int | None, width: int) -> list[list[tuple[str, str]]]:
         info = self.info
@@ -390,6 +400,10 @@ class InstrumentScreen(ShellScreen):
             return self._spectrum_lines(state, width)
         if template == "lockin":
             return self._lockin_lines(state, width)
+        if template == "rf_generator":
+            return self._rf_lines(state, width)
+        if template == "electronic_load":
+            return self._load_lines(state, width)
         if (info.get("display") or {}).get("panel"):
             return self._panel_lines(width)
         return self._readings_lines(width) + self._generic_lines(state, width)
@@ -513,7 +527,9 @@ class InstrumentScreen(ShellScreen):
         for ro in shown:
             label = ro.get("label_en") or ro.get("label") or ro.get("reading", "")
             value = values.get(ro.get("reading", ""))
-            if isinstance(value, (int, float)) and not isinstance(value, bool):
+            if isinstance(value, int) and not isinstance(value, bool) and not ro.get("unit"):
+                rows.append([(pad(label, label_w), "muted"), (str(value), "bold")])  # a count (#355)
+            elif isinstance(value, (int, float)) and not isinstance(value, bool):
                 text = fmt(value, ro.get("unit"), ro.get("digits") or 5)
                 rows.append([(pad(label, label_w), "muted"), (text, "bold")])
             else:
@@ -581,6 +597,110 @@ class InstrumentScreen(ShellScreen):
                 rows.append(line)
         rows.append([("", "")])
         return rows + self._generic_lines(state, width)
+
+    def _value(self, name: str) -> Any:
+        """A reading by its name, whatever component gives it (``synth.frequency`` -> frequency)."""
+        values = self.readings.get("values", {})
+        if name in values:
+            return values[name]
+        return next((v for k, v in values.items() if k.rsplit(".", 1)[-1] == name), None)
+
+    @staticmethod
+    def _flag(label: str, on: bool, tokens: str = "ok") -> list[tuple[str, str]]:
+        return [(label, tokens if on else "muted"), ("  ", "")]
+
+    def _rf_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+        """The RF source as the web screen shows it (#355): frequency and level, RF and modulation
+        flags, the reference, the sweep point and the output's spectral lines — then its settings
+        in three groups. Not the synthesizer's internal quantities."""
+        on = lambda path: (state.get(path) or {}).get("value") is True  # noqa: E731
+        freq = self._value("frequency")
+        level = (state.get("power.level") or {}).get("value")
+        rows: list[list[tuple[str, str]]] = []
+        if isinstance(freq, (int, float)):
+            rows.append([(pad("Frequency", 10), "muted"), (fmt(float(freq), "Hz", 10), "bold")])
+        if isinstance(level, (int, float)):
+            rows.append([(pad("Level", 10), "muted"), (fmt(float(level), "dBm", 4), "bold")])
+        external = (state.get("rosc.source") or {}).get("value") == "EXTernal"
+        locked = self._value("locked") is not False
+        flags = self._flag("RF ON" if on("output.enabled") else "RF OFF", on("output.enabled"))
+        for mod in ("AM", "FM", "PM"):
+            flags += self._flag(mod, on(f"{mod.lower()}.state"))
+        reference = ("EXT locked" if locked else "EXT missing") if external else "INT ref"
+        flags += [(reference, ("ok" if locked else "bad") if external else "muted")]
+        rows.append(flags)
+        detail: list[tuple[str, str]] = []
+        mode = str((state.get("freq.mode") or {}).get("value") or "CW")
+        if mode.upper() not in ("CW", "FIX", "FIXED"):
+            point, points = self._value("point"), self._value("points")
+            detail += [("Point ", "muted"), (f"{int(point or 0)}/{int(points or 0)}", ""), ("   ", "")]
+        lines = self._value("lines")
+        if isinstance(lines, (int, float)):
+            detail += [("Lines ", "muted"), (str(int(lines)), ""), ("   ", "")]
+        beta = self._value("beta")
+        if isinstance(beta, (int, float)) and beta > 0:
+            omitted = float(self._value("omitted_power") or 0.0) * 100
+            detail += [
+                ("β ", "muted"),
+                (f"{beta:.4g}", ""),
+                ("   ", ""),
+                ("omitted ", "muted"),
+                (f"{omitted:.3f} %", ""),
+            ]
+        if detail:
+            rows.append(detail)
+        rows.append([("", "")])
+        groups = {
+            "Carrier": ["freq.cw", "power.level", "output.enabled"],
+            "Modulation": ["am.state", "am.depth", "fm.state", "fm.dev", "pm.state", "pm.dev"],
+            "Sweep": ["freq.mode", "sweep.start", "sweep.stop", "sweep.points", "sweep.dwell"],
+        }
+        return rows + self._grouped_columns(groups, state, width)
+
+    def _load_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+        """The electronic load as the web screen shows it (#355): measured V, I and P, the input,
+        the mode and whether it holds its setting — then its settings."""
+        rows: list[list[tuple[str, str]]] = []
+        for name, label, unit, digits in (
+            ("voltage", "V", "V", 6),
+            ("current", "I", "A", 6),
+            ("power", "P", "W", 4),
+        ):
+            v = self._value(name)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                rows.append([(pad(label, 3), "muted"), (fmt(float(v), unit, digits), "bold")])
+        enabled = (state.get("input.enabled") or {}).get("value") is True
+        mode = (state.get("function.mode") or {}).get("value")
+        regulating = self._value("regulating") is not False
+        flags = self._flag("INPUT ON" if enabled else "INPUT OFF", enabled)
+        if mode is not None:
+            # The mode as the front panel names it: CC, CV, CR, CP.
+            short = {"CURR": "CC", "VOLT": "CV", "RES": "CR", "POW": "CP"}
+            word = str(mode).upper()
+            flags += [
+                (next((v for k, v in short.items() if word.startswith(k)), str(mode)), "bold"),
+                ("  ", ""),
+            ]
+        if enabled and not regulating:
+            flags += [("UNREG", "bad")]
+        rows += [flags, [("", "")]]
+        settings = [
+            p
+            for p in (
+                "function.mode",
+                "current.level",
+                "voltage.level",
+                "resistance.level",
+                "power.level",
+                "source.current.level",
+                "source.voltage.level",
+                "source.resistance.level",
+                "source.power.level",
+                "input.enabled",
+            )
+            if p in state
+        ]
+        return rows + self._grouped_columns({"Settings": settings}, state, width)
 
     def _lockin_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
         """X, Y, R and θ of the lock-in's output (#282), then its settings."""

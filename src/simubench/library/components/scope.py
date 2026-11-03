@@ -904,6 +904,7 @@ class ScopeAcquisition(Component):
 
     ports: dict[str, PortSpec] = {}
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
+    pattern_port = PortSpec("in", "signal")
     refs = {
         "horizontal": ("scope_timebase", "instrument"),
         "trigger": ("scope_trigger", "instrument"),
