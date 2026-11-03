@@ -1359,8 +1359,14 @@ class Instrument:
             return int(raw)
         text = raw if isinstance(raw, bytes) else str(raw).encode()
         if ps.index_words:
-            word = V.parse_enum(text, list(ps.index_words))
-            return int(ps.index_words[word])
+            if not (ps.index_numbers and text.strip().lstrip(b"+-").isdigit()):
+                word = V.parse_enum(text, list(ps.index_words))
+                return int(ps.index_words[word])
+            # the number itself, as the SR86x takes it (CDSP 0 = CDSP DAT1, #333)
+            n = V.parse_int(text)
+            if n not in ps.index_words.values():
+                raise ScpiError(-222, f"index {n} is not one of {sorted(ps.index_words.values())}")
+            return n
         return V.parse_int(text)
 
     def _index_text(self, ps: ParamSpec, value: int) -> str:

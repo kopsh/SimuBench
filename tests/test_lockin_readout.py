@@ -43,8 +43,8 @@ def lia(tmp_path):
     for c in d["components"]:
         if c["name"] == "demod":
             c.setdefault("params", {})["readings"] = TABLE
-    for n in range(1, 5):
-        d["state"][f"display.dat{n}"] = {"type": "int", "min": 0, "max": len(TABLE) - 1, "default": n - 1}
+    for n in range(4):
+        d["state"][f"display.dat{n}"] = {"type": "int", "min": 0, "max": len(TABLE) - 1, "default": n}
     # OUTP is the SR86x reading query here, not sb-lia-1's :OUTPut[:STATe] (its short form)
     d["commands"] = [c for c in d["commands"] if not c["header"].startswith(":OUTPut")]
     d["commands"] += [
@@ -60,10 +60,28 @@ def lia(tmp_path):
             "header": "SNAPD",
             "op": "demod.readout",
             "set": False,
-            "args": {"names": [f"$display.dat{n}" for n in range(1, 5)], "minimum": 4, "maximum": 4},
+            "args": {"names": [f"$display.dat{n}" for n in range(4)], "minimum": 4, "maximum": 4},
         },
         {"header": "PHAS", "state": "reference.phase"},
+        {
+            "header": "CDSP",
+            "params": [
+                {
+                    "name": "ch",
+                    "type": "int",
+                    "min": 0,
+                    "max": 3,
+                    "index": True,
+                    "index_numbers": True,
+                    "index_words": {"DAT1": 0, "DAT2": 1, "DAT3": 2, "DAT4": 3},
+                    "echo": False,
+                },
+                {"name": "value", "type": "int", "state": "display.dat{ch}"},
+            ],
+        },
     ]
+    for n in range(4):  # the parameter may be written as its word (CDSP DAT1, R)
+        d["state"][f"display.dat{n}"]["special"] = {"X": 0, "Y": 1, "R": 2, "TH": 3, "THETA": 3}
     (tmp_path / "sb-lia-1.yaml").write_text(yaml.safe_dump(d, allow_unicode=True), "utf-8")
     session = open_bench(BENCH, definition_dirs=[tmp_path, DEFS], clock="stepped")
     session.advance(1.0)  # 30 ms time constant, 24 dB/oct: settled
@@ -183,3 +201,26 @@ def test_a_mapped_parameter_value_may_name_another_setting(tmp_path):
         assert demod.param("offset_x") == pytest.approx(12.5)
     finally:
         session.close()
+
+
+def test_an_index_word_or_its_number_and_a_word_assignment(lia):
+    """index_numbers (#333): CDSP DAT2 and CDSP 1 are the same channel; an assignment written as a
+    word is stored as a number (1.0) that SNAPD? and the readings table still read."""
+    q, w = lia
+    w("CDSP DAT1, R")
+    assert q("CDSP? 0") == q("CDSP? DAT1") == "2"
+    w("CDSP 1, 0")
+    assert q("CDSP? DAT2") == "0"
+    r1, x, r3, theta = _floats(q("SNAPD?"))  # DAT1 R, DAT2 X, DAT3 R (default), DAT4 theta
+    assert r1 == r3  # one instant
+    assert x == pytest.approx(r1 * math.cos(math.radians(theta)), rel=1e-6)
+    w("CDSP? 4")
+    assert q(":SYSTem:ERRor?").startswith("-222,")
+
+
+def test_a_map_keyed_by_an_int_matches_its_float_value(tmp_path):
+    from simubench.engine.component import map_setting
+
+    assert map_setting({"map": {"0": "A", "1": "A-B"}}, 1.0) == "A-B"
+    assert map_setting({"map": {"0": "A", "1": "A-B"}}, 1) == "A-B"
+    assert map_setting({"map": {"0": "A", "1": "A-B"}, "default": "A"}, 1.5) == "A"

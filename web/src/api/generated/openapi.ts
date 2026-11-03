@@ -2846,6 +2846,12 @@ export interface components {
              */
             index_default?: number | string | null;
             /**
+             * Index Numbers
+             * @description With index_words: the number may be written instead of the word (SR86x CDSP 0 = CDSP DAT1, #333); a number that is not one of the words' numbers is -222
+             * @default false
+             */
+            index_numbers: boolean;
+            /**
              * Index Words
              * @description An index written as a word (#248): the word's number, e.g. {CHANnel1: 1, CHANnel2: 2} for :VIEW CHANnel2; the query answer echoes the word's short form
              */
