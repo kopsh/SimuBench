@@ -1,7 +1,9 @@
 # Merge a pull request into main once CI has passed on it: no review, and no repository settings
-# needed (it does not rely on branch protection). Drafts are left alone, and so is a pull request
-# whose head does not contain the latest main: two that each pass on an older main can break main
-# together, so it is merged only after main has been merged into it and CI has passed again.
+# needed (it does not rely on branch protection). Drafts are left alone. A pull request whose
+# head does not contain the latest main is not merged either — two that each pass on an older
+# main can break main together — but the bot heals that itself: it merges main into the branch,
+# dispatches CI on the merged head, and merges once that run passes (#481). Only a merge conflict
+# goes back to the agent. Every merge uses the exact commit CI tested (--match-head-commit).
 name: Merge when CI passes
 
 on:
@@ -17,15 +19,29 @@ permissions:
 
 jobs:
   merge:
-    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    # main's own completions look for a pull request whose head is main's tip — none, so skip
+    # them up front rather than querying.
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch != 'main'
     runs-on: ubuntu-latest
     steps:
       - run: |
-          for n in $(jq -r '.workflow_run.pull_requests[] | select(.base.ref == "main") | .number' "$GITHUB_EVENT_PATH"); do
-            if [ "$(gh pr view "$n" --repo "$REPO" --json isDraft -q .isDraft)" = true ]; then continue; fi
+          # The open, non-draft pull requests whose head is exactly the commit CI tested. A run
+          # the bot dispatched itself carries no pull_requests[] (workflow_dispatch), so match by
+          # head SHA instead of reading the event's pull_requests[] at all.
+          PRS=$(gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
+            --jq ".[] | select(.headRefOid == \"$SHA\" and (.isDraft | not)) | .number")
+          for n in $PRS; do
             behind=$(gh api "repos/$REPO/compare/main...$SHA" -q .behind_by)
             if [ "$behind" != 0 ]; then
-              gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain: merge the latest main into it and push; it merges once CI passes again (AGENTS.md)."
+              # Self-heal: merge main into the branch and re-test there, instead of bouncing the
+              # work back to the agent (two agents pushing in parallel used to block each other).
+              BRANCH=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
+              if NEW=$(gh api "repos/$REPO/merges" -f base="$BRANCH" -f head=main --jq .sha 2>/dev/null); then
+                gh pr comment "$n" --repo "$REPO" --body "main had $behind commit(s) this branch did not contain: merged them in ($NEW) and dispatched CI on the merged head; it merges once CI passes there (merge.yml)."
+                gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+              else
+                gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain, and merging them conflicts: resolve the conflict on the branch and push; CI re-runs and it merges (AGENTS.md)."
+              fi
               continue
             fi
             # The issues the pull request lists, read before the merge: closingIssuesReferences is
