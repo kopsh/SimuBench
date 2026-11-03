@@ -429,9 +429,10 @@ class AwgModulator(Component):
         # they fit the budget and cut after that (issue #388: a pulse has bw/f harmonics, so a
         # refusal would make PWM unusable at ordinary rates). The count stops at the budget, so
         # the cost does not grow with the harmonic count or the deviation.
+        total = max(1, int(bw // f))  # the harmonics the synth's bandwidth implies
         lines = 2  # the DC term and the modulating tone
         keep = 0
-        for k in range(1, max(1, int(bw // f)) + 1):
+        for k in range(1, total + 1):
             lines += 2 * _carson(2 * math.pi * k * delta) + 2  # the sidebands and the harmonic
             if lines > budget:
                 break
@@ -446,7 +447,17 @@ class AwgModulator(Component):
             for n in range(-_carson(b), _carson(b) + 1):
                 rot = complex(math.cos(-psi - n * phi - math.pi / 2), math.sin(-psi - n * phi - math.pi / 2))
                 out.add(k * f - n * rate, -jv(n, b) / (math.pi * k) * rot)
-        return out.signal((FidelityNote("truncated", "PWM pulse: harmonics kept within the line budget"),))
+        # The note only when the budget really cut harmonics (issue #440): within the budget the
+        # expansion is complete and "truncated" would mislead.
+        if keep < total:
+            return out.signal(
+                (
+                    FidelityNote(
+                        "truncated", f"PWM pulse: {keep} of {total} harmonics kept within the line budget"
+                    ),
+                )
+            )
+        return out.signal()
 
 
 @component("amplitude_level")

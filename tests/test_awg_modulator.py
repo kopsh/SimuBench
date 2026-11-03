@@ -4,6 +4,7 @@ against the closed forms — time samples of the modulated wave, rebuilt from th
 from __future__ import annotations
 
 import math
+import re
 import time
 
 import numpy as np
@@ -146,4 +147,31 @@ def test_pwm_over_the_line_budget_cuts_harmonics_instead_of_refusing():
     assert 0 < len(m.freq) <= 2000
     assert abs(m.amp[np.argmin(np.abs(m.freq - 1000))]) > 0.1  # the fundamental is kept
     assert m.freq.max() < 300e6  # the high harmonics are cut
-    assert any(n.kind == "truncated" for n in out.notes)
+    (note,) = [n for n in out.notes if n.kind == "truncated"]
+    assert re.fullmatch(r"PWM pulse: \d+ of 300000 harmonics kept within the line budget", note.detail)
+
+
+def test_pwm_within_the_line_budget_carries_no_truncated_note():
+    """Issue #440: when every harmonic the bandwidth implies fits the budget, nothing is cut and
+    the signal carries no truncated note — the note is only for a real cut (50 kHz = 50 harmonics
+    of 1 kHz, the default 10 % swing needs ~1750 of the 2000 lines)."""
+
+    class Synth:
+        def function(self):
+            return "SQUare"
+
+        def frequency(self):
+            return 1000.0
+
+        def duty_ratio(self):
+            return 0.5
+
+        def param(self, key):
+            return {"bandwidth": 50e3}[key]
+
+    out = AwgModulator._pwm_from(_Stub(sine(1000.0, 0.5), type="PWM", pwm_dev=10.0, int_rate=100.0), Synth())
+    assert out.notes == ()
+    m = out.merged()
+    # The 50th, last implied harmonic is kept; its Carson sidebands reach ~53 kHz, so the top
+    # line is not the harmonic itself.
+    assert np.isclose(m.freq, 50e3).any()
