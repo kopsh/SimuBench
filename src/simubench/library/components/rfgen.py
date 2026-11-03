@@ -256,7 +256,7 @@ class RfSynthesizer(Component):
     def op_list_freq(self, query: bool = False, values: list[bytes] | None = None, **_: Any) -> OpResult:
         """``:LIST:FREQ 1e9,2.4e9`` or ``"1e9,2.4e9"``: real instruments take both forms (D13)."""
         if query:
-            return OpResult(b",".join(V.format_float(f, 12) for f in self.list_freqs))
+            return OpResult(b",".join(self.reply_number(f, 12) for f in self.list_freqs))
         freqs = V.parse_float_list(tuple(values or ()), "HZ")
         if not 1 <= len(freqs) <= 1601:
             raise ScpiError(-222, "a list holds 1 to 1601 frequencies")

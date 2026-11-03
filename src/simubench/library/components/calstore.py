@@ -270,7 +270,7 @@ class CalibrationStore(Component):
     def op_value(self, query: bool = False, values: list[bytes] | None = None, **_: Any) -> OpResult:
         """The reference a gain adjustment assumes on the input."""
         if query:
-            return OpResult(V.format_float(self._reference(), 6))
+            return OpResult(self.reply_number(self._reference(), 6))
         params = list(values or [])
         if not params:
             raise ScpiError(-109)

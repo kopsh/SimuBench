@@ -297,6 +297,14 @@ class ResponseFormat(_Model):
         description="engineering with this many significant digits, signed and with exponent_digits: "
         "+40.0E+00 (3), +0.00000E+00 (6); a command's own format may set its own",
     )
+    readings: Literal["component", "format"] = Field(
+        "component",
+        description="Numbers a component answers (marker values, trace points, counter readings): "
+        "component — each component's own digits (the default, what sb-* instruments return); "
+        "format — written in this format like the settings, for a manual whose replies share one "
+        "format (N9320B: 16 digits, #366). Components whose digits are a definition parameter "
+        "(a meter's or trigger model's `digits`) keep that parameter",
+    )
     sign: bool = Field(True, description="Write '+' before non-negative numbers")
     exponent_digits: int = Field(2, ge=1, le=3, description="nr3: digits of the exponent, e.g. E+03 is 2")
     integer: Literal["plain", "signed", "engineering"] = Field(

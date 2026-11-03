@@ -3148,6 +3148,13 @@ export interface components {
              */
             number: "nr3" | "nr2" | "nr1" | "engineering" | "si";
             /**
+             * Readings
+             * @description Numbers a component answers (marker values, trace points, counter readings): component — each component's own digits (the default, what sb-* instruments return); format — written in this format like the settings, for a manual whose replies share one format (N9320B: 16 digits, #366). Components whose digits are a definition parameter (a meter's or trigger model's `digits`) keep that parameter
+             * @default component
+             * @enum {string}
+             */
+            readings: "component" | "format";
+            /**
              * Sign
              * @description Write '+' before non-negative numbers
              * @default true

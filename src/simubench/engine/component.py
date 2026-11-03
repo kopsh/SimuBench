@@ -231,6 +231,16 @@ class Component:
 
         return V.parse_enum(str(value).encode(), self.choices[key])
 
+    def reply_number(self, value: float, digits: int = 6) -> bytes:
+        """A number this component answers: ``digits`` after the point (the component's own
+        format), or the definition's response format when it says ``readings: format`` (#366)."""
+        from ..scpi import values as V
+
+        owner = self.owner
+        if owner is not None and getattr(owner.definition.format, "readings", "component") == "format":
+            return owner.format_number(value)
+        return V.format_float(value, digits)
+
     def param(self, key: str) -> Any:
         if key in self.overrides:
             return self.overrides[key]
