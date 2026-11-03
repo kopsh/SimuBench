@@ -38,7 +38,7 @@
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | reference | `reference_clock` | 数据(基准偏差) | 已实现 | siglent-sdg2042x 无(例外清单) |
-| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
+| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现(按波形的最高频率 `max_frequency`:FREQ? MAX 随波形、超限置为上限;脉冲的线性边沿 `lead_time`/`trail_time` 与 `pulse_width`/`pulse_period`/`pulse_edges` 操作,#437) | 按幅度分档的频率上限未建模 |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430) | siglent-sdg2042x 无(例外清单) |
@@ -181,7 +181,7 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 
 数据捕获(SR86x 的 CAPTURE*,#333):`curve_buffer` 增加操作 `sample`(某一 bin 上全部记录的曲线,未写到的 bin 读 0)、`bytes`、`progress`(按块向上取整的 kB)、`capture_state`(进行中/已开始/已绕回三位)、`rate`(实际采样率 Hz)、`get`(按 kB 取交织的单精度小端块,须停止后读),`start` 可带 `fresh`(先清空再开始)。
 
-读数参数表(#383,SR86x 的 OUTP?/SNAP?/SNAPD?):`lockin_output.readings` 由定义给出,第 k 项即序号 k,`{word, source}`;`source` 是本块的 X/Y/R/THETA/XNOISE/YNOISE、`$设置` 或 `<组件>.<量>`(另一块的 `trace_value`:AUX 输入、`lockin_reference` 的 FREQUENCY/DETECT)。操作 `readout` 按序号或词(大写短形式或全写)取 `minimum`–`maximum` 项,在同一时刻求值、按请求顺序逗号拼接;操作参数的列表项可以是 `$设置`(SNAPD? 读四个数据通道的指派)。配套:响应格式 `general`(C `%g`)、角度参数的弧度后缀(`RAD`/`MRAD`/`URAD` 换算为度)。
+读数参数表(#383,SR86x 的 OUTP?/SNAP?/SNAPD?):`lockin_output.readings` 由定义给出,第 k 项即序号 k,`{word, source}`;`source` 是本块的 X/Y/R/THETA/XNOISE/YNOISE、`$设置` 或 `<组件>.<量>`(另一块的 `trace_value`:AUX 输入、`lockin_reference` 的 FREQUENCY/DETECT)。操作 `readout` 按序号或词(大写短形式或全写)取 `minimum`–`maximum` 项,在同一时刻求值、按请求顺序逗号拼接;操作参数的列表项可以是 `$设置`(SNAPD? 读四个数据通道的指派)。数据通道的指派与读取(#401):`CDSP j,p` 是带索引参数(`index_words` DAT1–DAT4、`index_numbers`)的设置命令,写 `display.dat{ch}`;`OUTR? j` 写成每个 j 一条带 `when` 的 `readout` 命令(`names: [$display.datN]`,词 DATn 与序号各一条),不在表内的 j 无匹配而记执行错误(EXE)。已知偏差:XNOise 与 YNOise 读同一个前端噪声密度估计(模型不分别估计 X、Y 两路的噪声)。配套:响应格式 `general`(C `%g`)、角度参数的弧度后缀(`RAD`/`MRAD`/`URAD` 换算为度)。
 
 D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migration.py`)与锁相验收场景不改通过。新增能力:输入配置(耦合、陷波、动态储备)、X/Y 偏置与扩展、数据缓冲(SRAT/TRCA 经通用的触发模型与读数缓冲)、AUX 电路端口。
 

@@ -106,7 +106,7 @@ params:
 - **参数的连带设置** `sets`：一个写设置的参数可以同时写一组常量，例如 CONFigure 的量程参数 `sets: {sense.range_auto: false}`（量程一给就关闭自动量程）。连带设置只跟随明确的取值（数值、MIN、MAX）：参数写的是该设置的特殊字（`special`，如 AUTO）或 DEF 时不写，保留命令 `writes` 的选择（#325：`CONF:VOLT:DC AUTO` 仍为自动量程）。常量与参数一起校验、一起生效；静态校验用 `E-DEF-WRITE` 检查常量。
 - **关键字代写** `keywords`：参数写某个关键字（MIN、MAX、DEF 或特殊字；MINimum 等长形式同义）时，改写表中给出的设置，参数自己的设置只在表里写出时才写。用于关键字的含义不是"参数声明的上下限"的场合，例如 34465A 的 CONFigure 分辨率 `keywords: {MIN: {sense.resolution: 0, sense.nplc: 100}}`（最细分辨率选最长积分时间，#344）。表中常量同样由 `E-DEF-WRITE` 检查。
 - **整数序号映射为词**（#333）：词参数（如 `ext_slope`、`lockin_input_mode.mode`）可以绑定一个整数设置，只要它的取值范围小（不超过 64 个值）、`map` 给出每个值对应的词（或嵌套映射）；静态校验逐值检查。SR86x 的枚举是序号加词的别名（`RTRG POS` 与 `RTRG 1` 同义、查询回 1），用整数设置加 `special` 写词，再映射到组件的词。
-- **响应格式 `general`**（#383）：`format.number: general` 即 C 的 `%g`，`digits` 为有效位数（SR86x 的 `0.951359`、`2.3346669042e-09`）；组件读数同样要 `readings: format`。角度参数（单位 `DEG`）也接受弧度后缀 `RAD`/`MRAD`/`URAD`，换算为度保存。操作的 `args` 中 `$设置` 可以写在列表里（逐项取值，SNAPD? 的四个数据通道指派）；组件参数映射的取值也可以是 `$设置`（`{from: $output.offset_on1, map: {"0": 0.0, "1": $output.offset1}}`：COFA 开时取 COFP 的百分数）。
+- **响应格式 `general`**（#383）：`format.number: general` 即 C 的 `%g`，`digits` 为有效位数（SR86x 的 `0.951359`、`2.3346669042e-09`）；组件读数同样要 `readings: format`。角度参数（单位 `DEG`）也接受弧度后缀 `RAD`/`MRAD`/`URAD`，换算为度保存。操作的 `args` 中 `$设置` 可以写在列表里（逐项取值，SNAPD? 的四个数据通道指派）；一个参数选读哪个设置（SR86x 的 `OUTR? j`，#401）写成每个取值一条带 `when: {j: DAT2}` 的命令，各自 `names: [$display.dat1]`，与 `CDSP j,p`（`index_words` + `index_numbers` 的索引参数写 `display.dat{ch}`）配合；组件参数映射的取值也可以是 `$设置`（`{from: $output.offset_on1, map: {"0": 0.0, "1": $output.offset1}}`：COFA 开时取 COFP 的百分数）。
 - **组件应答的数值格式** `format.readings`（#366，D54）：默认 `component`，标记值、迹线点、计数器读数等由组件按自己的位数写；手册的回复统一一种格式时写 `readings: format`，这些数值也按定义的 `format` 写（N9320B 16 位、53220A 15 位有效数字）。位数本身是定义参数的组件（万用表 `dmm_adc.digits`、`trigger_model.digits`、`waveform_transfer`）不受影响。组件代码用 `self.reply_number(value, digits)` 写数值应答。
 - **未建模的词** `not_modeled`（设置或参数，#360，D53）：真机接受、模型没有实现的词，写成 `{INFinity: 连续扫描未建模}`（SCPI 大小写，长短形式都匹配）。写这个词报 -224，错误事件标为未建模并带原因，不会被当作数值按范围拒绝。只用于拒绝；接受一个词用 `special` 或 `keywords`。数值参数的 INF/INFinity、NINF/NINFinity 本身由引擎解析为 ±∞。
 - **索引参数** `index: true`：多状态命令的一个整数参数选择其他参数写哪组设置，状态路径中写作 `{名称}`：`PACU 1,AMPL,C1` 写 `measure.p1.kind` 与 `measure.p1.source`；查询也带它（`PACU? 1` → `PACU 1,AMPL,C1`），没有设置的可选值不写出（`PACU 1,NULL`）。静态校验按索引的取值范围检查每个状态。枚举的默认值可以是 `""`（尚未设置）。
@@ -138,6 +138,7 @@ params:
       - {first: 101, count: 2}
       - {first: 201, count: 2}
   ```
+- **随状态变化的上下限**（#437）：组件可实现 `state_limits(path)`，按当前状态给出更窄的 (min, max)；`MIN`/`MAX` 查询与关键字都用它（33622A 的 `FREQ? MAX` 随波形变化，由 `waveform_synth.max_frequency` 提供）。超限的处理仍由组件的 `on_state` 决定（拒绝或置为上限）。
 - **整表写入与常量**（#300）：通道列表参数可以带 `state`（一个 `int_list` 设置）：列表按仪表的号整表写进它，写设置的命令照常展开到各通道，操作命令只执行一次（34970A 的 `MEAS:VOLT:DC? (@101:110)` 写扫描表后跑一次扫描）。带通道列表的命令同样先写 `writes` 常量、再写参数的 `sets`（`CONF:VOLT:AC 10,(@101)` 选交流并关闭自动量程）；可省略的参数遇到 `(@…)` 视为省略，列表留给后面的通道列表参数。操作命令的参数也可以带 `state`：先写设置（连同 `sets`），再执行操作（`MEAS:VOLT:DC? 10,(@101)` 用 10 V 量程）。
 - **选中的输出**（#295）：`channels.selected` 指向一个 int 设置（选中输出的通道号），省略通道列表时命令作用于它，而不是参数的 `default`。`INSTrument[:SELect]` 与 `NSELect` 写同一个设置；名称写法用设置的 `special`（`{CH1: 1, P25V: 2}`），查询用 `reply: "CH{value}"`。E36312A 采用：`INST:SEL P25V; VOLT 5` 改输出 2。
 - **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；选中输出见上一条。

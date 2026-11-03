@@ -382,6 +382,12 @@ class CommandSpec(_Model):
         description="Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: "
         'several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC")',
     )
+    suffixes: dict[str, list[int]] | None = Field(
+        None,
+        description="Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} "
+        "for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an "
+        "omitted suffix counts as 1, any other value is -114",
+    )
     dangerous: bool = False
     doc: str | None = None
 
