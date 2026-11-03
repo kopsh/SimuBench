@@ -178,6 +178,9 @@ channel_components:
       max_frequency: {SINusoid: 1.2e8, SQUare: 1.0e8, PULSe: 1.0e8, RAMP: 8.0e5, TRIangle: 8.0e5}
       lead_time: $ch.pulse_lead
       trail_time: $ch.pulse_trail
+      # 最小脉宽：33500-90901「Duty Cycle Limitations」——33600 为 5 ns（≤4 Vpp）/ 8 ns（≤10 Vpp）；
+      # 按幅度的分档未建模，取 4 Vpp 以下的 5 ns（#504）。
+      min_width: 5.0e-9
       arb: arb
       prbs: bits
       clock: clock
