@@ -194,9 +194,7 @@ def panel_controls(group: Mapping[str, Any], info: Mapping[str, Any], lang: str)
                 # A key labelled only in Chinese (the definitions' option_labels) reads the enum's
                 # own word instead — the same mnemonic the rows and selects show (D23, #454).
                 label = (
-                    key.get("label" if lang == "zh" else "label_en")
-                    or _latin(key.get("label"))
-                    or str(value)
+                    key.get("label" if lang == "zh" else "label_en") or _latin(key.get("label")) or str(value)
                 )
                 out.append(
                     Control(

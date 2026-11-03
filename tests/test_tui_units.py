@@ -352,7 +352,10 @@ def test_a_panel_key_labelled_only_in_chinese_reads_the_enum_word():
         {"value": "DC", "label": "DC V"},
         {"value": "RES", "label": "Ω 2W"},
     ]
-    group = {"label_en": "Measure", "controls": [{"state": "output.pair", "control": "buttons", "keys": keys}]}
+    group = {
+        "label_en": "Measure",
+        "controls": [{"state": "output.pair", "control": "buttons", "keys": keys}],
+    }
     labels_en = [c.label for c in panel_controls(group, {"state": []}, "en")]
     assert labels_en == ["OFF", "PARallel", "SERies", "DC V", "Ω 2W"]
     assert [c.label for c in panel_controls(group, {"state": []}, "zh")] == [
