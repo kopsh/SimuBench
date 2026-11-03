@@ -761,6 +761,85 @@ class SupplyTracking(Component):
             self._push(2, master)
 
 
+@component("supply_transient")
+class SupplyTransient(Component):
+    """A channel's output transient system (#541): the step from the immediate to the triggered
+    levels on a trigger (N6700 "Programming Output Transients").
+
+    ``INITiate:TRANsient`` arms it (``initiate``); a trigger then writes ``v_triggered`` into the
+    ``voltage`` setting when ``v_mode`` is STEP, and ``i_triggered`` into ``current`` when
+    ``i_mode`` is STEP (FIXed leaves the level as it is). The trigger is ``TRIGger:TRANsient``
+    (``trigger``, any source), ``*TRG`` while the source is BUS (``bus_trigger``), or the arming
+    itself with the IMMediate source. ``ABORt:TRANsient`` (``abort``) disarms it. While armed the
+    channel reports WTG-tran and TRAN-active (the operation register's bits 4 and 6).
+    """
+
+    defaults = {
+        "voltage": 0.0,  # the immediate voltage setting a STEP trigger writes (a binding)
+        "current": 0.0,  # the immediate current setting a STEP trigger writes (a binding)
+        "v_triggered": 0.0,  # V, the triggered voltage level (VOLTage:TRIGgered)
+        "i_triggered": 0.0,  # A, the triggered current level (CURRent:TRIGgered)
+        "v_mode": "FIXed",  # FIXed | STEP: what a trigger does to the voltage (VOLTage:MODE)
+        "i_mode": "FIXed",  # FIXed | STEP: what a trigger does to the current (CURRent:MODE)
+        "source": "BUS",  # BUS | IMMediate | EXTernal: what triggers it (TRIGger:TRANsient:SOURce)
+        "trigger_ignored_error": -211,  # the error a trigger while not armed reports (0: ignored silently)
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.armed = False
+
+    def reset(self) -> None:
+        self.armed = False  # ABORt:TRANsient runs at *RST (the manual)
+
+    def _source(self) -> str:
+        return str(self.param("source")).upper()
+
+    def _fire(self) -> None:
+        assert self.owner is not None
+        self.armed = False
+        bound = self.bound_paths()
+        for mode, level, key in (("v_mode", "v_triggered", "voltage"), ("i_mode", "i_triggered", "current")):
+            if str(self.param(mode)).upper().startswith("STEP") and key in bound:
+                self.owner.set_state(bound[key], float(self.param(level)), source="scpi", internal=True)
+
+    @op("initiate")
+    def op_initiate(self, **_: Any) -> OpResult:
+        self.armed = True
+        if self._source().startswith("IMM"):
+            self._fire()
+        return OpResult()
+
+    def _ignored(self, why: str) -> OpResult:
+        code = int(self.param("trigger_ignored_error") or 0)
+        if code:
+            raise ScpiError(code, why)
+        return OpResult()
+
+    @op("trigger")
+    def op_trigger(self, **_: Any) -> OpResult:
+        if not self.armed:
+            return self._ignored("the transient system is not initiated")
+        self._fire()
+        return OpResult()
+
+    @op("bus_trigger")
+    def bus_trigger(self, **_: Any) -> OpResult:
+        if not self.armed or self._source() != "BUS":
+            return self._ignored("Trigger ignored")
+        self._fire()
+        return OpResult()
+
+    @op("abort")
+    def op_abort(self, **_: Any) -> OpResult:
+        self.armed = False
+        return OpResult()
+
+    def status_flags(self) -> dict[str, bool]:
+        """WTG-tran and TRAN-active while armed (N6700 Operation Status bits 4 and 6)."""
+        return {"WTG_TRAN": self.armed, "TRAN_ACTIVE": self.armed}
+
+
 __all__ = [
     "CH3_COMBINED",
     "OUTPUT_DISABLED",
@@ -770,4 +849,5 @@ __all__ = [
     "SupplyProtection",
     "SupplyReadback",
     "SupplyTracking",
+    "SupplyTransient",
 ]

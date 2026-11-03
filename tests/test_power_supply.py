@@ -236,3 +236,38 @@ def test_the_panel_readings_keep_their_keys(open_):
     values = s.instrument("ps").components["ch1.read"].readings()["values"]
     assert set(values) == {"voltage", "current", "power", "regulation"}
     assert values["voltage"] == pytest.approx(2.0, rel=1e-3)
+
+
+# ---- the transient system (#541) --------------------------------------------------------------------
+
+
+def test_the_transient_step_writes_the_triggered_levels():
+    """supply_transient on its own: STEP writes the triggered level into the bound setting on a
+    trigger; FIXed leaves it; a trigger while not armed reports the configured error."""
+    from simubench.engine.session import Session
+    from simubench.library.components.power import SupplyTransient
+
+    lib = DefinitionLibrary()
+    bench_ = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/2", "name": "t", "instruments": {"psu": {"model": "keysight-n6705c"}}}
+    )
+    s = Session(bench_, lambda model: lib.get(model), clock="command", seed=1, idle="off")
+    try:
+        inst = s.instruments["psu"]
+        tran = inst.components["ch2.tran"]
+        assert isinstance(tran, SupplyTransient)
+        inst.set_state("ch2.v_triggered", 7.0)
+        inst.set_state("ch2.i_triggered", 0.3)
+        inst.set_state("ch2.v_mode", "STEP")
+        tran.op_initiate()
+        assert tran.status_flags() == {"WTG_TRAN": True, "TRAN_ACTIVE": True}
+        tran.bus_trigger()
+        assert inst.get_state("ch2.voltage") == 7.0
+        assert inst.get_state("ch2.current") == 0.0  # FIXed: untouched
+        assert not tran.armed
+        tran.overrides["trigger_ignored_error"] = -211
+        with pytest.raises(Exception) as e:
+            tran.op_trigger()
+        assert getattr(e.value, "code", None) == -211
+    finally:
+        s.close()

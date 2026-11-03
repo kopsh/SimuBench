@@ -92,10 +92,12 @@ channels:
   overrides:
     3:
       current: {max: 10.2}
+      i_triggered: {max: 10.2}
       i_max: {default: 10.2}
       module: {default: N6752A}
     4:
       current: {max: 10.2}
+      i_triggered: {max: 10.2}
       i_max: {default: 10.2}
       module: {default: N6752A}
 channel_state:
@@ -142,6 +144,55 @@ channel_state:
     default: 60.0
     label: 过压保护
     label_en: OVP level
+  # 瞬变触发（#541）：触发电平（*RST MIN = 0）、模式（*RST FIXed）与触发源。
+  v_triggered:
+    type: float
+    unit: V
+    min: 0.0
+    max: 51.0
+    default: 0.0
+    label: 触发电压
+    label_en: Triggered voltage
+  i_triggered:
+    type: float
+    unit: A
+    min: 0.0
+    max: 3.06
+    default: 0.0
+    label: 触发电流
+    label_en: Triggered current
+  v_mode:
+    type: enum
+    options: [FIXed, STEP]
+    default: FIXed
+    not_modeled: {LIST: output lists are not modeled, ARB: arbitrary waveforms are not modeled}
+    label: 电压瞬变模式
+    label_en: Voltage transient mode
+  i_mode:
+    type: enum
+    options: [FIXed, STEP]
+    default: FIXed
+    not_modeled: {LIST: output lists are not modeled, ARB: arbitrary waveforms are not modeled}
+    label: 电流瞬变模式
+    label_en: Current transient mode
+  tran_source:
+    type: enum
+    options: [BUS, IMMediate, EXTernal]
+    default: BUS
+    not_modeled:
+      PIN1: digital port pins are not modeled
+      PIN2: digital port pins are not modeled
+      PIN3: digital port pins are not modeled
+      PIN4: digital port pins are not modeled
+      PIN5: digital port pins are not modeled
+      PIN6: digital port pins are not modeled
+      PIN7: digital port pins are not modeled
+      TRANsient1: triggering from another channel's transient system is not modeled
+      TRANsient2: triggering from another channel's transient system is not modeled
+      TRANsient3: triggering from another channel's transient system is not modeled
+      TRANsient4: triggering from another channel's transient system is not modeled
+    label: 瞬变触发源
+    label_en: Transient trigger source
   # 状态寄存器组的使能（STATus:OPERation/QUEStionable:ENABle，#539）
   oper_enable:
     type: int
@@ -291,12 +342,25 @@ channel_components:
   - name: read
     type: supply_readback
     params: {output: out}
+  # 瞬变系统（#541）：INIT:TRAN 后一个触发把 STEP 模式的量改为触发电平。
+  - name: tran
+    type: supply_transient
+    params:
+      voltage: $ch.voltage
+      current: $ch.current
+      v_triggered: $ch.v_triggered
+      i_triggered: $ch.i_triggered
+      v_mode: $ch.v_mode
+      i_mode: $ch.i_mode
+      source: $ch.tran_source
+      # 手册的错误列表没有 "Trigger ignored"：未初始化时的触发不报错、不动作。
+      trigger_ignored_error: 0
   # 每路的状态寄存器组（N6700C-90901 Status Tutorial，#539）：条件位来自本路的回读与保护锁存，
   # 事件在条件变为真时置位、读后清零；汇总进状态字节位 7（OPER）与位 3（QUES）。
   - name: oper
     type: status_register
     params:
-      bits: {CV: 0, CC: 1, "OFF": 2}
+      bits: {CV: 0, CC: 1, "OFF": 2, WTG_TRAN: 4, TRAN_ACTIVE: 6}
       enable: $ch.oper_enable
       summary_bit: 7
   - name: ques
@@ -388,6 +452,39 @@ commands:
     params:
       - {name: sense, type: enum, options: [INTernal, EXTernal], state: "ch.sense"}
       - {name: channels, type: channel_list}
+  # ---- 瞬变触发（#541） ----
+  - header: "[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.v_triggered"}
+      - {name: channels, type: channel_list}
+  - header: "[:SOURce]:CURRent[:LEVel]:TRIGgered[:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: A, state: "ch.i_triggered"}
+      - {name: channels, type: channel_list}
+  - header: "[:SOURce]:VOLTage:MODE"
+    params:
+      - {name: mode, type: enum, options: [FIXed, STEP], state: "ch.v_mode", not_modeled: {LIST: output lists are not modeled, ARB: arbitrary waveforms are not modeled}}
+      - {name: channels, type: channel_list}
+  - header: "[:SOURce]:CURRent:MODE"
+    params:
+      - {name: mode, type: enum, options: [FIXed, STEP], state: "ch.i_mode", not_modeled: {LIST: output lists are not modeled, ARB: arbitrary waveforms are not modeled}}
+      - {name: channels, type: channel_list}
+  - header: "TRIGger:TRANsient:SOURce"
+    params:
+      - {name: source, type: enum, options: [BUS, IMMediate, EXTernal], state: "ch.tran_source"}
+      - {name: channels, type: channel_list}
+  - header: "INITiate[:IMMediate]:TRANsient"
+    op: ch.tran.initiate
+    query: false
+    params: [{name: channels, type: channel_list}]
+  - header: "TRIGger:TRANsient[:IMMediate]"
+    op: ch.tran.trigger
+    query: false
+    params: [{name: channels, type: channel_list}]
+  - header: "ABORt:TRANsient"
+    op: ch.tran.abort
+    query: false
+    params: [{name: channels, type: channel_list}]
   # ---- 状态寄存器组（#539） ----
   - header: "STATus:OPERation[:EVENt]"
     op: ch.oper.event
