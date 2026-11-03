@@ -859,3 +859,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | RESults? 与统计 | ✅ 按列表顺序每项 `<名称>(<通道>),当前,最小,最大,平均,标准差,次数`，统计与查询共用同一份历史；`ALL?` 回 19 个单源测量的当前值（快照，不上屏；顺序为模型约定，覆盖表注明）；SHOW、WINDow 保存回读（无缩放记录，按主记录测量） |
 | 测试与用例 | ✅ `tests/test_scope_time_measurements.py` 新增 4 项（上限与挤出、重复加入、统计与清空、ALL 快照、SHOW/WINDow）；手册用例新增一条；覆盖表 ALL/CLEar/RESults 实现、SHOW/WINDow 接受 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## E36312A 可疑状态寄存器组（Issue 348）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 通用的条件/事件/使能与汇总 | ✅ `status_register` 作为通道组件时只取本通道的标志；`supply_readback` 报 CC/CV；E36312A：每路 ISUMmary<n>（位 0 CC、位 1 CV）→ QUES:INST 位 1–3 → QUES 位 13 → 状态字节位 3；`STATus:PRESet` 清全部使能（`status_register.preset`）。7 条命令改为实现 |
+| CV→CC 事件、读后清零、使能掩码 | ✅ `tests/test_keysight_e36312a.py` 新增 2 项（事件置位与清零、另一路不受影响、CC→CV 置位 2；掩码逐级汇总、RQS、掩码不含 CC 时链断、PRESet）；手册用例新增一条 |
+| CURR:PROT:DEL 的 *RST 值 | ⚠️ 手边没有编程指南原文，50 ms 仍为模型值，覆盖表如实写明待核对 |
+| 覆盖表不再引用已关闭的 #271 作为阻塞 | ✅ |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
