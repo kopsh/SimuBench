@@ -2,10 +2,14 @@
 # needed (it does not rely on branch protection). Drafts are left alone. A pull request whose
 # head does not contain the latest main is not merged either — two that each pass on an older
 # main can break main together — but the bot heals that itself: it merges main into the branch,
-# dispatches CI on the merged head, and merges once that run passes (#481). Only a merge conflict
-# goes back to the agent. Every merge uses the exact commit CI tested (--match-head-commit). A red
-# CI run on a pull-request head is reported on the pull request (#485): the agent can only react
-# to what it sees, and a self-healed branch's red run would otherwise be silent.
+# dispatches CI on the merged head, watches that run from this very job, and merges once it
+# passes (#481). The watching has to happen here: workflow_run chains stop at three levels
+# (pull-request CI → this file → the dispatched run), so the dispatched run's own completion
+# never re-triggers this file and an unwatched self-heal would hang forever (#490). Only a merge
+# conflict goes back to the agent. Every merge uses the exact commit CI tested
+# (--match-head-commit). A red CI run on a pull-request head is reported on the pull request
+# (#485): the agent can only react to what it sees, and a self-healed branch's red run would
+# otherwise be silent.
 name: Merge when CI passes
 
 on:
@@ -34,23 +38,49 @@ jobs:
             --jq ".[] | select(.headRefOid == \"$SHA\" and (.isDraft | not)) | .number")
           for n in $PRS; do
             behind=$(gh api "repos/$REPO/compare/main...$SHA" -q .behind_by)
+            # The commit the merge may use: the head CI passed on, or the self-heal merge commit
+            # the re-test below passes on.
+            TESTED="$SHA"
             if [ "$behind" != 0 ]; then
               # Self-heal: merge main into the branch and re-test there, instead of bouncing the
               # work back to the agent (two agents pushing in parallel used to block each other).
               BRANCH=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
-              if NEW=$(gh api "repos/$REPO/merges" -f base="$BRANCH" -f head=main --jq .sha 2>/dev/null); then
-                gh pr comment "$n" --repo "$REPO" --body "main had $behind commit(s) this branch did not contain: merged them in ($NEW) and dispatched CI on the merged head; it merges once CI passes there (merge.yml)."
-                gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
-              else
+              if ! NEW=$(gh api "repos/$REPO/merges" -f base="$BRANCH" -f head=main --jq .sha 2>/dev/null); then
                 gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain, and merging them conflicts: resolve the conflict on the branch and push; CI re-runs and it merges (AGENTS.md)."
+                continue
               fi
-              continue
+              gh pr comment "$n" --repo "$REPO" --body "main had $behind commit(s) this branch did not contain: merged them in ($NEW) and dispatched CI on the merged head; this job watches that run and merges when it is green (#490)."
+              NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+              gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+              # The dispatched run takes a few seconds to register; find it by its creation time.
+              RUN_ID=""
+              for _ in $(seq 12); do
+                sleep 5
+                RUN_ID=$(gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" --event workflow_dispatch --limit 5 \
+                  --json databaseId,createdAt --jq "map(select(.createdAt >= \"$NOW\")) | first | .databaseId // empty" 2>/dev/null || true)
+                if [ -n "$RUN_ID" ]; then break; fi
+              done
+              if [ -z "$RUN_ID" ]; then
+                gh pr comment "$n" --repo "$REPO" --body "the re-test run never showed up in the run list: push any commit to start CI again (it merges on green, merge.yml)."
+                continue
+              fi
+              # Fast tier, so a half hour is far beyond what a run ever takes; a red (or missing)
+              # run is left to the report job, which comments the run URL on the pull request.
+              RESULT=""
+              for _ in $(seq 60); do
+                sleep 30
+                RESULT=$(gh run view "$RUN_ID" --repo "$REPO" --json status,conclusion \
+                  --jq '.status + "/" + (.conclusion // "-")' 2>/dev/null || true)
+                if [ "${RESULT%%/*}" = "completed" ]; then break; fi
+              done
+              if [ "$RESULT" != "completed/success" ]; then continue; fi
+              TESTED="$NEW"
             fi
             # The issues the pull request lists, read before the merge: closingIssuesReferences is
             # filled for an open pull request but only a minute or so after it, too late for after.
             closing=$(gh pr view "$n" --repo "$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[]?.number')
             # Only the commit CI tested: a newer push waits for its own CI run.
-            gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$SHA"
+            gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$TESTED"
             # A merge by the workflow token is skipped by GitHub's closing-keyword step, so Closes
             # #n in the description closes nothing: close the issues the pull request lists itself.
             for i in $closing; do
@@ -66,7 +96,9 @@ jobs:
 
   report:
     # A red CI run on a pull-request head is commented on the pull request (main's own red runs
-    # are already visible; a self-healed branch's red run would otherwise have no watcher).
+    # are already visible; a self-healed branch's red run would otherwise have no watcher). This
+    # also covers a red self-heal re-test: the merge job above sees the red too, but it is the
+    # report that tells the agent, with the run URL.
     if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch != 'main'
     runs-on: ubuntu-latest
     steps:
