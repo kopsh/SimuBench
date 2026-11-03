@@ -8,7 +8,7 @@ description: >-
   Fluke 5730A 高性能多功能校准器（直流与交流电压输出）。Real model (D42)：命令、回复与故障码按
   5730A Operators Manual 第 6 章 Remote Commands and Syntax（Fluke 风格命令，非 SCPI 树）与附录 A
   Fault Codes。输出由 calibrator_setpoint（设定值）+ calibrator_control（工作/待机、端子、过载）建模：
-  待机时端子断开、3 s 建立时间、负载超过 50 mA 跳回待机、≥22 V 的改变回待机。直流/交流电流、电阻、
+  待机时端子断开、3 s 建立时间、负载超过 50 mA 跳回待机、从 <22 V 改到 ≥22 V 或改变功能时回待机。直流/交流电流、电阻、
   外部 sense、量程锁定、误差模式、Wideband 与外部放大器未实现（覆盖表逐条列出）。
 reference:
   title: Fluke 5730A High Performance Multifunction Calibrator Operators Manual
@@ -128,6 +128,9 @@ components:
       z_out: 0.0001
       i_max: 0.05
       standby_above: 22.0
+      # 第 4 章：选中 ≥22 V 且前一输出 <22 V 时、或改变输出功能时回待机（#553）
+      standby_rule: crossing
+      standby_on_function: true
       overload_error: 210
       setpoint: dac
   - name: sys

@@ -1198,6 +1198,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 实现范围 | ✅ `OUT`（V 与 HZ，只给一项时另一项不变，0 Hz 直流、非 0 交流，±1100 V、10 Hz–1.2 MHz）、`OUT?`、`OPER`、`STBY`（3 s 建立时间，负载 >50 mA 跳回待机并记故障 210，≥22 V 跨越时回待机）、`FAULT?`、公共命令；`EXTGUARD`、`BRIGHTNESS`、`LOCAL/REMOTE/LOCKOUT` 为接受；故障码 2206（缺单位）、2207（同一单位两次） |
 | 平台改动（引擎） | ✅ `quantities` 参数的 `not_modeled` 也对单位生效：`OUT 1 A`、`OUT 1.9 MOHM`、`OUT 10 DBM` 报 -224（未建模），而不是"无效单位" |
 | 覆盖、用例与示例 | ✅ 覆盖表按 Table 6-4 共 100 条：实现 14 · 接受 5 · 未实现 81；`tests/models/fluke-5730a/cases.yaml` 6 条全部通过；示例台 `examples/benches/fluke-5730a.bench.yaml`（接 8588A）与脚本 `examples/scripts/fluke_5730a_verify.py` 在 `tests/test_fluke_5730a.py` 中运行；另测 3 s 建立时间与过载跳闸 |
-| 能力缺口 | ⚠️ 电流/电阻输出 #550、外部 sense #551、量程表与 RANGE?/RANGELCK #552、回待机规则（跨越阈值、改变功能）#553，均登记在 #317 下；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
+| 能力缺口 | ⚠️ 电流/电阻输出 #550、外部 sense #551、量程表与 RANGE?/RANGELCK #552，均登记在 #317 下；回待机规则（跨越阈值、改变功能）#553 已随后实现；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 校准器回待机的规则按型号（Issue 553）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 两种规则 | ✅ `calibrator_control`（与旧的 `calibrator_output`）新参数 `standby_rule`：either（默认，5522A 手册：新值或旧值 ≥33 V 的改变都回待机，用例不变）/ crossing（5730A：从阈值以下改到以上才回待机）；`standby_on_function`：工作中改变输出功能即回待机 |
+| 5730A | ✅ 定义用 crossing + standby_on_function；手册用例「≥22 V…」加 25 V→30 V 保持工作，新用例「改变输出功能自动回待机」（直流→交流回待机，同功能改频率不回）；覆盖表 STBY 条目更新 |
+| 检查 | ✅ `scripts/check.sh` 全绿；5522A 用例与测试不改通过 |
