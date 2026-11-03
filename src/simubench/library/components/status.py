@@ -65,7 +65,8 @@ class StatusRegister(Component):
                 self.event(key.split(":", 1)[1])
 
     def status_flags(self) -> dict[str, bool]:
-        """This register's summary as a flag named after it (a serial-poll register's LIA bit)."""
+        """This register's summary as a flag named after it (a serial-poll register's LIA bit); a
+        channel's register is named with its channel, e.g. CH1.ISUM (#348)."""
         if self._busy or not self.name:
             return {}
         return {self.name.upper(): self.summary()}
@@ -89,6 +90,10 @@ class StatusRegister(Component):
             }
             self.session._solve()
             for comp in self.owner.components.values():
+                # A register of one channel (a channel component, e.g. a supply's ISUMmary<n>)
+                # sees only that channel's flags (#348).
+                if self.channel is not None and comp.channel != self.channel:
+                    continue
                 if comp is not self:
                     for name, on in comp.status_flags().items():
                         flags[name.upper()] = flags.get(name.upper(), False) or bool(on)
@@ -208,6 +213,19 @@ class StatusRegister(Component):
         if path is None:
             raise ScpiError(-221, "the enable mask is not a setting of this definition")
         self.owner.set_state(path, new)
+        return OpResult()
+
+    @op("preset")
+    def op_preset(self, **_: Any) -> OpResult:
+        """``STATus:PRESet``: the enable mask of every status register of the instrument (each
+        channel's too) back to 0; the events stay (SCPI PRESet, #348)."""
+        assert self.owner is not None
+        for comp in self.owner.components.values():
+            if comp.type_name != "status_register" or comp._params.get("mirror"):
+                continue
+            path = comp.bound_paths().get("enable")
+            if path is not None:
+                self.owner.set_state(path, 0)
         return OpResult()
 
 
