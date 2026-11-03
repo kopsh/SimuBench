@@ -160,3 +160,26 @@ def test_phase_in_radians(lia):
     assert parse_number("1 URAD", "DEG") == pytest.approx(math.degrees(1e-6))
     with pytest.raises(ValueError):
         parse_number("1 RAD", "HZ")
+
+
+def test_a_mapped_parameter_value_may_name_another_setting(tmp_path):
+    """{from: $on, map: {"1": $percent}} reads the percentage while on, 0 when off (#383, COFA/COFP)."""
+    d = yaml.safe_load((DEFS / "sb-lia-1.yaml").read_text("utf-8"))
+    d["state"]["output.offset_on"] = {"type": "int", "min": 0, "max": 1, "default": 0}
+    d["state"]["output.offset_pct"] = {"type": "float", "min": -999.99, "max": 999.99, "default": 0.0}
+    for c in d["components"]:
+        if c["name"] == "demod":
+            c["params"]["offset_x"] = {
+                "from": "$output.offset_on",
+                "map": {"0": 0.0, "1": "$output.offset_pct"},
+            }
+    (tmp_path / "sb-lia-1.yaml").write_text(yaml.safe_dump(d, allow_unicode=True), "utf-8")
+    session = open_bench(BENCH, definition_dirs=[tmp_path, DEFS], clock="stepped")
+    try:
+        demod = session.instruments["lia"].components["demod"]
+        session.instruments["lia"].set_state("output.offset_pct", 12.5)
+        assert demod.param("offset_x") == 0.0
+        session.instruments["lia"].set_state("output.offset_on", 1)
+        assert demod.param("offset_x") == pytest.approx(12.5)
+    finally:
+        session.close()
