@@ -148,10 +148,10 @@ sections:
     note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:PERiod'
     level: implemented
-    note: 脉冲周期 = 1/频率，写周期即改频率（占空比保持）（手册 Pulse Period，#437）；周期与宽度“后设者优先”的保持（HOLD）未建模。
+    note: 脉冲周期 = 1/频率，写周期即改频率（占空比保持）（手册 Pulse Period，#437）；MIN/MAX/DEF 为频率声明范围的倒数（脉冲模式下上限收窄到 100 MHz，#478），手册具体数值未逐项核实；周期与宽度“后设者优先”的保持（HOLD）未建模。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition[:BOTH]'
     level: implemented
-    note: 前后沿同设（10–90 %，2.9 ns–1 µs，默认 10 ns，手册 Edge Times，#437）；查询回前沿。
+    note: 前后沿同设（10–90 %，2.9 ns–1 µs，默认 10 ns，手册 Edge Times，#437）；MIN/MAX/DEF 即 LEADing/TRAiling 的声明范围，TRAN? MIN 与 LEAD? MIN 同答 2.9 ns（#478）；查询回前沿。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:LEADing'
     level: implemented
     note: 前沿 10–90 % 时间，作用于输出波形（线性边沿，谱线乘 sinc，#437）；边沿须容于宽度的调整未建模。
@@ -160,7 +160,7 @@ sections:
     note: 后沿 10–90 % 时间，作用于输出波形（#437）。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:WIDTh'
     level: implemented
-    note: 脉冲宽度（50 % 到 50 %）= 占空比 × 周期，写宽度即改 FUNC:PULS:DCYC；宽度不在周期内 -222（手册 Pulse Width，#437）；最小宽度 5/8 ns 的限制未检查。
+    note: 脉冲宽度（50 % 到 50 %）= 占空比 × 周期，写宽度即改 FUNC:PULS:DCYC；宽度不在周期内 -222（手册 Pulse Width，#437）；MIN/MAX/DEF 为当前周期下占空比声明范围（0.01 %–99.99 %）派生的宽度（#478），手册具体数值未逐项核实；最小宽度 5/8 ns 的限制未检查。
 - section: FREQuency Subsystem
   commands:
   - header: '[:SOURce<ch>]:FREQuency'
