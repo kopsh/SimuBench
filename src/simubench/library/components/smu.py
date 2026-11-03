@@ -81,6 +81,18 @@ class SmuSource(Component):
         "sweep_points": 2,  # points of a linear or log sweep
         "sweep_delay": 0.0,  # s, wait before each sweep point
         "sweep_list": "",  # comma-separated levels of a LIST sweep
+        # The B2900's sweep settings (#398): sweep_mode may also be FIXed (no sweep) or SWEep (a
+        # staircase spaced by sweep_spacing); a current sweep may keep its own mode, start, stop
+        # and list (None: the shared ones), chosen by sweep_function.
+        "sweep_spacing": "LINear",  # LINear | LOGarithmic: the steps of a SWEep sweep
+        "sweep_direction": "UP",  # UP: start to stop | DOWN: stop to start
+        "sweep_stair": "SINGle",  # SINGle | DOUBle: a double sweep returns from stop to start
+        "sweep_mode_current": None,  # the current sweep's mode (None: sweep_mode)
+        "sweep_start_current": None,  # A, the current sweep's first level (None: sweep_start)
+        "sweep_stop_current": None,  # A, the current sweep's last level (None: sweep_stop)
+        "list_voltage": None,  # comma-separated voltage list (a string setting; None: sweep_list)
+        "list_current": None,  # comma-separated current list (a string setting; None: sweep_list)
+        "list_start": 1,  # the list index a LIST sweep starts at (1: the first)
     }
 
     def _per_function(self, function: str, key: str, legacy: str) -> Any:
@@ -107,17 +119,99 @@ class SmuSource(Component):
         range_used = self.source_range(function, level)
         return (self.param("range_limits") or {}).get(function, {}).get(range_used)
 
+    def _of_function(self, key: str, shared: str) -> Any:
+        """A current sweep's own setting when it has one (#398), else the shared one."""
+        current = str(self.param("sweep_function")).upper().startswith("CURR")
+        value = self.param(f"{key}_current") if current else None
+        return self.param(shared) if value is None else value
+
+    def sweep_list(self) -> list[float]:
+        """The list of the function swept (LIST:VOLT or LIST:CURR, #398), or the shared one."""
+        current = str(self.param("sweep_function")).upper().startswith("CURR")
+        text = self.param("list_current" if current else "list_voltage")
+        if text is None:
+            text = self.param("sweep_list")
+        return [float(x) for x in str(text or "").split(",") if x.strip()]
+
     def sweep_levels(self) -> list[float]:
-        mode = self.param("sweep_mode")
-        start, stop = float(self.param("sweep_start")), float(self.param("sweep_stop"))
+        mode = str(self._of_function("sweep_mode", "sweep_mode"))
+        word = mode.upper()
+        if word.startswith("FIX") or word == "NONE":
+            return []
+        if word.startswith("SWE"):  # the B2900's SWEep: the spacing setting says which (#398)
+            word = str(self.param("sweep_spacing")).upper()
+        start = float(self._of_function("sweep_start", "sweep_start"))
+        stop = float(self._of_function("sweep_stop", "sweep_stop"))
         n = int(self.param("sweep_points"))
-        if mode == "LINear":
-            return [float(x) for x in np.linspace(start, stop, n)]
-        if mode == "LOGarithmic":
-            return [float(x) for x in np.geomspace(start, stop, n)]
-        if mode == "LIST":
-            return [float(x) for x in str(self.param("sweep_list")).split(",") if x.strip()]
-        return []
+        if word.startswith("LIN"):
+            levels = [float(x) for x in np.linspace(start, stop, n)]
+        elif word.startswith("LOG"):
+            if start == 0 or stop == 0 or (start > 0) != (stop > 0):
+                raise ScpiError(-221, "a log sweep needs non-zero levels of one sign")
+            levels = [float(x) for x in np.geomspace(start, stop, n)]
+        elif word == "LIST":
+            first = max(1, int(self.param("list_start") or 1))
+            levels = self.sweep_list()[first - 1 :]
+        else:
+            return []
+        if word != "LIST" and str(self.param("sweep_direction")).upper().startswith("DOWN"):
+            levels = levels[::-1]  # stop to start (B2910-90130 SWEep:DIRection)
+        if str(self.param("sweep_stair")).upper().startswith("DOUB"):
+            levels = levels + levels[::-1]  # start to stop to start (SWEep:STAir DOUBle)
+        return levels
+
+    # ---- the lists (#398, B2910-90130 p.268–270) -----------------------------------------------
+
+    def _list_path(self, function: str) -> str:
+        key = "list_current" if str(function).upper().startswith("CURR") else "list_voltage"
+        path = self.bound_paths().get(key)
+        if path is None:
+            raise ScpiError(-113, "the list is not a setting of this definition")
+        return path
+
+    def _list_values(self, values: list[bytes] | None) -> list[float]:
+        levels = V.parse_float_list(tuple(values or ()))
+        if not levels:
+            raise ScpiError(-109, "missing list data")
+        return levels
+
+    @op("list")
+    def op_list(
+        self, query: bool = False, function: str = "VOLTage", values: list[bytes] | None = None, **_: Any
+    ) -> OpResult:
+        """``LIST:VOLT 0.1,0.2,…`` / ``LIST:CURR …``: the list; the query answers it in NR3."""
+        assert self.owner is not None
+        path = self._list_path(function)
+        if query:
+            text = str(self.owner.get_state(path) or "")
+            return OpResult(
+                b",".join(self.owner.format_number(float(x)) for x in text.split(",") if x.strip())
+            )
+        self.owner.set_state(path, ",".join(repr(x) for x in self._list_values(values)))
+        return OpResult()
+
+    @op("list_append")
+    def op_list_append(
+        self, function: str = "VOLTage", values: list[bytes] | None = None, **_: Any
+    ) -> OpResult:
+        """``LIST:VOLT:APPend 1.1,1.2``: the data added to the end of the list."""
+        assert self.owner is not None
+        path = self._list_path(function)
+        text = str(self.owner.get_state(path) or "")
+        self.owner.set_state(
+            path,
+            ",".join(
+                [*(x for x in text.split(",") if x.strip()), *(repr(x) for x in self._list_values(values))]
+            ),
+        )
+        return OpResult()
+
+    @op("list_points")
+    def op_list_points(self, function: str = "VOLTage", **_: Any) -> OpResult:
+        """``LIST:VOLT:POINts?``: how many data the list holds."""
+        assert self.owner is not None
+        text = str(self.owner.get_state(self._list_path(function)) or "")
+        return OpResult(V.format_int(len([x for x in text.split(",") if x.strip()])))
 
     @op("sweep")
     def op_sweep(
