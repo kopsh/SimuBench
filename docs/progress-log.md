@@ -949,3 +949,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 经词写入的整数设置 | ✅ `map_setting` 对整数值的浮点（`1.0`）按整数键匹配；`lockin_output` 的读数参数表接受 `13.0` 这样的序号（SNAPD?/OUTR? 读 CDSP 的指派） |
 | 测试 | ✅ `tests/test_lockin_readout.py` 新增 2 项（CDSP 词与号、按词指派后 SNAPD?、越界号 -222；映射对 `1.0` 命中） |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## curve_buffer 的数据捕获视图（SR865A 前置，Issue 333）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 捕获操作 | ✅ `curve_buffer`：`sample`（CAPTUREVAL?：一个 bin 上全部记录的曲线）、`bytes`、`progress`、`capture_state`（1 进行中、2 已开始、4 已绕回）、`rate`（Hz）、`get`（CAPTUREGET?：交织的单精度小端块，须停止，超出数据补 0）；`start` 的 `fresh` 先清空 |
+| 测试 | ✅ `tests/test_curve_buffer_capture.py` 3 项（裸组件 + 已知值的源）：重新开始清空、同一 bin 的两条曲线、未写的 bin 读 0、越界 -222、状态位、单次存满后的交织块与补零、运行中取块 -222、速率；SR830 的数据存储测试不改通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
