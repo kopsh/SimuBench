@@ -61,7 +61,8 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
 ## Test rules (D49, enforced)
 
 - Unit tests (default): no Textual import, no server, no network; ≤100 ms per test with the
-  `unit` marker. One behaviour per test.
+  `unit` marker (×3 when `CI=true` — a shared runner's load spikes are noise, #482). One
+  behaviour per test.
 - `tui_boot` marker: boots Textual or a real server; runs on `main` only.
 - `tests/test_*e2e*.py`: ≥5 `assert`s per test; runs on `main` only.
 - Server fixtures must be `module`/`session` scoped (function scope is rejected by the script).
