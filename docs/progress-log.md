@@ -1054,6 +1054,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | 规则 | ✅ 绑定词参数的 bool 设置，其映射同时写出 True/False（或 1/0）时按词逐个校验，值为嵌套映射时留到运行时（Trueform 每种调制一个开关，`awg_modulator.type` 按一串 bool 映射取词） |
 | 测试 | ✅ `tests/test_bool_mapped_words.py`：两值映射与嵌套映射通过；直接绑定 bool、只写一个值、未知词仍报 E-DEF-PARAM-VALUE |
+| 运行时（补） | ✅ `map_setting` 让 bool 设置按 "True"/"False"（或 "1"/"0"）键取值（此前对 bool 跳过字符串键，映射原样返回 False）；`tests/test_bool_mapped_words.py` 增加运行时用例 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 
 ## HiSLIP：两个会话时应答被另一会话取走（Issue 431）

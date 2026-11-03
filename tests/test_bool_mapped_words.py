@@ -40,3 +40,15 @@ def test_a_bool_still_needs_both_values_and_known_words():
     assert _param_errors(_awg({"from": "$ch.fm_on", "map": {"True": "FM", "False": "XX"}})) == [
         "E-DEF-PARAM-VALUE"
     ]
+
+
+def test_a_bool_setting_reads_through_its_string_keys():
+    """At run time too (the validator alone accepted the map, #429): False/True against "False"/"True"
+    or "0"/"1", and a nested mapping as the value."""
+    from simubench.engine.component import map_setting
+
+    assert map_setting({"map": {"True": "FM", "False": "AM"}}, True) == "FM"
+    assert map_setting({"map": {"True": "FM", "False": "AM"}}, False) == "AM"
+    assert map_setting({"map": {"1": "FM", "0": "AM"}}, True) == "FM"
+    nested = {"from": "$ch.pm_on", "map": {"True": "PM"}}
+    assert map_setting({"map": {"True": "FM", "False": nested}}, False) == nested
