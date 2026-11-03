@@ -4,12 +4,14 @@ against the closed forms — time samples of the modulated wave, rebuilt from th
 from __future__ import annotations
 
 import math
+import time
 
 import numpy as np
 import pytest
 
 from simubench.engine.signal import pulse_train, sine
 from simubench.library.components.sources import AwgModulator
+from simubench.scpi.errors import ScpiError
 
 pytestmark = pytest.mark.unit
 
@@ -79,9 +81,11 @@ def test_pwm_swings_the_mean_with_the_duty():
             return 0.5
 
         def param(self, key):
-            return {"bandwidth": 50e3}[key]
+            # 20 kHz: an in-budget expansion since #357 — over the budget the block refuses
+            # (-222) instead of cutting harmonics.
+            return {"bandwidth": 20e3}[key]
 
-    stub = _Stub(pulse_train(1000.0, 0.5, 0.5, 50e3), type="PWM", pwm_dev=20.0, int_rate=10.0)
+    stub = _Stub(pulse_train(1000.0, 0.5, 0.5, 20e3), type="PWM", pwm_dev=20.0, int_rate=10.0)
     stub._pwm_synth = Synth()
     stub._pwm = lambda: AwgModulator._pwm_from(stub, Synth())
     out = stub.output("out")
@@ -99,3 +103,43 @@ def test_off_passes_the_wave_and_ext_sets_the_rate():
     m = out.merged()
     side = abs(m.amp[np.argmin(np.abs(m.freq - 1250))])
     assert side == pytest.approx(0.5 * 0.5 / 2, rel=1e-9)  # 2.5 V of 5 V full scale: m = 0.5
+
+
+@pytest.mark.parametrize(
+    ("kind", "params"),
+    [
+        # the issue's reproduction: sb-awg-2 allows rate 1 mHz with deviation 10 MHz, beta = 1e10
+        ("FM", {"fm_dev": 1e7, "int_rate": 1e-3}),
+        ("PM", {"pm_dev": 1e9, "int_rate": 100.0}),
+    ],
+)
+def test_an_angle_modulation_needing_too_many_lines_is_refused_before_the_expansion(kind, params):
+    # Before #357 the Bessel loop enumerated 2*floor(beta)+1 lines first and hung the session.
+    stub = _Stub(sine(1000.0, 0.5), type=kind, **params)
+    start = time.perf_counter()
+    with pytest.raises(ScpiError) as err:
+        stub.output("out")
+    assert err.value.code == -222
+    assert time.perf_counter() - start < 1.0
+
+
+def test_pwm_needing_too_many_lines_is_refused_before_the_expansion():
+    class Synth:
+        def function(self):
+            return "SQUare"
+
+        def frequency(self):
+            return 1000.0
+
+        def duty_ratio(self):
+            return 0.5
+
+        def param(self, key):
+            return {"bandwidth": 50e3}[key]  # ~3400 lines, over the 2000 budget
+
+    stub = _Stub(sine(1000.0, 0.5), type="PWM", pwm_dev=100.0, int_rate=10.0)
+    start = time.perf_counter()
+    with pytest.raises(ScpiError) as err:
+        AwgModulator._pwm_from(stub, Synth())
+    assert err.value.code == -222
+    assert time.perf_counter() - start < 1.0
