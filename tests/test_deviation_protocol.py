@@ -101,6 +101,11 @@ def test_set_parameter_validates(tmp_path):
                 s.set_parameter("rc", "", "r", bad)
         s.set_parameter("rc", "", "r", 1234.0)
         assert s.components["rc"].param("r") == 1234.0
+        # A numpy scalar is a number too (#501): draws and computed values are exactly those.
+        import numpy as np
+
+        for v in (np.int64(1000), np.float32(1000.5), np.float64(2000.0)):
+            s.set_parameter("rc", "", "r", v)
         # A numeric parameter also takes a per-cell table (every leaf a finite number)…
         s.set_parameter("rc", "", "r", {"fast": 900.0, "slow": {"1": 1100.0}})
         # …and a bad leaf is named down to its cell.
