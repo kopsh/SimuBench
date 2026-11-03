@@ -539,12 +539,35 @@ def test_category_instrument_snapshot(
             ["Frequency", "Level", "RF ON", "Lines 1", "Carrier"],
             "rfgen",
         ),
-        # Measured V, I, P, the input and the mode.
-        ("examples", "benches/rigol_dl3021.bench.yaml", "dut", ["INPUT", "V ", "I ", "P "], "eload"),
+        # Measured V, I, P as values with their units (the bench's source gives 5 V, the input
+        # is off), the input state and the mode (#374: labels alone prove nothing).
+        (
+            "examples",
+            "benches/rigol_dl3021.bench.yaml",
+            "dut",
+            ["INPUT", r"re:V\s+5\.00000 V", r"re:I\s+0\.00000 A", r"re:P\s+0\.000 W"],
+            "eload",
+        ),
+        # Per-channel voltage and current readings with units, all outputs off (zeros) (#374).
+        (
+            "examples",
+            "benches/keysight_e36312a.bench.yaml",
+            "psu",
+            ["CH1 voltage", "CH3 current", r"re:CH1 voltage\s+0\.000000 V"],
+            "psu",
+        ),
+        # The scan's reading with its unit; nothing scanned yet, so zero volts (#374).
+        (
+            "examples",
+            "benches/keysight_34970a.bench.yaml",
+            "daq",
+            ["Scan list", r"re:Reading\s+0\.000000 V"],
+            "daq",
+        ),
     ],
-    ids=["rfgen", "eload"],
+    ids=["rfgen", "eload", "psu", "daq"],
 )
-def test_the_rf_source_and_load_screens_show_meaningful_readings(
+def test_the_category_screens_show_meaningful_readings(
     category_server, workspace, bench, instrument, shows, kind
 ):
     import asyncio
@@ -560,7 +583,10 @@ def test_the_rf_source_and_load_screens_show_meaningful_readings(
 
     text = asyncio.run(run())
     for needle in shows:
-        assert needle in text, needle
+        if needle.startswith("re:"):
+            assert re.search(needle[3:], text), needle
+        else:
+            assert needle in text, needle
     for internal in (
         "synth.point",
         "synth.points",
