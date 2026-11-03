@@ -1,5 +1,6 @@
 import json
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -183,6 +184,45 @@ async def test_true_values_need_bench_switch(ws):
         tv = await call(c, "read_true_values")
     assert tv["parts"]["rc"]["r"] == 1000.0
     assert any(n["lines"] for n in tv["nets"].values())
+
+
+SWEEP_BENCH = {
+    "schema": "simubench.bench/2",
+    "name": "true_values_wall",
+    "description": "Timed sweep on the wall clock: read_true_values must read the present (#480).",
+    "instruments": {
+        "sg": {
+            "model": "sb-sg-1",
+            "state": {
+                "freq.mode": "SWEep",
+                "sweep.start": 1.0e9,
+                "sweep.stop": 2.0e9,
+                "output.enabled": True,
+            },
+            # sb-sg-1 leaves the synthesizer's timed step unwired: the hidden state sets it
+            # directly (10 ms of virtual time per sweep point).
+            "hidden": {"synth": {"step_by": "TIME", "dwell": 0.01}},
+        }
+    },
+    "parts": {"rc": {"type": "rc_lowpass", "dut": True, "params": {"r": 50.0, "c": 1.0e-12}}},
+    "wires": [{"from": "sg.RF_OUT", "to": "rc.IN"}],
+    "run": {"seed": 5, "clock": "wall", "reveal_true_values": True},
+}
+
+
+async def test_true_values_follow_the_wall_clock(ws):
+    """#480 regression: read_true_values once read at a stale instant on the wall clock (it
+    missed follow_wall), and a timed sweep still sat on its first point. The view follows the
+    wall, so by the time the read solves, the sweep has moved on."""
+    (ws / "sweep.bench.yaml").write_text(yaml.safe_dump(SWEEP_BENCH), encoding="utf-8")
+    _, server = make(ws, allow_control=True)
+    async with Client(server) as c:
+        await call(c, "start_session", path="sweep.bench.yaml")
+        await call(c, "send_scpi", instrument="sg", command=":INIT")  # the timed sweep starts here
+        time.sleep(0.03)  # three dwell periods of wall time pass before the read
+        tv = await call(c, "read_true_values")
+    lines = [line for net in tv["nets"].values() for line in net["lines"]]
+    assert lines and max(line["freq_hz"] for line in lines) > 1.05e9  # past the first point (1 GHz)
 
 
 async def test_rate_limit(ws):
