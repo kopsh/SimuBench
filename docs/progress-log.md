@@ -989,3 +989,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ `tests/test_keysight_53230a.py` 新增：1 kHz/1 MHz（比例因子 1）与 25 kHz/10 kHz（3），间隔在 0.1 ns 内，`(@2)` 通道，CONF:FREQ 后回到单读数 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 厂商手册入库（Issue 412）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 目录与格式 | ✅ `manuals/<文档编号>/`：PDF 走 Git LFS（`.gitattributes`），同目录 `pdftotext -layout` 文本版可直接 grep；索引 `manuals/README.md`（标题、版本、对应定义、来源 URL） |
+| 首批 | ✅ 53220-90001 Ed.3（53220A/53230A）、B2910-90130 Ed.2（B2912B）、9-01715-903 Rev 2.11（SR865A）、DAQ97-90000 Ed.3（DAQ970A 用户指南） |
+| 规则 | ✅ `docs/real-models.md` 第 7 节与 D42「商标」改为：手册存 `manuals/` 供开发查阅、不随发布分发，定义与文档不大段摘抄；`real-model` 技能加「先查 `manuals/`、新手册随型号入库」，`codebase-map` 列出目录 |
+| 不分发 | ✅ wheel 只打包 `src/`；sdist 排除 `manuals` |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

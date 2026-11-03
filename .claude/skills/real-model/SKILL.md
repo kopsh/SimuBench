@@ -30,9 +30,12 @@ When the platform cannot express something the manual requires:
 ## Steps
 
 1. **Claim** the issue (comment "working on this"; only a `可认领` one), branch from the latest `main` (`AGENTS.md`).
+   **Manual**: look in `manuals/` first (`manuals/README.md` lists them; grep the `.txt`, the
+   PDF needs `git lfs pull --include "manuals/**"`). A manual not there yet goes in with the
+   model: `manuals/<document number>/<number>.pdf` plus `pdftotext -layout` text and an index row.
 2. **Command list**: copy the command headers from the manual's command index into a text file,
-   one per line, `# <section>` lines for the manual's sections. Only command names — never the
-   manual's text (real-models.md 7).
+   one per line, `# <section>` lines for the manual's sections. Only command names — the
+   manual's text stays in `manuals/` (real-models.md 7).
 3. **Coverage skeleton**:
    ```bash
    uv run simubench coverage <id> --draft commands.txt \
