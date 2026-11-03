@@ -398,3 +398,44 @@ def test_a_declared_empty_list_clears_a_stored_list():
     _, query = open_psu()  # the default still refuses it
     query("ROUT:SCAN (@)")
     assert query("SYST:ERR?").startswith("-108")
+
+
+def _psu_with_empty_lists():
+    import copy
+
+    data = copy.deepcopy(PSU)
+    data["channels"]["lists"] = {"empty": True}
+    data["commands"].append(
+        {
+            "header": "MEASure:VOLTage",
+            "op": "sys.next_error",
+            "set": False,
+            "params": [{"name": "channels", "type": "channel_list"}],
+        }
+    )
+    return open_definition(data)
+
+
+def test_an_empty_list_on_a_per_channel_write_is_refused_and_changes_nothing():
+    """#420: `empty` admits (@) only where a list setting is written whole; VOLT 5,(@) is -108
+    and leaves every channel as it was."""
+    session, query = _psu_with_empty_lists()
+    query("VOLT 2,(@1:3)")
+    query("VOLT 5,(@)")
+    assert query("SYST:ERR?").startswith("-108")
+    inst = session.instruments["x"]
+    assert [inst.get_state(f"ch{n}.volt") for n in (1, 2, 3)] == [2.0, 2.0, 2.0]
+
+
+def test_an_empty_list_on_a_query_or_an_operation_is_an_error_not_silence():
+    """#420: VOLT? (@) and MEAS? (@) answer -108 — a driver must not wait for a reply that never
+    comes — while ROUT:SCAN (@) still clears the stored list."""
+    _, query = _psu_with_empty_lists()
+    assert query("VOLT? (@)") == ""
+    assert query("SYST:ERR?").startswith("-108")
+    assert query("MEAS:VOLT? (@)") == ""
+    assert query("SYST:ERR?").startswith("-108")
+    query("ROUT:SCAN (@1:2)")
+    query("ROUT:SCAN (@)")
+    assert query("ROUT:SCAN?") == "(@)"
+    assert query("SYST:ERR?") == '0,"No error"'
