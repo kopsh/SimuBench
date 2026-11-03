@@ -169,6 +169,7 @@ class WaveformSynth(Component):
         "frequency": 1000.0,  # Hz
         "phase": 0.0,  # degrees
         "duty": 50.0,  # high time of a square or pulse, in duty_unit
+        "min_width": 0.0,  # s: the model's minimum pulse width (33600: 5 ns <= 4 Vpp, 8 ns <= 10 Vpp)
         "duty_unit": "percent",  # percent | ratio: what duty means
         "symmetry": 100.0,  # percent rising half of the ramp (100: sawtooth)
         "bandwidth": 100e6,  # Hz, harmonic limit for square, pulse and ramp
@@ -326,8 +327,14 @@ class WaveformSynth(Component):
             raise ScpiError(-221, "the duty cycle is not a setting")
         duty_scale = 1.0 if str(self.param("duty_unit")).lower() == "ratio" else 1e-2
         duty_lo, duty_def, duty_hi = self._pulse_bounds(path, duty_scale)
-        # The duty range is the width range at the current period: width = duty / frequency.
-        width = V.parse_float(self._pulse_raw(value), "S", duty_lo / freq, duty_hi / freq, duty_def / freq)
+        # The duty range is the width range at the current period: width = duty / frequency. The
+        # model's minimum pulse width floors it — the duty limits alone give widths the instrument
+        # itself refuses at high frequency (#504, 33500-90901 "Duty Cycle Limitations").
+        width_min = max(duty_lo / freq, float(self.param("min_width") or 0.0))
+        width_max = duty_hi / freq
+        width = V.parse_float(self._pulse_raw(value), "S", width_min, width_max, duty_def / freq)
+        if not width_min <= width <= width_max:
+            raise ScpiError(-222, f"a pulse width is between {width_min:g} and {width_max:g} s")
         if query:
             return OpResult(self.owner.format_number(width))
         duty = width * freq  # the ratio (width over period)

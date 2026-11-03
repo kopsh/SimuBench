@@ -160,7 +160,7 @@ sections:
     note: 后沿 10–90 % 时间，作用于输出波形（#437）。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:WIDTh'
     level: implemented
-    note: 脉冲宽度（50 % 到 50 %）= 占空比 × 周期，写宽度即改 FUNC:PULS:DCYC；宽度不在周期内 -222（手册 Pulse Width，#437）；MIN/MAX/DEF 为当前周期下占空比声明范围（0.01 %–99.99 %）派生的宽度（#478），手册具体数值未逐项核实；最小宽度 5/8 ns 的限制未检查。
+    note: 脉冲宽度（50 % 到 50 %）= 占空比 × 周期，写宽度即改 FUNC:PULS:DCYC；宽度不在周期内 -222（手册 Pulse Width，#437）；MIN/MAX/DEF 为当前周期下占空比声明范围（0.01 %–99.99 %）派生的宽度（#478）；MIN/MAX 已按手册「Duty Cycle Limitations」下限 5 ns（≤4 Vpp；8 ns 到 10 Vpp，按幅度的分档未建模）取 max（#504）。
 - section: FREQuency Subsystem
   commands:
   - header: '[:SOURce<ch>]:FREQuency'
