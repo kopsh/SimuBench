@@ -281,6 +281,7 @@ class InstrumentScreen(ShellScreen):
             merged.append(row)
         self._identity.border_title = self._identity_title()
         self._identity_static.update(box_text(app, merged, width))
+        self._identity_rows = len(merged)  # the channel row budget takes the boxes' heights (#374)
 
     def _identity_title(self) -> str:
         app: Any = self.app
@@ -362,13 +363,38 @@ class InstrumentScreen(ShellScreen):
         area = self._channels.container_size.width or (self.app.size.width - 38)
         return max(30, area)
 
+    def _channel_row_budget(self) -> int:
+        """Text rows a channel box may show before the boxes around it clip it (#374): the
+        screen's height minus the header and status bars, the identity, errors and log boxes,
+        and the channel box's own borders, button row and reason and flash lines. From the data
+        alone, so the render does not depend on when the layout happens."""
+        h = self.app.size.height - 2  # the header and the status bar
+        if self._remote_hint.display:
+            h -= 1
+        identity = getattr(self, "_identity_rows", 2) + 2
+        side = getattr(self, "_errors_rows", 1) + 2  # the errors box shares its row with the
+        # other-settings box; the taller of the two sets the row's height
+        if self._other.display:
+            side = max(side, getattr(self, "_other_rows", 0) + 2)
+        chrome = 2  # the channel box's borders
+        for entry in self._boxes:
+            chrome = max(
+                chrome,
+                2
+                + (1 if entry["buttons"].children else 0)
+                + (1 if entry["reason"].display else 0)
+                + (1 if entry["flash"].display else 0),
+            )
+        return max(4, h - identity - side - (self._log_rows() + 2) - chrome)
+
     def _refresh_channels(self) -> None:
         app: Any = self.app
         template = self._template()
         width = self._channel_width()
+        budget = self._channel_row_budget()
         for entry in self._boxes:
             box = entry["box"]
-            lines = self._channel_lines(template, entry["channel"], width)
+            lines = self._channel_lines(template, entry["channel"], width, budget)
             entry["rows"].update(box_text(app, lines, width))
             box.border_title = self._box_title(template, entry["channel"])
             reason = self._reason_line(template)
@@ -389,7 +415,9 @@ class InstrumentScreen(ShellScreen):
         # The TUI is English only (D23): a bench label in another script gives way to the model.
         return _english(info.get("label")) or info.get("model", "")
 
-    def _channel_lines(self, template: str, channel: int | None, width: int) -> list[list[tuple[str, str]]]:
+    def _channel_lines(
+        self, template: str, channel: int | None, width: int, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
         info = self.info
         state = {sv["path"]: sv for sv in info.get("state", [])}
         if template == "smu":
@@ -401,7 +429,7 @@ class InstrumentScreen(ShellScreen):
         if template == "lockin":
             return self._lockin_lines(state, width)
         if template == "rf_generator":
-            return self._rf_lines(state, width)
+            return self._rf_lines(state, width, budget)
         if template == "electronic_load":
             return self._load_lines(state, width)
         if (info.get("display") or {}).get("panel"):
@@ -609,10 +637,13 @@ class InstrumentScreen(ShellScreen):
     def _flag(label: str, on: bool, tokens: str = "ok") -> list[tuple[str, str]]:
         return [(label, tokens if on else "muted"), ("  ", "")]
 
-    def _rf_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+    def _rf_lines(
+        self, state: dict[str, dict], width: int, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
         """The RF source as the web screen shows it (#355): frequency and level, RF and modulation
         flags, the reference, the sweep point and the output's spectral lines — then its settings
-        in three groups. Not the synthesizer's internal quantities."""
+        in three groups. Not the synthesizer's internal quantities. A group block the ``budget``
+        has no room for is left out whole (#374): a title alone above the fold misleads."""
         on = lambda path: (state.get(path) or {}).get("value") is True  # noqa: E731
         freq = self._value("frequency")
         level = (state.get("power.level") or {}).get("value")
@@ -655,7 +686,8 @@ class InstrumentScreen(ShellScreen):
             "Modulation": ["am.state", "am.depth", "fm.state", "fm.dev", "pm.state", "pm.dev"],
             "Sweep": ["freq.mode", "sweep.start", "sweep.stop", "sweep.points", "sweep.dwell"],
         }
-        return rows + self._grouped_columns(groups, state, width)
+        group_budget = budget - len(rows) if budget is not None else None
+        return rows + self._grouped_columns(groups, state, width, budget=group_budget)
 
     def _load_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
         """The electronic load as the web screen shows it (#355): measured V, I and P, the input,
@@ -724,11 +756,17 @@ class InstrumentScreen(ShellScreen):
         return self._grouped_columns(groups, state, width)
 
     def _grouped_columns(
-        self, groups: dict[str, list[str]], state: dict[str, dict], width: int | None = None
+        self,
+        groups: dict[str, list[str]],
+        state: dict[str, dict],
+        width: int | None = None,
+        budget: int | None = None,
     ) -> list[list[tuple[str, str]]]:
         """``label value`` rows under their group name, one column per group. Each column is as
         wide as its widest row (labels and values aligned, #283); as many columns go side by side
-        as ``width`` holds, and the next ones form a block below — nothing wraps or is cut (#282)."""
+        as ``width`` holds, and the next ones form a block below — nothing wraps or is cut (#282).
+        ``budget`` is the rows this call may emit: a block it has no room for is left out whole
+        with the blocks after it (#374) — a group title above the fold misleads."""
         lang = self.app.lang
         columns: list[list[tuple[str, str]]] = []  # per column: (label, value) rows; row 0 = title
         for name, paths in list(groups.items())[:3]:  # up to three groups, as before (5.2)
@@ -759,10 +797,15 @@ class InstrumentScreen(ShellScreen):
             else:
                 blocks.append([k])
         rows: list[list[tuple[str, str]]] = []
+        emitted = 0
         for b, block in enumerate(blocks):
+            height = max((len(columns[k]) for k in block), default=0)
+            if budget is not None and emitted + (1 if b else 0) + height > budget:
+                break
             if b:
                 rows.append([("", "")])
-            for n in range(max((len(columns[k]) for k in block), default=0)):
+                emitted += 1
+            for n in range(height):
                 row: list[tuple[str, str]] = []
                 for k in block:
                     col = columns[k]
@@ -777,6 +820,7 @@ class InstrumentScreen(ShellScreen):
                     row.append((" " * 3, ""))
                 if any(cell_len(v.strip()) for v, _ in row):
                     rows.append(row)
+                    emitted += 1
         return rows
 
     def _reason_line(self, template: str) -> list[tuple[str, str]] | None:
@@ -876,6 +920,7 @@ class InstrumentScreen(ShellScreen):
                 and state[path].get("type") in ("bool", "enum", "float", "int")
             ]
             self._other_buttons.mount(*[ControlButton(c, "other") for c in controls])
+        self._other_rows = len(rows) + (1 if self._other_buttons.children else 0)
 
     # -- wiring and load (5.1 #2) ---------------------------------------------------------------------------
 
@@ -986,6 +1031,7 @@ class InstrumentScreen(ShellScreen):
             max(22, self._errors.size.width + 2),
         )
         self._error_static.update(box_text(app, lines, width))
+        self._errors_rows = len(lines)
 
     def _read_away(self, queue: list[dict[str, Any]]) -> list[tuple[int, str, str]]:
         """Errors seen in the event stream that the queue no longer holds, oldest first.
