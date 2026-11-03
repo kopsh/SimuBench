@@ -170,9 +170,10 @@ cases:
       - send: "SENS:VOLT:DC:NPLC 10,(@101:103)"
       - query: "SENS:VOLT:DC:NPLC? (@101:103)"
         expect: "+1.00000000E+01,+1.00000000E+01,+1.00000000E+01"
+      # 量程按通道保存（#365）：只设 101，102 仍是自动（0）。
       - send: "SENS:VOLT:DC:RANG 10,(@101)"
       - query: "SENS:VOLT:DC:RANG? (@101:102)"
-        expect: "+1.00000000E+01,+1.00000000E+01"
+        expect: "+1.00000000E+01,+0.00000000E+00"
       - send: "SENS:VOLT:DC:RANG:AUTO OFF,(@101:103)"
       - query: "SENS:VOLT:DC:RANG:AUTO? (@101:103)"
         expect: "0,0,0"
@@ -272,11 +273,12 @@ cases:
         expect: "+1.00000000E+01"
       - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
         expect: "0"
+      # CONFigure 只改列表里的通道（#365）：102 回到自动量程，101 保留自己的 10 V 档。
       - send: "CONF:VOLT:DC (@102)"
       - query: "ROUT:SCAN?"
         expect: "(@102)"
-      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
-        expect: "1"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101,102)"
+        expect: "0,1"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
@@ -332,5 +334,22 @@ cases:
       - send: "CONF:CURR:AC (@121)"
       - query: "READ?"
         expect: "+0.00000000E+00"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "每通道测量配置：一个扫描表混合电阻、电压与电流通道，CONF? 按通道回答（#365）"
+    manual: "Measurement Configuration（CONFigure 按通道保存功能、量程与分辨率）；CONFigure? (@<ch_list>)"
+    steps:
+      - send: "CONF:RES 1000,(@104)"
+      - send: "CONF:VOLT:DC 10,(@101)"
+      - send: "CONF:CURR:DC 0.01,(@121)"
+      - send: "ROUT:SCAN (@101,104,121)"
+      - query: "ROUT:SCAN?"
+        expect: "(@101,104,121)"
+      # 101：1 V 经 1 MΩ 进 10 MΩ；104：1 kΩ 加两个继电器触点；121：5 V / 1006 Ω。
+      - query: "READ?"
+        expect: "+9.09090000E-01,+1.00100100E+03,+4.97019000E-03"
+      - query: "CONF? (@101,104,121)"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05","RES +1.00000000E+03,+3.00000000E-03","CURR +1.00000000E-02,+3.00000000E-08"'
       - query: "SYST:ERR?"
         expect: '+0,"No error"'

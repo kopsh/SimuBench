@@ -1469,22 +1469,33 @@ class Instrument:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
         args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+        # A channel list written whole into a setting (the scan list) names the channels the
+        # command's channel settings apply to (#365).
+        listed = [
+            self.channel_index(n)
+            for ps in spec.params
+            if ps.type == "channel_list" and ps.state is not None
+            for n in self.state[ps.state]
+        ]
         bound = {}
         for ps in spec.params:  # an operation's parameter bound to a setting writes it (#300)
             if ps.type != "channel_list" and ps.state is not None and args.get(ps.name) is not None:
-                path = self._resolve(ps.state, channel)
-                value = args[ps.name]
-                bound[path] = self._validate(self.specs[path], value)
-                for ref, constant in (ps.sets or {}).items():
-                    bound[self._resolve(ref, channel)] = self._validate(
-                        self.specs[self._resolve(ref, channel)], constant
-                    )
+                for target in listed or [channel]:
+                    path = self._resolve(ps.state, target)
+                    value = args[ps.name]
+                    bound[path] = self._validate(self.specs[path], value)
+                    for ref, constant in (ps.sets or {}).items():
+                        bound[self._resolve(ref, target)] = self._validate(
+                            self.specs[self._resolve(ref, target)], constant
+                        )
         if spec.writes:
-            # The command selects settings before its operation runs (#308).
+            # The command selects settings before its operation runs (#308); a channel setting is
+            # written for every channel of a list that names the channels (#365: MEAS:RES? (@101)).
             checked = {}
-            for ref, value in spec.writes.items():
-                path = self._resolve(ref, channel)
-                checked[path] = self._validate(self.specs[path], value)
+            for target in listed or [channel]:
+                for ref, value in spec.writes.items():
+                    path = self._resolve(ref, target)
+                    checked[path] = self._validate(self.specs[path], value)
             for path, value in checked.items():
                 self.set_state(path, value)
         for path, value in bound.items():  # after the command's constants: the arguments win

@@ -796,3 +796,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 储备随灵敏度变化 | ✅ `lockin_input_amp.reserve_db`（按灵敏度查 dB、档间对数插值），SR830 按手册 p.4-8 三列；测试核对表值与插值 |
 | 引擎 | ✅ 参数映射 `map` 可用整数设置匹配字符串键（SR830 的 DDEF 显示量是整数设置） |
 | 检查 | ✅ `scripts/check.sh` 全绿；SR830 手册用例新增三条，覆盖表相应命令改为实现 |
+
+## 34970A 每通道测量配置（Issue 365）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 功能/量程/分辨率/NPLC 按通道保存，扫描时每个通道按自己的功能求解 | ✅ 34970A 的测量配置改为 `channel_state`（function、range、res_range、curr_range、range_auto、resolution、nplc、imp_auto）；`scan_table.channel_settings` 在检查与读取每个通道前把它的值装进内部 DMM 的 `sense.*`，测试电流/分流/四线检测随之切换；扫描的总时间按各通道自己的 NPLC 求和（读数在其间等距）。引擎：带「整表写入设置」通道列表的操作命令（MEASure?）把 `writes` 与参数绑定的通道设置写到列表中的每个通道 |
+| 复现步骤读数为电阻与电压各自的值；混合扫描与 `CONF?` 通道列表形式有用例 | ✅ `tests/test_keysight_34970a.py::test_one_scan_mixes_resistance_and_voltage_channels`（两线与四线电阻 + DCV 同一扫描表、NPLC 按通道、`CONF? (@101,102)`）；手册用例新增「电阻、电压、电流混合扫描与 CONF?」；两条旧用例按手册改为按通道的期望（只设 101 的量程不改 102；CONFigure 只改列表中的通道） |
+| 覆盖表与 component-map 的「全局」说明同步 | ✅ 覆盖表 CONFigure/SENSe/INPut 的说明改为按通道，新增 `CONFigure?`；component-map 的 scan_table 行去掉「每通道测量配置」债务 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

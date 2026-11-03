@@ -188,7 +188,7 @@ D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migrat
 | --- | --- | --- | --- | --- |
 | backplane | `daq_backplane` | 设置/数据(插槽与已装模块;SCPI 号域的槽位检查) | 已实现 | — |
 | mux_card | `mux_card` | 电路(双线继电器 + 模拟总线与四线检测总线;闭合计入电路求解;电阻的测试电流、电流通道的分流由它加在总线上,#301) | 已实现 | — |
-| scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 已实现(CONFigure/MEASure 的通道列表整表写进扫描表并启动一次扫描,#300) | 每通道测量配置(#300 一并承担) |
+| scan_table | `scan_table` | 数据(通道列表、扫描次数与间隔;sampler) | 已实现(CONFigure/MEASure 的通道列表整表写进扫描表并启动一次扫描,#300;每通道测量配置 `channel_settings`:扫描到一个通道时把它的 `ch<n>.*` 装进内部 DMM 的设定,一个扫描表可混合功能,`CONFigure?` 按通道回答,#365) | — |
 | internal_dmm | E1 拆出的 `dmm_input_terminal` / `dmm_conditioning` / `dmm_adc` | 电路 + 数据 | 已实现(电阻/电流:34465A 在自己的端子上,34970A 由 `mux_card` 在模拟总线上加测试电流/分流,`four_wire_offset` 把 n 与 n+10 配成四线,`current_channels` 是电流通道,#301) | —(34970A 复用它) |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
