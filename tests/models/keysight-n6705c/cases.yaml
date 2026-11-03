@@ -1,0 +1,191 @@
+# Keysight N6705C 的手册用例：N6705C User's Guide（N6705C-90001 Ed.3）的 Command Quick Reference 与
+# N6700C Operating and Service Guide（N6700C-90901 Ed.2）第 5 章各命令条目（参数范围、*RST 值与示例）。
+# 每个用例在刚上电的 examples/benches/keysight-n6705c.bench.yaml 上运行（通道 1 接 10 Ω、通道 3 接 1 Ω）。
+model: keysight-n6705c
+bench: ../../../examples/benches/keysight-n6705c.bench.yaml
+instrument: psu
+cases:
+  - name: "*IDN?、插槽与 *RST 后的默认值"
+    manual: "*IDN?; SYSTem:CHANnel[:COUNt]? / :MODel? / :OPTion?; SCPI Command *RST Settings"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,N6705C,MY56000123,E.02.07.3231"
+      - query: "SYST:CHAN?"
+        expect: "4"
+      - query: "SYST:CHAN:MOD? (@1:4)"
+        expect: "N6762A,N6762A,N6752A,N6752A"
+      - query: "SYST:CHAN:OPT? (@1,3)"
+        expect: '"",""'
+      - send: "VOLT 12,(@1:4);:CURR 1,(@1:4);:VOLT:PROT 20,(@1);:CURR:PROT:STAT ON,(@1);:CURR:PROT:DEL 0.1,(@1);:DISP:VIEW METER4"
+      - send: "*RST"
+      - query: "VOLT? (@1:4)"
+        expect: "+0.000000E+00,+0.000000E+00,+0.000000E+00,+0.000000E+00"
+      - query: "CURR? (@1:4)"
+        expect: "+0.000000E+00,+0.000000E+00,+0.000000E+00,+0.000000E+00"
+      - query: "OUTP? (@1:4)"
+        expect: "0,0,0,0"
+      - query: "VOLT:PROT? (@1)"
+        expect: "+6.000000E+01"
+      - query: "CURR:PROT:STAT? (@1)"
+        expect: "0"
+      - query: "CURR:PROT:DEL? (@1)"
+        expect: "+2.000000E-02"
+      - query: "CURR:PROT:DEL:STAR? (@1)"
+        expect: "SCH"
+      - query: "VOLT:SENS:SOUR? (@1)"
+        expect: "INT"
+      - query: "DISP:VIEW?"
+        expect: "METER1"
+      - query: "SYST:VERS?"
+        expect: "1999.0"
+
+  - name: "电压与电流设定：通道列表、范围按模块"
+    manual: "[SOURce:]VOLTage[:LEVel][:IMMediate][:AMPLitude]; [SOURce:]CURRent[:LEVel][:IMMediate][:AMPLitude]（0 - maximum，最大值为额定的 102 %）; Channel parameter is required"
+    steps:
+      - send: "SOURce:VOLTage:LEVel:IMMediate:AMPLitude 20,(@1)"
+      - send: "VOLT 5,(@2:4)"
+      - query: "VOLT? (@1:4)"
+        expect: "+2.000000E+01,+5.000000E+00,+5.000000E+00,+5.000000E+00"
+      - query: "VOLT? MAX,(@1)"
+        expect: "+5.100000E+01"
+      - send: "VOLT 52,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "VOLT? (@1)"
+        expect: "+2.000000E+01"
+      - send: "CURR 3,(@1);:CURRent:LEVel:IMMediate:AMPLitude 8,(@3)"
+      - query: "CURR? (@1,3)"
+        expect: "+3.000000E+00,+8.000000E+00"
+      - query: "CURR? MAX,(@1)"
+        expect: "+3.060000E+00"
+      - query: "CURR? MAX,(@3)"
+        expect: "+1.020000E+01"
+      - send: "CURR 8,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "VOLT 5"
+      - query: "SYST:ERR?"
+        expect: '-109,"Missing parameter"'
+
+  - name: "输出与测量：恒压与恒流"
+    manual: "OUTPut[:STATe]; MEASure[:SCALar]:VOLTage[:DC]? / :CURRent[:DC]?（Typical Return +n.nnnnnnE+nn，多通道以逗号分隔）"
+    steps:
+      - send: "VOLT 5,(@1,3);:CURR 1,(@1);:CURR 2,(@3)"
+      - send: "OUTPut:STATe ON,(@1,3)"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "OUTP? (@1:4)"
+        expect: "1,0,1,0"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 5.0
+        tolerance: 2.0e-3
+      - query: "MEAS:CURR? (@1)"
+        expect_value: 0.5
+        tolerance: 2.0e-3
+      - query: "MEASure:SCALar:CURRent:DC? (@3)"
+        expect_value: 2.0
+        tolerance: 1.0e-6
+      - query: "MEASure:SCALar:VOLTage:DC? (@3)"
+        expect_value: 2.0
+        tolerance: 2.0e-3
+      - query: "MEAS:CURR? (@2,4)"
+        expect: "+0.000000E+00,+0.000000E+00"
+      - send: "OUTP OFF,(@1)"
+      - query: "MEAS:VOLT? (@1)"
+        expect: "+0.000000E+00"
+
+  - name: "过压保护：越限关输出并锁存，CLEar 恢复"
+    manual: "[SOURce:]VOLTage:PROTection[:LOCal][:LEVel]（0 – maximum，最大值为额定的 120 %）; OUTPut:PROTection:CLEar"
+    steps:
+      - send: "VOLT 10,(@1);:CURR 3,(@1);:OUTP ON,(@1)"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "VOLT:PROT 61,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "SOURce:VOLTage:PROTection:LOCal:LEVel 8,(@1)"
+      - query: "VOLT:PROT? (@1)"
+        expect: "+8.000000E+00"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "MEAS:VOLT? (@1)"
+        expect: "+0.000000E+00"
+      - send: "VOLT 5,(@1)"
+      - send: "OUTPut:PROTection:CLEar (@1)"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 5.0
+        tolerance: 2.0e-3
+
+  - name: "过流保护：状态、延迟与起点"
+    manual: "[SOURce:]CURRent:PROTection:STATe; :DELay[:TIME]（0 – 0.255，*RST 0.020）; :DELay:STARt SCHange|CCTRans; OUTPut:PROTection:DELay（same as CURRent:PROTection:DELay）"
+    steps:
+      - send: "CURR:PROT:DEL 0.3,(@3)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "CURRent:PROTection:DELay:TIME 0.05,(@3)"
+      - query: "OUTP:PROT:DEL? (@3)"
+        expect: "+5.000000E-02"
+      - send: "OUTPut:PROTection:DELay 0.1,(@3)"
+      - query: "CURR:PROT:DEL? (@3)"
+        expect: "+1.000000E-01"
+      - send: "CURR:PROT:DEL:STAR CCTRans,(@3)"
+      - query: "CURR:PROT:DEL:STAR? (@3)"
+        expect: "CCTR"
+      - send: "CURRent:PROTection:STATe ON,(@3)"
+      - query: "CURR:PROT:STAT? (@3)"
+        expect: "1"
+      # 延迟 0：输出一进入恒流（5 V 加在 1 Ω 上，电流设定 2 A）即关闭并锁存
+      - send: "CURR:PROT:DEL 0,(@3)"
+      - send: "VOLT 5,(@3);:CURR 2,(@3);:OUTP ON,(@3)"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "MEAS:CURR? (@3)"
+        expect: "+0.000000E+00"
+      - query: "OUTP? (@3)"
+        expect: "0"
+      - send: "CURR:PROT:STAT OFF,(@3);:CURR 6,(@3);:OUTP:PROT:CLE (@3)"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "OUTP? (@3)"
+        expect: "1"
+      - query: "MEAS:CURR? (@3)"
+        expect_value: 5.0
+        tolerance: 1.0e-2
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "远端检测、显示与公共命令"
+    manual: "[SOURce:]VOLTage:SENSe:SOURce INTernal|EXTernal; DISPlay[:WINDow][:STATe] / :VIEW; IEEE 488.2 Common Commands"
+    steps:
+      - send: "VOLTage:SENSe:SOURce EXTernal,(@2)"
+      - query: "VOLT:SENS:SOUR? (@1:2)"
+        expect: "INT,EXT"
+      - send: "DISPlay:WINDow:STATe OFF"
+      - query: "DISP?"
+        expect: "0"
+      - send: "DISP:WIND:VIEW METER4"
+      - query: "DISP:VIEW?"
+        expect: "METER4"
+      - send: "*CLS;*ESE 60"
+      - query: "*ESE?"
+        expect: "60"
+      - send: ":FOO"
+      - query: "*ESR?"
+        expect: "32"
+      - send: "*SRE 32"
+      - query: "*SRE?"
+        expect: "32"
+      - send: ":FOO"
+      - query: "*STB?"
+        expect_match: '^(100|96)$'
+      - send: "*CLS;*OPC"
+      - query: "*ESR?"
+        expect: "1"
+      - send: "*WAI"
+      - query: "*TST?"
+        expect: "0"
+      - send: "*TRG"
+      - query: "SYSTem:ERRor?"
+        expect: '-113,"Undefined header;not implemented in this definition"'

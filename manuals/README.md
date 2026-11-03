@@ -18,3 +18,5 @@
 | 1178.3834.02 | R&S SMA100B RF and Microwave Signal Generator User Manual | Version 14（固件 5.40.102.xx） | `rs-sma100b` | https://scdn.rohde-schwarz.com/ur/pws/dl_downloads/pdm/cl_manuals/user_manual/1178_3834_01/SMA100B_UserManual_en_14.pdf |
 | 8588A-rpeng0000 | Fluke 8588A/8558A Reference Multimeter and 8½ Digit Multimeter Remote Programmer's Manual | March 2019 | `fluke-8588a` | https://xdevs.com/doc/Fluke/8588A_8558A/8588A___rpeng0000_0.pdf |
 | 8588A-pseng0000 | Fluke 8588A Reference Multimeter Product Specifications（量程、测量电流、输入阻抗） | March 2019, Rev. A | `fluke-8588a` | https://docs.ampnuts.ru/eevblog.docs/Fluke/8588A_8558A/8588Apseng0000.pdf |
+| N6705C-90001 | Keysight N6705C DC Power Analyzer User's Guide | Edition 3, February 2019 | `keysight-n6705c` | https://tjr-lab.mit.edu/wp-content/uploads/2023/10/Keysight-N6705C-User-Manual-9018-01649.pdf |
+| N6700C-90901 | Keysight N6700C Low-Profile Modular Power System Operating and Service Guide（SCPI Programming Reference） | Edition 2, February 2019 | `keysight-n6705c` | https://static.chipdip.ru/lib/051/DOC036051960.pdf |
