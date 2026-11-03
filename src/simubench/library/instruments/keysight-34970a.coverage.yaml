@@ -62,8 +62,8 @@ sections:
   - {header: 'CONFigure:FRESistance', level: implemented, note: '四线电阻（#301）：通道 n（1–10）供电流，n+10 接检测总线；给 11–20 或电流通道报 -221（错误码为模型选择）。'}
   - {header: 'CONFigure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'CONFigure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。'}
-  - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354），真机 AC 的 750 V 量程未建模。'}
-  - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率接受 AUTO/MIN/MAX/DEF（#354，语法见 34972-90001；用户指南 p.130 示例 CONF:VOLT:DC 10,DEF,(@301)）：量程 MIN/MAX 是模型保留的两端 0.1/300 V（真机 1000 V 量程未建模），分辨率 MIN/MAX 选 NPLC 表两端（200/0.02 PLC，最细/最粗）。'}
+  - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354）；交流量程 100 mV–300 V，MAX 的 300 V 即真机最高量程（用户指南第 8 章技术规格的交流电压表；原备注称 750 V 未建模有误，#392）。'}
+  - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率接受 AUTO/MIN/MAX/DEF（#354，语法见 34972-90001；用户指南 p.130 示例 CONF:VOLT:DC 10,DEF,(@301)）：量程 MIN/MAX 是量程表两端 0.1/300 V，300 V 即真机最高量程（用户指南第 8 章技术规格的直流电压表：100 mV、1 V、10 V、100 V、300 V；原备注称 1000 V 未建模有误，#392），分辨率 MIN/MAX 选 NPLC 表两端（200/0.02 PLC，最细/最粗）。'}
   - {header: 'CONFigure:CURRent:AC', level: implemented, note: '交流电流（真有效值，#301），同 CONFigure:CURRent:DC。'}
   - {header: 'CONFigure:CURRent[:DC]', level: implemented, note: '直流电流（#301）：只在电流通道 21/22（121/122）上，总线并分流电阻读 V/R（分流值为模型值）；其他通道报 -221（错误码为模型选择）。量程接受 AUTO/MIN/MAX/DEF（#354），MIN/MAX 是 10 mA/1 A 两端；分辨率关键字同 CONFigure:VOLTage[:DC]。'}
 - section: DATA Subsystem
