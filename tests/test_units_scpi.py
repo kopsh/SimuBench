@@ -114,6 +114,40 @@ def test_error_queue_overflow():
     assert [q.pop().code for _ in range(4)] == [-222, -222, -350, 0]
 
 
+def test_error_queue_since_reports_pushes_after_the_mark():
+    q = ErrorQueue(capacity=3)
+    q.push(ScpiError(-222))
+    m = q.mark()
+    q.push(ScpiError(-113))
+    q.push(ScpiError(-102))
+    assert [e.code for e in q.since(m)] == [-113, -102]  # oldest first
+    assert q.since(q.mark()) == []  # nothing pushed since
+
+
+def test_error_queue_since_sees_errors_the_full_queue_dropped():
+    """A full queue throws new errors away (and its last slot already holds -350): since()
+    still reports them, a length difference would see nothing (#483)."""
+    q = ErrorQueue(capacity=3)
+    for _ in range(3):  # fills the queue, last slot becomes -350
+        q.push(ScpiError(-222))
+    m = q.mark()
+    q.push(ScpiError(-102))  # dropped by the full queue
+    assert len(q) == q.capacity == 3
+    assert [e.code for e in q.since(m)] == [-102]
+
+
+def test_error_queue_since_sees_the_error_behind_the_overflow_marker():
+    """The push that fills the queue's last slot is replaced by -350 in the queue; since()
+    reports the error the exchange actually produced."""
+    q = ErrorQueue(capacity=3)
+    q.push(ScpiError(-222))
+    q.push(ScpiError(-222))
+    m = q.mark()
+    q.push(ScpiError(-102))  # enters the queue as -350
+    assert q.peek_all()[-1].code == -350
+    assert [e.code for e in q.since(m)] == [-102]
+
+
 def test_error_family_message_for_unlisted_codes():
     from simubench.scpi.errors import ScpiError
 

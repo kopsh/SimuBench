@@ -36,6 +36,19 @@ def test_command_returns_its_reply_and_only_its_own_errors(tmp_path):
     assert [e.code for e in bad.errors] == [-113]  # this command's error, not an older one
 
 
+def test_command_reports_errors_a_full_queue_dropped(tmp_path):
+    """The queue holds 20 entries and drops every new one once full (#483): the old length
+    difference saw nothing, so a command into a full queue reported errors=[] though the
+    instrument did flag it. mark/since sees the push itself."""
+    s = open_command(tmp_path)
+    for _ in range(25):  # 19 errors + the -350 slot fill the queue; the rest are dropped
+        s.command("lia", ":NOSUCH 1")
+    q = s.instrument("lia").errors
+    assert len(q) == q.capacity
+    r = s.command("lia", ":NOSUCH 1")
+    assert [e.code for e in r.errors] == [-113]
+
+
 def test_command_holds_the_session_lock_across_write_and_read(tmp_path, monkeypatch):
     """The old shape (write action, then read action) releases the lock in between, and a script
     on the port can slip its own exchange in (#121); ``command()`` holds it from before its
