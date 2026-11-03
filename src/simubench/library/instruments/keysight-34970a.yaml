@@ -9,8 +9,9 @@ description: >-
   常开 60 个 SCPI 通道号 101–120、201–220、301–320，槽 2/3 为空，访问报 -114）。
   真实型号（D42）：命令、参数、默认值与回复按 34970A/34972A 用户指南（34972-90001,
   Edition 6, November 2019）核对；扫描把通道列表逐点闭合继电器、经模拟总线交给内部 DMM
-  （直流电压），读数由电路求解得到。ACV、电阻、电流与 CONFigure/MEASure 的通道列表形式
-  受能力 issue #300/#301 阻塞，覆盖表逐条写明。
+  （电压、两线/四线电阻与电流），读数由电路求解得到：电阻是扫描卡模拟总线上的测试电流，
+  四线电阻按手册把通道 n 与 n+10 配对（n+10 作检测），电流只在 34901A 的电流通道 21/22
+  （带分流电阻）上测量（#301）。
 reference:
   title: Keysight 34970A/34972A Data Acquisition/Switch Unit User's Guide
   document: 34972-90001
@@ -118,10 +119,13 @@ errors:
 specs:
   source: 用户指南第 4 章 General Measurement Configuration 与第 8 章规格；扫描见第 4 章 Scanning
   slots: 3（固定配置：槽 1 装 34901A，槽 2/3 空）
-  channels: "34901A 20 通道（101–120，双线）；槽 2/3 号域 201–220/301–320 存在但无模块"
+  channels: "34901A 20 个双线电压通道（101–120）+ 2 个电流通道（121/122）；槽 2/3 号域 201–220/301–320 存在但无模块"
   dcv_ranges_v: [0.1, 1, 10, 100, 300]
   acv_ranges_v: [0.1, 1, 10, 100, 300]
-  dci_channels: "34901A 的 21/22 电流通道（本定义未建模，见 #301）"
+  dci_channels: "34901A 的 21/22 电流通道（121/122；带保险与分流电阻，#301）"
+  res_ranges_ohm: [100, 1.0e3, 1.0e4, 1.0e5, 1.0e6, 1.0e7, 1.0e8]
+  dci_ranges_a: [0.01, 0.1, 1]
+  fres_pairing: "34901A：通道 n（1–10）供电流，通道 n+10 作检测"
   nplc: [0.02, 0.2, 1, 2, 10, 20, 100, 200]
   reading_memory: "50,000 readings；溢出后覆盖最旧的"
   scan_count: "1–50,000 次扫描（或连续；连续未建模）"
@@ -130,9 +134,9 @@ specs:
   relay_r_ohm: 0.5
   relay_settle_s: 0.003
 channels:
-  count: 60
+  count: 62
   numbering:
-    - {first: 101, count: 20}
+    - {first: 101, count: 22}
     - {first: 201, count: 20}
     - {first: 301, count: 20}
 channel_state:
@@ -144,7 +148,7 @@ channel_state:
 state:
   sense.function:
     type: enum
-    options: [VOLT, "VOLT:AC"]
+    options: [VOLT, "VOLT:AC", RES, FRES, CURR, "CURR:AC"]
     default: VOLT
     rst: VOLT
     label: 测量功能
@@ -159,11 +163,29 @@ state:
     special: {AUTO: 0.0}
     label: 量程设定
     label_en: Range setting
+  sense.res.range:
+    type: float
+    unit: OHM
+    min: 0.0
+    max: 1.0e8
+    default: 0.0
+    rst: 0.0
+    label: 电阻量程设定
+    label_en: Resistance range setting
+  sense.curr.range:
+    type: float
+    unit: A
+    min: 0.0
+    max: 1.0
+    default: 0.0
+    rst: 0.0
+    label: 电流量程设定
+    label_en: Current range setting
   sense.resolution:
     type: float
     unit: V
     min: 0.0
-    max: 300.0
+    max: 1.0e8
     default: 0.0
     rst: 0.0
     label: 分辨率设定
@@ -243,7 +265,7 @@ components:
     type: daq_backplane
     params:
       slots: 3
-      modules: [{slot: 1, model: "34901A", channels: 20}]
+      modules: [{slot: 1, model: "34901A", channels: 22}]
   # 多路复用卡：20 路双线输入、模拟总线；扫描时先断后合。
   # close_limit 0：未配置扫描表时手册允许多路同时闭合；「配置扫描表后只能闭一路」未建模。
   - name: mux
@@ -254,7 +276,12 @@ components:
       dmm: inp
       close_limit: 0
       relay_settle: 0.003
-  # 内部 DMM：E1 拆出的测量链（端子只提供输入阻抗，信号来自 mux 的模拟总线）。
+      # #301：四线电阻时通道 n（1–10）与 n+10 配对；21/22 是带分流电阻的电流通道。
+      four_wire_offset: 10
+      current_channels: [21, 22]
+  # 内部 DMM：E1 拆出的测量链（端子给出输入阻抗、测试电流与分流电阻，由 mux 加在模拟总线上；
+  # 信号来自 mux 的模拟总线，四线电阻读检测总线）。测试电流按用户指南第 8 章的电阻规格；
+  # 100 MΩ 档的 500 nA‖10 MΩ 按 500 nA 建模。分流电阻手册未给，取模型值（负担电压约 0.1 V 量级）。
   - name: inp
     type: dmm_input_terminal
     params:
@@ -263,12 +290,23 @@ components:
       high_z: $sense.imp_auto
       high_z_ranges: [0.1, 1, 10]
       conditioning: path
+      mode: {from: $sense.function, map: {VOLT: VOLTage, "VOLT:AC": VOLTage, RES: RESistance, FRES: FRESistance, CURR: CURRent, "CURR:AC": CURRent}}
+      test_current: {100: 1.0e-3, 1000: 1.0e-3, 10000: 1.0e-4, 100000: 1.0e-5, 1000000: 5.0e-6, 10000000: 5.0e-7, 100000000: 5.0e-7}
+      shunt: {0.01: 5.0, 0.1: 5.0, 1: 0.1}
   - name: path
     type: dmm_conditioning
     params:
-      function: {from: $sense.function, map: {VOLT: DC, "VOLT:AC": AC}}
-      ranges: {DC: [0.1, 1, 10, 100, 300], AC: [0.1, 1, 10, 100, 300]}
+      function: {from: $sense.function, map: {VOLT: DC, "VOLT:AC": AC, RES: RES, FRES: FRES, CURR: DCI, "CURR:AC": ACI}}
+      ranges:
+        DC: [0.1, 1, 10, 100, 300]
+        AC: [0.1, 1, 10, 100, 300]
+        RES: [100, 1000, 10000, 100000, 1000000, 10000000, 100000000]
+        FRES: [100, 1000, 10000, 100000, 1000000, 10000000, 100000000]
+        DCI: [0.01, 0.1, 1]
+        ACI: [0.01, 0.1, 1]
       range: $sense.range
+      range_res: $sense.res.range
+      range_curr: $sense.curr.range
       autorange: $sense.range_auto
       autorange_up: 1.2
       autorange_down: 0.1
@@ -318,6 +356,7 @@ components:
 wiring:
   instrument:
     - [mux.out, inp.pin]
+    - [mux.sense, inp.sense]
     - [inp.out, path.in]
 ports:
   instrument:
@@ -361,6 +400,11 @@ ports:
     L119: mux.ch119L
     H120: mux.ch120H
     L120: mux.ch120L
+    # 34901A 的电流通道（#301）：I 端子经保险与分流电阻接到内部 DMM 的电流输入。
+    I121: mux.ch121H
+    L121: mux.ch121L
+    I122: mux.ch122H
+    L122: mux.ch122L
 display:
   template: daq
   summary: [scan.list, scan.count, trigger.source]
@@ -423,6 +467,72 @@ commands:
     params:
       - {name: range, type: float, unit: V, optional: true, state: sense.range, sets: {sense.range_auto: false}}
       - {name: resolution, type: float, unit: V, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  # ---- 电阻与电流（#301）：读数由电路求解（总线上的测试电流、电流通道的分流电阻）。四线电阻只能
+  #      用通道 1–10（n+10 作检测），电流只能用 21/22；不符合的通道在扫描开始时报 -221。
+  - header: "CONFigure:RESistance"
+    query: false
+    writes: {sense.function: "RES", sense.res.range: 0.0, sense.range_auto: true}
+    params:
+      - {name: range, type: float, unit: OHM, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "MEASure:RESistance"
+    op: rd.read
+    set: false
+    writes: {sense.function: "RES", sense.res.range: 0.0, sense.range_auto: true}
+    args: {elements: [READ]}
+    params:
+      - {name: range, type: float, unit: OHM, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "CONFigure:FRESistance"
+    query: false
+    writes: {sense.function: "FRES", sense.res.range: 0.0, sense.range_auto: true}
+    params:
+      - {name: range, type: float, unit: OHM, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "MEASure:FRESistance"
+    op: rd.read
+    set: false
+    writes: {sense.function: "FRES", sense.res.range: 0.0, sense.range_auto: true}
+    args: {elements: [READ]}
+    params:
+      - {name: range, type: float, unit: OHM, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: OHM, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "CONFigure:CURRent[:DC]"
+    query: false
+    writes: {sense.function: "CURR", sense.curr.range: 0.0, sense.range_auto: true}
+    params:
+      - {name: range, type: float, unit: A, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "MEASure:CURRent[:DC]"
+    op: rd.read
+    set: false
+    writes: {sense.function: "CURR", sense.curr.range: 0.0, sense.range_auto: true}
+    args: {elements: [READ]}
+    params:
+      - {name: range, type: float, unit: A, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "CONFigure:CURRent:AC"
+    query: false
+    writes: {sense.function: "CURR:AC", sense.curr.range: 0.0, sense.range_auto: true}
+    params:
+      - {name: range, type: float, unit: A, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, optional: true, state: sense.resolution}
+      - {name: channels, type: channel_list, state: scan.list}
+  - header: "MEASure:CURRent:AC"
+    op: rd.read
+    set: false
+    writes: {sense.function: "CURR:AC", sense.curr.range: 0.0, sense.range_auto: true}
+    args: {elements: [READ]}
+    params:
+      - {name: range, type: float, unit: A, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, optional: true, state: sense.resolution}
       - {name: channels, type: channel_list, state: scan.list}
   # ---- 读数 ------------------------------------------------------------------
   - header: "READ"

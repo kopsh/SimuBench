@@ -366,6 +366,10 @@ class Instrument:
 
     # ---- signal flow ------------------------------------------------------------------------------
 
+    def has_upstream(self, comp: Component, port: str) -> bool:
+        """Whether a signal wire inside the instrument feeds this component's port."""
+        return (comp.name, port) in self._upstream
+
     def upstream_signal(self, comp: Component, port: str) -> Signal:
         src = self._upstream.get((comp.name, port))
         if src is None:
