@@ -10,6 +10,8 @@ from pathlib import Path
 import yaml
 
 from simubench.api import open_bench
+from simubench.models.bench import Fault
+from simubench.server.manager import fault_info
 
 ROOT = Path(__file__).resolve().parents[1]
 SCOPE = ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml"
@@ -91,3 +93,72 @@ def test_a_view_inside_an_action_is_reentrant(tmp_path):
     s.subscribe(listener)
     s.configure("lia", "reference.frequency", 2000)
     assert seen and seen[0] == 0
+
+
+def test_fault_dto_conversion_stays_inside_the_view(tmp_path, monkeypatch):
+    """#480: the fault endpoints assemble their DTO from the live FaultState objects; a tick
+    landing between two field reads could tear the answer (status from before a transition,
+    started_ns from after it). The conversion happens inside the view: the lock is held from
+    the snapshot to the last field read."""
+    s = open_view(tmp_path)
+    s.faults.inject(Fault(kind="latency", instrument="lia", latency_s=0.1, at_s=0.05), source="t")
+    seen = {"snapshot": False, "read": False}
+    violations: list[int] = []
+    real = threading.RLock()
+    depth = {"n": 0}
+
+    class Tracked:
+        def __enter__(self):
+            real.acquire()
+            depth["n"] += 1
+            return self
+
+        def __exit__(self, *exc):
+            depth["n"] -= 1
+            real.release()
+            if seen["snapshot"] and not seen["read"] and depth["n"] == 0:
+                violations.append(depth["n"])
+            return False
+
+    real_snapshot = s.faults.snapshot
+
+    def snapshot():
+        seen["snapshot"] = True  # the read begins: the lock must hold until the DTO is done
+        return real_snapshot()
+
+    monkeypatch.setattr(s.faults, "snapshot", snapshot)
+    monkeypatch.setattr(s, "_lock", Tracked())
+    with s.view():  # the list_faults shape (app.py, mcp_server.py)
+        infos = [fault_info(f) for f in s.faults.snapshot()]
+        seen["read"] = True
+    assert len(infos) == 1 and infos[0].status == "pending" and infos[0].started_ns is None
+    assert violations == []
+
+
+def test_a_fault_read_racing_ticks_stays_consistent(tmp_path):
+    """#480: advance() ticks the faults from another thread while the endpoints read them —
+    every DTO must be the state of one instant, never half of two."""
+    s = open_view(tmp_path)
+    s.faults.inject(
+        Fault(kind="latency", instrument="lia", latency_s=0.1, at_s=0.05, duration_s=0.2), source="t"
+    )
+    stop = threading.Event()
+
+    def ticks():
+        while not stop.is_set():
+            s.advance(0.01)
+
+    t = threading.Thread(target=ticks)
+    t.start()
+    try:
+        for _ in range(20):
+            with s.view():  # the list_faults shape: convert inside the view
+                for info in (fault_info(f) for f in s.faults.snapshot()):
+                    if info.status == "pending":
+                        assert info.started_ns is None
+                    else:
+                        assert info.started_ns is not None
+    finally:
+        stop.set()
+        t.join(5)
+    assert not t.is_alive()

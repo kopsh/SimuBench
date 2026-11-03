@@ -938,7 +938,10 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def list_faults(sid: str) -> list[M.FaultInfo]:
         s = served(sid)
-        return [fault_info(f) for f in s.session.faults.snapshot()]
+        # fault_info reads the live states: convert inside the view, so a tick racing the read
+        # cannot tear it (#480).
+        with s.session.view():
+            return [fault_info(f) for f in s.session.faults.snapshot()]
 
     @app.post(
         "/api/sessions/{sid}/faults",
@@ -949,7 +952,9 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def inject_fault(sid: str, spec: Fault, client: str = Depends(client_of)) -> M.FaultInfo:
         s = served(sid)
         try:
-            return fault_info(s.session.faults.inject(spec, source=client))
+            # The injection and the report of its state are one hold (#480, as list_faults).
+            with s.session.view():
+                return fault_info(s.session.faults.inject(spec, source=client))
         except KeyError as exc:
             raise not_found(exc) from None
         except ValueError as exc:
@@ -964,7 +969,8 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def clear_fault(sid: str, fault_id: str) -> M.FaultInfo:
         s = served(sid)
         try:
-            return fault_info(s.session.faults.clear(fault_id))
+            with s.session.view():  # the report under the same hold as the clearing (#480)
+                return fault_info(s.session.faults.clear(fault_id))
         except KeyError as exc:
             raise not_found(exc) from None
 
