@@ -379,3 +379,22 @@ def test_a_list_command_writes_its_constants_sets_and_the_whole_list():
     assert inst.get_state("sense.function") == "AC"
     assert query("ROUT:SCAN?") == "(@101:102)"
     assert query("SYST:ERR?") == '0,"No error"'
+
+
+def test_a_declared_empty_list_clears_a_stored_list():
+    """#418: the DAQ970A clears its scan list with ROUT:SCAN (@); a definition declares it."""
+    import copy
+
+    assert parse_channel_list(b"(@)", empty=True) == []
+    data = copy.deepcopy(PSU)
+    data["channels"]["lists"] = {"empty": True}
+    session, query = open_definition(data)
+    query("ROUT:SCAN (@101:103)")
+    query("ROUT:SCAN (@)")
+    assert session.instruments["x"].get_state("scan.list") == []
+    assert query("ROUT:SCAN?") == "(@)"
+    assert query("SYST:ERR?") == '0,"No error"'
+
+    _, query = open_psu()  # the default still refuses it
+    query("ROUT:SCAN (@)")
+    assert query("SYST:ERR?").startswith("-108")

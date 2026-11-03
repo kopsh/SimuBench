@@ -145,10 +145,12 @@ def parse_channel_list(
     *,
     descending: bool = False,
     repeated: bool = False,
+    empty: bool = False,
 ) -> list[int]:
     """A SCPI channel list ``(@1)``, ``(@1:3)``, ``(@101,102:110)`` — expanded, in list order.
 
-    ``@`` is required; an empty list is an error. A descending range (-222) and a given-twice
+    ``@`` is required; an empty list is an error unless the instrument declares it (``empty``,
+    #418: the DAQ970A's ``ROUT:SCAN (@)``). A descending range (-222) and a given-twice
     channel (-108) are errors too unless the instrument declares them (#260): ``descending``
     expands ``(@2:1)`` in its written order, 2 then 1; ``repeated`` keeps every occurrence.
     ``exists`` is the instrument's channel-number domain (#207): an explicitly written number and
@@ -160,6 +162,8 @@ def parse_channel_list(
         raise ScpiError(-102, f"expected a channel list (@…), got {t!r}")
     body = t[2:-1].strip()
     if not body:
+        if empty:
+            return []
         raise ScpiError(-108, "the channel list is empty")
     out: list[int] = []
     for part in (p.strip() for p in body.split(",")):
