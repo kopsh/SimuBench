@@ -908,3 +908,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 双通道验证仪表与测试 | ✅ `validation/instruments/sb-smu-2.yaml`（整条链在 `channel_components`）；`tests/test_smu_channels.py` 8 项：定义无诊断、两路各自 I = V/R、通道列表按书写顺序回复、一路关输出另一路不受影响、限值只在本路跳闸、`*TRG` 两路都触发、只有一路在等时另一路不报错、无人等待时 -211 |
 | 单通道不变 | ✅ B2901A、`sb-smu-1`、E36312A 与其余型号的用例与测试不改通过 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Keysight B2912B 双通道精密源表（Issue 330）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `keysight-b2912b.yaml`：B2900B/BL Series SCPI Command Reference（B2910-90130, Edition 2, May 2023）；与 B2901A 同一命令体系，每个通道一条完整的 SMU 链（`channel_components`，#382），`[c]` 后缀（SOURce/SENSe/OUTPut/TRIGger/TRACe）与通道列表（MEASure/FETCh/READ/INITiate/ABORt/SYSTem:DATA:QUANtity）；量程按 Table 2-4/2-7/2-9/2-10，含 B2911B/B2912B 独有的 10 nA 源与测量档；`simubench validate` 无诊断 |
+| 覆盖表 | ✅ 由手册第 3、4 章各命令的 Syntax 生成 471 条（`<A|B>` 展开、`[c]` 写作 `<ch>`），实现 76 · 接受 12 · 未实现 383；说明沿用 B2901A 并按双通道改写 |
+| 用例 | ✅ `tests/models/keysight-b2912b/cases.yaml` 25 条全部通过（B2901A 的 20 条沿用 + 双通道 5 条：通道列表顺序与 -114、每通道设置与 *RST、10 nA 档、两路 *TRG 与 SYST:DATA:QUAN?、DISP:VIEW DUAL/SING2） |
+| 示例与测试 | ✅ 示例台 `examples/benches/keysight-b2912b.bench.yaml`（通道 1 接 1 kΩ、通道 2 接 10 kΩ）与脚本 `examples/scripts/keysight_b2912b_two_channel_iv.py`；`tests/test_keysight_b2912b.py`：每通道欧姆定律、总线触发的两路读数、限值只在本路跳闸 |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 缺口 | ⚠️ 两通道合用电流限制（Table 2-6）与脉冲输出未建模，记入缺口清单第 21 条 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

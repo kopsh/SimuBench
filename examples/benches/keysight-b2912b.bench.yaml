@@ -1,0 +1,35 @@
+schema: simubench.bench/2
+name: keysight_b2912b_two_channel_iv
+description: >-
+  Keysight B2912B（真实型号，D42）两个通道各接一个 DUT：通道 1 对 1 kΩ、通道 2 对 10 kΩ。两路各自
+  一条 SMU 链（#382），同一条 MEAS:CURR? (@1,2) 按通道顺序回两路读数；电压源时 I = V/R，超过
+  电流限值转入 CC；电流源时端电压为 I × R。脚本 examples/scripts/keysight_b2912b_two_channel_iv.py
+  按真机写法运行（tests/test_keysight_b2912b.py）。
+instruments:
+  smu:
+    model: keysight-b2912b
+    label: 双通道精密源表
+    address: "TCPIP0::192.168.1.41::INSTR"
+parts:
+  dut1:
+    type: resistor
+    dut: true
+    label: 1 kΩ DUT（通道 1）
+    params: {r: 1000.0}
+  dut2:
+    type: resistor
+    dut: true
+    label: 10 kΩ DUT（通道 2）
+    params: {r: 10000.0}
+wires:
+  - {from: smu.HI1, to: dut1.A}
+  - {from: smu.LO1, to: dut1.B}
+  - {from: smu.HI2, to: dut2.A}
+  - {from: smu.LO2, to: dut2.B}
+run:
+  seed: 7
+  clock: command
+layout:
+  smu: {x: 0, y: 80}
+  dut1: {x: 320, y: 40}
+  dut2: {x: 320, y: 180}
