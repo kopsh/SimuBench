@@ -999,3 +999,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 规则 | ✅ `docs/real-models.md` 第 7 节与 D42「商标」改为：手册存 `manuals/` 供开发查阅、不随发布分发，定义与文档不大段摘抄；`real-model` 技能加「先查 `manuals/`、新手册随型号入库」，`codebase-map` 列出目录 |
 | 不分发 | ✅ wheel 只打包 `src/`；sdist 排除 `manuals` |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 查询应答的定长块：{value_block}（Issue 415）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 模板占位 | ✅ `commands[].reply` 新增 `{value_block}`：把绑定设置或操作的应答包成 IEEE 488.2 定长块（`#<n><长度><数据>`），DAQ970A 的 `ROUTe:SCAN?` 空表回 `#13(@)`（DAQ97-90002 Ed.3） |
+| 文档与生成物 | ✅ `docs/real-models.md` 字段说明；schema 与 Web API 类型重新生成 |
+| 测试 | ✅ `tests/test_reply_block.py`：空表 `#13(@)`，非空表的块长与内容一致 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

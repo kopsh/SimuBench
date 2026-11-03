@@ -372,7 +372,8 @@ class CommandSpec(_Model):
         None,
         description="Query reply template: {header} (the echoed header, see dialect.echo_header; with "
         "echo off it and the space after it are left out), {value} (the bound setting, or an "
-        "operation's reply) and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for "
+        "operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. "
+        "'#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for "
         "settings; an operation's reply as it is",
     )
     when: dict[str, str] | None = Field(
