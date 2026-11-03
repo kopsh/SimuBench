@@ -1,0 +1,23 @@
+schema: simubench.bench/2
+name: fluke_5730a_dmm
+description: >-
+  Fluke 5730A 高性能多功能校准器（真实型号，D42）的 OUTPUT HI 接 Fluke 8588A 参考万用表的 INPUT HI：
+  校准器给直流 10 V 与 1 kHz 交流 1 V，万用表读回。示例脚本 examples/scripts/fluke_5730a_verify.py
+  按 5730A 的远程命令（OUT、OPER、*OPC?、FAULT?）写成，在真机和 SimuBench 上都不改一行。
+instruments:
+  cal:
+    model: fluke-5730a
+    label: 多功能校准器
+    address: "GPIB0::6::INSTR"
+  dmm:
+    model: fluke-8588a
+    label: 参考万用表
+    address: "GPIB0::7::INSTR"
+wires:
+  - {from: cal.OUT, to: dmm.IN}
+run:
+  seed: 13
+  clock: command
+layout:
+  cal: {x: 0, y: 80}
+  dmm: {x: 560, y: 80}

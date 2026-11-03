@@ -1,0 +1,328 @@
+# Fluke 5730A 的覆盖表：命令按 Operators Manual（August 2013 Rev. 1, 6/15）第 6 章 Table 6-4 逐条
+# 列出（查询与设置合为一条）；程度与说明手写。
+schema: simubench.coverage/1
+model: fluke-5730a
+sections:
+- section: Table 6-4 > Error Mode Commands
+  commands:
+  - header: ADJOUT
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: ERR_REF
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: INCR
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: MULT
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: NEWREF
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: OFFSET
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: OLDREF
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: OUT_ERR
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: REFOUT
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: SCALE
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+  - header: SCAL_ERR
+    level: not_modeled
+    note: 误差模式（INCR、偏置、比例、参考）未实现。
+- section: Table 6-4 > Calibrator Configuration Commands
+  commands:
+  - header: BRIGHTNESS
+    level: accepted
+    note: 0–100，默认 50，保存并回读。
+    affects_data: false
+  - header: BTYPE
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: CLOCK
+    level: not_modeled
+    note: 未实现。
+  - header: CUR_POST
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: EMULATE
+    level: not_modeled
+    note: 未实现。
+  - header: EXTGUARD
+    level: accepted
+    note: 内部/外部保护（ON/OFF，*RST OFF）保存；台架的单一地下保护屏蔽不影响电路。
+    affects_data: false
+  - header: EXTSENSE
+    level: not_modeled
+    note: 外部 sense（四线）未实现：输出控制没有 sense 端子（#551）。
+  - header: FORMAT
+    level: not_modeled
+    note: 未实现。
+  - header: LIMIT
+    level: not_modeled
+    note: 输出上下限设定未实现（限值只按手册的 ±1100 V）。
+  - header: '*LRN'
+    level: not_modeled
+    note: 未实现。
+  - header: RANGE
+    level: not_modeled
+    note: 量程锁定与量程查询未实现：设定值组件不按量程表选档（#552）。
+  - header: RANGELCK
+    level: not_modeled
+    note: 量程锁定与量程查询未实现：设定值组件不按量程表选档（#552）。
+  - header: LCOMP_52120
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: POST_52120
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: XFERCHOICE
+    level: not_modeled
+    note: 交流/直流传递未实现。
+- section: Table 6-4 > Output Commands
+  commands:
+  - header: BOOST
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: DBMOUT
+    level: not_modeled
+    note: dBm 单位未实现。
+  - header: OPER
+    level: implemented
+    note: 进入工作，3 s 建立时间后到达设定值（*OPC? 等待）。故障队列非空时 ≥22 V 禁止 OPER（2232）未实现。
+  - header: OUT
+    level: implemented
+    note: OUT <幅值> V[, <频率> HZ]：只给幅值时频率不变，只给频率时只改频率，0 Hz 为直流、非 0 为交流（10 Hz–1.2 MHz，±1100 V）；OUT? 回 <幅值>,V,<频率>（nr3，6
+      位尾数）。A、OHM、DBM 单位报 -224（电流、电阻输出与 dBm 未建模，#550）；缺单位 2206、同一单位两次 2207；越界 -222（手册的 815 Outside Entry
+      Limits 未区分）。
+  - header: PHASE
+    level: not_modeled
+    note: 相位输出与锁相未实现。
+  - header: PHASELCK
+    level: not_modeled
+    note: 相位输出与锁相未实现。
+  - header: PHASESFT
+    level: not_modeled
+    note: 相位输出与锁相未实现。
+  - header: RCOMP
+    level: not_modeled
+    note: 电阻输出（两线补偿）未实现（#550）。
+  - header: STBY
+    level: implemented
+    note: 回到待机，端子与电路断开。≥22 V 的输出在前一输出 <22 V 时被选中，自动回待机。模型的规则更宽：工作中新值或旧值 ≥22 V 的任何改变都回待机（手册：只在跨越 22 V 时）；改变输出功能（直流↔交流）自动回待机未实现（#553）。
+  - header: VOUT
+    level: not_modeled
+    note: dBm 单位未实现。
+  - header: WBAND
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: XFER
+    level: not_modeled
+    note: 交流/直流传递未实现。
+- section: Table 6-4 > Overall Functions
+  commands:
+  - header: '*CLS'
+    level: implemented
+    note: 清状态寄存器与故障队列。
+  - header: ECHO
+    level: not_modeled
+    note: 未实现。
+  - header: '*OPC'
+    level: implemented
+    note: '*OPC 置 ESR 位 0；*OPC? 等建立完成后回 1。'
+  - header: '*PUD'
+    level: not_modeled
+    note: 未实现。
+  - header: RPT_STR
+    level: not_modeled
+    note: 未实现。
+  - header: '*RST'
+    level: implemented
+    note: 0 V、0 Hz、待机、外部保护 OFF（手册 *RST 条目；其他复位项对应的功能未实现）。
+  - header: '*WAI'
+    level: implemented
+    note: 等待全部待完成操作（建立时间）。
+- section: Table 6-4 > Remote Interface Parameter Setting Commands
+  commands:
+  - header: SP_EOF
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: SP_SET
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: ADDR
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: DHCP
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: ENETPORT
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: EOL
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: GWADDR
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: IPADDR
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: MACADDR
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: REM_MODE
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+  - header: SUBNETMASK
+    level: not_modeled
+    note: 串口与网络接口参数未实现。
+- section: Table 6-4 > Calibration, Testing, and Diagnostics Commands
+  commands:
+  - header: CAL_ADJ
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_CHK
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_CLST
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_CONF
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_CONST
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_COUNT
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_DATE
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_DAYS
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_INTV
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_PASSWD
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_REF
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_RNG
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_RPT
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_SECURE
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_SHIFT
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_SLST
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_STORE
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_TEMP
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_USB
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_WBFLAT
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_WBGAIN
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: CAL_ZERO
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: DIAG
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: DIAGFLT
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: OHMSREF
+    level: not_modeled
+    note: 校准、自检与诊断流程未实现。
+  - header: '*TST'
+    level: implemented
+    note: 自检通过回复 0。
+- section: Table 6-4 > Serial/USB/Ethernet Only Remote Commands
+  commands:
+  - header: LOCAL
+    level: accepted
+    note: 写入接口状态；仿真中本地/远程不影响行为。
+    affects_data: false
+  - header: LOCKOUT
+    level: accepted
+    note: 写入接口状态。
+    affects_data: false
+  - header: REMOTE
+    level: accepted
+    note: 写入接口状态。
+    affects_data: false
+- section: Table 6-4 > Status Commands
+  commands:
+  - header: '*ESE'
+    level: implemented
+    note: 标准事件使能寄存器。
+  - header: '*ESR'
+    level: implemented
+    note: 标准事件寄存器，读后清零。
+  - header: EXPLAIN
+    level: not_modeled
+    note: 故障码的文字解释未实现（FAULT? 只回码）。
+  - header: FAULT
+    level: implemented
+    note: 取出最早的故障码，空队列回 0；本模型产生 210（过载跳回待机）、2206、2207 与平台的 -113/-222/-224。
+  - header: '*IDN'
+    level: implemented
+    note: FLUKE,5730A,<serial>,1.0+B+*（手册示例：主 CPU+inguard+无 5725A）。
+  - header: ID52120
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: ISCE
+    level: not_modeled
+    note: 仪器状态寄存器（ISR/ISCR/ISCE）未实现：组件不报告工作/待机、建立中等状态位。
+  - header: ISCR
+    level: not_modeled
+    note: 仪器状态寄存器（ISR/ISCR/ISCE）未实现：组件不报告工作/待机、建立中等状态位。
+  - header: ISR
+    level: not_modeled
+    note: 仪器状态寄存器（ISR/ISCR/ISCE）未实现：组件不报告工作/待机、建立中等状态位。
+  - header: ONTIME
+    level: not_modeled
+    note: 未实现。
+  - header: '*OPT'
+    level: not_modeled
+    note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+  - header: '*SRE'
+    level: implemented
+    note: 服务请求使能寄存器。
+  - header: STATE
+    level: not_modeled
+    note: 未实现。
+  - header: '*STB'
+    level: implemented
+    note: 状态字节；ISR 汇总位无来源（ISR/ISCR 未实现）。
+  - header: UNCERT
+    level: not_modeled
+    note: 未实现。
