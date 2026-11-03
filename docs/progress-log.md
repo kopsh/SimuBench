@@ -777,3 +777,22 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 缺口清单 v1 定稿 | ✅ 「首波缺口」底稿升级为缺口清单 v1（`docs/component-map.md` 文末）：缺的组件（`awg_modulator`、`counter_timebase`、`rf_output`、`calibrator_output` 拆分、通用状态寄存器组件）、`not_modeled` 暗示的未来能力（13 台 2430 条按主题归并：跨类别平台能力 11 项 + 类别内功能缺口 12 项）、已有债务（bug/文档/验收/模型边界/命名审计/架构目标）；每条指向 open issue 或标「暂不排期」 |
 | 第二波选型草案 issue | ✅ #317 已开（候选：33500B、IT8500+、DAQ970A、53230A、FPC1500；SMU 第二台已是 #12，依赖 #299/#253 已合并）；缺口清单与 #317 互链 |
 | 检查 | ✅ `scripts/check.sh` 全绿（纯文档改动，定义与组件无改动） |
+
+## DAQ 内部 DMM 的电阻/电流与四线配对（Issue 301）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 电阻/电流读数由电路求解，不按命令伪造 | ✅ `mux_card` 按内部 DMM 的功能在模拟总线上加测试电流（RES/FRES）或分流电阻（电流），`dmm_input_terminal` 由总线信号读 V/I、V/R；34465A（端子自带激励）不变。`tests/test_keysight_34970a.py` 的两线（含引线与两个继电器触点）、四线、开路与量程过小（过载）、电流（分流与触点在回路里）、配置后扫描两路 |
+| 四线配对由定义声明 | ✅ `mux_card.four_wire_offset: 10`（34901A：通道 n 与 n+10），检测总线经 `mux.sense → inp.sense`；`current_channels: [21, 22]`（34901A 的电流通道 121/122，带 I/L 端子）。功能与通道不符（电流不在 21/22、FRES 无配对、电压用电流通道）在扫描开始前报 -221 |
+| 34465A 与 34970A 的手册用例、覆盖检查不退化 | ✅ 34970A 覆盖表 CONF/MEAS 的 RES/FRES/CURR[:DC]/CURR:AC 改为实现；手册用例新增两条（读数、通道与功能不符），通道号域用例按手册的 22 通道改用 123 作不存在的号；示例测试台加 1 kΩ（104/114）与电流源（121）；34465A 用例与测试不改通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## SR830 的曲线缓冲、输入前端与储备表（Issue 273 第 2、4、5 节）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 曲线缓冲：按 bin 读取、按显示通道选元素、暂停/续采、二进制读取 | ✅ 新通用组件 `curve_buffer`（`library/components/curve.py`）：最多 4 条曲线，各记 `<组件>.<量>`（`lockin_output`/`lockin_aux` 的 `trace_value`），按采样率在虚拟时间采样或每个触发一点，开始/暂停/续采/复位，单次或循环，0 基 bin 读取 ASCII（每点后带逗号）、IEEE 单精度、SR830 的 16 位格式；SR830 的 SRAT/SEND/TRIG/TSTR/STRT/PAUS/REST/SPTS?/TRCA?/TRCB?/TRCL? 实现。`tests/test_srs_sr830.py`（采样时刻与续采、单次存满与循环保留最新、二进制与 ASCII 一致）。FAST/STRD 流式传输不建模（覆盖表说明） |
+| 输入前端：差分与电流输入、参考沿 | ✅ 新通用组件 `lockin_input_mode`（A / A−B / 电流：A 经 1 kΩ 到虚地，1 µA ↔ 1 V，`lockin_output.unit_scale` 把读数换成 A）；SR830 的 ISRC 四种取值、新端子 SIG_B；`lockin_reference.ext_slope`（RSLP：TTL 下降沿使参考移 180°）；IGND 只保存回读（台架网络共用一个地，覆盖表写明不建模的决定）。测试：电流读数 1 V / 11.05 kΩ、A−B 为 A 的一半、下降沿 θ 移 180° |
+| 储备随灵敏度变化 | ✅ `lockin_input_amp.reserve_db`（按灵敏度查 dB、档间对数插值），SR830 按手册 p.4-8 三列；测试核对表值与插值 |
+| 引擎 | ✅ 参数映射 `map` 可用整数设置匹配字符串键（SR830 的 DDEF 显示量是整数设置） |
+| 检查 | ✅ `scripts/check.sh` 全绿；SR830 手册用例新增三条，覆盖表相应命令改为实现 |
