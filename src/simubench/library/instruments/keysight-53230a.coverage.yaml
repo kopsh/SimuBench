@@ -213,7 +213,7 @@ sections:
     note: 单次累加的门时间参数无法在操作命令里写设置；用 CONFigure:TOTalize:TIMed + READ?。
   - header: :CONFigure:ARRay:TSTamp
     level: implemented
-    note: 手册 p.100：<count> 可写成 (200)，读回比例因子（每个时间戳的输入周期数，floor(f/rate)+1）加 count 个相邻时间戳间隔；TRIGger:COUNt 固定 1，经 INIT/FETCh/READ 取回。
+    note: 手册 p.100：<count> 可写成 (200)，读回比例因子（每个时间戳的输入周期数，floor(f/rate)+1：低于速率为 1，10 MHz/1 MHz 为 11，故恰为整倍数时比倍数多 1，f = rate 得 2）加 count 个相邻时间戳间隔；TRIGger:COUNt 固定 1，经 INIT/FETCh/READ 取回。通道 1 无信号时与其它测量超时一致：每个读数为 9.91E37，并入队一次 +321 "Measurement timeout occurred"（SYSTem:TIMeout 一节与表 A-1）。
   - header: :MEASure:ARRay:TSTamp
     level: implemented
     note: 同 CONFigure:ARRay:TSTamp，并立即触发读回。
