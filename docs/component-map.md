@@ -85,7 +85,7 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 | source_dac | `smu_source` | 设置/数据(源功能、电平、源量程) | 已实现 | — |
 | control_loop | `output_control_loop` | 电路(V/I 环与限值切换,D34;B2 复用) | 已实现 | — |
 | output_stage | `smu_output` | 电路(HI/LO、sense、浮地、输出继电器;逐点更新模式) | 已实现 | — |
-| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252) | 按功能分开的测量设置未建模(见下) |
+| meter | `smu_meter` | 电路(量程电阻)+ 数据(NPLC、A/D;sampler) | 已实现(测量功能 #299;`function` 只认 VOLTage/CURRent/RESistance,绑定的状态须为这些取值的枚举,#308;读数带 SOUR 元素即源输出设定值,#252;测量功能使能 `measure_voltage/current/resistance` 与 `function_on/off/all/count/state` 操作,B2900 的 `:SENS:FUNC[:ON]/OFF`,#397,未使能的功能仍出读数) | 按功能分开的测量设置未建模(见下) |
 | trigger | `trigger_model` | 数据 | 已实现(单层;多通道时每通道一个,`*TRG` 触发全部在等总线触发的通道,#382) | ARM 层未建模(B2901A 覆盖表) |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 
