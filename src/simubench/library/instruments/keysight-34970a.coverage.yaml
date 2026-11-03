@@ -1,8 +1,8 @@
 # Keysight 34970A 的覆盖表：按 34970A/34972A 用户指南（34972-90001, Edition 6, November 2019）
 # 第 4 章 Features and Functions 的命令条目与命令索引逐条列出，程度与说明手写。
-# 范围：固定配置 34970A + 槽 1 的 34901A（60 个号 101–120/201–220/301–320，槽 2/3 空）；
-# DCV/ACV、继电器、扫描表、触发与读数缓冲、CONFigure/MEASure 的通道列表形式（#300）；
-# 电阻/电流被 #301 阻塞。未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
+# 范围：固定配置 34970A + 槽 1 的 34901A（62 个号 101–122/201–220/301–320，槽 2/3 空）；
+# DCV/ACV、两线/四线电阻与电流（#301）、继电器、扫描表、触发与读数缓冲、CONFigure/MEASure
+# 的通道列表形式（#300）。未实现命令一律回复 -113,"Undefined header;not implemented in this definition"。
 schema: simubench.coverage/1
 model: keysight-34970a
 sections:
@@ -57,14 +57,14 @@ sections:
   - {header: 'CONFigure:DIGital:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
   - {header: 'CONFigure:DIGital:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
   - {header: 'CONFigure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。'}
-  - {header: 'CONFigure:RESistance', level: not_modeled, note: '电阻测量被 #301 阻塞（DMM 链只有电压）。'}
-  - {header: 'CONFigure:FRESistance', level: not_modeled, note: '四线电阻被 #301 阻塞（需要激励与 n/n+10 配对）。'}
+  - {header: 'CONFigure:RESistance', level: implemented, note: '两线电阻（#301）：按量程的测试电流经模拟总线流过 DUT，读数由电路求解（含继电器触点与引线电阻）；不能用电流通道 21/22（-221，错误码为模型选择）。'}
+  - {header: 'CONFigure:FRESistance', level: implemented, note: '四线电阻（#301）：通道 n（1–10）供电流，n+10 接检测总线；给 11–20 或电流通道报 -221（错误码为模型选择）。'}
   - {header: 'CONFigure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'CONFigure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。'}
   - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能与量程是整机设定（真机按通道记忆）。'}
   - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能与量程是整机设定（真机按通道记忆）。'}
-  - {header: 'CONFigure:CURRent:AC', level: not_modeled, note: '电流测量被 #301 阻塞（内部 DMM 没有分流）。'}
-  - {header: 'CONFigure:CURRent:DC', level: not_modeled, note: '电流测量被 #301 阻塞（内部 DMM 没有分流）。'}
+  - {header: 'CONFigure:CURRent:AC', level: implemented, note: '交流电流（真有效值，#301），同 CONFigure:CURRent:DC。'}
+  - {header: 'CONFigure:CURRent[:DC]', level: implemented, note: '直流电流（#301）：只在电流通道 21/22（121/122）上，总线并分流电阻读 V/R（分流值为模型值）；其他通道报 -221（错误码为模型选择）。'}
 - section: DATA Subsystem
   commands:
   - {header: 'DATA:LAST', level: not_modeled, note: '读数缓冲没有按通道查询（组件债务）；手册要求单通道参数（错误 281）。'}
@@ -110,10 +110,10 @@ sections:
   commands:
   - {header: 'MEASure:VOLTage[:DC]', level: implemented, note: '与 CONFigure 相同的设定后按扫描表跑一次扫描并回读数（READ? 的路径，#300）。'}
   - {header: 'MEASure:VOLTage:AC', level: implemented, note: '交流电压的 MEASure?，同 MEASure:VOLTage:DC（#300）。'}
-  - {header: 'MEASure:CURRent:DC', level: not_modeled, note: '电流测量被 #301 阻塞。'}
-  - {header: 'MEASure:CURRent:AC', level: not_modeled, note: '电流测量被 #301 阻塞。'}
-  - {header: 'MEASure:RESistance', level: not_modeled, note: '电阻测量被 #301 阻塞。'}
-  - {header: 'MEASure:FRESistance', level: not_modeled, note: '四线电阻测量被 #301 阻塞。'}
+  - {header: 'MEASure:CURRent[:DC]', level: implemented, note: '与 CONFigure:CURRent:DC 相同的设定后跑一次扫描并回读数（#301）。'}
+  - {header: 'MEASure:CURRent:AC', level: implemented, note: '与 CONFigure:CURRent:AC 相同的设定后跑一次扫描并回读数（#301）。'}
+  - {header: 'MEASure:RESistance', level: implemented, note: '与 CONFigure:RESistance 相同的设定后跑一次扫描并回读数（#301）。'}
+  - {header: 'MEASure:FRESistance', level: implemented, note: '与 CONFigure:FRESistance 相同的设定后跑一次扫描并回读数（#301）。'}
   - {header: 'MEASure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'MEASure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。'}
   - {header: 'MEASure:PERiod', level: not_modeled, note: '频率/周期测量不在首波。'}
@@ -139,7 +139,7 @@ sections:
   - {header: 'ROUTe:CHANnel:ADVance:SOURce', level: not_modeled, note: '外部扫描的通道推进不在首波。'}
   - {header: 'ROUTe:CHANnel:DELay', level: not_modeled, note: '每通道延时是 scan_table 的已知债务（组件只保存一个间隔，没有每通道延时）。'}
   - {header: 'ROUTe:CHANnel:DELay:AUTO', level: not_modeled, note: '自动每通道延时是 scan_table 的已知债务。'}
-  - {header: 'ROUTe:CHANnel:FWIRe', level: not_modeled, note: '四线扫描被 #301 阻塞（需要 n/n+10 配对与激励）。'}
+  - {header: 'ROUTe:CHANnel:FWIRe', level: not_modeled, note: '四线配对由 CONFigure/MEASure:FRESistance 选定（#301）；单独的 FWIRe 设定未实现。'}
   - {header: 'ROUTe:CLOSe', level: implemented, note: '闭合通道列表里的继电器；查询按列表顺序回 1/0。闭合多个通道时都接到模拟总线（未配置扫描表时手册允许多路闭合）。槽 2/3 无模块 → -114。'}
   - {header: 'ROUTe:MONitor', level: not_modeled, note: '单通道监视不在首波。'}
   - {header: 'ROUTe:MONitor:DATA', level: not_modeled, note: '单通道监视不在首波。'}
@@ -153,10 +153,10 @@ sections:
   - {header: 'SENSe:DIGital:DATA:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
   - {header: 'SENSe:DIGital:DATA:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
   - {header: 'SENSe:FREQuency:RANGe:LOWer', level: not_modeled, note: '频率/周期测量不在首波。'}
-  - {header: 'SENSe:FRESistance:OCOMpensated', level: not_modeled, note: '四线电阻被 #301 阻塞。'}
-  - {header: 'SENSe:FRESistance:RESolution', level: not_modeled, note: '四线电阻分辨率被 #301 阻塞。'}
-  - {header: 'SENSe:RESistance:APERture', level: not_modeled, note: '电阻测量被 #301 阻塞。'}
-  - {header: 'SENSe:RESistance:OCOMpensated', level: not_modeled, note: '电阻测量被 #301 阻塞。'}
+  - {header: 'SENSe:FRESistance:OCOMpensated', level: not_modeled, note: '偏移补偿未建模（#301 只做电阻读数本身）。'}
+  - {header: 'SENSe:FRESistance:RESolution', level: not_modeled, note: '分辨率经 CONFigure 的参数保存（#301）；单独的 SENSe 命令未实现。'}
+  - {header: 'SENSe:RESistance:APERture', level: not_modeled, note: '积分时间按 NPLC 建模，按秒的孔径未实现。'}
+  - {header: 'SENSe:RESistance:OCOMpensated', level: not_modeled, note: '偏移补偿未建模（#301 只做电阻读数本身）。'}
   - {header: 'SENSe:TEMPerature:TRANsducer:FRTD:RESistance', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'SENSe:TEMPerature:TRANsducer:FRTD:TYPE', level: not_modeled, note: '温度测量不在首波。'}
   - {header: 'SENSe:TEMPerature:TRANsducer:TC:CHECK', level: not_modeled, note: '温度测量不在首波。'}
