@@ -794,16 +794,11 @@ class SessionManager:
         if net not in s.nets:
             raise KeyError(net)
         with s.view():
-            sol, emf = s._solve()  # #463 moves the decomposition (and this private call) into the engine
+            sol, emf = s.solution()
             sig = s.net_signal(net).merged()
-            pos = sig.freq > 0
-            order = np.argsort(-np.abs(sig.amp[pos]))
-            f_pos, a_pos = sig.freq[pos], np.abs(sig.amp[pos])
-            lines = [
-                M.SpectralLine(freq_hz=float(f_pos[i]), amplitude=float(a_pos[i])) for i in order[:max_lines]
-            ]
+            lines = sig.spectral_lines(max_lines=max_lines)
             # Two periods of the strongest line, or 2 ms for DC.
-            f0 = float(f_pos[order[0]]) if order.size else 0.0
+            f0 = lines[0].freq_hz if lines else 0.0
             window = 2.0 / f0 if f0 > 0 else 2e-3
             points = 400
             volts = sig.sample_rel(s.now_ns, np.arange(points) * (window / points))
@@ -815,46 +810,7 @@ class SessionManager:
                 exact=sig.is_exact,
                 notes=[n.detail for n in sig.notes],
             )
-            sources: list[M.SourceContribution] = []
-            for sid, src in emf.items():
-                if sid not in sol.sids:
-                    continue
-                m = src.merged()
-                h0 = complex(sol.transfer(net, sid, np.zeros(1))[0])
-                src_lines: list[M.SourceLine] = []
-                if m.freq.size:
-                    hs = sol.transfer(net, sid, m.freq)
-                    for f, a, h in zip(m.freq, m.amp, hs, strict=True):
-                        c = abs(a * h)
-                        if c > 0 and f > 0:
-                            src_lines.append(
-                                M.SourceLine(
-                                    freq_hz=float(f),
-                                    emf=float(abs(a)),
-                                    gain=float(abs(h)),
-                                    phase_deg=float(np.degrees(np.angle(h))),
-                                    contribution=float(c),
-                                )
-                            )
-                dc_c = m.dc * h0.real
-                if not src_lines and dc_c == 0:
-                    continue  # this source does not reach the net
-                src_lines.sort(key=lambda x: -x.contribution)
-                rms = float(np.sqrt(dc_c**2 + sum(x.contribution**2 for x in src_lines) / 2))
-                owner, _, comp = str(sid).partition("/")
-                sources.append(
-                    M.SourceContribution(
-                        source=str(sid),
-                        instrument=owner if comp else None,
-                        component=comp or owner,
-                        dc_emf=float(m.dc),
-                        dc_gain=float(h0.real),
-                        dc_contribution=float(dc_c),
-                        lines=src_lines[:max_lines],
-                        rms_contribution=rms,
-                    )
-                )
-            sources.sort(key=lambda x: -x.rms_contribution)
+            sources = sol.source_contributions(net, emf, max_lines=max_lines)
             return M.NetProbe(
                 net=net,
                 members=list(s.nets[net].members),
@@ -863,7 +819,7 @@ class SessionManager:
                 rms=sig.rms(),
                 peak=sig.peak(),
                 lines=lines,
-                line_count=int(pos.sum()),
+                line_count=int((sig.freq > 0).sum()),
                 waveform=wave,
                 sources=sources,
                 notes=[n.detail for n in sig.notes],

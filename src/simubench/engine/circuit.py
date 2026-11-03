@@ -11,6 +11,7 @@ from collections.abc import Callable, Hashable, Iterable
 from dataclasses import dataclass, field
 
 import numpy as np
+from pydantic import BaseModel, ConfigDict, Field
 
 from .signal import Signal
 
@@ -242,6 +243,42 @@ class Circuit:
         return Solution(f, {name: x[:, i, :] for name, i in idx.items()}, sids, currents)
 
 
+# The decomposition's contract objects (D21, D57): defined where the math lives, re-exported by
+# models/api.py as the probe's response models, so there is no second mapping of the same fields.
+# The shared model config mirrors models/api._Model so the generated schema stays identical.
+
+
+class SourceLine(BaseModel):
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True
+    )
+
+    freq_hz: float
+    emf: float = Field(
+        ..., description="Peak amplitude of the source at this frequency (V, or A for a current source)"
+    )
+    gain: float = Field(..., description="|transfer| from the source to the net")
+    phase_deg: float = Field(..., description="Phase of the transfer, degrees")
+    contribution: float = Field(..., description="Peak volts this source puts on the net at this frequency")
+
+
+class SourceContribution(BaseModel):
+    """One independent source's share of a net's signal: its EMF times the circuit's transfer."""
+
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True
+    )
+
+    source: str = Field(..., description="Source id, e.g. 'awg/ch1.out'")
+    instrument: str | None = None
+    component: str
+    dc_emf: float
+    dc_gain: float
+    dc_contribution: float
+    lines: list[SourceLine]
+    rms_contribution: float
+
+
 @dataclass
 class Solution:
     freqs: np.ndarray
@@ -283,6 +320,54 @@ class Solution:
             # A source's fidelity notes travel only where its signal does.
             out = out + Signal(sig.freq[keep], amp[keep], sig.t0_ns[keep], dc, sig.notes if reaches else ())
         return out
+
+    def source_contributions(
+        self, node: Hashable, emf: dict[Hashable, Signal], *, max_lines: int = 16
+    ) -> list[SourceContribution]:
+        """Each independent source's share of one node's signal: its EMF through the circuit's
+        transfer — the virtual probe's "why is this the value" (D16/D37; #463). Sorted by RMS
+        contribution, largest first; sources that do not reach the node are left out."""
+        sources: list[SourceContribution] = []
+        for sid, src in emf.items():
+            if sid not in self.sids:
+                continue
+            m = src.merged()
+            h0 = complex(self.transfer(node, sid, np.zeros(1))[0])
+            lines: list[SourceLine] = []
+            if m.freq.size:
+                hs = self.transfer(node, sid, m.freq)
+                for f, a, h in zip(m.freq, m.amp, hs, strict=True):
+                    c = abs(a * h)
+                    if c > 0 and f > 0:
+                        lines.append(
+                            SourceLine(
+                                freq_hz=float(f),
+                                emf=float(abs(a)),
+                                gain=float(abs(h)),
+                                phase_deg=float(np.degrees(np.angle(h))),
+                                contribution=float(c),
+                            )
+                        )
+            dc_c = m.dc * h0.real
+            if not lines and dc_c == 0:
+                continue  # this source does not reach the node
+            lines.sort(key=lambda x: -x.contribution)
+            rms = float(np.sqrt(dc_c**2 + sum(x.contribution**2 for x in lines) / 2))
+            owner, _, comp = str(sid).partition("/")
+            sources.append(
+                SourceContribution(
+                    source=str(sid),
+                    instrument=owner if comp else None,
+                    component=comp or owner,
+                    dc_emf=float(m.dc),
+                    dc_gain=float(h0.real),
+                    dc_contribution=float(dc_c),
+                    lines=lines[:max_lines],
+                    rms_contribution=rms,
+                )
+            )
+        sources.sort(key=lambda x: -x.rms_contribution)
+        return sources
 
 
 def solve_signals(
