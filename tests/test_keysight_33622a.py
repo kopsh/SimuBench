@@ -198,3 +198,30 @@ def test_the_pulse_edge_times_shape_the_output():
         assert width == pytest.approx(4e-6, rel=0.01)
     finally:
         s.close()
+
+
+def test_the_pulse_commands_take_min_max_def(awg):
+    """#478: WIDT/PER/TRAN accept the MIN/MAX/DEF words the manual lists — the width range rides
+    on the duty setting's declared range at the current period, the period's on the frequency's,
+    the edges' on their own. The manual's own numbers were not verified term by term."""
+    w(awg, ":FUNC PULS;:FREQ 1e3")
+    assert float(q(awg, ":FUNC:PULS:WIDT? MIN")) == pytest.approx(1e-7)  # 0.01 % of 1 ms
+    assert float(q(awg, ":FUNC:PULS:WIDT? MAX")) == pytest.approx(9.999e-4)  # 99.99 % of 1 ms
+    assert float(q(awg, ":FUNC:PULS:WIDT? DEF")) == pytest.approx(1e-4)  # 10 % of 1 ms
+    w(awg, ":FUNC:PULS:WIDT MIN")
+    assert float(q(awg, ":FUNC:PULS:DCYC?")) == pytest.approx(0.01)
+    assert float(q(awg, ":FUNC:PULS:WIDT?")) == pytest.approx(1e-7)
+    assert float(q(awg, ":FUNC:PULS:PER? MIN")) == pytest.approx(1e-8)  # 1 / 100 MHz, the pulse top
+    assert float(q(awg, ":FUNC:PULS:PER? MAX")) == pytest.approx(1e6)  # 1 / 1 µHz
+    assert float(q(awg, ":FUNC:PULS:PER? DEF")) == pytest.approx(1e-3)  # 1 kHz
+    w(awg, ":FUNC:PULS:PER MIN")
+    assert float(q(awg, ":FREQ?")) == pytest.approx(1e8)
+    w(awg, ":FUNC:PULS:PER DEF")
+    assert float(q(awg, ":FREQ?")) == pytest.approx(1e3)
+    assert float(q(awg, ":FUNC:PULS:TRAN? MIN")) == pytest.approx(2.9e-9)
+    assert float(q(awg, ":FUNC:PULS:TRAN? MAX")) == pytest.approx(1e-6)
+    w(awg, ":FUNC:PULS:TRAN MIN")
+    assert float(q(awg, ":FUNC:PULS:TRAN:LEAD?")) == pytest.approx(2.9e-9)
+    assert float(q(awg, ":FUNC:PULS:TRAN:TRA?")) == pytest.approx(2.9e-9)
+    w(awg, ":FUNC:PULS:WIDT DEF")
+    assert float(q(awg, ":FUNC:PULS:DCYC?")) == pytest.approx(10.0)
