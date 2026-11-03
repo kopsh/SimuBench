@@ -177,10 +177,14 @@ channel_state:
     rst: 0.0
     label: 分辨率设定
     label_en: Resolution setting
+  # 只接受手册表中的 12 个值；其它值舍入到表中按对数最近的一个（手册第 1 章 Numeric parameters：
+  # “If a command accepts only certain specific values, the instrument rounds ... to the accepted
+  # values”，方向未写明，#423）。
   nplc:
     type: float
     min: 0.001
     max: 200.0
+    ladder: [0.001, 0.002, 0.006, 0.02, 0.06, 0.2, 1, 2, 10, 20, 100, 200]
     default: 1.0
     rst: 1.0
     label: 积分时间（PLC）
@@ -606,7 +610,7 @@ commands:
   - header: "[:SENSe]:VOLTage[:DC]:NPLCycles"
     params:
       - {name: nplc, type: float, min: 0.001, max: 200.0, state: ch.nplc}
-      - {name: channels, type: channel_list}
+      - {name: channels, type: channel_list, optional: true, default: $scan.list}
   - header: "[:SENSe]:VOLTage:DC:RANGe"
     params:
       - {name: range, type: float, unit: V, state: ch.range, sets: {ch.range_auto: false}}
@@ -622,7 +626,7 @@ commands:
   - header: "[:SENSe]:RESistance:NPLCycles"
     params:
       - {name: nplc, type: float, min: 0.001, max: 200.0, state: ch.nplc}
-      - {name: channels, type: channel_list}
+      - {name: channels, type: channel_list, optional: true, default: $scan.list}
   - header: "[:SENSe]:RESistance:RANGe"
     params:
       - {name: range, type: float, unit: OHM, state: ch.res_range, sets: {ch.range_auto: false}}
@@ -630,7 +634,7 @@ commands:
   - header: "[:SENSe]:CURRent[:DC]:NPLCycles"
     params:
       - {name: nplc, type: float, min: 0.001, max: 200.0, state: ch.nplc}
-      - {name: channels, type: channel_list}
+      - {name: channels, type: channel_list, optional: true, default: $scan.list}
   # ---- 读数（INITiate/READ?/FETCh?、读数存储器）-------------------------------------
   - header: "READ"
     op: st.read
