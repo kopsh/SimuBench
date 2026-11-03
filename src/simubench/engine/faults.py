@@ -74,23 +74,33 @@ class FaultManager:
     # ---- lifecycle ----------------------------------------------------------------------------------
 
     def inject(self, spec: Fault, source: str = "api") -> FaultState:
-        """Validate and schedule a fault; it starts at once unless ``at_s`` is in the future."""
-        self._check(spec)
-        state = FaultState(
-            f"f{next(self._ids)}", spec, source=source, remaining=spec.count, injected_ns=self.session.now_ns
-        )
-        self.faults[state.id] = state
-        self._emit(state, "injected")
-        self.tick()
-        return state
+        """Validate and schedule a fault; it starts at once unless ``at_s`` is in the future.
+
+        Holds the session lock itself: callers (API, MCP, replay, the bench preset) do not
+        arrange locking (RLock, so a call already under the session lock is fine)."""
+        with self.session._lock:
+            self._check(spec)
+            state = FaultState(
+                f"f{next(self._ids)}",
+                spec,
+                source=source,
+                remaining=spec.count,
+                injected_ns=self.session.now_ns,
+            )
+            self.faults[state.id] = state
+            self._emit(state, "injected")
+            self.tick()
+            return state
 
     def clear(self, fault_id: str) -> FaultState:
-        state = self.faults.get(fault_id)
-        if state is None:
-            raise KeyError(f"no fault {fault_id!r}")
-        if state.status != "ended":
-            self._end(state, "cleared")
-        return state
+        """End a fault (under the session lock, like :meth:`inject`)."""
+        with self.session._lock:
+            state = self.faults.get(fault_id)
+            if state is None:
+                raise KeyError(f"no fault {fault_id!r}")
+            if state.status != "ended":
+                self._end(state, "cleared")
+            return state
 
     def tick(self) -> None:
         """Start, end and advance faults at the current virtual time."""
@@ -250,7 +260,9 @@ class FaultManager:
         )
 
     def snapshot(self) -> list[FaultState]:
-        return list(self.faults.values())
+        """Every fault (under the session lock): pending, active and ended."""
+        with self.session._lock:
+            return list(self.faults.values())
 
 
 __all__ = ["FaultManager", "FaultState", "LinkDown"]

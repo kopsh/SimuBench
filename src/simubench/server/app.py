@@ -931,8 +931,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def list_faults(sid: str) -> list[M.FaultInfo]:
         s = served(sid)
-        with s.session._lock:
-            return [fault_info(f) for f in s.session.faults.snapshot()]
+        return [fault_info(f) for f in s.session.faults.snapshot()]
 
     @app.post(
         "/api/sessions/{sid}/faults",
@@ -943,8 +942,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def inject_fault(sid: str, spec: Fault, client: str = Depends(client_of)) -> M.FaultInfo:
         s = served(sid)
         try:
-            with s.session._lock:
-                return fault_info(s.session.faults.inject(spec, source=client))
+            return fault_info(s.session.faults.inject(spec, source=client))
         except KeyError as exc:
             raise not_found(exc) from None
         except ValueError as exc:
@@ -959,8 +957,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def clear_fault(sid: str, fault_id: str) -> M.FaultInfo:
         s = served(sid)
         try:
-            with s.session._lock:
-                return fault_info(s.session.faults.clear(fault_id))
+            return fault_info(s.session.faults.clear(fault_id))
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -989,7 +986,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             with contextlib.suppress(RuntimeError):
                 loop.call_soon_threadsafe(_put, queue, msg)
 
-        with s.session._lock:  # backlog and subscription without a gap or a duplicate
+        with s.session.view():  # backlog and subscription without a gap or a duplicate
             backlog = list(s.session.history)
             unsubscribe = s.session.subscribe(push)
         for ev in backlog:

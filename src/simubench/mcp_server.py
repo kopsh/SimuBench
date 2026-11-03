@@ -830,7 +830,7 @@ def build_server(
         state changes, errors, clock advances). Page with the returned next cursor."""
         guard()
         s = served(session_id)
-        with s.session._lock:
+        with s.session.view():
             history = list(s.session.history)
         events = []
         for ev in history:
@@ -869,8 +869,7 @@ def build_server(
         control()
         s = served(session_id)
         try:
-            with s.session._lock:
-                state = s.session.faults.inject(fault, source="mcp")
+            state = s.session.faults.inject(fault, source="mcp")
         except (KeyError, ValueError) as exc:
             raise fail(exc) from None
         return _fault(state)
@@ -880,8 +879,7 @@ def build_server(
         """Faults of a session: pending, active and ended."""
         guard()
         s = served(session_id)
-        with s.session._lock:
-            return [_fault(f) for f in s.session.faults.snapshot()]
+        return [_fault(f) for f in s.session.faults.snapshot()]
 
     @mcp.tool()
     def clear_fault(fault_id: str, session_id: str | None = None) -> dict[str, Any]:
@@ -890,8 +888,7 @@ def build_server(
         control()
         s = served(session_id)
         try:
-            with s.session._lock:
-                return _fault(s.session.faults.clear(fault_id))
+            return _fault(s.session.faults.clear(fault_id))
         except KeyError as exc:
             raise fail(exc) from None
 
@@ -918,7 +915,7 @@ def build_server(
         session = s.session
         if not session.reveal_true_values:
             raise ToolError("该测试台未开启 run.reveal_true_values；验证模式下不提供真实值")
-        with session._lock:
+        with session.view():
             parts = {
                 n: {k: _plain(v) for k, v in c.describe().items()} for n, c in session.components.items()
             }
