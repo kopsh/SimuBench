@@ -8,17 +8,35 @@ from pathlib import Path
 import yaml
 
 from simubench.api import open_bench
+from simubench.engine.validate_definition import validate_definition_data
 from simubench.models.bench import BenchDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "src" / "simubench" / "library" / "instruments"
 
 
-def test_value_block_wraps_the_reply(tmp_path):
+def _patched() -> dict:
     d = yaml.safe_load((LIB / "keysight-34970a.yaml").read_text("utf-8"))
     for c in d["commands"]:
         if c["header"] == "ROUTe:SCAN":
             c["reply"] = "{value_block}"
+    return d
+
+
+def test_the_validator_takes_value_block_where_value_fits():
+    d = _patched()
+
+    def reply_errors() -> list[str]:
+        return [x.pointer for x in validate_definition_data(d)[1].diagnostics if x.code == "E-DEF-REPLY"]
+
+    assert reply_errors() == []
+    scan = next(i for i, c in enumerate(d["commands"]) if c["header"] == "ROUTe:SCAN")
+    d["commands"][scan]["reply"] = "{value_blok}"  # a misspelling is still a missing setting
+    assert reply_errors() == [f"/commands/{scan}/reply"]
+
+
+def test_value_block_wraps_the_reply(tmp_path):
+    d = _patched()
     (tmp_path / "keysight-34970a.yaml").write_text(yaml.safe_dump(d, allow_unicode=True), "utf-8")
     bench = BenchDefinition.model_validate(
         {"schema": "simubench.bench/2", "name": "b", "instruments": {"daq": {"model": "keysight-34970a"}}}

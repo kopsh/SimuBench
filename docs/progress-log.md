@@ -1008,3 +1008,4 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档与生成物 | ✅ `docs/real-models.md` 字段说明；schema 与 Web API 类型重新生成 |
 | 测试 | ✅ `tests/test_reply_block.py`：空表 `#13(@)`，非空表的块长与内容一致 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+| 静态校验（补） | ✅ 定义校验把 `{value_block}` 与 `{value}` 同等对待（#416 合并后发现 `simubench validate` 仍报 E-DEF-REPLY）；`tests/test_reply_block.py` 增加校验用例 |
