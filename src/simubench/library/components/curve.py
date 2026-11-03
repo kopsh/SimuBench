@@ -169,7 +169,11 @@ class CurveBuffer(Component):
         return points[start : start + count]
 
     @op("start")
-    def op_start(self, **_: Any) -> OpResult:
+    def op_start(self, fresh: bool = False, **_: Any) -> OpResult:
+        """Start (or resume) the scan; ``fresh`` discards what is stored first (the SR86x's
+        CAPTURESTART clears the buffer and starts a new capture)."""
+        if fresh:
+            self.reset()
         self.start()
         return OpResult()
 
@@ -206,6 +210,65 @@ class CurveBuffer(Component):
         if kind == "LIA":
             return OpResult(b"".join(lia16(v) for v in values))
         return OpResult(b"".join(self.reply_number(v, 8) + b"," for v in values))
+
+    # ---- the SR86x capture view (#333): all traces at one index, bytes, state, rate ---------------
+
+    def _active(self) -> list[int]:
+        return [i for i in range(TRACES) if self.param(f"trace{i + 1}")]
+
+    @op("sample")
+    def op_sample(self, index: int = 0, **_: Any) -> OpResult:
+        """``CAPTUREVAL? n``: every recorded trace's value at bin ``n`` (0: the oldest), comma
+        separated; a bin inside the buffer that holds no data yet reads 0 (the zero fill)."""
+        self._catch_up()
+        n = int(index)
+        if not 0 <= n < int(self.param("capacity")):
+            raise ScpiError(-222, f"bin {n} is outside the buffer")
+        values = [self._points[i][n] if n < len(self._points[i]) else 0.0 for i in self._active()]
+        return OpResult(b",".join(self.reply_number(v, 8) for v in values))
+
+    def captured_bytes(self) -> int:
+        """Bytes of data stored: points × recorded traces × 4 (single precision)."""
+        return self.points() * len(self._active()) * 4
+
+    @op("bytes")
+    def op_bytes(self, **_: Any) -> OpResult:
+        return OpResult(V.format_int(self.captured_bytes()))
+
+    @op("progress")
+    def op_progress(self, block_kb: int = 2, **_: Any) -> OpResult:
+        """kB written by the last capture, in whole blocks of ``block_kb`` (CAPTUREPROG?)."""
+        kb = math.ceil(self.captured_bytes() / 1024 / int(block_kb)) * int(block_kb)
+        return OpResult(V.format_int(kb))
+
+    @op("capture_state")
+    def op_capture_state(self, **_: Any) -> OpResult:
+        """CAPTURESTAT? bits: 1 capturing, 2 started (triggered) since the last reset, 4 wrapped."""
+        self._catch_up()
+        bits = (1 if self._state == "run" else 0) | (2 if self._state != "idle" else 0)
+        bits |= 4 if self._taken >= int(self.param("capacity")) else 0
+        return OpResult(V.format_int(bits))
+
+    @op("rate")
+    def op_rate(self, **_: Any) -> OpResult:
+        """The sample rate in use, Hz (CAPTURERATE? answers the rate, not its setting)."""
+        return OpResult(self.reply_number(self._rate(), 8))
+
+    @op("get")
+    def op_get(self, offset_kb: int = 0, length_kb: int = 1, **_: Any) -> OpResult:
+        """CAPTUREGET? i, j: ``length_kb`` kB from ``offset_kb`` kB of the buffer as IEEE single
+        precision, little-endian, the traces interleaved point by point; past the data, zeros."""
+        self._catch_up()
+        if self._state == "run":
+            raise ScpiError(-222, "the capture must be stopped to read it as a block")
+        if not 1 <= int(length_kb) <= 64:
+            raise ScpiError(-222, "a block is 1 to 64 kB")
+        active = self._active()
+        stored = [v for k in range(self.points()) for i in active for v in (self._points[i][k],)]
+        data = struct.pack(f"<{len(stored)}f", *stored)
+        start, size = int(offset_kb) * 1024, int(length_kb) * 1024
+        chunk = data[start : start + size]
+        return OpResult(chunk + bytes(size - len(chunk)))
 
     def status_flags(self) -> dict[str, bool]:
         """SCN while no scan is in progress (paused counts as none: the SRS serial poll bit 0)."""

@@ -179,6 +179,8 @@ D2(#188)已拆分:`sb-sg-1` 按上表落地,金标准(`tests/test_rfgen_migratio
 | buffer | `curve_buffer`(SR830);`trigger_model` + `reading_buffer`(sb-lia-1) | 数据(按采样率或每个触发存多条曲线(`<组件>.<量>`),开始/暂停/续采/复位,单次或循环,0 基 bin 读取:ASCII、IEEE 浮点、SR830 的 16 位格式,#273) | 已实现(GPIB 快速流式传输 FAST/STRD 不建模) | — |
 | aux | `lockin_aux` | 电路(AUX 4 路 ADC 输入与 4 路 DAC 输出,出现在测试台上) | 已实现 | — |
 
+数据捕获(SR86x 的 CAPTURE*,#333):`curve_buffer` 增加操作 `sample`(某一 bin 上全部记录的曲线,未写到的 bin 读 0)、`bytes`、`progress`(按块向上取整的 kB)、`capture_state`(进行中/已开始/已绕回三位)、`rate`(实际采样率 Hz)、`get`(按 kB 取交织的单精度小端块,须停止后读),`start` 可带 `fresh`(先清空再开始)。
+
 读数参数表(#383,SR86x 的 OUTP?/SNAP?/SNAPD?):`lockin_output.readings` 由定义给出,第 k 项即序号 k,`{word, source}`;`source` 是本块的 X/Y/R/THETA/XNOISE/YNOISE、`$设置` 或 `<组件>.<量>`(另一块的 `trace_value`:AUX 输入、`lockin_reference` 的 FREQUENCY/DETECT)。操作 `readout` 按序号或词(大写短形式或全写)取 `minimum`–`maximum` 项,在同一时刻求值、按请求顺序逗号拼接;操作参数的列表项可以是 `$设置`(SNAPD? 读四个数据通道的指派)。配套:响应格式 `general`(C `%g`)、角度参数的弧度后缀(`RAD`/`MRAD`/`URAD` 换算为度)。
 
 D3(#189)已拆分:`sb-lia-1` 按上表落地,金标准(`tests/test_lockin_migration.py`)与锁相验收场景不改通过。新增能力:输入配置(耦合、陷波、动态储备)、X/Y 偏置与扩展、数据缓冲(SRAT/TRCA 经通用的触发模型与读数缓冲)、AUX 电路端口。
