@@ -256,3 +256,59 @@ def test_the_delay_start_decides_whether_a_settings_change_restarts_it(start, tr
         assert q(s, "CURR:PROT:TRIP? (@1)") == tripped
     finally:
         s.close()
+
+
+# ---- the questionable status register group (#348) -------------------------------------------------
+
+
+def _cc_on_channel_1(s) -> None:
+    """5 V with a 0.1 A limit into CH1's 10 Ω: the output goes into constant current."""
+    assert q(s, "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1)") is None
+    s.advance(0.5)
+
+
+def test_a_cv_to_cc_transition_latches_the_isummary_event_and_a_read_clears_it():
+    s = session()
+    try:
+        assert q(s, "STAT:QUES:INST:ISUM1:EVEN?") == "0"
+        _cc_on_channel_1(s)
+        assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "1"  # bit 0: CC
+        assert q(s, "STAT:QUES:INST:ISUM1?") == "1"  # the event latched ...
+        assert q(s, "STAT:QUES:INST:ISUM1?") == "0"  # ... and the read cleared it
+        assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "1"  # the condition stays
+        assert q(s, "STAT:QUES:INST:ISUM2?") == "0"  # another output: its own register
+        # Back to CV (a limit above 0.5 A): bit 1 rises.
+        assert q(s, "CURR 1,(@1)") is None
+        s.advance(0.5)
+        assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "2"
+        assert q(s, "STAT:QUES:INST:ISUM1?") == "2"
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
+def test_the_enable_masks_carry_the_summary_up_to_the_status_byte():
+    s = session()
+    try:
+        _cc_on_channel_1(s)
+        # Nothing enabled: the event is latched but no summary reaches QUES or the status byte.
+        assert q(s, "STAT:QUES:INST?") == "0"
+        assert int(q(s, "*STB?")) & 8 == 0
+        # ISUM1 CC -> QUES:INST bit 1 -> QUES bit 13 -> status byte bit 3 (and RQS with *SRE 8).
+        assert q(s, "STAT:QUES:INST:ISUM1:ENAB 1;:STAT:QUES:INST:ENAB 2;:STAT:QUES:ENAB 8192;*SRE 8") is None
+        assert q(s, "STAT:QUES:INST:ISUM1:ENAB?") == "1"
+        assert q(s, "STAT:QUES:INST:ENAB?") == "2"
+        assert q(s, "STAT:QUES:ENAB?") == "8192"
+        assert int(q(s, "*STB?")) & (8 | 64) == 8 | 64
+        assert q(s, "STAT:QUES?") == "8192"
+        # A mask that leaves CC out (CV only) stops the chain.
+        assert q(s, "STAT:QUES:INST:ISUM1:ENAB 2") is None
+        assert int(q(s, "*STB?")) & 8 == 0
+        # STATus:PRESet zeroes every enable mask.
+        assert q(s, "STAT:PRES") is None
+        assert [
+            q(s, c) for c in ("STAT:QUES:ENAB?", "STAT:QUES:INST:ENAB?", "STAT:QUES:INST:ISUM1:ENAB?")
+        ] == ["0"] * 3
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()

@@ -322,6 +322,11 @@ class SupplyReadback(Component):
         self.session._solve()
         return OpResult(V.format_int({"CC": 1, "CV": 2}.get(self._output().regulation(), 0)))
 
+    def status_flags(self) -> dict[str, bool]:
+        """CC and CV for a channel's questionable instrument summary register (#348)."""
+        regulation = self._output().regulation()
+        return {"CC": regulation == "CC", "CV": regulation == "CV"}
+
     def readings(self) -> dict[str, Any]:
         v, i = self._output().measured()
         return {
