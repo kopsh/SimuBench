@@ -220,6 +220,14 @@ def test_the_pulse_commands_take_min_max_def(awg):
     w(awg, ":FUNC:PULS:PER -1")
     assert q(awg, ":SYST:ERR?").startswith("-222,")
     assert float(q(awg, ":FUNC:PULS:PER?")) == pytest.approx(1e-3)  # neither write landed
+    # #510: a zero width or edge time is -222 as well, and the setting stays.
+    width, edge = q(awg, ":FUNC:PULS:WIDT?"), q(awg, ":FUNC:PULS:TRAN?")
+    w(awg, ":FUNC:PULS:WIDT 0")
+    assert q(awg, ":SYST:ERR?").startswith("-222,")
+    w(awg, ":FUNC:PULS:TRAN 0")
+    assert q(awg, ":SYST:ERR?").startswith("-222,")
+    assert q(awg, ":FUNC:PULS:WIDT?") == width
+    assert q(awg, ":FUNC:PULS:TRAN?") == edge
     w(awg, ":FUNC:PULS:PER MIN")
     assert float(q(awg, ":FREQ?")) == pytest.approx(1e8)
     w(awg, ":FUNC:PULS:PER DEF")
