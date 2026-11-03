@@ -48,7 +48,8 @@ class Net:
 @dataclass(frozen=True)
 class CommandResult:
     """What one message did: its reply (None when the message is not a query, or when nothing
-    came back — a timeout fault, a busy instrument) and the error-queue entries it added."""
+    came back — a timeout fault, a busy instrument) and the errors it produced, including ones
+    a full error queue dropped or replaced with -350 (#483)."""
 
     reply: bytes | None
     errors: list[ScpiError]
@@ -577,9 +578,9 @@ class Session:
             data = data.encode()
         with self._lock:
             inst = self.instrument(name)
-            before = len(inst.errors)
+            before = inst.errors.mark()
             got = self.exchange(name, data, client, reads=1)
-            return CommandResult(got[0] if got else None, list(inst.errors.peek_all()[before:]))
+            return CommandResult(got[0] if got else None, inst.errors.since(before))
 
     def scpi(self, name: str, text: str) -> str:
         """Convenience for tests and notebooks: one message as one command (#121), decoded reply or ''."""
