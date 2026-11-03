@@ -9,7 +9,7 @@ description: >-
   5730A Operators Manual 第 6 章 Remote Commands and Syntax（Fluke 风格命令，非 SCPI 树）与附录 A
   Fault Codes。输出由 calibrator_setpoint（设定值）+ calibrator_control（工作/待机、端子、过载）建模：
   待机时端子断开、3 s 建立时间（量程或极性改变 +1 s）、量程表与锁定、负载超过 50 mA 跳回待机、从 <22 V 改到 ≥22 V 或改变功能时回待机。直流/交流电流、电阻、
-  外部 sense、误差模式、Wideband 与外部放大器未实现（覆盖表逐条列出）。
+  误差模式、Wideband 与外部放大器未实现（覆盖表逐条列出）。
 reference:
   title: Fluke 5730A High Performance Multifunction Calibrator Operators Manual
   document: 5730A-omeng0100
@@ -37,6 +37,7 @@ errors:
   210: Output Tripped To Standby
   803: Over Limits Of Locked Range
   804: Under Limits Of Locked Range
+  835: Cannot Use Ext Sense On Selected Range
   2201: Invalid Number Of Parameters
   2206: Invalid Parameter Unit
   2207: Invalid Parameter Value
@@ -97,6 +98,12 @@ state:
     rst: false
     label: 量程锁定
     label_en: Range lock
+  extsense:
+    type: bool
+    default: false
+    rst: false
+    label: 外部 sense
+    label_en: External sense
   extguard:
     type: enum
     options: ["OFF", "ON"]
@@ -150,6 +157,11 @@ components:
       standby_on_function: true
       overload_error: 210
       setpoint: dac
+      # 外部 sense（#551）：在 SENSE HI 处调节电压；第 1 章：直流 2.2 V–1100 V 量程、交流 2.2 V、22 V、
+      # 220 V、1100 V 量程可用，其他量程报 835。
+      remote_sense: $extsense
+      sense_ranges: [DC2_2V, DC11V, DC22V, DC220V, DC1100V, AC2_2V, AC22V, AC220V, AC1100V]
+      sense_error: 835
   - name: sys
     type: system
 wiring:
@@ -159,6 +171,8 @@ ports:
   instrument:
     # OUTPUT HI；LO 是机内地（输出以测试台地为参考），不单独成端口。
     OUT: out.out
+    # SENSE HI（外部 sense 时校准器在这里调节；未接时等同内部 sense）。
+    SENSE: out.sense
 display:
   summary: [out.function, out.level, out.frequency, out.operate, extguard]
 capabilities: [calibrator]
@@ -219,6 +233,10 @@ commands:
     state: extguard
     query: false
     doc: 内部保护屏蔽接/断 LO 端子；仿真中不影响电路（手册没有 EXTGUARD?）。
+  - header: EXTSENSE
+    state: extsense
+    query: false
+    doc: ON 外部 sense（在 SENSE HI 处调节，补偿引线压降），OFF 内部 sense；220 mV 及以下量程报 835。
   - header: BRIGHTNESS
     state: display.brightness
   # ---- 串口/USB/以太网命令（接受：不影响仿真） ----

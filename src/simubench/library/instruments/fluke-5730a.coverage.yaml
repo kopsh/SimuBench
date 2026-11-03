@@ -61,8 +61,9 @@ sections:
     note: 内部/外部保护（ON/OFF，*RST OFF）保存；台架的单一地下保护屏蔽不影响电路。
     affects_data: false
   - header: EXTSENSE
-    level: not_modeled
-    note: 外部 sense（四线）未实现：输出控制没有 sense 端子（#551）。
+    level: implemented
+    note: ON 在 SENSE HI 处调节电压（补偿引线压降；SENSE 未接时等同内部 sense），OFF 内部 sense，*RST OFF；直流 2.2 V–1100 V、交流 2.2/22/220/1100
+      V 量程以外报 835（打开时或改到这些量程时，设定不变）（#551）。
   - header: FORMAT
     level: not_modeled
     note: 未实现。
