@@ -159,6 +159,29 @@ cases:
       - query: ":SYST:ERR?"
         expect_match: '^-104,.*'
 
+  - name: "脉冲周期/边沿的越界：0 与负值 -222，状态不变（#503/#510）"
+    manual: "FUNCtion Subsystem > FUNCtion:PULSe:PERiod / :TRANsition（NRf+，0 与负值不在范围内）"
+    steps:
+      - send: "FUNC PULS"
+      - send: "FUNC:PULS:PER 0"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - send: "FUNC:PULS:PER -1"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - query: "FUNC:PULS:PER?"
+        expect: "+1.000000000000000E-03"
+      - send: "FUNC:PULS:TRAN 0"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - send: "FUNC:PULS:TRAN -1"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - query: "FUNC:PULS:TRAN:LEAD?"
+        expect: "+1.000000000000000E-08"
+      - query: "FUNC:PULS:TRAN:TRA?"
+        expect: "+1.000000000000000E-08"
+
   - name: "PRBS 序列与比特率"
     manual: "FUNCtion Subsystem > FUNCtion:PRBS:DATA, FUNCtion:PRBS:BRATe"
     steps:
