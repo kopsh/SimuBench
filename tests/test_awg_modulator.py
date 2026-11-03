@@ -81,11 +81,9 @@ def test_pwm_swings_the_mean_with_the_duty():
             return 0.5
 
         def param(self, key):
-            # 20 kHz: an in-budget expansion since #357 — over the budget the block refuses
-            # (-222) instead of cutting harmonics.
-            return {"bandwidth": 20e3}[key]
+            return {"bandwidth": 50e3}[key]
 
-    stub = _Stub(pulse_train(1000.0, 0.5, 0.5, 20e3), type="PWM", pwm_dev=20.0, int_rate=10.0)
+    stub = _Stub(pulse_train(1000.0, 0.5, 0.5, 50e3), type="PWM", pwm_dev=20.0, int_rate=10.0)
     stub._pwm_synth = Synth()
     stub._pwm = lambda: AwgModulator._pwm_from(stub, Synth())
     out = stub.output("out")
@@ -123,7 +121,10 @@ def test_an_angle_modulation_needing_too_many_lines_is_refused_before_the_expans
     assert time.perf_counter() - start < 1.0
 
 
-def test_pwm_needing_too_many_lines_is_refused_before_the_expansion():
+def test_pwm_over_the_line_budget_cuts_harmonics_instead_of_refusing():
+    """Issue #388: a pulse has bandwidth/f harmonics, so over the budget the expansion keeps the
+    low harmonics and notes the cut; the count stops at the budget, so it stays fast (#357)."""
+
     class Synth:
         def function(self):
             return "SQUare"
@@ -135,11 +136,14 @@ def test_pwm_needing_too_many_lines_is_refused_before_the_expansion():
             return 0.5
 
         def param(self, key):
-            return {"bandwidth": 50e3}[key]  # ~3400 lines, over the 2000 budget
+            return {"bandwidth": 300e6}[key]  # sb-awg-2: 300 000 harmonics of 1 kHz
 
     stub = _Stub(sine(1000.0, 0.5), type="PWM", pwm_dev=100.0, int_rate=10.0)
     start = time.perf_counter()
-    with pytest.raises(ScpiError) as err:
-        AwgModulator._pwm_from(stub, Synth())
-    assert err.value.code == -222
+    out = AwgModulator._pwm_from(stub, Synth())
     assert time.perf_counter() - start < 1.0
+    m = out.merged()
+    assert 0 < len(m.freq) <= 2000
+    assert abs(m.amp[np.argmin(np.abs(m.freq - 1000))]) > 0.1  # the fundamental is kept
+    assert m.freq.max() < 300e6  # the high harmonics are cut
+    assert any(n.kind == "truncated" for n in out.notes)
