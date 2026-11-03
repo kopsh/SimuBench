@@ -518,8 +518,9 @@ commands:
   #      每个通道自己的配置（ch.*，#365），扫描到该通道时装入内部 DMM。
   #      量程与分辨率的关键字（#354，语法 {<range>|AUTO|MIN|MAX|DEF}，用户指南 p.130 示例
   #      CONF:VOLT:DC 10,DEF,(@301)）：AUTO 走设置的 special 字（存 0，保持自动量程），DEF 是默认
-  #      （同自动）；量程的 MIN/MAX 是模型保留的两端（真机 DC 到 1000 V、AC 到 750 V，模型上限
-  #      300 V，电阻 100 Ω–100 MΩ 按手册 p.144），分辨率的 MIN/MAX 选 NPLC 表的两端（最细/最粗）。
+  #      （同自动）；量程的 MIN/MAX 是量程表的两端：直流与交流电压都是 100 mV–300 V（34970A 内部
+  #      DMM 的最高量程即 300 V，与 34901A 的 300 V 输入额定一致；1000 V/750 V 是 34401A 一类台式表
+  #      的量程，#392），电阻 100 Ω–100 MΩ 按手册 p.144；分辨率的 MIN/MAX 选 NPLC 表的两端（最细/最粗）。
   - header: "CONFigure:VOLTage[:DC]"
     query: false
     writes: {ch.function: VOLT, ch.range_auto: true}
