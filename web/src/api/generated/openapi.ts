@@ -1318,6 +1318,12 @@ export interface components {
              */
             descending: boolean;
             /**
+             * Empty
+             * @description An empty list (@) is accepted, e.g. the DAQ970A's ROUT:SCAN (@) clearing the scan list (#418); false: -108
+             * @default false
+             */
+            empty: boolean;
+            /**
              * Repeated
              * @description A channel may appear more than once, answered each time; false: -108
              * @default false
@@ -1347,7 +1353,7 @@ export interface components {
              * @default 1
              */
             count: number;
-            /** @description Channel list parameters (@…): whether descending ranges and repeated channels are accepted (#260) */
+            /** @description Channel list parameters (@…): whether descending ranges, repeated channels and an empty list are accepted (#260, #418) */
             lists?: components["schemas"]["ChannelListRules"];
             /**
              * Numbering

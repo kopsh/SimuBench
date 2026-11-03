@@ -1009,3 +1009,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ `tests/test_reply_block.py`：空表 `#13(@)`，非空表的块长与内容一致 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 | 静态校验（补） | ✅ 定义校验把 `{value_block}` 与 `{value}` 同等对待（#416 合并后发现 `simubench validate` 仍报 E-DEF-REPLY）；`tests/test_reply_block.py` 增加校验用例 |
+
+## 通道列表规则：允许空表 (@)（Issue 418）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 规则 | ✅ `channels.lists.empty`（默认 false，仍报 -108）：为 true 时 `(@)` 解析为空表，设置型参数写入空表（DAQ970A 的 `ROUT:SCAN (@)` 清空扫描表，DAQ97-90002 Ed.3） |
+| 文档与生成物 | ✅ `docs/instrument-authoring.md` 通道列表一节；schema 与 Web API 类型重新生成 |
+| 测试 | ✅ `tests/test_channel_list.py`：声明后 `(@)` 清空存储的扫描表、无错误；默认定义仍报 -108 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

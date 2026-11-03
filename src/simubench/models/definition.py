@@ -529,6 +529,11 @@ class ChannelListRules(_Model):
     repeated: bool = Field(
         False, description="A channel may appear more than once, answered each time; false: -108"
     )
+    empty: bool = Field(
+        False,
+        description="An empty list (@) is accepted, e.g. the DAQ970A's ROUT:SCAN (@) clearing the scan "
+        "list (#418); false: -108",
+    )
 
 
 class Channels(_Model):
@@ -541,8 +546,8 @@ class Channels(_Model):
     )
     lists: ChannelListRules = Field(
         default_factory=ChannelListRules,
-        description="Channel list parameters (@…): whether descending ranges and repeated channels "
-        "are accepted (#260)",
+        description="Channel list parameters (@…): whether descending ranges, repeated channels "
+        "and an empty list are accepted (#260, #418)",
     )
     numbering: list[ChannelNumbering] = Field(
         default_factory=list,
