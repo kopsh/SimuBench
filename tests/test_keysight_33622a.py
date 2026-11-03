@@ -131,15 +131,19 @@ def test_polarity_inverts_the_output(awg):
 @pytest.mark.parametrize(
     ("command", "error"),
     [
-        # 33500-90901 DATA:ARBitrary: <arb_name> is an unquoted string of up to 12 characters
+        # 33500-90901 DATA:ARBitrary: <arb_name> is an unquoted string of up to 12 characters;
+        # the -224 is the model's guess — the guide names no error for an overlong name (#468)
         ("DATA:ARB abcdefghijklm,1,1,1,1,-1,-1,-1,-1", '-224,"Illegal parameter value"'),
-        # a name already in volatile memory: +786 (clearing the memory is the only way to delete)
+        # a name already in volatile memory: +786 (clearing the memory is the only way to delete);
+        # the guide does not say whether names are case-sensitive — the model matches them
+        # case-insensitively (unverified, #468)
         ("DATA:ARB SQ8,1,1,1,1,-1,-1,-1,-1", '+786,"Specified arb waveform already exists"'),
     ],
     ids=["name-over-12", "name-exists"],
 )
 def test_arb_names_follow_the_guide(awg, command, error):
-    """#430: the error queue holds the guide's error for a bad name; the memory is unchanged."""
+    """#430: a bad name is rejected and the memory is unchanged; +786 is the guide's error, the
+    -224 for an overlong name is the model's choice (the guide names no error, #468)."""
     w(awg, "DATA:ARB sq8,1,1,1,1,-1,-1,-1,-1")
     w(awg, command)
     assert q(awg, "SYST:ERR?") == error
@@ -147,8 +151,10 @@ def test_arb_names_follow_the_guide(awg, command, error):
 
 
 def test_reset_and_clear_return_to_the_default_arb(awg):
-    """#430: *RST plays the default waveform again but keeps volatile memory (Factory Reset State's
-    Arb); DATA:VOL:CLE of the waveform playing is no error and reloads the default."""
+    r"""#430: *RST plays the default waveform again but keeps volatile memory (Factory Reset State's
+    Arb); DATA:VOL:CLE of the waveform playing is no error and reloads the default. The model's
+    default waveform is unnamed so FUNC:ARB? answers ""; a real instrument's default Arb is the
+    built-in Exponential Rise (INT:\BuiltIn\EXP_RISE.arb), #468."""
     w(awg, "DATA:ARB sq8,1,1,1,1,-1,-1,-1,-1;:FUNC:ARB sq8")
     w(awg, "*RST")
     assert q(awg, "FUNC:ARB?") == '""'
