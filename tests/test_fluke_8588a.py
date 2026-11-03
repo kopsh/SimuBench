@@ -148,8 +148,11 @@ def test_open_input_and_a_too_small_range_overload():
     try:
         q("dmm", ":CONF:RES 1000")  # 5 kohm on the 1 kohm range (2.02 kohm full scale)
         assert q("dmm", ":READ?") == "+9.910000000E+37"
-        # MEASure? settles the auto range (each range has its own measurement current)
+        # READ? settles the auto range like MEASure? (each range has its own measurement current, #522)
         q("dmm", ":RES:RANG:AUTO ON")
+        assert float(q("dmm", ":READ?")) == pytest.approx(5000.0, rel=1e-6)
+        q("dmm", ":INIT")
+        assert float(q("dmm", ":FETC?")) == pytest.approx(5000.0, rel=1e-6)
         assert float(q("dmm", ":MEAS:RES?")) == pytest.approx(5000.0, rel=1e-6)
         # CONFigure without a resolution leaves it unchanged (Query Commands: MEAS:VOLT:DC? 10)
         assert q("dmm", ":CONF?") == '"RES +1.00000000E+04,+1.00000000E-04"'

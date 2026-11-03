@@ -459,7 +459,9 @@ class DmmAdc(Component):
         return round(float(self.param("reading_time")) * 1e9)
 
     def sample(self, index: int) -> float:
-        return self.reading(self._conditioning().active_function())
+        # the same auto-range decision as a measurement command (#522: READ?/INIT on an ohms
+        # autorange settled the range only on MEASure?)
+        return self.measure()
 
     @op("measure")
     def op_measure(self, what: str | None = None, **_: Any) -> OpResult:
