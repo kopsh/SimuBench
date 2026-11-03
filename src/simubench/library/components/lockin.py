@@ -74,7 +74,8 @@ class LockinReference(Component):
     """Internal oscillator or tracking of the fundamental on REF_IN; harmonic n; SINE_OUT drive.
 
     Outputs: ``ref``, a unit line at the detection frequency n·f whose phase is n·ψ + φ (the
-    demodulator's reference), and ``sine``, the SINE_OUT drive at f (``amplitude`` in V rms).
+    demodulator's reference), and ``sine``, the SINE_OUT drive at f (``amplitude`` in V rms) on
+    the dc ``dc_level``.
     An external reference needs at least ``min_vpp`` peak to peak; when it disappears the
     oscillator keeps running at the last frequency and error 327 is queued once.
     """
@@ -90,6 +91,7 @@ class LockinReference(Component):
         "phase": 0.0,  # degrees, phase of the detection reference
         "harmonic": 1,  # detection at harmonic n x f
         "amplitude": 1.0,  # V rms of the SINE_OUT drive
+        "dc_level": 0.0,  # V, the dc level added to the SINE_OUT drive (the SR86x's SOFF, #407)
         "min_vpp": 0.4,  # V peak to peak an external reference needs to lock
         "f_max": F_MAX,  # Hz, the highest detection frequency n x f (#273: the SR830's 102 kHz)
         # Past f_max: "refuse" the setting (-221), or "clamp" the harmonic to the largest that fits
@@ -197,7 +199,9 @@ class LockinReference(Component):
             phase = n * self._psi + math.radians(float(self.param("phase")))
             return Signal.lines([n * self._freq], [cmath.exp(1j * phase)], t0_ns=self._anchor_ns)
         amp = float(self.param("amplitude")) * math.sqrt(2)
-        return Signal.lines([self._freq], [amp * cmath.exp(1j * self._psi)], t0_ns=self._anchor_ns)
+        sine = Signal.lines([self._freq], [amp * cmath.exp(1j * self._psi)], t0_ns=self._anchor_ns)
+        dc = float(self.param("dc_level") or 0.0)
+        return sine + Signal.constant(dc) if dc else sine
 
     def readings(self) -> dict[str, Any]:
         n = int(self.param("harmonic"))
