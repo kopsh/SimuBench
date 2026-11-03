@@ -214,6 +214,12 @@ def test_the_pulse_commands_take_min_max_def(awg):
     assert float(q(awg, ":FUNC:PULS:PER? MIN")) == pytest.approx(1e-8)  # 1 / 100 MHz, the pulse top
     assert float(q(awg, ":FUNC:PULS:PER? MAX")) == pytest.approx(1e6)  # 1 / 1 µHz
     assert float(q(awg, ":FUNC:PULS:PER? DEF")) == pytest.approx(1e-3)  # 1 kHz
+    # #503: a zero or negative period is -222, not the 1/period blowing up as an internal error.
+    w(awg, ":FUNC:PULS:PER 0")
+    assert q(awg, ":SYST:ERR?").startswith("-222,")
+    w(awg, ":FUNC:PULS:PER -1")
+    assert q(awg, ":SYST:ERR?").startswith("-222,")
+    assert float(q(awg, ":FUNC:PULS:PER?")) == pytest.approx(1e-3)  # neither write landed
     w(awg, ":FUNC:PULS:PER MIN")
     assert float(q(awg, ":FREQ?")) == pytest.approx(1e8)
     w(awg, ":FUNC:PULS:PER DEF")
