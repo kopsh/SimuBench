@@ -95,9 +95,14 @@ def test_pwm_on_a_1khz_square_reads_on_the_scope_without_an_error():
         assert q("awg", ":SYST:ERR?").startswith("0,")
         q("scope", ":TIMebase:SCALe 1E-3;:DIGitize CHANnel1")
         assert q("awg", ":SYST:ERR?").startswith("0,")
-        # 2 Vpp pulse; the line expansion rings at the edges (Gibbs plus Carson's cut, ~30 %
-        # even within the budget), so the peak-to-peak only brackets the level.
-        assert 1.9 < float(q("scope", ":MEASure:VPP? CHANnel1")) < 3.0
+        # 2 Vpp pulse; the line budget keeps only the lowest few dozen of the 300 000 implied
+        # harmonics, and that finite sum rings at the transitions (Gibbs), ~30 % over the
+        # nominal level — measured 2.606 V on this deterministic setup (seed 1, command clock),
+        # so the bracket pins the ringing instead of only the level.
+        assert 2.5 < float(q("scope", ":MEASure:VPP? CHANnel1")) < 2.7
+        # The duty swings ±10 % symmetrically, so over one whole modulation period (the 10 ms
+        # window) the mean is zero even while the edges ring.
+        assert abs(float(q("scope", ":MEASure:VAVerage? CHANnel1"))) < 0.01
         assert float(q("scope", ":MEASure:FREQuency? CHANnel1")) == pytest.approx(1000.0, rel=0.02)
     finally:
         s.close()
