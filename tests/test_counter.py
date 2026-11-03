@@ -275,32 +275,89 @@ def test_statistics_sdev_is_nonzero_for_frequency():
 # ---- the timebase: timestamps and gap-free gates (#328) ----------------------------------------------
 
 
-def _off_grid() -> BenchDefinition:
+def _off_grid(hidden: dict | None = None) -> BenchDefinition:
     """1234.567 Hz into CH1: the 10 ms gates hold 12 or 13 edges, never a whole number of periods."""
     return bench(
         {"cnt": {"model": "sb-counter-1"}, "awg": awg(frequency=1234.567)},
         [{"from": "awg.OUT1", "to": "cnt.CH1"}],
+        hidden=hidden,
     )
 
 
-def test_gap_free_readings_add_up_to_the_edges_counted():
+GATES = 8
+
+
+def _gates(session, gap_free: bool) -> tuple[list[float], list[float], float, list[tuple[int, float, float]]]:
+    """Eight 10 ms gates read sample by sample: (readings, SPAN fields, the boundary span on the
+    timebase — from the edge before the first gate to the last edge of the last — and each gate's
+    (edges, first edge, last edge))."""
+    session.write("cnt", b":GATe:TIME 0.01\n")
+    session.write("cnt", f":FREQuency:MODE:GAPFree {'ON' if gap_free else 'OFF'}\n".encode())
+    core = session.instruments["cnt"].components["core"]
+    tb = session.instruments["cnt"].components["tb"]
+    core.run_begin()
+    start = session.now_ns
+    gate = core._gate().duration_ns()
+    readings, spans = [], []
+    for i in range(GATES):
+        readings.append(core.sample(i))
+        spans.append(core.sample_fields(i)["SPAN"])
+    edges = [core._input("a").events(start + i * gate, start + (i + 1) * gate) for i in range(GATES)]
+    boundary = tb.timestamp(edges[-1][2]) - tb.timestamp(core._last_edge_before(start))
+    return readings, spans, boundary, edges
+
+
+def test_gap_free_spans_join_end_to_end():
+    """#328/#351: adjacent gap-free readings share their boundary edge, so their spans add up to
+    the whole boundary span — the property that tells gap-free from gated (Σ reading × SPAN = Σ
+    edges holds for any span by construction, so it alone proves nothing)."""
     session = open_bench(_off_grid(), definition_dirs=[DEFS])
     try:
-        q_ = lambda t: session.write("cnt", (t + "\n").encode())  # noqa: E731
-        q_(":GATe:TIME 0.01")
-        q_(":FREQuency:MODE:GAPFree ON")
-        core = session.instruments["cnt"].components["core"]
-        core.run_begin()
-        start = session.now_ns
-        readings, spans = [], []
-        for i in range(8):
-            readings.append(core.sample(i))
-            spans.append(core.sample_fields(i)["SPAN"])
-        gate = core._gate().duration_ns()
-        counted, _, _ = core._input("a").events(start, start + 8 * gate)
-        # each reading × its span is the edges of its gate; adjacent gates share their boundary
-        assert sum(f * s for f, s in zip(readings, spans, strict=True)) == pytest.approx(counted, rel=1e-9)
+        readings, spans, boundary, edges = _gates(session, gap_free=True)
+        assert sum(spans) == pytest.approx(boundary, rel=1e-12)
+        assert sum(f * s for f, s in zip(readings, spans, strict=True)) == pytest.approx(
+            sum(count for count, _, _ in edges), rel=1e-9
+        )
         assert all(r == pytest.approx(1234.567, rel=1e-6) for r in readings)
+    finally:
+        session.close()
+
+
+def test_without_gap_free_each_gate_loses_the_time_before_its_first_edge():
+    """The control: with GAPFree OFF each reading spans its own first-to-last edge, so the spans
+    fall short of the boundary span by one input period per gate (the dead time)."""
+    session = open_bench(_off_grid(), definition_dirs=[DEFS])
+    try:
+        readings, _, boundary, edges = _gates(session, gap_free=False)
+        own = [(count - 1) / f for (count, _, _), f in zip(edges, readings, strict=True)]
+        # one period (0.81 ms) per gate; the readings' trigger error moves it by nanoseconds
+        assert boundary - sum(own) == pytest.approx(GATES / 1234.567, abs=1e-7)
+    finally:
+        session.close()
+
+
+def test_gap_free_readings_through_scpi():
+    """:READ? with GAPFree ON and eight samples: the gap-free path end to end."""
+    session = open_bench(_off_grid(), definition_dirs=[DEFS])
+    try:
+        for text in (":GATe:TIME 0.01", ":FREQuency:MODE:GAPFree ON", ":SAMPle:COUNt 8"):
+            session.write("cnt", (text + "\n").encode())
+        values = [float(v) for v in q(session, "cnt", ":READ?").split(",")]
+        assert len(values) == 8
+        assert all(v == pytest.approx(1234.567, rel=1e-6) for v in values)
+        assert q(session, "cnt", ":SYST:ERR?").startswith("0,")
+    finally:
+        session.close()
+
+
+def test_gap_free_readings_on_a_timebase_with_an_error():
+    """A timebase 5 ppm fast reads every span 5 ppm long, so each gap-free reading is low by the
+    same factor, and the spans still join end to end on that timebase."""
+    session = open_bench(_off_grid(hidden={"clock": {"ppm": 5.0}}), definition_dirs=[DEFS])
+    try:
+        readings, spans, boundary, _ = _gates(session, gap_free=True)
+        assert sum(spans) == pytest.approx(boundary, rel=1e-12)
+        assert all(r == pytest.approx(1234.567 / (1 + 5e-6), rel=2e-7) for r in readings)
     finally:
         session.close()
 
