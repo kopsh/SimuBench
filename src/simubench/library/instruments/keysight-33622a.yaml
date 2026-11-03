@@ -209,6 +209,9 @@ channel_components:
       vpp_min: 0.001
       # 10 Vpp 进 50 Ω（开路 20 Vpp）；有限负载按 10 Vpp 处理（模型值）。
       vpp_max: {from: $ch.load, table: {0: 10.0, 1000000: 20.0}}
+      # 改负载设定时保持实际输出电压，回读的幅度与偏置按比例换算（33500-90901 Output Termination：
+      # “does not affect the actual output voltage; it only changes the values displayed and queried”，#436）。
+      load_change: output
   - name: out
     type: output_stage
     params:

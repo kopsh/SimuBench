@@ -180,6 +180,38 @@ cases:
       - query: "OUTP:POL?"
         expect: "INV"
 
+  - name: "改负载设定：回读的幅度与偏置按比例换算，实际输出不变（50 → INF → 50，#436）"
+    manual: "Output Termination（33500-90901 第 3059–3064 行附近：from 50 Ω to high impedance the displayed amplitude doubles ... does not affect the actual output voltage）; OUTPut:LOAD"
+    steps:
+      - send: "*RST"
+      - send: "OUTP1:LOAD INF"
+      - query: "VOLT?"
+        expect: "+2.000000000000000E-01"
+      - query: "VOLT:OFFS?"
+        expect: "+0.000000000000000E+00"
+      - send: "OUTP1:LOAD 50"
+      - query: "VOLT?"
+        expect: "+1.000000000000000E-01"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "改到有限负载（75 Ω）：幅度、偏置与高/低电平按 (R+50)/R 的比值换算（#436）"
+    manual: "Output Termination; OUTPut:LOAD; VOLTage, VOLTage:OFFSet, VOLTage:HIGH/LOW"
+    steps:
+      - send: "OUTP1:LOAD 50;:VOLT 2;:VOLT:OFFS 1"
+      - send: "OUTP1:LOAD 75"
+      - query: "VOLT?"
+        expect: "+2.400000000000000E+00"
+      - query: "VOLT:OFFS?"
+        expect: "+1.200000000000000E+00"
+      - query: "VOLT:HIGH?"
+        expect: "+2.400000000000000E+00"
+      - query: "VOLT:LOW?"
+        expect: "+0.000000000000000E+00"
+      - send: "OUTP1:LOAD 50"
+      - query: "VOLT?"
+        expect: "+2.000000000000000E+00"
+
   - name: "AM：深度、调制频率与开关；开 FM 时关 AM"
     manual: "AM Subsystem > AM[:DEPTh], AM:INTernal:FREQuency, AM:STATe; FM Subsystem > FM:STATe"
     steps:
