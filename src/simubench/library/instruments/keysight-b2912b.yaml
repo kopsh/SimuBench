@@ -298,6 +298,52 @@ commands:
   state: ch.sweep.points
 - header: '[:SOURce<ch>]:SWEep:POINts'
   state: ch.sweep.points
+- header: '[:SOURce<ch>]:CURRent:MODE'
+  state: ch.sweep.cmode
+- header: '[:SOURce<ch>]:CURRent:STARt'
+  state: ch.sweep.cstart
+- header: '[:SOURce<ch>]:CURRent:STOP'
+  state: ch.sweep.cstop
+- header: '[:SOURce<ch>]:CURRent:POINts'
+  state: ch.sweep.points
+- header: '[:SOURce<ch>]:SWEep:SPACing'
+  state: ch.sweep.spacing
+- header: '[:SOURce<ch>]:SWEep:DIRection'
+  state: ch.sweep.direction
+- header: '[:SOURce<ch>]:SWEep:STAir'
+  state: ch.sweep.stair
+- header: '[:SOURce<ch>]:SWEep:RANGing'
+  state: ch.sweep.ranging
+- header: '[:SOURce<ch>]:LIST:VOLTage'
+  op: ch.source.list
+  args: {function: VOLTage}
+  params: [{name: values, type: raw, optional: true}]
+- header: '[:SOURce<ch>]:LIST:CURRent'
+  op: ch.source.list
+  args: {function: CURRent}
+  params: [{name: values, type: raw, optional: true}]
+- header: '[:SOURce<ch>]:LIST:VOLTage:APPend'
+  op: ch.source.list_append
+  query: false
+  args: {function: VOLTage}
+  params: [{name: values, type: raw}]
+- header: '[:SOURce<ch>]:LIST:CURRent:APPend'
+  op: ch.source.list_append
+  query: false
+  args: {function: CURRent}
+  params: [{name: values, type: raw}]
+- header: '[:SOURce<ch>]:LIST:VOLTage:POINts'
+  op: ch.source.list_points
+  set: false
+  args: {function: VOLTage}
+- header: '[:SOURce<ch>]:LIST:CURRent:POINts'
+  op: ch.source.list_points
+  set: false
+  args: {function: CURRent}
+- header: '[:SOURce<ch>]:LIST:VOLTage:STARt'
+  state: ch.list.vstart
+- header: '[:SOURce<ch>]:LIST:CURRent:STARt'
+  state: ch.list.cstart
 # 测量功能使能（#397，B2910-90130 p.246–248）：FUNC[:ON] 使能所列功能（其余不变）、FUNC:OFF 关闭；
 # 查询回带引号的短格式，无则 ""；*RST 为 "VOLT","CURR" 开、"RES" 关。
 - header: :SENSe<ch>:FUNCtion[:ON]
@@ -667,9 +713,82 @@ channel_state:
     options:
     - FIXed
     - SWEep
+    - LIST
     default: FIXed
-    label: 源模式
-    label_en: Source mode
+    label: 电压源模式
+    label_en: Voltage source mode
+  # 扫描（#398，B2910-90130 p.256–274）：电流源的模式与起止电平各自一份，点数共用；间隔、方向、
+  # 单/双向与量程模式共用；列表扫描的数据与起点按电压/电流各一份。*RST 值按各命令的 default。
+  sweep.cmode:
+    type: enum
+    options: [FIXed, SWEep, LIST]
+    default: FIXed
+    label: 电流源模式
+    label_en: Current source mode
+  sweep.cstart:
+    type: float
+    unit: A
+    min: -3.03
+    max: 3.03
+    default: 0.0
+    label: 电流扫描起始
+    label_en: Current sweep start
+  sweep.cstop:
+    type: float
+    unit: A
+    min: -3.03
+    max: 3.03
+    default: 0.0
+    label: 电流扫描终止
+    label_en: Current sweep stop
+  sweep.spacing:
+    type: enum
+    options: [LINear, LOGarithmic]
+    default: LINear
+    label: 扫描间隔
+    label_en: Sweep spacing
+  sweep.direction:
+    type: enum
+    options: [UP, DOWN]
+    default: UP
+    label: 扫描方向
+    label_en: Sweep direction
+  sweep.stair:
+    type: enum
+    options: [SINGle, DOUBle]
+    default: SINGle
+    label: 单/双向扫描
+    label_en: Sweep stair
+  sweep.ranging:
+    type: enum
+    options: [BEST, FIXed, AUTO]
+    default: BEST
+    label: 扫描量程模式
+    label_en: Sweep ranging
+  list.voltage:
+    type: string
+    default: "0"
+    label: 电压列表
+    label_en: Voltage list
+  list.current:
+    type: string
+    default: "0"
+    label: 电流列表
+    label_en: Current list
+  list.vstart:
+    type: int
+    min: 1
+    max: 2500
+    default: 1
+    label: 电压列表起点
+    label_en: Voltage list start
+  list.cstart:
+    type: int
+    min: 1
+    max: 2500
+    default: 1
+    label: 电流列表起点
+    label_en: Current list start
   sweep.start:
     type: float
     unit: V
@@ -832,15 +951,20 @@ channel_components:
     source_range_current: $ch.source.range_current
     source_autorange_voltage: $ch.source.autorange_voltage
     source_autorange_current: $ch.source.autorange_current
-    sweep_mode:
-      from: $ch.sweep.mode
-      map:
-        FIXed: NONE
-        SWEep: LINear
-    sweep_function: VOLTage
+    sweep_mode: $ch.sweep.mode
+    sweep_mode_current: $ch.sweep.cmode
+    sweep_function: $ch.source.function
     sweep_start: $ch.sweep.start
     sweep_stop: $ch.sweep.stop
+    sweep_start_current: $ch.sweep.cstart
+    sweep_stop_current: $ch.sweep.cstop
     sweep_points: $ch.sweep.points
+    sweep_spacing: $ch.sweep.spacing
+    sweep_direction: $ch.sweep.direction
+    sweep_stair: $ch.sweep.stair
+    list_voltage: $ch.list.voltage
+    list_current: $ch.list.current
+    list_start: {from: $ch.source.function, map: {VOLTage: $ch.list.vstart, CURRent: $ch.list.cstart}}
 - name: loop
   type: output_control_loop
   params:
