@@ -120,6 +120,20 @@ cases:
       - query: "FETC?"
         expect: "+9.09090000E-01,+1.81818000E+00,+3.63636000E+00"
 
+  - name: "BUS 触发且 TRIG:COUN 2：每条 *TRG 扫描一遍，第三条 -211（#422）"
+    manual: "Scan Trigger Source / Scan count（34972-90001：BUS 时计数为接受的 *TRG 次数）"
+    steps:
+      - send: "ROUT:SCAN (@101:102);:TRIG:SOUR BUS;:TRIG:COUN 2;:INIT"
+      - send: "*TRG;*WAI"
+      - query: "DATA:POIN?"
+        expect: "2"
+      - send: "*TRG;*WAI"
+      - query: "DATA:POIN?"
+        expect: "4"
+      - send: "*TRG"
+      - query: "SYST:ERR?"
+        expect: '-211,"Trigger ignored"'
+
   - name: "扫描触发源 BUS：INIT 后由 *TRG 开始扫描"
     manual: "Scan once（p.112–113）"
     steps:

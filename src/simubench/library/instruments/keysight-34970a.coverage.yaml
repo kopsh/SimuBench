@@ -18,7 +18,7 @@ sections:
   - {header: '*SAV', level: not_modeled, note: '状态存储（0–5）未建模。'}
   - {header: '*SRE', level: implemented, note: '服务请求使能寄存器（引擎内置）。'}
   - {header: '*STB', level: implemented, note: '状态字节（引擎内置）：错误队列非空置位 2，输出缓冲有数据置位 4。'}
-  - {header: '*TRG', level: implemented, note: '总线触发：触发等待中的扫描（触发源 BUS 时）；否则 -211。'}
+  - {header: '*TRG', level: implemented, note: '总线触发：触发等待中的扫描（触发源 BUS 时），每条 *TRG 扫描一遍列表，TRIGger:COUNt 条之后回空闲；否则 -211（#422）。'}
   - {header: '*TST', level: implemented, note: '自检通过，回复 0。'}
   - {header: '*WAI', level: implemented, note: '等待扫描与读数完成。'}
 - section: ABORt Subsystem
@@ -196,7 +196,7 @@ sections:
 - section: TRIGger Subsystem
   commands:
   - {header: 'TRIGger:COUNt', level: implemented, note: '每次运行的扫描遍数（列表重复次数）；范围 1–50,000。连续扫描（INFinity/INF）真机接受、未建模，设置回复 -224 并标为未建模（`not_modeled`，#360）。'}
-  - {header: 'TRIGger:SOURce', level: implemented, note: '扫描触发源：IMMediate（TIMer 映射为立即执行）、BUS（*TRG）、EXTernal。TIMer 的间隔见 TRIGger:TIMer；EXTernal 没有真实外部沿，INIT 后等待。偏差：scan_table 的 run_samples 把 TRIG:COUN 编进一次运行，BUS 时一次 *TRG 执行整次扫描（列表×计数），之后 *TRG 报 -211；手册中计数是接受的触发次数（读数总数相同）。'}
+  - {header: 'TRIGger:SOURce', level: implemented, note: '扫描触发源：IMMediate（TIMer 映射为立即执行）、BUS（*TRG）、EXTernal。TIMer 的间隔见 TRIGger:TIMer；EXTernal 没有真实外部沿，INIT 后等待。BUS 时每条 *TRG 扫描一遍列表，TRIG:COUN 即接受的 *TRG 条数，满额后 *TRG 报 -211（scan_table.samples_per_trigger，#422）。'}
   - {header: 'TRIGger:TIMer', level: implemented, note: '扫描间隔，0–359,999 s；保存并回读。首波不把间隔计入虚拟时间（scan_table 的已知债务），读数时间只算继电器建立时间 + DMM 读数时间。'}
 - section: UNIT Subsystem
   commands:

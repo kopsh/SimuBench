@@ -569,7 +569,7 @@ sections:
     note: 状态字节（引擎内置）。
   - header: '*TRG'
     level: implemented
-    note: 总线触发：触发等待中的扫描（触发源 BUS 时）；否则 -211。
+    note: 总线触发：触发等待中的扫描（触发源 BUS 时），每条 *TRG 扫描一遍列表，TRIGger:COUNt 条之后回空闲；否则 -211（手册 TRIGger:COUNt：For the BUS source, the trigger count sets the number of *TRG commands that will be accepted，#422）。
   - header: '*TST'
     level: implemented
     note: 自检通过，回复 0。
