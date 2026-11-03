@@ -1190,7 +1190,9 @@ class Instrument:
         for ps in spec.params:
             if ps.type == "channel_list":
                 if raw:
-                    numbers = V.parse_channel_list(raw.pop(0), self.channel_exists, **self._list_rules())
+                    numbers = V.parse_channel_list(
+                        raw.pop(0), self.channel_exists, **self._list_rules(each=True)
+                    )
                 elif ps.optional and unit.query and form is not None:
                     # NPLC? MAX: a limit asked without a list is answered once (#423); the
                     # limits are the same declaration for every channel
@@ -1403,11 +1405,18 @@ class Instrument:
             return numbers
         return ps.default or [self.channel_number(1)]
 
-    def _list_rules(self) -> dict[str, bool]:
+    def _list_rules(self, each: bool = False) -> dict[str, bool]:
         """The definition's channel list rules (#260, #418): descending ranges, repeated channels,
-        an empty list."""
+        an empty list. ``each``: a list a command runs over channel by channel (a write, a query,
+        an operation such as MEAS? (@…)) — an empty one there is still -108, so a query is never
+        silently left without an answer; ``empty`` admits ``(@)`` only where a list setting is
+        written whole (ROUT:SCAN (@) clears the scan list, #420)."""
         rules = self.definition.channels.lists
-        return {"descending": rules.descending, "repeated": rules.repeated, "empty": rules.empty}
+        return {
+            "descending": rules.descending,
+            "repeated": rules.repeated,
+            "empty": rules.empty and not each,
+        }
 
     @staticmethod
     def _keyword_writes(ps: ParamSpec, raw: bytes) -> dict[str, Any] | None:
@@ -1640,7 +1649,7 @@ class Instrument:
         for ps in specs:
             if ps.type == "channel_list":
                 if i < len(raw):
-                    numbers = V.parse_channel_list(raw[i], self.channel_exists, **self._list_rules())
+                    numbers = V.parse_channel_list(raw[i], self.channel_exists, **self._list_rules(each=True))
                     i += 1
                 elif ps.optional:
                     numbers = self._omitted_list(ps)
