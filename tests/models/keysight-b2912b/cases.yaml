@@ -644,6 +644,19 @@ cases:
       - query: ":SOUR1:SWE:RANG?"
         expect: "FIX"
 
+  - name: "INIT 因 -221 失败后 FETC 保留上一次的数组（#474）"
+    manual: "FETCh Subsystem > :FETCh:ARRay?——数据在下次 :INITiate/:MEASure/:READ 执行前不清除（B2910-90130 p.167）；SOURce Subsystem > :SWEep:SPACing（对数扫描的起止须同号且非零，否则启动 -221）"
+    steps:
+      - send: ":SOUR1:SWE:SPAC LIN;:SOUR1:SWE:DIR UP;:SOUR1:SWE:STA SING;:SOUR1:VOLT:MODE SWE;:SOUR1:VOLT:STAR 0;:SOUR1:VOLT:STOP 1;:SOUR1:SWE:POIN 3"
+      - send: ":SENS1:CURR:PROT 0.1;:OUTP1 ON;:INIT (@1)"
+      - query: ":FETC:ARR:VOLT? (@1)"
+        expect: "+0.000000E+00,+5.000000E-01,+1.000000E+00"
+      - send: ":SOUR1:SWE:SPAC LOG;:INIT (@1)"
+      - query: ":SYST:ERR?"
+        expect_match: '^-221,.*'
+      - query: ":FETC:ARR:VOLT? (@1)"
+        expect: "+0.000000E+00,+5.000000E-01,+1.000000E+00"
+
   - name: "电压列表扫描：LIST:VOLT、APPend、POINts?、STARt（#398）"
     manual: "SOURce Subsystem > [:SOURce]:LIST:<CURRent|VOLTage> / :APPend / :POINts? / :STARt（p.268–270）；[:SOURce]:VOLTage:MODE LIST"
     steps:
