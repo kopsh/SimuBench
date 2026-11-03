@@ -215,6 +215,23 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 
 首波核对(#181 与各型号 issue)发现的通用缺口,分三部分。每条指向对应 open issue;没有 issue 的标「暂不排期」。第二波选型已在 #317 定稿:12 个类别各补一台旗舰型号(型号 issue #330–#341,新开核心 issue #327–#329),各型号开工前的能力核对结果补回本清单。`not_modeled` 的逐条明细在各型号 `.coverage.yaml`(13 台共 2430 条),本文按主题归并,不重复罗列。
 
+第二波型号与其依赖(选型理由与排期见 #317;依赖的完成状态以下文各条与类别节为准):
+
+| 类别 | 第二波旗舰 | 型号 issue | 依赖的核心 issue | 对应缺口条目 |
+| --- | --- | --- | --- | --- |
+| smu | Keysight B2912B | #330 | #252(非阻塞) | 二.2、二.21 |
+| frequency_counter | Keysight 53230A | #331 | #328(时间戳/无间隙) | 二.20 |
+| daq | Keysight DAQ970A | #332 | #300、#301(部分) | 二.1、二.19 |
+| lockin | SRS SR865A | #333 | #273(部分) | 二.18 |
+| function_generator | Keysight 33622A | #334 | #327(调制) | 二.22 |
+| rf_generator | R&S SMA100B | #335 | #290、#291(部分) | 二.17 |
+| spectrum_analyzer | Keysight N9042B UXA | #336 | #274(部分) | 二.16 |
+| electronic_load | ITECH IT8900A(备选 Chroma 63600) | #337 | #258(CP 用例) | 二.15 |
+| oscilloscope | Keysight UXR0334B | #338 | #248(部分) | 二.13 |
+| power_supply | Keysight N6705C | #339 | #271(部分) | 二.14 |
+| multimeter | Fluke 8588A | #340 | #301(电阻/电流) | 二.12 |
+| calibrator | Fluke 5730A | #341 | #329(`calibrator_output` 拆分) | 二.23、calibrator 节 |
+
 ### 一、缺的组件(块清单已声明或核对指认,尚不存在)
 
 | 组件 | 对应块 | 现状 | 排期 |
