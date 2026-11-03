@@ -156,6 +156,32 @@ cases:
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
+  - name: "输出时序：开/关延时（#540）"
+    manual: "OUTPut[:STATe]:DELay:FALL / :RISE（0 - 1023，*RST 0；Sets a delay of 0.5 s before turning the output on: OUTP:DEL:RISE 0.5, (@1)）"
+    steps:
+      - query: "OUTP:DEL:RISE? (@1)"
+        expect: "+0.000000E+00"
+      - send: "OUTP:DEL:RISE 0.5,(@1)"
+      - send: "OUTPut:STATe:DELay:FALL 0.2,(@1)"
+      - query: "OUTP:DEL:RISE? (@1)"
+        expect: "+5.000000E-01"
+      - query: "OUTP:DEL:FALL? (@1)"
+        expect: "+2.000000E-01"
+      - send: "OUTP:DEL:RISE 1024,(@1)"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1)"
+      - query: "MEAS:VOLT? (@1)"
+        expect: "+0.000000E+00"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "MEAS:VOLT? (@1)"
+        expect_value: 5.0
+        tolerance: 2.0e-3
+      - send: "*RST"
+      - query: "OUTP:DEL:FALL? (@1)"
+        expect: "+0.000000E+00"
+
   - name: "远端检测、显示与公共命令"
     manual: "[SOURce:]VOLTage:SENSe:SOURce INTernal|EXTernal; DISPlay[:WINDow][:STATe] / :VIEW; IEEE 488.2 Common Commands"
     steps:

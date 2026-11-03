@@ -1163,3 +1163,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 缺口各有核心 issue，覆盖表引用编号 | ✅ 状态寄存器组 #539、输出开/关延时 #540、瞬变触发系统 #541（均登记在 #317 下）；N6705C 覆盖表的 `STATus:*`、`*STB`、`OUTPut:DELay:RISE/FALL`、`*TRG`、`INIT/TRIG/ABOR:TRANsient`、`VOLT|CURR:TRIGgered` 与 `:MODE` 条目注明编号 |
 | `*STB?` 用例断言单一值 | ✅ N6705C 与 8588A 的用例改为 `expect: "100"`（位 2 错误队列 + 位 5 ESB + 位 6 MSS），按各自手册的状态字节位定义 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 电源输出的开/关时序延时（Issue 540）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 开/关延时按通道计入虚拟时间 | ✅ `power_output` 新参数 `rise_delay`、`fall_delay`：开输出时延时 + 继电器动作时间后导通；关输出时（已导通）延时后断开，期间仍导通；保护动作照旧立即关断；`*OPC?` 等待 |
+| N6705C 接上命令 | ✅ `OUTPut[:STATe]:DELay:RISE/FALL (@list)`（0–1023 s，*RST 0）；覆盖表两条改为实现；手册用例「输出时序」；`tests/test_keysight_n6705c.py::test_rise_and_fall_delays_sequence_the_outputs`（两路按不同延时先后开、关） |
+| 检查 | ✅ `scripts/check.sh` 全绿；E36312A 与 sb-ps-1 默认 0 延时，行为不变 |
