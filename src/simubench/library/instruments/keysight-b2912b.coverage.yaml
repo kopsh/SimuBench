@@ -164,7 +164,7 @@ sections:
   commands:
   - header: :FETCh:ARRay
     level: implemented
-    note: 本次运行的全部读数，元素顺序 VOLT,CURR,RES,TIME,STAT（SOUR 元素未实现）。
+    note: 本次运行的全部读数，元素顺序 VOLT,CURR,RES,TIME,STAT（SOUR 元素未实现）；数据在下次 :INITiate/:MEASure/:READ 执行前不清除（手册 p.167）——INIT 失败（如 -221）后 FETC 保留上一次的数组（#474）。
   - header: :FETCh:ARRay:CURRent
     level: implemented
     note: 本次运行全部读数的电流元素。
@@ -789,7 +789,7 @@ sections:
     note: LINear（*RST）/ LOGarithmic（p.274，#398）；对数扫描的起止须同号且非零，否则启动时 -221。
   - header: '[:SOURce<ch>]:SWEep:STAir'
     level: implemented
-    note: SINGle（*RST）/ DOUBle：双向扫描起始→终止→起始，点数加倍、终止点测两次（p.274，#398；终止点是否重复手册未写，模型重复）。
+    note: SINGle（*RST）/ DOUBle：双向扫描起始→终止→起始，点数加倍、终止点测两次（p.274，#398；终止点是否重复、总点数 2N 抑或 2N−1 手册未写，模型按 2N 点、折返点重复，未对照真机）。手册只把 STAir 描述为线性/对数阶梯扫描（图 2-3 无 LIST 行），未说明对 LIST 扫描的作用且未对照真机——模型对 LIST 也应用 DOUBle（与 DIRection 只作用于阶梯不同，#474）。
   - header: '[:SOURce<ch>]:TOUTput:SIGNal'
     level: not_modeled
     note: 触发输出端口未实现。
