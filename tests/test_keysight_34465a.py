@@ -379,6 +379,25 @@ def test_an_open_input_and_a_too_small_range_read_overload():
         s.close()
 
 
+def test_read_settles_the_ohms_autorange_like_measure():
+    """#522: READ? and INIT/FETCh? take the reading after the auto range has settled, as MEASure?
+    does (each ohms range drives its own test current, so the first guess can read open)."""
+    from simubench.api import open_bench
+
+    s = open_bench(
+        _bench({"r1": {"type": "load_resistor", "params": {"r": 4700.0}}}, [{"from": "dmm.IN", "to": "r1.A"}])
+    )
+    try:
+        _q(s, "CONF:RES 100")
+        _q(s, "CONF:RES")  # back to autorange from a fixed range
+        assert float(_q(s, "READ?")) == pytest.approx(4700.0, rel=1e-6)
+        _q(s, "INIT")
+        assert float(_q(s, "FETC?")) == pytest.approx(4700.0, rel=1e-6)
+        assert _q(s, "CONF?") == '"RES +1.00000000E+04,+1.00000000E-03"'
+    finally:
+        s.close()
+
+
 def test_current_flows_through_the_shunt_into_the_circuit():
     """5 V behind 1 kΩ into the current input: the shunt (10 Ω on the 10 mA range) is in the loop."""
     from simubench.api import open_bench

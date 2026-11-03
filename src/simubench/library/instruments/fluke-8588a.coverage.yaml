@@ -490,7 +490,6 @@ sections:
   - header: '[:SENSe]:RESistance:RANGe:AUTO[:STATe]'
     level: implemented
     note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
-      READ?/INIT 的读数尚未落定电阻的自动量程（#522）：电阻自动量程请用 MEASure?。
   - header: '[:SENSe]:RESistance:RANGe'
     level: implemented
     note: 1 Ω–10 GΩ；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
@@ -521,7 +520,6 @@ sections:
   - header: '[:SENSe]:FRESistance:RANGe:AUTO[:STATe]'
     level: implemented
     note: 自动量程：超过满度（2.02 倍标称）升档、低于 0.19 倍标称降档；各功能共用一个设定（*RST 为 OFF）。
-      READ?/INIT 的读数尚未落定电阻的自动量程（#522）：电阻自动量程请用 MEASure?。
   - header: '[:SENSe]:FRESistance:RANGe'
     level: implemented
     note: 1 Ω–10 GΩ；要测的最大值：按满度 = 标称 × 2.02 选最小能测的量程（手册：2.03–20.02 选 10 V）；RANGe? [MIN|MAX|DEF]。查询返回设定值（真机返回所选量程）；自动量程开着时设定量程不关闭它（CONFigure
