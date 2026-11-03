@@ -103,7 +103,7 @@ sections:
     note: 'The lowest point of the trace (#274).'
   - header: ':CALCulate:MARKer<m>:MODE'
     level: implemented
-    note: 'POSition or DELTa; DELTa fixes a reference marker where the marker is, Y? then reads the level difference in dB (#274).'
+    note: 'POSition or DELTa; DELTa fixes a reference marker where the marker is, Y? then reads the level difference in dB (#274). A marker that is off turns on first (screen center) and the reference is fixed at that same point, so the delta pair starts at 0/0 (#349). Whether re-sending DELTa while already in DELTa fixes the reference again is not verifiable from the manuals at hand; the model does not re-fix it.'
   - header: :CALCulate:MARKer:PEAK:THReshold:STATe
     level: not_modeled
     note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
