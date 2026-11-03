@@ -317,17 +317,18 @@ commands:
   - header: "[:SOURce<ch>]:FUNCtion:PULSe:WIDTh"
     op: ch.synth.pulse_width
     args: {target: ch.pulse_duty}
-    params: [{name: value, type: float, unit: S, optional: true}]
+    # a string: the op itself parses the number and resolves the MIN/MAX/DEF words (#478)
+    params: [{name: value, type: string, optional: true}]
   - header: "[:SOURce<ch>]:FUNCtion:PULSe:PERiod"
     op: ch.synth.pulse_period
-    params: [{name: value, type: float, unit: S, optional: true}]
+    params: [{name: value, type: string, optional: true}]  # the op parses numbers and words (#478)
   - header: "[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:LEADing"
     state: ch.pulse_lead
   - header: "[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:TRAiling"
     state: ch.pulse_trail
   - header: "[:SOURce<ch>]:FUNCtion:PULSe:TRANsition[:BOTH]"
     op: ch.synth.pulse_edges
-    params: [{name: value, type: float, unit: S, optional: true}]
+    params: [{name: value, type: string, optional: true}]  # the op parses numbers and words (#478)
   - header: "[:SOURce<ch>]:FUNCtion:RAMP:SYMMetry"
     state: ch.ramp_symm
   - header: "[:SOURce<ch>]:FUNCtion:PRBS:BRATe"
