@@ -83,8 +83,10 @@ def test_a_single_acquisition_on_a_1_hz_signal_completes_at_the_next_edge():
 
 
 def noisy_retriggers(noise_reject: bool) -> float:
-    """Time from one trigger to the next on a slow edge with trigger-path noise."""
-    s = open_bench(CONTRACT)
+    """Time from one trigger to the next on a slow edge with trigger-path noise. The writes are
+    actions (``set_parameter``), so the bench pins ``idle: off``: what it asserts is the edge's
+    own math, not the real time the bench took to build (D47 idle belongs between commands)."""
+    s = open_bench(CONTRACT, idle="off")
     try:
         inst = s.instruments["scope"]
         trig = inst.components["trigger"]
