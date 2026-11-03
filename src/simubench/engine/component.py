@@ -260,7 +260,9 @@ class Component:
 
     def _resolve(self, key: str, value: Any) -> Any:
         if isinstance(value, dict) and "from" in value:  # a mapping of a setting (ParamMapping)
-            return map_setting(value, self._resolve(key, value["from"]))
+            # A mapped value may itself be $path, another setting (#383: the SR86x output offset
+            # is COFP's percentage while COFA is on, else 0).
+            return self._resolve(key, map_setting(value, self._resolve(key, value["from"])))
         if isinstance(value, str):
             if value.startswith("$"):
                 if self.owner is None:
