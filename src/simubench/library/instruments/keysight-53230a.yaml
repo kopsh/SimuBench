@@ -10,7 +10,8 @@ description: >-
   返回格式按 53220A/53230A User's Guide（53220-90001，Edition 3，September 1, 2017）的第 3–8 章；
   与 53220A 同一手册与命令集，定义从 keysight-53220a 出发，差异是 53230A 的门时间下限、单次
   分辨率与 SENSe:FREQuency:MODE（CONTinuous 为无间隙连续测量，由 counter_timebase 承担）。
-  时间戳（CONFigure/MEASure:ARRay:TSTamp）、派生测量与 Option 150 脉冲/突发测量在覆盖表中标未实现。
+  时间戳（CONFigure/MEASure:ARRay:TSTamp，比例因子 + 相邻间隔，#385）已实现；派生测量与 Option 150
+  脉冲/突发测量在覆盖表中标未实现。
 reference:
   title: Keysight 53220A/53230A 350 MHz Universal Frequency Counter/Timer User's Guide
   document: "53220-90001"
