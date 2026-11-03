@@ -209,15 +209,27 @@ state:
     rst: 1.0e-09
     label: 正弦输出幅度 (Vrms)
     label_en: Sine out amplitude (Vrms)
+  # SOFF（#407，手册 p.109）：−5.00…+5.00 V，舍入到 3 位或 0.1 mV；复位 0 V。
   sine_out.dc_level:
     type: float
     unit: V
-    min: 0.0
-    max: 0.0
+    min: -5.0
+    max: 5.0
     default: 0.0
-    readonly: true
+    rst: 0.0
     label: 正弦输出直流电平
     label_en: Sine out DC level
+  # REFM（#407，手册 p.110）：直流方式 0 共模 / 1 差分，复位 0。台架只有 SINE_OUT（+）一路，
+  # 它在两种方式下都带 +SOFF；差分只改变 − 输出（未建模），这里保存并回读。
+  sine_out.dc_mode:
+    type: int
+    min: 0
+    max: 1
+    default: 0
+    rst: 0
+    special: {COM: 0, COMMON: 0, DIF: 1, DIFFERENCE: 1}
+    label: 正弦输出直流方式
+    label_en: Sine out dc mode
   input.mode:
     type: int
     min: 0
@@ -783,6 +795,7 @@ components:
     phase: $reference.phase
     harmonic: $reference.harmonic
     amplitude: $sine_out.amplitude
+    dc_level: $sine_out.dc_level
     f_max: 4000000.0
     ext_slope:
       from: $reference.trigger
@@ -1298,6 +1311,10 @@ commands:
   state: reference.harmonic
 - header: SLVL
   state: sine_out.amplitude
+- header: SOFF
+  state: sine_out.dc_level
+- header: REFM
+  state: sine_out.dc_mode
 - header: RSRC
   state: reference.source
 - header: RTRG

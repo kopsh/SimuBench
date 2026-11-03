@@ -451,9 +451,11 @@ class Instrument:
                 return v
             if spec.ladder is not None:
                 v = snap_ladder(v, spec.ladder, spec.min, spec.max)
-            if math.isnan(v) or (spec.min is not None and v < spec.min * (1 - 1e-12) - 1e-300):
+            # The relative tolerance widens the range on both signs (#407: a minimum of -5 V must
+            # accept -5; min * (1 - 1e-12) would move a negative bound inwards).
+            if math.isnan(v) or (spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300):
                 raise ScpiError(-222)
-            if spec.max is not None and v > spec.max * (1 + 1e-12) + 1e-300:
+            if spec.max is not None and v > spec.max + abs(spec.max) * 1e-12 + 1e-300:
                 raise ScpiError(-222)
             return round(v) if spec.type == "int" else v
         if spec.type == "enum":
