@@ -27,12 +27,22 @@ def sections(text: str) -> list[str]:
 
 
 def git(*args: str) -> str | None:
+    """Run git and return its stdout, decoded as UTF-8 on every platform.
+
+    ``text=True`` alone decodes with the locale encoding (cp1252 on Windows), which
+    breaks on the Chinese text of the log (issue #414).
+    """
     try:
-        return subprocess.run(
-            ["git", *args], capture_output=True, text=True, check=True
-        ).stdout.strip()
+        out = subprocess.run(
+            ["git", *args],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=True,
+        ).stdout
     except (OSError, subprocess.CalledProcessError):
         return None
+    return out.strip() if out is not None else None
 
 
 def main() -> int:
