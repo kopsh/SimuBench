@@ -41,7 +41,7 @@
 | synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，#424) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
-| arb_memory | `arb_table` | 数据 | 已实现 | siglent-sdg2042x 无(例外清单) |
+| arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426) | siglent-sdg2042x 无(例外清单) |
 | modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
 
 内置 siglent-sdg2042x 由专用组件 `siglent_sdg` 承担(test_model_components.py 已记账),缺口在例外清单;拆分在第二波。

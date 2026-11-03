@@ -10,6 +10,7 @@ from scipy.special import jv
 
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
+from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
 
@@ -149,17 +150,22 @@ class WaveformSynth(Component):
     """A standard waveform at 1 Vpp around zero, phase-continuous across frequency changes.
 
     ``function``: SINusoid, SQUare (with ``duty``: a pulse when it is not 50 %), RAMP (``symmetry`` %
-    rising; 50 is a triangle), DC (zero: the level module adds the offset). ``duty`` is a percentage or
+    rising; 50 is a triangle), DC (zero: the level module adds the offset), ARBitrary and PRBS (the
+    ``arb`` table or ``prbs`` source on the same channel, #426). ``duty`` is a percentage or
     a ratio as ``duty_unit`` declares; nothing is guessed from its size (0.1 is 0.1 % or 10 %, by the
     declaration). Square, pulse and ramp keep harmonics up to ``bandwidth`` (and the line limit, with a
     fidelity note, D33). ``clock`` names a reference_clock whose error scales the frequency.
     """
 
     ports = {"out": PortSpec("out", "signal")}
-    refs = {"clock": ("reference_clock", "instrument")}
-    optional_refs = frozenset({"clock"})
+    refs = {
+        "clock": ("reference_clock", "instrument"),
+        "arb": ("arb_table", "channel"),
+        "prbs": ("prbs_source", "channel"),
+    }
+    optional_refs = frozenset({"clock", "arb", "prbs"})
     defaults = {
-        "function": "SINusoid",  # SINusoid | SQUare | RAMP | DC (SINE, SQUARE, PULSe, TRIangle as below)
+        "function": "SINusoid",  # SINusoid | SQUare | RAMP | DC | ARBitrary | PRBS (aliases below)
         "frequency": 1000.0,  # Hz
         "phase": 0.0,  # degrees
         "duty": 50.0,  # high time of a square or pulse, in duty_unit
@@ -168,6 +174,8 @@ class WaveformSynth(Component):
         "bandwidth": 100e6,  # Hz, harmonic limit for square, pulse and ramp
         "square_max": math.inf,  # Hz, highest square/ramp frequency (inf: none)
         "clock": "",  # the reference_clock component (empty: an exact clock)
+        "arb": "",  # the arb_table played for ARBitrary (#426; empty: not offered)
+        "prbs": "",  # the prbs_source played for PRBS (#426; empty: not offered)
     }
     units = {"frequency": "Hz", "bandwidth": "Hz", "square_max": "Hz", "phase": "deg"}
     #: Other names for the same shapes.
@@ -177,6 +185,8 @@ class WaveformSynth(Component):
         "SQUARE": "SQUare",
         "PULSE": "SQUare",
         "PULSe": "SQUare",
+        "ARB": "ARBitrary",
+        "ARBITRARY": "ARBitrary",
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -236,7 +246,19 @@ class WaveformSynth(Component):
                 else float(self.param("symmetry"))
             )
             return triangle(freq, 0.5, sym / 100.0, bw, phase, self._t0)
+        if fn in ("ARBitrary", "PRBS"):
+            source = self._played("arb" if fn == "ARBitrary" else "prbs")
+            if source is not None:
+                return source.output("out")
         raise ScpiError(-224, f"function {fn!r} not supported")
+
+    def _played(self, key: str) -> Component | None:
+        """The arbitrary-waveform or PRBS component named by ``key``, on this one's channel."""
+        name = str(self.param(key) or "")
+        if not name or self.owner is None:
+            return None
+        full = f"ch{self.channel}.{name}" if self.channel is not None else name
+        return self.owner.components.get(full)
 
 
 def _carson(beta: float) -> int:
@@ -632,14 +654,91 @@ class ArbTable(Component):
 
     ports = {"out": PortSpec("out", "signal")}
     defaults = {
-        "table": [0.0],  # one period of the waveform, sampled
+        "table": [0.0],  # one period of the waveform, sampled (until a loaded waveform is selected)
         "rate": 16000.0,  # samples per second
         "scale": 1.0,  # volts per unit of the table
         "max_lines": 1024,  # harmonics kept
+        "min_points": 1,  # the fewest points a loaded waveform may have (#426)
+        "max_points": 1_000_000,  # the most points a loaded waveform may have
+        "dac_full_scale": 32767,  # the DAC code of +1 for load_dac
     }
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        #: Waveforms loaded by name into volatile memory (#426), each normalized to -1..+1.
+        self.waves: dict[str, np.ndarray] = {}
+        self.selected: str | None = None
+
+    # ---- volatile memory (#426): DATA:ARBitrary, FUNCtion:ARBitrary, DATA:VOLatile ------------------
+
+    def _store(self, name: Any, values: list[float]) -> None:
+        key = V.parse_string(name) if isinstance(name, bytes) else str(name)
+        key = key.strip()
+        if not key:
+            raise ScpiError(-224, "a waveform needs a name")
+        n = len(values)
+        if not int(self.param("min_points")) <= n <= int(self.param("max_points")):
+            raise ScpiError(
+                -222, f"{n} points; a waveform has {self.param('min_points')}..{self.param('max_points')}"
+            )
+        table = np.asarray(values, dtype=float)
+        if np.any(np.abs(table) > 1.0 + 1e-12):
+            raise ScpiError(-222, "arbitrary waveform values are -1 to +1")
+        self.waves[key] = table
+
+    @op("load")
+    def op_load(self, name: Any = None, values: list[float] | None = None, **_: Any) -> OpResult:
+        """``DATA:ARBitrary <name>,<v>,…``: a waveform of -1..+1 values into volatile memory."""
+        self._store(name, list(values or []))
+        return OpResult()
+
+    @op("load_dac")
+    def op_load_dac(self, name: Any = None, values: list[float] | None = None, **_: Any) -> OpResult:
+        """``DATA:ARBitrary:DAC <name>,<code>,…``: DAC codes, ``dac_full_scale`` being +1."""
+        full = float(self.param("dac_full_scale"))
+        self._store(name, [float(v) / full for v in values or []])
+        return OpResult()
+
+    def _key(self, name: Any) -> str:
+        text = V.parse_string(name) if isinstance(name, bytes) else str(name)
+        return text.strip()
+
+    @op("select")
+    def op_select(self, query: bool = False, name: Any = None, **_: Any) -> OpResult:
+        """``FUNCtion:ARBitrary <name>``: play a loaded waveform; the query answers its quoted name."""
+        if query:
+            return OpResult(V.format_string(self.selected or ""))
+        key = self._key(name)
+        hit = next((k for k in self.waves if k.upper() == key.upper()), None)
+        if hit is None:
+            raise ScpiError(-224, f"no waveform {key!r} in volatile memory")
+        self.selected = hit
+        return OpResult()
+
+    @op("catalog")
+    def op_catalog(self, **_: Any) -> OpResult:
+        """``DATA:VOLatile:CATalog?``: the loaded waveforms' quoted names."""
+        return OpResult(b",".join(V.format_string(k) for k in self.waves) or b'""')
+
+    @op("points")
+    def op_points(self, **_: Any) -> OpResult:
+        """``FUNCtion:ARBitrary:POINts?``: the points of the waveform played."""
+        return OpResult(V.format_int(len(self._table())))
+
+    @op("clear")
+    def op_clear(self, **_: Any) -> OpResult:
+        """``DATA:VOLatile:CLEar``: forget the loaded waveforms (the definition's table plays again)."""
+        self.waves.clear()
+        self.selected = None
+        return OpResult()
+
+    def _table(self) -> np.ndarray:
+        if self.selected is not None and self.selected in self.waves:
+            return self.waves[self.selected]
+        return np.asarray(self.param("table"), dtype=float)
+
     def output(self, port: str) -> Signal:
-        table = np.asarray(self.param("table"), dtype=float) * float(self.param("scale"))
+        table = self._table() * float(self.param("scale"))
         n = table.size
         rate = float(self.param("rate"))
         if n == 0 or rate <= 0:

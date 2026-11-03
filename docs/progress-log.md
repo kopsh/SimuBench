@@ -1038,3 +1038,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 操作 | ✅ `amplitude_level` 新增 `high`/`low`：查询回偏置 ± Vpp/2；设定时保持另一电平，改写绑定的幅度（换算到当前单位）与偏置，经正常的范围检查；高不高于低报 -222（Trueform 33500-90901 的 VOLTage:HIGH/LOW） |
 | 测试 | ✅ `tests/test_amplitude_levels.py` 4 项：电平随幅度/偏置、设一个保持另一个、高低倒置 -222、VRMS 单位下换算 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 任意波易失存储与 ARB/PRBS 播放（Issue 426）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| arb_table | ✅ 按名保存的易失波形：`load`（-1…+1）、`load_dac`（±`dac_full_scale`）、`select`（查询回带引号的名字）、`catalog`、`points`、`clear`；点数 `min_points`…`max_points` 外与幅值越界 -222，未装载的名字 -224；选中的波形替代定义里的 `table`（Trueform 33500-90901 的 DATA:ARBitrary 流程） |
+| waveform_synth | ✅ 可选引用 `arb`（同通道 `arb_table`）与 `prbs`（`prbs_source`）：函数为 ARBitrary/PRBS 时输出它们的信号 |
+| 测试 | ✅ `tests/test_arb_memory.py` 4 项：装载/选择/播放（8 点方波 4 kSa/s → 500 Hz、±0.5）、DAC 码与目录/清除、拒绝情形、PRBS |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
