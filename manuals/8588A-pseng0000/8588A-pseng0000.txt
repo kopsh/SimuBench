@@ -1,0 +1,1727 @@
+                                                                                                             8588A
+                                                                                                          Reference Multimeter
+
+
+
+
+                                                                                                      Product Specifications
+
+
+
+
+March 2019 Rev. A
+© 2019 Fluke Corporation. All rights reserved. Specifications are subject to change without notice.
+All product names are trademarks of their respective companies.
+8588A
+Product Specifications
+
+
+
+
+             General Specifications
+             Power
+               Voltage ............................. 100 V to 120 V, 200 V to 240 V
+               Frequency ........................ 47 Hz to 63 Hz
+               Fuse ................................. T1.25AH 250V
+               Consumption .................... 80 VA max
+               Power cord ....................... IEC 60320-C13 receptacle, NEMA-5-15 plug, cable 3 core 18AWG to SVT
+             Dimensions
+               Height ............................... 88 mm (3.5 in)
+               Width (excluding handles) 431 mm (17 in)
+               Width (including handles) . 440 mm (17.3 in)
+               Depth (excluding handles) 475 mm (18.7 in)
+               Depth (including handles). 510 mm (20.1 in)
+               Weight .............................. 9.8 kg (21.5 lb)
+             Environment
+               Temperature
+                  Operating...................... 0 °C to 50 °C
+                  Specified operation....... 5 °C to 40 °C
+                  Storage ......................... -20 °C to 70 °C
+                  Calibration (Tcal) .......... 20 °C to 25 °C
+                  Warm up ....................... 3 hours to full specification
+               Relative Humidity (non-condensing)
+                  Operating...................... <90 % (5 °C to 40 °C)
+                  Storage ......................... <95 % (0 °C to 70 °C)
+               Altitude
+                  Operating...................... 3000 m
+                  Storage ......................... 12 000 m
+               Vibration and Shock ......... Complies with MIL-PRF-28800F Class 3
+               EMC
+                  IEC61326-1 .................. (Controlled EM Environment); CISPR 11, Group 1, Class A
+                  FCC .............................. 47 CFR 15 subpart B, this product is considered an exempt device per clause 15.103
+                  Korea (KCC) ................. Class A equipment (Industrial Broadcasting & Communication Equipment)
+
+
+
+
+2
+                                                                                                                 Reference Multimeter
+                                                                                                                Electrical Specifications
+
+
+
+Safety Compliance
+    Mains ............................ IEC 61010-1: Overvoltage Category II, Pollution Degree 2
+    Measurement ................ IEC 61010-2-030: Not Category rated, 1485 Vpk Maximum, 1050 Vrms Maximum
+Measurement Isolation
+  Guard to Safety ground .... <700 pF, >10 GΩ
+  Lo to Guard
+    External Guard ON ....... <1700 pF, >10 GΩ (not in Resistance function)
+    External Guard OFF ..... Lo and Guard terminals internally shorted (<1700 pF, >10 GΩ in Resistance)
+  Remote Interfaces ............ GPIB IEEE 488.2, USBTMC, Ethernet
+
+
+Electrical Specifications
+Maximum Voltage and Current Inputs
+    Notes
+    To avoid potential damage:
+     • This product must not be used to measure Category rated Mains Voltages.
+     • The maximum current available from voltage sources being measured must not exceed 200 mA.
+     • The maximum voltage from current sources being measured must not exceed 5 V.
+     • Do not permit transient voltages beyond the limits in the tables below.
+
+    Maximum dc input equal to maximum RMS input. Maximum peak input is RMS x 1.414.
+    Specifications apply equally to front and rear input terminals except where noted below.
+    Front to rear isolation allows opposing polarity of maximum terminal voltage on each input.
+    Digital I/O Ground (DigGnd) is internally connected to Safety Ground (Ground).
+    Maximum Common Mode voltage with respect to Safety Ground is 1.7 x105 VHz.
+
+
+
+
+                                                                                                            3
+8588A
+Product Specifications
+
+
+
+
+             DCV, ACV, Voltage Digitizing, DCI External Shunt, ACI Ext Shunt, and Thermocouple
+                 Maximum rms terminal voltages
+                                                                                                                                         SENSE HI
+                                                                                                                               Hi         250 V
+                                                                                                                SENSE
+                                                                                                                             1050 V       1050 V
+                                                                                                                  LO
+                                                                                                     LO          250 V       1050 V       1050 V
+                                                                                       A          250 V          250 V       1050 V       1050 V
+                                                                      Guard         250 V         250 V          250 V       1050 V       1050 V
+                                                    DigGnd             650 V        650 V         650 V          650 V       1050 V       1050 V
+                                Ground                0V               650 V        650 V         650 V          650 V       1050 V       1050 V
+                                                                     The A terminal is open circuit in these functions.
+                 DCI, ACI, and Current Digitizing
+                                                                                                                                          SENSE
+                 Maximum rms terminal voltages
+                                                                                                                                            HI
+                                                                                                                               Hi          250 V
+                                                                                                               SENSE
+                                                                                                                             1050 V       1050 V
+                                                                                                                 LO
+                                                                                                   LO           250 V        1050 V       1050 V
+                                                                                      A            5V           250 V        1050 V       1050 V
+                                                                       Guard        250 V         250 V         250 V        1050 V       1050 V
+                                                    DigGnd             650 V        650 V         650 V         650 V        1050 V       1050 V
+                                Ground                0V               650 V        650 V         650 V         650 V        1050 V       1050 V
+
+
+
+                 DCI, ACI, and Current Digitizing
+                 Maximum rms terminal Currents
+
+                                                                                                               SENSE                      SENSE
+                                                                       Guard           A            LO                         Hi
+                                                                                                                 LO                         HI
+                                                      Front Input       N/A         30.2 A        30.2 A        N/A           N/A          N/A
+                                                      Rear Input        N/A         2.02 A        2.02 A        N/A           N/A          N/A
+
+                                                                    The SENSE LO, SENSE HI, and HI terminals are open circuit in these functions.
+                                                                    The front input A terminal protection is automatic and self-resetting, and does not
+                                                                    interrupt current flow.
+
+
+
+
+4
+                                                                                                                                                                               Reference Multimeter
+                                                                                                                                                                           Performance Specifications
+
+
+
+                                                                               W Caution
+                                                      Damage will occur if >30.2 A is applied to the front current
+                                                      terminals and the current source maximum compliance is >5 V.
+                                                        The rear input A terminal is protected by a fuse on the rear panel.
+
+    Resistance, Capacitance, and PRT
+    Maximum rms terminal voltages                                                                                             SENSE
+                                                                                                                                HI
+                                                                                                                   Hi          250 V
+                                                                                                    SENSE
+                                                                                                                 1050 V       1050 V
+                                                                                                      LO
+                                                                                         LO          250 V       1050 V       1050 V
+                                                                           A          250 V          250 V        250 V        250 V
+                                                          Guard         250 V         250 V          250 V       1050 V       1050 V
+                                        DigGnd             650 V        650 V         650 V          650 V       1050 V       1050 V
+                     Ground               0V               650 V        650 V         650 V          650 V       1050 V       1050 V
+                                                         The A terminal is open circuit in these functions.
+
+
+
+Performance Specifications
+The product specifications describe the Absolute Instrumental Uncertainty of the Product. The product specifications include stability, temperature, and humidity; within specified limits,
+linearity, line and load regulation, and the reference standard measurement uncertainty. The product specifications are provided at a 99 %, k=2.58, normally distributed and a 95 %, k=2,
+normally distributed level of confidence. Fluke Calibration guarantees product performance to the 99 % level of confidence.
+
+
+
+
+                                                                                                                                         5
+8588A
+Product Specifications
+
+
+
+
+             DC Voltage [1][2][3][4]
+             DC Voltage maximum resolution is 8 digits
+             Aperture ≥ 100 μs
+                                                                                       Relative Accuracy                                                   Absolute Accuracy
+             95 % Confidence                                                                          ± (μV/V of reading + μV/V of range)
+                                                          Transfer,      24 Hour            90 day          365 day          2 years          365 day          365 day           2 year
+                Range            Zin         Full Scale
+                                                          20 min [15]   Tcal ± 1 °C       Tcal ± 1 °C     Tcal ± 1 °C      Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                           Auto, 10 MΩ,
+                100 mV                       202    mv     0.2 + 2.0    0.7 + 2.0          1.4 + 2.0       2.7 + 2.0        5.4 + 2.0        5.1 + 2.0         7.5 + 2.0        15 + 2.0
+                              1 MΩ
+                           Auto, 10 MΩ,
+                  1V                        2.02    V     0.06 + 0.3    0.5 + 0.3          1.4 + 0.3       2.7 + 0.3        5.4 + 0.3        2.8 + 0.3         4.0 + 0.3       8.1 + 0.3
+                              1 MΩ
+                           Auto, 10 MΩ,
+                 10 V                       20.2    V     0.05 + 0.05   0.5 + 0.05         1.4 + 0.05      2.7 + 0.05       5.4 + 0.05       2.8 + 0.05        4.0 + 0.05      8.0 + 0.05
+                              1 MΩ
+                100 V      Auto, 10 MΩ       202    V      0.4 + 0.3    1.0 + 0.3          2.6 + 0.3       4.0 + 0.3        8.0 + 0.3        4.1 + 0.3         6.5 + 0.3        13 + 0.3
+                100 V         1 MΩ           202    V      2.0 + 5.0    2.0 + 5.0          4.5 + 5.0       9.0 + 5.0         18 + 5.0        9.0 + 5.0         15 + 5.0         30 + 5.0
+               1000 V      Auto, 10 MΩ      1050    V      0.4 + 0.5    1.0 + 0.5          2.6 + 0.5       4.0 + 0.5        8.0 + 0.5        4.3 + 0.5         6.7 + 0.5        13 + 0.5
+               1000 V         1 MΩ          1050    V      4.0 + 25     4.0 + 25           4.5 + 25        9.0 + 25         18 + 25          9.1 + 25          15 + 25          30 + 25
+
+
+                                                                                               Relative Accuracy                                           Absolute Accuracy
+             99 % Confidence                                                                           ± (μV/V of reading + μV/V of range)
+                                                          Transfer,      24 Hour             90 day           365 day         2 years         365 day           365 day          2 year
+               Range             Zin         Full Scale
+                                                          20 min [15]   Tcal ± 1 °C        Tcal ± 1 °C      Tcal ± 1 °C     Tcal ± 1 °C      Tcal ± 1 °C       Tcal ± 5 °C     Tcal ± 5 °C
+                           Auto, 10 MΩ,
+                100 mV                       202    mv    0.26 + 2.6     0.90 + 2.6         1.8 + 2.6       3.5 + 2.6       7.0 + 2.6         6.5 + 2.6        9.6 + 2.6        19 + 2.6
+                               1 MΩ
+                           Auto, 10 MΩ,
+                  1V                        2.02    V     0.08 + 0.39    0.65 + 0.39        1.8 + 0.39      3.5 + 0.39      7.0 + 0.39        3.6 + 0.39       5.2 + 0.39       10 + 0.39
+                              1 MΩ
+                           Auto, 10 MΩ,
+                 10 V                       20.2    V     0.06 + 0.06    0.65 + 0.06        1.8 + 0.06      3.5 + 0.06      7.0 + 0.06        3.6 + 0.06       5.2 + 0.06       10 + 0.06
+                              1 MΩ
+                100 V      Auto, 10 MΩ       202    V     0.52 + 0.39     1.3 + 0.39        3.4 + 0.39      5.2 + 0.39       10 + 0.39        5.3 + 0.39       8.4 + 0.39       17 + 0.39
+                100 V         1 MΩ           202    V      2.6 + 6.5      2.6 + 6.5         5.8 + 6.5        12 + 6.5        23 + 6.5          12 + 6.5        19 + 6.5         39 + 6.5
+               1000 V      Auto, 10 MΩ      1050    V     0.52 + 0.65     1.3 + 0.65        3.4 + 0.65      5.2 + 0.65       10 + 0.65        5.5 + 0.65       8.6 + 0.65       17 + 0.65
+               1000 V         1 MΩ          1050    V      5.2 + 32       5.2 + 32          5.8 + 32        12 + 32          23 + 32          12 + 32           20 + 32         39 + 32
+
+
+
+
+6
+                                                                                                                                                                                  Reference Multimeter
+                                                                                                                                                                              Performance Specifications
+
+
+
+Temperature Coefficient (not applicable if within Tcal ± 1 °C)
+
+                                               ± (μV/V of reading/°C +
+             Aperture ≥ 100 μs
+                                                  μV/V of range/°C)
+     Range                    Zin                  5 °C to 40 °C [13]
+   100       mV     Auto, 10 MΩ, 1 MΩ                0.6 + 0.5
+    1        V      Auto, 10 MΩ, 1 MΩ                0.3 + 0.25
+   10        V      Auto, 10 MΩ, 1 MΩ                0.3 + 0.2
+   100       V             Auto, 10 MΩ               0.6 + 0.25
+   100       V                    1 MΩ               1.5 + 0.25
+  1000       V             Auto, 10 MΩ               0.6 + 0.2
+  1000       V                    1 MΩ               1.5 + 0.2
+
+
+Aperture Range .................................. 100 μs to 2 s in 200 ns increments, >2 s to 10 s in 1 ms increments.
+                                            Minimum trigger interval is the aperture plus 170 μs. For example at 50 Hz line frequency, 0.1plc, the minimum interval is 0.002 seconds +
+                                            0.00011 seconds = 0.00211 seconds (read rate 474 Hz).
+
+
+
+
+   Additional errors (aperture ≥ 100 μs)
+     Aperture           μV/V of reading
+  1 s to 10 s                          0
+  100 ms to <1 s                     0.05
+  10 ms to 100 ms                    0.50
+  10 ms to 50 ms                     1.00
+  2 ms                               2.00
+  1 ms                              10.00
+  < 500 μs                          20.00
+
+
+
+
+                                                                                                                                             7
+8588A
+Product Specifications
+
+
+
+
+             Aperture ≥100 μs; additional uncertainty with read rate: (Read Period = aperture + delay between readings)
+                                                 ± (μV/V of reading +
+                     Read Period
+                                                    μV/V of range)
+                         < 20 ms                        0.2 + 0.0
+                         < 10 ms                        0.5 + 0.2
+                         < 6 ms                         5.0 + 0.5
+                         < 3 ms                         20 + 2.0
+                         < 2 ms                          40 + 5.0
+
+
+             Maximum Trigger Rate (Aperture = 100 μs) .................... (Ascii format - for faster sampling rates see Digitizing)
+                                                                         4700 readings/s
+                                                                         (Maximum Block size of 10 000 000 samples)
+             Aperture <100 μs
+                                                                                                      Relative Accuracy                                                Absolute Accuracy
+              95 % Confidence                                                                                              ± (μV/V of reading + μV/V of range)
+                                                                            24 Hour                90 day             365 day           2 years           365 day          365 day           2 year
+                Range               Zin               Full Scale
+                                                                           Tcal ± 1 °C           Tcal ± 1 °C         Tcal ± 1 °C       Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                               Auto, 10 MΩ,
+                 100 mV                                 202 mv                 3.3 + 15             20 + 15              44 + 15          62 + 15           45 + 15          63 + 15          80 + 15
+                                  1 MΩ
+                               Auto, 10 MΩ,
+                    1V                                  2.02 V                 3.3 + 15             20 + 15              44 + 15          62 + 15           45 + 15          59 + 15          76 + 15
+                                  1 MΩ
+                               Auto, 10 MΩ,
+                  10 V                                  20.2 V                 3.3 + 15             20 + 15              44 + 15          62 + 15           45 + 15          59 + 15          76 + 15
+                                   1 MΩ
+                 100 V         Auto, 10 MΩ              202 V                  3.3 + 15             20 + 15              44 + 15          62 + 15           45 + 15          59 + 15          76 + 15
+                 100 V            1 MΩ                  202 V                  3.3 + 15             20 + 15              44 + 15          62 + 15           45 + 15          59 + 15          76 + 15
+                1000 V         Auto, 10 MΩ             1050 V                  3.3 + 15             20 + 15              44 + 15          62 + 15           45 + 15          63 + 15          80 + 15
+                1000 V            1 MΩ                 1050 V                  4.0 + 15             20 + 15              44 + 15          62 + 15           45 + 15          63 + 15          80 + 15
+
+
+
+
+8
+                                                                                                                                                                            Reference Multimeter
+                                                                                                                                                                        Performance Specifications
+
+
+
+                                                                                 Relative Accuracy                                                  Absolute Accuracy
+ 99 % Confidence                                                                                     ± (μV/V of reading + μV/V of range)
+                                                            24 Hour            90 day            365 day           2 years            365 day           365 day             2 year
+   Range              Zin             Full Scale
+                                                           Tcal ± 1 °C       Tcal ± 1 °C        Tcal ± 1 °C       Tcal ± 1 °C        Tcal ± 1 °C       Tcal ± 5 °C        Tcal ± 5 °C
+                 Auto, 10 MΩ,
+    100 mV                              202 mv                  4.3 + 19        26 + 19            57 + 19            80 + 19             58 + 19         81 + 19             103 + 19
+                     1 MΩ
+                 Auto, 10 MΩ,
+      1V                               2.02 V                   4.3 + 19        26 + 19            57 + 19            80 + 19             58 + 19         76 + 19              98 + 19
+                    1 MΩ
+                 Auto, 10 MΩ,
+     10 V                              20.2 V                   4.3 + 19        26 + 19            57 + 19            80 + 19             58 + 19         76 + 19              98 + 19
+                    1 MΩ
+   100 V         Auto, 10 MΩ            202 V                   4.3 + 19        26 + 19            57 + 19            80 + 19             58 + 19         76 + 19              98 + 19
+   100 V            1 MΩ                202 V                   4.3 + 19        26 + 19            57 + 19            80 + 19             58 + 19         76 + 19              98 + 19
+  1000 V         Auto, 10 MΩ           1050 V                   4.3 + 19        26 + 19            57 + 19            80 + 19             58 + 19         81 + 19             103 + 19
+  1000 V            1 MΩ               1050 V                   5.2 + 19        26 + 19            57 + 19            80 + 19             58 + 19         81 + 19             103 + 19
+
+
+Temperature Coefficient (not applicable if within Tcal ±1 °C)
+                                       ± (μV/V of reading/°C +
+         Aperture < 100 μs
+                                          μV/V of range/°C)
+  Range                Zin                 5 °C to 40 °C [13]
+  100 mV      Auto, 10 MΩ, 1 MΩ             4.5 + 12
+     1V       Auto, 10 MΩ, 1 MΩ             3.3 + 9.3
+    10 V      Auto, 10 MΩ, 1 MΩ             3.3 + 9.3
+  100 V           Auto, 10 MΩ               3.3 + 9.3
+  100 V               1 MΩ                  3.3 + 9.3
+ 1000 V           Auto, 10 MΩ               4.5 + 9.3
+ 1000 V               1 MΩ                  4.5 + 9.3
+Aperture <100 μs "0" to 99.8 μs in 200 ns increments
+Minimum trigger interval is the aperture plus 30 μs. For example, with aperture = 50 μs, the minimum interval is 50 μs + 30 μs = 80 μs (read rate 12.5 kHz). Note maximum read rate is
+limited to 20 kHz by other factors; see the System Speed specifications.
+(There is an additional 30 μs on each conversion).
+
+
+
+
+                                                                                                                                      9
+8588A
+Product Specifications
+
+
+
+
+             All Apertures
+             CMRR [5] ............................................ 140 dB at dc and 1 Hz to 60 Hz (1 kΩ unbalance)
+             NMRR [5] ............................................ 70 dB at 50/60 Hz ±0.1 %
+             Protection ........................................... All Ranges 1 kV RMS
+             Input Impedance
+                 Auto .............................................. 100 mV to 10 V Ranges ......................... >1 TΩ
+                                                               100 V and 1000 V Range ....................... 10 MΩ ±1 %
+                 10 MΩ ........................................... All Ranges .............................................. 10 MΩ ±1 %
+                 1 MΩ ............................................. All Ranges .............................................. 1.01 MΩ ±1 %
+             Input Current ...................................... 100 mV to 10 V Ranges (Auto Zin)......... ±20 pA ±1 pA/°C
+             Settling Time ..................................... to 10 μV/V of step size............................ <50 ms
+             Ratio Accuracy
+                         Range to Range ................. Apply a Root Sum of Squares calculation of Net Front Input Accuracy and Net rear Input Accuracy.
+                         Within Range ...................... Using the 24 hour or 20 minute Transfer Uncertainty specifications as appropriate, apply a Root Sum of Squares calculation of specified accuracy of
+                                                             the Front Input signal and the specified accuracy of the Rear Input signal.
+
+             DC Current [1][2][3][4]
+             DC Current maximum resolution is 7 digits
+             Aperture ≥100 μs
+                                                                                                                            Relative Accuracy                                                 Absolute Accuracy
+             95 % Confidence                                                                                                              ± (μA/A of reading + μA/A of range)
+                                                                 Transfer,                   24 Hour                    90 day                 365 day          2 years          365 day          365 day           2 year
+                   Range               Full Scale
+                                                                 20 min [15]                Tcal ± 1 °C               Tcal ± 1 °C             Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                   10 μA                 20.2 μA                5.0 + 20                      10 + 40                   15 + 40                 20 + 40          30 + 40          24 + 40          27 + 40          40 + 40
+                 100 μA                  202 μA                0.25 + 1                      5.50 + 4                   6.0 + 4                 6.5 + 4          9.8 + 4         8.2 + 4           9.8 + 4          15 + 4
+                   1 mA                  2.02 mA               0.25 + 1                      5.50 + 4                   6.0 + 4                6.5 + 4           9.8 + 4         7.6 + 4          9.2 + 4           14 + 4
+                  10 mA                  20.2 mA               0.25 + 1                      6.50 + 4                   7.0 + 4                 8.0 + 4           12 + 4          8.9 + 4          14 + 4           20 + 4
+                 100 mA                   202 mA                1.0 + 4                        28 + 10                  30 + 10                 33 + 10           50 + 10         33 + 10          57 + 10          86 + 10
+                   1A                    2.02 A                 2.0 + 25                       60 + 100                  80 + 100              100 + 100         150 + 100       100 + 100        132 + 100        199 + 100
+                  10 A [8]               20.2 A [8]             4.0 + 10                       80 + 40                 125 + 40                170 + 40          255 + 40        174 + 40         234 + 40         351 + 40
+                  30 A [8]               30.2 A [8]             4.0 + 35                     240 + 146                 390 + 146               490 + 146         735 + 146       491 + 146        551 + 146        827 + 146
+
+
+
+
+10
+                                                                                                                                                                                 Reference Multimeter
+                                                                                                                                                                             Performance Specifications
+
+
+
+                                                                                              Relative Accuracy                                              Absolute Accuracy
+99 % Confidence                                                                                          ± (μA/A of reading + μA/A of range)
+                                             Transfer,             24 Hour                90 day              365 day          2 years          365 day         365 day            2 year
+     Range             Full Scale
+                                             20 min [15]          Tcal ± 1 °C           Tcal ± 1 °C          Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 1 °C     Tcal ± 5 °C       Tcal ± 5 °C
+     10 μA              20.2 μA             6.45 + 26                13 + 52               19 + 52              26 + 52          39 + 52         31 + 52         35 + 52            52 + 52
+    100 μA               202 μA             0.32 + 1                7.1 + 5               7.7 + 5               8.4 + 5          13 + 5          11 + 5          13 + 5             19 + 5
+      1 mA              2.02 mA             0.32 + 1                7.1 + 5              7.7 + 5               8.4 + 5          13 + 5           10 + 5          12 + 5             18 + 5
+     10 mA              20.2 mA             0.32 + 1                8.4 + 5               9.0 + 5               10 + 5          15 + 5           11 + 5          18 + 5             26 + 5
+    100 mA               202 mA              1.3 + 5                 36 + 13              39 + 13               43 + 13         64 + 13          43 + 13         74 + 13           111 + 13
+      1A                2.02 A               2.6 + 32                77 + 129            103 + 129             129 + 129       194 + 129        130 + 129       171 + 129          256 + 129
+     10 A [8]           20.2 A [8]           5.2 + 13               103 + 52             161 + 52              219 + 52        329 + 52         224 + 52        302 + 52           453 + 52
+     30 A [8]           30.2 A [8]           5.2 + 45               310 + 188            503 + 188             632 + 188       948 + 188        634 + 188       711 + 188         1067 + 188
+
+Temperature Coefficient (not applicable if within Tcal ± 1 °C)
+Aperture ≥100 μs
+                      ± μA/A of           ± μA/A of reading/°C
+                     reading/°C            + μA/A of range/°C
+    Range
+                   15 °C to 30 °C           5 °C to 40 °C [13]
+
+    10 μA                   0.6      or          0.9 + 5
+  100 μA                    0.4      or          0.6 + 1
+    1 mA                    0.4      or          0.6 + 0.5
+   10 mA                    1.2      or          1.8 + 0.5
+  100 mA                    6.0      or            9 + 0.5
+    1A                      8.0      or           12 + 0.5
+   10 A                      15      or           15 + 3
+   30 A                      15      or           15 + 1
+
+
+Aperture range .................................... 100 μs to 2 s in 200 ns increments, >2 s to 10 s in 1 ms increments.
+                                            Maximum trigger interval is the aperture plus 170 μs. For example at 50 Hz line frequency, 0.1plc,
+                                            the maximum interval is 0.002 + 0.00011 seconds = 0.00211 seconds (read rate 474 Hz).
+
+
+
+
+                                                                                                                                               11
+8588A
+Product Specifications
+
+
+
+
+                 Additional errors (aperture ≥ 100 μs)
+                    Aperture            μA/A of reading
+                    1 s to 10 s                     0
+                  100 ms to <1 s                  0.05
+                 10 ms to 100 ms                  0.50
+                 10 ms to 50 ms                   1.00
+                       2 ms                       2.00
+                       1 ms                      10.00
+                     < 500 μs                    20.00
+
+
+                         Additional uncertainty with read rate
+                                                 μA/A of reading +
+                     Read Rate
+                                                  μA/A of range
+                    > 1ms <5ms                      20 + 0.5
+                   < 1 ms < 4 ms                    45 + 5
+
+
+             Aperture <100 μs
+                                                                               Relative Accuracy                                                      Absolute Accuracy
+             95 % Confidence                                                                       ± (μA/A of reading + μA/A of range)
+                                                          24 Hour          90 day            365 day             2 years             365 day              365 day           2 year
+                  Range             Full Scale
+                                                         Tcal ± 1 °C     Tcal ± 1 °C        Tcal ± 1 °C         Tcal ± 1 °C         Tcal ± 1 °C          Tcal ± 5 °C      Tcal ± 5 °C
+                  10 μA              20.2   μA             35 +    80      40 +   80          44 +   80            66 +   80             46 +   80          58 +   80       87 +   80
+                 100 μA               202   μA             5.5 +   70      22 +   70          44 +   70            66 +   70             44 +   70          56 +   70       84 +   70
+                   1 mA              2.02   mA            5.5 +    70      22 +   70          44 +   70            66 +   70          44 +      70          56 +   70       84 +   70
+                  10 mA              20.2   mA            6.5 +    70      22 +   70          44 +   70            66 +   70          44 +      70          56 +   70       84 +   70
+                 100 mA               202   mA             18 +    70      22 +   70          44 +   70            66 +   70          44 +      70          76 +   70      114 +   70
+                   1 A               2.02   A              22 +    125     55 +   125        110 +   125          165 +   125        110 +      125        142 +   125     214 +   125
+                  10 A [8]           20.2   A [8]          80 +    160     90 +   160        180 +   160          270 +   160        184 +      160        244 +   160     366 +   160
+                  30 A [8]           30.2   A [8]         240 +    180    250 +   180        500 +   180          750 +   180        501 +      180        561 +   180     842 +   180
+
+
+
+
+12
+                                                                                                                                                                   Reference Multimeter
+                                                                                                                                                               Performance Specifications
+
+
+
+
+                                                                     Relative Accuracy                                                     Absolute Accuracy
+99 % Confidence                                                                          ± (μA/A of reading + μA/A of range)
+                                                 24 Hour          90 day           365 day             2 years             365 day              365 day            2 year
+      Range            Full Scale
+                                                Tcal ± 1 °C     Tcal ± 1 °C       Tcal ± 1 °C         Tcal ± 1 °C         Tcal ± 1 °C          Tcal ± 5 °C       Tcal ± 5 °C
+     10 μA              20.2 μA                    45 + 103      52 + 103          57 + 103             85 + 103                60 + 103           75 + 103       113 + 103
+    100 μA              202 μA                  7.1 + 90         28 + 90           57 + 90              85 + 90                 57 + 90            73 + 90        109 + 90
+      1 mA              2.02 mA                7.1 + 90          28 + 90           57 + 90             85 + 90                  57 + 90            72 + 90        109 + 90
+     10 mA              20.2 mA                 8.4 + 90         28 + 90           57 + 90             85 + 90                  57 + 90            72 + 90        109 + 90
+    100 mA               202 mA                 23 + 90          28 + 90           57 + 90             85 + 90                  57 + 90            98 + 90        147 + 90
+      1A                2.02 A                  28 + 161         71 + 161         142 + 161           213 + 161                142 + 161          184 + 161       276 + 161
+     10 A [8]           20.2 A [8]             103 + 206        116 + 206         232 + 206           348 + 206                237 + 206          314 + 206       472 + 206
+     30 A [8]           30.2 A [8]             310 + 232        323 + 232         645 + 232           968 + 232                647 + 232          724 + 232      1086 + 232
+
+Temperature Coefficient (not applicable if within Tcal ±1 °C)
+Aperture <100 μs
+                                             ± (μV/V of
+                       ±μA/A
+                                            reading/°C +
+                     reading/°C
+     Range                                μV/V of range/°C)
+
+                    15 °C to 30 °C        5 °C to 40 °C [13]
+
+     10    μA            3.0         or      5+      5
+    100    μA            3.0         or      5+      1
+       1   mA            3.0         or      5+      0.5
+     10    mA            3.0         or      5+      0.5
+    100    mA            8.0         or     12 +     0.5
+       1   A             8.0         or     12 +     0.5
+     10    A             15          or     15 +     3
+     30    A             15          or     15 +     1
+
+
+
+
+                                                                                                                                13
+8588A
+Product Specifications
+
+
+
+
+             Aperture <100 μs "0" to 99.8 μs in 200 ns increments (there is an additional 30 μs on each conversion).
+                  Maximum trigger interval is the aperture plus 30 μs. For example with aperture = 50 μs, the maximum interval is 50 μs + 30 μs = 80 μs (read rate 12.5 kHz). Note maximum read rate
+                  is limited to 20 kHz by other factors; see the System Speed specifications
+
+
+             All Apertures
+             Settling time
+                   10 μA to 100 mA Ranges to 20 μA/A of step size ............. <1 s
+                   1 A to 30A ranges to 100 μA/A of step size ...................... <1 s
+             Current shunt self-heating time to settle to within specification
+                   1 A Range cold to final value ............................................ 20 μA/A in 2 minutes
+                   10 A range cold to final value ............................................ 30 μA/A in 2 minutes
+                   30 A range cold to final value ............................................ 30 μA/A in 2 minutes
+             Input Impedance
+                  Range                Front          Rear
+                    10 μA             100 Ω          100 Ω
+                  100 μA              100 Ω          100 Ω
+                    1 mA              10.5 Ω         10.8 Ω
+                   10 mA               1.5 Ω         1.8 Ω
+                  100 mA               0.8 Ω         1.1 Ω
+                    1A                 0.4 Ω          0.6 Ω
+                   10 A               10 m Ω            -
+                   30 A               10 m Ω            -
+
+             Maximum burden voltage = 2.02 x Range x input Impedance
+             Measurement voltage burden = input current x Input impedance
+
+
+
+
+14
+                                                                                                                                                                                  Reference Multimeter
+                                                                                                                                                                              Performance Specifications
+
+
+
+Protection
+   Front Input .............. 30 A rms, self-resettling
+   Rear Input ............... 2 A rms, Rear Panel Fuse
+
+
+DCI Ext Shunt
+Accuracy of the Indicated current value ....................... Combine by root sum of squares the accuracy specification of the external shunt with the 8588A DCV specification (noting 8588A
+                                                                Aperture setting)
+Accuracy of the secondary reading (voltage) ............... 8588A DCV specification (noting 8588A Aperture setting)
+
+AC Voltage [1][2][4][6][7]
+AC Voltage maximum resolution is 7 digits
+                                                                                        Relative Accuracy                                                  Absolute Accuracy
+95 % Confidence                                                                                   ± (μV/V of reading + μV/V of range)
+                Full Scale Frequency             Transfer,        24 Hour           90 day            365 day              2 year            365 day            365 day              2 year
+   Range
+                  (rms)       (Hz)               20 min [16]     Tcal ± 1 °C      Tcal ± 1 °C        Tcal ± 1 °C         Tcal ± 1 °C        Tcal ± 1 °C        Tcal ± 5 °C         Tcal ± 5 °C
+     10 mV       12.12 mv        1 - 2k          100 + 50         180 + 110        185 + 110      200 + 110              251 + 110      250 + 110      290 + 110      330 + 110
+                                2k - 10k         100 + 50         250 + 110        263 + 110      300 + 110              415 + 110      330 + 110      370 + 110      480 + 110
+    (Auto,
+   10 MΩ,                      10k - 30k         100 + 50         250 + 110        263 + 110      300 + 110              415 + 110      340 + 110      380 + 110      490 + 110
+   1 MΩ)                       30k - 100k        200 + 50      0.28% + 0.011%   0.29% + 0.011% 0.30% + 0.011%         0.35% + 0.011% 0.30% + 0.011% 0.30% + 0.011% 0.35% + 0.011%
+                              100k - 300k        300 + 50        0.90% 0.04%    0.93% + 0.04%   1.0% + 0.04%           1.3% + 0.04%   1.0% + 0.04%   1.0% + 0.04%   1.3% + 0.04%
+                               300k - 1M         500 + 50        1.90% 0.04%    1.93% + 0.04%   2.0% + 0.04%           2.3% + 0.04%   2.0% + 0.04%   2.0% + 0.04%   2.3% + 0.04%
+   100 mV        121.2 mv        1 - 2k           10 + 5           30 + 5           40 + 5         60 + 5                108 + 5         68 + 5         88 + 5        130 + 5
+    (Auto,                      2k - 10k          10 + 5           50 + 5           66 + 5        100 + 5                180 + 5        110 + 5        130 + 5        200 + 5
+   10 MΩ,                       10k - 30k         10 + 10         100 + 10         132 + 10       200 + 10               361 + 10       210 + 10       230 + 10       380 + 10
+   1 MΩ)
+                              30k - 100k          15 + 15         250 + 50         331 + 50       500 + 50               901 + 50       510 + 50       530 + 50       920 + 50
+                              100k - 300k         15 + 20      0.10% + 0.03%    0.13% + 0.03% 0.20% + 0.03%           0.37% + 0.03% 0.20% + 0.03% 0.21% + 0.03% 0.38% + 0.03%
+                               300k - 1M          60 + 50      0.90% + 0.10%    0.93% + 0.10%   1.0% + 0.10%          0.13% + 0.10%   1.0% + 0.10%   1.1% + 0.10%   1.3% + 0.10%
+                                1M - 2M          100 + 200     1.40% + 0.50%    1.43% + 0.50% 1.50% + 0.50%           1.80% + 0.50% 1.50% + 0.50% 1.54% + 0.50% 1.82% + 0.50%
+                     [17]
+                                2M - 4M          200 + 400     3.40% + 1.0%     3.56% + 1.0%    4.0% + 1.0%           5.42% + 1.0%    4.0% + 1.0%    4.1% + 1.0%    5.5% + 1.0%
+                     [17]
+                                4M - 8M          800 + 800      7.5% + 1.0%     7.63% + 1.0%    8.0% + 1.0%           9.35% + 1.0%    8.0% + 1.0%    8.4% + 1.0%    9.8% + 1.0%
+                     [17]      8M - 10M        0.10%+ 0.10%     15% + 1.0%       15% + 1.0%         15% + 1.0%         17% + 1.0%          15% + 1.0%         16% + 1.0%         17% + 1.0%
+
+
+
+
+                                                                                                                                          15
+8588A
+Product Specifications
+
+
+
+
+                                                                                           Relative Accuracy                                            Absolute Accuracy
+             95 % Confidence                                                                        ± (μV/V of reading + μV/V of range)
+                            Full Scale Frequency     Transfer,        24 Hour           90 day         365 day            2 year           365 day          365 day           2 year
+                Range
+                              (rms)       (Hz)       20 min [16]     Tcal ± 1 °C      Tcal ± 1 °C     Tcal ± 1 °C       Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                   1V       1.212 V      1 - 2k         5+2            30 + 5           40 + 5         60 + 5       108 + 5        64 + 5        76 + 5       120 + 5
+                  10 V      12.12 V     2k - 10k        5+2            50 + 5           66 + 5        100 + 5       180 + 5      110 + 5        122 + 5       190 + 5
+                 (Auto,                10k - 30k        5+2           100 + 10         132 + 10       200 + 10      361 + 10     210 + 10       230 + 10      380 + 10
+                10 MΩ,                 30k - 100k      10 + 15        250 + 50         331 + 50       500 + 50      901 + 50     510 + 50       530 + 50      920 + 50
+                1 MΩ)                 100k - 300k     15 20         0.1% + 0.03%    0.13% + 0.03%   0.2% + 0.03% 0.36% + 0.03%  0.2% + 0.03% 0.21% + 0.03% 0.37% + 0.03%
+                                       300k - 1M       60 + 50      0.9% + 0.1%     0.93% + 0.1%   1.0%0 + 0.1%   1.3% + 0.1%   1.0% + 0.1%   1.0% + 0.1%   1.3% + 0.1%
+                                        1M - 2M      100 + 200      1.4% + 0.5%     1.43% + 0.5%    1.5% + 0.5%   1.8% + 0.5%   1.5% + 0.5%   1.5% + 0.5%   1.8% + 0.5%
+                               [17]
+                                        2M - 4M      200 + 400      3.4% + 1.0%      3.6% + 1.0%    4.0% + 1.0%   5.4% + 1.0%   4.0% + 1.0%   4.0% + 1.0%   5.5% + 1.0%
+                               [17]
+                                        4M - 8M      800 + 800      7.5% + 1.0%      7.6% + 1.0%    8.0% + 1.0%   9.4% + 1.0%   8.0% + 1.0%   8.2% + 1.0%   9.6% + 1.0%
+                               [17]
+                                       8M - 10M     0.1% + 0.1%    14.4% + 1.0%     14.6% + 1.0%   15.0% + 1.0%  16.7% + 1.0%  15.0% + 1.0%  15.4% + 1.0%  17.1% + 1.0%
+                100 V       121.2 V      1 - 1k        20 + 5         200 + 5          205 + 5        220 + 5       271 + 5      230 + 5        250 + 5       290 + 5
+               (10 MΩ)                   1k - 2k       20 + 5         950 + 5          963 + 5      1000 + 5      1140 + 5      1000 + 5      1020 + 5      1160 + 5
+                                        2k - 10k     100 + 5        1.9% + 0.001%   1.93% + 0.001% 2.0% + 0.001% 2.3% + 0.001% 2.0% + 0.001% 2.0% + 0.001% 2.3% + 0.001%
+                100 V       121.2 V      1 - 2k         5+5            30 + 5           40 + 5         60 + 5       108 + 5        70 + 5        90 + 5       130 + 5
+                                        2k - 10k        5+5            50 + 5           59 + 5         80 + 5       135 + 5        90 + 5       110 + 5       160 + 5
+             (Auto, 1 MΩ)
+                                       10k - 30k        5+5           100 + 10         132 + 10       200 + 10      361 + 10     210 + 10       230 + 10      380 + 10
+                                       30k - 100k      15 + 20        250 + 50         331 + 50       500 + 50      901 + 50     510 + 50       590 + 50      980 + 50
+                                      100k - 300k      20 + 25     0.25% + 0.05%    0.28% + 0.05% 0.35% + 0.05% 0.55% + 0.05% 0.35% + 0.05% 0.37% + 0.05%   0.6% + 0.05%
+                                       300k - 1M       70 + 50      0.9% + 0.5%     0.93% + 0.5%    1.0% + 0.5%   1.3% + 0.5%   1.0% + 0.5%   1.1% + 0.5%   1.3% + 0.5%
+               1000 V        1050 V      1 - 1k        20 + 7         200 + 10         205 + 10       220 + 10      271 + 10     230 + 10       250 + 10      290 + 10
+               (10 MΩ)                   1k - 2k       20 + 7         950 + 10         963 + 10     1000 + 10     1137 + 10     1000 + 10     1020 + 10     1160 + 10
+                                        2k - 10k     100 + 7        1.9% + 10       1.93% + 10      2.0% + 10     2.3% + 10     2.0% + 10     2.0% + 10     2.3% + 10
+               1000 V        1050 V      1 - 2k        15 + 7          50 + 25          59 + 25        80 + 25      135 + 25       90 + 25      110 + 25      160 + 25
+             (Auto, 1 MΩ)               2k - 10k       15 + 7          50 + 25          59 + 25        80 + 25      135 + 25       90 + 25      110 + 25      160 + 25
+                                       10k - 30k       15 + 7         100 + 25         132 + 25       200 + 25      361 + 25     210 + 25       230 + 25      380 + 25
+                                       30k - 100k      20 + 20        250 + 100        331 + 100      500 + 100     901 + 100    510 + 100      590 + 100     980 + 100
+
+
+
+
+16
+                                                                                                                                                               Reference Multimeter
+                                                                                                                                                           Performance Specifications
+
+
+
+                                                                       Relative Accuracy                                                  Absolute Accuracy
+99 % Confidence                                                                  ± (μV/V of reading + μV/V of range)
+           Full Scale Frequency   Transfer,        24 Hour           90 day             365 day            2 year            365 day          365 day            2 year
+ Range
+             (rms)       (Hz)     20 min [16]     Tcal ± 1 °C      Tcal ± 1 °C         Tcal ± 1 °C       Tcal ± 1 °C        Tcal ± 1 °C      Tcal ± 5 °C       Tcal ± 5 °C
+  10 mV    12.12 mv    1 - 2k      129 + 65        232 + 142        239 + 142         258 + 142           323 + 142        323 + 142           374 + 142         426 + 142
+  (Auto,              2k - 10k     129 + 65        323 + 142        340 + 142         387 + 142           536 + 142        426 + 142           477 + 142         619 + 142
+ 10 MΩ,               10k - 30k    129 + 65        323 + 142        340 + 142         387 + 142           536 + 142        439 + 142           490 + 142         632 + 142
+ 1 MΩ)
+                     30k - 100k    258 + 65     0.36% + 0.01%    0.37% + 0.01%     0.39% + 0.01%       0.45% + 0.01%    0.39% + 0.01%       0.39% + 0.01%     4.50% + 0.01%
+                    100k - 300k    387 + 65     1.16% + 0.05%    1.20% + 0.05%     1.29% + 0.05%       1.63% + 0.05%    1.29% + 0.05%       1.30% + 0.05%     1.63% + 0.05%
+                     300k - 1M     645 + 65     2.45% + 0.05%    2.49% + 0.05%     2.58% + 0.05%       2.93% + 0.05%    2.58% + 0.05%       2.60% + 0.05%     3.00% + 0.05%
+ 100 mV    121.2 mv    1 - 2k       13 + 6.5        39 + 6.5         51 + 6.5          77 + 6.5           140 + 6.5         88 + 6.5           114 + 6.5         168 + 6.5
+  (Auto,              2k - 10k      13 + 6.5        65 + 6.5         85 + 6.5         129 + 6.5           233 + 6.5        142 + 6.5           168 + 6.5         258 + 6.5
+ 10 MΩ,              10k - 30k      13 + 13        129 + 13         171 + 13          258 + 13            465 + 13         271 + 13            297 + 13          490 + 13
+  1 MΩ)
+                    30k - 100k      19 + 19        323 + 65         427 + 65          645 + 65          1163 + 65          658 + 65            684 + 65        1190 + 65
+                    100k - 300k     19 + 26     0.13% + 387      0.17% + 0.04%     0.26% + 0.04%       0.48% + 0.04%    0.26% + 0.04%       0.27% + 0.04%     0.49% + 0.04%
+                     300k - 1M      77 + 65     1.16% + 1290     1.20% + 0.13%     1.29% + 0.13%       1.63% + 0.13%    1.29% + 0.13%       1.30% + 0.13%     1.64% + 0.13%
+                      1M - 2M      129 + 258    1.81% + 6450     1.85% + 0.65%     1.94% + 0.65%       2.28% + 0.65%    1.94% + 0.65%       1.99% + 0.65%     2.35% + 0.65%
+              [17]
+                      2M - 4M      258 + 516    4.39% + 12 900   4.59% + 1.29%     5.16% + 1.29%       6.99% + 1.29%    5.16% + 1.29%       5.29% + 1.29%     7.12% + 1.29%
+              [17]
+                      4M - 8M     1032 + 1032   9.68% + 12 900   9.84% + 1.29%     10.3% + 1.29%       12.1% + 1.29%    10.3% + 1.29%       10.8% + 1.29%     12.6% + 1.29%
+              [17]
+                     8M - 10M     1290 + 1290   18.6% + 12 900   18.8% + 1.29%     19.4% + 1.29%       21.5% + 1.29%    19.4% + 1.29%       20.1% + 1.29%     22.3% + 1.29%
+
+
+
+
+                                                                                                                       17
+8588A
+Product Specifications
+
+
+
+
+                                                                                     Relative Accuracy                                             Absolute Accuracy
+             99 % Confidence                                                                   ± (μV/V of reading + μV/V of range)
+                         Full Scale Frequency      Transfer,      24 Hour          90 day             365 day            2 year       365 day          365 day           2 year
+               Range
+                           (rms)       (Hz)        20 min [16]   Tcal ± 1 °C     Tcal ± 1 °C         Tcal ± 1 °C       Tcal ± 1 °C   Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                 1V      1.212 V       1 - 2k        6.5 + 2.6     39 + 6.5        51 + 6.5          77 + 6.5          140 + 6.5      83 + 6.5      98 + 6.5     155 + 6.5
+                10 V     12.12 V      2k - 10k       6.5 + 2.6     65 + 6.5        85 + 6.5         129 + 6.5          233 + 6.5     142 + 6.5     157 + 6.5     245 + 6.5
+                (Auto,              10k - 30k        6.5 + 2.6    129 + 13        171 + 13          258 + 13           465 + 13      271 + 13      297 + 13      490 + 13
+               10 MΩ,               30k - 100k        13 + 19     323 + 65        427 + 65          645 + 65          1160 + 65      658 + 65      684 + 65     1190 + 65
+               1 MΩ)
+                                   100k - 300k        19 + 26  0.17% + 0.04%   0.26% + 0.04%     0.46% + 0.04%      0.26% + 0.04% 0.27% + 0.04% 0.48% + 0.04% 0.17% + 0.04%
+                                    300k - 1M         77 + 65  1.20% + 0.13%   1.29% + 0.13%     1.61% + 0.13%      1.29% + 0.13% 1.30% + 0.13% 1.63% + 0.13% 1.20% + 0.13%
+                                     1M - 2M        129 + 258   1.9% + 0.65%   1.94% + 0.65%     2.28% + 0.65%      1.94% + 0.65% 1.96% + 0.65% 2.32% + 0.65% 1.84% + 0.65%
+                            [17]
+                                     2M - 4M        258 + 516   4.6% + 1.29%    5.2% + 1.29%     6.98% + 1.29%      5.16% + 1.29% 5.21% + 1.29% 7.03% + 1.29% 4.59% + 1.29%
+                            [17]
+                                     4M - 8M      0.1% + 0.1%   9.8% + 1.29%   10.3% + 1.29%     12.1% + 1.29%      10.3% + 1.29% 10.6% + 1.29% 12.3% + 1.29% 9.82% + 1.29%
+                            [17]
+                                    8M - 10M     0.13% + 0.13%   19% + 1.29%   19.4% + 1.29%     21.6% + 1.29%      19.4% + 1.29% 19.9% + 1.29% 22.1% + 1.29% 18.8% + 1.29%
+              100 V      121.2 V       1 - 1k         26 + 6.5    258 + 6.5       265 + 6.5         284 + 6.5          350 + 6.5     297 + 6.5     323 + 6.5     374 + 6.5
+              (10 MΩ)                 1k - 2k        26 + 6.5    1230 + 6.5      1240 + 6.5        1290 + 6.5         1470 + 6.5    1290 + 6.5    1320 + 6.5    1500 + 6.5
+                                     2k - 10k       129 + 6.5  24 500 + 13     24 900 + 13       25 800 + 13        29 300 + 13   25 800 + 13   25 960 + 13   29 400 + 13
+               100 V     121.2 V       1 - 2k        6.5 + 6.5     39 + 6.5        51 + 6.5          77 + 6.5          140 + 6.5      90 + 6.5     116 + 6.5     168 + 6.5
+                (Auto,               2k - 10k        6.5 + 6.5     65 + 6.5        76 + 6.5         103 + 6.5          174 + 6.5     116 + 6.5     142 + 6.5     206 + 6.5
+                1 MΩ)                10k - 30k       6.5 + 6.5    129 + 13        171 + 13          258 + 13           465 + 13      271 + 13      297 + 13      490 + 13
+                                    30k - 100k        19 + 26     323 + 65        427 + 65          645 + 65          1160 + 65      658 + 65      761 + 65     1260 + 65
+                                   100k - 300k        26 + 32  0.32% + 0.06%   0.14% + 0.06%     0.45% + 0.06%      0.71% + 0.06% 0.45% + 0.06% 0.48% + 0.06% 0.73% + 0.06%
+                                    300k - 1M         90 + 65  1.16% + 0.65%   1.20% + 0.65%     1.29% + 0.65%      1.61% + 0.65% 1.29% + 0.65% 1.33% + 0.65% 1.67% + 0.65%
+
+
+
+
+18
+                                                                                                                                                               Reference Multimeter
+                                                                                                                                                           Performance Specifications
+
+
+
+                                                                       Relative Accuracy                                                  Absolute Accuracy
+99 % Confidence                                                                  ± (μV/V of reading + μV/V of range)
+
+           Full Scale Frequency    Transfer,        24 Hour          90 day            365 day            2 year             365 day          365 day           2 year
+ Range
+             (rms)       (Hz)      20 min [16]     Tcal ± 1 °C     Tcal ± 1 °C        Tcal ± 1 °C       Tcal ± 1 °C         Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+
+ 100 V     121.2 V      1 - 1k       26 + 6.5       258 + 6.5       265 + 6.5         284 + 6.5          350 + 6.5     297 + 6.5     323 + 6.5     374 + 6.5
+ (10 MΩ)                1k - 2k     26 + 6.5       1230 + 6.5      1240 + 6.5        1290 + 6.5         1470 + 6.5    1290 + 6.5    1320 + 6.5    1500 + 6.5
+                       2k - 10k    129 + 6.5     24 500 + 13     24 900 + 13       25 800 + 13        29 300 + 13   25 800 + 13   25 960 + 13   29 400 + 13
+ 100 V     121.2 V      1 - 2k      6.5 + 6.5        39 + 6.5        51 + 6.5          77 + 6.5          140 + 6.5      90 + 6.5     116 + 6.5     168 + 6.5
+  (Auto,               2k - 10k     6.5 + 6.5        65 + 6.5        76 + 6.5         103 + 6.5          174 + 6.5     116 + 6.5     142 + 6.5     206 + 6.5
+  1 MΩ)               10k - 30k     6.5 + 6.5       129 + 13        171 + 13          258 + 13           465 + 13      271 + 13      297 + 13      490 + 13
+                      30k - 100k     19 + 26        323 + 65        427 + 65          645 + 65          1160 + 65      658 + 65      761 + 65    1260 + 65
+                     100k - 300k     26 + 32     0.32% + 0.06%   0.14% + 0.06%     0.45% + 0.06%      0.71% + 0.06% 0.45% + 0.06% 0.48% + 0.06% 0.73% + 0.06%
+                      300k - 1M      90 + 65     1.16% + 0.65%   1.20% + 0.65%     1.29% + 0.65%      1.61% + 0.65% 1.29% + 0.65% 1.33% + 0.65% 1.67% + 0.65%
+1000 V     1050 V       1 - 1k       26 + 9.0       258 + 13        265 + 13          284 + 13           350 + 13      297 + 13      323 + 13      374 + 13
+ (10 MΩ)                1k - 2k     26 + 9.0     0.12% + 13      0.14% + 0.06%     0.45% + 0.06%      0.71% + 0.06% 0.45% + 0.06% 0.48% + 0.06% 0.73% + 0.06%
+                       2k - 10k    129 + 9.0      2.5% + 13      1.20% + 0.65%     1.29% + 0.65%      1.61% + 0.65% 1.29% + 0.65% 1.33% + 0.65% 1.67% + 0.65%
+1000 V     1050 V       1 - 2k       19 + 9.0        65 + 32         76 + 32          103 + 32           174 + 32      116 + 32      142 + 32      206 + 32
+  (Auto,               2k - 10k     19 + 9.0         65 + 32         76 + 32          103 + 32           174 + 32      116 + 32      142 + 32      206 + 32
+  1 MΩ)               10k - 30k      19 + 9.0       129 + 32        171 + 32          258 + 32           465 + 32      271 + 32      297 + 32      490 + 32
+                     30k - 100k      26 + 26        323 + 129       427 + 129         645 + 129         1163 + 129     658 + 129     761 + 129   1264 + 129
+
+
+
+
+                                                                                                                       19
+8588A
+Product Specifications
+
+
+
+
+             Temperature Coefficient (not applicable if within Tcal ±1 °C)
+                                                              ±μV/V of reading /°C                                          ± μV/V of reading / °C
+                                         Frequency          15 °C to    5 °C to 15 °C,                  Frequency          15 °C to   5 °C to 15 °C,
+                     Range                                                                 Range
+                                            (Hz)             30 °C      30 °C to 40 °C                     (Hz)             30 °C     30 °C to 40 °C
+                      10 mV                 1 - 2k              10             15          100 V            1 - 1k            5              8
+              (Auto, 10 MΩ, 1 MΩ)          2k - 10k            10             15           (10 MΩ)          1k - 2k           5              8
+                                          10k - 30k            10             15                           2k - 10k          30             50
+                                         30k - 100k            10             15           100 V            1 - 2k            5              8
+                                        100k - 300k            15             20         (Auto, 1 MΩ)      2k - 10k           5              8
+                                         300k - 1M             30              50                         10k - 30k           5              8
+                    100 mV                  1 - 2k              5               8                       30k - 100k           20             30
+              (Auto, 10 MΩ, 1 MΩ)          2k - 10k             5              8                        100k - 300k          40             60
+                                          10k - 30k             5               8                        300k - 1M           80             120
+                                         30k - 100k             5              8         1000 V             1 - 1k            5              8
+                                        100k - 300k            15             20          (10 MΩ)           1k - 2k           5              8
+                                         300k - 1M             30             50                           2k - 10k          30             50
+                                          1M - 2M              100            150         1000 V            1 - 2k            5              8
+                                        2M - 4M [17]           250            400        (Auto, 1 MΩ)      2k - 10k           5              8
+                                        4M - 8M [17]          1000           1500                         10k - 30k           5              8
+                                        8M - 10M [17]         1400           2000                        30k - 100k          20             30
+                       1V                   1 - 2k               3              5
+                      10 V                 2k - 10k              3              5                         Reading Rate
+              (Auto, 10 MΩ, 1 MΩ)         10k - 30k             5              8          RMS Filter    Acquisition Time
+                                                                                                                                  Read Rate (Hz)
+                                         30k - 100k             5              8                           (seconds)
+                                        100k - 300k            15             20             0.1 Hz             62                     0.016
+                                         300k - 1M             30             50              1 Hz             6.2                      0.16
+                                          1M - 2M               50             80            10 Hz            0.62                      1.6
+                                        2M - 4M [17]           100            150            40 Hz            0.156                      6.4
+                                        4M - 8M [17]           500            800            100 Hz           0.063                      16
+                                        8M - 10M [17]         1000           1500           1000 Hz           0.015                      67
+
+
+
+
+20
+                                                                                                                                                   Reference Multimeter
+                                                                                                                                               Performance Specifications
+
+
+
+
+Read rate 3x slower for Extended HF.
+Auto Counter Gate setting will not affect the read-rate. Setting Gate time manually may reduce the read rate.
+Type ................................................ True RMS, AC Coupled measures AC component with up to 1000 V dc bias on any range
+                                              DC Coupling produces the root sum of squares of the ac and dc components √(ac2 + dc2)
+Specified Range
+      10 mV Range .......................... From 10 % of range to full range
+      100 mV to 1 kV Ranges .......... From 1 % of range to full range
+CMRR ............................................. >90 dB dc to 60 Hz (1 kΩ unbalance)
+Peak Input (RMS not to exceed full scale value)
+      10 mV to 100 V Ranges ......... . 2 x Range
+      1000 V Range ......................... 1050V * 1.414
+Protection on all ranges .................. 1050 V RMS
+Input Impedance
+      Auto .................... 10 mV to 10 V Ranges ................. >1 TΩ in parallel with 80 pF ±5 pF
+                             100 V and 1000 V Range ............. 1.01 MΩ ±1 % in parallel with 50 pF ±5 pF
+      10 MΩ ................. 10 mV to 10V Ranges .................. 10 MΩ ±1 % in parallel with 80 pF ±5 pF
+                             100 V and 1000 V Range ............. 10 MΩ ±1 % in parallel with 50 pF ±5 pF
+      1 MΩ ................... 10 mV to 10V Ranges .................. 1.01 MΩ ±1 % in parallel with 80 pF ±5 pF
+                             100 V and 1000 V Range ............. 1.01 MΩ ±1 % in parallel with 50 pF ±5 pF
+
+
+DC Accuracy (DC Coupled) ............................................ Add ± (50 μV/V of Reading + 50 μV/V of Range + 20 μV)
+AC Coupling.................................................................... 330 nF into 1.01 MΩ or 10 MΩ
+Volt.Hertz limit................................................................. 3 x 107 (allows 3 V at 10 MHz)
+Frequency Secondary Measurement: see frequency counter specification
+Other secondary reading values are not specified.
+
+
+
+
+                                                                                                                                          21
+8588A
+Product Specifications
+
+
+
+
+             AC Current [1][2][4][6]
+             AC Current maximum resolution is 7 digits
+                                                                                                  Relative Accuracy                                             Absolute Accuracy
+             95 % Confidence                                                                                ± (μA/A of reading + μA/A of range)
+
+                                    Full Scale        Frequency   Transfer,      24 Hour        90 day          365 day           2 year           365 day          365 day           2 year
+                    Range
+                                      (rms)              (Hz)     20 min [16]   Tcal ± 1 °C   Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+
+               10     μA            20.2   μA           1 - 2k    150.0 + 3     1500 + 250    1640 + 250        2000 + 250       3040 + 250       2010 + 250        2030 + 250      3070 + 250
+                                                       2k - 10k   150.0 + 3     1500 + 250    1640 + 250        2000 + 250       3040 + 250       2010 + 250        2030 + 250      3070 + 250
+                                                      10k - 30k   150.0 + 10    1500 + 250    1640 + 250        2000 + 250       3040 + 250       2010 + 250        2050 + 250      3090 + 250
+               100    μA            202    μA           1 - 2k     20.0 + 10     200 + 50      214 + 50          250 + 50         361 + 50         260 + 50          280 + 50        390 + 50
+                1     mA            2.02   mA          2k - 10k    20.0 + 7      400 + 50      427 + 50          500 + 50         721 + 50         510 + 50          530 + 50        750 + 50
+               10     mA            20.2   mA         10k - 30k    20.0 + 10     600 + 50      626 + 50          700 + 50         938 + 50         720 + 50          740 + 50        970 + 50
+                                                      30k -100k    50.0 + 20    3500 + 100    3630 + 100        4000 + 100       5220 + 100       4010 + 100        4050 + 100      5270 + 100
+               100    mA            202    mA           1 - 2k     10.0 + 7      200 + 50      214 + 50          250 + 50         361 + 50         260 + 50          280 + 50        380 + 50
+                                                       2k - 10k    10.0 + 7      400 + 50      427 + 50          500 + 50         721 + 50         500 + 50          520 + 50        740 + 50
+                                                      10k - 30k    10.0 + 15     600 + 50      626 + 50          700 + 50         938 + 50         700 + 50          740 + 50        980 + 50
+                1     A             2.02   A            1 - 2k     10.0 + 10     200 + 100     214 + 100         250 + 100        361 + 100        260 + 100         300 + 100       400 + 100
+                                                       2k - 10k    10.0 + 10     400 + 100     427 + 100         500 + 100        721 + 100        510 + 100         550 + 100       770 + 100
+                                                      10k - 30k    10.0 + 20     600 + 100     626 + 100         700 + 100        938 + 100        710 + 100         790 + 100      1020 + 100
+                              [8]               [8]
+               10         A         20.2    A          10 - 2k     50.0 + 20     300 + 50      477 + 50          800 + 50        1510 + 50         800 + 50          840 + 50       1550 + 50
+                                                       2k - 10k    50.0 + 20     480 + 50      577 + 50          800 + 50        1370 + 50         800 + 50          840 + 50       1410 + 50
+               30         A [8]     30.2    A [8]      10 - 2k     20.0 + 10     600 + 400     656 + 400         800 + 400       1220 + 400        800 + 400         840 + 400      1260 + 400
+                                                       2k - 10k    20.0 + 15    1100 + 400    1130 + 400        1200 + 400       1460 + 400       1200 + 400        1240 + 400      1500 + 400
+
+
+
+
+22
+                                                                                                                                                                   Reference Multimeter
+                                                                                                                                                               Performance Specifications
+
+
+
+                                                                                  Relative Accuracy                                           Absolute Accuracy
+99 % Confidence                                                                           ± (μA/A of reading + μA/A of range)
+                                      Frequency   Transfer,      24 Hour        90 day         365 day           2 year        365 day            365 day           2 year
+       Range       Full Scale (rms)
+                                         (Hz)     20 min [16]   Tcal ± 1 °C   Tcal ± 1 °C     Tcal ± 1 °C      Tcal ± 1 °C    Tcal ± 1 °C        Tcal ± 5 °C      Tcal ± 5 °C
+  10     μA          20.2   μA         1 - 2k     194 + 4       1940 + 323    2120 + 323      2580 + 323      3920 + 323         2590 + 323       2620 + 323       3960 + 323
+                                      2k - 10k    194 + 4       1940 + 323    2120 + 323      2580 + 323      3920 + 323         2590 + 323       2620 + 323       3960 + 323
+                                      10k - 30k   194 + 13      1940 + 323    2120 + 323      2580 + 323      3920 + 323         2590 + 323       2620 + 323       3990 + 323
+ 100     μA          202    μA          1 - 2k     26 + 13       258 + 65      276 + 65         323 + 65        465 + 65          335 + 65         361 + 65         503 + 65
+  1      mA          2.02   mA         2k - 10k    26 + 9        516 + 65      551 + 65         645 + 65        930 + 65          658 + 65         684 + 65         968 + 65
+  10     mA          20.2   mA        10k - 30k    26 + 13       774 + 65      808 + 65         903 + 65      1210 + 65           929 + 65         955 + 65        1250 + 65
+                                      30k -100k    65 + 26      4520 + 129    4680 + 129      5160 + 129      6730 + 129         5170 + 129       5230 + 129       6800 + 129
+ 100     mA          202    mA          1 - 2k     13 + 9        258 + 65      276 + 65        323 + 65        465 + 65           335 + 65         361 + 65         490 + 65
+                                       2k - 10k    13 + 9        516 + 65      551 + 65        645 + 65        930 + 65           645 + 65         671 + 65         955 + 65
+                                      10k - 30k    13 + 19       774 + 65      808 + 65         903 + 65      1210 + 65           903 + 65         955 + 65        1260 + 65
+  1      A           2.02   A          1 - 2k      13 + 13       258 + 129     276 + 129        323 + 129       465 + 129         335 + 129        387 + 129        516 + 129
+                                      2k - 10k     13 + 13       516 + 129     551 + 129        645 + 129       930 + 129         658 + 129        710 + 129        993 + 129
+                                      10k - 30k    13 + 26       774 + 129     808 + 129        903 + 129     1210 + 129          916 + 129       1020 + 129       1320 + 129
+             [8]                [8]
+  10     A           20.2   A          10 - 2k     65 + 26       387 + 65      615 + 65       1030 + 65       1950 + 65          1030 + 65        1080 + 65        2000 + 65
+                                       2k - 10k    65 + 26       619 + 65      744 + 65       1030 + 65       1770 + 65          1030 + 65        1080 + 65        1820 + 65
+  30     A [8]       30.2   A [8]      10 - 2k     26 + 13       774 + 516     846 + 516      1030 + 516      1570 + 516         1030 + 516       1080 + 516       1630 + 516
+                                       2k - 10k    26 + 19      1420 + 516    1460 + 516      1550 + 516      1880 + 516         1550 + 516       1600 + 516       1940 + 516
+
+
+
+
+                                                                                                                            23
+8588A
+Product Specifications
+
+
+
+
+             AC Current Temperature Coefficient (not applicable if within Tcal ±1 °C)                         Input Impedance
+                                                                   ± μA/A of reading/°C                                  Range                    Front                 Rear
+                                                                                 5 °C to 15 °C,                           10 µA                   100Ω                  100Ω
+                    Range             Frequency (Hz)         15 °C to 30 °C
+                                                                                 30 °C to 40 °C                         100 µA                    100Ω                  100Ω
+               10 μA                        1 - 10                   5                   8                                 1 mA                  10.5Ω                 10.8Ω
+                                          10 - 10k                   5                    8                               10 mA                   1.5Ω                  1.8Ω
+                                          10k - 30k                 10                   15                             100 mA                    0.8Ω                  1.1Ω
+              100 μA                       1 - 10                    5                    8                                1A                     0.4Ω                  0.6Ω
+               1 mA                        10 - 10k                  5                    8                               10 A                   10mΩ                     -
+               10 mA                      10k - 30k                  5                    8                               30 A                   10mΩ                     -
+                                          30k -100k                 10                   15
+              100 mA                        1 - 10                   5                    8                   Maximum burden voltage = 2.02 x Range x input Impedance
+                                           10 - 10k                  5                    8                   Measurement voltage burden = input current x Input impedance
+                                          10k - 30k                 10                   15
+               1   A                        1 - 10                  10                   15                    Protection
+                                           10 - 10k                 10                   15                       Front Input ................................ 30 A rms, self-resetting
+                                          10k - 30k                 20                   30                       Rear Input ................................. 2 A rms, Rear Panel Fuse
+               10 A                         1 - 10                  10                   15                    Peak Input (RMS not to exceed full scale value)
+                                           10 - 10k                 10                   15                       10 μA to 10A Ranges ............... 2 x Range
+               30 A                         1 - 10                  10                   15                       30 A Range ............................... 30.2 * 1.414
+                                           10 - 10k                 10                   15                   Reading Rate
+
+                                                                                                                   RMS Filter           Acquisition time
+                                                                                                                                                                    Read Rate (Hz)
+             Settling time                                                                                                                (seconds)
+
+               10 μA to 100 mA Ranges to 20 μA/A of step size ....... <1 s                                           0.1 Hz                      62                       0.016
+                                                                                                                      1 Hz                      6.2                       0.16
+               1 A to 30 A ranges to 100 μA/A of step size ............... <1 s
+                                                                                                                     10 Hz                     0.62                        1.6
+             Current shunt self-heating time to settle to within specification
+                                                                                                                     40 Hz                     0.156                       6.4
+               1 A Range cold to final value....................................... 20 μA/A in 2 minutes             100 Hz                    0.063                        16
+               10 A range cold to final value ...................................... 50 μA/A in 2 minutes           1000 Hz                    0.015                        67
+               30 A range cold to final value ..................................... 50 μA/A in 2 minutes
+               DC Accuracy (DC Coupled) ........................................ Add ±(100 μA/A Reading       Auto Counter Gate setting will not affect the read-rate.
+                                                                                    +50 μA/A Range + 20 nA)   Setting Gate time manually may reduce the read rate.
+                                                                                                              Frequency as Secondary Measurement - see frequency counter specifications
+
+
+
+
+24
+                                                                                                                                                                                           Reference Multimeter
+                                                                                                                                                                                       Performance Specifications
+
+
+
+ACI Ext Shunt
+   Accuracy of the Indicated current value ................................................ Combine by root sum of squares the accuracy specification of the external shunt with the 8588A ACV specification
+   Accuracy of the secondary reading (voltage) ........................................ 8588A ACV specification
+   Accuracy of the secondary reading (Frequency/Period) ....................... Use the ACV Frequency specification
+   Other secondary reading values are not specified.
+
+Resistance [1][2][3][4][10]
+Resistance 4 Wire
+Resistance maximum resolution is 8 digits
+                                                                                                Relative Accuracy                                                   Absolute Accuracy
+95 % Confidence                                                                                           ± (μΩ/Ω of reading + μΩ/Ω of range)
+
+                                                     Transfer,          24 Hour              90 day           365 day              2 year              365 day           365 day              2 year
+      Range           Full Scale      "Mode"
+                                                     20 min [15]       Tcal ± 1 °C         Tcal ± 1 °C       Tcal ± 1 °C         Tcal ± 1 °C          Tcal ± 1 °C       Tcal ± 5 °C         Tcal ± 5 °C
+      1Ω                2.02 Ω       Normal          2.0 + 4.0          5.0 + 4.0           8.0 + 4.0           10 + 4.0            20 + 4.0            11 + 4.0           17 + 4.0          25 + 4.0
+     10 Ω               20.2 Ω       Normal          0.8 + 1.4          2.5 + 1.4          4.5 + 1.4           7.0 + 1.4          14.0 + 1.4           7.7 + 1.4         10.1 + 1.4          15 + 1.4
+    100 Ω                202 Ω       Normal         0.2 + 0.5           1.5 + 0.5          4.0 + 0.5           7.0 + 0.5          14.0 + 0.5           7.2 + 0.5          9.2 + 0.5          14 + 0.5
+      1 kΩ              2.02 kΩ      Normal         0.2 + 0.5           1.0 + 0.5           3.5 + 0.5          7.0 + 0.5          14.0 + 0.5           7.1 + 0.5          9.1 + 0.5          14 + 0.5
+     10 kΩ              20.2 kΩ      Normal         0.2 + 0.5           1.0 + 0.5           3.5 + 0.5          7.0 + 0.5          14.0 + 0.5           7.2 + 0.5          9.2 + 0.5          14 + 0.5
+    100 kΩ               202 kΩ      Normal         0.2 + 0.5           1.0 + 0.5           3.5 + 0.5          7.0 + 0.5          14.0 + 0.5           7.3 + 0.5          9.3 + 0.5          14 + 0.5
+      1 MΩ              2.02 MΩ      Normal         0.5 + 1.0           2.0 + 1.0           4.0 + 1.0          7.0 + 1.0          14.0 + 1.0           8.2 + 1.0         10.6 + 1.0          16 + 1.0
+     10 MΩ              20.2 MΩ      Normal         2.5 + 10            3.5 + 10            6.0 + 10           9.0 + 10           18.0 + 10             11 + 10            19 + 10           28 + 10
+    100 MΩ               202 MΩ      Normal          15 + 100            20 + 100           25 + 100            30 + 100          60.0 + 100            39 + 100         119 + 100          179 + 100
+      1 GΩ              2.02 GΩ      Normal         200 + 1000         250 + 1000         350 + 1000          500 + 1000         1000 + 1000          505 + 1000        1310 + 1000        1960 + 1000
+      1Ω                2.02 Ω      Lo Current      2.0 + 4.0           5.0 + 4.0          8.0 + 4.0            10 + 4.0            20 + 4.0            11 + 4.0           17 + 4.0          25 + 4.0
+     10 Ω               20.2 Ω      Lo Current      0.8 + 1.4           2.5 + 1.4          4.5 + 1.4           7.0 + 1.4            14 + 1.4           7.7 + 1.4           10 + 1.4          15 + 1.4
+    100 Ω                202 Ω      Lo Current       2.5 + 2.0          8.7 + 2.0         11.2 + 2.0            14 + 2.0            21 + 2.0          14.4 + 2.0           17 + 2.0          25 + 2.0
+      1 kΩ              2.02 kΩ     Lo Current      2.5 + 2.0           9.3 + 2.0         11.8 + 2.0            15 + 2.0            22 + 2.0            16 + 2.0           18 + 2.0          27 + 2.0
+     10 kΩ              20.2 kΩ     Lo Current       2.5 + 2.0         12.9 + 2.0         15.4 + 2.0            19 + 2.0            26 + 2.0            19 + 2.0           21 + 2.0          32 + 2.0
+    100 kΩ               202 kΩ     Lo Current      5.0 + 0.6          12.9 + 0.6         15.4 + 0.6            19 + 0.6            26 + 0.6            19 + 0.6           21 + 0.6          32 + 0.6
+      1 MΩ              2.02 MΩ     Lo Current       7.0 + 1.0         11.6 + 1.0         13.6 + 1.0            17 + 1.0            24 + 1.0            17 + 1.0           25 + 1.0          38 + 1.0
+     10 MΩ              20.2 MΩ     Lo Current        20 + 10            40 + 10            43 + 10             46 + 10             55 + 10            46 + 10           126 + 10           190 + 10
+    100 MΩ               202 MΩ     Lo Current      250 + 100          250 + 100           350 + 100          500 + 100          1000 + 100           515 + 100         1320 + 100         1970 + 100
+
+
+
+
+                                                                                                                                                 25
+8588A
+Product Specifications
+
+
+
+
+                                                                                             Relative Accuracy                                            Absolute Accuracy
+             95 % Confidence                                                                          ± (μΩ/Ω of reading + μΩ/Ω of range)
+
+                                                           Transfer,       24 Hour        90 day          365 day          2 year            365 day          365 day           2 year
+                   Range        Full Scale    "Mode"
+                                                           20 min [15]    Tcal ± 1 °C   Tcal ± 1 °C      Tcal ± 1 °C     Tcal ± 1 °C        Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5°C
+                   1 GΩ          2.02 GΩ     Lo Current   250 + 1000      250 + 1000    350 + 1000       500 + 1000      1000 + 1000        525 + 1000       1320 + 1000      1990 + 1000
+                  10 MΩ          20.2 MΩ        HV        2.0 + 1          5.8 + 1       6.5 + 1          7.0 + 1           14 + 1           15 + 1            17 + 1           26 + 1
+                 100 MΩ          202 MΩ         HV        3.5 + 10        7.4 + 10       8.0 + 10         9.0 + 10        18.0 + 10          60 + 10           68 + 10         102 + 10
+                   1 GΩ          2.02 GΩ        HV         20 + 100         27 + 100      28 + 100        30 + 100        60.0 + 100        150 + 100         230 + 100        345 + 100
+                  10 GΩ [14]     20.2 GΩ        HV        250 + 1000      250 + 1000    350 + 1000       500 + 1000      1000 + 1000        525 + 1000       1330 + 1000      1990 + 1000
+
+
+                                                                                             Relative Accuracy                                            Absolute Accuracy
+             99 % Confidence                                                                          ± (μΩ/Ω of reading + μΩ/Ω of range)
+
+                                                            Transfer,      24 Hour        90 day          365 day           2 year           365 day          365 day           2 year
+                  Range        Full Scale     "Mode"
+                                                            20 min [15]   Tcal ± 1 °C   Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+
+                   1Ω            2.02 Ω       Normal      2.6 + 5.2         6.5 + 5.2   10.3 + 5.2         13 + 5.2          26 + 5.2         14 + 5.2          21 + 5.2        32 + 5.2
+                  10 Ω           20.2 Ω       Normal      1.0 + 1.8        3.2 + 1.8     5.8 + 1.8        9.0 + 1.8        18.1 + 1.8        9.9 + 1.8        13.0 + 1.8        20 + 1.8
+                 100 Ω            202 Ω       Normal      0.3 + 0.6        1.9 + 0.6     5.2 + 0.6        9.0 + 0.6        18.1 + 0.6        9.2 + 0.6        11.8 + 0.6        18 + 0.6
+                   1 kΩ          2.02 kΩ      Normal      0.3 + 0.6        1.3 + 0.6     4.5 + 0.6        9.0 + 0.6        18.1 + 0.6        9.1 + 0.6        11.7 + 0.6        18 + 0.6
+                  10 kΩ          20.2 kΩ      Normal      0.3 + 0.6        1.3 + 0.6     4.5 + 0.6        9.0 + 0.6        18.1 + 0.6        9.2 + 0.6        11.8 + 0.6        18 + 0.6
+                 100 kΩ           202 kΩ      Normal      0.3 + 0.6        1.3 + 0.6     4.5 + 0.6        9.0 + 0.6        18.1 + 0.6        9.4 + 0.6        11.9 + 0.6        18 + 0.6
+                   1 MΩ          2.02 MΩ      Normal      0.6 + 1.3        2.6 + 1.3      5.2 + 1.3       9.0 + 1.3        18.1 + 1.3       10.6 + 1.3        13.7 + 1.3        21 + 1.3
+                  10 MΩ          20.2 MΩ      Normal      3.2 + 13         4.5 + 13      7.7 + 13        11.6 + 13         23.2 + 13         14 + 13           24 + 13          36 + 13
+                 100 MΩ           202 MΩ      Normal       19 + 129         26 + 129      32 + 129         39 + 129        77.4 + 129         50 + 129        154 + 129        230 + 129
+                   1 GΩ          2.02 GΩ      Normal      258 + 1290       323 + 1290    452 + 1290      645 + 1290       1290 + 1290       652 + 1290       1690 + 1290      2530 + 1290
+                   1Ω            2.02 Ω      Lo Current   2.6 + 5.2        6.5 + 5.2    10.3 + 5.2        13 + 5.2          26 + 5.2          14 + 5.2         21 + 5.2         32 + 5.2
+                  10 Ω           20.2 Ω      Lo Current   1.0 + 1.8        3.2 + 1.8     5.8 + 1.8        9.0 + 1.8          18 + 1.8        9.9 + 1.8          13 + 1.8        20 + 1.8
+                 100 Ω            202 Ω      Lo Current   3.2 + 2.6       11.2 + 2.6    14.4 + 2.6         18 + 2.6          27 + 2.6       18.6 + 2.6          22 + 2.6        33 + 2.6
+                   1 kΩ          2.02 kΩ     Lo Current   3.2 + 2.6       12.0 + 2.6    15.2 + 2.6         20 + 2.6          29 + 2.6         20 + 2.6          23 + 2.6        35 + 2.6
+                  10 kΩ          20.2 kΩ     Lo Current   3.2 + 2.6       16.6 + 2.6    19.9 + 2.6         24 + 2.6          33 + 2.6         25 + 2.6          28 + 2.6        41 + 2.6
+                 100 kΩ           202 kΩ     Lo Current   6.5 + 0.8       16.6 + 0.8    19.9 + 0.8         24 + 0.8          33 + 0.8         25 + 0.8          28 + 0.8        41 + 0.8
+                   1 MΩ          2.02 MΩ     Lo Current   9.0 + 1.3       14.9 + 1.3    17.5 + 1.3         21 + 1.3          30 + 1.3         22 + 1.3          33 + 1.3        49 + 1.3
+                  10 MΩ          20.2 MΩ     Lo Current    26 + 13          52 + 13       55 + 13          59 + 13           71 + 13          60 + 13         163 + 13         245 + 13
+
+
+
+
+26
+                                                                                                                                                                  Reference Multimeter
+                                                                                                                                                              Performance Specifications
+
+
+
+
+                                                                              Relative Accuracy                                              Absolute Accuracy
+99 % Confidence                                                                         ± (μΩ/Ω of reading + μΩ/Ω of range)
+
+                                             Transfer,      24 Hour        90 day           365 day          2 year             365 day          365 day           2 year
+    Range         Full Scale    "Mode"
+                                             20 min [15]   Tcal ± 1 °C   Tcal ± 1 °C       Tcal ± 1 °C     Tcal ± 1 °C         Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+
+   100 MΩ            202 MΩ    Lo Current   323 + 129      323 + 129     452 + 129        645 + 129        1290 + 129          664 + 129        1700 + 129       2540 + 129
+     1 GΩ           2.02 GΩ    Lo Current   323 + 1290     323 + 1290     452 + 1290      645 + 1290       1290 + 1290         677 + 1290       1700 + 1290      2570 + 1290
+    10 MΩ           20.2 MΩ       HV        2.6 + 1.29      7.5 + 1.29     8.4 + 1.29      9.0 + 1.29         18 + 1.29         19 + 1.29         22 + 1.29        34 + 1.29
+   100 MΩ            202 MΩ       HV        4.5 + 12.9      9.5 + 12.9   10.3 + 12.9      11.6 + 12.9       23.2 + 12.9         77 + 12.9         88 + 12.9       132 + 12.9
+     1 GΩ           2.02 GΩ       HV         26 + 129        35 + 129       36 + 129       39 + 129         77.4 + 129         194 + 129         297 + 129        445 + 129
+    10 GΩ [14]      20.2 GΩ       HV        323 + 1290     323 + 1290    452 + 1290       645 + 1290       1290 + 1290         677 + 1290       1720 + 1290      2570 + 1290
+
+
+
+
+                                                                                                                          27
+8588A
+Product Specifications
+
+
+
+
+             Temperature Coefficient (not applicable if within Tcal ±1 °C)                                Voltage and Current Parameters
+
+                                                                                  ± (μΩ/Ω of reading/°C                                                  Measurement
+                                                         ±μΩ/Ω of reading/°C                                                                 Measurement
+                   Range               "Mode"                                            + Ω/°C)               Range             "Mode"                  Voltage at Full
+                                                           15 °C to 30 °C                                                                      Current
+                                                                                     5 °C to 40 °C [13]                                                      Scale
+
+                  1Ω                   Normal                1.5             or        2.5 + 1.5 μ            1Ω                 Normal        100 mA         200 mV
+                 10 Ω                  Normal                0.6             or        1.0 + 15 μ            10 Ω                Normal         10 mA         200 mV
+               100 Ω                   Normal                0.5             or        0.8 + 20 μ           100 Ω                Normal         10 mA           2V
+                  1 kΩ                 Normal                0.5             or        0.8 + 200 μ            1 kΩ               Normal         1 mA            2V
+                 10 kΩ                 Normal                0.5             or        0.8 + 2 m             10 kΩ               Normal         100 μA          2V
+               100 kΩ                  Normal                0.5             or        0.8 + 20 m           100 kΩ               Normal         100 μA         20 V
+                  1 MΩ                 Normal                0.6             or        1.0 + 200 m            1 MΩ               Normal         10 μA          20 V
+                 10 MΩ                 Normal                 2              or        3.0 + 2               10 MΩ               Normal          1 μA          20 V
+               100 MΩ                  Normal                20              or        30 + 20              100 MΩ               Normal         100 nA         20 V
+                 1 GΩ                  Normal                200             or       300 + 200               1 GΩ               Normal          10 nA         20 V
+                  1Ω                  Lo Current             1.5             or        2.5 + 1.5 μ            1Ω                Lo Current     100 mA         200 mV
+                 10 Ω                 Lo Current             0.6             or        1.0 + 15 μ            10 Ω               Lo Current      10 mA         200 mV
+               100 Ω                  Lo Current             0.6             or        1.0 + 150 μ          100 Ω               Lo Current      1 mA          200 mV
+                  1 kΩ                Lo Current             0.6             or        1.0 + 1.5 m            1 kΩ              Lo Current      100 μA        200 mV
+                 10 kΩ                Lo Current             0.6             or        1.0 + 15 m            10 kΩ              Lo Current      10 μA         200 mV
+               100 kΩ                 Lo Current             0.6             or        1.0 + 20 m           100 kΩ              Lo Current      10 μA           2V
+                  1 MΩ                Lo Current              2              or        3.0 + 200 m            1 MΩ              Lo Current       1 μA           2V
+                10 MΩ                 Lo Current              20             or        30 + 2                10 MΩ              Lo Current      100 nA          2V
+               100 MΩ                 Lo Current             200             or       300 + 20              100 MΩ              Lo Current       10 nA          2V
+                 1 GΩ                 Lo Current             200             or       300 + 100               1 GΩ              Lo Current       10 nA         20 V
+                 10 MΩ                    HV                 0.6             or        1.0 + 2.5             10 MΩ                 HV           10 μA         200 V
+               100 MΩ                     HV                  2              or        3.0 + 25             100 MΩ                 HV            1 μA         200 V
+                  1 GΩ                    HV                  20             or        30 + 250               1 GΩ                 HV           100 nA        200 V
+                 10 GΩ [14]               HV                 200             or       300 + 2.5 k            10 GΩ [14]            HV            10 nA        200 V
+
+
+
+
+28
+                                                                                                                                                                                                                           Reference Multimeter
+                                                                                                                                                                                                                       Performance Specifications
+
+
+
+Aperture .......................................................... 100 μs to 2 s in 200 ns increments, >2 s to 10 s in 1 ms increments
+
+
+Additional errors with aperture
+
+                                          Aperture                      μΩ/Ω of reading + μΩ/Ω of range
+                                           <10 ms                                       0 + 0.5
+                                                                                                                                Additional errors with read rate:
+                                           <4 ms                                        1+2
+                                           < 2 ms                                      10 + 10
+                                            <1ms                                       20 + 20
+
+                                         Read Rate                      μΩ/Ω of reading + μΩ/Ω of range
+                                        > 1ms <5ms                                    20 + 0.5
+                                           < 1 ms                                     45 + 5
+
+
+Maximum Trigger Rate (Aperture ≤ 100 μs) .. 4700 readings/s (Ascii format - for faster sampling rates see Digitizing).
+                                                              (Maximum Block size of 10 000 000 samples)
+                                                              Minimum trigger interval is the aperture plus 170 μs. For example at 50 Hz line frequency, 0.1 plc, the minimum interval is 0.002 + 0.00011
+                                                              seconds = 0.00211 seconds (read rate 474 Hz).
+Tru Ohms mode available on 1 Ω to 10 kΩ ranges. Read Rate reduced in Tru Ohms Mode. Specification for Tru Ohms same as corresponding Normal or Lo Current ranges.
+2 Wire Adder ................................................... ±(10 pA/Ir) x 106 µΩ/Ω of Reading ±50 mΩ ±3 mΩ/°C),
+                                                                 where Ir is the measurement current, where the temperature related factor is based on the temperature difference between the present
+                                                                 operating temperature and the temperature where the instrument was last zeroed.
+Maximum 4 wire Lead Resistance .................. 10 Ω in any or all leads, 1 Ω on the 1 Ω Range
+
+
+Ω Guarding
+      Range ....................................................... Minimum Parallel Guard Resistance ................... Rx = Rd x (1 + (Rd x Rg)/(Ra x Rb))                               where   Rx = Resistor being measured
+      1 Ω, 10 Ω .................................................. 200 Ω .................................................................... Rd = displayed value
+      100 Ω ........................................................ 2 kΩ ...................................................................... Ra = parallel resistor from Hi to Guard
+      1 kΩ, 10 kΩ, 100 kΩ, 1 MΩ ...................... 20 kΩ .................................................................... Rb = parallel resistor from Lo to Guard
+      10 MΩ, 100 MΩ, 1 GΩ, 10 GΩ ................. 200 kΩ .................................................................. Rg = Ω Guard lead resistance (< 1 Ω)
+
+
+
+
+                                                                                                                                                                                       29
+8588A
+Product Specifications
+
+
+
+
+             Full Scale Measurement Voltage
+                   Normal Mode .............................................200 mV / 2 V / 20 V
+                   Lo Current Mode .......................................20 mV/200 mV / 2 V / 20 V
+                   High Voltage Mode ....................................200 V
+             Protection (All Ranges) .....................................1050 V RMS
+             Ratio Accuracy
+                   Range to Range ......................... Combine total Front Input accuracy and total Rear Input accuracy by Root Sum of Squares
+                   Within Range .............................. Using the 24 hour or 20 minute Transfer Uncertainty specifications as appropriate, apply a Root Sum of Squares combination of the specified
+                                                               accuracy of the Front Input signal and the specified accuracy of the Rear Input signal
+             Settling Time
+                   Filter Off...................................... Up to 100 kΩ Range <0.05 s to 10 μΩ/Ω
+                   Filter On...................................... Up to 100 kΩ Range <1 s to 10 μΩ/Ω
+
+             Digitizing [2][3][4][9][18][19]
+             Digitize DC Voltage
+             18-bit resolution for aperture 0 to ≤3 ms
+                                                                                                            Relative Accuracy                                               Absolute Accuracy
+             95 % Confidence                                                                                                   ± (μV/V of reading + μV/V of range)
+                                                                                  24 Hour               90 day           365 day             2 years           365 day          365 day              2 year
+                  Range                Zin              Full Scale
+                                                                                 Tcal ± 1 °C          Tcal ± 1 °C       Tcal ± 1 °C         Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C         Tcal ± 5 °C
+                                 Auto, 10 MΩ,
+                 100 mV                                   202 mV                 3.3 + 15               20 + 15         44 + 15            62 + 15            49 + 15           67 + 15             80 + 15
+                                    1 MΩ
+                                 Auto, 10 MΩ,
+                    1V                                   2.02 V                  3.3 + 15               20 + 15         44 + 15            62 + 15            49 + 15           63 + 15             76 + 15
+                                    1 MΩ
+                                 Auto, 10 MΩ,
+                   10 V                                  20.2 V                  3.3 + 15               20 + 15         44 + 15            62 + 15            49 + 15           63 + 15             76 + 15
+                                    1 MΩ
+                 100 V           Auto, 10 MΩ             202 V                   3.3 + 15               20 + 15         44 + 15            62 + 15            49 + 15           63 + 15             76 + 15
+                 100 V              1 MΩ                 202 V                   3.3 + 15               20 + 15         44 + 15            62 + 15            49 + 15           63 + 15             76 + 15
+                1000 V           Auto, 10 MΩ            1050 V                   3.3 + 15               20 + 15         44 + 15            62 + 15            49 + 15           67 + 15             80 + 15
+                1000 V              1 MΩ                1050 V                   4.0 + 15               20 + 15         44 + 15            62 + 15            49 + 15           67 + 15             80 + 15
+
+
+
+
+30
+                                                                                                                                                                     Reference Multimeter
+                                                                                                                                                                 Performance Specifications
+
+
+
+
+                                                                             Relative Accuracy                                               Absolute Accuracy
+99 % Confidence                                                                                ± (μV/V of reading + μV/V of range)
+                                                      24 Hour              90 day         365 day            2 years           365 day          365 day             2 year
+    Range            Zin          Full Scale
+                                                     Tcal ± 1 °C         Tcal ± 1 °C     Tcal ± 1 °C        Tcal ± 1 °C       Tcal ± 1 °C      Tcal ± 5 °C        Tcal ± 5 °C
+                Auto, 10 MΩ,
+   100 mV                          202 mv                4.3 + 19          26 + 19          57 + 19           80 + 19           63 + 19           86 + 19            103 + 19
+                   1 MΩ
+                Auto, 10 MΩ,
+        1V                        2.02 V                 4.3 + 19           26 + 19         57 + 19           80 + 19           63 + 19           81 + 19             98 + 19
+                   1 MΩ
+                Auto, 10 MΩ,
+     10 V                         20.2 V                 4.3 + 19           26 + 19         57 + 19           80 + 19           63 + 19           81 + 19             98 + 19
+                   1 MΩ
+   100 V        Auto, 10 MΩ        202 V                 4.3 + 19          26 + 19          57 + 19           80 + 19           63 + 19           81 + 19             98 + 19
+   100 V           1 MΩ            202 V                 4.3 + 19          26 + 19          57 + 19           80 + 19           63 + 19           81 + 19             98 + 19
+  1000 V        Auto, 10 MΩ       1050 V                 4.3 + 19          26 + 19          57 + 19           80 + 19           63 + 19           86 + 19            103 + 19
+  1000 V           1 MΩ           1050 V                 5.2 + 19          26 + 19          57 + 19           80 + 19           63 + 19           86 + 19            103 + 19
+
+If Filter Off is selected, add 40 μV/V of reading + 35 μV/V of range
+
+Temperature Coefficient (not applicable if within Tcal ±1 °C)                            Low Pass Filter Bandwidths
+                                               ± (μV/V of reading / °C
+                                                                                             Filter                              Bandwidth
+                                                + μV/V of Range/°C)
+   Range                   Zin                   5 °C to 40 °C [13]                              Off      10mV to 10V ranges are approximately 15MHz-20MHz BW.
+  100   mV          Auto, 10 MΩ, 1 MΩ             4.5 + 12.0                                100 kHz              Approximates to single pole RC up to 10MHz
+      1V            Auto, 10 MΩ, 1 MΩ             3.3 + 9.30                                 3 MHz                             4-pole at 3MHz
+     10 V           Auto, 10 MΩ, 1 MΩ             3.3 + 9.30
+    100 V              Auto, 10 MΩ                3.3 + 9.30
+    100 V                  1 MΩ                   3.3 + 9.30
+   1000 V              Auto, 10 MΩ                4.5 + 9.30
+   1000 V                  1 MΩ                   4.5 + 9.30
+
+
+
+
+                                                                                                                               31
+8588A
+Product Specifications
+
+
+
+
+             Digitize DC Current
+             18-bit Resolution for Aperture 0 to ≤3 ms
+                                                                                           Relative Accuracy                                                 Absolute Accuracy
+             95 % Confidence                                                                                   ± (μA/A of reading + μA/A of range)
+                                                               24 Hour                 90 day           365 day             2 years            365 day           365 day            2 year
+                  Range               Full Scale
+                                                              Tcal ± 1 °C            Tcal ± 1 °C       Tcal ± 1 °C         Tcal ± 1 °C        Tcal ± 1 °C       Tcal ± 5 °C       Tcal ± 5 °C
+                10    μA               20.2 μA                 35 + 80                40 + 80           44 + 80             66 + 80            48 + 80           60 + 80           78 + 80
+               100    μA                202 μA                   6 + 70               22 + 70           44 + 70             66 + 70            48 + 70           60 + 70           78 + 70
+                1     mA               2.02 mA                  6 + 70                22 + 70           44 + 70            66 + 70             48 + 70           60 + 70           78 + 70
+               10     mA               20.2 mA                  7 + 70                22 + 70           44 + 70            66 + 70             48 + 70           60 + 70           78 + 70
+               100    mA                202 mA                 18 + 70                22 + 70           44 + 70            66 + 70             48 + 70           80 + 70           98 + 70
+                1     A                2.02 A                  22 + 125               55 + 125         110 + 125          165 + 125           112 + 125         144 + 125         197 + 125
+               10     A [8]            20.2 A [8]              80 + 160               90 + 160         180 + 160          270 + 160           181 + 160         241 + 160         330 + 160
+               30     A [8]            30.2 A [8]             240 + 180              250 + 180         500 + 180          750 + 180           500 + 180         560 + 180         810 + 180
+
+
+                                                                                           Relative Accuracy                                                 Absolute Accuracy
+             99 % Confidence                                                                                   ± (μA/A of reading + μA/A of range)
+                                                               24 Hour                 90 day           365 day              2 years            365 day          365 day            2 year
+                  Range               Full Scale
+                                                              Tcal ± 1 °C            Tcal ± 1 °C       Tcal ± 1 °C          Tcal ± 1 °C        Tcal ± 1 °C      Tcal ± 5 °C       Tcal ± 5 °C
+                10    μA              20.2 μA                  45 + 103               52 + 103          57 + 103            85 + 103           62 + 103          78 + 103         101 + 103
+               100    μA               202 μA                    7 + 90               28 + 90           57 + 90             85 + 90            62 + 90           78 + 90          101 + 90
+                1     mA              2.02 mA                   7 + 90                28 + 90           57 + 90            85 + 90             62 + 90           78 + 90          101 + 90
+               10     mA              20.2 mA                   8 + 90                28 + 90           57 + 90            85 + 90             62 + 90           78 + 90          101 + 90
+               100    mA               202 mA                  23 + 90                28 + 90           57 + 90            85 + 90             62 + 90          104 + 90          126 + 90
+                1     A               2.02 A                   28 + 161               71 + 161         142 + 161          213 + 161           144 + 161         186 + 161         254 + 161
+               10     A [8]           20.2 A [8]              103 + 206              116 + 206         232 + 206          348 + 206           234 + 206         311 + 206         426 + 206
+               30     A [8]           30.2 A [8]              310 + 232              323 + 232         645 + 232          968 + 232           646 + 232         723 + 232        1050 + 232
+
+
+             If Filter Off is selected, add 40 μA/A of reading + 70 μA/A of range.
+
+
+
+
+32
+                                                                                                                                             Reference Multimeter
+                                                                                                                                         Performance Specifications
+
+
+
+Temperature Coefficient (not applicable if within Tcal ±1 °C)                Low Pass Filter bandwidths
+
+                                                     ± (μA/A of reading/°C
+                      ± μA/A reading/°C                                                     Bandwidth with Filter Setting
+    Range                                             + μA/A of range/°C)
+                        15 °C to 30 °C                 5 °C to 40 °C [13]      Range      100 kHz       3 MHz           Off
+  10    μA                             3.0      or       5.0 + 5               10μA       100 kHz       500kHz        500kHz
+  100   μA                             3.0      or       5.0 + 1              100μA       100 kHz       500kHz        500kHz
+   1    mA                          3.0         or       5.0 + 0.5             1mA        100 kHz        2MHz          2MHz
+   10   mA                          3.0         or       5.0 + 0.5            10mA        100 kHz        4MHz          4MHz
+  100   mA                          8.0         or        12 + 0.5            100mA       100 kHz        2MHz          2MHz
+   1    A                           8.0         or        12 + 0.5              1A        100 kHz       500kHz        500kHz
+   10   A                          15.0         or        15 + 3               10A        100 kHz       200kHz        200kHz
+   30   A                          15.0         or        15 + 1               30A        100 kHz       200kHz        200kHz
+
+Digitizing: Voltage and Current
+ Digitizing internal buffer capacity
+ Non-time-stamped                            10 000 000
+ Time-stamped                                5 000 000
+
+ Maximum Digitizing Sample rate:
+ Internal trigger        5 MHz
+ External trigger        5 MHz
+
+
+ Dynamic Performance (for 2xFull Scale pk-pk signal)                         Dynamic Performance (for 2xFull Scale pk-pk signal)
+ RMS Signal to noise ratio (Aperture = 0 ns)                                 FFT harmonics and spurii at 1kHz (Aperture = 0 ns)
+    Filter            100kHz           3MHz      Full                           Filter       100kHz            3MHz             Full
+  Range                                                                      Range
+  100mV              76 dB                   70 dB         60 dB             100mV          -100 dB         -80 dB             -74 dB
+  1V                 80 dB                   80 dB         80 dB             1V             -100 dB         -100 dB            -90 dB
+  10V                80 dB                   80 dB         80 dB             10V            -100 dB         -100 dB            -100 dB
+  100V               80 dB                   80 dB         80 dB             100V           -94 dB          -94 dB             -94 dB
+  1000V              80 dB                   80 dB         80 dB             1000V          -100 dB         -100 dB            -100 dB
+
+
+
+
+                                                                                                                   33
+8588A
+Product Specifications
+
+
+
+
+              Dynamic Performance (for 2xFull Scale pk-pk signal)                                 Dynamic Performance (for 2xFull Scale pk-pk signal)
+              RMS Signal to noise ratio (Aperture = 0 ns)                                         FFT harmonics and spurii at 1kHz (Aperture = 0 ns)
+                 Filter            100kHz           3MHz      Full                                   Filter       100kHz            3MHz             Full
+               Range                                                                              Range
+               10 μA            60 dB            51 dB        50 dB                               10 μA           -74 dB         -62 dB          -62 dB
+               100 μA           76 dB            70 dB        70 dB                               100 μA          -90 dB         -80 dB          -80 dB
+               1 mA             80 dB            74 dB        74 dB                               1 mA            -94 dB         -80 dB          -80 dB
+               10 mA            80 dB            77 dB        76 dB                               10 mA           -94 dB         -92 dB          -90 dB
+               100 mA           70 dB            66 dB        60 dB                               100 mA          -92 dB         -76 dB          -76 dB
+               1A               70 dB            66 dB        60 dB                               1A              -90 dB         -80 dB          -76 dB
+               10 A             67 dB            62 dB        62 dB                               10 A            -80 dB         -78 dB          -76 dB
+               30 A             77 dB            72 dB        72 dB                               30 A            -90 dB         -88 dB          -86 dB
+
+
+             Capacitance
+             Capacitance LoI OFF
+             Capacitance maximum resolution is 5 digits
+                                                                                                   Relative Accuracy                                         Absolute Accuracy
+             95 % Confidence                                                                                       ± (μF/F of reading + μF/F of range)
+                                            Range                     Nominal
+                                Range                     Source                 24 Hour        90 day        365 day           2 year          365 day          365 day           2 year
+                Range                      maximum                    Ramp Up
+                               Minimum                    Current               Tcal ± 1 °C   Tcal ± 1 °C    Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                                             (FS)                       Time
+                   1 nF            0 nF       2.02 nF      10 nA       1 PLC    250 + 1000    500 + 1000     1000 + 1000      1500 + 1000      1036 + 1000      1840 + 1000      2750 + 1000
+                  10 nF          1.8 nF       20.2 nF     100 nA       1 PLC    150 + 200     300 + 200       600 + 200        900 + 200        608 + 200        808 + 200       1210 + 200
+                 100 nF           18 nF        202 nF       1 μA       1 PLC    100 + 100     200 + 100       400 + 100        600 + 100        408 + 100        488 + 100        732 + 100
+                   1 μF         0.18 μF       2.02 μF      10 μA       1 PLC    100 + 100     200 + 100       400 + 100        600 + 100        406 + 100        414 + 100        621 + 100
+                  10 μF          1.8 μF       20.2 μF     100 μA       1 PLC    100 + 100     200 + 100       400 + 100        600 + 100        410 + 100        418 + 100        627 + 100
+                 100 μF           18 μF        202 μF       1 mA       1 PLC    150 + 100     300 + 100       600 + 100        900 + 100        605 + 100        613 + 100        919 + 100
+                   1 mF         0.18 mF       2.02 mF      10 mA       1 PLC    150 + 100     300 + 100       600 + 100        900 + 100        607 + 100        615 + 100        922 + 100
+                  10 mF          1.8 mF       20.2 mF      10 mA        0.2 s   175 + 100     350 + 100       700 + 100       1050 + 100        705 + 100        713 + 100       1070 + 100
+                 100 mF           18 mF        202 mF      10 mA         2s     175 + 100     350 + 100       700 + 100       1050 + 100        705 + 100        713 + 100       1070 + 100
+
+
+
+
+34
+                                                                                                                                                                          Reference Multimeter
+                                                                                                                                                                      Performance Specifications
+
+
+
+                                                                                             Relative Accuracy                                       Absolute Accuracy
+99 % Confidence                                                                                            ± (μF/F of reading + μF/F of range)
+                                   Range                        Nominal
+                     Range                       Source                    24 Hour        90 day       365 day          2 year          365 day          365 day           2 year
+    Range                         maximum                       Ramp Up
+                    Minimum                      Current                  Tcal ± 1 °C   Tcal ± 1 °C   Tcal ± 1 °C     Tcal ± 1 °C      Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                                    (FS)                          Time
+      1 nF              0 nF       2.02 nF       10 nA           1 PLC    323 + 1290    645 + 1290    1290 + 1290     1940 + 1290     1336 + 1290       2370 + 1290      3550 + 1290
+     10 nF            1.8 nF       20.2 nF      100 nA           1 PLC    194 + 258     387 + 258      774 + 258      1160 + 258       784 + 258        1040 + 258       1560 + 258
+    100 nF            18 nF         202 nF        1 μA           1 PLC    129 + 129     258 + 129      516 + 129       774 + 129        526 + 129        629 + 129        944 + 129
+      1 μF           0.18 μF       2.02 μF       10 μA           1 PLC    129 + 129     258 + 129      516 + 129       774 + 129        523 + 129        534 + 129        801 + 129
+     10 μF            1.8 μF       20.2 μF      100 μA           1 PLC    129 + 129     258 + 129      516 + 129       774 + 129        529 + 129        540 + 129        809 + 129
+    100 μF            18 μF         202 μF        1 mA           1 PLC    194 + 129     387 + 129      774 + 129      1160 + 129        780 + 129        791 + 129       1190 + 129
+      1 mF           0.18 mF       2.02 mF       10 mA           1 PLC    194 + 129     387 + 129      774 + 129      1160 + 129        783 + 129        793 + 129       1190 + 129
+     10 mF            1.8 mF       20.2 mF       10 mA            0.2 s   226 + 129     452 + 129      903 + 129      1360 + 129        909 + 129        920 + 129       1380 + 129
+    100 mF             18 mF        202 mF       10 mA             2s     226 + 129     452 + 129      903 + 129      1360 + 129        909 + 129        919 + 129       1380 + 129
+
+
+Temperature Coefficient (not applicable if within Tcal ±1 °C)
+
+                         ± μF/F of reading
+                                                   5 °C to 15 °C
+         Range                 15 °C to 30 °C
+                                                   30 °C to 40 °C
+             1 nF                   200                    300
+
+           10 nF                    50                     75
+
+          100 nF                    20                     30
+
+             1 μF                    2                      3
+
+           10 μF                     2                     3
+
+          100 μF                     2                     3
+
+             1 mF                    2                      3
+
+           10 mF                     2                      3
+
+          100 mF                     2                      3
+
+
+
+
+                                                                                                                                35
+8588A
+Product Specifications
+
+
+
+
+             Capacitance Lo I ON
+                                                                                                                    Relative Accuracy                                      Absolute Accuracy
+             95 % Confidence                                                                                                      ± (μF/F of reading + μF/F of range)
+                                                       Range                            Nominal
+                                    Range                                 Source                   24 Hour        90 day       365 day          2 year        365 day          365 day           2 year
+                 Range                                maximum                           Ramp Up
+                                   Minimum                                Current                 Tcal ± 1 °C   Tcal ± 1 °C   Tcal ± 1 °C     Tcal ± 1 °C    Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                                                        (FS)                              Time
+                    1 mF             0.18 mF            2.02 mF             1 mA         0.2 s     150 + 100     300 + 100     600 + 100       900 + 100      607 + 100        615 + 100        922 + 100
+                   10 mF              1.8 mF            20.2 mF             1 mA          2s       175 + 100     350 + 100     700 + 100      1050 + 100      705 + 100        713 + 100       1070 + 100
+                  100 mF               18 mF             202 mF             1 mA          2s       175 + 100     350 + 100     700 + 100      1050 + 100      705 + 100        713 + 100       1070 + 100
+
+
+                                                                                                                    Relative Accuracy                                      Absolute Accuracy
+             99 % Confidence                                                                                                      ± (μF/F of reading + μF/F of range)
+                                                       Range                            Nominal
+                                    Range                                 Source                   24 Hour        90 day       365 day         2 year         365 day          365 day           2 year
+                 Range                                maximum                           Ramp Up
+                                   Minimum                                Current                 Tcal ± 1 °C   Tcal ± 1 °C   Tcal ± 1 °C    Tcal ± 1 °C     Tcal ± 1 °C      Tcal ± 5 °C      Tcal ± 5 °C
+                                                        (FS)                              Time
+                    1 mF              0.18 mF            2.02 mF           1 mA          0.2 s    194 + 129     387 + 129      774 + 129      1161 + 129      783 + 129        793 + 129       1190 + 129
+                   10 mF               1.8 mF            20.2 mF           1 mA           2s      226 + 129     452 + 129      903 + 129      1355 + 129      909 + 129        920 + 129       1380 + 129
+                  100 mF                18 mF             202 mF           1 mA           2s      226 + 129     452 + 129      903 + 129      1355 + 129      909 + 129        919 + 129       1380 + 129
+
+
+             Temperature Coefficient (not applicable if within Tcal ±1 °C)
+                                             ± μF/F of reading
+                                                                             5 °C to 15 °C
+                      Range                     15 °C to 30 °C
+                                                                             30 °C to 40 °C
+                               1 mF                      2                          3
+                              10 mF                      2                          3
+                             100 mF                      2                          3
+
+             Capacitance measurement is made using a precision current sink producing a linear voltage ramp. Discharge is also linear at the stated current.
+             The resultant waveform is therefore not directly comparable to a sinusoidal LCR meter .
+             Discharge current (Normal I)
+                  1 nF to 100 μF ............................ 1.2 mA
+                  1 mF to 100 mF .......................... 12 mA
+             Discharge current (Lo I)
+                  All ranges ................................... 1.2 mA
+             Maximum open circuit voltage ............ 3 V
+
+
+
+
+36
+                                                                                                                                                Reference Multimeter
+                                                                                                                                            Performance Specifications
+
+
+
+                        Read Times                                                                Reading / Second
+                        50 Hz                    60 Hz                                                50 Hz                  60 Hz
+                  Normal       Lo I      Normal          Lo I                                    Normal       Lo I   Normal          Lo I
+ 1 nF-100 μF      76 ms         N/A       69 ms          N/A                   1 nF-100 μF          13       N/A       14            N/A
+    1 mF          76 ms       436 ms      69 ms        436 ms                     1 mF              13       2.3       14            2.3
+    10 mF         436 ms       4.04 s     436 ms        4.04 s                    10 mF            2.3       0.24     2.3            0.24
+   100 mF          4.04 s      4.04 s      4.04 s       4.04 s                   100 mF            0.24      0.24     0.24           0.24
+PRT Temperature [2][11][12]
+PRT Temperature readout accuracy (99 % Confidence)
+     Secondary resistance reading accuracy (99 %): ±0.5 mΩ
+     Temperature readout values are calculated using the IEC 60751 industrial PRT (385 curve) conversion algorithm
+                      Temperature readout accuracy (Ro = 100): ±5 mK
+                      Temperature readout accuracy (Ro = 25): ±10 mK
+
+Thermocouple
+Thermocouple temperature readout accuracy 99 % [2][12]
+          Secondary voltage reading accuracy (99 %): ±5 μV
+          Temperature readout values are calculated:
+                     Types K, S, J, E, B, R: ±5 mK
+                              (NIST Monograph 175 conversion algorithm)
+                     Type T: ≥120 K (-123 °C): ±5 mK
+                              <120 K (-123 °C): ±15 mK
+                             (NIST Monograph 175 conversion algorithm)
+                     Type N: ≥120 K (-153 °C): ±5 mK
+                             ≥100 K, < 120 K (≥ -173 °C < -153 °C ) ±25 mK
+                            <100 K ( < -173 °C): ±50 mK
+                             (NIST Monograph 175 conversion algorithm)
+                     Types L, U: ±5 mK
+                            (ITS 90 algorithm)
+
+
+                     Type C: ±5 mK
+                            (IEC 60584-1: 2013 algorithm)
+
+
+
+
+                                                                                                                               37
+8588A
+Product Specifications
+
+
+
+
+             Notes to Performance Specifications
+               1.    Specifications apply for default configuration for aperture and resolution.
+               2.    Assumes 3-hour warm-up period.
+               3.    Input zero or offset null required whenever the temperature moves more than ±1 °C from the temperature at which the previous Zero operation was performed. Or NULL using Math.
+               4.    For all specification tables, TCal = Ambient calibration temperature.
+               5.    Integration time >1 Power Line cycle.
+               6.    Valid for ac signals >1 % Full Scale. Signals must be DC coupled <40 Hz.
+               7.    Maximum Volt.Hertz 3 x 107
+               8.    8558A front terminal maximum is 2 A. Maximum input to rear terminals for both 8558A and 8588A is 2 A.
+               9.    DCV Digitizing and DCV aperture <100 μs: for inputs >160 % of range add 20 μV/V of range.
+               10.   Tru Ohms mode available on 2 Ω to 20 kΩ ranges. Read Rate reduced in Tru Ohms Mode. Specification for Tru Ohms same as corresponding Normal or Lo Current range.
+               11.   Valid for 4-wire sensor.
+               12.   Not including sensor uncertainty.
+               13.   The zero TC specification only needs to be applied if an input zero has not been performed within ±1 °C of the current operating temperature.
+               14.   >2 GΩ Relative Humidity Operating <80 % to 30 °C <70 % to 40 °C.
+               15.   Transfer specification for DCV, DCI, and Ohms applies to measurement made between 10 % and 120 % of range for deviations of up to 10 % of the initial measurement made using the same configuration
+                     for range, filter, aperture, delay etc. Specification accounts for linearity and noise but excludes temperature coefficient which should be calculated from the data provided according to the environment in
+                     which the instrument is used.
+               16.   Transfer specification for ACV and ACI applies to measurements made between 10 % of range and full scale and accounts for deviations of up to 1 % of frequency and 10 % of amplitude of the initial
+                     measurement. Measurement must be made using the same configuration for range, filter, aperture, delay etc. The quoted transfer specification accounts for linearity, flatness and noise but excludes
+                     temperature coefficient which should be calculated from the data provided according to the environment in which the instrument is used.
+               17.   Extended HF mode must be selected.
+               18.   Differential non-linearity is included in the specification.
+               19.   For AC signals refer to the ACV/ACI specification.
+
+             RF Power
+             The 8588A does not add any measurement uncertainty to the Power readout. Refer to the specification of the power sensor connected.
+
+
+
+
+38
+                                                                                                Reference Multimeter
+                                                                                            Performance Specifications
+
+
+
+Frequency Counter
+99 % Confidence
+Input Rear BNC
+     Minimum frequency .............................. 10 Hz
+     Maximum frequency ............................. 100 MHz
+     Maximum V ........................................... 5 Vpk
+     Minimum V ............................................ 0.5 Vpp
+ Gate time                                                      Display Resolution
+     1 s ......................................................... 8½
+     100 ms .................................................. 7½
+     10 ms .................................................... 6½
+     1 ms ...................................................... 5½
+     100 μs ................................................... 4½
+Input Signal Voltage
+     Minimum frequency .............................. 1 Hz
+     Maximum frequency ............................. 10 MHz
+     Signal Amplitude > 10 % of Range to limit set by maximum VHz
+Input Signal Current
+     Minimum frequency .............................. 1 Hz
+     Maximum frequency ............................. 100 kHz
+     Signal Amplitude > 10 % of Range or >20 μA
+Frequency Accuracy
+     Initial adjustment .................................. ±0.1 μHz/Hz
+     Temperature coefficient ........................ ±0.05 μHz/Hz
+     Operating temperature range ............... ±0.5 μHz/Hz
+     Aging .................................................... ±1.0 μHz/Hz per year
+
+
+
+
+                                                                                       39
+8588A
+Product Specifications
+
+
+
+
+             System Speed
+              Change configuration and take one reading in remote control              GPIB                USB            Ethernet
+               DCV ≤10 V range to/from DCV ≤10 V range                         125/s               150/s               130/s
+               DCV to DCV > 10 V range                                         75/s                80/s                75/s
+               Other function to DCV                                           50/s                50/s                55/s
+                                                                                  To Volatile
+                                          Reading Speed                                                                   To GPIB              To USB           To Ethernet
+                                                                                   memory
+               DCV, DCI readings                                               20 000/s                                -                   -                  -
+               DCV, DCI readings                                               100 000/s          [F]                  -                   -                  -
+               Normal Ohms, DCI Ext Shunt, Thermocouple, and PRT 2W            4 700/s                                 -                   -                  -
+               ACV, ACI, ACI Ext Shunt (1 kHz filter)                          66/s                                    -                   -                  -
+               Capacitance                                                     13/s                                    -                   -                  -
+               Digitize capture rate into volatile buffer                      5 000 000/s                             -                   -                  -
+               Digitize captured data transfer to volatile memory              500 000/s                               -                   -                  -
+               DCV, DCI single "READ?"s                                        -                  [e]                  230/s               500/s              230/s
+               DCV, DCI SYNC triggered TALK? to GPIB                           -                  [e]                  1500/s              n/a                n/a
+               DCV, DCI SYNC triggered TALK? to GPIB                           -                  [b]                  2000/s              n/a                n/a
+               DCV, DCI SYNC triggered TALK? to GPIB                           -                  [B]                  2000/s              n/a                n/a
+               DCV, DCI continuous FNOW?                                       -                  [b][F]               200 000/s           500 000/s          75 000/s
+               DCV, DCI continuous FNOW?                                       -                  [B][F]               100 000/s           300 000/s          75 000/s
+                                                                                    Bus Transfer Speed
+               Readings from volatile memory                                      -              [e]              4000/s                30 000/s               50 000/s
+               Readings from volatile memory                                      -              [b]              8000/s                100 000/s              180 000/s
+               Readings from volatile memory                                      -              [B]              7000/s                90 000/s               180 000/s
+               Readings from volatile memory                                      -              [b][F]           200 000/s             500 000/s              200 000/s
+               Readings from volatile memory                                      -              [B][F]           100 000/s             400 000/s              200 000/s
+               Notes:
+               [e] = engineering format rounded to 4.5 digits for display
+               [b] = 2 byte binary format
+               [B] = 4 byte binary format
+               [F] = 2-byte or 4-bite binary captured with DISP OFF, STATS OFF, and PRESET FAST mode. PRESET FAST selects 2 byte binary, 4 byte can be set if required.
+
+             Tru Ohms, Scan, and auto-range front/rear settling delay times
+               Range of setting ............... 0 s to 65 000 s
+               Resolution of setting ......... 1 ms
+               Accuracy of setting ........... 0.5 ms
+
+
+
+
+40
+                                                                                                                                                                                          Reference Multimeter
+                                                                                                                                                                                      Performance Specifications
+
+
+
+                                                                          Trigger Latency
+External Frequency Reference Clock
+                                                                                Digitizing and AC functions
+ Frequency
+                   Maximum input                      ±5 Vpk                    Ext Trigger edge at rear BNC to ADC conversion begin................... 60 ns to 100 ns
+ Ref In BNC
+                   Minimum input                      0.2 Vpp                   Jitter .................................................................................................. 10 ns pkpk
+
+                   Impedance                          50 Ω                      Maximum input frequency ................................................................. 25 MHz
+
+                                                      1 MHz /                   DC functions, Ohms; Capacitance; PRT; Thermocouple
+                   Frequency – user selectable
+                                                      10 MHz                         Ext Trigger edge at rear BNC to ADC conversion begin ............ 2.8 μs
+                   Frequency lock range               ±5 μHz/Hz                      Jitter ............................................................................................ 0.2 μs
+                                                                          DC functions, aperture ≥ 100 μs: aperture closed to reading complete .... <170 μs
+Triggering                                                                Conversion time overhead (additional to aperture setting)
+                UI Delay Resolution Settings                                    Digitize .................................................... 200 ns ................................ 200 ns
+             Time (seconds)                                                     DC functions, aperture <100 μs .............. 30 μs .................................. 30 μs
+        From               Up to          Setting Resolution              Trigger source INTernal (signal level)
+         0                       0                      N/A
+                                                                                Setting resolution .................................... 1 % of range ....................... 1 % of range
+   0.000 000 030           40.000 000 00               10 ns
+                                                                                Accuracy ................................................. 5 % of range ....................... 5 % of range
+   40.000 000 00           400.000 000 0               100 ns
+                                                                                Range ..................................................... ±200 % ............................... ±200 %
+   400.000 000 0           4000.000 000                  1 μs
+   4000.000 000            40 000.000 00                10 μs             Trig In BNC
+   40 000.000 00           400 000.000 0                100 μs                  Maximum input ........................................ ±5 Vpk
+  400 000.000 0            4 000 000.000                 1 ms                   Threshold selectable ............................... TTL or ±0.1 V
+Note setting resolution is also pkpk jitter for delays (but not timers)         Impedance .............................................. 10 kΩ
+                                                                          Trig Out BNC
+                   Timer resolution settings                                    Output levels ........................................... 3.3 V / 0 V
+             Time (seconds)                                               Source selectable from:
+        From                Up to          Setting Resolution
+                                                                                                                                             Off
+    0.000 000 02           40.000 000 00                10 ns
+                                                                                                                                             Signal acquired - 1 μs pulse
+   40.000 000 00           400.000 000 0               100 ns
+                                                                                                                                             Aperture open - level
+   400.000 000 0           4000.000 000                  1 μs
+   4000.000 000            40 000.000 00                10 μs                                                                                Reading count complete - 1 μs pulse
+   40 000.000 00           400 000.000 0               100 μs                                                                                On event - 1 μs pulse when an enabled event
+                                                                                                                                             occurs in operation status register or
+   400 000.000 0           4 000 000.000                1 ms
+                                                                                                                                             questionable status registers
+                                                                                                                                             Reading complete - 1 μs pulse
+                                                                          Output polarity ................................................ Negative or positive pulse or level
+
+
+
+
+                                                                                                                                 41
+

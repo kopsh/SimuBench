@@ -1,0 +1,23 @@
+schema: simubench.bench/2
+name: fluke_8588a_calibrator
+description: >-
+  Fluke 5522A 多功能校准源的 NORMAL 输出接 Fluke 8588A 参考万用表的 INPUT HI（两台都是真实型号，
+  D42）：校准源给直流 10 V 与 1 kHz 交流 1 V，万用表按手册的 CONFigure + READ? 写法读回。直流电压
+  Auto 输入阻抗在 10 V 量程为 >1 TΩ，校准源的输出几乎不受加载；交流电压的信号通路为 1 MΩ。
+instruments:
+  cal:
+    model: fluke-5522a
+    label: 多功能校准源
+    address: "GPIB0::4::INSTR"
+  dmm:
+    model: fluke-8588a
+    label: 参考万用表
+    address: "GPIB0::7::INSTR"
+wires:
+  - {from: cal.OUT, to: dmm.IN}
+run:
+  seed: 11
+  clock: command
+layout:
+  cal: {x: 0, y: 80}
+  dmm: {x: 560, y: 80}

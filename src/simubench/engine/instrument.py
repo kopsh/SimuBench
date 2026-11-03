@@ -266,6 +266,11 @@ class Instrument:
                 # setting bound both as the level's load and as its range table's key)
                 if comp not in self._watchers[path]:
                     self._watchers[path].append(comp)
+            for path in comp.watched_paths():
+                # the settings inside a nested mapping too (the 8588A's input impedance under the
+                # function, #340)
+                if path in self.specs and comp not in self._watchers[path]:
+                    self._watchers[path].append(comp)
             for path in comp.watches:  # read by path, still told of changes (#274)
                 if path in self.specs and comp not in self._watchers[path]:
                     self._watchers[path].append(comp)
@@ -1713,7 +1718,12 @@ class Instrument:
                             raise ScpiError(-222)
                         out[ps.name] = v
                 elif ps.type == "int":
-                    out[ps.name] = V.parse_int(r)
+                    n = V.parse_int(r)
+                    # declared bounds hold for an operation's integer as for its float (FETCh? 2
+                    # on a meter that has only the primary reading)
+                    if (ps.min is not None and n < ps.min) or (ps.max is not None and n > ps.max):
+                        raise ScpiError(-222)
+                    out[ps.name] = n
                 elif ps.type == "bool":
                     out[ps.name] = V.parse_bool(r)
                 elif ps.type == "enum":
