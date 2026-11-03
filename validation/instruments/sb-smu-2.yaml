@@ -154,6 +154,17 @@ commands:
     op: ch.trig.initiate
     query: false
     params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  # ABORt and READ over a channel list (#396): each channel's trigger model in list order, as the
+  # B2900 writes them (:ABOR (@1,2), :READ:ARR:CURR? (@2,1)).
+  - header: ":ABORt[:ALL]"
+    op: ch.trig.abort
+    query: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: ":READ[:ARRay]:CURRent"
+    op: ch.trig.read
+    set: false
+    args: {elements: [CURR]}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
   - header: ":FETCh:ARRay:CURRent"
     op: ch.trig.fetch
     set: false
