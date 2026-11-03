@@ -9,6 +9,7 @@ from __future__ import annotations
 import itertools
 import math
 from collections.abc import Iterable
+from numbers import Real
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -96,7 +97,7 @@ def check_value(comp: Component, parameter: str, value: Any, path: str | None = 
 
     binding = default is None or (isinstance(default, str) and default.startswith("$"))
     if binding and parameter in getattr(comp, "units", {}):
-        if not (isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)):
+        if not (isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)):
             reject("a finite number")
         return
     if binding:
@@ -107,11 +108,13 @@ def check_value(comp: Component, parameter: str, value: Any, path: str | None = 
             check_value(comp, parameter, leaf, path=f"{base}[{key!r}]")
         return
     if isinstance(default, bool):
-        ok = isinstance(value, bool)
+        ok = isinstance(value, (bool, np.bool_))
         expected = "a bool"
     elif isinstance(default, (int, float)):
+        # numbers.Real takes the numpy scalars: np.int64 is not an int and np.float32 is not a
+        # float, but a drawn or computed value is exactly that (#501).
         expected = "a finite number"
-        ok = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+        ok = isinstance(value, Real) and not isinstance(value, bool) and math.isfinite(value)
     elif isinstance(default, str):
         expected, ok = "a string", isinstance(value, str)
     elif isinstance(default, (list, tuple)):
