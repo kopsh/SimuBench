@@ -142,30 +142,30 @@ sections:
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:DCYCle'
     level: implemented
-    note: 脉冲占空比（%），*RST 10；以宽度/周期设定（WIDTh、PERiod、HOLD）未建模。
+    note: 脉冲占空比（%），*RST 10；也可由 FUNC:PULS:WIDT 写入（宽度 × 频率，#437）；HOLD 未建模。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:HOLD'
     level: not_modeled
     note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:PERiod'
-    level: not_modeled
-    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+    level: implemented
+    note: 脉冲周期 = 1/频率，写周期即改频率（占空比保持）（手册 Pulse Period，#437）；周期与宽度“后设者优先”的保持（HOLD）未建模。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition[:BOTH]'
-    level: not_modeled
-    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+    level: implemented
+    note: 前后沿同设（10–90 %，2.9 ns–1 µs，默认 10 ns，手册 Edge Times，#437）；查询回前沿。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:LEADing'
-    level: not_modeled
-    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+    level: implemented
+    note: 前沿 10–90 % 时间，作用于输出波形（线性边沿，谱线乘 sinc，#437）；边沿须容于宽度的调整未建模。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:TRANsition:TRAiling'
-    level: not_modeled
-    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+    level: implemented
+    note: 后沿 10–90 % 时间，作用于输出波形（#437）。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:WIDTh'
-    level: not_modeled
-    note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+    level: implemented
+    note: 脉冲宽度（50 % 到 50 %）= 占空比 × 周期，写宽度即改 FUNC:PULS:DCYC；宽度不在周期内 -222（手册 Pulse Width，#437）；最小宽度 5/8 ns 的限制未检查。
 - section: FREQuency Subsystem
   commands:
   - header: '[:SOURce<ch>]:FREQuency'
     level: implemented
-    note: 1 µHz–120 MHz；方波/脉冲到 100 MHz；按幅度的频率上限与三角/斜波 800 kHz 未单独检查。*RST 1 kHz。
+    note: 1 µHz 到当前波形的最高频率：正弦 120 MHz、方波/脉冲 100 MHz、斜波/三角 800 kHz（手册第 1 章 Models and Options，33622A）；FREQ? MAX 随波形变化；超出时 -222 并置为该最高频率；换到最高频率更低的波形时频率被降到该值并报 -221（#437）。按幅度的分档（10 Vpp 时更低）未建模。*RST 1 kHz。
   - header: '[:SOURce<ch>]:FREQuency:CENTer'
     level: not_modeled
     note: 扫频未建模。
