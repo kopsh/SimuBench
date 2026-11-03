@@ -269,7 +269,7 @@ class CounterCore(Component):
     }
     optional_refs = frozenset({"statistics", "timebase"})
     defaults = {
-        "function": "FREQuency",  # FREQuency | PERiod | TOTalize | TINTerval
+        "function": "FREQuency",  # FREQuency | PERiod | TOTalize | TINTerval | TSTamp (time stamps, #385)
         "gate": "",  # the counter_gate
         "clock": "",  # the reference_clock (timebase)
         "a_input": "",  # the counter_input of channel A (threshold, sensitivity)
@@ -278,13 +278,15 @@ class CounterCore(Component):
         "timebase": "",  # the counter_timebase: timestamps and gap-free gates (empty: none, #328)
         "trigger_error": 1e-9,  # s, one channel's trigger error (model value)
         "single_shot_s": 1e-9,  # s, the interpolator's single-shot resolution (model value)
+        "timestamp_rate": 1.0e6,  # Hz, the highest rate time stamps are generated at (TSTamp:RATE, #385)
     }
-    units = {"trigger_error": "s", "single_shot_s": "s"}
+    units = {"trigger_error": "s", "single_shot_s": "s", "timestamp_rate": "Hz"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._run_start_ns: int | None = None
         self._span_s = 0.0  # the last reading's span on the timebase (gap-free), s
+        self._stamps: tuple[int, float, float] | None = None  # time stamps: (scale, period s, first ns)
 
     # ---- the blocks -----------------------------------------------------------------------------
 
@@ -374,13 +376,48 @@ class CounterCore(Component):
 
     # ---- the trigger model's sampler ------------------------------------------------------------
 
+    def _timestamping(self) -> bool:
+        return self.function().upper().startswith("TST")
+
+    def _stamp_plan(self) -> tuple[int, float, float] | None:
+        """Time stamps (#385, the 53230A): every ``scale``-th rising edge on channel A from the
+        first one, ``scale`` the smallest number of input cycles whose span is longer than one
+        time-stamp period (1 below the rate; the guide's 10 MHz at 1 MHz gives 11)."""
+        found = self._input("a").crossings(self.session.now_ns)
+        if found is None:
+            return None
+        period, first = found
+        rate = float(self.param("timestamp_rate"))
+        scale = math.floor(1.0 / (period * rate)) + 1 if rate > 0 else 1
+        return scale, period, first
+
     def sample_time_ns(self) -> int:
+        if self._timestamping() and self._stamps is not None:
+            scale, period, _ = self._stamps
+            return max(1, round(scale * period * 1e9))
         return self._gate().duration_ns()
 
     def run_begin(self) -> None:
         self._run_start_ns = self.session.now_ns
+        self._stamps = self._stamp_plan() if self._timestamping() else None
+
+    def _stamp_sample(self, index: int) -> float:
+        """Reading 0 is the scale factor; reading k the time between stamped edges k−1 and k on
+        the timebase (scale × the input period, with the interpolator's resolution)."""
+        if self._stamps is None:
+            return 0.0
+        scale, period, first = self._stamps
+        if index == 0:
+            return float(scale)
+        timebase = self._timebase()
+        if timebase is None:
+            raise ScpiError(-221, "this counter has no timebase block for time stamps")
+        step = scale * period * 1e9
+        return timebase.timestamp(first + index * step) - timebase.timestamp(first + (index - 1) * step)
 
     def sample(self, index: int) -> float:
+        if self._timestamping():
+            return self._stamp_sample(index)
         start = self._run_start_ns if self._run_start_ns is not None else self.session.now_ns
         at = int(start + index * self.sample_time_ns())
         timebase = self._timebase()
