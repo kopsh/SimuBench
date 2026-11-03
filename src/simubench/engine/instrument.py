@@ -993,6 +993,9 @@ class Instrument:
                 return header
             if name == "value":
                 return body.decode(errors="replace")
+            # the reply as a definite-length block (DAQ970A ROUT:SCAN? answers #13(@), #415)
+            if name == "value_block":
+                return V.format_block(body).decode(errors="replace")
             if fields and name in fields:
                 return fields[name]
             path = self._resolve(name, channel)
