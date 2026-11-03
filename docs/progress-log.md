@@ -1030,3 +1030,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 已知差异 | ⚠️ `CONFigure?` 的数字为 9 位有效（手册示例 7 位）、`DATA:POINts?` 无正号（手册 +320），由共用组件决定，覆盖表注明 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## amplitude_level 的高/低电平（Issue 424）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 操作 | ✅ `amplitude_level` 新增 `high`/`low`：查询回偏置 ± Vpp/2；设定时保持另一电平，改写绑定的幅度（换算到当前单位）与偏置，经正常的范围检查；高不高于低报 -222（Trueform 33500-90901 的 VOLTage:HIGH/LOW） |
+| 测试 | ✅ `tests/test_amplitude_levels.py` 4 项：电平随幅度/偏置、设一个保持另一个、高低倒置 -222、VRMS 单位下换算 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
