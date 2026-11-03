@@ -21,7 +21,10 @@ SPECIAL_NUMERIC = {"MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT", "NAN"} 
 
 
 def short_form(word: str) -> str:
-    """Short form of a mixed-case SCPI word: ``SINusoid`` -> ``SIN``."""
+    """Short form of a mixed-case SCPI word: ``SINusoid`` -> ``SIN``. A compound word keeps its
+    colons, each node shortened: ``VOLTage:AC`` -> ``VOLT:AC``."""
+    if ":" in word:
+        return ":".join(short_form(node) for node in word.split(":"))
     s = "".join(c for c in word if c.isupper() or c.isdigit())
     return s or word.upper()
 
@@ -97,16 +100,27 @@ def parse_bool(raw: bytes) -> bool:
 
 
 def matches_word(text: str, word: str) -> bool:
-    """Whether ``text`` is the short or the long form of a mixed-case SCPI ``word``."""
-    t = text.strip().upper()
-    return t in (word.upper(), short_form(word))
+    """Whether ``text`` is the short or the long form of a mixed-case SCPI ``word``; quotes around
+    ``text`` do not count (a string parameter, ``"CAP"``). A compound word (``VOLTage:AC``, the
+    8588A's function names) matches node by node, each node long or short (``VOLT:ACURRENT`` no,
+    ``VOLTAGE:AC`` and ``VOLT:AC`` yes)."""
+    q = unquote(text.encode(errors="replace"))
+    t = (q if q is not None else text).strip().upper()
+    if t in (word.upper(), short_form(word)):
+        return True
+    nodes, words = t.split(":"), word.split(":")
+    return (
+        len(words) > 1
+        and len(nodes) == len(words)
+        and all(n in (w.upper(), short_form(w)) for n, w in zip(nodes, words, strict=True))
+    )
 
 
 def parse_enum(raw: bytes, options: Sequence[str]) -> str:
     t = unquote(raw)
     t = (t if t is not None else _text(raw)).upper()
     for opt in options:
-        if t in (opt.upper(), short_form(opt)):
+        if matches_word(t, opt):
             return opt
     raise ScpiError(-224, f"{t!r} is not one of {', '.join(short_form(o) for o in options)}")
 

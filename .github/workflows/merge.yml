@@ -77,7 +77,13 @@ jobs:
               if [ "$RESULT" != "completed/success" ]; then
                 RUN_URL=$(gh run view "$RUN_ID" --repo "$REPO" --json url --jq .url 2>/dev/null || true)
                 if [ -n "$RUN_URL" ]; then RUN_TEXT="[the run]($RUN_URL)"; else RUN_TEXT="run $RUN_ID"; fi
-                gh pr comment "$n" --repo "$REPO" --body "the re-test run on the merged head ended ${RESULT:-without a result} ($RUN_TEXT). Push a fix — a new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
+                case "$RESULT" in
+                  completed/failure) OUTCOME="failed" ;;
+                  completed/cancelled) OUTCOME="was cancelled" ;;
+                  "") OUTCOME="never reported a result within 30 minutes (it may be stuck: cancel or re-run it)" ;;
+                  *) OUTCOME="did not finish within 30 minutes (last seen: ${RESULT:-nothing})" ;;
+                esac
+                gh pr comment "$n" --repo "$REPO" --body "the re-test run on the merged head $OUTCOME ($RUN_TEXT). Push a fix — a new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
                 continue
               fi
               TESTED="$NEW"

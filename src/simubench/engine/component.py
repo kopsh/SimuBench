@@ -123,6 +123,21 @@ def binding_of(value: Any) -> str | None:
     return None
 
 
+def nested_bindings(value: Any) -> list[str]:
+    """Every state path a parameter value reads: its own binding and those inside a nested mapping
+    (a mapped value or default that is itself ``$path`` or another mapping, #383), so a change of
+    any of them reaches the component."""
+    found: list[str] = []
+    if isinstance(value, str) and value.startswith("$"):
+        found.append(value[1:])
+    elif isinstance(value, dict) and "from" in value:
+        found.extend(nested_bindings(value["from"]))
+        for inner in dict(value.get("map") or {}).values():
+            found.extend(nested_bindings(inner))
+        found.extend(nested_bindings(value.get("default")))
+    return found
+
+
 def map_setting(mapping: dict[str, Any], value: Any) -> Any:
     """A setting's value through a parameter mapping: ``map`` (else ``default``, else as is), then
     a numeric ``table`` (the largest entry not above the value), then ``value * scale + offset``
@@ -402,6 +417,16 @@ class Component:
             except Exception:  # a binding that cannot resolve yet
                 out[key] = None
         out.update(self.overrides)
+        return out
+
+    def watched_paths(self) -> list[str]:
+        """Every state path a parameter reads, nested mappings included (see ``nested_bindings``)."""
+        out: list[str] = []
+        for value in self._params.values():
+            for ref in nested_bindings(value):
+                path = self.resolve_path(ref)
+                if path not in out:
+                    out.append(path)
         return out
 
     def nominal(self) -> list[tuple[str, Any, str | None]]:

@@ -1,0 +1,704 @@
+schema: simubench.instrument/1
+id: fluke-8588a
+manufacturer: FLUKE
+model: 8588A
+class: multimeter
+version: 1
+description: >-
+  Fluke 8588A, 8½ 位参考级数字万用表。Real model (D42): 命令、回复与错误文字按 8588A/8558A Remote
+  Programmer's Manual；量程、测试电流、分流电阻与输入阻抗按 8588A Product Specifications，真实进入
+  电路求解。实现直流/交流电压、直流/交流电流与两线/四线电阻；频率、电容、温度、数字化、外接分流与射频
+  功率未实现（覆盖表逐条注明）。
+reference:
+  title: 8588A/8558A Reference Multimeter and 8½ Digit Multimeter Remote Programmer's Manual
+  document: 8588A-rpeng0000
+  version: March 2019
+  firmware: as covered by the March 2019 Remote Programmer's Manual
+identity:
+  # 手册（Prepare the Product for GPIB Remote Control 的 Note）：厂商 FLUKE、型号 8588A、10 位序列号、
+  # 固件版本。手册未给固件串的写法，取公开固件包的版本号形式。
+  idn: "FLUKE,8588A,{serial},{firmware}"
+  serial: "4523000101"
+  firmware: "1.28"
+format:
+  number: nr3
+  digits: 8
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+# 错误码与文字按手册 Error Codes 一节（分号后是设备相关说明，引擎在其后附上原因）。
+errors:
+  0: No error
+  -102: Syntax error
+  -104: Data type error
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -113: Undefined header
+  -114: Header suffix out of range
+  -115: Unexpected number of parameters
+  -120: Numeric data error
+  -130: Suffix error
+  -131: Invalid suffix
+  -150: String data error
+  -151: Invalid string data
+  -200: Execution Error
+  -201: Invalid while in local
+  -211: Trigger ignored
+  -213: Init ignored
+  -214: Trigger deadlock
+  -221: Settings conflict
+  -222: Data out of range
+  -223: Too much data
+  -224: Illegal parameter value
+  -230: Data corrupt or stale
+  -300: Device-specific error
+  -310: System error
+  -350: Queue overflow
+  -410: Query INTERRUPTED
+  -420: Query UNTERMINATED
+  -430: Query DEADLOCK
+specs:
+  source: 8588A Product Specifications (8588A-pseng0000, March 2019)
+  digits: "8½"
+  dcv_ranges_full_scale: {100mV: 202 mV, 1V: 2.02 V, 10V: 20.2 V, 100V: 202 V, 1000V: 1050 V}
+  dcv_accuracy_ppm_365day_95pct: {reading_plus_range: {100mV: [2.7, 2.0], 1V: [2.7, 0.3], 10V: [2.7, 0.05], 100V: [4.0, 0.3], 1000V: [4.0, 0.5]}}
+  dcv_input_impedance: {auto: ">1 TΩ (100 mV–10 V), 10 MΩ (100 V, 1000 V)", 10M: 10 MΩ ±1 %, 1M: 1.01 MΩ ±1 %}
+  dci_input_impedance_front: {10uA: 100 Ω, 100uA: 100 Ω, 1mA: 10.5 Ω, 10mA: 1.5 Ω, 100mA: 0.8 Ω, 1A: 0.4 Ω, 10A: 10 mΩ, 30A: 10 mΩ}
+  ohms_measurement_current_normal: {1: 100 mA, 10: 10 mA, 100: 10 mA, 1k: 1 mA, 10k: 100 µA, 100k: 100 µA, 1M: 10 µA, 10M: 1 µA, 100M: 100 nA, 1G: 10 nA}
+  ohms_measurement_current_lo_current: {1: 100 mA, 10: 10 mA, 100: 1 mA, 1k: 100 µA, 10k: 10 µA, 100k: 10 µA, 1M: 1 µA, 10M: 100 nA, 100M: 10 nA, 1G: 10 nA}
+  ohms_measurement_current_hv: {10M: 10 µA, 100M: 1 µA, 1G: 100 nA, 10G: 10 nA}
+  aperture: "0–10 s；Auto / Auto Fast 按分辨率位数（Operators Manual Table 8），7 位为 1 s / 0.2 s"
+state:
+  sense.function:
+    type: enum
+    # SENSe:FUNCtion 的字符串（手册 Table 6）；VOLTage 与 VOLTage:DC 同义，查询都回 "VOLT"。
+    options: [VOLTage, "VOLTage:DC", "VOLTage:AC", CURRent, "CURRent:DC", "CURRent:AC", RESistance, FRESistance]
+    replies: {"VOLTage:DC": VOLT, "CURRent:DC": CURR}
+    not_modeled:
+      CAPacitance: the capacitance function is not modeled
+      "DIGitize:CURRent": the digitize function is not modeled
+      "DIGitize:VOLTage": the digitize function is not modeled
+      FREQuency: the frequency counter is not modeled
+      PERiod: the frequency counter is not modeled
+      POWer: the RF power sensor is not modeled
+      "TEMPerature:FRTD": the temperature functions are not modeled
+      "TEMPerature:RTD": the temperature functions are not modeled
+      "TEMPerature:TCouple": the temperature functions are not modeled
+      "TEMPerature:TRTD": the temperature functions are not modeled
+      XCURrent: the external-shunt current functions are not modeled
+      "XCURrent:DC": the external-shunt current functions are not modeled
+      "XCURrent:AC": the external-shunt current functions are not modeled
+    default: VOLTage
+    label: 测量功能
+    label_en: Function
+  # 量程设定是"要测的最大值"（手册 Parameters 一节：2.03–20.02 选 10 V 量程），各量程满度为标称的
+  # 2.02 倍；调理块按设定 ÷ 2.02 选最小能测的量程。各功能有自己的量程设定（Table 7 的默认值）。
+  sense.range:
+    type: float
+    unit: V
+    min: 0.1
+    max: 1000.0
+    default: 1000.0
+    label: 直流电压量程设定
+    label_en: DCV range setting
+  sense.ac.range:
+    type: float
+    unit: V
+    min: 0.01
+    max: 1000.0
+    default: 1000.0
+    label: 交流电压量程设定
+    label_en: ACV range setting
+  sense.curr.range:
+    type: float
+    unit: A
+    min: 1.0e-5
+    max: 30.0
+    default: 30.0
+    label: 直流电流量程设定
+    label_en: DCI range setting
+  sense.curr.ac.range:
+    type: float
+    unit: A
+    min: 1.0e-5
+    max: 30.0
+    default: 30.0
+    label: 交流电流量程设定
+    label_en: ACI range setting
+  sense.res.range:
+    type: float
+    unit: OHM
+    min: 1.0
+    max: 1.0e10
+    default: 10000.0
+    label: 两线电阻量程设定
+    label_en: 2-wire ohms range setting
+  sense.fres.range:
+    type: float
+    unit: OHM
+    min: 1.0
+    max: 1.0e10
+    default: 10000.0
+    label: 四线电阻量程设定
+    label_en: 4-wire ohms range setting
+  sense.range_auto:
+    type: bool
+    default: false
+    label: 自动量程
+    label_en: Autorange
+  sense.resolution:
+    type: float
+    min: 0.0
+    max: 1.0e10
+    default: 1.0e-4
+    not_modeled:
+      MINimum: the finest resolution depends on the range and is not modeled
+      MAXimum: the coarsest resolution depends on the range and is not modeled
+    label: 分辨率设定
+    label_en: Resolution setting
+  sense.aperture:
+    type: float
+    unit: S
+    min: 0.0
+    max: 10.0
+    default: 1.0
+    label: 孔径时间（手动）
+    label_en: Aperture (manual)
+  sense.aperture_mode:
+    type: enum
+    options: [AUTO, FAST, MANual]
+    default: AUTO
+    label: 孔径方式
+    label_en: Aperture mode
+  sense.impedance:
+    type: enum
+    options: [AUTO, "1M", "10M"]
+    default: AUTO
+    option_labels: {AUTO: "Auto（>1 TΩ / 10 MΩ）", "1M": "1 MΩ", "10M": "10 MΩ"}
+    label: 直流电压输入阻抗
+    label_en: DCV input impedance
+  sense.ac.filter:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 1000.0
+    default: 40.0
+    # 手册：取最接近的离散设定 0.1、1、10、40、100 Hz、1 kHz。
+    ladder: [0.1, 1.0, 10.0, 40.0, 100.0, 1000.0]
+    label: 交流 RMS 滤波
+    label_en: AC RMS filter
+  sense.res.mode:
+    type: enum
+    options: [NORMal, HIV]
+    default: NORMal
+    label: 两线电阻方式
+    label_en: 2-wire ohms mode
+  sense.fres.mode:
+    type: enum
+    options: [NORMal, "TRUE", HIV]
+    default: NORMal
+    label: 四线电阻方式
+    label_en: 4-wire ohms mode
+  sense.res.lowi:
+    type: bool
+    default: false
+    label: 两线电阻低电流
+    label_en: 2-wire ohms low current
+  sense.fres.lowi:
+    type: bool
+    default: false
+    label: 四线电阻低电流
+    label_en: 4-wire ohms low current
+  init.continuous:
+    type: bool
+    default: false
+    # 遥控时 INIT:CONT 为 OFF（手册 Table 12 注 1）；连续触发未建模。
+    not_modeled:
+      "ON": continuous initiation is not modeled
+      "1": continuous initiation is not modeled
+    label: 连续触发
+    label_en: Continuous initiation
+  trigger.source:
+    type: enum
+    options: [IMMediate, BUS, EXTernal]
+    default: IMMediate
+    not_modeled:
+      HOLD: the HOLD trigger source is not modeled
+      INTernal: level triggering on the measured signal is not modeled
+      LINE: line triggering is not modeled
+      MANual: the front-panel TRIG key is not modeled
+      SYNChronous: synchronous triggering is not modeled
+      TIMer: the trigger timer is not modeled
+    label: 触发源
+    label_en: Trigger source
+  trigger.count:
+    type: int
+    min: 1
+    max: 1000000
+    default: 1
+    label: 触发计数
+    label_en: Trigger count
+  trigger.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.0
+    label: 触发延迟
+    label_en: Trigger delay
+  trigger.delay_auto:
+    type: bool
+    default: true
+    label: 自动触发延迟
+    label_en: Automatic trigger delay
+  display.state:
+    type: bool
+    default: true
+    label: 显示
+    label_en: Display
+  display.brightness:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 50.0
+    label: 显示亮度（%）
+    label_en: Display brightness (%)
+  display.timer:
+    type: float
+    unit: S
+    min: 0.0
+    default: 1800.0
+    label: 背光定时
+    label_en: Backlight timer
+  format.data:
+    type: enum
+    options: [ASCii]
+    default: ASCii
+    not_modeled:
+      PACKed: packed binary readings are not modeled
+    label: 数据格式
+    label_en: Data format
+  format.scale:
+    type: float
+    min: 1.0
+    max: 1.0
+    default: 1.0
+    readonly: true
+    label: 二进制比例
+    label_en: Binary scale
+  format.border:
+    type: enum
+    options: [NORMal, SWAPped]
+    default: NORMal
+    # 手册 Remote Command Examples：*RST 后 Result bit order = Swapped（命令表的默认值是 NORMal）。
+    rst: SWAPped
+    label: 字节序
+    label_en: Byte order
+  memory.location:
+    type: enum
+    options: [BUFFer]
+    default: BUFFer
+    not_modeled:
+      BINTernal: storing readings in non-volatile memory is not modeled
+    label: 读数存放位置
+    label_en: Reading storage
+  route.terminals:
+    type: enum
+    options: [FRONt]
+    default: FRONt
+    not_modeled:
+      REAR: only the front input terminals are modeled
+      SCAN: front/rear scanning is not modeled
+      ISOLated: isolated terminals are not modeled
+    label: 输入端子
+    label_en: Input terminals
+  system.version:
+    type: float
+    min: 1999.0
+    max: 1999.0
+    default: 1999.0
+    readonly: true
+    label: SCPI 版本
+    label_en: SCPI version
+  line.frequency:
+    type: int
+    min: 50
+    max: 60
+    default: 50
+    readonly: true
+    label: 电源频率
+    label_en: Line frequency
+components:
+  # 输入端子：直流电压按 IMPedance（Auto 在 100 mV–10 V 量程为 >1 TΩ，否则 10 MΩ；10M；1M 为
+  # 1.01 MΩ）；交流电压的信号通路默认 AC1M（1 MΩ，*RST 值，COUPling:SIGNal 未实现）。电阻按方式、
+  # 低电流与量程送规格书的测量电流并读 V/I（四线读 SENSE）；电流在输入上并入规格书前面板的输入阻抗。
+  - name: input
+    type: dmm_input_terminal
+    params:
+      z_in:
+        from: $sense.function
+        map: {"VOLTage:AC": 1.0e6}
+        default: {from: $sense.impedance, map: {AUTO: 1.0e7, "10M": 1.0e7, "1M": 1.01e6}}
+      z_in_high: 1.0e12
+      high_z:
+        from: $sense.function
+        map: {"VOLTage:AC": false}
+        default: {from: $sense.impedance, map: {AUTO: true}, default: false}
+      high_z_ranges: [0.1, 1, 10]
+      conditioning: path
+      mode:
+        from: $sense.function
+        map: {VOLTage: VOLTage, "VOLTage:DC": VOLTage, "VOLTage:AC": VOLTage, CURRent: CURRent, "CURRent:DC": CURRent, "CURRent:AC": CURRent, RESistance: RESistance, FRESistance: FRESistance}
+      test_current:
+        from: $sense.function
+        map:
+          FRESistance:
+            from: $sense.fres.mode
+            map: {HIV: &hv {10000000: 1.0e-5, 100000000: 1.0e-6, 1000000000: 1.0e-7, 10000000000: 1.0e-8}}
+            default:
+              from: $sense.fres.lowi
+              map: {"True": &loi {1: 0.1, 10: 0.01, 100: 1.0e-3, 1000: 1.0e-4, 10000: 1.0e-5, 100000: 1.0e-5, 1000000: 1.0e-6, 10000000: 1.0e-7, 100000000: 1.0e-8, 1000000000: 1.0e-8}}
+              default: &normal {1: 0.1, 10: 0.01, 100: 0.01, 1000: 1.0e-3, 10000: 1.0e-4, 100000: 1.0e-4, 1000000: 1.0e-5, 10000000: 1.0e-6, 100000000: 1.0e-7, 1000000000: 1.0e-8}
+        default:
+          from: $sense.res.mode
+          map: {HIV: *hv}
+          default:
+            from: $sense.res.lowi
+            map: {"True": *loi}
+            default: *normal
+      shunt: {0.00001: 100.0, 0.0001: 100.0, 0.001: 10.5, 0.01: 1.5, 0.1: 0.8, 1: 0.4, 10: 0.01, 30: 0.01}
+      # 测量电压上限：常规与低电流满度 20 V，HV 200 V（规格书 Voltage and Current Parameters），留 5 % 余量。
+      compliance:
+        from: $sense.function
+        map: {FRESistance: {from: $sense.fres.mode, map: {HIV: 210.0}, default: 21.0}}
+        default: {from: $sense.res.mode, map: {HIV: 210.0}, default: 21.0}
+  # 信号调理：量程按规格书（满度为标称的 2.02 倍，见 sense.range 的说明），RMS 滤波为交流通路的下限。
+  - name: path
+    type: dmm_conditioning
+    params:
+      function:
+        from: $sense.function
+        map: {VOLTage: DC, "VOLTage:DC": DC, "VOLTage:AC": AC, CURRent: DCI, "CURRent:DC": DCI, "CURRent:AC": ACI, RESistance: RES, FRESistance: FRES}
+      ranges:
+        DC: [0.1, 1, 10, 100, 1000]
+        AC: [0.01, 0.1, 1, 10, 100, 1000]
+        DCI: [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 30]
+        ACI: [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 30]
+        RES: [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000]
+        FRES: [1, 10, 100, 1000, 10000, 100000, 1000000, 10000000, 100000000, 1000000000, 10000000000]
+      range:
+        from: $sense.function
+        map: {"VOLTage:AC": {from: $sense.ac.range, scale: 0.49504950495049505}}
+        default: {from: $sense.range, scale: 0.49504950495049505}
+      range_res:
+        from: $sense.function
+        map: {FRESistance: {from: $sense.fres.range, scale: 0.49504950495049505}}
+        default: {from: $sense.res.range, scale: 0.49504950495049505}
+      range_curr:
+        from: $sense.function
+        map: {"CURRent:AC": {from: $sense.curr.ac.range, scale: 0.49504950495049505}}
+        default: {from: $sense.curr.range, scale: 0.49504950495049505}
+      autorange: $sense.range_auto
+      autorange_up: 2.02
+      autorange_down: 0.19
+      ac_low: $sense.ac.filter
+  # A/D：读数 9 位尾数（8½ 位）；满度 2.02 倍以上为过载，回 9.91E+37（手册 FETCh? 的"无有效值"）。
+  # 读数时间：手动为孔径时间，Auto / Auto Fast 取默认 7 位分辨率的孔径（Operators Manual Table 8）。
+  - name: meter
+    type: dmm_adc
+    params:
+      conditioning: path
+      overrange: 2.02
+      overload_value: 9.91e37
+      set_resolution: $sense.resolution
+      digits: 9
+      reading_time: {from: $sense.aperture_mode, map: {MANual: $sense.aperture, FAST: 0.2}, default: 1.0}
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: meter
+      source: {from: $trigger.source, map: {IMMediate: immediate, BUS: bus, EXTernal: external}}
+      trigger_count: $trigger.count
+      sample_count: 1
+      delay: $trigger.delay
+      buffer: mem
+      digits: 9
+      max_readings: 1000000
+  # 读数存储（volatile buffer，Operators Manual Table 19）：无时间戳时 15 000 000 个主读数，存满后新读数
+  # 丢弃；离开空闲态时开始新的记录。
+  - name: mem
+    type: reading_buffer
+    params:
+      capacity: 15000000
+      when_full: stop
+  - name: sys
+    type: system
+wiring:
+  instrument:
+    - [input.out, path.in]
+ports:
+  instrument:
+    # 前面板 INPUT HI：电压、电流与电阻的输入（电阻的测量电流由此送出）。
+    IN: input.pin
+    # 前面板 SENSE HI：四线电阻读这里的电压。
+    SENSE: input.sense
+display:
+  template: multimeter
+  summary: [sense.function, sense.range, sense.aperture_mode, trigger.source]
+capabilities: [multimeter]
+commands:
+  # ---- 测量命令 ----
+  - header: "[:SENSe]:FUNCtion"
+    state: sense.function
+    reply: '"{value}"'
+    doc: 字符串参数（"VOLT"、"VOLT:AC"、"CURR"、"RES"、"FRES" 等，长短格式均可）；查询回带引号的短格式。
+  # CONFigure（手册 Note 1）：功能、量程与分辨率，并把触发系统置为 INIT:CONT OFF、TRIG:SOUR IMM、
+  # COUN 1、DEL 0（DEL:AUTO OFF）。不给量程时量程不变；给量程即关闭自动量程。
+  - header: ":CONFigure:VOLTage[:DC]"
+    query: false
+    writes: &conf_trigger
+      init.continuous: false
+      trigger.source: IMMediate
+      trigger.count: 1
+      trigger.delay: 0.0
+      trigger.delay_auto: false
+      sense.function: VOLTage
+    params:
+      - &volt_range {name: range, type: float, unit: V, min: 0.1, max: 1000.0, optional: true, state: sense.range, sets: {sense.range_auto: false}}
+      - &volt_res {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-4}}, not_modeled: {MINimum: the finest resolution depends on the range and is not modeled, MAXimum: the coarsest resolution depends on the range and is not modeled}}
+  - header: ":CONFigure:VOLTage:AC"
+    query: false
+    writes:
+      <<: *conf_trigger
+      sense.function: "VOLTage:AC"
+    params:
+      - &acv_range {name: range, type: float, unit: V, min: 0.01, max: 1000.0, optional: true, state: sense.ac.range, sets: {sense.range_auto: false}}
+      - *volt_res
+  - header: ":CONFigure:CURRent[:DC]"
+    query: false
+    writes:
+      <<: *conf_trigger
+      sense.function: CURRent
+    params:
+      - &curr_range {name: range, type: float, unit: A, min: 1.0e-5, max: 30.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 30.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-6}}, not_modeled: {MINimum: the finest resolution depends on the range and is not modeled, MAXimum: the coarsest resolution depends on the range and is not modeled}}
+  - header: ":CONFigure:CURRent:AC"
+    query: false
+    writes:
+      <<: *conf_trigger
+      sense.function: "CURRent:AC"
+    params:
+      - &aci_range {name: range, type: float, unit: A, min: 1.0e-5, max: 30.0, optional: true, state: sense.curr.ac.range, sets: {sense.range_auto: false}}
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 30.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-5}}, not_modeled: {MINimum: the finest resolution depends on the range and is not modeled, MAXimum: the coarsest resolution depends on the range and is not modeled}}
+  - header: ":CONFigure:RESistance"
+    query: false
+    writes:
+      <<: *conf_trigger
+      sense.function: RESistance
+    params:
+      - &res_range {name: range, type: float, unit: OHM, min: 1.0, max: 1.0e10, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
+      - &res_res {name: resolution, type: float, unit: OHM, min: 0.0, max: 1.0e10, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 0.01}}, not_modeled: {MINimum: the finest resolution depends on the range and is not modeled, MAXimum: the coarsest resolution depends on the range and is not modeled}}
+  - header: ":CONFigure:FRESistance"
+    query: false
+    writes:
+      <<: *conf_trigger
+      sense.function: FRESistance
+    params:
+      - &fres_range {name: range, type: float, unit: OHM, min: 1.0, max: 1.0e10, optional: true, state: sense.fres.range, sets: {sense.range_auto: false}}
+      - *res_res
+  - header: CONFigure
+    op: meter.configure
+    set: false
+    reply: '"{sense.function} {value}"'
+    doc: '"<功能短格式> <量程>,<分辨率>"，例如 "VOLT +1.00000000E+00,+1.00000000E-04"。'
+  # MEASure = ABORt; CONFigure; READ?（手册 Table 5）。
+  - header: ":MEASure[:SCALar]:VOLTage[:DC]"
+    op: meter.measure
+    set: false
+    writes: {<<: *conf_trigger, sense.function: VOLTage}
+    args: {what: DC}
+    params: [*volt_range, *volt_res]
+  - header: ":MEASure[:SCALar]:VOLTage:AC"
+    op: meter.measure
+    set: false
+    writes: {<<: *conf_trigger, sense.function: "VOLTage:AC"}
+    args: {what: AC}
+    params: [*acv_range, *volt_res]
+  - header: ":MEASure[:SCALar]:CURRent[:DC]"
+    op: meter.measure
+    set: false
+    writes: {<<: *conf_trigger, sense.function: CURRent}
+    args: {what: DCI}
+    params:
+      - *curr_range
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 30.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-6}}}
+  - header: ":MEASure[:SCALar]:CURRent:AC"
+    op: meter.measure
+    set: false
+    writes: {<<: *conf_trigger, sense.function: "CURRent:AC"}
+    args: {what: ACI}
+    params:
+      - *aci_range
+      - {name: resolution, type: float, unit: A, min: 0.0, max: 30.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-5}}}
+  - header: ":MEASure[:SCALar]:RESistance"
+    op: meter.measure
+    set: false
+    writes: {<<: *conf_trigger, sense.function: RESistance}
+    args: {what: RES}
+    params: [*res_range, *res_res]
+  - header: ":MEASure[:SCALar]:FRESistance"
+    op: meter.measure
+    set: false
+    writes: {<<: *conf_trigger, sense.function: FRESistance}
+    args: {what: FRES}
+    params: [*fres_range, *res_res]
+  - header: ":READ"
+    op: trig.read
+    set: false
+  - header: ":FETCh"
+    op: trig.fetch
+    set: false
+    params:
+      # FETCh? 1 与 FETCh? 都是主读数；次读数（2）、扫描的前/后端子（3、4）与时间戳（5）未实现。
+      - {name: which, type: int, min: 1, max: 1, optional: true}
+  # ---- SENSe：直流电压 ----
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe"
+    state: sense.range
+  - header: "[:SENSe]:VOLTage[:DC]:RANGe:AUTO[:STATe]"
+    state: sense.range_auto
+  - header: "[:SENSe]:VOLTage[:DC]:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:VOLTage[:DC]:APERture"
+    state: sense.aperture
+  - header: "[:SENSe]:VOLTage[:DC]:NPLC"
+    state: sense.aperture
+    factor: 50.0
+    doc: 以 50 Hz 电源周期计的孔径（SYSTem:LFRequency? 为 50）：NPLC = 孔径 × 50，0–500。
+  - header: "[:SENSe]:VOLTage[:DC]:APERture:MODE"
+    state: sense.aperture_mode
+  - header: "[:SENSe]:VOLTage[:DC]:IMPedance"
+    state: sense.impedance
+  # ---- SENSe：交流电压 ----
+  - header: "[:SENSe]:VOLTage:AC:RANGe"
+    state: sense.ac.range
+  - header: "[:SENSe]:VOLTage:AC:RANGe:AUTO[:STATe]"
+    state: sense.range_auto
+  - header: "[:SENSe]:VOLTage:AC:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:VOLTage:AC:FILTer"
+    state: sense.ac.filter
+  # ---- SENSe：直流电流 ----
+  - header: "[:SENSe]:CURRent[:DC]:RANGe"
+    state: sense.curr.range
+  - header: "[:SENSe]:CURRent[:DC]:RANGe:AUTO[:STATe]"
+    state: sense.range_auto
+  - header: "[:SENSe]:CURRent[:DC]:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:CURRent[:DC]:APERture"
+    state: sense.aperture
+  - header: "[:SENSe]:CURRent[:DC]:NPLC"
+    state: sense.aperture
+    factor: 50.0
+  - header: "[:SENSe]:CURRent[:DC]:APERture:MODE"
+    state: sense.aperture_mode
+  # ---- SENSe：交流电流 ----
+  - header: "[:SENSe]:CURRent:AC:RANGe"
+    state: sense.curr.ac.range
+  - header: "[:SENSe]:CURRent:AC:RANGe:AUTO[:STATe]"
+    state: sense.range_auto
+  - header: "[:SENSe]:CURRent:AC:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:CURRent:AC:FILTer"
+    state: sense.ac.filter
+  # ---- SENSe：两线与四线电阻 ----
+  - header: "[:SENSe]:RESistance:RANGe"
+    state: sense.res.range
+  - header: "[:SENSe]:RESistance:RANGe:AUTO[:STATe]"
+    state: sense.range_auto
+  - header: "[:SENSe]:RESistance:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:RESistance:APERture"
+    state: sense.aperture
+  - header: "[:SENSe]:RESistance:NPLC"
+    state: sense.aperture
+    factor: 50.0
+  - header: "[:SENSe]:RESistance:APERture:MODE"
+    state: sense.aperture_mode
+  - header: "[:SENSe]:RESistance:MODE"
+    state: sense.res.mode
+  - header: "[:SENSe]:RESistance:LOWI[:STATe]"
+    state: sense.res.lowi
+  - header: "[:SENSe]:FRESistance:RANGe"
+    state: sense.fres.range
+  - header: "[:SENSe]:FRESistance:RANGe:AUTO[:STATe]"
+    state: sense.range_auto
+  - header: "[:SENSe]:FRESistance:RESolution"
+    state: sense.resolution
+  - header: "[:SENSe]:FRESistance:APERture"
+    state: sense.aperture
+  - header: "[:SENSe]:FRESistance:NPLC"
+    state: sense.aperture
+    factor: 50.0
+  - header: "[:SENSe]:FRESistance:APERture:MODE"
+    state: sense.aperture_mode
+  - header: "[:SENSe]:FRESistance:MODE"
+    state: sense.fres.mode
+  - header: "[:SENSe]:FRESistance:LOWI[:STATe]"
+    state: sense.fres.lowi
+  # ---- 触发 ----
+  - header: ABORt
+    op: trig.abort
+    query: false
+  - header: INITiate[:IMMediate]
+    op: trig.initiate
+    query: false
+  - header: INITiate:CONTinuous[:STATe]
+    state: init.continuous
+  - header: TRIGger[:SEQuence]:SOURce
+    state: trigger.source
+  - header: TRIGger[:SEQuence]:COUNt
+    state: trigger.count
+    format: {integer: plain}
+  - header: TRIGger[:SEQuence]:DELay
+    state: trigger.delay
+  - header: TRIGger[:SEQuence]:DELay:AUTO
+    state: trigger.delay_auto
+  # TRIGger:RESet：触发层回到 Table 12 的默认值；INIT:CONT 不变。模型同时回到空闲态（ABORt）。
+  - header: TRIGger[:SEQuence]:RESet
+    op: trig.abort
+    query: false
+    writes: {trigger.source: IMMediate, trigger.count: 1, trigger.delay: 0.0, trigger.delay_auto: true}
+  # ---- 显示、格式与端子 ----
+  - header: "DISPlay[:STATe]"
+    state: display.state
+  - header: DISPlay:BRIGhtness
+    state: display.brightness
+  - header: DISPlay:DTIMe
+    state: display.timer
+  - header: "FORMat[:DATA]"
+    state: format.data
+  - header: "FORMat[:DATA]:SCALe"
+    state: format.scale
+    set: false
+  - header: FORMat:BORDer
+    state: format.border
+  - header: MEMory:LOCation
+    state: memory.location
+  - header: ROUTe:TERMinals
+    state: route.terminals
+  # ---- 系统 ----
+  - header: SYSTem:PRESet
+    op: sys.reset
+    query: false
+    params:
+      - {name: mode, type: enum, options: [NORMal], optional: true, not_modeled: {FAST: the high-speed preset is not modeled}}
+  - header: SYSTem:VERSion
+    state: system.version
+    set: false
+    format: {number: nr2, digits: 1, sign: false}
+  - header: SYSTem:LFRequency
+    state: line.frequency
+    set: false
+    format: {integer: plain}

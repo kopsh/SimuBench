@@ -107,6 +107,21 @@ def test_values():
     assert e.value.code == -104
 
 
+def test_compound_words_match_node_by_node():
+    """A word with colons (the 8588A's "VOLTage:AC") matches each node long or short, in a quoted
+    string too; its short form keeps the colons (#340)."""
+    opts = ["VOLTage", "VOLTage:DC", "VOLTage:AC"]
+    assert V.short_form("VOLTage:AC") == "VOLT:AC"
+    for text in (b'"VOLT:AC"', b'"voltage:ac"', b'"VOLTage:AC"', b"VOLT:AC"):
+        assert V.parse_enum(text, opts) == "VOLTage:AC"
+    assert V.parse_enum(b'"VOLT"', opts) == "VOLTage"
+    assert V.matches_word('"CAP"', "CAPacitance")
+    assert not V.matches_word("VOLT:ACX", "VOLTage:AC")
+    assert not V.matches_word("VOLT", "VOLTage:AC")
+    with pytest.raises(ScpiError):
+        V.parse_enum(b'"VOLTA:AC"', opts)
+
+
 def test_error_queue_overflow():
     q = ErrorQueue(capacity=3)
     for _ in range(5):

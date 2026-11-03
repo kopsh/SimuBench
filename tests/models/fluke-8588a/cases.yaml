@@ -1,0 +1,483 @@
+# Fluke 8588A 的手册用例：8588A/8558A Remote Programmer's Manual（March 2019）的命令表（Table 3、5、6、
+# 7、10、11、12）与 Remote Command Examples。每个用例在刚上电的 examples/benches/fluke-8588a.bench.yaml
+# 上运行（Fluke 5522A 的 NORMAL 输出接 INPUT HI）。量程与测量电流按 8588A Product Specifications。
+model: fluke-8588a
+bench: ../../../examples/benches/fluke-8588a.bench.yaml
+instrument: dmm
+cases:
+  - name: "*IDN? 与 *RST 后的默认状态"
+    manual: "Prepare the Product for GPIB Remote Control (Note: *IDN?); Remote Command Examples (power up or *RST state); Table 7; Table 12"
+    steps:
+      - query: "*IDN?"
+        expect: "FLUKE,8588A,4523000101,1.28"
+      - send: ':FUNC "CURR:AC";:CURR:AC:RANG 1;:TRIG:SOUR BUS;:TRIG:COUN 5;:FORM:BORD NORM'
+      - send: "*RST"
+      - query: ":FUNC?"
+        expect: '"VOLT"'
+      - query: ":VOLT:RANG?"
+        expect: "+1.00000000E+03"
+      - query: ":VOLT:RANG:AUTO?"
+        expect: "0"
+      - query: ":VOLT:NPLC?"
+        expect: "+5.00000000E+01"
+      - query: ":VOLT:APER:MODE?"
+        expect: "AUTO"
+      - query: ":VOLT:IMP?"
+        expect: "AUTO"
+      - query: ":VOLT:RES?"
+        expect: "+1.00000000E-04"
+      - query: ":CURR:RANG?"
+        expect: "+3.00000000E+01"
+      - query: ":RES:RANG?"
+        expect: "+1.00000000E+04"
+      - query: ":VOLT:AC:FILT?"
+        expect: "+4.00000000E+01"
+      - query: ":INIT:CONT?"
+        expect: "0"
+      - query: ":TRIG:SOUR?"
+        expect: "IMM"
+      - query: ":TRIG:COUN?"
+        expect: "1"
+      - query: ":TRIG:DEL?"
+        expect: "+0.00000000E+00"
+      - query: ":TRIG:DEL:AUTO?"
+        expect: "1"
+      - query: ":FORM?"
+        expect: "ASC"
+      - query: ":FORM:BORD?"
+        expect: "SWAP"
+      - query: ":ROUT:TERM?"
+        expect: "FRON"
+      - query: ":MEM:LOC?"
+        expect: "BUFF"
+
+  - name: "SENSe:FUNCtion 的字符串：长短格式、VOLTage[:DC] 同义、未实现的功能"
+    manual: "Table 6 > [:SENSe]:FUNCtion <string>; Parameters (string parameter)"
+    steps:
+      - send: ':SENSe:FUNCtion "VOLTage:AC"'
+      - query: ":FUNC?"
+        expect: '"VOLT:AC"'
+      - send: ':FUNC "volt:dc"'
+      - query: ":FUNC?"
+        expect: '"VOLT"'
+      - send: ':FUNC "CURRent"'
+      - query: ":FUNC?"
+        expect: '"CURR"'
+      - send: ':FUNC "FRES"'
+      - query: ":FUNC?"
+        expect: '"FRES"'
+      - send: ':FUNC "CAPacitance"'
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - query: ":FUNC?"
+        expect: '"FRES"'
+
+  - name: "CONFigure 与 CONFigure?：量程、分辨率与触发系统"
+    manual: "CONFiguration commands (Note 1, Note 3, Note 6: CONF:VOLT 1.0,DEF;:CONF?)"
+    steps:
+      - send: ":TRIG:SOUR BUS;:TRIG:COUN 7;:TRIG:DEL 0.5"
+      - send: ":CONF:VOLT 1.0,DEF"
+      - query: ":CONF?"
+        expect: '"VOLT +1.00000000E+00,+1.00000000E-04"'
+      - query: ":TRIG:SOUR?"
+        expect: "IMM"
+      - query: ":TRIG:COUN?"
+        expect: "1"
+      - query: ":TRIG:DEL?"
+        expect: "+0.00000000E+00"
+      - query: ":TRIG:DEL:AUTO?"
+        expect: "0"
+      - send: ":CONF:VOLT:AC 10,1E-5"
+      - query: ":CONF?"
+        expect: '"VOLT:AC +1.00000000E+01,+1.00000000E-05"'
+      - send: ":CONF:CURR 1,DEF"
+      - query: ":CONF?"
+        expect: '"CURR +1.00000000E+00,+1.00000000E-06"'
+      - send: ":CONF:CURR:AC 0.1"
+      - query: ":CONF?"
+        expect: '"CURR:AC +1.00000000E-01,+1.00000000E-06"'
+      - send: ":CONF:RES 1000,DEF"
+      - query: ":CONF?"
+        expect: '"RES +1.00000000E+03,+1.00000000E-02"'
+      - send: ":CONF:FRES 100"
+      - query: ":CONF?"
+        expect: '"FRES +1.00000000E+02,+1.00000000E-02"'
+      - send: ":CONF:VOLT:DC 10,MIN"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+
+  - name: "直流电压：READ?、MEASure? 与输入阻抗"
+    manual: "Table 5 > :READ? / :MEASure:<meter_fn>?; Table 6 > [:SENSe]:VOLTage:DC:IMPedance AUTO|1M|10M"
+    steps:
+      - instrument: cal
+        send: "OUT 10 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC 10"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:VOLT:DC? 10,1E-6"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: ":MEASure:SCALar:VOLTage:DC?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - send: ":VOLT:IMP 1M"
+      - query: ":VOLT:IMP?"
+        expect: "1M"
+      - send: ":VOLT:IMP 10M"
+      - query: ":VOLT:IMP?"
+        expect: "10M"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+
+  - name: "量程按 2.02 倍满度选择；过载回 9.91E+37；自动量程"
+    manual: "Parameters (SENSe:VOLTage:DC:RANGe: 2.03–20.02 selects the 10 V range); Table 6 > :RANGe / :RANGe:AUTO; Table 5 > FETCh? (9.91E+37)"
+    steps:
+      - instrument: cal
+        send: "OUT 10 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC"
+      - send: ":SENS:VOLT:DC:RANG 2.02"
+      - query: ":READ?"
+        expect: "+9.910000000E+37"
+      - send: ":VOLT:RANG 2.03"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: ":VOLT:RANG? MIN"
+        expect: "+1.00000000E-01"
+      - query: ":VOLT:RANG? MAX"
+        expect: "+1.00000000E+03"
+      - send: ":VOLT:RANG 1"
+      - send: ":VOLT:RANG:AUTO ON"
+      - query: ":VOLT:RANG:AUTO:STAT?"
+        expect: "1"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - send: ":VOLT:RANG 2000"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: "孔径、NPLC 与孔径方式"
+    manual: "Table 6 > [:SENSe]:VOLTage:DC:APERture / :APERture:MODE / :NPLC; Table 7 (Aperture Min 0, Max 10 seconds)"
+    steps:
+      - send: ":VOLT:APER 0.1"
+      - query: ":VOLT:NPLC?"
+        expect: "+5.00000000E+00"
+      - send: ":VOLT:DC:NPLC 10"
+      - query: ":VOLT:APER?"
+        expect: "+2.00000000E-01"
+      - query: ":VOLT:APER? MAX"
+        expect: "+1.00000000E+01"
+      - query: ":VOLT:NPLC? MAX"
+        expect: "+5.00000000E+02"
+      - send: ":VOLT:APER:MODE MAN"
+      - query: ":VOLT:APER:MODE?"
+        expect: "MAN"
+      - send: ":VOLT:APER:MODE FAST"
+      - query: ":VOLT:APER:MODE?"
+        expect: "FAST"
+      - send: ":VOLT:APER 11"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":CURR:APER 0.02"
+      - query: ":CURR:NPLC?"
+        expect: "+1.00000000E+00"
+      - send: ":CURR:APER:MODE AUTO"
+      - query: ":RES:APER:MODE?"
+        expect: "AUTO"
+      - send: ":RES:NPLC 100"
+      - query: ":RES:APER?"
+        expect: "+2.00000000E+00"
+      - send: ":FRES:APER 1"
+      - query: ":FRES:NPLC?"
+        expect: "+5.00000000E+01"
+      - send: ":FRES:APER:MODE MAN"
+      - query: ":CURR:DC:APER:MODE?"
+        expect: "MAN"
+
+  - name: "分辨率设定"
+    manual: "Table 6 > [:SENSe]:<function>:RESolution <nrf>|MIN|MAX|DEF"
+    steps:
+      - send: ":VOLT:RES 1E-6"
+      - query: ":VOLT:DC:RES?"
+        expect: "+1.00000000E-06"
+      - send: ":VOLT:AC:RES 1E-5"
+      - query: ":VOLT:AC:RES?"
+        expect: "+1.00000000E-05"
+      - send: ":CURR:RES 1E-7"
+      - query: ":CURR:RES?"
+        expect: "+1.00000000E-07"
+      - send: ":CURR:AC:RES 1E-7"
+      - query: ":CURR:AC:RES?"
+        expect: "+1.00000000E-07"
+      - send: ":RES:RES 0.001"
+      - query: ":RES:RES?"
+        expect: "+1.00000000E-03"
+      - send: ":FRES:RES 0.0001"
+      - query: ":FRES:RES?"
+        expect: "+1.00000000E-04"
+      - send: ":VOLT:RES MAX"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+
+  - name: "交流电压：RMS 滤波与量程"
+    manual: "Table 6 > [:SENSe]:VOLTage:AC:FILTer (discrete 0.1 Hz … 1 kHz, closest selected) / :RANGe / :RANGe:AUTO"
+    steps:
+      - instrument: cal
+        send: "OUT 1 V, 1 kHz;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:AC 1"
+      - query: ":READ?"
+        expect_value: 1.0
+        tolerance: 1.0e-6
+      - send: ":VOLT:AC:RANG 0.1"
+      - query: ":VOLT:AC:RANG?"
+        expect: "+1.00000000E-01"
+      - query: ":VOLT:AC:RANG? MIN"
+        expect: "+1.00000000E-02"
+      - query: ":READ?"
+        expect: "+9.910000000E+37"
+      - send: ":VOLT:AC:RANG:AUTO ON"
+      - query: ":READ?"
+        expect_value: 1.0
+        tolerance: 1.0e-6
+      - query: ":MEAS:VOLT:AC? 1"
+        expect_value: 1.0
+        tolerance: 1.0e-6
+      - send: ":VOLT:AC:FILT 30"
+      - query: ":VOLT:AC:FILT?"
+        expect: "+4.00000000E+01"
+      - send: ":VOLT:AC:FILT 2000"
+      - query: ":VOLT:AC:FILT?"
+        expect: "+1.00000000E+03"
+      - send: ":CURR:AC:FILT 1"
+      - query: ":VOLT:AC:FILT?"
+        expect: "+1.00000000E+00"
+
+  - name: "电流量程设定"
+    manual: "Table 6 > [:SENSe]:CURRent:DC:RANGe / :RANGe:AUTO; [:SENSe]:CURRent:AC:RANGe / :RANGe:AUTO; Table 7 (DCI range 30)"
+    steps:
+      - send: ":CURR:RANG 0.001"
+      - query: ":CURR:DC:RANG?"
+        expect: "+1.00000000E-03"
+      - send: ":CURR:RANG:AUTO ON"
+      - query: ":CURR:RANG:AUTO?"
+        expect: "1"
+      - send: ":CURR:AC:RANG 10"
+      - query: ":CURR:AC:RANG?"
+        expect: "+1.00000000E+01"
+      - query: ":CURR:RANG?"
+        expect: "+1.00000000E-03"
+      - query: ":CURR:AC:RANG? DEF"
+        expect: "+3.00000000E+01"
+      - send: ":CURR:AC:RANG:AUTO 0"
+      - query: ":CURR:RANG:AUTO?"
+        expect: "0"
+      - send: ":CURR:AC:RANG:AUTO 1"
+      - query: ":CURR:AC:RANG:AUTO?"
+        expect: "1"
+      - send: ":CURR:RANG 31"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":MEAS:CURR? 0.001"
+      - query: ":FUNC?"
+        expect: '"CURR"'
+      - send: ":MEAS:CURR:AC? 1"
+      - query: ":FUNC?"
+        expect: '"CURR:AC"'
+
+  - name: "电阻：方式、低电流与量程"
+    manual: "Table 6 > [:SENSe]:RESistance:MODE NORMal|HIV / :LOWI / :RANGe; [:SENSe]:FRESistance:MODE NORMal|TRUE|HIV; Compare Two Resistance Values (:RESistance:MODE NORMal)"
+    steps:
+      - send: ":RESistance:MODE HIV"
+      - query: ":RES:MODE?"
+        expect: "HIV"
+      - send: ":RES:MODE NORMal"
+      - query: ":RES:MODE?"
+        expect: "NORM"
+      - send: ":RES:LOWI ON"
+      - query: ":RES:LOWI:STAT?"
+        expect: "1"
+      - send: ":FRES:MODE TRUE"
+      - query: ":FRES:MODE?"
+        expect: "TRUE"
+      - send: ":FRES:LOWI:STAT 1"
+      - query: ":FRES:LOWI?"
+        expect: "1"
+      - send: ":RESistance:RANGe 100000"
+      - query: ":RES:RANG?"
+        expect: "+1.00000000E+05"
+      - query: ":FRES:RANG?"
+        expect: "+1.00000000E+04"
+      - send: ":FRES:RANG 1E9"
+      - query: ":FRES:RANG?"
+        expect: "+1.00000000E+09"
+      - query: ":FRES:RANG? MAX"
+        expect: "+1.00000000E+10"
+      - send: ":RES:RANG:AUTO ON"
+      - query: ":FRES:RANG:AUTO?"
+        expect: "1"
+      - send: ":FRES:RANG:AUTO OFF"
+      - query: ":RES:RANG:AUTO?"
+        expect: "0"
+      - query: ":MEAS:RES?"
+        expect: "+9.910000000E+37"
+      - query: ":MEAS:FRES? 1000"
+        expect: "+9.910000000E+37"
+
+  - name: "总线触发：TRIG:SOUR BUS、INIT、*TRG 与 FETCh?"
+    manual: "Trigger Subsystem > TRIGger:SOURce BUS (*TRG) / :COUNt / INITiate[:IMMediate]; Table 5 > FETCh? [1]; Table 3 > *TRG"
+    steps:
+      - instrument: cal
+        send: "OUT 2 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC 10"
+      - send: ":TRIGger:SEQuence:SOURce BUS;:TRIG:COUN 2"
+      - send: ":INITiate:IMMediate"
+      - send: "*TRG"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*TRG"
+      - query: ":FETCh?"
+        expect_match: '^\+2\.0000000\d\dE\+00,\+2\.0000000\d\dE\+00$'
+      - query: ":FETC? 1"
+        expect_match: '^\+2\.0000000\d\dE\+00,\+2\.0000000\d\dE\+00$'
+      - send: ":FETC? 2"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":READ?"
+      - query: ":SYST:ERR?"
+        expect: '-214,"Trigger deadlock"'
+      - send: ":TRIG:SOUR EXT"
+      - query: ":TRIG:SOUR?"
+        expect: "EXT"
+      - send: ":TRIG:SOUR TIMer"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: ":INIT:CONT ON"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: ":INIT:CONT OFF"
+      - query: ":INIT:CONT:STAT?"
+        expect: "0"
+
+  - name: "TRIGger:RESet、延迟与 ABORt"
+    manual: "Take a Reading Using External Trigger (TRIGger:RESet; TRIGGER:DELay:AUTO OFF; TRIGGER:DELay 0); Trigger Subsystem > Abort / TRIGger:RESet"
+    steps:
+      - send: ":TRIG:SOUR BUS;:TRIG:COUN 50;:TRIG:DEL 2.5;:TRIG:DEL:AUTO OFF"
+      - query: ":TRIG:DEL?"
+        expect: "+2.50000000E+00"
+      - send: ":TRIGger:RESet"
+      - query: ":TRIG:SOUR?"
+        expect: "IMM"
+      - query: ":TRIG:COUN?"
+        expect: "1"
+      - query: ":TRIG:DEL?"
+        expect: "+0.00000000E+00"
+      - query: ":TRIG:DEL:AUTO?"
+        expect: "1"
+      - send: ":TRIG:SOUR BUS;:INIT"
+      - send: ":ABORt"
+      - send: "*TRG"
+      - query: ":SYST:ERR?"
+        expect: '-211,"Trigger ignored"'
+
+  - name: "显示、格式、读数存放与端子"
+    manual: "DISPlay Subsystem; FORMat Subsystem ([:DATA]:SCALE? returns 1.0 when ASCII); MEMory Subsystem; ROUTe Subsystem > :TERMinals"
+    steps:
+      - send: ":DISPlay OFF"
+      - query: ":DISP?"
+        expect: "0"
+      - send: ":DISP:STAT ON"
+      - query: ":DISP:STAT?"
+        expect: "1"
+      - send: ":DISP:BRIG 80"
+      - query: ":DISP:BRIG?"
+        expect: "+8.00000000E+01"
+      - send: ":DISP:DTIM 600"
+      - query: ":DISP:DTIM?"
+        expect: "+6.00000000E+02"
+      - send: ":FORMat:DATA ASCii"
+      - query: ":FORM:DATA?"
+        expect: "ASC"
+      - query: ":FORM:SCAL?"
+        expect: "+1.00000000E+00"
+      - send: ":FORM PACKed"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: ":FORM:BORD NORM"
+      - query: ":FORM:BORD?"
+        expect: "NORM"
+      - send: ":MEM:LOC BUFF"
+      - query: ":MEM:LOC?"
+        expect: "BUFF"
+      - send: ":MEM:LOC BINT"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: ":ROUT:TERM FRONt"
+      - query: ":ROUT:TERM?"
+        expect: "FRON"
+      - send: ":ROUT:TERM REAR"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+
+  - name: "SYSTem：版本、电源频率、PRESet 与错误队列"
+    manual: "Table 11 > SYSTem:VERSion? / :LFRequency? / :PRESet [NORMal|FAST] / :ERRor[:NEXT]?; Error Codes"
+    steps:
+      - query: ":SYST:VERS?"
+        expect: "1999.0"
+      - query: ":SYST:LFR?"
+        expect: "50"
+      - send: ":VOLT:RANG 10;:TRIG:COUN 9"
+      - send: ":SYST:PRES NORMal"
+      - query: ":VOLT:RANG?"
+        expect: "+1.00000000E+03"
+      - query: ":TRIG:COUN?"
+        expect: "1"
+      - send: ":SYST:PRES"
+      - send: ":SYST:PRES FAST"
+      - query: ":SYSTem:ERRor:NEXT?"
+        expect: '-224,"Illegal parameter value"'
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: ":CALC:AVER:STAT ON"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: "公共命令：*CLS、*ESE、*ESR?、*SRE、*STB?、*OPC、*WAI、*TST?"
+    manual: "Table 3. IEEE-488.2 (GPIB) Common Command Summary; Table 9. Standard Event Status Byte Register"
+    steps:
+      - send: "*CLS"
+      - send: "*ESE 60"
+      - query: "*ESE?"
+        expect: "60"
+      - send: ":FOO"
+      - query: "*ESR?"
+        expect: "32"
+      - query: "*ESR?"
+        expect: "0"
+      - send: "*SRE 32"
+      - query: "*SRE?"
+        expect: "32"
+      - send: ":FOO"
+      - query: "*STB?"
+        expect_match: '^(100|96)$'
+      - send: "*CLS"
+      - send: "*OPC"
+      - query: "*ESR?"
+        expect: "1"
+      - send: "*WAI"
+      - query: "*TST?"
+        expect: "0"

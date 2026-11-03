@@ -148,8 +148,9 @@ async def test_draft_from_script(ws):
     assert awg["unsupported"] == [
         {"line": 18, "command": ":SOUR1:SWEEP:STAT ON", "reason": "仪表模型中没有该命令"}
     ]
-    # The DMM's :CONF:VOLT:DC is supported by the real model now: it joins the draft.
-    assert d["bench"]["instruments"]["dmm"]["model"] == "keysight-34465a"
+    # The DMM's :CONF:VOLT:DC is supported by the real multimeters now: one of them joins the draft
+    # (34465A and 8588A both speak it, a tie the library order settles).
+    assert d["bench"]["instruments"]["dmm"]["model"] in ("fluke-8588a", "keysight-34465a")
     dmm = next(r for r in d["report"] if r["instance"] == "dmm")
     assert dmm["supported"] == 1 and dmm["unsupported"] == []
     assert d["saved"]["ok"]
