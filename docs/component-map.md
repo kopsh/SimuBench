@@ -38,7 +38,7 @@
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | reference | `reference_clock` | 数据(基准偏差) | 已实现 | siglent-sdg2042x 无(例外清单) |
-| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现 | — |
+| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现(按波形的最高频率 `max_frequency`:FREQ? MAX 随波形、超限置为上限;脉冲的线性边沿 `lead_time`/`trail_time` 与 `pulse_width`/`pulse_period`/`pulse_edges` 操作,#437) | 按幅度分档的频率上限未建模 |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430) | siglent-sdg2042x 无(例外清单) |

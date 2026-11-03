@@ -173,6 +173,12 @@ class WaveformSynth(Component):
         "symmetry": 100.0,  # percent rising half of the ramp (100: sawtooth)
         "bandwidth": 100e6,  # Hz, harmonic limit for square, pulse and ramp
         "square_max": math.inf,  # Hz, highest square/ramp frequency (inf: none)
+        # Highest frequency per function word (#437), e.g. {SINusoid: 120e6, RAMP: 800e3}: FREQ? MAX
+        # follows the waveform, a frequency above it is -222 and set to it, and changing to a
+        # function with a lower one moves the frequency there with -221. Empty: no limits.
+        "max_frequency": {},
+        "lead_time": 0.0,  # s, the PULSe function's leading-edge 10–90 % time (0: an ideal edge)
+        "trail_time": 0.0,  # s, the PULSe function's trailing-edge 10–90 % time (0: an ideal edge)
         "clock": "",  # the reference_clock component (empty: an exact clock)
         "arb": "",  # the arb_table played for ARBitrary (#426; empty: not offered)
         "prbs": "",  # the prbs_source played for PRBS (#426; empty: not offered)
@@ -215,8 +221,36 @@ class WaveformSynth(Component):
             freq *= 1.0 + self.owner.components[clock].error()
         return freq
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def max_frequency(self) -> float | None:
+        """The highest frequency of the function as set (#437), None when not limited."""
+        table = self.param("max_frequency") or {}
+        word = str(self.param("function"))
+        for key, value in table.items():
+            if str(key).upper() == word.upper():
+                return float(value)
+        return None
+
+    def state_limits(self, path: str) -> tuple[float | None, float | None] | None:
+        if path == self.bound_paths().get("frequency"):
+            top = self.max_frequency()
+            return (None, top) if top is not None else None
+        return None
+
+    def on_state(self, path: str, old: Any, new: Any) -> Any:
         bound = self.bound_paths()
+        top = self.max_frequency()
+        if path == bound.get("frequency") and top is not None and float(new) > top * (1 + 1e-12):
+            # The Trueform rule (33500-90901 FREQuency): "Data out of range" and the frequency is
+            # set to the function's maximum (#437).
+            assert self.owner is not None
+            self.owner.push_error(-222, f"{self.param('function')} is limited to {top:g} Hz")
+            return top
+        if path == bound.get("function") and top is not None and float(self.param("frequency")) > top:
+            # Changing to a function of a lower maximum moves the frequency there, with a
+            # "Settings conflict" (33500-90901 FUNCtion, Function Limitations).
+            assert self.owner is not None
+            self.owner.set_state(bound["frequency"], top)
+            self.owner.push_error(-221, f"frequency set to {top:g} Hz for {new}")
         if path == bound.get("frequency") and old is not None:
             now = self.session.now_ns
             self._phase0 = (self._phase0 + 2 * math.pi * float(old) * (now - self._t0) * 1e-9) % (2 * math.pi)
@@ -236,9 +270,13 @@ class WaveformSynth(Component):
             return sine(freq, 0.5, phase, self._t0)
         if fn == "SQUare":
             duty = self.duty_ratio()
-            if duty == 0.5:
+            # edge times shape the pulse only (the square wave's edges are the bandwidth's, #437)
+            pulse = str(self.param("function")).upper().startswith("PULS")
+            lead = float(self.param("lead_time") or 0.0) if pulse else 0.0
+            trail = float(self.param("trail_time") or 0.0) if pulse else 0.0
+            if duty == 0.5 and not lead and not trail:
                 return square(freq, 0.5, bw, phase, self._t0)
-            return pulse_train(freq, 0.5, duty, bw, phase, self._t0)
+            return pulse_train(freq, 0.5, duty, bw, phase, self._t0, lead, trail)
         if fn == "RAMP":
             sym = (
                 50.0
@@ -251,6 +289,55 @@ class WaveformSynth(Component):
             if source is not None:
                 return source.output("out")
         raise ScpiError(-224, f"function {fn!r} not supported")
+
+    # ---- pulse width and period (#437, the Trueform's FUNCtion:PULSe:WIDTh / :PERiod) ------------
+
+    @op("pulse_width")
+    def op_pulse_width(self, query: bool = False, value: Any = None, target: str = "", **_: Any) -> OpResult:
+        """The pulse width (s, 50 % to 50 %) = duty / frequency; setting it writes the duty
+        setting ``target`` (a channel setting such as ``ch.pulse_duty``; default the bound duty)."""
+        assert self.owner is not None
+        freq = float(self.param("frequency"))
+        if query:
+            return OpResult(self.owner.format_number(self.duty_ratio() / freq))
+        if value is None:
+            raise ScpiError(-109, "missing pulse width")
+        width = float(value)
+        duty = width * freq
+        if not 0 < duty < 1:
+            raise ScpiError(-222, f"a {width:g} s pulse does not fit a {1 / freq:g} s period")
+        path = self.resolve_path(target) if target else self.bound_paths().get("duty")
+        if path is None:
+            raise ScpiError(-221, "the duty cycle is not a setting")
+        ratio = str(self.param("duty_unit")).lower() == "ratio"
+        self.owner.set_state(path, duty if ratio else duty * 100.0)
+        return OpResult()
+
+    @op("pulse_edges")
+    def op_pulse_edges(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
+        """Both edge times at once (``TRANsition[:BOTH]``); the query answers the leading one."""
+        assert self.owner is not None
+        bound = self.bound_paths()
+        if "lead_time" not in bound or "trail_time" not in bound:
+            raise ScpiError(-221, "the edge times are not settings")
+        if query:
+            return OpResult(self.owner.format_number(float(self.param("lead_time"))))
+        if value is None:
+            raise ScpiError(-109, "missing edge time")
+        self.owner.set_state(bound["lead_time"], float(value))
+        self.owner.set_state(bound["trail_time"], float(value))
+        return OpResult()
+
+    @op("pulse_period")
+    def op_pulse_period(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
+        """The period (s) = 1 / frequency; setting it writes the frequency (the duty is kept)."""
+        assert self.owner is not None
+        if query:
+            return OpResult(self.owner.format_number(1.0 / float(self.param("frequency"))))
+        if value is None or float(value) <= 0:
+            raise ScpiError(-222, "a period is positive")
+        self.owner.set_state(self.bound_paths()["frequency"], 1.0 / float(value))
+        return OpResult()
 
     def _played(self, key: str) -> Component | None:
         """The arbitrary-waveform or PRBS component named by ``key``, on this one's channel."""
