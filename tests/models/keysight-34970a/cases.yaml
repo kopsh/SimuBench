@@ -353,3 +353,18 @@ cases:
         expect: '"VOLT +1.00000000E+01,+3.00000000E-05","RES +1.00000000E+03,+3.00000000E-03","CURR +1.00000000E-02,+3.00000000E-08"'
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: "TRIGger:COUNt 的连续扫描关键字 INFinity：真机接受、模型未建模，两词同回 -224（#310，#360 统一）"
+    manual: "Scan count（p.117）：语法 {<count>|MIN|MAX|INFinity}；连续扫描未建模，INF 与 INFinity 同回 -224 由 #360 落地"
+    steps:
+      - send: "TRIG:COUN INFinity"
+      - query: "SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "TRIG:COUN INF"
+      - query: "SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+      - send: "TRIG:COUN MAX"
+      - query: "TRIG:COUN?"
+        expect: "50000"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
