@@ -435,7 +435,7 @@ cases:
         expect: '+0,"No error"'
 
   - name: "OCP：使能、延迟、起点的设定与回读；延迟 0 时进入 CC 即跳闸，只有 CURR:PROT:CLE 清除（#271）"
-    manual: "CURRent Subsystem > [SOURce:]CURRent:PROTection:STATe / DELay / DELay:STARt / TRIPped? / CLEar"
+    manual: "CURRent Subsystem > [SOURce:]CURRent:PROTection:STATe / DELay（*RST 0.050，E36311-90008 Ed.3 p.46）/ DELay:STARt / TRIPped? / CLEar"
     steps:
       - query: "CURR:PROT:STAT? (@1)"
         expect: "0"
@@ -462,7 +462,7 @@ cases:
         expect: '+0,"No error"'
 
   - name: "STAT:QUES:INST:ISUM<n>:COND? 回 0 关、1 恒流、2 恒压（#271）"
-    manual: "STATus Subsystem > STATus:QUEStionable:INSTrument:ISUMmary<n>:CONDition?"
+    manual: "STATus Subsystem > STATus:QUEStionable:INSTrument:ISUMmary<n>:CONDition?; Status Tutorial > The Questionable Instrument Summary register（E36311-90008 Ed.3 p.32：位 1 CV、位 0 CC）"
     steps:
       - query: "STAT:QUES:INST:ISUM1:COND?"
         expect: "0"
@@ -474,7 +474,7 @@ cases:
         expect: "2"
 
   - name: "可疑状态寄存器组（#348）：CV→CC 置位 ISUM 事件、读后清零，使能逐级汇总到状态字节，PRESet 清使能"
-    manual: "STATus Subsystem > STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt] / :ENABle; QUEStionable:INSTrument / QUEStionable [:EVENt] / :ENABle; STATus:PRESet"
+    manual: "STATus Subsystem > STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt] / :ENABle; QUEStionable:INSTrument / QUEStionable [:EVENt] / :ENABle; STATus:PRESet; Status Tutorial（E36311-90008 Ed.3 p.31–32：QUES 位 13 = ISUM，QUES:INST 位 1–3 = 输出 1–3，ISUM 位 0 CC / 位 1 CV）"
     steps:
       - send: "STAT:QUES:INST:ISUM1:ENAB 1;:STAT:QUES:INST:ENAB 2;:STAT:QUES:ENAB 8192"
       - query: "STAT:QUES:INST:ISUM1:ENAB?"
