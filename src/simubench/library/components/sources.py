@@ -425,21 +425,21 @@ class AwgModulator(Component):
         rate, scale, phi = self._tone()
         delta = float(self.param("pwm_dev")) / 100.0 * scale
         budget = int(self.param("line_budget"))
-        # Count Carson's lines before the expansion (issue #357, as FM/PM): the sum stops as soon
-        # as the budget is exceeded, so a huge harmonic count costs nothing.
-        lines = 1
-        exceeded = False
+        # Count Carson's lines before the expansion (issue #357): the harmonics are kept while
+        # they fit the budget and cut after that (issue #388: a pulse has bw/f harmonics, so a
+        # refusal would make PWM unusable at ordinary rates). The count stops at the budget, so
+        # the cost does not grow with the harmonic count or the deviation.
+        lines = 2  # the DC term and the modulating tone
+        keep = 0
         for k in range(1, max(1, int(bw // f)) + 1):
             lines += 2 * _carson(2 * math.pi * k * delta) + 2  # the sidebands and the harmonic
             if lines > budget:
-                exceeded = True
                 break
-        if exceeded:
-            raise ScpiError(-222, "the modulation needs more lines than the model keeps")
+            keep = k
         out = _Lines()
         out.add(0.0, d0 - 0.5)  # levels ±0.5, as the synth's pulse
         out.add(rate, delta * complex(math.cos(phi - math.pi / 2), math.sin(phi - math.pi / 2)))
-        for k in range(1, max(1, int(bw // f)) + 1):
+        for k in range(1, keep + 1):
             out.add(k * f, 1 / (math.pi * k) * -1j)
             b = 2 * math.pi * k * delta
             psi = 2 * math.pi * k * d0
