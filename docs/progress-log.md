@@ -889,3 +889,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 覆盖、用例与示例 | ✅ 覆盖表 实现 46 · 接受 9 · 未实现 143；`tests/models/keysight-53230a/cases.yaml` 24 条全部通过（新增门时间下限、测量方式、Figure 3-1 的无间隙读数、时间戳 -113）；示例台 `examples/benches/keysight-53230a.bench.yaml` 与脚本 `examples/scripts/keysight_53230a_gap_free.py`（Figure 3-1 设置，由连续读数算阿伦偏差）在测试中运行 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 低频校准仪负 dBm 的收尾：文档同步与 0 幅度的决定（Issue 261、323）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 负 dBm 可写、越界报当前单位界限（issue 261，PR #322） | ✅ `examples/lowfreq-cal/instruments/lfcal-scope-calibrator.yaml` 的 `amplitude_level` 按 D48 用 `vpp_min: 0.001` / `vpp_max: 200.0` 界定（任一单位写入先换算到 Vpp 再比较，越界报 -222 并给出当前单位下的界限）；`tests/test_lowfreq_cal.py::test_negative_dbm_amplitude_writes_and_reports_bounds`（-5/-40 dBm 可写，-70 dBm 报 -222 带区间，切回 VPP 数值换算）与 `examples/lowfreq-cal/cases.yaml` 的契约用例覆盖 |
+| 0 幅度的决定 | ✅ 不放开 0：含 DBM 的多单位按 D48 无法表示 0 Vpp，放开需改 `amplitude_level` 的检查语义（属核心能力，有真实置零需求再另开核心 issue）；校准流程的置零/本底检查用 `:CHANnel<n>:OUTPut OFF`。下限 1 mVpp 及原因写进定义注释与 `docs/lowfreq-cal.md` §7 |
+| component-map 与 progress 同步（issue 323） | ✅ `docs/component-map.md` 类别 23 的「负 dBm 写入 bug(#261)」旧文改为已修说明（指向 lowfreq-cal.md 的 1 mVpp 限定），债务清单删去已关闭的 #261/#286/#296/#297 行；#261 的完成记录即本节 |
+| 检查 | ✅ `scripts/check.sh` 全绿（仅文档与定义注释，无行为改动） |

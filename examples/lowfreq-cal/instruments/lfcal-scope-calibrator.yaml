@@ -103,6 +103,7 @@ channel_components:
       load_setting: $ch.load
       # 幅度范围按负载设定下的 Vpp 检查(D48;#261 起因场景的修复):任一单位写入先换算到
       # Vpp 再比较,含 DBM 时下限必须大于 0;越界报 -222,消息给出当前单位下的界限。
+      # 下限 1 mVpp、不含 0(#323):对数换算表示不了 0 Vpp;置零/本底检查用 :CHANnel<n>:OUTPut OFF。
       vpp_min: 0.001
       vpp_max: 200.0
       hiz_from: 10000.0
