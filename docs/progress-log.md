@@ -888,3 +888,4 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 时间戳 | ⚠️ 手册语义（比例因子 + 按速率抽取的间隔、经触发模型取回）与 #328 的绝对时刻操作不同，三条命令标未实现，核心能力另开 #385；派生测量与 Option 150 同 53220A 标未实现 |
 | 覆盖、用例与示例 | ✅ 覆盖表 实现 46 · 接受 9 · 未实现 143；`tests/models/keysight-53230a/cases.yaml` 24 条全部通过（新增门时间下限、测量方式、Figure 3-1 的无间隙读数、时间戳 -113）；示例台 `examples/benches/keysight-53230a.bench.yaml` 与脚本 `examples/scripts/keysight_53230a_gap_free.py`（Figure 3-1 设置，由连续读数算阿伦偏差）在测试中运行 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
