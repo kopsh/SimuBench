@@ -968,3 +968,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 示例与测试 | ✅ 示例台 `examples/benches/srs-sr865a.bench.yaml`（SINE_OUT → RC → SIG_IN，AUX_OUT2 → AUX_IN2）与脚本 `examples/scripts/srs_sr865a_rc_sweep.py`；`tests/test_srs_sr865a.py`：6 个频率的 R/θ 与闭式解一致、拐点 −45°、自动相位后 θ → 0、AUX 回环、输入量程按峰值过载、电流输入读安培 |
 | 组件不改 | ✅ 本 PR 不改 `src/simubench/library/components/`（所需能力已在 #399、#400、#402、#403、#404、#405 合并）；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 计数器时间戳按 53230A 手册（Issue 385）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 时间戳测量 | ✅ `counter_core` 的测量功能 `TSTamp` 与参数 `timestamp_rate`：一次运行先给比例因子（⌊f/速率⌋ + 1，低于速率为 1；手册 10 MHz、1 MHz 的例子为 11），其后为相邻被打戳沿的间隔（比例因子 × 输入周期，按时基与 20 ps 单次分辨率）；作为触发模型的采样器，按比例因子 × 周期推进虚拟时间 |
+| 括号里的数 | ✅ 数值参数接受 `(200)` 这样一个数的表达式（`(@…)` 仍是通道列表） |
+| 验证仪表 | ✅ `sb-counter-1` 不改（它的面板按功能各出一个读数）；测试中给它补 TSTamp 与 `:TSTamp:RATE` |
+| 测试 | ✅ `tests/test_counter_timestamps.py` 4 项：低于速率（比例因子 1，间隔为周期）、手册的 10 MHz/1 MHz（11）、2.5 MHz/1 MHz（3），间隔在 20 ps 内且「间隔 / 比例因子 = 周期」；括号里的数；`tests/test_counter.py` 不改通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

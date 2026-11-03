@@ -67,6 +67,8 @@ def parse_float(
         return math.nan
     if unquote(raw) is not None:
         raise ScpiError(-104, f"expected a number, got a string {t!r}")
+    if t.startswith("(") and t.endswith(")") and not t.startswith("(@"):
+        t = t[1:-1].strip()  # a number in parentheses: expression data of one number (53230A "(200)", #385)
     try:
         return parse_number(t, unit)
     except UnitError as exc:
