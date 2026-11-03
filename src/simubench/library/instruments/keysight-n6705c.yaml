@@ -142,6 +142,23 @@ channel_state:
     default: 60.0
     label: 过压保护
     label_en: OVP level
+  # 状态寄存器组的使能（STATus:OPERation/QUEStionable:ENABle，#539）
+  oper_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    rst: 0
+    label: OPER 使能
+    label_en: OPER enable
+  ques_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    rst: 0
+    label: QUES 使能
+    label_en: QUES enable
   # 输出时序（OUTPut:DELay:RISE/FALL，0–1023 s，*RST 0，#540）
   rise_delay:
     type: float
@@ -274,6 +291,20 @@ channel_components:
   - name: read
     type: supply_readback
     params: {output: out}
+  # 每路的状态寄存器组（N6700C-90901 Status Tutorial，#539）：条件位来自本路的回读与保护锁存，
+  # 事件在条件变为真时置位、读后清零；汇总进状态字节位 7（OPER）与位 3（QUES）。
+  - name: oper
+    type: status_register
+    params:
+      bits: {CV: 0, CC: 1, "OFF": 2}
+      enable: $ch.oper_enable
+      summary_bit: 7
+  - name: ques
+    type: status_register
+    params:
+      bits: {OV: 0, OC: 1, CP: 3}
+      enable: $ch.ques_enable
+      summary_bit: 3
 components:
   - name: sys
     type: system
@@ -357,6 +388,35 @@ commands:
     params:
       - {name: sense, type: enum, options: [INTernal, EXTernal], state: "ch.sense"}
       - {name: channels, type: channel_list}
+  # ---- 状态寄存器组（#539） ----
+  - header: "STATus:OPERation[:EVENt]"
+    op: ch.oper.event
+    set: false
+    params: [{name: channels, type: channel_list}]
+  - header: "STATus:OPERation:CONDition"
+    op: ch.oper.condition
+    set: false
+    params: [{name: channels, type: channel_list}]
+  - header: "STATus:OPERation:ENABle"
+    params:
+      - {name: mask, type: int, state: "ch.oper_enable"}
+      - {name: channels, type: channel_list}
+  - header: "STATus:QUEStionable[:EVENt]"
+    op: ch.ques.event
+    set: false
+    params: [{name: channels, type: channel_list}]
+  - header: "STATus:QUEStionable:CONDition"
+    op: ch.ques.condition
+    set: false
+    params: [{name: channels, type: channel_list}]
+  - header: "STATus:QUEStionable:ENABle"
+    params:
+      - {name: mask, type: int, state: "ch.ques_enable"}
+      - {name: channels, type: channel_list}
+  - header: "STATus:PRESet"
+    op: ch1.oper.preset
+    query: false
+    doc: 各通道 OPER/QUES 的使能清零（事件不变）。
   # ---- 系统 ----
   - header: "SYSTem:CHANnel[:COUNt]"
     state: system.channels

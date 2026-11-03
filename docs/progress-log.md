@@ -1171,3 +1171,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 开/关延时按通道计入虚拟时间 | ✅ `power_output` 新参数 `rise_delay`、`fall_delay`：开输出时延时 + 继电器动作时间后导通；关输出时（已导通）延时后断开，期间仍导通；保护动作照旧立即关断；`*OPC?` 等待 |
 | N6705C 接上命令 | ✅ `OUTPut[:STATe]:DELay:RISE/FALL (@list)`（0–1023 s，*RST 0）；覆盖表两条改为实现；手册用例「输出时序」；`tests/test_keysight_n6705c.py::test_rise_and_fall_delays_sequence_the_outputs`（两路按不同延时先后开、关） |
 | 检查 | ✅ `scripts/check.sh` 全绿；E36312A 与 sb-ps-1 默认 0 延时，行为不变 |
+
+## 电源的 SCPI 状态寄存器组（Issue 539）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件报告条件位 | ✅ `supply_readback.status_flags` 增加 CP（#533 的恒功率区）与 OFF（输出被设为关）；`supply_protection.status_flags` 报告 OV、OC（锁存中）。E36312A 的 ISUM 寄存器只用 CC/CV，不受影响 |
+| N6705C 接上寄存器组 | ✅ 每路 `status_register`：OPER 位 0 CV、1 CC、2 OFF，汇总进状态字节位 7；QUES 位 0 OV、1 OC、3 CP+，汇总进位 3；`STATus:OPERation/QUEStionable[:EVENt]?/CONDition?/ENABle (@list)` 与 `STATus:PRESet` 实现，PTR/NTR 未实现（事件只记上升沿，即手册的默认过滤） |
+| 测试 | ✅ 手册用例「状态寄存器组」（CV/CC/OFF、CP、OV 与状态字节 136、PRESet）；`tests/test_keysight_n6705c.py::test_status_registers_follow_the_channel`（OCP 跳闸的 OC/OFF、读事件后汇总清除、清除后回到 CC） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

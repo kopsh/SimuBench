@@ -375,9 +375,16 @@ class SupplyReadback(Component):
         return OpResult(V.format_int({"CC": 1, "CV": 2}.get(self._output().regulation(), 0)))
 
     def status_flags(self) -> dict[str, bool]:
-        """CC and CV for a channel's questionable instrument summary register (#348)."""
-        regulation = self._output().regulation()
-        return {"CC": regulation == "CC", "CV": regulation == "CV"}
+        """The channel's regulation for its status registers: CC and CV (#348), CP (the stage's
+        power rating holds the output, #533) and OFF (the output is programmed off, #539)."""
+        output = self._output()
+        regulation = output.regulation()
+        return {
+            "CC": regulation == "CC",
+            "CV": regulation == "CV",
+            "CP": regulation == "CP",
+            "OFF": not bool(output.param("output")),
+        }
 
     def readings(self) -> dict[str, Any]:
         v, i = self._output().measured()
@@ -464,6 +471,11 @@ class SupplyProtection(Component):
 
     def tripped(self) -> bool:
         return bool(self._tripped)
+
+    def status_flags(self) -> dict[str, bool]:
+        """OV and OC while the latch holds the output off (#539: the questionable register's
+        over-voltage and over-current bits)."""
+        return {"OV": self._tripped == "OVP", "OC": self._tripped == "OCP"}
 
     def kind(self) -> str:
         return self._tripped
