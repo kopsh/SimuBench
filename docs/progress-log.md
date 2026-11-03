@@ -1064,3 +1064,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 原因 | ✅ 同步通道把写入与取应答分成两次引擎调用，应答队列按仪器共用：会话 B 取完应答后的那次「空读」若排在会话 A 写入之后，就取走 A 的应答，A 超时（`test_two_sessions_and_a_held_query` 在并行负载下间歇失败；超时放宽到 5 s 仍失败，排除了超时过紧） |
 | 修复 | ✅ DataEnd 改用 `Session.exchange`（#121）：写入与全部应答在一次加锁的动作里取出，再逐条发送；中断与设备清除处理不变 |
 | 检查 | ✅ `scripts/check.sh` 连续三次全绿；HiSLIP 与验收测试 8 进程并行通过 |
+
+## Keysight 33622A Trueform 函数/任意波发生器（Issue 334）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与依据 | ✅ `keysight-33622a.yaml`：Keysight Trueform Series Operating and Service Guide（33500-90901，已入 `manuals/`）；每通道 `waveform_synth`（ARB/PRBS 引用，#426）→ `awg_modulator` → `amplitude_level`（VPP/VRMS/DBM、高/低电平，#424）→ `output_stage`（50 Ω、极性）；默认值按 Factory Reset State；数值应答 NR3 15 位；`simubench validate` 无诊断 |
+| APPLy | ✅ `APPLy:<函数> [频率[,幅度[,偏置]]]`（DEF 可用）打开输出、关闭调制；`APPLy?` 回带引号的「函数 频率,幅度,偏置」 |
+| 调制 | ✅ AM/FM/PM/FSK/PWM 每种一个开关，开一种时关其余；`awg_modulator` 的类型与调制频率按一串 bool 映射取（#429） |
+| 覆盖、用例与示例 | ✅ 覆盖表按 Command Quick Reference 273 条：实现 58 · 接受 3 · 未实现 212；`tests/models/keysight-33622a/cases.yaml` 16 条全部通过；示例台 `examples/benches/keysight-33622a.bench.yaml`（两通道接 DSOX2024A）与脚本 `examples/scripts/keysight_33622a_waves.py` 在测试中运行 |
+| 测试 | ✅ `tests/test_keysight_33622a.py` 6 项：脚本、负载设定定义幅度、高/低电平、任意波周期 = 点数/采样率、一次只开一种调制且 APPLy 关闭、极性 |
+| 已知差异 | ⚠️ 真机改负载设定时保持输出电压、换算显示值，本模型保持设定值；噪声、突发、扫频/列表、按幅度的频率上限未建模（覆盖表注明） |
+| 组件不改 | ✅ 本 PR 不改 `src/simubench/library/components/`（所需能力已在 #425、#427、#432、#434 合并）；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

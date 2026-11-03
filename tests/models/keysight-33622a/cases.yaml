@@ -1,0 +1,274 @@
+# Keysight 33622A 的手册用例：Keysight Trueform Series Operating and Service Guide（33500-90901）的 APPLy、
+# FUNCtion、FREQuency、VOLTage、OUTPut、DATA、AM/FM/PM/FSKey/PWM 子系统与 Factory Reset State。
+# 测试台 examples/benches/keysight-33622a.bench.yaml：两个通道接 DSOX2024A 的通道 1、2。
+model: keysight-33622a
+bench: ../../../examples/benches/keysight-33622a.bench.yaml
+instrument: awg
+cases:
+  - name: "*IDN? 与出厂状态：正弦 1 kHz、100 mVpp、0 V、50 Ω、输出关"
+    manual: "IEEE-488.2 Common Commands > *IDN?; Factory Reset State"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,33622A,MY12345678,0.179-1.19-8.88-52-00"
+      - send: "APPL:SQU 5e3,2,0.5;:OUTP:LOAD INF"
+      - send: "*RST"
+      - query: "APPL?"
+        expect: '"SIN +1.000000000000000E+03,+1.000000000000000E-01,+0.000000000000000E+00"'
+      - query: "OUTP?"
+        expect: "0"
+      - query: "OUTP:LOAD?"
+        expect: "+5.000000000000000E+01"
+      - query: "VOLT:UNIT?"
+        expect: "VPP"
+
+  - name: "APPLy:SINusoid 设波形、频率、幅度、偏置并打开输出"
+    manual: "APPLy Subsystem > APPLy:SINusoid; APPLy?"
+    steps:
+      - send: "APPL:SIN 1e4,1,0.1"
+      - query: "APPL?"
+        expect: '"SIN +1.000000000000000E+04,+1.000000000000000E+00,+1.000000000000000E-01"'
+      - query: "OUTP?"
+        expect: "1"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "APPLy 的各个波形与通道 2；APPLy 关闭调制"
+    manual: "APPLy Subsystem > APPLy:SQUare, TRIangle, RAMP, PULSe, DC, PRBS"
+    steps:
+      - send: "SOUR2:AM:STAT ON"
+      - send: "SOUR2:APPL:SQU 5e3,2,0"
+      - query: "SOUR2:APPL?"
+        expect: '"SQU +5.000000000000000E+03,+2.000000000000000E+00,+0.000000000000000E+00"'
+      - query: "SOUR2:AM:STAT?"
+        expect: "0"
+      - send: "APPL:TRI 2e3,1,0"
+      - query: "FUNC?"
+        expect: "TRI"
+      - send: "APPL:RAMP 2e3"
+      - query: "FUNC?"
+        expect: "RAMP"
+      - send: "APPL:PULS 1e3,DEF,DEF"
+      - query: "APPL?"
+        expect: '"PULS +1.000000000000000E+03,+1.000000000000000E-01,+0.000000000000000E+00"'
+      - send: "APPL:DC DEF,DEF,-2.5"
+      - query: "VOLT:OFFS?"
+        expect: "-2.500000000000000E+00"
+      - send: "APPL:PRBS 1e5,1,0"
+      - query: "FUNC:PRBS:BRAT?"
+        expect: "+1.000000000000000E+05"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "FUNCtion、FREQuency 与噪声未建模"
+    manual: "FUNCtion Subsystem > FUNCtion; FREQuency Subsystem > FREQuency"
+    steps:
+      - send: "FUNC SQU"
+      - query: "FUNC?"
+        expect: "SQU"
+      - send: "FREQ 2.5e6"
+      - query: "FREQ?"
+        expect: "+2.500000000000000E+06"
+      - send: "FUNC NOIS"
+      - query: "SYST:ERR?"
+        expect_match: '^-224,.*'
+
+  - name: "VOLTage、OFFSet、HIGH、LOW：设一个电平保持另一个"
+    manual: "VOLTage Subsystem > VOLTage, VOLTage:OFFSet, VOLTage:HIGH, VOLTage:LOW"
+    steps:
+      - send: "VOLT 2;:VOLT:OFFS 0"
+      - query: "VOLT:HIGH?"
+        expect: "+1.000000000000000E+00"
+      - send: "VOLT:HIGH 3"
+      - query: "VOLT?"
+        expect: "+4.000000000000000E+00"
+      - query: "VOLT:OFFS?"
+        expect: "+1.000000000000000E+00"
+      - send: "VOLT:LOW 0"
+      - query: "VOLT:LOW?"
+        expect: "+0.000000000000000E+00"
+      - query: "VOLT?"
+        expect: "+3.000000000000000E+00"
+      - send: "VOLT 21"  # 测试台的负载设定为高阻：上限 20 Vpp
+      - query: "SYST:ERR?"
+        expect_match: '^-222,.*'
+
+  - name: "VOLTage:UNIT 换算幅度，输出不变"
+    manual: "VOLTage Subsystem > VOLTage:UNIT"
+    steps:
+      - send: "VOLT 2"
+      - send: "VOLT:UNIT VRMS"
+      - query: "VOLT?"
+        expect_match: '^\+7\.0710678118\d{5}E-01$'
+      - send: "VOLT:UNIT DBM"
+      - query: "VOLT:UNIT?"
+        expect: "DBM"
+      - query: "VOLT?"
+        expect_match: '^\+(1\.0000000000\d{5}E\+01|9\.9999999999\d{5}E\+00)$'  # 2 Vpp 进 50 Ω = 10 dBm
+
+  - name: "方波占空比、斜波对称度与脉冲占空比"
+    manual: "FUNCtion Subsystem > FUNCtion:SQUare:DCYCle, FUNCtion:RAMP:SYMMetry, FUNCtion:PULSe:DCYCle"
+    steps:
+      - send: "FUNC:SQU:DCYC 20"
+      - query: "FUNC:SQU:DCYC?"
+        expect: "+2.000000000000000E+01"
+      - send: "FUNC:RAMP:SYMM 50"
+      - query: "FUNC:RAMP:SYMM?"
+        expect: "+5.000000000000000E+01"
+      - query: "FUNC:PULS:DCYC?"
+        expect: "+1.000000000000000E+01"
+
+  - name: "PRBS 序列与比特率"
+    manual: "FUNCtion Subsystem > FUNCtion:PRBS:DATA, FUNCtion:PRBS:BRATe"
+    steps:
+      - send: "FUNC PRBS;:FUNC:PRBS:DATA PN11"
+      - query: "FUNC:PRBS:DATA?"
+        expect: "PN11"
+      - send: "FUNC:PRBS:BRAT 2e6"
+      - query: "FUNC:PRBS:BRAT?"
+        expect: "+2.000000000000000E+06"
+      - send: "FUNC:PRBS:DATA PN23"
+      - query: "SYST:ERR?"
+        expect_match: '^-224,.*'
+
+  - name: "任意波：DATA:ARBitrary 装载、FUNCtion:ARBitrary 选择、采样率与点数"
+    manual: "DATA Subsystem > DATA:ARBitrary, DATA:VOLatile:CATalog?; FUNCtion:ARBitrary, FUNCtion:ARBitrary:SRATe, FUNCtion:ARBitrary:POINts?"
+    steps:
+      - send: "DATA:ARB myarb,0,0.5,1,0.5,0,-0.5,-1,-0.5"
+      - send: "FUNC:ARB myarb"
+      - query: "FUNC:ARB?"
+        expect: '"myarb"'
+      - send: "FUNC ARB"
+      - query: "FUNC:ARB:POIN?"
+        expect: "8"
+      - send: "FUNC:ARB:SRAT 8e3"
+      - query: "FUNC:ARB:SRAT?"
+        expect: "+8.000000000000000E+03"
+      - query: "DATA:VOL:CAT?"
+        expect: '"myarb"'
+      - send: "APPL:ARB 4e3,1,0"
+      - query: "APPL?"
+        expect: '"ARB +1.000000000000000E+03,+1.000000000000000E+00,+0.000000000000000E+00"'
+      - query: "FUNC:ARB:SRAT?"
+        expect: "+4.000000000000000E+03"
+
+  - name: "DATA:ARBitrary:DAC、清空易失存储与拒绝"
+    manual: "DATA Subsystem > DATA:ARBitrary:DAC, DATA:VOLatile:CLEar"
+    steps:
+      - send: "DATA:ARB:DAC steps,-32767,-16384,0,16384,32767,16384,0,-16384"
+      - query: "DATA:VOL:CAT?"
+        expect: '"steps"'
+      - send: "DATA:ARB short,0,1,0"
+      - query: "SYST:ERR?"
+        expect_match: '^-222,.*'
+      - send: "DATA:VOL:CLE"
+      - query: "DATA:VOL:CAT?"
+        expect: '""'
+      - send: "FUNC:ARB steps"
+      - query: "SYST:ERR?"
+        expect_match: '^-224,.*'
+
+  - name: "OUTPut、负载与极性"
+    manual: "OUTPut Subsystem > OUTPut, OUTPut:LOAD, OUTPut:POLarity"
+    steps:
+      - send: "OUTP ON"
+      - query: "OUTP?"
+        expect: "1"
+      - send: "OUTP2:LOAD 1000"
+      - query: "OUTP2:LOAD?"
+        expect: "+1.000000000000000E+03"
+      - send: "OUTP:POL INV"
+      - query: "OUTP:POL?"
+        expect: "INV"
+
+  - name: "AM：深度、调制频率与开关；开 FM 时关 AM"
+    manual: "AM Subsystem > AM[:DEPTh], AM:INTernal:FREQuency, AM:STATe; FM Subsystem > FM:STATe"
+    steps:
+      - send: "AM:DEPT 50;:AM:INT:FREQ 500;:AM:STAT ON"
+      - query: "AM:DEPT?"
+        expect: "+5.000000000000000E+01"
+      - query: "AM:INT:FREQ?"
+        expect: "+5.000000000000000E+02"
+      - query: "AM:STAT?"
+        expect: "1"
+      - send: "FM:STAT ON"
+      - query: "AM:STAT?"
+        expect: "0"
+      - query: "FM:STAT?"
+        expect: "1"
+
+  - name: "FM 与 PM 的偏差和调制频率"
+    manual: "FM Subsystem > FM[:DEViation], FM:INTernal:FREQuency; PM Subsystem > PM:DEViation, PM:INTernal:FREQuency, PM:STATe"
+    steps:
+      - send: "FM:DEV 1e3;:FM:INT:FREQ 50"
+      - query: "FM:DEV?"
+        expect: "+1.000000000000000E+03"
+      - query: "FM:INT:FREQ?"
+        expect: "+5.000000000000000E+01"
+      - send: "PM:DEV 90;:PM:INT:FREQ 20;:PM:STAT ON"
+      - query: "PM:DEV?"
+        expect: "+9.000000000000000E+01"
+      - query: "PM:INT:FREQ?"
+        expect: "+2.000000000000000E+01"
+      - query: "PM:STAT?"
+        expect: "1"
+
+  - name: "FSK 与 PWM"
+    manual: "FSKey Subsystem > FSKey:FREQuency, FSKey:INTernal:RATE, FSKey:STATe; PWM Subsystem > PWM:DEViation:DCYCle, PWM:INTernal:FREQuency, PWM:STATe"
+    steps:
+      - send: "FSK:FREQ 2e3;:FSK:INT:RATE 5;:FSK:STAT ON"
+      - query: "FSK:FREQ?"
+        expect: "+2.000000000000000E+03"
+      - query: "FSK:INT:RATE?"
+        expect: "+5.000000000000000E+00"
+      - query: "FSK:STAT?"
+        expect: "1"
+      - send: "FUNC PULS;:PWM:DEV:DCYC 5;:PWM:INT:FREQ 30;:PWM:STAT ON"
+      - query: "PWM:DEV:DCYC?"
+        expect: "+5.000000000000000E+00"
+      - query: "PWM:INT:FREQ?"
+        expect: "+3.000000000000000E+01"
+      - query: "PWM:STAT?"
+        expect: "1"
+      - query: "FSK:STAT?"
+        expect: "0"
+
+  - name: "公共命令：*ESE、*SRE、*ESR、*STB、*CLS、*TST、*OPC、*WAI"
+    manual: "IEEE-488.2 Common Commands"
+    steps:
+      - send: "*ESE 32"
+      - query: "*ESE?"
+        expect: "32"
+      - send: "*SRE 16"
+      - query: "*SRE?"
+        expect: "16"
+      - query: "*TST?"
+        expect: "0"
+      - send: "FOO"
+      - query: "*ESR?"
+        expect: "32"
+      - send: "*CLS"
+      - query: "*STB?"
+        expect: "0"
+      - send: "*WAI"
+      - query: "*OPC?"
+        expect: "1"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "显示文本（接受）、SCPI 版本与未实现命令"
+    manual: "DISPlay Subsystem > DISPlay, DISPlay:TEXT, DISPlay:TEXT:CLEar; SYSTem:VERSion?; BURSt Subsystem"
+    steps:
+      - send: "DISP:TEXT 'TEST'"
+      - query: "DISP:TEXT?"
+        expect: '"TEST"'
+      - send: "DISP:TEXT:CLE"
+      - query: "DISP:TEXT?"
+        expect: '""'
+      - send: "DISP OFF"
+      - query: "DISP?"
+        expect: "0"
+      - query: "SYST:VERS?"
+        expect: "1994.0"
+      - send: "BURS:STAT ON"
+      - query: "SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'

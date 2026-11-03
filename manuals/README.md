@@ -14,3 +14,4 @@
 | 9-01715-903 | SR865A 4 MHz DSP Lock-in Amplifier Operation Manual | Revision 2.11 | `srs-sr865a` | https://www.thinksrs.com/downloads/pdfs/manuals/SR865Am.pdf |
 | DAQ97-90000 | Keysight DAQ970A/DAQ973A Data Acquisition System User's Guide | Edition 3, June 3, 2020 | `keysight-daq970a`（SCPI 命令见 DAQ97-90002） | https://www.batronix.com/files/Keysight/DAQ/DAQ970A-973A-Manual.pdf |
 | DAQ97-90002 | Keysight DAQ970A/DAQ973A Data Acquisition System Programming Guide | Edition 3, March 2020 | `keysight-daq970a` | https://www.batronix.com/files/Keysight/DAQ/DAQ970A-973A-Programming.pdf |
+| 33500-90901 | Keysight Trueform Series Operating and Service Guide | © 2013–2015（未印版次） | `keysight-33622a` | https://fotronic.asset.akeneo.cloud/pdfs/media/usedequipment_33500b_33600a_series_manual.pdf |
