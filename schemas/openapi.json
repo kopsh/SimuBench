@@ -4185,6 +4185,21 @@
             "title": "Name",
             "type": "string"
           },
+          "not_modeled": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Words the real instrument takes for this parameter but the model does not implement, with the reason (as on a setting, #360); refused with -224 as not modeled",
+            "title": "Not Modeled"
+          },
           "optional": {
             "default": false,
             "title": "Optional",
@@ -6377,6 +6392,21 @@
               }
             ],
             "title": "Min"
+          },
+          "not_modeled": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Words the real instrument takes for this setting but the model does not implement, with the reason, e.g. {INFinity: continuous scanning is not modeled} (SCPI mixed case: the short and the long form both match). Writing one is refused with -224 as not modeled, instead of being parsed as a number and rejected as out of range (#360)",
+            "title": "Not Modeled"
           },
           "option_labels": {
             "anyOf": [

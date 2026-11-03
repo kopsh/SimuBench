@@ -1391,7 +1391,19 @@ class Instrument:
         word = raw.decode(errors="replace").strip().upper()
         return word.startswith("DEF") or bool(st.special and word in st.special)
 
+    @staticmethod
+    def _refuse_not_modeled(words: dict[str, str] | None, raw: bytes) -> None:
+        """A word the real instrument takes but this definition does not model (``not_modeled``,
+        #360): -224, classified as not modeled, with the definition's reason."""
+        if not words:
+            return
+        word = raw.decode(errors="replace").strip()
+        for declared, reason in words.items():
+            if V.matches_word(word, declared):
+                raise ScpiError(-224, f"{declared}: {reason}; {NOT_MODELED}")
+
     def _parse_state(self, st: StateSpec, raw: bytes) -> Any:
+        self._refuse_not_modeled(st.not_modeled, raw)
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
             if st.special and word in st.special:
@@ -1588,6 +1600,7 @@ class Instrument:
                 continue
             r = raw[i]
             i += 1
+            self._refuse_not_modeled(ps.not_modeled, r)
             try:
                 if ps.type == "float":
                     v = V.parse_float(r, ps.unit, ps.min, ps.max)
