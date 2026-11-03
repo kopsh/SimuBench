@@ -338,3 +338,51 @@ def test_braille_rows_draw_a_peak_at_the_top_and_the_floor_at_the_bottom():
     assert rows[0].strip("⠀") != ""  # the peak lights the top row
     assert rows[0][0] == "⠀" and rows[-1][0] != "⠀"  # the floor sits on the bottom row
     assert braille_rows([], 5, 2) == ["⠀" * 5] * 2
+
+
+def test_a_panel_key_labelled_only_in_chinese_reads_the_enum_word():
+    """D23 (#454): the definitions' option_labels are Chinese; the terminal shows the value's own
+    word instead, while a Latin key label (the multimeter's `DC V`, `Ω 2W`) stays."""
+    from simubench.tui.controls import panel_controls
+
+    keys = [
+        {"value": "OFF", "label": "独立"},
+        {"value": "PARallel", "label": "并联"},
+        {"value": "SERies", "label": "串联"},
+        {"value": "DC", "label": "DC V"},
+        {"value": "RES", "label": "Ω 2W"},
+    ]
+    group = {"label_en": "Measure", "controls": [{"state": "output.pair", "control": "buttons", "keys": keys}]}
+    labels_en = [c.label for c in panel_controls(group, {"state": []}, "en")]
+    assert labels_en == ["OFF", "PARallel", "SERies", "DC V", "Ω 2W"]
+    assert [c.label for c in panel_controls(group, {"state": []}, "zh")] == [
+        "独立",
+        "并联",
+        "串联",
+        "DC V",
+        "Ω 2W",
+    ]
+
+
+def test_a_softkey_labelled_only_in_chinese_reads_its_action():
+    """D23 (#454): an English label wins, a Chinese-only one gives way to the action's name."""
+    from simubench.tui.controls import softkey_controls
+
+    panel = {
+        "softkeys": [
+            {"action": "run", "label": "运行", "label_en": "Run"},
+            {"action": "stop", "label": "停止"},
+        ]
+    }
+    assert [c.label for c in softkey_controls(panel, "en")] == ["Run", "stop"]
+    assert [c.label for c in softkey_controls(panel, "zh")] == ["运行", "停止"]
+
+
+def test_a_control_labelled_only_in_chinese_keeps_the_settings_own_label():
+    """D23 (#454): an explicitly declared Chinese control label gives way to the setting's own
+    English label instead of the path."""
+    from simubench.tui.controls import panel_controls
+
+    group = {"label_en": "G", "controls": [{"state": "out.level", "control": "number", "label": "电平"}]}
+    info = {"state": [{"path": "out.level", "type": "float", "value": 1.0, "label_en": "Level"}]}
+    assert [c.label for c in panel_controls(group, info, "en")] == ["Level"]

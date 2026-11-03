@@ -104,6 +104,14 @@ def label_of(sv: Mapping[str, Any], lang: str, fallback: str = "") -> str:
     return sv.get("label" if lang == "zh" else "label_en") or fallback or sv.get("path", "")
 
 
+def _latin(text: Any) -> str | None:
+    """``text`` when it is written in Latin script, else None: the terminal shows no CJK (D23)."""
+    if not text:
+        return None
+    text = str(text)
+    return text if all(ord(c) < 0x2E80 for c in text) else None
+
+
 def _control_for(path: str, spec: Mapping[str, Any], lang: str, step: float | None = None) -> Control:
     """The control one state variable is set with (tui-screens.md 5.3)."""
     kind = {"bool": "switch", "enum": "select", "float": "number", "int": "number"}.get(
@@ -183,7 +191,13 @@ def panel_controls(group: Mapping[str, Any], info: Mapping[str, Any], lang: str)
                 key_spec = spec or {}
                 if spec is not None and isinstance(value, str) and spec.get("type") == "enum":
                     key_spec = spec
-                label = key.get("label" if lang == "zh" else "label_en") or key.get("label") or str(value)
+                # A key labelled only in Chinese (the definitions' option_labels) reads the enum's
+                # own word instead — the same mnemonic the rows and selects show (D23, #454).
+                label = (
+                    key.get("label" if lang == "zh" else "label_en")
+                    or _latin(key.get("label"))
+                    or str(value)
+                )
                 out.append(
                     Control(
                         kind="buttons",
@@ -202,8 +216,10 @@ def panel_controls(group: Mapping[str, Any], info: Mapping[str, Any], lang: str)
             control = _control_for(path, spec, lang, step=pc.get("step"))
             if pc.get("unit"):
                 control.unit = pc["unit"]
-            if pc.get("label" if lang == "zh" else "label_en") or pc.get("label"):
-                control.label = pc.get("label" if lang == "zh" else "label_en") or pc.get("label")
+            # An explicitly declared label only in Chinese gives way to the setting's own (D23).
+            override = pc.get("label" if lang == "zh" else "label_en") or _latin(pc.get("label"))
+            if override:
+                control.label = override
             out.append(control)
     return out
 
@@ -212,7 +228,12 @@ def softkey_controls(panel: Mapping[str, Any], lang: str) -> list[Control]:
     """The panel's softkeys (tui-screens.md 5.3): actions go to POST /panel, states to configure."""
     out: list[Control] = []
     for sk in panel.get("softkeys", []):
-        label = sk.get("label" if lang == "zh" else "label_en") or sk.get("label", "")
+        # A softkey labelled only in Chinese reads its action's (or state's) name instead (D23, #454).
+        label = (
+            sk.get("label" if lang == "zh" else "label_en")
+            or _latin(sk.get("label"))
+            or str(sk.get("action") or sk.get("state") or "")
+        )
         out.append(
             Control(
                 kind="softkey",
