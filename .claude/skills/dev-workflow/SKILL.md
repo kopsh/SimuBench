@@ -35,8 +35,9 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
    bot (`.github/workflows/merge.yml`) merges `main` into it, re-runs CI, and merges — only a
    merge conflict comes back to the agent.
 6. PR into `main`, body has `Closes #<n>`. It auto-squash-merges when CI is green on a commit that
-   contains latest `main`; the bot self-heals a branch that `main` has passed (merge + re-CI).
-   Red CI → push a fix commit. Never weaken/skip/delete tests.
+   contains latest `main`; the bot self-heals a branch that `main` has passed (merge + re-CI on
+   the same fast tier) and comments on a red CI run. Red CI → push a fix commit. Never
+   weaken/skip/delete tests.
 7. Append a self-check section to the end of `docs/progress-log.md` when the issue asks for it
    (format in `docs/progress.md`; never read the log whole).
 
