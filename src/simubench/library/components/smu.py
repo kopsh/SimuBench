@@ -542,9 +542,8 @@ class SmuMeter(Component):
         res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
         return [v, i, res, t, float(STAT_LIMIT if self._loop().limited() else 0)]
 
-    @staticmethod
-    def _format(rows: list[list[float]]) -> bytes:
-        return b",".join(V.format_float(x, 7) for row in rows for x in row)
+    def _format(self, rows: list[list[float]]) -> bytes:
+        return b",".join(self.reply_number(x, 7) for row in rows for x in row)
 
     # ---- a Sampler for trigger_model (metrology-authoring.md 3.4) ---------------------------------
 
@@ -701,7 +700,7 @@ class SmuMeter(Component):
             )
         if r is None:
             raise ValueError(f"{self.uid}: the {function} function has no usable measure range")
-        return OpResult(V.format_float(r, 7))
+        return OpResult(self.reply_number(r, 7))
 
     def readings(self) -> dict[str, Any]:
         self.session._solve()

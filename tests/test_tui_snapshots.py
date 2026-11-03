@@ -433,15 +433,14 @@ def test_runs_snapshot(snap_compare, fixed_times, lang, size, name):
 # ---- the new categories' instrument screens (#282) ----------------------------------------------------
 
 
-@pytest.fixture(scope="module")
-def category_server():
-    """A server over the validation benches with fixed SCPI/HiSLIP ports (the identity box shows
-    the addresses): one session per category bench, started by the test."""
+def _serve(workspace: Path, scpi_base_port: int, hislip_port: int):
+    """A server over a workspace's benches with fixed SCPI/HiSLIP ports (the identity box shows the
+    addresses); the test starts one session per category bench."""
     import socket
 
     import uvicorn
 
-    manager = SessionManager(ROOT / "validation", scpi_base_port=5585, hislip_port=4899)
+    manager = SessionManager(workspace, scpi_base_port=scpi_base_port, hislip_port=hislip_port)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
@@ -458,41 +457,117 @@ def category_server():
     deadline = time.monotonic() + 20
     while not server.started and time.monotonic() < deadline:
         time.sleep(0.02)
-    yield f"http://127.0.0.1:{port}", manager
-    server.should_exit = True
-    thread.join(timeout=10)
+    return f"http://127.0.0.1:{port}", manager, server, thread
 
 
+@pytest.fixture(scope="module")
+def category_server():
+    """The validation benches and the example benches (real models: the load, the power supply and
+    the DAQ have no validation bench), each behind its own server."""
+    servers = {
+        "validation": _serve(ROOT / "validation", 5585, 4899),
+        "examples": _serve(ROOT / "examples", 5685, 4999),
+    }
+    yield {key: (url, manager) for key, (url, manager, _, _) in servers.items()}
+    for _, _, server, thread in servers.values():
+        server.should_exit = True
+        thread.join(timeout=10)
+
+
+#: (workspace, bench, instrument, text the screen shows once its readings arrived, kind).
 CATEGORY_SCREENS = [
-    ("benches/counter.bench.yaml", "cnt", "1.000000000 kHz", "counter"),
-    ("benches/specan.bench.yaml", "sa", "Marker", "specan"),
-    ("benches/lockin_rc.bench.yaml", "lia", "θ", "lockin"),
+    ("validation", "benches/counter.bench.yaml", "cnt", "1.000000000 kHz", "counter"),
+    ("validation", "benches/specan.bench.yaml", "sa", "Marker", "specan"),
+    ("validation", "benches/lockin_rc.bench.yaml", "lia", "θ", "lockin"),
+    # #355: the RF source, the load, the power supply and the DAQ.
+    ("validation", "benches/rfgen.bench.yaml", "rf", "Frequency", "rfgen"),
+    ("examples", "benches/rigol_dl3021.bench.yaml", "dut", "INPUT", "eload"),
+    ("examples", "benches/keysight_e36312a.bench.yaml", "psu", "CH1", "psu"),
+    ("examples", "benches/keysight_34970a.bench.yaml", "daq", "Scan", "daq"),
 ]
 
 
-@pytest.mark.parametrize(
-    ("bench", "instrument", "needle", "kind"), CATEGORY_SCREENS, ids=[c[3] for c in CATEGORY_SCREENS]
-)
-@pytest.mark.parametrize("size", [(100, 32), (80, 24)], ids=["100x32", "80x24"])
-def test_category_instrument_snapshot(snap_compare, category_server, bench, instrument, needle, kind, size):
-    """The counter's reading, the analyzer's trace and marker, the lock-in's X/Y/R/θ (#282)."""
+async def _open_instrument(pilot, tui, instrument: str, needle: str, kind: str) -> str:
     import asyncio
 
-    url, manager = category_server
+    await _settle(pilot, tui)
+    tui.show("instrument", instrument)
+    end = asyncio.get_running_loop().time() + 30
+    text = ""
+    while asyncio.get_running_loop().time() < end:
+        await pilot.pause(0.1)
+        text = "\n".join(
+            "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+        )
+        if needle in text:
+            return text
+    raise AssertionError(f"the {kind} screen never showed {needle!r}:\n{text}")
+
+
+@pytest.mark.parametrize(
+    ("workspace", "bench", "instrument", "needle", "kind"),
+    CATEGORY_SCREENS,
+    ids=[c[4] for c in CATEGORY_SCREENS],
+)
+@pytest.mark.parametrize("size", [(100, 32), (80, 24)], ids=["100x32", "80x24"])
+def test_category_instrument_snapshot(
+    snap_compare, category_server, workspace, bench, instrument, needle, kind, size
+):
+    """Each category's screen: the counter's reading, the analyzer's trace and marker, the lock-in's
+    X/Y/R/θ (#282); the RF source, the load, the power supply and the DAQ (#355)."""
+    import asyncio
+
+    url, manager = category_server[workspace]
     served = asyncio.run(manager.start(bench, seed=5, clock="command"))
     tui = SimuBenchApp(url, sid=served.id)
 
     async def run_before(pilot) -> None:
-        await _settle(pilot, tui)
-        tui.show("instrument", instrument)
-        end = asyncio.get_running_loop().time() + 30
-        while asyncio.get_running_loop().time() < end:
-            await pilot.pause(0.1)
-            text = "\n".join(
-                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
-            )
-            if needle in text:
-                return
-        raise AssertionError(f"the {kind} screen never showed {needle!r}")
+        await _open_instrument(pilot, tui, instrument, needle, kind)
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+@pytest.mark.parametrize(
+    ("workspace", "bench", "instrument", "shows", "kind"),
+    [
+        # Frequency and level, the RF/modulation flags and integer line counts — no internal
+        # quantities of the synthesizer.
+        (
+            "validation",
+            "benches/rfgen.bench.yaml",
+            "rf",
+            ["Frequency", "Level", "RF ON", "Lines 1", "Carrier"],
+            "rfgen",
+        ),
+        # Measured V, I, P, the input and the mode.
+        ("examples", "benches/rigol_dl3021.bench.yaml", "dut", ["INPUT", "V ", "I ", "P "], "eload"),
+    ],
+    ids=["rfgen", "eload"],
+)
+def test_the_rf_source_and_load_screens_show_meaningful_readings(
+    category_server, workspace, bench, instrument, shows, kind
+):
+    import asyncio
+    import re
+
+    url, manager = category_server[workspace]
+    served = asyncio.run(manager.start(bench, seed=5, clock="command"))
+    tui = SimuBenchApp(url, sid=served.id)
+
+    async def run() -> str:
+        async with tui.run_test(size=(100, 32)) as pilot:
+            return await _open_instrument(pilot, tui, instrument, shows[0], kind)
+
+    text = asyncio.run(run())
+    for needle in shows:
+        assert needle in text, needle
+    for internal in (
+        "synth.point",
+        "synth.points",
+        "mod.lines",
+        "mod.beta",
+        "mod.omitted_power",
+        "load.regulating",
+    ):
+        assert internal not in text
+    assert not re.search(r"[\u2e80-\u9fff]", text), "the TUI is English only (D23)"

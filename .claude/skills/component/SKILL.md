@@ -45,6 +45,8 @@ class CounterGate(Component):
   contribution; `piecewise = True` for mode-dependent devices (D34 mode iteration, D52);
   `dynamic = True` for time state.
 - Out of the model's range → raise `ScpiError` with the right code; never return a guess.
+- Numeric replies: `self.reply_number(value, digits)`, never a hand-formatted string — a
+  definition with `format.readings: format` answers in its own format (D54, #366).
 - Randomness only through `engine/noise.py` streams (determinism, D6/D12).
 - New module → import it in `library/components/__init__.py`.
 - Parameters bind to state in definitions via `$path` or `{from, map, scale, offset, default}`.

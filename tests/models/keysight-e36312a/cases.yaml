@@ -472,3 +472,28 @@ cases:
       - send: "CURR 1,(@1)"
       - query: "STAT:QUES:INST:ISUM1:COND?"
         expect: "2"
+
+  - name: "可疑状态寄存器组（#348）：CV→CC 置位 ISUM 事件、读后清零，使能逐级汇总到状态字节，PRESet 清使能"
+    manual: "STATus Subsystem > STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt] / :ENABle; QUEStionable:INSTrument / QUEStionable [:EVENt] / :ENABle; STATus:PRESet"
+    steps:
+      - send: "STAT:QUES:INST:ISUM1:ENAB 1;:STAT:QUES:INST:ENAB 2;:STAT:QUES:ENAB 8192"
+      - query: "STAT:QUES:INST:ISUM1:ENAB?"
+        expect: "1"
+      # 5 V、限流 0.1 A 接 CH1 的 10 Ω：输出进入恒流。
+      - send: "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1)"
+      - send: "*WAI"
+      - query: "STAT:QUES:INST:ISUM1:COND?"
+        expect: "1"
+      - query: "STAT:QUES?"
+        expect: "8192"
+      - query: "STAT:QUES:INST?"
+        expect: "2"
+      - query: "STAT:QUES:INST:ISUM1?"
+        expect: "1"
+      - query: "STAT:QUES:INST:ISUM1?"
+        expect: "0"
+      - send: "STAT:PRES"
+      - query: "STAT:QUES:ENAB?"
+        expect: "0"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

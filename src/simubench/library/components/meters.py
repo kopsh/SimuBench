@@ -78,6 +78,15 @@ class DmmInputTerminal(Component):
     def _mode(self) -> str:
         return self.choice("mode") or "VOLTage"
 
+    def mode(self) -> str:
+        """What the terminal measures: VOLTage, RESistance, FRESistance or CURRent (#301)."""
+        return self._mode()
+
+    def per_range(self, key: str) -> float:
+        """The range's test current (``test_current``) or shunt (``shunt``), for a block in front
+        that stamps them itself (the DAQ's analog bus, #301)."""
+        return self._per_range(key)
+
     def _per_range(self, key: str) -> float:
         """``test_current`` / ``shunt`` for the range in use: one number, or a table by range."""
         spec = self.param(key)
@@ -107,7 +116,8 @@ class DmmInputTerminal(Component):
         V/shunt (A) — the quantity, as the conditioning block ranges it (#301)."""
         mode = self._mode()
         wired = self.session.port_ref(self, "pin") is not None
-        if mode in ("RESistance", "FRESistance") and not self.wired("pin"):
+        fed = self.owner is not None and self.owner.has_upstream(self, "pin")
+        if mode in ("RESistance", "FRESistance") and not self.wired("pin") and not fed:
             return Signal.constant(math.inf)  # an open input: the source runs to its compliance
         if mode in ("RESistance", "FRESistance") and wired:
             use_sense = mode == "FRESistance" and self.wired("sense")
@@ -117,6 +127,17 @@ class DmmInputTerminal(Component):
             return Signal.constant(v / self._per_range("test_current"))
         if mode == "CURRent" and wired:
             return self.pin_signal("pin").scale(1.0 / self._per_range("shunt"))
+        if mode in ("RESistance", "FRESistance"):
+            # Fed as a signal by a block that stamps the test current itself (a multiplexer's
+            # analog bus, #301): the bus voltage (FRES: the sense bus) over the test current.
+            sensed = self.owner is not None and self.owner.has_upstream(self, "sense")
+            port = "sense" if mode == "FRESistance" and sensed else "pin"
+            v = self.input(port).mean()
+            if abs(v) > float(self.param("compliance")):
+                return Signal.constant(math.inf)
+            return Signal.constant(v / self._per_range("test_current"))
+        if mode == "CURRent":
+            return self.input("pin").scale(1.0 / self._per_range("shunt"))  # the bus across its shunt
         if self.param("z_in") is not None and wired:
             return self.pin_signal("pin")
         return self.input("pin")

@@ -11,6 +11,7 @@ expressed by overriding:
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
@@ -132,6 +133,8 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
             value = table[value]
         elif isinstance(value, str) and (hit := next((k for k in table if k.upper() == value.upper()), None)):
             value = table[hit]
+        elif isinstance(value, int) and not isinstance(value, bool) and str(value) in table:
+            value = table[str(value)]  # an int setting against the map's (string) keys
         elif mapping.get("default") is not None:
             value = mapping["default"]
     ladder = mapping.get("table")
@@ -160,6 +163,8 @@ class Component:
     ports: ClassVar[dict[str, PortSpec]] = {}
     #: Ports the instrument wiring creates (a regular expression), e.g. ``in\d+`` for in1..inN.
     port_pattern: ClassVar[str | None] = None
+    #: What a port matching ``port_pattern`` is (the multiplexer's relay terminals are electrical).
+    pattern_port: ClassVar[PortSpec] = PortSpec("inout", "electrical")
     #: Circuit role (see :data:`Role`); input impedance comes from ``impedance_of(params)``.
     role: ClassVar[Role | None] = None
     #: Ports that carry a source's remote-sense feedback, and the parameter that enables it: the
@@ -228,6 +233,25 @@ class Component:
         from ..scpi import values as V
 
         return V.parse_enum(str(value).encode(), self.choices[key])
+
+    def port_spec(self, port: str) -> PortSpec:
+        """A declared port, or one the instrument creates through ``port_pattern``."""
+        spec = self.ports.get(port)
+        if spec is not None:
+            return spec
+        if self.port_pattern and re.fullmatch(self.port_pattern, port):
+            return self.pattern_port
+        raise KeyError(port)
+
+    def reply_number(self, value: float, digits: int = 6) -> bytes:
+        """A number this component answers: ``digits`` after the point (the component's own
+        format), or the definition's response format when it says ``readings: format`` (#366)."""
+        from ..scpi import values as V
+
+        owner = self.owner
+        if owner is not None and getattr(owner.definition.format, "readings", "component") == "format":
+            return owner.format_number(value)
+        return V.format_float(value, digits)
 
     def param(self, key: str) -> Any:
         if key in self.overrides:

@@ -5,7 +5,8 @@ model: SR830
 class: lockin
 version: 1
 description: >-
-  Stanford Research Systems SR830 DSP 锁相放大器（单输入、双相解调，GPIB/RS-232 行式命令集）。
+  Stanford Research Systems SR830 DSP 锁相放大器（A/B 电压输入或电流输入、双相解调、两条曲线的
+  数据存储，GPIB/RS-232 行式命令集）。
   Real model（D42）：命令、参数、默认值与回复按 SR830 DSP Lock-In Amplifier Manual
   （Revision 2.5，10/2011，firmware 6-1）第 5 章 Computer Interface；第 4 章的默认设置表
   给出上电与 *RST 的值。SR830 不是 SCPI：四条助记符 + 逗号分隔的参数，查询回复是不带命令头
@@ -148,12 +149,12 @@ state:
     label_en: Detection harmonic
   reference.slope:
     type: enum
-    options: ["0"]
+    options: ["0", "1", "2"]
     default: "0"
     rst: "0"
-    option_labels: {"0": 正弦过零}
-    label: 外部参考触发（仅正弦过零）
-    label_en: External reference slope (sine zero crossing only)
+    option_labels: {"0": 正弦过零, "1": TTL 上升沿, "2": TTL 下降沿}
+    label: 外部参考触发
+    label_en: External reference slope
   sine_out.amplitude:
     type: float
     unit: V
@@ -166,12 +167,13 @@ state:
   # ---- input and filters (manual 5-5) ---------------------------------------------------------
   input.source:
     type: enum
-    options: ["0"]
+    options: ["0", "1", "2", "3"]
     default: "0"
     rst: "0"
-    option_labels: {"0": A}
-    label: 输入方式（仅单端 A）
-    label_en: Input configuration (single-ended A only)
+    option_labels: {"0": A, "1": A-B, "2": I (1 MΩ), "3": I (100 MΩ)}
+    label: 输入方式
+    label_en: Input configuration
+    electrical: true
   input.shield_ground:
     type: enum
     options: ["0", "1"]
@@ -237,6 +239,33 @@ state:
     option_labels: {"0": 6 dB/oct, "1": 12 dB/oct, "2": 18 dB/oct, "3": 24 dB/oct}
     label: 滤波斜率
     label_en: Filter slope
+  # ---- data storage (manual 5-12 – 5-14, #273) ---------------------------------------------------
+  buffer.rate:
+    type: enum
+    options: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"]
+    default: "4"
+    rst: "4"
+    option_labels: {"0": 62.5 mHz, "1": 125 mHz, "2": 250 mHz, "3": 500 mHz, "4": 1 Hz, "5": 2 Hz,
+      "6": 4 Hz, "7": 8 Hz, "8": 16 Hz, "9": 32 Hz, "10": 64 Hz, "11": 128 Hz, "12": 256 Hz,
+      "13": 512 Hz, "14": 触发}
+    label: 采样率
+    label_en: Sample rate
+  buffer.end:
+    type: enum
+    options: ["0", "1"]
+    default: "1"
+    rst: "1"
+    option_labels: {"0": 单次, "1": 循环}
+    label: 缓冲结束方式
+    label_en: Buffer end mode
+  buffer.trigger_start:
+    type: enum
+    options: ["0", "1"]
+    default: "0"
+    rst: "0"
+    option_labels: {"0": 关, "1": 触发开始扫描}
+    label: 触发开始
+    label_en: Trigger starts
   # ---- interface and setup (manual 5-10, 5-19; all accepted) ------------------------------------
   interface.output:
     type: int
@@ -330,12 +359,28 @@ components:
       # 检测频率 n×f 上限 102 kHz；超过时按手册把谐波钳到最大可用值，不报错（#273）。
       f_max: 102.0e3
       over_limit: clamp
+      # RSLP（#273）：正弦过零与 TTL 上升沿同为零相位点，TTL 下降沿晚半个周期。
+      ext_slope: {from: $reference.slope, map: {"0": SINE, "1": RISE, "2": FALL}}
   - name: out
     type: output_stage
     params: {z_out: 50.0, enabled: true}
+  # 输入前端（#273，手册 5-5 与 3-4）：A、B 各为 10 MΩ ∥ 25 pF；电流输入时 A 是 1 kΩ 到虚地，
+  # 1 µA 对应电压链的 1 V（灵敏度按 1e-6 读成电流；10^6 与 10^8 两档增益只差噪声与带宽，未建模）。
+  # IGND（屏蔽浮地/接地）只保存回读：台架的网络共用一个地，不改变读数。
   - name: sig_in
     type: input_port
+    params:
+      z_in: {from: $input.source, map: {"0": 10.0e6, "1": 10.0e6, "2": 1.0e3, "3": 1.0e3}}
+      c_in: 25.0e-12
+  - name: sig_b
+    type: input_port
     params: {z_in: 10.0e6, c_in: 25.0e-12}
+  - name: mode
+    type: lockin_input_mode
+    params:
+      mode: {from: $input.source, map: {"0": A, "1": A-B, "2": I, "3": I}}
+      current_z: 1.0e3
+      current_scale: 1.0e6
   - name: ref_in
     type: input_port
     params: {z_in: 1.0e6}
@@ -379,7 +424,13 @@ components:
           24: 0.2
           25: 0.5
           26: 1.0
-      reserve: {from: $input.reserve, map: {"0": 100.0, "1": 10.0, "2": 1.0}}
+      # 实际动态储备随灵敏度变化（手册 p.4-8 的表，#273）：每个 RMOD 一列，档间按对数插值。
+      reserve_db:
+        from: $input.reserve
+        map:
+          "0": {1.0: 0, 0.1: 20, 0.01: 40, 1.0e-3: 60, 1.0e-4: 80, 1.0e-5: 100, 1.0e-6: 120, 1.0e-7: 140, 1.0e-8: 160, 1.0e-9: 174}
+          "1": {1.0: 0, 0.1: 10, 0.01: 20, 1.0e-3: 40, 1.0e-4: 60, 1.0e-5: 80, 1.0e-6: 100, 1.0e-7: 120, 1.0e-8: 140, 1.0e-9: 154}
+          "2": {1.0: 0, 0.1: 0, 0.01: 0, 1.0e-3: 10, 1.0e-4: 30, 1.0e-5: 50, 1.0e-6: 70, 1.0e-7: 90, 1.0e-8: 110, 1.0e-9: 124}
   - name: mixer
     type: lockin_mixer
   - name: filter
@@ -421,12 +472,20 @@ components:
       expand_x: {from: $output.expand1, table: {0: 1.0, 1: 10.0, 2: 100.0}}
       expand_y: {from: $output.expand2, table: {0: 1.0, 1: 10.0, 2: 100.0}}
       expand_r: {from: $output.expand3, table: {0: 1.0, 1: 10.0, 2: 100.0}}
-  - name: trig
-    type: trigger_model
-    params: {sampler: demod, buffer: buffer}
-  - name: buffer
-    type: reading_buffer
-    params: {capacity: 16383}
+      unit_scale: {from: $input.source, map: {"0": 1.0, "1": 1.0, "2": 1.0e-6, "3": 1.0e-6}}
+  # 数据存储（#273，手册 5-12 – 5-14）：两条曲线存 CH1/CH2 的显示量，按 SRAT 的采样率（或每个触发一点）
+  # 采样；单次存满停止、循环保留最新 16383 点；TRCA?/TRCB?/TRCL? 从 0 基的 bin j 读 k 点。
+  - name: store
+    type: curve_buffer
+    params:
+      trace1: {from: $display.quantity1, map: {"0": demod.X, "1": demod.R, "2": demod.XNOISE, "3": aux.AUX1, "4": aux.AUX2}}
+      trace2: {from: $display.quantity2, map: {"0": demod.Y, "1": demod.THETA, "2": demod.YNOISE, "3": aux.AUX3, "4": aux.AUX4}}
+      rate:
+        from: $buffer.rate
+        table: {0: 0.0625, 1: 0.125, 2: 0.25, 3: 0.5, 4: 1.0, 5: 2.0, 6: 4.0, 7: 8.0, 8: 16.0, 9: 32.0, 10: 64.0, 11: 128.0, 12: 256.0, 13: 512.0, 14: 0.0}
+      end: {from: $buffer.end, map: {"0": SHOT, "1": LOOP}}
+      capacity: 16383
+      trigger_start: {from: $buffer.trigger_start, map: {"0": false, "1": true}}
   # 四个状态字节（#273）：LIA（过载、失锁、量程/时间常数改变、触发）、错误字节（硬件自检位，仿真恒 0）、
   # 标准事件（引擎的事件寄存器，SRS 的按位写法）与串行轮询字节（SCN/IFC/ERR/LIA/MAV/ESB/SRQ）。
   - name: lia
@@ -463,7 +522,9 @@ wiring:
   instrument:
     - [osc.sine, out.in]
     - [ref_in.out, osc.ext]
-    - [sig_in.out, front.in]
+    - [sig_in.out, mode.a]
+    - [sig_b.out, mode.b]
+    - [mode.out, front.in]
     - [front.out, amp.in]
     - [amp.out, filter.in]
     - [osc.ref, filter.ref]
@@ -471,6 +532,7 @@ wiring:
 ports:
   instrument:
     SIG_IN: sig_in.pin
+    SIG_B: sig_b.pin
     REF_IN: ref_in.pin
     SINE_OUT: out.pin
     AUX_IN1: aux.in1
@@ -585,6 +647,54 @@ commands:
     args: {what: Y}
     when: {i: "2"}
     params: [{name: i, type: int, min: 1, max: 2}]
+  # ---- data storage (manual 5-12 – 5-18, #273) ------------------------------------------------
+  - header: SRAT
+    state: buffer.rate
+  - header: SEND
+    state: buffer.end
+  - header: TSTR
+    state: buffer.trigger_start
+  - header: TRIG
+    op: store.trigger
+    query: false
+  - header: STRT
+    op: store.start
+    query: false
+  - header: PAUS
+    op: store.pause
+    query: false
+  - header: REST
+    op: store.reset
+    query: false
+  - header: SPTS
+    op: store.points
+    set: false
+  # TRCA? i,j,k：曲线 i 从 bin j 起 k 点，ASCII，每点后跟逗号；TRCB? 是 IEEE 单精度（低字节在前）；
+  # TRCL? 是手册的 16 位尾数/指数格式（每点 4 字节）。二进制回复后仍带平台的行结束符（覆盖表注明）。
+  - header: TRCA
+    op: store.read
+    set: false
+    args: {encoding: ASCII}
+    params:
+      - {name: trace, type: int, min: 1, max: 2}
+      - {name: start, type: int, min: 0, max: 16382}
+      - {name: count, type: int, min: 1, max: 16383}
+  - header: TRCB
+    op: store.read
+    set: false
+    args: {encoding: FLOAT}
+    params:
+      - {name: trace, type: int, min: 1, max: 2}
+      - {name: start, type: int, min: 0, max: 16382}
+      - {name: count, type: int, min: 1, max: 16383}
+  - header: TRCL
+    op: store.read
+    set: false
+    args: {encoding: LIA}
+    params:
+      - {name: trace, type: int, min: 1, max: 2}
+      - {name: start, type: int, min: 0, max: 16382}
+      - {name: count, type: int, min: 1, max: 16383}
   # ---- AUX input and output (manual 5-9) -----------------------------------------------------
   - header: OAUX
     set: false

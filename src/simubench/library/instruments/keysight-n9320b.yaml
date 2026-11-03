@@ -32,6 +32,8 @@ format:
   digits: 16
   sign: true
   exponent_digits: 3
+  # 标记、迹线与计数器等组件产生的数值也按这一格式（手册的样例回复统一 16 位，#366）。
+  readings: format
   boolean: numeric
   enum: short
   error_code: signed

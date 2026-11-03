@@ -39,7 +39,7 @@ cases:
       - query: "INP:IMP:AUTO? (@101)"
         expect: "0"
 
-  - name: "通道号域：槽 1 的 101–120 可访问，槽 2 的号已声明但没有模块报 -114"
+  - name: "通道号域：槽 1 的 101–122 可访问（121/122 是 34901A 的电流通道），槽 2 的号已声明但没有模块报 -114"
     manual: "Rules for using a channel list（p.103）；Module Overview（p.209）"
     steps:
       - send: "ROUT:CLOS (@101)"
@@ -48,7 +48,7 @@ cases:
       - send: "ROUT:CLOS (@201)"
       - query: "SYST:ERR?"
         expect: '-114,"Header suffix out of range"'
-      - send: "ROUT:CLOS (@121)"
+      - send: "ROUT:CLOS (@123)"
       - query: "SYST:ERR?"
         expect: '-114,"Header suffix out of range"'
       - send: "ROUT:OPEN:ALL"
@@ -76,11 +76,11 @@ cases:
         expect: "(@101:103,110)"
       - send: "ROUT:SCAN (@101:205)"
       - query: "ROUT:SCAN?"
-        expect: "(@101:120,201:205)"
+        expect: "(@101:122,201:205)"
       - send: "ROUT:SCAN (@205:101)"
       - query: "SYST:ERR?"
         expect: '-222,"Data out of range"'
-      - send: "ROUT:SCAN (@121)"
+      - send: "ROUT:SCAN (@123)"
       - query: "SYST:ERR?"
         expect: '-114,"Header suffix out of range"'
 
@@ -170,9 +170,10 @@ cases:
       - send: "SENS:VOLT:DC:NPLC 10,(@101:103)"
       - query: "SENS:VOLT:DC:NPLC? (@101:103)"
         expect: "+1.00000000E+01,+1.00000000E+01,+1.00000000E+01"
+      # 量程按通道保存（#365）：只设 101，102 仍是自动（0）。
       - send: "SENS:VOLT:DC:RANG 10,(@101)"
       - query: "SENS:VOLT:DC:RANG? (@101:102)"
-        expect: "+1.00000000E+01,+1.00000000E+01"
+        expect: "+1.00000000E+01,+0.00000000E+00"
       - send: "SENS:VOLT:DC:RANG:AUTO OFF,(@101:103)"
       - query: "SENS:VOLT:DC:RANG:AUTO? (@101:103)"
         expect: "0,0,0"
@@ -272,11 +273,12 @@ cases:
         expect: "+1.00000000E+01"
       - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
         expect: "0"
+      # CONFigure 只改列表里的通道（#365）：102 回到自动量程，101 保留自己的 10 V 档。
       - send: "CONF:VOLT:DC (@102)"
       - query: "ROUT:SCAN?"
         expect: "(@102)"
-      - query: "SENS:VOLT:DC:RANG:AUTO? (@101)"
-        expect: "1"
+      - query: "SENS:VOLT:DC:RANG:AUTO? (@101,102)"
+        expect: "0,1"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
@@ -294,5 +296,60 @@ cases:
       - send: "CONF:VOLT:AC (@102)"
       - query: "ROUT:SCAN?"
         expect: "(@102)"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "电阻与电流：功能与通道不符时扫描报 -221（#301）"
+    manual: "Module Overview（p.209）：34901A 四线电阻 n 与 n+10 配对，电流只在 21/22"
+    steps:
+      - send: "CONF:FRES (@111)"
+      - send: "READ?"
+      - query: "SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - send: "CONF:CURR:DC (@101)"
+      - send: "READ?"
+      - query: "SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - send: "CONF:VOLT:DC (@121)"
+      - send: "READ?"
+      - query: "SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+
+  - name: "两线/四线电阻与电流：读数由电路求解（#301）"
+    manual: "Features and Functions > 2-wire and 4-wire Resistance, DC/AC Current；Module Overview（p.209）"
+    steps:
+      # 1 kΩ 对地电阻：两线读数含两个 0.5 Ω 继电器触点；四线由通道 114 在电阻处检测。
+      - query: "MEAS:RES? (@104)"
+        expect: "+1.00101000E+03"
+      - query: "MEAS:FRES? (@104)"
+        expect: "+9.99999000E+02"
+      - send: "CONF:RES 1000,(@104)"
+      - query: "READ?"
+        expect: "+1.00100100E+03"
+      # 5 V 经 1 kΩ 进电流通道 121：10 mA 档分流 5 Ω 与两个继电器触点在回路里，5/1006 A。
+      - query: "MEAS:CURR? (@121)"
+        expect: "+4.97019000E-03"
+      - query: "MEAS:CURR:AC? (@121)"
+        expect: "+0.00000000E+00"
+      - send: "CONF:CURR:AC (@121)"
+      - query: "READ?"
+        expect: "+0.00000000E+00"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "每通道测量配置：一个扫描表混合电阻、电压与电流通道，CONF? 按通道回答（#365）"
+    manual: "Measurement Configuration（CONFigure 按通道保存功能、量程与分辨率）；CONFigure? (@<ch_list>)"
+    steps:
+      - send: "CONF:RES 1000,(@104)"
+      - send: "CONF:VOLT:DC 10,(@101)"
+      - send: "CONF:CURR:DC 0.01,(@121)"
+      - send: "ROUT:SCAN (@101,104,121)"
+      - query: "ROUT:SCAN?"
+        expect: "(@101,104,121)"
+      # 101：1 V 经 1 MΩ 进 10 MΩ；104：1 kΩ 加两个继电器触点；121：5 V / 1006 Ω。
+      - query: "READ?"
+        expect: "+9.09090000E-01,+1.00100100E+03,+4.97019000E-03"
+      - query: "CONF? (@101,104,121)"
+        expect: '"VOLT +1.00000000E+01,+3.00000000E-05","RES +1.00000000E+03,+3.00000000E-03","CURR +1.00000000E-02,+3.00000000E-08"'
       - query: "SYST:ERR?"
         expect: '+0,"No error"'

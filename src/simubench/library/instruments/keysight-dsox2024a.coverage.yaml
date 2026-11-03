@@ -404,15 +404,19 @@ sections:
 - section: :MEASure Commands (Programmer's Guide 02.66, ch. 20)
   commands:
   - header: :MEASure:ALL
-    level: not_modeled
+    level: implemented
+    note: 'a snapshot of 19 single-source measurements on one source (VPP, VMAX, VMIN, VAMPlitude, VTOP, VBASe, OVERshoot, PREShoot, VAVerage, VRMS, PERiod, FREQuency, RISetime, FALLtime, PWIDth, NWIDth, DUTYcycle, NDUTy, BRATe); the order is the model choice, nothing is installed (#373)'
   - header: :MEASure:BRATe
-    level: not_modeled
+    level: implemented
+    note: '1 / the narrowest pulse (positive or negative) at the middle level (#350)'
   - header: :MEASure:CLEar
-    level: not_modeled
+    level: implemented
+    note: 'empties the screen list and its statistics (#373)'
   - header: :MEASure:DEFine
     level: not_modeled
   - header: :MEASure:DELay
-    level: not_modeled
+    level: implemented
+    note: 'first rising edge of source 1 to the first rising edge of source 2 at their middle levels; without sources the two of :MEASure:SOURce. :MEASure:DEFine DELay edges are not modeled (#350)'
   - header: :MEASure:DUTYcycle
     level: implemented
     note: 'positive width over the period, percent, of the first full cycle (#248); query only'
@@ -444,7 +448,8 @@ sections:
     level: implemented
     note: 'as :MEASure:FREQuency'
   - header: :MEASure:PHASe
-    level: not_modeled
+    level: implemented
+    note: 'the DELay over the period of source 1, in degrees (#350)'
   - header: :MEASure:PPULses
     level: implemented
     note: 'positive pulses on the record (#248); query only'
@@ -455,19 +460,24 @@ sections:
     level: implemented
     note: 'the first positive pulse''s width at the middle level (#248); query only'
   - header: :MEASure:RESults
-    level: not_modeled
+    level: implemented
+    note: 'the screen list, oldest first: <name>(<channel>),current,min,max,mean,std dev,count per measurement; a measurement command without ? installs one, up to 4 (a fifth drops the oldest). The label wording and :MEASure:STATistics are not modeled (the statistics are always on) (#373)'
   - header: :MEASure:RISetime
     level: implemented
     note: '10 %–90 % of the first complete rising edge on the record (#248); query only'
   - header: :MEASure:SHOW
-    level: not_modeled
+    level: accepted
+    note: 'kept and read back; the screen markers are not drawn (#373)'
+    affects_data: false
   - header: :MEASure:SOURce
     level: implemented
     note: 'CHANnel1 to CHANnel4 (FUNCtion, MATH, WMEMory not modeled)'
   - header: :MEASure:TEDGe
-    level: not_modeled
+    level: implemented
+    note: 'time of the <slope><occurrence> edge at the middle level, counted from the left of the record (#350)'
   - header: :MEASure:TVALue
-    level: not_modeled
+    level: implemented
+    note: 'time the record crosses <value> with <slope><occurrence>, counted from the left of the record (#350)'
   - header: :MEASure:VAMPlitude
     level: implemented
     note: 'top minus base from the record''s histogram; query only'
@@ -490,16 +500,21 @@ sections:
     level: implemented
     note: 'DC RMS on the whole record (<interval> and <type> AC are taken as DISPlay, DC); query only'
   - header: :MEASure:VTIMe
-    level: not_modeled
+    level: implemented
+    note: 'voltage at a time from the trigger, linear between samples; outside the record 9.9E+37 (#350)'
   - header: :MEASure:VTOP
     level: implemented
     note: 'the top level from the record''s histogram (#248); query only'
   - header: :MEASure:WINDow
-    level: not_modeled
+    level: accepted
+    note: 'MAIN, ZOOM, AUTO kept and read back; measurements are taken on the main record, there is no zoom record (#373)'
+    affects_data: false
   - header: :MEASure:XMAX
-    level: not_modeled
+    level: implemented
+    note: 'time of the first maximum, from the trigger (#350)'
   - header: :MEASure:XMIN
-    level: not_modeled
+    level: implemented
+    note: 'time of the first minimum, from the trigger (#350)'
 - section: :MTESt Commands (Programmer's Guide 02.66, ch. 21)
   commands:
   - header: :MTESt:ALL
@@ -908,11 +923,16 @@ sections:
     level: implemented
     note: '40 ns to 10 s (the guide)'
   - header: :TRIGger:LEVel:ASETup
-    level: not_modeled
+    level: implemented
+    note: 'the edge level of each displayed channel to the 50 % of its waveform (top/base), 0 V with AC coupling (#350)'
   - header: :TRIGger:LEVel:HIGH
-    level: not_modeled
+    level: accepted
+    note: 'kept per source and read back; the runt and transition triggers that use it are not modeled (#350)'
+    affects_data: false
   - header: :TRIGger:LEVel:LOW
-    level: not_modeled
+    level: accepted
+    note: 'kept per source and read back; the runt and transition triggers that use it are not modeled (#350)'
+    affects_data: false
   - header: :TRIGger:MODE
     level: implemented
     note: 'EDGE only; the other trigger types answer -224'
