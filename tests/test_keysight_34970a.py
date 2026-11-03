@@ -141,15 +141,17 @@ def test_the_relay_closure_loads_the_source_and_high_z_removes_the_load():
         s.close()
 
 
-def test_one_bus_trigger_runs_the_whole_scan_and_a_second_one_is_ignored():
+def test_each_bus_trigger_runs_one_scan_until_the_count_is_reached():
     s = session()
     try:
-        # scan_table's run_samples bakes TRIG:COUN into one run: one *TRG takes both sweeps.
-        # (The guide's BUS scan count is the number of triggers; the deviation is in the coverage
-        # table and is the scan_table component's debt.)
+        # #422: with the BUS source the trigger count is the number of *TRG accepted — each one
+        # scans the list once; after the count, *TRG is ignored.
         assert q(s, "ROUT:SCAN (@101);:TRIG:SOUR BUS;:TRIG:COUN 2;:INIT") is None
         assert q(s, "*TRG") is None
         assert q(s, "SYST:ERR?") == '+0,"No error"'
+        assert q(s, "*OPC?") == "1"
+        assert q(s, "FETC?") == "+9.09090000E-01"
+        assert q(s, "*TRG") is None
         assert q(s, "*OPC?") == "1"
         assert q(s, "FETC?") == "+9.09090000E-01,+9.09090000E-01"
         assert q(s, "*TRG") is None

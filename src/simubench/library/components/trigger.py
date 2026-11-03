@@ -10,6 +10,9 @@ A sampler may give the run a shape of its own, beyond the two required protocol 
 
 * ``run_samples()`` — how many readings one of its runs takes (a source-measure unit's sweep);
   it replaces the configured counts (one trigger, that many readings);
+* ``samples_per_trigger()`` — with ``run_samples``, the readings one trigger takes, so the run
+  is ``run_samples / samples_per_trigger`` triggers (a DAQ's scan list × scan count: one scan per
+  trigger, so each ``*TRG`` on the bus runs one scan, #422);
 * ``sample_fields(index)`` — additional fields of one reading (an SMU's VOLT, CURR, RES, STAT);
   ``reading_buffer``'s ``data`` op selects them by name, as ``READ`` and ``REL``;
 * ``run_begin()`` / ``run_done()`` — around a run, for settings the sampler drives while it runs
@@ -127,6 +130,9 @@ class TriggerModel(Component):
             n = int(declared)
             if n < 1 or n > int(self.param("max_readings")):
                 raise ScpiError(-222, f"{n} readings is out of range")
+            per = self._optional("samples_per_trigger")
+            if per is not None and 0 < int(per) < n and n % int(per) == 0:
+                return n // int(per), int(per)
             return 1, n
         triggers, samples = int(float(self.param("trigger_count"))), int(float(self.param("sample_count")))
         if triggers < 1 or samples < 1 or triggers * samples > int(self.param("max_readings")):

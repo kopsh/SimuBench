@@ -324,7 +324,7 @@ sections:
     note: 输出开关（*RST 关）。
   - header: :OUTPut<ch>:LOAD
     level: implemented
-    note: 负载设定 1 Ω–10 kΩ 或 INFinity，*RST 50 Ω；幅度与偏置按它定义（D13）。真机改负载时保持输出电压、换算显示值，本模型保持设定值（输出随之改变）；查询 INF 回 INF。
+    note: 负载设定 1 Ω–10 kΩ 或 INFinity，*RST 50 Ω；幅度与偏置按它定义（D13）。改负载设定时保持实际输出电压，回读的 VOLT?、VOLT:OFFS?、VOLT:HIGH?/LOW? 按 (R+50)/R 之比换算，不报错（33500-90901 Output Termination；amplitude_level 的 load_change 取 output，#436）；换算后超出幅度范围时拒绝改负载。查询 INF 回 INF。
   - header: :OUTPut<ch>:MODE
     level: not_modeled
     note: 该输出设置（门控模式、同步与触发输出）未建模。

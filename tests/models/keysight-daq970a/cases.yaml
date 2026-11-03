@@ -121,6 +121,20 @@ cases:
       - query: "CONF? (@101)"
         expect_match: '^"VOLT \+1\.00000000E\+01,\+\d\.\d{8}E-0\d"$'
 
+  - name: "BUS 触发且 TRIG:COUN 2：每条 *TRG 扫描一遍，第三条 -211（#422）"
+    manual: "TRIGger Subsystem > TRIGger:COUNt（For the BUS source, the trigger count sets the number of *TRG commands that will be accepted before returning to the idle trigger state）"
+    steps:
+      - send: "ROUT:SCAN (@101:102);:TRIG:SOUR BUS;:TRIG:COUN 2;:INIT"
+      - send: "*TRG;*WAI"
+      - query: "DATA:POIN?"
+        expect: "2"
+      - send: "*TRG;*WAI"
+      - query: "DATA:POIN?"
+        expect: "4"
+      - send: "*TRG"
+      - query: "SYST:ERR?"
+        expect: '-211,"Trigger ignored"'
+
   - name: "NPLC? MIN|MAX|DEF 回表的两端与默认值,带或不带通道列表(#423)"
     manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:NPLCycles?（语法 NPLCycles? [{(@<ch_list>) | MIN | MAX | DEF}]）"
     steps:

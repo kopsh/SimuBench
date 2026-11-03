@@ -44,6 +44,12 @@ def w(s, text: str) -> None:
     s.write("awg", (text + "\n").encode())
 
 
+def q(s, text: str) -> str:
+    s.write("awg", (text + "\n").encode())
+    reply = s.read("awg")
+    return reply.decode().strip() if reply else ""
+
+
 def wave(s, ch: int = 1):
     """The channel's EMF behind its 50 Ω output (what the level module hands the output stage)."""
     return s.instruments["awg"].components[f"ch{ch}.level"].output("out")
@@ -68,8 +74,21 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
 def test_the_load_setting_defines_the_amplitude(awg):
     w(awg, "OUTP:LOAD 50;:APPL:SIN 1e3,2,0")  # 2 Vpp into 50 Ω: a 4 Vpp EMF behind 50 Ω
     assert peak_to_peak(wave(awg), 1e-3) == pytest.approx(4.0, rel=1e-3)
-    w(awg, "OUTP:LOAD INF")  # high-Z: the setting is the open-circuit voltage
-    assert peak_to_peak(wave(awg), 1e-3) == pytest.approx(2.0, rel=1e-3)
+
+
+def test_changing_the_load_setting_keeps_the_output_and_rescales_the_readback(awg):
+    """#436, 33500-90901 Output Termination: changing the load setting "does not affect the actual
+    output voltage; it only changes the values displayed and queried" — 2 Vpp at 50 Ω reads 4 Vpp
+    at high-Z, the offset doubles too, and the wave on the scope stays the same."""
+    w(awg, "OUTP:LOAD 50;:APPL:SIN 1e3,2,0.5")
+    before = peak_to_peak(wave(awg), 1e-3)
+    w(awg, "OUTP:LOAD INF")
+    assert float(q(awg, "VOLT?")) == pytest.approx(4.0)
+    assert float(q(awg, "VOLT:OFFS?")) == pytest.approx(1.0)
+    assert peak_to_peak(wave(awg), 1e-3) == pytest.approx(before, rel=1e-6)
+    w(awg, "OUTP:LOAD 50")
+    assert float(q(awg, "VOLT?")) == pytest.approx(2.0)
+    assert q(awg, "SYST:ERR?") == '+0,"No error"'
 
 
 def test_high_and_low_levels_set_the_wave_s_extremes(awg):
