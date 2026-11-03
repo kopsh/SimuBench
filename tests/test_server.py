@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from simubench.server.app import _host_ok, create_app
+from simubench.server.app import fault_info as app_fault_info
 from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -381,3 +382,59 @@ def test_an_instrument_with_pattern_ports_is_described():
         daq = next(i for i in r.json()["instruments"] if i["name"] == "daq")
         h101 = next(p for p in daq["ports"] if p["name"] == "H101")
         assert (h101["direction"], h101["medium"]) == ("inout", "electrical") and h101["net"]
+
+
+def test_fault_endpoints_convert_inside_the_view(monkeypatch):
+    """#489: every fault endpoint assembles its DTO inside the session's passive view — through
+    the real HTTP handler, not a replica of its shape. The Tracked lock flags the lock depth
+    reaching zero between the snapshot and the last field read."""
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+        r = c.post(
+            f"/api/sessions/{sid}/faults",
+            json={"kind": "latency", "instrument": "awg", "latency_s": 0.1},
+        )
+        assert r.status_code == 200, r.text
+        s = manager.sessions[sid].session
+
+        seen = {"snapshot": False, "read": False}
+        violations: list[int] = []
+        real = threading.RLock()
+        depth = {"n": 0}
+
+        class Tracked:
+            def __enter__(self):
+                real.acquire()
+                depth["n"] += 1
+                return self
+
+            def __exit__(self, *exc):
+                depth["n"] -= 1
+                real.release()
+                if seen["snapshot"] and not seen["read"] and depth["n"] == 0:
+                    violations.append(depth["n"])
+                return False
+
+        real_snapshot = s.faults.snapshot
+
+        def snapshot():
+            seen["snapshot"] = True  # the read begins: the lock must hold until the DTO is done
+            return real_snapshot()
+
+        real_fault_info = app_fault_info  # the module-level import, before the patch
+
+        def fault_info(f):
+            info = real_fault_info(f)
+            seen["read"] = True  # the last field read has happened
+            return info
+
+        monkeypatch.setattr(s.faults, "snapshot", snapshot)
+        monkeypatch.setattr(s, "_lock", Tracked())
+        monkeypatch.setattr("simubench.server.app.fault_info", fault_info)
+
+        r = c.get(f"/api/sessions/{sid}/faults")
+        assert r.status_code == 200 and len(r.json()) == 1
+        assert violations == []

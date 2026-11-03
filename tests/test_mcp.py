@@ -589,3 +589,58 @@ async def test_edit_definition_reports_what_changed(ws):
         ]
         again = await call(c, "read_definition", definition_id="sb-dmm-1")
         assert again["changes"] == []  # a read reports nothing
+
+
+async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
+    """#489: the MCP list_faults tool assembles its DTO inside the session's view — through the
+    real tool, with a Tracked session lock flagging the depth reaching zero between the snapshot
+    and the last field read."""
+    import threading
+
+    import simubench.mcp_server
+
+    manager, server = make(ws, allow_control=True)
+    async with Client(server) as c:
+        await call(c, "start_session", path=BENCH)
+        f = await call(c, "inject_fault", fault={"kind": "timeout", "instrument": "awg"})
+        assert f["status"] in ("pending", "active")
+        s = next(iter(manager.sessions.values())).session
+
+        seen = {"snapshot": False, "read": False}
+        violations: list[int] = []
+        real = threading.RLock()
+        depth = {"n": 0}
+
+        class Tracked:
+            def __enter__(self):
+                real.acquire()
+                depth["n"] += 1
+                return self
+
+            def __exit__(self, *exc):
+                depth["n"] -= 1
+                real.release()
+                if seen["snapshot"] and not seen["read"] and depth["n"] == 0:
+                    violations.append(depth["n"])
+                return False
+
+        real_snapshot = s.faults.snapshot
+
+        def snapshot():
+            seen["snapshot"] = True
+            return real_snapshot()
+
+        real_fault = simubench.mcp_server._fault
+
+        def _fault(x):
+            out = real_fault(x)
+            seen["read"] = True
+            return out
+
+        monkeypatch.setattr(s.faults, "snapshot", snapshot)
+        monkeypatch.setattr(s, "_lock", Tracked())
+        monkeypatch.setattr(simubench.mcp_server, "_fault", _fault)
+
+        out = await call(c, "list_faults")
+        assert len(out) == 1
+        assert violations == []
