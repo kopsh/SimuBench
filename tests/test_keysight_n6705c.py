@@ -158,6 +158,29 @@ def test_rise_and_fall_delays_sequence_the_outputs():
         s.close()
 
 
+def test_status_registers_follow_the_channel(tmp_path):
+    """#539: a script that polls the status registers sees CV/CC and an OCP trip per channel; the
+    enabled QUES event raises status byte bit 3 until it is read."""
+    s, q = session(*load(3, 1.0))
+    try:
+        q("VOLT 5,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER:COND? (@3)") == "2"  # constant current on 1 ohm
+        q("STAT:QUES:ENAB 2,(@3);:CURR:PROT:DEL 0,(@3);:CURR:PROT:STAT ON,(@3)")
+        q("*OPC?")
+        assert q("STAT:QUES:COND? (@3)") == "2"  # OC: the protection holds the output off
+        assert q("STAT:OPER:COND? (@3)") == "4"  # OFF
+        assert int(q("*STB?")) & 8
+        assert q("STAT:QUES? (@3)") == "2"
+        assert not int(q("*STB?")) & 8  # the event was read: the summary clears
+        q("CURR:PROT:STAT OFF,(@3);:OUTP:PROT:CLE (@3)")
+        q("*OPC?")
+        assert q("STAT:QUES:COND? (@3)") == "0"
+        assert q("STAT:OPER:COND? (@3)") == "2"
+    finally:
+        s.close()
+
+
 def test_ovp_latches_until_cleared():
     s, q = session(*load(1, 10.0))
     try:
