@@ -940,3 +940,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 词参数可绑定整数设置 | ✅ `E-DEF-PARAM-VALUE`（#308）对整数设置放宽：取值范围不超过 64 个值、`map` 给出每个值时逐值检查对应的词，嵌套映射留给运行时；否则照旧报错 |
 | 测试 | ✅ `tests/test_smu_trigger.py` 新增 4 例：全覆盖通过；缺值、错词、范围过宽仍报错；#308 原有用例不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 索引写号、整数设置的映射与读数表（SR865A 前置，Issue 333）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 索引参数写号 | ✅ 参数字段 `index_numbers`（默认关）：开时索引可写词或号，号不在 `index_words` 中报 -222；`schemas/` 与 `web/src/api/generated` 已更新 |
+| 经词写入的整数设置 | ✅ `map_setting` 对整数值的浮点（`1.0`）按整数键匹配；`lockin_output` 的读数参数表接受 `13.0` 这样的序号（SNAPD?/OUTR? 读 CDSP 的指派） |
+| 测试 | ✅ `tests/test_lockin_readout.py` 新增 2 项（CDSP 词与号、按词指派后 SNAPD?、越界号 -222；映射对 `1.0` 命中） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

@@ -858,7 +858,10 @@ class LockinOutput(Component):
         table = self._table()
         text = (V.parse_string(item) if isinstance(item, bytes) else str(item)).strip()
         try:
-            k = int(text)
+            number = float(text)  # an index; an int setting's value arrives as 13.0 (SNAPD?, OUTR?)
+            if not number.is_integer():
+                raise ScpiError(-224, f"parameter index {text!r} is not an integer")
+            k = int(number)
         except ValueError:
             for entry in table:
                 if V.matches_word(text, str(entry["word"])):
