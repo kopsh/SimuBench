@@ -8,6 +8,7 @@ import yaml
 from simubench.api import open_bench
 from simubench.engine.component import component_type
 from simubench.engine.deviation import draw_overrides, set_override
+from simubench.models.bench import Fault
 from simubench.models.deviation import DeviationRange
 
 BENCH = {
@@ -93,5 +94,29 @@ def test_set_parameter_validates(tmp_path):
             s.set_parameter("nope", "", "r", 1.0)
         with pytest.raises(KeyError, match="is a part"):
             s.set_parameter("rc", "nope", "r", 1.0)
+        # #495: the value must fit the parameter's declared type, with the parameter and the
+        # received value in the message; a finite number passes.
+        for bad in ("abc", None, float("nan"), float("inf"), True):
+            with pytest.raises(ValueError, match=r"rc\.r expects a finite number, got"):
+                s.set_parameter("rc", "", "r", bad)
+        s.set_parameter("rc", "", "r", 1234.0)
+        assert s.components["rc"].param("r") == 1234.0
+        # A numeric parameter also takes a per-cell table (every leaf a finite number)…
+        s.set_parameter("rc", "", "r", {"fast": 900.0, "slow": {"1": 1100.0}})
+        # …and a bad leaf is named down to its cell.
+        with pytest.raises(ValueError, match=r"rc\.r\['slow'\]\['2'\] expects a finite number, got 'x'"):
+            s.set_parameter("rc", "", "r", {"fast": 900.0, "slow": {"2": "x"}})
+    finally:
+        s.close()
+
+
+def test_a_hidden_fault_value_is_checked_at_inject(tmp_path):
+    """#495: the inject rejects a hidden fault whose value does not fit — not the later start,
+    far from the caller."""
+    s = open_protocol(tmp_path)
+    try:
+        with pytest.raises(ValueError, match="expects a finite number"):
+            s.faults.inject(Fault(kind="hidden", component="rc", param="r", value="abc"), source="t")
+        assert s.faults.snapshot() == []  # nothing was scheduled
     finally:
         s.close()
