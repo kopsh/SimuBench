@@ -509,3 +509,26 @@ cases:
       - query: "REFM?"
         expect: "1"
 
+  - name: "CDSP 指派 → OUTR? 与 SNAPD? 随之变化；OUTR? 越界记执行错误；SNAP? 序号与词混写（#401）"
+    manual: "Data Transfer Commands > CDSP / OUTR? / SNAPD? / SNAP?（Rev 2.11 第 4 章）"
+    steps:
+      - send: "CDSP 2,THeta"
+      - query: "CDSP? DAT3"
+        expect: "3"
+      - query: "OUTR? 2"
+        expect_value: -33.3909
+        tolerance: 1.0e-3
+      - query: "OUTR? DAT3"
+        expect_value: -33.3909
+        tolerance: 1.0e-3
+      - query: "SNAPD?"
+        expect_match: '^0\.348\d+,-0\.229\d+,-33\.39\d+,-33\.39\d+$'
+      - query: "SNAP? 0,THeta"
+        expect_match: '^0\.348\d+,-33\.39\d+$'
+      - query: "SNAP? X,2"
+        expect_match: '^0\.348\d+,0\.416\d+$'
+      - send: "*CLS"
+      - send: "OUTR? 5"
+      - query: "*ESR? 4"
+        expect: "1"
+
