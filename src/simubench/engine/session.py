@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -357,7 +357,9 @@ class Session:
     # ---- clock --------------------------------------------------------------------------------------
 
     def follow_wall(self) -> None:
-        """Wall clock only: bring virtual time up to real time (passive views read the present)."""
+        """Engine-internal: wall clock only, bring virtual time up to real time (D47; passive
+        views read the present). Called by actions (``_begin_action``) and by ``view`` — external
+        code reads the bench through ``view``, never by calling this directly."""
         if self.clock_mode == "wall":
             self._sync()
             self.now_ns = max(self.now_ns, time.monotonic_ns() - self._wall_start)
@@ -401,6 +403,26 @@ class Session:
         self._signal_version += 1  # time-dependent components (filters, sweeps) may change
         self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason})
         self.faults.tick()
+
+    # ---- passive views ------------------------------------------------------------------------------
+
+    @contextlib.contextmanager
+    def view(self, *, settle: Iterable[str] = ()) -> Iterator[Session]:
+        """A passive view of the running bench: one consistent read (glossary 被动视图).
+
+        External code reads the bench only through this. It holds the session lock, follows the
+        wall clock, and settles the named instruments (waiting operations that have come due
+        finish, as a command's arrival would). It does not advance the virtual clock (D47 idle
+        belongs to actions), emit events, or touch the communication record (D32).
+
+        Going around it — taking ``_lock``, calling ``follow_wall``/``settle_pending`` directly —
+        silently drops part of the protocol: ``read_true_values`` once missed ``follow_wall`` that
+        way and read stale times on the wall clock."""
+        with self._lock:
+            self.follow_wall()
+            for name in settle:
+                self.instrument(name).settle_pending()
+            yield self
 
     # ---- actions ------------------------------------------------------------------------------------
 

@@ -512,8 +512,10 @@ class Instrument:
         return [done for key, (done, _) in self.pending.items() if key not in self.unwaited]
 
     def settle_pending(self) -> None:
-        """Let waiting operations look for their event, then finish what is due by now; an armed
-        *OPC sets ESR bit 0 once nothing it waits for is left."""
+        """Engine-internal: let waiting operations look for their event, then finish what is due
+        by now; an armed *OPC sets ESR bit 0 once nothing it waits for is left. Every command
+        dispatch settles; passive views settle through ``Session.view(settle=...)`` — not by
+        calling this from outside the engine."""
         for comp in self._retrying:
             comp.retry_pending()
         now = self.now_ns()
