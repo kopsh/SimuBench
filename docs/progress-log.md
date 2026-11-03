@@ -920,3 +920,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 缺口 | ⚠️ 两通道合用电流限制（Table 2-6）与脉冲输出未建模，记入缺口清单第 21 条 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## SR86x 锁相的读数参数表、%g 应答格式与弧度单位（Issue 383）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 读数参数表 | ✅ `lockin_output.readings`（定义给出，第 k 项即序号 k，`{word, source}`；来源为本块 X/Y/R/θ/噪声、`$设置` 或另一块的 `trace_value`），操作 `readout` 按序号或词取 `minimum`–`maximum` 项、同一时刻求值、按请求顺序拼接；`lockin_reference.trace_value`（FREQUENCY/DETECT）；操作 `args` 的列表项可写 `$设置`（SNAPD?） |
+| %g 应答格式 | ✅ `format.number: general`（`digits` 为有效位数、小写 e、去尾零），定义设置与组件读数（`readings: format`）都按它写；`schemas/` 与 `web/src/api/generated` 已重新生成 |
+| 弧度 | ✅ 单位为 DEG 的参数接受 `RAD`/`MRAD`/`URAD`，换算为度 |
+| 测试 | ✅ `tests/test_lockin_readout.py` 8 项（在测试中给 `sb-lia-1` 补参数表与 SR86x 式命令）：OUTP? 序号与词等价、SNAP? 同一时刻与请求顺序、2–3 项限制 -109、未知词 -224 与越界序号 -222、设置/块来源、SNAPD? 读指派、%g 格式与手册示例、PHAS 的 RAD/MRAD/MDEG |
+| 不变 | ✅ SR830、`sb-lia-1` 的用例、金标准与验收场景不改通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

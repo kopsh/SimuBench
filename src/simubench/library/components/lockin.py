@@ -213,6 +213,16 @@ class LockinReference(Component):
     def op_locked(self, **_: Any) -> OpResult:
         return OpResult(V.format_bool(self.locked))
 
+    def trace_value(self, quantity: str, t_ns: int) -> float:
+        """``FREQUENCY`` (the reference frequency in use: internal, or the measured external one)
+        or ``DETECT`` (times the harmonic), for a readings table or a trace (#383)."""
+        key = quantity.upper()
+        if key == "DETECT":
+            return self._freq * int(self.param("harmonic"))
+        if key == "FREQUENCY":
+            return self._freq
+        raise ScpiError(-300, f"{self.uid}: no reference quantity {quantity!r}")
+
     @op("frequency")
     def op_frequency(self, what: str = "actual", **_: Any) -> OpResult:
         f = self._freq * (int(self.param("harmonic")) if what == "detect" else 1)
@@ -640,6 +650,11 @@ class LockinOutput(Component):
         # The unit of X, Y and R per volt the chain measures (#273): 1 for a voltage input; the
         # current input's 1/current_scale (1e-6: the readings and the sensitivity are in A).
         "unit_scale": 1.0,
+        # The readings table (#383, the SR86x OUTP?/SNAP? parameter list): entry k is index k,
+        # {word: X, source: X}. A source is X, Y, R, THETA, XNOISE or YNOISE (this output), $path
+        # (a setting's value) or <component>.<quantity> (that block's trace_value: an AUX input,
+        # the reference frequency). Empty: OUTP?/SNAP? by X, Y, R, THETa as before.
+        "readings": [],
     }
     units = {"sample_rate": "Hz"}
     dynamic = True
@@ -832,6 +847,60 @@ class LockinOutput(Component):
         self.overload()
         z = self.xy()  # one instant for every value
         return OpResult(b",".join(self.reply_number(self._value(i, z), 8) for i in items))
+
+    # ---- the readings table (#383) ----------------------------------------------------------------
+
+    def _table(self) -> list[dict[str, str]]:
+        return list(self.param("readings") or [])
+
+    def _entry(self, item: Any) -> dict[str, str]:
+        """A table entry by index (an integer) or by word (the CAPS short form or the full word)."""
+        table = self._table()
+        text = (V.parse_string(item) if isinstance(item, bytes) else str(item)).strip()
+        try:
+            k = int(text)
+        except ValueError:
+            for entry in table:
+                if V.matches_word(text, str(entry["word"])):
+                    return entry
+            raise ScpiError(-224, f"no lock-in parameter {text!r}") from None
+        if not 0 <= k < len(table):
+            raise ScpiError(-222, f"parameter index {k} is out of 0..{len(table) - 1}")
+        return table[k]
+
+    def _reading(self, source: str, z: complex) -> float:
+        if source.startswith("$"):
+            assert self.owner is not None
+            return float(self.owner.get_state(source[1:]))
+        if "." in source:
+            name, quantity = source.rsplit(".", 1)
+            comp = self.peer(name)
+            if comp is None or not hasattr(comp, "trace_value"):
+                raise ScpiError(-300, f"{self.uid}: reading source {source!r} has no such block")
+            return float(comp.trace_value(quantity, self.session.now_ns))
+        key = source.upper()
+        if key in ("XNOISE", "YNOISE"):
+            return self._amp().noise_density()
+        return self._value(key, z)
+
+    @op("readout")
+    def op_readout(
+        self, names: list[Any] | None = None, minimum: int = 1, maximum: int = 1, **_: Any
+    ) -> OpResult:
+        """``OUTP? j`` / ``SNAP? j,k{,l}`` / ``SNAPD?``: the table's parameters by index or word, all at
+        one instant, comma separated in the order asked (#383)."""
+        items: list[Any] = []
+        for raw in names or []:
+            if isinstance(raw, bytes):
+                items += [p for p in V.parse_string(raw).split(",") if p.strip()]
+            else:
+                items.append(raw)
+        if not int(minimum) <= len(items) <= int(maximum):
+            raise ScpiError(-109, f"{minimum} to {maximum} parameters, got {len(items)}")
+        entries = [self._entry(i) for i in items]
+        self.overload()
+        z = self.xy()  # one instant for every value
+        return OpResult(b",".join(self.reply_number(self._reading(str(e["source"]), z), 8) for e in entries))
 
     @op("overload")
     def op_overload(self, what: str = "all", **_: Any) -> OpResult:
