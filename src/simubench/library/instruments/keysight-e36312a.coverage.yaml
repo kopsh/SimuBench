@@ -33,7 +33,7 @@ sections:
   - {header: '[SOURce:]CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
   - {header: '[SOURce:]CURRent:MODE', level: not_modeled}
   - {header: '[:SOURce]:CURRent:PROTection:CLEar', level: implemented, note: 只清除 OCP 锁定并恢复故障前的输出状态（#271）；OVP 锁定不受影响。}
-  - {header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]', level: implemented, note: '输出处于 CC 超过该时间即跳闸（#271）；0–3600 s。*RST 值 50 ms 未能按手册正文核实。计时从仿真看到 CC 起（下一条命令或查询），不早于此。'}
+  - {header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]', level: implemented, note: '输出处于 CC 超过该时间即跳闸（#271）；0–3600 s。*RST 值 50 ms 是模型值：手边没有 E36300 编程指南（E36311-90008）正文，待对照手册核实（#348）。计时从仿真看到 CC 起（下一条命令或查询），不早于此。'}
   - {header: '[:SOURce]:CURRent:PROTection:DELay:STARt', level: implemented, note: SCHange：进入 CC 或在 CC 中改设定（电压、电流、输出）都重新计时；CCTRans：只在进入 CC 时计时（#271）。}
   - {header: '[:SOURce]:CURRent:PROTection:STATe', level: implemented, note: OCP 使能，*RST 关（#271）；手册没有电流阈值命令，跳闸按 CC 持续时间。}
   - {header: '[:SOURce]:CURRent:PROTection:TRIPped', level: implemented, note: 只回 OCP 锁定（#271）；VOLT:PROT:TRIP? 只回 OVP。}
@@ -125,14 +125,14 @@ sections:
   - {header: 'SENSe:DLOG:TINTerval', level: not_modeled, note: 数据记录（DLOG）不在首波。}
 - section: STATus Subsystem
   commands:
-  - {header: 'STATus:PRESet', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
-  - {header: 'STATus:QUEStionable[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
-  - {header: 'STATus:QUEStionable:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
-  - {header: 'STATus:QUEStionable:INSTrument[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
-  - {header: 'STATus:QUEStionable:INSTrument:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
-  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt]', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:PRESet', level: implemented, note: 可疑寄存器组（QUEStionable、INSTrument、各路 ISUMmary）的使能全部清零，事件不变（status_register.preset，#348）。}
+  - {header: 'STATus:QUEStionable[:EVENt]', level: implemented, note: 事件寄存器，读后清零；位 13 汇总 QUEStionable:INSTrument（#348）。该寄存器其余位（电压/电流等）未建模。}
+  - {header: 'STATus:QUEStionable:ENABle', level: implemented, note: 使能掩码；QUEStionable 的汇总进状态字节位 3（#348）。}
+  - {header: 'STATus:QUEStionable:INSTrument[:EVENt]', level: implemented, note: 事件寄存器，读后清零；位 1–3 汇总各路 ISUMmary<n>（#348）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ENABle', level: implemented, note: 使能掩码（#348）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>[:EVENt]', level: implemented, note: 每路的事件寄存器：位 0 CC、位 1 CV，条件位变为真时置位，读后清零（#348）。}
   - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:CONDition', level: implemented, note: 0 关或未调节、1 恒流、2 恒压（#271）。}
-  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:ENABle', level: not_modeled, note: 状态寄存器组未实现；CV/CC 条件查询需要通用状态寄存器能力（#271）。}
+  - {header: 'STATus:QUEStionable:INSTrument:ISUMmary<n>:ENABle', level: implemented, note: 每路的使能掩码（#348）。}
 - section: SYSTem Subsystem
   commands:
   - {header: 'SYSTem:BEEPer[:IMMediate]', level: accepted, note: 接受：立即蜂鸣无参数、无回复；仿真中没有声音。, affects_data: false}
