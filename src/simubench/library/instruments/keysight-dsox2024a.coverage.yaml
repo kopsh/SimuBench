@@ -404,14 +404,14 @@ sections:
 - section: :MEASure Commands (Programmer's Guide 02.66, ch. 20)
   commands:
   - header: :MEASure:ALL
-    level: not_modeled
-    note: 'the measurement list (installed measurements and their statistics) is #373'
+    level: implemented
+    note: 'a snapshot of 19 single-source measurements on one source (VPP, VMAX, VMIN, VAMPlitude, VTOP, VBASe, OVERshoot, PREShoot, VAVerage, VRMS, PERiod, FREQuency, RISetime, FALLtime, PWIDth, NWIDth, DUTYcycle, NDUTy, BRATe); the order is the model choice, nothing is installed (#373)'
   - header: :MEASure:BRATe
     level: implemented
     note: '1 / the narrowest pulse (positive or negative) at the middle level (#350)'
   - header: :MEASure:CLEar
-    level: not_modeled
-    note: 'the measurement list is #373'
+    level: implemented
+    note: 'empties the screen list and its statistics (#373)'
   - header: :MEASure:DEFine
     level: not_modeled
   - header: :MEASure:DELay
@@ -460,14 +460,15 @@ sections:
     level: implemented
     note: 'the first positive pulse''s width at the middle level (#248); query only'
   - header: :MEASure:RESults
-    level: not_modeled
-    note: 'the measurement list is #373'
+    level: implemented
+    note: 'the screen list, oldest first: <name>(<channel>),current,min,max,mean,std dev,count per measurement; a measurement command without ? installs one, up to 4 (a fifth drops the oldest). The label wording and :MEASure:STATistics are not modeled (the statistics are always on) (#373)'
   - header: :MEASure:RISetime
     level: implemented
     note: '10 %–90 % of the first complete rising edge on the record (#248); query only'
   - header: :MEASure:SHOW
-    level: not_modeled
-    note: 'the measurement list is #373'
+    level: accepted
+    note: 'kept and read back; the screen markers are not drawn (#373)'
+    affects_data: false
   - header: :MEASure:SOURce
     level: implemented
     note: 'CHANnel1 to CHANnel4 (FUNCtion, MATH, WMEMory not modeled)'
@@ -505,8 +506,9 @@ sections:
     level: implemented
     note: 'the top level from the record''s histogram (#248); query only'
   - header: :MEASure:WINDow
-    level: not_modeled
-    note: 'the measurement window (main or zoom) goes with the measurement list, #373'
+    level: accepted
+    note: 'MAIN, ZOOM, AUTO kept and read back; measurements are taken on the main record, there is no zoom record (#373)'
+    affects_data: false
   - header: :MEASure:XMAX
     level: implemented
     note: 'time of the first maximum, from the trigger (#350)'
