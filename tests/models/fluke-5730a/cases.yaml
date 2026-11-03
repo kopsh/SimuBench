@@ -1,0 +1,139 @@
+# Fluke 5730A 的手册用例：Operators Manual（August 2013 Rev. 1, 6/15）第 6 章 Table 6-5 Commands 的条目与
+# 第 4 章 Operate and Standby Modes。每个用例在刚上电的 examples/benches/fluke-5730a.bench.yaml 上运行
+# （OUTPUT HI 接 Fluke 8588A 的 INPUT HI）。故障队列用 FAULT?（只回码）。
+model: fluke-5730a
+bench: ../../../examples/benches/fluke-5730a.bench.yaml
+instrument: cal
+cases:
+  - name: "*IDN? 与 *RST 后的状态"
+    manual: "Table 6-5 > *IDN?（Example FLUKE,5730A,5248000,1.0+B+*）; *RST（0 V, 0 Hz, Standby, [EX GRD] off）"
+    steps:
+      - query: "*IDN?"
+        expect: "FLUKE,5730A,5248000,1.0+B+*"
+      - send: "OUT 5 V, 1 kHz;EXTGUARD ON;OPER"
+      - send: "*RST"
+      - query: "OUT?"
+        expect: "0.000000E+00,V,0.000000E+00"
+      - query: "FAULT?"
+        expect: "0"
+
+  - name: "OUT：幅值、频率与只改一项"
+    manual: "Table 6-5 > OUT（OUT -15.2 V frequency unchanged; OUT 100 HZ sets the frequency only）/ OUT?"
+    steps:
+      - send: "OUT -15.2 V"
+      - query: "OUT?"
+        expect: "-1.520000E+01,V,0.000000E+00"
+      - send: "OUT 1 V, 1 KHZ"
+      - query: "OUT?"
+        expect: "1.000000E+00,V,1.000000E+03"
+      - send: "OUT 2 V"
+      - query: "OUT?"
+        expect: "2.000000E+00,V,1.000000E+03"
+      - send: "OUT 100 HZ"
+      - query: "OUT?"
+        expect: "2.000000E+00,V,1.000000E+02"
+      - send: "OUT 0 HZ"
+      - query: "OUT?"
+        expect: "2.000000E+00,V,0.000000E+00"
+      - send: "OUT 250 MV"
+      - query: "OUT?"
+        expect: "2.500000E-01,V,0.000000E+00"
+      - query: "FAULT?"
+        expect: "0"
+
+  - name: "OUT 的单位与参数错误；未实现的电流/电阻输出"
+    manual: "Table 6-5 > OUT; Appendix A Fault Codes（2206 Invalid Parameter Unit, 2207 Invalid Parameter Value）"
+    steps:
+      - send: "OUT 1"
+      - query: "FAULT?"
+        expect: "2206"
+      - send: "OUT 1 V, 2 V"
+      - query: "FAULT?"
+        expect: "2207"
+      - send: "OUT 188.3 MA, 442 HZ"
+      - query: "FAULT?"
+        expect: "-224"
+      - send: "OUT 1.9 MOHM"
+      - query: "FAULT?"
+        expect: "-224"
+      - send: "OUT 1200 V"
+      - query: "FAULT?"
+        expect: "-222"
+      - query: "OUT?"
+        expect: "0.000000E+00,V,0.000000E+00"
+
+  - name: "OPER / STBY：待机时端子断开，工作后经建立时间到达设定值"
+    manual: "Table 6-5 > OPER / STBY; Chapter 4 Operate and Standby Modes"
+    steps:
+      - send: "OUT 10 V"
+      - instrument: dmm
+        send: ":CONF:VOLT:DC 10"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: "OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.0e-4
+      - send: "STBY"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+
+  - name: "≥22 V 的输出在前一输出 <22 V 时被选中，自动回待机"
+    manual: "Chapter 4 Operate and Standby Modes（A voltage ≥22 V is selected when the previous output voltage was <22 V）"
+    steps:
+      - send: "OUT 10 V;OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "OUT 25 V"
+      - instrument: dmm
+        send: ":CONF:VOLT:DC 100"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: "OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - instrument: dmm
+        query: ":READ?"
+        expect_value: 25.0
+        tolerance: 1.0e-3
+
+  - name: "外部保护、亮度、接口状态与公共命令"
+    manual: "Table 6-5 > EXTGUARD / BRIGHTNESS / LOCAL / REMOTE / LOCKOUT; *CLS / *ESE / *ESR? / *SRE / *STB? / *OPC / *WAI / *TST?"
+    steps:
+      - send: "EXTGUARD ON"
+      - send: "EXTGUARD OFF"
+      - send: "BRIGHTNESS 80"
+      - query: "BRIGHTNESS?"
+        expect: "80"
+      - send: "BRIGHTNESS 101"
+      - query: "FAULT?"
+        expect: "-222"
+      - send: "REMOTE"
+      - send: "LOCKOUT"
+      - send: "LOCAL"
+      - send: "*CLS;*ESE 60"
+      - query: "*ESE?"
+        expect: "60"
+      - send: "FOO"
+      - query: "*ESR?"
+        expect: "32"
+      - send: "*SRE 32"
+      - query: "*SRE?"
+        expect: "32"
+      - send: "*CLS;*OPC"
+      - query: "*ESR?"
+        expect: "1"
+      - send: "*WAI"
+      - query: "*TST?"
+        expect: "0"
+      - query: "*STB?"
+        expect: "0"
