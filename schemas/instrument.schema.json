@@ -1234,7 +1234,7 @@
         },
         "digits": {
           "default": 6,
-          "description": "Digits after the decimal point (nr3 mantissa, nr2)",
+          "description": "Digits after the decimal point (nr3 mantissa, nr2); significant digits (general)",
           "maximum": 17,
           "minimum": 0,
           "title": "Digits",
@@ -1282,13 +1282,14 @@
         },
         "number": {
           "default": "nr3",
-          "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289)",
+          "description": "nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289); general: C %g with `digits` significant digits, lowercase e and no trailing zeros, 2.3346669042e-09, 19.749698639 (#383)",
           "enum": [
             "nr3",
             "nr2",
             "nr1",
             "engineering",
-            "si"
+            "si",
+            "general"
           ],
           "title": "Number",
           "type": "string"

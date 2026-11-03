@@ -56,6 +56,12 @@ def parse_number(text: str, unit: str | None = None) -> float:
             rest = suffix[len(prefix) :]
             if rest == base or (not base and rest):
                 return value * _PREFIXES[prefix]
+    # An angle in degrees may also be written in radians (SR86x PHAS: URAD|MRAD|RAD, #383).
+    if base == "DEG" and suffix.endswith("RAD"):
+        prefix = suffix[: -len("RAD")]
+        scale = 1.0 if not prefix else _PREFIXES.get(prefix)
+        if scale is not None:
+            return math.degrees(value * scale)
     raise UnitError(f"suffix {suffix!r} does not fit unit {unit!r}")
 
 

@@ -3109,7 +3109,7 @@ export interface components {
             boolean: "numeric" | "word";
             /**
              * Digits
-             * @description Digits after the decimal point (nr3 mantissa, nr2)
+             * @description Digits after the decimal point (nr3 mantissa, nr2); significant digits (general)
              * @default 6
              */
             digits: number;
@@ -3142,11 +3142,11 @@ export interface components {
             integer: "plain" | "signed" | "engineering";
             /**
              * Number
-             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289)
+             * @description nr3: +1.000000E+03; nr2: +1000.000000; nr1: +1000 (rounded); engineering: 1E+3, 200E-3 (exponent a multiple of 3, shortest mantissa); si: 4.00000000MHz — `significant` digits with an SI prefix and `unit` (#289); general: C %g with `digits` significant digits, lowercase e and no trailing zeros, 2.3346669042e-09, 19.749698639 (#383)
              * @default nr3
              * @enum {string}
              */
-            number: "nr3" | "nr2" | "nr1" | "engineering" | "si";
+            number: "nr3" | "nr2" | "nr1" | "engineering" | "si" | "general";
             /**
              * Readings
              * @description Numbers a component answers (marker values, trace points, counter readings): component — each component's own digits (the default, what sb-* instruments return); format — written in this format like the settings, for a manual whose replies share one format (N9320B: 16 digits, #366). Components whose digits are a definition parameter (a meter's or trigger model's `digits`) keep that parameter
