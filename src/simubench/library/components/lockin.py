@@ -826,17 +826,25 @@ class LockinOutput(Component):
         return OpResult(self.reply_number(self._value(what, self.xy()), 8))
 
     @op("measure_display")
-    def op_measure_display(self, target: str = "", **_: Any) -> OpResult:
+    def op_measure_display(self, target: str = "", ratio: str = "", **_: Any) -> OpResult:
         """OUTR? i (SR830 manual 5-16): the value display channel i shows — the quantity its DDEF
         picks. ``target`` is the definition's ``<component>.<quantity>`` for that setting, the same
         sources a ``curve_buffer`` trace reads (X/R/XNoise and AUX1/2 on CH1, Y/θ/YNoise and
-        AUX3/4 on CH2)."""
-        name, _, quantity = str(target).partition(".")
+        AUX3/4 on CH2). ``ratio`` (#390): the quantity the display divides by (DDEF's ratio, an AUX
+        input; empty: none); a denominator of 0 V shows 0."""
+        self.overload()
+        value = self._display_quantity(target)
+        if ratio and str(ratio) not in ("None", "0"):
+            den = self._display_quantity(ratio)
+            value = value / den if den else 0.0
+        return OpResult(self.reply_number(value, 8))
+
+    def _display_quantity(self, spec: Any) -> float:
+        name, _, quantity = str(spec).partition(".")
         comp = self.owner.components.get(name) if self.owner is not None else None
         if comp is None or not hasattr(comp, "trace_value"):
-            raise ScpiError(-224, f"{target!r} is not a display quantity")
-        self.overload()
-        return OpResult(self.reply_number(comp.trace_value(quantity, self.session.now_ns), 8))
+            raise ScpiError(-224, f"{spec!r} is not a display quantity")
+        return float(comp.trace_value(quantity, self.session.now_ns))
 
     @op("snap")
     def op_snap(self, names: list[bytes] | None = None, **_: Any) -> OpResult:

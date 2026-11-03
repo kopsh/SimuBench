@@ -722,6 +722,9 @@ class ArbTable(Component):
         "min_points": 1,  # the fewest points a loaded waveform may have (#426)
         "max_points": 1_000_000,  # the most points a loaded waveform may have
         "dac_full_scale": 32767,  # the DAC code of +1 for load_dac
+        "max_name": 0,  # most characters of a loaded waveform's name (0: any length, #430)
+        "name_error": -224,  # the error of a name over max_name characters
+        "exists_error": 0,  # the error of loading a name already in memory (0: it is replaced)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -737,6 +740,14 @@ class ArbTable(Component):
         key = key.strip()
         if not key:
             raise ScpiError(-224, "a waveform needs a name")
+        limit = int(self.param("max_name") or 0)
+        if limit and len(key) > limit:
+            raise ScpiError(
+                int(self.param("name_error")), f"waveform name {key!r} is over {limit} characters"
+            )
+        exists = int(self.param("exists_error") or 0)
+        if exists and any(k.upper() == key.upper() for k in self.waves):
+            raise ScpiError(exists, f"Specified arb waveform already exists: {key!r}")
         n = len(values)
         if not int(self.param("min_points")) <= n <= int(self.param("max_points")):
             raise ScpiError(
@@ -788,10 +799,17 @@ class ArbTable(Component):
 
     @op("clear")
     def op_clear(self, **_: Any) -> OpResult:
-        """``DATA:VOLatile:CLEar``: forget the loaded waveforms (the definition's table plays again)."""
+        """``DATA:VOLatile:CLEar``: forget the loaded waveforms, the one playing too, and play the
+        definition's table again — the Trueform's "clears waveform memory ... and reloads the
+        default waveform" (33500-90901 DATA:VOLatile:CLEar; no error while one is selected, #430)."""
         self.waves.clear()
         self.selected = None
         return OpResult()
+
+    def reset(self) -> None:
+        """``*RST``: the default waveform plays again (the Factory Reset State's Arb, #430); what
+        was loaded stays in volatile memory (the guide does not say *RST clears it)."""
+        self.selected = None
 
     def _table(self) -> np.ndarray:
         if self.selected is not None and self.selected in self.waves:
