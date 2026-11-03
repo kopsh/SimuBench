@@ -9,6 +9,7 @@ import numpy as np
 import pytest
 from scipy.special import jv
 
+from simubench.engine.deviation import set_override
 from simubench.engine.session import Session
 from simubench.engine.signal import Signal
 from simubench.library.components.rfgen import RfModulator, carson_orders
@@ -96,7 +97,7 @@ def test_with_the_switch_on_am_adds_two_sidebands_of_half_the_depth():
 def test_a_large_index_set_with_the_switch_off_is_refused_when_it_is_turned_on():
     stub = _Stub(enabled=False, fm=True, fm_dev=1e6, fm_rate=10.0)  # beta = 1e5
     stub.on_state("fm_dev", 0.0, 1e6)  # off: nothing is expanded, so nothing is refused
-    stub.overrides["enabled"] = True
+    set_override(stub, "enabled", True)
     with pytest.raises(ScpiError) as err:
         stub.on_state("enabled", False, True)
     assert err.value.code == -222

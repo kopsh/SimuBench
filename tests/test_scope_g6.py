@@ -63,9 +63,8 @@ def test_a_float_block_carries_the_record_volts_of_the_points_mode(scope):
 
 @pytest.mark.parametrize(("over", "expect"), [("allow", 6000), ("truncate", 5000), ("error", None)])
 def test_a_count_above_the_limit_follows_over_limit(scope, over, expect):
-    xfer = scope.instruments["scope"].components["xfer"]
-    xfer.overrides["over_limit"] = over
-    xfer.overrides["count_mode"] = "first"
+    scope.set_parameter("scope", "xfer", "over_limit", over)
+    scope.set_parameter("scope", "xfer", "count_mode", "first")
     q(scope, "FORMat REAL,32")
     q(scope, "CHANnel1:DATA:POINts 6000")
     reply = q(scope, "CHANnel1:DATA?")
@@ -76,30 +75,32 @@ def test_a_count_above_the_limit_follows_over_limit(scope, over, expect):
 
 
 def test_measurement_rules_are_parameters(scope):
-    meas = scope.instruments["scope"].components["meas"]
     q(scope, "TIMebase:SCALe 1E-3")
     period = float(q(scope, "MEASurement:RESult? PERiod"))
     assert period == pytest.approx(1e-3, rel=1e-3)
     # An absolute crossing level above the middle still counts one crossing per cycle; one whose
     # hysteresis band reaches past the peak (0.9 V + 0.2 V) counts none.
-    meas.overrides.update(levels="absolute", mid=0.5)
+    scope.set_parameter("scope", "meas", "levels", "absolute")
+    scope.set_parameter("scope", "meas", "mid", 0.5)
     assert float(q(scope, "MEASurement:RESult? PERiod")) == pytest.approx(1e-3, rel=1e-3)
-    meas.overrides["mid"] = 0.9
+    scope.set_parameter("scope", "meas", "mid", 0.9)
     assert q(scope, "MEASurement:RESult? PERiod").strip() == b"9.91E+37"
     # Extremes instead of the histogram: the same span for a clean sine.
-    meas.overrides.update(levels="percent", mid=50.0, top_base="extremes")
+    scope.set_parameter("scope", "meas", "levels", "percent")
+    scope.set_parameter("scope", "meas", "mid", 50.0)
+    scope.set_parameter("scope", "meas", "top_base", "extremes")
     assert float(q(scope, "MEASurement:RESult? AMPLitude")) == pytest.approx(2.0, rel=0.02)
     # A gate of one division holds a tenth of a cycle: no period in it.
-    meas.overrides.update(top_base="histogram", gate=[5, 6])
+    scope.set_parameter("scope", "meas", "top_base", "histogram")
+    scope.set_parameter("scope", "meas", "gate", [5, 6])
     assert q(scope, "MEASurement:RESult? FREQuency").strip() == b"9.91E+37"
 
 
 def test_a_clipped_record_is_unmeasurable_when_declared(scope):
-    meas = scope.instruments["scope"].components["meas"]
     q(scope, "TIMebase:SCALe 1E-3")
     q(scope, "CHANnel1:SCALe 0.1")  # 2 Vpp on +-0.5 V: off the ADC
     assert float(q(scope, "MEASurement:RESult? PEAK")) < 1.1
-    meas.overrides["clipped"] = "invalid"
+    scope.set_parameter("scope", "meas", "clipped", "invalid")
     assert q(scope, "MEASurement:RESult? PEAK").strip() == b"9.91E+37"
 
 
