@@ -304,3 +304,53 @@ cases:
       - send: "BURS:STAT ON"
       - query: "SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: "最高频率随波形：FREQ? MAX、超限 -222 并置为最高频率、换波形降频并 -221（#437）"
+    manual: "第 1 章 Models and Options（33622A：正弦 120 MHz、方波/脉冲 100 MHz、斜波/三角 800 kHz）；FREQuency（Function Limitations）；FUNCtion（Function Limitations）"
+    steps:
+      - query: "FREQ? MAX"
+        expect: "+1.200000000000000E+08"
+      - send: "FUNC SQU"
+      - query: "FREQ? MAX"
+        expect: "+1.000000000000000E+08"
+      - send: "FUNC RAMP"
+      - query: "FREQ? MAX"
+        expect: "+8.000000000000000E+05"
+      - send: "FREQ 2e6"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "FREQ?"
+        expect: "+8.000000000000000E+05"
+      - send: "FUNC SIN;:FREQ 50e6"
+      - send: "FUNC TRI"
+      - query: "SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - query: "FREQ?"
+        expect: "+8.000000000000000E+05"
+
+  - name: "脉冲：宽度与占空比联动、周期、前后沿时间（#437）"
+    manual: "Pulse Waveforms > Pulse Period / Pulse Width / Pulse Duty Cycle / Edge Times；FUNCtion:PULSe:WIDTh / :PERiod / :TRANsition"
+    steps:
+      - send: "FUNC PULS;:FREQ 1e3"
+      - query: "FUNC:PULS:WIDT?"
+        expect: "+1.000000000000000E-04"
+      - send: "FUNC:PULS:WIDT 2e-4"
+      - query: "FUNC:PULS:DCYC?"
+        expect: "+2.000000000000000E+01"
+      - send: "FUNC:PULS:PER 5e-4"
+      - query: "FREQ?"
+        expect: "+2.000000000000000E+03"
+      - query: "FUNC:PULS:PER?"
+        expect: "+5.000000000000000E-04"
+      - query: "FUNC:PULS:TRAN:LEAD?"
+        expect: "+1.000000000000000E-08"
+      - send: "FUNC:PULS:TRAN 50e-9"
+      - query: "FUNC:PULS:TRAN:TRA?"
+        expect: "+5.000000000000000E-08"
+      - send: "FUNC:PULS:TRAN:TRA 1e-7"
+      - query: "FUNC:PULS:TRAN?"
+        expect: "+5.000000000000000E-08"
+      - send: "FUNC:PULS:WIDT 1e-3"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+

@@ -138,6 +138,7 @@ params:
       - {first: 101, count: 2}
       - {first: 201, count: 2}
   ```
+- **随状态变化的上下限**（#437）：组件可实现 `state_limits(path)`，按当前状态给出更窄的 (min, max)；`MIN`/`MAX` 查询与关键字都用它（33622A 的 `FREQ? MAX` 随波形变化，由 `waveform_synth.max_frequency` 提供）。超限的处理仍由组件的 `on_state` 决定（拒绝或置为上限）。
 - **整表写入与常量**（#300）：通道列表参数可以带 `state`（一个 `int_list` 设置）：列表按仪表的号整表写进它，写设置的命令照常展开到各通道，操作命令只执行一次（34970A 的 `MEAS:VOLT:DC? (@101:110)` 写扫描表后跑一次扫描）。带通道列表的命令同样先写 `writes` 常量、再写参数的 `sets`（`CONF:VOLT:AC 10,(@101)` 选交流并关闭自动量程）；可省略的参数遇到 `(@…)` 视为省略，列表留给后面的通道列表参数。操作命令的参数也可以带 `state`：先写设置（连同 `sets`），再执行操作（`MEAS:VOLT:DC? 10,(@101)` 用 10 V 量程）。
 - **选中的输出**（#295）：`channels.selected` 指向一个 int 设置（选中输出的通道号），省略通道列表时命令作用于它，而不是参数的 `default`。`INSTrument[:SELect]` 与 `NSELect` 写同一个设置；名称写法用设置的 `special`（`{CH1: 1, P25V: 2}`），查询用 `reply: "CH{value}"`。E36312A 采用：`INST:SEL P25V; VOLT 5` 改输出 2。
 - **与既有写法并存**：同一型号可同时有 `<n>` 数字后缀（`OUTP1`，命令头后缀，既有机制）、通道列表参数（本节）与 `INST:SEL`/`INST:NSEL`。前两者互不冲突；选中输出见上一条。
