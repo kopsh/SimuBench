@@ -604,7 +604,7 @@ class SessionManager:
         exposed: dict[str, set[str]] = {}
         for _pname, (cname, cport) in inst.ports.items():
             exposed.setdefault(cname, set()).add(cport)
-        with s._lock:
+        with s.view():
             components = [
                 M.InternalComponent(
                     name=name,
@@ -707,9 +707,7 @@ class SessionManager:
         if acq is None or not hasattr(acq, "compute"):
             raise KeyError(f"{instrument} is not an oscilloscope")
         bins = max(2, int(points)) if points else None
-        with s._lock:  # read a consistent view without changing anything the instrument keeps
-            s.follow_wall()
-            inst.settle_pending()  # an acquisition that has come due is shown, as any command would
+        with s.view(settle=(instrument,)):  # nothing else the instrument keeps changes here
             live = bool(acq.shows_live())  # type: ignore[attr-defined]
             records = dict(acq.records)  # type: ignore[attr-defined]
             if live:
@@ -780,9 +778,8 @@ class SessionManager:
         inst = s.instrument(instrument)
         values: dict[str, Any] = {}
         traces: list[M.ReadingTrace] = []
-        with s._lock:
-            s.follow_wall()
-            inst.settle_pending()  # the panel shows what has come due, as any command's arrival would
+        # The panel shows what has come due, as any command's arrival would.
+        with s.view(settle=(instrument,)):
             for name, comp in inst.components.items():
                 r = comp.readings()
                 if not r:
@@ -799,9 +796,8 @@ class SessionManager:
         s = served.session
         if net not in s.nets:
             raise KeyError(net)
-        with s._lock:
-            s.follow_wall()
-            sol, emf = s._solve()
+        with s.view():
+            sol, emf = s._solve()  # #463 moves the decomposition (and this private call) into the engine
             sig = s.net_signal(net).merged()
             pos = sig.freq > 0
             order = np.argsort(-np.abs(sig.amp[pos]))
@@ -881,8 +877,7 @@ class SessionManager:
     def net_levels(served: ServedSession, points: int = 48) -> M.NetLevels:
         """Every net's level and a thumbnail, in one read, for the canvas (D44)."""
         s = served.session
-        with s._lock:
-            s.follow_wall()
+        with s.view():
             out: list[M.NetLevel] = []
             for net in s.nets:
                 sig = s.net_signal(net).merged()
@@ -911,8 +906,7 @@ class SessionManager:
         s = served.session
         if net not in s.nets:
             raise KeyError(net)
-        with s._lock:
-            s.follow_wall()
+        with s.view():
             sig = s.net_signal(net)
             dt = window_s / points
             v = sig.sample_rel(s.now_ns, np.arange(points) * dt)
@@ -951,7 +945,7 @@ def _first_paragraph(doc: str | None) -> str | None:
 def _net_notes(s: Session, net: str) -> list[str]:
     """Fidelity notes of the signal on a net (empty when exact); a model failure is a note too."""
     try:
-        with s._lock:
+        with s.view():
             return list(dict.fromkeys(n.detail for n in s.net_signal(net).notes))
     except Exception as exc:  # describing a session must not fail because one net cannot be solved
         log.exception("net %s of %s", net, s.bench.name)
