@@ -119,3 +119,36 @@ def test_trg_with_no_channel_waiting_is_ignored(smu):
     q, w = smu
     w("*TRG")
     assert q(":SYST:ERR?").startswith("-211,")
+
+
+def test_abort_over_a_channel_list_returns_both_channels_to_idle(smu):
+    """#396: two channels waiting for a bus trigger; :ABOR (@1,2) idles both, so :INIT again
+    is accepted (no -213) and *TRG then triggers both."""
+    q, w = smu
+    w(":TRIG1:SOUR BUS;:TRIG2:SOUR BUS")
+    w(":INIT (@1,2)")
+    w(":ABOR (@1,2)")
+    assert q(":SYST:ERR?").startswith("0,")
+    w(":INIT (@1,2)")
+    assert q(":SYST:ERR?").startswith("0,")
+    w("*TRG")
+    assert _values(q(":FETC:ARR:CURR? (@1,2)")) == pytest.approx([1e-3, 0.5e-3], rel=1e-6)
+
+
+def test_aborting_one_channel_leaves_the_other_waiting(smu):
+    q, w = smu
+    w(":TRIG1:SOUR BUS;:TRIG2:SOUR BUS")
+    w(":INIT (@1,2)")
+    w(":ABOR (@1)")
+    w(":INIT (@2)")  # channel 2 is still waiting for its trigger: init ignored
+    assert q(":SYST:ERR?").startswith("-213,")
+    w(":INIT (@1)")  # channel 1 is idle again
+    assert q(":SYST:ERR?").startswith("0,")
+
+
+def test_read_over_a_channel_list_answers_in_list_order(smu):
+    """#396: :READ:ARR:CURR? (@2,1) with the immediate (AINT) trigger: each channel's own reading,
+    in the list's order."""
+    q, _ = smu
+    assert _values(q(":READ:ARR:CURR? (@2,1)")) == pytest.approx([0.5e-3, 1e-3], rel=1e-6)
+    assert q(":SYST:ERR?").startswith("0,")
