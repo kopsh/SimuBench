@@ -18,6 +18,7 @@ import numpy as np
 from ..access.hislip_server import HislipServer
 from ..access.scpi_server import ScpiServer
 from ..api import open_bench
+from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState, LinkDown
 from ..engine.instrument import Instrument
 from ..engine.record import definition_hash
@@ -974,13 +975,6 @@ def _channel_silence(s: Session, inst: Instrument, channel: int) -> list[M.Silen
             ref = f"{inst.name}.{pname}"
             return [_silence(x) for x in why_silent(s, s.node_of(inst.components[comp], port), port_ref=ref)]
     return []
-
-
-def _deviation_keys(inst: Instrument, component: str, parameter: str) -> list[str]:
-    """'<component>.<parameter>' for an instrument-level component, one per channel otherwise."""
-    if component in inst.components:
-        return [f"{component}.{parameter}"]
-    return [f"ch{n}.{component}.{parameter}" for n in range(1, inst.channel_count + 1)]
 
 
 def _deviation_info(param: str, rng: Any, value: Any, drawn: bool, reveal: bool) -> M.DeviationInfo:

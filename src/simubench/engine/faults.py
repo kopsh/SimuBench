@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 
 from ..models.bench import Fault
+from .deviation import clear_override, set_override
 
 if TYPE_CHECKING:
     from .component import Component
@@ -133,20 +134,18 @@ class FaultManager:
             state._had_override = s.param in comp.overrides
             state._previous = comp.overrides.get(s.param or "")
             if s.kind == "hidden":
-                comp.overrides[s.param or ""] = s.value
+                set_override(comp, s.param or "", s.value)
             else:
                 state._base = float(comp.param(s.param or ""))
                 self._apply_drift(state)
-            self.session.invalidate(electrical=True)
 
     def _end(self, state: FaultState, why: str) -> None:
         if state.status == "active" and state.spec.kind in PARAM and state._component is not None:
             comp, key = state._component, state.spec.param or ""
             if state._had_override:
-                comp.overrides[key] = state._previous
+                set_override(comp, key, state._previous)
             else:
-                comp.overrides.pop(key, None)
-            self.session.invalidate(electrical=True)
+                clear_override(comp, key)
         state.status = "ended"
         self._emit(state, why)
 
@@ -171,8 +170,9 @@ class FaultManager:
         if comp is None or state.started_ns is None:
             return
         elapsed = (self.session.now_ns - state.started_ns) / 1e9
-        comp.overrides[state.spec.param or ""] = state._base * (1 + (state.spec.drift_per_s or 0.0) * elapsed)
-        self.session.invalidate(electrical=True)
+        set_override(
+            comp, state.spec.param or "", state._base * (1 + (state.spec.drift_per_s or 0.0) * elapsed)
+        )
 
     # ---- link ---------------------------------------------------------------------------------------
 

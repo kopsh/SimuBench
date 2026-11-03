@@ -7,12 +7,17 @@ and seed always give the same unit, whatever else the bench holds or the order t
 from __future__ import annotations
 
 import itertools
-from typing import Any
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ..models.deviation import DeviationRange, limit_for
 from .noise import gaussian, stream_key, uniform
+
+if TYPE_CHECKING:
+    from .component import Component
+    from .instrument import Instrument
 
 #: Draws tried for a truncated normal before giving up on staying inside the limit (never reached
 #: in practice: each draw is inside with probability ≥ 0.68 for k ≥ 1).
@@ -66,3 +71,60 @@ def draw(rng: DeviationRange, nominal: Any, seed: int, *who: object) -> Any:
         d = draw_offset(rng, seed, *who, *path)
         node[path[-1]] = apply(rng, _cell_nominal(nominal, path), d)
     return table
+
+
+# ---- the override write protocol (#462) -------------------------------------------------------------
+#
+# Every write of ``comp.overrides`` outside construction — the session's hidden state, the drawn
+# deviations, faults, ``Session.set_parameter`` — goes through the primitives below, so the
+# priority hidden > drawn deviation > ``$state`` binding is one place's business, not four.
+
+
+def set_override(comp: Component, parameter: str, value: Any, *, invalidate: bool = True) -> None:
+    """Write one hidden override: validated against the component's parameters, written, and the
+    session told (the signals may change). Construction-time writers pass ``invalidate=False`` —
+    nothing has been solved yet, and the session is still being built."""
+    known = set(comp._params) | set(comp.defaults)
+    if parameter not in known:
+        raise ValueError(
+            f"{comp.name} has no parameter {parameter!r}; parameters: {', '.join(sorted(known))}"
+        )
+    comp.overrides[parameter] = value
+    session = getattr(comp, "session", None)
+    if invalidate and session is not None:
+        session.invalidate(electrical=True)
+
+
+def clear_override(comp: Component, parameter: str) -> None:
+    """Undo an override: the parameter reads its binding or default again."""
+    comp.overrides.pop(parameter, None)
+    session = getattr(comp, "session", None)
+    if session is not None:
+        session.invalidate(electrical=True)
+
+
+def draw_overrides(
+    comp: Component, ranges: Iterable[tuple[str, DeviationRange]], seed: int, *who: object
+) -> dict[str, Any]:
+    """Draw the overrides a deviation table describes and write them, skipping the parameters an
+    explicit ``hidden`` already occupies (metrology-authoring.md 7: hidden beats the draw).
+    Construction-time: nothing is invalidated. ``*who`` is the caller's stream prefix; the
+    component and parameter names join it, exactly as the draws have always been keyed. Returns
+    ``{parameter: value}`` for the caller's record."""
+    drawn: dict[str, Any] = {}
+    for parameter, rng in ranges:
+        if parameter in comp.overrides:
+            continue
+        value = draw(rng, comp.param(parameter), seed, *who, comp.name, parameter)
+        comp.overrides[parameter] = value
+        drawn[parameter] = value
+    return drawn
+
+
+def deviation_keys(inst: Instrument, component: str, parameter: str) -> list[str]:
+    """The deviation-record keys of one spec: ``'<component>.<parameter>'``, or one
+    ``'ch<n>.<component>.<parameter>'`` per channel when the component is a channel component.
+    The one place the ``ch<n>`` rule lives (#462)."""
+    if component in {c.name for c in inst.definition.channel_components}:
+        return [f"ch{n}.{component}.{parameter}" for n in range(1, inst.channel_count + 1)]
+    return [f"{component}.{parameter}"]
