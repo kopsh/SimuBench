@@ -247,3 +247,19 @@ def test_peak_detect_keeps_the_excursion_the_record_rate_steps_over(tmp_path):
         assert np.max(np.abs(peak)) > 0.9
     finally:
         rm.close()
+
+
+def test_a_running_normal_scope_waits_while_its_level_finds_no_edge(tmp_path):
+    """WAIT (bit 5) follows the trigger a continuous run finds now, not the last acquisition's (#352)."""
+    rm, dso = _open(tmp_path)
+    try:
+        dso.write("*RST;:CHANnel1:PROBe 1;:DIGitize CHANnel1")  # triggers on the 1 V sine
+        dso.write(":TRIGger:SWEep NORMal;:TRIGger:LEVel 1.2")  # beyond the swing: never an edge
+        dso.write(":RUN")
+        assert dso.query(":OPERegister:CONDition?").strip() == "40"  # RUN | WAIT
+        dso.write(":TRIGger:LEVel 0")
+        assert dso.query(":OPERegister:CONDition?").strip() == "8"  # RUN, triggering again
+        dso.write(":STOP")
+        assert dso.query(":OPERegister:CONDition?").strip() == "0"
+    finally:
+        rm.close()
