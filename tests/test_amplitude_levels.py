@@ -81,3 +81,26 @@ def test_the_amplitude_is_written_in_its_unit(awg):
     awg("VOLT:HIGH 1;:VOLT:LOW -1")  # 2 Vpp sine = 1/sqrt(2) Vrms
     assert float(awg("VOLT?")) == pytest.approx(2 / (2 * math.sqrt(2)), rel=1e-6)
     assert float(awg("VOLT:HIGH?")) == pytest.approx(1.0)
+
+
+@pytest.mark.parametrize(
+    ("setup", "command"),
+    [
+        # #428's reproduction: the amplitude (5.5 V) is legal, the offset (6.75 V) is not
+        ("VOLT 1;:VOLT:OFFS 4.5", "VOLT:HIGH 9.5"),
+        # the LOW direction: amplitude 5.5 V, offset -6.75 V
+        ("VOLT 1;:VOLT:OFFS -4.5", "VOLT:LOW -9.5"),
+        # the amplitude is refused (10.5 V > 10 V) while the offset alone (4.75 V) is legal: the
+        # second order writes the offset first, which must be put back
+        ("VOLT 1;:VOLT:OFFS 0", "VOLT:HIGH 10"),
+    ],
+    ids=["offset-refused", "low-offset-refused", "amplitude-refused"],
+)
+def test_a_refused_level_leaves_amplitude_and_offset_unchanged(awg, setup, command):
+    """#428: a level command refused with -222 is atomic — no partial write of amplitude or offset."""
+    awg(setup)
+    amplitude, offset = float(awg("VOLT?")), float(awg("VOLT:OFFS?"))
+    awg(command)
+    assert awg("SYST:ERR?").startswith("-222")
+    assert float(awg("VOLT?")) == pytest.approx(amplitude)
+    assert float(awg("VOLT:OFFS?")) == pytest.approx(offset)

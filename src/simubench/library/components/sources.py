@@ -617,8 +617,26 @@ class AmplitudeLevel(Component):
         if self.owner is None or amp_path is None or off_path is None:
             raise ScpiError(-221, "the amplitude and offset are not settings")
         unit = str(self.param("unit"))
-        self.owner.set_state(amp_path, self._from_vpp(high - low, unit))
-        self.owner.set_state(off_path, (high + low) / 2)
+        owner = self.owner
+        writes = {amp_path: self._from_vpp(high - low, unit), off_path: (high + low) / 2}
+        before = {path: owner.get_state(path) for path in writes}
+        # All or nothing (#428): a refused command leaves amplitude and offset as they were. One
+        # order can fail where the other succeeds (a limit on amplitude and offset together), so
+        # both are tried; whatever was written before a refusal is put back.
+        error: ScpiError | None = None
+        for order in ((amp_path, off_path), (off_path, amp_path)):
+            done: list[str] = []
+            try:
+                for path in order:
+                    owner.set_state(path, writes[path])
+                    done.append(path)
+                return
+            except ScpiError as exc:
+                error = error or exc
+                for path in reversed(done):
+                    owner.set_state(path, before[path])
+        assert error is not None
+        raise error
 
     def _level(self, which: int, query: bool, value: Any) -> OpResult:
         assert self.owner is not None
