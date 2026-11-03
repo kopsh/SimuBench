@@ -5,11 +5,11 @@
 # dispatches CI on the merged head, watches that run from this very job, and merges once it
 # passes (#481). The watching has to happen here: workflow_run chains stop at three levels
 # (pull-request CI → this file → the dispatched run), so the dispatched run's own completion
-# never re-triggers this file and an unwatched self-heal would hang forever (#490). Only a merge
-# conflict goes back to the agent. Every merge uses the exact commit CI tested
+# never re-triggers this file and an unwatched self-heal would hang forever (#490) — the same
+# reason a red or stuck re-test is reported by this job itself and not by the report job (#493).
+# Only a merge conflict goes back to the agent. Every merge uses the exact commit CI tested
 # (--match-head-commit). A red CI run on a pull-request head is reported on the pull request
-# (#485): the agent can only react to what it sees, and a self-healed branch's red run would
-# otherwise be silent.
+# (#485): the agent can only react to what it sees.
 name: Merge when CI passes
 
 on:
@@ -64,8 +64,9 @@ jobs:
                 gh pr comment "$n" --repo "$REPO" --body "the re-test run never showed up in the run list: push any commit to start CI again (it merges on green, merge.yml)."
                 continue
               fi
-              # Fast tier, so a half hour is far beyond what a run ever takes; a red (or missing)
-              # run is left to the report job, which comments the run URL on the pull request.
+              # Fast tier, so a half hour is far beyond what a run ever takes. A red (or stuck)
+              # re-test cannot reach the report job — that too would be a fourth workflow_run
+              # level, dropped like this file's own merge trigger — so it is reported here (#493).
               RESULT=""
               for _ in $(seq 60); do
                 sleep 30
@@ -73,7 +74,12 @@ jobs:
                   --jq '.status + "/" + (.conclusion // "-")' 2>/dev/null || true)
                 if [ "${RESULT%%/*}" = "completed" ]; then break; fi
               done
-              if [ "$RESULT" != "completed/success" ]; then continue; fi
+              if [ "$RESULT" != "completed/success" ]; then
+                RUN_URL=$(gh run view "$RUN_ID" --repo "$REPO" --json url --jq .url 2>/dev/null || true)
+                if [ -n "$RUN_URL" ]; then RUN_TEXT="[the run]($RUN_URL)"; else RUN_TEXT="run $RUN_ID"; fi
+                gh pr comment "$n" --repo "$REPO" --body "the re-test run on the merged head ended ${RESULT:-without a result} ($RUN_TEXT). Push a fix — a new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
+                continue
+              fi
               TESTED="$NEW"
             fi
             # The issues the pull request lists, read before the merge: closingIssuesReferences is
@@ -96,9 +102,9 @@ jobs:
 
   report:
     # A red CI run on a pull-request head is commented on the pull request (main's own red runs
-    # are already visible; a self-healed branch's red run would otherwise have no watcher). This
-    # also covers a red self-heal re-test: the merge job above sees the red too, but it is the
-    # report that tells the agent, with the run URL.
+    # are already visible). This fires for the runs an agent's push starts (one workflow_run
+    # level); a red self-heal re-test does NOT reach this job — it is two levels deeper — so the
+    # merge job above reports it itself (#493).
     if: github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.head_branch != 'main'
     runs-on: ubuntu-latest
     steps:
