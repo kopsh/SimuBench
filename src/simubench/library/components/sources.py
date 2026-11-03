@@ -357,6 +357,12 @@ class AwgModulator(Component):
                 beta1 = float(self.param("fm_dev")) * scale / rate
             else:
                 beta1 = math.radians(float(self.param("pm_dev"))) * scale
+            # Count Carson's lines before the expansion: legal settings reach beta ~ 1e10 and the
+            # loop itself would run for hours before the budget check (issue #357).
+            if sum(2 * _carson(beta1 * (f / f0 if f0 > 0 else 1.0)) + 1 for f in c.freq) > int(
+                self.param("line_budget")
+            ):
+                raise ScpiError(-222, "the modulation needs more lines than the model keeps")
             for f, a in zip(c.freq, c.amp, strict=True):
                 beta = beta1 * (f / f0 if f0 > 0 else 1.0)
                 k = _carson(beta)
@@ -396,6 +402,18 @@ class AwgModulator(Component):
         bw = float(synth.param("bandwidth"))
         rate, scale, phi = self._tone()
         delta = float(self.param("pwm_dev")) / 100.0 * scale
+        budget = int(self.param("line_budget"))
+        # Count Carson's lines before the expansion (issue #357, as FM/PM): the sum stops as soon
+        # as the budget is exceeded, so a huge harmonic count costs nothing.
+        lines = 1
+        exceeded = False
+        for k in range(1, max(1, int(bw // f)) + 1):
+            lines += 2 * _carson(2 * math.pi * k * delta) + 2  # the sidebands and the harmonic
+            if lines > budget:
+                exceeded = True
+                break
+        if exceeded:
+            raise ScpiError(-222, "the modulation needs more lines than the model keeps")
         out = _Lines()
         out.add(0.0, d0 - 0.5)  # levels ±0.5, as the synth's pulse
         out.add(rate, delta * complex(math.cos(phi - math.pi / 2), math.sin(phi - math.pi / 2)))
@@ -406,8 +424,6 @@ class AwgModulator(Component):
             for n in range(-_carson(b), _carson(b) + 1):
                 rot = complex(math.cos(-psi - n * phi - math.pi / 2), math.sin(-psi - n * phi - math.pi / 2))
                 out.add(k * f - n * rate, -jv(n, b) / (math.pi * k) * rot)
-            if len(out.freq) > int(self.param("line_budget")):
-                break  # the pulse's harmonics are cut here; the note says so
         return out.signal((FidelityNote("truncated", "PWM pulse: harmonics kept within the line budget"),))
 
 
