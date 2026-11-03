@@ -231,3 +231,11 @@ def test_the_pulse_commands_take_min_max_def(awg):
     assert float(q(awg, ":FUNC:PULS:TRAN:TRA?")) == pytest.approx(2.9e-9)
     w(awg, ":FUNC:PULS:WIDT DEF")
     assert float(q(awg, ":FUNC:PULS:DCYC?")) == pytest.approx(10.0)
+    w(awg, ":FREQ 2e5")
+    assert float(q(awg, ":FUNC:PULS:WIDT? MIN")) == pytest.approx(
+        5e-9
+    )  # 0.01 % would be 0.5 ns: the floor wins
+    w(awg, ":FUNC:PULS:WIDT 2")
+    assert q(awg, ":SYST:ERR?").startswith("-222,")  # past the duty range at this frequency
+    w(awg, ":FUNC:PULS:WIDT abc")
+    assert q(awg, ":SYST:ERR?").startswith("-104,")
