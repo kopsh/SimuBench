@@ -337,7 +337,7 @@ class EloadMeter(Component):
     def op_measure(self, what: str = "voltage", **_: Any) -> OpResult:
         v, i = self._input().measured()
         value = {"voltage": v, "current": i, "power": v * i}[what]
-        return OpResult(V.format_float(value, 7))
+        return OpResult(self.reply_number(value, 7))
 
     @op("questionable")
     def op_questionable(self, query: bool = False, **_: Any) -> OpResult:

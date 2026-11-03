@@ -1,5 +1,5 @@
 import { Crosshair, Info, Play, Square, StepForward } from "lucide-react";
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo, ScopeScreen as ScopeScreenData, SessionInfo, Trace } from "@/api/client";
@@ -129,7 +129,14 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
               triggerChannel={data?.trigger_source}
             />
             {data && <SilenceNotice session={session} traces={data.traces} />}
-            {cursors && <CursorOverlay cursors={cursors} />}
+            {cursors && data && (
+              <CursorOverlay
+                cursors={cursors}
+                onChange={setCursors}
+                timePerDiv={data.timebase_scale}
+                voltsPerDiv={channelScale(cursors.channel)}
+              />
+            )}
           </>
         )}
       </div>
@@ -231,18 +238,79 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
 type Cursors = { x1: number; x2: number; y1: number; y2: number; channel: number };
 const DEFAULT_CURSORS: Cursors = { x1: 2, x2: 8, y1: 2, y2: -2, channel: 1 };
 
-function CursorOverlay({ cursors }: { cursors: Cursors }) {
+type CursorKey = "x1" | "x2" | "y1" | "y2";
+
+/** The cursors drawn on the screen and moved there, as on the instrument (#356): drag a line;
+ * the readout sits in the screen's corner. The sliders below stay as the keyboard path. */
+function CursorOverlay({
+  cursors,
+  onChange,
+  timePerDiv,
+  voltsPerDiv,
+}: {
+  cursors: Cursors;
+  onChange: (c: Cursors) => void;
+  timePerDiv: number;
+  voltsPerDiv: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [dragging, setDragging] = useState<CursorKey | null>(null);
   const color = channelColor(cursors.channel);
-  const xs = [cursors.x1, cursors.x2].map((x) => `${(x / 10) * 100}%`);
-  const ys = [cursors.y1, cursors.y2].map((y) => `${((4 - y) / 8) * 100}%`);
+  const round = (v: number) => Math.round(v * 100) / 100;
+  const move = (key: CursorKey, e: React.PointerEvent) => {
+    const box = ref.current?.getBoundingClientRect();
+    if (!box || box.width === 0 || box.height === 0) return;
+    const value = key.startsWith("x")
+      ? Math.min(10, Math.max(0, ((e.clientX - box.left) / box.width) * 10))
+      : Math.min(4, Math.max(-4, 4 - ((e.clientY - box.top) / box.height) * 8));
+    onChange({ ...cursors, [key]: round(value) });
+  };
+  const handle = (key: CursorKey) => {
+    const vertical = key.startsWith("x");
+    const pos = vertical ? `${(cursors[key] / 10) * 100}%` : `${((4 - cursors[key]) / 8) * 100}%`;
+    return (
+      <div
+        key={key}
+        data-testid={`cursor-${key}`}
+        className={cn(
+          "pointer-events-auto absolute touch-none",
+          vertical ? "top-0 bottom-0 -ml-1.5 w-3 cursor-ew-resize" : "right-0 left-0 -mt-1.5 h-3 cursor-ns-resize",
+        )}
+        style={vertical ? { left: pos } : { top: pos }}
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          setDragging(key);
+        }}
+        onPointerMove={(e) => dragging === key && move(key, e)}
+        onPointerUp={(e) => {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+          setDragging(null);
+        }}
+      >
+        <div
+          className={cn(
+            "absolute border-dashed",
+            vertical ? "top-0 bottom-0 left-1.5 border-l border-white/70" : "top-1.5 right-0 left-0 border-t",
+            dragging === key && "border-solid",
+          )}
+          style={vertical ? undefined : { borderColor: color }}
+        />
+      </div>
+    );
+  };
+  const dt = (cursors.x2 - cursors.x1) * timePerDiv;
+  const dv = (cursors.y1 - cursors.y2) * voltsPerDiv;
   return (
-    <div className="pointer-events-none absolute inset-0" aria-hidden data-testid="scope-cursors">
-      {xs.map((left, i) => (
-        <div key={`x${i}`} className="absolute top-0 bottom-0 border-l border-dashed border-white/70" style={{ left }} />
-      ))}
-      {ys.map((top, i) => (
-        <div key={`y${i}`} className="absolute right-0 left-0 border-t border-dashed" style={{ top, borderColor: color }} />
-      ))}
+    <div ref={ref} className="pointer-events-none absolute inset-0" data-testid="scope-cursors">
+      {(["x1", "x2", "y1", "y2"] as const).map(handle)}
+      <div
+        className="bg-card/85 num absolute top-2 right-2 rounded border px-2 py-1 text-[11px] leading-tight"
+        data-testid="cursor-readout"
+      >
+        <div>Δt {formatEng(dt, "s", 4)}</div>
+        <div>1/Δt {dt !== 0 ? formatEng(1 / Math.abs(dt), "Hz", 4) : "—"}</div>
+        <div style={{ color }}>ΔV {formatEng(dv, "V", 4)}</div>
+      </div>
     </div>
   );
 }

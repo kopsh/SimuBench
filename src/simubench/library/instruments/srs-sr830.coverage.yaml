@@ -1,6 +1,6 @@
 # SRS SR830 的覆盖表：按 SR830 DSP Lock-In Amplifier Manual（Revision 2.5，10/2011，
 # firmware 6-1）第 1 章的 Command List 与第 5 章的 Detailed Command List 逐条列出。SR830 不是 SCPI，
-# 命令是四条助记符，查询回复不带命令头。被 #273（#181 下的能力 issue）阻塞的命令组在 note 中注明。
+# 命令是四条助记符，查询回复不带命令头。未实现的命令在 note 中说明原因。
 schema: simubench.coverage/1
 model: srs-sr830
 sections:
@@ -17,7 +17,7 @@ sections:
         note: 参考频率 0.001…102000 Hz。两处偏差：真机只允许在内部参考模式下设置，lockin_reference 在外部模式下也接受；外部参考锁定时真机 FREQ? 回参考频率，本定义回内部振荡器的设定值（实际检测频率见 osc.frequency 读数）。
       - header: RSLP
         level: implemented
-        note: 只声明正弦过零（0）；TTL 上升/下降沿（1、2）需要参考沿的相位定义，#273 第 4 节。
+        note: 0 正弦过零 / 1 TTL 上升沿 / 2 TTL 下降沿（#273）：正弦过零与上升沿是同一零相位点，下降沿晚半个周期（参考相位移 180°，lockin_reference.ext_slope）；TTL 的阈值与输入要求未建模。
       - header: HARM
         level: implemented
         note: "1…19999；检测频率 n×f 上限 102 kHz，超限时按手册把 n 钳到最大可用值、不报错（lockin_reference 的 f_max 与 over_limit: clamp，#273）。"
@@ -28,11 +28,11 @@ sections:
     commands:
       - header: ISRC
         level: implemented
-        note: 只声明单端电压输入 A（0）；A-B、I(1 MΩ)、I(100 MΩ) 取值为非法参数，#273 第 4 节。
+        note: 0 A / 1 A-B / 2 I(1 MΩ) / 3 I(100 MΩ)（#273）：A、B 各 10 MΩ∥25 pF（SIG_IN、SIG_B 端子）；电流输入时 A 是 1 kΩ 到虚地，1 µA 对应 1 V 档，X/Y/R 与灵敏度按 A 读（lockin_input_mode、lockin_output.unit_scale）。10^6 与 10^8 两档增益只差噪声与带宽，未建模。
       - header: IGND
         level: accepted
         affects_data: false
-        note: 屏蔽接地只保存/回读；测试台的输入是单端对地阻抗，没有屏蔽节点，#273 第 4 节。
+        note: 屏蔽浮地/接地只保存回读（#273 的决定）：台架的网络共用一个地，屏蔽接法不改变读数。
       - header: ICPL
         level: implemented
         note: 0 AC（0.16 Hz 高通）/ 1 DC，接到 lockin_input_filter。
@@ -46,7 +46,7 @@ sections:
         note: 0…26 档（2 nV…1 V 满量程），经表格映射到 lockin_input_amp 的灵敏度。
       - header: RMOD
         level: implemented
-        note: 0 高 / 1 正常 / 2 低噪声；储备按固定 40/20/0 dB 映射，真机随灵敏度变化（0–174 dB，p.4-8），偏差见 #273 第 5 节。
+        note: 0 高储备 / 1 正常 / 2 低噪声；实际储备按手册 p.4-8 的表随灵敏度变化（0–174 dB，档间按对数插值，lockin_input_amp.reserve_db，#273），决定输入过载的门限。
       - header: OFLT
         level: implemented
         note: 0…19 档（10 µs…30 ks），经表格映射到 lockin_lowpass 的时间常数。
@@ -59,9 +59,8 @@ sections:
   - section: "DISPLAY and OUTPUT (5-8)"
     commands:
       - header: DDEF
-        level: accepted
-        note: CH1/CH2 的显示量与比值，保存并回读，DDEF? i 回 j,k（#273）；按显示通道存入数据缓冲属于 #273 第 2 节（缓冲未建模）。
-        affects_data: false
+        level: implemented
+        note: CH1/CH2 的显示量与比值，DDEF? i 回 j,k（#273）；数据缓冲按显示量存曲线（X/R/X 噪声/AUX1/AUX2；Y/θ/Y 噪声/AUX3/AUX4）。比值（÷AUX）只保存回读，不作用于缓冲。
       - header: FPOP
         level: accepted
         note: CH1/CH2 前面板输出源，保存并回读，FPOP? i 只回 j（#273）；前面板 BNC 输出未建模。
@@ -118,26 +117,26 @@ sections:
   - section: "DATA STORAGE (5-12, 5-13)"
     commands:
       - header: SRAT
-        level: not_modeled
-        note: 数据缓冲整组被 #273 第 2 节阻塞；采样率无法接到可用的扫描。
+        level: implemented
+        note: 0…13 = 62.5 mHz…512 Hz，14 = 每个触发一点（curve_buffer.rate，#273）；按虚拟时间采样。
       - header: SEND
-        level: not_modeled
-        note: 缓冲满后停止/循环的语义随数据缓冲一起阻塞（#273 第 2 节）。
+        level: implemented
+        note: 0 单次（存满 16383 点停止）/ 1 循环（保留最新 16383 点，bin 0 是最旧的一点）（#273）。
       - header: TRIG
-        level: not_modeled
-        note: 软件触发只在触发采样/触发启动扫描时有意义，这两项在 #273 第 2 节。
+        level: implemented
+        note: 软件触发：采样率为触发时采一点；TSTR 1 时启动扫描（#273）。LIA 状态位 6（收到触发）不由 TRIG 置位（偏差）。
       - header: TSTR
-        level: not_modeled
-        note: 触发启动扫描需要扫描的暂停/续采语义（#273 第 2 节）。
+        level: implemented
+        note: 1：触发开始扫描，此后按采样率采样（#273）。
       - header: STRT
-        level: not_modeled
-        note: 开始/继续扫描：通用触发模型 INITiate 会清空缓冲，不能续采（#273 第 2 节）。
+        level: implemented
+        note: 开始扫描，暂停后从暂停处续采（curve_buffer.start，#273）；第一点在开始时刻。
       - header: PAUS
-        level: not_modeled
-        note: 暂停扫描并保留数据（#273 第 2 节）。
+        level: implemented
+        note: 暂停扫描并保留数据（#273）。
       - header: REST
-        level: not_modeled
-        note: 复位扫描并丢弃数据（#273 第 2 节）。
+        level: implemented
+        note: 停止扫描并丢弃数据（#273）。
   - section: "DATA TRANSFER (5-15, 5-16, 5-17)"
     commands:
       - header: OUTP
@@ -150,23 +149,23 @@ sections:
         level: not_modeled
         note: 2…6 个编号（1…11，含 X/Y/R/θ、AUX、频率、显示值）在同一时刻读取；lockin_output.snap 只认名字，需要编号选择能力（#273 第 2 节）。
       - header: SPTS
-        level: not_modeled
-        note: 缓冲点数，随数据缓冲阻塞（#273 第 2 节）。
+        level: implemented
+        note: 已存点数（#273）；循环模式下最多 16383。
       - header: TRCA
-        level: not_modeled
-        note: 0 基 bin + 点数的 ASCII 曲线读取，需要双通道缓冲与 0 基索引（#273 第 2 节）。
+        level: implemented
+        note: TRCA? i,j,k：曲线 i 从 0 基的 bin j 起 k 点，ASCII，每点后带逗号（#273）；j+k 超过已存点数报 -222。数值格式为引擎的工程记数（偏差同 OUTP）。
       - header: TRCB
-        level: not_modeled
-        note: IEEE 浮点二进制曲线读取（#273 第 2 节）。
+        level: implemented
+        note: IEEE 单精度二进制，低字节在前，每点 4 字节（#273）；回复后仍带平台的行结束符（偏差：真机只靠 EOI 结束）。
       - header: TRCL
-        level: not_modeled
-        note: 16 位 non-normalized 二进制格式（#273 第 2 节）。
+        level: implemented
+        note: 手册的 16 位非规格化格式：尾数 m 与指数 e 各 16 位，值 = m × 2^(e−124)，每点 4 字节（#273）；行结束符同 TRCB。
       - header: FAST
         level: not_modeled
-        note: GPIB 快速传输模式（#273 第 2 节）。
+        note: GPIB 快速传输（按采样节拍连续推送 X/Y）不在模型里：仿真的传输是请求/应答式（#273 第 2 节允许另评估）。
       - header: STRD
         level: not_modeled
-        note: 快速传输下延迟 0.5 s 启动扫描（#273 第 2 节）。
+        note: 快速传输下延迟 0.5 s 启动扫描，随 FAST 不建模。
   - section: "INTERFACE (5-19)"
     commands:
       - header: '*RST'

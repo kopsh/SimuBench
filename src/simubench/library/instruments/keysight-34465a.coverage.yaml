@@ -729,7 +729,7 @@ sections:
   commands:
   - header: TRIGger:COUNt
     level: implemented
-    note: 1 到 1e9（INFinity 未建模，回复 -104）；查询 nr3 8 位。
+    note: 1 到 1e9；INFinity（INF）真机接受、未建模，回复 -224 并标为未建模（`not_modeled`，#360）；查询 nr3 8 位。
   - header: TRIGger:DELay
     level: implemented
     note: 0–3600 s；真机把延迟插在每次测量之间，触发模型放在每次触发的第一读数前。自动延迟已并入读数时间（DC 100/130/160 µs，AC 按滤波档），手动延迟按设定计。

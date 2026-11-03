@@ -176,6 +176,8 @@ state:
     min: 1.0
     max: 1.0e9
     default: 1.0
+    # INFinity（连续触发）真机接受，模型未实现：报 -224 并标为未建模（#360）。
+    not_modeled: {INFinity: continuous triggering is not modeled}
     label: 触发计数
     label_en: Trigger count
   trigger.delay:

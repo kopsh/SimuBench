@@ -367,3 +367,17 @@ def test_try_session_instrument_and_internals(client):
     client.delete(f"/api/try/{sid}")
     assert client.get(f"/api/try/{sid}/instrument").status_code == 404
     assert client.get(f"/api/try/{sid}/internals").status_code == 404
+
+
+def test_an_instrument_with_pattern_ports_is_described():
+    """The 34970A's relay terminals come from the card's port_pattern: describing the instrument
+    gives them as electrical ports (#355: this raised KeyError and the bench would not open)."""
+    manager = SessionManager(ROOT / "examples", scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        r = c.post("/api/sessions", json={"bench_path": "benches/keysight_34970a.bench.yaml", "force": True})
+        assert r.status_code == 200, r.text
+        daq = next(i for i in r.json()["instruments"] if i["name"] == "daq")
+        h101 = next(p for p in daq["ports"] if p["name"] == "H101")
+        assert (h101["direction"], h101["medium"]) == ("inout", "electrical") and h101["net"]

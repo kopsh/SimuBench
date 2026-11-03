@@ -92,7 +92,10 @@ class MuxCard(Component):
         "backplane": ("daq_backplane", "instrument"),
         "dmm": ("dmm_input_terminal", "instrument"),
     }
-    ports = {"out": PortSpec("out", "signal", "the analog bus, to the internal DMM")}
+    ports = {
+        "out": PortSpec("out", "signal", "the analog bus, to the internal DMM"),
+        "sense": PortSpec("out", "signal", "the four-wire sense bus (FRES), to the DMM's sense input"),
+    }
     #: The channel terminals: H/L of each channel, e.g. ch101H (created by the instrument ports).
     port_pattern = r"ch\d{3}[HL]"
     units = {"relay_r": "OHM", "relay_settle": "S"}
@@ -104,6 +107,10 @@ class MuxCard(Component):
         "relay_state": "closed",  # the channel state a relay writes: ch<n>.closed
         "backplane": "",  # the daq_backplane component (slots and modules)
         "dmm": "",  # the internal dmm_input_terminal whose input resistance loads the bus
+        # Four-wire pairing (#301): in FRES, channel n carries the test current and channel
+        # n + four_wire_offset the sense (34901A: n and n+10, n = 1..10). 0: no four-wire.
+        "four_wire_offset": 0,
+        "current_channels": [],  # the module's current channels (34901A: 21, 22; with a shunt)
     }
 
     def _backplane(self) -> DaqBackplane:
@@ -159,22 +166,78 @@ class MuxCard(Component):
         if opened:
             self.session.invalidate(electrical=True)
 
+    # ---- functions on channels (#301) -----------------------------------------------------------
+
+    def _local(self, number: int) -> int:
+        return int(number) % int(self._backplane().param("slot_stride"))
+
+    def is_current_channel(self, number: int) -> bool:
+        return self._local(number) in [int(c) for c in self.param("current_channels") or []]
+
+    def sense_pair(self, number: int) -> int | None:
+        """The four-wire sense channel of ``number`` (its SCPI number), or None when it has none."""
+        offset = int(self.param("four_wire_offset"))
+        if offset <= 0 or not 1 <= self._local(number) <= offset:
+            return None
+        return int(number) + offset
+
+    def check_function(self, number: int) -> None:
+        """Whether the internal DMM's function can be measured on a channel (#301): current only on
+        the current channels (they have the shunt), the other functions not on them, and four-wire
+        resistance only on a channel that has a sense pair. Otherwise -221 (settings conflict)."""
+        mode = self._terminal().mode()
+        current = self.is_current_channel(number)
+        if mode == "CURRent" and not current:
+            listed = ", ".join(str(c) for c in self.param("current_channels") or []) or "none"
+            raise ScpiError(-221, f"channel {number}: current is measured on the current channels ({listed})")
+        if mode != "CURRent" and current:
+            raise ScpiError(-221, f"channel {number} is a current channel")
+        if mode == "FRESistance" and self.sense_pair(number) is None:
+            raise ScpiError(-221, f"channel {number} has no four-wire sense pair")
+
     # ---- circuit ---------------------------------------------------------------------------------
+
+    def _bus_mode(self) -> str:
+        return self._terminal().mode()
+
+    def emf(self) -> dict[str, Signal]:
+        """The resistance functions' test current, pushed onto the analog bus (#301)."""
+        if self._bus_mode() in ("RESistance", "FRESistance"):
+            return {self.uid: Signal.constant(self._terminal().per_range("test_current"))}
+        return {}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         assert self.owner is not None
         relay = max(float(self.param("relay_r")), 1e-9)
+        mode = self._bus_mode()
         for index in self.closed_channels():
             number = self.owner.channel_number(index)
             circuit.resistor(node(f"ch{number}H"), node("bus_h"), relay)
             circuit.resistor(node(f"ch{number}L"), node("bus_l"), relay)
+            pair = self.sense_pair(number) if mode == "FRESistance" else None
+            if pair is not None:
+                circuit.resistor(node(f"ch{pair}H"), node("sense_h"), relay)
+                circuit.resistor(node(f"ch{pair}L"), node("sense_l"), relay)
+        if mode in ("RESistance", "FRESistance"):
+            # The test current leaves the bus HI into the DUT and returns on LO; the DMM behind it
+            # draws (almost) nothing, so an open channel drives the bus past the compliance.
+            circuit.resistor(node("bus_h"), node("bus_l"), 1e12)
+            circuit.current(node("bus_h"), self.uid)
+            circuit.current(node("bus_l"), self.uid, sign=-1.0)
+            circuit.resistor(node("sense_h"), node("sense_l"), 1e12)
+            return
+        if mode == "CURRent":
+            circuit.resistor(node("bus_h"), node("bus_l"), self._terminal().per_range("shunt"))
+            return
         z = self._terminal().effective_z_in(derive=False)
         if z is not None and z > 0:
             circuit.resistor(node("bus_h"), node("bus_l"), z)
 
     def output(self, port: str) -> Signal:
-        """The analog bus voltage (H − L): the internal DMM's input signal."""
-        return self.pin_signal("bus_h") + self.pin_signal("bus_l").scale(-1.0)
+        """The analog bus voltage (H − L), the internal DMM's input; ``sense``: the four-wire sense
+        bus."""
+        hi, lo = ("sense_h", "sense_l") if port == "sense" else ("bus_h", "bus_l")
+        return self.pin_signal(hi) + self.pin_signal(lo).scale(-1.0)
 
     # ---- operations ------------------------------------------------------------------------------
 
@@ -237,6 +300,11 @@ class ScanTable(Component):
         "mux": "",  # the mux_card that closes the channels
         "dmm": "",  # the dmm_adc that takes each reading
         "backplane": "",  # the daq_backplane that validates the channel numbers
+        # Per-channel measurement configuration (#365): channel setting -> the instrument setting
+        # the internal DMM reads, e.g. {function: sense.function, nplc: sense.nplc}. Before a
+        # channel is checked or read, its own values (ch<n>.<key>) are loaded into the DMM's.
+        "channel_settings": {},
+        "function_setting": "",  # the channel setting CONFigure? names first (e.g. function)
     }
     units = {"interval": "S"}
 
@@ -258,6 +326,14 @@ class ScanTable(Component):
         assert self.owner is not None
         return self.owner.components[str(self.param("backplane"))]  # type: ignore[return-value]
 
+    def configure_for(self, index: int) -> None:
+        """Load channel ``index``'s own measurement configuration into the internal DMM (#365)."""
+        assert self.owner is not None
+        for key, target in (self.param("channel_settings") or {}).items():
+            value = self.owner.get_state(f"ch{index}.{key}")
+            if self.owner.get_state(target) != value:
+                self.owner.set_state(target, value, source="scpi", internal=True)
+
     def channels(self) -> list[int]:
         """The scan list as a list of channel indexes, in list order."""
         assert self.owner is not None
@@ -268,6 +344,9 @@ class ScanTable(Component):
             numbers = sorted(numbers)
         for number in numbers:
             self._backplane().check_channel(number)
+        for number in numbers:  # every channel exists: now whether it can take its function
+            self.configure_for(self.owner.channel_index(number))
+            self._mux().check_function(number)
         return [self.owner.channel_index(number) for number in numbers]
 
     # ---- a Sampler for trigger_model -------------------------------------------------------------
@@ -277,9 +356,22 @@ class ScanTable(Component):
         return len(self.channels()) * max(1, int(self.param("count")))
 
     def sample_time_ns(self) -> int:
-        """One reading of a scan: the relay settling time plus the DMM's own reading time."""
-        settle = float(self._mux().param("relay_settle"))
-        return round(settle * 1e9) + self._dmm().sample_time_ns()
+        """One reading of a scan: the relay settling time plus the DMM's own reading time. With
+        per-channel configurations (#365) the channels' reading times differ (each its own NPLC);
+        the trigger model spaces a run's readings evenly, so this is their mean over the list —
+        the scan as a whole takes exactly the sum."""
+        settle = round(float(self._mux().param("relay_settle")) * 1e9)
+        if not self.param("channel_settings"):
+            return settle + self._dmm().sample_time_ns()
+        try:
+            channels = self.channels()
+        except ScpiError:
+            return settle + self._dmm().sample_time_ns()
+        times = []
+        for index in channels:
+            self.configure_for(index)
+            times.append(self._dmm().sample_time_ns())
+        return settle + round(sum(times) / len(times))
 
     def run_begin(self) -> None:
         self.channels()  # validate the list before the first relay moves
@@ -293,6 +385,7 @@ class ScanTable(Component):
         index_channel = channels[index % len(channels)]
         self._scan = index // len(channels) + 1
         self._mux().open_all()
+        self.configure_for(index_channel)
         self._mux().close_channel(index_channel)
         assert self.owner is not None
         self._channel = self.owner.channel_number(index_channel)
@@ -302,6 +395,17 @@ class ScanTable(Component):
 
     def sample_fields(self, index: int) -> dict[str, float]:
         return {"CHAN": float(self._channel), "SCAN": float(self._scan)}
+
+    @op("configuration")
+    def op_configuration(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``CONFigure? (@101)``: the channel's function, range and resolution as one quoted string,
+        ``"VOLT +1.00000000E+01,+3.00000000E-06"`` (the DMM's CONFigure? for that channel)."""
+        assert self.owner is not None and channel is not None
+        self.configure_for(channel)
+        key = str(self.param("function_setting"))
+        word = str(self.owner.get_state(f"ch{channel}.{key}")) if key else ""
+        detail = self._dmm().op_configure().response or b""
+        return OpResult(b'"' + (word.encode() + b" " if word else b"") + detail + b'"')
 
     # ---- panel / status --------------------------------------------------------------------------
 

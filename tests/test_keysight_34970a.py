@@ -183,15 +183,16 @@ def test_the_channel_domain_is_the_three_slots_but_only_slot_one_has_a_module():
     s = session()
     try:
         # 101 is a channel of the 34901A in slot 1; 201 exists as a number but slot 2 is empty;
-        # 121 is not a declared channel at all; 1 is an internal index, not a bus number.
+        # 123 is not a declared channel at all (121/122 are the 34901A's current channels, #301);
+        # 1 is an internal index, not a bus number.
         assert q(s, "ROUT:CLOS (@101)") is None
         assert q(s, "ROUT:CLOS? (@101)") == "1"
-        for number in (201, 121, 1):
+        for number in (201, 123, 1):
             assert q(s, f"ROUT:CLOS (@{number})") is None
             assert q(s, "SYST:ERR?").startswith('-114,"Header suffix out of range"')
         # A range may span slots and skips the numbers the numbering does not declare.
         assert q(s, "ROUT:SCAN (@101:205)") is None
-        assert q(s, "ROUT:SCAN?") == "(@101:120,201:205)"
+        assert q(s, "ROUT:SCAN?") == "(@101:122,201:205)"
         # Running that scan reaches the empty slot and reports the missing channel.
         assert q(s, "READ?") is None
         assert q(s, "SYST:ERR?").startswith('-114,"Header suffix out of range"')
@@ -279,5 +280,173 @@ def test_readings_are_eight_digit_nr3_numbers():
         reply = q(s, "READ?")
         assert reply == "+9.09090000E-01", reply
         assert math.isclose(float(reply), LOADED_101, rel_tol=1e-5)
+    finally:
+        s.close()
+
+
+# ---- resistance and current from the scan card's bus (#301) -------------------------------------
+
+
+def _bench(parts: dict, wires: list):
+    from simubench.models.bench import BenchDefinition
+
+    return BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/2",
+            "name": "daq-301",
+            "instruments": {"daq": {"model": "keysight-34970a"}},
+            "parts": {"v0": {"type": "dc_supply", "params": {"v": 0.0, "r": 1.0e-6}}, **parts},
+            "wires": wires,
+            "run": {"clock": "command", "idle": "off"},
+        }
+    )
+
+
+def _resistance_bench():
+    """A 1 kΩ DUT to ground behind a 10 Ω lead on channel 101; channel 111 senses at the DUT."""
+    return _bench(
+        {
+            "lead": {"type": "resistor", "params": {"r": 10.0}},
+            "dut": {"type": "load_resistor", "params": {"r": 1000.0}},
+        },
+        [
+            {"from": "daq.H101", "to": "lead.A"},
+            {"from": "lead.B", "to": "dut.A"},
+            {"from": "daq.L101", "to": "v0.OUT"},
+            {"from": "daq.H111", "to": "dut.A"},
+            {"from": "daq.L111", "to": "v0.OUT"},
+        ],
+    )
+
+
+def test_two_wire_resistance_reads_the_lead_and_both_relays():
+    s = open_bench(_resistance_bench())
+    try:
+        # 1 kΩ + the 10 Ω lead + two 0.5 Ω relay contacts: the test current flows through all.
+        assert numbers(q(s, "MEAS:RES? (@101)")) == pytest.approx([1011.0], rel=1e-6)
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
+def test_four_wire_pairs_channel_n_with_n_plus_ten_and_senses_at_the_dut():
+    s = open_bench(_resistance_bench())
+    try:
+        assert numbers(q(s, "MEAS:FRES? (@101)")) == pytest.approx([1000.0], rel=1e-6)
+        # Channel 11 is a sense channel: it has no pair of its own.
+        assert q(s, "MEAS:FRES? (@111)") is None
+        assert q(s, "SYST:ERR?") == '-221,"Settings conflict"'
+    finally:
+        s.close()
+
+
+def test_an_open_channel_and_a_too_small_range_read_overload():
+    s = open_bench(_resistance_bench())
+    try:
+        assert numbers(q(s, "MEAS:RES? (@102)")) == pytest.approx([9.9e37])  # nothing on 102
+        assert numbers(q(s, "MEAS:RES? 100,(@101)")) == pytest.approx([9.9e37])  # 1011 Ω on 100 Ω
+    finally:
+        s.close()
+
+
+def test_current_is_measured_on_the_current_channels_through_the_shunt():
+    """5 V behind 1 kΩ into channel 121: the 5 Ω shunt (10 mA range) and both relays are in the loop."""
+    bench = _bench(
+        {"src": {"type": "dc_supply", "params": {"v": 5.0, "r": 1000.0}}},
+        [{"from": "src.OUT", "to": "daq.I121"}, {"from": "daq.L121", "to": "v0.OUT"}],
+    )
+    s = open_bench(bench)
+    try:
+        # 1 PLC: 3 ppm resolution.
+        assert numbers(q(s, "MEAS:CURR? (@121)")) == pytest.approx([5.0 / 1006.0], rel=1e-5)
+        # Current only on 21/22; the other functions not on them.
+        assert q(s, "MEAS:CURR? (@101)") is None
+        assert q(s, "SYST:ERR?") == '-221,"Settings conflict"'
+        assert q(s, "MEAS:VOLT? (@121)") is None
+        assert q(s, "SYST:ERR?") == '-221,"Settings conflict"'
+    finally:
+        s.close()
+
+
+def test_configure_resistance_then_scan_two_channels():
+    bench = _bench(
+        {
+            "lead": {"type": "resistor", "params": {"r": 10.0}},
+            "dut": {"type": "load_resistor", "params": {"r": 1000.0}},
+            "r2": {"type": "load_resistor", "params": {"r": 47000.0}},
+        },
+        [
+            {"from": "daq.H101", "to": "lead.A"},
+            {"from": "lead.B", "to": "dut.A"},
+            {"from": "daq.L101", "to": "v0.OUT"},
+            {"from": "daq.H102", "to": "r2.A"},
+            {"from": "daq.L102", "to": "v0.OUT"},
+        ],
+    )
+    s = open_bench(bench)
+    try:
+        assert q(s, "CONF:RES (@101,102)") is None
+        assert q(s, "ROUT:SCAN?") == "(@101:102)"
+        assert numbers(q(s, "READ?")) == pytest.approx([1011.0, 47001.0], rel=1e-6)
+        # Back to DC volts: the bus carries the 10 MΩ input again, no test current.
+        assert q(s, "CONF:VOLT:DC (@101)") is None
+        assert numbers(q(s, "READ?")) == pytest.approx([0.0], abs=1e-6)
+    finally:
+        s.close()
+
+
+# ---- per-channel measurement configuration (#365) ------------------------------------------------
+
+
+def test_one_scan_mixes_resistance_and_voltage_channels():
+    """The #365 reproduction: CONF:VOLT on 102 must not turn 101's resistance into a voltage."""
+    bench = _bench(
+        {
+            "lead": {"type": "resistor", "params": {"r": 10.0}},
+            "dut": {"type": "load_resistor", "params": {"r": 1000.0}},
+            "v2": {"type": "dc_supply", "params": {"v": 2.5, "r": 1.0e-6}},
+        },
+        [
+            {"from": "daq.H101", "to": "lead.A"},
+            {"from": "lead.B", "to": "dut.A"},
+            {"from": "daq.L101", "to": "v0.OUT"},
+            {"from": "daq.H111", "to": "dut.A"},
+            {"from": "daq.L111", "to": "v0.OUT"},
+            {"from": "daq.H102", "to": "v2.OUT"},
+            {"from": "daq.L102", "to": "v0.OUT"},
+        ],
+    )
+    s = open_bench(bench)
+    try:
+        assert q(s, "CONF:RES (@101)") is None
+        assert q(s, "CONF:VOLT:DC (@102)") is None
+        assert q(s, "ROUT:SCAN (@101,102)") is None
+        assert numbers(q(s, "READ?")) == pytest.approx([1011.0, 2.5], rel=1e-5)
+        assert q(s, "CONF? (@101)").startswith('"RES ')
+        assert q(s, "CONF? (@102)").startswith('"VOLT ')
+        # Four-wire on 101 (sense on 111) in the same scan as the voltage on 102: the sense bus is
+        # switched for 101 only, and the test current is off while 102 is read.
+        assert q(s, "CONF:FRES (@101)") is None
+        assert q(s, "ROUT:SCAN (@101,102)") is None
+        assert numbers(q(s, "READ?")) == pytest.approx([1000.0, 2.5], rel=1e-5)
+        # A per-channel setting stays with its channel.
+        assert q(s, "SENS:VOLT:DC:NPLC 10,(@102)") is None
+        assert q(s, "SENS:VOLT:DC:NPLC? (@101,102)") == "+1.00000000E+00,+1.00000000E+01"
+        assert q(s, "MEAS:VOLT:DC? (@102)") is not None
+        assert q(s, "CONF? (@101,102)").count('"') == 4  # two quoted entries, list order
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
+def test_a_scan_takes_each_channels_own_reading_time():
+    """101 at 1 PLC (21 ms) and 102 at 10 PLC (201 ms), each after the 3 ms relay settling."""
+    s = session()
+    try:
+        assert q(s, "SENS:VOLT:DC:NPLC 10,(@102);:ROUT:SCAN (@101,102)") is None
+        t0 = s.now_ns
+        assert len(numbers(q(s, "READ?"))) == 2
+        expected = 2 * RELAY_SETTLE_S + DMM_READING_S + 0.201
+        assert (s.now_ns - t0) / 1e9 == pytest.approx(expected, abs=1e-3)
     finally:
         s.close()

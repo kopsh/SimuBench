@@ -366,6 +366,10 @@ class Instrument:
 
     # ---- signal flow ------------------------------------------------------------------------------
 
+    def has_upstream(self, comp: Component, port: str) -> bool:
+        """Whether a signal wire inside the instrument feeds this component's port."""
+        return (comp.name, port) in self._upstream
+
     def upstream_signal(self, comp: Component, port: str) -> Signal:
         src = self._upstream.get((comp.name, port))
         if src is None:
@@ -1387,7 +1391,19 @@ class Instrument:
         word = raw.decode(errors="replace").strip().upper()
         return word.startswith("DEF") or bool(st.special and word in st.special)
 
+    @staticmethod
+    def _refuse_not_modeled(words: dict[str, str] | None, raw: bytes) -> None:
+        """A word the real instrument takes but this definition does not model (``not_modeled``,
+        #360): -224, classified as not modeled, with the definition's reason."""
+        if not words:
+            return
+        word = raw.decode(errors="replace").strip()
+        for declared, reason in words.items():
+            if V.matches_word(word, declared):
+                raise ScpiError(-224, f"{declared}: {reason}; {NOT_MODELED}")
+
     def _parse_state(self, st: StateSpec, raw: bytes) -> Any:
+        self._refuse_not_modeled(st.not_modeled, raw)
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
             if st.special and word in st.special:
@@ -1465,22 +1481,33 @@ class Instrument:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
         args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+        # A channel list written whole into a setting (the scan list) names the channels the
+        # command's channel settings apply to (#365).
+        listed = [
+            self.channel_index(n)
+            for ps in spec.params
+            if ps.type == "channel_list" and ps.state is not None
+            for n in self.state[ps.state]
+        ]
         bound = {}
         for ps in spec.params:  # an operation's parameter bound to a setting writes it (#300)
             if ps.type != "channel_list" and ps.state is not None and args.get(ps.name) is not None:
-                path = self._resolve(ps.state, channel)
-                value = args[ps.name]
-                bound[path] = self._validate(self.specs[path], value)
-                for ref, constant in (ps.sets or {}).items():
-                    bound[self._resolve(ref, channel)] = self._validate(
-                        self.specs[self._resolve(ref, channel)], constant
-                    )
+                for target in listed or [channel]:
+                    path = self._resolve(ps.state, target)
+                    value = args[ps.name]
+                    bound[path] = self._validate(self.specs[path], value)
+                    for ref, constant in (ps.sets or {}).items():
+                        bound[self._resolve(ref, target)] = self._validate(
+                            self.specs[self._resolve(ref, target)], constant
+                        )
         if spec.writes:
-            # The command selects settings before its operation runs (#308).
+            # The command selects settings before its operation runs (#308); a channel setting is
+            # written for every channel of a list that names the channels (#365: MEAS:RES? (@101)).
             checked = {}
-            for ref, value in spec.writes.items():
-                path = self._resolve(ref, channel)
-                checked[path] = self._validate(self.specs[path], value)
+            for target in listed or [channel]:
+                for ref, value in spec.writes.items():
+                    path = self._resolve(ref, target)
+                    checked[path] = self._validate(self.specs[path], value)
             for path, value in checked.items():
                 self.set_state(path, value)
         for path, value in bound.items():  # after the command's constants: the arguments win
@@ -1573,6 +1600,7 @@ class Instrument:
                 continue
             r = raw[i]
             i += 1
+            self._refuse_not_modeled(ps.not_modeled, r)
             try:
                 if ps.type == "float":
                     v = V.parse_float(r, ps.unit, ps.min, ps.max)

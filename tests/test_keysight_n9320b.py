@@ -75,7 +75,7 @@ def test_automatic_rbw_vbw_and_sweep_time_couple_to_the_span():
         assert q(s, ":SWE:TIME:AUTO?") == "1"
 
         assert q(s, ":BAND 100 kHz") is None
-        assert q(s, ":BAND?") == "+1.0000000000E+05"
+        assert q(s, ":BAND?") == "+1.0000000000000000E+005"  # the guide's one format (#366)
         assert q(s, ":BAND:AUTO?") == "0"
         assert float(q(s, ":BAND:VID?")) == pytest.approx(1.0e5, rel=1e-9)
         assert q(s, ":BAND:VID:AUTO?") == "1"

@@ -117,7 +117,7 @@ class SpecanInput(Component):
     def op_coupled_att(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
         """The attenuation: a manual value turns the automatic coupling off."""
         if query:
-            return OpResult(V.format_float(self.attenuation(), 10))
+            return OpResult(self.reply_number(self.attenuation(), 10))
         assert value is not None
         if not 0 <= value <= 70:
             raise ScpiError(-222)
@@ -222,7 +222,7 @@ class SpecanIf(Component):
     @op("coupled_rbw")
     def op_coupled_rbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
         if query:
-            return OpResult(V.format_float(self.rbw(), 10))
+            return OpResult(self.reply_number(self.rbw(), 10))
         assert value is not None
         if not 1.0 <= value <= 3e6:
             raise ScpiError(-222)
@@ -273,7 +273,7 @@ class SpecanVbw(Component):
     @op("coupled_vbw")
     def op_coupled_vbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
         if query:
-            return OpResult(V.format_float(self.vbw(), 10))
+            return OpResult(self.reply_number(self.vbw(), 10))
         assert value is not None
         if not 1.0 <= value <= 3e6:
             raise ScpiError(-222)
@@ -623,7 +623,9 @@ class SpecanTrace(Component):
         c, s = float(self._st("freq.center")), float(self._st("freq.span"))
         start, stop = c - s / 2, c + s / 2
         if query:
-            return OpResult(V.format_float({"center": c, "span": s, "start": start, "stop": stop}[what], 15))
+            return OpResult(
+                self.reply_number({"center": c, "span": s, "start": start, "stop": stop}[what], 15)
+            )
         assert value is not None
         if what == "center":
             self._window_set(value, s)
@@ -639,7 +641,7 @@ class SpecanTrace(Component):
     def op_coupled_sweep(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
         """The sweep time: a manual value turns the automatic coupling off."""
         if query:
-            return OpResult(V.format_float(self.sweep_time(), 10))
+            return OpResult(self.reply_number(self.sweep_time(), 10))
         assert value is not None
         if not 1e-3 <= value <= 10e3:
             raise ScpiError(-222)
@@ -660,7 +662,7 @@ class SpecanTrace(Component):
         if why:
             assert self.owner is not None
             self.owner.push_error(-221, why)
-        return OpResult(b",".join(V.format_float(v, 7) for v in y))
+        return OpResult(b",".join(self.reply_number(v, 7) for v in y))
 
     @op("trace_clear")
     def op_trace_clear(self, **_: Any) -> OpResult:
@@ -755,7 +757,7 @@ class SpecanTrace(Component):
             raise ScpiError(-221, "the marker is off")
         if what == "x":
             if query:
-                return OpResult(V.format_float(float(x[i]), 15))
+                return OpResult(self.reply_number(float(x[i]), 15))
             assert value is not None
             j = int(np.argmin(np.abs(x - value)))
             self._turn_on()
@@ -765,14 +767,14 @@ class SpecanTrace(Component):
             level = float(y[i])
             if self._delta():
                 level -= float(self._st("marker.ref_y"))  # dB from the fixed reference
-            return OpResult(V.format_float(level, 7))
+            return OpResult(self.reply_number(level, 7))
         if what == "dx":
             ref = float(self._st("marker.ref_x")) if self._delta() else float(x[i])
-            return OpResult(V.format_float(float(x[i]) - ref, 15))
+            return OpResult(self.reply_number(float(x[i]) - ref, 15))
         if what == "count":
             if not bool(self._opt("marker.count", True)):
-                return OpResult(V.format_float(0.0, 12))  # the counter is off
-            return OpResult(V.format_float(self._count(float(x[i])), 12))
+                return OpResult(self.reply_number(0.0, 12))  # the counter is off
+            return OpResult(self.reply_number(self._count(float(x[i])), 12))
         best = int(np.argmin(y)) if what == "min" else self._search(what, x, y, i)
         self._turn_on()
         self._set("marker.x", float(x[best]))
