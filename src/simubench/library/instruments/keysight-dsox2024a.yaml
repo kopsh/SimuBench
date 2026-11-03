@@ -340,6 +340,17 @@ state:
     label_en: Measure source
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
     default: CHANnel1
+  measure.show:
+    type: bool
+    default: true
+    label: 测量标记显示
+    label_en: Show measurement markers
+  measure.window:
+    type: enum
+    options: [MAIN, ZOOM, AUTO]
+    default: AUTO
+    label: 测量窗口
+    label_en: Measurement window
   measure.source2:
     type: enum
     label: 测量信源 2
@@ -560,6 +571,10 @@ components:
       sources: [measure.source, measure.source2]
       # :TRIGger:LEVel:ASETup 写各通道的边沿触发电平（#350）。
       trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
+      # 屏幕测量列表（#373）：不带 ? 的测量命令把测量放上屏幕，最多 4 个，再加时挤出最旧的。
+      slots: 4
+      # :MEASure:ALL? 按这一顺序回一个信源上全部单源测量的当前值（顺序为模型约定，覆盖表注明）。
+      all: [VPP, VMAX, VMIN, VAMPlitude, VTOP, VBASe, OVERshoot, PREShoot, VAVerage, VRMS, PERiod, FREQuency, RISetime, FALLtime, PWIDth, NWIDth, DUTYcycle, NDUTy, BRATe]
   # 系统：:SYSTem:PRESet 与 *RST 相同的预置（手册的 PRESet 重置条件与 *RST 表一致，仅“偏好”不同，
   # 仿真没有偏好设置）。
   - name: sys
@@ -688,39 +703,45 @@ commands:
   - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
   - {header: ":CHANnel<ch>:IMPedance", state: ch.impedance}
   # ---- MEASure ----
+  # 屏幕测量列表（#373）
+  - {header: ":MEASure:RESults", op: meas.results, set: false}
+  - {header: ":MEASure:CLEar", op: meas.clear_list, query: false}
+  - {header: ":MEASure:ALL", op: meas.all, set: false, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:SHOW", state: measure.show}
+  - {header: ":MEASure:WINDow", state: measure.window}
   - header: ":MEASure:SOURce"
     params:
       - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: measure.source}
       - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true, state: measure.source2}
     reply: "{measure.source},{measure.source2}"
-  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:VAVerage", op: meas.measure, set: false, args: {what: VAVerage}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:VRMS", op: meas.measure, set: false, args: {what: VRMS}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:FREQuency", op: meas.measure, set: false, args: {what: FREQuency}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:PERiod", op: meas.measure, set: false, args: {what: PERiod}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VPP", op: meas.measure, args: {what: VPP}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VMAX", op: meas.measure, args: {what: VMAX}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VMIN", op: meas.measure, args: {what: VMIN}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VAMPlitude", op: meas.measure, args: {what: VAMPlitude}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VAVerage", op: meas.measure, args: {what: VAVerage}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VRMS", op: meas.measure, args: {what: VRMS}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:FREQuency", op: meas.measure, args: {what: FREQuency}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PERiod", op: meas.measure, args: {what: PERiod}, params: [{name: source, type: raw}]}
   # 波形形状（#248）：顶/底值、过冲/预冲（%）、10–90 % 上升/下降时间、中间电平处的脉宽与占空比、
   # 记录上的边沿与脉冲计数。
-  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:DUTYcycle", op: meas.measure, set: false, args: {what: DUTYcycle}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:NDUTy", op: meas.measure, set: false, args: {what: NDUTy}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:PEDGes", op: meas.measure, set: false, args: {what: PEDGes}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:NEDGes", op: meas.measure, set: false, args: {what: NEDGes}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:PPULses", op: meas.measure, set: false, args: {what: PPULses}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:NPULses", op: meas.measure, set: false, args: {what: NPULses}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VTOP", op: meas.measure, args: {what: VTOP}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:VBASe", op: meas.measure, args: {what: VBASe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:OVERshoot", op: meas.measure, args: {what: OVERshoot}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PREShoot", op: meas.measure, args: {what: PREShoot}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:RISetime", op: meas.measure, args: {what: RISetime}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:FALLtime", op: meas.measure, args: {what: FALLtime}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PWIDth", op: meas.measure, args: {what: PWIDth}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NWIDth", op: meas.measure, args: {what: NWIDth}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:DUTYcycle", op: meas.measure, args: {what: DUTYcycle}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NDUTy", op: meas.measure, args: {what: NDUTy}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PEDGes", op: meas.measure, args: {what: PEDGes}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NEDGes", op: meas.measure, args: {what: NEDGes}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PPULses", op: meas.measure, args: {what: PPULses}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:NPULses", op: meas.measure, args: {what: NPULses}, params: [{name: source, type: raw}]}
   # 时间测量（#350）：相对触发点的时间，中间电平；VTIMe/TEDGe/TVALue 带参数，DELay/PHASe 取两个信源。
-  - {header: ":MEASure:XMAX", op: meas.measure, set: false, args: {what: XMAX}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:XMIN", op: meas.measure, set: false, args: {what: XMIN}, params: [{name: source, type: raw}]}
-  - {header: ":MEASure:BRATe", op: meas.measure, set: false, args: {what: BRATe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:XMAX", op: meas.measure, args: {what: XMAX}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:XMIN", op: meas.measure, args: {what: XMIN}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:BRATe", op: meas.measure, args: {what: BRATe}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:VTIMe", op: meas.at, set: false, args: {what: VTIMe}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:TEDGe", op: meas.at, set: false, args: {what: TEDGe}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:TVALue", op: meas.at, set: false, args: {what: TVALue}, params: [{name: source, type: raw}]}

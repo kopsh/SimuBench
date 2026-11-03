@@ -850,3 +850,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 其余测量名 | ✅ `scope_measurements`：XMAX/XMIN（第一个极值的时刻）、BRATe（1/最窄脉宽）、VTIMe（某时刻的电压）、TEDGe/TVALue（第 n 个边沿/穿越，从记录左端数）、DELay/PHASe（两源第一个上升沿的时间差与相位，不给信源时用 :MEASure:SOURce 的两个）；时间都相对触发点。测量列表（ALL/RESults/CLEar/SHOW/WINDow）拆为 #373，覆盖表链接 |
 | 测试与用例 | ✅ `tests/test_scope_time_measurements.py`（RC 台的闭式解：极值时刻、2 kbit/s、正弦在给定时刻的值、过零时刻、RC 相位滞后 atan(ωRC) 的延迟与相位、ASETup 跟随偏置与 AC 耦合）；手册用例新增一条 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## DSO-X 屏幕测量列表（Issue 373）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 列表：加入、上限、清空 | ✅ `scope_measurements.slots`（DSO-X 为 4）：不带 ? 的测量命令把测量（含信源）放上屏幕，同一项再加移到末尾，超出上限挤出最旧的；`:MEASure:CLEar` 清空列表与统计；*RST 同样清空 |
+| RESults? 与统计 | ✅ 按列表顺序每项 `<名称>(<通道>),当前,最小,最大,平均,标准差,次数`，统计与查询共用同一份历史；`ALL?` 回 19 个单源测量的当前值（快照，不上屏；顺序为模型约定，覆盖表注明）；SHOW、WINDow 保存回读（无缩放记录，按主记录测量） |
+| 测试与用例 | ✅ `tests/test_scope_time_measurements.py` 新增 4 项（上限与挤出、重复加入、统计与清空、ALL 快照、SHOW/WINDow）；手册用例新增一条；覆盖表 ALL/CLEar/RESults 实现、SHOW/WINDow 接受 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

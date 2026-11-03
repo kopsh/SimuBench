@@ -2033,14 +2033,85 @@ class ScopeMeasurements(Component):
         "status": ["OK", "UF"],  # measured, cannot be measured
         "sources": [],  # the two settings DELay?/PHASe? use without sources, e.g. [measure.source, ...]
         "trigger_levels": {},  # channel -> its trigger level setting, for :TRIGger:LEVel:ASETup
+        # The screen's measurement list (#373): a measurement command without '?' installs one;
+        # past `slots` the oldest leaves. 0: no list (the query only answers).
+        "slots": 0,
+        "all": [],  # the measurements :MEASure:ALL? answers, in order (engine names)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.history: dict[tuple[str, int], list[float]] = {}
+        self.installed: list[tuple[str, int]] = []  # the screen's measurements, oldest first (#373)
 
     def reset(self) -> None:
         self.history = {}
+        self.installed = []
+
+    # ---- the screen's measurement list (#373) ------------------------------------------------------
+
+    def install(self, what: str, n: int) -> None:
+        """Put a measurement on the screen: a second install of the same one moves it to the end;
+        past ``slots`` the oldest leaves."""
+        slots = int(self.param("slots") or 0)
+        if slots <= 0:
+            raise ScpiError(-113, f"{what}: this model has no measurement list")
+        entry = (what, n)
+        if entry in self.installed:
+            self.installed.remove(entry)
+        self.installed.append(entry)
+        del self.installed[:-slots]
+
+    @op("results")
+    def op_results(self, **_: Any) -> OpResult:
+        """``:MEASure:RESults?``: each installed measurement, oldest first, as
+        ``<label>,<current>,<min>,<max>,<mean>,<std dev>,<count>`` — the statistics of every value
+        taken since the list was cleared (the current one included). Label: ``<name>(<channel>)``.
+        Nothing installed: an empty reply."""
+        assert self.owner is not None
+        parts: list[bytes] = []
+        used = 0
+        for what, n in self.installed:
+            value, u = self.value(what, n)
+            used += u
+            self._keep(what, n, value)
+            values = np.array(self.history.get((what, n)) or [])
+            fields = [f"{what}({n})".encode(), self._number(value)]
+            if values.size:
+                fields += [
+                    self._number(float(f())) for f in (values.min, values.max, values.mean, values.std)
+                ]
+            else:
+                fields += [self._number(math.nan)] * 4
+            fields.append(str(values.size).encode())
+            parts.append(b",".join(fields))
+        return OpResult(b",".join(parts), used)
+
+    def _number(self, value: float) -> bytes:
+        assert self.owner is not None
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return str(self.param("invalid_value")).encode()
+        return self.owner.format_number(value)
+
+    @op("clear_list")
+    def op_clear_list(self, **_: Any) -> OpResult:
+        """``:MEASure:CLEar``: no measurements on the screen, their statistics gone."""
+        self.installed = []
+        self.history = {}
+        return OpResult()
+
+    @op("all")
+    def op_all(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
+        """``:MEASure:ALL?``: the current value of every measurement of ``all`` on one source, in
+        that order (a snapshot; nothing is installed)."""
+        n = self._channel(channel, source)
+        used = 0
+        parts = []
+        for what in self.param("all") or []:
+            value, u = self.value(str(what), n)
+            used += u
+            parts.append(self._number(value))
+        return OpResult(b",".join(parts), used)
 
     def _acq(self) -> ScopeAcquisition:
         assert self.owner is not None
@@ -2239,12 +2310,18 @@ class ScopeMeasurements(Component):
             self.history.setdefault((name, n), []).append(value)
 
     @op("measure")
-    def measure(self, what: str = "", source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
+    def measure(
+        self, what: str = "", source: Any = None, channel: int | None = None, query: bool = True, **_: Any
+    ) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
-        command) in the definition's number format; what cannot be measured is NaN's sentinel."""
+        command) in the definition's number format; what cannot be measured is NaN's sentinel.
+        Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373)."""
         assert self.owner is not None
         n = self._channel(channel, source)
         self._follow(n, source)
+        if not query:
+            self.install(what, n)
+            return OpResult()
         value, used = self.value(what, n)
         self._keep(what, n, value)
         if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":

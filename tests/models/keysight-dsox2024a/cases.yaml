@@ -557,3 +557,30 @@ cases:
         expect: "+0.00000E+00"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
+
+  - name: "屏幕测量列表（#373）：不带 ? 的测量命令上屏，最多 4 个，RESults? 带统计，CLEar 清空，ALL? 是快照"
+    manual: ":MEASure Commands > :MEASure:<item> (installs a measurement) / :RESults? / :CLEar / :ALL? / :SHOW / :WINDow"
+    steps:
+      - send: ":TIMebase:SCALe 2E-4"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - send: ":MEASure:FREQuency CHANnel1"
+      - send: ":MEASure:VPP CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect: "FREQuency(1),+1.00000E+03,+1.00000E+03,+1.00000E+03,+1.00000E+03,+0.00000E+00,1,VPP(1),+2.00000E+01,+2.00000E+01,+2.00000E+01,+2.00000E+01,+0.00000E+00,1"
+      - send: ":MEASure:VMAX CHANnel1;:MEASure:VMIN CHANnel1;:MEASure:VRMS CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect_match: '^VPP\(1\),.*,VMAX\(1\),.*,VMIN\(1\),.*,VRMS\(1\),.*$'
+      - query: ":MEASure:ALL? CHANnel1"
+        expect_match: '^\+2\.00000E\+01,(?:[+-]\d\.\d{5}E[+-]\d{2},){17}\+2\.00000E\+03$'
+      - send: ":MEASure:CLEar"
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - query: ":MEASure:SHOW?"
+        expect: "1"
+      - send: ":MEASure:WINDow ZOOM"
+      - query: ":MEASure:WINDow?"
+        expect: "ZOOM"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
