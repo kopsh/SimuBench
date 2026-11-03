@@ -2825,9 +2825,9 @@ export interface components {
             combine_error: number;
             /**
              * Default
-             * @description type channel_list: the channels used when the optional parameter is omitted, e.g. [1] for an instrument whose (@1) may be left out
+             * @description type channel_list: the channels used when the optional parameter is omitted, e.g. [1] for an instrument whose (@1) may be left out, or a $setting holding a list (an int_list), e.g. $scan.list for a DAQ whose omitted list means the current scan list (#423)
              */
-            default?: number[] | null;
+            default?: number[] | string | null;
             /**
              * Duplicate Unit Error
              * @description Error code for a unit given twice in one command

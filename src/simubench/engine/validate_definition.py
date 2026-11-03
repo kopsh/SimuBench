@@ -267,6 +267,18 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                     _check_state_ref(
                         d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report
                     )
+            if isinstance(ps.default, str):  # an omitted list read from a setting (#423)
+                ref = ps.default.removeprefix("$")
+                found = _check_state_ref(d, ref, False, _ptr(*p, "params", k, "default"), cmd.header, report)
+                if found is not None and (ps.type != "channel_list" or found.type != "int_list"):
+                    report.add(
+                        "error",
+                        "E-DEF-PARAM",
+                        _ptr(*p, "params", k, "default"),
+                        f"{cmd.header}: 只有通道列表参数的 default 可以写成设置,且该设置须为 int_list",
+                        "写 default: $scan.list(int_list),或写成通道号列表 [1]",
+                        ps.default,
+                    )
             if ps.type == "quantities":
                 _check_quantities(d, ps, per_channel, _ptr(*p, "params", k), cmd.header, report)
             for state, value in (ps.sets or {}).items():

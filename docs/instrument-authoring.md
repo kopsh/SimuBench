@@ -120,7 +120,7 @@ params:
 
 电源与 DAQ 的命令带通道列表参数：`VOLT 5,(@1:3)`、`MEAS:VOLT? (@1:3)`、`ROUT:SCAN (@101:110)`。声明与语义：
 
-- **参数 `type: channel_list`**：声明通道列表，展开（expand）语义——命令对列表中每个通道各执行一次；查询按列表顺序逗号拼接回复。命令的其他参数经 `state` 绑定设置，通道前缀走既有的 `ch.` 机制（`channel_state` 的键，如 `state: "ch.volt"`）；每通道自己的量程（`channels.overrides`）对同一次写入分别生效。`optional: true` 与 `default: [1]` 表示列表可省略（B2901A 的 `(@1)`），省略时用 `default`。每条命令至多一个通道列表参数；它本身不写设置。
+- **参数 `type: channel_list`**：声明通道列表，展开（expand）语义——命令对列表中每个通道各执行一次；查询按列表顺序逗号拼接回复。命令的其他参数经 `state` 绑定设置，通道前缀走既有的 `ch.` 机制（`channel_state` 的键，如 `state: "ch.volt"`）；每通道自己的量程（`channels.overrides`）对同一次写入分别生效。`optional: true` 与 `default: [1]` 表示列表可省略（B2901A 的 `(@1)`），省略时用 `default`；`default` 也可以写成一个 `int_list` 设置（`default: $scan.list`：DAQ970A 省略列表即作用于当前扫描表，表为空时 -221，#423）。查询带 MIN/MAX/DEF 而省略列表时只回一个值（`NPLC? MAX`）。每条命令至多一个通道列表参数；它本身不写设置。
   ```yaml
   - header: "VOLTage"
     params:

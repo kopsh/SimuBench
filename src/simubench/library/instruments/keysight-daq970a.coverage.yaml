@@ -871,7 +871,7 @@ sections:
     note: 断开列表中的通道。ROUT:OPEN? 查询未建模（用 ROUT:CLOS? 查询）。
   - header: ROUTe:SCAN
     level: implemented
-    note: '设扫描表（升序、去重）；查询按定长块返回，空表为 #13(@)。'
+    note: '设扫描表（升序、去重）；查询按定长块返回，空表为 #13(@)。含空槽通道（如 201，槽 2 未装模块）时设置本身接受（与 34970A 相同的扫描表组件：可跨槽写范围），扫描启动（INIT/READ?）时报 -114 且不取读数；这与 ROUTe:CLOSe、MEASure/CONFigure 在命令时即报 -114 不同。手册未写明空槽通道进扫描表的行为，未能核实（#423）。'
   - header: ROUTe:SCAN:SIZE
     level: not_modeled
     note: 扫描表长度查询未建模。
@@ -930,7 +930,7 @@ sections:
     note: 以秒计的积分时间未建模（用 NPLC）。
   - header: '[:SENSe]:CURRent[:DC]:NPLCycles'
     level: implemented
-    note: 按通道的积分时间（0.001–200 PLC），通道列表必填。
+    note: 按通道的积分时间（0.001–200 PLC，取值同 VOLTage[:DC]:NPLCycles 的表）。不写通道列表时作用于当前扫描表（手册第 1 章 SCPI 通道列表一节），扫描表为空时 -221；NPLC? MIN|MAX|DEF 不带列表回 0.001/200/1（一个值）。表外的值舍入到表中按对数最近的一个（手册第 1 章 Numeric parameters：只接受特定值的命令把数值舍入到可接受值，方向未写明；0.5 → 1、3 → 2，#423）。
   - header: '[:SENSe]:CURRent[:DC]:ZERO:AUTO'
     level: not_modeled
     note: 自动调零开关未建模（恒开）。
@@ -976,7 +976,7 @@ sections:
     note: 以秒计的积分时间未建模（用 NPLC）。
   - header: '[:SENSe]:RESistance:NPLCycles'
     level: implemented
-    note: 按通道的积分时间（0.001–200 PLC），通道列表必填。
+    note: 按通道的积分时间（0.001–200 PLC，取值同 VOLTage[:DC]:NPLCycles 的表）。不写通道列表时作用于当前扫描表（手册第 1 章 SCPI 通道列表一节），扫描表为空时 -221；NPLC? MIN|MAX|DEF 不带列表回 0.001/200/1（一个值）。表外的值舍入到表中按对数最近的一个（手册第 1 章 Numeric parameters：只接受特定值的命令把数值舍入到可接受值，方向未写明；0.5 → 1、3 → 2，#423）。
   - header: '[:SENSe]:FRESistance:NPLCycles'
     level: not_modeled
     note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
@@ -1153,7 +1153,7 @@ sections:
     note: 按通道的输入阻抗：OFF 10 MΩ，ON 时 100 mV–10 V 档 >10 GΩ；通道列表必填。
   - header: '[:SENSe]:VOLTage[:DC]:NPLCycles'
     level: implemented
-    note: 按通道的积分时间（0.001/0.002/0.006/0.02/0.06/0.2/1/2/10/20/100/200 PLC，分辨率按手册表 × 量程）；通道列表必填。
+    note: 按通道的积分时间（0.001/0.002/0.006/0.02/0.06/0.2/1/2/10/20/100/200 PLC，分辨率按手册表 × 量程）。不写通道列表时作用于当前扫描表（手册第 1 章 SCPI 通道列表一节），扫描表为空时 -221；NPLC? MIN|MAX|DEF 不带列表回 0.001/200/1（一个值）。表外的值舍入到表中按对数最近的一个（手册第 1 章 Numeric parameters：只接受特定值的命令把数值舍入到可接受值，方向未写明；0.5 → 1、3 → 2，#423）。
   - header: '[:SENSe]:VOLTage[:DC]:REFerence'
     level: not_modeled
     note: 比率/参考测量未建模。
