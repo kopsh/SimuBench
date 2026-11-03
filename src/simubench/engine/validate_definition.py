@@ -580,7 +580,16 @@ def _check_params(
         )
         if st is not None and words:
             # Every value the setting can take must be a word the parameter knows (#308).
-            if st.type != "enum":
+            table = (mapping or {}).get("map") or {}
+            if _int_range_mapped(st, mapping):
+                # A small int setting whose every value the map turns into a word (the SR86x's
+                # enumerations are indexes with word aliases, #333); a nested mapping as a value
+                # is resolved at run time from its own setting.
+                for i in range(int(st.min), int(st.max) + 1):  # type: ignore[arg-type]
+                    word = table.get(str(i), table.get(i))
+                    if not isinstance(word, dict):
+                        _check_choice(str(word), words, pp, f"{spec.type}.{key}", spec.name, report)
+            elif st.type != "enum":
                 report.add(
                     "error",
                     "E-DEF-PARAM-VALUE",
@@ -607,6 +616,15 @@ def _check_params(
                 f"绑定一个{_kind(default)}状态",
                 spec.name,
             )
+
+
+def _int_range_mapped(st: Any, mapping: dict[str, Any] | None) -> bool:
+    """An int setting with a small declared range (at most 64 values) whose map names every value."""
+    table = (mapping or {}).get("map") or {}
+    if st.type != "int" or st.min is None or st.max is None or not table:
+        return False
+    lo, hi = int(st.min), int(st.max)
+    return hi - lo <= 64 and all(str(i) in table or i in table for i in range(lo, hi + 1))
 
 
 def _check_choice(

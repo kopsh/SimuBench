@@ -932,3 +932,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ `tests/test_lockin_readout.py` 8 项（在测试中给 `sb-lia-1` 补参数表与 SR86x 式命令）：OUTP? 序号与词等价、SNAP? 同一时刻与请求顺序、2–3 项限制 -109、未知词 -224 与越界序号 -222、设置/块来源、SNAPD? 读指派、%g 格式与手册示例、PHAS 的 RAD/MRAD/MDEG |
 | 不变 | ✅ SR830、`sb-lia-1` 的用例、金标准与验收场景不改通过 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 静态校验：整数序号映射为词（SR865A 前置，Issue 333）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 词参数可绑定整数设置 | ✅ `E-DEF-PARAM-VALUE`（#308）对整数设置放宽：取值范围不超过 64 个值、`map` 给出每个值时逐值检查对应的词，嵌套映射留给运行时；否则照旧报错 |
+| 测试 | ✅ `tests/test_smu_trigger.py` 新增 4 例：全覆盖通过；缺值、错词、范围过宽仍报错；#308 原有用例不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

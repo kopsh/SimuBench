@@ -263,3 +263,37 @@ def test_an_unknown_function_word_is_an_error_not_a_guess(s):
     with pytest.raises(ScpiError) as e:
         core.sample(0)
     assert e.value.code == -224
+
+
+INDEX = {"type": "int", "min": 0, "max": 2, "default": 0}  # an SR86x-style enumeration index
+
+
+@pytest.mark.parametrize(
+    ("state", "value", "codes"),
+    [
+        # every index maps to a meter word: accepted (#333, the SR86x's indexes with word aliases)
+        (INDEX, {"from": "$sense.function", "map": {"0": "VOLTage", "1": "CURRent", "2": "RESistance"}}, []),
+        (
+            INDEX,
+            {"from": "$sense.function", "map": {"0": "VOLT", "1": "CURR"}},
+            ["E-DEF-PARAM-VALUE"],
+        ),  # 2 unmapped
+        (
+            INDEX,
+            {"from": "$sense.function", "map": {"0": "VOLT", "1": "CURR", "2": "POW"}},
+            ["E-DEF-PARAM-VALUE"],
+        ),
+        (
+            {**INDEX, "max": 100},
+            {"from": "$sense.function", "map": {"0": "VOLT"}},
+            ["E-DEF-PARAM-VALUE"],
+        ),  # too wide
+    ],
+)
+def test_an_int_index_mapped_to_words_is_checked_value_by_value(tmp_path, state, value, codes):
+    from simubench.engine.validate_definition import validate_definition
+    from simubench.library.loader import DefinitionLibrary
+
+    defs = _bound_function_definition(tmp_path, state, value)
+    report = validate_definition(DefinitionLibrary([defs]).get("test-smu-sense-function"))
+    assert _new_codes(report) == codes
