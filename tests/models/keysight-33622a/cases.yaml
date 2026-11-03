@@ -148,6 +148,33 @@ cases:
         expect: "+2.000000000000000E-07"
       - send: "FREQ 1E3"
 
+  - name: "脉冲周期、宽度与边沿为 0 或负值：-222，原值不变（#503、#510）"
+    manual: "FUNCtion Subsystem > FUNCtion:PULSe:PERiod / :WIDTh / :TRANsition（参数为正的时间；越界为 -222）"
+    steps:
+      - send: "FUNC PULS;:FREQ 1E3"
+      - send: "FUNC:PULS:PER 0"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - send: "FUNC:PULS:PER -1"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - query: "FREQ?"
+        expect: "+1.000000000000000E+03"
+      - query: "FUNC:PULS:WIDT?"
+        expect: "+1.000000000000000E-04"
+      - send: "FUNC:PULS:WIDT 0"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - query: "FUNC:PULS:WIDT?"
+        expect: "+1.000000000000000E-04"
+      - query: "FUNC:PULS:TRAN?"
+        expect: "+1.000000000000000E-08"
+      - send: "FUNC:PULS:TRAN 0"
+      - query: ":SYST:ERR?"
+        expect_match: '^-222,.*'
+      - query: "FUNC:PULS:TRAN?"
+        expect: "+1.000000000000000E-08"
+
   - name: "脉冲宽度的越界与非法词（#504）"
     manual: "FUNCtion Subsystem > FUNCtion:PULSe:WIDTh（参数范围受「Duty Cycle Limitations」的最小脉宽约束，33500-90901）"
     steps:
