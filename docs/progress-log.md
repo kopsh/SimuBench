@@ -1077,3 +1077,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 已知差异 | ⚠️ 真机改负载设定时保持输出电压、换算显示值，本模型保持设定值；噪声、突发、扫频/列表、按幅度的频率上限未建模（覆盖表注明） |
 | 组件不改 | ✅ 本 PR 不改 `src/simubench/library/components/`（所需能力已在 #425、#427、#432、#434 合并）；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 计数器时基：时间戳与无间隙门（Issue 328，补记；测试补强 Issue 351）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 能力 | ✅ `counter_timebase`（#346 合并）：时间戳为真实时刻在时基刻度上的值（快时钟读长 ε），加单次分辨率（按时刻播种的正态）；`gap_free` 时每个频率读数从上一门的最后一个沿到本门最后一个沿，相邻读数共享边界沿（53230A 的 CONTinuous 模式） |
+| 无间隙的判据 | ✅ `tests/test_counter.py::test_gap_free_spans_join_end_to_end`：8 个门的 Σ SPAN 等于从首门前的边界沿到末门最后一个沿的时基跨度（rel 1e-12）；原「Σ 读数 × SPAN = Σ 计数」按构造恒成立，仅作附带断言 |
+| 对照 | ✅ `test_without_gap_free_each_gate_loses_the_time_before_its_first_edge`：GAPFree OFF 时各门自身跨度之和比边界跨度少每门一个输入周期 |
+| 经 SCPI 与时基误差 | ✅ `test_gap_free_readings_through_scpi`（`:READ?`，8 个样本）；`test_gap_free_readings_on_a_timebase_with_an_error`（内部振荡器 +5 ppm：读数低 5 ppm，跨度仍首尾相接） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
