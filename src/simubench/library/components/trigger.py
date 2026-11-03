@@ -105,7 +105,7 @@ class TriggerModel(Component):
 
     def _sampler(self) -> Sampler:
         assert self.owner is not None
-        comp = self.owner.components.get(str(self.param("sampler")))
+        comp = self.peer(str(self.param("sampler")))
         if not isinstance(comp, Sampler):
             raise ScpiError(-300, f"{self.uid}: sampler {self.param('sampler')!r} takes no readings")
         return comp
@@ -186,7 +186,7 @@ class TriggerModel(Component):
         if not name:
             return None
         assert self.owner is not None
-        comp = self.owner.components.get(name)
+        comp = self.peer(name)
         if not isinstance(comp, ReadingBuffer):
             raise ScpiError(-300, f"{self.uid}: buffer {name!r} is not a reading_buffer")
         return comp

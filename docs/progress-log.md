@@ -109,3 +109,13 @@
 | 覆盖、用例与示例 | ✅ 覆盖表 实现 46 · 接受 9 · 未实现 143；`tests/models/keysight-53230a/cases.yaml` 24 条全部通过（新增门时间下限、测量方式、Figure 3-1 的无间隙读数、时间戳 -113）；示例台 `examples/benches/keysight-53230a.bench.yaml` 与脚本 `examples/scripts/keysight_53230a_gap_free.py`（Figure 3-1 设置，由连续读数算阿伦偏差）在测试中运行 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 多通道 SMU：组件引用按通道解析，*TRG 触发全部通道（Issue 382）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 引用按通道解析 | ✅ `Component.peer(name)`：通道组件先找 `ch<n>.<名>`、再找仪表级；`smu_output`、`smu_meter`、`output_control_loop` 的包络、`trigger_model` 的采样器与缓冲改用它；静态校验 `E-DEF-COMPONENT-REF` 对通道组件先查本通道再查仪表级 |
+| *TRG | ✅ 触发所有带 `bus_trigger` 的组件，不在等总线触发的跳过；没有一个接受时报第一个的错误，单个触发模型行为不变 |
+| 双通道验证仪表与测试 | ✅ `validation/instruments/sb-smu-2.yaml`（整条链在 `channel_components`）；`tests/test_smu_channels.py` 8 项：定义无诊断、两路各自 I = V/R、通道列表按书写顺序回复、一路关输出另一路不受影响、限值只在本路跳闸、`*TRG` 两路都触发、只有一路在等时另一路不报错、无人等待时 -211 |
+| 单通道不变 | ✅ B2901A、`sb-smu-1`、E36312A 与其余型号的用例与测试不改通过 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
