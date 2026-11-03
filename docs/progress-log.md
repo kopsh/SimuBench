@@ -978,3 +978,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 验证仪表 | ✅ `sb-counter-1` 不改（它的面板按功能各出一个读数）；测试中给它补 TSTamp 与 `:TSTamp:RATE` |
 | 测试 | ✅ `tests/test_counter_timestamps.py` 4 项：低于速率（比例因子 1，间隔为周期）、手册的 10 MHz/1 MHz（11）、2.5 MHz/1 MHz（3），间隔在 20 ps 内且「间隔 / 比例因子 = 周期」；括号里的数；`tests/test_counter.py` 不改通过 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Keysight 53230A 接上时间戳（Issue 385 后续）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 三条命令 | ✅ `keysight-53230a.yaml`：`CONFigure:ARRay:TSTamp [(<count>) [,<channel>]]` 设功能 TSTamp、触发次数 1、立即触发，读数个数 = count + 1（触发模型的 `sample_count` 按功能映射）；`MEASure:ARRay:TSTamp?` 同上并立即读回；`[SENSe:]TSTamp:RATE` 10 k–1 MHz（*RST 1 MHz）接到两个 `counter_core` 的 `timestamp_rate`（手册 p.99–100） |
+| 引擎小修 | ✅ 操作命令的可选枚举参数，若数据元素 `(@2)` 正是它的选项之一，就归它而不再当作后续通道列表跳过（此前 `MEAS:ARR:TST? (2),(@2)` 报 -108） |
+| 覆盖与用例 | ✅ 覆盖表 实现 49 · 接受 9 · 未实现 140；原「时间戳 -113」用例换成读回比例因子与间隔，24 条全部通过 |
+| 测试 | ✅ `tests/test_keysight_53230a.py` 新增：1 kHz/1 MHz（比例因子 1）与 25 kHz/10 kHz（3），间隔在 0.1 ns 内，`(@2)` 通道，CONF:FREQ 后回到单读数 |
+| 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
