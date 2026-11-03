@@ -9,8 +9,10 @@ complex exponential at Δf), ``lockin_lowpass`` (the n-pole RC filter, its time 
 the settling and the truncation check), ``lockin_output`` (X/Y with offset and expansion, R/θ, the
 overload flags, auto gain and auto phase, and the sampler the data buffer reads) and
 ``lockin_reference`` (the oscillator or the PLL tracking REF_IN). ``lockin_aux`` is the circuit
-level AUX block: four ADC inputs and four DAC outputs on the bench. The data buffer is the generic
-``trigger_model`` + ``reading_buffer`` (#88), not a new component (D3 #189).
+level AUX block: four ADC inputs and four DAC outputs on the bench. ``lockin_input_mode`` forms the
+measured signal from the A and B terminals (A, A − B, or the current input, #273). The data buffer
+is either the generic ``trigger_model`` + ``reading_buffer`` (#88) or ``curve_buffer`` (#273: traces
+at a sample rate, read by bin), which reads ``trace_value`` from the output and AUX blocks.
 
 The demodulator is exact: the cascade of n identical first-order stages has a closed-form response
 to a sum of exponentials (a particular solution plus a homogeneous part ``e^(-t/T) · polynomial``),
@@ -25,6 +27,7 @@ The split keeps the behaviour of the old monolith exactly (``tests/test_lockin_m
 from __future__ import annotations
 
 import cmath
+import itertools
 import math
 from dataclasses import dataclass
 from functools import cache
@@ -92,9 +95,13 @@ class LockinReference(Component):
         # Past f_max: "refuse" the setting (-221), or "clamp" the harmonic to the largest that fits
         # (the SR830 manual's rule for HARM and FREQ).
         "over_limit": "refuse",
+        # What on REF_IN defines zero phase (#273, the SR830's RSLP): SINE the positive-going zero
+        # crossing of a sine; RISE a TTL rising edge (on a sine, the same crossing); FALL a TTL
+        # falling edge, half a period later (the reference moves by 180°).
+        "ext_slope": "SINE",
     }
     units = {"f_max": "Hz"}
-    choices = {"over_limit": ("refuse", "clamp")}
+    choices = {"over_limit": ("refuse", "clamp"), "ext_slope": ("SINE", "RISE", "FALL")}
     dynamic = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -143,6 +150,8 @@ class LockinReference(Component):
                 self.owner.set_state(bound["harmonic"], self._largest_harmonic(f))
             if self.param("source") != "EXTernal":
                 self._retune(f)
+        if path == bound.get("ext_slope"):
+            self._seen = -1  # the zero-phase point on REF_IN moved
         if path == bound.get("source"):
             self._seen = -1  # look at REF_IN (or go back to the internal frequency) now
             if new != "EXTernal":
@@ -162,7 +171,8 @@ class LockinReference(Component):
         if line is not None and 1e-3 <= line[0] <= float(self.param("f_max")):
             freq, a = line
             # Lock to the fundamental: ψ(t) = arg(a) + 2π f t (merged lines are referenced to t = 0).
-            psi = cmath.phase(a) % TWO_PI
+            edge = math.pi if self.choice("ext_slope") == "FALL" else 0.0
+            psi = (cmath.phase(a) + edge) % TWO_PI
             now = self.session.now_ns
             target = psi + TWO_PI * float(phase_cycles(np.array([freq]), np.array([now]))[0])
             drift = (self._psi_at(now) - target + math.pi) % TWO_PI - math.pi
@@ -207,6 +217,48 @@ class LockinReference(Component):
     def op_frequency(self, what: str = "actual", **_: Any) -> OpResult:
         f = self._freq * (int(self.param("harmonic")) if what == "detect" else 1)
         return OpResult(V.format_float(f, 10))
+
+
+# ---- input configuration ------------------------------------------------------------------------
+
+
+@component("lockin_input_mode")
+class LockinInputMode(Component):
+    """The input configuration (#273, the SR830's ISRC): single-ended A, differential A − B, or the
+    current input.
+
+    The terminals are ``input_port`` blocks in front (their impedance is the circuit part: 10 MΩ
+    for the voltage inputs; the current input is ``current_z`` to a virtual ground, so the
+    definition binds the A port's ``z_in`` to the same setting). This block forms the signal the
+    chain measures: A, A − B, or the current into A (its voltage over ``current_z``) times
+    ``current_scale`` V/A, so the voltage sensitivities read as currents scaled by 1/current_scale
+    (``lockin_output.unit_scale``). Shield grounding is not a circuit element here: bench nets
+    are referred to one ground, so floating or grounding the shield changes no reading.
+    """
+
+    ports = {
+        "a": PortSpec("in", "signal", "the A input"),
+        "b": PortSpec("in", "signal", "the B input"),
+        "out": PortSpec("out", "signal", "the signal the chain measures"),
+    }
+    defaults = {
+        "mode": "A",  # A | A-B | I: single-ended, differential, or the current input on A
+        "current_z": 1.0e3,  # ohm, the current input's impedance to its virtual ground
+        "current_scale": 1.0e6,  # V the chain sees per A in the current input (1 µA <-> 1 V)
+    }
+    units = {"current_z": "OHM"}
+    choices = {"mode": ("A", "A-B", "I")}
+
+    def output(self, port: str) -> Signal:
+        if port != "out":
+            raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
+        mode = self.choice("mode")
+        a = self.input("a")
+        if mode == "A-B":
+            return a + self.input("b").scale(-1.0)
+        if mode == "I":
+            return a.scale(float(self.param("current_scale")) / float(self.param("current_z")))
+        return a
 
 
 # ---- input filter -------------------------------------------------------------------------------
@@ -282,6 +334,10 @@ class LockinInputAmp(Component):
     defaults = {
         "sensitivity": 1.0,  # V rms full scale: overload flags and auto gain, not the scaling of X, Y, R
         "reserve": 10.0,  # 20 dB of dynamic reserve over the sensitivity
+        # The reserve as a table of dB by full-scale sensitivity (#273, the SR830's p.4-8 table per
+        # RMOD): {sensitivity V: dB}; between entries the dB follow log(sensitivity). Set, it
+        # replaces `reserve`.
+        "reserve_db": None,
         "input_limit": 1.4,  # V peak
         "noise_density": 5e-9,  # V/√Hz, hidden state
     }
@@ -299,10 +355,29 @@ class LockinInputAmp(Component):
         """Peak of the signal at the amplifier's input, V."""
         return self.input("in").peak()
 
+    def reserve(self, sensitivity: float | None = None) -> float:
+        """The dynamic reserve as a voltage ratio at a sensitivity (the current one by default)."""
+        table = self.param("reserve_db")
+        if not table:
+            return float(self.param("reserve"))
+        s = self.sensitivity() if sensitivity is None else float(sensitivity)
+        points = sorted((math.log10(float(k)), float(v)) for k, v in table.items())
+        x = math.log10(s)
+        if x <= points[0][0]:
+            db = points[0][1]
+        elif x >= points[-1][0]:
+            db = points[-1][1]
+        else:
+            db = next(
+                y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+                for (x0, y0), (x1, y1) in itertools.pairwise(points)
+                if x0 <= x <= x1
+            )
+        return 10.0 ** (db / 20.0)
+
     def limit(self) -> float:
         """Peak above which the front end overloads, V."""
-        reserve = float(self.param("reserve"))
-        return min(math.sqrt(2) * reserve * self.sensitivity(), float(self.param("input_limit")))
+        return min(math.sqrt(2) * self.reserve() * self.sensitivity(), float(self.param("input_limit")))
 
     def noise_density(self) -> float:
         return float(self.param("noise_density"))
@@ -562,6 +637,9 @@ class LockinOutput(Component):
         "expand_y": None,  # Y's own expand (None: expand)
         "offset_r": 0.0,  # percent of full scale subtracted from the displayed R
         "expand_r": None,  # the displayed R's expand (None: expand)
+        # The unit of X, Y and R per volt the chain measures (#273): 1 for a voltage input; the
+        # current input's 1/current_scale (1e-6: the readings and the sensitivity are in A).
+        "unit_scale": 1.0,
     }
     units = {"sample_rate": "Hz"}
     dynamic = True
@@ -610,11 +688,14 @@ class LockinOutput(Component):
         y = float(g @ gaussian(key ^ 0x1F2E3D4C, idx)) / norm
         return sigma * complex(x, y)
 
+    def _scale(self) -> float:
+        return float(self.param("unit_scale"))
+
     def xy_at(self, t_ns: int) -> complex:
-        return self._filter().value_at(t_ns) + self._noise(t_ns)
+        return (self._filter().value_at(t_ns) + self._noise(t_ns)) * self._scale()
 
     def xy(self) -> complex:
-        return self._clean() + self._noise()
+        return (self._clean() + self._noise()) * self._scale()
 
     def settling(self) -> float:
         return self._filter().settling()
@@ -629,7 +710,7 @@ class LockinOutput(Component):
         if show not in ("X", "Y"):
             return value
         offset = float(self.param("offset_x" if show == "X" else "offset_y"))
-        return (value - offset / 100 * self._amp().sensitivity()) * self._expand(show)
+        return (value - offset / 100 * self._amp().sensitivity() * self._scale()) * self._expand(show)
 
     def _expand(self, show: str) -> float:
         own = self.param(f"expand_{show.lower()}")
@@ -638,7 +719,7 @@ class LockinOutput(Component):
     def displayed_r(self, z: complex) -> float:
         """R as the display shows it: its own offset and expand (the R output stays raw, #273)."""
         offset = float(self.param("offset_r"))
-        return (abs(z) - offset / 100 * self._amp().sensitivity()) * self._expand("R")
+        return (abs(z) - offset / 100 * self._amp().sensitivity() * self._scale()) * self._expand("R")
 
     def _value(self, name: str, z: complex) -> float:
         key = name.upper()
@@ -751,7 +832,7 @@ class LockinOutput(Component):
         if self._filter()._tc() > 1.0:
             raise ScpiError(-221, "auto gain needs a time constant of 1 s or less")
         assert self.owner is not None
-        r = abs(self.xy())
+        r = abs(self.xy()) / self._scale()  # in the chain's volts, like the sensitivity ladder
         self.session._sync()
         spec = self.owner.specs.get("input.sensitivity")
         lo = spec.min if spec and spec.min is not None else 2e-9
@@ -764,10 +845,10 @@ class LockinOutput(Component):
                 if lo * 0.999 <= m * 10.0**k <= hi * 1.001
             }
         )
-        reserve = float(self._amp().param("reserve"))
         limit_v = float(self._amp().param("input_limit"))
         choice = rungs[-1]
         for s in rungs:
+            reserve = self._amp().reserve(s)
             if r < 0.9 * s and self._amp().peak() <= min(math.sqrt(2) * reserve * s, limit_v):
                 choice = s
                 break
@@ -785,6 +866,20 @@ class LockinOutput(Component):
         phase = (phase + 180.0) % 360.0 - 180.0
         self.owner.set_state("reference.phase", phase)
         return OpResult()
+
+    # ---- the curve buffer's trace source (#273) ----------------------------------------------------
+
+    def trace_value(self, quantity: str, t_ns: int) -> float:
+        """A displayed quantity at an instant, as a ``curve_buffer`` trace stores it: X and Y with
+        their offset and expand, R as displayed, θ in degrees; XNOISE/YNOISE are the front end's
+        noise density (V/√Hz, the model's estimate of what the noise display shows)."""
+        key = quantity.upper()
+        if key in ("XNOISE", "YNOISE"):
+            return self._amp().noise_density()
+        z = self.xy_at(t_ns)
+        if key == "R":
+            return self.displayed_r(z)
+        return self._value(key, z)
 
     # ---- the data buffer's sampler --------------------------------------------------------------
 
@@ -862,6 +957,10 @@ class LockinAux(Component):
     @op("read")
     def op_read(self, index: str | int = "1", **_: Any) -> OpResult:
         return OpResult(V.format_float(self.read(index), 8))
+
+    def trace_value(self, quantity: str, t_ns: int) -> float:
+        """``AUX1`` .. ``AUX4``: an AUX input's voltage, for a ``curve_buffer`` trace (#273)."""
+        return self.read(quantity.upper().removeprefix("AUX") or "1")
 
     @op("set_dac")
     def op_set_dac(self, index: int = 1, voltage: float = 0.0, **_: Any) -> OpResult:

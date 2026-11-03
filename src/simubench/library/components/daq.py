@@ -236,8 +236,8 @@ class MuxCard(Component):
     def output(self, port: str) -> Signal:
         """The analog bus voltage (H − L), the internal DMM's input; ``sense``: the four-wire sense
         bus."""
-        h, l = ("sense_h", "sense_l") if port == "sense" else ("bus_h", "bus_l")
-        return self.pin_signal(h) + self.pin_signal(l).scale(-1.0)
+        hi, lo = ("sense_h", "sense_l") if port == "sense" else ("bus_h", "bus_l")
+        return self.pin_signal(hi) + self.pin_signal(lo).scale(-1.0)
 
     # ---- operations ------------------------------------------------------------------------------
 

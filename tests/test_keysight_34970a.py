@@ -357,7 +357,8 @@ def test_current_is_measured_on_the_current_channels_through_the_shunt():
     )
     s = open_bench(bench)
     try:
-        assert numbers(q(s, "MEAS:CURR? (@121)")) == pytest.approx([5.0 / 1006.0], rel=1e-5)  # 1 PLC: 3 ppm resolution
+        # 1 PLC: 3 ppm resolution.
+        assert numbers(q(s, "MEAS:CURR? (@121)")) == pytest.approx([5.0 / 1006.0], rel=1e-5)
         # Current only on 21/22; the other functions not on them.
         assert q(s, "MEAS:CURR? (@101)") is None
         assert q(s, "SYST:ERR?") == '-221,"Settings conflict"'
