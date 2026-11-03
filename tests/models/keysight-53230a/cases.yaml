@@ -480,12 +480,16 @@ cases:
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'
 
-  - name: "时间戳未实现：CONFigure/MEASure:ARRay:TSTamp 与 TSTamp:RATE 报 -113"
-    manual: "Measurements > Time stamp（53230A）"
+  - name: "时间戳：CONFigure:ARRay:TSTamp 读回比例因子与相邻间隔"
+    manual: "Measurements > Time stamp（53230A）: CONFigure:ARRay:TSTamp [(<count>) [,<channel>]], p.100"
     steps:
-      - send: ":CONF:ARR:TST (200),(@1)"
+      - send: ":CONF:ARR:TST (4),(@1)"
+      - query: ":SENS:TST:RATE?"
+        expect: "+1.00000000000000E+006"
+      # 1 kHz 低于 1 MHz 速率：比例因子 1，四个间隔都是 1 ms（20 ps 单次分辨率内）
+      - query: ":READ?"
+        expect_match: '^\+1\.0{14}E\+000(,\+(1\.0{6}|9\.9{6})\d{8}E-00[34]){4}$'
+      - query: ":MEAS:ARR:TST? (2),(@2)"
+        expect_match: '^\+1\.0{14}E\+000(,\+(1\.0{6}|9\.9{6})\d{8}E-00[34]){2}$'
       - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not implemented in this definition"'
-      - send: ":SENS:TST:RATE 1E6"
-      - query: ":SYST:ERR?"
-        expect: '-113,"Undefined header;not implemented in this definition"'
+        expect: '+0,"No error"'

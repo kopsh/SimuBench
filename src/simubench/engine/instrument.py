@@ -60,6 +60,12 @@ def _is_channel_list(raw: bytes) -> bool:
     return raw.lstrip().startswith(b"(@")
 
 
+def _enum_hit(raw: bytes, options: list[str] | None) -> bool:
+    """Whether a data element spells one of an enum parameter's options (spaces and case aside)."""
+    text = b"".join(raw.split()).decode("ascii", "replace").upper()
+    return any("".join(o.split()).upper() == text for o in options or [])
+
+
 def _header_key(header: str) -> str:
     """A header as written in a definition, compared without case, spaces or the root colon."""
     return "".join(header.split()).lstrip(":").upper()
@@ -1643,7 +1649,14 @@ class Instrument:
                 out[ps.name] = list(raw[i:])
                 i = len(raw)
                 continue
-            if i >= len(raw) or (ps.optional and _is_channel_list(raw[i])):
+            # a (@…) is this parameter's own value when it is one of its words (53230A (@2), #385)
+            own = (
+                ps.type == "enum"
+                and i < len(raw)
+                and _is_channel_list(raw[i])
+                and _enum_hit(raw[i], ps.options)
+            )
+            if i >= len(raw) or (ps.optional and _is_channel_list(raw[i]) and not own):
                 if not ps.optional:
                     raise ScpiError(-109, f"missing {ps.name}")
                 out[ps.name] = None  # left out: a (@…) here belongs to a channel list (#300)
