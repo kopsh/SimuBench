@@ -1319,7 +1319,7 @@ export interface components {
             descending: boolean;
             /**
              * Empty
-             * @description An empty list (@) is accepted, e.g. the DAQ970A's ROUT:SCAN (@) clearing the scan list (#418); false: -108
+             * @description An empty list (@) is accepted where a list setting is written whole, e.g. the DAQ970A's ROUT:SCAN (@) clearing the scan list (#418); a list a command runs over channel by channel (VOLT 5,(@), VOLT? (@), MEAS? (@)) stays -108 (#420); false: -108 everywhere
              * @default false
              */
             empty: boolean;
