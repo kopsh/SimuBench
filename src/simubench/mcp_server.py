@@ -858,17 +858,20 @@ def build_server(
         control()
         s = served(session_id)
         try:
-            state = s.session.faults.inject(fault, source="mcp")
+            with s.session.view():  # the injection and its report are one hold (#480)
+                return _fault(s.session.faults.inject(fault, source="mcp"))
         except (KeyError, ValueError) as exc:
             raise fail(exc) from None
-        return _fault(state)
 
     @mcp.tool()
     def list_faults(session_id: str | None = None) -> list[dict[str, Any]]:
         """Faults of a session: pending, active and ended."""
         guard()
         s = served(session_id)
-        return [_fault(f) for f in s.session.faults.snapshot()]
+        # _fault reads the live states: convert inside the view, so a tick racing the read
+        # cannot tear it (#480).
+        with s.session.view():
+            return [_fault(f) for f in s.session.faults.snapshot()]
 
     @mcp.tool()
     def clear_fault(fault_id: str, session_id: str | None = None) -> dict[str, Any]:
@@ -877,7 +880,8 @@ def build_server(
         control()
         s = served(session_id)
         try:
-            return _fault(s.session.faults.clear(fault_id))
+            with s.session.view():  # the report under the same hold as the clearing (#480)
+                return _fault(s.session.faults.clear(fault_id))
         except KeyError as exc:
             raise fail(exc) from None
 
