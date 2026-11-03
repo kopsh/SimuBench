@@ -1,0 +1,873 @@
+schema: simubench.instrument/1
+id: keysight-b2912b
+manufacturer: Keysight Technologies
+model: B2912B
+class: smu
+version: 1
+description: Keysight B2912B 双通道精密源/测量单元（B2900B 系列高性能型，210 V、3.03 A 直流，10 fA 分辨率；常用命令子集）。Real model（D42）：命令、参数、默认值与回复按
+  B2900B/BL Series SCPI Command Reference（B2910-90130, Edition 2, May 2023）；与 B2901A 同一命令体系，每个通道一条完整的 SMU 链（#382），命令用
+  [c] 数字后缀（:SOUR2:VOLT）与通道列表（:MEAS:CURR? (@1,2)）。源电压/电流、限值与四线检测进入电路求解；源量程与测量量程按 Table 2-4/2-7/2-9/2-10（含 B2911B/B2912B
+  独有的 10 nA 档）。脉冲、列表/对数扫描、两通道合用电流限制（Table 2-6）、程序内存、数字 I/O 与显示/接口以外的高级功能不在本定义范围（覆盖表逐条列出）。
+reference:
+  title: Keysight B2900B/BL Series Precision Source/Measure Unit SCPI Command Reference
+  document: B2910-90130
+  version: Edition 2, May 2023
+  firmware: B2900B 系列（B2911B/B2912B 的量程按手册 Table 2-4、2-7、2-9、2-10）
+identity:
+  idn: Keysight Technologies,B2912B,{serial},{firmware}
+  serial: MY63000101
+  firmware: 5.0.2051.2800
+format:
+  number: nr3
+  digits: 6
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: signed
+errors:
+  0: No error
+  -100: Command error
+  -101: Invalid character
+  -102: Syntax error
+  -103: Invalid separator
+  -104: Data type error
+  -105: GET not allowed
+  -108: Parameter not allowed
+  -109: Missing parameter
+  -110: Command header error
+  -111: Header separator error
+  -112: Program mnemonic too long
+  -113: Undefined header
+  -114: Header suffix out of range
+  -120: Numeric data error
+  -121: Invalid character in number
+  -123: Exponent too large
+  -124: Too many digits
+  -128: Numeric data not allowed
+  -130: Suffix error
+  -131: Invalid suffix
+  -134: Suffix too long
+  -138: Suffix not allowed
+  -140: Character data error
+  -141: Invalid character data
+  -144: Character data too long
+  -148: Character data not allowed
+  -150: String data error
+  -151: Invalid string data
+  -158: String data not allowed
+  -160: Block data error
+  -161: Invalid block data
+  -168: Block data not allowed
+  -170: Expression error
+  -171: Invalid expression
+  -178: Expression data not allowed
+  -200: Execution error
+  -220: Parameter error
+  -221: Settings conflict
+  -222: Data out of range
+  -223: Too much data
+  -224: Illegal parameter value
+  -211: Trigger ignored
+  -213: Init ignored
+  -214: Trigger deadlock
+  -230: Data corrupt or stale
+  -231: Data questionable
+  -232: Invalid format
+  -233: Invalid version
+  -240: Hardware error
+  -241: Hardware missing
+  -300: Device-specific error
+  -310: System error
+  -311: Memory error
+  -313: Calibration memory lost
+  -315: Configuration memory lost
+  -321: Out of memory
+  -350: Queue overflow
+  -400: Query error
+  -410: Query INTERRUPTED
+  -420: Query UNTERMINATED
+  -430: Query DEADLOCKED
+  -440: Query UNTERMINATED after indefinite response
+specs:
+  source: SCPI Command Reference Tables 2-4、2-6、2-7、2-9、2-10（B2910-90130, Edition 2）
+  voltage_source_ranges_v:
+  - 0.2
+  - 2.0
+  - 20.0
+  - 200.0
+  voltage_source_max_current_a:
+    0.2: 3.03
+    2.0: 3.03
+    20.0: '|V| ≤ 6 V: 3.03；6 V < |V| ≤ 21 V: 1.515'
+    200.0: '|V| ≤ 6 V: 3.03；6 V < |V| ≤ 21 V: 1.515；21 V < |V| ≤ 210 V: 0.105'
+  current_source_ranges_a:
+  - 1.0e-08
+  - 1.0e-07
+  - 1.0e-06
+  - 1.0e-05
+  - 0.0001
+  - 0.001
+  - 0.01
+  - 0.1
+  - 1.0
+  - 1.5
+  - 3.0
+  voltage_source_setting_resolution_v:
+    0.2: 1.0e-07
+    2.0: 1.0e-06
+    20.0: 1.0e-05
+    200.0: 0.0001
+  current_source_setting_resolution_a: 10 fA（10 nA 档）… 10 µA（3 A 档）
+  measurement_resolution: 电压 0.1 µV（0.2 V 档）…100 µV（200 V 档）；电流 10 fA（10 nA 档）…10 µA（3 A 档）
+  two_channel_current_limit: Table 2-6：|V1|、|V2| ≤ 6 V 时 I1 + I2 ≤ 4 A 等（未建模，每通道各自按自己的包络）
+  pulse: 10.5 A 脉冲档与脉冲输出未建模
+state:
+  format.elements.sense:
+    type: enum_list
+    options:
+    - VOLTage
+    - CURRent
+    - RESistance
+    - TIME
+    - STATus
+    - SOURce
+    default:
+    - VOLTage
+    - CURRent
+    - RESistance
+    - TIME
+    - STATus
+    - SOURce
+    label: 读数元素
+    label_en: Reading elements
+  system.line_freq:
+    type: int
+    min: 50
+    max: 60
+    default: 50
+    label: 电源频率
+    label_en: Line frequency
+  display.enabled:
+    type: bool
+    default: true
+    label: 前面板显示
+    label_en: Front panel display
+  display.digits:
+    type: int
+    min: 4
+    max: 7
+    default: 7
+    label: 显示位数
+    label_en: Display digits
+  display.view:
+    type: enum
+    options:
+    - SINGle1
+    - SINGle2
+    - DUAL
+    - GRAPh
+    - ROLL
+    default: DUAL
+    label: 显示视图
+    label_en: Display view
+    option_labels:
+      SINGle1: 通道 1
+      SINGle2: 通道 2
+      DUAL: 双通道
+      GRAPh: 图形
+      ROLL: 滚动
+  display.color_set:
+    type: int
+    min: 1
+    max: 2
+    default: 1
+    label: 显示配色
+    label_en: Display color set
+  display.zoom:
+    type: bool
+    default: false
+    label: 显示缩放
+    label_en: Display zoom
+  system.beeper:
+    type: bool
+    default: true
+    label: 蜂鸣器
+    label_en: Beeper
+  system.fan:
+    type: enum
+    options:
+    - NORMal
+    - RACK
+    default: NORMal
+    label: 风扇模式
+    label_en: Fan mode
+  system.gpib_address:
+    type: int
+    min: 0
+    max: 30
+    default: 23
+    label: GPIB 地址
+    label_en: GPIB address
+  system.lan_dhcp:
+    type: bool
+    default: true
+    label: LAN DHCP
+    label_en: LAN DHCP
+  system.lxi_identify:
+    type: bool
+    default: false
+    label: LAN 指示灯
+    label_en: LXI identify
+  system.scpi_version:
+    type: float
+    default: 1999.0
+    readonly: true
+    label: SCPI 版本
+    label_en: SCPI version
+  format.data:
+    type: enum
+    options:
+    - ASCii
+    default: ASCii
+    label: 数据格式
+    label_en: Data format
+  system.interlock:
+    type: bool
+    default: false
+    readonly: true
+    label: 互锁
+    label_en: Interlock
+ports:
+  channel:
+    HI{n}: out.hi
+    LO{n}: out.lo
+    SENSE_HI{n}: out.sense_hi
+    SENSE_LO{n}: out.sense_lo
+display:
+  template: smu
+  summary:
+  - ch1.source.function
+  - ch1.source.voltage.level
+  - ch1.output.enabled
+  - ch2.source.function
+  - ch2.source.voltage.level
+  - ch2.output.enabled
+capabilities:
+- smu
+commands:
+- header: '[:SOURce<ch>]:FUNCtion:MODE'
+  state: ch.source.function
+- header: '[:SOURce<ch>]:FUNCtion[:SHAPe]'
+  state: ch.source.shape
+- header: '[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate][:AMPLitude]'
+  state: ch.source.voltage.level
+- header: '[:SOURce<ch>]:CURRent[:LEVel][:IMMediate][:AMPLitude]'
+  state: ch.source.current.level
+- header: '[:SOURce<ch>]:VOLTage:RANGe'
+  params:
+  - name: range
+    type: float
+    unit: V
+    min: 0.2
+    max: 200.0
+    state: ch.source.range_voltage
+  writes:
+    ch.source.autorange_voltage: false
+- header: '[:SOURce<ch>]:CURRent:RANGe'
+  params:
+  - name: range
+    type: float
+    unit: A
+    min: 1.0e-07
+    max: 3.0
+    state: ch.source.range_current
+  writes:
+    ch.source.autorange_current: false
+- header: '[:SOURce<ch>]:VOLTage:RANGe:AUTO'
+  state: ch.source.autorange_voltage
+- header: '[:SOURce<ch>]:CURRent:RANGe:AUTO'
+  state: ch.source.autorange_current
+- header: '[:SOURce<ch>]:VOLTage:MODE'
+  state: ch.sweep.mode
+- header: '[:SOURce<ch>]:VOLTage:STARt'
+  state: ch.sweep.start
+- header: '[:SOURce<ch>]:VOLTage:STOP'
+  state: ch.sweep.stop
+- header: '[:SOURce<ch>]:VOLTage:POINts'
+  state: ch.sweep.points
+- header: '[:SOURce<ch>]:SWEep:POINts'
+  state: ch.sweep.points
+- header: :SENSe<ch>:VOLTage[:DC]:NPLCycles
+  state: ch.sense.nplc
+- header: :SENSe<ch>:CURRent[:DC]:NPLCycles
+  state: ch.sense.nplc
+- header: :SENSe<ch>:RESistance:NPLCycles
+  state: ch.sense.nplc
+- header: :SENSe<ch>:VOLTage[:DC]:RANGe[:UPPer]
+  params:
+  - name: range
+    type: float
+    state: ch.sense.range_voltage
+  writes:
+    ch.sense.range_auto: false
+- header: :SENSe<ch>:CURRent[:DC]:RANGe[:UPPer]
+  params:
+  - name: range
+    type: float
+    state: ch.sense.range_current
+  writes:
+    ch.sense.range_auto: false
+- header: :SENSe<ch>:VOLTage[:DC]:RANGe:AUTO
+  state: ch.sense.range_auto
+- header: :SENSe<ch>:CURRent[:DC]:RANGe:AUTO
+  state: ch.sense.range_auto
+- header: :SENSe<ch>:VOLTage[:DC]:PROTection[:LEVel][:BOTH]
+  state: ch.compliance.voltage.limit
+- header: :SENSe<ch>:CURRent[:DC]:PROTection[:LEVel][:BOTH]
+  state: ch.compliance.current.limit
+- header: :SENSe<ch>:VOLTage[:DC]:PROTection:TRIPped
+  op: ch.loop.tripped
+  set: false
+  args:
+    kind: voltage
+- header: :SENSe<ch>:CURRent[:DC]:PROTection:TRIPped
+  op: ch.loop.tripped
+  set: false
+  args:
+    kind: current
+- header: :SENSe<ch>:REMote
+  state: ch.sense.remote
+- header: :MEASure
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements: $format.elements.sense
+  params:
+  - &id001
+    name: channels
+    type: channel_list
+    optional: true
+    default:
+    - 1
+- header: :MEASure:VOLTage[:DC]
+  op: ch.trig.read
+  set: false
+  args:
+    elements:
+    - VOLT
+  params:
+  - *id001
+- header: :MEASure:CURRent[:DC]
+  op: ch.trig.read
+  set: false
+  args:
+    elements:
+    - CURR
+  params:
+  - *id001
+- header: :MEASure:RESistance
+  op: ch.trig.read
+  set: false
+  args:
+    elements:
+    - RES
+  params:
+  - *id001
+- header: :FETCh:ARRay
+  op: ch.trig.fetch
+  set: false
+  args:
+    elements: $format.elements.sense
+  params:
+  - *id001
+- header: :FETCh:ARRay:VOLTage
+  op: ch.trig.fetch
+  set: false
+  args:
+    elements:
+    - VOLT
+  params:
+  - *id001
+- header: :FETCh:ARRay:CURRent
+  op: ch.trig.fetch
+  set: false
+  args:
+    elements:
+    - CURR
+  params:
+  - *id001
+- header: :FETCh:ARRay:RESistance
+  op: ch.trig.fetch
+  set: false
+  args:
+    elements:
+    - RES
+  params:
+  - *id001
+- header: :FETCh:ARRay:TIME
+  op: ch.trig.fetch
+  set: false
+  args:
+    elements:
+    - TIME
+  params:
+  - *id001
+- header: :FETCh:ARRay:STATus
+  op: ch.trig.fetch
+  set: false
+  args:
+    elements:
+    - STAT
+  params:
+  - *id001
+- header: :READ:ARRay
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements: $format.elements.sense
+  params:
+  - *id001
+- header: :READ:ARRay:VOLTage
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements:
+    - VOLT
+  params:
+  - *id001
+- header: :READ:ARRay:CURRent
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements:
+    - CURR
+  params:
+  - *id001
+- header: :READ:ARRay:RESistance
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements:
+    - RES
+  params:
+  - *id001
+- header: :READ:ARRay:TIME
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements:
+    - TIME
+  params:
+  - *id001
+- header: :READ:ARRay:STATus
+  op: ch.trig.read
+  set: false
+  dangerous: true
+  args:
+    elements:
+    - STAT
+  params:
+  - *id001
+- header: :TRACe<ch>:CLEar
+  op: ch.mem.clear
+  query: false
+- header: :TRACe<ch>:POINts:ACTual
+  op: ch.mem.actual
+  set: false
+- header: :TRACe<ch>:DATA
+  op: ch.mem.data
+  set: false
+  args:
+    elements: $format.elements.sense
+- header: :TRIGger<ch>[:ALL]:SOURce[:SIGNal]
+  state: ch.trigger.source
+- header: :TRIGger<ch>:ACQuire:SOURce[:SIGNal]
+  state: ch.trigger.source
+- header: :TRIGger<ch>:TRANsient:SOURce[:SIGNal]
+  state: ch.trigger.source
+- header: :TRIGger<ch>[:ALL]:COUNt
+  state: ch.trigger.count
+- header: :TRIGger<ch>:ACQuire:COUNt
+  state: ch.trigger.count
+- header: :TRIGger<ch>:TRANsient:COUNt
+  state: ch.trigger.count
+- header: :TRIGger<ch>[:ALL]:DELay
+  state: ch.trigger.delay
+- header: :TRIGger<ch>:ACQuire:DELay
+  state: ch.trigger.delay
+- header: :TRIGger<ch>:TRANsient:DELay
+  state: ch.trigger.delay
+- header: :INITiate[:IMMediate][:ALL]
+  op: ch.trig.initiate
+  query: false
+  dangerous: true
+  params:
+  - *id001
+- header: :INITiate[:IMMediate]:ACQuire
+  op: ch.trig.initiate
+  query: false
+  dangerous: true
+  params:
+  - *id001
+- header: :ABORt[:ALL]
+  op: ch.trig.abort
+  query: false
+  params:
+  - *id001
+- header: :ABORt:ACQuire
+  op: ch.trig.abort
+  query: false
+  params:
+  - *id001
+- header: :OUTPut<ch>[:STATe]
+  state: ch.output.enabled
+  dangerous: true
+- header: :DISPlay:ENABle
+  state: display.enabled
+- header: :DISPlay:DIGits
+  state: display.digits
+- header: :DISPlay:VIEW
+  state: display.view
+- header: :DISPlay:CSET
+  state: display.color_set
+- header: :DISPlay:ZOOM
+  state: display.zoom
+- header: :SYSTem:BEEPer:STATe
+  state: system.beeper
+- header: :SYSTem:FAN:MODE
+  state: system.fan
+- header: :SYSTem:COMMunicate:GPIB[:SELF]:ADDRess
+  state: system.gpib_address
+- header: :SYSTem:COMMunicate:LAN:DHCP
+  state: system.lan_dhcp
+- header: :LXI:IDENtify[:STATe]
+  state: system.lxi_identify
+- header: :FORMat[:DATA]
+  state: format.data
+- header: :FORMat:ELEMents:SENSe
+  state: format.elements.sense
+- header: :SYSTem:LFRequency
+  state: system.line_freq
+- header: :SYSTem:VERSion
+  state: system.scpi_version
+  set: false
+  format:
+    number: nr2
+    digits: 1
+    sign: false
+- header: :SYSTem:INTerlock:TRIPped
+  state: system.interlock
+  set: false
+- header: :SYSTem:DATA:QUANtity
+  op: ch.mem.points
+  set: false
+  params:
+  - *id001
+channels:
+  count: 2
+  lists:
+    descending: true
+channel_state:
+  source.function:
+    type: enum
+    options:
+    - VOLTage
+    - CURRent
+    default: VOLTage
+    electrical: true
+    label: 源功能
+    label_en: Source function
+    option_labels:
+      VOLTage: 电压源
+      CURRent: 电流源
+  source.voltage.level:
+    type: float
+    unit: V
+    min: -210.0
+    max: 210.0
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage level
+  source.current.level:
+    type: float
+    unit: A
+    min: -3.03
+    max: 3.03
+    default: 0.0
+    label: 电流设定
+    label_en: Current level
+  source.range_voltage:
+    type: float
+    unit: V
+    min: 0.2
+    max: 200.0
+    default: 2.0
+    label: 电压源量程
+    label_en: Voltage source range
+  source.range_current:
+    type: float
+    unit: A
+    min: 1.0e-08
+    max: 3.0
+    default: 0.0001
+    label: 电流源量程
+    label_en: Current source range
+  source.autorange_voltage:
+    type: bool
+    default: true
+    label: 电压源自动量程
+    label_en: Voltage source auto range
+  source.autorange_current:
+    type: bool
+    default: true
+    label: 电流源自动量程
+    label_en: Current source auto range
+  source.shape:
+    type: enum
+    options:
+    - DC
+    default: DC
+    label: 输出波形
+    label_en: Output shape
+  sweep.mode:
+    type: enum
+    options:
+    - FIXed
+    - SWEep
+    default: FIXed
+    label: 源模式
+    label_en: Source mode
+  sweep.start:
+    type: float
+    unit: V
+    min: -210.0
+    max: 210.0
+    default: 0.0
+    label: 扫描起始
+    label_en: Sweep start
+  sweep.stop:
+    type: float
+    unit: V
+    min: -210.0
+    max: 210.0
+    default: 0.0
+    label: 扫描终止
+    label_en: Sweep stop
+  sweep.points:
+    type: int
+    min: 1
+    max: 2500
+    default: 1
+    label: 扫描点数
+    label_en: Sweep points
+  compliance.current.limit:
+    type: float
+    unit: A
+    min: 0.0
+    max: 3.03
+    default: 0.0001
+    label: 电流限值
+    label_en: Current compliance
+  compliance.voltage.limit:
+    type: float
+    unit: V
+    min: 0.0
+    max: 210.0
+    default: 2.0
+    label: 电压限值
+    label_en: Voltage compliance
+  output.enabled:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  sense.remote:
+    type: bool
+    default: false
+    electrical: true
+    label: 远端检测
+    label_en: Remote sense
+  sense.nplc:
+    type: float
+    min: 0.0004
+    max: 100.0
+    default: 0.1
+    label: 积分时间
+    label_en: Integration time
+    display_unit: PLC
+  sense.range_auto:
+    type: bool
+    default: true
+    label: 测量自动量程
+    label_en: Measurement auto range
+  sense.range_voltage:
+    type: float
+    unit: V
+    min: 0.2
+    max: 200.0
+    default: 2.0
+    label: 电压测量量程
+    label_en: Voltage measurement range
+  sense.range_current:
+    type: float
+    unit: A
+    min: 1.0e-08
+    max: 3.0
+    default: 0.0001
+    label: 电流测量量程
+    label_en: Current measurement range
+  trigger.source:
+    type: enum
+    options:
+    - AINT
+    - BUS
+    default: AINT
+    label: 触发源
+    label_en: Trigger source
+  trigger.count:
+    type: int
+    min: 1
+    max: 100000
+    default: 1
+    label: 触发次数
+    label_en: Trigger count
+  trigger.delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 100.0
+    default: 0.0
+    label: 触发延迟
+    label_en: Trigger delay
+channel_components:
+- name: source
+  type: smu_source
+  params:
+    source_ranges:
+      VOLTage:
+      - 0.2
+      - 2.0
+      - 20.0
+      - 200.0
+      CURRent:
+      - 1.0e-08
+      - 1.0e-07
+      - 1.0e-06
+      - 1.0e-05
+      - 0.0001
+      - 0.001
+      - 0.01
+      - 0.1
+      - 1.0
+      - 1.5
+      - 3.0
+    range_limits:
+      VOLTage:
+        0.2: 3.03
+        2.0: 3.03
+        20.0: 1.515
+        200.0: 0.105
+      CURRent:
+        1.0e-08: 210.0
+        1.0e-07: 210.0
+        1.0e-06: 210.0
+        1.0e-05: 210.0
+        0.0001: 210.0
+        0.001: 210.0
+        0.01: 210.0
+        0.1: 210.0
+        1.0: 21.0
+        1.5: 21.0
+        3.0: 6.0
+    source_range_voltage: $ch.source.range_voltage
+    source_range_current: $ch.source.range_current
+    source_autorange_voltage: $ch.source.autorange_voltage
+    source_autorange_current: $ch.source.autorange_current
+    sweep_mode:
+      from: $ch.sweep.mode
+      map:
+        FIXed: NONE
+        SWEep: LINear
+    sweep_function: VOLTage
+    sweep_start: $ch.sweep.start
+    sweep_stop: $ch.sweep.stop
+    sweep_points: $ch.sweep.points
+- name: loop
+  type: output_control_loop
+  params:
+    function: $ch.source.function
+    v_level: $ch.source.voltage.level
+    i_level: $ch.source.current.level
+    i_limit: $ch.compliance.current.limit
+    v_limit: $ch.compliance.voltage.limit
+    output: $ch.output.enabled
+    envelope: source
+- name: out
+  type: smu_output
+  params:
+    output: $ch.output.enabled
+    remote_sense: $ch.sense.remote
+    floating: false
+    loop: loop
+- name: core
+  type: smu_meter
+  params:
+    source: source
+    loop: loop
+    output: out
+    nplc: $ch.sense.nplc
+    autozero: true
+    line_freq: $system.line_freq
+    delay: 0.0
+    buffer: mem
+    measure_ranges:
+      VOLTage:
+      - 0.2
+      - 2.0
+      - 20.0
+      - 200.0
+      CURRent:
+      - 1.0e-08
+      - 1.0e-07
+      - 1.0e-06
+      - 1.0e-05
+      - 0.0001
+      - 0.001
+      - 0.01
+      - 0.1
+      - 1.0
+      - 1.5
+      - 3.0
+    measure_range_voltage: $ch.sense.range_voltage
+    measure_range_current: $ch.sense.range_current
+    measure_autorange: $ch.sense.range_auto
+    overrange: 1.06
+    overload_value: 9.91e37
+- name: trig
+  type: trigger_model
+  params:
+    sampler: core
+    source:
+      from: $ch.trigger.source
+      map:
+        AINT: immediate
+        BUS: bus
+    trigger_count: $ch.trigger.count
+    sample_count: 1
+    delay: $ch.trigger.delay
+    buffer: mem
+    fetch_from_buffer: false
+- name: mem
+  type: reading_buffer
+  params:
+    capacity: 100000
+    when_full: stop
+    digits: 6
