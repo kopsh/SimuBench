@@ -40,10 +40,10 @@ sections:
     note: 服务请求使能寄存器。
   - header: '*STB'
     level: implemented
-    note: 状态字节；OPER/QUES 汇总位无来源（STATus 寄存器组未实现）。
+    note: 状态字节（位 2 错误队列、5 ESB、6 MSS）；OPER/QUES 汇总位无来源（STATus 寄存器组未实现，#539）。
   - header: '*TRG'
     level: not_modeled
-    note: 瞬变与测量触发系统未实现。
+    note: 瞬变与测量触发系统未实现（瞬变触发
   - header: '*TST'
     level: implemented
     note: 自检通过回复 0。
@@ -66,7 +66,7 @@ sections:
     note: 数据记录、直方图与文件系统未实现。
   - header: ABORt:TRANsient
     level: not_modeled
-    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
 - section: CALibrate
   commands:
   - header: CALibrate:COUNt
@@ -260,10 +260,10 @@ sections:
     note: 数据记录、直方图与文件系统未实现。
   - header: INITiate[:IMMediate]:TRANsient
     level: not_modeled
-    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
   - header: INITiate:CONTinuous:TRANsient
     level: not_modeled
-    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
 - section: LXI
   commands:
   - header: LXI:IDENtify[:STATe]
@@ -367,10 +367,10 @@ sections:
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
   - header: OUTPut:DELay:FALL
     level: not_modeled
-    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    note: 输出开/关时序延时未实现（power_output 没有按通道的延时，#540）。
   - header: OUTPut:DELay:RISE
     level: not_modeled
-    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    note: 输出开/关时序延时未实现（power_output 没有按通道的延时，#540）。
   - header: OUTPut:PMODE
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
@@ -593,7 +593,7 @@ sections:
       CV 模式的电流限值：负载要求超过它时转恒流。
   - header: '[:SOURce]:CURRent[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
-    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
   - header: '[:SOURce]:CURRent:LIMit[:POSitive][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
@@ -605,7 +605,7 @@ sections:
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
   - header: '[:SOURce]:CURRent:MODE'
     level: not_modeled
-    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
   - header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]'
     level: implemented
     note: 通道列表必需（省略报 -109）；0–0.255 s，*RST 0.020；与 OUTPut:PROTection:DELay 同一设定。
@@ -763,7 +763,7 @@ sections:
     note: 通道列表必需（省略报 -109）；0–51 V（额定 50 V 的 102 %）；负载要求超过模块额定功率（100 W）时输出按恒功率工作（#533）。
   - header: '[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
-    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
   - header: '[:SOURce]:VOLTage:BWIDth[:RANGe]'
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
@@ -787,7 +787,7 @@ sections:
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
   - header: '[:SOURce]:VOLTage:MODE'
     level: not_modeled
-    note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
   - header: '[:SOURce]:VOLTage:PROTection[:LOCal][:LEVel]'
     level: implemented
     note: 通道列表必需（省略报 -109）；0–60 V（额定的 120 %），*RST MAX；输出超过即关闭并锁存，OUTPut:PROTection:CLEar 清除。
@@ -834,37 +834,37 @@ sections:
   commands:
   - header: STATus:OPERation[:EVENt]
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:OPERation:CONDition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:OPERation:ENABle
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:OPERation:NTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:OPERation:PTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:PRESet
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:QUEStionable[:EVENt]
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:QUEStionable:CONDition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:QUEStionable:ENABle
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:QUEStionable:NTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
   - header: STATus:QUEStionable:PTRansition
     level: not_modeled
-    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位。
+    note: OPERation/QUEStionable 寄存器组未实现：组件不报告 OFF、OV、OC 等条件位（#539）。
 - section: SYSTem
   commands:
   - header: SYSTem:CHANnel[:COUNt]
@@ -994,7 +994,7 @@ sections:
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
   - header: TRIGger:TRANsient[:IMMediate]
     level: not_modeled
-    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
   - header: TRIGger:TRANsient:SOURce
     level: not_modeled
-    note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。

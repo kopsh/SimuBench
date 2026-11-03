@@ -472,8 +472,9 @@ cases:
       - query: "*SRE?"
         expect: "32"
       - send: ":FOO"
+      # 位 2 错误队列非空（4）+ 位 5 ESB（32，*ESE 含位 5）+ 位 6 MSS（64，*SRE 32）= 100（Table 8 Status Byte Register）
       - query: "*STB?"
-        expect_match: '^(100|96)$'
+        expect: "100"
       - send: "*CLS"
       - send: "*OPC"
       - query: "*ESR?"

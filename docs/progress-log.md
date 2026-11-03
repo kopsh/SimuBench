@@ -1155,3 +1155,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ `tests/test_keysight_n6705c.py::test_the_100_watt_envelope_limits_the_output`（N6752A 50 V/10 A 设定接 5 Ω：I = √20 A、P = 100 W）；`tests/test_power_supply.py::test_the_power_rating_holds_the_output_to_p_max`（sb-ps-1 通道 1 额定 26 W：6 V 接 1.2 Ω 进入 CP，降到 4 V 回到 CV）；E36312A 的矩形额定不受影响（全量测试不改通过） |
 | 文档 | ✅ component-map 的 power_stage 行；N6705C 覆盖表 VOLTage 条目去掉 #533 的限制说明 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## N6705C 的能力缺口登记与 *STB? 用例（Issue 536）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 缺口各有核心 issue，覆盖表引用编号 | ✅ 状态寄存器组 #539、输出开/关延时 #540、瞬变触发系统 #541（均登记在 #317 下）；N6705C 覆盖表的 `STATus:*`、`*STB`、`OUTPut:DELay:RISE/FALL`、`*TRG`、`INIT/TRIG/ABOR:TRANsient`、`VOLT|CURR:TRIGgered` 与 `:MODE` 条目注明编号 |
+| `*STB?` 用例断言单一值 | ✅ N6705C 与 8588A 的用例改为 `expect: "100"`（位 2 错误队列 + 位 5 ESB + 位 6 MSS），按各自手册的状态字节位定义 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
