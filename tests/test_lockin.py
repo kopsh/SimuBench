@@ -217,3 +217,29 @@ def test_the_reserve_widens_the_input_limit():
         assert drain(session, "lia") == ['325,"Input overload"']
     finally:
         session.close()
+
+
+def test_the_sine_dc_level_shifts_the_sine_output():
+    """#407 (SOFF): the DC level rides on the SINE_OUT drive — the net's DC is exactly the level,
+    the AC line is untouched, and with 0 the output is what it always was."""
+    b = bench(
+        {"lia": {"model": "sb-lia-1", "state": {"sine_out.enabled": True, "reference.frequency": 1000.0}}},
+        [{"from": "lia.SINE_OUT", "to": "lia.SIG_IN"}],
+    )
+    session = open_bench(b, definition_dirs=[DEFS])
+    try:
+        net = next(iter(session.nets))
+        base = session.net_signal(net).merged()
+        assert base.dc == pytest.approx(0.0, abs=1e-12)
+        assert [float(f) for f in base.freq] == [1000.0]
+        assert float(abs(base.amp[0])) == pytest.approx(1.0 * math.sqrt(2), rel=1e-4)  # 1 Vrms
+        session.set_parameter("lia", "osc", "dc_level", 0.25)
+        shifted = session.net_signal(net).merged()
+        # The loop SINE_OUT (50 Ω) into SIG_IN (10 MΩ) divides by 0.999995: the level rides along.
+        assert shifted.dc == pytest.approx(0.25, rel=1e-4)
+        assert [float(f) for f in shifted.freq] == [float(f) for f in base.freq]
+        assert [complex(a) for a in shifted.amp] == [complex(a) for a in base.amp]  # the AC untouched
+        session.set_parameter("lia", "osc", "dc_level", 0.0)
+        assert session.net_signal(net).merged().dc == pytest.approx(0.0, abs=1e-12)
+    finally:
+        session.close()
