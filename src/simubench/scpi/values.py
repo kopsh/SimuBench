@@ -10,7 +10,14 @@ import numpy as np
 from ..units import UnitError, format_nr3, parse_number
 from .errors import ScpiError
 
-SPECIAL_NUMERIC = {"MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT", "INF", "NINF", "NAN"}
+#: The numeric keywords every numeric parameter takes (IEEE 488.2 / SCPI). INFinity and NINFinity are
+#: the long forms of INF and NINF: both forms parse alike, so one word gets one error code (#360).
+SPECIAL_NUMERIC = {"MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT", "NAN"} | {
+    "INF",
+    "INFINITY",
+    "NINF",
+    "NINFINITY",
+}
 
 
 def short_form(word: str) -> str:
@@ -53,9 +60,9 @@ def parse_float(
             if default is None:
                 raise ScpiError(-224, "no default defined")
             return default
-        if up == "INF":
+        if up in ("INF", "INFINITY"):
             return math.inf
-        if up == "NINF":
+        if up in ("NINF", "NINFINITY"):
             return -math.inf
         return math.nan
     if unquote(raw) is not None:
@@ -85,6 +92,12 @@ def parse_bool(raw: bytes) -> bool:
         return round(float(t)) != 0
     except ValueError:
         raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {t!r}") from None
+
+
+def matches_word(text: str, word: str) -> bool:
+    """Whether ``text`` is the short or the long form of a mixed-case SCPI ``word``."""
+    t = text.strip().upper()
+    return t in (word.upper(), short_form(word))
 
 
 def parse_enum(raw: bytes, options: Sequence[str]) -> str:

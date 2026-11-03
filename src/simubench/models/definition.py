@@ -38,6 +38,13 @@ class StateSpec(_Model):
     special: dict[str, float] | None = Field(
         None, description="Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load"
     )
+    not_modeled: dict[str, str] | None = Field(
+        None,
+        description="Words the real instrument takes for this setting but the model does not implement, "
+        "with the reason, e.g. {INFinity: continuous scanning is not modeled} (SCPI mixed case: the short "
+        "and the long form both match). Writing one is refused with -224 as not modeled, instead of "
+        "being parsed as a number and rejected as out of range (#360)",
+    )
     replies: dict[str, str] | None = Field(
         None,
         description="Enum: the word a query answers for an option, when the instrument answers with a "
@@ -191,6 +198,11 @@ class ParamSpec(_Model):
         description="Settings this parameter writes along with its own when it is given, e.g. "
         "{sense.range_auto: false} for a range argument that leaves autorange; not written when the "
         "argument is DEF or a special word of the setting (AUTO)",
+    )
+    not_modeled: dict[str, str] | None = Field(
+        None,
+        description="Words the real instrument takes for this parameter but the model does not implement, "
+        "with the reason (as on a setting, #360); refused with -224 as not modeled",
     )
     keywords: dict[str, dict[str, Any]] | None = Field(
         None,

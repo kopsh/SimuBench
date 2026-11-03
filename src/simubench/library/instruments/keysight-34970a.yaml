@@ -290,6 +290,8 @@ state:
     max: 50000
     default: 1
     rst: 1
+    # INFinity（连续扫描）真机接受，模型未实现：报 -224 并标为未建模（#360）。
+    not_modeled: {INFinity: continuous scanning is not modeled}
     label: 扫描次数
     label_en: Scan count
   scan.interval:
