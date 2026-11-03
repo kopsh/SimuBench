@@ -109,8 +109,10 @@ def matches_word(text: str, word: str) -> bool:
     if t in (word.upper(), short_form(word)):
         return True
     nodes, words = t.split(":"), word.split(":")
-    return len(words) > 1 and len(nodes) == len(words) and all(
-        n in (w.upper(), short_form(w)) for n, w in zip(nodes, words, strict=True)
+    return (
+        len(words) > 1
+        and len(nodes) == len(words)
+        and all(n in (w.upper(), short_form(w)) for n, w in zip(nodes, words, strict=True))
     )
 
 

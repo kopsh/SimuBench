@@ -42,7 +42,13 @@ def session(parts: dict, wires: list, with_cal: bool = True):
     if with_cal:
         instruments["cal"] = {"model": "fluke-5522a"}
     bench = BenchDefinition.model_validate(
-        {"schema": "simubench.bench/2", "name": "t", "instruments": instruments, "parts": parts, "wires": wires}
+        {
+            "schema": "simubench.bench/2",
+            "name": "t",
+            "instruments": instruments,
+            "parts": parts,
+            "wires": wires,
+        }
     )
     s = Session(bench, lambda model: lib.get(model), clock="command", seed=7, idle="off")
 
@@ -78,7 +84,9 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
 def test_input_impedance_loads_a_source_resistance():
     """10 V behind 1 Mohm: Auto is >1 Tohm on the 10 V range (no visible loading), 10M halves
     nothing but takes 1/11, 1M (1.01 Mohm) about half."""
-    s, q = session({"rs": resistor(1.0e6)}, [{"from": "cal.OUT", "to": "rs.A"}, {"from": "rs.B", "to": "dmm.IN"}])
+    s, q = session(
+        {"rs": resistor(1.0e6)}, [{"from": "cal.OUT", "to": "rs.A"}, {"from": "rs.B", "to": "dmm.IN"}]
+    )
     try:
         q("cal", "OUT 10 V;OPER")
         q("cal", "*OPC?")
@@ -113,7 +121,11 @@ def test_input_impedance_loads_a_source_resistance():
 def test_two_wire_resistance_drives_the_specified_current(setup, r, range_, current):
     """The reading is V/I of the circuit; the voltage on the DUT is the measurement current of the
     specification table times R (seen by a second meter would be the same node voltage)."""
-    s, q = session({"dut": {"type": "load_resistor", "params": {"r": r}}}, [{"from": "dmm.IN", "to": "dut.A"}], with_cal=False)
+    s, q = session(
+        {"dut": {"type": "load_resistor", "params": {"r": r}}},
+        [{"from": "dmm.IN", "to": "dut.A"}],
+        with_cal=False,
+    )
     try:
         q("dmm", f":CONF:RES {range_}")
         q("dmm", setup)
@@ -128,7 +140,11 @@ def test_two_wire_resistance_drives_the_specified_current(setup, r, range_, curr
 
 
 def test_open_input_and_a_too_small_range_overload():
-    s, q = session({"dut": {"type": "load_resistor", "params": {"r": 5000.0}}}, [{"from": "dmm.IN", "to": "dut.A"}], with_cal=False)
+    s, q = session(
+        {"dut": {"type": "load_resistor", "params": {"r": 5000.0}}},
+        [{"from": "dmm.IN", "to": "dut.A"}],
+        with_cal=False,
+    )
     try:
         q("dmm", ":CONF:RES 1000")  # 5 kohm on the 1 kohm range (2.02 kohm full scale)
         assert q("dmm", ":READ?") == "+9.910000000E+37"
@@ -164,7 +180,9 @@ def test_four_wire_reads_past_the_lead_resistance():
 def test_current_flows_through_the_range_shunt():
     """1 V behind 1 kohm into the current input: the 1 mA range puts 10.5 ohm in the loop, the
     10 mA range 1.5 ohm (Product Specifications, DC Current Input Impedance, front)."""
-    s, q = session({"rs": resistor(1000.0)}, [{"from": "cal.OUT", "to": "rs.A"}, {"from": "rs.B", "to": "dmm.IN"}])
+    s, q = session(
+        {"rs": resistor(1000.0)}, [{"from": "cal.OUT", "to": "rs.A"}, {"from": "rs.B", "to": "dmm.IN"}]
+    )
     try:
         q("cal", "OUT 1 V;OPER")
         q("cal", "*OPC?")
