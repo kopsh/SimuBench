@@ -85,6 +85,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The version comes from the date tags (D58): the full history with its tags.
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.12"
@@ -106,6 +109,30 @@ jobs:
           VIRTUAL_ENV=/tmp/wheel-env uv pip install dist/simubench-*.whl
           cd /tmp && /tmp/wheel-env/bin/simubench doctor --workspace "$GITHUB_WORKSPACE/examples"
           /tmp/wheel-env/bin/python -c "import simubench.server.app as a; assert (a.WEB_DIST / 'index.html').exists(), a.WEB_DIST"
+      - name: The wheel carries the git version and its commit (D58)
+        run: |
+          /tmp/wheel-env/bin/python -c "import simubench as s, sys; print(s.__version__, s.__commit_id__); assert s.__version__ != '0+unknown'; assert s.__commit_id__ == sys.argv[1]" "$GITHUB_SHA"
+      - name: The changelog is beside the wheel and inside it (D58)
+        run: |
+          test -s dist/CHANGELOG.md
+          cd /tmp && /tmp/wheel-env/bin/simubench changelog | cmp - "$GITHUB_WORKSPACE/dist/CHANGELOG.md"
+
+  tag:
+    # Every commit on main gets its date tag vYYYY.M.D.N, which is the version a build of it carries
+    # (D58, scripts/release_tags.py). Not gated on the tests: the tag names the commit, it does not
+    # vouch for it. Idempotent, and a run cancelled by a newer push is caught up by the next one.
+    # No GitHub Release: the changelog is written when the wheel is built (scripts/build-wheel.sh).
+    name: Date tag
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag the untagged commits of main
+        run: python3 scripts/release_tags.py --push
 
   slow:
     name: Slow tests (Textual boot, load-sensitive)

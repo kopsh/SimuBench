@@ -37,6 +37,8 @@ simubench doctor                                 # 检查安装
 simubench serve --workspace 我的测试台目录 --open
 ```
 
+版本号由 git 给出（D58）：`main` 上每个提交都有日期 tag `vYYYY.M.D.N`，在它上面构建得到 `simubench-YYYY.M.D.N`；构建需要带 tag 的 git 历史，或 GitHub zip / `git archive` 导出的源码。改了什么（只列产品变更，按版本）：构建时写在 wheel 旁边的 `dist/CHANGELOG.md`，安装后 `simubench changelog`；在源码里 `python scripts/changelog.py [--since <版本>]`。
+
 ### 从脚本连接
 
 会话中的每台仪表同时以两种方式可达（启动时输出地址表）：
@@ -120,7 +122,7 @@ simubench replay runs/run-20261027T120000-abcd1234.jsonl   # 逐条比较回复�
 
 ```bash
 simubench doctor --workspace benches     # 健康检查，失败时退出码 1
-simubench version --full                 # 版本清单：依赖、仪表定义及其哈希
+simubench version --full                 # 版本清单：版本与构建它的提交、依赖、仪表定义及其哈希
 simubench diagnose --out diag.zip --record-dir runs   # 诊断包（不含访问令牌）
 simubench serve --log-format json --log-file simubench.log
 ```

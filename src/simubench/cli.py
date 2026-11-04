@@ -252,6 +252,20 @@ def _version(args: argparse.Namespace) -> int:
     return 0
 
 
+def _changelog(args: argparse.Namespace) -> int:
+    """Print the changelog the wheel was built with (D58); a source checkout has none."""
+    path = Path(__file__).with_name("CHANGELOG.md")
+    if not path.is_file():
+        print(
+            "no changelog in this installation: it is written when the wheel is built "
+            "(scripts/build-wheel.sh); in a checkout run python scripts/changelog.py",
+            file=sys.stderr,
+        )
+        return 1
+    sys.stdout.write(path.read_text(encoding="utf-8"))
+    return 0
+
+
 def _migrate(args: argparse.Namespace) -> int:
     """Report (and with --write, apply) format upgrades; exit 1 when a file cannot be read."""
     import yaml
@@ -638,6 +652,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--workspace", help="include this workspace's own definitions")
     p.set_defaults(fn=_version)
+
+    p = sub.add_parser("changelog", help="what changed for the user, by version (built into the wheel)")
+    p.set_defaults(fn=_changelog)
 
     p = sub.add_parser("doctor", help="check that SimuBench can run here (exit 1 on a failure)")
     p.add_argument("--workspace", help="also validate the bench files in this folder")

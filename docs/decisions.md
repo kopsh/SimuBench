@@ -364,7 +364,7 @@
 ## D38 运维：结构化日志、版本清单、健康检查、诊断包
 
 - **日志**：`--log-format json` 每行一个 JSON 对象（UTC 时间、级别、来源、消息与附加字段），`--log-file` 另存文件；进程内保留最近 2000 条 info 及以上的记录，供诊断包使用。
-- **版本清单**：`simubench version --full` 与 `/api/manifest`：引擎、Python、平台、主要依赖版本、每个仪表定义的版本与哈希、界面构建的哈希、工作区与运行记录目录。与运行记录头部的定义哈希一起，可判断两次运行的差异是否来自版本。
+- **版本清单**：`simubench version --full` 与 `/api/manifest`：引擎（版本与构建它的提交，D58）、Python、平台、主要依赖版本、每个仪表定义的版本与哈希、界面构建的哈希、工作区与运行记录目录。与运行记录头部的定义哈希一起，可判断两次运行的差异是否来自版本。
 - **健康检查**：`simubench doctor`（退出码 1 表示有失败项）与界面“关于与诊断”：Python 版本、依赖、MCP、PyVISA 后端注册、仪表定义、界面构建、工作区中的测试台文件、端口、临时目录；每项说明如何修复。
 - **指标**：`/api/metrics` 以 Prometheus 文本格式给出会话数、各会话按类型的事件计数、电路求解次数与耗时、虚拟时间。
 - **保真度标注**：会话信息中每个网络附带其信号的保真度说明（谱线截断等）；画布上该网络的连线标 ≈，悬停显示原因。说明只随信号到达的网络传播。
@@ -524,3 +524,10 @@
 - **结论**：接口的响应对象可以由引擎定义（pydantic、frozen），`models/api.py` 原样 re-export 为 response_model：`SourceLine`/`SourceContribution` 定义在 `engine/circuit.py`（与 `source_contributions` 同居），`SpectralLine` 定义在 `engine/signal.py`。引擎侧模型配置镜像 `api._Model`（frozen 加 serialize-defaults-required），生成物不变。import 方向 `models/api.py → engine.*`，与 `EditOp` 先例同向，不成环。
 - **理由**：`manager.probe` 曾在服务层手写约 60 行分解数学并逐字段组 DTO，还直调私有 `_solve()`——按源分解是引擎侧知识（「为什么是这个值」，D16/D37），与 `transfer()` 同居才可直接单测。备选一维持 dataclass + manager 显式映射（同一份字段表两处写，漂移只是时间问题）；备选二让 api 定义模型、引擎返回字典（映射仍在，引擎测试断言字典形状）。均不采用。
 - **影响**：`probe` 无私有调用、无逐字段映射，只剩波形采样等视图性计算；`source_contributions` 有双源手算单元测试（幅值、增益、相位、RMS）。D21 的实践边界更新：引擎可定义契约模型；事件投影的收敛（候选 7）有先例可循。
+
+## D58 版本号：按日期 tag 从 git 生成；变更记录只收产品变更
+
+- **结论**：版本号不写在源码里，构建时由 hatch-vcs 从 git 读出。`main` 的 CI 给每个提交打 `vYYYY.M.D.N`（`scripts/release_tags.py`）：日期是提交日期（UTC+8），N 是当天 `main` 上第几个提交；同一个提交在哪里、何时构建都是同一个版本。两个 tag 之间的提交是下一号的 `.devN`。不带 `+g<sha>` 后缀；构建它的提交写进 `_version.py`（`hatch_build.py`），由版本清单（D38）给出。没有 `.git` 时（GitHub zip、`git archive`）从 `.git_archival.txt` 得到 tag 与提交。
+- **变更记录**：构建时生成，随包交付，不用 GitHub Release（内部看不到 GitHub，#587）。`scripts/build-wheel.sh` 用 `scripts/changelog.py`（只用标准库与 git，内部构建不需要额外的包）写出 `dist/CHANGELOG.md`，同一份打进 wheel，安装后 `simubench changelog` 离线查看。按提交改动的路径筛选：只列改到 `src/`、`web/src/`、`examples/`、`pyproject.toml`、`web/package.json` 的提交，即进 wheel 的内容；只改 CI、测试、用例、文档、skill 的提交不列。尚未打 tag 的提交归在正在构建的版本下。条目就是 PR 标题（squash 合并），所以 PR 标题写用户看得懂的变更（AGENTS.md）。需要带 tag 的完整 git 历史；zip 或浅克隆构建照常完成，只是没有变更记录。
+- **理由**：代码在外部开发，wheel 在公司内部构建；写死的 `0.1.0` 让每次构建同名，`pip` 不升级、内部源拒绝重复上传。版本与变更记录都由外部从 git 自动得出，内部只构建，不需要手工步骤，也不需要把内部信息传回外部。备选一语义版本（`0.x.y`）手工升级：要有人判断并记得改，内外两边都可能是那个人。备选二按构建日期：同一份源码不同天构建版本不同，版本不能对应提交。备选三按提交标题前缀筛选变更记录：前缀写法不统一（`CI`、`docs`、`测试`、型号名……），会漏进噪声。备选四变更记录发在 GitHub Release：内部看不到。均不采用。
+- **代价**：版本号不表达兼容性；不兼容的文件格式靠 `schema` 版本（D40）明确报错。日期版本比任何 `0.x` 都大，以后改回语义版本只能从更大的主版本开始。

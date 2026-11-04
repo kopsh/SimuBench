@@ -1,6 +1,6 @@
 [project]
 name = "simubench"
-version = "0.1.0"
+dynamic = ["version"]
 description = "SimuBench: software-defined virtual instrument benches"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,13 +43,24 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+# The version comes from git (D58): the date tag vYYYY.M.D.N that main's CI puts on every commit
+# (scripts/release_tags.py). Between tags it is the next number's .devN. No +g<sha> suffix: the
+# commit is in _version.py instead (simubench version --full).
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+# Writes src/simubench/_version.py: the version above and the commit it was built from (hatch_build.py).
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simubench", "src/pyvisa_simubench"]
-# The built UI, copied in by scripts/build-wheel.sh (git-ignored, so listed as an artifact).
-artifacts = ["src/simubench/web_dist/**"]
+# The built UI and the changelog, written by scripts/build-wheel.sh (git-ignored, so listed as
+# artifacts).
+artifacts = ["src/simubench/web_dist/**", "src/simubench/CHANGELOG.md"]
 
 [tool.hatch.build.targets.sdist]
 # The vendor manuals are for development only, never distributed (real-models.md 7).

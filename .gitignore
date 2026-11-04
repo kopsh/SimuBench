@@ -19,3 +19,5 @@ src/simubench/web_dist/
 .codegraph/
 snapshot_report.html
 .gh-cache/
+src/simubench/_version.py
+src/simubench/CHANGELOG.md
