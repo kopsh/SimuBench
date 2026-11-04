@@ -16,6 +16,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
 
+from ..scpi.errors import ScpiError
 from .signal import Signal
 
 if TYPE_CHECKING:
@@ -298,17 +299,31 @@ class Component:
                     pass
         return value
 
-    def peer(self, name: str) -> Component | None:
+    def peer(self, name: str, *, required: bool = False) -> Component | None:
         """The component another one names (a ``refs`` parameter): for a channel component its own
         channel's ``ch<n>.<name>`` first, then the instrument-level ``name`` (#382). None when the
-        name is empty or names nothing."""
+        name is empty or names nothing; ``required=True`` raises a -300 naming the lookup instead —
+        for a ref the definition must fill (not in ``optional_refs``) it cannot legitimately miss."""
         if not name or self.owner is None:
+            if required:
+                raise ScpiError(-300, f"{self.uid}: {name!r} is not a component of this instrument")
             return None
+        comp = None
         if self.channel is not None:
             comp = self.owner.components.get(f"ch{self.channel}.{name}")
-            if comp is not None:
-                return comp
-        return self.owner.components.get(name)
+        if comp is None:
+            comp = self.owner.components.get(name)
+        if comp is None and required:
+            raise ScpiError(-300, f"{self.uid}: {name!r} is not a component of this instrument")
+        return comp
+
+    def ref(self, key: str) -> Component | None:
+        """The component a ``refs`` parameter names — the sibling accessor the declaration yields:
+        :meth:`peer` on the parameter's value, required unless the ref is in ``optional_refs``."""
+        name = str(self.param(key) or "")
+        if not name and key in self.optional_refs:
+            return None
+        return self.peer(name, required=key not in self.optional_refs)
 
     def resolve_path(self, path: str) -> str:
         """Expand channel-relative state paths: 'ch.scale' -> 'ch2.scale' for channel 2."""
@@ -324,6 +339,12 @@ class Component:
             if ref is not None:
                 out[key] = self.resolve_path(ref)
         return out
+
+    def bound_path(self, key: str) -> str | None:
+        """The resolved state path one parameter binds, None when the parameter is not bound
+        (:meth:`bound_paths` for one key) — how a component writes the setting a parameter tracks."""
+        ref = binding_of(self._params.get(key))
+        return None if ref is None else self.resolve_path(ref)
 
     # ---- signal flow -------------------------------------------------------------------------
 
@@ -357,9 +378,12 @@ class Component:
 
     # ---- lifecycle ---------------------------------------------------------------------------
 
-    def on_state(self, path: str, old: Any, new: Any) -> Any:
-        """Called after a bound state variable changed; raise ScpiError to refuse the change, or
-        return the value to keep instead (e.g. the nearest legal one). None keeps ``new``."""
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
+        """Called after a state variable a parameter binds changed; ``key`` is that parameter's
+        name (the first one bound to the path when several bind it), None when the change reached
+        the component through ``watches`` or a nested mapping instead. ``path`` is the state path.
+        Raise ScpiError to refuse the change, or return the value to keep instead (e.g. the nearest
+        legal one). None keeps ``new``."""
 
     def check_settings(self) -> None:
         """After a command that writes several settings at once (a ``quantities`` command such as

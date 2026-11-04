@@ -94,8 +94,7 @@ class EloadModeLoop(Component):
         self._cv_hold = True  # CV clamp allowed to conduct (False once it would source)
 
     def _stage(self) -> EloadPowerStage:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("stage"))]  # type: ignore[return-value]
+        return self.ref("stage")  # type: ignore[return-value]
 
     # ---- the CC slew -----------------------------------------------------------------------------
 
@@ -113,9 +112,8 @@ class EloadModeLoop(Component):
             return min(self._ramp_target, self._ramp_from + step)
         return max(self._ramp_target, self._ramp_from - step)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        if bound.get(path) == "current":
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key == "current":
             # Anchor the ramp at the level the old setpoint had reached.
             self._ramp_from = self._level()
             self._ramp_target = float(new)
@@ -198,12 +196,10 @@ class EloadInput(Component):
     piecewise = True
 
     def _loop(self) -> EloadModeLoop:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("loop"))]  # type: ignore[return-value]
+        return self.ref("loop")  # type: ignore[return-value]
 
     def _protection(self) -> EloadProtection:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("protection"))]  # type: ignore[return-value]
+        return self.ref("protection")  # type: ignore[return-value]
 
     def enabled(self) -> bool:
         return bool(self.param("enabled"))
@@ -330,8 +326,7 @@ class EloadMeter(Component):
     }
 
     def _input(self) -> EloadInput:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("input"))]  # type: ignore[return-value]
+        return self.ref("input")  # type: ignore[return-value]
 
     @op("measure")
     def op_measure(self, what: str = "voltage", **_: Any) -> OpResult:

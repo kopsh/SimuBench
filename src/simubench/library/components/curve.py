@@ -93,8 +93,7 @@ class CurveBuffer(Component):
 
     def _value(self, spec: str, t_ns: int) -> float:
         name, _, quantity = str(spec).partition(".")
-        assert self.owner is not None
-        comp = self.owner.components.get(name)
+        comp = self.peer(name)
         if comp is None or not hasattr(comp, "trace_value"):
             raise ValueError(f"{self.uid}: trace source {spec!r} is not a component with trace values")
         return float(comp.trace_value(quantity, t_ns))

@@ -42,10 +42,6 @@ def _sign(x: float) -> float:
     return 1.0 if x >= 0 else -1.0
 
 
-def _flag(value: Any) -> bool:
-    return value if not isinstance(value, str) else value.upper() in ("1", "ON", "TRUE")
-
-
 @component("smu_source")
 class SmuSource(Component):
     """The source DAC's setting (#184 B1): source range, the sweep, and the range envelope.
@@ -110,7 +106,7 @@ class SmuSource(Component):
         ranges = ranges_of(self.param("source_ranges"), function)
         if not ranges:
             return None
-        if not _flag(self._per_function(function, "source_autorange", "source_autorange")):
+        if not V.flag(self._per_function(function, "source_autorange", "source_autorange")):
             return range_of_setting(ranges, self.manual_source_range(function))
         return fitting_range(ranges, abs(level))
 
@@ -164,7 +160,7 @@ class SmuSource(Component):
 
     def _list_path(self, function: str) -> str:
         key = "list_current" if str(function).upper().startswith("CURR") else "list_voltage"
-        path = self.bound_paths().get(key)
+        path = self.bound_path(key)
         if path is None:
             raise ScpiError(-113, "the list is not a setting of this definition")
         return path
@@ -339,9 +335,8 @@ class OutputControlLoop(Component):
         self.mode = "V" if self.forcing_voltage() else "I"
         self.limit_sign = 1.0
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        if bound.get(path) in ("function", "output"):
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key in ("function", "output"):
             self.restart()
 
     def reset(self) -> None:
@@ -498,9 +493,8 @@ class SmuOutput(Component):
         current = self.session.source_current(self.uid + "/v") if loop.mode == "V" else 0.0
         return loop.update_mode(metered, current)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        if bound.get(path) in ("remote_sense", "floating"):
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key in ("remote_sense", "floating"):
             # A re-wired sense starts from the setpoint's own loop (D34).
             self._loop().restart()
 
@@ -597,7 +591,7 @@ class SmuMeter(Component):
         ranges = ranges_of(self.param("measure_ranges"), function)
         if not ranges:
             return None
-        if not _flag(self.param("measure_autorange")):
+        if not V.flag(self.param("measure_autorange")):
             manual = self.param("measure_range_voltage" if function == "VOLTage" else "measure_range_current")
             return range_of_setting(ranges, manual)
         r = auto_range(
@@ -738,9 +732,8 @@ class SmuMeter(Component):
 
     # ---- state, reset and operations -------------------------------------------------------------
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        if bound.get(path) == "line_freq" and float(new) not in (50.0, 60.0):
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key == "line_freq" and float(new) not in (50.0, 60.0):
             raise ScpiError(-222, "line frequency is 50 or 60 Hz")
 
     def reset(self) -> None:
@@ -766,12 +759,12 @@ class SmuMeter(Component):
 
     def _set_functions(self, keys: list[str], on: bool) -> None:
         assert self.owner is not None
-        bound = self.bound_paths()
-        missing = [k for k in keys if k not in bound]
+        paths = {k: self.bound_path(k) for k in keys}
+        missing = [k for k, p in paths.items() if p is None]
         if missing:
             raise ScpiError(-113, "the measurement functions are not settings of this definition")
         for key in keys:
-            self.owner.set_state(bound[key], on)
+            self.owner.set_state(paths[key], on)
 
     def _function_list(self, on: bool) -> bytes:
         names = [short for short, key in self.FUNCTIONS if self._enabled()[key] is on]
@@ -850,7 +843,7 @@ class SmuMeter(Component):
         ranges = ranges_of(self.param("measure_ranges"), function)
         if not ranges:
             raise ValueError(f"{self.uid}: no measure ranges for the {function} function")
-        if _flag(self.param("measure_autorange")):
+        if V.flag(self.param("measure_autorange")):
             r = self._auto_range.get(function)
             if r is None:
                 v, i = self.reading()

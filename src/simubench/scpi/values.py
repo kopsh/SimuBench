@@ -103,6 +103,15 @@ def parse_bool(raw: bytes) -> bool:
         raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {t!r}") from None
 
 
+def flag(value: Any) -> bool:
+    """A boolean-ish value as a plain bool: real booleans and numbers as themselves (so 1 is
+    True, like the runtime's ``bool(value)``), ON/OFF/1/0 words as their meaning. Components read
+    one boolean setting through this, not through five private spellings."""
+    if isinstance(value, str):
+        return value.strip().upper() in ("1", "ON", "TRUE")
+    return bool(value)
+
+
 def matches_word(text: str, word: str) -> bool:
     """Whether ``text`` is the short or the long form of a mixed-case SCPI ``word``; quotes around
     ``text`` do not count (a string parameter, ``"CAP"``). A compound word (``VOLTage:AC``, the

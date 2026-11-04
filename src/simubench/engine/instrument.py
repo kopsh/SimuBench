@@ -256,20 +256,27 @@ class Instrument:
 
         # state path -> components bound to it
         self._watchers: dict[str, list[Component]] = defaultdict(list)
+        # state path -> {component: the parameter the change arrives through} for ``on_state``
+        # (None: through ``watches`` or a nested mapping; the first binding wins when several of a
+        # component's parameters bind the path, #436)
+        self._watch_param: dict[str, dict[str, str | None]] = defaultdict(dict)
         for comp in self.components.values():
-            for path in comp.bound_paths().values():
+            for key, path in comp.bound_paths().items():
                 # once per component, however many of its parameters bind the path (#436: a load
                 # setting bound both as the level's load and as its range table's key)
                 if comp not in self._watchers[path]:
                     self._watchers[path].append(comp)
+                self._watch_param[path].setdefault(comp.uid, key)
             for path in comp.watched_paths():
                 # the settings inside a nested mapping too (the 8588A's input impedance under the
                 # function, #340)
                 if path in self.specs and comp not in self._watchers[path]:
                     self._watchers[path].append(comp)
+                    self._watch_param[path].setdefault(comp.uid, None)
             for path in comp.watches:  # read by path, still told of changes (#274)
                 if path in self.specs and comp not in self._watchers[path]:
                     self._watchers[path].append(comp)
+                    self._watch_param[path].setdefault(comp.uid, None)
 
         # ---- signal wiring: (dst component, dst port) -> (src component, src port) ----
         self._upstream: dict[tuple[str, str], tuple[str, str]] = {}
@@ -430,7 +437,7 @@ class Instrument:
             for comp in self._watchers.get(path, ()):
                 # A component may take a value outside its legal range as the nearest legal one
                 # (it returns that value) instead of refusing it.
-                adjusted = comp.on_state(path, old, value)
+                adjusted = comp.on_state(self._watch_param.get(path, {}).get(comp.uid), path, old, value)
                 if adjusted is not None and adjusted != value:
                     value = self._validate(spec.model_copy(update={"readonly": False}), adjusted)
                     self.state[path] = value

@@ -178,15 +178,9 @@ class ScopeVertical(Component):
         name = str(self.param("store") or "")
         if not name:
             return None
-        assert self.owner is not None
-        names = [name]
-        if self.channel is not None:
-            names.insert(0, f"ch{self.channel}.{name}")  # a channel's store: ch2.cal
-        for candidate in names:
-            store = self.owner.components.get(candidate)
-            if store is not None:
-                return store  # type: ignore[no-any-return]
-        raise ScpiError(-300, f"{self.uid}: store {name!r} is not a component of this instrument")
+        store = self.peer(name, required=True)
+        assert store is not None
+        return store  # type: ignore[no-any-return]
 
     def correct(self, volts: np.ndarray) -> np.ndarray:
         """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
@@ -221,12 +215,11 @@ class ScopeVertical(Component):
             )
         store.calibrate(corrections)
 
-    def on_state(self, path: str, old: Any, new: Any) -> Any:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         """Refuse a scale or offset outside its range, or with ``out_of_range: clamp`` take the
         nearest legal value (a smaller scale also pulls the offset in). A probe change scales both
         together (the probe setting moves the display values, not the input), so it is not checked."""
-        bound = self.bound_paths()
-        if path == bound.get("probe_ratio"):
+        if key == "probe_ratio":
             return None
         ranges, limits = self.param("scale_range"), self.param("offset_ranges")
         if ranges is None and limits is None:
@@ -237,7 +230,7 @@ class ScopeVertical(Component):
         if ranges is not None:
             lo, hi = (float(x) for x in ranges)
             if not lo * (1 - 1e-9) <= scale <= hi * (1 + 1e-9):
-                if clamp and path == bound.get("scale"):
+                if clamp and key == "scale":
                     return min(max(scale, lo), hi) * ratio
                 raise ScpiError(-222, f"scale outside {lo:g}..{hi:g} V/div at the input")
         if limits is not None:
@@ -247,10 +240,11 @@ class ScopeVertical(Component):
             offset = float(self.param("offset")) / ratio
             if abs(offset) > limit * (1 + 1e-9):
                 nearest = math.copysign(limit, offset) * ratio
-                if clamp and path == bound.get("offset"):
+                if clamp and key == "offset":
                     return nearest
-                if clamp and self.owner is not None and "offset" in bound:
-                    self.owner.set_state(bound["offset"], nearest, internal=True)
+                offset_path = self.bound_path("offset")
+                if clamp and self.owner is not None and offset_path is not None:
+                    self.owner.set_state(offset_path, nearest, internal=True)
                     return None
                 raise ScpiError(-222, f"offset outside +-{limit:g} V at this scale (at the input)")
         return None
@@ -300,7 +294,7 @@ class ScopeProbe(Component):
         that follows is; the ``rescales`` settings scale with it (the display shows probe-tip
         volts). The query answers the ratio in the definition's number format."""
         assert self.owner is not None
-        path = self.bound_paths().get("ratio")
+        path = self.bound_path("ratio")
         if path is None:
             raise ScpiError(-300, f"{self.uid}: ratio names no setting")
         if query:
@@ -322,9 +316,9 @@ class ScopeProbe(Component):
         self.owner.set_state(path, ratio)  # the display settings follow it (on_state)
         return OpResult()
 
-    def on_state(self, path: str, old: Any, new: Any) -> Any:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         """The ``rescales`` settings follow a change of the ratio, however it is written."""
-        if path != self.bound_paths().get("ratio") or self.owner is None or not old:
+        if key != "ratio" or self.owner is None or not old:
             return None
         k = float(new) / float(old)
         for ref in self.param("rescales") or []:
@@ -498,10 +492,10 @@ class ScopeTimebase(Component):
         self._ref_error = 0.0  # fractional frequency error of the reference in use
         self._ref_locked = False
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         """Refuse a delay outside ``delay_range_divs`` (-222, the old value kept)."""
         limits = self.param("delay_range_divs")
-        if limits is None or path != self.bound_paths().get("delay"):
+        if limits is None or key != "delay":
             return
         tb = float(self.param("scale"))
         lo, hi = (float(x) * tb for x in limits)
@@ -674,11 +668,11 @@ class ScopeTrigger(_ChannelBound):
     def reset(self) -> None:
         self.last_ns = None
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         """Refuse a level off the source channel's screen by more than ``level_range_divs``
         divisions around its offset (-222, the old value kept)."""
         divs = self.param("level_range_divs")
-        if divs is None or path != self.bound_paths().get("level"):
+        if divs is None or key != "level":
             return
         n = self.source_channel()
         acq = next(
@@ -1124,11 +1118,8 @@ class ScopeAcquisition(Component):
     # ---- the modules ------------------------------------------------------------------------------
 
     def _module(self, key: str, name: str | None = None) -> Any:
-        assert self.owner is not None
-        name = name or str(self.param(key))
-        comp = self.owner.components.get(name)
-        if comp is None:
-            raise ScpiError(-300, f"{self.uid}: {key} {name!r} is not a component of this instrument")
+        comp = self.peer(name or str(self.param(key)), required=True)
+        assert comp is not None
         return comp
 
     def horizontal(self) -> ScopeTimebase:
@@ -2203,7 +2194,7 @@ class ScopeMeasurements(Component):
 
     def _acq(self) -> ScopeAcquisition:
         assert self.owner is not None
-        return self.owner.components[str(self.param("record"))]  # type: ignore[return-value]
+        return self.ref("record")  # type: ignore[return-value]
 
     def _channel(self, channel: int | None, source: Any = None) -> int:
         if isinstance(source, list):  # raw parameters: [<interval>][,<type>][,<source>]
@@ -2385,7 +2376,7 @@ class ScopeMeasurements(Component):
 
     def _follow(self, n: int, source: Any) -> None:
         """A measurement that names its source makes it the default one (the bound ``source``)."""
-        path = self.bound_paths().get("source")
+        path = self.bound_path("source")
         if not source or path is None or self.owner is None:
             return
         options = self.owner.specs[path].options or []
