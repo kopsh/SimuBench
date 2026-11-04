@@ -78,7 +78,8 @@ sections:
     note: 当前量程的名字（Table 6-7：DC220MV、DC2_2V、DC11V、DC22V、DC220V、DC1100V；AC2_2MV … AC1100V）：锁定时为锁定的量程，否则为幅值所在的最小量程（#552）。
   - header: RANGELCK
     level: implemented
-    note: ON 锁定当前量程：超出满度报 803、低于量程最小值（1100 V 量程 100 V）报 804，输出不变；OFF 恢复自动量程；改变输出功能自动解锁；*RST 解锁（#552）。量程或极性改变多
+    note: ON 锁定当前量程：超出满度报 803、低于量程最小值（1100 V 量程 100 V——第 1 章 Supplemental
+      Characteristics 的 Minimum Output 行「0 V for all ranges, except 100 V for 1100 V range」，#560）报 804，输出不变；OFF 恢复自动量程；改变输出功能自动解锁；*RST 解锁（#552）。量程或极性改变多
       1 s 建立时间。
   - header: LCOMP_52120
     level: not_modeled

@@ -242,6 +242,7 @@ commands:
   - header: RANGE
     op: dac.range
     set: false
+    reply: "{name}"
     doc: 当前输出量程的名字（Table 6-7，例如 DC11V）。
   - header: RANGELCK
     state: out.range_lock
