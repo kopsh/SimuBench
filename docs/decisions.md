@@ -528,6 +528,6 @@
 ## D58 版本号：按日期 tag 从 git 生成；变更记录只收产品变更
 
 - **结论**：版本号不写在源码里，构建时由 hatch-vcs 从 git 读出。`main` 的 CI 给每个提交打 `vYYYY.M.D.N`（`scripts/release_tags.py`）：日期是提交日期（UTC+8），N 是当天 `main` 上第几个提交；同一个提交在哪里、何时构建都是同一个版本。两个 tag 之间的提交是下一号的 `.devN`。不带 `+g<sha>` 后缀；构建它的提交写进 `_version.py`（`hatch_build.py`），由版本清单（D38）给出。没有 `.git` 时（GitHub zip、`git archive`）从 `.git_archival.txt` 得到 tag 与提交。
-- **变更记录**：git-cliff（`cliff.toml`）按提交改动的路径筛选：只列改到 `src/`、`web/src/`、`examples/`、`pyproject.toml`、`web/package.json` 的提交，即进 wheel 的内容；只改 CI、测试、用例、文档、skill 的提交不列。条目就是 PR 标题（squash 合并），所以 PR 标题写用户看得懂的变更（AGENTS.md）。每个含产品变更的 tag 发一个 GitHub Release；任意两个版本之间用 `scripts/changelog.sh`。
-- **理由**：代码在外部开发，wheel 在公司内部构建；写死的 `0.1.0` 让每次构建同名，`pip` 不升级、内部源拒绝重复上传。版本与变更记录都由外部从 git 自动得出，内部只构建，不需要手工步骤，也不需要把内部信息传回外部。备选一语义版本（`0.x.y`）手工升级：要有人判断并记得改，内外两边都可能是那个人。备选二按构建日期：同一份源码不同天构建版本不同，版本不能对应提交。备选三按提交标题前缀筛选变更记录：前缀写法不统一（`CI`、`docs`、`测试`、型号名……），会漏进噪声。均不采用。
+- **变更记录**：构建时生成，随包交付，不用 GitHub Release（内部看不到 GitHub，#587）。`scripts/build-wheel.sh` 用 `scripts/changelog.py`（只用标准库与 git，内部构建不需要额外的包）写出 `dist/CHANGELOG.md`，同一份打进 wheel，安装后 `simubench changelog` 离线查看。按提交改动的路径筛选：只列改到 `src/`、`web/src/`、`examples/`、`pyproject.toml`、`web/package.json` 的提交，即进 wheel 的内容；只改 CI、测试、用例、文档、skill 的提交不列。尚未打 tag 的提交归在正在构建的版本下。条目就是 PR 标题（squash 合并），所以 PR 标题写用户看得懂的变更（AGENTS.md）。需要带 tag 的完整 git 历史；zip 或浅克隆构建照常完成，只是没有变更记录。
+- **理由**：代码在外部开发，wheel 在公司内部构建；写死的 `0.1.0` 让每次构建同名，`pip` 不升级、内部源拒绝重复上传。版本与变更记录都由外部从 git 自动得出，内部只构建，不需要手工步骤，也不需要把内部信息传回外部。备选一语义版本（`0.x.y`）手工升级：要有人判断并记得改，内外两边都可能是那个人。备选二按构建日期：同一份源码不同天构建版本不同，版本不能对应提交。备选三按提交标题前缀筛选变更记录：前缀写法不统一（`CI`、`docs`、`测试`、型号名……），会漏进噪声。备选四变更记录发在 GitHub Release：内部看不到。均不采用。
 - **代价**：版本号不表达兼容性；不兼容的文件格式靠 `schema` 版本（D40）明确报错。日期版本比任何 `0.x` 都大，以后改回语义版本只能从更大的主版本开始。
