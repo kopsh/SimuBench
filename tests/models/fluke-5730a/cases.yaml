@@ -85,6 +85,12 @@ cases:
         expect: "-222"
       - query: "OUT?"
         expect: "1.900000E+03,OHM,0.000000E+00"
+      # 负电阻没有意义：同越限一样拒绝，设定不变（#570）
+      - send: "OUT -1 OHM"
+      - query: "FAULT?"
+        expect: "-222"
+      - query: "OUT?"
+        expect: "1.900000E+03,OHM,0.000000E+00"
       - send: "OUT 5 V"
       - query: "OUT?"
         expect: "5.000000E+00,V,0.000000E+00"
