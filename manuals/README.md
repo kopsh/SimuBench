@@ -21,3 +21,4 @@
 | N6705C-90001 | Keysight N6705C DC Power Analyzer User's Guide | Edition 3, February 2019 | `keysight-n6705c` | https://tjr-lab.mit.edu/wp-content/uploads/2023/10/Keysight-N6705C-User-Manual-9018-01649.pdf |
 | N6700C-90901 | Keysight N6700C Low-Profile Modular Power System Operating and Service Guide（SCPI Programming Reference） | Edition 2, February 2019 | `keysight-n6705c` | https://static.chipdip.ru/lib/051/DOC036051960.pdf |
 | 5730A-omeng0100 | Fluke 5730A High Performance Multifunction Calibrator Operators Manual | August 2013 Rev. 1, 6/15 | `fluke-5730a` | https://docs.ampnuts.ru/eevblog.docs/Fluke/5730A/5730A___omeng0100.pdf |
+| 5522A-omeng0000 | Fluke 5522A Multi-Product Calibrator Operators Manual（PN 3795084） | January 2011 | `fluke-5522a` | https://docs.ampnuts.ru/eevblog.docs/Fluke/5522A/5522a___omeng0000.pdf |
