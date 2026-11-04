@@ -337,12 +337,65 @@ cases:
         instrument: dmm
         expect: "+1.0000000E+01"
 
-  - name: "没有建模的命令回复 -113 并说明（量程锁定）"
-    manual: "Remote Commands > Output Commands > RANGELCK（未建模）"
+  - name: "没有建模的命令回复 -113 并说明（SCOPE）"
+    manual: "Remote Commands > Output Commands > SCOPE（SC600 选件的示波器输出；选件未建模）"
     steps:
-      - send: "RANGELCK ON"
-      - query: "ERR?"
-        expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "SCOPE ACV"
       - query: "ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
+  - name: "RANGE? 按幅值自动选量程，回手册符号名"
+    manual: "Remote Commands > RANGE?（DC330MV、AC3_3V 等例子）；第 1 章 DC/AC Voltage 规格表的 Range 行"
+    steps:
+      - send: "OUT 1 V"
+      - query: "RANGE?"
+        expect: "DC3_3V,0"
+      - send: "OUT 10 V"
+      - query: "RANGE?"
+        expect: "DC33V,0"
+      - send: "OUT 100 V"
+      - query: "RANGE?"
+        expect: "DC330V,0"
+      - send: "OUT 1 V, 1 kHz"
+      - query: "RANGE?"
+        expect: "AC3_3V,0"
+
+  - name: "RANGELCK ON 锁定量程，越限报 518"
+    manual: "Remote Commands > RANGELCK；附录 D 错误 518（Value outside locked range）"
+    steps:
+      - send: "OUT 2 V"
+      - send: "RANGELCK ON"
+      - query: "RANGELCK?"
+        expect: "ON"
+      - query: "RANGE?"
+        expect: "DC3_3V,0"
+      - send: "OUT 3.4 V"
+      - query: "ERR?"
+        expect: '518,"Value outside locked range"'
+      - send: "OUT 2 V"
+      - query: "OUT?"
+        expect: "2.000000E+00,V,0E+00,0,0.000000E+00"
+
+  - name: "RANGELCK? 回 OFF，改变输出功能自动解锁"
+    manual: "Remote Commands > RANGELCK（The range automatically unlocks if the output function changes）"
+    steps:
+      - send: "OUT 2 V"
+      - send: "RANGELCK ON"
+      - send: "OUT 2 V, 1 kHz"
+      - query: "RANGELCK?"
+        expect: "OFF"
+      - query: "RANGE?"
+        expect: "AC3_3V,0"
+      - send: "RANGELCK OFF"
+      - query: "RANGELCK?"
+        expect: "OFF"
+
+  - name: "锁定 1020 V 量程时低于 100 V 的幅值报 518"
+    manual: "第 1 章 DC Voltage 规格表（100 V to 1020.000 V）；附录 D 错误 518"
+    steps:
+      - send: "OUT 500 V"
+      - send: "RANGELCK ON"
+      - query: "RANGE?"
+        expect: "DC1020V,0"
+      - send: "OUT 50 V"
+      - query: "ERR?"
+        expect: '518,"Value outside locked range"'

@@ -33,6 +33,7 @@ builtins:
 errors:
   0: No Error
   506: Function not available
+  518: Value outside locked range
   519: Must specify an output unit
   1305: Bad parameter unit
   1503: Output current lim exceeded
@@ -93,6 +94,12 @@ state:
     electrical: true
     label: 工作
     label_en: Operate
+  out.range_lock:
+    type: bool
+    default: false
+    rst: false
+    label: 量程锁定
+    label_en: Range lock
   earth:
     type: enum
     options: [OPEN, TIED]
@@ -133,6 +140,16 @@ components:
       frequency: $out.frequency
       settle: 5.0
       control: out
+      # 量程表（#552、#560）：第 1 章 DC/AC Voltage 详细规格表的 Range 行——330 V 量程 30 V 起、
+      # 1020 V 量程 100 V 起；AC 各量程 10 mV/0.33 V/3.3 V/33 V/330 V 起。符号名取手册 RANGE? 的
+      # 例子（DC330MV、DC3_3V、AC3_3V、AC330V），其余按同一命名规则推断。越限与欠限同为附录 D 的
+      # 518（Value outside locked range）。
+      ranges:
+        DCV: [[DC330MV, 0.33], [DC3_3V, 3.3], [DC33V, 33.0], [DC330V, 330.0, 30.0], [DC1020V, 1020.0, 100.0]]
+        ACV: [[AC330MV, 0.33, 0.01], [AC3_3V, 3.3, 0.33], [AC33V, 33.0, 3.3], [AC330V, 330.0, 33.0], [AC1020V, 1020.0, 330.0]]
+      range_lock: $out.range_lock
+      over_range_error: 518
+      under_range_error: 518
   # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 跨越回待机（#558）。
   - name: out
     type: calibrator_control
@@ -201,6 +218,21 @@ commands:
     args: {value: false}
     query: false
     doc: 回到待机，输出端与电路断开。
+  # ---- 量程（#552、#560） ----
+  - header: RANGE
+    op: dac.range
+    set: false
+    reply: "{name},0"
+    doc: >-
+      当前输出量程的符号名与第二输出（单输出为 0，手册 Remote Commands > RANGE?：DC330MV,0、
+      AC3_3V,0 等例子；本模型只有直流/交流电压，第 1 章规格表的量程行）。
+  - header: RANGELCK
+    state: out.range_lock
+    format: {boolean: word}
+    doc: >-
+      ON 锁定当前量程，OFF 恢复自动量程（手册 Remote Commands > RANGELCK）；锁定时越限/欠限报
+      518，改变输出功能自动解锁。RANGELCK? 回 ON/OFF。手册的远程命令写的是直流电压/直流电流，
+      交流电压按前软键的 range lock 同语义建模。
   # ---- 错误队列 ----
   - header: ERR
     op: sys.next_error
