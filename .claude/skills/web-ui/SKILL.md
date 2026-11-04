@@ -25,7 +25,7 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   failed run (two runs producing byte-identical actuals = the render is stable). Both screenshot
   specs force-load every declared `FontFace` before capture — text metrics decide how cards wrap,
   and a wrap flip shifts the whole canvas fit (#618): keep that wait when adding new screenshot
-  tests.
+  tests. The Canvas itself refits once fonts settle (#645) — keep that refit intact too.
 
 ## Rules
 

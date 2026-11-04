@@ -21,6 +21,9 @@ for (const story of stories) {
         await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
         await document.fonts.ready;
       });
+      // The Canvas refits when the fonts settle (#645); two frames let the refit land before the
+      // capture (its fonts.ready → rAF → React Flow's fit queue).
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       await expect(page).toHaveScreenshot(`${story.id}-${theme}.png`, { fullPage: true });
     });
   }
