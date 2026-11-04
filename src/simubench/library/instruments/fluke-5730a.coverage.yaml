@@ -104,7 +104,8 @@ sections:
     level: implemented
     note: OUT <幅值> V[, <频率> HZ]：只给幅值时频率不变，只给频率时只改频率，0 Hz 为直流、非 0 为交流（10 Hz–1.2 MHz，±1100 V）；OUT? 回 <幅值>,V,<频率>（nr3，6
       位尾数）。A、OHM、DBM 单位报 -224（电流、电阻输出与 dBm 未建模，#550）；缺单位 2206、同一单位两次 2207；越界 -222（手册的 815 Outside Entry
-      Limits 未区分）。
+      Limits 未区分，815 已入 errors 表备查）；直流时 OUT? 频率位回
+      0.000000E+00，手册示例为 0；1100 V 量程限载 20 mA 未建模，i_max 全量程 50 mA（#556）。
   - header: PHASE
     level: not_modeled
     note: 相位输出与锁相未实现。
