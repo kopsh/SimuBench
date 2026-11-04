@@ -445,13 +445,13 @@ cases:
       - query: "RANGELCK?"
         expect: "OFF"
 
-  - name: "锁定 1020 V 量程时低于 100 V 的幅值报 518"
+  - name: "锁定 1000 V 量程时低于 100 V 的幅值报 518"
     manual: "第 1 章 DC Voltage 规格表（100 V to 1020.000 V）；附录 D 错误 518"
     steps:
       - send: "OUT 500 V"
       - send: "RANGELCK ON"
       - query: "RANGE?"
-        expect: "DC1020V,0"
+        expect: "DC1000V,0"
       - send: "OUT 50 V"
       - query: "ERR?"
         expect: '518,"Value outside locked range"'
