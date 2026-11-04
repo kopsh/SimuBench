@@ -19,6 +19,7 @@ from ..library.migrate import FormatError, upgrade
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .component import Component, binding_of, component_types, map_setting
+from .portref import split
 
 Severity = Literal["error", "warning"]
 
@@ -300,7 +301,7 @@ def validate_bench(
     # ---- wires ----
     for i, w in enumerate(bench.wires):
         for end, ref in (("from", w.from_), ("to", w.to)):
-            owner, _, port = ref.rpartition(".")
+            owner, port = split(ref)
             pp = _ptr("wires", i, end)
             if not owner or owner not in port_info:
                 names = list(port_info)
@@ -456,7 +457,7 @@ def _check_nets(
         return spec is not None and spec.medium == "electrical" and spec.direction != "in"
 
     def is_driver(ref: str) -> bool:
-        owner, _, port = ref.rpartition(".")
+        owner, port = split(ref)
         if owner in defs:
             d = defs[owner]
             comp_types = {c.name: c.type for c in d.channel_components} | {
@@ -469,7 +470,7 @@ def _check_nets(
                         target = t
             target = target or d.ports.instrument.get(port)
             if target:
-                comp, _, pin = target.rpartition(".")
+                comp, pin = split(target)
                 return drives(types.get(comp_types.get(comp, "")), pin)
             return False
         part = bench.parts.get(owner)
@@ -532,7 +533,7 @@ def _close(z: float | None, target: float) -> bool:
 def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinition], ref: str) -> float | None:
     """Input impedance of an instrument port from its definition (an ``input_port`` component or a
     type derived from it, which says how its parameters give the impedance)."""
-    owner, _, port = ref.rpartition(".")
+    owner, port = split(ref)
     d = defs.get(owner)
     if d is None:
         return None
@@ -545,7 +546,7 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
                     target, channel = t, n
     if target is None:
         return None
-    comp_name = target.rsplit(".", 1)[0]
+    comp_name = split(target).owner
     specs = d.channel_components if channel is not None else d.components
     comp = next((c for c in specs if c.name == comp_name), None)
     cls = component_types().get(comp.type) if comp is not None else None
@@ -575,7 +576,7 @@ def _impedance_hints(
 ) -> None:
     """Warn when a source's amplitude assumes a 50 ohm load but the net has no 50 ohm termination."""
     for ref in members:
-        owner, _, port = ref.rpartition(".")
+        owner, port = split(ref)
         d = defs.get(owner)
         if d is None or d.instrument_class != "function_generator":
             continue
