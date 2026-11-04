@@ -28,6 +28,20 @@ from .validate import Report, _ptr, unknown_name
 _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
 
 
+def _protocol_gaps(cls: type, protocol: type) -> list[str]:
+    """The methods of a Protocol (a refs target, see ``Component.refs``) a component class does
+    not have. The check sees the class, not an instance, so an attribute member such as
+    ``Acquisition.acq_count`` is left to the run-time isinstance in the component's accessor."""
+    names: set[str] = set()
+    for k in protocol.__mro__:
+        if k is object or k.__module__ == "typing":  # Protocol and Generic carry no members
+            continue
+        for name, value in vars(k).items():
+            if not name.startswith("_") and callable(value):
+                names.add(name)
+    return sorted(n for n in names if not callable(getattr(cls, n, None)))
+
+
 def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Report]:
     """Validate raw definition data (parsed YAML/JSON); return the model when the schema accepts it."""
     report = Report()
@@ -112,24 +126,55 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                     scopes = ["channel"]
                 pool = {k: v for scope in reversed(scopes) for k, v in declared[scope].items()}
                 target = pool.get(name, False)
-                want = known.get(base)
+                # A ref's target is a component type name (a str) or a Protocol the named
+                # component's class must implement (engine.component: Acquisition, TraceSource).
+                want = known.get(base) if isinstance(base, str) else None
+                protocol = None if isinstance(base, str) else base
+                scope_word = (
+                    "每通道"
+                    if scopes == ["channel"]
+                    else "本通道或仪表级"
+                    if "channel" in scopes
+                    else "仪表级"
+                )
                 if target is False:
-                    options = [n for n, c in pool.items() if c and want and issubclass(c, want)]
+                    if want is not None:
+                        options = [n for n, c in pool.items() if c and issubclass(c, want)]
+                        expectation, addition = f"一个 {base} 组件", f"添加一个 {base} 组件"
+                    else:
+                        assert protocol is not None
+                        options = [n for n, c in pool.items() if c and not _protocol_gaps(c, protocol)]
+                        expectation = f"一个实现 {protocol.__name__} 协议的组件"
+                        addition = f"添加一个实现 {protocol.__name__} 协议的组件"
                     report.add(
                         "error",
                         "E-DEF-COMPONENT-REF",
                         _ptr(section, i, "params", param),
-                        f"{spec.name}.{param} 应指向一个 {base} 组件（{'每通道' if scopes == ['channel'] else '本通道或仪表级' if 'channel' in scopes else '仪表级'}），"
+                        f"{spec.name}.{param} 应指向{expectation}（{scope_word}），"
                         + (f"没有名为 {name!r} 的组件" if name else "没有填写"),
-                        f"改为 {options[0]!r}" if options else f"添加一个 {base} 组件",
+                        f"改为 {options[0]!r}" if options else addition,
                         spec.name,
                     )
-                elif target is not None and want is not None and not issubclass(target, want):
+                elif isinstance(target, type) and want is not None and not issubclass(target, want):
                     report.add(
                         "error",
                         "E-DEF-COMPONENT-REF",
                         _ptr(section, i, "params", param),
                         f"{spec.name}.{param} 指向的 {name!r} 是 {target.type_name}，应为 {base}",
+                        None,
+                        spec.name,
+                    )
+                elif (
+                    isinstance(target, type)
+                    and protocol is not None
+                    and (gaps := _protocol_gaps(target, protocol))
+                ):
+                    report.add(
+                        "error",
+                        "E-DEF-COMPONENT-REF",
+                        _ptr(section, i, "params", param),
+                        f"{spec.name}.{param} 指向的 {name!r} 是 {target.type_name}，"
+                        f"应实现 {protocol.__name__} 协议（缺 {', '.join(gaps)}）",
                         None,
                         spec.name,
                     )

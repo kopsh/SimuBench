@@ -38,23 +38,19 @@ from ...scpi.errors import ScpiError
 OHMS = ("OHM", "RES")
 
 
-class _Setpoint:
+class _Setpoint(Component):
     """The setpoint and range generation (DAC, range amplifier): function, level, frequency, the
     settling transition and the stage's hidden errors. Mixed into ``calibrator_setpoint`` and the
     combined ``calibrator_output``; ``_control()`` is the output control that operates it."""
-
-    owner: Any
-    session: Any
-    uid: str
 
     def _control(self) -> Any:  # the output control block (self in the combined form)
         raise NotImplementedError
 
     def _settle_s(self) -> float:
         """The settling time of the target function (a ``settle`` table is taken by function)."""
-        s = self.param("settle")  # type: ignore[attr-defined]
+        s = self.param("settle")
         if isinstance(s, dict):
-            s = s.get(str(self.param("function")).upper(), 0.0)  # type: ignore[attr-defined]
+            s = s.get(str(self.param("function")).upper(), 0.0)
         try:
             v = float(s)
         except (TypeError, ValueError):
@@ -80,19 +76,23 @@ class _Setpoint:
     def kind(self) -> str:
         """What the output is: V (DCV, ACV: a voltage source), I (DCI, ACI: a current source,
         #550) or R (OHM: a resistance across the terminals)."""
-        fn = str(self.param("function")).upper()  # type: ignore[attr-defined]
+        fn = str(self.param("function")).upper()
         return "I" if fn in ("DCI", "ACI") else "R" if fn in OHMS else "V"
+
+    def range_name(self) -> str | None:
+        """The range in use; None without range tables (the combined output has none)."""
+        return None
 
     def resistance(self) -> float:
         """OHM: the resistance the terminals present, the nominal value through the hidden gain error."""
-        return float(self.param("level")) * (1 + float(self.param("gain_error_ppm")) * 1e-6)  # type: ignore[attr-defined]
+        return float(self.param("level")) * (1 + float(self.param("gain_error_ppm")) * 1e-6)
 
     def _true_level(self) -> float:
         """The amplitude the output stage actually makes: the setting through the transition and
         its own hidden errors (the truth a calibrated meter is checked against)."""
-        true = self._level_now() * (1 + float(self.param("gain_error_ppm")) * 1e-6)  # type: ignore[attr-defined]
-        if str(self.param("function")).upper() == "DCV":  # type: ignore[attr-defined]
-            true += float(self.param("offset"))  # type: ignore[attr-defined]
+        true = self._level_now() * (1 + float(self.param("gain_error_ppm")) * 1e-6)
+        if str(self.param("function")).upper() == "DCV":
+            true += float(self.param("offset"))
         return true
 
     def setpoint_signal(self) -> Signal:
@@ -101,8 +101,8 @@ class _Setpoint:
         if self.kind() == "R":
             return Signal.constant(0.0)
         level = self._true_level()
-        if str(self.param("function")).upper() in ("ACV", "ACI"):  # type: ignore[attr-defined]
-            f = float(self.param("frequency"))  # type: ignore[attr-defined]
+        if str(self.param("function")).upper() in ("ACV", "ACI"):
+            f = float(self.param("frequency"))
             if f <= 0:
                 return Signal.constant(0.0)
             return Signal.lines([f], [complex(level * math.sqrt(2.0))])  # peak phasor of the RMS level
@@ -112,7 +112,7 @@ class _Setpoint:
         """The amplitude moves to ``target`` (the level) through a first-order transition, done
         after ``settle``; that moment is a pending operation (*OPC? waits for it, 3.3)."""
         if target is None:
-            target = float(self.param("level"))  # type: ignore[attr-defined]
+            target = float(self.param("level"))
         settle_ns = round(self._settle_s() * 1e9)
         now = self.session.now_ns
         v0 = self._level_at(now)  # before _settled moves: where the output is right now
@@ -140,14 +140,10 @@ class _Setpoint:
         self._control().output_changed(key, old, new, self)
 
 
-class _Control:
+class _Control(Component):
     """The output control: operate and standby, the terminal (``z_out``), the overload trip and the
     high-voltage standby rule. Mixed into ``calibrator_control`` and the combined form;
     ``_setpoint()`` is the setpoint block it drives."""
-
-    owner: Any
-    session: Any
-    uid: str
 
     def _setpoint(self) -> Any:
         raise NotImplementedError
@@ -157,7 +153,7 @@ class _Control:
 
     def on(self) -> bool:
         """The terminal is in the circuit: the instrument is in operate."""
-        return V.flag(self.param("operate"))  # type: ignore[attr-defined]
+        return V.flag(self.param("operate"))
 
     def _kind(self) -> str:
         kind = getattr(self._setpoint(), "kind", None)
@@ -173,7 +169,7 @@ class _Control:
         if kind == "R":
             circuit.resistor(node("out"), GROUND, max(self._setpoint().resistance(), 1e-6))
             return
-        z = float(self.param("z_out") or 0.0)  # type: ignore[attr-defined]
+        z = float(self.param("z_out") or 0.0)
         if z <= 0:
             # An ideal source with a tracked branch current: the overload check reads it.
             circuit.loop_source(node("out"), GROUND, node("out"), GROUND, self.uid)
@@ -188,10 +184,9 @@ class _Control:
     def _compliance(self) -> float:
         """The voltage a current output can drive: one number, or a table by setpoint range with
         "*" for the rest (#550)."""
-        spec = self.param("compliance")  # type: ignore[attr-defined]
+        spec = self.param("compliance")
         if isinstance(spec, dict):
-            sp = self._setpoint()
-            name = sp.range_name() if hasattr(sp, "range_name") else None
+            name = self._setpoint().range_name()
             value = next(
                 (v for k, v in spec.items() if name is not None and str(k).upper() == name.upper()), None
             )
@@ -200,7 +195,7 @@ class _Control:
 
     def _load_current(self, dc_voltage: Callable[[str], float]) -> float:
         """The current the operating point draws from the terminal (D34)."""
-        z = float(self.param("z_out") or 0.0)  # type: ignore[attr-defined]
+        z = float(self.param("z_out") or 0.0)
         if z <= 0:
             return self.session.source_current(self.uid)
         return (self._drive().dc - dc_voltage("out")) / z
@@ -221,14 +216,12 @@ class _Control:
             if limit > 0 and abs(v) > limit * (1 + 1e-9):
                 self._set_operate(False)
                 self.tripped = True
-                code = int(
-                    self.param("compliance_error") or self.param("overload_error") or 0  # type: ignore[attr-defined]
-                )
+                code = int(self.param("compliance_error") or self.param("overload_error") or 0)
                 if code and self.owner is not None:
                     self.owner.push_error(code, f"compliance {abs(v):.4g} V exceeds {limit:.4g} V")
                 return True
             return False
-        i_max = float(self.param("i_max") or 0.0)  # type: ignore[attr-defined]
+        i_max = float(self.param("i_max") or 0.0)
         if i_max <= 0:
             return False
         current = self._load_current(dc_voltage)
@@ -243,7 +236,7 @@ class _Control:
         self._set_operate(False)
         self.tripped = True
         if self.owner is not None:
-            code = int(self.param("overload_error") or 0)  # type: ignore[attr-defined]
+            code = int(self.param("overload_error") or 0)
             if code:
                 self.owner.push_error(
                     code, f"load current {abs(current):.4g} A exceeds the {i_max:.4g} A capability"
@@ -266,7 +259,7 @@ class _Control:
         it while the old one was below, #553); ``standby_on_function``: any change of function
         (``true``), or DCV <-> ACV only at or above ``standby_above`` (``above``, #566)."""
         was_on = self.on()
-        sa = self.param("standby_above")  # type: ignore[attr-defined]
+        sa = self.param("standby_above")
         level = float(sp.param("level"))
         if was_on and key == "function" and old != new and self._function_trips(old, new, level, sa):
             self._set_operate(False)
@@ -274,7 +267,7 @@ class _Control:
         if was_on and sa is not None:
             lo = abs(float(old) if key == "level" else level)
             ln = abs(float(new) if key == "level" else level)
-            if str(self.param("standby_rule") or "either").lower() == "crossing":  # type: ignore[attr-defined]
+            if str(self.param("standby_rule") or "either").lower() == "crossing":
                 to_standby = ln >= float(sa) > lo
             else:
                 to_standby = lo > float(sa) or ln > float(sa)
@@ -286,7 +279,7 @@ class _Control:
 
     def _function_trips(self, old: Any, new: Any, level: float, standby_above: Any) -> bool:
         """Whether this change of function while operating returns to standby (``standby_on_function``)."""
-        mode = self.param("standby_on_function")  # type: ignore[attr-defined]
+        mode = self.param("standby_on_function")
         if isinstance(mode, str) and mode.lower() == "above":
             volts = {"DCV", "ACV"}
             if str(old).upper() in volts and str(new).upper() in volts:
@@ -298,10 +291,10 @@ class _Control:
         """Operate through the bound state (the normal path) or the component's own attribute."""
         path = self.bound_path("operate") if self.owner is not None else None
         if path is None:
-            old = V.flag(self.param("operate"))  # type: ignore[attr-defined]
+            old = V.flag(self.param("operate"))
             if old == value:
                 return
-            self.overrides["operate"] = value  # type: ignore[attr-defined]
+            self.overrides["operate"] = value
             self._operate_changed(old, value)
             self.session.invalidate(electrical=True)
             return
@@ -319,8 +312,8 @@ class _Control:
             "tripped": self.tripped,
             "settling": sp.settling(),
         }
-        if self.wired("out"):  # type: ignore[attr-defined]
-            values["voltage"] = self.pin_signal("out").mean()  # type: ignore[attr-defined]
+        if self.wired("out"):
+            values["voltage"] = self.pin_signal("out").mean()
         return {"values": values}
 
 
