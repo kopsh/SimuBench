@@ -27,35 +27,15 @@ format:
   enum: short
   error_code: signed
 errors:
-  0: No error
   -101: Invalid character
-  -102: Syntax error
   -103: Invalid separator
-  -104: Data type error
-  -108: Parameter not allowed
-  -109: Missing parameter
   -110: Command header error
-  -113: Undefined header
-  -131: Invalid suffix
   -141: Invalid character data
-  -151: Invalid string data
   -168: Block data not allowed
   -203: Command protected
   -210: Trigger error
-  -211: Trigger ignored
-  -213: Init ignored
-  -214: Trigger deadlock
-  -221: Settings conflict
-  -222: Data out of range
-  -223: Too much data
-  -224: Illegal parameter value
-  -230: Data corrupt or stale
   -241: Hardware missing
-  -310: System error
   -313: Calibration memory lost
-  -350: Queue overflow
-  # 校准错误：手册的 +702（保护中）/ +703（安全码无效）/ +708（输入超限）。校准存储组件对
-  # "保护中"与"安全码无效"都报 701、对"输入超限"报 702，错误码以组件为准，文字按手册的对应情形。
   701: "Calibration error; calibration memory is secured"
   702: "Calibration error: signal measurement out of range"
   703: "Calibration error; secure code provided was invalid"

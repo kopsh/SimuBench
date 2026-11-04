@@ -40,48 +40,6 @@ specs:
   input: {impedance_ohm: [50.0, 1.0e6], range_v_1to1_probe: [5.0, 50.0], level_5v_range_v: [-5.125, 5.125]}
   timebase: {internal: "10 MHz TCXO（Option 010 为 OCXO）", external: "1/5/10 MHz，100 mVrms–2.5 Vrms 正弦"}
   reading_format: "+4.57538162393720E+006（ASCII，15 位有效数字）"
-errors:
-  0: No error
-  -100: Command error
-  -101: Invalid character
-  -102: Syntax error
-  -103: Invalid separator
-  -104: Data type error
-  -108: Parameter not allowed
-  -109: Missing parameter
-  -110: Command header error
-  -113: Undefined header
-  -114: Header suffix out of range
-  -120: Numeric data error
-  -128: Numeric data not allowed
-  -130: Suffix error
-  -131: Invalid suffix
-  -138: Suffix not allowed
-  -141: Invalid character data
-  -148: Character data not allowed
-  -151: Invalid string data
-  -158: String data not allowed
-  -168: Block data not allowed
-  -178: Expression data not allowed
-  -203: Command Protected
-  -211: Trigger ignored
-  -213: INIT ignored
-  -214: Trigger deadlock
-  -221: Settings conflict
-  -222: Data out of range
-  -223: Too much data
-  -224: Illegal Parameter Value
-  -230: Data corrupt or stale
-  -240: Hardware error
-  -241: Hardware missing
-  -310: System Error;internal software error
-  -313: Calibration memory lost;memory corruption detected
-  -314: Save/recall memory lost;memory corruption detected
-  -350: Error queue overflow
-  -410: Query INTERRUPTED
-  -420: Query UNTERMINATED
-  -430: Query DEADLOCKED
-  -440: Query UNTERMINATED after indefinite response
 channels:
   count: 2
 channel_state:

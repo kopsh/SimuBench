@@ -29,6 +29,7 @@ plausible fake).
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
+| Category default blocks (per class) and the definition deep merge (D59) | `library/class_defaults.py` |
 | Coverage tables & manual cases (D42) | `library/coverage.py` |
 | File models (pydantic) → JSON Schema | `models/bench.py` (`simubench.bench/2`), `models/definition.py` (`simubench.instrument/1`) |
 | HTTP/WS message models → OpenAPI | `models/api.py` |

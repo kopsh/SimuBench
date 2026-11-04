@@ -187,7 +187,7 @@ def _validate(args: argparse.Namespace) -> int:
     """Print diagnostics as ``file:pointer: CODE message (suggestion)``; exit 1 on any error."""
     from .engine.validate import validate_data
     from .engine.validate_definition import validate_definition_data
-    from .library.loader import DefinitionLibrary, _read_yaml
+    from .library.loader import DefinitionLibrary, _read_yaml, layered_definition_data
 
     status = 0
     for path in args.files:
@@ -199,6 +199,12 @@ def _validate(args: argparse.Namespace) -> int:
             status = 1
             continue
         if _is_definition(p, data):
+            try:
+                data = layered_definition_data(data, p)  # D59: what the engine runs is what is checked
+            except ValueError as exc:
+                print(f"{path}:/extends: E-DEF-EXTENDS {exc}", file=sys.stderr)
+                status = 1
+                continue
             _, report = validate_definition_data(data)
         else:
             _, report = validate_data(data, DefinitionLibrary([p.resolve().parent / "instruments"]))

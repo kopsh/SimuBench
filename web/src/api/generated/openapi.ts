@@ -2251,6 +2251,11 @@ export interface components {
             errors?: {
                 [key: string]: string;
             };
+            /**
+             * Extends
+             * @description Built-in model id this definition starts from (#596): the loader resolves the parent (and its own extends) first and merges this file's data on top — dicts merge recursively, lists are replaced whole; a single parent, no cycles. The class's default block (real models, D42) merges lowest (类别默认 → 父 → 子), so entries the parent no longer lists come from the class's table
+             */
+            extends?: string | null;
             /** @description Default response format */
             format?: components["schemas"]["ResponseFormat"];
             /** Id */
