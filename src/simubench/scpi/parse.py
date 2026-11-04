@@ -136,6 +136,26 @@ def parse_unit(unit: bytes) -> Unit:
     )
 
 
+def message_is_query(message: bytes) -> bool:
+    """Whether a program message asks for a response: any unit the parser reads as a query.
+
+    ``Session.command`` reports this on its result (issue 627), so the transports shape
+    ``timed_out`` from the engine's verdict instead of guessing ``"?" in command`` — a ``?``
+    inside a quoted parameter is a set, not a query. Units that fail to parse are not queries,
+    as in the instrument's receive."""
+    try:
+        units = split_units(message)
+    except ScpiError:
+        return False
+    for raw in units:
+        try:
+            if parse_unit(raw).query:
+                return True
+        except ScpiError:
+            continue
+    return False
+
+
 def resolve_tokens(unit: Unit, path: tuple[Token, ...]) -> tuple[Token, ...]:
     """A unit's header as it reads against the current path of its program message.
 

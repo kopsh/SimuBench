@@ -20,6 +20,7 @@ from typing import Any
 
 from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
+from ..scpi.parse import message_is_query
 from . import sleep_mode
 from .circuit import Circuit, Solution
 from .component import Component, component_type
@@ -49,11 +50,14 @@ class Net:
 @dataclass(frozen=True)
 class CommandResult:
     """What one message did: its reply (None when the message is not a query, or when nothing
-    came back — a timeout fault, a busy instrument) and the errors it produced, including ones
-    a full error queue dropped or replaced with -350 (#483)."""
+    came back — a timeout fault, a busy instrument), whether the message asked for a response
+    (the parse layer's verdict, issue 627 — the transports need not guess ``"?" in command``),
+    and the errors it produced, including ones a full error queue dropped or replaced with
+    -350 (#483)."""
 
     reply: bytes | None
     errors: list[ScpiError]
+    is_query: bool
 
 
 class _UnionFind:
@@ -627,7 +631,9 @@ class Session:
             inst = self.instrument(name)
             before = inst.errors.mark()
             got = self.exchange(name, data, client, reads=1)
-            return CommandResult(got[0] if got else None, inst.errors.since(before))
+            return CommandResult(
+                got[0] if got else None, inst.errors.since(before), is_query=message_is_query(data)
+            )
 
     def scpi(self, name: str, text: str) -> str:
         """Convenience for tests and notebooks: one message as one command (#121), decoded reply or ''."""

@@ -684,18 +684,7 @@ class SessionManager:
 
     @staticmethod
     def scpi(served: ServedSession, instrument: str, command: str, client: str = "ui") -> M.ScpiResponse:
-        s = served.session
-        try:
-            result = s.command(instrument, command, client=client)
-        except LinkDown as exc:
-            return M.ScpiResponse(link_error=str(exc), now_ns=s.now_ns)
-        out = result.reply
-        return M.ScpiResponse(
-            response=out.decode(errors="replace").rstrip("\n") if out is not None else None,
-            errors=[M.ErrorItem(code=e.code, message=e.message) for e in result.errors],
-            timed_out=out is None and "?" in command,
-            now_ns=s.now_ns,
-        )
+        return scpi_response(served.session, instrument, command, client)
 
     @staticmethod
     def configure(
@@ -929,6 +918,24 @@ def fault_info(f: FaultState) -> M.FaultInfo:
         ends_ns=f.ends_ns,
         remaining=f.remaining,
         spec=f.spec,
+    )
+
+
+def scpi_response(s: Session, instrument: str, command: str, client: str = "ui") -> M.ScpiResponse:
+    """The one SCPI-exchange shape every consumer assembles (issue 627): the web API returns it
+    as is, the MCP tools dump it (the fault_info precedent — they used to carry their own, with
+    seconds instead of ns). ``timed_out`` is the engine's own verdict (CommandResult.is_query),
+    not a guess from the command text."""
+    try:
+        result = s.command(instrument, command, client=client)
+    except LinkDown as exc:
+        return M.ScpiResponse(link_error=str(exc), now_ns=s.now_ns)
+    out = result.reply
+    return M.ScpiResponse(
+        response=out.decode(errors="replace").rstrip("\n") if out is not None else None,
+        errors=[M.ErrorItem(code=e.code, message=e.message) for e in result.errors],
+        timed_out=result.is_query and out is None,
+        now_ns=s.now_ns,
     )
 
 
