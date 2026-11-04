@@ -284,3 +284,53 @@ def test_operate_query_and_the_host_port_commands():
         assert q(s, "cal", "ERR?") == '0,"No Error"'
     finally:
         s.close()
+
+
+# ---- current and resistance outputs (#569) -----------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("command", "ohms", "volts", "fault"),
+    [
+        ("OUT 10 MA", 600.0, 6.0, None),  # 6 V: within the 33 mA DC range's 7 V
+        ("OUT 10 MA", 800.0, 0.0, "1500"),  # 8 V: past it
+        ("OUT 10 MA, 1 KHZ", 600.0, 6.0, "1500"),  # 6 V rms: past the 33 mA AC range's 5 V rms
+        ("OUT 2 A", 2.5, 5.0, None),  # 5 V: within the 3 A DC range's 6 V
+    ],
+)
+def test_a_current_output_drives_the_load_within_its_compliance(command, ohms, volts, fault):
+    """Chapter 1 DC/AC Current, Max Compliance Voltage by range: beyond it the output trips to
+    standby with error 1500 (Compliance voltage exceeded)."""
+    s = open_bench(loaded_bench(ohms))
+    try:
+        q(s, "dut", command + ";OPER")
+        q(s, "dut", "*OPC?")
+        inst = s.instrument("dut")
+        signal = inst.session.port_signal(inst.components["out"], "out")
+        if fault is None:
+            assert signal.rms() == pytest.approx(volts, rel=1e-3)
+            assert q(s, "dut", "ERR?") == '0,"No Error"'
+        else:
+            assert signal.rms() == 0.0
+            assert q(s, "dut", "ERR?") == f'{fault},"Compliance voltage exceeded"'
+            assert q(s, "dut", "OPER?") == "0"
+    finally:
+        s.close()
+
+
+def test_the_resistance_output_is_continuously_variable_in_the_circuit():
+    """Resistance: continuously variable from 0 to 1.1 Gohm (not a set of nominal values): 1234 ohm
+    across the terminals divides a 1 V source through 1 kohm."""
+    data = loaded_bench(1.0e9).model_dump(by_alias=True)
+    data["parts"] = {"src": {"type": "dc_supply", "params": {"v": 1.0, "r": 1000.0}}}
+    data["wires"] = [{"from": "src.OUT", "to": "dut.OUT"}]
+    s = open_bench(BenchDefinition.model_validate(data))
+    try:
+        q(s, "dut", "OUT 1234 OHM;OPER")
+        q(s, "dut", "*OPC?")
+        assert q(s, "dut", "OUT?") == "1.234000E+03,OHM,0E+00,0,0.000000E+00"
+        inst = s.instrument("dut")
+        signal = inst.session.port_signal(inst.components["out"], "out")
+        assert signal.mean() == pytest.approx(1234.0 / 2234.0, rel=1e-6)
+    finally:
+        s.close()

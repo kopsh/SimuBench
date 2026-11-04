@@ -161,19 +161,19 @@ sections:
     note: '方波占空比（DUTY/DUTY?）；非正弦波形未建模。'
   - header: 'FUNC'
     level: implemented
-    note: '查询 FUNC? 回当前输出功能：DCV / ACV（手册还有电流、电阻、温度、功率、双输出与示波器功能的返回，未建模）。'
+    note: '查询 FUNC? 回当前输出功能：DCV / ACV / DCI / ACI / RES（#569；手册还有电容、温度、功率、双输出与示波器功能的返回，未建模）。'
   - header: 'HARMONIC'
     level: not_modeled
     note: '谐波输出（HARMONIC/HARMONIC?）；未建模。'
   - header: 'LCOMP'
     level: not_modeled
-    note: '交流电流的电感负载补偿（LCOMP/LCOMP?）；电流未建模。'
+    note: '交流电流的电感负载补偿（LCOMP/LCOMP?）；电感负载与补偿未建模。'
   - header: 'OPER'
     level: implemented
     note: '进入工作，输出经建立时间（<5 s，按手册计入虚拟时间）到达设定值；OPER? 回读工作状态（1 = 工作，0 = 待机）。手册的“错误队列非空时 ≥33 V 禁止 OPER”（错误 1331）未实现（能力 issue）。'
   - header: 'OUT'
     level: implemented
-    note: '设定输出：OUT 10 V 直流、OUT 1 V, 1 kHz 交流、OUT 60 HZ 只更新频率。手册允许省略单位的裸数值（沿用当前单位），quantities 参数无法表达“单位取自状态”，缺单位报手册的 519；量程超限报 -222（SCPI 码，手册的 1300 系列错误码无法由状态范围检查给出）。'
+    note: '设定输出：OUT 10 V 直流、OUT 1 V, 1 kHz 交流、OUT 60 HZ 只更新频率；OUT 1.2 MA 电流（同一频率，0 Hz 为直流）、OUT 1 A, 400 HZ 交流电流、OUT 1 KOHM 电阻（0–1.1 GΩ 连续可调，二线；负值 -222）。电流按第 1 章的 compliance（直流 10/7/6/4 V、交流 7/5/4/3 V rms，按量程）超出跳回待机并报 1500；3 A 以上的 20 A 端子未单独建模，从同一 OUT 端口输出；电流输出 LO 经机内地返回（#569）。OUT? 回 <幅值>,V|A|OHM,0E+00,0,<频率>。手册允许省略单位的裸数值（沿用当前单位），quantities 参数无法表达“单位取自状态”，缺单位报手册的 519；量程超限报 -222（SCPI 码，手册的 1300 系列错误码无法由状态范围检查给出）。'
   - header: 'PHASE'
     level: not_modeled
     note: '双输出的相位差（PHASE/PHASE?）；双输出未建模。'
