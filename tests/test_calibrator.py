@@ -248,6 +248,121 @@ def test_the_high_setting_can_be_stored_in_standby(s):
     assert reading(s) == pytest.approx(30.0, abs=1e-9)
 
 
+# ---- the standby rule: either (default) and crossing (#553, #558) ------------------------------------
+
+
+def test_either_rule_is_strict_at_the_threshold(s):
+    """The default rule trips when the old or the new magnitude is above the threshold; exactly
+    at it is not above -- unlike the crossing rule the calibrator manuals use (#558)."""
+    q(s, "OUT 10 V")
+    q(s, "OPER")
+    q(s, "*OPC?")
+    q(s, "OUT 22 V;*WAI")  # 10 -> 22, exactly at the threshold: neither side is above it
+    assert reading(s) == pytest.approx(22.0, abs=1e-9)
+    q(s, "OUT 22.1 V")  # the new setting is above: standby
+    assert reading(s) == 0.0
+    assert q(s, "ERR:COUNt?") == "0"  # the rule is not an error
+    q(s, "OPER")
+    q(s, "*OPC?")
+    assert reading(s) == pytest.approx(22.1, abs=1e-9)
+    q(s, "OUT 5 V")  # the old setting is above: standby even though 5 V is safe
+    assert reading(s) == 0.0
+    q(s, "OPER")
+    q(s, "*OPC?")
+    assert reading(s) == pytest.approx(5.0, abs=1e-9)
+
+
+def crossing_session() -> BenchDefinition:
+    return bench(**{"standby_rule": "crossing"})
+
+
+def test_crossing_rule_trips_only_when_crossing_upward():
+    """5730A/5522A Operators Manual: a voltage at or above the threshold selected while the
+    previous output was below it returns to standby; within the high range or downward, the
+    change settles normally (#558)."""
+    session = open_bench(crossing_session(), definition_dirs=[DEFS])
+    q(session, "OUT 25 V")  # already above the threshold
+    q(session, "OPER")
+    q(session, "*OPC?")
+    assert reading(session) == pytest.approx(25.0, abs=1e-9)
+    q(session, "OUT 30 V;*WAI")  # 25 -> 30: both sides above, no crossing
+    assert reading(session) == pytest.approx(30.0, abs=1e-9)
+    q(session, "OUT 10 V;*WAI")  # downward: never trips
+    assert reading(session) == pytest.approx(10.0, abs=1e-9)
+    q(session, "OUT 25 V")  # 10 -> 25 crosses the threshold upward: back to standby
+    assert reading(session) == 0.0
+    assert q(session, "ERR:COUNt?") == "0"
+    q(session, "OPER")  # the explicit confirmation
+    q(session, "*OPC?")
+    assert reading(session) == pytest.approx(25.0, abs=1e-9)
+    session.close()
+
+
+def test_crossing_rule_includes_a_setting_exactly_at_the_threshold():
+    """The manuals say “a voltage >= threshold is selected”: the boundary itself is on the
+    standby side (#558)."""
+    session = open_bench(crossing_session(), definition_dirs=[DEFS])
+    q(session, "OUT 10 V")
+    q(session, "OPER")
+    q(session, "*OPC?")
+    q(session, "OUT 22 V")  # the new setting equals the threshold exactly
+    assert reading(session) == 0.0
+    q(session, "OPER")
+    q(session, "*OPC?")
+    assert reading(session) == pytest.approx(22.0, abs=1e-9)
+    session.close()
+
+
+def test_crossing_rule_judges_negative_levels_by_magnitude():
+    session = open_bench(crossing_session(), definition_dirs=[DEFS])
+    q(session, "OUT 5 V")
+    q(session, "OPER")
+    q(session, "*OPC?")
+    q(session, "OUT -22 V")  # |−22 V| = 22 V crosses the threshold upward from 5 V
+    assert reading(session) == 0.0
+    q(session, "OPER")
+    q(session, "*OPC?")
+    assert reading(session) == pytest.approx(-22.0, abs=1e-9)
+    q(session, "OUT -30 V;*WAI")  # 22 -> 30 in magnitude: no crossing
+    assert reading(session) == pytest.approx(-30.0, abs=1e-9)
+    session.close()
+
+
+def on_function_session() -> BenchDefinition:
+    return bench(**{"standby_on_function": True})
+
+
+def test_standby_on_function_trips_on_a_function_change():
+    """#553: with the flag on, changing the output function while operating returns to standby
+    regardless of the level."""
+    session = open_bench(on_function_session(), definition_dirs=[DEFS])
+    q(session, "OUT 10 V")
+    q(session, "OPER")
+    q(session, "*OPC?")
+    q(session, "OUT 10 V, 1 kHz")  # DCV -> ACV while operating, below the threshold
+    assert reading(session) == 0.0
+    assert q(session, "ERR:COUNt?") == "0"  # not an error
+    q(session, "OPER")
+    q(session, "*OPC?")
+    assert reading(session, "AC") == pytest.approx(10.0, abs=1e-9)
+    session.close()
+
+
+def test_standby_on_function_leaves_standby_and_frequency_changes_alone():
+    """The flag judges only a change of function while operating: in standby the setting is just
+    stored, and a frequency change with the function unchanged does not trip (#558)."""
+    session = open_bench(on_function_session(), definition_dirs=[DEFS])
+    q(session, "OUT 10 V, 1 kHz")  # in standby: no rule applies, the function is only stored
+    assert q(session, "ERR:COUNt?") == "0"
+    assert reading(session) == 0.0
+    q(session, "OPER")
+    q(session, "*OPC?")
+    assert reading(session, "AC") == pytest.approx(10.0, abs=1e-9)  # operate confirms the function
+    q(session, "OUT 10 V, 2 kHz;*WAI")  # still ACV: only the frequency moved
+    assert reading(session, "AC") == pytest.approx(10.0, abs=1e-9)
+    session.close()
+
+
 # ---- quantities -------------------------------------------------------------------------------------
 
 

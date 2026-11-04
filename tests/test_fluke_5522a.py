@@ -75,8 +75,11 @@ def test_acv_is_a_line_at_the_programmed_frequency():
         q(s, "cal", "OPER;*WAI")
         assert reading(s, "AC") == pytest.approx(1.0, abs=GAIN * 1.0 + FLOOR + QUANTUM)
         assert reading(s, "DC") == 0.0  # one line of 1 V RMS has no DC component
-        q(s, "cal", "OUT 2 V, 0 HZ")  # 0 Hz is DC
-        q(s, "cal", "*WAI")
+        q(s, "cal", "STBY")
+        # 0 Hz is DC, set in standby: a DC<->AC switch while operating goes to standby even below
+        # 33 V, where the real instrument keeps running (ch. 4 exception, not modeled -- #558).
+        q(s, "cal", "OUT 2 V, 0 HZ")
+        q(s, "cal", "OPER;*WAI")
         assert reading(s, "DC") == pytest.approx(2.0, abs=GAIN * 2.0 + FLOOR + QUANTUM)
     finally:
         s.close()
@@ -105,19 +108,19 @@ def test_the_drawn_deviations_are_the_bench_seed_s_own():
 
 
 def test_a_change_across_33v_returns_to_standby():
+    """Operators Manual ch. 3/4, Operate and Standby Modes: “A voltage >= 33 V is selected when
+    the previous output voltage was less than 33 V” — only a crossing upward trips (#558)."""
     s = open_bench(DMM_BENCH)
     try:
         q(s, "cal", "OUT 10 V")
         q(s, "cal", "OPER;*WAI")
         assert reading(s) == pytest.approx(10.0, abs=2e-4)
-        q(s, "cal", "OUT 40 V")  # the new setting is >= 33 V: back to standby
+        q(s, "cal", "OUT 40 V")  # the new setting is >= 33 V, the old one below: back to standby
         assert reading(s) == 0.0
         assert q(s, "cal", "ERR?") == '0,"No Error"'  # the confirmation is not an error
         q(s, "cal", "OPER;*WAI")  # the explicit confirmation
         assert reading(s) == pytest.approx(40.0, abs=GAIN * 40.0 + FLOOR + QUANTUM)
-        q(s, "cal", "OUT 20 V")  # the old setting was above 33 V: standby even though 20 V is safe
-        assert reading(s) == 0.0
-        q(s, "cal", "OPER;*WAI")
+        q(s, "cal", "OUT 20 V;*WAI")  # downward from 40 V: no crossing, the output keeps running
         assert reading(s) == pytest.approx(20.0, abs=GAIN * 20.0 + FLOOR + QUANTUM)
     finally:
         s.close()
@@ -250,17 +253,19 @@ def test_identity_and_restricted_builtins():
         s.close()
 
 
-def test_the_output_floats_above_the_threshold_boundary():
-    """33.0 V itself does not return to standby (the component trips strictly above; the manual
-    says a voltage >= 33 V is selected) -- a documented boundary deviation."""
+def test_the_output_trips_at_the_threshold_boundary():
+    """Operators Manual ch. 3/4: “A voltage >= 33 V is selected when the previous output voltage
+    was less than 33 V” -- 33.0 V itself is on the standby side; within the high range and
+    downward there is no crossing and the output keeps running (#558)."""
     s = open_bench(DMM_BENCH)
     try:
         q(s, "cal", "OUT 32.9 V")
         q(s, "cal", "OPER;*WAI")
-        q(s, "cal", "OUT 33 V;*WAI")  # exactly 33 V: no trip
-        assert reading(s) == pytest.approx(33.0, abs=GAIN * 33.0 + FLOOR + QUANTUM)
-        q(s, "cal", "OUT 33.1 V")  # above 33 V: standby
+        q(s, "cal", "OUT 33 V")  # exactly 33 V: >= the threshold, crossing upward
         assert reading(s) == 0.0
+        q(s, "cal", "OPER;*WAI")
+        q(s, "cal", "OUT 33.1 V;*WAI")  # 33 V -> 33.1 V: both sides of 33 V, no crossing
+        assert reading(s) == pytest.approx(33.1, abs=GAIN * 33.1 + FLOOR + QUANTUM)
     finally:
         s.close()
 

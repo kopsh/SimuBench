@@ -169,12 +169,12 @@
 
 ### 5.1 `calibrator_output`
 
-`role: driver`。参数：`function`（`DCV` / `ACV`，以后扩到电流）、`level`、`frequency`、`operate`、`z_out`、`i_max`、`settle`（可按功能给表）、`standby_above`、隐藏的 `gain_error_ppm` 与 `offset`。
+`role: driver`。参数：`function`（`DCV` / `ACV`，以后扩到电流）、`level`、`frequency`、`operate`、`z_out`、`i_max`、`settle`（可按功能给表）、`standby_above`、`standby_rule`（`either` 默认 / `crossing`，#553）、`standby_on_function`（默认 `false`，#553）、隐藏的 `gain_error_ppm` 与 `offset`。
 
 - **待机**：端口不在电路中（断开）；**工作**：带输出阻抗的电压源，交流为单根谱线。
 - **过载**：求解后负载电流超过 `i_max` 时转为待机并报错，按工作点判断（与 `smu_core` 的模式切换同一套迭代，D34）。
 - **建立**：设定改变或进入工作后，`settle` 秒后达到新值，登记为待完成操作（3.3）。建立期间输出按一阶过渡计算（时间常数 = `settle` / 5），读数因此在建立中途介于新旧值之间；不支持建立过程的型号把 `settle` 设为 0。
-- **高电压确认**：新旧设定任一超过 `standby_above` 时，改变设定使仪表回到待机，需要再次进入工作。
+- **回待机规则**：工作中改变输出设定时按 `standby_rule` 决定是否回待机——`either`（默认）：新旧幅值的绝对值任一**大于** `standby_above`（恰好等于阈值不触发）；`crossing`：从阈值以下改到阈值及以上（旧 < 阈值 ≤ 新，恰好等于阈值也回待机；5730A 与 5522A 手册的写法，#553、#558）。`standby_on_function` 为真时，工作中改变输出功能即回待机，不论电压。回待机不是错误，需要再次进入工作；待机下改设定或功能都不触发规则——进入工作本身就是确认。
 
 ### 5.2 按单位分派的参数
 
@@ -212,6 +212,7 @@
 - **过载只按直流工作点判断**（与 D34 的模式切换同一迭代）：交流功能的负载电流在直流工作点为 0，因此 ACV 不触发过载；交流电流能力需要逐频率的源电流，本期不做。`offset` 只作用于 DCV（偏移是直流概念，与 `dmm_core` 相同）。
 - **过载改变 operate 状态**：仪表确实回到待机（状态与面板都显示待机），错误按 `overload_error` 参数的码入队（默认 0 = 不报错，码与文字由型号定义给出）；`tripped` 只是面板信息，下一次 OPER 清除并重新建立。
 - **建立**：只有幅度（level）按一阶过渡（时间常数 settle/5），频率与功能的切换立即生效；settle 按目标功能取表。待机下改设定不触发建立、也不触发 `standby_above`——进入工作本身就是确认。
+- **回待机规则（#553、#558）**：`standby_rule` 与 `standby_on_function` 是 #553 加入的组件参数。核对两本手册（Operators Manual 的 Operate and Standby Modes 一节，#558）：电压规则都是「从阈值以下改到阈值及以上」（恰好等于阈值也算），5522A 另有「改变输出功能回待机、交流↔直流电压 <33 V 时例外」。5522A 的定义因此由默认 `either` 改为 `crossing` 并打开 `standby_on_function`；`either` 保留为组件默认。5522A 的例外未建模：布尔参数对一切功能切换回待机，`<33 V` 的直流↔交流切换也与手册不符（定义注释已注明，能力缺口在 component-map.md 债务列）。
 
 ## 6. 四线测量与引线电阻（C5，#91）
 
