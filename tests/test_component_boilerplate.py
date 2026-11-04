@@ -33,6 +33,9 @@ CHANNEL_NAME = re.compile(r'f"ch\{self\.channel\}')
 BRACKET_ACCESSOR = re.compile(r"components\[(?:str\(|self\.param)|components\.get\((?:str\(|self\.param)")
 #: The old three-argument ``on_state`` hook (the engine passes the parameter name first).
 OLD_ON_STATE = re.compile(r"def on_state\(self, path")
+#: ``hasattr(comp, "...")`` — probing a peer's duck interface instead of a declared Protocol
+#: (engine.component: Sampler, Acquisition, TraceSource; issue 630).
+DUCK_PROBE = re.compile(r"\bhasattr\(")
 
 
 def _offenders(pattern: re.Pattern[str]) -> list[str]:
@@ -70,6 +73,10 @@ def test_on_state_hooks_take_the_parameter_name():
     assert _offenders(OLD_ON_STATE) == []
 
 
+def test_no_duck_probing_of_peers():
+    assert _offenders(DUCK_PROBE) == []
+
+
 @pytest.mark.parametrize(
     ("pattern", "planted"),
     [
@@ -79,6 +86,7 @@ def test_on_state_hooks_take_the_parameter_name():
         (BRACKET_ACCESSOR.pattern, 'stage = self.owner.components[str(self.param("stage"))]'),
         (r"def _flag\b", "def _flag(value):\n    return bool(value)"),
         (OLD_ON_STATE.pattern, "def on_state(self, path, old, new):\n    return None"),
+        (DUCK_PROBE.pattern, 'if hasattr(comp, "trace_value"):\n    return comp'),
     ],
 )
 def test_the_guard_sees_the_boilerplate(pattern: str, planted: str):

@@ -9,6 +9,7 @@ import pytest
 
 from simubench.library.components.scope import Record
 from simubench.library.components.transfer import WaveformTransfer
+from simubench.scpi.errors import ScpiError
 
 
 def transfer(**params) -> WaveformTransfer:
@@ -123,3 +124,15 @@ def test_an_operation_reply_goes_through_the_command_template():
         assert query('C1:INSPECT? "DATA_ARRAY_1",FLOAT').startswith('" ')
     finally:
         session.close()
+
+
+def test_a_record_that_is_not_an_acquisition_is_refused():
+    """The accessor re-checks the Acquisition protocol (the refs check already did, at load)."""
+    peer = transfer()  # a component without the record seam
+    t = WaveformTransfer(
+        "xfer", {"record": "v"}, SimpleNamespace(name="scope", components={"v": peer}), SimpleNamespace()
+    )
+    with pytest.raises(ScpiError) as err:
+        t._acquisition()
+    assert err.value.code == -300
+    assert "keeps no records to transfer" in err.value.detail

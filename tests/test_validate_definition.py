@@ -63,6 +63,32 @@ def test_unknown_component_type():
     assert d.suggestion == "改为 'output_stage'"
 
 
+def _transfer_index(data: dict) -> int:
+    return next(i for i, c in enumerate(data["components"]) if c["type"] == "waveform_transfer")
+
+
+def test_a_record_ref_must_name_an_acquisition():
+    # the transfer's record is a Protocol ref (engine.component.Acquisition, #630): a component
+    # without the record seam is named at load time, with the methods it lacks
+    bad = copy.deepcopy(DSO)
+    i = _transfer_index(bad)
+    bad["components"][i]["params"]["record"] = "timebase"
+    [d] = validate_definition_data(bad)[1].diagnostics
+    assert (d.code, d.pointer) == ("E-DEF-COMPONENT-REF", f"/components/{i}/params/record")
+    assert "应实现 Acquisition 协议" in d.message
+    assert "缺 read_record, timebase_scale, transfer_record" in d.message
+
+
+def test_a_record_ref_to_nothing_is_named_with_an_option():
+    bad = copy.deepcopy(DSO)
+    i = _transfer_index(bad)
+    bad["components"][i]["params"]["record"] = "aqc"
+    [d] = validate_definition_data(bad)[1].diagnostics
+    assert (d.code, d.pointer) == ("E-DEF-COMPONENT-REF", f"/components/{i}/params/record")
+    assert "应指向一个实现 Acquisition 协议的组件" in d.message
+    assert d.suggestion == "改为 'acq'"
+
+
 def test_duplicate_component_name():
     bad = copy.deepcopy(AWG)
     bad["channel_components"][1]["name"] = "synth"
