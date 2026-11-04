@@ -1,5 +1,7 @@
+import asyncio
 import json
 import shutil
+import socket
 import time
 from pathlib import Path
 
@@ -11,7 +13,7 @@ pytest.importorskip("mcp")
 from mcp import Client
 
 from simubench.mcp_server import RateLimiter, build_server
-from simubench.server.manager import SessionManager
+from simubench.server.manager import ClientsConnected, SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = "awg_rc_scope.bench.yaml"
@@ -27,6 +29,26 @@ def ws(tmp_path):
 def make(ws, **kw):
     manager = SessionManager(ws, scpi_base_port=None)
     return manager, build_server(manager, ui_url="http://127.0.0.1:1/?token=x", **kw)
+
+
+def make_ports(ws, **kw):
+    """Like make, with the SCPI ports on: the force guard is about the scripts on them (issue 624)."""
+    manager = SessionManager(ws, scpi_base_port=0, hislip_port=0)
+    return manager, build_server(manager, ui_url="http://127.0.0.1:1/?token=x", **kw)
+
+
+async def connect_script(manager: SessionManager, sid: str, instrument: str) -> socket.socket:
+    """A script on the instrument's raw socket port, once the session lists it as a client."""
+    served = manager.get(sid)
+    lst = next(lt for lt in served.scpi.listeners if lt.instrument == instrument)
+    sock = socket.create_connection(("127.0.0.1", lst.port), timeout=5)
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        if served.remote_clients(instrument):
+            return sock
+        await asyncio.sleep(0.02)  # the accept handler registers the label on the loop
+    sock.close()
+    raise AssertionError("the script never showed up as a client")
 
 
 def result(r):
@@ -50,6 +72,9 @@ async def test_tools_listed_with_schemas(ws):
     # Edit operations are typed in the tool schema, so agents see every operation and its fields.
     schema = json.dumps(tools["edit_bench"].input_schema)
     assert "add_instrument" in schema and "set_accessories" in schema
+    # Whole-bench operations carry the force confirmation (issue 624).
+    for tool in ("start_session", "stop_session", "advance_clock"):
+        assert "force" in json.dumps(tools[tool].input_schema), tool
 
 
 async def test_build_deploy_drive_observe(ws):
@@ -112,6 +137,60 @@ async def test_start_refuses_invalid_bench(ws):
         )
         r = await call(c, "start_session", path="bad.bench.yaml")
         assert "E-MODEL-UNKNOWN" in r["error"]
+
+
+async def test_advance_clock_needs_force_while_scripts_are_connected(ws):
+    """A script on a port stands in the way of the clock, as on the HTTP side (issue 624): the
+    refusal is a tool error naming the client and the force=true retry, and the guard holds for
+    any caller of Session.advance."""
+    manager, server = make_ports(ws, allow_control=True)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        sid = s["session_id"]
+        sock = await connect_script(manager, sid, "scope")
+        try:
+            r = await call(c, "advance_clock", seconds=0.5)
+            assert "force=true" in r["error"] and "socket:" in r["error"]
+            assert manager.get(sid).session.now_ns == 0  # nothing moved behind the script's back
+            with pytest.raises(ClientsConnected):
+                manager.get(sid).session.advance(0.1)  # the session layer itself refuses
+            ok = await call(c, "advance_clock", seconds=0.5, force=True)
+            assert ok["now_s"] >= 0.5
+        finally:
+            sock.close()
+
+
+async def test_stop_session_needs_force_while_scripts_are_connected(ws):
+    manager, server = make_ports(ws)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        sid = s["session_id"]
+        sock = await connect_script(manager, sid, "awg")
+        try:
+            r = await call(c, "stop_session")
+            assert "force=true" in r["error"] and "socket:" in r["error"]
+            assert sid in manager.sessions  # the bench stands; the script keeps its ports
+            assert await call(c, "stop_session", force=True) == f"stopped {sid}"
+        finally:
+            sock.close()
+        assert manager.sessions == {}
+
+
+async def test_start_session_needs_force_while_scripts_are_connected(ws):
+    """Starting a bench replaces the running one and drops its scripts: refused without force."""
+    manager, server = make_ports(ws)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        sid = s["session_id"]
+        sock = await connect_script(manager, sid, "awg")
+        try:
+            r = await call(c, "start_session", path=BENCH)
+            assert "force=true" in r["error"] and "socket:" in r["error"]
+            assert manager.sessions and next(iter(manager.sessions)) == sid
+            s2 = await call(c, "start_session", path=BENCH, force=True)
+        finally:
+            sock.close()
+        assert sid not in manager.sessions and s2["session_id"] in manager.sessions
 
 
 async def test_read_log_returns_why_a_command_was_not_executed(ws):

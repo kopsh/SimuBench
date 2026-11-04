@@ -119,6 +119,11 @@ class Session:
         #: The last solve ended without the piecewise-linear devices agreeing on a mode (D52): the
         #: operating point is the last iteration's, consistent but not regulated as asked.
         self.unsettled = False
+        #: Set by the serving layer on a served session (``server.manager``): called with the
+        #: caller's ``force`` before an explicit advance and raises to refuse it, because scripts
+        #: are connected to the ports and their view of time would move (#121, issue 624).
+        #: In-process sessions (pytest plugin, ``@simubench`` backend, replay) have no clients.
+        self.confirm_advance: Callable[[bool], None] | None = None
 
         # ---- instruments and bench components ----
         self.instruments: dict[str, Instrument] = {}
@@ -610,9 +615,16 @@ class Session:
             if t_ns > self.now_ns:
                 self._advance(t_ns - self.now_ns, reason=reason)
 
-    def advance(self, seconds: float, reason: str = "explicit") -> None:
-        """Advance virtual time (action: advance). Works in every clock mode except wall."""
+    def advance(self, seconds: float, reason: str = "explicit", force: bool = False) -> None:
+        """Advance virtual time (action: advance). Works in every clock mode except wall.
+
+        On a served session the serving layer's ``confirm_advance`` refuses while scripts are
+        connected to the ports, unless ``force`` (issue 624); the guard travels with the call, so
+        no facade can forget it.
+        """
         with self._lock:
+            if self.confirm_advance is not None:
+                self.confirm_advance(force)
             if self.clock_mode == "wall":
                 raise RuntimeError("cannot advance a wall clock")
             self._advance(round(seconds * 1e9), reason=reason)

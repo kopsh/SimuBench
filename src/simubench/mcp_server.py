@@ -7,6 +7,9 @@ browser, and agent edits land in readable bench files.
 Rules the tools enforce:
 
 * dangerous commands (outputs on, sweeps that could harm a DUT) need ``confirm=true``;
+* whole-bench operations that touch the scripts on the ports — starting a bench (it replaces the
+  running one), stopping one, advancing the clock — are refused while scripts are connected,
+  until confirmed with ``force=true`` (issue 624);
 * simulation control (advancing the clock, reading true values) is off unless the service was
   started with ``--allow-control``; true values also need ``run.reveal_true_values`` in the bench;
 * calls are rate limited, so a looping agent cannot flood a session.
@@ -39,7 +42,7 @@ from .models.bench import Fault
 from .server.benchfiles import Conflict, diagnostics
 from .server.catalog import components as component_catalog
 from .server.definitionfiles import DefinitionFiles
-from .server.manager import BenchInvalid, ServedSession, SessionManager, fault_info
+from .server.manager import BenchInvalid, ClientsConnected, ServedSession, SessionManager, fault_info
 
 INSTRUCTIONS = """\
 SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), parts (RC networks,
@@ -164,6 +167,11 @@ def build_server(
         if isinstance(exc, KeyError):
             return ToolError(str(exc).strip("'\""))
         return ToolError(str(exc).splitlines()[0] if str(exc) else type(exc).__name__)
+
+    def force_needed(exc: ClientsConnected) -> ToolError:
+        """A whole-bench operation the connected scripts stand in the way of (#121, issue 624):
+        the same refusal the HTTP API answers 409 with, as a tool error the agent can retry from."""
+        return ToolError(f"{exc}；向工程师说明后，以 force=true 重新调用")
 
     def served(session_id: str | None) -> ServedSession:
         if session_id:
@@ -704,22 +712,39 @@ def build_server(
         path: str,
         clock: Literal["command", "wall", "stepped"] | None = None,
         seed: int | None = None,
+        force: bool = Field(
+            False,
+            description="Required while scripts are connected to the ports: starting replaces the running bench and drops them",
+        ),
     ) -> dict[str, Any]:
         """Deploy a bench: start a session (replacing the running one) and return the resource
-        addresses each instrument answers at, and how to point an existing script at them."""
+        addresses each instrument answers at, and how to point an existing script at them.
+        Refused while scripts are connected to the ports, unless force=true."""
         guard()
         try:
-            s = await manager.start(path, clock=clock, seed=seed)
+            s = await manager.start(path, clock=clock, seed=seed, force=force)
+        except ClientsConnected as exc:
+            raise force_needed(exc) from None
         except Exception as exc:
             raise fail(exc) from None
         return session_summary(s)
 
     @mcp.tool()
-    async def stop_session(session_id: str | None = None) -> str:
-        """Stop a session and close its SCPI sockets."""
+    async def stop_session(
+        session_id: str | None = None,
+        force: bool = Field(
+            False,
+            description="Required while scripts are connected to the ports: stopping drops them",
+        ),
+    ) -> str:
+        """Stop a session and close its SCPI sockets. Refused while scripts are connected to the
+        ports, unless force=true."""
         guard()
         s = served(session_id)
-        await manager.stop(s.id)
+        try:
+            await manager.stop(s.id, force=force)
+        except ClientsConnected as exc:
+            raise force_needed(exc) from None
         return f"stopped {s.id}"
 
     @mcp.tool()
@@ -840,13 +865,22 @@ def build_server(
 
     @mcp.tool()
     def advance_clock(
-        seconds: float = Field(..., gt=0, le=3600), session_id: str | None = None
+        seconds: float = Field(..., gt=0, le=3600),
+        session_id: str | None = None,
+        force: bool = Field(
+            False,
+            description="Required while scripts are connected to the ports: their view of virtual time moves",
+        ),
     ) -> dict[str, Any]:
-        """Advance the session's virtual clock (simulation control; needs --allow-control)."""
+        """Advance the session's virtual clock (simulation control; needs --allow-control).
+        Refused while scripts are connected to the ports, unless force=true."""
         guard()
         control()
         s = served(session_id)
-        s.session.advance(seconds)
+        try:
+            s.session.advance(seconds, force=force)
+        except ClientsConnected as exc:
+            raise force_needed(exc) from None
         return {"now_s": s.session.now_ns / 1e9}
 
     @mcp.tool()
