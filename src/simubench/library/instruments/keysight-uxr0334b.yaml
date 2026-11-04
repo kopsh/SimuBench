@@ -330,6 +330,35 @@ channel_state:
     default: ""
     label: 通道标签
     label_en: Label
+  # 通道的带宽限制（:CHANnel<N>:ISIM:BWLimit / :BANDwidth / :BWLimit:TYPE，#609）：在前端之后再滤一级。
+  # 截止频率 1 kHz 起（手册），上限取 128 GSa/s 的一半；上电值 OFF、10 GHz、WALL 为 SimuBench 值。
+  isim_bwlimit:
+    type: bool
+    default: false
+    label: 通道带宽限制
+    label_en: Channel BW limit
+  isim_bandwidth:
+    type: float
+    unit: HZ
+    min: 1.0e3
+    max: 6.4e10
+    default: 1.0e10
+    label: 通道带宽限制频率
+    label_en: Channel BW limit frequency
+  isim_type:
+    type: enum
+    options: [WALL, BESSEL4, BUTTerworth]
+    default: WALL
+    not_modeled:
+      BANDpass: the bandpass filter (phase noise analysis) is not modeled
+      BP5: the Frequency Extension bandpass filters are not modeled
+      BP10: the Frequency Extension bandpass filters are not modeled
+      BP20: the Frequency Extension bandpass filters are not modeled
+      BP30: the Frequency Extension bandpass filters are not modeled
+      P802P3DJ: the raised cosine reference receiver filters are not modeled
+      OIFCEI6: the raised cosine reference receiver filters are not modeled
+    label: 通道带宽限制类型
+    label_en: Channel BW limit type
 # 个体偏差（数据手册 3123-1313，按种子抽取，metrology-authoring.md 7）：直流增益精度 ±1.5% 满量程；
 # 偏置精度 ±(1% 偏置设定 + 1% 满量程 + 400 µV)（满量程 = 8 格）；时基 25 ppb。
 deviations:
@@ -520,6 +549,17 @@ channel_components:
       scale_range: [1.0e-3, 1.0]
       offset_ranges: [[0.0545, 0.4], [0.0935, 0.7], [0.1725, 1.25], [0.3065, 2.25], [1.0, 4.0]]
       out_of_range: error
+  # 通道带宽限制：WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。
+  # 手册说 Bessel 与 Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，
+  # 这一组合未建模（覆盖表注明）。
+  - name: isim
+    type: scope_vertical
+    params:
+      coupling: DC
+      bandwidth: .inf
+      bw_limit: $ch.isim_bwlimit
+      bw_limit_hz: $ch.isim_bandwidth
+      response: {from: $ch.isim_type, map: {WALL: brickwall, BESSEL4: bessel4, BUTTerworth: butterworth4}}
   - name: probe
     type: scope_probe
     params:
@@ -527,7 +567,8 @@ channel_components:
 wiring:
   channel:
     - [inp.out, front.in]
-    - [front.out, probe.in]
+    - [front.out, isim.in]
+    - [isim.out, probe.in]
   instrument:
     - ["ch{n}.probe.out", "acq.in{n}"]
     - [auxin.out, trigger.ext]
@@ -616,6 +657,9 @@ commands:
   - {header: ":CHANnel<ch>:INPut", state: ch.input}
   - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
   - {header: ":CHANnel<ch>:LABel", state: ch.label}
+  - {header: ":CHANnel<ch>:ISIM:BWLimit", state: ch.isim_bwlimit}
+  - {header: ":CHANnel<ch>:ISIM:BANDwidth", state: ch.isim_bandwidth}
+  - {header: ":CHANnel<ch>:ISIM:BWLimit:TYPE", state: ch.isim_type}
   # ---- DISPlay ----
   - {header: ":DISPlay:LABel", state: display.label}
   - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}

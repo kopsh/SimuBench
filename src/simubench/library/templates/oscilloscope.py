@@ -59,10 +59,10 @@ class ChannelsIn(_In):
         ..., "输入阻抗", "Input impedances", "The selectable inputs, the power-on one first", min_length=1
     )
     bandwidth_hz: float = _f(..., "带宽", "Bandwidth", "-3 dB analog bandwidth", "Hz", gt=0)
-    response: Literal["first_order", "brickwall", "gaussian", "bessel4"] = _f(
+    response: Literal["first_order", "brickwall", "gaussian", "bessel4", "butterworth4"] = _f(
         "first_order", "响应形状", "Response shape",
         "Shape of the bandwidth filter: first_order (an analog front end), brickwall (flat magnitude), "
-        "gaussian (no ringing) or bessel4; -3 dB at the bandwidth or the limit (#607)",
+        "gaussian (no ringing), bessel4 or butterworth4; -3 dB at the bandwidth or the limit (#607)",
     )  # fmt: skip
     bandwidth_limit_hz: float | None = _f(
         None,

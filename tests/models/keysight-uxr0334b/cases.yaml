@@ -460,6 +460,38 @@ cases:
       - query: ":MEASure:VPP? CHANnel1"
         expect_value: 0.2428
         tolerance: 0.005
+  - name: "通道带宽限制：砖墙、4 阶 Bessel、4 阶 Butterworth 对 10 MHz 正弦"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:ISIM:BWLimit; :CHANnel<N>:ISIM:BANDwidth; :CHANnel<N>:ISIM:BWLimit:TYPE"
+    steps:
+      - query: ":CHANnel1:ISIM:BWLimit?"
+        expect: "0"
+      - query: ":CHANnel1:ISIM:BWLimit:TYPE?"
+        expect: "WALL"
+      # 400 mVpp、10 MHz 正弦经 8 MHz 的限制：砖墙截掉；Butterworth |H| = 1/sqrt(1+1.25^8) = 0.379；
+      # 4 阶 Bessel 0.566
+      - send: ":CHANnel1:SCALe 0.1;:CHANnel1:ISIM:BANDwidth 8E6;:CHANnel1:ISIM:BWLimit ON"
+      - query: ":CHANnel1:ISIM:BANDwidth?"
+        expect: "+8.00000E+06"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 0.0
+        tolerance: 0.002
+      - send: ":CHANnel1:ISIM:BWLimit:TYPE BUTTerworth"
+      - query: ":CHANnel1:ISIM:BWLimit:TYPE?"
+        expect: "BUTT"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 0.1516
+        tolerance: 0.002
+      - send: ":CHANnel1:ISIM:BWLimit:TYPE BESSEL4"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 0.2265
+        tolerance: 0.002
+      - send: ":CHANnel1:ISIM:BWLimit OFF"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 0.4
+        tolerance: 0.002
+      - send: ":CHANnel1:ISIM:BWLimit:TYPE BP10"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
   - name: "自动测量：频率与周期（10 MHz）"
     manual: ":MEASure Commands > :MEASure:FREQuency; :MEASure:PERiod"
     steps:

@@ -1384,3 +1384,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 模板 | ✅ 示波器模板的“响应形状”输入可选四种，写入 `scope_vertical.response` |
 | UXR0334B | ✅ `:ACQuire:RESPonse {FLATmag | GAUSsianmag}` 映射到 `brickwall` / `gaussian`；覆盖表去掉 :ACQuire:BANDwidth 的一阶偏离；手册用例「带宽滤波的响应……」：100 MHz 带宽下 120 MHz 正弦，FLAT 为 0，GAUS 为 0.607 倍 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 示波器带宽滤波加 4 阶 Butterworth，UXR0334B 的通道带宽限制（Issue 609）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `scope_vertical.response` 加 `butterworth4`（−3 dB 在截止处，去掉低频群时延）；`tests/test_scope_vertical_response.py`（−3 dB、直流增益、单调不增、滚降介于砖墙与 Bessel 之间、去时延）；模板的“响应形状”可选 |
+| UXR0334B | ✅ 每个通道在前端之后串一级 `scope_vertical`（`isim`）：`:CHANnel<N>:ISIM:BWLimit`、`:ISIM:BANDwidth`、`:ISIM:BWLimit:TYPE {WALL | BESSEL4 | BUTTerworth}`，带通与升余弦类型报 -224；手册用例「通道带宽限制……」（10 MHz 正弦经 8 MHz：砖墙 0、Butterworth 0.379 倍、Bessel 0.566 倍）；覆盖表实现 91 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

@@ -399,6 +399,25 @@ def bessel4(fc: float) -> Callable[[np.ndarray], np.ndarray]:
     return h
 
 
+#: The 4th-order Butterworth denominator s^4 + a3 s^3 + a2 s^2 + a1 s + 1 (-3 dB at s = j); a1 is
+#: also its group delay at DC in the same units.
+BUTTERWORTH4 = (2.613125929752753, 3.414213562373095, 2.613125929752753)
+
+
+def butterworth4(fc: float) -> Callable[[np.ndarray], np.ndarray]:
+    """A 4th-order Butterworth low-pass, -3 dB at ``fc`` (maximally flat, a roll-off between the
+    brick wall and the Bessel), with its low-frequency group delay removed as a scope deskews it
+    (#609)."""
+    a3, a2, a1 = BUTTERWORTH4
+
+    def h(f: np.ndarray) -> np.ndarray:
+        w = np.asarray(f, dtype=float) / fc
+        s = 1j * w
+        return 1.0 / (s**4 + a3 * s**3 + a2 * s**2 + a1 * s + 1.0) * np.exp(1j * a1 * w)
+
+    return h
+
+
 def highpass1(fc: float) -> Callable[[np.ndarray], np.ndarray]:
     def h(f: np.ndarray) -> np.ndarray:
         x = 1j * np.asarray(f) / fc
