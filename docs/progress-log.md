@@ -1348,3 +1348,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 用例 | ✅ 手册用例「交流下 RANGELCK ON 不锁量程，越限不报 518」（去掉 `lock_functions` 时失败）、「交流下的 RANGELCK ON 在改到直流时清除」；原有直流电压/电流锁定用例不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 
+
+## 真实型号 Keysight Infiniium UXR0334B（Issue 338）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 依据 | ✅ Infiniium UXR-Series Programmer's Guide 11.60.00000（9018-07723）与 UXR-B 数据手册 3123-1313 入库 `manuals/`（PDF 走 LFS，附文本版），README 加两行；定义 `reference` 写同一编号与版本 |
+| 定义 | ✅ `keysight-uxr0334b.yaml` 只用通用组件：4 通道 50 Ω 直流输入，1 mV–1 V/div，偏置范围随档位（数据手册），33 GHz，10 位 ADC（128 码/格，WORD 为左移 6 位的有符号 16 位），128 GSa/s；默认设置按手册（CH1 1 V/div、100 ns/div、中心参考、CH1 边沿 0 V 上升、AUTO、COMPlete 90）；`:SYSTem:ERRor?` 只回错误码、空队列回 `0`；`simubench validate` 无诊断 |
+| 状态与同步 | ✅ `:TERegister?`、`:AER?`、`:ADER?`/`:PDER?`、`:ASTate?`、`:RSTate?`、`:OPEEnable`、`:OPERegister?`；手册的轮询同步（`:STOP;*OPC?`、`:ADER?`、`:SINGle`、轮询 `:ADER?`）由 `tests/test_keysight_uxr.py` 跑通 |
+| 覆盖表 | ✅ 由手册目录生成 1148 条（第 13–42 章）：实现 86、接受 6、未实现 1056；一致性检查通过 |
+| 用例 | ✅ `tests/models/keysight-uxr0334b/cases.yaml` 37 条，每条带 `manual:`，覆盖全部实现与接受的命令；合计约 3 s |
+| 测试台与脚本 | ✅ `examples/benches/keysight-uxr0334b.bench.yaml`（33622A → UXR0334B）；`examples/scripts/keysight_uxr_read_waveform.py` 按手册示例（HEADer OFF、`:DIGitize`、WORD/LSBFirst、24 字段前导、`:SYSTem:ERRor?` 到 0）读波形，在 `tests/test_keysight_uxr.py` 中运行 |
+| 未做 | ⚠️ 平台缺的能力记在 `核心` #602：`:SYSTem:ERRor? STRing`、`:WAVeform:STReaming ON`（`#0` 块）、2 的幂采样率与可设置的 SRATe、HEADer/LONGform ON、逐次采集完成事件、状态寄存器的嵌套开销（因此合并为 3 个寄存器，`:PDER?` 与 `:ADER?` 共用一位） |
+| 不变 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单未增加 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
