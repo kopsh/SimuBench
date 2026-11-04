@@ -20,6 +20,7 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .protection import ProtectionLatch, TripThreshold
 from .smu import OutputControlLoop
 
 #: Device error of E36300 series: the output cannot be enabled while a protection fault stands.
@@ -396,14 +397,23 @@ class SupplyReadback(Component):
 
 
 @component("supply_protection")
-class SupplyProtection(Component):
+class SupplyProtection(ProtectionLatch, Component):
     """A channel's OVP / OCP latch (B2 #185).
 
     Crossing a threshold (0 disables it) latches the fault and turns the output off; enabling the
     output while the fault stands is refused with the E36300's own error 729. ``clear`` (the
     model's ``OUTP:PROT:CLE``) removes the latch and restores the output state that existed before
-    the fault, as the manual describes.
+    the fault, as the manual describes. The latch, the threshold judging and the trip/kind/clear
+    replies are the shared protection primitive (:class:`ProtectionLatch`); this block's
+    increments are the OCP delay in constant current (#271) and the output-state restore.
     """
+
+    # OV and OC are the questionable register's over-voltage and over-current bits while the
+    # latch holds the output off (#539).
+    thresholds = (
+        TripThreshold("OVP", "ovp", "v", flag="OV"),
+        TripThreshold("OCP", "ocp", "i", flag="OC"),
+    )
 
     defaults = {
         "ovp": 0.0,  # over-voltage threshold, V (0: off)
@@ -424,7 +434,7 @@ class SupplyProtection(Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._tripped = ""  # "OVP" | "OCP" | ""
+        self._init_latch()
         self._restore = False  # was the output on when the fault came?
         self._disabling = False
         self._in_cc = False  # the output's last solved mode was constant current
@@ -441,7 +451,7 @@ class SupplyProtection(Component):
         self._in_cc = in_cc
 
     def _start_delay(self) -> None:
-        if self.owner is None or self._tripped or not bool(self.param("ocp_enabled")):
+        if self.owner is None or self.tripped() or not bool(self.param("ocp_enabled")):
             return
         now = self.owner.now_ns()
         self._cc_since = now
@@ -454,11 +464,11 @@ class SupplyProtection(Component):
             self.owner.cancel_pending(f"{self.uid}/ocp")
 
     def _ocp_due(self) -> None:
-        if self._tripped or self._cc_since is None or not self._in_cc or not bool(self.param("ocp_enabled")):
+        if self.tripped() or self._cc_since is None or not self._in_cc or not bool(self.param("ocp_enabled")):
             return
         self._cc_since = None
         self._restore = bool(self.param("output"))
-        self._tripped = "OCP"
+        self.latch("OCP")
         self._disable_output()
         self.session.invalidate(electrical=True)
 
@@ -466,45 +476,25 @@ class SupplyProtection(Component):
         """A zero OCP delay trips on entering CC, inside the solve like a threshold."""
         return bool(self.param("ocp_enabled")) and float(self.param("ocp_delay")) <= 0
 
-    def tripped(self) -> bool:
-        return bool(self._tripped)
-
-    def status_flags(self) -> dict[str, bool]:
-        """OV and OC while the latch holds the output off (#539: the questionable register's
-        over-voltage and over-current bits)."""
-        return {"OV": self._tripped == "OVP", "OC": self._tripped == "OCP"}
-
-    def kind(self) -> str:
-        return self._tripped
-
-    def check(self, v: float, i: float) -> bool:
-        if self._tripped:
-            return False
-        ovp, ocp = float(self.param("ovp")), float(self.param("ocp"))
-        return (ovp > 0 and abs(v) > ovp) or (ocp > 0 and abs(i) > ocp)
-
     def _output_path(self) -> str:
         return self.resolve_path("ch.output")
 
-    def trip(self, v: float, i: float) -> None:
-        if self._tripped:
-            return
-        self._restore = bool(self.param("output"))
-        ovp, ocp = float(self.param("ovp")), float(self.param("ocp"))
-        self._tripped = "OVP" if ovp > 0 and abs(v) > ovp else "OCP" if ocp > 0 and abs(i) > ocp else "PROT"
-        if self.owner is not None:
-            # The output goes off outside the circuit solve (the state write is a pending action).
-            key = f"{self.uid}/trip"
-            self.owner.register_pending(key, self.owner.now_ns(), self._disable_output)
-
     def trip_ocp(self) -> None:
         """OCP with no delay: the output trips on entering constant current."""
-        if self._tripped:
+        if self.tripped():
             return
+        self.latch("OCP")
+        self._on_trip()
+
+    # ---- the increments: the output state follows the fault -----------------------------------------
+
+    def _on_trip(self) -> None:
+        """The trip switches the output off outside the circuit solve (the state write is a
+        pending action)."""
         self._restore = bool(self.param("output"))
-        self._tripped = "OCP"
-        if self.owner is not None:
-            self.owner.register_pending(f"{self.uid}/trip", self.owner.now_ns(), self._disable_output)
+        if self.owner is None:
+            return
+        self.owner.register_pending(f"{self.uid}/trip", self.owner.now_ns(), self._disable_output)
 
     def _disable_output(self) -> None:
         if self.owner is None or not self._restore:
@@ -515,19 +505,14 @@ class SupplyProtection(Component):
         finally:
             self._disabling = False
 
-    def clear(self, kind: str | None = None) -> None:
-        """Remove the latch (only a ``kind`` fault when one is named: CURR:PROT:CLE clears OCP,
-        VOLT:PROT:CLE OVP) and restore the output state from before the fault."""
-        if kind is not None and self._tripped != kind.upper():
-            return
-        restore = self._restore
-        self._tripped = ""
-        self._restore = False
+    def _on_clear(self) -> None:
+        """The clear restores the output state that existed before the fault."""
+        restore, self._restore = self._restore, False
         if restore and self.owner is not None:
             self.owner.set_state(self._output_path(), True)
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
-        if key == "output" and new and self._tripped and not self._disabling:
+        if key == "output" and new and self.tripped() and not self._disabling:
             raise ScpiError(OUTPUT_DISABLED, "the output is disabled by a protection fault")
         if key in ("voltage", "current", "output", "ocp_enabled") and bool(self.param("ocp_enabled")):
             # Solving is lazy: bring the CC state up to now before judging the change. The OCP
@@ -542,7 +527,7 @@ class SupplyProtection(Component):
                 self._stop_delay()
 
     def reset(self) -> None:
-        self._tripped = ""
+        self._init_latch()
         self._restore = False
         self._in_cc = False
         self._stop_delay()
@@ -550,15 +535,11 @@ class SupplyProtection(Component):
     @op("tripped")
     def op_tripped(self, query: bool = False, kind: str | None = None, **_: Any) -> OpResult:
         """Whether a fault is latched; with ``kind`` (OVP / OCP) whether that one is."""
-        self.session.solve()
-        if kind is not None:
-            return OpResult(V.format_bool(self._tripped == kind.upper()))
-        return OpResult(V.format_bool(self.tripped()))
+        return OpResult(self._trip_reply(kind))
 
     @op("kind")
     def op_kind(self, query: bool = False, **_: Any) -> OpResult:
-        self.session.solve()
-        return OpResult(V.format_string(self.kind()))
+        return OpResult(self._kind_reply())
 
     @op("clear")
     def op_clear(self, kind: str | None = None, **_: Any) -> OpResult:
@@ -566,7 +547,7 @@ class SupplyProtection(Component):
         return OpResult()
 
     def readings(self) -> dict[str, Any]:
-        return {"values": {"tripped": self._tripped or "—"}}
+        return {"values": {"tripped": self.kind() or "—"}}
 
 
 @component("supply_tracking")
