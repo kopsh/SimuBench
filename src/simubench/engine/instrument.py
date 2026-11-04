@@ -460,7 +460,13 @@ class Instrument:
             return round(v) if spec.type == "int" else v
         if spec.type == "enum":
             if value not in (spec.options or []):
-                raise ScpiError(-224)
+                # A value written outside the parse layer (a definition's `writes`/`sets` constant,
+                # the UI's configure) may name the option in any SCPI word form, as a word
+                # arriving over SCPI does (#625): the option itself is stored.
+                canonical = V.fit_enum(value, spec.options or [])
+                if canonical is None:
+                    raise ScpiError(-224)
+                value = canonical
             return value
         if spec.type == "bool":
             return bool(value)
