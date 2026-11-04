@@ -68,23 +68,22 @@ def env_definition_dirs() -> list[Path]:
 
 
 @lru_cache(maxsize=256)
-def _load_definition_file(path: Path, mtime: float) -> InstrumentDefinition:
+def _load_definition_file(
+    path: Path, mtime: float, coverage_mtime: float | None = None
+) -> InstrumentDefinition:
     data, _ = upgrade(_read_yaml(path), "instrument")
     definition = InstrumentDefinition.model_validate(data)
     definition._source_file = path  # events that classify a command name this file (D18)
+    if coverage_mtime is not None:  # the table's own mtime keys the cache: an edit invalidates it
+        try:
+            from .coverage import load_coverage
+
+            table = path.with_name(path.stem + COVERAGE_SUFFIX)
+            definition._coverage = load_coverage(table)
+            definition._coverage_file = table
+        except Exception:
+            pass  # a broken table: the definition alone decides (the engine treats it as absent)
     return definition
-
-
-@lru_cache(maxsize=256)
-def _load_coverage_file(path: Path, mtime: float) -> object | None:
-    """The coverage table next to a definition, for the runtime classification (D18); None when it
-    cannot be read (an instrument must still run when its table is broken)."""
-    try:
-        from .coverage import load_coverage
-
-        return load_coverage(path)
-    except Exception:
-        return None
 
 
 class DefinitionLibrary:
@@ -104,7 +103,9 @@ class DefinitionLibrary:
 
     def get(self, def_id: str) -> InstrumentDefinition:
         p = self.path(def_id)
-        return _load_definition_file(p, p.stat().st_mtime)
+        table = p.with_name(p.stem + COVERAGE_SUFFIX)  # a real model's coverage table (D42)
+        coverage_mtime = table.stat().st_mtime if table.is_file() else None
+        return _load_definition_file(p, p.stat().st_mtime, coverage_mtime)
 
     def __call__(self, def_id: str) -> InstrumentDefinition:
         return self.get(def_id)
