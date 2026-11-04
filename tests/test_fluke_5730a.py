@@ -188,3 +188,41 @@ def test_a_sense_lead_into_a_dead_end_regulates_locally():
         assert q("FAULT?") == "0"
     finally:
         s.close()
+def test_a_current_output_trips_past_its_compliance():
+    """#550: 10 mA into 10 kohm needs 100 V, past the 10 V compliance: back to standby, fault 210;
+    into 100 ohm it drives 1 V and stays."""
+    s, q = session(
+        {"r": {"type": "load_resistor", "params": {"r": 100.0}}}, [{"from": "cal.OUT", "to": "r.A"}]
+    )
+    try:
+        inst = s.instruments["cal"]
+        q("OUT 10 MA;OPER")
+        q("*OPC?")
+        assert inst.session.port_signal(inst.components["out"], "out").mean() == pytest.approx(1.0, rel=1e-9)
+        assert q("FAULT?") == "0"
+    finally:
+        s.close()
+    s, q = session(
+        {"r": {"type": "load_resistor", "params": {"r": 1.0e4}}}, [{"from": "cal.OUT", "to": "r.A"}]
+    )
+    try:
+        inst = s.instruments["cal"]
+        q("OUT 10 MA;OPER")
+        q("*OPC?")
+        assert inst.session.port_signal(inst.components["out"], "out").mean() == pytest.approx(0.0, abs=1e-9)
+        assert q("FAULT?") == "210"
+    finally:
+        s.close()
+
+
+def test_a_resistance_output_is_the_nominal_value_in_the_circuit():
+    """#550: OUT 10 KOHM puts 10 kohm across the terminals: a 1 V source behind 10 kohm reads 0.5 V."""
+    parts = {"src": {"type": "dc_supply", "params": {"v": 1.0, "r": 1.0e4}}}
+    s, q = session(parts, [{"from": "src.OUT", "to": "cal.OUT"}])
+    try:
+        q("OUT 10 KOHM;OPER")
+        q("*OPC?")
+        inst = s.instruments["cal"]
+        assert inst.session.port_signal(inst.components["out"], "out").mean() == pytest.approx(0.5, rel=1e-6)
+    finally:
+        s.close()

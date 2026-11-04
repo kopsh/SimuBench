@@ -17,7 +17,9 @@ Whether a change of the output settings returns the instrument to standby is the
 ``standby_rule``: ``either`` (the default) trips when the old or the new magnitude is above
 ``standby_above``; ``crossing`` (the 5730A and 5522A manuals' wording, #553) trips only when the
 new magnitude is at or above it while the old one was below. With ``standby_on_function`` a change
-of the output function trips too. Outputting the value again needs an explicit ``OPER``.
+of the output function trips too: ``true`` any change, ``above`` (the 5522A, #566) a change between
+DC and AC voltage only while the magnitude is at or above ``standby_above`` (any other change of
+function still trips). Outputting the value again needs an explicit ``OPER``.
 """
 
 from __future__ import annotations
@@ -75,18 +77,31 @@ class _Setpoint:
             return v1
         return v1 + (v0 - v1) * math.exp(-elapsed / (dur / 5.0))
 
+    def kind(self) -> str:
+        """What the output is: V (DCV, ACV: a voltage source), I (DCI, ACI: a current source,
+        #550) or R (OHM: a resistance across the terminals)."""
+        fn = str(self.param("function")).upper()  # type: ignore[attr-defined]
+        return "I" if fn in ("DCI", "ACI") else "R" if fn == "OHM" else "V"
+
+    def resistance(self) -> float:
+        """OHM: the resistance the terminals present, the nominal value through the hidden gain error."""
+        return float(self.param("level")) * (1 + float(self.param("gain_error_ppm")) * 1e-6)  # type: ignore[attr-defined]
+
     def _true_level(self) -> float:
         """The amplitude the output stage actually makes: the setting through the transition and
         its own hidden errors (the truth a calibrated meter is checked against)."""
         true = self._level_now() * (1 + float(self.param("gain_error_ppm")) * 1e-6)  # type: ignore[attr-defined]
-        if str(self.param("function")).upper() != "ACV":  # type: ignore[attr-defined]
+        if str(self.param("function")).upper() == "DCV":  # type: ignore[attr-defined]
             true += float(self.param("offset"))  # type: ignore[attr-defined]
         return true
 
     def setpoint_signal(self) -> Signal:
-        """What the source drives: the level as DC (DCV) or one line of that RMS value (ACV)."""
+        """What the source drives: the level as DC (DCV, DCI) or one line of that RMS value (ACV,
+        ACI); nothing for OHM (a passive resistance)."""
+        if self.kind() == "R":
+            return Signal.constant(0.0)
         level = self._true_level()
-        if str(self.param("function")).upper() == "ACV":  # type: ignore[attr-defined]
+        if str(self.param("function")).upper() in ("ACV", "ACI"):  # type: ignore[attr-defined]
             f = float(self.param("frequency"))  # type: ignore[attr-defined]
             if f <= 0:
                 return Signal.constant(0.0)
@@ -144,9 +159,20 @@ class _Control:
         """The terminal is in the circuit: the instrument is in operate."""
         return _flag(self.param("operate"))  # type: ignore[attr-defined]
 
+    def _kind(self) -> str:
+        kind = getattr(self._setpoint(), "kind", None)
+        return kind() if kind is not None else "V"
+
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         if not self.on():
             return  # standby: the terminal is out of the circuit (5.1)
+        kind = self._kind()
+        if kind == "I":
+            circuit.current(node("out"), self.uid)  # the current output, returning through LO (#550)
+            return
+        if kind == "R":
+            circuit.resistor(node("out"), GROUND, max(self._setpoint().resistance(), 1e-6))
+            return
         z = float(self.param("z_out") or 0.0)  # type: ignore[attr-defined]
         if z <= 0:
             # An ideal source with a tracked branch current: the overload check reads it.
@@ -155,9 +181,22 @@ class _Control:
             circuit.source(node("out"), self.uid, z)
 
     def emf(self) -> dict[str, Signal]:
-        if not self.on():
+        if not self.on() or self._kind() == "R":
             return {}
         return {self.uid: self._drive()}
+
+    def _compliance(self) -> float:
+        """The voltage a current output can drive: one number, or a table by setpoint range with
+        "*" for the rest (#550)."""
+        spec = self.param("compliance")  # type: ignore[attr-defined]
+        if isinstance(spec, dict):
+            sp = self._setpoint()
+            name = sp.range_name() if hasattr(sp, "range_name") else None
+            value = next(
+                (v for k, v in spec.items() if name is not None and str(k).upper() == name.upper()), None
+            )
+            return float(value if value is not None else spec.get("*", 0.0))
+        return float(spec or 0.0)
 
     def _load_current(self, dc_voltage: Callable[[str], float]) -> float:
         """The current the operating point draws from the terminal (D34)."""
@@ -168,6 +207,21 @@ class _Control:
 
     def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
         if not self.on():
+            return False
+        kind = self._kind()
+        if kind == "R":
+            return False
+        if kind == "I":
+            # past its compliance voltage a current output trips to standby (#550)
+            limit = self._compliance()
+            v = dc_voltage("out")
+            if limit > 0 and abs(v) > limit * (1 + 1e-9):
+                self._set_operate(False)
+                self.tripped = True
+                code = int(self.param("overload_error") or 0)  # type: ignore[attr-defined]
+                if code and self.owner is not None:
+                    self.owner.push_error(code, f"compliance {abs(v):.4g} V exceeds {limit:.4g} V")
+                return True
             return False
         i_max = float(self.param("i_max") or 0.0)  # type: ignore[attr-defined]
         if i_max <= 0:
@@ -204,13 +258,14 @@ class _Control:
         """A change of the output settings while operating returns the instrument to standby when
         the model's rule says so, otherwise the new value is settled to. ``standby_rule`` either
         (5522A: old or new above ``standby_above``) or crossing (5730A: the new output at or above
-        it while the old one was below, #553); ``standby_on_function``: any change of function."""
+        it while the old one was below, #553); ``standby_on_function``: any change of function
+        (``true``), or DCV <-> ACV only at or above ``standby_above`` (``above``, #566)."""
         was_on = self.on()
-        if was_on and key == "function" and _flag(self.param("standby_on_function")) and old != new:  # type: ignore[attr-defined]
-            self._set_operate(False)
-            return
         sa = self.param("standby_above")  # type: ignore[attr-defined]
         level = float(sp.param("level"))
+        if was_on and key == "function" and old != new and self._function_trips(old, new, level, sa):
+            self._set_operate(False)
+            return
         if was_on and sa is not None:
             lo = abs(float(old) if key == "level" else level)
             ln = abs(float(new) if key == "level" else level)
@@ -223,6 +278,16 @@ class _Control:
                 return
         if self.on():
             sp.start_settling()
+
+    def _function_trips(self, old: Any, new: Any, level: float, standby_above: Any) -> bool:
+        """Whether this change of function while operating returns to standby (``standby_on_function``)."""
+        mode = self.param("standby_on_function")  # type: ignore[attr-defined]
+        if isinstance(mode, str) and mode.lower() == "above":
+            volts = {"DCV", "ACV"}
+            if str(old).upper() in volts and str(new).upper() in volts:
+                return standby_above is not None and abs(level) >= float(standby_above)
+            return True
+        return _flag(mode)
 
     def _set_operate(self, value: bool) -> None:
         """Operate through the bound state (the normal path) or the component's own attribute."""
@@ -265,13 +330,15 @@ class CalibratorSetpoint(_Setpoint, Component):
     refs = {"control": ("calibrator_control", "instrument")}
     units = {"level": "V", "offset": "V"}
     defaults = {
-        "function": "DCV",  # DCV | ACV
-        "level": 0.0,  # V, the set amplitude (RMS volts for ACV)
+        "function": "DCV",  # DCV | ACV | DCI | ACI (current outputs, #550) | OHM (a resistance, #550)
+        "level": 0.0,  # the set amplitude: V (RMS for ACV), A (RMS for ACI) or ohm
         "frequency": 0.0,  # Hz, the AC line (0 with DCV)
         "settle": 1.0,  # s until a new value is reached, or a table per function
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)
         "control": "",  # the calibrator_control that operates this setpoint
+        "limit_error": -222,  # the error a level beyond the function's largest range reports (with ranges)
+        "frequency_selects_ac": False,  # a frequency alone switches DC <-> AC within V or I (the 5730A's OUT 100 HZ)
         # Ranges (#552): per function a list of [name, full scale] or [name, full scale, minimum],
         # e.g. {DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC1100V, 1100, 100]]}; the output takes the
         # smallest range whose full scale is above the level ({}: no ranges)
@@ -307,6 +374,9 @@ class CalibratorSetpoint(_Setpoint, Component):
         table = self._table(function)
         if not table:
             return None
+        if str(function or self.param("function")).upper() == "OHM":
+            nominal = self._nominal_ohms(level)  # each resistance value is its own range
+            return next((name for name, full, _ in table if full == nominal), table[-1][0])
         for name, full, _ in table:
             if abs(level) < full * (1 - 1e-12):
                 return name
@@ -315,6 +385,17 @@ class CalibratorSetpoint(_Setpoint, Component):
     def range_name(self) -> str | None:
         """The range in use: the locked one, or the one the level selects."""
         return self._locked or self.auto_range(float(self.param("level")))
+
+    def _nominal_ohms(self, value: float) -> float:
+        """OHM: the nearest of the nominal values (the range table's full-scale values), on a log
+        scale; 0 (a short) for values below the smallest non-zero one's half."""
+        values = sorted({r[1] for r in self._table("OHM")})
+        nonzero = [v for v in values if v > 0]
+        if not nonzero:
+            return value
+        if value <= 0 or (0.0 in values and value < nonzero[0] / 2):
+            return 0.0 if 0.0 in values else nonzero[0]
+        return min(nonzero, key=lambda v: abs(math.log10(v) - math.log10(value)))
 
     @op("range")
     def op_range(self, **_: Any) -> OpResult:
@@ -363,6 +444,29 @@ class CalibratorSetpoint(_Setpoint, Component):
             check(float(new))
         elif check is not None and key == "function":
             check(float(self.param("level")), str(new))
+        if key == "frequency" and _flag(self.param("frequency_selects_ac")):
+            fn = str(self.param("function")).upper()
+            family = {"DCV": "V", "ACV": "V", "DCI": "I", "ACI": "I"}.get(fn)
+            target = None if family is None else ("AC" if float(new) > 0 else "DC") + family
+            path = self.bound_paths().get("function")
+            if target is not None and target != fn and path is not None and self.owner is not None:
+                self.setpoint_changed(key, old, new)
+                self.owner.set_state(path, target, source="scpi", internal=True)
+                return
+        if key == "level":
+            # (a function change is not checked: the command that changes it writes the level next)
+            level = float(new)
+            table = self._table()
+            if table and abs(level) >= table[-1][1] * (1 + 1e-9):
+                raise ScpiError(int(self.param("limit_error")), f"{level:g} is beyond the largest range")
+            if str(self.param("function")).upper() == "OHM" and table:
+                nominal = self._nominal_ohms(level)
+                if nominal != level and self.owner is not None:
+                    # the resistance outputs are a fixed set of values: the nearest one (#550)
+                    path = self.bound_paths().get("level")
+                    if path is not None:
+                        self.owner.set_state(path, nominal, source="scpi", internal=True)
+                        return
         if key == "level":
             if self._locked is not None:
                 self._check_locked(float(new))
@@ -401,12 +505,13 @@ class CalibratorControl(_Control, Component):
         "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
         "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
-        "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
+        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "setpoint": "",  # the calibrator_setpoint this control operates
         "remote_sense": False,  # external sense: regulate the SENSE terminal instead of the output (#551)
         "sense_ranges": [],  # the setpoint ranges where external sense is allowed ([]: every range)
         "sense_error": -221,  # the error external sense on a range outside sense_ranges reports
+        "compliance": 0.0,  # V a current output can drive: a number or {range name: V, "*": V} (0: no limit, #550)
     }
     piecewise = True
 
@@ -541,7 +646,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
         "settle": 1.0,  # s until a new value is reached, or a table per function
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
         "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
-        "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
+        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)

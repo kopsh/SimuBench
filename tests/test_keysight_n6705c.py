@@ -181,6 +181,38 @@ def test_status_registers_follow_the_channel(tmp_path):
         s.close()
 
 
+def test_transition_filters_choose_which_edges_latch():
+    """#549: with NTR on the CV bit and PTR cleared, a CV -> CC change latches only the falling CV
+    edge; the default filters (PTR all ones, NTR 0) latch only rising edges; STATus:PRESet restores
+    them."""
+    s, q = session(*load(3, 1.0))
+    try:
+        assert q("STAT:OPER:PTR? (@3)") == "32767" and q("STAT:OPER:NTR? (@3)") == "0"
+        q("VOLT 1,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER:COND? (@3)") == "1"  # CV: 1 A into 1 ohm
+        q("STAT:OPER:NTR 1,(@3);:STAT:OPER:PTR 0,(@3)")
+        q("STAT:OPER? (@3)")  # read: clears the event register
+        q("CURR 0.5,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER:COND? (@3)") == "2"  # CC now
+        assert q("STAT:OPER? (@3)") == "1"  # the CV bit fell; the CC rise is filtered out
+        q("CURR 2,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER? (@3)") == "0"  # CC fell (NTR has no CC bit), CV rose (PTR 0)
+        q("STAT:QUES:PTR 5,(@3);:STAT:QUES:NTR 3,(@3);:STAT:OPER:ENAB 1,(@3)")
+        q("STAT:PRES")
+        assert q("STAT:OPER:PTR? (@3)") == "32767" and q("STAT:OPER:NTR? (@3)") == "0"
+        assert q("STAT:QUES:PTR? (@3)") == "32767" and q("STAT:QUES:NTR? (@3)") == "0"
+        assert q("STAT:OPER:ENAB? (@3)") == "0"
+        q("CURR 0.5,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER? (@3)") == "2"  # default filters again: only the CC rise latches
+        assert q("SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
 def test_a_bus_trigger_steps_only_the_armed_channels():
     """#541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
     output to its triggered level (seen on the load) and leaves channel 3 alone."""
@@ -198,6 +230,70 @@ def test_a_bus_trigger_steps_only_the_armed_channels():
         q("*TRG")  # nothing armed: no change, no error (the manual lists none)
         assert float(q("MEAS:VOLT? (@3)")) == pytest.approx(2.0, abs=2e-3)
         assert q("SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
+def test_switching_on_during_the_fall_delay_keeps_the_output_on():
+    """#545: OUTP OFF starts the 1 s fall delay; OUTP ON before it ends keeps the output on (it
+    never went off) and drops the pending turn-off; a second OFF does not restart the countdown."""
+    s, q = session(*load(1, 10.0))
+    try:
+        q("VOLT 5,(@1);:CURR 1,(@1);:OUTP:DEL:RISE 0.5,(@1);:OUTP:DEL:FALL 1,(@1)")
+        q("OUTP ON,(@1)")
+        s.advance(0.6)
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9
+        q("OUTP OFF,(@1)")
+        s.advance(0.3)
+        q("OUTP ON,(@1)")
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9
+        s.advance(1.0)
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9  # the old turn-off did not fire
+        q("OUTP OFF,(@1)")
+        s.advance(0.6)
+        q("OUTP OFF,(@1)")  # repeated: the countdown keeps running
+        s.advance(0.5)
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+    finally:
+        s.close()
+
+
+def test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay():
+    """#545: sync() schedules the relay after rise_delay + relay time, as OUTP ON does."""
+    parts, wires = load(1, 10.0)
+    lib = DefinitionLibrary()
+    bench = BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/2",
+            "name": "t",
+            "instruments": {
+                "psu": {
+                    "model": "keysight-n6705c",
+                    "state": {
+                        "ch1.voltage": 5.0,
+                        "ch1.current": 1.0,
+                        "ch1.rise_delay": 0.5,
+                        "ch1.output": True,
+                    },
+                }
+            },
+            "parts": parts,
+            "wires": wires,
+        }
+    )
+    s = Session(bench, lambda model: lib.get(model), clock="command", seed=7, idle="off")
+
+    def q(cmd: str) -> str:
+        s.write("psu", cmd.encode() + b"\n")
+        out = s.read("psu")
+        return out.decode().strip() if out else ""
+
+    try:
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0  # the relay waits rise_delay + relay time
+        s.advance(0.3)
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        s.advance(0.3)
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9
     finally:
         s.close()
 

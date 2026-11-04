@@ -1318,8 +1318,18 @@ class Instrument:
                 checked[path] = self._validate(self.specs[path], v)
             except ScpiError as e:
                 raise self._bad_parameter(e, path, self.specs[path]) from e
-        for path, v in checked.items():
-            self.set_state(path, v)
+        # all or nothing: a write a component refuses (a level beyond the new function's ranges)
+        # takes back the ones before it (#550)
+        done: list[tuple[str, Any]] = []
+        try:
+            for path, v in checked.items():
+                before = self.state[path]
+                self.set_state(path, v)
+                done.append((path, before))
+        except ScpiError:
+            for path, before in reversed(done):
+                self.set_state(path, before)
+            raise
         return None
 
     def _parse_quantities(self, ps: ParamSpec, raw: tuple[bytes, ...], channel: int | None) -> dict[str, Any]:
@@ -1353,8 +1363,12 @@ class Instrument:
         if ps.combine is not None:
             if combo not in combine:
                 raise ScpiError(ps.combine_error, f"the unit combination {combo} is not allowed here")
+            first: dict[str, Any] = {}
             for target, value in combine[combo].items():
-                writes[self._resolve(target, channel)] = self._conditional_write(value, writes, channel)
+                first[self._resolve(target, channel)] = self._conditional_write(value, writes, channel)
+            # the combination's settings (the function the values are for) go in first (#550: a
+            # 5730A OUT 1 MOHM selects OHM before the level is checked against its ranges)
+            writes = {**first, **{k: v for k, v in writes.items() if k not in first}}
         return writes
 
     def _combine_of(self, ps: ParamSpec) -> dict[str, dict[str, Any]]:

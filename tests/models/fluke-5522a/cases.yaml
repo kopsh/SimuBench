@@ -187,6 +187,20 @@ cases:
         instrument: dmm
         expect: "+4.0000000E+01"
 
+  - name: "33 V 以下交流↔直流切换保持工作"
+    manual: "第 4 章 Operating→Standby（Output function is changed between ac or dc voltage when the output voltage is ≥33 V —— <33 V 不在回待机事件之内，#566）"
+    steps:
+      - send: "OUT 10 V"
+      - send: "OPER;*WAI"
+      - send: "OUT 10 V, 1 kHz;*WAI"
+      - query: "MEAS:VOLT:AC?"
+        instrument: dmm
+        expect: "+1.0000000E+01"
+      - send: "OUT 10 V, 0 HZ;*WAI"
+      - query: "MEAS:VOLT:DC?"
+        instrument: dmm
+        expect: "+1.0000000E+01"
+
   - name: "从 ≥33 V 往下改输出不回待机（没有跨越）"
     manual: "第 4 章 Operating→Standby（仅 previous output voltage was less than 33 V 时回待机）"
     steps:

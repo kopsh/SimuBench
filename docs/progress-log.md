@@ -1198,7 +1198,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 实现范围 | ✅ `OUT`（V 与 HZ，只给一项时另一项不变，0 Hz 直流、非 0 交流，±1100 V、10 Hz–1.2 MHz）、`OUT?`、`OPER`、`STBY`（3 s 建立时间，负载 >50 mA 跳回待机并记故障 210，≥22 V 跨越时回待机）、`FAULT?`、公共命令；`EXTGUARD`、`BRIGHTNESS`、`LOCAL/REMOTE/LOCKOUT` 为接受；故障码 2206（缺单位）、2207（同一单位两次） |
 | 平台改动（引擎） | ✅ `quantities` 参数的 `not_modeled` 也对单位生效：`OUT 1 A`、`OUT 1.9 MOHM`、`OUT 10 DBM` 报 -224（未建模），而不是"无效单位" |
 | 覆盖、用例与示例 | ✅ 覆盖表按 Table 6-4 共 100 条：实现 14 · 接受 5 · 未实现 81；`tests/models/fluke-5730a/cases.yaml` 6 条全部通过；示例台 `examples/benches/fluke-5730a.bench.yaml`（接 8588A）与脚本 `examples/scripts/fluke_5730a_verify.py` 在 `tests/test_fluke_5730a.py` 中运行；另测 3 s 建立时间与过载跳闸 |
-| 能力缺口 | ⚠️ 电流/电阻输出 #550、均登记在 #317 下；外部 sense #551、量程表与 RANGE?/RANGELCK #552；回待机规则（跨越阈值、改变功能）#553 已随后实现；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
+| 能力缺口 | ⚠️ 均登记在 #317 下；电流/电阻输出 #550、外部 sense #551、量程表与 RANGE?/RANGELCK #552；回待机规则（跨越阈值、改变功能）#553 已随后实现；误差模式、Wideband、外部放大器、相位、校准流程、ISR 状态寄存器等逐条标注 |
 | 组件不改 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单不变 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
 
@@ -1233,4 +1233,41 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档 | ✅ metrology-authoring.md 5.1（参数表与回待机规则条目）、5.4（实现差别）与 component-map.md 写明 `standby_rule`（`either` 默认 / `crossing`；either 严格大于阈值、crossing 含恰好等于）与 `standby_on_function`（默认 `false`）；组件模块 docstring 同步 |
 | 组件级用例 | ✅ `tests/test_calibrator.py`：crossing 的 25→30 V 保持工作、10→25 V 回待机、恰好等于阈值回待机、负幅值按绝对值判断；`standby_on_function` 改功能回待机、待机下改功能与同功能改频率不触发；either 回归（恰好等于阈值不触发、新值或旧值超阈回待机） |
 | 5522A 手册核对 | ✅ Operators Manual（PN 3795084）第 3、4 章 Operate and Standby Modes：「A voltage ≥ 33 V is selected when the previous output voltage was less than 33 V」「Output function is changed … except … <33 V」——电压规则是 crossing，#553 条目里「5522A 手册：新值或旧值 ≥33 V」系误读；5522A 定义改 `standby_rule: crossing` + `standby_on_function: true`，模型用例与手册用例按手册改写（40→20 V 不再回待机、恰好 33 V 回待机）；「交流↔直流 <33 V 不回待机」的例外未建模，登记 #566 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 校准器的电流与电阻输出（Issue 550）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `calibrator_setpoint` 的功能增加 DCI/ACI（电流）与 OHM（电阻）；电阻取量程表中最近的标称值（对数距离，0 为短路）并写回设定；超出该功能最大量程按 `limit_error` 拒绝；`frequency_selects_ac`：只改频率时在直流/交流之间切换（5730A）。`calibrator_control`：电流功能为电流源，端电压超过 `compliance`（数或按量程的表）跳回待机并记 `overload_error`；电阻功能在端子与地之间接入电阻 |
+| 引擎 | ✅ `quantities` 命令先写组合的设定（功能）再写数值，且整条命令要么全部生效、要么全部回退（组件拒绝其中一个写入时） |
+| 5730A | ✅ `OUT` 的 A、OHM 单位（DCI/ACI 220 µA–2.2 A、compliance 10 V、2.2 A 量程 2 V；电阻 0–100 MΩ 的 18 个标称值）；`OUT?` 回 V/A/OHM；手册用例「电流与电阻输出」（含 8588A 读回 1 kΩ 与 1 mA）；`tests/test_fluke_5730a.py` 的 compliance 跳闸与电阻进入电路两项 |
+| 未做 | ⚠️ 5522A 仍只有电压（其电流/电阻的量程与 compliance 另按其手册接上）；四线电阻与 RCOMP 两线补偿未建模 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 电源输出开/关延时的边界（Issue 545）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 关延时中再开输出不掉电 | ✅ `power_output` 记关延时是否在走（`_falling`）：其间再收到开输出，取消挂起的关断、输出保持导通；再次关输出不重置倒计时 |
+| `sync()` 计入开延时 | ✅ 测试台以“输出已开”启动时，继电器在 `rise_delay` + `relay_s` 后闭合，与 OUTP ON 一致 |
+| 测试 | ✅ `tests/test_keysight_n6705c.py::test_switching_on_during_the_fall_delay_keeps_the_output_on`、`::test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay` |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 状态寄存器的跳变过滤 PTR/NTR（Issue 549）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `status_register` 新参数 `ptr`（默认全 1）、`ntr`（默认 0）、`preset_ptr`；条件的跳变按 `(~old & new & PTR) \| (old & ~new & NTR)` 置事件；`STATus:PRESet` 把绑定的 PTR 置 `preset_ptr`（默认全 1）、NTR 置 0，使能清零 |
+| N6705C | ✅ 每路 `oper_ptr`/`oper_ntr`/`ques_ptr`/`ques_ntr`（0–65535，默认 32767/0）；`STATus:OPERation\|QUEStionable:PTRansition\|NTRansition (@list)` 设置与查询；覆盖表四条改 implemented，PRESet 一条同步 |
+| 测试 | ✅ `tests/test_keysight_n6705c.py::test_transition_filters_choose_which_edges_latch`：NTR=CV、PTR=0 时 CV→CC 只记 CV 下降沿；CC→CV 不记；PRESet 后 PTR/NTR/使能复位、只记上升沿 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 低压交流↔直流切换不回待机（Issue 566）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 参数语义 | ✅ `standby_on_function` 新取值 `above`：工作中 DCV↔ACV 的改变仅当幅值绝对值 ≥ `standby_above` 时回待机，其他功能改变总是回待机；`true`/`false` 行为不变 |
+| 组件级用例 | ✅ `tests/test_calibrator.py::test_standby_on_function_above_keeps_a_low_voltage_dc_ac_switch_operating`：10 V 直流→交流→直流保持工作，22 V（阈值）改功能回待机 |
+| 5522A | ✅ 定义改 `standby_on_function: above`；撤销 #558 的近似：`tests/test_fluke_5522a.py::test_acv_is_a_line_at_the_programmed_frequency` 在工作下直接切直流；手册用例新增「33 V 以下交流↔直流切换保持工作」；metrology-authoring.md 5.1/5.4 与 component-map.md 同步，债务列删去该缺口 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
