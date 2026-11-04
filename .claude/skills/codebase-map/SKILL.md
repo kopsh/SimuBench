@@ -49,7 +49,8 @@ plausible fake).
 - `manuals/` — vendor manuals the real models follow (PDF in Git LFS, `.txt` beside it; index `manuals/README.md`).
 - Version and changelog (D58): version from git date tags (`pyproject.toml` `[tool.hatch.version]`,
   `hatch_build.py` writes `src/simubench/_version.py`, git-ignored); tags by
-  `scripts/release_tags.py` in CI on `main`; changelog rules `cliff.toml`, `scripts/changelog.sh`.
+  `scripts/release_tags.py` in CI on `main`; changelog `scripts/changelog.py`, written into the
+  wheel and `dist/CHANGELOG.md` by `scripts/build-wheel.sh` (`simubench changelog`).
 - `tests/models/<id>/cases.yaml` — manual cases per model; `tests/definitions/` — test-only defs.
 - Key guard tests: `test_model_components.py` (`ALLOWED`), `test_block_coverage.py` (`EXEMPT`),
   `test_docs_examples.py` (doc snippets run), `test_component_catalog.py`.

@@ -58,8 +58,9 @@ raw-options = { local_scheme = "no-local-version" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simubench", "src/pyvisa_simubench"]
-# The built UI, copied in by scripts/build-wheel.sh (git-ignored, so listed as an artifact).
-artifacts = ["src/simubench/web_dist/**"]
+# The built UI and the changelog, written by scripts/build-wheel.sh (git-ignored, so listed as
+# artifacts).
+artifacts = ["src/simubench/web_dist/**", "src/simubench/CHANGELOG.md"]
 
 [tool.hatch.build.targets.sdist]
 # The vendor manuals are for development only, never distributed (real-models.md 7).

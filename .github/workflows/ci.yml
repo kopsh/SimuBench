@@ -112,13 +112,17 @@ jobs:
       - name: The wheel carries the git version and its commit (D58)
         run: |
           /tmp/wheel-env/bin/python -c "import simubench as s, sys; print(s.__version__, s.__commit_id__); assert s.__version__ != '0+unknown'; assert s.__commit_id__ == sys.argv[1]" "$GITHUB_SHA"
+      - name: The changelog is beside the wheel and inside it (D58)
+        run: |
+          test -s dist/CHANGELOG.md
+          cd /tmp && /tmp/wheel-env/bin/simubench changelog | cmp - "$GITHUB_WORKSPACE/dist/CHANGELOG.md"
 
   tag:
     # Every commit on main gets its date tag vYYYY.M.D.N, which is the version a build of it carries
     # (D58, scripts/release_tags.py). Not gated on the tests: the tag names the commit, it does not
     # vouch for it. Idempotent, and a run cancelled by a newer push is caught up by the next one.
-    # A tag whose commits change the product gets a GitHub Release with those changes (cliff.toml).
-    name: Date tag and release notes
+    # No GitHub Release: the changelog is written when the wheel is built (scripts/build-wheel.sh).
+    name: Date tag
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
@@ -127,22 +131,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@v6
       - name: Tag the untagged commits of main
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          python3 scripts/release_tags.py --push | tee new-tags.txt
-          while read -r tag sha; do
-            prev=$(git describe --tags --abbrev=0 --match 'v[0-9]*' "$sha^" 2>/dev/null || true)
-            range=${prev:+$prev..}$tag
-            uvx -q --from git-cliff==2.14.2 git-cliff -c cliff.toml --strip header "$range" > notes.md
-            if grep -q '^- ' notes.md; then
-              gh release create "$tag" --title "${tag#v}" --notes-file notes.md --verify-tag
-            fi
-          done < new-tags.txt
+        run: python3 scripts/release_tags.py --push
 
   slow:
     name: Slow tests (Textual boot, load-sensitive)
