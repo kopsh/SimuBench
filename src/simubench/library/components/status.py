@@ -13,8 +13,11 @@ ways, so a model only writes YAML:
   :meth:`Instrument.status_event` (a trigger occurred, a time constant changed); every register
   that names it latches it.
 
-The event register latches pushed events and the rising edges of the conditions; reading it
-clears it (the whole register, or with ``bit`` only that bit, the SRS form). The condition
+The event register latches pushed events and the transitions of the conditions that the
+transition filters pass: a rising edge where the positive filter ``ptr`` has the bit (default: all
+bits), a falling edge where the negative filter ``ntr`` has it (default: none), i.e.
+``(~old & new & ptr) | (old & ~new & ntr)`` (SCPI PTR/NTR, #549). Reading it clears it (the whole
+register, or with ``bit`` only that bit, the SRS form). The condition
 register is not latched. ``enable`` with two numbers sets one bit of the
 mask (``LIAE 2,1``), with one the whole mask.
 """
@@ -44,6 +47,11 @@ class StatusRegister(Component):
         # errors set, the *ESE mask), so a model can give it its own forms (*ESE i,j; *ESR? i).
         "mirror": "",
         "request_bit": None,  # a serial-poll register: this bit is set while (condition & enable) != 0
+        # Transition filters (#549), e.g. $ch.oper_ptr: a condition bit that goes true latches its
+        # event only where ptr has it, one that goes false only where ntr has it.
+        "ptr": None,  # positive filter (None: every bit, rising edges only)
+        "ntr": 0,  # negative filter (0: falling edges latch nothing)
+        "preset_ptr": None,  # the ptr STATus:PRESet writes (None: every bit of the register)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -123,7 +131,11 @@ class StatusRegister(Component):
             assert self.owner is not None
             return int(self.owner.esr)
         now = self.condition()
-        self._events |= now & ~self._seen
+        full = (1 << int(self.param("width"))) - 1
+        ptr = self.param("ptr")
+        ptr = full if ptr is None else int(ptr)
+        ntr = int(self.param("ntr") or 0)
+        self._events |= (now & ~self._seen & ptr) | (~now & self._seen & ntr & full)
         self._seen = now
         return self._events
 
@@ -218,14 +230,21 @@ class StatusRegister(Component):
     @op("preset")
     def op_preset(self, **_: Any) -> OpResult:
         """``STATus:PRESet``: the enable mask of every status register of the instrument (each
-        channel's too) back to 0; the events stay (SCPI PRESet, #348)."""
+        channel's too) back to 0, bound transition filters to ptr = ``preset_ptr`` (default every
+        bit) and ntr = 0; the events stay (SCPI PRESet, #348, #549)."""
         assert self.owner is not None
         for comp in self.owner.components.values():
             if comp.type_name != "status_register" or comp._params.get("mirror"):
                 continue
-            path = comp.bound_paths().get("enable")
-            if path is not None:
-                self.owner.set_state(path, 0)
+            bound = comp.bound_paths()
+            if bound.get("enable") is not None:
+                self.owner.set_state(bound["enable"], 0)
+            if bound.get("ptr") is not None:
+                preset = comp.param("preset_ptr")
+                full = (1 << int(comp.param("width"))) - 1
+                self.owner.set_state(bound["ptr"], full if preset is None else int(preset))
+            if bound.get("ntr") is not None:
+                self.owner.set_state(bound["ntr"], 0)
         return OpResult()
 
 

@@ -210,6 +210,36 @@ channel_state:
     rst: 0
     label: QUES 使能
     label_en: QUES enable
+  # 跳变过滤（STATus:OPERation/QUEStionable:PTRansition/NTRansition，#549）：手册默认 PTR 全 1
+  # （0x7FFF）、NTR 0；STATus:PRESet 恢复这两个值。
+  oper_ptr:
+    type: int
+    min: 0
+    max: 65535
+    default: 32767
+    label: OPER 正跳变过滤
+    label_en: OPER positive transition filter
+  oper_ntr:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: OPER 负跳变过滤
+    label_en: OPER negative transition filter
+  ques_ptr:
+    type: int
+    min: 0
+    max: 65535
+    default: 32767
+    label: QUES 正跳变过滤
+    label_en: QUES positive transition filter
+  ques_ntr:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 负跳变过滤
+    label_en: QUES negative transition filter
   # 输出时序（OUTPut:DELay:RISE/FALL，0–1023 s，*RST 0，#540）
   rise_delay:
     type: float
@@ -362,12 +392,18 @@ channel_components:
     params:
       bits: {CV: 0, CC: 1, "OFF": 2, WTG_TRAN: 4, TRAN_ACTIVE: 6}
       enable: $ch.oper_enable
+      ptr: $ch.oper_ptr
+      ntr: $ch.oper_ntr
+      preset_ptr: 32767
       summary_bit: 7
   - name: ques
     type: status_register
     params:
       bits: {OV: 0, OC: 1, CP: 3}
       enable: $ch.ques_enable
+      ptr: $ch.ques_ptr
+      ntr: $ch.ques_ntr
+      preset_ptr: 32767
       summary_bit: 3
 components:
   - name: sys
@@ -498,6 +534,14 @@ commands:
     params:
       - {name: mask, type: int, state: "ch.oper_enable"}
       - {name: channels, type: channel_list}
+  - header: "STATus:OPERation:PTRansition"
+    params:
+      - {name: mask, type: int, state: "ch.oper_ptr"}
+      - {name: channels, type: channel_list}
+  - header: "STATus:OPERation:NTRansition"
+    params:
+      - {name: mask, type: int, state: "ch.oper_ntr"}
+      - {name: channels, type: channel_list}
   - header: "STATus:QUEStionable[:EVENt]"
     op: ch.ques.event
     set: false
@@ -510,10 +554,18 @@ commands:
     params:
       - {name: mask, type: int, state: "ch.ques_enable"}
       - {name: channels, type: channel_list}
+  - header: "STATus:QUEStionable:PTRansition"
+    params:
+      - {name: mask, type: int, state: "ch.ques_ptr"}
+      - {name: channels, type: channel_list}
+  - header: "STATus:QUEStionable:NTRansition"
+    params:
+      - {name: mask, type: int, state: "ch.ques_ntr"}
+      - {name: channels, type: channel_list}
   - header: "STATus:PRESet"
     op: ch1.oper.preset
     query: false
-    doc: 各通道 OPER/QUES 的使能清零（事件不变）。
+    doc: 各通道 OPER/QUES 的使能清零、PTR 置 32767、NTR 清零（事件不变）。
   # ---- 系统 ----
   - header: "SYSTem:CHANnel[:COUNt]"
     state: system.channels

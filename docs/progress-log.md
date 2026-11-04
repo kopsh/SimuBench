@@ -1253,3 +1253,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `sync()` 计入开延时 | ✅ 测试台以“输出已开”启动时，继电器在 `rise_delay` + `relay_s` 后闭合，与 OUTP ON 一致 |
 | 测试 | ✅ `tests/test_keysight_n6705c.py::test_switching_on_during_the_fall_delay_keeps_the_output_on`、`::test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay` |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 状态寄存器的跳变过滤 PTR/NTR（Issue 549）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `status_register` 新参数 `ptr`（默认全 1）、`ntr`（默认 0）、`preset_ptr`；条件的跳变按 `(~old & new & PTR) \| (old & ~new & NTR)` 置事件；`STATus:PRESet` 把绑定的 PTR 置 `preset_ptr`（默认全 1）、NTR 置 0，使能清零 |
+| N6705C | ✅ 每路 `oper_ptr`/`oper_ntr`/`ques_ptr`/`ques_ntr`（0–65535，默认 32767/0）；`STATus:OPERation\|QUEStionable:PTRansition\|NTRansition (@list)` 设置与查询；覆盖表四条改 implemented，PRESet 一条同步 |
+| 测试 | ✅ `tests/test_keysight_n6705c.py::test_transition_filters_choose_which_edges_latch`：NTR=CV、PTR=0 时 CV→CC 只记 CV 下降沿；CC→CV 不记；PRESet 后 PTR/NTR/使能复位、只记上升沿 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
