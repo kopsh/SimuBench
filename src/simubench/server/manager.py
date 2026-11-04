@@ -563,18 +563,8 @@ class SessionManager:
             ch = int(path[2 : path.index(".")]) if path.startswith("ch") and path[2:3].isdigit() else None
             state.append(
                 M.StateVarInfo(
+                    **jsonable(spec.model_dump()),
                     path=path,
-                    type=spec.type,
-                    unit=spec.unit,
-                    min=spec.min,
-                    max=spec.max,
-                    options=spec.options,
-                    option_labels=spec.option_labels,
-                    display_unit=spec.display_unit,
-                    label=spec.label,
-                    label_en=spec.label_en,
-                    readonly=spec.readonly,
-                    electrical=spec.electrical,
                     dangerous=generic in dangerous_paths,
                     value=jsonable(inst.state.get(path)),
                     channel=ch,
@@ -837,7 +827,7 @@ class SessionManager:
                 waveform=wave,
                 sources=sources,
                 notes=[n.detail for n in sig.notes],
-                silence=[_silence(x) for x in why_silent(s, net)],
+                silence=list(why_silent(s, net)),
             )
 
     @staticmethod
@@ -939,16 +929,12 @@ def scpi_response(s: Session, instrument: str, command: str, client: str = "ui")
     )
 
 
-def _silence(x: Any) -> M.SilenceReason:
-    return M.SilenceReason(kind=x.kind, path=x.path, source=x.source, fault_id=x.fault_id, detail=x.detail)
-
-
 def _channel_silence(s: Session, inst: Instrument, channel: int) -> list[M.SilenceReason]:
     """Why a scope channel's input reads 0 V: its input port, traced upstream (issue 22)."""
     for pname, (comp, port) in inst.ports.items():
         if comp.startswith(f"ch{channel}.") and inst.components[comp].ports[port].direction == "in":
             ref = f"{inst.name}.{pname}"
-            return [_silence(x) for x in why_silent(s, s.node_of(inst.components[comp], port), port_ref=ref)]
+            return list(why_silent(s, s.node_of(inst.components[comp], port), port_ref=ref))
     return []
 
 

@@ -38,7 +38,7 @@ from .library.templates import get_template as template_by_id
 from .library.templates import templates as instrument_templates
 from .library.templates.draft import suggester as template_suggester
 from .models.bench import Fault
-from .server.benchfiles import Conflict, diagnostics
+from .server.benchfiles import Conflict
 from .server.catalog import components as component_catalog
 from .server.definitionfiles import DefinitionFiles
 from .server.manager import (
@@ -393,7 +393,7 @@ def build_server(
             raise
         except Exception as exc:
             raise fail(exc) from None
-        return {"ok": report.ok, "diagnostics": [d.model_dump() for d in diagnostics(report)]}
+        return {"ok": report.ok, "diagnostics": [d.model_dump() for d in report.diagnostics]}
 
     @mcp.tool()
     def run_cases(
@@ -530,7 +530,7 @@ def build_server(
         except Exception as exc:
             raise fail(exc) from None
         report = definitions.validate(content)
-        return {"ok": report.ok, "diagnostics": [d.as_dict() for d in report.diagnostics]}
+        return {"ok": report.ok, "diagnostics": [d.model_dump() for d in report.diagnostics]}
 
     @mcp.tool()
     def draft_definition_from_script(
@@ -616,7 +616,7 @@ def build_server(
             raise ToolError(str(exc.args[0])) from None
         out = t.expand(inputs, definition_id)
         if out.definition is None:
-            return {"saved": False, "diagnostics": [d.as_dict() for d in out.diagnostics]}
+            return {"saved": False, "diagnostics": [d.model_dump() for d in out.diagnostics]}
         if base_sha256 is not None:
             _refuse_lost_edits(definitions, t, definition_id, discard_edits)
         try:

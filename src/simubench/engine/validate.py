@@ -10,38 +10,36 @@ from __future__ import annotations
 import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from ..library.migrate import FormatError, upgrade
-from ..models.bench import BenchDefinition
-from ..models.definition import InstrumentDefinition
 from ..scpi import values as V
 from .component import Component, binding_of, component_types, map_setting
 from .portref import closest, ladder, split
 
+if TYPE_CHECKING:
+    from ..models.bench import BenchDefinition
+    from ..models.definition import InstrumentDefinition
+
 Severity = Literal["error", "warning"]
 
 
-@dataclass
-class Diagnostic:
+# The model config mirrors models/api._Model so the generated schema stays identical (D57): the
+# diagnostic is the interface object (models/api.py re-exports this class), defined beside the
+# validation that produces it.
+class Diagnostic(BaseModel):
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True
+    )
+
     severity: Severity
-    code: str
-    pointer: str
+    code: str = Field(..., description="Stable code, e.g. 'E-WIRE-PORT'")
+    pointer: str = Field(..., description="JSON pointer into the bench file, e.g. '/wires/1/to'")
     message: str
     suggestion: str | None = None
-    subject: str | None = None  # instrument, DUT or wire the diagnostic is about
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "severity": self.severity,
-            "code": self.code,
-            "pointer": self.pointer,
-            "message": self.message,
-            "suggestion": self.suggestion,
-            "subject": self.subject,
-        }
+    subject: str | None = Field(None, description="Instrument, DUT or wire the diagnostic is about")
 
 
 @dataclass
@@ -52,8 +50,25 @@ class Report:
     def ok(self) -> bool:
         return not any(d.severity == "error" for d in self.diagnostics)
 
-    def add(self, *args: Any, **kwargs: Any) -> None:
-        self.diagnostics.append(Diagnostic(*args, **kwargs))
+    def add(
+        self,
+        severity: Severity,
+        code: str,
+        pointer: str,
+        message: str,
+        suggestion: str | None = None,
+        subject: str | None = None,
+    ) -> None:
+        self.diagnostics.append(
+            Diagnostic(
+                severity=severity,
+                code=code,
+                pointer=pointer,
+                message=message,
+                suggestion=suggestion,
+                subject=subject,
+            )
+        )
 
 
 def _bound(value: float | None, open_end: str = "-∞") -> str:
@@ -96,6 +111,8 @@ def validate_data(
     data: Any, definitions: Callable[[str], InstrumentDefinition]
 ) -> tuple[BenchDefinition | None, Report]:
     """Validate raw bench data (parsed YAML/JSON); return the model when the schema accepts it."""
+    from ..models.bench import BenchDefinition  # late: this module is re-exported by models/api.py
+
     report = Report()
     try:
         data, _ = upgrade(data, "bench")

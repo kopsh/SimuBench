@@ -17,7 +17,7 @@ from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
 from ..library.loader import layered_definition_data, load_yaml
 from ..models import api as M
-from .benchfiles import BenchFiles, Conflict, _sha, diagnostics
+from .benchfiles import BenchFiles, Conflict, _sha
 from .definitionchanges import definition_changes
 from .history import Source
 
@@ -143,7 +143,7 @@ class DefinitionFiles:
             sha256=_sha(raw),
             data=data,
             ok=report.ok,
-            diagnostics=diagnostics(report),
+            diagnostics=list(report.diagnostics),
             changes=changes or [],
         )
 
