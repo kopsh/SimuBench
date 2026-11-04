@@ -32,7 +32,11 @@ def openapi() -> dict[str, Any]:
     from .manager import SessionManager
 
     app = create_app(SessionManager(Path(".")), token="schema-export", web_dist=Path("/nonexistent"))
-    return app.openapi()
+    spec = app.openapi()
+    # The committed file describes the interface, not a build: the package version changes with
+    # every commit (D58) and would make the file differ each time. The served one carries it.
+    spec["info"]["version"] = "0"
+    return spec
 
 
 def export_all(out: Path) -> list[Path]:
