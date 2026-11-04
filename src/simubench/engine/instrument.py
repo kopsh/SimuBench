@@ -31,6 +31,7 @@ from .commands import (
     when_matches,
 )
 from .component import Component, OpResult, component_type, map_setting
+from .portref import split
 from .signal import Signal
 
 if TYPE_CHECKING:
@@ -54,6 +55,16 @@ def _enum_hit(raw: bytes, options: list[str] | None) -> bool:
     """Whether a data element spells one of an enum parameter's options (spaces and case aside)."""
     text = b"".join(raw.split()).decode("ascii", "replace").upper()
     return any("".join(o.split()).upper() == text for o in options or [])
+
+
+def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
+    """An external port's target halves; a dotless target is refused with the target echoed."""
+    comp, port = split(target)
+    if not comp:
+        raise ValueError(
+            f"instrument {instrument!r}: port {pname!r} target {target!r} is not <component>.<port>"
+        )
+    return comp, port
 
 
 #: Parameter errors a definition's declaration explains (tui-design.md 1.1): out of range (-222),
@@ -180,6 +191,10 @@ class Instrument:
         #: not occur): while any is waiting, *OPC? does not answer, as on hardware the reply never comes.
         self.blockers: set[str] = set()
         self._status_register_cache: list[Component] | None = None  # see _status_registers()
+        #: Components' status flags while a status register computes its condition: the outermost
+        #: register fills it, the registers it asks reuse it (#602: without it every register
+        #: recomputed every other one's flags, n! scans of a scope's trigger per command).
+        self.status_flag_cache: dict[str, dict[str, bool]] | None = None
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
         self._opc_armed = False
@@ -274,10 +289,10 @@ class Instrument:
         self.ports: dict[str, tuple[str, str]] = {}
         for n in range(1, self.channel_count + 1):
             for pname, target in definition.ports.channel.items():
-                comp, port = target.rsplit(".", 1)
+                comp, port = _port_target(self.name, pname, target)
                 self.ports[pname.replace("{n}", str(n))] = (f"ch{n}.{comp}", port)
         for pname, target in definition.ports.instrument.items():
-            comp, port = target.rsplit(".", 1)
+            comp, port = _port_target(self.name, pname, target)
             self.ports[pname] = (comp, port)
 
         self._commands = [_Compiled(Pattern.compile(c.header), c) for c in definition.commands]
@@ -329,9 +344,11 @@ class Instrument:
         return [(f"{sc}.{sp}", f"{dc}.{dp}") for (dc, dp), (sc, sp) in self._upstream.items()]
 
     def _wire(self, src: str, dst: str) -> None:
-        sc, sp = src.rsplit(".", 1)
-        dc, dp = dst.rsplit(".", 1)
-        for c in (sc, dc):
+        sc, sp = split(src)
+        dc, dp = split(dst)
+        for whole, c in ((src, sc), (dst, dc)):
+            if not c:  # a dotless reference splits into an empty owner; echo the whole reference
+                raise ValueError(f"instrument {self.name!r}: wiring end {whole!r} is not <component>.<port>")
             if c not in self.components:
                 raise ValueError(f"instrument {self.name!r}: wiring refers to unknown component {c!r}")
         self._upstream[(dc, dp)] = (sc, sp)
@@ -976,8 +993,19 @@ class Instrument:
         """off, short or long: whether and how replies repeat the command header (dialect.echo_header)."""
         mode = self.definition.dialect.echo_header
         if mode.startswith("$"):
-            mode = str(self.state.get(mode[1:], "off"))
-        return mode.lower()
+            value = self.state.get(mode[1:], "off")
+            if isinstance(value, bool):  # a header switch (Infiniium :SYSTem:HEADer, #602)
+                value = "short" if value else "off"
+            mode = str(value)
+        mode = mode.lower()
+        if mode == "short" and self.long_form():
+            return "long"
+        return mode
+
+    def long_form(self) -> bool:
+        """Whether replies are long: long headers and spelled-out enumerations (dialect.long_form)."""
+        path = self.definition.dialect.long_form
+        return bool(path) and bool(self.state.get(path[1:], False))
 
     def _reply(
         self,
@@ -1527,11 +1555,11 @@ class Instrument:
         if st.type == "enum":
             if st.replies and value in st.replies:
                 return st.replies[value].encode()  # the instrument's own query word (#268)
-            return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
+            long = f.enum == "long" or self.long_form()
+            return V.format_enum(value, long=long, as_defined=f.enum == "as_defined")
         if st.type == "enum_list":
-            return b",".join(
-                V.format_enum(v, long=f.enum == "long", as_defined=f.enum == "as_defined") for v in value
-            )
+            long = f.enum == "long" or self.long_form()
+            return b",".join(V.format_enum(v, long=long, as_defined=f.enum == "as_defined") for v in value)
         if st.type == "int_list":
             return V.format_channel_list(value)
         return V.format_string(str(value))

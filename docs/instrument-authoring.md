@@ -43,6 +43,7 @@ SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是*
 ```yaml
 dialect:
   echo_header: $comm.header      # off | short | long，或绑定到一个状态量（COMM_HEADER 可切换）
+  # long_form: $system.longform   # 可选：布尔开关，开时命令头与枚举应答用长格式（Infiniium，#602）
   multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}   # 无单位数值的倍率后缀（点数）
 format:
   number: engineering            # 现有 nr1/nr2/nr3 之外新增 engineering：200E-3、10E+3
@@ -102,7 +103,8 @@ params:
 
 把参考示波器最后的专用行为改为声明时补充（都与型号无关）：
 
-- **按参数区分的命令** `when`：几条命令共用一个命令头，按参数的取值选择（`C1:INSPECT? "DATA_ARRAY_1"` 回读数据，`"WAVEDESC"` 给出描述）；都不匹配时回复 -224。静态校验只在 `when` 能区分时才不报 `E-DEF-HEADER-DUPLICATE`。
+- **按参数区分的命令** `when`：几条命令共用一个命令头，按参数的取值选择（`C1:INSPECT? "DATA_ARRAY_1"` 回读数据，`"WAVEDESC"` 给出描述）；都不匹配时回复 -224。写在这些命令之后、不带 `when` 的同头命令是兜底：其他取值与省略参数时用它（Infiniium 的 `:SYSTem:ERRor? [STRing]`：STRing 回码与文字，不带参数只回码，#602）。静态校验只在 `when` 能区分、或后一条是兜底时才不报 `E-DEF-HEADER-DUPLICATE`；兜底写在 `when` 命令之前则那些命令永远不执行，照样报错。
+- **应答头的两个开关**（#602）：`dialect.echo_header` 可以绑定一个布尔设置（开为短命令头，Infiniium 的 `:SYSTem:HEADer`）；`dialect.long_form` 绑定另一个布尔设置，开时命令头与枚举应答都用长格式（`:SYSTem:LONGform`：`:TIMEBASE:REFERENCE CENTER`）。公共命令的查询始终不带头。
 - **参数的连带设置** `sets`：一个写设置的参数可以同时写一组常量，例如 CONFigure 的量程参数 `sets: {sense.range_auto: false}`（量程一给就关闭自动量程）。连带设置只跟随明确的取值（数值、MIN、MAX）：参数写的是该设置的特殊字（`special`，如 AUTO）或 DEF 时不写，保留命令 `writes` 的选择（#325：`CONF:VOLT:DC AUTO` 仍为自动量程）。常量与参数一起校验、一起生效；静态校验用 `E-DEF-WRITE` 检查常量。
 - **关键字代写** `keywords`：参数写某个关键字（MIN、MAX、DEF 或特殊字；MINimum 等长形式同义）时，改写表中给出的设置，参数自己的设置只在表里写出时才写。用于关键字的含义不是"参数声明的上下限"的场合，例如 34465A 的 CONFigure 分辨率 `keywords: {MIN: {sense.resolution: 0, sense.nplc: 100}}`（最细分辨率选最长积分时间，#344）。表中常量同样由 `E-DEF-WRITE` 检查。
 - **整数序号映射为词**（#333）：词参数（如 `ext_slope`、`lockin_input_mode.mode`）可以绑定一个整数设置，只要它的取值范围小（不超过 64 个值）、`map` 给出每个值对应的词（或嵌套映射）；静态校验逐值检查。SR86x 的枚举是序号加词的别名（`RTRG POS` 与 `RTRG 1` 同义、查询回 1），用整数设置加 `special` 写词，再映射到组件的词。
@@ -180,7 +182,7 @@ params:
 
 ### 3.1 `waveform_transfer`
 
-已实现（#43，`library/components/transfer.py`）：sb 示波器、Siglent SDS 与低频校准参考示波器的数据回读都改为本组件的配置，回复与改动前逐字节一致。与下面的设计稿的差别：文本的前后缀不放在组件里，由命令的 `reply` 模板加上（`'{header} " {value} "'`，操作命令的应答也走模板，随 `COMM_HEADER` 回显或省略命令头）；ADC 码由参数描述：`codes_per_div`、`offset`（`subtract` 或 `add` 记录的偏移设置）、`adc_bits`（限幅）、`width`（8 或 16 位，按位移对齐）、`unsigned`、`byteorder`，都可以绑定或映射设置（例如 sb 的 `:WAVeform:FORMat` 同时决定编码、码值比例与字宽）；`block_digits`（如 Siglent 前导的 `#9`）、`trailer`（块后的换行）。“当前记录是哪一个”（读取开始时是否重新采集）由采集组件的 `transfer_record` 回答，留给 #44。
+已实现（#43，`library/components/transfer.py`）：sb 示波器、Siglent SDS 与低频校准参考示波器的数据回读都改为本组件的配置，回复与改动前逐字节一致。与下面的设计稿的差别：文本的前后缀不放在组件里，由命令的 `reply` 模板加上（`'{header} " {value} "'`，操作命令的应答也走模板，随 `COMM_HEADER` 回显或省略命令头）；ADC 码由参数描述：`codes_per_div`、`offset`（`subtract` 或 `add` 记录的偏移设置）、`adc_bits`（限幅）、`width`（8 或 16 位，按位移对齐）、`unsigned`、`byteorder`，都可以绑定或映射设置（例如 sb 的 `:WAVeform:FORMat` 同时决定编码、码值比例与字宽）；`block_digits`（如 Siglent 前导的 `#9`）、`trailer`（块后的换行）、`indefinite`（`#0` 加数据到消息末尾的不定长块，可绑定设置，Infiniium 的 `:WAVeform:STReaming ON`，#602）。“当前记录是哪一个”（读取开始时是否重新采集）由采集组件的 `transfer_record` 回答，留给 #44。
 
 一个通用组件，读取采集组件的记录，按配置编码。低频校准的文本回读写成：
 
@@ -205,7 +207,7 @@ params:
 
 已实现（#44，`library/components/scope.py`）：三台示波器（sb、Siglent SDS、低频校准参考示波器）的记录长度、触发、运行控制、噪声与 ADC 都写在定义里，回复、虚拟时间与采集事件与改动前一致（只有 Siglent 平均采集的耗时按 D46 改为 N 次）。`siglent_sds_acquisition` 与 `lecroy_acquisition` 只剩专用命令（WAVEDESC、`:TRIGger:STATus?`、依赖其他设置的范围、`INSPECT?`、`PAVA?`）。与下面的设计稿的差别：参数是平铺的（与 `waveform_transfer` 一致，每项都可以绑定或映射设置）：
 
-- 记录长度：`record_length`（`fixed`：`points` 点覆盖 10 格；`exact`；`rate_ladder`）、`points`、`max_rate`，同一 ADC 的通道对 `rate_pairs` 同开时为 `max_rate_paired`；`delay` 绑定时触发点在中心之前 `delay` 秒；
+- 记录长度：`record_length`（`fixed`：`points` 点覆盖 10 格；`exact`；`rate_ladder`：按 1-2-5 向下取档；`rate_pow2`：最高采样率除以 2 的幂向下取档，#602）、`points`、`max_rate`；`sample_rate` 大于 0 时（可绑定设置，如 Infiniium 的 `:ACQuire:SRATe`）采样率取它向上的下一档、优先于存储深度，记录为采样率 × 10 格点，`max_points` 限制记录点数（超出时采样率向下取档）；同一 ADC 的通道对 `rate_pairs` 同开时为 `max_rate_paired`；`delay` 绑定时触发点在中心之前 `delay` 秒；
 - 触发：`trigger_source`、`trigger_level`、`trigger_slope`，按通道的设置写作 `$ch{n}.trigger_level`（`{n}` 是触发通道号，静态校验同样检查），`rising`、`falling` 列出两个沿的取值；非通道的触发源（外触发、电源）不触发；
 - 运行控制：`mode` 与 `auto`、`normal`、`single`、`stop`、`force`（强制一帧后停止，Siglent 的 FTRIG）各自的取值，`after_single`（为空时模式不变、停止运行），`reacquire`，`missing`（`acquire`：没有记录的通道读取时按当前信号采一次，`error`：报 -230），`untriggered`（未触发的采集耗时：整个触发搜索或一帧）。等待中的单次采集在每次读取时重试。通用的 op：`run_mode`、`single`、`run`、`stop`、`force_trigger`、`wait`、`opc`、`digitize`；
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
@@ -217,7 +219,7 @@ params:
 - name: acq
   type: scope_acquisition
   params:
-    record_length: {points: $memory.size, rule: exact}     # exact | rate_ladder（按 1-2-5 取采样率）
+    record_length: {points: $memory.size, rule: exact}     # exact | rate_ladder（按 1-2-5 取采样率）| rate_pow2
     max_rate: 2.0e10
     trigger: {source: $trigger.source, level: "$ch{source}.trigger_level", slope: "$ch{source}.trigger_slope",
               rising: [POSitive], falling: [NEGative]}
@@ -260,7 +262,7 @@ params:
 | `E-DEF-PARAM-VALUE` | 取词参数（组件的 `choices`，如 `smu_meter.function` 只认 VOLTage/CURRent/RESistance）写了不认识的词，或绑定的状态可取其他值（字符串状态、枚举里有多余的选项，#308） |
 | `E-DEF-OP-UNKNOWN` | 组件或操作不存在；通道组件的操作用在没有 `<ch>` 的命令头上 |
 | `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
-| `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举；参数映射的表中有设置取不到的值（#42） |
+| `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举或布尔设置、`long_form` 绑定的不是布尔设置；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
 | `E-DEF-PANEL-STATE`、`E-DEF-PANEL-CONTROL`、`E-DEF-PANEL-VALUE` | 面板（`display.panel`，7.3）引用的设置不存在；控件与设置的类型不相容（`switch` 用于布尔、`select` 用于枚举、`number` 用于数值，数值或字符串的 `buttons` 要写出 `keys`）或设置只读；按键、软键、`sets` 与 `when` 的取值不是可选项、超出范围或类型不符（#128） |
@@ -437,7 +439,7 @@ display:
 - `library/templates/`：每个模板是一个 `Template`（`id`、`version`、类别、中英文名称、说明），带一个输入的 pydantic 模型（导出 JSON Schema，每个字段有 `title`、`title_en`、`description`，有单位的带 `unit`）、一份示例输入、生成函数 `build` 与检查函数 `check`。`check` 做 schema 表达不了的检查（顺序、覆盖、引用），诊断码 `E-TPL-*`，指针在 `/template/inputs` 下；输入有错时不生成定义。
 - 展开得到普通定义，`template: {id, version, inputs}` 原样记下输入；`InstrumentDefinition.template` 只是记录，加载与运行时忽略它（去掉它，仪表的行为不变）。
 - 示波器模板（`oscilloscope`，版本 1）的输入：身份；通道（数量、输入阻抗的关键字与电阻电容、带宽与响应形状、带宽限制、耦合、上电显示的通道）；垂直（档位范围、按 V/div 递增的档位表：偏置范围、噪声、增益误差限与偏置误差限，超范围报错或钳位，探头比的范围与换算，偏置 DAC 误差限）；ADC（位数、每格码值、格数、最高采样率、交织映射与成对时的采样率、偏置方向）；时基（范围、记录长度列表、存储深度、参考位置、时基误差限）；触发（触发方式、触发沿、外触发、电源触发、迟滞、电平范围、抖动）；采集（方式、平均次数、同步规则）；自动测量；波形传输（格式、每格码值、字节序、无符号）；命令方言（通用 SCPI 示波器命令集，`:SINGle` 为采集一次、布防或没有，可选 `:RUN` / `:STOP`）；技术指标。个体偏差的范围写在档位表与时基中，与技术指标分开（D3）。
-- 响应形状目前只有一阶低通（`scope_vertical` 只模拟这一种），输入中只列这一项；高斯与频响表要先有组件能力。
+- 响应形状：`first_order`（默认，模拟前端）、`brickwall`（平坦幅度）、`gaussian`、`bessel4`，对应 `scope_vertical.response`（#607）；频响表要先有组件能力。
 - 给了存储深度时，记录按存储深度与 1-2-5 采样率取得，`:WAVeform:POINts` 的点数在记录上均匀抽取，`:WAVeform:PREamble?` 用 `waveform_transfer` 的声明式前导描述实际发送的点；不给时记录就是点数设置，前导用 `scope_acquisition` 的通用前导（与 `sb-dso-4` 相同）。
 - MCP：`list_templates`、`get_template`（schema 与示例）、`create_definition_from_template`（输入有错时返回诊断、不保存；保存进入版本历史，来源 `agent`；给出 `base_sha256` 时按新输入重新展开、覆盖已有文件）。
 - 验收（`tests/test_templates.py`、`tests/test_mcp.py`）：示例输入展开后没有诊断，只用通用组件；按 `sb-dso-4` 的数据填写的输入生成的示波器，对验收场景的 56 条命令（34 条查询，32 条有回复）的回复与 `sb-dso-4` 逐字节相同；示例接入信号源后，按前导重建的波形与记录一致、测量与触发正确、`:SINGle` 在虚拟时间中完成；个体偏差随种子复现且在档位表的限值内；十个错误输入各有诊断，指针指向输入字段。
@@ -517,7 +519,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 
 `scope_acquisition`（约 600 行）一个组件包了：
 
-- **水平**：时基、记录长度规则（fixed / exact / rate_ladder）、采样率上限与通道配对；
+- **水平**：时基、记录长度规则（fixed / exact / rate_ladder / rate_pow2）、可设置的采样率、采样率上限与通道配对；
 - **触发**：边沿触发的源、电平、斜率，以及触发抖动；
 - **垂直**：每个通道的刻度、偏置、探头比，从状态量直接读取；
 - **ADC 与噪声**：位数、每格码值、偏置的加减；输入端白噪声；
@@ -541,7 +543,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 | F3 | **计量上是理想仪表**：没有每通道、每档位的增益与偏置误差，没有校准常数，时基没有 ppm 误差，通道时延无效；数据手册的指标只记录、不参与计算，也没有可以挂个体偏差的参数 | `siglent-sds2104xplus.yaml` 的 `specs` |
 | F4 | **噪声不随档位变化，平均与高分辨率无法提高分辨率**：固定的输入端噪声，平均只把噪声除以 √N 再量化；PEAK / ERES 不改变数据 | D46；0.5 V/div 下 5 mV 直流平均后仍测得 0 |
 | F5 | **“接受”用在了影响数据的命令上**（SKEW、参考位置、采集方式等） | 覆盖表；#132 |
-| F6 | 触发在记录上按采样点搜索，不做亚采样插值；NORMal 等待不推进虚拟时间；`*RST`、改时基没有声明耗时；频响为一阶低通；削波后的测量仍当有效值 | `scope.py` `_trigger_search`、`ScopeFrontend` |
+| F6 | 触发在记录上按采样点搜索，不做亚采样插值；NORMal 等待不推进虚拟时间；`*RST`、改时基没有声明耗时；频响为一阶低通（#607 起可声明砖墙、高斯、4 阶 Bessel）；削波后的测量仍当有效值 | `scope.py` `_trigger_search`、`ScopeFrontend` |
 
 F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 

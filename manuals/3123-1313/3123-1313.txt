@@ -1,0 +1,1259 @@
+                                                                                            DATA SHEET
+
+
+
+
+Infiniium UXR-B Series Oscilloscopes
+The most advanced Real-Time Oscilloscope on the planet.
+Now experience a whole new level of performance with new
+Infiniium UXR-B Series.
+
+
+Introduction
+The Infiniium UXR-Series oscilloscopes deliver world-leading performance, ultra-low noise, and high
+signal fidelity for engineers and scientists to truly see and understand the fastest phenomena. The new
+UXR-B also comes with more memory. With standard 500Mpts memory, you can capture 2.5 times longer
+waveform to do analysis. Wider DDC and RTSA bandwidth can help you do the analysis faster and help
+you debug your wireless signal. For high-speed digital design, the InfiniiSim Basic de-embedding and
+PrecisionCable, PrecisionProbe now standard to help you remove channel loss.
+Table of Contents
+
+Introduction and Model Overview ................................................................................................................. 3
+
+Vertical System Specifications - 3.5 mm Input Models ................................................................................. 4
+
+Vertical System Specifications – 1mm & 1.85 mm Input Models.................................................................. 5
+
+Vertical System – Performance Characteristics by Model - 3.5 mm Input Models ....................................... 6
+
+Vertical System – Performance Characteristics by Model - 1.85 mm Input Models ..................................... 6
+
+Vertical System – Performance Characteristics by Model - 1 mm Input AP Models .................................... 7
+
+Vertical System – Performance Characteristics by Model - 1 mm Input Models .......................................... 7
+
+RMS Noise Floor – Performance Characteristics (Measured)...................................................................... 8
+
+Vertical System – Performance Measurements – 1 mm & 1.85 mm Input Models ...................................... 9
+
+Horizontal System – Performance Characteristics ..................................................................................... 11
+
+DDC and Frequency Extension Option – Performance Characteristics ..................................................... 13
+
+Real Time Spectrum Analysis ..................................................................................................................... 14
+
+Acquisition System – Performance Characteristics .................................................................................... 15
+
+Trigger System – Performance Characteristics .......................................................................................... 16
+
+Measurements and Math ............................................................................................................................ 18
+
+Platform Characteristics .............................................................................................................................. 20
+
+General Characteristics............................................................................................................................... 22
+
+Definitions.................................................................................................................................................... 23
+
+Confidently Covered by Keysight Services ................................................................................................. 24
+
+More Information ......................................................................................................................................... 25
+
+
+
+
+NOTE:
+
+For a description of key features, see the Infiniium UXR-B Series Oscilloscopes Technical Overview.
+
+For ordering information, see the Infiniium UXR-B Series Oscilloscopes Configuration Guide.
+
+
+
+                                                                                                                                                                     2
+Introduction and Model Overview
+The UXR has more accurate analysis. Up to four channels of simultaneous 110 GHz of bandwidth,
+each concurrently sampling at a staggering 256 GSa/s with 10 bits of high-definition analog to digital
+converter (ADC) resolution.
+
+The UXR runs faster. Up to 100x faster performance for some measurements – enabled by a powerful
+new measurement acceleration ASIC and memory controller capable of 5 trillion integer operations per
+second (IOPS).
+
+The UXR is fully upgradeable. The Infiniium UXR-Series is scalable – you can easily upgrade the
+bandwidth, memory, channel count, and software capabilities to meet your future needs.
+
+The UXR is available in three models based on bandwidth, sample rate and input connector size.
+Infiniium UXR-Series models offer bandwidths from 5 GHz to 110 GHz with various 1-channel,
+2-channel, or 4-channel configurations available. The 3.5mm models are equipped with Keysight
+AutoProbe II interfaces while 1mm and 1.85 mm models incorporate an advanced high-performance high-
+bandwidth Keysight AutoProbe III interface.
+
+
+
+
+ Model                         Bandwidth                                                                 Sample rate
+                                               Connector                      Power required
+ 4-Channel      2-channel      (maximum)                                                                 (maximum)
+
+                                                             4-channel               2-channel
+ UXR1104B       UXR1102B       110 GHz
+ UXR1004B       UXR1002B       100 GHz
+ UXR0804B       UXR0802B       80 GHz
+ UXR0704BP      UXR0702BP      70 GHz
+                                               1 mm
+ UXR0594BP      UXR0592BP      59 GHz
+ UXR0404BP      UXR0402BP      40 GHz                        200 to 240 Vac          110 to 240 Vac
+ UXR0254BP      UXR0252BP      25 GHz                                                                    256 GSa/s
+                                                             2615 VA(Max)            1350 VA (Max)
+ N/A            UXR0051BP1     5 GHz
+ UXR0704B       UXR0702B       70 GHz
+ UXR0594B       UXR0592B       59 GHz
+                                               1.85 mm
+ UXR0504B       UXR0502B       50 GHz
+ UXR0404B       UXR0402B       40 GHz
+ UXR0334B                      33 GHz
+ UXR0254B                      25 GHz
+ UXR0204B                      20 GHz                        100 to 240 Vac
+                N/A                            3.5 mm                                N/A                 128 GSa/s
+ UXR0164B                      16 GHz                        1350 VA (Max)
+ UXR0134B                      13 GHz
+ UXR0104B                      10 GHz
+1. The UXR0051BP includes two channels, but only one channel is licensed for use. The 2nd channel may be activated with
+   purchase of an upgrade license – N2166A Upgrade 1 channel UXR0051BP to 2 channel UXR0252BP.
+
+
+
+
+                                                                                                                          3
+Vertical System Specifications - 3.5 mm Input
+Models
+ Specification                  3.5 mm input models
+
+ Sample rate per channel        128 GSa/s (configurable in powers of two)
+ Displayed input sensitivity1   1 mV/div to 1 V/div
+ Hardware sensitivity1          32 mV full scale to 8.0 V full scale
+ Vertical resolution1,3         10 bits, ≥ 14 bits with averaging
+ DC gain accuracy*,1,2,3        ± 1.5% of full scale (typical: ±1% of full scale ≤ 10 mV/div, ±0.5% of full scale > 10 mV/div)
+
+ DC voltage accuracy
+   Dual cursor:                 ± [(DC gain accuracy) + (resolution)]
+   Single cursor:               ± [(DC gain accuracy) + (offset accuracy) + (resolution/2)]
+
+ Maximum input power            +6 dB (twice the amplitude) at all ranges (+16 dBm at maximum range)
+                                Channel to channel (with equal V/div settings): 1-3, 1-4, 2-3, and 2-4: 60 dB
+ Channel to channel isolation
+                                Channel to Channel (with equal V/div settings): 1-2, 3-4: 40 dB
+                                Vertical sensitivity           Attenuation        Available offset        Maximum Input
+                                                               Level                                      (Offset ± 8 divisions)
+                                1 mV/div to 7.5 mV/div         0 dB               ± 0.40 V                Offset ± 60 mV
+ Maximum Input Range6           7.5 mV/div to 54 mV/div        0 dB               ± 0.40 V                Offset ± (60 mV to 432 mV)
+ (Not Exceed GND ± 6.5V)        55 mV/div to 93 mV/div         5 dB               ± 0.70 V                Offset ± (440 mV to 744 mV)
+                                94 mV/div to 172 mV/div        10 dB              ± 1.25 V                Offset ± (1 V to 2.23V)
+                                173 mV/div to 306 mV/div       15 dB              ± 2.25 V                Offset ± (1.38V to 2.45V)
+                                307 mV/div to 1000 mV/div      20/25/30 dB        ± 4.00 V                Offset ± (2.45V to 8V)
+ Offset accuracy*,1,2,3         ± (1% of channel offset + 1% of full scale + 400 µV)
+ Offset accuracy (typical)      ± (1% of channel offset + 0.5% of full scale + 400 µV)
+                                Any frequency ≤ 33 GHz:
+ Amplitude flatness4              < 0.3 dB within any 500MHz span
+                                  < 0.5 dB within any 10GHz span
+                                Any frequency ≤ 33 GHz:
+ Phase flatness5                  < 1 degree within any 500MHz span
+                                  < 2 degrees within any 10GHz span
+
+1. Full scale is defined as 8 vertical divisions. Magnification is used below 4 mV/div. Below 4 mV/div, full scale is defined as
+   32 mV.
+2. Input impedance is valid when V/div scaling is adjusted to show all waveform vertical values within scope display.
+3. Vertical resolution for 10 bits = 0.1% of full scale, for 14 bits = 0.006% of full scale.
+4. Measured result using N2127A as reference. Maximum deviation from average in a span.
+5. Measured result using N2127A as reference. Maximum deviation from best-fit line (degrees) in a span.
+6. The recommended input limit of ±5V at the Infiniium UXR-Series front panel is advised for standard use. For detailed
+   information on higher voltage limitations, refer to the table above, ensuring appropriate adjustments in vertical scale settings
+   and offset range.
+
+
+*Denotes warranted specifications, all others are typical. Valid after 30-minute warm up period and ±5 °C from
+  oscilloscope firmware calibration temperature.
+
+
+
+
+                                                                                                                                        4
+Vertical System Specifications – 1mm & 1.85 mm
+Input Models
+ Specification                  1.85 mm & 1 mm input models
+
+ Sample rate per channel        256 GSa/s (configurable in powers of two)
+ Displayed input sensitivity1   1 mV/div to 500 mV/div
+ Hardware sensitivity1          60 mV full scale to 4.0 V full scale
+ Vertical resolution1,3         10 bits, ≥ 14 bits with averaging
+ DC gain accuracy*,1,2,3        ± 2% of full scale (typical: ±1% of full scale)
+ DC voltage accuracy
+   Dual cursor:                 ± [(DC gain accuracy) + (resolution)]
+   Single cursor:               ± [(DC gain accuracy) + (offset accuracy) + (resolution/2)]
+ Maximum input power            +6 dB (twice the amplitude) at all ranges (+16 dBm at maximum range)
+ Channel to channel isolation   60 dB
+                                Vertical sensitivity         Attenuation Available offset       Maximum Input
+                                                             Level                              (Offset ± 8 divisions)
+                                1 mV/div to 7.5 mV/div       0 dB              ± 0.40 V         Offset ± 60 mV
+ Maximum Input Range6
+                                7.5 mV/div to 59 mV/div      0 dB              ± 0.40 V         Offset ± (60 mV to 472 mV)
+ (Not Exceed GND ± 6.5V)
+                                60 mV/div to 127 mV/div      6.7 dB            ± 0.86 V         Offset ± (480 mV to 1 V)
+                                128 mV/div to 279 mV/div     13.3 dB           ± 1.85 V         Offset ± (1 V to 2.23V)
+                                 280 mV/div to 500 mV/div 20 dB                ± 4.00 V         Offset ± (2.45V to 4V)
+ Offset accuracy*,1,2,3         ± (2% of channel offset + 1% of full scale + 600 µV)
+ Offset accuracy (typical)      ± (1% of channel offset + 1% of full scale + 600 µV)
+
+                                Any frequency ≤ 50 GHz:
+                                   < 0.3 dB within any 500 MHz span
+                                   < 0.5 dB within any 10 GHz span
+ Amplitude flatness4            Frequencies between 50 GHz and 90 GHz
+                                   < 1 dB within any 10 GHz span
+                                Frequencies between 90 GHz and 110 GHz
+                                   < 2 dB within any 10GHz span
+
+
+                                Any frequency ≤ 50 GHz:
+                                   < 1 degree within any 500 MHz span
+                                   < 2 degrees within any 10 GHz span
+ Phase flatness5                Frequencies between 50 GHz and 90 GHz
+                                   < 3 degrees within any 10 GHz span
+                                Frequencies between 90 GHz and 110 GHz
+                                   < 7 degrees within any 10 GHz span
+
+1. Full scale is defined as 8 vertical divisions. Magnification is used below 7.5 mV/div. Below 7.5 mV/div, full scale is defined as
+   60 mV.
+2. Input impedance is valid when V/div scaling is adjusted to show all waveform vertical values within scope display.
+3. Vertical resolution for 10 bits = 0.1% of full scale, for 14 bits = 0.006% of full scale.
+4. Measured result using N2125A/N2126A as reference. Maximum deviation from average in a span.
+5. Measured result using N2125A/N2126A as reference. Maximum deviation from best-fit line (degrees) in a span.
+6. The recommended input limit of ±2V at the Infiniium UXR-Series front panel is advised for standard use. For detailed
+   information on higher voltage limitations, refer to the table above, ensuring appropriate adjustments in vertical scale settings
+   and offset range.
+
+
+*Denotes warranted specifications, all others are typical. Valid after 30-minute warm up period and ± 5 °C from
+  oscilloscope firmware calibration temperature
+
+
+
+
+                                                                                                                                       5
+Vertical System – Performance Characteristics
+by Model - 3.5 mm Input Models
+ Characteristic                            UXR0104B       UXR0134B         UXR0164B         UXR0204B          UXR0254B      UXR0334B
+ Analog input connector                                       Ruggedized 3.5 mm male - with AutoProbe II jack
+ Input impedance1                                                             50 Ω, ± 3%
+ Input coupling                                                                   DC
+ Full bandwidth analog input channels          4              4             4               4               4                      4
+ Analog bandwidth (3 dB)
+                                           10.5 GHz       13.6 GHz          16.8 GHz        21.0 GHz          26.2 GHz      33.0 GHz
+    Typical bandwidth
+    Warranted bandwidth*                   10.0 GHz       13.0 GHz          16.0 GHz        20.0 GHz          25.0 GHz      32.0 GHz
+ Rise time/fall time
+                                            44.0 ps        33.8 ps              27.5 ps      22.0 ps           17.6 ps       13.3 ps
+    10 to 90%2
+    20 to 80%3                              31.2 ps        23.9 ps              19.4 ps      15.6 ps           12.4 ps        9.4 ps
+ ENOB typical4
+                                              7.0             6.8                 6.7          6.5               6.2             5.9
+    at ≥ 400 mVfs
+    at 40 mVfs                                6.4             6.1                 6.0          5.8               5.6             5.3
+
+
+
+Vertical System – Performance Characteristics
+by Model - 1.85 mm Input Models
+ Characteristic                         UXR0404B / UXR0402B    UXR0504B / UXR0502B        UXR0594B / UXR0592B      UXR0704B / UXR0702B
+ Analog input connector                                              1.85 mm male - with AutoProbe III jack
+ Input impedance1                                                               50 Ω, ± 3%
+ Input coupling                                                                      DC
+ Full bandwidth analog input channels           4/2                      4/2                     4/2                       4/2
+ Analog bandwidth (3 dB)
+                                             42.0 GHz                 52.5 GHz                 59.0 GHz                  70.0 GHz
+    Typical bandwidth
+    Warranted bandwidth*                     40.0 GHz                 50.0 GHz                 59.0 GHz                  67.0 GHz
+ Rise time/fall time
+                                              11.0 ps                   8.8 ps                   7.5 ps                   6.3 ps
+    10 to 90%2
+    20 to 80%3                                 7.8 ps                   6.2 ps                   5.3 ps                   4.4 ps
+ ENOB typical4
+                                                   5.8                    5.6                        5.5                   5.4
+    at ≥ 400 mVfs
+    at 60 mVfs                                     5.4                    5.2                        5.1                   5.0
+1. Input impedance is valid when V/div scaling is adjusted to show all waveform vertical values within scope display.
+2. Calculation based on Tr = 0.44/BW.
+3. Calculation based on Tr = 0.31/BW.
+4. The average value from DC to full bandwidth of model.
+
+*Denotes warranted specifications, all others are typical. Specifications are valid after 30-minute warm up period and ±
+  5°C from oscilloscope firmware calibration temperature.
+
+
+
+
+                                                                                                                                         6
+Vertical System – Performance Characteristics
+by Model - 1 mm Input AP Models
+                                                                 UXR0254BP /       UXR0404BP /         UXR0594BP /        UXR0704BP /
+ Characteristic                             UXR0051BP
+                                                                 UXR0252BP         UXR0402BP           UXR0592BP          UXR0702BP
+ Analog input connector                                            1 mm ruggedized male - with AutoProbe III jack
+ Input impedance1                                                                  50 Ω, ± 3%
+ Input coupling                                                                        DC
+ Full bandwidth analog input channels           1                    4/2              4/2                 4/2                    4/2
+ Analog bandwidth (3 dB)
+                                             5.3 GHz              26.2 GHz           42.0 GHz           59.0 GHz               73.5 GHz
+    Typical bandwidth
+    Warranted bandwidth*                     5.0 GHz              25.0 GHz           40.0 GHz           59.0 GHz               70.0 GHz
+ Rise time/fall time
+                                              88 ps                17.6 ps            11.0 ps             7.5 ps                6.3 ps
+    10 to 90%2
+    20 to 80%3                                62 ps                12.4 ps             7.8 ps             5.3 ps                4.4 ps
+ ENOB typical4
+                                                8.1                  6.2                5.8                5.5                   5.4
+    at ≥ 400 mVfs
+    at 60 mVfs                                  7.8                  5.6                5.4                5.1                   5.0
+
+
+
+Vertical System – Performance Characteristics
+by Model - 1 mm Input Models
+ Characteristic                              UXR0804B / UXR0802B               UXR1004B / UXR1002B               UXR1104B / UXR1102B
+
+ Analog input connector                                            1 mm ruggedized male - with AutoProbe III jack
+ Input impedance1                                                                   50 Ω, ± 3%
+ Input coupling                                                                         DC
+ Full bandwidth analog input channels                   4/2                            4/2                              4/2
+ Analog bandwidth (3 dB)
+                                                      84.0 GHz                      105.0 GHz                        113.0 GHz
+    Typical bandwidth
+    Warranted bandwidth*                              80.0 GHz                      100.0 GHz                        110.0 GHz
+ Rise time/fall time
+                                                       5.5 ps                          4.4 ps                          4.0 ps
+    10 to 90%2
+    20 to 80%3                                         3.9 ps                          3.1 ps                          2.8 ps
+ ENOB typical4
+                                                        5.3                             5.1                              5.0
+    at ≥ 400 mVfs
+    at 60 mVfs                                          4.8                             4.4                              4.2
+
+1. Input impedance is valid when V/div scaling is adjusted to show all waveform vertical values within scope display
+2. Calculation based on Tr = 0.44/BW
+3. Calculation based on Tr = 0.31/BW
+4. The average value from DC to full bandwidth of model
+
+*Denotes warranted specifications, all others are typical. Specifications are valid after 30-minute warm up period and
+  ± 5°C from oscilloscope firmware calibration temperature
+
+
+
+
+                                                                                                                                          7
+RMS Noise Floor – Performance Characteristics
+(Measured)
+       RMS noise floor
+                                   UXR0104B          UXR0134B          UXR0164B            UXR0204B          UXR0254B           UXR0334B
+  vertical setting, full scale
+        32 mVfull scale (fs)        129 μV(rms)       150 μV(rms)      165 μV(rms)         188 μV(rms)       212 μV(rms)        266 μV(rms)
+        80 mVfull scale (fs)        185 μV(rms)       210 μV(rms)      231 μV(rms)         262 μV(rms)       303 μV(rms)        388 μV(rms)
+       100 mVfull scale (fs)        216 μV(rms)       258 μV(rms)      286 μV(rms)         313 μV(rms)       365 μV(rms)        470 μV(rms)
+       160 mVfull scale (fs)        322 μV(rms)       377 μV(rms)      414 μV(rms)         469 μV(rms)       541 μV(rms)        702 μV(rms)
+       400 mVfull scale (fs)        701 μV(rms)       810 μV(rms)      878 μV(rms)         975 μV(rms)      1.16 mV(rms)       1.48 mV(rms)
+       800 mVfull scale (fs)       1.44 mV(rms)      1.58 mV(rms)     1.75 mV(rms)        1.92 mV(rms)      2.24 mV(rms)       2.91 mV(rms)
+         1.6 Vfull scale (fs)      2.97 mV(rms)      3.50 mV(rms)     3.77 mV(rms)        4.31 mV(rms)      4.97 mV(rms)       6.48 mV(rms)
+         4.0 Vfull scale (fs)      7.23 mV(rms)      7.86 mV(rms)     8.74 mV(rms)        9.61 mV(rms)      11.2 mV(rms)       14.7 mV(rms)
+         8.0 Vfull scale (fs)      14.1 mV(rms)      15.5 mV(rms)     17.2 mV(rms)        19.2 mV(rms)      22.3 mV(rms)       28.8 mV(rms)
+
+
+       RMS noise floor             UXR0254BP /          UXR0404B / UXR0402B              UXR0504B /            UXR0594B / UXR0592B
+  vertical setting, full scale     UXR0252BP           UXR0404BP / UXR0402BP             UXR0502B             UXR0594BP / UXR0592BP
+       60 mVfull scale (fs)         290 μV(rms)               340 μV(rms)                410 μV(rms)                   460 μV(rms)
+      100 mVfull scale (fs)         400 μV(rms)               490 μV(rms)                560 μV(rms)                   640 μV(rms)
+      160 mVfull scale (fs)         570 μV(rms)               720 μV(rms)                820 μV(rms)                   950 μV(rms)
+      400 mVfull scale (fs)         1.3 mV(rms)               1.6 mV(rms)                1.8 mV(rms)                   2.1 mV(rms)
+      800 mVfull scale (fs)         2.6 mV(rms)               3.4 mV(rms)                3.7 mV(rms)                   4.3 mV(rms)
+        1.6 Vfull scale (fs)        5.1 mV(rms)               6.7 mV(rms)                7.5 mV(rms)                   8.4 mV(rms)
+        4.0 Vfull scale (fs)        13 mV(rms)                16 mV(rms)                 18 mV(rms)                    20 mV(rms)
+
+
+      RMS noise floor             UXR0704B / UXR0702B           UXR0804B /           UXR1004B /          UXR1104B /
+                                                                                                                              UXR0051BP
+ vertical setting, full scale    UXR0704BP / UXR0702BP          UXR0802B             UXR1002B            UXR1102B
+      60 mVfull scale (fs)             500 μV(rms)              580 μV(rms)          770 μV(rms)         860 μV(rms)          130 μV(rms)
+     100 mVfull scale (fs)             680 μV(rms)              780 μV(rms)          990 μV(rms)         1.1 mV(rms)          180 μV(rms))
+     160 mVfull scale (fs)             970 μV(rms)              1.1 mV(rms)          1.4 mV(rms)         1.5 mV(rms)          260 μV(rms)
+     400 mVfull scale (fs)             2.2 mV(rms)              2.4 mV(rms)          2.8 mV(rms)         2.9 mV(rms)          580 μV(rms)
+     800 mVfull scale (fs)             4.5 mV(rms)              4.8 mV(rms)          5.8 mV(rms)         6.1 mV(rms)          1.2 mV(rms)
+       1.6 Vfull scale (fs)            9.0 mV(rms)              9.7 mV(rms)          12 mV(rms)          13 mV(rms)           2.3 mV(rms)
+       4.0 Vfull scale (fs)            21 mV(rms)               23 mV(rms)           27 mV(rms)          29 mV(rms)           5.7 mV(rms)
+
+
+
+
+                                                                                                                                              8
+Vertical System – Performance Measurements –
+1 mm & 1.85 mm Input Models
+Measurement                                                         Measured performance at 256 GSa/s
+
+                                       20 ns measurement by frequency span bandwidth @ center frequency (CF)
+                                            CF         113 GHz         10 GHz          5 GHz           2 GHz             1 GHz
+Banded ENOB                               67 GHz          5.0            7.6             8.1              8.7              9.0
+                                          90 GHz          4.8            7.5             8.0              8.4              8.7
+                                         110 GHz          4.9            6.9             7.4              7.9              8.2
+                                       1 GHz wide span measured at Center Frequency (CF), 1 Hz reference:
+                                                            80 mVFS (-18 dBm range)                  1.26 VFS (6 dBm range)
+                                          1 GHz                   -161 dBm/Hz                             -138 dBm/Hz
+Displayed average noise level (DANL)      10 GHz                  -161 dBm/Hz                             -138 dBm/Hz
+                                          25 GHz                  -159 dBm/Hz                             -137 dBm/Hz
+                                          50 GHz                  -158 dBm/Hz                             -137 dBm/Hz
+                                          75 GHz                  -158 dBm/Hz                             -138 dBm/Hz
+                                         100 GHz                  -156 dBm/Hz                             -136 dBm/Hz
+Dynamic range                          6 dBm range, 200 mV/div @ 110 GHz BW
+                                                                                                103 dB
+  [2/3 * (TOI - DANL)]                 25 GHz CF, 100 MHz span, 1 Hz RBW
+                                       Measured with FFT: 0 dBm range, -1 dBm
+Signal to noise dynamic range                                                              1 GHz CF: 115 dB
+                                       signal, 100 MHz span, 1 KHz RBW, at +20
+                                                                                          67 GHz CF: 113 dB
+                                       MHz from the center frequency (CF)
+                                       1 GHz carrier, input signal 90% full scale
+                                                  @ Offset                Single channel phase noise      2 channel x-corelated
+                                                   10 KHz                         -120 dBc/Hz                 -121 dBc/Hz
+                                                   20 KHz                         -124 dBc/Hz                 -127 dBc/Hz
+Phase noise                                       100 KHz                         -137 dBc/Hz                 -147 dBc/Hz
+                                                    1 MHz                         -143 dBc/Hz                 -151 dBc/Hz
+                                                   10 MHz                         -143 dBc/Hz                 -156 dBc/Hz
+                                                  100 MHz                         -142 dBc/Hz                 -158 dBc/Hz
+                                                  400 MHz                         -141 dBc/Hz                 -165 dBc/Hz
+Channel to channel phase /             Inter-channel jitter @ 39GHz, 1GHz BW:
+phase coherency                            ± 2.5 deg (0.5 deg rms)
+                                       1.2 Vfs (6 dBm range), -12 dBm input/tone, 3 KHz RBW, 400 KHz span:
+Two tone third-order intermodulation
+                                          +22.9 dBm @ 3.65 GHz and 3.6501 GHz
+(TOI)
+                                          +18.2 dBm @ 26.5 GHz and 26.5001 GHz
+
+
+
+
+                                                                                                                                  9
+Measurement                                                       Measured performance at 256 GSa/s
+
+                                     60 mVFS (7.5 mV/div), -26 dBm input signal (~50% FS), 100 KHz RBW
+                                            Fundamental                       2nd harmonic              3rd harmonic
+                                                1 GHz                          ≤ -68 dBc                 ≤ -61 dBc
+                                              16.5 GHz                         ≤ -64 dBc                 ≤ -62 dBc
+                                               25 GHz                          ≤ -62 dBc                 ≤ -61 dBc
+                                               50 GHz                          ≤ -56 dBc                      ---
+2nd and 3rd harmonic distortion
+                                     700 mVFS (87.5 mV/div), -1 dBm input signal (~90% FS), 100 KHz RBW
+                                            Fundamental                       2nd harmonic              3rd harmonic
+                                                1 GHz                          ≤ -55 dBc                 ≤ -50 dBc
+                                              16.5 GHz                         ≤ -55 dBc                 ≤ -50 dBc
+                                               25 GHz                          ≤ -51 dBc                 ≤ -46 dBc
+                                               50 GHz                          ≤ -44 dBc                      ─
+                                     Measured via FFT: 5 GHz center frequency, 10 GHz span,
+                                     100 kHz RBW, 0 dBm range, -1 dBm signal @ 700 mV FS                ≤ -65 dBc
+Spurious-free dynamic range (SFDR)   (87.5 mV/div) with a 5 GHz input carrier
+(excl. harmonics)                    Measured via FFT: 50 GHz center frequency, 20 GHz span,
+                                     100 kHz RBW, 0 dBm range, -1 dBm signal @ 700 mV FS                      ≤ -61 dBc
+                                     (87.5 mV/div) with a 50 GHz input carrier
+                                     Signal related (non-harmonic, multiple per 16 GHz interval):
+                                           -52 dBc @ 0 dBm range
+Residuals, images, and spurious
+                                     Residual responses (major per 16 GHz interval):
+responses
+                                           -65 dBFS @ 0 dBm range
+                                           -65 dBm clock spur @ 64 GHz
+                                     Two-channel bonded 802.11ay (61.56 GHz CF, 3.8 GHz span):        1.23%
+Error vector magnitude (EVM)         5G NR, 1 CC (100 MHz), measured at 28 GHz:                       0.60%
+                                     5G NR, 1 CC (100 MHz), measured at 39 GHz:                       0.90%
+S11                                  < 50 GHz, -15 dB   ≥ 50 GHz, -7 dB
+Conducted emissions                  Clock emissions conducted out front panel connector @ 64 GHz: -65 dBm
+
+
+
+
+                                                                                                                          10
+Horizontal System – Performance
+Characteristics
+ Characteristic                                           Measured performance – All oscilloscope input connector types
+                                         2 ps/div to 20 s/div real-time (13 GHz to 33 GHz models)
+ Main timebase range
+                                         1 ps/div to 20 s/div real-time (40 GHz to 110 GHz models)
+ Main timebase delay range               200 s to -200 s real-time
+ Reference position                      Continuously adjustable across horizontal display range
+ Zoom timebase range                     1 ps/div to current main timescale setting
+ Channel de-skew range                   ± 1 ms range, 10 fs resolution
+                                         ± (25 ppb initial + 100 ppb/year aging) first year of manufacture
+ Time scale accuracy*,1
+                                         ± (25 ppb initial + 30 ppb/year aging) after first year of manufacture
+ Intrinsic jitter3, acquired time
+                                                      Internal reference                                External reference
+ range/delta-time interval
+     < 1 μs (100 ns/div)                                  15 fs rms                                         15 fs rms
+     10 μs (1 μs/div)                                     25 fs rms                                         25 fs rms
+     100 μs (10 μs/div)                                   40 fs rms                                         40 fs rms
+     1 ms (100 μs/div)                                    50 fs rms                                         50 fs rms
+ Inter-channel intrinsic jitter2,3                                                    < 10 fs rms
+ Inter-scope intrinsic jitter2,3                                                      < 20 fs rms
+ Inter-channel skew2                                                                  ± 2 ps pk
+ Inter-channel skew drift2,4             ± 100 fs pk (256 GSa/s models)           ± 150 fs pk (128 GSa/s models)
+ Inter-scope skew drift2,4               ± 200 fs pk (256 GSa/s models)           ± 250 fs pk (128 GSa/s models)
+ Measured time interval error (TIE)      400 mVFS, 70 GHz bandwidth, 90% input signal, 2.2 mVrms noise:37 fs rms@70 GHz
+
+1. initial = immediately after factory or user calibration.
+2. intra-chan = both edges measured on same channel, inter-chan = two edges measured on different channels within the same
+   scope chassis, inter-scope = two edges measured between channels across different scope chassis synchronized to the same
+   time reference
+3. Intrinsic Jitter is the time error of a single channel relative to an ideal time reference. External timebase reference values
+   measured using a Wenzel 501-04608A 10 MHz reference. Intrinsic jitter value depends on acquisition time range for TIE
+   formula and depends on delta-time between edges for all two-edge formulas.
+4. Scope channels & signal interconnect de-skewed prior to measurement.
+   Skew between channels caused by ± 5 deg C temp change.
+
+* Denotes warranted specification, all others are typical. Specs are valid after a 30-minute warm-up period and ± 5 °C
+  from calibration temp.
+
+
+
+
+                                                                                                                                    11
+ Characteristic                              All oscilloscope input connector types
+
+ Jitter measurement floor (sec rms)
+                           1,*
+                                               Noise floor 2
+                                             ��           � + (Intrinsic jitter)2
+    Time interval error (sec rms)               Slew rate
+
+
+                                                    Noise floor 2
+    Period jitter (sec rms)                  √2 ∗ ��           � + (Intrinsic jitter)2
+                                                     Slew rate
+
+    Cycle-cycle / N-cycle jitter (sec rms)
+                                                    Noise floor 2
+                                             √3 ∗ ��           � + (Intrinsic jitter)2
+                                                     Slew rate
+
+
+ Inter-channel jitter1,3 (sec rms)                                2                    2                  2
+                                             �� Time interval � + � Time interval � + � Inter channel �
+                                               error (Edge Chan1)   error (Edge Chan2)   intrinsic jitter
+
+
+                                                                    2                       2
+                                                                                                Inter scope 2
+ Inter-scope jitter1,3 (sec rms)             �� Time interval      � +�
+                                                                          Time interval
+                                                                                           � +�                �
+                                               error (Edge Scope1)     error (Edge Scope2)     intrinsic jitter
+
+
+ Delta-time measurement accuracy1,2,3,4
+
+    Intra-channel no averaging                         Time interval 2     Time interval 2     Time scale    Delta
+                                             ± �5 ∗ ��              �  + �              � + ��           �∗�      ���
+                                                      error (Edge1)       error (Edge2)         accuracy     time
+
+
+
+    Intra-channel 256 averages                  5     𝑇𝑇𝑇𝑇𝑇𝑇𝑇𝑇 𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖 2    𝑇𝑇𝑇𝑇𝑇𝑇𝑇𝑇 𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖𝑖 2    𝑇𝑇𝑇𝑇𝑇𝑇𝑇𝑇 𝑠𝑠𝑠𝑠𝑠𝑠𝑠𝑠𝑠𝑠    𝐷𝐷𝐷𝐷𝐷𝐷𝐷𝐷𝐷𝐷
+                                             ± � ∗ ��                          �  +�                          � + ��                    �∗�           ���
+                                                16   𝑒𝑒𝑒𝑒𝑒𝑒𝑒𝑒𝑒𝑒 (𝐸𝐸𝐸𝐸𝐸𝐸𝐸𝐸1)         𝑒𝑒𝑒𝑒𝑒𝑒𝑒𝑒𝑒𝑒 (𝐸𝐸𝐸𝐸𝐸𝐸𝐸𝐸2)           𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎𝑎       𝑡𝑡𝑡𝑡𝑡𝑡𝑡𝑡
+
+
+
+   Inter-channel no averaging                 ⎡      Time interval 2    Time interval 2      Inter channel 2 ⎤
+                                              ⎢5 ∗ ��error (Edge1)� + �error (Edge2)� + �intrinsic jitter� ⎥
+                                             ±⎢                                                              ⎥
+                                              ⎢             Time scale                                       ⎥
+                                              ⎢                           Delta       Inter channel          ⎥
+                                                       + ��           �∗�      �� + �               �
+                                              ⎣              accuracy     time          skew drift           ⎦
+   Inter-channel 256 averages
+                                              ⎡5      Time interval 2   Time interval 2       Inter channel 2 ⎤
+                                              ⎢16 ∗ ��error (Edge1)� + �error (Edge2)� + �intrinsic jitter� ⎥
+                                             ±⎢                                                               ⎥
+                                              ⎢             Time scale                                        ⎥
+                                              ⎢                           Delta       Inter channel           ⎥
+                                                       + ��           �∗�      �� + �               �
+                                              ⎣              accuracy     time          skew drift            ⎦
+
+1. Scope channels and signal interconnect de-skewed prior to measurement.
+2. Sample rate set to maximum. Noise and slew rate determined at fixed-voltage measurement threshold, near middle of signal.
+   Displayed signal is not vertically clipped. Slew rate of sine wave = (peak signal amplitude) · 2 · π · f, slew rate of fast step
+   ~= 0.8 · amplitude / (risetime 10-90%).
+3. intra-chan = both edges on the same channel, inter-chan = two edges on different channels of the same scope chassis, inter-
+   scope = two edges on different scope chassis. TIE(Edge1) = time-interval error measurement floor of first edge, TIE(Edge2) =
+   time-interval error measurement floor of second edge.
+4. Reading is the displayed DTMA measurement value. Do not double the listed TSA value in DTMA formula.
+
+* Denotes warranted specification, all others are typical. Specs are valid after a 30-minute warm-up period and ± 5 °C
+  from calibration temp.
+
+
+
+
+                                                                                                                                                            12
+DDC and Frequency Extension Option –
+Performance Characteristics
+DDC and frequency extension characteristic         Performance
+
+DDC center frequency resolution                    Center frequency rounded to nearest 6.25 MHz interval
+                                                   With frequency extension option:       1 GHz to 113 GHz (1 mm models)
+                                                                                          1 GHz to 70 GHz (1.85 mm models)
+DDC frequency range
+                                                                                          1 GHz to 33 GHz (3.5 mm models)
+                                                   Without frequency extension option: DC to max scope bandwidth
+DDC sampling rate                                  50 MSa/s to 3,200 MSa/s (configurable in powers of two)
+                                                   Standard: 200 MSa/s
+Max DDC sampling rate
+                                                   Opt 602: 3,200 MSa/s
+                                                   Standard: 160 MHz
+Max DDC signal analysis bandwidth (±1 dB)          Opt 602: 2.00 GHz
+                                                               2.16 GHz ±3 dB (typical)
+DDC output                                         40 bits complex per sample (16 bits I/Q + flags and markers)
+                                                   Frequency Range                              Center Frequency
+Frequency Extension Movable Bandwidth Window,      6 GHz to 113 GHz (1 mm models)               21 GHz to 98 GHz (1 mm models)
+30 GHz (UXR0000-630)                               6 GHz to 70 GHz (1.85 mm model               21 GHz to 55 GHz (1.85 mm model
+                                                   6 GHz to 33 GHz (3.5 mm models)              21 GHz to 32 GHz (3.5 mm models)
+                                                   Frequency Range                              Center Frequency
+Frequency Extension Movable Bandwidth Window,      4 GHz to 113 GHz (1 mm models)               14 GHz to 103 GHz (1 mm models)
+20 GHz (UXR0000-620)                               4 GHz to 70 GHz (1.85 mm model               14 GHz to 60 GHz (1.85 mm model
+                                                   4 GHz to 33 GHz (3.5 mm models)              14 GHz to 23 GHz (3.5 mm models)
+                                                   Frequency Range                              Center Frequency
+Frequency Extension Movable Bandwidth Window,      2 GHz to 113 GHz (1 mm models)               7 GHz to 108 GHz (1 mm models)
+10 GHz (UXR0000-610)                               2 GHz to 70 GHz (1.85 mm model               7 GHz to 65 GHz (1.85 mm model
+                                                   2 GHz to 33 GHz (3.5 mm models)              7 GHz to 28 GHz (3.5 mm models)
+                                                   Frequency Range                              Center Frequency
+Frequency Extension Movable Bandwidth Window,      1 GHz to 113 GHz (1 mm models)               3.5 GHz to 110.5 GHz (1 mm models)
+5 GHz (UXR0000-605)                                1 GHz to 70 GHz (1.85 mm model               3.5 GHz to 67.5 GHz (1.85 mm model
+                                                   1 GHz to 33 GHz (3.5 mm models)              3.5 GHz to 30.5 GHz (3.5 mm models)
+                                                   Frequency Range                              Center Frequency
+Frequency Extension Movable Bandwidth Window,      1 GHz to 82 GHz (1 mm models)                3.5 GHz to 79.5 GHz (1 mm models)
+5 GHz and Range up to 82 GHz (UXR0000-682)         1 GHz to 70 GHz (1.85 mm model               3.5 GHz to 67.5 GHz (1.85 mm model
+                                                   1 GHz to 33 GHz (3.5 mm models)              3.5 GHz to 30.5 GHz (3.5 mm models)
+Frequency extension channel support                Center frequency configurable per channel, up to 4 channels
+
+
+
+DDC option/configuration       Bandwidth range                              Capture time @ max sample rate
+
+                                                           Std Mem                UXR0000-01G option          UXR0000-02G option
+                                                         500 Mpts real                 1 Gpt real                 2 Gpts real
+                                                       125 MSa complex             250 MSa complex             400 MSa complex
+
+No DDC (256 GSa/s)             Up to 110 GHz               1.95 ms                      3.9 ms                       7.8 ms
+No DDC (128 GSa/s)             Up to 33 GHz                 3.9 ms                      7.8 ms                      15.6 ms
+STD DDC
+                               40 MHz to 160 MHz           625 ms                        1.25 s                        2s
+ 50 to 200 MSa/s complex
+UXR000-602/N2163A-602          40 MHz to 2.16
+                                                            39 ms                        78 ms                      125 ms
+ 50 to 3200 MSa/s complex      GHz
+
+
+
+
+                                                                                                                                      13
+Real Time Spectrum Analysis
+Real time spectrum analysis
+
+                                      All Infiniium UXR-B Series come with a standard 160 MHz RTSA and DDC analysis bandwidth,
+                                      with a frequency range up to the oscilloscope bandwidth, and all channels can have independent
+Standard performance
+                                      center frequency.
+                                      The specifications below apply to the paid options that unlock full RTSA performance.
+                                      0 Hz to oscilloscope bandwidth
+                                      With frequency extension option:           DC to 113 GHz (1 mm models)
+Frequency pange
+                                                                                 DC to 70 GHz (1.85 mm models)
+                                                                                DC to 33 GHz (3.5 mm models)
+                                      40, 80, 160, or 320 MHz1. RTSA total Span is 320 MHz for simultaneously on all channels
+Analysis bandwidth
+                                      All channels use the same span, but can each be at different center frequencies. No data is stored;
+Per-channel control
+                                      visualization only
+Performance data                      Typical passband magnitude flatness: +/- .25 dB from 160 MHz to max Frequency Range
+Minimum signal duration with 100%
+                                      15 µs
+amplitude accuracy
+Minimum detectable signal duration    10 ns
+Available views                       Spectral density (color graded)
+Supported triggers                    Frequency mask trigger: must intersect, must not intersect, up to 8 zones (AND logic)
+Window types                          Rectangular, Hanning, Hamming, Blackman-Harris, Flattop
+Number of markers                     200
+Supported marker types                Frequency, amplitude
+                      Span            FFT/s (RTSA)                                       POI (RTSA)
+                      40 MHz          25,000                                             122 µs
+FFT rate,
+                      80 MHz          50,000                                             62 µs
+100% POI
+                      160 MHz         100,000                                            30 µs
+                      320 MHz1        200,000                                            15 µs
+                                                        Window Type
+                      Span            Sample Rate      Rectangle    Hamming              Hanning          Blackman            Flattop
+Resolution            40 MHz          50 MSa/s         12.2 KHz     16.7 KHz             18.3 KHz         24.5 KHz            46.6 KHz
+bandwidth             80 MHz          100 MSa/s        24.4 KHz     33.4 KHz             36.6 KHz         48.9 KHz            93.2KHz
+                      160 MHz         200 MSa/s        48.8 KHz     66.8 KHz             73.2 KHz         97.8 KHz            186 KHz
+                      320 MHz1        400 MSa/s        97.6 KHz     133 KHz              146 KHz          195 KHz             373 KHz
+1.   320 MHz analysis bandwidth require option 602 and D9020WSAA
+
+
+
+
+                                                                                                                                            14
+Acquisition System – Performance
+Characteristics
+ Acquisition characteristic                                     3.5 mm models                            1.85 mm and 1 mm models
+
+ Maximum real-time sample rate                                    128 GSa/s                                      256 GSa/s
+ Sampling resolution                                          7.8125 ps/Sample                              3.90625 ps/Sample
+ Memory depth per channel
+   500 Mpts                                                      Standard                                        Standard
+   1 Gpt                                                       UXR0000-01G                                     UXR0000-01G
+   2 Gpts                                                      UXR0000-02G                                     UXR0000-02G
+ Memory depth (with RT averaging)                                320 Mpts                                      335.556 Mpts
+ Acquisition time at max sampling rate
+   500 Mpts                                                         3.9 ms                                         1.95 ms
+   1 Gpt                                                            7.8 ms                                          3.9 ms
+   2 Gpts                                                          15.6 ms                                          7.8 ms
+ Sampling modes
+                                                                             Successive single shot acquisitions
+   Real-time
+   Real-time with averaging                                                  Selectable from 2 to 1,048,575
+   Real-time and segmented1 with peak detect                      128 GSa/s                                 256 GSa/s
+   Real-time and segmented with high resolution   Real-time boxcar averaging reduces random noise and increases resolution
+                                                  Captures bursting signals at max sample rate without consuming memory during
+ Segmented memory
+                                                  periods of inactivity
+    Max # of segments                                                        Independent of memory option
+         High-bandwidth trigger enabled                             25,680                                    20,825
+          High-bandwidth trigger disabled                          134,885                                         134,885
+    Min time between triggers
+          High-bandwidth trigger enabled                                                    5.0 μs
+          High-bandwidth trigger disabled                                                   3.5 μs
+    Max time between triggers                                                         > 100,000 years
+                                                  Captures bursting signals with variable lengths in DDC mode without consuming
+ Variable length segmented memory
+                                                  memory during periods of inactivity
+    Max # of segments                             Dependent on memory depth, pulse width and DDC sample rate
+                                                  Utilizes pre and post store buffering to enable gapless capture without deadtime
+    Min time between triggers
+                                                  (blind spots) between triggers
+                                                  Brick wall, 4th order Bessel, Butterworth, bandpass
+ Bandwidth filters
+                                                  Raised Cosine & Butterworth response (clock > 100 GBd)
+                                                  > 285,700 waveforms per second (when in segment memory mode)
+                                                  When in DDC Variable Length Segmented memory mode:
+
+                                                             DDC sample rate                         Maximum segments1
+ Maximum update rate
+                                                             400 MSa/s                               > 985k
+                                                             800 MSa/s                               > 965k
+                                                             1.6 GSa/s                               > 750k
+                                                             3.2 GSa/s                               > 605k
+ Filters
+                                                  Brick wall, 4th order Bessel or Butterworth, selectable bandwidth value
+     Bandwidth limit
+                                                  Flat mag and linear phase, Gaussian mag and linear phase: slower filter roll off while
+    Frequency response
+                                                  maintaining linear phase
+                                                  On/off selectable FIR digital filter with selectable 2-32x ratio: digital signal processing
+    Sin(x)/x interpolation                        adds points between acquired data points to enhance measurement accuracy &
+                                                  waveform display
+1. Segmented with peak detect extends acquisition time range by compressing un-aliased full-sample rate waveform samples into
+   voltage range values collected over and reported at larger time intervals
+
+
+
+
+                                                                                                                                                15
+Trigger System – Performance Characteristics
+ Hardware trigger
+ Trigger sources                        All channel inputs, 1 auxiliary trigger input
+ Sensitivity                            1 div p-p
+ Edge trigger bandwidth                 Equal to acquisition analog bandwidth
+                                        DC to 2 GHz @ 150 mVpp
+ Edge trigger bandwidth
+                                        4 GHz @ 175 mVpp
+ (50 Ω AUX Input)
+                                        5 GHz @ ≥ 400 mVpp
+ Minimum pulse width trigger
+    Hardware                            50 ps
+    Software (InfiniiScan)              40 ps
+ Level range
+                                        ± 4 div from center screen or ± 4 V, whichever is smaller
+    Internal
+                                        ± 5 V (into 50 Ω), 5 Vpp maximum input signal swing
+    Auxiliary
+ Sweep modes                            Auto, triggered, single
+                                        3.5mm models: 116 fs (rms)2
+ Display jitter (trigger jitter)
+                                        1.85&1mm models: 71 fs (rms)3
+ Trigger holdoff range                  Fixed 40 ns to 10 s, random 100 ns to 10 s
+ Trigger qualification
+                                        Qualify a trigger setup by logically ANDing or ORing it with signal levels on analog channels
+ (AND qualifier)
+                                        Specify an action to occur (and the frequency of the action) when a trigger conditions occurs.
+ Trigger actions
+                                        Actions include email on trigger and execute "multipurpose" user setting.
+                                        Sequence triggers let you trigger on an event that follows another event. Three stage trigger
+                                        sequences including two-stage hardware (find event (A) and trigger event (B)) and one-stage
+ Trigger sequences                      InfiniiScan software trigger. Supports all hardware trigger modes except “edge then edge” and
+                                        “video” and "Gbit serial." Supports “delay (by time)” and “reset (by time or event)” between two
+                                        hardware sequences.
+1. Capturing 20ns pulse with 50ns pre and post store, with 02G memory option
+2. Value shown is typical Display jitter for UXR0334B at 100 mV/div triggering on 500 mVpp 16 GHz sin wave signal.
+3. Value shown is typical Display jitter for UXR1104B at 100 mV/div triggering on 500 mVpp 55 GHz sin wave signal.
+
+
+
+
+                                                                                                                                           16
+Trigger modes – hardware
+Burst                      Trigger on the Nth edge of a burst that occurs after an idle time from 1.5 ns to 20 s.
+                           Triggers on a specified slope (rising, falling, or alternating between rising and falling) & voltage level on any
+Edge
+                           channel or auxiliary trigger.
+                           Trigger on rising or falling edges that cross two voltage levels in > or < the amount of time specified. Edge
+Edge transition
+                           transition setting from 75 ps.
+                           The trigger is qualified by an edge. After a specified time-delay between 1.5 ns to 20 s, a rising or falling
+Edge then edge (time)
+                           edge on any one selected input will generate the trigger.
+                           The trigger is qualified by an edge. After a specified delay between 1 to 65,000,000,000 rising or falling
+Edge then edge (event)
+                           edges, another rising or falling edge on any one selected input will generate the trigger.
+                           Triggers on glitches narrower than the other pulses in your waveform by specifying a width less than your
+Glitch                     narrowest pulse and a polarity. Triggers on glitches as narrow as 50 ps.
+                           Glitch range settings: < 75 ps to < 10 s.
+                           Edge trigger up to scopes maximum bandwidth
+High-bandwidth
+                           (works with edge positive slope and edge negative slope only).
+OR’d edges                 Identifies a trigger condition by looking for selected edges on up to four channels.
+                           Identifies a trigger condition by looking for a specified pattern or a pattern and an edge (state) across the
+Pattern/state
+                           input channels.
+                           Trigger on a pulse that is wider or narrower than other pulses in waveform by specifying a pulse width & a
+Pulse width                polarity. Triggers on pulse widths as narrow as 75 ps. Pulse width range settings 75 ps to 20 s. Trigger
+                           point can be configured for “end of pulse” or “time out”.
+                           Specify a voltage range and then trigger when the waveform either exits this range, enters this range,
+Window                     stays outside the range for too long or too short, or stays inside the range for too long or too short.
+                           Range setting from 75 ps to 20 s.
+                           Trigger on a pulse that crosses one threshold but fails to cross a second threshold before crossing the first
+Runt
+                           again. Can be time qualified with minimum setting of 75 ps.
+                           Triggers the oscilloscope when the waveform has been at a higher voltage than the voltage specified by
+                           the Level control for too long (High Too Long), when the waveform has been at a lower voltage than the
+Timeout
+                           Level voltage for too long (Low Too Long), or when the waveform has taken too long to pass through the
+                           Level voltage (Unchanged Too Long). Timeout settings from 75 ps to 20 s.
+                           Trigger on violations of Setup time, Hold time, or both. Setup times from 75 ps to 20 s & hold times from 75
+Setup and hold
+                           ps to 100 ns.
+Protocol                   Trigger on certain packets or patterns in protocol-based data.
+
+
+
+
+                                                                                                                                               17
+Trigger modes –
+                      (Requires D9020SCNA InfiniiScan event identification software)
+software
+                      Software triggers on the user-defined zones on screen. Zones can be specified as either “must intersect” or “must not
+Zone qualify
+                      intersect.” Up to eight zones can be defined across multiple channels.
+                      Software triggers on NRZ-encoded data up to 8.0 Gbps, up to 80-bit pattern. Support multiple clock data recovery
+Generic serial        methods including constant frequency, 1st-order PLL, 2nd-order PLL, explicit clock, explicit 1st-order PLL, explicit 2nd-
+                      order PLL, Fibre Channel, FlexRay receiver, FlexRay transmitter
+                      Software triggers on the results of the measurement values. For example, when the “pulse width” measurement is turned
+Measurement
+                      on, InfiniiScan measurement software trigger triggers on a glitch as narrow as 40 ps. When the “time interval error (TIE)”
+limit
+                      is measured, InfiniiScan can trigger on a specific TIE value.
+Non-monotonic
+                      Software triggers on the non-monotonic edge. The non-monotonic edge is specified by setting a hysteresis value.
+edge
+                      Software triggers on a pulse that crosses one threshold but fails to cross a second threshold before crossing the first
+Runt
+                      again. Unlike hardware runt trigger, InfiniiScan runt trigger can be further qualified via a hysteresis value.
+
+
+
+Measurements and Math
+Oscilloscope measurements
+                                    > 50,000 measurement/sec (one measurement turned on)
+Measurement update rate
+                                    > 250,000 measurement/sec/measurement (ten measurements turned on)
+Measurement modes                   Standard, measure all edges mode
+                                    Displays the current, mean, minimum, maximum, range (max-min), standard deviation, number of
+Statistics                          measurements value for the displayed automatic measurements. Also shows Fail Min and Fail Max when
+                                    measurement limit test is enabled
+Level qualification                 Any channels that are not involved in a measurement can be used to level-qualify all timing measurements
+Waveform measurements
+                                    V peak-peak, V min, V max, V upper, V middle, V lower, V overshoot, V preshoot, V time, peak-peak
+   Vertical                         contrast, average, RMS, amplitude, base, top, overshoot, preshoot, crossing, pulse top, pulse base, pulse
+                                    amplitude, area, optical mode amp (OMA), level mean, level RMS, level skew, level thickness, outer OMA
+                                    Delta time, rise time, fall time, positive width, negative width, burst width, burst period, burst interval, Tmin,
+  Time
+                                    Tmax, Tvolt, + pulse count, - pulse count
+                                    Period, frequency, duty cycle, phase, time interval error (TIE), cross-corelated TIE, N-period, period to
+  Clock
+                                    period, positive width to positive width, neg width to neg width, duty cycle to duty cycle
+                                    Time interval error (TIE), hold time, unit interval, N Unit Interval, unit interval to unit interval, noise, data
+  Data
+                                    rate, pattern length, CDR clock recovery rate, deemphasis, BER (cumulative), BER (per acq)
+  Mixed                             Area, slew rate
+                                    FFT frequency, FFT magnitude, FFT delta frequency, FFT delta magnitude, FFT channel power, FFT
+  Frequency domain
+                                    power spectral density, FFT occupied bandwidth, peak detect mode, phase jitter1
+                                    Eye height, eye width, eye one level, eye zero level, eye jitter, eye skew, eye level, crossing percentage, Q
+  Eye-diagram
+                                    factor, duty-cycle distortion, extension ratio (ER), outer ER, vertical eye closure (VEC)
+                                    Optical average power, optical mode amp (OMA), eye one level, eye zero level, extension ratio, outer
+  Optical
+                                    OMA, outer ER
+Jitter analysis measurements – Requires D9020JITA EZJIT complete analysis application
+                                    Time interval error, N-period, period to period, positive width to positive width, neg width to neg width, duty
+   Clock
+                                    cycle to duty cycle
+                                    Time interval error, noise, unit interval, N Unit Interval, unit interval to unit interval, data rate, clock recovery
+   Data
+                                    rate, CDR, de-emphasis
+   Phase noise                      Phase jitter
+PAMn measurements – Requires D9020PAMA PAM4 analysis application
+                                    Level mean, level RMS, level skew, level thickness, eye height, eye width, eye skew, eye level, VEC, BER
+   PAMn measurements                (Cumulative), BER (Per Acq), SER (Cumulative), SER (Per Acq), clock recovery rate, pattern length, rise
+                                    time, fall time, and time interval error (TIE), composite histograms
+                                    PAM-4 12 Edge Jitter, J3U, J4U J5U, Jrms, J6U, and EOJ
+   Edge jitter measurements
+                                    (PRBS9, PRBS13Q, PRBS31Q, PCIe Gen6 (52 symbols) and user defined pattern support up to PRBS23)
+   PAM formats                      PAM-3, PAM-4, PAM-6, PAM-8, grey coded, uncoded
+   SNDR Measurements                Sigma-n, Sigma-e, Pmax, SNDR, Level Mean
+
+
+
+                                                                                                                                                            18
+Oscilloscope measurements (continued)
+
+Histograms
+
+   Source                      Waveform or measurement
+                               Vertical (for timing and jitter measurements) or horizontal (noise and amplitude change) modes, regions
+   Orientation
+                               are defined using waveform markers
+   Measurements                Mean, standard deviation, mean ± 1, 2, and 3 sigma, median, mode, peak-to-peak, min, max, total hits,
+   (available as a function)   peak (area of most hits), X scale hits, X offset hits, full width at half maximum (FWHM), bin width
+                               Allows pass/fail testing to user-defined or Keysight-supplied waveform templates. Automask lets you
+                               create a mask template from a captured waveform and define a tolerance range in time/voltage or screen
+   Mask testing
+                               divisions. Test modes (run until) include test forever, test to specified time or event limit, and stop on
+                               failure. Executes “multipurpose” user setting on failure
+Waveform math
+   Number of functions         16
+   Hardware accelerated
+                               Differential and common mode
+   math operations
+                               Absolute value, add, amplitude demodulation (radar envelope), average, bus chart, Butterworth1, common
+                               mode, delay, differentiate, divide, envelope, FFT magnitude, FFT phase, FIR1, gating, high pass filter,
+                               histogram, InfiniiSim2 (2 port, 4 port 1 src, 4 port CM, 4 port diff, 4 port src1, 4 port src2), horizontal gating,
+                               integrate, invert, LFE1, low pass filter (4th-order Bessel Thompson filter), magnify / duplicate, max,
+   Math functions              measurement trend, measurement log, min, multiply, pattern average, power, power efficiency, RT Eye1,
+                               smoothing, SqrtSumOfSquare1, square, square root, subtract, versus (XY), versus (XYZ qualified) and
+                               optional user defined function1
+                               1    Requires MATLAB® software option
+                               2    Requires D9020ASIA software option
+Fault Hunter
+Auto Setup                     30 second statistical measurement analysis of incoming signal
+Result information             Test failure automatically saved in memory. Fault condition can be copied to trigger for further testing.
+                               Automatic identification of common digital signal errors: Positive glitch, negative glitch, slow rising edge,
+Test results
+                               slow falling edge, positive runt, negative runt
+FFT
+   Frequency range             DC to scope’s maximum bandwidth
+   Frequency resolution        Sample rate/memory depth = resolution
+   Window modes                Hanning, flattop, rectangular, Blackman-Harris, Hamming
+Measurement modes
+   Automatic measurements      Measure menu access to all measurements, up to 20 measurements can be displayed simultaneously
+   Multipurpose                Front-panel button activates up to ten pre-selected or up to ten user-defined automatic measurements
+   Drag-and-drop               Measurement toolbar with common measurement icons that can be dragged and dropped onto the
+   measurement toolbar         displayed waveforms
+   Marker modes                Manual markers, track waveform data, track measurements, track RF (on FFT math function waveforms)
+   Bookmarks and callouts      Supports callouts for measurements and FFT peaks. Supports bookmarks for team collaboration
+
+
+
+
+                                                                                                                                                     19
+Platform Characteristics
+Computer system, peripherals and accessories
+
+Operating system                Microsoft Windows 10 64-bit or newer Microsoft Windows release
+CPU                             Intel i7-9700E octa-core CPU up to 4.4 GHz or higher performance CPU
+PC system memory                64 GB DDR4 RAM or higher capacity/performance RAM
+                                USB 2.0 hi-speed (host), USB 2.0 hi-speed (device), VGA, DisplayPort, USB 3.0 (host), USB 3.0 (device),
+PC ports
+                                dual-monitor video output, 10/100/1000 LAN, LXI LAN
+Drives (SSD)                    960GB Enterprise grade internal SSD removable hard drive or higher capacity/performance SSD
+                                Optical USB mouse, compact USB keyboard supplied. All UXR models support any Windows-compatible
+Peripherals
+                                input device with a USB interface
+File types
+                                Compressed internal format (*.wfm (200 Mpts)), comma-separated values (*.csv (2 Gpts)), tab-separated
+   Waveforms                    values (*.tsv (2 Gpts)), public binary format (.bin (500 Mpts)), Y value files (*.txt (2 Gpts)), hierarchal data
+                                file (*.hf5 (2 Gpts))
+   Images                       BMP, PNG, TIFF, GIF, JPG or osc file format
+Included accessories
+                                Country-specific power cord, front cover, open ended torque wrench (5/16 inch 8-in-lb), mini USB
+   All models
+                                keyboard, USB optical mouse, and an ESD mat with wrist and heel straps
+                                Qty (5) 3.5 mm Female-to-Female connector savers and (10) connector saver collars
+  3.5 mm input models
+                                Note: 10 GHz and 13 GHz models additionally include Qty (2) Precision BNC 50 Ω adaptors (N5442A)
+                                One per channel (1.85 mm Female-to-Female connector savers), one 2.92 mm to 2.40 mm Female-to-
+  1.85 mm input models
+                                Female coaxial adapter and one 3.5 mm Female-to-Female connector saver
+                                One per channel (1 mm Female Ruggedized to 1 mm Female, and 1 mm Female Ruggedized to 1.85 mm
+                                Female connector savers), Qty (1) 1 mm Female Ruggedized to 2.92 mm Female connector saver,
+  1 mm input models
+                                Qty (1) 3.5 mm Female-to-Female connector saver, and 1mm input specific open-ended torque wrenches
+                                (6 mm 4-in-lb, and 14 mm dual-ended: 4-in-lb & 10-in-lb)
+I/O ports
+Aux in                          5 Vpp max signal between -5 V and +5 V, 50 Ω impedance
+Aux out                         0 V to 5 V, 50 Ω impedance
+Cal out                         -2.4 V to +2.4 V, 50 Ω impedance
+Probe compensation terminal     0 V to 5 V, 50 Ω impedance
+Reference clock input           400 MHz, 0.25 Vpp to 0.50 Vpp, 50 Ω impedance
+Reference clock output          400 MHz, 0.25 Vpp to 0.50 Vpp, 50 Ω impedance
+Sample clock input              8 GHz, -5 dBm to +15 dBm, 50 Ω impedance
+Sample clock output             8 GHz, +10 dBm to +15 dBm, 50 Ω impedance
+                                Input frequency lock range: 10 MHz ±20 ppm, 50 Ω impedance
+                                Amplitude, sine wave input: 630 mVpp (0 dBm) min to
+Timebase reference input                                    3.54 Vpp (+15 dBm) max, 50 Ω impedance
+                                Amplitude, square wave input: 500 mVpp min to
+                                                            3.54 Vpp max, 50 Ω impedance
+                                Amplitude into 50 Ω (internal or external timebase reference selected):
+                                   1.1 to 2.0 Vpp (+ 5 to + 10 dBm) sine wave
+                                Frequency (internal timebase reference selected):
+Timebase reference output
+                                   ± (25 ppb initial + 100 ppb/year aging) first year of manufacture
+                                   ± (25 ppb initial + 30 ppb/year aging) after first year of manufacture
+                                Frequency, external timebase reference selected: external reference frequency
+Trig out                        0 V to 5 V, 50 Ω impedance
+
+
+
+
+                                                                                                                                                   20
+Display
+
+Display               15.4-inch color XGA TFT-LCD with capacitive touch screen
+Intensity grayscale   256-level intensity-graded display
+Resolution XGA        1024 pixels horizontally x 768 pixels vertically
+                      Up to 100 bookmarks can be inserted into the waveform window. Each can float or be tied to a specific
+Annotation
+                      waveform
+Grids                 Choose between 1-16 grids per waveform area, 10-bit vertical resolution
+Waveform areas        Supports eight waveform areas plus chart mode for EZJIT, InfiniiSim, protocol, and PrecisionProbe
+                      Connected dots, dots, infinite persistence, color graded infinite persistence. Includes up to 256 levels of
+Waveform styles
+                      intensity-graded waveforms, variable persistence
+
+
+
+
+                                                                                                                                    21
+General Characteristics
+General characteristics
+
+                Operating: 5 to +40 °C up to 2,000 meters, de-rated between 2,000 and 3,000 meters by 1 °C for every 100 meters
+Temperature
+                Non-operating: –20 to +70 °C
+                Operating: Up to 95% relative humidity (non-condensing) at +40 °C
+Humidity
+                Non-operating: Up to 90% relative humidity at +65 °C
+                Operating: Up to 3,000 meters (9,842 feet); de-rate maximum temperature by 1 °C for every 100 meters above 2,000
+Altitude        meters
+                Non-operating: Up to 4,600 meters (15,090 feet)
+                Operating random: 0.21 g (rms)
+Vibration       Non-operating random: 2.0 g (rms)
+                Swept sines: 0.50 g (rms)
+                Well-regulated power is required for all Infiniium UXR real-time oscilloscopes. If the oscilloscope detects poor power line
+                conditions (for example, one cycle at 0% or 25 cycles at 70% of nominal voltage), it will shut down to protect the hardware.
+                This protective design should not be confused with a malfunction.
+                                                                                                              100 to 240 VAC at 50/60 Hz
+                UXR0334B, UXR0254B, UXR0204B, UXR0164B, UXR0134B, UXR0104B
+                                                                                                              Maximum input power 1350 VA
+                UXR1102B, UXR1002B, UXR0802B, UXR0702B/BP, UXR0592B/BP, UXR0502B,                             110 to 240 VAC at 50/60 Hz
+Power           UXR0402B/BP, UXR0252BP, UXR0051BP                                                             Maximum input power 1370 VA
+                Well-regulated power is required for 110-120 V operation:
+                Connect only to a 20-amp outlet or a dedicated 15-amp outlet.
+                UXR1104B, UXR1004B, UXR0804B, UXR0704B/BP, UXR0594B/BP, UXR0504B,                             200 to 240 VAC at 50/60 Hz
+                UXR0404B/BP, UXR0254BP                                                                        Maximum input power 2615 VA
+                Connect only to outlets rated for 15 amps or higher.
+                UXR0334B, UXR0254B, UXR0204B, UXR0164B, UXR0134B, UXR0104B                                    37.56 kg (82.8 lbs.)
+                UXR1102B, UXR1002A, UXR0802B, UXR0702B/BP, UXR0592B/BP, UXR0502B,
+Weight                                                                                                        36.15 kg (79.7 lbs.)
+                UXR0402B/BP, UXR0252BP, UXR0051BP
+                UXR1104B, UXR1004B, UXR0804B, UXR0704B/BP, UXR0594B/BP, UXR0504B,
+                                                                                                              42.05 kg (92.7 lbs.)
+                UXR0404B/BP, UXR0254BP
+                Width:     435 mm with handles removed (17.126”)
+                           530 mm with handles (20.866”)
+                Depth:     513 mm main body (20.197”)
+                           560 mm including knobs and rear feet (22.047”)
+                Height: 311 mm (7U) with feet removed (12.244”)
+                               Installations with the optional N2156A rackmount kit will take up 8U to allow for airflow and cabling
+Dimensions                 333 mm with feet (13.11”)
+                Inputs:          Connectors are 75 mm apart horizontally on the 4-channel frame and 150 mm apart on the 2-channel frame.
+                Centers are: 49 mm above the surface when resting flat (no tilt levers) and
+                                 90 mm above the surface when using the front tilt levers.
+                Clearances: Fans draw cool air in from the sides and bottom and blows it out the back of the oscilloscope.
+                                 Allow at least 8 inches (203 mm) of clearance from the rear.
+                                 Side handles provide sufficient airflow clearance side to side.
+Safety          CAN/CSA-C22.2 No. 61010-1-12
+                ANSI/UL Std. No. 61010-1:2018
+
+
+
+
+                                                                                                                                               22
+Definitions
+Measured (meas)
+An attribute measured during development for purposes of communicating the expected performance.
+This data is not warranted, does not include measurement uncertainty, and is measured at room
+temperature (approximately 23°C).
+
+Nominal (nom)
+The mean or average characteristic performance, or the value of an attribute that is determined by design
+such as a connector type, physical dimension, or operating speed. This data is not warranted and is
+measured at room temperature (approximately 23°C).
+
+Specification (spec)
+The warranted performance of a calibrated instrument that has been stored for a minimum of 2 hours
+within the operating temperature range of 5 – 40°C and after a 30-minute warm up period.
+
+Typical (typ)
+The characteristic performance, which 80% or more of manufactured instruments will meet. This data is
+not warranted, does not include measurement uncertainty, and is valid only at room temperature
+(approximately 23°C).
+
+Operating frequency range
+The operating frequency range is the frequency range of corrected signal spectral components by
+deembeding for frequency and phase characteristics of the individual hardware.
+
+Analog bandwidth
+The analog bandwidth describes the 3 dB bandwidth of the full opto-electronic input path without any
+frequency or phase corrections.
+
+Sensitivity
+The sensitivity limit corresponds to the received signal power at the input interface for which a 32 GBaud
+DP-QPSK exhibits an EVM of 32.5% or less. An EVM of 32.5% corresponds to a BER of 1E-3 for
+assumed added Gaussian white noise (AWGN) according to =0.5*ERFC(1/(SQRT (2)* (EVM²+1))).
+
+Effective Number of Bits (ENOB)
+Definition in accordance with IEEE 1057: “For an input sinewave of specified frequency and amplitude,
+ENOB is the number of bits of an ideal waveform recorder for which the rms quantization error is equal to
+the rms NAD of the waveform recorder under test.” ENOB is determined by equation.
+
+
+
+
+                                                                                                             23
+Confidently Covered by Keysight Services
+Prevent delays caused by technical questions and reduce system downtime due to instrument
+maintenance and repairs with Keysight Services. Keysight Services are here to support your test needs
+with expert technical support, instrument repair and calibration, software support, training, alternative
+acquisition program options, and more.
+
+A KeysightCare agreement provides dedicated, proactive support through a single point of contact for
+instruments, software, and solutions. KeysightCare covers an extensive group of instruments,
+application software, and solutions and ensures optimal uptime, faster response, faster access to experts,
+and faster resolution.
+
+
+
+
+Keysight Services
+Offering                          Benefits
+
+KeysightCare                      KeysightCare provides elevated support for Keysight instruments and software, with
+                                  access to technical support experts who respond within a specified time and ensure
+                                  committed repair and calibration turnaround times (TAT). KeysightCare offers
+                                  multiple service agreement tiers, including KeysightCare Assured, Enhanced, and
+                                  Application Software Support. See the KeysightCare data sheet for details.
+
+KeysightCare Assured              KeysightCare Assured goes beyond basic warranty with repair services that include
+                                  committed TAT and unlimited access to technical experts.
+
+KeysightCare Enhanced             KeysightCare Enhanced includes all the benefits of KeysightCare Assured plus
+                                  Keysight’s accurate and reliable Calibration Services, accelerated, and committed
+                                  TAT, and technical response.
+
+Keysight Support Portal           All KeysightCare tiers include access to the Keysight Support Portal where you can
+& Knowledge Center                manage support and service resources related to your assets such as service
+                                  requests, and status, or browse the Knowledge Center.
+
+Education Services                Build confidence and gain new skills to make accurate measurements, with flexible
+                                  Education Services developed by Keysight experts. Including Start-up Assistance.
+
+Alternative acquisition options
+
+KeysightAccess                    Reduce budget challenges with a leased-based subscription service, that offers low
+                                  monthly payments, enabling you to get the instruments, software, and technical
+                                  support you want for your test needs.
+
+
+
+
+                                                                                                                       24
+Recommended services
+Maximize your test system up-time by securing technical support, repair, and calibration services with
+committed response and turnaround times. 1-year KeysightCare Assured is included in every new
+instrument purchase. Obtain multi-year KeysightCare upfront to eliminate the need for lengthy and
+tedious paperwork and yearly requests for maintenance budget. Plus, you benefit from secured service
+for 2, 3, or 5 years.
+
+  Service                           Function
+  KeysightCare Enhanced*            Includes tech support, warranty and calibration
+  R-55B-001-1                       KeysightCare Enhanced – Upgrade 1 year
+  R-55B-001-2                       KeysightCare Enhanced – Extend to 2 years
+  R-55B-001-3                       KeysightCare Enhanced – Extend to 3 years (Recommended)
+  R-55B-001-5                       KeysightCare Enhanced – Extend to 5 years (Recommended)
+  KeysightCare Assured              Includes tech support and warranty
+  R-55A-001-2                       KeysightCare Assured – Extend to 2 years
+  R-55A-001-3                       KeysightCare Assured – Extend to 3 years
+  R-55A-001-5                       KeysightCare Assured – Extend to 5 years
+  Start-Up Assistance
+  PS-S40-01                         Included – instrument fundamentals and operations starter
+  PS-S40-04                         Recommended – instrument fundamentals and operations starter
+  PS-S40-02                         Optional, technology & measurement science standard learning
+* Available in select countries. For details, please view the datasheet. R-55B-001-2/3/5 must be ordered with R-55B-001-1.
+
+
+
+
+More Information
+Thank you for choosing a Keysight UXR-Series Oscilloscope. Keysight Infiniium UXR-Series
+oscilloscopes set a new standard for real-time oscilloscope accuracy, performance and upgradability, with
+models ranging from 5 GHz to 110 GHz. Proven industry best signal integrity, 10-bits of vertical resolution
+and ultra-low noise floor specifications allow for the truest representation of signals. Invest with
+confidence today, knowing you have the ability to meet the needs and technology advancements of
+tomorrow. For more information on the Keysight Infiniium UXR-Series, check out the following:
+
+ • UXR Technical Overview
+ • UXR Configuration Guide
+
+
+
+
+                                                        Keysight enables innovators to push the boundaries of engineering by quickly solving
+                                                        design, emulation, and test challenges to create the best product experiences. Start your
+                                                        innovation journey at www.keysight.com.
+
+                                                        This information is subject to change without notice. © Keysight Technologies, 2023 - 2024,
+                                                        Published in USA, March 5, 2024, 3123-1313.EN
+

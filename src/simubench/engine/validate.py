@@ -7,7 +7,6 @@ suggestion to correct their edits (D9).
 
 from __future__ import annotations
 
-import difflib
 import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -19,6 +18,7 @@ from ..library.migrate import FormatError, upgrade
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .component import Component, binding_of, component_types, map_setting
+from .portref import closest, ladder, split
 
 Severity = Literal["error", "warning"]
 
@@ -53,11 +53,6 @@ class Report:
 
     def add(self, *args: Any, **kwargs: Any) -> None:
         self.diagnostics.append(Diagnostic(*args, **kwargs))
-
-
-def _closest(word: str, options: list[str]) -> str | None:
-    hit = difflib.get_close_matches(word, options, n=1, cutoff=0.5)
-    return hit[0] if hit else None
 
 
 def _bound(value: float | None, open_end: str = "-∞") -> str:
@@ -110,7 +105,7 @@ def validate_bench(
             from ..library.loader import DefinitionLibrary
 
             options = DefinitionLibrary().ids()
-            hint = _closest(inst.model, options)
+            hint = closest(inst.model, options)
             report.add(
                 "error",
                 "E-MODEL-UNKNOWN",
@@ -150,7 +145,7 @@ def validate_bench(
         for cname, params in inst.hidden.items():
             cp = ("instruments", name, "hidden", cname)
             if cname not in comp_params:
-                hint = _closest(cname, list(comp_params))
+                hint = closest(cname, list(comp_params))
                 report.add(
                     "error",
                     "E-HIDDEN-COMPONENT",
@@ -163,7 +158,7 @@ def validate_bench(
             for pname in params:
                 if pname in comp_params[cname]:
                     continue
-                hint = _closest(pname, sorted(comp_params[cname]))
+                hint = closest(pname, sorted(comp_params[cname]))
                 report.add(
                     "error",
                     "E-HIDDEN-PARAM",
@@ -194,7 +189,7 @@ def validate_bench(
             sp = ("instruments", name, "state", path)
             spec = specs.get(path)
             if spec is None:
-                hint = _closest(path, list(specs))
+                hint = closest(path, list(specs))
                 report.add(
                     "error",
                     "E-STATE-UNKNOWN",
@@ -254,7 +249,7 @@ def validate_bench(
             )
         cls = known_types.get(part.type)
         if cls is None:
-            hint = _closest(part.type, list(known_types))
+            hint = closest(part.type, list(known_types))
             report.add(
                 "error",
                 "E-COMPONENT-UNKNOWN",
@@ -266,7 +261,7 @@ def validate_bench(
             continue
         for k in part.params:
             if k not in cls.defaults:
-                hint = _closest(k, list(cls.defaults))
+                hint = closest(k, list(cls.defaults))
                 report.add(
                     "warning",
                     "W-PARAM-UNKNOWN",
@@ -277,7 +272,7 @@ def validate_bench(
                 )
         for k, rng in part.deviation.items():
             if k not in cls.defaults:
-                hint = _closest(k, list(cls.defaults))
+                hint = closest(k, list(cls.defaults))
                 report.add(
                     "error",
                     "E-DEVIATION-PARAM",
@@ -300,29 +295,27 @@ def validate_bench(
     # ---- wires ----
     for i, w in enumerate(bench.wires):
         for end, ref in (("from", w.from_), ("to", w.to)):
-            owner, _, port = ref.rpartition(".")
+            owner, port = split(ref)
             pp = _ptr("wires", i, end)
+            owner_hint, port_hint = ladder(ref, port_info, port_info.get)
             if not owner or owner not in port_info:
-                names = list(port_info)
-                hint = _closest(owner or ref, names)
                 report.add(
                     "error",
                     "E-WIRE-OWNER",
                     pp,
                     f"连线端点 {ref!r}：没有名为 {owner or ref!r} 的仪表或 DUT",
-                    f"改为 {hint}.{port}" if hint else "端点写作 <名称>.<端口>",
+                    f"改为 {owner_hint}.{port}" if owner_hint else "端点写作 <名称>.<端口>",
                     f"wire:{i}",
                 )
                 continue
             ports = port_info[owner]
             if port not in ports:
-                hint = _closest(port, list(ports))
                 report.add(
                     "error",
                     "E-WIRE-PORT",
                     pp,
                     f"连线端点 {ref!r}：{owner} 没有端口 {port!r}",
-                    f"改为 {owner}.{hint}" if hint else f"可用端口：{', '.join(ports)}",
+                    f"改为 {owner}.{port_hint}" if port_hint else f"可用端口：{', '.join(ports)}",
                     f"wire:{i}",
                 )
                 continue
@@ -331,7 +324,7 @@ def validate_bench(
             # a shared net — two outputs driving it — is E-NET-MULTIDRIVER.
         for k, acc in enumerate(w.accessories):
             if acc.type not in known_types:
-                hint = _closest(acc.type, list(known_types))
+                hint = closest(acc.type, list(known_types))
                 report.add(
                     "error",
                     "E-ACCESSORY-UNKNOWN",
@@ -345,7 +338,7 @@ def validate_bench(
     for i, f in enumerate(bench.faults):
         fp = ("faults", i)
         if f.instrument is not None and f.instrument not in bench.instruments:
-            hint = _closest(f.instrument, list(bench.instruments))
+            hint = closest(f.instrument, list(bench.instruments))
             report.add(
                 "error",
                 "E-FAULT-TARGET",
@@ -456,7 +449,7 @@ def _check_nets(
         return spec is not None and spec.medium == "electrical" and spec.direction != "in"
 
     def is_driver(ref: str) -> bool:
-        owner, _, port = ref.rpartition(".")
+        owner, port = split(ref)
         if owner in defs:
             d = defs[owner]
             comp_types = {c.name: c.type for c in d.channel_components} | {
@@ -469,7 +462,7 @@ def _check_nets(
                         target = t
             target = target or d.ports.instrument.get(port)
             if target:
-                comp, _, pin = target.rpartition(".")
+                comp, pin = split(target)
                 return drives(types.get(comp_types.get(comp, "")), pin)
             return False
         part = bench.parts.get(owner)
@@ -532,7 +525,7 @@ def _close(z: float | None, target: float) -> bool:
 def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinition], ref: str) -> float | None:
     """Input impedance of an instrument port from its definition (an ``input_port`` component or a
     type derived from it, which says how its parameters give the impedance)."""
-    owner, _, port = ref.rpartition(".")
+    owner, port = split(ref)
     d = defs.get(owner)
     if d is None:
         return None
@@ -545,7 +538,7 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
                     target, channel = t, n
     if target is None:
         return None
-    comp_name = target.rsplit(".", 1)[0]
+    comp_name = split(target).owner
     specs = d.channel_components if channel is not None else d.components
     comp = next((c for c in specs if c.name == comp_name), None)
     cls = component_types().get(comp.type) if comp is not None else None
@@ -575,7 +568,7 @@ def _impedance_hints(
 ) -> None:
     """Warn when a source's amplitude assumes a 50 ohm load but the net has no 50 ohm termination."""
     for ref in members:
-        owner, _, port = ref.rpartition(".")
+        owner, port = split(ref)
         d = defs.get(owner)
         if d is None or d.instrument_class != "function_generator":
             continue

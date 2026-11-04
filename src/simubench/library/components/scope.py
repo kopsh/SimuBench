@@ -12,7 +12,7 @@ import numpy as np
 
 from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
 from ...engine.noise import gaussian, stream_key
-from ...engine.signal import Signal, highpass1, lowpass1
+from ...engine.signal import Signal, bessel4, brickwall, gaussian_lp, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
@@ -44,12 +44,19 @@ class _ChannelBound(Component):
         return {k: v for k, v in super().bound_paths().items() if "{n}" not in v}
 
 
+#: Bandwidth filter shapes of the vertical channel (``response``, #607).
+RESPONSES = {"first_order": lowpass1, "brickwall": brickwall, "gaussian": gaussian_lp, "bessel4": bessel4}
+
+
 @component("scope_vertical")
 class ScopeVertical(Component):
     """The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.
 
     Analog first-order filters (physics, D13): AC coupling is a ``ac_corner`` high-pass and the
     bandwidth a first-order low-pass at ``bandwidth`` (or ``bw_limit_hz`` when the limit is on).
+    A scope whose bandwidth is a DSP filter declares its shape with ``response``: ``brickwall``
+    (flat magnitude, linear phase: ringing on a step), ``gaussian`` (no ringing) or ``bessel4``, -3 dB
+    at the same frequency and with the filter's delay removed (#607).
     The ``scale`` (V/div) and ``offset`` (V) are display values; with ``scale_range`` and
     ``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The
     ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``
@@ -74,12 +81,17 @@ class ScopeVertical(Component):
     """
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
+    choices = {"response": ("first_order", "brickwall", "gaussian", "bessel4")}
     defaults = {
         "coupling": "DC",  # DC | AC | GND
         "bandwidth": 200e6,  # -3 dB point of the first-order low-pass
         "bw_limit": False,  # bandwidth limit on, or a named filter (FULL, 20M)
         "bw_limit_hz": 20e6,  # the limit when bw_limit is on
         "ac_corner": 10.0,  # corner of the AC coupling high-pass
+        # the shape of the bandwidth filter at min(bandwidth, limit): first_order (an analog front end),
+        # brickwall (flat magnitude, linear phase), gaussian (no ringing) or bessel4; the DSP shapes
+        # are zero phase, their delay removed as a scope deskews it (#607)
+        "response": "first_order",
         "scale": "$ch.scale",  # V/div as displayed
         "offset": "$ch.offset",  # V as displayed
         "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
@@ -117,7 +129,10 @@ class ScopeVertical(Component):
             # path by probe_ratio after this stage, so divide it here to keep it display-referred.
             ratio = float(self.param("probe_ratio"))
             sig = sig + Signal(dc=offset + float(self.param("offset")) * dac / ratio)
-        return sig.transfer(lowpass1(min(self._limit(), float(self.param("bandwidth")))))
+        fc = min(self._limit(), float(self.param("bandwidth")))
+        if not math.isfinite(fc):
+            return sig
+        return sig.transfer(RESPONSES[self.choice("response") or "first_order"](fc))
 
     def _limit(self) -> float:
         """Bandwidth limit: on/off (``bw_limit_hz``) or a named filter such as Siglent's 20M / FULL."""
@@ -435,8 +450,12 @@ class ScopeTimebase(Component):
     """The horizontal system: time per division, the record length rule and the trigger position.
 
     ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is
-    ``points / 10 div`` up to the ADC group's top rate) or ``rate_ladder`` (that rate rounded down
-    to a 1-2-5 step; samples ``1 / rate`` apart). The trigger sits at the centre, or ``delay``
+    ``points / 10 div`` up to the ADC group's top rate), ``rate_ladder`` (that rate rounded down
+    to a 1-2-5 step; samples ``1 / rate`` apart) or ``rate_pow2`` (rounded down to the top rate
+    divided by a power of two, the Infiniium UXR's rates, #602). A ``sample_rate`` above 0 sets the
+    rate instead of the points (a manual rate takes precedence over the memory depth, the
+    Infiniium guide's :ACQuire:SRATe): rounded up to the next rate of the rule's steps, at most the
+    top rate and at most ``max_points / 10 div``; the record then holds ``rate x 10 div`` points. The trigger sits at the centre, or ``delay``
     seconds before it when that is bound. A model with a reference mode setting places it from
     ``reference_mode`` (DELay / POSition) and, in POSition mode, from ``reference_position``
     percent across the record.
@@ -452,7 +471,9 @@ class ScopeTimebase(Component):
     defaults = {
         "scale": "$timebase.scale",  # seconds per division (ten divisions across)
         "delay": None,  # unbound: the trigger at the centre of the record
-        "record_length": "fixed",  # fixed | exact | rate_ladder
+        "record_length": "fixed",  # fixed | exact | rate_ladder | rate_pow2
+        "sample_rate": 0.0,  # Sa/s set by the user (a setting); 0: the rate follows the points
+        "max_points": 0,  # the most points a record holds with a set sample_rate; 0: no limit
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
         "reference_divs": 5.0,  # where the trigger (delay 0) sits, divisions from the left; may map a setting
@@ -487,13 +508,43 @@ class ScopeTimebase(Component):
     def sample_rate(self, top: float) -> float:
         """The sample rate under the ADC group's top rate ``top``."""
         window = self.window()
-        depth = memory_depth(self.param("points"))
         rule = str(self.param("record_length"))
+        wanted = float(self.param("sample_rate") or 0.0)
+        if wanted > 0 and rule != "fixed":
+            rate = min(top, self._step_up(wanted, top, rule))
+            most = memory_depth(self.param("max_points") or 0)
+            if most > 0 and rate * window > most:
+                rate = self._step_down(most / window, top, rule)
+            return rate
+        depth = memory_depth(self.param("points"))
         if rule == "fixed":
             return depth / window
+        return min(top, self._step_down(depth / window, top, rule))
+
+    @staticmethod
+    def _step_down(rate: float, top: float, rule: str) -> float:
+        """``rate`` rounded down to the rule's steps (exact: as it is)."""
         if rule == "rate_ladder":
-            return min(top, ladder_down(depth / window))
-        return min(top, depth / window)
+            return ladder_down(rate)
+        if rule == "rate_pow2":
+            if rate >= top:
+                return top
+            return top / 2.0 ** math.ceil(math.log2(top / rate) - 1e-12)
+        return rate
+
+    @staticmethod
+    def _step_up(rate: float, top: float, rule: str) -> float:
+        """``rate`` rounded up to the rule's next step (the guide: "rounded to the next fastest")."""
+        if rule == "rate_ladder":
+            down = ladder_down(rate)
+            if down >= rate * (1 - 1e-12):
+                return down
+            return ladder_down(down * 2.5 * (1 + 1e-12))  # the next 1-2-5 step
+        if rule == "rate_pow2":
+            if rate >= top:
+                return top
+            return top / 2.0 ** math.floor(math.log2(top / rate) + 1e-12)
+        return rate
 
     def timing(self, top: float) -> tuple[int, float, int, int]:
         """Points, sample interval, samples before the trigger and samples from it on."""
@@ -505,7 +556,8 @@ class ScopeTimebase(Component):
         else:
             rate = self.sample_rate(top)
             points = max(2, round(rate * window))
-            dt = 1.0 / rate if rule == "rate_ladder" else window / points
+            stepped = rule in ("rate_ladder", "rate_pow2") or float(self.param("sample_rate") or 0.0) > 0
+            dt = 1.0 / rate if stepped else window / points
         # Sample 0 is at delay - 5 div: the trigger sits (5 div - delay) / dt in (no delay: the centre).
         # A reference mode setting places the trigger differently: in POSition mode the position
         # setting puts it that far across the record (the delay setting no longer moves it).
@@ -894,6 +946,10 @@ class ScopeAcquisition(Component):
       wait for it unless ``opc_waits`` is false, and a digitize waits for it. Without a trigger it
       waits for one, looking again whenever a command arrives; ``no_trigger: wait`` leaves ``*OPC?``
       unanswered meanwhile (the client times out), ``return`` answers it at once.
+
+    Status events (for ``status_register`` bits of these names): ``TRG`` when a stored acquisition met
+    its trigger, ``DONE`` for every stored acquisition, ``AUTO`` for one an auto mode took without
+    its trigger, ``ARM`` when a run or a single acquisition arms the trigger.
 
     Per-channel ``ch<n>.display`` says which channels are acquired. The trigger status
     (``status_text``), an acquisition type with its count (``acquire_type``, ``acquire_counts``)
@@ -1313,6 +1369,12 @@ class ScopeAcquisition(Component):
             self.trigger_unit().last_ns = max(instants)  # the holdoff runs from here
             if self.owner is not None:
                 self.owner.status_event("TRG")  # the trigger event register (:TER?, #248)
+        if self.owner is not None and records:
+            # every stored acquisition is done (Infiniium :ADER?, #602); one an auto sweep took
+            # without its trigger is an auto trigger (:ATER?)
+            self.owner.status_event("DONE")
+            if not instants and not forced and self._is("auto"):
+                self.owner.status_event("AUTO")
         self.acq_count += 1
         self.session.invalidate()
         if self.owner is not None:

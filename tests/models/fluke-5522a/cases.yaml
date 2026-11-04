@@ -400,7 +400,7 @@ cases:
       - query: "ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
   - name: "RANGE? 按幅值自动选量程，回手册符号名"
-    manual: "Remote Commands > RANGE?（DC330MV、AC3_3V 等例子）；第 1 章 DC/AC Voltage 规格表的 Range 行"
+    manual: "第 6 章 p. 6-32 RANGE?（<primary output>,<secondary output>；DC330MV,0、AC3_3V,0 等例子）；第 1 章 DC/AC Voltage 规格表的 Range 行"
     steps:
       - send: "OUT 1 V"
       - query: "RANGE?"
@@ -416,7 +416,7 @@ cases:
         expect: "AC3_3V,0"
 
   - name: "RANGELCK ON 锁定量程，越限报 518"
-    manual: "Remote Commands > RANGELCK；附录 D 错误 518（Value outside locked range）"
+    manual: "第 6 章 p. 6-32 RANGELCK、p. 6-33 RANGELCK?（ON/OFF）；附录 D p. D-3 错误 518（Value outside locked range）"
     steps:
       - send: "OUT 2 V"
       - send: "RANGELCK ON"
@@ -455,3 +455,46 @@ cases:
       - send: "OUT 50 V"
       - query: "ERR?"
         expect: '518,"Value outside locked range"'
+
+  - name: "直流电流同样可锁量程，越限报 518"
+    manual: "第 6 章 p. 6-32 RANGELCK（for dc voltage and dc current single outputs）、RANGE? 例子 DC33MA_A,0；附录 D p. D-3 错误 518"
+    steps:
+      - send: "OUT 10 MA"
+      - send: "RANGELCK ON"
+      - query: "RANGE?"
+        expect: "DC33MA_A,0"
+      - send: "OUT 40 MA"
+      - query: "ERR?"
+        expect: '518,"Value outside locked range"'
+      - query: "OUT?"
+        expect: "1.000000E-02,A,0E+00,0,0.000000E+00"
+
+  - name: "交流下 RANGELCK ON 不锁量程，越限不报 518"
+    manual: "第 4 章 p. 4-17 Auto Range Versus Locked Range（only for single-output dc volts and dc current）；第 6 章 p. 6-32 RANGELCK"
+    steps:
+      - send: "OUT 2 V, 1 kHz"
+      - send: "RANGELCK ON"
+      - query: "RANGELCK?"
+        expect: "ON"
+      - send: "OUT 5 V, 1 kHz"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - query: "RANGE?"
+        expect: "AC33V,0"
+      - query: "OUT?"
+        expect: "5.000000E+00,V,0E+00,0,1.000000E+03"
+
+  - name: "交流下的 RANGELCK ON 在改到直流时清除，直流按自动量程"
+    manual: "第 6 章 p. 6-32 RANGELCK（The range automatically unlocks if the output function changes）"
+    steps:
+      - send: "OUT 2 V, 1 kHz"
+      - send: "RANGELCK ON"
+      - send: "OUT 2 V, 0 HZ"
+      - query: "RANGELCK?"
+        expect: "OFF"
+      - send: "OUT 5 V"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - query: "RANGE?"
+        expect: "DC33V,0"
+

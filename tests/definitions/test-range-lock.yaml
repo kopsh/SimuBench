@@ -1,0 +1,70 @@
+schema: simubench.instrument/1
+id: test-range-lock
+manufacturer: SimuBench
+model: TEST-RANGE-LOCK
+class: calibrator
+version: 1
+description: >-
+  Test-only calibrator for the range lock of calibrator_setpoint (#592): two voltage functions
+  and two current functions with range tables, the lock restricted by lock_functions to DCV and
+  DCI. Tests copy it with another lock_functions.
+state:
+  out.function:
+    type: enum
+    options: [DCV, ACV, DCI, ACI]
+    default: DCV
+  out.level:
+    type: float
+    min: -1000.0
+    max: 1000.0
+    default: 0.0
+  out.frequency:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 1.0e5
+    default: 0.0
+  out.operate:
+    type: bool
+    default: false
+  out.range_lock:
+    type: bool
+    default: false
+components:
+  - name: dac
+    type: calibrator_setpoint
+    params:
+      function: $out.function
+      level: $out.level
+      frequency: $out.frequency
+      settle: 0.0
+      control: out
+      ranges:
+        DCV: [[DC1V, 1.0], [DC10V, 10.0], [DC100V, 100.0, 10.0]]
+        ACV: [[AC1V, 1.0, 0.1], [AC10V, 10.0, 1.0]]
+        DCI: [[DC10MA, 0.01], [DC100MA, 0.1]]
+        ACI: [[AC10MA, 0.01], [AC100MA, 0.1]]
+      range_lock: $out.range_lock
+      lock_functions: [DCV, DCI]
+      over_range_error: 518
+      under_range_error: 519
+  - name: out
+    type: calibrator_control
+    params:
+      operate: $out.operate
+      setpoint: dac
+  - name: sys
+    type: system
+wiring:
+  instrument:
+    - [dac.out, out.in]
+ports:
+  instrument:
+    OUT: out.out
+capabilities: [calibrator]
+commands:
+  - {header: "FUNCtion", state: out.function}
+  - {header: "LEVel", state: out.level}
+  - {header: "FREQuency", state: out.frequency}
+  - {header: "RANGe", op: dac.range, set: false, reply: "{name}"}
+  - {header: "RANGe:LOCK", state: out.range_lock}

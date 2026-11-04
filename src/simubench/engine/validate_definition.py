@@ -23,7 +23,8 @@ from ..scpi import values as V
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token
 from .component import Component, binding_of, component_types
-from .validate import Report, _closest, _ptr
+from .portref import closest, ladder, split
+from .validate import Report, _ptr
 
 _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
 
@@ -79,7 +80,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             seen.add(spec.name)
             cls = known.get(spec.type)
             if cls is None:
-                hint = _closest(spec.type, list(known))
+                hint = closest(spec.type, list(known))
                 report.add(
                     "error",
                     "E-DEF-COMPONENT-UNKNOWN",
@@ -141,7 +142,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
         spec = specs_by_name.get(dev.component)
         cls = known.get(spec.type) if spec else None
         if spec is None:
-            hint = _closest(dev.component, list(specs_by_name))
+            hint = closest(dev.component, list(specs_by_name))
             report.add(
                 "error",
                 "E-DEF-DEVIATION",
@@ -153,7 +154,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
         if cls is None:
             continue  # reported with the component
         if dev.parameter not in cls.defaults:
-            hint = _closest(dev.parameter, list(cls.defaults))
+            hint = closest(dev.parameter, list(cls.defaults))
             report.add(
                 "error",
                 "E-DEF-DEVIATION",
@@ -181,33 +182,39 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
 
     # ---- signal wiring and exposed ports ----
     def check_end(ref: str, pointer: str, in_channel: bool) -> None:
-        comp, _, port = ref.rpartition(".")
+        comp, port = split(ref)
         if in_channel:  # inside a channel, components are named without the ch<n>. prefix
-            cls = classes.get(f"ch1.{comp}")
+
+            def cls_of(name: str) -> type[Component] | None:
+                return classes.get(f"ch1.{name}")
+
             options = [s.name for s in d.channel_components]
         else:
-            cls = classes.get(comp)
+
+            def cls_of(name: str) -> type[Component] | None:
+                return classes.get(name)
+
             options = [s.name for s in d.components] + [f"ch{{n}}.{s.name}" for s in d.channel_components]
+        owner_hint, port_hint = ladder(ref, options, lambda name: getattr(cls_of(name), "ports", ()))
+        cls = cls_of(comp)
         if not comp or cls is None:
             if comp and _declared(d, comp, in_channel):
                 return  # an unknown component type, reported above
-            hint = _closest(comp or ref, options)
             report.add(
                 "error",
                 "E-DEF-WIRE-COMPONENT",
                 pointer,
                 f"{ref!r}：没有名为 {comp or ref!r} 的组件",
-                f"改为 {hint}.{port}" if hint else "写作 <组件>.<端口>",
+                f"改为 {owner_hint}.{port}" if owner_hint else "写作 <组件>.<端口>",
             )
             return
         if not _has_port(cls, port):
-            hint = _closest(port, list(cls.ports))
             report.add(
                 "error",
                 "E-DEF-WIRE-PORT",
                 pointer,
                 f"{ref!r}：{cls.type_name} 没有端口 {port!r}",
-                f"改为 {comp}.{hint}" if hint else f"可用端口：{', '.join(cls.ports) or '无'}",
+                f"改为 {comp}.{port_hint}" if port_hint else f"可用端口：{', '.join(cls.ports) or '无'}",
             )
 
     for i, (src, dst) in enumerate(d.wiring.channel):
@@ -434,7 +441,7 @@ def _check_reply(
             continue
         _spec, problem = _state_spec(d, name, per_channel)
         if problem:
-            hint = _closest(name, _state_options(d, per_channel))
+            hint = closest(name, _state_options(d, per_channel))
             report.add(
                 "error",
                 "E-DEF-REPLY",
@@ -447,22 +454,33 @@ def _check_reply(
 
 def _check_dialect(d: InstrumentDefinition, report: Report) -> None:
     mode = d.dialect.echo_header
-    if not mode.startswith("$"):
-        return
-    pointer = _ptr("dialect", "echo_header")
-    spec = _check_state_ref(d, mode[1:], False, pointer, "dialect", report)
-    if spec is None:
-        return
-    missing = {"OFF", "SHORT", "LONG"} - {o.upper() for o in spec.options or []}
-    if spec.type != "enum" or missing:
-        report.add(
-            "error",
-            "E-DEF-DIALECT",
-            pointer,
-            f"echo_header 绑定的状态 {mode[1:]!r} 要是取值为 OFF、SHORT、LONG 的枚举",
-            'options: ["OFF", SHORT, LONG]',
-            "dialect",
-        )
+    if mode.startswith("$"):
+        pointer = _ptr("dialect", "echo_header")
+        spec = _check_state_ref(d, mode[1:], False, pointer, "dialect", report)
+        if spec is not None:
+            missing = {"OFF", "SHORT", "LONG"} - {o.upper() for o in spec.options or []}
+            if spec.type != "bool" and (spec.type != "enum" or missing):
+                report.add(
+                    "error",
+                    "E-DEF-DIALECT",
+                    pointer,
+                    f"echo_header 绑定的状态 {mode[1:]!r} 要是取值为 OFF、SHORT、LONG 的枚举，或布尔开关",
+                    'options: ["OFF", SHORT, LONG]，或 type: bool',
+                    "dialect",
+                )
+    long_form = d.dialect.long_form
+    if long_form:
+        pointer = _ptr("dialect", "long_form")
+        spec = _check_state_ref(d, long_form[1:], False, pointer, "dialect", report)
+        if spec is not None and spec.type != "bool":
+            report.add(
+                "error",
+                "E-DEF-DIALECT",
+                pointer,
+                f"long_form 绑定的状态 {long_form[1:]!r} 要是布尔开关",
+                "type: bool",
+                "dialect",
+            )
 
 
 def _declared(d: InstrumentDefinition, name: str, channel: bool) -> bool:
@@ -553,7 +571,7 @@ def _check_state_ref(
 ) -> StateSpec | None:
     spec, problem = _state_spec(d, path, per_channel)
     if problem:
-        hint = _closest(path, _state_options(d, per_channel))
+        hint = closest(path, _state_options(d, per_channel))
         report.add(
             "error", "E-DEF-STATE-UNKNOWN", pointer, problem, f"改为 {hint!r}" if hint else None, subject
         )
@@ -571,7 +589,7 @@ def _check_params(
     for key, value in spec.params.items():
         pp = _ptr(*p, "params", key)
         if key not in cls.defaults:
-            hint = _closest(key, list(cls.defaults))
+            hint = closest(key, list(cls.defaults))
             report.add(
                 "warning",
                 "W-DEF-PARAM-UNKNOWN",
@@ -698,7 +716,7 @@ def _check_map_keys(
     options = {o.upper() for o in st.options or []}
     for k in table:
         if str(k).upper() not in options:
-            hint = _closest(str(k), list(st.options or []))
+            hint = closest(str(k), list(st.options or []))
             report.add(
                 "warning",
                 "W-DEF-MAP-KEY",
@@ -757,7 +775,7 @@ def _check_op(
         if comp and _declared(d, comp[3:] if channel else comp, channel):
             return  # an unknown component type, reported above
         names = [s.name for s in d.components] + [f"ch.{s.name}" for s in d.channel_components]
-        hint = _closest(comp, names)
+        hint = closest(comp, names)
         report.add(
             "error",
             "E-DEF-OP-UNKNOWN",
@@ -769,7 +787,7 @@ def _check_op(
         return
     ops = operations(cls)
     if name not in ops:
-        hint = _closest(name, ops)
+        hint = closest(name, ops)
         report.add(
             "error",
             "E-DEF-OP-UNKNOWN",
@@ -802,9 +820,14 @@ def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
 
 
 def _told_apart(a: CommandSpec, b: CommandSpec) -> bool:
-    """Two commands on one header that ``when`` tells apart: some parameter value differs."""
-    if not a.when or not b.when:
+    """Whether the later command ``b`` on a header the earlier ``a`` also matches still runs: ``a``
+    has a ``when`` and ``b`` has none (``b`` is the fallback for the other values and for a
+    parameter left out, #602: ``:SYSTem:ERRor? [STRing]``), or both have one and some parameter
+    value differs."""
+    if not a.when:
         return False
+    if not b.when:
+        return True
     return any(k in b.when and str(v).upper() != str(b.when[k]).upper() for k, v in a.when.items())
 
 
@@ -877,7 +900,7 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
     def setting(path: str, pointer: str) -> StateSpec | None:
         spec, problem = _state_spec(d, path, False)
         if problem:
-            hint = _closest(path, _state_options(d, False))
+            hint = closest(path, _state_options(d, False))
             report.add(
                 "error", "E-DEF-PANEL-STATE", pointer, problem, f"改为 {hint!r}" if hint else None, "panel"
             )
@@ -898,7 +921,7 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
         p = (*base, "readouts", i)
         comp, _, name = readout.reading.rpartition(".")
         if not comp or not name or comp not in components:
-            hint = _closest(comp or readout.reading, sorted(components))
+            hint = closest(comp or readout.reading, sorted(components))
             report.add(
                 "error",
                 "E-DEF-PANEL-READING",

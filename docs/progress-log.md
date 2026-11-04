@@ -1320,3 +1320,67 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 核实 | ✅ 1500 Compliance voltage exceeded：附录 D 错误表原文；compliance 数值：第 1 章 DC Current 表 Max Compliance Voltage 列与 AC Current 表末 Max Compliance Voltage V rms，覆盖表注明出处；量程名除 RANGE? 示例外仍注明未核实 |
 | 用例 | ✅ 手册用例「交流电流的频率按量程限定」 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 的 RANGE? 与 RANGELCK（Issue 560，补记）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 量程查询 | ✅ `RANGE?` 由 `calibrator_setpoint` 的 `range` op 回 `{name},0`（量程名按第 1 章 Range 行，自动量程取最小可容幅值的档）；手册用例「RANGE? 按幅值自动选量程」 |
+| 量程锁定 | ✅ `RANGELCK ON/OFF`、`RANGELCK?` 回 ON/OFF；锁定时越限/欠限报 518，改变输出功能自动解锁；手册用例「RANGELCK ON 锁定量程，越限报 518」「改变输出功能自动解锁」「锁定 1000 V 量程时低于 100 V 报 518」 |
+| 检查 | ✅ `scripts/check.sh` 全绿（PR #582） |
+
+## 5522A 量程锁定按手册核实，交流锁定标为偏离（Issue 583）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 手册 | ✅ 完整 Operators Manual（PN 3795084，January 2011，与定义 `reference` 一致）入库 `manuals/5522A-omeng0000/`（PDF 走 LFS，附 `pdftotext -layout` 文本），README 加一行 |
+| 核实 | ✅ 518 Value outside locked range：附录 D p. D-3；`RANGELCK?` 回 ON/OFF：第 6 章 p. 6-32/6-33；`RANGE?` 回 `<primary output>,<secondary output>`、无第二输出为 0：p. 6-32。现状均相符，定义注释、命令说明、覆盖表与用例的 `manual:` 写明页码 |
+| 交流 | ⚠️ 手册（第 4 章 p. 4-17、第 6 章 p. 6-32）只对单输出直流电压/直流电流锁量程；`calibrator_setpoint` 的锁定无法按功能限定（定义写不出来），覆盖表 RANGELCK 与命令说明明示为偏离（交流、电阻也锁定并报 518），开 `核心` #589 补能力，届时加“AC 下 RANGELCK ON 后越限不报 518”用例 |
+| 直流电流 | ✅ 覆盖表写明 DCI 同样锁定；手册用例「直流电流同样可锁量程，越限报 518」（33 mA 档锁定后 40 mA 报 518，`OUT?` 不变） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 量程锁定按功能限定，5522A 只锁直流（Issue 589）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `calibrator_setpoint` 新参数 `lock_functions`（默认 `[]` = 所有功能，5730A 不变）：列表外的功能 `range_lock` 照样保存，量程仍随幅值自动选择、不报越限/欠限错误；改变功能时只要锁定标志为 ON 就清除（此前只在真正锁定时清除） |
+| 5522A | ✅ `lock_functions: [DCV, DCI]`（第 4 章 p. 4-17、第 6 章 p. 6-32）；覆盖表 RANGELCK 删去 #583 记下的偏离，改为交流/电阻不锁定 |
+| 用例 | ✅ 手册用例「交流下 RANGELCK ON 不锁量程，越限不报 518」（去掉 `lock_functions` 时失败）、「交流下的 RANGELCK ON 在改到直流时清除」；原有直流电压/电流锁定用例不变 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+
+## 真实型号 Keysight Infiniium UXR0334B（Issue 338）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 依据 | ✅ Infiniium UXR-Series Programmer's Guide 11.60.00000（9018-07723）与 UXR-B 数据手册 3123-1313 入库 `manuals/`（PDF 走 LFS，附文本版），README 加两行；定义 `reference` 写同一编号与版本 |
+| 定义 | ✅ `keysight-uxr0334b.yaml` 只用通用组件：4 通道 50 Ω 直流输入，1 mV–1 V/div，偏置范围随档位（数据手册），33 GHz，10 位 ADC（128 码/格，WORD 为左移 6 位的有符号 16 位），128 GSa/s；默认设置按手册（CH1 1 V/div、100 ns/div、中心参考、CH1 边沿 0 V 上升、AUTO、COMPlete 90）；`:SYSTem:ERRor?` 只回错误码、空队列回 `0`；`simubench validate` 无诊断 |
+| 状态与同步 | ✅ `:TERegister?`、`:AER?`、`:ADER?`/`:PDER?`、`:ASTate?`、`:RSTate?`、`:OPEEnable`、`:OPERegister?`；手册的轮询同步（`:STOP;*OPC?`、`:ADER?`、`:SINGle`、轮询 `:ADER?`）由 `tests/test_keysight_uxr.py` 跑通 |
+| 覆盖表 | ✅ 由手册目录生成 1148 条（第 13–42 章）：实现 86、接受 6、未实现 1056；一致性检查通过 |
+| 用例 | ✅ `tests/models/keysight-uxr0334b/cases.yaml` 37 条，每条带 `manual:`，覆盖全部实现与接受的命令；合计约 3 s |
+| 测试台与脚本 | ✅ `examples/benches/keysight-uxr0334b.bench.yaml`（33622A → UXR0334B）；`examples/scripts/keysight_uxr_read_waveform.py` 按手册示例（HEADer OFF、`:DIGitize`、WORD/LSBFirst、24 字段前导、`:SYSTem:ERRor?` 到 0）读波形，在 `tests/test_keysight_uxr.py` 中运行 |
+| 未做 | ⚠️ 平台缺的能力记在 `核心` #602：`:SYSTem:ERRor? STRing`、`:WAVeform:STReaming ON`（`#0` 块）、2 的幂采样率与可设置的 SRATe、HEADer/LONGform ON、逐次采集完成事件、状态寄存器的嵌套开销（因此合并为 3 个寄存器，`:PDER?` 与 `:ADER?` 共用一位） |
+| 不变 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单未增加 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Infiniium 方言所缺的能力，UXR0334B 去掉偏离（Issue 602）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 状态寄存器开销 | ✅ `status_register` 一次查看内各组件的 `status_flags()` 只算一遍（`Instrument.status_flag_cache`），寄存器互读摘要不再逐层重算；`tests/test_status_register.py`（5 个寄存器一条命令：改前 390 次，改后 ≤ 6 次）；UXR0334B 找不到触发时每条命令从约 1.2 s 降到约 0.03 s |
+| 逐次采集事件 | ✅ `scope_acquisition` 每次存好采集推送 `DONE`，自动扫描未触发的采集推送 `AUTO`；UXR0334B 的 `:ADER?`、`:PDER?`、`:ATER?` 各自独立，OPER 位 0/1/5/11；手册用例「自动触发……」「操作状态寄存器……」 |
+| 可选参数的兜底 | ✅ `when` 命令之后不带 `when` 的同头命令是兜底（其他取值与省略参数），校验不再报重复；兜底写在前面照样报错；`tests/test_declarative.py`；UXR0334B 的 `:SYSTem:ERRor? STRing` 回码与文字 |
+| `#0` 块 | ✅ `waveform_transfer.indefinite`；`tests/test_waveform_transfer.py`；UXR0334B 的 `:WAVeform:STReaming ON`，示例脚本按手册示例开流式、以 `data_points` 读 |
+| 采样率 | ✅ `scope_timebase` 的 `record_length: rate_pow2` 与 `sample_rate`、`max_points`（设定的采样率取向上的下一档、优先于存储深度）；`tests/test_scope_timebase_rates.py`；UXR0334B 的 `:ACQuire:SRATe {AUTO | MAX | <rate>}` |
+| 应答头 | ✅ `dialect.echo_header` 可绑定布尔设置，`dialect.long_form` 布尔开关（长命令头与长枚举）；`tests/test_declarative.py`；UXR0334B 的 `:SYSTem:HEADer`、`:SYSTem:LONGform` 按手册 :MODel? 表 13 |
+| UXR0334B | ✅ 覆盖表实现 87、接受 6、未实现 1055；手册用例 40 条全部通过；`schemas/` 与 `web/src/api/generated` 重新生成 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 示波器带宽滤波的形状，UXR0334B 的 :ACQuire:RESPonse（Issue 607）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `scope_vertical.response`：`first_order`（默认，现有型号不变）、`brickwall`（截止以上为 0）、`gaussian`、`bessel4`，都在前端带宽与带宽限制取小者处 −3 dB，数字形状零相位（Bessel 去掉低频群时延）；传递函数在 `engine/signal.py`；`tests/test_scope_vertical_response.py`（−3 dB 点、直流增益、砖墙截断、单调下降、Bessel 去时延、一阶不变、未知形状报错） |
+| 模板 | ✅ 示波器模板的“响应形状”输入可选四种，写入 `scope_vertical.response` |
+| UXR0334B | ✅ `:ACQuire:RESPonse {FLATmag | GAUSsianmag}` 映射到 `brickwall` / `gaussian`；覆盖表去掉 :ACQuire:BANDwidth 的一阶偏离；手册用例「带宽滤波的响应……」：100 MHz 带宽下 120 MHz 正弦，FLAT 为 0，GAUS 为 0.607 倍 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
