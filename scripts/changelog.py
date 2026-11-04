@@ -2,7 +2,9 @@
 
 Only commits that change the product are listed: those touching ``PRODUCT`` below, which is what
 goes into the wheel. A commit that touches only CI, tests, cases, docs or skills is left out. The
-entry is the commit subject, i.e. the PR title (squash merge). Newest version first.
+entry is the commit subject, i.e. the PR title (squash merge), without what only the developers
+read: the trailing issue and PR references ``(Closes #12) (#34)`` and the ``核心:`` work label.
+Newest version first.
 
     python scripts/changelog.py                         # everything
     python scripts/changelog.py --since 2026.11.4.75    # after that version
@@ -16,6 +18,7 @@ its v* tags; without it this exits with 2 and says so.
 from __future__ import annotations
 
 import argparse
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -26,6 +29,24 @@ TZ = timezone(timedelta(hours=8))
 PRODUCT_DIRS = ("src/", "web/src/", "examples/")
 PRODUCT_FILES = ("pyproject.toml", "web/package.json")
 SEP = "\x1e"
+# A trailing (…) or （…） holding only references: "(Closes #12)", "(#34)", "（Refs #5, #6）", and
+# with them the internal codes of a decision or a work item: "(#23, D44)", "（G6，#137）".
+_REF = r"(?:(?:closes|fixes|refs|关闭)\s*)?#\d+"
+_ITEM = rf"(?:{_REF}|[A-Z]{{1,2}}\d+)"
+TRAILING_REFS = re.compile(
+    rf"\s*[(（]\s*(?=[^()（）]*#\d)(?:{_ITEM})(?:\s*[,，、/ ]\s*{_ITEM})*\s*[)）]\s*$", re.IGNORECASE
+)
+# "Refs #333" inside a note that says more: "(SR865A 前置,Refs #333)" keeps "(SR865A 前置)".
+INNER_REFS = re.compile(r"\s*[,，;；]\s*(?:closes|fixes|refs|关闭)\s*#\d+", re.IGNORECASE)
+WORK_LABEL = re.compile(r"^核心(?:能力)?\s*[:：]\s*")
+
+
+def entry(subject: str) -> str:
+    """The changelog line for a commit subject: what changed, without the developers' bookkeeping."""
+    text = INNER_REFS.sub("", subject.strip())
+    while (m := TRAILING_REFS.search(text)) is not None:
+        text = text[: m.start()]
+    return WORK_LABEL.sub("", text).strip()
 
 
 @dataclass
@@ -52,7 +73,7 @@ def render(
     pending: list[str] = []
     for c in commits:
         if is_product(c.paths):
-            pending.append(c.subject)
+            pending.append(entry(c.subject))
         if c.sha in tags:
             groups.append((tags[c.sha].removeprefix("v"), c.epoch, pending))
             pending = []
@@ -72,9 +93,7 @@ def render(
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], capture_output=True, text=True, encoding="utf-8", check=True
-    ).stdout
+    return subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8", check=True).stdout
 
 
 def read_history() -> tuple[list[Commit], dict[str, str]]:
@@ -103,7 +122,10 @@ def main(argv: list[str] | None = None) -> int:
         print("changelog: no git history here (a zip or archive): nothing to list", file=sys.stderr)
         return 2
     if not tags or _git("rev-parse", "--is-shallow-repository").strip() == "true":
-        print("changelog: needs the full history with its v* tags (git fetch --unshallow --tags)", file=sys.stderr)
+        print(
+            "changelog: needs the full history with its v* tags (git fetch --unshallow --tags)",
+            file=sys.stderr,
+        )
         return 2
     try:
         text = render(commits, tags, since=args.since, version=args.version)
