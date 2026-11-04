@@ -243,7 +243,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | 组件 | 对应块 | 现状 | 排期 |
 | --- | --- | --- | --- |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
-| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;作为通道组件时只看本通道的标志(#348);跳变过滤 `ptr`/`ntr`(事件 = (~旧 & 新 & PTR) | (旧 & ~新 & NTR),STATus:PRESet 恢复 `preset_ptr` 与 0,#549);DSO-X 的 :TER/:AER/:OPER、SR830 的四个字节(#273)、E36312A 的可疑寄存器组 QUES → QUES:INST → ISUMmary<n>(#348)已用上 | DL3021 的事件寄存器按需接上 |
+| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;作为通道组件时只看本通道的标志(#348);跳变过滤 `ptr`/`ntr`(事件 = (~旧 & 新 & PTR) | (旧 & ~新 & NTR),STATus:PRESet 恢复 `preset_ptr` 与 0,#549);条件在每次命令分派时采样,两次读取之间的跳变也锁存(#575);DSO-X 的 :TER/:AER/:OPER、SR830 的四个字节(#273)、E36312A 的可疑寄存器组 QUES → QUES:INST → ISUMmary<n>(#348)已用上 | DL3021 的事件寄存器按需接上 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 

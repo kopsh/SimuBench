@@ -1281,3 +1281,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | -211 | ✅ N6700C-90901 第 5 章 Error List 与 E36311-90008 的 SCPI Error Messages 都没有 -211，两本手册都写"ignored"（E36300 *TRG："simply ignored"）：两型号 `trigger_ignored_error: 0`，覆盖表引用章节 |
 | E36312A | ✅ E36311-90008 有输出触发系统：`VOLT|CURR:TRIG`、`VOLT|CURR:MODE FIX|STEP`（LIST -224）、`TRIG[:SEQ]:SOUR BUS|IMM`（EXT/PIN -224）、`TRIG[:SEQ]:DEL`（0–3600 s）、`INIT`、`ABOR`、`*TRG`；手册没有就绪延时的说明（取 0），WTG 位在位表中没有位置（不建模）；INIT:CONT、INST:COUP、735 未建模；手册用例「输出触发系统」与 `tests/test_keysight_e36312a.py::test_a_bus_trigger_steps_after_the_trigger_delay` |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 状态寄存器在每条命令时采样条件（Issue 575）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 采样时机 | ✅ 引擎每次分派命令（`Instrument._dispatch`，结束到期的待完成操作之后）调用各 `status_register` 的 `latch_conditions()`，按 `(~old & new & PTR) \| (old & ~new & NTR)` 锁存；读事件寄存器照旧也采样。第一次采样（上电、*RST 后）只取基线：上电即为真的条件不算跳变 |
+| 嵌套求值 | ✅ 一个寄存器计算条件时向其他寄存器取摘要（`status_flags`）只“看”不提交（`events(commit=False)`）：此前嵌套调用会把缺了提问者自身摘要的条件存为 `_seen`，下一次采样误判为上升沿 |
+| 复现 | ✅ `tests/test_keysight_n6705c.py::test_transitions_between_two_reads_are_latched`：NTR=3 时 CV→CC→CV 未读，`STAT:OPER?` 回 3；默认过滤下短暂的 CC 仍可见（回 3：CC 上升与 CV 回升） |
+| 定义修正 | ✅ `rigol-dsg815`、`rs-sma100b` 的 `output.enabled` 补 `electrical: true`（输出级接入/断开电路）：采样使求解提前，暴露了开输出不重建电路的缓存缺陷 |
+| 检查 | ✅ 现有 DSO-X、SR830、E36312A、N6705C 的状态寄存器用例不变；`scripts/check.sh` 全绿 |

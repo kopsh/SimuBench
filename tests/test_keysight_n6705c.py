@@ -238,6 +238,31 @@ def test_a_trigger_right_after_init_is_ignored_until_the_system_is_ready():
         s.close()
 
 
+def test_transitions_between_two_reads_are_latched():
+    """#575: the event register latches each transition when it happens (every command samples
+    the conditions), not only the net change between two reads: CV -> CC -> CV with NTR on both
+    bits latches CV's fall and CC's rise and fall; with the default filters a brief CC still shows
+    its rising edge (and CV's rise back)."""
+    s, q = session(*load(3, 1.0))
+    try:
+        q("VOLT 1,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
+        q("*OPC?")
+        q("STAT:OPER:NTR 3,(@3)")
+        q("STAT:OPER? (@3)")  # clears
+        q("CURR 0.5,(@3)")  # CV -> CC, not read
+        q("CURR 2,(@3)")  # CC -> CV, not read
+        assert q("STAT:OPER:COND? (@3)") == "1"
+        assert q("STAT:OPER? (@3)") == "3"
+        q("STAT:PRES")  # PTR all ones, NTR 0
+        q("STAT:OPER? (@3)")
+        q("CURR 0.5,(@3)")
+        q("CURR 2,(@3)")
+        # the brief CC's rising edge and CV's rise back (PTR all ones); the falls are filtered (NTR 0)
+        assert q("STAT:OPER? (@3)") == "3"
+    finally:
+        s.close()
+
+
 def test_a_bus_trigger_steps_only_the_armed_channels():
     """#541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
     output to its triggered level (seen on the load) and leaves channel 3 alone."""
