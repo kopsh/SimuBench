@@ -25,7 +25,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..engine.instrument import BUILTIN_HEADERS
+from ..engine.commands import BUILTIN_HEADERS
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, parse_unit, split_units
