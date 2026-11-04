@@ -150,8 +150,8 @@ components:
       frequency: $out.frequency
       settle: 5.0
       control: out
-      # 量程（第 1 章 Detailed Specifications 的各功能表；名字按第 6 章 RANGE? 的示例 DC330MV、DC33MA_A、
-      # AC330MA_A、R110OHM 的写法推出，未逐一核实；RANGE?/RANGELCK 的接线见 #560）。电压表给出 ±1020 V
+      # 量程（第 1 章 Detailed Specifications 的各功能表；名字按第 6 章 p. 6-32 RANGE? 的示例 DC330MV、
+      # DC33MA_A、AC3_3V、AC330MA_A、R110OHM 的写法推出，其余未逐一核实；RANGE?/RANGELCK 见 #560、#583）。电压表给出 ±1020 V
       # 的上限；电流 0–20.5 A（3 A 以上的 20 A 端子未单独建模，同一 OUT 端口）；电阻 0–1.1 GΩ 连续可调
       # （注 1：Continuously variable from 0 Ω to 1.1 GΩ），表中是量程而非离散值（#569）。
       ranges:
@@ -174,6 +174,8 @@ components:
       range_lock: $out.range_lock
       # 锁定量程的下限取各 Range 行的跨度起点：DC 330 V/1000 V 量程 30 V/100 V 起，AC 六档
       # 1 mV/33 mV/0.33 V/3.3 V/33 V/330 V 起（第 1 章 Detailed Specifications），低于报 518（#560）。
+      # 手册（第 4 章 p. 4-17、第 6 章 p. 6-32）只对单输出直流电压/直流电流锁量程；本组件的锁定
+      # 无法按功能限定，交流与电阻也被锁定——偏离，见覆盖表 RANGELCK 与 #589（#583）。
       over_range_error: 518
       under_range_error: 518
   # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 跨越回待机（#558）。
@@ -262,15 +264,16 @@ commands:
     set: false
     reply: "{name},0"
     doc: >-
-      当前输出量程的符号名与第二输出（单输出为 0，手册 Remote Commands > RANGE?：DC330MV,0、
-      AC3_3V,0 等例子；本模型只有直流/交流电压，第 1 章规格表的量程行）。
+      当前输出量程的符号名与第二输出（单输出为 0，手册第 6 章 p. 6-32 RANGE?：DC330MV,0、
+      DC33MA_A,0、AC3_3V,0、AC330MA_A,0、R110OHM,0 等例子；量程取第 1 章规格表的 Range 行）。
   - header: RANGELCK
     state: out.range_lock
     format: {boolean: word}
     doc: >-
-      ON 锁定当前量程，OFF 恢复自动量程（手册 Remote Commands > RANGELCK）；锁定时越限/欠限报
-      518，改变输出功能自动解锁。RANGELCK? 回 ON/OFF。手册的远程命令写的是直流电压/直流电流，
-      交流电压按前软键的 range lock 同语义建模。
+      ON 锁定当前量程，OFF 恢复自动量程（手册第 6 章 p. 6-32 RANGELCK）；锁定时越限/欠限报
+      518（附录 D p. D-3：Value outside locked range），改变输出功能自动解锁。RANGELCK? 回
+      ON/OFF（p. 6-32/6-33）。手册只对单输出直流电压/直流电流锁定；本模型在交流与电阻下也锁定，
+      是已知偏离（真机交流下越限不报 518），待 #589。
   # ---- 错误队列 ----
   - header: ERR
     op: sys.next_error

@@ -114,7 +114,7 @@ sections:
     note: 'SCOPE BNC 输出阻抗（OUT_IMP/OUT_IMP?）；示波器校准选件未建模。'
   - header: 'RANGE'
     level: implemented
-    note: 'RANGE? 按手册返回量程的符号名与第二输出（DC330MV,0、DC3_3V,0、AC3_3V,0 等例子，其余按同一规则推断）；量程表取第 1 章规格表的 Range 行，自动量程取最小可容幅值的量程（#552、#560）。OVERLD/PULSE/MEASZ 模式的量程设置（SCOPE 选件）仍未建模。'
+    note: 'RANGE? 按手册返回量程的符号名与第二输出（第 6 章 p. 6-32：<primary output>,<secondary output>，无第二输出回 0；例子 DC330MV,0、DC33MA_A,0、AC3_3V,0、AC330MA_A,0、R110OHM,0，已核实；其余量程名按同一规则推断）；量程表取第 1 章规格表的 Range 行，自动量程取最小可容幅值的量程（#552、#560）。OVERLD/PULSE/MEASZ 模式的量程设置（SCOPE 选件）仍未建模。'
   - header: 'SCOPE'
     level: not_modeled
     note: '示波器校准模式（SCOPE/SCOPE?）；选件未建模（无 -SC600/-SC1100）。'
@@ -182,7 +182,7 @@ sections:
     note: '功率输出的等效功率；功率输出未建模。'
   - header: 'RANGELCK'
     level: implemented
-    note: '量程锁定（RANGELCK ON/OFF，RANGELCK? 回 ON/OFF）：锁定时越限/欠限报 518（附录 D，Value outside locked range），改变输出功能自动解锁；手册写直流电压/电流，交流电压按前软键 lock 同语义（#552、#560）。'
+    note: '量程锁定（RANGELCK ON/OFF，RANGELCK? 回 ON/OFF，第 6 章 p. 6-32/6-33，已核实）：锁定时越限/欠限报 518（附录 D p. D-3：518 Value outside locked range，已核实），改变输出功能自动解锁（#552、#560）。直流电压与直流电流都锁定（手册：“for dc voltage and dc current single outputs”，用例覆盖两者）。偏离：手册第 4 章 p. 4-17 与第 6 章 RANGELCK 写明锁定只用于单输出直流电压/直流电流，本模型的交流电压、交流电流、电阻在 RANGELCK ON 后也锁定并对越限报 518（真机不报）；calibrator_setpoint 的量程锁定无法按功能限定，待 #589 补上后改正（#583）。'
   - header: 'REFCLOCK'
     level: not_modeled
     note: '参考时钟源（REFCLOCK/REFCLOCK?，内部/10 MHz IN）；时钟输入不在仿真中。'
