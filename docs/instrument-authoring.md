@@ -176,7 +176,7 @@ params:
     - {name: resolution, type: float, unit: V, min: 0.0, max: 1000.0, optional: true, state: sense.resolution}
 ```
 
-查询仍只回答参数（常量不是参数）。`writes` 用在写设置的命令上，或用在操作命令上：操作执行前先写常量（#308：`:MEASure:CURRent?` 同时把测量功能切到电流，`writes: {sense.function: CURRent}`）；状态命令不能带 `writes`（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。
+查询仍只回答参数（常量不是参数）。`writes` 用在写设置的命令上，或用在操作命令上：操作执行前先写常量（#308：`:MEASure:CURRent?` 同时把测量功能切到电流，`writes: {sense.function: CURRent}`）；状态命令不能带 `writes`（模型校验）。静态校验的 `E-DEF-WRITE` 检查常量是枚举的选项、布尔量、范围内或（整数）范围的值，引用的设置必须存在。枚举常量按 SCPI 词规则判定（#625）：长短格式、复合词逐节点都接受（`VOLT`、`volt:ac`），引擎存入的是它命名的选项本身；面板键的取值仍须写选项的原样，否则按键与显示值的比较不亮。设置的特殊值（`special`，如过载的 9.9E+37）不受范围两侧限制——与运行时一致。
 
 ### 2.9 类别默认与兄弟继承（extends，#596）
 
