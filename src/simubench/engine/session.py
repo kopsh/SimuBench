@@ -103,6 +103,8 @@ class Session:
         #: Recent events, so that a client connecting late sees what happened before (UI history).
         self.history: deque[dict[str, Any]] = deque(maxlen=20_000)
         self._signal_version = 0
+        #: Per-component last consumed signal version (signal_changed's subscription registry).
+        self._signal_seen: dict[str, int] = {}
         self._electrical_version = 0
         self._circuit: tuple[int, Circuit] | None = None
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
@@ -174,9 +176,9 @@ class Session:
             sleep_mode.register(self)
 
         # ---- components with state in virtual time ----
-        self._dynamic = [c for c in self._all_components() if c.dynamic]
+        self._dynamic = [c for c in self.all_components() if c.dynamic]
         self._syncing = False
-        self._sync()
+        self.sync()
 
         # ---- faults preset in the bench ----
         self.faults = FaultManager(self)
@@ -223,25 +225,38 @@ class Session:
 
     # ---- circuit and signals ------------------------------------------------------------------------
 
-    def _all_components(self) -> Iterable[Component]:
+    def all_components(self) -> list[Component]:
+        """Every component on the bench: the instruments' internal ones and the bench parts and
+        wire accessories."""
+        out: list[Component] = []
         for inst in self.instruments.values():
-            yield from inst.components.values()
-        yield from self.components.values()
+            out.extend(inst.components.values())
+        out.extend(self.components.values())
+        return out
 
     def circuit(self) -> Circuit:
         if self._circuit is None or self._circuit[0] != self._electrical_version:
             c = Circuit()
-            for comp in self._all_components():
+            for comp in self.all_components():
                 comp.stamp(c, lambda p, comp=comp: self.node_of(comp, p))  # type: ignore[misc]
             self._circuit = (self._electrical_version, c)
         return self._circuit[1]
 
-    def _solve(self) -> tuple[Solution, dict[str, Signal]]:
+    def solve(self) -> tuple[Solution, dict[str, Signal]]:
+        """Bring the operating point up to date and return it: the solved circuit and every
+        source's EMF signal, at the current instant.
+
+        Solving is lazy and memoized: nothing happens when nothing changed since the last solve.
+        What a reading cannot get lazily is the mode iteration: piecewise-linear devices
+        (D34/D52) re-derive their mode against the solved operating point inside this loop, so a
+        component judging its own state (regulating CC or CV, tripped, conducting) calls this
+        first and reads afterwards — the readings and the state flags then answer from one
+        operating point, and repeat identically until something changes."""
         if self._solution is None or self._solution[0] != self._signal_version:
-            piecewise = [c for c in self._all_components() if c.piecewise]
+            piecewise = [c for c in self.all_components() if c.piecewise]
             for _ in range(MAX_MODE_ITERATIONS):
                 emf: dict[str, Signal] = {}
-                for comp in self._all_components():
+                for comp in self.all_components():
                     emf.update(comp.emf())
                 freqs: set[float] = {0.0}
                 for sig in emf.values():
@@ -290,7 +305,7 @@ class Session:
         P = V·I) and repeated queries answer the same until something changes. The first time it
         happens a ``solver`` event (reason ``unsettled``) goes into the run record (#258)."""
         emf: dict[str, Signal] = {}
-        for comp in self._all_components():
+        for comp in self.all_components():
             emf.update(comp.emf())
         freqs: set[float] = {0.0}
         for sig in emf.values():
@@ -311,14 +326,14 @@ class Session:
             )
 
     def node_signal(self, node: str) -> Signal:
-        sol, emf = self._solve()
+        sol, emf = self.solve()
         if node not in sol.node_transfer:
             return Signal.zero()
         return sol.node_signal(node, emf)
 
     def source_current(self, sid: str) -> float:
         """DC current an ideal source drives out of its node (piecewise devices read their own)."""
-        sol, emf = self._solve()
+        sol, emf = self.solve()
         return sol.source_dc_current(sid, emf)
 
     def net_signal(self, net_id: str) -> Signal:
@@ -346,14 +361,27 @@ class Session:
         self.emit(
             {"kind": "state", "instrument": inst.name, "path": path, "old": old, "new": new, "source": source}
         )
-        self._sync()
+        self.sync()
 
     def invalidate(self, electrical: bool = False) -> None:
         """Components call this when their own runtime state changes the signals they produce."""
         self._signal_version += 1
         if electrical:
             self._electrical_version += 1
-        self._sync()
+        self.sync()
+
+    def signal_changed(self, comp: Component) -> bool:
+        """Whether the signals changed since ``comp`` last consumed the change through this call
+        (its subscription): true at most once per signal version.
+
+        A refresh that must run once per version — a component's :meth:`Component.sync`, or a
+        lazy read cache — guards its work with this instead of hand-keeping a seen version. The
+        session remembers what each component consumed, so a fresh component reads as changed."""
+        seen = self._signal_seen.get(comp.uid)
+        if seen == self._signal_version:
+            return False
+        self._signal_seen[comp.uid] = self._signal_version
+        return True
 
     # ---- events -------------------------------------------------------------------------------------
 
@@ -383,13 +411,13 @@ class Session:
         views read the present). Called by actions (``_begin_action``) and by ``view`` — external
         code reads the bench through ``view``, never by calling this directly."""
         if self.clock_mode == "wall":
-            self._sync()
+            self.sync()
             self.now_ns = max(self.now_ns, time.monotonic_ns() - self._wall_start)
 
     def _begin_action(self) -> None:
         wall = time.monotonic_ns()
         if self.clock_mode == "wall":
-            self._sync()
+            self.sync()
             self.now_ns = max(self.now_ns, wall - self._wall_start)
         elif self.clock_mode == "command" and not self.replaying and self.idle_mode == "wall":
             # Counting idle real time makes results depend on machine speed; only 'wall' does it
@@ -402,8 +430,10 @@ class Session:
     def _end_action(self) -> None:
         self._last_wall = time.monotonic_ns()
 
-    def _sync(self) -> None:
-        """Let dynamic components record changes at the current instant (exactly, before time moves)."""
+    def sync(self) -> None:
+        """Let dynamic components record changes at the current instant (exactly, before time
+        moves). A component calls this before reading what a dynamic component records; actions
+        and passive views run it as part of their protocol."""
         if self._syncing or not getattr(self, "_dynamic", None):
             return
         self._syncing = True
@@ -420,7 +450,7 @@ class Session:
     def _advance(self, dt_ns: int, reason: str) -> None:
         if dt_ns <= 0:
             return
-        self._sync()
+        self.sync()
         self.now_ns += int(dt_ns)
         self._signal_version += 1  # time-dependent components (filters, sweeps) may change
         self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason})
@@ -448,9 +478,8 @@ class Session:
 
     def solution(self) -> tuple[Solution, dict[str, Signal]]:
         """The solved circuit and every source's EMF signal, at the current instant. A passive
-        view's read (call it inside ``view()``): it solves only when something changed since the
-        last solve, and answers identically until the bench changes (#463)."""
-        return self._solve()
+        view's read (call it inside ``view()``) — :meth:`solve` by its passive name (#463)."""
+        return self.solve()
 
     # ---- actions ------------------------------------------------------------------------------------
 

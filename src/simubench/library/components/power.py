@@ -333,7 +333,7 @@ class PowerOutput(Component):
 
     def measured(self) -> tuple[float, float]:
         """(output voltage, output current as a magnitude) of a conducting output."""
-        self.session._solve()
+        self.session.solve()
         if not self.conducting():
             return 0.0, 0.0
         remote = self.remote()
@@ -384,7 +384,7 @@ class SupplyReadback(Component):
     def op_condition(self, query: bool = False, **_: Any) -> OpResult:
         """The regulation as a status condition (#271, STAT:QUES:INST:ISUM<n>:COND?): 0 off or
         unregulated, 1 constant current, 2 constant voltage."""
-        self.session._solve()
+        self.session.solve()
         return OpResult(V.format_int({"CC": 1, "CV": 2}.get(self._output().regulation(), 0)))
 
     def status_flags(self) -> dict[str, bool]:
@@ -550,7 +550,7 @@ class SupplyProtection(Component):
         if key in ("voltage", "current", "output", "ocp_enabled") and bool(self.param("ocp_enabled")):
             # Solving is lazy: bring the CC state up to now before judging the change. The OCP
             # timer runs from when the simulator sees CC (a command or a query), not before.
-            self.session._solve()
+            self.session.solve()
         if key in ("voltage", "current", "output") and self._in_cc and self.choice("ocp_start") == "SCHange":
             self._start_delay()  # a settings change restarts the delay while in CC
         if key == "ocp_enabled":
@@ -568,14 +568,14 @@ class SupplyProtection(Component):
     @op("tripped")
     def op_tripped(self, query: bool = False, kind: str | None = None, **_: Any) -> OpResult:
         """Whether a fault is latched; with ``kind`` (OVP / OCP) whether that one is."""
-        self.session._solve()
+        self.session.solve()
         if kind is not None:
             return OpResult(V.format_bool(self._tripped == kind.upper()))
         return OpResult(V.format_bool(self.tripped()))
 
     @op("kind")
     def op_kind(self, query: bool = False, **_: Any) -> OpResult:
-        self.session._solve()
+        self.session.solve()
         return OpResult(V.format_string(self.kind()))
 
     @op("clear")

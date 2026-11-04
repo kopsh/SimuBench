@@ -13,7 +13,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from .fmt import as_number, fmt, fmt_int
+from ..jsonsafe import as_number
+from .fmt import fmt, fmt_int
 from .i18n import t
 
 #: Prefixes a number input may carry (``5000 mV``, ``1 kHz``); case matters for m/M.

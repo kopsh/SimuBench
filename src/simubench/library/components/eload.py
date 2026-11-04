@@ -344,7 +344,7 @@ class EloadMeter(Component):
         """STATus:QUEStionable:CONDition? (#343): the condition register, live — OV / OC / OP while
         that protection is tripped, UNR while the input is unregulated (:meth:`EloadInput.unregulated`).
         The bit positions are parameters, so a model maps its own manual's register."""
-        self.session._solve()
+        self.session.solve()
         inp = self._input()
         bits = 0
         kind = inp._protection().kind()
@@ -417,12 +417,12 @@ class EloadProtection(Component):
 
     @op("tripped")
     def op_tripped(self, query: bool = False, **_: Any) -> OpResult:
-        self.session._solve()  # the trip happens in the mode loop's update
+        self.session.solve()  # the trip happens in the mode loop's update
         return OpResult(V.format_bool(self.tripped()))
 
     @op("kind")
     def op_kind(self, query: bool = False, **_: Any) -> OpResult:
-        self.session._solve()
+        self.session.solve()
         return OpResult(V.format_string(self._tripped))
 
     @op("clear")

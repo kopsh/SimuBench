@@ -12,17 +12,6 @@ from datetime import datetime
 
 UNIT_FIXES = {"OHM": "Ω", "HZ": "Hz", "S": "s", "DEG": "°"}
 
-#: How the server spells the numbers JSON cannot carry (manager.py).
-_SPECIAL_NUMBERS = {"INF": math.inf, "-INF": -math.inf, "NAN": math.nan}
-
-
-def as_number(value: object) -> object:
-    """A value as the server sent it, with ``"INF"`` / ``"-INF"`` / ``"NAN"`` back as floats."""
-    if isinstance(value, str) and value.upper() in _SPECIAL_NUMBERS:
-        return _SPECIAL_NUMBERS[value.upper()]
-    return value
-
-
 _PREFIXES: list[tuple[float, str]] = [
     (1e9, "G"),
     (1e6, "M"),
