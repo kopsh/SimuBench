@@ -188,6 +188,8 @@ def test_a_sense_lead_into_a_dead_end_regulates_locally():
         assert q("FAULT?") == "0"
     finally:
         s.close()
+
+
 def test_a_current_output_trips_past_its_compliance():
     """#550: 10 mA into 10 kohm needs 100 V, past the 10 V compliance: back to standby, fault 210;
     into 100 ohm it drives 1 V and stays."""
