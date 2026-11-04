@@ -354,6 +354,9 @@ class CalibratorSetpoint(_Setpoint, Component):
         # smallest range whose full scale is above the level ({}: no ranges)
         "ranges": {},
         "range_lock": False,  # the present range is locked (a setting): levels outside it are refused
+        # the functions the range lock applies to, e.g. [DCV, DCI] (the 5522A, #589); in the others
+        # the setting is kept but the range follows the level ([]: every function)
+        "lock_functions": [],
         "over_range_error": -222,  # the error a level above the locked range's full scale reports
         "under_range_error": -222,  # the error a level below the locked range's minimum reports
         "range_settle": 0.0,  # s of settling added when the range or the polarity changes
@@ -453,6 +456,11 @@ class CalibratorSetpoint(_Setpoint, Component):
         if path is not None and self.owner is not None:
             self.owner.set_state(path, on, source="scpi", internal=True)
 
+    def _lockable(self) -> bool:
+        """The present function is one the range lock applies to (``lock_functions``, #589)."""
+        names = {str(f).upper() for f in (self.param("lock_functions") or [])}
+        return not names or str(self.param("function")).upper() in names
+
     def _check_locked(self, level: float) -> None:
         row = next((r for r in self._table() if r[0] == self._locked), None)
         if row is None:
@@ -477,10 +485,11 @@ class CalibratorSetpoint(_Setpoint, Component):
     def on_state(self, path: str, old: Any, new: Any) -> None:
         key = {v: k for k, v in self.bound_paths().items()}.get(path)
         if key == "range_lock":
-            self._locked = self.auto_range(float(self.param("level"))) if _flag(new) else None
+            on = _flag(new) and self._lockable()
+            self._locked = self.auto_range(float(self.param("level"))) if on else None
             return
-        if key == "function" and self._locked is not None and old != new:
-            self._locked = None  # a new function unlocks the range (the 5730A manual)
+        if key == "function" and old != new and (self._locked is not None or _flag(self.param("range_lock"))):
+            self._locked = None  # a new function unlocks the range (the 5730A and 5522A manuals)
             self._set_lock(False)
         check = getattr(self._control(), "check_sense", None)
         if check is not None and key == "level":
