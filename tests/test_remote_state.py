@@ -125,6 +125,12 @@ def test_local_until_the_scripts_next_command(served):
         assert kinds[0] == ("local", "ui") and kinds[1][0] == "remote" and kinds[1][1].startswith("socket:")
 
 
+def test_stop_unknown_session_is_404(served):
+    """manager.stop returns silently for an unknown id, but the route answers 404 as before."""
+    c, _, _ = served
+    assert c.delete("/api/sessions/unknown").status_code == 404
+
+
 def test_operations_on_the_whole_bench_need_force(served):
     c, info, _ = served
     sid = info["id"]

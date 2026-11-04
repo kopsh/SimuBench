@@ -258,7 +258,9 @@ async def test_same_seed_and_same_commands_give_the_same_digits(tmp_path):
         first = await asyncio.to_thread(
             _run_script, {i["name"]: i for i in (await _call(c, "list_sessions"))[0]["instruments"]}, host
         )
-        await _call(c, "start_session", path="lfcal.bench.yaml")  # the same bench again, same seed
+        # Redeploying the bench drops the script that just ran on its ports: the agent says so to
+        # the engineer and confirms (issue 624, the guard the HTTP side has had since #121).
+        await _call(c, "start_session", path="lfcal.bench.yaml", force=True)  # the same bench, same seed
         second = await asyncio.to_thread(
             _run_script, {i["name"]: i for i in (await _call(c, "list_sessions"))[0]["instruments"]}, host
         )

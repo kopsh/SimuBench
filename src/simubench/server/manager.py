@@ -173,6 +173,12 @@ class ServedSession:
         #: Instruments taken back to local from the UI (LOCAL), until a remote client's next command.
         self.local: set[str] = set()
         session.subscribe(self._follow_remote)
+        # The engine raises what this raises: an explicit advance refuses while scripts are
+        # connected to the ports, unless confirmed (#121, issue 624).
+        session.confirm_advance = self._confirm_advance
+
+    def _confirm_advance(self, force: bool) -> None:
+        self.require_no_clients("advancing the clock", force)
 
     def _follow_remote(self, ev: dict[str, Any]) -> None:
         # As on hardware, a command from the remote interface returns the instrument to remote.
@@ -285,8 +291,18 @@ class SessionManager:
     # ---- sessions -----------------------------------------------------------------------------------
 
     async def start(
-        self, bench_path: str, clock: str | None = None, seed: int | None = None, sid: str | None = None
+        self,
+        bench_path: str,
+        clock: str | None = None,
+        seed: int | None = None,
+        sid: str | None = None,
+        force: bool = False,
     ) -> ServedSession:
+        # Starting a bench stops the running one (one bench serves the ports) and its scripts drop:
+        # the guard lives here, so no facade can start a bench over connected scripts (#121, 624).
+        clients = sorted({c for other in self.sessions.values() for c in other.remote_clients()})
+        if clients and not force:
+            raise ClientsConnected(clients, "starting a bench")
         path = self.resolve(bench_path)
         doc = self.files.read(bench_path)
         if not doc.ok:
@@ -309,7 +325,7 @@ class SessionManager:
         served.clock, served.seed = clock, seed
         # One bench serves the SCPI ports at a time; a new session takes them over.
         for other in list(self.sessions.values()):
-            await self.stop(other.id)
+            await self.stop(other.id, force=True)  # confirmed above, as part of starting
         if self.scpi_base_port is not None:
             served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
             await served.scpi.start()
@@ -319,11 +335,14 @@ class SessionManager:
         self.sessions[served.id] = served
         return served
 
-    async def reset(self, sid: str, clock: str | None = None, seed: int | None = None) -> ServedSession:
+    async def reset(
+        self, sid: str, clock: str | None = None, seed: int | None = None, force: bool = False
+    ) -> ServedSession:
         """Power-cycle: a fresh session under the same id, with the startup settings applied.
 
         Everything goes back to power-on defaults (a new record starts too); scripts connected
-        to the ports are dropped, as on hardware.
+        to the ports are dropped, as on hardware — refused while they are connected, unless
+        ``force`` (#121, issue 624).
         """
         served = self.sessions.get(sid)
         if served is None:
@@ -331,16 +350,21 @@ class SessionManager:
         bench_path = served.bench_path
         if bench_path is None:
             raise KeyError(sid)
+        served.require_no_clients("a reset", force)
         rel = bench_path.relative_to(self.files.workspace).as_posix()
         clock = clock if clock is not None else served.clock
         seed = seed if seed is not None else served.seed
-        await self.stop(sid)
-        return await self.start(rel, clock=clock, seed=seed, sid=sid)
+        await self.stop(sid, force=True)  # confirmed above, as part of the reset
+        return await self.start(rel, clock=clock, seed=seed, sid=sid, force=True)
 
-    async def stop(self, sid: str) -> None:
-        served = self.sessions.pop(sid, None)
+    async def stop(self, sid: str, force: bool = False) -> None:
+        """Stop a session and close its ports; refused while scripts are connected, unless
+        ``force`` (#121, issue 624)."""
+        served = self.sessions.get(sid)
         if served is None:
             return
+        served.require_no_clients("stopping the bench", force)
+        del self.sessions[sid]
         if served.hislip:
             await served.hislip.stop()
         if served.scpi:
