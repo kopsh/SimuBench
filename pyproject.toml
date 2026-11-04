@@ -1,6 +1,6 @@
 [project]
 name = "simubench"
-version = "0.1.0"
+dynamic = ["version"]
 description = "SimuBench: software-defined virtual instrument benches"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,8 +43,18 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
+
+# The version comes from git (D58): the date tag vYYYY.M.D.N that main's CI puts on every commit
+# (scripts/release_tags.py). Between tags it is the next number's .devN. No +g<sha> suffix: the
+# commit is in _version.py instead (simubench version --full).
+[tool.hatch.version]
+source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
+
+# Writes src/simubench/_version.py: the version above and the commit it was built from (hatch_build.py).
+[tool.hatch.build.hooks.custom]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/simubench", "src/pyvisa_simubench"]

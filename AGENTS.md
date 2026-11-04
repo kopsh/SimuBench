@@ -49,7 +49,9 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
    exceeds 60 s, fix that immediately as part of the current task: profile with
    `pytest --durations`, address the slowest cases (waits, timeouts) or add parallelism — never
    leave the overrun for a later issue.
-5. **Pull request** into `main` with `Closes #<number>` in the description. It is squash-merged
+5. **Pull request** into `main` with `Closes #<number>` in the description. Its title becomes the
+   squash commit and, when the PR changes the product, an entry in the changelog the internal
+   builds read (D58): say what changed for the user (`5522A：交流电流按量程限定频率`), not how. It is squash-merged
    and its branch deleted once CI is green on its latest commit that contains the latest `main`;
    when `main` has moved, the merge bot merges it into the branch, re-runs CI, and merges — only
    a merge conflict comes back to the agent, and a red CI on the head is commented on the pull
