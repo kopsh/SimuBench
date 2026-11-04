@@ -27,18 +27,19 @@ from pydantic import Field
 from . import __version__
 from .engine.commands import classify
 from .engine.edit import EditError, EditOp
+from .engine.events import project
 from .engine.faults import LinkDown
 from .engine.jsonpatch import PatchError, PatchOp
+from .engine.record import jsonable
 from .engine.scriptscan import draft_bench, draft_definition
 from .library.templates import get_template as template_by_id
 from .library.templates import templates as instrument_templates
 from .library.templates.draft import suggester as template_suggester
 from .models.bench import Fault
-from .server.app import to_event
 from .server.benchfiles import Conflict, diagnostics
 from .server.catalog import components as component_catalog
 from .server.definitionfiles import DefinitionFiles
-from .server.manager import BenchInvalid, ServedSession, SessionManager, _plain, fault_info
+from .server.manager import BenchInvalid, ServedSession, SessionManager, fault_info
 
 INSTRUCTIONS = """\
 SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), parts (RC networks,
@@ -251,7 +252,7 @@ def build_server(
             for key in ("unit", "min", "max", "options", "default", "label", "label_en", "readonly"):
                 v = getattr(s, key)
                 if v not in (None, False):
-                    out[key] = _plain(v)
+                    out[key] = jsonable(v)
             return out
 
         commands = [
@@ -282,8 +283,8 @@ def build_server(
             "instrument_ports": list(d.ports.instrument),
             "state": [spec(k, s) for k, s in d.state.items()],
             "channel_state": [spec(f"ch<n>.{k}", s) for k, s in d.channel_state.items()],
-            "components": [_plain(c.model_dump()) for c in d.components],
-            "channel_components": [_plain(c.model_dump()) for c in d.channel_components],
+            "components": [jsonable(c.model_dump()) for c in d.components],
+            "channel_components": [jsonable(c.model_dump()) for c in d.channel_components],
             "wiring": d.wiring.model_dump(),
             "ports": {"channel": dict(d.ports.channel), "instrument": dict(d.ports.instrument)},
             "commands": commands[offset : offset + limit],
@@ -467,7 +468,7 @@ def build_server(
     # ---- instrument definitions (instrument-authoring.md 5.4) --------------------------------------
 
     def definition_out(doc: Any) -> dict[str, Any]:
-        doc.data = _plain(doc.data)  # JSON has no infinity: "INF", as bench files spell it
+        doc.data = jsonable(doc.data)  # JSON has no infinity: "INF", as bench files spell it
         doc.sessions_to_restart = [
             sid for sid, sv in manager.sessions.items() if doc.id in manager.stale_definitions(sv)
         ]
@@ -802,7 +803,7 @@ def build_server(
             snap = s.session.instrument(instrument).snapshot()
         except KeyError as exc:
             raise fail(exc) from None
-        snap["state"] = {k: _plain(v) for k, v in snap["state"].items()}
+        snap["state"] = {k: jsonable(v) for k, v in snap["state"].items()}
         return snap
 
     # ---- observe ----------------------------------------------------------------------------------
@@ -829,7 +830,7 @@ def build_server(
                 continue
             if kinds and ev.get("kind") not in kinds:
                 continue
-            events.append(to_event(ev, ev.get("eid", 0)))
+            events.append(project(ev, ev.get("eid", 0)))
             if len(events) >= limit:
                 break
         last = events[-1]["seq"] if events else after
@@ -910,11 +911,11 @@ def build_server(
             raise ToolError("该测试台未开启 run.reveal_true_values；验证模式下不提供真实值")
         with session.view():
             parts = {
-                n: {k: _plain(v) for k, v in c.describe().items()} for n, c in session.components.items()
+                n: {k: jsonable(v) for k, v in c.describe().items()} for n, c in session.components.items()
             }
             hidden = {
                 name: {
-                    cname: {k: _plain(v) for k, v in comp.overrides.items()}
+                    cname: {k: jsonable(v) for k, v in comp.overrides.items()}
                     for cname, comp in inst.components.items()
                     if comp.overrides
                 }
@@ -932,7 +933,7 @@ def build_server(
                     ][:16],
                     "dc_v": float(sig.dc),
                 }
-            deviations = {k: _plain(v) for k, v in session.deviations().items()}
+            deviations = {k: jsonable(v) for k, v in session.deviations().items()}
         return {"parts": parts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
 
     @mcp.tool()

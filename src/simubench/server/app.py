@@ -22,7 +22,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
 from ..engine.edit import EditError
-from ..engine.record import encode_bytes
+from ..engine.events import project
 from ..library.coverage import cases_for_model, coverage_path, load_coverage, run_cases
 from ..library.loader import DefinitionLibrary
 from ..models import api as M
@@ -37,7 +37,6 @@ from .manager import (
     InstrumentRemote,
     ServedSession,
     SessionManager,
-    _plain,
     fault_info,
 )
 
@@ -995,7 +994,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
 
         def push(ev: dict[str, Any]) -> None:
             counter["seq"] += 1
-            msg = to_event(ev, counter["seq"])
+            msg = project(ev, counter["seq"])
             with contextlib.suppress(RuntimeError):
                 loop.call_soon_threadsafe(_put, queue, msg)
 
@@ -1004,7 +1003,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             unsubscribe = s.session.subscribe(push)
         for ev in backlog:
             counter["seq"] += 1
-            await ws.send_json(to_event(ev, counter["seq"]))
+            await ws.send_json(project(ev, counter["seq"]))
 
         async def wait_disconnect() -> None:
             """Return only when the client goes away; non-disconnect frames are ignored."""
@@ -1049,52 +1048,3 @@ def _put(queue: asyncio.Queue[dict[str, Any]], msg: dict[str, Any]) -> None:
         with contextlib.suppress(asyncio.QueueEmpty):
             queue.get_nowait()  # drop the oldest rather than block the bench
     queue.put_nowait(msg)
-
-
-def to_event(ev: dict[str, Any], seq: int) -> dict[str, Any]:
-    out: dict[str, Any] = {
-        "seq": ev.get("eid", seq),
-        "t_ns": int(ev.get("t_ns", 0)),
-        "kind": ev.get("kind", "unknown"),
-    }
-    for key in (
-        "instrument",
-        "dir",
-        "duration_ns",
-        "client",
-        "path",
-        "source",
-        "code",
-        "message",
-        "dt_ns",
-        "reason",
-        "wall",
-        "fault",
-        "action",
-        "header",
-        "query",
-        "origin",
-        "closest",
-        "param",
-        "range",
-    ):
-        if key in ev:
-            out[key] = ev[key]
-    if "old" in ev:
-        out["old"] = _plain(ev["old"])
-    if "new" in ev:
-        out["new"] = _plain(ev["new"])
-    data = ev.get("data")
-    if isinstance(data, bytes):
-        enc = encode_bytes(data)
-        out["size"] = len(data)
-        out["text"] = enc.get("text") if "text" in enc else _summary(data)
-    return M.Event.model_validate(out).model_dump(exclude_none=True)
-
-
-def _summary(data: bytes) -> str:
-    """Printable summary of binary SCPI data: the block header and the byte count."""
-    if data.startswith(b"#") and len(data) > 2 and data[1:2].isdigit():
-        n = int(data[1:2])
-        return data[: 2 + n].decode(errors="replace") + f"… ({len(data)} B)"
-    return f"<{len(data)} B binary>"
