@@ -55,7 +55,7 @@ def _ref(session: Session, comp: Component) -> str:
 def _edges(session: Session) -> dict[str, list[tuple[str, Component]]]:
     """For each node, the upstream nodes and the component that joins them."""
     up: dict[str, list[tuple[str, Component]]] = {}
-    for comp in session._all_components():
+    for comp in session.all_components():
         c = Circuit()
         comp.stamp(c, lambda p, comp=comp: session.node_of(comp, p))  # type: ignore[misc]
         for b in c.branches:
@@ -104,7 +104,7 @@ def why_silent(session: Session, node: str, *, port_ref: str | None = None) -> l
 
     reasons: list[Silence] = []
     reached: set[str] = set()
-    for comp in session._all_components():
+    for comp in session.all_components():
         if not is_source(comp):
             continue
         pins = [

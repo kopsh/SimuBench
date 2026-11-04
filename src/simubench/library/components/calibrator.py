@@ -312,7 +312,7 @@ class _Control:
         self.owner.set_state(path, value, internal=True)
 
     def control_readings(self) -> dict[str, Any]:
-        self.session._solve()
+        self.session.solve()
         sp = self._setpoint()
         values: dict[str, Any] = {
             "output": "OPER" if self.on() else "STBY",
