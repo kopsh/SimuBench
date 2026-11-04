@@ -4,11 +4,15 @@ The syntax lives here, once: the last segment is the port name, everything befor
 owner's name (an instrument, a part, or a component inside a definition). Internal references can
 carry a ``ch<n>.`` channel prefix, so the owner segment may itself contain dots. Existence checks
 and error wording stay at the call sites on purpose — authoring diagnostics, edit errors and
-runtime guards are different layers presenting the same grammar.
+runtime guards are different layers presenting the same grammar. What the layers share is the
+nearest-name hint (:func:`closest`) and the hint ladder (:func:`ladder`: 未知 owner → 最近名 →
+未知端口 → 最近端口), so every layer suggests the same fix (issue 598).
 """
 
 from __future__ import annotations
 
+import difflib
+from collections.abc import Callable, Iterable
 from typing import NamedTuple
 
 
@@ -35,3 +39,26 @@ def parse(ref: str) -> PortRef | None:
     the caller supplies the wording)."""
     r = split(ref)
     return r if r.owner and r.port else None
+
+
+def closest(word: str, options: Iterable[str]) -> str | None:
+    """The nearest known name for a mistyped one (最近名提示); ``None`` when nothing is close."""
+    hit = difflib.get_close_matches(word, list(options), n=1, cutoff=0.5)
+    return hit[0] if hit else None
+
+
+def ladder(
+    ref: str, names: Iterable[str], ports_of: Callable[[str], Iterable[str]]
+) -> tuple[str | None, str | None]:
+    """Walk the hint ladder「未知 owner → 最近名 → 未知端口 → 最近端口」for one reference.
+
+    Returns ``(owner_hint, port_hint)``. ``names`` are the known owners; an owner-less reference
+    matches its whole text against them (so ``"noport"`` can still be suggested a name).
+    ``ports_of`` is the layer's own lookup — the owner's ports, falsy when it is unknown — so the
+    syntax stays free of any particular registry. A hint is ``None`` when the stage passed or
+    nothing is close; callers use it only in their failure branch.
+    """
+    r = split(ref)
+    owner_hint = closest(r.owner or ref, names)
+    port_hint = closest(r.port, ports_of(r.owner) or ()) if r.owner else None
+    return owner_hint, port_hint
