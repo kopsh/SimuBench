@@ -35,7 +35,9 @@ class CounterGate(Component):
     units = {"time": "s"}
     choices = {"mode": ("TIMe", "COUNt")}  # word params: validation refuses other words; read with self.choice("mode")
     refs = {"clock": ("reference_clock", "instrument")}   # links to sibling components
-    # resolve a ref with self.peer(name): a channel component finds ch<n>.<name> first (#382)
+    # the accessor a ref yields is one line: self.ref("clock") — a channel component finds
+    # ch<n>.<name> first, then instrument level (#382); an optional ref (optional_refs) is None
+    # when unset, a required one raises -300. self.peer(name, required=...) resolves any name.
     generic = True                     # False = model-specific (tracked in ALLOWED, only shrinks)
 
     @op("count", fields=("unit",))     # callable from a definition: op: <component>.count
@@ -45,6 +47,12 @@ class CounterGate(Component):
 - Override `output(port)` for signal outputs, `stamp(circuit, node)` / `emf()` for circuit
   contribution; `piecewise = True` for mode-dependent devices (D34 mode iteration, D52);
   `dynamic = True` for time state.
+- `on_state(self, key, path, old, new)` hands you the parameter the change arrived through (None
+  for a `watches` path); which setting a parameter binds, to write it back, is
+  `self.bound_path(key)` (D61). Boolean-ish settings parse with `V.flag` (1 is True) — no private
+  `_flag`. The guard `tests/test_component_boilerplate.py` fails on `bound_paths()` lookups,
+  hand-built `ch{self.channel}` sibling names, `components[str(self.param(...))]` accessors and
+  `def _flag`.
 - The session's public mouth only, never `session._*` (guard: `tests/test_component_privacy.py`,
   D60): judge own state (regulating, tripped, conducting) after `self.session.solve()`;
   refresh-once-per-version work in `sync()` guards with `self.session.signal_changed(self)`;

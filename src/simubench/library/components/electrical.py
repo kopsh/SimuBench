@@ -11,10 +11,7 @@ import numpy as np
 from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, PortSpec, component
 from ...engine.signal import Signal
-
-
-def _flag(value: Any) -> bool:
-    return bool(value) if not isinstance(value, str) else value.upper() in ("1", "ON", "TRUE")
+from ...scpi import values as V
 
 
 @component("output_stage")
@@ -44,17 +41,17 @@ class OutputStage(Component):
         """EMF per volt of setting: the load the amplitude is defined for, and the polarity."""
         z = float(self.param("z_out"))
         rl = float(self.param("load_setting"))
-        sign = -1.0 if _flag(self.param("invert")) else 1.0
+        sign = -1.0 if V.flag(self.param("invert")) else 1.0
         if not math.isfinite(rl) or rl <= 0 or rl >= float(self.param("hiz_from")):
             return sign
         return sign * (rl + z) / rl
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
-        if _flag(self.param("enabled")):
+        if V.flag(self.param("enabled")):
             circuit.source(node("pin"), self.uid, float(self.param("z_out")))
 
     def emf(self) -> dict[str, Signal]:
-        if not _flag(self.param("enabled")):
+        if not V.flag(self.param("enabled")):
             return {}
         return {self.uid: self.input("in").scale(self._scale())}
 

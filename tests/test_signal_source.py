@@ -323,7 +323,9 @@ def test_a_refusal_after_the_conversion_rolls_the_value_back_too(tmp_path):
         before = gen.get_state("ch1.amplitude")
 
         class Refuse:
-            def on_state(self, path: str, old: Any, new: Any) -> None:
+            uid = "test.refuse"  # the dispatch keys the parameter name by it
+
+            def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
                 if str(new).upper() == "DBM":
                     raise ScpiError(-221, "no dBm here")
 

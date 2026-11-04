@@ -24,10 +24,6 @@ from ...scpi.errors import ScpiError
 from .meters import DmmAdc, DmmInputTerminal
 
 
-def _flag(value: Any) -> bool:
-    return value if isinstance(value, bool) else str(value).strip().upper() in ("1", "ON", "TRUE")
-
-
 @component("daq_backplane")
 class DaqBackplane(Component):
     """The mainframe's slots and installed modules (#191 E2).
@@ -114,12 +110,10 @@ class MuxCard(Component):
     }
 
     def _backplane(self) -> DaqBackplane:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("backplane"))]  # type: ignore[return-value]
+        return self.ref("backplane")  # type: ignore[return-value]
 
     def _terminal(self) -> DmmInputTerminal:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("dmm"))]  # type: ignore[return-value]
+        return self.ref("dmm")  # type: ignore[return-value]
 
     # ---- relay state -----------------------------------------------------------------------------
 
@@ -315,16 +309,13 @@ class ScanTable(Component):
         self._scan = 0  # the scan the last reading belongs to
 
     def _mux(self) -> MuxCard:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("mux"))]  # type: ignore[return-value]
+        return self.ref("mux")  # type: ignore[return-value]
 
     def _dmm(self) -> DmmAdc:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("dmm"))]  # type: ignore[return-value]
+        return self.ref("dmm")  # type: ignore[return-value]
 
     def _backplane(self) -> DaqBackplane:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("backplane"))]  # type: ignore[return-value]
+        return self.ref("backplane")  # type: ignore[return-value]
 
     def configure_for(self, index: int) -> None:
         """Load channel ``index``'s own measurement configuration into the internal DMM (#365)."""
@@ -340,7 +331,7 @@ class ScanTable(Component):
         numbers = [int(n) for n in self.param("list") or []]
         if not numbers:
             raise ScpiError(-222, "the scan list is empty")
-        if _flag(self.param("ascending")):
+        if V.flag(self.param("ascending")):
             numbers = sorted(numbers)
         for number in numbers:
             self._backplane().check_channel(number)

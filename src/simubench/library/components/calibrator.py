@@ -31,14 +31,11 @@ from typing import Any
 from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
+from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
 #: The resistance function's names: OHM, or RES as the 5522A's FUNC? calls it (#569).
 OHMS = ("OHM", "RES")
-
-
-def _flag(value: Any) -> bool:
-    return bool(value) if not isinstance(value, str) else value.upper() in ("1", "ON", "TRUE")
 
 
 class _Setpoint:
@@ -160,7 +157,7 @@ class _Control:
 
     def on(self) -> bool:
         """The terminal is in the circuit: the instrument is in operate."""
-        return _flag(self.param("operate"))  # type: ignore[attr-defined]
+        return V.flag(self.param("operate"))  # type: ignore[attr-defined]
 
     def _kind(self) -> str:
         kind = getattr(self._setpoint(), "kind", None)
@@ -255,11 +252,11 @@ class _Control:
     def _operate_changed(self, old: Any, new: Any) -> None:
         """Leaving or entering operate: the output starts from 0 (it was disconnected) and settles
         to the level; anything pending is dropped. OPER from a tripped standby tries again."""
-        if _flag(new):
+        if V.flag(new):
             self.tripped = False
         sp = self._setpoint()
         sp.drop()
-        if _flag(new):
+        if V.flag(new):
             sp.start_settling()
 
     def output_changed(self, key: str, old: Any, new: Any, sp: Any) -> None:
@@ -295,13 +292,13 @@ class _Control:
             if str(old).upper() in volts and str(new).upper() in volts:
                 return standby_above is not None and abs(level) >= float(standby_above)
             return True
-        return _flag(mode)
+        return V.flag(mode)
 
     def _set_operate(self, value: bool) -> None:
         """Operate through the bound state (the normal path) or the component's own attribute."""
-        path = self.bound_paths().get("operate") if self.owner is not None else None  # type: ignore[attr-defined]
+        path = self.bound_path("operate") if self.owner is not None else None
         if path is None:
-            old = _flag(self.param("operate"))  # type: ignore[attr-defined]
+            old = V.flag(self.param("operate"))  # type: ignore[attr-defined]
             if old == value:
                 return
             self.overrides["operate"] = value  # type: ignore[attr-defined]
@@ -452,7 +449,7 @@ class CalibratorSetpoint(_Setpoint, Component):
         return OpResult(b"", fields={"name": name})
 
     def _set_lock(self, on: bool) -> None:
-        path = self.bound_paths().get("range_lock")
+        path = self.bound_path("range_lock")
         if path is not None and self.owner is not None:
             self.owner.set_state(path, on, source="scpi", internal=True)
 
@@ -476,19 +473,21 @@ class CalibratorSetpoint(_Setpoint, Component):
             )
 
     def _control(self) -> Any:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("control"))]
+        return self.ref("control")
 
     def output(self, port: str) -> Signal:
         return self.setpoint_signal()
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        key = {v: k for k, v in self.bound_paths().items()}.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "range_lock":
-            on = _flag(new) and self._lockable()
+            on = V.flag(new) and self._lockable()
             self._locked = self.auto_range(float(self.param("level"))) if on else None
             return
-        if key == "function" and old != new and (self._locked is not None or _flag(self.param("range_lock"))):
+        if (
+            key == "function"
+            and old != new
+            and (self._locked is not None or V.flag(self.param("range_lock")))
+        ):
             self._locked = None  # a new function unlocks the range (the 5730A and 5522A manuals)
             self._set_lock(False)
         check = getattr(self._control(), "check_sense", None)
@@ -496,11 +495,11 @@ class CalibratorSetpoint(_Setpoint, Component):
             check(float(new))
         elif check is not None and key == "function":
             check(float(self.param("level")), str(new))
-        if key == "frequency" and _flag(self.param("frequency_selects_ac")):
+        if key == "frequency" and V.flag(self.param("frequency_selects_ac")):
             fn = str(self.param("function")).upper()
             family = {"DCV": "V", "ACV": "V", "DCI": "I", "ACI": "I"}.get(fn)
             target = None if family is None else ("AC" if float(new) > 0 else "DC") + family
-            path = self.bound_paths().get("function")
+            path = self.bound_path("function")
             if target is not None and target != fn and path is not None and self.owner is not None:
                 self.setpoint_changed(key, old, new)
                 self.owner.set_state(path, target, source="scpi", internal=True)
@@ -520,7 +519,7 @@ class CalibratorSetpoint(_Setpoint, Component):
                 nominal = self._nominal_ohms(level)
                 if nominal != level and self.owner is not None:
                     # the resistance outputs are a fixed set of values: the nearest one (#550)
-                    path = self.bound_paths().get("level")
+                    path = self.bound_path("level")
                     if path is not None:
                         self.owner.set_state(path, nominal, source="scpi", internal=True)
                         return
@@ -578,8 +577,7 @@ class CalibratorControl(_Control, Component):
         self.tripped = False  # the last overload sent the output to standby; the next OPER clears it
 
     def _setpoint(self) -> Any:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("setpoint"))]
+        return self.ref("setpoint")
 
     def _drive(self) -> Signal:
         return self.input("in")
@@ -591,7 +589,7 @@ class CalibratorControl(_Control, Component):
         net has a DC path to the output side (else the output regulates itself, the internal
         SENSE-to-OUTPUT connection of the manual; a sense lead into a dead end cannot carry the
         feedback, #562)."""
-        return _flag(self.param("remote_sense")) and self.wired("sense") and self._sense_served()
+        return V.flag(self.param("remote_sense")) and self.wired("sense") and self._sense_served()
 
     def _sense_served(self) -> bool:
         """The SENSE net reaches the output terminal's net or ground through the bench's conducting
@@ -626,7 +624,7 @@ class CalibratorControl(_Control, Component):
 
     def check_sense(self, level: float, function: str | None = None) -> None:
         """A new level or function while external sense is on must stay on a range that allows it."""
-        if not _flag(self.param("remote_sense")):
+        if not V.flag(self.param("remote_sense")):
             return
         sp = self._setpoint()
         name = getattr(sp, "_locked", None) if function is None else None
@@ -650,12 +648,11 @@ class CalibratorControl(_Control, Component):
             return self.session.source_current(self.uid)
         return super()._load_current(dc_voltage)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        key = {v: k for k, v in self.bound_paths().items()}.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "operate":
             self._operate_changed(old, new)
         elif key == "remote_sense":
-            if _flag(new):
+            if V.flag(new):
                 sp = self._setpoint()
                 if not self._sense_allowed(sp.range_name()):
                     raise ScpiError(
@@ -671,7 +668,7 @@ class CalibratorControl(_Control, Component):
     def op_operate(self, value: bool = True, **_: Any) -> OpResult:
         """``OPER`` (value true) or ``STBY`` (false): enter or leave operate; entering starts the
         settling of the level."""
-        self._set_operate(_flag(value))
+        self._set_operate(V.flag(value))
         return OpResult()
 
     def readings(self) -> dict[str, Any]:
@@ -729,8 +726,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
     def _output_signal(self) -> Signal:  # the name earlier code and tests use
         return self.setpoint_signal()
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        key = {v: k for k, v in self.bound_paths().items()}.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "operate":
             self._operate_changed(old, new)
         elif key in ("level", "function", "frequency"):
@@ -744,7 +740,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
     def op_operate(self, value: bool = True, **_: Any) -> OpResult:
         """``OPER`` (value true) or ``STBY`` (false): enter or leave operate; entering starts the
         settling of the level."""
-        self._set_operate(_flag(value))
+        self._set_operate(V.flag(value))
         return OpResult()
 
     def readings(self) -> dict[str, Any]:

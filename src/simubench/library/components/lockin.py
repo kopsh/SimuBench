@@ -133,25 +133,24 @@ class LockinReference(Component):
     def _largest_harmonic(self, f: float) -> int:
         return max(1, int(float(self.param("f_max")) * (1 + 1e-12) // f)) if f > 0 else 1
 
-    def on_state(self, path: str, old: Any, new: Any) -> Any:
-        bound = self.bound_paths()
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         n = int(self.param("harmonic"))
         f_max = float(self.param("f_max"))
         clamp = self.choice("over_limit") == "clamp"
-        if path == bound.get("harmonic") and n * self._freq > f_max * (1 + 1e-12):
+        if key == "harmonic" and n * self._freq > f_max * (1 + 1e-12):
             if clamp:
                 return self._largest_harmonic(self._freq)  # the largest harmonic that fits (#273)
             raise ScpiError(-221, f"harmonic {n} x {self._freq:g} Hz exceeds {f_max:g} Hz")
-        if path == bound.get("frequency"):
+        if key == "frequency":
             f = float(new)
             if n * f > f_max * (1 + 1e-12):
                 if not clamp:
                     raise ScpiError(-221, f"harmonic {n} x {f:g} Hz exceeds {f_max:g} Hz")
                 assert self.owner is not None
-                self.owner.set_state(bound["harmonic"], self._largest_harmonic(f))
+                self.owner.set_state(self.bound_path("harmonic"), self._largest_harmonic(f))
             if self.param("source") != "EXTernal":
                 self._retune(f)
-        if path == bound.get("source") and new != "EXTernal":
+        if key == "source" and new != "EXTernal":
             self.locked = True
             self._retune(float(self.param("frequency")))
 
@@ -496,8 +495,7 @@ class LockinLowpass(Component):
         return round(float(self.param("slope")) / 6)
 
     def _mixer(self) -> LockinMixer:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("mixer"))]
+        return self.ref("mixer")  # type: ignore[return-value]
 
     def enbw(self) -> float:
         return enbw(self._poles(), self._tc())
@@ -664,12 +662,10 @@ class LockinOutput(Component):
     # ---- the blocks -----------------------------------------------------------------------------
 
     def _filter(self) -> LockinLowpass:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("filter"))]
+        return self.ref("filter")  # type: ignore[return-value]
 
     def _amp(self) -> LockinInputAmp:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("amp"))]
+        return self.ref("amp")  # type: ignore[return-value]
 
     # ---- the reading ----------------------------------------------------------------------------
 
@@ -836,7 +832,7 @@ class LockinOutput(Component):
 
     def _display_quantity(self, spec: Any) -> float:
         name, _, quantity = str(spec).partition(".")
-        comp = self.owner.components.get(name) if self.owner is not None else None
+        comp = self.peer(name)
         if comp is None or not hasattr(comp, "trace_value"):
             raise ScpiError(-224, f"{spec!r} is not a display quantity")
         return float(comp.trace_value(quantity, self.session.now_ns))

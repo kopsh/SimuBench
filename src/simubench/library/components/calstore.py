@@ -94,7 +94,7 @@ class CalibrationStore(Component):
 
     def _write(self, key: str, value: Any) -> None:
         """A secured/reference change: into the bound state when there is one, else here."""
-        path = self.bound_paths().get(key)
+        path = self.bound_path(key)
         if path and self.owner is not None:
             self.owner.set_state(path, value, source="scpi", internal=True)
         elif key == "secured":
@@ -140,7 +140,7 @@ class CalibrationStore(Component):
                 out.append(self.owner.get_state(self.resolve_path(entry[1:])))
                 continue
             comp_name, _, param = entry.rpartition(".")
-            comp = self.owner.components.get(comp_name)
+            comp = self.peer(comp_name)
             if comp is None:
                 raise ValueError(f"{self.uid}: key entry {entry!r} names no component")
             if comp is meter and param == "function":

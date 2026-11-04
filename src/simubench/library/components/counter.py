@@ -132,8 +132,7 @@ class CounterGate(Component):
     units = {"time": "s"}
 
     def error(self) -> float:
-        assert self.owner is not None
-        return float(self.owner.components[str(self.param("clock"))].error())
+        return float(self.ref("clock").error())  # type: ignore[union-attr]
 
     def duration_ns(self) -> int:
         """The gate's true length in virtual nanoseconds."""
@@ -230,8 +229,7 @@ class CounterTimebase(Component):
     units = {"single_shot_s": "s"}
 
     def error(self) -> float:
-        assert self.owner is not None
-        return float(self.owner.components[str(self.param("clock"))].error())
+        return float(self.ref("clock").error())  # type: ignore[union-attr]
 
     def timestamp(self, at_ns: float) -> float:
         """The instrument's timestamp (s) of a true instant (ns)."""
@@ -293,8 +291,7 @@ class CounterCore(Component):
     # ---- the blocks -----------------------------------------------------------------------------
 
     def _block(self, key: str) -> Any:
-        assert self.owner is not None
-        return self.owner.components[str(self.param(key))]
+        return self.ref(key)
 
     def _gate(self) -> CounterGate:
         return self._block("gate")
@@ -446,10 +443,7 @@ class CounterCore(Component):
         return self._record(None, at)
 
     def _timebase(self) -> CounterTimebase | None:
-        name = str(self.param("timebase") or "")
-        if not name or self.owner is None:
-            return None
-        return self.owner.components[name]  # type: ignore[return-value]
+        return self.ref("timebase")  # type: ignore[return-value]
 
     def _last_edge_before(self, at_ns: int) -> float | None:
         """The last rising edge strictly before ``at_ns`` (the boundary edge of the gate ending there)."""
