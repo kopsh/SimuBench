@@ -23,7 +23,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from . import __version__
+from . import __commit_id__, __version__
 
 if TYPE_CHECKING:
     from .server.manager import SessionManager
@@ -126,6 +126,9 @@ def manifest(workspace: Path | None = None, record_dir: Path | None = None) -> d
     index = WEB_DIST / "index.html"
     return {
         "simubench": __version__,
+        # The commit the installed package was built from (D58): the version names it too, but
+        # a build between date tags or from a patched tree is only told apart by this.
+        "commit": __commit_id__,
         "python": platform.python_version(),
         "platform": platform.platform(),
         "dependencies": {name: _dist_version(name) for name in DEPENDENCIES},

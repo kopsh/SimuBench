@@ -34,7 +34,8 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
    Merging latest `main` into the branch first is optional: when the branch is behind, the merge
    bot (`.github/workflows/merge.yml`) merges `main` into it, re-runs CI, and merges — only a
    merge conflict comes back to the agent.
-6. PR into `main`, body has `Closes #<n>`. It auto-squash-merges when CI is green on a commit that
+6. PR into `main`, body has `Closes #<n>`. The title is the changelog entry when the PR changes
+   the product (D58): what changed for the user, not how. It auto-squash-merges when CI is green on a commit that
    contains latest `main`; the bot self-heals a branch that `main` has passed (merge + re-CI on
    the same fast tier) and comments on a red CI run. Red CI → push a fix commit. Never
    weaken/skip/delete tests.
@@ -77,7 +78,11 @@ Changed a path, command, check, rule or workflow step that a skill states? Updat
 
 ## Traps
 
-- Files hidden by `.gitignore` under `src tests acceptance refcalc web/src web/e2e` fail check.sh.
+- Files hidden by `.gitignore` under `src tests acceptance refcalc web/src web/e2e` fail check.sh
+  (except `src/simubench/_version.py`, written by the build).
+- The version comes from git (D58): never write a version number into the source. `__version__`
+  is what `uv sync` built the editable install with; re-run `uv sync` to refresh it. Each `main`
+  commit gets a date tag `vYYYY.M.D.N` from CI (`scripts/release_tags.py`).
 - Changing a Pydantic model / API → regenerate `schemas/` **and** `web/src/api/generated`
   (`pnpm gen:api`), commit both.
 - Changing TUI wording that is shared with the web → `web/src/i18n/{zh,en}.ts` and
