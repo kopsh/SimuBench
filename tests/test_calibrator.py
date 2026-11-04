@@ -363,6 +363,26 @@ def test_standby_on_function_leaves_standby_and_frequency_changes_alone():
     session.close()
 
 
+def test_standby_on_function_above_keeps_a_low_voltage_dc_ac_switch_operating():
+    """#566: with ``above`` a DCV <-> ACV change below ``standby_above`` (22 V here) keeps operating
+    and settles to the new function; at or above it the change returns to standby."""
+    session = open_bench(bench(**{"standby_on_function": "above"}), definition_dirs=[DEFS])
+    q(session, "OUT 10 V")
+    q(session, "OPER")
+    q(session, "*OPC?")
+    q(session, "OUT 10 V, 1 kHz;*WAI")  # below the threshold: still operating
+    assert reading(session, "AC") == pytest.approx(10.0, abs=1e-9)
+    q(session, "OUT 10 V, 0 Hz;*WAI")  # and back to DC
+    assert reading(session) == pytest.approx(10.0, abs=1e-9)
+    q(session, "OUT 22 V;*WAI")  # the either rule: 22 V is not above 22 V, still operating
+    assert reading(session) == pytest.approx(22.0, abs=1e-9)
+    q(session, "OUT 22 V, 1 kHz")  # at the threshold: the function change returns to standby
+    assert reading(session) == 0.0
+    assert reading(session, "AC") == 0.0
+    assert q(session, "ERR:COUNt?") == "0"
+    session.close()
+
+
 # ---- quantities -------------------------------------------------------------------------------------
 
 

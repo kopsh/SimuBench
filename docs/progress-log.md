@@ -1262,3 +1262,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | N6705C | ✅ 每路 `oper_ptr`/`oper_ntr`/`ques_ptr`/`ques_ntr`（0–65535，默认 32767/0）；`STATus:OPERation\|QUEStionable:PTRansition\|NTRansition (@list)` 设置与查询；覆盖表四条改 implemented，PRESet 一条同步 |
 | 测试 | ✅ `tests/test_keysight_n6705c.py::test_transition_filters_choose_which_edges_latch`：NTR=CV、PTR=0 时 CV→CC 只记 CV 下降沿；CC→CV 不记；PRESet 后 PTR/NTR/使能复位、只记上升沿 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 低压交流↔直流切换不回待机（Issue 566）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 参数语义 | ✅ `standby_on_function` 新取值 `above`：工作中 DCV↔ACV 的改变仅当幅值绝对值 ≥ `standby_above` 时回待机，其他功能改变总是回待机；`true`/`false` 行为不变 |
+| 组件级用例 | ✅ `tests/test_calibrator.py::test_standby_on_function_above_keeps_a_low_voltage_dc_ac_switch_operating`：10 V 直流→交流→直流保持工作，22 V（阈值）改功能回待机 |
+| 5522A | ✅ 定义改 `standby_on_function: above`；撤销 #558 的近似：`tests/test_fluke_5522a.py::test_acv_is_a_line_at_the_programmed_frequency` 在工作下直接切直流；手册用例新增「33 V 以下交流↔直流切换保持工作」；metrology-authoring.md 5.1/5.4 与 component-map.md 同步，债务列删去该缺口 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
