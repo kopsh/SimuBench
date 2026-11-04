@@ -36,6 +36,7 @@ errors:
   519: Must specify an output unit
   1305: Bad parameter unit
   1503: Output current lim exceeded
+  1500: Compliance voltage exceeded
 specs:
   source: Fluke 5522A Operators Manual (3795084, January 2011) 第 1 章 Detailed Specifications
   settling_time: "小于 5 s（全部功能与量程，另有注明者除外）→ settle 取 5 s"
@@ -60,17 +61,18 @@ specs:
 state:
   out.function:
     type: enum
-    options: [DCV, ACV]
+    # FUNC? 的回复：DCV、ACV、DCI、ACI、RES（第 6 章 FUNC?，#569）
+    options: [DCV, ACV, DCI, ACI, RES]
     default: DCV
     rst: DCV
     electrical: true
     label: 功能
     label_en: Function
+  # 幅值：V、A 或 Ω（单位由 OUT 的单位决定，记在 out.unit）；各功能的范围由量程表限定（#569）。
   out.level:
     type: float
-    unit: V
     min: -1020.0
-    max: 1020.0
+    max: 1.1e9
     default: 0.0
     rst: 0.0
     electrical: true
@@ -86,6 +88,13 @@ state:
     electrical: true
     label: 频率（0 Hz 为直流）
     label_en: Frequency
+  out.unit:
+    type: enum
+    options: [V, A, OHM]
+    default: V
+    rst: V
+    label: 幅值单位
+    label_en: Amplitude unit
   out.operate:
     type: bool
     default: false
@@ -133,6 +142,17 @@ components:
       frequency: $out.frequency
       settle: 5.0
       control: out
+      # 量程（第 1 章 Detailed Specifications 的各功能表；名字按第 6 章 RANGE? 的示例 DC330MV、DC33MA_A、
+      # AC330MA_A、R110OHM 的写法推出，未逐一核实；RANGE?/RANGELCK 的接线见 #560）。电压表给出 ±1020 V
+      # 的上限；电流 0–20.5 A（3 A 以上的 20 A 端子未单独建模，同一 OUT 端口）；电阻 0–1.1 GΩ 连续可调
+      # （注 1：Continuously variable from 0 Ω to 1.1 GΩ），表中是量程而非离散值（#569）。
+      ranges:
+        DCV: [[DC330MV, 0.33], [DC3_3V, 3.3], [DC33V, 33.0], [DC330V, 330.0], [DC1000V, 1020.0]]
+        ACV: [[AC33MV, 0.033], [AC330MV, 0.33], [AC3_3V, 3.3], [AC33V, 33.0], [AC330V, 330.0], [AC1000V, 1020.0]]
+        DCI: [[DC330UA_A, 0.00033], [DC3_3MA_A, 0.0033], [DC33MA_A, 0.033], [DC330MA_A, 0.33], [DC1_1A_A, 1.1], [DC3A_A, 3.0], [DC11A, 11.0], [DC20A, 20.5]]
+        ACI: [[AC330UA_A, 0.00033], [AC3_3MA_A, 0.0033], [AC33MA_A, 0.033], [AC330MA_A, 0.33], [AC1_1A_A, 1.1], [AC3A_A, 3.0], [AC11A, 11.0], [AC20A, 20.5]]
+        RES: [[R11OHM, 11.0], [R33OHM, 33.0], [R110OHM, 110.0], [R330OHM, 330.0], [R1_1KOHM, 1100.0], [R3_3KOHM, 3300.0], [R11KOHM, 11000.0], [R33KOHM, 33000.0], [R110KOHM, 110000.0], [R330KOHM, 330000.0], [R1_1MOHM, 1.1e6], [R3_3MOHM, 3.3e6], [R11MOHM, 1.1e7], [R33MOHM, 3.3e7], [R110MOHM, 1.1e8], [R330MOHM, 3.3e8], [R1100MOHM, 1.1e9]]
+      ohm_values: continuous
   # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 跨越回待机（#558）。
   - name: out
     type: calibrator_control
@@ -148,6 +168,11 @@ components:
       standby_on_function: above
       overload_error: 1503
       setpoint: dac
+      # 电流输出的 compliance（第 1 章 DC Current 表 Max Compliance Voltage 列：330 µA、3.3 mA 量程 10 V，
+      # 33 mA、330 mA 7 V，1.1 A、3 A 6 V，20 A 量程 4 V；AC Current 表末的 Max Compliance Voltage V rms：
+      # 0.33 mA、3.3 mA 7 V，33 mA、330 mA 5 V，0.33–3 A 4 V，3–20.5 A 3 V），超出跳回待机并报 1500（#569）。
+      compliance: {DC330UA_A: 10.0, DC3_3MA_A: 10.0, DC33MA_A: 7.0, DC330MA_A: 7.0, DC1_1A_A: 6.0, DC3A_A: 6.0, DC11A: 4.0, DC20A: 4.0, AC330UA_A: 7.0, AC3_3MA_A: 7.0, AC33MA_A: 5.0, AC330MA_A: 5.0, AC1_1A_A: 4.0, AC3A_A: 4.0, AC11A: 3.0, AC20A: 3.0}
+      compliance_error: 1500
   - name: sys
     type: system
 wiring:
@@ -167,7 +192,9 @@ commands:
       - name: q
         type: quantities
         units:
-          V: {state: out.level}
+          V: {state: out.level, sets: {out.unit: V}}
+          A: {state: out.level, sets: {out.unit: A}}
+          OHM: {state: out.level, sets: {out.unit: OHM, out.frequency: 0.0}}
           HZ: {state: out.frequency}
         combine:
           # 只有幅值 → 直流电压（OUT 10 V）；带频率 → 0 Hz 为直流、非 0 为交流（OUT 1 V, 1 kHz）；
@@ -175,12 +202,17 @@ commands:
           # 双输出未建模，报 506。
           "V": {out.function: DCV}
           "V,HZ": {out.function: {if_zero: out.frequency, then: DCV, else: ACV}}
+          # 电流（#569）：OUT 1.2 MA 在同一频率（"current; 1.2 mA @ same frequency"），OUT 1 A, 400 HZ 交流；
+          # 电阻没有频率。
+          "A": {out.function: {if_zero: out.frequency, then: DCI, else: ACI}}
+          "A,HZ": {out.function: {if_zero: out.frequency, then: DCI, else: ACI}}
+          "OHM": {out.function: RES}
           "HZ": {}
         missing_unit_error: 519
         unknown_unit_error: 1305
         duplicate_unit_error: 506
         combine_error: 1305
-    reply: "{out.level},V,0E+00,0,{out.frequency}"
+    reply: "{out.level},{out.unit},0E+00,0,{out.frequency}"
     doc: >-
       查询按手册给出 <幅值>,<单位>,<第二输出幅值>,<第二输出单位>,<频率>；单输出第二输出为
       0E+00,0。各数字按本模型的统一格式（nr3，6 位尾数；手册示例中各字段的位数不一）。
@@ -188,7 +220,7 @@ commands:
     state: out.function
     set: false
     format: {enum: as_defined}
-    doc: 返回当前输出功能（DCV / ACV；手册还有电流、电阻等功能的返回，未建模）。
+    doc: 返回当前输出功能（DCV / ACV / DCI / ACI / RES；手册还有电容、温度、功率等功能的返回，未建模）。
   - header: OPER
     op: out.operate
     read: out.operate
