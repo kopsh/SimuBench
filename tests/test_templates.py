@@ -170,6 +170,16 @@ def test_the_example_expands_clean_and_records_its_template():
     assert a.model_copy(update={"template": None}) == b
 
 
+def test_the_response_shape_goes_to_the_vertical_channel():
+    """The response input picks the bandwidth filter's shape (#607); first order writes nothing."""
+    front = next(c for c in _expand(SCOPE.example())["channel_components"] if c["name"] == "front")
+    assert "response" not in front["params"]
+    inputs = copy.deepcopy(SCOPE.example())
+    inputs["channels"]["response"] = "gaussian"
+    front = next(c for c in _expand(inputs)["channel_components"] if c["name"] == "front")
+    assert front["params"]["response"] == "gaussian"
+
+
 def test_a_template_built_sb_dso_4_answers_as_sb_dso_4(tmp_path):
     built = _expand(DSO4_INPUTS, "tpl-dso-4")
     reference = yaml.safe_load((ROOT / "validation" / "instruments" / "sb-dso-4.yaml").read_text("utf-8"))

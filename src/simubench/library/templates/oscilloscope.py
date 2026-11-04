@@ -59,9 +59,10 @@ class ChannelsIn(_In):
         ..., "输入阻抗", "Input impedances", "The selectable inputs, the power-on one first", min_length=1
     )
     bandwidth_hz: float = _f(..., "带宽", "Bandwidth", "-3 dB analog bandwidth", "Hz", gt=0)
-    response: Literal["first_order"] = _f(
+    response: Literal["first_order", "brickwall", "gaussian", "bessel4"] = _f(
         "first_order", "响应形状", "Response shape",
-        "Frequency response of the front end (only a first-order low-pass is modeled so far)",
+        "Shape of the bandwidth filter: first_order (an analog front end), brickwall (flat magnitude), "
+        "gaussian (no ringing) or bessel4; -3 dB at the bandwidth or the limit (#607)",
     )  # fmt: skip
     bandwidth_limit_hz: float | None = _f(
         None,
@@ -466,6 +467,8 @@ def _front(x: OscilloscopeInputs, coupling: Any, bw_limit: bool = True) -> dict[
     ch, v = x.channels, x.vertical
     rows = v.table
     front: dict[str, Any] = {"coupling": coupling, "bandwidth": ch.bandwidth_hz, "probe_ratio": "$ch.probe"}
+    if ch.response != "first_order":
+        front["response"] = ch.response
     if ch.bandwidth_limit_hz and bw_limit:
         front |= {"bw_limit": "$ch.bwlimit", "bw_limit_hz": ch.bandwidth_limit_hz}
     if ch.ac_corner_hz != 10.0:

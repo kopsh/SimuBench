@@ -12,6 +12,7 @@ origin keeps phase arithmetic precise when virtual time grows large.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
@@ -357,6 +358,43 @@ def triangle(
 def lowpass1(fc: float) -> Callable[[np.ndarray], np.ndarray]:
     def h(f: np.ndarray) -> np.ndarray:
         return 1.0 / (1.0 + 1j * np.asarray(f) / fc)
+
+    return h
+
+
+def brickwall(fc: float) -> Callable[[np.ndarray], np.ndarray]:
+    """An ideal low-pass: 1 up to ``fc`` (-3 dB taken as the edge), 0 above, zero phase (a scope's
+    flat-magnitude linear-phase DSP filter with its delay removed, #607)."""
+
+    def h(f: np.ndarray) -> np.ndarray:
+        x = np.abs(np.asarray(f, dtype=float))
+        return np.where(x <= fc, 1.0, 0.0).astype(complex)
+
+    return h
+
+
+def gaussian_lp(fc: float) -> Callable[[np.ndarray], np.ndarray]:
+    """A Gaussian magnitude, -3 dB at ``fc``, zero phase: no overshoot on a step (#607)."""
+
+    def h(f: np.ndarray) -> np.ndarray:
+        x = np.asarray(f, dtype=float) / fc
+        return np.exp(-0.5 * math.log(2.0) * x**2).astype(complex)
+
+    return h
+
+
+#: The 4th-order Bessel polynomial's -3 dB frequency, in its own (unit DC delay) units.
+BESSEL4_W3DB = 2.113917674904216
+
+
+def bessel4(fc: float) -> Callable[[np.ndarray], np.ndarray]:
+    """A 4th-order Bessel low-pass, -3 dB at ``fc``, with its low-frequency group delay removed (a
+    scope deskews the filter's delay, #607): 105 / (s^4 + 10 s^3 + 45 s^2 + 105 s + 105)."""
+
+    def h(f: np.ndarray) -> np.ndarray:
+        w = BESSEL4_W3DB * np.asarray(f, dtype=float) / fc
+        s = 1j * w
+        return 105.0 / (s**4 + 10 * s**3 + 45 * s**2 + 105 * s + 105) * np.exp(1j * w)
 
     return h
 

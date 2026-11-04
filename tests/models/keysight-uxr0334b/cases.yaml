@@ -442,6 +442,24 @@ cases:
       - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
       - query: ":SYSTem:ERRor?"
         expect: "-224"
+  - name: "带宽滤波的响应：平坦幅度截断截止以上的正弦，高斯幅度只衰减"
+    manual: ":ACQuire Commands > :ACQuire:RESPonse; :ACQuire:BANDwidth; data sheet (bandwidth filters: brick wall)"
+    steps:
+      - query: ":ACQuire:RESPonse?"
+        expect: "FLAT"
+      # 120 MHz、400 mVpp 正弦经 100 MHz 带宽：砖墙截掉，高斯为 2^-(1.2^2/2) = 0.607 倍
+      - send: ":SOURce1:FREQuency 1.2E8"
+        instrument: awg
+      - send: ":CHANnel1:SCALe 0.1;:ACQuire:BANDwidth 1E8"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 0.0
+        tolerance: 0.002
+      - send: ":ACQuire:RESPonse GAUSsianmag"
+      - query: ":ACQuire:RESPonse?"
+        expect: "GAUS"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 0.2428
+        tolerance: 0.005
   - name: "自动测量：频率与周期（10 MHz）"
     manual: ":MEASure Commands > :MEASure:FREQuency; :MEASure:PERiod"
     steps:
