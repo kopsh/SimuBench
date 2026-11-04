@@ -1320,3 +1320,21 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 核实 | ✅ 1500 Compliance voltage exceeded：附录 D 错误表原文；compliance 数值：第 1 章 DC Current 表 Max Compliance Voltage 列与 AC Current 表末 Max Compliance Voltage V rms，覆盖表注明出处；量程名除 RANGE? 示例外仍注明未核实 |
 | 用例 | ✅ 手册用例「交流电流的频率按量程限定」 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 的 RANGE? 与 RANGELCK（Issue 560，补记）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 量程查询 | ✅ `RANGE?` 由 `calibrator_setpoint` 的 `range` op 回 `{name},0`（量程名按第 1 章 Range 行，自动量程取最小可容幅值的档）；手册用例「RANGE? 按幅值自动选量程」 |
+| 量程锁定 | ✅ `RANGELCK ON/OFF`、`RANGELCK?` 回 ON/OFF；锁定时越限/欠限报 518，改变输出功能自动解锁；手册用例「RANGELCK ON 锁定量程，越限报 518」「改变输出功能自动解锁」「锁定 1000 V 量程时低于 100 V 报 518」 |
+| 检查 | ✅ `scripts/check.sh` 全绿（PR #582） |
+
+## 5522A 量程锁定按手册核实，交流锁定标为偏离（Issue 583）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 手册 | ✅ 完整 Operators Manual（PN 3795084，January 2011，与定义 `reference` 一致）入库 `manuals/5522A-omeng0000/`（PDF 走 LFS，附 `pdftotext -layout` 文本），README 加一行 |
+| 核实 | ✅ 518 Value outside locked range：附录 D p. D-3；`RANGELCK?` 回 ON/OFF：第 6 章 p. 6-32/6-33；`RANGE?` 回 `<primary output>,<secondary output>`、无第二输出为 0：p. 6-32。现状均相符，定义注释、命令说明、覆盖表与用例的 `manual:` 写明页码 |
+| 交流 | ⚠️ 手册（第 4 章 p. 4-17、第 6 章 p. 6-32）只对单输出直流电压/直流电流锁量程；`calibrator_setpoint` 的锁定无法按功能限定（定义写不出来），覆盖表 RANGELCK 与命令说明明示为偏离（交流、电阻也锁定并报 518），开 `核心` #589 补能力，届时加“AC 下 RANGELCK ON 后越限不报 518”用例 |
+| 直流电流 | ✅ 覆盖表写明 DCI 同样锁定；手册用例「直流电流同样可锁量程，越限报 518」（33 mA 档锁定后 40 mA 报 518，`OUT?` 不变） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
