@@ -265,7 +265,9 @@ def test_ignore_is_refused_on_real_models():
 def test_static_classification_knows_the_definition_common_commands():
     lib = DefinitionLibrary([WORKSPACE / "instruments"])
     kinds = [m.kind for m in classify(lib.get("lfcal-reference-scope"), "*CLS?;*OPC?;*IDN?;C1:INSP?;VBS")]
-    assert kinds == ["command", "command", "common", "command", "unsupported"]
+    # C1:INSP? without a name: every INSPect spec is when-gated, so dispatch refuses with -224
+    # and the static classification says so too (issue 594) — it used to take the first match.
+    assert kinds == ["command", "command", "common", "unsupported", "unsupported"]
 
 
 # ---- FR-4: the text waveform readback ------------------------------------------------------------------

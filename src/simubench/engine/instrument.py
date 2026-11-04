@@ -10,7 +10,7 @@ import math
 import re
 import time
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -21,6 +21,15 @@ from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 from ..units import parse_number, parse_quantity
+from .commands import (
+    COMMON_BUILTINS,
+    COMMON_DIRECTIONS,
+    SYST_BUILTINS,
+    _header_key,
+    builtin_allowed,
+    named_builtin,
+    when_matches,
+)
 from .component import Component, OpResult, component_type, map_setting
 from .signal import Signal
 
@@ -34,25 +43,6 @@ log = logging.getLogger(__name__)
 _HANDLED = b"\x00handled"  # a built-in command that sends no reply
 #: Appended to -113 when a real model gets a command its definition does not have (D42).
 NOT_MODELED = "not implemented in this definition"
-#: Headers every instrument answers without a definition entry (coverage tables list them too).
-BUILTIN_HEADERS = (
-    "*IDN",
-    "*RST",
-    "*CLS",
-    "*OPC",
-    "*WAI",
-    "*TRG",
-    "*ESR",
-    "*ESE",
-    "*SRE",
-    "*STB",
-    "*TST",
-    ":SYSTem:ERRor[:NEXT]",
-    ":SYSTem:ERRor:COUNt",
-    ":SYSTem:ERRor:ALL",
-    ":SYSTem:DATE",
-    ":SYSTem:TIME",
-)
 
 
 def _is_channel_list(raw: bytes) -> bool:
@@ -66,14 +56,6 @@ def _enum_hit(raw: bytes, options: list[str] | None) -> bool:
     return any("".join(o.split()).upper() == text for o in options or [])
 
 
-def _header_key(header: str) -> str:
-    """A header as written in a definition, compared without case, spaces or the root colon."""
-    return "".join(header.split()).lstrip(":").upper()
-
-
-#: The built-in headers a ``builtins`` list can leave out: the common ones (*IDN…); the :SYSTem: ones
-#: are matched through their patterns (they are not common commands).
-COMMON_BUILTINS = frozenset(_header_key(h) for h in BUILTIN_HEADERS if h.startswith("*"))
 #: Parameter errors a definition's declaration explains (tui-design.md 1.1): out of range (-222),
 #: wrong type (-104), a value outside the declared options (-224). -224 with the "not modeled by
 #: SimuBench" marker is a declared modeling gap instead, not a bad parameter.
@@ -197,7 +179,7 @@ class Instrument:
         #: Operations waiting for an event that may never come (a scope armed for a trigger that does
         #: not occur): while any is waiting, *OPC? does not answer, as on hardware the reply never comes.
         self.blockers: set[str] = set()
-        self._status_samplers: list[Callable[[], None]] | None = None  # status registers' sample()
+        self._status_register_cache: list[Component] | None = None  # see _status_registers()
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
         self._opc_armed = False
@@ -311,6 +293,9 @@ class Instrument:
         self._coverage: list[_Covered] | None = None
         self._coverage_file: str | None = None
         self._coverage_tried = False
+        #: Every header spelling the instrument answers, built once for the -113's suggestion.
+        self._header_keys: dict[str, str] | None = None
+        self._header_key_list: list[str] | None = None
 
     # ---- construction helpers -------------------------------------------------------------------
 
@@ -530,19 +515,21 @@ class Instrument:
             self._opc_armed = False
             self.esr |= 1
 
+    def _status_registers(self) -> list[Component]:
+        """The instrument's status registers, in component order. The filter runs once; the
+        component set is fixed after the instrument is built."""
+        if self._status_register_cache is None:
+            self._status_register_cache = [
+                comp for comp in self.components.values() if comp.type_name == "status_register"
+            ]
+        return self._status_register_cache
+
     def sample_status(self) -> None:
         """Let every status register latch the condition transitions since its last look (#575):
         each command dispatch samples, so a condition that comes and goes between two reads of
         the event register is still latched (through PTR/NTR)."""
-        regs = self._status_samplers
-        if regs is None:
-            regs = self._status_samplers = [
-                comp.latch_conditions  # type: ignore[attr-defined]
-                for comp in self.components.values()
-                if comp.type_name == "status_register"
-            ]
-        for fn in regs:
-            fn()
+        for comp in self._status_registers():
+            comp.latch_conditions()  # type: ignore[attr-defined]
 
     def wait_until(self, done_ns: int) -> int:
         """Wait for virtual time ``done_ns``: on the command clock, the time the caller's message
@@ -704,15 +691,6 @@ class Instrument:
                 data[key] = value
         self.session.instrument_event(self, "error", data)
 
-    def _builtin_named(self, tokens: tuple[Token, ...]) -> str | None:
-        """The built-in :SYSTem: header the tokens name (the common * ones go through
-        :meth:`_common`), or None."""
-        for header in BUILTIN_HEADERS:
-            pattern = Pattern.compile(header)
-            if not pattern.common and pattern.match(tokens) is not None:
-                return header
-        return None
-
     def _error_reply(self, err: ScpiError) -> bytes:
         """An error queue entry as :SYSTem:ERRor? writes it, in the manual's form for a real model."""
         if err.code == 0 and 0 in self.definition.errors:
@@ -809,18 +787,21 @@ class Instrument:
         sent = _header_key(unit.raw_header)
         if not sent:
             return None
-        keys: dict[str, str] = {}
-        for entry in self._coverage_entries() or ():
-            try:
-                for form in _header_forms(entry.pattern):
-                    keys.setdefault(_header_key(form), entry.header)
-            except Exception:
-                continue
-        for compiled in self._commands:
-            for form in _header_forms(compiled.pattern):
-                keys.setdefault(_header_key(form), compiled.spec.header)
-        hit = difflib.get_close_matches(sent, list(keys), n=1, cutoff=0.6)
-        return keys[hit[0]] if hit else None
+        if self._header_keys is None:
+            keys: dict[str, str] = {}
+            for entry in self._coverage_entries() or ():
+                try:
+                    for form in _header_forms(entry.pattern):
+                        keys.setdefault(_header_key(form), entry.header)
+                except Exception:
+                    continue
+            for compiled in self._commands:
+                for form in _header_forms(compiled.pattern):
+                    keys.setdefault(_header_key(form), compiled.spec.header)
+            self._header_keys = keys
+            self._header_key_list = list(keys)
+        hit = difflib.get_close_matches(sent, self._header_key_list, n=1, cutoff=0.6)
+        return self._header_keys[hit[0]] if hit else None
 
     def push_error(self, code: int, detail: str = "") -> None:
         """Queue a device error from a component (e.g. an overload)."""
@@ -848,7 +829,7 @@ class Instrument:
     # ---- command execution --------------------------------------------------------------------------
 
     def _builtin_allowed(self, header: str) -> bool:
-        return self._builtins is None or _header_key(header) in self._builtins
+        return builtin_allowed(self.definition, header)
 
     def _execute(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         try:
@@ -912,6 +893,9 @@ class Instrument:
             word = unit.tokens[0].keyword
             if not self._builtin_allowed(f"*{word}"):
                 raise self._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
+            q_ok, s_ok = COMMON_DIRECTIONS.get(word, (True, True))
+            if (unit.query and not q_ok) or (not unit.query and not s_ok):
+                raise self._undefined(unit, tokens)
             if word == "OPC" and unit.query:
                 return self.opc_query()
             if word == "WAI":
@@ -926,7 +910,7 @@ class Instrument:
             caps = compiled.pattern.match(tokens)
             if caps is None:
                 continue
-            if compiled.spec.when and not self._when(compiled.spec, unit):
+            if compiled.spec.when and not when_matches(compiled.spec, unit):
                 refused = compiled.spec
                 continue
             channel = caps.get("ch")
@@ -943,7 +927,7 @@ class Instrument:
             return self._run(compiled, unit, channel, suffixes)
         if refused is not None:
             raise ScpiError(-224, f"{unit.raw_header}: parameter not implemented in this definition")
-        named = self._builtin_named(tokens)
+        named = named_builtin(tokens)
         if named is not None and not self._builtin_allowed(named):
             raise self._undefined(unit, tokens, builtin=True)  # the definition's builtins leave it out
         builtin = self._builtin(unit, tokens) if self._builtins is None or named is not None else None
@@ -952,16 +936,6 @@ class Instrument:
         if builtin is not None:
             return builtin, 0
         raise self._undefined(unit, tokens)
-
-    @staticmethod
-    def _when(spec: CommandSpec, unit: Unit) -> bool:
-        """Whether the unit's parameters have the values the command's ``when`` names."""
-        names = [p.name for p in spec.params]
-        for key, want in (spec.when or {}).items():
-            i = names.index(key)
-            if i >= len(unit.params) or V.parse_string(unit.params[i]).strip().upper() != str(want).upper():
-                return False
-        return True
 
     def _run(
         self, compiled: _Compiled, unit: Unit, channel: int | None, suffixes: dict[str, int]
@@ -1094,6 +1068,35 @@ class Instrument:
             raise self._bad_parameter(e, path, st) from e
         return None
 
+    def _check_all(self, writes: Iterable[tuple[str, Any]]) -> dict[str, Any]:
+        """Validate every staged write against its setting's declaration; raise, with the setting
+        named, before any of them is applied. Later entries for the same path overwrite earlier
+        ones, so a stage can put the command's constants first and let the arguments win."""
+        checked: dict[str, Any] = {}
+        for path, v in writes:
+            try:
+                checked[path] = self._validate(self.specs[path], v)
+            except ScpiError as e:
+                raise self._bad_parameter(e, path, self.specs[path]) from e
+        return checked
+
+    def _commit(self, checked: dict[str, Any]) -> None:
+        """Apply the checked writes all-or-nothing (#550): a write a component refuses — because
+        the settings together make no sense (#580) — takes back the ones before it. After the
+        writes, the watchers of every written path may check the combination and refuse too."""
+        done: list[tuple[str, Any]] = []
+        try:
+            for path, v in checked.items():
+                before = self.state[path]
+                self.set_state(path, v)
+                done.append((path, before))
+            for comp in {c.uid: c for path in checked for c in self._watchers.get(path, ())}.values():
+                comp.check_settings()
+        except ScpiError:
+            for path, before in reversed(done):
+                self.set_state(path, before)
+            raise
+
     def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked
         before any is set. The query answers the settings in the same order and form."""
@@ -1188,21 +1191,12 @@ class Instrument:
                     new[path] = self._parse_state(self.specs[path], value_raw, path)
         if raw:
             raise ScpiError(-108)
-        checked: dict[str, Any] = {}
         # The command's constants first: the function it selects applies to the parameters after it.
-        for ref, value in spec.writes.items():
-            path = self._resolve(at(ref), channel)
-            try:
-                checked[path] = self._validate(self.specs[path], value)
-            except ScpiError as e:
-                raise self._bad_parameter(e, path, self.specs[path]) from e
-        for path, v in new.items():
-            try:
-                checked[path] = self._validate(self.specs[path], v)
-            except ScpiError as e:
-                raise self._bad_parameter(e, path, self.specs[path]) from e
-        for path, v in checked.items():
-            self.set_state(path, v)
+        staged: list[tuple[str, Any]] = [
+            (self._resolve(at(ref), channel), value) for ref, value in spec.writes.items()
+        ]
+        staged += list(new.items())
+        self._commit(self._check_all(staged))
         return None
 
     def _format_path(self, ref: str, channel: int | None, spec: CommandSpec) -> str:
@@ -1273,14 +1267,13 @@ class Instrument:
                     else:
                         parts.append(self._format(st, self.state[path], spec.format).decode())
             return ",".join(parts).encode()
-        writes: dict[str, bytes] = {}
-        constants: dict[str, Any] = {}
+        staged: list[tuple[str, Any]] = []
         # The command's own constants first (#300: CONF:VOLT:AC 10,(@101) selects the function),
         # per channel when they name a channel setting; then each parameter's `sets` beside its
         # value (not for DEF or a special word, as on a command without a list).
         for n in channels:
             for ref, value in spec.writes.items():
-                constants[self._resolve(ref, n)] = value
+                staged.append((self._resolve(ref, n), value))
         for n in channels:
             for ps, r in values:
                 instead = self._keyword_writes(ps, r)
@@ -1288,29 +1281,16 @@ class Instrument:
                     # A keyword with its own settings, per channel (#354: a CONF range MIN/MAX/DEF
                     # on a per-channel measurement configuration).
                     for ref, constant in instead.items():
-                        constants[self._resolve(ref, n)] = constant
+                        staged.append((self._resolve(ref, n), constant))
                     continue
                 path = self._resolve(ps.state, n)  # type: ignore[arg-type]
-                writes[path] = r
+                staged.append((path, self._parse_state(self.specs[path], r, path)))
                 if ps.sets and not self._keyword_argument(self.specs[path], r):
                     for ref, value in ps.sets.items():
-                        constants[self._resolve(ref, n)] = value
+                        staged.append((self._resolve(ref, n), value))
         if whole is not None:
-            constants[whole[0]] = whole[1]
-        checked: dict[str, Any] = {}
-        for path, value in constants.items():
-            try:
-                checked[path] = self._validate(self.specs[path], value)
-            except ScpiError as e:
-                raise self._bad_parameter(e, path, self.specs[path]) from e
-        for path, r in writes.items():
-            st = self.specs[path]
-            try:
-                checked[path] = self._validate(st, self._parse_state(st, r, path))
-            except ScpiError as e:
-                raise self._bad_parameter(e, path, st) from e
-        for path, v in checked.items():
-            self.set_state(path, v)
+            staged.append((whole[0], whole[1]))
+        self._commit(self._check_all(staged))
         return None
 
     def _quantities_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
@@ -1328,27 +1308,7 @@ class Instrument:
             writes = self._parse_quantities(ps, unit.params, channel)
         except ScpiError as e:
             raise self._bad_parameter(e, ps.name, ps) from e
-        checked: dict[str, Any] = {}
-        for path, v in writes.items():
-            try:
-                checked[path] = self._validate(self.specs[path], v)
-            except ScpiError as e:
-                raise self._bad_parameter(e, path, self.specs[path]) from e
-        # all or nothing: a write a component refuses (a level beyond the new function's ranges)
-        # takes back the ones before it (#550)
-        done: list[tuple[str, Any]] = []
-        try:
-            for path, v in checked.items():
-                before = self.state[path]
-                self.set_state(path, v)
-                done.append((path, before))
-            # the settings together: a component watching them may refuse the combination (#580)
-            for comp in {c.uid: c for path in checked for c in self._watchers.get(path, ())}.values():
-                comp.check_settings()
-        except ScpiError:
-            for path, before in reversed(done):
-                self.set_state(path, before)
-            raise
+        self._commit(self._check_all(writes.items()))
         return None
 
     def _parse_quantities(self, ps: ParamSpec, raw: tuple[bytes, ...], channel: int | None) -> dict[str, Any]:
@@ -1595,7 +1555,13 @@ class Instrument:
             if ps.type == "channel_list" and ps.state is not None
             for n in self.state[ps.state]
         ]
-        bound = {}
+        staged: list[tuple[str, Any]] = []
+        if spec.writes:
+            # The command selects settings before its operation runs (#308); a channel setting is
+            # written for every channel of a list that names the channels (#365: MEAS:RES? (@101)).
+            for target in listed or [channel]:
+                for ref, value in spec.writes.items():
+                    staged.append((self._resolve(ref, target), value))
         for ps in spec.params:  # an operation's parameter bound to a setting writes it (#300)
             if ps.type != "channel_list" and ps.state is not None and args.get(ps.name) is not None:
                 for target in listed or [channel]:
@@ -1608,29 +1574,16 @@ class Instrument:
                         instead = self._keyword_writes(ps, value)
                         if instead is not None:
                             for ref, constant in instead.items():
-                                ref_path = self._resolve(ref, target)
-                                bound[ref_path] = self._validate(self.specs[ref_path], constant)
+                                staged.append((self._resolve(ref, target), constant))
                             continue
                         st = self.specs[path]
-                        bound[path] = self._validate(st, self._parse_state(st, value, path))
+                        staged.append((path, self._parse_state(st, value, path)))
                         continue
-                    bound[path] = self._validate(self.specs[path], value)
+                    staged.append((path, value))
                     for ref, constant in (ps.sets or {}).items():
-                        bound[self._resolve(ref, target)] = self._validate(
-                            self.specs[self._resolve(ref, target)], constant
-                        )
-        if spec.writes:
-            # The command selects settings before its operation runs (#308); a channel setting is
-            # written for every channel of a list that names the channels (#365: MEAS:RES? (@101)).
-            checked = {}
-            for target in listed or [channel]:
-                for ref, value in spec.writes.items():
-                    path = self._resolve(ref, target)
-                    checked[path] = self._validate(self.specs[path], value)
-            for path, value in checked.items():
-                self.set_state(path, value)
-        for path, value in bound.items():  # after the command's constants: the arguments win
-            self.set_state(path, value)
+                        staged.append((self._resolve(ref, target), constant))
+        # after the command's constants: the arguments win
+        self._commit(self._check_all(staged))
         list_spec = next((p for p in spec.params if p.type == "channel_list" and p.state is None), None)
         if list_spec is None:
             result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)
@@ -1786,15 +1739,13 @@ class Instrument:
     def status_event(self, name: str) -> None:
         """A momentary event (a trigger, a range change) for the instrument's status registers:
         every ``status_register`` with a bit of that name latches it (#248, #273)."""
-        for comp in self.components.values():
-            latch = getattr(comp, "event", None)
-            if comp.type_name == "status_register" and latch is not None:
-                latch(name)
+        for comp in self._status_registers():
+            comp.event(name)  # type: ignore[attr-defined]
 
     def stb(self) -> int:
         stb = 0
-        for comp in self.components.values():  # status registers' summary bits (#248, #273)
-            bit = comp.param("summary_bit") if comp.type_name == "status_register" else None
+        for comp in self._status_registers():  # status registers' summary bits (#248, #273)
+            bit = comp.param("summary_bit")
             if bit is not None and comp.summary():  # type: ignore[attr-defined]
                 stb |= 1 << int(bit)
         if len(self.errors):
@@ -1818,9 +1769,8 @@ class Instrument:
         if word == "CLS" and not q:
             self.errors.clear()
             self.esr = 0
-            for comp in self.components.values():
-                if comp.type_name == "status_register":
-                    comp.clear()  # type: ignore[attr-defined]
+            for comp in self._status_registers():
+                comp.clear()  # type: ignore[attr-defined]
             self._opc_armed = False
             return None
         if word == "OPC" and not q:
@@ -1870,28 +1820,23 @@ class Instrument:
             raise first_error
         return response, duration
 
-    _SYST_ERR = Pattern.compile(":SYSTem:ERRor[:NEXT]")
-    _SYST_ERR_COUNT = Pattern.compile(":SYSTem:ERRor:COUNt")
-    _SYST_ERR_ALL = Pattern.compile(":SYSTem:ERRor:ALL")
-    _SYST_DATE = Pattern.compile(":SYSTem:DATE")
-    _SYST_TIME = Pattern.compile(":SYSTem:TIME")
-
     def clock(self) -> dt.datetime:
         return self.session.calendar() + self.clock_offset
 
     def _builtin(self, unit: Unit, tokens: tuple[Token, ...]) -> bytes | None:
         """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
-        if unit.query and self._SYST_ERR.match(tokens) is not None:
+        err, count, all_, date, time_ = (p for _h, p, _q, _s in SYST_BUILTINS)
+        if unit.query and err.match(tokens) is not None:
             return self._error_reply(self.errors.pop())
-        if unit.query and self._SYST_ERR_COUNT.match(tokens) is not None:
+        if unit.query and count.match(tokens) is not None:
             return str(len(self.errors)).encode()
-        if unit.query and self._SYST_ERR_ALL.match(tokens) is not None:
+        if unit.query and all_.match(tokens) is not None:
             items = []
             while len(self.errors):
                 items.append(self._error_reply(self.errors.pop()))
             return b",".join(items or [self._error_reply(ScpiError(0))])
-        if self._SYST_DATE.match(tokens) is not None or self._SYST_TIME.match(tokens) is not None:
-            return self._clock_command(unit, date=self._SYST_DATE.match(tokens) is not None)
+        if date.match(tokens) is not None or time_.match(tokens) is not None:
+            return self._clock_command(unit, date=date.match(tokens) is not None)
         return None
 
     def _clock_command(self, unit: Unit, *, date: bool) -> bytes:
