@@ -12,7 +12,7 @@ import numpy as np
 
 from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
 from ...engine.noise import gaussian, stream_key
-from ...engine.signal import Signal, bessel4, brickwall, gaussian_lp, highpass1, lowpass1
+from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
@@ -45,7 +45,13 @@ class _ChannelBound(Component):
 
 
 #: Bandwidth filter shapes of the vertical channel (``response``, #607).
-RESPONSES = {"first_order": lowpass1, "brickwall": brickwall, "gaussian": gaussian_lp, "bessel4": bessel4}
+RESPONSES = {
+    "first_order": lowpass1,
+    "brickwall": brickwall,
+    "gaussian": gaussian_lp,
+    "bessel4": bessel4,
+    "butterworth4": butterworth4,
+}
 
 
 @component("scope_vertical")
@@ -55,8 +61,8 @@ class ScopeVertical(Component):
     Analog first-order filters (physics, D13): AC coupling is a ``ac_corner`` high-pass and the
     bandwidth a first-order low-pass at ``bandwidth`` (or ``bw_limit_hz`` when the limit is on).
     A scope whose bandwidth is a DSP filter declares its shape with ``response``: ``brickwall``
-    (flat magnitude, linear phase: ringing on a step), ``gaussian`` (no ringing) or ``bessel4``, -3 dB
-    at the same frequency and with the filter's delay removed (#607).
+    (flat magnitude, linear phase: ringing on a step), ``gaussian`` (no ringing), ``bessel4`` or
+    ``butterworth4``, -3 dB at the same frequency and with the filter's delay removed (#607, #609).
     The ``scale`` (V/div) and ``offset`` (V) are display values; with ``scale_range`` and
     ``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The
     ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``
@@ -81,7 +87,7 @@ class ScopeVertical(Component):
     """
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
-    choices = {"response": ("first_order", "brickwall", "gaussian", "bessel4")}
+    choices = {"response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4")}
     defaults = {
         "coupling": "DC",  # DC | AC | GND
         "bandwidth": 200e6,  # -3 dB point of the first-order low-pass
@@ -89,8 +95,8 @@ class ScopeVertical(Component):
         "bw_limit_hz": 20e6,  # the limit when bw_limit is on
         "ac_corner": 10.0,  # corner of the AC coupling high-pass
         # the shape of the bandwidth filter at min(bandwidth, limit): first_order (an analog front end),
-        # brickwall (flat magnitude, linear phase), gaussian (no ringing) or bessel4; the DSP shapes
-        # are zero phase, their delay removed as a scope deskews it (#607)
+        # brickwall (flat magnitude, linear phase), gaussian (no ringing), bessel4 or butterworth4; the
+        # DSP shapes are zero phase, their delay removed as a scope deskews it (#607, #609)
         "response": "first_order",
         "scale": "$ch.scale",  # V/div as displayed
         "offset": "$ch.offset",  # V as displayed

@@ -9,16 +9,22 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from simubench.engine.signal import Signal, bessel4, brickwall, gaussian_lp, lowpass1
+from simubench.engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, lowpass1
 from simubench.library.components.scope import ScopeVertical
 from simubench.scpi.errors import ScpiError
 
 FC = 1.0e9
-SHAPES = {"first_order": lowpass1, "brickwall": brickwall, "gaussian": gaussian_lp, "bessel4": bessel4}
+SHAPES = {
+    "first_order": lowpass1,
+    "brickwall": brickwall,
+    "gaussian": gaussian_lp,
+    "bessel4": bessel4,
+    "butterworth4": butterworth4,
+}
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("name", ["first_order", "gaussian", "bessel4"])
+@pytest.mark.parametrize("name", ["first_order", "gaussian", "bessel4", "butterworth4"])
 def test_each_shape_is_3_db_down_at_the_cutoff_and_unity_at_dc(name):
     h = SHAPES[name](FC)
     assert abs(h(np.array([FC]))[0]) == pytest.approx(1 / math.sqrt(2), rel=1e-9)
@@ -32,18 +38,29 @@ def test_the_brick_wall_passes_up_to_the_cutoff_and_nothing_above():
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("name", ["gaussian", "bessel4"])
+@pytest.mark.parametrize("name", ["gaussian", "bessel4", "butterworth4"])
 def test_the_smooth_shapes_fall_monotonically(name):
     mag = np.abs(SHAPES[name](FC)(np.linspace(0, 5 * FC, 501)))
-    assert np.all(np.diff(mag) < 0)
+    assert np.all(np.diff(mag) <= 1e-15)  # non-increasing (Butterworth is maximally flat near DC)
     assert mag[-1] < 0.02  # far steeper than first order above the cutoff
     assert abs(lowpass1(FC)(np.array([5 * FC]))[0]) > 0.19
 
 
 @pytest.mark.unit
-def test_the_bessel_delay_is_removed():
+def test_butterworth_rolls_off_between_the_brick_wall_and_the_bessel():
+    """The guide (:CHANnel<N>:ISIM:BWLimit:TYPE): a roll-off between the Brick Wall and the Bessel."""
+    f = np.array([1.5 * FC, 2 * FC, 3 * FC])
+    butter, bess = np.abs(butterworth4(FC)(f)), np.abs(bessel4(FC)(f))
+    assert np.all(butter < bess)
+    assert np.all(butter > np.abs(brickwall(FC)(f)))
+    assert butter[1] == pytest.approx(1 / math.sqrt(1 + 2**8), rel=1e-9)  # |H|^2 = 1 / (1 + x^8)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["bessel4", "butterworth4"])
+def test_the_filter_delay_is_removed(name):
     """Group delay ~0 at low frequency: the filter does not shift the record against other channels."""
-    h = bessel4(FC)
+    h = SHAPES[name](FC)
     f = np.array([1e6, 2e6])
     phase = np.unwrap(np.angle(h(f)))
     delay = -(phase[1] - phase[0]) / (2 * math.pi * (f[1] - f[0]))

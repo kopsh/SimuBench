@@ -464,15 +464,23 @@ sections:
   - header: :CHANnel<N>:ISIM:APPLy
     level: not_modeled
   - header: :CHANnel<N>:ISIM:BANDwidth
-    level: not_modeled
+    level: implemented
+    note: 1 kHz (the guide) to 64 GHz (half of 128 GSa/s; the guide's limit follows the sample rate in
+      use, the simulation keeps the fixed one); 10 GHz after power-on is a SimuBench value
   - header: :CHANnel<N>:ISIM:BPASs:CFRequency
     level: not_modeled
   - header: :CHANnel<N>:ISIM:BPASs:SPAN
     level: not_modeled
   - header: :CHANnel<N>:ISIM:BWLimit
-    level: not_modeled
+    level: implemented
+    note: 'ON: the channel''s own bandwidth limit, a filter after the front end at :CHANnel<N>:ISIM:BANDwidth
+      shaped by :CHANnel<N>:ISIM:BWLimit:TYPE (#609); OFF after power-on is a SimuBench value'
   - header: :CHANnel<N>:ISIM:BWLimit:TYPE
-    level: not_modeled
+    level: implemented
+    note: WALL (brick wall), BESSEL4 (4th-order Bessel) and BUTTerworth (4th-order Butterworth), -3 dB
+      at the bandwidth, delay removed. The guide's limit on the Bessel and Butterworth bandwidths (2/3
+      and 80 % of the brick wall's) with the brick wall taking over above them is not modeled; BANDpass,
+      BP5-BP30 and the raised cosine filters (P802P3DJ, OIFCEI6) are not modeled (-224)
   - header: :CHANnel<N>:ISIM:CONVolve
     level: not_modeled
   - header: :CHANnel<N>:ISIM:CORRection
