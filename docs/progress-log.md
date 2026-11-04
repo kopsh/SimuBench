@@ -1375,3 +1375,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 应答头 | ✅ `dialect.echo_header` 可绑定布尔设置，`dialect.long_form` 布尔开关（长命令头与长枚举）；`tests/test_declarative.py`；UXR0334B 的 `:SYSTem:HEADer`、`:SYSTem:LONGform` 按手册 :MODel? 表 13 |
 | UXR0334B | ✅ 覆盖表实现 87、接受 6、未实现 1055；手册用例 40 条全部通过；`schemas/` 与 `web/src/api/generated` 重新生成 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 示波器带宽滤波的形状，UXR0334B 的 :ACQuire:RESPonse（Issue 607）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `scope_vertical.response`：`first_order`（默认，现有型号不变）、`brickwall`（截止以上为 0）、`gaussian`、`bessel4`，都在前端带宽与带宽限制取小者处 −3 dB，数字形状零相位（Bessel 去掉低频群时延）；传递函数在 `engine/signal.py`；`tests/test_scope_vertical_response.py`（−3 dB 点、直流增益、砖墙截断、单调下降、Bessel 去时延、一阶不变、未知形状报错） |
+| 模板 | ✅ 示波器模板的“响应形状”输入可选四种，写入 `scope_vertical.response` |
+| UXR0334B | ✅ `:ACQuire:RESPonse {FLATmag | GAUSsianmag}` 映射到 `brickwall` / `gaussian`；覆盖表去掉 :ACQuire:BANDwidth 的一阶偏离；手册用例「带宽滤波的响应……」：100 MHz 带宽下 120 MHz 正弦，FLAT 为 0，GAUS 为 0.607 倍 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

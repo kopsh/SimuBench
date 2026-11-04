@@ -225,6 +225,14 @@ state:
     not_modeled: {AUTO: the automatic bandwidth selection is not modeled}
     label: 带宽
     label_en: Bandwidth
+  # 带宽滤波的幅度响应（:ACQuire:RESPonse）：FLATmag（默认，平坦幅度、线性相位，阶跃有振铃）或
+  # GAUSsianmag（高斯幅度，无振铃），-3 dB 点都在 :ACQuire:BANDwidth（#607）。
+  acquire.response:
+    type: enum
+    options: [FLATmag, GAUSsianmag]
+    default: FLATmag
+    label: 带宽滤波响应
+    label_en: Filter response
   waveform.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
@@ -496,7 +504,7 @@ channel_components:
     type: input_port
     params:
       z_in: 50.0
-  # 带宽 33 GHz；:ACQuire:BANDwidth 的滤波一阶近似（真机为砖墙/贝塞尔，覆盖表注明）。偏置范围按档位
+  # 带宽 33 GHz；:ACQuire:BANDwidth 的数字滤波：平坦幅度为砖墙、高斯幅度为高斯形，零相位（#607）。偏置范围按档位
   # （数据手册）；超出范围报 -222。
   - name: front
     type: scope_vertical
@@ -505,6 +513,7 @@ channel_components:
       bandwidth: 3.3e10
       bw_limit: true
       bw_limit_hz: $acquire.bandwidth
+      response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
       scale: $ch.scale
       offset: $ch.offset
       probe_ratio: 1.0
@@ -599,6 +608,7 @@ commands:
     args: {what: sample_rate}
     params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
+  - {header: ":ACQuire:RESPonse", state: acquire.response}
   # ---- CHANnel<N> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}

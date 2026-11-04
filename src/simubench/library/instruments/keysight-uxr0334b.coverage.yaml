@@ -152,9 +152,8 @@ sections:
       is a SimuBench value
   - header: :ACQuire:BANDwidth
     level: implemented
-    note: MAX or 100 MHz to 33 GHz; the filter is a first-order low-pass at that frequency (the UXR's
-      brick-wall, Bessel and Butterworth shapes are not modeled). AUTO is not modeled; the lower limit
-      is a SimuBench value
+    note: 'MAX or 100 MHz to 33 GHz: the -3 dB frequency of the acquisition''s DSP filter, shaped by :ACQuire:RESPonse
+      (#607). AUTO is not modeled; the lower limit is a SimuBench value'
   - header: :ACQuire:BANDwidth:FRAMe
     level: not_modeled
   - header: :ACQuire:BANDwidth:TESTLIMITS
@@ -194,7 +193,11 @@ sections:
   - header: :ACQuire:REDGe
     level: not_modeled
   - header: :ACQuire:RESPonse
-    level: not_modeled
+    level: implemented
+    note: 'FLATmag (default, the guide): flat magnitude, linear phase, a brick wall at :ACQuire:BANDwidth
+      with its delay removed, so a step rings; GAUSsianmag: a Gaussian magnitude -3 dB at the same frequency,
+      no ringing. The guide''s narrower Gaussian bandwidth is not given in figures: the simulation keeps
+      the -3 dB point (#607)'
   - header: :ACQuire:SEGMented:AUToplay
     level: not_modeled
   - header: :ACQuire:SEGMented:COUNt
