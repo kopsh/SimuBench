@@ -2,8 +2,8 @@ schema: simubench.instrument/1
 id: keysight-daq970a
 manufacturer: Keysight Technologies
 model: DAQ970A
+extends: keysight-34970a
 class: daq
-version: 1
 description: >-
   Keysight DAQ970A 数据采集系统（固定配置：主机 + 槽 1 的 DAQM901A 20 通道电枢继电器多路复用卡；
   SCPI 通道号 101–120 电压/电阻、121/122 电流，槽 2/3 号域 201–220、301–320 存在但无模块）。
@@ -20,85 +20,12 @@ identity:
   idn: "Keysight Technologies,DAQ970A,{serial},{firmware}"
   serial: "MY12345678"
   firmware: "A.02.04-00.16-11.29-00.02-02-01"
-format:
-  number: nr3
-  digits: 8
-  sign: true
-  exponent_digits: 2
-  boolean: numeric
-  enum: short
-  error_code: signed
-# 手册有、但本定义不回答的内置命令：SYSTem:DATE/TIME（实时时钟，引擎内置回复格式与手册不同）。
-# 其余公共命令由引擎内置，见覆盖表。
-builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TRG", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
-error_queue: 10
 errors:
-  0: "No error"
-  -100: "Command error"
-  -101: "Invalid character"
-  -102: "Syntax error"
-  -103: "Invalid separator"
-  -104: "Data type error"
-  -105: "GET not allowed"
-  -108: "Parameter not allowed"
-  -109: "Missing parameter"
-  -110: "Command header error"
-  -111: "Header separator error"
-  -112: "Program mnemonic too long"
-  -113: "Undefined header"
-  -114: "Header suffix out of range"
-  -120: "Numeric data error"
-  -121: "Invalid character in number"
-  -123: "Numeric overflow"
-  -124: "Too many digits"
-  -128: "Numeric data not allowed"
-  -130: "Suffix error"
-  -131: "Invalid suffix"
-  -134: "Suffix too long"
-  -138: "Suffix not allowed"
-  -140: "Character data error"
-  -141: "Invalid character data"
-  -144: "Character data too long"
-  -148: "Character data not allowed"
-  -150: "String data error"
-  -151: "Invalid string data"
-  -158: "String data not allowed"
-  -160: "Block data error"
-  -161: "Invalid block data"
-  -168: "Block data not allowed"
-  -170: "Expression error"
-  -171: "Invalid expression"
-  -178: "Expression data not allowed"
-  -200: "Execution error"
-  -211: "Trigger ignored"
-  -213: "INIT ignored"
-  -214: "Trigger deadlock"
-  -220: "Parameter error"
-  -221: "Settings conflict"
-  -222: "Data out of range"
-  -223: "Too much data"
-  -224: "Illegal parameter value"
-  -225: "Out of memory"
   -230: "Data corrupt or stale"
-  -231: "Data questionable"
-  -240: "Hardware error"
-  -241: "Hardware missing"
-  -260: "Expression error"
-  -261: "Math error in expression"
-  -300: "Device-specific error"
-  -310: "System error"
-  -350: "Error queue overflow"
-  -400: "Query error"
-  -410: "Query INTERRUPTED"
-  -420: "Query UNTERMINATED"
-  -430: "Query DEADLOCKED"
-  -440: "Query UNTERMINATED after indefinite response"
 specs:
   source: Programming Guide 第 1 章 Factory Reset State、第 2 章 CONFigure/SENSe/TRIGger/DATA、第 4 章 DAQM901A
   slots: 3（固定配置：槽 1 装 DAQM901A，槽 2/3 空）
   channels: "DAQM901A 20 个双线电压/电阻通道（101–120）+ 2 个电流通道（121/122）"
-  dcv_ranges_v: [0.1, 1, 10, 100, 300]
-  acv_ranges_v: [0.1, 1, 10, 100, 300]
   res_ranges_ohm: [100, 1.0e3, 1.0e4, 1.0e5, 1.0e6, 1.0e7, 1.0e8, 1.0e9]
   dci_ranges_a: [1.0e-6, 1.0e-5, 1.0e-4, 1.0e-3, 0.01, 0.1, 1]
   aci_ranges_a: [1.0e-4, 1.0e-3, 0.01, 0.1, 1]
@@ -107,42 +34,9 @@ specs:
   reading_memory: "100,000 readings；溢出后覆盖最旧的"
   trigger_count: "1–1,000,000（或连续 INFinity；连续未建模）"
   scan_interval_s: "0–360,000；默认 10 s（Factory Reset State 表），CONFigure/MEASure 设为 1 s"
-  channel_delay_s: "0–60（每通道；未建模）"
-  relay_r_ohm: 0.5
-  relay_settle_s: 0.003
 channels:
-  count: 62
-  # ROUT:SCAN (@) 清空扫描表（ROUTe:SCAN，#418）。
   lists: {empty: true}
-  numbering:
-    - {first: 101, count: 22}
-    - {first: 201, count: 20}
-    - {first: 301, count: 20}
 channel_state:
-  closed:
-    type: bool
-    default: false
-    label: 通道闭合
-    label_en: Channel closed
-  # 每通道的测量配置（#365，用户指南：CONFigure 与 SENSe 按通道保存）：扫描到某通道时，扫描表把
-  # 这些值装进内部 DMM 的设定（下面的 sense.*），一个扫描表可混合电压、电阻与电流通道。
-  function:
-    type: enum
-    options: [VOLT, "VOLT:AC", RES, FRES, CURR, "CURR:AC"]
-    default: VOLT
-    rst: VOLT
-    label: 测量功能
-    label_en: Function
-  range:
-    type: float
-    unit: V
-    min: 0.0
-    max: 300.0
-    default: 0.0
-    rst: 0.0
-    special: {AUTO: 0.0}
-    label: 电压量程设定
-    label_en: Voltage range setting
   res_range:
     type: float
     unit: OHM
@@ -153,22 +47,6 @@ channel_state:
     special: {AUTO: 0.0}
     label: 电阻量程设定
     label_en: Resistance range setting
-  curr_range:
-    type: float
-    unit: A
-    min: 0.0
-    max: 1.0
-    default: 0.0
-    rst: 0.0
-    special: {AUTO: 0.0}
-    label: 电流量程设定
-    label_en: Current range setting
-  range_auto:
-    type: bool
-    default: true
-    rst: true
-    label: 自动量程
-    label_en: Autorange
   resolution:
     type: float
     min: 0.0
@@ -189,31 +67,7 @@ channel_state:
     rst: 1.0
     label: 积分时间（PLC）
     label_en: Integration time (PLC)
-  imp_auto:
-    type: bool
-    default: false
-    rst: false
-    label: 输入阻抗自动（10 MΩ ↔ >10 GΩ）
-    label_en: Input impedance AUTO
 state:
-  # 内部 DMM 当前的设定：扫描到一个通道时由该通道的配置装入（#365）；组件绑定这些设定。
-  sense.function:
-    type: enum
-    options: [VOLT, "VOLT:AC", RES, FRES, CURR, "CURR:AC"]
-    default: VOLT
-    rst: VOLT
-    label: 测量功能
-    label_en: Function
-  sense.range:
-    type: float
-    unit: V
-    min: 0.0
-    max: 300.0
-    default: 0.0
-    rst: 0.0
-    special: {AUTO: 0.0}
-    label: 量程设定
-    label_en: Range setting
   sense.res.range:
     type: float
     unit: OHM
@@ -223,15 +77,6 @@ state:
     rst: 0.0
     label: 电阻量程设定
     label_en: Resistance range setting
-  sense.curr.range:
-    type: float
-    unit: A
-    min: 0.0
-    max: 1.0
-    default: 0.0
-    rst: 0.0
-    label: 电流量程设定
-    label_en: Current range setting
   sense.resolution:
     type: float
     unit: V
@@ -241,12 +86,6 @@ state:
     rst: 0.0
     label: 分辨率设定
     label_en: Resolution setting
-  sense.range_auto:
-    type: bool
-    default: true
-    rst: true
-    label: 自动量程
-    label_en: Autorange
   sense.nplc:
     type: float
     min: 0.001
@@ -255,21 +94,6 @@ state:
     rst: 1.0
     label: 积分时间（PLC）
     label_en: Integration time (PLC)
-  sense.imp_auto:
-    type: bool
-    default: false
-    rst: false
-    label: 输入阻抗自动（10 MΩ ↔ >10 GΩ）
-    label_en: Input impedance AUTO
-  scan.list:
-    type: int_list
-    min: 1
-    max: 320
-    default: []
-    rst: []
-    label: 扫描表
-    label_en: Scan list
-  # 查询按实数回（手册 TRIG:COUN? 的示例 +1.00000000E+00）。
   scan.count:
     type: float
     min: 1
@@ -289,30 +113,6 @@ state:
     rst: 10.0
     label: 扫描间隔
     label_en: Scan interval
-  trigger.source:
-    type: enum
-    options: [IMMediate, BUS, EXTernal, TIMer]
-    default: IMMediate
-    rst: IMMediate
-    label: 触发源
-    label_en: Trigger source
-  display.state:
-    type: bool
-    default: true
-    rst: true
-    label: 显示
-    label_en: Display
-  display.text:
-    type: string
-    default: ""
-    rst: ""
-    label: 显示文本
-    label_en: Display text
-  system.version:
-    type: string
-    default: "1994.0"
-    label: SCPI 版本
-    label_en: SCPI version
   route.done:
     type: int
     min: 1
@@ -417,65 +217,6 @@ components:
       buffer: mem
       fetch_from_buffer: true
       waiting_error: -230
-wiring:
-  instrument:
-    - [mux.out, inp.pin]
-    - [mux.sense, inp.sense]
-    - [inp.out, path.in]
-ports:
-  instrument:
-    H101: mux.ch101H
-    L101: mux.ch101L
-    H102: mux.ch102H
-    L102: mux.ch102L
-    H103: mux.ch103H
-    L103: mux.ch103L
-    H104: mux.ch104H
-    L104: mux.ch104L
-    H105: mux.ch105H
-    L105: mux.ch105L
-    H106: mux.ch106H
-    L106: mux.ch106L
-    H107: mux.ch107H
-    L107: mux.ch107L
-    H108: mux.ch108H
-    L108: mux.ch108L
-    H109: mux.ch109H
-    L109: mux.ch109L
-    H110: mux.ch110H
-    L110: mux.ch110L
-    H111: mux.ch111H
-    L111: mux.ch111L
-    H112: mux.ch112H
-    L112: mux.ch112L
-    H113: mux.ch113H
-    L113: mux.ch113L
-    H114: mux.ch114H
-    L114: mux.ch114L
-    H115: mux.ch115H
-    L115: mux.ch115L
-    H116: mux.ch116H
-    L116: mux.ch116L
-    H117: mux.ch117H
-    L117: mux.ch117L
-    H118: mux.ch118H
-    L118: mux.ch118L
-    H119: mux.ch119H
-    L119: mux.ch119L
-    H120: mux.ch120H
-    L120: mux.ch120L
-    # DAQM901A 的电流通道 21/22：I 端子经保险与分流电阻接到内部 DMM 的电流输入。
-    I121: mux.ch121H
-    L121: mux.ch121L
-    I122: mux.ch122H
-    L122: mux.ch122L
-display:
-  template: daq
-  summary: [scan.list, scan.count, trigger.source]
-  actions:
-    run: ":INITiate"
-    stop: ":ABORt"
-capabilities: [daq]
 commands:
   # ---- 通道与继电器（ROUTe 子系统）-----------------------------------------------
   - header: "ROUTe:CLOSe"

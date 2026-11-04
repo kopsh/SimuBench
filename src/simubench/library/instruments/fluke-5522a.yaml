@@ -31,7 +31,6 @@ builtins:
   # 5522A 的命令，错误队列用 ERR?/FAULT?、日期时间用 CLOCK，回复 -113）。
   ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
 errors:
-  0: No Error
   506: Function not available
   518: Value outside locked range
   519: Must specify an output unit

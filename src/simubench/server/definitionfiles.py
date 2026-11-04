@@ -15,7 +15,7 @@ import yaml
 from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
-from ..library.loader import load_yaml
+from ..library.loader import layered_definition_data, load_yaml
 from ..models import api as M
 from .benchfiles import BenchFiles, Conflict, _sha, diagnostics
 from .definitionchanges import definition_changes
@@ -44,6 +44,12 @@ class DefinitionFiles:
         return self._document(def_id, rel, editable, raw, _parse(raw))
 
     def validate(self, data: dict[str, Any]) -> Report:
+        try:  # D59: a draft that extends a model is checked against what it will run
+            data = layered_definition_data(data, self.files.workspace / FOLDER / "draft.yaml")
+        except ValueError as exc:
+            report = Report()
+            report.add("error", "E-DEF-EXTENDS", "/extends", str(exc), None)
+            return report
         _, report = validate_definition_data(data)
         return report
 
