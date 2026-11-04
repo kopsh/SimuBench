@@ -12,7 +12,7 @@ from simubench.cli import main
 from simubench.engine.component import _REGISTRY, Component, PortSpec, component
 from simubench.engine.validate import validate_data
 from simubench.engine.validate_definition import validate_definition_data
-from simubench.library.loader import DefinitionLibrary, load_yaml
+from simubench.library.loader import DefinitionLibrary, layered_definition_data, load_yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 AWG = load_yaml((ROOT / "validation" / "instruments" / "sb-awg-2.yaml").read_text(encoding="utf-8"))
@@ -40,7 +40,10 @@ def command(data: dict, header: str) -> dict:
 
 @pytest.mark.parametrize("path", DEFINITIONS, ids=lambda p: p.stem)
 def test_every_definition_in_the_repository_is_clean(path):
-    _, report = validate_definition_data(load_yaml(path.read_text(encoding="utf-8")))
+    # a definition is checked as what it runs: with its extends chain and class default (D59)
+    _, report = validate_definition_data(
+        layered_definition_data(load_yaml(path.read_text(encoding="utf-8")), path)
+    )
     assert [d.as_dict() for d in report.diagnostics] == []
 
 
@@ -234,17 +237,22 @@ def test_termination_is_seen_through_a_declared_series_accessory(custom_componen
 
 def test_an_omitted_channel_list_read_from_a_setting():
     """#423: a channel list's default may name an int_list setting (the DAQ's scan list)."""
-    daq = load_yaml((ROOT / "src/simubench/library/instruments/keysight-daq970a.yaml").read_text("utf-8"))
+    path = ROOT / "src/simubench/library/instruments/keysight-daq970a.yaml"
+    daq = load_yaml(path.read_text("utf-8"))
     nplc = command(daq, "[:SENSe]:VOLTage[:DC]:NPLCycles")
     i = next(k for k, p in enumerate(daq["commands"]) if p is nplc)
     assert nplc["params"][1]["default"] == "$scan.list"
-    assert codes(daq) == []
+    assert codes(layered_definition_data(daq, path)) == []  # the file inherits from keysight-34970a (D59)
     not_a_list = copy.deepcopy(daq)
     command(not_a_list, "[:SENSe]:VOLTage[:DC]:NPLCycles")["params"][1]["default"] = "$scan.count"
-    assert codes(not_a_list) == [("E-DEF-PARAM", f"/commands/{i}/params/1/default")]
+    assert codes(layered_definition_data(not_a_list, path)) == [
+        ("E-DEF-PARAM", f"/commands/{i}/params/1/default")
+    ]
     unknown = copy.deepcopy(daq)
     command(unknown, "[:SENSe]:VOLTage[:DC]:NPLCycles")["params"][1]["default"] = "$scan.lst"
-    assert codes(unknown) == [("E-DEF-STATE-UNKNOWN", f"/commands/{i}/params/1/default")]
+    assert codes(layered_definition_data(unknown, path)) == [
+        ("E-DEF-STATE-UNKNOWN", f"/commands/{i}/params/1/default")
+    ]
 
 
 def test_a_nested_mapping_is_checked_against_the_inner_settings_words():

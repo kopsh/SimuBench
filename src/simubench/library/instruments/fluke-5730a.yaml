@@ -33,9 +33,7 @@ builtins:
   ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
 # 附录 A Fault Codes（本模型会产生的条目）。
 errors:
-  0: No Error
   210: Output Tripped To Standby
-  # 815 Outside Entry Limits（附录 A）对应 OUT 越限；引擎的参数范围检查统一报 -222，未区分到 815（#556）。
   815: Outside Entry Limits
   803: Over Limits Of Locked Range
   804: Under Limits Of Locked Range

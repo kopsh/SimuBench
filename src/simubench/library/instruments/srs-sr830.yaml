@@ -33,18 +33,6 @@ format:
   boolean: numeric
   enum: short
   error_code: plain
-errors:
-  0: No error
-  -104: Data type error
-  -108: Parameter not allowed
-  -109: Missing parameter
-  -113: Undefined header
-  -211: Trigger ignored
-  -213: Init ignored
-  -221: Settings conflict
-  -222: Data out of range
-  -224: Illegal parameter value
-  -230: Data corrupt or stale
 builtins: ["*IDN", "*RST", "*CLS"]
 specs:
   source: Manual chapter 5 (Computer Interface) and chapter 4 (default settings)
