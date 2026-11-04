@@ -13,8 +13,11 @@ amplitude follows a first-order transition that is done after ``settle`` seconds
 ``settle`` / 5), and the moment it is done is registered as a pending operation, so ``*OPC?`` and
 ``*WAI`` wait for it. A model without settling gives ``settle: 0``.
 
-While the output is above ``standby_above`` (new setting or old), any change of the output
-settings returns the instrument to standby; outputting the value needs an explicit ``OPER``.
+Whether a change of the output settings returns the instrument to standby is the model's
+``standby_rule``: ``either`` (the default) trips when the old or the new magnitude is above
+``standby_above``; ``crossing`` (the 5730A and 5522A manuals' wording, #553) trips only when the
+new magnitude is at or above it while the old one was below. With ``standby_on_function`` a change
+of the output function trips too. Outputting the value again needs an explicit ``OPER``.
 """
 
 from __future__ import annotations
