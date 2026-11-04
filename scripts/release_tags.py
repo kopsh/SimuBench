@@ -22,9 +22,7 @@ TZ = timezone(timedelta(hours=8))
 
 
 def _git(*args: str) -> str:
-    return subprocess.run(
-        ["git", *args], capture_output=True, text=True, encoding="utf-8", check=True
-    ).stdout
+    return subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8", check=True).stdout
 
 
 def date_tags(commits: list[tuple[str, int]]) -> dict[str, str]:
@@ -57,7 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     commits = [
         (sha, int(epoch))
         for sha, epoch in (
-            line.split() for line in _git("log", "--first-parent", "--reverse", "--format=%H %ct").splitlines()
+            line.split()
+            for line in _git("log", "--first-parent", "--reverse", "--format=%H %ct").splitlines()
         )
     ]
     tagged = set(_git("tag", "--list", "v[0-9]*", "--format=%(objectname)").split())

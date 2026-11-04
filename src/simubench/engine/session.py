@@ -26,6 +26,7 @@ from .component import Component, component_type
 from .deviation import draw_overrides, set_override
 from .faults import FaultManager, LinkDown
 from .instrument import Instrument
+from .portref import split
 from .record import Recorder
 from .signal import Signal
 
@@ -189,7 +190,7 @@ class Session:
         return out
 
     def _check_ref(self, ref: str) -> None:
-        owner, _, port = ref.rpartition(".")
+        owner, port = split(ref)
         if owner in self.instruments:
             if port not in self.instruments[owner].ports:
                 raise ValueError(f"wire end {ref!r}: instrument {owner!r} has no port {port!r}")

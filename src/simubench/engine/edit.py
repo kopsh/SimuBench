@@ -15,6 +15,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..models.bench import Accessory, BenchDefinition, ComponentInstance, InstrumentInstance, LayoutItem, Wire
 from ..models.deviation import DeviationRange
+from .portref import closest, parse, split
 
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,47}$")
 
@@ -206,10 +207,10 @@ def _check_new_name(b: BenchDefinition, name: str) -> None:
 
 
 def _owner(ref: str) -> str:
-    owner, _, port = ref.rpartition(".")
-    if not owner or not port:
+    r = parse(ref)
+    if r is None:
         raise EditError(f"端口引用 {ref!r} 应写作 <名称>.<端口>")
-    return owner
+    return r.owner
 
 
 def _free_position(b: BenchDefinition) -> LayoutItem:
@@ -260,8 +261,8 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
             b.layout[op.new_name] = b.layout.pop(op.name)
 
         def ren(ref: str) -> str:
-            owner, _, port = ref.rpartition(".")
-            return f"{op.new_name}.{port}" if owner == op.name else ref
+            r = split(ref)
+            return f"{op.new_name}.{r.port}" if r.owner == op.name else ref
 
         for w in b.wires:
             w.from_ = ren(w.from_)
@@ -269,7 +270,12 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
     elif isinstance(op, Connect):
         for ref in (op.from_, op.to):
             if _owner(ref) not in _names(b):
-                raise EditError(f"端口引用 {ref!r}：没有名为 {_owner(ref)!r} 的仪表或元件")
+                r = split(ref)
+                hint = closest(r.owner, sorted(_names(b)))
+                raise EditError(
+                    f"端口引用 {ref!r}：没有名为 {r.owner!r} 的仪表或元件"
+                    + (f"，改为 {hint}.{r.port}" if hint else "")
+                )
         if op.from_ == op.to:
             raise EditError("连线的两端不能是同一个端口")
         if any({w.from_, w.to} == {op.from_, op.to} for w in b.wires):

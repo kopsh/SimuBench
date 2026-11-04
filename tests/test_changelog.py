@@ -29,7 +29,7 @@ def _history():
     commits = [
         m.Commit("a", DAY, "型号 A", ["src/simubench/library/instruments/a.yaml"]),
         m.Commit("b", DAY + 60, "CI:合并机器人", [".github/workflows/ci.yml"]),
-        m.Commit("c", DAY + 120, "界面:新按钮", ["web/src/App.tsx", "tests/test_x.py"]),
+        m.Commit("c", DAY + 120, "界面:新按钮(Closes #7) (#8)", ["web/src/App.tsx", "tests/test_x.py"]),
         m.Commit("d", DAY + 86_400, "测试:补用例", ["tests/models/a/cases.yaml"]),
         m.Commit("e", DAY + 86_460, "依赖:numpy 升级", ["pyproject.toml"]),
     ]
@@ -73,3 +73,23 @@ def test_cli_without_a_packaged_changelog_says_where_it_comes_from(tmp_path, mon
     monkeypatch.setattr(cli, "__file__", str(tmp_path / "cli.py"))
     assert cli.main(["changelog"]) == 1
     assert "build-wheel.sh" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("subject", "line"),
+    [
+        ("核心:量程锁定按功能限定(Closes #589) (#591)", "量程锁定按功能限定"),
+        ("5522A：量程锁定核实出处(Closes #583) (#590)", "5522A：量程锁定核实出处"),
+        ("真实型号：Fluke 8588A（Closes #340）（#524）", "真实型号：Fluke 8588A"),
+        ("bool 设置按键映射(运行时)(Refs #429) (#434)", "bool 设置按键映射(运行时)"),
+        ("Real model: SDS2104X Plus (#11, D45)", "Real model: SDS2104X Plus"),
+        ("索引参数可写号(SR865A 前置,Refs #333) (#12)", "索引参数可写号(SR865A 前置)"),
+        ("核心能力：电源输出级 (#7)", "电源输出级"),
+    ],
+)
+def test_entry_drops_issue_references_and_the_work_label(subject, line):
+    assert _script().entry(subject) == line
+
+
+def test_entry_keeps_a_note_that_only_mentions_an_issue():
+    assert _script().entry("能力缺口登记 #539/#540") == "能力缺口登记 #539/#540"
