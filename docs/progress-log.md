@@ -1225,3 +1225,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 组件 | ✅ `calibrator_control` 新端口 `sense` 与参数 `remote_sense`、`sense_ranges`、`sense_error`：外部 sense 时以反馈源在 SENSE 处调节（SENSE 未接时回退输出端），负载电流取反馈源的支路电流（过载判断不变）；打开外部 sense、或在外部 sense 下改到不允许的量程时按 `sense_error` 拒绝 |
 | 5730A | ✅ 端口 `SENSE`；`EXTSENSE` 实现（直流 2.2 V–1100 V、交流 2.2/22/220/1100 V 量程，其他报 835）；手册用例「EXTSENSE」；`tests/test_fluke_5730a.py::test_external_sense_regulates_at_the_uut`（1 Ω 引线 + 200 Ω：内部 sense 下 UUT 得 5×200/201 V，外部 sense 下 5 V） |
 | 检查 | ✅ `scripts/check.sh` 全绿；不接 SENSE、不开外部 sense 的定义不变 |
+
+## 校准器回待机规则写入文档、组件级用例与 5522A 手册核对（Issue 558）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 文档 | ✅ metrology-authoring.md 5.1（参数表与回待机规则条目）、5.4（实现差别）与 component-map.md 写明 `standby_rule`（`either` 默认 / `crossing`；either 严格大于阈值、crossing 含恰好等于）与 `standby_on_function`（默认 `false`）；组件模块 docstring 同步 |
+| 组件级用例 | ✅ `tests/test_calibrator.py`：crossing 的 25→30 V 保持工作、10→25 V 回待机、恰好等于阈值回待机、负幅值按绝对值判断；`standby_on_function` 改功能回待机、待机下改功能与同功能改频率不触发；either 回归（恰好等于阈值不触发、新值或旧值超阈回待机） |
+| 5522A 手册核对 | ✅ Operators Manual（PN 3795084）第 3、4 章 Operate and Standby Modes：「A voltage ≥ 33 V is selected when the previous output voltage was less than 33 V」「Output function is changed … except … <33 V」——电压规则是 crossing，#553 条目里「5522A 手册：新值或旧值 ≥33 V」系误读；5522A 定义改 `standby_rule: crossing` + `standby_on_function: true`，模型用例与手册用例按手册改写（40→20 V 不再回待机、恰好 33 V 回待机）；「交流↔直流 <33 V 不回待机」的例外未建模，登记 #566 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

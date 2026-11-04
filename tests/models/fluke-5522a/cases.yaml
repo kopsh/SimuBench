@@ -1,6 +1,6 @@
 # Fluke 5522A 的手册用例：Fluke 5522A Multi-Product Calibrator Operators Manual
 #（PN 3795084, January 2011），第 6 章远程命令的命令条目与示例、第 1 章的 *RST 表与
-# 规格（建立时间 <5 s）、第 3 章的 ≥33 V 自动回待机。回复格式：数字 nr3 6 位尾数无 + 号，
+# 规格（建立时间 <5 s）、第 3、4 章的 ≥33 V 跨越自动回待机（#558）。回复格式：数字 nr3 6 位尾数无 + 号，
 # 错误码无 + 号（ERR? 回 0,"No Error"）。测试台的万用表与校准源隐藏误差均为零，
 # 读数期望即设定值；MODEL 说明里记录的与手册的偏差按现状期望。
 model: fluke-5522a
@@ -155,7 +155,7 @@ cases:
         expect: '506,"Function not available"'
 
   - name: "≥33 V 的新设定使输出回待机，需要再次 OPER"
-    manual: "第 3 章 The STBY (Standby) Key（voltage ≥ 33 V is selected … 自动回待机）；第 4 章 Operating→Standby"
+    manual: "第 3 章 The STBY (Standby) Key、第 4 章 Operating→Standby（A voltage ≥ 33 V is selected when the previous output voltage was less than 33 V）"
     steps:
       - send: "OUT 10 V"
       - send: "OPER;*WAI"
@@ -173,22 +173,32 @@ cases:
         instrument: dmm
         expect: "+4.0000000E+01"
 
-  - name: "输出已在 ≥33 V 时改输出同样回待机"
-    manual: "第 4 章 If the calibrator is operating …（output voltage is ≥33 V 时改输出回待机）"
+  - name: "≥33 V 时改变输出功能回待机"
+    manual: "第 4 章 Operating→Standby（Output function is changed between ac or dc voltage when the output voltage is ≥33 V）"
     steps:
       - send: "OUT 40 V"
       - send: "OPER;*WAI"
-      - send: "OUT 50 V"
+      - send: "OUT 40 V, 1 kHz"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
         expect: "+0.0000000E+00"
       - send: "OPER;*WAI"
+      - query: "MEAS:VOLT:AC?"
+        instrument: dmm
+        expect: "+4.0000000E+01"
+
+  - name: "从 ≥33 V 往下改输出不回待机（没有跨越）"
+    manual: "第 4 章 Operating→Standby（仅 previous output voltage was less than 33 V 时回待机）"
+    steps:
+      - send: "OUT 40 V"
+      - send: "OPER;*WAI"
+      - send: "OUT 20 V;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+5.0000000E+01"
+        expect: "+2.0000000E+01"
 
   - name: "33 V 以下的输出变化不回待机"
-    manual: "第 4 章（except when going between ac or dc voltage <33 V）"
+    manual: "第 4 章 Operating→Standby（10 V → 5 V 不在回待机事件之内）"
     steps:
       - send: "OUT 10 V"
       - send: "OPER;*WAI"
