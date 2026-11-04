@@ -26,11 +26,13 @@ const masks = (page: Page) => [page.getByTitle("虚拟时间", { exact: true }),
 
 // The bare `fonts.ready` can resolve before the lazily queued faces have even started loading, so
 // the capture races the webfonts and text wraps differently between runs (issue 613, the Live
-// canvas / Counter story). Forcing every declared face to load pins the metrics before the shot.
+// canvas / Counter story). Forcing every declared face to load pins the metrics before the shot;
+// the two trailing frames let the Canvas's font-driven refit land first (#645).
 const loadFonts = (page: Page) =>
   page.evaluate(async () => {
     await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
     await document.fonts.ready;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   });
 
 for (const [width, height] of [
