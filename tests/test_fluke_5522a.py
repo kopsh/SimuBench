@@ -75,11 +75,8 @@ def test_acv_is_a_line_at_the_programmed_frequency():
         q(s, "cal", "OPER;*WAI")
         assert reading(s, "AC") == pytest.approx(1.0, abs=GAIN * 1.0 + FLOOR + QUANTUM)
         assert reading(s, "DC") == 0.0  # one line of 1 V RMS has no DC component
-        q(s, "cal", "STBY")
-        # 0 Hz is DC, set in standby: a DC<->AC switch while operating goes to standby even below
-        # 33 V, where the real instrument keeps running (ch. 4 exception, not modeled -- #558).
-        q(s, "cal", "OUT 2 V, 0 HZ")
-        q(s, "cal", "OPER;*WAI")
+        # 0 Hz is DC: below 33 V the switch keeps operating (ch. 4: only >= 33 V goes to standby, #566)
+        q(s, "cal", "OUT 2 V, 0 HZ;*WAI")
         assert reading(s, "DC") == pytest.approx(2.0, abs=GAIN * 2.0 + FLOOR + QUANTUM)
     finally:
         s.close()
