@@ -259,6 +259,9 @@ def test_the_transient_step_writes_the_triggered_levels():
         inst.set_state("ch2.v_triggered", 7.0)
         inst.set_state("ch2.i_triggered", 0.3)
         inst.set_state("ch2.v_mode", "STEP")
+        tran.overrides["ready_delay"] = (
+            0.0  # ready at once (the N6705C's 5 ms is tested with the model, #548)
+        )
         tran.op_initiate()
         assert tran.status_flags() == {"WTG_TRAN": True, "TRAN_ACTIVE": True}
         tran.bus_trigger()

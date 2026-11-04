@@ -1271,3 +1271,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 组件级用例 | ✅ `tests/test_calibrator.py::test_standby_on_function_above_keeps_a_low_voltage_dc_ac_switch_operating`：10 V 直流→交流→直流保持工作，22 V（阈值）改功能回待机 |
 | 5522A | ✅ 定义改 `standby_on_function: above`；撤销 #558 的近似：`tests/test_fluke_5522a.py::test_acv_is_a_line_at_the_programmed_frequency` 在工作下直接切直流；手册用例新增「33 V 以下交流↔直流切换保持工作」；metrology-authoring.md 5.1/5.4 与 component-map.md 同步，债务列删去该缺口 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 瞬变触发的就绪延时、-211 依据与 E36312A 的输出触发系统（Issue 548）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `supply_transient` 新参数 `ready_delay`（INIT 到可接收触发；之前的触发按"未初始化"忽略；就绪后才报 WTG-tran，TRAN-active 自 INIT 起）与 `delay`（触发到动作，*OPC?/*WAI 等待；ABORt 取消）；重复 INIT 不重新计时 |
+| N6705C | ✅ `ready_delay: 0.005`（N6700C-90901 Programming Output Transients："It takes a few milliseconds … the trigger will be ignored"，手册未给数值）；手册用例补「INIT 后立即触发被忽略、COND 65 → *OPC? 后 81」；`tests/test_keysight_n6705c.py::test_a_trigger_right_after_init_is_ignored_until_the_system_is_ready`；已知偏差（覆盖表）：*OPC? 只等到就绪，手册的 *OPC? 等已初始化的瞬变完成 |
+| -211 | ✅ N6700C-90901 第 5 章 Error List 与 E36311-90008 的 SCPI Error Messages 都没有 -211，两本手册都写"ignored"（E36300 *TRG："simply ignored"）：两型号 `trigger_ignored_error: 0`，覆盖表引用章节 |
+| E36312A | ✅ E36311-90008 有输出触发系统：`VOLT|CURR:TRIG`、`VOLT|CURR:MODE FIX|STEP`（LIST -224）、`TRIG[:SEQ]:SOUR BUS|IMM`（EXT/PIN -224）、`TRIG[:SEQ]:DEL`（0–3600 s）、`INIT`、`ABOR`、`*TRG`；手册没有就绪延时的说明（取 0），WTG 位在位表中没有位置（不建模）；INIT:CONT、INST:COUP、735 未建模；手册用例「输出触发系统」与 `tests/test_keysight_e36312a.py::test_a_bus_trigger_steps_after_the_trigger_delay` |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

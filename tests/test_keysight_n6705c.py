@@ -213,6 +213,31 @@ def test_transition_filters_choose_which_edges_latch():
         s.close()
 
 
+def test_a_trigger_right_after_init_is_ignored_until_the_system_is_ready():
+    """#548 (N6700C-90901 Programming Output Transients): the transient system takes a few
+    milliseconds (5 ms here) after INIT:TRAN to accept a trigger; one before that is ignored without
+    an error, and WTG-tran (bit 4) appears once it is ready. ABORt drops a pending ready."""
+    s, q = session(*load(1, 10.0))
+    try:
+        q("VOLT 2,(@1);:CURR 1,(@1);:VOLT:TRIG 6,(@1);:VOLT:MODE STEP,(@1);:OUTP ON,(@1)")
+        q("*OPC?")
+        q("INIT:TRAN (@1);*TRG")  # too early: ignored
+        assert q("VOLT? (@1)") == "+2.000000E+00"
+        assert q("STAT:OPER:COND? (@1)") == "65"  # TRAN-active, not yet WTG-tran
+        s.advance(0.005)
+        assert q("STAT:OPER:COND? (@1)") == "81"  # ready: WTG-tran
+        q("*TRG")
+        assert q("VOLT? (@1)") == "+6.000000E+00"
+        q("VOLT 2,(@1);:INIT:TRAN (@1);:ABOR:TRAN (@1)")
+        s.advance(0.01)
+        q("*TRG")  # aborted before it was ready: stays idle
+        assert q("VOLT? (@1)") == "+2.000000E+00"
+        assert q("STAT:OPER:COND? (@1)") == "1"
+        assert q("SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
 def test_a_bus_trigger_steps_only_the_armed_channels():
     """#541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
     output to its triggered level (seen on the load) and leaves channel 3 alone."""
@@ -223,10 +248,11 @@ def test_a_bus_trigger_steps_only_the_armed_channels():
         q("VOLT 2,(@1,3);:CURR 1,(@1,3);:VOLT:TRIG 6,(@1,3);:VOLT:MODE STEP,(@1,3);:OUTP ON,(@1,3)")
         q("*OPC?")
         q("INIT:TRAN (@1)")
+        q("*OPC?")  # ready for a trigger a few milliseconds after INIT (#548)
         q("*TRG")
         volts = [float(x) for x in q("MEAS:VOLT? (@1,3)").split(",")]
         assert volts == pytest.approx([6.0, 2.0], abs=2e-3)
-        q("INIT:TRAN (@3);:ABOR:TRAN (@3)")
+        q("INIT:TRAN (@3);:ABOR:TRAN (@3);*OPC?")
         q("*TRG")  # nothing armed: no change, no error (the manual lists none)
         assert float(q("MEAS:VOLT? (@3)")) == pytest.approx(2.0, abs=2e-3)
         assert q("SYST:ERR?") == '+0,"No error"'

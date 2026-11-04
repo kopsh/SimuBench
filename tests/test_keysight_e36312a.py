@@ -312,3 +312,27 @@ def test_the_enable_masks_carry_the_summary_up_to_the_status_byte():
         assert q(s, "SYST:ERR?") == '+0,"No error"'
     finally:
         s.close()
+
+
+def test_a_bus_trigger_steps_after_the_trigger_delay():
+    """#548 (E36311-90008 INITiate / TRIGger subsystems): INIT arms the output trigger system of
+    the listed channels; *TRG steps a STEP-mode channel to its triggered level once the trigger
+    delay has run (*WAI waits for it); without INIT the *TRG is simply ignored (no error)."""
+    s = session()
+    try:
+        q(s, "VOLT 2,(@1,2);:VOLT:TRIG 4,(@1,2);:VOLT:MODE STEP,(@1,2);:OUTP ON,(@1,2);*WAI")
+        q(s, "*TRG")  # nothing initiated: ignored
+        assert q(s, "VOLT? (@1,2)") == "+2.00000000E+00,+2.00000000E+00"
+        q(s, "TRIG:DEL 0.5,(@1);:INIT (@1)")
+        q(s, "*TRG")
+        assert q(s, "VOLT? (@1)") == "+2.00000000E+00"  # the delay runs
+        s.advance(0.5)
+        assert q(s, "VOLT? (@1,2)") == "+4.00000000E+00,+2.00000000E+00"  # only CH1 was initiated
+        q(s, "VOLT 2,(@1);:INIT (@1);*TRG;:ABOR (@1)")  # aborted while delayed: no step
+        s.advance(1.0)
+        assert q(s, "VOLT? (@1)") == "+2.00000000E+00"
+        q(s, "TRIG:DEL 0,(@2);:TRIG:SOUR IMM,(@2);:INIT (@2)")  # IMMediate: steps at once
+        assert float(q(s, "MEAS:VOLT? (@2)")) == pytest.approx(4.0, rel=1e-3)
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
