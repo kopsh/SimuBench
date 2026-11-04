@@ -20,7 +20,7 @@
 | --- | --- | --- | --- | --- |
 | input_port | `input_port` | 电路(阻抗到地) | 已实现 | — |
 | probe | `scope_probe` | 设置/数据(比例换算) | 已实现 | — |
-| vertical | `scope_vertical`(旧名 `scope_frontend`,仅为加载保留) | 信号(滤波与档位) | 已实现 | — |
+| vertical | `scope_vertical`(旧名 `scope_frontend`,仅为加载保留) | 信号(滤波与档位;带宽滤波形状 `response`:一阶、砖墙、高斯、4 阶 Bessel,#607) | 已实现 | — |
 | adc | `scope_adc` | 数据(量化与噪声) | 已实现 | — |
 | acquisition | `scope_acquisition` | 数据 | 已实现 | — |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
