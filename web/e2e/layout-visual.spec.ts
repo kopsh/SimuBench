@@ -24,6 +24,15 @@ const shot = { maxDiffPixelRatio: 0.02, animations: "disabled" as const };
 // The virtual clock, and the local addresses whose ports the service picks at random.
 const masks = (page: Page) => [page.getByTitle("虚拟时间", { exact: true }), page.locator("code", { hasText: "127.0.0.1" })];
 
+// The bare `fonts.ready` can resolve before the lazily queued faces have even started loading, so
+// the capture races the webfonts and text wraps differently between runs (issue 613, the Live
+// canvas / Counter story). Forcing every declared face to load pins the metrics before the shot.
+const loadFonts = (page: Page) =>
+  page.evaluate(async () => {
+    await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+    await document.fonts.ready;
+  });
+
 for (const [width, height] of [
   [1280, 800],
   [1440, 900],
@@ -35,12 +44,12 @@ for (const [width, height] of [
       const node = page.locator(".react-flow__node").filter({ hasText: b.node }).first();
       await node.click();
       await expect(page.getByText("身份与地址")).toBeVisible();
-      await page.evaluate(() => document.fonts.ready);
+      await loadFonts(page);
       await expect(page).toHaveScreenshot(`workbench-${b.name}-${width}.png`, { ...shot, mask: masks(page) });
 
       await node.dblclick();
       await page.waitForTimeout(300); // the screen's first readings
-      await page.evaluate(() => document.fonts.ready);
+      await loadFonts(page);
       await expect(page).toHaveScreenshot(`screen-${b.name}-${width}.png`, { ...shot, mask: masks(page) });
     });
   }
