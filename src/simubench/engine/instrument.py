@@ -197,6 +197,7 @@ class Instrument:
         #: Operations waiting for an event that may never come (a scope armed for a trigger that does
         #: not occur): while any is waiting, *OPC? does not answer, as on hardware the reply never comes.
         self.blockers: set[str] = set()
+        self._status_samplers: list[Callable[[], None]] | None = None  # status registers' sample()
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
         self._opc_armed = False
@@ -528,6 +529,20 @@ class Instrument:
         if self._opc_armed and not self._waited() and not self.blockers:
             self._opc_armed = False
             self.esr |= 1
+
+    def sample_status(self) -> None:
+        """Let every status register latch the condition transitions since its last look (#575):
+        each command dispatch samples, so a condition that comes and goes between two reads of
+        the event register is still latched (through PTR/NTR)."""
+        regs = self._status_samplers
+        if regs is None:
+            regs = self._status_samplers = [
+                comp.latch_conditions  # type: ignore[attr-defined]
+                for comp in self.components.values()
+                if comp.type_name == "status_register"
+            ]
+        for fn in regs:
+            fn()
 
     def wait_until(self, done_ns: int) -> int:
         """Wait for virtual time ``done_ns``: on the command clock, the time the caller's message
@@ -888,6 +903,7 @@ class Instrument:
 
     def _dispatch(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         self.settle_pending()
+        self.sample_status()
         if unit.common:
             # A definition may give a common header its own behavior (e.g. a dialect's *CLS?).
             for compiled in self._commands:

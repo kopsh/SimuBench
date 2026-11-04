@@ -81,6 +81,8 @@ state:
   output.enabled:
     type: bool
     default: false
+    # 输出级接入/断开电路：改变它要重建电路（#575 暴露：早于开输出的求解被缓存）
+    electrical: true
     label: 射频输出
     label_en: RF output
   rosc.source:
