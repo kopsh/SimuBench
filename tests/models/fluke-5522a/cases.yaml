@@ -184,6 +184,25 @@ cases:
       - query: "OPER?"
         expect: "0"
 
+  - name: "交流电流的频率按量程限定：超出报 -222，设定不变（#580）"
+    manual: "第 1 章 AC Current (Sine Wave)（LCOMP Off：29 µA–329.999 mA 10 Hz–30 kHz；0.33–2.99999 A 10 Hz–10 kHz；3–20.5 A 45 Hz–5 kHz）"
+    steps:
+      - send: "OUT 1 A, 400 HZ"
+      - send: "OUT 1 A, 100 KHZ"
+      - query: "ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "OUT?"
+        expect: "1.000000E+00,A,0E+00,0,4.000000E+02"
+      - send: "OUT 1 A, 8 KHZ"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - send: "OUT 5 A, 8 KHZ"
+      - query: "ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "OUT 10 MA, 25 KHZ"
+      - query: "OUT?"
+        expect: "1.000000E-02,A,0E+00,0,2.500000E+04"
+
   - name: "同一单位两次（双电压输出）报 506 Function not available"
     manual: "Remote Commands > Output Commands > OUT（<value> V, <value> V 双电压）；双输出未建模（错误 506）"
     steps:

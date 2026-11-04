@@ -1342,6 +1342,9 @@ class Instrument:
                 before = self.state[path]
                 self.set_state(path, v)
                 done.append((path, before))
+            # the settings together: a component watching them may refuse the combination (#580)
+            for comp in {c.uid: c for path in checked for c in self._watchers.get(path, ())}.values():
+                comp.check_settings()
         except ScpiError:
             for path, before in reversed(done):
                 self.set_state(path, before)
