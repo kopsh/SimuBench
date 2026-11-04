@@ -166,7 +166,7 @@ def _mcp(args: argparse.Namespace) -> int:
             await mcp.run_stdio_async()
         finally:
             for sid in list(manager.sessions):
-                await manager.stop(sid)
+                await manager.stop(sid, force=True)  # the service is going down; its ports close
             if server and ui:
                 server.should_exit = True
                 await ui

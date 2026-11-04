@@ -117,13 +117,6 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             detail["reason"] = "clients_connected"
         return HTTPException(409, detail)
 
-    def guard_clients(sessions: list[ServedSession], what: str, force: bool) -> None:
-        for sv in sessions:
-            try:
-                sv.require_no_clients(what, force)
-            except ClientsConnected as exc:
-                raise in_use(exc) from None
-
     @app.get("/api/health", response_model=M.Health, operation_id="health")
     def health() -> M.Health:
         return M.Health(version=__version__)
@@ -660,10 +653,12 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         responses=IN_USE,
     )
     async def start(req: M.StartSessionRequest) -> M.SessionInfo:
-        # Starting a bench stops the running one (one bench serves the ports): its scripts drop.
-        guard_clients(list(manager.sessions.values()), "starting a bench", req.force)
         try:
-            s = await manager.start(req.bench_path, clock=req.clock, seed=req.seed)
+            # The clients guard lives in manager.start: starting a bench stops the running one,
+            # whatever facade asked for it (#121, issue 624).
+            s = await manager.start(req.bench_path, clock=req.clock, seed=req.seed, force=req.force)
+        except ClientsConnected as exc:
+            raise in_use(exc) from None
         except PermissionError as exc:
             raise HTTPException(403, str(exc)) from None
         except FileNotFoundError as exc:
@@ -693,8 +688,11 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         responses={409: {"description": "Scripts are connected; repeat with force=true to drop them"}},
     )
     async def stop(sid: str, force: bool = Query(False)) -> None:
-        guard_clients([served(sid)], "stopping the bench", force)
-        await manager.stop(sid)
+        served(sid)  # 404 for an unknown session; manager.stop returns silently for one
+        try:
+            await manager.stop(sid, force=force)
+        except ClientsConnected as exc:
+            raise in_use(exc) from None
 
     @app.post(
         "/api/sessions/{sid}/reset",
@@ -705,9 +703,10 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     async def reset(sid: str, req: M.ResetSessionRequest) -> M.SessionInfo:
         """Power-cycle the bench: fresh instruments, a new record, the same session id."""
-        guard_clients([served(sid)], "a reset", req.force)
         try:
-            s = await manager.reset(sid, clock=req.clock, seed=req.seed)
+            s = await manager.reset(sid, clock=req.clock, seed=req.seed, force=req.force)
+        except ClientsConnected as exc:
+            raise in_use(exc) from None
         except BenchInvalid as exc:
             raise HTTPException(
                 422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
@@ -909,10 +908,13 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def advance(sid: str, req: M.AdvanceRequest) -> M.ClockInfo:
         sv = served(sid)
-        guard_clients([sv], "advancing the clock", req.force)
         s = sv.session
         try:
-            s.advance(req.seconds)
+            # The clients guard rides inside advance (ServedSession wires it): check and clock
+            # move are one action, and no facade can forget the guard (#121, issue 624).
+            s.advance(req.seconds, force=req.force)
+        except ClientsConnected as exc:  # a RuntimeError: map before the plain 409 below
+            raise in_use(exc) from None
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
         return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
