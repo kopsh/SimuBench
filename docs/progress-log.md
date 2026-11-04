@@ -1310,3 +1310,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 用例 | ✅ 手册用例「电流与电阻输出」（OUT?/FUNC?、21 A 与负电阻 -222、1 mA 入万用表 10 MΩ 跳回待机报 1500）；`tests/test_fluke_5522a.py` 的 compliance 参数化用例与连续电阻进入电路（1 V 经 1 kΩ 接 1234 Ω） |
 | 未做 | ⚠️ 20 A 端子与 AUX 端子未单独建模（同一 OUT 端口）；交流电流 29 µA 下限、LCOMP、四线/二线补偿未建模 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 交流电流的频率范围与 #569 数值核实（Issue 580）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 能力 | ✅ `Component.check_settings()`：`quantities` 命令写完全部设定后，监视这些设定的组件检查组合（逐个写入时其他设定可能尚未写入）；拒绝时整条回退。`calibrator_setpoint` 的 `frequency_bands`：交流功能按量程（或功能）限定频率，超出报 `limit_error` |
+| 5522A | ✅ specs 增 `ac_current_frequency`；`frequency_bands` 按第 1 章 AC Current (Sine Wave) 表（LCOMP Off）：至 330 mA 10 Hz–30 kHz，1.1 A/3 A 10 Hz–10 kHz，11 A/20.5 A 45 Hz–5 kHz；`OUT 1 A, 100 KHZ` 报 -222、`OUT?` 不变 |
+| 核实 | ✅ 1500 Compliance voltage exceeded：附录 D 错误表原文；compliance 数值：第 1 章 DC Current 表 Max Compliance Voltage 列与 AC Current 表末 Max Compliance Voltage V rms，覆盖表注明出处；量程名除 RANGE? 示例外仍注明未核实 |
+| 用例 | ✅ 手册用例「交流电流的频率按量程限定」 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

@@ -347,6 +347,7 @@ class CalibratorSetpoint(_Setpoint, Component):
         "control": "",  # the calibrator_control that operates this setpoint
         "limit_error": -222,  # the error a level beyond the function's largest range reports (with ranges)
         "frequency_selects_ac": False,  # a frequency alone switches DC <-> AC within V or I (the 5730A's OUT 100 HZ)
+        "frequency_bands": {},  # AC: {range name or function: [min Hz, max Hz]}, else limit_error (#580)
         "ohm_values": "nominal",  # OHM table: nominal (the only values, 5730A) | continuous (ranges, 5522A, #569)
         # Ranges (#552): per function a list of [name, full scale] or [name, full scale, minimum],
         # e.g. {DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC1100V, 1100, 100]]}; the output takes the
@@ -394,6 +395,28 @@ class CalibratorSetpoint(_Setpoint, Component):
     def range_name(self) -> str | None:
         """The range in use: the locked one, or the one the level selects."""
         return self._locked or self.auto_range(float(self.param("level")))
+
+    def check_settings(self) -> None:
+        """An AC output's frequency within the band of its range, or of its function (#580)."""
+        fn = str(self.param("function")).upper()
+        if not fn.startswith("AC"):
+            return
+        bands = {str(k).upper(): v for k, v in dict(self.param("frequency_bands") or {}).items()}
+        if not bands:
+            return
+        name = self.range_name()
+        band = bands.get(str(name).upper()) if name is not None else None
+        if band is None:
+            band = bands.get(fn)
+        if band is None:
+            return
+        f = float(self.param("frequency"))
+        lo, hi = float(band[0]), float(band[1])
+        if not lo * (1 - 1e-12) <= f <= hi * (1 + 1e-12):
+            raise ScpiError(
+                int(self.param("limit_error")),
+                f"{f:g} Hz is outside {lo:g}-{hi:g} Hz on the {name or fn} range",
+            )
 
     def _nominal(self) -> bool:
         """OHM: the table's values are the only outputs (5730A) rather than ranges of a

@@ -173,7 +173,7 @@ sections:
     note: '进入工作，输出经建立时间（<5 s，按手册计入虚拟时间）到达设定值；OPER? 回读工作状态（1 = 工作，0 = 待机）。手册的“错误队列非空时 ≥33 V 禁止 OPER”（错误 1331）未实现（能力 issue）。'
   - header: 'OUT'
     level: implemented
-    note: '设定输出：OUT 10 V 直流、OUT 1 V, 1 kHz 交流、OUT 60 HZ 只更新频率；OUT 1.2 MA 电流（同一频率，0 Hz 为直流）、OUT 1 A, 400 HZ 交流电流、OUT 1 KOHM 电阻（0–1.1 GΩ 连续可调，二线；负值 -222）。电流按第 1 章的 compliance（直流 10/7/6/4 V、交流 7/5/4/3 V rms，按量程）超出跳回待机并报 1500；3 A 以上的 20 A 端子未单独建模，从同一 OUT 端口输出；电流输出 LO 经机内地返回（#569）。OUT? 回 <幅值>,V|A|OHM,0E+00,0,<频率>。手册允许省略单位的裸数值（沿用当前单位），quantities 参数无法表达“单位取自状态”，缺单位报手册的 519；量程超限报 -222（SCPI 码，手册的 1300 系列错误码无法由状态范围检查给出）。'
+    note: '设定输出：OUT 10 V 直流、OUT 1 V, 1 kHz 交流、OUT 60 HZ 只更新频率；OUT 1.2 MA 电流（同一频率，0 Hz 为直流）、OUT 1 A, 400 HZ 交流电流、OUT 1 KOHM 电阻（0–1.1 GΩ 连续可调，二线；负值 -222）。电流按第 1 章的 compliance（DC Current 表 Max Compliance Voltage 列：直流 10/7/6/4 V；AC Current 表末：交流 7/5/4/3 V rms，按量程）超出跳回待机并报 1500（附录 D：1500 Compliance voltage exceeded，已核实）；交流电流的频率按量程（AC Current 表：至 330 mA 10 Hz–30 kHz、1.1/3 A 10 Hz–10 kHz、11/20 A 45 Hz–5 kHz），超出 -222、整条不生效（#580）；量程名除手册 RANGE? 示例 DC33MA_A、AC330MA_A、R110OHM 外未逐一核实；3 A 以上的 20 A 端子未单独建模，从同一 OUT 端口输出；电流输出 LO 经机内地返回（#569）。OUT? 回 <幅值>,V|A|OHM,0E+00,0,<频率>。手册允许省略单位的裸数值（沿用当前单位），quantities 参数无法表达“单位取自状态”，缺单位报手册的 519；量程超限报 -222（SCPI 码，手册的 1300 系列错误码无法由状态范围检查给出）。'
   - header: 'PHASE'
     level: not_modeled
     note: '双输出的相位差（PHASE/PHASE?）；双输出未建模。'
