@@ -181,6 +181,38 @@ def test_status_registers_follow_the_channel(tmp_path):
         s.close()
 
 
+def test_transition_filters_choose_which_edges_latch():
+    """#549: with NTR on the CV bit and PTR cleared, a CV -> CC change latches only the falling CV
+    edge; the default filters (PTR all ones, NTR 0) latch only rising edges; STATus:PRESet restores
+    them."""
+    s, q = session(*load(3, 1.0))
+    try:
+        assert q("STAT:OPER:PTR? (@3)") == "32767" and q("STAT:OPER:NTR? (@3)") == "0"
+        q("VOLT 1,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER:COND? (@3)") == "1"  # CV: 1 A into 1 ohm
+        q("STAT:OPER:NTR 1,(@3);:STAT:OPER:PTR 0,(@3)")
+        q("STAT:OPER? (@3)")  # read: clears the event register
+        q("CURR 0.5,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER:COND? (@3)") == "2"  # CC now
+        assert q("STAT:OPER? (@3)") == "1"  # the CV bit fell; the CC rise is filtered out
+        q("CURR 2,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER? (@3)") == "0"  # CC fell (NTR has no CC bit), CV rose (PTR 0)
+        q("STAT:QUES:PTR 5,(@3);:STAT:QUES:NTR 3,(@3);:STAT:OPER:ENAB 1,(@3)")
+        q("STAT:PRES")
+        assert q("STAT:OPER:PTR? (@3)") == "32767" and q("STAT:OPER:NTR? (@3)") == "0"
+        assert q("STAT:QUES:PTR? (@3)") == "32767" and q("STAT:QUES:NTR? (@3)") == "0"
+        assert q("STAT:OPER:ENAB? (@3)") == "0"
+        q("CURR 0.5,(@3)")
+        q("*OPC?")
+        assert q("STAT:OPER? (@3)") == "2"  # default filters again: only the CC rise latches
+        assert q("SYST:ERR?") == '+0,"No error"'
+    finally:
+        s.close()
+
+
 def test_a_bus_trigger_steps_only_the_armed_channels():
     """#541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
     output to its triggered level (seen on the load) and leaves channel 3 alone."""

@@ -297,3 +297,41 @@ cases:
         expect: "0"
       - query: "SYSTem:ERRor?"
         expect: '+0,"No error"'
+
+  - name: "状态寄存器组：PTR/NTR 跳变过滤与 STATus:PRESet（#549）"
+    manual: "STATus:OPERation:PTRansition / :NTRansition; STATus:QUEStionable:PTRansition / :NTRansition（0 - 65535）; STATus:PRESet（Status Tutorial：PTR 全 1、NTR 0）"
+    steps:
+      - query: "STAT:OPER:PTR? (@3)"
+        expect: "32767"
+      - query: "STAT:QUES:NTR? (@3)"
+        expect: "0"
+      # 通道 3 接 1 Ω：1 V、2 A 为恒压（CV 位 0），改电流到 0.5 A 后恒流（CC 位 1）
+      - send: "VOLT 1,(@3);:CURR 2,(@3);:OUTP ON,(@3)"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "STATus:OPERation:NTRansition 1,(@3);:STATus:OPERation:PTRansition 0,(@3)"
+      - query: "STAT:OPER:NTR? (@3)"
+        expect: "1"
+      # 读一次清空事件寄存器（其值取决于此前读过与否，这里不比对）
+      - query: "STAT:OPER? (@3)"
+        expect_match: "^[0-9]+$"
+      - send: "CURR 0.5,(@3)"
+      - query: "*OPC?"
+        expect: "1"
+      # 只记 CV 的下降沿，CC 的上升沿被 PTR 0 滤掉
+      - query: "STAT:OPER? (@3)"
+        expect: "1"
+      - send: "STATus:QUEStionable:PTRansition 2,(@3);:STATus:QUEStionable:NTRansition 2,(@3)"
+      - query: "STAT:QUES:PTR? (@3)"
+        expect: "2"
+      - send: "STAT:PRES"
+      - query: "STAT:OPER:PTR? (@3)"
+        expect: "32767"
+      - query: "STAT:OPER:NTR? (@3)"
+        expect: "0"
+      - query: "STAT:QUES:PTR? (@3)"
+        expect: "32767"
+      - query: "STAT:QUES:NTR? (@3)"
+        expect: "0"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
