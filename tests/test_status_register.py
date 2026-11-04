@@ -93,3 +93,28 @@ def test_the_enable_mask_takes_the_bit_form_and_summarizes_into_the_status_byte(
     assert int(q("*STB?")) & 8 == 0
     q("LIAE 0")
     assert q("LIAE?") == "0"
+
+
+def test_one_look_asks_each_component_for_its_flags_once():
+    """Registers read one another's summaries; within one look the other components' flags are
+    computed once (#602: before, n registers asked a scope's trigger n! times per command)."""
+    data = dict(DEF)
+    data["components"] = [{"name": "sys", "type": "system"}] + [
+        {"name": f"r{i}", "type": "status_register", "params": {"bits": {"BUSY": 0}, "enable": 1, "width": 1}}
+        for i in range(5)
+    ]
+    data["commands"] = [{"header": "REGister", "op": "r0.event", "set": False}]
+    definition = InstrumentDefinition.model_validate(data)
+    bench = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/1", "name": "d", "instruments": {"x": {"model": definition.id}}}
+    )
+    session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+    inst = session.instruments["x"]
+    calls = []
+    sys = inst.components["sys"]
+    sys.status_flags = lambda: calls.append(1) or {"BUSY": True}  # type: ignore[method-assign]
+    calls.clear()
+    session.write("x", b"REG?\n")
+    assert session.read("x") is not None
+    # five registers latch at the dispatch and the read looks once more: one ask per outermost look
+    assert len(calls) <= 6
