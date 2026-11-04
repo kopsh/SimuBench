@@ -202,6 +202,70 @@ def test_a_bus_trigger_steps_only_the_armed_channels():
         s.close()
 
 
+def test_switching_on_during_the_fall_delay_keeps_the_output_on():
+    """#545: OUTP OFF starts the 1 s fall delay; OUTP ON before it ends keeps the output on (it
+    never went off) and drops the pending turn-off; a second OFF does not restart the countdown."""
+    s, q = session(*load(1, 10.0))
+    try:
+        q("VOLT 5,(@1);:CURR 1,(@1);:OUTP:DEL:RISE 0.5,(@1);:OUTP:DEL:FALL 1,(@1)")
+        q("OUTP ON,(@1)")
+        s.advance(0.6)
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9
+        q("OUTP OFF,(@1)")
+        s.advance(0.3)
+        q("OUTP ON,(@1)")
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9
+        s.advance(1.0)
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9  # the old turn-off did not fire
+        q("OUTP OFF,(@1)")
+        s.advance(0.6)
+        q("OUTP OFF,(@1)")  # repeated: the countdown keeps running
+        s.advance(0.5)
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+    finally:
+        s.close()
+
+
+def test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay():
+    """#545: sync() schedules the relay after rise_delay + relay time, as OUTP ON does."""
+    parts, wires = load(1, 10.0)
+    lib = DefinitionLibrary()
+    bench = BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/2",
+            "name": "t",
+            "instruments": {
+                "psu": {
+                    "model": "keysight-n6705c",
+                    "state": {
+                        "ch1.voltage": 5.0,
+                        "ch1.current": 1.0,
+                        "ch1.rise_delay": 0.5,
+                        "ch1.output": True,
+                    },
+                }
+            },
+            "parts": parts,
+            "wires": wires,
+        }
+    )
+    s = Session(bench, lambda model: lib.get(model), clock="command", seed=7, idle="off")
+
+    def q(cmd: str) -> str:
+        s.write("psu", cmd.encode() + b"\n")
+        out = s.read("psu")
+        return out.decode().strip() if out else ""
+
+    try:
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0  # the relay waits rise_delay + relay time
+        s.advance(0.3)
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        s.advance(0.3)
+        assert float(q("MEAS:VOLT? (@1)")) > 4.9
+    finally:
+        s.close()
+
+
 def test_ovp_latches_until_cleared():
     s, q = session(*load(1, 10.0))
     try:

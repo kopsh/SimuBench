@@ -1244,3 +1244,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 5730A | ✅ `OUT` 的 A、OHM 单位（DCI/ACI 220 µA–2.2 A、compliance 10 V、2.2 A 量程 2 V；电阻 0–100 MΩ 的 18 个标称值）；`OUT?` 回 V/A/OHM；手册用例「电流与电阻输出」（含 8588A 读回 1 kΩ 与 1 mA）；`tests/test_fluke_5730a.py` 的 compliance 跳闸与电阻进入电路两项 |
 | 未做 | ⚠️ 5522A 仍只有电压（其电流/电阻的量程与 compliance 另按其手册接上）；四线电阻与 RCOMP 两线补偿未建模 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 电源输出开/关延时的边界（Issue 545）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 关延时中再开输出不掉电 | ✅ `power_output` 记关延时是否在走（`_falling`）：其间再收到开输出，取消挂起的关断、输出保持导通；再次关输出不重置倒计时 |
+| `sync()` 计入开延时 | ✅ 测试台以“输出已开”启动时，继电器在 `rise_delay` + `relay_s` 后闭合，与 OUTP ON 一致 |
+| 测试 | ✅ `tests/test_keysight_n6705c.py::test_switching_on_during_the_fall_delay_keeps_the_output_on`、`::test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay` |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

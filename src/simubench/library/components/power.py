@@ -127,6 +127,7 @@ class PowerOutput(Component):
         super().__init__(*args, **kwargs)
         self._closed = False  # the relay's state (what the circuit sees)
         self._relay_pending = False  # a close is scheduled
+        self._falling = False  # a turn-off is scheduled (the fall delay runs)
         # Constant power (#533): the output is held to the stage's p_max as a current source of
         # this value (A) while the load asks for more than p_max; None outside the region.
         self._p_current: float | None = None
@@ -178,6 +179,7 @@ class PowerOutput(Component):
         assert self.owner is not None
         self.owner.cancel_pending(self.relay_key)
         self._relay_pending = False
+        self._falling = False
         self._p_current = None
         if self._closed:
             self._closed = False
@@ -191,15 +193,24 @@ class PowerOutput(Component):
             if new:
                 if self._protection().tripped():
                     raise ScpiError(OUTPUT_DISABLED, "the output is disabled by a protection fault")
+                if self._closed and getattr(self, "_falling", False):
+                    # switched on again while the fall delay runs: the output never went off, the
+                    # pending turn-off is dropped (#545)
+                    self.owner.cancel_pending(self.relay_key)
+                    self._falling = False
+                    return
                 self._open()
                 delay = float(self.param("rise_delay") or 0.0) + float(self.param("relay_s"))
                 when = self.owner.now_ns() + round(delay * 1e9)
                 self.owner.register_pending(self.relay_key, when, self._close)
                 self._relay_pending = True
+            elif getattr(self, "_falling", False):
+                pass  # already counting down: a second OFF does not restart the fall delay (#545)
             elif float(self.param("fall_delay") or 0.0) > 0 and self._closed:
                 # the output stays on until the fall delay has elapsed (#540)
                 when = self.owner.now_ns() + round(float(self.param("fall_delay")) * 1e9)
                 self.owner.register_pending(self.relay_key, when, self._open)
+                self._falling = True
             else:
                 self._open()
         elif key == "remote_sense":
@@ -214,7 +225,9 @@ class PowerOutput(Component):
             and not self._protection().tripped()
         ):
             assert self.owner is not None
-            when = self.owner.now_ns() + round(float(self.param("relay_s")) * 1e9)
+            # the turn-on delay applies to a bench that starts with the output on too (#545)
+            delay = float(self.param("rise_delay") or 0.0) + float(self.param("relay_s"))
+            when = self.owner.now_ns() + round(delay * 1e9)
             self.owner.register_pending(self.relay_key, when, self._close)
             self._relay_pending = True
 
