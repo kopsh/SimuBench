@@ -24,7 +24,7 @@ import math
 import struct
 from typing import Any
 
-from ...engine.component import Component, OpResult, component, op
+from ...engine.component import Component, OpResult, TraceSource, component, op
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
@@ -94,7 +94,7 @@ class CurveBuffer(Component):
     def _value(self, spec: str, t_ns: int) -> float:
         name, _, quantity = str(spec).partition(".")
         comp = self.peer(name)
-        if comp is None or not hasattr(comp, "trace_value"):
+        if not isinstance(comp, TraceSource):
             raise ValueError(f"{self.uid}: trace source {spec!r} is not a component with trace values")
         return float(comp.trace_value(quantity, t_ns))
 

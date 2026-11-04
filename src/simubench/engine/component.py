@@ -20,6 +20,7 @@ from ..scpi.errors import ScpiError
 from .signal import Signal
 
 if TYPE_CHECKING:
+    from ..library.components.scope import Record
     from .circuit import Circuit
     from .instrument import Instrument
     from .session import Session
@@ -66,6 +67,67 @@ class Sampler(Protocol):
 
     def sample(self, index: int) -> float:
         """One reading now; ``index`` counts the readings of this initiate (for noise streams)."""
+        ...
+
+
+@runtime_checkable
+class Acquisition(Protocol):
+    """What a waveform transfer (``waveform_transfer``) reads records from: an instrument's
+    acquisition block (instrument-authoring.md 3.1). The transfer's ``record`` ref names one; the
+    definition's refs check validates the protocol when the definition loads, and the transfer's
+    accessor checks it again when a command runs (as ``trigger_model`` checks ``Sampler``).
+
+    An acquisition may also implement :class:`AcquisitionInput` — what the transfer's preamble
+    figures need besides the record (probe ratio, ADC, codes per division); without it the
+    transfer falls back to its own parameters."""
+
+    def read_record(self, channel: int, start: bool = True) -> tuple[Record | None, int]:
+        """The record a read uses, and the virtual time getting it took (``reacquire``,
+        ``missing``). ``start``: the read starts a transfer."""
+        ...
+
+    def transfer_record(self, channel: int, first: int) -> tuple[Record | None, int]:
+        """The record a waveform transfer reads, and the virtual time getting it took; ``first``
+        is the transfer's first point."""
+        ...
+
+    def timebase_scale(self) -> float:
+        """The seconds per division of the record's timebase (a preamble figure)."""
+        ...
+
+    acq_count: int
+    """Acquisitions stored so far (a preamble figure, e.g. LeCroy's ``NACQ``)."""
+
+
+@runtime_checkable
+class AcquisitionInput(Protocol):
+    """The input chain an :class:`Acquisition` may expose: how input volts became the record's
+    codes, as the transfer's preamble figures describe it — the probe ratio, the ADC and the ADC's
+    codes per division. An acquisition without these leaves the transfer's own parameters
+    (``adc_bits``, ``codes_per_div``) in charge."""
+
+    def probe_ratio(self, channel: int) -> float:
+        """The probe's ratio on a channel (1.0 when it has none)."""
+        ...
+
+    def adc_unit(self) -> Component:
+        """The ADC block; the transfer reads its ``bits`` parameter."""
+        ...
+
+    def adc_codes_per_div(self) -> float:
+        """ADC codes per division of the record's vertical scale."""
+        ...
+
+
+@runtime_checkable
+class TraceSource(Protocol):
+    """What a ``curve_buffer`` trace or a lock-in's display reads a quantity from (a trace spec or
+    a readings table's ``<component>.<quantity>``): a block whose value at an instant a trace
+    stores or a display shows."""
+
+    def trace_value(self, quantity: str, t_ns: int) -> float:
+        """One quantity's value at instant ``t_ns``; ``quantity`` names the block's own set
+        (X, R, FREQUENCY, AUX1, ...)."""
         ...
 
 
@@ -209,9 +271,10 @@ class Component:
     #: definition does not declare are ignored.
     watches: ClassVar[tuple[str, ...]] = ()
     #: Parameters that name another component of the instrument: parameter -> (the component type
-    #: it must be, or derive from; "instrument" or "channel" for where it is declared). Definition
+    #: it must be, or derive from — or a Protocol (``engine.component``) its class must implement,
+    #: checked by its members; "instrument" or "channel" for where it is declared). Definition
     #: validation checks them (E-DEF-COMPONENT-REF).
-    refs: ClassVar[dict[str, tuple[str, Literal["instrument", "channel"]]]] = {}
+    refs: ClassVar[dict[str, tuple[str | type, Literal["instrument", "channel"]]]] = {}
     #: Of those, the ones that may be left empty (the component then does without, e.g. a source
     #: without a reference clock).
     optional_refs: ClassVar[frozenset[str]] = frozenset()

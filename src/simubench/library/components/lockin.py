@@ -36,7 +36,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.circuit import GROUND, Circuit
-from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.component import Component, OpResult, PortSpec, TraceSource, component, op
 from ...engine.noise import gaussian, stream_key
 from ...engine.signal import NS, Signal, phase_cycles
 from ...scpi import values as V
@@ -833,7 +833,7 @@ class LockinOutput(Component):
     def _display_quantity(self, spec: Any) -> float:
         name, _, quantity = str(spec).partition(".")
         comp = self.peer(name)
-        if comp is None or not hasattr(comp, "trace_value"):
+        if not isinstance(comp, TraceSource):
             raise ScpiError(-224, f"{spec!r} is not a display quantity")
         return float(comp.trace_value(quantity, self.session.now_ns))
 
@@ -877,7 +877,7 @@ class LockinOutput(Component):
         if "." in source:
             name, quantity = source.rsplit(".", 1)
             comp = self.peer(name)
-            if comp is None or not hasattr(comp, "trace_value"):
+            if not isinstance(comp, TraceSource):
                 raise ScpiError(-300, f"{self.uid}: reading source {source!r} has no such block")
             return float(comp.trace_value(quantity, self.session.now_ns))
         key = source.upper()
