@@ -21,7 +21,7 @@ from typing import Any
 from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
-from ...scpi import values as V
+from .protection import ProtectionLatch, TripThreshold
 
 #: How close two successive constant-power currents must be for the mode loop to call it settled.
 CP_TOLERANCE = 1e-9
@@ -363,14 +363,23 @@ class EloadMeter(Component):
 
 
 @component("eload_protection")
-class EloadProtection(Component):
+class EloadProtection(ProtectionLatch, Component):
     """OVP / OCP / OPP protection (#186 C1): thresholds, the trip latch and its kind.
 
     A threshold of 0 disables that protection. When the operating point crosses one the trip is
     latched and the input stops conducting (the mode loop opens); :meth:`op_clear` resets it (the
     model's protection-clear command; #194 maps the DL3000's own). The thresholds are checked on
-    the solved operating point, so a trip is a DC behaviour, not a transient one.
+    the solved operating point, so a trip is a DC behaviour, not a transient one. The latch, the
+    threshold judging and the trip/kind/clear replies are the shared protection primitive
+    (:class:`ProtectionLatch`); the load adds no increment of its own — while the latch stands,
+    the input stage simply does not conduct.
     """
+
+    thresholds = (
+        TripThreshold("OVP", "ovp", "v"),
+        TripThreshold("OCP", "ocp", "i"),
+        TripThreshold("OPP", "opp", "p"),
+    )
 
     defaults = {
         "ovp": 0.0,  # over-voltage trip, V (0: off)
@@ -381,44 +390,16 @@ class EloadProtection(Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._tripped = ""  # the threshold crossed ("OVP" | "OCP" | "OPP"); '' when clear
-
-    def tripped(self) -> bool:
-        return bool(self._tripped)
-
-    def kind(self) -> str:
-        return self._tripped
-
-    def check(self, v: float, i: float) -> bool:
-        """Whether the operating point crosses a threshold (the caller then trips)."""
-        if self._tripped:
-            return False
-        ovp, ocp, opp = (float(self.param(k)) for k in ("ovp", "ocp", "opp"))
-        return (ovp > 0 and abs(v) > ovp) or (ocp > 0 and abs(i) > ocp) or (opp > 0 and abs(v * i) > opp)
-
-    def trip(self, v: float, i: float) -> None:
-        ovp, ocp, opp = (float(self.param(k)) for k in ("ovp", "ocp", "opp"))
-        if ovp > 0 and abs(v) > ovp:
-            self._tripped = "OVP"
-        elif ocp > 0 and abs(i) > ocp:
-            self._tripped = "OCP"
-        elif opp > 0 and abs(v * i) > opp:
-            self._tripped = "OPP"
-        else:
-            self._tripped = "PROT"
-
-    def clear(self) -> None:
-        self._tripped = ""
+        self._init_latch()
 
     @op("tripped")
     def op_tripped(self, query: bool = False, **_: Any) -> OpResult:
-        self.session.solve()  # the trip happens in the mode loop's update
-        return OpResult(V.format_bool(self.tripped()))
+        # the trip happens in the mode loop's update; the reply solves first
+        return OpResult(self._trip_reply())
 
     @op("kind")
     def op_kind(self, query: bool = False, **_: Any) -> OpResult:
-        self.session.solve()
-        return OpResult(V.format_string(self._tripped))
+        return OpResult(self._kind_reply())
 
     @op("clear")
     def op_clear(self, **_: Any) -> OpResult:

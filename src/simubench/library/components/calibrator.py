@@ -33,6 +33,7 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .protection import ProtectionLatch
 
 #: The resistance function's names: OHM, or RES as the 5522A's FUNC? calls it (#569).
 OHMS = ("OHM", "RES")
@@ -140,10 +141,16 @@ class _Setpoint(Component):
         self._control().output_changed(key, old, new, self)
 
 
-class _Control(Component):
+class _Control(ProtectionLatch, Component):
     """The output control: operate and standby, the terminal (``z_out``), the overload trip and the
     high-voltage standby rule. Mixed into ``calibrator_control`` and the combined form;
-    ``_setpoint()`` is the setpoint block it drives."""
+    ``_setpoint()`` is the setpoint block it drives.
+
+    The overload and compliance trips latch through the shared protection primitive
+    (:class:`ProtectionLatch`); the judging (the capability ``i_max``, the range-resolved
+    compliance, on the RMS terminal voltage) and the reporting (the definition's error queued,
+    5.1) are this block's own — no declared thresholds. Entering operate clears the latch.
+    """
 
     def _setpoint(self) -> Any:
         raise NotImplementedError
@@ -215,7 +222,7 @@ class _Control(Component):
             v = signal("out").rms() if signal is not None else dc_voltage("out")
             if limit > 0 and abs(v) > limit * (1 + 1e-9):
                 self._set_operate(False)
-                self.tripped = True
+                self.latch("OVP")  # the terminal went past the compliance voltage
                 code = int(self.param("compliance_error") or self.param("overload_error") or 0)
                 if code and self.owner is not None:
                     self.owner.push_error(code, f"compliance {abs(v):.4g} V exceeds {limit:.4g} V")
@@ -234,7 +241,7 @@ class _Control(Component):
         """The load drew more than ``i_max``: the output returns to standby (the operate setting
         follows, so the next OPER re-enables it) and the definition's error is queued (5.1, D34)."""
         self._set_operate(False)
-        self.tripped = True
+        self.latch("OCP")
         if self.owner is not None:
             code = int(self.param("overload_error") or 0)
             if code:
@@ -246,7 +253,7 @@ class _Control(Component):
         """Leaving or entering operate: the output starts from 0 (it was disconnected) and settles
         to the level; anything pending is dropped. OPER from a tripped standby tries again."""
         if V.flag(new):
-            self.tripped = False
+            self.clear()
         sp = self._setpoint()
         sp.drop()
         if V.flag(new):
@@ -309,7 +316,7 @@ class _Control(Component):
             "function": str(sp.param("function")),
             "level": float(sp.param("level")),
             "frequency": float(sp.param("frequency")),
-            "tripped": self.tripped,
+            "tripped": self.tripped(),
             "settling": sp.settling(),
         }
         if self.wired("out"):
@@ -567,7 +574,7 @@ class CalibratorControl(_Control, Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.tripped = False  # the last overload sent the output to standby; the next OPER clears it
+        self._init_latch()  # the last overload sent the output to standby; the next OPER clears it
 
     def _setpoint(self) -> Any:
         return self.ref("setpoint")
@@ -655,7 +662,7 @@ class CalibratorControl(_Control, Component):
             self.session.invalidate(electrical=True)
 
     def reset(self) -> None:
-        self.tripped = False
+        self._init_latch()
 
     @op("operate")
     def op_operate(self, value: bool = True, **_: Any) -> OpResult:
@@ -703,7 +710,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.tripped = False
+        self._init_latch()
         self._trans: tuple[int, int, float, float] | None = None
         self._settled = 0.0
 
@@ -726,7 +733,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
             self.setpoint_changed(key, old, new)
 
     def reset(self) -> None:
-        self.tripped = False
+        self._init_latch()
         self.drop()
 
     @op("operate")
