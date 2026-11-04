@@ -17,7 +17,9 @@ Whether a change of the output settings returns the instrument to standby is the
 ``standby_rule``: ``either`` (the default) trips when the old or the new magnitude is above
 ``standby_above``; ``crossing`` (the 5730A and 5522A manuals' wording, #553) trips only when the
 new magnitude is at or above it while the old one was below. With ``standby_on_function`` a change
-of the output function trips too. Outputting the value again needs an explicit ``OPER``.
+of the output function trips too: ``true`` any change, ``above`` (the 5522A, #566) a change between
+DC and AC voltage only while the magnitude is at or above ``standby_above`` (any other change of
+function still trips). Outputting the value again needs an explicit ``OPER``.
 """
 
 from __future__ import annotations
@@ -256,13 +258,14 @@ class _Control:
         """A change of the output settings while operating returns the instrument to standby when
         the model's rule says so, otherwise the new value is settled to. ``standby_rule`` either
         (5522A: old or new above ``standby_above``) or crossing (5730A: the new output at or above
-        it while the old one was below, #553); ``standby_on_function``: any change of function."""
+        it while the old one was below, #553); ``standby_on_function``: any change of function
+        (``true``), or DCV <-> ACV only at or above ``standby_above`` (``above``, #566)."""
         was_on = self.on()
-        if was_on and key == "function" and _flag(self.param("standby_on_function")) and old != new:  # type: ignore[attr-defined]
-            self._set_operate(False)
-            return
         sa = self.param("standby_above")  # type: ignore[attr-defined]
         level = float(sp.param("level"))
+        if was_on and key == "function" and old != new and self._function_trips(old, new, level, sa):
+            self._set_operate(False)
+            return
         if was_on and sa is not None:
             lo = abs(float(old) if key == "level" else level)
             ln = abs(float(new) if key == "level" else level)
@@ -275,6 +278,16 @@ class _Control:
                 return
         if self.on():
             sp.start_settling()
+
+    def _function_trips(self, old: Any, new: Any, level: float, standby_above: Any) -> bool:
+        """Whether this change of function while operating returns to standby (``standby_on_function``)."""
+        mode = self.param("standby_on_function")  # type: ignore[attr-defined]
+        if isinstance(mode, str) and mode.lower() == "above":
+            volts = {"DCV", "ACV"}
+            if str(old).upper() in volts and str(new).upper() in volts:
+                return standby_above is not None and abs(level) >= float(standby_above)
+            return True
+        return _flag(mode)
 
     def _set_operate(self, value: bool) -> None:
         """Operate through the bound state (the normal path) or the component's own attribute."""
@@ -492,7 +505,7 @@ class CalibratorControl(_Control, Component):
         "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
         "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
-        "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
+        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "setpoint": "",  # the calibrator_setpoint this control operates
         "remote_sense": False,  # external sense: regulate the SENSE terminal instead of the output (#551)
@@ -604,7 +617,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
         "settle": 1.0,  # s until a new value is reached, or a table per function
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
         "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
-        "standby_on_function": False,  # a change of the output function while operating -> standby (#553)
+        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)

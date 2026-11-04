@@ -142,10 +142,10 @@ components:
       i_max: 0.005
       standby_above: 33.0
       # 手册第 3、4 章（Operators Manual，Operate and Standby Modes）：前一输出 <33 V 时选中 ≥33 V
-      # 回待机（恰好 33 V 也算，即 ≥33 V 且从阈值以下跨越）；改变输出功能回待机。手册的例外——
-      # 交流↔直流电压 <33 V 的功能切换不回待机——未建模：布尔参数对一切功能切换回待机（#558）。
+      # 回待机（恰好 33 V 也算，即 ≥33 V 且从阈值以下跨越）；交流↔直流电压的切换仅在输出 ≥33 V 时
+      # 回待机（#566），其他功能改变总是回待机。
       standby_rule: crossing
-      standby_on_function: true
+      standby_on_function: above
       overload_error: 1503
       setpoint: dac
   - name: sys
