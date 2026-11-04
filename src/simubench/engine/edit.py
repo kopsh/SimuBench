@@ -15,7 +15,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..models.bench import Accessory, BenchDefinition, ComponentInstance, InstrumentInstance, LayoutItem, Wire
 from ..models.deviation import DeviationRange
-from .portref import parse, split
+from .portref import closest, parse, split
 
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,47}$")
 
@@ -270,7 +270,12 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
     elif isinstance(op, Connect):
         for ref in (op.from_, op.to):
             if _owner(ref) not in _names(b):
-                raise EditError(f"端口引用 {ref!r}：没有名为 {_owner(ref)!r} 的仪表或元件")
+                r = split(ref)
+                hint = closest(r.owner, sorted(_names(b)))
+                raise EditError(
+                    f"端口引用 {ref!r}：没有名为 {r.owner!r} 的仪表或元件"
+                    + (f"，改为 {hint}.{r.port}" if hint else "")
+                )
         if op.from_ == op.to:
             raise EditError("连线的两端不能是同一个端口")
         if any({w.from_, w.to} == {op.from_, op.to} for w in b.wires):

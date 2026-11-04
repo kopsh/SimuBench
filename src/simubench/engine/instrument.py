@@ -72,6 +72,16 @@ def _header_key(header: str) -> str:
     return "".join(header.split()).lstrip(":").upper()
 
 
+def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
+    """An external port's target halves; a dotless target is refused with the target echoed."""
+    comp, port = split(target)
+    if not comp:
+        raise ValueError(
+            f"instrument {instrument!r}: port {pname!r} target {target!r} is not <component>.<port>"
+        )
+    return comp, port
+
+
 #: The built-in headers a ``builtins`` list can leave out: the common ones (*IDN…); the :SYSTem: ones
 #: are matched through their patterns (they are not common commands).
 COMMON_BUILTINS = frozenset(_header_key(h) for h in BUILTIN_HEADERS if h.startswith("*"))
@@ -293,10 +303,10 @@ class Instrument:
         self.ports: dict[str, tuple[str, str]] = {}
         for n in range(1, self.channel_count + 1):
             for pname, target in definition.ports.channel.items():
-                comp, port = split(target)
+                comp, port = _port_target(self.name, pname, target)
                 self.ports[pname.replace("{n}", str(n))] = (f"ch{n}.{comp}", port)
         for pname, target in definition.ports.instrument.items():
-            comp, port = split(target)
+            comp, port = _port_target(self.name, pname, target)
             self.ports[pname] = (comp, port)
 
         self._commands = [_Compiled(Pattern.compile(c.header), c) for c in definition.commands]
@@ -347,7 +357,9 @@ class Instrument:
     def _wire(self, src: str, dst: str) -> None:
         sc, sp = split(src)
         dc, dp = split(dst)
-        for c in (sc, dc):
+        for whole, c in ((src, sc), (dst, dc)):
+            if not c:  # a dotless reference splits into an empty owner; echo the whole reference
+                raise ValueError(f"instrument {self.name!r}: wiring end {whole!r} is not <component>.<port>")
             if c not in self.components:
                 raise ValueError(f"instrument {self.name!r}: wiring refers to unknown component {c!r}")
         self._upstream[(dc, dp)] = (sc, sp)
