@@ -2,8 +2,8 @@
 shows it.
 
 The steps follow the guide's examples (11.60.00000): headers off, :DIGitize the channel, WORD data
-with the LSBFirst byte order, the 24 fields of :WAVeform:PREamble?, :WAVeform:DATA? as signed 16-bit
-words, ``voltage = (code - yreference) * yincrement + yorigin`` and
+with the LSBFirst byte order and streaming on (#0 blocks), the 24 fields of :WAVeform:PREamble?,
+:WAVeform:DATA? as signed 16-bit words, ``voltage = (code - yreference) * yincrement + yorigin`` and
 ``time = (index - xreference) * xincrement + xorigin``, then :SYSTem:ERRor? until it answers 0. The
 script runs unchanged against a real UXR0334B or a SimuBench bench:
 
@@ -65,10 +65,14 @@ def read_waveform(scope, source: str = "CHANnel1") -> tuple[np.ndarray, np.ndarr
     scope.write(f":WAVeform:SOURce {source}")
     scope.write(":WAVeform:FORMat WORD")
     scope.write(":WAVeform:BYTeorder LSBFirst")
-    scope.write(":WAVeform:STReaming OFF")
+    scope.write(":WAVeform:STReaming ON")  # the guide recommends streaming for new programs (#0 blocks)
     wfm = read_preamble(scope)
+    # a #0 block carries no length: tell the reader how many points to expect (the guide's example)
+    num_pts = int(scope.query(":WAVeform:POINts?"))
     codes = np.array(
-        scope.query_binary_values(":WAVeform:DATA?", datatype="h", is_big_endian=False, container=np.array)
+        scope.query_binary_values(
+            ":WAVeform:DATA?", datatype="h", is_big_endian=False, container=np.array, data_points=num_pts
+        )
     )
     volts = (codes - wfm["yref"]) * wfm["yinc"] + wfm["yorg"]
     times = (np.arange(codes.size) - wfm["xref"]) * wfm["xinc"] + wfm["xorg"]

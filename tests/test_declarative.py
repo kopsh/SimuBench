@@ -311,6 +311,45 @@ def test_static_checks_of_the_new_fields():
     )
 
 
+HEADERS = {
+    "schema": "simubench.instrument/1",
+    "id": "demo",
+    "manufacturer": "ACME",
+    "model": "HDR",
+    "class": "oscilloscope",
+    "dialect": {"echo_header": "$system.header", "long_form": "$system.longform"},
+    "state": {
+        "system.header": {"type": "bool", "default": False},
+        "system.longform": {"type": "bool", "default": False},
+        "timebase.reference": {"type": "enum", "options": ["LEFT", "CENTer", "RIGHt"], "default": "CENTer"},
+    },
+    "commands": [
+        {"header": ":SYSTem:HEADer", "state": "system.header"},
+        {"header": ":SYSTem:LONGform", "state": "system.longform"},
+        {"header": ":TIMebase:REFerence", "state": "timebase.reference"},
+    ],
+}
+
+
+def test_headers_and_long_form_are_two_switches():
+    """Infiniium :SYSTem:HEADer and :SYSTem:LONGform (#602, the guide's :MODel? table)."""
+    assert codes(HEADERS) == []
+    _, _, query, write = open_demo(HEADERS)
+    assert query(":TIM:REF?") == "CENT"  # both off: no header, short words
+    write(":SYST:LONG ON")
+    assert query(":TIM:REF?") == "CENTER"  # long form alone spells the words out
+    write(":SYST:HEAD ON")
+    assert query(":TIM:REF?") == ":TIMEBASE:REFERENCE CENTER"
+    write(":SYST:LONG OFF")
+    assert query(":TIM:REF?") == ":TIM:REF CENT"
+
+
+def test_the_long_form_switch_must_be_a_bool():
+    bad = copy.deepcopy(HEADERS)
+    bad["dialect"]["long_form"] = "$timebase.reference"
+    assert codes(bad) == [("E-DEF-DIALECT", "/dialect/long_form")]
+
+
 # ---- commands told apart by a parameter, index parameters (issue 48) -------------------------------
 
 AUTHORING = {
@@ -402,6 +441,39 @@ def test_static_checks_of_index_states_when_and_reply_fields():
         InstrumentDefinition.model_validate(
             {**DEMO, "commands": [{"header": "X", "op": "a.b", "when": {"y": "1"}}]}
         )
+
+
+def _fallback_definition() -> dict:
+    """ERRor? [STRing]: the number and text with STRing, the number alone otherwise (#602)."""
+    data = copy.deepcopy(AUTHORING)
+    form = [{"name": "form", "type": "enum", "options": ["NUMBer", "STRing"], "optional": True}]
+    data["commands"] += [
+        {"header": "ERRor", "op": "sys.next_error", "set": False, "when": {"form": "STRing"},
+         "params": form, "reply": '{code},"{text}"'},
+        {"header": "ERRor", "op": "sys.next_error", "set": False, "params": form, "reply": "{code}"},
+    ]  # fmt: skip
+    return data
+
+
+def test_a_command_without_when_after_the_when_ones_is_their_fallback():
+    data = _fallback_definition()
+    assert codes(data) == []
+    _, _, query, write = open_demo(data)
+    write("C9:VDIV 1")
+    code, text = query("ERR? STRING").split(",", 1)  # the when variant: the code and quoted text
+    assert int(code) < 0 and text.startswith('"') and text.endswith('"')
+    write("C9:VDIV 1")
+    assert int(query("ERR?")) < 0  # the parameter left out: the fallback, the code alone
+    write("C9:VDIV 1")
+    assert int(query("ERR? NUMB")) < 0  # another value: the fallback too
+    assert int(query("ERR?")) == 0
+
+
+def test_a_when_variant_after_its_fallback_never_runs():
+    data = _fallback_definition()
+    data["commands"][-2], data["commands"][-1] = data["commands"][-1], data["commands"][-2]
+    n = len(data["commands"]) - 1
+    assert ("E-DEF-HEADER-DUPLICATE", f"/commands/{n}/header") in codes(data)
 
 
 # ---- writes: a command header selects a setting beside its parameters (#117) -----------------------

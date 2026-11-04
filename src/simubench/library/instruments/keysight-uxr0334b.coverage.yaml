@@ -31,8 +31,8 @@ sections:
     note: 'the guide''s Default Setup (:SYSTem:PRESet): run, CH1 on at 1 V/div and 0 offset, 100 ns/div,
       position 0, centre reference, edge trigger on CH1 at 0 V rising, AUTO sweep; :ACQuire:COMPlete 90.
       Values the guide does not list are SimuBench defaults: CH2-CH4 off, holdoff 100 ns, average off
-      with 16 averages, memory depth AUTO (128 kpts), bandwidth MAX, waveform source CHAN1, ASCii, MSBFirst,
-      streaming off, headers off'
+      with 16 averages, memory depth AUTO (128 kpts), sample rate AUTO, bandwidth MAX, waveform source
+      CHAN1, ASCii, MSBFirst, streaming off, headers and long form off'
   - header: '*SAV'
     level: not_modeled
   - header: '*SRE'
@@ -50,9 +50,8 @@ sections:
   commands:
   - header: :ADER
     level: implemented
-    note: 'read and cleared by the query. Set when a triggered acquisition is stored and when the scope
-      stops (a :SINGle or :DIGitize done, :STOP). Untriggered acquisitions of a running AUTO sweep do
-      not set it one by one (known deviation: the platform has no per-acquisition done event) (#602)'
+    note: set by every acquisition that completes, triggered or auto-triggered; read and cleared by the
+      query
   - header: :AER
     level: implemented
     note: set when :RUN or :SINGle arms the trigger; read and cleared by the query
@@ -61,7 +60,8 @@ sections:
     note: ARM (waiting for the trigger), TRIG (triggered), ATRIG (auto-triggered, running), ADONE (stopped,
       acquisition done)
   - header: :ATER
-    level: not_modeled
+    level: implemented
+    note: set by an acquisition an AUTO sweep took without its trigger; read and cleared by the query
   - header: :AUToscale
     level: not_modeled
   - header: :AUToscale:CHANnels
@@ -90,19 +90,19 @@ sections:
     level: not_modeled
   - header: :OPEEnable
     level: implemented
-    note: the enable mask of the Operation Status Register (bits 0 ACQ DONE, 1 PROC DONE, 5 WAIT TRIG);
-      summary in *STB bit 7 (OPER)
+    note: the enable mask of the Operation Status Register (bits 0 ACQ DONE, 1 PROC DONE, 5 WAIT TRIG,
+      11 AUTO TRIG); summary in *STB bit 7 (OPER)
   - header: :OPERegister
     level: implemented
-    note: 'read and cleared by the query: bit 0 ACQ DONE, bit 5 WAIT TRIG; PROC DONE (bit 1) is the same
-      event as ACQ DONE and is not set separately. AUTO TRIG (bit 11), MASK (bit 9) and OVLR (bit 12)
-      are not modeled (#602)'
+    note: 'read and cleared by the query: bit 0 ACQ DONE and bit 1 PROC DONE (set when :ADER? and :PDER?
+      become set), bit 5 WAIT TRIG, bit 11 AUTO TRIG (:ATER?). MASK (bit 9) and OVLR (bit 12) are not
+      modeled'
   - header: :OVLRegister
     level: not_modeled
   - header: :PDER
     level: implemented
-    note: 'measurements are computed when queried, so processing is done when the acquisition is: the
-      same event as :ADER, and reading one clears the other (known deviation) (#602)'
+    note: measurements are computed when queried, so processing is done when the acquisition is; its own
+      register, read and cleared by the query
   - header: :PRINt
     level: not_modeled
   - header: :RECall:SETup
@@ -185,7 +185,8 @@ sections:
   - header: :ACQuire:POINts[:ANALog]
     level: implemented
     note: 'AUTO (SimuBench: 128 kpts) or 16 to 10 Mpts; larger depths (the UXR has 500 Mpts) are refused
-      as out of range in the simulation. The sample rate follows as min(128 GSa/s, points / 10 div)'
+      as out of range in the simulation. Without a set sample rate the rate is the fastest of 128 GSa/s
+      / 2^n not above points / 10 div'
   - header: :ACQuire:POINts:AUTO
     level: not_modeled
   - header: :ACQuire:POINts:TESTLIMITS
@@ -210,8 +211,10 @@ sections:
     level: not_modeled
   - header: :ACQuire:SRATe[:ANALog]
     level: implemented
-    note: 'query only: min(128 GSa/s, points / 10 div), not rounded to the UXR''s power-of-two rates (known
-      deviation). Setting the rate (AUTO, MAX, <rate>) is not modeled (#602)'
+    note: AUTO (the rate follows the memory depth), MAX or <rate> rounded to the next fastest of 128 GSa/s
+      divided by a power of two (the data sheet); a set rate takes precedence over the memory depth (the
+      guide's table) and the record holds rate x 10 div points, at most 10 Mpts in the simulation (the
+      rate steps down to fit). The query answers the rate in use
   - header: :ACQuire:SRATe[:ANALog]:AUTO
     level: not_modeled
   - header: :ACQuire:SRATe:TESTLIMITS
@@ -2056,15 +2059,15 @@ sections:
     note: the message on the screen; saved and read back
   - header: :SYSTem:ERRor
     level: implemented
-    note: 'without a parameter or with NUMBer: the error number alone, 0 when the queue is empty (the
-      guide). The STRing form (number and quoted text) needs the reply format chosen by whether an optional
-      parameter is given, which the platform cannot declare yet: -224 as not modeled (#602)'
+    note: 'without a parameter or with NUMBer: the error number alone, 0 when the queue is empty; STRing:
+      the number and the quoted text, 0,"No error" (the guide)'
   - header: :SYSTem:GUI
     level: not_modeled
   - header: :SYSTem:HEADer
     level: implemented
-    note: 'OFF only (SimuBench default): replies without headers. ON is not modeled (-224); the UXR''s
-      power-on value is a user preference the guide does not give (#602)'
+    note: 'ON: replies start with the command header (short, or long with :SYSTem:LONGform ON); common
+      command queries never have one (the guide). OFF after power-on is a SimuBench value (a user preference
+      the guide does not give)'
   - header: :SYSTem:HLED
     level: accepted
     affects_data: false
@@ -2075,7 +2078,8 @@ sections:
     note: 草稿：定义中已有，确认程度与说明
   - header: :SYSTem:LONGform
     level: implemented
-    note: 'OFF only: short-form replies. ON is not modeled (-224) (#602)'
+    note: 'ON: headers and enumerations in the long form (CENTER, :TIMEBASE:REFERENCE); the guide''s :MODel?
+      table'
   - header: :SYSTem:MENU
     level: not_modeled
   - header: :SYSTem:MODE
@@ -2364,7 +2368,8 @@ sections:
     note: CHANnel<N> only
   - header: :WAVeform:STReaming
     level: implemented
-    note: OFF only (definite-length blocks); ON (#0 indefinite-length blocks) is not modeled (#602)
+    note: 'ON: :WAVeform:DATA? sends a #0 indefinite-length block (Streaming On); OFF: a definite-length
+      block. OFF after power-on is a SimuBench value'
   - header: :WAVeform:TYPE
     level: not_modeled
   - header: :WAVeform:VIEW
