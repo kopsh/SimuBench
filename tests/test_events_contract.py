@@ -9,6 +9,7 @@ either a contract field or the declared engine-side inventory.
 from __future__ import annotations
 
 import datetime as dt
+import math
 from pathlib import Path
 
 import numpy as np
@@ -24,6 +25,7 @@ from simubench.engine.events import (
     project,
 )
 from simubench.engine.record import encode_bytes, jsonable
+from simubench.jsonsafe import SPECIAL_NUMBERS, as_number, spelling
 from simubench.models import api as M
 from simubench.models.bench import Fault
 
@@ -48,6 +50,19 @@ def test_jsonable_covers_numpy_bytes_and_datetimes():
     assert jsonable(b":MEAS?") == {"text": ":MEAS?"}
     raw = bytes(range(256))
     assert jsonable(raw) == {"b64": encode_bytes(raw)["b64"], "size": "256"}
+
+
+def test_jsonsafe_is_the_one_spelling_forward_and_back():
+    """The spelling lives once (simubench.jsonsafe, #628); jsonable writes it, clients read it
+    back through as_number."""
+    assert list(SPECIAL_NUMBERS) == ["INF", "-INF", "NAN"]
+    assert SPECIAL_NUMBERS["INF"] == float("inf") and SPECIAL_NUMBERS["-INF"] == float("-inf")
+    assert math.isnan(SPECIAL_NUMBERS["NAN"])
+    assert spelling(float("inf")) == "INF" and spelling(float("-inf")) == "-INF"
+    assert spelling(float("nan")) == "NAN"
+    assert as_number("INF") == float("inf") and as_number("-INF") == float("-inf")
+    assert math.isnan(as_number("nan"))  # any case, as the TUI read it before
+    assert as_number(2.5) == 2.5 and as_number("3") == "3"  # anything else unchanged
 
 
 # ---- the contract and its projection --------------------------------------------------------------

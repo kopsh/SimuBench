@@ -108,7 +108,7 @@ class StatusRegister(Component):
                 "IFC": True,
             }
             if outermost:
-                self.session._solve()
+                self.session.solve()
             for comp in self.owner.components.values():
                 # A register of one channel (a channel component, e.g. a supply's ISUMmary<n>)
                 # sees only that channel's flags (#348).

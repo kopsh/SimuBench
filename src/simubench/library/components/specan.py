@@ -178,7 +178,7 @@ class SpecanMixer(Component):
 
     def on_state(self, path: str, old: Any, new: Any) -> None:
         if path == self.bound_paths().get("source") and new == "EXTernal":
-            self.session._sync()
+            self.session.sync()
             self.refresh()
             if not self._locked:
                 assert self.owner is not None
@@ -190,7 +190,7 @@ class SpecanMixer(Component):
 
     @op("status")
     def op_status(self, what: str = "locked", **_: Any) -> OpResult:
-        self.session._sync()
+        self.session.sync()
         if what == "locked":
             return OpResult(V.format_bool(self.locked()))
         return OpResult(self.in_use().encode())
@@ -317,7 +317,6 @@ class SpecanTrace(Component):
         super().__init__(*args, **kwargs)
         self._restart_ns = 0
         self._key: tuple[Any, ...] | None = None
-        self._seen = -1
         self._history: list[tuple[int, Signal]] = []  # RF_IN since the restart: (from, signal)
         self._cache: dict[tuple[int, int], np.ndarray] = {}
         self._held: np.ndarray | None = None
@@ -421,12 +420,10 @@ class SpecanTrace(Component):
 
     def reset(self) -> None:
         self._frozen = None
-        self._seen = -1
 
     def sync(self) -> None:
-        if self._seen == self.session._signal_version:
+        if not self.session.signal_changed(self):
             return
-        self._seen = self.session._signal_version
         self._mixer().refresh()
         key = self._trace_key()
         if key != self._key:
@@ -536,7 +533,7 @@ class SpecanTrace(Component):
 
     def trace(self) -> tuple[np.ndarray, np.ndarray]:
         """Frequencies and levels (dBm) of the trace as the display shows it now."""
-        self.session._sync()
+        self.session.sync()
         st = self.settings()
         x = np.linspace(st.start, st.stop, st.points)
         if not self._st("init.continuous") and self._frozen is not None:
@@ -675,7 +672,7 @@ class SpecanTrace(Component):
         """Single sweep(s): the averaging count in AVERage mode, else one; takes their sweep time."""
         st = self.settings()
         n = int(self._st("aver.count")) if self._st("trace.type") == "AVERage" else 1
-        self.session._sync()
+        self.session.sync()
         start_sweep = self.current_sweep(st)
         traces = [self._sweep(s, st) for s in range(start_sweep, start_sweep + n)]
         mode = self._st("trace.type")

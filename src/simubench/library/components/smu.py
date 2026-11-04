@@ -374,20 +374,20 @@ class OutputControlLoop(Component):
 
     @op("regulation")
     def op_regulation(self, **_: Any) -> OpResult:
-        self.session._solve()
+        self.session.solve()
         if not self.on():
             return OpResult(b"OFF")
         return OpResult(b"CV" if self.mode == "V" else b"CC")
 
     @op("tripped")
     def op_tripped(self, kind: str = "current", **_: Any) -> OpResult:
-        self.session._solve()
+        self.session.solve()
         tripped = self.limited() and (kind == "current") == self.forcing_voltage()
         return OpResult(V.format_bool(tripped))
 
     @op("condition")
     def op_condition(self, **_: Any) -> OpResult:
-        self.session._solve()
+        self.session.solve()
         return OpResult(V.format_int(CONDITION_LIMIT if self.limited() else 0))
 
 
@@ -865,7 +865,7 @@ class SmuMeter(Component):
         return OpResult(self.reply_number(r, 7))
 
     def readings(self) -> dict[str, Any]:
-        self.session._solve()
+        self.session.solve()
         v, i = self._measured()
         loop = self._loop()
         points = self._buffer_points()

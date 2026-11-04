@@ -45,6 +45,10 @@ class CounterGate(Component):
 - Override `output(port)` for signal outputs, `stamp(circuit, node)` / `emf()` for circuit
   contribution; `piecewise = True` for mode-dependent devices (D34 mode iteration, D52);
   `dynamic = True` for time state.
+- The session's public mouth only, never `session._*` (guard: `tests/test_component_privacy.py`,
+  D60): judge own state (regulating, tripped, conducting) after `self.session.solve()`;
+  refresh-once-per-version work in `sync()` guards with `self.session.signal_changed(self)`;
+  bring dynamic state to the current instant before a reading with `self.session.sync()`.
 - Out of the model's range → raise `ScpiError` with the right code; never return a guess.
 - Numeric replies: `self.reply_number(value, digits)`, never a hand-formatted string — a
   definition with `format.readings: format` answers in its own format (D54, #366).

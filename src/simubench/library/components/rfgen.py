@@ -71,7 +71,6 @@ class RfReference(ReferenceClock):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._ext_error: float | None = None
-        self._seen = -1
 
     def sync(self) -> None:
         """Read the reference input when the signals changed and invalidate on a new lock state.
@@ -79,9 +78,8 @@ class RfReference(ReferenceClock):
         The input is read here, not in :meth:`error`: ``error`` is called while the bench is being
         solved, and asking for the signal on ``ref`` there would solve the circuit again.
         """
-        if self._seen == self.session._signal_version:
+        if not self.session.signal_changed(self):
             return
-        self._seen = self.session._signal_version
         ext = None
         if str(self.param("source")).upper().startswith("EXT"):
             f = self._external_hz()

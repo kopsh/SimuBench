@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 from .. import __version__
+from ..jsonsafe import spelling
 from ..plugins import report as plugin_report
 
 if TYPE_CHECKING:
@@ -44,12 +45,12 @@ def encode_bytes(data: bytes) -> dict[str, str]:
 def jsonable(value: Any) -> Any:
     """A value JSON can carry, for the run record and the event stream alike (issue 595: one
     helper). Bytes become text or base64 (:func:`encode_bytes`); a non-finite float becomes the
-    string the bench files spell it with ("INF", "-INF", "NAN"); datetimes become ISO; a numpy
-    scalar becomes a Python number; dicts, lists and tuples recurse."""
+    string the bench files spell it with (:mod:`simubench.jsonsafe`); datetimes become ISO; a
+    numpy scalar becomes a Python number; dicts, lists and tuples recurse."""
     if isinstance(value, bytes):
         return encode_bytes(value)
     if isinstance(value, float) and not np.isfinite(value):
-        return "INF" if value > 0 else "-INF" if value < 0 else "NAN"
+        return spelling(value)
     if isinstance(value, np.generic):
         return value.item()
     if isinstance(value, (dt.datetime, dt.date)):

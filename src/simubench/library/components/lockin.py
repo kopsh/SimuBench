@@ -112,7 +112,6 @@ class LockinReference(Component):
         self._psi = 0.0
         self._freq = float(self.param("frequency"))
         self.locked = self.param("source") != "EXTernal"
-        self._seen = -1
 
     # The phase of the oscillator at an instant, carried across frequency changes.
     def _psi_at(self, t_ns: int) -> float:
@@ -152,18 +151,13 @@ class LockinReference(Component):
                 self.owner.set_state(bound["harmonic"], self._largest_harmonic(f))
             if self.param("source") != "EXTernal":
                 self._retune(f)
-        if path == bound.get("ext_slope"):
-            self._seen = -1  # the zero-phase point on REF_IN moved
-        if path == bound.get("source"):
-            self._seen = -1  # look at REF_IN (or go back to the internal frequency) now
-            if new != "EXTernal":
-                self.locked = True
-                self._retune(float(self.param("frequency")))
+        if path == bound.get("source") and new != "EXTernal":
+            self.locked = True
+            self._retune(float(self.param("frequency")))
 
     def sync(self) -> None:
-        if self.param("source") != "EXTernal" or self._seen == self.session._signal_version:
+        if self.param("source") != "EXTernal" or not self.session.signal_changed(self):
             return
-        self._seen = self.session._signal_version
         sig = self.input("ext").merged()
         line = None
         if sig.freq.size:
@@ -489,7 +483,6 @@ class LockinLowpass(Component):
         super().__init__(*args, **kwargs)
         self._regime: _Regime | None = None
         self._history: list[_Regime] = []  # regimes since the restart, for sampling past instants
-        self._seen = -1
         self._limit_flag = False
         self._zero_start = False
         self._serial = 0  # regimes built so far: the output updates its flags when this moves
@@ -524,13 +517,11 @@ class LockinLowpass(Component):
     def reset(self) -> None:
         self._regime = None  # the filter restarts from zero at the next sync
         self._history.clear()
-        self._seen = -1
         self._zero_start = True
 
     def sync(self) -> None:
-        if self._seen == self.session._signal_version:
+        if not self.session.signal_changed(self):
             return
-        self._seen = self.session._signal_version
         now = self.session.now_ns
         sig = self.input("in")
         ref = self.input("ref")
@@ -683,7 +674,7 @@ class LockinOutput(Component):
     # ---- the reading ----------------------------------------------------------------------------
 
     def _clean(self) -> complex:
-        self.session._sync()
+        self.session.sync()
         return self._filter().value_at(self.session.now_ns)
 
     def _noise(self, now_ns: int | None = None) -> complex:
@@ -812,7 +803,7 @@ class LockinOutput(Component):
         }
 
     def overload(self) -> int:
-        self.session._sync()
+        self.session.sync()
         self._update_flags()
         return self._flags
 
@@ -930,7 +921,7 @@ class LockinOutput(Component):
             raise ScpiError(-221, "auto gain needs a time constant of 1 s or less")
         assert self.owner is not None
         r = abs(self.xy()) / self._scale()  # in the chain's volts, like the sensitivity ladder
-        self.session._sync()
+        self.session.sync()
         spec = self.owner.specs.get("input.sensitivity")
         lo = spec.min if spec and spec.min is not None else 2e-9
         hi = spec.max if spec and spec.max is not None else 1.0
