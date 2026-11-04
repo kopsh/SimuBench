@@ -727,6 +727,13 @@ class InstrumentDefinition(_Model):
     #: built in memory have none.
     _source_file: Path | None = PrivateAttr(default=None)
 
+    #: The coverage table next to the definition file (:class:`library.coverage.Coverage`), as the
+    #: loader read it; its file. The loader sets both (the engine compiles runtime lookups from the
+    #: table on first use and reads no files itself, D18). None when the definition has no table,
+    #: and both unset when the table cannot be read: the instrument runs on the definition alone.
+    _coverage: Any = PrivateAttr(default=None)
+    _coverage_file: Path | None = PrivateAttr(default=None)
+
     @model_validator(mode="before")
     @classmethod
     def _expand_macros(cls, data: Any) -> Any:
