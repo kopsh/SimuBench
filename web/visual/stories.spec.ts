@@ -13,7 +13,14 @@ for (const story of stories) {
     test(`${story.title} / ${story.name} (${theme})`, async ({ page }) => {
       await page.goto(`/iframe.html?id=${story.id}&viewMode=story&globals=theme:${theme}`);
       await page.waitForSelector("#storybook-root > *");
-      await page.evaluate(() => document.fonts.ready);
+      // A capture can land before the webfonts do: fallback metrics change how text wraps (a card
+      // growing by one line shifts the whole canvas fit), so the same page renders two ways — the
+      // race that kept flipping the Live canvas / Counter story. Forcing every declared face to
+      // load makes the capture always see the webfont metrics, race or not (issue 613).
+      await page.evaluate(async () => {
+        await Promise.all([...document.fonts].map((f) => f.load().catch(() => {})));
+        await document.fonts.ready;
+      });
       await expect(page).toHaveScreenshot(`${story.id}-${theme}.png`, { fullPage: true });
     });
   }
