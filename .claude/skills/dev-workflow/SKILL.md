@@ -38,7 +38,8 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
    the product (D58): what changed for the user, not how. It auto-squash-merges when CI is green on a commit that
    contains latest `main`; the bot self-heals a branch that `main` has passed (merge + re-CI on
    the same fast tier) and comments on a red CI run. Red CI → push a fix commit. Never
-   weaken/skip/delete tests.
+   weaken/skip/delete tests. Label the PR `免审查` when the issues it closes need no review: the bot
+   copies the label onto them before closing (#614); it retries GitHub API 502s itself.
 7. Append a self-check section to the end of `docs/progress-log.md` when the issue asks for it
    (format in `docs/progress.md`; never read the log whole).
 
