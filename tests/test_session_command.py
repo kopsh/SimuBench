@@ -36,6 +36,15 @@ def test_command_returns_its_reply_and_only_its_own_errors(tmp_path):
     assert [e.code for e in bad.errors] == [-113]  # this command's error, not an older one
 
 
+def test_command_knows_whether_the_message_asks_for_a_response(tmp_path):
+    """``is_query`` is the parse layer's verdict (issue 627), not a '?' anywhere in the text: the
+    transports shape ``timed_out`` from it, and a quoted '?' parameter is a set, not a query."""
+    s = open_command(tmp_path)
+    assert s.command("lia", "*IDN?").is_query is True
+    assert s.command("lia", ":NOSUCH 1").is_query is False
+    assert s.command("lia", ':DISP:TEXT "?"').is_query is False
+
+
 def test_command_reports_errors_a_full_queue_dropped(tmp_path):
     """The queue holds 20 entries and drops every new one once full (#483): the old length
     difference saw nothing, so a command into a full queue reported errors=[] though the

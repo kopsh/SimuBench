@@ -31,7 +31,6 @@ from . import __version__
 from .engine.commands import classify
 from .engine.edit import EditError, EditOp
 from .engine.events import project
-from .engine.faults import LinkDown
 from .engine.jsonpatch import PatchError, PatchOp
 from .engine.record import jsonable
 from .engine.scriptscan import draft_bench, draft_definition
@@ -42,7 +41,14 @@ from .models.bench import Fault
 from .server.benchfiles import Conflict, diagnostics
 from .server.catalog import components as component_catalog
 from .server.definitionfiles import DefinitionFiles
-from .server.manager import BenchInvalid, ClientsConnected, ServedSession, SessionManager, fault_info
+from .server.manager import (
+    BenchInvalid,
+    ClientsConnected,
+    ServedSession,
+    SessionManager,
+    fault_info,
+    scpi_response,
+)
 
 INSTRUCTIONS = """\
 SimuBench runs virtual instrument benches: instruments (AWG, oscilloscope, ...), parts (RC networks,
@@ -71,6 +77,12 @@ Bench files are the engineer's: explain what you change.
 def _fault(f: Any) -> dict[str, Any]:
     """The same fault shape the web API returns (fault_info in server.manager): one DTO, two seams."""
     return fault_info(f).model_dump(mode="json")
+
+
+def _scpi(s: Any, instrument: str, command: str, client: str) -> dict[str, Any]:
+    """The same SCPI-exchange shape the web API returns (scpi_response in server.manager): one
+    DTO, two seams (the tools used to carry their own, with seconds instead of ns)."""
+    return scpi_response(s, instrument, command, client).model_dump(mode="json")
 
 
 def _pointer_diff(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
@@ -437,33 +449,10 @@ def build_server(
         def run() -> list[dict[str, Any]]:
             session = open_bench(bench, definition_dirs=[files.workspace / "instruments"])
             try:
-                out: list[dict[str, Any]] = []
-                for command in commands:
-                    try:
-                        result = session.command(definition_id, command, client="mcp")
-                    except LinkDown as exc:
-                        out.append(
-                            {
-                                "command": command,
-                                "response": None,
-                                "link_error": str(exc),
-                                "now_s": session.now_ns / 1e9,
-                            }
-                        )
-                        continue
-                    reply = result.reply
-                    item: dict[str, Any] = {
-                        "command": command,
-                        "response": reply.decode(errors="replace").rstrip("\n")
-                        if reply is not None
-                        else None,
-                        "errors": [{"code": e.code, "message": e.message} for e in result.errors],
-                        "now_s": session.now_ns / 1e9,
-                    }
-                    if reply is None and "?" in command:
-                        item["timed_out"] = True
-                    out.append(item)
-                return out
+                return [
+                    {"command": command, **_scpi(session, definition_id, command, client="mcp")}
+                    for command in commands
+                ]
             finally:
                 session.close()
 
@@ -801,21 +790,8 @@ def build_server(
             raise ToolError(f"危险命令需要确认：{'; '.join(risky)}。向工程师说明后，以 confirm=true 重新调用")
 
         def run() -> dict[str, Any]:
-            session = s.session
-            try:
-                # One exchange (#121): a script on the port cannot take this command's response.
-                result = session.command(instrument, command, client="mcp")
-            except LinkDown as exc:
-                return {"response": None, "link_error": str(exc), "now_s": session.now_ns / 1e9}
-            out = result.reply
-            reply: dict[str, Any] = {
-                "response": out.decode(errors="replace").rstrip("\n") if out is not None else None,
-                "errors": [{"code": e.code, "message": e.message} for e in result.errors],
-                "now_s": session.now_ns / 1e9,
-            }
-            if out is None and "?" in command:
-                reply["timed_out"] = True
-            return reply
+            # One exchange (#121): a script on the port cannot take this command's response.
+            return _scpi(s.session, instrument, command, client="mcp")
 
         return await asyncio.to_thread(run)
 

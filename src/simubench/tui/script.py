@@ -18,6 +18,8 @@ from typing import Any
 
 import yaml
 
+from ..scpi.parse import message_is_query
+
 #: Suffixes accepted in `wait` / `advance`: seconds by default, so `1.5` and `1500ms` are equal.
 _SUFFIX = {"ns": 1e-9, "us": 1e-6, "µs": 1e-6, "ms": 1e-3, "s": 1.0}
 
@@ -136,10 +138,11 @@ async def external_scpi(app: Any, instrument: str, command: str, source_port: in
         reader, writer = await asyncio.open_connection(sock=sock)
     else:
         reader, writer = await asyncio.open_connection("127.0.0.1", port)
-    writer.write(command.encode() + b"\n")
+    data = command.encode() + b"\n"
+    writer.write(data)
     await writer.drain()
     reply = b""
-    if "?" in command:
+    if message_is_query(data):  # the parse layer's verdict, not a '?' anywhere in the text (issue 627)
         reply = await asyncio.wait_for(reader.readline(), timeout=10)
     writer.close()
     await writer.wait_closed()
