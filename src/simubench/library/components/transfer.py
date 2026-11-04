@@ -182,7 +182,7 @@ class WaveformTransfer(Component):
     def transfer(self, channel: int | None) -> OpResult:
         """Encode the current record of the source channel (asking the acquisition for it)."""
         assert self.owner is not None
-        acq = self.owner.components[str(self.param("record"))]
+        acq = self.peer(str(self.param("record")), required=True)
         n = self._source(channel)
         rec, used = acq.transfer_record(n, int(self.param("first")))  # type: ignore[attr-defined]
         if rec is None:
@@ -195,7 +195,7 @@ class WaveformTransfer(Component):
         one ``descriptor_item`` per ``descriptor`` entry, figures of the record, this transfer's
         selection and the acquisition (``count``: acquisitions so far)."""
         assert self.owner is not None
-        acq = self.owner.components[str(self.param("record"))]
+        acq = self.peer(str(self.param("record")), required=True)
         n = self._source(channel)
         rec, used = acq.read_record(n, start=False)  # type: ignore[attr-defined]
         if rec is None:
@@ -215,7 +215,7 @@ class WaveformTransfer(Component):
         """What header fields and descriptor entries can name: the record, this transfer's
         selection and the acquisition."""
         assert self.owner is not None
-        acq = self.owner.components[str(self.param("record"))]
+        acq = self.peer(str(self.param("record")), required=True)
         sel = self.selection(rec.volts.size)
         probe = float(acq.probe_ratio(n)) if hasattr(acq, "probe_ratio") else 1.0
         bits = int(acq.adc_unit().param("bits")) if hasattr(acq, "adc_unit") else int(self.param("adc_bits"))
@@ -319,7 +319,7 @@ class WaveformTransfer(Component):
         ``trailer``) or a text line. Without a record: an empty block and -230."""
         assert self.owner is not None
         h = self.param("header") or {}
-        acq = self.owner.components[str(self.param("record"))]
+        acq = self.peer(str(self.param("record")), required=True)
         n = self._source(channel)
         rec, used = acq.read_record(n)  # type: ignore[attr-defined]
         text = str(h.get("encoding", "binary")) == "text"
@@ -343,7 +343,7 @@ class WaveformTransfer(Component):
         """One figure of the source's record and this transfer's selection (``figures``), e.g.
         ``:WAVeform:XINCrement?``; ``format`` is a printf format, else the definition's numbers."""
         assert self.owner is not None
-        acq = self.owner.components[str(self.param("record"))]
+        acq = self.peer(str(self.param("record")), required=True)
         n = self._source(channel)
         rec, used = acq.read_record(n, start=False)  # type: ignore[attr-defined]
         if rec is None:

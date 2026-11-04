@@ -62,9 +62,8 @@ class FunctionGeneratorCore(Component):
         self._t0 = self.session.now_ns
         self._phase0 = 0.0
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = self.bound_paths()
-        if path == bound.get("frequency") and old is not None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key == "frequency" and old is not None:
             now = self.session.now_ns
             self._phase0 = (self._phase0 + 2 * math.pi * float(old) * (now - self._t0) * 1e-9) % (2 * math.pi)
             self._t0 = now
@@ -217,9 +216,9 @@ class WaveformSynth(Component):
 
     def frequency(self) -> float:
         freq = float(self.param("frequency"))
-        clock = str(self.param("clock") or "")
-        if clock and self.owner is not None:
-            freq *= 1.0 + self.owner.components[clock].error()
+        clock = self.ref("clock")
+        if clock is not None:
+            freq *= 1.0 + clock.error()  # type: ignore[attr-defined]
         return freq
 
     def max_frequency(self) -> float | None:
@@ -232,27 +231,26 @@ class WaveformSynth(Component):
         return None
 
     def state_limits(self, path: str) -> tuple[float | None, float | None] | None:
-        if path == self.bound_paths().get("frequency"):
+        if path == self.bound_path("frequency"):
             top = self.max_frequency()
             return (None, top) if top is not None else None
         return None
 
-    def on_state(self, path: str, old: Any, new: Any) -> Any:
-        bound = self.bound_paths()
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         top = self.max_frequency()
-        if path == bound.get("frequency") and top is not None and float(new) > top * (1 + 1e-12):
+        if key == "frequency" and top is not None and float(new) > top * (1 + 1e-12):
             # The Trueform rule (33500-90901 FREQuency): "Data out of range" and the frequency is
             # set to the function's maximum (#437).
             assert self.owner is not None
             self.owner.push_error(-222, f"{self.param('function')} is limited to {top:g} Hz")
             return top
-        if path == bound.get("function") and top is not None and float(self.param("frequency")) > top:
+        if key == "function" and top is not None and float(self.param("frequency")) > top:
             # Changing to a function of a lower maximum moves the frequency there, with a
             # "Settings conflict" (33500-90901 FUNCtion, Function Limitations).
             assert self.owner is not None
-            self.owner.set_state(bound["frequency"], top)
+            self.owner.set_state(self.bound_path("frequency"), top)
             self.owner.push_error(-221, f"frequency set to {top:g} Hz for {new}")
-        if path == bound.get("frequency") and old is not None:
+        if key == "frequency" and old is not None:
             now = self.session.now_ns
             self._phase0 = (self._phase0 + 2 * math.pi * float(old) * (now - self._t0) * 1e-9) % (2 * math.pi)
             self._t0 = now
@@ -322,7 +320,7 @@ class WaveformSynth(Component):
             return OpResult(self.owner.format_number(self.duty_ratio() / freq))
         # The word's range and the write go to the same setting: ``target`` (the pulse duty), not
         # the square-wave duty the generic ``duty`` parameter binds to.
-        path = self.resolve_path(target) if target else self.bound_paths().get("duty")
+        path = self.resolve_path(target) if target else self.bound_path("duty")
         if path is None:
             raise ScpiError(-221, "the duty cycle is not a setting")
         duty_scale = 1.0 if str(self.param("duty_unit")).lower() == "ratio" else 1e-2
@@ -348,17 +346,17 @@ class WaveformSynth(Component):
         MIN/MAX/DEF are the edge settings' own declared range, the same words LEADing/TRAiling
         take, so ``TRAN? MIN`` answers what ``LEAD? MIN`` does (#478)."""
         assert self.owner is not None
-        bound = self.bound_paths()
-        if "lead_time" not in bound or "trail_time" not in bound:
+        lead_path, trail_path = self.bound_path("lead_time"), self.bound_path("trail_time")
+        if lead_path is None or trail_path is None:
             raise ScpiError(-221, "the edge times are not settings")
         if query and value is None:
             return OpResult(self.owner.format_number(float(self.param("lead_time"))))
-        lo, default, hi = self._pulse_bounds(bound["lead_time"])
+        lo, default, hi = self._pulse_bounds(lead_path)
         edge = V.parse_float(self._pulse_raw(value), "S", lo, hi, default)
         if query:
             return OpResult(self.owner.format_number(edge))
-        self.owner.set_state(bound["lead_time"], edge)
-        self.owner.set_state(bound["trail_time"], edge)
+        self.owner.set_state(lead_path, edge)
+        self.owner.set_state(trail_path, edge)
         return OpResult()
 
     @op("pulse_period")
@@ -366,7 +364,7 @@ class WaveformSynth(Component):
         """The period (s) = 1 / frequency; setting it writes the frequency (the duty is kept).
         MIN/MAX/DEF are the inverse of the frequency setting's declared range (#478)."""
         assert self.owner is not None
-        freq_path = self.bound_paths()["frequency"]
+        freq_path = self.bound_path("frequency")
         if query and value is None:
             return OpResult(self.owner.format_number(1.0 / float(self.param("frequency"))))
         lo, default, hi = self._pulse_bounds(freq_path)
@@ -384,11 +382,7 @@ class WaveformSynth(Component):
 
     def _played(self, key: str) -> Component | None:
         """The arbitrary-waveform or PRBS component named by ``key``, on this one's channel."""
-        name = str(self.param(key) or "")
-        if not name or self.owner is None:
-            return None
-        full = f"ch{self.channel}.{name}" if self.channel is not None else name
-        return self.owner.components.get(full)
+        return self.peer(str(self.param(key) or ""))
 
 
 def _carson(beta: float) -> int:
@@ -543,8 +537,7 @@ class AwgModulator(Component):
         name = str(self.param("synth") or "")
         if not name or self.owner is None:
             raise ScpiError(-221, "PWM needs the pulse synthesizer (the modulator's synth)")
-        synth = self.owner.components[f"ch{self.channel}.{name}" if self.channel is not None else name]
-        return self._pwm_from(synth)
+        return self._pwm_from(self.peer(name, required=True))
 
     def _pwm_from(self, synth: Any) -> Signal:
         if synth.function() != "SQUare":  # type: ignore[attr-defined]
@@ -638,17 +631,13 @@ class AmplitudeLevel(Component):
     VPP_PER_VRMS = FunctionGeneratorCore.VPP_PER_VRMS
 
     def _sibling(self, key: str) -> Component | None:
-        name = str(self.param(key) or "")
-        if not name or self.owner is None:
-            return None
-        full = f"ch{self.channel}.{name}" if self.channel is not None else name
-        return self.owner.components.get(full)
+        return self.peer(str(self.param(key) or ""))
 
     def bound_paths(self) -> dict[str, str]:
         out = super().bound_paths()
         synth = self._sibling("synth")
         if synth is not None:  # watched so a shape change that breaks the Vpp range is refused
-            path = synth.bound_paths().get("function")
+            path = synth.bound_path("function")
             if path:
                 out["function"] = path
         return out
@@ -696,20 +685,19 @@ class AmplitudeLevel(Component):
         """The amplitude as volts peak-to-peak into the load setting."""
         return self._to_vpp(float(self.param("amplitude")), str(self.param("unit")))
 
-    def on_state(self, path: str, old: Any, new: Any) -> Any:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         if self.owner is None or old is None:
             return None
-        bound = self.bound_paths()
-        if path == bound.get("unit"):
+        if key == "unit":
             self._switch_unit(str(old), str(new))
             return None
-        if path == bound.get("load_setting") and str(self.param("load_change")).lower() == "output":
+        if key == "load_setting" and str(self.param("load_change")).lower() == "output":
             self._keep_output(float(old))
-        if path not in (bound.get("amplitude"), bound.get("load_setting"), bound.get("function")):
+        if key not in ("amplitude", "load_setting", "function"):
             return None
         vpp, lo, hi = self.vpp(), self.param("vpp_min"), self.param("vpp_max")
         if (lo is not None and vpp < float(lo) - 1e-12) or (hi is not None and vpp > float(hi) + 1e-12):
-            if path == bound.get("amplitude"):
+            if key == "amplitude":
                 unit = str(self.param("unit")).upper()
                 edges = []
                 for bound_vpp, word in ((lo, "-inf"), (hi, "inf")):
@@ -730,7 +718,7 @@ class AmplitudeLevel(Component):
 
     def _switch_unit(self, old: str, new: str) -> None:
         """Convert the value to the new unit: the same wave in the new unit's terms (D48)."""
-        amp_path = self.bound_paths().get("amplitude")
+        amp_path = self.bound_path("amplitude")
         if amp_path is None:
             return
         vpp = self._to_vpp(float(self.owner.get_state(amp_path)), old)
@@ -750,8 +738,7 @@ class AmplitudeLevel(Component):
         """Write the bound amplitude (in its unit) and offset so the wave spans low..high."""
         if high <= low:
             raise ScpiError(-222, f"the high level {high:.6g} V must be above the low level {low:.6g} V")
-        bound = self.bound_paths()
-        amp_path, off_path = bound.get("amplitude"), bound.get("offset")
+        amp_path, off_path = self.bound_path("amplitude"), self.bound_path("offset")
         if self.owner is None or amp_path is None or off_path is None:
             raise ScpiError(-221, "the amplitude and offset are not settings")
         unit = str(self.param("unit"))
@@ -818,8 +805,7 @@ class AmplitudeLevel(Component):
         and with it the voltage on the real load, stays as it was (#436). Written as watcher side
         effects, so a refusal (the rescaled amplitude out of range) rolls the load change back."""
         assert self.owner is not None
-        bound = self.bound_paths()
-        amp_path, off_path = bound.get("amplitude"), bound.get("offset")
+        amp_path, off_path = self.bound_path("amplitude"), self.bound_path("offset")
         factor = self._emf_scale(old_load) / self._emf_scale()
         if amp_path is not None:
             unit = str(self.param("unit"))

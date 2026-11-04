@@ -42,10 +42,7 @@ class PowerSupplySetpoint(Component):
     units = {"voltage": "V", "current": "A"}
 
     def _stage(self) -> PowerStage:
-        assert self.owner is not None
-        name = str(self.param("stage"))
-        full = f"ch{self.channel}.{name}" if self.channel is not None else name
-        return self.owner.components[full]  # type: ignore[return-value]
+        return self.ref("stage")  # type: ignore[return-value]
 
     def voltage(self) -> float:
         return float(self.param("voltage"))
@@ -53,9 +50,7 @@ class PowerSupplySetpoint(Component):
     def current(self) -> float:
         return float(self.param("current"))
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "voltage" and abs(float(new)) > float(self._stage().param("v_max")) + 1e-9:
             raise ScpiError(-222, "the programmed voltage is outside the channel's range")
         if key == "current" and float(new) > float(self._stage().param("i_max")) + 1e-9:
@@ -134,9 +129,7 @@ class PowerOutput(Component):
         self._p_sign = 1.0  # the output's polarity in the region (a negative output sources negative)
 
     def _sibling(self, name: str) -> Any:
-        assert self.owner is not None
-        full = f"ch{self.channel}.{name}" if self.channel is not None else name
-        return self.owner.components[full]
+        return self.peer(name, required=True)
 
     def _loop(self) -> OutputControlLoop:
         return self._sibling(str(self.param("loop")))
@@ -149,12 +142,8 @@ class PowerOutput(Component):
 
     def idle(self) -> bool:
         """Out of operation: output 3 while output 2 carries an internal series/parallel pair."""
-        name = str(self.param("combination") or "")
-        if not name:
-            return False
-        assert self.owner is not None
-        combination: SupplyTracking = self.owner.components[name]  # type: ignore[assignment]
-        return combination.idle(self.channel)
+        combination = self.ref("combination")
+        return combination.idle(self.channel) if combination is not None else False  # type: ignore[union-attr]
 
     def conducting(self) -> bool:
         return self._closed and not self._protection().tripped() and not self.idle()
@@ -185,9 +174,7 @@ class PowerOutput(Component):
             self._closed = False
             self.session.invalidate(electrical=True)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "output":
             assert self.owner is not None
             if new:
@@ -369,10 +356,7 @@ class SupplyReadback(Component):
     defaults = {"output": ""}  # the channel's power_output
 
     def _output(self) -> PowerOutput:
-        assert self.owner is not None
-        name = str(self.param("output"))
-        full = f"ch{self.channel}.{name}" if self.channel is not None else name
-        return self.owner.components[full]  # type: ignore[return-value]
+        return self.ref("output")  # type: ignore[return-value]
 
     @op("measure")
     def op_measure(self, what: str = "voltage", **_: Any) -> OpResult:
@@ -500,7 +484,7 @@ class SupplyProtection(Component):
         return (ovp > 0 and abs(v) > ovp) or (ocp > 0 and abs(i) > ocp)
 
     def _output_path(self) -> str:
-        return f"ch{self.channel}.output" if self.channel is not None else "output"
+        return self.resolve_path("ch.output")
 
     def trip(self, v: float, i: float) -> None:
         if self._tripped:
@@ -542,9 +526,7 @@ class SupplyProtection(Component):
         if restore and self.owner is not None:
             self.owner.set_state(self._output_path(), True)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "output" and new and self._tripped and not self._disabling:
             raise ScpiError(OUTPUT_DISABLED, "the output is disabled by a protection fault")
         if key in ("voltage", "current", "output", "ocp_enabled") and bool(self.param("ocp_enabled")):
@@ -742,7 +724,7 @@ class SupplyTracking(Component):
     @op("track")
     def op_track(self, query: bool = False, enabled: bool | None = None, **_: Any) -> OpResult:
         """``OUTPut:TRACk``: on enters the track combination (and mirrors CH3), off leaves it."""
-        mode_path = self.bound_paths().get("mode", "output.mode")
+        mode_path = self.bound_path("mode") or "output.mode"
         if query:
             return OpResult(V.format_bool(self.mode() == "TRAC"))
         assert self.owner is not None
@@ -754,9 +736,7 @@ class SupplyTracking(Component):
             self.owner.set_state(mode_path, "OFF")
         return OpResult()
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key in ("mode", "track"):
             self._apply()
             return
@@ -825,10 +805,10 @@ class SupplyTransient(Component):
     def _act(self) -> None:
         assert self.owner is not None
         self.armed = self.ready = self.delaying = False
-        bound = self.bound_paths()
         for mode, level, key in (("v_mode", "v_triggered", "voltage"), ("i_mode", "i_triggered", "current")):
-            if str(self.param(mode)).upper().startswith("STEP") and key in bound:
-                self.owner.set_state(bound[key], float(self.param(level)), source="scpi", internal=True)
+            path = self.bound_path(key)
+            if str(self.param(mode)).upper().startswith("STEP") and path is not None:
+                self.owner.set_state(path, float(self.param(level)), source="scpi", internal=True)
 
     def _fire(self) -> None:
         """A trigger accepted: the action follows after the trigger delay."""

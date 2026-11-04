@@ -26,10 +26,6 @@ CAL_SECURED = 701
 CAL_INPUT = 702
 
 
-def _flag(value: Any) -> bool:
-    return value if isinstance(value, bool) else str(value).strip().upper() in ("1", "ON", "TRUE")
-
-
 @component("dmm_input_terminal")
 class DmmInputTerminal(Component):
     """The DMM's input terminals (#190 E1): the electrical input and its impedance to ground.
@@ -72,8 +68,7 @@ class DmmInputTerminal(Component):
         self._stamped_z: float | None = None  # the input impedance currently in the circuit
 
     def _conditioning(self) -> DmmConditioning:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("conditioning"))]  # type: ignore[return-value]
+        return self.ref("conditioning")  # type: ignore[return-value]
 
     def _mode(self) -> str:
         return self.choice("mode") or "VOLTage"
@@ -151,7 +146,7 @@ class DmmInputTerminal(Component):
         if z is None:
             return None
         high = self.param("z_in_high")
-        if high is not None and _flag(self.param("high_z")):
+        if high is not None and V.flag(self.param("high_z")):
             conditioning = self._conditioning()
             r = conditioning.effective_range(conditioning.active_function(), derive=derive)
             if r is not None and r in [float(x) for x in self.param("high_z_ranges") or []]:
@@ -165,7 +160,7 @@ class DmmInputTerminal(Component):
             return
         self.session.invalidate(electrical=True)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         self._input_changed()
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
@@ -312,7 +307,7 @@ class DmmConditioning(Component):
         true value the first time)."""
         if not self.ranges(function):
             return None
-        if not _flag(self.param("autorange")):
+        if not V.flag(self.param("autorange")):
             return self.range_of_setting(function)
         r = self._auto_range.get(function)
         if r is None and derive:
@@ -340,7 +335,7 @@ class DmmConditioning(Component):
         self._auto_range[function] = r
         self.session.invalidate(electrical=True)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         """A bound setting moved (the range, the function, ...): the input may re-stamp."""
         self.session.invalidate(electrical=True)
 
@@ -380,8 +375,7 @@ class DmmAdc(Component):
     units = {"cal_offset": "V", "cal_value": "V", "set_resolution": "V"}
 
     def _conditioning(self) -> DmmConditioning:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("conditioning"))]  # type: ignore[return-value]
+        return self.ref("conditioning")  # type: ignore[return-value]
 
     # The calibration store's interface to the "measuring core": the function being measured and
     # the range in use live in the conditioning block, the calibrated raw value too.
@@ -418,8 +412,7 @@ class DmmAdc(Component):
         name = str(self.param("store") or "")
         if not name:
             return None
-        assert self.owner is not None
-        return self.owner.components[name]
+        return self.peer(name, required=True)
 
     def _cal(self, function: str) -> tuple[float, float]:
         """The (gain, offset) correcting the raw reading: the store's per-key coefficients, or the
@@ -434,7 +427,7 @@ class DmmAdc(Component):
         itself, unformatted): what the trigger's sampler and the scan table take per point."""
         conditioning = self._conditioning()
         function = conditioning.active_function(what)
-        if _flag(conditioning.param("autorange")) and conditioning.ranges(function):
+        if V.flag(conditioning.param("autorange")) and conditioning.ranges(function):
             # The ohms ranges set the test current, so the value seen depends on the range taken:
             # settle the decision (each move re-solves the circuit with the new current, #301).
             for _ in range(len(conditioning.ranges(function)) + 1):

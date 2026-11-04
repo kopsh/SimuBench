@@ -155,8 +155,7 @@ class SpecanMixer(Component):
         self._locked = False
 
     def _clock(self) -> Any:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("clock"))]
+        return self.ref("clock")
 
     def refresh(self) -> None:
         """Read the reference's error and lock state (called when the receiver syncs)."""
@@ -176,8 +175,8 @@ class SpecanMixer(Component):
     def display(self, f: Any) -> Any:
         return f / (1 + self._error)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        if path == self.bound_paths().get("source") and new == "EXTernal":
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key == "source" and new == "EXTernal":
             self.session.sync()
             self.refresh()
             if not self._locked:
@@ -267,7 +266,7 @@ class SpecanVbw(Component):
     def vbw(self) -> float:
         if bool(self.param("vid_auto")):
             assert self.owner is not None
-            return float(self.owner.components[str(self.param("if_filter"))].rbw())
+            return float(self.ref("if_filter").rbw())  # type: ignore[union-attr]
         return float(self.param("vid"))
 
     @op("coupled_vbw")
@@ -327,8 +326,7 @@ class SpecanTrace(Component):
     # ---- the blocks ------------------------------------------------------------------------------
 
     def _block(self, key: str) -> Any:
-        assert self.owner is not None
-        return self.owner.components[str(self.param(key))]
+        return self.ref(key)
 
     def _input(self) -> SpecanInput:
         return self._block("input")
@@ -730,7 +728,7 @@ class SpecanTrace(Component):
     def _delta(self) -> bool:
         return self._marker_on() and str(self._opt("marker.mode", "POSition")).upper().startswith("DELT")
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if path == "marker.mode" and str(new).upper().startswith("DELT") and new != old:
             # DELTa fixes a reference marker where the marker is now; the marker itself moves on.
             # A marker that is off turns on first — it starts at the screen center, so the

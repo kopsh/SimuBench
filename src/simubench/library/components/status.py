@@ -69,10 +69,10 @@ class StatusRegister(Component):
                 out[f"change:{str(flag).upper()}"] = self.resolve_path(ref[1:])
         return out
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        for key, bound in self.bound_paths().items():
-            if key.startswith("change:") and bound == path:
-                self.event(key.split(":", 1)[1])
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        for flag, ref in dict(self._params.get("changes") or {}).items():
+            if isinstance(ref, str) and ref.startswith("$") and self.resolve_path(ref[1:]) == path:
+                self.event(str(flag).upper())
 
     def status_flags(self) -> dict[str, bool]:
         """This register's summary as a flag named after it (a serial-poll register's LIA bit); a
@@ -235,7 +235,7 @@ class StatusRegister(Component):
         """The enable mask: ``n`` sets it, ``i,j`` sets bit i to j; a query reads it, ``? i`` bit i."""
         assert self.owner is not None
         bit, value = self._one(bit), self._one(value)
-        path = self.bound_paths().get("enable")
+        path = self.bound_path("enable")
         mask = self._enable()
         if query:
             if bit is None:
@@ -266,15 +266,15 @@ class StatusRegister(Component):
         for comp in self.owner.components.values():
             if comp.type_name != "status_register" or comp._params.get("mirror"):
                 continue
-            bound = comp.bound_paths()
-            if bound.get("enable") is not None:
-                self.owner.set_state(bound["enable"], 0)
-            if bound.get("ptr") is not None:
+            enable, ptr, ntr = comp.bound_path("enable"), comp.bound_path("ptr"), comp.bound_path("ntr")
+            if enable is not None:
+                self.owner.set_state(enable, 0)
+            if ptr is not None:
                 preset = comp.param("preset_ptr")
                 full = (1 << int(comp.param("width"))) - 1
-                self.owner.set_state(bound["ptr"], full if preset is None else int(preset))
-            if bound.get("ntr") is not None:
-                self.owner.set_state(bound["ntr"], 0)
+                self.owner.set_state(ptr, full if preset is None else int(preset))
+            if ntr is not None:
+                self.owner.set_state(ntr, 0)
         return OpResult()
 
 

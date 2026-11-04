@@ -200,9 +200,7 @@ class RfSynthesizer(Component):
             self._t0 = self.owner.now_ns()
             self.session.invalidate()
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key == "manner":
             manner = self._manner() or set()
             if "OFF" in manner and len(manner) > 1:
@@ -218,8 +216,7 @@ class RfSynthesizer(Component):
         self._t0 = None
 
     def _clock(self) -> ReferenceClock:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("clock"))]
+        return self.ref("clock")  # type: ignore[return-value]
 
     def error(self) -> float:
         """Fractional frequency error of the timebase in use."""
@@ -272,8 +269,9 @@ class RfSynthesizer(Component):
     def op_initiate(self, **_: Any) -> OpResult:
         """Start the sweep again from its first point (and, stepping by time, from now)."""
         assert self.owner is not None
-        if "manual" in self.bound_paths():
-            self.owner.set_state(self.bound_paths()["manual"], 1)
+        manual_path = self.bound_path("manual")
+        if manual_path is not None:
+            self.owner.set_state(manual_path, 1)
         self._start_run()
         return OpResult()
 
@@ -281,7 +279,7 @@ class RfSynthesizer(Component):
     def op_trigger(self, **_: Any) -> OpResult:
         assert self.owner is not None
         n = len(self.sweep_points())
-        self.owner.set_state(self.bound_paths()["manual"], min(int(self.param("manual")) + 1, max(n, 1)))
+        self.owner.set_state(self.bound_path("manual"), min(int(self.param("manual")) + 1, max(n, 1)))  # type: ignore[arg-type]
         return OpResult()
 
     def readings(self) -> dict[str, Any]:
@@ -311,8 +309,7 @@ class RfModSource(Component):
     units = {"am_rate": "Hz", "fm_rate": "Hz", "pm_rate": "Hz"}
 
     def _clock(self) -> ReferenceClock:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("clock"))]
+        return self.ref("clock")  # type: ignore[return-value]
 
     def rate(self, kind: str) -> float:
         """The tone's frequency as set (before the timebase error), Hz."""
@@ -358,8 +355,7 @@ class RfModulator(Component):
     units = {"am_rate": "Hz", "fm_dev": "Hz", "fm_rate": "Hz", "pm_rate": "Hz"}
 
     def _source(self) -> RfModSource:
-        assert self.owner is not None
-        return self.owner.components[str(self.param("source"))]
+        return self.ref("source")  # type: ignore[return-value]
 
     def enabled(self) -> bool:
         """The master switch: off, the output is the bare carrier while each modulation keeps its
@@ -389,17 +385,15 @@ class RfModulator(Component):
         k = carson_orders(beta) if (fm or pm) else 0
         return (2 * k + 1) * (3 if am else 1)
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
-        bound = {v: k for k, v in self.bound_paths().items()}
-        key = bound.get(path)
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         assert self.owner is not None
         if key == "pulm" and new:
             raise ScpiError(-221, "pulse modulation is not simulated")
         if key == "pm" and new and self.param("fm"):
-            self.owner.set_state(self.bound_paths()["fm"], False)
+            self.owner.set_state(self.bound_path("fm"), False)
             self.owner.push_error(-221, "")
         if key == "fm" and new and self.param("pm"):
-            self.owner.set_state(self.bound_paths()["pm"], False)
+            self.owner.set_state(self.bound_path("pm"), False)
             self.owner.push_error(-221, "")
         angle = self._angle()
         beta = angle[0] if angle else 0.0
@@ -467,11 +461,9 @@ class RfLevelControl(Component):
 
     def level(self) -> float:
         """The level in use: the sweep's point while a level sweep runs, else the set level."""
-        name = str(self.param("synthesizer"))
-        if name and self.owner is not None:
-            synth = self.owner.components[name]
-            if synth.sweeps_level():  # type: ignore[attr-defined]
-                return float(synth.swept_level())  # type: ignore[attr-defined]
+        synth = self.ref("synthesizer")
+        if synth is not None and synth.sweeps_level():  # type: ignore[attr-defined]
+            return float(synth.swept_level())  # type: ignore[attr-defined]
         return float(self.param("level"))
 
     def output(self, port: str) -> Signal:

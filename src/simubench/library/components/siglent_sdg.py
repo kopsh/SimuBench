@@ -321,6 +321,6 @@ class SiglentSdgChannelLimits(Component):
         super().__init__(*args, **kwargs)
         self.batch = False
 
-    def on_state(self, path: str, old: Any, new: Any) -> None:
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if not self.batch:
             check_ranges({k: self.param(k) for k in LIMITED})
