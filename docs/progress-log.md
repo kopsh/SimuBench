@@ -1300,3 +1300,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | compliance | ✅ 第 1 章 DC Current Secondary Performance Specifications（Compliance Voltage Limits：220 µA–220 mA 10 V、2.2 A 3 V，注 5：1–2.2 A 2 V）与 AC Current Secondary Performance Specifications（Compliance Limits：7 V rms、2.2 A 1.4 V rms，注 4：1 A 以上 1.5 V）：定义改为 `{"*": 10, DC2_2A: 3, AC…: 7, AC2_2A: 1.4}`，注释、定义、覆盖表一致；注里按电平的例外未分档 |
 | 交流 compliance | ✅ 此前只比端子的直流值，交流电流从不跳闸：`update_mode` 的 `dc_voltage` 回调带上 `.signal(port)`（求解出的整个信号），`calibrator_control` 按端子真有效值比 compliance；`tests/test_fluke_5730a.py::test_the_compliance_follows_the_manual_per_range`（20 mA 入 450 Ω：直流不跳、交流跳；1.5 A 入 1.8 Ω：直流不跳、交流跳） |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 的电流与电阻输出（Issue 569）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `calibrator_setpoint`：电阻功能名可为 `RES`（5522A 的 FUNC? 回复）；`ohm_values: continuous`：电阻连续可调，量程表只是量程（5730A 仍为标称值）。`calibrator_control`：`compliance_error`（默认沿用 `overload_error`），5522A 的电流超 compliance 报 1500、电压过载仍报 1503 |
+| 5522A 定义 | ✅ 功能 DCV/ACV/DCI/ACI/RES，`OUT` 接上 A、OHM 单位（`OUT 1.2 MA` 同一频率、`OUT 1 A, 400 HZ` 交流、`OUT 1 KOHM`），`OUT?` 回 V/A/OHM；量程表（第 1 章各功能表；名字按第 6 章 RANGE? 示例的写法推出，未逐一核实，RANGE?/RANGELCK 留给 #560），电压表给出 ±1020 V 上限；compliance 按第 1 章 DC Current（10/10/7/7/6/6/4/4 V）与 AC Current 表末（7/7/5/5/4/4/3/3 V rms） |
+| 用例 | ✅ 手册用例「电流与电阻输出」（OUT?/FUNC?、21 A 与负电阻 -222、1 mA 入万用表 10 MΩ 跳回待机报 1500）；`tests/test_fluke_5522a.py` 的 compliance 参数化用例与连续电阻进入电路（1 V 经 1 kΩ 接 1234 Ω） |
+| 未做 | ⚠️ 20 A 端子与 AUX 端子未单独建模（同一 OUT 端口）；交流电流 29 µA 下限、LCOMP、四线/二线补偿未建模 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
