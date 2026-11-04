@@ -373,8 +373,9 @@ class Component:
     def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
         """Piecewise-linear devices: choose the mode the DC operating point calls for.
 
-        ``dc_voltage(port)`` is the solved DC voltage on one of the component's electrical ports.
-        Return True when the mode changed (the session then solves again).
+        ``dc_voltage(port)`` is the solved DC voltage on one of the component's electrical ports;
+        ``dc_voltage.signal(port)`` (when present) the whole solved signal there, for a limit on the
+        AC terminal voltage (#570). Return True when the mode changed (the session then solves again).
         """
         return False
 

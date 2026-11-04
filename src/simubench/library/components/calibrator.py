@@ -214,7 +214,10 @@ class _Control:
         if kind == "I":
             # past its compliance voltage a current output trips to standby (#550)
             limit = self._compliance()
-            v = dc_voltage("out")
+            # the terminal voltage: true RMS of the solved signal (an AC current's compliance is in
+            # V rms, #570), the DC value where the session gives no signal
+            signal = getattr(dc_voltage, "signal", None)
+            v = signal("out").rms() if signal is not None else dc_voltage("out")
             if limit > 0 and abs(v) > limit * (1 + 1e-9):
                 self._set_operate(False)
                 self.tripped = True
@@ -459,6 +462,11 @@ class CalibratorSetpoint(_Setpoint, Component):
             table = self._table()
             if table and abs(level) >= table[-1][1] * (1 + 1e-9):
                 raise ScpiError(int(self.param("limit_error")), f"{level:g} is beyond the largest range")
+            if str(self.param("function")).upper() == "OHM" and level < 0:
+                # a resistance has no sign: refused like a value beyond the ranges (#570)
+                raise ScpiError(
+                    int(self.param("limit_error")), f"{level:g} ohm: a resistance cannot be negative"
+                )
             if str(self.param("function")).upper() == "OHM" and table:
                 nominal = self._nominal_ohms(level)
                 if nominal != level and self.owner is not None:

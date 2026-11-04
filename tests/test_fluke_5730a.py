@@ -228,3 +228,28 @@ def test_a_resistance_output_is_the_nominal_value_in_the_circuit():
         assert inst.session.port_signal(inst.components["out"], "out").mean() == pytest.approx(0.5, rel=1e-6)
     finally:
         s.close()
+
+
+@pytest.mark.parametrize(
+    ("command", "ohms", "fault"),
+    [
+        ("OUT 20 MA", 450.0, "0"),  # 9 V: within the DC 10 V compliance
+        ("OUT 20 MA, 1 KHZ", 450.0, "210"),  # 9 V rms: past the AC 7 V rms compliance
+        ("OUT 1.5 A", 1.8, "0"),  # 2.7 V: within the 2.2 A DC range's 3 V
+        ("OUT 1.5 A, 1 KHZ", 1.8, "210"),  # 2.7 V rms: past the 2.2 A AC range's 1.4 V rms
+    ],
+)
+def test_the_compliance_follows_the_manual_per_range(command, ohms, fault):
+    """#570: chapter 1 DC/AC Current Secondary Performance Specifications, Compliance Limits."""
+    s, q = session(
+        {"r": {"type": "load_resistor", "params": {"r": ohms}}}, [{"from": "cal.OUT", "to": "r.A"}]
+    )
+    try:
+        q(command + ";OPER")
+        q("*OPC?")
+        inst = s.instruments["cal"]
+        volts = inst.session.port_signal(inst.components["out"], "out").rms()  # the bench looks
+        assert q("FAULT?") == fault
+        assert (volts == 0.0) == (fault == "210")  # a trip leaves the terminal open
+    finally:
+        s.close()

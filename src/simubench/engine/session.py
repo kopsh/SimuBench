@@ -260,6 +260,13 @@ class Session:
                         node = self.node_of(comp, port)
                         return 0.0 if node not in sol.node_transfer else sol.node_signal(node, emf).mean()
 
+                    def port_signal(
+                        port: str, comp: Component = comp, sol: Solution = sol, emf: dict[str, Signal] = emf
+                    ) -> Signal:
+                        node = self.node_of(comp, port)
+                        return Signal.zero() if node not in sol.node_transfer else sol.node_signal(node, emf)
+
+                    dc.signal = port_signal  # type: ignore[attr-defined]  # the whole signal (AC limits, #570)
                     changed |= comp.update_mode(dc)
                 if not changed:
                     self.unsettled = False

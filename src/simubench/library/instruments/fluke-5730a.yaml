@@ -179,8 +179,11 @@ components:
       remote_sense: $extsense
       sense_ranges: [DC2_2V, DC11V, DC22V, DC220V, DC1100V, AC2_2V, AC22V, AC220V, AC1100V]
       sense_error: 835
-      # 电流输出的 compliance（第 1 章 DC Current：10 V；2.2 A 量程 3 V，1 A 以上 2 V），超出跳回待机（210）
-      compliance: {"*": 10.0, DC2_2A: 2.0, AC2_2A: 2.0}
+      # 电流输出的 compliance，超出跳回待机（210）。第 1 章 DC Current Secondary Performance Specifications
+      # 的 Compliance Voltage Limits 列：220 µA–220 mA 量程 10 V，2.2 A 量程 3 V（注 5：1 A–2.2 A 的输出
+      # 2 V，未按电平分档）；AC Current Secondary Performance Specifications 的 Compliance Limits 列：
+      # 220 µA–220 mA 量程 7 V rms，2.2 A 量程 1.4 V rms（注 4：1 A 以上 1.5 V，未按电平分档）（#570）。
+      compliance: {"*": 10.0, DC2_2A: 3.0, AC220UA: 7.0, AC2_2MA: 7.0, AC22MA: 7.0, AC220MA: 7.0, AC2_2A: 1.4}
   - name: sys
     type: system
 wiring:
