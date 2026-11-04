@@ -13,6 +13,7 @@ pytest.importorskip("mcp")
 from mcp import Client
 
 from simubench.mcp_server import RateLimiter, build_server
+from simubench.models import api as M
 from simubench.server.manager import ClientsConnected, SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -625,6 +626,29 @@ async def test_try_definition_reports_errors_and_captures_state(ws):
         assert await call(c, "list_sessions") == []
         unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
         assert "no-such-model" in unknown["error"]
+
+
+async def test_scpi_exchanges_have_one_shape(ws):
+    """One SCPI-exchange shape (issue 627): send_scpi returns exactly what the web API's
+    SessionManager.scpi shapes (M.ScpiResponse), and a try_definition item adds only its command.
+    The MCP tools used to carry their own dicts, with seconds instead of ns."""
+    manager, server = make(ws)
+    fields = set(M.ScpiResponse(response=None, now_ns=0).model_dump(mode="json"))
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        mcp = await call(c, "send_scpi", instrument="scope", command="*IDN?")
+        http = SessionManager.scpi(manager.get(s["session_id"]), "scope", "*IDN?", client="mcp").model_dump(
+            mode="json"
+        )
+        assert set(mcp) == fields
+        mcp.pop("now_ns")
+        http.pop("now_ns")  # the two exchanges move virtual time separately
+        assert mcp == http
+        tried = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?", ":NOPE 1"])
+        for item in tried["results"]:
+            assert set(item) == {"command"} | fields
+        assert tried["results"][0]["response"] and tried["results"][0]["timed_out"] is False
+        assert tried["results"][1]["errors"][0]["code"] == -113
 
 
 async def test_try_definition_runs_dangerous_commands_without_confirm(ws):
