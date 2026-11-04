@@ -15,6 +15,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from ..models.bench import Accessory, BenchDefinition, ComponentInstance, InstrumentInstance, LayoutItem, Wire
 from ..models.deviation import DeviationRange
+from .portref import parse, split
 
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,47}$")
 
@@ -206,10 +207,10 @@ def _check_new_name(b: BenchDefinition, name: str) -> None:
 
 
 def _owner(ref: str) -> str:
-    owner, _, port = ref.rpartition(".")
-    if not owner or not port:
+    r = parse(ref)
+    if r is None:
         raise EditError(f"端口引用 {ref!r} 应写作 <名称>.<端口>")
-    return owner
+    return r.owner
 
 
 def _free_position(b: BenchDefinition) -> LayoutItem:
@@ -260,8 +261,8 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
             b.layout[op.new_name] = b.layout.pop(op.name)
 
         def ren(ref: str) -> str:
-            owner, _, port = ref.rpartition(".")
-            return f"{op.new_name}.{port}" if owner == op.name else ref
+            r = split(ref)
+            return f"{op.new_name}.{r.port}" if r.owner == op.name else ref
 
         for w in b.wires:
             w.from_ = ren(w.from_)

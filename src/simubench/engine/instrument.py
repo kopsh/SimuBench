@@ -22,6 +22,7 @@ from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 from ..units import parse_number, parse_quantity
 from .component import Component, OpResult, component_type, map_setting
+from .portref import split
 from .signal import Signal
 
 if TYPE_CHECKING:
@@ -292,10 +293,10 @@ class Instrument:
         self.ports: dict[str, tuple[str, str]] = {}
         for n in range(1, self.channel_count + 1):
             for pname, target in definition.ports.channel.items():
-                comp, port = target.rsplit(".", 1)
+                comp, port = split(target)
                 self.ports[pname.replace("{n}", str(n))] = (f"ch{n}.{comp}", port)
         for pname, target in definition.ports.instrument.items():
-            comp, port = target.rsplit(".", 1)
+            comp, port = split(target)
             self.ports[pname] = (comp, port)
 
         self._commands = [_Compiled(Pattern.compile(c.header), c) for c in definition.commands]
@@ -344,8 +345,8 @@ class Instrument:
         return [(f"{sc}.{sp}", f"{dc}.{dp}") for (dc, dp), (sc, sp) in self._upstream.items()]
 
     def _wire(self, src: str, dst: str) -> None:
-        sc, sp = src.rsplit(".", 1)
-        dc, dp = dst.rsplit(".", 1)
+        sc, sp = split(src)
+        dc, dp = split(dst)
         for c in (sc, dc):
             if c not in self.components:
                 raise ValueError(f"instrument {self.name!r}: wiring refers to unknown component {c!r}")

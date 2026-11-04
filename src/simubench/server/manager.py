@@ -21,6 +21,7 @@ from ..api import open_bench
 from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState, LinkDown
 from ..engine.instrument import Instrument
+from ..engine.portref import split
 from ..engine.record import definition_hash
 from ..engine.session import Session
 from ..engine.silence import why_silent
@@ -375,7 +376,7 @@ class SessionManager:
         kept: list[int] = []
         for i, w in enumerate(wires):
             ends = (str(w.get("from", "")), str(w.get("to", "")))
-            if i in dropped_wires or any(e.rpartition(".")[0] not in names for e in ends):
+            if i in dropped_wires or any(split(e).owner not in names for e in ends):
                 out.omitted.append(f"wire:{i}")
             else:
                 kept.append(i)
@@ -598,7 +599,7 @@ class SessionManager:
         wired: dict[str, dict[str, str]] = {}
         for a, b in wires:
             for end, direction in ((a, "out"), (b, "in")):
-                cname, port = end.rsplit(".", 1)
+                cname, port = split(end)
                 wired.setdefault(cname, {})[port] = direction
         # Ports a component exposes without declaring them (a multiplexer's channel terminals,
         # created by the class's port_pattern).
