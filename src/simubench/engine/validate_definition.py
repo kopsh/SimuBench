@@ -23,6 +23,7 @@ from ..scpi import values as V
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token
 from .component import Component, binding_of, component_types
+from .portref import split
 from .validate import Report, _closest, _ptr
 
 _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
@@ -181,7 +182,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
 
     # ---- signal wiring and exposed ports ----
     def check_end(ref: str, pointer: str, in_channel: bool) -> None:
-        comp, _, port = ref.rpartition(".")
+        comp, port = split(ref)
         if in_channel:  # inside a channel, components are named without the ch<n>. prefix
             cls = classes.get(f"ch1.{comp}")
             options = [s.name for s in d.channel_components]
