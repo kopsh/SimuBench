@@ -123,7 +123,7 @@ state:
     label_en: Installed options
 components:
   # 输出级：输出端电阻 <5 mΩ（手册第 1 章）；电压功能的负载电流上限取最小的 5 mA（手册允许
-  # 2–20 mA 按量程与频率，超限跳回待机并报 1503）；建立时间 <5 s；≥33 V 改变输出回待机。
+  # 2–20 mA 按量程与频率，超限跳回待机并报 1503）；建立时间 <5 s；≥33 V 跨越时回待机。
   # 设定值与量程生成（#329）：功能、电平、频率、建立时间与输出级的隐藏误差。
   - name: dac
     type: calibrator_setpoint
@@ -133,7 +133,7 @@ components:
       frequency: $out.frequency
       settle: 5.0
       control: out
-  # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 回待机。
+  # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 跨越回待机（#558）。
   - name: out
     type: calibrator_control
     params:
@@ -141,6 +141,11 @@ components:
       z_out: 0.005
       i_max: 0.005
       standby_above: 33.0
+      # 手册第 3、4 章（Operators Manual，Operate and Standby Modes）：前一输出 <33 V 时选中 ≥33 V
+      # 回待机（恰好 33 V 也算，即 ≥33 V 且从阈值以下跨越）；改变输出功能回待机。手册的例外——
+      # 交流↔直流电压 <33 V 的功能切换不回待机——未建模：布尔参数对一切功能切换回待机（#558）。
+      standby_rule: crossing
+      standby_on_function: true
       overload_error: 1503
       setpoint: dac
   - name: sys

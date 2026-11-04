@@ -169,12 +169,12 @@
 
 ### 5.1 `calibrator_output`
 
-`role: driver`。参数：`function`（`DCV` / `ACV`，以后扩到电流）、`level`、`frequency`、`operate`、`z_out`、`i_max`、`settle`（可按功能给表）、`standby_above`、隐藏的 `gain_error_ppm` 与 `offset`。
+`role: driver`。参数：`function`（`DCV` / `ACV`，以后扩到电流）、`level`、`frequency`、`operate`、`z_out`、`i_max`、`settle`（可按功能给表）、`standby_above`、`standby_rule`（`either` 默认 / `crossing`，#553）、`standby_on_function`（默认 `false`，#553）、隐藏的 `gain_error_ppm` 与 `offset`。
 
 - **待机**：端口不在电路中（断开）；**工作**：带输出阻抗的电压源，交流为单根谱线。
 - **过载**：求解后负载电流超过 `i_max` 时转为待机并报错，按工作点判断（与 `smu_core` 的模式切换同一套迭代，D34）。
 - **建立**：设定改变或进入工作后，`settle` 秒后达到新值，登记为待完成操作（3.3）。建立期间输出按一阶过渡计算（时间常数 = `settle` / 5），读数因此在建立中途介于新旧值之间；不支持建立过程的型号把 `settle` 设为 0。
-- **高电压确认**：新旧设定任一超过 `standby_above` 时，改变设定使仪表回到待机，需要再次进入工作。
+- **回待机规则**：工作中改变输出设定时按 `standby_rule` 决定是否回待机——`either`（默认）：新旧幅值的绝对值任一**大于** `standby_above`（恰好等于阈值不触发）；`crossing`：从阈值以下改到阈值及以上（旧 < 阈值 ≤ 新，恰好等于阈值也回待机；5730A 与 5522A 手册的写法，#553、#558）。`standby_on_function` 为真时，工作中改变输出功能即回待机，不论电压。回待机不是错误，需要再次进入工作；待机下改设定或功能都不触发规则——进入工作本身就是确认。
 
 ### 5.2 按单位分派的参数
 
@@ -195,7 +195,7 @@
   reply: "{out.level},{out.unit},{out.frequency},HZ"
 ```
 
-倍率（`mV`、`kHz`）按现有的单位解析；单位缺失、重复或组合不在 `combine` 中时报错（错误码由定义的 `errors` 给出）。静态校验检查单位、状态与组合表。`if_zero` 是唯一的条件写法（`0 Hz` 即直流），不引入表达式。
+倍率（`mV`、`kHz`）按现有的单位解析；单位缺失、重复或组合不在 `combine` 中时报错（错误码由定义的 `errors` 给出）。`not_modeled` 也作用于单位：真实仪表接受、模型未实现的单位（如只建模电压的 `OUT` 上的 `A`）在定义里声明后，写入报 -224 且错误事件注明未建模，先于未知单位的错误码判断（#341、#557）。静态校验检查单位、状态与组合表。`if_zero` 是唯一的条件写法（`0 Hz` 即直流），不引入表达式。
 
 ### 5.3 错误查询的声明
 
@@ -206,12 +206,13 @@
 - **`quantities` 的应答单位**：模板里 `{out.unit}` 按普通状态解决——定义声明一个状态（枚举或字符串），units 表的 `sets` 在写数值的同时把它写成当前单位（`V: {state: out.level, sets: {out.unit: V}}`），查询的 `reply` 模板引用它（`{out.level},{out.unit},{out.frequency},HZ`）。引擎没有引入 `{<参数>.unit}` 之类的特殊语法。
 - **组合键的规范化**：`combine` 的键按 units 表的声明顺序规范化（写 "V,HZ" 与 "HZ,V" 等价），输入里单位的先后无关；`combine` 声明时不在表中的组合报错，未声明时任意组合只写各自的状态。
 - **倍率**：`mV`、`kHz` 按现有单位规则（`units.py` 的 `parse_quantity`）：M 单独为毫，MHZ/MOHM 为兆（SCPI-99 7.7）；不是数的参数报 -104。
-- **错误码**：缺单位、未知单位、重复单位与组合不在表中的错误码是 ParamSpec 的参数（`missing_unit_error` / `unknown_unit_error` / `duplicate_unit_error` / `combine_error`，默认 -131、-131、-224、-224），文字按定义的 `errors` 表给出。
+- **错误码**：缺单位、未知单位、重复单位与组合不在表中的错误码是 ParamSpec 的参数（`missing_unit_error` / `unknown_unit_error` / `duplicate_unit_error` / `combine_error`，默认 -131、-131、-224、-224），文字按定义的 `errors` 表给出。单位命中 `not_modeled` 时报 -224 并注明未建模，先于未知单位判断（#557）。
 - **静态校验**：units、sets、combine 的每个写入目标都查状态是否存在（枚举值对一下 options），组合键里的单位必须在 units 表中，`if_zero` 指向的状态必须存在（`E-DEF-QUANTITY`、`E-DEF-STATE-UNKNOWN`）；quantities 命令只允许这一个参数、查询必须有 reply 模板（schema 拒绝）。
 - **`system.next_error`**：`{code}` 按 `format.error_code` 写正负号（与 `:SYSTem:ERRor?` 相同），`{text}` 是定义的 `errors` 文字；空队列给 0。
 - **过载只按直流工作点判断**（与 D34 的模式切换同一迭代）：交流功能的负载电流在直流工作点为 0，因此 ACV 不触发过载；交流电流能力需要逐频率的源电流，本期不做。`offset` 只作用于 DCV（偏移是直流概念，与 `dmm_core` 相同）。
 - **过载改变 operate 状态**：仪表确实回到待机（状态与面板都显示待机），错误按 `overload_error` 参数的码入队（默认 0 = 不报错，码与文字由型号定义给出）；`tripped` 只是面板信息，下一次 OPER 清除并重新建立。
 - **建立**：只有幅度（level）按一阶过渡（时间常数 settle/5），频率与功能的切换立即生效；settle 按目标功能取表。待机下改设定不触发建立、也不触发 `standby_above`——进入工作本身就是确认。
+- **回待机规则（#553、#558）**：`standby_rule` 与 `standby_on_function` 是 #553 加入的组件参数。核对两本手册（Operators Manual 的 Operate and Standby Modes 一节，#558）：电压规则都是「从阈值以下改到阈值及以上」（恰好等于阈值也算），5522A 另有「改变输出功能回待机、交流↔直流电压 <33 V 时例外」。5522A 的定义因此由默认 `either` 改为 `crossing` 并打开 `standby_on_function`；`either` 保留为组件默认。5522A 的例外未建模：布尔参数对一切功能切换回待机，`<33 V` 的直流↔交流切换也与手册不符（定义注释已注明，能力缺口在 component-map.md 债务列）。
 
 ## 6. 四线测量与引线电阻（C5，#91）
 

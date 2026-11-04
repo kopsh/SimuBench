@@ -88,7 +88,11 @@ def test_the_output_settles_in_three_seconds_of_virtual_time():
 
 
 def test_an_overload_trips_back_to_standby_with_fault_210():
-    """10 V into 100 ohm draws 100 mA, past the 50 mA maximum load (DC voltage specifications)."""
+    """10 V into 100 ohm draws 100 mA, past the 50 mA maximum load (DC voltage specifications).
+
+    The 1100 V range's own 20 mA limit is not modeled per range (#556): i_max is 50 mA for every
+    range, so 1000 V into 40 kohm (25 mA) does not trip here as it would on the instrument."""
+
     s, q = session(
         {"r": {"type": "load_resistor", "params": {"r": 100.0}}}, [{"from": "cal.OUT", "to": "r.A"}]
     )

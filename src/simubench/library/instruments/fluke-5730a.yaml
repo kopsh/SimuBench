@@ -35,6 +35,8 @@ builtins:
 errors:
   0: No Error
   210: Output Tripped To Standby
+  # 815 Outside Entry Limits（附录 A）对应 OUT 越限；引擎的参数范围检查统一报 -222，未区分到 815（#556）。
+  815: Outside Entry Limits
   803: Over Limits Of Locked Range
   804: Under Limits Of Locked Range
   835: Cannot Use Ext Sense On Selected Range
@@ -159,6 +161,7 @@ components:
       under_range_error: 804
       range_settle: 1.0
   # 输出控制：工作/待机、端子、负载超过 50 mA 跳回待机（故障 210）、≥22 V 的改变回待机。
+  # 手册的 1100 V 量程限载 20 mA 未按量程分档：i_max 全量程取 50 mA，高压接轻载不会跳回待机（#556）。
   - name: out
     type: calibrator_control
     params:
@@ -169,7 +172,7 @@ components:
       # 第 4 章：选中 ≥22 V 且前一输出 <22 V 时、或改变输出功能时回待机（#553）
       standby_rule: crossing
       standby_on_function: true
-      overload_error: 210
+      overload_error: 210  # 手册 EXPLAIN? 示例误作 224，从附录 A 的 210（#556）
       setpoint: dac
       # 外部 sense（#551）：在 SENSE HI 处调节电压；第 1 章：直流 2.2 V–1100 V 量程、交流 2.2 V、22 V、
       # 220 V、1100 V 量程可用，其他量程报 835。
