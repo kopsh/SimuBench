@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from simubench.engine.events import project
 from simubench.tui.fmt import fmt, fmt_ns
 from simubench.tui.log import build_lines, hint_text, source_label, visible
 from simubench.tui.reasons import error_report, limited_report
@@ -27,10 +28,9 @@ SMU_INFO: dict[str, Any] = {
 
 
 def ev(seq: int, t_ns: int, kind: str, **fields: Any) -> dict[str, Any]:
-    """One event exactly as the server's ``to_event`` produces it."""
-    out: dict[str, Any] = {"seq": seq, "t_ns": t_ns, "kind": kind}
-    out.update(fields)
-    return out
+    """One event exactly as the WS stream carries it: projected through the engine's event
+    contract (issue 595), so the shape here and the server's cannot drift apart."""
+    return project({"t_ns": t_ns, "kind": kind, **fields}, seq)
 
 
 def lines_of(*events: dict[str, Any]) -> list[Any]:

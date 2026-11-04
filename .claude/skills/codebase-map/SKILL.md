@@ -24,6 +24,7 @@ plausible fake).
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
 | Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `engine/replay.py` |
+| Event contract (stream shape, kinds registry, WS projection) | `engine/events.py` (re-exported by `models/api.py`, D57) |
 | Calibration, deviation, verdicts | `engine/calibration.py`, `engine/deviation.py`, `engine/verdicts.py` |
 | SCPI parse / typed values / error codes | `scpi/parse.py`, `scpi/values.py`, `scpi/errors.py` |
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |

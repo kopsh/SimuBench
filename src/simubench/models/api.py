@@ -13,6 +13,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from ..engine.circuit import SourceContribution  # re-export (D57)
 from ..engine.circuit import SourceLine as SourceLine
 from ..engine.edit import EditOp
+from ..engine.events import Event as Event  # re-export (D57, issue 595)
+from ..engine.events import RunEvent as RunEvent
 from ..engine.signal import SpectralLine
 from .bench import Fault, LayoutItem
 from .definition import Panel
@@ -713,57 +715,6 @@ class NetLevels(_Model):
     nets: list[NetLevel]
 
 
-class Event(_Model):
-    """One event of the session's event stream (WebSocket)."""
-
-    seq: int
-    t_ns: int
-    kind: str = Field(
-        ...,
-        description="scpi | state | advance | error | fault | acquisition | panel | remote | session | solver",
-    )
-    instrument: str | None = None
-    dir: Literal["write", "read"] | None = None
-    text: str | None = Field(None, description="SCPI bytes as text when printable")
-    size: int | None = Field(None, description="Byte count of SCPI data")
-    duration_ns: int | None = None
-    client: str | None = None
-    path: str | None = None
-    old: Any = None
-    new: Any = None
-    source: str | None = None
-    fault: str | None = Field(None, description="Fault id, for fault events and messages a fault affected")
-    code: int | None = None
-    message: str | None = None
-    dt_ns: int | None = None
-    reason: str | None = Field(
-        None,
-        description="For error and ignored events: why the command was not executed — not_modeled | "
-        "not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). "
-        "Fault, advance and solver events carry their own kind-specific reason (solver: unsettled, D52)",
-    )
-    wall: float | None = None
-    header: str | None = Field(None, description="The header that was ignored, for ignored events")
-    query: bool | None = Field(None, description="Whether the ignored header was a query")
-    origin: str | None = Field(
-        None,
-        description="The file the classification's declaration comes from (the definition or its "
-        "coverage table), as the loader received the path",
-    )
-    closest: str | None = Field(
-        None, description="The author's command header closest to the one sent, when one is close"
-    )
-    param: str | None = Field(None, description="The parameter or state path, for bad_parameter")
-    range: str | None = Field(
-        None, description="The range or options the definition declares, for bad_parameter"
-    )
-    action: str | None = Field(
-        None,
-        description="A front-panel button, for panel events: run | stop | single; "
-        "for remote events: local (taken back from the UI) | remote (a remote client's command)",
-    )
-
-
 # ---- try a definition without a bench (7.2, T2) ---------------------------------------------------
 
 
@@ -838,14 +789,6 @@ class RunSummary(_Model):
     duration_ns: int = Field(..., description="Virtual time the run covered")
     instruments: list[str]
     size: int = Field(..., description="Bytes on disk")
-
-
-class RunEvent(Event):
-    """An event as recorded; binary replies carry their hash and the acquisition that regenerates them."""
-
-    sha256: str | None = None
-    recipe: int | None = Field(None, description="seq of the acquisition event a waveform block came from")
-    channels: dict[str, Any] | None = Field(None, description="Acquisition recipe, per channel")
 
 
 class RunDetail(_Model):
