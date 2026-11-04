@@ -380,7 +380,9 @@ class CommandSpec(_Model):
     when: dict[str, str] | None = Field(
         None,
         description="Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: "
-        'several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC")',
+        'several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC"). A '
+        "later command on the same header without `when` is the fallback: it runs for the other values "
+        "and when the parameter is left out (:SYSTem:ERRor? [STRing], #602)",
     )
     suffixes: dict[str, list[int]] | None = Field(
         None,
@@ -477,7 +479,14 @@ class Dialect(_Model):
         "off",
         pattern=r"^(off|short|long|\$.+)$",
         description="Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or "
-        "a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER)",
+        "a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER), or a bool "
+        "setting that turns short headers on ('$system.header', Infiniium :SYSTem:HEADer, #602)",
+    )
+    long_form: str = Field(
+        "",
+        pattern=r"^(\$.+)?$",
+        description="A bool setting that makes replies long: headers in the long form and enumerations "
+        "spelled out ('$system.longform', Infiniium :SYSTem:LONGform, #602); empty: never",
     )
     multipliers: dict[str, float] = Field(
         default_factory=dict,

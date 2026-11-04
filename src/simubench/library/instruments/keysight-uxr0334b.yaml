@@ -36,6 +36,10 @@ format:
   error_code: plain
 errors:
   0: "No error"
+# 应答头与长格式（手册 :SYSTem:HEADer、:SYSTem:LONGform、:MODel? 的表 13）。
+dialect:
+  echo_header: $system.header
+  long_form: $system.longform
 specs:
   source: Infiniium UXR-B Series Oscilloscopes Data Sheet 3123-1313 (2024-04-25), 3.5 mm input models
   bandwidth_hz: 3.3e10
@@ -59,7 +63,7 @@ channels:
   overrides:
     1: {display: {default: true}}
 state:
-  # 操作状态使能（:OPEEnable）：位 0 ACQ DONE、位 1 PROC DONE、位 5 WAIT TRIG；摘要进 *STB 位 7。
+  # 操作状态使能（:OPEEnable）：位 0 ACQ DONE、位 1 PROC DONE、位 5 WAIT TRIG、位 11 AUTO TRIG；摘要进 *STB 位 7。
   status.opee:
     type: int
     min: 0
@@ -67,17 +71,16 @@ state:
     default: 0
     label: 操作状态使能
     label_en: Operation status enable
-  # 应答头（:SYSTem:HEADer / :LONGform）：只实现 OFF（不带头、短格式）；ON 未建模（#602）。
+  # 应答头（:SYSTem:HEADer）与长格式（:SYSTem:LONGform）两个开关（dialect，#602）；上电值是用户偏好，
+  # 手册未给，SimuBench 取 OFF。
   system.header:
     type: bool
     default: false
-    not_modeled: {"ON": query response headers are not modeled, "1": query response headers are not modeled}
     label: 应答头
     label_en: Response headers
   system.longform:
     type: bool
     default: false
-    not_modeled: {"ON": long-form responses are not modeled, "1": long-form responses are not modeled}
     label: 长格式应答
     label_en: Long-form responses
   timebase.scale:
@@ -200,6 +203,17 @@ state:
     special: {AUTO: 128000}
     label: 存储深度
     label_en: Memory depth
+  # 采样率（:ACQuire:SRATe[:ANALog]）：AUTO（0）随存储深度；设定值取下一个更快的档（128 GSa/s 除以
+  # 2 的幂，手册），优先于存储深度。
+  acquire.srate:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 1.28e11
+    default: 0.0
+    special: {AUTO: 0.0, MAX: 1.28e11}
+    label: 采样率设定
+    label_en: Sample rate setting
   # 带宽滤波（:ACQuire:BANDwidth）：MAX 为硬件带宽 33 GHz；AUTO 未建模。
   acquire.bandwidth:
     type: float
@@ -232,11 +246,10 @@ state:
     default: MSBFirst
     label: 波形字节序
     label_en: Waveform byte order
-  # 流式传输（#0 不定长块）未建模（#602）：只有 OFF（定长块）。
+  # 流式传输：ON 时 :WAVeform:DATA? 回 #0 不定长块（手册 Streaming On）；默认 OFF 为 SimuBench 值。
   waveform.streaming:
     type: bool
     default: false
-    not_modeled: {"ON": "streaming (#0 indefinite-length blocks) is not modeled", "1": "streaming (#0 indefinite-length blocks) is not modeled"}
     label: 流式传输
     label_en: Streaming
   measure.source:
@@ -326,22 +339,28 @@ deviations:
     limit: 0.025
     distribution: uniform
 components:
-  # 状态寄存器（手册第 7 章）。寄存器之间互相读取条件，每多一个寄存器每条命令的开销成倍增加（#602），所以
-  # 合并为三个：
-  # 事件寄存器 evt：位 0 触发事件（:TERegister?，读后清零，摘要进 *STB 位 0），位 1 布防事件（:AER?）。
-  - name: evt
+  # 状态寄存器（手册第 7 章），每个事件寄存器读后清零：触发（:TERegister?，只在满足触发条件的采集完成时
+  # 置位，摘要进 *STB 位 0）、布防（:AER?）、采集完成（:ADER?，每次采集完成）、处理完成（:PDER?，仿真的
+  # 测量随查询即时算出，与采集同时完成）、自动触发（:ATER?）。
+  - name: ter
     type: status_register
-    params: {bits: {TRG: 0, ARM: 1}, enable: 1, summary_bit: 0, width: 2}
-  # 采集完成（:ADER?）：每次触发的采集存好时置位（TRG），停止（单次、:DIGitize 采完或 :STOP）时也置位
-  # （运行状态的下降沿）。自动触发、未触发的连续采集不逐次置位。处理完成（:PDER?）读同一位：仿真的
-  # 测量随查询即时算出，处理与采集同时完成（读一个也清另一个，覆盖表注明）。
+    params: {bits: {TRG: 0}, enable: 1, summary_bit: 0, width: 1}
+  - name: aer
+    type: status_register
+    params: {bits: {ARM: 0}, width: 1}
   - name: ader
     type: status_register
-    params: {bits: {TRG: 0, RUN: 0}, enable: 1, width: 1, ptr: 0, ntr: 1}
-  # 操作状态（:OPERegister?，读后清零）：位 0 ACQ DONE、位 1 PROC DONE（同一事件）、位 5 WAIT TRIG。
+    params: {bits: {DONE: 0}, enable: 1, width: 1}
+  - name: pder
+    type: status_register
+    params: {bits: {DONE: 0}, enable: 1, width: 1}
+  - name: ater
+    type: status_register
+    params: {bits: {AUTO: 0}, enable: 1, width: 1}
+  # 操作状态（:OPERegister?，读后清零）：位 0 ACQ DONE、位 1 PROC DONE、位 5 WAIT TRIG、位 11 AUTO TRIG。
   - name: oper
     type: status_register
-    params: {bits: {ADER: 0, WAIT: 5}, enable: $status.opee, summary_bit: 7, width: 16}
+    params: {bits: {ADER: 0, PDER: 1, WAIT: 5, ATER: 11}, enable: $status.opee, summary_bit: 7, width: 16}
   - name: acq
     type: scope_acquisition
     params:
@@ -367,16 +386,19 @@ components:
       # :ACQuire:AVERage ON：取 :ACQuire:COUNt 次量化采集的均值（D46）。
       processing: {from: $acquire.average, map: {"True": average}, default: normal}
       averages: $acquire.count
-  # 时基：采样率 = min(128 GSa/s, 存储深度 / 10 格)，不取整档（真机按 2 的幂分档，#602）；参考
-  # 位置 LEFT / CENTer / RIGHt 取屏幕 10% / 50% / 90%。
+  # 时基：采样率为 128 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
+  # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
+  # 取屏幕 10% / 50% / 90%。
   - name: timebase
     type: scope_timebase
     params:
       scale: $timebase.scale
       delay: $timebase.position
       reference_divs: {from: $timebase.reference, map: {LEFT: 1.0, CENTer: 5.0, RIGHt: 9.0}}
-      record_length: exact
+      record_length: rate_pow2
       points: $acquire.points
+      sample_rate: $acquire.srate
+      max_points: 10000000
   # 边沿触发：电平在信源屏幕中心 ±4 格内（数据手册）；灵敏度 1 格峰峰，迟滞取其一半。
   - name: trigger
     type: scope_trigger
@@ -435,6 +457,7 @@ components:
       offset: subtract
       unsigned: false
       byteorder: $waveform.byteorder
+      indefinite: $waveform.streaming
       # :WAVeform:PREamble?（手册表 19）：format, type, points, count, X increment, X origin,
       # X reference, Y increment, Y origin, Y reference, coupling, X display range, X display origin,
       # Y display range, Y display origin, date, time, frame model #, acquisition mode, completion,
@@ -514,10 +537,11 @@ commands:
   # 手册 *TRG：与 :DIGitize 相同。
   - {header: "*TRG", op: acq.digitize, query: false}
   # ---- Root ----
-  - {header: ":TERegister", op: evt.event, set: false, args: {bit: 0}}
-  - {header: ":AER", op: evt.event, set: false, args: {bit: 1}}
+  - {header: ":TERegister", op: ter.event, set: false}
+  - {header: ":AER", op: aer.event, set: false}
   - {header: ":ADER", op: ader.event, set: false}
-  - {header: ":PDER", op: ader.event, set: false}
+  - {header: ":PDER", op: pder.event, set: false}
+  - {header: ":ATER", op: ater.event, set: false}
   - {header: ":ASTate", op: acq.status, set: false}
   - {header: ":RSTate", op: acq.run_state, set: false}
   - {header: ":OPEEnable", state: status.opee}
@@ -569,7 +593,11 @@ commands:
   - {header: ":ACQuire[:AVERage]:COUNt", state: acquire.count}
   - {header: ":ACQuire:COMPlete", state: acquire.complete}
   - {header: ":ACQuire:POINts[:ANALog]", state: acquire.points}
-  - {header: ":ACQuire:SRATe[:ANALog]", op: acq.figure, args: {what: sample_rate}, set: false}
+  # 设定写 acquire.srate；查询回实际采样率。
+  - header: ":ACQuire:SRATe[:ANALog]"
+    op: acq.figure
+    args: {what: sample_rate}
+    params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
   # ---- CHANnel<N> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
@@ -639,13 +667,25 @@ commands:
   - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
   - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
   # ---- SYSTem ----
-  # :SYSTem:ERRor? [{NUMBer | STRing}]：不带参数或 NUMBer 只回错误码。STRing（码与带引号的文字）
-  # 需要按可选参数的有无选应答格式，平台尚不支持（#602），按未建模报错。
+  # :SYSTem:ERRor? [{NUMBer | STRing}]：STRing 回码与带引号的文字；不带参数或 NUMBer 只回错误码
+  # （后一条不带 when，是前一条的兜底，#602）。
   - header: ":SYSTem:ERRor"
     op: sys.next_error
     set: false
-    params: [{name: form, type: enum, options: [NUMBer], optional: true, not_modeled: {STRing: "the STRing form is not modeled yet"}}]
-    reply: "{code}"
+    when: {form: STRing}
+    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
+    reply: '{header} {code},"{text}"'
+  - header: ":SYSTem:ERRor"
+    op: sys.next_error
+    set: false
+    when: {form: STR}
+    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
+    reply: '{header} {code},"{text}"'
+  - header: ":SYSTem:ERRor"
+    op: sys.next_error
+    set: false
+    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
+    reply: "{header} {code}"
   - header: ":SYSTem:PRESet"
     op: sys.reset
     query: false

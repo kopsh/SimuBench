@@ -94,23 +94,40 @@ class StatusRegister(Component):
         instrument's own MAV (output waiting), ESB (enabled standard events) and IFC (idle)."""
         assert self.owner is not None
         self._busy = True
+        # The outermost look fills the cache of the other components' flags; the registers it asks
+        # for their summaries reuse it, since nothing changes while one condition is computed (#602).
+        outermost = self.owner.status_flag_cache is None
+        if outermost:
+            self.owner.status_flag_cache = {}
+        cache = self.owner.status_flag_cache
+        assert cache is not None
         try:
             flags: dict[str, bool] = {
                 "MAV": bool(self.owner._output),
                 "ESB": bool(self.owner.esr & self.owner.ese),
                 "IFC": True,
             }
-            self.session._solve()
+            if outermost:
+                self.session._solve()
             for comp in self.owner.components.values():
                 # A register of one channel (a channel component, e.g. a supply's ISUMmary<n>)
                 # sees only that channel's flags (#348).
                 if self.channel is not None and comp.channel != self.channel:
                     continue
-                if comp is not self:
-                    for name, on in comp.status_flags().items():
-                        flags[name.upper()] = flags.get(name.upper(), False) or bool(on)
+                if comp is self:
+                    continue
+                if comp.type_name == "status_register":
+                    found = comp.status_flags()  # a summary: depends on which registers are busy
+                else:
+                    found = cache.get(comp.uid)
+                    if found is None:
+                        found = cache[comp.uid] = comp.status_flags()
+                for name, on in found.items():
+                    flags[name.upper()] = flags.get(name.upper(), False) or bool(on)
         finally:
             self._busy = False
+            if outermost:
+                self.owner.status_flag_cache = None
         value = 0
         for name, bit in self._bits().items():
             if flags.get(name):
