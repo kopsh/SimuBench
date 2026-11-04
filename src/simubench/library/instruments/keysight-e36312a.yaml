@@ -31,7 +31,7 @@ format:
 # 手册有、但本定义不回答的内置命令：*TRG（触发系统不在首波）、*PSC/*RCL/*SAV（状态存储）、
 # SYSTem:DATE/TIME（实时时钟；引擎内置的回复格式与手册不同，见覆盖表）、SYSTem:ERRor:COUNt/ALL
 # （手册没有）。其余公共命令由引擎内置，见覆盖表。
-builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TRG", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
 errors:
   0: No error
   -100: Command error
@@ -113,6 +113,8 @@ channels:
     1:
       voltage: {max: 6.18}
       current: {max: 5.15, default: 5.0}
+      v_triggered: {max: 6.18}
+      i_triggered: {max: 5.15}
       ovp: {min: 0.5, max: 6.6, default: 6.6}
       v_max: {default: 6.18}
       i_max: {default: 5.15}
@@ -131,6 +133,57 @@ channels:
       p_max: {default: 26.5225}
       range: {default: P25V}
 channel_state:
+  # 输出触发系统（#548，E36311-90008 的 INITiate / TRIGger 子系统与 VOLTage|CURRent:TRIGgered、:MODE）：
+  # 触发电平 *RST MIN（0）、模式 *RST FIXed、触发源 *RST BUS、触发延时 0–3600 s（*RST 0）。
+  v_triggered:
+    type: float
+    unit: V
+    min: 0.0
+    max: 25.75
+    default: 0.0
+    label: 触发电压
+    label_en: Triggered voltage
+  i_triggered:
+    type: float
+    unit: A
+    min: 0.0
+    max: 1.03
+    default: 0.0
+    label: 触发电流
+    label_en: Triggered current
+  v_mode:
+    type: enum
+    options: [FIXed, STEP]
+    default: FIXed
+    not_modeled: {LIST: output lists are not modeled}
+    label: 电压触发模式
+    label_en: Voltage trigger mode
+  i_mode:
+    type: enum
+    options: [FIXed, STEP]
+    default: FIXed
+    not_modeled: {LIST: output lists are not modeled}
+    label: 电流触发模式
+    label_en: Current trigger mode
+  trig_source:
+    type: enum
+    options: [BUS, IMMediate]
+    default: BUS
+    not_modeled:
+      EXTernal: digital port trigger inputs are not modeled
+      PIN1: digital port trigger inputs are not modeled
+      PIN2: digital port trigger inputs are not modeled
+      PIN3: digital port trigger inputs are not modeled
+    label: 触发源
+    label_en: Trigger source
+  trig_delay:
+    type: float
+    unit: S
+    min: 0.0
+    max: 3600.0
+    default: 0.0
+    label: 触发延时
+    label_en: Trigger delay
   # 可疑仪表汇总寄存器 ISUMmary<n> 的使能（#348）：位 0 CC、位 1 CV（E36311-90008 Ed.3 p.32，#379）。
   isum_enable:
     type: int
@@ -365,6 +418,22 @@ channel_components:
     type: supply_readback
     params: {output: out}
   # 每路的可疑仪表汇总寄存器（#348）：条件位来自本路的调节状态，事件位在条件变为真时置位、读后清零。
+  # 输出触发系统（#548）：INIT 后一个触发（*TRG 或 IMMediate 源）在触发延时后把 STEP 模式的量改为触发电平。
+  # 手册：未初始化时 *TRG "is simply ignored"，错误表没有 -211 → 不报错。手册没有 N6700 那样的
+  # "初始化后几毫秒才就绪"的说明，就绪延时取 0；WTG 位（ABORt 一节提到 Questionable Instrument Summary
+  # 的 WTG 位）在手册的位表里没有位置，不建模。
+  - name: tran
+    type: supply_transient
+    params:
+      voltage: $ch.voltage
+      current: $ch.current
+      v_triggered: $ch.v_triggered
+      i_triggered: $ch.i_triggered
+      v_mode: $ch.v_mode
+      i_mode: $ch.i_mode
+      source: $ch.trig_source
+      delay: $ch.trig_delay
+      trigger_ignored_error: 0
   - name: isum
     type: status_register
     params:
@@ -437,6 +506,47 @@ commands:
     op: ch.read.measure
     set: false
     args: {what: current}
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  # ---- 输出触发系统（#548） ----
+  - header: "[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: V, state: "ch.v_triggered"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent[:LEVel]:TRIGgered[:AMPLitude]"
+    params:
+      - {name: level, type: float, unit: A, state: "ch.i_triggered"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:VOLTage:MODE"
+    params:
+      - {name: mode, type: enum, options: [FIXed, STEP], state: "ch.v_mode", not_modeled: {LIST: output lists are not modeled}}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "[:SOURce]:CURRent:MODE"
+    params:
+      - {name: mode, type: enum, options: [FIXed, STEP], state: "ch.i_mode", not_modeled: {LIST: output lists are not modeled}}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "TRIGger[:SEQuence]:SOURce"
+    params:
+      - name: source
+        type: enum
+        options: [BUS, IMMediate]
+        state: "ch.trig_source"
+        not_modeled:
+          EXTernal: digital port trigger inputs are not modeled
+          PIN1: digital port trigger inputs are not modeled
+          PIN2: digital port trigger inputs are not modeled
+          PIN3: digital port trigger inputs are not modeled
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "TRIGger[:SEQuence]:DELay"
+    params:
+      - {name: delay, type: float, unit: S, state: "ch.trig_delay"}
+      - {name: channels, type: channel_list, optional: true, default: [1]}
+  - header: "INITiate[:IMMediate]"
+    op: ch.tran.initiate
+    query: false
+    params: [{name: channels, type: channel_list, optional: true, default: [1]}]
+  - header: "ABORt"
+    op: ch.tran.abort
+    query: false
     params: [{name: channels, type: channel_list, optional: true, default: [1]}]
   # ---- 保护：OVP 的设定、查询、清除；OCP 按 CC 持续时间（#271） ----------------
   - header: "[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]"
