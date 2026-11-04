@@ -62,7 +62,7 @@ sections:
     affects_data: false
   - header: EXTSENSE
     level: implemented
-    note: ON 在 SENSE HI 处调节电压（补偿引线压降；SENSE 未接时等同内部 sense），OFF 内部 sense，*RST OFF；直流 2.2 V–1100 V、交流 2.2/22/220/1100
+    note: ON 在 SENSE HI 处调节电压（补偿引线压降；SENSE 未接或接到无直流通路的网络时等同内部 sense，回退本地调节，#562），OFF 内部 sense，*RST OFF；直流 2.2 V–1100 V、交流 2.2/22/220/1100
       V 量程以外报 835（打开时或改到这些量程时，设定不变）（#551）。
   - header: FORMAT
     level: not_modeled

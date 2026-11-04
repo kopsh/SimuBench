@@ -529,9 +529,38 @@ class CalibratorControl(_Control, Component):
     # ---- external sense (#551) ----------------------------------------------------------------------
 
     def remote(self) -> bool:
-        """External sense is on and the SENSE terminal is wired (else the output regulates itself,
-        the internal SENSE-to-OUTPUT connection of the manual)."""
-        return _flag(self.param("remote_sense")) and self.wired("sense")
+        """External sense in force: the setting is on, the SENSE terminal is wired, and the sense
+        net has a DC path to the output side (else the output regulates itself, the internal
+        SENSE-to-OUTPUT connection of the manual; a sense lead into a dead end cannot carry the
+        feedback, #562)."""
+        return _flag(self.param("remote_sense")) and self.wired("sense") and self._sense_served()
+
+    def _sense_served(self) -> bool:
+        """The SENSE net reaches the output terminal's net or ground through the bench's conducting
+        parts and wire accessories (two-terminal conductors between their wired ports, one-terminal
+        ones to ground). Pure wire topology — the nets exist before any stamping — so the answer is
+        the same however the stamp order runs; instruments are not conductors, so SENSE on nothing
+        but a high-impedance input counts as unserved."""
+        start = self.session.node_of(self, "sense")
+        goal = self.session.node_of(self, "out")
+        seen = {start}
+        queue = [start]
+        while queue:
+            net = queue.pop()
+            for comp in self.session.components.values():
+                declared = [p for p, spec in type(comp).ports.items() if spec.medium == "electrical"]
+                nets = [self.session.port_net.get(f"{comp.name}.{p}") for p in declared]
+                wired = [n for n in nets if n is not None]
+                if len(declared) == 1 and net in wired:
+                    return True  # a one-terminal conductor (load_resistor) ties this net to ground
+                if net in wired:
+                    for n in wired:
+                        if n == goal:
+                            return True
+                        if n not in seen:
+                            seen.add(n)
+                            queue.append(n)
+        return False
 
     def _sense_allowed(self, range_name: str | None) -> bool:
         allowed = [str(r).upper() for r in self.param("sense_ranges") or []]
