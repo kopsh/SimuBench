@@ -3917,10 +3917,16 @@ export interface components {
              * @default false
              */
             dangerous: boolean;
-            /** Display Unit */
+            /** Default */
+            default: unknown;
+            /**
+             * Display Unit
+             * @description Unit shown in the UI when it differs from `unit`, e.g. '×'
+             */
             display_unit: string | null;
             /**
              * Electrical
+             * @description Changing this variable changes the bench's circuit
              * @default false
              */
             electrical: boolean;
@@ -3928,15 +3934,33 @@ export interface components {
             label: string | null;
             /** Label En */
             label_en: string | null;
+            /**
+             * Ladder
+             * @description Snap writes to a ladder: '1-2-5', '1-3' or an explicit list of values
+             */
+            ladder: string | number[] | null;
             /** Max */
             max: number | null;
             /** Min */
             min: number | null;
-            /** Option Labels */
+            /**
+             * Not Modeled
+             * @description Words the real instrument takes for this setting but the model does not implement, with the reason, e.g. {INFinity: continuous scanning is not modeled} (SCPI mixed case: the short and the long form both match). Writing one is refused with -224 as not modeled, instead of being parsed as a number and rejected as out of range (#360)
+             */
+            not_modeled: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Option Labels
+             * @description How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}
+             */
             option_labels: {
                 [key: string]: string;
             } | null;
-            /** Options */
+            /**
+             * Options
+             * @description Enum options in SCPI mixed case, e.g. SINusoid
+             */
             options: string[] | null;
             /** Path */
             path: string;
@@ -3945,9 +3969,34 @@ export interface components {
              * @default false
              */
             readonly: boolean;
-            /** Type */
-            type: string;
-            /** Unit */
+            /**
+             * Replies
+             * @description Enum: the word a query answers for an option, when the instrument answers with a different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR reads back CC (#268); options not listed answer as usual
+             */
+            replies: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Rst
+             * @description Value after *RST; defaults to `default`
+             */
+            rst: unknown;
+            /**
+             * Special
+             * @description Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load
+             */
+            special: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "float" | "int" | "bool" | "enum" | "string" | "int_list" | "enum_list";
+            /**
+             * Unit
+             * @description Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM
+             */
             unit: string | null;
             /** Value */
             value: unknown;

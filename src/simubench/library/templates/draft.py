@@ -160,7 +160,7 @@ def suggest(res: ScannedResource, definition_id: str, hints: dict[str, Any]) -> 
         "definition_id": definition_id,
         "inputs": inputs,
         "filled": [f.as_dict() for f in filled],
-        "diagnostics": [d.as_dict() for d in exp.diagnostics],
+        "diagnostics": [d.model_dump() for d in exp.diagnostics],
         "evidence": {"supported": best.supported, "checked": best.total},
         "alternatives": [
             {

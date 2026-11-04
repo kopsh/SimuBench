@@ -353,6 +353,8 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 
 所有接入方式调用同一套引擎接口：打开 Bench、启动/停止会话、提交动作、订阅事件、读取状态与探针、读取运行记录、编辑与校验 Bench。
 
+**契约模型的归属**（D57）：领域契约模型——引擎产出的接口对象（诊断、静默原因、回放差异、事件、探针结果、编辑操作）——定义在引擎旁（pydantic、frozen，配置镜像 `models/api._Model`），`models/api.py` 原样 re-export 供 FastAPI 用作 response_model；字段与描述只有一处，给引擎模型加字段即上接口。文件模型（Bench、定义）定义在 `models/`，是引擎可 import 的数据结构；运行时视图（由服务层组装的 DTO，如 StateVarInfo、ReplayResult）定义在 `models/api.py`。import 方向单向：`models/api.py → engine.*`（契约 re-export）、`engine.* → models/`（文件模型），被 re-export 的引擎契约模块顶层不 import 回 models（需要处函数内引入），避免包级互相依赖。
+
 ### 7.2 进程结构
 
 - **进程内**：脚本或 pytest 直接在自己的进程中打开 Bench（PyVISA 后端、SDK），适合 CI。

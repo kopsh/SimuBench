@@ -149,7 +149,7 @@ class BenchFiles:
             fingerprint=fingerprint(data),
             data=data,
             ok=report.ok,
-            diagnostics=diagnostics(report),
+            diagnostics=list(report.diagnostics),
         )
 
     # ---- catalog ------------------------------------------------------------------------------------
@@ -195,10 +195,6 @@ class BenchFiles:
             if cls.category != "internal"
         ]
         return M.Catalog(instruments=instruments, components=components)
-
-
-def diagnostics(report: Report) -> list[M.Diagnostic]:
-    return [M.Diagnostic(**d.as_dict()) for d in report.diagnostics]
 
 
 def fingerprint(data: dict[str, Any]) -> str:

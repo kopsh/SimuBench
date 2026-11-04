@@ -28,7 +28,7 @@ from ..library.loader import DefinitionLibrary
 from ..models import api as M
 from ..models.bench import Fault
 from ..models.definition import InstrumentDefinition
-from .benchfiles import Conflict, diagnostics
+from .benchfiles import Conflict
 from .catalog import components as component_catalog
 from .definitionfiles import DefinitionFiles
 from .manager import (
@@ -223,7 +223,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def validate_bench(req: M.ValidateRequest) -> M.ValidateResponse:
         report = file_errors(lambda: files.validate(req.data, req.path))
-        return M.ValidateResponse(ok=report.ok, diagnostics=diagnostics(report))
+        return M.ValidateResponse(ok=report.ok, diagnostics=list(report.diagnostics))
 
     @app.get(
         "/api/metrics",

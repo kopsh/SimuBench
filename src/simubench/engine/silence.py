@@ -11,8 +11,9 @@ a path), and the control node of a controlled source (a buffer passes the signal
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from .circuit import GROUND, Circuit
 from .component import Component
@@ -23,14 +24,25 @@ if TYPE_CHECKING:
 Kind = Literal["unconnected", "source_off", "zero_setting", "no_source", "fault"]
 
 
-@dataclass
-class Silence:
+# The model config mirrors models/api._Model so the generated schema stays identical (D57): the
+# reason is the interface object (models/api.py re-exports this class), defined beside the
+# upstream trace that finds it.
+class SilenceReason(BaseModel):
+    """Why a port or net reads 0 V, found by tracing the circuit upstream."""
+
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True
+    )
+
     kind: Kind
     #: Components from the silent node to the source (or to where the trace ends), by reference:
     #: a DUT or accessory name ('rc', 'wire1.passive_probe0') or an instrument port ('awg.OUT1').
-    path: list[str] = field(default_factory=list)
+    path: list[str] = Field(
+        default_factory=list,
+        description="From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')",
+    )
     #: The source the reason is about, as an instrument port ('awg.OUT1') or component uid.
-    source: str | None = None
+    source: str | None = Field(None, description="The source this reason is about, e.g. 'awg.OUT1'")
     fault_id: str | None = None
     detail: str = ""
 
@@ -68,10 +80,10 @@ def _edges(session: Session) -> dict[str, list[tuple[str, Component]]]:
     return up
 
 
-def why_silent(session: Session, node: str, *, port_ref: str | None = None) -> list[Silence]:
+def why_silent(session: Session, node: str, *, port_ref: str | None = None) -> list[SilenceReason]:
     """Reasons ``node`` carries no signal, or [] when it does. ``port_ref`` names the node's port."""
     if port_ref is not None and port_ref not in session.port_net:
-        return [Silence("unconnected", path=[port_ref], detail=f"{port_ref} is not wired")]
+        return [SilenceReason(kind="unconnected", path=[port_ref], detail=f"{port_ref} is not wired")]
     sig = session.node_signal(node)
     if sig.peak() > 0 or abs(sig.mean()) > 0:
         return []
@@ -102,7 +114,7 @@ def why_silent(session: Session, node: str, *, port_ref: str | None = None) -> l
             hops.append(_ref(session, last))
         return list(dict.fromkeys(hops))  # one entry per component, in order
 
-    reasons: list[Silence] = []
+    reasons: list[SilenceReason] = []
     reached: set[str] = set()
     for comp in session.all_components():
         if not is_source(comp):
@@ -119,9 +131,17 @@ def why_silent(session: Session, node: str, *, port_ref: str | None = None) -> l
         emf = comp.emf()
         ref = _ref(session, comp)
         if not emf:
-            reasons.append(Silence("source_off", path_to(hit, comp), ref, detail=f"{ref}: output is off"))
+            reasons.append(
+                SilenceReason(
+                    kind="source_off", path=path_to(hit, comp), source=ref, detail=f"{ref}: output is off"
+                )
+            )
         elif all(s.peak() == 0 and s.mean() == 0 for s in emf.values()):
-            reasons.append(Silence("zero_setting", path_to(hit, comp), ref, detail=f"{ref}: set to 0"))
+            reasons.append(
+                SilenceReason(
+                    kind="zero_setting", path=path_to(hit, comp), source=ref, detail=f"{ref}: set to 0"
+                )
+            )
 
     for f in session.faults.snapshot():
         target = f._component
@@ -131,13 +151,19 @@ def why_silent(session: Session, node: str, *, port_ref: str | None = None) -> l
             and (target.uid in reached or any(n in parent for n in _nodes_of(session, target)))
         ):
             reasons.append(
-                Silence("fault", [_ref(session, target)], _ref(session, target), f.id, detail=f.describe())
+                SilenceReason(
+                    kind="fault",
+                    path=[_ref(session, target)],
+                    source=_ref(session, target),
+                    fault_id=f.id,
+                    detail=f.describe(),
+                )
             )
 
     if not reached:
         upstream = [_ref(session, c) for c in seen]
         path = list(dict.fromkeys([*([port_ref] if port_ref else []), *upstream]))
-        reasons.append(Silence("no_source", path, detail="no source upstream"))
+        reasons.append(SilenceReason(kind="no_source", path=path, detail="no source upstream"))
     return reasons
 
 

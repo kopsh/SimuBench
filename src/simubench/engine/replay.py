@@ -17,13 +17,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..api import open_bench
-from ..models.bench import BenchDefinition, Fault
+from pydantic import BaseModel, ConfigDict
+
 from .record import RECORD_SCHEMA, definition_hash
 
 
-@dataclass
-class Mismatch:
+# The model config mirrors models/api._Model so the generated schema stays identical (D57): the
+# mismatch is the interface object (models/api.py re-exports this class), defined beside the
+# replay that finds it.
+class ReplayMismatch(BaseModel):
+    model_config = ConfigDict(
+        frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True
+    )
+
     seq: int
     instrument: str
     t_ns: int
@@ -38,7 +44,7 @@ class ReplayReport:
     bench: str
     actions: int = 0
     replies: int = 0
-    mismatches: list[Mismatch] = field(default_factory=list)
+    mismatches: list[ReplayMismatch] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
 
     @property
@@ -52,7 +58,7 @@ class ReplayReport:
             "actions": self.actions,
             "replies": self.replies,
             "ok": self.ok,
-            "mismatches": [m.__dict__ for m in self.mismatches],
+            "mismatches": [m.model_dump() for m in self.mismatches],
             "warnings": self.warnings,
         }
 
@@ -97,6 +103,11 @@ def open_record(
     record was made. Callers replay the events with :func:`resend`.
     """
     path = Path(path)
+    # Late imports: models/api.py re-exports this module's ReplayMismatch (D57), so the top level
+    # must not import models or the session back (the in-process API pulls both in).
+    from ..api import open_bench
+    from ..models.bench import BenchDefinition
+
     if workspace_plugins is not None:
         from ..plugins import load_workspace_plugins
 
@@ -165,6 +176,8 @@ def resend(
     other kind of event). A write a fault dropped is resent too: the replayed fault drops it the
     same way.
     """
+    from ..models.bench import Fault  # late: this module is re-exported by models/api.py
+
     for ev in events:
         kind = ev.get("kind")
         t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
@@ -226,13 +239,13 @@ def replay(
                     expected = _show(want)
                 if not same:
                     report.mismatches.append(
-                        Mismatch(
-                            ev["seq"],
-                            ev["instrument"],
-                            t,
-                            expected,
-                            _show(got),
-                            last_command.get(ev["instrument"]),
+                        ReplayMismatch(
+                            seq=ev["seq"],
+                            instrument=ev["instrument"],
+                            t_ns=t,
+                            expected=expected,
+                            actual=_show(got),
+                            command=last_command.get(ev["instrument"]),
                         )
                     )
                     if stop_at_first:

@@ -76,7 +76,7 @@ class Runs:
             ok=report.ok,
             actions=report.actions,
             replies=report.replies,
-            mismatches=[M.ReplayMismatch(**m.__dict__) for m in report.mismatches],
+            mismatches=list(report.mismatches),
             warnings=report.warnings,
         )
 

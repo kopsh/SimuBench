@@ -112,7 +112,14 @@ class Template:
         except ValidationError as exc:
             return Expansion(None, [_from_pydantic(e) for e in exc.errors()])
         problems = [
-            Diagnostic("error", p.code, pointer(*p.path), p.message, p.suggestion) for p in self.check(model)
+            Diagnostic(
+                severity="error",
+                code=p.code,
+                pointer=pointer(*p.path),
+                message=p.message,
+                suggestion=p.suggestion,
+            )
+            for p in self.check(model)
         ]
         if problems:
             return Expansion(None, problems)
@@ -129,7 +136,9 @@ def _from_pydantic(error: Any) -> Diagnostic:
     loc = tuple(p for p in error.get("loc", ()) if not (isinstance(p, str) and p.startswith("function-")))
     kind = str(error.get("type", ""))
     code = "E-TPL-INPUT-MISSING" if kind == "missing" else "E-TPL-INPUT"
-    return Diagnostic("error", code, pointer(*loc), str(error.get("msg", "invalid input")))
+    return Diagnostic(
+        severity="error", code=code, pointer=pointer(*loc), message=str(error.get("msg", "invalid input"))
+    )
 
 
 _TEMPLATES: dict[str, Template] = {}
