@@ -3229,12 +3229,12 @@ export interface components {
         RunEvent: {
             /**
              * Action
-             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command)
+             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip events: the acknowledged control
              */
             action: string | null;
             /**
              * Channels
-             * @description Acquisition recipe, per channel
+             * @description Acquisition recipe, per channel (t_start_ns, dt_s, points, sha256, …)
              */
             channels: {
                 [key: string]: unknown;
@@ -3248,6 +3248,11 @@ export interface components {
             closest: string | null;
             /** Code */
             code: number | null;
+            /**
+             * Count
+             * @description The acquisition count, for acquisition events
+             */
+            count: number | null;
             /** Dir */
             dir: ("write" | "read") | null;
             /** Dt Ns */
@@ -3260,6 +3265,11 @@ export interface components {
              */
             fault: string | null;
             /**
+             * Forced
+             * @description Read from a channel that had no record, for acquisition events
+             */
+            forced: boolean | null;
+            /**
              * Header
              * @description The header that was ignored, for ignored events
              */
@@ -3268,7 +3278,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | fault | acquisition | panel | remote | session | solver
+             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | solver
              */
             kind: string;
             /** Message */
@@ -3311,7 +3321,10 @@ export interface components {
             recipe: number | null;
             /** Seq */
             seq: number;
-            /** Sha256 */
+            /**
+             * Sha256
+             * @description Hash of a binary reply kept as a reference (D36)
+             */
             sha256: string | null;
             /**
              * Size

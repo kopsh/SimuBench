@@ -18,6 +18,8 @@ import uuid
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
+
 from .. import __version__
 from ..plugins import report as plugin_report
 
@@ -39,17 +41,23 @@ def encode_bytes(data: bytes) -> dict[str, str]:
     return {"b64": base64.b64encode(data).decode(), "size": str(len(data))}
 
 
-def _jsonable(value: Any) -> Any:
+def jsonable(value: Any) -> Any:
+    """A value JSON can carry, for the run record and the event stream alike (issue 595: one
+    helper). Bytes become text or base64 (:func:`encode_bytes`); a non-finite float becomes the
+    string the bench files spell it with ("INF", "-INF", "NAN"); datetimes become ISO; a numpy
+    scalar becomes a Python number; dicts, lists and tuples recurse."""
     if isinstance(value, bytes):
         return encode_bytes(value)
-    if isinstance(value, float) and (value != value or value in (float("inf"), float("-inf"))):
-        return str(value)
+    if isinstance(value, float) and not np.isfinite(value):
+        return "INF" if value > 0 else "-INF" if value < 0 else "NAN"
+    if isinstance(value, np.generic):
+        return value.item()
     if isinstance(value, (dt.datetime, dt.date)):
         return value.isoformat()
     if isinstance(value, dict):
-        return {k: _jsonable(v) for k, v in value.items()}
+        return {k: jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
-        return [_jsonable(v) for v in value]
+        return [jsonable(v) for v in value]
     return value
 
 
@@ -77,7 +85,7 @@ class Recorder:
         if self._f is None:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             self._f = self.path.open("a", encoding="utf-8")
-        self._f.write(json.dumps(_jsonable(record), ensure_ascii=False, separators=(",", ":")) + "\n")
+        self._f.write(json.dumps(jsonable(record), ensure_ascii=False, separators=(",", ":")) + "\n")
         self._f.flush()
 
     def header(self) -> None:

@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from simubench.engine.events import project
 from simubench.tui.app import SimuBenchApp
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -185,7 +186,6 @@ async def feed(tui: SimuBenchApp, *events: dict[str, Any]) -> None:
 
 
 def ev(seq: int, t_ns: int, kind: str, **fields: Any) -> dict[str, Any]:
-    """One event as the server's ``to_event`` produces it."""
-    out = {"seq": seq, "t_ns": t_ns, "kind": kind}
-    out.update(fields)
-    return out
+    """One event as the WS stream carries it: projected through the engine's event contract
+    (issue 595), so the shape here and the server's cannot drift apart."""
+    return project({"t_ns": t_ns, "kind": kind, **fields}, seq)

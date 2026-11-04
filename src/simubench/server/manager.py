@@ -22,7 +22,7 @@ from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState, LinkDown
 from ..engine.instrument import Instrument
 from ..engine.portref import split
-from ..engine.record import definition_hash
+from ..engine.record import definition_hash, jsonable
 from ..engine.session import Session
 from ..engine.silence import why_silent
 from ..library.components.scope import channel_index
@@ -510,7 +510,7 @@ class SessionManager:
             type=comp.type_name,
             label=label,
             dut=bool(part and part.dut),
-            params=_plain(params),
+            params=jsonable(params),
             ports=ports,
             deviations=deviations,
         )
@@ -552,7 +552,7 @@ class SessionManager:
                     readonly=spec.readonly,
                     electrical=spec.electrical,
                     dangerous=generic in dangerous_paths,
-                    value=_plain(inst.state.get(path)),
+                    value=jsonable(inst.state.get(path)),
                     channel=ch,
                 )
             )
@@ -614,7 +614,7 @@ class SessionManager:
                     channel=comp.channel,
                     doc=_first_paragraph(type(comp).__doc__),
                     params=[
-                        M.InternalParam(name=k, value=_plain(v), binding=b, unit=comp.units.get(k))
+                        M.InternalParam(name=k, value=jsonable(v), binding=b, unit=comp.units.get(k))
                         for k, v, b in comp.nominal()
                     ],
                     ports=[
@@ -679,7 +679,7 @@ class SessionManager:
     ) -> M.ConfigureResponse:
         s = served.session
         err = s.try_configure(instrument, path, value, client=client)
-        current = _plain(s.instrument(instrument).state.get(path))
+        current = jsonable(s.instrument(instrument).state.get(path))
         if err is None:
             return M.ConfigureResponse(ok=True, value=current)
         return M.ConfigureResponse(
@@ -783,7 +783,7 @@ class SessionManager:
                 if not r:
                     continue
                 for k, v in r.get("values", {}).items():
-                    values[f"{name}.{k}"] = _plain(v)
+                    values[f"{name}.{k}"] = jsonable(v)
                 for t in r.get("traces", []):
                     traces.append(M.ReadingTrace(**{**t, "name": f"{name}.{t['name']}"}))
             return M.InstrumentReadings(instrument=instrument, now_ns=s.now_ns, values=values, traces=traces)
@@ -874,19 +874,6 @@ class SessionManager:
             )
 
 
-def _plain(value: Any) -> Any:
-    """JSON-friendly values: infinities become strings, numpy scalars become Python numbers."""
-    if isinstance(value, float) and not np.isfinite(value):
-        return "INF" if value > 0 else "-INF" if value < 0 else "NAN"
-    if isinstance(value, np.generic):
-        return value.item()
-    if isinstance(value, dict):
-        return {k: _plain(v) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_plain(v) for v in value]
-    return value
-
-
 __all__ = ["ScpiError", "ServedSession", "SessionManager"]
 
 
@@ -938,11 +925,11 @@ def _deviation_info(param: str, rng: Any, value: Any, drawn: bool, reveal: bool)
     """A deviation range for the inspector; a drawn value only when the bench reveals true values."""
     return M.DeviationInfo(
         param=param,
-        limit=_plain(rng.limit),
+        limit=jsonable(rng.limit),
         unit=rng.unit,
         distribution=rng.distribution,
-        by=_plain(rng.by),
-        value=_plain(value) if drawn and reveal else None,
+        by=jsonable(rng.by),
+        value=jsonable(value) if drawn and reveal else None,
         drawn=drawn,
     )
 

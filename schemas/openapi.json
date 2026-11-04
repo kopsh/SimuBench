@@ -4900,7 +4900,7 @@
                 "type": "null"
               }
             ],
-            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command)",
+            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip events: the acknowledged control",
             "title": "Action"
           },
           "channels": {
@@ -4913,7 +4913,7 @@
                 "type": "null"
               }
             ],
-            "description": "Acquisition recipe, per channel",
+            "description": "Acquisition recipe, per channel (t_start_ns, dt_s, points, sha256, …)",
             "title": "Channels"
           },
           "client": {
@@ -4949,6 +4949,18 @@
               }
             ],
             "title": "Code"
+          },
+          "count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The acquisition count, for acquisition events",
+            "title": "Count"
           },
           "dir": {
             "anyOf": [
@@ -4999,6 +5011,18 @@
             "description": "Fault id, for fault events and messages a fault affected",
             "title": "Fault"
           },
+          "forced": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Read from a channel that had no record, for acquisition events",
+            "title": "Forced"
+          },
           "header": {
             "anyOf": [
               {
@@ -5023,7 +5047,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | fault | acquisition | panel | remote | session | solver",
+            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | solver",
             "title": "Kind",
             "type": "string"
           },
@@ -5140,6 +5164,7 @@
                 "type": "null"
               }
             ],
+            "description": "Hash of a binary reply kept as a reference (D36)",
             "title": "Sha256"
           },
           "size": {
@@ -5220,9 +5245,11 @@
           "param",
           "range",
           "action",
+          "count",
+          "forced",
+          "channels",
           "sha256",
-          "recipe",
-          "channels"
+          "recipe"
         ],
         "title": "RunEvent",
         "type": "object"
