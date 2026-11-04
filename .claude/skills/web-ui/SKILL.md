@@ -20,6 +20,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - `web/e2e/*.spec.ts` (Playwright, served by `e2e/serve.mjs`), `web/visual/` (story snapshots);
   full-app screenshots at 1280/1440 live in `web/e2e/layout-visual.spec.ts` (baselines beside it,
   `pnpm e2e e2e/layout-visual.spec.ts --update-snapshots` after an intended change).
+- Visual baselines are **Linux/Chromium** (the CI e2e runner): `--update-snapshots` on a Mac writes
+  wrong-platform PNGs. To refresh, take the `playwright-report` artifact's `*-actual.png` from the
+  failed run (two runs producing byte-identical actuals = the render is stable). Both screenshot
+  specs force-load every declared `FontFace` before capture — text metrics decide how cards wrap,
+  and a wrap flip shifts the whole canvas fit (#618): keep that wait when adding new screenshot
+  tests.
 
 ## Rules
 
