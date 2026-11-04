@@ -1,5 +1,11 @@
 """The trigger model and reading memory of meters and source-measure units (metrology-authoring.md 3).
 
+``Triggerable`` is the arm → ready → fire → abort state machine a triggerable operation runs
+(#632): a component mixes it in and writes only its action (``_act``) and its own SCPI
+operations — the arming, the readiness, the trigger gating with its error codes and the trigger
+delay in virtual time are the primitive's, as they are for the trigger model and the supply's
+transient system alike.
+
 ``trigger_model`` runs the SCPI trigger system on a :class:`~simubench.engine.component.Sampler`:
 INITiate arms it, each trigger (immediate, ``*TRG`` on the bus, or an external one) takes
 ``sample_count`` readings after ``delay``, ``trigger_count`` triggers make one run. The readings
@@ -70,10 +76,199 @@ def format_readings(
     return b",".join(out)
 
 
+class Triggerable:
+    """The arm → ready → fire → abort state machine behind a triggerable operation (#632).
+
+    A component that is armed (INITiate), becomes ready for a trigger (any ``ready_delay`` later,
+    at once without one), takes a trigger (``*TRG`` on the bus, or the model's own trigger
+    command), lets it take effect after ``delay`` and goes back to idle mixes this in and writes
+    only its action and its own operations — like the protection latch's declared thresholds
+    (#631), this is component-internal implementation, not a component type of its own (D50).
+
+    States: ``idle`` (nothing armed) | ``armed`` (initiated, not ready yet) | ``ready`` (waiting
+    for a trigger) | ``firing`` (a trigger accepted, its action on the way). The ready delay and
+    the trigger delay take virtual time (D12) through the instrument's pending table, so
+    ``*OPC?``/``*WAI`` wait for them and ABORt drops them; the params read are ``source``,
+    ``ready_delay``, ``delay``, ``trigger_ignored_error`` (0: a trigger while not ready is ignored
+    silently) and ``ignored_error`` (0: INITiate while armed restarts nothing).
+
+    What the action *does* beyond the state machine is the carrier's increment: ``_act`` runs at
+    the firing's end, ``_fire_span`` says when that is (a firing that itself takes virtual time —
+    the trigger model's readings — returns it and prepares at the trigger), plus the ``_on_arm`` /
+    ``_on_trigger`` / ``_on_settled`` hooks and where a firing settles (``_next_after_act``). The
+    carrier knows no clocks: the primitive runs the delays.
+    """
+
+    def _init_trigger(self) -> None:
+        """Reset to idle without actions (*RST; the instrument's pending table is cleared too)."""
+        self._trig_state = "idle"
+        self._fire_end_ns: int | None = None  # when the firing in progress is done
+        self._act_ns = 0  # when the accepted trigger takes effect (the trigger delay's end)
+        if self.owner is not None:
+            self.owner.cancel_pending(self.uid)
+
+    # ---- the state ---------------------------------------------------------------------------------
+
+    @property
+    def armed(self) -> bool:
+        """Initiated (armed, ready or firing): TRAN-active until the action was taken."""
+        return self._trig_state != "idle"
+
+    @property
+    def ready(self) -> bool:
+        """Armed and waiting for a trigger: WTG-tran."""
+        return self._trig_state == "ready"
+
+    @property
+    def delaying(self) -> bool:
+        """A trigger was accepted and its action is still on the way."""
+        return self._trig_state == "firing"
+
+    def _source(self) -> str:
+        return str(self.param("source")).lower()
+
+    # ---- the machine ---------------------------------------------------------------------------------
+
+    def arm(self, *, why: str = "Init ignored") -> None:
+        """INITiate: arm it. An arm while armed is refused with ``ignored_error`` (0: silently,
+        nothing restarts); ``_on_arm`` then clears the carrier's run state (and may refuse the
+        run's shape: the state is only set once it stands)."""
+        if self._trig_state != "idle":
+            code = int(self.param("ignored_error") or 0)
+            if code:
+                raise ScpiError(code, why)
+            return
+        self._on_arm()
+        self._trig_state = "armed"
+        ready = float(self.param("ready_delay") or 0.0)
+        assert self.owner is not None
+        if ready > 0:
+            self.owner.register_pending(
+                self.uid, self.owner.now_ns() + round(ready * 1e9), self._became_ready
+            )
+        else:
+            self._became_ready()
+
+    def _became_ready(self) -> None:
+        """The ready delay is over (or there was none): a trigger may come. An immediate source
+        fires without one."""
+        self._trig_state = "ready"
+        if self._source().startswith("imm"):
+            self.fire()
+
+    def trigger_in(self, source: str, *, why: str = "Trigger ignored") -> None:
+        """A trigger from ``source`` (``*TRG`` is "bus"): accepted only while ready for one from
+        there, else ``trigger_ignored_error`` (0: ignored silently)."""
+        if self._trig_state != "ready" or self._source() != source.lower():
+            self._ignored(why)
+            return
+        self._on_trigger()
+        self.fire()
+
+    def trigger_now(self, *, why: str = "Trigger ignored") -> None:
+        """The model's own trigger command: accepted while ready, whatever the source."""
+        if self._trig_state != "ready":
+            self._ignored(why)
+            return
+        self._on_trigger()
+        self.fire()
+
+    def _ignored(self, why: str) -> None:
+        code = int(self.param("trigger_ignored_error") or 0)
+        if code:
+            raise ScpiError(code, why)
+
+    def fire(self) -> None:
+        """A trigger accepted: the firing runs to ``_fire_span()``'s end — at once when the
+        action is instantaneous and there is no trigger delay — and settles then."""
+        assert self.owner is not None
+        self._trig_state = "firing"
+        delay = float(self.param("delay") or 0.0)
+        self._act_ns = self.owner.now_ns() + (round(delay * 1e9) if delay > 0 else 0)
+        end = self._fire_span()
+        if end is None:
+            end = self._act_ns
+        self._fire_end_ns = end
+        if end <= self.owner.now_ns() or self.owner.session.clock_mode == "stepped":
+            # A stepped clock moves only when stepped, so nothing would ever complete the firing:
+            # one that itself takes virtual time is instantaneous (its spacing is what it reports).
+            self._fire_step()
+            return
+        self.owner.register_pending(self.uid, end, self._fire_step)
+
+    def _fire_step(self) -> None:
+        """The firing is done — the pending table ran it, or ``wait_fired`` by hand: the action,
+        then the settle."""
+        self._act()
+        self._collect()
+
+    def _collect(self) -> None:
+        """The firing is over: settle — idle, or ready for the run's next trigger."""
+        assert self.owner is not None
+        self.owner.cancel_pending(self.uid)
+        self._fire_end_ns = None
+        self._trig_state = self._next_after_act()
+        self._on_settled()
+
+    def wait_fired(self) -> int:
+        """Drive the firing in progress to its end: the virtual time that takes (see
+        :meth:`~simubench.engine.instrument.Instrument.wait_until`), running the action when due."""
+        assert self.owner is not None
+        if self._trig_state != "firing" or self._fire_end_ns is None:
+            return 0
+        end = self._fire_end_ns
+        used = self.owner.wait_until(end)
+        if self.owner.now_ns() + used >= end:
+            self._fire_step()
+        return used
+
+    def abort(self) -> None:
+        """ABORt: back to idle. A pending ready or firing is dropped; what the action already did
+        stays."""
+        assert self.owner is not None
+        self.owner.cancel_pending(self.uid)
+        self._fire_end_ns = None
+        self._trig_state = "idle"
+        self._on_settled()
+
+    # ---- the carrier's increments --------------------------------------------------------------------
+
+    def _on_arm(self) -> None:
+        """What arming does beyond the state (clearing the previous run's readings); nothing by
+        default."""
+
+    def _on_trigger(self) -> None:
+        """What an accepted trigger does beyond firing (the bus trigger's TRIG event); nothing by
+        default."""
+
+    def _fire_span(self) -> int | None:
+        """A trigger was accepted (at ``_act_ns``, the trigger delay's end): when the firing is
+        done — None for a firing that ends there (an instantaneous action). What preparing the
+        action takes (the sampler's ``run_begin``) happens here, at the trigger."""
+        return None
+
+    def _act(self) -> None:
+        """The action a trigger takes, run when the firing is done."""
+        raise NotImplementedError(f"{self.uid}: a triggerable component takes no action")
+
+    def _next_after_act(self) -> str:
+        """Where a firing settles: ``idle`` (default) or ``ready`` (the run's next trigger)."""
+        return "idle"
+
+    def _on_settled(self) -> None:
+        """What settling does beyond the state (a finished run's ``run_done``); nothing by
+        default."""
+
+
 @component("trigger_model")
-class TriggerModel(Component):
+class TriggerModel(Triggerable, Component):
     """INITiate, triggers and FETCh? of a meter: ``trigger_count`` × ``sample_count`` readings of the
-    ``sampler`` component, kept in ``buffer`` when one is named."""
+    ``sampler`` component, kept in ``buffer`` when one is named.
+
+    The arm → ready → fire → abort machine is the ``Triggerable`` primitive's; what a trigger
+    *does* here is the run: its readings (each batch after the trigger delay the primitive
+    consumed), kept for FETCh? and in the reading buffer.
+    """
 
     defaults = {
         "sampler": "",  # the component that takes the readings (a Sampler: a meter's core, an SMU)
@@ -96,13 +291,19 @@ class TriggerModel(Component):
         self.reset()
 
     def reset(self) -> None:
-        self.phase = "idle"  # idle | waiting (for a trigger) | measuring
         self.taken: list[Reading] = []  # the readings of the last run, what FETCh? returns
         self.triggers = 0  # triggers taken in this run
-        self.done_ns = 0  # when the readings being taken are done
         self._run_begun = False  # run_begin was called and run_done is still owed
-        if self.owner is not None:
-            self.owner.cancel_pending(self.uid)
+        self._batches = 0  # batches the firing in progress takes
+        self._fire_batches = 1  # batches one accepted trigger takes (an immediate run: all of them)
+        self._init_trigger()
+
+    @property
+    def phase(self) -> str:
+        """The run's phase: idle | waiting (for a trigger) | measuring (readings in progress)."""
+        return {"idle": "idle", "armed": "waiting", "ready": "waiting", "firing": "measuring"}[
+            self._trig_state
+        ]
 
     # ---- the run -----------------------------------------------------------------------------------
 
@@ -118,9 +319,6 @@ class TriggerModel(Component):
         ``sample_fields``); ``None`` when the sampler does not have it."""
         hook = getattr(self._sampler(), name, None)
         return hook(*args) if hook is not None else None
-
-    def _source(self) -> str:
-        return str(self.param("source")).lower()
 
     def _counts(self) -> tuple[int, int]:
         """(triggers, readings per trigger) of a run: the sampler's own size (a sweep) when it
@@ -142,51 +340,6 @@ class TriggerModel(Component):
     def _batch_ns(self, samples: int) -> int:
         return round(float(self.param("delay")) * 1e9) + samples * self._sampler().sample_time_ns()
 
-    def _start(self, batches: int) -> None:
-        """Take ``batches`` triggers' readings from now; they are done at ``done_ns``."""
-        assert self.owner is not None
-        _, samples = self._counts()
-        if not self._run_begun:
-            self._run_begun = True
-            self._optional("run_begin")
-        self.phase = "measuring"
-        self.done_ns = self.owner.now_ns() + batches * self._batch_ns(samples)
-        self._batches = batches
-        if self.owner.session.clock_mode == "stepped":
-            # A stepped clock moves only when stepped, so nothing would ever complete it: an
-            # immediate run is instantaneous, its readings taken now (their spacing is what the
-            # sampler's TIME fields say). Waiting runs (bus, external) still wait for *TRG.
-            self._finish()
-            return
-        self.owner.register_pending(self.uid, self.done_ns, self._finish)
-
-    def _finish(self) -> None:
-        """The readings of the batches started last, taken at their own instants."""
-        assert self.owner is not None
-        triggers, samples = self._counts()
-        sampler = self._sampler()
-        delay = round(float(self.param("delay")) * 1e9)
-        step = sampler.sample_time_ns()
-        t = self.done_ns - self._batches * self._batch_ns(samples)
-        buffer = self._buffer()
-        for _ in range(self._batches):
-            t += delay
-            for _ in range(samples):
-                t += step
-                index = len(self.taken)
-                value = float(sampler.sample(index))
-                fields = self._optional("sample_fields", index) or {}
-                reading = Reading(value, t, fields)
-                self.taken.append(reading)
-                if buffer is not None:
-                    buffer.append(reading)
-        self.triggers += self._batches
-        self.phase = "waiting" if self.triggers < triggers else "idle"
-        if self.phase == "idle" and self._run_begun:
-            self._run_begun = False
-            self._optional("run_done")
-        self.owner.cancel_pending(self.uid)
-
     def _buffer(self) -> ReadingBuffer | None:
         name = str(self.param("buffer") or "")
         if not name:
@@ -196,16 +349,6 @@ class TriggerModel(Component):
         if not isinstance(comp, ReadingBuffer):
             raise ScpiError(-300, f"{self.uid}: buffer {name!r} is not a reading_buffer")
         return comp
-
-    def _wait(self) -> int:
-        """Finish the readings in progress: the virtual time that takes (see Instrument.wait_until)."""
-        assert self.owner is not None
-        if self.phase != "measuring":
-            return 0
-        used = self.owner.wait_until(self.done_ns)
-        if self.owner.now_ns() + used >= self.done_ns:
-            self._finish()
-        return used
 
     def _number(self) -> Any:
         return _number_formatter(self.owner, self.param("digits"))
@@ -218,38 +361,89 @@ class TriggerModel(Component):
             readings = self.taken
         return format_readings(readings, elements, self._number())
 
+    # ---- the triggerable's increments ----------------------------------------------------------------
+
+    def _on_arm(self) -> None:
+        """A run starts: the previous run's readings go (the buffer's too); an immediate run takes
+        all its triggers at once, a triggered one per trigger."""
+        triggers, _ = self._counts()
+        self.taken, self.triggers = [], 0
+        self._fire_batches = triggers if self._source().startswith("imm") else 1
+        buffer = self._buffer()
+        if buffer is not None:
+            buffer.clear_buffer()
+
+    def _on_trigger(self) -> None:
+        assert self.owner is not None
+        self.owner.status_event("TRIG")  # a trigger was received (the SRS LIA bit 6, #273)
+
+    def _fire_span(self) -> int | None:
+        """One accepted trigger: its readings run from the trigger the primitive took (each batch
+        one ``delay`` after the previous) and are done at the time returned. The sampler's
+        ``run_begin`` happens here, at the trigger."""
+        _, samples = self._counts()
+        if not self._run_begun:
+            self._run_begun = True
+            self._optional("run_begin")
+        self._batches = self._fire_batches
+        return (
+            self._act_ns
+            + (self._batches - 1) * self._batch_ns(samples)
+            + samples * self._sampler().sample_time_ns()
+        )
+
+    def _act(self) -> None:
+        """The readings' time is over: take them at their own instants."""
+        _, samples = self._counts()
+        sampler = self._sampler()
+        delay = round(float(self.param("delay")) * 1e9)
+        step = sampler.sample_time_ns()
+        t = self._act_ns
+        buffer = self._buffer()
+        for batch in range(self._batches):
+            if batch:
+                t += delay  # each further trigger's own delay
+            for _ in range(samples):
+                t += step
+                index = len(self.taken)
+                value = float(sampler.sample(index))
+                fields = self._optional("sample_fields", index) or {}
+                reading = Reading(value, t, fields)
+                self.taken.append(reading)
+                if buffer is not None:
+                    buffer.append(reading)
+        self.triggers += self._batches
+
+    def _next_after_act(self) -> str:
+        """A run with triggers left waits for its next one; a finished one is done."""
+        if self.triggers < self._counts()[0]:
+            return "ready"
+        return "idle"
+
+    def _on_settled(self) -> None:
+        """The run is over (idle): the sampler's run_done is owed."""
+        if self._trig_state == "idle" and self._run_begun:
+            self._run_begun = False
+            self._optional("run_done")
+
     # ---- operations ----------------------------------------------------------------------------------
 
     @op("initiate")
     def initiate(self, **_: Any) -> OpResult:
         """``INITiate``: start a run. With an immediate trigger the readings start now; otherwise the
         model waits for its triggers. Readings of the previous run are cleared."""
-        if self.phase != "idle":
-            raise ScpiError(int(self.param("ignored_error")), "Init ignored")
-        triggers, _ = self._counts()
-        self.taken, self.triggers = [], 0
-        buffer = self._buffer()
-        if buffer is not None:
-            buffer.clear_buffer()
-        if self._source() == "immediate":
-            self._start(triggers)
-        else:
-            self.phase = "waiting"
+        self.arm()
         return OpResult()
 
     @op("bus_trigger")
     def bus_trigger(self, **_: Any) -> OpResult:
         """``*TRG`` (and the model's bus trigger command): one trigger, when waiting for a bus one."""
-        if self.phase != "waiting" or self._source() != "bus":
-            raise ScpiError(int(self.param("trigger_ignored_error")), "Trigger ignored")
-        if self.owner is not None:
-            self.owner.status_event("TRIG")  # a trigger was received (the SRS LIA bit 6, #273)
-        self._start(1)
+        self.trigger_in("bus")
         return OpResult()
 
     def status_flags(self) -> dict[str, bool]:
         """SCN while no scan is in progress (the SRS serial poll bit 0, #273)."""
-        return {"SCN": self.phase in ("idle", "done") or not self.phase}
+        return {"SCN": self._trig_state == "idle"}
 
     @op("fetch")
     def fetch(self, elements: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -257,7 +451,7 @@ class TriggerModel(Component):
         ``fetch_from_buffer`` the reading buffer answers instead (an SMU's ``FETCh?`` is its trace
         memory: ``TRAC:CLE`` empties it), each reading with the ``elements`` named."""
         names = [V.parse_string(e) if isinstance(e, bytes) else str(e) for e in elements or []]
-        used = self._wait()
+        used = self.wait_fired()
         if self.param("fetch_from_buffer"):
             buffer = self._buffer()
             if not buffer.buffers[buffer._default()]:
@@ -278,12 +472,7 @@ class TriggerModel(Component):
     @op("abort")
     def abort(self, **_: Any) -> OpResult:
         """``ABORt``: stop the run; readings already taken stay."""
-        assert self.owner is not None
-        self.owner.cancel_pending(self.uid)
-        self.phase = "idle"
-        if self._run_begun:
-            self._run_begun = False
-            self._optional("run_done")
+        Triggerable.abort(self)
         return OpResult()
 
     @op("state")
