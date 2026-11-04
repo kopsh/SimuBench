@@ -43,7 +43,7 @@ sections:
     note: 状态字节：位 2 错误队列、3 QUES 汇总、5 ESB、6 MSS、7 OPER 汇总（#539）。
   - header: '*TRG'
     level: implemented
-    note: 总线触发：触发源为 BUS 且已初始化的通道执行瞬变；否则不动作（#541）。
+    note: 总线触发：触发源为 BUS 且已初始化、已就绪的通道执行瞬变；否则不动作、不报错——Programming Output Transients 只说触发"will be ignored"，第 5 章 SCPI Error Messages 的 Error List 没有 -211（#541、#548）。
   - header: '*TST'
     level: implemented
     note: 自检通过回复 0。
@@ -66,7 +66,7 @@ sections:
     note: 数据记录、直方图与文件系统未实现。
   - header: ABORt:TRANsient
     level: implemented
-    note: 通道列表必需；取消等待（*RST 也执行）。
+    note: 通道列表必需；回到空闲，取消等待中的就绪（*RST 也执行，#548）。
 - section: CALibrate
   commands:
   - header: CALibrate:COUNt
@@ -260,7 +260,7 @@ sections:
     note: 数据记录、直方图与文件系统未实现。
   - header: INITiate[:IMMediate]:TRANsient
     level: implemented
-    note: 通道列表必需；使瞬变系统等待触发：OPER 条件位 4 WTG-tran、6 TRAN-active；IMMediate 源立即触发（#541）。
+    note: 通道列表必需；初始化瞬变系统：TRAN-active（OPER 条件位 6）立即置位，5 ms（虚拟时间）后就绪、置 WTG-tran（位 4），之前到达的触发被忽略（Programming Output Transients："It takes a few milliseconds … the trigger will be ignored"，手册未给数值，#548）；IMMediate 源在就绪时触发（#541）。已知偏差：*OPC? 只等到就绪，手册把已初始化的瞬变列为待完成操作（*OPC? 等到瞬变完成）。
   - header: INITiate:CONTinuous:TRANsient
     level: not_modeled
     note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
@@ -995,7 +995,7 @@ sections:
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
   - header: TRIGger:TRANsient[:IMMediate]
     level: implemented
-    note: 通道列表必需；立即触发（不论触发源）；未初始化时不动作（手册的错误列表没有对应错误，不报错）。
+    note: 通道列表必需；立即触发（不论触发源）；未初始化或未就绪时不动作、不报错（Error List 没有 -211，#548）。
   - header: TRIGger:TRANsient:SOURce
     level: implemented
     note: 通道列表必需；BUS（*RST）/ IMMediate（INIT 即触发）/ EXTernal（台架没有数字口，等不到外部沿，只能用 TRIG:TRAN）；PIN<n>、TRANsient<n>

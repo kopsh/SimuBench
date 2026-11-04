@@ -7,7 +7,7 @@ model: keysight-e36312a
 sections:
 - section: ABORt Subsystem
   commands:
-  - {header: ABORt, level: not_modeled, note: 触发/列表系统不在首波（component-map 的缺口）。}
+  - {header: ABORt, level: implemented, note: '通道列表（省略为通道 1）；回到空闲，取消正在走触发延时的触发（#548）。手册的 WTG 位（Questionable Instrument Summary）在位表中没有位置，未建模。'}
   - {header: 'ABORt:DLOG', level: not_modeled, note: 触发/列表系统不在首波（component-map 的缺口）。}
 - section: APPLy Subsystem
   commands:
@@ -30,8 +30,8 @@ sections:
 - section: CURRent Subsystem
   commands:
   - {header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电流限值；通道列表展开，省略时按通道 1。量程 0.001–5.15 A（CH1）/1.03 A（CH2、CH3）。查询的 MIN/MAX/DEF 形式按该路的量程下限/上限/默认值回答（#297）。}
-  - {header: '[SOURce:]CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
-  - {header: '[SOURce:]CURRent:MODE', level: not_modeled}
+  - {header: '[:SOURce]:CURRent[:LEVel]:TRIGgered[:AMPLitude]', level: implemented, note: '每路的触发电流（0 – 该路上限，*RST 0），STEP 模式下触发时写入电流设定（#548）。'}
+  - {header: '[:SOURce]:CURRent:MODE', level: implemented, note: 'FIXed | STEP（*RST FIXed）；LIST 报 -224（列表未建模，#548）。'}
   - {header: '[:SOURce]:CURRent:PROTection:CLEar', level: implemented, note: 只清除 OCP 锁定并恢复故障前的输出状态（#271）；OVP 锁定不受影响。}
   - {header: '[:SOURce]:CURRent:PROTection:DELay[:TIME]', level: implemented, note: '输出处于 CC 超过该时间即跳闸（#271）；0–3600 s。*RST 0.050 s（50 ms），按 E36311-90008 Edition 3（2017） 的 [SOURce:]CURRent:PROTection:DELay 一节（p.46）与 Factory Reset State 表（p.26）核实（#379）。计时从仿真看到 CC 起（下一条命令或查询），不早于此。'}
   - {header: '[:SOURce]:CURRent:PROTection:DELay:STARt', level: implemented, note: SCHange：进入 CC 或在 CC 中改设定（电压、电流、输出）都重新计时；CCTRans：只在进入 CC 时计时（#271）。}
@@ -65,12 +65,12 @@ sections:
   - {header: '*SAV', level: not_modeled, note: 状态存储（0–9）未实现。}
   - {header: '*SRE', level: implemented, note: 服务请求使能寄存器（引擎内置）。}
   - {header: '*STB', level: implemented, note: 状态字节（引擎内置）。}
-  - {header: '*TRG', level: not_modeled, note: 触发系统不在首波。}
+  - {header: '*TRG', level: implemented, note: '触发源为 BUS 且已 INIT 的各路，经触发延时后按 STEP 模式改到触发电平（#548）。未初始化时按手册“simply ignored”：不报错、不动作——错误表（SCPI Error Messages）没有 -211。'}
   - {header: '*TST', level: implemented, note: 自检通过，回复 0。}
   - {header: '*WAI', level: implemented, note: 等待全部待完成操作（输出继电器的 0.01 s 动作计入虚拟时间）。}
 - section: INITiate Subsystem
   commands:
-  - {header: 'INITiate[:IMMediate]', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'INITiate[:IMMediate]', level: implemented, note: '通道列表（省略为通道 1）；初始化输出触发系统，IMMediate 源立即触发（#548）。手册没有 N6700 那样“初始化后几毫秒才就绪”的说明，就绪延时取 0。已初始化时改模式/源报 735 未建模。'}
   - {header: 'INITiate:CONTinuous', level: not_modeled, note: 触发系统不在首波。}
   - {header: 'INITiate[:IMMediate]:DLOG', level: not_modeled, note: 触发系统不在首波。}
 - section: INSTrument Subsystem
@@ -155,13 +155,13 @@ sections:
   commands:
   - {header: 'TRIGger:DLOG[:IMMediate]', level: not_modeled, note: 触发系统不在首波。}
   - {header: 'TRIGger:DLOG:SOURce', level: not_modeled, note: 触发系统不在首波。}
-  - {header: 'TRIGger[:SEQuence]:DELay', level: not_modeled, note: 触发系统不在首波。}
-  - {header: 'TRIGger[:SEQuence]:SOURce', level: not_modeled, note: 触发系统不在首波。}
+  - {header: 'TRIGger[:SEQuence]:DELay', level: implemented, note: '0–3600 s（*RST 0）；触发到动作之间的虚拟时间，*WAI 等待（#548）。'}
+  - {header: 'TRIGger[:SEQuence]:SOURce', level: implemented, note: 'BUS | IMMediate（*RST BUS）；EXTernal、PIN1–3 报 -224（数字口触发输入未建模，#548）。'}
 - section: VOLTage Subsystem
   commands:
   - {header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]', level: implemented, note: 每路的立即电压设定；通道列表展开，省略时按通道 1。量程 0–6.18 V（CH1）/25.75 V（CH2、CH3）。查询的 MIN/MAX/DEF 形式按该路的量程下限/上限/默认值回答（#297）；P6V/P25V 输出标识前缀未实现。}
-  - {header: '[SOURce:]VOLTage[:LEVel]:TRIGgered[:AMPLitude]', level: not_modeled}
-  - {header: '[SOURce:]VOLTage:MODE', level: not_modeled}
+  - {header: '[:SOURce]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]', level: implemented, note: '每路的触发电压（0 – 该路上限，*RST 0），STEP 模式下触发时写入电压设定（#548）。'}
+  - {header: '[:SOURce]:VOLTage:MODE', level: implemented, note: 'FIXed | STEP（*RST FIXed）；LIST 报 -224（列表未建模，#548）。'}
   - {header: '[:SOURce]:VOLTage:PROTection[:LEVel][:AMPLitude]', level: implemented, note: 每路 OVP 阈值；CH1 0.5–6.6 V，CH2/3 1.5–27.5 V，*RST 为各量程最大值。}
   - {header: '[:SOURce]:VOLTage:PROTection:CLEar', level: implemented, note: 只清除 OVP 锁定并恢复故障前的输出状态（#271）。}
   - {header: '[:SOURce]:VOLTage:RANGe', level: accepted, affects_data: false, note: 接受：单一电压量程，保存并回显（P6V/P25V/LOW/HIGH）；不参与仿真。}

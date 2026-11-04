@@ -383,8 +383,12 @@ channel_components:
       v_mode: $ch.v_mode
       i_mode: $ch.i_mode
       source: $ch.tran_source
-      # 手册的错误列表没有 "Trigger ignored"：未初始化时的触发不报错、不动作。
+      # 手册的错误列表（SCPI Error Messages > Error List）没有 -211 "Trigger ignored"，Programming
+      # Output Transients 只说触发"will be ignored"：未初始化或未就绪时的触发不报错、不动作（#548）。
       trigger_ignored_error: 0
+      # Programming Output Transients：INIT:TRAN 后"a few milliseconds"才能接收触发，之前的触发被忽略；
+      # 手册未给数值，取 5 ms（虚拟时间；就绪后才置 WTG-tran 位 4，#548）。
+      ready_delay: 0.005
   # 每路的状态寄存器组（N6700C-90901 Status Tutorial，#539）：条件位来自本路的回读与保护锁存，
   # 事件在条件变为真时置位、读后清零；汇总进状态字节位 7（OPER）与位 3（QUES）。
   - name: oper
