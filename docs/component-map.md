@@ -68,8 +68,8 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
-| setpoint_and_range | `calibrator_setpoint` | 信号(功能 DCV/ACV/DCI/ACI/OHM、电平、频率、建立过渡与隐藏误差;量程表、RANGE? 与量程锁定,量程/极性改变的附加建立时间,#552;电流与电阻输出,电阻取最近标称值,#550) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
-| output_control | `calibrator_control` | 电路(工作/待机断开端子、`z_out`、过载跳闸、`standby_above`/`standby_rule`/`standby_on_function`(true 或 above,#566)回待机规则 #553、#558;外部 sense:SENSE 端子与允许的量程,SENSE 网无直流通路时回退本地调节,#551、#562;电流输出为电流源、超 compliance 跳闸,电阻输出为端子间电阻,#550) | 已实现(#329;5522A 已迁移) | 只有一个输出端子:5730A 的宽带输出(Wideband)与外部放大器接口要另一个端子与选择,需要时另开核心 issue |
+| setpoint_and_range | `calibrator_setpoint` | 信号(功能 DCV/ACV/DCI/ACI/OHM、电平、频率、建立过渡与隐藏误差;量程表、RANGE? 与量程锁定,量程/极性改变的附加建立时间,#552;电流与电阻输出,电阻取最近标称值,#550;`ohm_values: continuous` 时电阻连续可调、表为量程,功能名可为 RES,#569;`frequency_bands` 按量程限定交流频率,在整条命令写完后由 `check_settings()` 检查,#580) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
+| output_control | `calibrator_control` | 电路(工作/待机断开端子、`z_out`、过载跳闸、`standby_above`/`standby_rule`/`standby_on_function`(true 或 above,#566)回待机规则 #553、#558;外部 sense:SENSE 端子与允许的量程,SENSE 网无直流通路时回退本地调节,#551、#562;电流输出为电流源、超 compliance(按端子真有效值,#570)跳闸并记 `compliance_error`(#569),电阻输出为端子间电阻,#550) | 已实现(#329;5522A 已迁移) | 只有一个输出端子:5730A 的宽带输出(Wideband)与外部放大器接口要另一个端子与选择,需要时另开核心 issue |
 
 5730A 与 5522A 的远程方言(#329 的评估,未按 5730A 手册正文核实):两者同属 Fluke 校准器命令集——`OUT <值>[,<频率>]`、`OPER`/`STBY`、`ERR?`、`*OPC?` 与按单位分派的参数,拆分后的两块与已有的 `quantities` 参数足以表达;差别在输出端:5730A 有宽带输出选件与 5725A 放大器接口(另一套端子与选择命令),以及更细的量程结构。前者需要输出控制块支持多个端子(上表),后者只是定义里的量程表。型号 issue(#341)开工时按手册核对这些命令,确需平台能力再开核心 issue。
 
@@ -243,7 +243,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | 组件 | 对应块 | 现状 | 排期 |
 | --- | --- | --- | --- |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
-| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;作为通道组件时只看本通道的标志(#348);跳变过滤 `ptr`/`ntr`(事件 = (~旧 & 新 & PTR) | (旧 & ~新 & NTR),STATus:PRESet 恢复 `preset_ptr` 与 0,#549);DSO-X 的 :TER/:AER/:OPER、SR830 的四个字节(#273)、E36312A 的可疑寄存器组 QUES → QUES:INST → ISUMmary<n>(#348)已用上 | DL3021 的事件寄存器按需接上 |
+| 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;作为通道组件时只看本通道的标志(#348);跳变过滤 `ptr`/`ntr`(事件 = (~旧 & 新 & PTR) | (旧 & ~新 & NTR),STATus:PRESet 恢复 `preset_ptr` 与 0,#549);条件在每次命令分派时采样,两次读取之间的跳变也锁存(#575);DSO-X 的 :TER/:AER/:OPER、SR830 的四个字节(#273)、E36312A 的可疑寄存器组 QUES → QUES:INST → ISUMmary<n>(#348)已用上 | DL3021 的事件寄存器按需接上 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 

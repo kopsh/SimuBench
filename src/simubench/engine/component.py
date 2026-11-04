@@ -361,6 +361,12 @@ class Component:
         """Called after a bound state variable changed; raise ScpiError to refuse the change, or
         return the value to keep instead (e.g. the nearest legal one). None keeps ``new``."""
 
+    def check_settings(self) -> None:
+        """After a command that writes several settings at once (a ``quantities`` command such as
+        ``OUT 1 A, 400 HZ``): raise ScpiError when the settings together are not allowed (a
+        frequency beyond the new range's band, #580); the command's writes are then taken back.
+        Each write alone is checked in :meth:`on_state`, where the others may not be set yet."""
+
     def state_limits(self, path: str) -> tuple[float | None, float | None] | None:
         """Limits narrower than the setting's declared ones, now (#437: a function generator's
         maximum frequency depends on the waveform): (min, max), either None for the declared
@@ -373,8 +379,9 @@ class Component:
     def update_mode(self, dc_voltage: Callable[[str], float]) -> bool:
         """Piecewise-linear devices: choose the mode the DC operating point calls for.
 
-        ``dc_voltage(port)`` is the solved DC voltage on one of the component's electrical ports.
-        Return True when the mode changed (the session then solves again).
+        ``dc_voltage(port)`` is the solved DC voltage on one of the component's electrical ports;
+        ``dc_voltage.signal(port)`` (when present) the whole solved signal there, for a limit on the
+        AC terminal voltage (#570). Return True when the mode changed (the session then solves again).
         """
         return False
 

@@ -8,7 +8,7 @@ ways, so a model only writes YAML:
 - **conditions**: any component of the instrument may report level flags by name through
   :meth:`Component.status_flags` (an analyzer's ``UNCAL``, a load's ``UNR``, an acquisition's
   ``RUN``); a bit whose flag is true is set in the condition register and latched in the event
-  register when read;
+  register when sampled (every command dispatch, #575, and every read);
 - **events**: a component pushes a momentary event by name with
   :meth:`Instrument.status_event` (a trigger occurred, a time constant changed); every register
   that names it latches it.
@@ -57,7 +57,9 @@ class StatusRegister(Component):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._events = 0
-        self._seen = 0  # the condition at the last look: events latch its rising edges
+        # The condition at the last look, events latch its transitions; None: no look yet, the
+        # first one only takes the baseline (a condition true from power-on is no transition, #575).
+        self._seen: int | None = None
         self._busy = False  # computing a summary: other registers read none from this one
 
     def bound_paths(self) -> dict[str, str]:
@@ -77,7 +79,9 @@ class StatusRegister(Component):
         channel's register is named with its channel, e.g. CH1.ISUM (#348)."""
         if self._busy or not self.name:
             return {}
-        return {self.name.upper(): self.summary()}
+        # Asked while another register computes its condition: a look, not a sample -- committing
+        # here would store a condition seen without the asking register's own summary (#575).
+        return {self.name.upper(): self.summary(commit=False)}
 
     def _mirror(self) -> bool:
         return str(self.param("mirror")).lower() == "esr"
@@ -124,7 +128,7 @@ class StatusRegister(Component):
         self._events |= 1 << bit
         return True
 
-    def events(self) -> int:
+    def events(self, commit: bool = True) -> int:
         """The event register: pushed events and every condition bit that went true since the
         last look (a condition that stays true does not set it again once read)."""
         if self._mirror():
@@ -135,9 +139,18 @@ class StatusRegister(Component):
         ptr = self.param("ptr")
         ptr = full if ptr is None else int(ptr)
         ntr = int(self.param("ntr") or 0)
-        self._events |= (now & ~self._seen & ptr) | (~now & self._seen & ntr & full)
-        self._seen = now
-        return self._events
+        events = self._events
+        if self._seen is not None:
+            events |= (now & ~self._seen & ptr) | (~now & self._seen & ntr & full)
+        if commit:
+            self._events, self._seen = events, now
+        return events
+
+    def latch_conditions(self) -> None:
+        """Latch the condition transitions since the last look; the engine calls it at every
+        command dispatch (#575), reading the event register does it too."""
+        if not self._mirror() and not self._busy:
+            self.events()
 
     def _enable(self) -> int:
         if self._mirror():
@@ -145,10 +158,10 @@ class StatusRegister(Component):
             return int(self.owner.ese)
         return int(self.param("enable") or 0)
 
-    def summary(self) -> bool:
+    def summary(self, commit: bool = True) -> bool:
         self._busy = True
         try:
-            return bool(self.events() & self._enable())
+            return bool(self.events(commit) & self._enable())
         finally:
             self._busy = False
 
@@ -161,7 +174,7 @@ class StatusRegister(Component):
 
     def reset(self) -> None:
         self._events = 0
-        self._seen = 0
+        self._seen = None
 
     def clear(self) -> None:
         """``*CLS``: the event register empties (the enable mask stays)."""

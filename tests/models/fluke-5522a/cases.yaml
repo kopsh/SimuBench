@@ -138,14 +138,70 @@ cases:
         expect: '519,"Must specify an output unit"'
 
   - name: "不认识的单位报 1305 Bad parameter unit"
-    manual: "Remote Commands > Status Commands > ERR?（附录 D 错误 1305）；电流（OUT 1 A）未建模，同报 1305"
+    manual: "Remote Commands > Status Commands > ERR?（附录 D 错误 1305）"
     steps:
       - send: "OUT 1 W"
       - query: "ERR?"
         expect: '1305,"Bad parameter unit"'
-      - send: "OUT 1 A"
+
+  - name: "电流与电阻输出：OUT 1.2 MA、OUT 1 A, 400 HZ、OUT 1 KOHM 与 compliance（#569）"
+    manual: "Remote Commands > OUT（OUT 1.2 MA current @ same frequency; OUT 1 A, 400 HZ; OUT 1 KOHM）/ OUT?（1.88300E-01,A,0E+00,0,4.420E+02; 1.92400E+06,OHM,0E+00,0,0.00E+00）/ FUNC?（DCI, ACI, RES）; 第 1 章 DC Current（Max Compliance Voltage）、Resistance（Continuously variable from 0 Ω to 1.1 GΩ）; 附录 D 错误 1500"
+    steps:
+      - send: "OUT 1.2 MA"
+      - query: "OUT?"
+        expect: "1.200000E-03,A,0E+00,0,0.000000E+00"
+      - query: "FUNC?"
+        expect: "DCI"
+      - send: "OUT 1 A, 400 HZ"
+      - query: "OUT?"
+        expect: "1.000000E+00,A,0E+00,0,4.000000E+02"
+      - query: "FUNC?"
+        expect: "ACI"
+      - send: "OUT 1.924 MOHM"
+      - query: "OUT?"
+        expect: "1.924000E+06,OHM,0E+00,0,0.000000E+00"
+      - query: "FUNC?"
+        expect: "RES"
+      # 量程以外与负电阻被拒绝，设定不变
+      - send: "OUT 21 A"
       - query: "ERR?"
-        expect: '1305,"Bad parameter unit"'
+        expect: '-222,"Data out of range"'
+      - send: "OUT -1 OHM"
+      - query: "ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "OUT?"
+        expect: "1.924000E+06,OHM,0E+00,0,0.000000E+00"
+      # 1 mA 流入万用表 10 MΩ 输入需要 10 kV，超过 3.3 mA 量程的 10 V compliance：回待机、报 1500
+      - send: "OUT 1 MA;OPER"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":MEAS:VOLT?"
+        instrument: dmm
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "ERR?"
+        expect: '1500,"Compliance voltage exceeded"'
+      - query: "OPER?"
+        expect: "0"
+
+  - name: "交流电流的频率按量程限定：超出报 -222，设定不变（#580）"
+    manual: "第 1 章 AC Current (Sine Wave)（LCOMP Off：29 µA–329.999 mA 10 Hz–30 kHz；0.33–2.99999 A 10 Hz–10 kHz；3–20.5 A 45 Hz–5 kHz）"
+    steps:
+      - send: "OUT 1 A, 400 HZ"
+      - send: "OUT 1 A, 100 KHZ"
+      - query: "ERR?"
+        expect: '-222,"Data out of range"'
+      - query: "OUT?"
+        expect: "1.000000E+00,A,0E+00,0,4.000000E+02"
+      - send: "OUT 1 A, 8 KHZ"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - send: "OUT 5 A, 8 KHZ"
+      - query: "ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "OUT 10 MA, 25 KHZ"
+      - query: "OUT?"
+        expect: "1.000000E-02,A,0E+00,0,2.500000E+04"
 
   - name: "同一单位两次（双电压输出）报 506 Function not available"
     manual: "Remote Commands > Output Commands > OUT（<value> V, <value> V 双电压）；双输出未建模（错误 506）"

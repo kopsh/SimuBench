@@ -33,6 +33,9 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi.errors import ScpiError
 
+#: The resistance function's names: OHM, or RES as the 5522A's FUNC? calls it (#569).
+OHMS = ("OHM", "RES")
+
 
 def _flag(value: Any) -> bool:
     return bool(value) if not isinstance(value, str) else value.upper() in ("1", "ON", "TRUE")
@@ -81,7 +84,7 @@ class _Setpoint:
         """What the output is: V (DCV, ACV: a voltage source), I (DCI, ACI: a current source,
         #550) or R (OHM: a resistance across the terminals)."""
         fn = str(self.param("function")).upper()  # type: ignore[attr-defined]
-        return "I" if fn in ("DCI", "ACI") else "R" if fn == "OHM" else "V"
+        return "I" if fn in ("DCI", "ACI") else "R" if fn in OHMS else "V"
 
     def resistance(self) -> float:
         """OHM: the resistance the terminals present, the nominal value through the hidden gain error."""
@@ -214,11 +217,16 @@ class _Control:
         if kind == "I":
             # past its compliance voltage a current output trips to standby (#550)
             limit = self._compliance()
-            v = dc_voltage("out")
+            # the terminal voltage: true RMS of the solved signal (an AC current's compliance is in
+            # V rms, #570), the DC value where the session gives no signal
+            signal = getattr(dc_voltage, "signal", None)
+            v = signal("out").rms() if signal is not None else dc_voltage("out")
             if limit > 0 and abs(v) > limit * (1 + 1e-9):
                 self._set_operate(False)
                 self.tripped = True
-                code = int(self.param("overload_error") or 0)  # type: ignore[attr-defined]
+                code = int(
+                    self.param("compliance_error") or self.param("overload_error") or 0  # type: ignore[attr-defined]
+                )
                 if code and self.owner is not None:
                     self.owner.push_error(code, f"compliance {abs(v):.4g} V exceeds {limit:.4g} V")
                 return True
@@ -339,6 +347,8 @@ class CalibratorSetpoint(_Setpoint, Component):
         "control": "",  # the calibrator_control that operates this setpoint
         "limit_error": -222,  # the error a level beyond the function's largest range reports (with ranges)
         "frequency_selects_ac": False,  # a frequency alone switches DC <-> AC within V or I (the 5730A's OUT 100 HZ)
+        "frequency_bands": {},  # AC: {range name or function: [min Hz, max Hz]}, else limit_error (#580)
+        "ohm_values": "nominal",  # OHM table: nominal (the only values, 5730A) | continuous (ranges, 5522A, #569)
         # Ranges (#552): per function a list of [name, full scale] or [name, full scale, minimum],
         # e.g. {DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC1100V, 1100, 100]]}; the output takes the
         # smallest range whose full scale is above the level ({}: no ranges)
@@ -374,7 +384,7 @@ class CalibratorSetpoint(_Setpoint, Component):
         table = self._table(function)
         if not table:
             return None
-        if str(function or self.param("function")).upper() == "OHM":
+        if str(function or self.param("function")).upper() in OHMS and self._nominal():
             nominal = self._nominal_ohms(level)  # each resistance value is its own range
             return next((name for name, full, _ in table if full == nominal), table[-1][0])
         for name, full, _ in table:
@@ -386,10 +396,42 @@ class CalibratorSetpoint(_Setpoint, Component):
         """The range in use: the locked one, or the one the level selects."""
         return self._locked or self.auto_range(float(self.param("level")))
 
+    def check_settings(self) -> None:
+        """An AC output's frequency within the band of its range, or of its function (#580)."""
+        fn = str(self.param("function")).upper()
+        if not fn.startswith("AC"):
+            return
+        bands = {str(k).upper(): v for k, v in dict(self.param("frequency_bands") or {}).items()}
+        if not bands:
+            return
+        name = self.range_name()
+        band = bands.get(str(name).upper()) if name is not None else None
+        if band is None:
+            band = bands.get(fn)
+        if band is None:
+            return
+        f = float(self.param("frequency"))
+        lo, hi = float(band[0]), float(band[1])
+        if not lo * (1 - 1e-12) <= f <= hi * (1 + 1e-12):
+            raise ScpiError(
+                int(self.param("limit_error")),
+                f"{f:g} Hz is outside {lo:g}-{hi:g} Hz on the {name or fn} range",
+            )
+
+    def _nominal(self) -> bool:
+        """OHM: the table's values are the only outputs (5730A) rather than ranges of a
+        continuously variable resistance (5522A, ``ohm_values: continuous``, #569)."""
+        return str(self.param("ohm_values") or "nominal").lower() != "continuous"
+
+    def _ohm_function(self) -> str:
+        """The resistance function's name in the ranges table (OHM, or the 5522A's RES)."""
+        names = {str(k).upper() for k in dict(self.param("ranges") or {})}
+        return next((n for n in OHMS if n in names), "OHM")
+
     def _nominal_ohms(self, value: float) -> float:
         """OHM: the nearest of the nominal values (the range table's full-scale values), on a log
         scale; 0 (a short) for values below the smallest non-zero one's half."""
-        values = sorted({r[1] for r in self._table("OHM")})
+        values = sorted({r[1] for r in self._table(self._ohm_function())})
         nonzero = [v for v in values if v > 0]
         if not nonzero:
             return value
@@ -460,7 +502,12 @@ class CalibratorSetpoint(_Setpoint, Component):
             table = self._table()
             if table and abs(level) >= table[-1][1] * (1 + 1e-9):
                 raise ScpiError(int(self.param("limit_error")), f"{level:g} is beyond the largest range")
-            if str(self.param("function")).upper() == "OHM" and table:
+            if str(self.param("function")).upper() in OHMS and level < 0:
+                # a resistance has no sign: refused like a value beyond the ranges (#570)
+                raise ScpiError(
+                    int(self.param("limit_error")), f"{level:g} ohm: a resistance cannot be negative"
+                )
+            if str(self.param("function")).upper() in OHMS and table and self._nominal():
                 nominal = self._nominal_ohms(level)
                 if nominal != level and self.owner is not None:
                     # the resistance outputs are a fixed set of values: the nearest one (#550)
@@ -513,6 +560,7 @@ class CalibratorControl(_Control, Component):
         "sense_ranges": [],  # the setpoint ranges where external sense is allowed ([]: every range)
         "sense_error": -221,  # the error external sense on a range outside sense_ranges reports
         "compliance": 0.0,  # V a current output can drive: a number or {range name: V, "*": V} (0: no limit, #550)
+        "compliance_error": 0,  # device error code a compliance trip queues (0: overload_error, #569)
     }
     piecewise = True
 

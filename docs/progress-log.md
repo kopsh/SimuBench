@@ -1281,3 +1281,42 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | -211 | ✅ N6700C-90901 第 5 章 Error List 与 E36311-90008 的 SCPI Error Messages 都没有 -211，两本手册都写"ignored"（E36300 *TRG："simply ignored"）：两型号 `trigger_ignored_error: 0`，覆盖表引用章节 |
 | E36312A | ✅ E36311-90008 有输出触发系统：`VOLT|CURR:TRIG`、`VOLT|CURR:MODE FIX|STEP`（LIST -224）、`TRIG[:SEQ]:SOUR BUS|IMM`（EXT/PIN -224）、`TRIG[:SEQ]:DEL`（0–3600 s）、`INIT`、`ABOR`、`*TRG`；手册没有就绪延时的说明（取 0），WTG 位在位表中没有位置（不建模）；INIT:CONT、INST:COUP、735 未建模；手册用例「输出触发系统」与 `tests/test_keysight_e36312a.py::test_a_bus_trigger_steps_after_the_trigger_delay` |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 状态寄存器在每条命令时采样条件（Issue 575）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 采样时机 | ✅ 引擎每次分派命令（`Instrument._dispatch`，结束到期的待完成操作之后）调用各 `status_register` 的 `latch_conditions()`，按 `(~old & new & PTR) \| (old & ~new & NTR)` 锁存；读事件寄存器照旧也采样。第一次采样（上电、*RST 后）只取基线：上电即为真的条件不算跳变 |
+| 嵌套求值 | ✅ 一个寄存器计算条件时向其他寄存器取摘要（`status_flags`）只“看”不提交（`events(commit=False)`）：此前嵌套调用会把缺了提问者自身摘要的条件存为 `_seen`，下一次采样误判为上升沿 |
+| 复现 | ✅ `tests/test_keysight_n6705c.py::test_transitions_between_two_reads_are_latched`：NTR=3 时 CV→CC→CV 未读，`STAT:OPER?` 回 3；默认过滤下短暂的 CC 仍可见（回 3：CC 上升与 CV 回升） |
+| 定义修正 | ✅ `rigol-dsg815`、`rs-sma100b` 的 `output.enabled` 补 `electrical: true`（输出级接入/断开电路）：采样使求解提前，暴露了开输出不重建电路的缓存缺陷 |
+| 检查 | ✅ 现有 DSO-X、SR830、E36312A、N6705C 的状态寄存器用例不变；`scripts/check.sh` 全绿 |
+
+## 5730A 负电阻与电流 compliance 的手册数值（Issue 570）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 负电阻 | ✅ `calibrator_setpoint`：电阻功能下负电平按 `limit_error` 拒绝（5730A：-222），`quantities` 整条回退、`OUT?` 不变；手册用例「电流与电阻输出」增加 `OUT -1 OHM` |
+| compliance | ✅ 第 1 章 DC Current Secondary Performance Specifications（Compliance Voltage Limits：220 µA–220 mA 10 V、2.2 A 3 V，注 5：1–2.2 A 2 V）与 AC Current Secondary Performance Specifications（Compliance Limits：7 V rms、2.2 A 1.4 V rms，注 4：1 A 以上 1.5 V）：定义改为 `{"*": 10, DC2_2A: 3, AC…: 7, AC2_2A: 1.4}`，注释、定义、覆盖表一致；注里按电平的例外未分档 |
+| 交流 compliance | ✅ 此前只比端子的直流值，交流电流从不跳闸：`update_mode` 的 `dc_voltage` 回调带上 `.signal(port)`（求解出的整个信号），`calibrator_control` 按端子真有效值比 compliance；`tests/test_fluke_5730a.py::test_the_compliance_follows_the_manual_per_range`（20 mA 入 450 Ω：直流不跳、交流跳；1.5 A 入 1.8 Ω：直流不跳、交流跳） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 的电流与电阻输出（Issue 569）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件 | ✅ `calibrator_setpoint`：电阻功能名可为 `RES`（5522A 的 FUNC? 回复）；`ohm_values: continuous`：电阻连续可调，量程表只是量程（5730A 仍为标称值）。`calibrator_control`：`compliance_error`（默认沿用 `overload_error`），5522A 的电流超 compliance 报 1500、电压过载仍报 1503 |
+| 5522A 定义 | ✅ 功能 DCV/ACV/DCI/ACI/RES，`OUT` 接上 A、OHM 单位（`OUT 1.2 MA` 同一频率、`OUT 1 A, 400 HZ` 交流、`OUT 1 KOHM`），`OUT?` 回 V/A/OHM；量程表（第 1 章各功能表；名字按第 6 章 RANGE? 示例的写法推出，未逐一核实，RANGE?/RANGELCK 留给 #560），电压表给出 ±1020 V 上限；compliance 按第 1 章 DC Current（10/10/7/7/6/6/4/4 V）与 AC Current 表末（7/7/5/5/4/4/3/3 V rms） |
+| 用例 | ✅ 手册用例「电流与电阻输出」（OUT?/FUNC?、21 A 与负电阻 -222、1 mA 入万用表 10 MΩ 跳回待机报 1500）；`tests/test_fluke_5522a.py` 的 compliance 参数化用例与连续电阻进入电路（1 V 经 1 kΩ 接 1234 Ω） |
+| 未做 | ⚠️ 20 A 端子与 AUX 端子未单独建模（同一 OUT 端口）；交流电流 29 µA 下限、LCOMP、四线/二线补偿未建模 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 5522A 交流电流的频率范围与 #569 数值核实（Issue 580）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 能力 | ✅ `Component.check_settings()`：`quantities` 命令写完全部设定后，监视这些设定的组件检查组合（逐个写入时其他设定可能尚未写入）；拒绝时整条回退。`calibrator_setpoint` 的 `frequency_bands`：交流功能按量程（或功能）限定频率，超出报 `limit_error` |
+| 5522A | ✅ specs 增 `ac_current_frequency`；`frequency_bands` 按第 1 章 AC Current (Sine Wave) 表（LCOMP Off）：至 330 mA 10 Hz–30 kHz，1.1 A/3 A 10 Hz–10 kHz，11 A/20.5 A 45 Hz–5 kHz；`OUT 1 A, 100 KHZ` 报 -222、`OUT?` 不变 |
+| 核实 | ✅ 1500 Compliance voltage exceeded：附录 D 错误表原文；compliance 数值：第 1 章 DC Current 表 Max Compliance Voltage 列与 AC Current 表末 Max Compliance Voltage V rms，覆盖表注明出处；量程名除 RANGE? 示例外仍注明未核实 |
+| 用例 | ✅ 手册用例「交流电流的频率按量程限定」 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
