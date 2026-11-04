@@ -71,3 +71,27 @@ def test_without_a_declaration_infinity_is_a_number_out_of_range():
             assert err["code"] == -222
     finally:
         s.close()
+
+
+def test_quantities_units_honor_not_modeled():
+    """#557: ``not_modeled`` covers quantities units — an unmodeled unit is refused with -224
+    before the command's unknown-unit code, a truly unknown unit keeps that code, and a modeled
+    unit is unaffected (the 5730A's OUT takes V/HZ, declares A/OHM/DBM unmodeled)."""
+    s = open_bench(ROOT / "examples" / "benches" / "fluke-5730a.bench.yaml", idle="off")
+    try:
+
+        def q(cmd):
+            s.write("cal", (cmd + "\n").encode())
+            out = s.read("cal")
+            return out.decode().strip() if out else ""
+
+        s.write("cal", b"OUT 1 A\n")
+        s.read("cal")
+        assert q("FAULT?") == "-224"  # A: declared not modeled
+        s.write("cal", b"OUT 1 XYZ\n")
+        s.read("cal")
+        assert q("FAULT?") == "2206"  # truly unknown: the command's own code (plain format, no sign)
+        q("OUT 1 V")
+        assert q("FAULT?") == "0"  # a modeled unit is unaffected
+    finally:
+        s.close()
