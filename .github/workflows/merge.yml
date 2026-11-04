@@ -9,7 +9,9 @@
 # reason a red or stuck re-test is reported by this job itself and not by the report job (#493).
 # Only a merge conflict goes back to the agent. Every merge uses the exact commit CI tested
 # (--match-head-commit). A red CI run on a pull-request head is reported on the pull request
-# (#485): the agent can only react to what it sees.
+# (#485): the agent can only react to what it sees. GitHub API calls are retried (a 502 used to end
+# the job), and a pull request labelled 免审查 passes the label to the issues it closes, before they
+# close, so the review an issue's closing starts skips them (#614).
 name: Merge when CI passes
 
 on:
@@ -31,27 +33,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
+          # GitHub's API answers 502 now and then: retry a gh call a few times, 10, 20, 30, 40 s apart,
+          # before giving up (#614: one 502 used to end the job and leave the pull request waiting).
+          retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
           # The open, non-draft pull requests whose head is exactly the commit CI tested. A run
           # the bot dispatched itself carries no pull_requests[] (workflow_dispatch), so match by
           # head SHA instead of reading the event's pull_requests[] at all.
-          PRS=$(gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
+          PRS=$(retry gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
             --jq ".[] | select(.headRefOid == \"$SHA\" and (.isDraft | not)) | .number")
           for n in $PRS; do
-            behind=$(gh api "repos/$REPO/compare/main...$SHA" -q .behind_by)
+            behind=$(retry gh api "repos/$REPO/compare/main...$SHA" -q .behind_by)
             # The commit the merge may use: the head CI passed on, or the self-heal merge commit
             # the re-test below passes on.
             TESTED="$SHA"
             if [ "$behind" != 0 ]; then
               # Self-heal: merge main into the branch and re-test there, instead of bouncing the
               # work back to the agent (two agents pushing in parallel used to block each other).
-              BRANCH=$(gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
-              if ! NEW=$(gh api "repos/$REPO/merges" -f base="$BRANCH" -f head=main --jq .sha 2>/dev/null); then
-                gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain, and merging them conflicts: resolve the conflict on the branch and push; CI re-runs and it merges (AGENTS.md)."
+              BRANCH=$(retry gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
+              # A conflict is HTTP 409 and goes back to the agent; any other failure (a 502) is
+              # tried again, and reported as what it is (#614).
+              NEW=""
+              for attempt in 1 2 3 4; do
+                if NEW=$(gh api "repos/$REPO/merges" -f base="$BRANCH" -f head=main --jq .sha 2>merge-err); then
+                  break
+                fi
+                NEW=""
+                if grep -q "HTTP 409" merge-err; then break; fi
+                sleep $((attempt * 10))
+              done
+              if [ -z "$NEW" ]; then
+                if grep -q "HTTP 409" merge-err; then
+                  retry gh pr comment "$n" --repo "$REPO" --body "main has $behind commit(s) this branch does not contain, and merging them conflicts: resolve the conflict on the branch and push; CI re-runs and it merges (AGENTS.md)."
+                else
+                  retry gh pr comment "$n" --repo "$REPO" --body "merging main into this branch failed four times ($(head -c 200 merge-err)): push any commit to run CI and try again."
+                fi
                 continue
               fi
-              gh pr comment "$n" --repo "$REPO" --body "main had $behind commit(s) this branch did not contain: merged them in ($NEW) and dispatched CI on the merged head; this job watches that run and merges when it is green (#490)."
+              retry gh pr comment "$n" --repo "$REPO" --body "main had $behind commit(s) this branch did not contain: merged them in ($NEW) and dispatched CI on the merged head; this job watches that run and merges when it is green (#490)."
               NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-              gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+              retry gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
               # The dispatched run takes a few seconds to register; find it by its creation time.
               RUN_ID=""
               for _ in $(seq 12); do
@@ -61,7 +81,7 @@ jobs:
                 if [ -n "$RUN_ID" ]; then break; fi
               done
               if [ -z "$RUN_ID" ]; then
-                gh pr comment "$n" --repo "$REPO" --body "the re-test run never showed up in the run list: push any commit to start CI again (it merges on green, merge.yml)."
+                retry gh pr comment "$n" --repo "$REPO" --body "the re-test run never showed up in the run list: push any commit to start CI again (it merges on green, merge.yml)."
                 continue
               fi
               # Fast tier, so a half hour is far beyond what a run ever takes. A red (or stuck)
@@ -83,23 +103,48 @@ jobs:
                   "") OUTCOME="never reported a result within 30 minutes (it may be stuck: cancel or re-run it)" ;;
                   *) OUTCOME="did not finish within 30 minutes (last seen: ${RESULT:-nothing})" ;;
                 esac
-                gh pr comment "$n" --repo "$REPO" --body "the re-test run on the merged head $OUTCOME ($RUN_TEXT). Push a fix — a new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
+                retry gh pr comment "$n" --repo "$REPO" --body "the re-test run on the merged head $OUTCOME ($RUN_TEXT). Push a fix — a new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
                 continue
               fi
               TESTED="$NEW"
             fi
             # The issues the pull request lists, read before the merge: closingIssuesReferences is
             # filled for an open pull request but only a minute or so after it, too late for after.
-            closing=$(gh pr view "$n" --repo "$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[]?.number')
-            # Only the commit CI tested: a newer push waits for its own CI run.
-            gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$TESTED"
+            closing=$(retry gh pr view "$n" --repo "$REPO" --json closingIssuesReferences -q '.closingIssuesReferences[]?.number')
+            # 免审查 on the pull request: the issues it closes skip the review that an issue's closing
+            # starts, so they carry the label before they close (#614).
+            skip_review=$(retry gh pr view "$n" --repo "$REPO" --json labels -q '.labels[].name' | grep -Fx "免审查" || true)
+            # Only the commit CI tested: a newer push waits for its own CI run. A merge is not
+            # idempotent: after a failed attempt (a 502 may come after the merge went through) look
+            # at the pull request before trying again.
+            merged=""
+            for attempt in 1 2 3 4 5; do
+              if gh pr merge "$n" --repo "$REPO" --squash --delete-branch --match-head-commit "$TESTED"; then
+                merged=1; break
+              fi
+              sleep $((attempt * 10))
+              if [ "$(gh pr view "$n" --repo "$REPO" --json state -q .state 2>/dev/null || true)" = MERGED ]; then
+                merged=1; break
+              fi
+            done
+            if [ -z "$merged" ]; then
+              retry gh pr comment "$n" --repo "$REPO" --body "the merge of $TESTED failed five times (merge.yml): push any commit to run CI and try again."
+              continue
+            fi
             # A merge by the workflow token is skipped by GitHub's closing-keyword step, so Closes
             # #n in the description closes nothing: close the issues the pull request lists itself.
+            if [ -n "$closing" ] && [ -n "$skip_review" ]; then
+              retry gh label create "免审查" --repo "$REPO" --force --color ededed \
+                --description "Closing this issue starts no review (merge.yml copies it from the pull request)"
+            fi
             for i in $closing; do
-              gh issue close "$i" --repo "$REPO" --comment "Closed by #$n"
+              if [ -n "$skip_review" ]; then
+                retry gh issue edit "$i" --repo "$REPO" --add-label "免审查"
+              fi
+              retry gh issue close "$i" --repo "$REPO" --comment "Closed by #$n"
             done
             # The merge's push starts no workflow (it is the workflow token's): run main's checks now.
-            gh workflow run ci.yml --repo "$REPO" --ref main
+            retry gh workflow run ci.yml --repo "$REPO" --ref main
           done
         env:
           GH_TOKEN: ${{ github.token }}
@@ -115,10 +160,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          PRS=$(gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
+          # GitHub's API answers 502 now and then: retry a gh call a few times, 10, 20, 30, 40 s apart,
+          # before giving up (#614: one 502 used to end the job and leave the pull request waiting).
+          retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
+          PRS=$(retry gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
             --jq ".[] | select(.headRefOid == \"$SHA\" and (.isDraft | not)) | .number")
           for n in $PRS; do
-            gh pr comment "$n" --repo "$REPO" --body "CI failed on this head ([the run]($RUN)). Push a fix — the new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
+            retry gh pr comment "$n" --repo "$REPO" --body "CI failed on this head ([the run]($RUN)). Push a fix — the new commit runs CI again, and the merge bot still self-heals a branch that main has passed."
           done
         env:
           GH_TOKEN: ${{ github.token }}

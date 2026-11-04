@@ -56,7 +56,9 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
    and its branch deleted once CI is green on its latest commit that contains the latest `main`;
    when `main` has moved, the merge bot merges it into the branch, re-runs CI, and merges — only
    a merge conflict comes back to the agent, and a red CI on the head is commented on the pull
-   request. Open it as a draft if it is not ready yet. If CI fails, push a fix: the new commit
+   request. The bot retries GitHub API errors (502) itself (#614). An issue's closing starts a
+   review of the work; a pull request labelled `免审查` (no review) skips it: the bot puts the same
+   label on the issues it closes before closing them. Open it as a draft if it is not ready yet. If CI fails, push a fix: the new commit
    runs CI again. Pull requests — and the bot's self-heal re-test of a stale branch — run the
    fast checks (ubuntu: Python and web); Windows, the wheel, end-to-end and visual tests run on
    `main` after the merge, and a red one there is fixed first, before new work.
