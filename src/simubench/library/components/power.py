@@ -22,6 +22,7 @@ from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .protection import ProtectionLatch, TripThreshold
 from .smu import OutputControlLoop
+from .trigger import Triggerable
 
 #: Device error of E36300 series: the output cannot be enabled while a protection fault stands.
 OUTPUT_DISABLED = 729
@@ -736,21 +737,21 @@ class SupplyTracking(Component):
 
 
 @component("supply_transient")
-class SupplyTransient(Component):
+class SupplyTransient(Triggerable, Component):
     """A channel's output transient system (#541): the step from the immediate to the triggered
     levels on a trigger (N6700 "Programming Output Transients", E36300 INITiate/TRIGger).
+
+    The arm → ready → fire → abort machine is the ``Triggerable`` primitive's (#632): the ready
+    delay, the trigger delay in virtual time (#548) and the ignored-trigger error are the
+    primitive's; what a trigger *does* here is the step this system writes.
 
     ``INITiate:TRANsient`` arms it (``initiate``); a trigger then writes ``v_triggered`` into the
     ``voltage`` setting when ``v_mode`` is STEP, and ``i_triggered`` into ``current`` when
     ``i_mode`` is STEP (FIXed leaves the level as it is). The trigger is ``TRIGger:TRANsient``
     (``trigger``, any source), ``*TRG`` while the source is BUS (``bus_trigger``), or the arming
-    itself with the IMMediate source. ``ABORt:TRANsient`` (``abort``) disarms it.
-
-    Timing in virtual time (#548): the system is ready for a trigger ``ready_delay`` seconds after
-    it is initiated (the N6700's "a few milliseconds"); a trigger before that is ignored like one
-    while not initiated. A trigger takes effect ``delay`` seconds after it arrives (the E36300's
-    ``TRIGger:DELay``); ``*OPC?``/``*WAI`` wait for both. While initiated the channel reports
-    TRAN-active, while ready for a trigger WTG-tran (the N6700 operation register's bits 6 and 4).
+    itself with the IMMediate source. ``ABORt:TRANsient`` (``abort``) disarms it. While initiated
+    the channel reports TRAN-active, while ready for a trigger WTG-tran (the N6700 operation
+    register's bits 6 and 4).
     """
 
     defaults = {
@@ -768,88 +769,40 @@ class SupplyTransient(Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self.armed = False  # initiated: TRAN-active
-        self.ready = False  # armed and ready for a trigger: WTG-tran
-        self.delaying = False  # triggered, the trigger delay runs
-
-    @property
-    def _key(self) -> str:
-        return f"{self.uid}/transient"
+        self.reset()
 
     def reset(self) -> None:
         # ABORt:TRANsient runs at *RST (the manual); the instrument's pending table is cleared too
-        self.armed = self.ready = self.delaying = False
-
-    def _source(self) -> str:
-        return str(self.param("source")).upper()
+        self._init_trigger()
 
     def _act(self) -> None:
+        """The trigger takes effect: the STEP modes write their triggered level into the bound
+        setting (FIXed leaves it)."""
         assert self.owner is not None
-        self.armed = self.ready = self.delaying = False
         for mode, level, key in (("v_mode", "v_triggered", "voltage"), ("i_mode", "i_triggered", "current")):
             path = self.bound_path(key)
             if str(self.param(mode)).upper().startswith("STEP") and path is not None:
                 self.owner.set_state(path, float(self.param(level)), source="scpi", internal=True)
 
-    def _fire(self) -> None:
-        """A trigger accepted: the action follows after the trigger delay."""
-        assert self.owner is not None
-        self.ready = False
-        delay = float(self.param("delay") or 0.0)
-        if delay <= 0:
-            self._act()
-            return
-        self.delaying = True
-        self.owner.register_pending(self._key, self.owner.now_ns() + round(delay * 1e9), self._act)
-
-    def _became_ready(self) -> None:
-        if not self.armed:
-            return
-        self.ready = True
-        if self._source().startswith("IMM"):
-            self._fire()
-
     @op("initiate")
     def op_initiate(self, **_: Any) -> OpResult:
-        if self.armed:
-            return OpResult()  # already initiated: nothing restarts
-        assert self.owner is not None
-        self.armed = True
-        ready = float(self.param("ready_delay") or 0.0)
-        if ready <= 0:
-            self._became_ready()
-        else:
-            self.owner.register_pending(
-                self._key, self.owner.now_ns() + round(ready * 1e9), self._became_ready
-            )
-        return OpResult()
-
-    def _ignored(self, why: str) -> OpResult:
-        code = int(self.param("trigger_ignored_error") or 0)
-        if code:
-            raise ScpiError(code, why)
+        self.arm()
         return OpResult()
 
     @op("trigger")
     def op_trigger(self, **_: Any) -> OpResult:
-        if not self.ready:
-            return self._ignored("the transient system is not initiated or not ready")
-        self._fire()
+        self.trigger_now(why="the transient system is not initiated or not ready")
         return OpResult()
 
     @op("bus_trigger")
     def bus_trigger(self, **_: Any) -> OpResult:
-        if not self.ready or self._source() != "BUS":
-            return self._ignored("Trigger ignored")
-        self._fire()
+        self.trigger_in("bus")
         return OpResult()
 
     @op("abort")
     def op_abort(self, **_: Any) -> OpResult:
         """Back to idle: a pending ready or delayed trigger is dropped."""
-        if self.owner is not None:
-            self.owner.cancel_pending(self._key)
-        self.armed = self.ready = self.delaying = False
+        self.abort()
         return OpResult()
 
     def status_flags(self) -> dict[str, bool]:
