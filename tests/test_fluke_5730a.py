@@ -157,3 +157,34 @@ def test_external_sense_regulates_at_the_uut():
         assert q("FAULT?") == "0"
     finally:
         s.close()
+
+
+def test_a_sense_lead_into_a_dead_end_regulates_locally():
+    """#562: SENSE wired to a resistor whose far end goes nowhere has no DC path to the output
+    side, so the feedback cannot run: the output falls back to local regulation (as with an
+    unwired SENSE) instead of a singular matrix."""
+    s, q = session(
+        {
+            "lead": {"type": "resistor", "params": {"r": 1.0}},
+            "dut": {"type": "load_resistor", "params": {"r": 200.0}},
+            "fl": {"type": "resistor", "params": {"r": 1000.0}},
+        },
+        [
+            {"from": "cal.OUT", "to": "lead.A"},
+            {"from": "lead.B", "to": "dut.A"},
+            {"from": "cal.SENSE", "to": "fl.A"},
+        ],
+    )
+    try:
+        inst = s.instruments["cal"]
+        q("OUT 5 V;OPER")
+        q("*OPC?")
+        q("EXTSENSE ON")  # accepted: the range allows it, but the sense lead serves no feedback
+        q("*OPC?")
+        at_out = inst.session.port_signal(inst.components["out"], "out").mean()
+        assert at_out == pytest.approx(5.0, abs=1e-4)  # local regulation at the output terminal
+        sense_net = inst.session.port_signal(inst.components["out"], "sense").mean()
+        assert sense_net == pytest.approx(0.0, abs=1e-6)  # the dead net carries no source
+        assert q("FAULT?") == "0"
+    finally:
+        s.close()
