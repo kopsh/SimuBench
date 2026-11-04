@@ -4,7 +4,8 @@ One component for the encodings scopes use, set by parameters that may be bound 
 new vendor's format is a definition, not code:
 
 * ``encoding: block``: an IEEE 488.2 definite-length block of ADC codes (``width`` 8 or 16 bits,
-  ``byteorder``, ``unsigned``; ``block_digits`` fixes the length digits, e.g. 9 for ``#9...``);
+  ``byteorder``, ``unsigned``; ``block_digits`` fixes the length digits, e.g. 9 for ``#9...``;
+  ``indefinite`` sends ``#0`` and the data to the message end instead);
 * ``encoding: ascii``: comma-separated NR3 numbers (``digits``); ``ascii_block``: the same list
   inside a definite-length block (``block_digits``, ``trailer``);
 * ``encoding: text``: numbers in a printf ``format`` joined by ``separator`` (a command's reply
@@ -71,6 +72,9 @@ class WaveformTransfer(Component):
         "reserve_lowest": False,  # the lowest output code means "no data" (a hole): samples stay above it
         "byteorder": "little",  # little | big (also LSBFirst | MSBFirst)
         "block_digits": 0,  # 0: as few as the length needs
+        # an indefinite-length block: #0 and the data up to the message end, no length (Infiniium
+        # :WAVeform:STReaming ON, #602); a setting may switch it
+        "indefinite": False,
         "trailer": "",  # appended after a block, e.g. a line feed
         "no_record": "no acquisition for this source",  # the -230 message when there is no record
         # describe: NAME -> a format of the record's figures (points, first, step, dt, x_offset,
@@ -166,6 +170,8 @@ class WaveformTransfer(Component):
         return self._block(payload)
 
     def _block(self, payload: bytes) -> bytes:
+        if self.param("indefinite") in (True, 1, "1", "ON", "on"):
+            return b"#0" + payload + str(self.param("trailer")).encode()
         digits = int(self.param("block_digits"))
         if digits:
             block = b"#" + str(digits).encode() + f"{len(payload):0{digits}d}".encode() + payload

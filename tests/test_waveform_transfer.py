@@ -93,6 +93,13 @@ def test_block_length_digits_and_trailer():
     assert t.encode(record([1.0])) == b"#9000000001" + bytes([64]) + b"\n"
 
 
+def test_an_indefinite_block_has_no_length():
+    """#0 and the data to the message end (Infiniium :WAVeform:STReaming ON, #602)."""
+    t = transfer(codes_per_div=32.0, width=16, adc_bits=8, indefinite=True, block_digits=9)
+    assert t.encode(record([1.0, -1.0])) == b"#0" + bytes([0x00, 0x40, 0x00, 0xC0])  # 16-bit words, LSB first
+    assert transfer(codes_per_div=32.0, indefinite="OFF").encode(record([1.0])) == b"#11" + bytes([64])
+
+
 def test_an_operation_reply_goes_through_the_command_template():
     """C1:INSPECT? frames the transfer's numbers with its reply template, following COMM_HEADER."""
     from pathlib import Path

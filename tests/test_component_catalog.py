@@ -39,7 +39,10 @@ def test_parameter_descriptions_are_the_comments_next_to_the_defaults():
     params = {p.name: p for p in acq.params}
     assert params["reacquire"].doc == "explicit | every_read | on_read_start"
     timebase = next(c for c in components() if c.type == "scope_timebase")
-    assert next(p for p in timebase.params if p.name == "record_length").doc == "fixed | exact | rate_ladder"
+    assert (
+        next(p for p in timebase.params if p.name == "record_length").doc
+        == "fixed | exact | rate_ladder | rate_pow2"
+    )
     trigger = next(c for c in components() if c.type == "scope_trigger")
     assert (
         next(p for p in trigger.params if p.name == "level_range_divs").doc

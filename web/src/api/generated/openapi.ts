@@ -1493,7 +1493,7 @@ export interface components {
             } | null;
             /**
              * When
-             * @description Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC")
+             * @description Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC"). A later command on the same header without `when` is the fallback: it runs for the other values and when the parameter is left out (:SYSTem:ERRor? [STRing], #602)
              */
             when?: {
                 [key: string]: string;
@@ -1975,10 +1975,16 @@ export interface components {
         Dialect: {
             /**
              * Echo Header
-             * @description Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER)
+             * @description Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER), or a bool setting that turns short headers on ('$system.header', Infiniium :SYSTem:HEADer, #602)
              * @default off
              */
             echo_header: string;
+            /**
+             * Long Form
+             * @description A bool setting that makes replies long: headers in the long form and enumerations spelled out ('$system.longform', Infiniium :SYSTem:LONGform, #602); empty: never
+             * @default
+             */
+            long_form: string;
             /**
              * Multipliers
              * @description Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'

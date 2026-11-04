@@ -1362,3 +1362,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 未做 | ⚠️ 平台缺的能力记在 `核心` #602：`:SYSTem:ERRor? STRing`、`:WAVeform:STReaming ON`（`#0` 块）、2 的幂采样率与可设置的 SRATe、HEADer/LONGform ON、逐次采集完成事件、状态寄存器的嵌套开销（因此合并为 3 个寄存器，`:PDER?` 与 `:ADER?` 共用一位） |
 | 不变 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单未增加 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Infiniium 方言所缺的能力，UXR0334B 去掉偏离（Issue 602）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 状态寄存器开销 | ✅ `status_register` 一次查看内各组件的 `status_flags()` 只算一遍（`Instrument.status_flag_cache`），寄存器互读摘要不再逐层重算；`tests/test_status_register.py`（5 个寄存器一条命令：改前 390 次，改后 ≤ 6 次）；UXR0334B 找不到触发时每条命令从约 1.2 s 降到约 0.03 s |
+| 逐次采集事件 | ✅ `scope_acquisition` 每次存好采集推送 `DONE`，自动扫描未触发的采集推送 `AUTO`；UXR0334B 的 `:ADER?`、`:PDER?`、`:ATER?` 各自独立，OPER 位 0/1/5/11；手册用例「自动触发……」「操作状态寄存器……」 |
+| 可选参数的兜底 | ✅ `when` 命令之后不带 `when` 的同头命令是兜底（其他取值与省略参数），校验不再报重复；兜底写在前面照样报错；`tests/test_declarative.py`；UXR0334B 的 `:SYSTem:ERRor? STRing` 回码与文字 |
+| `#0` 块 | ✅ `waveform_transfer.indefinite`；`tests/test_waveform_transfer.py`；UXR0334B 的 `:WAVeform:STReaming ON`，示例脚本按手册示例开流式、以 `data_points` 读 |
+| 采样率 | ✅ `scope_timebase` 的 `record_length: rate_pow2` 与 `sample_rate`、`max_points`（设定的采样率取向上的下一档、优先于存储深度）；`tests/test_scope_timebase_rates.py`；UXR0334B 的 `:ACQuire:SRATe {AUTO | MAX | <rate>}` |
+| 应答头 | ✅ `dialect.echo_header` 可绑定布尔设置，`dialect.long_form` 布尔开关（长命令头与长枚举）；`tests/test_declarative.py`；UXR0334B 的 `:SYSTem:HEADer`、`:SYSTem:LONGform` 按手册 :MODel? 表 13 |
+| UXR0334B | ✅ 覆盖表实现 87、接受 6、未实现 1055；手册用例 40 条全部通过；`schemas/` 与 `web/src/api/generated` 重新生成 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

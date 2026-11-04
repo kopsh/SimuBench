@@ -454,22 +454,33 @@ def _check_reply(
 
 def _check_dialect(d: InstrumentDefinition, report: Report) -> None:
     mode = d.dialect.echo_header
-    if not mode.startswith("$"):
-        return
-    pointer = _ptr("dialect", "echo_header")
-    spec = _check_state_ref(d, mode[1:], False, pointer, "dialect", report)
-    if spec is None:
-        return
-    missing = {"OFF", "SHORT", "LONG"} - {o.upper() for o in spec.options or []}
-    if spec.type != "enum" or missing:
-        report.add(
-            "error",
-            "E-DEF-DIALECT",
-            pointer,
-            f"echo_header 绑定的状态 {mode[1:]!r} 要是取值为 OFF、SHORT、LONG 的枚举",
-            'options: ["OFF", SHORT, LONG]',
-            "dialect",
-        )
+    if mode.startswith("$"):
+        pointer = _ptr("dialect", "echo_header")
+        spec = _check_state_ref(d, mode[1:], False, pointer, "dialect", report)
+        if spec is not None:
+            missing = {"OFF", "SHORT", "LONG"} - {o.upper() for o in spec.options or []}
+            if spec.type != "bool" and (spec.type != "enum" or missing):
+                report.add(
+                    "error",
+                    "E-DEF-DIALECT",
+                    pointer,
+                    f"echo_header 绑定的状态 {mode[1:]!r} 要是取值为 OFF、SHORT、LONG 的枚举，或布尔开关",
+                    'options: ["OFF", SHORT, LONG]，或 type: bool',
+                    "dialect",
+                )
+    long_form = d.dialect.long_form
+    if long_form:
+        pointer = _ptr("dialect", "long_form")
+        spec = _check_state_ref(d, long_form[1:], False, pointer, "dialect", report)
+        if spec is not None and spec.type != "bool":
+            report.add(
+                "error",
+                "E-DEF-DIALECT",
+                pointer,
+                f"long_form 绑定的状态 {long_form[1:]!r} 要是布尔开关",
+                "type: bool",
+                "dialect",
+            )
 
 
 def _declared(d: InstrumentDefinition, name: str, channel: bool) -> bool:
@@ -809,9 +820,14 @@ def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
 
 
 def _told_apart(a: CommandSpec, b: CommandSpec) -> bool:
-    """Two commands on one header that ``when`` tells apart: some parameter value differs."""
-    if not a.when or not b.when:
+    """Whether the later command ``b`` on a header the earlier ``a`` also matches still runs: ``a``
+    has a ``when`` and ``b`` has none (``b`` is the fallback for the other values and for a
+    parameter left out, #602: ``:SYSTem:ERRor? [STRing]``), or both have one and some parameter
+    value differs."""
+    if not a.when:
         return False
+    if not b.when:
+        return True
     return any(k in b.when and str(v).upper() != str(b.when[k]).upper() for k, v in a.when.items())
 
 

@@ -1019,8 +1019,19 @@ class Instrument:
         """off, short or long: whether and how replies repeat the command header (dialect.echo_header)."""
         mode = self.definition.dialect.echo_header
         if mode.startswith("$"):
-            mode = str(self.state.get(mode[1:], "off"))
-        return mode.lower()
+            value = self.state.get(mode[1:], "off")
+            if isinstance(value, bool):  # a header switch (Infiniium :SYSTem:HEADer, #602)
+                value = "short" if value else "off"
+            mode = str(value)
+        mode = mode.lower()
+        if mode == "short" and self.long_form():
+            return "long"
+        return mode
+
+    def long_form(self) -> bool:
+        """Whether replies are long: long headers and spelled-out enumerations (dialect.long_form)."""
+        path = self.definition.dialect.long_form
+        return bool(path) and bool(self.state.get(path[1:], False))
 
     def _reply(
         self,
@@ -1584,11 +1595,11 @@ class Instrument:
         if st.type == "enum":
             if st.replies and value in st.replies:
                 return st.replies[value].encode()  # the instrument's own query word (#268)
-            return V.format_enum(value, long=f.enum == "long", as_defined=f.enum == "as_defined")
+            long = f.enum == "long" or self.long_form()
+            return V.format_enum(value, long=long, as_defined=f.enum == "as_defined")
         if st.type == "enum_list":
-            return b",".join(
-                V.format_enum(v, long=f.enum == "long", as_defined=f.enum == "as_defined") for v in value
-            )
+            long = f.enum == "long" or self.long_form()
+            return b",".join(V.format_enum(v, long=long, as_defined=f.enum == "as_defined") for v in value)
         if st.type == "int_list":
             return V.format_channel_list(value)
         return V.format_string(str(value))
