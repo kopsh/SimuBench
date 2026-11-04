@@ -172,10 +172,11 @@ components:
         AC11A: [45.0, 5000.0]
         AC20A: [45.0, 5000.0]
       range_lock: $out.range_lock
+      # 锁定只用于单输出直流电压/直流电流（第 4 章 p. 4-17、第 6 章 p. 6-32 RANGELCK）；交流与电阻下
+      # RANGELCK ON 照样记下（RANGELCK? 回 ON），量程仍随幅值自动选择、不报 518（#589）。
+      lock_functions: [DCV, DCI]
       # 锁定量程的下限取各 Range 行的跨度起点：DC 330 V/1000 V 量程 30 V/100 V 起，AC 六档
       # 1 mV/33 mV/0.33 V/3.3 V/33 V/330 V 起（第 1 章 Detailed Specifications），低于报 518（#560）。
-      # 手册（第 4 章 p. 4-17、第 6 章 p. 6-32）只对单输出直流电压/直流电流锁量程；本组件的锁定
-      # 无法按功能限定，交流与电阻也被锁定——偏离，见覆盖表 RANGELCK 与 #589（#583）。
       over_range_error: 518
       under_range_error: 518
   # 输出控制：工作/待机、端子、过载跳闸与 ≥33 V 跨越回待机（#558）。
@@ -272,8 +273,8 @@ commands:
     doc: >-
       ON 锁定当前量程，OFF 恢复自动量程（手册第 6 章 p. 6-32 RANGELCK）；锁定时越限/欠限报
       518（附录 D p. D-3：Value outside locked range），改变输出功能自动解锁。RANGELCK? 回
-      ON/OFF（p. 6-32/6-33）。手册只对单输出直流电压/直流电流锁定；本模型在交流与电阻下也锁定，
-      是已知偏离（真机交流下越限不报 518），待 #589。
+      ON/OFF（p. 6-32/6-33）。只对直流电压/直流电流锁定：交流与电阻下 RANGELCK ON 被记下但量程仍
+      自动选择、不报 518（#589）。
   # ---- 错误队列 ----
   - header: ERR
     op: sys.next_error

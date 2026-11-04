@@ -182,7 +182,7 @@ sections:
     note: '功率输出的等效功率；功率输出未建模。'
   - header: 'RANGELCK'
     level: implemented
-    note: '量程锁定（RANGELCK ON/OFF，RANGELCK? 回 ON/OFF，第 6 章 p. 6-32/6-33，已核实）：锁定时越限/欠限报 518（附录 D p. D-3：518 Value outside locked range，已核实），改变输出功能自动解锁（#552、#560）。直流电压与直流电流都锁定（手册：“for dc voltage and dc current single outputs”，用例覆盖两者）。偏离：手册第 4 章 p. 4-17 与第 6 章 RANGELCK 写明锁定只用于单输出直流电压/直流电流，本模型的交流电压、交流电流、电阻在 RANGELCK ON 后也锁定并对越限报 518（真机不报）；calibrator_setpoint 的量程锁定无法按功能限定，待 #589 补上后改正（#583）。'
+    note: '量程锁定（RANGELCK ON/OFF，RANGELCK? 回 ON/OFF，第 6 章 p. 6-32/6-33，已核实）：锁定时越限/欠限报 518（附录 D p. D-3：518 Value outside locked range，已核实），改变输出功能自动解锁（#552、#560）。直流电压与直流电流都锁定（手册：“for dc voltage and dc current single outputs”，用例覆盖两者）。交流电压、交流电流、电阻不锁定（第 4 章 p. 4-17：“available only for single-output dc volts and dc current outputs”）：RANGELCK ON 照样记下、RANGELCK? 回 ON，量程仍随幅值自动选择、越限不报 518；改变功能同样清除（#583、#589）。手册未写交流下 RANGELCK ON 是否报错，按接受不报错建模。'
   - header: 'REFCLOCK'
     level: not_modeled
     note: '参考时钟源（REFCLOCK/REFCLOCK?，内部/10 MHz IN）；时钟输入不在仿真中。'

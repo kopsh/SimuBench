@@ -468,3 +468,33 @@ cases:
         expect: '518,"Value outside locked range"'
       - query: "OUT?"
         expect: "1.000000E-02,A,0E+00,0,0.000000E+00"
+
+  - name: "交流下 RANGELCK ON 不锁量程，越限不报 518"
+    manual: "第 4 章 p. 4-17 Auto Range Versus Locked Range（only for single-output dc volts and dc current）；第 6 章 p. 6-32 RANGELCK"
+    steps:
+      - send: "OUT 2 V, 1 kHz"
+      - send: "RANGELCK ON"
+      - query: "RANGELCK?"
+        expect: "ON"
+      - send: "OUT 5 V, 1 kHz"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - query: "RANGE?"
+        expect: "AC33V,0"
+      - query: "OUT?"
+        expect: "5.000000E+00,V,0E+00,0,1.000000E+03"
+
+  - name: "交流下的 RANGELCK ON 在改到直流时清除，直流按自动量程"
+    manual: "第 6 章 p. 6-32 RANGELCK（The range automatically unlocks if the output function changes）"
+    steps:
+      - send: "OUT 2 V, 1 kHz"
+      - send: "RANGELCK ON"
+      - send: "OUT 2 V, 0 HZ"
+      - query: "RANGELCK?"
+        expect: "OFF"
+      - send: "OUT 5 V"
+      - query: "ERR?"
+        expect: '0,"No Error"'
+      - query: "RANGE?"
+        expect: "DC33V,0"
+
