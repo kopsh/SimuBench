@@ -103,7 +103,10 @@ def bench(source_v: float, source_r: float) -> BenchDefinition:
                 "src": {"type": "dc_supply", "params": {"v": source_v, "r": source_r}},
             },
             "wires": [{"from": "src.OUT", "to": "el.IN"}],
-            "run": {"clock": "command", "seed": 1},
+            # idle: sleep is the documented deterministic tier for tests (D47): wall would bill the
+            # runner's scheduling jitter into the virtual clock and the recorded 0 ns rows would
+            # flip on slow machines (issue 621, 15-16 ms on Windows CI).
+            "run": {"clock": "command", "seed": 1, "idle": "sleep"},
         }
     )
 
@@ -129,10 +132,8 @@ def run_sequence(session, sequence: list[tuple[str, str]]) -> list[tuple[str, st
 def test_replies_and_virtual_time_are_unchanged(source_v, source_r, sequence, expected, name):
     session = open_bench(bench(source_v, source_r), definition_dirs=[DEFS])
     try:
-        # Warm up the lazily loaded definition before the recorded rows (D47: the first command
-        # of a fresh definition would bill its loading to the wall clock).
-        session.write("el", b"*IDN?\n")
-        session.read("el")
+        # Under sleep there is no wall-clock idle to bill, so no warm-up is needed before the
+        # recorded rows: the first command loads the definition without moving the clock (D47).
         got = run_sequence(session, sequence)
     finally:
         session.close()
