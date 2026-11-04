@@ -439,13 +439,14 @@ class CalibratorSetpoint(_Setpoint, Component):
             return 0.0 if 0.0 in values else nonzero[0]
         return min(nonzero, key=lambda v: abs(math.log10(v) - math.log10(value)))
 
-    @op("range")
+    @op("range", fields=("name",))
     def op_range(self, **_: Any) -> OpResult:
-        """``RANGE?``: the present range's name."""
+        """``RANGE?``: the present range's name, as the ``{name}`` field of the command's reply
+        template (the 5730A replies the bare name, the 5522A appends its second output's ``0``)."""
         name = self.range_name()
         if name is None:
             raise ScpiError(-221, "this output has no range table")
-        return OpResult(name.encode())
+        return OpResult(b"", fields={"name": name})
 
     def _set_lock(self, on: bool) -> None:
         path = self.bound_paths().get("range_lock")
