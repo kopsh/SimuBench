@@ -8,7 +8,7 @@ suggestion to correct their edits (D9).
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from ..library.migrate import FormatError, upgrade
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
+from ..scpi import values as V
 from .component import Component, binding_of, component_types, map_setting
 from .portref import closest, ladder, split
 
@@ -57,6 +58,34 @@ class Report:
 
 def _bound(value: float | None, open_end: str = "-∞") -> str:
     return open_end if value is None else f"{value:g}"
+
+
+def unknown_name(
+    report: Report,
+    code: str,
+    ptr: str,
+    message: str,
+    name: str,
+    options: Sequence[str],
+    subject: str | None = None,
+    *,
+    severity: Severity = "error",
+    fallback: str | None = None,
+    hint: Callable[[str], str] | None = None,
+) -> None:
+    """Report a name that does not exist: the suggestion is the nearest option, ``改为 {hint!r}``
+    unless `hint` rewrites it (a scope prefix, a template's braces), and `fallback` when nothing
+    is close. The message stays at the call site — the scope, the channel expansion and what is
+    missing are the caller's context; what the validators share is the nearest-name suggestion."""
+    nearest = closest(name, options)
+    report.add(
+        severity,
+        code,
+        ptr,
+        message,
+        fallback if nearest is None else (f"改为 {nearest!r}" if hint is None else hint(nearest)),
+        subject,
+    )
 
 
 def _ptr(*parts: object) -> str:
@@ -105,14 +134,15 @@ def validate_bench(
             from ..library.loader import DefinitionLibrary
 
             options = DefinitionLibrary().ids()
-            hint = closest(inst.model, options)
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-MODEL-UNKNOWN",
                 _ptr(*p, "model"),
                 f"仪表定义 {inst.model!r} 不存在",
-                f"改为 {hint!r}" if hint else f"可用的仪表定义：{', '.join(options)}",
+                inst.model,
+                options,
                 name,
+                fallback=f"可用的仪表定义：{', '.join(options)}",
             )
             continue
         defs[name] = d
@@ -145,27 +175,29 @@ def validate_bench(
         for cname, params in inst.hidden.items():
             cp = ("instruments", name, "hidden", cname)
             if cname not in comp_params:
-                hint = closest(cname, list(comp_params))
-                report.add(
-                    "error",
+                unknown_name(
+                    report,
                     "E-HIDDEN-COMPONENT",
                     _ptr(*cp),
                     f"隐式状态指向不存在的组件 {cname!r}",
-                    f"改为 {hint!r}" if hint else f"可用组件：{', '.join(sorted(comp_params))}",
+                    cname,
+                    list(comp_params),
                     name,
+                    fallback=f"可用组件：{', '.join(sorted(comp_params))}",
                 )
                 continue
             for pname in params:
                 if pname in comp_params[cname]:
                     continue
-                hint = closest(pname, sorted(comp_params[cname]))
-                report.add(
-                    "error",
+                unknown_name(
+                    report,
                     "E-HIDDEN-PARAM",
                     _ptr(*cp, pname),
                     f"隐式状态指向组件 {cname!r} 不存在的参数 {pname!r}",
-                    f"改为 {hint!r}" if hint else f"可用参数：{', '.join(sorted(comp_params[cname]))}",
+                    pname,
+                    sorted(comp_params[cname]),
                     name,
+                    fallback=f"可用参数：{', '.join(sorted(comp_params[cname]))}",
                 )
         per_channel = {c.name for c in d.channel_components}
         for spec in d.deviations:
@@ -189,13 +221,13 @@ def validate_bench(
             sp = ("instruments", name, "state", path)
             spec = specs.get(path)
             if spec is None:
-                hint = closest(path, list(specs))
-                report.add(
-                    "error",
+                unknown_name(
+                    report,
                     "E-STATE-UNKNOWN",
                     _ptr(*sp),
                     f"{d.model} 没有状态 {path!r}",
-                    f"改为 {hint!r}" if hint else None,
+                    path,
+                    list(specs),
                     name,
                 )
                 continue
@@ -207,10 +239,7 @@ def validate_bench(
                         "error", "E-STATE-TYPE", _ptr(*sp), f"{path} 需要数值，得到 {value!r}", None, name
                     )
                     continue
-                special = set((spec.special or {}).values())
-                if v not in special and (
-                    (spec.min is not None and v < spec.min) or (spec.max is not None and v > spec.max)
-                ):
+                if V.fit_value(spec, v)[0] is not None:
                     report.add(
                         "error",
                         "E-STATE-RANGE",
@@ -220,18 +249,13 @@ def validate_bench(
                         name,
                     )
             elif spec.type == "enum":
-                opts = spec.options or []
-                ok = any(
-                    str(value).upper() in (o.upper(), "".join(c for c in o if c.isupper() or c.isdigit()))
-                    for o in opts
-                )
-                if not ok:
+                if V.fit_value(spec, value)[0] is not None:
                     report.add(
                         "error",
                         "E-STATE-OPTION",
                         _ptr(*sp),
                         f"{path} 不接受 {value!r}",
-                        f"可选值：{', '.join(opts)}",
+                        f"可选值：{', '.join(spec.options or [])}",
                         name,
                     )
 
@@ -249,36 +273,37 @@ def validate_bench(
             )
         cls = known_types.get(part.type)
         if cls is None:
-            hint = closest(part.type, list(known_types))
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-COMPONENT-UNKNOWN",
                 _ptr(*p, "type"),
                 f"组件类型 {part.type!r} 不存在",
-                f"改为 {hint!r}" if hint else None,
+                part.type,
+                list(known_types),
                 name,
             )
             continue
         for k in part.params:
             if k not in cls.defaults:
-                hint = closest(k, list(cls.defaults))
-                report.add(
-                    "warning",
+                unknown_name(
+                    report,
                     "W-PARAM-UNKNOWN",
                     _ptr(*p, "params", k),
                     f"{part.type} 没有参数 {k!r}，它不会起作用",
-                    f"改为 {hint!r}" if hint else None,
+                    k,
+                    list(cls.defaults),
                     name,
+                    severity="warning",
                 )
         for k, rng in part.deviation.items():
             if k not in cls.defaults:
-                hint = closest(k, list(cls.defaults))
-                report.add(
-                    "error",
+                unknown_name(
+                    report,
                     "E-DEVIATION-PARAM",
                     _ptr(*p, "deviation", k),
                     f"{part.type} 没有参数 {k!r}，无法给它个体偏差",
-                    f"改为 {hint!r}" if hint else None,
+                    k,
+                    list(cls.defaults),
                     name,
                 )
             elif rng.unit and not part.params.get(k, cls.defaults[k]):
@@ -324,13 +349,13 @@ def validate_bench(
             # a shared net — two outputs driving it — is E-NET-MULTIDRIVER.
         for k, acc in enumerate(w.accessories):
             if acc.type not in known_types:
-                hint = closest(acc.type, list(known_types))
-                report.add(
-                    "error",
+                unknown_name(
+                    report,
                     "E-ACCESSORY-UNKNOWN",
                     _ptr("wires", i, "accessories", k, "type"),
                     f"配件类型 {acc.type!r} 不存在",
-                    f"改为 {hint!r}" if hint else None,
+                    acc.type,
+                    list(known_types),
                     f"wire:{i}",
                 )
 
@@ -338,13 +363,13 @@ def validate_bench(
     for i, f in enumerate(bench.faults):
         fp = ("faults", i)
         if f.instrument is not None and f.instrument not in bench.instruments:
-            hint = closest(f.instrument, list(bench.instruments))
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-FAULT-TARGET",
                 _ptr(*fp, "instrument"),
                 f"故障指向不存在的仪表 {f.instrument!r}",
-                f"改为 {hint!r}" if hint else None,
+                f.instrument,
+                list(bench.instruments),
             )
         if f.kind in ("drift", "hidden"):
             ref = f.component or ""

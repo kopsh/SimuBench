@@ -4,11 +4,15 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from ..units import UnitError, format_nr3, parse_number
 from .errors import ScpiError
+
+if TYPE_CHECKING:
+    from ..models.definition import StateSpec
 
 #: The numeric keywords every numeric parameter takes (IEEE 488.2 / SCPI). INFinity and NINFinity are
 #: the long forms of INF and NINF: both forms parse alike, so one word gets one error code (#360).
@@ -123,6 +127,61 @@ def parse_enum(raw: bytes, options: Sequence[str]) -> str:
         if matches_word(t, opt):
             return opt
     raise ScpiError(-224, f"{t!r} is not one of {', '.join(short_form(o) for o in options)}")
+
+
+def fit_enum(value: Any, options: Sequence[str]) -> str | None:
+    """The option a written value denotes: the value itself when it is one of the ``options``,
+    otherwise the option it names in any SCPI word form (``VOLT`` for ``VOLTage``, node by node
+    for compounds) — the same rule the parse layer applies to a word arriving over SCPI. None
+    when the value denotes no option."""
+    if value in options:
+        return value
+    if isinstance(value, str):
+        return next((o for o in options if matches_word(value, o)), None)
+    return None
+
+
+def fit_value(spec: StateSpec, value: Any) -> tuple[str | None, str | None]:
+    """Whether a value written for a setting — a definition constant (``writes``, ``sets``,
+    ``keywords``), a bench state or a panel value — fits the setting's declaration, judged the
+    way the engine judges the same value at run time (``Instrument._validate``, plus the parse
+    layer for words): an enum accepts the option in any SCPI word form, a special value is
+    exempt from a number's range on both bounds, out of range is the same tolerance. Pure: no
+    exception; returns ``(problem, fix)`` — both None when the value fits. ``fix`` is the
+    suggestion for the report, and when a word form fits only by naming the option, the option
+    as written (``VOLTage`` for ``VOLT``): a panel key must write the option itself, since the
+    UI lights the key by comparing it with the stored value.
+
+    The word forms are refused nowhere here; whether a site reports them is its own rule (the
+    panel does, the definition's constants do not). The problems are messages for the report,
+    value-centred so a site can use them as they are or prefix its own subject.
+    """
+    if spec.type == "enum":
+        options = spec.options or []
+        canonical = fit_enum(value, options)
+        if canonical is None:
+            return f"不接受 {value!r}", f"可选值：{', '.join(options)}"
+        return None, canonical if canonical != value else None
+    if spec.type == "bool":
+        return (None, None) if isinstance(value, bool) else (f"{value!r} 不是 true / false", None)
+    if spec.type in ("float", "int"):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            return f"{value!r} 不是数值", None
+        if value in set((spec.special or {}).values()):
+            return None, None
+        # The same tolerance the engine applies (#407): a bound's float representation error
+        # must not refuse a value the run time accepts. NaN is out of range there (-222), so
+        # it is here too.
+        if (
+            value != value
+            or (spec.min is not None and value < spec.min - abs(spec.min) * 1e-12 - 1e-300)
+            or (spec.max is not None and value > spec.max + abs(spec.max) * 1e-12 + 1e-300)
+        ):
+            return f"{value!r} 超出范围 [{spec.min}, {spec.max}]", None
+        return None, None
+    if spec.type == "string":
+        return (None, None) if isinstance(value, str) else (f"{value!r} 不是字符串", None)
+    return None, None  # int_list / enum_list: the word layers of their own kinds check the items
 
 
 def parse_string(raw: bytes) -> str:

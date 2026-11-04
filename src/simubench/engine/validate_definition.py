@@ -20,11 +20,10 @@ from ..library.migrate import FormatError, upgrade
 from ..library.panels import DEDICATED, template_of
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
 from ..scpi import values as V
-from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token
 from .component import Component, binding_of, component_types
-from .portref import closest, ladder, split
-from .validate import Report, _ptr
+from .portref import ladder, split
+from .validate import Report, _ptr, unknown_name
 
 _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
 
@@ -80,13 +79,13 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             seen.add(spec.name)
             cls = known.get(spec.type)
             if cls is None:
-                hint = closest(spec.type, list(known))
-                report.add(
-                    "error",
+                unknown_name(
+                    report,
                     "E-DEF-COMPONENT-UNKNOWN",
                     _ptr(*p, "type"),
                     f"组件类型 {spec.type!r} 不存在",
-                    f"改为 {hint!r}" if hint else None,
+                    spec.type,
+                    list(known),
                     spec.name,
                 )
                 continue
@@ -142,25 +141,26 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
         spec = specs_by_name.get(dev.component)
         cls = known.get(spec.type) if spec else None
         if spec is None:
-            hint = closest(dev.component, list(specs_by_name))
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-DEF-DEVIATION",
                 _ptr(*p),
                 f"没有组件 {dev.component!r}，无法给它个体偏差",
-                f"改为 {hint!r}" if hint else None,
+                dev.component,
+                list(specs_by_name),
             )
             continue
         if cls is None:
             continue  # reported with the component
         if dev.parameter not in cls.defaults:
-            hint = closest(dev.parameter, list(cls.defaults))
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-DEF-DEVIATION",
                 _ptr(*p),
                 f"{spec.type} 没有参数 {dev.parameter!r}",
-                f"改为 {dev.component}.{hint}" if hint else None,
+                dev.parameter,
+                list(cls.defaults),
+                hint=lambda h, comp=dev.component: f"改为 {comp}.{h}",
             )
             continue
         nominal = spec.params.get(dev.parameter, cls.defaults[dev.parameter])
@@ -370,17 +370,16 @@ def _check_quantity_write(
                 )
         return
     spec = _check_state_ref(d, ref, per_channel, pointer, subject, report)
-    if (
-        spec is not None
-        and spec.type == "enum"
-        and str(value).upper() not in {o.upper() for o in spec.options or []}
-    ):
+    if spec is None:
+        return
+    problem, fix = V.fit_value(spec, value)
+    if problem:
         report.add(
             "error",
             "E-DEF-QUANTITY",
             pointer,
-            f"{ref!r} 不接受 {value!r}",
-            f"可选值：{', '.join(spec.options or [])}",
+            f"{ref!r} {problem}",
+            fix,
             subject,
         )
 
@@ -441,14 +440,16 @@ def _check_reply(
             continue
         _spec, problem = _state_spec(d, name, per_channel)
         if problem:
-            hint = closest(name, _state_options(d, per_channel))
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-DEF-REPLY",
                 pointer,
                 f"应答模板引用 {{{name}}}：{problem}",
-                f"改为 {{{hint}}}" if hint else "可用 {header}、{value} 与 {<状态路径>}",
+                name,
+                _state_options(d, per_channel),
                 cmd.header,
+                fallback="可用 {header}、{value} 与 {<状态路径>}",
+                hint=lambda h: f"改为 {{{h}}}",
             )
 
 
@@ -543,27 +544,17 @@ def _check_write(
     subject: str,
     report: Report,
 ) -> None:
-    """A constant written by a command fits its setting: an option, a boolean, or a number in range."""
+    """A constant written by a command fits its setting, by the rule the engine applies to the
+    same value (fit_value): an option in any SCPI word form (the run time stores the option it
+    names), a boolean, or a number in range with its special values exempt."""
     spec = _check_state_ref(d, path, per_channel, pointer, subject, report)
     if spec is None:
         return
-    problem = None
-    if spec.type == "enum":
-        if str(value).upper() not in {o.upper() for o in spec.options or []}:
-            problem = f"{path!r} does not accept {value!r}"
-    elif spec.type == "bool":
-        if not isinstance(value, bool):
-            problem = f"{path!r} is a boolean; {value!r} is not one"
-    elif spec.type in ("float", "int"):
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            problem = f"{path!r} is a number; {value!r} is not one"
-        elif (
-            (spec.min is not None and value < spec.min) or (spec.max is not None and value > spec.max)
-        ) and not any(value == v for v in (spec.special or {}).values()):  # AUTO and the like
-            problem = f"{value!r} is outside {spec.min} .. {spec.max}"
+    problem, fix = V.fit_value(spec, value)
     if problem:
-        hint = f"可选值：{', '.join(spec.options or [])}" if spec.type == "enum" else None
-        report.add("error", "E-DEF-WRITE", pointer, problem, hint, subject)
+        if spec.type == "enum":
+            problem = f"{path!r} {problem}"
+        report.add("error", "E-DEF-WRITE", pointer, problem, fix, subject)
 
 
 def _check_state_ref(
@@ -571,9 +562,8 @@ def _check_state_ref(
 ) -> StateSpec | None:
     spec, problem = _state_spec(d, path, per_channel)
     if problem:
-        hint = closest(path, _state_options(d, per_channel))
-        report.add(
-            "error", "E-DEF-STATE-UNKNOWN", pointer, problem, f"改为 {hint!r}" if hint else None, subject
+        unknown_name(
+            report, "E-DEF-STATE-UNKNOWN", pointer, problem, path, _state_options(d, per_channel), subject
         )
     return spec
 
@@ -589,14 +579,15 @@ def _check_params(
     for key, value in spec.params.items():
         pp = _ptr(*p, "params", key)
         if key not in cls.defaults:
-            hint = closest(key, list(cls.defaults))
-            report.add(
-                "warning",
+            unknown_name(
+                report,
                 "W-DEF-PARAM-UNKNOWN",
                 pp,
                 f"{spec.type} 没有参数 {key!r}，它不会起作用",
-                f"改为 {hint!r}" if hint else None,
+                key,
+                list(cls.defaults),
                 spec.name,
+                severity="warning",
             )
         mapping = value if isinstance(value, dict) and "from" in value else None
         ref = binding_of(value)
@@ -716,14 +707,16 @@ def _check_map_keys(
     options = {o.upper() for o in st.options or []}
     for k in table:
         if str(k).upper() not in options:
-            hint = closest(str(k), list(st.options or []))
-            report.add(
-                "warning",
+            unknown_name(
+                report,
                 "W-DEF-MAP-KEY",
                 _ptr(*where, k),
                 f"设置的取值中没有 {k!r}，这一项不会生效",
-                f"改为 {hint!r}" if hint else f"可选值：{', '.join(st.options or [])}",
+                str(k),
+                list(st.options or []),
                 subject,
+                severity="warning",
+                fallback=f"可选值：{', '.join(st.options or [])}",
             )
 
 
@@ -775,26 +768,30 @@ def _check_op(
         if comp and _declared(d, comp[3:] if channel else comp, channel):
             return  # an unknown component type, reported above
         names = [s.name for s in d.components] + [f"ch.{s.name}" for s in d.channel_components]
-        hint = closest(comp, names)
-        report.add(
-            "error",
+        unknown_name(
+            report,
             "E-DEF-OP-UNKNOWN",
             pointer,
             f"{ref!r}：没有名为 {comp!r} 的组件",
-            f"改为 {hint}.{name}" if hint else "写作 <组件>.<操作>（通道组件写作 ch.<组件>.<操作>）",
+            comp,
+            names,
             subject,
+            fallback="写作 <组件>.<操作>（通道组件写作 ch.<组件>.<操作>）",
+            hint=lambda h, op=name: f"改为 {h}.{op}",
         )
         return
     ops = operations(cls)
     if name not in ops:
-        hint = closest(name, ops)
-        report.add(
-            "error",
+        unknown_name(
+            report,
             "E-DEF-OP-UNKNOWN",
             pointer,
             f"{cls.type_name} 没有操作 {name!r}",
-            f"改为 {comp}.{hint}" if hint else f"可用操作：{', '.join(ops) or '无'}",
+            name,
+            ops,
             subject,
+            fallback=f"可用操作：{', '.join(ops) or '无'}",
+            hint=lambda h, c=comp: f"改为 {c}.{h}",
         )
 
 
@@ -900,9 +897,8 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
     def setting(path: str, pointer: str) -> StateSpec | None:
         spec, problem = _state_spec(d, path, False)
         if problem:
-            hint = closest(path, _state_options(d, False))
-            report.add(
-                "error", "E-DEF-PANEL-STATE", pointer, problem, f"改为 {hint!r}" if hint else None, "panel"
+            unknown_name(
+                report, "E-DEF-PANEL-STATE", pointer, problem, path, _state_options(d, False), "panel"
             )
         return spec
 
@@ -921,15 +917,16 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
         p = (*base, "readouts", i)
         comp, _, name = readout.reading.rpartition(".")
         if not comp or not name or comp not in components:
-            hint = closest(comp or readout.reading, sorted(components))
-            report.add(
-                "error",
+            unknown_name(
+                report,
                 "E-DEF-PANEL-READING",
                 _ptr(*p, "reading"),
                 f"读数 {readout.reading!r} 应写作 <组件>.<读数>，"
                 + (f"没有组件 {comp!r}" if comp else "缺少组件名"),
-                f"改为 {hint}.{name or 'DC'}" if hint else None,
+                comp or readout.reading,
+                sorted(components),
                 "panel",
+                hint=lambda h, n=name or "DC": f"改为 {h}.{n}",
             )
         settings(readout.when, (*p, "when"))
 
@@ -1017,26 +1014,11 @@ def _check_control(control: PanelControl, spec: StateSpec, p: tuple[Any, ...], r
 
 
 def _panel_value(spec: StateSpec, v: Any) -> tuple[str | None, str | None]:
-    """Whether a value the panel writes or compares fits the setting, and the fix when it does not."""
-    if spec.type == "enum":
-        options = spec.options or []
-        if isinstance(v, str) and v in options:
-            return None, None
-        try:
-            fixed = V.parse_enum(str(v).encode(), options)
-        except ScpiError:
-            return f"{v!r} 不是可选值（{', '.join(options)}）", None
-        return f"{v!r} 要写作选项的原样 {fixed!r}", f"改为 {fixed!r}"
-    if spec.type == "bool":
-        return (None, None) if isinstance(v, bool) else (f"{v!r} 不是 true / false", None)
-    if spec.type in ("float", "int"):
-        if isinstance(v, str) and v.upper() in {k.upper() for k in spec.special or {}}:
-            return None, None
-        if isinstance(v, bool) or not isinstance(v, (int, float)):
-            return f"{v!r} 不是数值", None
-        if (spec.min is not None and v < spec.min and v not in (spec.special or {}).values()) or (
-            spec.max is not None and v > spec.max
-        ):
-            return f"{v!r} 超出范围 [{spec.min}, {spec.max}]", None
-        return None, None
-    return (None, None) if isinstance(v, str) else (f"{v!r} 不是字符串", None)
+    """Whether a value the panel writes or compares fits the setting, and the fix when it does
+    not: the same rule the engine applies (fit_value), except that an option must be written as
+    itself — a panel key lights by comparing its value with the stored one, so a word form
+    (``VOLT`` for ``VOLTage``) would write the setting and never light the key."""
+    problem, fix = V.fit_value(spec, v)
+    if problem is None and fix is not None:
+        return f"{v!r} 要写作选项的原样 {fix!r}", f"改为 {fix!r}"
+    return problem, fix
