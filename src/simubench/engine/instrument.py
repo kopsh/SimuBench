@@ -12,10 +12,8 @@ import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ..library.loader import COVERAGE_SUFFIX, _load_coverage_file
 from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, ResponseFormat, StateSpec
 from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
@@ -302,9 +300,10 @@ class Instrument:
         # ---- why a command was not executed: the declarations to cite (tui-design.md 1.1, D18) ----
         #: The definition file, as the loader received the path; origin of the definition's own words.
         self.source_file: str | None = str(definition._source_file) if definition._source_file else None
-        #: The coverage table's entries and its file; None when the definition has no table (a broken
-        #: or missing table falls back to the definition alone). Loaded on first use: reading it here
-        #: would put its cost on the session's idle wall clock (D47), shifting every later instant.
+        #: The coverage table's compiled entries and its file; None when the definition has no table
+        #: (a broken or missing table falls back to the definition alone). The table itself is read
+        #: by the library loader with the definition (cached with it); only the cheap pattern
+        #: compilation waits for first use, so no file I/O lands on the session's wall clock (D47).
         self._coverage: list[_Covered] | None = None
         self._coverage_file: str | None = None
         self._coverage_tried = False
@@ -748,35 +747,26 @@ class Instrument:
         return f"{base};{NOT_MODELED}"
 
     def _coverage_entries(self) -> list[_Covered] | None:
-        """The definition's coverage table, loaded on first use (D18)."""
+        """The definition's coverage table, compiled for runtime lookups on first use (D18)."""
         if not self._coverage_tried:
             self._coverage_tried = True
             self._load_coverage()
         return self._coverage
 
     def _load_coverage(self) -> None:
-        """The coverage table next to the definition file, for runtime lookups (D18); a missing or
+        """Compile the coverage table the loader read with the definition (D18); an absent or
         unreadable table leaves the instrument running on the definition alone."""
-        if self.source_file is None:
-            return
-        path = Path(self.source_file)
-        table = path.with_name(path.stem + COVERAGE_SUFFIX)
-        if not table.is_file():
-            return
-        cov = _load_coverage_file(table, table.stat().st_mtime)
+        cov = self.definition._coverage
         if cov is None:
             return
         entries: list[_Covered] = []
-        try:
-            for _, entry in cov.entries():  # type: ignore[union-attr]
-                try:
-                    entries.append(_Covered(Pattern.compile(entry.header), entry.header, entry.level))
-                except ValueError:
-                    continue  # a header the pattern language cannot read: no runtime match for it
-        except Exception:
-            return  # an unexpected table shape: the definition alone decides
+        for _, entry in cov.entries():
+            try:
+                entries.append(_Covered(Pattern.compile(entry.header), entry.header, entry.level))
+            except ValueError:
+                continue  # a header the pattern language cannot read: no runtime match for it
         self._coverage = entries
-        self._coverage_file = str(table)
+        self._coverage_file = str(self.definition._coverage_file)
 
     def _classify_header(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[str, str | None, str | None]:
         """(reason, origin, closest) for a header the definition does not execute."""
@@ -793,7 +783,7 @@ class Instrument:
 
     @staticmethod
     def _covered(entry: _Covered, unit: Unit, tokens: tuple[Token, ...]) -> bool:
-        """Whether the message unit uses the coverage entry's command (library/coverage.py `_matches`)."""
+        """Whether the message unit uses the coverage entry's command (the coverage checker's match rule)."""
         if entry.pattern.common:
             return unit.common and unit.tokens[0].keyword == entry.pattern.nodes[0].long
         return not unit.common and entry.pattern.match(tokens) is not None
