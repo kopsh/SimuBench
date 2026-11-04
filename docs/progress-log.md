@@ -1291,3 +1291,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 复现 | ✅ `tests/test_keysight_n6705c.py::test_transitions_between_two_reads_are_latched`：NTR=3 时 CV→CC→CV 未读，`STAT:OPER?` 回 3；默认过滤下短暂的 CC 仍可见（回 3：CC 上升与 CV 回升） |
 | 定义修正 | ✅ `rigol-dsg815`、`rs-sma100b` 的 `output.enabled` 补 `electrical: true`（输出级接入/断开电路）：采样使求解提前，暴露了开输出不重建电路的缓存缺陷 |
 | 检查 | ✅ 现有 DSO-X、SR830、E36312A、N6705C 的状态寄存器用例不变；`scripts/check.sh` 全绿 |
+
+## 5730A 负电阻与电流 compliance 的手册数值（Issue 570）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 负电阻 | ✅ `calibrator_setpoint`：电阻功能下负电平按 `limit_error` 拒绝（5730A：-222），`quantities` 整条回退、`OUT?` 不变；手册用例「电流与电阻输出」增加 `OUT -1 OHM` |
+| compliance | ✅ 第 1 章 DC Current Secondary Performance Specifications（Compliance Voltage Limits：220 µA–220 mA 10 V、2.2 A 3 V，注 5：1–2.2 A 2 V）与 AC Current Secondary Performance Specifications（Compliance Limits：7 V rms、2.2 A 1.4 V rms，注 4：1 A 以上 1.5 V）：定义改为 `{"*": 10, DC2_2A: 3, AC…: 7, AC2_2A: 1.4}`，注释、定义、覆盖表一致；注里按电平的例外未分档 |
+| 交流 compliance | ✅ 此前只比端子的直流值，交流电流从不跳闸：`update_mode` 的 `dc_voltage` 回调带上 `.signal(port)`（求解出的整个信号），`calibrator_control` 按端子真有效值比 compliance；`tests/test_fluke_5730a.py::test_the_compliance_follows_the_manual_per_range`（20 mA 入 450 Ω：直流不跳、交流跳；1.5 A 入 1.8 Ω：直流不跳、交流跳） |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
