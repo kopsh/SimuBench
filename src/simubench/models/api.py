@@ -15,9 +15,12 @@ from ..engine.circuit import SourceLine as SourceLine
 from ..engine.edit import EditOp
 from ..engine.events import Event as Event  # re-export (D57, issue 595)
 from ..engine.events import RunEvent as RunEvent
+from ..engine.replay import ReplayMismatch as ReplayMismatch  # re-export (D57, issue 626)
 from ..engine.signal import SpectralLine
+from ..engine.silence import SilenceReason as SilenceReason  # re-export (D57, issue 626)
+from ..engine.validate import Diagnostic as Diagnostic  # re-export (D57, issue 626)
 from .bench import Fault, LayoutItem
-from .definition import Panel
+from .definition import Panel, StateSpec
 
 
 class _Model(BaseModel):
@@ -42,15 +45,6 @@ class BenchFile(_Model):
     description: str | None = None
     instruments: int = 0
     error: str | None = Field(None, description="Why the file could not be read, if it could not")
-
-
-class Diagnostic(_Model):
-    severity: Literal["error", "warning"]
-    code: str = Field(..., description="Stable code, e.g. 'E-WIRE-PORT'")
-    pointer: str = Field(..., description="JSON pointer into the bench file, e.g. '/wires/1/to'")
-    message: str
-    suggestion: str | None = None
-    subject: str | None = Field(None, description="Instrument, DUT or wire the diagnostic is about")
 
 
 class DefinitionChange(_Model):
@@ -288,19 +282,13 @@ class PortInfo(_Model):
     channel: int | None = None
 
 
-class StateVarInfo(_Model):
+# A state variable as the session serves it: the definition's own spec (StateSpec, reused instead
+# of a hand-copied mirror, like Panel above) plus the runtime view — the path, the current value,
+# the channel behind a `ch.` path, and whether a command bound to it is dangerous.
+class StateVarInfo(StateSpec):
+    model_config = ConfigDict(populate_by_name=True, json_schema_serialization_defaults_required=True)
+
     path: str
-    type: str
-    unit: str | None = None
-    min: float | None = None
-    max: float | None = None
-    options: list[str] | None = None
-    option_labels: dict[str, str] | None = None
-    display_unit: str | None = None
-    label: str | None = None
-    label_en: str | None = None
-    readonly: bool = False
-    electrical: bool = False
     dangerous: bool = Field(
         False, description="A command bound to it is marked dangerous; confirm before changing"
     )
@@ -578,19 +566,6 @@ class ClockInfo(_Model):
     now_ns: int
 
 
-class SilenceReason(_Model):
-    """Why a port or net reads 0 V, found by tracing the circuit upstream."""
-
-    kind: Literal["unconnected", "source_off", "zero_setting", "no_source", "fault"]
-    path: list[str] = Field(
-        default_factory=list,
-        description="From the silent port to the source: instrument ports ('awg.OUT1') and bench components ('rc')",
-    )
-    source: str | None = Field(None, description="The source this reason is about, e.g. 'awg.OUT1'")
-    fault_id: str | None = None
-    detail: str = ""
-
-
 class Trace(_Model):
     channel: int
     t0_s: float = Field(..., description="Time of the first sample relative to the trigger")
@@ -795,15 +770,6 @@ class RunDetail(_Model):
     summary: RunSummary
     events: list[RunEvent]
     truncated: bool = Field(False, description="More events than returned (the first ones are returned)")
-
-
-class ReplayMismatch(_Model):
-    seq: int
-    instrument: str
-    t_ns: int
-    expected: str
-    actual: str
-    command: str | None = None
 
 
 class ReplayResult(_Model):

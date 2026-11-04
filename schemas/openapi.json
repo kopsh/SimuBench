@@ -6600,6 +6600,7 @@
         "type": "object"
       },
       "StateVarInfo": {
+        "additionalProperties": false,
         "properties": {
           "channel": {
             "anyOf": [
@@ -6618,6 +6619,9 @@
             "title": "Dangerous",
             "type": "boolean"
           },
+          "default": {
+            "title": "Default"
+          },
           "display_unit": {
             "anyOf": [
               {
@@ -6627,10 +6631,12 @@
                 "type": "null"
               }
             ],
+            "description": "Unit shown in the UI when it differs from `unit`, e.g. '×'",
             "title": "Display Unit"
           },
           "electrical": {
             "default": false,
+            "description": "Changing this variable changes the bench's circuit",
             "title": "Electrical",
             "type": "boolean"
           },
@@ -6656,6 +6662,24 @@
             ],
             "title": "Label En"
           },
+          "ladder": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Snap writes to a ladder: '1-2-5', '1-3' or an explicit list of values",
+            "title": "Ladder"
+          },
           "max": {
             "anyOf": [
               {
@@ -6678,6 +6702,21 @@
             ],
             "title": "Min"
           },
+          "not_modeled": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Words the real instrument takes for this setting but the model does not implement, with the reason, e.g. {INFinity: continuous scanning is not modeled} (SCPI mixed case: the short and the long form both match). Writing one is refused with -224 as not modeled, instead of being parsed as a number and rejected as out of range (#360)",
+            "title": "Not Modeled"
+          },
           "option_labels": {
             "anyOf": [
               {
@@ -6690,6 +6729,7 @@
                 "type": "null"
               }
             ],
+            "description": "How the UI shows enum options, e.g. {ONEMeg: '1 MΩ', FIFTy: '50 Ω'}",
             "title": "Option Labels"
           },
           "options": {
@@ -6704,6 +6744,7 @@
                 "type": "null"
               }
             ],
+            "description": "Enum options in SCPI mixed case, e.g. SINusoid",
             "title": "Options"
           },
           "path": {
@@ -6715,7 +6756,50 @@
             "title": "Readonly",
             "type": "boolean"
           },
+          "replies": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Enum: the word a query answers for an option, when the instrument answers with a different word than the one it accepts, e.g. {CURRent: CC} for a load whose :FUNC CURR reads back CC (#268); options not listed answer as usual",
+            "title": "Replies"
+          },
+          "rst": {
+            "description": "Value after *RST; defaults to `default`",
+            "title": "Rst"
+          },
+          "special": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load",
+            "title": "Special"
+          },
           "type": {
+            "enum": [
+              "float",
+              "int",
+              "bool",
+              "enum",
+              "string",
+              "int_list",
+              "enum_list"
+            ],
             "title": "Type",
             "type": "string"
           },
@@ -6728,6 +6812,7 @@
                 "type": "null"
               }
             ],
+            "description": "Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM",
             "title": "Unit"
           },
           "value": {
@@ -6735,18 +6820,24 @@
           }
         },
         "required": [
-          "path",
           "type",
           "unit",
           "min",
           "max",
+          "default",
+          "rst",
           "options",
+          "ladder",
+          "special",
+          "not_modeled",
+          "replies",
           "option_labels",
           "display_unit",
+          "electrical",
+          "readonly",
           "label",
           "label_en",
-          "readonly",
-          "electrical",
+          "path",
           "dangerous",
           "value",
           "channel"
