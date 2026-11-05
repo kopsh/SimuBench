@@ -4900,7 +4900,7 @@
                 "type": "null"
               }
             ],
-            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip events: the acknowledged control",
+            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip and bus_control events: the acknowledged control",
             "title": "Action"
           },
           "channels": {
@@ -5047,7 +5047,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | solver",
+            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver",
             "title": "Kind",
             "type": "string"
           },

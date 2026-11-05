@@ -18,10 +18,10 @@ import asyncio
 import contextlib
 import logging
 import struct
-from dataclasses import dataclass, field
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from .bus import LockTable, bus_of
 
 log = logging.getLogger("simubench.hislip")
 
@@ -62,67 +62,15 @@ ASYNC_LOCK_INFO_RESPONSE = 25
 
 # Error codes (spec tables 14 and 16).
 ERR_UNRECOGNIZED_TYPE = 1
+ERR_UNRECOGNIZED_CONTROL = 2
 FATAL_POORLY_FORMED = 1
 FATAL_INVALID_INIT = 3
 
 RMT = 1  # control-code bit 0: RMT-delivered / RMT-expected
 
-REMOTE_LOCAL = {
-    0: "disable remote",
-    1: "enable remote",
-    2: "disable remote and go to local",
-    3: "enable remote and go to remote",
-    4: "enable remote and lock out local",
-    5: "enable remote, go to remote and lock out local",
-    6: "go to local",
-}
-
 
 def _pack(msg_type: int, control: int = 0, parameter: int = 0, payload: bytes = b"") -> bytes:
     return HEADER.pack(b"HS", msg_type, control, parameter, len(payload)) + payload
-
-
-@dataclass
-class InstrumentLocks:
-    """Locks of one instrument, shared by all of its HiSLIP sessions (spec 2.6, 6.5)."""
-
-    exclusive: HislipSession | None = None
-    shared: set[HislipSession] = field(default_factory=set)
-    #: Fired whenever a lock is released, so waiters re-check and blocked channels resume.
-    released: asyncio.Event = field(default_factory=asyncio.Event)
-
-    def held_by(self, sess: HislipSession) -> bool:
-        return sess is self.exclusive or sess in self.shared
-
-    def accessible(self, sess: HislipSession) -> bool:
-        """No locks at all, or this session is one of the holders (spec 2.6)."""
-        return (self.exclusive is None and not self.shared) or self.held_by(sess)
-
-    def grant(self, sess: HislipSession, exclusive: bool) -> bool:
-        if exclusive:
-            if self.exclusive is not None or self.shared:
-                return False
-            self.exclusive = sess
-            return True
-        if self.exclusive is not None:
-            return False
-        self.shared.add(sess)
-        return True
-
-    def release(self, sess: HislipSession) -> int:
-        """Release everything this session holds; returns the AsyncLockResponse code."""
-        if sess is self.exclusive:
-            self.exclusive = None
-            self.released.set()
-            return 1  # released an exclusive lock
-        if sess in self.shared:
-            self.shared.discard(sess)
-            self.released.set()
-            return 2  # released a shared lock
-        return 3  # error: this session held no lock
-
-    def holders(self) -> int:
-        return (1 if self.exclusive is not None else 0) + len(self.shared)
 
 
 class HislipSession:
@@ -222,13 +170,11 @@ class HislipServer:
         self._subaddresses: dict[str, str] = {}  # sub-address (lower case) -> instrument
         self._sessions: dict[int, HislipSession] = {}
         self._next_session_id = 1
-        self._lock_state: dict[str, InstrumentLocks] = {}
 
     async def start(self) -> None:
         for i, name in enumerate(self.session.instruments):
             self._subaddresses[f"hislip{i}"] = name
             self._subaddresses[f"hislip_{name}".lower()] = name
-            self._lock_state[name] = InstrumentLocks()
         self.server = await asyncio.start_server(self._client, self.host, self.port)
         self.port = self.server.sockets[0].getsockname()[1]
         for sub, name in self._subaddresses.items():
@@ -242,8 +188,8 @@ class HislipServer:
             out.setdefault(name, f"TCPIP0::{self.host}::{sub},{self.port}::INSTR")
         return out
 
-    def locks(self, instrument: str) -> InstrumentLocks:
-        return self._lock_state.setdefault(instrument, InstrumentLocks())
+    def locks(self, instrument: str) -> LockTable:
+        return bus_of(self.session, instrument).locks
 
     def forget(self, sess: HislipSession) -> None:
         if self._sessions.get(sess.session_id) is sess:
@@ -474,8 +420,14 @@ class HislipServer:
             writer.write(_pack(ASYNC_DEVICE_CLEAR_ACKNOWLEDGE, 0))
             await writer.drain()
         elif msg_type == ASYNC_REMOTE_LOCAL_CONTROL:
-            # Acknowledged and recorded; a virtual instrument has no front panel to change.
-            action = REMOTE_LOCAL.get(control, f"control code {control}")
+            # The bus state (REN/GTL/LLO) is shared with every other interface of the instrument
+            # (bus.py); a virtual instrument has no front panel to change, so it is recorded.
+            bus = bus_of(self.session, sess.instrument)
+            try:
+                action = bus.remote_local.control(control)
+            except KeyError:
+                await sess.send_error(writer, ERR_UNRECOGNIZED_CONTROL, b"unrecognized control code")
+                return
             self.session.emit(
                 {"kind": "hislip", "instrument": sess.instrument, "client": sess.client, "action": action}
             )
@@ -501,14 +453,14 @@ class HislipServer:
             # Request: an empty lock string asks for an exclusive lock (spec 6.5).
             exclusive = len(payload) == 0
             deadline = asyncio.get_running_loop().time() + parameter / 1000.0
-            granted = locks.grant(sess, exclusive)
+            granted = locks.grant(sess, exclusive, payload)
             while not granted and not sess.closing.is_set():
                 locks.released.clear()
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(locks.released.wait(), timeout=0.05)
                 if asyncio.get_running_loop().time() >= deadline:
                     break
-                granted = locks.grant(sess, exclusive)
+                granted = locks.grant(sess, exclusive, payload)
             code = 1 if granted else 0  # failure / success
         else:
             code = locks.release(sess)

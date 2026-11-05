@@ -3229,7 +3229,7 @@ export interface components {
         RunEvent: {
             /**
              * Action
-             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip events: the acknowledged control
+             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip and bus_control events: the acknowledged control
              */
             action: string | null;
             /**
@@ -3278,7 +3278,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | solver
+             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver
              */
             kind: string;
             /** Message */

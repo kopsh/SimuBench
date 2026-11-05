@@ -30,6 +30,8 @@ EVENT_KINDS: dict[str, str] = {
     "hidden": "a hidden parameter of the running bench written (source)",
     "remote": "remote/local control of an instrument changed (instrument, action)",
     "hislip": "a HiSLIP remote/local control message acknowledged (instrument, client, action)",
+    "bus_control": "a remote/local control (REN, GTL, LLO) applied through VXI-11, GPIB, USBTMC or "
+    "PyVISA (instrument, client, action)",
     "solver": "the circuit solver reported (reason, message)",
 }
 
@@ -88,7 +90,7 @@ class Event(BaseModel):
         None,
         description="A front-panel button, for panel events: run | stop | single; "
         "for remote events: local (taken back from the UI) | remote (a remote client's command); "
-        "for hislip events: the acknowledged control",
+        "for hislip and bus_control events: the acknowledged control",
     )
     # An acquisition's recipe (the scope's scope_acquisition emits them): the count, whether it
     # was forced, and per channel what was stored (D36) — what a waveform block regenerates from.
