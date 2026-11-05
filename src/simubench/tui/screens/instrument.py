@@ -235,7 +235,9 @@ class InstrumentScreen(ShellScreen):
         info = self.info
         width = max(40, app.size.width - 4)
         # Label columns as wide as their longest label, one space after it.
-        lw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.id", "instrument.address"))
+        lw = 1 + max(
+            cell_len(i18n.t(k, lang)) for k in ("instrument.id", "instrument.address", "instrument.vxi11")
+        )
         rw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.definition", "instrument.real"))
         rows: list[list[tuple[str, str]]] = [
             [
@@ -250,10 +252,14 @@ class InstrumentScreen(ShellScreen):
         if info.get("address_hislip"):
             addr_row.append(("   " + i18n.t("instrument.hiSLIP", lang) + " ", "muted"))
             addr_row.append((info["address_hislip"], ""))
-        if info.get("address_vxi11"):
-            addr_row.append(("   " + i18n.t("instrument.vxi11", lang) + " ", "muted"))
-            addr_row.append((info["address_vxi11"], ""))
         rows.append(addr_row)
+        if info.get("address_vxi11"):  # its own row: three addresses on one do not fit 80 columns
+            rows.append(
+                [
+                    (pad(i18n.t("instrument.vxi11", lang), lw), "muted"),
+                    (info["address_vxi11"], ""),
+                ]
+            )
         right: list[list[tuple[str, str]]] = []
         right.append(
             [

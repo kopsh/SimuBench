@@ -109,6 +109,7 @@ def test_the_embedded_log_shows_only_commands():
         ("pyvisa", "Script"),
         ("socket:127.0.0.1:53122", "Script :53122"),
         ("hislip:127.0.0.1:4880#0001", "Script :4880"),
+        ("vxi11:127.0.0.1:53124#0002", "Script :53124"),
         ("replay", "Replay"),
         ("", "Event"),
     ],

@@ -22,7 +22,7 @@ def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     from .server.app import create_app
-    from .server.manager import SessionManager
+    from .server.manager import SessionManager, vxi11_port_of
 
     bench = Path(args.bench).resolve() if args.bench else None
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
@@ -31,7 +31,7 @@ def _serve(args: argparse.Namespace) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
-        vxi11_port=None if args.no_scpi or args.no_vxi11 else args.vxi11_port,
+        vxi11_port=vxi11_port_of(args),
         portmapper_port=args.portmapper_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
@@ -131,7 +131,7 @@ def _mcp(args: argparse.Namespace) -> int:
 
     from .ops import setup_logging
     from .server.app import create_app
-    from .server.manager import SessionManager
+    from .server.manager import SessionManager, vxi11_port_of
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     workspace = Path(args.workspace).resolve()
@@ -140,7 +140,7 @@ def _mcp(args: argparse.Namespace) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
-        vxi11_port=None if args.no_scpi or args.no_vxi11 else args.vxi11_port,
+        vxi11_port=vxi11_port_of(args),
         portmapper_port=args.portmapper_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
@@ -523,16 +523,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--vxi11-port",
         type=int,
-        default=0,
-        help="VXI-11 core channel port (D63); 0 lets the OS choose",
+        default=None,
+        help="serve VXI-11 with its core channel on this port (D63); 0 lets the OS choose; off by default",
     )
-    p.add_argument("--no-vxi11", action="store_true", help="do not serve VXI-11")
     p.add_argument(
         "--portmapper-port",
         type=int,
         default=None,
-        help="also start a port mapper here so VISA libraries find VXI-11; they look at 111, which "
-        "needs privileges (default: none, connect with TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
+        help="also start a port mapper here so VISA libraries find VXI-11 (turns VXI-11 on); they look "
+        "at 111, which needs privileges (default: none, connect with "
+        "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
     )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
@@ -573,16 +573,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--vxi11-port",
         type=int,
-        default=0,
-        help="VXI-11 core channel port (D63); 0 lets the OS choose",
+        default=None,
+        help="serve VXI-11 with its core channel on this port (D63); 0 lets the OS choose; off by default",
     )
-    p.add_argument("--no-vxi11", action="store_true", help="do not serve VXI-11")
     p.add_argument(
         "--portmapper-port",
         type=int,
         default=None,
-        help="also start a port mapper here so VISA libraries find VXI-11; they look at 111, which "
-        "needs privileges (default: none, connect with TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
+        help="also start a port mapper here so VISA libraries find VXI-11 (turns VXI-11 on); they look "
+        "at 111, which needs privileges (default: none, connect with "
+        "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
     )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
@@ -605,16 +605,16 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--vxi11-port",
         type=int,
-        default=0,
-        help="VXI-11 core channel port (D63); 0 lets the OS choose",
+        default=None,
+        help="serve VXI-11 with its core channel on this port (D63); 0 lets the OS choose; off by default",
     )
-    p.add_argument("--no-vxi11", action="store_true", help="do not serve VXI-11")
     p.add_argument(
         "--portmapper-port",
         type=int,
         default=None,
-        help="also start a port mapper here so VISA libraries find VXI-11; they look at 111, which "
-        "needs privileges (default: none, connect with TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
+        help="also start a port mapper here so VISA libraries find VXI-11 (turns VXI-11 on); they look "
+        "at 111, which needs privileges (default: none, connect with "
+        "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
     )
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")

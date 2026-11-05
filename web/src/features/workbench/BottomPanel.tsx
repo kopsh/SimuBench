@@ -261,6 +261,7 @@ function clientLabel(client: string | null | undefined, t: (key: string) => stri
   if (client === "ui" || client === "mcp" || client === "replay") return t(`panel.client.${client}`);
   if (client.startsWith("socket:")) return "SOCKET";
   if (client.startsWith("hislip:")) return "HiSLIP";
+  if (client.startsWith("vxi11:")) return "VXI-11";
   return client;
 }
 

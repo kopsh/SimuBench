@@ -67,3 +67,23 @@ def test_a_vxi11_script_makes_the_instrument_remote(served):
         scope.close()
     finally:
         rm.close()
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("vxi11_port", "portmapper_port", "no_scpi", "expected"),
+    [
+        (None, None, False, None),  # off by default: a random port would make launcher output unstable
+        (0, None, False, 0),  # asked for, the OS chooses
+        (4999, None, False, 4999),
+        (None, 111, False, 0),  # a port mapper needs VXI-11 behind it
+        (0, 111, True, None),  # --no-scpi turns every network port off
+    ],
+)
+def test_the_command_line_turns_vxi11_on_only_when_asked(vxi11_port, portmapper_port, no_scpi, expected):
+    from types import SimpleNamespace
+
+    from simubench.server.manager import vxi11_port_of
+
+    args = SimpleNamespace(vxi11_port=vxi11_port, portmapper_port=portmapper_port, no_scpi=no_scpi)
+    assert vxi11_port_of(args) == expected

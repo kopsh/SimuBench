@@ -65,6 +65,16 @@ class ClientsConnected(RuntimeError):
         self.clients = clients
 
 
+def vxi11_port_of(args: Any) -> int | None:
+    """The VXI-11 core port the command line asks for: ``--vxi11-port`` (0 lets the OS choose), or
+    implied by ``--portmapper-port``; ``None`` leaves VXI-11 off, as it is by default (D63)."""
+    if args.no_scpi:
+        return None
+    if args.vxi11_port is not None:
+        return int(args.vxi11_port)
+    return 0 if args.portmapper_port is not None else None
+
+
 def is_remote(client: str | None) -> bool:
     """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
     return bool(client) and client.startswith(("socket:", "hislip:", "vxi11:"))  # type: ignore[union-attr]
