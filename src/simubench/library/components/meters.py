@@ -20,6 +20,7 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from . import ranging
 
 #: Calibration errors (positive device codes, as on real meters).
 CAL_SECURED = 701
@@ -272,23 +273,15 @@ class DmmConditioning(Component):
     # ---- ranging ---------------------------------------------------------------------------------
 
     def ranges(self, function: str) -> list[float]:
-        """The function's range full-scale values, ascending (empty: the meter does not range)."""
-        spec = self.param("ranges")
-        if spec is None:
-            return []
-        if isinstance(spec, dict):
-            if function not in spec:
-                raise ValueError(f"{self.uid}: ranges have no entry for the {function} function")
-            spec = spec[function]
-        return sorted(float(x) for x in spec)
+        """The function's range full-scale values, ascending (empty: the meter does not range).
+
+        The meter's ranges must cover every selectable function: a function the ranges dict does
+        not name is a definition error, refused here (ranging's ``missing="error"``)."""
+        return ranging.ranges_of(self.param("ranges"), function, missing="error", owner=self.uid)
 
     def fitting_range(self, function: str, value: float) -> float | None:
         """The smallest range that can measure ``value`` (the largest range when none can)."""
-        ranges = self.ranges(function)
-        for r in ranges:
-            if r >= abs(value) * (1 - 1e-12):
-                return r
-        return ranges[-1] if ranges else None
+        return ranging.fitting_range(self.ranges(function), value)
 
     def range_of_setting(self, function: str) -> float | None:
         """The manual range: the smallest range that can measure the range setting."""
@@ -298,9 +291,7 @@ class DmmConditioning(Component):
             value = self.param("range_res")
         elif upper in ("DCI", "ACI") and self.param("range_curr") is not None:
             value = self.param("range_curr")
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or value <= 0:
-            return None  # nothing usable is set: the meter autoranges
-        return self.fitting_range(function, value)
+        return ranging.range_of_setting(self.ranges(function), value)
 
     def effective_range(self, function: str, *, derive: bool = True) -> float | None:
         """The range in use: the manual setting's, or the auto one (``derive`` takes it from the
@@ -321,11 +312,16 @@ class DmmConditioning(Component):
         """The auto-range decision for a true value: outside the hysteresis band
         ``autorange_down`` .. ``autorange_up`` × the range's full scale, the smallest range that
         fits the value."""
-        old = self._auto_range.get(function)
-        high = float(self.param("autorange_up")) * old if old is not None else None
-        low = float(self.param("autorange_down")) * old if old is not None else None
-        if old is None or not low <= abs(true) <= high:
-            self._adopt_range(function, self.fitting_range(function, true))
+        self._adopt_range(
+            function,
+            ranging.auto_range(
+                self.ranges(function),
+                self._auto_range.get(function),
+                true,
+                float(self.param("autorange_up")),
+                float(self.param("autorange_down")),
+            ),
+        )
 
     def _adopt_range(self, function: str, r: float | None) -> None:
         """Take a range as the auto one; the input terminal re-stamps when the range moved (the

@@ -155,7 +155,7 @@ def test_fm_keeps_the_envelope_and_spreads_the_lines(session):
     freq, amp = carrier(sg)
     # beta = 2: Carson keeps |n| <= 3, seven lines around the carrier; the truncation drops the
     # power outside them (validation-rfgen.md 3).
-    from simubench.library.components.rfgen import omitted_power_fraction
+    from simubench.library.components.modulation import omitted_power_fraction
 
     assert freq.size == 7
     kept = peaks(0.0) * np.sqrt(1 - omitted_power_fraction(2.0))
