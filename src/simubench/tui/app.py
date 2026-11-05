@@ -118,6 +118,9 @@ class SimuBenchApp(App[None]):
         self.levels: dict[str, Any] | None = None
         self.readings: dict[str, dict[str, Any]] = {}
         self.screen_data: dict[str, dict[str, Any]] = {}  # per-instrument /screen payloads
+        #: the dot width each scope screen last asked for: a refetch (an event, a reconnect) must
+        #: ask for the same binning, or the frame comes back raw and the trace draws nothing
+        self.scope_points: dict[str, int] = {}
         self.faults: list[dict[str, Any]] = []  # GET /faults, refetched on fault events (section 1.6)
         self.scpi_history: dict[str, list[str]] = {}  # per-instrument console history (10.3)
         self.catalog: dict[str, Any] = {}
@@ -444,7 +447,7 @@ class SimuBenchApp(App[None]):
                     self.readings[name] = await self.client.readings(self.sid, name)
             if template == "oscilloscope":
                 with contextlib.suppress(ApiError):
-                    self.screen_data[name] = await self._screen(name)
+                    self.screen_data[name] = await self._screen(name, self.scope_points.get(name))
 
     async def _screen(self, name: str, points: int | None = None) -> dict[str, Any]:
         assert self.sid is not None
@@ -457,6 +460,7 @@ class SimuBenchApp(App[None]):
         — watched by the scope screen alone — and leaves ``data_version``, and with it "the
         app has settled", untouched.
         """
+        self.scope_points[name] = points
         try:
             self.screen_data[name] = await self._screen(name, points)
         except ApiError:

@@ -35,7 +35,9 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   border and padding — a row wider than the Static *wraps*, it does not truncate), their height
   from `_channel_row_budget()` / `_side_height()`, and the body height from `_body_rows()` (it
   already excludes the demo's caption row). `call_after_refresh(_relayout)` redraws once real
-  widths exist. No scrollbars anywhere: a scrollbar steals a column and wraps every row.
+  widths exist. No scrollbars anywhere: a scrollbar steals a column and wraps every row. The scope
+  screen's trace is the same trap: its width is the wave box's inner width, and its frame is
+  fetched at twice that (`app.scope_points` keeps it across refetches).
 - **Numbers**: use `fmt.fmt` (SI prefixes, right-aligned); never hand-format a value. Use
   `cell_len` / `pad` / `ralign`, not `len`, for widths.
 - **Keys**: table in `docs/tui-design.md` 4. Every action is also reachable from the command

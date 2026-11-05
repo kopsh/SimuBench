@@ -424,8 +424,33 @@ async def test_screen_points_requested_at_dot_width():
         await settle(pilot, tui)
         await open_instrument(pilot, tui, "scope")
         await wait_flat(pilot, tui, "CH1 50.0 mV/div")
-        # The screen fetched its frame at its own dot width (100 − 30) × 2.
-        await wait_for(pilot, lambda: ("scope", 140) in fake.screen_requests, message="points request")
+        # The screen fetched its frame at its own dot width: the wave box's inner width (100 − 31)
+        # × 2 — 26 for the settings column, 1 margin, 4 for the box's border and padding.
+        await wait_for(pilot, lambda: ("scope", 138) in fake.screen_requests, message="points request")
+
+
+async def test_wave_rows_fit_the_wave_box():
+    """A trace row wider than the box wraps and doubles every row (the grid and the trace with it)."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        await wait_flat(pilot, tui, "CH1 50.0 mV/div")
+        await pilot.pause(0.5)
+        cols, _rows = tui.screen._wave_size()
+        assert cols == tui.screen._wave_static.size.width
+
+
+async def test_a_refetched_scope_frame_keeps_its_dot_width():
+    """A stopped scope's frame is fetched once at the screen's dot width, and a later fetch (an event,
+    a reconnect) asks for the same binning — a raw frame has no min/max and the trace draws nothing."""
+    tui, fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        await wait_for(pilot, lambda: ("scope", 138) in fake.screen_requests, message="points request")
+        await tui._fetch_instruments({"scope"})
+        assert fake.screen_requests[-1] == ("scope", 138)
 
 
 # ---- the reason dialog (tui-screens.md 9.1) ------------------------------------------------------------
