@@ -12,7 +12,8 @@ from scipy.special import jv
 from simubench.engine.deviation import set_override
 from simubench.engine.session import Session
 from simubench.engine.signal import Signal
-from simubench.library.components.rfgen import RfModulator, carson_orders
+from simubench.library.components.modulation import carson_orders
+from simubench.library.components.rfgen import RfModulator
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 from simubench.scpi.errors import ScpiError

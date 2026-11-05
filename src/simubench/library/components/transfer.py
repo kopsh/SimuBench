@@ -45,6 +45,7 @@ import numpy as np
 from ...engine.component import Acquisition, AcquisitionInput, Component, OpResult, component, op
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from . import adc
 from .scope import Record, channel_index
 
 
@@ -137,9 +138,9 @@ class WaveformTransfer(Component):
         bits = int(self.param("adc_bits"))
         width = int(self.param("width"))
         sign = 1.0 if str(self.param("offset")).lower() == "add" else -1.0
-        half = 1 << (bits - 1)
-        codes = np.round((rec.volts + sign * rec.offset) / rec.scale * float(self.param("codes_per_div")))
-        codes = np.clip(codes, -half, half - 1).astype(np.int64)
+        codes = adc.codes(
+            rec.volts, rec.scale, sign * rec.offset, float(self.param("codes_per_div")), bits
+        ).astype(np.int64)
         if width > bits:
             codes = codes << (width - bits)
         elif width < bits:
