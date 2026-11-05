@@ -75,11 +75,11 @@ def test_the_status_follows_virtual_time():
     acq = session.instruments["scope"].components["acq"]
     _query(session, ":TRIGger:MODE SINGle")
     assert _query(session, ":TRIGger:STATus?") == "Ready"
-    assert acq.trigger_ns is not None and acq.due_ns is not None
-    assert session.now_ns < acq.trigger_ns < acq.due_ns
-    session.advance((acq.trigger_ns - session.now_ns) / 1e9 + 1e-6)  # past the trigger
+    assert acq.pending.trigger_ns is not None and acq.pending.due_ns is not None
+    assert session.now_ns < acq.pending.trigger_ns < acq.pending.due_ns
+    session.advance((acq.pending.trigger_ns - session.now_ns) / 1e9 + 1e-6)  # past the trigger
     assert _query(session, ":TRIGger:STATus?") == "Trig'd"  # the record after it is filling
-    session.advance((acq.due_ns - session.now_ns) / 1e9)
+    session.advance((acq.pending.due_ns - session.now_ns) / 1e9)
     assert _query(session, ":TRIGger:STATus?") == "Stop"
     session.close()
 

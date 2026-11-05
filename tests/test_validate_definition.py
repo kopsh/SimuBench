@@ -148,14 +148,14 @@ def test_parameter_type_against_its_state():
 
 def test_operations():
     bad = copy.deepcopy(DSO)
-    i = next(i for i, c in enumerate(bad["commands"]) if c.get("op") == "acq.preamble")
-    bad["commands"][i]["op"] = "acq.preambel"
+    i = next(i for i, c in enumerate(bad["commands"]) if c.get("op") == "xfer.header")
+    bad["commands"][i]["op"] = "xfer.heade"
     _, report = validate_definition_data(bad)
     [d] = report.diagnostics
-    assert (d.code, d.pointer, d.suggestion) == ("E-DEF-OP-UNKNOWN", f"/commands/{i}/op", "改为 acq.preamble")
-    bad["commands"][i]["op"] = "aqc.preamble"
+    assert (d.code, d.pointer, d.suggestion) == ("E-DEF-OP-UNKNOWN", f"/commands/{i}/op", "改为 xfer.header")
+    bad["commands"][i]["op"] = "aqc.header"
     assert codes(bad) == [("E-DEF-OP-UNKNOWN", f"/commands/{i}/op")]
-    bad["commands"][i]["op"] = "ch.front.preamble"  # a channel component, header without <ch>
+    bad["commands"][i]["op"] = "ch.front.header"  # a channel component, header without <ch>
     assert codes(bad) == [("E-DEF-OP-UNKNOWN", f"/commands/{i}/op")]
 
 

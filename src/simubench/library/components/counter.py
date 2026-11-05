@@ -74,6 +74,12 @@ class CounterInput(Component):
 
         The waveform is sampled over one period of its dominant line (``sample_rel`` keeps the
         sub-nanosecond phase of the line origins) and the crossings are interpolated linearly.
+
+        Not the scope's ``measurements.crossings``: a counter's comparator fires when a sample
+        *touches* the level (``>=``), while the measurement's hysteresis band counts only a
+        crossing that leaves the band — on an off-grid phase a sample can sit exactly on the
+        level, and the two then disagree (the gap-free test #328 counts on it). No hysteresis
+        here either: the ``sensitivity`` gate above already rejects what one would.
         """
         sig = self.output("out").merged()
         pos = sig.freq > 0

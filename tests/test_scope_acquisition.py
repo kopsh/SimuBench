@@ -15,7 +15,7 @@ from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
 from simubench.api import open_bench
 from simubench.engine.session import Session
 from simubench.engine.validate_definition import validate_definition_data
-from simubench.library.components.scope import _measure, _top_base
+from simubench.library.components.measurements import measure, top_base
 from simubench.library.loader import DefinitionLibrary, load_yaml
 from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
@@ -255,13 +255,13 @@ def test_amplitude_falls_back_to_the_extremes_without_levels():
     """A ramp or triangle fills the histogram evenly: no top and base to tell (F2, #131), and
     AMPLitude falls back to the extremes; a flat record or too little data does the same."""
     ramp = np.linspace(-1.0, 1.0, 10_000)
-    assert _top_base(ramp) is None
-    assert _measure("VAMPlitude", ramp, 1e-6) == pytest.approx(2.0)
+    assert top_base(ramp) is None
+    assert measure("VAMPlitude", ramp, 1e-6) == pytest.approx(2.0)
     flat = np.zeros(100)
-    assert _measure("VAMPlitude", flat, 1e-6) == 0.0
-    assert _measure("VAMPlitude", np.array([0.0, 1.0, 0.0]), 1e-6) == pytest.approx(1.0)
-    assert math.isnan(_measure("FREQuency", flat, 1e-6))
-    assert math.isnan(_measure("PERiod", ramp, 1e-6))
+    assert measure("VAMPlitude", flat, 1e-6) == 0.0
+    assert measure("VAMPlitude", np.array([0.0, 1.0, 0.0]), 1e-6) == pytest.approx(1.0)
+    assert math.isnan(measure("FREQuency", flat, 1e-6))
+    assert math.isnan(measure("PERiod", ramp, 1e-6))
 
 
 def _modules_definition(**params: Any) -> InstrumentDefinition:
@@ -345,7 +345,7 @@ def test_the_clock_follows_ref_in_and_falls_back_to_the_internal_one():
     assert tb.clock_error() == pytest.approx(5e-6)  # the reference's 0.5 ppm, not the unit's 400
     session.write("scope", b":DIGitize\n")
     record = acq.records[1]
-    assert _measure("FREQuency", record.volts, record.dt_s) == pytest.approx(1000.0 / (1 + 5e-6), abs=0.01)
+    assert measure("FREQuency", record.volts, record.dt_s) == pytest.approx(1000.0 / (1 + 5e-6), abs=0.01)
     session.write("awg", b":OUTPut2:STATe OFF\n")  # the reference dies: the internal clock takes over
     assert tb.clock_error() == pytest.approx(400e-6)
     session.close()
