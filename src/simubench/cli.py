@@ -506,7 +506,15 @@ def main(argv: list[str] | None = None) -> int:
         help="connect to a running serve/mcp instead of starting one (default URL: 127.0.0.1:8000)",
     )
     p.add_argument("--session", help="the session id to attach to (default: only one, else pick)")
-    p.add_argument("--clock", choices=["command", "wall", "stepped"], help="clock mode for a started bench")
+    p.add_argument(
+        "--clock", choices=["command", "wall", "stepped", "scaled"], help="clock mode for a started bench"
+    )
+    p.add_argument(
+        "--time-scale",
+        type=float,
+        metavar="N",
+        help="with --clock scaled: virtual seconds per real second (default: the bench's run.time_scale)",
+    )
     p.add_argument("--seed", type=int, help="bench seed for a started bench")
     add_service_options(p, logs=False, token="present")
     p.add_argument("--script", metavar="STEPS_YAML", help="run these steps headlessly and exit (6)")

@@ -438,3 +438,26 @@ def test_fault_endpoints_convert_inside_the_view(monkeypatch):
         r = c.get(f"/api/sessions/{sid}/faults")
         assert r.status_code == 200 and len(r.json()) == 1
         assert violations == []
+
+
+def test_scaled_clock_is_started_read_and_rescaled_over_the_api(client):
+    info = client.post(
+        "/api/sessions",
+        json={"bench_path": "benches/awg_rc_scope.bench.yaml", "clock": "scaled", "time_scale": 5},
+    ).json()
+    sid = info["id"]
+    assert (info["clock_mode"], info["time_scale"]) == ("scaled", 5.0)
+    assert client.get(f"/api/sessions/{sid}/clock").json()["scale"] == 5.0
+    before = client.get(f"/api/sessions/{sid}/clock").json()["now_ns"]
+    r = client.post(f"/api/sessions/{sid}/clock/scale", json={"scale": 20})
+    assert r.status_code == 200 and r.json()["scale"] == 20.0 and r.json()["now_ns"] >= before  # no rewind
+    assert client.post(f"/api/sessions/{sid}/clock/scale", json={"scale": 0}).status_code == 422
+    # A scaled clock walks on its own, like the wall clock: it cannot be advanced by hand.
+    assert client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": 1}).status_code == 409
+
+
+def test_a_stepped_clock_takes_no_new_scale_over_the_api(client):
+    sid = client.post(
+        "/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml", "clock": "stepped"}
+    ).json()["id"]
+    assert client.post(f"/api/sessions/{sid}/clock/scale", json={"scale": 2}).status_code == 409

@@ -269,7 +269,7 @@
             }
           ],
           "default": null,
-          "description": "For error / trip: SCPI error code (default -300)",
+          "description": "For error / trip: SCPI error code (default -300); for error it must be in the instrument's error table or the SCPI standard list unless a message is given",
           "title": "Code"
         },
         "component": {
@@ -296,7 +296,7 @@
             }
           ],
           "default": null,
-          "description": "Link faults: number of messages affected",
+          "description": "Link faults: number of messages affected; error: how many times it is queued",
           "title": "Count"
         },
         "drift_per_s": {
@@ -591,7 +591,8 @@
           "enum": [
             "command",
             "wall",
-            "stepped"
+            "stepped",
+            "scaled"
           ],
           "title": "Clock",
           "type": "string"
@@ -624,6 +625,14 @@
           "format": "date-time",
           "title": "Start",
           "type": "string"
+        },
+        "time_scale": {
+          "default": 1.0,
+          "description": "Scaled clock: virtual seconds per real second (10 = ten times faster than the wall clock); changeable while running. Only read on the scaled clock",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "title": "Time Scale",
+          "type": "number"
         }
       },
       "title": "RunConditions",

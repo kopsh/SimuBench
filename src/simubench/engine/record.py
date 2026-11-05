@@ -116,6 +116,7 @@ class Recorder:
             # Drawn individual deviations; a replay draws them again from the seed and warns when they differ.
             "deviations": self.session.deviations(),
             "clock": self.session.clock_mode,
+            "time_scale": self.session.time_scale,
             "idle": self.session.idle_mode,
             "started": time.time(),
         }

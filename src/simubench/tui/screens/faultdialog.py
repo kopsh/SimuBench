@@ -27,7 +27,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "garble": ("garble_rate",),
     "latency": ("latency_s",),
     "busy": ("count",),
-    "error": ("code", "message"),
+    "error": ("code", "message", "count"),
     "trip": ("code", "message"),
     "drift": ("component", "param", "drift_per_s"),
     "hidden": ("component", "param", "value"),

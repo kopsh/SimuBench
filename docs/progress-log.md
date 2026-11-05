@@ -1420,3 +1420,66 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试台与脚本 | ✅ `examples/benches/bk-8614.bench.yaml`（48 V、0.1 Ω 直流源 → 8614）；`examples/scripts/bk_8614_load_test.py` 按手册第 4 章写法（*RST、CC、OCP、逐级电流、MEAS/FETC、错误队列）在 `tests/test_bk_8614.py` 中运行；另测 OPP/OCP 延时跳闸、延时内消除的过流不跳闸、最慢斜率 |
 | 未做 | ⚠️ 暂态（C2）、列表、输入短路与定时器、缓冲采集（TRACe）、CR-LED、*SAV/*RCL、硬件功率保护 `POW:CONF`、OTP（无温度模型）、远端测量的引线压降；逐条在覆盖表 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## #678 TUI 命令面板与状态变量搜索（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 命令面板 | ✅ `Ctrl+K`（任意主屏幕）：应用键位、`Open <仪表>`、每个可写状态变量 `Set <仪表> · <设置>`，由数据生成；Textual 自带面板关闭 |
+| 直接设值 | ✅ `smu voltage level 7.5` 顶部出现 `Set … = 7.5`；非数不出，超范围照出由字段报错 |
+| `/` 搜索 | ✅ 仪表屏幕：按标签与路径搜字段，⏎ 跳到并编辑；开关只聚焦 |
+| 不绕过 | ✅ 设值走字段的 `_commit_edit`：范围检查、单位、危险开关确认、远程只读；`tests/test_tui_palette.py` 覆盖超范围不写、输出开启仍确认 |
+| 文档与 skill | ✅ `tui-screens.md` 2.5 与键表、`tui-design.md` 4、`tui-ui` skill、帮助措辞（`help.actions.palette/search`） |
+| 未做 | ⚠️ 底栏不提示 `Ctrl+K` 与 `/`（80 列放不下，帮助 `?` 里有）；脚本指令 `open` 等见 #684 |
+
+## #682 故障类型 error：直接往错误队列塞指定错误码（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 现状核对 | `error` 故障（`code`、`message`，只入队、不改状态）早已存在；本次只补缺的三项 |
+| `count` | ✅ 往队列放 `count` 次，`SYST:ERR?` 按序读到，用尽后恢复为 `0,"No error"`；运行记录里仍是一条注入事件，回放复现 |
+| 校验 | ✅ 无 `message` 时 `code` 须在仪表错误表或 SCPI 标准表里，否则 `ValueError` 带诊断（经 API 为 422）；有 `message` 则放行 |
+| 客户端 | ✅ TUI 故障对话框 `error` 增加 `count`；API / MCP / Web 共用 `Fault` 模型，`schemas/` 已重新生成 |
+| 未做 | ⚠️ 对话框分组不动（`error` 已在“仪表”组）；Web 故障面板是否显示 `count` 未改 |
+
+## #683 scaled 时钟：按倍率走的虚拟时间（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 引擎 | ✅ `run.clock: scaled` + `run.time_scale`；虚拟时间 = 基准 + 真实时间差 × 倍率，改倍率时重设基准，不回退；墙钟即倍率 1；链路延迟与等待按“虚拟时长 ÷ 倍率”折算真实秒（最多 5 s） |
+| 入口 | ✅ CLI `--clock scaled --time-scale N`；测试台文件 `run.time_scale`；API 启动参数、`POST …/clock/scale`、`ClockInfo.scale`、`SessionInfo.time_scale`；MCP `start_session(time_scale=)`；编辑操作 `set_run`；`open_bench(time_scale=)` |
+| 非确定性 | ✅ 与墙钟同：不能 `advance`（409），记录头写入 `time_scale`，回放按步进时钟 |
+| 界面 | ✅ TUI 顶栏“时钟走动 ×N”、`a` 提示、1 s 轮询；Web 顶栏、命令面板、编辑检查器（模式与倍率）、本地走时 |
+| 测试 | ✅ `tests/test_scaled_clock.py`（注入墙钟源，不 sleep）、`tests/test_server.py`、`tests/test_tui.py`；`pnpm typecheck / lint / test` 通过 |
+| 未做 | ⚠️ 配置路径 `run.clock: {mode, scale}`（issue 草案）改为 `run.clock` + `run.time_scale`，与已有字符串格式兼容；运行中改倍率的 UI 只在编辑检查器（配置的倍率），运行中的实时倍率滑块未做；`SIMUBENCH_CLOCK` 环境变量未配套倍率 |
+
+## #681 TUI 总览的日志抽屉：默认收小，给卡片让出高度（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 抽屉 | ✅ 总览通信记录默认 3 行（原 `max(6, min(16, 屏高 − 24))`），`L` 展开 / 收起；`l` 仍是全屏通信记录，不改键位 |
+| 新错误 | ✅ 收起时标题写 `✗ N new`，不自动展开；展开或启动时已有的算已看到 |
+| 高度 | ✅ 100×32 下 6 台仪表的演示台两排卡片都可见（快照审阅）；80×24 下抽屉 5 行，卡片区可滚动，最后一行不被日志盖住 |
+| 键位与帮助 | ✅ `L` 在总览无冲突（仪表屏幕的 `L` 是本地接管）；`help.actions.toggle_log` 由 `tests/test_tui_help.py` 守住；底栏省略顺序加入 `L` |
+| 测试 | ✅ `tests/test_tui_overview_ux.py` 三条（开合、新错误标记、80×24）；总览两张快照已更新并审阅 |
+| 未做 | ⚠️ 与 issue 草案不同：没有把 `l` 改成抽屉、`L` 改全屏，因为 `l` 在所有屏幕都是全屏记录，改动会破坏全局一致 |
+
+## #679 TUI 仪表屏幕的状态树与隐藏变量视图（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 状态树 | ✅ `t` 打开：全部状态变量按路径第一段分组，可折叠；可写变量是字段，在树里原地编辑（同一编辑层：范围检查、单位、危险确认、远程只读）；只读行写 `RO`；初始按整组取舍（#374），折叠存在应用上，数据刷新、离开再回来都保持；只在形状变化时重建，焦点与键入中的值不丢 |
+| 隐藏变量 | ✅ `h` 加 `hidden` 一组：个体偏差（值仅在 `run.reveal_true_values` 开启时显示，否则 `—` 并说明）与对该仪表生效的 `hidden` 故障改写值；`sim` 色 + `◆ hidden` 文字前缀，`NO_COLOR` 下可辨；只读 |
+| 键位变更 | ⚠️ issue 写 `L` 显示隐藏变量；`L` 在仪表屏幕已是本地接管，改为树内的 `h`（`t` / `h` 均无冲突，`test_tui_help` 守住说明文字） |
+| 设计与现实的差别 | ⚠️ 设计时以为隐藏值来自 `/internals`；核对后它只是部件的名义参数，不含隐藏值。隐藏值实际来自实例信息里的 `deviations` 和故障列表，不需要新接口；读数的“真实值”只有 MCP 的 `read_true_values`，TUI 未做 |
+| 命令面板缺口 | ✅ 核对 #678：万用表（面板模板）有设置不在屏幕上，面板跳转原会失败；现改为打开状态树并聚焦（`tests/test_tui_state_tree.py`）；SMU 的“其他设置”已覆盖全部 |
+| 测试 | ✅ `tests/test_tui_state_tree.py` 13 条（行数据 6 条、屏幕 7 条）；100×32 与 80×24 快照已审阅（80×24 下 `sweep` 整组折叠） |
+| 未做 | ⚠️ 底栏不提示 `t`；读数真实值；隐藏值的改写入口（走 `hidden` 故障） |
+
+## #685 TUI 层守门测试：src/simubench/tui 里不得出现内置型号名（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 测试 | ✅ `tests/test_tui_no_model_names.py`（unit，约 30 ms）：读内置与 validation 定义（排除 `*.coverage.yaml`）顶层的 `id` / `model`，丢掉短于 4 个字符的，大小写不敏感地扫描 `src/simubench/tui/**/*.py` 全文，命中报“文件:行 名字”，无豁免清单；定义只用正则读文件头，不解析 YAML（解析要 2 s） |
+| 唯一命中 | ✅ `widgets.py` 里 `decorate_title` 文档字符串的 `SDG2042X` 改为 `MODEL-A` |
+| 验证 | ✅ 故意在 `tui/fmt.py` 加一行含 `SDG2042X` 的注释，测试红并报 `fmt.py:207 sdg2042x`；撤销后绿；另有一条测试在临时文件上确认守门确实会命中 |

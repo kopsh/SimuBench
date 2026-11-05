@@ -14,6 +14,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
+from ..models.bench import LIVE_CLOCKS
 from ..models.definition import CommandSpec, InstrumentDefinition, ParamSpec, ResponseFormat, StateSpec
 from ..scpi import values as V
 from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
@@ -572,8 +573,8 @@ class Instrument:
             return 0
         if self.session.clock_mode == "command":
             return remaining
-        if self.session.clock_mode == "wall":
-            time.sleep(min(remaining / 1e9, 5.0))
+        if self.session.clock_mode in LIVE_CLOCKS:
+            time.sleep(min(remaining / 1e9 / self.session.time_scale, 5.0))
             self.session.follow_wall()
         return 0
 

@@ -9,11 +9,13 @@ focused control asks for (POST configure / panel / local, always with the tui he
 
 from __future__ import annotations
 
+import textwrap
 from typing import Any, ClassVar
 
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widget import Widget
 from textual.widgets import Static
 
 from .. import controls as C
@@ -21,10 +23,10 @@ from .. import i18n, rows
 from ..cards import ARROWS, opposite_ends
 from ..fmt import cell_len, fmt, pad
 from ..log import source_label
-from ..reasons import ReasonReport, error_report, fault_report, limited_report, setting_report
-from ..widgets import box_text, box_title, render_segments
+from ..reasons import ReasonReport, active_faults, explain_instrument
+from ..widgets import box_text, box_title, decorate_title, render_segments
 from .dialogs import ScpiConsole
-from .editing import ControlButton, ControlEditingScreen
+from .editing import ButtonGrid, ControlButton, ControlEditingScreen
 
 
 def _english(text: Any) -> str | None:
@@ -35,11 +37,31 @@ def _english(text: Any) -> str | None:
     return t if all(ord(c) < 0x2E80 for c in t) else None
 
 
+def _wrapped(code: str, message: str, width: int, tokens: str) -> list[list[tuple[str, str]]]:
+    """``code  message`` wrapped to ``width``: the continuation lines sit under the message."""
+    first, *rest = textwrap.wrap(message, max(8, width - len(code) - 2)) or [""]
+    out = [[(code, tokens), ("  " + first, tokens)]]
+    out.extend([(" " * (len(code) + 2) + more, tokens)] for more in rest)
+    return out
+
+
 class _Box(Vertical):
-    """A round-bordered box; the border carries the title, Statics inside carry the rows."""
+    """A round-bordered box; the border carries the title, Statics inside carry the rows. A title
+    set on it wears the HUD's amber brackets — unless it is a ``box_title`` already padded with
+    ``─`` to the box width (the log and error boxes' left/right titles)."""
+
+    @property
+    def border_title(self) -> Any:  # type: ignore[override]
+        return Widget.__dict__["border_title"].__get__(self, type(self))
+
+    @border_title.setter
+    def border_title(self, value: Any) -> None:
+        if isinstance(value, str) and value and "─" not in value:
+            value = decorate_title(self.app, value)
+        Widget.__dict__["border_title"].__set__(self, value)
 
     DEFAULT_CSS = """
-    _Box { border: round $muted 60%; height: auto; border-title-align: left; padding: 0 1; }
+    _Box { border: round $line; border-title-color: $hud; height: auto; border-title-align: left; padding: 0 1; }
     """
 
 
@@ -67,8 +89,12 @@ class InstrumentScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
+        Binding("slash", "search", show=False),
+        Binding("t", "states", show=False),
+        Binding("left_square_bracket", "switch_instrument(-1)", show=False),
+        Binding("right_square_bracket", "switch_instrument(1)", show=False),
         Binding("L", "local", show=False),  # capital L (5.5): lowercase l is the log everywhere
-        Binding("question_mark", "reason", show=False),
+        Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
 
     def __init__(self, name: str) -> None:
@@ -85,10 +111,10 @@ class InstrumentScreen(ControlEditingScreen):
     #channel-area { width: 1fr; }
     #wiring-box { width: 16; }
     #load-box { width: 19; margin-left: 1; }
-    #side-row { height: auto; }
-    #other-box { width: 2fr; }
-    #error-box { width: 1fr; margin-left: 1; }
-    .button-row { height: auto; }
+    #side-row { height: 3; }
+    #other-box { width: 2fr; height: 1fr; overflow-y: auto; scrollbar-size-vertical: 0; }
+    #error-box { width: 1fr; height: 1fr; margin-left: 1; overflow-y: auto; scrollbar-size-vertical: 0; }
+    #channel-area { scrollbar-size-vertical: 0; }
     .flash-line { color: $bad; }
     .reason-line { color: $fg; text-wrap: nowrap; text-overflow: ellipsis; }
     """
@@ -123,10 +149,11 @@ class InstrumentScreen(ControlEditingScreen):
             self._load = _Box(self._load_static, id="load-box")
             self._load.can_focus = False
             yield self._load
-        with Horizontal(id="side-row"):
+        self._side_row = Horizontal(id="side-row")
+        with self._side_row:
             self._other_static = Static(id="other-text")
             self._other_static.can_focus = False
-            self._other_buttons = Horizontal(classes="button-row")
+            self._other_buttons = ButtonGrid()
             self._other_flash = Static(classes="flash-line")
             self._other_flash.can_focus = False
             self._other_flash.display = False
@@ -157,10 +184,12 @@ class InstrumentScreen(ControlEditingScreen):
         if not self._built:
             self._build_boxes()
             self._built = True
+            self.call_after_refresh(self._relayout)  # widths are known only after the first layout
         self._refresh_remote_hint()
         if app.data_version == self._last_version:
             return
         self._last_version = app.data_version
+        self._refresh_buttons()  # the fields' values first: the grids size their columns from them
         self._refresh_identity()
         self._refresh_channels()
         self._refresh_other()
@@ -170,6 +199,11 @@ class InstrumentScreen(ControlEditingScreen):
         self._refresh_buttons()
 
     # -- identity (5.1 #1) --------------------------------------------------------------------------------
+
+    def _relayout(self) -> None:
+        """Redraw once the layout has given the boxes their real widths."""
+        self._last_version = -1
+        self.refresh_content()
 
     def _refresh_remote_hint(self) -> None:
         app: Any = self.app
@@ -278,9 +312,8 @@ class InstrumentScreen(ControlEditingScreen):
             flash.can_focus = False
             flash.display = False
             controls = self._controls_for(channel)
-            buttons = Horizontal(
-                *[ControlButton(c, f"ch:{key}") for c in controls if c.writable or c.kind == "buttons"],
-                classes="button-row",
+            buttons = ButtonGrid(
+                *[ControlButton(c, f"ch:{key}") for c in controls if c.writable or c.kind == "buttons"]
             )
             box = _Box(rows, reason, buttons, flash, classes="channel-box")
             box.can_focus = False
@@ -290,6 +323,8 @@ class InstrumentScreen(ControlEditingScreen):
                 "rows": rows,
                 "reason": reason,
                 "buttons": buttons,
+                "button_rows": 0,
+                "n_lines": 0,
                 "flash": flash,
                 "channel": channel,
                 "key": key,
@@ -298,6 +333,7 @@ class InstrumentScreen(ControlEditingScreen):
             self._boxes.append(entry)
         # The buttons are still pending children on this first refresh; style them once mounted.
         self.call_after_refresh(self._refresh_buttons)
+        self.call_after_refresh(self.take_pending_field)
 
     def _controls_for(self, channel: int | None) -> list[C.Control]:
         info = self.info
@@ -317,29 +353,28 @@ class InstrumentScreen(ControlEditingScreen):
         return C.generic_controls(info, lang)
 
     def _channel_width(self) -> int:
-        """The channel boxes' inner width: what the main row leaves for them (6.1's share)."""
+        """The channel boxes' inner width: what the main row leaves for them (6.1's share) less
+        the box's border and padding — a row wider than that would wrap instead of ending in …"""
         area = self._channels.container_size.width or (self.app.size.width - 38)
-        return max(30, area)
+        return max(30, area - 4)
 
     def _channel_row_budget(self) -> int:
         """Text rows a channel box may show before the boxes around it clip it (#374): the
         screen's height minus the header and status bars, the identity, errors and log boxes,
         and the channel box's own borders, button row and reason and flash lines. From the data
         alone, so the render does not depend on when the layout happens."""
-        h = self.app.size.height - 2  # the header and the status bar
-        if self._remote_hint.display:
-            h -= 1
+        h = self._body_rows()
         identity = getattr(self, "_identity_rows", 2) + 2
-        side = getattr(self, "_errors_rows", 1) + 2  # the errors box shares its row with the
-        # other-settings box; the taller of the two sets the row's height
-        if self._other.display:
-            side = max(side, getattr(self, "_other_rows", 0) + 2)
+        # The side row comes after the channel boxes (see _side_height): only its minimum counts
+        # here — the errors box alone, or a little room for the other settings beside it.
+        errors = max(3, getattr(self, "_errors_rows", 1) + 2)
+        side = 5 if self._other.display else errors
         chrome = 2  # the channel box's borders
         for entry in self._boxes:
             chrome = max(
                 chrome,
                 2
-                + (1 if entry["buttons"].children else 0)
+                + entry["button_rows"]
                 + (1 if entry["reason"].display else 0)
                 + (1 if entry["flash"].display else 0),
             )
@@ -349,11 +384,20 @@ class InstrumentScreen(ControlEditingScreen):
         app: Any = self.app
         template = self._template()
         width = self._channel_width()
+        for entry in self._boxes:
+            entry["button_rows"] = entry["buttons"].fit(width, 1)
         budget = self._channel_row_budget()
         for entry in self._boxes:
             box = entry["box"]
             lines = self._channel_lines(template, entry["channel"], width, budget)
+            # The readings come first: the buttons take a second row only where the readings
+            # leave one over, and the rest scroll into view with the focus.
+            extra = min(entry["buttons"].needed(width) - 1, budget - len(lines))
+            if extra > 0:
+                entry["button_rows"] = entry["buttons"].fit(width, 1 + extra)
             entry["rows"].update(box_text(app, lines, width))
+            entry["rows"].display = bool(lines)
+            entry["n_lines"] = len(lines)
             box.border_title = self._box_title(template, entry["channel"])
             reason = self._reason_line(template)
             if reason:
@@ -362,6 +406,7 @@ class InstrumentScreen(ControlEditingScreen):
             else:
                 entry["reason"].display = False
         self._other.display = self._other_paths() is not None
+        self._errors.styles.margin = (0, 0, 0, 1 if self._other.display else 0)  # flush when alone
 
     def _box_title(self, template: str, channel: int | None) -> str:
         lang = self.app.lang
@@ -376,9 +421,6 @@ class InstrumentScreen(ControlEditingScreen):
     def _smu_lines(self, state: dict[str, dict]) -> list[list[tuple[str, str]]]:
         return rows.smu_rows(self.app.lang, state, self.readings)
 
-    def _generator_lines(self, state: dict[str, dict], channel: int) -> list[list[tuple[str, str]]]:
-        return rows.generator_rows(self.app.lang, state, channel)
-
     def _panel_lines(
         self, width: int | None = None, budget: int | None = None
     ) -> list[list[tuple[str, str]]]:
@@ -387,8 +429,10 @@ class InstrumentScreen(ControlEditingScreen):
     def _readings_lines(self, width: int | None = None) -> list[list[tuple[str, str]]]:
         return rows.readings_rows(self.readings)
 
-    def _spectrum_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
-        return rows.spectrum_rows(self.app.lang, self.readings, state, width)
+    def _spectrum_lines(
+        self, state: dict[str, dict], width: int, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
+        return rows.spectrum_rows(self.app.lang, self.readings, state, width, budget)
 
     def _rf_lines(
         self, state: dict[str, dict], width: int, budget: int | None = None
@@ -419,9 +463,9 @@ class InstrumentScreen(ControlEditingScreen):
         if template == "smu":
             return self._smu_lines(state)
         if template == "function_generator":
-            return self._generator_lines(state, channel or 1)
+            return []  # the fields below are the display: ``Frequency 1.0000 kHz`` says it all
         if template == "spectrum_analyzer":
-            return self._spectrum_lines(state, width)
+            return self._spectrum_lines(state, width, budget)
         if template == "lockin":
             return self._lockin_lines(state, width)
         if template == "rf_generator":
@@ -466,11 +510,7 @@ class InstrumentScreen(ControlEditingScreen):
         # Before the first layout the box has no size yet: take the row's share of the screen
         # (#other-box is 2fr of the side row) rather than cutting at a 20-cell guess (#283).
         width = self._other.content_size.width or max(20, (app.size.width * 2) // 3 - 4)
-        out = rows.grouped_columns(self.app.lang, groups, state, width)
-        self._other.display = True
-        self._other.border_title = i18n.t("instrument.otherSettings", lang)
-        self._other_static.update(box_text(app, out, width))
-        if not self._other_buttons.children:
+        if not self._other_buttons.count:
             controls = [
                 C._control_for(path, state[path], lang)
                 for path in paths
@@ -478,8 +518,41 @@ class InstrumentScreen(ControlEditingScreen):
                 and not state[path].get("readonly")
                 and state[path].get("type") in ("bool", "enum", "float", "int")
             ]
-            self._other_buttons.mount(*[ControlButton(c, "other") for c in controls])
-        self._other_rows = len(out) + (1 if self._other_buttons.children else 0)
+            new = [ControlButton(c, "other") for c in controls]
+            for b in new:
+                b.render_button(info, self.remote_controlled, lang)
+            self._other_buttons.add_buttons(*new)
+        button_rows = self._other_buttons.fit(width)
+        # Whole groups only, never a heading above the fold (#374); the buttons always stay.
+        full = rows.grouped_columns(self.app.lang, groups, state, width)
+        side = self._side_height(len(full) + button_rows + 2)
+        out = rows.grouped_columns(self.app.lang, groups, state, width, max(0, side - 2 - button_rows))
+        self._other.display = True
+        self._other.border_title = i18n.t("instrument.otherSettings", lang)
+        self._other_static.display = bool(out)
+        self._other_static.update(box_text(app, out, width))
+        self._other_rows = len(out) + button_rows
+
+    def _body_rows(self) -> int:
+        """Rows the body has: the screen minus the bars and the demo's caption — read from the
+        layout once it has run, else the screen's height minus the two bars."""
+        rows_ = self.query_one("#body").size.height or (self.app.size.height - 2)
+        return rows_ - (1 if self._remote_hint.display else 0)
+
+    def _side_height(self, want: int) -> int:
+        """The side row's height (other settings beside errors): what it wants, but no more than
+        the screen leaves once the channel boxes, identity and log have theirs — they come first
+        and the channel area scrolls if even that is short. Set here, from the data, so it does
+        not depend on when the layout happens (#374)."""
+        h = self._body_rows()
+        identity = getattr(self, "_identity_rows", 2) + 2
+        main = sum(
+            2 + e["n_lines"] + e["button_rows"] + (1 if e["reason"].display else 0) for e in self._boxes
+        )
+        left = h - identity - main - (self._log_rows() + 2)
+        side = max(3, min(max(want, getattr(self, "_errors_rows", 1) + 2), left))
+        self._side_row.styles.height = side
+        return side
 
     # -- wiring and load (5.1 #2) ---------------------------------------------------------------------------
 
@@ -571,17 +644,21 @@ class InstrumentScreen(ControlEditingScreen):
         if not info:
             return
         queue = info.get("errors", [])
-        width = max(20, self._errors.size.width)  # .size already excludes border and padding
+        # .size already excludes border and padding; before the first layout it is 0, so take the
+        # box's share of the side row (1fr of 3, a cell of margin) rather than a 20-cell guess.
+        width = self._errors.size.width or max(20, (app.size.width - 1) // 3 - 4)
         lines: list[list[tuple[str, str]]] = []
         for e in queue:
-            lines.append([(str(e["code"]), "bad"), ("  " + e["message"], "bad")])
+            lines.extend(_wrapped(str(e["code"]), str(e["message"]), width, "bad"))
         read_away = self._read_away(queue)
         if read_away:
             lines.append([(i18n.t("instrument.readAway", lang), "muted")])
             for code, message, origin in read_away:
-                lines.append([(str(code), "muted"), ("  " + message, "muted")])
+                lines.extend(_wrapped(str(code), message, width, "muted"))
                 if origin:
-                    lines.append([(origin, "muted")])
+                    lines.extend(
+                        [(" " * 2 + chunk, "muted")] for chunk in textwrap.wrap(origin, max(8, width - 2))
+                    )
         else:
             lines.append([(i18n.t("instrument.readAwayNone", lang), "muted")])
         self._errors.border_title = box_title(
@@ -601,14 +678,15 @@ class InstrumentScreen(ControlEditingScreen):
         out = [
             ("Esc", i18n.t("keys.back", lang)),
             ("Tab", i18n.t("keys.move", lang)),
-            ("⏎/e", i18n.t("keys.edit", lang)),
-            ("+ -", i18n.t("keys.step", lang)),
+            ("⏎", i18n.t("keys.edit", lang)),
             ("␣", i18n.t("keys.switch", lang)),
+            ("[ ]", i18n.t("keys.nextInstrument", lang)),
             (":", i18n.t("keys.scpi", lang)),
         ]
         if self.remote_controlled:
             out.append(("L", i18n.t("keys.local", lang)))
-        out.append(("?", i18n.t("keys.reason", lang)))
+        out.append(("w", i18n.t("keys.reason", lang)))
+        out.append(("?", i18n.t("keys.help", lang)))
         out.append(("q", i18n.t("common.quit", lang)))
         return out
 
@@ -669,45 +747,16 @@ class InstrumentScreen(ControlEditingScreen):
         return "; ".join(parts)
 
     def _reason_report(self) -> ReasonReport | None:
-        """What ``?`` explains (tui-screens.md 9.1): a fault, the limit, the focused setting, an error."""
+        """What ``w`` explains (tui-screens.md 9.1): a fault, the limit, the focused setting, an error."""
         app: Any = self.app
-        lang = app.lang
-        info = self.info
-        if not info:
-            return None
-        events = app.store.events
-        faults = self._active_faults()
-        if faults:
-            return fault_report(faults[0], info, events, lang)
-        limited = limited_report(info, self.readings, events, lang)
-        if limited is not None:
-            return limited
         button = self._focused_button()
-        if button is not None and button.control.path:
-            return setting_report(info, button.control.path, events, lang)
-        for line in reversed(app.lines):
-            if line.instrument == self.instrument_name and line.has_error:
-                return error_report(line, lang)
-        return None
+        path = button.control.path if button is not None else None
+        return explain_instrument(
+            self.info, self.readings, app.store.events, app.faults, app.lines, app.lang, path
+        )
 
     def _active_faults(self) -> list[dict[str, Any]]:
-        """Faults that still explain this instrument's state (tui-screens.md 5.4, 8).
-
-        A ``trip`` is a one-shot: the engine fires it and ends it at once, so it is never
-        ``active`` — it still explains things for as long as the error it queued is readable.
-        Communication faults explain while they are active or pending.
-        """
+        """Faults that still explain this instrument's state (5.4, 8): see ``active_faults``."""
         app: Any = self.app
-        queue_codes = {int(e["code"]) for e in self.info.get("errors", [])}
-        out: list[dict[str, Any]] = []
-        for f in app.faults or []:
-            spec = f.get("spec") or {}
-            if spec.get("instrument") != self.instrument_name:
-                continue
-            status = f.get("status")
-            if spec.get("kind") == "trip":
-                if status == "active" or (status == "ended" and spec.get("code", -300) in queue_codes):
-                    out.append(f)
-            elif status in ("active", "pending"):
-                out.append(f)
-        return out
+        codes = {int(e["code"]) for e in self.info.get("errors", [])}
+        return active_faults(app.faults, self.instrument_name, codes)  # type: ignore[return-value]

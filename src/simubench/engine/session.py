@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..models.bench import BenchDefinition
+from ..models.bench import LIVE_CLOCKS, BenchDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import message_is_query
 from . import sleep_mode
@@ -36,6 +36,8 @@ MAX_MODE_ITERATIONS = 40
 log = logging.getLogger(__name__)
 
 #: In command-driven mode, idle gaps shorter than this are script overhead and do not advance time.
+MAX_TIME_SCALE = 1_000_000.0
+
 IDLE_THRESHOLD_NS = 10_000_000
 #: Idle gaps are rounded to this resolution so that sleeps produce stable virtual times.
 IDLE_QUANTUM_NS = 1_000_000
@@ -80,6 +82,11 @@ class _UnionFind:
             self.parent[rb] = ra
 
 
+def _check_scale(scale: float) -> None:
+    if not (0 < scale <= MAX_TIME_SCALE) or scale != scale:
+        raise ValueError(f"time scale must be above 0 and at most {MAX_TIME_SCALE:g}, not {scale!r}")
+
+
 class Session:
     def __init__(
         self,
@@ -92,11 +99,19 @@ class Session:
         seed: int | None = None,
         idle: str | None = None,
         record_raw: bool = False,
+        time_scale: float | None = None,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
         self.seed = bench.run.seed if seed is None else seed
         self.clock_mode = clock or bench.run.clock
+        #: Virtual seconds per real second on a live clock: 1 on the wall clock, settable on
+        #: ``scaled`` (``set_time_scale``). Time is ``_scaled_base_ns`` + real time since
+        #: ``_scaled_ref_ns`` × scale, so changing the scale re-bases instead of jumping.
+        self.time_scale = float(time_scale if time_scale is not None else bench.run.time_scale)
+        if self.clock_mode == "wall":
+            self.time_scale = 1.0
+        _check_scale(self.time_scale)
         self.idle_mode = bench.run.idle if idle is None else idle
         if self.idle_mode not in ("wall", "sleep", "off"):
             raise ValueError(f"idle must be wall, sleep or off, not {self.idle_mode!r}")
@@ -114,6 +129,8 @@ class Session:
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
         self._output_cache: dict[tuple[int, str, str], Signal] = {}
         self._wall_start = time.monotonic_ns()
+        self._scaled_ref_ns = self._wall_start
+        self._scaled_base_ns = 0
         self._last_wall = self._wall_start
         self.seq = 0
         self.event_id = 0  # id of the last emitted event; ids are stable cursors for event readers
@@ -414,15 +431,31 @@ class Session:
         """Engine-internal: wall clock only, bring virtual time up to real time (D47; passive
         views read the present). Called by actions (``_begin_action``) and by ``view`` — external
         code reads the bench through ``view``, never by calling this directly."""
-        if self.clock_mode == "wall":
+        if self.clock_mode in LIVE_CLOCKS:
             self.sync()
-            self.now_ns = max(self.now_ns, time.monotonic_ns() - self._wall_start)
+            self.now_ns = max(self.now_ns, self._live_ns(time.monotonic_ns()))
+
+    def _live_ns(self, wall_ns: int) -> int:
+        """Virtual time at real time ``wall_ns`` on a live clock (wall, or scaled by ``time_scale``)."""
+        return self._scaled_base_ns + round((wall_ns - self._scaled_ref_ns) * self.time_scale)
+
+    def set_time_scale(self, scale: float) -> None:
+        """Change a ``scaled`` clock's rate while it runs. Time already passed stays passed: the
+        clock is first brought up to now and the new rate counts from there."""
+        _check_scale(scale)
+        with self._lock:
+            if self.clock_mode != "scaled":
+                raise RuntimeError("the time scale can only be set on a scaled clock")
+            self.follow_wall()
+            self._scaled_base_ns = self.now_ns
+            self._scaled_ref_ns = time.monotonic_ns()
+            self.time_scale = float(scale)
 
     def _begin_action(self) -> None:
         wall = time.monotonic_ns()
-        if self.clock_mode == "wall":
+        if self.clock_mode in LIVE_CLOCKS:
             self.sync()
-            self.now_ns = max(self.now_ns, wall - self._wall_start)
+            self.now_ns = max(self.now_ns, self._live_ns(wall))
         elif self.clock_mode == "command" and not self.replaying and self.idle_mode == "wall":
             # Counting idle real time makes results depend on machine speed; only 'wall' does it
             # (D47). 'sleep' and 'off' move time only by command, advance and time.sleep.
@@ -611,8 +644,8 @@ class Session:
             return
         if self.clock_mode == "command":
             self._advance(round(seconds * 1e9), reason="latency")
-        elif self.clock_mode == "wall":
-            time.sleep(min(seconds, 5.0))
+        elif self.clock_mode in LIVE_CLOCKS:
+            time.sleep(min(seconds / self.time_scale, 5.0))  # real time for that much virtual time
 
     def query(self, name: str, data: bytes | str, client: str = "sdk") -> bytes:
         if isinstance(data, str):
@@ -660,8 +693,8 @@ class Session:
         with self._lock:
             if self.confirm_advance is not None:
                 self.confirm_advance(force)
-            if self.clock_mode == "wall":
-                raise RuntimeError("cannot advance a wall clock")
+            if self.clock_mode in LIVE_CLOCKS:
+                raise RuntimeError(f"cannot advance a {self.clock_mode} clock")
             self._advance(round(seconds * 1e9), reason=reason)
 
     def configure(self, name: str, path: str, value: Any, client: str = "ui") -> None:

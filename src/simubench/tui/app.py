@@ -70,17 +70,26 @@ READING_TEMPLATES = (
 class SimuBenchApp(App[None]):
     """``simubench tui``: overview, communication log, and the connection states of section 3."""
 
+    TITLE = "SimuBench"  # the exported SVG's window title (it was the class name)
+
     CSS = """
     Screen { background: $background; scrollbar-size-vertical: 0; scrollbar-size-horizontal: 0; }
     Static#connecting-note { padding: 1 2; color: $muted; }
     Static#message { color: $fg; }
     Static#embedded-log { padding: 0 1; }
-    #log-box { border: round $muted 60%; border-title-align: left; }
+    #log-box { border: round $line; border-title-color: $hud; border-title-align: left; }
     #log-rows { padding: 0 1; }
+    #attention { height: 1; }
     #cards { height: 1fr; overflow-y: auto; scrollbar-size-vertical: 0; }
     #cards Horizontal { height: auto; align: left top; overflow-x: hidden; }
     #embedded-log { scrollbar-size-vertical: 0; }
     #log-filter { display: none; border: round $focus; }
+    /* the command palette (Ctrl+K, /) in the HUD's own panel colours, not Textual's tinted one */
+    CommandPalette > Vertical { background: $surface; }
+    CommandPalette #--input { border: round $focus; }
+    CommandPalette #--input.--list-visible { border-bottom: none; }
+    CommandPalette #--results { background: $surface; border: round $focus; border-top: none; }
+    CommandPalette OptionList > .option-list--option-highlighted { background: $focus; color: $background; }
     """
 
     BINDINGS: ClassVar = [
@@ -90,7 +99,10 @@ class SimuBenchApp(App[None]):
         Binding("f", "fault", "", show=False),
         Binding("a", "advance", "", show=False),
         Binding("R", "r_key", "", show=False),
+        Binding("question_mark", "help", "", show=False),
+        Binding("ctrl+k", "palette", "", show=False, priority=True),
     ]
+    ENABLE_COMMAND_PALETTE = False  # Textual's own lists its themes; ours is palette.py (Ctrl+K)
 
     def __init__(
         self,
@@ -116,6 +128,16 @@ class SimuBenchApp(App[None]):
         self.levels: dict[str, Any] | None = None
         self.readings: dict[str, dict[str, Any]] = {}
         self.screen_data: dict[str, dict[str, Any]] = {}  # per-instrument /screen payloads
+        #: the dot width each scope screen last asked for: a refetch (an event, a reconnect) must
+        #: ask for the same binning, or the frame comes back raw and the trace draws nothing
+        self.scope_points: dict[str, int] = {}
+        #: a field jump the palette asked for: (instrument, state path, text to type or None);
+        #: the instrument screen takes it once its controls exist
+        self.pending_field: tuple[str, str, str | None] | None = None
+        #: the state tree's folds per instrument (the groups that are open) and the ``h`` switch;
+        #: kept here so leaving the tree and coming back finds it as it was
+        self.tree_open: dict[str, set[str]] = {}
+        self.tree_hidden = False
         self.faults: list[dict[str, Any]] = []  # GET /faults, refetched on fault events (section 1.6)
         self.scpi_history: dict[str, list[str]] = {}  # per-instrument console history (10.3)
         self.catalog: dict[str, Any] = {}
@@ -254,6 +276,21 @@ class SimuBenchApp(App[None]):
         if isinstance(factory, type) and type(current) is factory and not args:
             return
         self.push_screen(factory(*args))
+
+    def instrument_screen_key(self, name: str) -> str:
+        """Which screen shows this instrument: the scope screen for a scope, else the generic one."""
+        info = next(
+            (i for i in (self.session_info or {}).get("instruments", []) if i.get("name") == name), {}
+        )
+        return "scope" if (info.get("display") or {}).get("template") == "oscilloscope" else "instrument"
+
+    def open_instrument(self, name: str, replace: bool = False) -> None:
+        """Open an instrument's screen. ``replace`` swaps it for the one in front, so ``Esc`` still
+        returns to where the user came from (``[`` and ``]`` step through the bench this way)."""
+        key = self.instrument_screen_key(name)
+        if replace:
+            self.pop_screen()
+        self.show(key, name)
 
     # ---- connection loop ----------------------------------------------------------------------------
 
@@ -442,7 +479,7 @@ class SimuBenchApp(App[None]):
                     self.readings[name] = await self.client.readings(self.sid, name)
             if template == "oscilloscope":
                 with contextlib.suppress(ApiError):
-                    self.screen_data[name] = await self._screen(name)
+                    self.screen_data[name] = await self._screen(name, self.scope_points.get(name))
 
     async def _screen(self, name: str, points: int | None = None) -> dict[str, Any]:
         assert self.sid is not None
@@ -455,6 +492,7 @@ class SimuBenchApp(App[None]):
         — watched by the scope screen alone — and leaves ``data_version``, and with it "the
         app has settled", untouched.
         """
+        self.scope_points[name] = points
         try:
             self.screen_data[name] = await self._screen(name, points)
         except ApiError:
@@ -476,8 +514,13 @@ class SimuBenchApp(App[None]):
     # ---- timers -------------------------------------------------------------------------------------
 
     async def _tick_wall(self) -> None:
-        """Wall clock: time, levels and readings refresh every second (section 1.6, D44)."""
-        if self.clock and self.clock.get("mode") == "wall" and self.sid and self.conn == "connected":
+        """Wall or scaled clock: time, levels and readings refresh every second (section 1.6, D44)."""
+        if (
+            self.clock
+            and self.clock.get("mode") in ("wall", "scaled")
+            and self.sid
+            and self.conn == "connected"
+        ):
             with contextlib.suppress(ApiError):
                 self.clock = await self.client.clock(self.sid)
                 self.levels = await self.client.levels(self.sid)
@@ -526,6 +569,48 @@ class SimuBenchApp(App[None]):
 
     # ---- quit and rebuild -----------------------------------------------------------------------------
 
+    def show_reason(self, report: Any) -> None:
+        """The reason dialog for ``report``; ⏎ in it jumps to the command in the log (9.1)."""
+        from .screens.dialogs import ReasonScreen
+
+        def jump() -> None:
+            if report.jump_seq is None:
+                return
+            self.show("log")
+            focus = getattr(self.screen, "focus_seq", None)
+            if focus is not None:
+                focus(report.jump_seq)
+
+        self.push_screen(ReasonScreen(report, jump))
+
+    def jump_to_field(self, name: str, path: str, text: str | None = None) -> None:
+        """Palette: go to the instrument's field and edit it (or set ``text``) where it stands."""
+        screen = self.screen
+        if getattr(screen, "instrument_name", None) == name and hasattr(screen, "go_to_field"):
+            screen.go_to_field(path, text)
+            return
+        self.pending_field = (name, path, text)
+        self.open_instrument(name)
+
+    def action_palette(self) -> None:
+        """``Ctrl+K``: the command palette, from any of the TUI's own screens (not a dialog)."""
+        from .palette import open_palette
+        from .screens.shell import ShellScreen
+
+        if isinstance(self.screen, ShellScreen):
+            open_palette(self)
+
+    def action_help(self) -> None:
+        """``?``: the keys of the screen in front (a dialog's own keys are on its face)."""
+        from .screens.help import HelpScreen, help_rows
+        from .screens.shell import ShellScreen
+
+        screen = self.screen
+        if not isinstance(screen, ShellScreen):
+            return
+        title = i18n.t("help.title", self.lang, screen=screen.screen_title())
+        self.push_screen(HelpScreen(title, help_rows(screen, self)))
+
     def action_quit_app(self) -> None:
         """``q``: when this process serves the bench, confirm first if scripts are connected (10.1)."""
         from .screens.states import ConfirmScreen, confirm_quit
@@ -553,7 +638,7 @@ class SimuBenchApp(App[None]):
         if self.conn != "connected" or self.sid is None:
             return
         mode = self.clock_mode()
-        if mode == "wall":
+        if mode in ("wall", "scaled"):
             self.call_after_refresh(self._advance_wall_hint)
             return
         default = self._advance_default
@@ -566,7 +651,7 @@ class SimuBenchApp(App[None]):
 
         bars = [w for w in self.screen.query(BottomBar)]
         target = bars[0] if bars else self.screen.query_one(Static)
-        target.flash(i18n.t("clock.wallHint", self.lang))
+        target.flash(i18n.t(f"clock.{self.clock_mode()}Hint", self.lang))
 
     def _advance_done(self, seconds: float | None) -> None:
         if seconds is None:
@@ -642,12 +727,14 @@ def _default_screens() -> None:
     from .screens.nets import NetsScreen
     from .screens.runs import RunsScreen
     from .screens.scope import ScopeScreen
+    from .screens.statetree import StateTreeScreen
 
     register_screen("log", LogScreen)
     register_screen("instrument", InstrumentScreen)
     register_screen("scope", ScopeScreen)
     register_screen("nets", NetsScreen)
     register_screen("runs", RunsScreen)
+    register_screen("states", StateTreeScreen)
 
 
 _default_screens()
