@@ -382,15 +382,15 @@
 - **格式迁移**：每种文件以 `schema` 声明格式与版本；迁移按版本逐级升级解析后的数据，加载时在内存中完成，`simubench migrate [--write]` 改写文件。来自更新版本的文件给出“请升级 SimuBench”的明确诊断（E-FORMAT），而不是难以理解的校验错误。首个迁移：没有 `schema` 行的旧文件视为版本 0。
 - **首次使用引导**：首页的“开始使用”卡片给出三种入口（在界面中运行、用 PyVISA 脚本驱动、让 Agent 搭建），关闭后不再显示。
 
-## D41 HiSLIP 接入：synchronized 模式、共用端口、按子地址区分仪表
+## D41 HiSLIP 接入：同步与重叠两种模式、2.0 安全连接、共用端口、按子地址区分仪表
 
 - **结论**：除 raw socket 外，每台虚拟仪表也以 HiSLIP（IVI-6.1）暴露，NI-VISA、Keysight IO Libraries、pyvisa-py 等客户端不改脚本即可连接 `TCPIP0::127.0.0.1::hislip<i>,<端口>::INSTR`。三条设计约束：
   1. **共用一个端口，按子地址区分仪表**（默认 4880，`--hislip-port 0` 自动分配）：真实仪表各自有 IP、都用 `hislip0`；本机只有一个 IP，用 `hislip0`、`hislip1`…（编号规则与 SOCKET 端口一致）最接近真实情况，另接受 `hislip_<实例名>` 别名。
-  2. **只实现 synchronized 模式**（IVI-6.1 3.1）：`InitializeResponse` 一律回复 synchronized，客户端请求 overlapped 也如此，规范允许服务器这样选择。消息边界、设备清除、读 STB、锁（独占/共享；D63 起与同一仪表的 VXI-11 与 PyVISA 会话共用一份）、SRQ 按规范实现；查询被打断按 synchronized 规则丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。
-  3. **不实现加密与凭证认证**：客户端请求 StartTLS 等按规范以 Error 回复。只绑定 127.0.0.1（D38/安全自检同款约束）。
+  2. **同步与重叠两种模式都服务**（IVI-6.1 3）：起始模式由 `--hislip-overlapped` 选定（默认 synchronized，`InitializeResponse` 控制位 0 宣告），设备清除时服务器提议自己的模式、接受客户端在 `DeviceClearComplete` 里的选择（6.12.1）。synchronized：查询被打断时丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。overlapped：消息只缓冲、不触发 interrupted，响应的 MessageID 由服务器自己的计数器给（从 0xffffff00 起，每条加 2），MAV 按客户端在 `AsyncStatusQuery` 里报告的已取走 ID 计算（6.14.2）。消息边界、设备清除、读 STB、锁（独占/共享；D63 起与同一仪表的 VXI-11 与 PyVISA 会话共用一份）、SRQ 按规范实现。协商版本为客户端与服务器中较低者，最高 2.0；`GetDescriptors`（2.0 起）在两个通道上应答。
+  3. **安全连接能力（2.0，IVI-6.1 4、6.15、6.16）有证书与密钥才开**（`--hislip-cert`/`--hislip-key`，`--hislip-tls optional|initial|mandatory` 选加密模式）：两个通道各自在连接中途由 `AsyncStartTLS`/`StartTLS` 升级为 TLS（1.2 起），`AsyncEndTLS`/`EndTLS` 降回明文（加密强制时拒绝）；握手前先看缓冲区是否为空（busy/success/error），客户端把 ClientHello 紧跟在 StartTLS 后发出也不丢字节，所以不用 asyncio 的 `start_tls` 而用内存 BIO 自己跑 TLS 状态机（`access/hislip_tls.py`）。强制加密或要求首先加密时，除 TLS 建立类消息外任何消息都是致命错误 5；加密建立后在登录前只回应登录类消息，其余回非致命错误 5。SASL 登录：`--hislip-users`（`name:password` 行）给出时只提供 PLAIN，否则只提供 ANONYMOUS，失败按次数递增延迟；认证只在该加密连接内有效。仍只绑定 127.0.0.1（D38/安全自检同款约束）。
 - **理由**：很多现有脚本与 LabVIEW/C# 程序用 HiSLIP 地址；raw socket 以换行结尾，二进制块中的 0x0A 只能靠解析长度，HiSLIP 用 `DataEnd` 标出消息边界，且只有它支持设备清除、读 STB 与 SRQ 这些 IEEE 488.2 语义。
 - **实现位置**：`access/hislip_server.py`（服务器）；`Session.clear_output` 提取为 PyVISA 后端与 HiSLIP 服务器共用的设备清除语义；PyVISA 后端地址表加入 HiSLIP 形式（含 Bench 中配置的 HiSLIP 真实地址直接打开），TCPIP INSTR 资源的 VISA 属性（`TCPIP_IS_HISLIP`、`TCPIP_DEVICE_NAME` 等）按 PyVISA 属性表填齐。
-- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、监听本机以外地址。VXI-11、GPIB、USBTMC 见 D63。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
+- **不做**：SASL 的 EXTERNAL（客户端证书）、GSSAPI 等其余机制，TLS 会话恢复，厂商自定义消息，监听本机以外地址。VXI-11、GPIB、USBTMC 见 D63。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
 
 ## D42 内置仪表都是真实型号
 
@@ -563,4 +563,4 @@
   2. **GPIB 与 USBTMC 是物理总线，不监听**：脚本用的 `GPIB0::n::INSTR`、`USB0::…::INSTR` 在进程内 PyVISA 后端（`@simubench`）里照 bench 声明的 `address:` 打开，会话带上对应的 VISA 属性（GPIB 主/次地址；USB 厂商、型号、序列号、USB488 协议），属性取自脚本写的地址，不另编厂商号。进程外程序（NI-VISA 等）只能经 VXI-11 的 `gpib` 网关形式或 HiSLIP 连入；USBTMC 没有进程外入口。
   3. **总线状态各仪表一份**（`access/bus.py`）：资源锁（一把独占锁，或一把共享锁、同键者共享）与 REN/GTL/LLO 状态按仪表保存，HiSLIP、VXI-11、PyVISA 会话看到同一份。VISA `viGpibControlREN` 的 0–6 模式、HiSLIP AsyncRemoteLocalControl 的 0–6 控制码、VXI-11 `device_remote`/`device_local` 落到同一张表；事件 `bus_control` 记录每次应用。进程内 PyVISA 的 `lock`/`unlock`（含嵌套与共享键）真正生效，他人持锁时读写返回 `VI_ERROR_RSRC_LOCKED`；`wait_on_event(SERVICE_REQUEST)` 看状态字节的 RQS 位；打开 bench 里没有的地址抛 `VI_ERROR_RSRC_NFOUND`（此前只返回状态码，PyVISA 不抛错）。
 - **理由**：VXI-11 是大量老仪表脚本与 LAN/GPIB 网关的写法，纯软件可以完整做到；GPIB 线缆与 USB 设备需要硬件（GPIB 适配卡多半不支持设备端，USB 要 gadget 硬件），做了也进不了 CI。备选一在 SimuBench 里自带 GPIB/USB 驱动层：要特权与硬件，得不偿失；备选二给没声明地址的仪表自动分配 GPIB/USB 地址：会编出厂商号与序列号，违背“拒绝而不猜”。锁与 REN 若各接入方式各存一份，同一台仪表被 HiSLIP 与 VXI-11 脚本同时用时行为与真机不符。
-- **影响**：HiSLIP 的锁不再只在 HiSLIP 会话之间生效（D41 已改）；HiSLIP 共享锁现在要求同键才合并（与 VISA 一致）；`SessionInfo` 的仪表多 `address_vxi11`，`ClientInfo` 与 `remote` 含 `vxi11:` 客户端；`serve`/`tui`/`mcp` 多 `--vxi11-port`（0 为自动分配）与 `--portmapper-port`（隐含开启 VXI-11）；VXI-11 在 `SessionManager` 与命令行都默认不开：端口随机，默认开会让启动器输出的地址表（TUI 脚本与 e2e 的固定画面）变得不确定，要用时显式打开。已知缺口：overlapped、TLS、UDP 版 VXI-11、GPIB 总线命令（docmd）、USB488 的 INDICATOR_PULSE 与 ABORT 级控制请求、进程外 USBTMC。
+- **影响**：HiSLIP 的锁不再只在 HiSLIP 会话之间生效（D41 已改）；HiSLIP 共享锁现在要求同键才合并（与 VISA 一致）；`SessionInfo` 的仪表多 `address_vxi11`，`ClientInfo` 与 `remote` 含 `vxi11:` 客户端；`serve`/`tui`/`mcp` 多 `--vxi11-port`（0 为自动分配）与 `--portmapper-port`（隐含开启 VXI-11）；VXI-11 在 `SessionManager` 与命令行都默认不开：端口随机，默认开会让启动器输出的地址表（TUI 脚本与 e2e 的固定画面）变得不确定，要用时显式打开。已知缺口：UDP 版 VXI-11、GPIB 总线命令（docmd）、USB488 的 INDICATOR_PULSE 与 ABORT 级控制请求、进程外 USBTMC（HiSLIP 的 overlapped 与 2.0 见 D41）。

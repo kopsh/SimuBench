@@ -92,7 +92,7 @@ def _free_port() -> int:
 def run_bench(args: Any) -> int:
     """``simubench tui <bench.yaml> …``: serve in-process, open a session, run the TUI."""
     from ..server.app import create_app
-    from ..server.manager import SessionManager, vxi11_port_of
+    from ..server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
     bench = Path(args.bench).resolve()
     workspace = Path(args.workspace).resolve() if args.workspace else bench.parent
@@ -103,6 +103,7 @@ def run_bench(args: Any) -> int:
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
         vxi11_port=vxi11_port_of(args),
+        **hislip_options_of(args),
         portmapper_port=args.portmapper_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),

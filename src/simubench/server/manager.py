@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from ..access.hislip_server import HislipServer
+from ..access.hislip_tls import SecureConfig, read_users
 from ..access.scpi_server import ScpiServer
 from ..access.vxi11_server import Vxi11Server
 from ..api import open_bench
@@ -73,6 +74,28 @@ def vxi11_port_of(args: Any) -> int | None:
     if args.vxi11_port is not None:
         return int(args.vxi11_port)
     return 0 if args.portmapper_port is not None else None
+
+
+def hislip_options_of(args: Any) -> dict[str, Any]:
+    """``SessionManager`` keyword arguments for the HiSLIP options of the command line (D41).
+
+    ``--hislip-cert`` and ``--hislip-key`` switch on the secure connection capability; they come
+    as a pair. ``--hislip-users`` (``name:password`` lines) turns the login from ANONYMOUS into PLAIN."""
+    options: dict[str, Any] = {"hislip_overlapped": bool(args.hislip_overlapped)}
+    if args.hislip_cert or args.hislip_key:
+        if not (args.hislip_cert and args.hislip_key):
+            raise SystemExit("--hislip-cert and --hislip-key go together")
+        mode = args.hislip_tls
+        options["hislip_secure"] = SecureConfig.from_files(
+            args.hislip_cert,
+            args.hislip_key,
+            mandatory=mode == "mandatory",
+            initial=mode == "initial",
+            users=read_users(args.hislip_users) if args.hislip_users else None,
+        )
+    elif args.hislip_users or args.hislip_tls != "optional":
+        raise SystemExit("--hislip-tls and --hislip-users need --hislip-cert and --hislip-key")
+    return options
 
 
 def is_remote(client: str | None) -> bool:
@@ -256,6 +279,8 @@ class SessionManager:
         hislip_port: int | None = 4880,
         vxi11_port: int | None = None,
         portmapper_port: int | None = None,
+        hislip_overlapped: bool = False,
+        hislip_secure: SecureConfig | None = None,
         record_dir: Path | None = None,
         record_raw: bool = False,
         allow_plugins: bool = False,
@@ -266,6 +291,8 @@ class SessionManager:
         self.hislip_port = hislip_port
         self.vxi11_port = vxi11_port
         self.portmapper_port = portmapper_port
+        self.hislip_overlapped = hislip_overlapped
+        self.hislip_secure = hislip_secure
         self.record_dir = record_dir
         self.record_raw = record_raw
         self.allow_plugins = allow_plugins
@@ -348,7 +375,13 @@ class SessionManager:
             served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
             await served.scpi.start()
             if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
-                served.hislip = HislipServer(session, self.scpi_host, self.hislip_port)
+                served.hislip = HislipServer(
+                    session,
+                    self.scpi_host,
+                    self.hislip_port,
+                    overlapped=self.hislip_overlapped,
+                    secure=self.hislip_secure,
+                )
                 await served.hislip.start()
             if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
                 served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)

@@ -22,7 +22,7 @@ def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     from .server.app import create_app
-    from .server.manager import SessionManager, vxi11_port_of
+    from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
     bench = Path(args.bench).resolve() if args.bench else None
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
@@ -32,6 +32,7 @@ def _serve(args: argparse.Namespace) -> int:
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
         vxi11_port=vxi11_port_of(args),
+        **hislip_options_of(args),
         portmapper_port=args.portmapper_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
@@ -131,7 +132,7 @@ def _mcp(args: argparse.Namespace) -> int:
 
     from .ops import setup_logging
     from .server.app import create_app
-    from .server.manager import SessionManager, vxi11_port_of
+    from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     workspace = Path(args.workspace).resolve()
@@ -141,6 +142,7 @@ def _mcp(args: argparse.Namespace) -> int:
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
         vxi11_port=vxi11_port_of(args),
+        **hislip_options_of(args),
         portmapper_port=args.portmapper_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
@@ -534,6 +536,25 @@ def main(argv: list[str] | None = None) -> int:
         "at 111, which needs privileges (default: none, connect with "
         "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
     )
+    p.add_argument(
+        "--hislip-overlapped",
+        action="store_true",
+        help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
+        "ask for the other one at device clear",
+    )
+    p.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
+    p.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
+    p.add_argument(
+        "--hislip-tls",
+        choices=["optional", "initial", "mandatory"],
+        default="optional",
+        help="encryption mode (IVI-6.1 4.1.3): optional; initial = optional but required first; "
+        "mandatory = required and cannot be switched off",
+    )
+    p.add_argument(
+        "--hislip-users",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS)",
+    )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
@@ -584,6 +605,25 @@ def main(argv: list[str] | None = None) -> int:
         "at 111, which needs privileges (default: none, connect with "
         "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
     )
+    p.add_argument(
+        "--hislip-overlapped",
+        action="store_true",
+        help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
+        "ask for the other one at device clear",
+    )
+    p.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
+    p.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
+    p.add_argument(
+        "--hislip-tls",
+        choices=["optional", "initial", "mandatory"],
+        default="optional",
+        help="encryption mode (IVI-6.1 4.1.3): optional; initial = optional but required first; "
+        "mandatory = required and cannot be switched off",
+    )
+    p.add_argument(
+        "--hislip-users",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS)",
+    )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
@@ -615,6 +655,25 @@ def main(argv: list[str] | None = None) -> int:
         help="also start a port mapper here so VISA libraries find VXI-11 (turns VXI-11 on); they look "
         "at 111, which needs privileges (default: none, connect with "
         "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
+    )
+    p.add_argument(
+        "--hislip-overlapped",
+        action="store_true",
+        help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
+        "ask for the other one at device clear",
+    )
+    p.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
+    p.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
+    p.add_argument(
+        "--hislip-tls",
+        choices=["optional", "initial", "mandatory"],
+        default="optional",
+        help="encryption mode (IVI-6.1 4.1.3): optional; initial = optional but required first; "
+        "mandatory = required and cannot be switched off",
+    )
+    p.add_argument(
+        "--hislip-users",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS)",
     )
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")

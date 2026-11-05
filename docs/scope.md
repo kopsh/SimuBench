@@ -77,7 +77,7 @@
 | SCPI over TCP（raw socket），任意语言/VISA 可连 | 闭环之后 |
 | pytest 插件 | 闭环之后 |
 | Python SDK（进程内直接操作测试台，含推进虚拟时间、读取网络信号） | 闭环必需（验证场景的脚本使用） |
-| HiSLIP（IVI-6.1，synchronized 模式，D41） | 完成：`access/hislip_server.py`，共用端口按子地址区分仪表 |
+| HiSLIP（IVI-6.1 2.0，synchronized 与 overlapped 模式、TLS 与 SASL 登录，D41） | 完成：`access/hislip_server.py`、`access/hislip_tls.py`，共用端口按子地址区分仪表 |
 | VXI-11（D63） | 完成：`access/vxi11_server.py`，含 GPIB 网关形式的设备名 |
 | GPIB、USBTMC（物理总线） | 只做进程内 PyVISA 会话语义（D63）；无进程外入口 |
 | MCP：由现有脚本生成 Bench，指出不支持的命令 | 闭环必需 |

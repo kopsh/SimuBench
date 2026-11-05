@@ -36,7 +36,7 @@ plausible fake).
 | HTTP/WS message models → OpenAPI | `models/api.py` |
 | FastAPI app / sessions served / component catalog | `server/app.py`, `server/manager.py`, `server/catalog.py` |
 | MCP tools | `mcp_server.py` |
-| PyVISA backend / raw socket / HiSLIP / VXI-11 | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py`, `access/vxi11_server.py` |
+| PyVISA backend / raw socket / HiSLIP / VXI-11 | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py`, `access/hislip_tls.py` (HiSLIP 2.0 TLS + SASL), `access/vxi11_server.py` |
 | Locks and REN/GTL/LLO shared by every interface (D63) | `access/bus.py` |
 | In-process Python API, pytest plugin | `api.py`, `pytest_plugin.py` |
 | CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py` |

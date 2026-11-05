@@ -17,11 +17,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import ssl
 import struct
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
 from .bus import LockTable, bus_of
+from .hislip_tls import AuthState, SecureConfig, SecureStream
 
 log = logging.getLogger("simubench.hislip")
 
@@ -62,13 +64,31 @@ ASYNC_LOCK_INFO = 24
 ASYNC_LOCK_INFO_RESPONSE = 25
 GET_DESCRIPTORS = 26  # HiSLIP 2.0 and later (table 4)
 GET_DESCRIPTORS_RESPONSE = 27
+START_TLS = 28  # the secure connection capability (table 4)
+ASYNC_START_TLS = 29
+ASYNC_START_TLS_RESPONSE = 30
+END_TLS = 31
+ASYNC_END_TLS = 32
+ASYNC_END_TLS_RESPONSE = 33
+GET_SASL_MECHANISM_LIST = 34
+GET_SASL_MECHANISM_LIST_RESPONSE = 35
+AUTHENTICATION_START = 36
+AUTHENTICATION_EXCHANGE = 37
+AUTHENTICATION_RESULT = 38
 
 # Error codes (spec tables 14 and 16).
 ERR_UNRECOGNIZED_TYPE = 1
 ERR_UNRECOGNIZED_CONTROL = 2
 VERSION_2 = 0x0200
+TLS_BUSY, TLS_SUCCESS, TLS_ERROR = 0, 1, 3  # AsyncStartTLSResponse / AsyncEndTLSResponse control codes
+#: Messages a connection may use whatever its state, and the ones that set encryption and login up.
+ALWAYS_ALLOWED = {ASYNC_MAXIMUM_MESSAGE_SIZE, GET_DESCRIPTORS, FATAL_ERROR, ERROR}
+TLS_SETUP = {ASYNC_START_TLS, START_TLS}
+AUTH_SETUP = {GET_SASL_MECHANISM_LIST, AUTHENTICATION_START, AUTHENTICATION_EXCHANGE, ASYNC_END_TLS, END_TLS}
 FATAL_POORLY_FORMED = 1
 FATAL_INVALID_INIT = 3
+FATAL_SECURE = 5  # secure connection failed
+ERR_AUTH = 5  # authentication failed (non-fatal)
 
 RMT = 1  # control-code bit 0: RMT-delivered / RMT-expected
 
@@ -97,6 +117,13 @@ class HislipSession:
         self.clearing = False
         self.last_stb = 0
         self.version = 0x0100  # negotiated protocol version
+        self.async_reader: asyncio.StreamReader | SecureStream | None = None
+        self.secure_required = False  # encryption mandatory, or required right after initialization
+        self.tls_pending = False  # AsyncStartTLS succeeded: the synchronous channel is next
+        self.tls_active = False  # both channels are encrypted
+        self.tls_ending = False  # AsyncEndTLS succeeded: the synchronous channel is next
+        self.tls_last_error = ""
+        self.auth = AuthState()
         self.overlapped = server.overlapped
         self.rx_id = INITIAL_MESSAGE_ID - 2  # MessageID of the last Data, DataEND or Trigger received
         self.tx_id = INITIAL_MESSAGE_ID  # overlapped mode: the MessageID of the next Data/DataEND sent
@@ -197,8 +224,11 @@ class HislipServer:
         host: str = "127.0.0.1",
         port: int = DEFAULT_PORT,
         overlapped: bool = False,
+        secure: SecureConfig | None = None,
     ) -> None:
         self.session = session
+        #: The secure connection capability (4): ``None`` serves HiSLIP without it.
+        self.secure = secure
         #: The mode InitializeResponse announces and device clear proposes (IVI-6.1 3, 6.12.1). Both
         #: modes are served: a client may ask for the other one in DeviceClearComplete.
         self.overlapped = overlapped
@@ -270,16 +300,24 @@ class HislipServer:
                 writer, FATAL_POORLY_FORMED, f"unknown sub-address {sub.decode(errors='replace')!r}".encode()
             )
             return
+        version = min(parameter >> 16, SERVER_VERSION)  # the lower version wins (spec 6.1)
+        if self.secure is not None and self.secure.initial_required and version < VERSION_2:
+            # Encryption that must come first needs HiSLIP 2.0 (table 6): an older client cannot do it.
+            await _refuse(writer, FATAL_SECURE, b"a secure connection needs HiSLIP 2.0")
+            return
         host, port = writer.get_extra_info("peername")[:2]
         sess = HislipSession(self, name, self._next_session_id)
         self._next_session_id += 1
         sess.sync_reader, sess.sync_writer = reader, writer
         sess.client = f"hislip:{host}:{port}#{sess.session_id:04x}"
-        self._sessions[sess.session_id] = sess
-        version = min(parameter >> 16, SERVER_VERSION)  # the lower version wins (spec 6.1)
         sess.version = version
-        # Control: bit 0 is the mode the server starts in (6.1).
-        writer.write(_pack(INITIALIZE_RESPONSE, int(sess.overlapped), (version << 16) | sess.session_id))
+        sess.secure_required = (
+            self.secure is not None and version >= VERSION_2 and self.secure.initial_required
+        )
+        self._sessions[sess.session_id] = sess
+        # Control: bit 0 is the mode the server starts in, bits 1 and 2 the encryption mode (6.1).
+        control = int(sess.overlapped) | self._feature_bits(sess)
+        writer.write(_pack(INITIALIZE_RESPONSE, control, (version << 16) | sess.session_id))
         await writer.drain()
         log.info("HiSLIP %s: %s connected (synchronized mode)", name, sess.client)
         try:
@@ -300,14 +338,16 @@ class HislipServer:
         if sess is None or sess.async_writer is not None:
             await _refuse(writer, FATAL_INVALID_INIT, b"unknown session")
             return
-        sess.async_writer = writer
-        writer.write(_pack(ASYNC_INITIALIZE_RESPONSE, 0, SERVER_VENDOR))
+        sess.async_reader, sess.async_writer = reader, writer
+        capabilities = int(self.secure is not None and sess.version >= VERSION_2)  # bit 0: secure connection
+        writer.write(_pack(ASYNC_INITIALIZE_RESPONSE, capabilities, SERVER_VENDOR))
         await writer.drain()
         try:
-            async for header, payload in self._messages(reader, sess):
+            async for header, payload in self._messages(sess, "async"):
                 if sess.closing.is_set():
                     break
-                await self._async_message(sess, writer, header, payload)
+                # The channel's writer is read afresh: AsyncStartTLS replaces it with a secure one.
+                await self._async_message(sess, sess.async_writer, header, payload)
         finally:
             await sess.close()
 
@@ -323,9 +363,12 @@ class HislipServer:
     async def _read_payload(self, reader: asyncio.StreamReader, length: int) -> bytes:
         return await reader.readexactly(length) if length else b""
 
-    async def _messages(self, reader: asyncio.StreamReader, sess: HislipSession):
-        """Yield (header, payload) until the connection ends or a fatal error closes it."""
+    async def _messages(self, sess: HislipSession, channel: str):
+        """Yield (header, payload) until the connection ends or a fatal error closes it.
+
+        The reader is looked up for every message: StartTLS and EndTLS swap a channel's stream."""
         while not sess.closing.is_set():
+            reader = sess.sync_reader if channel == "sync" else sess.async_reader
             header = await self._read_header(reader)
             if header is None:
                 await sess.send_fatal(FATAL_POORLY_FORMED, b"malformed message header")
@@ -335,11 +378,15 @@ class HislipServer:
             yield header, payload
 
     async def _sync_loop(self, sess: HislipSession) -> None:
-        reader, writer = sess.sync_reader, sess.sync_writer
-        assert reader is not None and writer is not None
         buffer = bytearray()
-        async for header, _payload in self._messages(reader, sess):
+        async for header, _payload in self._messages(sess, "sync"):
+            writer = sess.sync_writer  # read afresh: StartTLS replaces it with a secure one
+            assert writer is not None
             _, msg_type, control, parameter, _ = header
+            if not await self._gate(sess, msg_type, writer):
+                if sess.closing.is_set():
+                    return
+                continue
             if sess.clearing:
                 # Device clear in progress: disregard input until DeviceClearComplete (6.12).
                 buffer.clear()
@@ -386,6 +433,12 @@ class HislipServer:
                 await writer.drain()
             elif msg_type == GET_DESCRIPTORS:
                 await self._descriptors(sess, writer)
+            elif msg_type == START_TLS:
+                await self._start_tls_sync(sess)
+            elif msg_type == END_TLS:
+                await self._end_tls_sync(sess)
+            elif msg_type in (GET_SASL_MECHANISM_LIST, AUTHENTICATION_START, AUTHENTICATION_EXCHANGE):
+                await self._authentication(sess, writer, msg_type, _payload)
             elif msg_type == FATAL_ERROR:
                 await sess.close()
                 return
@@ -437,6 +490,8 @@ class HislipServer:
         self, sess: HislipSession, writer: asyncio.StreamWriter, header: tuple, payload: bytes
     ) -> None:
         _, msg_type, control, parameter, _ = header
+        if not await self._gate(sess, msg_type, writer):
+            return
         if msg_type == ASYNC_MAXIMUM_MESSAGE_SIZE:
             size = struct.unpack("!Q", payload)[0] if len(payload) == 8 else MAX_MESSAGE_SIZE
             sess.max_message_size = max(size, HEADER.size + 1)
@@ -454,6 +509,10 @@ class HislipServer:
             await self._lock_message(sess, writer, control, parameter, payload)
         elif msg_type == GET_DESCRIPTORS:
             await self._descriptors(sess, writer)
+        elif msg_type == ASYNC_START_TLS:
+            await self._async_start_tls(sess, writer, control, parameter, payload)
+        elif msg_type == ASYNC_END_TLS:
+            await self._async_end_tls(sess, writer, control, parameter, payload)
         elif msg_type == ASYNC_LOCK_INFO:
             locks = self.locks(sess.instrument)
             code = 1 if locks.exclusive is not None else 0
@@ -488,11 +547,195 @@ class HislipServer:
         else:
             await sess.send_error(writer, ERR_UNRECOGNIZED_TYPE, b"unsupported message type")
 
+    # ---- secure connection capability (IVI-6.1 4, 6.15, 6.16) ----------------------------------------------
+
+    async def _gate(self, sess: HislipSession, msg_type: int, writer) -> bool:
+        """Whether a message may be handled in the state the connection is in (4.1.3, 4.1.4).
+
+        Encryption that is required comes first: anything else is a fatal error 5. Once a channel
+        is encrypted, only the login messages are answered until the client is authenticated."""
+        if self.secure is None or msg_type in ALWAYS_ALLOWED:
+            return True
+        if not sess.tls_active:
+            if sess.secure_required and msg_type not in TLS_SETUP:
+                await sess.send_fatal(FATAL_SECURE, b"a secure connection is required")
+                return False
+            return True
+        if not sess.auth.authenticated and msg_type not in AUTH_SETUP | TLS_SETUP:
+            await sess.send_error(writer, ERR_AUTH, b"authentication required")
+            return False
+        return True
+
+    def _tls_buffers_empty(self, sess: HislipSession, control: int, sent: int, received: int) -> bool:
+        """Both sides' buffers are empty, so the encryption mode may change (6.15 step 1)."""
+        if control & RMT:
+            sess.mav = False
+            sess.rmt_expected = False
+        if sent != sess.rx_id:
+            return False
+        if sess.overlapped:
+            return received == (sess.tx_id - 2) & 0xFFFF_FFFF
+        return not sess.mav
+
+    def _tls_failed(self, sess: HislipSession, what: str, exc: BaseException) -> None:
+        sess.tls_last_error = f"{what}: {type(exc).__name__} {exc}"[:200]
+        log.info("HiSLIP %s: %s failed for %s (%s)", sess.instrument, what, sess.client, exc)
+
+    async def _async_start_tls(self, sess, writer, control: int, parameter: int, payload: bytes) -> None:
+        """AsyncStartTLS: answer busy, success or error, then run the handshake on this channel."""
+        secure = self.secure
+        if (
+            secure is None
+            or sess.version < VERSION_2
+            or sess.tls_active
+            or sess.tls_pending
+            or len(payload) != 4
+        ):
+            sess.tls_last_error = "encryption cannot be switched on now"
+            writer.write(_pack(ASYNC_START_TLS_RESPONSE, TLS_ERROR))
+            await writer.drain()
+            return
+        received = struct.unpack("!I", payload)[0]
+        if not self._tls_buffers_empty(sess, control, parameter, received):
+            writer.write(_pack(ASYNC_START_TLS_RESPONSE, TLS_BUSY))
+            await writer.drain()
+            return
+        # No await between the answer and the handshake: the ClientHello follows it at once.
+        writer.write(_pack(ASYNC_START_TLS_RESPONSE, TLS_SUCCESS))
+        try:
+            stream = await SecureStream.accept(
+                sess.async_reader, writer, secure.context, secure.handshake_timeout
+            )
+        except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
+            self._tls_failed(sess, "TLS handshake (asynchronous channel)", exc)
+            await sess.close()
+            return
+        sess.async_reader = sess.async_writer = stream
+        sess.tls_pending = True
+
+    async def _start_tls_sync(self, sess: HislipSession) -> None:
+        """StartTLS: the handshake on the synchronous channel, after the asynchronous one (6.15 step 4)."""
+        secure = self.secure
+        if secure is None or not sess.tls_pending:
+            await sess.send_error(sess.sync_writer, 0, b"StartTLS must follow a successful AsyncStartTLS")
+            return
+        try:
+            stream = await SecureStream.accept(
+                sess.sync_reader, sess.sync_writer, secure.context, secure.handshake_timeout
+            )
+        except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
+            self._tls_failed(sess, "TLS handshake (synchronous channel)", exc)
+            await sess.close()
+            return
+        sess.sync_reader = sess.sync_writer = stream
+        sess.tls_pending = False
+        sess.tls_active = True
+        sess.auth = AuthState()  # authentication is valid for this encrypted connection only (table 6)
+
+    async def _async_end_tls(self, sess, writer, control: int, parameter: int, payload: bytes) -> None:
+        """AsyncEndTLS: possible only with optional encryption, on an encrypted connection (6.16)."""
+        secure = self.secure
+        if (
+            secure is None
+            or sess.version < VERSION_2
+            or not sess.tls_active
+            or sess.tls_ending
+            or secure.mandatory
+            or len(payload) != 4
+        ):
+            sess.tls_last_error = "encryption cannot be switched off now"
+            writer.write(_pack(ASYNC_END_TLS_RESPONSE, TLS_ERROR))
+            await writer.drain()
+            return
+        received = struct.unpack("!I", payload)[0]
+        if not self._tls_buffers_empty(sess, control, parameter, received):
+            writer.write(_pack(ASYNC_END_TLS_RESPONSE, TLS_BUSY))
+            await writer.drain()
+            return
+        writer.write(_pack(ASYNC_END_TLS_RESPONSE, TLS_SUCCESS))
+        await writer.drain()
+        try:
+            sess.async_reader, sess.async_writer = await writer.unwrap(secure.handshake_timeout)
+        except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
+            self._tls_failed(sess, "TLS shutdown (asynchronous channel)", exc)
+            await sess.close()
+            return
+        sess.tls_ending = True
+
+    async def _end_tls_sync(self, sess: HislipSession) -> None:
+        secure = self.secure
+        if secure is None or not sess.tls_ending:
+            await sess.send_error(sess.sync_writer, 0, b"EndTLS must follow a successful AsyncEndTLS")
+            return
+        try:
+            sess.sync_reader, sess.sync_writer = await sess.sync_writer.unwrap(secure.handshake_timeout)
+        except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
+            self._tls_failed(sess, "TLS shutdown (synchronous channel)", exc)
+            await sess.close()
+            return
+        sess.tls_ending = False
+        sess.tls_active = False
+        sess.auth = AuthState()  # authentication does not outlive the encryption (table 6)
+
+    async def _authentication(self, sess: HislipSession, writer, msg_type: int, payload: bytes) -> None:
+        """GetSaslMechanismList, AuthenticationStart and AuthenticationExchange (6.15 steps 5-11)."""
+        secure = self.secure
+        if secure is None or not sess.tls_active:
+            await sess.send_error(writer, 0, b"authentication needs an encrypted connection")
+            return
+        auth = sess.auth
+        if msg_type == GET_SASL_MECHANISM_LIST:
+            writer.write(
+                _pack(GET_SASL_MECHANISM_LIST_RESPONSE, 0, 0, " ".join(secure.mechanisms()).encode())
+            )
+            await writer.drain()
+        elif msg_type == AUTHENTICATION_START:
+            mechanism = payload.decode("ascii", errors="replace").upper()
+            if mechanism not in secure.mechanisms():
+                await sess.send_error(writer, ERR_AUTH, b"unsupported authentication mechanism")
+                return
+            auth.mechanism, auth.challenged = mechanism, False
+        else:
+            await self._authentication_exchange(sess, writer, payload)
+
+    async def _authentication_exchange(self, sess: HislipSession, writer, payload: bytes) -> None:
+        secure, auth = self.secure, sess.auth
+        assert secure is not None
+        if auth.mechanism is None:
+            await sess.send_error(writer, 0, b"AuthenticationStart comes first")
+            return
+        if auth.mechanism == "PLAIN" and not payload and not auth.challenged:
+            # No initial response: the server's challenge is empty and the client answers it (RFC 4616 2).
+            auth.challenged = True
+            writer.write(_pack(AUTHENTICATION_EXCHANGE))
+            await writer.drain()
+            return
+        if auth.mechanism == "ANONYMOUS":  # the payload is a trace token (RFC 4505): anything printable
+            ok = len(payload) <= 255 and payload.isascii()
+        else:
+            ok = secure.check_plain(payload)
+        if ok is None or (auth.mechanism == "ANONYMOUS" and not ok):
+            # Data that is not even of the mechanism's form: fatal error 5 (6.15).
+            await sess.send_fatal(FATAL_SECURE, b"invalid authentication data")
+            return
+        auth.mechanism, auth.challenged = None, False
+        if ok:
+            auth.authenticated, auth.failures = True, 0
+            writer.write(_pack(AUTHENTICATION_RESULT, 1, 0))
+        else:
+            # A growing delay against guessing (6.15 recommends one).
+            auth.failures += 1
+            await asyncio.sleep(min(0.05 * auth.failures, 1.0))
+            writer.write(_pack(AUTHENTICATION_RESULT, 0, 1, b"authentication failed"))
+        await writer.drain()
+
     # ---- features and descriptors (HiSLIP 2.0) ----------------------------------------------------------
 
     def _feature_bits(self, sess: HislipSession) -> int:
         """The features the server fixes for this connection: encryption mode bits (table 31)."""
-        return 0
+        if self.secure is None or sess.version < VERSION_2:
+            return 0
+        return (2 if self.secure.mandatory else 0) | (4 if self.secure.initial_required else 0)
 
     def _preferred_features(self, sess: HislipSession) -> int:
         """AsyncDeviceClearAcknowledge: what the server prefers (6.12.1, step 1)."""
@@ -508,15 +751,15 @@ class HislipServer:
         sess.rmt_expected = False
         return int(sess.overlapped) | self._feature_bits(sess)
 
-    def _descriptor_payload(self) -> bytes:
-        """All descriptors, one after the other (5): none, since no capability has any to give."""
-        return b""
+    def _descriptor_payload(self, sess: HislipSession) -> bytes:
+        """All descriptors, one after the other (5): those of the secure connection capability."""
+        return self.secure.descriptors(sess.tls_last_error) if self.secure is not None else b""
 
     async def _descriptors(self, sess: HislipSession, writer: asyncio.StreamWriter) -> None:
         if sess.version < VERSION_2:  # the message does not exist before 2.0
             await sess.send_error(writer, ERR_UNRECOGNIZED_TYPE, b"GetDescriptors needs HiSLIP 2.0")
             return
-        writer.write(_pack(GET_DESCRIPTORS_RESPONSE, 0, 0, self._descriptor_payload()))
+        writer.write(_pack(GET_DESCRIPTORS_RESPONSE, 0, 0, self._descriptor_payload(sess)))
         await writer.drain()
 
     async def _lock_message(
