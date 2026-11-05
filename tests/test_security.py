@@ -112,7 +112,9 @@ def test_scpi_sockets_listen_on_loopback_only(app):
         vxi11 = c.app.state.manager.sessions[info["id"]].vxi11
         listeners = [vxi11.server, vxi11.abort.server, vxi11.portmapper.server]
         assert all(srv.sockets[0].getsockname()[0] == "127.0.0.1" for srv in listeners)
-        assert all(i["address_vxi11"].startswith("TCPIP0::127.0.0.1::inst") for i in info["instruments"])
+        assert all(
+            i["address_vxi11"].startswith("TCPIP0::127.0.0.1,") for i in info["instruments"]
+        )  # not on 111
         c.delete(f"/api/sessions/{info['id']}")
 
 

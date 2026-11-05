@@ -124,7 +124,7 @@ async def test_create_link_by_index_and_by_instance_name(rig):
         a, b = Link(rig, b"inst0"), Link(rig, b"inst_scope")
         assert a.error == b.error == v.OK and a.id != b.id
         assert a.max_recv == v.MAX_RECV_SIZE and a.abort_port == rig.server.abort.port
-        assert b"AWG" in a.query("*IDN?").upper() or a.query("*IDN?").startswith(b"SIMUBENCH")
+        assert b"SB-AWG" in a.query("*IDN?")
         assert b"SB-DSO" in b.query("*IDN?")
         a.close()
         b.close()
@@ -145,8 +145,16 @@ async def test_an_unknown_device_name_is_not_accessible(rig):
 
 
 async def test_addresses_name_the_core_port_when_there_is_no_portmapper(rig):
-    rig.server.portmapper = None
+    pm, rig.server.portmapper = rig.server.portmapper, None
     assert rig.server.addresses()["awg"] == f"TCPIP0::127.0.0.1,{rig.port}::inst0::INSTR"
+    rig.server.portmapper = pm
+
+
+async def test_bare_address_only_when_the_port_mapper_is_on_111(rig):
+    assert rig.server.addresses()["awg"] == f"TCPIP0::127.0.0.1,{rig.port}::inst0::INSTR"  # mapper elsewhere
+    rig.server.portmapper = SimpleNamespace(port=111)
+    assert rig.server.addresses()["awg"] == "TCPIP0::127.0.0.1::inst0::INSTR"
+    rig.server.portmapper = None  # the fixture's teardown stops it through the saved reference
 
 
 async def test_invalid_link_ids_are_refused(rig):
@@ -347,16 +355,34 @@ async def test_a_dropped_connection_releases_its_lock(rig):
     await asyncio.to_thread(run)
 
 
-async def test_a_lock_is_shared_with_hislip_sessions_of_the_same_instrument(rig):
-    from simubench.access.bus import bus_of
+async def test_a_lock_is_shared_across_interfaces_of_the_same_instrument(rig):
+    """D63: a HiSLIP lock holds a VXI-11 link out, and the other way round: one lock per instrument."""
+    from tests.test_hislip import Raw
+
+    from simubench.access.hislip_server import HislipServer
+
+    hislip = HislipServer(rig.bench, port=0)
+    await hislip.start()
 
     def run() -> None:
-        a = Link(rig, lock=True)
-        locks = bus_of(rig.bench, "awg").locks
-        assert locks.exclusive is not None and locks.holders() == 1
-        a.close()
+        h = Raw(hislip.port, sub=b"hislip0")  # hislip0 is the same instrument as inst0
+        link = Link(rig)
+        assert h.lock(request=True, timeout_ms=0) == 1  # granted
+        assert link.write(b"*IDN?\n") == (v.E_LOCKED, 0)  # held out by the HiSLIP lock
+        assert h.lock(request=False) == 1  # released
+        assert link.write(b"*IDN?\n")[0] == v.OK
+        link.read()
+        assert link.core.call(v.DEVICE_LOCK, v._u(link.id, 0, 0)).int() == v.OK
+        assert h.lock(request=True, timeout_ms=100) == 0  # the VXI-11 lock holds HiSLIP out
+        assert link.core.call(v.DEVICE_UNLOCK, v._u(link.id)).int() == v.OK
+        assert h.lock(request=True, timeout_ms=1000) == 1
+        link.close()
+        h.close()
 
-    await asyncio.to_thread(run)
+    try:
+        await asyncio.to_thread(run)
+    finally:
+        await hislip.stop()
 
 
 # ---- abort channel, port mapper, protocol errors --------------------------------------------------------

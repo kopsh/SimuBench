@@ -30,7 +30,6 @@ def test_shared_locks_compose_only_with_the_same_key():
 def test_release_reports_what_was_held():
     locks = LockTable()
     locks.grant("a", exclusive=True)
-    locks.grant("x", exclusive=False) or None
     assert locks.release("a") == 1
     locks.grant("b", exclusive=False, key=b"k")
     assert locks.release("b") == 2

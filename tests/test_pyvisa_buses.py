@@ -173,3 +173,52 @@ def test_vxi11_address_forms_resolve_in_process(gpib):
     for inst in (by_index, by_gateway, by_name):
         assert "5522A" in inst.query("*IDN?")
     assert by_gateway.get_visa_attribute(constants.VI_ATTR_TCPIP_IS_HISLIP) == constants.VI_FALSE
+
+
+def test_srq_wait_returns_when_rqs_rises_during_the_wait(gpib):
+    """The SRQ of ``*OPC`` after a long operation appears only as virtual time passes."""
+    cal = gpib.open_resource("GPIB0::4::INSTR")
+    bench = gpib.visalib.bench
+    start = bench.now_ns
+    bench.instrument("cal").stb = lambda: 0x40 if bench.now_ns - start >= 250_000_000 else 0
+    cal.enable_event(constants.EventType.service_request, constants.EventMechanism.queue)
+    resp = cal.wait_on_event(constants.EventType.service_request, 2000)
+    assert not resp.timed_out
+    spent = (bench.now_ns - start) / 1e9
+    assert 0.25 <= spent < 0.5  # what the instrument needed, not the whole 2 s
+
+
+def test_srq_wait_that_never_ends_times_out_after_the_timeout(gpib):
+    cal = gpib.open_resource("GPIB0::4::INSTR")
+    cal.enable_event(constants.EventType.service_request, constants.EventMechanism.queue)
+    start = gpib.visalib.bench.now_ns
+    with pytest.raises(errors.VisaIOError) as err:
+        cal.wait_on_event(constants.EventType.service_request, 100, capture_timeout=False)
+    assert err.value.error_code == constants.VI_ERROR_TMO
+    assert (gpib.visalib.bench.now_ns - start) / 1e9 >= 0.1
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda lib, s: lib.gpib_send_ifc(s),
+        lambda lib, s: lib.gpib_command(s, b"\x3f"),
+        lambda lib, s: lib.gpib_control_atn(s, 0),
+        lambda lib, s: lib.gpib_pass_control(s, 5, 0),
+        lambda lib, s: lib.usb_control_in(s, 0xC0, 0, 0, 0),
+        lambda lib, s: lib.usb_control_out(s, 0x40, 0, 0, 0),
+    ],
+)
+def test_bus_operations_without_a_virtual_bus_are_refused(gpib, call):
+    cal = gpib.open_resource("GPIB0::4::INSTR")
+    with pytest.raises(errors.VisaIOError) as err:
+        call(gpib.visalib, cal.session)
+    assert err.value.error_code == constants.VI_ERROR_NSUP_OPER
+
+
+def test_the_served_vxi11_form_with_its_port_resolves_in_process(gpib):
+    """What ``serve`` prints when no port mapper is on 111 also opens in process; the port is random."""
+    cal = gpib.open_resource("TCPIP0::127.0.0.1,51234::inst0::INSTR", read_termination="\n")
+    assert "5522A" in cal.query("*IDN?")
+    gateway = gpib.open_resource("TCPIP0::127.0.0.1,51234::gpib0,4::INSTR", read_termination="\n")
+    assert "5522A" in gateway.query("*IDN?")

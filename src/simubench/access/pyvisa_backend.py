@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import random
+import re
 import time
 from collections import OrderedDict
 from typing import Any
@@ -201,6 +202,9 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
 
     @staticmethod
     def _norm(address: str) -> str:
+        # `TCPIP0::127.0.0.1,<port>::inst0::INSTR` is what `serve` prints when no port mapper is on
+        # 111; the port is random per run, so in process it is not part of the name.
+        address = re.sub(r"^(TCPIP\d*::[^:,]+),\d+(::(?:inst|gpib))", r"\1\2", address, flags=re.IGNORECASE)
         try:
             return str(rname.parse_resource_name(address)).upper()
         except rname.InvalidResourceName:
@@ -396,6 +400,13 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
 
     # ---- resource locks ------------------------------------------------------------------------------
 
+    def _unsupported(self, *_args: Any, **_kwargs: Any) -> Any:
+        """Operations of the real buses that have no virtual bus behind them: refused, not faked."""
+        raise errors.VisaIOError(constants.VI_ERROR_NSUP_OPER)
+
+    usb_control_in = usb_control_out = _unsupported  # USB control pipe requests
+    gpib_command = gpib_control_atn = gpib_pass_control = gpib_send_ifc = _unsupported
+
     def lock(
         self, session: Any, lock_type: Any, timeout: Any, requested_key: Any = None
     ) -> tuple[str, constants.StatusCode]:
@@ -458,10 +469,38 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             raise errors.VisaIOError(constants.VI_ERROR_INV_EVENT)
         if not s.srq_queue:
             raise errors.VisaIOError(constants.VI_ERROR_NENABLED)
-        if not self.bench.instrument(s.instrument).stb() & 0x40:
-            self._spend_timeout(timeout)
+        if not self._wait_for_rqs(s, timeout):
             raise errors.VisaIOError(constants.VI_ERROR_TMO)
         return in_event_type, self._register(object()), constants.StatusCode.success
+
+    #: What an infinite VISA timeout (0xFFFFFFFF ms) is worth here: a wait that never ends would
+    #: hang a script on a bench whose RQS can never rise.
+    INFINITE_WAIT_S = 60.0
+
+    def _wait_for_rqs(self, s: _VisaSession, timeout_ms: Any) -> bool:
+        """Let time pass until RQS rises or the timeout is spent; the time spent is the wait.
+
+        The SRQ of ``*OPC`` after a long operation appears only as the clock advances, so the
+        status byte is looked at between steps, not once. On the command clock the steps are
+        virtual time, so the wait costs what the instrument needed, no more."""
+        stb = self.bench.instrument(s.instrument).stb
+        try:
+            ms = float(timeout_ms)
+        except (TypeError, ValueError):
+            ms = 2000.0
+        remaining = self.INFINITE_WAIT_S if ms >= 0xFFFFFFFF else max(ms, 0.0) / 1000
+        step = max(remaining / 200, 1e-3)
+        while True:
+            if stb() & 0x40:
+                return True
+            if remaining <= 0:
+                return False
+            dt = min(step, remaining)
+            if self.bench.clock_mode == "wall":
+                time.sleep(dt)
+            else:
+                self.bench.advance(dt)
+            remaining -= dt
 
     # ---- attributes -------------------------------------------------------------------------------
 

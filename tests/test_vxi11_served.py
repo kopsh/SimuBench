@@ -87,3 +87,20 @@ def test_the_command_line_turns_vxi11_on_only_when_asked(vxi11_port, portmapper_
 
     args = SimpleNamespace(vxi11_port=vxi11_port, portmapper_port=portmapper_port, no_scpi=no_scpi)
     assert vxi11_port_of(args) == expected
+
+
+def test_a_reset_serves_vxi11_again_on_the_new_session(served):
+    c, info, _ = served
+    sid = info["id"]
+    r = c.post(f"/api/sessions/{sid}/reset", json={"force": True})
+    assert r.status_code == 200, r.text
+    fresh = r.json()
+    rm = pyvisa.ResourceManager("@py")
+    try:
+        awg = rm.open_resource(
+            fresh["instruments"][0]["address_vxi11"], read_termination="\n", write_termination="\n"
+        )
+        assert awg.query("*IDN?").startswith("SIMUBENCH,SB-AWG-2")
+        awg.close()
+    finally:
+        rm.close()

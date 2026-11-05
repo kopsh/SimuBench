@@ -348,8 +348,14 @@ class Vxi11Server(_RpcServer):
         await super().stop()
 
     def addresses(self) -> dict[str, str]:
-        """Instrument -> VXI-11 resource address. Without a port mapper the core port is spelled out."""
-        where = self.host if self.portmapper is not None else f"{self.host},{self.port}"
+        """Instrument -> VXI-11 resource address. Unless a port mapper answers on 111, the core port is spelled out."""
+        # VISA libraries ask the port mapper at 111 and nowhere else: the core port is left out only
+        # when that is where ours listens.
+        where = (
+            self.host
+            if self.portmapper is not None and self.portmapper.port == 111
+            else f"{self.host},{self.port}"
+        )
         out: dict[str, str] = {}
         for sub, name in self._subaddresses.items():
             out.setdefault(name, f"TCPIP0::{where}::{sub}::INSTR")
