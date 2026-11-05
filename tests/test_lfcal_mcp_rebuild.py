@@ -20,6 +20,7 @@ pytest.importorskip("mcp")
 
 from mcp import Client
 
+from helpers import mcp_result
 from simubench.library.loader import load_yaml
 from simubench.mcp_server import RateLimiter, build_server
 from simubench.server.benchfiles import fingerprint
@@ -32,10 +33,7 @@ BENCH = "lowfreq_cal.bench.yaml"
 
 
 def result(r):
-    if r.is_error:
-        raise AssertionError(r.content[0].text)
-    sc = r.structured_content
-    return sc.get("result", sc) if set(sc) == {"result"} else sc
+    return mcp_result(r)
 
 
 async def call(client, tool, /, **args):
