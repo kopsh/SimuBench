@@ -20,28 +20,17 @@ import math
 from typing import Any
 
 import numpy as np
-from scipy.special import jv
 
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .modulation import LineBuilder, am_sidebands, angle_sidebands, carson_orders, omitted_power_fraction
 from .sources import ReferenceClock
 
 Z0 = 50.0
 LINE_BUDGET = 999
 REF_DBM = 4.0  # REF_OUT: 10 MHz at +4 dBm into a matched load
-
-
-def carson_orders(beta: float) -> int:
-    """Sideband orders kept on each side: floor(β) + 1 (Carson's rule)."""
-    return math.floor(beta) + 1 if beta > 0 else 0
-
-
-def omitted_power_fraction(beta: float) -> float:
-    k = carson_orders(beta)
-    n = np.arange(-k, k + 1)
-    return float(1.0 - np.sum(jv(n, beta) ** 2))
 
 
 def emf_peak(dbm: float) -> float:
@@ -409,26 +398,23 @@ class RfModulator(Component):
         carrier = self.input("in").merged()
         if not carrier.freq.size:
             return Signal.zero()
+        out = LineBuilder()
         angle = self._angle()
         if angle:
             beta, phi = angle
             rate = self._source().frequency(str(self.angle_kind()))
-            k = carson_orders(beta)
-            n = np.arange(-k, k + 1)
-            freqs = (carrier.freq[:, None] + n[None, :] * rate).reshape(-1)
-            amps = (carrier.amp[:, None] * (jv(n, beta) * np.exp(1j * n * phi))[None, :]).reshape(-1)
+            # The n = 0 sideband is the carrier line itself (J_0 shrinks it).
+            angle_sidebands(out, carrier.freq, carrier.amp, beta, rate, phi)
         else:
-            freqs = carrier.freq
-            amps = carrier.amp
-        # AM multiplies every line by (1 + m·sin ω_m t): two sidebands of m/2 each.
+            for f, a in zip(carrier.freq, carrier.amp, strict=True):
+                out.add(f, a)
+        # AM multiplies every line by (1 + m·sin ω_m t): two sidebands of m/2 each — on top of the
+        # angle lines too, when both run (the RF generator stacks modulations, the AWG picks one).
         if self.param("am") and self.enabled():
             m = float(self.param("am_depth")) / 100
             fa = self._source().frequency("am")
-            side = m / 2 / 1j
-            freqs = np.concatenate([freqs, freqs + fa, freqs - fa])
-            amps = np.concatenate([amps, amps * side, -amps * side])
-        keep = (freqs > 0) & (np.abs(amps) > 0)
-        return Signal.lines(freqs[keep], amps[keep])
+            am_sidebands(out, np.asarray(out.freq), np.asarray(out.amp), fa, m / 2 / 1j)
+        return out.signal()
 
     def readings(self) -> dict[str, Any]:
         angle = self._angle()

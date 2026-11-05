@@ -12,6 +12,7 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .modulation import LineBuilder, am_sidebands, angle_sidebands, carson_orders, omitted_power_fraction
 
 
 @component("function_generator_core")
@@ -385,34 +386,6 @@ class WaveformSynth(Component):
         return self.peer(str(self.param(key) or ""))
 
 
-def _carson(beta: float) -> int:
-    """Sideband orders kept on each side of an angle-modulated line: floor(β) + 1 (Carson)."""
-    return math.floor(abs(beta)) + 1 if beta else 0
-
-
-class _Lines:
-    """Phasor lines being assembled (cosine convention); negative frequencies fold over."""
-
-    def __init__(self) -> None:
-        self.freq: list[float] = []
-        self.amp: list[complex] = []
-        self.dc = 0.0
-
-    def add(self, f: float, a: complex) -> None:
-        if abs(a) < 1e-15:
-            return
-        if f < 0:
-            f, a = -f, a.conjugate()
-        if f == 0:
-            self.dc += a.real
-            return
-        self.freq.append(f)
-        self.amp.append(a)
-
-    def signal(self, notes: tuple[FidelityNote, ...] = ()) -> Signal:
-        return Signal.lines(self.freq, self.amp, dc=self.dc, notes=notes).merged()
-
-
 @component("awg_modulator")
 class AwgModulator(Component):
     """A function generator's modulation (#327, component-map function_generator.modulation):
@@ -487,15 +460,14 @@ class AwgModulator(Component):
         rate, scale, phi = self._tone()
         if rate <= 0 or scale <= 0:
             return carrier
-        out = _Lines()
+        out = LineBuilder()
         f0 = float(c.freq.min()) if c.freq.size else 0.0
         if kind == "AM":
             m = float(self.param("am_depth")) / 100.0 * scale
             side = m / 2 / 1j * complex(math.cos(phi), math.sin(phi))
             for f, a in zip(c.freq, c.amp, strict=True):
                 out.add(f, a)
-                out.add(f + rate, a * side)
-                out.add(f - rate, a * side.conjugate())
+            am_sidebands(out, c.freq, c.amp, rate, side)
             out.add(0.0, c.dc)
             out.add(rate, c.dc * 2 * side)
         elif kind in ("FM", "PM"):
@@ -505,15 +477,19 @@ class AwgModulator(Component):
                 beta1 = math.radians(float(self.param("pm_dev"))) * scale
             # Count Carson's lines before the expansion: legal settings reach beta ~ 1e10 and the
             # loop itself would run for hours before the budget check (issue #357).
-            if sum(2 * _carson(beta1 * (f / f0 if f0 > 0 else 1.0)) + 1 for f in c.freq) > int(
+            if sum(2 * carson_orders(beta1 * (f / f0 if f0 > 0 else 1.0)) + 1 for f in c.freq) > int(
                 self.param("line_budget")
             ):
                 raise ScpiError(-222, "the modulation needs more lines than the model keeps")
-            for f, a in zip(c.freq, c.amp, strict=True):
-                beta = beta1 * (f / f0 if f0 > 0 else 1.0)
-                k = _carson(beta)
-                for n in range(-k, k + 1):
-                    out.add(f + n * rate, a * jv(n, beta) * complex(math.cos(n * phi), math.sin(n * phi)))
+            # The n = 0 sideband is the carrier line itself (J_0 shrinks it): no separate add.
+            angle_sidebands(
+                out,
+                c.freq,
+                c.amp,
+                beta1 * (c.freq / f0 if f0 > 0 else np.ones_like(c.freq)),
+                rate,
+                phi,
+            )
             out.add(0.0, c.dc)
         elif kind == "FSK":
             fsk_rate = float(self.param("fsk_rate"))
@@ -556,18 +532,18 @@ class AwgModulator(Component):
         lines = 2  # the DC term and the modulating tone
         keep = 0
         for k in range(1, total + 1):
-            lines += 2 * _carson(2 * math.pi * k * delta) + 2  # the sidebands and the harmonic
+            lines += 2 * carson_orders(2 * math.pi * k * delta) + 2  # the sidebands and the harmonic
             if lines > budget:
                 break
             keep = k
-        out = _Lines()
+        out = LineBuilder()
         out.add(0.0, d0 - 0.5)  # levels ±0.5, as the synth's pulse
         out.add(rate, delta * complex(math.cos(phi - math.pi / 2), math.sin(phi - math.pi / 2)))
         for k in range(1, keep + 1):
             out.add(k * f, 1 / (math.pi * k) * -1j)
             b = 2 * math.pi * k * delta
             psi = 2 * math.pi * k * d0
-            for n in range(-_carson(b), _carson(b) + 1):
+            for n in range(-carson_orders(b), carson_orders(b) + 1):
                 rot = complex(math.cos(-psi - n * phi - math.pi / 2), math.sin(-psi - n * phi - math.pi / 2))
                 out.add(k * f - n * rate, -jv(n, b) / (math.pi * k) * rot)
         # The note only when the budget really cut harmonics (issue #440): within the budget the
@@ -581,6 +557,27 @@ class AwgModulator(Component):
                 )
             )
         return out.signal()
+
+    def readings(self) -> dict[str, Any] | None:
+        """The angle modulation's index at the fundamental and the power Carson's rule omits (the
+        fidelity bound, as the RF generator reports it). The harmonics of a shaped carrier carry
+        β scaled by their order, so the bound is the worst line's. AM's two sidebands are exact,
+        FSK/PWM annotate their own notes."""
+        if not bool(self.param("enabled")) or self.choice("type") not in ("FM", "PM"):
+            return None
+        rate, scale, _ = self._tone()
+        if rate <= 0 or scale <= 0:
+            return None
+        if self.choice("type") == "FM":
+            beta1 = float(self.param("fm_dev")) * scale / rate
+        else:
+            beta1 = math.radians(float(self.param("pm_dev"))) * scale
+        worst = beta1
+        carrier = self.input("in").merged()
+        if carrier.freq.size:
+            f0 = float(carrier.freq.min())
+            worst = float(np.max(beta1 * (carrier.freq / f0 if f0 > 0 else 1.0)))
+        return {"values": {"beta": beta1, "omitted_power": omitted_power_fraction(worst)}}
 
 
 @component("amplitude_level")
