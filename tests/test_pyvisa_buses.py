@@ -161,3 +161,15 @@ def test_waiting_for_an_event_that_was_not_enabled_is_an_error(gpib):
     with pytest.raises(errors.VisaIOError) as err:
         cal.wait_on_event(constants.EventType.service_request, 10, capture_timeout=False)
     assert err.value.error_code == constants.VI_ERROR_NENABLED
+
+
+def test_vxi11_address_forms_resolve_in_process(gpib):
+    names = gpib.list_resources("?*::INSTR")
+    assert "TCPIP0::127.0.0.1::inst0::INSTR" in names
+    assert "TCPIP0::127.0.0.1::gpib0,4::INSTR" in names  # the gateway form of the declared GPIB address
+    by_index = gpib.open_resource("TCPIP0::127.0.0.1::inst0::INSTR", read_termination="\n")
+    by_gateway = gpib.open_resource("TCPIP0::127.0.0.1::gpib0,4::INSTR", read_termination="\n")
+    by_name = gpib.open_resource("TCPIP0::127.0.0.1::inst_cal::INSTR", read_termination="\n")
+    for inst in (by_index, by_gateway, by_name):
+        assert "5522A" in inst.query("*IDN?")
+    assert by_gateway.get_visa_attribute(constants.VI_ATTR_TCPIP_IS_HISLIP) == constants.VI_FALSE

@@ -3,6 +3,7 @@
 The bench opens in this process. Every instrument answers at:
 
 * its virtual address ``TCPIP0::127.0.0.1::<5025+i>::SOCKET`` (i = position in the bench file),
+* the HiSLIP form ``...::hislip<i>,4880::INSTR`` and the VXI-11 form ``...::inst<i>::INSTR`` (D41, D62),
 * the real-bench address configured in the bench file (``address:``), so scripts keep their strings,
 * its instance name (``rm.open_resource("scope")``).
 
@@ -160,6 +161,8 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         self.addresses: dict[str, str] = {}  # normalized address/alias -> instrument
         self.canonical: dict[str, str] = {}  # instrument -> canonical socket address
         self.hislip: dict[str, str] = {}  # instrument -> canonical HiSLIP address
+        self.vxi11: dict[str, str] = {}  # instrument -> canonical VXI-11 address
+        self.vxi11_gateway: dict[str, str] = {}  # instrument -> VXI-11 gateway form of its GPIB address
         for i, (name, inst) in enumerate(self.bench.instruments.items()):
             canon = f"TCPIP0::127.0.0.1::{BASE_PORT + i}::SOCKET"
             self.canonical[name] = canon
@@ -172,9 +175,29 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             ):
                 self.addresses[self._norm(form)] = name
             self.hislip[name] = f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR"
+            # VXI-11 (D62): the plain address a VISA library resolves through the port mapper.
+            self.vxi11[name] = f"TCPIP0::127.0.0.1::inst{i}::INSTR"
+            for form in (self.vxi11[name], f"TCPIP0::127.0.0.1::inst_{name}::INSTR"):
+                self.addresses[self._norm(form)] = name
+            gateway = self._gateway_address(inst.instance.address)
+            if gateway:  # a declared GPIB instrument is also reachable through a LAN/GPIB gateway
+                self.addresses[self._norm(gateway)] = name
+                self.vxi11_gateway[name] = gateway
             if inst.instance.address:
                 self.addresses[self._norm(inst.instance.address)] = name
             self.addresses[name.upper()] = name
+
+    @staticmethod
+    def _gateway_address(address: str | None) -> str | None:
+        """``GPIB0::4::INSTR`` -> ``TCPIP0::127.0.0.1::gpib0,4::INSTR`` (nothing for other buses)."""
+        try:
+            parsed = rname.parse_resource_name(address or "")
+        except rname.InvalidResourceName:
+            return None
+        if not isinstance(parsed, rname.GPIBInstr):
+            return None
+        sad = f",{parsed.secondary_address}" if parsed.secondary_address is not None else ""
+        return f"TCPIP0::127.0.0.1::gpib{parsed.board},{parsed.primary_address}{sad}::INSTR"
 
     @staticmethod
     def _norm(address: str) -> str:
@@ -210,7 +233,8 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         return self._register(self), constants.StatusCode.success
 
     def list_resources(self, session: Any, query: str = "?*::INSTR") -> tuple[str, ...]:
-        resources = list(self.canonical.values()) + list(self.hislip.values())
+        resources = list(self.canonical.values()) + list(self.hislip.values()) + list(self.vxi11.values())
+        resources += list(self.vxi11_gateway.values())
         for inst in self.bench.instruments.values():
             if inst.instance.address:
                 resources.append(inst.instance.address)
