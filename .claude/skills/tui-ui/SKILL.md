@@ -34,6 +34,12 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - **Overview** is status-first: a card's light, its alerts and the attention strip all come from
   `cards.py` (`CardData.alerts`, `status_light`) — add a new kind of alert there, never in the
   screen. `w` (overview and instrument screens alike) goes through `reasons.explain_instrument`.
+- **Fields** (`ControlButton`, kind switch / select / number) read `label value` and are edited
+  where they stand (`controls.FieldEdit` is the pure state; `editing.edit_key` the keys): the
+  button consumes *every* key while `edit` is set (`check_consume_key`), so screen bindings
+  (`e`, `w`, `L`) cannot fire mid-edit. Reuse `parse_input` / `range_text`; a value under an
+  `_auto` switch shows `AUTO`. Actions (panel buttons, softkeys) stay `[label]`. `[` `]` swap the
+  screen for the next instrument through `app.open_instrument(name, replace=True)`.
 - **Buttons** are a `ButtonGrid` (`screens/editing.py`): equal columns, wrapping rows, never cut
   mid-word; `fit(width, max_rows)` returns the rows shown, and the screen's row budget uses that.
   Readings come before buttons — a short screen shows one row, the rest scroll with the focus.

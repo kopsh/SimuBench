@@ -121,6 +121,25 @@ class TopBar(Static):
         self.update(bar_text(self.app, left, right_parts, self.size.width or 80))
 
 
+#: What the bottom bar gives up first when the keys do not fit (tui-screens.md 2.2): the keys that
+#: ``?`` lists anyway, least essential first. ``Esc``, ``w``, ``?`` and ``q`` always stay.
+DROP_ORDER = ("[ ]", ":", "␣", "p", "l", "Tab", "⏎")
+
+
+def fit_keys(keys: list[tuple[str, str]], room: int) -> list[tuple[str, str]]:
+    """``keys`` without the least essential ones until ``key action  `` for each fits ``room``."""
+
+    def width(items: list[tuple[str, str]]) -> int:
+        return 1 + sum(cell_len(k) + 1 + cell_len(a) + 2 for k, a in items)
+
+    out = list(keys)
+    for victim in DROP_ORDER:
+        if width(out) <= room:
+            break
+        out = [item for item in out if item[0] != victim]
+    return out
+
+
 class BottomBar(Static):
     """The focused screen's keys on the left; the remote status on the right (tui-screens.md 2.2)."""
 
@@ -155,7 +174,7 @@ class BottomBar(Static):
             left.append((self._flash_text, ""))
             remote_text = ""
         else:
-            for key, action in keys:
+            for key, action in fit_keys(keys, width - cell_len(remote_text) - 2):
                 left.append((key, "bold hud"))
                 left.append((f" {action}  ", "muted"))
         self.update(bar_text(self.app, left, [(remote_text + " ", "muted")], width))

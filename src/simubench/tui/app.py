@@ -262,6 +262,21 @@ class SimuBenchApp(App[None]):
             return
         self.push_screen(factory(*args))
 
+    def instrument_screen_key(self, name: str) -> str:
+        """Which screen shows this instrument: the scope screen for a scope, else the generic one."""
+        info = next(
+            (i for i in (self.session_info or {}).get("instruments", []) if i.get("name") == name), {}
+        )
+        return "scope" if (info.get("display") or {}).get("template") == "oscilloscope" else "instrument"
+
+    def open_instrument(self, name: str, replace: bool = False) -> None:
+        """Open an instrument's screen. ``replace`` swaps it for the one in front, so ``Esc`` still
+        returns to where the user came from (``[`` and ``]`` step through the bench this way)."""
+        key = self.instrument_screen_key(name)
+        if replace:
+            self.pop_screen()
+        self.show(key, name)
+
     # ---- connection loop ----------------------------------------------------------------------------
 
     async def _connection_loop(self) -> None:

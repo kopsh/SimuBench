@@ -89,6 +89,8 @@ class InstrumentScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
+        Binding("left_square_bracket", "switch_instrument(-1)", show=False),
+        Binding("right_square_bracket", "switch_instrument(1)", show=False),
         Binding("L", "local", show=False),  # capital L (5.5): lowercase l is the log everywhere
         Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
@@ -185,6 +187,7 @@ class InstrumentScreen(ControlEditingScreen):
         if app.data_version == self._last_version:
             return
         self._last_version = app.data_version
+        self._refresh_buttons()  # the fields' values first: the grids size their columns from them
         self._refresh_identity()
         self._refresh_channels()
         self._refresh_other()
@@ -390,6 +393,7 @@ class InstrumentScreen(ControlEditingScreen):
             if extra > 0:
                 entry["button_rows"] = entry["buttons"].fit(width, 1 + extra)
             entry["rows"].update(box_text(app, lines, width))
+            entry["rows"].display = bool(lines)
             entry["n_lines"] = len(lines)
             box.border_title = self._box_title(template, entry["channel"])
             reason = self._reason_line(template)
@@ -413,9 +417,6 @@ class InstrumentScreen(ControlEditingScreen):
 
     def _smu_lines(self, state: dict[str, dict]) -> list[list[tuple[str, str]]]:
         return rows.smu_rows(self.app.lang, state, self.readings)
-
-    def _generator_lines(self, state: dict[str, dict], channel: int) -> list[list[tuple[str, str]]]:
-        return rows.generator_rows(self.app.lang, state, channel)
 
     def _panel_lines(
         self, width: int | None = None, budget: int | None = None
@@ -459,7 +460,7 @@ class InstrumentScreen(ControlEditingScreen):
         if template == "smu":
             return self._smu_lines(state)
         if template == "function_generator":
-            return self._generator_lines(state, channel or 1)
+            return []  # the fields below are the display: ``Frequency 1.0000 kHz`` says it all
         if template == "spectrum_analyzer":
             return self._spectrum_lines(state, width, budget)
         if template == "lockin":
@@ -514,7 +515,10 @@ class InstrumentScreen(ControlEditingScreen):
                 and not state[path].get("readonly")
                 and state[path].get("type") in ("bool", "enum", "float", "int")
             ]
-            self._other_buttons.add_buttons(*[ControlButton(c, "other") for c in controls])
+            new = [ControlButton(c, "other") for c in controls]
+            for b in new:
+                b.render_button(info, self.remote_controlled, lang)
+            self._other_buttons.add_buttons(*new)
         button_rows = self._other_buttons.fit(width)
         # Whole groups only, never a heading above the fold (#374); the buttons always stay.
         full = rows.grouped_columns(self.app.lang, groups, state, width)
@@ -673,6 +677,7 @@ class InstrumentScreen(ControlEditingScreen):
             ("Tab", i18n.t("keys.move", lang)),
             ("⏎", i18n.t("keys.edit", lang)),
             ("␣", i18n.t("keys.switch", lang)),
+            ("[ ]", i18n.t("keys.nextInstrument", lang)),
             (":", i18n.t("keys.scpi", lang)),
         ]
         if self.remote_controlled:

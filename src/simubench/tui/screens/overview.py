@@ -317,13 +317,7 @@ class OverviewScreen(ShellScreen):
                             return
             app.show("nets")
             return
-        app: Any = self.app
-        info = next((i for i in (app.session_info or {}).get("instruments", []) if i.get("name") == name), {})
-        template = (info.get("display") or {}).get("template")
-        if template == "oscilloscope":
-            app.show("scope", name)
-        else:
-            app.show("instrument", name)
+        app.open_instrument(name)
 
     def action_cursor(self, direction: str) -> None:
         cards = list(self._grid.query(Card))

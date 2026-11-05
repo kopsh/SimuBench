@@ -106,28 +106,6 @@ def smu_rows(lang: str, state: dict[str, dict], readings: dict[str, Any]) -> lis
     ]
 
 
-def generator_rows(lang: str, state: dict[str, dict], channel: int) -> list[list[tuple[str, str]]]:
-    rows: list[tuple[str, str, bool]] = []
-    for path in (
-        f"ch{channel}.output",
-        f"ch{channel}.function",
-        f"ch{channel}.frequency",
-        f"ch{channel}.amplitude",
-        f"ch{channel}.offset",
-        f"ch{channel}.phase",
-        f"ch{channel}.load",
-        f"ch{channel}.inverted",
-    ):
-        sv = state.get(path)
-        if sv is None:
-            continue
-        label = C.label_of(sv, lang, fallback=path.rsplit(".", 1)[-1])
-        value = C.summary_text(sv.get("value"), sv, lang)
-        rows.append((label, value, isinstance(sv.get("value"), (int, float))))
-    width = 1 + max((cell_len(label) for label, _, _ in rows), default=5)
-    return [row(label, value, bold=bold, width=width) for label, value, bold in rows]
-
-
 def panel_rows(
     lang: str,
     info: dict[str, Any],

@@ -167,6 +167,8 @@ class ScopeScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
+        Binding("left_square_bracket", "switch_instrument(-1)", show=False),
+        Binding("right_square_bracket", "switch_instrument(1)", show=False),
         Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
 
@@ -478,7 +480,7 @@ class ScopeScreen(ControlEditingScreen):
             ("s", i18n.t("keys.single", lang)),
             ("c", i18n.t("keys.channels", lang)),
             ("⏎", i18n.t("keys.edit", lang)),
-            (":", i18n.t("keys.scpi", lang)),
+            ("[ ]", i18n.t("keys.nextInstrument", lang)),
             ("w", i18n.t("keys.reason", lang)),
             ("?", i18n.t("keys.help", lang)),
             ("q", i18n.t("common.quit", lang)),

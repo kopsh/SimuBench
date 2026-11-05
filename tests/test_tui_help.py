@@ -97,3 +97,16 @@ def test_every_colour_token_has_a_mono_counterpart():
     from simubench.tui.theme import COLORS, MONO_VARS
 
     assert set(MONO_VARS) == set(COLORS)
+
+
+@pytest.mark.unit
+def test_the_bottom_bar_gives_up_the_least_essential_keys_first():
+    from simubench.tui.widgets import fit_keys
+
+    keys = [("Esc", "back"), ("Tab", "move"), ("⏎", "edit"), ("␣", "switch"), ("[ ]", "next"),
+            (":", "SCPI"), ("w", "reason"), ("?", "help"), ("q", "Quit")]  # fmt: skip
+    assert fit_keys(keys, 200) == keys  # room enough: nothing goes
+    tight = [k for k, _ in fit_keys(keys, 60)]
+    assert "[ ]" not in tight and ":" not in tight  # the first to go
+    assert {"Esc", "w", "?", "q"} <= set(tight)  # these stay
+    assert [k for k, _ in fit_keys(keys, 1)][-3:] == ["w", "?", "q"]  # even when nothing fits

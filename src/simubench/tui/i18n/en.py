@@ -144,6 +144,7 @@ TERMS: dict = {
         "reason": "reason",
         "help": "help",
         "problem": "problem",
+        "nextInstrument": "next",
         "fault": "fault",
         "runStop": "run/stop",
         "single": "single",
@@ -173,6 +174,7 @@ TERMS: dict = {
             "local": "Take local control",
             "reason": "Why: the chain behind this state",
             "next_problem": "Jump to the next card with a problem",
+            "switch_instrument": "Previous / next instrument of the bench",
             "run_stop": "Run / stop the scope",
             "single": "Single acquisition",
             "next_channel": "Next channel",
@@ -411,16 +413,8 @@ TERMS: dict = {
     },
     # ---- the edit dialogs (tui-screens.md 10.2) --------------------------------------------------------
     "edit": {
-        "numberTitle": "{label} · {path}",
-        "current": "Current",
-        "newValue": "New value",
         "range": "Range",
         "accepted": "accepts 5, 5 V, 5000 mV, 5e0",
         "outOfRange": "out of range",
-        "write": "⏎ write",
-        "cancelKey": "Esc cancel",
-        "historyKey": "↑↓ history",
-        "selectTitle": "{label}",
-        "failed": "write failed: {code} {message}",
     },
 }
