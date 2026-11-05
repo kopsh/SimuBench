@@ -540,7 +540,8 @@ def main(argv: list[str] | None = None) -> int:
         "--hislip-overlapped",
         action="store_true",
         help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
-        "ask for the other one at device clear",
+        "ask for the other one at device clear. Needs an overlap-aware client: pyvisa-py is not one "
+        "(it checks response IDs the synchronized way and drops the replies)",
     )
     p.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
     p.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
@@ -553,7 +554,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--hislip-users",
-        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS)",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
+        "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
     )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
@@ -609,7 +611,8 @@ def main(argv: list[str] | None = None) -> int:
         "--hislip-overlapped",
         action="store_true",
         help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
-        "ask for the other one at device clear",
+        "ask for the other one at device clear. Needs an overlap-aware client: pyvisa-py is not one "
+        "(it checks response IDs the synchronized way and drops the replies)",
     )
     p.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
     p.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
@@ -622,7 +625,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--hislip-users",
-        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS)",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
+        "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
     )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
@@ -660,7 +664,8 @@ def main(argv: list[str] | None = None) -> int:
         "--hislip-overlapped",
         action="store_true",
         help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
-        "ask for the other one at device clear",
+        "ask for the other one at device clear. Needs an overlap-aware client: pyvisa-py is not one "
+        "(it checks response IDs the synchronized way and drops the replies)",
     )
     p.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
     p.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
@@ -673,7 +678,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument(
         "--hislip-users",
-        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS)",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
+        "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
     )
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")

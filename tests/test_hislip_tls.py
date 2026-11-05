@@ -592,8 +592,27 @@ def test_certificate_and_key_switch_the_capability_on(tmp_path):
         {"hislip_key": str(KEY)},
         {"hislip_tls": "mandatory"},  # a mode with nothing to encrypt with
         {"hislip_users": "users.txt"},
+        # Users with optional encryption would look like protection and be none: a client that
+        # never asks for TLS needs no login.
+        {"hislip_cert": str(CERT), "hislip_key": str(KEY), "hislip_users": "users.txt"},
     ],
 )
 def test_options_that_cannot_work_alone_are_refused(given):
     with pytest.raises(SystemExit):
         hislip_options_of(args(**given))
+
+
+@pytest.mark.unit
+def test_a_service_request_waits_while_the_channel_is_switching():
+    """poll_srq runs on the sync task; during a switch a plaintext message would corrupt the TLS stream."""
+    sent: list[bytes] = []
+    rising = SimpleNamespace(stb=lambda: 0x60)
+    server = SimpleNamespace(session=SimpleNamespace(instrument=lambda name: rising), overlapped=False)
+    sess = h.HislipSession(server, "scope", 1)
+    sess.async_writer = SimpleNamespace(is_closing=lambda: False, write=sent.append)
+    sess.switching = True
+    sess.poll_srq()
+    assert sent == [] and sess.last_stb == 0  # nothing written, and the edge is not used up
+    sess.switching = False
+    sess.poll_srq()
+    assert len(sent) == 1 and sent[0][2] == h.ASYNC_SERVICE_REQUEST  # found again once it is over

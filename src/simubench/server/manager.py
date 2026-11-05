@@ -80,8 +80,16 @@ def hislip_options_of(args: Any) -> dict[str, Any]:
     """``SessionManager`` keyword arguments for the HiSLIP options of the command line (D41).
 
     ``--hislip-cert`` and ``--hislip-key`` switch on the secure connection capability; they come
-    as a pair. ``--hislip-users`` (``name:password`` lines) turns the login from ANONYMOUS into PLAIN."""
+    as a pair. ``--hislip-users`` (``name:password`` lines) turns the login from ANONYMOUS into PLAIN;
+    it needs ``--hislip-tls initial`` or ``mandatory``, the modes in which every client must log in.
+    The login covers the HiSLIP port only: raw sockets and VXI-11 on the same bench have none."""
     options: dict[str, Any] = {"hislip_overlapped": bool(args.hislip_overlapped)}
+    if args.hislip_users and args.hislip_tls == "optional":
+        # With optional encryption a client that never asks for it uses HiSLIP without any login
+        # (and so does a 1.0 client): a users file would look like protection and be none.
+        raise SystemExit(
+            "--hislip-users only gates connections that must be encrypted: add --hislip-tls initial or mandatory"
+        )
     if args.hislip_cert or args.hislip_key:
         if not (args.hislip_cert and args.hislip_key):
             raise SystemExit("--hislip-cert and --hislip-key go together")

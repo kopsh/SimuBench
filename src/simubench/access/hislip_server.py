@@ -2,9 +2,13 @@
 
 One shared TCP port serves every instrument; the sub-address selects it (``hislip0``,
 ``hislip1`` … in bench order, or ``hislip_<instance name>``), so clients connect with
-``TCPIP0::127.0.0.1::hislip0,<port>::INSTR``. Only the synchronized mode of the
-specification is implemented; ``InitializeResponse`` always prefers it. Encrypted
-connections (StartTLS) and authentication are not supported and are refused with Error.
+``TCPIP0::127.0.0.1::hislip0,<port>::INSTR``.
+
+Both modes of the specification are served: synchronized (3.1) and overlapped (3.2). The server
+starts in the one ``overlapped=`` names and a client may ask for the other at device clear
+(6.12.1). The negotiated version is the lower of the client's and 2.0, which adds GetDescriptors
+and, when a ``SecureConfig`` is given, the secure connection capability: TLS switched on and off
+in the middle of a connection and SASL login (hislip_tls.py).
 
 Behaviour follows the IVI-6.1 HiSLIP 2.0 specification (2020-04-23): message types and
 transactions as in its tables 3–4, interrupted handling per 3.1.1, device clear per 6.12,
@@ -123,6 +127,8 @@ class HislipSession:
         self.tls_active = False  # both channels are encrypted
         self.tls_ending = False  # AsyncEndTLS succeeded: the synchronous channel is next
         self.tls_last_error = ""
+        #: An asynchronous-channel encryption switch is under way: nothing else may write to it.
+        self.switching = False
         self.auth = AuthState()
         self.overlapped = server.overlapped
         self.rx_id = INITIAL_MESSAGE_ID - 2  # MessageID of the last Data, DataEND or Trigger received
@@ -184,6 +190,8 @@ class HislipSession:
 
     def poll_srq(self) -> None:
         """Send AsyncServiceRequest when the RQS bit rises; once per new reason (spec 6.13)."""
+        if self.switching:
+            return  # a plaintext message now would corrupt the TLS stream; the edge is found again after
         try:
             stb = self.server.session.instrument(self.instrument).stb()
         except Exception:  # a status read must never take the connection down
@@ -319,7 +327,14 @@ class HislipServer:
         control = int(sess.overlapped) | self._feature_bits(sess)
         writer.write(_pack(INITIALIZE_RESPONSE, control, (version << 16) | sess.session_id))
         await writer.drain()
-        log.info("HiSLIP %s: %s connected (synchronized mode)", name, sess.client)
+        log.info(
+            "HiSLIP %s: %s connected (%s mode, version %d.%d)",
+            name,
+            sess.client,
+            "overlapped" if sess.overlapped else "synchronized",
+            version >> 8,
+            version & 0xFF,
+        )
         try:
             await self._sync_loop(sess)
         finally:
@@ -600,7 +615,9 @@ class HislipServer:
             writer.write(_pack(ASYNC_START_TLS_RESPONSE, TLS_BUSY))
             await writer.drain()
             return
-        # No await between the answer and the handshake: the ClientHello follows it at once.
+        # No await between the answer and the handshake: the ClientHello follows it at once. Until
+        # the handshake is over nothing else may be written to this channel (``switching``).
+        sess.switching = True
         writer.write(_pack(ASYNC_START_TLS_RESPONSE, TLS_SUCCESS))
         try:
             stream = await SecureStream.accept(
@@ -610,8 +627,11 @@ class HislipServer:
             self._tls_failed(sess, "TLS handshake (asynchronous channel)", exc)
             await sess.close()
             return
+        finally:
+            sess.switching = False
         sess.async_reader = sess.async_writer = stream
         sess.tls_pending = True
+        sess.poll_srq()  # a service request raised during the switch is delivered now, encrypted
 
     async def _start_tls_sync(self, sess: HislipSession) -> None:
         """StartTLS: the handshake on the synchronous channel, after the asynchronous one (6.15 step 4)."""
@@ -652,6 +672,7 @@ class HislipServer:
             writer.write(_pack(ASYNC_END_TLS_RESPONSE, TLS_BUSY))
             await writer.drain()
             return
+        sess.switching = True
         writer.write(_pack(ASYNC_END_TLS_RESPONSE, TLS_SUCCESS))
         await writer.drain()
         try:
@@ -660,7 +681,10 @@ class HislipServer:
             self._tls_failed(sess, "TLS shutdown (asynchronous channel)", exc)
             await sess.close()
             return
+        finally:
+            sess.switching = False
         sess.tls_ending = True
+        sess.poll_srq()
 
     async def _end_tls_sync(self, sess: HislipSession) -> None:
         secure = self.secure
