@@ -20,15 +20,12 @@ and the ``simubench replay`` command (D36).
 
 from __future__ import annotations
 
-import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
-
-ENV = ("SIMUBENCH_RECORD_DIR", "SIMUBENCH_CLOCK", "SIMUBENCH_SEED", "SIMUBENCH_IDLE")
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -69,30 +66,23 @@ def _bench_path(request: pytest.FixtureRequest) -> tuple[Path, dict[str, Any]]:
 
 @pytest.fixture
 def visa_rm(request: pytest.FixtureRequest) -> Iterator[Any]:
-    """A PyVISA ResourceManager on a freshly powered bench."""
+    """A PyVISA ResourceManager on a freshly powered bench. Everything the bench needs travels
+    in the resource string's query parameters (issue 640): no environment juggling around the
+    open, and an unknown option name fails loudly instead of quietly running defaults."""
+    from urllib.parse import urlencode
+
     import pyvisa
 
     path, options = _bench_path(request)
-    saved = {k: os.environ.get(k) for k in ENV}
     record_dir = request.config.getoption("--simubench-record-dir")
     if record_dir:
         name = re.sub(r"[^0-9A-Za-z_.-]+", "_", request.node.nodeid)[-120:]
-        os.environ["SIMUBENCH_RECORD_DIR"] = str(Path(record_dir).resolve() / name)
-    if options.get("clock"):
-        os.environ["SIMUBENCH_CLOCK"] = str(options["clock"])
-    if options.get("seed") is not None:
-        os.environ["SIMUBENCH_SEED"] = str(options["seed"])
+        options = {**options, "record_dir": str(Path(record_dir).resolve() / name)}
     # A test must read the same numbers on a slow machine as on a fast one: idle real time does
     # not move the virtual clock, and time.sleep(t) advances it by exactly t (D47).
-    os.environ["SIMUBENCH_IDLE"] = str(options.get("idle") or "sleep")
-    try:
-        rm = pyvisa.ResourceManager(f"{path}@simubench")
-    finally:
-        for k, v in saved.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
+    options = {"idle": "sleep", **options}
+    query = urlencode(options)
+    rm = pyvisa.ResourceManager(f"{path}?{query}@simubench" if query else f"{path}@simubench")
     recorder = getattr(rm.visalib.bench, "recorder", None)
     request.node.stash[RECORD_KEY] = str(recorder.path) if recorder else None
     yield rm
