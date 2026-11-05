@@ -56,6 +56,10 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - **Overview log drawer**: shut by default (`DRAWER_ROWS = 3`), `L` opens it (`l` stays the full-screen
   log); a shut drawer marks its title `✗ N new` for errors not yet seen but never opens itself
   (`tui-screens.md` 4.5).
+- **State tree** (`t`, `screens/statetree.py` + pure `tree.py`): all state variables by path group, edited
+  through the same `ControlEditingScreen` layer; rebuild only when the *shape* changes (folds live on
+  `app.tree_open`), `h` adds hidden values (`deviations`, hidden faults) marked `◆ hidden` in text, not
+  colour alone. `L` is local control on the instrument screen, so hidden is `h` (`tui-screens.md` 5.6).
 - **Palette** (`palette.py`, `Ctrl+K` anywhere, `/` on an instrument screen): commands are generated from
   the app's real `BINDINGS`, the bench's instruments and their state variables — never listed by hand. A
   setting is never written from the palette: it jumps to the field (`go_to_field`) and types into it, so

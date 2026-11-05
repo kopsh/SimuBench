@@ -134,6 +134,10 @@ class SimuBenchApp(App[None]):
         #: a field jump the palette asked for: (instrument, state path, text to type or None);
         #: the instrument screen takes it once its controls exist
         self.pending_field: tuple[str, str, str | None] | None = None
+        #: the state tree's folds per instrument (the groups that are open) and the ``h`` switch;
+        #: kept here so leaving the tree and coming back finds it as it was
+        self.tree_open: dict[str, set[str]] = {}
+        self.tree_hidden = False
         self.faults: list[dict[str, Any]] = []  # GET /faults, refetched on fault events (section 1.6)
         self.scpi_history: dict[str, list[str]] = {}  # per-instrument console history (10.3)
         self.catalog: dict[str, Any] = {}
@@ -723,12 +727,14 @@ def _default_screens() -> None:
     from .screens.nets import NetsScreen
     from .screens.runs import RunsScreen
     from .screens.scope import ScopeScreen
+    from .screens.statetree import StateTreeScreen
 
     register_screen("log", LogScreen)
     register_screen("instrument", InstrumentScreen)
     register_screen("scope", ScopeScreen)
     register_screen("nets", NetsScreen)
     register_screen("runs", RunsScreen)
+    register_screen("states", StateTreeScreen)
 
 
 _default_screens()

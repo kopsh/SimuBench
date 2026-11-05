@@ -200,6 +200,42 @@ def test_instrument_smu_snapshot(snap_compare, demo_server, lang, size, name):
 @pytest.mark.parametrize(
     ("lang", "size", "name"),
     [
+        ("en", (100, 32), "state-tree-en-100x32"),
+        ("en", (80, 24), "state-tree-en-80x24"),
+    ],
+)
+def test_state_tree_snapshot(snap_compare, demo_server, lang, size, name):
+    """``t`` on the smu screen, then ``h`` (tui-screens.md 5.6): groups, fields, the hidden section."""
+    url, sid = demo_server
+    tui = SimuBenchApp(url, sid=sid)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        await _settle(pilot, tui)
+        await pilot.press("3")
+        await pilot.pause(0.2)
+        await pilot.press("enter")
+        await pilot.pause(1.0)
+        await pilot.press("t")
+        await pilot.pause(0.5)
+        await pilot.press("h")
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.1)
+            text = "\n".join(
+                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+            )
+            if "State · smu" in text and "reveal_true_values" in text:
+                return
+        raise AssertionError("the state tree never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+@pytest.mark.parametrize(
+    ("lang", "size", "name"),
+    [
         ("en", (100, 32), "scope-en-100x32"),
         ("en", (80, 24), "scope-en-80x24"),
     ],

@@ -90,6 +90,7 @@ class InstrumentScreen(ControlEditingScreen):
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
         Binding("slash", "search", show=False),
+        Binding("t", "states", show=False),
         Binding("left_square_bracket", "switch_instrument(-1)", show=False),
         Binding("right_square_bracket", "switch_instrument(1)", show=False),
         Binding("L", "local", show=False),  # capital L (5.5): lowercase l is the log everywhere

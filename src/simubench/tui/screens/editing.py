@@ -321,7 +321,14 @@ class ControlEditingScreen(ShellScreen):
         value goes through the same range check, unit parsing and confirmation as a typed one."""
         button = next((b for b in self.query(ControlButton) if b.is_field and b.control.path == path), None)
         if button is None:
-            self._flash(None, i18n.t("palette.noField", self.app.lang, path=path))  # type: ignore[attr-defined]
+            app: Any = self.app
+            known = any(sv.get("path") == path for sv in self.info.get("state", []))
+            if known and self.screen_key != "states":
+                # This screen does not show that setting: the state tree lists every one (5.6).
+                app.pending_field = (self.instrument_name, path, text)
+                app.show("states", self.instrument_name)
+                return True
+            self._flash(None, i18n.t("palette.noField", app.lang, path=path))
             return False
         button.focus()
         button.scroll_visible(animate=False)
@@ -562,6 +569,10 @@ class ControlEditingScreen(ShellScreen):
             return
         target = names[(names.index(self.instrument_name) + direction) % len(names)]
         app.open_instrument(target, replace=True)
+
+    def action_states(self) -> None:
+        """``t``: this instrument's state tree (tui-screens.md 5.6)."""
+        self.app.show("states", self.instrument_name)  # type: ignore[attr-defined]
 
     def action_search(self) -> None:
         """``/``: search this screen's settings; Enter jumps to the field and edits it."""
