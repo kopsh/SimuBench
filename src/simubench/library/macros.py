@@ -72,9 +72,7 @@ def scope_acquisition(data: Data, spec: Data) -> None:
     clash = [n for n in (*MACRO_NAMES.values(), "ch.probe") if n in taken]
     if feed is None or clash:
         why = f"names {', '.join(clash)} are taken" if clash else f"nothing is wired to {acq}.in{{n}}"
-        raise ValueError(
-            f"{acq}: cannot expand the one-component acquisition ({why}); write the modules out"
-        )
+        raise ValueError(f"{acq}: cannot expand the one-component acquisition ({why}); write the modules out")
     modules = []
     for key, (type_name, moves) in MACRO_MODULES.items():
         moved = {new: params.pop(old) for old, new in moves.items() if old in params}
@@ -154,9 +152,7 @@ def _expand_measurements(data: Data, spec: Data) -> None:
         data.get("state") or {}
     ):
         meas["source"] = "$waveform.source"  # the earlier measure read the waveform source
-    spec["params"] = {
-        k: v for k, v in params.items() if k not in ("measurements", "invalid_value", "status")
-    }
+    spec["params"] = {k: v for k, v in params.items() if k not in ("measurements", "invalid_value", "status")}
     data["components"].append({"name": name, "type": "scope_measurements", "params": meas})
     for c in commands:
         c["op"] = f"{name}.{ops[c['op']]}"
