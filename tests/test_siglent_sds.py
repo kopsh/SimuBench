@@ -3,6 +3,11 @@
 The manual cases (tests/models/siglent-sds2104xplus/cases.yaml) check command by command; these
 tests run the guide's waveform reading procedure (examples/scripts/siglent_sds_read_waveform.py)
 and compare what it reconstructs with the signal the bench actually carries.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging commands
+noted. The guide's own procedure, the replay, the from-specs metering units (each needs its own
+bench configuration) and the contract-case runner stay separate.
 """
 
 import math
@@ -68,8 +73,13 @@ def test_guide_procedure_reconstructs_the_bench_signal(scope, resolution):
     assert abs(volts[i0]) <= 6 * sigma + lsb and volts[i0 + 20] > volts[i0 - 20]
 
 
-def test_byte_and_word_carry_the_same_codes(scope):
-    sds, _ = scope
+def test_the_waveform_transfer_and_measurement_flow(scope):
+    """BYTE and WORD carry the same codes, STARt/POINt/INTerval select the transferred points, the
+    simple measurements match the transferred waveform, AMPLitude reads the levels a sine and a
+    square rest on, the frequency survives noise at the quantization floor, and a window with less
+    than a period is unmeasurable."""
+    sds, session = scope
+    # -- BYTE and WORD carry the same codes (was test_byte_and_word_carry_the_same_codes)
     sds.write(":TRIGger:MODE SINGle;:WAVeform:SOURce C1;:WAVeform:WIDTh BYTE")
     as_bytes = sds.query_binary_values(":WAVeform:DATA?", datatype="b", container=np.array)
     sds.read_bytes(1)
@@ -77,10 +87,9 @@ def test_byte_and_word_carry_the_same_codes(scope):
     words = sds.query_binary_values(":WAVeform:DATA?", datatype="h", container=np.array)
     sds.read_bytes(1)
     assert np.array_equal(words >> 8, as_bytes)
-
-
-def test_start_point_and_interval_select_the_transferred_points(scope):
-    sds, _ = scope
+    # -- STARt, POINt and INTerval select the transferred points (was
+    # test_start_point_and_interval_select_the_transferred_points; the act writes BYTE back itself)
+    sds.write(":TRIGger:MODE AUTO")  # bridge: running again, so the act's SINGle arms a fresh record
     sds.write(":TRIGger:MODE SINGle;:WAV:SOUR C1;:WAV:WIDT BYTE")
     full = sds.query_binary_values(":WAVeform:DATA?", datatype="b", container=np.array)
     sds.read_bytes(1)
@@ -88,10 +97,9 @@ def test_start_point_and_interval_select_the_transferred_points(scope):
     part = sds.query_binary_values(":WAVeform:DATA?", datatype="b", container=np.array)
     sds.read_bytes(1)
     assert np.array_equal(part, full[100 : 100 + 150 : 3])
-
-
-def test_measurements_match_the_waveform(scope):
-    sds, session = scope
+    # -- the measurements match the waveform (was test_measurements_match_the_waveform)
+    sds.write(":WAVeform:POINt 0;:WAVeform:INTerval 1")  # bridge: undo the act above's transfer window
+    sds.write(":TRIGger:MODE AUTO")  # bridge: running again, so the act's SINGle arms a fresh record
     sds.write(":TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")
     _, volts = reader.read_waveform(sds, "C1")
     pkpk = float(sds.query(":MEASure:SIMPle:VALue? PKPK"))
@@ -105,12 +113,10 @@ def test_measurements_match_the_waveform(scope):
     assert pkpk == pytest.approx(2.0, abs=8 * sigma + 0.5 / 30)
     assert freq == pytest.approx(1000.0, rel=5e-3)
     assert rms == pytest.approx(math.sqrt((1.0 / np.sqrt(2)) ** 2 + sigma**2), rel=5e-3)
-
-
-def test_amplitude_of_a_sine_reads_the_peaks(scope):
-    """F2 (#131): AMPLitude is top - base, the levels the waveform rests on — not the halves'
-    medians, which sit at 0.707 of the peak on a sine."""
-    sds, session = scope
+    # -- AMPLitude of a sine reads the peaks (was test_amplitude_of_a_sine_reads_the_peaks)
+    # F2 (#131): AMPLitude is top - base, the levels the waveform rests on — not the halves'
+    # medians, which sit at 0.707 of the peak on a sine.
+    sds.write(":TRIGger:MODE AUTO")  # bridge: running again, so the act's SINGle arms a fresh record
     sds.write(":TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")  # 10 ms: ten cycles
     pkpk = float(sds.query(":MEASure:SIMPle:VALue? PKPK"))
     ampl = float(sds.query(":MEASure:SIMPle:VALue? AMPL"))
@@ -120,37 +126,37 @@ def test_amplitude_of_a_sine_reads_the_peaks(scope):
     sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
     assert ampl == pytest.approx(pkpk, abs=8 * sigma + 0.5 / 30)
     assert ampl == pytest.approx(2.0, abs=0.04)
-
-
-def test_amplitude_of_a_square_is_the_level_it_rests_on(scope):
-    sds, _ = scope
+    # -- AMPLitude of a square is the level it rests on (was
+    # test_amplitude_of_a_square_is_the_level_it_rests_on; the square stays the source below)
+    sds.write(":TRIGger:MODE AUTO")  # bridge: running again, so the act's SINGle arms a fresh record
     sds.write(":SOURce1:FUNCtion SQUare;:TIMebase:SCALe 1E-3;:TRIGger:MODE SINGle")
     lsb = 0.5 / 30  # 0.5 V/div, 30 codes a division (8 Bits)
     ampl = float(sds.query(":MEASure:SIMPle:VALue? AMPL"))
     assert ampl == pytest.approx(2.0, abs=lsb)
-
-
-def test_frequency_survives_noise_at_the_quantization_floor(scope):
-    """F2 (#131): the counter runs on a hysteresis band around the middle, so noise there
-    cannot fake crossings. 1 mVpp at 500 uV/div is about 20 dB of SNR over the input noise
-    floor (80 uV at the input), 8-bit codes of 16.7 uV."""
-    sds, _ = scope
+    # -- the frequency survives noise at the quantization floor (was
+    # test_frequency_survives_noise_at_the_quantization_floor) F2 (#131): the counter runs on a
+    # hysteresis band around the middle, so noise there cannot fake crossings. 1 mVpp at 500 uV/div
+    # is about 20 dB of SNR over the input noise floor (80 uV at the input), 8-bit codes of 16.7 uV.
+    sds.write(":TRIGger:MODE AUTO")  # bridge: running again, so the act's SINGle arms a fresh record
     sds.write(":SOURce1:VOLTage:AMPLitude 1E-3;:CHANnel1:SCALe 5E-4")
     sds.write(":TIMebase:SCALe 1E-2;:TRIGger:MODE SINGle")  # 100 ms: a hundred cycles
     freq = float(sds.query(":MEASure:SIMPle:VALue? FREQ"))
     assert freq == pytest.approx(1000.0, abs=1.0)  # 0.1 %
-
-
-def test_a_window_with_less_than_a_period_is_unmeasurable(scope):
-    """F2 (#131): no complete cycle in the record — the declared invalid value, not a number."""
-    sds, _ = scope
+    # -- a window with less than a period is unmeasurable (was
+    # test_a_window_with_less_than_a_period_is_unmeasurable) F2 (#131): no complete cycle in the
+    # record — the declared invalid value, not a number.
+    sds.write(":TRIGger:MODE AUTO")  # bridge: running again, so the act's SINGle arms a fresh record
     sds.write(":TIMebase:SCALe 1E-5;:TRIGger:MODE SINGle")  # 100 us: a tenth of a cycle
     for kind in ("FREQ", "PER"):
         assert sds.query(f":MEASure:SIMPle:VALue? {kind}") == "9.9E37"
 
 
-def test_settings_out_of_the_data_sheet_ranges_are_refused(scope):
+def test_the_refusal_flow(scope):
+    """Settings out of the data sheet ranges are refused, only the manual's common commands answer,
+    and commands the model does not have are refused, not stored."""
     sds, session = scope
+    # -- settings out of the data sheet ranges are refused (was
+    # test_settings_out_of_the_data_sheet_ranges_are_refused)
     sds.write(":CHANnel1:SCALe 20")  # 1 MOhm: at most 10 V/div at the input
     assert sds.query(":CHANnel1:SCALe?").strip() == "5.00E-01"
     sds.write(":CHANnel1:PROBe VALue,10;:CHANnel1:SCALe 20")  # 2 V/div at the input: fine
@@ -165,16 +171,27 @@ def test_settings_out_of_the_data_sheet_ranges_are_refused(scope):
     assert sds.query(":TIMebase:DELay?").strip() == "0.00E+00"
     refused = [e for e in session.history if e.get("kind") == "error" and e["code"] == -222]
     assert len(refused) == 3 + 1  # scale, scale, level, delay
-
-
-def test_only_the_common_commands_of_the_manual_answer(scope):
-    sds, session = scope
+    # -- only the common commands of the manual answer (was
+    # test_only_the_common_commands_of_the_manual_answer)
     sds.write("*CLS")
     sds.write(":SYSTem:ERRor?")
     errors = [e for e in session.history if e.get("kind") == "error"]
     # The model's builtins are *IDN, *OPC and *RST (D45): the rest is excluded, not a modeling gap.
     assert [e.get("reason") for e in errors[-2:]] == ["builtin_excluded", "builtin_excluded"]
     assert sds.query("*OPC?").strip() == "1"  # and nothing was queued for the script to read
+    # -- commands the model does not have are refused (was
+    # test_commands_the_model_does_not_have_are_refused) #132: settings that would change
+    # acquisition or the trigger path are refused, not stored.
+    sds.write(":ACQuire:MMANagement AUTO;:CHANnel:REFerence OFFSet;:TRIGger:EDGE:HLDEVent EVENT")
+    errors = [e for e in session.history if e.get("kind") == "error"]
+    assert [e["code"] for e in errors[-3:]] == [-113, -113, -113]
+    sds.write(":ACQuire:MODE ROLL")  # the scope acquires in YT only
+    refused = [e for e in session.history if e.get("kind") == "error"]
+    assert refused[-1]["code"] in (-222, -224)
+    # YT is what the scope acquires in, and PEAK/ERES are implemented processing modes (D46).
+    sds.write(":ACQuire:MODE YT;:ACQuire:TYPE PEAK")
+    assert sds.query(":ACQuire:MODE?") == "YT"
+    assert sds.query(":ACQuire:TYPE?") == "PEAK"
 
 
 def test_example_bench_and_script_run_as_on_the_real_bench(tmp_path, capsys, monkeypatch):
@@ -363,58 +380,22 @@ def test_the_calibration_contract_cases_pass():
     assert all(r.passed for r in results), [r.describe() for r in results if not r.passed]
 
 
-def test_without_deviations_the_unit_is_nominal(scope):
-    """A definition without ``deviations`` (or a bench without ``deviation: from_specs``) draws
-    nothing: the scope stays the ideal unit the existing tests pin."""
-    _, session = scope
+def test_the_fixture_unit_and_its_trigger_path(scope):
+    """The fixture bench draws no deviations — the ideal unit — and its trigger path: the edge
+    settings filter the trigger path without changing the record, only TIME holdoff postpones the
+    edge, AC coupling moves the trigger to the AC zero crossing, and noise reject stops false
+    triggers on a noisy slow edge."""
+    sds, session = scope
+    # -- without deviations the unit is nominal (was test_without_deviations_the_unit_is_nominal;
+    # the baseline the trigger-path acts below read)
     scope = session.instruments["scope"]
     assert scope.deviations == {}
     assert scope.components["timebase"].clock_error() == 0.0
     assert scope.components["ch1.front"]._error("gain_error_ppm") == 0.0
     assert scope.components["ch1.probe"].delay() == 0.0
-
-
-def test_the_reference_position_places_the_trigger_in_the_record(tmp_path):
-    """#132: in POSition mode :TIMebase:REFerence:POSition puts the trigger across the record;
-    DELay mode returns it to the centre, where :TIMebase:DELay moves it."""
-    rm, sds = _open(_metering_bench(tmp_path))
-    acq = rm.visalib.bench.instruments["scope"].components["acq"]
-    sds.write(":TIMebase:SCALe 1E-4;:TIMebase:REFerence POSition;:TIMebase:REFerence:POSition 20")
-
-    def single():
-        sds.write(":TRIGger:MODE SINGle")
-        sds.query("*OPC?")
-        sds.query(":MEASure:SIMPle:VALue? PKPK")  # settles the completed record
-        return acq.records[1]
-
-    # 10k points over 10 divisions of 100 us: 20 % is 2000 samples = 200 us before the trigger.
-    rec = single()
-    assert rec.trigger_index == pytest.approx(2000, abs=2)
-    assert rec.origin == pytest.approx(-200e-6, abs=3e-6)
-    sds.write(":TIMebase:REFerence DELay")
-    rec = single()
-    assert rec.trigger_index == pytest.approx(5000, abs=2)
-    rm.close()
-
-
-def test_commands_the_model_does_not_have_are_refused(scope):
-    """#132: settings that would change acquisition or the trigger path are refused, not stored."""
-    sds, session = scope
-    sds.write(":ACQuire:MMANagement AUTO;:CHANnel:REFerence OFFSet;:TRIGger:EDGE:HLDEVent EVENT")
-    errors = [e for e in session.history if e.get("kind") == "error"]
-    assert [e["code"] for e in errors[-3:]] == [-113, -113, -113]
-    sds.write(":ACQuire:MODE ROLL")  # the scope acquires in YT only
-    refused = [e for e in session.history if e.get("kind") == "error"]
-    assert refused[-1]["code"] in (-222, -224)
-    # YT is what the scope acquires in, and PEAK/ERES are implemented processing modes (D46).
-    sds.write(":ACQuire:MODE YT;:ACQuire:TYPE PEAK")
-    assert sds.query(":ACQuire:MODE?") == "YT"
-    assert sds.query(":ACQuire:TYPE?") == "PEAK"
-
-
-def test_trigger_coupling_noise_reject_and_holdoff_reach_the_trigger_module(scope):
-    """#159: the edge-trigger settings filter the trigger path, without changing the record."""
-    sds, session = scope
+    # -- coupling, noise reject and holdoff reach the trigger module (was
+    # test_trigger_coupling_noise_reject_and_holdoff_reach_the_trigger_module) #159: the edge
+    # trigger settings filter the trigger path, without changing the record.
     inst = session.instruments["scope"]
     trig = inst.components["trigger"]
     acq = inst.components["acq"]
@@ -442,11 +423,10 @@ def test_trigger_coupling_noise_reject_and_holdoff_reach_the_trigger_module(scop
     assert float(trig.param("holdoff")) == pytest.approx(1e-3)
     sds.write(":TRIGger:EDGE:HOLDoff OFF")
     assert trig.param("holdoff_on") is False
-
-
-def test_holdoff_delays_the_next_trigger_only_when_its_type_is_time(scope):
-    """#159/#250: HOLDoff selects OFF or TIME; only TIME makes HLDTime postpone the edge."""
-    sds, session = scope
+    # -- holdoff delays the next trigger only when its type is time (was
+    # test_holdoff_delays_the_next_trigger_only_when_its_type_is_time) #159/#250: HOLDoff selects
+    # OFF or TIME; only TIME makes HLDTime postpone the edge.
+    sds.write(":TRIGger:EDGE:COUPling DC")  # bridge: the fixture's coupling, as the act assumes
     trig = session.instruments["scope"].components["trigger"]
     acq = session.instruments["scope"].components["acq"]
     sig = acq._display_signal(1)
@@ -463,13 +443,14 @@ def test_holdoff_delays_the_next_trigger_only_when_its_type_is_time(scope):
     held = next_trigger()
     assert free < 2e-3  # a 1 kHz edge, after the arming band
     assert held >= 5e-3 - 1e-6  # nothing before the holdoff has passed
-
-
-def test_ac_coupling_moves_the_trigger_to_the_ac_zero_crossing(scope):
-    """#159/#251: with a DC offset the trigger the level cannot reach in DC fires in AC coupling."""
+    # -- AC coupling moves the trigger to the AC zero crossing (was
+    # test_ac_coupling_moves_the_trigger_to_the_ac_zero_crossing) #159/#251: with a DC offset the
+    # trigger the level cannot reach in DC fires in AC coupling.
+    sds.write(
+        ":TRIGger:EDGE:NREJect OFF"
+    )  # bridge: the default the act assumes (the coupling act left it on)
     from simubench.engine.signal import Signal, sine
 
-    sds, session = scope
     trig = session.instruments["scope"].components["trigger"]
     sig = Signal.constant(2.0) + sine(1000.0, 0.5)  # 1.5..2.5 V: never below the 1 V level
     sds.write(":TRIGger:EDGE:COUPling DC;:TRIGger:EDGE:LEVel 0.2")
@@ -480,11 +461,9 @@ def test_ac_coupling_moves_the_trigger_to_the_ac_zero_crossing(scope):
     hit = trig.search(sig, 0, 1e-6, 10, 20_000, 1, 0.5)
     assert hit is not None and hit.t_s < 1e-3  # the 1 kHz sine crosses 0.2 V twice a period
     sds.write(":TRIGger:EDGE:COUPling DC")
-
-
-def test_noise_reject_stops_false_triggers_on_a_noisy_slow_edge(scope):
-    """#159/#251: NREJect widens the arming band, so one edge triggers once."""
-    sds, session = scope
+    # -- noise reject stops false triggers on a noisy slow edge (was
+    # test_noise_reject_stops_false_triggers_on_a_noisy_slow_edge) #159/#251: NREJect widens the
+    # arming band, so one edge triggers once.
     inst = session.instruments["scope"]
     trig = inst.components["trigger"]
     sig = inst.components["acq"]._display_signal(1)
@@ -505,3 +484,26 @@ def test_noise_reject_stops_false_triggers_on_a_noisy_slow_edge(scope):
     assert next_trigger() < 1e-4  # the same edge again, within its noise
     sds.write(":TRIGger:EDGE:NREJect ON")
     assert next_trigger() == pytest.approx(1e-3, rel=0.05)  # the next period's edge
+
+
+def test_the_reference_position_places_the_trigger_in_the_record(tmp_path):
+    """#132: in POSition mode :TIMebase:REFerence:POSition puts the trigger across the record;
+    DELay mode returns it to the centre, where :TIMebase:DELay moves it."""
+    rm, sds = _open(_metering_bench(tmp_path))
+    acq = rm.visalib.bench.instruments["scope"].components["acq"]
+    sds.write(":TIMebase:SCALe 1E-4;:TIMebase:REFerence POSition;:TIMebase:REFerence:POSition 20")
+
+    def single():
+        sds.write(":TRIGger:MODE SINGle")
+        sds.query("*OPC?")
+        sds.query(":MEASure:SIMPle:VALue? PKPK")  # settles the completed record
+        return acq.records[1]
+
+    # 10k points over 10 divisions of 100 us: 20 % is 2000 samples = 200 us before the trigger.
+    rec = single()
+    assert rec.trigger_index == pytest.approx(2000, abs=2)
+    assert rec.origin == pytest.approx(-200e-6, abs=3e-6)
+    sds.write(":TIMebase:REFerence DELay")
+    rec = single()
+    assert rec.trigger_index == pytest.approx(5000, abs=2)
+    rm.close()

@@ -60,28 +60,22 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[-1] == "aux,1.5,1.4985015"
 
 
-def test_the_gpib_address_8_of_a_real_sr830_opens_the_simulated_instrument():
+def test_the_real_resource_string_and_its_phasor():
+    """A real SR830 resource string — the default GPIB address 8 — opens the simulated instrument,
+    and the readings are one coherent phasor: X, Y, R and theta agree, fed by the same solver as
+    the rest of the bench."""
     rm = pyvisa.ResourceManager(f"{BENCH}@simubench")
     try:
         lia = rm.open_resource("GPIB0::8::INSTR", read_termination="\n", write_termination="\n")
         try:
+            # -- the GPIB address 8 of a real SR830 opens the simulated instrument (was
+            # test_the_gpib_address_8_of_a_real_sr830_opens_the_simulated_instrument)
             assert lia.query("*IDN?") == "Stanford_Research_Systems,SR830,s/n00111,ver1.000"
             # A real program starts with OUTX: answers go to the GPIB interface it is talking on.
             lia.write("OUTX 1")
             assert lia.query("OUTX?") == "1"
             assert float(lia.query("OUTP? 3")) == pytest.approx(2 * abs(expected(1000.0)), rel=2e-3)
-        finally:
-            lia.close()
-    finally:
-        rm.close()
-
-
-def test_the_readings_are_one_coherent_phasor():
-    """X, Y, R and theta are consistent, and the inputs feed the same solver as the rest of the bench."""
-    rm = pyvisa.ResourceManager(f"{BENCH}@simubench")
-    try:
-        lia = rm.open_resource("GPIB0::8::INSTR", read_termination="\n", write_termination="\n")
-        try:
+            # -- the readings are one coherent phasor (was test_the_readings_are_one_coherent_phasor)
             x = float(lia.query("OUTP? 1"))
             y = float(lia.query("OUTP? 2"))
             r = float(lia.query("OUTP? 3"))

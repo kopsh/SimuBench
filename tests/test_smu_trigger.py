@@ -55,7 +55,10 @@ def values(reply: str | None) -> list[float]:
     return [float(x) for x in reply.split(",")]
 
 
-def test_counts_times_and_values(s):
+def test_the_trigger_model_run_flow(s):
+    """One run on the trigger model (#94): counts × samples with their delay, a sweep is one run
+    of its own points whatever the counts say, and the named buffers read the elements back."""
+    # -- counts, times and values (was test_counts_times_and_values)
     q(s, ":TRIG:COUN 3;:SAMP:COUN 2;:TRIG:DEL 0.01")
     t0 = s.now_ns
     q(s, ":INIT")
@@ -67,9 +70,8 @@ def test_counts_times_and_values(s):
     assert s.now_ns - t0 == 3 * (round(0.01 * 1e9) + 2 * step)  # delay per trigger, readings back to back
     assert values(q(s, ":FETC?")) == readings  # fetching again gives the same run
     assert q(s, ":TRIG:STAT?") == "IDLE"
-
-
-def test_a_sweep_is_one_run_of_its_points(s):
+    # -- a sweep is one run of its points (was test_a_sweep_is_one_run_of_its_points)
+    q(s, ":TRIG:DEL 0")  # bridge: the previous act left a 10 ms trigger delay, the sweep run has none
     q(s, ":TRIG:COUN 2;:SAMP:COUN 1")  # the sweep decides the run's size, not the counts
     q(s, ":SOUR:SWE:VOLT:LIN 0,0.9,3,0")
     t0 = s.now_ns
@@ -77,9 +79,9 @@ def test_a_sweep_is_one_run_of_its_points(s):
     assert rows == pytest.approx([0.0, 0.45, 0.9], abs=1e-9)
     assert s.now_ns - t0 == 3 * round(NPLC_S * 1e9)
     assert q(s, ":DATA:POIN?") == "3"
-
-
-def test_named_buffers_and_elements(s):
+    # -- named buffers and elements (was test_named_buffers_and_elements)
+    q(s, ":TRIG:COUN 1")  # bridge: the previous act left trigger count 2
+    s.set_parameter("smu", "source", "sweep_mode", "NONE")  # bridge: disarm the sweep (no SCPI does here)
     q(s, ":SAMP:COUN 3")
     q(s, ":INIT;*WAI")
     rel = values(q(s, ':TRAC:DATA? 1,3,"defbuffer1",READ,REL'))
@@ -99,7 +101,10 @@ def test_named_buffers_and_elements(s):
     assert values(q(s, ":FETC?")) == rel[0::2]  # FETCh? answers from the run, the memory was emptied
 
 
-def test_manual_measure_ranges_and_overload(s):
+def test_the_measure_range_flow(s):
+    """The measure ranges (#94): the manual range overloads what exceeds it and takes any setting
+    as the smallest fitting range, then the autorange follows the reading's band up and down."""
+    # -- manual ranges and overload (was test_manual_measure_ranges_and_overload)
     q(s, ":SENS:RANG:AUTO OFF;:SENS:VOLT:RANG 0.1")
     assert q(s, ":SENS:VOLT:RANG:ACT?") == "+1.0000000E-01"
     row = values(q(s, ":MEAS?"))  # 1 V beyond 1.2 × 0.1: the voltage reads the overload
@@ -112,9 +117,8 @@ def test_manual_measure_ranges_and_overload(s):
     row = values(q(s, ":MEAS?"))
     assert row[0] == pytest.approx(1.0, abs=1e-9) and row[1] == OVERLOAD
     assert row[2] == pytest.approx(1000.0, rel=1e-9)
-
-
-def test_measure_autorange_follows_the_reading(s):
+    # -- the autorange follows the reading (was test_measure_autorange_follows_the_reading)
+    q(s, ":SENS:RANG:AUTO ON")  # bridge: the previous act pinned the ranges manual
     q(s, ":SOUR:VOLT 0.05;:MEAS?")  # the decision happens in a reading
     assert q(s, ":SENS:VOLT:RANG:ACT?") == "+1.0000000E-01"
     q(s, ":SOUR:VOLT 0.11;:MEAS?")  # inside the band (up = 1.2 × 0.1): keep the range
@@ -125,22 +129,17 @@ def test_measure_autorange_follows_the_reading(s):
     assert q(s, ":SENS:VOLT:RANG:ACT?") == "+1.0000000E-01"
 
 
-def test_the_source_envelope_comes_from_the_range_table():
-    # source_ranges [1, 10] with range_limits {1: 5 mA, 10: 50 mA}; 5 V into 80 Ω wants 62.5 mA:
-    # on the auto range (10 V) the 50 mA cap holds the terminal.
+def test_the_source_envelope_flow():
+    """The source range's envelope caps the limit (source_ranges [1, 10] with range_limits
+    {1: 5 mA, 10: 50 mA}; 5 V into 80 Ω wants 62.5 mA): on the auto range (10 V) the 50 mA cap
+    holds the terminal; on the manual 1 V range its 5 mA cap lands lower; auto again recovers."""
     session = open_bench(bench(r=80.0, **{"source.voltage.level": 5.0}), definition_dirs=[DEFS])
     try:
+        # -- the envelope comes from the range table (was test_the_source_envelope_comes_from_the_range_table)
         row = [float(x) for x in q(session, ":MEAS?").split(",")]
         assert row[0] == pytest.approx(4.0, abs=1e-9) and row[1] == pytest.approx(0.05, rel=1e-9)
         assert row[4] == 8.0  # the limit, not the setpoint, holds the terminal
-    finally:
-        session.close()
-
-
-def test_the_manual_source_range_governs_the_envelope():
-    # The same bench on the manual 1 V source range: its cap is 5 mA, so the terminal lands lower.
-    session = open_bench(bench(r=80.0, **{"source.voltage.level": 5.0}), definition_dirs=[DEFS])
-    try:
+        # -- the manual source range governs the envelope (was test_the_manual_source_range_governs_the_envelope)
         q(session, ":SOUR:RANG:AUTO OFF;:SOUR:VOLT:RANG 1")
         row = [float(x) for x in q(session, ":MEAS?").split(",")]
         assert row[0] == pytest.approx(0.4, abs=1e-9) and row[1] == pytest.approx(0.005, rel=1e-9)

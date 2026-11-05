@@ -5,6 +5,10 @@ run the real-instrument-style script examples/scripts/keysight_daq970a_scan.py o
 and check what a transcript cannot see: READ? keeps its readings in reading memory (it is INITiate
 plus FETCh?, unlike the 34970A), CONFigure sets the trigger count and interval, the relay closure
 loads the bench circuit, and the DAQM901A's four-wire pairing and current channels.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 import math
@@ -36,9 +40,17 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[-1] == '+0,"No error"'
 
 
-def test_read_keeps_its_readings_in_memory_and_a_new_scan_clears_them():
+# ---- the scan, the memory, the relay load and the scan-list block: one flow -------------------------
+
+
+def test_the_scan_and_memory_flow():
+    """READ? keeps its readings in memory and a new scan clears them; CONFigure sets one sweep at
+    one second and the relay closure loads the source; the four-wire pairing and the current
+    channels follow the module; the scan list reads back as a definite-length block and empties."""
     s = open_bench(BENCH, idle="off")
     try:
+        # -- READ? keeps its readings in memory, a new scan clears them (was
+        # test_read_keeps_its_readings_in_memory_and_a_new_scan_clears_them)
         q(s, "CONF:VOLT:DC 10,DEF,(@101:103)")
         first = q(s, "READ?")
         assert q(s, "DATA:POIN?") == "3"
@@ -46,13 +58,11 @@ def test_read_keeps_its_readings_in_memory_and_a_new_scan_clears_them():
         q(s, "ROUT:SCAN (@102)")
         assert q(s, "READ?") == first.split(",")[1]
         assert q(s, "DATA:POIN?") == "1"  # INITiate clears reading memory first
-    finally:
-        s.close()
-
-
-def test_configure_sets_one_sweep_at_one_second_and_a_relay_loads_the_source():
-    s = open_bench(BENCH, idle="off")
-    try:
+        # -- bridge: the CONFigure act's premise is the Factory Reset State (10 s interval), which
+        # the act above's CONFigure replaced with 1 s
+        q(s, "*RST")
+        # -- CONFigure sets one sweep at one second, the relay loads the source (was
+        # test_configure_sets_one_sweep_at_one_second_and_a_relay_loads_the_source)
         assert q(s, "TRIG:TIM?") == "+1.00000000E+01"  # Factory Reset State: 10 s
         q(s, "TRIG:COUN 5")
         q(s, "CONF:VOLT:DC (@101)")
@@ -61,13 +71,9 @@ def test_configure_sets_one_sweep_at_one_second_and_a_relay_loads_the_source():
         q(s, "ROUT:CLOS (@101)")
         assert q(s, "ROUT:CLOS? (@101,102)") == "1,0"
         assert math.isclose(float(q(s, "READ?")), 10.0 / 11.0, rel_tol=1e-4)
-    finally:
-        s.close()
-
-
-def test_four_wire_pairs_n_with_n_plus_ten_and_current_is_on_21_and_22():
-    s = open_bench(BENCH, idle="off")
-    try:
+        # -- the four-wire pairing and the current channels (was
+        # test_four_wire_pairs_n_with_n_plus_ten_and_current_is_on_21_and_22; each MEASure? form
+        # configures its own channels, and every error below is read out as it comes)
         two = float(q(s, "MEAS:RES? (@104)"))
         four = float(q(s, "MEAS:FRES? (@104)"))
         assert math.isclose(four, 1000.0, rel_tol=1e-4)
@@ -76,13 +82,8 @@ def test_four_wire_pairs_n_with_n_plus_ten_and_current_is_on_21_and_22():
         assert q(s, "SYST:ERR?") == '+0,"No error"'
         q(s, "MEAS:CURR:DC? (@101)")  # not a current channel
         assert q(s, "SYST:ERR?").startswith("-221")
-    finally:
-        s.close()
-
-
-def test_the_scan_list_reads_back_as_a_block_and_empties():
-    s = open_bench(BENCH, idle="off")
-    try:
+        # -- the scan list reads back as a block and empties (was
+        # test_the_scan_list_reads_back_as_a_block_and_empties)
         q(s, "ROUT:SCAN (@101:103,110)")
         reply = q(s, "ROUT:SCAN?")
         body = script.block(reply)
