@@ -77,7 +77,7 @@ class InstrumentScreen(ControlEditingScreen):
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
         Binding("L", "local", show=False),  # capital L (5.5): lowercase l is the log everywhere
-        Binding("question_mark", "reason", show=False),
+        Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
 
     def __init__(self, name: str) -> None:
@@ -658,14 +658,14 @@ class InstrumentScreen(ControlEditingScreen):
         out = [
             ("Esc", i18n.t("keys.back", lang)),
             ("Tab", i18n.t("keys.move", lang)),
-            ("⏎/e", i18n.t("keys.edit", lang)),
-            ("+ -", i18n.t("keys.step", lang)),
+            ("⏎", i18n.t("keys.edit", lang)),
             ("␣", i18n.t("keys.switch", lang)),
             (":", i18n.t("keys.scpi", lang)),
         ]
         if self.remote_controlled:
             out.append(("L", i18n.t("keys.local", lang)))
-        out.append(("?", i18n.t("keys.reason", lang)))
+        out.append(("w", i18n.t("keys.reason", lang)))
+        out.append(("?", i18n.t("keys.help", lang)))
         out.append(("q", i18n.t("common.quit", lang)))
         return out
 

@@ -480,7 +480,7 @@ async def test_reason_dialog_on_limited_smu():
         await open_instrument(pilot, tui, "smu")
         text = await wait_flat(pilot, tui, "reason", "CC", "▲")  # the 5.4 reason line
         assert "current reached its limit" in text
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_flat(pilot, tui, "constant current (CC)")
         assert "source.voltage.level" in text and "15.000 V" in text
         assert "← 00:00:00.020" in text and "Script" in text and ":SOUR:VOLT 15" in text
@@ -519,7 +519,7 @@ async def test_reason_dialog_names_error_and_classification():
             ),
         )
         await open_instrument(pilot, tui, "smu")
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_flat(pilot, tui, "Reason · smu error -222")
         assert ":SOUR:VOLT 999" in text and "Script" in text
         assert "Bad parameter" in text and "source.voltage.level" in text and "-210 … 210 V" in text
@@ -684,3 +684,16 @@ async def test_overview_enter_opens_screens_and_parts_open_nets():
 
         await wait_for(pilot, lambda: isinstance(tui.screen, InstrumentScreen), message="instrument screen")
         assert tui.screen.instrument_name == "awg"
+
+
+async def test_question_mark_opens_the_key_help_of_the_screen():
+    """``?`` lists the keys of the screen in front, read from its bindings; Esc closes it."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "awg")
+        await pilot.press("question_mark")
+        text = await wait_flat(pilot, tui, "Keys · awg", "Why: the chain behind this state", "SCPI console")
+        assert "Esc or ? closes" in text
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: type(tui.screen).__name__ == "InstrumentScreen", message="help closed")

@@ -40,8 +40,10 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   fetched at twice that (`app.scope_points` keeps it across refetches).
 - **Numbers**: use `fmt.fmt` (SI prefixes, right-aligned); never hand-format a value. Use
   `cell_len` / `pad` / `ralign`, not `len`, for widths.
-- **Keys**: table in `docs/tui-design.md` 4. Every action is also reachable from the command
-  palette (`Ctrl+P`); mouse is optional. A key that clashes with the Web's wins for the Web.
+- **Keys**: table in `docs/tui-design.md` 4. `?` is the key help everywhere (`screens/help.py`,
+  built from the real `BINDINGS`: a binding needs a line in `help.actions` in `i18n/en.py` or
+  `tests/test_tui_help.py` fails); `w` is "why" (the reason chain) on every screen; the nets
+  waveform is `v`. Mouse is optional. A key that clashes with the Web's wins for the Web.
 - **States** (`tui-design.md` 7): connecting, disconnected (read-only, auto-reconnect), bad
   token, session gone, remote-held (read-only, `L` takes over), file changed, build errors — a
   new screen handles each, none shows a blank.

@@ -92,6 +92,7 @@ class SimuBenchApp(App[None]):
         Binding("f", "fault", "", show=False),
         Binding("a", "advance", "", show=False),
         Binding("R", "r_key", "", show=False),
+        Binding("question_mark", "help", "", show=False),
     ]
 
     def __init__(
@@ -531,6 +532,17 @@ class SimuBenchApp(App[None]):
         return clock_activity(self, lang, self.clock_mode(), busy)
 
     # ---- quit and rebuild -----------------------------------------------------------------------------
+
+    def action_help(self) -> None:
+        """``?``: the keys of the screen in front (a dialog's own keys are on its face)."""
+        from .screens.help import HelpScreen, help_rows
+        from .screens.shell import ShellScreen
+
+        screen = self.screen
+        if not isinstance(screen, ShellScreen):
+            return
+        title = i18n.t("help.title", self.lang, screen=screen.screen_title())
+        self.push_screen(HelpScreen(title, help_rows(screen, self)))
 
     def action_quit_app(self) -> None:
         """``q``: when this process serves the bench, confirm first if scripts are connected (10.1)."""

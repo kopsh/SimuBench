@@ -167,7 +167,7 @@ class ScopeScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
-        Binding("question_mark", "reason", show=False),
+        Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
 
     def __init__(self, name: str) -> None:
@@ -477,10 +477,10 @@ class ScopeScreen(ControlEditingScreen):
             ("r", i18n.t("keys.runStop", lang)),
             ("s", i18n.t("keys.single", lang)),
             ("c", i18n.t("keys.channels", lang)),
-            ("⏎/e", i18n.t("keys.edit", lang)),
-            ("+", "- " + i18n.t("keys.step", lang)),
+            ("⏎", i18n.t("keys.edit", lang)),
             (":", i18n.t("keys.scpi", lang)),
-            ("?", i18n.t("keys.reason", lang)),
+            ("w", i18n.t("keys.reason", lang)),
+            ("?", i18n.t("keys.help", lang)),
             ("q", i18n.t("common.quit", lang)),
         ]
 

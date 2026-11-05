@@ -92,8 +92,8 @@ class NetsScreen(ShellScreen):
         Binding("up", "cursor('up')", show=False),
         Binding("down", "cursor('down')", show=False),
         Binding("enter", "driver", show=False),
-        Binding("w", "wave", show=False),
-        Binding("question_mark", "reason", show=False),
+        Binding("v", "wave", show=False),  # was w: w is "why" on every screen now
+        Binding("w", "reason", show=False),
         Binding("f", "fault", show=False),
     ]
 
@@ -124,8 +124,9 @@ class NetsScreen(ShellScreen):
         return [
             ("↑↓", i18n.t("keys.select", lang)),
             ("⏎", i18n.t("nets.keyDriver", lang)),
-            ("w", i18n.t("nets.keyWave", lang)),
-            ("?", i18n.t("keys.reason", lang)),
+            ("v", i18n.t("nets.keyWave", lang)),
+            ("w", i18n.t("keys.reason", lang)),
+            ("?", i18n.t("keys.help", lang)),
             ("f", i18n.t("keys.fault", lang)),
             ("Esc", i18n.t("keys.back", lang)),
             ("q", i18n.t("common.quit", lang)),

@@ -136,6 +136,7 @@ class OverviewScreen(ShellScreen):
             else:
                 keys.append(("⏎", i18n.t("keys.partNets", lang)))
         keys.append(("l", i18n.t("keys.log", lang)))
+        keys.append(("?", i18n.t("keys.help", lang)))
         keys.append(("q", i18n.t("common.quit", lang)))
         return keys
 

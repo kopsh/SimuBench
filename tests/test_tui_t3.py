@@ -118,7 +118,7 @@ async def test_nets_screen_silence_and_reason_dialog():
         await settle(pilot, tui)
         await open_nets(pilot, tui)
         text = await wait_for_text(pilot, tui, "Unconnected ports", "awg.CH1's output is off")
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_for_text(pilot, tui, "Reason", "output is off")
         assert "net-0" in text
 
@@ -277,7 +277,7 @@ async def test_nets_reason_quotes_sources_and_lines():
 
         rms_text = fmt(SCOPE_BENCH["probe_net-0"]["rms"], "V")
         await wait_for_text(pilot, tui, "net-0", rms_text)
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_for_text(pilot, tui, "Why · net-0")
         assert rms_text in text
         assert "awg" in text  # the source contribution names its source

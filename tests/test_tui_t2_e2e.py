@@ -137,7 +137,7 @@ async def test_find_the_trip(served_validation):
         assert f"Fault {fault_id} active" in text
 
         # ``?`` opens the causal chain without any test-provided text.
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_flat(pilot, tui, f"fault {fault_id} tripped (Terminal)", "Overvoltage")
         assert "←" in text and f"fault {fault_id} (Terminal)" in text
         await pilot.press("escape")
