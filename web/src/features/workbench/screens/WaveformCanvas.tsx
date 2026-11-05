@@ -1,14 +1,10 @@
 import { useEffect, useRef } from "react";
 import type { Trace } from "@/api/client";
+import { cssVar, decimate, resolveColor } from "@/lib/canvas";
 import { channelColor } from "@/lib/channels";
 
 const DIV_H = 10;
 const DIV_V = 8;
-
-function cssVar(el: HTMLElement, name: string, fallback: string) {
-  const v = getComputedStyle(el).getPropertyValue(name).trim();
-  return v || fallback;
-}
 
 /**
  * Oscilloscope graticule and traces. Drawn on a canvas sized to the element and the device pixel
@@ -76,16 +72,10 @@ export function WaveformCanvas({
             else ctx.moveTo(x, y);
           }
         } else {
-          const per = n / w;
+          const { lo, hi } = decimate(tr.volts, w);
           for (let px = 0; px < w; px++) {
-            let lo = Infinity;
-            let hi = -Infinity;
-            for (let i = Math.floor(px * per); i < Math.min(n, Math.floor((px + 1) * per)); i++) {
-              lo = Math.min(lo, tr.volts[i]);
-              hi = Math.max(hi, tr.volts[i]);
-            }
-            ctx.moveTo(px, clampY(yOf(hi), h));
-            ctx.lineTo(px, clampY(yOf(lo), h) + 0.5);
+            ctx.moveTo(px, clampY(yOf(hi[px]), h));
+            ctx.lineTo(px, clampY(yOf(lo[px]), h) + 0.5);
           }
         }
         ctx.stroke();
@@ -137,7 +127,3 @@ function clampY(y: number, h: number) {
   return Math.max(1, Math.min(h - 1, y));
 }
 
-function resolveColor(el: HTMLElement, value: string): string {
-  const m = value.match(/^var\((--[\w-]+)\)$/);
-  return m ? cssVar(el, m[1], "#fc0") : value;
-}
