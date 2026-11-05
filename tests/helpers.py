@@ -112,3 +112,19 @@ def run_gold_step(s, i: int, step: dict) -> tuple[bool, str | None]:
     assert text == step.get("reply"), f"step {i}: {step['cmd']} replied {text!r}"
     assert ns == step["ns"], f"step {i}: {step['cmd']} took time"
     return True, text
+
+
+def mcp_result(r, *, error_ok: bool = False):
+    """An MCP tool call's result: the unwrapped structured content, or the JSON payload. With
+    ``error_ok`` an error result comes back as ``{"error": text}`` for the test to assert on;
+    without it an error fails right there (#700)."""
+    if r.is_error:
+        if error_ok:
+            return {"error": r.content[0].text}
+        raise AssertionError(r.content[0].text)
+    if r.structured_content is not None:
+        sc = r.structured_content
+        return sc.get("result", sc) if set(sc) == {"result"} else sc
+    import json
+
+    return json.loads(r.content[0].text)
