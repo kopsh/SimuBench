@@ -1392,3 +1392,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 组件 | ✅ `scope_vertical.response` 加 `butterworth4`（−3 dB 在截止处，去掉低频群时延）；`tests/test_scope_vertical_response.py`（−3 dB、直流增益、单调不增、滚降介于砖墙与 Bessel 之间、去时延）；模板的“响应形状”可选 |
 | UXR0334B | ✅ 每个通道在前端之后串一级 `scope_vertical`（`isim`）：`:CHANnel<N>:ISIM:BWLimit`、`:ISIM:BANDwidth`、`:ISIM:BWLimit:TYPE {WALL | BESSEL4 | BUTTerworth}`，带通与升余弦类型报 -224；手册用例「通道带宽限制……」（10 MHz 正弦经 8 MHz：砖墙 0、Butterworth 0.379 倍、Bessel 0.566 倍）；覆盖表实现 91 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 频谱仪组件按型号声明范围与 X 系列检波/标记；Keysight N9042B UXA（Issue 616、336）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 依据 | ✅ X-Series Spectrum Analyzer Mode User's & Programmer's Reference（N9060-90027，August 2014）入库 `manuals/`（PDF 走 LFS，附文本版），README 加一行；官网新版本在本环境下载被浏览器校验拦截，N9042B 的 SA 模式命令集与它相同，选件 526 的预置值取手册表格 |
+| 组件（#616） | ✅ `specan_if`/`specan_vbw`：`steps`（1-3-10 或约 10% 步进：E24 到 3 MHz，再 4/5/6/8 MHz，线性取最近、平分向上）、上下限、`auto_ratio`/`auto_max`，VBW 上限高于档位表为全开档；`specan_detector`：NEGative、NORMal（Rosenfell：类连续波取峰，类噪声偶数点取最大、奇数点取最小）、`auto`（最大保持 → 正峰、最小保持 → 负峰、其余 Normal）与 `select` 操作；`specan_trace`：`f_max`、`span_min`、`sweep_min`/`sweep_max`、起止频率越界 -222、MINHold、`hold_count`、`marker.mode` 的 OFF、`marker_off_reply`、`delta_x`；`system.reset` 的 `then`（预置与 *RST 不同的设置）；默认值保持 N9320B 与 sb-sa-1 行为不变（金标准 `tests/test_specan_migration.py` 通过）；`tests/test_specan_model_limits.py` |
+| 引擎 | ✅ 上电取状态的 `default`、*RST 取 `rst`（此前上电也取 `rst`，与 real-models.md 第 3 节“`default` 为上电值”不符）；全部现有用例不受影响 |
+| 定义（#336） | ✅ `keysight-n9042b.yaml` 只用通用组件：选件 526（预置 10 MHz–26.5 GHz、调谐上限 27 GHz），RBW 1 Hz–8 MHz、自动 span/106、预置 3 MHz，VBW 到 8 MHz 加 50 MHz，扫描 1 ms–4000 s，衰减 0–70 dB（预置 10 dB），检波器自动（Normal），迹线 WRITe/AVERage/MAXHold/MINHold，平均次数 100，标记预置 OFF，*RST 置 INIT:CONT OFF、:SYSTem:PRESet 置 ON；数值按手册写法 `+1.92000000E+009`；只有迹线 1 与标记 1；`simubench validate` 无诊断 |
+| 覆盖表 | ✅ 由手册“List of SCPI Commands”（p.131–174）生成 1309 条：实现 64、接受 8、未实现 1237；一致性检查通过 |
+| 用例 | ✅ `tests/models/keysight-n9042b/cases.yaml` 18 条，每条带 `manual:`（含页码），覆盖全部实现与接受的命令 |
+| 测试台与脚本 | ✅ `examples/benches/keysight-n9042b.bench.yaml`（SMA100B 5.8 GHz、-10 dBm → N9042B）；`examples/scripts/keysight_n9042b_measure.py` 按手册写法（*RST、单次扫描 + *OPC?、标记峰值、计数器、ASCII 迹线）在 `tests/test_keysight_n9042b.py` 中运行；另测预置全跨度找到 5.8 GHz 载波、自动 RBW 档位、Normal 交替、最小保持、4000 s 内的单次扫描时间、差值标记偏移 |
+| 未做 | ⚠️ 迹线 2–6 与标记 2–12、零跨度、前置放大、平均检波器与平均类型 RMS/电压、自由触发以外的触发、固定标记、:CALCulate:MARKer:STATe、峰值门限/偏移的开关、测量应用（ACP/CHP/OBW/TOI/SEM 等）与其他模式；逐条在覆盖表 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |

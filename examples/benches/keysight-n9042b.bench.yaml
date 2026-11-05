@@ -1,0 +1,27 @@
+schema: simubench.bench/2
+name: keysight_n9042b_tone
+description: >-
+  Keysight N9042B UXA（真实型号，D42）测量 R&S SMA100B 的 5.8 GHz、-10 dBm 连续波：信号源的
+  RF_OUT 直接接到信号分析仪的 RF_IN（50 Ω）。示例脚本 examples/scripts/keysight_n9042b_measure.py
+  按真机写法运行（tests/test_keysight_n9042b.py）。
+instruments:
+  sg:
+    model: rs-sma100b
+    label: 射频信号源
+    address: "TCPIP0::192.168.1.60::hislip0::INSTR"
+    state:
+      freq.cw: 5.8e9
+      power.level: -10.0
+      output.enabled: true
+  sa:
+    model: keysight-n9042b
+    label: 信号分析仪
+    address: "TCPIP0::192.168.1.31::hislip0::INSTR"
+wires:
+  - {from: sg.RF_OUT, to: sa.RF_IN}
+run:
+  seed: 7
+  clock: command
+layout:
+  sg: {x: 0, y: 80}
+  sa: {x: 420, y: 60}

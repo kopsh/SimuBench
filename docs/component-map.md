@@ -137,13 +137,13 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | input_port | `input_port` | 电路(50 Ω 到地) | 已实现 | — |
 | input_attenuator | `specan_input` | 数据(衰减、输入阻抗、过载判断) | 已实现 | — |
 | mixer | `specan_mixer` | 数据(本振/参考误差、显示频率轴) | 已实现 | 命名审计:`mixer_limit`(缺口清单) |
-| if_filter | `specan_if` | 数据(RBW、高斯响应、噪声底) | 已实现 | — |
-| log_detector | `specan_detector` | 数据(检波与对数) | 已实现 | — |
-| vbw_filter | `specan_vbw` | 数据(VBW) | 已实现 | — |
-| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记) | 命名审计:`maxhold_limit`(缺口清单) |
+| if_filter | `specan_if` | 数据(RBW、高斯响应、噪声底) | 已实现(型号声明档位与范围 #616:`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`) | — |
+| log_detector | `specan_detector` | 数据(检波与对数) | 已实现(#616:负峰值、Normal/Rosenfell;`auto` 按迹线类型自动选择检波器,`select` 操作查询回使用中的检波器) | — |
+| vbw_filter | `specan_vbw` | 数据(VBW) | 已实现(#616:`steps`、`vbw_min`/`vbw_max`,高于档位表的上限为全开档) | — |
+| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记;#616:频率上限 `f_max`、`span_min`、扫描时间 `sweep_min`/`sweep_max`,最小保持,`hold_count`(单次扫描在保持模式下取平均/保持次数),`marker.mode` 可含 OFF、`marker_off_reply`(关闭的标记回 9.91E+37)与 `delta_x`(差值标记的 X 为偏移)) | 命名审计:`maxhold_limit`(缺口清单) |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | 已实现 | — |
 
-D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层,其余都是数据层(频谱是确定性的数据计算,不经过信号连线)。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(`span/100` 取 1-3-10 梯级);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_mixer` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
+D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层,其余都是数据层(频谱是确定性的数据计算,不经过信号连线)。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_mixer` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
 
 ## rf_generator
 
@@ -231,7 +231,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | lockin | SRS SR865A | #333 | #273(部分) | 二.18 |
 | function_generator | Keysight 33622A | #334 | #327(调制) | 二.22 |
 | rf_generator | R&S SMA100B | #335 | #290、#291(部分) | 二.17 |
-| spectrum_analyzer | Keysight N9042B UXA | #336 | #274(部分) | 二.16 |
+| spectrum_analyzer | Keysight N9042B UXA | #336 | #274(部分)、#616 | 二.16 |
 | electronic_load | ITECH IT8900A(备选 Chroma 63600) | #337 | #258(CP 用例) | 二.15 |
 | oscilloscope | Keysight UXR0334B | #338 | #248(部分)、#602 | 二.13 |
 | power_supply | Keysight N6705C | #339 | #271(部分) | 二.14 |
