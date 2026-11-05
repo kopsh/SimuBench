@@ -236,7 +236,8 @@ class InstrumentScreen(ShellScreen):
         width = max(40, app.size.width - 4)
         # Label columns as wide as their longest label, one space after it.
         lw = 1 + max(
-            cell_len(i18n.t(k, lang)) for k in ("instrument.id", "instrument.address", "instrument.vxi11")
+            cell_len(i18n.t(k, lang))
+            for k in ("instrument.id", "instrument.address", "instrument.hiSLIP", "instrument.vxi11")
         )
         rw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.definition", "instrument.real"))
         rows: list[list[tuple[str, str]]] = [
@@ -245,21 +246,16 @@ class InstrumentScreen(ShellScreen):
                 (info.get("idn", ""), ""),
             ]
         ]
-        addr_row: list[tuple[str, str]] = [
-            (pad(i18n.t("instrument.address", lang), lw), "muted"),
-            (info.get("address_virtual", ""), ""),
-        ]
-        if info.get("address_hislip"):
-            addr_row.append(("   " + i18n.t("instrument.hiSLIP", lang) + " ", "muted"))
-            addr_row.append((info["address_hislip"], ""))
-        rows.append(addr_row)
-        if info.get("address_vxi11"):  # its own row: three addresses on one do not fit 80 columns
-            rows.append(
-                [
-                    (pad(i18n.t("instrument.vxi11", lang), lw), "muted"),
-                    (info["address_vxi11"], ""),
-                ]
-            )
+        rows.append(
+            [
+                (pad(i18n.t("instrument.address", lang), lw), "muted"),
+                (info.get("address_virtual", ""), ""),
+            ]
+        )
+        # One address per row: two on one line push the right-hand column (errors) out at 80 columns.
+        for key, label in (("address_hislip", "instrument.hiSLIP"), ("address_vxi11", "instrument.vxi11")):
+            if info.get(key):
+                rows.append([(pad(i18n.t(label, lang), lw), "muted"), (info[key], "")])
         right: list[list[tuple[str, str]]] = []
         right.append(
             [
