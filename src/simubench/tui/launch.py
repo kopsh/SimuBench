@@ -18,6 +18,7 @@ from typing import Any
 
 import httpx
 
+from ..service import address_line, build_manager
 from .app import SimuBenchApp
 from .client import CLIENT_HEADER
 from .i18n import t
@@ -56,9 +57,9 @@ def _print_addresses(info: dict[str, Any]) -> None:
     """The SCPI address table, the same lines ``serve`` prints (to stderr here)."""
     for inst in info.get("instruments", []):
         if inst.get("scpi_port"):
-            print(f"  SCPI  {inst['name']:<12} {inst['address_virtual']}", file=sys.stderr)
+            print(address_line("SCPI", inst["name"], inst["address_virtual"]), file=sys.stderr)
         if inst.get("address_hislip"):
-            print(f"  HiSLIP {inst['name']:<12} {inst['address_hislip']}", file=sys.stderr)
+            print(address_line("HiSLIP", inst["name"], inst["address_hislip"]), file=sys.stderr)
 
 
 def _headers(token: str | None) -> dict[str, str]:
@@ -90,20 +91,11 @@ def _free_port() -> int:
 def run_bench(args: Any) -> int:
     """``simubench tui <bench.yaml> …``: serve in-process, open a session, run the TUI."""
     from ..server.app import create_app
-    from ..server.manager import SessionManager
 
     bench = Path(args.bench).resolve()
     workspace = Path(args.workspace).resolve() if args.workspace else bench.parent
     token = resolve_token(args.token)
-    manager = SessionManager(
-        workspace,
-        scpi_host="127.0.0.1",
-        scpi_base_port=None if args.no_scpi else args.scpi_base_port,
-        hislip_port=None if args.no_scpi else args.hislip_port,
-        record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
-        record_raw=getattr(args, "record_raw", False),
-        allow_plugins=args.allow_plugins,
-    )
+    manager = build_manager(args, workspace)
     port = _free_port()
     url = f"http://127.0.0.1:{port}"
     server, thread = _serve_in_thread(create_app(manager, token=token), port)
