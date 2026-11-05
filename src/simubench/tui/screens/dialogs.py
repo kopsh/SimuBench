@@ -18,7 +18,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Input, Static
 
 from .. import i18n
-from ..controls import parse_number, range_text
+from ..controls import parse_input_number, range_text
 from ..fmt import cell_len, fmt
 from ..reasons import ReasonReport, plain_text
 
@@ -133,7 +133,7 @@ class NumberEditScreen(ModalScreen[bool]):
         error = self.query_one("#edit-error", Static)
         spec = self._spec
         try:
-            value = parse_number(text, spec.get("display_unit") or spec.get("unit"))
+            value = parse_input_number(text, spec.get("display_unit") or spec.get("unit"))
         except ValueError:
             error.update(i18n.t("edit.accepted", lang))
             return

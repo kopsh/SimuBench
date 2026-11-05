@@ -37,6 +37,7 @@ from .engine.scriptscan import draft_bench, draft_definition
 from .library.templates import get_template as template_by_id
 from .library.templates import templates as instrument_templates
 from .library.templates.draft import suggester as template_suggester
+from .models import api as M
 from .models.bench import Fault
 from .server.benchfiles import Conflict
 from .server.catalog import components as component_catalog
@@ -652,8 +653,10 @@ def build_server(
 
     # ---- deploy -----------------------------------------------------------------------------------
 
-    def session_summary(s: ServedSession) -> dict[str, Any]:
-        info = manager.describe(s)
+    def session_summary(s: ServedSession, info: M.SessionInfo | None = None) -> dict[str, Any]:
+        # `info` when the caller already described the session: describe re-projects every
+        # instrument's state, deviations and nets — not something to do twice (issue 641).
+        info = info or manager.describe(s)
         rel = info.bench_path
         out: dict[str, Any] = {
             "session_id": info.id,
@@ -734,9 +737,10 @@ def build_server(
         """Topology of a running session: instruments, parts, which of them are DUTs, wires and the nets
         they form."""
         guard()
-        info = manager.describe(served(session_id))
+        s = served(session_id)
+        info = manager.describe(s)
         return {
-            **session_summary(served(session_id)),
+            **session_summary(s, info),
             "parts": [
                 {"name": d.name, "type": d.type, "dut": d.dut, "ports": [p.name for p in d.ports]}
                 for d in info.parts
