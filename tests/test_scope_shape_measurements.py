@@ -7,7 +7,7 @@ import math
 import numpy as np
 import pytest
 
-from simubench.library.components.scope import _measure
+from simubench.library.components.measurements import measure
 
 pytestmark = pytest.mark.unit
 
@@ -28,32 +28,32 @@ def pulse(duty: float = 0.3, ringing: float = 0.0) -> np.ndarray:
 
 def test_levels_and_overshoot():
     v = pulse(ringing=0.1)
-    assert _measure("VTOP", v, DT) == pytest.approx(1.0)
-    assert _measure("VBASe", v, DT) == pytest.approx(0.0)
-    assert _measure("OVERshoot", v, DT) == pytest.approx(10.0, abs=0.5)
-    assert _measure("PREShoot", v, DT) == pytest.approx(0.0)
+    assert measure("VTOP", v, DT) == pytest.approx(1.0)
+    assert measure("VBASe", v, DT) == pytest.approx(0.0)
+    assert measure("OVERshoot", v, DT) == pytest.approx(10.0, abs=0.5)
+    assert measure("PREShoot", v, DT) == pytest.approx(0.0)
 
 
 def test_edge_times_widths_and_duty():
     v = pulse()
     # A linear 11-sample ramp: 10 % to 90 % is 0.8 x 11 samples.
-    assert _measure("RISetime", v, DT) == pytest.approx(8.8e-6, rel=0.02)
-    assert _measure("FALLtime", v, DT) == pytest.approx(8.8e-6, rel=0.02)
-    assert _measure("PWIDth", v, DT) == pytest.approx(300e-6, rel=1e-3)
-    assert _measure("NWIDth", v, DT) == pytest.approx(700e-6, rel=1e-3)
-    assert _measure("DUTYcycle", v, DT) == pytest.approx(30.0, rel=1e-3)
-    assert _measure("NDUTy", v, DT) == pytest.approx(70.0, rel=1e-3)
+    assert measure("RISetime", v, DT) == pytest.approx(8.8e-6, rel=0.02)
+    assert measure("FALLtime", v, DT) == pytest.approx(8.8e-6, rel=0.02)
+    assert measure("PWIDth", v, DT) == pytest.approx(300e-6, rel=1e-3)
+    assert measure("NWIDth", v, DT) == pytest.approx(700e-6, rel=1e-3)
+    assert measure("DUTYcycle", v, DT) == pytest.approx(30.0, rel=1e-3)
+    assert measure("NDUTy", v, DT) == pytest.approx(70.0, rel=1e-3)
 
 
 def test_edge_and_pulse_counts():
     v = pulse()
-    assert _measure("PEDGes", v, DT) == 9.0  # the record starts high: 9 rising, 10 falling
-    assert _measure("NEDGes", v, DT) == 10.0
-    assert _measure("PPULses", v, DT) == 9.0
-    assert _measure("NPULses", v, DT) == 9.0
+    assert measure("PEDGes", v, DT) == 9.0  # the record starts high: 9 rising, 10 falling
+    assert measure("NEDGes", v, DT) == 10.0
+    assert measure("PPULses", v, DT) == 9.0
+    assert measure("NPULses", v, DT) == 9.0
 
 
 def test_a_flat_record_has_no_edges_to_time():
     v = np.zeros(1000)
-    assert math.isnan(_measure("RISetime", v, DT))
-    assert math.isnan(_measure("DUTYcycle", v, DT))
+    assert math.isnan(measure("RISetime", v, DT))
+    assert math.isnan(measure("DUTYcycle", v, DT))
