@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import __version__
+from .service import add_service_options, address_line, build_manager
 
 if TYPE_CHECKING:
     from .library.loader import DefinitionLibrary
@@ -22,19 +23,10 @@ def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     from .server.app import create_app
-    from .server.manager import SessionManager
 
     bench = Path(args.bench).resolve() if args.bench else None
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
-    manager = SessionManager(
-        workspace,
-        scpi_host="127.0.0.1",
-        scpi_base_port=None if args.no_scpi else args.scpi_base_port,
-        hislip_port=None if args.no_scpi else args.hislip_port,
-        record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
-        record_raw=getattr(args, "record_raw", False),
-        allow_plugins=args.allow_plugins,
-    )
+    manager = build_manager(args, workspace)
     from .ops import setup_logging
 
     setup_logging(args.log_level, args.log_format, args.log_file)
@@ -46,9 +38,9 @@ def _serve(args: argparse.Namespace) -> int:
         if bench:
             served = await manager.start(bench.relative_to(workspace).as_posix())
             for lst in served.scpi.listeners if served.scpi else []:
-                print(f"  SCPI  {lst.instrument:<12} {lst.address}")
+                print(address_line("SCPI", lst.instrument, lst.address))
             for name, addr in served.hislip.addresses().items() if served.hislip else []:
-                print(f"  HiSLIP {name:<12} {addr}")
+                print(address_line("HiSLIP", name, addr))
         url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
@@ -127,19 +119,10 @@ def _mcp(args: argparse.Namespace) -> int:
 
     from .ops import setup_logging
     from .server.app import create_app
-    from .server.manager import SessionManager
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     workspace = Path(args.workspace).resolve()
-    manager = SessionManager(
-        workspace,
-        scpi_host="127.0.0.1",
-        scpi_base_port=None if args.no_scpi else args.scpi_base_port,
-        hislip_port=None if args.no_scpi else args.hislip_port,
-        record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
-        record_raw=getattr(args, "record_raw", False),
-        allow_plugins=args.allow_plugins,
-    )
+    manager = build_manager(args, workspace)
     token = _token(args)
     ui_url = None
     server = None
@@ -507,31 +490,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("bench", nargs="?", help="bench file to start right away")
     p.add_argument("--workspace", help="folder searched for bench files (default: the bench's folder)")
     p.add_argument("--port", type=int, default=8765)
-    p.add_argument("--scpi-base-port", type=int, default=5025, help="first SCPI port; 0 lets the OS choose")
-    p.add_argument(
-        "--hislip-port",
-        type=int,
-        default=4880,
-        help="shared HiSLIP port (D41); 0 lets the OS choose, and --no-scpi disables it too",
-    )
-    p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
-    p.add_argument("--record-dir", help="write run records here")
-    p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
-    p.add_argument("--token", help="require this access token (default: no token, D43)")
-    p.add_argument(
-        "--require-token",
-        action="store_true",
-        help="require a random access token; use on a computer shared with other users",
-    )
+    add_service_options(p)
     p.add_argument("--open", action="store_true", help="open the browser")
-    p.add_argument(
-        "--allow-plugins",
-        action="store_true",
-        help="run components/*.py from the workspace as plugins (code; default off, D3)",
-    )
-    p.add_argument("--log-level", default="warning")
-    p.add_argument("--log-format", choices=["text", "json"], default="text", help="json: one object per line")
-    p.add_argument("--log-file", help="also write the log here")
     p.set_defaults(fn=_serve)
 
     p = sub.add_parser("tui", help="terminal console for a running bench (optional dependency, D18)")
@@ -548,15 +508,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--session", help="the session id to attach to (default: only one, else pick)")
     p.add_argument("--clock", choices=["command", "wall", "stepped"], help="clock mode for a started bench")
     p.add_argument("--seed", type=int, help="bench seed for a started bench")
-    p.add_argument("--scpi-base-port", type=int, default=5025, help="first SCPI port; 0 lets the OS choose")
-    p.add_argument("--hislip-port", type=int, default=4880)
-    p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
-    p.add_argument("--record-dir", help="write run records here")
-    p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
-    p.add_argument(
-        "--allow-plugins", action="store_true", help="run components/*.py from the workspace as plugins"
-    )
-    p.add_argument("--token", help="access token of the service (default: no token, D43)")
+    add_service_options(p, logs=False, token="present")
     p.add_argument("--script", metavar="STEPS_YAML", help="run these steps headlessly and exit (6)")
     p.add_argument("--out", metavar="DIR", default="tui-shots", help="where the SVGs go (default: tui-shots)")
     p.add_argument("--record", action="store_true", help="also write per-frame SVGs and a .cast (6)")
@@ -566,25 +518,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workspace", default=".", help="folder with bench files (default: current folder)")
     p.add_argument("--port", type=int, default=8765, help="Web Bench port (next free one if taken)")
     p.add_argument("--no-ui", action="store_true", help="do not serve the Web Bench")
-    p.add_argument("--scpi-base-port", type=int, default=5025)
-    p.add_argument("--hislip-port", type=int, default=4880)
-    p.add_argument("--no-scpi", action="store_true")
-    p.add_argument("--record-dir")
-    p.add_argument("--token", help="require this access token (default: no token, D43)")
-    p.add_argument("--require-token", action="store_true", help="require a random access token")
+    add_service_options(p)
     p.add_argument(
         "--allow-control",
         action="store_true",
         help="enable simulation control tools (advance the clock, read true values)",
     )
-    p.add_argument(
-        "--allow-plugins",
-        action="store_true",
-        help="run components/*.py from the workspace as plugins (code; default off, D3)",
-    )
-    p.add_argument("--log-level", default="warning")
-    p.add_argument("--log-format", choices=["text", "json"], default="text")
-    p.add_argument("--log-file")
     p.set_defaults(fn=_mcp)
 
     p = sub.add_parser("validate", help="check bench and instrument definition files; exit 1 on any error")
