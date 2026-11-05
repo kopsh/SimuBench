@@ -580,6 +580,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/clock/scale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clock Scale
+         * @description Change a scaled clock's rate while it runs; time already passed stays passed.
+         */
+        post: operations["setClockScale"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/faults": {
         parameters: {
             query?: never;
@@ -1405,9 +1425,15 @@ export interface components {
              * Mode
              * @enum {string}
              */
-            mode: "command" | "wall" | "stepped";
+            mode: "command" | "wall" | "stepped" | "scaled";
             /** Now Ns */
             now_ns: number;
+            /**
+             * Scale
+             * @description Virtual seconds per real second: 1 except on a scaled clock
+             * @default 1
+             */
+            scale: number;
         };
         /**
          * CommandSpec
@@ -3113,7 +3139,7 @@ export interface components {
          */
         ResetSessionRequest: {
             /** Clock */
-            clock?: ("command" | "wall" | "stepped") | null;
+            clock?: ("command" | "wall" | "stepped" | "scaled") | null;
             /**
              * Force
              * @description Reset even though scripts are connected (they are dropped)
@@ -3520,7 +3546,7 @@ export interface components {
              * Clock Mode
              * @enum {string}
              */
-            clock_mode: "command" | "wall" | "stepped";
+            clock_mode: "command" | "wall" | "stepped" | "scaled";
             /** Description */
             description: string | null;
             /**
@@ -3553,6 +3579,12 @@ export interface components {
              * @description Instrument definitions changed on disk since the session started: restart to apply them
              */
             stale_definitions: string[];
+            /**
+             * Time Scale
+             * @description Virtual seconds per real second (scaled clock)
+             * @default 1
+             */
+            time_scale: number;
             /** Wires */
             wires: components["schemas"]["WireInfo"][];
         };
@@ -3691,7 +3723,7 @@ export interface components {
         /** SetRun */
         SetRun: {
             /** Clock */
-            clock?: ("command" | "wall" | "stepped") | null;
+            clock?: ("command" | "wall" | "stepped" | "scaled") | null;
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -3701,6 +3733,8 @@ export interface components {
             reveal_true_values?: boolean | null;
             /** Seed */
             seed?: number | null;
+            /** Time Scale */
+            time_scale?: number | null;
         };
         /** SetState */
         SetState: {
@@ -3812,7 +3846,7 @@ export interface components {
             /** Bench Path */
             bench_path: string;
             /** Clock */
-            clock?: ("command" | "wall" | "stepped") | null;
+            clock?: ("command" | "wall" | "stepped" | "scaled") | null;
             /**
              * Force
              * @description Start even though scripts are connected to the running bench (they are dropped)
@@ -3821,6 +3855,11 @@ export interface components {
             force: boolean;
             /** Seed */
             seed?: number | null;
+            /**
+             * Time Scale
+             * @description For the scaled clock: virtual seconds per real second
+             */
+            time_scale?: number | null;
         };
         /**
          * StateSpec
@@ -4059,6 +4098,14 @@ export interface components {
              * @description Template version the inputs were expanded with
              */
             version: number;
+        };
+        /** TimeScaleRequest */
+        TimeScaleRequest: {
+            /**
+             * Scale
+             * @description Virtual seconds per real second
+             */
+            scale: number;
         };
         /** Trace */
         Trace: {
@@ -5175,6 +5222,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setClockScale: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeScaleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockInfo"];
+                };
             };
             /** @description Validation Error */
             422: {

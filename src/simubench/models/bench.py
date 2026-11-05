@@ -14,7 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .deviation import DeviationRange
 
-ClockMode = Literal["command", "wall", "stepped"]
+ClockMode = Literal["command", "wall", "stepped", "scaled"]
+#: The clocks that run by themselves: virtual time follows real time (the wall clock 1:1, a scaled
+#: clock at ``run.time_scale``). Neither can be advanced by hand, and neither is repeatable (D47).
+LIVE_CLOCKS = ("wall", "scaled")
 IdleMode = Literal["wall", "sleep", "off"]
 
 
@@ -89,6 +92,13 @@ class LayoutItem(_Model):
 class RunConditions(_Model):
     seed: int = 1
     clock: ClockMode = "command"
+    time_scale: float = Field(
+        1.0,
+        gt=0,
+        le=1_000_000,
+        description="Scaled clock: virtual seconds per real second (10 = ten times faster than the "
+        "wall clock); changeable while running. Only read on the scaled clock",
+    )
     idle: IdleMode = Field(
         "wall",
         description="Command clock: how idle real time between commands counts as virtual time (D47). "

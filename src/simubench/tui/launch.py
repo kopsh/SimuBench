@@ -69,12 +69,21 @@ def _headers(token: str | None) -> dict[str, str]:
     return headers
 
 
-def _open_session(url: str, bench_path: str, clock: str | None, seed: int | None, token: str | None) -> dict:
+def _open_session(
+    url: str,
+    bench_path: str,
+    clock: str | None,
+    seed: int | None,
+    token: str | None,
+    time_scale: float | None = None,
+) -> dict:
     body: dict[str, Any] = {"bench_path": bench_path}
     if clock:
         body["clock"] = clock
     if seed is not None:
         body["seed"] = seed
+    if time_scale is not None:
+        body["time_scale"] = time_scale
     r = httpx.post(f"{url}/api/sessions", json=body, headers=_headers(token), timeout=120)
     r.raise_for_status()
     return r.json()  # type: ignore[no-any-return]
@@ -105,7 +114,7 @@ def run_bench(args: Any) -> int:
         # One session, opened through the served API (the same call the Web Bench makes); the
         # response carries the address table. Starting one in-process first would leave a second,
         # unobserved session — and a second run record — behind.
-        info = _open_session(url, rel, args.clock, args.seed, token)
+        info = _open_session(url, rel, args.clock, args.seed, token, getattr(args, "time_scale", None))
         _print_addresses(info)
     except Exception as exc:
         print(f"{exc}", file=sys.stderr)

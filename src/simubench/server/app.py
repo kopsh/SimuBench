@@ -656,7 +656,9 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         try:
             # The clients guard lives in manager.start: starting a bench stops the running one,
             # whatever facade asked for it (#121, issue 624).
-            s = await manager.start(req.bench_path, clock=req.clock, seed=req.seed, force=req.force)
+            s = await manager.start(
+                req.bench_path, clock=req.clock, seed=req.seed, force=req.force, time_scale=req.time_scale
+            )
         except ClientsConnected as exc:
             raise in_use(exc) from None
         except PermissionError as exc:
@@ -897,7 +899,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def clock(sid: str) -> M.ClockInfo:
         s = served(sid).session
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
 
     @app.post(
         "/api/sessions/{sid}/clock/advance",
@@ -917,7 +919,22 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise in_use(exc) from None
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
+
+    @app.post(
+        "/api/sessions/{sid}/clock/scale",
+        response_model=M.ClockInfo,
+        operation_id="setClockScale",
+        dependencies=[Depends(auth)],
+    )
+    def clock_scale(sid: str, req: M.TimeScaleRequest) -> M.ClockInfo:
+        """Change a scaled clock's rate while it runs; time already passed stays passed."""
+        s = served(sid).session
+        try:
+            s.set_time_scale(req.scale)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from None
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
 
     @app.get(
         "/api/sessions/{sid}/instruments/{name}/readings",

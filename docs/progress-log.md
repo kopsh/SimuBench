@@ -1441,3 +1441,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 校验 | ✅ 无 `message` 时 `code` 须在仪表错误表或 SCPI 标准表里，否则 `ValueError` 带诊断（经 API 为 422）；有 `message` 则放行 |
 | 客户端 | ✅ TUI 故障对话框 `error` 增加 `count`；API / MCP / Web 共用 `Fault` 模型，`schemas/` 已重新生成 |
 | 未做 | ⚠️ 对话框分组不动（`error` 已在“仪表”组）；Web 故障面板是否显示 `count` 未改 |
+
+## #683 scaled 时钟：按倍率走的虚拟时间（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 引擎 | ✅ `run.clock: scaled` + `run.time_scale`；虚拟时间 = 基准 + 真实时间差 × 倍率，改倍率时重设基准，不回退；墙钟即倍率 1；链路延迟与等待按“虚拟时长 ÷ 倍率”折算真实秒（最多 5 s） |
+| 入口 | ✅ CLI `--clock scaled --time-scale N`；测试台文件 `run.time_scale`；API 启动参数、`POST …/clock/scale`、`ClockInfo.scale`、`SessionInfo.time_scale`；MCP `start_session(time_scale=)`；编辑操作 `set_run`；`open_bench(time_scale=)` |
+| 非确定性 | ✅ 与墙钟同：不能 `advance`（409），记录头写入 `time_scale`，回放按步进时钟 |
+| 界面 | ✅ TUI 顶栏“时钟走动 ×N”、`a` 提示、1 s 轮询；Web 顶栏、命令面板、编辑检查器（模式与倍率）、本地走时 |
+| 测试 | ✅ `tests/test_scaled_clock.py`（注入墙钟源，不 sleep）、`tests/test_server.py`、`tests/test_tui.py`；`pnpm typecheck / lint / test` 通过 |
+| 未做 | ⚠️ 配置路径 `run.clock: {mode, scale}`（issue 草案）改为 `run.clock` + `run.time_scale`，与已有字符串格式兼容；运行中改倍率的 UI 只在编辑检查器（配置的倍率），运行中的实时倍率滑块未做；`SIMUBENCH_CLOCK` 环境变量未配套倍率 |

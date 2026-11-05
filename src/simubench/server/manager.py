@@ -169,6 +169,7 @@ class ServedSession:
         self.hislip: HislipServer | None = None
         self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
+        self.time_scale: float | None = None
         self.seed: int | None = None
         #: Instruments taken back to local from the UI (LOCAL), until a remote client's next command.
         self.local: set[str] = set()
@@ -297,6 +298,7 @@ class SessionManager:
         seed: int | None = None,
         sid: str | None = None,
         force: bool = False,
+        time_scale: float | None = None,
     ) -> ServedSession:
         # Starting a bench stops the running one (one bench serves the ports) and its scripts drop:
         # the guard lives here, so no facade can start a bench over connected scripts (#121, 624).
@@ -315,6 +317,7 @@ class SessionManager:
             clock=clock,
             seed=seed,
             idle=idle,
+            time_scale=time_scale,
             record_dir=self.record_dir,
             record_raw=self.record_raw,
             definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)
@@ -322,7 +325,7 @@ class SessionManager:
         served = ServedSession(sid or uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
         served.bench_fingerprint = doc.fingerprint
-        served.clock, served.seed = clock, seed
+        served.clock, served.seed, served.time_scale = clock, seed, time_scale
         # One bench serves the SCPI ports at a time; a new session takes them over.
         for other in list(self.sessions.values()):
             await self.stop(other.id, force=True)  # confirmed above, as part of starting
@@ -355,7 +358,9 @@ class SessionManager:
         clock = clock if clock is not None else served.clock
         seed = seed if seed is not None else served.seed
         await self.stop(sid, force=True)  # confirmed above, as part of the reset
-        return await self.start(rel, clock=clock, seed=seed, sid=sid, force=True)
+        return await self.start(
+            rel, clock=clock, seed=seed, sid=sid, force=True, time_scale=served.time_scale
+        )
 
     async def stop(self, sid: str, force: bool = False) -> None:
         """Stop a session and close its ports; refused while scripts are connected, unless
@@ -495,6 +500,7 @@ class SessionManager:
             else None,
             description=b.description,
             clock_mode=s.clock_mode,  # type: ignore[arg-type]
+            time_scale=s.time_scale,
             now_ns=s.now_ns,
             seed=s.seed,
             reveal_true_values=s.reveal_true_values,

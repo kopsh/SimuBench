@@ -510,8 +510,13 @@ class SimuBenchApp(App[None]):
     # ---- timers -------------------------------------------------------------------------------------
 
     async def _tick_wall(self) -> None:
-        """Wall clock: time, levels and readings refresh every second (section 1.6, D44)."""
-        if self.clock and self.clock.get("mode") == "wall" and self.sid and self.conn == "connected":
+        """Wall or scaled clock: time, levels and readings refresh every second (section 1.6, D44)."""
+        if (
+            self.clock
+            and self.clock.get("mode") in ("wall", "scaled")
+            and self.sid
+            and self.conn == "connected"
+        ):
             with contextlib.suppress(ApiError):
                 self.clock = await self.client.clock(self.sid)
                 self.levels = await self.client.levels(self.sid)
@@ -629,7 +634,7 @@ class SimuBenchApp(App[None]):
         if self.conn != "connected" or self.sid is None:
             return
         mode = self.clock_mode()
-        if mode == "wall":
+        if mode in ("wall", "scaled"):
             self.call_after_refresh(self._advance_wall_hint)
             return
         default = self._advance_default
@@ -642,7 +647,7 @@ class SimuBenchApp(App[None]):
 
         bars = [w for w in self.screen.query(BottomBar)]
         target = bars[0] if bars else self.screen.query_one(Static)
-        target.flash(i18n.t("clock.wallHint", self.lang))
+        target.flash(i18n.t(f"clock.{self.clock_mode()}Hint", self.lang))
 
     def _advance_done(self, seconds: float | None) -> None:
         if seconds is None:

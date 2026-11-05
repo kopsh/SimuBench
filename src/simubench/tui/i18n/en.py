@@ -13,9 +13,19 @@ TERMS: dict = {
         "loading": "Loading…",
     },
     # workbench.activity in the web i18n (D44 states).
-    "activity": {"idle": "waiting for commands", "busy": "running commands", "wall": "clock running"},
+    "activity": {
+        "idle": "waiting for commands",
+        "busy": "running commands",
+        "wall": "clock running",
+        "scaled": "clock running ×{scale}",
+    },
     # workbench.clockMode in the web i18n.
-    "clockMode": {"command": "Command-driven clock", "wall": "Wall clock", "stepped": "Stepped clock"},
+    "clockMode": {
+        "command": "Command-driven clock",
+        "wall": "Wall clock",
+        "stepped": "Stepped clock",
+        "scaled": "Scaled clock",
+    },
     # panel.client in the web i18n, plus the terminal console's own sources (tui-screens.md 1.5).
     "source": {
         "ui": "UI",
@@ -324,6 +334,7 @@ TERMS: dict = {
         "advanceInvalid": "Cannot read that duration: try 10 ms or 1 s.",
         "advanceForce": "Advance {seconds} s. Connected scripts will see time move; this runs with force.",
         "wallHint": "Under the wall clock time walks on its own and cannot be advanced",
+        "scaledHint": "Under the scaled clock time walks on its own and cannot be advanced",
     },
     "runs": {
         "title": "Runs",
@@ -334,7 +345,7 @@ TERMS: dict = {
         "colEvents": "events",
         "colDuration": "duration",
         "colSize": "size",
-        "clock": {"command": "cmd", "wall": "wall", "stepped": "step"},
+        "clock": {"command": "cmd", "wall": "wall", "stepped": "step", "scaled": "scaled"},
         "liveSession": "live (this session)",
         "summaryTitle": "Summary · {started} {bench}",
         "replayTitle": "Replay · {started} {bench}",

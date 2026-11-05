@@ -324,6 +324,9 @@ def clock_activity(app: Any, lang: str, mode: str | None, busy: bool) -> list[tu
     """The D44 activity status: 等待命令 / 执行命令 / 时钟走动, with its dot's color."""
     if mode == "wall":
         return [("● ", "ok"), (i18n.t("activity.wall", lang), "")]
+    if mode == "scaled":
+        scale = (getattr(app, "clock", None) or {}).get("scale") or 1
+        return [("● ", "ok"), (i18n.t("activity.scaled", lang, scale=f"{scale:g}"), "")]
     if busy:
         return [("● ", "ok"), (i18n.t("activity.busy", lang), "")]
     return [("● ", "muted"), (i18n.t("activity.idle", lang), "")]
