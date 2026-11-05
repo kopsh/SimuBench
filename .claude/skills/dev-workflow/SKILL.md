@@ -72,8 +72,8 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
   instead of re-opening the bench per test. Assertions are never dropped in a merge.
 - Server fixtures must be `module`/`session` scoped (function scope is rejected by the script).
 - Shared test skeletons — example-script loading, example-bench script runs, session queries,
-  golden-table runners — live in `tests/helpers.py` (TUI mocks: `tests/tui_mock.py`); don't copy
-  them into new test files (#698).
+  golden-table runners, the MCP tool-result unwrap — live in `tests/helpers.py` (TUI mocks and
+  pilot helpers: `tests/tui_mock.py`); don't copy them into new test files (#698, #699, #700).
 - Windows, wheel, e2e, visual, `tui_boot`, `load_sensitive` run after merge. Red on `main` is
   fixed before new work.
 
