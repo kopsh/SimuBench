@@ -29,10 +29,14 @@ class System(Component):
         return OpResult(str(self.param("clear_reply")).encode() if query else None)
 
     @op("reset")
-    def reset_instrument(self, **_: Any) -> OpResult:
-        """The same default setup as ``*RST`` (``:SYSTem:PRESet``)."""
+    def reset_instrument(self, then: dict[str, Any] | None = None, **_: Any) -> OpResult:
+        """The same default setup as ``*RST`` (``:SYSTem:PRESet``); ``then`` (the command's
+        ``args``) names settings the preset leaves differently from ``*RST``, written after it — the
+        X-Series preset turns continuous sweep on where ``*RST`` turns it off (#616)."""
         assert self.owner is not None
         self.owner.reset()
+        for path, value in (then or {}).items():
+            self.owner.set_state(path, value, internal=True)
         return OpResult()
 
     @op("next_error", fields=("code", "text"))
