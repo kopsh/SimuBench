@@ -178,6 +178,16 @@ function remoteRefused(qc: QueryClient, sid: string) {
   };
 }
 
+/** What one SCPI exchange means for the user (issue 639): ok, or the one message to show —
+ * the link's error first (the exchange never happened), then the first queued error. Every
+ * send path reports through this, so a missing branch is one fix, not one per screen. */
+export function scpiOutcome(r: ScpiResponse): { ok: boolean; message: string | null } {
+  if (r.link_error) return { ok: false, message: r.link_error };
+  const first = r.errors[0];
+  if (first) return { ok: false, message: `${first.code}, ${first.message}` };
+  return { ok: true, message: null };
+}
+
 export function useScpi(sid: string, name: string) {
   const qc = useQueryClient();
   return useMutation({

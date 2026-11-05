@@ -1,6 +1,7 @@
 import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { T } from "@/i18n";
 import type { Diagnostic, SessionInfo } from "@/api/client";
 import { useFaults } from "@/api/hooks";
 import { FaultRow } from "./faults/FaultPanel";
@@ -183,7 +184,7 @@ function EventRow({ e }: { e: Event }) {
   const { t } = useTranslation();
   const text =
     e.kind === "panel"
-      ? `${e.instrument} ${t("panel.frontPanel")}: ${t(`scope.${e.action ?? "run"}`)}  (${e.source ?? ""})`
+      ? `${e.instrument} ${t("panel.frontPanel")}: ${t(`scope.${(e.action ?? "run") as "run" | "stop" | "single"}`)}  (${e.source ?? ""})`
       : e.kind === "remote"
       ? `${e.instrument} ${t(e.action === "local" ? "remote.eventLocal" : "remote.eventRemote")}  (${e.source ?? ""})`
       : e.kind === "fault"
@@ -255,7 +256,7 @@ function ProblemRow({ instrument, code, message }: { instrument: string; code: n
 }
 
 /** Who sent a message: the script, the UI, an agent, a network client or a replay. */
-function clientLabel(client: string | null | undefined, t: (key: string) => string): string {
+function clientLabel(client: string | null | undefined, t: T): string {
   if (!client) return "";
   if (client === "pyvisa" || client === "sdk") return t("panel.client.script");
   if (client === "ui" || client === "mcp" || client === "replay") return t(`panel.client.${client}`);

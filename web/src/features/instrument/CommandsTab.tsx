@@ -133,7 +133,9 @@ export function CommandsTab({
                                 {row.command.set && <span>{t("acceptance.writable")}</span>}
                                 {row.command.query && <span>{t("acceptance.queryable")}</span>}
                                 {commandBinding(row.command) && (
-                                  <span className="num">{t("acceptance.binds", { target: commandBinding(row.command) })}</span>
+                                  <span className="num">
+                                    {t("acceptance.binds", { target: commandBinding(row.command) as string })}
+                                  </span>
                                 )}
                               </>
                             )}
