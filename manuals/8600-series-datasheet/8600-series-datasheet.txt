@@ -1,0 +1,628 @@
+Data Sheet
+
+
+Programmable DC Electronic Loads
+8600/B Series
+
+
+
+
+                2U half-rack                                                    3U                                                                      6U
+
+
+                                                                                                                                       USB      RS232        GPIB (select models)
+
+
+The 8600/B Series programmable DC electronic                       To ensure the reliability of your testing, the                  Features and Benefits (cont.)
+loads provide the performance of modular system                    8600/B Series provides a power-on system                        n Store and recall up to 100 setups
+DC electronic loads in a compact benchtop form                     self-test and numerous protection features:
+                                                                   overtemperature (OTP), overvoltage (OVP),                       n Adjustable slew rate in CC mode
+factor. With fast transient operation speeds and
+high 16-bit measurement resolution, these                          overcurrent (OCP), overpower (OPP), and local/                  n Flexible triggering options via front panel,
+standalone DC loads can be used for testing and                    remote reverse voltage (LRV/RRV) protection.
+                                                                                                                                      external input, timer, or bus
+evaluating a variety of DC sources such as DC
+power supplies, DC-DC converters, batteries,                                                                                       n Built-in battery test function with voltage level,
+battery chargers, and photovoltaic arrays.                           Special applications                                             capacity level, and timer stop conditions
+                                                                     The 8600/B Series provides a built-in battery
+                                                                                                                                   n Test modes to validate the OCP/OPP 		
+The DC loads can operate in constant current                         test mode to measure the ampere-hour (Ah)
+(CC), constant voltage (CV), constant resistance                     characteristic of a battery and a unique                         protection functions of a power supply
+(CR), or constant power (CW) mode and be                             CR-LED mode to simulate the loading                           n CR-LED mode to simulate the loading behavior
+configured to provide a dynamically changing                         behavior of a typical LED.
+                                                                                                                                      of typical LEDs
+load to the DC source with fast load switching
+times. Versatile internal, external, and remote                                                                                    n Remote sense
+triggering options allow the dynamic load                          Features and Benefits
+                                                                                                                                   n Analog current control and monitoring
+behavior to be synchronized with other events.                     n Voltage range up to 500 V
+                                                                                                                                   n Thermostatically controlled fan
+                                                                   n Current range up to 720 A
+Increase productivity by saving your test
+                                                                                                                                   n Standard USB (USBTMC-compliant) and RS232
+parameters into any one of the 100 memory areas                    n CC/CV/CR/CW operating modes
+for quick system recall. All load parameters such                                                                                     interfaces supporting SCPI commands for
+as voltage, current, slew rate, and width can be                   n 16-bit voltage and current measurement system
+                                                                                                                                      remote control
+set via the front panel or programmed remotely.                    n Transient mode up to 25 kHz in CC mode
+                                                                                                                                   n GPIB optional on select models
+The 8600/B Series provides standard 		
+USB (USBTMC-compliant) and RS232 interfaces                        n List mode function
+                                                                                                                                   n OVP/OCP/OPP/OTP including local and remote
+standard for remote communication. GPIB is                                                                                            reverse voltage (LRV/RRV) protection
+available as an option on select models.
+
+   Model         8600/B*          8601/B*         8602/B*         8610/B*         8612/B*         8614/B*               8616      8620          8622             8624                8625
+    Power           150 W           250 W           200 W            750 W            750 W         1500 W              1200 W    3000 W       2500 W            4500 W             6000 W
+  Operating
+                  0 – 120 V        0 – 120 V       0 – 500 V       0 – 120 V         0 – 500 V     0 – 120 V        0 – 500 V    0 – 120 V    0 – 500 V        0 – 120 V            0 – 120 V
+   Voltage
+    Rated
+                   0 – 30 A        0 – 60 A        0 – 15 A        0 – 120 A         0 – 30 A      0 – 240 A        0 – 60 A     0 – 480 A    0 – 100 A        0 – 600 A            0 – 720 A
+   Current
+ Form Factor                     2U half-rack                                                                  3U                                                             6U
+*Model numbers with suffix B (86xxB) do not include a GPIB interface. See ordering information on page 9 for details.
+
+
+Technical data subject to change                                                bkprecision.com
+© B&K Precision Corp. 2025
+    Programmable DC Electronic Loads
+    8600/B Series
+
+
+    Flexible operation
+
+
+   List mode                                                                                  Transient operation                                          Automatic test mode
+
+         A                                                                                     A
+                                                                                                                                                                        CV 3 V
+
+                                                                                                                                       A level                           fail
+                    Trigger                                                                                                                                                                        CR 2 Ω
+
+                                                                                                                                                              CC 1 A                                pass
+
+                                                                                                                                                                 pass
+
+                       0       1 2    3 4         5   6    7      8                                                                    B level                                     CW 0.5 W
+
+                                            Steps                                                                                                                                    pass
+
+                                                                              t                                                                       t          1s     0.5 s        1.5 s          2.5 s
+                                                                                                       Slew Rate
+
+   List mode lets you generate more complex                                                   Transient operation enables the module to                    The 8600/B Series can execute multiple test
+   sequences of input changes with several different                                          periodically switch between two load levels. A               sequences in automatic test mode. Up to 100
+   levels. Up to 7 groups of list files can be saved.                                         power supply's regulation and transient                      different sequences can be linked to run steps of
+   Each list can contain up to 84 steps with a                                                characteristic can be evaluated by monitoring the            various operating modes and loading conditions.
+   minimum width time of 20 µs per step.                                                      supply's output voltage under varying                        Each sequence can also be programmed with
+                                                                                              combinations of load levels, frequency, duty                 upper and lower limit Pass/Fall criteria. When
+                                                                                              cycle, and slew rate. Transient operation can                applied in production testing, you can easily
+                                                                                              simulate these conditions.                                   judge whether the test parameters of your devices
+    Low voltage operation                                                                                                                                  are within the specification limits and adjust your
+    The 8600/B Series can operate at low voltages for applications such as fuel cell and solar cell testing.                                               process according to the Pass/Fail verdict.
+
+                I
+                                                                                                                             8625
+              720
+
+
+                                                                                                                             8624
+                                                                                                                                                           CR-LED mode
+              600
+
+                                                                                                                                                                 I
+                                                                                                                             8620
+              480
+
+
+                     ≈
+                                                                                                                                                            Io                                           Rd
+Current (A)
+
+
+
+
+                                                                                                                             8614
+              240
+
+
+
+
+                     ≈
+                                                                                                                                                                                             Vd     Vo        V
+
+                                                                                                                             8610                                               Figure - LED I-V Curve
+              120
+                                                                                                                             8622
+              100
+               90                                                                                                                                          Vd = Forward voltage of the LED
+                                                                                                8601
+                                                                                                                                                           Rd = LED's operating resistance
+                                                                                                                             8616
+               60
+                                                                                                                                                           Vo = Operating voltage across the LED
+                                                                  8600                                              8612                    8602           Io = Operating current across the LED
+               30
+
+
+                0
+                                                                                                                                                           Use the load's unique CR-LED operating mode
+                                                                                                                                                      V    to test LED drivers. This function allows users to
+                                              1                           2                        3                4                         5
+                                                                                  Voltage (V)                                                              configure the LED's operating resistance and
+                                                                                                                                                           forward voltage along with the voltage range
+       Typical minimum operating voltage at full scale current                                                                                             (same as CR operation) to simulate the loading
+              8600            8601      8602              8610           8612         8614         8616      8620    8622           8624           8625    behavior of typical LEDs.
+              1.1 V           1.1 V     4.5 V             1.2 V          3.6 V        1.5 V        3.6 V      2V        3V          1.8 V          1.8 V
+
+    2                                                                                                                                                                                             bkprecision.com
+ Programmable DC Electronic Loads
+ 8600/B Series
+
+
+ Remote control and programming
+
+ Powerful communication interfaces                               External analog programming and                   Application software
+ The 8600/B Series provides standard USB and                     monitoring interface
+ RS232 interfaces for remote communication.
+                                                                 In addition to front panel and remote interface
+ GPIB is available as an option for select models.
+                                                                 control, current values can also be programmed
+ These interfaces offer SCPI and USBTMC
+                                                                 with an analog control signal. The electronic
+ standard communication protocols to control
+                                                                 loads can be externally controlled from zero to
+ your electronic load from a PC.
+                                                                 full scale with a 0-10 V input signal. A BNC
+                                                                 output is available on the rear for monitoring
+                                                                 the current with a 0-10 V output signal.
+
+
+ Battery test function                                           Voltage-on (Von) latch operation
+                   Typical battery discharge curve
+        1.8
+                                                                         V                                         PC software is provided for front panel emulation,
+                                                                                                                   generating and executing test sequences, or
+        1.6
+                                                                                                                   logging measurement data without the need to
+                                                                       Von
+        1.4
+                                                                      Level                                        write source code. Additionally, this application
+        1.2                                                                                                        software integrates with NI Data Dashboard for
+                                                                                                      t
+Volts
+
+
+
+
+        1.0                                                                                                        LabVIEWTM apps, which allows users to create a
+                                                                         A
+        0.8
+                                                                                                                   custom dashboard on a tablet computer or
+                                                                                                                   smartphone to remotely monitor 8600/B Series
+        0.6                                                       Load Sink
+                                                                   Current                                         DC loads via this PC software.
+        0.4                                                                     Rise Rate
+              0   0.5       1.0           1.5        2.0   2.5                    A/µs
+                                  Hours
+                                                                                                                   n Remote monitoring on iOS, Android or 		
+                                                                                                      t
+                                                                                                                       Windows 8 compatible tablets or smartphones
+ The built-in battery test function uses CC mode                 Control the input turn on state for the DC
+                                                                                                                       via NI Data Dashboard for LabVIEWTM apps
+ to calculate the battery capacity using a fixed                 electronic load by configuring the Von latch
+                                                                                                                   n Log voltage, current, and power values with
+ current load discharge. Users can specify cut-off               function. This can be used to start and stop
+ voltage level, capacity level, and time stop                    discharging of a battery or other power source        timestamp
+ conditions.                                                     at a specified voltage level.                     n Run transient operation and list mode 		
+
+                                                                                                                       programs remotely
+
+                                                                                                                   n Create an unlimited number of external list
+         Built-in rise and fall time measurement
+                                                                                                                       files to be executed from PC memory
+                        8600/B Series display
+
+
+                                                                                                                   Adjustable slew rate
+                                                                                                                   A
+                                                                         Oscilloscope display
+
+
+
+
+                                                                                                                                   Slew Rate                  t
+
+                                                                                                                   In CC mode, users can control the rate or slope
+                                                                                                                   of the change in current in a transient response
+         The 8600/B Series can measure the rise or fall time from a specified start and stop voltage level of
+                                                                                                                   test. Set the slew rate to as slow as 0.001 A/ms or
+         the measured input without the need for an oscilloscope. This function can also be used as an internal
+                                                                                                                   as fast as 2.5 A/µs depending on the model and
+         timer to count how long the input has been enabled.
+                                                                                                                   selected current range.
+
+ 3                                                                                                                                                bkprecision.com
+Programmable DC Electronic Loads
+8600/B Series
+
+u Models 8600/B, 8601/B & 8602/B
+
+Front panel                                                  Bright dual-line display
+                                                             The 8600/B Series display shows both measured input
+                                                             values and set parameters simultaneously.
+
+
+
+
+                                                                                                                                       Rotary control
+                                                                                                                                       knob
+
+
+
+
+                                                                                                                                    High current test lead accessory
+                                                                                                                                    model TLPWR1
+
+
+
+
+                                              Numeric keypad Function keys Cursor keys                        Load input
+                                                                                                              terminal
+
+
+Intuitive user interface
+The numeric keys and rotary knob provide a convenient interface for setting the operating mode and desired current, voltage, and resistance levels quickly
+and precisely.
+
+
+Rear panel
+                                                                           RS232          USB
+                                            Cooling fan                    interface      interface       GPIB interface*
+
+
+
+
+                                                  I/O terminal block                                  Line voltage selector
+                                                  External trigger, external analog programming,
+                                                  external input On/Off control, voltage fault pin,
+                                                  and remote sense terminals
+
+    *GPIB optional on select models. See ordering information on page 9 for details.
+
+4                                                                                                                                                   bkprecision.com
+Programmable DC Electronic Loads
+8600/B Series
+
+
+u Models 8610/B, 8612/B, 8614/B, 8616, 8620, 8622 (3U)
+
+Front panel
+                                        Bright dual-line display
+                           Power        The 8600/B Series display shows both measured           Operating           Cursor Function          Numeric
+                           switch       input values and set parameters simultaneously.         mode keys           keys   keys              keypad
+
+
+
+
+Rear panel
+                                  Input            Current monitor BNC output                 RS232     USB       GPIB       Line voltage AC line
+                                                   Outputs a 0-10 V signal that follows
+                                  terminals        0-full range of the input current.
+                                                                                              interface interface interface* selector     input
+
+
+
+
+                          Cooling fan                       I/O terminal block                                                                    Input fuse
+                                                            External trigger, external analog programming, external input                         holder
+                                                            On/Off control, voltage fault pin, and remote sense terminals
+
+
+
+u Models 8624 & 8625 (6U)
+
+
+
+
+                    6U form factor models use the same front panel                              The rear panel configurations of 6U and 3U models are identical,
+                    interface as the 3U models                                                  however the number of fans installed varies by model
+
+*GPIB optional on select models. See ordering information on page 9 for details.
+
+5                                                                                                                                                                  bkprecision.com
+Programmable DC Electronic Loads
+8600/B Series
+
+
+
+Specifications
+
+                 Model                      8600/B               8601/B             8602/B         Readback voltage
+
+ Input ratings                                                                                                           Low       0 – 18 V              0 – 18 V            0 – 50 V
+                                                                                                       Range
+             Input voltage                  0 – 120 V             0 – 120 V         0 – 500 V                            High     0 – 120 V              0 – 120 V           0 – 500 V
+
+         Input               Low             0–3A                   0–6A             0–3A                                Low                    0.1 mV                           1 mV
+                                                                                                     Resolution
+        current              High           0 – 30 A                0 – 60 A         0 – 15 A                            High                    1 mV                            10 mV
+              Input power                     150 W                  250 W           200 W                  Accuracy                               ±(0.05%+0.05% FS)
+       Minimum               Low          0.11 V at 3 A         0.18 V at 6 A       1 V at 3 A     Readback current
+       operating                                                                                                         Low       0–3A                   0–6A                  0–3A
+        voltage              High         1.1 V at 30 A         1.1 V at 60 A      4.5 V at 15 A       Range
+                                                                                                                         High     0 – 30 A               0 – 60 A            0 – 15 A
+ CV mode
+                                                                                                                         Low       0.01 mA                0.1 mA             0.01 mA
+                             Low                       0.1 – 18 V                   0.1 – 50 V       Resolution
+         Range                                                                                                           High      0.1 mA                  1 mA                 0.1 mA
+                             High                     0.1 – 120 V                  0.1 – 500 V
+                                                                                                                                  ±(0.05%+               ±(0.05%+            ±(0.05%+
+                             Low                                     1 mV                                   Accuracy
+                                                                                                                                  0.05% FS)               0.1% FS)           0.05% FS)
+      Resolution
+                             High                                    10 mV                         Readback power
+                                            ±(0.05%+             ±(0.025%+         ±(0.05%+                    Range                150 W                 250 W                 200 W
+                             Low
+                                            0.02% FS)            0.05% FS)         0.025% FS)
+       Accuracy                                                                                             Resolution                                     10 mW
+                                           ±(0.05%+              ±(0.025%+         ±(0.05%+
+                             High                                                                           Accuracy            ±(1%+0.1% FS)      ±(0.2%+0.2% FS)        ±(0.1%+0.1% FS)
+                                           0.025% FS)            0.05% FS)         0.025% FS)
+ CC mode                                                                                           Protection range (typical)
+
+                             Low             0–3A                   0–6A             0–3A                      OPP                  150 W                 250 W                 200 W
+         Range                                                                                                           Low        3.3 A                  6.6 A                 3.3 A
+                             High           0 – 30 A                0 – 60 A         0 – 15 A           OCP
+                             Low                                    0.1 mA                                               High        33 A                  66 A                  16.5 A
+      Resolution                                                                                               OVP                  120 V                  120 V                 500 V
+                             High                                    1 mA
+                             Low                            ±(0.05%+0.05% FS)                                  OTP                                      185 ºF (85 °C)
+       Accuracy                                                                                    Short circuit (typical)
+                             High                           ±(0.05%+0.05% FS)
+ CR mode                                                                                                                 Low        3.3 A                  6.6 A                 3.3 A
+                                                                                                    Current (CC)
+                             Low                    0.05 Ω – 10 Ω                 0.3 Ω – 10 Ω                           High        33 A                  66 A                  16.5 A
+         Range                                                                                            Voltage (CV)                                       0V
+                             High                              10 Ω - 7.5 kΩ
+               Resolution                                            16 bit                              Resistance (CR)           35 mΩ                  30 mΩ              300 mΩ
+
+       Accuracy              Low                          0.01%+0.08 S (12.5 Ω)                    General (typical)
+       (I>10% of                                                                                    Input terminal impedance       150 kΩ                 300 kΩ                 1 MΩ
+         range)              High                       0.01%+0.0008 S (1250 Ω)
+                                                                                                            AC input                           110 V/220 V ±10%, 50/60 Hz
+ CW mode
+                                                                                                      Operating temperature                   32 ºF to 104 ºF (0 °C to 40 °C)
+                   Range                      150 W                  250 W           200 W
+                                                                                                       Storage temperature                   14 ºF to 140 ºF (-10 °C to 60 °C)
+               Resolution                                           10 mW
+                                                                                                            Humidity                                Indoor use, ≤ 95%
+                 Accuracy                0.1% + 0.1% FS       0.2% + 0.2% FS      0.1% + 0.1% FS
+                                                                                                               Safety           EN61010-1:2001, EU Low Voltage Directive 2006/95/EC
+ Transient mode (CC mode)
+                                                                                                                                   Meets EMC Directive 2004/108/EC, EN 61000-3-
+                                                                                                         Electromagnetic
+               T1 & T2 (1)                          20 µs – 3600 s / Resolution: 10 µs                                              2:2006, EN 61000-3-3:1995+A1:2001+A2:2005
+                                                                                                          compatibility
+                                                                                                                                    EN 61000-4-2/-3/-4/-5/-6/-11, EN 61326-1:2006
+                 Accuracy                                     5 µs + 100 ppm
+                                                                                                     Dimensions (W x H x D)             8.5” x 3.5” x 15.2” (218 x 90 x 387 mm)
+                             Low                    0.001-2.5 A/ms                0.001-1 A/ms
+      Slew Rate (2)                                                                                           Weight                                 9.9 lbs (4.5 kg)
+                             High                   0.001-2.5 A/µs                 0.001-1 A/µs
+                                                                                                            Warranty                                       3 Years
+(1)
+      Fast pulse trains with large transitions may not be achievable.
+(2)
+                                                                                                       Standard accessories       User manual, power cord, certificate of calibration
+    The slew rate specifications are not warranted, but are descriptions of typical
+performance. The actual transition time is defined as the time for the input to change from                                      TLPWR1 high current test leads, IT-E151 rackmount kit
+                                                                                                       Optional accessories
+10% to 90%, or vice versa, of the programmed current values. In case of very large load                                              (models 8600/B, 8601/B, and 8602/B only)
+changes, e.g. from no load to full load, the actual transition time will be larger than the
+expected time. The load will automatically adjust the slew rate to fit within the range (high or
+low) that is closest to the programmed value.
+
+
+
+6                                                                                                                                                                        bkprecision.com
+Programmable DC Electronic Loads
+8600/B Series
+
+
+
+Specifications (cont.)
+
+
+           Model                   8610/B                 8612/B            8614/B                 8616                     8620                   8622              8624                  8625
+  Input ratings
+         Input voltage              0 – 120 V             0 – 500 V         0 – 120 V            0 – 500 V                 0 – 120 V             0 – 500 V         0 – 120 V             0 – 120 V
+        Input            Low        0 – 12 A               0–3A             0 – 24 A               0 –6 A                  0 – 48 A               0 – 10 A          0 – 60 A              0 – 72 A
+       current           High      0 – 120 A               0 – 30 A        0 – 240 A              0 –60 A                 0 – 480 A              0 – 100 A         0 – 600 A             0 – 720 A
+          Input power                            750 W                       1500 W                1200 W                  3000 W                 2500 W            4500 W                6000 W
+      Minimum            Low     0.12 V at 12 A          0.36 V at 3 A   0.15 V at 24 A         0.36 V at 6 A            0.2 V at 48 A       0.3 V at 10 A       0.18 V at 60 A        0.18 V at 72 A
+      operating
+       voltage           High    1.2 V at 120 A          3.6 V at 30 A   1.5 V at 240 A         3.6 V at 60 A            2 V at 480 A        3 V at 100 A        18 V at 600 A         1.8 V at 720 A
+  CV mode
+                         Low       0.1 – 18 V             0.1 – 50 V        0.1 – 18 V           0.1 – 50 V                0.1 – 18 V            0.1 – 50 V        0.1 – 18 V            0.1 – 18 V
+        Range
+                         High      0.1 – 120 V           0.1 – 500 V       0.1 – 120 V           0.1 – 500 V              0.1 – 120 V            0.1 – 500 V       0.1 – 120 V          0.1 – 120 V
+                         Low                                 1 mV                                   1 mV                     1 mV                   1 mV              1 mV                  1 mV
+      Resolution
+                         High                               10 mV                                   10 mV                   10 mV                  10 mV             10 mV                 10 mV
+                                                                           ±(0.025%+             ±(0.025%+
+                         Low           ±(0.025% + 0.05% FS)                                                                                         ±(0.025% + 0.05% FS)
+      Accuracy                                                             0.025% FS)            0.05% FS)
+                         High                                                                        ±(0.025% + 0.05% FS)
+  CC mode
+                         Low        0 – 12 A               0–3A             0 – 24 A               0–6A                    0 – 48 A               0 – 10 A          0 – 60 A              0 – 72 A
+        Range
+                         High      0 – 120 A               0 – 30 A        0 – 240 A              0 – 60 A                0 – 480 A              0 – 100 A         0 – 600 A             0 – 720 A
+                         Low          1 mA                  0.1 mA            1 mA                 0.1 mA                    1 mA                   1 mA              1 mA                  1 mA
+      Resolution
+                         High        10 mA                   1 mA             10 mA                 1 mA                    10 mA                  10 mA             10 mA                 10 mA
+                                   ±(0.05%+               ±(0.05%+         ±(0.05%+
+                         Low                                                                                      ±(0.05%+ 0.05% FS)                                      ±(0.1%+ 0.1% FS)
+                                    0.1% FS)              0.05% FS)         0.1% FS)
+      Accuracy
+                                   ±(0.05%+               ±(0.05%+         ±(0.05%+
+                         High                                                                                     ±(0.05%+ 0.05% FS)                                      ±(0.1%+ 0.1% FS)
+                                    0.1% FS)              0.05% FS)         0.1% FS)
+  CR mode
+
+                         Low     0.02 Ω – 10 Ω         0.15 Ω – 10 Ω     0.01 Ω – 10 Ω         0.01 Ω – 10 Ω             0.01 Ω – 10 Ω      0.03 Ω – 10 Ω        0.01 Ω – 10 Ω        0.005 Ω – 10 Ω
+        Range
+                         High                                                                              10 Ω - 7.5 kΩ
+          Resolution                                                                                            16 bit
+      Accuracy           Low                                                                         0.01%+0.08 S (12.5 Ω)
+      (I>10% of
+        range)           High                                                                      0.01%+0.0008 S (1250 Ω)
+
+  CW mode
+             Range                               750 W                       1500 W                1200 W                  3000 W                 2500 W            4500 W                6000 W
+          Resolution                             10 mW                                                                                  100 mW
+           Accuracy                                                                                      0.2% + 0.2% FS
+  Transient mode (CC mode)
+
+           T1 & T2 (1)                                                                         20 µs – 3600 s / Resolution: 10 µs
+           Accuracy                                                                                      5 µs + 100 ppm
+                         Low    0.001-0.25 A/µs       0.0001-0.1 A/µs    0.001-0.25 A/µs      0.0001-0.1 A/µs        0.001-0.25 A/µs        0.001-0.1 A/µs      0.001-0.25 A/µs       0.001-0.25 A/µs
+  Slew Rate (2)
+                         High    0.01-2.5 A/µs           0.001-1 A/µs     0.01-2.5 A/µs         0.001-1 A/µs             0.01-2.5 A/µs           0.01-1 A/µs     0.01-2.5 A/µs         0.01-2.5 A/µs
+(1)
+      Fast pulse trains with large transitions may not be achievable.
+(2)
+   The slew rate specifications are not warranted, but are descriptions of typical performance. The actual transition time is defined as the time for the input to change from 10% to 90%, or vice versa,
+of the programmed current values. In case of very large load changes, e.g. from no load to full load, the actual transition time will be larger than the expected time. The load will automatically adjust
+the slew rate to fit within the range (high or low) that is closest to the programmed value.
+
+
+
+
+7                                                                                                                                                                                  bkprecision.com
+Programmable DC Electronic Loads
+8600/B Series
+
+
+
+Specifications (cont.)
+
+           Model              8610/B              8612/B            8614/B                  8616                  8620                 8622                8624                   8625
+Readback voltage
+                       Low    0 – 18 V            0 – 50 V           0 – 18 V              0 – 50 V              0 – 18 V             0 – 50 V                        0 – 18 V
+       Range
+                       High   0 – 120 V           0 – 500 V         0 – 120 V             0 – 500 V              0 – 120 V            0 – 500 V           0 – 120 V              0 – 120 V
+                       Low     0.1 mV               1 mV              0.1 mV                                                            1 mV
+     Resolution
+                       High     1 mV               10 mV               1 mV                                                            10 mV
+           Accuracy                                  ±(0.05% + 0.05% FS)                                                                ±(0.025% + 0.025% FS)
+Readback current
+                       Low    0 – 12 A             0–3A              0 – 24 A              0–6A                  0 – 48 A             0 – 10 A            0 – 60 A               0 – 72 A
+       Range
+                       High   0 – 120 A           0 – 30 A          0 – 240 A             0 – 60 A               0 – 480 A            0 – 100 A           0 – 600 A              0 – 720 A
+                       Low      1 mA               0.1 mA              1 mA                0.1 mA                                                 1 mA
+     Resolution
+                       High    10 mA                1 mA              10 mA                  1 mA                                                 10 mA
+                              ±(0.05%+            ±(0.05%+          ±(0.05%+              ±(0.05%+               ±(0.05%+             ±(0.05%+                       ±(0.05%+
+           Accuracy
+                               0.1% FS)           0.05% FS)          0.1% FS)             0.05% FS)               0.1% FS)            0.05% FS)                       0.1% FS)
+Readback power
+             Range                        750 W                      1500 W                1200 W                 3000 W               2500 W              4500 W                6000 W
+          Resolution                      10 mW                                                                              100 mW
+           Accuracy                                                                            ±(0.2% + 0.2% FS)
+Protection range (typical)
+               OPP                        760 W                      1550 W                1250 W                 3050 W               2550 W              4550 W                 6050 W
+                       Low     13.2 A               3.3 A             26.4 A                6.6 A                 26.4 A                11 A                66 A                  79.2 A
+       OCP
+                       High     132 A               33 A              264 A                  66 A                 264 A                 110 A              660 A                  792 A
+               OVP              130 V              530 V              130 V                 530 V                    130 V             530 V                130 V                  130 V
+               OTP                                                                                  185 ºF (85 °C)
+Short circuit (typical)
+                       Low     13.2 A               3.3 A             26.4 A                6.6 A                 52.8 A                11 A                66 A                  79.2 A
+    Current (CC)
+                       High     132 A               33 A              264 A                  66 A                 528 A                 110 A              660 A                  793 A
+         Voltage (CV)                                                                                    0V
+        Resistance (CR)        10 mΩ               120 mΩ             6 mΩ                 60 mΩ                   5 mΩ                30 mΩ                3 mΩ                  2.5 mΩ
+General (typical)
+Input terminal impedance       300 kΩ               1 MΩ             300 kΩ                 1 MΩ                  300 kΩ                1 MΩ               300 kΩ                 300 kΩ
+           AC input                                                                       110 V/220 V ±10%, 50/60 Hz
+    Operating temperature                                                                32 ºF to 104 ºF (0 °C to 40 °C)
+      Storage temperature                                                               14 ºF to 140 ºF (-10 °C to 60 °C)
+           Humidity                                                                             Indoor use, ≤ 95%
+             Safety                                                        EN61010-1:2001, EU Low Voltage Directive 2006/95/EC
+       Electromagnetic                                 Meets EMC Directive 2004/108/EC, EN 61000-3-2:2006, EN 61000-3-3:1995+A1:2001+A2:2005
+        compatibility                                                        EN 61000-4-2/-3/-4/-5/-6/-11, EN 61326-1:2006
+                                                                                                                                                              17.3” x 10.5” x 23.2”
+    Dimensions (W x H x D)                                    17.3” x 5.3” x 22.5” (439 x 133.3 x 580 mm)
+                                                                                                                                                             (439 x 266 x 590 mm)
+            Weight                                                         54 lbs (24.6 kg)                                                                    142 lbs (64.4 kg)
+           Warranty                                                                                    3 Years
+     Standard accessories                                                       User manual, power cord, certificate of calibration
+     Optional accessories                                                                TLPWR1 high current test leads
+
+
+
+
+8                                                                                                                                                                       bkprecision.com
+Programmable DC Electronic Loads
+8600/B Series
+
+
+
+
+Ordering Information
+8600/B Series DC Electronic Loads
+
+
+With GPIB       Without GPIB
+ 8600             8600B
+  8601             8601B
+ 8602             8602B
+  8610             8610B
+  8612             8612B
+  8614             8614B
+  8616               -
+ 8620                -
+ 8622                -
+ 8624                -
+  8625               -
+
+
+
+
+9           v103025                 bkprecision.com
+About B&K Precision
+For more than 70 years, B&K Precision has provided reliable and value-priced test and measurement instruments worldwide.
+
+Our headquarters in Yorba Linda, California houses our administrative and executive functions as well as sales and marketing, design, service,
+and repair. Our European customers are most familiar with B&K through our French subsidiary, Sefram. Engineers in Asia know us through our
+B+K Precision Taiwan operation. The independent service centers in Singapore and Brasil service customers in Singapore, Malaysia, Vietnam,
+Indonesia and South America, respectively.
+
+
+
+
+    B&K Precision group member        Independent service center        Service center location
+
+
+
+
+Quality Management System                        Video Library                                    Product Applications
+B&K Precision Corporation is an ISO9001          View product overviews, demonstrations,          Browse all of our supported product
+registered company employing traceable           and application videos in English, Spanish       and mobile applications.
+quality management practices for all             and Portuguese.                                  http://bkprecision.com/product-applications
+processes including product development,         http://www.youtube.com/user/BKPrecisionVideos
+service, and calibration.
+
+ISO9001:2015
+
+Certification body NSF-ISR
+Certificate number 6Z241-IS8
+
+
+
+
+v: 02142023
+
