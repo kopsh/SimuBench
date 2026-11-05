@@ -438,10 +438,10 @@ class FieldEdit:
 
 def parse_input(text: str, spec: Mapping[str, Any]) -> float:
     """A typed number as the setting's value: ``5``, ``5 V``, ``200 mV`` (unit conversion as in
-    ``parse_number``) within the declared range. Raises :class:`ValueError` with ``"range"`` when
+    ``parse_input_number``) within the declared range. Raises :class:`ValueError` with ``"range"`` when
     out of range and ``"number"`` when it is not an acceptable number (tui-screens.md 10.2)."""
     try:
-        value = parse_number(text, spec.get("display_unit") or spec.get("unit"))
+        value = parse_input_number(text, spec.get("display_unit") or spec.get("unit"))
     except ValueError as exc:
         raise ValueError("number") from exc
     lo, hi = spec.get("min"), spec.get("max")
