@@ -1,5 +1,5 @@
-"""Range selection and reading-time rules shared by the meter core and the source-measure unit
-(metrology-authoring.md 2, 3.4).
+"""Range selection and reading-time rules shared by the meter core, the source-measure unit and
+the DMM conditioning (metrology-authoring.md 2, 3.4).
 
 The rules are the ones SCPI prescribes and #87 introduced on ``dmm_conditioning``: a manual range setting
 takes the smallest range that can measure it; the auto range follows the true value, switching
@@ -9,18 +9,24 @@ range takes no virtual time.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 
-def ranges_of(spec: Any, function: str) -> list[float]:
+def ranges_of(
+    spec: Any, function: str, *, missing: Literal["empty", "error"] = "empty", owner: str = ""
+) -> list[float]:
     """The function's range full-scale values, ascending (empty: that function does not range).
 
-    A ranges parameter may be one list for every function or a dict per function; a function the
-    dict does not name does not range."""
+    A ranges parameter may be one list for every function or a dict per function. A function the
+    dict does not name does not range (``missing="empty"``); a meter whose ranges must cover
+    every selectable function takes ``missing="error"`` and names itself in ``owner`` — the same
+    refusal ``DmmConditioning`` has always raised."""
     if spec is None:
         return []
     if isinstance(spec, dict):
         if function not in spec:
+            if missing == "error":
+                raise ValueError(f"{owner}: ranges have no entry for the {function} function")
             return []
         spec = spec[function]
     return sorted(float(x) for x in spec)
