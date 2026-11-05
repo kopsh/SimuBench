@@ -331,18 +331,17 @@ class WaveformTransfer(Component):
     @op("header")
     def header(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
         """The declared preamble of the source's record: a binary block (``block_digits``, then
-        ``trailer``) or a text line. Without a record: an empty block and -230."""
+        ``trailer``) or a text line. Without a record the query does not answer and -230 waits
+        in the error queue (``no_record``), as a scope's own ``:WAVeform:PREamble?`` does."""
         assert self.owner is not None
         h = self.param("header") or {}
         acq = self._acquisition()
         n = self._source(channel)
         rec, used = acq.read_record(n)
-        text = str(h.get("encoding", "binary")) == "text"
         if rec is None:
-            self.owner.push_error(-230, str(self.param("no_record")))
-            payload = b""
-        else:
-            payload = self.header_bytes(rec, n)
+            raise ScpiError(-230, str(self.param("no_record")))
+        text = str(h.get("encoding", "binary")) == "text"
+        payload = self.header_bytes(rec, n)
         if text:
             return OpResult(payload, used)
         digits = int(h.get("block_digits", 0))

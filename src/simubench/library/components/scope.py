@@ -911,9 +911,7 @@ class PendingAcquisitions:
         assert acq.owner is not None
         if self.due_ns is not None:
             return  # already on its way
-        records, used, triggered, trigger_ns = acq._acquire(
-            acq.displayed() if channels is None else channels
-        )
+        records, used, triggered, trigger_ns = acq._acquire(acq.displayed() if channels is None else channels)
         acq.last_triggered = triggered
         if not (force or triggered or acq._is("auto")):
             self._awaiting = (channels,)
@@ -923,9 +921,7 @@ class PendingAcquisitions:
         now = acq.owner.now_ns()
         self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
         acq.owner.block(acq.uid, False)
-        acq.owner.register_pending(
-            acq.uid, self.due_ns, self.complete, waited=bool(acq.param("opc_waits"))
-        )
+        acq.owner.register_pending(acq.uid, self.due_ns, self.complete, waited=bool(acq.param("opc_waits")))
 
     def complete(self) -> None:
         """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
@@ -1688,50 +1684,6 @@ class ScopeAcquisition(Component):
         for n in range(1, self._channels() + 1):
             self.vertical_of(n).self_calibrate()
         return OpResult(b"0")
-
-    def _source(self) -> int:
-        return channel_index(self._st("waveform.source"))
-
-    def _record(self) -> Record:
-        rec = self.records.get(self._source())
-        if rec is None:
-            raise ScpiError(-230, "no acquisition for this source; send :DIGitize first")
-        return rec
-
-    def _codes(self, rec: Record) -> tuple[np.ndarray, float, int]:
-        fmt = self._st("waveform.format")
-        full = DIVS_V / 2 * rec.scale
-        span = 128 if fmt == "BYTE" else 32768
-        unsigned = bool(self._st("waveform.unsigned"))
-        codes = np.round((rec.volts - rec.offset) / full * span)
-        lo, hi = -span, span - 1
-        codes = np.clip(codes, lo, hi).astype(np.int64)
-        yref = 0
-        if unsigned:
-            codes = codes + span
-            yref = span
-        return codes, full / span, yref
-
-    @op("preamble")
-    def preamble(self, **_: Any) -> OpResult:
-        rec = self._record()
-        _, yinc, yref = self._codes(rec)
-        fmt = {"BYTE": 0, "WORD": 1, "ASCii": 4}[self._st("waveform.format")]
-        pts = rec.volts.size
-        xorg = rec.origin
-        fields = [
-            str(fmt).encode(),
-            b"0",
-            str(pts).encode(),
-            b"1",
-            V.format_float(rec.dt_s),
-            V.format_float(xorg),
-            b"0",
-            V.format_float(yinc),
-            V.format_float(rec.offset),
-            str(yref).encode(),
-        ]
-        return OpResult(b",".join(fields))
 
 
 @component("scope_measurements")

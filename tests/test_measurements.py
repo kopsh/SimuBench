@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 
 from simubench.library.components import measurements as M
+from simubench.scpi.errors import ScpiError
 
 pytestmark = pytest.mark.unit
 
@@ -24,7 +25,14 @@ def test_the_module_imports_without_the_component_library():
     import simubench.library.components.measurements  # noqa: F401
 
     assert set(M.MEASUREMENTS) == {
-        "VPP", "VMAX", "VMIN", "VAMPlitude", "VRMS", "VAVerage", "FREQuency", "PERiod"
+        "VPP",
+        "VMAX",
+        "VMIN",
+        "VAMPlitude",
+        "VRMS",
+        "VAVerage",
+        "FREQuency",
+        "PERiod",
     }
 
 
@@ -58,7 +66,7 @@ def test_measure_answers_every_engine_word_and_nan_when_unmeasurable():
     assert M.measure("FREQuency", v, DT) == pytest.approx(1000.0, rel=1e-2)
     assert M.measure("PERiod", v, DT) == pytest.approx(1e-3, rel=1e-3)
     assert math.isnan(M.measure("FREQuency", np.array([0.0, 0.0]), DT))
-    with pytest.raises(Exception) as err:
+    with pytest.raises(ScpiError) as err:
         M.measure("NOPE", v, DT)
     assert err.value.args[0] == -113  # ScpiError: not a measurement
 
@@ -69,5 +77,5 @@ def test_mid_crossings_and_edge_spec():
     rising = [d for _t, d in M.mid_crossings(square, DT, 0.1) if d == 1]
     assert len(rising) == 9
     assert M.edge_spec("+2") == (1, 2) and M.edge_spec("-3") == (-1, 3) and M.edge_spec(None) == (1, 1)
-    with pytest.raises(Exception):
+    with pytest.raises(ScpiError):
         M.edge_spec("0")
