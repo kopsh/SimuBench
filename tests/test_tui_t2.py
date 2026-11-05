@@ -804,3 +804,19 @@ async def test_the_strip_is_quiet_when_all_is_well_and_w_says_so():
         await pilot.press("1")
         await pilot.press("w")
         await wait_flat(pilot, tui, "Nothing to explain on this card")
+
+
+async def test_the_virtual_time_stays_on_a_narrow_top_bar_and_the_bench_name_gives_way():
+    """At 100 columns the bar has no room for a long bench name and the clock: the name is cut."""
+    fixture = fresh(SCOPE_BENCH)
+    fixture["session"]["bench"] = {
+        **fixture["session"].get("bench", {}),
+        "name": "A very long bench name indeed",
+    }
+    tui, _fake = unit_app(fixture)
+    tui._bench_name = "A very long bench name indeed " * 2
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        text = await wait_flat(pilot, tui, "SimuBench")
+        first = text.split("\n")[0]
+        assert "t = 00:00:00" in first and "…" in first, first

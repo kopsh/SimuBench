@@ -13,7 +13,7 @@ from rich.text import Text
 from textual.widgets import Static
 
 from . import i18n
-from .fmt import cell_len, fmt_ns
+from .fmt import cell_len, fit, fmt_ns
 from .log import LogLine
 
 #: Column widths of the log rows (tui-screens.md 7.1): time, source, instrument, command.
@@ -105,11 +105,7 @@ class TopBar(Static):
         lang: str,
         file_changed: bool = False,
     ) -> None:
-        left: list[tuple[str, str]] = (
-            [(" SimuBench ", "bold")] if is_mono(self.app) else [(" SimuBench ", "chip")]
-        )
-        left.append((f" — {bench_name} | ", "muted"))
-        left.append((screen_name, "hud"))
+        width = self.size.width or 80
         right_parts: list[tuple[str, str]] = []
         if file_changed:
             right_parts.append((i18n.t("topbar.fileChanged", lang) + "  ", "focus"))
@@ -118,7 +114,16 @@ class TopBar(Static):
             right_parts.append(
                 (" · " + i18n.t(f"clockMode.{clock_mode}", lang) + f" · t = {fmt_ns(now_ns)} ", "")
             )
-        self.update(bar_text(self.app, left, right_parts, self.size.width or 80))
+        badge = " SimuBench "
+        # The virtual time on the right outranks the bench's name: when the bar is too narrow
+        # the name is what gives way (cut with …), never the clock.
+        room = width - cell_len(badge) - cell_len(screen_name) - cell_len(" —  | ") - 1
+        room -= sum(cell_len(v) for v, _ in right_parts)
+        name = fit(bench_name, max(4, room)).rstrip() if cell_len(bench_name) > room else bench_name
+        left: list[tuple[str, str]] = [(badge, "bold" if is_mono(self.app) else "chip")]
+        left.append((f" — {name} | ", "muted"))
+        left.append((screen_name, "hud"))
+        self.update(bar_text(self.app, left, right_parts, width))
 
 
 #: What the bottom bar gives up first when the keys do not fit (tui-screens.md 2.2): the keys that
