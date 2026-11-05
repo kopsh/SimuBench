@@ -74,6 +74,12 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
 - Shared test skeletons — example-script loading, example-bench script runs, session queries,
   golden-table runners, the MCP tool-result unwrap — live in `tests/helpers.py` (TUI mocks and
   pilot helpers: `tests/tui_mock.py`); don't copy them into new test files (#698, #699, #700).
+- Adding tests: reuse first (#706) — before writing a new test or file, check an existing one
+  doesn't already cover the behaviour, then extend what exists: an act in the nearest flow test
+  (D49's engine-tier flows, #704), a `cases.yaml` row, a parametrized case, a test in the
+  nearest existing module. A new test *file* is for a new model (the `real-model` template) or
+  a behaviour with no existing home. Never add a case into a flow whose state it breaks —
+  state-incompatible coverage gets its own test.
 - Windows, wheel, e2e, visual, `tui_boot`, `load_sensitive` run after merge. Red on `main` is
   fixed before new work.
 

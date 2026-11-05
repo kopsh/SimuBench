@@ -30,7 +30,10 @@ acceptance criteria. Those criteria are the scope — do them all, and nothing e
 
    Follow the D49 tiers (`dev-workflow`): unit tests stay ≤100 ms, no server, no Textual. A test
    must fail on the old code — if reverting the fix leaves it green, it does not pin the bug
-   (the usual reason a `[建议]` issue exists, e.g. #510).
+   (the usual reason a `[建议]` issue exists, e.g. #510). Reuse before adding (#706): the
+   regression joins what exists — an act in the nearest flow test, a `cases.yaml` row, a
+   parametrized case — when one covers the same flow; a new test function only when nothing
+   there is state-compatible, and never by breaking the host flow's state.
 5. **Edge inputs, same place.** When the bug is a bad input (zero, negative, `None`, a name with a
    special character), also test the siblings the issue names (`WIDT 0` next to `PER 0`), and
    assert that state is unchanged after a rejected command.
