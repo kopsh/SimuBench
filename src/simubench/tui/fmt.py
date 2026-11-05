@@ -10,18 +10,13 @@ from __future__ import annotations
 import math
 from datetime import datetime
 
+from .. import units
+
 UNIT_FIXES = {"OHM": "Ω", "HZ": "Hz", "S": "s", "DEG": "°"}
 
-_PREFIXES: list[tuple[float, str]] = [
-    (1e9, "G"),
-    (1e6, "M"),
-    (1e3, "k"),
-    (1.0, ""),
-    (1e-3, "m"),
-    (1e-6, "µ"),
-    (1e-9, "n"),
-    (1e-12, "p"),
-]
+# The display ladder, shared with the CLI's formatting (issue 641): the TUI shows at most giga,
+# so the tera row of units.ENG_PREFIX is left out.
+_PREFIXES: list[tuple[float, str]] = [(f, p) for f, p in units.ENG_PREFIX if f <= 1e9]
 
 
 def fix_unit(unit: str | None) -> str:

@@ -17,7 +17,10 @@ from ..jsonsafe import as_number
 from .fmt import fmt, fmt_int
 from .i18n import t
 
-#: Prefixes a number input may carry (``5000 mV``, ``1 kHz``); case matters for m/M.
+#: Prefixes a number input may carry (``5000 mV``, ``1 kHz``): an input table, not the SCPI
+#: suffix ladder (units._PREFIXES, uppercase with its MA rule) and not the display ladder
+#: (units.ENG_PREFIX) — here case matters (m is milli, M is mega) and u/µ/μ all arrive from a
+#: keyboard (issue 641).
 _PREFIXES = {
     "p": 1e-12,
     "n": 1e-9,
@@ -37,7 +40,7 @@ def _norm_unit(unit: str | None) -> str:
     return (unit or "").strip().lower().replace("Ω", "ohm").replace("µ", "u").replace("μ", "u")
 
 
-def parse_number(text: str, unit: str | None = None) -> float:
+def parse_input_number(text: str, unit: str | None = None) -> float:
     """``5``, ``5 V``, ``5000 mV``, ``5e0`` → a value in the state's unit (tui-screens.md 10.2).
 
     A bare number is taken as the state's unit; a suffixed one is converted when its unit is

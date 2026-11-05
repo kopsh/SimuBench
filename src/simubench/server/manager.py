@@ -206,7 +206,7 @@ class ServedSession:
         if self.hislip:
             out += [
                 hs.client
-                for hs in self.hislip._sessions.values()
+                for hs in self.hislip.sessions()
                 if instrument is None or hs.instrument == instrument
             ]
         return sorted(out)
@@ -467,7 +467,7 @@ class SessionManager:
             for c in sorted(lst.labels)
         ]
         if served.hislip:
-            for hs in served.hislip._sessions.values():
+            for hs in served.hislip.sessions():
                 clients.append(
                     M.ClientInfo(
                         client=hs.client,

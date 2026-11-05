@@ -1,10 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
-import { useEvents } from "@/api/events";
-import { useReadings } from "@/api/hooks";
+import { useInstrumentReadings } from "@/api/hooks";
 import { numeric, stateMap } from "../model";
-import { StateField } from "../StateField";
-import { Chip, Readout } from "./parts";
+import { Chip, Readout, SettingsGroups } from "./parts";
 
 /**
  * RF signal generator front panel: carrier frequency and level, modulation and sweep state, the
@@ -12,10 +10,7 @@ import { Chip, Readout } from "./parts";
  */
 export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const version = useEvents((s) => s.version);
-  const readings = useReadings(sid, inst.name, version);
-  const v = readings.data?.values ?? {};
-  const num = (k: string) => Number(v[k] ?? 0);
+  const { values: v, num } = useInstrumentReadings(sid, inst.name);
   const vars = stateMap(inst);
   const on = (k: string) => vars.get(k)?.value === true;
   const mode = String(vars.get("freq.mode")?.value ?? "CW");
@@ -78,15 +73,7 @@ export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: 
         </footer>
       </section>
       <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        {groups.map(([title, keys]) => (
-          <div key={title} className="bg-card space-y-1.5 rounded-lg border p-3">
-            <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{title}</h3>
-            {keys.map((k) => {
-              const sv = vars.get(k);
-              return sv ? <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} compact /> : null;
-            })}
-          </div>
-        ))}
+        <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} compact />
       </section>
     </div>
   );

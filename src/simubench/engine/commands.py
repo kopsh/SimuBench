@@ -142,6 +142,18 @@ class UnitMatch:
 _CACHE: dict[int, tuple[InstrumentDefinition, list[tuple[Pattern, CommandSpec]]]] = {}
 
 
+def told_apart(a: CommandSpec, b: CommandSpec) -> bool:
+    """Whether the later command ``b`` on a header the earlier ``a`` also matches still runs: ``a``
+    has a ``when`` and ``b`` has none (``b`` is the fallback for the other values and for a
+    parameter left out, #602: ``:SYSTem:ERRor? [STRing]``), or both have one and some parameter
+    value differs."""
+    if not a.when:
+        return False
+    if not b.when:
+        return True
+    return any(k in b.when and str(v).upper() != str(b.when[k]).upper() for k, v in a.when.items())
+
+
 def _compiled(definition: InstrumentDefinition) -> list[tuple[Pattern, CommandSpec]]:
     # Keyed by identity (definitions are not hashable); the entry keeps the definition alive so the
     # id cannot be reused while cached. Definitions are loaded once per file version.

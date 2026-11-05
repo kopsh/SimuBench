@@ -1,4 +1,6 @@
 import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useDeferredValue, useMemo } from "react";
+import { useEvents } from "./events";
 import i18n from "@/i18n";
 import { toast } from "sonner";
 import { confirmClients, remoteInstrument } from "@/components/app/ClientsConfirm";
@@ -178,6 +180,16 @@ function remoteRefused(qc: QueryClient, sid: string) {
   };
 }
 
+/** What one SCPI exchange means for the user (issue 639): ok, or the one message to show —
+ * the link's error first (the exchange never happened), then the first queued error. Every
+ * send path reports through this, so a missing branch is one fix, not one per screen. */
+export function scpiOutcome(r: ScpiResponse): { ok: boolean; message: string | null } {
+  if (r.link_error) return { ok: false, message: r.link_error };
+  const first = r.errors[0];
+  if (first) return { ok: false, message: `${first.code}, ${first.message}` };
+  return { ok: true, message: null };
+}
+
 export function useScpi(sid: string, name: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -280,6 +292,22 @@ export function useInternals(sid: string, name: string, version: number) {
     placeholderData: (prev) => prev,
     staleTime: Infinity,
   });
+}
+
+/** A screen's readings wiring in one hook (issue 638): the event version subscription, the query
+ * and the value lookups screens kept repeating — eight near-identical copies. `defer` follows the
+ * version one render behind, for the heavy scope screen (its own line stays there). */
+export function useInstrumentReadings(
+  sid: string,
+  name: string,
+  { enabled = true, defer = false }: { enabled?: boolean; defer?: boolean } = {},
+) {
+  const version = useEvents((s) => s.version);
+  const soft = useDeferredValue(version);
+  const query = useReadings(sid, name, defer ? soft : version, enabled);
+  const values = useMemo(() => query.data?.values ?? {}, [query.data]);
+  const num = useCallback((k: string) => Number(values[k] ?? 0), [values]);
+  return { query, values, num };
 }
 
 export function useReadings(sid: string, name: string, version: number, enabled = true) {

@@ -737,10 +737,17 @@ class InstrumentDefinition(_Model):
     @model_validator(mode="before")
     @classmethod
     def _expand_macros(cls, data: Any) -> Any:
-        """A component written the earlier, one-component way expands into its modules when the
-        definition loads, wherever it is loaded from (instrument-authoring.md 8.1)."""
+        """An older format migrates first and a component written the earlier, one-component way
+        expands into its modules when the definition loads, wherever it is loaded from
+        (instrument-authoring.md 8.1, issue 641). The loader and the definition validator upgrade
+        their dict pipeline explicitly all the same — the loader layers the upgraded dicts for
+        ``extends``, the validator maps a broken schema to E-FORMAT before any model exists — so
+        this model-level step is the safety net for a model built from data nobody upgraded."""
         from ..library.macros import expand_macros  # the component library needs the models first
+        from ..library.migrate import upgrade
 
+        if isinstance(data, dict):
+            data = upgrade(data, "instrument")[0]
         return expand_macros(data)
 
     id: str
