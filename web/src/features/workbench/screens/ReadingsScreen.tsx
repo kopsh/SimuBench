@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
-import { useEvents } from "@/api/events";
-import { useReadings } from "@/api/hooks";
+import { useInstrumentReadings } from "@/api/hooks";
 import type { Messages } from "@/i18n/zh";
 import { engParts, formatEng } from "@/lib/format";
 import { globalVars } from "../model";
@@ -19,8 +18,7 @@ const METER: Record<string, [MeterKey, string]> = {
  */
 export function ReadingsScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const version = useEvents((s) => s.version);
-  const readings = useReadings(sid, inst.name, version);
+  const { query: readings } = useInstrumentReadings(sid, inst.name);
   const entries = Object.entries(readings.data?.values ?? {});
   const settings = globalVars(inst);
   return (

@@ -1,3 +1,5 @@
+import type { InstrumentInfo, StateVarInfo } from "@/api/client";
+import { StateField } from "../StateField";
 import { formatReadout, isOverload } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -80,5 +82,50 @@ export function Legend({ dashed, label }: { dashed: boolean; label: string }) {
       </svg>
       {label}
     </span>
+  );
+}
+
+/** A screen header's identity: the bench label (or name) and the model (issue 638 — seven
+ * screens had the same two spans). A screen adds its indicators and controls beside these. */
+export function ScreenIdentity({ inst }: { inst: InstrumentInfo }) {
+  return (
+    <>
+      <span className="font-medium">{inst.label || inst.name}</span>
+      <span className="text-muted-foreground num">{inst.model}</span>
+    </>
+  );
+}
+
+/** Settings groups: one bordered block per group, the bound state fields inside (issue 638 —
+ * Smu/Lockin/RfGenerator had the same block; the others are single-group variants). */
+export function SettingsGroups({
+  groups,
+  vars,
+  sid,
+  inst,
+  readonly,
+  compact = false,
+}: {
+  groups: [string, string[]][];
+  vars: Map<string, StateVarInfo>;
+  sid: string;
+  inst: InstrumentInfo;
+  readonly: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+      {groups.map(([title, keys]) => (
+        <div key={title} className="bg-card space-y-1.5 rounded-lg border p-3">
+          <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{title}</h3>
+          {keys.map((k) => {
+            const sv = vars.get(k);
+            return sv ? (
+              <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} compact={compact} />
+            ) : null;
+          })}
+        </div>
+      ))}
+    </section>
   );
 }

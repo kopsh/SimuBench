@@ -2,14 +2,13 @@ import { Eraser, Play, StepForward } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { useEvents } from "@/api/events";
-import { scpiOutcome, useReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
+
 import { Button } from "@/components/ui/button";
 import { formatEng, isOverload, resistance } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { stateMap } from "../model";
-import { StateField } from "../StateField";
-import { Chip, Legend, Readout } from "./parts";
+import { Chip, Legend, Readout, ScreenIdentity, SettingsGroups } from "./parts";
 
 const OPEN = 9.9e37; // the SCPI "no value" a resistance reads with no current
 const LIMIT_STAT = 8;
@@ -23,10 +22,7 @@ type Row = { v: number; i: number; r: number; t: number; stat: number };
  */
 export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const version = useEvents((s) => s.version);
-  const readings = useReadings(sid, inst.name, version);
-  const v = readings.data?.values ?? {};
-  const num = (k: string) => Number(v[k] ?? 0);
+  const { values: v, num, query: readings } = useInstrumentReadings(sid, inst.name);
   const regulation = String(v["core.regulation"] ?? "OFF");
   const limited = v["core.limited"] === true;
   const forcingVoltage = v["core.forcing"] !== "CURRent";
@@ -65,8 +61,7 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3">
       <section className="bg-card rounded-lg border">
         <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs">
-          <span className="font-medium">{inst.label || inst.name}</span>
-          <span className="text-muted-foreground num">{inst.model}</span>
+          <ScreenIdentity inst={inst} />
           <Chip on={on} tone="ok">
             {on ? t("smu.outputOn") : t("smu.outputOff")}
           </Chip>
@@ -137,15 +132,7 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
       </section>
 
       <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        {groups.map(([title, keys]) => (
-          <div key={title} className="bg-card space-y-1.5 rounded-lg border p-3">
-            <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{title}</h3>
-            {keys.map((k) => {
-              const sv = vars.get(k);
-              return sv ? <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} compact /> : null;
-            })}
-          </div>
-        ))}
+        <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} compact />
       </section>
     </div>
   );
