@@ -1420,3 +1420,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试台与脚本 | ✅ `examples/benches/bk-8614.bench.yaml`（48 V、0.1 Ω 直流源 → 8614）；`examples/scripts/bk_8614_load_test.py` 按手册第 4 章写法（*RST、CC、OCP、逐级电流、MEAS/FETC、错误队列）在 `tests/test_bk_8614.py` 中运行；另测 OPP/OCP 延时跳闸、延时内消除的过流不跳闸、最慢斜率 |
 | 未做 | ⚠️ 暂态（C2）、列表、输入短路与定时器、缓冲采集（TRACe）、CR-LED、*SAV/*RCL、硬件功率保护 `POW:CONF`、OTP（无温度模型）、远端测量的引线压降；逐条在覆盖表 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## #678 TUI 命令面板与状态变量搜索（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 命令面板 | ✅ `Ctrl+K`（任意主屏幕）：应用键位、`Open <仪表>`、每个可写状态变量 `Set <仪表> · <设置>`，由数据生成；Textual 自带面板关闭 |
+| 直接设值 | ✅ `smu voltage level 7.5` 顶部出现 `Set … = 7.5`；非数不出，超范围照出由字段报错 |
+| `/` 搜索 | ✅ 仪表屏幕：按标签与路径搜字段，⏎ 跳到并编辑；开关只聚焦 |
+| 不绕过 | ✅ 设值走字段的 `_commit_edit`：范围检查、单位、危险开关确认、远程只读；`tests/test_tui_palette.py` 覆盖超范围不写、输出开启仍确认 |
+| 文档与 skill | ✅ `tui-screens.md` 2.5 与键表、`tui-design.md` 4、`tui-ui` skill、帮助措辞（`help.actions.palette/search`） |
+| 未做 | ⚠️ 底栏不提示 `Ctrl+K` 与 `/`（80 列放不下，帮助 `?` 里有）；脚本指令 `open` 等见 #684 |

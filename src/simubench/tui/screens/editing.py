@@ -9,6 +9,7 @@ carry the per-screen parts.
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 from rich.text import Text
@@ -290,15 +291,83 @@ class ControlEditingScreen(ShellScreen):
             if not await self._configure(path, value, button):
                 return
 
+    # -- finding a field (the palette and ``/``, tui-design.md 4) ----------------------------------------------
+
+    def field_index(self) -> list[Any]:
+        """A palette command per editable field of this screen: label, path and value, then the
+        jump. Read from the buttons that exist, so only what the screen shows can be found."""
+        from ..palette import Command
+
+        lang = self.app.lang  # type: ignore[attr-defined]
+        out: list[Command] = []
+        for b in self.query(ControlButton):
+            c = b.control
+            if not (b.is_field and c.writable):
+                continue
+            value = C.summary_text(C.control_state(self.info, c), c.spec, lang)
+            out.append(
+                Command(
+                    c.label,
+                    i18n.t("palette.now", lang, path=c.path, value=value),
+                    partial(self.go_to_field, c.path),
+                    f"{c.label} {c.path}",
+                )
+            )
+        return out
+
+    def go_to_field(self, path: str, text: str | None = None) -> bool:
+        """Focus the field for ``path``. With no ``text``, start editing it (a switch is only
+        focused: the jump must not flip an output). With ``text``, type it in and commit, so the
+        value goes through the same range check, unit parsing and confirmation as a typed one."""
+        button = next((b for b in self.query(ControlButton) if b.is_field and b.control.path == path), None)
+        if button is None:
+            self._flash(None, i18n.t("palette.noField", self.app.lang, path=path))  # type: ignore[attr-defined]
+            return False
+        button.focus()
+        button.scroll_visible(animate=False)
+        if self._readonly_guard():
+            return False
+        control = button.control
+        if text is None:
+            if control.kind != "switch":
+                self._edit_button(button)
+            return True
+        if control.kind == "switch":
+            on = text.strip().lower() in ("1", "on", "true", "yes")
+            off = text.strip().lower() in ("0", "off", "false", "no")
+            if (on or off) and on != bool(C.control_state(self.info, control)):
+                self._toggle_button(button)
+            return on or off
+        if control.kind == "select":
+            options = C.options_of(control.spec or {})
+            wanted = text.strip().lower()
+            pick = next((v for v, label in options if wanted in (str(v).lower(), str(label).lower())), None)
+            if pick is None:
+                self._flash(button, i18n.t("edit.accepted", self.app.lang))  # type: ignore[attr-defined]
+                return False
+            self._begin_select(button)
+            if button.edit is not None and pick in button.edit.options:
+                button.edit.index = button.edit.options.index(pick)
+            self._commit_edit(button)
+            return True
+        self._begin_number(button)
+        if button.edit is not None:
+            button.edit.buffer = text
+        self._commit_edit(button)
+        return True
+
     # -- key actions -------------------------------------------------------------------------------------------
 
     def action_edit(self) -> None:
         button = self._focused_button()
         if button is None or self._readonly_guard():
             return
+        self._edit_button(button)
+
+    def _edit_button(self, button: ControlButton) -> None:
         control = button.control
         if control.kind == "switch":
-            self.action_toggle()
+            self._toggle_button(button)
             return
         if control.kind == "select":
             self._begin_select(button)
@@ -416,6 +485,9 @@ class ControlEditingScreen(ShellScreen):
         button = self._focused_button()
         if button is None or self._readonly_guard():
             return
+        self._toggle_button(button)
+
+    def _toggle_button(self, button: ControlButton) -> None:
         control = button.control
         if control.kind != "switch" or control.path is None:
             return
@@ -490,6 +562,28 @@ class ControlEditingScreen(ShellScreen):
             return
         target = names[(names.index(self.instrument_name) + direction) % len(names)]
         app.open_instrument(target, replace=True)
+
+    def action_search(self) -> None:
+        """``/``: search this screen's settings; Enter jumps to the field and edits it."""
+        from ..palette import open_settings_search
+
+        if self.remote_controlled:
+            self._readonly_guard()
+            return
+        open_settings_search(self.app)
+
+    def take_pending_field(self, tries: int = 40) -> None:
+        """Do the field jump the palette asked for before this screen existed. The controls are
+        mounted a beat after the screen is, so wait for the field instead of missing it."""
+        app: Any = self.app
+        pending = app.pending_field
+        if pending is None or pending[0] != self.instrument_name:
+            return
+        if tries and not any(b.control.path == pending[1] for b in self.query(ControlButton)):
+            self.set_timer(0.05, lambda: self.take_pending_field(tries - 1))
+            return
+        app.pending_field = None
+        self.go_to_field(pending[1], pending[2])
 
     def action_console(self) -> None:
         self._scpi.open()

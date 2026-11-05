@@ -89,6 +89,7 @@ class InstrumentScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
+        Binding("slash", "search", show=False),
         Binding("left_square_bracket", "switch_instrument(-1)", show=False),
         Binding("right_square_bracket", "switch_instrument(1)", show=False),
         Binding("L", "local", show=False),  # capital L (5.5): lowercase l is the log everywhere
@@ -331,6 +332,7 @@ class InstrumentScreen(ControlEditingScreen):
             self._boxes.append(entry)
         # The buttons are still pending children on this first refresh; style them once mounted.
         self.call_after_refresh(self._refresh_buttons)
+        self.call_after_refresh(self.take_pending_field)
 
     def _controls_for(self, channel: int | None) -> list[C.Control]:
         info = self.info

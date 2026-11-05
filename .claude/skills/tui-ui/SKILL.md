@@ -53,6 +53,11 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   fetched at twice that (`app.scope_points` keeps it across refetches).
 - **Numbers**: use `fmt.fmt` (SI prefixes, right-aligned); never hand-format a value. Use
   `cell_len` / `pad` / `ralign`, not `len`, for widths.
+- **Palette** (`palette.py`, `Ctrl+K` anywhere, `/` on an instrument screen): commands are generated from
+  the app's real `BINDINGS`, the bench's instruments and their state variables — never listed by hand. A
+  setting is never written from the palette: it jumps to the field (`go_to_field`) and types into it, so
+  range check, units and the dangerous confirm stay the field's (`tui-screens.md` 2.5). Textual's own
+  palette is off (`ENABLE_COMMAND_PALETTE = False`).
 - **Keys**: table in `docs/tui-design.md` 4. `?` is the key help everywhere (`screens/help.py`,
   built from the real `BINDINGS`: a binding needs a line in `help.actions` in `i18n/en.py` or
   `tests/test_tui_help.py` fails); `w` is "why" (the reason chain) on every screen; the nets

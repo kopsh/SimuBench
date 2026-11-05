@@ -21,6 +21,7 @@ from .. import i18n
 #: Textual key names → what the keyboard shows.
 KEY_TEXT = {
     "question_mark": "?",
+    "ctrl+k": "Ctrl+K",
     "plus": "+",
     "minus": "-",
     "colon": ":",

@@ -84,6 +84,12 @@ class SimuBenchApp(App[None]):
     #cards Horizontal { height: auto; align: left top; overflow-x: hidden; }
     #embedded-log { scrollbar-size-vertical: 0; }
     #log-filter { display: none; border: round $focus; }
+    /* the command palette (Ctrl+K, /) in the HUD's own panel colours, not Textual's tinted one */
+    CommandPalette > Vertical { background: $surface; }
+    CommandPalette #--input { border: round $focus; }
+    CommandPalette #--input.--list-visible { border-bottom: none; }
+    CommandPalette #--results { background: $surface; border: round $focus; border-top: none; }
+    CommandPalette OptionList > .option-list--option-highlighted { background: $focus; color: $background; }
     """
 
     BINDINGS: ClassVar = [
@@ -94,7 +100,9 @@ class SimuBenchApp(App[None]):
         Binding("a", "advance", "", show=False),
         Binding("R", "r_key", "", show=False),
         Binding("question_mark", "help", "", show=False),
+        Binding("ctrl+k", "palette", "", show=False, priority=True),
     ]
+    ENABLE_COMMAND_PALETTE = False  # Textual's own lists its themes; ours is palette.py (Ctrl+K)
 
     def __init__(
         self,
@@ -123,6 +131,9 @@ class SimuBenchApp(App[None]):
         #: the dot width each scope screen last asked for: a refetch (an event, a reconnect) must
         #: ask for the same binning, or the frame comes back raw and the trace draws nothing
         self.scope_points: dict[str, int] = {}
+        #: a field jump the palette asked for: (instrument, state path, text to type or None);
+        #: the instrument screen takes it once its controls exist
+        self.pending_field: tuple[str, str, str | None] | None = None
         self.faults: list[dict[str, Any]] = []  # GET /faults, refetched on fault events (section 1.6)
         self.scpi_history: dict[str, list[str]] = {}  # per-instrument console history (10.3)
         self.catalog: dict[str, Any] = {}
@@ -562,6 +573,23 @@ class SimuBenchApp(App[None]):
                 focus(report.jump_seq)
 
         self.push_screen(ReasonScreen(report, jump))
+
+    def jump_to_field(self, name: str, path: str, text: str | None = None) -> None:
+        """Palette: go to the instrument's field and edit it (or set ``text``) where it stands."""
+        screen = self.screen
+        if getattr(screen, "instrument_name", None) == name and hasattr(screen, "go_to_field"):
+            screen.go_to_field(path, text)
+            return
+        self.pending_field = (name, path, text)
+        self.open_instrument(name)
+
+    def action_palette(self) -> None:
+        """``Ctrl+K``: the command palette, from any of the TUI's own screens (not a dialog)."""
+        from .palette import open_palette
+        from .screens.shell import ShellScreen
+
+        if isinstance(self.screen, ShellScreen):
+            open_palette(self)
 
     def action_help(self) -> None:
         """``?``: the keys of the screen in front (a dialog's own keys are on its face)."""
