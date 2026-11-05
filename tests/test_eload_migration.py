@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import record_rows, require_gold
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -112,14 +113,7 @@ def bench(source_v: float, source_r: float) -> BenchDefinition:
 
 
 def run_sequence(session, sequence: list[tuple[str, str]]) -> list[tuple[str, str, str | None, int]]:
-    out = []
-    for instrument, cmd in sequence:
-        before = session.now_ns
-        session.write(instrument, (cmd + "\n").encode())
-        reply = session.read(instrument)
-        text = reply.decode().rstrip("\n") if reply is not None else None
-        out.append((instrument, cmd, text, session.now_ns - before))
-    return out
+    return record_rows(session, sequence)
 
 
 @pytest.mark.parametrize(
@@ -137,8 +131,4 @@ def test_replies_and_virtual_time_are_unchanged(source_v, source_r, sequence, ex
         got = run_sequence(session, sequence)
     finally:
         session.close()
-    if not expected:
-        for row in got:
-            print(repr(row))
-        pytest.fail(f"EXPECTED_{name.upper()} is empty: paste the output above")
-    assert got == expected
+    require_gold(got, expected, f"EXPECTED_{name.upper()}")

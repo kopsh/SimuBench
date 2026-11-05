@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from helpers import require_gold, send_timed
 from simubench.api import open_bench
 from simubench.engine.replay import replay
 from simubench.models.bench import BenchDefinition
@@ -177,23 +178,11 @@ def s():
 
 
 def run_sequence(s) -> list[tuple[str, str | None, int]]:
-    out = []
-    for cmd in SEQUENCE:
-        before = s.now_ns
-        s.write("smu", (cmd + "\n").encode())
-        reply = s.read("smu")
-        text = reply.decode().rstrip("\n") if reply is not None else None
-        out.append((cmd, text, s.now_ns - before))
-    return out
+    return [(cmd, *send_timed(s, "smu", cmd)) for cmd in SEQUENCE]
 
 
 def test_replies_and_virtual_time_are_unchanged(s):
-    got = run_sequence(s)
-    if not EXPECTED:
-        for row in got:
-            print(repr(row))
-        pytest.fail("EXPECTED is empty: paste the output above")
-    assert got == EXPECTED
+    require_gold(run_sequence(s), EXPECTED, "EXPECTED")
 
 
 def test_the_record_replays(tmp_path):

@@ -7,10 +7,8 @@ over raw sockets is the acceptance scenario (acceptance/test_lowfreq_cal_scenari
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import shutil
-import sys
 from itertools import pairwise
 from pathlib import Path
 
@@ -19,6 +17,7 @@ import pytest
 import pyvisa
 import yaml
 
+from helpers import load_script
 from simubench.api import open_bench
 from simubench.engine.commands import classify
 from simubench.library.loader import DefinitionLibrary, load_yaml
@@ -32,16 +31,7 @@ BENCH = WORKSPACE / "lowfreq_cal.bench.yaml"
 SCRIPT = EXAMPLE / "lowfreq_cal_demo.py"
 INSPECT = 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("lowfreq_cal_demo", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-demo = _script()
+demo = load_script(SCRIPT)
 
 
 def _bench(tmp_path, edit=None) -> Path:

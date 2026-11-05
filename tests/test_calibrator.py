@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.component import component_types
 from simubench.engine.validate_definition import validate_definition_data
@@ -52,9 +53,7 @@ def s():
 
 
 def q(s, cmd: str, inst: str = "cal") -> str | None:
-    s.write(inst, (cmd + "\n").encode())
-    out = s.read(inst)
-    return out.decode().strip() if out else None
+    return session_query(s, inst, cmd)
 
 
 def reading(s, function: str = "DC") -> float:

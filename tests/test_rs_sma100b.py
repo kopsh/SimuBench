@@ -6,13 +6,12 @@ transcript cannot see: the level into a matched load, AM sidebands at the LF1 ra
 switch, a frequency sweep stepping on each trigger, and a level sweep.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from helpers import load_script, run_manual_script
 from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
@@ -22,16 +21,7 @@ EXAMPLE_BENCH = ROOT / "examples" / "benches" / "rs-sma100b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "rs_sma100b_generate.py"
 Z0 = 50.0
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("rs_sma100b_generate", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 @pytest.fixture
@@ -60,13 +50,9 @@ def lines(s):
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    bench.write_text(EXAMPLE_BENCH.read_text("utf-8"), "utf-8")
-    monkeypatch.setattr(
-        sys, "argv", ["rs_sma100b_generate.py", "sg", "--scope", "scope", "--bench", str(bench)]
+    out = run_manual_script(
+        script, ["sg", "--scope", "scope"], EXAMPLE_BENCH, tmp_path, monkeypatch, capsys, rm_wrap=False
     )
-    script.main()
-    out = capsys.readouterr().out.splitlines()
     assert out[0] == "Rohde&Schwarz,SMA100B,1419.8888K02/101234,5.40.102.48"
     assert out[1].startswith("AGILENT TECHNOLOGIES,DSO-X 2024A,")
     assert out[2].startswith("carrier: 10.000000 MHz, 1.2")
