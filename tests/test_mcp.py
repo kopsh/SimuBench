@@ -748,3 +748,19 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
         out = await call(c, "list_faults")
         assert len(out) == 1
         assert violations == []
+
+
+async def test_try_definition_sessions_are_pooled_and_reused(ws):
+    """A second batch for the same definition runs on the same scratch session instead of cycling
+    a bench per call; the pool owns the semantics, so MCP adds none of its own (issue 636)."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        first = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?"])
+        assert [e.definition for e in manager.tries.all()] == ["sb-dmm-1"]
+        second = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?"])
+        assert len(manager.tries.all()) == 1  # reused, not opened anew
+        assert [r["response"] for r in first["results"]] == [r["response"] for r in second["results"]]
+        # an unknown definition still fails before anything builds
+        unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
+        assert "error" in unknown
+        assert manager.tries.all() == [] or all(e.definition != "no-such-model" for e in manager.tries.all())
