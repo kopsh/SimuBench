@@ -5,6 +5,10 @@ tests run the Programmer's Guide waveform procedure (examples/scripts/keysight_d
 and compare what it reconstructs with the signal the bench carries, then check the definition
 pieces the cases cannot see: synchronisation, the sub-sample time origin, the data sheet's
 individual deviations, offset clamping and the probe rescale.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 from pathlib import Path
@@ -88,16 +92,21 @@ def test_example_bench_runs_the_script(tmp_path):
     assert times[-1] - times[0] == pytest.approx(10 * 2e-4, rel=0.01)
 
 
-def test_digitize_completes_before_the_reply(scope):
-    dso, _ = scope
+# ---- the digitize and the sub-sample time origin: one flow ------------------------------------------
+
+
+def test_the_digitize_and_time_origin_flow(scope):
+    """*OPC? answers with the acquisition done, and the time origin is the trigger to a fraction
+    of a sample."""
+    dso, session = scope
+    # -- DIGitize completes before the reply (was test_digitize_completes_before_the_reply)
     dso.write(":DIGitize CHANnel1")
     assert dso.query("*OPC?").strip() == "1"
     # The acquisition is done by the time *OPC? answers: the preamble describes it.
     assert dso.query(":WAVeform:PREamble?").split(",")[2] == "1000"
-
-
-def test_time_origin_is_the_trigger_to_a_fraction_of_a_sample(scope):
-    dso, session = scope
+    # -- the time origin is the trigger to a fraction of a sample (was
+    # test_time_origin_is_the_trigger_to_a_fraction_of_a_sample; the act sets its own timebase
+    # scale and points mode)
     dso.write(":TIMebase:SCALe 5E-4;:WAVeform:POINts:MODE MAXimum;:WAVeform:POINts 100000")
     for _ in range(3):
         dso.write(":DIGitize CHANnel1")
@@ -140,8 +149,15 @@ def test_individual_deviations_stay_within_the_data_sheet(tmp_path):
         assert abs(d["scope/timebase.clock_ppm"]) <= 25
 
 
-def test_offset_out_of_range_clamps_and_follows_the_scale(scope):
+# ---- the channel settings: offset clamp, range, probe rescale: one flow -----------------------------
+
+
+def test_the_channel_settings_flow(scope):
+    """The offset clamps to the scale's range and follows it, range is scale times divisions,
+    and the probe ratio rescales scale and offset."""
     dso, _ = scope
+    # -- an out-of-range offset clamps and follows the scale (was
+    # test_offset_out_of_range_clamps_and_follows_the_scale)
     dso.write(":CHANnel1:SCALe 0.1;:CHANnel1:OFFSet 10")
     assert float(dso.query(":CHANnel1:OFFSet?")) == pytest.approx(2.0)
     dso.write(":CHANnel1:SCALe 1;:CHANnel1:OFFSet 10")
@@ -152,19 +168,13 @@ def test_offset_out_of_range_clamps_and_follows_the_scale(scope):
     dso.write(":CHANnel1:SCALe 100")
     assert float(dso.query(":CHANnel1:SCALe?")) == pytest.approx(5.0)
     assert dso.query(":SYSTem:ERRor?").startswith("+0,")
-
-
-def test_range_is_scale_times_divisions(scope):
-    dso, _ = scope
+    # -- range is scale times divisions (was test_range_is_scale_times_divisions)
     dso.write(":CHANnel1:RANGe 8")
     assert float(dso.query(":CHANnel1:SCALe?")) == pytest.approx(1.0)
     dso.write(":TIMebase:RANGe 1E-3")
     assert float(dso.query(":TIMebase:SCALe?")) == pytest.approx(1e-4)
     assert dso.query(":TIMebase:RANGe?").strip() == "+1.00E-03"
-
-
-def test_probe_ratio_rescales_scale_and_offset(scope):
-    dso, _ = scope
+    # -- the probe ratio rescales scale and offset (was test_probe_ratio_rescales_scale_and_offset)
     dso.write(":CHANnel1:SCALe 0.5;:CHANnel1:OFFSet 0.2")
     dso.write(":CHANnel1:PROBe 10")
     assert float(dso.query(":CHANnel1:SCALe?")) == pytest.approx(5.0)
@@ -176,23 +186,26 @@ def test_probe_ratio_rescales_scale_and_offset(scope):
 # ---- issue 160: run control, trigger force, preset and the acquisition types ------------------------
 
 
-def test_bus_trigger_is_digitize_without_parameters(tmp_path):
-    """The guide: *TRG has the same effect as :DIGitize with no parameters (Root/Common commands)."""
+# ---- run control: the bus trigger, the force trigger and preset: one flow (issue 160) ----------------
+
+
+def test_the_run_control_flow(tmp_path):
+    """*TRG digitizes like :DIGitize without parameters, :TRIGger:FORCe captures a frame no
+    trigger would, and :SYSTem:PRESet restores the default setup and runs again."""
     rm, dso = _open(tmp_path)
     try:
+        # -- the bus trigger is digitize without parameters (was
+        # test_bus_trigger_is_digitize_without_parameters)
+        # The guide: *TRG has the same effect as :DIGitize with no parameters (Root/Common commands).
         dso.write(":STOP;*TRG")
         assert dso.query("*OPC?").strip() == "1"
         assert dso.query(":WAVeform:PREamble?").split(",")[2] == "1000"
         assert _record(rm.visalib.bench).volts.size == 100_000
         assert dso.query(":SYSTem:ERRor?").startswith("+0,")
-    finally:
-        rm.close()
-
-
-def test_force_trigger_takes_a_frame_without_a_trigger(tmp_path):
-    """A trigger level above the signal leaves :DIGitize waiting; :TRIGger:FORCe still captures."""
-    rm, dso = _open(tmp_path)
-    try:
+        # -- the force trigger takes a frame without a trigger (was
+        # test_force_trigger_takes_a_frame_without_a_trigger; the error above was read out, the
+        # sweep and level are the act's own settings)
+        # A trigger level above the signal leaves :DIGitize waiting; :TRIGger:FORCe still captures.
         dso.write(":TRIGger:SWEep NORMal;:TRIGger:LEVel 20;:TRIGger:FORCe")
         assert dso.query("*OPC?").strip() == "1"
         # The forced frame completes in virtual time; the next command settles it.
@@ -201,13 +214,8 @@ def test_force_trigger_takes_a_frame_without_a_trigger(tmp_path):
         assert rec.triggered is False  # the frame was forced, not triggered
         assert rec.volts.size == 100_000
         assert dso.query(":SYSTem:ERRor?").startswith("+0,")
-    finally:
-        rm.close()
-
-
-def test_preset_restores_the_default_setup_and_runs_again(tmp_path):
-    rm, dso = _open(tmp_path)
-    try:
+        # -- preset restores the default setup and runs again (was
+        # test_preset_restores_the_default_setup_and_runs_again; the :STOP below is the act's own)
         dso.write(":CHANnel1:SCALe 0.2;:TIMebase:SCALe 1E-3;:TRIGger:SOURce CHANnel2;:STOP")
         acq = rm.visalib.bench.instruments["scope"].components["acq"]
         assert acq.running is False

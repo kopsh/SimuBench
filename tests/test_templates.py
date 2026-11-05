@@ -228,6 +228,8 @@ def test_waveform_reading_follows_the_preamble(tmp_path, example):
 
 
 def test_measurement_trigger_and_single_synchronisation(tmp_path, example):
+    # a second acquisition on a used bench measures differently (the trigger state carries over),
+    # so this keeps its own fresh bench rather than continuing the preamble flow above
     s = open_bench(_bench(tmp_path, example, clock="command"))
     try:
         _q(s, ":CHANnel1:PROBe 10;:CHANnel1:SCALe 0.5;:TIMebase:SCALe 2E-4")

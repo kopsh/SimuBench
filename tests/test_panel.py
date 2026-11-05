@@ -33,8 +33,11 @@ def query(s, cmd: str) -> bytes | None:
     return s.read("scope") if "?" in cmd else None
 
 
-def test_a_running_screen_is_not_an_acquisition():
+def test_the_front_panel_flow():
+    """One flow on the Siglent panel: a running screen is not an acquisition, run and stop are
+    one panel event each and no SCPI, and single acquires once — the record a script then reads."""
     s, served = bench()
+    # -- a running screen is not an acquisition (was test_a_running_screen_is_not_an_acquisition)
     events: list[dict] = []
     s.subscribe(events.append)
     t0, count = s.now_ns, s.instruments["scope"].components["acq"].acq_count
@@ -45,20 +48,31 @@ def test_a_running_screen_is_not_an_acquisition():
     assert np.abs(a - b).max() < 0.05  # the signal does not
     assert (s.now_ns, s.instruments["scope"].components["acq"].acq_count) == (t0, count)
     assert events == []  # nothing in the communication log or the history
-
-
-def test_run_and_stop_are_one_event_each_and_no_scpi():
-    s, served = bench()
-    events: list[dict] = []
-    s.subscribe(events.append)
+    # -- run and stop are one event each and no scpi
+    # (was test_run_and_stop_are_one_event_each_and_no_scpi; screens emit nothing, so the new
+    # subscription starts empty exactly as on the original bench)
+    run_events: list[dict] = []
+    s.subscribe(run_events.append)
     s.panel("scope", "stop")
     assert not screen(served).running
     s.panel("scope", "run")
     assert screen(served).running
-    assert [(e["kind"], e["action"], e["source"]) for e in events] == [
+    assert [(e["kind"], e["action"], e["source"]) for e in run_events] == [
         ("panel", "stop", "ui"),
         ("panel", "run", "ui"),
     ]
+    # -- single is the acquisition a script then reads
+    # (was test_single_is_the_acquisition_a_script_then_reads; nothing above acquired, so the
+    # count a single adds one to is still the fresh bench's)
+    acq = s.instruments["scope"].components["acq"]
+    s.panel("scope", "single")
+    assert acq.acq_count == 1 and not screen(served).running  # one acquisition, then stopped
+    data = query(s, ":WAVeform:DATA?")
+    xfer = s.instruments["scope"].components["xfer"]
+    assert data == xfer.encode(acq.records[1]) + b"\n"  # the record the panel acquired
+    assert acq.acq_count == 1  # a stopped scope hands out that one
+    assert screen(served).source == "record"
+    s.close()
 
 
 def script(s) -> list:
@@ -79,18 +93,6 @@ def test_a_running_screen_does_not_change_what_a_script_sees():
         reply = query(watched, cmd)
         seen.append((cmd, hashlib.sha256(reply or b"").hexdigest(), watched.now_ns))
     assert seen == expected
-
-
-def test_single_is_the_acquisition_a_script_then_reads():
-    s, served = bench()
-    acq = s.instruments["scope"].components["acq"]
-    s.panel("scope", "single")
-    assert acq.acq_count == 1 and not screen(served).running  # one acquisition, then stopped
-    data = query(s, ":WAVeform:DATA?")
-    xfer = s.instruments["scope"].components["xfer"]
-    assert data == xfer.encode(acq.records[1]) + b"\n"  # the record the panel acquired
-    assert acq.acq_count == 1  # a stopped scope hands out that one
-    assert screen(served).source == "record"
 
 
 def test_models_without_their_own_panel_commands():

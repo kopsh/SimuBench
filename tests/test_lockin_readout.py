@@ -103,7 +103,10 @@ def _floats(text: str) -> list[float]:
     return [float(v) for v in text.split(",")]
 
 
-def test_outp_takes_the_index_or_the_word(lia):
+def test_the_readings_table_flow(lia):
+    """The table answers by index or word (X, Y, R, THeta), SNAP? reads its parameters at one
+    instant in the order asked, SNAPD? reads the four assigned data channels."""
+    # -- OUTP? takes the index or the word (was test_outp_takes_the_index_or_the_word)
     q, _ = lia
     for index, word in ((0, "X"), (1, "Y"), (2, "R"), (3, "THeta")):
         by_index = float(q(f"OUTP? {index}"))
@@ -116,45 +119,52 @@ def test_outp_takes_the_index_or_the_word(lia):
     # near the RC corner (the input's 25 pF loads it a little): theta is the angle of X + jY
     assert float(q("OUTP? THeta")) == pytest.approx(math.degrees(math.atan2(y, x)), abs=1e-3)
     assert -50.0 < float(q("OUTP? THeta")) < -40.0
+    # -- SNAP? reads at one instant in the order asked (was test_snap_reads_its_parameters_at_one_instant_in_the_order_asked)
+    x1, y1, r1 = _floats(q("SNAP? 0,1,2"))
+    assert r1 == pytest.approx(math.hypot(x1, y1), rel=1e-9)  # one instant: R agrees with X, Y exactly
+    assert _floats(q("SNAP? Y, X")) == pytest.approx([y1, x1], rel=1e-6)
+    # -- SNAPD? reads the four assigned data channels (was test_snapd_reads_the_four_assigned_data_channels)
+    x2, y2, r2, theta = _floats(q("SNAPD?"))
+    assert r2 == pytest.approx(math.hypot(x2, y2), rel=1e-9)
+    assert theta == pytest.approx(math.degrees(math.atan2(y2, x2)), abs=1e-6)
 
 
-def test_snap_reads_its_parameters_at_one_instant_in_the_order_asked(lia):
-    q, _ = lia
-    x, y, r = _floats(q("SNAP? 0,1,2"))
-    assert r == pytest.approx(math.hypot(x, y), rel=1e-9)  # one instant: R agrees with X, Y exactly
-    assert _floats(q("SNAP? Y, X")) == pytest.approx([y, x], rel=1e-6)
-
-
-def test_snap_takes_two_or_three_parameters(lia):
+def test_the_table_refusals(lia):
+    """The reading commands refuse what the table does not know: SNAP? takes two or three
+    parameters (-109), an unknown word is -224 and an unknown index -222."""
     q, w = lia
+    # -- SNAP? takes two or three parameters (was test_snap_takes_two_or_three_parameters)
     for bad in ("SNAP? 0", "SNAP? 0,1,2,3"):
         w(bad)
         assert q(":SYSTem:ERRor?").startswith("-109,")
-
-
-def test_unknown_words_and_indexes_are_refused(lia):
-    q, w = lia
+    # -- unknown words and indexes are refused (was test_unknown_words_and_indexes_are_refused)
     w("OUTP? ZZ")
     assert q(":SYSTem:ERRor?").startswith("-224,")
     w(f"OUTP? {len(TABLE)}")
     assert q(":SYSTem:ERRor?").startswith("-222,")
 
 
-def test_setting_and_block_sources(lia):
+def test_the_phase_setting_and_the_block_sources(lia):
+    """PHAS feeds the table's PHAse entry and its units parse (RAD, MRAD, MDEG); the setting and
+    block sources answer from their settings (FInt, OUT1, IN1, XNOise)."""
     q, w = lia
+    # -- the setting and block sources (was test_setting_and_block_sources)
     w("PHAS 30")
     assert float(q("OUTP? PHA")) == pytest.approx(30.0)
     assert float(q("OUTP? FI")) == pytest.approx(1591.55)  # the reference's frequency
     assert float(q("OUTP? OUT1")) == pytest.approx(0.0)  # AUX OUT1's DAC setting
     assert float(q("OUTP? IN1")) == pytest.approx(0.0, abs=1e-12)  # nothing on AUX IN1
     assert float(q("OUTP? XNO")) > 0.0  # the front end's noise density
-
-
-def test_snapd_reads_the_four_assigned_data_channels(lia):
-    q, _ = lia
-    x, y, r, theta = _floats(q("SNAPD?"))
-    assert r == pytest.approx(math.hypot(x, y), rel=1e-9)
-    assert theta == pytest.approx(math.degrees(math.atan2(y, x)), abs=1e-6)
+    # -- the phase in radians (was test_phase_in_radians)
+    w("PHAS 1 RAD")
+    assert float(q("PHAS?")) == pytest.approx(math.degrees(1.0), rel=1e-9)
+    w("PHAS 500 MRAD")
+    assert float(q("PHAS?")) == pytest.approx(math.degrees(0.5), rel=1e-9)
+    w("PHAS 12340 MDEG")
+    assert float(q("PHAS?")) == pytest.approx(12.34, rel=1e-9)
+    assert parse_number("1 URAD", "DEG") == pytest.approx(math.degrees(1e-6))
+    with pytest.raises(ValueError):
+        parse_number("1 RAD", "HZ")
 
 
 def test_replies_follow_the_general_format(lia):
@@ -165,19 +175,6 @@ def test_replies_follow_the_general_format(lia):
     assert V.format_float(2.3346669042e-09, 11, style="general", sign=False) == b"2.3346669042e-09"
     assert V.format_float(19.749698639, 11, style="general", sign=False) == b"19.749698639"
     assert V.format_float(0.951359, 6, style="general", sign=False) == b"0.951359"
-
-
-def test_phase_in_radians(lia):
-    q, w = lia
-    w("PHAS 1 RAD")
-    assert float(q("PHAS?")) == pytest.approx(math.degrees(1.0), rel=1e-9)
-    w("PHAS 500 MRAD")
-    assert float(q("PHAS?")) == pytest.approx(math.degrees(0.5), rel=1e-9)
-    w("PHAS 12340 MDEG")
-    assert float(q("PHAS?")) == pytest.approx(12.34, rel=1e-9)
-    assert parse_number("1 URAD", "DEG") == pytest.approx(math.degrees(1e-6))
-    with pytest.raises(ValueError):
-        parse_number("1 RAD", "HZ")
 
 
 def test_a_mapped_parameter_value_may_name_another_setting(tmp_path):

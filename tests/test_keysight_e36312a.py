@@ -5,6 +5,10 @@ run the real-instrument script examples/scripts/keysight_e36312a_check.py on the
 check the parts a SCPI transcript cannot see (the relay's 10 ms virtual time, remote sense at the
 load, the CV/CC mode the readback block reports to the panel), and the three outputs' independent
 settings.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 import math
@@ -75,9 +79,16 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert powers == pytest.approx([v * i for v, i in zip(voltages, currents, strict=True)], rel=1e-6)
 
 
-def test_the_relay_closes_in_virtual_time():
+# ---- the outputs come up, the limit bends CH1 into CC, the three are independent: one flow ----------
+
+
+def test_the_outputs_and_channel_list_flow():
+    """The output relay closes in 10 ms of virtual time, a current limit below the load's demand
+    turns the output into CC, and the three outputs come up independently with the channel list
+    expanding in written order."""
     s = session()
     try:
+        # -- the relay closes in virtual time (was test_the_relay_closes_in_virtual_time)
         assert q(s, "VOLT 5,(@1);:CURR 1,(@1)") is None
         t0 = s.now_ns
         assert q(s, "OUTP ON,(@1)") is None
@@ -86,6 +97,25 @@ def test_the_relay_closes_in_virtual_time():
         assert q(s, "*WAI") is None
         assert (s.now_ns - t0) / 1e9 == pytest.approx(RELAY_S, abs=1e-3)
         assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
+        # -- the current limit turns the output into CC
+        # (was test_the_current_limit_turns_the_output_into_cc; CH1 is already operating, the
+        # act's own settings put it into CC either way)
+        assert q(s, "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI") is None
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(1.0, rel=1e-6)
+        assert float(q(s, "MEAS:CURR? (@1)")) == pytest.approx(0.1, rel=1e-9)
+        values = s.instrument("psu").components["ch1.read"].readings()["values"]
+        assert values["regulation"] == "CC"
+        assert values["power"] == pytest.approx(0.1, rel=1e-6)
+        # -- the three outputs are independent and the channel list expands
+        # (was test_the_three_outputs_are_independent_and_the_channel_list_expands; the act's
+        # CURR 1 puts CH1 back into CV at the same 5 V, so the readings match a fresh bench)
+        assert q(s, "VOLT 5,(@1);:VOLT 3.3,(@2);:VOLT 12,(@3)") is None
+        assert q(s, "CURR 1,(@1:3)") is None
+        assert q(s, "OUTP ON,(@1:3);*WAI") is None
+        assert q(s, "MEAS:VOLT? (@3,1,2)") == ("+1.1999760E+01,+4.9990002E+00,+3.2999340E+00")
+        assert q(s, "OUTP? (@1:3)") == "1,1,1"
+        # A channel list query answers in the list's order, not in channel order.
+        assert q(s, "VOLT? (@2,1)") == "+3.30000000E+00,+5.00000000E+00"
     finally:
         s.close()
 
@@ -105,29 +135,40 @@ def test_remote_sense_regulates_the_voltage_at_the_load():
         s.close()
 
 
-def test_the_current_limit_turns_the_output_into_cc():
-    s = session()
-    try:
-        assert q(s, "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI") is None
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(1.0, rel=1e-6)
-        assert float(q(s, "MEAS:CURR? (@1)")) == pytest.approx(0.1, rel=1e-9)
-        values = s.instrument("psu").components["ch1.read"].readings()["values"]
-        assert values["regulation"] == "CC"
-        assert values["power"] == pytest.approx(0.1, rel=1e-6)
-    finally:
-        s.close()
+# ---- the channel limits and the OVP trip: one flow --------------------------------------------------
 
 
-def test_the_three_outputs_are_independent_and_the_channel_list_expands():
+def test_the_limits_and_ovp_flow():
+    """Out-of-range values are refused naming the channel limits (each error read out as it
+    comes), and an OVP trip takes the output down, refuses OUTP ON with +729 until its own
+    clear restores it."""
     s = session()
     try:
-        assert q(s, "VOLT 5,(@1);:VOLT 3.3,(@2);:VOLT 12,(@3)") is None
-        assert q(s, "CURR 1,(@1:3)") is None
-        assert q(s, "OUTP ON,(@1:3);*WAI") is None
-        assert q(s, "MEAS:VOLT? (@3,1,2)") == ("+1.1999760E+01,+4.9990002E+00,+3.2999340E+00")
-        assert q(s, "OUTP? (@1:3)") == "1,1,1"
-        # A channel list query answers in the list's order, not in channel order.
-        assert q(s, "VOLT? (@2,1)") == "+3.30000000E+00,+5.00000000E+00"
+        # -- out-of-range values name the channel limits
+        # (was test_out_of_range_values_name_the_channel_limits)
+        assert q(s, "VOLT 7,(@1)") is None
+        assert q(s, "SYST:ERR?") == '-222,"Data out of range"'
+        assert q(s, "CURR 6,(@1)") is None
+        assert q(s, "SYST:ERR?") == '-222,"Data out of range"'
+        assert q(s, "VOLT 26,(@2)") is None
+        assert q(s, "SYST:ERR?") == '-222,"Data out of range"'
+        # CH3 is a +25 V output on the E36312A (not the E36311A's -25 V).
+        assert q(s, "VOLT 25.75,(@3)") is None
+        assert q(s, "SYST:ERR?") == '+0,"No error"'
+        # -- the OVP trip, the +729 refusal and the clear (was
+        # test_ovp_trip_clear_and_the_729_output_refusal; the rejected writes above left CH1 at
+        # its defaults, so the trip comes up exactly as on a fresh bench)
+        assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:VOLT:PROT 4,(@1);:OUTP ON,(@1);*WAI") is None
+        assert q(s, "VOLT:PROT:TRIP? (@1)") == "1"
+        assert q(s, "OUTP? (@1)") == "0"
+        assert float(q(s, "MEAS:VOLT? (@1)")) == 0.0
+        assert q(s, "OUTP ON,(@1)") is None
+        assert q(s, "SYST:ERR?") == '+729,"Not allow to enable output"'
+        assert q(s, "VOLT:PROT 6,(@1);:VOLT:PROT:CLE (@1)") is None
+        assert q(s, "OUTP? (@1)") == "1"
+        assert q(s, "*WAI") is None
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
+        assert close_enough(float(q(s, "VOLT? (@1)")), 5.0, rel=1e-9)
     finally:
         s.close()
 
@@ -144,43 +185,6 @@ def test_the_example_bench_validates_without_diagnostics():
     assert report.diagnostics == []
 
 
-def test_out_of_range_values_name_the_channel_limits():
-    s = session()
-    try:
-        assert q(s, "VOLT 7,(@1)") is None
-        assert q(s, "SYST:ERR?") == '-222,"Data out of range"'
-        assert q(s, "CURR 6,(@1)") is None
-        assert q(s, "SYST:ERR?") == '-222,"Data out of range"'
-        assert q(s, "VOLT 26,(@2)") is None
-        assert q(s, "SYST:ERR?") == '-222,"Data out of range"'
-        # CH3 is a +25 V output on the E36312A (not the E36311A's -25 V).
-        assert q(s, "VOLT 25.75,(@3)") is None
-        assert q(s, "SYST:ERR?") == '+0,"No error"'
-    finally:
-        s.close()
-
-
-def test_ovp_trip_clear_and_the_729_output_refusal():
-    s = session()
-    try:
-        assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:VOLT:PROT 4,(@1);:OUTP ON,(@1);*WAI") is None
-        assert q(s, "VOLT:PROT:TRIP? (@1)") == "1"
-        assert q(s, "OUTP? (@1)") == "0"
-        assert float(q(s, "MEAS:VOLT? (@1)")) == 0.0
-        assert q(s, "OUTP ON,(@1)") is None
-        assert q(s, "SYST:ERR?") == '+729,"Not allow to enable output"'
-        assert q(s, "VOLT:PROT 6,(@1);:VOLT:PROT:CLE (@1)") is None
-        assert q(s, "OUTP? (@1)") == "1"
-        assert q(s, "*WAI") is None
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
-        assert close_enough(float(q(s, "VOLT? (@1)")), 5.0, rel=1e-9)
-    finally:
-        s.close()
-
-
-# ---- OCP by time in constant current and the CV/CC condition (#271) ----------------------------------
-
-
 def cc_session():
     """CH1 at 5 V with a 10 mA limit into 10 Ω: constant current once the relay has closed."""
     s = session()
@@ -189,20 +193,24 @@ def cc_session():
     return s
 
 
-def test_the_condition_register_reads_cc_and_cv():
+# ---- OCP by time in constant current and the CV/CC condition: one flow (#271) ------------------------
+
+
+def test_the_cc_cv_condition_and_ocp_delay_flow():
+    """The ISUMmary condition register reads CC and CV as the limit moves, and the OCP trips
+    after its delay in CC only — its own clear removes the latch."""
     s = cc_session()
     try:
+        # -- the condition register reads CC and CV
+        # (was test_the_condition_register_reads_cc_and_cv)
         assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "1"  # constant current
         assert q(s, "STAT:QUES:INST:ISUM2:COND?") == "0"  # output 2 off
         q(s, "CURR 1,(@1)")
         assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "2"  # constant voltage
-    finally:
-        s.close()
-
-
-def test_ocp_trips_after_the_delay_in_cc_and_only_its_own_clear_removes_it():
-    s = cc_session()
-    try:
+        # -- bridge: the OCP act's premise is cc_session's constant current again
+        q(s, "CURR 0.01,(@1)")
+        # -- the OCP trips after its delay in CC and only its own clear removes it
+        # (was test_ocp_trips_after_the_delay_in_cc_and_only_its_own_clear_removes_it)
         assert q(s, "CURR:PROT:STAT?") == "0"  # *RST: off — CC alone never trips
         s.advance(1.0)
         assert q(s, "CURR:PROT:TRIP? (@1)") == "0" and q(s, "OUTP? (@1)") == "1"
@@ -236,7 +244,7 @@ def test_the_delay_start_decides_whether_a_settings_change_restarts_it(start, tr
         s.close()
 
 
-# ---- the questionable status register group (#348) -------------------------------------------------
+# ---- the questionable status register group: one flow (#348) ----------------------------------------
 
 
 def _cc_on_channel_1(s) -> None:
@@ -245,9 +253,13 @@ def _cc_on_channel_1(s) -> None:
     s.advance(0.5)
 
 
-def test_a_cv_to_cc_transition_latches_the_isummary_event_and_a_read_clears_it():
+def test_the_questionable_status_flow():
+    """A CV -> CC transition latches the ISUMmary event and a read clears it, and the enable
+    masks carry the summary up through QUES:INST and QUES to the status byte."""
     s = session()
     try:
+        # -- the transition latches the event, a read clears it (was
+        # test_a_cv_to_cc_transition_latches_the_isummary_event_and_a_read_clears_it)
         assert q(s, "STAT:QUES:INST:ISUM1:EVEN?") == "0"
         _cc_on_channel_1(s)
         assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "1"  # bit 0: CC
@@ -261,13 +273,9 @@ def test_a_cv_to_cc_transition_latches_the_isummary_event_and_a_read_clears_it()
         assert q(s, "STAT:QUES:INST:ISUM1:COND?") == "2"
         assert q(s, "STAT:QUES:INST:ISUM1?") == "2"
         assert q(s, "SYST:ERR?") == '+0,"No error"'
-    finally:
-        s.close()
-
-
-def test_the_enable_masks_carry_the_summary_up_to_the_status_byte():
-    s = session()
-    try:
+        # -- the enable masks carry the summary up to the status byte (was
+        # test_the_enable_masks_carry_the_summary_up_to_the_status_byte; the reads above cleared
+        # the event register, so the act's own CV -> CC transition is the only latched event)
         _cc_on_channel_1(s)
         # Nothing enabled: the event is latched but no summary reaches QUES or the status byte.
         assert q(s, "STAT:QUES:INST?") == "0"
