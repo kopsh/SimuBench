@@ -97,6 +97,10 @@ class Card(Static):
         self.render_card()
 
 
+#: Rows of the shut log drawer (tui-screens.md 4.5).
+DRAWER_ROWS = 3
+
+
 class OverviewScreen(ShellScreen):
     """总览: a card grid on top, the embedded communication log below (tui-screens.md 4)."""
 
@@ -113,13 +117,17 @@ class OverviewScreen(ShellScreen):
         Binding("enter", "open_card", show=False),
         Binding("w", "reason", show=False),
         Binding("p", "next_problem", show=False),
+        Binding("L", "toggle_log", show=False),  # the drawer; lowercase l is the full-screen log
     ]
 
     def __init__(self) -> None:
         super().__init__()
         self._last_version: int = -1
         self._focus_name: str | None = None
-        self._log_rows = 8
+        self._log_rows = DRAWER_ROWS
+        self._log_open = False  # the log is a drawer: shut, it shows the newest few rows
+        self._seen_started = False
+        self._errors_seen = 0  # error rows the user has had in view (drawer open, or at the start)
 
     def screen_title(self) -> str:
         return i18n.t("overview.screen", self.app.lang)
@@ -147,6 +155,7 @@ class OverviewScreen(ShellScreen):
             keys.append(("p", i18n.t("keys.problem", lang)))
         keys.append(("w", i18n.t("keys.reason", lang)))
         keys.append(("l", i18n.t("keys.log", lang)))
+        keys.append(("L", i18n.t("keys.drawer", lang)))
         keys.append(("?", i18n.t("keys.help", lang)))
         keys.append(("q", i18n.t("common.quit", lang)))
         return keys
@@ -279,19 +288,39 @@ class OverviewScreen(ShellScreen):
                     card.focus()
                     return
 
+    def _drawer_rows(self) -> int:
+        """Rows of the log's box: a few when shut (the cards get the height), the full block
+        (4.1) when open."""
+        if not self._log_open:
+            return DRAWER_ROWS
+        return max(6, min(16, self.app.size.height - 24))
+
     def _refresh_log(self) -> None:
         app: Any = self.app
         lang = app.lang
-        self._log_rows = max(6, min(16, app.size.height - 24))
+        self._log_rows = self._drawer_rows()
         lines = visible(app.lines, embedded=True)
         shown = lines[-50:]
+        errors = sum(1 for line in lines if line.has_error)
+        if self._log_open or not self._seen_started:
+            self._errors_seen = errors  # what the user can see, or the state at the start
+            self._seen_started = True
         title = i18n.t("log.title", lang)
         count = i18n.t("log.count", lang, count=len(lines))
+        fresh = errors - self._errors_seen
+        if fresh > 0:  # a shut drawer says so; it never opens by itself
+            count = i18n.t("log.newErrors", lang, count=fresh) + " · " + count
         inner = max(20, app.size.width - 4)  # border 2 + the rows' padding 2
         self._log_box.border_title = _box_title(title, count, inner)
         self._log_box.styles.height = self._log_rows + 2
         self._log.update(log_text(app, shown, lang, width=inner))
         self._log_box.scroll_end(animate=False, force=True)
+
+    def action_toggle_log(self) -> None:
+        """``L``: open or shut the log drawer."""
+        self._log_open = not self._log_open
+        self._refresh_log()
+        self.refresh_content()
 
     # ---- keys ---------------------------------------------------------------------------------------
 

@@ -1452,3 +1452,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 界面 | ✅ TUI 顶栏“时钟走动 ×N”、`a` 提示、1 s 轮询；Web 顶栏、命令面板、编辑检查器（模式与倍率）、本地走时 |
 | 测试 | ✅ `tests/test_scaled_clock.py`（注入墙钟源，不 sleep）、`tests/test_server.py`、`tests/test_tui.py`；`pnpm typecheck / lint / test` 通过 |
 | 未做 | ⚠️ 配置路径 `run.clock: {mode, scale}`（issue 草案）改为 `run.clock` + `run.time_scale`，与已有字符串格式兼容；运行中改倍率的 UI 只在编辑检查器（配置的倍率），运行中的实时倍率滑块未做；`SIMUBENCH_CLOCK` 环境变量未配套倍率 |
+
+## #681 TUI 总览的日志抽屉：默认收小，给卡片让出高度（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 抽屉 | ✅ 总览通信记录默认 3 行（原 `max(6, min(16, 屏高 − 24))`），`L` 展开 / 收起；`l` 仍是全屏通信记录，不改键位 |
+| 新错误 | ✅ 收起时标题写 `✗ N new`，不自动展开；展开或启动时已有的算已看到 |
+| 高度 | ✅ 100×32 下 6 台仪表的演示台两排卡片都可见（快照审阅）；80×24 下抽屉 5 行，卡片区可滚动，最后一行不被日志盖住 |
+| 键位与帮助 | ✅ `L` 在总览无冲突（仪表屏幕的 `L` 是本地接管）；`help.actions.toggle_log` 由 `tests/test_tui_help.py` 守住；底栏省略顺序加入 `L` |
+| 测试 | ✅ `tests/test_tui_overview_ux.py` 三条（开合、新错误标记、80×24）；总览两张快照已更新并审阅 |
+| 未做 | ⚠️ 与 issue 草案不同：没有把 `l` 改成抽屉、`L` 改全屏，因为 `l` 在所有屏幕都是全屏记录，改动会破坏全局一致 |

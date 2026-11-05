@@ -53,6 +53,9 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   fetched at twice that (`app.scope_points` keeps it across refetches).
 - **Numbers**: use `fmt.fmt` (SI prefixes, right-aligned); never hand-format a value. Use
   `cell_len` / `pad` / `ralign`, not `len`, for widths.
+- **Overview log drawer**: shut by default (`DRAWER_ROWS = 3`), `L` opens it (`l` stays the full-screen
+  log); a shut drawer marks its title `✗ N new` for errors not yet seen but never opens itself
+  (`tui-screens.md` 4.5).
 - **Palette** (`palette.py`, `Ctrl+K` anywhere, `/` on an instrument screen): commands are generated from
   the app's real `BINDINGS`, the bench's instruments and their state variables — never listed by hand. A
   setting is never written from the palette: it jumps to the field (`go_to_field`) and types into it, so

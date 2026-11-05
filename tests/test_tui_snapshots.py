@@ -125,6 +125,12 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
             strips = tui.screen._compositor.render_strips()
             flat_text = "\n".join("".join(seg.text for seg in strip) for strip in strips)
             if "measured" in flat_text or "9.9" in flat_text:  # the smu card's readings rendered
+                # The log drawer shows the newest rows, and the demo service has served other tests'
+                # commands by now: pin the log to the demo's own first records so the picture does
+                # not depend on which tests ran before it.
+                del tui.lines[6:]
+                tui.bump()
+                await pilot.pause(0.5)
                 return
         raise AssertionError("the overview never settled")
 

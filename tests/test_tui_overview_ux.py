@@ -91,3 +91,59 @@ def test_alert_tones():
 def test_status_light_prefers_the_worst_news():
     card = CardData(name="x", alerts=[Alert("limit", "a"), Alert("error", "b")])
     assert status_light(card, True) == ("●", "bad")
+
+
+# ---- the log drawer (tui-screens.md 4.5) ------------------------------------------------------------
+
+from tui_mock import ev, feed, load, unit_app  # noqa: E402
+
+
+def _box(tui):
+    return tui.screen._log_box
+
+
+@pytest.mark.tui_boot
+async def test_the_log_is_a_shut_drawer_at_first_and_L_opens_and_shuts_it():
+    from test_tui_t2 import settle
+
+    tui, _fake = unit_app(load("unit_smu.json"))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        assert _box(tui).styles.height.value == 3 + 2  # a few rows, the cards keep the height
+        await pilot.press("L")
+        await pilot.pause(0.3)
+        assert _box(tui).styles.height.value > 3 + 2
+        await pilot.press("L")
+        await pilot.pause(0.3)
+        assert _box(tui).styles.height.value == 3 + 2
+
+
+@pytest.mark.tui_boot
+async def test_a_new_error_marks_the_shut_drawers_title_without_opening_it():
+    from test_tui_t2 import settle, wait_for
+
+    tui, _fake = unit_app(load("unit_smu.json"))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        assert "new" not in (_box(tui).border_title or "")
+        await feed(
+            tui,
+            ev(1, 1_000_000, "scpi", instrument="smu", dir="write", client="pyvisa", text=":BAD"),
+            ev(2, 1_000_000, "error", instrument="smu", code=-113, message="Undefined header"),
+        )
+        await wait_for(pilot, lambda: "✗ 1 new" in (_box(tui).border_title or ""), message="the title mark")
+        assert _box(tui).styles.height.value == 3 + 2  # it did not open by itself
+        await pilot.press("L")  # opening it is the user having seen the error
+        await pilot.pause(0.3)
+        assert "new" not in (_box(tui).border_title or "")
+
+
+@pytest.mark.tui_boot
+async def test_the_drawer_does_not_eat_the_last_card_row_at_80_by_24():
+    from test_tui_t2 import settle
+
+    tui, _fake = unit_app(load("unit_smu.json"))
+    async with tui.run_test(size=(80, 24)) as pilot:
+        await settle(pilot, tui)
+        grid = tui.screen._grid
+        assert grid.region.height >= 8  # the cards keep a real block above the 5-row drawer

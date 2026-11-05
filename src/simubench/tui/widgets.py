@@ -128,7 +128,7 @@ class TopBar(Static):
 
 #: What the bottom bar gives up first when the keys do not fit (tui-screens.md 2.2): the keys that
 #: ``?`` lists anyway, least essential first. ``Esc``, ``w``, ``?`` and ``q`` always stay.
-DROP_ORDER = ("[ ]", ":", "␣", "p", "l", "Tab", "⏎")
+DROP_ORDER = ("[ ]", ":", "␣", "p", "L", "l", "Tab", "⏎")
 
 
 def fit_keys(keys: list[tuple[str, str]], room: int) -> list[tuple[str, str]]:
