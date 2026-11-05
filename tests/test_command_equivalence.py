@@ -240,3 +240,48 @@ def test_classify_routes_like_dispatch(model: str, chunk: int):
     for message in messages:
         calls, error = _route(inst, message)
         _assert_consistent(model, definition, message, calls, error)
+
+
+def _told_apart_pair(when_a, when_b):
+    """Two commands on one header, differing only in their ``when``: the validator's
+    ``told_apart`` must agree with what classify actually routes (issue 641 — the validator's
+    #602 semantics were an unsynced hand copy of the dispatch)."""
+    from simubench.engine.commands import told_apart
+    from simubench.models.definition import CommandSpec, InstrumentDefinition, ParamSpec
+
+    def spec(when):
+        return CommandSpec(
+            header=":VOLT:MODE",
+            state="ch.mode",
+            params=[ParamSpec(name="mode", type="string")],
+            when=when or None,
+        )
+
+    definition = InstrumentDefinition.model_validate(
+        {
+            "id": "pair",
+            "model": "DMM",
+            "manufacturer": "SimuBench",
+            "class": "multimeter",
+            "components": [{"name": "ch", "type": "channel"}],
+            "commands": [spec(when_a).model_dump(), spec(when_b).model_dump()],
+            "state": {"ch.mode": {"type": "string", "options": ["A", "B"]}},
+        }
+    )
+    a, b = definition.commands[0], definition.commands[1]
+    # told_apart predicts "b still runs for SOME value": quantify over the parameter space. A
+    # refused pick (kind "unsupported") carries the refused spec — that is not b running.
+    runs_b = any(
+        (m := classify(definition, f":VOLT:MODE {v}" if v else ":VOLT:MODE"))
+        and m[0].kind == "command"
+        and m[0].spec is b
+        for v in ("A", "B", "")
+    )
+    assert told_apart(a, b) == runs_b, (when_a, when_b)
+
+
+def test_when_fallback_routing_agrees_with_told_apart():
+    _told_apart_pair({"mode": "A"}, None)  # b is the fallback: b runs for any other value
+    _told_apart_pair(None, {"mode": "B"})  # a matches everything: b never runs
+    _told_apart_pair({"mode": "A"}, {"mode": "B"})  # disjoint values: each runs on its own
+    _told_apart_pair({"mode": "A"}, {"mode": "A"})  # same value: the later never runs

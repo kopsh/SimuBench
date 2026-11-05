@@ -72,6 +72,8 @@ def env_definition_dirs() -> list[Path]:
 def _raw_definition(path: Path, mtime: float) -> dict:
     """One file's parsed and upgraded definition data, before any layering; keyed on the file's
     own mtime, so an edit re-reads just that file."""
+    # An explicit upgrade (issue 641): the loader layers the upgraded dicts (extends) and feeds
+    # them to expand_macros — the model-level validator cannot hand a dict back.
     data, _ = upgrade(_read_yaml(path), "instrument")
     return data
 
