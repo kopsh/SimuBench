@@ -879,6 +879,85 @@ class ScopeTrigger(_ChannelBound):
         return None
 
 
+class PendingAcquisitions:
+    """The scope's pending acquisitions (``completion: pending``, #134): a single acquisition, a
+    forced frame or a digitize is an operation that finishes in virtual time, when the record after
+    the trigger is full; armed for a trigger that has not come, it waits for one, looking again
+    whenever a command arrives. The run control (ScopeAcquisition) starts and reads these; the
+    scheduling and its state are this class's."""
+
+    def __init__(self, acq: ScopeAcquisition) -> None:
+        self.acq = acq
+        self.clear()
+
+    def clear(self) -> None:
+        """No acquisition scheduled."""
+        #: The scheduled acquisition: when it is done, when it triggered, and what it keeps.
+        self.due_ns: int | None = None
+        self.trigger_ns: int | None = None
+        self._due: tuple[dict[int, Record], int] | None = None
+        #: Armed, the trigger not come yet: the channels to acquire once it does (None: those shown).
+        self._awaiting: tuple[list[int] | None] | None = None
+
+    def waiting(self) -> bool:
+        """A single acquisition (or a digitize) not done yet."""
+        acq = self.acq
+        return self.due_ns is not None or self._awaiting is not None or (acq.armed and acq._is("single"))
+
+    def schedule(self, channels: list[int] | None, force: bool) -> None:
+        """Arm an acquisition that finishes in virtual time: when the record after the trigger is
+        full, or, without a trigger, once one comes (``retry``)."""
+        acq = self.acq
+        assert acq.owner is not None
+        if self.due_ns is not None:
+            return  # already on its way
+        records, used, triggered, trigger_ns = acq._acquire(
+            acq.displayed() if channels is None else channels
+        )
+        acq.last_triggered = triggered
+        if not (force or triggered or acq._is("auto")):
+            self._awaiting = (channels,)
+            acq.owner.block(acq.uid, str(acq.param("no_trigger")) == "wait")
+            return
+        self._awaiting = None
+        now = acq.owner.now_ns()
+        self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
+        acq.owner.block(acq.uid, False)
+        acq.owner.register_pending(
+            acq.uid, self.due_ns, self.complete, waited=bool(acq.param("opc_waits"))
+        )
+
+    def complete(self) -> None:
+        """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
+        assert self._due is not None
+        records, used = self._due
+        self.clear()
+        acq = self.acq
+        acq.store(records, used)
+        if acq._is("single"):
+            acq._finish_single()
+        else:
+            acq.armed = False
+
+    def cancel(self) -> None:
+        """Stop waiting: nothing scheduled, nothing blocking ``*OPC?``."""
+        acq = self.acq
+        if acq.owner is not None:
+            acq.owner.cancel_pending(acq.uid)
+            acq.owner.block(acq.uid, False)
+        self.clear()
+
+    def retry(self) -> None:
+        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
+        acq = self.acq
+        if not acq.pending_mode() or self.due_ns is not None:
+            return
+        if self._awaiting is not None:
+            self.schedule(self._awaiting[0], force=False)
+        elif acq.armed and acq._is("single"):  # armed from the panel, waiting for its trigger
+            self.schedule(None, force=False)
+
+
 @component("scope_acquisition")
 class ScopeAcquisition(Component):
     """Run control, sampling and the records of a scope, built from the scope's modules.
@@ -988,7 +1067,7 @@ class ScopeAcquisition(Component):
         self.running = True
         self.armed = False
         self.last_triggered = False
-        self._clear_due()
+        self.pending = PendingAcquisitions(self)
 
     def reset(self) -> None:
         self.records = {}
@@ -996,16 +1075,7 @@ class ScopeAcquisition(Component):
         self.running = True
         self.armed = False
         self.last_triggered = False
-        self._clear_due()
-
-    def _clear_due(self) -> None:
-        """No acquisition scheduled (completion: pending)."""
-        #: The scheduled acquisition: when it is done, when it triggered, and what it keeps.
-        self.due_ns: int | None = None
-        self.trigger_ns: int | None = None
-        self._due: tuple[dict[int, Record], int] | None = None
-        #: Armed, the trigger not come yet: the channels to acquire once it does (None: those shown).
-        self._awaiting: tuple[list[int] | None] | None = None
+        self.pending.clear()
 
     # ---- the modules ------------------------------------------------------------------------------
 
@@ -1358,7 +1428,7 @@ class ScopeAcquisition(Component):
         if not force and not stopped_too and not self.is_running():
             return 0
         if self.pending_mode() and (force or stopped_too or self._is("single")):
-            self._schedule(channels, force)  # continuous runs (auto, normal) refresh at once
+            self.pending.schedule(channels, force)  # continuous runs (auto, normal) refresh at once
             return 0
         records, used, triggered = self.compute(self.displayed() if channels is None else channels)
         self.last_triggered = triggered
@@ -1375,44 +1445,15 @@ class ScopeAcquisition(Component):
             return 0
         return self.acquire_now() if self.armed and self._is("single") else 0
 
-    # ---- pending acquisitions (completion: pending) -------------------------------------------------
+    # ---- the pending acquisitions (completion: pending), a PendingAcquisitions ----------------------
 
     def waiting(self) -> bool:
         """A single acquisition (or a digitize) not done yet."""
-        return self.due_ns is not None or self._awaiting is not None or (self.armed and self._is("single"))
+        return self.pending.waiting()
 
-    def _schedule(self, channels: list[int] | None, force: bool) -> None:
-        """Arm an acquisition that finishes in virtual time: when the record after the trigger is
-        full, or, without a trigger, once one comes (``retry_pending``)."""
-        assert self.owner is not None
-        if self.due_ns is not None:
-            return  # already on its way
-        records, used, triggered, trigger_ns = self._acquire(
-            self.displayed() if channels is None else channels
-        )
-        self.last_triggered = triggered
-        if not (force or triggered or self._is("auto")):
-            self._awaiting = (channels,)
-            self.owner.block(self.uid, str(self.param("no_trigger")) == "wait")
-            return
-        self._awaiting = None
-        now = self.owner.now_ns()
-        self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
-        self.owner.block(self.uid, False)
-        self.owner.register_pending(
-            self.uid, self.due_ns, self._complete, waited=bool(self.param("opc_waits"))
-        )
-
-    def _complete(self) -> None:
-        """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
-        assert self._due is not None
-        records, used = self._due
-        self._clear_due()
-        self.store(records, used)
-        if self._is("single"):
-            self._finish_single()
-        else:
-            self.armed = False
+    def retry_pending(self) -> None:
+        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
+        self.pending.retry()
 
     def _keep_last_frame(self) -> None:
         """A running scope has been acquiring all along: before a single acquisition (or a stop)
@@ -1421,22 +1462,6 @@ class ScopeAcquisition(Component):
         records, used, triggered = self.compute(self.displayed())
         if records and (triggered or self._is("auto")):
             self.store(records, used)
-
-    def _cancel(self) -> None:
-        """Stop waiting: nothing scheduled, nothing blocking ``*OPC?``."""
-        if self.owner is not None:
-            self.owner.cancel_pending(self.uid)
-            self.owner.block(self.uid, False)
-        self._clear_due()
-
-    def retry_pending(self) -> None:
-        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
-        if not self.pending_mode() or self.due_ns is not None:
-            return
-        if self._awaiting is not None:
-            self._schedule(self._awaiting[0], force=False)
-        elif self.armed and self._is("single"):  # armed from the panel, waiting for its trigger
-            self._schedule(None, force=False)
 
     def read_record(self, channel: int, start: bool = True) -> tuple[Record | None, int]:
         """The record a read uses, and the virtual time getting it took (``reacquire``, ``missing``).
@@ -1489,7 +1514,7 @@ class ScopeAcquisition(Component):
             return OpResult(self.mode_text(), used)
         if mode is None:
             raise ScpiError(-109)
-        self._cancel()  # a new mode replaces whatever acquisition was waiting
+        self.pending.cancel()  # a new mode replaces whatever acquisition was waiting
         if self.pending_mode() and self.is_running() and (self._is("auto") or self._is("normal")):
             self._keep_last_frame()
         self._set_mode(mode)
@@ -1526,7 +1551,7 @@ class ScopeAcquisition(Component):
 
     @op("stop")
     def stop(self, **_: Any) -> OpResult:
-        self._cancel()
+        self.pending.cancel()
         self.running, self.armed = False, False
         stops = self.param("stop")
         if stops:
@@ -1543,8 +1568,8 @@ class ScopeAcquisition(Component):
         """``WAIT [timeout]``: until a pending single acquisition is done (or the timeout passes)."""
         used = self.poll()
         if self.pending_mode() and self.owner is not None:
-            if self.due_ns is not None:
-                used += self.owner.wait_until(self.due_ns)
+            if self.pending.due_ns is not None:
+                used += self.owner.wait_until(self.pending.due_ns)
             elif timeout is not None and self.waiting():
                 used += self.owner.wait_until(self.owner.now_ns() + round(float(timeout) * 1e9))
         return OpResult(duration_ns=used)
@@ -1570,7 +1595,7 @@ class ScopeAcquisition(Component):
             return str(words["stopped"])
         if self._is("single"):
             assert self.owner is not None
-            if self.trigger_ns is not None and self.owner.now_ns() >= self.trigger_ns:
+            if self.pending.trigger_ns is not None and self.owner.now_ns() >= self.pending.trigger_ns:
                 return str(words["triggered"])  # the record after the trigger is filling (pending)
             return str(words["waiting"])
         _, _, triggered = self.compute([])
@@ -1648,8 +1673,8 @@ class ScopeAcquisition(Component):
         if not chans:
             chans = self.displayed()
         used = self.acquire_now(chans, stopped_too=True)  # whatever the run state
-        if self.pending_mode() and self.due_ns is not None and self.owner is not None:
-            used += self.owner.wait_until(self.due_ns)  # a digitize returns once its record is full
+        if self.pending_mode() and self.pending.due_ns is not None and self.owner is not None:
+            used += self.owner.wait_until(self.pending.due_ns)  # a digitize returns once its record is full
         if self.param("digitize_stops"):
             self.running, self.armed = False, False  # the InfiniiVision stops after :DIGitize (#248)
         return OpResult(duration_ns=used)
