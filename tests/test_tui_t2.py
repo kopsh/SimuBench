@@ -4,20 +4,19 @@ The app under test is the real ``SimuBenchApp`` driven by Textual's Pilot, but i
 mock's ``FakeClient`` answering from payloads dumped out of a real session, and its WS stream is
 replaced — events are injected with :func:`tui_mock.feed`. Each test runs in milliseconds. The
 real-server scenarios (the spec's acceptance: 找到跳闸, remote takeover, the ``/screen``
-contract) live in ``test_tui_t2_e2e.py``.
+contract) live in ``test_tui_e2e.py``.
 """
 
 from __future__ import annotations
 
 import asyncio
-import copy
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 from simubench.tui.app import SimuBenchApp
-from tui_mock import ev, feed, load, unit_app
+from tui_mock import ev, feed, fresh, load, settle, unit_app, wait_flat, wait_for
 
 pytestmark = (
     pytest.mark.tui_boot
@@ -25,20 +24,6 @@ pytestmark = (
 
 SMU_BENCH = load("unit_smu.json")
 SCOPE_BENCH = load("unit_scope_rc.json")
-
-
-def fresh(fixture: dict[str, Any]) -> dict[str, Any]:
-    return copy.deepcopy(fixture)
-
-
-async def settle(pilot, tui: SimuBenchApp, deadline: float = 8.0) -> None:
-    """The app's data is in (the connection loop's full refresh ran)."""
-    end = asyncio.get_running_loop().time() + deadline
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        if tui.session_info and tui.data_version > 0:
-            return
-    raise AssertionError("the unit app never settled")
 
 
 async def focus_card(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
@@ -82,34 +67,6 @@ async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 
 def state_of(tui: SimuBenchApp, name: str, path: str) -> object:
     info = tui.client._fixture["instruments"][name]
     return next(sv for sv in info["state"] if sv["path"] == path)["value"]
-
-
-async def wait_for(pilot, predicate, timeout: float = 20.0, message: str = "condition") -> None:
-    """Poll ``predicate`` (sync or async) until it is true."""
-    import inspect
-
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        result = predicate()
-        if inspect.isawaitable(result):
-            result = await result
-        if result:
-            return
-    raise AssertionError(f"{message} never became true")
-
-
-async def wait_flat(pilot, tui, *needles: str, timeout: float = 20.0) -> str:
-    """The screen text captured when all ``needles`` first show at once."""
-    from test_tui import flat
-
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        text = flat(tui)
-        if all(needle in text for needle in needles):
-            return text
-    raise AssertionError(f"{needles} never appeared on {type(tui.screen).__name__}")
 
 
 # ---- the instrument screen per class (tui-screens.md 5) ---------------------------------------------

@@ -95,10 +95,14 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 
 | What | Where | Marker |
 |---|---|---|
-| row/card/format logic, key handling on `FakeClient` | `tests/test_tui_units.py`, `tests/test_tui_rows.py`, `tests/tui_mock.py` | `unit` (≤100 ms, no server) |
-| screen + keys against a real server | `tests/test_tui_t2.py` … `t4*.py`, `*_e2e.py` | `tui_boot` (runs on `main`) |
+| row/card/format logic, key handling on `FakeClient`, screens' interface-level pieces | `tests/test_tui_units.py` (one file for all milestones, #699), `tests/test_tui_rows.py`, `tests/tui_mock.py` | `unit` (≤100 ms, no server) |
+| screens + keys against the mock or the real server | `tests/test_tui_t2.py` / `t3.py` / `t4.py`, `tests/test_tui_e2e.py`, `tests/test_tui.py` | `tui_boot` (runs on `main`) |
 | SVG snapshots, 100×32 and 80×24 | `tests/test_tui_snapshots.py`, baselines in `tests/__snapshots__/` | `tui_boot` |
 
+Shared pilot helpers (`fresh`/`settle`/`wait_for`/`wait_flat`/`flat`) live in `tests/tui_mock.py`;
+the real-server bed (`Served`, `wait_connected`, `wait_quiet`) lives in `tests/test_tui.py` and is
+imported by the e2e file. Don't copy either into a new file. Anything that boots a Textual app or
+a real server is `tui_boot`-marked — a milestone file without the marker is a bug (#699 fixed two).
 Prefer a unit test on the pure function over a snapshot. A snapshot changes only when the screen
 is meant to change: review the SVG diff, then refresh with
 `uv run pytest tests/test_tui_snapshots.py --snapshot-update` and commit the baselines.
