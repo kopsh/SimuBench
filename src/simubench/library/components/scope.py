@@ -17,6 +17,15 @@ from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
 from .calstore import CalibrationStore
+from .measurements import (
+    FREQ_HYSTERESIS,
+    TIME_MEASUREMENTS,
+    crossings,
+    edge_spec,
+    measure,
+    mid_crossings,
+    top_base,
+)
 
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
@@ -870,39 +879,79 @@ class ScopeTrigger(_ChannelBound):
         return None
 
 
-#: Parameters an acquisition written the earlier way (one component) gives each module, and the
-#: module's name for them (instrument-authoring.md 8.4: the big component is a macro).
-MACRO_MODULES: dict[str, tuple[str, dict[str, str]]] = {
-    "horizontal": (
-        "scope_timebase",
-        {"timebase": "scale", "delay": "delay", "record_length": "record_length", "points": "points"},
-    ),
-    "trigger": (
-        "scope_trigger",
-        {
-            "trigger_source": "source",
-            "trigger_level": "level",
-            "trigger_slope": "slope",
-            "rising": "rising",
-            "falling": "falling",
-            "search_windows": "search_windows",
-        },
-    ),
-    "adc": (
-        "scope_adc",
-        {
-            "adc_bits": "bits",
-            "adc_codes_per_div": "codes_per_div",
-            "adc_divs": "divs",
-            "adc_offset": "offset_sign",
-            "max_rate": "max_rate",
-            "max_rate_paired": "max_rate_paired",
-            "rate_pairs": "rate_pairs",
-        },
-    ),
-}
-#: The names the expansion gives the modules.
-MACRO_NAMES = {"horizontal": "timebase", "trigger": "trigger", "adc": "adc"}
+class PendingAcquisitions:
+    """The scope's pending acquisitions (``completion: pending``, #134): a single acquisition, a
+    forced frame or a digitize is an operation that finishes in virtual time, when the record after
+    the trigger is full; armed for a trigger that has not come, it waits for one, looking again
+    whenever a command arrives. The run control (ScopeAcquisition) starts and reads these; the
+    scheduling and its state are this class's."""
+
+    def __init__(self, acq: ScopeAcquisition) -> None:
+        self.acq = acq
+        self.clear()
+
+    def clear(self) -> None:
+        """No acquisition scheduled."""
+        #: The scheduled acquisition: when it is done, when it triggered, and what it keeps.
+        self.due_ns: int | None = None
+        self.trigger_ns: int | None = None
+        self._due: tuple[dict[int, Record], int] | None = None
+        #: Armed, the trigger not come yet: the channels to acquire once it does (None: those shown).
+        self._awaiting: tuple[list[int] | None] | None = None
+
+    def waiting(self) -> bool:
+        """A single acquisition (or a digitize) not done yet."""
+        acq = self.acq
+        return self.due_ns is not None or self._awaiting is not None or (acq.armed and acq._is("single"))
+
+    def schedule(self, channels: list[int] | None, force: bool) -> None:
+        """Arm an acquisition that finishes in virtual time: when the record after the trigger is
+        full, or, without a trigger, once one comes (``retry``)."""
+        acq = self.acq
+        assert acq.owner is not None
+        if self.due_ns is not None:
+            return  # already on its way
+        records, used, triggered, trigger_ns = acq._acquire(acq.displayed() if channels is None else channels)
+        acq.last_triggered = triggered
+        if not (force or triggered or acq._is("auto")):
+            self._awaiting = (channels,)
+            acq.owner.block(acq.uid, str(acq.param("no_trigger")) == "wait")
+            return
+        self._awaiting = None
+        now = acq.owner.now_ns()
+        self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
+        acq.owner.block(acq.uid, False)
+        acq.owner.register_pending(acq.uid, self.due_ns, self.complete, waited=bool(acq.param("opc_waits")))
+
+    def complete(self) -> None:
+        """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
+        assert self._due is not None
+        records, used = self._due
+        self.clear()
+        acq = self.acq
+        acq.store(records, used)
+        if acq._is("single"):
+            acq._finish_single()
+        else:
+            acq.armed = False
+
+    def cancel(self) -> None:
+        """Stop waiting: nothing scheduled, nothing blocking ``*OPC?``."""
+        acq = self.acq
+        if acq.owner is not None:
+            acq.owner.cancel_pending(acq.uid)
+            acq.owner.block(acq.uid, False)
+        self.clear()
+
+    def retry(self) -> None:
+        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
+        acq = self.acq
+        if not acq.pending_mode() or self.due_ns is not None:
+            return
+        if self._awaiting is not None:
+            self.schedule(self._awaiting[0], force=False)
+        elif acq.armed and acq._is("single"):  # armed from the panel, waiting for its trigger
+            self.schedule(None, force=False)
 
 
 @component("scope_acquisition")
@@ -1014,7 +1063,7 @@ class ScopeAcquisition(Component):
         self.running = True
         self.armed = False
         self.last_triggered = False
-        self._clear_due()
+        self.pending = PendingAcquisitions(self)
 
     def reset(self) -> None:
         self.records = {}
@@ -1022,98 +1071,7 @@ class ScopeAcquisition(Component):
         self.running = True
         self.armed = False
         self.last_triggered = False
-        self._clear_due()
-
-    def _clear_due(self) -> None:
-        """No acquisition scheduled (completion: pending)."""
-        #: The scheduled acquisition: when it is done, when it triggered, and what it keeps.
-        self.due_ns: int | None = None
-        self.trigger_ns: int | None = None
-        self._due: tuple[dict[int, Record], int] | None = None
-        #: Armed, the trigger not come yet: the channels to acquire once it does (None: those shown).
-        self._awaiting: tuple[list[int] | None] | None = None
-
-    # ---- the macro: the earlier one-component form expands into the modules -----------------------
-
-    @classmethod
-    def expand_macro(cls, data: dict[str, Any], spec: dict[str, Any]) -> None:
-        """Expand an acquisition written the earlier way (no module named) into the modules.
-
-        The parameters each module takes move to it under the module's names (``MACRO_MODULES``);
-        the per-channel component wired to ``<acq>.in{n}`` becomes the ``vertical`` one, and a
-        ``scope_probe`` named ``probe`` is put between it and the acquisition. Raises ValueError when
-        the definition is not shaped so (write the modules out instead)."""
-        cls._expand_measurements(data, spec)
-        params = dict(spec.get("params") or {})
-        if any(key in params for key in MACRO_MODULES):
-            return  # the modules are written out
-        acq = str(spec["name"])
-        comps = data.setdefault("components", [])
-        chans = data.setdefault("channel_components", [])
-        wiring = data.setdefault("wiring", {})
-        inst_wires = wiring.setdefault("instrument", [])
-        chan_wires = wiring.setdefault("channel", [])
-        feed: tuple[int, str] | None = None
-        for i, (src, dst) in enumerate(inst_wires):
-            if dst == f"{acq}.in{{n}}" and src.startswith("ch{n}.") and src.endswith(".out"):
-                feed = (i, src[len("ch{n}.") : -len(".out")])
-        taken = {str(c.get("name")) for c in comps} | {f"ch.{c.get('name')}" for c in chans}
-        clash = [n for n in (*MACRO_NAMES.values(), "ch.probe") if n in taken]
-        if feed is None or clash:
-            why = f"names {', '.join(clash)} are taken" if clash else f"nothing is wired to {acq}.in{{n}}"
-            raise ValueError(
-                f"{acq}: cannot expand the one-component acquisition ({why}); write the modules out"
-            )
-        modules = []
-        for key, (type_name, moves) in MACRO_MODULES.items():
-            moved = {new: params.pop(old) for old, new in moves.items() if old in params}
-            modules.append({"name": MACRO_NAMES[key], "type": type_name, "params": moved})
-        index, vertical = feed
-        if not any(c.get("name") == vertical for c in chans):
-            raise ValueError(f"{acq}: {vertical!r} wired to {acq}.in{{n}} is not a channel component")
-        spec["params"] = {
-            **{k: MACRO_NAMES[k] for k in MACRO_MODULES},
-            "vertical": vertical,
-            "probe": "probe",
-            **params,
-        }
-        at = next(i for i, c in enumerate(comps) if c is spec) + 1
-        comps[at:at] = modules
-        after = next(i for i, c in enumerate(chans) if c.get("name") == vertical) + 1
-        if chans[after - 1].get("type") == "scope_frontend":
-            chans[after - 1]["type"] = "scope_vertical"  # the earlier name of the same component
-        chans.insert(after, {"name": "probe", "type": "scope_probe", "params": {}})
-        chan_wires.append([f"{vertical}.out", "probe.in"])
-        inst_wires[index] = ["ch{n}.probe.out", f"{acq}.in{{n}}"]
-
-    @staticmethod
-    def _expand_measurements(data: dict[str, Any], spec: dict[str, Any]) -> None:
-        """Measurements written on the acquisition (``measurements``, ``invalid_value``, ``status``
-        and the commands' ``<acq>.measure`` / ``<acq>.measurement``) move to a ``scope_measurements``
-        module named ``meas`` (``meas2``... when taken), added after the other components."""
-        acq = str(spec["name"])
-        params = spec.get("params") or {}
-        moved = {k: params[k] for k in ("measurements", "invalid_value", "status") if k in params}
-        ops = {f"{acq}.measure": "measure", f"{acq}.measurement": "named"}
-        commands = [c for c in data.get("commands") or [] if isinstance(c, dict) and c.get("op") in ops]
-        if not moved and not commands:
-            return
-        taken = {str(c.get("name")) for c in data["components"]}
-        name = next(n for n in ("meas", *(f"meas{i}" for i in range(2, 100))) if n not in taken)
-        meas: dict[str, Any] = {"record": acq}
-        if "measurements" in moved:
-            meas["names"] = moved.pop("measurements")
-        meas.update(moved)
-        if any(c.get("op") == f"{acq}.measure" for c in commands) and "waveform.source" in (
-            data.get("state") or {}
-        ):
-            meas["source"] = "$waveform.source"  # the earlier measure read the waveform source
-        spec["params"] = {
-            k: v for k, v in params.items() if k not in ("measurements", "invalid_value", "status")
-        }
-        data["components"].append({"name": name, "type": "scope_measurements", "params": meas})
-        for c in commands:
-            c["op"] = f"{name}.{ops[c['op']]}"
+        self.pending.clear()
 
     # ---- the modules ------------------------------------------------------------------------------
 
@@ -1466,7 +1424,7 @@ class ScopeAcquisition(Component):
         if not force and not stopped_too and not self.is_running():
             return 0
         if self.pending_mode() and (force or stopped_too or self._is("single")):
-            self._schedule(channels, force)  # continuous runs (auto, normal) refresh at once
+            self.pending.schedule(channels, force)  # continuous runs (auto, normal) refresh at once
             return 0
         records, used, triggered = self.compute(self.displayed() if channels is None else channels)
         self.last_triggered = triggered
@@ -1483,44 +1441,15 @@ class ScopeAcquisition(Component):
             return 0
         return self.acquire_now() if self.armed and self._is("single") else 0
 
-    # ---- pending acquisitions (completion: pending) -------------------------------------------------
+    # ---- the pending acquisitions (completion: pending), a PendingAcquisitions ----------------------
 
     def waiting(self) -> bool:
         """A single acquisition (or a digitize) not done yet."""
-        return self.due_ns is not None or self._awaiting is not None or (self.armed and self._is("single"))
+        return self.pending.waiting()
 
-    def _schedule(self, channels: list[int] | None, force: bool) -> None:
-        """Arm an acquisition that finishes in virtual time: when the record after the trigger is
-        full, or, without a trigger, once one comes (``retry_pending``)."""
-        assert self.owner is not None
-        if self.due_ns is not None:
-            return  # already on its way
-        records, used, triggered, trigger_ns = self._acquire(
-            self.displayed() if channels is None else channels
-        )
-        self.last_triggered = triggered
-        if not (force or triggered or self._is("auto")):
-            self._awaiting = (channels,)
-            self.owner.block(self.uid, str(self.param("no_trigger")) == "wait")
-            return
-        self._awaiting = None
-        now = self.owner.now_ns()
-        self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
-        self.owner.block(self.uid, False)
-        self.owner.register_pending(
-            self.uid, self.due_ns, self._complete, waited=bool(self.param("opc_waits"))
-        )
-
-    def _complete(self) -> None:
-        """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
-        assert self._due is not None
-        records, used = self._due
-        self._clear_due()
-        self.store(records, used)
-        if self._is("single"):
-            self._finish_single()
-        else:
-            self.armed = False
+    def retry_pending(self) -> None:
+        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
+        self.pending.retry()
 
     def _keep_last_frame(self) -> None:
         """A running scope has been acquiring all along: before a single acquisition (or a stop)
@@ -1529,22 +1458,6 @@ class ScopeAcquisition(Component):
         records, used, triggered = self.compute(self.displayed())
         if records and (triggered or self._is("auto")):
             self.store(records, used)
-
-    def _cancel(self) -> None:
-        """Stop waiting: nothing scheduled, nothing blocking ``*OPC?``."""
-        if self.owner is not None:
-            self.owner.cancel_pending(self.uid)
-            self.owner.block(self.uid, False)
-        self._clear_due()
-
-    def retry_pending(self) -> None:
-        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
-        if not self.pending_mode() or self.due_ns is not None:
-            return
-        if self._awaiting is not None:
-            self._schedule(self._awaiting[0], force=False)
-        elif self.armed and self._is("single"):  # armed from the panel, waiting for its trigger
-            self._schedule(None, force=False)
 
     def read_record(self, channel: int, start: bool = True) -> tuple[Record | None, int]:
         """The record a read uses, and the virtual time getting it took (``reacquire``, ``missing``).
@@ -1597,7 +1510,7 @@ class ScopeAcquisition(Component):
             return OpResult(self.mode_text(), used)
         if mode is None:
             raise ScpiError(-109)
-        self._cancel()  # a new mode replaces whatever acquisition was waiting
+        self.pending.cancel()  # a new mode replaces whatever acquisition was waiting
         if self.pending_mode() and self.is_running() and (self._is("auto") or self._is("normal")):
             self._keep_last_frame()
         self._set_mode(mode)
@@ -1634,7 +1547,7 @@ class ScopeAcquisition(Component):
 
     @op("stop")
     def stop(self, **_: Any) -> OpResult:
-        self._cancel()
+        self.pending.cancel()
         self.running, self.armed = False, False
         stops = self.param("stop")
         if stops:
@@ -1651,8 +1564,8 @@ class ScopeAcquisition(Component):
         """``WAIT [timeout]``: until a pending single acquisition is done (or the timeout passes)."""
         used = self.poll()
         if self.pending_mode() and self.owner is not None:
-            if self.due_ns is not None:
-                used += self.owner.wait_until(self.due_ns)
+            if self.pending.due_ns is not None:
+                used += self.owner.wait_until(self.pending.due_ns)
             elif timeout is not None and self.waiting():
                 used += self.owner.wait_until(self.owner.now_ns() + round(float(timeout) * 1e9))
         return OpResult(duration_ns=used)
@@ -1678,7 +1591,7 @@ class ScopeAcquisition(Component):
             return str(words["stopped"])
         if self._is("single"):
             assert self.owner is not None
-            if self.trigger_ns is not None and self.owner.now_ns() >= self.trigger_ns:
+            if self.pending.trigger_ns is not None and self.owner.now_ns() >= self.pending.trigger_ns:
                 return str(words["triggered"])  # the record after the trigger is filling (pending)
             return str(words["waiting"])
         _, _, triggered = self.compute([])
@@ -1756,8 +1669,8 @@ class ScopeAcquisition(Component):
         if not chans:
             chans = self.displayed()
         used = self.acquire_now(chans, stopped_too=True)  # whatever the run state
-        if self.pending_mode() and self.due_ns is not None and self.owner is not None:
-            used += self.owner.wait_until(self.due_ns)  # a digitize returns once its record is full
+        if self.pending_mode() and self.pending.due_ns is not None and self.owner is not None:
+            used += self.owner.wait_until(self.pending.due_ns)  # a digitize returns once its record is full
         if self.param("digitize_stops"):
             self.running, self.armed = False, False  # the InfiniiVision stops after :DIGitize (#248)
         return OpResult(duration_ns=used)
@@ -1771,310 +1684,6 @@ class ScopeAcquisition(Component):
         for n in range(1, self._channels() + 1):
             self.vertical_of(n).self_calibrate()
         return OpResult(b"0")
-
-    def _source(self) -> int:
-        return channel_index(self._st("waveform.source"))
-
-    def _record(self) -> Record:
-        rec = self.records.get(self._source())
-        if rec is None:
-            raise ScpiError(-230, "no acquisition for this source; send :DIGitize first")
-        return rec
-
-    def _codes(self, rec: Record) -> tuple[np.ndarray, float, int]:
-        fmt = self._st("waveform.format")
-        full = DIVS_V / 2 * rec.scale
-        span = 128 if fmt == "BYTE" else 32768
-        unsigned = bool(self._st("waveform.unsigned"))
-        codes = np.round((rec.volts - rec.offset) / full * span)
-        lo, hi = -span, span - 1
-        codes = np.clip(codes, lo, hi).astype(np.int64)
-        yref = 0
-        if unsigned:
-            codes = codes + span
-            yref = span
-        return codes, full / span, yref
-
-    @op("preamble")
-    def preamble(self, **_: Any) -> OpResult:
-        rec = self._record()
-        _, yinc, yref = self._codes(rec)
-        fmt = {"BYTE": 0, "WORD": 1, "ASCii": 4}[self._st("waveform.format")]
-        pts = rec.volts.size
-        xorg = rec.origin
-        fields = [
-            str(fmt).encode(),
-            b"0",
-            str(pts).encode(),
-            b"1",
-            V.format_float(rec.dt_s),
-            V.format_float(xorg),
-            b"0",
-            V.format_float(yinc),
-            V.format_float(rec.offset),
-            str(yref).encode(),
-        ]
-        return OpResult(b",".join(fields))
-
-
-#: Bins of a record's histogram, from which the top and the base are read. Fine against any
-#: ADC grid a record can have, so a modal bin is one level and its mean is that level.
-TOP_BASE_BINS = 1000
-#: A half of that histogram holds a level when its fullest bin holds at least this times the
-#: average of the half's occupied bins; a ramp fills it evenly and has no levels to tell.
-TOP_BASE_PEAK = 2.0
-#: Half the frequency counter's hysteresis band, of top minus base: a crossing counts only
-#: after the record reached below the band, so noise near the middle cannot fake one.
-FREQ_HYSTERESIS = 0.1
-
-
-def _top_base(v: np.ndarray) -> tuple[float, float] | None:
-    """Top and base of a record: the modes of its histogram in the upper and the lower half.
-
-    AMPLitude and the frequency counter take the levels the waveform rests on, not the halves'
-    medians (a sine's upper median sits at 0.707 of its peak) and not the extremes (a noise
-    spike would count as amplitude). Each half must form a peak — its fullest bin holding at
-    least twice the average of the half's occupied bins — otherwise no levels can be told (a
-    ramp or triangle fills the histogram evenly) and None comes back; the caller falls back to
-    the extremes. The level is the mean of the samples in its modal bin.
-    """
-    vmax, vmin = float(v.max()), float(v.min())
-    if not vmax > vmin:
-        return None
-    counts, edges = np.histogram(v, bins=TOP_BASE_BINS, range=(vmin, vmax))
-    centres = (edges[:-1] + edges[1:]) / 2
-    mid = (vmax + vmin) / 2
-    levels: list[float] = []
-    for above in (True, False):
-        idx = np.nonzero(centres > mid if above else centres < mid)[0]
-        if not idx.size:
-            return None
-        top = idx[np.argmax(counts[idx])]
-        taken = counts[idx][counts[idx] > 0]
-        if counts[top] < TOP_BASE_PEAK * taken.mean() or taken.size < 2:
-            return None
-        sel = (v >= edges[top]) & (v <= edges[top + 1])
-        levels.append(float(v[sel].mean()))
-    return levels[0], levels[1]
-
-
-def _period(
-    v: np.ndarray,
-    dt: float,
-    levels: tuple[float, float] | None = None,
-    mid: float | None = None,
-    hysteresis: float = FREQ_HYSTERESIS,
-    min_cycles: int = 1,
-) -> float | None:
-    """The record's period, or None when it holds no complete cycle.
-
-    The counter runs on the hysteresis band the top and the base set around the middle (the
-    10 % / 50 % / 90 % reference levels; frequency counts the middle one): a rising crossing
-    counts only after the record last reached below the band's lower edge, so noise and
-    quantization near the middle cannot fake crossings, and a swing that never gets above the
-    band's upper edge counts for nothing. Each crossing is interpolated on the middle for
-    sub-sample time; the period is the least-squares slope of crossing time against crossing
-    number, which noise on the single crossings averages out of. The band comes from the top
-    and the base, falling back to the extremes when the histogram forms no peaks (a triangle
-    has no levels to tell but a well-defined span).
-    """
-    if levels is None:
-        levels = _top_base(v)
-    if levels is None:
-        vmax, vmin = float(v.max()), float(v.min())
-        levels = (vmax, vmin) if vmax > vmin else None
-    if levels is None:
-        return None
-    top, base = levels
-    if mid is None:
-        mid = (top + base) / 2
-    h = hysteresis * (top - base)
-    n = v.size
-    idx = np.arange(n)
-    last_below = np.maximum.accumulate(np.where(v <= mid - h, idx, -1))
-    last_above = np.maximum.accumulate(np.where(v >= mid + h, idx, -1))
-    if v[0] <= mid:  # the record opens in the lower half: its first rise is countable
-        last_below = np.maximum(last_below, 0)
-    above_before = np.concatenate(([-1], last_above[:-1]))  # the hit's own sample does not count
-    hit = np.nonzero((last_below > above_before) & (v >= mid + h))[0]
-    if hit.size < max(2, min_cycles + 1):
-        return None
-    times = np.empty(hit.size)
-    for j, i in enumerate(hit):
-        seg = v[last_below[i] : i + 1]  # the swing: from not above the middle to above the band
-        k = last_below[i] + int(np.nonzero((seg[:-1] <= mid) & (seg[1:] > mid))[0][0])
-        frac = (mid - float(v[k])) / (float(v[k + 1]) - float(v[k]))
-        times[j] = (k + min(max(frac, 0.0), 1.0)) * dt
-    seq = np.arange(times.size, dtype=float)
-    seq -= seq.mean()
-    slope = float(np.dot(seq, times - times.mean()) / np.dot(seq, seq))
-    return slope if slope > 0 else None
-
-
-def _measure(
-    what: str,
-    v: np.ndarray,
-    dt: float,
-    *,
-    top_base: str = "histogram",
-    mid: float | None = None,
-    hysteresis: float = FREQ_HYSTERESIS,
-    min_cycles: int = 1,
-) -> float:
-    """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod, and the
-    shape measurements of ``_PULSE_MEASUREMENTS`` (#248).
-
-    ``top_base``: the levels from the histogram (``histogram``) or the extremes (``extremes``);
-    ``mid``: the crossing level in volts (None: halfway between top and base); ``hysteresis``: half
-    the counter's band, of top minus base; ``min_cycles``: complete cycles a period needs.
-    Unmeasurable — fewer cycles in the record — comes back as NaN, which the callers report as
-    the definition's invalid value.
-    """
-    if v.size == 0:
-        return math.nan
-    vmax, vmin = float(v.max()), float(v.min())
-    levels = _top_base(v) if top_base == "histogram" else ((vmax, vmin) if vmax > vmin else None)
-    if what == "VPP":
-        return vmax - vmin
-    if what == "VMAX":
-        return vmax
-    if what == "VMIN":
-        return vmin
-    if what == "VAVerage":
-        return float(v.mean())
-    if what == "VRMS":
-        return float(np.sqrt(np.mean(v**2)))
-    if what == "VAMPlitude":
-        return levels[0] - levels[1] if levels else vmax - vmin
-    if what in ("FREQuency", "PERiod"):
-        period = _period(v, dt, levels, mid, hysteresis, min_cycles)
-        if period is None:
-            return math.nan
-        return 1.0 / period if what == "FREQuency" else period
-    if what in _PULSE_MEASUREMENTS:
-        return _pulse_measure(what, v, dt, levels, mid, hysteresis, min_cycles)
-    raise ScpiError(-113, f"measurement {what!r} not supported")
-
-
-#: Measurements of a waveform's shape (#248): top/base, overshoot/preshoot (percent of top minus
-#: base), 10–90 % rise and fall times, pulse widths at the middle level, duty cycles (percent),
-#: and edge and pulse counts over the record.
-_PULSE_MEASUREMENTS = (
-    "VTOP",
-    "VBASe",
-    "OVERshoot",
-    "PREShoot",
-    "RISetime",
-    "FALLtime",
-    "PWIDth",
-    "NWIDth",
-    "DUTYcycle",
-    "NDUTy",
-    "PEDGes",
-    "NEDGes",
-    "PPULses",
-    "NPULses",
-)
-
-
-def _crossings(v: np.ndarray, dt: float, level: float, band: float) -> list[tuple[float, int]]:
-    """Times (s) the record crosses ``level`` with ``band`` of hysteresis: (time, +1 rising /
-    -1 falling), each linearly interpolated between the two samples around the level."""
-    out: list[tuple[float, int]] = []
-    state = 0  # +1 above level + band, -1 below level - band
-    for k in range(v.size):
-        x = float(v[k])
-        new = 1 if x > level + band else -1 if x < level - band else state
-        if state != 0 and new != state:
-            j = k
-            while j > 0 and (float(v[j - 1]) - level) * new > 0:
-                j -= 1  # back to the sample that crosses the level itself
-            a, b = float(v[j - 1]) if j > 0 else x, float(v[j])
-            frac = 0.0 if a == b else (level - a) / (b - a)
-            out.append(((j - 1 + min(max(frac, 0.0), 1.0)) * dt, new))
-        state = new
-    return out
-
-
-def _pulse_measure(
-    what: str,
-    v: np.ndarray,
-    dt: float,
-    levels: tuple[float, float] | None,
-    mid: float | None,
-    hysteresis: float,
-    min_cycles: int,
-) -> float:
-    vmax, vmin = float(v.max()), float(v.min())
-    top, base = levels if levels else (vmax, vmin)
-    amp = top - base
-    if what == "VTOP":
-        return top
-    if what == "VBASe":
-        return base
-    if amp <= 0:
-        return math.nan
-    if what == "OVERshoot":
-        return max(0.0, vmax - top) / amp * 100.0
-    if what == "PREShoot":
-        return max(0.0, base - vmin) / amp * 100.0
-    band = hysteresis * amp
-    if what in ("RISetime", "FALLtime"):
-        low = _crossings(v, dt, base + 0.1 * amp, band / 4)
-        high = _crossings(v, dt, base + 0.9 * amp, band / 4)
-        sign = 1 if what == "RISetime" else -1
-        for t0, d in low if sign > 0 else high:
-            if d != sign:
-                continue
-            ends = [t for t, e in (high if sign > 0 else low) if e == sign and t >= t0]
-            if ends:
-                return ends[0] - t0  # the first complete edge on the record
-        return math.nan
-    level = mid if mid is not None else base + amp / 2
-    cross = _crossings(v, dt, level, band)
-    if what in ("PEDGes", "NEDGes"):
-        return float(sum(1 for _t, d in cross if d == (1 if what == "PEDGes" else -1)))
-    if what in ("PPULses", "NPULses"):
-        first = 1 if what == "PPULses" else -1
-        return float(sum(1 for (_t, a), (_u, b) in itertools.pairwise(cross) if a == first and b == -first))
-    widths = {1: [], -1: []}  # positive / negative pulse widths
-    for (t, a), (u, b) in itertools.pairwise(cross):
-        if b == -a:
-            widths[a].append(u - t)
-    if what in ("PWIDth", "NWIDth"):
-        w = widths[1 if what == "PWIDth" else -1]
-        return w[0] if w else math.nan
-    pos, neg = widths[1], widths[-1]
-    if not pos or not neg:
-        return math.nan
-    period = pos[0] + neg[0]
-    return (pos[0] if what == "DUTYcycle" else neg[0]) / period * 100.0
-
-
-#: Time measurements (#350): relative to the trigger (the record's origin), at the middle level.
-_TIME_MEASUREMENTS = ("XMAX", "XMIN", "BRATe")
-
-
-def _mid_crossings(v: np.ndarray, dt: float, hysteresis: float) -> list[tuple[float, int]]:
-    """The record's crossings of its middle level (halfway between top and base), as in
-    :func:`_pulse_measure`."""
-    levels = _top_base(v)
-    top, base = levels if levels else (float(v.max()), float(v.min()))
-    amp = top - base
-    if amp <= 0:
-        return []
-    return _crossings(v, dt, base + amp / 2, hysteresis * amp)
-
-
-def _edge_spec(word: str | None) -> tuple[int, int]:
-    """``+2`` / ``-1`` / ``3``: the slope (+1 rising, -1 falling; rising when unsigned) and the
-    occurrence (1 = the first), as :MEASure:TEDGe? and TVALue? take them."""
-    text = (word or "+1").strip()
-    sign = -1 if text.startswith("-") else 1
-    digits = text.lstrip("+-")
-    if not digits.isdigit() or int(digits) < 1:
-        raise ScpiError(-224, f"edge {word!r}: a slope (+/-) and an occurrence from 1")
-    return sign, int(digits)
 
 
 @component("scope_measurements")
@@ -2231,7 +1840,7 @@ class ScopeMeasurements(Component):
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
                 return math.nan
-        if what in _TIME_MEASUREMENTS:
+        if what in TIME_MEASUREMENTS:
             return self._time_value(what, v, rec)
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
@@ -2239,10 +1848,10 @@ class ScopeMeasurements(Component):
             if str(self.param("levels")) == "absolute":
                 mid = m
             elif m != 50.0:
-                levels = _top_base(v) if self.param("top_base") == "histogram" else None
+                levels = top_base(v) if self.param("top_base") == "histogram" else None
                 top, base = levels or (float(v.max()), float(v.min()))
                 mid = base + m / 100 * (top - base)
-        value = _measure(
+        value = measure(
             what,
             v,
             rec.dt_s,
@@ -2261,7 +1870,7 @@ class ScopeMeasurements(Component):
         if what in ("XMAX", "XMIN"):
             k = int(np.argmax(v) if what == "XMAX" else np.argmin(v))
             return rec.origin + k * rec.dt_s
-        cross = _mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
+        cross = mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
         widths = [u - t for (t, a), (u, b) in itertools.pairwise(cross) if b == -a and u > t]
         return 1.0 / min(widths) if widths else math.nan
 
@@ -2306,16 +1915,16 @@ class ScopeMeasurements(Component):
             value = float(v[k]) if v.size == 1 else float(v[k] + (v[k + 1] - v[k]) * frac)
             return self._reply(value, used)
         if what == "TEDGe":
-            sign, occurrence = _edge_spec(args[0] if args else None)
-            cross = [t for t, d in _mid_crossings(v, dt, float(self.param("hysteresis"))) if d == sign]
+            sign, occurrence = edge_spec(args[0] if args else None)
+            cross = [t for t, d in mid_crossings(v, dt, float(self.param("hysteresis"))) if d == sign]
         elif what == "TVALue":
             if not args:
                 raise ScpiError(-109, "TVALue? takes a value")
             level = V.parse_float(args[0].encode(), "V")
-            sign, occurrence = _edge_spec(args[1] if len(args) > 1 else None)
+            sign, occurrence = edge_spec(args[1] if len(args) > 1 else None)
             span = float(v.max() - v.min()) if v.size else 0.0
             cross = [
-                t for t, d in _crossings(v, dt, level, float(self.param("hysteresis")) * span) if d == sign
+                t for t, d in crossings(v, dt, level, float(self.param("hysteresis")) * span) if d == sign
             ]
         else:
             raise ScpiError(-224, f"measurement {what!r} takes no arguments here")
@@ -2342,13 +1951,13 @@ class ScopeMeasurements(Component):
             used += u
             v = np.asarray(rec.volts, dtype=float)
             first = first or (v, rec)
-            rising = [t for t, d in _mid_crossings(v, rec.dt_s, hyst) if d == 1]
+            rising = [t for t, d in mid_crossings(v, rec.dt_s, hyst) if d == 1]
             times.append(rec.origin + rising[0] if rising else math.nan)
         delay = times[1] - times[0]
         if what == "DELay":
             return self._reply(delay, used)
         assert first is not None
-        period = _measure("PERiod", first[0], first[1].dt_s, hysteresis=hyst)
+        period = measure("PERiod", first[0], first[1].dt_s, hysteresis=hyst)
         return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
 
     @op("auto_trigger_levels")
@@ -2368,7 +1977,7 @@ class ScopeMeasurements(Component):
             else:
                 rec, _ = acq.measure_record(n)
                 v = np.asarray(rec.volts, dtype=float)
-                levels = _top_base(v) if v.size else None
+                levels = top_base(v) if v.size else None
                 top, base = levels if levels else ((float(v.max()), float(v.min())) if v.size else (0.0, 0.0))
                 level = (top + base) / 2
             self.owner.set_state(str(path), level)

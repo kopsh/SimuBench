@@ -62,15 +62,15 @@ def test_a_single_acquisition_on_a_1_hz_signal_completes_at_the_next_edge():
             s.write("scope", c.encode() + b"\n")
         start = s.now_ns
         acq = s.instruments["scope"].components["acq"]
-        assert acq.trigger_ns is not None  # found, though a second of virtual time away
+        assert acq.pending.trigger_ns is not None  # found, though a second of virtual time away
         # The edge from the bench's own signal: the 1 Hz sine's next rising zero crossing.
         net = s.net_signal(s.port_net["scope.CH1"])
         grid = np.arange(0, 2.0, 1e-4)
         v = net.sample_rel(start, grid)
         i = int(np.nonzero((v[:-1] < 0) & (v[1:] >= 0) & (grid[1:] > 5e-3))[0][0])
         edge = start + (grid[i] - v[i] / (v[i + 1] - v[i]) * 1e-4) * 1e9
-        assert acq.trigger_ns == pytest.approx(edge, abs=1e3)  # to a microsecond
-        assert acq.trigger_ns - start > 0.1e9
+        assert acq.pending.trigger_ns == pytest.approx(edge, abs=1e3)  # to a microsecond
+        assert acq.pending.trigger_ns - start > 0.1e9
         s.write("scope", b"*OPC?\n")
         assert s.read("scope").strip() == b"1"
         s.write("scope", b":TRIGger:STATus?\n")

@@ -165,6 +165,22 @@ components:
       width: {from: $waveform.format, map: {BYTE: 8, WORD: 16}, default: 8}
       unsigned: $waveform.unsigned
       byteorder: $waveform.byteorder
+      # :WAVeform:PREamble? 是 Keysight 的十个字段（格式, 类型, 点数, 次数, X 增量, X 起点,
+      # X 参考, Y 增量, Y 偏置, Y 参考），声明出来而非编码在采集里。
+      header:
+        encoding: text
+        separator: ","
+        fields:
+          - {setting: waveform.format, map: {BYTE: 0, WORD: 1, ASCii: 4}}
+          - {value: 0}
+          - {figure: points}
+          - {value: 1}
+          - {figure: x_increment, format: "%+.6E"}
+          - {figure: x_start, format: "%+.6E"}
+          - {value: 0}
+          - {figure: y_increment, format: "%+.6E"}
+          - {figure: y_origin, format: "%+.6E"}
+          - {figure: y_reference}
       no_record: "no acquisition for this source; send :DIGitize first"
 channel_components:
   - name: inp
@@ -239,7 +255,7 @@ commands:
   - header: ":WAVeform:POINts"
     state: waveform.points
   - header: ":WAVeform:PREamble"
-    op: acq.preamble
+    op: xfer.header
     set: false
   - header: ":WAVeform:DATA"
     op: xfer.data

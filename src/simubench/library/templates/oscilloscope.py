@@ -12,9 +12,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..components.measurements import MEASUREMENTS
 from . import InputProblem, Template, register
-
-MEASUREMENTS = ["VPP", "VMAX", "VMIN", "VAMPlitude", "VRMS", "VAVerage", "FREQuency", "PERiod"]
 
 
 def _f(default: Any, title: str, title_en: str, description: str, unit: str | None = None, **kw: Any) -> Any:
@@ -676,45 +675,43 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     }  # fmt: skip
     if adc.offset_sign == "subtract":
         xfer["offset"] = "subtract"
-    # A memory deeper than the points read: the points are spread over the record and the preamble
-    # describes what is sent (format, type, points, count, x and y increments, origins, references).
-    declared = tb.memory_depth is not None
-    if declared:
-        kind = (
-            {"setting": "acquire.type", "map": {"NORMal": 0, "PEAK": 1, "AVERage": 2}}
-            if has_types
-            else {"value": 0}
-        )
-        count = (
-            {"setting": "acquire.count", "when": {"acquire.type": "AVERage"}, "else": 1}
-            if "AVERage" in aq.types
-            else {"value": 1}
-        )
+    # The preamble is declared, not coded (format, type, points, count, x and y increments,
+    # origins, references); a memory deeper than the points read spreads them over the record.
+    kind = (
+        {"setting": "acquire.type", "map": {"NORMal": 0, "PEAK": 1, "AVERage": 2}}
+        if has_types
+        else {"value": 0}
+    )
+    count = (
+        {"setting": "acquire.count", "when": {"acquire.type": "AVERage"}, "else": 1}
+        if "AVERage" in aq.types
+        else {"value": 1}
+    )
+    if tb.memory_depth is not None:
         if di.points_mode:  # NORMal: the screen's 1000 points at most
             xfer |= {
                 "max_points": {"from": "$waveform.points_mode", "map": {"NORMal": 1000}, "default": 0},
                 "over_limit": "truncate",
             }
-        xfer |= {
-            "count": "$waveform.points",
-            "count_mode": "spread",
-            "header": {
-                "encoding": "text",
-                "separator": ",",
-                "fields": [
-                    {"setting": "waveform.format", "map": {"BYTE": 0, "WORD": 1, "ASCii": 4}},
-                    kind,
-                    {"figure": "points"},
-                    count,
-                    {"figure": "x_increment", "format": "%.9E"},
-                    {"figure": "x_start", "format": "%.9E"},
-                    {"value": 0},
-                    {"figure": "y_increment", "format": "%.6E"},
-                    {"figure": "y_origin", "format": "%.6E"},
-                    {"figure": "y_reference"},
-                ],
-            },
-        }
+        xfer |= {"count": "$waveform.points", "count_mode": "spread"}
+    xfer |= {
+        "header": {
+            "encoding": "text",
+            "separator": ",",
+            "fields": [
+                {"setting": "waveform.format", "map": {"BYTE": 0, "WORD": 1, "ASCii": 4}},
+                kind,
+                {"figure": "points"},
+                count,
+                {"figure": "x_increment", "format": "%+.6E"},
+                {"figure": "x_start", "format": "%+.6E"},
+                {"value": 0},
+                {"figure": "y_increment", "format": "%+.6E"},
+                {"figure": "y_origin", "format": "%+.6E"},
+                {"figure": "y_reference"},
+            ],
+        },
+    }
 
     zmap = {z.name: z.ohms for z in ch.impedances}
     cmap = {z.name: z.capacitance_f for z in ch.impedances}
@@ -766,7 +763,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         {"header": ":WAVeform:UNSigned", "state": "waveform.unsigned"},
         {"header": ":WAVeform:POINts", "state": "waveform.points"},
         *([{"header": ":WAVeform:POINts:MODE", "state": "waveform.points_mode"}] if di.points_mode else []),
-        {"header": ":WAVeform:PREamble", "op": "xfer.header" if declared else "acq.preamble", "set": False},
+        {"header": ":WAVeform:PREamble", "op": "xfer.header", "set": False},
         {"header": ":WAVeform:DATA", "op": "xfer.data", "set": False},
     ]
     for m in x.measurements:
