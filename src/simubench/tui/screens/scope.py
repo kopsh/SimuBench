@@ -167,7 +167,9 @@ class ScopeScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
-        Binding("question_mark", "reason", show=False),
+        Binding("left_square_bracket", "switch_instrument(-1)", show=False),
+        Binding("right_square_bracket", "switch_instrument(1)", show=False),
+        Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
 
     def __init__(self, name: str) -> None:
@@ -241,19 +243,27 @@ class ScopeScreen(ControlEditingScreen):
         if app.sid is None or app.conn != "connected":
             return
         data = self.frame
-        if data is None or not data.get("running"):
+        if data is None:
             return
         cols, _rows = self._wave_size()
-        await app.refresh_scope_frame(self.instrument_name, max(2, cols * 2))
+        points = max(2, cols * 2)
+        # A running scope follows at 200 ms; a stopped one is fetched once at this screen's dot
+        # width — the frame the app holds from its own fetch is raw and the trace would not draw.
+        if not data.get("running") and app.scope_points.get(self.instrument_name) == points:
+            return
+        await app.refresh_scope_frame(self.instrument_name, points)
 
     # ---- rendering ------------------------------------------------------------------------------------
 
     def _wave_size(self) -> tuple[int, int]:
-        """The trace area in characters: width − 27 with the settings column, height fitting (6.1)."""
+        """The trace area in characters: the wave box's inner width, height fitting (6.1)."""
         app: Any = self.app
         width = app.size.width or 100
         height = app.size.height or 32
-        cols = max(20, width - 30)
+        # The box's inner width — a row wider than that wraps and doubles every trace row. Before
+        # the first layout: the screen less the settings column (26), its margin (1) and the wave
+        # box's border and padding (4).
+        cols = max(20, self._wave_static.size.width or width - 31)
         rows = max(6, height - 16)
         return cols, rows
 
@@ -469,10 +479,10 @@ class ScopeScreen(ControlEditingScreen):
             ("r", i18n.t("keys.runStop", lang)),
             ("s", i18n.t("keys.single", lang)),
             ("c", i18n.t("keys.channels", lang)),
-            ("⏎/e", i18n.t("keys.edit", lang)),
-            ("+", "- " + i18n.t("keys.step", lang)),
-            (":", i18n.t("keys.scpi", lang)),
-            ("?", i18n.t("keys.reason", lang)),
+            ("⏎", i18n.t("keys.edit", lang)),
+            ("[ ]", i18n.t("keys.nextInstrument", lang)),
+            ("w", i18n.t("keys.reason", lang)),
+            ("?", i18n.t("keys.help", lang)),
             ("q", i18n.t("common.quit", lang)),
         ]
 

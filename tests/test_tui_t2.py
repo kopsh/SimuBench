@@ -169,48 +169,126 @@ async def test_multimeter_screen_shows_panel_readouts():
         assert "Log · dmm" in text
 
 
-# ---- edits write through configure (the dialog rejects out-of-range before any write) ----------------
+# ---- fields are edited where they stand (tui-screens.md 5.3) -----------------------------------------
 
 
-async def test_edit_number_writes_configure_and_shows_range_error():
-    """⏎ opens the edit dialog; a value with a unit converts; out-of-range stays in the dialog."""
+def _field(tui: SimuBenchApp, path: str):
+    from simubench.tui.screens.instrument import ControlButton
+
+    return next(b for b in tui.screen.query(ControlButton) if b.control.path == path)
+
+
+async def test_a_setting_is_a_field_that_shows_its_value():
+    """A setting reads ``label value`` — the value is where the label is, not on another block."""
+    tui, _fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        await pilot.pause(0.3)
+        assert str(_field(tui, "source.voltage.level")._text) == "Voltage level 15.000 V"
+        assert str(_field(tui, "source.function")._text) == "Source function VOLTage"
+
+
+async def test_edit_number_in_place_converts_units_and_writes():
+    """⏎ turns a number field into an editor: type, ⏎ writes; ``7.5V`` converts."""
     tui, fake = unit_app(fresh(SMU_BENCH))
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await open_instrument(pilot, tui, "smu")
-        from simubench.tui.screens.dialogs import NumberEditScreen
-        from simubench.tui.screens.instrument import ControlButton
-
-        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "source.voltage.level")
+        button = _field(tui, "source.voltage.level")
         button.focus()
         await pilot.pause(0.1)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(tui.screen, NumberEditScreen), message="edit dialog")
-        text = await wait_flat(pilot, tui, "Range")
-        assert "Current  15.000 V" in text and "-210.000 V … 210.000 V" in text
+        await pilot.pause(0.1)
+        assert button.edit is not None  # editing where it stands: no dialog
+        assert type(tui.screen).__name__ == "InstrumentScreen"
+        text = await wait_flat(pilot, tui, "-210.000 V … 210.000 V")  # the range, under the field
+        assert "accepts" in text  # the formats the field takes (it wraps in a narrow box)
         for ch in "7.5V":
             await pilot.press(ch)
+        assert str(button._text).startswith("Voltage level 7.5V")
         await pilot.press("enter")
         await wait_for(
             pilot, lambda: ("smu", "source.voltage.level", 7.5) in fake.configures, message="write"
         )
         assert state_of(tui, "smu", "source.voltage.level") == 7.5
+        assert button.edit is None
 
-        # Out of range: rejected inside the dialog, nothing written.
-        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "source.voltage.level")
+
+async def test_an_out_of_range_number_stays_in_the_field_and_writes_nothing():
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        button = _field(tui, "source.voltage.level")
         button.focus()
         await pilot.pause(0.1)
         await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(tui.screen, NumberEditScreen), message="edit dialog again")
         for ch in "999":
             await pilot.press(ch)
         await pilot.press("enter")
         await pilot.pause(0.2)
         assert "out of range" in _flat(tui)
+        assert button.edit is not None  # still editing: correct the number
+        await pilot.press("backspace", "backspace", "backspace")
         await pilot.press("escape")
         await pilot.pause(0.1)
-        assert state_of(tui, "smu", "source.voltage.level") == 7.5
-        assert len(fake.configures) == 1
+        assert button.edit is None and type(tui.screen).__name__ == "InstrumentScreen"
+        assert fake.configures == []
+
+
+async def test_escape_cancels_an_edit_and_the_screens_keys_stay_out_while_typing():
+    """While a field is edited ``e``, ``w``, ``L`` … are typed or ignored, never the screen's keys."""
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        button = _field(tui, "source.voltage.level")
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("enter")
+        await pilot.press("5", "e", "w")  # 'e' is an exponent here, 'w' must not open the reason dialog
+        assert button.edit.buffer == "5ew"
+        assert type(tui.screen).__name__ == "InstrumentScreen"
+        await pilot.press("escape")
+        await pilot.pause(0.1)
+        assert button.edit is None and fake.configures == []
+
+
+async def test_select_field_cycles_with_arrows_and_writes_on_enter():
+    """An enum: ⏎ opens it in place, ←/→ cycle the options, ⏎ writes (tui-screens.md 5.3)."""
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        button = _field(tui, "source.function")
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("enter")
+        await pilot.pause(0.1)
+        assert "◂ VOLTage ▸" in str(button._text)
+        await pilot.press("right")
+        assert "◂ CURRent ▸" in str(button._text)
+        await pilot.press("enter")
+        await wait_for(
+            pilot, lambda: fake.configures and fake.configures[-1][1] == "source.function", message="write"
+        )
+        assert fake.configures[-1][2] == "CURRent"
+        assert state_of(tui, "smu", "source.function") == "CURRent"
+
+
+async def test_cancelling_a_select_writes_nothing():
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        button = _field(tui, "source.function")
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("enter", "right", "escape")
+        await pilot.pause(0.1)
+        assert button.edit is None and fake.configures == []
+        assert str(button._text) == "Source function VOLTage"
 
 
 def _flat(tui: SimuBenchApp) -> str:
@@ -219,29 +297,28 @@ def _flat(tui: SimuBenchApp) -> str:
     return flat(tui)
 
 
-async def test_select_dialog_writes_option():
-    """An enum's ⏎ lists the option_labels; picking one writes it (tui-screens.md 5.3)."""
-    tui, fake = unit_app(fresh(SMU_BENCH))
+async def test_brackets_step_through_the_bench_and_esc_still_goes_back_to_the_overview():
+    """``]`` / ``[`` swap the screen for the next / previous instrument; Esc returns to the overview."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
-        await open_instrument(pilot, tui, "smu")
-        from simubench.tui.screens.dialogs import SelectScreen
-        from simubench.tui.screens.instrument import ControlButton
-
-        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "source.function")
-        button.focus()
-        await pilot.pause(0.1)
-        await pilot.press("enter")
-        await wait_for(pilot, lambda: isinstance(tui.screen, SelectScreen), message="select dialog")
-        text = _flat(tui)
-        assert "VOLTage" in text and "CURRent" in text
-        await pilot.press("down")
-        await pilot.press("enter")
+        await open_instrument(pilot, tui, "awg")
+        names = [i["name"] for i in tui.session_info["instruments"]]
+        assert names[:2] == ["awg", "scope"]
+        await pilot.press("right_square_bracket")
         await wait_for(
-            pilot, lambda: fake.configures and fake.configures[-1][1] == "source.function", message="write"
+            pilot,
+            lambda: type(tui.screen).__name__ == "ScopeScreen" and tui.screen.instrument_name == "scope",
+            message="the scope screen",
         )
-        assert fake.configures[-1][2] == "CURRent"
-        assert state_of(tui, "smu", "source.function") == "CURRent"
+        await pilot.press("left_square_bracket")
+        await wait_for(
+            pilot,
+            lambda: type(tui.screen).__name__ == "InstrumentScreen" and tui.screen.instrument_name == "awg",
+            message="back to the awg",
+        )
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: type(tui.screen).__name__ == "OverviewScreen", message="the overview")
 
 
 async def test_step_and_switch_writes():
@@ -424,8 +501,33 @@ async def test_screen_points_requested_at_dot_width():
         await settle(pilot, tui)
         await open_instrument(pilot, tui, "scope")
         await wait_flat(pilot, tui, "CH1 50.0 mV/div")
-        # The screen fetched its frame at its own dot width (100 − 30) × 2.
-        await wait_for(pilot, lambda: ("scope", 140) in fake.screen_requests, message="points request")
+        # The screen fetched its frame at its own dot width: the wave box's inner width (100 − 31)
+        # × 2 — 26 for the settings column, 1 margin, 4 for the box's border and padding.
+        await wait_for(pilot, lambda: ("scope", 138) in fake.screen_requests, message="points request")
+
+
+async def test_wave_rows_fit_the_wave_box():
+    """A trace row wider than the box wraps and doubles every row (the grid and the trace with it)."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        await wait_flat(pilot, tui, "CH1 50.0 mV/div")
+        await pilot.pause(0.5)
+        cols, _rows = tui.screen._wave_size()
+        assert cols == tui.screen._wave_static.size.width
+
+
+async def test_a_refetched_scope_frame_keeps_its_dot_width():
+    """A stopped scope's frame is fetched once at the screen's dot width, and a later fetch (an event,
+    a reconnect) asks for the same binning — a raw frame has no min/max and the trace draws nothing."""
+    tui, fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        await wait_for(pilot, lambda: ("scope", 138) in fake.screen_requests, message="points request")
+        await tui._fetch_instruments({"scope"})
+        assert fake.screen_requests[-1] == ("scope", 138)
 
 
 # ---- the reason dialog (tui-screens.md 9.1) ------------------------------------------------------------
@@ -455,7 +557,7 @@ async def test_reason_dialog_on_limited_smu():
         await open_instrument(pilot, tui, "smu")
         text = await wait_flat(pilot, tui, "reason", "CC", "▲")  # the 5.4 reason line
         assert "current reached its limit" in text
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_flat(pilot, tui, "constant current (CC)")
         assert "source.voltage.level" in text and "15.000 V" in text
         assert "← 00:00:00.020" in text and "Script" in text and ":SOUR:VOLT 15" in text
@@ -494,7 +596,7 @@ async def test_reason_dialog_names_error_and_classification():
             ),
         )
         await open_instrument(pilot, tui, "smu")
-        await pilot.press("question_mark")
+        await pilot.press("w")
         text = await wait_flat(pilot, tui, "Reason · smu error -222")
         assert ":SOUR:VOLT 999" in text and "Script" in text
         assert "Bad parameter" in text and "source.voltage.level" in text and "-210 … 210 V" in text
@@ -659,3 +761,62 @@ async def test_overview_enter_opens_screens_and_parts_open_nets():
 
         await wait_for(pilot, lambda: isinstance(tui.screen, InstrumentScreen), message="instrument screen")
         assert tui.screen.instrument_name == "awg"
+
+
+async def test_question_mark_opens_the_key_help_of_the_screen():
+    """``?`` lists the keys of the screen in front, read from its bindings; Esc closes it."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "awg")
+        await pilot.press("question_mark")
+        text = await wait_flat(pilot, tui, "Keys · awg", "Why: the chain behind this state", "SCPI console")
+        assert "Esc or ? closes" in text
+        await pilot.press("escape")
+        await wait_for(pilot, lambda: type(tui.screen).__name__ == "InstrumentScreen", message="help closed")
+
+
+async def test_the_attention_strip_lists_what_is_wrong_and_p_jumps_to_it():
+    """One strip above the cards names every alert; ``p`` focuses the next card that has one.
+    The dumped scope carries a -113 in its queue."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        text = await wait_flat(pilot, tui, "ATTENTION", "scope -113 Undefined header")
+        assert "p problem" in text
+        # A rebuild of the cards (new data) can land under the key; pressing again is what a user does.
+        for _ in range(30):
+            await pilot.press("p")
+            await pilot.pause(0.1)
+            if getattr(tui.screen.focused, "card", None) and tui.screen.focused.card.name == "scope":
+                break
+        assert tui.screen.focused.card.name == "scope"
+
+
+async def test_the_strip_is_quiet_when_all_is_well_and_w_says_so():
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        for inst in tui.session_info["instruments"]:
+            inst["errors"] = []
+        tui.bump()
+        await wait_flat(pilot, tui, "All clear")
+        await pilot.press("1")
+        await pilot.press("w")
+        await wait_flat(pilot, tui, "Nothing to explain on this card")
+
+
+async def test_the_virtual_time_stays_on_a_narrow_top_bar_and_the_bench_name_gives_way():
+    """At 100 columns the bar has no room for a long bench name and the clock: the name is cut."""
+    fixture = fresh(SCOPE_BENCH)
+    fixture["session"]["bench"] = {
+        **fixture["session"].get("bench", {}),
+        "name": "A very long bench name indeed",
+    }
+    tui, _fake = unit_app(fixture)
+    tui._bench_name = "A very long bench name indeed " * 2
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        text = await wait_flat(pilot, tui, "SimuBench")
+        first = text.split("\n")[0]
+        assert "t = 00:00:00" in first and "…" in first, first

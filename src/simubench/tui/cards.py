@@ -9,12 +9,13 @@ is unit-testable without a terminal.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from .fmt import braille, fmt
 from .i18n import t
+from .reasons import active_faults
 
 #: Segments of one line: (text, style tokens).
 Line = list[tuple[str, str]]
@@ -26,6 +27,20 @@ ARROWS = {"in": "←", "out": "→", "inout": "→"}
 
 
 @dataclass
+class Alert:
+    """One thing wrong on a card: ``kind`` is ``fault`` | ``limit`` | ``error``; ``tone`` the
+    colour token its text takes. The card's status light and the attention strip both read these,
+    so they cannot disagree."""
+
+    kind: str
+    text: str
+
+    @property
+    def tone(self) -> str:
+        return "focus" if self.kind == "limit" else "bad"
+
+
+@dataclass
 class CardData:
     """One overview card: its title, numbered key, body lines and whether anything is wrong."""
 
@@ -33,8 +48,12 @@ class CardData:
     number: int = 0  # 1–9; 0 from the tenth card on
     title: Line = field(default_factory=list)
     lines: list[Line] = field(default_factory=list)
-    problems: list[str] = field(default_factory=list)  # what `?` will explain (T2)
+    alerts: list[Alert] = field(default_factory=list)  # what `w` will explain
     remote: bool = False
+
+    @property
+    def problems(self) -> list[str]:
+        return [a.text for a in self.alerts]
 
     @property
     def title_text(self) -> str:
@@ -381,6 +400,54 @@ def _port_line(
     return segments
 
 
+_OUTPUT_PATH = re.compile(r"^(output(\.enabled)?|ch\d+\.output)$")
+
+
+def _alerts(
+    info: Mapping[str, Any],
+    readings: Mapping[str, Any] | None,
+    faults: Sequence[Mapping[str, Any]] | None,
+    lang: str,
+) -> list[Alert]:
+    """Faults first, then the SMU's limit, then the error queue (tui-screens.md 4.2)."""
+    errors = info.get("errors", [])
+    out = [
+        Alert(
+            "fault",
+            t("attention.fault", lang, id=f.get("id", ""), kind=(f.get("spec") or {}).get("kind", "")),
+        )
+        for f in active_faults(faults, info["name"], {int(e["code"]) for e in errors})
+    ]
+    if bool(_read(readings, "core.limited")):
+        regulation = str(_read(readings, "core.regulation") or "CC")
+        key = "cards.ccLimited" if regulation == "CC" else "cards.cvLimited"
+        limit = fmt(_read(readings, "core.limit"), "A" if regulation == "CC" else "V")
+        out.append(Alert("limit", f"{regulation} " + t(key, lang, limit=limit)))
+    if errors:
+        last = errors[-1]
+        more = f" (+{len(errors) - 1})" if len(errors) > 1 else ""
+        out.append(Alert("error", f"{last['code']} {last['message']}{more}"))
+    return out
+
+
+def _is_active(state: Mapping[str, dict], template: str | None, screen: Mapping[str, Any] | None) -> bool:
+    """Running or outputting: a scope that is acquiring, or any output switch that is on."""
+    if template == "oscilloscope":
+        return bool((screen or {}).get("running"))
+    return any(bool(sv.get("value")) for path, sv in state.items() if _OUTPUT_PATH.match(path))
+
+
+def status_light(card: CardData, active: bool) -> tuple[str, str]:
+    """The card's light: ``▲`` amber at a limit, red ``●`` on a fault or error, green ``●`` while
+    running or outputting, a muted ``○`` otherwise — and the word is always in the alert text."""
+    kinds = {a.kind for a in card.alerts}
+    if kinds & {"fault", "error"}:
+        return "●", "bad"
+    if "limit" in kinds:
+        return "▲", "focus"
+    return ("●", "ok") if active else ("○", "muted")
+
+
 def instrument_card(
     info: Mapping[str, Any],
     session: Mapping[str, Any],
@@ -388,8 +455,9 @@ def instrument_card(
     level_of: Callable,
     screen: Mapping[str, Any] | None,
     lang: str,
+    faults: Sequence[Mapping[str, Any]] | None = None,
 ) -> CardData:
-    """One instrument's card (tui-screens.md 4.2)."""
+    """One instrument's card (tui-screens.md 4.2): a status light, the key readings, the wiring."""
     state = _state_map(info)
     template = (info.get("display") or {}).get("template")
     if template == "oscilloscope":
@@ -402,17 +470,13 @@ def instrument_card(
         rows = meter_rows(info, readings, lang)
     else:
         rows = generic_rows(info, state, lang)
-    lines = [
-        [(info.get("idn", ""), "")],
-        *rows,
-        _wiring_line(info, session, lang),
-        _error_line(info, lang),
-    ]
+    lines = [*rows, _wiring_line(info, session, lang), _error_line(info, lang)]
     title: Line = [(info["name"], ""), (f" · {info['model']}", "muted")]
     card = CardData(name=info["name"], title=title, lines=lines)
     card.remote = bool(info.get("remote")) and not info.get("local")
-    for e in info.get("errors", []):
-        card.problems.append(f"{e['code']} {e['message']}")
+    card.alerts = _alerts(info, readings, faults, lang)
+    glyph, tone = status_light(card, _is_active(state, template, screen))
+    card.title.insert(0, (glyph + " ", tone))
     return card
 
 
@@ -443,6 +507,7 @@ def build_cards(
     screens: Mapping[str, Mapping[str, Any]] | None = None,
     catalog: Mapping[str, Any] | None = None,
     lang: str = "zh",
+    faults: Sequence[Mapping[str, Any]] | None = None,
 ) -> list[CardData]:
     """All cards in bench-file order (instruments then parts), numbered 1–9 (tui-screens.md 4.1)."""
     readings = readings or {}
@@ -456,7 +521,7 @@ def build_cards(
     for info in session.get("instruments", []):
         cards.append(
             instrument_card(
-                info, session, readings.get(info["name"]), level_of, screens.get(info["name"]), lang
+                info, session, readings.get(info["name"]), level_of, screens.get(info["name"]), lang, faults
             )
         )
     for part in session.get("parts", []):

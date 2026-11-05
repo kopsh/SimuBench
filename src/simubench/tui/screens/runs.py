@@ -129,7 +129,7 @@ class RunsScreen(ShellScreen):
 
     DEFAULT_CSS = """
     RunsScreen {
-        #runs-box { height: 1fr; border: round $muted 60%; border-title-align: left; }
+        #runs-box { height: 1fr; border: round $line; border-title-color: $hud; border-title-align: left; }
         #runs-list { padding: 0 1; }
         #runs-detail-box { display: none; height: auto; border: round $panel; padding: 0 1; }
     }

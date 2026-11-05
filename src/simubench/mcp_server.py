@@ -689,8 +689,11 @@ def build_server(
     @mcp.tool()
     async def start_session(
         path: str,
-        clock: Literal["command", "wall", "stepped"] | None = None,
+        clock: Literal["command", "wall", "stepped", "scaled"] | None = None,
         seed: int | None = None,
+        time_scale: float | None = Field(
+            None, description="For clock=scaled: virtual seconds per real second (default 1)"
+        ),
         force: bool = Field(
             False,
             description="Required while scripts are connected to the ports: starting replaces the running bench and drops them",
@@ -701,7 +704,7 @@ def build_server(
         Refused while scripts are connected to the ports, unless force=true."""
         guard()
         try:
-            s = await manager.start(path, clock=clock, seed=seed, force=force)
+            s = await manager.start(path, clock=clock, seed=seed, force=force, time_scale=time_scale)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
         except Exception as exc:

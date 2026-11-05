@@ -147,13 +147,13 @@ function BenchProperties({ doc }: { doc: BenchDocument }) {
           <Field label={t("edit.clock")}>
             <Select
               value={String(run.clock ?? "command")}
-              onValueChange={(v) => void applyOps([{ op: "set_run", clock: v as "command" | "wall" | "stepped" }])}
+              onValueChange={(v) => void applyOps([{ op: "set_run", clock: v as "command" | "wall" | "stepped" | "scaled" }])}
             >
               <SelectTrigger size="sm" className="h-7 w-full text-xs" aria-label={t("edit.clock")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(["command", "wall", "stepped"] as const).map((m) => (
+                {(["command", "wall", "stepped", "scaled"] as const).map((m) => (
                   <SelectItem key={m} value={m} className="text-xs">
                     {t(`workbench.clockMode.${m}`)}
                   </SelectItem>
@@ -161,6 +161,18 @@ function BenchProperties({ doc }: { doc: BenchDocument }) {
               </SelectContent>
             </Select>
           </Field>
+          {run.clock === "scaled" && (
+            <Field label={t("edit.timeScale")}>
+              <TextField
+                value={String(run.time_scale ?? 1)}
+                numeric
+                onCommit={(v) => {
+                  const n = Number.parseFloat(v);
+                  if (Number.isFinite(n) && n > 0) void applyOps([{ op: "set_run", time_scale: n }]);
+                }}
+              />
+            </Field>
+          )}
           <Field label={t("edit.revealTrue")} hint={t("edit.revealTrueHint")}>
             <Switch
               checked={!!run.reveal_true_values}

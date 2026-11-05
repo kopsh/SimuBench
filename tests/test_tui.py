@@ -13,6 +13,7 @@ import threading
 import time
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import ClassVar
 
 import httpx
 import pytest
@@ -411,7 +412,7 @@ async def test_overview_renders_cards_from_the_real_session(served):
         assert [c.card.name for c in cards] == ["awg", "scope", "rc"]
         assert cards[0].card.number == 1 and cards[2].card.number == 3
         text = flat(tui)
-        assert "1 awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text
+        assert "1 ○ awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text  # ○: idle (4.2)
         assert "SDG2042X" in text and "SDS2104X Plus" in text
         # The top bar carries the D44 activity, the clock mode and the virtual time.
         assert "● waiting for commands · Command-driven clock" in text
@@ -768,3 +769,13 @@ def test_tui_without_textual_exits_2(monkeypatch, capsys):
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: None if name == "textual" else real(name))
     assert cli.main(["tui", "whatever.bench.yaml"]) == 2
     assert TEXT in capsys.readouterr().err
+
+
+def test_the_scaled_clock_shows_its_rate_in_the_activity_status():
+    from simubench.tui.widgets import clock_activity
+
+    class App:
+        clock: ClassVar = {"mode": "scaled", "now_ns": 0, "scale": 10.0}
+
+    assert clock_activity(App(), "en", "scaled", busy=False)[-1][0] == "clock running ×10"
+    assert clock_activity(App(), "en", "wall", busy=False)[-1][0] == "clock running"

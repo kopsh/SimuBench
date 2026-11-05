@@ -85,6 +85,9 @@ class FakeClient:
     async def screen(self, sid: str, name: str, points: int | None = None) -> dict[str, Any]:
         self.screen_requests.append((name, points))
         key = f"screen_{name}_{points}" if points else f"screen_{name}"
+        if key not in self._fixture and points:
+            # The dumped binned frame stands for any dot width (its content, not its width, is canned).
+            key = next(k for k in self._fixture if k.startswith(f"screen_{name}_"))
         return self._fixture[key]
 
     async def probe(self, sid: str, net: str) -> dict[str, Any]:

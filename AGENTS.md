@@ -14,6 +14,8 @@ section (`grep -n '^#' docs/<file>.md`, then `sed -n`). That saves most of the t
 - `real-model`: a real instrument model (definition YAML, coverage, cases, example bench).
 - `component`: a new or split generic component (`核心`).
 - `web-ui`: the Web Bench (`web/`), API types, i18n.
+- `tui-ui`: the terminal console (`src/simubench/tui/`), Textual screens, colour tokens, snapshots.
+- `bugfix`: a defect or a `[建议]` follow-up issue: reproduce, regression test, doc and coverage sync.
 
 **Skills must not go stale.** A pull request that changes something a skill states (a path, a
 command, a check, a rule, a workflow step, a decision it cites) updates that skill in the same pull

@@ -106,28 +106,6 @@ def smu_rows(lang: str, state: dict[str, dict], readings: dict[str, Any]) -> lis
     ]
 
 
-def generator_rows(lang: str, state: dict[str, dict], channel: int) -> list[list[tuple[str, str]]]:
-    rows: list[tuple[str, str, bool]] = []
-    for path in (
-        f"ch{channel}.output",
-        f"ch{channel}.function",
-        f"ch{channel}.frequency",
-        f"ch{channel}.amplitude",
-        f"ch{channel}.offset",
-        f"ch{channel}.phase",
-        f"ch{channel}.load",
-        f"ch{channel}.inverted",
-    ):
-        sv = state.get(path)
-        if sv is None:
-            continue
-        label = C.label_of(sv, lang, fallback=path.rsplit(".", 1)[-1])
-        value = C.summary_text(sv.get("value"), sv, lang)
-        rows.append((label, value, isinstance(sv.get("value"), (int, float))))
-    width = 1 + max((cell_len(label) for label, _, _ in rows), default=5)
-    return [row(label, value, bold=bold, width=width) for label, value, bold in rows]
-
-
 def panel_rows(
     lang: str,
     info: dict[str, Any],
@@ -184,7 +162,7 @@ def readings_rows(readings: dict[str, Any]) -> list[list[tuple[str, str]]]:
 
 
 def spectrum_rows(
-    lang: str, readings: dict[str, Any], state: dict[str, dict], width: int
+    lang: str, readings: dict[str, Any], state: dict[str, dict], width: int, budget: int | None = None
 ) -> list[list[tuple[str, str]]]:
     """The analyzer's trace as braille (4 rows of dots per text row), the marker, RBW/VBW and
     sweep time, then its settings (#282) — the same data the web screen draws."""
@@ -225,7 +203,7 @@ def spectrum_rows(
         if line:
             rows.append(line)
     rows.append([("", "")])
-    return rows + generic_rows(lang, state, width)
+    return rows + generic_rows(lang, state, width, budget - len(rows) if budget is not None else None)
 
 
 def rf_rows(
@@ -350,12 +328,15 @@ def lockin_rows(
     return rows + generic_rows(lang, state, width)
 
 
-def generic_rows(lang: str, state: dict[str, dict], width: int | None = None) -> list[list[tuple[str, str]]]:
-    """State variables grouped by first path segment, as many columns as fit (5.2)."""
+def generic_rows(
+    lang: str, state: dict[str, dict], width: int | None = None, budget: int | None = None
+) -> list[list[tuple[str, str]]]:
+    """State variables grouped by first path segment, as many columns as fit (5.2); a group
+    block the ``budget`` has no room for is left out whole (#374)."""
     groups: dict[str, list[str]] = {}
     for path in state:
         groups.setdefault(path.split(".", 1)[0], []).append(path)
-    return grouped_columns(lang, groups, state, width)
+    return grouped_columns(lang, groups, state, width, budget)
 
 
 def grouped_columns(

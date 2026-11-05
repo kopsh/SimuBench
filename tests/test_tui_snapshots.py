@@ -125,6 +125,12 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
             strips = tui.screen._compositor.render_strips()
             flat_text = "\n".join("".join(seg.text for seg in strip) for strip in strips)
             if "measured" in flat_text or "9.9" in flat_text:  # the smu card's readings rendered
+                # The log drawer shows the newest rows, and the demo service has served other tests'
+                # commands by now: pin the log to the demo's own first records so the picture does
+                # not depend on which tests ran before it.
+                del tui.lines[6:]
+                tui.bump()
+                await pilot.pause(0.5)
                 return
         raise AssertionError("the overview never settled")
 
@@ -187,6 +193,42 @@ def test_instrument_smu_snapshot(snap_compare, demo_server, lang, size, name):
             if "SB-SMU-1" in text and "-222" in text:
                 return
         raise AssertionError("the smu screen never settled")
+
+    assert snap_compare(tui, terminal_size=size, run_before=run_before)
+
+
+@pytest.mark.parametrize(
+    ("lang", "size", "name"),
+    [
+        ("en", (100, 32), "state-tree-en-100x32"),
+        ("en", (80, 24), "state-tree-en-80x24"),
+    ],
+)
+def test_state_tree_snapshot(snap_compare, demo_server, lang, size, name):
+    """``t`` on the smu screen, then ``h`` (tui-screens.md 5.6): groups, fields, the hidden section."""
+    url, sid = demo_server
+    tui = SimuBenchApp(url, sid=sid)
+
+    async def run_before(pilot) -> None:
+        import asyncio
+
+        await _settle(pilot, tui)
+        await pilot.press("3")
+        await pilot.pause(0.2)
+        await pilot.press("enter")
+        await pilot.pause(1.0)
+        await pilot.press("t")
+        await pilot.pause(0.5)
+        await pilot.press("h")
+        end = asyncio.get_running_loop().time() + 30
+        while asyncio.get_running_loop().time() < end:
+            await pilot.pause(0.1)
+            text = "\n".join(
+                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
+            )
+            if "State · smu" in text and "reveal_true_values" in text:
+                return
+        raise AssertionError("the state tree never settled")
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
 

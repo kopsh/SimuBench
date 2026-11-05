@@ -28,7 +28,7 @@
 | 虚拟探针 | Virtual probe | 不影响电路的信号观察（D16） |
 | 虚拟时间 | Virtual time | 仿真中的时间（D12） |
 | 被动视图 | Passive view | 对运行中测试台的一次一致读：持会话锁、跟随墙钟、可结算到期的等待操作；不推进虚拟时间、不进通信记录（D32、D47）。会话的 `view()` 是唯一入口 |
-| 命令驱动时钟 / 墙钟 / 步进时钟 | Command-driven / Wall / Stepped clock | 三种时钟模式（D12） |
+| 命令驱动时钟 / 墙钟 / 步进时钟 / 按倍率时钟 | Command-driven / Wall / Stepped / Scaled clock | 四种时钟模式（D12、D44；按倍率时钟的虚拟时间 = 真实时间 × 倍率） |
 | 注入故障 | Inject fault | 人为制造通信或仪表故障 |
 | 保真度 | Fidelity | 结果的精确程度标注（精确、近似、超出上限、未建模） |
 | 能力上限 | Model limit | 模型能表达的范围；超出时报错并标注 |

@@ -67,7 +67,7 @@ export function WorkbenchPage() {
     [qc, sid],
   );
   useEventStream(sid, onState);
-  useWallClock(session.data?.clock_mode ?? "", session.data?.now_ns ?? 0);
+  useWallClock(session.data?.clock_mode ?? "", session.data?.now_ns ?? 0, session.data?.time_scale ?? 1);
   const version = useEvents((s) => s.version);
   useEffect(() => {
     window.clearTimeout(refetchTimer.current);
