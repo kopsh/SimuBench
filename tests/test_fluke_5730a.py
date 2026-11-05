@@ -6,14 +6,11 @@ reads the points) and check what a transcript cannot see: the settling time in v
 overload trip back to standby.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
@@ -22,16 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "fluke-5730a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "fluke_5730a_verify.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("fluke_5730a_verify", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session(parts: dict, wires: list):
@@ -56,15 +44,7 @@ def session(parts: dict, wires: list):
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["fluke_5730a_verify.py", "cal", "dmm", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["cal", "dmm"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "FLUKE,5730A,5248000,1.0+B+*"
     assert out[-1] == "fault: 0"
     readings = [float(line.split("->")[1]) for line in out[1:-1]]

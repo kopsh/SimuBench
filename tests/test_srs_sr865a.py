@@ -10,15 +10,13 @@ peak, auto phase settles theta to zero, and the current input reads amperes.
 from __future__ import annotations
 
 import cmath
-import importlib.util
 import math
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
 import yaml
 
+from helpers import load_script, run_manual_script
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -31,16 +29,7 @@ RS, LOAD, C_IN = 50.0, 10e6, 25e-12  # SINE_OUT, SIG_IN input, SIG_IN capacitanc
 AC_CORNER = 0.16  # Hz, ICPL AC
 AMPLITUDE = 0.5  # V rms
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("srs_sr865a_rc_sweep", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def expected(frequency: float) -> complex:
@@ -53,13 +42,9 @@ def expected(frequency: float) -> complex:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    monkeypatch.setattr(
-        sys, "argv", ["srs_sr865a_rc_sweep.py", "TCPIP0::192.168.1.50::INSTR", "--bench", str(bench)]
+    out = run_manual_script(
+        script, ["TCPIP0::192.168.1.50::INSTR"], BENCH, tmp_path, monkeypatch, capsys, rm_wrap=False
     )
-    script.main()
-    out = capsys.readouterr().out.splitlines()
     assert out[0] == "Stanford_Research_Systems,SR865A,003210,v1.55"
     points = [[float(x) for x in line.split(",")] for line in out[1:-2]]
     assert len(points) == len(script.FREQUENCIES)

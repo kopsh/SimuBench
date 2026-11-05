@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.validate_definition import validate_definition
 from simubench.library.loader import DefinitionLibrary
@@ -49,9 +50,7 @@ def open_():
 
 
 def q(s, cmd: str) -> str:
-    s.write("el", (cmd + "\n").encode())
-    out = s.read("el")
-    return out.decode().strip() if out else ""
+    return session_query(s, "el", cmd, default="")
 
 
 def number(s, cmd: str) -> float:

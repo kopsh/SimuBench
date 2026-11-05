@@ -6,29 +6,20 @@ polling synchronization (:SINGle, then :ADER? until 1), and compare what they re
 the bench carries.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 import pyvisa
 
+from helpers import load_script
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "keysight-uxr0334b" / "bench.yaml"
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_uxr_read_waveform.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_uxr_read_waveform", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-reader = _script()
+reader = load_script(SCRIPT)
 
 
 @pytest.fixture

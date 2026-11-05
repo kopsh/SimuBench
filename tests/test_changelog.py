@@ -2,30 +2,22 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
-from types import ModuleType
 
 import pytest
 
 import simubench.cli as cli
+from helpers import load_script
 
 ROOT = Path(__file__).resolve().parents[1]
 DAY = 1_793_750_400  # 2026-11-04 08:00 UTC+8
+SCRIPT = ROOT / "scripts" / "changelog.py"
 
-
-def _script() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("changelog", ROOT / "scripts" / "changelog.py")
-    assert spec and spec.loader
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod  # dataclasses look their module up there
-    spec.loader.exec_module(mod)
-    return mod
+script = load_script(SCRIPT)  # dataclasses look their module up in sys.modules, load_script puts it there
 
 
 def _history():
-    m = _script()
+    m = script
     commits = [
         m.Commit("a", DAY, "型号 A", ["src/simubench/library/instruments/a.yaml"]),
         m.Commit("b", DAY + 60, "CI:合并机器人", [".github/workflows/ci.yml"]),
@@ -88,8 +80,8 @@ def test_cli_without_a_packaged_changelog_says_where_it_comes_from(tmp_path, mon
     ],
 )
 def test_entry_drops_issue_references_and_the_work_label(subject, line):
-    assert _script().entry(subject) == line
+    assert script.entry(subject) == line
 
 
 def test_entry_keeps_a_note_that_only_mentions_an_issue():
-    assert _script().entry("能力缺口登记 #539/#540") == "能力缺口登记 #539/#540"
+    assert script.entry("能力缺口登记 #539/#540") == "能力缺口登记 #539/#540"

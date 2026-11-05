@@ -5,7 +5,6 @@ tests run the guide's waveform reading procedure (examples/scripts/siglent_sds_r
 and compare what it reconstructs with the signal the bench actually carries.
 """
 
-import importlib.util
 import math
 import shutil
 import sys
@@ -16,20 +15,13 @@ import pytest
 import pyvisa
 import yaml
 
+from helpers import load_script
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "siglent-sds2104xplus" / "bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "siglent_sds_read_waveform.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("siglent_sds_read_waveform", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-reader = _script()
+reader = load_script(SCRIPT)
 
 
 @pytest.fixture

@@ -6,15 +6,12 @@ the calibration adjustment with a known hidden error, and the input impedance th
 circuit, against hand calculations (the solver's 1e-12 S leak to ground included).
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -24,15 +21,7 @@ SCRIPT = ROOT / "examples" / "scripts" / "keysight_34465a_measure.py"
 GMIN = 1e-12  # engine/circuit.py stamps 1e-12 S from every node to ground
 
 
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_34465a_measure", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def solve(high_z: bool, emf: float = 1.0) -> float:
@@ -59,15 +48,7 @@ def quantized(value: float, range_key: str = "0.1") -> float:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["keysight_34465a_measure.py", "dut", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["dut"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0].startswith("Keysight Technologies,34465A,MY57440001,")
     assert out[-1] == '+0,"No error"'
     # CONF:VOLT:DC 10 selects the 10 V range; the readings quantize by the NPLC table (1e-6 at
@@ -329,9 +310,7 @@ def _bench(parts: dict, wires: list) -> "BenchDefinition":
 
 
 def _q(s, cmd: str) -> str:
-    s.write("dmm", (cmd + "\n").encode())
-    out = s.read("dmm")
-    return out.decode().strip() if out else ""
+    return session_query(s, "dmm", cmd, default="")
 
 
 def test_two_wire_reads_the_leads_four_wire_does_not():

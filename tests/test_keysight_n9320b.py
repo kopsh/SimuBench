@@ -6,14 +6,11 @@ example bench, the automatic RBW/VBW/sweep-time couplings, the trace (1001 point
 at one virtual instant) and the virtual time of a single sweep.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,15 +21,7 @@ POINTS = 1001
 LEVEL_DBM = 3.9793921
 
 
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_n9320b_measure", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session():
@@ -43,21 +32,11 @@ def session():
 
 
 def q(s, command: str) -> str | None:
-    s.write("sa", (command + "\n").encode())
-    out = s.read("sa")
-    return out.decode().strip() if out else None
+    return session_query(s, "sa", command)
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["keysight_n9320b_measure.py", "sa", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["sa"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Keysight Technologies,N9320B,A.01.01.CIDKMNEW,0B.03.03"
     assert out[1] == "marker: 10000000 Hz, 3.979 dBm"
     assert out[2] == "counter: 10000000 Hz"

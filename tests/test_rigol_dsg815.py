@@ -6,14 +6,12 @@ check the parts a SCPI transcript cannot see: the level into a matched load, the
 sweep advancing point by point on the trigger, and a hidden timebase error moving the carrier.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
@@ -23,16 +21,7 @@ EXAMPLE_BENCH = ROOT / "examples" / "benches" / "rigol_dsg815.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "rigol_dsg815_generate.py"
 Z0 = 50.0
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("rigol_dsg815_generate", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def _bench(state: dict | None = None, hidden: dict | None = None) -> BenchDefinition:
@@ -77,19 +66,7 @@ def peaks(dbm: float) -> float:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    bench.write_text(EXAMPLE_BENCH.read_text("utf-8"), "utf-8")
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            ["rigol_dsg815_generate.py", "sg", "--scope", "scope", "--bench", str(bench)],
-        )
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["sg", "--scope", "scope"], EXAMPLE_BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Rigol Technologies,DSG815,DSG8A170200001,00.01.07."
     assert out[1].startswith("AGILENT TECHNOLOGIES,DSO-X 2024A,")
     assert out[2].startswith("carrier: 10.000000 MHz, 1.2")

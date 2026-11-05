@@ -14,6 +14,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.validate_definition import validate_definition
 from simubench.library.loader import DefinitionLibrary
@@ -61,9 +62,7 @@ def open_():
 
 
 def q(s, cmd: str) -> str:
-    s.write("daq", (cmd + "\n").encode())
-    out = s.read("daq")
-    return out.decode().strip() if out else ""
+    return session_query(s, "daq", cmd, default="")
 
 
 def numbers(reply: str) -> list[float]:
