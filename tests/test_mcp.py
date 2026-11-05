@@ -12,6 +12,7 @@ pytest.importorskip("mcp")
 
 from mcp import Client
 
+from helpers import mcp_result
 from simubench.mcp_server import RateLimiter, build_server
 from simubench.models import api as M
 from simubench.server.manager import ClientsConnected, SessionManager
@@ -53,12 +54,7 @@ async def connect_script(manager: SessionManager, sid: str, instrument: str) -> 
 
 
 def result(r):
-    if r.is_error:
-        return {"error": r.content[0].text}
-    if r.structured_content is not None:
-        sc = r.structured_content
-        return sc.get("result", sc) if set(sc) == {"result"} else sc
-    return json.loads(r.content[0].text)
+    return mcp_result(r, error_ok=True)
 
 
 async def call(client, tool, /, **args):

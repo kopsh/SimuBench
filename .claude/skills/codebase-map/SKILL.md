@@ -55,8 +55,9 @@ plausible fake).
   wheel and `dist/CHANGELOG.md` by `scripts/build-wheel.sh` (`simubench changelog`).
 - `tests/models/<id>/cases.yaml` — manual cases per model; `tests/definitions/` — test-only defs.
 - `tests/helpers.py` — shared test skeletons: example-script loading, example-bench script runs,
-  session queries, golden-table runners (`*_migration.py`); new per-model files use these instead
-  of copying (#698). TUI mocks: `tests/tui_mock.py`.
+  session queries, golden-table runners (`*_migration.py`), the MCP tool-result unwrap; new
+  per-model files use these instead of copying (#698). TUI mocks and pilot helpers:
+  `tests/tui_mock.py`.
 - Key guard tests: `test_model_components.py` (`ALLOWED`), `test_block_coverage.py` (`EXEMPT`),
   `test_docs_examples.py` (doc snippets run), `test_component_catalog.py`.
 
