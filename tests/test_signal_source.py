@@ -256,11 +256,17 @@ def test_an_out_of_range_write_says_the_bounds_in_its_unit(tmp_path, unit, ampli
     assert state == pytest.approx(before)  # the write was refused whole
 
 
-def test_a_shape_or_load_change_that_breaks_the_vpp_range_is_refused(tmp_path):
+def test_the_range_and_unit_switch_flow(tmp_path):
+    """The unit watcher (D48) on one bench: a shape or load change that breaks the Vpp range is
+    refused, switching units converts the value and keeps the wave, and a refusal after the
+    conversion rolls the value back too, not leaving a value in the wrong unit."""
     definition = _expand(SOURCE.example(), "acme-cal-4")
-    s = open_bench(_bench(tmp_path, definition, "CH1", load=None))
+    s = open_bench(_bench(tmp_path, definition, "CH1", load=50.0))  # the last act measures the wave
     gen = s.instruments["gen"]
     try:
+        # -- a shape or load change that breaks the Vpp range is refused (was
+        # test_a_shape_or_load_change_that_breaks_the_vpp_range_is_refused; the act reads states
+        # only, so the bench's 50 Ω part does not enter it)
         _tx(s, ":CHANnel1:AMPLitude:UNIT VRMS")
         _tx(s, ":CHANnel1:BASE:AMPLitude 4.5")  # a square of 9 Vpp: in range
         _tx(s, ":CHANnel1:BASE:WAVe SINe")  # a sine of 12.7 Vpp: not
@@ -277,15 +283,9 @@ def test_a_shape_or_load_change_that_breaks_the_vpp_range_is_refused(tmp_path):
         _tx(s, ":CHANnel1:BASE:WAVe SQUare")  # 0.8 mVpp: below it
         assert "-221" in _err(s)
         assert gen.get_state("ch1.function") == "SINe"  # the shape is what the host wrote
-    finally:
-        s.close()
-
-
-def test_switching_units_converts_the_value_and_keeps_the_wave(tmp_path):
-    definition = _expand(SOURCE.example(), "acme-cal-4")
-    s = open_bench(_bench(tmp_path, definition, "CH1", load=50.0))
-    gen = s.instruments["gen"]
-    try:
+        # -- switching units converts the value and keeps the wave (was
+        # test_switching_units_converts_the_value_and_keeps_the_wave)
+        _tx(s, ":CHANnel1:AMPLitude:UNIT VPP")  # bridge: the act's 1.0 below is a Vpp write
         _tx(s, ":CHANnel1:BASE:WAVe SINe")
         _tx(s, ":CHANnel1:BASE:FREQuency 1000")
         _tx(s, ":CHANnel1:BASE:AMPLitude 1.0")
@@ -308,17 +308,9 @@ def test_switching_units_converts_the_value_and_keeps_the_wave(tmp_path):
             reply = float(_tx(s, ":CHANnel1:BASE:AMPLitude?"))
             assert reply == pytest.approx(value, rel=1e-6)
             assert seen() == pytest.approx(1.0, rel=2e-3)  # the output did not move
-    finally:
-        s.close()
-
-
-def test_a_refusal_after_the_conversion_rolls_the_value_back_too(tmp_path):
-    """The unit watcher writes the converted value as a side effect; a later watcher's refusal must
-    restore it together with the unit, not leave a value in the wrong unit (D48)."""
-    definition = _expand(SOURCE.example(), "acme-cal-4")
-    s = open_bench(_bench(tmp_path, definition, "CH1", load=None))
-    gen = s.instruments["gen"]
-    try:
+        # -- a refusal after the conversion rolls the value back too (was
+        # test_a_refusal_after_the_conversion_rolls_the_value_back_too; the flow's last act: the
+        # watcher it installs stays)
         _tx(s, ":CHANnel1:BASE:AMPLitude 1.0")
         before = gen.get_state("ch1.amplitude")
 

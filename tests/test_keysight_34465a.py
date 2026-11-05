@@ -4,6 +4,10 @@ The manual cases (tests/models/keysight-34465a/ and -impedance/) check command b
 tests run the manual's triggered-measurement example (examples/scripts/keysight_34465a_measure.py),
 the calibration adjustment with a known hidden error, and the input impedance that loads the bench
 circuit, against hand calculations (the solver's 1e-12 S leak to ground included).
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 from pathlib import Path
@@ -60,31 +64,13 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert readings[0] == pytest.approx(want, abs=1e-12)
 
 
-# ---- the input impedance loads the bench circuit (hand calculation, GMIN included) -----------------
+# ---- the input impedance loads the bench circuit, then the ACV of a sine: one flow -----------------
+# (hand calculation, GMIN included)
 
 
-def test_high_z_changes_the_divided_reading():
-    s = open_bench(BENCH)
-    try:
-
-        def q(cmd):
-            s.write("dut", (cmd + "\n").encode())
-            out = s.read("dut")
-            return out.decode().strip() if out else None
-
-        assert q("VOLT:DC:IMP:AUTO OFF") is None
-        low = float(q("MEAS:VOLT:DC?").lstrip("+"))
-        assert q("VOLT:DC:IMP:AUTO ON") is None
-        high = float(q("MEAS:VOLT:DC?").lstrip("+"))
-        assert low == pytest.approx(quantized(solve(False)), abs=1e-12)
-        assert high == pytest.approx(quantized(solve(True)), abs=1e-12)
-        assert high - low == pytest.approx(quantized(solve(True)) - quantized(solve(False)), abs=1e-12)
-        assert high - low > 8.0e-4  # a ~0.9 % loading error the auto impedance removes
-    finally:
-        s.close()
-
-
-def test_acv_of_a_sine_through_the_divider():
+def test_the_input_impedance_and_acv_flow():
+    """The auto impedance removes the ~0.9 % loading error from the divided DC reading; a 1 kHz
+    sine scales through the resistive divider like DC and reads no DC."""
     s = open_bench(BENCH)
     try:
 
@@ -93,6 +79,18 @@ def test_acv_of_a_sine_through_the_divider():
             out = s.read(inst)
             return out.decode().strip() if out else None
 
+        # -- high-Z changes the divided reading (was test_high_z_changes_the_divided_reading)
+        assert q("dut", "VOLT:DC:IMP:AUTO OFF") is None
+        low = float(q("dut", "MEAS:VOLT:DC?").lstrip("+"))
+        assert q("dut", "VOLT:DC:IMP:AUTO ON") is None
+        high = float(q("dut", "MEAS:VOLT:DC?").lstrip("+"))
+        assert low == pytest.approx(quantized(solve(False)), abs=1e-12)
+        assert high == pytest.approx(quantized(solve(True)), abs=1e-12)
+        assert high - low == pytest.approx(quantized(solve(True)) - quantized(solve(False)), abs=1e-12)
+        assert high - low > 8.0e-4  # a ~0.9 % loading error the auto impedance removes
+        # -- bridge: the ACV act's expected loading is the 10 MΩ the fresh bench starts with
+        q("dut", "VOLT:DC:IMP:AUTO OFF")
+        # -- the ACV of a sine through the divider (was test_acv_of_a_sine_through_the_divider)
         q("awg", "C1:BSWV WVTP,SINE,FRQ,1000,AMP,2,OFST,0")
         q("dut", 'FUNC "VOLT:AC"')
         q("dut", "VOLT:DC:RANG:AUTO ON")
@@ -338,41 +336,40 @@ def test_two_wire_reads_the_leads_four_wire_does_not():
     assert four == pytest.approx(two - 10.0, abs=0.5)
 
 
-def test_an_open_input_and_a_too_small_range_read_overload():
-    from simubench.api import open_bench
+# ---- ohms overload and the settled auto range: one flow (#301, #522) -------------------------------
 
+
+def test_the_ohms_overload_and_autorange_flow():
+    """A too-small range reads past its overrange and an empty input reads overload (on a bench
+    of its own); READ? and INIT/FETCh? take the reading after the auto range has settled, as
+    MEASure? does (#522: each ohms range drives its own test current, so the first guess can
+    read open)."""
     s = open_bench(
         _bench({"r1": {"type": "load_resistor", "params": {"r": 4700.0}}}, [{"from": "dmm.IN", "to": "r1.A"}])
     )
     try:
+        # -- a too-small range reads overload (was the first half of
+        # test_an_open_input_and_a_too_small_range_read_overload)
         assert float(_q(s, "MEAS:RES?")) == pytest.approx(4700.0, rel=1e-6)
         _q(s, "CONF:RES 1000")  # 4.7 kΩ on the 1 kΩ range: past its overrange
         assert float(_q(s, "READ?")) == pytest.approx(9.9e37)
         assert _q(s, "CONF?") == '"RES +1.00000000E+03,+1.00000000E-04"'
-    finally:
-        s.close()
-    s = open_bench(_bench({}, []))
-    try:
-        assert float(_q(s, "MEAS:RES?")) == pytest.approx(9.9e37)  # nothing on the input
-    finally:
-        s.close()
-
-
-def test_read_settles_the_ohms_autorange_like_measure():
-    """#522: READ? and INIT/FETCh? take the reading after the auto range has settled, as MEASure?
-    does (each ohms range drives its own test current, so the first guess can read open)."""
-    from simubench.api import open_bench
-
-    s = open_bench(
-        _bench({"r1": {"type": "load_resistor", "params": {"r": 4700.0}}}, [{"from": "dmm.IN", "to": "r1.A"}])
-    )
-    try:
+        # -- READ? settles the ohms auto range like MEASure? (was
+        # test_read_settles_the_ohms_autorange_like_measure; the fixed range above is replaced
+        # by the act's own CONF:RES 100, then autorange)
         _q(s, "CONF:RES 100")
         _q(s, "CONF:RES")  # back to autorange from a fixed range
         assert float(_q(s, "READ?")) == pytest.approx(4700.0, rel=1e-6)
         _q(s, "INIT")
         assert float(_q(s, "FETC?")) == pytest.approx(4700.0, rel=1e-6)
         assert _q(s, "CONF?") == '"RES +1.00000000E+04,+1.00000000E-03"'
+    finally:
+        s.close()
+    # -- an empty input reads overload: a bench of its own (was the second half of
+    # test_an_open_input_and_a_too_small_range_read_overload)
+    s = open_bench(_bench({}, []))
+    try:
+        assert float(_q(s, "MEAS:RES?")) == pytest.approx(9.9e37)  # nothing on the input
     finally:
         s.close()
 

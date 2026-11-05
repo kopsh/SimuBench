@@ -4,6 +4,10 @@ The manual cases (tests/models/keysight-n6705c/cases.yaml) check command by comm
 the real-instrument script examples/scripts/keysight_n6705c_check.py on the example bench and check
 what a transcript cannot see: each slot's module limits, the 100 W power envelope (#533), remote sensing
 past lead resistance and the protection latches.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 from pathlib import Path
@@ -117,13 +121,20 @@ def test_remote_sense_regulates_past_the_leads():
         s.close()
 
 
-def test_rise_and_fall_delays_sequence_the_outputs():
-    """#540: channel 1 turns on at once, channel 3 0.5 s later; turning both off, channel 3 holds
-    for its 0.2 s fall delay. The relay's 10 ms comes on top of the rise delay."""
+# ---- the output delays and the armed-channel trigger: one flow --------------------------------------
+
+
+def test_the_output_delays_and_trigger_flow():
+    """The rise and fall delays sequence the outputs (#540), and a bus trigger steps only the
+    armed channel (#541)."""
     parts, wires = load(1, 10.0)
     p3, w3 = load(3, 10.0)
     s, q = session({**parts, **p3}, wires + w3)
     try:
+        # -- the rise and fall delays sequence the outputs (was
+        # test_rise_and_fall_delays_sequence_the_outputs)
+        # #540: channel 1 turns on at once, channel 3 0.5 s later; turning both off, channel 3 holds
+        # for its 0.2 s fall delay. The relay's 10 ms comes on top of the rise delay.
         q("VOLT 5,(@1,3);:CURR 1,(@1,3);:OUTP:DEL:RISE 0.5,(@3);:OUTP:DEL:FALL 0.2,(@3)")
         q("OUTP ON,(@1,3)")
         s.advance(0.011)
@@ -134,15 +145,39 @@ def test_rise_and_fall_delays_sequence_the_outputs():
         assert [float(x) > 4.9 for x in q("MEAS:VOLT? (@1,3)").split(",")] == [False, True]
         s.advance(0.21)
         assert [float(x) > 4.9 for x in q("MEAS:VOLT? (@1,3)").split(",")] == [False, False]
+        # -- bridge: the trigger act's bench has no output delays
+        q("OUTP:DEL:RISE 0,(@3);:OUTP:DEL:FALL 0,(@3)")
+        # -- a bus trigger steps only the armed channels (was
+        # test_a_bus_trigger_steps_only_the_armed_channels)
+        # #541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
+        # output to its triggered level (seen on the load) and leaves channel 3 alone.
+        q("VOLT 2,(@1,3);:CURR 1,(@1,3);:VOLT:TRIG 6,(@1,3);:VOLT:MODE STEP,(@1,3);:OUTP ON,(@1,3)")
+        q("*OPC?")
+        q("INIT:TRAN (@1)")
+        q("*OPC?")  # ready for a trigger a few milliseconds after INIT (#548)
+        q("*TRG")
+        volts = [float(x) for x in q("MEAS:VOLT? (@1,3)").split(",")]
+        assert volts == pytest.approx([6.0, 2.0], abs=2e-3)
+        q("INIT:TRAN (@3);:ABOR:TRAN (@3);*OPC?")
+        q("*TRG")  # nothing armed: no change, no error (the manual lists none)
+        assert float(q("MEAS:VOLT? (@3)")) == pytest.approx(2.0, abs=2e-3)
+        assert q("SYST:ERR?") == '+0,"No error"'
     finally:
         s.close()
 
 
-def test_status_registers_follow_the_channel(tmp_path):
-    """#539: a script that polls the status registers sees CV/CC and an OCP trip per channel; the
-    enabled QUES event raises status byte bit 3 until it is read."""
+# ---- the status registers of one channel: OCP trip, transition filters, latched edges: one flow ----
+
+
+def test_the_status_register_flow():
+    """A script that polls the status registers sees CV/CC and an OCP trip per channel (#539);
+    the transition filters choose which edges latch (#549); transitions between two reads are
+    latched, not only the net change (#575)."""
     s, q = session(*load(3, 1.0))
     try:
+        # -- the registers follow the channel (was test_status_registers_follow_the_channel)
+        # #539: a script that polls the status registers sees CV/CC and an OCP trip per channel; the
+        # enabled QUES event raises status byte bit 3 until it is read.
         q("VOLT 5,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
         q("*OPC?")
         assert q("STAT:OPER:COND? (@3)") == "2"  # constant current on 1 ohm
@@ -157,16 +192,12 @@ def test_status_registers_follow_the_channel(tmp_path):
         q("*OPC?")
         assert q("STAT:QUES:COND? (@3)") == "0"
         assert q("STAT:OPER:COND? (@3)") == "2"
-    finally:
-        s.close()
-
-
-def test_transition_filters_choose_which_edges_latch():
-    """#549: with NTR on the CV bit and PTR cleared, a CV -> CC change latches only the falling CV
-    edge; the default filters (PTR all ones, NTR 0) latch only rising edges; STATus:PRESet restores
-    them."""
-    s, q = session(*load(3, 1.0))
-    try:
+        # -- the transition filters choose which edges latch
+        # (was test_transition_filters_choose_which_edges_latch; the act's own STAT:OPER? read
+        # clears the events the OCP act latched, so the filters judge only its own edges)
+        # #549: with NTR on the CV bit and PTR cleared, a CV -> CC change latches only the falling CV
+        # edge; the default filters (PTR all ones, NTR 0) latch only rising edges; STATus:PRESet restores
+        # them.
         assert q("STAT:OPER:PTR? (@3)") == "32767" and q("STAT:OPER:NTR? (@3)") == "0"
         q("VOLT 1,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
         q("*OPC?")
@@ -189,42 +220,13 @@ def test_transition_filters_choose_which_edges_latch():
         q("*OPC?")
         assert q("STAT:OPER? (@3)") == "2"  # default filters again: only the CC rise latches
         assert q("SYST:ERR?") == '+0,"No error"'
-    finally:
-        s.close()
-
-
-def test_a_trigger_right_after_init_is_ignored_until_the_system_is_ready():
-    """#548 (N6700C-90901 Programming Output Transients): the transient system takes a few
-    milliseconds (5 ms here) after INIT:TRAN to accept a trigger; one before that is ignored without
-    an error, and WTG-tran (bit 4) appears once it is ready. ABORt drops a pending ready."""
-    s, q = session(*load(1, 10.0))
-    try:
-        q("VOLT 2,(@1);:CURR 1,(@1);:VOLT:TRIG 6,(@1);:VOLT:MODE STEP,(@1);:OUTP ON,(@1)")
-        q("*OPC?")
-        q("INIT:TRAN (@1);*TRG")  # too early: ignored
-        assert q("VOLT? (@1)") == "+2.000000E+00"
-        assert q("STAT:OPER:COND? (@1)") == "65"  # TRAN-active, not yet WTG-tran
-        s.advance(0.005)
-        assert q("STAT:OPER:COND? (@1)") == "81"  # ready: WTG-tran
-        q("*TRG")
-        assert q("VOLT? (@1)") == "+6.000000E+00"
-        q("VOLT 2,(@1);:INIT:TRAN (@1);:ABOR:TRAN (@1)")
-        s.advance(0.01)
-        q("*TRG")  # aborted before it was ready: stays idle
-        assert q("VOLT? (@1)") == "+2.000000E+00"
-        assert q("STAT:OPER:COND? (@1)") == "1"
-        assert q("SYST:ERR?") == '+0,"No error"'
-    finally:
-        s.close()
-
-
-def test_transitions_between_two_reads_are_latched():
-    """#575: the event register latches each transition when it happens (every command samples
-    the conditions), not only the net change between two reads: CV -> CC -> CV with NTR on both
-    bits latches CV's fall and CC's rise and fall; with the default filters a brief CC still shows
-    its rising edge (and CV's rise back)."""
-    s, q = session(*load(3, 1.0))
-    try:
+        # -- transitions between two reads are latched (was test_transitions_between_two_reads_are_latched;
+        # the STAT:PRES above also restored the filters, and the act's first STAT:OPER? read
+        # clears what the filters act latched)
+        # #575: the event register latches each transition when it happens (every command samples
+        # the conditions), not only the net change between two reads: CV -> CC -> CV with NTR on both
+        # bits latches CV's fall and CC's rise and fall; with the default filters a brief CC still shows
+        # its rising edge (and CV's rise back).
         q("VOLT 1,(@3);:CURR 2,(@3);:OUTP ON,(@3)")
         q("*OPC?")
         q("STAT:OPER:NTR 3,(@3)")
@@ -243,33 +245,43 @@ def test_transitions_between_two_reads_are_latched():
         s.close()
 
 
-def test_a_bus_trigger_steps_only_the_armed_channels():
-    """#541: channels 1 and 3 in STEP mode, only channel 1 initiated: *TRG steps channel 1's
-    output to its triggered level (seen on the load) and leaves channel 3 alone."""
-    parts, wires = load(1, 10.0)
-    p3, w3 = load(3, 10.0)
-    s, q = session({**parts, **p3}, wires + w3)
-    try:
-        q("VOLT 2,(@1,3);:CURR 1,(@1,3);:VOLT:TRIG 6,(@1,3);:VOLT:MODE STEP,(@1,3);:OUTP ON,(@1,3)")
-        q("*OPC?")
-        q("INIT:TRAN (@1)")
-        q("*OPC?")  # ready for a trigger a few milliseconds after INIT (#548)
-        q("*TRG")
-        volts = [float(x) for x in q("MEAS:VOLT? (@1,3)").split(",")]
-        assert volts == pytest.approx([6.0, 2.0], abs=2e-3)
-        q("INIT:TRAN (@3);:ABOR:TRAN (@3);*OPC?")
-        q("*TRG")  # nothing armed: no change, no error (the manual lists none)
-        assert float(q("MEAS:VOLT? (@3)")) == pytest.approx(2.0, abs=2e-3)
-        assert q("SYST:ERR?") == '+0,"No error"'
-    finally:
-        s.close()
+# ---- the transient trigger, the output delays and the OVP latch: one flow ---------------------------
 
 
-def test_switching_on_during_the_fall_delay_keeps_the_output_on():
-    """#545: OUTP OFF starts the 1 s fall delay; OUTP ON before it ends keeps the output on (it
-    never went off) and drops the pending turn-off; a second OFF does not restart the countdown."""
+def test_the_transient_delay_and_ovp_flow():
+    """The transient system takes a few ms after INIT:TRAN to accept a trigger (#548); the rise
+    and fall delays sequence the output and a re-ON during the fall keeps it on (#545); the OVP
+    latch holds the output off past the cause until its clear (#533's neighbor)."""
     s, q = session(*load(1, 10.0))
     try:
+        # -- a trigger right after INIT is ignored until the system is ready (was
+        # test_a_trigger_right_after_init_is_ignored_until_the_system_is_ready)
+        # #548 (N6700C-90901 Programming Output Transients): the transient system takes a few
+        # milliseconds (5 ms here) after INIT:TRAN to accept a trigger; one before that is ignored without
+        # an error, and WTG-tran (bit 4) appears once it is ready. ABORt drops a pending ready.
+        q("VOLT 2,(@1);:CURR 1,(@1);:VOLT:TRIG 6,(@1);:VOLT:MODE STEP,(@1);:OUTP ON,(@1)")
+        q("*OPC?")
+        q("INIT:TRAN (@1);*TRG")  # too early: ignored
+        assert q("VOLT? (@1)") == "+2.000000E+00"
+        assert q("STAT:OPER:COND? (@1)") == "65"  # TRAN-active, not yet WTG-tran
+        s.advance(0.005)
+        assert q("STAT:OPER:COND? (@1)") == "81"  # ready: WTG-tran
+        q("*TRG")
+        assert q("VOLT? (@1)") == "+6.000000E+00"
+        q("VOLT 2,(@1);:INIT:TRAN (@1);:ABOR:TRAN (@1)")
+        s.advance(0.01)
+        q("*TRG")  # aborted before it was ready: stays idle
+        assert q("VOLT? (@1)") == "+2.000000E+00"
+        assert q("STAT:OPER:COND? (@1)") == "1"
+        assert q("SYST:ERR?") == '+0,"No error"'
+        # -- bridge: the delay act's scenario starts with the output off (the default fall delay
+        # is 0, so one relay time takes it down)
+        q("OUTP OFF,(@1)")
+        s.advance(0.02)
+        # -- switching on during the fall delay keeps the output on (was
+        # test_switching_on_during_the_fall_delay_keeps_the_output_on)
+        # #545: OUTP OFF starts the 1 s fall delay; OUTP ON before it ends keeps the output on (it
+        # never went off) and drops the pending turn-off; a second OFF does not restart the countdown.
         q("VOLT 5,(@1);:CURR 1,(@1);:OUTP:DEL:RISE 0.5,(@1);:OUTP:DEL:FALL 1,(@1)")
         q("OUTP ON,(@1)")
         s.advance(0.6)
@@ -285,6 +297,20 @@ def test_switching_on_during_the_fall_delay_keeps_the_output_on():
         q("OUTP OFF,(@1)")  # repeated: the countdown keeps running
         s.advance(0.5)
         assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        # -- bridge: the OVP act's bench has no output delays
+        q("OUTP:DEL:RISE 0,(@1);:OUTP:DEL:FALL 0,(@1)")
+        # -- the OVP latch holds until cleared (was test_ovp_latches_until_cleared)
+        q("VOLT 10,(@1);:CURR 3,(@1);:OUTP ON,(@1)")
+        q("*OPC?")
+        q("VOLT:PROT 8,(@1)")
+        q("*OPC?")
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        q("VOLT 5,(@1)")  # the cause removed: the latch still holds the output off
+        q("*OPC?")
+        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        q("OUTP:PROT:CLE (@1)")
+        q("*OPC?")
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(5.0, abs=2e-3)
     finally:
         s.close()
 
@@ -325,23 +351,5 @@ def test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay():
         assert float(q("MEAS:VOLT? (@1)")) == 0.0
         s.advance(0.3)
         assert float(q("MEAS:VOLT? (@1)")) > 4.9
-    finally:
-        s.close()
-
-
-def test_ovp_latches_until_cleared():
-    s, q = session(*load(1, 10.0))
-    try:
-        q("VOLT 10,(@1);:CURR 3,(@1);:OUTP ON,(@1)")
-        q("*OPC?")
-        q("VOLT:PROT 8,(@1)")
-        q("*OPC?")
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0
-        q("VOLT 5,(@1)")  # the cause removed: the latch still holds the output off
-        q("*OPC?")
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0
-        q("OUTP:PROT:CLE (@1)")
-        q("*OPC?")
-        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(5.0, abs=2e-3)
     finally:
         s.close()

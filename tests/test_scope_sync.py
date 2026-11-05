@@ -55,9 +55,13 @@ def _query(session: Session, cmd: str) -> str:
     return out.decode(errors="replace").strip() if out is not None else ""
 
 
-def test_a_read_right_after_single_gets_the_previous_frame():
+def test_the_single_acquisition_flow():
+    """One armed single acquisition through its states: a read meanwhile gets the previous frame
+    and the status follows virtual time (waiting, triggered, stopped), and STOP ends the wait of
+    one armed for a trigger that does not come."""
     session = _sds()
     acq = session.instruments["scope"].components["acq"]
+    # -- a read right after single gets the previous frame (was test_a_read_right_after_single_gets_the_previous_frame)
     _query(session, ":TRIGger:MODE SINGle")
     kept = acq.records[1].volts.copy()  # the running scope's last frame
     assert _query(session, ":ACQuire:NUMAcq?") == "1"
@@ -67,12 +71,8 @@ def test_a_read_right_after_single_gets_the_previous_frame():
     assert _query(session, "*OPC?") == "1"
     _query(session, ":TRIGger:STATus?")  # any command finishes what is due
     assert acq.acq_count == 2 and acq.records[1].t_start_ns > 0
-    session.close()
-
-
-def test_the_status_follows_virtual_time():
-    session = _sds()
-    acq = session.instruments["scope"].components["acq"]
+    # -- the status follows virtual time (was test_the_status_follows_virtual_time; arming again
+    # re-enters single from the stop the previous act ended in)
     _query(session, ":TRIGger:MODE SINGle")
     assert _query(session, ":TRIGger:STATus?") == "Ready"
     assert acq.pending.trigger_ns is not None and acq.pending.due_ns is not None
@@ -80,6 +80,12 @@ def test_the_status_follows_virtual_time():
     session.advance((acq.pending.trigger_ns - session.now_ns) / 1e9 + 1e-6)  # past the trigger
     assert _query(session, ":TRIGger:STATus?") == "Trig'd"  # the record after it is filling
     session.advance((acq.pending.due_ns - session.now_ns) / 1e9)
+    assert _query(session, ":TRIGger:STATus?") == "Stop"
+    # -- stop ends the wait (was test_stop_ends_the_wait; the level goes above the signal)
+    _query(session, ":TRIGger:EDGE:LEVel 0.15;:TRIGger:MODE SINGle")
+    assert _query(session, "*OPC?") == ""  # waiting for a trigger that does not come
+    _query(session, ":TRIGger:STOP")
+    assert _query(session, "*OPC?") == "1"
     assert _query(session, ":TRIGger:STATus?") == "Stop"
     session.close()
 
@@ -106,16 +112,6 @@ def test_a_read_while_waiting_may_be_an_error():
     session.write("scope", b":WAVeform:SOURce C1;:WAVeform:DATA?\n")
     assert session.read("scope") is None  # no data, an error instead
     assert session.instruments["scope"].errors.peek_all()[-1].code == -221
-    session.close()
-
-
-def test_stop_ends_the_wait():
-    session = _sds()
-    _query(session, ":TRIGger:EDGE:LEVel 0.15;:TRIGger:MODE SINGle")
-    assert _query(session, "*OPC?") == ""  # waiting for a trigger that does not come
-    _query(session, ":TRIGger:STOP")
-    assert _query(session, "*OPC?") == "1"
-    assert _query(session, ":TRIGger:STATus?") == "Stop"
     session.close()
 
 
