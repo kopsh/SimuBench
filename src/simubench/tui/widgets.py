@@ -28,6 +28,9 @@ def style_of(app: Any, tokens: str) -> str:
         value = variables.get(token)
         if value == "ansi_default":
             value = "default"  # rich's name for the terminal's own colour (the mono theme)
+        if token == "chip":  # the amber badge: dark text on the focus colour
+            value = f"bold {variables.get('bar', 'black')} on {variables.get('focus', 'yellow')}"
+            value = "bold reverse" if variables.get("focus") == "ansi_default" else value
         out.append(value if value else (token if token in ("bold", "reverse", "dim") else ""))
     return " ".join(s for s in out if s)
 
@@ -37,6 +40,48 @@ def render_segments(app: Any, segments: list[tuple[str, str]], base: str = "") -
     text = Text(style=base)
     for value, tokens in segments:
         text.append(value, style=style_of(app, tokens))
+    return text
+
+
+def is_mono(app: Any) -> bool:
+    """``NO_COLOR``: the tokens carry no colour, so the bars fall back to reverse video."""
+    return getattr(app, "theme", "") == "simubench-mono"
+
+
+def decorate_title(app: Any, title: Any) -> Text:
+    """A box title between amber brackets (``▌ awg · SDG2042X ▐``): the HUD's mark of a panel."""
+    mark = style_of(app, "focus")
+    text = Text()
+    text.append("▌ ", style=mark)
+    text.append_text(title) if isinstance(title, Text) else text.append(str(title).strip())
+    text.append(" ▐", style=mark)
+    return text
+
+
+def bar_text(app: Any, left: list[tuple[str, str]], right: list[tuple[str, str]], width: int) -> Text:
+    """One bar row: ``left`` and ``right`` segments ``(text, tokens)`` with a gap between, drawn
+    as HUD bars on ``$bar`` — or, under ``NO_COLOR``, as the reverse-video strip the spec began
+    with (1.1)."""
+    mono = is_mono(app)
+    bar = "reverse" if mono else f"on {style_of(app, 'bar')}"
+
+    def styled(tokens: str) -> str:
+        if mono:  # no colour to carry: reverse video, and bold where the token asks for it
+            return "reverse bold" if "bold" in tokens.split() else "reverse"
+        if "chip" in tokens:  # the badge brings its own background
+            return style_of(app, tokens)
+        return f"{bar} {style_of(app, tokens)}".strip()
+
+    text = Text(style=bar)
+    for value, tokens in left:
+        text.append(value, style=styled(tokens))
+    right_w = sum(cell_len(v) for v, _ in right)
+    gap = max(1, width - text.cell_len - right_w)
+    text.append(" " * gap, style=bar)
+    for value, tokens in right:
+        text.append(value, style=styled(tokens))
+    if text.cell_len < width:
+        text.append(" " * (width - text.cell_len), style=bar)
     return text
 
 
@@ -57,27 +102,20 @@ class TopBar(Static):
         lang: str,
         file_changed: bool = False,
     ) -> None:
-        left = f"SimuBench — {bench_name} | {screen_name}"
+        left: list[tuple[str, str]] = (
+            [(" SimuBench ", "bold")] if is_mono(self.app) else [(" SimuBench ", "chip")]
+        )
+        left.append((f" — {bench_name} | ", "muted"))
+        left.append((screen_name, "hud"))
         right_parts: list[tuple[str, str]] = []
         if file_changed:
             right_parts.append((i18n.t("topbar.fileChanged", lang) + "  ", "focus"))
         right_parts.extend(status_segments)
         if clock_mode and now_ns is not None:
             right_parts.append(
-                (" · " + i18n.t(f"clockMode.{clock_mode}", lang) + f" · t = {fmt_ns(now_ns)}", "")
+                (" · " + i18n.t(f"clockMode.{clock_mode}", lang) + f" · t = {fmt_ns(now_ns)} ", "")
             )
-        width = self.size.width or 80
-        right_w = sum(cell_len(v) for v, _ in right_parts)
-        left_w = cell_len(left)
-        text = Text(style="reverse")
-        text.append(left, style="reverse")
-        gap = max(1, width - left_w - right_w)
-        text.append(" " * gap, style="reverse")
-        for value, tokens in right_parts:
-            text.append(value, style=f"reverse {style_of(self.app, tokens)}".strip())
-        if left_w + gap + right_w < width:
-            text.append(" " * (width - left_w - gap - right_w), style="reverse")
-        self.update(text)
+        self.update(bar_text(self.app, left, right_parts, self.size.width or 80))
 
 
 class BottomBar(Static):
@@ -109,21 +147,15 @@ class BottomBar(Static):
     def _repaint(self) -> None:
         keys, remote_text, _lang = self._last
         width = self.size.width or 80
+        left: list[tuple[str, str]] = [(" ", "")]
         if self._flash_text:
-            left, right = self._flash_text, ""
+            left.append((self._flash_text, ""))
+            remote_text = ""
         else:
-            left = "  ".join(f"{key} {action}" for key, action in keys)
-            right = remote_text
-        text = Text(style="reverse")
-        left_w = cell_len(left)
-        right_w = cell_len(right)
-        text.append(left, style="reverse")
-        gap = max(1, width - left_w - right_w)
-        text.append(" " * gap, style="reverse")
-        text.append(right, style="reverse")
-        if left_w + gap + right_w < width:
-            text.append(" " * (width - left_w - gap - right_w), style="reverse")
-        self.update(text)
+            for key, action in keys:
+                left.append((key, "bold hud"))
+                left.append((f" {action}  ", "muted"))
+        self.update(bar_text(self.app, left, [(remote_text + " ", "muted")], width))
 
 
 class CaptionBar(Static):

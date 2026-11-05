@@ -77,7 +77,7 @@ class SimuBenchApp(App[None]):
     Static#connecting-note { padding: 1 2; color: $muted; }
     Static#message { color: $fg; }
     Static#embedded-log { padding: 0 1; }
-    #log-box { border: round $muted 60%; border-title-align: left; }
+    #log-box { border: round $line; border-title-color: $hud; border-title-align: left; }
     #log-rows { padding: 0 1; }
     #cards { height: 1fr; overflow-y: auto; scrollbar-size-vertical: 0; }
     #cards Horizontal { height: auto; align: left top; overflow-x: hidden; }

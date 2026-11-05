@@ -23,10 +23,14 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 
 - **Size**: designed at 100×32, minimum 80×24; smaller shows one "window too small" line, no
   squeezed layout (`tui-screens.md` 1.1). Every screen = 1-line top bar + content + 1-line bottom bar.
-- **Colour**: only the tokens in `theme.py` (`fg muted focus bad ok sim ch1–ch4`,
+- **Colour**: only the tokens in `theme.py` (`fg muted focus bad ok sim ch1–ch4 hud line bar`, the HUD palette,
   `tui-screens.md` 1.2). Red marks only the offending words, never a whole card or row. State is
   always also text or a glyph (`●` `○` `▲` `✗` `→` `·` `—` `…`) — `NO_COLOR` turns every token
   into the default foreground and the screen must still read.
+- **HUD look** (`widgets.py`): the bars are `bar_text` (on `$bar`; under `NO_COLOR` reverse video
+  — `is_mono(app)`), box titles wear amber brackets through `decorate_title` (cards, and every
+  `_Box` title not already padded with `─`), box lines are `$line`, titles `$hud`. Never hardcode a
+  hex colour in a widget: add a token to `COLORS` (it must also be in `MONO_VARS`; a test checks).
 - **Buttons** are a `ButtonGrid` (`screens/editing.py`): equal columns, wrapping rows, never cut
   mid-word; `fit(width, max_rows)` returns the rows shown, and the screen's row budget uses that.
   Readings come before buttons — a short screen shows one row, the rest scroll with the focus.

@@ -15,6 +15,7 @@ from typing import Any, ClassVar
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.widget import Widget
 from textual.widgets import Static
 
 from .. import controls as C
@@ -23,7 +24,7 @@ from ..cards import ARROWS, opposite_ends
 from ..fmt import cell_len, fmt, pad
 from ..log import source_label
 from ..reasons import ReasonReport, error_report, fault_report, limited_report, setting_report
-from ..widgets import box_text, box_title, render_segments
+from ..widgets import box_text, box_title, decorate_title, render_segments
 from .dialogs import ScpiConsole
 from .editing import ButtonGrid, ControlButton, ControlEditingScreen
 
@@ -45,10 +46,22 @@ def _wrapped(code: str, message: str, width: int, tokens: str) -> list[list[tupl
 
 
 class _Box(Vertical):
-    """A round-bordered box; the border carries the title, Statics inside carry the rows."""
+    """A round-bordered box; the border carries the title, Statics inside carry the rows. A title
+    set on it wears the HUD's amber brackets — unless it is a ``box_title`` already padded with
+    ``─`` to the box width (the log and error boxes' left/right titles)."""
+
+    @property
+    def border_title(self) -> Any:  # type: ignore[override]
+        return Widget.__dict__["border_title"].__get__(self, type(self))
+
+    @border_title.setter
+    def border_title(self, value: Any) -> None:
+        if isinstance(value, str) and value and "─" not in value:
+            value = decorate_title(self.app, value)
+        Widget.__dict__["border_title"].__set__(self, value)
 
     DEFAULT_CSS = """
-    _Box { border: round $muted 60%; height: auto; border-title-align: left; padding: 0 1; }
+    _Box { border: round $line; border-title-color: $hud; height: auto; border-title-align: left; padding: 0 1; }
     """
 
 

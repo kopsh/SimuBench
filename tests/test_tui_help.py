@@ -52,3 +52,48 @@ def test_the_net_waveform_moved_to_v():
 @pytest.mark.unit
 def test_the_app_binds_the_help():
     assert {b.key: b.action for b in bindings_of(SimuBenchApp)}["question_mark"] == "help"
+
+
+# ---- the HUD bars (tui-screens.md 1.1, 1.2) --------------------------------------------------------
+
+
+class _Stub:
+    """Just what ``style_of`` and ``is_mono`` read from the app."""
+
+    def __init__(self, theme: str, variables: dict[str, str]) -> None:
+        self.theme = theme
+        self._vars = variables
+
+    def get_css_variables(self) -> dict[str, str]:
+        return self._vars
+
+
+@pytest.mark.unit
+def test_the_bars_are_drawn_on_the_bar_colour():
+    from simubench.tui.theme import COLORS
+    from simubench.tui.widgets import bar_text
+
+    text = bar_text(
+        _Stub("simubench", dict(COLORS)), [(" Esc", "bold hud"), (" back", "muted")], [("x", "")], 30
+    )
+    assert text.cell_len == 30
+    assert all(f"on {COLORS['bar']}" in str(span.style) for span in text.spans)
+
+
+@pytest.mark.unit
+def test_under_no_color_the_bars_are_reverse_video_and_nothing_else():
+    from simubench.tui.theme import MONO_VARS
+    from simubench.tui.widgets import bar_text
+
+    text = bar_text(
+        _Stub("simubench-mono", dict(MONO_VARS)), [(" Esc", "bold hud"), (" back", "muted")], [("x", "")], 30
+    )
+    assert text.cell_len == 30
+    assert {str(span.style) for span in text.spans} <= {"reverse", "reverse bold"}
+
+
+@pytest.mark.unit
+def test_every_colour_token_has_a_mono_counterpart():
+    from simubench.tui.theme import COLORS, MONO_VARS
+
+    assert set(MONO_VARS) == set(COLORS)

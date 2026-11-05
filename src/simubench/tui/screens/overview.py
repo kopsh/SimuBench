@@ -16,7 +16,7 @@ from textual.widgets import Static
 from .. import i18n
 from ..cards import CardData, build_cards
 from ..log import visible
-from ..widgets import log_text, render_segments
+from ..widgets import decorate_title, log_text, render_segments
 from .shell import ShellScreen
 
 
@@ -44,12 +44,15 @@ class Card(Static):
         width: 32;
         height: auto;
         margin-right: 2;
-        border: round $muted 60%;
+        border: round $line;
         padding: 0 0;
         border-title-align: left;
+        border-title-color: $hud;
+        border-title-style: bold;
     }
     Card:focus {
-        border: round $focus;
+        border: heavy $focus;
+        border-title-color: $focus;
     }
     """
     can_focus = True
@@ -65,7 +68,7 @@ class Card(Static):
         from ..fmt import cell_len
         from ..widgets import style_of
 
-        self.border_title = render_segments(self.app, self.card.title)
+        self.border_title = decorate_title(self.app, render_segments(self.app, self.card.title))
         # size is the content area (the border is outside it): 30 columns for a 32-wide card.
         width = self.size.width or 30
         text = Text()
@@ -290,7 +293,8 @@ class _LogBox(VerticalScroll):
 
     DEFAULT_CSS = """
     _LogBox {
-        border: round $muted 60%;
+        border: round $line;
+        border-title-color: $hud;
         height: auto;
         border-title-align: left;
         scrollbar-size-vertical: 0;

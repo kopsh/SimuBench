@@ -13,22 +13,29 @@ from textual.theme import Theme
 #: Token → purpose (tui-screens.md 1.2). Dark and light terminals use the same tokens; the values
 #: are readable on both (the terminal's own palette softens them where needed).
 COLORS: dict[str, str] = {
-    "fg": "#e8e8e8",  # values, body text (values are bold)
-    "muted": "#8a8a8a",  # labels, units, secondary information, read-away errors
-    "focus": "#ffb000",  # focus border, highlight frames
-    "bad": "#ff5555",  # error codes, trips, limited (▲), disconnected
-    "ok": "#4fd68a",  # the running status dot (●)
-    "sim": "#c39bff",  # simulation-only information (true values, ≈ fidelity)
-    "ch1": "#f1fa8c",  # scope channels: yellow, cyan, magenta, blue
-    "ch2": "#8be9fd",
-    "ch3": "#ff79c6",
-    "ch4": "#7aa2f7",
+    "fg": "#d3e0ea",  # values, body text (values are bold)
+    "muted": "#5f7889",  # labels, units, secondary information, read-away errors
+    "focus": "#ffb000",  # focus border, highlight frames, the title brackets (HUD amber)
+    "bad": "#ff4d57",  # error codes, trips, limited (▲), disconnected
+    "ok": "#39e58c",  # the running status dot (●)
+    "sim": "#b99aff",  # simulation-only information (true values, ≈ fidelity)
+    "ch1": "#ffd23f",  # scope channels: yellow, cyan, magenta, blue
+    "ch2": "#35e0ff",
+    "ch3": "#ff5bd1",
+    "ch4": "#5b8cff",
+    "hud": "#35e0ff",  # the HUD's cyan: box titles, the screen name in the top bar, keys
+    "line": "#2f6a85",  # box lines
+    "bar": "#0b141c",  # the top and bottom bars' background
 }
 
 THEME = Theme(
     name="simubench",
     primary=COLORS["focus"],
     secondary=COLORS["sim"],
+    background="#05080c",
+    surface="#0a1118",
+    foreground=COLORS["fg"],
+    dark=True,
     variables={**COLORS, "success": COLORS["ok"], "error": COLORS["bad"]},
 )
 
