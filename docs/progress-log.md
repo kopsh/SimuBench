@@ -1431,3 +1431,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 不绕过 | ✅ 设值走字段的 `_commit_edit`：范围检查、单位、危险开关确认、远程只读；`tests/test_tui_palette.py` 覆盖超范围不写、输出开启仍确认 |
 | 文档与 skill | ✅ `tui-screens.md` 2.5 与键表、`tui-design.md` 4、`tui-ui` skill、帮助措辞（`help.actions.palette/search`） |
 | 未做 | ⚠️ 底栏不提示 `Ctrl+K` 与 `/`（80 列放不下，帮助 `?` 里有）；脚本指令 `open` 等见 #684 |
+
+## #682 故障类型 error：直接往错误队列塞指定错误码（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 现状核对 | `error` 故障（`code`、`message`，只入队、不改状态）早已存在；本次只补缺的三项 |
+| `count` | ✅ 往队列放 `count` 次，`SYST:ERR?` 按序读到，用尽后恢复为 `0,"No error"`；运行记录里仍是一条注入事件，回放复现 |
+| 校验 | ✅ 无 `message` 时 `code` 须在仪表错误表或 SCPI 标准表里，否则 `ValueError` 带诊断（经 API 为 422）；有 `message` 则放行 |
+| 客户端 | ✅ TUI 故障对话框 `error` 增加 `count`；API / MCP / Web 共用 `Fault` 模型，`schemas/` 已重新生成 |
+| 未做 | ⚠️ 对话框分组不动（`error` 已在“仪表”组）；Web 故障面板是否显示 `count` 未改 |

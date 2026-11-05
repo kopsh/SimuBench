@@ -29,7 +29,7 @@ export type Description = string | null;
  */
 export type AtS = number | null;
 /**
- * For error / trip: SCPI error code (default -300)
+ * For error / trip: SCPI error code (default -300); for error it must be in the instrument's error table or the SCPI standard list unless a message is given
  */
 export type Code = number | null;
 /**
@@ -37,7 +37,7 @@ export type Code = number | null;
  */
 export type Component = string | null;
 /**
- * Link faults: number of messages affected
+ * Link faults: number of messages affected; error: how many times it is queued
  */
 export type Count = number | null;
 /**

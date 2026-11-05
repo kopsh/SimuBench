@@ -269,7 +269,7 @@
             }
           ],
           "default": null,
-          "description": "For error / trip: SCPI error code (default -300)",
+          "description": "For error / trip: SCPI error code (default -300); for error it must be in the instrument's error table or the SCPI standard list unless a message is given",
           "title": "Code"
         },
         "component": {
@@ -296,7 +296,7 @@
             }
           ],
           "default": null,
-          "description": "Link faults: number of messages affected",
+          "description": "Link faults: number of messages affected; error: how many times it is queued",
           "title": "Count"
         },
         "drift_per_s": {

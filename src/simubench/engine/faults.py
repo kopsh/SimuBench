@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import numpy as np
 
 from ..models.bench import Fault
+from ..scpi.errors import STANDARD_MESSAGES
 from .deviation import check_value, clear_override, set_override
 
 if TYPE_CHECKING:
@@ -163,7 +164,8 @@ class FaultManager:
                     inst.set_state(path, False, source="fault")
             inst.push_error(code, s.message or "protection tripped")
         else:
-            inst.push_error(code, s.message or "")
+            for _ in range(s.count or 1):  # ``count`` queues the error that many times
+                inst.push_error(code, s.message or "")
 
     def _apply_drift(self, state: FaultState) -> None:
         comp = state._component
@@ -223,7 +225,15 @@ class FaultManager:
         if spec.kind in LINK or spec.kind in ONCE:
             if not spec.instrument:
                 raise ValueError(f"{spec.kind}: instrument is required")
-            self.session.instrument(spec.instrument)  # KeyError when unknown
+            inst = self.session.instrument(spec.instrument)  # KeyError when unknown
+            # Without a message the queue words the error from the instrument's own table or the
+            # standard one; a code in neither would read back as a bare "Error".
+            unknown = spec.code not in inst.definition.errors and spec.code not in STANDARD_MESSAGES
+            if spec.kind == "error" and spec.code is not None and not spec.message and unknown:
+                raise ValueError(
+                    f"error: code {spec.code} is in neither {spec.instrument}'s error table nor "
+                    "the SCPI standard list; give a message or use a listed code"
+                )
         if spec.kind in PARAM:
             if not spec.component or not spec.param:
                 raise ValueError(f"{spec.kind}: component and param are required")

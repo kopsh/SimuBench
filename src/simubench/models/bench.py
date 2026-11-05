@@ -137,13 +137,19 @@ class Fault(_Model):
     param: str | None = Field(None, description="For drift / hidden: the component parameter, e.g. 'r'")
     value: Any = Field(None, description="For hidden: the new value")
     drift_per_s: float | None = Field(None, description="For drift: relative change per second, e.g. 1e-4")
-    code: int | None = Field(None, description="For error / trip: SCPI error code (default -300)")
+    code: int | None = Field(
+        None,
+        description="For error / trip: SCPI error code (default -300); for error it must be in the "
+        "instrument's error table or the SCPI standard list unless a message is given",
+    )
     message: str | None = None
     latency_s: float | None = Field(None, ge=0, le=60, description="For latency: added to every message")
     garble_rate: float | None = Field(None, gt=0, le=1, description="For garble: share of bytes corrupted")
     at_s: float | None = Field(None, ge=0, description="Virtual time to start; omitted: at once")
     duration_s: float | None = Field(None, gt=0, description="How long it lasts; omitted: until cleared")
-    count: int | None = Field(None, ge=1, description="Link faults: number of messages affected")
+    count: int | None = Field(
+        None, ge=1, description="Link faults: number of messages affected; error: how many times it is queued"
+    )
     label: str | None = None
 
 

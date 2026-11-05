@@ -2088,7 +2088,7 @@ export interface components {
             at_s?: number | null;
             /**
              * Code
-             * @description For error / trip: SCPI error code (default -300)
+             * @description For error / trip: SCPI error code (default -300); for error it must be in the instrument's error table or the SCPI standard list unless a message is given
              */
             code?: number | null;
             /**
@@ -2098,7 +2098,7 @@ export interface components {
             component?: string | null;
             /**
              * Count
-             * @description Link faults: number of messages affected
+             * @description Link faults: number of messages affected; error: how many times it is queued
              */
             count?: number | null;
             /**
