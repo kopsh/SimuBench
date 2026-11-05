@@ -16,6 +16,7 @@ from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
+from . import adc
 from .calstore import CalibrationStore
 from .measurements import (
     FREQ_HYSTERESIS,
@@ -448,9 +449,8 @@ class ScopeAdc(Component):
         if bits <= 0:
             return volts
         per_div = self.codes_per_div()
-        half = 1 << (bits - 1)
         off = offset if str(self.param("offset_sign")).lower() == "add" else -offset
-        codes = np.clip(np.round((volts + off) / scale * per_div), -half, half - 1)
+        codes = adc.codes(volts, scale, off, per_div, bits)
         return codes / per_div * scale - off
 
 

@@ -57,12 +57,15 @@ def test_angle_sidebands_expand_each_line_to_carsons_orders():
     angle_sidebands(out, freq, amp, beta, 1e3, 0.0)
     for f, a, b in zip(freq, amp, beta, strict=True):
         k = carson_orders(float(b))
-        assert sum(1 for g in out.freq if any(abs(g - (f + n * 1e3)) < 1e-9 for n in range(-k, k + 1))) >= 2 * k + 1
+        assert (
+            sum(1 for g in out.freq if any(abs(g - (f + n * 1e3)) < 1e-9 for n in range(-k, k + 1)))
+            >= 2 * k + 1
+        )
         # the carrier line itself is the n = 0 sideband, J_0 shrinks it
-        center = next(a2 for g, a2 in zip(out.freq, out.amp) if abs(g - f) < 1e-9)
+        center = next(a2 for g, a2 in zip(out.freq, out.amp, strict=True) if abs(g - f) < 1e-9)
         assert center == pytest.approx(a * jv(0, b))
         # an edge sideband carries its Bessel factor and the phase step
-        edge = next(a2 for g, a2 in zip(out.freq, out.amp) if abs(g - (f + k * 1e3)) < 1e-9)
+        edge = next(a2 for g, a2 in zip(out.freq, out.amp, strict=True) if abs(g - (f + k * 1e3)) < 1e-9)
         assert edge == pytest.approx(a * jv(k, b) * complex(math.cos(k * 0.0), math.sin(k * 0.0)))
 
 
@@ -72,7 +75,7 @@ def test_a_scalar_beta_expands_like_a_per_line_one():
     freq, amp = np.array([5e6]), np.array([1.0 + 0j])
     angle_sidebands(one, freq, amp, np.array([1.4]), 2e3, math.pi / 4)
     angle_sidebands(scalar, freq, amp, 1.4, 2e3, math.pi / 4)
-    assert sorted(zip(one.freq, one.amp)) == sorted(zip(scalar.freq, scalar.amp))
+    assert sorted(zip(one.freq, one.amp, strict=True)) == sorted(zip(scalar.freq, scalar.amp, strict=True))
 
 
 def test_am_sidebands_carry_the_tones_phase():
@@ -80,7 +83,7 @@ def test_am_sidebands_carry_the_tones_phase():
     out.add(10e6, 1.0 + 0j)
     side = 0.8 / 2 / 1j * complex(math.cos(math.pi / 3), math.sin(math.pi / 3))
     am_sidebands(out, np.array([10e6]), np.array([1.0 + 0j]), 1e3, side)
-    pairs = sorted(zip(out.freq, out.amp))
+    pairs = sorted(zip(out.freq, out.amp, strict=True))
     assert [f for f, _ in pairs] == pytest.approx([10e6 - 1e3, 10e6, 10e6 + 1e3])
     _, upper = pairs[2]
     assert upper == pytest.approx(side)  # J of m/2 from the carrier's 1.0

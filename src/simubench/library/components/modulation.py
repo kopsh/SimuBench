@@ -20,7 +20,7 @@ import math
 import numpy as np
 from scipy.special import jv
 
-from ...engine.signal import Signal, FidelityNote
+from ...engine.signal import FidelityNote, Signal
 
 
 def carson_orders(beta: float) -> int:

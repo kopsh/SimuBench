@@ -176,3 +176,16 @@ def test_pwm_within_the_line_budget_carries_no_truncated_note():
     # The 50th, last implied harmonic is kept; its Carson sidebands reach ~53 kHz, so the top
     # line is not the harmonic itself.
     assert np.isclose(m.freq, 50e3).any()
+
+
+def test_fm_readings_report_the_index_and_carsons_truncation_bound():
+    """The fidelity bound the RF generator reports, now on the AWG's angle modulation too
+    (issue 634): the worst carrier line's β (its harmonics index higher than the fundamental)."""
+    from simubench.library.components.modulation import omitted_power_fraction
+
+    m = _Stub(sine(1000.0, 0.5), type="FM", fm_dev=200.0, int_rate=100.0)
+    r = m.readings()
+    assert r["values"]["beta"] == pytest.approx(2.0)  # 200 Hz dev on the 100 Hz tone
+    assert r["values"]["omitted_power"] == pytest.approx(omitted_power_fraction(2.0))
+    assert _Stub(sine(1000.0, 0.5), type="AM", am_depth=50.0, int_rate=100.0).readings() is None
+    assert _Stub(sine(1000.0, 0.5), type="FM", enabled=False, int_rate=100.0).readings() is None
