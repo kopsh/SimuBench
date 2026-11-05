@@ -1475,3 +1475,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 命令面板缺口 | ✅ 核对 #678：万用表（面板模板）有设置不在屏幕上，面板跳转原会失败；现改为打开状态树并聚焦（`tests/test_tui_state_tree.py`）；SMU 的“其他设置”已覆盖全部 |
 | 测试 | ✅ `tests/test_tui_state_tree.py` 13 条（行数据 6 条、屏幕 7 条）；100×32 与 80×24 快照已审阅（80×24 下 `sweep` 整组折叠） |
 | 未做 | ⚠️ 底栏不提示 `t`；读数真实值；隐藏值的改写入口（走 `hidden` 故障） |
+
+## #685 TUI 层守门测试：src/simubench/tui 里不得出现内置型号名（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 测试 | ✅ `tests/test_tui_no_model_names.py`（unit，约 30 ms）：读内置与 validation 定义（排除 `*.coverage.yaml`）顶层的 `id` / `model`，丢掉短于 4 个字符的，大小写不敏感地扫描 `src/simubench/tui/**/*.py` 全文，命中报“文件:行 名字”，无豁免清单；定义只用正则读文件头，不解析 YAML（解析要 2 s） |
+| 唯一命中 | ✅ `widgets.py` 里 `decorate_title` 文档字符串的 `SDG2042X` 改为 `MODEL-A` |
+| 验证 | ✅ 故意在 `tui/fmt.py` 加一行含 `SDG2042X` 的注释，测试红并报 `fmt.py:207 sdg2042x`；撤销后绿；另有一条测试在临时文件上确认守门确实会命中 |

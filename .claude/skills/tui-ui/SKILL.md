@@ -53,6 +53,9 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   fetched at twice that (`app.scope_points` keeps it across refetches).
 - **Numbers**: use `fmt.fmt` (SI prefixes, right-aligned); never hand-format a value. Use
   `cell_len` / `pad` / `ralign`, not `len`, for widths.
+- **No model names** in `src/simubench/tui` (D42), comments and docstrings included:
+  `tests/test_tui_no_model_names.py` scans for every definition's `id` and `model`, no allow-list; write
+  examples as `awg · MODEL-A`.
 - **Overview log drawer**: shut by default (`DRAWER_ROWS = 3`), `L` opens it (`l` stays the full-screen
   log); a shut drawer marks its title `✗ N new` for errors not yet seen but never opens itself
   (`tui-screens.md` 4.5).

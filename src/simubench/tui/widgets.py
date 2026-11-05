@@ -49,7 +49,7 @@ def is_mono(app: Any) -> bool:
 
 
 def decorate_title(app: Any, title: Any, tight: bool = False) -> Text:
-    """A box title between amber brackets (``▌ awg · SDG2042X ▐``): the HUD's mark of a panel.
+    """A box title between amber brackets (``▌ awg · MODEL-A ▐``): the HUD's mark of a panel.
     ``tight`` keeps only the left bracket, for the 32-column cards whose border holds 26 cells
     of title — a model name must not end in ``…`` for a mark."""
     mark = style_of(app, "focus")
