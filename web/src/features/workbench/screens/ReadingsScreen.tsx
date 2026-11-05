@@ -2,11 +2,16 @@ import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
 import { useReadings } from "@/api/hooks";
+import type { Messages } from "@/i18n/zh";
 import { engParts, formatEng } from "@/lib/format";
 import { globalVars } from "../model";
 import { StateField } from "../StateField";
 
-const METER: Record<string, [string, string]> = { "meter.DC": ["meter.dc", "V"], "meter.AC": ["meter.ac", "V"] };
+type MeterKey = `${"meter"}.${keyof Messages["meter"]}`;
+const METER: Record<string, [MeterKey, string]> = {
+  "meter.DC": ["meter.dc", "V"],
+  "meter.AC": ["meter.ac", "V"],
+};
 
 /**
  * Screens for instruments without a dedicated class template: a multimeter shows its readings as

@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
-import { useReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useReadings, useScpi } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { formatEng, isOverload, resistance } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -38,8 +38,8 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
   const send = (command: string) =>
     scpi.mutate(command, {
       onSuccess: (r) => {
-        const e = r.link_error ?? r.errors[0]?.message;
-        if (e) toast.error(`${command}: ${e}`);
+        const { ok, message } = scpiOutcome(r);
+        if (!ok && message) toast.error(`${command}: ${message}`);
       },
     });
 

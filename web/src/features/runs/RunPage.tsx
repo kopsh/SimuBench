@@ -1,6 +1,7 @@
 import { ChevronLeft, CircleCheck, CircleX, Crosshair, Play, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { T } from "@/i18n";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Schemas } from "@/api/client";
 import { useReplayRun, useRun } from "@/api/hooks";
@@ -70,7 +71,7 @@ export function RunPage() {
       <main className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
         <section className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 text-xs">
           <span>{new Date(summary.started * 1000).toLocaleString()}</span>
-          <span>{t(`workbench.clockMode.${summary.clock}`)}</span>
+          <span>{t(`workbench.clockMode.${summary.clock as "command" | "wall" | "stepped"}`)}</span>
           <span>
             {t("runs.seed")} {summary.seed}
           </span>
@@ -302,7 +303,7 @@ function EventList({
   );
 }
 
-function describe(e: RunEvent, t: (k: string, o?: Record<string, unknown>) => string): string {
+function describe(e: RunEvent, t: T): string {
   if (e.kind === "scpi") {
     if (e.sha256) {
       const recipe = e.recipe != null ? ` · ${t("runs.fromAcquisition", { seq: e.recipe })}` : "";
