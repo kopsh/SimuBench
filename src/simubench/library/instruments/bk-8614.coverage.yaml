@@ -1,0 +1,369 @@
+schema: simubench.coverage/1
+model: bk-8614
+sections:
+- section: 3.2 Common Commands
+  commands:
+  - header: '*CLS'
+    level: implemented
+  - header: '*ESE'
+    level: implemented
+  - header: '*ESR'
+    level: implemented
+  - header: '*IDN'
+    level: implemented
+    note: The manual's four fields with a space after each comma.
+  - header: '*OPC'
+    level: implemented
+  - header: '*RCL'
+    level: not_modeled
+    note: Saved setups are not modeled.
+  - header: '*RST'
+    level: implemented
+    note: The manual's *RST table; protection latches and status registers are not affected.
+  - header: '*SAV'
+    level: not_modeled
+    note: Saved setups are not modeled.
+  - header: '*SRE'
+    level: implemented
+  - header: '*STB'
+    level: implemented
+  - header: '*TRG'
+    level: implemented
+    note: Bus trigger; transient, list and buffered acquisition are not modeled, so it changes no operating point.
+  - header: '*TST'
+    level: implemented
+    note: Answers 0 (passed).
+  - header: '*WAI'
+    level: implemented
+  - header: '*RDT'
+    level: not_modeled
+    note: The frame type reply is not given in the manual.
+- section: 3.3 Trigger Commands
+  commands:
+  - header: :TRIGger[:IMMediate]
+    level: implemented
+    note: As *TRG.
+  - header: :TRIGger:SOURce
+    level: implemented
+    note: BUS, EXTernal, HOLD, MANUal (*RST), TIMer; saved — no modeled function waits for a trigger.
+  - header: :TRIGger:TIMer
+    level: accepted
+    affects_data: false
+    note: Only paces transients and lists (not modeled). The entry says 1–999.99 s, *RST 0.001; the command tree 0.01–999.99 s, 0.1 — the tree's values are used.
+- section: 3.3 System Commands
+  commands:
+  - header: :SYSTem:PRESet
+    level: implemented
+    note: The *RST defaults.
+  - header: :SYSTem:POSetup
+    level: accepted
+    affects_data: false
+    note: Power-on setup; saved (power cycling is not simulated).
+  - header: :SYSTem:VERSion
+    level: not_modeled
+    note: The manual gives no value.
+  - header: ':SYSTem:ERRor[:NEXT]'
+    level: implemented
+    note: 'Empty queue: 0,"No Error"; the queue holds 10 messages (the last becomes -350).'
+  - header: :SYSTem:CLEar
+    level: not_modeled
+    note: Not modeled.
+  - header: :SYSTem:LOCal
+    level: accepted
+    affects_data: false
+    note: Front-panel state only.
+  - header: :SYSTem:REMote
+    level: accepted
+    affects_data: false
+    note: Front-panel state only.
+  - header: :SYSTem:RWLock
+    level: accepted
+    affects_data: false
+    note: Front-panel state only.
+- section: 3.3 Status Commands
+  commands:
+  - header: :STATus:OPERation[:EVENt]
+    level: implemented
+    note: 'CAL (bit 0) and TRG (bit 5) never occur: calibration and trigger waits are not modeled.'
+  - header: :STATus:OPERation:CONDition
+    level: implemented
+  - header: :STATus:OPERation:ENABle
+    level: implemented
+  - header: :STATus:QUEStionable[:EVENt]
+    level: implemented
+    note: VF 0, OC 1, OP 3, UNR 10, OV 12, PS 13, VON 14; RS (2), OT (4), RUN (7), RRV (9) and LRV (11) never occur.
+  - header: :STATus:QUEStionable:CONDition
+    level: implemented
+    note: 'Live: VF/OV while OVP stands, OC/OP while over the limit or tripped, PS while OCP/OPP stands, UNR, VON.'
+  - header: :STATus:QUEStionable:ENABle
+    level: implemented
+  - header: :STATus:PRESet
+    level: implemented
+    note: Clears both enable registers.
+- section: 3.3 Trace Commands
+  commands:
+  - header: :TRACe:CLEar
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:FREE
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:POINts
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:FEED
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:FEED:CONTrol
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:FILTer[:STATe]
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:DELay
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:TIMer
+    level: not_modeled
+    note: The trace buffer is not modeled.
+  - header: :TRACe:DATA
+    level: not_modeled
+    note: The trace buffer is not modeled.
+- section: 3.3 Source Commands
+  commands:
+  - header: '[:SOURce]:INPut[:STATe]'
+    level: implemented
+  - header: '[:SOURce]:INPut:SHORt[:STATe]'
+    level: not_modeled
+    note: The input short is not modeled.
+  - header: '[:SOURce]:INPut:SYNCon'
+    level: not_modeled
+  - header: '[:SOURce]:INPut:TIMer[:STATe]'
+    level: not_modeled
+    note: The input timer is not modeled.
+  - header: '[:SOURce]:INPut:TIMer:DELay'
+    level: not_modeled
+    note: The input timer is not modeled.
+  - header: '[:SOURce]:REMote:SENSe[:STATe]'
+    level: accepted
+    affects_data: false
+    note: 'No lead drop on the bench: the readings are the same either way.'
+  - header: '[:SOURce]:FUNCtion'
+    level: implemented
+    note: CURRent, RESistance, VOLTage, POWer (CW).
+  - header: '[:SOURce]:FUNCtion:MODE'
+    level: implemented
+    note: FIXed only; LIST is not modeled (-224).
+  - header: '[:SOURce]:TRANsient[:STATe]'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:PROTection:CLEar'
+    level: implemented
+    note: Clears the OVP/OCP/OPP latch; a condition still present trips again at once.
+  - header: '[:SOURce]:CURRent[:LEVel][:IMMediate]'
+    level: implemented
+    note: 0–240 A.
+  - header: '[:SOURce]:CURRent:RANGe'
+    level: implemented
+    note: Selects the smallest range holding the value (24 A or 240 A); a level above the new range goes to its maximum. A level above the present range is not refused (the manual does not say what happens).
+  - header: '[:SOURce]:CURRent:SLEW[:BOTH]'
+    level: implemented
+    note: Sets the rising and the falling rate. 0.001–2.5 A/µs over both ranges (the data sheet's low range is 0.001–0.25, the high 0.01–2.5); the range is not tied to the current range.
+  - header: '[:SOURce]:CURRent:SLEW:POSitive'
+    level: implemented
+  - header: '[:SOURce]:CURRent:SLEW:NEGative'
+    level: implemented
+  - header: '[:SOURce]:CURRent:PROTection:STATe'
+    level: implemented
+    note: '*RST OFF.'
+  - header: '[:SOURce]:CURRent:PROTection[:LEVel]'
+    level: implemented
+    note: '*RST MAX (240 A).'
+  - header: '[:SOURce]:CURRent:PROTection:DELay'
+    level: implemented
+    note: 0–60 s in virtual time; *RST 3 s per the *RST table (the command entry says 0).
+  - header: '[:SOURce]:CURRent:TRANsient:MODE'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:CURRent:TRANsient:ALEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:CURRent:TRANsient:BLEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:CURRent:TRANsient:AWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:CURRent:TRANsient:BWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:CURRent:HIGH'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:CURRent:LOW'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate]'
+    level: implemented
+    note: 0–120 V; *RST MAX.
+  - header: '[:SOURce]:VOLTage:RANGe'
+    level: implemented
+    note: Selects 18 V or 120 V; a level above the new range goes to its maximum.
+  - header: '[:SOURce]:VOLTage:RANGe:AUTO'
+    level: accepted
+    affects_data: false
+    note: 'Voltmeter auto range: the readings have no resolution model.'
+  - header: '[:SOURce]:VOLTage[:LEVel]:ON'
+    level: implemented
+    note: Von for CC and CW (CV and CR conduct regardless).
+  - header: '[:SOURce]:VOLTage:LATCh[:STATe]'
+    level: implemented
+    note: 'ON (*RST): once above Von the load keeps sinking below it until the input turns off.'
+  - header: '[:SOURce]:VOLTage:HIGH'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:VOLTage:LOW'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:VOLTage:TRANsient:MODE'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:VOLTage:TRANsient:ALEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:VOLTage:TRANsient:BLEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:VOLTage:TRANsient:AWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:VOLTage:TRANsient:BWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:RESistance[:LEVel][:IMMediate]'
+    level: implemented
+    note: 0.01–7500 Ω; *RST MAX.
+  - header: '[:SOURce]:RESistance:RANGe'
+    level: implemented
+    note: Selects 10 Ω or 7.5 kΩ; a level outside the new range goes to its nearest edge.
+  - header: '[:SOURce]:RESistance:HIGH'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:RESistance:LOW'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:RESistance:TRANsient:MODE'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:RESistance:TRANsient:ALEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:RESistance:TRANsient:BLEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:RESistance:TRANsient:AWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:RESistance:TRANsient:BWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:RESistance:VDRop'
+    level: not_modeled
+    note: The CR-LED test is not modeled.
+  - header: '[:SOURce]:RESistance:LED[:STATe]'
+    level: not_modeled
+    note: The CR-LED test is not modeled.
+  - header: '[:SOURce]:POWer[:LEVel][:IMMediate]'
+    level: implemented
+    note: 0–1500 W.
+  - header: '[:SOURce]:POWer:RANGe'
+    level: implemented
+    note: One range, 1500 W.
+  - header: '[:SOURce]:POWer:HIGH'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:POWer:LOW'
+    level: accepted
+    affects_data: false
+    note: Pass/fail limit, saved.
+  - header: '[:SOURce]:POWer:TRANsient:MODE'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:POWer:TRANsient:ALEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:POWer:TRANsient:BLEVel'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:POWer:TRANsient:AWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:POWer:TRANsient:BWIDth'
+    level: not_modeled
+    note: Transient operation (C2) is not modeled.
+  - header: '[:SOURce]:POWer:PROTection[:LEVel]'
+    level: implemented
+    note: Soft OPP, *RST MAX (1500 W); the power stage itself stops at 1550 W (the data sheet's typical OPP).
+  - header: '[:SOURce]:POWer:PROTection:DELay'
+    level: implemented
+    note: 0–60 s in virtual time; *RST 3 s per the *RST table (the command entry says 0).
+  - header: '[:SOURce]:POWer:CONFig[:LEVel]'
+    level: not_modeled
+    note: The hard power protection level; how it relates to the soft OPP the manual does not say.
+- section: 3.3 List Commands
+  commands:
+  - header: '[:SOURce]:LIST:RANGe'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:SLOWrate[:STATe]'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:COUNt'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:STEP'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:LEVel'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:SLEW[:BOTH]'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:WIDth'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:SAV'
+    level: not_modeled
+    note: List mode is not modeled.
+  - header: '[:SOURce]:LIST:RCL'
+    level: not_modeled
+    note: List mode is not modeled.
+- section: 3.3 Measurement Commands
+  commands:
+  - header: :FETCh:VOLTage
+    level: implemented
+    note: The live reading (no buffered acquisition).
+  - header: :FETCh:CURRent
+    level: implemented
+    note: The live reading.
+  - header: :FETCh:POWer[:DC]
+    level: implemented
+    note: The live reading.
+  - header: :MEASure:VOLTage[:DC]
+    level: implemented
+    note: Takes 117 ms (NPLC 7 of the *RST table at 60 Hz; the manual gives no time — a SimuBench value); the reply is the reading at the start.
+  - header: :MEASure:CURRent[:DC]
+    level: implemented
+    note: Takes 117 ms, as :MEASure:VOLTage.
+  - header: :SENSe:AVERage:COUNt
+    level: accepted
+    affects_data: false
+    note: '2–16, *RST 8: the readings have no noise model.'

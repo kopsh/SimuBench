@@ -1,0 +1,514 @@
+schema: simubench.instrument/1
+id: bk-8614
+manufacturer: B&K Precision
+model: "8614"
+class: electronic_load
+version: 1
+description: >-
+  B&K Precision 8614 programmable DC electronic load (120 V / 240 A / 1500 W, 3U, one input).
+  Real model (D42): commands, replies, *RST values and errors follow the 8600 Series Programming
+  Manual (v051118, models 8600–8616); ratings, ranges and protection limits the 8600/B Series data
+  sheet (2025). Static CC/CV/CR/CP with the two current, voltage and resistance ranges, Von with
+  its latch, rise/fall slew, the input switch, OCP (switch, level, delay), soft OPP (level, delay),
+  the fixed 130 V OVP, protection clear, V/I/P readback and the status registers are the eload_*
+  blocks (C1, #661). Transient (C2), list, input short and timer, the trace buffer, the LED
+  test and *SAV/*RCL are not modeled and answer -113.
+reference:
+  title: B&K Precision 8600 Series Programmable DC Electronic Loads Programming Manual
+  document: 8600-series-programming-manual
+  version: v051118 (© 2015-2016)
+  firmware: "as covered by the manual (*IDN? example firmware 1.32-1.37)"
+identity:
+  # The manual's *IDN? example: B&K PRECISION, 8600, 600150010677510002, 1.32-1.37 — four fields,
+  # a space after each comma.
+  idn: "B&K PRECISION, {model}, {serial}, {firmware}"
+  serial: "601400010000000001"
+  firmware: "1.32-1.37"
+format:
+  # The manual gives the reply types (<NR1>, <NR3>, <CRD>) but no digit counts; nr3 with six
+  # decimals is a SimuBench choice, noted in the coverage table.
+  number: nr3
+  digits: 6
+  sign: false
+  exponent_digits: 2
+  readings: format
+  boolean: numeric
+  enum: short
+  error_code: plain
+# The manual: SYSTem:ERRor? answers "0, No Error" with an empty queue; the queue holds 10 messages.
+errors:
+  0: No Error
+  -350: Too many errors
+error_queue: 10
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*TRG", "*ESR", "*ESE", "*SRE", "*STB", "*TST", ":SYSTem:ERRor[:NEXT]"]
+specs:
+  source: 8600/B Series data sheet (2025), model 8614
+  ratings: "0–120 V, 0–240 A, 1500 W"
+  ranges:
+    cc: {low: "0–24 A", high: "0–240 A"}
+    cv: {low: "0.1–18 V", high: "0.1–120 V"}
+    cr: {low: "0.01–10 Ω", high: "10 Ω–7.5 kΩ"}
+    cw: "0–1500 W"
+  minimum_operating_voltage: {low: "0.15 V at 24 A", high: "1.5 V at 240 A"}
+  slew_rate: {low: "0.001–0.25 A/µs", high: "0.01–2.5 A/µs"}
+  protection_typical: {opp: "1550 W", ocp: {low: "26.4 A", high: "264 A"}, ovp: "130 V", otp: "85 °C"}
+  readback_accuracy: {voltage: "±(0.05% + 0.05% FS)", current: "±(0.05% + 0.1% FS)", power: "±(0.2% + 0.2% FS)"}
+state:
+  function.mode:
+    type: enum
+    options: [CURRent, RESistance, VOLTage, POWer]
+    default: CURRent
+    electrical: true
+    label: 模式
+    label_en: Mode
+    option_labels: {CURRent: 恒流 CC, RESistance: 恒阻 CR, VOLTage: 恒压 CV, POWer: 恒功率 CW}
+  function.control:
+    type: enum
+    options: [FIXed]
+    default: FIXed
+    not_modeled: {LIST: list mode is not modeled}
+    label: 输入调节方式
+    label_en: Regulation mode
+  current.level:
+    electrical: true
+    type: float
+    unit: A
+    min: 0.0
+    max: 240.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 240.0, MAXIMUM: 240.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 电流设定
+    label_en: Current
+  current.range:
+    electrical: true
+    type: float
+    unit: A
+    min: 0.0
+    max: 240.0
+    default: 240.0
+    special: {MIN: 24.0, MINIMUM: 24.0, MAX: 240.0, MAXIMUM: 240.0, DEF: 240.0, DEFAULT: 240.0}
+    label: 电流量程
+    label_en: Current range
+  current.slew_rise:
+    electrical: true
+    type: float
+    min: 0.001
+    max: 2.5
+    default: 2.5
+    special: {MIN: 0.001, MINIMUM: 0.001, MAX: 2.5, MAXIMUM: 2.5, DEF: 2.5, DEFAULT: 2.5}
+    label: 电流上升斜率
+    label_en: Rising slew
+    display_unit: A/µs
+  current.slew_fall:
+    electrical: true
+    type: float
+    min: 0.001
+    max: 2.5
+    default: 2.5
+    special: {MIN: 0.001, MINIMUM: 0.001, MAX: 2.5, MAXIMUM: 2.5, DEF: 2.5, DEFAULT: 2.5}
+    label: 电流下降斜率
+    label_en: Falling slew
+    display_unit: A/µs
+  current.prot_on:
+    electrical: true
+    type: bool
+    default: false
+    label: 过流保护
+    label_en: OCP
+  current.prot_level:
+    electrical: true
+    type: float
+    unit: A
+    min: 0.0
+    max: 240.0
+    default: 240.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 240.0, MAXIMUM: 240.0, DEF: 240.0, DEFAULT: 240.0}
+    label: 过流保护电流
+    label_en: OCP level
+  current.prot_delay:
+    electrical: true
+    type: float
+    unit: S
+    min: 0.0
+    max: 60.0
+    default: 3.0
+    label: 过流保护延时
+    label_en: OCP delay
+  voltage.level:
+    electrical: true
+    type: float
+    unit: V
+    min: 0.0
+    max: 120.0
+    default: 120.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 120.0, MAXIMUM: 120.0, DEF: 120.0, DEFAULT: 120.0}
+    label: 电压设定
+    label_en: Voltage
+  voltage.range:
+    electrical: true
+    type: float
+    unit: V
+    min: 0.0
+    max: 120.0
+    default: 120.0
+    special: {MIN: 18.0, MINIMUM: 18.0, MAX: 120.0, MAXIMUM: 120.0, DEF: 120.0, DEFAULT: 120.0}
+    label: 电压量程
+    label_en: Voltage range
+  voltage.range_auto:
+    type: bool
+    default: true
+    label: 电压表自动量程
+    label_en: Voltmeter auto range
+  voltage.von:
+    electrical: true
+    type: float
+    unit: V
+    min: 0.0
+    max: 120.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 120.0, MAXIMUM: 120.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 起始电压 Von
+    label_en: Von
+  voltage.von_latch:
+    electrical: true
+    type: bool
+    default: true
+    label: Von 锁存
+    label_en: Von latch
+  resistance.level:
+    electrical: true
+    type: float
+    unit: OHM
+    min: 0.01
+    max: 7500.0
+    default: 7500.0
+    special: {MIN: 0.01, MINIMUM: 0.01, MAX: 7500.0, MAXIMUM: 7500.0, DEF: 7500.0, DEFAULT: 7500.0}
+    label: 电阻设定
+    label_en: Resistance
+  resistance.range:
+    electrical: true
+    type: float
+    unit: OHM
+    min: 0.0
+    max: 7500.0
+    default: 7500.0
+    special: {MIN: 10.0, MINIMUM: 10.0, MAX: 7500.0, MAXIMUM: 7500.0, DEF: 7500.0, DEFAULT: 7500.0}
+    label: 电阻量程
+    label_en: Resistance range
+  power.level:
+    electrical: true
+    type: float
+    unit: W
+    min: 0.0
+    max: 1500.0
+    default: 0.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 1500.0, MAXIMUM: 1500.0, DEF: 0.0, DEFAULT: 0.0}
+    label: 功率设定
+    label_en: Power
+  power.range:
+    electrical: true
+    type: float
+    unit: W
+    min: 0.0
+    max: 1500.0
+    default: 1500.0
+    special: {MIN: 1500.0, MINIMUM: 1500.0, MAX: 1500.0, MAXIMUM: 1500.0, DEF: 1500.0, DEFAULT: 1500.0}
+    label: 功率量程
+    label_en: Power range
+  power.prot_level:
+    electrical: true
+    type: float
+    unit: W
+    min: 0.0
+    max: 1500.0
+    default: 1500.0
+    special: {MIN: 0.0, MINIMUM: 0.0, MAX: 1500.0, MAXIMUM: 1500.0, DEF: 1500.0, DEFAULT: 1500.0}
+    label: 过功率保护
+    label_en: OPP level
+  power.prot_delay:
+    electrical: true
+    type: float
+    unit: S
+    min: 0.0
+    max: 60.0
+    default: 3.0
+    label: 过功率保护延时
+    label_en: OPP delay
+  # Pass/fail limits of each mode (accepted: they judge, they do not regulate).
+  limit.current_high: {type: float, unit: V, min: 0.0, max: 120.0, default: 120.0, label: CC 电压上限, label_en: CC high}
+  limit.current_low: {type: float, unit: V, min: 0.0, max: 120.0, default: 0.0, label: CC 电压下限, label_en: CC low}
+  limit.voltage_high: {type: float, unit: A, min: 0.0, max: 240.0, default: 240.0, label: CV 电流上限, label_en: CV high}
+  limit.voltage_low: {type: float, unit: A, min: 0.0, max: 240.0, default: 0.0, label: CV 电流下限, label_en: CV low}
+  limit.resistance_high: {type: float, unit: V, min: 0.0, max: 120.0, default: 120.0, label: CR 电压上限, label_en: CR high}
+  limit.resistance_low: {type: float, unit: V, min: 0.0, max: 120.0, default: 0.0, label: CR 电压下限, label_en: CR low}
+  limit.power_high: {type: float, unit: V, min: 0.0, max: 120.0, default: 120.0, label: CW 电压上限, label_en: CW high}
+  limit.power_low: {type: float, unit: V, min: 0.0, max: 120.0, default: 0.0, label: CW 电压下限, label_en: CW low}
+  input.enabled:
+    type: bool
+    default: false
+    electrical: true
+    label: 输入
+    label_en: Input
+  sense.remote:
+    type: bool
+    default: false
+    label: 远端 Sense
+    label_en: Remote sense
+  sense.average:
+    type: int
+    min: 2
+    max: 16
+    default: 8
+    label: 读数滤波次数
+    label_en: Filter count
+  trigger.source:
+    type: enum
+    options: [BUS, EXTernal, HOLD, MANUal, TIMer]
+    default: MANUal
+    label: 触发源
+    label_en: Trigger source
+  trigger.timer:
+    type: float
+    unit: S
+    min: 0.01
+    max: 999.99
+    default: 0.1
+    label: 触发定时器
+    label_en: Trigger timer
+  trigger.armed:
+    type: bool
+    default: false
+    label: 触发
+    label_en: Trigger
+  status.ques_enable: {type: int, min: 0, max: 65535, default: 0, label: 可疑状态使能, label_en: Questionable enable}
+  status.oper_enable: {type: int, min: 0, max: 65535, default: 0, label: 运行状态使能, label_en: Operation enable}
+  system.power_on:
+    type: enum
+    options: [RST, SAV0]
+    default: RST
+    label: 上电设置
+    label_en: Power-on setup
+  system.remote:
+    type: enum
+    options: [LOCal, REMote, RWLock]
+    default: LOCal
+    label: 面板控制
+    label_en: Front panel
+components:
+  # 输入 → 功率级 → 模式环 → 测量 → 保护（component-map 的 electronic_load 块）。
+  - name: stage
+    type: eload_power_stage
+    # r_min = 1.5 V / 240 A（数据表高量程的最小工作电压）；功率级在 1550 W（数据表典型 OPP）
+    # 截止，1500 W 的软件 OPP 按延时跳闸。
+    params: {r_min: 0.00625, i_max: 240.0, p_max: 1550.0}
+  - name: loop
+    type: eload_mode_loop
+    params:
+      stage: stage
+      function: {from: $function.mode, map: {CURRent: CC, RESistance: CR, VOLTage: CV, POWer: CP}}
+      current: $current.level
+      voltage: $voltage.level
+      resistance: $resistance.level
+      power: $power.level
+      von: $voltage.von
+      von_latch: $voltage.von_latch
+      slew_rise: $current.slew_rise
+      slew_fall: $current.slew_fall
+      current_range: $current.range
+      current_ranges: [[0.0, 24.0], [0.0, 240.0]]
+      voltage_range: $voltage.range
+      voltage_ranges: [[0.0, 18.0], [0.0, 120.0]]
+      resistance_range: $resistance.range
+      resistance_ranges: [[0.01, 10.0], [10.0, 7500.0]]
+      power_range: $power.range
+      power_ranges: [[0.0, 1500.0]]
+  - name: inp
+    type: eload_input
+    params: {enabled: $input.enabled, loop: loop, protection: prot}
+  - name: load
+    type: eload_meter
+    params: {input: inp}
+  - name: prot
+    type: eload_protection
+    # OVP 是硬件的 130 V（数据表典型值，没有命令）；OCP 与软件 OPP 按手册的开关、电平与延时。
+    params:
+      ovp: 130.0
+      ocp: $current.prot_level
+      ocp_enabled: $current.prot_on
+      ocp_delay: $current.prot_delay
+      opp: $power.prot_level
+      opp_delay: $power.prot_delay
+  # 可疑状态寄存器（手册 1.4）：VF 0、OC 1、OP 3、UNR 10、OV 12、PS 13、VON 14，汇总到状态字节位 3。
+  - name: ques
+    type: status_register
+    params:
+      bits: {VF: 0, OC: 1, OP: 3, UNR: 10, OV: 12, PS: 13, VON: 14}
+      enable: $status.ques_enable
+      summary_bit: 3
+  # 运行状态寄存器：CAL（位 0）与 TRG（位 5）都不出现（校准与触发等待未建模），汇总到位 7。
+  - name: oper
+    type: status_register
+    params:
+      bits: {CAL: 0, TRG: 5}
+      enable: $status.oper_enable
+      summary_bit: 7
+  - name: sys
+    type: system
+ports:
+  instrument:
+    IN: inp.in
+display:
+  template: electronic_load
+  summary: [function.mode, current.level, voltage.level, resistance.level, input.enabled]
+capabilities: [electronic_load]
+commands:
+  # ---- trigger ----
+  - header: "*TRG"
+    state: trigger.armed
+    set_value: true
+    query: false
+    doc: 总线触发；暂态、列表与缓冲采集未建模，触发不改变静态工作点。
+  - header: ":TRIGger[:IMMediate]"
+    state: trigger.armed
+    set_value: true
+    query: false
+    doc: 触发只用于暂态、列表与缓冲采集（都未建模），不改变静态工作点。
+  - header: ":TRIGger:SOURce"
+    state: trigger.source
+  - header: ":TRIGger:TIMer"
+    state: trigger.timer
+    doc: 手册的条目写 1–999.99 s、*RST 0.001，命令树写 0.01–999.99 s、默认 0.1；取命令树。
+  # ---- system ----
+  - header: ":SYSTem:PRESet"
+    op: sys.reset
+    query: false
+  - header: ":SYSTem:POSetup"
+    state: system.power_on
+  - header: ":SYSTem:LOCal"
+    state: system.remote
+    set_value: LOCal
+    query: false
+  - header: ":SYSTem:REMote"
+    state: system.remote
+    set_value: REMote
+    query: false
+  - header: ":SYSTem:RWLock"
+    state: system.remote
+    set_value: RWLock
+    query: false
+  # ---- status ----
+  - {header: ":STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: ":STATus:QUEStionable:CONDition", op: ques.condition, set: false}
+  - {header: ":STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: ":STATus:OPERation:CONDition", op: oper.condition, set: false}
+  - {header: ":STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:PRESet", op: ques.preset, query: false}
+  # ---- source: input, function ----
+  - header: "[:SOURce]:INPut[:STATe]"
+    state: input.enabled
+    dangerous: true
+  - header: "[:SOURce]:REMote:SENSe[:STATe]"
+    state: sense.remote
+    doc: 远端测量开关；测试台没有引线压降，保存与回读不影响读数。
+  - header: "[:SOURce]:FUNCtion"
+    state: function.mode
+  - header: "[:SOURce]:FUNCtion:MODE"
+    state: function.control
+    doc: 只有 FIXed；LIST 未建模（-224）。
+  - header: "[:SOURce]:PROTection:CLEar"
+    op: prot.clear
+    query: false
+  # ---- current ----
+  - header: "[:SOURce]:CURRent[:LEVel][:IMMediate]"
+    state: current.level
+  - header: "[:SOURce]:CURRent:RANGe"
+    state: current.range
+    doc: 取能容纳该值的最小量程（24 A 或 240 A）；超出新量程的电流设定设为量程最大值。
+  - header: "[:SOURce]:CURRent:SLEW[:BOTH]"
+    op: loop.slew_both
+    query: false
+    params: [{name: value, type: float, state: current.slew_rise}]
+    doc: 上升与下降斜率同时设置（参数先写上升斜率，操作再把同一值写给下降斜率）。
+  - header: "[:SOURce]:CURRent:SLEW:POSitive"
+    state: current.slew_rise
+  - header: "[:SOURce]:CURRent:SLEW:NEGative"
+    state: current.slew_fall
+  - header: "[:SOURce]:CURRent:PROTection:STATe"
+    state: current.prot_on
+  - header: "[:SOURce]:CURRent:PROTection[:LEVel]"
+    state: current.prot_level
+  - header: "[:SOURce]:CURRent:PROTection:DELay"
+    state: current.prot_delay
+  - header: "[:SOURce]:CURRent:HIGH"
+    state: limit.current_high
+  - header: "[:SOURce]:CURRent:LOW"
+    state: limit.current_low
+  # ---- voltage ----
+  - header: "[:SOURce]:VOLTage[:LEVel][:IMMediate]"
+    state: voltage.level
+  - header: "[:SOURce]:VOLTage:RANGe"
+    state: voltage.range
+    doc: 取能容纳该值的最小量程（18 V 或 120 V）；超出新量程的电压设定设为量程最大值。
+  - header: "[:SOURce]:VOLTage:RANGe:AUTO"
+    state: voltage.range_auto
+    doc: 电压表的自动量程；读数无噪声与分辨率模型，保存与回读不影响读数。
+  - header: "[:SOURce]:VOLTage[:LEVel]:ON"
+    state: voltage.von
+  - header: "[:SOURce]:VOLTage:LATCh[:STATe]"
+    state: voltage.von_latch
+  - header: "[:SOURce]:VOLTage:HIGH"
+    state: limit.voltage_high
+  - header: "[:SOURce]:VOLTage:LOW"
+    state: limit.voltage_low
+  # ---- resistance ----
+  - header: "[:SOURce]:RESistance[:LEVel][:IMMediate]"
+    state: resistance.level
+  - header: "[:SOURce]:RESistance:RANGe"
+    state: resistance.range
+    doc: 取能容纳该值的最小量程（10 Ω 或 7.5 kΩ）；超出新量程的电阻设定设为较近的边界。
+  - header: "[:SOURce]:RESistance:HIGH"
+    state: limit.resistance_high
+  - header: "[:SOURce]:RESistance:LOW"
+    state: limit.resistance_low
+  # ---- power ----
+  - header: "[:SOURce]:POWer[:LEVel][:IMMediate]"
+    state: power.level
+  - header: "[:SOURce]:POWer:RANGe"
+    state: power.range
+  - header: "[:SOURce]:POWer:HIGH"
+    state: limit.power_high
+  - header: "[:SOURce]:POWer:LOW"
+    state: limit.power_low
+  - header: "[:SOURce]:POWer:PROTection[:LEVel]"
+    state: power.prot_level
+  - header: "[:SOURce]:POWer:PROTection:DELay"
+    state: power.prot_delay
+  # ---- measurement ----
+  - header: ":FETCh:VOLTage"
+    op: load.measure
+    set: false
+    args: {what: voltage}
+  - header: ":FETCh:CURRent"
+    op: load.measure
+    set: false
+    args: {what: current}
+  - header: ":FETCh:POWer[:DC]"
+    op: load.measure
+    set: false
+    args: {what: power}
+  - header: ":MEASure:VOLTage[:DC]"
+    op: load.measure
+    set: false
+    args: {what: voltage}
+    duration: 0.117
+    doc: 一次新的采集：*RST 表的 NPLC 7（60 Hz 约 117 ms，手册未给采集时间，SimuBench 取值）。
+  - header: ":MEASure:CURRent[:DC]"
+    op: load.measure
+    set: false
+    args: {what: current}
+    duration: 0.117
+    doc: 一次新的采集：*RST 表的 NPLC 7（60 Hz 约 117 ms，手册未给采集时间，SimuBench 取值）。
+  - header: ":SENSe:AVERage:COUNt"
+    state: sense.average
+    doc: 读数滤波次数；读数没有噪声模型，保存与回读不影响读数。

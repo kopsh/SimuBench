@@ -1406,3 +1406,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试台与脚本 | ✅ `examples/benches/keysight-n9042b.bench.yaml`（SMA100B 5.8 GHz、-10 dBm → N9042B）；`examples/scripts/keysight_n9042b_measure.py` 按手册写法（*RST、单次扫描 + *OPC?、标记峰值、计数器、ASCII 迹线）在 `tests/test_keysight_n9042b.py` 中运行；另测预置全跨度找到 5.8 GHz 载波、自动 RBW 档位、Normal 交替、最小保持、4000 s 内的单次扫描时间、差值标记偏移 |
 | 未做 | ⚠️ 迹线 2–6 与标记 2–12、零跨度、前置放大、平均检波器与平均类型 RMS/电压、自由触发以外的触发、固定标记、:CALCulate:MARKer:STATe、峰值门限/偏移的开关、测量应用（ACP/CHP/OBW/TOI/SEM 等）与其他模式；逐条在覆盖表 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## 电子负载组件的 Von 锁存、斜率分设、量程联动与保护延时；B&K Precision 8614（Issue 661、337）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 选型 | ✅ ITECH IT8900A 与备选 Chroma 63600 的编程手册在本环境都取不到（官网与镜像都有浏览器校验），按维护者指示改用同为主流大功率负载的 B&K Precision 8614（1500 W、120 V、240 A），#337 已注明 |
+| 依据 | ✅ 8600 Series Programming Manual（v051118，型号 8600–8616）与 8600/B Series 数据表（2025）入库 `manuals/`（PDF 走 LFS，附文本版），README 加两行 |
+| 组件（#661） | ✅ `eload_mode_loop`：`von_latch`（超过 Von 后持续吸收，输入关闭后重新开始）、`slew_rise`/`slew_fall` 与 `slew_both` 操作、`*_ranges`（量程设置取能容纳它的最小档并写回，超出新档的设定值收到较近的边界）；输入不导通时的电流阶跃从 0 A 起斜。`eload_protection`：`ocp_enabled`/`opp_enabled`、`ocp_delay`/`opp_delay`（虚拟时间，延时从模拟器看到越限起算，同 #271）、状态标志 OV/VF/OC/OP/PS，清除后重新求解。`eload_input`：状态标志 UNR、VON。默认值保持 DL3021 与 sb-el-1 行为不变（DL3021 手册用例 18 条通过）；`tests/test_eload_model_options.py` |
+| 定义（#337） | ✅ `bk-8614.yaml` 只用通用组件：CC 24/240 A、CV 18/120 V、CR 10 Ω/7.5 kΩ、CW 1500 W 的量程；*RST 值按手册的 *RST 表（OCP、OPP 延时取表中的 3 s，命令条目写 0，覆盖表注明）；Von 锁存 ON；OVP 为数据表的硬件 130 V；功率级在 1550 W（典型 OPP）截止；可疑寄存器 VF/OC/OP/UNR/OV/PS/VON 用通用 `status_register`；错误队列 10 条、空队列回 `0,"No Error"`；`simubench validate` 无诊断 |
+| 覆盖表 | ✅ 由手册第 3 章逐条整理 116 条：实现 49、接受 16、未实现 51；一致性检查通过 |
+| 用例 | ✅ `tests/models/bk-8614/cases.yaml` 13 条，每条带 `manual:`，覆盖全部实现与接受的命令 |
+| 测试台与脚本 | ✅ `examples/benches/bk-8614.bench.yaml`（48 V、0.1 Ω 直流源 → 8614）；`examples/scripts/bk_8614_load_test.py` 按手册第 4 章写法（*RST、CC、OCP、逐级电流、MEAS/FETC、错误队列）在 `tests/test_bk_8614.py` 中运行；另测 OPP/OCP 延时跳闸、延时内消除的过流不跳闸、最慢斜率 |
+| 未做 | ⚠️ 暂态（C2）、列表、输入短路与定时器、缓冲采集（TRACe）、CR-LED、*SAV/*RCL、硬件功率保护 `POW:CONF`、OTP（无温度模型）、远端测量的引线压降；逐条在覆盖表 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
