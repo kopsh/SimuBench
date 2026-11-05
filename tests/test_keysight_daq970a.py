@@ -7,44 +7,28 @@ plus FETCh?, unlike the 34970A), CONFigure sets the trigger count and interval, 
 loads the bench circuit, and the DAQM901A's four-wire pairing and current channels.
 """
 
-import importlib.util
 import math
 import shutil
-import sys
 from pathlib import Path
 
 import pyvisa
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-daq970a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_daq970a_scan.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_daq970a_scan", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def q(s, command: str) -> str | None:
-    s.write("daq", (command + "\n").encode())
-    out = s.read("daq")
-    return out.decode().strip() if out else None
+    return session_query(s, "daq", command)
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    monkeypatch.setattr(sys, "argv", ["keysight_daq970a_scan.py", "daq", "--bench", str(bench)])
-    script.main()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["daq"], BENCH, tmp_path, monkeypatch, capsys, rm_wrap=False)
     assert out[0] == "Keysight Technologies,DAQ970A,MY12345678,A.02.04-00.16-11.29-00.02-02-01"
     assert out[1] == "scan (@101:103): 0.90909,1.818177,3.636357"
     assert out[2] == "opc: 1"

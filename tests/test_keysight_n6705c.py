@@ -6,14 +6,11 @@ what a transcript cannot see: each slot's module limits, the 100 W power envelop
 past lead resistance and the protection latches.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
@@ -22,16 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-n6705c.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_n6705c_check.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_n6705c_check", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session(parts: dict, wires: list):
@@ -63,15 +51,7 @@ def load(ch: int, r: float) -> tuple[dict, list]:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["keysight_n6705c_check.py", "psu", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["psu"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Keysight Technologies,N6705C,MY56000123,E.02.07.3231"
     assert out[1] == "modules: N6762A,N6762A,N6752A,N6752A"
     ch1 = out[2].split()

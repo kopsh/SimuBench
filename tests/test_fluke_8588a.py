@@ -7,14 +7,11 @@ measurement currents of the Product Specifications (normal, low current, HV), fo
 past the lead resistance, the current shunts in the circuit and the aperture in virtual time.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
@@ -24,16 +21,7 @@ BENCH = ROOT / "examples" / "benches" / "fluke-8588a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "fluke_8588a_verify.py"
 GMIN = 1e-12  # engine/circuit.py stamps 1e-12 S from every node to ground
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("fluke_8588a_verify", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session(parts: dict, wires: list, with_cal: bool = True):
@@ -65,15 +53,7 @@ def resistor(r: float) -> dict:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["fluke_8588a_verify.py", "dmm", "cal", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["dmm", "cal"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "FLUKE,8588A,4523000101,1.28"
     assert out[-1] == '+0,"No error"'
     readings = [float(line.split()[-3]) for line in out[1:-1]]

@@ -7,8 +7,6 @@ pieces the cases cannot see: synchronisation, the sub-sample time origin, the da
 individual deviations, offset clamping and the probe rescale.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -16,6 +14,7 @@ import pytest
 import pyvisa
 import yaml
 
+from helpers import load_script
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -25,15 +24,7 @@ EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_dsox_read_waveform.py"
 
 
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_dsox_read_waveform", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-reader = _script()
+reader = load_script(SCRIPT)
 
 
 def _open(tmp_path, source=CASES_BENCH, awg_state=None, **instrument):

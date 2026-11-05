@@ -7,17 +7,14 @@ load, the CV/CC mode the readback block reports to the panel), and the three out
 settings.
 """
 
-import importlib.util
 import math
 import re
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 import yaml
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,16 +25,7 @@ RELAY_S = 0.01
 CH1_INT = 5.0 * 10.0 / 10.002
 CH1_CURRENT = 5.0 / 10.002
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_e36312a_check", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session():
@@ -59,9 +47,7 @@ def sense_wired_session():
 
 
 def q(s, command: str) -> str | None:
-    s.write("psu", (command + "\n").encode())
-    out = s.read("psu")
-    return out.decode().strip() if out else None
+    return session_query(s, "psu", command)
 
 
 def close_enough(value: float, expected: float, rel: float = 1e-6) -> bool:
@@ -69,15 +55,7 @@ def close_enough(value: float, expected: float, rel: float = 1e-6) -> bool:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["keysight_e36312a_check.py", "psu", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["psu"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0].startswith("Keysight Technologies,E36312A,")
     assert out[1].startswith("channel 1: ")
     assert out[2].startswith("channel 2: ")

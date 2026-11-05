@@ -7,14 +7,11 @@ and a staircase sweep. The script reads the measurement array with FETCh:ARRay? 
 buffer, which needs TRACe:FEED:CONTrol NEXT on a real instrument).
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,16 +20,7 @@ SCRIPT = ROOT / "examples" / "scripts" / "keysight_b2901a_sweep.py"
 RESISTANCE = 1000.0
 READING_TIME = 0.008405  # NPLC 0.1 at 50 Hz with autozero: reading_time(0.1, 50, True)
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_b2901a_sweep", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session():
@@ -40,21 +28,11 @@ def session():
 
 
 def q(s, command: str) -> str | None:
-    s.write("smu", (command + "\n").encode())
-    out = s.read("smu")
-    return out.decode().strip() if out else None
+    return session_query(s, "smu", command)
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["keysight_b2901a_sweep.py", "smu", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["smu"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0].startswith("Agilent Technologies,B2901A,")
     assert out[1].startswith("spot: 0 V, 0 A")
     assert out[2] == "5 points"

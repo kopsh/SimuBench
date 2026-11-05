@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.component import component_type
 from simubench.models.bench import BenchDefinition
@@ -42,9 +43,7 @@ def s():
 
 
 def q(s, cmd: str) -> str:
-    s.write("dmm", (cmd + "\n").encode())
-    out = s.read("dmm")
-    return out.decode().strip() if out else ""
+    return session_query(s, "dmm", cmd, default="")
 
 
 def reading(s, cmd: str = ":MEAS:VOLT?") -> float:
