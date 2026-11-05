@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { useEvents } from "@/api/events";
-import { scpiOutcome, useReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cssVar, decimate, resolveColor } from "@/lib/canvas";
@@ -23,10 +23,8 @@ const DB_PER_DIV = 10;
  */
 export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const version = useEvents((s) => s.version);
-  const readings = useReadings(sid, inst.name, version);
+  const { values: v, query: readings } = useInstrumentReadings(sid, inst.name);
   const scpi = useScpi(sid, inst.name);
-  const v = readings.data?.values ?? {};
   const n = (k: string) => Number(v[`sa.${k}`] ?? 0);
   const trace = readings.data?.traces.find((x) => x.name === "sa.trace1");
   const vars = stateMap(inst);
