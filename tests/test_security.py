@@ -18,11 +18,12 @@ PUBLIC = {"/api/health", "/api/openapi.json", "/api/docs"}
 
 @pytest.fixture
 def app():
-    return create_app(
-        SessionManager(ROOT / "validation", scpi_base_port=0, hislip_port=0),
-        token=TOKEN,
-        web_dist=Path("/nonexistent"),
+    manager = SessionManager(
+        ROOT / "validation", scpi_base_port=0, hislip_port=0, vxi11_port=0, portmapper_port=0
     )
+    application = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    application.state.manager = manager
+    return application
 
 
 def api_routes(app):
@@ -107,6 +108,11 @@ def test_scpi_sockets_listen_on_loopback_only(app):
         hislip = [i["address_hislip"] for i in info["instruments"]]
         # The shared HiSLIP port (D41) binds loopback only as well, like the sockets.
         assert hislip and all(a.startswith("TCPIP0::127.0.0.1::hislip") for a in hislip)
+        # VXI-11 (D63): core channel, abort channel and port mapper bind loopback only too.
+        vxi11 = c.app.state.manager.sessions[info["id"]].vxi11
+        listeners = [vxi11.server, vxi11.abort.server, vxi11.portmapper.server]
+        assert all(srv.sockets[0].getsockname()[0] == "127.0.0.1" for srv in listeners)
+        assert all(i["address_vxi11"].startswith("TCPIP0::127.0.0.1::inst") for i in info["instruments"])
         c.delete(f"/api/sessions/{info['id']}")
 
 

@@ -3,7 +3,7 @@
 The bench opens in this process. Every instrument answers at:
 
 * its virtual address ``TCPIP0::127.0.0.1::<5025+i>::SOCKET`` (i = position in the bench file),
-* the HiSLIP form ``...::hislip<i>,4880::INSTR`` and the VXI-11 form ``...::inst<i>::INSTR`` (D41, D62),
+* the HiSLIP form ``...::hislip<i>,4880::INSTR`` and the VXI-11 form ``...::inst<i>::INSTR`` (D41, D63),
 * the real-bench address configured in the bench file (``address:``), so scripts keep their strings,
 * its instance name (``rm.open_resource("scope")``).
 
@@ -62,7 +62,7 @@ class _VisaSession:
             if hislip:
                 self.attrs[constants.ResourceAttribute.tcpip_hislip_version] = 0x0010_0000
         elif isinstance(parsed, rname.GPIBInstr):
-            # The address is what the script wrote; nothing is invented (D62).
+            # The address is what the script wrote; nothing is invented (D63).
             self.attrs[constants.ResourceAttribute.gpib_primary_address] = int(parsed.primary_address)
             self.attrs[constants.ResourceAttribute.gpib_secondary_address] = (
                 int(parsed.secondary_address)
@@ -175,7 +175,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             ):
                 self.addresses[self._norm(form)] = name
             self.hislip[name] = f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR"
-            # VXI-11 (D62): the plain address a VISA library resolves through the port mapper.
+            # VXI-11 (D63): the plain address a VISA library resolves through the port mapper.
             self.vxi11[name] = f"TCPIP0::127.0.0.1::inst{i}::INSTR"
             for form in (self.vxi11[name], f"TCPIP0::127.0.0.1::inst_{name}::INSTR"):
                 self.addresses[self._norm(form)] = name

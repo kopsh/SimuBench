@@ -1,4 +1,4 @@
-"""VXI-11 network instruments (VXIbus VXI-11 rev 1.0 over ONC RPC/TCP, D62, architecture.md 7.4).
+"""VXI-11 network instruments (VXIbus VXI-11 rev 1.0 over ONC RPC/TCP, D63, architecture.md 7.4).
 
 Every instrument of a bench is reachable through one core channel, selected by the device name of
 ``create_link``: ``inst<i>`` (bench order), ``inst_<instance name>``, or — for instruments whose

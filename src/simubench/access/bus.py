@@ -3,7 +3,7 @@
 A real instrument has one set of locks and one REN/GTL/LLO state no matter which interface a
 script uses (VXI-11, HiSLIP, GPIB, USBTMC), so the state lives here, per instrument of a
 :class:`~simubench.engine.session.Session`, and the access paths only translate their wire
-messages into it (D41, D62).
+messages into it (D41, D63).
 
 Locks follow VISA (VPP-4.3 ``viLock``) and IVI-6.1 2.6: one exclusive lock, or one shared lock
 that sessions join by presenting the same key; a session that is not a holder is kept out while

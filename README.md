@@ -51,6 +51,9 @@ scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::5026::SOCKET"
 # HiSLIP：共用一个端口（默认 4880），按子地址区分仪表（D41），消息边界、设备清除、
 # 读状态字节与 SRQ 与真实 HiSLIP 仪表一致；NI-VISA、Keysight IO Libraries 无需修改即可连
 scope = pyvisa.ResourceManager().open_resource("TCPIP0::127.0.0.1::hislip1,4880::INSTR")
+# VXI-11（D63）：serve 启动时打印每台仪表的 VXI-11 地址（核心端口默认自动分配）；
+# 地址里带 ,<端口> 的写法 pyvisa-py 可用，NI-VISA 需要 --portmapper-port 111（特权端口）。
+# GPIB0::4::INSTR、USB0::…::INSTR 这类地址只在进程内（resource manager 为 bench.yaml@simubench）可用。
 ```
 
 默认不需要访问令牌；在多人共用的电脑上请加 `--require-token`。安全设计与自检见 [docs/security.md](docs/security.md)。

@@ -17,6 +17,7 @@ import numpy as np
 
 from ..access.hislip_server import HislipServer
 from ..access.scpi_server import ScpiServer
+from ..access.vxi11_server import Vxi11Server
 from ..api import open_bench
 from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState, LinkDown
@@ -66,7 +67,7 @@ class ClientsConnected(RuntimeError):
 
 def is_remote(client: str | None) -> bool:
     """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
-    return bool(client) and client.startswith(("socket:", "hislip:"))  # type: ignore[union-attr]
+    return bool(client) and client.startswith(("socket:", "hislip:", "vxi11:"))  # type: ignore[union-attr]
 
 
 @dataclass
@@ -167,6 +168,7 @@ class ServedSession:
         self.bench_fingerprint: str | None = None
         self.scpi: ScpiServer | None = None
         self.hislip: HislipServer | None = None
+        self.vxi11: Vxi11Server | None = None
         self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
         self.seed: int | None = None
@@ -208,6 +210,8 @@ class ServedSession:
                 for hs in self.hislip._sessions.values()
                 if instrument is None or hs.instrument == instrument
             ]
+        if self.vxi11:
+            out += self.vxi11.clients(instrument)
         return sorted(out)
 
     def require_local(self, instrument: str) -> None:
@@ -240,6 +244,8 @@ class SessionManager:
         scpi_host: str = "127.0.0.1",
         scpi_base_port: int | None = 5025,
         hislip_port: int | None = 4880,
+        vxi11_port: int | None = None,
+        portmapper_port: int | None = None,
         record_dir: Path | None = None,
         record_raw: bool = False,
         allow_plugins: bool = False,
@@ -248,6 +254,8 @@ class SessionManager:
         self.scpi_host = scpi_host
         self.scpi_base_port = scpi_base_port
         self.hislip_port = hislip_port
+        self.vxi11_port = vxi11_port
+        self.portmapper_port = portmapper_port
         self.record_dir = record_dir
         self.record_raw = record_raw
         self.allow_plugins = allow_plugins
@@ -332,6 +340,9 @@ class SessionManager:
             if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
                 served.hislip = HislipServer(session, self.scpi_host, self.hislip_port)
                 await served.hislip.start()
+            if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
+                served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)
+                await served.vxi11.start()
         self.sessions[served.id] = served
         return served
 
@@ -365,6 +376,8 @@ class SessionManager:
             return
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
+        if served.vxi11:
+            await served.vxi11.stop()
         if served.hislip:
             await served.hislip.stop()
         if served.scpi:
@@ -452,8 +465,9 @@ class SessionManager:
         b = s.bench
         ports = {lst.instrument: lst.port for lst in (served.scpi.listeners if served.scpi else [])}
         hislip = served.hislip.addresses() if served.hislip else {}
+        vxi11 = served.vxi11.addresses() if served.vxi11 else {}
         instruments = [
-            self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name))
+            self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name), vxi11.get(name))
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
         clients: list[M.ClientInfo] = [
@@ -468,6 +482,15 @@ class SessionManager:
                         client=hs.client,
                         instrument=hs.instrument,
                         locked=served.hislip.locks(hs.instrument).held_by(hs),
+                    )
+                )
+        if served.vxi11:
+            for link in served.vxi11._links.values():
+                clients.append(
+                    M.ClientInfo(
+                        client=link.client,
+                        instrument=link.instrument,
+                        locked=served.vxi11.locks(link.instrument).held_by(link),
                     )
                 )
         for info in instruments:
@@ -540,7 +563,13 @@ class SessionManager:
         )
 
     def describe_instrument(
-        self, s: Session, inst: Instrument, index: int, scpi_port: int | None, hislip: str | None = None
+        self,
+        s: Session,
+        inst: Instrument,
+        index: int,
+        scpi_port: int | None,
+        hislip: str | None = None,
+        vxi11: str | None = None,
     ) -> M.InstrumentInfo:
         d = inst.definition
         ports = []
@@ -583,6 +612,7 @@ class SessionManager:
             address_virtual=f"TCPIP0::127.0.0.1::{scpi_port or 5025 + index}::SOCKET",
             address_real=inst.instance.address,
             address_hislip=hislip,
+            address_vxi11=vxi11,
             scpi_port=scpi_port,
             display=_display_info(d),
             ports=ports,

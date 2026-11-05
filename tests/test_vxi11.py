@@ -1,4 +1,4 @@
-"""VXI-11 server (D62): the wire protocol exercised by a minimal raw ONC RPC client.
+"""VXI-11 server (D63): the wire protocol exercised by a minimal raw ONC RPC client.
 
 pyvisa-py's own client covers the VISA level in the last tests; the raw client reaches what a VISA
 client cannot see: record marking, RPC error replies, the abort channel, the port mapper, lock

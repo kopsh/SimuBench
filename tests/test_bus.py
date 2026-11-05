@@ -1,4 +1,4 @@
-"""Bus-level state shared by every access path (D62): locks and remote/local control."""
+"""Bus-level state shared by every access path (D63): locks and remote/local control."""
 
 from __future__ import annotations
 

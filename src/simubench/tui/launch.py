@@ -59,6 +59,8 @@ def _print_addresses(info: dict[str, Any]) -> None:
             print(f"  SCPI  {inst['name']:<12} {inst['address_virtual']}", file=sys.stderr)
         if inst.get("address_hislip"):
             print(f"  HiSLIP {inst['name']:<12} {inst['address_hislip']}", file=sys.stderr)
+        if inst.get("address_vxi11"):
+            print(f"  VXI-11 {inst['name']:<12} {inst['address_vxi11']}", file=sys.stderr)
 
 
 def _headers(token: str | None) -> dict[str, str]:
@@ -100,6 +102,8 @@ def run_bench(args: Any) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
+        vxi11_port=None if args.no_scpi or args.no_vxi11 else args.vxi11_port,
+        portmapper_port=args.portmapper_port,
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=getattr(args, "record_raw", False),
         allow_plugins=args.allow_plugins,

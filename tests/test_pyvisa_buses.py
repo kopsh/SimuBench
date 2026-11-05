@@ -1,4 +1,4 @@
-"""PyVISA backend: GPIB and USB INSTR sessions behave like their buses (D62).
+"""PyVISA backend: GPIB and USB INSTR sessions behave like their buses (D63).
 
 The bench file declares the addresses (``address:``); the backend fills the VISA attributes from
 them and gives the sessions the bus semantics a script can observe: resource locks, REN/GTL/LLO,

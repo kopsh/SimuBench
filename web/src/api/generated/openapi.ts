@@ -1379,7 +1379,7 @@ export interface components {
         };
         /**
          * ClientInfo
-         * @description A client connected to the session's SCPI ports (raw socket or HiSLIP).
+         * @description A client connected to the session's SCPI ports (raw socket, HiSLIP or VXI-11).
          */
         ClientInfo: {
             /**
@@ -1394,7 +1394,7 @@ export interface components {
             instrument: string | null;
             /**
              * Locked
-             * @description Holds a HiSLIP lock, i.e. a script is in control
+             * @description Holds a HiSLIP or VXI-11 lock, i.e. a script is in control
              * @default false
              */
             locked: boolean;
@@ -2309,6 +2309,8 @@ export interface components {
             address_real: string | null;
             /** Address Virtual */
             address_virtual: string;
+            /** Address Vxi11 */
+            address_vxi11: string | null;
             /** Channels */
             channels: number;
             /** Definition Id */
@@ -2357,7 +2359,7 @@ export interface components {
             ports: components["schemas"]["PortInfo"][];
             /**
              * Remote
-             * @description Clients connected to this instrument's ports (socket, HiSLIP): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)
+             * @description Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)
              */
             remote: string[];
             /** Scpi Port */

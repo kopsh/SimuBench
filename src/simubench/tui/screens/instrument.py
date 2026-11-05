@@ -250,6 +250,9 @@ class InstrumentScreen(ShellScreen):
         if info.get("address_hislip"):
             addr_row.append(("   " + i18n.t("instrument.hiSLIP", lang) + " ", "muted"))
             addr_row.append((info["address_hislip"], ""))
+        if info.get("address_vxi11"):
+            addr_row.append(("   " + i18n.t("instrument.vxi11", lang) + " ", "muted"))
+            addr_row.append((info["address_vxi11"], ""))
         rows.append(addr_row)
         right: list[list[tuple[str, str]]] = []
         right.append(

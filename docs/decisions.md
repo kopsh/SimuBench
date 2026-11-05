@@ -386,11 +386,11 @@
 
 - **结论**：除 raw socket 外，每台虚拟仪表也以 HiSLIP（IVI-6.1）暴露，NI-VISA、Keysight IO Libraries、pyvisa-py 等客户端不改脚本即可连接 `TCPIP0::127.0.0.1::hislip<i>,<端口>::INSTR`。三条设计约束：
   1. **共用一个端口，按子地址区分仪表**（默认 4880，`--hislip-port 0` 自动分配）：真实仪表各自有 IP、都用 `hislip0`；本机只有一个 IP，用 `hislip0`、`hislip1`…（编号规则与 SOCKET 端口一致）最接近真实情况，另接受 `hislip_<实例名>` 别名。
-  2. **只实现 synchronized 模式**（IVI-6.1 3.1）：`InitializeResponse` 一律回复 synchronized，客户端请求 overlapped 也如此，规范允许服务器这样选择。消息边界、设备清除、读 STB、锁（独占/共享，仅在同一仪表的 HiSLIP 会话之间生效）、SRQ 按规范实现；查询被打断按 synchronized 规则丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。
+  2. **只实现 synchronized 模式**（IVI-6.1 3.1）：`InitializeResponse` 一律回复 synchronized，客户端请求 overlapped 也如此，规范允许服务器这样选择。消息边界、设备清除、读 STB、锁（独占/共享；D63 起与同一仪表的 VXI-11 与 PyVISA 会话共用一份）、SRQ 按规范实现；查询被打断按 synchronized 规则丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。
   3. **不实现加密与凭证认证**：客户端请求 StartTLS 等按规范以 Error 回复。只绑定 127.0.0.1（D38/安全自检同款约束）。
 - **理由**：很多现有脚本与 LabVIEW/C# 程序用 HiSLIP 地址；raw socket 以换行结尾，二进制块中的 0x0A 只能靠解析长度，HiSLIP 用 `DataEnd` 标出消息边界，且只有它支持设备清除、读 STB 与 SRQ 这些 IEEE 488.2 语义。
 - **实现位置**：`access/hislip_server.py`（服务器）；`Session.clear_output` 提取为 PyVISA 后端与 HiSLIP 服务器共用的设备清除语义；PyVISA 后端地址表加入 HiSLIP 形式（含 Bench 中配置的 HiSLIP 真实地址直接打开），TCPIP INSTR 资源的 VISA 属性（`TCPIP_IS_HISLIP`、`TCPIP_DEVICE_NAME` 等）按 PyVISA 属性表填齐。
-- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、VXI-11、USBTMC、GPIB、监听本机以外地址。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
+- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、监听本机以外地址。VXI-11、GPIB、USBTMC 见 D63。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
 
 ## D42 内置仪表都是真实型号
 
@@ -555,3 +555,12 @@
 - **结论**：组件之间的鸭子接口缝仿 `Sampler` 声明为 `runtime_checkable` Protocol（`engine/component.py`，#630）：`Acquisition`（`read_record`、`transfer_record`、`timebase_scale`、`acq_count`——`waveform_transfer` 的 `record` 引用）、`AcquisitionInput`（可选的输入链 figures：`probe_ratio`、`adc_unit`、`adc_codes_per_div`，没有就落回传输自己的参数）、`TraceSource`（`trace_value`——曲线缓冲的迹线与锁相显示读的量）。`Component.refs` 的目标除组件类型名外可以是一个协议类；定义加载时按协议的**方法**成员扫描被指组件的类，缺方法在第一条 E-DEF-COMPONENT-REF 里点名（`缺 read_record, transfer_record, …`），运行时组件访问器再以 isinstance 复查一次（同 `trigger_model._sampler`，属性成员如 `acq_count` 只在这一层查得到）。transfer/curve/lockin 的 `hasattr` 探测与 `type: ignore[attr-defined]` 清零，守卫 `tests/test_component_boilerplate.py` 锁定组件目录无 `hasattr(`。校准器的 `_Setpoint`/`_Control` mixin 直接继承 `Component`（`range_name` 下移为 mixin 默认 None，`hasattr(sp, "range_name")` 删除），25 处 attr-defined ignore 一并清零。
 - **理由**：换采集组件时没有任何声明告诉作者必须实现 `transfer_record`，六处 ignore 与三连 hasattr 是类型系统对同一问题的抗议。备选一是抽象基类：`runtime_checkable` 的 isinstance 只查成员存在性已够，ABC 重架构不必要；备选二只在运行时报错：作者要跑到第一条命令才发现写错组件，加载期校验（`E-DEF-COMPONENT-REF` 已有的流程）是第一条错误就指明缺什么的现成落点。类级检查只扫方法成员，是因为实例属性（`acq_count` 在 `__init__` 赋值）对类不可见——扫它会误报合法组件。
 - **影响**：写新采集/迹线组件的要求有了名字（实现协议即是全部）；`refs` 声明与加载期校验对有效定义行为不变（全部内置定义原样通过）。同类未清的遗留：rfgen/sources 的 6 处 attr-defined ignore（synth/clock 缝，未列入 #630）、calibrator 的 `getattr` 探测（`kind`/`check_sense`/`_locked`，mixin 类型化后可再收）、lockin 的 3 处 return-value ignore。
+
+## D63 VXI-11 做成网络服务；GPIB 与 USBTMC 只做进程内会话语义，锁与远程/本地状态各仪表一份
+
+- **结论**：
+  1. **VXI-11 是网络协议，做**：`access/vxi11_server.py`，ONC RPC over TCP，核心、abort、中断（SRQ）三个通道，只监听 127.0.0.1。设备名 `inst<i>`（按 bench 顺序）、`inst_<实例名>`，以及 bench 的 `address:` 声明为 GPIB 的仪表另有 LAN/GPIB 网关形式 `gpib<板>,<主地址>[,<次地址>]`，不替没声明的仪表编 GPIB 地址。端口映射器（RFC 1833，只答 GETPORT）可选：VISA 库只会问 111 端口，那是特权端口、常被 rpcbind 占着，所以默认不开（`--portmapper-port`），不开时地址写成 `TCPIP0::127.0.0.1,<端口>::inst0::INSTR`（pyvisa-py 认这种写法，NI-VISA 不认）。`device_docmd`（经网关发 GPIB 总线命令）回“不支持”，不伪造。只服务 TCP，不服务 UDP。
+  2. **GPIB 与 USBTMC 是物理总线，不监听**：脚本用的 `GPIB0::n::INSTR`、`USB0::…::INSTR` 在进程内 PyVISA 后端（`@simubench`）里照 bench 声明的 `address:` 打开，会话带上对应的 VISA 属性（GPIB 主/次地址；USB 厂商、型号、序列号、USB488 协议），属性取自脚本写的地址，不另编厂商号。进程外程序（NI-VISA 等）只能经 VXI-11 的 `gpib` 网关形式或 HiSLIP 连入；USBTMC 没有进程外入口。
+  3. **总线状态各仪表一份**（`access/bus.py`）：资源锁（一把独占锁，或一把共享锁、同键者共享）与 REN/GTL/LLO 状态按仪表保存，HiSLIP、VXI-11、PyVISA 会话看到同一份。VISA `viGpibControlREN` 的 0–6 模式、HiSLIP AsyncRemoteLocalControl 的 0–6 控制码、VXI-11 `device_remote`/`device_local` 落到同一张表；事件 `bus_control` 记录每次应用。进程内 PyVISA 的 `lock`/`unlock`（含嵌套与共享键）真正生效，他人持锁时读写返回 `VI_ERROR_RSRC_LOCKED`；`wait_on_event(SERVICE_REQUEST)` 看状态字节的 RQS 位；打开 bench 里没有的地址抛 `VI_ERROR_RSRC_NFOUND`（此前只返回状态码，PyVISA 不抛错）。
+- **理由**：VXI-11 是大量老仪表脚本与 LAN/GPIB 网关的写法，纯软件可以完整做到；GPIB 线缆与 USB 设备需要硬件（GPIB 适配卡多半不支持设备端，USB 要 gadget 硬件），做了也进不了 CI。备选一在 SimuBench 里自带 GPIB/USB 驱动层：要特权与硬件，得不偿失；备选二给没声明地址的仪表自动分配 GPIB/USB 地址：会编出厂商号与序列号，违背“拒绝而不猜”。锁与 REN 若各接入方式各存一份，同一台仪表被 HiSLIP 与 VXI-11 脚本同时用时行为与真机不符。
+- **影响**：HiSLIP 的锁不再只在 HiSLIP 会话之间生效（D41 已改）；HiSLIP 共享锁现在要求同键才合并（与 VISA 一致）；`SessionInfo` 的仪表多 `address_vxi11`，`ClientInfo` 与 `remote` 含 `vxi11:` 客户端；`serve`/`tui`/`mcp` 多 `--vxi11-port`（默认 0 自动分配）、`--no-vxi11`、`--portmapper-port`；`SessionManager` 默认不开 VXI-11（`vxi11_port=None`），命令行默认开。已知缺口：overlapped、TLS、UDP 版 VXI-11、GPIB 总线命令（docmd）、USB488 的 INDICATOR_PULSE 与 ABORT 级控制请求、进程外 USBTMC。

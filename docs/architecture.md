@@ -367,6 +367,7 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 
 - `pyvisa.ResourceManager("<bench 文件>@simubench")` 在进程内打开 Bench；也可连接到正在运行的服务。
 - 资源名支持：Bench 中的实例名，以及 Bench 中为实例配置的真实测试台地址。后者让脚本连地址都不用改，只换资源管理器。
+- GPIB 与 USB 地址（`GPIB0::4::INSTR`、`USB0::0x…::INSTR`）按 bench 的 `address:` 在进程内打开，会话带 GPIB 主/次地址、USB 厂商/型号/序列号等 VISA 属性；`lock`/`unlock`、`control_ren`、`wait_on_event(SERVICE_REQUEST)` 与 HiSLIP、VXI-11 共用同一份总线状态（D63，`access/bus.py`）。
 - 后端看得到每次读写，因此命令驱动的虚拟时间在这条路径上自然成立。
 - 通信层故障（超时、断连等）在这一层生效，返回与真实 VISA 一致的错误。
 
@@ -374,7 +375,8 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 
 - 每台仪表在本机监听一个 TCP 端口（raw socket）；端口可指定或自动分配，地址表在启动时输出。
 - HiSLIP（IVI-6.1，D41）：所有仪表共用一个端口（默认 4880，`--hislip-port 0` 自动分配），按子地址 `hislip0`、`hislip1`…（或 `hislip_<实例名>`）区分；只实现 synchronized 模式，支持消息边界（`DataEnd`）、设备清除、读 STB、锁与 SRQ，与 PyVISA 后端的 `clear`/`read_stb` 语义一致；不实现 overlapped、TLS 与认证。客户端连接形如 `TCPIP0::127.0.0.1::hislip0,<端口>::INSTR`。
-- 以后再支持 VXI-11、USBTMC 等协议。
+- VXI-11（D63）：ONC RPC over TCP，核心、abort、中断三个通道，设备名 `inst<i>`、`inst_<实例名>`，GPIB 地址的仪表另有 `gpib<板>,<主地址>` 网关形式；端口映射器可选（`--portmapper-port`，VISA 库只问 111 端口，需要特权），不开时用 `TCPIP0::127.0.0.1,<端口>::inst0::INSTR`。只服务 TCP，`device_docmd` 回不支持。
+- GPIB 与 USBTMC 是物理总线，不监听；它们的语义只在进程内 PyVISA 后端里提供（7.3），进程外程序经 VXI-11 网关形式或 HiSLIP 连入。
 
 ### 7.5 MCP 服务（D9）
 
