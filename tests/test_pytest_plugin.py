@@ -110,3 +110,39 @@ def test_marker_opts_back_into_wall_idle(pytester):
     pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
         passed=1
     )
+
+
+def test_options_travel_in_the_resource_string(pytester, monkeypatch):
+    """The marker's options ride the resource string's query (issue 640): the seed applies even
+    with a conflicting SIMUBENCH_SEED in the environment, and an unknown option name is an
+    error, not a silent default."""
+    monkeypatch.setenv("SIMUBENCH_SEED", "3")
+    pytester.makepyfile(
+        test_case=f"""
+        import pytest
+
+        pytestmark = pytest.mark.bench({str(BENCH)!r}, seed=11)
+
+        def test_seed_from_the_marker(instruments, bench_session):
+            assert bench_session.seed == 11
+        """
+    )
+    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
+        passed=1
+    )
+
+
+def test_an_unknown_marker_option_is_named(pytester):
+    pytester.makepyfile(
+        test_case=f"""
+        import pytest
+
+        pytestmark = pytest.mark.bench({str(BENCH)!r}, cloc="wall")
+
+        def test_never(instruments):
+            pass
+        """
+    )
+    result = pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider")
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*unknown SimuBench option*cloc*"])

@@ -29,6 +29,35 @@ from ..engine.session import Session
 BASE_PORT = 5025
 HISLIP_PORT = 4880
 
+#: The bench configuration one resource string (or the environment, as the fallback) may carry:
+#: query parameter -> the environment variable it overrides (issue 640).
+OPTIONS = {
+    "clock": "SIMUBENCH_CLOCK",
+    "seed": "SIMUBENCH_SEED",
+    "idle": "SIMUBENCH_IDLE",
+    "record_dir": "SIMUBENCH_RECORD_DIR",
+}
+
+
+def _parse_spec(spec: str) -> tuple[str, dict[str, str]]:
+    """Split a library path into the bench file and its query parameters: ``bench.yaml?seed=7``
+    (the ``@simubench`` backend part PyVISA has already taken off). A parameter this table does
+    not name is an error, not a silent default — a typo'd ``cloc=wall`` would otherwise run the
+    bench under defaults and look like a modeling bug."""
+    path, sep, query = spec.partition("?")
+    if not sep:
+        return spec, {}
+    from urllib.parse import parse_qsl
+
+    params = dict(parse_qsl(query, keep_blank_values=True))
+    unknown = sorted(set(params) - set(OPTIONS))
+    if unknown:
+        raise ValueError(
+            f"unknown SimuBench option(s) in the resource string: {', '.join(unknown)}"
+            f" — known ones: {', '.join(sorted(OPTIONS))}"
+        )
+    return path, params
+
 
 class _VisaSession:
     def __init__(
@@ -115,18 +144,24 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
                 "SimuBench needs a bench file: ResourceManager('path/to/bench.yaml@simubench') "
                 "or set SIMUBENCH_BENCH"
             )
-        self._spec = spec
+        self._spec, self._params = _parse_spec(spec)
         self._start()
 
     def _start(self) -> None:
-        """Open the bench: a fresh session, as a power-cycled bench would be."""
-        seed = os.environ.get("SIMUBENCH_SEED")
+        """Open the bench: a fresh session, as a power-cycled bench would be. The resource
+        string's query parameters (``bench.yaml?seed=7@simubench``) win over the environment
+        variables, which stay as the fallback a plain ``SIMUBENCH_BENCH`` setup uses."""
+
+        def option(name: str) -> str | None:
+            return self._params.get(name) or os.environ.get(OPTIONS[name])
+
+        seed = option("seed")
         self.bench = open_bench(
             self._spec,
-            record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None,
-            clock=os.environ.get("SIMUBENCH_CLOCK") or None,
+            record_dir=option("record_dir"),
+            clock=option("clock"),
             seed=int(seed) if seed else None,
-            idle=os.environ.get("SIMUBENCH_IDLE") or None,
+            idle=option("idle"),
         )
         self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.
