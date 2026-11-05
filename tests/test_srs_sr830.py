@@ -11,15 +11,13 @@ and the in-process PyVISA backend maps it.
 from __future__ import annotations
 
 import cmath
-import importlib.util
 import math
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
 import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,16 +29,7 @@ RS, LOAD, C_IN = 50.0, 10e6, 25e-12  # SINE_OUT, SIG_IN input, SIG_IN capacitanc
 AC_CORNER = 0.16  # Hz, ICPl = AC
 AMPLITUDE = 0.5  # V rms
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("srs_sr830_rc_sweep", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def expected(frequency: float) -> complex:
@@ -54,15 +43,7 @@ def expected(frequency: float) -> complex:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["srs_sr830_rc_sweep.py", "GPIB0::8::INSTR", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["GPIB0::8::INSTR"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Stanford_Research_Systems,SR830,s/n00111,ver1.000"
     points = [[float(x) for x in line.split(",")] for line in out[1:-1]]
     assert len(points) == len(script.FREQUENCIES)

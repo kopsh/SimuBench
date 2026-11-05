@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -34,9 +35,7 @@ def session(tmp_path: Path, lock_functions: list[str] | None = None):
 
 
 def q(s, cmd: str) -> str:
-    s.write("cal", (cmd + "\n").encode())
-    out = s.read("cal")
-    return out.decode().strip() if out else ""
+    return session_query(s, "cal", cmd, default="")
 
 
 def err(s) -> str:

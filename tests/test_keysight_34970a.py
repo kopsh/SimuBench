@@ -8,15 +8,12 @@ divides a 1 MΩ source), the scan's virtual time (relay settling + DMM reading t
 memory's fetch/remove semantics, and the 3-slot SCPI channel domain.
 """
 
-import importlib.util
 import math
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -29,15 +26,7 @@ DMM_READING_S = 0.021
 LOADED_101 = 10.0 / 11.0
 
 
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_34970a_scan", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session():
@@ -45,9 +34,7 @@ def session():
 
 
 def q(s, command: str) -> str | None:
-    s.write("daq", (command + "\n").encode())
-    out = s.read("daq")
-    return out.decode().strip() if out else None
+    return session_query(s, "daq", command)
 
 
 def numbers(reply: str) -> list[float]:
@@ -55,15 +42,7 @@ def numbers(reply: str) -> list[float]:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["keysight_34970a_scan.py", "daq", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["daq"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Keysight Technologies,34970A,0,1.0-1.0-1.0"
     assert out[1] == "scan: 0.90909,1.81818,3.63636"
     assert out[2] == "opc: 1"

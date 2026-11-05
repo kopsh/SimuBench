@@ -7,14 +7,13 @@ cannot see: the channel argument routing the measurement to the second input, th
 loading the source, and the hidden timebase error scaling the reading.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
 import pyvisa
 import yaml
 
+from helpers import load_script
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -23,15 +22,7 @@ EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight_53220a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_53220a_measure.py"
 
 
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_53220a_measure", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-reader = _script()
+reader = load_script(SCRIPT)
 
 
 def _data(**overrides) -> dict:
