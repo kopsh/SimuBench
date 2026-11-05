@@ -23,7 +23,7 @@ from .. import i18n, rows
 from ..cards import ARROWS, opposite_ends
 from ..fmt import cell_len, fmt, pad
 from ..log import source_label
-from ..reasons import ReasonReport, error_report, fault_report, limited_report, setting_report
+from ..reasons import ReasonReport, active_faults, explain_instrument
 from ..widgets import box_text, box_title, decorate_title, render_segments
 from .dialogs import ScpiConsole
 from .editing import ButtonGrid, ControlButton, ControlEditingScreen
@@ -739,45 +739,16 @@ class InstrumentScreen(ControlEditingScreen):
         return "; ".join(parts)
 
     def _reason_report(self) -> ReasonReport | None:
-        """What ``?`` explains (tui-screens.md 9.1): a fault, the limit, the focused setting, an error."""
+        """What ``w`` explains (tui-screens.md 9.1): a fault, the limit, the focused setting, an error."""
         app: Any = self.app
-        lang = app.lang
-        info = self.info
-        if not info:
-            return None
-        events = app.store.events
-        faults = self._active_faults()
-        if faults:
-            return fault_report(faults[0], info, events, lang)
-        limited = limited_report(info, self.readings, events, lang)
-        if limited is not None:
-            return limited
         button = self._focused_button()
-        if button is not None and button.control.path:
-            return setting_report(info, button.control.path, events, lang)
-        for line in reversed(app.lines):
-            if line.instrument == self.instrument_name and line.has_error:
-                return error_report(line, lang)
-        return None
+        path = button.control.path if button is not None else None
+        return explain_instrument(
+            self.info, self.readings, app.store.events, app.faults, app.lines, app.lang, path
+        )
 
     def _active_faults(self) -> list[dict[str, Any]]:
-        """Faults that still explain this instrument's state (tui-screens.md 5.4, 8).
-
-        A ``trip`` is a one-shot: the engine fires it and ends it at once, so it is never
-        ``active`` — it still explains things for as long as the error it queued is readable.
-        Communication faults explain while they are active or pending.
-        """
+        """Faults that still explain this instrument's state (5.4, 8): see ``active_faults``."""
         app: Any = self.app
-        queue_codes = {int(e["code"]) for e in self.info.get("errors", [])}
-        out: list[dict[str, Any]] = []
-        for f in app.faults or []:
-            spec = f.get("spec") or {}
-            if spec.get("instrument") != self.instrument_name:
-                continue
-            status = f.get("status")
-            if spec.get("kind") == "trip":
-                if status == "active" or (status == "ended" and spec.get("code", -300) in queue_codes):
-                    out.append(f)
-            elif status in ("active", "pending"):
-                out.append(f)
-        return out
+        codes = {int(e["code"]) for e in self.info.get("errors", [])}
+        return active_faults(app.faults, self.instrument_name, codes)  # type: ignore[return-value]

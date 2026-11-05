@@ -411,7 +411,7 @@ async def test_overview_renders_cards_from_the_real_session(served):
         assert [c.card.name for c in cards] == ["awg", "scope", "rc"]
         assert cards[0].card.number == 1 and cards[2].card.number == 3
         text = flat(tui)
-        assert "1 awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text
+        assert "1 ○ awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text  # ○: idle (4.2)
         assert "SDG2042X" in text and "SDS2104X Plus" in text
         # The top bar carries the D44 activity, the clock mode and the virtual time.
         assert "● waiting for commands · Command-driven clock" in text

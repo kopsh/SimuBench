@@ -79,6 +79,7 @@ class SimuBenchApp(App[None]):
     Static#embedded-log { padding: 0 1; }
     #log-box { border: round $line; border-title-color: $hud; border-title-align: left; }
     #log-rows { padding: 0 1; }
+    #attention { height: 1; }
     #cards { height: 1fr; overflow-y: auto; scrollbar-size-vertical: 0; }
     #cards Horizontal { height: auto; align: left top; overflow-x: hidden; }
     #embedded-log { scrollbar-size-vertical: 0; }
@@ -532,6 +533,20 @@ class SimuBenchApp(App[None]):
         return clock_activity(self, lang, self.clock_mode(), busy)
 
     # ---- quit and rebuild -----------------------------------------------------------------------------
+
+    def show_reason(self, report: Any) -> None:
+        """The reason dialog for ``report``; ⏎ in it jumps to the command in the log (9.1)."""
+        from .screens.dialogs import ReasonScreen
+
+        def jump() -> None:
+            if report.jump_seq is None:
+                return
+            self.show("log")
+            focus = getattr(self.screen, "focus_seq", None)
+            if focus is not None:
+                focus(report.jump_seq)
+
+        self.push_screen(ReasonScreen(report, jump))
 
     def action_help(self) -> None:
         """``?``: the keys of the screen in front (a dialog's own keys are on its face)."""

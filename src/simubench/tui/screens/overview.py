@@ -15,8 +15,9 @@ from textual.widgets import Static
 
 from .. import i18n
 from ..cards import CardData, build_cards
+from ..fmt import cell_len
 from ..log import visible
-from ..widgets import decorate_title, log_text, render_segments
+from ..widgets import BottomBar, decorate_title, is_mono, log_text, render_segments, style_of
 from .shell import ShellScreen
 
 
@@ -68,7 +69,7 @@ class Card(Static):
         from ..fmt import cell_len
         from ..widgets import style_of
 
-        self.border_title = decorate_title(self.app, render_segments(self.app, self.card.title))
+        self.border_title = decorate_title(self.app, render_segments(self.app, self.card.title), tight=True)
         # size is the content area (the border is outside it): 30 columns for a 32-wide card.
         width = self.size.width or 30
         text = Text()
@@ -110,6 +111,8 @@ class OverviewScreen(ShellScreen):
         Binding("tab", "focus_next", show=False),
         Binding("shift+tab", "focus_previous", show=False),
         Binding("enter", "open_card", show=False),
+        Binding("w", "reason", show=False),
+        Binding("p", "next_problem", show=False),
     ]
 
     def __init__(self) -> None:
@@ -122,6 +125,8 @@ class OverviewScreen(ShellScreen):
         return i18n.t("overview.screen", self.app.lang)
 
     def body(self) -> ComposeResult:
+        self._strip = Static(id="attention")
+        yield self._strip
         self._grid = VerticalScroll(id="cards")
         self._grid.can_focus = False
         yield self._grid
@@ -138,6 +143,9 @@ class OverviewScreen(ShellScreen):
                 keys.append(("⏎", i18n.t("keys.open", lang)))
             else:
                 keys.append(("⏎", i18n.t("keys.partNets", lang)))
+        if self._cards_with_alerts():
+            keys.append(("p", i18n.t("keys.problem", lang)))
+        keys.append(("w", i18n.t("keys.reason", lang)))
         keys.append(("l", i18n.t("keys.log", lang)))
         keys.append(("?", i18n.t("keys.help", lang)))
         keys.append(("q", i18n.t("common.quit", lang)))
@@ -173,7 +181,11 @@ class OverviewScreen(ShellScreen):
                 )
             grid.mount(Static(note, id="connecting-note"))
             return
-        cards = build_cards(session, app.readings, app.levels, app.screen_data, app.catalog, app.lang)
+        cards = build_cards(
+            session, app.readings, app.levels, app.screen_data, app.catalog, app.lang, app.faults
+        )
+        self._alerting = [c for c in cards if c.alerts]
+        self._refresh_strip(len(session.get("instruments", [])))
         columns = self._columns()
         for row_start in range(0, len(cards), columns):
             row = cards[row_start : row_start + columns]
@@ -182,6 +194,83 @@ class OverviewScreen(ShellScreen):
                 c.lines += [[]] * (height - len(c.lines))
             grid.mount(Horizontal(*[Card(c) for c in row]))
         grid.call_after_refresh(self._restore_focus, focused)
+
+    def on_descendant_focus(self, event: Any) -> None:
+        """Remember the focused card: a rebuild (new data) puts the focus back on it."""
+        if isinstance(event.widget, Card):
+            self._focus_name = event.widget.card.name
+
+    def _cards_with_alerts(self) -> list[Card]:
+        return [c for c in self._grid.query(Card) if c.card.alerts]
+
+    def _refresh_strip(self, instruments: int) -> None:
+        """The attention strip (one row above the cards): every alert of every card, worst
+        first, so a trip does not wait to be found card by card. Quiet when all is well."""
+        from rich.text import Text
+
+        app: Any = self.app
+        width = max(20, app.size.width)
+        alerting = getattr(self, "_alerting", [])
+        if not alerting:
+            self._strip.update(
+                render_segments(
+                    app, [(" " + i18n.t("attention.clear", app.lang, count=instruments), "muted")]
+                )
+            )
+            return
+        text = Text()
+        badge = "bold reverse" if is_mono(app) else f"bold {style_of(app, 'bar')} on {style_of(app, 'bad')}"
+        text.append(i18n.t("attention.badge", app.lang), style=badge)
+        items = sorted(
+            ((c, a) for c in alerting for a in c.alerts),
+            key=lambda ca: {"fault": 0, "limit": 1, "error": 2}[ca[1].kind],
+        )
+        for card, alert in items:
+            piece = f"  {card.name} "
+            if text.cell_len + cell_len(piece) + cell_len(alert.text) > width - 2:
+                text.append(" …", style=style_of(app, "muted"))
+                break
+            text.append(piece, style=style_of(app, "muted"))
+            text.append(alert.text, style=style_of(app, alert.tone))
+        self._strip.update(text)
+
+    def action_next_problem(self) -> None:
+        """``p``: focus the next card with an alert, wrapping round (tui-screens.md 4.4)."""
+        cards = list(self._grid.query(Card))
+        alerting = [i for i, c in enumerate(cards) if c.card.alerts]
+        if not alerting:
+            return
+        focused = next((i for i, c in enumerate(cards) if c is self.focused), -1)
+        target = next((i for i in alerting if i > focused), alerting[0])
+        cards[target].focus()
+
+    def action_reason(self) -> None:
+        """``w``: why the focused instrument is in the state it is in (tui-screens.md 9.1)."""
+        from ..reasons import explain_instrument
+
+        app: Any = self.app
+        focused = self.focused
+        info = None
+        if isinstance(focused, Card):
+            info = next(
+                (
+                    i
+                    for i in (app.session_info or {}).get("instruments", [])
+                    if i.get("name") == focused.card.name
+                ),
+                None,
+            )
+        report = (
+            explain_instrument(
+                info, app.readings.get(info["name"]), app.store.events, app.faults, app.lines, app.lang
+            )
+            if info
+            else None
+        )
+        if report is None:
+            self.query_one("#bottombar", BottomBar).flash(i18n.t("attention.noReason", app.lang))
+            return
+        app.show_reason(report)
 
     def _restore_focus(self, name: str | None) -> None:
         if name:

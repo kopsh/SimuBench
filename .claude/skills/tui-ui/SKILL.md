@@ -31,6 +31,9 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   — `is_mono(app)`), box titles wear amber brackets through `decorate_title` (cards, and every
   `_Box` title not already padded with `─`), box lines are `$line`, titles `$hud`. Never hardcode a
   hex colour in a widget: add a token to `COLORS` (it must also be in `MONO_VARS`; a test checks).
+- **Overview** is status-first: a card's light, its alerts and the attention strip all come from
+  `cards.py` (`CardData.alerts`, `status_light`) — add a new kind of alert there, never in the
+  screen. `w` (overview and instrument screens alike) goes through `reasons.explain_instrument`.
 - **Buttons** are a `ButtonGrid` (`screens/editing.py`): equal columns, wrapping rows, never cut
   mid-word; `fit(width, max_rows)` returns the rows shown, and the screen's row budget uses that.
   Readings come before buttons — a short screen shows one row, the rest scroll with the focus.

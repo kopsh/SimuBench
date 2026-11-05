@@ -21,7 +21,7 @@ from ..fmt import cell_len
 from ..log import source_label
 from ..reasons import ReasonReport
 from ..widgets import box_title, log_text, style_of
-from .dialogs import NumberEditScreen, ReasonScreen, SelectScreen
+from .dialogs import NumberEditScreen, SelectScreen
 from .shell import ShellScreen
 from .states import ConfirmScreen
 
@@ -442,17 +442,7 @@ class ControlEditingScreen(ShellScreen):
         app: Any = self.app
         report = self._reason_report()
         if report is not None:
-            app.push_screen(ReasonScreen(report, lambda: self._jump_to_command(report)))
-
-    def _jump_to_command(self, report: ReasonReport) -> None:
-        if report.jump_seq is None:
-            return
-        app: Any = self.app
-        app.show("log")
-        screen = app.screen
-        focus = getattr(screen, "focus_seq", None)
-        if focus is not None:
-            focus(report.jump_seq)
+            app.show_reason(report)
 
     def _reason_report(self) -> ReasonReport | None:
         """What ``?`` explains; each screen knows its own order of explanations."""

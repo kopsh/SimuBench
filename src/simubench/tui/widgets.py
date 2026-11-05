@@ -48,13 +48,16 @@ def is_mono(app: Any) -> bool:
     return getattr(app, "theme", "") == "simubench-mono"
 
 
-def decorate_title(app: Any, title: Any) -> Text:
-    """A box title between amber brackets (``▌ awg · SDG2042X ▐``): the HUD's mark of a panel."""
+def decorate_title(app: Any, title: Any, tight: bool = False) -> Text:
+    """A box title between amber brackets (``▌ awg · SDG2042X ▐``): the HUD's mark of a panel.
+    ``tight`` keeps only the left bracket, for the 32-column cards whose border holds 26 cells
+    of title — a model name must not end in ``…`` for a mark."""
     mark = style_of(app, "focus")
     text = Text()
-    text.append("▌ ", style=mark)
+    text.append("▌" if tight else "▌ ", style=mark)
     text.append_text(title) if isinstance(title, Text) else text.append(str(title).strip())
-    text.append(" ▐", style=mark)
+    if not tight:
+        text.append(" ▐", style=mark)
     return text
 
 

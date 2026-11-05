@@ -70,6 +70,12 @@ TERMS: dict = {
         "noOutput": "This instrument has no output switch",
         "nothingToExplain": "Nothing on this card needs an explanation",
     },
+    "attention": {
+        "badge": " ▲ ATTENTION ",
+        "fault": "fault {id} · {kind}",
+        "clear": "✓ All clear · {count} instruments, no faults, limits or errors",
+        "noReason": "Nothing to explain on this card",
+    },
     "cards": {
         "source": "Source",
         "measure": "Measure",
@@ -137,6 +143,7 @@ TERMS: dict = {
         "local": "local",
         "reason": "reason",
         "help": "help",
+        "problem": "problem",
         "fault": "fault",
         "runStop": "run/stop",
         "single": "single",
@@ -165,6 +172,7 @@ TERMS: dict = {
             "console": "SCPI console",
             "local": "Take local control",
             "reason": "Why: the chain behind this state",
+            "next_problem": "Jump to the next card with a problem",
             "run_stop": "Run / stop the scope",
             "single": "Single acquisition",
             "next_channel": "Next channel",

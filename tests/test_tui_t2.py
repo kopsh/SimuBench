@@ -697,3 +697,33 @@ async def test_question_mark_opens_the_key_help_of_the_screen():
         assert "Esc or ? closes" in text
         await pilot.press("escape")
         await wait_for(pilot, lambda: type(tui.screen).__name__ == "InstrumentScreen", message="help closed")
+
+
+async def test_the_attention_strip_lists_what_is_wrong_and_p_jumps_to_it():
+    """One strip above the cards names every alert; ``p`` focuses the next card that has one.
+    The dumped scope carries a -113 in its queue."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        text = await wait_flat(pilot, tui, "ATTENTION", "scope -113 Undefined header")
+        assert "p problem" in text
+        # A rebuild of the cards (new data) can land under the key; pressing again is what a user does.
+        for _ in range(30):
+            await pilot.press("p")
+            await pilot.pause(0.1)
+            if getattr(tui.screen.focused, "card", None) and tui.screen.focused.card.name == "scope":
+                break
+        assert tui.screen.focused.card.name == "scope"
+
+
+async def test_the_strip_is_quiet_when_all_is_well_and_w_says_so():
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        for inst in tui.session_info["instruments"]:
+            inst["errors"] = []
+        tui.bump()
+        await wait_flat(pilot, tui, "All clear")
+        await pilot.press("1")
+        await pilot.press("w")
+        await wait_flat(pilot, tui, "Nothing to explain on this card")
