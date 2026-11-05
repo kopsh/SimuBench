@@ -216,7 +216,7 @@ class Instrument:
         #: The definition's spec of a setting whose bounds a component moved at run time.
         self._spec_origin: dict[str, StateSpec] = {}
         self.state: dict[str, Any] = {}
-        self._reset_state()
+        self._reset_state(power_on=True)
         for path, value in instance.state.items():
             if path not in self.specs:
                 raise ValueError(f"instrument {name!r}: unknown state {path!r} in bench file")
@@ -371,9 +371,12 @@ class Instrument:
             return bool(value)
         return value
 
-    def _reset_state(self) -> None:
+    def _reset_state(self, power_on: bool = False) -> None:
+        """Every setting to its ``*RST`` value, or at power-on to its ``default`` (the power-on
+        value, which differs from ``rst`` when the manual says so: the X-Series powers on sweeping
+        continuously, *RST stops it, #616)."""
         for path, spec in self.specs.items():
-            value = spec.rst if spec.rst is not None else spec.default
+            value = spec.default if power_on or spec.rst is None else spec.rst
             if value is None:
                 value = {"float": 0.0, "int": 0, "bool": False, "string": ""}.get(spec.type)
                 if spec.type == "enum":
