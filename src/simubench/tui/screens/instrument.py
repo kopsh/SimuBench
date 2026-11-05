@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from rich.text import Text
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -23,10 +22,9 @@ from ..cards import ARROWS, opposite_ends
 from ..fmt import braille_rows, cell_len, fmt, fmt_ns, pad, ralign
 from ..log import source_label
 from ..reasons import ReasonReport, error_report, fault_report, limited_report, setting_report
-from ..widgets import box_text, box_title, log_text, render_segments
-from .dialogs import NumberEditScreen, ReasonScreen, ScpiConsole, SelectScreen
-from .shell import ShellScreen
-from .states import ConfirmScreen
+from ..widgets import box_text, box_title, render_segments
+from .dialogs import ScpiConsole
+from .editing import ControlButton, ControlEditingScreen
 
 
 def _english(text: Any) -> str | None:
@@ -37,31 +35,6 @@ def _english(text: Any) -> str | None:
     return t if all(ord(c) < 0x2E80 for c in t) else None
 
 
-class ControlButton(Static):
-    """One ``[label]`` button of a box's button row; focusable, reversed while focused (5.2)."""
-
-    DEFAULT_CSS = """
-    ControlButton { width: auto; margin-right: 1; }
-    ControlButton:focus { background: $focus; color: $background; text-style: none; }
-    ControlButton.-readonly { color: $muted; }
-    ControlButton.-lit { text-style: reverse; }
-    ControlButton.-highlighted { border: thick $focus; }
-    """
-
-    can_focus = True
-
-    def __init__(self, control: C.Control, box_id: str) -> None:
-        # A Text, not a bare string: the brackets would parse as console markup and an ASCII
-        # label (`[Output]`, `[OFF]`) renders as nothing (5.2; found via #454).
-        super().__init__(Text(f"[{control.label}]"))
-        self.control = control
-        self.box_id = box_id  # where this button's write errors flash (5.3)
-
-    def render_button(self, info: dict[str, Any], readonly: bool) -> None:
-        self.set_class(readonly or not self.control.writable, "-readonly")
-        self.set_class(C.is_lit(info, self.control), "-lit")
-
-
 class _Box(Vertical):
     """A round-bordered box; the border carries the title, Statics inside carry the rows."""
 
@@ -70,7 +43,7 @@ class _Box(Vertical):
     """
 
 
-class InstrumentScreen(ShellScreen):
+class InstrumentScreen(ControlEditingScreen):
     """仪表 (tui-screens.md 5): identity box, channel boxes, wiring and load, errors, log."""
 
     screen_key = "instrument"
@@ -121,24 +94,6 @@ class InstrumentScreen(ShellScreen):
     """
 
     # ---- data ----------------------------------------------------------------------------------------
-
-    @property
-    def info(self) -> dict[str, Any]:
-        app: Any = self.app
-        for i in (app.session_info or {}).get("instruments", []):
-            if i.get("name") == self.instrument_name:
-                return i
-        return {}
-
-    @property
-    def readings(self) -> dict[str, Any]:
-        app: Any = self.app
-        return app.readings.get(self.instrument_name) or {}
-
-    @property
-    def remote_controlled(self) -> bool:
-        info = self.info
-        return bool(info.get("remote")) and not info.get("local")
 
     def screen_title(self) -> str:
         return self.instrument_name
@@ -1093,34 +1048,6 @@ class InstrumentScreen(ShellScreen):
 
     # -- the log (5.1 #5) ------------------------------------------------------------------------------------
 
-    def _log_rows(self) -> int:
-        # 3 at the minimum size (80 × 24): the embedded log scrolls to its end, while the channel
-        # area above it must keep a visible row — at 4 the main row collapses to its borders (#454).
-        return max(3, min(6, self.app.size.height - 26))
-
-    def _refresh_log(self) -> None:
-        app: Any = self.app
-        lang = app.lang
-        from ..log import visible
-
-        lines = visible(app.lines, embedded=True, instrument=self.instrument_name)
-        shown = lines[-200:]
-        inner = max(20, app.size.width - 4)
-        self._log_box.border_title = box_title(
-            i18n.t("log.titleFor", lang, instrument=self.instrument_name),
-            i18n.t("log.count", lang, count=len(lines)),
-            inner,
-        )
-        self._log_box.styles.height = self._log_rows() + 2
-        self._log_static.update(log_text(app, shown, lang, width=inner))
-        self._log_box.scroll_end(animate=False, force=True)
-
-    def _refresh_buttons(self) -> None:
-        info = self.info
-        readonly = self.remote_controlled
-        for button in self.query(ControlButton):
-            button.render_button(info, readonly)
-
     # ---- keys ---------------------------------------------------------------------------------------------
 
     def keys(self) -> list[tuple[str, str]]:
@@ -1139,37 +1066,7 @@ class InstrumentScreen(ShellScreen):
         out.append(("q", i18n.t("common.quit", lang)))
         return out
 
-    def _focused_button(self) -> ControlButton | None:
-        focused = self.focused
-        return focused if isinstance(focused, ControlButton) else None
-
-    def action_cursor(self, direction: str) -> None:
-        buttons = [b for b in self.query(ControlButton) if b.display]
-        if not buttons:
-            return
-        focused = self._focused_button()
-        if focused is None:
-            buttons[0].focus()
-            return
-        index = next((i for i, b in enumerate(buttons) if b is focused), 0)
-        if direction in ("left", "up"):
-            buttons[max(0, index - 1)].focus()
-        else:
-            buttons[min(len(buttons) - 1, index + 1)].focus()
-
     # -- writes ----------------------------------------------------------------------------------------------
-
-    def _readonly_guard(self) -> bool:
-        app: Any = self.app
-        if self.remote_controlled:
-            client = (self.info.get("remote") or [""])[0]
-            source = source_label({"client": client, "kind": "scpi"}, app.lang)
-            self._flash(
-                None,
-                i18n.t("instrument.readonlyHint", app.lang, instrument=self.instrument_name, source=source),
-            )
-            return True
-        return False
 
     def _flash_target(self, button: ControlButton | None) -> Static | None:
         if button is not None:
@@ -1183,148 +1080,7 @@ class InstrumentScreen(ShellScreen):
                 return entry["flash"]
         return self._other_flash
 
-    def _flash(self, button: ControlButton | None, text: str) -> None:
-        """``✗ <code> <message>`` under the focused button, gone after 2 s (tui-screens.md 5.3)."""
-        target = self._flash_target(button)
-        if target is None:
-            return
-        target.update(text)
-        target.display = True
-        target.scroll_visible(animate=False)  # the button row may sit below the fold (5.1 #2)
-
-        def clear() -> None:
-            target.display = False
-            target.update("")
-
-        self.set_timer(2.0, clear)
-
-    def _error_text(self, err: dict[str, Any] | None, message: str | None = None) -> str:
-        lang = self.app.lang
-        if err:
-            return i18n.t(
-                "instrument.writeFailed", lang, code=err.get("code", ""), message=err.get("message", "")
-            )
-        return message or ""
-
-    async def _configure(self, path: str, value: Any, button: ControlButton | None) -> bool:
-        app: Any = self.app
-        try:
-            r = await app.client.configure(app.sid, self.instrument_name, path, value)
-        except Exception as exc:
-            self._flash(button, self._error_text(None, str(exc)))
-            return False
-        if not r.get("ok"):
-            self._flash(button, self._error_text(r.get("error")))
-            return False
-        return True
-
-    async def _run_writes(self, writes: list[tuple[str, Any]], button: ControlButton | None) -> None:
-        for path, value in writes:
-            if not await self._configure(path, value, button):
-                return
-
     # -- key actions -------------------------------------------------------------------------------------------
-
-    def action_edit(self) -> None:
-        button = self._focused_button()
-        if button is None or self._readonly_guard():
-            return
-        control = button.control
-        if control.kind == "switch":
-            self.action_toggle()
-            return
-        if control.kind == "select":
-            self._open_select(control)
-            return
-        if control.kind == "buttons":
-            self._press_button(control, button)
-            return
-        if control.kind == "softkey":
-            self._run_softkey(control, button)
-            return
-        self._open_number(control, button)
-
-    def _open_select(self, control: C.Control) -> None:
-        app: Any = self.app
-        spec = control.spec or {}
-        options = C.options_of(spec)
-        if not options:
-            return
-        app.push_screen(
-            SelectScreen(control.label, options, C.control_state(self.info, control)),
-            lambda value: self._picked(control, value),
-        )
-
-    def _picked(self, control: C.Control, value: str | None) -> None:
-        if value is None:
-            return
-        self.run_worker(
-            self._run_writes(C.apply_sets(control, value), self._focused_button()), exclusive=True
-        )
-
-    def _open_number(self, control: C.Control, button: ControlButton) -> None:
-        app: Any = self.app
-        spec = dict(control.spec or {})
-        path = control.path or ""
-        history = app.scpi_history.setdefault(f"edit:{self.instrument_name}:{path}", [])
-        current = C.control_state(self.info, control)
-
-        async def submit(value: float) -> tuple[bool, str | None]:
-            ok = await self._configure(path, value, button)
-            return ok, None
-
-        app.push_screen(NumberEditScreen(control.label, path, current, spec, history, submit))
-
-    def _press_button(self, control: C.Control, button: ControlButton) -> None:
-        """A panel ``buttons`` key: write its value and its ``sets`` (tui-screens.md 5.3)."""
-        if control.dangerous and not bool(C.control_state(self.info, control)):
-            self._confirm_switch(control, button, value=control.value)
-            return
-        self.run_worker(self._run_writes(C.apply_sets(control), button), exclusive=True)
-
-    def action_toggle(self) -> None:
-        button = self._focused_button()
-        if button is None or self._readonly_guard():
-            return
-        control = button.control
-        if control.kind != "switch" or control.path is None:
-            return
-        value = bool(C.control_state(self.info, control))
-        if not value and (control.dangerous or control.electrical):
-            self._confirm_switch(control, button, value=True)
-            return
-        self.run_worker(self._run_writes([(control.path, not value)], button), exclusive=True)
-
-    def _confirm_switch(self, control: C.Control, button: ControlButton, value: Any) -> None:
-        """The dangerous switch's confirmation (tui-screens.md 10.1): what, where, what it affects."""
-        app: Any = self.app
-        lang = app.lang
-        info = self.info
-        shown = i18n.t("common.on", lang) if value is True else C.summary_text(value, control.spec, lang)
-        lines = [f"{info.get('name', '')} · {info.get('model', '')}"]
-        lines.append(i18n.t("confirm.willExecute", lang) + "  " + f"{control.path} → {shown}")
-        related = self._related_settings()
-        if related:
-            lines.append(related)
-        wiring = self._wiring_summary()
-        if wiring:
-            lines.append(wiring)
-        lines.append("")
-        lines.append(i18n.t("confirm.outputBody", lang))
-
-        def on_done(ok: bool) -> None:
-            if ok:
-                self.run_worker(self._run_writes(C.apply_sets(control, value), button), exclusive=True)
-
-        app.push_screen(
-            ConfirmScreen(
-                i18n.t("confirm.outputTitle", lang),
-                lines,
-                i18n.t("confirm.outputConfirm", lang),
-                i18n.t("common.cancel", lang),
-            ),
-            on_done,
-        )
 
     def _related_settings(self) -> str:
         lang = self.app.lang
@@ -1365,105 +1121,6 @@ class InstrumentScreen(ShellScreen):
             if ends:
                 parts.append(f"{p['name']} to {' and '.join(ends)}")
         return "; ".join(parts)
-
-    def action_step(self, direction: int) -> None:
-        app: Any = self.app
-        button = self._focused_button()
-        if button is None or self._readonly_guard():
-            return
-        control = button.control
-        if control.kind not in ("number",):
-            self._flash(button, i18n.t("instrument.stepHint", app.lang))
-            return
-        value = C.nudge(control, self.info, direction)
-        if value is None:
-            self._flash(button, i18n.t("instrument.stepHint", app.lang))
-            return
-        self.run_worker(self._run_writes([(control.path, value)], button), exclusive=True)
-
-    def _run_softkey(self, control: C.Control, button: ControlButton | None) -> None:
-        app: Any = self.app
-        if control.action:
-
-            async def run() -> None:
-                try:
-                    await app.client.panel(app.sid, self.instrument_name, control.action)
-                except Exception as exc:
-                    self._flash(button, self._error_text(None, str(exc)))
-
-            self.run_worker(run(), exclusive=True)
-            return
-        if control.path is not None:
-            self.run_worker(self._run_writes(C.apply_sets(control), button), exclusive=True)
-
-    def action_console(self) -> None:
-        self._scpi.open()
-
-    async def _console_submit(self, command: str) -> tuple[str | None, str | None]:
-        """POST /scpi; the reply as text, an error as ``✗ code message`` (tui-screens.md 10.3)."""
-        app: Any = self.app
-        lang = app.lang
-        try:
-            r = await app.client.scpi(app.sid, self.instrument_name, command)
-        except Exception as exc:
-            return None, str(exc)
-        errors = r.get("errors") or []
-        if errors:
-            first = errors[0]
-            return None, i18n.t(
-                "instrument.writeFailed", lang, code=first.get("code", ""), message=first.get("message", "")
-            )
-        return r.get("response"), None
-
-    def action_local(self) -> None:
-        app: Any = self.app
-        if not self.remote_controlled:
-            return
-        lang = app.lang
-        info = self.info
-        lines = [f"{info.get('name', '')} · {info.get('model', '')}"]
-        lines.append(i18n.t("confirm.willExecute", lang) + "  " + i18n.t("remote.local", lang))
-        lines.append("")
-        lines.append(i18n.t("confirm.localBody", lang))
-
-        def on_done(ok: bool) -> None:
-            if ok:
-                app.run_worker(self._take_local(), exclusive=True)
-
-        app.push_screen(
-            ConfirmScreen(
-                i18n.t("confirm.localTitle", lang),
-                lines,
-                i18n.t("confirm.localConfirm", lang),
-                i18n.t("common.cancel", lang),
-            ),
-            on_done,
-        )
-
-    async def _take_local(self) -> None:
-        app: Any = self.app
-        try:
-            info = await app.client.local(app.sid, self.instrument_name)
-        except Exception:
-            return
-        app._merge_instrument(info)
-        app.bump()
-
-    def action_reason(self) -> None:
-        app: Any = self.app
-        report = self._reason_report()
-        if report is not None:
-            app.push_screen(ReasonScreen(report, lambda: self._jump_to_command(report)))
-
-    def _jump_to_command(self, report: ReasonReport) -> None:
-        if report.jump_seq is None:
-            return
-        app: Any = self.app
-        app.show("log")
-        screen = app.screen
-        focus = getattr(screen, "focus_seq", None)
-        if focus is not None:
-            focus(report.jump_seq)
 
     def _reason_report(self) -> ReasonReport | None:
         """What ``?`` explains (tui-screens.md 9.1): a fault, the limit, the focused setting, an error."""
