@@ -88,17 +88,19 @@ def test_a_channel_of_another_slot_or_a_channel_index_is_unknown(open_):
 # ---- relays: closure, the closure limit and the bus ------------------------------------------------
 
 
-def test_a_closed_channel_reaches_the_internal_dmm(open_):
+def test_the_relay_closure_flow(open_):
+    """A closed channel reaches the internal DMM and is seen in the closure query; the card
+    closes one channel at a time (the break-before-make limit), and the refused command leaves
+    the first closed until it is opened."""
+    # -- a closed channel reaches the internal DMM (was test_a_closed_channel_reaches_the_internal_dmm)
     s = open_()
     q(s, "ROUT:CLOS (@101)")
     assert numbers(q(s, ":MEAS?"))[0] == pytest.approx(5.0, abs=1e-4)
     assert q(s, "ROUT:CLOS? (@101,102)") == "1,0"
     q(s, "ROUT:OPEN (@101)")
     assert q(s, "ROUT:CLOS? (@101,102)") == "0,0"
-
-
-def test_the_card_closes_one_channel_at_a_time(open_):
-    s = open_()
+    # -- one channel at a time (was test_the_card_closes_one_channel_at_a_time; the act starts
+    # from the all-open state the previous act left)
     q(s, "ROUT:CLOS (@101)")
     q(s, "ROUT:CLOS (@102)")
     assert q(s, ":SYST:ERR?").startswith("-221")  # the break-before-make closure limit
@@ -120,32 +122,29 @@ def test_closing_a_channel_loads_the_dut(open_):
 # ---- the scan table ---------------------------------------------------------------------------------
 
 
-def test_a_scan_reads_each_channel_in_order(open_):
+def test_the_scan_flow(open_):
+    """One scan flow: the list reads each channel in order, ascending whatever order was written
+    (the stored list keeps the written order), the trigger count repeats the list, and the relays
+    are open again after the run."""
+    # -- the scan reads each channel in order (was test_a_scan_reads_each_channel_in_order)
     s = open_()
     q(s, "ROUT:SCAN (@101:102)")
     reply = numbers(q(s, ":READ?"))
     assert reply[0::2] == [101.0, 102.0]  # the channel field of each reading
     assert reply[1::2] == pytest.approx([5.0, 3.0], abs=1e-4)
-
-
-def test_a_scan_runs_in_ascending_channel_order(open_):
-    s = open_()
+    # -- ascending channel order (was test_a_scan_runs_in_ascending_channel_order; the new list
+    # replaces the previous act's)
     q(s, "ROUT:SCAN (@102,101)")  # the 34970A scans ascending, whatever order was written
     assert numbers(q(s, ":READ?"))[0::2] == [101.0, 102.0]
     assert q(s, "ROUT:SCAN?") == "(@102,101)"  # the stored list keeps the written order
-
-
-def test_the_scan_count_repeats_the_list(open_):
-    s = open_()
+    # -- the scan count repeats the list (was test_the_scan_count_repeats_the_list)
     q(s, "ROUT:SCAN (@101:102)")
     q(s, "TRIG:COUN 2")
     reply = numbers(q(s, ":READ?"))
     assert reply[0::2] == [101.0, 102.0, 101.0, 102.0]
     assert q(s, ":DATA:POIN?") == "4"
-
-
-def test_the_relays_are_open_after_a_scan(open_):
-    s = open_()
+    # -- the relays are open after a scan (was test_the_relays_are_open_after_a_scan)
+    q(s, "TRIG:COUN 1")  # bridge: the previous act left the count at 2
     q(s, "ROUT:SCAN (@101:102)")
     q(s, ":READ?")
     assert q(s, "ROUT:CLOS? (@101,102)") == "0,0"

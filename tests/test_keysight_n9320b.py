@@ -4,6 +4,10 @@ The manual cases (tests/models/keysight-n9320b/) check command by command; these
 real-instrument-style script (examples/scripts/keysight_n9320b_measure.py) unchanged on the
 example bench, the automatic RBW/VBW/sweep-time couplings, the trace (1001 points, deterministic
 at one virtual instant) and the virtual time of a single sweep.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 from pathlib import Path
@@ -44,9 +48,17 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[4] == '+0,"No error"'
 
 
-def test_automatic_rbw_vbw_and_sweep_time_couple_to_the_span():
+# ---- the couplings, the marker, the trace and the timed sweep: one flow -----------------------------
+
+
+def test_the_measure_marker_trace_and_sweep_flow():
+    """The RBW/VBW/sweep-time couplings follow the span until a manual RBW, the marker finds the
+    10 MHz tone and counts it, the trace holds 1001 deterministic points, and a single sweep
+    takes the manual sweep time."""
     s = session()
     try:
+        # -- the automatic RBW, VBW and sweep time couple to the span (was
+        # test_automatic_rbw_vbw_and_sweep_time_couple_to_the_span)
         # Bench state: 10 MHz center, 2 MHz span. Auto RBW = span/100 snapped to the 1-3-10
         # ladder (30 kHz), VBW follows RBW, sweep time = 2.5 span / (RBW min(RBW, VBW)).
         assert float(q(s, ":BAND?")) == pytest.approx(3.0e4, rel=1e-9)
@@ -67,13 +79,9 @@ def test_automatic_rbw_vbw_and_sweep_time_couple_to_the_span():
         # 20 dB at the 0 dBm reference level, the manual's *RST value (#292).
         assert float(q(s, ":POW:ATT?")) == pytest.approx(20.0, abs=1e-9)
         assert q(s, ":POW:ATT:AUTO?") == "1"
-    finally:
-        s.close()
-
-
-def test_marker_peak_search_reads_the_10_mhz_tone():
-    s = session()
-    try:
+        # -- the marker peak search reads the 10 MHz tone (was
+        # test_marker_peak_search_reads_the_10_mhz_tone; the CW tone reads its level at the
+        # manual 100 kHz RBW above just as at the automatic one, and the counter was never on)
         assert q(s, ":CALC:MARK:PEAK:THR -30") is None
         assert q(s, ":CALC:MARK:MAX") is None
         assert float(q(s, ":CALC:MARK:X?")) == pytest.approx(10.0e6, abs=2.0e3)
@@ -82,27 +90,19 @@ def test_marker_peak_search_reads_the_10_mhz_tone():
         assert q(s, ":CALC:MARK:FCO ON") is None
         assert float(q(s, ":CALC:MARK:FCO:X?")) == pytest.approx(10.0e6, abs=1.0)
         assert q(s, ":SYST:ERR?") == '+0,"No error"'
-    finally:
-        s.close()
-
-
-def test_trace_has_1001_points_and_two_reads_at_one_instant_agree():
-    s = session()
-    try:
+        # -- the trace has 1001 points and two reads at one instant agree (was
+        # test_trace_has_1001_points_and_two_reads_at_one_instant_agree; marker settings do not
+        # enter the trace data)
         first = q(s, ":TRAC:DATA? TRACE1")
         second = q(s, ":TRAC:DATA? TRACE1")
-    finally:
-        s.close()
-    assert first == second
-    values = [float(x) for x in first.split(",")]
-    assert len(values) == POINTS
-    assert max(values) == pytest.approx(LEVEL_DBM, abs=0.01)
-    assert values.index(max(values)) == (POINTS - 1) // 2  # the 10 MHz tone is at the center
-
-
-def test_a_single_sweep_takes_the_manual_sweep_time():
-    s = session()
-    try:
+        assert first == second
+        values = [float(x) for x in first.split(",")]
+        assert len(values) == POINTS
+        assert max(values) == pytest.approx(LEVEL_DBM, abs=0.01)
+        assert values.index(max(values)) == (POINTS - 1) // 2  # the 10 MHz tone is at the center
+        # -- a single sweep takes the manual sweep time (was
+        # test_a_single_sweep_takes_the_manual_sweep_time; the act's own SWE:TIME turns the auto
+        # sweep time off)
         assert q(s, ":INIT:CONT OFF") is None
         assert q(s, ":SWE:TIME 50 ms") is None
         assert q(s, ":SWE:TIME:AUTO?") == "0"

@@ -93,8 +93,12 @@ def test_the_definition_is_clean():
     assert validate_definition(DefinitionLibrary([DEFS]).get("sb-ps-1")).diagnostics == []
 
 
-def test_cv_regulates_and_the_relay_delays_the_output(open_):
+def test_the_single_output_flow(open_):
+    """CH1 into 10 Ω: CV regulates after the relay delay, the current limit turns the output into
+    CC, and an OVP fault latches, refuses the enable and clears back to the set voltage."""
     s = open_()
+    # -- CV regulates and the relay delays the output (was
+    # test_cv_regulates_and_the_relay_delays_the_output)
     q(s, "VOLT 5,(@1)")
     q(s, "OUTP ON,(@1)")
     # The relay closes after relay_s: nothing conducts until virtual time passes (D12).
@@ -103,10 +107,9 @@ def test_cv_regulates_and_the_relay_delays_the_output(open_):
     assert numbers(q(s, "MEAS:VOLT? (@1)"))[0] == pytest.approx(5.0, rel=1e-3)
     assert numbers(q(s, "MEAS:CURR? (@1)"))[0] == pytest.approx(0.5, rel=1e-3)
     assert float(q(s, "MEAS:POW? (@1)")) == pytest.approx(2.5, rel=1e-3)
-
-
-def test_the_current_limit_turns_the_output_into_cc(open_):
-    s = open_()
+    # -- the current limit turns the output into CC (was
+    # test_the_current_limit_turns_the_output_into_cc; the output is already on, so the act's
+    # relay advance just passes time)
     q(s, "VOLT 5,(@1)")
     q(s, "CURR 0.1,(@1)")
     q(s, "OUTP ON,(@1)")
@@ -115,6 +118,24 @@ def test_the_current_limit_turns_the_output_into_cc(open_):
     assert numbers(q(s, "MEAS:CURR? (@1)"))[0] == pytest.approx(0.1, rel=1e-6)
     values = s.instrument("ps").components["ch1.read"].readings()["values"]
     assert values["regulation"] == "CC"
+    # -- OVP trips and clear restores the output (was test_ovp_trips_and_clear_restores_the_output)
+    q(s, "CURR 5,(@1)")  # bridge: the act's scenario has the default 5 A limit (the CC act above set 0.1)
+    q(s, "OUTP OFF,(@1)")  # bridge: the act's scenario starts with the output off
+    relay(s)  # bridge: let the relay finish opening, as between two script commands
+    q(s, "VOLT 5,(@1)")
+    q(s, "VOLT:PROT 4,(@1)")
+    q(s, "OUTP ON,(@1)")
+    relay(s)
+    assert q(s, "OUTP:PROT:TRIP? (@1)") == "1"
+    assert q(s, "OUTP:PROT:KIND? (@1)") == '"OVP"'
+    assert q(s, "OUTP? (@1)") == "0"  # the fault switched the output off
+    q(s, "OUTP ON,(@1)")  # enabling while the fault stands is refused with the series' error 729
+    assert q(s, ":SYST:ERR?").startswith("729")
+    q(s, "VOLT:PROT 6,(@1)")
+    q(s, "OUTP:PROT:CLE (@1)")
+    assert q(s, "OUTP? (@1)") == "1"  # the pre-fault output state is restored
+    relay(s)
+    assert numbers(q(s, "MEAS:VOLT? (@1)"))[0] == pytest.approx(5.0, rel=1e-3)
 
 
 def test_the_power_rating_holds_the_output_to_p_max(open_):
@@ -148,24 +169,6 @@ def test_a_negative_output_regulates(open_):
 # ---- protection --------------------------------------------------------------------------------------
 
 
-def test_ovp_trips_and_clear_restores_the_output(open_):
-    s = open_()
-    q(s, "VOLT 5,(@1)")
-    q(s, "VOLT:PROT 4,(@1)")
-    q(s, "OUTP ON,(@1)")
-    relay(s)
-    assert q(s, "OUTP:PROT:TRIP? (@1)") == "1"
-    assert q(s, "OUTP:PROT:KIND? (@1)") == '"OVP"'
-    assert q(s, "OUTP? (@1)") == "0"  # the fault switched the output off
-    q(s, "OUTP ON,(@1)")  # enabling while the fault stands is refused with the series' error 729
-    assert q(s, ":SYST:ERR?").startswith("729")
-    q(s, "VOLT:PROT 6,(@1)")
-    q(s, "OUTP:PROT:CLE (@1)")
-    assert q(s, "OUTP? (@1)") == "1"  # the pre-fault output state is restored
-    relay(s)
-    assert numbers(q(s, "MEAS:VOLT? (@1)"))[0] == pytest.approx(5.0, rel=1e-3)
-
-
 def test_ocp_trips_when_the_current_limit_is_crossed(open_):
     s = open_(wires=CH1, r=2.0)
     q(s, "VOLT 5,(@1)")
@@ -181,8 +184,11 @@ def test_ocp_trips_when_the_current_limit_is_crossed(open_):
 # ---- the ±25 V combination ---------------------------------------------------------------------------
 
 
-def test_track_mirrors_the_two_voltages(open_):
+def test_the_combination_settings_flow(open_):
+    """Track mirrors the two ±25 V settings either way; the series/parallel pair needs the outputs
+    off; the CH1 panel keeps its reading keys."""
     s = open_()
+    # -- track mirrors the two voltages (was test_track_mirrors_the_two_voltages)
     q(s, "VOLT 5,(@2)")
     q(s, "OUTP:TRAC ON")
     assert q(s, "OUTP:PAIR?") == "TRAC"
@@ -193,14 +199,19 @@ def test_track_mirrors_the_two_voltages(open_):
     assert numbers(q(s, "VOLT? (@2)"))[0] == pytest.approx(2.0)
     q(s, "OUTP:TRAC OFF")
     assert q(s, "OUTP:PAIR?") == "OFF"
-
-
-def test_the_combination_needs_the_outputs_off(open_):
-    s = open_()
+    # -- the combination needs the outputs off (was test_the_combination_needs_the_outputs_off)
     q(s, "OUTP ON,(@2)")
     q(s, "OUTP:PAIR SER")
     assert q(s, ":SYST:ERR?").startswith("-221")
     assert q(s, "OUTP:PAIR?") == "OFF"
+    # -- the panel readings keep their keys (was test_the_panel_readings_keep_their_keys)
+    q(s, "VOLT 2,(@1)")
+    q(s, "OUTP ON,(@1)")
+    relay(s)
+    q(s, "OUTP? (@1)")  # lets the due relay operation run before the panel reads
+    values = s.instrument("ps").components["ch1.read"].readings()["values"]
+    assert set(values) == {"voltage", "current", "power", "regulation"}
+    assert values["voltage"] == pytest.approx(2.0, rel=1e-3)
 
 
 def test_parallel_outputs_share_the_load(open_):

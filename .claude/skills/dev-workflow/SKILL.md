@@ -64,9 +64,12 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
 
 - Unit tests (default): no Textual import, no server, no network; ≤100 ms per test with the
   `unit` marker (×3 when `CI=true` — a shared runner's load spikes are noise, #482). One
-  behaviour per test.
+  behaviour per test (unit tier only).
 - `tui_boot` marker: boots Textual or a real server; runs on `main` only.
 - `tests/test_*e2e*.py`: ≥5 `assert`s per test; runs on `main` only.
+- Engine/model tests that open a real bench: flow tests are the norm (D49, #704) — one test
+  walks a manual flow with step-named asserts; merge adjacent small tests of the same flow
+  instead of re-opening the bench per test. Assertions are never dropped in a merge.
 - Server fixtures must be `module`/`session` scoped (function scope is rejected by the script).
 - Shared test skeletons — example-script loading, example-bench script runs, session queries,
   golden-table runners, the MCP tool-result unwrap — live in `tests/helpers.py` (TUI mocks and

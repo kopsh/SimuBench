@@ -4,6 +4,10 @@ The manual cases (tests/models/fluke-5730a/cases.yaml) check command by command;
 real-instrument script examples/scripts/fluke_5730a_verify.py on the example bench (a Fluke 8588A
 reads the points) and check what a transcript cannot see: the settling time in virtual time and the
 overload trip back to standby.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 from pathlib import Path
@@ -53,16 +57,38 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert [line.split()[1] for line in out[1:-1]] == ["V", "V", "V", "V"]
 
 
-def test_the_output_settles_in_three_seconds_of_virtual_time():
+# ---- the settling times: one flow -------------------------------------------------------------------
+
+
+def test_the_settling_flow():
+    """The output settles in 3 s of virtual time; #552: 3 s within a range, 4 s across a range
+    or polarity change (chapter 1 settling time)."""
     s, q = session(
         {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}}, [{"from": "cal.OUT", "to": "r.A"}]
     )
     try:
+        # -- the output settles in three seconds (was test_the_output_settles_in_three_seconds_of_virtual_time)
         q("OUT 10 V")
         q("OPER")
         t0 = s.now_ns
         assert q("*OPC?") == "1"
         assert (s.now_ns - t0) / 1e9 == pytest.approx(3.0, abs=0.05)
+        # -- a range or polarity change adds a second (was
+        # test_a_range_or_polarity_change_adds_a_second_of_settling; the act's own OUT 1 V;OPER
+        # makes the (unasserted) 11 V -> 2.2 V range change its premise starts from)
+        # #552: 3 s within a range, 4 s across a range or polarity change (chapter 1 settling time).
+        q("OUT 1 V;OPER")
+        q("*OPC?")
+
+        def settle(cmd: str) -> float:
+            t0 = s.now_ns
+            q(cmd)
+            q("*OPC?")
+            return (s.now_ns - t0) / 1e9
+
+        assert settle("OUT 1.5 V") == pytest.approx(3.0, abs=0.05)  # same 2.2 V range
+        assert settle("OUT -1.5 V") == pytest.approx(4.0, abs=0.05)  # polarity
+        assert settle("OUT -5 V") == pytest.approx(4.0, abs=0.05)  # 2.2 V -> 11 V range
     finally:
         s.close()
 
@@ -83,28 +109,6 @@ def test_an_overload_trips_back_to_standby_with_fault_210():
         assert inst.session.port_signal(inst.components["out"], "out").mean() == pytest.approx(0.0, abs=1e-9)
         assert q("FAULT?") == "210"
         assert q("FAULT?") == "0"
-    finally:
-        s.close()
-
-
-def test_a_range_or_polarity_change_adds_a_second_of_settling():
-    """#552: 3 s within a range, 4 s across a range or polarity change (chapter 1 settling time)."""
-    s, q = session(
-        {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}}, [{"from": "cal.OUT", "to": "r.A"}]
-    )
-    try:
-        q("OUT 1 V;OPER")
-        q("*OPC?")
-
-        def settle(cmd: str) -> float:
-            t0 = s.now_ns
-            q(cmd)
-            q("*OPC?")
-            return (s.now_ns - t0) / 1e9
-
-        assert settle("OUT 1.5 V") == pytest.approx(3.0, abs=0.05)  # same 2.2 V range
-        assert settle("OUT -1.5 V") == pytest.approx(4.0, abs=0.05)  # polarity
-        assert settle("OUT -5 V") == pytest.approx(4.0, abs=0.05)  # 2.2 V -> 11 V range
     finally:
         s.close()
 

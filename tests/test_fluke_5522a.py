@@ -6,6 +6,10 @@ proving that OPER puts the setting on the terminals within the drawn deviations 
 0 V, the example bench (examples/benches/fluke-5522a.bench.yaml) where DC and 1 kHz AC are
 visible on the scope, the 33 V confirmation, the overload trip to standby (error 1503), and the
 settling time on the virtual clock.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
 from pathlib import Path
@@ -46,12 +50,16 @@ def loaded_bench(load_ohm: float) -> BenchDefinition:
     return BenchDefinition.model_validate(raw)
 
 
-# ---- the validation bench: OPER reads the setting, STBY reads 0 V ---------------------------------
+# ---- the validation bench: operate/standby and the functions: one flow ------------------------------
 
 
-def test_operate_puts_the_setting_on_the_terminals_and_standby_reads_zero():
+def test_the_operate_standby_and_function_flow():
+    """Standby reads 0 V, the setting alone drives nothing, OPER settles to the value; the AC
+    line sits at its programmed frequency with no DC, and 0 Hz is DC again."""
     s = open_bench(DMM_BENCH)
     try:
+        # -- operate puts the setting on the terminals, standby reads zero (was
+        # test_operate_puts_the_setting_on_the_terminals_and_standby_reads_zero)
         assert reading(s) == 0.0  # power-up: standby, the terminal is out of the circuit
         q(s, "cal", "OUT 10 V")
         assert reading(s) == 0.0  # the setting alone drives nothing
@@ -64,13 +72,8 @@ def test_operate_puts_the_setting_on_the_terminals_and_standby_reads_zero():
         q(s, "cal", "OPER")  # entering operate again settles from 0
         q(s, "cal", "*WAI")
         assert reading(s) == pytest.approx(settled, abs=QUANTUM)
-    finally:
-        s.close()
-
-
-def test_acv_is_a_line_at_the_programmed_frequency():
-    s = open_bench(DMM_BENCH)
-    try:
+        # -- an ACV line at the programmed frequency (was test_acv_is_a_line_at_the_programmed_frequency;
+        # the act's own OUT line changes the function, and below 33 V the switch keeps operating)
         q(s, "cal", "OUT 1 V, 1 kHz")
         q(s, "cal", "OPER;*WAI")
         assert reading(s, "AC") == pytest.approx(1.0, abs=GAIN * 1.0 + FLOOR + QUANTUM)
@@ -101,14 +104,19 @@ def test_the_drawn_deviations_are_the_bench_seed_s_own():
         second.close()
 
 
-# ---- the 33 V confirmation --------------------------------------------------------------------------
+# ---- the 33 V confirmation: one flow ----------------------------------------------------------------
 
 
-def test_a_change_across_33v_returns_to_standby():
+def test_the_33v_confirmation_flow():
     """Operators Manual ch. 3/4, Operate and Standby Modes: “A voltage >= 33 V is selected when
-    the previous output voltage was less than 33 V” — only a crossing upward trips (#558)."""
+    the previous output voltage was less than 33 V” — only a crossing upward trips (#558), a
+    function change at high voltage trips too, 33.0 V itself is on the standby side, and within
+    the high range or downward the output keeps running."""
     s = open_bench(DMM_BENCH)
     try:
+        # -- a change across 33 V returns to standby (was test_a_change_across_33v_returns_to_standby)
+        # Operators Manual ch. 3/4, Operate and Standby Modes: “A voltage >= 33 V is selected when
+        # the previous output voltage was less than 33 V” — only a crossing upward trips (#558).
         q(s, "cal", "OUT 10 V")
         q(s, "cal", "OPER;*WAI")
         assert reading(s) == pytest.approx(10.0, abs=2e-4)
@@ -119,13 +127,9 @@ def test_a_change_across_33v_returns_to_standby():
         assert reading(s) == pytest.approx(40.0, abs=GAIN * 40.0 + FLOOR + QUANTUM)
         q(s, "cal", "OUT 20 V;*WAI")  # downward from 40 V: no crossing, the output keeps running
         assert reading(s) == pytest.approx(20.0, abs=GAIN * 20.0 + FLOOR + QUANTUM)
-    finally:
-        s.close()
-
-
-def test_a_function_change_at_high_voltage_returns_to_standby():
-    s = open_bench(DMM_BENCH)
-    try:
+        # -- a function change at high voltage returns to standby (was
+        # test_a_function_change_at_high_voltage_returns_to_standby; the act's own OUT 40 V
+        # crosses upward from the 20 V the previous act left, so its OPER re-confirms)
         q(s, "cal", "OUT 40 V")
         q(s, "cal", "OPER;*WAI")
         assert reading(s) == pytest.approx(40.0, abs=GAIN * 40.0 + FLOOR + QUANTUM)
@@ -133,6 +137,18 @@ def test_a_function_change_at_high_voltage_returns_to_standby():
         assert reading(s) == 0.0
         q(s, "cal", "OPER;*WAI")
         assert reading(s, "AC") == pytest.approx(40.0, abs=GAIN * 40.0 + FLOOR + QUANTUM)
+        # -- the trip at the threshold boundary (was test_the_output_trips_at_the_threshold_boundary;
+        # the act's OUT 32.9 V is a function change below 33 V: the switch keeps operating)
+        # Operators Manual ch. 3/4: “A voltage >= 33 V is selected when the previous output voltage
+        # was less than 33 V” -- 33.0 V itself is on the standby side; within the high range and
+        # downward there is no crossing and the output keeps running (#558).
+        q(s, "cal", "OUT 32.9 V")
+        q(s, "cal", "OPER;*WAI")
+        q(s, "cal", "OUT 33 V")  # exactly 33 V: >= the threshold, crossing upward
+        assert reading(s) == 0.0
+        q(s, "cal", "OPER;*WAI")
+        q(s, "cal", "OUT 33.1 V;*WAI")  # 33 V -> 33.1 V: both sides of 33 V, no crossing
+        assert reading(s) == pytest.approx(33.1, abs=GAIN * 33.1 + FLOOR + QUANTUM)
     finally:
         s.close()
 
@@ -172,25 +188,25 @@ def test_a_load_within_the_capability_does_not_trip():
         s.close()
 
 
-# ---- settling ---------------------------------------------------------------------------------------
+# ---- settling: one flow -----------------------------------------------------------------------------
 
 
-def test_settling_takes_five_seconds_on_the_virtual_clock():
+def test_the_settling_flow():
+    """OPER itself returns at once and *OPC? waits the manual's 5 s; *OPC sets ESR bit 0 once
+    the output has settled."""
     s = open_bench(DMM_BENCH)
     try:
+        # -- settling takes five seconds on the virtual clock (was
+        # test_settling_takes_five_seconds_on_the_virtual_clock)
         q(s, "cal", "OUT 10 V")
         t0 = s.now_ns
         q(s, "cal", "OPER")
         assert s.now_ns == t0  # OPER itself returns at once
         assert q(s, "cal", "*OPC?") == "1"
         assert s.now_ns - t0 == round(5.0 * 1e9)  # the manual: settling < 5 s, modeled as 5 s
-    finally:
-        s.close()
-
-
-def test_opc_sets_esr_bit_zero_once_settled():
-    s = open_bench(DMM_BENCH)
-    try:
+        # -- bridge: the ESR act's scenario starts in standby with OUT 10 V stored
+        q(s, "cal", "STBY")
+        # -- *OPC sets ESR bit 0 once settled (was test_opc_sets_esr_bit_zero_once_settled)
         q(s, "cal", "OUT 10 V")
         q(s, "cal", "OPER")
         q(s, "cal", "*OPC")
@@ -231,12 +247,16 @@ def test_the_example_bench_shows_dc_and_1khz_ac_on_the_scope():
         s.close()
 
 
-# ---- identity and error queue ------------------------------------------------------------------------
+# ---- identity, the error queue and the host port: one flow -------------------------------------------
 
 
-def test_identity_and_restricted_builtins():
+def test_the_identity_and_host_port_flow():
+    """*IDN?/*OPT? identify the unit and ERR? classifies the unmodeled headers (there are no
+    :SYSTem: headers); OPER? reads the operate setting and LOCAL/REMOTE/LOCKOUT save the
+    interface state."""
     s = open_bench(DMM_BENCH)
     try:
+        # -- identity and restricted builtins (was test_identity_and_restricted_builtins)
         assert q(s, "cal", "*IDN?") == "FLUKE,5522A,5248101,1.0+1.3+1.8"
         assert q(s, "cal", "*OPT?") == "0"  # no options installed on this unit
         # The 5522A has no SCPI :SYSTem: headers: the error queue is ERR?, the clock is CLOCK.
@@ -246,31 +266,9 @@ def test_identity_and_restricted_builtins():
         assert q(s, "cal", "ERR?") == '-113,"Undefined header;not implemented in this definition"'
         assert q(s, "cal", "*TRG") is None  # TC measurement on the real instrument; not modeled
         assert q(s, "cal", "ERR?") == '-113,"Undefined header;not implemented in this definition"'
-    finally:
-        s.close()
-
-
-def test_the_output_trips_at_the_threshold_boundary():
-    """Operators Manual ch. 3/4: “A voltage >= 33 V is selected when the previous output voltage
-    was less than 33 V” -- 33.0 V itself is on the standby side; within the high range and
-    downward there is no crossing and the output keeps running (#558)."""
-    s = open_bench(DMM_BENCH)
-    try:
-        q(s, "cal", "OUT 32.9 V")
-        q(s, "cal", "OPER;*WAI")
-        q(s, "cal", "OUT 33 V")  # exactly 33 V: >= the threshold, crossing upward
-        assert reading(s) == 0.0
-        q(s, "cal", "OPER;*WAI")
-        q(s, "cal", "OUT 33.1 V;*WAI")  # 33 V -> 33.1 V: both sides of 33 V, no crossing
-        assert reading(s) == pytest.approx(33.1, abs=GAIN * 33.1 + FLOOR + QUANTUM)
-    finally:
-        s.close()
-
-
-def test_operate_query_and_the_host_port_commands():
-    """#119: OPER? reads the operate setting, and LOCAL / REMOTE / LOCKOUT save the interface state."""
-    s = open_bench(DMM_BENCH)
-    try:
+        # -- OPER? and the host port commands (was test_operate_query_and_the_host_port_commands;
+        # the act's own *RST returns the unit to the power-up state and the queue is empty again)
+        # #119: OPER? reads the operate setting, and LOCAL / REMOTE / LOCKOUT save the interface state.
         q(s, "cal", "*RST")
         assert q(s, "cal", "OPER?") == "0"
         q(s, "cal", "OUT 10 V;OPER")
