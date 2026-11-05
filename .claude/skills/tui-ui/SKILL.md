@@ -27,6 +27,15 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   `tui-screens.md` 1.2). Red marks only the offending words, never a whole card or row. State is
   always also text or a glyph (`●` `○` `▲` `✗` `→` `·` `—` `…`) — `NO_COLOR` turns every token
   into the default foreground and the screen must still read.
+- **Buttons** are a `ButtonGrid` (`screens/editing.py`): equal columns, wrapping rows, never cut
+  mid-word; `fit(width, max_rows)` returns the rows shown, and the screen's row budget uses that.
+  Readings come before buttons — a short screen shows one row, the rest scroll with the focus.
+- **Sizes come from the data, not from the layout pass** (the layout has not run on the first
+  refresh): instrument boxes take their width from `_channel_width()` (inner width: less the
+  border and padding — a row wider than the Static *wraps*, it does not truncate), their height
+  from `_channel_row_budget()` / `_side_height()`, and the body height from `_body_rows()` (it
+  already excludes the demo's caption row). `call_after_refresh(_relayout)` redraws once real
+  widths exist. No scrollbars anywhere: a scrollbar steals a column and wraps every row.
 - **Numbers**: use `fmt.fmt` (SI prefixes, right-aligned); never hand-format a value. Use
   `cell_len` / `pad` / `ralign`, not `len`, for widths.
 - **Keys**: table in `docs/tui-design.md` 4. Every action is also reachable from the command
@@ -39,6 +48,16 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
   errors read "what happened → where → what to do".
 - Front-panel readings/operations do not go through SCPI (D32). TUI-originated actions carry the
   client type "tui" so replays show who acted.
+
+## Textual traps
+
+- `DEFAULT_CSS` is **scoped** to the widget: a rule that starts outside it (`.-mono ControlButton`,
+  the `NO_COLOR` rule) needs `SCOPED_CSS = False` on the widget.
+- `VerticalScroll` defaults to `height: 1fr`; inside an `auto` row it swallows the screen.
+- `export_screenshot()` titles the SVG with `App.title` — keep `TITLE = "SimuBench"`.
+- The README screenshots (`docs/tui/*.svg`) and the snapshots must be regenerated together with a
+  visible change: `tests/test_tui_t4.py` compares the docs, `tests/test_tui_snapshots.py` the rest.
+  Both start servers on fixed ports — run them one after the other, not in parallel with each other.
 
 ## Tests (D49)
 
@@ -59,6 +78,7 @@ Snapshots use fixed SCPI ports and `NO_COLOR` is cleared by the test — don't r
 uv sync --extra tui                                        # Textual + httpx
 uv run simubench tui validation/benches/smu.bench.yaml     # run it (or --attach URL)
 uv run simubench tui <bench> --script docs/tui/find-the-trip.steps.yaml --out /tmp/shots   # headless SVGs
+# README screenshots: the exact command in README.md ("截图与演示可复现"), output to docs/tui
 uv run pytest tests/test_tui_units.py tests/test_tui_rows.py -q                           # fast loop
 uv run python scripts/check_tui_i18n.py
 ```

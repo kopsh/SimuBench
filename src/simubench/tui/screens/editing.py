@@ -12,30 +12,37 @@ from __future__ import annotations
 from typing import Any
 
 from rich.text import Text
+from textual.containers import Container
 from textual.widgets import Static
 
 from .. import controls as C
 from .. import i18n
+from ..fmt import cell_len
 from ..log import source_label
 from ..reasons import ReasonReport
-from ..widgets import box_title, log_text
+from ..widgets import box_title, log_text, style_of
 from .dialogs import NumberEditScreen, ReasonScreen, SelectScreen
 from .shell import ShellScreen
 from .states import ConfirmScreen
 
 
 class ControlButton(Static):
-    """One ``[label]`` button of a box's button row; focusable, reversed while focused (5.2)."""
+    """One ``[label]`` button of a box's button grid; focusable, reversed while focused (5.2)."""
 
     DEFAULT_CSS = """
-    ControlButton { width: auto; margin-right: 1; }
+    ControlButton { width: 1fr; height: 1; text-wrap: nowrap; text-overflow: ellipsis; }
     ControlButton:focus { background: $focus; color: $background; text-style: none; }
     ControlButton.-readonly { color: $muted; }
     ControlButton.-lit { text-style: reverse; }
-    ControlButton.-highlighted { border: thick $focus; }
+    ControlButton.-highlighted { background: $focus; color: $background; text-style: bold; }
+    /* NO_COLOR: the tokens carry no colour, so the focus and the frame are bold and underlined */
+    .-mono ControlButton:focus, .-mono ControlButton.-highlighted {
+        background: transparent; color: ansi_default; text-style: bold underline;
+    }
     """
 
     can_focus = True
+    SCOPED_CSS = False  # the NO_COLOR rule above starts at the app's `.-mono`, outside the widget
 
     def __init__(self, control: C.Control, box_id: str) -> None:
         # A Text, not a bare string: the brackets would parse as console markup and an ASCII
@@ -47,6 +54,58 @@ class ControlButton(Static):
     def render_button(self, info: dict[str, Any], readonly: bool) -> None:
         self.set_class(readonly or not self.control.writable, "-readonly")
         self.set_class(C.is_lit(info, self.control), "-lit")
+
+
+class ButtonGrid(Container):
+    """A box's buttons in equal columns, as many per row as fit; never cut mid-word (5.2).
+
+    Rows wrap instead of overflowing, so every control stays visible and reachable. ``fit``
+    takes the inner width, sets the column count and returns how many rows that makes — the
+    screen's row budget needs the height before the layout has run. A short screen caps the rows
+    so the readings above keep their room (the buttons below the cap scroll into view).
+    """
+
+    DEFAULT_CSS = """
+    ButtonGrid {
+        layout: grid; grid-size: 1; grid-gutter: 0 1; grid-rows: 1; height: auto; width: 1fr;
+        overflow-y: auto; scrollbar-size-vertical: 0;
+    }
+    """
+
+    def __init__(self, *buttons: ControlButton, **kwargs: Any) -> None:
+        super().__init__(*buttons, **kwargs)
+        self._cells = [cell_len(b.control.label) + 2 for b in buttons]  # ``[label]``
+
+    @property
+    def count(self) -> int:
+        return len(self._cells)
+
+    def needed(self, width: int) -> int:
+        """Rows all the buttons take at ``width`` (no side effects)."""
+        if not self._cells:
+            return 0
+        cell = min(max(self._cells), 24)
+        cols = max(1, min(len(self._cells), (width + 1) // (cell + 1)))
+        return -(-len(self._cells) // cols)
+
+    def fit(self, width: int, max_rows: int | None = None) -> int:
+        """Set the columns for ``width``; show at most ``max_rows`` rows (the rest scrolls into
+        view with the focus) and return the rows shown."""
+        if not self._cells:
+            return 0
+        cell = min(max(self._cells), 24)
+        cols = max(1, min(len(self._cells), (width + 1) // (cell + 1)))
+        self.styles.grid_size_columns = cols
+        rows_ = -(-len(self._cells) // cols)
+        if max_rows is not None and rows_ > max_rows:
+            self.styles.max_height = max_rows
+            return max_rows
+        self.styles.max_height = None
+        return rows_
+
+    def add_buttons(self, *buttons: ControlButton) -> None:
+        self._cells.extend(cell_len(b.control.label) + 2 for b in buttons)
+        self.mount(*buttons)
 
 
 class ControlEditingScreen(ShellScreen):
@@ -93,7 +152,12 @@ class ControlEditingScreen(ShellScreen):
             inner,
         )
         self._log_box.styles.height = self._log_rows() + 2
-        self._log_static.update(log_text(app, shown, lang, width=inner))
+        if shown:
+            self._log_static.update(log_text(app, shown, lang, width=inner))
+        else:  # an empty state names the next step (ui-design.md 6)
+            address = self.info.get("address_virtual", "")
+            hint = i18n.t("log.emptyFor", lang, address=address)
+            self._log_static.update(Text(hint, style=style_of(app, "muted")))
         self._log_box.scroll_end(animate=False, force=True)
 
     def _refresh_buttons(self) -> None:

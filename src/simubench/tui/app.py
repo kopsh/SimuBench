@@ -70,6 +70,8 @@ READING_TEMPLATES = (
 class SimuBenchApp(App[None]):
     """``simubench tui``: overview, communication log, and the connection states of section 3."""
 
+    TITLE = "SimuBench"  # the exported SVG's window title (it was the class name)
+
     CSS = """
     Screen { background: $background; scrollbar-size-vertical: 0; scrollbar-size-horizontal: 0; }
     Static#connecting-note { padding: 1 2; color: $muted; }

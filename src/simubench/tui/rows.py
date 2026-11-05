@@ -184,7 +184,7 @@ def readings_rows(readings: dict[str, Any]) -> list[list[tuple[str, str]]]:
 
 
 def spectrum_rows(
-    lang: str, readings: dict[str, Any], state: dict[str, dict], width: int
+    lang: str, readings: dict[str, Any], state: dict[str, dict], width: int, budget: int | None = None
 ) -> list[list[tuple[str, str]]]:
     """The analyzer's trace as braille (4 rows of dots per text row), the marker, RBW/VBW and
     sweep time, then its settings (#282) — the same data the web screen draws."""
@@ -225,7 +225,7 @@ def spectrum_rows(
         if line:
             rows.append(line)
     rows.append([("", "")])
-    return rows + generic_rows(lang, state, width)
+    return rows + generic_rows(lang, state, width, budget - len(rows) if budget is not None else None)
 
 
 def rf_rows(
@@ -350,12 +350,15 @@ def lockin_rows(
     return rows + generic_rows(lang, state, width)
 
 
-def generic_rows(lang: str, state: dict[str, dict], width: int | None = None) -> list[list[tuple[str, str]]]:
-    """State variables grouped by first path segment, as many columns as fit (5.2)."""
+def generic_rows(
+    lang: str, state: dict[str, dict], width: int | None = None, budget: int | None = None
+) -> list[list[tuple[str, str]]]:
+    """State variables grouped by first path segment, as many columns as fit (5.2); a group
+    block the ``budget`` has no room for is left out whole (#374)."""
     groups: dict[str, list[str]] = {}
     for path in state:
         groups.setdefault(path.split(".", 1)[0], []).append(path)
-    return grouped_columns(lang, groups, state, width)
+    return grouped_columns(lang, groups, state, width, budget)
 
 
 def grouped_columns(

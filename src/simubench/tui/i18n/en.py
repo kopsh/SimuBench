@@ -93,6 +93,7 @@ TERMS: dict = {
         "titleFor": "Log · {instrument}",
         "count": "{count} records",
         "countAll": "{count} records · all instruments",
+        "emptyFor": "No commands yet. Point a script at {address}",
         "colTimeVirtual": "Virtual time",
         "colTimeReal": "Time (real)",
         "colSource": "Source",

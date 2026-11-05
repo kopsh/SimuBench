@@ -17,7 +17,7 @@ from .fmt import cell_len, fmt_ns
 from .log import LogLine
 
 #: Column widths of the log rows (tui-screens.md 7.1): time, source, instrument, command.
-LOG_WIDTHS = (13, 12, 7, 26)
+LOG_WIDTHS = (13, 14, 7, 26)
 
 
 def style_of(app: Any, tokens: str) -> str:
@@ -152,6 +152,8 @@ class CaptionBar(Static):
         self.update(t)
         self.add_class("-show")
         self.screen.refresh(layout=True)  # showing a docked widget makes the body give up a row
+        # Screens that size their boxes from the body's height redraw once the row is gone.
+        self.screen.call_after_refresh(getattr(self.screen, "_relayout", lambda: None))
 
 
 def remote_status(session: dict[str, Any] | None, lang: str) -> str:

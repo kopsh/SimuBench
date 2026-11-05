@@ -50,4 +50,6 @@ def apply_theme(app: object) -> None:
     """Register both themes and pick by ``NO_COLOR``."""
     app.register_theme(THEME)  # type: ignore[attr-defined]
     app.register_theme(mono_theme())  # type: ignore[attr-defined]
-    app.theme = "simubench-mono" if os.environ.get("NO_COLOR") else "simubench"  # type: ignore[attr-defined]
+    mono = bool(os.environ.get("NO_COLOR"))
+    app.theme = "simubench-mono" if mono else "simubench"  # type: ignore[attr-defined]
+    app.set_class(mono, "-mono")  # type: ignore[attr-defined]  # CSS that must differ without colour
