@@ -425,36 +425,23 @@ def build_server(
             ..., description="Program messages, sent in order to the instrument alone", max_length=200
         ),
     ) -> dict[str, Any]:
-        """Send commands to a definition's instrument alone, without a bench: a temporary session is
-        opened for the batch and closed after it, no SCPI port is bound, no run record is written,
-        and the engineer's open bench is untouched. Each result carries the reply, the errors the
-        command added to the queue and the virtual time, as send_scpi returns them. Commands marked
-        dangerous in the definition run without confirm: the simulation is the sandbox."""
+        """Send commands to a definition's instrument alone, without a bench: the temporary session
+        comes from the same scratch pool the acceptance page uses (no SCPI port is bound, no run
+        record is written, the engineer's open bench is untouched) and stays open for reuse until
+        it falls idle. Each result carries the reply, the errors the command added to the queue
+        and the virtual time, as send_scpi returns them. Commands marked dangerous in the
+        definition run without confirm: the simulation is the sandbox."""
         guard()
-        from .api import open_bench
-        from .models.bench import BenchDefinition
-
-        try:
-            files.library(None).get(definition_id)  # unknown id fails before anything is built
-        except Exception as exc:
-            raise fail(exc) from None
-        bench = BenchDefinition.model_validate(
-            {
-                "schema": "simubench.bench/2",
-                "name": f"try-{definition_id}",
-                "instruments": {definition_id: {"model": definition_id}},
-            }
-        )
 
         def run() -> list[dict[str, Any]]:
-            session = open_bench(bench, definition_dirs=[files.workspace / "instruments"])
-            try:
-                return [
-                    {"command": command, **_scpi(session, definition_id, command, client="mcp")}
-                    for command in commands
-                ]
-            finally:
-                session.close()
+            # The pool owns the try semantics (no ports, no record, scratch bench) and the reuse:
+            # a second batch for the same definition runs on the same session instead of cycling
+            # a bench per call (issue 636).
+            entry = manager.tries.open(definition_id)  # unknown id: KeyError before anything builds
+            return [
+                {"command": command, **_scpi(entry.served.session, definition_id, command, client="mcp")}
+                for command in commands
+            ]
 
         try:
             results = await asyncio.to_thread(run)
