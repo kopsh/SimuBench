@@ -21,6 +21,7 @@ from ..library.panels import DEDICATED, template_of
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
 from ..scpi import values as V
 from ..scpi.parse import Pattern, Token
+from .commands import told_apart
 from .component import Component, binding_of, component_types
 from .portref import ladder, split
 from .validate import Report, _ptr, unknown_name
@@ -46,6 +47,8 @@ def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Re
     """Validate raw definition data (parsed YAML/JSON); return the model when the schema accepts it."""
     report = Report()
     try:
+        # An explicit upgrade (issue 641): a broken schema must map to E-FORMAT here, before any
+        # model exists; the macros below expand the upgraded dict.
         data, _ = upgrade(data, "instrument")
     except FormatError as exc:
         report.add("error", "E-FORMAT", "/schema", str(exc), None)
@@ -861,18 +864,6 @@ def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
     return out
 
 
-def _told_apart(a: CommandSpec, b: CommandSpec) -> bool:
-    """Whether the later command ``b`` on a header the earlier ``a`` also matches still runs: ``a``
-    has a ``when`` and ``b`` has none (``b`` is the fallback for the other values and for a
-    parameter left out, #602: ``:SYSTem:ERRor? [STRing]``), or both have one and some parameter
-    value differs."""
-    if not a.when:
-        return False
-    if not b.when:
-        return True
-    return any(k in b.when and str(v).upper() != str(b.when[k]).upper() for k, v in a.when.items())
-
-
 def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], report: Report) -> None:
     """The first command whose header matches wins: a later one that an earlier one also matches
     never runs for those forms."""
@@ -889,7 +880,7 @@ def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], rep
                     if pi is not None
                     and pi.common == pj.common
                     and pi.match(tokens) is not None
-                    and not _told_apart(d.commands[i], d.commands[j])
+                    and not told_apart(d.commands[i], d.commands[j])
                 ),
                 None,
             )

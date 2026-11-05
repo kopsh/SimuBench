@@ -100,7 +100,7 @@ def format_nr3(value: float, digits: int = 6) -> str:
     return f"{value:+.{digits}E}"
 
 
-_ENG_PREFIX = [
+ENG_PREFIX = [
     (1e12, "T"),
     (1e9, "G"),
     (1e6, "M"),
@@ -118,8 +118,8 @@ def format_engineering(value: float, unit: str, digits: int = 4) -> str:
     if value == 0 or not math.isfinite(value):
         return f"{value:g} {unit}".strip()
     mag = abs(value)
-    for scale, prefix in _ENG_PREFIX:
+    for scale, prefix in ENG_PREFIX:
         if mag >= scale:
             return f"{value / scale:.{digits}g} {prefix}{unit}".strip()
-    scale, prefix = _ENG_PREFIX[-1]
+    scale, prefix = ENG_PREFIX[-1]
     return f"{value / scale:.{digits}g} {prefix}{unit}".strip()
