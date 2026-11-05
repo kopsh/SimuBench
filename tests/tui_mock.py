@@ -3,7 +3,9 @@
 ``FakeClient`` answers from payloads dumped once out of a real session (``tests/data/tui/unit_*.json``),
 so the shapes stay honest. The app under test is the real ``SimuBenchApp`` with its connection loop
 replaced: it becomes ``connected`` immediately and events are injected with :func:`feed` — the WS
-stream is exactly what the e2e tests (test_tui_t2_e2e.py) cover for real.
+stream is exactly what the e2e tests (test_tui_e2e.py) cover for real. The pilot helpers the
+milestone files used to copy (``fresh``/``settle``/``wait_for``/``wait_flat``/``flat``) live here
+too (#699).
 """
 
 from __future__ import annotations
@@ -192,3 +194,64 @@ def ev(seq: int, t_ns: int, kind: str, **fields: Any) -> dict[str, Any]:
     """One event as the WS stream carries it: projected through the engine's event contract
     (issue 595), so the shape here and the server's cannot drift apart."""
     return project({"t_ns": t_ns, "kind": kind, **fields}, seq)
+
+
+# ---- shared pilot helpers (#699): the poll-and-assert loops every T-milestone file used to copy -----
+
+
+def loop_time() -> float:
+    return asyncio.get_running_loop().time()
+
+
+def fresh(fixture: dict[str, Any]) -> dict[str, Any]:
+    """A mutable copy of a canned payload (unit_app's fixture is shared across tests)."""
+    import copy
+
+    return copy.deepcopy(fixture)
+
+
+async def settle(pilot, tui: SimuBenchApp, deadline: float = 20.0) -> None:
+    """The unit app's data is in (the connection loop's full refresh ran)."""
+    end = loop_time() + deadline
+    while loop_time() < end:
+        await pilot.pause(0.05)
+        if tui.session_info and tui.data_version > 0:
+            return
+    raise AssertionError("the unit app never settled")
+
+
+async def wait_for(pilot, predicate, timeout: float = 20.0, message: str = "condition") -> None:
+    """Poll ``predicate`` (sync or async) until it is true."""
+    import inspect
+
+    end = loop_time() + timeout
+    while loop_time() < end:
+        await pilot.pause(0.05)
+        result = predicate()
+        if inspect.isawaitable(result):
+            result = await result
+        if result:
+            return
+    raise AssertionError(f"{message} never became true")
+
+
+def flat(app: SimuBenchApp) -> str:
+    """The screen's current text, read straight out of the compositor's strips."""
+    return "\n".join("".join(seg.text for seg in strip) for strip in app.screen._compositor.render_strips())
+
+
+async def wait_flat(pilot, tui: SimuBenchApp, *needles: str, timeout: float = 20.0) -> str:
+    """The screen text captured when all ``needles`` first show at once.
+
+    The compositor's strips are read live: a render can be brief (a refresh recomposing) or
+    partial (one box updated, the next not yet), so reading once after a fixed pause races the
+    screen. Poll until one render shows every needle, and assert the rest against that render.
+    """
+    end = loop_time() + timeout
+    while loop_time() < end:
+        await pilot.pause(0.05)
+        text = flat(tui)
+        if all(needle in text for needle in needles):
+            return text
+    missing = [needle for needle in needles if needle not in flat(tui)]
+    raise AssertionError(f"{missing} never appeared on {type(tui.screen).__name__}")
