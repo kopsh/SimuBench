@@ -27,7 +27,8 @@ log = logging.getLogger("simubench.hislip")
 
 HEADER = struct.Struct("!2sBBIQ")  # prologue, type, control code, parameter, payload length
 DEFAULT_PORT = 4880
-SERVER_VERSION = 0x0100  # the negotiated version is the lower of ours and the client's
+SERVER_VERSION = 0x0200  # HiSLIP 2.0; the negotiated version is the lower of ours and the client's
+INITIAL_MESSAGE_ID = 0xFFFF_FF00  # where both sides count from after initialization and device clear
 SERVER_VENDOR = 0x5342  # "SB" in the VPP-9 two-letter style
 MAX_MESSAGE_SIZE = 1 << 20  # what we advertise and accept (the VISA default, 1 MiB)
 MAX_PAYLOAD_BUFFER = 64 << 20  # a length field beyond this is a broken header, not a message
@@ -59,10 +60,13 @@ ASYNC_STATUS_RESPONSE = 22
 ASYNC_DEVICE_CLEAR_ACKNOWLEDGE = 23
 ASYNC_LOCK_INFO = 24
 ASYNC_LOCK_INFO_RESPONSE = 25
+GET_DESCRIPTORS = 26  # HiSLIP 2.0 and later (table 4)
+GET_DESCRIPTORS_RESPONSE = 27
 
 # Error codes (spec tables 14 and 16).
 ERR_UNRECOGNIZED_TYPE = 1
 ERR_UNRECOGNIZED_CONTROL = 2
+VERSION_2 = 0x0200
 FATAL_POORLY_FORMED = 1
 FATAL_INVALID_INIT = 3
 
@@ -92,6 +96,15 @@ class HislipSession:
         self.rmt_expected = False
         self.clearing = False
         self.last_stb = 0
+        self.version = 0x0100  # negotiated protocol version
+        self.overlapped = server.overlapped
+        self.rx_id = INITIAL_MESSAGE_ID - 2  # MessageID of the last Data, DataEND or Trigger received
+        self.tx_id = INITIAL_MESSAGE_ID  # overlapped mode: the MessageID of the next Data/DataEND sent
+
+    def reset_ids(self) -> None:
+        """After initialization and device clear both sides count from 0xffffff00 again (3.1.2, 3.2)."""
+        self.rx_id = INITIAL_MESSAGE_ID - 2
+        self.tx_id = INITIAL_MESSAGE_ID
 
     # ---- sending -------------------------------------------------------------------------------------
 
@@ -129,10 +142,18 @@ class HislipSession:
 
     # ---- status byte -----------------------------------------------------------------------------------
 
-    def stb(self) -> int:
-        """Status byte with MAV by the synchronized-mode rules (spec 6.14.1)."""
+    def stb(self, delivered: int | None = None) -> int:
+        """Status byte with MAV by the rules of the current mode (spec 6.14).
+
+        Synchronized: MAV is ours to track (6.14.1). Overlapped: the client says which response it
+        has taken (``delivered``, the MessageID of the last Data/DataEND handed to its application)
+        and anything the server sent after it is still available (6.14.2)."""
         stb = self.server.session.instrument(self.instrument).stb()
-        return (stb & ~0x10) | (0x10 if self.mav else 0)
+        if self.overlapped:
+            mav = delivered is not None and delivered != (self.tx_id - 2) & 0xFFFF_FFFF
+        else:
+            mav = self.mav
+        return (stb & ~0x10) | (0x10 if mav else 0)
 
     def poll_srq(self) -> None:
         """Send AsyncServiceRequest when the RQS bit rises; once per new reason (spec 6.13)."""
@@ -146,24 +167,41 @@ class HislipSession:
 
     # ---- responses ---------------------------------------------------------------------------------------
 
+    def _response_id(self, message_id: int) -> int:
+        if not self.overlapped:
+            return message_id
+        mid, self.tx_id = self.tx_id, (self.tx_id + 2) & 0xFFFF_FFFF
+        return mid
+
     async def send_response(self, message_id: int, out: bytes) -> None:
         """One response message as Data chunks and a final DataEnd (spec 6.4, 6.10)."""
         chunk = max(self.max_message_size - HEADER.size, 1)
         parts = [out[i : i + chunk] for i in range(0, len(out), chunk)] or [b""]
         for part in parts[:-1]:
-            self._send(self.sync_writer, _pack(DATA, 0, message_id, part))
-        # The response carries the MessageID of the client message that ended with eom (3.1.1).
-        self._send(self.sync_writer, _pack(DATA_END, 0, message_id, parts[-1]))
-        self.mav = True  # set with the first Data or DataEnd of the response (6.14.1)
-        self.rmt_expected = True
+            self._send(self.sync_writer, _pack(DATA, 0, self._response_id(message_id), part))
+        # Synchronized: the response carries the MessageID of the client message that ended with
+        # eom (3.1.1). Overlapped: the server's own counter, two more per message (3.2.1).
+        self._send(self.sync_writer, _pack(DATA_END, 0, self._response_id(message_id), parts[-1]))
+        if not self.overlapped:
+            self.mav = True  # set with the first Data or DataEnd of the response (6.14.1)
+            self.rmt_expected = True
         await self._drain(self.sync_writer)
 
 
 class HislipServer:
     """Every instrument of a bench on one shared HiSLIP port, selected by sub-address."""
 
-    def __init__(self, session: Session, host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> None:
+    def __init__(
+        self,
+        session: Session,
+        host: str = "127.0.0.1",
+        port: int = DEFAULT_PORT,
+        overlapped: bool = False,
+    ) -> None:
         self.session = session
+        #: The mode InitializeResponse announces and device clear proposes (IVI-6.1 3, 6.12.1). Both
+        #: modes are served: a client may ask for the other one in DeviceClearComplete.
+        self.overlapped = overlapped
         self.host = host
         self.port = port
         self.server: asyncio.AbstractServer | None = None
@@ -239,7 +277,9 @@ class HislipServer:
         sess.client = f"hislip:{host}:{port}#{sess.session_id:04x}"
         self._sessions[sess.session_id] = sess
         version = min(parameter >> 16, SERVER_VERSION)  # the lower version wins (spec 6.1)
-        writer.write(_pack(INITIALIZE_RESPONSE, 0, (version << 16) | sess.session_id))
+        sess.version = version
+        # Control: bit 0 is the mode the server starts in (6.1).
+        writer.write(_pack(INITIALIZE_RESPONSE, int(sess.overlapped), (version << 16) | sess.session_id))
         await writer.drain()
         log.info("HiSLIP %s: %s connected (synchronized mode)", name, sess.client)
         try:
@@ -305,10 +345,14 @@ class HislipServer:
                 buffer.clear()
                 if msg_type == DEVICE_CLEAR_COMPLETE:
                     sess.clearing = False
-                    writer.write(_pack(DEVICE_CLEAR_ACKNOWLEDGE, control))
+                    writer.write(_pack(DEVICE_CLEAR_ACKNOWLEDGE, self._agree_features(sess, control)))
                     await writer.drain()
                 continue
             if msg_type in (DATA, DATA_END, TRIGGER):
+                sess.rx_id = parameter
+            if msg_type in (DATA, DATA_END, TRIGGER) and sess.overlapped:
+                pass  # overlapped: messages are only buffered; the MessageID matters for locks (3.2)
+            elif msg_type in (DATA, DATA_END, TRIGGER):
                 if control & RMT:
                     sess.mav = False  # the client read the response (6.14.1, figure 1)
                 elif sess.rmt_expected:
@@ -338,8 +382,10 @@ class HislipServer:
                 await self._engine(sess, self._write, sess.instrument, b"*TRG", sess.client)
                 sess.poll_srq()
             elif msg_type == DEVICE_CLEAR_COMPLETE:
-                writer.write(_pack(DEVICE_CLEAR_ACKNOWLEDGE, control))
+                writer.write(_pack(DEVICE_CLEAR_ACKNOWLEDGE, self._agree_features(sess, control)))
                 await writer.drain()
+            elif msg_type == GET_DESCRIPTORS:
+                await self._descriptors(sess, writer)
             elif msg_type == FATAL_ERROR:
                 await sess.close()
                 return
@@ -353,7 +399,7 @@ class HislipServer:
         for out in outs:
             if sess.closing.is_set() or sess.clearing:
                 return
-            if await self._interrupted(sess):
+            if not sess.overlapped and await self._interrupted(sess):
                 return  # the response is dropped; the queued message is processed next
             await sess.send_response(message_id, out)
 
@@ -401,11 +447,13 @@ class HislipServer:
         elif msg_type == ASYNC_STATUS_QUERY:
             if control & RMT:
                 sess.mav = False
-            sess.last_stb = sess.stb()  # the status query delivers RMT; no new SRQ from it
-            writer.write(_pack(ASYNC_STATUS_RESPONSE, sess.stb() & 0xFF))
+            sess.last_stb = sess.stb(parameter)  # the status query delivers RMT; no new SRQ from it
+            writer.write(_pack(ASYNC_STATUS_RESPONSE, sess.stb(parameter) & 0xFF))
             await writer.drain()
         elif msg_type == ASYNC_LOCK:
             await self._lock_message(sess, writer, control, parameter, payload)
+        elif msg_type == GET_DESCRIPTORS:
+            await self._descriptors(sess, writer)
         elif msg_type == ASYNC_LOCK_INFO:
             locks = self.locks(sess.instrument)
             code = 1 if locks.exclusive is not None else 0
@@ -417,7 +465,7 @@ class HislipServer:
             sess.mav = False
             sess.rmt_expected = False
             await self._engine(sess, self._clear_output, sess.instrument, sess.client)
-            writer.write(_pack(ASYNC_DEVICE_CLEAR_ACKNOWLEDGE, 0))
+            writer.write(_pack(ASYNC_DEVICE_CLEAR_ACKNOWLEDGE, self._preferred_features(sess)))
             await writer.drain()
         elif msg_type == ASYNC_REMOTE_LOCAL_CONTROL:
             # The bus state (REN/GTL/LLO) is shared with every other interface of the instrument
@@ -439,6 +487,37 @@ class HislipServer:
             pass
         else:
             await sess.send_error(writer, ERR_UNRECOGNIZED_TYPE, b"unsupported message type")
+
+    # ---- features and descriptors (HiSLIP 2.0) ----------------------------------------------------------
+
+    def _feature_bits(self, sess: HislipSession) -> int:
+        """The features the server fixes for this connection: encryption mode bits (table 31)."""
+        return 0
+
+    def _preferred_features(self, sess: HislipSession) -> int:
+        """AsyncDeviceClearAcknowledge: what the server prefers (6.12.1, step 1)."""
+        return int(self.overlapped) | self._feature_bits(sess)
+
+    def _agree_features(self, sess: HislipSession, requested: int) -> int:
+        """DeviceClearAcknowledge: both modes are served, so the client's choice stands (step 3).
+
+        Device clear also empties the buffers: counting starts from 0xffffff00 again."""
+        sess.overlapped = bool(requested & 1)
+        sess.reset_ids()
+        sess.mav = False
+        sess.rmt_expected = False
+        return int(sess.overlapped) | self._feature_bits(sess)
+
+    def _descriptor_payload(self) -> bytes:
+        """All descriptors, one after the other (5): none, since no capability has any to give."""
+        return b""
+
+    async def _descriptors(self, sess: HislipSession, writer: asyncio.StreamWriter) -> None:
+        if sess.version < VERSION_2:  # the message does not exist before 2.0
+            await sess.send_error(writer, ERR_UNRECOGNIZED_TYPE, b"GetDescriptors needs HiSLIP 2.0")
+            return
+        writer.write(_pack(GET_DESCRIPTORS_RESPONSE, 0, 0, self._descriptor_payload()))
+        await writer.drain()
 
     async def _lock_message(
         self,

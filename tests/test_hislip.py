@@ -549,7 +549,9 @@ async def test_an_interrupted_answer_drops_its_remaining_responses():
         sent.append(out)
 
     server._interrupted = interrupted
-    sess = SimpleNamespace(closing=asyncio.Event(), clearing=False, send_response=send_response)
+    sess = SimpleNamespace(
+        closing=asyncio.Event(), clearing=False, overlapped=False, send_response=send_response
+    )
     await server._answer(sess, 7, [b"first\n", b"second\n", b"third\n"])
     assert sent == [b"first\n"]  # interrupted before the second: it and the third are dropped
 
