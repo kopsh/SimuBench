@@ -1,0 +1,25 @@
+schema: simubench.bench/2
+name: bk_8614_dc_source
+description: >-
+  B&K Precision 8614（真实型号，D42）接一台 48 V、内阻 0.1 Ω 的直流源。CC 50 A 时输入约 43 V、
+  功率约 2150 W：超过 1500 W 的软件 OPP，按 3 s 的延时跳闸；CC 20 A 时输入约 46 V、920 W。示例脚本
+  examples/scripts/bk_8614_load_test.py 按真机写法运行（tests/test_bk_8614.py）。
+instruments:
+  load:
+    model: bk-8614
+    label: 电子负载
+    address: "USB0::0xFFFF::0x8614::601400010000000001::INSTR"
+parts:
+  src:
+    type: dc_supply
+    label: 直流源
+    params: {v: 48.0, r: 0.1}
+wires:
+  - {from: src.OUT, to: load.IN}
+run:
+  seed: 3
+  clock: command
+  idle: "off"
+layout:
+  src: {x: 0, y: 80}
+  load: {x: 380, y: 60}

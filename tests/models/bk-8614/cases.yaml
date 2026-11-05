@@ -1,0 +1,387 @@
+# B&K Precision 8614 的手册用例：命令、参数、*RST 值与回复按 *8600 Series Programmable DC Electronic
+# Loads Programming Manual*（v051118），量程与保护按 8600/B Series 数据表（8614 档）。
+# 测试台 examples/benches/bk-8614.bench.yaml：48 V、0.1 Ω 的直流源接负载输入。
+# 每个用例在一个刚上电的测试台上运行。MEASure 本身耗时 117 ms，回复是开始时的读数：CC 阶跃后的
+# 第一次读数还在斜率起点，用 FETCh 或第二次 MEASure 读稳态。
+model: bk-8614
+bench: ../../../examples/benches/bk-8614.bench.yaml
+instrument: load
+cases:
+  - name: "身份与公共命令：*IDN? 四字段、*TST?、*OPC?、事件与服务请求使能、错误队列"
+    manual: "3.2 Common Commands > *IDN? / *TST? / *OPC / *ESE / *ESR? / *SRE / *STB? / *WAI / *CLS; System Commands > SYSTem:ERRor?"
+    steps:
+      - query: "*IDN?"
+        expect: "B&K PRECISION, 8614, 601400010000000001, 1.32-1.37"
+      - query: "*TST?"
+        expect: "0"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*ESE 129"
+      - query: "*ESE?"
+        expect: "129"
+      - send: "*SRE 128"
+      - query: "*SRE?"
+        expect: "128"
+      - query: "*ESR?"
+        expect: "0"
+      - send: "*WAI"
+      - query: "SYST:ERR?"
+        expect: '0,"No Error"'
+      - send: "CURR 300"
+      - query: "SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: "INP:SHOR ON"
+      - send: "*CLS"
+      - query: "SYST:ERR?"
+        expect: '0,"No Error"'
+
+  - name: "*RST 默认值：CC、电流 MIN、量程 MAX、斜率 MAX、OCP 关/MAX/3 s、OPP MAX/3 s、Von 0 锁存 ON、电压/电阻 MAX"
+    manual: "3.2 Common Commands > *RST (the *RST table); System Commands > SYSTem:PRESet"
+    steps:
+      - send: "FUNC RES"
+      - send: "*RST"
+      - query: "FUNC?"
+        expect: "CURR"
+      - query: "FUNC:MODE?"
+        expect: "FIX"
+      - query: "CURR?"
+        expect: "0.000000E+00"
+      - query: "CURR:RANG?"
+        expect: "2.400000E+02"
+      - query: "CURR:SLEW:POS?"
+        expect: "2.500000E+00"
+      - query: "CURR:SLEW:NEG?"
+        expect: "2.500000E+00"
+      - query: "CURR:PROT:STAT?"
+        expect: "0"
+      - query: "CURR:PROT?"
+        expect: "2.400000E+02"
+      - query: "CURR:PROT:DEL?"
+        expect: "3.000000E+00"
+      - query: "POW:PROT?"
+        expect: "1.500000E+03"
+      - query: "POW:PROT:DEL?"
+        expect: "3.000000E+00"
+      - query: "VOLT?"
+        expect: "1.200000E+02"
+      - query: "VOLT:RANG?"
+        expect: "1.200000E+02"
+      - query: "VOLT:ON?"
+        expect: "0.000000E+00"
+      - query: "VOLT:LATC?"
+        expect: "1"
+      - query: "RES?"
+        expect: "7.500000E+03"
+      - query: "RES:RANG?"
+        expect: "7.500000E+03"
+      - query: "POW?"
+        expect: "0.000000E+00"
+      - query: "SENS:AVER:COUN?"
+        expect: "8"
+      - query: "TRIG:SOUR?"
+        expect: "MANU"
+      - query: "INP?"
+        expect: "0"
+      - send: "FUNC VOLT"
+      - send: "SYST:PRES"
+      - query: "FUNC?"
+        expect: "CURR"
+
+  - name: "CC：20 A 时输入 46 V、920 W；阶跃后的第一次 MEASure 在斜率起点"
+    manual: "Source Commands > [SOURce:]FUNCtion / [SOURce:]CURRent / [SOURce:]INPut; Measurement Commands > :MEASure / :FETCh"
+    steps:
+      - send: "FUNC CURR"
+      - send: "CURR 20"
+      - send: "INP ON"
+      - query: "INP?"
+        expect: "1"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "MEAS:CURR?"
+        expect_value: 20.0
+        tolerance: 1.0e-6
+      - query: "MEAS:VOLT?"
+        expect_value: 46.0
+        tolerance: 1.0e-6
+      - query: "FETC:CURR?"
+        expect_value: 20.0
+        tolerance: 1.0e-6
+      - query: "FETC:VOLT?"
+        expect_value: 46.0
+        tolerance: 1.0e-6
+      - query: "FETC:POW?"
+        expect_value: 920.0
+        tolerance: 1.0e-3
+      - send: "INP OFF"
+      - query: "FETC:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+
+  - name: "CV / CR / CW：47 V 时 10 A；10 Ω 时 4.752 A；500 W 时 10.653 A"
+    manual: "Source Commands > [SOURce:]VOLTage / [SOURce:]RESistance / [SOURce:]POWer; [SOURce:]FUNCtion"
+    steps:
+      - send: "FUNC VOLT"
+      - send: "VOLT 47"
+      - send: "INP ON"
+      - query: "MEAS:CURR?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - query: "FETC:VOLT?"
+        expect_value: 47.0
+        tolerance: 1.0e-6
+      - send: "FUNC RES"
+      - send: "RES 10"
+      - query: "MEAS:CURR?"
+        expect_value: 4.752475
+        tolerance: 1.0e-5
+      - send: "FUNC POW"
+      - send: "POW 500"
+      - query: "MEAS:CURR?"
+        expect_value: 10.65310
+        tolerance: 1.0e-4
+      - query: "FETC:POW?"
+        expect_value: 500.0
+        tolerance: 1.0e-3
+      - send: "FUNC:MODE LIST"
+      - query: "SYST:ERR?"
+        expect_match: '^-224,.*'
+
+  - name: "量程：取能容纳设定的最小档；切换量程时超出新档的设定值收到边界"
+    manual: "Source Commands > [SOURce:]CURRent:RANGe / [SOURce:]VOLTage:RANGe / [SOURce:]RESistance:RANGe / [SOURce:]POWer:RANGe"
+    steps:
+      - send: "CURR:RANG 30"
+      - query: "CURR:RANG?"
+        expect: "2.400000E+02"
+      - send: "CURR 100"
+      - send: "CURR:RANG 5"
+      - query: "CURR:RANG?"
+        expect: "2.400000E+01"
+      - query: "CURR?"
+        expect: "2.400000E+01"
+      - send: "VOLT:RANG 10"
+      - query: "VOLT:RANG?"
+        expect: "1.800000E+01"
+      - query: "VOLT?"
+        expect: "1.800000E+01"
+      - send: "RES 5"
+      - send: "RES:RANG 100"
+      - query: "RES:RANG?"
+        expect: "7.500000E+03"
+      - query: "RES?"
+        expect: "1.000000E+01"
+      - send: "POW:RANG 100"
+      - query: "POW:RANG?"
+        expect: "1.500000E+03"
+      - send: "VOLT:RANG:AUTO OFF"
+      - query: "VOLT:RANG:AUTO?"
+        expect: "0"
+
+  - name: "斜率：SLEW[:BOTH] 同时设上升与下降，POSitive/NEGative 分设，MIN/MAX"
+    manual: "Source Commands > [SOURce:]CURRent:SLEW[:BOTH] / :SLEW:POSitive / :SLEW:NEGative"
+    steps:
+      - send: "CURR:SLEW 0.01"
+      - query: "CURR:SLEW:POS?"
+        expect: "1.000000E-02"
+      - query: "CURR:SLEW:NEG?"
+        expect: "1.000000E-02"
+      - send: "CURR:SLEW:NEG 0.5"
+      - query: "CURR:SLEW:NEG?"
+        expect: "5.000000E-01"
+      - query: "CURR:SLEW:POS?"
+        expect: "1.000000E-02"
+      - send: "CURR:SLEW MIN"
+      - query: "CURR:SLEW:NEG?"
+        expect: "1.000000E-03"
+      - send: "CURR:SLEW:POS MAX"
+      - query: "CURR:SLEW:POS?"
+        expect: "2.500000E+00"
+      - send: "CURR:SLEW 3"
+      - query: "SYST:ERR?"
+        expect_match: '^-222,.*'
+
+  - name: "Von：输入电压未超过 Von 时不吸收；锁存 ON 时 Von 升到工作电压之上仍继续吸收"
+    manual: "Source Commands > [SOURce:]VOLTage[:LEVel]:ON / [SOURce:]VOLTage:LATCh[:STATe]"
+    steps:
+      - send: "VOLT:ON 50"
+      - send: "CURR 20"
+      - send: "INP ON"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - send: "VOLT:ON 40"
+      - query: "MEAS:CURR?"
+        expect_value: 20.0
+        tolerance: 1.0e-6
+      - send: "VOLT:ON 47"
+      - query: "MEAS:CURR?"
+        expect_value: 20.0
+        tolerance: 1.0e-6
+      - query: "FETC:VOLT?"
+        expect_value: 46.0
+        tolerance: 1.0e-6
+      - send: "INP OFF"
+      - send: "VOLT:LATC OFF"
+      - query: "VOLT:LATC?"
+        expect: "0"
+      - send: "VOLT:ON 50"
+      - send: "INP ON"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+
+  - name: "OCP：开关、电平与延时 0 时立即关断输入；条件消除后 PROT:CLE 恢复"
+    manual: "Source Commands > [SOURce:]CURRent:PROTection:STATe / :PROTection[:LEVel] / :PROTection:DELay; [SOURce:]PROTection:CLEar"
+    steps:
+      - send: "CURR:PROT:STAT ON"
+      - send: "CURR:PROT 15"
+      - send: "CURR:PROT:DEL 0"
+      - query: "CURR:PROT:DEL?"
+        expect: "0.000000E+00"
+      - send: "CURR 20"
+      - send: "INP ON"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "FETC:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "STAT:QUES:COND?"
+        expect: "24578"
+      - send: "CURR 10"
+      - send: "PROT:CLE"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "MEAS:CURR?"
+        expect_value: 10.0
+        tolerance: 1.0e-6
+      - send: "CURR:PROT:DEL 61"
+      - query: "SYST:ERR?"
+        expect_match: '^-222,.*'
+
+  - name: "OPP：电平与延时；功率超过电平时 OP 位立即置位，延时内输入保持"
+    manual: "Source Commands > [SOURce:]POWer:PROTection[:LEVel] / :PROTection:DELay; 1.4 Programming the Status Registers > Questionable Status Group"
+    steps:
+      - send: "POW:PROT 500"
+      - query: "POW:PROT?"
+        expect: "5.000000E+02"
+      - send: "POW:PROT:DEL 10"
+      - query: "POW:PROT:DEL?"
+        expect: "1.000000E+01"
+      - send: "CURR 20"
+      - send: "INP ON"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "MEAS:CURR?"
+        expect_value: 20.0
+        tolerance: 1.0e-6
+      - query: "STAT:QUES:COND?"
+        expect: "16392"
+
+  - name: "状态系统：可疑寄存器的使能与汇总到状态字节、事件读后清零、STAT:PRES 清使能、运行寄存器"
+    manual: "1.4 Programming the Status Registers; Status Commands > STATus:QUEStionable / :CONDition / :ENABle; STATus:OPERation; STATus:PRESet"
+    steps:
+      - send: "STAT:QUES:ENAB 8194"
+      - query: "STAT:QUES:ENAB?"
+        expect: "8194"
+      - send: "CURR:PROT:STAT ON"
+      - send: "CURR:PROT 15"
+      - send: "CURR:PROT:DEL 0"
+      - send: "CURR 20"
+      - send: "INP ON"
+      - query: "MEAS:CURR?"
+        expect_value: 0.0
+        tolerance: 1.0e-9
+      - query: "*STB?"
+        expect: "8"
+      - query: "STAT:QUES?"
+        expect: "9218"
+      - query: "STAT:QUES?"
+        expect: "0"
+      - send: "STAT:PRES"
+      - query: "STAT:QUES:ENAB?"
+        expect: "0"
+      - query: "STAT:OPER:COND?"
+        expect: "0"
+      - query: "STAT:OPER?"
+        expect: "0"
+      - send: "STAT:OPER:ENAB 32"
+      - query: "STAT:OPER:ENAB?"
+        expect: "32"
+
+  - name: "触发：*TRG 与 TRIG:IMM 被接受，触发源与定时器保存"
+    manual: "Trigger Commands > TRIGger:SOURce / TRIGger:TIMer / TRIGger[:IMMediate]; 3.2 Common Commands > *TRG"
+    steps:
+      - send: "TRIG:SOUR BUS"
+      - query: "TRIG:SOUR?"
+        expect: "BUS"
+      - send: "*TRG"
+      - send: "TRIG"
+      - send: "TRIG:TIM 0.25"
+      - query: "TRIG:TIM?"
+        expect: "2.500000E-01"
+      - query: "SYST:ERR?"
+        expect: '0,"No Error"'
+
+  - name: "接受的设置：远端测量、各模式的上下限、读数滤波、上电设置与面板锁定"
+    manual: "Source Commands > [SOURce:]REMote:SENSe / CURRent:HIGH|LOW / VOLTage:HIGH|LOW / RESistance:HIGH|LOW / POWer:HIGH|LOW; SENSe:AVERage:COUNt; System Commands > SYSTem:POSetup / LOCal / REMote / RWLock"
+    steps:
+      - send: "REM:SENS ON"
+      - query: "REM:SENS?"
+        expect: "1"
+      - send: "CURR:HIGH 50"
+      - query: "CURR:HIGH?"
+        expect: "5.000000E+01"
+      - send: "CURR:LOW 40"
+      - query: "CURR:LOW?"
+        expect: "4.000000E+01"
+      - send: "VOLT:HIGH 30"
+      - query: "VOLT:HIGH?"
+        expect: "3.000000E+01"
+      - send: "VOLT:LOW 1"
+      - query: "VOLT:LOW?"
+        expect: "1.000000E+00"
+      - send: "RES:HIGH 50"
+      - query: "RES:HIGH?"
+        expect: "5.000000E+01"
+      - send: "RES:LOW 5"
+      - query: "RES:LOW?"
+        expect: "5.000000E+00"
+      - send: "POW:HIGH 50"
+      - query: "POW:HIGH?"
+        expect: "5.000000E+01"
+      - send: "POW:LOW 5"
+      - query: "POW:LOW?"
+        expect: "5.000000E+00"
+      - send: "SENS:AVER:COUN 16"
+      - query: "SENS:AVER:COUN?"
+        expect: "16"
+      - send: "SYST:POS SAV0"
+      - query: "SYST:POS?"
+        expect: "SAV0"
+      - send: "SYST:REM"
+      - send: "SYST:RWL"
+      - send: "SYST:LOC"
+      - query: "SYST:ERR?"
+        expect: '0,"No Error"'
+
+  - name: "未实现的命令回复 -113：暂态、列表、输入短路、*SAV"
+    manual: "Source Commands > [SOURce:]TRANsient / [SOURce:]INPut:SHORt; List Commands; 3.2 Common Commands > *SAV"
+    steps:
+      - send: "TRAN ON"
+      - query: "SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+      - send: "LIST:STEP 5"
+      - query: "SYST:ERR?"
+        expect_match: '^-113,.*'
+      - send: "INP:SHOR ON"
+      - query: "SYST:ERR?"
+        expect_match: '^-113,.*'
+      - send: "*SAV 1"
+      - query: "SYST:ERR?"
+        expect_match: '^-113,.*'

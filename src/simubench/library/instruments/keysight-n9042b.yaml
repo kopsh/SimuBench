@@ -1,0 +1,653 @@
+schema: simubench.instrument/1
+id: keysight-n9042b
+manufacturer: Keysight Technologies
+model: N9042B
+class: spectrum_analyzer
+version: 1
+description: >-
+  Keysight N9042B UXA X-Series signal analyzer, Spectrum Analyzer mode, Swept SA measurement,
+  frequency option 526 (2 Hz to 26.5 GHz). Real model (D42). Commands, replies, presets and
+  couplings follow the X-Series Spectrum Analyzer Mode User's & Programmer's Reference
+  (N9060-90027, August 2014); the receiver chain is the split spectrum-analyzer blocks (D1 #187)
+  with the X-Series limits declared on them (#616): 27 GHz tuning limit, RBW 1 Hz to 8 MHz in
+  about 10% steps (span:RBW 106 when coupled), VBW to 8 MHz plus the 50 MHz wide-open setting,
+  sweep time 1 ms to 4000 s, Normal (Rosenfell) detection with the automatic detector, and
+  max/min hold. Only trace 1 and marker 1 exist; the measurement applications (ACP, CHP, OBW,
+  TOI, SEM, ...), other modes, zero span, the preamplifier, triggers other than free run and the
+  tracking source are not modeled; the coverage table names every remaining gap.
+reference:
+  title: Keysight X-Series Signal Analyzer Spectrum Analyzer Mode User's & Programmer's Reference
+  document: N9060-90027
+  version: August 2014
+  firmware: >-
+    X-Series Spectrum Analyzer mode as covered by the reference (the N9042B multi-touch firmware
+    keeps the same SA-mode SCPI command set; the manual's 26 GHz values, option 526, are used)
+identity:
+  # The reference's *IDN? example: Keysight Technologies, N9020A, US01020004, A.01.02 — manufacturer,
+  # model, serial number, firmware version.
+  idn: "Keysight Technologies,N9042B,{serial},{firmware}"
+  serial: "MY00000001"
+  firmware: "A.25.05"
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST", ":SYSTem:ERRor[:NEXT]"]
+error_queue: 20
+# The reference writes numeric values as +1.92000000E+009 (its preset tables): eight decimals,
+# three exponent digits, explicit sign. Markers and trace data answer in the same format.
+format:
+  number: nr3
+  digits: 8
+  sign: true
+  exponent_digits: 3
+  readings: format
+  boolean: numeric
+  enum: short
+  error_code: signed
+specs:
+  frequency_option: "526: 2 Hz to 26.5 GHz; tuning limit 27.0 GHz (Center Frequency Presets table)"
+  rbw: "1 Hz to 8 MHz (-3 dB Gaussian), about 10% steps; auto: span/106, at most 3 MHz"
+  vbw: "1 Hz to 8 MHz in about 10% steps, plus 50 MHz (wide open)"
+  sweep_time: "swept spans 1 ms to 4000 s"
+  attenuation: "0 to 70 dB in 2 dB steps (mechanical attenuator)"
+  sweep_points: "1 to 40001, preset 1001"
+state:
+  freq.center:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 27.0e9
+    default: 13.255e9
+    label: 中心频率
+    label_en: Center
+  freq.span:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 27.0e9
+    default: 26.49e9
+    label: 跨度
+    label_en: Span
+  freq.step:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 27.0e9
+    default: 2.649e9
+    label: 中心频率步进
+    label_en: CF step
+  freq.step_auto:
+    type: bool
+    default: true
+    label: 中心频率步进自动
+    label_en: CF step auto
+  bw.res:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 8.0e6
+    default: 3.0e6
+    label: 分辨率带宽（手动）
+    label_en: RBW (manual)
+  bw.res_auto:
+    type: bool
+    default: true
+    label: RBW 自动
+    label_en: RBW auto
+  bw.vid:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 50.0e6
+    default: 3.0e6
+    label: 视频带宽（手动）
+    label_en: VBW (manual)
+  bw.vid_auto:
+    type: bool
+    default: true
+    label: VBW 自动
+    label_en: VBW auto
+  sweep.time:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 4000.0
+    default: 0.1
+    label: 扫描时间（手动）
+    label_en: Sweep time (manual)
+  sweep.time_auto:
+    type: bool
+    default: true
+    label: 扫描时间自动
+    label_en: Sweep time auto
+  sweep.points:
+    type: int
+    min: 1
+    max: 40001
+    default: 1001
+    label: 迹线点数
+    label_en: Points
+  power.att:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 70.0
+    default: 10.0
+    label: 衰减（手动）
+    label_en: Attenuation (manual)
+  power.att_auto:
+    type: bool
+    default: true
+    label: 衰减自动
+    label_en: Attenuation auto
+  display.ref_level:
+    type: float
+    unit: DBM
+    min: -170.0
+    max: 30.0
+    default: 0.0
+    label: 参考电平
+    label_en: Reference level
+  detector:
+    type: enum
+    options: [NORMal, POSitive, SAMPle, NEGative]
+    default: NORMal
+    not_modeled:
+      AVERage: the average detector with the log-power/RMS/voltage average types is not modeled
+      QPEak: the CISPR detectors are not modeled
+      EAVerage: the CISPR detectors are not modeled
+      RAVerage: the CISPR detectors are not modeled
+      EPOSitive: the EMI standards are not modeled
+      MPOSitive: the EMI standards are not modeled
+      RMS: the average detector with RMS averaging is not modeled
+    label: 检波器（手动）
+    label_en: Detector (manual)
+    option_labels: {NORMal: 常态, POSitive: 正峰值, SAMPle: 采样, NEGative: 负峰值}
+  detector_auto:
+    type: bool
+    default: true
+    label: 检波器自动
+    label_en: Detector auto
+  trace.type:
+    type: enum
+    options: [WRITe, AVERage, MAXHold, MINHold]
+    default: WRITe
+    label: 迹线类型
+    label_en: Trace type
+    option_labels: {WRITe: 刷新, AVERage: 平均, MAXHold: 最大保持, MINHold: 最小保持}
+  aver.count:
+    type: int
+    min: 1
+    max: 10000
+    default: 100
+    label: 平均/保持次数
+    label_en: Average/hold count
+  aver.type:
+    type: enum
+    options: [LOG]
+    default: LOG
+    not_modeled:
+      RMS: power (RMS) averaging is not modeled
+      SCALar: voltage averaging is not modeled
+      LINear: voltage averaging is not modeled
+      VOLTage: voltage averaging is not modeled
+    label: 平均类型
+    label_en: Average type
+  aver.type_auto:
+    type: bool
+    default: true
+    label: 平均类型自动
+    label_en: Average type auto
+  marker.x:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 27.0e9
+    default: 13.255e9
+    label: 标记频率
+    label_en: Marker
+  marker.mode:
+    type: enum
+    options: [POSition, DELTa, "OFF"]
+    default: "OFF"
+    not_modeled:
+      FIXed: fixed markers are not modeled
+    label: 标记模式
+    label_en: Marker mode
+  marker.ref_x:
+    type: float
+    unit: HZ
+    default: 0.0
+    label: 参考标记频率
+    label_en: Reference marker
+  marker.ref_y:
+    type: float
+    unit: DBM
+    default: 0.0
+    label: 参考标记电平
+    label_en: Reference marker level
+  marker.count:
+    type: bool
+    default: false
+    label: 标记计数器
+    label_en: Marker counter
+  marker.search:
+    type: enum
+    options: [MAXimum, PARameter]
+    default: MAXimum
+    label: 峰值搜索方式
+    label_en: Peak search mode
+  marker.threshold:
+    type: float
+    unit: DBM
+    min: -370.0
+    max: 30.0
+    default: -90.0
+    label: 峰值门限
+    label_en: Peak threshold
+  marker.excursion:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 100.0
+    default: 6.0
+    label: 峰值偏移
+    label_en: Peak excursion
+  init.continuous:
+    type: bool
+    default: true
+    rst: false
+    label: 连续扫描
+    label_en: Continuous
+  trigger.source:
+    type: enum
+    options: [IMMediate]
+    default: IMMediate
+    not_modeled:
+      EXTernal: external triggers are not modeled
+      EXTernal1: external triggers are not modeled
+      EXTernal2: external triggers are not modeled
+      LINE: the line trigger is not modeled
+      FRAMe: the frame trigger is not modeled
+      RFBurst: the RF burst trigger is not modeled
+      VIDeo: the video trigger is not modeled
+      IF: the IF trigger is not modeled
+      ALARm: the alarm trigger is not modeled
+      LAN: the LAN trigger is not modeled
+      IQMag: the I/Q triggers are not modeled
+      IDEMod: the I/Q triggers are not modeled
+      QDEMod: the I/Q triggers are not modeled
+      IINPut: the I/Q triggers are not modeled
+      QINPut: the I/Q triggers are not modeled
+      AIQMag: the I/Q triggers are not modeled
+      TV: the TV trigger is not modeled
+    label: 触发源
+    label_en: Trigger source
+  format.data:
+    type: enum
+    options: [ASCii]
+    default: ASCii
+    not_modeled:
+      INTeger: binary trace transfer is not modeled
+      REAL: binary trace transfer is not modeled
+    label: 数据格式
+    label_en: Data format
+  format.border:
+    type: enum
+    options: [NORMal, SWAPped]
+    default: NORMal
+    label: 字节序
+    label_en: Byte order
+  unit.power:
+    type: enum
+    options: [DBM]
+    default: DBM
+    not_modeled:
+      DBMV: amplitude units other than dBm are not modeled
+      DBMA: amplitude units other than dBm are not modeled
+      V: amplitude units other than dBm are not modeled
+      W: amplitude units other than dBm are not modeled
+      A: amplitude units other than dBm are not modeled
+      DBUV: amplitude units other than dBm are not modeled
+      DBUA: amplitude units other than dBm are not modeled
+      DBPW: amplitude units other than dBm are not modeled
+      DBUVM: amplitude units other than dBm are not modeled
+      DBUAM: amplitude units other than dBm are not modeled
+      DBPT: amplitude units other than dBm are not modeled
+      DBG: amplitude units other than dBm are not modeled
+    label: 电平单位
+    label_en: Amplitude unit
+  system.options:
+    type: string
+    default: "526"
+    readonly: true
+    label: 选件
+    label_en: Options
+  # ---- display settings (accepted: they change the screen only) ----
+  display.enable:
+    type: bool
+    default: true
+    label: 显示
+    label_en: Display
+  display.pdiv:
+    type: float
+    unit: DB
+    min: 0.1
+    max: 20.0
+    default: 10.0
+    label: 每格电平
+    label_en: Scale/div
+  display.dline:
+    type: float
+    unit: DBM
+    min: -370.0
+    max: 30.0
+    default: -25.0
+    label: 显示线
+    label_en: Display line
+  display.dline_on:
+    type: bool
+    default: false
+    label: 显示线开关
+    label_en: Display line on
+  display.annotation:
+    type: bool
+    default: true
+    label: 屏幕注释
+    label_en: Screen annotation
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: clock
+    type: reference_clock
+    params: {source: INTernal, nominal_hz: 10e6}
+  - name: input
+    type: specan_input
+    params:
+      z_in: 50.0
+      # Auto attenuation: the reference's preset is 0 dBm with 10 dB, i.e. a -10 dBm mixer level.
+      mixer_limit: -10.0
+      att: $power.att
+      att_auto: $power.att_auto
+      ref_level: $display.ref_level
+  - name: mixer
+    type: specan_mixer
+    params: {noise_figure: 15.0, clock: clock, source: INTernal}
+  - name: if_filter
+    type: specan_if
+    params:
+      rbw: $bw.res
+      rbw_auto: $bw.res_auto
+      span: $freq.span
+      steps: "10%"
+      rbw_min: 1.0
+      rbw_max: 8.0e6
+      auto_ratio: 106.0
+      auto_max: 3.0e6
+  - name: detector
+    type: specan_detector
+    params: {detector: $detector, auto: $detector_auto, trace_mode: $trace.type}
+  - name: vbw
+    type: specan_vbw
+    params: {vid: $bw.vid, vid_auto: $bw.vid_auto, if_filter: if_filter, steps: "10%", vbw_min: 1.0, vbw_max: 50.0e6}
+  - name: sa
+    type: specan_trace
+    params:
+      input: input
+      mixer: mixer
+      if_filter: if_filter
+      detector: detector
+      vbw: vbw
+      maxhold_limit: 10000
+      hold_count: true
+      center_fit: span
+      f_max: 27.0e9
+      span_min: 10.0
+      sweep_min: 1.0e-3
+      sweep_max: 4000.0
+      marker_off_reply: nan
+      delta_x: offset
+  - name: sys
+    type: system
+wiring:
+  instrument:
+    - [rf_in.out, input.in]
+    - [ref_in.out, clock.ref]
+ports:
+  instrument:
+    RF_IN: rf_in.pin
+    REF_IN: ref_in.pin
+  media: {REF_IN: reference}
+display:
+  template: spectrum_analyzer
+  summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
+capabilities: [spectrum_analyzer]
+commands:
+  # ---- common commands beyond the built-ins ----------------------------------------------------
+  - header: "*OPT"
+    state: system.options
+    set: false
+    reply: "526"
+    doc: 只装频率选件 526（2 Hz–26.5 GHz）；其余选件未建模。
+  # ---- frequency -------------------------------------------------------------------------------
+  - header: "[:SENSe]:FREQuency:CENTer"
+    op: sa.frequency
+    args: {what: center}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:SPAN"
+    op: sa.frequency
+    args: {what: span}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STARt"
+    op: sa.frequency
+    args: {what: start}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STOP"
+    op: sa.frequency
+    args: {what: stop}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:CENTer:STEP[:INCRement]"
+    state: freq.step
+  - header: "[:SENSe]:FREQuency:CENTer:STEP:AUTO"
+    state: freq.step_auto
+  # ---- resolution and video bandwidth ----------------------------------------------------------
+  # The reference writes BANDwidth|BWIDth; each spelling is its own header pattern.
+  - header: "[:SENSe]:BANDwidth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BWIDth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BANDwidth[:RESolution]"
+    op: if_filter.coupled_rbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BWIDth[:RESolution]"
+    op: if_filter.coupled_rbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth:VIDeo:AUTO"
+    state: bw.vid_auto
+  - header: "[:SENSe]:BWIDth:VIDeo:AUTO"
+    state: bw.vid_auto
+  - header: "[:SENSe]:BANDwidth:VIDeo"
+    op: vbw.coupled_vbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BWIDth:VIDeo"
+    op: vbw.coupled_vbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  # ---- sweep -----------------------------------------------------------------------------------
+  - header: "[:SENSe]:SWEep:TIME:AUTO"
+    state: sweep.time_auto
+  - header: "[:SENSe]:SWEep:TIME"
+    op: sa.coupled_sweep
+    params: [{name: value, type: float, unit: S, optional: true}]
+  - header: "[:SENSe]:SWEep:POINts"
+    state: sweep.points
+  # ---- amplitude -------------------------------------------------------------------------------
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation:AUTO"
+    state: power.att_auto
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation"
+    op: input.coupled_att
+    params: [{name: value, type: float, unit: DB, optional: true}]
+  - header: ":DISPlay:WINDow<n>:TRACe:Y[:SCALe]:RLEVel"
+    state: display.ref_level
+    suffixes: {n: [1]}
+  - header: ":UNIT:POWer"
+    state: unit.power
+  # ---- detector, trace, averaging --------------------------------------------------------------
+  - header: "[:SENSe]:DETector:TRACe<t>"
+    op: detector.select
+    suffixes: {t: [1]}
+    params:
+      - name: value
+        type: enum
+        options: [NORMal, POSitive, SAMPle, NEGative]
+        optional: true
+        not_modeled:
+          AVERage: the average detector with the log-power/RMS/voltage average types is not modeled
+          QPEak: the CISPR detectors are not modeled
+          EAVerage: the CISPR detectors are not modeled
+          RAVerage: the CISPR detectors are not modeled
+          EPOSitive: the EMI standards are not modeled
+          MPOSitive: the EMI standards are not modeled
+          RMS: the average detector with RMS averaging is not modeled
+    doc: 查询回当前使用的检波器（自动时为自动规则所选）；设置即手动，关闭自动。
+  - header: "[:SENSe]:DETector[:FUNCtion]"
+    op: detector.select
+    params:
+      - name: value
+        type: enum
+        options: [NORMal, POSitive, SAMPle, NEGative]
+        optional: true
+        not_modeled:
+          AVERage: the average detector with the log-power/RMS/voltage average types is not modeled
+          QPEak: the CISPR detectors are not modeled
+          EAVerage: the CISPR detectors are not modeled
+          RAVerage: the CISPR detectors are not modeled
+          EPOSitive: the EMI standards are not modeled
+          MPOSitive: the EMI standards are not modeled
+          RMS: the average detector with RMS averaging is not modeled
+    doc: 旧式命令：对所有迹线设置检波器（只有迹线 1），查询回迹线 1 的检波器。
+  - header: "[:SENSe]:DETector:TRACe<t>:AUTO"
+    state: detector_auto
+    suffixes: {t: [1]}
+  - header: "[:SENSe]:DETector:AUTO"
+    state: detector_auto
+  - header: ":TRACe<t>:TYPE"
+    state: trace.type
+    suffixes: {t: [1]}
+  - header: ":TRACe[:DATA]"
+    op: sa.trace_data
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: ":TRACe:CLEar:ALL"
+    op: sa.trace_clear
+    query: false
+  - header: "[:SENSe]:AVERage:COUNt"
+    state: aver.count
+  - header: "[:SENSe]:AVERage:TYPE"
+    state: aver.type
+  - header: "[:SENSe]:AVERage:TYPE:AUTO"
+    state: aver.type_auto
+  - header: "[:SENSe]:AVERage:CLEar"
+    op: sa.trace_clear
+    query: false
+  - header: ":FORMat[:TRACe][:DATA]"
+    state: format.data
+  - header: ":FORMat:BORDer"
+    state: format.border
+    doc: 只影响二进制块的字节序；只实现 ASCii，保存并回读。
+  # ---- markers ---------------------------------------------------------------------------------
+  - header: ":CALCulate:MARKer<m>:MODE"
+    state: marker.mode
+    suffixes: {m: [1]}
+    doc: OFF 关闭标记；从 OFF 打开时标记在屏幕中心；DELTa 把参考标记固定在当前位置。
+  - header: ":CALCulate:MARKer<m>:X"
+    op: sa.marker
+    suffixes: {m: [1]}
+    args: {what: x}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+    doc: 差值模式下 X 是相对参考标记的偏移；标记关闭时查询回 9.91E+37。
+  - header: ":CALCulate:MARKer<m>:Y"
+    op: sa.marker
+    set: false
+    suffixes: {m: [1]}
+    args: {what: y}
+  - header: ":CALCulate:MARKer<m>:MAXimum"
+    op: sa.marker
+    query: false
+    suffixes: {m: [1]}
+    args: {what: max}
+  - header: ":CALCulate:MARKer<m>:MAXimum:NEXT"
+    op: sa.marker
+    query: false
+    suffixes: {m: [1]}
+    args: {what: next}
+  - header: ":CALCulate:MARKer<m>:MAXimum:LEFT"
+    op: sa.marker
+    query: false
+    suffixes: {m: [1]}
+    args: {what: left}
+  - header: ":CALCulate:MARKer<m>:MAXimum:RIGHt"
+    op: sa.marker
+    query: false
+    suffixes: {m: [1]}
+    args: {what: right}
+  - header: ":CALCulate:MARKer<m>:MINimum"
+    op: sa.marker
+    query: false
+    suffixes: {m: [1]}
+    args: {what: min}
+  - header: ":CALCulate:MARKer:AOFF"
+    op: sa.marker_off
+    query: false
+  - header: ":CALCulate:MARKer:PEAK:SEARch:MODE"
+    state: marker.search
+  - header: ":CALCulate:MARKer:PEAK:THReshold"
+    state: marker.threshold
+  - header: ":CALCulate:MARKer:PEAK:EXCursion"
+    state: marker.excursion
+  - header: ":CALCulate:MARKer<m>:FCOunt[:STATe]"
+    state: marker.count
+    suffixes: {m: [1]}
+  - header: ":CALCulate:MARKer<m>:FCOunt:X"
+    op: sa.marker
+    set: false
+    suffixes: {m: [1]}
+    args: {what: count}
+  # ---- initiate, abort, trigger ----------------------------------------------------------------
+  - header: ":INITiate:CONTinuous"
+    state: init.continuous
+  - header: ":INITiate[:IMMediate]"
+    op: sa.initiate
+    query: false
+  - header: ":INITiate:RESTart"
+    op: sa.initiate
+    query: false
+    doc: 重新开始测量：单次扫描下与 INIT:IMM 相同，取平均/保持次数的扫描。
+  - header: ":ABORt"
+    op: sa.trace_clear
+    query: false
+    doc: 中止当前扫描；连续扫描时从头重新开始。
+  - header: ":TRIGger[:SEQuence]:SOURce"
+    state: trigger.source
+  - header: ":TRIGger[:SEQuence]:RF:SOURce"
+    state: trigger.source
+  # ---- preset ----------------------------------------------------------------------------------
+  - header: ":SYSTem:PRESet"
+    op: sys.reset
+    query: false
+    args: {then: {init.continuous: true}}
+    doc: 与 *RST 相同的预置，但连续扫描为 ON（手册：SYST:PRES 置 INIT:CONT ON，*RST 置 OFF）。
+  # ---- display (accepted: screen only) ---------------------------------------------------------
+  - header: ":DISPlay:ENABle"
+    state: display.enable
+  - header: ":DISPlay:WINDow<n>:TRACe:Y[:SCALe]:PDIVision"
+    state: display.pdiv
+    suffixes: {n: [1]}
+  - header: ":DISPlay:WINDow<n>:TRACe:Y:DLINe"
+    state: display.dline
+    suffixes: {n: [1]}
+  - header: ":DISPlay:WINDow<n>:TRACe:Y:DLINe:STATe"
+    state: display.dline_on
+    suffixes: {n: [1]}
+  - header: ":DISPlay:ANNotation:TRACe[:STATe]"
+    state: display.annotation
