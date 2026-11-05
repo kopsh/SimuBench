@@ -5,13 +5,11 @@ it, reporting the first difference (11.3).
 
 from __future__ import annotations
 
-import copy
 import json
 import socket
 import threading
 import time
 from pathlib import Path
-from typing import Any
 
 import pytest
 import uvicorn
@@ -20,7 +18,7 @@ import yaml
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
-from tui_mock import load, unit_app
+from tui_mock import flat, fresh, load, settle, unit_app, wait_for
 
 pytestmark = pytest.mark.tui_boot  # boots a Textual app or a real server: runs on main, not the fast checks
 
@@ -33,21 +31,6 @@ SCOPE_BENCH = load("unit_scope_rc.json")
 def color_theme(monkeypatch):
     """The committed demo screenshots are the colour theme's, like CI's."""
     monkeypatch.delenv("NO_COLOR", raising=False)
-
-
-def fresh(fixture: dict[str, Any]) -> dict[str, Any]:
-    return copy.deepcopy(fixture)
-
-
-async def _settle(pilot, tui: SimuBenchApp) -> None:
-    import asyncio
-
-    end = asyncio.get_running_loop().time() + 20
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        if tui.conn == "connected" and tui.session_info:
-            return
-    raise AssertionError("the app never connected")
 
 
 async def test_scripted_screenshots_are_byte_identical(tmp_path: Path):
@@ -73,7 +56,7 @@ async def test_scripted_screenshots_are_byte_identical(tmp_path: Path):
         out = tmp_path / f"run{run}"
         steps = Steps.load(path)
         async with tui.run_test(size=steps.size) as pilot:
-            await _settle(pilot, tui)
+            await settle(pilot, tui)
             written = await run_steps(tui, pilot, steps, out)
         assert {p.name for p in written} == {"instrument.svg", "back.svg"}
         hashes.append({p.name: p.read_bytes() for p in written})
@@ -115,12 +98,11 @@ async def test_runs_screen_lists_and_replays(tmp_path: Path):
     tui, _fake = unit_app(fixture)
 
     async with tui.run_test(size=(100, 32)) as pilot:
-        await _settle(pilot, tui)
+        await settle(pilot, tui)
         await pilot.press("R")
         from simubench.tui.screens.runs import RunsScreen as R
 
         await pilot.pause(0.5)
-        from test_tui import flat
 
         assert isinstance(tui.screen, R)
         text = flat(tui)
@@ -128,18 +110,7 @@ async def test_runs_screen_lists_and_replays(tmp_path: Path):
         assert "smu" in text and "live" not in text
         tui.screen.index = 0
         await pilot.press("p")
-        await wait_true(pilot, lambda: "first mismatch" in flat(tui) or "#3" in flat(tui))
-
-
-async def wait_true(pilot, predicate, timeout: float = 20.0) -> None:
-    import asyncio
-
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        if predicate():
-            return
-    raise AssertionError("the condition never became true")
+        await wait_for(pilot, lambda: "first mismatch" in flat(tui) or "#3" in flat(tui))
 
 
 # ---- --record (tui-screens.md 6) -------------------------------------------------------------------
@@ -168,7 +139,7 @@ async def test_record_writes_frames_and_a_playable_cast(tmp_path: Path):
     out = tmp_path / "recorded"
     steps = Steps.load(path)
     async with tui.run_test(size=steps.size) as pilot:
-        await _settle(pilot, tui)
+        await settle(pilot, tui)
         written = await run_steps(tui, pilot, steps, out, record=True)
 
     assert [p.name for p in written] == ["one.svg", "two.svg"]
@@ -228,7 +199,7 @@ async def test_the_demo_regenerates_the_docs_screenshots(demo_server, tmp_path: 
     try:
         tui = SimuBenchApp(url, sid=served.id)
         async with tui.run_test(size=steps.size) as pilot:
-            await _settle(pilot, tui)
+            await settle(pilot, tui)
             written = await run_steps(tui, pilot, steps, tmp_path)
         assert [p.name for p in written] == ["find-the-trip.svg", "find-the-trip-error.svg"]
         for path in written:
