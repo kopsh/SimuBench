@@ -9,7 +9,9 @@ import math
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -76,6 +78,9 @@ class TryEntry:
     served: ServedSession
     definition: str
     used: float
+    #: Held while a batch runs on the session; closing waits for it (never closes a running batch).
+    busy: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    closed: bool = False
 
 
 class TrySessions:
@@ -101,27 +106,57 @@ class TrySessions:
 
     def open(self, def_id: str) -> TryEntry:
         """A fresh session with the definition's instrument alone; another for the same definition
-        replaces the previous one (it is a scratch session)."""
+        replaces the previous one (it is a scratch session). For callers that need a clean start
+        (the acceptance page's "restart"); repeated use goes through :meth:`using`."""
         with self._lock:
-            self._sweep()
-            self.files.library(None).get(def_id)  # KeyError for an unknown id, before building
-            for sid, entry in list(self._tries.items()):
-                if entry.definition == def_id:
-                    self._close(sid)
-            while len(self._tries) >= self.MAX:
-                self._close(min(self._tries, key=lambda sid: self._tries[sid].used))
-            bench = BenchDefinition.model_validate(
-                {
-                    "schema": "simubench.bench/2",
-                    "name": f"try-{def_id}",
-                    "instruments": {def_id: {"model": def_id}},
-                }
-            )
-            session = open_bench(bench, definition_dirs=[self.files.workspace / "instruments"])
-            served = ServedSession(uuid.uuid4().hex[:12], session, None)
-            entry = TryEntry(served=served, definition=def_id, used=time.monotonic())
-            self._tries[served.id] = entry
-            return entry
+            return self._open(def_id, replace=True)
+
+    @contextmanager
+    def using(self, def_id: str) -> Iterator[TryEntry]:
+        """The definition's open try session (a new one if none), held exclusively for one batch.
+
+        Consecutive batches for the same definition run on the same session (id, state and virtual
+        time carry on) until it falls idle or is retired. A concurrent batch, a close or a
+        replacing :meth:`open` waits for this one instead of running on or closing a session in use.
+        """
+        while True:
+            with self._lock:
+                self._sweep()
+                entry = next((e for e in self._tries.values() if e.definition == def_id), None)
+                if entry is None:
+                    entry = self._open(def_id, replace=False)
+                entry.used = time.monotonic()
+            with entry.busy:
+                if entry.closed:  # closed while this call waited for the batch ahead of it
+                    continue
+                try:
+                    yield entry
+                finally:
+                    # no pool lock here: a close holds it while waiting for ``busy`` (deadlock)
+                    entry.used = time.monotonic()
+                return
+
+    def _open(self, def_id: str, *, replace: bool) -> TryEntry:
+        # called with ``self._lock`` held
+        self._sweep()
+        self.files.library(None).get(def_id)  # KeyError for an unknown id, before building
+        for sid, entry in list(self._tries.items()):
+            if replace and entry.definition == def_id:
+                self._close(sid)
+        while len(self._tries) >= self.MAX:
+            self._close(min(self._tries, key=lambda sid: self._tries[sid].used))
+        bench = BenchDefinition.model_validate(
+            {
+                "schema": "simubench.bench/2",
+                "name": f"try-{def_id}",
+                "instruments": {def_id: {"model": def_id}},
+            }
+        )
+        session = open_bench(bench, definition_dirs=[self.files.workspace / "instruments"])
+        served = ServedSession(uuid.uuid4().hex[:12], session, None)
+        entry = TryEntry(served=served, definition=def_id, used=time.monotonic())
+        self._tries[served.id] = entry
+        return entry
 
     def get(self, sid: str) -> TryEntry:
         with self._lock:
@@ -150,7 +185,9 @@ class TrySessions:
     def _close(self, sid: str) -> None:
         entry = self._tries.pop(sid, None)
         if entry is not None:
-            entry.served.session.close()
+            with entry.busy:  # waits for a running batch
+                entry.closed = True
+                entry.served.session.close()
 
     def _sweep(self) -> None:
         now = time.monotonic()
