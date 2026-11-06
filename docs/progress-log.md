@@ -1483,3 +1483,34 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ `tests/test_tui_no_model_names.py`（unit，约 30 ms）：读内置与 validation 定义（排除 `*.coverage.yaml`）顶层的 `id` / `model`，丢掉短于 4 个字符的，大小写不敏感地扫描 `src/simubench/tui/**/*.py` 全文，命中报“文件:行 名字”，无豁免清单；定义只用正则读文件头，不解析 YAML（解析要 2 s） |
 | 唯一命中 | ✅ `widgets.py` 里 `decorate_title` 文档字符串的 `SDG2042X` 改为 `MODEL-A` |
 | 验证 | ✅ 故意在 `tui/fmt.py` 加一行含 `SDG2042X` 的注释，测试红并报 `fmt.py:207 sdg2042x`；撤销后绿；另有一条测试在临时文件上确认守门确实会命中 |
+
+
+## try_definition 复用同一定义的暂存会话（Issue 671）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `TrySessions.using(def_id)` 取已有或新开，MCP 的 `try_definition` 经它运行；`open` 仍是“替换式新开”，供验收页重新开始 | ✅ `tests/test_mcp.py::test_try_definition_sessions_are_pooled_and_reused`（`served.id` 不变）、`test_try_definition_state_carries_over_between_batches`（`*ESE 32` 在下一批 `*ESE?` 可查） |
+| 闲置回收、MAX 淘汰 | ✅ `tests/test_try_sessions.py::test_idle_session_is_reaped_and_replaced`、`test_max_retires_the_least_recently_used` |
+| 并发：同一定义的批次不会在已关闭的会话上运行 | ✅ 每个会话一把 `busy` 锁，关闭先等批次结束；`test_replacing_open_waits_for_a_running_batch`；bench 构造仍只在 `TrySessions._open` 一处 |
+
+## 旧写法示波器定义的 acq.preamble 降级为宏展开（Issue 665）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `op: <acq>.preamble` 加载时展开为 `<xfer>.header`，并给唯一的 `waveform_transfer` 补 Keysight 十字段 `header` | ✅ `library/macros.py::_expand_preamble`；`tests/data/legacy_sb-dso-4.yaml`（17881a9 的原文件）无需修改即通过 `validate_definition_data` |
+| 回复与改动前一致 | ✅ `tests/test_legacy_preamble.py`：BYTE/WORD/ASCii 三种格式下，旧文件与内置新写法的 `:WAVeform:PREamble?` 十个字段逐项相同，并断言字段值 |
+
+## extends 增「null 删除继承键」语义（Issue 644）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 合并语义：null 删除 dict 键、单个 errors code、整张列表；跨多级链与类别默认带不回来；父定义没有该键时等于没写 | ✅ `tests/test_definition_layers.py` 新增 5 条；顺带修正多级链的合并次序（近亲在祖先之上，原先是倒的），`test_the_nearest_parent_beats_the_grandparent` |
+| b2912b 改写为 `extends: keysight-b2901a` + 差异 | ✅ 层叠后的数据与改写前逐键相同（除 `errors` 来自类别表、多一个 `extends`）；`test_b2912b_extends_b2901a_without_its_single_channel_state_and_ports`；金测/cases/coverage 全绿 |
+| daq970a / 53230a 的惰性继承 | ✅ 22 条 34970A 器件码与 53220A 的 specs 行以 null 清除；`test_daq970a_and_53230a_do_not_keep_the_parents_device_rows`；D59 已更新 |
+
+## #634 收敛未尽的补记（Issue 667，补记 #666）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节），不再是未说明的两份 |
+| RfModulator 载波低于调制率时边带折叠有测试 | ✅ `tests/test_rf_modulator.py::test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes`（时域波形等于 cos(2πf0t − β·cos(2πRt))）、`test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line` |

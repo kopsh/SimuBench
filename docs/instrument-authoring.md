@@ -219,6 +219,8 @@ params:
 - 触发：`trigger_source`、`trigger_level`、`trigger_slope`，按通道的设置写作 `$ch{n}.trigger_level`（`{n}` 是触发通道号，静态校验同样检查），`rising`、`falling` 列出两个沿的取值；非通道的触发源（外触发、电源）不触发；
 - 运行控制：`mode` 与 `auto`、`normal`、`single`、`stop`、`force`（强制一帧后停止，Siglent 的 FTRIG）各自的取值，`after_single`（为空时模式不变、停止运行），`reacquire`，`missing`（`acquire`：没有记录的通道读取时按当前信号采一次，`error`：报 -230），`untriggered`（未触发的采集耗时：整个触发搜索或一帧）。等待中的单次采集在每次读取时重试。通用的 op：`run_mode`、`single`、`run`、`stop`、`force_trigger`、`wait`、`opc`、`digitize`；
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
+  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以不由 ADC 推出；同一型号两处应写同值（Keysight 为 subtract，Siglent 为 add）。
+  - 调制谱线预算：RF 信号源的 `LINE_BUDGET = 999` 是金标准锁定的（`tests/test_rfgen_migration.py` 复现的参考值），AWG 调制源的 `line_budget` 是参数（默认 2000），两者是不同仪表类别的限值，不合并。
 - 噪声：`noise_rms`、`noise_key`（`time` 时 `noise_stream` 绑定的设置选择另一组噪声，如采集方式）、`trigger_jitter_s`，`averaging` 与 `averages`。
 
 原设计稿：
