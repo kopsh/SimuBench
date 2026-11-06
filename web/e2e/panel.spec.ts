@@ -131,3 +131,52 @@ test("in build mode the panel sets the bench file's initial settings", async ({ 
   expect(dmm?.state.find((v) => v.path === "sense.range_auto")?.value).toBe(true);
   await expect(page.getByText(/量程：0 V（初始：10 V）|自动量程：开（初始：关）/).first()).toBeVisible();
 });
+
+test("the stepper is unavailable while covered, read-only, or disconnected (#742)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", { headers, data: { bench_path: "benches/panel.bench.yaml" } });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  await page.locator(".react-flow__node").filter({ hasText: "面板万用表" }).click();
+  const range = page.getByRole("textbox", { name: "量程", exact: true });
+  const value = async () => {
+    const info = await page.request.get(`/api/sessions/${sid}/instruments/dmm`, { headers });
+    return ((await info.json()) as { state: { path: string; value: unknown }[] }).state.find(
+      (v) => v.path === "sense.range",
+    )?.value;
+  };
+
+  // Automatic range covers the stored value: no arrows, and the keys do nothing.
+  await expect(range).toBeEnabled(); // the field itself stays open; it shows 自动 instead
+  await expect(range).toHaveValue("自动"); // the stored value is not the one in effect (#279)
+  await expect(page.getByRole("button", { name: "增大 量程" })).toHaveCount(0);
+  await range.focus();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowDown");
+  await page.mouse.wheel(0, -120);
+  await page.waitForTimeout(300);
+  expect(await value()).toBe(0.0);
+
+  // With the automatic switch off the stepper works: type 1 V, then ↑ a tenth of the decade
+  // (a continuous quantity: no 1-2-5 rungs without a declared ladder, model.ts stepNumber).
+  await page.getByRole("switch", { name: "自动量程" }).click();
+  await expect(range).toHaveValue("0 V"); // the field settles on the stored value it now controls
+  await range.fill("1");
+  await range.press("Enter");
+  await expect.poll(value).toBe(1.0);
+  await range.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(range).toHaveValue("1.1 V");
+  await expect.poll(value).toBe(1.1);
+
+  // A read-only setting is a disabled field without arrows.
+  await expect(page.getByRole("textbox", { name: "校准常数" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "增大 校准常数" })).toHaveCount(0);
+
+  // Disconnected (the session stops): the next poll's 404 replaces the workbench with the
+  // gone-session state — there is no steppable field left to reach.
+  const stop = await page.request.delete(`/api/sessions/${sid}`, { headers });
+  expect(stop.status()).toBe(204);
+  await expect(page.getByText("找不到该会话，可能已关闭。")).toBeVisible({ timeout: 10_000 });
+  await expect(range).toHaveCount(0);
+});

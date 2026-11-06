@@ -164,7 +164,7 @@ jobs:
 
   e2e:
     name: End-to-end (Chromium)
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     needs: [python, web]
     runs-on: ubuntu-latest
     steps:
@@ -194,8 +194,13 @@ jobs:
       - run: pnpm e2e
         working-directory: web
       - name: Component library builds and matches its screenshots (Storybook, visual regression)
-        run: pnpm build-storybook && pnpm visual
+        run: pnpm build-storybook && pnpm visual --update-snapshots
         working-directory: web
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-baselines
+          path: web/visual/stories.spec.ts-snapshots
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
