@@ -115,6 +115,7 @@ class ScopeVertical(Component):
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
         "out_of_range": "error",  # error: refuse with -222 | clamp: take the nearest legal value
         "noise_table": None,  # [[V/div, noise V rms], ...] at the input, per division (None: quiet)
+        "noise_divs": 0.0,  # without a table: input noise rms as a fraction of a division (scales with V/div)
         "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
@@ -162,11 +163,11 @@ class ScopeVertical(Component):
     def noise_rms(self) -> float:
         """The input-referred noise (V rms) of the current division: its ``noise_table`` row, or
         the row of the largest listed division not above it (a table that starts at a floor holds
-        the sensitive divisions first, D46). No table: no noise."""
+        the sensitive divisions first, D46). No table: ``noise_divs`` of the division, else none."""
         rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
-        if not rows:
-            return 0.0
         scale = self.input_scale()
+        if not rows:
+            return float(self.param("noise_divs")) * scale
         return next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
 
     def input_scale(self) -> float:
