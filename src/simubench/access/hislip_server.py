@@ -250,6 +250,8 @@ def _peek_header(reader: asyncio.StreamReader, size: int) -> bytes | None:
     buffer = getattr(reader, "_buffer", None)
     if isinstance(buffer, (bytes, bytearray, memoryview)):
         return bytes(buffer[:size])
+    # Not a silent miss (issue 691): the interrupt decision is off until someone looks.
+    log.warning("HiSLIP peek: StreamReader has no _buffer; synchronized-interrupt detection is off")
     return None
 
 
