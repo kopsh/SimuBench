@@ -52,6 +52,20 @@ def test_period_counts_on_the_hysteresis_band_and_least_squares():
     assert M.period(np.array([0.0, 0.0]), DT) is None
 
 
+def test_the_band_floor_keeps_noise_alone_unmeasured():
+    """The band never drops below ``min_band`` (#745): noise alone — whose own span would other-
+    wise size the band — counts no crossings and the period stays unmeasurable, while a real
+    signal above the floor still does."""
+    noise = sine() * 0.01  # noise alone: its span is the noise
+    assert M.period(noise, DT) is not None  # without the floor the noise "measures"
+    assert M.period(noise, DT, min_band=0.2) is None  # the floor: no crossings to count
+    assert M.period(sine(noise=0.05), DT, min_band=0.2) == pytest.approx(1e-3, rel=5e-3)
+    # mid_crossings carries the same floor for the edge and pulse measurements
+    assert M.mid_crossings(noise, DT, 0.1, min_band=0.2) == []
+    # 5 cycles: the record opens at the middle going up, so the first countable swing is missing
+    assert len(M.mid_crossings(sine(), DT, 0.1, min_band=0.2)) == 9
+
+
 def test_crossings_interpolate_between_samples():
     v = np.array([0.0, 0.5, 1.0, 0.5, 0.0, -0.5])
     out = M.crossings(v, DT, 0.4, 0.05)
