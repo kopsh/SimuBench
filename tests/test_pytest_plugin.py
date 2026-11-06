@@ -1,6 +1,9 @@
 """The pytest plugin, run the way a user's test suite runs it."""
 
+import sys
 from pathlib import Path
+
+import pytest
 
 pytest_plugins = ["pytester"]
 
@@ -167,6 +170,7 @@ def test_a_none_marker_value_means_not_given(pytester, monkeypatch):
     )
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows file names cannot contain a literal '?'")
 def test_a_question_mark_in_the_bench_path_is_explained(pytester, tmp_path):
     """A bench path containing a literal '?' collides with the query separator (issue 675):
     the error says so, instead of listing a mangled path as an unknown option."""

@@ -76,7 +76,7 @@ def visa_rm(request: pytest.FixtureRequest) -> Iterator[Any]:
 
     path, options = _bench_path(request)
     # The marker's signature writes every option as ``=None``: an explicit None is "not given",
-    # not the literal string "None" — drop it so the environment or the default applies (issue
+    # not the literal string "None" - drop it so the environment or the default applies (issue
     # 675; urlencode would otherwise encode the string "None" and the backend would reject it).
     options = {name: value for name, value in options.items() if value is not None}
     record_dir = request.config.getoption("--simubench-record-dir")
