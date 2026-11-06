@@ -129,12 +129,18 @@ def _noise_query(session):
     return query
 
 
-def test_noise_comes_from_the_division_table():
-    """G4/D46: the input noise is the vertical division's own noise_table row - it rides the
-    scale (the front-end gain sets it at the ADC), and the records match the table (F4)."""
+def test_the_noise_and_processing_flow():
+    """G4/D46, one flow: the input noise is the vertical division's own noise_table row - it
+    rides the scale (the front-end gain sets it at the ADC) and the records match the table (F4);
+    every averaged acquisition is noisy and quantized and their mean keeps the sub-code
+    resolution, where averaging analog values and quantizing once would not; ERES,b is a boxcar
+    of 4^b codes (at 2.0 bits the noise falls by four, the bandwidth with the window); peak
+    detect keeps, of each interval's native codes, the exceptional one, and at the ADC's top rate
+    there is nothing to oversample so the record is the plain one."""
     session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
     query = _noise_query(session)
     acq = session.instruments["scope"].components["acq"]
+    # -- the noise comes from the division table (was test_noise_comes_from_the_division_table)
     for scale, sigma in ((0.5, 7.5e-3), (5e-3, 75e-6)):
         query(f":CHANnel1:SCALe {scale}")
         assert acq.vertical_of(1).noise_rms() == pytest.approx(sigma)
@@ -148,15 +154,8 @@ def test_noise_comes_from_the_division_table():
     noise = acq._noise(1, session.now_ns, acq._timing()[1], 10)
     lo, hi = sigma_interval(0.075, 10)  # display volts: the input rms times the probe ratio
     assert lo <= float(np.std(noise)) <= hi
-    session.close()
-
-
-def test_the_average_of_codes_resolves_below_the_adc_grid():
-    """G4/D46: every averaged acquisition is noisy and quantized, and their mean keeps the
-    sub-code resolution - averaging analog values and quantizing once would not (F4)."""
-    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
-    query = _noise_query(session)
-    acq = session.instruments["scope"].components["acq"]
+    # -- the average of codes resolves below the ADC grid (was test_the_average_of_codes_resolves_below_the_adc_grid)
+    query(":CHANnel1:PROBe VALue,1")  # bridge: back to 1x, the display range the act assumes
     query(":CHANnel1:SCALe 0.5;:ACQuire:TYPE AVERage,64")
     records, _, _ = acq.compute([1])
     lsb = 0.5 / 30
@@ -165,15 +164,8 @@ def test_the_average_of_codes_resolves_below_the_adc_grid():
     lo, hi = sigma_interval(sigma, records[1].volts.size)
     assert lo <= float(np.std(records[1].volts)) <= hi
     assert float(np.std(records[1].volts)) < 0.25 * lsb  # the noise fell well below one code
-    session.close()
-
-
-def test_high_resolution_smooths_codes_and_gains_effective_bits():
-    """G4/D46: ERES,b is a boxcar of 4^b codes - at 2.0 bits the noise falls by four, and the
-    bandwidth with the window."""
-    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
-    query = _noise_query(session)
-    acq = session.instruments["scope"].components["acq"]
+    # -- high resolution smooths codes and gains effective bits (was test_high_resolution_smooths_codes_and_gains_effective_bits)
+    query(":ACQuire:TYPE NORMal")  # bridge: the previous act left AVERage,64; plain is unprocessed
     query(":CHANnel1:SCALe 0.5")
     plain, _, _ = acq.compute([1])
     query(":ACQuire:TYPE ERES,2.0")
@@ -181,16 +173,9 @@ def test_high_resolution_smooths_codes_and_gains_effective_bits():
     lsb = 0.5 / 30
     assert float(np.std(smoothed[1].volts)) == pytest.approx(float(np.std(plain[1].volts)) / 4, rel=0.05)
     assert float(np.std(smoothed[1].volts)) == pytest.approx(averaged_codes_sigma(7.5e-3, lsb, 16), rel=0.05)
-    session.close()
-
-
-def test_peak_detect_keeps_the_excursions_and_the_top_rate_keeps_the_record():
-    """G4/D46: peak detect keeps, of each interval's native codes, the exceptional one, so its
-    noise band is wider; at the ADC's top rate there is nothing to oversample and the record is
-    the plain one."""
-    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
-    query = _noise_query(session)
-    acq = session.instruments["scope"].components["acq"]
+    # -- peak detect keeps the excursions and the top rate keeps the record
+    # (was test_peak_detect_keeps_the_excursions_and_the_top_rate_keeps_the_record)
+    query(":ACQuire:TYPE NORMal")  # bridge: the previous act left ERES,2.0; plain is unprocessed
     query(":CHANnel1:SCALe 0.5")
     plain, _, _ = acq.compute([1])
     query(":ACQuire:TYPE PEAK")

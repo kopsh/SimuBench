@@ -46,7 +46,11 @@ def q(s, command: str) -> float | str | None:
         return text
 
 
-def test_extremes_bit_rate_and_voltage_at_a_time(scope):
+def test_the_time_measurements_flow(scope):
+    """The time measurements against the RC's closed form: the extremes' times and the bit rate,
+    the edges and crossings counted from the left of the record, and the delay/phase between two
+    sources — the RC lag — which :MEASure:SOURce then answers without them."""
+    # -- extremes, bit rate and voltage at a time (was test_extremes_bit_rate_and_voltage_at_a_time)
     q(scope, ":DIGitize CHANnel1,CHANnel2")
     amp = q(scope, ":MEASure:VMAX? CHANnel1")
     # The sine peaks a quarter period after the rising zero crossing (−0.75 ms is the first on the
@@ -59,9 +63,7 @@ def test_extremes_bit_rate_and_voltage_at_a_time(scope):
         expected = amp * math.sin(2 * math.pi * F * t)
         assert q(scope, f":MEASure:VTIMe? {t},CHANnel1") == pytest.approx(expected, abs=0.02)
     assert q(scope, ":MEASure:VTIMe? 2E-3,CHANnel1") > 9e37  # outside the record
-
-
-def test_edges_and_crossings_counted_from_the_left(scope):
+    # -- edges and crossings counted from the left (was test_edges_and_crossings_counted_from_the_left)
     q(scope, ":DIGitize CHANnel1")
     amp = q(scope, ":MEASure:VMAX? CHANnel1")
     assert q(scope, ":MEASure:TEDGe? +1,CHANnel1") == pytest.approx(0.0, abs=0.01 * T)  # the trigger
@@ -71,9 +73,7 @@ def test_edges_and_crossings_counted_from_the_left(scope):
     assert q(scope, ":MEASure:TVALue? 0.5,+1,CHANnel1") == pytest.approx(expected, abs=0.01 * T)
     falling = -T / 2 - math.asin(0.5 / amp) / (2 * math.pi * F)
     assert q(scope, ":MEASure:TVALue? 0.5,-1,CHANnel1") == pytest.approx(falling, abs=0.01 * T)
-
-
-def test_delay_and_phase_between_two_sources_are_the_rc_lag(scope):
+    # -- delay and phase between two sources are the RC lag (was test_delay_and_phase_between_two_sources_are_the_rc_lag)
     # CH2 sees the generator's terminal (after its 50 Ω), CH1 the RC's output: between the two the
     # lag is the 1 kΩ / 100 nF divider's alone, atan(ω R C) (the 1 MΩ inputs are negligible).
     lag = math.atan(2 * math.pi * F * 1000.0 * 1e-7)
@@ -116,7 +116,13 @@ def _results(scope) -> list[list[str]]:
     return [fields[i : i + 7] for i in range(0, len(fields), 7)]
 
 
-def test_a_measurement_without_a_question_mark_goes_on_the_list_of_four(scope):
+def test_the_measurement_list_flow(scope):
+    """The screen's measurement list (#373): a measurement without a question mark installs on the
+    list of four (the oldest leaves, a re-install moves to the end), each row carries its
+    statistics and :MEASure:CLEar empties the list, :MEASure:ALL? is a snapshot that installs
+    nothing, and the SHOW/WINDOW settings are kept."""
+    # -- a measurement without a question mark goes on the list of four
+    # (was test_a_measurement_without_a_question_mark_goes_on_the_list_of_four)
     q(scope, ":DIGitize CHANnel1,CHANnel2")
     assert _results(scope) == []
     for item in ("FREQuency CHANnel1", "VPP CHANnel1", "VMAX CHANnel2", "VMIN CHANnel1"):
@@ -126,9 +132,9 @@ def test_a_measurement_without_a_question_mark_goes_on_the_list_of_four(scope):
     assert [r[0] for r in _results(scope)] == ["VPP(1)", "VMAX(2)", "VMIN(1)", "VRMS(1)"]
     q(scope, ":MEASure:VMAX CHANnel2")  # installed again: it moves to the end
     assert [r[0] for r in _results(scope)] == ["VPP(1)", "VMIN(1)", "VRMS(1)", "VMAX(2)"]
-
-
-def test_results_carry_the_statistics_and_clear_empties_the_list(scope):
+    # -- the results carry the statistics, clear empties the list
+    # (was test_results_carry_the_statistics_and_clear_empties_the_list)
+    q(scope, ":MEASure:CLEar")  # bridge: the previous act left its four installed
     q(scope, ":DIGitize CHANnel1")
     q(scope, ":MEASure:FREQuency CHANnel1")
     _results(scope)
@@ -139,9 +145,7 @@ def test_results_carry_the_statistics_and_clear_empties_the_list(scope):
     assert float(q(scope, ":MEASure:FREQuency? CHANnel1")) == pytest.approx(F, rel=1e-3)
     q(scope, ":MEASure:CLEar")
     assert _results(scope) == []
-
-
-def test_all_is_a_snapshot_of_every_single_source_measurement(scope):
+    # -- ALL? is a snapshot of every single-source measurement (was test_all_is_a_snapshot_of_every_single_source_measurement)
     q(scope, ":DIGitize CHANnel1")
     scope.write("scope", b":MEASure:ALL? CHANnel1\n")
     values = [float(v) for v in scope.read("scope").decode().strip().split(",")]
@@ -150,9 +154,7 @@ def test_all_is_a_snapshot_of_every_single_source_measurement(scope):
     assert values[11] == pytest.approx(F, rel=1e-3)  # FREQuency
     assert values[18] == pytest.approx(2 * F, rel=1e-3)  # BRATe
     assert _results(scope) == []  # a snapshot installs nothing
-
-
-def test_show_and_window_are_kept(scope):
+    # -- show and window are kept (was test_show_and_window_are_kept)
     assert q(scope, ":MEASure:SHOW?") == 1.0
     q(scope, ":MEASure:SHOW OFF")
     assert q(scope, ":MEASure:SHOW?") == 0.0

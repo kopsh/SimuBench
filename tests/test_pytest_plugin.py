@@ -146,3 +146,44 @@ def test_an_unknown_marker_option_is_named(pytester):
     result = pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider")
     result.assert_outcomes(errors=1)
     result.stdout.fnmatch_lines(["*unknown SimuBench option*cloc*"])
+
+
+def test_a_none_marker_value_means_not_given(pytester, monkeypatch):
+    """An option explicitly passed as None is "not given" (issue 675): it is dropped from the
+    resource string instead of being encoded as the string "None", so the environment applies."""
+    monkeypatch.setenv("SIMUBENCH_SEED", "3")
+    pytester.makepyfile(
+        test_case=f"""
+        import pytest
+
+        pytestmark = pytest.mark.bench({str(BENCH)!r}, seed=None, clock=None)
+
+        def test_env_seed_applies(instruments, bench_session):
+            assert bench_session.seed == 3
+        """
+    )
+    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
+        passed=1
+    )
+
+
+def test_a_question_mark_in_the_bench_path_is_explained(pytester, tmp_path):
+    """A bench path containing a literal '?' collides with the query separator (issue 675):
+    the error says so, instead of listing a mangled path as an unknown option."""
+    tricky = tmp_path / "odd?name"
+    tricky.mkdir()
+    (tricky / "b.bench.yaml").write_text(BENCH.read_text())
+    pytester.makepyfile(
+        test_case=f"""
+        import pytest
+
+        pytestmark = pytest.mark.bench({str(tricky / "b.bench.yaml")!r})
+
+        def test_never(instruments):
+            pass
+        """
+    )
+    result = pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider")
+    result.assert_outcomes(errors=1)
+    result.stdout.fnmatch_lines(["*unknown SimuBench option*name*b.bench.yaml*idle*"])
+    result.stdout.fnmatch_lines(["*contains a literal '?'*rename the file or folder*"])

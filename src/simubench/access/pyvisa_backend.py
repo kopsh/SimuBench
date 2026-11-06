@@ -52,10 +52,17 @@ def _parse_spec(spec: str) -> tuple[str, dict[str, str]]:
     params = dict(parse_qsl(query, keep_blank_values=True))
     unknown = sorted(set(params) - set(OPTIONS))
     if unknown:
-        raise ValueError(
+        message = (
             f"unknown SimuBench option(s) in the resource string: {', '.join(unknown)}"
             f" — known ones: {', '.join(sorted(OPTIONS))}"
         )
+        # A real option name never carries a path separator or a '?': what did is almost surely
+        # the bench path itself, whose literal '?' collided with the query separator (issue 675).
+        if any(ch in name for name in unknown for ch in "/\\?"):
+            message += (
+                "\n(the path contains a literal '?', which starts the query — rename the file or folder)"
+            )
+        raise ValueError(message)
     return path, params
 
 

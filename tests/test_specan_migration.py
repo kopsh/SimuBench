@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
+from helpers import run_gold_step, warm_up
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -76,13 +77,10 @@ def test_the_gold_standard_is_reproduced():
     try:
         # Warm up: the first command of a freshly loaded definition bills its lazy loading to the
         # wall clock (D47); that timing is not part of the analyzer's behaviour.
-        session.write("sa", b"*IDN?\n")
-        assert session.read("sa") is not None
+        assert warm_up(session, "sa")[0] is not None
         for i, step in enumerate(GOLD["steps"]):
-            if "advance_s" in step:
-                session.advance(step["advance_s"])
-                continue
-            if "trace" in step:
+            handled, _ = run_gold_step(session, i, step)
+            if not handled and "trace" in step:
                 session.write("sa", b":TRAC:DATA?\n")
                 text = session.read("sa").decode().rstrip("\n")
                 actual = np.array([float(x) for x in text.split(",")])
@@ -91,13 +89,6 @@ def test_the_gold_standard_is_reproduced():
                 np.testing.assert_allclose(
                     actual, expected, rtol=1e-9, atol=1e-12, err_msg=f"step {i} ({step['trace']})"
                 )
-                continue
-            before = session.now_ns
-            session.write(step["instrument"], (step["cmd"] + "\n").encode())
-            reply = session.read(step["instrument"])
-            text = reply.decode().rstrip("\n") if reply is not None else None
-            assert text == step["reply"], f"step {i}: {step['cmd']} replied {text!r}"
-            assert session.now_ns - before == step["ns"], f"step {i}: {step['cmd']} took time"
     finally:
         session.close()
 

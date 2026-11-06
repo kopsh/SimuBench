@@ -55,7 +55,9 @@ When the platform cannot express something the manual requires:
    uv run simubench validate src/simubench/library/instruments/<id>.yaml
    ```
 6. **Manual cases** `tests/models/<id>/cases.yaml`: every implemented and accepted command at
-   least once, each case with `manual:` naming the section.
+   least once, each case with `manual:` naming the section. Command-level coverage lands here
+   first — the per-model test file is for what a transcript cannot see, added as acts in flow
+   tests (D49, #704), not as sibling test functions (#706).
    ```bash
    uv run simubench cases tests/models/<id>/cases.yaml
    uv run simubench coverage <id>

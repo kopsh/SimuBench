@@ -5,16 +5,18 @@ the real-instrument-style script examples/scripts/keysight_33622a_waves.py again
 (a DSOX2024A on both channels) and check what a transcript cannot see: the waveform each setting
 produces at the output — the load setting's effect on the level, the arbitrary table's period at the
 sample rate, the high/low levels and the one-modulation-at-a-time switches.
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's
+body verbatim; acts that are provably state-compatible share one bench, with the bridging
+commands noted.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,15 +24,7 @@ BENCH = ROOT / "examples" / "benches" / "keysight-33622a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_33622a_waves.py"
 
 
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_33622a_waves", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 @pytest.fixture
@@ -45,9 +39,7 @@ def w(s, text: str) -> None:
 
 
 def q(s, text: str) -> str:
-    s.write("awg", (text + "\n").encode())
-    reply = s.read("awg")
-    return reply.decode().strip() if reply else ""
+    return session_query(s, "awg", text, default="")
 
 
 def wave(s, ch: int = 1):
@@ -62,24 +54,26 @@ def peak_to_peak(sig, period: float) -> float:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    monkeypatch.setattr(sys, "argv", ["keysight_33622a_waves.py", "awg", "scope", "--bench", str(bench)])
-    script.main()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["awg", "scope"], BENCH, tmp_path, monkeypatch, capsys, rm_wrap=False)
     assert out[0] == "Keysight Technologies,33622A,MY12345678,0.179-1.19-8.88-52-00"
     assert out[-1] == '+0,"No error"'
 
 
-def test_the_load_setting_defines_the_amplitude(awg):
+# ---- the load setting, the readback rescale and the high/low levels: one flow -----------------------
+
+
+def test_the_load_and_levels_flow(awg):
+    """The load setting defines the amplitude the output stage sees, changing it rescales only
+    the readback (#436), and the high/low levels set the wave's extremes."""
+    # -- the load setting defines the amplitude (was test_the_load_setting_defines_the_amplitude)
     w(awg, "OUTP:LOAD 50;:APPL:SIN 1e3,2,0")  # 2 Vpp into 50 Ω: a 4 Vpp EMF behind 50 Ω
     assert peak_to_peak(wave(awg), 1e-3) == pytest.approx(4.0, rel=1e-3)
-
-
-def test_changing_the_load_setting_keeps_the_output_and_rescales_the_readback(awg):
-    """#436, 33500-90901 Output Termination: changing the load setting "does not affect the actual
-    output voltage; it only changes the values displayed and queried" — 2 Vpp at 50 Ω reads 4 Vpp
-    at high-Z, the offset doubles too, and the wave on the scope stays the same."""
+    # -- changing the load keeps the output and rescales the readback (was
+    # test_changing_the_load_setting_keeps_the_output_and_rescales_the_readback; the act's own
+    # APPL line sets its 0.5 V offset)
+    # #436, 33500-90901 Output Termination: changing the load setting "does not affect the actual
+    # output voltage; it only changes the values displayed and queried" — 2 Vpp at 50 Ω reads 4 Vpp
+    # at high-Z, the offset doubles too, and the wave on the scope stays the same.
     w(awg, "OUTP:LOAD 50;:APPL:SIN 1e3,2,0.5")
     before = peak_to_peak(wave(awg), 1e-3)
     w(awg, "OUTP:LOAD INF")
@@ -89,9 +83,8 @@ def test_changing_the_load_setting_keeps_the_output_and_rescales_the_readback(aw
     w(awg, "OUTP:LOAD 50")
     assert float(q(awg, "VOLT?")) == pytest.approx(2.0)
     assert q(awg, "SYST:ERR?") == '+0,"No error"'
-
-
-def test_high_and_low_levels_set_the_wave_s_extremes(awg):
+    # -- the high and low levels set the wave's extremes (was
+    # test_high_and_low_levels_set_the_wave_s_extremes; the act's own APPL line replaces the sine)
     w(awg, "OUTP:LOAD INF;:APPL:SQU 1e3,1,0")
     w(awg, "VOLT:HIGH 3;:VOLT:LOW 1")
     t = np.linspace(0, 1e-3, 2000, endpoint=False) * 1e9
@@ -100,16 +93,23 @@ def test_high_and_low_levels_set_the_wave_s_extremes(awg):
     assert np.median(v[v < 2]) == pytest.approx(1.0, abs=0.02)
 
 
-def test_an_arbitrary_table_repeats_at_points_over_sample_rate(awg):
+# ---- the arbitrary table, the one-modulation rule and the polarity: one flow -------------------------
+
+
+def test_the_function_and_modulation_flow(awg):
+    """An arbitrary table repeats at points over the sample rate, one modulation at a time with
+    APPLy turning it off, and the polarity inverts the output."""
+    # -- an arbitrary table repeats at points over sample rate (was
+    # test_an_arbitrary_table_repeats_at_points_over_sample_rate)
     w(awg, "OUTP:LOAD INF")
     w(awg, "DATA:ARB tri8," + ",".join(f"{v:g}" for v in script.TRIANGLE8))
     w(awg, "FUNC:ARB tri8;:APPL:ARB 4e4,2,0")  # 8 points at 40 kSa/s: 5 kHz
     sig = wave(awg)
     assert float(sig.freq[int(np.argmax(np.abs(sig.amp)))]) == pytest.approx(5e3)
     assert peak_to_peak(sig, 2e-4) == pytest.approx(2.0, rel=0.02)
-
-
-def test_one_modulation_at_a_time_and_apply_turns_it_off(awg):
+    # -- one modulation at a time, APPLy turns it off (was
+    # test_one_modulation_at_a_time_and_apply_turns_it_off; the act's own APPL:SIN replaces the
+    # arbitrary function)
     w(awg, "APPL:SIN 1e4,1,0;:AM:INT:FREQ 500;:AM:STAT ON")
     lines = sorted(np.round(wave(awg).freq, 3))
     assert lines == [9500.0, 10000.0, 10500.0]  # carrier and the two AM sidebands
@@ -119,9 +119,8 @@ def test_one_modulation_at_a_time_and_apply_turns_it_off(awg):
     assert awg.instruments["awg"].get_state("ch1.am_state") is False
     w(awg, "APPL:SIN 1e4,1,0")
     assert mod.param("enabled") is False
-
-
-def test_polarity_inverts_the_output(awg):
+    # -- the polarity inverts the output (was test_polarity_inverts_the_output; the act's own
+    # APPL:DC replaces the sine, and APPLy turned the FM off above)
     w(awg, "OUTP:LOAD INF;:APPL:DC DEF,DEF,1.5")
     out = awg.instruments["awg"].components["ch1.out"]
     w(awg, "OUTP:POL INV")
@@ -166,11 +165,17 @@ def test_reset_and_clear_return_to_the_default_arb(awg):
     assert q(awg, "DATA:VOL:CAT?") == '""'
 
 
-def test_the_pulse_edge_times_shape_the_output():
-    """#437: FUNC:PULS:TRAN:LEAD/TRA set the 10-90 % times of the pulse's edges, and FUNC:PULS:WIDT
-    sets the width between the 50 % points (the duty follows: width x frequency)."""
+# ---- the pulse function: the edge times and the MIN/MAX/DEF words: one flow --------------------------
+
+
+def test_the_pulse_flow():
+    """#437: the edge times shape the output; #478: WIDT/PER/TRAN accept the MIN/MAX/DEF words
+    the manual lists."""
     s = open_bench(BENCH, idle="off")
     try:
+        # -- the pulse edge times shape the output (was test_the_pulse_edge_times_shape_the_output)
+        # #437: FUNC:PULS:TRAN:LEAD/TRA set the 10-90 % times of the pulse's edges, and FUNC:PULS:WIDT
+        # sets the width between the 50 % points (the duty follows: width x frequency).
         w(s, ":FUNC PULS;:FREQ 1e5;:VOLT 2;:OUTP:LOAD INF")
         w(s, ":FUNC:PULS:WIDT 4e-6;:FUNC:PULS:TRAN:LEAD 1e-7;:FUNC:PULS:TRAN:TRA 2e-7")
         assert float(q(s, ":FUNC:PULS:DCYC?")) == pytest.approx(40.0)
@@ -196,54 +201,54 @@ def test_the_pulse_edge_times_shape_the_output():
         assert rise == pytest.approx(1e-7, rel=0.1)
         assert fall == pytest.approx(2e-7, rel=0.1)
         assert width == pytest.approx(4e-6, rel=0.01)
+        # -- the pulse commands take MIN/MAX/DEF (was test_the_pulse_commands_take_min_max_def;
+        # the act's own :FREQ 1e3 sets the period it queries against, and no error above was
+        # left in the queue)
+        # #478: WIDT/PER/TRAN accept the MIN/MAX/DEF words the manual lists — the width range rides
+        # on the duty setting's declared range at the current period, the period's on the frequency's,
+        # the edges' on their own. The manual's own numbers were not verified term by term.
+        w(s, ":FUNC PULS;:FREQ 1e3")
+        assert float(q(s, ":FUNC:PULS:WIDT? MIN")) == pytest.approx(1e-7)  # 0.01 % of 1 ms
+        assert float(q(s, ":FUNC:PULS:WIDT? MAX")) == pytest.approx(9.999e-4)  # 99.99 % of 1 ms
+        assert float(q(s, ":FUNC:PULS:WIDT? DEF")) == pytest.approx(1e-4)  # 10 % of 1 ms
+        w(s, ":FUNC:PULS:WIDT MIN")
+        assert float(q(s, ":FUNC:PULS:DCYC?")) == pytest.approx(0.01)
+        assert float(q(s, ":FUNC:PULS:WIDT?")) == pytest.approx(1e-7)
+        assert float(q(s, ":FUNC:PULS:PER? MIN")) == pytest.approx(1e-8)  # 1 / 100 MHz, the pulse top
+        assert float(q(s, ":FUNC:PULS:PER? MAX")) == pytest.approx(1e6)  # 1 / 1 µHz
+        assert float(q(s, ":FUNC:PULS:PER? DEF")) == pytest.approx(1e-3)  # 1 kHz
+        # #503: a zero or negative period is -222, not the 1/period blowing up as an internal error.
+        w(s, ":FUNC:PULS:PER 0")
+        assert q(s, ":SYST:ERR?").startswith("-222,")
+        w(s, ":FUNC:PULS:PER -1")
+        assert q(s, ":SYST:ERR?").startswith("-222,")
+        assert float(q(s, ":FUNC:PULS:PER?")) == pytest.approx(1e-3)  # neither write landed
+        # #510: a zero width or edge time is -222 as well, and the setting stays.
+        width, edge = q(s, ":FUNC:PULS:WIDT?"), q(s, ":FUNC:PULS:TRAN?")
+        w(s, ":FUNC:PULS:WIDT 0")
+        assert q(s, ":SYST:ERR?").startswith("-222,")
+        w(s, ":FUNC:PULS:TRAN 0")
+        assert q(s, ":SYST:ERR?").startswith("-222,")
+        assert q(s, ":FUNC:PULS:WIDT?") == width
+        assert q(s, ":FUNC:PULS:TRAN?") == edge
+        w(s, ":FUNC:PULS:PER MIN")
+        assert float(q(s, ":FREQ?")) == pytest.approx(1e8)
+        w(s, ":FUNC:PULS:PER DEF")
+        assert float(q(s, ":FREQ?")) == pytest.approx(1e3)
+        assert float(q(s, ":FUNC:PULS:TRAN? MIN")) == pytest.approx(2.9e-9)
+        assert float(q(s, ":FUNC:PULS:TRAN? MAX")) == pytest.approx(1e-6)
+        w(s, ":FUNC:PULS:TRAN MIN")
+        assert float(q(s, ":FUNC:PULS:TRAN:LEAD?")) == pytest.approx(2.9e-9)
+        assert float(q(s, ":FUNC:PULS:TRAN:TRA?")) == pytest.approx(2.9e-9)
+        w(s, ":FUNC:PULS:WIDT DEF")
+        assert float(q(s, ":FUNC:PULS:DCYC?")) == pytest.approx(10.0)
+        w(s, ":FREQ 2e5")
+        assert float(q(s, ":FUNC:PULS:WIDT? MIN")) == pytest.approx(
+            5e-9
+        )  # 0.01 % would be 0.5 ns: the floor wins
+        w(s, ":FUNC:PULS:WIDT 2")
+        assert q(s, ":SYST:ERR?").startswith("-222,")  # past the duty range at this frequency
+        w(s, ":FUNC:PULS:WIDT abc")
+        assert q(s, ":SYST:ERR?").startswith("-104,")
     finally:
         s.close()
-
-
-def test_the_pulse_commands_take_min_max_def(awg):
-    """#478: WIDT/PER/TRAN accept the MIN/MAX/DEF words the manual lists — the width range rides
-    on the duty setting's declared range at the current period, the period's on the frequency's,
-    the edges' on their own. The manual's own numbers were not verified term by term."""
-    w(awg, ":FUNC PULS;:FREQ 1e3")
-    assert float(q(awg, ":FUNC:PULS:WIDT? MIN")) == pytest.approx(1e-7)  # 0.01 % of 1 ms
-    assert float(q(awg, ":FUNC:PULS:WIDT? MAX")) == pytest.approx(9.999e-4)  # 99.99 % of 1 ms
-    assert float(q(awg, ":FUNC:PULS:WIDT? DEF")) == pytest.approx(1e-4)  # 10 % of 1 ms
-    w(awg, ":FUNC:PULS:WIDT MIN")
-    assert float(q(awg, ":FUNC:PULS:DCYC?")) == pytest.approx(0.01)
-    assert float(q(awg, ":FUNC:PULS:WIDT?")) == pytest.approx(1e-7)
-    assert float(q(awg, ":FUNC:PULS:PER? MIN")) == pytest.approx(1e-8)  # 1 / 100 MHz, the pulse top
-    assert float(q(awg, ":FUNC:PULS:PER? MAX")) == pytest.approx(1e6)  # 1 / 1 µHz
-    assert float(q(awg, ":FUNC:PULS:PER? DEF")) == pytest.approx(1e-3)  # 1 kHz
-    # #503: a zero or negative period is -222, not the 1/period blowing up as an internal error.
-    w(awg, ":FUNC:PULS:PER 0")
-    assert q(awg, ":SYST:ERR?").startswith("-222,")
-    w(awg, ":FUNC:PULS:PER -1")
-    assert q(awg, ":SYST:ERR?").startswith("-222,")
-    assert float(q(awg, ":FUNC:PULS:PER?")) == pytest.approx(1e-3)  # neither write landed
-    # #510: a zero width or edge time is -222 as well, and the setting stays.
-    width, edge = q(awg, ":FUNC:PULS:WIDT?"), q(awg, ":FUNC:PULS:TRAN?")
-    w(awg, ":FUNC:PULS:WIDT 0")
-    assert q(awg, ":SYST:ERR?").startswith("-222,")
-    w(awg, ":FUNC:PULS:TRAN 0")
-    assert q(awg, ":SYST:ERR?").startswith("-222,")
-    assert q(awg, ":FUNC:PULS:WIDT?") == width
-    assert q(awg, ":FUNC:PULS:TRAN?") == edge
-    w(awg, ":FUNC:PULS:PER MIN")
-    assert float(q(awg, ":FREQ?")) == pytest.approx(1e8)
-    w(awg, ":FUNC:PULS:PER DEF")
-    assert float(q(awg, ":FREQ?")) == pytest.approx(1e3)
-    assert float(q(awg, ":FUNC:PULS:TRAN? MIN")) == pytest.approx(2.9e-9)
-    assert float(q(awg, ":FUNC:PULS:TRAN? MAX")) == pytest.approx(1e-6)
-    w(awg, ":FUNC:PULS:TRAN MIN")
-    assert float(q(awg, ":FUNC:PULS:TRAN:LEAD?")) == pytest.approx(2.9e-9)
-    assert float(q(awg, ":FUNC:PULS:TRAN:TRA?")) == pytest.approx(2.9e-9)
-    w(awg, ":FUNC:PULS:WIDT DEF")
-    assert float(q(awg, ":FUNC:PULS:DCYC?")) == pytest.approx(10.0)
-    w(awg, ":FREQ 2e5")
-    assert float(q(awg, ":FUNC:PULS:WIDT? MIN")) == pytest.approx(
-        5e-9
-    )  # 0.01 % would be 0.5 ns: the floor wins
-    w(awg, ":FUNC:PULS:WIDT 2")
-    assert q(awg, ":SYST:ERR?").startswith("-222,")  # past the duty range at this frequency
-    w(awg, ":FUNC:PULS:WIDT abc")
-    assert q(awg, ":SYST:ERR?").startswith("-104,")

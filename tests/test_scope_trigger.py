@@ -108,10 +108,14 @@ def test_noise_reject_stops_false_triggers_on_a_noisy_slow_edge():
     assert noisy_retriggers(True) == pytest.approx(1e-3, rel=0.05)  # the next period's edge
 
 
-def test_coupling_filters_reach_the_trigger_only():
+def test_the_trigger_source_flow():
+    """What the trigger fires on: the coupling filters reach the trigger path only, the LINE
+    source fires on the mains and EXternal is its own kind, and the holdoff skips the edges
+    within it."""
     s = open_bench(CONTRACT)
     try:
         trig = s.instruments["scope"].components["trigger"]
+        # -- the coupling filters reach the trigger only (was test_coupling_filters_reach_the_trigger_only)
         s.set_parameter(
             "scope", "trigger", "filters", {"AC": [["highpass", 8.0]], "HFREJect": [["lowpass", 500e3]]}
         )
@@ -127,28 +131,16 @@ def test_coupling_filters_reach_the_trigger_only():
         s.set_parameter("scope", "trigger", "coupling", "HFREJect")
         s.set_parameter("scope", "trigger", "level", 0.5)
         assert trig.search(fast, 0, 1e-9, 10, 1000, None, 0.5) is None  # 5 MHz attenuated tenfold
-    finally:
-        s.close()
-
-
-def test_line_and_external_sources():
-    s = open_bench(CONTRACT)
-    try:
-        trig = s.instruments["scope"].components["trigger"]
+        # -- line and external sources (was test_line_and_external_sources; the LINE search is the
+        # mains' own timing, the level and the coupling filters do not touch it)
         s.set_parameter("scope", "trigger", "source", "LINE")
         hit = trig.search(Signal.zero(), 0, 1e-5, 10, 1000, None, 0.5)
         assert hit.t_s == pytest.approx(0.02)  # the next 50 Hz zero crossing after the pre-trigger
         s.set_parameter("scope", "trigger", "source", "EX")
         s.set_parameter("scope", "trigger", "level", 0.2)
         assert trig.source_kind() == "external"
-    finally:
-        s.close()
-
-
-def test_holdoff_skips_edges_within_it():
-    s = open_bench(CONTRACT)
-    try:
-        trig = s.instruments["scope"].components["trigger"]
+        # -- the holdoff skips edges within it (was test_holdoff_skips_edges_within_it)
+        s.set_parameter("scope", "trigger", "coupling", "DC")  # bridge: the filters act left HFREJect
         sig = sine(1000.0, 1.0)
         s.set_parameter("scope", "trigger", "source", "C1")
         s.set_parameter("scope", "trigger", "level", 0.0)

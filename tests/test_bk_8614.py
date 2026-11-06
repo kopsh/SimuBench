@@ -7,14 +7,11 @@ for the delay, then the protection shuts it down and PS is set), an overload tha
 delay, and the CC slew at the manual's slow rate.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,16 +19,7 @@ BENCH = ROOT / "examples" / "benches" / "bk-8614.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "bk_8614_load_test.py"
 PS = 1 << 13
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("bk_8614_load_test", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def session():
@@ -47,21 +35,11 @@ def settle(s) -> None:
 
 
 def q(s, command: str) -> str | None:
-    s.write("load", (command + "\n").encode())
-    out = s.read("load")
-    return out.decode().strip() if out else None
+    return session_query(s, "load", command)
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["bk_8614_load_test.py", "load", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["load"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "B&K PRECISION, 8614, 601400010000000001, 1.32-1.37"
     assert out[4] == " 20.00 A set:  46.0000 V,  20.0000 A,   920.000 W"
     assert out[5] == '0,"No Error"'

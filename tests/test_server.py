@@ -26,19 +26,10 @@ def client():
 
 
 def test_host_check():
+    """The pure function behind the host guard; the HTTP behaviour is test_security.py's
+    (every route's token, foreign host/origin, escaping bench paths — #700 deduplicated them)."""
     assert _host_ok("127.0.0.1:8765") and _host_ok("localhost") and _host_ok("http://localhost:5173")
     assert not _host_ok("evil.example:8765") and not _host_ok("http://evil.example")
-
-
-def test_token_required(client):
-    assert client.get("/api/health").status_code == 200
-    r = client.get("/api/benches", headers={"x-simubench-token": "wrong"})
-    assert r.status_code == 401
-
-
-def test_rebinding_host_rejected(client):
-    r = client.get("/api/health", headers={"host": "attacker.example"})
-    assert r.status_code == 403
 
 
 def test_session_lifecycle_and_scpi(client):
@@ -70,9 +61,10 @@ def test_session_lifecycle_and_scpi(client):
     assert client.get(f"/api/sessions/{sid}").status_code == 404
 
 
-def test_bench_path_cannot_escape_workspace(client):
-    r = client.post("/api/sessions", json={"bench_path": "../pyproject.toml"})
-    assert r.status_code == 403
+def test_stop_unknown_session_is_404(client):
+    """manager.stop returns silently for an unknown id, but the route answers 404 as before
+    (moved here from test_remote_state.py, #700: a general endpoint behaviour, not remote-state)."""
+    assert client.delete("/api/sessions/unknown").status_code == 404
 
 
 def test_event_stream(client):

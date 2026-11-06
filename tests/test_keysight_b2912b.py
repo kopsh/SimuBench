@@ -6,27 +6,18 @@ the real-instrument script examples/scripts/keysight_b2912b_two_channel_iv.py on
 then check what a transcript cannot see: each channel compliance limits only its own circuit.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import pytest
 import pyvisa
 
+from helpers import load_script
+
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-b2912b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_b2912b_two_channel_iv.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("keysight_b2912b_two_channel_iv", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-iv = _script()
+iv = load_script(SCRIPT)
 
 
 @pytest.fixture

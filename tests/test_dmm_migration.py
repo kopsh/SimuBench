@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import record_rows, require_gold, warm_up
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -179,24 +180,14 @@ def ac_bench() -> BenchDefinition:
 
 
 def run_sequence(session, sequence: list[tuple[str, str]]) -> list[tuple[str, str, str | None, int]]:
-    out = []
-    for instrument, cmd in sequence:
-        before = session.now_ns
-        session.write(instrument, (cmd + "\n").encode())
-        reply = session.read(instrument)
-        text = reply.decode().rstrip("\n") if reply is not None else None
-        out.append((instrument, cmd, text, session.now_ns - before))
-    return out
+    return record_rows(session, sequence)
 
 
 def _open(bench: BenchDefinition):
     session = open_bench(bench, definition_dirs=[DEFS])
     # Warm up: the first command of a freshly loaded definition bills its lazy loading to the
     # wall clock, which would make the recorded times depend on the machine (D47).
-    for instrument in ("dut", "src", "awg"):
-        if instrument in session.instruments:
-            session.write(instrument, b"*IDN?\n")
-            session.read(instrument)
+    warm_up(session, "dut", "src", "awg")
     return session
 
 
@@ -210,8 +201,4 @@ def test_replies_and_virtual_time_are_unchanged(bench, sequence, expected, name)
         got = run_sequence(session, sequence)
     finally:
         session.close()
-    if not expected:
-        for row in got:
-            print(repr(row))
-        pytest.fail(f"EXPECTED_{name.upper()} is empty: paste the output above")
-    assert got == expected
+    require_gold(got, expected, f"EXPECTED_{name.upper()}")

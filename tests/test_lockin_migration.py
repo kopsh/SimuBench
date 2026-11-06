@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import run_gold_step, warm_up
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,24 +37,15 @@ def test_the_gold_standard_is_reproduced(name: str):
     try:
         # Warm up: the first command of a freshly loaded definition bills its lazy loading to the
         # wall clock (D47); that timing is not part of the amplifier's behaviour.
-        session.write("lia", b"*IDN?\n")
-        assert session.read("lia") is not None
+        assert warm_up(session, "lia")[0] is not None
         for i, step in enumerate(bench["steps"]):
-            if "advance_s" in step:
-                session.advance(step["advance_s"])
-                continue
-            before = session.now_ns
-            session.write(step["instrument"], (step["cmd"] + "\n").encode())
-            reply = session.read(step["instrument"])
-            text = reply.decode().rstrip("\n") if reply is not None else None
-            assert text == step.get("reply"), f"step {i}: {step['cmd']} replied {text!r}"
+            _, text = run_gold_step(session, i, step)
             if step.get("floats"):
                 actual = [float(v) for v in (text or "").split(",")]
                 expected = [float(v) for v in step["reply"].split(",")]
                 assert len(actual) == len(expected), f"step {i}: {step['cmd']} count"
                 for a, e in zip(actual, expected, strict=True):
                     assert a == pytest.approx(e, rel=1e-9, abs=1e-15), f"step {i}: {step['cmd']}"
-            assert session.now_ns - before == step["ns"], f"step {i}: {step['cmd']} took time"
     finally:
         session.close()
 

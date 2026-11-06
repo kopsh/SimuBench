@@ -1515,4 +1515,3 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节）；新增 `E-DEF-OFFSET-CONVENTION` 校验（ADC 量化且传输发码值时两处约定须一致；顺带验证全库定义无冲突），`tests/test_validate_definition.py` 新增一条 |
 | RfModulator 载波低于调制率时边带折叠有测试 | ✅ `tests/test_rf_modulator.py::test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes`（时域波形等于 cos(2πf0t − β·cos(2πRt))）、`test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line` |
-| 校验发现的缺陷 | ✅ `E-DEF-OFFSET-CONVENTION` 在全库定义上只命中示波器模板：ADC 为 add 时模板没给传输写 `offset`，传输按自己的默认取 subtract；模板现在总把 ADC 的约定写给传输（`templates/oscilloscope.py`），传输预览的 `y_origin` 不再出负零 |
