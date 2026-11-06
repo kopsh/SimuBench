@@ -1727,7 +1727,8 @@ class ScopeMeasurements(Component):
         "min_cycles": 1,  # complete cycles a period needs
         "hysteresis_floor_divs": 0.16,  # the counter's band never drops below this fraction of a
         # division of the record's scale (#745): noise alone counts no crossings, so a flat trace
-        # of noise measures as nothing, like the real counter's screen-referenced band
+        # of noise measures as nothing, like the real counter's screen-referenced band — an
+        # assumed value, no manual states a counter's minimum amplitude (#781); 0 turns it off
         "clipped": "measure",  # measure | invalid: a record at the ADC's limits
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
