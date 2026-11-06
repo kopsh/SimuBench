@@ -663,7 +663,7 @@ def build_server(
             "bench": info.bench_name,
             "bench_path": rel,
             "clock": info.clock_mode,
-            "now_s": info.now_ns / 1e9,
+            "now_ns": info.now_ns,
             "instruments": [
                 {
                     "name": i.name,
@@ -772,7 +772,8 @@ def build_server(
         confirm: bool = Field(False, description="Required for commands marked dangerous"),
     ) -> dict[str, Any]:
         """Send SCPI to an instrument of the session and return its response and any new errors
-        from the error queue. Logged as client 'mcp'."""
+        from the error queue, as of virtual time ``now_ns`` (nanoseconds, the unit every
+        SimuBench tool reports). Logged as client 'mcp'."""
         guard()
         s = served(session_id)
         try:
@@ -843,7 +844,9 @@ def build_server(
         ),
     ) -> dict[str, Any]:
         """Advance the session's virtual clock (simulation control; needs --allow-control).
-        Refused while scripts are connected to the ports, unless force=true."""
+        Returns ``now_ns``, the virtual time after the advance in nanoseconds — the unit every
+        SimuBench tool reports. Refused while scripts are connected to the ports, unless
+        force=true."""
         guard()
         control()
         s = served(session_id)
@@ -851,7 +854,7 @@ def build_server(
             s.session.advance(seconds, force=force)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
-        return {"now_s": s.session.now_ns / 1e9}
+        return {"now_ns": s.session.now_ns}
 
     @mcp.tool()
     def inject_fault(fault: Fault, session_id: str | None = None) -> dict[str, Any]:
