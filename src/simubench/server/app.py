@@ -743,7 +743,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         port = next(
             (lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None
         )
-        info = manager.describe_instrument(s.session, inst, index, port)
+        info = manager.describe_instrument(
+            s.session,
+            inst,
+            index,
+            port,
+            s.hislip.addresses().get(name) if s.hislip else None,
+            s.vxi11.addresses().get(name) if s.vxi11 else None,
+        )
         info.remote, info.local = s.remote_clients(name), name in s.local
         return info
 

@@ -254,6 +254,7 @@ TERMS: dict = {
         "errors": "Errors",
         "lastError": "Errors {count} · last {code} {message}",
         "hiSLIP": "HiSLIP",
+        "vxi11": "VXI-11",
         "real": "Real",
         "wiring": "Wiring",
         "load": "Load",
