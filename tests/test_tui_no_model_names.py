@@ -38,6 +38,13 @@ def model_names() -> set[str]:
     return names
 
 
+#: Collected at import time (collection, not the 100 ms call phase, D49): reading ~40 definition
+#: heads and ~40 source files is the test's whole cost otherwise, and under xdist load it grazed
+#: the budget (#651). The call only scans memory.
+MODEL_NAMES = model_names()
+TUI_FILES = sorted(TUI.rglob("*.py"))
+
+
 def find_hits(names: set[str], files: list[Path]) -> list[str]:
     """``file:line  name`` for every line that holds a name, case-insensitively. A substring test
     over each file's lowered text first (fast), the line scan only for the files that hit."""
@@ -57,9 +64,8 @@ def find_hits(names: set[str], files: list[Path]) -> list[str]:
 
 @pytest.mark.unit
 def test_the_tui_source_names_no_instrument_model():
-    names = model_names()
-    assert len(names) > 20, "the definitions were not found: the guard would pass on nothing"
-    hits = find_hits(names, sorted(TUI.rglob("*.py")))
+    assert len(MODEL_NAMES) > 20, "the definitions were not found: the guard would pass on nothing"
+    hits = find_hits(MODEL_NAMES, TUI_FILES)
     assert not hits, "the TUI must not name a model (D42):\n" + "\n".join(hits)
 
 
