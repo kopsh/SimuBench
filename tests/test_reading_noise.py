@@ -41,7 +41,10 @@ def open_noisy(
             },
         },
         "wires": [{"from": "src.HI", "to": "dmm.IN"}],
-        "run": {"clock": "command", "seed": seed},
+        # idle off: a MEAS? costs no virtual time, so on the default idle='wall' the clock would
+        # move by real gaps between commands (D47) — cold imports land in the first write and the
+        # two sessions' now_ns stop matching when the file runs alone (#754).
+        "run": {"clock": "command", "seed": seed, "idle": "off"},
     }
     return open_bench(BenchDefinition.model_validate(spec), definition_dirs=[definition_dir(tmp_path, noise)])
 
