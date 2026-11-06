@@ -290,3 +290,16 @@ def test_a_nested_mapping_is_checked_against_the_inner_settings_words():
     synth = next(c for c in bad["components"] if c["name"] == "synth")
     synth["params"]["step_by"]["map"]["SWEep"]["map"]["STEP"] = "STAIRS"
     assert ("E-DEF-PARAM-VALUE", "/components/1/params/step_by") in codes(bad)
+
+
+def test_a_quantizing_adc_and_its_transfer_must_share_the_offset_convention():
+    """scope_adc.offset_sign and waveform_transfer.offset are declared twice; a mismatch is an
+    error (issue 667), however the second one came to differ — here the transfer's is flipped."""
+    path = ROOT / "src" / "simubench" / "library" / "instruments" / "siglent-sds2104xplus.yaml"
+    data = load_yaml(path.read_text(encoding="utf-8"))
+    assert codes(data) == []
+    xfer = next(c for c in data["components"] if c["type"] == "waveform_transfer")
+    xfer["params"]["offset"] = "subtract"  # the ADC says add
+    assert [c for c in codes(data) if c[0] == "E-DEF-OFFSET-CONVENTION"] == [
+        ("E-DEF-OFFSET-CONVENTION", f"/components/{data['components'].index(xfer)}/params/offset")
+    ]

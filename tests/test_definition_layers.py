@@ -153,3 +153,78 @@ def test_single_file_classes_keep_their_own_tables():
     d = lib.get("fluke-8588a")  # its own wording beats the class default
     assert d.errors[-200] == "Execution Error"
     assert lib.get("keysight-34465a").errors[-350] == "Queue overflow"  # agrees with the table
+
+
+# ---- ``key: null`` drops an inherited key (D59, #644) -------------------------------------------------
+
+
+def test_null_drops_an_inherited_dict_key_and_a_single_errors_code(tmp_path, lib):
+    write(
+        tmp_path,
+        "base",
+        errors={-999: "device code", -998: "other"},
+        state={"a": {"type": "bool"}, "b": {"type": "bool"}},
+    )
+    write(tmp_path, "derived", extends="base", errors={-999: None}, state={"a": None})
+    d = lib.get("derived")
+    assert -999 not in d.errors and d.errors[-998] == "other"  # one code gone, its neighbour stays
+    assert set(d.state) == {"b"}
+
+
+def test_null_beats_a_list_the_parent_replaced_and_drops_it_whole(tmp_path, lib):
+    write(tmp_path, "base", capabilities=["smu"])
+    write(tmp_path, "derived", extends="base", capabilities=None)
+    assert lib.get("derived").capabilities == []  # the list is dropped, not merged
+    assert lib.get("base").capabilities == ["smu"]
+
+
+def test_null_survives_the_chain_and_the_class_default(tmp_path, lib):
+    write(tmp_path, "grand", errors={-998: "grand"})
+    write(tmp_path, "mid", extends="grand")
+    write(tmp_path, "leaf", extends="mid", errors={-998: None, -222: None})
+    d = lib.get("leaf")
+    assert -998 not in d.errors  # a lower layer cannot bring it back
+    assert -222 not in d.errors  # nor can the class default
+    assert d.errors[-113] == "Undefined header"
+
+
+def test_null_without_anything_inherited_is_just_absent(tmp_path, lib):
+    write(tmp_path, "base")
+    write(tmp_path, "derived", extends="base", errors={-777: None})
+    assert -777 not in lib.get("derived").errors
+
+
+def test_the_nearest_parent_beats_the_grandparent(tmp_path, lib):
+    write(tmp_path, "grand", errors={-998: "grand wording"})
+    write(tmp_path, "mid", extends="grand", errors={-998: "mid wording"})
+    write(tmp_path, "leaf", extends="mid")
+    assert lib.get("leaf").errors[-998] == "mid wording"
+
+
+def test_b2912b_extends_b2901a_without_its_single_channel_state_and_ports():
+    lib = DefinitionLibrary()
+    single, dual = lib.get("keysight-b2901a"), lib.get("keysight-b2912b")
+    assert dual.extends == "keysight-b2901a"
+    # the single channel's instrument-level state and ports do not leak into the dual one
+    assert {"output.enabled", "source.function", "sweep.mode", "trigger.source"} <= set(single.state)
+    assert not any(
+        k.split(".")[0] in {"output", "source", "sense", "sweep", "trigger", "compliance"} for k in dual.state
+    )
+    assert "output.enabled" in dual.channel_state
+    assert not dual.ports.instrument and set(dual.ports.channel) == {
+        "HI{n}",
+        "LO{n}",
+        "SENSE_HI{n}",
+        "SENSE_LO{n}",
+    }
+    assert dual.components == [] and dual.display.summary[0] == "ch1.source.function"
+    assert dual.state["display.view"].default == "DUAL"  # its own default beats the parent's
+
+
+def test_daq970a_and_53230a_do_not_keep_the_parents_device_rows():
+    lib = DefinitionLibrary()
+    daq = lib.get("keysight-daq970a")
+    assert not {111, 112, 113, 201, 301, 303} & set(daq.errors)  # 34970A device codes
+    assert lib.get("keysight-34970a").errors.get(111)
+    counter = lib.get("keysight-53230a")
+    assert "53220A" not in counter.specs["gate_time_s"] and "resolution_digits_53220a" not in counter.specs

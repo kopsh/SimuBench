@@ -24,7 +24,8 @@ identity:
   firmware: "3.00"
 specs:
   source: 53220A/53230A User's Guide（53220-90001，Edition 3，September 1, 2017）
-  gate_time_s: {53230A: [1.0e-6, 1000.0]}
+  gate_time_s: {53230A: [1.0e-6, 1000.0], 53220A: null}
+  resolution_digits_53220a: null  # 53220A 的行不带进 53230A
   single_shot_resolution_s: 2.0e-11
   resolution_digits_53230a:
     auto_continuous: {"1us": 4.7, "10us": 5.7, "100us": 6.7, "1ms": 7.7, "10ms": "up to 10", "100ms": "up to 11", "1s": "up to 12", "10s": "up to 13", "100s": "up to 14", "1000s": "up to 15"}
