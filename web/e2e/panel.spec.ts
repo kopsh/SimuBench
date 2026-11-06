@@ -180,3 +180,32 @@ test("the stepper is unavailable while covered, read-only, or disconnected (#742
   await expect(page.getByText("找不到该会话，可能已关闭。")).toBeVisible({ timeout: 10_000 });
   await expect(range).toHaveCount(0);
 });
+
+test("Escape leaves a field's draft unwritten (#758)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", { headers, data: { bench_path: "benches/panel.bench.yaml" } });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  await page.locator(".react-flow__node").filter({ hasText: "面板万用表" }).click();
+  const range = page.getByRole("textbox", { name: "量程", exact: true });
+  await page.getByRole("switch", { name: "自动量程" }).click();
+  await expect(range).toHaveValue("0 V");
+  await range.fill("1");
+  await range.press("Enter");
+  const value = () =>
+    page.request
+      .get(`/api/sessions/${sid}/instruments/dmm`, { headers })
+      .then((r) => r.json())
+      .then(
+        (d) =>
+          ((d as { state: { path: string; value: unknown }[] }).state.find((v) => v.path === "sense.range") as { value: number }).value,
+      );
+  await expect.poll(value).toBe(1.0);
+  // type a draft and cancel it with Escape: nothing reaches the instrument
+  await range.focus();
+  await range.fill("55");
+  await range.press("Escape");
+  await expect(range).toHaveValue("1 V");
+  await page.waitForTimeout(400);
+  expect(await value()).toBe(1.0);
+});
