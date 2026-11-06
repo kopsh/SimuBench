@@ -1,4 +1,5 @@
 import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
+import { panelActionLabel } from "@/lib/enums";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { T } from "@/i18n";
@@ -184,7 +185,7 @@ function EventRow({ e }: { e: Event }) {
   const { t } = useTranslation();
   const text =
     e.kind === "panel"
-      ? `${e.instrument} ${t("panel.frontPanel")}: ${t(`scope.${(e.action ?? "run") as "run" | "stop" | "single"}`)}  (${e.source ?? ""})`
+      ? `${e.instrument} ${t("panel.frontPanel")}: ${panelActionLabel(e.action ?? "run", t)}  (${e.source ?? ""})`
       : e.kind === "remote"
       ? `${e.instrument} ${t(e.action === "local" ? "remote.eventLocal" : "remote.eventRemote")}  (${e.source ?? ""})`
       : e.kind === "fault"

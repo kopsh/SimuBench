@@ -1,11 +1,12 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react";
-import { Activity, AlertTriangle, AudioWaveform, BarChart3, BatteryCharging, Cpu, Crosshair, Gauge, Radio, SquareFunction, Waves, Zap } from "lucide-react";
+import { AlertTriangle, Zap } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, NetLevel, StateVarInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { cn } from "@/lib/utils";
 import { formatValue, instrumentTitle, labelOf, stateMap, varName } from "../model";
+import { ClassIcon } from "../classes";
 import { useWorkbench } from "../store";
 
 export type Issue = "error" | "warning";
@@ -21,18 +22,6 @@ export type InstrumentNodeData = {
 };
 export type InstrumentNodeType = Node<InstrumentNodeData, "instrument">;
 
-export const CLASS_ICON: Record<string, typeof Activity> = {
-  oscilloscope: Activity,
-  function_generator: AudioWaveform,
-  multimeter: Gauge,
-  lockin: Crosshair,
-  spectrum_analyzer: BarChart3,
-  rf_generator: Radio,
-  smu: SquareFunction,
-  electronic_load: BatteryCharging,
-  source: Waves,
-};
-
 /**
  * An instrument drawn from its definition alone (D1): the class template picks the summary rows,
  * every other instrument gets the generic layout. No model-specific code.
@@ -40,7 +29,6 @@ export const CLASS_ICON: Record<string, typeof Activity> = {
 function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
   const { t } = useTranslation();
   const { inst, editable, issue, fault, levels, activity } = data;
-  const Icon = CLASS_ICON[inst.instrument_class] ?? Cpu;
   const vars = stateMap(inst);
   const chanKeys = inst.display.channel_summary.length ? inst.display.channel_summary : [];
   const globalKeys = inst.display.summary;
@@ -64,7 +52,7 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
     >
       {!!activity && <div key={activity} className="node-activity pointer-events-none absolute inset-0 rounded-lg" data-testid="node-activity" aria-hidden />}
       <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Icon className="text-muted-foreground size-4 shrink-0" />
+        <ClassIcon cls={inst.instrument_class} className="text-muted-foreground size-4 shrink-0" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] leading-tight font-medium" title={instrumentTitle(inst)}>
             {instrumentTitle(inst)}
