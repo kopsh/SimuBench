@@ -1,5 +1,5 @@
-import { AlertCircle } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { displayUnit, engParts, parseEngineering } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { hasLabel, labelOf, numeric, optionLabel, shortForm } from "./model";
+import { hasLabel, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
 
 interface Props {
   sid: string;
@@ -200,6 +200,52 @@ function NumberInput({
       : `${parts.mantissa} ${parts.prefix}${unit}`.trim();
   const text = draft ?? (inactive ? t("workbench.auto") : rest);
 
+  // Stepping (#738): a rung up or down, written at once like a typed value. A burst of steps (a held
+  // key, a spinning wheel) builds on the last one asked for, until the live value catches up.
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [asked, setAsked] = useState<{ at: number; to: number } | null>(null);
+  const pending = asked && asked.at === n ? asked.to : null; // forgotten once the live value changes
+  useEffect(() => {
+    // ...or after a second, when the instrument refused the step and the value never changed.
+    if (!asked) return;
+    const id = setTimeout(() => setAsked(null), 1000);
+    return () => clearTimeout(id);
+  }, [asked]);
+  const canStep = !disabled && !inactive;
+  const step = (dir: 1 | -1, coarse = false) => {
+    if (!canStep) return;
+    let from = pending ?? n;
+    if (draft !== null && draft.trim() !== rest) {
+      // Something typed and not yet entered: step from that.
+      const typed = draft.trim();
+      const parsed = parseEngineering(unit && typed.endsWith(unit) ? typed.slice(0, -unit.length) : typed);
+      if (parsed !== null && Number.isFinite(parsed)) from = parsed;
+    }
+    const next = stepNumber(v, from, dir, coarse);
+    if (next === null) return;
+    setAsked({ at: n, to: next });
+    setDraft(null);
+    onCommit(next);
+  };
+  const stepRef = useRef(step);
+  useEffect(() => {
+    stepRef.current = step;
+  });
+  useEffect(() => {
+    // The wheel steps only the focused field, so the panel still scrolls under the pointer. React's
+    // own wheel handler is passive and cannot stop the scroll.
+    const el = inputRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (document.activeElement !== el || !e.deltaY) return;
+      e.preventDefault();
+      stepRef.current(e.deltaY < 0 ? 1 : -1, e.shiftKey);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  const cannot = (dir: 1 | -1) => !canStep || stepNumber(v, pending ?? n, dir) === null;
+
   const submit = () => {
     if (draft === null) return;
     setDraft(null);
@@ -217,8 +263,9 @@ function NumberInput({
   };
 
   return (
-    <div className="relative flex w-full min-w-28 items-center">
+    <div className="group/num relative flex w-full min-w-28 items-center">
       <Input
+        ref={inputRef}
         value={text}
         disabled={disabled}
         // Focusing does not change the text, so selecting it and typing replaces it cleanly.
@@ -226,15 +273,42 @@ function NumberInput({
         onChange={(e) => setDraft(e.target.value)}
         onBlur={submit}
         onKeyDown={(e) => {
+          if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+            e.preventDefault();
+            step(e.key === "ArrowUp" ? 1 : -1, e.shiftKey);
+          }
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           if (e.key === "Escape") {
             setDraft(null);
             (e.target as HTMLInputElement).blur();
           }
         }}
-        className="num h-7 text-right text-xs"
+        className="num h-7 pr-6 text-right text-xs"
         aria-label={labelOf(v)}
       />
+      {canStep && Number.isFinite(n) && (
+        // The pair of arrows shows on hover and focus; the keyboard has ↑ / ↓ (Shift: ten times).
+        <div className="absolute inset-y-px right-px flex w-5 flex-col opacity-0 transition-opacity group-focus-within/num:opacity-100 group-hover/num:opacity-100">
+          {([1, -1] as const).map((dir) => {
+            const Icon = dir === 1 ? ChevronUp : ChevronDown;
+            return (
+              <button
+                key={dir}
+                type="button"
+                tabIndex={-1}
+                disabled={cannot(dir)}
+                aria-label={t(dir === 1 ? "workbench.stepUp" : "workbench.stepDown", { label: labelOf(v) })}
+                // Keep the field's focus (and its draft) while the arrow is pressed.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={(e) => step(dir, e.shiftKey)}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground flex flex-1 items-center justify-center rounded-sm disabled:opacity-30 disabled:hover:bg-transparent"
+              >
+                <Icon className="size-3" />
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

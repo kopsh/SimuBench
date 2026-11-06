@@ -120,6 +120,8 @@ export const zh = {
     channel: "通道",
     channels: "通道",
     channelN: "CH{{n}}",
+    stepUp: "增大 {{label}}",
+    stepDown: "减小 {{label}}",
     output: "输出",
     errors: "错误",
     errorsQueued_one: "{{count}} 个错误待读取",

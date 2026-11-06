@@ -123,6 +123,8 @@ export const en: Widen<Messages> = {
     channel: "Channel",
     channels: "Channels",
     channelN: "CH{{n}}",
+    stepUp: "Increase {{label}}",
+    stepDown: "Decrease {{label}}",
     output: "Output",
     errors: "Errors",
     errorsQueued_one: "{{count}} error queued",

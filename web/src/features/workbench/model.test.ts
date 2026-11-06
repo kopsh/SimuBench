@@ -4,7 +4,7 @@ import type { InstrumentInfo } from "@/api/client";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, globalVars, groupOpen, hasLabel, OTHER, optionLabel, slotRows, splitSettings } from "./model";
+import { accessoryLabel, channelVars, globalVars, groupOpen, hasLabel, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -122,4 +122,75 @@ describe("inspector settings of real definitions (#728)", () => {
       });
     }
   }
+});
+
+describe("stepping a number (#738)", () => {
+  const spec = (type: "float" | "int", extra: Record<string, unknown> = {}) => ({ type, min: null, max: null, ladder: null, ...extra }) as never;
+
+  it("moves along a 1-2-5 ladder, up and down, across a decade", () => {
+    const l = spec("float", { ladder: "1-2-5" });
+    expect(stepNumber(l, 0.05, 1)).toBe(0.1);
+    expect(stepNumber(l, 0.1, 1)).toBe(0.2);
+    expect(stepNumber(l, 0.2, 1)).toBe(0.5);
+    expect(stepNumber(l, 0.5, 1)).toBe(1);
+    expect(stepNumber(l, 1, -1)).toBe(0.5);
+    expect(stepNumber(l, 0.1, -1)).toBe(0.05);
+    expect(stepNumber(l, 2e-6, -1)).toBe(1e-6);
+    expect(stepNumber(l, 1e-6, -1)).toBe(5e-7);
+  });
+
+  it("moves along a 1-3 ladder and through an explicit list, and stops at its ends", () => {
+    expect(stepNumber(spec("float", { ladder: "1-3" }), 0.3, 1)).toBe(1);
+    expect(stepNumber(spec("float", { ladder: "1-3" }), 1, -1)).toBe(0.3);
+    const list = spec("float", { ladder: [10, 20, 50, 100] });
+    expect(stepNumber(list, 20, 1)).toBe(50);
+    expect(stepNumber(list, 20, -1)).toBe(10);
+    expect(stepNumber(list, 100, 1)).toBeNull();
+    expect(stepNumber(list, 10, -1)).toBeNull();
+    expect(stepNumber(list, 30, 1)).toBe(50); // between two rungs: the next one
+  });
+
+  it("moves a ladder's decade at a time when coarse", () => {
+    expect(stepNumber(spec("float", { ladder: "1-2-5" }), 0.1, 1, true)).toBe(1);
+    expect(stepNumber(spec("float", { ladder: "1-2-5" }), 1, -1, true)).toBe(0.1);
+  });
+
+  it("steps an integer by one and a continuous value by a tenth of its decade", () => {
+    expect(stepNumber(spec("int"), 8, 1)).toBe(9);
+    expect(stepNumber(spec("int"), 8, -1, true)).toBe(-2);
+    expect(stepNumber(spec("float"), 1500, 1)).toBe(1600);
+    expect(stepNumber(spec("float"), 1500, -1)).toBe(1400);
+    expect(stepNumber(spec("float"), 0.5, 1)).toBe(0.51);
+    expect(stepNumber(spec("float"), 1500, 1, true)).toBe(2500);
+  });
+
+  it("steps down from a power of ten into the decade below", () => {
+    expect(stepNumber(spec("float"), 1000, -1)).toBe(990);
+    expect(stepNumber(spec("float"), 1000, 1)).toBe(1100);
+  });
+
+  it("handles zero and negative values", () => {
+    expect(stepNumber(spec("float", { min: -1, max: 1 }), 0, 1)).toBe(0.02);
+    expect(stepNumber(spec("float"), 0, 1)).toBe(1);
+    expect(stepNumber(spec("float"), -1500, 1)).toBe(-1400);
+    expect(stepNumber(spec("float"), -1500, -1)).toBe(-1600);
+  });
+
+  it("stays inside the setting's range and says so at the limit", () => {
+    const r = spec("float", { min: 0, max: 10 });
+    expect(stepNumber(r, 9.99, 1)).toBe(10);
+    expect(stepNumber(r, 10, 1)).toBeNull();
+    expect(stepNumber(r, 0, -1)).toBeNull();
+    expect(stepNumber(spec("int", { min: 1, max: 4 }), 4, 1)).toBeNull();
+  });
+
+  it("does not step what is not a finite number", () => {
+    expect(stepNumber(spec("float"), Infinity, -1)).toBeNull();
+    expect(stepNumber(spec("float"), Number.NaN, 1)).toBeNull();
+  });
+
+  it("does not leave floating-point dust behind", () => {
+    expect(stepNumber(spec("float"), 0.3, 1)).toBe(0.31);
+    expect(stepNumber(spec("float"), 0.7, 1)).toBe(0.71);
+  });
 });
