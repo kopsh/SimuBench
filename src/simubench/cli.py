@@ -519,6 +519,7 @@ def main(argv: list[str] | None = None) -> int:
     add_service_options(p, logs=False, token="present")
     p.add_argument("--script", metavar="STEPS_YAML", help="run these steps headlessly and exit (6)")
     p.add_argument("--out", metavar="DIR", default="tui-shots", help="where the SVGs go (default: tui-shots)")
+    p.add_argument("--size", metavar="COLSxROWS", help="override the steps file's size, e.g. 100x34 (issue 684)")
     p.add_argument("--record", action="store_true", help="also write per-frame SVGs and a .cast (6)")
     p.set_defaults(fn=_tui)
 
