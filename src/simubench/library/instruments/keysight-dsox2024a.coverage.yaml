@@ -204,7 +204,7 @@ sections:
     note: 'eight divisions of :SCALe; 8 mV to 40 V at 1:1'
   - header: :CHANnel<ch>:SCALe
     level: implemented
-    note: '1 mV/div to 5 V/div at the input (data sheet); out of range it takes the nearest legal value (as the offset; the guide does not say); reply digits like :RANGe''s sample'
+    note: '1 mV/div to 5 V/div at the input (data sheet); out of range it takes the nearest legal value (as the offset; the guide does not say); reply digits like :RANGe''s sample. Records carry the range''s input noise (specs.noise_per_division: estimated, the data sheet gives no rms-noise figure, D46/#745; the trace is never a dead line)'
   - header: :CHANnel<ch>:UNITs
     level: not_modeled
   - header: :CHANnel<ch>:VERNier

@@ -408,15 +408,16 @@ cases:
     manual: ":MEASure Commands > :MEASure:VPP; :VMAX; :VMIN; :VAMPlitude; :VTOP; :VBASe"
     steps:
       - send: ":CHANnel1:SCALe 0.1"
+      # 峰峰含 0.1 V/div 档的噪声峰峰(specs.noise_per_division,#745)
       - query: ":MEASure:VPP? CHANnel1"
         expect_value: 0.4
-        tolerance: 0.02
+        tolerance: 0.04
       - query: ":MEASure:VMAX? CHANnel1"
         expect_value: 0.2
-        tolerance: 0.01
+        tolerance: 0.03
       - query: ":MEASure:VMIN? CHANnel1"
         expect_value: -0.2
-        tolerance: 0.01
+        tolerance: 0.03
       - query: ":MEASure:VAMPlitude? CHANnel1"
         expect_value: 0.4
         tolerance: 0.03
@@ -452,14 +453,16 @@ cases:
         instrument: awg
       - send: ":CHANnel1:SCALe 0.1;:ACQuire:BANDwidth 1E8"
       - query: ":MEASure:VPP? CHANnel1"
+        # 滤波截断后的记录带这一档自己的噪声(specs.noise_per_division,#745)
         expect_value: 0.0
-        tolerance: 0.002
+        tolerance: 0.05
       - send: ":ACQuire:RESPonse GAUSsianmag"
       - query: ":ACQuire:RESPonse?"
         expect: "GAUS"
       - query: ":MEASure:VPP? CHANnel1"
+        # 衰减后的幅度上叠加这一档的噪声峰峰(#745)
         expect_value: 0.2428
-        tolerance: 0.005
+        tolerance: 0.03
   - name: "通道带宽限制：砖墙、4 阶 Bessel、4 阶 Butterworth 对 10 MHz 正弦"
     manual: ":CHANnel<N> Commands > :CHANnel<N>:ISIM:BWLimit; :CHANnel<N>:ISIM:BANDwidth; :CHANnel<N>:ISIM:BWLimit:TYPE"
     steps:
@@ -473,22 +476,24 @@ cases:
       - query: ":CHANnel1:ISIM:BANDwidth?"
         expect: "+8.00000E+06"
       - query: ":MEASure:VPP? CHANnel1"
+        # 滤波截断后的记录带这一档自己的噪声(specs.noise_per_division,#745)
         expect_value: 0.0
-        tolerance: 0.002
+        tolerance: 0.05
       - send: ":CHANnel1:ISIM:BWLimit:TYPE BUTTerworth"
       - query: ":CHANnel1:ISIM:BWLimit:TYPE?"
         expect: "BUTT"
       - query: ":MEASure:VPP? CHANnel1"
         expect_value: 0.1516
-        tolerance: 0.002
+        tolerance: 0.03
       - send: ":CHANnel1:ISIM:BWLimit:TYPE BESSEL4"
       - query: ":MEASure:VPP? CHANnel1"
         expect_value: 0.2265
-        tolerance: 0.002
+        tolerance: 0.03
       - send: ":CHANnel1:ISIM:BWLimit OFF"
       - query: ":MEASure:VPP? CHANnel1"
+        # 峰峰含 0.1 V/div 档的噪声峰峰(#745)
         expect_value: 0.4
-        tolerance: 0.002
+        tolerance: 0.04
       - send: ":CHANnel1:ISIM:BWLimit:TYPE BP10"
       - query: ":SYSTem:ERRor?"
         expect: "-224"

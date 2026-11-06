@@ -1621,3 +1621,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 字段说明与文档标明假设值 | ✅ `TriggerIn.jitter_s` 帮助文本、`docs/instrument-authoring.md` 第 8 节均写明"假设值，非数据手册值" |
 | 测试 | ✅ `test_a_scope_built_without_noise_inputs_is_not_noiseless`：全默认输入断言抖动 1e-10；`max_rate` 给定时仍按十分之一采样间隔（2 GSa/s → 50 ps）；`jitter_s: 0` 与示例自带 10 ps 的用例不改通过 |
 | 已按旧默认展开的仪表 | ✅ 不受影响（模板展开后不随升级，D3） |
+
+## 示波器 DSO-X 2024A、UXR0334B 补每档噪声与触发抖动(Issue 745)
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 每通道前端 noise_table、采集 trigger_jitter_s | ✅ DSO-X:灵敏档 0.2 mV rms 噪声底、高档 0.02 格线性(specs 注明估计——5990-6618EN 无 rms 噪声与触发抖动 rms,只有 TIE 500 ps),抖动 50 ps = 0.1×2 GSa/s 采样间隔;UXR:噪声底 2.5 mV(200 MHz 级 0.2 mV 按 √(33G/200M) 折算,估计),抖动 25 fs(数据手册 intrinsic jitter,UXR-B 3123-1313) |
+| 覆盖表注明估计/手册 | ✅ 两台 coverage 的 :CHANnel:SCALe 条目注明噪声来源为估计(D46/#745) |
+| 连续两帧迹线不同,触发时只差噪声 | ✅ test_panel 的 DSO-X 逐帧用例改为按噪声界(每帧新抽,帧差 ≤ 界);test_keysight_dsox 每次采集互不相同的断言 |
+| 统计验收 | ✅ test_keysight_dsox 新用例:示例台同一直流三次采集读回,3000 样本 σ 落在 refcalc quantized_sigma 的 k=4 区间,均值在真值 + 半码内 |
+| 逐位断言改容差(不删不跳) | ✅ guide 波形重建的 truth 界加 4σ 噪声;时间测量(TVALue/BRATe/DELay/PHASe/频率)按跨越抖动放宽并注明;测量列表用例加宽记录窗口(2 周期窗口距首个可数上升沿一个噪声样本) |
+| 随数据发现的测量缺陷 | ✅ 噪声-only 迹线曾测出 8.5 MHz:measurements 的跨越带加绝对下限(hysteresis_floor_divs 0.16 格,真仪器的计数器带按屏幕格取),噪声-only 回"不可测" |

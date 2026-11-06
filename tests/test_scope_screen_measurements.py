@@ -106,7 +106,8 @@ def test_a_running_screen_measures_its_live_frame(client):
     screen = b.screen()
     assert screen["source"] == "live" and screen["running"]
     row = _row(screen, 1)
-    assert row["frequency"] == pytest.approx(1000.0, rel=1e-3)
+    # the crossings carry the range table's noise (#745): a percent, not 0.1
+    assert row["frequency"] == pytest.approx(1000.0, rel=1e-2)
     assert row["vpp"] > 0
 
 

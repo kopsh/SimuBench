@@ -169,9 +169,10 @@ def test_the_frames_of_a_screen_are_the_same_on_every_run():
     assert all(np.array_equal(a, b) for a, b in zip(runs[0], runs[1], strict=True))
 
 
-def test_a_noiseless_triggered_screen_is_identical_frame_to_frame():
-    """The DSO-X 2024A definition has no input noise or trigger jitter: a triggered, noiseless trace
-    has nothing to vary, and the screen does not invent any (#730)."""
+def test_a_triggered_screen_varies_by_its_noise_only():
+    """The DSO-X 2024A now carries the range table's input noise (#745, specs.noise_per_division:
+    10 mV rms on 0.5 V/div): a triggered trace draws anew each frame — never a dead line — but
+    stays locked to the signal, so the frames differ by that noise only."""
     s = open_bench(
         ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml", clock="command", seed=5, idle="off"
     )
@@ -179,5 +180,7 @@ def test_a_noiseless_triggered_screen_is_identical_frame_to_frame():
     s.write("scope", b":RUN\n")
     frames = _frames(served, 3)
     assert screen(served).traces[0].triggered
-    assert all(np.array_equal(frames[0], f) for f in frames[1:])
+    diffs = [float(np.abs(b - a).max()) for a, b in pairwise(frames)]
+    assert all(d > 0 for d in diffs)  # not a dead line
+    assert all(d <= 0.1 for d in diffs)  # 100k samples: the pair's max reaches some 5 rms of the 10 mV noise
     s.close()
