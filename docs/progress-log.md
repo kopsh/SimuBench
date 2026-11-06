@@ -1592,7 +1592,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 数字设置能调大调小，不必每次输入 | ✅ `StateField.tsx` 的 `NumberInput`：悬停或聚焦时的加减按钮、`↑`/`↓`、`Shift` 十倍、聚焦时滚轮；每一步立即走 `configure`；端到端 `workbench.spec.ts`（时基框：方向键、Shift、按钮、滚轮各一次，SCPI 读回 `:TIMebase:SCALe?`；到 2 ns 时减号置灰） |
 | 步长来自设置自己，不改定义格式 | ✅ `model.ts` 的 `stepNumber`：`1-2-5` / `1-3` 梯度与显式列表走下一档、整数 ±1、连续量取数量级的十分之一，钳在 `min`/`max`，到头返回空；`model.test.ts` 9 项（跨十倍程、列表两端、零与负值、从 10 的幂向下、浮点尘埃、Shift） |
 | 滚轮只调聚焦的框，不抢面板滚动 | ✅ 非被动的 wheel 监听，只在输入框是 `document.activeElement` 时拦截 |
-| 只读、被自动开关覆盖、断开时不可用；仪表拒绝某一步后不残留 | ✅ `canStep`；待生效的目标值带来源值并在 1 s 后失效 |
+| 只读、被自动开关覆盖、断开时不可用；仪表拒绝某一步后不残留 | ✅ `canStep`；待生效的目标值带来源值并在 1 s 后失效；测试见 `web/e2e/panel.spec.ts`（自动覆盖时按键滚轮无效、关掉自动恢复、只读与断开的断言，#742）与 `StateField.stories.tsx` 的五张视觉基线 |
 | 已知未做 | ⚠️ `SpectrumScreen`、`FaultPanel` 自己的输入框（没走 `StateField`）；按住按钮连续步进 |
 
 ## 读数噪声的通用机制(#746,#744 的第 2 项)
