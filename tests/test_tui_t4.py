@@ -5,6 +5,7 @@ it, reporting the first difference (11.3).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import socket
 import threading
@@ -15,6 +16,7 @@ import pytest
 import uvicorn
 import yaml
 
+from helpers import stop_manager_sessions
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
@@ -184,6 +186,7 @@ def demo_server(tmp_path_factory):
     while not server.started and time.monotonic() < deadline:
         time.sleep(0.02)
     yield f"http://127.0.0.1:{port}", manager, records
+    asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
     server.should_exit = True
     thread.join(timeout=10)
 
@@ -225,3 +228,59 @@ async def test_the_demo_regenerates_the_docs_screenshots(demo_server, tmp_path: 
         assert any(e.kind == "fault" and e.source == "bench" for e in detail.events)
     finally:
         await manager.stop(served.id)
+
+
+async def test_the_modules_sessions_stopping_releases_its_hislip_port(demo_server):
+    """The teardown stops the sessions, not just uvicorn (issue 686): the fixed HiSLIP port
+    binds again, as the next module's fixed port needs when two files run in one process."""
+    manager, _records = demo_server[1], demo_server[2]
+    _served = await manager.start("benches/find-the-trip.bench.yaml", seed=5, clock="command")
+    port = manager.hislip_port
+    with socket.socket() as probe, pytest.raises(OSError):
+        probe.bind(("127.0.0.1", port))  # the session holds it
+    await stop_manager_sessions(manager)  # what the module fixtures' teardown runs
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", port))  # released: the next module's bind will succeed
+
+
+async def test_open_reveal_and_home_drive_the_screens(tmp_path: Path):
+    """The new directives run (issue 684): `open` opens the instrument, `reveal` focuses its
+    field without editing it, `home` is back at the overview; the SVG shows the focused field."""
+    steps_yaml = {
+        "size": [100, 32],
+        "steps": [
+            {"open": "smu", "caption": "the smu", "wait": "0.5s"},
+            {"reveal": "source.voltage.level", "wait": "0.5s"},
+            {"screenshot": "revealed"},
+            {"home": True, "screenshot": "home"},
+        ],
+    }
+    path = tmp_path / "steps.yaml"
+    path.write_text(yaml.safe_dump(steps_yaml), encoding="utf-8")
+    reveal_only = tmp_path / "reveal.yaml"
+    reveal_only.write_text(
+        yaml.safe_dump({"size": [100, 32], "steps": steps_yaml["steps"][:2]}), encoding="utf-8"
+    )
+    from simubench.tui.script import Steps, run_steps, validate
+
+    steps = Steps.load(path)
+    tui, _fake = unit_app(fresh(load("unit_smu.json")))
+    async with tui.run_test(size=steps.size) as pilot:
+        await settle(pilot, tui)
+        problems = validate(steps, _fake._fixture["session"]["instruments"])
+        assert problems == []
+        # reveal on its own: the field is focused, not mid-edit (edit=False)
+        await run_steps(tui, pilot, Steps.load(reveal_only), tmp_path / "scratch")
+        from simubench.tui.screens.instrument import ControlButton
+
+        focused = tui.screen.focused
+        assert isinstance(focused, ControlButton) and focused.control.path == "source.voltage.level"
+        assert focused.edit is None  # focused and highlighted only, not editing
+        written = await run_steps(tui, pilot, steps, tmp_path / "shots")
+        assert [p.name for p in written] == ["revealed.svg", "home.svg"]
+        from simubench.tui.screens.overview import OverviewScreen
+
+        assert isinstance(tui.screen, OverviewScreen)  # home popped everything above it
+    svg = written[0].read_text(encoding="utf-8")
+    shown = svg.replace("&#160;", " ")  # Rich writes no-break spaces as entities
+    assert "Voltage level" in shown and "15.000 V" in shown

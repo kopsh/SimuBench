@@ -190,15 +190,64 @@ cases:
         expect: "5.000000E-01"
       - query: "CURR:SLEW:POS?"
         expect: "1.000000E-02"
+      - send: "CURR:SLEW:POS 0.001"
+      - query: "SYST:ERR?"
+        expect_match: '^-222,.*'
+      - send: "CURR:RANG 24"
       - send: "CURR:SLEW MIN"
       - query: "CURR:SLEW:NEG?"
         expect: "1.000000E-03"
+      - send: "CURR:SLEW:POS MAX"
+      - query: "CURR:SLEW:POS?"
+        expect: "2.500000E-01"
+      - send: "CURR:SLEW:POS 0.5"
+      - query: "SYST:ERR?"
+        expect_match: '^-222,.*'
+      - send: "CURR:RANG 240"
       - send: "CURR:SLEW:POS MAX"
       - query: "CURR:SLEW:POS?"
         expect: "2.500000E+00"
       - send: "CURR:SLEW 3"
       - query: "SYST:ERR?"
         expect_match: '^-222,.*'
+
+  - name: "斜率随量程：切换量程把已存的斜率钳进新范围（双向，与写入校验同一谓词）；DEF 在两个量程都可用"
+    manual: "Source Commands > [SOURce:]CURRent:SLEW:POSitive / :SLEW:NEGative、CURRent:RANGe。手册未写切换量程后已存斜率与 DEF 的行为，按数据表的分档斜率界钳制建模（真机行为未核实，覆盖表已注明）"
+    steps:
+      - send: "CURR:SLEW:POS 0.5"
+      - query: "CURR:SLEW:POS?"
+        expect_value: 0.5
+        tolerance: 1.0e-9
+      - send: "CURR:RANG 24"
+      - query: "CURR:SLEW:POS?"
+        expect_value: 0.25
+        tolerance: 1.0e-9
+      - query: "CURR:SLEW:NEG?"
+        expect_value: 0.25
+        tolerance: 1.0e-9
+      - send: "CURR:SLEW:POS DEF"
+      - query: "SYST:ERR?"
+        expect: '0,"No Error"'
+      - query: "CURR:SLEW:POS?"
+        expect_value: 0.25
+        tolerance: 1.0e-9
+      - send: "CURR:SLEW:NEG MIN"
+      - query: "CURR:SLEW:NEG?"
+        expect_value: 0.001
+        tolerance: 1.0e-9
+      - send: "CURR:RANG 240"
+      - query: "CURR:SLEW:POS?"
+        expect_value: 0.25
+        tolerance: 1.0e-9
+      - query: "CURR:SLEW:NEG?"
+        expect_value: 0.01
+        tolerance: 1.0e-9
+      - send: "CURR:SLEW:POS DEF"
+      - query: "SYST:ERR?"
+        expect: '0,"No Error"'
+      - query: "CURR:SLEW:POS?"
+        expect_value: 2.5
+        tolerance: 1.0e-9
 
   - name: "Von：输入电压未超过 Von 时不吸收；锁存 ON 时 Von 升到工作电压之上仍继续吸收"
     manual: "Source Commands > [SOURce:]VOLTage[:LEVel]:ON / [SOURce:]VOLTage:LATCh[:STATe]"
@@ -227,6 +276,11 @@ cases:
       - send: "VOLT:LATC OFF"
       - query: "VOLT:LATC?"
         expect: "0"
+      - query: "VOLT:ON:LATC?"
+        expect: "0"
+      - send: "VOLT:ON:LATC ON"
+      - query: "VOLT:LATC?"
+        expect: "1"
       - send: "VOLT:ON 50"
       - send: "INP ON"
       - query: "MEAS:CURR?"

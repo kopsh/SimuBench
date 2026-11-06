@@ -29,7 +29,7 @@ from .commands import (
     named_builtin,
     when_matches,
 )
-from .component import Component, OpResult, component_type, map_setting
+from .component import Component, OpResult, component_type, map_setting, noise_problems
 from .portref import split
 from .signal import Signal
 
@@ -344,6 +344,11 @@ class Instrument:
 
     def _add_component(self, name: str, type_name: str, params: dict[str, Any], channel: int | None) -> None:
         cls = component_type(type_name)
+        if "noise" in cls.defaults and (problems := noise_problems(params.get("noise"))):
+            raise ValueError(
+                f"instrument {self.name!r}: {name}.noise "
+                + "; ".join(f"{(sub + ': ') if sub else ''}{msg}" for sub, msg in problems)
+            )
         self.components[name] = cls(name, params, self, self.session, channel)
 
     def internal_wires(self) -> list[tuple[str, str]]:
@@ -1507,7 +1512,23 @@ class Instrument:
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
             if st.special and word in st.special:
-                return st.special[word]
+                value = st.special[word]
+                if word.startswith(("MIN", "MAX", "DEF")) and path is not None:
+                    # MIN/MAX are the setting's legal extremes *now*, and DEF stays legal too: a
+                    # component narrowing the range (#437) narrows all three with it — the static
+                    # table is only the fallback (issue 663: a load's slew follows its selected
+                    # current range; issue 721: DEF clamps into the narrowed range like MIN/MAX).
+                    lo, hi = self.limits(path)
+                    if word.startswith("MIN"):
+                        value = lo
+                    elif word.startswith("MAX"):
+                        value = hi
+                    else:
+                        if lo is not None:
+                            value = max(value, lo)
+                        if hi is not None:
+                            value = min(value, hi)
+                return value
             multipliers = self.definition.dialect.multipliers
             v = V.parse_multiplied(raw, multipliers) if multipliers and st.unit is None else None
             if v is None:
@@ -1777,11 +1798,14 @@ class Instrument:
         for comp in self._status_registers():
             comp.event(name)  # type: ignore[attr-defined]
 
-    def stb(self) -> int:
+    def stb(self, commit: bool = True) -> int:
+        """The status byte. ``commit=False`` only looks: the condition transitions the status
+        registers have not latched yet stay unlatched, so an observer cannot change what a later
+        ``*ESR?`` says."""
         stb = 0
         for comp in self._status_registers():  # status registers' summary bits (#248, #273)
             bit = comp.param("summary_bit")
-            if bit is not None and comp.summary():  # type: ignore[attr-defined]
+            if bit is not None and comp.summary(commit):  # type: ignore[attr-defined]
                 stb |= 1 << int(bit)
         if len(self.errors):
             stb |= 1 << 2

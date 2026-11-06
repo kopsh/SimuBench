@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
-from ...engine.noise import gaussian, stream_key
+from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -115,6 +115,7 @@ class ScopeVertical(Component):
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
         "out_of_range": "error",  # error: refuse with -222 | clamp: take the nearest legal value
         "noise_table": None,  # [[V/div, noise V rms], ...] at the input, per division (None: quiet)
+        "noise_divs": 0.0,  # without a table: input noise rms as a fraction of a division (scales with V/div)
         "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
@@ -162,11 +163,11 @@ class ScopeVertical(Component):
     def noise_rms(self) -> float:
         """The input-referred noise (V rms) of the current division: its ``noise_table`` row, or
         the row of the largest listed division not above it (a table that starts at a floor holds
-        the sensitive divisions first, D46). No table: no noise."""
+        the sensitive divisions first, D46). No table: ``noise_divs`` of the division, else none."""
         rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
-        if not rows:
-            return 0.0
         scale = self.input_scale()
+        if not rows:
+            return float(self.param("noise_divs")) * scale
         return next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
 
     def input_scale(self) -> float:
@@ -1224,6 +1225,15 @@ class ScopeAcquisition(Component):
         triggered = hit is not None
         k = hit.index if hit is not None else pre
         start = k - pre
+        if frame is not None and hit is None:
+            # An untriggered frame of a running scope: a free-running scope starts each sweep at an
+            # arbitrary instant, so the trace is not locked to the signal and slides from frame to
+            # frame. The offset is a pure function of the seed and the frame number (no virtual time
+            # passes, and a replay shows the same screen).
+            phase = float(
+                uniform(stream_key(self.session.seed, self.uid, "frame-phase", frame), np.zeros(1))[0]
+            )
+            t0 += round(phase * points * dt * 1e9)
         t_start_ns = t0 + round(start * dt * 1e9)
         # Peak detect samples the ADC's native rate (F4): m native codes per record sample, capped
         # so a deep record at a slow timebase stays feasible - the real detector is hardware too.
@@ -1715,6 +1725,9 @@ class ScopeMeasurements(Component):
         "mid": 50.0,  # the crossing level a period is counted on
         "hysteresis": FREQ_HYSTERESIS,  # half the counter's band, of top minus base
         "min_cycles": 1,  # complete cycles a period needs
+        "hysteresis_floor_divs": 0.16,  # the counter's band never drops below this fraction of a
+        # division of the record's scale (#745): noise alone counts no crossings, so a flat trace
+        # of noise measures as nothing, like the real counter's screen-referenced band
         "clipped": "measure",  # measure | invalid: a record at the ADC's limits
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
@@ -1859,8 +1872,13 @@ class ScopeMeasurements(Component):
             mid=mid,
             hysteresis=float(self.param("hysteresis")),
             min_cycles=int(self.param("min_cycles")),
+            min_band=self._band_floor(rec),
         )
         return value
+
+    def _band_floor(self, rec: Any) -> float:
+        """The crossing band's absolute floor: divisions of the record's scale (#745)."""
+        return float(self.param("hysteresis_floor_divs")) * rec.scale
 
     def _time_value(self, what: str, v: np.ndarray, rec: Any) -> float:
         """XMAX/XMIN: the time of the first maximum / minimum, from the trigger; BRATe: the bit rate,
@@ -1870,7 +1888,7 @@ class ScopeMeasurements(Component):
         if what in ("XMAX", "XMIN"):
             k = int(np.argmax(v) if what == "XMAX" else np.argmin(v))
             return rec.origin + k * rec.dt_s
-        cross = mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
+        cross = mid_crossings(v, rec.dt_s, float(self.param("hysteresis")), self._band_floor(rec))
         widths = [u - t for (t, a), (u, b) in itertools.pairwise(cross) if b == -a and u > t]
         return 1.0 / min(widths) if widths else math.nan
 

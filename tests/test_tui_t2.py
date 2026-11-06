@@ -426,9 +426,19 @@ async def test_scope_screen_renders_traces_settings_and_actions():
         from simubench.tui.screens.scope import ScopeScreen
 
         assert isinstance(tui.screen, ScopeScreen)
-        text = await wait_flat(pilot, tui, "CH1 50.0 mV/div", "← rc.OUT · 10x probe", "Acquisition")
-        assert "1.000 ms/div" in text and "Running" in text
+        # issue 680: the settings are fields now — `label value` on the buttons, the wiring
+        # (with the probe) stays in the text block beside them; the value keeps its cell and a
+        # too-long label is ellipsised (`…ition type`). One render carries the visible part.
+        text = await wait_flat(
+            pilot, tui, "CH1 50.0 mV/div", "← rc.OUT · 10x probe", "ition type NORMal", "Timebase 1.0000 ms"
+        )
+        assert "1.000 ms/div" in text and "Running" in text  # the wave box's title
         assert "⠂" in text or "⠁" in text  # a braille trace rendered from the binned frame
+        from simubench.tui.screens.scope import ControlButton
+
+        by_path = {b.control.path: b for b in tui.screen.query(ControlButton) if b.control.path}
+        assert "Probe ratio" in by_path["ch1.probe"].field_text(tui.screen.info, "en").plain
+        assert "coupling DC" in by_path["trigger.coupling"].field_text(tui.screen.info, "en").plain
         frame = tui.screen_data["scope"]
         assert frame["traces"][0]["minmax"] and frame["traces"][0]["volts"] == []
         # r / s go through the panel actions (D32), not SCPI.
@@ -777,3 +787,211 @@ async def test_the_virtual_time_stays_on_a_narrow_top_bar_and_the_bench_name_giv
         text = await wait_flat(pilot, tui, "SimuBench")
         first = text.split("\n")[0]
         assert "t = 00:00:00" in first and "…" in first, first
+
+
+async def test_scope_fields_edit_in_place_like_the_instrument_screen():
+    """The scope screen edits through the shared layer (#635, issue 680): a typed number with a
+    unit converts, out of range is refused without writing, a select cycles, +/- step 1-2-5."""
+    tui, fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        def button(path):
+            return next(b for b in tui.screen.query(ControlButton) if b.control.path == path)
+
+        # a number with a unit: 20 ms converts to the state's seconds
+        tb = button("timebase.scale")
+        tb.focus()
+        await pilot.pause(0.1)
+        await pilot.press("e")
+        await pilot.pause(0.1)
+        for ch in "20ms":
+            await pilot.press(ch)
+        await pilot.press("enter")
+        await wait_for(
+            pilot,
+            lambda: ("scope", "timebase.scale", 0.02) in fake.configures,
+            message="the typed 20 ms landed",
+        )
+        # out of range (the spec tops out at 1000 s): refused, nothing written
+        tb.focus()
+        await pilot.pause(0.1)
+        await pilot.press("e")
+        await pilot.pause(0.1)
+        for ch in "2000s":
+            await pilot.press(ch)
+        await pilot.press("enter")
+        await pilot.pause(0.3)
+        assert ("scope", "timebase.scale", 2000.0) not in fake.configures
+        assert tb.edit is not None  # the field stays in the edit for the user to correct (5.3)
+        await pilot.press("escape")  # cancel: the value stays as it was
+        await pilot.pause(0.2)
+        assert tb.edit is None
+        # a select cycles in place: trigger.coupling DC -> the next option, committed
+        coupling = button("trigger.coupling")
+        coupling.focus()
+        await pilot.pause(0.1)
+        await pilot.press("e")  # into the select editor
+        await pilot.pause(0.2)
+        await pilot.press("right")  # cycle DC -> the next option
+        await pilot.pause(0.1)
+        await pilot.press("enter")  # commit
+        await wait_for(
+            pilot,
+            lambda: len([1 for _, p, _ in fake.configures if p == "trigger.coupling"]) == 1,
+            message="the cycled option wrote",
+        )
+        written = [v for _, p, v in fake.configures if p == "trigger.coupling"]
+        assert written == ["AC"]  # DC cycled to the option after it, not just anything written
+        # + / - step 1-2-5 on a .scale path: ch1.scale 50 mV -> 0.1 -> back to 50 mV
+        scale = button("ch1.scale")
+        scale.focus()
+        await pilot.pause(0.1)
+        await pilot.press("plus")
+        await wait_for(
+            pilot,
+            lambda: any(p == "ch1.scale" and v == 0.1 for _, p, v in fake.configures),
+            message="the 1-2-5 step up wrote 0.1",
+        )
+        await pilot.press("minus")
+        await wait_for(
+            pilot,
+            lambda: any(p == "ch1.scale" and v == 0.05 for _, p, v in fake.configures),
+            message="the 1-2-5 step down wrote 0.05",
+        )
+
+
+async def test_the_scope_screen_shows_the_focus_without_colour(monkeypatch):
+    """`NO_COLOR` on the scope page (issue 680's acceptance, #755): the focused field stays
+    distinguishable — the mono theme's focus rule is bold+underline, not a colour."""
+    monkeypatch.setenv("NO_COLOR", "1")
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        focused = next(b for b in tui.screen.query(ControlButton) if b.control.path == "timebase.scale")
+        focused.focus()
+        await pilot.pause(0.2)
+        assert focused.has_focus and tui.theme == "simubench-mono"
+        assert focused.styles.text_style.bold and focused.styles.text_style.underline
+        others = [b for b in tui.screen.query(ControlButton) if b is not focused]
+        assert not any(b.styles.text_style.bold or b.styles.text_style.underline for b in others)
+
+
+async def test_the_settings_column_keeps_every_value_readable_at_80x24():
+    """80×24 (issue 680, #755): the settings column ellipsises the label from the left and never
+    the value — every field's value shows in full at the narrow size too."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(80, 24)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        def value_of(text):
+            """The bold span is the value (field_text assembles label + bold value)."""
+            return "".join(
+                text.plain[s:e]
+                for s, e, style in text.spans
+                if style == "bold" or getattr(style, "bold", False)
+            )
+
+        width = tui.screen._field_width()
+        seen = 0
+        for b in tui.screen.query(ControlButton):
+            if not b.is_field:
+                continue
+            full = b.field_text(tui.screen.info, tui.lang)
+            shown = b.field_text(tui.screen.info, tui.lang, width)
+            assert value_of(full) and value_of(full) == value_of(shown)
+            assert shown.plain == b._text.plain  # what the column actually renders
+            seen += 1
+        assert seen > 10  # the scope page's fields are all under the assertion
+
+
+async def test_scope_screen_toggles_run_through_the_base_orchestration():
+    """The scope screen inherits the instrument screen's toggle path (#635, issue 669): a plain
+    switch writes at once, an electrical switch turning on confirms first — same as the SMU's."""
+    tui, fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "ch1.display")
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("space")  # on → off, a plain switch: no confirmation
+        await wait_for(
+            pilot, lambda: ("scope", "ch1.display", False) in fake.configures, message="plain toggle"
+        )
+        # The same screen, now electrical: turning it on asks first (10.1). The screen builds its
+        # buttons once, so the flag travels on the control the existing button carries.
+        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "ch1.display")
+        button.control.electrical = True
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("space")
+        from simubench.tui.screens.states import ConfirmScreen
+
+        await wait_for(pilot, lambda: isinstance(tui.screen, ConfirmScreen), message="confirm dialog")
+        await pilot.press("escape")  # cancel: nothing written
+        await wait_for(pilot, lambda: not isinstance(tui.screen, ConfirmScreen), message="dialog closed")
+        assert ("scope", "ch1.display", True) not in fake.configures
+
+
+async def test_the_scope_screen_takes_the_field_search_and_jump():
+    """`/` opens the settings search and `go_to_field` focuses a field on this screen (#678,
+    issue 680): the scope screen inherits the instrument screen's palette integration."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        assert tui.screen.go_to_field("timebase.scale", edit=False)
+        await pilot.pause(0.2)
+        from simubench.tui.screens.scope import ControlButton
+
+        assert tui.screen.focused.control.path == "timebase.scale"
+        assert any(b.control.path == "timebase.scale" for b in tui.screen.query(ControlButton))
+        # a path this screen does not show lands in the state tree, as on the instrument screen
+        assert tui.screen.go_to_field("no.such.path", edit=False) is False
+
+
+async def test_a_failed_write_flashes_the_error_under_the_control():
+    """A write the server refuses flashes ``✗ …`` under the focused control (5.3)."""
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        from simubench.tui.screens.instrument import ControlButton
+
+        async def refused(sid, name, path, value):
+            return {"ok": False, "error": {"code": -222, "message": "out of range"}}
+
+        fake.configure = refused
+        autozero = next(b for b in tui.screen.query(ControlButton) if b.control.path == "sense.autozero")
+        flashes: list[str] = []
+        autozero.focus()
+        await pilot.pause(0.1)
+        tui.screen._flash_target = lambda button: (
+            tui.screen._flash_static if hasattr(tui.screen, "_flash_static") else None
+        )
+        # The flash goes to the screen's flash target, per screen; spy on the update itself.
+        tui.screen._flash = lambda button, text: flashes.append(text)  # type: ignore[method-assign]
+        tui.screen._toggle_button(autozero)
+        await wait_for(pilot, lambda: bool(flashes), message="the flash")
+        assert "-222" in flashes[0] and "out of range" in flashes[0]
+
+
+def test_the_embedded_log_rows_budget():
+    """`_log_rows` keeps the channel area visible at 80×24 and caps the log at 6 rows (#454)."""
+    from types import SimpleNamespace
+
+    from simubench.tui.screens.editing import ControlEditingScreen
+
+    for height, want in ((24, 3), (29, 3), (32, 6), (40, 6)):
+        sham = SimpleNamespace(app=SimpleNamespace(size=SimpleNamespace(height=height)))
+        assert ControlEditingScreen._log_rows(sham) == want, height

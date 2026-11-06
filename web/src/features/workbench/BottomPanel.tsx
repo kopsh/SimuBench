@@ -1,4 +1,5 @@
 import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
+import { panelActionLabel } from "@/lib/enums";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { T } from "@/i18n";
@@ -184,7 +185,7 @@ function EventRow({ e }: { e: Event }) {
   const { t } = useTranslation();
   const text =
     e.kind === "panel"
-      ? `${e.instrument} ${t("panel.frontPanel")}: ${t(`scope.${(e.action ?? "run") as "run" | "stop" | "single"}`)}  (${e.source ?? ""})`
+      ? `${e.instrument} ${t("panel.frontPanel")}: ${panelActionLabel(e.action ?? "run", t)}  (${e.source ?? ""})`
       : e.kind === "remote"
       ? `${e.instrument} ${t(e.action === "local" ? "remote.eventLocal" : "remote.eventRemote")}  (${e.source ?? ""})`
       : e.kind === "fault"
@@ -262,6 +263,8 @@ function clientLabel(client: string | null | undefined, t: T): string {
   if (client === "ui" || client === "mcp" || client === "replay") return t(`panel.client.${client}`);
   if (client.startsWith("socket:")) return "SOCKET";
   if (client.startsWith("hislip:")) return "HiSLIP";
+  if (client.startsWith("vxi11:")) return "VXI-11";
+  if (client.startsWith("bench:")) return "PyVISA";
   return client;
 }
 

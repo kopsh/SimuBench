@@ -74,6 +74,7 @@ def period(
     mid: float | None = None,
     hysteresis: float = FREQ_HYSTERESIS,
     min_cycles: int = 1,
+    min_band: float = 0.0,
 ) -> float | None:
     """The record's period, or None when it holds no complete cycle.
 
@@ -97,7 +98,10 @@ def period(
     top, base = levels
     if mid is None:
         mid = (top + base) / 2
-    h = hysteresis * (top - base)
+    # The counter's band is the signal's own span scaled, but never below ``min_band``: a real
+    # counter's band is sized in divisions of the screen, so a trace of noise alone (whose span
+    # IS the noise) counts no crossings and the period stays unmeasurable (#745).
+    h = max(hysteresis * (top - base), min_band)
     n = v.size
     idx = np.arange(n)
     last_below = np.maximum.accumulate(np.where(v <= mid - h, idx, -1))
@@ -129,6 +133,7 @@ def measure(
     mid: float | None = None,
     hysteresis: float = FREQ_HYSTERESIS,
     min_cycles: int = 1,
+    min_band: float = 0.0,
 ) -> float:
     """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod, and the
     shape measurements of ``PULSE_MEASUREMENTS`` (#248).
@@ -156,7 +161,7 @@ def measure(
     if what == "VAMPlitude":
         return levels[0] - levels[1] if levels else vmax - vmin
     if what in ("FREQuency", "PERiod"):
-        found = period(v, dt, levels, mid, hysteresis, min_cycles)
+        found = period(v, dt, levels, mid, hysteresis, min_cycles, min_band)
         if found is None:
             return math.nan
         return 1.0 / found if what == "FREQuency" else found
@@ -264,15 +269,18 @@ def _pulse_measure(
 TIME_MEASUREMENTS = ("XMAX", "XMIN", "BRATe")
 
 
-def mid_crossings(v: np.ndarray, dt: float, hysteresis: float) -> list[tuple[float, int]]:
+def mid_crossings(
+    v: np.ndarray, dt: float, hysteresis: float, min_band: float = 0.0
+) -> list[tuple[float, int]]:
     """The record's crossings of its middle level (halfway between top and base), as in
-    :func:`_pulse_measure`."""
+    :func:`_pulse_measure`; the band never drops below ``min_band`` (a screen-referenced floor,
+    so noise alone counts no crossings, #745)."""
     levels = top_base(v)
     top, base = levels if levels else (float(v.max()), float(v.min()))
     amp = top - base
     if amp <= 0:
         return []
-    return crossings(v, dt, base + amp / 2, hysteresis * amp)
+    return crossings(v, dt, base + amp / 2, max(hysteresis * amp, min_band))
 
 
 def edge_spec(word: str | None) -> tuple[int, int]:

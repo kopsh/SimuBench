@@ -19,7 +19,7 @@ from textual.widgets import Static
 from .. import controls as C
 from .. import i18n
 from ..cards import opposite_ends
-from ..fmt import fmt, pad
+from ..fmt import fmt
 from ..reasons import ReasonReport, silence_report
 from ..widgets import box_text, style_of
 from .dialogs import ScpiConsole
@@ -167,6 +167,7 @@ class ScopeScreen(ControlEditingScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
+        Binding("slash", "search", show=False),
         Binding("left_square_bracket", "switch_instrument(-1)", show=False),
         Binding("right_square_bracket", "switch_instrument(1)", show=False),
         Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
@@ -367,59 +368,22 @@ class ScopeScreen(ControlEditingScreen):
             *[ControlButton(c, "settings") for c in controls if c.writable or c.kind == "buttons"]
         )
 
+    def _field_width(self) -> int | None:
+        # The settings column is 26 columns; the buttons row inside it loses the border and
+        # padding. Before the first layout the box has no size yet: 12 keeps a value readable.
+        return max(12, self._settings_box.size.width - 4)
+
     def _refresh_settings(self) -> None:
+        """What the settings column shows beside its field buttons: only what is not a field —
+        the channels' wiring and, on the mono theme, the colour legend (issue 680). Every
+        writable setting is a ControlButton (timebase, trigger, acquisition, channels); the
+        running/stopped state and the trigger mode ride the wave box's title."""
         app: Any = self.app
         lang = app.lang
         info = self.info
         state = {sv["path"]: sv for sv in info.get("state", [])}
         session = app.session_info or {}
         rows: list[list[tuple[str, str]]] = []
-
-        def row(label: str, text: str, mark: str = "") -> list[tuple[str, str]]:
-            return [
-                (pad(label, 6), "muted"),
-                (text, ""),
-                (" " + mark if mark else "", (mark and "bad") or ""),
-            ]
-
-        rows.append(
-            row(
-                i18n.t("scope.timebase", lang),
-                fmt((state.get("timebase.scale") or {}).get("value"), "S", digits=4) + "/div",
-            )
-        )
-        rows.append(
-            row(i18n.t("scope.delay", lang), fmt((state.get("timebase.delay") or {}).get("value"), "S"))
-        )
-        src = C.summary_text(
-            (state.get("trigger.source") or {}).get("value"), state.get("trigger.source"), lang
-        )
-        slope = (
-            "↑" if str((state.get("trigger.slope") or {}).get("value", "")).lower().startswith("ri") else "↓"
-        )
-        level = fmt((state.get("trigger.level") or {}).get("value"), "V", digits=4)
-        rows.append(row(i18n.t("scope.trigger", lang), f"{src} {slope} {level}"))
-        coupling = state.get("trigger.coupling")
-        rows.append(
-            row(
-                "",
-                (C.summary_text(coupling.get("value"), coupling, lang) + " · " if coupling else "")
-                + C.summary_text(
-                    (state.get("trigger.mode") or {}).get("value"), state.get("trigger.mode"), lang
-                ),
-            )
-        )
-        rows.append(
-            row(
-                i18n.t("scope.acquisition", lang),
-                C.summary_text(
-                    (state.get("acquire.type") or {}).get("value"), state.get("acquire.type"), lang
-                )
-                + " · "
-                + str((state.get("acquire.resolution") or {}).get("value", "")),
-            )
-        )
-        rows.append([("", "")])
         for ch in range(1, 5):
             on = bool((state.get(f"ch{ch}.display") or {}).get("value"))
             port = next((p for p in info.get("ports", []) if p.get("channel") == ch), None)
@@ -427,50 +391,19 @@ class ScopeScreen(ControlEditingScreen):
             if not on and not wired:
                 rows.append([(i18n.t("scope.channelOff", lang, ch=f"CH{ch}"), "muted")])
                 continue
-            head = f"CH{ch} " + i18n.t("common.on" if on else "common.off", lang)
             style = f"ch{ch}" if app.theme != "simubench-mono" else ""
-            rows.append(
-                [
-                    (head + " ", style),
-                    (fmt((state.get(f"ch{ch}.scale") or {}).get("value"), "V", digits=3) + "/div", "bold"),
-                ]
-            )
-            coupling = C.summary_text(
-                (state.get(f"ch{ch}.coupling") or {}).get("value"), state.get(f"ch{ch}.coupling"), lang
-            )
-            impedance = C.summary_text(
-                (state.get(f"ch{ch}.impedance") or {}).get("value"), state.get(f"ch{ch}.impedance"), lang
-            )
-            probe = (state.get(f"ch{ch}.probe") or {}).get("value")
-            probe_text = f"{probe:g}" if isinstance(probe, (int, float)) else "?"
-            rows.append(
-                [
-                    ("  ", "muted"),
-                    (
-                        f"{coupling} · {impedance} · {i18n.t('instrument.probe', lang)} {probe_text}",
-                        "",
-                    ),
-                ]
-            )
+            rows.append([(f"CH{ch} ", style), (i18n.t("common.on" if on else "common.off", lang), "")])
             if wired:
                 ends = opposite_ends(f"{self.instrument_name}.{port['name']}", session, lang)
-                arrow = "←"
-                rows.append(
-                    [
-                        (" " + arrow + " ", "muted"),
-                        (" · ".join(ends) if ends else (port.get("net") or ""), ""),
-                    ]
-                )
+                rows.append([(" ← ", "muted"), (" · ".join(ends) if ends else (port.get("net") or ""), "")])
             else:
                 rows.append([("  " + i18n.t("scope.unwired", lang), "muted")])
         if app.theme == "simubench-mono":
             rows.append([("", "")])
             rows.append([(i18n.t("scope.legend", lang, items="CH1 CH2 CH3 CH4"), "muted")])
         width = max(16, self._settings_box.size.width)
-        self._settings_static.update(box_text(app, rows, width))
+        self._settings_static.update(box_text(app, rows, width) if rows else Text(""))
         self._settings_box.border_title = i18n.t("scope.settings", lang)
-
-    # ---- keys ---------------------------------------------------------------------------------------------
 
     def keys(self) -> list[tuple[str, str]]:
         lang = self.app.lang

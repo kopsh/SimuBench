@@ -131,6 +131,8 @@ def test_the_embedded_log_shows_only_commands():
         ("socket:127.0.0.1:53122", "Script :53122"),
         ("socket:192.168.1.5:1234", "Script 192.168.1.5:1234"),
         ("hislip:127.0.0.1:4880#0001", "Script :4880"),
+        ("vxi11:127.0.0.1:53124#0002", "Script :53124"),
+        ("bench:127.0.0.1:53125#0001", "Script :53125"),
         ("replay", "Replay"),
         ("", "Event"),
     ],
@@ -867,3 +869,52 @@ def test_the_scaled_clock_shows_its_rate_in_the_activity_status():
 
     assert clock_activity(App(), "en", "scaled", busy=False)[-1][0] == "clock running ×10"
     assert clock_activity(App(), "en", "wall", busy=False)[-1][0] == "clock running"
+
+
+# ---- open / home / reveal and --size (issue 684) ----------------------------------------------------------
+
+
+INSTRUMENTS = [
+    {"name": "smu", "state": [{"path": "source.voltage.level"}, {"path": "output.enabled"}]},
+    {"name": "dmm", "state": [{"path": "read.function"}]},
+]
+
+
+def test_validate_checks_open_home_reveal_in_step_order(tmp_path: Path):
+    good = _steps(
+        tmp_path,
+        {"steps": [{"open": "smu"}, {"reveal": "source.voltage.level", "screenshot": "f"}, {"home": True}]},
+    )
+    assert validate(good, INSTRUMENTS) == []
+    steps = _steps(
+        tmp_path,
+        {
+            "steps": [
+                {"open": "nope"},  # no such instrument
+                {"reveal": "source.voltage.level"},  # nothing open in front
+                {"open": "dmm"},
+                {"reveal": "source.voltage.level"},  # not a variable of dmm
+                {"home": "yes"},  # home is only true
+            ]
+        },
+    )
+    problems = validate(steps, INSTRUMENTS)
+    assert len(problems) == 4
+    assert "no instrument 'nope'" in problems[0]
+    assert "needs an open step in front" in problems[1]
+    assert "dmm has no state variable" in problems[2]
+    assert "home must be true" in problems[3]
+
+
+def test_the_unknown_instrument_check_needs_the_bench(tmp_path: Path):
+    steps = _steps(tmp_path, {"steps": [{"open": "anything"}]})
+    assert validate(steps) == []  # without the bench, the names cannot be checked here
+
+
+def test_parse_size_and_the_cli_override():
+    from simubench.tui.script import parse_size
+
+    assert parse_size(None) is None
+    assert parse_size("100x34") == (100, 34)
+    assert parse_size(" 80X24 ") == (80, 24)
+    assert parse_size("big") is None and parse_size("100") is None

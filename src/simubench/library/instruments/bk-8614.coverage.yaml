@@ -168,11 +168,13 @@ sections:
     note: Selects the smallest range holding the value (24 A or 240 A); a level above the new range goes to its maximum. A level above the present range is not refused (the manual does not say what happens).
   - header: '[:SOURce]:CURRent:SLEW[:BOTH]'
     level: implemented
-    note: Sets the rising and the falling rate. 0.001–2.5 A/µs over both ranges (the data sheet's low range is 0.001–0.25, the high 0.01–2.5); the range is not tied to the current range.
+    note: Sets the rising and the falling rate. Each range takes its data-sheet bounds (low 0.001–0.25 A/µs, high 0.01–2.5); a write outside the selected range is -222 (MIN/MAX follow it). Switching the range clamps a stored rate into the new range's bounds (both ways — the same predicate a write is validated against), so the readback shows what the ramp uses — the 8600 manual says nothing about a stored rate across a range switch, this is the model's decision (issue 721). DEF is the *RST value clamped into the selected range like MIN/MAX.
   - header: '[:SOURce]:CURRent:SLEW:POSitive'
     level: implemented
+    note: DEF clamps into the selected range (0.25 A/µs on the low one); the manual does not define DEF on a narrowed range (issue 721).
   - header: '[:SOURce]:CURRent:SLEW:NEGative'
     level: implemented
+    note: Same as POSitive.
   - header: '[:SOURce]:CURRent:PROTection:STATe'
     level: implemented
     note: '*RST OFF.'
@@ -218,9 +220,9 @@ sections:
   - header: '[:SOURce]:VOLTage[:LEVel]:ON'
     level: implemented
     note: Von for CC and CW (CV and CR conduct regardless).
-  - header: '[:SOURce]:VOLTage:LATCh[:STATe]'
+  - header: '[:SOURce]:VOLTage[:ON]:LATCh[:STATe]'
     level: implemented
-    note: 'ON (*RST): once above Von the load keeps sinking below it until the input turns off.'
+    note: 'ON (*RST): once above Von the load keeps sinking below it until the input turns off. The manual''s *RST table writes VOLT:ON:LATC while the command chapters have no separate VOLTage:LATCh entry; both spellings are accepted (issue 663, real instrument unverified).'
   - header: '[:SOURce]:VOLTage:HIGH'
     level: accepted
     affects_data: false

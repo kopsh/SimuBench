@@ -22,7 +22,7 @@ from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition
 from ..scpi import values as V
 from ..scpi.parse import Pattern, Token
 from .commands import told_apart
-from .component import Component, binding_of, component_types
+from .component import Component, binding_of, component_types, noise_problems
 from .portref import ladder, split
 from .validate import Report, _ptr, unknown_name
 
@@ -181,6 +181,8 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                         None,
                         spec.name,
                     )
+
+    _check_offset_convention(d, known, report)
 
     # ---- individual deviations: a parameter of a declared component ----
     specs_by_name = {c.name: c for c in (*d.components, *d.channel_components)}
@@ -360,6 +362,40 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_dialect(d, report)
     _check_panel(d, report)
     return report
+
+
+def _check_offset_convention(
+    d: InstrumentDefinition, known: dict[str, type[Component]], report: Report
+) -> None:
+    """A quantizing ADC and the transfer reading its acquisition declare the offset convention each
+    (``scope_adc.offset_sign`` and ``waveform_transfer.offset``, issue 667): the codes the transfer
+    sends and the volts the ADC kept agree only when both say the same, so a mismatch is an error.
+    Both defaults are read when a definition leaves one unset (the classes' defaults differ)."""
+    by_name = {c.name: c for c in d.components}
+
+    def value(spec: Any, key: str) -> str:
+        cls = known[spec.type]
+        return str(spec.params.get(key, cls.defaults.get(key))).lower()
+
+    for i, xfer in enumerate(d.components):
+        if xfer.type != "waveform_transfer" or isinstance(xfer.params.get("offset"), dict):
+            continue  # not a transfer, or its offset is mapped from a setting
+        if xfer.params.get("values") == "volts":
+            continue  # volts only: the transfer never converts to codes
+        acq = by_name.get(str(xfer.params.get("record", known[xfer.type].defaults.get("record"))))
+        adc_spec = by_name.get(str(acq.params.get("adc", ""))) if acq is not None else None
+        if adc_spec is None or adc_spec.type != "scope_adc" or not adc_spec.params.get("bits"):
+            continue  # no ADC named, or it does not quantize
+        want, got = value(adc_spec, "offset_sign"), value(xfer, "offset")
+        if want != got:
+            report.add(
+                "error",
+                "E-DEF-OFFSET-CONVENTION",
+                _ptr("components", i, "params", "offset"),
+                f"{xfer.name}.offset 是 {got!r}，而量化它的 {adc_spec.name}.offset_sign 是 {want!r}：码值与伏特的偏移约定不一致",
+                f"改为 {want!r}",
+                xfer.name,
+            )
 
 
 def _check_quantities(
@@ -616,6 +652,20 @@ def _check_state_ref(
     return spec
 
 
+def _check_noise(value: Any, pp: str, spec: ComponentSpec, report: Report) -> None:
+    """The reading-noise parameter ``noise`` (#746) must be spelled right: a wrong key or value
+    would otherwise read as no noise, or fail at the first reading (#752)."""
+    for sub, message in noise_problems(value):
+        report.add(
+            "error",
+            "E-DEF-NOISE",
+            f"{pp}/{sub}" if sub else pp,
+            f"{spec.name}.noise：{message}",
+            "noise 只接受 ppm_of_range（≥0）、ref_time_s（>0）、table（量程→rms，≥0）",
+            spec.name,
+        )
+
+
 def _check_params(
     d: InstrumentDefinition,
     spec: ComponentSpec,
@@ -637,6 +687,8 @@ def _check_params(
                 spec.name,
                 severity="warning",
             )
+        if key == "noise" and key in cls.defaults and binding_of(value) is None:
+            _check_noise(value, pp, spec, report)
         mapping = value if isinstance(value, dict) and "from" in value else None
         ref = binding_of(value)
         words = cls.choices.get(key)

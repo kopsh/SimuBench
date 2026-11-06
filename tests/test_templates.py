@@ -33,9 +33,14 @@ DSO4_INPUTS = {
             {"name": "ONEMeg", "ohms": 1.0e6, "label": "1 MΩ"}, {"name": "FIFTy", "ohms": 50.0, "label": "50 Ω"},
         ],
     },
-    "vertical": {"scale_range": [1.0e-3, 100.0], "default_scale": 1.0, "probe_range": [0.001, 10000.0]},
+    # sb-dso-4 is a noiseless scope: the template's assumed default noise and trigger jitter (#731) are
+    # switched off so the two are compared like for like.
+    "vertical": {
+        "scale_range": [1.0e-3, 100.0], "default_scale": 1.0, "probe_range": [0.001, 10000.0], "noise_divs": 0.0,
+    },
     "adc": {"bits": 0},
     "timebase": {"scale_range": [1.0e-9, 50.0]},
+    "trigger": {"jitter_s": 0.0},
     "transfer": {"byte_codes_per_div": 32.0, "word_codes_per_div": 8192.0},
 }  # fmt: skip
 
@@ -433,3 +438,67 @@ def test_a_wrong_lecroy_input_is_named_by_its_pointer(change, expected):
     code, path = expected
     out = SCOPE.expand(inputs, "bad")
     assert (code, INPUTS + path) in [(d.code, d.pointer) for d in out.diagnostics]
+
+
+# ---- default noise and trigger jitter (#731) ---------------------------------------------------
+
+
+def _front_params(definition: dict) -> dict:
+    return next(c for c in definition["channel_components"] if c["name"] == "front")["params"]
+
+
+def _sync_jitter(definition: dict) -> float | None:
+    acq = next(c for c in definition["components"] if c["name"] == "acq")
+    return acq["params"].get("trigger_jitter_s")
+
+
+def test_a_scope_built_without_noise_inputs_is_not_noiseless():
+    """An input the author left out is no reason for a dead trace: the template assumes 0.02 div rms
+    of input noise and a trigger jitter of a tenth of the fastest sample interval — 100 ps when the
+    ADC gives no top rate (#731, #735)."""
+    built = _expand(
+        copy.deepcopy(DSO4_INPUTS) | {"vertical": {"scale_range": [1.0e-3, 100.0]}, "trigger": {}}
+    )
+    assert _front_params(built)["noise_divs"] == 0.02
+    assert "noise_table" not in _front_params(built)
+    assert _sync_jitter(built) == pytest.approx(1.0e-10)  # no top rate: the assumed 100 ps
+    fast = _expand(
+        copy.deepcopy(DSO4_INPUTS)
+        | {"vertical": {"scale_range": [1.0e-3, 100.0]}, "trigger": {}, "adc": {"bits": 8, "max_rate": 2.0e9}}
+    )
+    assert _sync_jitter(fast) == pytest.approx(5.0e-11)
+
+
+def test_the_noise_defaults_give_way_to_what_the_author_states():
+    """A scale table with noise rows is the author's noise; ``noise_divs`` 0 and ``jitter_s`` 0 switch
+    the assumed defaults off."""
+    tabled = _expand(SCOPE.example())
+    assert "noise_divs" not in _front_params(tabled)
+    assert _front_params(tabled)["noise_table"]
+    assert _sync_jitter(tabled) == 1.0e-11  # the example's own jitter, not the derived 50 ps
+    quiet = _expand(copy.deepcopy(DSO4_INPUTS))
+    assert "noise_divs" not in _front_params(quiet)
+    assert _sync_jitter(quiet) is None
+
+
+def test_the_default_noise_scales_with_the_division(tmp_path):
+    """``noise_divs`` is a fraction of the division: the same at every V/div, none when it is 0."""
+    inputs = copy.deepcopy(DSO4_INPUTS)
+    inputs["vertical"] = {
+        "scale_range": [1.0e-3, 100.0],
+        "default_scale": 1.0,
+        "probe_range": [0.001, 10000.0],
+    }
+    s = open_bench(_bench(tmp_path, _expand(inputs, "tpl-noisy")))
+    try:
+        front = s.instrument("scope").components["ch1.front"]
+        assert front.noise_rms() == pytest.approx(0.02 * front.input_scale())
+        s.write("scope", b":CHANnel1:SCALe 0.1\n")
+        assert front.noise_rms() == pytest.approx(0.02 * 0.1)
+    finally:
+        s.close()
+    s = open_bench(_bench(tmp_path, _expand(copy.deepcopy(DSO4_INPUTS), "tpl-quiet")))
+    try:
+        assert s.instrument("scope").components["ch1.front"].noise_rms() == 0.0
+    finally:
+        s.close()

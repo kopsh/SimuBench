@@ -34,6 +34,9 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - **Overview** is status-first: a card's light, its alerts and the attention strip all come from
   `cards.py` (`CardData.alerts`, `status_light`) — add a new kind of alert there, never in the
   screen. `w` (overview and instrument screens alike) goes through `reasons.explain_instrument`.
+- The scope screen's settings column is fields too (issue 680), not `[Name]` buttons: same
+  `ControlEditingScreen` editing, `label value` at a capped width — the value keeps its cells,
+  the label ellipsises (`_field_width()`; the instrument screen's grid passes None).
 - **Fields** (`ControlButton`, kind switch / select / number) read `label value` and are edited
   where they stand (`controls.FieldEdit` is the pure state; `editing.edit_key` the keys): the
   button consumes *every* key while `edit` is set (`check_consume_key`), so screen bindings
@@ -90,6 +93,12 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - The README screenshots (`docs/tui/*.svg`) and the snapshots must be regenerated together with a
   visible change: `tests/test_tui_t4.py` compares the docs, `tests/test_tui_snapshots.py` the rest.
   Both start servers on fixed ports — run them one after the other, not in parallel with each other.
+- Steps files (`script.py`, `--script`): `key` `scpi` `advance` `wait` `caption` `highlight`
+  `screenshot`, plus the direct-navigation fields `open:` (open an instrument's screen),
+  `reveal:` (focus and highlight a field, `go_to_field(…, edit=False)`), `home: true`
+  (pop to the overview); `--size COLSxROWS` on the command line overrides the file's `size`
+  (issue 684). `validate(steps, instruments)` simulates the steps in order and names the step
+  number of every problem.
 
 ## Tests (D49)
 

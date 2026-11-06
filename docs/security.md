@@ -4,7 +4,9 @@
 
 | 防护 | 做法 | 测试 |
 | --- | --- | --- |
-| 只监听本机 | Web 服务与 SCPI 网络仪表（raw socket 与 HiSLIP 共用端口，D41）只绑定 127.0.0.1 | `test_scpi_sockets_listen_on_loopback_only` |
+| 只监听本机 | Web 服务与 SCPI 网络仪表（raw socket、HiSLIP 共用端口 D41，VXI-11 的核心、abort 与可选端口映射器 D63）只绑定 127.0.0.1 | `test_scpi_sockets_listen_on_loopback_only` |
+| 连接模式控制端口（D63） | `serve`/`tui`/`mcp` 默认在 127.0.0.1:4881 监听（`--link-port`，`--no-scpi` 关闭），只绑定回环；与 raw socket、HiSLIP、VXI-11 一样没有登录（D43 的令牌只管 Web 接口）；只能调用 `Link` 的白名单方法，不接受别的操作；连接断开时锁释放；连着的脚本自己的等待会推进共享的虚拟时间（与它自己的命令一样），界面的显式推进仍要确认 | `test_scpi_sockets_listen_on_loopback_only`、`test_only_the_link_methods_can_be_called` |
+| HiSLIP 加密与登录（可选，D41） | 有 `--hislip-cert`/`--hislip-key` 才开：TLS 1.2 起，加密强制或要求首先加密时未加密的消息是致命错误；加密后登录前只回应登录类消息；SASL PLAIN 凭证来自 `--hislip-users` 文件（常量时间比较，失败递增延迟；命令行只在 `--hislip-tls initial|mandatory` 时接受它），没有用户文件时只有 ANONYMOUS。**登录只管 HiSLIP 端口，不是测试台的访问控制**：加密可选时不请求加密的客户端与 1.0 客户端免登录，raw socket 与 VXI-11 没有登录。测试证书只在 `tests/data/hislip/` | `tests/test_hislip_tls.py` |
 | 访问令牌（可选，默认关闭，D43） | `--require-token` 启动时随机生成（`secrets.token_urlsafe(24)`），或 `--token 值` 指定；界面地址中带一次后从地址栏移除；请求头 `x-simubench-token`，常量时间比较。开启后，除健康检查与接口描述（`/api/health`、`/api/openapi.json`、`/api/docs`，不含数据）外，每个 `/api` 路由都要求令牌。它是同机威胁模型下的一次性访问凭证，不用于登录或识别用户 | `test_every_api_route_needs_the_token`（遍历全部路由，新增路由自动纳入）、`test_cli_token_is_opt_in` |
 | DNS 重绑定与跨站请求 | Host 与 Origin 头必须是本机地址（127.0.0.1、localhost、::1），否则 403，即使带了正确令牌 | `test_foreign_host_or_origin_is_refused_even_with_the_token`、`test_rebinding_host_rejected` |
 | 事件流 WebSocket | 同样检查 Host、Origin，开启令牌时也检查令牌，失败时以 4403 / 4401 关闭 | `test_event_socket_checks_token_and_origin`、`test_without_a_token_by_default_but_still_loopback_only` |

@@ -157,7 +157,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 
 按仪表的面板生成，与 Web 共用 `library/panels.py` 的 `effective_panel`（类别模板 + 通用布局，D1）。布局参照视频：
 
-- **身份框**：`*IDN?`、资源地址（SOCKET / HiSLIP，脚本可直接复制）、型号定义、错误计数与最近错误码；
+- **身份框**：`*IDN?`、资源地址（SOCKET / HiSLIP / VXI-11，脚本可直接复制）、型号定义、错误计数与最近错误码；
 - **每通道一个框**，按量分列（状态 / 电压 / 电流，或示波器的垂直 / 水平 / 触发），每列是“标签: 值”，**设定值与对应限值放在同一列相邻行**，跳闸时一眼看出原因；框底是一排按钮，焦点按钮反白；
 - **通道右侧是连线与负载**：端口 → 网络，以及网络另一端是什么（元件及其主要参数，或另一台仪表的端口）；未接线写“未接线”；
 - **底部是只含本仪表的通信记录**；
@@ -214,6 +214,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 步骤文件的实例见 `docs/tui/find-the-trip.steps.yaml`，随它用的测试台是 `validation/benches/find-the-trip.bench.yaml`（与 `smu.bench.yaml` 相同，另预设一次跳闸）。
 
 - 步骤：`key`（按键）、`scpi`（以外部客户端发命令，验证“脚本操作实时出现在屏幕上”）、`advance`（推进虚拟时间）、`wait`（演示中停留的时长，不推进虚拟时间）、`caption`（底部字幕，右侧自动写出按键或命令，如 `key ▸ enter`）、`highlight`（给控件加琥珀色框）、`screenshot`；一个步骤可以组合按键与修饰字段（`caption`、`highlight`、`wait`、`screenshot`），`wait` / `advance` 接受秒数或带单位（`1.5s`、`200ms`）；
+- 直接导航（issue 684）：`open: <仪表>` 直接打开该仪表的屏幕（等同总览上聚焦后按 Enter）、`reveal: <状态路径>` 聚焦并高亮该字段而不进入编辑（`go_to_field(…, edit=False)`）、`home: true` 回到总览（弹出其上的所有屏幕）；三者可与 `caption`/`wait`/`screenshot` 同步出现，执行顺序在 `key` 之后、`screenshot` 之前。校验随 `validate()` 给出带步骤序号的诊断：`open` 的名字不在测试台上、`reveal` 前没有 `open`（或路径不在该仪表的状态变量里）、`home` 不是 `true`；`--size COLSxROWS` 在命令行覆盖步骤文件的 `size`；
 - `scpi` 的 `source_port` 固定那个外部客户端的本地端口：日志把端口写成来源（`脚本 :5401`），所以可复现的截图必须把它固定，否则每次运行都不同；
 - 输出：每个 `screenshot` 一张 SVG；`--record` 时按 `wait` 输出逐帧 SVG 与 asciinema `.cast`，需要视频时由文档构建脚本转成 MP4 / GIF（不进入运行时依赖）；
 - 使用 `idle: off` 与固定种子（D47），虚拟时间只由步骤推进，同一测试台 + 同一步骤 → 逐字节相同的 SVG；

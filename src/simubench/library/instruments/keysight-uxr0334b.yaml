@@ -58,6 +58,15 @@ specs:
   trigger_sensitivity: "1 div p-p"
   trigger_level_range: "±4 div from center screen or ±4 V, whichever is smaller; AUX ±5 V"
   trigger_holdoff_s: [4.0e-8, 10.0]
+  trigger_jitter_s_rms: 2.5e-14
+  noise_floor: >-
+    estimated (the data sheet 3123-1313 publishes no rms-noise floor, #745): 2.5 mV rms of white
+    input noise at the full 33 GHz — the 200 MHz-class 0.2 mV floor scaled by sqrt(33000/200)
+    (white noise grows with the square root of the bandwidth).
+  noise_per_division: >-
+    estimated (data sheet gives none, D46): max(2.5 mV, 0.02 * v_div) at the input — about 2.5
+    codes rms at 10 bits (100 codes per division) on the sensitive ranges. Per-division values
+    in the scope_vertical noise_table.
 channels:
   count: 4
   overrides:
@@ -423,6 +432,7 @@ components:
       # :ACQuire:AVERage ON：取 :ACQuire:COUNt 次量化采集的均值（D46）。
       processing: {from: $acquire.average, map: {"True": average}, default: normal}
       averages: $acquire.count
+      trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
   # 时基：采样率为 128 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
   # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
   # 取屏幕 10% / 50% / 90%。
@@ -549,6 +559,11 @@ channel_components:
       scale_range: [1.0e-3, 1.0]
       offset_ranges: [[0.0545, 0.4], [0.0935, 0.7], [0.1725, 1.25], [0.3065, 2.25], [1.0, 4.0]]
       out_of_range: error
+      # 每档噪声（specs.noise_per_division，估计，D46/#745）：灵敏档 2.5 mV 的输入噪声底
+      # （33 GHz 全带宽），高档按 0.02 格线性增大。
+      noise_table: [[1.0e-3, 2.5e-3], [2.0e-3, 2.5e-3], [5.0e-3, 2.5e-3], [1.0e-2, 2.5e-3],
+                    [2.0e-2, 2.5e-3], [5.0e-2, 2.5e-3], [1.0e-1, 2.5e-3], [2.0e-1, 4.0e-3],
+                    [5.0e-1, 1.0e-2], [1.0, 2.0e-2]]
   # 通道带宽限制：WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。
   # 手册说 Bessel 与 Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，
   # 这一组合未建模（覆盖表注明）。

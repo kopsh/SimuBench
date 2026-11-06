@@ -787,7 +787,7 @@
         "type": "object"
       },
       "ClientInfo": {
-        "description": "A client connected to the session's SCPI ports (raw socket or HiSLIP).",
+        "description": "A client connected to the session's SCPI ports (raw socket, HiSLIP or VXI-11).",
         "properties": {
           "client": {
             "description": "Label as it appears in the communication log",
@@ -808,7 +808,7 @@
           },
           "locked": {
             "default": false,
-            "description": "Holds a HiSLIP lock, i.e. a script is in control",
+            "description": "Holds a HiSLIP or VXI-11 lock, i.e. a script is in control",
             "title": "Locked",
             "type": "boolean"
           }
@@ -2877,6 +2877,17 @@
             "title": "Address Virtual",
             "type": "string"
           },
+          "address_vxi11": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Vxi11"
+          },
           "channels": {
             "title": "Channels",
             "type": "integer"
@@ -2974,7 +2985,7 @@
             "type": "array"
           },
           "remote": {
-            "description": "Clients connected to this instrument's ports (socket, HiSLIP): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
+            "description": "Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
             "items": {
               "type": "string"
             },
@@ -3013,6 +3024,7 @@
           "address_virtual",
           "address_real",
           "address_hislip",
+          "address_vxi11",
           "scpi_port",
           "display",
           "ports",
@@ -3056,6 +3068,14 @@
             "title": "Ports",
             "type": "array"
           },
+          "refs": {
+            "description": "Dependencies between components (a component names another in a refs parameter), from the one used to the one that uses it; not signal wiring",
+            "items": {
+              "$ref": "#/components/schemas/InternalRef"
+            },
+            "title": "Refs",
+            "type": "array"
+          },
           "wires": {
             "items": {
               "$ref": "#/components/schemas/InternalWire"
@@ -3070,6 +3090,7 @@
           "channels",
           "components",
           "wires",
+          "refs",
           "ports"
         ],
         "title": "InstrumentInternals",
@@ -3268,6 +3289,33 @@
           "channel"
         ],
         "title": "InternalPort",
+        "type": "object"
+      },
+      "InternalRef": {
+        "description": "A component using another one (a ``refs`` parameter): not a signal wire, a dependency.",
+        "properties": {
+          "from": {
+            "description": "The component used (it feeds the one that uses it, e.g. 'adc')",
+            "title": "From",
+            "type": "string"
+          },
+          "param": {
+            "description": "The using component's parameter that names it, e.g. 'adc'",
+            "title": "Param",
+            "type": "string"
+          },
+          "to": {
+            "description": "The component that uses it (e.g. 'acq')",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "param"
+        ],
+        "title": "InternalRef",
         "type": "object"
       },
       "InternalWire": {
@@ -4909,7 +4957,7 @@
                 "type": "null"
               }
             ],
-            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip events: the acknowledged control",
+            "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip and bus_control events: the acknowledged control",
             "title": "Action"
           },
           "channels": {
@@ -5056,7 +5104,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | solver",
+            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver",
             "title": "Kind",
             "type": "string"
           },
@@ -5717,6 +5765,18 @@
             "title": "Layout",
             "type": "object"
           },
+          "link_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench (GPIB, USB and TCPIP addresses then work unchanged, D63)",
+            "title": "Link Address"
+          },
           "nets": {
             "items": {
               "$ref": "#/components/schemas/NetInfo"
@@ -5790,6 +5850,7 @@
           "bench_fingerprint",
           "stale_definitions",
           "record_path",
+          "link_address",
           "clients",
           "instruments",
           "parts",

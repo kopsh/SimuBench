@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from itertools import pairwise
 from pathlib import Path
 
 import numpy as np
@@ -121,3 +122,65 @@ def test_a_record_with_panel_actions_replays_byte_for_byte(tmp_path):
     report = replay(path)
     assert report.ok, report.as_dict()
     assert report.replies == 2 and report.actions >= 4  # two panel actions among them
+
+
+# ---- a running screen is alive (#730) -----------------------------------------------------------
+
+
+def _frames(served, n: int = 4) -> list[np.ndarray]:
+    return [np.array(screen(served).traces[0].volts) for _ in range(n)]
+
+
+def test_a_triggered_running_screen_is_stable_with_noise_on_it():
+    """The Siglent's input noise rides each frame: no two frames are the same, but a triggered
+    trace stays locked to the signal, so they differ by the noise only (a few mV on a 0.17 V trace)."""
+    s, served = bench()
+    frames = _frames(served)
+    assert screen(served).traces[0].triggered
+    diffs = [float(np.abs(b - a).max()) for a, b in pairwise(frames)]
+    assert all(d > 0 for d in diffs)  # not a dead line
+    assert all(d < 0.02 for d in diffs)  # but not sliding either
+    s.close()
+
+
+def test_an_untriggered_running_screen_slides_from_frame_to_frame():
+    """A free-running scope starts each sweep at an arbitrary instant: with the trigger level beyond
+    the signal the trace is not locked and the phase differs from frame to frame, by far more than noise."""
+    s, served = bench()
+    s.write("scope", b":TRIGger:EDGE:LEVel 0.2\n")
+    frames = _frames(served, 6)
+    assert not screen(served).traces[0].triggered
+    diffs = [float(np.abs(b - a).max()) for a, b in pairwise(frames)]
+    assert max(diffs) > 0.05, diffs  # the 0.17 V trace moved, not 5 mV of noise
+    s.close()
+
+
+def test_the_frames_of_a_screen_are_the_same_on_every_run():
+    """Frames are a pure function of the seed and the frame number: a replay shows the same screen, and
+    drawing them takes no virtual time (the scripts' clock is not the screen's)."""
+    runs = []
+    for _ in range(2):
+        s, served = bench()
+        s.write("scope", b":TRIGger:EDGE:LEVel 0.2\n")
+        t0 = s.now_ns
+        runs.append(_frames(served, 3))
+        assert s.now_ns == t0
+        s.close()
+    assert all(np.array_equal(a, b) for a, b in zip(runs[0], runs[1], strict=True))
+
+
+def test_a_triggered_screen_varies_by_its_noise_only():
+    """The DSO-X 2024A now carries the range table's input noise (#745, specs.noise_per_division:
+    10 mV rms on 0.5 V/div): a triggered trace draws anew each frame — never a dead line — but
+    stays locked to the signal, so the frames differ by that noise only."""
+    s = open_bench(
+        ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml", clock="command", seed=5, idle="off"
+    )
+    served = ServedSession("t", s, None)
+    s.write("scope", b":RUN\n")
+    frames = _frames(served, 3)
+    assert screen(served).traces[0].triggered
+    diffs = [float(np.abs(b - a).max()) for a, b in pairwise(frames)]
+    assert all(d > 0 for d in diffs)  # not a dead line
+    assert all(d <= 0.1 for d in diffs)  # 100k samples: the pair's max reaches some 5 rms of the 10 mV noise
+    s.close()

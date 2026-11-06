@@ -438,11 +438,12 @@ def build_server(
             # The pool owns the try semantics (no ports, no record, scratch bench) and the reuse:
             # a second batch for the same definition runs on the same session instead of cycling
             # a bench per call (issue 636).
-            entry = manager.tries.open(definition_id)  # unknown id: KeyError before anything builds
-            return [
-                {"command": command, **_scpi(entry.served.session, definition_id, command, client="mcp")}
-                for command in commands
-            ]
+            # unknown id: KeyError before anything builds
+            with manager.tries.using(definition_id) as entry:
+                return [
+                    {"command": command, **_scpi(entry.served.session, definition_id, command, client="mcp")}
+                    for command in commands
+                ]
 
         try:
             results = await asyncio.to_thread(run)
@@ -663,7 +664,7 @@ def build_server(
             "bench": info.bench_name,
             "bench_path": rel,
             "clock": info.clock_mode,
-            "now_s": info.now_ns / 1e9,
+            "now_ns": info.now_ns,
             "instruments": [
                 {
                     "name": i.name,
@@ -672,6 +673,7 @@ def build_server(
                     "resource_virtual": i.address_virtual,
                     "resource_real": i.address_real,
                     "resource_hislip": i.address_hislip,
+                    "resource_vxi11": i.address_vxi11,
                     "scpi_socket": f"TCPIP0::127.0.0.1::{i.scpi_port}::SOCKET" if i.scpi_port else None,
                 }
                 for i in info.instruments
@@ -772,7 +774,8 @@ def build_server(
         confirm: bool = Field(False, description="Required for commands marked dangerous"),
     ) -> dict[str, Any]:
         """Send SCPI to an instrument of the session and return its response and any new errors
-        from the error queue. Logged as client 'mcp'."""
+        from the error queue, as of virtual time ``now_ns`` (nanoseconds, the unit every
+        SimuBench tool reports). Logged as client 'mcp'."""
         guard()
         s = served(session_id)
         try:
@@ -843,7 +846,9 @@ def build_server(
         ),
     ) -> dict[str, Any]:
         """Advance the session's virtual clock (simulation control; needs --allow-control).
-        Refused while scripts are connected to the ports, unless force=true."""
+        Returns ``now_ns``, the virtual time after the advance in nanoseconds — the unit every
+        SimuBench tool reports. Refused while scripts are connected to the ports, unless
+        force=true."""
         guard()
         control()
         s = served(session_id)
@@ -851,7 +856,7 @@ def build_server(
             s.session.advance(seconds, force=force)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
-        return {"now_s": s.session.now_ns / 1e9}
+        return {"now_ns": s.session.now_ns}
 
     @mcp.tool()
     def inject_fault(fault: Fault, session_id: str | None = None) -> dict[str, Any]:

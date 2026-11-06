@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import __version__
-from .service import add_service_options, address_line, build_manager
+from .service import add_service_options, address_line, build_manager, link_line
 
 if TYPE_CHECKING:
     from .library.loader import DefinitionLibrary
@@ -41,6 +41,10 @@ def _serve(args: argparse.Namespace) -> int:
                 print(address_line("SCPI", lst.instrument, lst.address))
             for name, addr in served.hislip.addresses().items() if served.hislip else []:
                 print(address_line("HiSLIP", name, addr))
+            for name, addr in served.vxi11.addresses().items() if served.vxi11 else []:
+                print(address_line("VXI-11", name, addr))
+            if served.link:
+                print(link_line(served.link.address()))
         url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
@@ -519,6 +523,9 @@ def main(argv: list[str] | None = None) -> int:
     add_service_options(p, logs=False, token="present")
     p.add_argument("--script", metavar="STEPS_YAML", help="run these steps headlessly and exit (6)")
     p.add_argument("--out", metavar="DIR", default="tui-shots", help="where the SVGs go (default: tui-shots)")
+    p.add_argument(
+        "--size", metavar="COLSxROWS", help="override the steps file's size, e.g. 100x34 (issue 684)"
+    )
     p.add_argument("--record", action="store_true", help="also write per-frame SVGs and a .cast (6)")
     p.set_defaults(fn=_tui)
 
