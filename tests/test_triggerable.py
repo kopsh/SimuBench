@@ -248,3 +248,21 @@ def test_a_firing_is_instant_on_a_stepped_clock():
     trig.trigger_in("bus")
     assert trig.acts == 1 and not trig.armed
     assert owner.pending == {}
+
+
+def test_the_trigger_delay_stands_on_a_stepped_clock():
+    """The trigger delay is timer semantics, not the action's cost: on a stepped clock it still
+    defers the action, which ``advance`` runs — only the firing's own span collapses (issue 659)."""
+    owner = FakeOwner(clock="stepped")
+    trig = FakeTrigger(owner, source="bus", delay=0.01)
+    trig.span = 40_000_000
+    trig.arm()
+    trig.trigger_in("bus")
+    assert trig.delaying and trig.acts == 0
+    assert owner.pending[trig.uid] == (owner.now + 10_000_000, trig._fire_step)  # the delay, not the span
+    owner.now += 9_000_000
+    owner.settle()
+    assert trig.acts == 0  # still within the delay
+    owner.now += 1_000_000
+    owner.settle()
+    assert trig.acts == 1 and not trig.armed
