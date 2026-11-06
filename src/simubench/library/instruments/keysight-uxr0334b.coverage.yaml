@@ -568,7 +568,7 @@ sections:
     note: 8 divisions of :CHANnel<N>:SCALe
   - header: :CHANnel<N>:SCALe
     level: implemented
-    note: '1 mV/div to 1 V/div (data sheet, 3.5 mm input models); out of range is -222. Records carry the range''s input noise (specs.noise_per_division: estimated — the data sheet gives no rms-noise floor, D46/#745); each acquisition differs'
+    note: '1 mV/div to 1 V/div (data sheet, 3.5 mm input models); out of range is -222. Records carry the range''s input noise (specs.noise_per_division: 1.48 mV rms published at 50 mV/div, Keysight UXR specifications; flat on the sensitive ranges unverified per range, #774); each acquisition differs'
   - header: :CHANnel<N>:SPECtral:CFRequency
     level: not_modeled
   - header: :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS
