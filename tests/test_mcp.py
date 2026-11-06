@@ -753,8 +753,9 @@ async def test_try_definition_sessions_are_pooled_and_reused(ws):
     async with Client(server) as c:
         first = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?"])
         assert [e.definition for e in manager.tries.all()] == ["sb-dmm-1"]
+        id1 = [e.served.id for e in manager.tries.all()]
         second = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?"])
-        assert len(manager.tries.all()) == 1  # reused, not opened anew
+        assert [e.served.id for e in manager.tries.all()] == id1  # the same session, not a new one
         assert [r["response"] for r in first["results"]] == [r["response"] for r in second["results"]]
         # an unknown definition still fails before anything builds
         unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
@@ -775,3 +776,13 @@ async def test_the_time_fields_of_every_tool_agree_on_name_and_unit(ws):
         assert "now_s" not in advanced
         assert advanced["now_ns"] - sent["now_ns"] >= 1_000_000_000  # nanoseconds, not seconds
         assert manager.get(sid).session.now_ns == advanced["now_ns"]
+
+
+async def test_try_definition_state_carries_over_between_batches(ws):
+    """What one batch sets is there in the next batch: the same session, not a fresh one (issue 671)."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*ESE 32"])
+        second = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*ESE?"])
+        assert second["results"][0]["response"].strip() == "32"
+        assert len(manager.tries.all()) == 1
