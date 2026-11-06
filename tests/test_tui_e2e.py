@@ -404,3 +404,42 @@ def test_the_cli_runs_a_script_and_leaves_one_reviewable_run(tmp_path: Path):
     assert len(records) == 1
     header = json.loads(records[0].read_text(encoding="utf-8").splitlines()[0])
     assert header["kind"] == "header" and header["bench"] == "find-the-trip"
+
+
+async def test_an_error_fault_with_count_from_the_tui_path(served_validation):
+    """error+count injected through the TUI's own API path (the dialog's request: the same POST
+    with the X-SimuBench-Client: tui header, issue 697): the queue answers the code in order that
+    many times and is empty again, and the injection event names 终端 as the source."""
+    served_session = await served_validation.start("benches/smu.bench.yaml", seed=5, clock="command")
+    sid = served_session.id
+    tui = SimuBenchApp(served_validation.url, sid=sid)
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await wait_connected(pilot, tui)
+        await wait_quiet(pilot, tui)
+        async with httpx.AsyncClient(
+            base_url=served_validation.url, headers={"X-SimuBench-Client": "tui"}
+        ) as http:
+            r = await http.post(
+                f"/api/sessions/{sid}/faults",
+                json={"kind": "error", "instrument": "smu", "code": -313, "count": 3},
+            )
+            assert r.status_code == 200
+            assert r.json()["source"] == "tui"
+        events = [
+            e
+            for e in served_validation.manager.get(sid).session.history
+            if e["kind"] == "fault" and e.get("reason") == "injected"
+        ]
+        assert events and events[-1]["source"] == "tui" and events[-1]["spec"]["count"] == 3
+        # the TUI sees the queue drain live (the identity box carries it), and the reads answer
+        # the code in order: three times, then the empty queue
+        port = (await tui.client.instrument(sid, "smu"))["scpi_port"]
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        replies = []
+        for _ in range(4):
+            writer.write(b":SYSTem:ERRor?\n")
+            await writer.drain()
+            replies.append((await asyncio.wait_for(reader.readline(), timeout=10)).decode().strip())
+        writer.close()
+        assert [r.split(",")[0] for r in replies[:3]] == ["-313"] * 3
+        assert replies[3].startswith("0,")
