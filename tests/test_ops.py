@@ -106,9 +106,9 @@ def test_the_serving_entries_share_one_set_of_service_options(monkeypatch, tmp_p
         "--record-raw",
         "--allow-plugins",
     ]
-    main(["serve"] + common)
-    main(["mcp"] + common)
-    main(["tui"] + common)
+    main(["serve", *common])
+    main(["mcp", *common])
+    main(["tui", *common])
     assert set(seen) == {"_serve", "_mcp", "_tui"}
     for name, args in seen.items():
         manager = cli.build_manager(args, tmp_path)
