@@ -68,6 +68,10 @@ def main() -> None:
 
         # 20 dB down is a tenth of the voltage.
         sg.write(":LEVel -20")
+        # scale to the small carrier so the noise does not lead the reading (#745): 50 mV/div
+        # holds the 0.25 Vpp (into the high-Z input) across 5 divisions and the range's noise
+        # stays at a few codes
+        scope.write(":CHANnel1:SCALe 5E-2")
         low = vpp(scope)
         sg.write(":LEVel 0")
 
@@ -77,7 +81,7 @@ def main() -> None:
         sg.write(":AM:FREQuency 10kHz")
         sg.write(":AM:STATe ON")
         sg.write(":MODulation:STATe ON")
-        scope.write(":TIMebase:SCALe 2E-5")
+        scope.write(":TIMebase:SCALe 2E-5;:CHANnel1:SCALe 5E-1")  # the envelope is 1.5× the carrier
         modulated = vpp(scope)
         sg.write(":AM:STATe OFF")
         scope.write(":TIMebase:SCALe 2E-7")
@@ -98,14 +102,11 @@ def main() -> None:
     print(scope_error)
 
     assert error.startswith("0"), error
-    # the scope's crossings carry the range table's noise (#745): some 2 ppm on the period
     # the crossings ride the range table's noise and the codes' interpolation (#745):
     # some 0.15 % on the LSQ period at 10 MHz
     assert abs(carrier_frequency - 10e6) < 25.0e3, carrier_frequency
     assert abs(carrier - expected) <= 0.05 * expected, carrier
-    # -20 dB sits at the noise floor: the low reading's VPP includes the noise's own
-    # peak-to-peak (#745), so the ratio holds only to a half
-    assert abs(carrier / low - 10.0) <= 5.0, (carrier, low)
+    assert abs(carrier / low - 10.0) <= 0.3, (carrier, low)
     assert abs(modulated / carrier - 1.5) <= 0.05, (modulated, carrier)
 
 

@@ -60,9 +60,12 @@ specs:
   trigger_holdoff_s: [4.0e-8, 10.0]
   trigger_jitter_s_rms: 2.5e-14
   noise_floor: >-
-    estimated (the data sheet 3123-1313 publishes no rms-noise floor, #745): 2.5 mV rms of white
-    input noise at the full 33 GHz — the 200 MHz-class 0.2 mV floor scaled by sqrt(33000/200)
-    (white noise grows with the square root of the bandwidth).
+    estimated, no data-sheet figure (the UXR-B data sheet 3123-1371.EN carries no per-range rms
+    noise table — checked 2026-11-07, #745/#774): 2.5 mV rms of white input noise at the full
+    33 GHz, the 200 MHz-class 0.2 mV floor scaled by sqrt(33000/200). Consequence to know: on
+    the sensitive ranges that is some 2.5 divisions rms of trace — the full-band front end is
+    that noisy, and the real instrument works those ranges with the bandwidth limit or ERES
+    (both modeled here).
   noise_per_division: >-
     estimated (data sheet gives none, D46): max(2.5 mV, 0.02 * v_div) at the input — about 2.5
     codes rms at 10 bits (100 codes per division) on the sensitive ranges. Per-division values
