@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
-from ...engine.noise import gaussian, stream_key
+from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -1225,6 +1225,15 @@ class ScopeAcquisition(Component):
         triggered = hit is not None
         k = hit.index if hit is not None else pre
         start = k - pre
+        if frame is not None and hit is None:
+            # An untriggered frame of a running scope: a free-running scope starts each sweep at an
+            # arbitrary instant, so the trace is not locked to the signal and slides from frame to
+            # frame. The offset is a pure function of the seed and the frame number (no virtual time
+            # passes, and a replay shows the same screen).
+            phase = float(
+                uniform(stream_key(self.session.seed, self.uid, "frame-phase", frame), np.zeros(1))[0]
+            )
+            t0 += round(phase * points * dt * 1e9)
         t_start_ns = t0 + round(start * dt * 1e9)
         # Peak detect samples the ADC's native rate (F4): m native codes per record sample, capped
         # so a deep record at a slow timebase stays feasible - the real detector is hardware too.
