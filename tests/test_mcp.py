@@ -806,3 +806,22 @@ async def test_describe_session_describes_once(ws, monkeypatch):
         manager.describe = counted  # type: ignore[method-assign]
         await call(c, "describe_session", session_id=sid)
         assert calls == 1
+
+
+async def test_an_error_fault_with_count_queues_it_that_many_times(ws):
+    """error+count (issue 697): the code answers in order that many times, then the queue is
+    empty again; the tool result and the fault event both name mcp as the source."""
+    _, server = make(ws, allow_control=True)
+    async with Client(server) as c:
+        await call(c, "start_session", path=BENCH)
+        f = await call(
+            c, "inject_fault", fault={"kind": "error", "instrument": "awg", "code": -313, "count": 3}
+        )
+        # an error fault queues its errors at once and ends; the queue holds them for the reads
+        assert f["status"] == "ended" and f["source"] == "mcp" and f["spec"]["count"] == 3
+        reads = [await call(c, "send_scpi", instrument="awg", command=":SYSTem:ERRor?") for _ in range(4)]
+        assert [r["response"] for r in reads[:3]] == ['-313,"Calibration memory lost"'] * 3
+        assert reads[3]["response"].startswith("0,")
+        log = await call(c, "read_log", kinds=["fault"])
+        events = [e for e in log["events"] if e.get("fault") == f["id"]]
+        assert events and events[0]["source"] == "mcp"

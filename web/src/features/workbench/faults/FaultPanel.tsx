@@ -65,7 +65,8 @@ export function FaultPanel({
     const duration = num("duration");
     if (duration) spec.duration_s = duration;
     const count = Number.parseInt(fields.count ?? "", 10);
-    if (Number.isFinite(count) && count > 0 && ["timeout", "garble"].includes(kind)) spec.count = count;
+    // error queues the code that many times (#682, #697); the link faults per message. trip is once.
+    if (Number.isFinite(count) && count > 0 && ["timeout", "garble", "error"].includes(kind)) spec.count = count;
     inject.mutate(spec, {
       onSuccess: (f) => toast.success(t("fault.injected", { what: f.description })),
       onError: (err) => toast.error(t("errors.generic"), { description: (err as Error).message }),
@@ -116,7 +117,7 @@ export function FaultPanel({
           {(kind === "error" || kind === "trip") && (
             <Small label={t("fault.code")} value={fields.code} onChange={set("code")} placeholder="-300" />
           )}
-          {(kind === "timeout" || kind === "garble") && (
+          {(kind === "timeout" || kind === "garble" || kind === "error") && (
             <Small label={t("fault.count")} value={fields.count} onChange={set("count")} placeholder={t("fault.countHint")} />
           )}
           {kind !== "error" && kind !== "trip" && (
