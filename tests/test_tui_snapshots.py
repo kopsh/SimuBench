@@ -516,7 +516,9 @@ def category_server():
     }
     yield {key: (url, manager) for key, (url, manager, _, _) in servers.items()}
     for _, manager, server, thread in servers.values():
-        asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
+        asyncio.run(
+            stop_manager_sessions(manager)
+        )  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
         server.should_exit = True
         thread.join(timeout=10)
 
