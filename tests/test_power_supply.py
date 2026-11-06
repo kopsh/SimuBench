@@ -284,3 +284,37 @@ def test_the_transient_step_writes_the_triggered_levels():
         assert getattr(e.value, "code", None) == -211
     finally:
         s.close()
+
+
+def test_the_transient_step_keeps_its_trigger_delay_on_a_stepped_clock():
+    """The trigger delay is timer semantics (issue 659): on a stepped clock the step lands only
+    once ``delay`` of virtual time has been advanced, not with the trigger."""
+    from simubench.engine.session import Session
+    from simubench.library.components.power import SupplyTransient
+
+    lib = DefinitionLibrary()
+    bench_ = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/2", "name": "t", "instruments": {"psu": {"model": "keysight-n6705c"}}}
+    )
+    s = Session(bench_, lambda model: lib.get(model), clock="stepped", seed=1, idle="off")
+    try:
+        inst = s.instruments["psu"]
+        tran = inst.components["ch2.tran"]
+        assert isinstance(tran, SupplyTransient)
+        inst.set_state("ch2.v_triggered", 7.0)
+        inst.set_state("ch2.v_mode", "STEP")
+        tran.overrides["ready_delay"] = 0.0
+        tran.overrides["delay"] = 0.5
+        tran.op_initiate()
+        tran.bus_trigger()
+        assert tran.delaying  # the trigger delay is running on this clock too
+        assert inst.get_state("ch2.voltage") == 0.0  # the step has not landed yet
+        s.advance(0.4)
+        inst.settle_pending()  # what a message's arrival does
+        assert inst.get_state("ch2.voltage") == 0.0  # still within the delay
+        s.advance(0.1)
+        inst.settle_pending()
+        assert inst.get_state("ch2.voltage") == 7.0  # the delay is over: the step landed
+        assert not tran.armed
+    finally:
+        s.close()

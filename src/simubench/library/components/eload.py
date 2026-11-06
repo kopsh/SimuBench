@@ -111,6 +111,7 @@ class EloadModeLoop(Component):
         "resistance_ranges": [],  # [[low, high], ...] of the CR ranges, ascending
         "power_range": 0.0,  # W, the CP range setting
         "power_ranges": [],  # [[low, high], ...] of the CP ranges, ascending
+        "slew_limits": None,  # [[low_min, low_max], [high_min, high_max]] of the CC slew by range (None: not said)
     }
     _RANGED = {
         "current_range": "current",
@@ -173,6 +174,16 @@ class EloadModeLoop(Component):
         if key in self._RANGED:
             self._set_range(key, float(new))
             return
+        if key in ("slew_rise", "slew_fall"):
+            # The slew bounds follow the selected CC range (issue 663): out of range is a data
+            # error, like any setting outside the static range.
+            limits = self.state_limits(path)
+            if limits is not None:
+                lo, hi = limits
+                v = float(new)
+                if v < lo - abs(lo) * 1e-12 - 1e-300 or v > hi + abs(hi) * 1e-12 + 1e-300:
+                    raise ScpiError(-222)
+            return
         if key == "current":
             # Anchor the ramp at the level the old setpoint had reached — at 0 while the load
             # conducts nothing (input off, tripped or below Von): the step starts from no current.
@@ -193,6 +204,29 @@ class EloadModeLoop(Component):
             raise ScpiError(-221, "the rise and fall slew rates are not settings of this definition")
         self.owner.set_state(path, float(self.param("slew_rise")))
         return OpResult()
+
+    # ---- the slew range follows the CC range (issue 663) -------------------------------------------
+
+    def _range_index(self, key: str) -> int:
+        """Which of ``<x>_ranges`` the ``<x>_range`` setting selects (the smallest that holds it)."""
+        value = float(self.param(key) or 0.0)
+        for index, (lo, hi) in enumerate(self._ranges(key)):
+            if lo - 1e-12 <= value <= hi + 1e-12:
+                return index
+        return 0
+
+    def state_limits(self, path: str) -> tuple[float, float] | None:
+        """The slew rates' bounds on the selected CC range (the 8600 data sheet: 0.001–0.25 A/µs
+        on the low range, 0.01–2.5 A/µs on the high one); ``slew_limits`` is ``[[low_min,
+        low_max], [high_min, high_max]]`` by range index, empty when the model does not say."""
+        if self.param("slew_limits") is None:
+            return None
+        for key in ("slew_rise", "slew_fall"):
+            if self.bound_path(key) == path:
+                table = self.param("slew_limits")
+                lo, hi = table[min(self._range_index("current_range"), len(table) - 1)]
+                return (float(lo), float(hi))
+        return None
 
     # ---- the mode decision -----------------------------------------------------------------------
 

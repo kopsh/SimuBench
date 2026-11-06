@@ -252,7 +252,8 @@ class WaveformTransfer(Component):
             "x_reference": 0,  # the point x_start belongs to
             # code -> volts: (code - y_reference) * y_increment + y_origin
             "y_increment": rec.scale / word_per_div if word_per_div else 0.0,
-            "y_origin": rec.offset if str(self.param("offset")).lower() != "add" else -rec.offset,
+            # ``+ 0.0``: no negative zero from negating a zero offset
+            "y_origin": (rec.offset if str(self.param("offset")).lower() != "add" else -rec.offset) + 0.0,
             "y_reference": (1 << (width - 1)) if unsigned else 0,
             "bytes": int(sel.size) * (int(self.param("float") or 0) or width) // 8,
             "dt": rec.dt_s,
