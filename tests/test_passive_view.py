@@ -145,8 +145,11 @@ def test_a_fault_read_racing_ticks_stays_consistent(tmp_path):
     stop = threading.Event()
 
     def ticks():
+        # a tiny yield between ticks: the race stays real, but the ticker does not spin the GIL
+        # away from the reads (the unthrottled loop cost ~7 s of wall time, #651)
         while not stop.is_set():
             s.advance(0.01)
+            time.sleep(0.0005)
 
     t = threading.Thread(target=ticks)
     t.start()

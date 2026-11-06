@@ -68,6 +68,7 @@ def mcp_workspace(tmp_path):
     return ws
 
 
+@pytest.mark.tui_boot  # a nested complete pytest session of two heavy modules: e2e tier (#651)
 async def test_the_bench_is_rebuilt_through_mcp_alone(mcp_workspace):
     ws = mcp_workspace
     manager = SessionManager(ws, scpi_base_port=None)
