@@ -314,6 +314,7 @@ components:
       von_latch: $voltage.von_latch
       slew_rise: $current.slew_rise
       slew_fall: $current.slew_fall
+      slew_limits: [[0.001, 0.25], [0.01, 2.5]]
       current_range: $current.range
       current_ranges: [[0.0, 24.0], [0.0, 240.0]]
       voltage_range: $voltage.range
@@ -432,8 +433,10 @@ commands:
     doc: 上升与下降斜率同时设置（参数先写上升斜率，操作再把同一值写给下降斜率）。
   - header: "[:SOURce]:CURRent:SLEW:POSitive"
     state: current.slew_rise
+    doc: 范围随电流量程（issue 663）：低量程 0.001–0.25 A/µs、高量程 0.01–2.5 A/µs（数据表），越界报 -222。手册自带的示例 CURR:SLEW:POS 0.0001 低于低量程下限，真机会报数据错，本实现同样报 -222。
   - header: "[:SOURce]:CURRent:SLEW:NEGative"
     state: current.slew_fall
+    doc: 范围随电流量程，与 SLEW:POSitive 相同。
   - header: "[:SOURce]:CURRent:PROTection:STATe"
     state: current.prot_on
   - header: "[:SOURce]:CURRent:PROTection[:LEVel]"
@@ -455,8 +458,9 @@ commands:
     doc: 电压表的自动量程；读数无噪声与分辨率模型，保存与回读不影响读数。
   - header: "[:SOURce]:VOLTage[:LEVel]:ON"
     state: voltage.von
-  - header: "[:SOURce]:VOLTage:LATCh[:STATe]"
+  - header: "[:SOURce]:VOLTage[:ON]:LATCh[:STATe]"
     state: voltage.von_latch
+    doc: issue 663：手册 *RST 表写 VOLT:ON:LATC、命令章节没有独立的 VOLTage:LATCh 条目，两种写法（带与不带 [:ON]）都接受；真机以哪个为准未核实。
   - header: "[:SOURce]:VOLTage:HIGH"
     state: limit.voltage_high
   - header: "[:SOURce]:VOLTage:LOW"

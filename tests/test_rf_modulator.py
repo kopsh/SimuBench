@@ -137,3 +137,34 @@ def test_on_the_dsg815_the_refused_switch_stays_off_and_the_carrier_bare():
         assert s.port_signal(sg.components[comp], port).merged().freq.size == 1
     finally:
         s.close()
+
+
+class _LowCarrier(_Stub):
+    """A carrier below the modulation rate: lower sidebands cross zero and fold (issue 667)."""
+
+    carrier = 500.0
+
+    def input(self, port):
+        return Signal.lines([self.carrier], [1.0])
+
+
+@pytest.mark.unit
+def test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes():
+    """A 500 Hz carrier FM'd by a 1 kHz tone at β = 2: orders -1 and -2 cross zero. The folded lines
+    must sum to cos(2π·f0·t − β·cos(2π·rate·t)) (FM on a sine tone: order-1 phase −π/2), to
+    Carson's truncation (the omitted pair J4(2) = 0.034 each, so 0.1); dropping the crossing lines is off by ~0.5."""
+    stub = _LowCarrier(enabled=True, fm=True, fm_dev=2e3)
+    out = stub.output("out")
+    assert min(out.freq) > 0  # nothing left at a negative frequency
+    t = np.linspace(0.0, 4e-3, 97)
+    got = out.sample((t * 1e9).astype(np.int64))
+    want = np.cos(2 * np.pi * _LowCarrier.carrier * t - 2.0 * np.cos(2 * np.pi * RATE * t))
+    assert got == pytest.approx(want, abs=0.1)
+
+
+@pytest.mark.unit
+def test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line():
+    stub = _LowCarrier(enabled=True, fm=True, fm_dev=2e3)
+    stub.carrier = RATE  # the n = -1 sideband sits at 0 Hz
+    out = stub.output("out")
+    assert 0.0 not in out.freq.tolist()
