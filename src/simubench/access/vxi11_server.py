@@ -31,7 +31,7 @@ from pyvisa import rname
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
-from .bus import bus_of
+from .bus import bus_of, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
 
@@ -431,7 +431,8 @@ class Vxi11Server(_RpcServer):
         return True
 
     def _stb(self, link: _Link) -> int:
-        stb = self.session.instrument(link.instrument).stb()
+        """device_readstb is a serial poll: the status byte with RQS, and RQS cleared (IEEE 488.2 11.2)."""
+        stb = serial_poll(self.session, link.instrument)
         return (stb & ~MAV) | (MAV if link.has_output() else 0)
 
     def _poll_srq(self, instrument: str) -> None:

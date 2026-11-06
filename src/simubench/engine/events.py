@@ -30,8 +30,8 @@ EVENT_KINDS: dict[str, str] = {
     "hidden": "a hidden parameter of the running bench written (source)",
     "remote": "remote/local control of an instrument changed (instrument, action)",
     "hislip": "a HiSLIP remote/local control message acknowledged (instrument, client, action)",
-    "bus_control": "a remote/local control (REN, GTL, LLO) applied through VXI-11, GPIB, USBTMC or "
-    "PyVISA (instrument, client, action)",
+    "bus_control": "something a script did on a bus: a remote/local control (REN, GTL, LLO), a GPIB command "
+    "(SDC, DCL, GET, IFC ...) or a USB488 request (INDICATOR_PULSE ...) (instrument, client, action)",
     "solver": "the circuit solver reported (reason, message)",
 }
 

@@ -19,7 +19,7 @@ PUBLIC = {"/api/health", "/api/openapi.json", "/api/docs"}
 @pytest.fixture
 def app():
     manager = SessionManager(
-        ROOT / "validation", scpi_base_port=0, hislip_port=0, vxi11_port=0, portmapper_port=0
+        ROOT / "validation", scpi_base_port=0, hislip_port=0, vxi11_port=0, portmapper_port=0, link_port=0
     )
     application = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     application.state.manager = manager
@@ -111,6 +111,8 @@ def test_scpi_sockets_listen_on_loopback_only(app):
         # VXI-11 (D63): core channel, abort channel and port mapper bind loopback only too.
         vxi11 = c.app.state.manager.sessions[info["id"]].vxi11
         listeners = [vxi11.server, vxi11.abort.server, vxi11.portmapper.server]
+        link = c.app.state.manager.sessions[info["id"]].link  # the bench link port (D63)
+        listeners.append(link.server)
         assert all(srv.sockets[0].getsockname()[0] == "127.0.0.1" for srv in listeners)
         assert all(
             i["address_vxi11"].startswith("TCPIP0::127.0.0.1,") for i in info["instruments"]

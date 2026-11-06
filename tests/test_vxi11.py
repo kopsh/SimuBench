@@ -590,3 +590,15 @@ async def test_pyvisa_py_talks_to_the_server(rig):
             rm.close()
 
     await asyncio.to_thread(run)
+
+
+async def test_readstb_is_a_serial_poll_that_clears_the_request(rig):
+    def run() -> None:
+        link = Link(rig)
+        for command in (b"*CLS", b"*ESE 1", b"*SRE 32", b"*OPC"):
+            link.write(command + b"\n")
+        assert link.stb() == 0x60  # ESB and RQS
+        assert link.stb() == 0x20  # the reason is still there, the request is gone
+        link.close()
+
+    await asyncio.to_thread(run)

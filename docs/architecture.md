@@ -367,7 +367,8 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 
 - `pyvisa.ResourceManager("<bench 文件>@simubench")` 在进程内打开 Bench；也可连接到正在运行的服务。
 - 资源名支持：Bench 中的实例名，以及 Bench 中为实例配置的真实测试台地址。后者让脚本连地址都不用改，只换资源管理器。
-- GPIB 与 USB 地址（`GPIB0::4::INSTR`、`USB0::0x…::INSTR`）按 bench 的 `address:` 在进程内打开，会话带 GPIB 主/次地址、USB 厂商/型号/序列号等 VISA 属性；`lock`/`unlock`、`control_ren`、`wait_on_event(SERVICE_REQUEST)` 与 HiSLIP、VXI-11 共用同一份总线状态（D63，`access/bus.py`）。
+- GPIB 与 USB 地址（`GPIB0::4::INSTR`、`USB0::0x…::INSTR`、`GPIB0::INTFC`）按 bench 的 `address:` 打开，会话在虚拟总线上做事（D63）：GPIB 经 `access/gpib_bus.py` 的命令字节寻址、SDC/GET/GTL/LLO、IFC/ATN/REN、SRQ 线与串行轮询；USB 经 `access/usbtmc.py` 的 USBTMC/USB488 控制请求、拆分事务、端点停止、Interrupt-IN；`lock`/`unlock`、REN 状态机、RQS 锁存与 HiSLIP、VXI-11 共用同一份（`access/bus.py`）。一个会话在总线上能做的事是 `access/links.py` 的 `Link`，后端只留 VISA 的缓冲区、属性与超时。
+- 脚本不改：`PYVISA_LIBRARY=<bench 文件>@simubench` 让不指定库的 `pyvisa.ResourceManager()` 在进程内打开 Bench；`PYVISA_LIBRARY=127.0.0.1:4881@simubench`（或 `SIMUBENCH_LINK`）连接 `serve`/`tui`/`mcp` 正在运行的测试台（`access/bench_link.py`，回环控制端口，`--link-port`），行为在服务里发生，界面同时看得到，脚本的连接算远程客户端，断开时锁释放。
 - 后端看得到每次读写，因此命令驱动的虚拟时间在这条路径上自然成立。
 - 通信层故障（超时、断连等）在这一层生效，返回与真实 VISA 一致的错误。
 
@@ -376,7 +377,7 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 - 每台仪表在本机监听一个 TCP 端口（raw socket）；端口可指定或自动分配，地址表在启动时输出。
 - HiSLIP（IVI-6.1，D41）：所有仪表共用一个端口（默认 4880，`--hislip-port 0` 自动分配），按子地址 `hislip0`、`hislip1`…（或 `hislip_<实例名>`）区分；synchronized 与 overlapped 两种模式都服务（`--hislip-overlapped` 选起始模式，设备清除时可切换），协商版本最高 2.0（`GetDescriptors`）；支持消息边界（`DataEnd`）、设备清除、读 STB、锁与 SRQ，与 PyVISA 后端的 `clear`/`read_stb` 语义一致；有证书与密钥时提供 2.0 的安全连接能力（TLS 在连接中途升降，SASL PLAIN 或 ANONYMOUS 登录，`access/hislip_tls.py`），不提供 EXTERNAL 等其余机制与 TLS 会话恢复。客户端连接形如 `TCPIP0::127.0.0.1::hislip0,<端口>::INSTR`。
 - VXI-11（D63）：ONC RPC over TCP，核心、abort、中断三个通道，设备名 `inst<i>`、`inst_<实例名>`，GPIB 地址的仪表另有 `gpib<板>,<主地址>` 网关形式；端口映射器可选（`--portmapper-port`，VISA 库只问 111 端口，需要特权），不开时用 `TCPIP0::127.0.0.1,<端口>::inst0::INSTR`。只服务 TCP，`device_docmd` 回不支持。
-- GPIB 与 USBTMC 是物理总线，不监听；它们的语义只在进程内 PyVISA 后端里提供（7.3），进程外程序经 VXI-11 网关形式或 HiSLIP 连入。
+- GPIB 与 USBTMC 是物理总线，不监听；它们的行为由虚拟总线仿真（7.3），PyVISA 脚本进程内或经连接模式使用；不走 PyVISA 的进程外程序只能经 VXI-11 的 `gpib` 网关形式（设备读写、状态字节、触发、清除、REN、锁；`device_docmd` 未做）或 HiSLIP 连入，USB 没有这类入口（D63 的已知缺口）。
 
 ### 7.5 MCP 服务（D9）
 

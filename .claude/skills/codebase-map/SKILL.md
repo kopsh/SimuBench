@@ -37,7 +37,8 @@ plausible fake).
 | FastAPI app / sessions served / component catalog | `server/app.py`, `server/manager.py`, `server/catalog.py` |
 | MCP tools | `mcp_server.py` |
 | PyVISA backend / raw socket / HiSLIP / VXI-11 | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py`, `access/hislip_tls.py` (HiSLIP 2.0 TLS + SASL), `access/vxi11_server.py` |
-| Locks and REN/GTL/LLO shared by every interface (D63) | `access/bus.py` |
+| Locks, REN/GTL/LLO state machine, RQS latch shared by every interface (D63) | `access/bus.py` |
+| Virtual GPIB bus; USBTMC/USB488 interface; what a VISA session does on its bus (`Link`); connected mode (script in another process) | `access/gpib_bus.py`, `access/usbtmc.py`, `access/links.py`, `access/bench_link.py` |
 | In-process Python API, pytest plugin | `api.py`, `pytest_plugin.py` |
 | CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py` |
 | TUI (Textual) | `tui/` (screens in `tui/screens/`, wording in `tui/i18n/`) |
