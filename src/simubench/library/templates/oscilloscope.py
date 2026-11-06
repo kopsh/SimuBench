@@ -540,9 +540,7 @@ def _sync(x: OscilloscopeInputs) -> dict[str, Any]:
             out[key] = getattr(aq, key)
     # The assumed default (#731, #735): a tenth of the fastest sample interval; when the ADC gives
     # no top rate, an assumed 100 ps — the same tenth for a 1 GSa/s scope, not a data-sheet figure.
-    jitter = tr.jitter_s if tr.jitter_s is not None else (
-        0.1 / x.adc.max_rate if x.adc.max_rate else 1.0e-10
-    )
+    jitter = tr.jitter_s if tr.jitter_s is not None else (0.1 / x.adc.max_rate if x.adc.max_rate else 1.0e-10)
     if jitter:
         out["trigger_jitter_s"] = jitter
     return out
