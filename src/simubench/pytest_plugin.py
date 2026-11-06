@@ -39,7 +39,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "bench(path, clock=None, seed=None, idle=None): the SimuBench bench file this test runs "
-        "against; idle defaults to 'sleep' so results do not depend on machine speed (D47)",
+        "against; an option passed as None means not given (the environment or the default "
+        "applies); idle defaults to 'sleep' so results do not depend on machine speed (D47)",
     )
 
 
@@ -74,6 +75,10 @@ def visa_rm(request: pytest.FixtureRequest) -> Iterator[Any]:
     import pyvisa
 
     path, options = _bench_path(request)
+    # The marker's signature writes every option as ``=None``: an explicit None is "not given",
+    # not the literal string "None" — drop it so the environment or the default applies (issue
+    # 675; urlencode would otherwise encode the string "None" and the backend would reject it).
+    options = {name: value for name, value in options.items() if value is not None}
     record_dir = request.config.getoption("--simubench-record-dir")
     if record_dir:
         name = re.sub(r"[^0-9A-Za-z_.-]+", "_", request.node.nodeid)[-120:]
