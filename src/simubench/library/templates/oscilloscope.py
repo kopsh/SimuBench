@@ -231,8 +231,9 @@ class TriggerIn(_In):
     )
     jitter_s: float | None = _f(
         None, "触发抖动", "Trigger jitter",
-        "rms jitter of the trigger instant; omit: an assumed tenth of the fastest sample interval "
-        "(none when the ADC gives no top rate); 0: no jitter",
+        "rms jitter of the trigger instant; omit: an assumed tenth of the fastest sample "
+        "interval, or an assumed 100 ps when the ADC gives no top rate (assumed values, not a "
+        "data-sheet figure); 0: no jitter",
         "s", ge=0,
     )  # fmt: skip
     auto_windows: int = _f(
@@ -537,7 +538,9 @@ def _sync(x: OscilloscopeInputs) -> dict[str, Any]:
     for key in ("completion", "opc_waits", "while_waiting", "no_trigger"):
         if getattr(aq, key) != AcquisitionIn.model_fields[key].default:
             out[key] = getattr(aq, key)
-    jitter = tr.jitter_s if tr.jitter_s is not None else (0.1 / x.adc.max_rate if x.adc.max_rate else 0.0)
+    # The assumed default (#731, #735): a tenth of the fastest sample interval; when the ADC gives
+    # no top rate, an assumed 100 ps — the same tenth for a 1 GSa/s scope, not a data-sheet figure.
+    jitter = tr.jitter_s if tr.jitter_s is not None else (0.1 / x.adc.max_rate if x.adc.max_rate else 1.0e-10)
     if jitter:
         out["trigger_jitter_s"] = jitter
     return out

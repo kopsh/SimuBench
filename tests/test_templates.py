@@ -454,13 +454,14 @@ def _sync_jitter(definition: dict) -> float | None:
 
 def test_a_scope_built_without_noise_inputs_is_not_noiseless():
     """An input the author left out is no reason for a dead trace: the template assumes 0.02 div rms
-    of input noise and a trigger jitter of a tenth of the fastest sample interval (#731)."""
+    of input noise and a trigger jitter of a tenth of the fastest sample interval — 100 ps when the
+    ADC gives no top rate (#731, #735)."""
     built = _expand(
         copy.deepcopy(DSO4_INPUTS) | {"vertical": {"scale_range": [1.0e-3, 100.0]}, "trigger": {}}
     )
     assert _front_params(built)["noise_divs"] == 0.02
     assert "noise_table" not in _front_params(built)
-    assert _sync_jitter(built) is None  # this ADC gives no top sample rate to derive it from
+    assert _sync_jitter(built) == pytest.approx(1.0e-10)  # no top rate: the assumed 100 ps
     fast = _expand(
         copy.deepcopy(DSO4_INPUTS)
         | {"vertical": {"scale_range": [1.0e-3, 100.0]}, "trigger": {}, "adc": {"bits": 8, "max_rate": 2.0e9}}

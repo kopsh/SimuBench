@@ -1612,3 +1612,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 |---|---|
 | 写错键名/取值不再静默当作无噪声 | ✅ 允许的键只有 `ppm_of_range`(≥0)、`ref_time_s`(>0)、`table`(键、值 ≥0);创建组件时抛 ValueError(含仪表、组件、键与允许的键),`validate_definition` 报 `E-DEF-NOISE`;不写或 `null` 仍无噪声 |
 | 测试 | ✅ `tests/test_reading_noise.py`:8 种错误各一例 + 空 noise 仍无噪声 |
+
+## 示波器模板：无最高采样率时的默认触发抖动（Issue 735）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `adc.max_rate` 未给时 `trigger.jitter_s` 缺省也有保守假设值 | ✅ `_sync` 缺省取 100 ps（一台 1 GSa/s 级示波器最高采样间隔的十分之一，与有 `max_rate` 时同一规则）；`jitter_s: 0` 仍为无抖动（`_f` 的 None 语义不变） |
+| 字段说明与文档标明假设值 | ✅ `TriggerIn.jitter_s` 帮助文本、`docs/instrument-authoring.md` 第 8 节均写明"假设值，非数据手册值" |
+| 测试 | ✅ `test_a_scope_built_without_noise_inputs_is_not_noiseless`：全默认输入断言抖动 1e-10；`max_rate` 给定时仍按十分之一采样间隔（2 GSa/s → 50 ps）；`jitter_s: 0` 与示例自带 10 ps 的用例不改通过 |
+| 已按旧默认展开的仪表 | ✅ 不受影响（模板展开后不随升级，D3） |
