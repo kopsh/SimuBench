@@ -204,7 +204,7 @@ def resend(
             fid = ev.get("fault")
             if fid in session.faults.faults:
                 session.faults.clear(fid)
-        elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep"):
+        elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep", "wait"):
             session.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
         yield ev, got
 

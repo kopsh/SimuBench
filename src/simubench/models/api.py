@@ -337,6 +337,7 @@ class InstrumentInfo(_Model):
     address_virtual: str
     address_real: str | None = None
     address_hislip: str | None = None
+    address_vxi11: str | None = None
     scpi_port: int | None = None
     display: DisplayInfo
     ports: list[PortInfo]
@@ -349,7 +350,7 @@ class InstrumentInfo(_Model):
     )
     remote: list[str] = Field(
         default_factory=list,
-        description="Clients connected to this instrument's ports (socket, HiSLIP): while any is, the "
+        description="Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the "
         "instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
     )
     local: bool = Field(
@@ -438,11 +439,11 @@ class NetInfo(_Model):
 
 
 class ClientInfo(_Model):
-    """A client connected to the session's SCPI ports (raw socket or HiSLIP)."""
+    """A client connected to the session's SCPI ports (raw socket, HiSLIP or VXI-11)."""
 
     client: str = Field(..., description="Label as it appears in the communication log")
     instrument: str | None = Field(None, description="The instrument whose port it is connected to")
-    locked: bool = Field(False, description="Holds a HiSLIP lock, i.e. a script is in control")
+    locked: bool = Field(False, description="Holds a HiSLIP or VXI-11 lock, i.e. a script is in control")
 
 
 class SessionInfo(_Model):
@@ -464,6 +465,11 @@ class SessionInfo(_Model):
         description="Instrument definitions changed on disk since the session started: restart to apply them",
     )
     record_path: str | None = None
+    link_address: str | None = Field(
+        None,
+        description="host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench "
+        "(GPIB, USB and TCPIP addresses then work unchanged, D63)",
+    )
     clients: list[ClientInfo] = Field(
         default_factory=list, description="Scripts currently connected to the SCPI ports"
     )

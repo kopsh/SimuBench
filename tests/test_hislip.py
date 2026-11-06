@@ -304,7 +304,9 @@ async def test_service_request_when_rqs_rises(rig):
         assert msg_type == ASYNC_SERVICE_REQUEST
         assert control == 0x60  # ESB | RQS
         assert c.status_query() == 0x70  # MAV too: the *OPC? reply was never confirmed as read
-        assert c.status_query(1) == 0x60  # RMT-delivered clears MAV (spec 6.14.1)
+        assert (
+            c.status_query(1) == 0x20
+        )  # RMT-delivered clears MAV (6.14.1); the first query cleared RQS (6.13)
         c.close()
 
     await asyncio.to_thread(run)
@@ -567,7 +569,9 @@ async def test_an_interrupted_answer_drops_its_remaining_responses():
         sent.append(out)
 
     server._interrupted = interrupted
-    sess = SimpleNamespace(closing=asyncio.Event(), clearing=False, send_response=send_response)
+    sess = SimpleNamespace(
+        closing=asyncio.Event(), clearing=False, overlapped=False, send_response=send_response
+    )
     await server._answer(sess, 7, [b"first\n", b"second\n", b"third\n"])
     assert sent == [b"first\n"]  # interrupted before the second: it and the third are dropped
 
