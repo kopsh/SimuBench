@@ -73,6 +73,29 @@ def test_out_of_range_is_told_from_not_a_number():
 
 
 @pytest.mark.unit
+def test_a_field_text_ellipsises_its_label_and_keeps_the_value():
+    """At a capped width the value keeps its cells; the label yields from the left with an
+    ellipsis (the scope screen's 26-column column, issue 680). No cap: the whole label."""
+    from simubench.tui.controls import Control
+
+    def button(label, value):
+        control = Control(kind="number", label=label, path="x.y", value=value, spec={"unit": "V"})
+        b = ControlButton.__new__(ControlButton)
+        b.control = control
+        b.edit = None
+        return b
+
+    from simubench.tui.screens.editing import ControlButton
+
+    info = {"state": [{"path": "x.y", "value": 12.5, "unit": "V", "type": "float"}]}
+    whole = button("Trigger level", 12.5).field_text(info, "en").plain
+    assert whole == "Trigger level 12.500 V"
+    capped = button("Trigger level", 12.5).field_text(info, "en", width=16).plain
+    assert capped.endswith("12.500 V") and capped.startswith("…") and len(capped) <= 16
+    tiny = button("Trigger level", 12.5).field_text(info, "en", width=8).plain
+    assert tiny == "12.500 V"  # no room for any label: the value alone
+
+
 def test_parse_input_number_itself():
     """The renamed helper (issue 641 → issue 691): bare numbers, prefixed ones, and its errors."""
     assert C.parse_input_number("5") == 5.0  # bare: the state's unit
