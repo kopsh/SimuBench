@@ -760,3 +760,23 @@ async def test_try_definition_sessions_are_pooled_and_reused(ws):
         unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
         assert "error" in unknown
         assert manager.tries.all() == [] or all(e.definition != "no-such-model" for e in manager.tries.all())
+
+
+async def test_describe_session_describes_once(ws, monkeypatch):
+    """The topology tool re-projects the session once (issue 641 → issue 691): the summary takes
+    the described info instead of describing again."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        sid = s["session_id"]
+        calls = 0
+        original = manager.describe
+
+        def counted(session):
+            nonlocal calls
+            calls += 1
+            return original(session)
+
+        manager.describe = counted  # type: ignore[method-assign]
+        await call(c, "describe_session", session_id=sid)
+        assert calls == 1

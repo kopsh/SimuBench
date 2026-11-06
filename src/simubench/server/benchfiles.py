@@ -140,6 +140,7 @@ class BenchFiles:
 
     def _document(self, bench_path: str, path: Path, raw: bytes, data: dict[str, Any]) -> M.BenchDocument:
         # Clients see the current format (an older file is migrated here, and rewritten on its next save).
+        # Bench files, not instrument definitions — issue 641's model-level self-migration does not apply here.
         with contextlib.suppress(FormatError):
             data = upgrade(data, "bench")[0]
         _, report = validate_data(data, self.library(path))

@@ -566,3 +566,29 @@ async def test_after_an_interrupted_query_the_next_message_is_answered(rig):
         c.close()
 
     await asyncio.to_thread(run)
+
+
+# ---- the peek fallback and the session list (issue 691) ----------------------------------------------
+
+
+def test_peek_header_reports_a_missing_buffer(caplog):
+    """``_peek_header`` answers None and says so when ``_buffer`` is gone (issue 691): the
+    synchronized-interrupt decision must not switch off silently."""
+    import logging
+
+    from simubench.access.hislip_server import _peek_header
+
+    with caplog.at_level(logging.WARNING):
+        assert _peek_header(object(), 8) is None
+    assert any("interrupt detection is off" in r.message for r in caplog.records)
+
+
+async def test_server_sessions_lists_the_open_connections(rig):
+    """``sessions()`` is what the manager's client lists read (issue 641)."""
+
+    def run() -> None:
+        c = client(rig)
+        assert [s.instrument for s in rig.server.sessions()] == ["scope"]
+        c.close()
+
+    await asyncio.to_thread(run)
