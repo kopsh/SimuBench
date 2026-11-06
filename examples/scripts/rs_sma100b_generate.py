@@ -51,21 +51,25 @@ def main() -> None:
         print(sg.query("*IDN?").strip())
         print(scope.query("*IDN?").strip())
 
+        # Each reading gets a range that fits the signal in about six of the screen's eight
+        # divisions, so the range's own noise stays a few percent of it (#774).
         sg.write("*RST")
         scope.write("*RST")
         scope.write(":CHANnel1:PROBe 1")
-        scope.write(":CHANnel1:SCALe 0.5")
         scope.write(":TIMebase:SCALe 2E-7")
         sg.write("SOURce1:FREQuency:CW 10 MHz")
         sg.write("SOURce1:POWer:LEVel:IMMediate:AMPLitude 0")
         sg.write(":OUTPut1:STATe ON")
 
+        scope.write(":CHANnel1:SCALe 0.2")  # 1.26 Vpp spans 6.3 div; 4 mV rms of range noise
         carrier = vpp(scope)
         carrier_frequency = float(scope.query(":MEASure:FREQuency?"))
 
         # 20 dB down is a tenth of the voltage.
         sg.write("SOURce1:POWer -20")
+        scope.write(":CHANnel1:SCALe 0.02")  # 126 mVpp spans 6.3 div; 0.4 mV rms of range noise
         low = vpp(scope)
+        scope.write(":CHANnel1:SCALe 0.5")  # the 1.9 Vpp envelope fits; the noise is 4 % of it
         sg.write("SOURce1:POWer 0")
 
         # 50 % AM from the LF1 generator at 10 kHz; the master switch must be on as well.
@@ -95,14 +99,13 @@ def main() -> None:
     print(scope_error)
 
     assert error.startswith("0"), error
-    # the scope's crossings carry the range table's noise (#745): some 2 ppm on the period
     # the crossings ride the range table's noise and the codes' interpolation (#745):
     # some 0.15 % on the LSQ period at 10 MHz
     assert abs(carrier_frequency - 10e6) < 25.0e3, carrier_frequency
     assert abs(carrier - expected) <= 0.05 * expected, carrier
-    # -20 dB sits at the noise floor: the low reading's VPP includes the noise's own
-    # peak-to-peak (#745), so the ratio holds only to a half
-    assert abs(carrier / low - 10.0) <= 5.0, (carrier, low)
+    # each reading's VPP carries its own range's noise peak-to-peak (#745): a few % of the
+    # reading, near-equal on both, so the 10x of 20 dB holds to a few parts in a hundred (#774)
+    assert abs(carrier / low - 10.0) <= 0.2, (carrier, low)
     assert abs(modulated / carrier - 1.5) <= 0.05, (modulated, carrier)
 
 
