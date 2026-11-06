@@ -457,6 +457,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         except KeyError:
             raise HTTPException(404, f"no try session {sid!r}") from None
 
+    def while_idle(e: Any, fn: Any, *args: Any) -> Any:
+        """Run ``fn`` on the try session held exclusively: a batch of try_definition or a retirement
+        (MAX, replace) waits for it, and one that closed the session meanwhile is a 404."""
+        with e.busy:
+            if e.closed:
+                raise HTTPException(404, "the try session was closed")
+            return fn(*args)
+
     @app.get(
         "/api/try",
         response_model=list[M.TryOpened],
@@ -517,7 +525,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         """Send one program message to the try session's instrument (the same reply format as a
         bench session's scpi interface)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(manager.scpi, e.served, e.definition, req.command)
+        return await asyncio.to_thread(while_idle, e, manager.scpi, e.served, e.definition, req.command)
 
     @app.post(
         "/api/try/{sid}/configure",
@@ -528,7 +536,9 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     async def try_configure(sid: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
         """Set one of the try session's settings (the same interface as a bench session's)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(manager.configure, e.served, e.definition, req.path, req.value)
+        return await asyncio.to_thread(
+            while_idle, e, manager.configure, e.served, e.definition, req.path, req.value
+        )
 
     @app.post(
         "/api/try/{sid}/panel",
@@ -539,7 +549,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     async def try_panel(sid: str, req: M.PanelRequest) -> M.PanelResponse:
         """A front-panel button on the try session's instrument (D32)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(manager.panel, e.served, e.definition, req.action)
+        return await asyncio.to_thread(while_idle, e, manager.panel, e.served, e.definition, req.action)
 
     @app.get(
         "/api/try/{sid}/instrument",
