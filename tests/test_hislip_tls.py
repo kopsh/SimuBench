@@ -501,9 +501,12 @@ async def test_a_client_hello_that_arrives_with_the_message_before_it_is_not_los
     async def on_connect(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
         await reader.readexactly(4)  # the message that asks for TLS; the hello is right behind it
         stream = await SecureStream.accept(reader, writer, server_ctx, 5.0)
-        done.set_result(await stream.readexactly(5))
-        stream.write(b"world")
-        await stream.drain()
+        try:
+            done.set_result(await stream.readexactly(5))
+            stream.write(b"world")
+            await stream.drain()
+        finally:
+            writer.close()  # Python 3.12's Server.wait_closed() waits for every connection to end
 
     server = await asyncio.start_server(on_connect, "127.0.0.1", 0)
     port = server.sockets[0].getsockname()[1]
