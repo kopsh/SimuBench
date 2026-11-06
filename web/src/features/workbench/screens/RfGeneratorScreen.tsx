@@ -72,9 +72,7 @@ export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: 
           )}
         </footer>
       </section>
-      <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} compact />
-      </section>
+      <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} compact />
     </div>
   );
 }

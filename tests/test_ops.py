@@ -81,6 +81,73 @@ def test_cli_diagnose(tmp_path):
     assert "manifest.json" in zipfile.ZipFile(out).namelist()
 
 
+def test_the_serving_entries_share_one_set_of_service_options(monkeypatch, tmp_path):
+    """serve / mcp / tui parse the same options into the same manager (issue 637, issue 673):
+    a flag one entry lacks would be a setting its users cannot make."""
+    from simubench import cli
+
+    seen: dict[str, object] = {}
+
+    def record(name):
+        def fake(args):
+            seen[name] = args
+
+        return fake
+
+    for name in ("_serve", "_mcp", "_tui"):
+        monkeypatch.setattr(cli, name, record(name))
+    common = [
+        "--scpi-base-port",
+        "6000",
+        "--hislip-port",
+        "4900",
+        "--record-dir",
+        str(tmp_path / "runs"),
+        "--record-raw",
+        "--allow-plugins",
+    ]
+    main(["serve", *common])
+    main(["mcp", *common])
+    main(["tui", *common])
+    assert set(seen) == {"_serve", "_mcp", "_tui"}
+    for name, args in seen.items():
+        manager = cli.build_manager(args, tmp_path)
+        assert manager.scpi_base_port == 6000, name
+        assert manager.hislip_port == 4900, name
+        assert manager.record_dir == (tmp_path / "runs").resolve(), name
+        assert manager.record_raw is True, name
+        assert manager.allow_plugins is True, name
+
+
+def test_no_scpi_turns_both_listener_families_off(monkeypatch, tmp_path):
+    """--no-scpi closes the sockets and the HiSLIP port with them (D41: they start together)."""
+    from simubench import cli
+
+    seen: dict[str, object] = {}
+
+    def fake(args):
+        seen["args"] = args
+
+    monkeypatch.setattr(cli, "_serve", fake)
+    main(["serve", "--no-scpi"])
+    manager = cli.build_manager(seen["args"], tmp_path)
+    assert manager.scpi_base_port is None and manager.hislip_port is None
+
+
+def test_the_address_table_line_format():
+    """One format from serve and the TUI launch (issue 637): kind left-aligned in 6, name in 12."""
+    from simubench.service import address_line
+
+    assert (
+        address_line("SCPI", "calibrator", "TCPIP0::127.0.0.1::5025::SOCKET")
+        == "  SCPI   calibrator   TCPIP0::127.0.0.1::5025::SOCKET"
+    )
+    assert (
+        address_line("HiSLIP", "scope", "TCPIP0::127.0.0.1::hislip1,4880::INSTR")
+        == "  HiSLIP scope        TCPIP0::127.0.0.1::hislip1,4880::INSTR"
+    )
+
+
 def test_metrics_and_net_fidelity_notes():
     app = create_app(
         SessionManager(ROOT / "acceptance", scpi_base_port=None), token=TOKEN, web_dist=Path("/nonexistent")

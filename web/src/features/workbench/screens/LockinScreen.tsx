@@ -104,9 +104,7 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
         <p className="text-muted-foreground border-t px-3 py-1.5 text-[11px]">{t("lockin.chartHint")}</p>
       </section>
 
-      <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
-        <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} />
-      </section>
+      <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} />
     </div>
   );
 }

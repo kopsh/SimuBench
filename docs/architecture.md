@@ -370,6 +370,7 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 - 资源名支持：Bench 中的实例名，以及 Bench 中为实例配置的真实测试台地址。后者让脚本连地址都不用改，只换资源管理器。
 - GPIB 与 USB 地址（`GPIB0::4::INSTR`、`USB0::0x…::INSTR`、`GPIB0::INTFC`）按 bench 的 `address:` 打开，会话在虚拟总线上做事（D63）：GPIB 经 `access/gpib_bus.py` 的命令字节寻址、SDC/GET/GTL/LLO、IFC/ATN/REN、SRQ 线与串行轮询；USB 经 `access/usbtmc.py` 的 USBTMC/USB488 控制请求、拆分事务、端点停止、Interrupt-IN；`lock`/`unlock`、REN 状态机、RQS 锁存与 HiSLIP、VXI-11 共用同一份（`access/bus.py`）。一个会话在总线上能做的事是 `access/links.py` 的 `Link`，后端只留 VISA 的缓冲区、属性与超时。
 - 脚本不改：`PYVISA_LIBRARY=<bench 文件>@simubench` 让不指定库的 `pyvisa.ResourceManager()` 在进程内打开 Bench；`PYVISA_LIBRARY=127.0.0.1:4881@simubench`（或 `SIMUBENCH_LINK`）连接 `serve`/`tui`/`mcp` 正在运行的测试台（`access/bench_link.py`，回环控制端口，`--link-port`），行为在服务里发生，界面同时看得到，脚本的连接算远程客户端，断开时锁释放。
+- Bench 文件后可带查询参数（issue 640）：`<bench 文件>?clock=command&seed=7&idle=sleep&record_dir=路径@simubench`。`seed` 固定随机序列，`clock` 选时钟模式，`idle` 选空闲档（D47），`record_dir` 指定运行记录目录；参数名不在表内报错（打错字不会静默按默认运行）。**资源串优先，环境变量兜底**：不带查询参数时按 `SIMUBENCH_CLOCK` / `SIMUBENCH_SEED` / `SIMUBENCH_IDLE` / `SIMUBENCH_RECORD_DIR` 取值，都没有时用默认。查询参数放在 `@simubench` 之前（与 #640 正文所写的 `@simubench?…` 不同，以此处为准）。
 - 后端看得到每次读写，因此命令驱动的虚拟时间在这条路径上自然成立。
 - 通信层故障（超时、断连等）在这一层生效，返回与真实 VISA 一致的错误。
 

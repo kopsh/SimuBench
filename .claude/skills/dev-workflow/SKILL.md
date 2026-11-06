@@ -58,6 +58,7 @@ uv run simubench schemas --out schemas                    # then commit schemas/
 cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```
 
+Every test has a 120 s limit (`timeout` in pyproject.toml, pytest-timeout): a hang fails with thread stacks instead of stalling CI.
 Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --durations=20`).
 
 ## Test rules (D49, enforced)

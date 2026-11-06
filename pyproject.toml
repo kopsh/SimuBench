@@ -34,6 +34,7 @@ dev = [
   "pytest>=8",
   "pytest-asyncio>=0.23",
   "pytest-xdist>=3.6",
+  "pytest-timeout>=2.3",
   "httpx>=0.27",
   "ruff>=0.6",
   "mypy>=1.11",
@@ -88,6 +89,10 @@ ignore = ["RUF001", "RUF002", "RUF003", "E501"]
 testpaths = ["tests", "acceptance"]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
+# A test that hangs (a socket nobody closes, a wait nobody ends) fails after this many seconds
+# with the stacks of all threads, instead of holding the CI job until its 6 h limit. The slowest
+# real test takes under 10 s; the margin is for a loaded Windows runner.
+timeout = 120
 markers = [
   # Boots a Textual app or a real server (screens, keys, snapshots, 找到跳闸): seconds per test.
   # The fast checks run `-m "not tui_boot"`; the whole set runs on main after the merge —

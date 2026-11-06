@@ -40,7 +40,7 @@ plausible fake).
 | Locks, REN/GTL/LLO state machine, RQS latch shared by every interface (D63) | `access/bus.py` |
 | Virtual GPIB bus; USBTMC/USB488 interface; what a VISA session does on its bus (`Link`); connected mode (script in another process) | `access/gpib_bus.py`, `access/usbtmc.py`, `access/links.py`, `access/bench_link.py` |
 | In-process Python API, pytest plugin | `api.py`, `pytest_plugin.py` |
-| CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py` |
+| CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py`; the shared serving options, `build_manager` and the address-table line live in `service.py` — add a service start parameter there once, all entries get it |
 | TUI (Textual) | `tui/` (screens in `tui/screens/`, wording in `tui/i18n/`) |
 
 ## Elsewhere
