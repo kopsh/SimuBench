@@ -57,11 +57,13 @@ def test_the_time_measurements_flow(scope):
     # record) and is lowest a quarter before it; the 8-bit flat top moves the first sample a little.
     assert q(scope, ":MEASure:XMAX? CHANnel1") == pytest.approx(-0.75e-3, abs=0.05 * T)
     assert q(scope, ":MEASure:XMIN? CHANnel1") == pytest.approx(-0.25e-3, abs=0.05 * T)
-    # Both half periods are 0.5 ms: 2 kbit/s.
-    assert q(scope, ":MEASure:BRATe? CHANnel1") == pytest.approx(2.0 * F, rel=1e-3)
+    # Both half periods are 0.5 ms: 2 kbit/s. The crossings carry the range table's noise now
+    # (#745: 10 mV rms on 0.5 V/div ≈ 2 µs of time jitter at this slope), so a percent, not 0.1.
+    assert q(scope, ":MEASure:BRATe? CHANnel1") == pytest.approx(2.0 * F, rel=1e-2)
     for t in (1e-4, -3e-4):
         expected = amp * math.sin(2 * math.pi * F * t)
-        assert q(scope, f":MEASure:VTIMe? {t},CHANnel1") == pytest.approx(expected, abs=0.02)
+        # one noisy sample: the table's 10 mV rms on 0.5 V/div reaches some 4 rms (#745)
+        assert q(scope, f":MEASure:VTIMe? {t},CHANnel1") == pytest.approx(expected, abs=0.05)
     assert q(scope, ":MEASure:VTIMe? 2E-3,CHANnel1") > 9e37  # outside the record
     # -- edges and crossings counted from the left (was test_edges_and_crossings_counted_from_the_left)
     q(scope, ":DIGitize CHANnel1")
@@ -70,7 +72,8 @@ def test_the_time_measurements_flow(scope):
     assert q(scope, ":MEASure:TEDGe? -1,CHANnel1") == pytest.approx(-0.5e-3, abs=0.01 * T)
     assert q(scope, ":MEASure:TEDGe? +2,CHANnel1") > 9e37  # no second rising edge on the record
     expected = -T + math.asin(0.5 / amp) / (2 * math.pi * F)
-    assert q(scope, ":MEASure:TVALue? 0.5,+1,CHANnel1") == pytest.approx(expected, abs=0.01 * T)
+    # the crossing time carries the noise too: ~2 µs of jitter at this slope (#745)
+    assert q(scope, ":MEASure:TVALue? 0.5,+1,CHANnel1") == pytest.approx(expected, abs=0.02 * T)
     falling = -T / 2 - math.asin(0.5 / amp) / (2 * math.pi * F)
     assert q(scope, ":MEASure:TVALue? 0.5,-1,CHANnel1") == pytest.approx(falling, abs=0.01 * T)
     # -- delay and phase between two sources are the RC lag (was test_delay_and_phase_between_two_sources_are_the_rc_lag)
@@ -79,8 +82,9 @@ def test_the_time_measurements_flow(scope):
     lag = math.atan(2 * math.pi * F * 1000.0 * 1e-7)
     q(scope, ":DIGitize CHANnel1,CHANnel2")
     delay = q(scope, ":MEASure:DELay? CHANnel2,CHANnel1")
-    assert delay == pytest.approx(lag / (2 * math.pi * F), rel=0.01)
-    assert q(scope, ":MEASure:PHASe? CHANnel2,CHANnel1") == pytest.approx(math.degrees(lag), rel=0.01)
+    # the two crossings carry the noise: ~2 µs on a 90 µs lag (#745)
+    assert delay == pytest.approx(lag / (2 * math.pi * F), rel=0.05)
+    assert q(scope, ":MEASure:PHASe? CHANnel2,CHANnel1") == pytest.approx(math.degrees(lag), rel=0.05)
     # Without sources: :MEASure:SOURce's two.
     q(scope, ":MEASure:SOURce CHANnel2,CHANnel1")
     assert q(scope, ":MEASure:DELay?") == pytest.approx(delay)
@@ -135,14 +139,17 @@ def test_the_measurement_list_flow(scope):
     # -- the results carry the statistics, clear empties the list
     # (was test_results_carry_the_statistics_and_clear_empties_the_list)
     q(scope, ":MEASure:CLEar")  # bridge: the previous act left its four installed
+    # bridge: 5 ms holds five cycles — a 2-cycle window sits one noisy sample from losing its
+    # first countable rise, and the frequency would come back unmeasurable (#745)
+    q(scope, ":TIMebase:SCALe 5E-4")
     q(scope, ":DIGitize CHANnel1")
     q(scope, ":MEASure:FREQuency CHANnel1")
     _results(scope)
     [[label, current, low, high, mean, sdev, count]] = _results(scope)
     assert label == "FREQuency(1)" and int(count) == 2  # each read takes one more value
-    assert float(current) == float(low) == float(high) == float(mean) == pytest.approx(F, rel=1e-3)
+    assert float(current) == float(low) == float(high) == float(mean) == pytest.approx(F, rel=1e-2)
     assert float(sdev) == 0.0  # the same record twice
-    assert float(q(scope, ":MEASure:FREQuency? CHANnel1")) == pytest.approx(F, rel=1e-3)
+    assert float(q(scope, ":MEASure:FREQuency? CHANnel1")) == pytest.approx(F, rel=1e-2)
     q(scope, ":MEASure:CLEar")
     assert _results(scope) == []
     # -- ALL? is a snapshot of every single-source measurement (was test_all_is_a_snapshot_of_every_single_source_measurement)
@@ -151,8 +158,8 @@ def test_the_measurement_list_flow(scope):
     values = [float(v) for v in scope.read("scope").decode().strip().split(",")]
     assert len(values) == 19
     assert values[0] == q(scope, ":MEASure:VPP? CHANnel1")
-    assert values[11] == pytest.approx(F, rel=1e-3)  # FREQuency
-    assert values[18] == pytest.approx(2 * F, rel=1e-3)  # BRATe
+    assert values[11] == pytest.approx(F, rel=1e-2)  # FREQuency
+    assert values[18] == pytest.approx(2 * F, rel=1e-2)  # BRATe
     assert _results(scope) == []  # a snapshot installs nothing
     # -- show and window are kept (was test_show_and_window_are_kept)
     assert q(scope, ":MEASure:SHOW?") == 1.0

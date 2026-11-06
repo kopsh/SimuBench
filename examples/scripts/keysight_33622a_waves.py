@@ -86,7 +86,8 @@ def main() -> None:
         rm.close()
 
     assert math.isclose(results["sine"][0], 1e4, rel_tol=1e-3), results
-    assert math.isclose(results["sine"][1], 2.0, rel_tol=0.03), results
+    # the record adds the range table's noise to the peak-to-peak (#745): some 3 codes
+    assert math.isclose(results["sine"][1], 2.0, rel_tol=0.06), results
     assert math.isclose(results["square"][0], 5e3, rel_tol=1e-3), results
     assert 0.95 < results["square"][1] < 1.2, results  # a band-limited square overshoots a little
     assert math.isclose(results["arb"][0], 1e4, rel_tol=1e-3), results

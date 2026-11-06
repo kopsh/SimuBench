@@ -1725,6 +1725,9 @@ class ScopeMeasurements(Component):
         "mid": 50.0,  # the crossing level a period is counted on
         "hysteresis": FREQ_HYSTERESIS,  # half the counter's band, of top minus base
         "min_cycles": 1,  # complete cycles a period needs
+        "hysteresis_floor_divs": 0.16,  # the counter's band never drops below this fraction of a
+        # division of the record's scale (#745): noise alone counts no crossings, so a flat trace
+        # of noise measures as nothing, like the real counter's screen-referenced band
         "clipped": "measure",  # measure | invalid: a record at the ADC's limits
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
@@ -1869,8 +1872,13 @@ class ScopeMeasurements(Component):
             mid=mid,
             hysteresis=float(self.param("hysteresis")),
             min_cycles=int(self.param("min_cycles")),
+            min_band=self._band_floor(rec),
         )
         return value
+
+    def _band_floor(self, rec: Any) -> float:
+        """The crossing band's absolute floor: divisions of the record's scale (#745)."""
+        return float(self.param("hysteresis_floor_divs")) * rec.scale
 
     def _time_value(self, what: str, v: np.ndarray, rec: Any) -> float:
         """XMAX/XMIN: the time of the first maximum / minimum, from the trigger; BRATe: the bit rate,
@@ -1880,7 +1888,7 @@ class ScopeMeasurements(Component):
         if what in ("XMAX", "XMIN"):
             k = int(np.argmax(v) if what == "XMAX" else np.argmin(v))
             return rec.origin + k * rec.dt_s
-        cross = mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
+        cross = mid_crossings(v, rec.dt_s, float(self.param("hysteresis")), self._band_floor(rec))
         widths = [u - t for (t, a), (u, b) in itertools.pairwise(cross) if b == -a and u > t]
         return 1.0 / min(widths) if widths else math.nan
 
