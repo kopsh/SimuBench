@@ -18,7 +18,7 @@ from typing import Any
 
 import httpx
 
-from ..service import address_line, build_manager
+from ..service import address_line, build_manager, link_line
 from .app import SimuBenchApp
 from .client import CLIENT_HEADER
 from .i18n import t
@@ -60,6 +60,10 @@ def _print_addresses(info: dict[str, Any]) -> None:
             print(address_line("SCPI", inst["name"], inst["address_virtual"]), file=sys.stderr)
         if inst.get("address_hislip"):
             print(address_line("HiSLIP", inst["name"], inst["address_hislip"]), file=sys.stderr)
+        if inst.get("address_vxi11"):
+            print(address_line("VXI-11", inst["name"], inst["address_vxi11"]), file=sys.stderr)
+    if info.get("link_address"):
+        print(link_line(info["link_address"]), file=sys.stderr)
 
 
 def _headers(token: str | None) -> dict[str, str]:

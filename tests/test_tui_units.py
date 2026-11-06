@@ -131,6 +131,8 @@ def test_the_embedded_log_shows_only_commands():
         ("socket:127.0.0.1:53122", "Script :53122"),
         ("socket:192.168.1.5:1234", "Script 192.168.1.5:1234"),
         ("hislip:127.0.0.1:4880#0001", "Script :4880"),
+        ("vxi11:127.0.0.1:53124#0002", "Script :53124"),
+        ("bench:127.0.0.1:53125#0001", "Script :53125"),
         ("replay", "Replay"),
         ("", "Event"),
     ],

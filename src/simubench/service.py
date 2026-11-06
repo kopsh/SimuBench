@@ -11,7 +11,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .server.manager import SessionManager
+from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
 
 def add_service_options(
@@ -29,6 +29,49 @@ def add_service_options(
         type=int,
         default=4880,
         help="shared HiSLIP port (D41); 0 lets the OS choose, and --no-scpi disables it too",
+    )
+    parser.add_argument(
+        "--hislip-overlapped",
+        action="store_true",
+        help="HiSLIP starts in overlapped mode instead of synchronized (IVI-6.1 3); a client can still "
+        "ask for the other one at device clear. Needs an overlap-aware client: pyvisa-py is not one "
+        "(it checks response IDs the synchronized way and drops the replies)",
+    )
+    parser.add_argument("--hislip-cert", help="certificate (PEM) for HiSLIP 2.0 encrypted connections")
+    parser.add_argument("--hislip-key", help="private key (PEM) of --hislip-cert")
+    parser.add_argument(
+        "--hislip-tls",
+        choices=["optional", "initial", "mandatory"],
+        default="optional",
+        help="encryption mode (IVI-6.1 4.1.3): optional; initial = optional but required first; "
+        "mandatory = required and cannot be switched off",
+    )
+    parser.add_argument(
+        "--hislip-users",
+        help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
+        "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
+    )
+    parser.add_argument(
+        "--vxi11-port",
+        type=int,
+        default=None,
+        help="serve VXI-11 with its core channel on this port (D63); 0 lets the OS choose; off by default",
+    )
+    parser.add_argument(
+        "--portmapper-port",
+        type=int,
+        default=None,
+        help="also start a port mapper here so VISA libraries find VXI-11 (turns VXI-11 on); they look "
+        "at 111, which needs privileges (default: none, connect with "
+        "TCPIP0::127.0.0.1,<port>::inst0::INSTR)",
+    )
+    parser.add_argument(
+        "--link-port",
+        type=int,
+        default=4881,
+        help="port a script in another process connects to with PYVISA_LIBRARY=127.0.0.1:<port>@simubench, "
+        "so its GPIB, USB and TCPIP addresses work unchanged while this bench is watched (D63); "
+        "0 lets the OS choose, and --no-scpi disables it too",
     )
     parser.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     parser.add_argument("--record-dir", help="write run records here")
@@ -62,6 +105,10 @@ def build_manager(args: argparse.Namespace, workspace: Path) -> SessionManager:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
+        vxi11_port=vxi11_port_of(args),
+        portmapper_port=args.portmapper_port,
+        link_port=None if args.no_scpi else args.link_port,
+        **hislip_options_of(args),
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=bool(getattr(args, "record_raw", False)),
         allow_plugins=args.allow_plugins,
@@ -71,3 +118,8 @@ def build_manager(args: argparse.Namespace, workspace: Path) -> SessionManager:
 def address_line(kind: str, name: str, address: str) -> str:
     """One row of the startup address table: the same line from serve and from the TUI launch."""
     return f"  {kind:<6} {name:<12} {address}"
+
+
+def link_line(address: str) -> str:
+    """How a script in another process connects to this bench (D63): the same line from serve and the TUI."""
+    return f"  PyVISA scripts in other processes: PYVISA_LIBRARY={address}@simubench"

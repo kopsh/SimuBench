@@ -17,8 +17,11 @@ from typing import Any
 
 import numpy as np
 
+from ..access.bench_link import BenchLinkServer
 from ..access.hislip_server import HislipServer
+from ..access.hislip_tls import SecureConfig, read_users
 from ..access.scpi_server import ScpiServer
+from ..access.vxi11_server import Vxi11Server
 from ..api import open_bench
 from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState, LinkDown
@@ -66,9 +69,49 @@ class ClientsConnected(RuntimeError):
         self.clients = clients
 
 
+def vxi11_port_of(args: Any) -> int | None:
+    """The VXI-11 core port the command line asks for: ``--vxi11-port`` (0 lets the OS choose), or
+    implied by ``--portmapper-port``; ``None`` leaves VXI-11 off, as it is by default (D63)."""
+    if args.no_scpi:
+        return None
+    if args.vxi11_port is not None:
+        return int(args.vxi11_port)
+    return 0 if args.portmapper_port is not None else None
+
+
+def hislip_options_of(args: Any) -> dict[str, Any]:
+    """``SessionManager`` keyword arguments for the HiSLIP options of the command line (D41).
+
+    ``--hislip-cert`` and ``--hislip-key`` switch on the secure connection capability; they come
+    as a pair. ``--hislip-users`` (``name:password`` lines) turns the login from ANONYMOUS into PLAIN;
+    it needs ``--hislip-tls initial`` or ``mandatory``, the modes in which every client must log in.
+    The login covers the HiSLIP port only: raw sockets and VXI-11 on the same bench have none."""
+    options: dict[str, Any] = {"hislip_overlapped": bool(args.hislip_overlapped)}
+    if args.hislip_users and args.hislip_tls == "optional":
+        # With optional encryption a client that never asks for it uses HiSLIP without any login
+        # (and so does a 1.0 client): a users file would look like protection and be none.
+        raise SystemExit(
+            "--hislip-users only gates connections that must be encrypted: add --hislip-tls initial or mandatory"
+        )
+    if args.hislip_cert or args.hislip_key:
+        if not (args.hislip_cert and args.hislip_key):
+            raise SystemExit("--hislip-cert and --hislip-key go together")
+        mode = args.hislip_tls
+        options["hislip_secure"] = SecureConfig.from_files(
+            args.hislip_cert,
+            args.hislip_key,
+            mandatory=mode == "mandatory",
+            initial=mode == "initial",
+            users=read_users(args.hislip_users) if args.hislip_users else None,
+        )
+    elif args.hislip_users or args.hislip_tls != "optional":
+        raise SystemExit("--hislip-tls and --hislip-users need --hislip-cert and --hislip-key")
+    return options
+
+
 def is_remote(client: str | None) -> bool:
     """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
-    return bool(client) and client.startswith(("socket:", "hislip:"))  # type: ignore[union-attr]
+    return bool(client) and client.startswith(("socket:", "hislip:", "vxi11:", "bench:"))  # type: ignore[union-attr]
 
 
 @dataclass
@@ -204,6 +247,8 @@ class ServedSession:
         self.bench_fingerprint: str | None = None
         self.scpi: ScpiServer | None = None
         self.hislip: HislipServer | None = None
+        self.vxi11: Vxi11Server | None = None
+        self.link: BenchLinkServer | None = None
         self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
         self.time_scale: float | None = None
@@ -246,6 +291,10 @@ class ServedSession:
                 for hs in self.hislip.sessions()
                 if instrument is None or hs.instrument == instrument
             ]
+        if self.vxi11:
+            out += self.vxi11.clients(instrument)
+        if self.link:
+            out += self.link.clients(instrument)
         return sorted(out)
 
     def require_local(self, instrument: str) -> None:
@@ -278,6 +327,11 @@ class SessionManager:
         scpi_host: str = "127.0.0.1",
         scpi_base_port: int | None = 5025,
         hislip_port: int | None = 4880,
+        vxi11_port: int | None = None,
+        portmapper_port: int | None = None,
+        hislip_overlapped: bool = False,
+        hislip_secure: SecureConfig | None = None,
+        link_port: int | None = None,
         record_dir: Path | None = None,
         record_raw: bool = False,
         allow_plugins: bool = False,
@@ -286,6 +340,11 @@ class SessionManager:
         self.scpi_host = scpi_host
         self.scpi_base_port = scpi_base_port
         self.hislip_port = hislip_port
+        self.vxi11_port = vxi11_port
+        self.portmapper_port = portmapper_port
+        self.hislip_overlapped = hislip_overlapped
+        self.hislip_secure = hislip_secure
+        self.link_port = link_port
         self.record_dir = record_dir
         self.record_raw = record_raw
         self.allow_plugins = allow_plugins
@@ -370,8 +429,25 @@ class SessionManager:
             served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
             await served.scpi.start()
             if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
-                served.hislip = HislipServer(session, self.scpi_host, self.hislip_port)
+                served.hislip = HislipServer(
+                    session,
+                    self.scpi_host,
+                    self.hislip_port,
+                    overlapped=self.hislip_overlapped,
+                    secure=self.hislip_secure,
+                )
                 await served.hislip.start()
+            if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
+                served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)
+                await served.vxi11.start()
+            if self.link_port is not None:  # scripts in other processes drive this bench (D63)
+                link = BenchLinkServer(session, self.scpi_host, self.link_port)
+                try:
+                    await link.start()
+                    link.served = self.served_addresses(served)
+                    served.link = link
+                except OSError as exc:  # another service holds the port: this one still works
+                    log.warning("bench link not started (port %s: %s)", self.link_port, exc)
         self.sessions[served.id] = served
         return served
 
@@ -407,6 +483,10 @@ class SessionManager:
             return
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
+        if served.link:
+            await served.link.stop()
+        if served.vxi11:
+            await served.vxi11.stop()
         if served.hislip:
             await served.hislip.stop()
         if served.scpi:
@@ -489,13 +569,26 @@ class SessionManager:
 
     # ---- descriptions -------------------------------------------------------------------------------
 
+    @staticmethod
+    def served_addresses(served: ServedSession) -> dict[str, list[str]]:
+        """Every address the service's own servers answer at, by instrument: what a script that
+        connects through the bench link must be able to open (the ports are the service's choice)."""
+        out: dict[str, list[str]] = {name: [] for name in served.session.instruments}
+        for lst in served.scpi.listeners if served.scpi else []:
+            out[lst.instrument].append(lst.address)
+        for servers in (served.hislip, served.vxi11):
+            for name, address in (servers.addresses() if servers else {}).items():
+                out[name].append(address)
+        return out
+
     def describe(self, served: ServedSession) -> M.SessionInfo:
         s = served.session
         b = s.bench
         ports = {lst.instrument: lst.port for lst in (served.scpi.listeners if served.scpi else [])}
         hislip = served.hislip.addresses() if served.hislip else {}
+        vxi11 = served.vxi11.addresses() if served.vxi11 else {}
         instruments = [
-            self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name))
+            self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name), vxi11.get(name))
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
         clients: list[M.ClientInfo] = [
@@ -510,6 +603,24 @@ class SessionManager:
                         client=hs.client,
                         instrument=hs.instrument,
                         locked=served.hislip.locks(hs.instrument).held_by(hs),
+                    )
+                )
+        if served.vxi11:
+            for link in served.vxi11._links.values():
+                clients.append(
+                    M.ClientInfo(
+                        client=link.client,
+                        instrument=link.instrument,
+                        locked=served.vxi11.locks(link.instrument).held_by(link),
+                    )
+                )
+        if served.link:
+            for label in served.link.clients():
+                clients.append(
+                    M.ClientInfo(
+                        client=label,
+                        instrument=served.link._clients[label][0],
+                        locked=served.link.holds_lock(label),
                     )
                 )
         for info in instruments:
@@ -545,6 +656,7 @@ class SessionManager:
             bench_fingerprint=served.bench_fingerprint,
             stale_definitions=self.stale_definitions(served) if served.id != "preview" else [],
             record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
+            link_address=served.link.address() if served.link else None,
             clients=clients,
             instruments=instruments,
             parts=parts,
@@ -583,7 +695,13 @@ class SessionManager:
         )
 
     def describe_instrument(
-        self, s: Session, inst: Instrument, index: int, scpi_port: int | None, hislip: str | None = None
+        self,
+        s: Session,
+        inst: Instrument,
+        index: int,
+        scpi_port: int | None,
+        hislip: str | None = None,
+        vxi11: str | None = None,
     ) -> M.InstrumentInfo:
         d = inst.definition
         ports = []
@@ -626,6 +744,7 @@ class SessionManager:
             address_virtual=f"TCPIP0::127.0.0.1::{scpi_port or 5025 + index}::SOCKET",
             address_real=inst.instance.address,
             address_hislip=hislip,
+            address_vxi11=vxi11,
             scpi_port=scpi_port,
             display=_display_info(d),
             ports=ports,
