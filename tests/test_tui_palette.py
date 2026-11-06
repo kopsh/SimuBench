@@ -199,7 +199,10 @@ async def test_the_palette_and_the_settings_search_work_at_80x24():
         for ch in "voltage":
             await pilot.press(ch)
         await pilot.pause(0.6)
-        assert any("Voltage level" in text and "source.voltage.level" in text for text in _palette_options(tui.screen))
+        assert any(
+            "Voltage level" in text and "source.voltage.level" in text
+            for text in _palette_options(tui.screen)
+        )
         await pilot.press("enter")  # the top hit: jump to the field and edit it
         from simubench.tui.screens.instrument import ControlButton
 
