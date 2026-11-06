@@ -262,6 +262,7 @@ function clientLabel(client: string | null | undefined, t: (key: string) => stri
   if (client.startsWith("socket:")) return "SOCKET";
   if (client.startsWith("hislip:")) return "HiSLIP";
   if (client.startsWith("vxi11:")) return "VXI-11";
+  if (client.startsWith("bench:")) return "PyVISA";
   return client;
 }
 

@@ -136,7 +136,7 @@ def source_label(ev: Mapping[str, Any], lang: str = "zh") -> str:
         return t("source.event", lang)
     if client in ("ui", "tui", "mcp", "pyvisa", "replay"):
         return t(f"source.{client}", lang)
-    for scheme in ("socket:", "hislip:", "vxi11:"):
+    for scheme in ("socket:", "hislip:", "vxi11:", "bench:"):
         if client.startswith(scheme):
             # A HiSLIP or VXI-11 client is `hislip:<host>:<port>#<session>` (or `vxi11:…#<link>`); the
             # label shows the port (1.5).

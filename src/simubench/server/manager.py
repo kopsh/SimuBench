@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 
+from ..access.bench_link import BenchLinkServer
 from ..access.hislip_server import HislipServer
 from ..access.hislip_tls import SecureConfig, read_users
 from ..access.scpi_server import ScpiServer
@@ -108,7 +109,7 @@ def hislip_options_of(args: Any) -> dict[str, Any]:
 
 def is_remote(client: str | None) -> bool:
     """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
-    return bool(client) and client.startswith(("socket:", "hislip:", "vxi11:"))  # type: ignore[union-attr]
+    return bool(client) and client.startswith(("socket:", "hislip:", "vxi11:", "bench:"))  # type: ignore[union-attr]
 
 
 @dataclass
@@ -210,6 +211,7 @@ class ServedSession:
         self.scpi: ScpiServer | None = None
         self.hislip: HislipServer | None = None
         self.vxi11: Vxi11Server | None = None
+        self.link: BenchLinkServer | None = None
         self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
         self.seed: int | None = None
@@ -253,6 +255,8 @@ class ServedSession:
             ]
         if self.vxi11:
             out += self.vxi11.clients(instrument)
+        if self.link:
+            out += self.link.clients(instrument)
         return sorted(out)
 
     def require_local(self, instrument: str) -> None:
@@ -289,6 +293,7 @@ class SessionManager:
         portmapper_port: int | None = None,
         hislip_overlapped: bool = False,
         hislip_secure: SecureConfig | None = None,
+        link_port: int | None = None,
         record_dir: Path | None = None,
         record_raw: bool = False,
         allow_plugins: bool = False,
@@ -301,6 +306,7 @@ class SessionManager:
         self.portmapper_port = portmapper_port
         self.hislip_overlapped = hislip_overlapped
         self.hislip_secure = hislip_secure
+        self.link_port = link_port
         self.record_dir = record_dir
         self.record_raw = record_raw
         self.allow_plugins = allow_plugins
@@ -394,6 +400,13 @@ class SessionManager:
             if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
                 served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)
                 await served.vxi11.start()
+            if self.link_port is not None:  # scripts in other processes drive this bench (D63)
+                link = BenchLinkServer(session, self.scpi_host, self.link_port)
+                try:
+                    await link.start()
+                    served.link = link
+                except OSError as exc:  # another service holds the port: this one still works
+                    log.warning("bench link not started (port %s: %s)", self.link_port, exc)
         self.sessions[served.id] = served
         return served
 
@@ -427,6 +440,8 @@ class SessionManager:
             return
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
+        if served.link:
+            await served.link.stop()
         if served.vxi11:
             await served.vxi11.stop()
         if served.hislip:
@@ -544,6 +559,15 @@ class SessionManager:
                         locked=served.vxi11.locks(link.instrument).held_by(link),
                     )
                 )
+        if served.link:
+            for label in served.link.clients():
+                clients.append(
+                    M.ClientInfo(
+                        client=label,
+                        instrument=served.link._clients[label][0],
+                        locked=served.link.holds_lock(label),
+                    )
+                )
         for info in instruments:
             info.remote = served.remote_clients(info.name)
             info.local = info.name in served.local
@@ -576,6 +600,7 @@ class SessionManager:
             bench_fingerprint=served.bench_fingerprint,
             stale_definitions=self.stale_definitions(served) if served.id != "preview" else [],
             record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
+            link_address=served.link.address() if served.link else None,
             clients=clients,
             instruments=instruments,
             parts=parts,

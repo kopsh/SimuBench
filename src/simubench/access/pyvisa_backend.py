@@ -8,6 +8,10 @@ The bench opens in this process. Every instrument answers at:
   (``GPIB0::4::INSTR`` and ``USB0::0x…::INSTR`` behave as those buses do, ``GPIB0::INTFC`` is the board),
 * its instance name (``rm.open_resource("scope")``).
 
+With ``PYVISA_LIBRARY=<host>:<port>@simubench`` (or ``SIMUBENCH_LINK``) the bench is not opened here
+but is the one a service is running: the same addresses and the same behaviour, in the service
+(bench_link.py), so the Web Bench or the TUI can watch the script work.
+
 What a session does on its bus is a :mod:`~simubench.access.links` link; this module keeps what VISA
 keeps per session: the read buffer, the attributes, the timeouts.
 
@@ -30,6 +34,8 @@ from pyvisa.util import LibraryPath
 from ..api import open_bench
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from .bench_link import DEFAULT_PORT as LINK_PORT
+from .bench_link import RemoteBench
 from .bus import BusError
 from .gpib_bus import boards_of
 from .links import Link, make_link
@@ -133,14 +139,14 @@ class _VisaSession:
         return constants.StatusCode.success
 
     @property
-    def bench(self) -> Session:
+    def bench(self) -> Session | RemoteBench:
         return self.lib.bench
 
 
 class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
     """VISA library backed by a SimuBench session."""
 
-    bench: Session
+    bench: Session | RemoteBench
 
     @staticmethod
     def get_library_paths() -> tuple[LibraryPath, ...]:
@@ -158,25 +164,35 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         self.sessions: dict[int, Any] = {}
         spec = str(self.library_path)
         if spec in ("", "unset"):
-            spec = os.environ.get("SIMUBENCH_BENCH", "")
+            spec = os.environ.get("SIMUBENCH_BENCH") or os.environ.get("SIMUBENCH_LINK") or ""
         if not spec:
-            raise ValueError(
-                "SimuBench needs a bench file: ResourceManager('path/to/bench.yaml@simubench') "
-                "or set SIMUBENCH_BENCH"
-            )
+            spec = f"127.0.0.1:{LINK_PORT}"  # a service started with `simubench serve` listens here
         self._spec = spec
         self._start()
 
+    @staticmethod
+    def _is_link(spec: str) -> bool:
+        return re.fullmatch(r"[\w.\-]*:\d+", spec) is not None and not os.path.exists(spec)
+
     def _start(self) -> None:
-        """Open the bench: a fresh session, as a power-cycled bench would be."""
+        """Open the bench (a fresh session, as a power-cycled bench would be) or connect to a service's."""
         seed = os.environ.get("SIMUBENCH_SEED")
-        self.bench = open_bench(
-            self._spec,
-            record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None,
-            clock=os.environ.get("SIMUBENCH_CLOCK") or None,
-            seed=int(seed) if seed else None,
-            idle=os.environ.get("SIMUBENCH_IDLE") or None,
-        )
+        if self._is_link(self._spec):
+            try:
+                self.bench = RemoteBench(self._spec)
+            except (OSError, BusError) as exc:
+                raise ValueError(
+                    f"no SimuBench service answers at {self._spec} ({exc}); start `simubench serve <bench>`, "
+                    "or give a bench file: ResourceManager('path/to/bench.yaml@simubench')"
+                ) from None
+        else:
+            self.bench = open_bench(
+                self._spec,
+                record_dir=os.environ.get("SIMUBENCH_RECORD_DIR") or None,
+                clock=os.environ.get("SIMUBENCH_CLOCK") or None,
+                seed=int(seed) if seed else None,
+                idle=os.environ.get("SIMUBENCH_IDLE") or None,
+            )
         self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.
         # HiSLIP addresses resolve to the same in-process instruments (D41).
@@ -295,7 +311,11 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             # PyVISA does not raise on a status returned by ``open``: reject here, as VISA does.
             raise errors.VisaIOError(constants.VI_ERROR_RSRC_NFOUND)
         name, parsed = hit
-        link = make_link(self.bench, name, _kind_of(parsed), int(getattr(parsed, "board", 0) or 0))
+        kind, board = _kind_of(parsed), int(getattr(parsed, "board", 0) or 0)
+        if isinstance(self.bench, RemoteBench):
+            link: Link = self._run(self.bench.open_link, None if name == INTFC else name, kind, board)
+        else:
+            link = make_link(self.bench, name, kind, board)
         return self._register(
             _VisaSession(self, name, str(parsed), parsed, link)
         ), constants.StatusCode.success

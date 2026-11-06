@@ -464,6 +464,11 @@ class SessionInfo(_Model):
         description="Instrument definitions changed on disk since the session started: restart to apply them",
     )
     record_path: str | None = None
+    link_address: str | None = Field(
+        None,
+        description="host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench "
+        "(GPIB, USB and TCPIP addresses then work unchanged, D63)",
+    )
     clients: list[ClientInfo] = Field(
         default_factory=list, description="Scripts currently connected to the SCPI ports"
     )

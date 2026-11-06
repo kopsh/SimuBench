@@ -61,6 +61,11 @@ def _print_addresses(info: dict[str, Any]) -> None:
             print(f"  HiSLIP {inst['name']:<12} {inst['address_hislip']}", file=sys.stderr)
         if inst.get("address_vxi11"):
             print(f"  VXI-11 {inst['name']:<12} {inst['address_vxi11']}", file=sys.stderr)
+    if info.get("link_address"):
+        print(
+            f"  PyVISA   scripts in other processes: PYVISA_LIBRARY={info['link_address']}@simubench",
+            file=sys.stderr,
+        )
 
 
 def _headers(token: str | None) -> dict[str, str]:
@@ -102,6 +107,7 @@ def run_bench(args: Any) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
+        link_port=None if args.no_scpi else args.link_port,
         vxi11_port=vxi11_port_of(args),
         **hislip_options_of(args),
         portmapper_port=args.portmapper_port,

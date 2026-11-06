@@ -5719,6 +5719,18 @@
             "title": "Layout",
             "type": "object"
           },
+          "link_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench (GPIB, USB and TCPIP addresses then work unchanged, D63)",
+            "title": "Link Address"
+          },
           "nets": {
             "items": {
               "$ref": "#/components/schemas/NetInfo"
@@ -5785,6 +5797,7 @@
           "bench_fingerprint",
           "stale_definitions",
           "record_path",
+          "link_address",
           "clients",
           "instruments",
           "parts",

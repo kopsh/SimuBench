@@ -3538,6 +3538,11 @@ export interface components {
             layout: {
                 [key: string]: components["schemas"]["LayoutItem"];
             };
+            /**
+             * Link Address
+             * @description host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench (GPIB, USB and TCPIP addresses then work unchanged, D63)
+             */
+            link_address: string | null;
             /** Nets */
             nets: components["schemas"]["NetInfo"][];
             /** Now Ns */

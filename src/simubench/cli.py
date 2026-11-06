@@ -31,6 +31,7 @@ def _serve(args: argparse.Namespace) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
+        link_port=None if args.no_scpi else args.link_port,
         vxi11_port=vxi11_port_of(args),
         **hislip_options_of(args),
         portmapper_port=args.portmapper_port,
@@ -54,6 +55,10 @@ def _serve(args: argparse.Namespace) -> int:
                 print(f"  HiSLIP {name:<12} {addr}")
             for name, addr in served.vxi11.addresses().items() if served.vxi11 else []:
                 print(f"  VXI-11 {name:<12} {addr}")
+            if served.link:
+                print(
+                    f"  PyVISA   scripts in other processes: PYVISA_LIBRARY={served.link.address()}@simubench"
+                )
         url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
@@ -141,6 +146,7 @@ def _mcp(args: argparse.Namespace) -> int:
         scpi_host="127.0.0.1",
         scpi_base_port=None if args.no_scpi else args.scpi_base_port,
         hislip_port=None if args.no_scpi else args.hislip_port,
+        link_port=None if args.no_scpi else args.link_port,
         vxi11_port=vxi11_port_of(args),
         **hislip_options_of(args),
         portmapper_port=args.portmapper_port,
@@ -557,6 +563,14 @@ def main(argv: list[str] | None = None) -> int:
         help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
         "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
     )
+    p.add_argument(
+        "--link-port",
+        type=int,
+        default=4881,
+        help="port a script in another process connects to with PYVISA_LIBRARY=127.0.0.1:<port>@simubench, "
+        "so its GPIB, USB and TCPIP addresses work unchanged while this bench is watched (D63); "
+        "0 lets the OS choose, and --no-scpi disables it too",
+    )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
@@ -628,6 +642,14 @@ def main(argv: list[str] | None = None) -> int:
         help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
         "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
     )
+    p.add_argument(
+        "--link-port",
+        type=int,
+        default=4881,
+        help="port a script in another process connects to with PYVISA_LIBRARY=127.0.0.1:<port>@simubench, "
+        "so its GPIB, USB and TCPIP addresses work unchanged while this bench is watched (D63); "
+        "0 lets the OS choose, and --no-scpi disables it too",
+    )
     p.add_argument("--no-scpi", action="store_true", help="do not open SCPI sockets")
     p.add_argument("--record-dir", help="write run records here")
     p.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
@@ -680,6 +702,14 @@ def main(argv: list[str] | None = None) -> int:
         "--hislip-users",
         help="file of name:password lines accepted by the SASL PLAIN login (default: ANONYMOUS); "
         "needs --hislip-tls initial or mandatory; it gates the HiSLIP port only",
+    )
+    p.add_argument(
+        "--link-port",
+        type=int,
+        default=4881,
+        help="port a script in another process connects to with PYVISA_LIBRARY=127.0.0.1:<port>@simubench, "
+        "so its GPIB, USB and TCPIP addresses work unchanged while this bench is watched (D63); "
+        "0 lets the OS choose, and --no-scpi disables it too",
     )
     p.add_argument("--no-scpi", action="store_true")
     p.add_argument("--record-dir")
