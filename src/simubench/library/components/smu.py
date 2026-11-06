@@ -535,6 +535,7 @@ class SmuMeter(Component):
         "autorange_down": 0.1,  # fraction of full scale below which the range switches down
         "overrange": 1.2,  # a reading beyond this fraction of full scale is an overload
         "overload_value": 9.9e37,  # the reading an overload produces
+        "noise": None,  # reading noise {ppm_of_range, ref_time_s, table} (#746); None: noiseless
         "buffer": "",  # the reading_buffer whose contents the front panel shows ('' for none)
         "source": "",  # the source DAC (sweep levels, the function being forced)
         "loop": "",  # the control loop (mode, limits)
@@ -604,16 +605,29 @@ class SmuMeter(Component):
         self._auto_range[function] = r
         return r
 
-    def _measured(self) -> tuple[float, float]:
+    def _measured(self, frame: int | None = None) -> tuple[float, float]:
         """The two readings as the instrument reports them: the measure ranges applied (an overload
-        reads ``overload_value``)."""
+        reads ``overload_value``). ``frame`` numbers a Web panel reading (its own noise, D32)."""
         v, i = self.reading()
-        return self._clipped(v, i)
+        return self._clipped(v, i, frame)
 
-    def _clipped(self, v: float, i: float) -> tuple[float, float]:
+    _script_reads = 0
+
+    def _clipped(self, v: float, i: float, frame: int | None = None) -> tuple[float, float]:
+        noisy = isinstance(self.param("noise"), dict)
+        if noisy and frame is None:
+            self._script_reads += 1  # the sequence of scripted readings keys the noise (#746)
+        when = ("panel", frame) if frame is not None else ("script", self._script_reads)
         for function, ref in (("VOLTage", "v"), ("CURRent", "i")):
             value = v if ref == "v" else i
             r = self._measure_range(function, value)
+            if noisy:
+                sigma = self.noise_rms(r, self.reading_time(0.0))
+                value += self.noise_sample(sigma, "reading", function, *when)
+                if ref == "v":
+                    v = value
+                else:
+                    i = value
             if r is not None and abs(value) > float(self.param("overrange")) * r:
                 if ref == "v":
                     v = float(self.param("overload_value"))
@@ -859,7 +873,7 @@ class SmuMeter(Component):
 
     def readings(self) -> dict[str, Any]:
         self.session.solve()
-        v, i = self._measured()
+        v, i = self._measured(self.panel_frame())
         loop = self._loop()
         points = self._buffer_points()
         return {
