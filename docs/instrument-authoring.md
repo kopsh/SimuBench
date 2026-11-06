@@ -184,7 +184,7 @@ params:
 
 定义还可以声明 `extends: <内置型号 id>`，从同库的另一台仪表出发：loader 先解析父定义（父定义自己的 `extends` 也照此解析，单亲、禁止环，成环或父定义不存在都在加载时报错），再把本定义的数据深合并上去。合并次序是 **类别默认 → 父 → 子**；dict 逐键递归合并（`errors` 按 code），**列表整体替换**——要改动命令或组件时重声明整张列表，只想加一条状态时只写那一条。父定义按「子定义所在目录 → `SIMUBENCH_DEFINITIONS` 目录 → 内置库」的顺序查找；类别默认在最底层合并一次，按子定义的 `class` 取表，所以从内置型号出发的自定义义同样拿到它（父定义文件里的通用错误行已上收进类别表，不靠继承）。
 
-内置库的 keysight-53230a（`extends: keysight-53220a`）与 keysight-daq970a（`extends: keysight-34970a`）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
+**子定义里写 `键: null` 丢弃继承来的该键**：dict 键（一条状态、一个端口组、`specs` 的一项）、`errors` 的单个 code、整个列表（如 `components: null`）都适用；null 在全部层合并完才生效，下层与类别默认都带不回来，父定义没有该键时等于没写。内置库的 keysight-53230a（`extends: keysight-53220a`）、keysight-daq970a（`extends: keysight-34970a`）与 keysight-b2912b（`extends: keysight-b2901a`，丢弃单通道的仪器级状态、端口与组件）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
