@@ -4,8 +4,12 @@ The bench opens in this process. Every instrument answers at:
 
 * its virtual address ``TCPIP0::127.0.0.1::<5025+i>::SOCKET`` (i = position in the bench file),
 * the HiSLIP form ``...::hislip<i>,4880::INSTR`` and the VXI-11 form ``...::inst<i>::INSTR`` (D41, D63),
-* the real-bench address configured in the bench file (``address:``), so scripts keep their strings,
+* the real-bench address configured in the bench file (``address:``), so scripts keep their strings
+  (``GPIB0::4::INSTR`` and ``USB0::0x…::INSTR`` behave as those buses do, ``GPIB0::INTFC`` is the board),
 * its instance name (``rm.open_resource("scope")``).
+
+What a session does on its bus is a :mod:`~simubench.access.links` link; this module keeps what VISA
+keeps per session: the read buffer, the attributes, the timeouts.
 
 Reads follow VISA rules: a read ends at the termination character when it is enabled (so a binary
 block containing 0x0A is cut short, exactly as on hardware), at the end of a response message, or
@@ -17,7 +21,6 @@ from __future__ import annotations
 import os
 import random
 import re
-import time
 from collections import OrderedDict
 from typing import Any
 
@@ -27,19 +30,38 @@ from pyvisa.util import LibraryPath
 from ..api import open_bench
 from ..engine.faults import LinkDown
 from ..engine.session import Session
-from .bus import bus_of
+from .bus import BusError
+from .gpib_bus import boards_of
+from .links import Link, make_link
 
 BASE_PORT = 5025
 HISLIP_PORT = 4880
+INTFC = "<intfc>"  # what the address table names for a board: it is no instrument
+
+
+def _kind_of(parsed: rname.ResourceName) -> str:
+    if isinstance(parsed, rname.GPIBIntfc):
+        return "gpib_intfc"
+    if isinstance(parsed, rname.GPIBInstr):
+        return "gpib"
+    if isinstance(parsed, rname.USBInstr):
+        return "usb"
+    return "net"
 
 
 class _VisaSession:
     def __init__(
-        self, lib: SimuBenchVisaLibrary, instrument: str, resource_name: str, parsed: rname.ResourceName
+        self,
+        lib: SimuBenchVisaLibrary,
+        instrument: str,
+        resource_name: str,
+        parsed: rname.ResourceName,
+        link: Link,
     ):
         self.lib = lib
-        self.instrument = instrument
+        self.instrument = None if instrument == INTFC else instrument
         self.parsed = parsed
+        self.link = link
         self.session_type = (parsed.interface_type_const, parsed.resource_class)
         self.attrs: dict[Any, Any] = {
             constants.ResourceAttribute.resource_name: resource_name,
@@ -70,6 +92,8 @@ class _VisaSession:
                 if parsed.secondary_address is not None
                 else constants.VI_NO_SEC_ADDR
             )
+        elif isinstance(parsed, rname.GPIBIntfc):
+            self.attrs[constants.ResourceAttribute.gpib_secondary_address] = constants.VI_NO_SEC_ADDR
         elif isinstance(parsed, rname.USBInstr):
             self.attrs[constants.ResourceAttribute.manufacturer_id] = int(parsed.manufacturer_id, 0)
             self.attrs[constants.ResourceAttribute.model_code] = int(parsed.model_code, 0)
@@ -82,7 +106,6 @@ class _VisaSession:
             self.attrs[constants.ResourceAttribute.usb_protocol] = 1  # USB488
         self.buffer = bytearray()  # bytes of the current response message not yet read
         self.connected = True
-        self.lock_depth = 0  # nested viLock calls this session holds
         self.srq_queue = False  # SERVICE_REQUEST enabled with the queue mechanism
 
     def get_attribute(self, attribute: Any) -> tuple[Any, constants.StatusCode]:
@@ -92,11 +115,9 @@ class _VisaSession:
             return 0, constants.StatusCode.error_nonsupported_attribute
         if not attr.in_resource(self.session_type):
             return 0, constants.StatusCode.error_nonsupported_attribute
-        if attribute == constants.ResourceAttribute.gpib_ren_state:
-            asserted = bus_of(self.lib.bench, self.instrument).remote_local.ren
-            return (constants.LineState.asserted if asserted else constants.LineState.unasserted), (
-                constants.StatusCode.success
-            )
+        live = self.link.attribute(attribute)  # what the bus decides: line states, pipe status ...
+        if live is not None:
+            return live, constants.StatusCode.success
         return self.attrs.setdefault(attribute, attr.default), constants.StatusCode.success
 
     def set_attribute(self, attribute: Any, value: Any) -> constants.StatusCode:
@@ -187,6 +208,10 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             if inst.instance.address:
                 self.addresses[self._norm(inst.instance.address)] = name
             self.addresses[name.upper()] = name
+        # The board of every GPIB address the bench declares can be opened as an interface (D63).
+        self.intfc = [f"GPIB{board}::INTFC" for board in boards_of(self.bench)]
+        for resource in self.intfc:
+            self.addresses[self._norm(resource)] = INTFC
 
     @staticmethod
     def _gateway_address(address: str | None) -> str | None:
@@ -238,7 +263,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
 
     def list_resources(self, session: Any, query: str = "?*::INSTR") -> tuple[str, ...]:
         resources = list(self.canonical.values()) + list(self.hislip.values()) + list(self.vxi11.values())
-        resources += list(self.vxi11_gateway.values())
+        resources += list(self.vxi11_gateway.values()) + self.intfc
         for inst in self.bench.instruments.values():
             if inst.instance.address:
                 resources.append(inst.instance.address)
@@ -270,15 +295,17 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             # PyVISA does not raise on a status returned by ``open``: reject here, as VISA does.
             raise errors.VisaIOError(constants.VI_ERROR_RSRC_NFOUND)
         name, parsed = hit
-        return self._register(_VisaSession(self, name, str(parsed), parsed)), constants.StatusCode.success
+        link = make_link(self.bench, name, _kind_of(parsed), int(getattr(parsed, "board", 0) or 0))
+        return self._register(
+            _VisaSession(self, name, str(parsed), parsed, link)
+        ), constants.StatusCode.success
 
     def close(self, session: Any) -> constants.StatusCode:
         obj = self.sessions.pop(session, None)
         if obj is None:
             return constants.StatusCode.error_invalid_object
-        if isinstance(obj, _VisaSession) and obj.lock_depth:
-            bus_of(self.bench, obj.instrument).locks.release(obj)  # a closed session holds no lock
-            obj.lock_depth = 0
+        if isinstance(obj, _VisaSession):
+            obj.link.close()  # a closed session holds no lock
         if obj is self:
             self.bench.close()
             self._closed = True
@@ -290,37 +317,41 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         s = self.sessions.get(session)
         return s if isinstance(s, _VisaSession) else None
 
-    def _guard(self, s: _VisaSession) -> None:
-        """I/O on a resource another session has locked fails, as in VISA (VPP-4.3 viLock)."""
-        if not bus_of(self.bench, s.instrument).locks.accessible(s):
-            raise errors.VisaIOError(constants.VI_ERROR_RSRC_LOCKED)
+    @staticmethod
+    def _run(fn: Any, *args: Any) -> Any:
+        """Call a link; what the bus reports becomes the VISA error a script sees."""
+        try:
+            return fn(*args)
+        except BusError as exc:
+            raise errors.VisaIOError(exc.code) from None
+        except LinkDown:
+            raise errors.VisaIOError(constants.VI_ERROR_CONN_LOST) from None
 
     def write(self, session: Any, data: bytes) -> tuple[int, constants.StatusCode]:
         s = self._session(session)
         if s is None:
             return 0, constants.StatusCode.error_invalid_object
-        self._guard(s)
         s.buffer.clear()
-        try:
-            self.bench.write(s.instrument, bytes(data), client="pyvisa")
-        except LinkDown:
-            raise errors.VisaIOError(constants.VI_ERROR_CONN_LOST) from None
+        self._run(s.link.write, bytes(data))
         return len(data), constants.StatusCode.success
 
     def read(self, session: Any, count: int) -> tuple[bytes, constants.StatusCode]:
         s = self._session(session)
         if s is None:
             return b"", constants.StatusCode.error_invalid_object
-        self._guard(s)
         if not s.buffer:
+            timed_out = False
             try:
-                msg = self.bench.read(s.instrument, client="pyvisa")
-            except LinkDown:
-                raise errors.VisaIOError(constants.VI_ERROR_CONN_LOST) from None
+                msg = self._run(s.link.read_message)
+            except errors.VisaIOError as exc:
+                if exc.error_code != constants.VI_ERROR_TMO:
+                    raise
+                msg, timed_out = None, True
             if msg is None:
                 timeout_ms, _ = s.get_attribute(constants.ResourceAttribute.timeout_value)
-                self._spend_timeout(timeout_ms)
+                s.link.spend_timeout(timeout_ms)
                 raise errors.VisaIOError(constants.VI_ERROR_TMO)
+            assert not timed_out
             s.buffer.extend(msg)
             s.end_pending = True  # type: ignore[attr-defined]
         termchar_enabled, _ = s.get_attribute(constants.ResourceAttribute.termchar_enabled)
@@ -340,33 +371,19 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             return out, constants.StatusCode.success  # END with the last byte
         return out, constants.StatusCode.success_max_count_read
 
-    def _spend_timeout(self, timeout_ms: Any) -> None:
-        try:
-            ms = float(timeout_ms)
-        except (TypeError, ValueError):
-            ms = 2000.0
-        if ms == float("inf") or ms <= 0:
-            return
-        if self.bench.clock_mode == "wall":
-            time.sleep(ms / 1000)
-        else:
-            self.bench.advance(ms / 1000)
-
     def clear(self, session: Any) -> constants.StatusCode:
         s = self._session(session)
         if s is None:
             return constants.StatusCode.error_invalid_object
-        self._guard(s)
         s.buffer.clear()
-        self.bench.clear_output(s.instrument, client="pyvisa")
+        self._run(s.link.clear)
         return constants.StatusCode.success
 
     def read_stb(self, session: Any) -> tuple[int, constants.StatusCode]:
         s = self._session(session)
         if s is None:
             return 0, constants.StatusCode.error_invalid_object
-        self._guard(s)
-        return self.bench.instrument(s.instrument).stb(), constants.StatusCode.success
+        return self._run(s.link.read_stb), constants.StatusCode.success
 
     def flush(self, session: Any, mask: Any) -> constants.StatusCode:
         return constants.StatusCode.success
@@ -375,8 +392,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         s = self._session(session)
         if s is None:
             return constants.StatusCode.error_invalid_object
-        self._guard(s)
-        self.bench.write(s.instrument, b"*TRG", client="pyvisa")
+        self._run(s.link.trigger)
         return constants.StatusCode.success
 
     # ---- remote/local control (REN, GTL, LLO) -------------------------------------------------------
@@ -386,26 +402,77 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         s = self._session(session)
         if s is None:
             return constants.StatusCode.error_invalid_object
-        if not isinstance(s.parsed, (rname.GPIBInstr, rname.USBInstr, rname.TCPIPInstr)):
+        if isinstance(s.parsed, rname.TCPIPSocket):
             raise errors.VisaIOError(constants.VI_ERROR_NSUP_OPER)
-        self._guard(s)
-        try:
-            action = bus_of(self.bench, s.instrument).remote_local.control(int(mode))
-        except (KeyError, ValueError):
-            raise errors.VisaIOError(constants.VI_ERROR_INV_MODE) from None
-        self.bench.emit(
-            {"kind": "bus_control", "instrument": s.instrument, "client": "pyvisa", "action": action}
+        self._run(s.link.control_ren, int(mode))
+        return constants.StatusCode.success
+
+    # ---- the buses' own operations ------------------------------------------------------------------
+
+    def gpib_command(self, session: Any, data: bytes) -> tuple[int, constants.StatusCode]:
+        s = self._session(session)
+        if s is None:
+            return 0, constants.StatusCode.error_invalid_object
+        return self._run(s.link.gpib_command, bytes(data)), constants.StatusCode.success
+
+    def gpib_send_ifc(self, session: Any) -> constants.StatusCode:
+        s = self._session(session)
+        if s is None:
+            return constants.StatusCode.error_invalid_object
+        self._run(s.link.gpib_send_ifc)
+        return constants.StatusCode.success
+
+    def gpib_control_atn(self, session: Any, mode: Any) -> constants.StatusCode:
+        s = self._session(session)
+        if s is None:
+            return constants.StatusCode.error_invalid_object
+        self._run(s.link.gpib_control_atn, int(mode))
+        return constants.StatusCode.success
+
+    def gpib_pass_control(
+        self, session: Any, primary_address: int, secondary_address: int
+    ) -> constants.StatusCode:
+        s = self._session(session)
+        if s is None:
+            return constants.StatusCode.error_invalid_object
+        self._run(s.link.gpib_pass_control, int(primary_address), int(secondary_address))
+        return constants.StatusCode.success
+
+    def usb_control_in(
+        self,
+        session: Any,
+        request_type_bitmap_field: int,
+        request_id: int,
+        request_value: int,
+        index: int,
+        length: int = 0,
+    ) -> tuple[bytes, constants.StatusCode]:
+        s = self._session(session)
+        if s is None:
+            return b"", constants.StatusCode.error_invalid_object
+        data = self._run(
+            s.link.usb_control, request_type_bitmap_field, request_id, request_value, index, length, b""
+        )
+        return data, constants.StatusCode.success
+
+    def usb_control_out(
+        self,
+        session: Any,
+        request_type_bitmap_field: int,
+        request_id: int,
+        request_value: int,
+        index: int,
+        data: bytes = b"",
+    ) -> constants.StatusCode:
+        s = self._session(session)
+        if s is None:
+            return constants.StatusCode.error_invalid_object
+        self._run(
+            s.link.usb_control, request_type_bitmap_field, request_id, request_value, index, 0, bytes(data)
         )
         return constants.StatusCode.success
 
     # ---- resource locks ------------------------------------------------------------------------------
-
-    def _unsupported(self, *_args: Any, **_kwargs: Any) -> Any:
-        """Operations of the real buses that have no virtual bus behind them: refused, not faked."""
-        raise errors.VisaIOError(constants.VI_ERROR_NSUP_OPER)
-
-    usb_control_in = usb_control_out = _unsupported  # USB control pipe requests
-    gpib_command = gpib_control_atn = gpib_pass_control = gpib_send_ifc = _unsupported
 
     def lock(
         self, session: Any, lock_type: Any, timeout: Any, requested_key: Any = None
@@ -413,33 +480,20 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         s = self._session(session)
         if s is None:
             return "", constants.StatusCode.error_invalid_object
-        locks = bus_of(self.bench, s.instrument).locks
         exclusive = lock_type == constants.Lock.exclusive
         if exclusive:
             key = ""
         else:
             self._key_counter = getattr(self, "_key_counter", 0) + 1
             key = requested_key or f"SIMUBENCH-KEY-{self._key_counter}"
-        granted = locks.grant(s, exclusive, key.encode())
-        if not granted and s.lock_depth and locks.held_by(s):
-            # Nested viLock: the same kind of lock (and key) the session already holds counts up.
-            same = (locks.exclusive is s) == exclusive and (exclusive or locks.shared_key == key.encode())
-            granted = same
-        if not granted:
-            self._spend_timeout(timeout)  # the resource stayed locked for the whole wait
-            raise errors.VisaIOError(constants.VI_ERROR_TMO)
-        s.lock_depth += 1
-        return key if not exclusive else "", constants.StatusCode.success
+        self._run(s.link.lock, exclusive, key, timeout)
+        return key, constants.StatusCode.success
 
     def unlock(self, session: Any) -> constants.StatusCode:
         s = self._session(session)
         if s is None:
             return constants.StatusCode.error_invalid_object
-        if not s.lock_depth:
-            raise errors.VisaIOError(constants.VI_ERROR_SESN_NLOCKED)
-        s.lock_depth -= 1
-        if not s.lock_depth:
-            bus_of(self.bench, s.instrument).locks.release(s)
+        self._run(s.link.unlock)
         return constants.StatusCode.success
 
     # ---- service requests ------------------------------------------------------------------------------
@@ -461,7 +515,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
     def wait_on_event(
         self, session: Any, in_event_type: Any, timeout: Any
     ) -> tuple[Any, Any, constants.StatusCode]:
-        """Wait for SERVICE_REQUEST: the RQS bit of the status byte, as a serial poll would see it."""
+        """Wait for SERVICE_REQUEST: the request line of the bus, or the Interrupt-IN packet of USB488."""
         s = self._session(session)
         if s is None:
             return 0, 0, constants.StatusCode.error_invalid_object
@@ -469,38 +523,10 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             raise errors.VisaIOError(constants.VI_ERROR_INV_EVENT)
         if not s.srq_queue:
             raise errors.VisaIOError(constants.VI_ERROR_NENABLED)
-        if not self._wait_for_rqs(s, timeout):
+        if not self._run(s.link.wait_srq, timeout):
             raise errors.VisaIOError(constants.VI_ERROR_TMO)
+        s.link.consume_srq()
         return in_event_type, self._register(object()), constants.StatusCode.success
-
-    #: What an infinite VISA timeout (0xFFFFFFFF ms) is worth here: a wait that never ends would
-    #: hang a script on a bench whose RQS can never rise.
-    INFINITE_WAIT_S = 60.0
-
-    def _wait_for_rqs(self, s: _VisaSession, timeout_ms: Any) -> bool:
-        """Let time pass until RQS rises or the timeout is spent; the time spent is the wait.
-
-        The SRQ of ``*OPC`` after a long operation appears only as the clock advances, so the
-        status byte is looked at between steps, not once. On the command clock the steps are
-        virtual time, so the wait costs what the instrument needed, no more."""
-        stb = self.bench.instrument(s.instrument).stb
-        try:
-            ms = float(timeout_ms)
-        except (TypeError, ValueError):
-            ms = 2000.0
-        remaining = self.INFINITE_WAIT_S if ms >= 0xFFFFFFFF else max(ms, 0.0) / 1000
-        step = max(remaining / 200, 1e-3)
-        while True:
-            if stb() & 0x40:
-                return True
-            if remaining <= 0:
-                return False
-            dt = min(step, remaining)
-            if self.bench.clock_mode == "wall":
-                time.sleep(dt)
-            else:
-                self.bench.advance(dt)
-            remaining -= dt
 
     # ---- attributes -------------------------------------------------------------------------------
 
@@ -508,13 +534,21 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         s = self._session(session)
         if s is None:
             return 0, constants.StatusCode.error_invalid_object
-        return s.get_attribute(attribute)
+        value, status = s.get_attribute(attribute)
+        if (
+            status < 0
+        ):  # PyVISA does not raise on a returned status: an attribute the resource has not is an error
+            raise errors.VisaIOError(status)
+        return value, status
 
     def set_attribute(self, session: Any, attribute: Any, attribute_state: Any) -> constants.StatusCode:
         s = self._session(session)
         if s is None:
             return constants.StatusCode.error_invalid_object
-        return s.set_attribute(attribute, attribute_state)
+        status = s.set_attribute(attribute, attribute_state)
+        if status < 0:
+            raise errors.VisaIOError(status)
+        return status
 
     def disable_event(self, session: Any, event_type: Any, mechanism: Any) -> constants.StatusCode:
         return constants.StatusCode.success

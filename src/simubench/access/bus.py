@@ -19,6 +19,15 @@ from dataclasses import dataclass, field
 
 from ..engine.session import Session
 
+
+class BusError(Exception):
+    """A condition VISA reports as an error status: ``code`` is its VI_ERROR_* value."""
+
+    def __init__(self, code: int, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+
+
 #: viGpibControlREN modes (VPP-4.3), which are also the HiSLIP AsyncRemoteLocalControl codes
 #: (IVI-6.1 table 22) and what the VXI-11 and USB488 calls map onto.
 REMOTE_LOCAL: dict[int, str] = {

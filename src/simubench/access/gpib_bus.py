@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from pyvisa import constants, rname
 
 from ..engine.session import Session
-from .bus import bus_of, observe, serial_poll
+from .bus import BusError, LockTable, bus_of, observe, serial_poll
 
 # 488.1 command bytes (table 1 of IEEE 488.1, as in VPP-4.3's viGpibCommand description).
 GTL, SDC, PPC, GET, TCT = 0x01, 0x04, 0x05, 0x08, 0x09
@@ -35,12 +35,8 @@ MLA, MTA, MSA = 0x20, 0x40, 0x60  # base of listen, talk and secondary address c
 CONTROLLER = "<controller>"  # the board interface as talker or listener
 
 
-class GpibError(Exception):
+class GpibError(BusError):
     """A bus condition VISA reports as an error status."""
-
-    def __init__(self, code: int, message: str) -> None:
-        super().__init__(message)
-        self.code = code
 
 
 @dataclass(frozen=True)
@@ -62,6 +58,7 @@ class GpibBus:
     listeners: list[str] = field(default_factory=list)
     spe: bool = False
     ifc_count: int = 0
+    locks: LockTable = field(default_factory=LockTable)  # locks of the board (a GPIB INTFC session)
     _pending: tuple[str, int] | None = None  # the primary address just sent, a secondary may follow
     _lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 

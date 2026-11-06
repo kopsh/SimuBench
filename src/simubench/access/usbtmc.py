@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from pyvisa import constants
 
 from ..engine.session import Session
-from .bus import bus_of, observe, serial_poll
+from .bus import BusError, bus_of, observe, serial_poll
 
 # USBTMC bRequest values (USBTMC table 15) and USB488 ones (USB488 table 9).
 INITIATE_ABORT_BULK_OUT, CHECK_ABORT_BULK_OUT_STATUS = 1, 2
@@ -88,12 +88,8 @@ class UsbStall(Exception):
     """The request is not defined for the device or not valid now: the device answers STALL."""
 
 
-class UsbError(Exception):
+class UsbError(BusError):
     """A condition VISA reports as an error status (a halted pipe, nothing to read)."""
-
-    def __init__(self, code: int, message: str) -> None:
-        super().__init__(message)
-        self.code = code
 
 
 def capabilities() -> bytes:
