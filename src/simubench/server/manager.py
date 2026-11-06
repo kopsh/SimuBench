@@ -9,7 +9,9 @@ import math
 import threading
 import time
 import uuid
-from dataclasses import dataclass
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -119,6 +121,9 @@ class TryEntry:
     served: ServedSession
     definition: str
     used: float
+    #: Held while a batch runs on the session; closing waits for it (never closes a running batch).
+    busy: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    closed: bool = False
 
 
 class TrySessions:
@@ -144,27 +149,57 @@ class TrySessions:
 
     def open(self, def_id: str) -> TryEntry:
         """A fresh session with the definition's instrument alone; another for the same definition
-        replaces the previous one (it is a scratch session)."""
+        replaces the previous one (it is a scratch session). For callers that need a clean start
+        (the acceptance page's "restart"); repeated use goes through :meth:`using`."""
         with self._lock:
-            self._sweep()
-            self.files.library(None).get(def_id)  # KeyError for an unknown id, before building
-            for sid, entry in list(self._tries.items()):
-                if entry.definition == def_id:
-                    self._close(sid)
-            while len(self._tries) >= self.MAX:
-                self._close(min(self._tries, key=lambda sid: self._tries[sid].used))
-            bench = BenchDefinition.model_validate(
-                {
-                    "schema": "simubench.bench/2",
-                    "name": f"try-{def_id}",
-                    "instruments": {def_id: {"model": def_id}},
-                }
-            )
-            session = open_bench(bench, definition_dirs=[self.files.workspace / "instruments"])
-            served = ServedSession(uuid.uuid4().hex[:12], session, None)
-            entry = TryEntry(served=served, definition=def_id, used=time.monotonic())
-            self._tries[served.id] = entry
-            return entry
+            return self._open(def_id, replace=True)
+
+    @contextmanager
+    def using(self, def_id: str) -> Iterator[TryEntry]:
+        """The definition's open try session (a new one if none), held exclusively for one batch.
+
+        Consecutive batches for the same definition run on the same session (id, state and virtual
+        time carry on) until it falls idle or is retired. A concurrent batch, a close or a
+        replacing :meth:`open` waits for this one instead of running on or closing a session in use.
+        """
+        while True:
+            with self._lock:
+                self._sweep()
+                entry = next((e for e in self._tries.values() if e.definition == def_id), None)
+                if entry is None:
+                    entry = self._open(def_id, replace=False)
+                entry.used = time.monotonic()
+            with entry.busy:
+                if entry.closed:  # closed while this call waited for the batch ahead of it
+                    continue
+                try:
+                    yield entry
+                finally:
+                    # no pool lock here: a close holds it while waiting for ``busy`` (deadlock)
+                    entry.used = time.monotonic()
+                return
+
+    def _open(self, def_id: str, *, replace: bool) -> TryEntry:
+        # called with ``self._lock`` held
+        self._sweep()
+        self.files.library(None).get(def_id)  # KeyError for an unknown id, before building
+        for sid, entry in list(self._tries.items()):
+            if replace and entry.definition == def_id:
+                self._close(sid)
+        while len(self._tries) >= self.MAX:
+            self._close(min(self._tries, key=lambda sid: self._tries[sid].used))
+        bench = BenchDefinition.model_validate(
+            {
+                "schema": "simubench.bench/2",
+                "name": f"try-{def_id}",
+                "instruments": {def_id: {"model": def_id}},
+            }
+        )
+        session = open_bench(bench, definition_dirs=[self.files.workspace / "instruments"])
+        served = ServedSession(uuid.uuid4().hex[:12], session, None)
+        entry = TryEntry(served=served, definition=def_id, used=time.monotonic())
+        self._tries[served.id] = entry
+        return entry
 
     def get(self, sid: str) -> TryEntry:
         with self._lock:
@@ -193,7 +228,9 @@ class TrySessions:
     def _close(self, sid: str) -> None:
         entry = self._tries.pop(sid, None)
         if entry is not None:
-            entry.served.session.close()
+            with entry.busy:  # waits for a running batch
+                entry.closed = True
+                entry.served.session.close()
 
     def _sweep(self) -> None:
         now = time.monotonic()
@@ -214,6 +251,7 @@ class ServedSession:
         self.link: BenchLinkServer | None = None
         self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
         self.clock: str | None = None  # startup settings, kept for a reset
+        self.time_scale: float | None = None
         self.seed: int | None = None
         #: Instruments taken back to local from the UI (LOCAL), until a remote client's next command.
         self.local: set[str] = set()
@@ -250,7 +288,7 @@ class ServedSession:
         if self.hislip:
             out += [
                 hs.client
-                for hs in self.hislip._sessions.values()
+                for hs in self.hislip.sessions()
                 if instrument is None or hs.instrument == instrument
             ]
         if self.vxi11:
@@ -356,6 +394,7 @@ class SessionManager:
         seed: int | None = None,
         sid: str | None = None,
         force: bool = False,
+        time_scale: float | None = None,
     ) -> ServedSession:
         # Starting a bench stops the running one (one bench serves the ports) and its scripts drop:
         # the guard lives here, so no facade can start a bench over connected scripts (#121, 624).
@@ -374,6 +413,7 @@ class SessionManager:
             clock=clock,
             seed=seed,
             idle=idle,
+            time_scale=time_scale,
             record_dir=self.record_dir,
             record_raw=self.record_raw,
             definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)
@@ -381,7 +421,7 @@ class SessionManager:
         served = ServedSession(sid or uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
         served.bench_fingerprint = doc.fingerprint
-        served.clock, served.seed = clock, seed
+        served.clock, served.seed, served.time_scale = clock, seed, time_scale
         # One bench serves the SCPI ports at a time; a new session takes them over.
         for other in list(self.sessions.values()):
             await self.stop(other.id, force=True)  # confirmed above, as part of starting
@@ -431,7 +471,9 @@ class SessionManager:
         clock = clock if clock is not None else served.clock
         seed = seed if seed is not None else served.seed
         await self.stop(sid, force=True)  # confirmed above, as part of the reset
-        return await self.start(rel, clock=clock, seed=seed, sid=sid, force=True)
+        return await self.start(
+            rel, clock=clock, seed=seed, sid=sid, force=True, time_scale=served.time_scale
+        )
 
     async def stop(self, sid: str, force: bool = False) -> None:
         """Stop a session and close its ports; refused while scripts are connected, unless
@@ -555,7 +597,7 @@ class SessionManager:
             for c in sorted(lst.labels)
         ]
         if served.hislip:
-            for hs in served.hislip._sessions.values():
+            for hs in served.hislip.sessions():
                 clients.append(
                     M.ClientInfo(
                         client=hs.client,
@@ -606,6 +648,7 @@ class SessionManager:
             else None,
             description=b.description,
             clock_mode=s.clock_mode,  # type: ignore[arg-type]
+            time_scale=s.time_scale,
             now_ns=s.now_ns,
             seed=s.seed,
             reveal_true_values=s.reveal_true_values,

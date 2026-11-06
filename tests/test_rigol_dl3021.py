@@ -6,14 +6,11 @@ the guide's measurement flow as a script written for a real DL3021
 components: the CC slew rate in virtual time and the V_LIMIT/ILIM protection latch.
 """
 
-import importlib.util
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -21,16 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "rigol_dl3021.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "rigol_dl3021_measure.py"
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("rigol_dl3021_measure", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def load_bench() -> BenchDefinition:
@@ -55,15 +43,7 @@ def readings(session) -> dict:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    shutil.copy(BENCH, bench)
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(sys, "argv", ["rigol_dl3021_measure.py", "dut", "--bench", str(bench)])
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["dut"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "RIGOL TECHNOLOGIES,DL3021,DL3000A000001,00.01.00.04.05"
     assert out[-1] == '0,"No error"'
     assert out[1].startswith("CC 1 mA: ")

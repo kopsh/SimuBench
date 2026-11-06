@@ -89,38 +89,27 @@ def force_hi(s) -> float:
 # ---- the acceptance readings: 11 V two-wire, 10 V four-wire ----------------------------------------
 
 
-def test_two_wire_reading_includes_the_leads(open_):
+def test_the_acceptance_readings_flow(open_):
+    """Two-wire the terminals see 11 V, four-wire the meter reads only the resistor's 10 V, and
+    remote sense switches between the two at runtime."""
     s = open_(
         smu_bench(state={"source.function": "CURRent", "source.current.level": 1.0, "output.enabled": True})
     )
+    # -- two-wire reading includes the leads (was test_two_wire_reading_includes_the_leads)
     # Manual: 1 A x (0.5 + 10 + 0.5) = 11 V at the terminals; the meter is across HI and ground.
     assert row(s) == pytest.approx((11.0, 1.0, 11.0, 5.24e-2, 0.0), abs=5e-5)
     assert q(s, ":OUTP:REG?") == "CC"
     assert force_hi(s) == pytest.approx(11.0, abs=5e-5)  # 11 V plus the 1 µV bond lift
-
-
-def test_four_wire_reading_measures_the_resistor(open_):
-    s = open_(
-        smu_bench(
-            state={
-                "source.function": "CURRent",
-                "source.current.level": 1.0,
-                "sense.remote": True,
-                "output.enabled": True,
-            }
-        )
-    )
+    # -- four-wire reading measures the resistor (was test_four_wire_reading_measures_the_resistor;
+    # that act's bench was constructed remote-sensed — the runtime switch reaches the same state)
+    q(s, ":SENSe:REM ON")  # bridge: the four-wire state
     # Manual: the loop holds the resistor at 1 A x 10 = 10 V; each lead drops 0.5 V, so the
     # resistor body sits 0.5 V above the bonded LO while the meter reads only the sense pair.
     assert row(s) == pytest.approx((10.0, 1.0, 10.0, 5.24e-2, 0.0), abs=5e-5)
     assert q(s, ":OUTP:REG?") == "CC"
     assert force_hi(s) == pytest.approx(11.0, abs=5e-5)  # 0.5 (low lead) + 10 + 0.5 (high lead)
-
-
-def test_remote_sense_switches_at_runtime(open_):
-    s = open_(
-        smu_bench(state={"source.function": "CURRent", "source.current.level": 1.0, "output.enabled": True})
-    )
+    # -- remote sense switches at runtime (was test_remote_sense_switches_at_runtime)
+    q(s, ":SENSe:REM OFF")  # bridge: the act's scenario starts local
     assert row(s)[0] == pytest.approx(11.0, abs=5e-5)
     assert q(s, ":SENSe:REM?") == "0"
     q(s, ":SENSe:REM ON")
@@ -219,7 +208,9 @@ def test_ground_lo_bonds_the_low_wire(open_):
 # ---- a sense terminal left unconnected ---------------------------------------------------------------
 
 
-def test_unconnected_sense_errors_instead_of_reading(open_):
+def test_the_unconnected_sense_flow(open_):
+    """Remote sense with a terminal left unconnected: the measurement errors instead of reading,
+    the loop falls back to the force terminals, and the panel still shows the fallback reading."""
     s = open_(
         smu_bench(
             sense=False,
@@ -231,6 +222,7 @@ def test_unconnected_sense_errors_instead_of_reading(open_):
             },
         )
     )
+    # -- unconnected sense errors instead of reading (was test_unconnected_sense_errors_instead_of_reading)
     assert q(s, ":MEAS?") == ""  # no reply
     assert (
         q(s, ":SYST:ERR?")
@@ -242,20 +234,9 @@ def test_unconnected_sense_errors_instead_of_reading(open_):
     q(s, ":SENSe:REM OFF")
     assert row(s)[0] == pytest.approx(11.0, abs=5e-5)  # remote sense off: readings work again
     assert q(s, ":SYST:ERR?").startswith("0,")
-
-
-def test_unconnected_sense_does_not_disturb_the_panel(open_):
-    s = open_(
-        smu_bench(
-            sense=False,
-            state={
-                "source.function": "CURRent",
-                "source.current.level": 1.0,
-                "sense.remote": True,
-                "output.enabled": True,
-            },
-        )
-    )
+    # -- unconnected sense does not disturb the panel (was
+    # test_unconnected_sense_does_not_disturb_the_panel)
+    q(s, ":SENSe:REM ON")  # bridge: the unconnected-remote state again (the act above switched it off)
     values = s.instruments["smu"].components["core"].readings()["values"]
     assert values["voltage"] == pytest.approx(11.0, abs=5e-5)  # the fallback loop, no exception
 

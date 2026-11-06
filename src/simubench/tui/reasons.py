@@ -392,3 +392,55 @@ def net_report(
             )
         )
     return ReasonReport(t("reason.titleNet", lang, net=net), conclusion, evidences)
+
+
+def active_faults(
+    faults: Sequence[Mapping[str, Any]] | None, instrument: str, queue_codes: set[int]
+) -> list[Mapping[str, Any]]:
+    """Faults that still explain this instrument's state (tui-screens.md 5.4, 8).
+
+    A ``trip`` is a one-shot: the engine fires it and ends it at once, so it is never
+    ``active`` — it still explains things for as long as the error it queued is readable.
+    Communication faults explain while they are active or pending.
+    """
+    out: list[Mapping[str, Any]] = []
+    for f in faults or []:
+        spec = f.get("spec") or {}
+        if spec.get("instrument") != instrument:
+            continue
+        status = f.get("status")
+        if spec.get("kind") == "trip":
+            if status == "active" or (status == "ended" and spec.get("code", -300) in queue_codes):
+                out.append(f)
+        elif status in ("active", "pending"):
+            out.append(f)
+    return out
+
+
+def explain_instrument(
+    info: Mapping[str, Any],
+    readings: Mapping[str, Any] | None,
+    events: Sequence[Mapping[str, Any]],
+    faults: Sequence[Mapping[str, Any]] | None,
+    lines: Sequence[LogLine],
+    lang: str,
+    setting_path: str | None = None,
+) -> ReasonReport | None:
+    """What ``w`` explains for one instrument (tui-screens.md 9.1), in this order: an active
+    fault, the SMU's limit, the focused setting (``setting_path``), the newest error."""
+    if not info:
+        return None
+    name = info.get("name", "")
+    codes = {int(e["code"]) for e in info.get("errors", [])}
+    active = active_faults(faults, name, codes)
+    if active:
+        return fault_report(active[0], info, events, lang)
+    limited = limited_report(info, readings, events, lang)
+    if limited is not None:
+        return limited
+    if setting_path:
+        return setting_report(info, setting_path, events, lang)
+    for line in reversed(lines):
+        if line.instrument == name and line.has_error:
+            return error_report(line, lang)
+    return None

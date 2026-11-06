@@ -1420,3 +1420,98 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试台与脚本 | ✅ `examples/benches/bk-8614.bench.yaml`（48 V、0.1 Ω 直流源 → 8614）；`examples/scripts/bk_8614_load_test.py` 按手册第 4 章写法（*RST、CC、OCP、逐级电流、MEAS/FETC、错误队列）在 `tests/test_bk_8614.py` 中运行；另测 OPP/OCP 延时跳闸、延时内消除的过流不跳闸、最慢斜率 |
 | 未做 | ⚠️ 暂态（C2）、列表、输入短路与定时器、缓冲采集（TRACe）、CR-LED、*SAV/*RCL、硬件功率保护 `POW:CONF`、OTP（无温度模型）、远端测量的引线压降；逐条在覆盖表 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## #678 TUI 命令面板与状态变量搜索（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 命令面板 | ✅ `Ctrl+K`（任意主屏幕）：应用键位、`Open <仪表>`、每个可写状态变量 `Set <仪表> · <设置>`，由数据生成；Textual 自带面板关闭 |
+| 直接设值 | ✅ `smu voltage level 7.5` 顶部出现 `Set … = 7.5`；非数不出，超范围照出由字段报错 |
+| `/` 搜索 | ✅ 仪表屏幕：按标签与路径搜字段，⏎ 跳到并编辑；开关只聚焦 |
+| 不绕过 | ✅ 设值走字段的 `_commit_edit`：范围检查、单位、危险开关确认、远程只读；`tests/test_tui_palette.py` 覆盖超范围不写、输出开启仍确认 |
+| 文档与 skill | ✅ `tui-screens.md` 2.5 与键表、`tui-design.md` 4、`tui-ui` skill、帮助措辞（`help.actions.palette/search`） |
+| 未做 | ⚠️ 底栏不提示 `Ctrl+K` 与 `/`（80 列放不下，帮助 `?` 里有）；脚本指令 `open` 等见 #684 |
+
+## #682 故障类型 error：直接往错误队列塞指定错误码（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 现状核对 | `error` 故障（`code`、`message`，只入队、不改状态）早已存在；本次只补缺的三项 |
+| `count` | ✅ 往队列放 `count` 次，`SYST:ERR?` 按序读到，用尽后恢复为 `0,"No error"`；运行记录里仍是一条注入事件，回放复现 |
+| 校验 | ✅ 无 `message` 时 `code` 须在仪表错误表或 SCPI 标准表里，否则 `ValueError` 带诊断（经 API 为 422）；有 `message` 则放行 |
+| 客户端 | ✅ TUI 故障对话框 `error` 增加 `count`；API / MCP / Web 共用 `Fault` 模型，`schemas/` 已重新生成 |
+| 未做 | ⚠️ 对话框分组不动（`error` 已在“仪表”组）；Web 故障面板是否显示 `count` 未改 |
+
+## #683 scaled 时钟：按倍率走的虚拟时间（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 引擎 | ✅ `run.clock: scaled` + `run.time_scale`；虚拟时间 = 基准 + 真实时间差 × 倍率，改倍率时重设基准，不回退；墙钟即倍率 1；链路延迟与等待按“虚拟时长 ÷ 倍率”折算真实秒（最多 5 s） |
+| 入口 | ✅ CLI `--clock scaled --time-scale N`；测试台文件 `run.time_scale`；API 启动参数、`POST …/clock/scale`、`ClockInfo.scale`、`SessionInfo.time_scale`；MCP `start_session(time_scale=)`；编辑操作 `set_run`；`open_bench(time_scale=)` |
+| 非确定性 | ✅ 与墙钟同：不能 `advance`（409），记录头写入 `time_scale`，回放按步进时钟 |
+| 界面 | ✅ TUI 顶栏“时钟走动 ×N”、`a` 提示、1 s 轮询；Web 顶栏、命令面板、编辑检查器（模式与倍率）、本地走时 |
+| 测试 | ✅ `tests/test_scaled_clock.py`（注入墙钟源，不 sleep）、`tests/test_server.py`、`tests/test_tui.py`；`pnpm typecheck / lint / test` 通过 |
+| 未做 | ⚠️ 配置路径 `run.clock: {mode, scale}`（issue 草案）改为 `run.clock` + `run.time_scale`，与已有字符串格式兼容；运行中改倍率的 UI 只在编辑检查器（配置的倍率），运行中的实时倍率滑块未做；`SIMUBENCH_CLOCK` 环境变量未配套倍率 |
+
+## #681 TUI 总览的日志抽屉：默认收小，给卡片让出高度（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 抽屉 | ✅ 总览通信记录默认 3 行（原 `max(6, min(16, 屏高 − 24))`），`L` 展开 / 收起；`l` 仍是全屏通信记录，不改键位 |
+| 新错误 | ✅ 收起时标题写 `✗ N new`，不自动展开；展开或启动时已有的算已看到 |
+| 高度 | ✅ 100×32 下 6 台仪表的演示台两排卡片都可见（快照审阅）；80×24 下抽屉 5 行，卡片区可滚动，最后一行不被日志盖住 |
+| 键位与帮助 | ✅ `L` 在总览无冲突（仪表屏幕的 `L` 是本地接管）；`help.actions.toggle_log` 由 `tests/test_tui_help.py` 守住；底栏省略顺序加入 `L` |
+| 测试 | ✅ `tests/test_tui_overview_ux.py` 三条（开合、新错误标记、80×24）；总览两张快照已更新并审阅 |
+| 未做 | ⚠️ 与 issue 草案不同：没有把 `l` 改成抽屉、`L` 改全屏，因为 `l` 在所有屏幕都是全屏记录，改动会破坏全局一致 |
+
+## #679 TUI 仪表屏幕的状态树与隐藏变量视图（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 状态树 | ✅ `t` 打开：全部状态变量按路径第一段分组，可折叠；可写变量是字段，在树里原地编辑（同一编辑层：范围检查、单位、危险确认、远程只读）；只读行写 `RO`；初始按整组取舍（#374），折叠存在应用上，数据刷新、离开再回来都保持；只在形状变化时重建，焦点与键入中的值不丢 |
+| 隐藏变量 | ✅ `h` 加 `hidden` 一组：个体偏差（值仅在 `run.reveal_true_values` 开启时显示，否则 `—` 并说明）与对该仪表生效的 `hidden` 故障改写值；`sim` 色 + `◆ hidden` 文字前缀，`NO_COLOR` 下可辨；只读 |
+| 键位变更 | ⚠️ issue 写 `L` 显示隐藏变量；`L` 在仪表屏幕已是本地接管，改为树内的 `h`（`t` / `h` 均无冲突，`test_tui_help` 守住说明文字） |
+| 设计与现实的差别 | ⚠️ 设计时以为隐藏值来自 `/internals`；核对后它只是部件的名义参数，不含隐藏值。隐藏值实际来自实例信息里的 `deviations` 和故障列表，不需要新接口；读数的“真实值”只有 MCP 的 `read_true_values`，TUI 未做 |
+| 命令面板缺口 | ✅ 核对 #678：万用表（面板模板）有设置不在屏幕上，面板跳转原会失败；现改为打开状态树并聚焦（`tests/test_tui_state_tree.py`）；SMU 的“其他设置”已覆盖全部 |
+| 测试 | ✅ `tests/test_tui_state_tree.py` 13 条（行数据 6 条、屏幕 7 条）；100×32 与 80×24 快照已审阅（80×24 下 `sweep` 整组折叠） |
+| 未做 | ⚠️ 底栏不提示 `t`；读数真实值；隐藏值的改写入口（走 `hidden` 故障） |
+
+## #685 TUI 层守门测试：src/simubench/tui 里不得出现内置型号名（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 测试 | ✅ `tests/test_tui_no_model_names.py`（unit，约 30 ms）：读内置与 validation 定义（排除 `*.coverage.yaml`）顶层的 `id` / `model`，丢掉短于 4 个字符的，大小写不敏感地扫描 `src/simubench/tui/**/*.py` 全文，命中报“文件:行 名字”，无豁免清单；定义只用正则读文件头，不解析 YAML（解析要 2 s） |
+| 唯一命中 | ✅ `widgets.py` 里 `decorate_title` 文档字符串的 `SDG2042X` 改为 `MODEL-A` |
+| 验证 | ✅ 故意在 `tui/fmt.py` 加一行含 `SDG2042X` 的注释，测试红并报 `fmt.py:207 sdg2042x`；撤销后绿；另有一条测试在临时文件上确认守门确实会命中 |
+
+
+## try_definition 复用同一定义的暂存会话（Issue 671）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `TrySessions.using(def_id)` 取已有或新开，MCP 的 `try_definition` 经它运行；`open` 仍是“替换式新开”，供验收页重新开始 | ✅ `tests/test_mcp.py::test_try_definition_sessions_are_pooled_and_reused`（`served.id` 不变）、`test_try_definition_state_carries_over_between_batches`（`*ESE 32` 在下一批 `*ESE?` 可查） |
+| 闲置回收、MAX 淘汰 | ✅ `tests/test_try_sessions.py::test_idle_session_is_reaped_and_replaced`、`test_max_retires_the_least_recently_used` |
+| 并发：同一定义的批次不会在已关闭的会话上运行 | ✅ 每个会话一把 `busy` 锁，关闭先等批次结束，HTTP 试运行请求同样持锁；`test_replacing_open_waits_for_a_running_batch`、`test_two_batches_of_one_definition_run_one_after_the_other_on_the_same_session`；bench 构造仍只在 `TrySessions._open` 一处 |
+
+## 旧写法示波器定义的 acq.preamble 降级为宏展开（Issue 665）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `op: <acq>.preamble` 加载时展开为 `<xfer>.header`，并给唯一的 `waveform_transfer` 补 Keysight 十字段 `header` | ✅ `library/macros.py::_expand_preamble`；`tests/data/legacy_sb-dso-4.yaml`（17881a9 的原文件）无需修改即通过 `validate_definition_data` |
+| 回复与改动前一致 | ✅ `tests/test_legacy_preamble.py`：BYTE/WORD/ASCii 三种格式下，旧文件与内置新写法的 `:WAVeform:PREamble?` 十个字段逐项相同，并断言字段值 |
+| 与 17881a9 的回复比对 | ✅ `tests/test_legacy_preamble.py` 把 17881a9 实际跑出的十字段写成字面量，BYTE/WORD 逐字相同；**ASCii 的 Y 增量不同**（旧：取采集 ADC 的码/格 8192 → 1.2207E-04；#633 起取传输自己的 `codes_per_div` 32 → 3.125E-02），宏无法还原，测试按现状固定并注明 |
+
+## extends 增「null 删除继承键」语义（Issue 644）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 合并语义：null 删除 dict 键、单个 errors code、整张列表；跨多级链与类别默认带不回来；父定义没有该键时等于没写 | ✅ `tests/test_definition_layers.py` 新增 5 条；顺带修正多级链的合并次序（近亲在祖先之上，原先是倒的），`test_the_nearest_parent_beats_the_grandparent` |
+| b2912b 改写为 `extends: keysight-b2901a` + 差异 | ✅ 层叠后的数据与改写前逐键相同（除 `errors` 来自类别表、多一个 `extends`）；`test_b2912b_extends_b2901a_without_its_single_channel_state_and_ports`；金测/cases/coverage 全绿 |
+| daq970a / 53230a 的惰性继承 | ✅ 22 条 34970A 器件码与 53220A 的 specs 行以 null 清除；`test_daq970a_and_53230a_do_not_keep_the_parents_device_rows`；D59 已更新 |
+
+## #634 收敛未尽的补记（Issue 667，补记 #666）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节）；新增 `E-DEF-OFFSET-CONVENTION` 校验（ADC 量化且传输发码值时两处约定须一致；顺带验证全库定义无冲突），`tests/test_validate_definition.py` 新增一条 |
+| RfModulator 载波低于调制率时边带折叠有测试 | ✅ `tests/test_rf_modulator.py::test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes`（时域波形等于 cos(2πf0t − β·cos(2πRt))）、`test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line` |

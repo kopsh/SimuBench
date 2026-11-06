@@ -3,14 +3,19 @@ calibrator, the text waveform readback and the platform pieces they need.
 
 The host program's contract (FR-1..FR-5) is checked command by command here; the whole program flow
 over raw sockets is the acceptance scenario (acceptance/test_lowfreq_cal_scenario.py).
+
+Flow tests per D49/#704: one test walks one flow, each ``# --`` act preserves an original test's body
+verbatim. Acts that are provably state-compatible share one bench: every act re-establishes the scope
+through ``_setup_scope`` (``*RST ; *CLS ; SYST:PRES``, which also empties the scope's records and
+resets its acquisition count) and the calibrator channel through ``_square``, and the bridging
+commands an act needs are written out with a comment. Tests that need their own bench (a preset
+edit, several benches, the demo script), parameterized cases and pure-logic checks stay separate.
 """
 
 from __future__ import annotations
 
-import importlib.util
 import os
 import shutil
-import sys
 from itertools import pairwise
 from pathlib import Path
 
@@ -19,6 +24,7 @@ import pytest
 import pyvisa
 import yaml
 
+from helpers import load_script
 from simubench.api import open_bench
 from simubench.engine.commands import classify
 from simubench.library.loader import DefinitionLibrary, load_yaml
@@ -32,16 +38,7 @@ BENCH = WORKSPACE / "lowfreq_cal.bench.yaml"
 SCRIPT = EXAMPLE / "lowfreq_cal_demo.py"
 INSPECT = 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("lowfreq_cal_demo", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-demo = _script()
+demo = load_script(SCRIPT)
 
 
 def _bench(tmp_path, edit=None) -> Path:
@@ -112,31 +109,20 @@ def _read(scope, point, np_=0):
     return np.array(data), replies
 
 
-# ---- FR-1: identity ---------------------------------------------------------------------------------
+# ---- FR-1 / FR-2 / FR-3: identity, every contract command, queries, the error rules ---------------------
 
 
-def test_idn_carries_the_model_token_the_bench_sets(rig):
-    scope, cal, _ = rig
+def test_the_host_contract_flow(rig):
+    """The host's contract on one bench: identity carries the bench's model tokens, every contract
+    command is accepted twice without errors, queries answer the settings, the amplitude range is
+    checked as Vpp into the load setting (D48, #261), unknown headers are ignored (and logged)
+    while known ones still reject bad values."""
+    scope, cal, session = rig
+    # -- identity (was test_idn_carries_the_model_token_the_bench_sets; queries only, the fresh
+    # bench's state is untouched either way)
     assert scope.query("*IDN?").split(",")[1] == "LFCAL-REFSCOPE"
     assert cal.query("*IDN?").split(",")[1] == "LFCAL-CALIBRATOR"
-
-
-def test_bench_idn_overrides_the_definition(tmp_path):
-    def edit(data):
-        data["instruments"]["scope"]["idn"] = "LECROY,WAVEPRO 254HD,{serial},{firmware}"
-        data["instruments"]["scope"]["serial"] = "LCRY9999"
-
-    rm = pyvisa.ResourceManager(f"{_bench(tmp_path, edit)}@simubench")
-    scope = rm.open_resource("scope", read_termination="\n", write_termination="\n")
-    assert scope.query("*IDN?") == "LECROY,WAVEPRO 254HD,LCRY9999,9.6.0"
-    rm.close()
-
-
-# ---- FR-2 / FR-3: every contract command, idempotent, queryable --------------------------------------
-
-
-def test_contract_commands_are_accepted_twice_without_errors(rig):
-    scope, cal, _ = rig
+    # -- every contract command accepted twice (was test_contract_commands_are_accepted_twice_without_errors)
     for _ in range(2):  # FR-3: setting the same values again is not an error
         _setup_scope(scope)
         scope.write("WAVEFORM_SETUP SP,0,NP,1000,FP,0,SN,0")
@@ -154,10 +140,8 @@ def test_contract_commands_are_accepted_twice_without_errors(rig):
     assert scope.query("*CLS?") == "0"
     assert scope.query("*OPC?") == "1"
     assert cal.query(":SYSTem:ERRor?") == '0,"No error"'
-
-
-def test_scope_queries_answer_the_settings(rig):
-    scope, _, _ = rig
+    # -- the scope's queries answer the settings (was test_scope_queries_answer_the_settings; the
+    # setup presets the scope out of the previous act's RCLK/CPL/TRMD writes)
     _setup_scope(scope, points=100000, tdiv=2e-4, vdiv_mv=200)
     scope.write("C1:OFFSET -0.1")
     scope.write("C1:TRLV 0.05")
@@ -183,19 +167,8 @@ def test_scope_queries_answer_the_settings(rig):
     scope.write("COMM_HEADER LONG")
     assert scope.query("C1:VDIV?") == "C1:VOLT_DIV 500E-3 V"
     assert scope.query("SYST:ERR?") == '0,"No error"'
-
-
-@pytest.mark.parametrize(
-    ("text", "points"), [("30000", 30000), ("10K", 10000), ("2.5MA", 2500000), ("1M", 10**6)]
-)
-def test_memory_size_suffixes(rig, text, points):
-    scope, _, session = rig
-    scope.write(f"MSIZ {text}")
-    assert session.instruments["scope"].get_state("memory.size") == points
-
-
-def test_calibrator_settings_and_queries(rig):
-    _, cal, session = rig
+    # -- the calibrator's settings and queries (was test_calibrator_settings_and_queries; the
+    # channel is fully rewritten, ch2 was never touched)
     _square(cal, freq=12345.0, vpp=0.8, duty=0.25)
     assert cal.query(":CHANnel1:BASE:WAVe?") == "SQU"
     assert float(cal.query(":CHANnel1:BASE:FREQuency?")) == 12345.0
@@ -212,12 +185,9 @@ def test_calibrator_settings_and_queries(rig):
     cal.write(":CHANnel2:BASE:DUTY 40")  # not 0.4: out of the ratio's range
     assert cal.query(":SYSTem:ERRor?").startswith("-222,")
     assert session.instruments["calibrator"].get_state("ch2.duty") == pytest.approx(0.001)
-
-
-def test_negative_dbm_amplitude_writes_and_reports_bounds(rig):
-    """#261: the amplitude range is checked as Vpp into the load setting (D48), so negative dBm
-    writes are accepted and an out-of-range one names the bounds in the current unit."""
-    _, cal, _ = rig
+    # -- negative dBm: the amplitude range is checked as Vpp into the load setting (D48), so negative
+    # dBm writes are accepted and an out-of-range one names the bounds in the current unit (#261)
+    # (was test_negative_dbm_amplitude_writes_and_reports_bounds; the act rewrites wave and load)
     cal.write(":CHANnel1:BASE:WAVe SQUare;:CHANnel1:LOAD 50")
     cal.write(":CHANnel1:AMPLitude:UNIT DBM")
     cal.write(":CHANnel1:BASE:AMPLitude -5")
@@ -231,10 +201,8 @@ def test_negative_dbm_amplitude_writes_and_reports_bounds(rig):
     cal.write(":CHANnel1:AMPLitude:UNIT VPP")
     # switching the unit converts the value: -40 dBm square into 50 Ω is 2·√(5e-6) Vpp
     assert float(cal.query(":CHANnel1:BASE:AMPLitude?")) == pytest.approx(2 * (5e-6) ** 0.5)
-
-
-def test_unknown_commands_are_ignored_and_logged(rig):
-    scope, cal, session = rig
+    # -- unknown headers are ignored and logged (was test_unknown_commands_are_ignored_and_logged;
+    # the subscription starts here, so earlier acts' events are not in the list)
     seen = []
     session.subscribe(lambda e: seen.append(e) if e.get("kind") == "ignored" else None)
     scope.write("VBS 'app.Acquisition.C1.VerScale = 0.1'")
@@ -246,13 +214,30 @@ def test_unknown_commands_are_ignored_and_logged(rig):
     # An unknown query is swallowed too: nothing to read.
     session.write("scope", b"CMR?\n")
     assert session.read("scope") is None
-
-
-def test_wrong_values_are_still_errors(rig):
-    """Ignoring is for unknown headers; a known command with a bad value reports it (FR-2 is about headers)."""
-    scope, _, _ = rig
+    # -- ignoring is for unknown headers; a known command with a bad value reports it
+    # (was test_wrong_values_are_still_errors; FR-2 is about headers)
     scope.write("C1:CPL D75")
     assert scope.query("SYST:ERR?").startswith("-224,")
+
+
+def test_bench_idn_overrides_the_definition(tmp_path):
+    def edit(data):
+        data["instruments"]["scope"]["idn"] = "LECROY,WAVEPRO 254HD,{serial},{firmware}"
+        data["instruments"]["scope"]["serial"] = "LCRY9999"
+
+    rm = pyvisa.ResourceManager(f"{_bench(tmp_path, edit)}@simubench")
+    scope = rm.open_resource("scope", read_termination="\n", write_termination="\n")
+    assert scope.query("*IDN?") == "LECROY,WAVEPRO 254HD,LCRY9999,9.6.0"
+    rm.close()
+
+
+@pytest.mark.parametrize(
+    ("text", "points"), [("30000", 30000), ("10K", 10000), ("2.5MA", 2500000), ("1M", 10**6)]
+)
+def test_memory_size_suffixes(rig, text, points):
+    scope, _, session = rig
+    scope.write(f"MSIZ {text}")
+    assert session.instruments["scope"].get_state("memory.size") == points
 
 
 def test_ignore_is_refused_on_real_models():
@@ -273,8 +258,11 @@ def test_static_classification_knows_the_definition_common_commands():
 # ---- FR-4: the text waveform readback ------------------------------------------------------------------
 
 
-def test_reply_follows_the_contract(rig):
-    scope, cal, _ = rig
+def test_the_text_waveform_readback_flow(rig):
+    """One reply follows the contract, a running scope keeps one record across pieces, and NP and
+    sparsing select the points. Each act presets the scope itself."""
+    scope, cal, session = rig
+    # -- the reply follows the contract (was test_reply_follows_the_contract)
     _square(cal)
     _setup_scope(scope, points=30000)
     scope.write("TRMD SINGLE")
@@ -287,6 +275,26 @@ def test_reply_follows_the_contract(rig):
     assert "TCPIP" not in raw.decode()
     values = [float(t) for t in tokens[2:-1]]
     assert len(values) == 30000
+    # -- a running scope keeps one record across pieces (was
+    # test_running_scope_keeps_one_record_across_pieces; the act's preset resets the acquisition count)
+    _square(cal)
+    _setup_scope(scope, points=50000)
+    acq = session.instruments["scope"].components["acq"]
+    data, _ = _read(scope, 50000, np_=7000)
+    assert acq.acq_count == 1
+    np.testing.assert_allclose(data, acq.records[1].volts, rtol=1e-6, atol=1e-12)
+    _read(scope, 50000)
+    assert acq.acq_count == 2
+    # -- NP and sparsing select points (was test_np_and_sparsing_select_points)
+    _square(cal)
+    _setup_scope(scope, points=10000)
+    scope.write("TRMD SINGLE")
+    volts = session.instruments["scope"].components["acq"].records[1].volts
+    scope.write("WAVEFORM_SETUP SP,4,NP,100,FP,8,SN,0")
+    values = np.array(list(map(float, scope.query(INSPECT).split()[2:-1])))
+    np.testing.assert_allclose(values, volts[8 : 8 + 400 : 4], rtol=1e-6, atol=1e-12)
+    scope.write("WAVEFORM_SETUP FP,10000")  # past the end: no samples, still a well-formed reply
+    assert scope.query(INSPECT).split() == ["C1:INSP", '"', '"']
 
 
 @pytest.mark.parametrize("point", [30000, 100000, 12345])
@@ -302,33 +310,7 @@ def test_pieces_join_into_the_whole_record(rig, point):
     np.testing.assert_array_equal(data, np.array([float(f"{v:.6e}") for v in rec.volts]))
 
 
-def test_running_scope_keeps_one_record_across_pieces(rig):
-    """AUTO acquires anew when a readback starts (FP 0); later pieces read the same record."""
-    scope, cal, session = rig
-    _square(cal)
-    _setup_scope(scope, points=50000)
-    acq = session.instruments["scope"].components["acq"]
-    data, _ = _read(scope, 50000, np_=7000)
-    assert acq.acq_count == 1
-    np.testing.assert_allclose(data, acq.records[1].volts, rtol=1e-6, atol=1e-12)
-    _read(scope, 50000)
-    assert acq.acq_count == 2
-
-
-def test_np_and_sparsing_select_points(rig):
-    scope, cal, session = rig
-    _square(cal)
-    _setup_scope(scope, points=10000)
-    scope.write("TRMD SINGLE")
-    volts = session.instruments["scope"].components["acq"].records[1].volts
-    scope.write("WAVEFORM_SETUP SP,4,NP,100,FP,8,SN,0")
-    values = np.array(list(map(float, scope.query(INSPECT).split()[2:-1])))
-    np.testing.assert_allclose(values, volts[8 : 8 + 400 : 4], rtol=1e-6, atol=1e-12)
-    scope.write("WAVEFORM_SETUP FP,10000")  # past the end: no samples, still a well-formed reply
-    assert scope.query(INSPECT).split() == ["C1:INSP", '"', '"']
-
-
-# ---- FR-5: physical consistency ----------------------------------------------------------------------
+# ---- FR-5: physical consistency ------------------------------------------------------------------------
 
 
 def _single(scope, point):
@@ -336,8 +318,12 @@ def _single(scope, point):
     return _read(scope, point)[0]
 
 
-def test_samples_match_the_source_settings(rig):
+def test_the_physical_consistency_flow(rig):
+    """A single-shot record matches the source settings, the load setting and the coupling decide
+    the level, and the vertical scale clips like an ADC."""
     scope, cal, session = rig
+    # -- samples match the source settings (was test_samples_match_the_source_settings; the flow's
+    # first act: records[1] is its own acquisition, which the fresh bench guarantees)
     _square(cal, freq=2000.0, vpp=1.0, duty=0.25)
     _setup_scope(scope, points=40000, tdiv=1e-3)
     v = _single(scope, 40000)
@@ -356,11 +342,7 @@ def test_samples_match_the_source_settings(rig):
     )
     assert np.std(v - truth) < 2e-3
 
-
-def test_load_setting_and_coupling_decide_the_level(rig):
-    """LOAD and the scope's input impedance together: the amplitude is defined for the load setting."""
-    scope, cal, _ = rig
-
+    # -- LOAD and the coupling decide the level (was test_load_setting_and_coupling_decide_the_level)
     def vpp(load, cpl):
         _square(cal, vpp=1.0, load=load)
         _setup_scope(scope, points=20000, cpl=cpl, vdiv_mv=500)
@@ -371,10 +353,7 @@ def test_load_setting_and_coupling_decide_the_level(rig):
     assert vpp(10000, "D1M") == pytest.approx(1.0, rel=2e-3)  # 10000 is the high-impedance setting
     assert vpp(10000, "D50") == pytest.approx(0.5, rel=2e-3)  # open-circuit amplitude into 50 ohm
     assert vpp(50, "D1M") == pytest.approx(2.0, rel=2e-3)
-
-
-def test_vertical_scale_clips_like_an_adc(rig):
-    scope, cal, _ = rig
+    # -- the vertical scale clips like an ADC (was test_vertical_scale_clips_like_an_adc)
     _square(cal, vpp=1.0)
     _setup_scope(scope, points=10000, vdiv_mv=50)  # +-0.5 V on +-4 div of 50 mV: off screen
     v = _single(scope, 10000)
@@ -390,7 +369,7 @@ def test_frequency_response_is_physical_and_monotonic(rig):
     assert rel[-1] < rel[0]  # the cable's skin effect: higher frequencies settle lower
 
 
-# ---- FR-7: reproducible -------------------------------------------------------------------------------
+# ---- FR-7: reproducible ---------------------------------------------------------------------------------
 
 
 def _waveform_for(bench: Path) -> np.ndarray:
@@ -440,8 +419,12 @@ def test_noise_does_not_depend_on_idle_time(tmp_path):
 # ---- run control ---------------------------------------------------------------------------------------
 
 
-def test_single_waits_for_a_trigger_and_then_stops(rig):
+def test_the_run_control_flow(rig):
+    """SINGLE waits for a trigger and then stops; a stopped scope without a record reads the
+    channel and says so; PAVA measures the record; WAVEDESC gives the scaling."""
     scope, cal, session = rig
+    # -- SINGLE waits for a trigger and then stops (was test_single_waits_for_a_trigger_and_then_stops;
+    # first act: the calibrator is still off, which the fresh bench guarantees)
     _setup_scope(scope, points=10000)
     acq = session.instruments["scope"].components["acq"]
     scope.write("TRMD SINGLE")  # the calibrator is still off: nothing to trigger on
@@ -449,10 +432,9 @@ def test_single_waits_for_a_trigger_and_then_stops(rig):
     _square(cal)
     assert scope.query("*OPC?") == "1"  # the pending acquisition completes once the signal is there
     assert scope.query("TRMD?") == "TRMD STOP" and acq.acq_count == 1
-
-
-def test_a_stopped_scope_without_a_record_reads_the_channel_and_says_so(rig):
-    scope, _, session = rig
+    # -- a stopped scope without a record reads the channel and says so (was
+    # test_a_stopped_scope_without_a_record_reads_the_channel_and_says_so)
+    cal.write(":CHANnel1:OUTPut 0")  # bridge: the act's scenario needs the quiet channel again
     events = []
     session.subscribe(lambda e: events.append(e) if e.get("kind") == "acquisition" else None)
     _setup_scope(scope, points=1000)
@@ -460,20 +442,14 @@ def test_a_stopped_scope_without_a_record_reads_the_channel_and_says_so(rig):
     data, _ = _read(scope, 1000)
     assert data.size == 1000 and np.abs(data).max() < 5e-3
     assert events and events[-1]["forced"] is True
-
-
-def test_pava_measures_the_record(rig):
-    scope, cal, _ = rig
+    # -- PAVA measures the record (was test_pava_measures_the_record)
     _square(cal, freq=5000.0, vpp=1.0)
     _setup_scope(scope, points=20000)
     head, unit, state = scope.query("C1:PAVA? AMPL").split(",")
     assert head == "C1:PAVA AMPL" and state == "OK"
     assert float(unit.split()[0]) == pytest.approx(1.0, rel=3e-3)
     assert float(scope.query("C1:PAVA? FREQ").split(",")[1].split()[0]) == pytest.approx(5000.0, rel=1e-3)
-
-
-def test_wavedesc_gives_the_scaling(rig):
-    scope, cal, _ = rig
+    # -- WAVEDESC gives the scaling (was test_wavedesc_gives_the_scaling)
     _square(cal)
     _setup_scope(scope, points=30000, tdiv=1e-3)
     scope.write("TRMD SINGLE")
@@ -486,7 +462,7 @@ def test_wavedesc_gives_the_scaling(rig):
     assert -5e-3 <= float(desc["HORIZ_OFFSET"]) < -5e-3 + dt
 
 
-# ---- platform pieces ----------------------------------------------------------------------------------
+# ---- platform pieces ------------------------------------------------------------------------------------
 
 
 def test_output_stage_hiz_from():

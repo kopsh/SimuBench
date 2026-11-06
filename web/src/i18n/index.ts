@@ -1,10 +1,14 @@
-import i18n from "i18next";
+import i18n, { type TFunction } from "i18next";
 import { initReactI18next } from "react-i18next";
 import { load, save } from "@/lib/storage";
 import { en } from "./en";
 import { zh } from "./zh";
 
 export type Language = "zh" | "en";
+
+/** The typed translate function (issue 639): helpers taking `t` declare this, so a helper cannot
+ * widen the keys back to `string`. */
+export type T = TFunction<"translation", undefined>;
 
 export const language: Language = load<Language>("language", "zh");
 

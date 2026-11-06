@@ -41,6 +41,24 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `prefers-reduced-motion`). Layout/visual language: `ui-design.md` 3–5.
 - Front-panel readings/operations do not go through SCPI (D32).
 
+## Before you ship a screen (checklist from `docs/ui-design.md` 4–6)
+
+- **Every state is built**, not just the happy path: loading, empty (says what appears here + a
+  next step), error ("what happened → where → what to do"), disconnected (read-only banner,
+  auto-reconnect), long text (English is longer than Chinese, D23).
+- **Tokens, not literals**: colours, spacing and radii come from the design tokens in
+  `web/src/styles/`; light and dark both checked. Channel colours CH1 yellow / CH2 cyan / CH3
+  magenta / CH4 blue are the same on card, trace, wire and legend; purple is reserved for
+  simulation-only info (true values, fidelity). State colour is always paired with text or an icon.
+- **Numbers** in the mono font with tabular digits, SI prefixes, right-aligned, resolution as the
+  instrument's; Chinese body line-height 1.6, a space between CJK and Latin.
+- **Density**: 4 px base, controls 28–32 px, table rows 28 px.
+- **Interaction**: selection syncs across canvas / inspector / log / timeline; the action is in
+  the ⌘K / Ctrl+K palette; feedback ≤100 ms, progress after 1 s, cancel for long work;
+  keyboard reachable with a visible focus ring; honour `prefers-reduced-motion`.
+- **The TUI shows the same thing?** Its wording and behaviour must agree — see the `tui-ui` skill.
+- Add or update the story (Storybook) for a new component state; the stories are the design source (D23).
+
 ## Commands
 
 ```bash

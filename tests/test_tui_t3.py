@@ -2,53 +2,22 @@
 
 The app is the real one over the mock's FakeClient (``tests/tui_mock.py``) — the tui_boot tier:
 each test boots a Textual app, and the real-server acceptance scenarios (the lost-reply fault, the
-RC sweep) live in ``test_tui_t3_e2e.py``.
+RC sweep) live in ``test_tui_e2e.py``.
 """
 
 from __future__ import annotations
 
-import asyncio
-import copy
-from typing import Any
+import pytest
 
 from simubench.tui.app import SimuBenchApp
-from tui_mock import load, unit_app
+from tui_mock import flat, fresh, load, settle, unit_app, wait_flat, wait_for
+
+pytestmark = (
+    pytest.mark.tui_boot
+)  # boots a Textual app or a real server: runs on main, not in the fast checks
 
 SCOPE_BENCH = load("unit_scope_rc.json")
 SMU_BENCH = load("unit_smu.json")
-
-
-def fresh(fixture: dict[str, Any]) -> dict[str, Any]:
-    return copy.deepcopy(fixture)
-
-
-async def settle(pilot, tui: SimuBenchApp, deadline: float = 20.0) -> None:
-    end = asyncio.get_running_loop().time() + deadline
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        if tui.session_info and tui.data_version > 0:
-            return
-    raise AssertionError("the unit app never settled")
-
-
-async def wait_for(pilot, predicate, timeout: float = 20.0, message: str = "condition") -> None:
-    import inspect
-
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        result = predicate()
-        if inspect.isawaitable(result):
-            result = await result
-        if result:
-            return
-    raise AssertionError(f"{message} never became true")
-
-
-def _flat(tui: SimuBenchApp) -> str:
-    from test_tui import flat
-
-    return flat(tui)
 
 
 async def open_nets(pilot, tui: SimuBenchApp) -> None:
@@ -73,20 +42,10 @@ async def test_nets_screen_lists_levels_and_probe():
         line = SCOPE_BENCH["probe_net-0"]["lines"][0]
         # The probe arrives asynchronously after the list; wait for the level line and the
         # strongest line it quotes — the braille waveform renders in the same pass.
-        text = await wait_for_text(pilot, tui, "net-0", "DC ", fmt(float(line["freq_hz"]), "Hz"))
+        text = await wait_flat(pilot, tui, "net-0", "DC ", fmt(float(line["freq_hz"]), "Hz"))
         assert rms_text in text
         assert "net-1" in text and "net-2" in text  # the other rows
         assert "awg.CH1" in text and "●" in text  # endpoints and the signal mark
-
-
-async def wait_for_text(pilot, tui, *needles: str, timeout: float = 20.0) -> str:
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await pilot.pause(0.05)
-        text = _flat(tui)
-        if all(needle in text for needle in needles):
-            return text
-    raise AssertionError(f"{needles} never appeared on {type(tui.screen).__name__}:\n{_flat(tui)}")
 
 
 async def test_nets_screen_selection_and_driver():
@@ -95,7 +54,7 @@ async def test_nets_screen_selection_and_driver():
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await open_nets(pilot, tui)
-        await wait_for_text(pilot, tui, "net-0")
+        await wait_flat(pilot, tui, "net-0")
         await pilot.press("down")
         await pilot.pause(0.3)
         await pilot.press("enter")
@@ -117,9 +76,9 @@ async def test_nets_screen_silence_and_reason_dialog():
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
         await open_nets(pilot, tui)
-        text = await wait_for_text(pilot, tui, "Unconnected ports", "awg.CH1's output is off")
-        await pilot.press("question_mark")
-        text = await wait_for_text(pilot, tui, "Reason", "output is off")
+        text = await wait_flat(pilot, tui, "Unconnected ports", "awg.CH1's output is off")
+        await pilot.press("w")
+        text = await wait_flat(pilot, tui, "Reason", "output is off")
         assert "net-0" in text
 
 
@@ -150,7 +109,7 @@ async def test_fault_dialog_injects_and_lists():
         from simubench.tui.screens.faultdialog import FaultDialog
 
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
-        text = _flat(tui)
+        text = flat(tui)
         assert (
             "Timeout" in text and "Protection trip" in text and "Parameter drift" in text
         )  # the three groups
@@ -194,7 +153,7 @@ async def test_fault_dialog_revoke_with_confirm():
         await wait_for(pilot, lambda: bool(fake.fault_list), message="injected")
         await pilot.press("f")
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog again")
-        await wait_for(pilot, lambda: "1 fault(s) in effect" in _flat(tui), message="active fault listed")
+        await wait_for(pilot, lambda: "1 fault(s) in effect" in flat(tui), message="active fault listed")
         await pilot.press("delete")
         await wait_for(pilot, lambda: isinstance(tui.screen, ConfirmScreen), message="revoke confirm")
         await pilot.press("y")
@@ -276,9 +235,9 @@ async def test_nets_reason_quotes_sources_and_lines():
         from simubench.tui.fmt import fmt
 
         rms_text = fmt(SCOPE_BENCH["probe_net-0"]["rms"], "V")
-        await wait_for_text(pilot, tui, "net-0", rms_text)
-        await pilot.press("question_mark")
-        text = await wait_for_text(pilot, tui, "Why · net-0")
+        await wait_flat(pilot, tui, "net-0", rms_text)
+        await pilot.press("w")
+        text = await wait_flat(pilot, tui, "Why · net-0")
         assert rms_text in text
         assert "awg" in text  # the source contribution names its source
         line = SCOPE_BENCH["probe_net-0"]["lines"][0]

@@ -166,7 +166,8 @@ class SetMeta(_Op):
 class SetRun(_Op):
     op: Literal["set_run"] = "set_run"
     seed: int | None = None
-    clock: Literal["command", "wall", "stepped"] | None = None
+    clock: Literal["command", "wall", "stepped", "scaled"] | None = None
+    time_scale: float | None = Field(None, gt=0, le=1_000_000)
     reveal_true_values: bool | None = None
 
 
@@ -356,6 +357,8 @@ def _apply_one(b: BenchDefinition, op: Any) -> None:
             b.run.seed = op.seed
         if op.clock is not None:
             b.run.clock = op.clock
+        if op.time_scale is not None:
+            b.run.time_scale = op.time_scale
         if op.reveal_true_values is not None:
             b.run.reveal_true_values = op.reveal_true_values
     else:

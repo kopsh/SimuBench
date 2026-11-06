@@ -58,7 +58,11 @@ def values(reply: str | None) -> list[float]:
     return [float(x) for x in reply.split(",")]
 
 
-def test_counts_times_readings_take_their_virtual_time(s):
+def test_the_run_timeline_flow(s):
+    """A run's timeline on the trigger model: INITiate returns at once and the readings take
+    their virtual time, *OPC? and *WAI wait the run out, and *OPC sets the event bit once the
+    run is done (which *CLS cancels)."""
+    # -- counts, times and readings (was test_counts_times_readings_take_their_virtual_time)
     q(s, ":TRIG:COUN 3;:SAMP:COUN 2;:TRIG:DEL 0.01")
     t0 = s.now_ns
     q(s, ":INIT")
@@ -69,9 +73,8 @@ def test_counts_times_readings_take_their_virtual_time(s):
     assert values(q(s, ":FETC?")) == readings  # fetching again gives the same run, no more time
     assert s.now_ns - t0 == round((6 * NPLC_S + 3 * 0.01) * 1e9)
     assert err(s).startswith("0,")
-
-
-def test_opc_query_and_wai_wait_for_the_run(s):
+    # -- *OPC? and *WAI wait for the run (was test_opc_query_and_wai_wait_for_the_run)
+    q(s, ":TRIG:COUN 1;:TRIG:DEL 0")  # bridge: the previous act left count 3 and a 10 ms delay
     q(s, ":SAMP:COUN 5")
     t0 = s.now_ns
     assert q(s, ":INIT;*OPC?") == "1"
@@ -80,9 +83,8 @@ def test_opc_query_and_wai_wait_for_the_run(s):
     q(s, ":INIT;*WAI;:TRIG:STAT?")  # *WAI: the commands after it see the run finished
     assert s.now_ns - t1 == round(5 * NPLC_S * 1e9)
     assert q(s, ":TRIG:STAT?") == "IDLE"
-
-
-def test_opc_sets_the_event_bit_once_the_run_is_done(s):
+    # -- the *OPC event bit (was test_opc_sets_the_event_bit_once_the_run_is_done; the earlier
+    # acts used the *OPC? query and *WAI, which set no event bit)
     q(s, ":SAMP:COUN 10")
     q(s, ":INIT;*OPC")
     assert q(s, "*ESR?") == "0"  # still measuring
@@ -120,14 +122,16 @@ def test_init_while_measuring_is_ignored_and_abort_stops(s):
     assert q(s, "*OPC?") == "1"  # nothing pending after the abort
 
 
-def test_read_is_initiate_and_fetch(s):
+def test_the_reading_memory_flow(s):
+    """A run and its memory: :READ? is INITiate and FETCh in one, the default buffer counts its
+    points and removes them (an over-asked removal is -222, the block R? takes the rest out), and
+    the named buffers answer by name and elements while the trigger model fills the default only."""
+    # -- READ is initiate and fetch (was test_read_is_initiate_and_fetch)
     q(s, ":SAMP:COUN 2")
     t0 = s.now_ns
     assert values(q(s, ":READ?")) == pytest.approx([2.5, 2.5])
     assert s.now_ns - t0 == round(2 * NPLC_S * 1e9)
-
-
-def test_reading_memory(s):
+    # -- the reading memory (was test_reading_memory; each INIT clears the previous run's readings)
     q(s, ":SAMP:COUN 5")
     q(s, ":INIT;*WAI")
     assert q(s, ":DATA:POIN?") == "5"
@@ -143,9 +147,7 @@ def test_reading_memory(s):
     payload = block[2 + digits : 2 + digits + length]
     assert [float(x) for x in payload.split(b",")] == pytest.approx([2.5] * 3)
     assert q(s, ":DATA:POIN?") == "0"  # R? takes the readings out
-
-
-def test_named_buffers_and_elements(s):
+    # -- named buffers and elements (was test_named_buffers_and_elements)
     q(s, ':TRAC:MAKE "mybuf",10')
     q(s, ':TRAC:MAKE "mybuf",10')
     assert err(s).startswith("-222,")  # it exists already

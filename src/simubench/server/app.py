@@ -457,6 +457,14 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         except KeyError:
             raise HTTPException(404, f"no try session {sid!r}") from None
 
+    def while_idle(e: Any, fn: Any, *args: Any) -> Any:
+        """Run ``fn`` on the try session held exclusively: a batch of try_definition or a retirement
+        (MAX, replace) waits for it, and one that closed the session meanwhile is a 404."""
+        with e.busy:
+            if e.closed:
+                raise HTTPException(404, "the try session was closed")
+            return fn(*args)
+
     @app.get(
         "/api/try",
         response_model=list[M.TryOpened],
@@ -517,7 +525,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         """Send one program message to the try session's instrument (the same reply format as a
         bench session's scpi interface)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(manager.scpi, e.served, e.definition, req.command)
+        return await asyncio.to_thread(while_idle, e, manager.scpi, e.served, e.definition, req.command)
 
     @app.post(
         "/api/try/{sid}/configure",
@@ -528,7 +536,9 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     async def try_configure(sid: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
         """Set one of the try session's settings (the same interface as a bench session's)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(manager.configure, e.served, e.definition, req.path, req.value)
+        return await asyncio.to_thread(
+            while_idle, e, manager.configure, e.served, e.definition, req.path, req.value
+        )
 
     @app.post(
         "/api/try/{sid}/panel",
@@ -539,7 +549,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     async def try_panel(sid: str, req: M.PanelRequest) -> M.PanelResponse:
         """A front-panel button on the try session's instrument (D32)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(manager.panel, e.served, e.definition, req.action)
+        return await asyncio.to_thread(while_idle, e, manager.panel, e.served, e.definition, req.action)
 
     @app.get(
         "/api/try/{sid}/instrument",
@@ -656,7 +666,9 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         try:
             # The clients guard lives in manager.start: starting a bench stops the running one,
             # whatever facade asked for it (#121, issue 624).
-            s = await manager.start(req.bench_path, clock=req.clock, seed=req.seed, force=req.force)
+            s = await manager.start(
+                req.bench_path, clock=req.clock, seed=req.seed, force=req.force, time_scale=req.time_scale
+            )
         except ClientsConnected as exc:
             raise in_use(exc) from None
         except PermissionError as exc:
@@ -731,14 +743,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         port = next(
             (lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None
         )
-        info = manager.describe_instrument(
-            s.session,
-            inst,
-            index,
-            port,
-            s.hislip.addresses().get(name) if s.hislip else None,
-            s.vxi11.addresses().get(name) if s.vxi11 else None,
-        )
+        info = manager.describe_instrument(s.session, inst, index, port)
         info.remote, info.local = s.remote_clients(name), name in s.local
         return info
 
@@ -904,7 +909,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     )
     def clock(sid: str) -> M.ClockInfo:
         s = served(sid).session
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
 
     @app.post(
         "/api/sessions/{sid}/clock/advance",
@@ -924,7 +929,22 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
             raise in_use(exc) from None
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns)  # type: ignore[arg-type]
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
+
+    @app.post(
+        "/api/sessions/{sid}/clock/scale",
+        response_model=M.ClockInfo,
+        operation_id="setClockScale",
+        dependencies=[Depends(auth)],
+    )
+    def clock_scale(sid: str, req: M.TimeScaleRequest) -> M.ClockInfo:
+        """Change a scaled clock's rate while it runs; time already passed stays passed."""
+        s = served(sid).session
+        try:
+            s.set_time_scale(req.scale)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from None
+        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
 
     @app.get(
         "/api/sessions/{sid}/instruments/{name}/readings",

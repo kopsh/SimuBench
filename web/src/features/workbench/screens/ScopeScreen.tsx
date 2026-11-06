@@ -219,10 +219,10 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
                       if (sel) select(sel);
                     }}
                   >
-                    {t(`scope.silence.${r.kind}`, { source, fault: r.fault_id })}
+                    {t(`scope.silence.${r.kind}`, { source, fault: r.fault_id ?? "" })}
                   </button>
                 ) : (
-                  t(`scope.silence.${r.kind}`, { source, fault: r.fault_id })
+                  t(`scope.silence.${r.kind}`, { source, fault: r.fault_id ?? "" })
                 )}
               </span>
             </div>

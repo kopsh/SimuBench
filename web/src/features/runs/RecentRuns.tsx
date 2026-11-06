@@ -26,7 +26,7 @@ export function RecentRuns() {
                   {!r.ended && <span className="bg-ok/15 text-ok rounded px-1.5 text-[10px] font-medium">{t("runs.live")}</span>}
                 </div>
                 <div className="text-muted-foreground num text-xs">
-                  {new Date(r.started * 1000).toLocaleString()} · {t(`workbench.clockMode.${r.clock}`)} · {t("runs.events", { count: r.events })} ·{" "}
+                  {new Date(r.started * 1000).toLocaleString()} · {t(`workbench.clockMode.${r.clock as "command" | "wall" | "stepped"}`)} · {t("runs.events", { count: r.events })} ·{" "}
                   t = {formatClock(r.duration_ns)}
                 </div>
               </div>

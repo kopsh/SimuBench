@@ -827,7 +827,8 @@
             "enum": [
               "command",
               "wall",
-              "stepped"
+              "stepped",
+              "scaled"
             ],
             "title": "Mode",
             "type": "string"
@@ -835,11 +836,18 @@
           "now_ns": {
             "title": "Now Ns",
             "type": "integer"
+          },
+          "scale": {
+            "default": 1.0,
+            "description": "Virtual seconds per real second: 1 except on a scaled clock",
+            "title": "Scale",
+            "type": "number"
           }
         },
         "required": [
           "mode",
-          "now_ns"
+          "now_ns",
+          "scale"
         ],
         "title": "ClockInfo",
         "type": "object"
@@ -2348,7 +2356,7 @@
                 "type": "null"
               }
             ],
-            "description": "For error / trip: SCPI error code (default -300)",
+            "description": "For error / trip: SCPI error code (default -300); for error it must be in the instrument's error table or the SCPI standard list unless a message is given",
             "title": "Code"
           },
           "component": {
@@ -2373,7 +2381,7 @@
                 "type": "null"
               }
             ],
-            "description": "Link faults: number of messages affected",
+            "description": "Link faults: number of messages affected; error: how many times it is queued",
             "title": "Count"
           },
           "drift_per_s": {
@@ -4697,7 +4705,8 @@
                 "enum": [
                   "command",
                   "wall",
-                  "stepped"
+                  "stepped",
+                  "scaled"
                 ],
                 "type": "string"
               },
@@ -5677,7 +5686,8 @@
             "enum": [
               "command",
               "wall",
-              "stepped"
+              "stepped",
+              "scaled"
             ],
             "title": "Clock Mode",
             "type": "string"
@@ -5776,6 +5786,12 @@
             "title": "Stale Definitions",
             "type": "array"
           },
+          "time_scale": {
+            "default": 1.0,
+            "description": "Virtual seconds per real second (scaled clock)",
+            "title": "Time Scale",
+            "type": "number"
+          },
           "wires": {
             "items": {
               "$ref": "#/components/schemas/WireInfo"
@@ -5790,6 +5806,7 @@
           "bench_path",
           "description",
           "clock_mode",
+          "time_scale",
           "now_ns",
           "seed",
           "reveal_true_values",
@@ -6127,7 +6144,8 @@
                 "enum": [
                   "command",
                   "wall",
-                  "stepped"
+                  "stepped",
+                  "scaled"
                 ],
                 "type": "string"
               },
@@ -6164,6 +6182,19 @@
               }
             ],
             "title": "Seed"
+          },
+          "time_scale": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Scale"
           }
         },
         "title": "SetRun",
@@ -6387,7 +6418,8 @@
                 "enum": [
                   "command",
                   "wall",
-                  "stepped"
+                  "stepped",
+                  "scaled"
                 ],
                 "type": "string"
               },
@@ -6413,6 +6445,20 @@
               }
             ],
             "title": "Seed"
+          },
+          "time_scale": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For the scaled clock: virtual seconds per real second",
+            "title": "Time Scale"
           }
         },
         "required": [
@@ -6975,6 +7021,22 @@
           "inputs"
         ],
         "title": "TemplateSource",
+        "type": "object"
+      },
+      "TimeScaleRequest": {
+        "properties": {
+          "scale": {
+            "description": "Virtual seconds per real second",
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Scale",
+            "type": "number"
+          }
+        },
+        "required": [
+          "scale"
+        ],
+        "title": "TimeScaleRequest",
         "type": "object"
       },
       "Trace": {
@@ -8479,6 +8541,56 @@
           }
         },
         "summary": "Advance"
+      }
+    },
+    "/api/sessions/{sid}/clock/scale": {
+      "post": {
+        "description": "Change a scaled clock's rate while it runs; time already passed stays passed.",
+        "operationId": "setClockScale",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TimeScaleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clock Scale"
       }
     },
     "/api/sessions/{sid}/faults": {

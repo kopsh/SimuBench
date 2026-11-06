@@ -365,7 +365,7 @@ def filter_lines(lines: list[LogLine], words: list[str], errors_only: bool = Fal
 
 def row_cells(
     line: LogLine,
-    widths: tuple[int, int, int, int] = (13, 12, 7, 26),
+    widths: tuple[int, int, int, int] = (13, 14, 7, 26),
     virtual: bool = True,
 ) -> list[str]:
     """The fixed-width columns of a row (tui-screens.md 7.1): time, source, instrument, command."""

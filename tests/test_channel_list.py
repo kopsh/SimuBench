@@ -3,7 +3,11 @@ a write happens once per channel (each channel's own range applies), a query ans
 in list order, comma-joined; a stored list (``int_list`` state) reads back as ``(@101:110)``;
 an operation with one runs once per channel and joins the replies. Malformed lists are errors.
 A definition's ``channels.numbering`` (#207) says which numbers the bus uses: a 3-slot DAQ's
-101–120, 201–220, … instead of 1..count."""
+101–120, 201–220, … instead of 1..count.
+
+Flow tests per D49/#704: one test walks one flow on one bench, each ``# --`` act preserves an
+original test's body verbatim; acts that are state-compatible share the bench, with the bridges
+noted. Parsing and definition-validation tests stay separate."""
 
 from __future__ import annotations
 
@@ -128,8 +132,16 @@ def open_psu():
     return open_definition(PSU)
 
 
-def test_a_write_expands_over_the_channels_with_each_channels_own_range():
+# ---- write and query on the demo PSU: one flow ------------------------------------------------------
+
+
+def test_the_channel_list_write_and_query_flow():
+    """A write expands over the channels with each channel's own range applying, a query answers
+    the channels in list order, the query form answers limits rather than settings, and a
+    channel outside the instrument is an error. One flow on one bench."""
     session, query = open_psu()
+    # -- a write expands over the channels, each channel's own range applies
+    # (was test_a_write_expands_over_the_channels_with_each_channels_own_range)
     query("VOLT 5,(@1:3)")
     assert session.instruments["x"].get_state("ch1.volt") == 5.0
     assert session.instruments["x"].get_state("ch3.volt") == 5.0
@@ -139,16 +151,58 @@ def test_a_write_expands_over_the_channels_with_each_channels_own_range():
     assert session.instruments["x"].get_state("ch1.volt") == 5.0
     query("VOLT 20,(@2)")
     assert session.instruments["x"].get_state("ch2.volt") == 20.0
-
-
-def test_a_query_answers_the_channels_in_list_order():
-    session, query = open_psu()
+    # -- a query answers the channels in list order (was test_a_query_answers_the_channels_in_list_order)
+    # every channel is set here, so the writes of the previous act cannot show through
     session.instruments["x"].set_state("ch1.volt", 1.0)
     session.instruments["x"].set_state("ch2.volt", 2.0)
     session.instruments["x"].set_state("ch3.volt", 3.0)
     assert query("VOLT? (@3,1)") == "+3.000000E+00,+1.000000E+00"
     # the list may be left out where the definition says so: it defaults to channel 1
     assert query("VOLT?") == "+1.000000E+00"
+    # -- the query form returns each channel's limit or default
+    # (was test_a_query_form_returns_each_channels_limit_or_default): ``VOLT? MAX,(@2:3)``
+    # answers the range limit per channel, not the setting (#297)
+    session.instruments["x"].set_state("ch1.volt", 6.0)
+    # the list may be left out: channel 1 answers with its own override's max
+    assert query("VOLT? MAX") == "+6.000000E+00"
+    assert query("VOLT? MIN") == "+0.000000E+00"
+    assert query("VOLT? MAX,(@2:3)") == "+2.500000E+01,+2.500000E+01"
+    assert query("VOLT? DEF,(@1)") == "+0.000000E+00"
+    # the long forms work too, and the plain query still answers the current setting
+    assert query("VOLT? MAXimum,(@2)") == "+2.500000E+01"
+    assert query("VOLT? (@1)") == "+6.000000E+00"
+    # -- a channel outside the instrument is an error (was test_a_channel_outside_the_instrument_is_an_error)
+    query("VOLT 1,(@4)")
+    assert query("SYST:ERR?").startswith("-114")
+    query("VOLT? (@0)")
+    assert query("SYST:ERR?").startswith("-114")
+    session.close()
+
+
+# ---- the stored list and the per-channel operation: one flow -----------------------------------------
+
+
+def test_the_stored_list_and_operation_flow():
+    """A stored ``int_list`` saves and reads back collapsed with the state's own range guarding
+    every number in it, and an operation with a list runs once per channel and joins the
+    replies. One flow on one bench."""
+    session, query = open_psu()
+    # -- a stored list saves and reads back as a list (was test_a_stored_list_saves_and_reads_back_as_a_list)
+    query("ROUT:SCAN (@101:103,110)")
+    assert session.instruments["x"].get_state("scan.list") == [101, 102, 103, 110]
+    assert query("ROUT:SCAN?") == "(@101:103,110)"
+    query("ROUT:SCAN (@5)")
+    assert query("ROUT:SCAN?") == "(@5)"
+    # the state's own range applies to every channel number in the list
+    query("ROUT:SCAN (@400)")
+    assert query("SYST:ERR?").startswith("-222")
+    assert query("ROUT:SCAN?") == "(@5)"
+    # -- an operation with a list runs once per channel and joins the replies
+    # (was test_an_operation_with_a_list_runs_once_per_channel_and_joins)
+    query("VOLT 99,(@2)")  # queue one error
+    assert query("ERROR? (@1:3)") == '-222,"Data out of range",0,"No error",0,"No error"'
+    assert query("ERROR?") == '0,"No error"'
+    session.close()
 
 
 def test_a_definition_declares_descending_ranges_for_writes_and_queries():
@@ -172,49 +226,7 @@ def test_a_definition_declares_descending_ranges_for_writes_and_queries():
     assert query("SYST:ERR?").startswith("-222")
 
 
-def test_a_query_form_returns_each_channels_limit_or_default():
-    """``VOLT? MAX,(@2:3)`` answers the range limit per channel, not the setting (#297)."""
-    session, query = open_psu()
-    session.instruments["x"].set_state("ch1.volt", 6.0)
-    # the list may be left out: channel 1 answers with its own override's max
-    assert query("VOLT? MAX") == "+6.000000E+00"
-    assert query("VOLT? MIN") == "+0.000000E+00"
-    assert query("VOLT? MAX,(@2:3)") == "+2.500000E+01,+2.500000E+01"
-    assert query("VOLT? DEF,(@1)") == "+0.000000E+00"
-    # the long forms work too, and the plain query still answers the current setting
-    assert query("VOLT? MAXimum,(@2)") == "+2.500000E+01"
-    assert query("VOLT? (@1)") == "+6.000000E+00"
-
-
-def test_a_channel_outside_the_instrument_is_an_error():
-    _, query = open_psu()
-    query("VOLT 1,(@4)")
-    assert query("SYST:ERR?").startswith("-114")
-    query("VOLT? (@0)")
-    assert query("SYST:ERR?").startswith("-114")
-
-
-def test_a_stored_list_saves_and_reads_back_as_a_list():
-    session, query = open_psu()
-    query("ROUT:SCAN (@101:103,110)")
-    assert session.instruments["x"].get_state("scan.list") == [101, 102, 103, 110]
-    assert query("ROUT:SCAN?") == "(@101:103,110)"
-    query("ROUT:SCAN (@5)")
-    assert query("ROUT:SCAN?") == "(@5)"
-    # the state's own range applies to every channel number in the list
-    query("ROUT:SCAN (@400)")
-    assert query("SYST:ERR?").startswith("-222")
-    assert query("ROUT:SCAN?") == "(@5)"
-
-
-def test_an_operation_with_a_list_runs_once_per_channel_and_joins():
-    _, query = open_psu()
-    query("VOLT 99,(@2)")  # queue one error
-    assert query("ERROR? (@1:3)") == '-222,"Data out of range",0,"No error",0,"No error"'
-    assert query("ERROR?") == '0,"No error"'
-
-
-# ---- a definition whose channels are numbered 101, 102, 201, 202 (#207) ---------------------------
+# ---- a definition whose channels are numbered 101, 102, 201, 202 (#207): one flow ------------------
 
 DAQ = {
     "schema": "simubench.instrument/1",
@@ -246,8 +258,11 @@ DAQ = {
 }
 
 
-def test_a_write_and_a_query_use_the_declared_numbers():
+def test_the_declared_numbering_flow():
+    """Writes, queries, defaults, spanning ranges, suffixes and stored lists all use the declared
+    bus numbers; a number the numbering does not declare is an error. One flow on one bench."""
     session, query = open_definition(DAQ)
+    # -- a write and a query use the declared numbers (was test_a_write_and_a_query_use_the_declared_numbers)
     query("VOLT 5,(@101:102)")
     assert session.instruments["x"].get_state("ch1.volt") == 5.0
     assert session.instruments["x"].get_state("ch2.volt") == 5.0
@@ -255,17 +270,12 @@ def test_a_write_and_a_query_use_the_declared_numbers():
     assert session.instruments["x"].get_state("ch3.volt") == 7.0
     # the list is answered in list order; the state keeps the channel indexes
     assert query("VOLT? (@201,101)") == "+7.000000E+00,+5.000000E+00"
-
-
-def test_a_default_channel_list_uses_the_declared_numbers():
-    session, query = open_definition(DAQ)
+    # -- the default list uses the declared numbers too (was test_a_default_channel_list_uses_the_declared_numbers)
     query("VOLT 5")
     assert session.instruments["x"].get_state("ch1.volt") == 5.0
     assert query("VOLT?") == "+5.000000E+00"
-
-
-def test_a_range_may_span_slots_and_skips_numbers_the_numbering_does_not_declare():
-    _, query = open_definition(DAQ)
+    # -- a range may span slots and skips numbers the numbering does not declare
+    # (was test_a_range_may_span_slots_and_skips_numbers_the_numbering_does_not_declare)
     for number, level in ((101, 1.0), (102, 2.0), (201, 3.0), (202, 4.0)):
         query(f"VOLT {level},(@{number})")
     # 121-199 are no channel numbers: the range keeps only the declared channels, as the 34970A
@@ -275,28 +285,20 @@ def test_a_range_may_span_slots_and_skips_numbers_the_numbering_does_not_declare
     assert query("SYST:ERR?").startswith("-114")
     query("VOLT 1,(@121:130)")
     assert query("SYST:ERR?").startswith("-114")
-
-
-def test_a_number_the_numbering_does_not_declare_is_an_error():
-    _, query = open_definition(DAQ)
+    # -- a number the numbering does not declare is an error
+    # (was test_a_number_the_numbering_does_not_declare_is_an_error)
     query("VOLT 1,(@103)")
     assert query("SYST:ERR?").startswith("-114")
     query("VOLT 1,(@1)")  # a channel index, not a bus number
     assert query("SYST:ERR?").startswith("-114")
     query("VOLT? (@3:2)")
     assert query("SYST:ERR?").startswith("-222")
-
-
-def test_a_suffix_uses_the_declared_number():
-    session, query = open_definition(DAQ)
+    # -- a suffix uses the declared number (was test_a_suffix_uses_the_declared_number)
     query("OUTP101 ON")
     assert session.instruments["x"].get_state("ch1.on") is True
     query("OUTP1 ON")  # a channel index, not a bus number
     assert query("SYST:ERR?").startswith("-114")
-
-
-def test_a_stored_list_uses_the_declared_numbers():
-    session, query = open_definition(DAQ)
+    # -- a stored list uses the declared numbers (was test_a_stored_list_uses_the_declared_numbers)
     query("ROUT:SCAN (@101:102,201)")
     assert session.instruments["x"].get_state("scan.list") == [101, 102, 201]
     assert query("ROUT:SCAN?") == "(@101:102,201)"
@@ -307,6 +309,7 @@ def test_a_stored_list_uses_the_declared_numbers():
     query("ROUT:SCAN (@103)")
     assert query("SYST:ERR?").startswith("-114")
     assert query("ROUT:SCAN?") == "(@101:102,201:202)"
+    session.close()
 
 
 # ---- the numbering declaration itself -------------------------------------------------------------
@@ -416,21 +419,20 @@ def _psu_with_empty_lists():
     return open_definition(data)
 
 
-def test_an_empty_list_on_a_per_channel_write_is_refused_and_changes_nothing():
-    """#420: `empty` admits (@) only where a list setting is written whole; VOLT 5,(@) is -108
-    and leaves every channel as it was."""
+def test_the_empty_list_flow():
+    """#420: ``empty`` admits (@) only where a list setting is written whole; on a per-channel
+    write it is -108 and leaves every channel as it was, and on a query or an operation it
+    answers -108 — a driver must not wait for a reply that never comes. One flow on one bench."""
     session, query = _psu_with_empty_lists()
+    # -- refused on a per-channel write, changes nothing
+    # (was test_an_empty_list_on_a_per_channel_write_is_refused_and_changes_nothing)
     query("VOLT 2,(@1:3)")
     query("VOLT 5,(@)")
     assert query("SYST:ERR?").startswith("-108")
     inst = session.instruments["x"]
     assert [inst.get_state(f"ch{n}.volt") for n in (1, 2, 3)] == [2.0, 2.0, 2.0]
-
-
-def test_an_empty_list_on_a_query_or_an_operation_is_an_error_not_silence():
-    """#420: VOLT? (@) and MEAS? (@) answer -108 — a driver must not wait for a reply that never
-    comes — while ROUT:SCAN (@) still clears the stored list."""
-    _, query = _psu_with_empty_lists()
+    # -- an error on a query or an operation, not silence; the stored list still clears
+    # (was test_an_empty_list_on_a_query_or_an_operation_is_an_error_not_silence)
     assert query("VOLT? (@)") == ""
     assert query("SYST:ERR?").startswith("-108")
     assert query("MEAS:VOLT? (@)") == ""
@@ -439,3 +441,4 @@ def test_an_empty_list_on_a_query_or_an_operation_is_an_error_not_silence():
     query("ROUT:SCAN (@)")
     assert query("ROUT:SCAN?") == "(@)"
     assert query("SYST:ERR?") == '0,"No error"'
+    session.close()

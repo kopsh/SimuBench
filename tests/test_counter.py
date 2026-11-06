@@ -80,12 +80,16 @@ def two_channels() -> BenchDefinition:
     )
 
 
-# ---- frequency, period and the timebase ------------------------------------------------------------
+# ---- frequency, period and totalize: the measurement modes on one channel ------------------------------
 
 
-def test_frequency_and_period_are_reciprocal_and_take_the_gate_time():
+def test_the_frequency_period_and_totalize_flow():
+    """Frequency and period are reciprocal and take the gate time; totalize counts the events
+    inside the gate."""
     session = open_bench(one_channel(), definition_dirs=[DEFS])
     try:
+        # -- frequency and period are reciprocal and take the gate time (was
+        # test_frequency_and_period_are_reciprocal_and_take_the_gate_time)
         before = session.now_ns
         assert num(session, "cnt", ":MEASure:FREQuency?") == pytest.approx(1000.0, rel=1e-6)
         assert session.now_ns - before == 100_000_000  # the 0.1 s gate in virtual time
@@ -94,6 +98,15 @@ def test_frequency_and_period_are_reciprocal_and_take_the_gate_time():
         assert num(session, "cnt", ":MEASure:FREQuency?") == pytest.approx(1000.0, rel=1e-6)
         session.write("cnt", b":FUNCtion PERiod\n")
         assert num(session, "cnt", ":MEASure:PERiod?") == pytest.approx(1e-3, rel=1e-6)
+        # -- totalize counts the events inside the gate (was
+        # test_totalize_counts_the_events_inside_the_gate; :MEASure: names its function, so the
+        # PERiod set above does not follow it into the totalize)
+        session.write("cnt", b":GATe:TIME 0.1\n")
+        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(
+            100.0
+        )  # [0, 100 ms): the crossing at 100 ms is out
+        session.write("cnt", b":GATe:TIME 0.01\n")
+        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(10.0)
     finally:
         session.close()
 
@@ -104,22 +117,6 @@ def test_the_timebase_scales_the_reading():
         # A fast timebase makes the instrument's second short: it reads low by ε.
         assert num(session, "cnt", ":MEASure:FREQuency?") == pytest.approx(1000.0 / (1 + 2e-6), rel=1e-6)
         assert num(session, "cnt", ":MEASure:PERiod?") == pytest.approx(1e-3 * (1 + 2e-6), rel=1e-6)
-    finally:
-        session.close()
-
-
-# ---- totalize ------------------------------------------------------------------------------------
-
-
-def test_totalize_counts_the_events_inside_the_gate():
-    session = open_bench(one_channel(), definition_dirs=[DEFS])
-    try:
-        session.write("cnt", b":GATe:TIME 0.1\n")
-        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(
-            100.0
-        )  # [0, 100 ms): the crossing at 100 ms is out
-        session.write("cnt", b":GATe:TIME 0.01\n")
-        assert num(session, "cnt", ":MEASure:TOTalize?") == pytest.approx(10.0)
     finally:
         session.close()
 
@@ -222,9 +219,13 @@ def test_statistics_summarize_the_measurements():
         session.close()
 
 
-def test_a_triggered_run_takes_one_reading_per_gate():
+def test_the_statistics_and_triggered_run_flow():
+    """A triggered run takes one reading per gate; the readings' resolution error follows the gate
+    time and is nonzero at any gate."""
     session = open_bench(one_channel(), definition_dirs=[DEFS])
     try:
+        # -- a triggered run takes one reading per gate (was
+        # test_a_triggered_run_takes_one_reading_per_gate)
         session.write("cnt", b":SAMPle:COUNt 3\n")
         values = [float(v) for v in q(session, "cnt", ":READ?").split(",")]
         assert len(values) == 3
@@ -232,15 +233,11 @@ def test_a_triggered_run_takes_one_reading_per_gate():
         session.write("cnt", b":INITiate\n")
         fetched = [float(v) for v in q(session, "cnt", ":FETCh?").split(",")]
         assert fetched == pytest.approx(values, rel=1e-12)
-    finally:
-        session.close()
 
-
-def test_frequency_resolution_follows_the_gate_time():
-    """#255: the endpoint errors are fixed, so a 10x gate gives about a 10x smaller spread."""
-    session = open_bench(one_channel(), definition_dirs=[DEFS])
-    try:
-
+        # -- frequency resolution follows the gate time (was
+        # test_frequency_resolution_follows_the_gate_time) #255: the endpoint errors are fixed, so
+        # a 10x gate gives about a 10x smaller spread. (:MEASure: takes one reading whatever
+        # SAMPle:COUNt says, so the act above's count of 3 does not follow it here.)
         def spread(gate: float, n: int = 40) -> float:
             session.write("cnt", f":GATe:TIME {gate:g}\n".encode())
             session.write("cnt", b":CALCulate:STATistics:CLEar\n")
@@ -254,14 +251,9 @@ def test_frequency_resolution_follows_the_gate_time():
         assert slow > 0.0 and fast > 0.0
         ratio = fast / slow
         assert 5.0 < ratio < 20.0  # 10x the gate, within the spread of 40 samples
-    finally:
-        session.close()
-
-
-def test_statistics_sdev_is_nonzero_for_frequency():
-    """#255: repeated frequency readings carry a resolution error, unlike the old exact model."""
-    session = open_bench(one_channel(), definition_dirs=[DEFS])
-    try:
+        # -- the sdev is nonzero for frequency (was test_statistics_sdev_is_nonzero_for_frequency)
+        # #255: repeated frequency readings carry a resolution error, unlike the old exact model.
+        session.write("cnt", b":GATe:TIME 0.1\n")  # bridge: the 0.1 s gate the act's bound names
         session.write("cnt", b":CALCulate:STATistics:CLEar\n")
         for _ in range(10):
             session.advance(0.11)
@@ -307,45 +299,43 @@ def _gates(session, gap_free: bool) -> tuple[list[float], list[float], float, li
     return readings, spans, boundary, edges
 
 
-def test_gap_free_spans_join_end_to_end():
-    """#328/#351: adjacent gap-free readings share their boundary edge, so their spans add up to
-    the whole boundary span — the property that tells gap-free from gated (Σ reading × SPAN = Σ
-    edges holds for any span by construction, so it alone proves nothing)."""
+def test_the_gap_free_gates_flow():
+    """Gap-free and gated runs on the off-grid source (#328/#351): adjacent gap-free readings share
+    their boundary edge, so their spans add up to the whole boundary span — the property that tells
+    gap-free from gated (Σ reading × SPAN = Σ edges holds for any span by construction, so it alone
+    proves nothing); with GAPFree OFF each gate loses the time before its first edge; the SCPI path
+    reads gap-free samples; the timestamps follow the edges on the timebase."""
     session = open_bench(_off_grid(), definition_dirs=[DEFS])
     try:
+        # -- the gap-free spans join end to end (was test_gap_free_spans_join_end_to_end)
         readings, spans, boundary, edges = _gates(session, gap_free=True)
         assert sum(spans) == pytest.approx(boundary, rel=1e-12)
         assert sum(f * s for f, s in zip(readings, spans, strict=True)) == pytest.approx(
             sum(count for count, _, _ in edges), rel=1e-9
         )
         assert all(r == pytest.approx(1234.567, rel=1e-6) for r in readings)
-    finally:
-        session.close()
-
-
-def test_without_gap_free_each_gate_loses_the_time_before_its_first_edge():
-    """The control: with GAPFree OFF each reading spans its own first-to-last edge, so the spans
-    fall short of the boundary span by one input period per gate (the dead time)."""
-    session = open_bench(_off_grid(), definition_dirs=[DEFS])
-    try:
+        # -- without gap-free each gate loses the time before its first edge (was
+        # test_without_gap_free_each_gate_loses_the_time_before_its_first_edge); the control: each
+        # reading spans its own first-to-last edge, so the spans fall short of the boundary span by
+        # one input period per gate (the dead time). run_begin re-anchors the run at the act's start.
         readings, _, boundary, edges = _gates(session, gap_free=False)
         own = [(count - 1) / f for (count, _, _), f in zip(edges, readings, strict=True)]
         # one period (0.81 ms) per gate; the readings' trigger error moves it by nanoseconds
         assert boundary - sum(own) == pytest.approx(GATES / 1234.567, abs=1e-7)
-    finally:
-        session.close()
-
-
-def test_gap_free_readings_through_scpi():
-    """:READ? with GAPFree ON and eight samples: the gap-free path end to end."""
-    session = open_bench(_off_grid(), definition_dirs=[DEFS])
-    try:
+        # -- gap-free readings through SCPI (was test_gap_free_readings_through_scpi): :READ? with
+        # GAPFree ON and eight samples, the gap-free path end to end
         for text in (":GATe:TIME 0.01", ":FREQuency:MODE:GAPFree ON", ":SAMPle:COUNt 8"):
             session.write("cnt", (text + "\n").encode())
         values = [float(v) for v in q(session, "cnt", ":READ?").split(",")]
         assert len(values) == 8
         assert all(v == pytest.approx(1234.567, rel=1e-6) for v in values)
         assert q(session, "cnt", ":SYST:ERR?").startswith("0,")
+        # -- the timestamps follow the edges on the timebase (was
+        # test_timestamps_follow_the_edges_on_the_timebase)
+        stamps = [float(x) for x in q(session, "cnt", ":MEASure:TSTamp? 4").split(",")]
+        steps = [b - a for a, b in itertools.pairwise(stamps)]
+        # one period apart, within the 20 ps single-shot resolution
+        assert all(st == pytest.approx(1 / 1234.567, abs=1e-10) for st in steps)
     finally:
         session.close()
 
@@ -358,16 +348,5 @@ def test_gap_free_readings_on_a_timebase_with_an_error():
         readings, spans, boundary, _ = _gates(session, gap_free=True)
         assert sum(spans) == pytest.approx(boundary, rel=1e-12)
         assert all(r == pytest.approx(1234.567 / (1 + 5e-6), rel=2e-7) for r in readings)
-    finally:
-        session.close()
-
-
-def test_timestamps_follow_the_edges_on_the_timebase():
-    session = open_bench(_off_grid(), definition_dirs=[DEFS])
-    try:
-        stamps = [float(x) for x in q(session, "cnt", ":MEASure:TSTamp? 4").split(",")]
-        steps = [b - a for a, b in itertools.pairwise(stamps)]
-        # one period apart, within the 20 ps single-shot resolution
-        assert all(st == pytest.approx(1 / 1234.567, abs=1e-10) for st in steps)
     finally:
         session.close()

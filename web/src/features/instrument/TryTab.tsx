@@ -13,6 +13,7 @@ interface Entry {
   command: string;
   response: string | null;
   errors: ErrorItem[];
+  linkError: string | null;
   timedOut: boolean;
   seconds: number;
 }
@@ -59,6 +60,7 @@ export function TryTab({
           command,
           response: reply.response ?? null,
           errors: reply.errors,
+          linkError: reply.link_error,
           timedOut: reply.timed_out,
           seconds: (performance.now() - started) / 1000,
         },
@@ -69,7 +71,14 @@ export function TryTab({
     } catch (err) {
       setEntries((prev) => [
         ...prev,
-        { command, response: null, errors: [{ code: 0, message: (err as Error).message }], timedOut: false, seconds: 0 },
+        {
+          command,
+          response: null,
+          errors: [{ code: 0, message: (err as Error).message }],
+          linkError: null,
+          timedOut: false,
+          seconds: 0,
+        },
       ]);
     } finally {
       setBusy(false);
@@ -112,6 +121,7 @@ export function TryTab({
                 <span className="num break-all">{entry.command}</span>
               </div>
               {entry.response !== null && <pre className="num break-words mt-0.5 ml-3 whitespace-pre-wrap">{entry.response}</pre>}
+              {entry.linkError && <p className="text-error ml-3 text-[11px]">{t("fault.linkDown")}: {entry.linkError}</p>}
               {entry.timedOut && <p className="text-warn ml-3 text-[11px]">{t("acceptance.noReply")}</p>}
               {entry.errors.map((err, j) => (
                 <p key={j} className="text-error ml-3 text-[11px]">

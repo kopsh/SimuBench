@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.validate_definition import validate_definition
 from simubench.library.loader import DefinitionLibrary
@@ -49,9 +50,7 @@ def open_():
 
 
 def q(s, cmd: str) -> str:
-    s.write("el", (cmd + "\n").encode())
-    out = s.read("el")
-    return out.decode().strip() if out else ""
+    return session_query(s, "el", cmd, default="")
 
 
 def number(s, cmd: str) -> float:
@@ -103,16 +102,6 @@ def test_cv_holds_the_input_and_opens_below_its_setpoint(open_):
     assert number(s, ":MEAS:CURR?") == pytest.approx(0.0, abs=1e-9)
 
 
-def test_cp_finds_a_self_consistent_power(open_):
-    # 10 V behind 1 Ω drawing 20 W: V² − 10V + 20 = 0 has 7.236 V and 2.764 V; the iteration
-    # settles on the high-voltage root (D52 records this semantics).
-    s = open_(source_v=10.0, source_r=1.0)
-    q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:INP ON")
-    v, i = number(s, ":MEAS:VOLT?"), number(s, ":MEAS:CURR?")
-    assert (v, i) == pytest.approx((7.236068, 2.763932), abs=1e-5)
-    assert v * i == pytest.approx(20.0, rel=1e-6)
-
-
 def _three_readings_agree(s, source_v: float, source_r: float) -> tuple[float, float]:
     v, i, p = number(s, ":MEAS:VOLT?"), number(s, ":MEAS:CURR?"), number(s, ":MEAS:POW?")
     assert v == pytest.approx(source_v - i * source_r, abs=1e-5)  # the source's line
@@ -120,21 +109,45 @@ def _three_readings_agree(s, source_v: float, source_r: float) -> tuple[float, f
     return v, i
 
 
-def test_cp_beyond_the_source_reads_one_operating_point_on_the_circuit(open_):
+def test_the_cp_operating_points_flow(open_):
+    """CP on a 10 V source behind 1 Ω: 20 W settles on the high-voltage root, 30 W has no solution
+    and the loop reads one repeating operating point on the source's line, Von 8 flaps and still
+    reads one operating point, and the UNR bit tracks whether the setpoint is reachable."""
+    s = open_(source_v=10.0, source_r=1.0)
+    # -- CP finds a self-consistent power (was test_cp_finds_a_self_consistent_power)
+    # 10 V behind 1 Ω drawing 20 W: V² − 10V + 20 = 0 has 7.236 V and 2.764 V; the iteration
+    # settles on the high-voltage root (D52 records this semantics).
+    q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:INP ON")
+    v, i = number(s, ":MEAS:VOLT?"), number(s, ":MEAS:CURR?")
+    assert (v, i) == pytest.approx((7.236068, 2.763932), abs=1e-5)
+    assert v * i == pytest.approx(20.0, rel=1e-6)
+    # -- CP beyond the source reads one operating point on the circuit (was
+    # test_cp_beyond_the_source_reads_one_operating_point_on_the_circuit)
     # 10 V behind 1 Ω gives at most 25 W: 30 W has no solution and the loop does not settle
     # (#258). The readings come from one operating point on the source's line, and repeat.
-    s = open_(source_v=10.0, source_r=1.0)
     q(s, ":SOUR:FUNC CP;:SOUR:POW 30;:INP ON")
     first = _three_readings_agree(s, 10.0, 1.0)
     assert _three_readings_agree(s, 10.0, 1.0) == first
     assert first[0] * first[1] <= 25.0 + 1e-6
-
-
-def test_cp_flapping_at_von_reads_one_operating_point_on_the_circuit(open_):
-    s = open_(source_v=10.0, source_r=1.0)
+    # -- CP flapping at Von reads one operating point on the circuit (was
+    # test_cp_flapping_at_von_reads_one_operating_point_on_the_circuit)
     q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:SOUR:CURR:VON 8;:INP ON")
     first = _three_readings_agree(s, 10.0, 1.0)
     assert _three_readings_agree(s, 10.0, 1.0) == first
+    # -- the questionable condition register carries the unregulated bit (was
+    # test_the_questionable_condition_register_carries_the_unregulated_bit) #343: a SCPI script
+    # sees the unsettled loop — STAT:QUES:COND? bit 10 (UNR) — and the bit clears once a reachable
+    # setpoint settles.
+    unr = 1 << 10
+    q(s, ":SOUR:CURR:VON 0")  # bridge: the act's scenario has the default Von (the act above set 8)
+    q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:INP ON")
+    assert q(s, ":STAT:QUES:COND?") == "0"
+    q(s, ":SOUR:POW 30")  # beyond the 25 W the source can give
+    assert int(q(s, ":STAT:QUES:COND?")) & unr
+    q(s, ":SOUR:POW 20")
+    assert q(s, ":STAT:QUES:COND?") == "0"
+    q(s, ":INP OFF")
+    assert q(s, ":STAT:QUES:COND?") == "0"  # an open input regulates nothing: no UNR
 
 
 def test_an_unsettled_loop_is_a_run_record_event_and_not_regulating(open_):
@@ -150,21 +163,6 @@ def test_an_unsettled_loop_is_a_run_record_event_and_not_regulating(open_):
     q(s, ":SOUR:POW 20")
     assert number(s, ":MEAS:POW?") == pytest.approx(20.0, rel=1e-6)
     assert not s.unsettled
-
-
-def test_the_questionable_condition_register_carries_the_unregulated_bit(open_):
-    """#343: a SCPI script sees the unsettled loop — STAT:QUES:COND? bit 10 (UNR) — and the bit
-    clears once a reachable setpoint settles."""
-    unr = 1 << 10
-    s = open_(source_v=10.0, source_r=1.0)
-    q(s, ":SOUR:FUNC CP;:SOUR:POW 20;:INP ON")
-    assert q(s, ":STAT:QUES:COND?") == "0"
-    q(s, ":SOUR:POW 30")  # beyond the 25 W the source can give
-    assert int(q(s, ":STAT:QUES:COND?")) & unr
-    q(s, ":SOUR:POW 20")
-    assert q(s, ":STAT:QUES:COND?") == "0"
-    q(s, ":INP OFF")
-    assert q(s, ":STAT:QUES:COND?") == "0"  # an open input regulates nothing: no UNR
 
 
 def test_the_unregulated_bit_follows_the_knee_and_a_trip_sets_its_own_bit(open_):
@@ -194,8 +192,12 @@ def test_von_stops_the_sink_below_the_starting_voltage(open_):
     assert number(s, ":MEAS:CURR?") == pytest.approx(0.0, abs=1e-9)
 
 
-def test_the_cc_slew_rate_ramps_the_current_in_virtual_time(open_):
+def test_the_slew_and_protection_resume_flow(open_):
+    """The CC slew rate ramps the current in virtual time; a protection trip latches, and clearing
+    it resumes the loaded value."""
     s = open_(source_r=0.1)
+    # -- the CC slew rate ramps the current in virtual time (was
+    # test_the_cc_slew_rate_ramps_the_current_in_virtual_time)
     q(s, ":SOUR:FUNC CC;:SOUR:CURR 0;:SOUR:CURR:SLEW 0.5;:INP ON")
     q(s, ":SOUR:CURR 2")
     assert number(s, ":MEAS:CURR?") == pytest.approx(0.0, abs=1e-9)  # the ramp starts now
@@ -204,6 +206,16 @@ def test_the_cc_slew_rate_ramps_the_current_in_virtual_time(open_):
     assert number(s, ":MEAS:VOLT?") == pytest.approx(4.9, rel=1e-4)
     s.advance(2e-6)  # the target is reached
     assert number(s, ":MEAS:CURR?") == pytest.approx(2.0, rel=1e-4)
+    # -- clearing the protection resumes the loaded value (was
+    # test_clearing_the_protection_resumes_the_loaded_value)
+    q(s, ":SOUR:CURR:SLEW 0")  # bridge: the act's resume is a step again, not a ramp
+    q(s, ":SOUR:FUNC CC;:SOUR:CURR 2;:SOUR:OCP 1.5;:INP ON")
+    assert q(s, ":SYST:PROT:TRIP?") == "1"
+    q(s, ":SOUR:CURR 0.5")  # below the threshold once cleared
+    q(s, ":SYST:PROT:CLE")
+    assert q(s, ":SYST:PROT:TRIP?") == "0"
+    assert q(s, ":SYST:PROT:KIND?") == '""'
+    assert number(s, ":MEAS:CURR?") == pytest.approx(0.5, rel=1e-4)
 
 
 # ---- protection --------------------------------------------------------------------------------------
@@ -224,17 +236,6 @@ def test_a_threshold_trips_the_input(open_, trip, kind, value):
     assert q(s, ":SYST:PROT:KIND?") == f'"{kind}"'
     assert number(s, ":MEAS:CURR?") == pytest.approx(0.0, abs=1e-9)  # the input stopped conducting
     assert number(s, ":MEAS:VOLT?") == pytest.approx(5.0, rel=1e-6)
-
-
-def test_clearing_the_protection_resumes_the_loaded_value(open_):
-    s = open_(source_r=0.1)
-    q(s, ":SOUR:FUNC CC;:SOUR:CURR 2;:SOUR:OCP 1.5;:INP ON")
-    assert q(s, ":SYST:PROT:TRIP?") == "1"
-    q(s, ":SOUR:CURR 0.5")  # below the threshold once cleared
-    q(s, ":SYST:PROT:CLE")
-    assert q(s, ":SYST:PROT:TRIP?") == "0"
-    assert q(s, ":SYST:PROT:KIND?") == '""'
-    assert number(s, ":MEAS:CURR?") == pytest.approx(0.5, rel=1e-4)
 
 
 def test_the_panel_readings_keep_their_keys(open_):

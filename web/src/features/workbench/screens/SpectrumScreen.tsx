@@ -3,10 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { useEvents } from "@/api/events";
-import { useReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cssVar, decimate, resolveColor } from "@/lib/canvas";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
 import { stateMap } from "../model";
@@ -22,10 +23,8 @@ const DB_PER_DIV = 10;
  */
 export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const version = useEvents((s) => s.version);
-  const readings = useReadings(sid, inst.name, version);
+  const { values: v, query: readings } = useInstrumentReadings(sid, inst.name);
   const scpi = useScpi(sid, inst.name);
-  const v = readings.data?.values ?? {};
   const n = (k: string) => Number(v[`sa.${k}`] ?? 0);
   const trace = readings.data?.traces.find((x) => x.name === "sa.trace1");
   const vars = stateMap(inst);
@@ -33,7 +32,8 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
   const send = (command: string) =>
     scpi.mutate(command, {
       onSuccess: (r) => {
-        if (r.errors.length) toast.error(`${r.errors[0].code}, ${r.errors[0].message}`);
+        const { ok, message } = scpiOutcome(r);
+        if (!ok && message) toast.error(message);
       },
     });
 
@@ -188,10 +188,6 @@ function ScpiField({
   );
 }
 
-function cssVar(el: HTMLElement, name: string, fallback: string) {
-  return getComputedStyle(el).getPropertyValue(name).trim() || fallback;
-}
-
 /** dBm against frequency: 10 divisions each way, the reference level on the top line. */
 function SpectrumCanvas({
   values,
@@ -241,9 +237,7 @@ function SpectrumCanvas({
       const clamp = (y: number) => Math.max(1, Math.min(h - 1, y));
       const n = values.length;
       if (n > 1) {
-        const m = channelColor(1);
-        const match = m.match(/^var\((--[\w-]+)\)$/);
-        ctx.strokeStyle = match ? cssVar(canvas, match[1], "#fc0") : m;
+        ctx.strokeStyle = resolveColor(canvas, channelColor(1));
         ctx.lineWidth = 1.25;
         ctx.beginPath();
         if (n <= w * 2) {
@@ -253,16 +247,10 @@ function SpectrumCanvas({
             else ctx.moveTo(x, clamp(yOf(values[i])));
           }
         } else {
-          const per = n / w;
+          const { lo, hi } = decimate(values, w);
           for (let px = 0; px < w; px++) {
-            let lo = Infinity;
-            let hi = -Infinity;
-            for (let i = Math.floor(px * per); i < Math.min(n, Math.floor((px + 1) * per)); i++) {
-              lo = Math.min(lo, values[i]);
-              hi = Math.max(hi, values[i]);
-            }
-            ctx.moveTo(px, clamp(yOf(hi)));
-            ctx.lineTo(px, clamp(yOf(lo)) + 0.5);
+            ctx.moveTo(px, clamp(yOf(hi[px])));
+            ctx.lineTo(px, clamp(yOf(lo[px])) + 0.5);
           }
         }
         ctx.stroke();

@@ -451,7 +451,8 @@ class SessionInfo(_Model):
     bench_name: str
     bench_path: str | None = None
     description: str | None = None
-    clock_mode: Literal["command", "wall", "stepped"]
+    clock_mode: Literal["command", "wall", "stepped", "scaled"]
+    time_scale: float = Field(1.0, description="Virtual seconds per real second (scaled clock)")
     now_ns: int
     seed: int
     reveal_true_values: bool
@@ -511,7 +512,10 @@ class FaultInfo(_Model):
 
 class StartSessionRequest(_Model):
     bench_path: str
-    clock: Literal["command", "wall", "stepped"] | None = None
+    clock: Literal["command", "wall", "stepped", "scaled"] | None = None
+    time_scale: float | None = Field(
+        None, gt=0, le=1_000_000, description="For the scaled clock: virtual seconds per real second"
+    )
     seed: int | None = None
     force: bool = Field(
         False, description="Start even though scripts are connected to the running bench (they are dropped)"
@@ -521,7 +525,7 @@ class StartSessionRequest(_Model):
 class ResetSessionRequest(_Model):
     """Power-cycle the bench: a fresh session (new record) with the same id and startup settings."""
 
-    clock: Literal["command", "wall", "stepped"] | None = None
+    clock: Literal["command", "wall", "stepped", "scaled"] | None = None
     seed: int | None = None
     force: bool = Field(False, description="Reset even though scripts are connected (they are dropped)")
 
@@ -568,8 +572,13 @@ class AdvanceRequest(_Model):
 
 
 class ClockInfo(_Model):
-    mode: Literal["command", "wall", "stepped"]
+    mode: Literal["command", "wall", "stepped", "scaled"]
     now_ns: int
+    scale: float = Field(1.0, description="Virtual seconds per real second: 1 except on a scaled clock")
+
+
+class TimeScaleRequest(_Model):
+    scale: float = Field(..., gt=0, le=1_000_000, description="Virtual seconds per real second")
 
 
 class Trace(_Model):

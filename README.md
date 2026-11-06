@@ -72,7 +72,7 @@ simubench tui examples/benches/siglent_scope_rc.bench.yaml                 # 启
 simubench tui --attach http://127.0.0.1:8000 --session <会话 id>           # 连到已运行的 serve / mcp
 ```
 
-总览卡片、通信记录、仪表与示波器屏幕、网络电平与探针、故障注入、时钟推进都在终端里；`R` 打开运行记录并回放（报告第一处不同），`?` 给出仪表当前状态的原因链。按键表与每个屏幕的说明见 [docs/tui-screens.md](docs/tui-screens.md)。
+总览卡片、通信记录、仪表与示波器屏幕、网络电平与探针、故障注入、时钟推进都在终端里；`R` 打开运行记录并回放（报告第一处不同），`w` 给出仪表当前状态的原因链，`?` 列出当前屏幕的全部按键。按键表与每个屏幕的说明见 [docs/tui-screens.md](docs/tui-screens.md)。
 
 ![找到跳闸：终端控制台](docs/tui/find-the-trip.svg)
 

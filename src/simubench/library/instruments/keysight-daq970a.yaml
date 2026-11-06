@@ -22,6 +22,29 @@ identity:
   firmware: "A.02.04-00.16-11.29-00.02-02-01"
 errors:
   -230: "Data corrupt or stale"
+  # 34970A 的器件错误码(D59 备选三):DAQ970A 不继承
+  111: null
+  112: null
+  113: null
+  201: null
+  202: null
+  203: null
+  204: null
+  221: null
+  222: null
+  223: null
+  224: null
+  225: null
+  226: null
+  251: null
+  261: null
+  271: null
+  272: null
+  281: null
+  291: null
+  292: null
+  301: null
+  303: null
 specs:
   source: Programming Guide 第 1 章 Factory Reset State、第 2 章 CONFigure/SENSe/TRIGger/DATA、第 4 章 DAQM901A
   slots: 3（固定配置：槽 1 装 DAQM901A，槽 2/3 空）

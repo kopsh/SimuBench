@@ -21,10 +21,10 @@ from .. import i18n
 from ..cards import opposite_ends
 from ..fmt import fmt, pad
 from ..reasons import ReasonReport, silence_report
-from ..widgets import box_text, box_title, log_text, style_of
-from .dialogs import NumberEditScreen, ReasonScreen, ScpiConsole, SelectScreen
-from .instrument import ControlButton, _Box
-from .shell import ShellScreen
+from ..widgets import box_text, style_of
+from .dialogs import ScpiConsole
+from .editing import ControlButton, ControlEditingScreen
+from .instrument import _Box
 
 SETTINGS_WIDTH = 26  # the right settings column's total width (tui-screens.md 6.1)
 
@@ -142,7 +142,7 @@ def silence_lines(app: Any, screen: dict[str, Any] | None, state: dict[str, dict
     return text
 
 
-class ScopeScreen(ShellScreen):
+class ScopeScreen(ControlEditingScreen):
     """示波器 (tui-screens.md 6): wave area, settings column, per-instrument log, console."""
 
     screen_key = "scope"
@@ -167,7 +167,9 @@ class ScopeScreen(ShellScreen):
         Binding("plus", "step(1)", show=False),
         Binding("minus", "step(-1)", show=False),
         Binding("colon", "console", show=False),
-        Binding("question_mark", "reason", show=False),
+        Binding("left_square_bracket", "switch_instrument(-1)", show=False),
+        Binding("right_square_bracket", "switch_instrument(1)", show=False),
+        Binding("w", "reason", show=False),  # "why"; ? is the key help everywhere
     ]
 
     def __init__(self, name: str) -> None:
@@ -191,23 +193,10 @@ class ScopeScreen(ShellScreen):
     # ---- data ----------------------------------------------------------------------------------------
 
     @property
-    def info(self) -> dict[str, Any]:
-        app: Any = self.app
-        for i in (app.session_info or {}).get("instruments", []):
-            if i.get("name") == self.instrument_name:
-                return i
-        return {}
-
-    @property
     def frame(self) -> dict[str, Any] | None:
         """The instrument's latest /screen payload (never Textual's ``screen``)."""
         app: Any = self.app
         return app.screen_data.get(self.instrument_name)
-
-    @property
-    def remote_controlled(self) -> bool:
-        info = self.info
-        return bool(info.get("remote")) and not info.get("local")
 
     def screen_title(self) -> str:
         return self.instrument_name
@@ -254,19 +243,27 @@ class ScopeScreen(ShellScreen):
         if app.sid is None or app.conn != "connected":
             return
         data = self.frame
-        if data is None or not data.get("running"):
+        if data is None:
             return
         cols, _rows = self._wave_size()
-        await app.refresh_scope_frame(self.instrument_name, max(2, cols * 2))
+        points = max(2, cols * 2)
+        # A running scope follows at 200 ms; a stopped one is fetched once at this screen's dot
+        # width — the frame the app holds from its own fetch is raw and the trace would not draw.
+        if not data.get("running") and app.scope_points.get(self.instrument_name) == points:
+            return
+        await app.refresh_scope_frame(self.instrument_name, points)
 
     # ---- rendering ------------------------------------------------------------------------------------
 
     def _wave_size(self) -> tuple[int, int]:
-        """The trace area in characters: width − 27 with the settings column, height fitting (6.1)."""
+        """The trace area in characters: the wave box's inner width, height fitting (6.1)."""
         app: Any = self.app
         width = app.size.width or 100
         height = app.size.height or 32
-        cols = max(20, width - 30)
+        # The box's inner width — a row wider than that wraps and doubles every trace row. Before
+        # the first layout: the screen less the settings column (26), its margin (1) and the wave
+        # box's border and padding (4).
+        cols = max(20, self._wave_static.size.width or width - 31)
         rows = max(6, height - 16)
         return cols, rows
 
@@ -473,28 +470,6 @@ class ScopeScreen(ShellScreen):
         self._settings_static.update(box_text(app, rows, width))
         self._settings_box.border_title = i18n.t("scope.settings", lang)
 
-    def _refresh_log(self) -> None:
-        app: Any = self.app
-        lang = app.lang
-        from ..log import visible
-
-        lines = visible(app.lines, embedded=True, instrument=self.instrument_name)
-        shown = lines[-200:]
-        inner = max(20, app.size.width - 4)
-        rows = max(3, min(6, app.size.height - 22))
-        self._log_box.border_title = box_title(
-            i18n.t("log.titleFor", lang, instrument=self.instrument_name),
-            i18n.t("log.count", lang, count=len(lines)),
-            inner,
-        )
-        self._log_box.styles.height = rows + 2
-        self._log_static.update(log_text(app, shown, lang, width=inner))
-        self._log_box.scroll_end(animate=False, force=True)
-
-    def _refresh_buttons(self) -> None:
-        for button in self.query(ControlButton):
-            button.render_button(self.info, self.remote_controlled)
-
     # ---- keys ---------------------------------------------------------------------------------------------
 
     def keys(self) -> list[tuple[str, str]]:
@@ -504,16 +479,12 @@ class ScopeScreen(ShellScreen):
             ("r", i18n.t("keys.runStop", lang)),
             ("s", i18n.t("keys.single", lang)),
             ("c", i18n.t("keys.channels", lang)),
-            ("⏎/e", i18n.t("keys.edit", lang)),
-            ("+", "- " + i18n.t("keys.step", lang)),
-            (":", i18n.t("keys.scpi", lang)),
-            ("?", i18n.t("keys.reason", lang)),
+            ("⏎", i18n.t("keys.edit", lang)),
+            ("[ ]", i18n.t("keys.nextInstrument", lang)),
+            ("w", i18n.t("keys.reason", lang)),
+            ("?", i18n.t("keys.help", lang)),
             ("q", i18n.t("common.quit", lang)),
         ]
-
-    def _focused_button(self) -> ControlButton | None:
-        focused = self.focused
-        return focused if isinstance(focused, ControlButton) else None
 
     def action_next_channel(self) -> None:
         """``c``: the focus channel cycles; the settings view jumps to it (tui-screens.md 6.4)."""
@@ -539,127 +510,8 @@ class ScopeScreen(ShellScreen):
 
     # -- writes ----------------------------------------------------------------------------------------------
 
-    def _flash(self, button: ControlButton | None, text: str) -> None:
-        target = self._settings_flash
-        target.update(text)
-        target.display = True
-
-        def clear() -> None:
-            target.display = False
-            target.update("")
-
-        self.set_timer(2.0, clear)
-
-    def _error_text(self, err: dict[str, Any] | None, message: str | None = None) -> str:
-        lang = self.app.lang
-        if err:
-            return i18n.t(
-                "instrument.writeFailed", lang, code=err.get("code", ""), message=err.get("message", "")
-            )
-        return message or ""
-
-    def _readonly_guard(self) -> bool:
-        if self.remote_controlled:
-            app: Any = self.app
-            from ..log import source_label
-
-            client = (self.info.get("remote") or [""])[0]
-            source = source_label({"client": client, "kind": "scpi"}, app.lang)
-            self._flash(
-                None,
-                i18n.t("instrument.readonlyHint", app.lang, instrument=self.instrument_name, source=source),
-            )
-            return True
-        return False
-
-    async def _configure(self, path: str, value: Any, button: ControlButton | None) -> bool:
-        app: Any = self.app
-        try:
-            r = await app.client.configure(app.sid, self.instrument_name, path, value)
-        except Exception as exc:
-            self._flash(button, self._error_text(None, str(exc)))
-            return False
-        if not r.get("ok"):
-            self._flash(button, self._error_text(r.get("error")))
-            return False
-        return True
-
-    async def _run_writes(self, writes: list[tuple[str, Any]], button: ControlButton | None) -> None:
-        for path, value in writes:
-            if not await self._configure(path, value, button):
-                return
-
-    def action_edit(self) -> None:
-        button = self._focused_button()
-        if button is None or self._readonly_guard():
-            return
-        control = button.control
-        if control.kind == "switch":
-            self.action_toggle()
-            return
-        if control.kind == "select":
-            self._open_select(control)
-            return
-        if control.kind == "buttons":
-            self.run_worker(self._run_writes(C.apply_sets(control), button), exclusive=True)
-            return
-        self._open_number(control, button)
-
-    def _open_select(self, control: C.Control) -> None:
-        app: Any = self.app
-        spec = control.spec or {}
-        options = C.options_of(spec)
-        if not options:
-            return
-        app.push_screen(
-            SelectScreen(control.label, options, C.control_state(self.info, control)),
-            lambda value: self._picked(control, value),
-        )
-
-    def _picked(self, control: C.Control, value: str | None) -> None:
-        if value is None:
-            return
-        self.run_worker(
-            self._run_writes(C.apply_sets(control, value), self._focused_button()), exclusive=True
-        )
-
-    def _open_number(self, control: C.Control, button: ControlButton) -> None:
-        app: Any = self.app
-        spec = dict(control.spec or {})
-        path = control.path or ""
-        history = app.scpi_history.setdefault(f"edit:{self.instrument_name}:{path}", [])
-        current = C.control_state(self.info, control)
-
-        async def submit(value: float) -> tuple[bool, str | None]:
-            ok = await self._configure(path, value, button)
-            return ok, None
-
-        app.push_screen(NumberEditScreen(control.label, path, current, spec, history, submit))
-
-    def action_toggle(self) -> None:
-        button = self._focused_button()
-        if button is None or self._readonly_guard():
-            return
-        control = button.control
-        if control.kind != "switch" or control.path is None:
-            return
-        value = bool(C.control_state(self.info, control))
-        self.run_worker(self._run_writes([(control.path, not value)], button), exclusive=True)
-
-    def action_step(self, direction: int) -> None:
-        app: Any = self.app
-        button = self._focused_button()
-        if button is None or self._readonly_guard():
-            return
-        control = button.control
-        if control.kind != "number":
-            self._flash(button, i18n.t("instrument.stepHint", app.lang))
-            return
-        value = C.nudge(control, self.info, direction)
-        if value is None:
-            self._flash(button, i18n.t("instrument.stepHint", app.lang))
-            return
-        self.run_worker(self._run_writes([(control.path, value)], button), exclusive=True)
+    def _flash_target(self, button: ControlButton | None) -> Static | None:
+        return self._settings_flash
 
     async def _panel(self, action: str) -> None:
         app: Any = self.app
@@ -680,30 +532,6 @@ class ScopeScreen(ShellScreen):
         if self._readonly_guard():
             return
         app.run_worker(self._panel("single"), exclusive=True)
-
-    def action_console(self) -> None:
-        self._scpi.open()
-
-    async def _console_submit(self, command: str) -> tuple[str | None, str | None]:
-        app: Any = self.app
-        lang = app.lang
-        try:
-            r = await app.client.scpi(app.sid, self.instrument_name, command)
-        except Exception as exc:
-            return None, str(exc)
-        errors = r.get("errors") or []
-        if errors:
-            first = errors[0]
-            return None, i18n.t(
-                "instrument.writeFailed", lang, code=first.get("code", ""), message=first.get("message", "")
-            )
-        return r.get("response"), None
-
-    def action_reason(self) -> None:
-        app: Any = self.app
-        report = self._reason_report()
-        if report is not None:
-            app.push_screen(ReasonScreen(report))
 
     def _reason_report(self) -> ReasonReport | None:
         """``?`` on the scope screen: the focused channel's silence, else the focused setting."""

@@ -3,6 +3,7 @@ import "@xyflow/react/dist/base.css";
 import { Info } from "lucide-react";
 import { memo, useDeferredValue, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { T } from "@/i18n";
 import type { InstrumentInfo, InstrumentInternals, InternalComponent, SessionInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
 import { useInternals } from "@/api/hooks";
@@ -170,7 +171,7 @@ function Graph({
   );
 }
 
-function typeLabel(t: (k: string, o?: Record<string, unknown>) => string, type: string): string {
+function typeLabel(t: T, type: string): string {
   return t(`internals.types.${type}`, { defaultValue: type });
 }
 

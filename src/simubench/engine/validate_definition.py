@@ -21,6 +21,7 @@ from ..library.panels import DEDICATED, template_of
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
 from ..scpi import values as V
 from ..scpi.parse import Pattern, Token
+from .commands import told_apart
 from .component import Component, binding_of, component_types
 from .portref import ladder, split
 from .validate import Report, _ptr, unknown_name
@@ -46,6 +47,8 @@ def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Re
     """Validate raw definition data (parsed YAML/JSON); return the model when the schema accepts it."""
     report = Report()
     try:
+        # An explicit upgrade (issue 641): a broken schema must map to E-FORMAT here, before any
+        # model exists; the macros below expand the upgraded dict.
         data, _ = upgrade(data, "instrument")
     except FormatError as exc:
         report.add("error", "E-FORMAT", "/schema", str(exc), None)
@@ -178,6 +181,8 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                         None,
                         spec.name,
                     )
+
+    _check_offset_convention(d, known, report)
 
     # ---- individual deviations: a parameter of a declared component ----
     specs_by_name = {c.name: c for c in (*d.components, *d.channel_components)}
@@ -357,6 +362,40 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_dialect(d, report)
     _check_panel(d, report)
     return report
+
+
+def _check_offset_convention(
+    d: InstrumentDefinition, known: dict[str, type[Component]], report: Report
+) -> None:
+    """A quantizing ADC and the transfer reading its acquisition declare the offset convention each
+    (``scope_adc.offset_sign`` and ``waveform_transfer.offset``, issue 667): the codes the transfer
+    sends and the volts the ADC kept agree only when both say the same, so a mismatch is an error.
+    Both defaults are read when a definition leaves one unset (the classes' defaults differ)."""
+    by_name = {c.name: c for c in d.components}
+
+    def value(spec: Any, key: str) -> str:
+        cls = known[spec.type]
+        return str(spec.params.get(key, cls.defaults.get(key))).lower()
+
+    for i, xfer in enumerate(d.components):
+        if xfer.type != "waveform_transfer" or isinstance(xfer.params.get("offset"), dict):
+            continue  # not a transfer, or its offset is mapped from a setting
+        if xfer.params.get("values") == "volts":
+            continue  # volts only: the transfer never converts to codes
+        acq = by_name.get(str(xfer.params.get("record", known[xfer.type].defaults.get("record"))))
+        adc_spec = by_name.get(str(acq.params.get("adc", ""))) if acq is not None else None
+        if adc_spec is None or adc_spec.type != "scope_adc" or not adc_spec.params.get("bits"):
+            continue  # no ADC named, or it does not quantize
+        want, got = value(adc_spec, "offset_sign"), value(xfer, "offset")
+        if want != got:
+            report.add(
+                "error",
+                "E-DEF-OFFSET-CONVENTION",
+                _ptr("components", i, "params", "offset"),
+                f"{xfer.name}.offset 是 {got!r}，而量化它的 {adc_spec.name}.offset_sign 是 {want!r}：码值与伏特的偏移约定不一致",
+                f"改为 {want!r}",
+                xfer.name,
+            )
 
 
 def _check_quantities(
@@ -861,18 +900,6 @@ def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
     return out
 
 
-def _told_apart(a: CommandSpec, b: CommandSpec) -> bool:
-    """Whether the later command ``b`` on a header the earlier ``a`` also matches still runs: ``a``
-    has a ``when`` and ``b`` has none (``b`` is the fallback for the other values and for a
-    parameter left out, #602: ``:SYSTem:ERRor? [STRing]``), or both have one and some parameter
-    value differs."""
-    if not a.when:
-        return False
-    if not b.when:
-        return True
-    return any(k in b.when and str(v).upper() != str(b.when[k]).upper() for k, v in a.when.items())
-
-
 def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], report: Report) -> None:
     """The first command whose header matches wins: a later one that an earlier one also matches
     never runs for those forms."""
@@ -889,7 +916,7 @@ def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], rep
                     if pi is not None
                     and pi.common == pj.common
                     and pi.match(tokens) is not None
-                    and not _told_apart(d.commands[i], d.commands[j])
+                    and not told_apart(d.commands[i], d.commands[j])
                 ),
                 None,
             )

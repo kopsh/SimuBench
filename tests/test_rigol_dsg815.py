@@ -6,14 +6,12 @@ check the parts a SCPI transcript cannot see: the level into a matched load, the
 sweep advancing point by point on the trigger, and a hidden timebase error moving the carrier.
 """
 
-import importlib.util
-import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
-import pyvisa
 
+from helpers import load_script, run_manual_script
 from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
@@ -23,16 +21,7 @@ EXAMPLE_BENCH = ROOT / "examples" / "benches" / "rigol_dsg815.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "rigol_dsg815_generate.py"
 Z0 = 50.0
 
-
-def _script():
-    spec = importlib.util.spec_from_file_location("rigol_dsg815_generate", SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-
-script = _script()
+script = load_script(SCRIPT)
 
 
 def _bench(state: dict | None = None, hidden: dict | None = None) -> BenchDefinition:
@@ -77,19 +66,7 @@ def peaks(dbm: float) -> float:
 
 
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
-    bench = tmp_path / "bench.yaml"
-    bench.write_text(EXAMPLE_BENCH.read_text("utf-8"), "utf-8")
-    rm = pyvisa.ResourceManager(f"{bench}@simubench")
-    try:
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            ["rigol_dsg815_generate.py", "sg", "--scope", "scope", "--bench", str(bench)],
-        )
-        script.main()
-    finally:
-        rm.close()
-    out = capsys.readouterr().out.splitlines()
+    out = run_manual_script(script, ["sg", "--scope", "scope"], EXAMPLE_BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Rigol Technologies,DSG815,DSG8A170200001,00.01.07."
     assert out[1].startswith("AGILENT TECHNOLOGIES,DSO-X 2024A,")
     assert out[2].startswith("carrier: 10.000000 MHz, 1.2")
@@ -100,24 +77,26 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[7].startswith("+0,")
 
 
-def test_the_level_is_defined_into_a_matched_load(session):
+def test_the_level_and_output_flow(session):
+    """The level is defined into a matched load, and the output switch removes the signal."""
     s = session(state={"power.level": 0.0, "output.enabled": True, "freq.cw": 10e6})
+    # -- the level is defined into a matched load (was test_the_level_is_defined_into_a_matched_load)
     sg = s.instruments["sg"]
     freq, amp = carrier(sg)
     assert freq[0] == pytest.approx(10e6, rel=1e-12)
     # The level control makes the open-circuit EMF of a source that would deliver 0 dBm into 50 Ω;
     # a matched load would see half of it (0.316 V peak, 0.633 Vpp).
     assert amp[0] == pytest.approx(peaks(0.0), rel=1e-9)
-
-
-def test_the_output_switch_removes_the_signal(session):
-    s = session(state={"power.level": 0.0, "output.enabled": False, "freq.cw": 10e6})
+    # -- the output switch removes the signal (was test_the_output_switch_removes_the_signal)
+    s.write("sg", b":OUTP OFF\n")  # bridge: the act's construction state, reached at runtime
     sg = s.instruments["sg"]
     _freq, amp = carrier(sg)
     assert amp.size == 0 or np.allclose(amp, 0.0)
 
 
-def test_am_puts_sidebands_at_the_modulation_rate(session):
+def test_the_modulation_flow(session):
+    """AM puts sidebands at the modulation rate, FM keeps the envelope and spreads the lines, and
+    the modulation master switch gates every modulation while the settings stay."""
     s = session(
         state={
             "power.level": 0.0,
@@ -129,6 +108,7 @@ def test_am_puts_sidebands_at_the_modulation_rate(session):
             "am.rate": 10e3,
         }
     )
+    # -- AM puts sidebands at the modulation rate (was test_am_puts_sidebands_at_the_modulation_rate)
     sg = s.instruments["sg"]
     freq, amp = carrier(sg)
     order = np.argsort(freq)
@@ -137,20 +117,11 @@ def test_am_puts_sidebands_at_the_modulation_rate(session):
     # AM 50 %: the sidebands are m/2 = 25 % of the carrier (the guide's 20 lg(m/2) relation).
     assert amp[0] / amp[1] == pytest.approx(0.25, rel=1e-9)
     assert amp[2] / amp[1] == pytest.approx(0.25, rel=1e-9)
-
-
-def test_fm_keeps_the_envelope_and_spreads_the_lines(session):
-    s = session(
-        state={
-            "power.level": 0.0,
-            "output.enabled": True,
-            "freq.cw": 10e6,
-            "mod.state": True,
-            "fm.state": True,
-            "fm.dev": 20e3,
-            "fm.rate": 10e3,
-        }
-    )
+    # -- FM keeps the envelope and spreads the lines (was
+    # test_fm_keeps_the_envelope_and_spreads_the_lines)
+    s.write(
+        "sg", b":AM:STAT OFF;:FM:DEV 20E3;:FM:FREQ 10E3;:FM:STAT ON\n"
+    )  # bridge: the act's construction state
     sg = s.instruments["sg"]
     freq, amp = carrier(sg)
     # beta = 2: Carson keeps |n| <= 3, seven lines around the carrier; the truncation drops the
@@ -160,6 +131,27 @@ def test_fm_keeps_the_envelope_and_spreads_the_lines(session):
     assert freq.size == 7
     kept = peaks(0.0) * np.sqrt(1 - omitted_power_fraction(2.0))
     assert np.sqrt(np.sum(amp**2)) == pytest.approx(kept, rel=1e-9)
+    # -- the modulation master switch gates every modulation (was
+    # test_the_modulation_master_switch_gates_every_modulation) #290: Mod/on (:MODulation:STATe,
+    # factory Off) — with it off the carrier is bare and the AM settings stay; on, the sidebands
+    # appear.
+    s.write("sg", b":FM:STAT OFF;:MOD:STAT OFF\n")  # bridge: the act's scenario, every mod gated off
+    sg = s.instruments["sg"]
+
+    def q(cmd: str) -> str:
+        s.write("sg", cmd.encode() + b"\n")
+        out = s.read("sg")
+        return out.decode().strip() if out else ""
+
+    q(":AM:DEPT 50;:AM:FREQ 10kHz;:AM:STAT ON")
+    assert q(":MOD:STAT?") == "0"
+    assert carrier(sg)[0].size == 1  # the carrier alone
+    q(":MOD:STAT ON")
+    assert q(":MOD:STAT?") == "1"
+    assert sorted(carrier(sg)[0]) == pytest.approx([9.99e6, 10e6, 10.01e6])
+    q(":MOD:STAT OFF")
+    assert carrier(sg)[0].size == 1 and q(":AM:STAT?") == "1"  # the AM switch keeps its setting
+    assert q(":SYST:ERR?") == '0,"No error"'
 
 
 def test_the_sweep_advances_on_the_trigger(session):
@@ -202,28 +194,6 @@ def test_a_hidden_timebase_error_moves_the_carrier(session):
     # No command reads the 2 ppm error back: only the RF output carries it.
     assert freq[0] == pytest.approx(10e6 * (1 + 2e-6), rel=1e-12)
     assert float(sg.state["freq.cw"]) == 10e6
-
-
-def test_the_modulation_master_switch_gates_every_modulation(session):
-    """#290: Mod/on (:MODulation:STATe, factory Off) — with it off the carrier is bare and the AM
-    settings stay; on, the sidebands appear."""
-    s = session(state={"power.level": 0.0, "output.enabled": True, "freq.cw": 10e6})
-    sg = s.instruments["sg"]
-
-    def q(cmd: str) -> str:
-        s.write("sg", cmd.encode() + b"\n")
-        out = s.read("sg")
-        return out.decode().strip() if out else ""
-
-    q(":AM:DEPT 50;:AM:FREQ 10kHz;:AM:STAT ON")
-    assert q(":MOD:STAT?") == "0"
-    assert carrier(sg)[0].size == 1  # the carrier alone
-    q(":MOD:STAT ON")
-    assert q(":MOD:STAT?") == "1"
-    assert sorted(carrier(sg)[0]) == pytest.approx([9.99e6, 10e6, 10.01e6])
-    q(":MOD:STAT OFF")
-    assert carrier(sg)[0].size == 1 and q(":AM:STAT?") == "1"  # the AM switch keeps its setting
-    assert q(":SYST:ERR?") == '0,"No error"'
 
 
 def _level_dbm(sg) -> float:

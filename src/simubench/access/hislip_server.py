@@ -231,6 +231,18 @@ class HislipSession:
         await self._drain(self.sync_writer)
 
 
+def _peek_header(reader: asyncio.StreamReader, size: int) -> bytes | None:
+    """The bytes already buffered in ``reader``, without consuming them — enough of a message
+    header to decide whether the synchronized mode was interrupted (3.1.1-1). ``StreamReader``
+    has no public peek, so this reads its buffer directly (CPython's implementation, stable for
+    years but not an API) and answers None if that internal ever moves: the interrupt decision
+    may then miss a turn, but never loses data."""
+    buffer = getattr(reader, "_buffer", None)
+    if isinstance(buffer, (bytes, bytearray, memoryview)):
+        return bytes(buffer[:size])
+    return None
+
+
 class HislipServer:
     """Every instrument of a bench on one shared HiSLIP port, selected by sub-address."""
 
@@ -254,6 +266,10 @@ class HislipServer:
         self._subaddresses: dict[str, str] = {}  # sub-address (lower case) -> instrument
         self._sessions: dict[int, HislipSession] = {}
         self._next_session_id = 1
+
+    def sessions(self) -> list[HislipSession]:
+        """The open HiSLIP connections, for the client lists the manager reports (issue 641)."""
+        return list(self._sessions.values())
 
     async def start(self) -> None:
         for i, name in enumerate(self.session.instruments):
@@ -486,12 +502,16 @@ class HislipServer:
         Data, DataEnd or Trigger message that arrived next.
         """
         reader = sess.sync_reader
-        if reader is None or len(reader._buffer) < HEADER.size:
+        if reader is None:
+            return False
+        peeked = _peek_header(reader, HEADER.size)
+        if peeked is None or len(peeked) < HEADER.size:
             return False
         await asyncio.sleep(0)  # one loop turn, so data still in flight can land first
-        if len(reader._buffer) < HEADER.size:
+        peeked = _peek_header(reader, HEADER.size)
+        if peeked is None or len(peeked) < HEADER.size:
             return False
-        _, msg_type, _, parameter, _ = HEADER.unpack(bytes(reader._buffer[: HEADER.size]))
+        _, msg_type, _, parameter, _ = HEADER.unpack(peeked)
         if msg_type not in (DATA, DATA_END, TRIGGER):
             return False
         log.debug("HiSLIP %s: response interrupted by message %#x", sess.instrument, parameter)

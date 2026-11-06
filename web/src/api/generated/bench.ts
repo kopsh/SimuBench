@@ -29,7 +29,7 @@ export type Description = string | null;
  */
 export type AtS = number | null;
 /**
- * For error / trip: SCPI error code (default -300)
+ * For error / trip: SCPI error code (default -300); for error it must be in the instrument's error table or the SCPI standard list unless a message is given
  */
 export type Code = number | null;
 /**
@@ -37,7 +37,7 @@ export type Code = number | null;
  */
 export type Component = string | null;
 /**
- * Link faults: number of messages affected
+ * Link faults: number of messages affected; error: how many times it is queued
  */
 export type Count = number | null;
 /**
@@ -137,7 +137,7 @@ export type Label2 = string | null;
  * Component type, e.g. 'rc_lowpass'
  */
 export type Type = string;
-export type Clock = "command" | "wall" | "stepped";
+export type Clock = "command" | "wall" | "stepped" | "scaled";
 /**
  * Command clock: how idle real time between commands counts as virtual time (D47). 'wall' counts it (interactive use, the historical behaviour); 'sleep' ignores it and turns time.sleep(t) into exactly t of virtual time without waiting (in-process benches only; the pytest default); 'off' ignores idle time completely. Only read on the command clock; wall and stepped clocks are unaffected
  */
@@ -151,6 +151,10 @@ export type Seed = number;
  * Calendar time at virtual t = 0 (instrument clocks, calibration due dates); fixed for repeatability
  */
 export type Start = string;
+/**
+ * Scaled clock: virtual seconds per real second (10 = ten times faster than the wall clock); changeable while running. Only read on the scaled clock
+ */
+export type TimeScale = number;
 export type Schema = "simubench.bench/2";
 /**
  * Two-port component placed on the wire, e.g. 'passive_probe'
@@ -309,6 +313,7 @@ export interface RunConditions {
   reveal_true_values?: RevealTrueValues;
   seed?: Seed;
   start?: Start;
+  time_scale?: TimeScale;
 }
 export interface Wire {
   accessories?: Accessories;

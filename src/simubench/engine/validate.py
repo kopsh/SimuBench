@@ -402,11 +402,16 @@ def validate_bench(
             report.add("error", "E-FAULT-TARGET", _ptr(*fp), f"{f.kind} 故障需要 instrument")
 
     # ---- remote sense of sources (metrology-authoring.md 6) ----
-    _check_sense(bench, defs, report)
+    # One union-find pass for the plain nets, shared by the sense check and the net checks
+    # (issue 641); the through-variant merges across series parts, so it is its own pass — and
+    # it only runs when the bench is otherwise clean, like _check_nets itself.
+    nets = _nets(bench)
+    _check_sense(bench, defs, report, net_of={ref: i for i, members in enumerate(nets) for ref in members})
 
     # ---- nets: one driver per net, impedance hints ----
     if report.ok:
-        _check_nets(bench, defs, report)
+        series = frozenset(t for t, cls in component_types().items() if cls.role == "series")
+        _check_nets(bench, defs, report, nets, _nets(bench, through=series))
     return report
 
 
@@ -430,6 +435,8 @@ def _check_sense(
     bench: BenchDefinition,
     defs: dict[str, InstrumentDefinition],
     report: Report,
+    *,
+    net_of: dict[str, int],
 ) -> None:
     """A source with remote sense on warns while a sense terminal is unconnected (the loop falls
     back to the force terminals and readings error); both sense terminals on one net is a mistake
@@ -438,7 +445,6 @@ def _check_sense(
     def truthy(value: Any) -> bool:
         return value if isinstance(value, bool) else str(value).strip().upper() in ("1", "ON", "TRUE", "YES")
 
-    net_of = {ref: i for i, members in enumerate(_nets(bench)) for ref in members}
     types = component_types()
     for name, inst in bench.instruments.items():
         d = defs.get(name)
@@ -483,6 +489,8 @@ def _check_nets(
     bench: BenchDefinition,
     defs: dict[str, InstrumentDefinition],
     report: Report,
+    nets: list[list[str]],
+    nets_through: list[list[str]],
 ) -> None:
     types = component_types()
 
@@ -510,7 +518,7 @@ def _check_nets(
         part = bench.parts.get(owner)
         return part is not None and drives(types.get(part.type), port)
 
-    for members in _nets(bench):
+    for members in nets:
         srcs = sorted(m for m in members if is_driver(m))
         if len(srcs) > 1:
             idx = next(
@@ -525,9 +533,7 @@ def _check_nets(
                 "断开其中一个输出，或在两者之间加入器件",
                 f"wire:{idx}",
             )
-    # A cable is a few milliohms in series: a termination behind it still terminates the source.
-    series = frozenset(t for t, cls in types.items() if cls.role == "series")
-    for members in _nets(bench, through=series):
+    for members in nets_through:
         _impedance_hints(bench, defs, members, report)
 
 

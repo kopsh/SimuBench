@@ -1,5 +1,10 @@
-"""The TUI's tests (issue 175): server-side client header, log pairing, and the app driven by
+"""The TUI's tests that boot (issue 175): the server-side client header, and the app driven by
 Textual's Pilot against a REAL uvicorn server in a background thread (tui-screens.md 14).
+
+The pure-logic tier moved to ``test_tui_units.py`` and the real-stack scenarios to
+``test_tui_e2e.py`` (#699); what stays here needs the server bed or the running app. The
+interface-level helpers this file owns (``Served``, ``wait_connected``, ``wait_quiet``) are
+imported by the e2e file; the screen-reading helpers live in ``tui_mock``.
 
 Windows-safe: sockets and threads only, no signals or fork.
 """
@@ -13,6 +18,7 @@ import threading
 import time
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
+from typing import ClassVar
 
 import httpx
 import pytest
@@ -21,10 +27,7 @@ from fastapi.testclient import TestClient
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
-from simubench.tui.client import ws_url
-from simubench.tui.fmt import braille, fmt, fmt_ns
-from simubench.tui.log import build_lines, pending_writes, source_label
-from simubench.tui.store import EventStore
+from tui_mock import flat, loop_time
 
 pytestmark = (
     pytest.mark.tui_boot
@@ -98,193 +101,6 @@ def test_configure_panel_and_faults_carry_the_client(served_api):
         headers={"X-SimuBench-Client": "tui"},
     )
     assert r.status_code == 200 and r.json()["source"] == "tui"
-
-
-# ---- the log pairing (tui-screens.md 7.1) -----------------------------------------------------------
-
-
-def ev(seq: int, kind: str, **kw):
-    return {"seq": seq, "t_ns": kw.pop("t_ns", 0), "kind": kind, **kw}
-
-
-def test_write_without_reply_shows_dot():
-    lines = build_lines(
-        [ev(1, "scpi", dir="write", instrument="awg", text="C1:OUTP ON", client="ui", t_ns=16_000_000)]
-    )
-    assert len(lines) == 1
-    assert lines[0].result_text() == "·"
-
-
-def test_write_read_merge_across_other_events():
-    """The reply merges with its write even when other events came in between (same client+instrument)."""
-    events = [
-        ev(1, "scpi", dir="write", instrument="smu", text=":MEAS:CURR?", client="pyvisa", t_ns=25_000_000),
-        ev(2, "state", instrument="smu", path="x", old=1, new=2, source="pyvisa", t_ns=25_000_000),
-        ev(3, "scpi", dir="read", instrument="smu", text="+1.0E-2", client="pyvisa", t_ns=25_000_000),
-    ]
-    lines = build_lines(events)
-    assert [line.kind for line in lines] == ["scpi", "state"]
-    assert lines[0].result_text() == "→ +1.0E-2"  # the reply crossed the state event and still merged
-
-
-def test_error_merges_whether_it_precedes_or_follows_the_write():
-    """The engine emits the error during the command, before the write event; the spec words it
-    as following the write. Both orders merge by instrument and tick."""
-    base = 20_000_000
-    events = [
-        ev(
-            1,
-            "scpi",
-            dir="write",
-            instrument="smu",
-            text=":SOUR:VOLT 999",
-            client="pyvisa",
-            t_ns=base,
-            t_start_ns=base,
-        ),
-        ev(2, "error", instrument="smu", code=-222, message="Data out of range", t_ns=base),
-    ]
-    assert build_lines(events)[0].result_text() == "✗ -222 Data out of range"
-    assert build_lines(list(reversed(events)))[0].result_text() == "✗ -222 Data out of range"
-
-
-def test_reply_after_error_keeps_the_error_display():
-    base = 20_000_000
-    events = [
-        ev(1, "scpi", dir="write", instrument="scope", text=":FOO", client="ui", t_ns=base, t_start_ns=base),
-        ev(2, "error", instrument="scope", code=-113, message="Undefined header", t_ns=base),
-        ev(3, "scpi", dir="read", instrument="scope", text='-113,"Undefined header"', client="ui", t_ns=base),
-    ]
-    lines = build_lines(events)
-    assert lines[0].result_text() == "✗ -113 Undefined header"
-
-
-def test_write_closes_after_one_second_of_virtual_time():
-    """A write whose reply takes longer than 1 s of virtual time shows ·; the late read stands alone."""
-    events = [
-        ev(1, "scpi", dir="write", instrument="smu", text=":INIT", client="pyvisa", t_ns=0),
-        ev(2, "advance", dt_ns=2_000_000_000, t_ns=2_000_000_000),
-        ev(3, "scpi", dir="read", instrument="smu", text="1", client="pyvisa", t_ns=2_000_000_000),
-    ]
-    lines = build_lines(events)
-    assert lines[0].result_text() == "·"
-    assert [ln.kind for ln in lines] == ["scpi", "advance", "scpi"]
-    assert lines[2].result_text() == "→ 1"
-
-
-def test_next_write_closes_the_open_one():
-    events = [
-        ev(1, "scpi", dir="write", instrument="smu", text=":A", client="pyvisa", t_ns=0),
-        ev(2, "scpi", dir="write", instrument="smu", text=":B", client="pyvisa", t_ns=10_000_000),
-        ev(3, "scpi", dir="read", instrument="smu", text="b", client="pyvisa", t_ns=10_000_000),
-    ]
-    lines = build_lines(events)
-    assert [line.command for line in lines] == [":A", ":B"]
-    assert lines[0].result_text() == "·" and lines[1].result_text() == "→ b"
-
-
-def test_binary_read_summary():
-    events = [
-        ev(1, "scpi", dir="write", instrument="scope", text=":WAV:DATA?", client="pyvisa", t_ns=31_000_000),
-        ev(
-            2,
-            "scpi",
-            dir="read",
-            instrument="scope",
-            size=10011,
-            text="#9000010000… (10011 B)",
-            client="pyvisa",
-            t_ns=31_000_000,
-        ),
-    ]
-    lines = build_lines(events)
-    assert lines[0].result_text() == "→ #9000010000…  10 011 B"
-    assert lines[0].binary_size == 10011
-
-
-def test_embedded_view_hides_non_command_lines():
-    events = [
-        ev(1, "scpi", dir="write", instrument="smu", text=":A", client="ui", t_ns=0),
-        ev(2, "state", instrument="smu", path="p", old=1, new=2, source="ui", t_ns=0),
-        ev(3, "fault", fault="f-1", reason="active", message="trip", source="bench", t_ns=0),
-    ]
-    from simubench.tui.log import visible
-
-    assert [ln.command for ln in visible(build_lines(events), embedded=True)] == [":A"]
-    assert len(visible(build_lines(events), embedded=False)) == 3
-
-
-def test_source_labels():
-    lang = "en"
-    assert source_label({"kind": "scpi", "client": "ui"}, lang) == "UI"
-    assert source_label({"kind": "scpi", "client": "tui"}, lang) == "Terminal"
-    assert source_label({"kind": "scpi", "client": "mcp"}, lang) == "Agent"
-    assert source_label({"kind": "scpi", "client": "pyvisa"}, lang) == "Script"
-    assert source_label({"kind": "scpi", "client": "replay"}, lang) == "Replay"
-    assert source_label({"kind": "scpi", "client": "socket:127.0.0.1:53122"}, lang) == "Script :53122"
-    assert (
-        source_label({"kind": "scpi", "client": "socket:192.168.1.5:1234"}, lang) == "Script 192.168.1.5:1234"
-    )
-    assert source_label({"kind": "fault", "source": "bench"}, lang) == "Preset"
-    assert source_label({"kind": "advance"}, lang) == "Event"
-
-
-def test_pending_writes_is_the_busy_state():
-    lines = build_lines([ev(1, "scpi", dir="write", instrument="smu", text=":A", client="pyvisa", t_ns=0)])
-    assert pending_writes(lines)
-
-
-# ---- the event store --------------------------------------------------------------------------------
-
-
-def test_store_dedupes_the_replayed_backlog():
-    store = EventStore()
-    events = [
-        ev(1, "scpi", dir="write", instrument="awg", text="x", client="ui"),
-        ev(2, "scpi", dir="read", instrument="awg", text="y", client="ui"),
-        ev(3, "state", instrument="awg", path="p", old=1, new=2, source="ui"),
-    ]
-    assert store.add_many(events) == 3
-    assert store.add_many(events) == 0  # full replay on reconnect
-    assert store.add_many(events[:1]) == 0
-    assert store.add(ev(4, "scpi", dir="write", instrument="awg", text="z", client="ui")) is True
-    assert len(store) == 4
-
-
-def test_store_keeps_the_bounded_buffer():
-    store = EventStore(limit=10)
-    for i in range(1, 26):
-        store.add(ev(i, "advance", dt_ns=i, t_ns=i))
-    assert len(store) == 10
-    assert store.dropped == 15
-    assert store.events[0]["seq"] == 16  # the newest survive
-
-
-# ---- formatting --------------------------------------------------------------------------------------
-
-
-def test_fmt_engineering_prefixes():
-    assert fmt(15.0, "V") == "15.000 V"
-    assert fmt(0.01, "A") == "10.000 mA"
-    assert fmt(1000.0, "HZ") == "1.0000 kHz"
-    assert fmt(1e7, "OHM") == "10.000 MΩ"
-    assert fmt(0.001, "S") == "1.0000 ms"
-    assert fmt(float("inf"), "OHM") == "High Z"
-    assert fmt(None) == "—"
-
-
-def test_fmt_ns():
-    assert fmt_ns(0) == "00:00:00.000"
-    assert fmt_ns(25_000_000) == "00:00:00.025"
-    assert fmt_ns(3_723_004_000_000) == "01:02:03.004"
-
-
-def test_braille_thumbnail():
-    wave = [0, 0.5, 1, 0.5, 0, -0.5, -1, -0.5] * 4
-    out = braille(wave, 6)
-    assert len(out) == 6
-    assert any(ch != "⠀" for ch in out)
-    assert braille([], 4) == "⠀" * 4
 
 
 # ---- the app against a real server -------------------------------------------------------------------
@@ -367,14 +183,6 @@ async def served() -> AsyncIterator[Served]:
     await s.stop()
 
 
-def loop_time() -> float:
-    return asyncio.get_running_loop().time()
-
-
-def flat(app: SimuBenchApp) -> str:
-    return "\n".join("".join(seg.text for seg in strip) for strip in app.screen._compositor.render_strips())
-
-
 async def wait_connected(pilot, tui: SimuBenchApp, deadline: float = 20.0) -> None:
     end = loop_time() + deadline
     while loop_time() < end:
@@ -411,7 +219,7 @@ async def test_overview_renders_cards_from_the_real_session(served):
         assert [c.card.name for c in cards] == ["awg", "scope", "rc"]
         assert cards[0].card.number == 1 and cards[2].card.number == 3
         text = flat(tui)
-        assert "1 awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text
+        assert "1 ○ awg · SDG2042X" in text and "3 rc · RC 低通 · DUT" in text  # ○: idle (4.2)
         assert "SDG2042X" in text and "SDS2104X Plus" in text
         # The top bar carries the D44 activity, the clock mode and the virtual time.
         assert "● waiting for commands · Command-driven clock" in text
@@ -703,15 +511,6 @@ async def test_quit_with_clients_connected_confirms(served):
         writer.close()
 
 
-def test_no_color_uses_the_mono_theme(monkeypatch):
-    monkeypatch.setenv("NO_COLOR", "1")
-    app = SimuBenchApp("http://127.0.0.1:1", sid="x")
-    assert app.theme == "simubench-mono"
-    monkeypatch.delenv("NO_COLOR")
-    app2 = SimuBenchApp("http://127.0.0.1:1", sid="x")
-    assert app2.theme == "simubench"
-
-
 async def test_no_color_boots_its_stylesheet(monkeypatch):
     """The mono theme's tokens are terminal-default colours, not empty strings (which fail
     Textual's stylesheet parse and take the whole TUI with them)."""
@@ -721,18 +520,6 @@ async def test_no_color_boots_its_stylesheet(monkeypatch):
         await pilot.pause(0.3)
         assert tui.theme == "simubench-mono"
         assert type(tui.screen).__name__ == "OverviewScreen"
-
-
-def test_lang_default_follows_env(monkeypatch):
-    from simubench.tui.i18n import default_lang
-
-    monkeypatch.setenv("LANG", "en_US.UTF-8")
-    monkeypatch.delenv("SIMUBENCH_LANG", raising=False)
-    assert default_lang() == "en"
-    monkeypatch.setenv("LANG", "zh_CN.UTF-8")
-    assert default_lang() == "en"
-    monkeypatch.delenv("LANG")
-    assert default_lang() == "en"  # the fallback
 
 
 async def test_api_client_sends_the_tui_header(served):
@@ -749,15 +536,6 @@ async def test_api_client_sends_the_tui_header(served):
         await tui.client.close()
 
 
-def test_ws_url_carries_the_token():
-    assert ws_url("http://127.0.0.1:8000", "s1") == "ws://127.0.0.1:8000/api/sessions/s1/events"
-    assert ws_url("http://127.0.0.1:8000", "s1", "t") == "ws://127.0.0.1:8000/api/sessions/s1/events?token=t"
-    assert (
-        ws_url("https://bench.example.com", "s1", "t")
-        == "wss://bench.example.com/api/sessions/s1/events?token=t"
-    )
-
-
 def test_tui_without_textual_exits_2(monkeypatch, capsys):
     """Without Textual installed, `simubench tui` names the install command and exits 2 (section 3)."""
     import importlib.util
@@ -768,3 +546,13 @@ def test_tui_without_textual_exits_2(monkeypatch, capsys):
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: None if name == "textual" else real(name))
     assert cli.main(["tui", "whatever.bench.yaml"]) == 2
     assert TEXT in capsys.readouterr().err
+
+
+def test_the_scaled_clock_shows_its_rate_in_the_activity_status():
+    from simubench.tui.widgets import clock_activity
+
+    class App:
+        clock: ClassVar = {"mode": "scaled", "now_ns": 0, "scale": 10.0}
+
+    assert clock_activity(App(), "en", "scaled", busy=False)[-1][0] == "clock running ×10"
+    assert clock_activity(App(), "en", "wall", busy=False)[-1][0] == "clock running"

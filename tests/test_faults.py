@@ -36,8 +36,15 @@ def out_amplitude(session) -> float:
     return float(abs(session.net_signal(net).merged().amp).max())
 
 
-def test_timeout_drops_messages_until_cleared(tmp_path):
+# ---- connection faults: one flow ---------------------------------------------------------------------
+
+
+def test_the_connection_fault_flow(tmp_path):
+    """A timeout drops replies until the fault is cleared, a disconnect loses the connection for
+    its duration, busy holds the answer until it ends, and latency costs virtual time. One flow
+    on one bench, each fault kind starting from the settled state the previous act left."""
     rm, awg, s = open_bench(tmp_path)
+    # -- timeout drops messages until cleared (was test_timeout_drops_messages_until_cleared)
     f = s.faults.inject(Fault(kind="timeout", instrument="awg"))
     with pytest.raises(errors.VisaIOError) as exc:
         awg.query("*IDN?")
@@ -46,17 +53,25 @@ def test_timeout_drops_messages_until_cleared(tmp_path):
     assert "SB-AWG-2" in awg.query("*IDN?")
     kinds = [(e["kind"], e.get("reason")) for e in s.history if e["kind"] == "fault"]
     assert kinds == [("fault", "injected"), ("fault", "active"), ("fault", "cleared")]
-    rm.close()
-
-
-def test_disconnect_is_a_lost_connection(tmp_path):
-    rm, awg, s = open_bench(tmp_path)
+    # -- a disconnect is a lost connection for its duration (was test_disconnect_is_a_lost_connection)
     s.faults.inject(Fault(kind="disconnect", instrument="awg", duration_s=1.0))
     with pytest.raises(errors.VisaIOError) as exc:
         awg.write("*CLS")
     assert exc.value.error_code == constants.VI_ERROR_CONN_LOST
     s.advance(1.0)  # the fault lasts one second of virtual time
     assert "SB-AWG-2" in awg.query("*IDN?")
+    # -- busy holds the answer until it ends (was test_busy_holds_the_answer_until_it_ends)
+    s.faults.inject(Fault(kind="busy", instrument="awg", duration_s=0.4))
+    awg.write("*IDN?")
+    with pytest.raises(errors.VisaIOError):
+        awg.read()  # the 0.5 s timeout runs past the busy window
+    assert "SB-AWG-2" in awg.read()
+    # -- latency costs virtual time (was test_latency_costs_virtual_time; last: the fault stays
+    # active, exactly as the original left it on its own bench)
+    t0 = s.now_ns
+    s.faults.inject(Fault(kind="latency", instrument="awg", latency_s=0.25))
+    awg.query("*IDN?")  # one write and one read
+    assert s.now_ns - t0 >= 500_000_000
     rm.close()
 
 
@@ -72,33 +87,39 @@ def test_garble_corrupts_a_counted_number_of_responses_reproducibly(tmp_path):
     assert answers[0] == answers[1]  # same seed, same corruption
 
 
-def test_latency_costs_virtual_time(tmp_path):
+# ---- error and trip: one flow ------------------------------------------------------------------------
+
+
+def test_the_error_and_trip_flow(tmp_path):
+    """An error fault queues its code, a counted error queues it that many times and reads back
+    in order, an unknown code is refused unless it carries a message, and unlike a trip an error
+    leaves the instrument state alone. One flow on one bench."""
     rm, awg, s = open_bench(tmp_path)
-    t0 = s.now_ns
-    s.faults.inject(Fault(kind="latency", instrument="awg", latency_s=0.25))
-    awg.query("*IDN?")  # one write and one read
-    assert s.now_ns - t0 >= 500_000_000
-    rm.close()
-
-
-def test_busy_holds_the_answer_until_it_ends(tmp_path):
-    rm, awg, s = open_bench(tmp_path)
-    s.faults.inject(Fault(kind="busy", instrument="awg", duration_s=0.4))
-    awg.write("*IDN?")
-    with pytest.raises(errors.VisaIOError):
-        awg.read()  # the 0.5 s timeout runs past the busy window
-    assert "SB-AWG-2" in awg.read()
-    rm.close()
-
-
-def test_error_and_trip(tmp_path):
-    rm, awg, s = open_bench(tmp_path)
+    # -- error and trip (was test_error_and_trip)
     awg.write(":OUTPut1 ON")
     s.faults.inject(Fault(kind="error", instrument="awg", code=-313))
     assert awg.query(":SYSTem:ERRor?") == '-313,"Calibration memory lost"'
     s.faults.inject(Fault(kind="trip", instrument="awg"))
     assert awg.query(":OUTPut1?") in ("0", "OFF")
     assert awg.query(":SYSTem:ERRor?").startswith("-300,")
+    # -- a counted error queues it that many times and reads back in order
+    # (was test_error_count_queues_it_that_many_times_and_reads_back_in_order; the reads above
+    # drained the queue, so the count starts from an empty one as on the original bench)
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-313, count=3))
+    reads = [awg.query(":SYSTem:ERRor?") for _ in range(4)]
+    assert reads[:3] == ['-313,"Calibration memory lost"'] * 3
+    assert reads[3].startswith("0,")  # used up: the queue is empty again
+    # -- an unknown code is refused unless it has a message
+    # (was test_error_with_an_unknown_code_is_refused_unless_it_has_a_message)
+    with pytest.raises(ValueError, match="neither"):
+        s.faults.inject(Fault(kind="error", instrument="awg", code=-9999))
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-9999, message="my own"))
+    assert "my own" in awg.query(":SYSTem:ERRor?")
+    # -- an error leaves the instrument state alone (was test_error_leaves_the_instrument_state_alone;
+    # last: the original leaves its error unread in the queue)
+    awg.write(":OUTPut1 ON")
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-313))
+    assert awg.query(":OUTPut1?") in ("1", "ON")  # unlike trip, nothing is switched off
     rm.close()
 
 
@@ -172,3 +193,29 @@ def test_fault_targets_are_checked(tmp_path):
         DefinitionLibrary(),
     )
     assert [d.code for d in report.diagnostics] == ["E-FAULT-TARGET", "E-FAULT-TARGET"]
+
+
+def test_error_count_queues_it_that_many_times_and_reads_back_in_order(tmp_path):
+    rm, awg, s = open_bench(tmp_path)
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-313, count=3))
+    reads = [awg.query(":SYSTem:ERRor?") for _ in range(4)]
+    assert reads[:3] == ['-313,"Calibration memory lost"'] * 3
+    assert reads[3].startswith("0,")  # used up: the queue is empty again
+    rm.close()
+
+
+def test_error_leaves_the_instrument_state_alone(tmp_path):
+    rm, awg, s = open_bench(tmp_path)
+    awg.write(":OUTPut1 ON")
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-313))
+    assert awg.query(":OUTPut1?") in ("1", "ON")  # unlike trip, nothing is switched off
+    rm.close()
+
+
+def test_error_with_an_unknown_code_is_refused_unless_it_has_a_message(tmp_path):
+    rm, awg, s = open_bench(tmp_path)
+    with pytest.raises(ValueError, match="neither"):
+        s.faults.inject(Fault(kind="error", instrument="awg", code=-9999))
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-9999, message="my own"))
+    assert "my own" in awg.query(":SYSTem:ERRor?")
+    rm.close()

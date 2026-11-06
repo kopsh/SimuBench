@@ -14,7 +14,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .deviation import DeviationRange
 
-ClockMode = Literal["command", "wall", "stepped"]
+ClockMode = Literal["command", "wall", "stepped", "scaled"]
+#: The clocks that run by themselves: virtual time follows real time (the wall clock 1:1, a scaled
+#: clock at ``run.time_scale``). Neither can be advanced by hand, and neither is repeatable (D47).
+LIVE_CLOCKS = ("wall", "scaled")
 IdleMode = Literal["wall", "sleep", "off"]
 
 
@@ -89,6 +92,13 @@ class LayoutItem(_Model):
 class RunConditions(_Model):
     seed: int = 1
     clock: ClockMode = "command"
+    time_scale: float = Field(
+        1.0,
+        gt=0,
+        le=1_000_000,
+        description="Scaled clock: virtual seconds per real second (10 = ten times faster than the "
+        "wall clock); changeable while running. Only read on the scaled clock",
+    )
     idle: IdleMode = Field(
         "wall",
         description="Command clock: how idle real time between commands counts as virtual time (D47). "
@@ -137,13 +147,19 @@ class Fault(_Model):
     param: str | None = Field(None, description="For drift / hidden: the component parameter, e.g. 'r'")
     value: Any = Field(None, description="For hidden: the new value")
     drift_per_s: float | None = Field(None, description="For drift: relative change per second, e.g. 1e-4")
-    code: int | None = Field(None, description="For error / trip: SCPI error code (default -300)")
+    code: int | None = Field(
+        None,
+        description="For error / trip: SCPI error code (default -300); for error it must be in the "
+        "instrument's error table or the SCPI standard list unless a message is given",
+    )
     message: str | None = None
     latency_s: float | None = Field(None, ge=0, le=60, description="For latency: added to every message")
     garble_rate: float | None = Field(None, gt=0, le=1, description="For garble: share of bytes corrupted")
     at_s: float | None = Field(None, ge=0, description="Virtual time to start; omitted: at once")
     duration_s: float | None = Field(None, gt=0, description="How long it lasts; omitted: until cleared")
-    count: int | None = Field(None, ge=1, description="Link faults: number of messages affected")
+    count: int | None = Field(
+        None, ge=1, description="Link faults: number of messages affected; error: how many times it is queued"
+    )
     label: str | None = None
 
 

@@ -121,7 +121,7 @@ def open_record(
             f"{path.name} was recorded before records carried their bench; it cannot be replayed"
         )
     bench = BenchDefinition.model_validate(header["bench_data"])
-    clock = "stepped" if header.get("clock") == "wall" else header.get("clock")
+    clock = "stepped" if header.get("clock") in ("wall", "scaled") else header.get("clock")
     idle = header.get("idle", "wall")
     if idle == "sleep":
         idle = "off"  # the replay drives time from the record; nothing here may fake a sleep (D47)

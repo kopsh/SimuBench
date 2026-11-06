@@ -55,7 +55,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
         <div className="truncate text-[13px] leading-tight font-medium">{session.bench_name}</div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{session.bench_path}</div>
       </div>
-      <ConnectionBadge status={status} clockMode={session.clock_mode} />
+      <ConnectionBadge status={status} clockMode={session.clock_mode} scale={session.time_scale} />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <EditControls session={session} />
       {mode === "run" && changed && (
@@ -110,7 +110,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
             t = {formatClock(nowNs)}
           </span>
         </div>
-        {session.clock_mode !== "wall" && (
+        {session.clock_mode !== "wall" && session.clock_mode !== "scaled" && (
           <div className="flex items-center">
             <Select value={String(step)} onValueChange={(v) => setStep(Number(v))}>
               <SelectTrigger size="sm" className="num h-8 w-[84px] rounded-r-none text-xs" aria-label={t("workbench.advance")}>
@@ -191,14 +191,14 @@ export function TopBar({ session }: { session: SessionInfo }) {
   );
 }
 
-function ConnectionBadge({ status, clockMode }: { status: ConnectionState; clockMode: string }) {
+function ConnectionBadge({ status, clockMode, scale }: { status: ConnectionState; clockMode: string; scale: number }) {
   const { t } = useTranslation();
   const busy = useEvents((s) => s.busy);
   // "Running" alone hid that a command-driven clock stands still between commands (D44).
-  const activity = clockMode === "wall" ? "wall" : busy ? "busy" : "idle";
+  const activity = clockMode === "wall" || clockMode === "scaled" ? clockMode : busy ? "busy" : "idle";
   // No "running" here: the bench is simply open, and the scope panel owns RUN/STOP (issue 31).
   const map: Record<ConnectionState, [string, string]> = {
-    connected: [activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse", t(`workbench.activity.${activity}`)],
+    connected: [activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse", t(`workbench.activity.${activity}`, { scale })],
     connecting: ["bg-warn animate-pulse", t("connection.connecting")],
     reconnecting: ["bg-error animate-pulse", t("connection.disconnected")],
     unauthorized: ["bg-error", t("connection.unauthorized")],

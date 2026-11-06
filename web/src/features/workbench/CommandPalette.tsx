@@ -57,7 +57,7 @@ export function CommandPalette({ session }: { session: SessionInfo }) {
           ))}
         </CommandGroup>
         <CommandGroup heading={t("workbench.clock")}>
-          {session.clock_mode !== "wall" &&
+          {session.clock_mode !== "wall" && session.clock_mode !== "scaled" &&
             [1e-3, 0.1, 1].map((s) => (
               <CommandItem key={s} value={`advance ${s}`} onSelect={run(() => advance.mutate(s))}>
                 <StepForward /> {t("workbench.advanceBy", { step: s >= 1 ? `${s} s` : `${s * 1000} ms` })}

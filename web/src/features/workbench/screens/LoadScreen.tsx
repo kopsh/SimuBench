@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
-import { useEvents } from "@/api/events";
-import { useReadings } from "@/api/hooks";
+import { useInstrumentReadings } from "@/api/hooks";
 import { stateMap } from "../model";
 import { StateField } from "../StateField";
 import { Chip, Readout } from "./parts";
@@ -12,10 +11,7 @@ import { Chip, Readout } from "./parts";
  */
 export function LoadScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const version = useEvents((s) => s.version);
-  const readings = useReadings(sid, inst.name, version);
-  const v = readings.data?.values ?? {};
-  const num = (k: string) => Number(v[k] ?? 0);
+  const { values: v, num } = useInstrumentReadings(sid, inst.name);
   const vars = stateMap(inst);
   const enabled = vars.get("input.enabled")?.value === true;
   const constantCurrent = vars.get("function.mode")?.value !== "CR";

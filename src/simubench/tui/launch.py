@@ -18,6 +18,7 @@ from typing import Any
 
 import httpx
 
+from ..service import address_line, build_manager, link_line
 from .app import SimuBenchApp
 from .client import CLIENT_HEADER
 from .i18n import t
@@ -56,16 +57,13 @@ def _print_addresses(info: dict[str, Any]) -> None:
     """The SCPI address table, the same lines ``serve`` prints (to stderr here)."""
     for inst in info.get("instruments", []):
         if inst.get("scpi_port"):
-            print(f"  SCPI  {inst['name']:<12} {inst['address_virtual']}", file=sys.stderr)
+            print(address_line("SCPI", inst["name"], inst["address_virtual"]), file=sys.stderr)
         if inst.get("address_hislip"):
-            print(f"  HiSLIP {inst['name']:<12} {inst['address_hislip']}", file=sys.stderr)
+            print(address_line("HiSLIP", inst["name"], inst["address_hislip"]), file=sys.stderr)
         if inst.get("address_vxi11"):
-            print(f"  VXI-11 {inst['name']:<12} {inst['address_vxi11']}", file=sys.stderr)
+            print(address_line("VXI-11", inst["name"], inst["address_vxi11"]), file=sys.stderr)
     if info.get("link_address"):
-        print(
-            f"  PyVISA   scripts in other processes: PYVISA_LIBRARY={info['link_address']}@simubench",
-            file=sys.stderr,
-        )
+        print(link_line(info["link_address"]), file=sys.stderr)
 
 
 def _headers(token: str | None) -> dict[str, str]:
@@ -75,12 +73,21 @@ def _headers(token: str | None) -> dict[str, str]:
     return headers
 
 
-def _open_session(url: str, bench_path: str, clock: str | None, seed: int | None, token: str | None) -> dict:
+def _open_session(
+    url: str,
+    bench_path: str,
+    clock: str | None,
+    seed: int | None,
+    token: str | None,
+    time_scale: float | None = None,
+) -> dict:
     body: dict[str, Any] = {"bench_path": bench_path}
     if clock:
         body["clock"] = clock
     if seed is not None:
         body["seed"] = seed
+    if time_scale is not None:
+        body["time_scale"] = time_scale
     r = httpx.post(f"{url}/api/sessions", json=body, headers=_headers(token), timeout=120)
     r.raise_for_status()
     return r.json()  # type: ignore[no-any-return]
@@ -97,24 +104,11 @@ def _free_port() -> int:
 def run_bench(args: Any) -> int:
     """``simubench tui <bench.yaml> …``: serve in-process, open a session, run the TUI."""
     from ..server.app import create_app
-    from ..server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
     bench = Path(args.bench).resolve()
     workspace = Path(args.workspace).resolve() if args.workspace else bench.parent
     token = resolve_token(args.token)
-    manager = SessionManager(
-        workspace,
-        scpi_host="127.0.0.1",
-        scpi_base_port=None if args.no_scpi else args.scpi_base_port,
-        hislip_port=None if args.no_scpi else args.hislip_port,
-        link_port=None if args.no_scpi else args.link_port,
-        vxi11_port=vxi11_port_of(args),
-        **hislip_options_of(args),
-        portmapper_port=args.portmapper_port,
-        record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
-        record_raw=getattr(args, "record_raw", False),
-        allow_plugins=args.allow_plugins,
-    )
+    manager = build_manager(args, workspace)
     port = _free_port()
     url = f"http://127.0.0.1:{port}"
     server, thread = _serve_in_thread(create_app(manager, token=token), port)
@@ -124,7 +118,7 @@ def run_bench(args: Any) -> int:
         # One session, opened through the served API (the same call the Web Bench makes); the
         # response carries the address table. Starting one in-process first would leave a second,
         # unobserved session — and a second run record — behind.
-        info = _open_session(url, rel, args.clock, args.seed, token)
+        info = _open_session(url, rel, args.clock, args.seed, token, getattr(args, "time_scale", None))
         _print_addresses(info)
     except Exception as exc:
         print(f"{exc}", file=sys.stderr)

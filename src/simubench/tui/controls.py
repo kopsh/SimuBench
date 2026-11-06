@@ -17,7 +17,10 @@ from ..jsonsafe import as_number
 from .fmt import fmt, fmt_int
 from .i18n import t
 
-#: Prefixes a number input may carry (``5000 mV``, ``1 kHz``); case matters for m/M.
+#: Prefixes a number input may carry (``5000 mV``, ``1 kHz``): an input table, not the SCPI
+#: suffix ladder (units._PREFIXES, uppercase with its MA rule) and not the display ladder
+#: (units.ENG_PREFIX) — here case matters (m is milli, M is mega) and u/µ/μ all arrive from a
+#: keyboard (issue 641).
 _PREFIXES = {
     "p": 1e-12,
     "n": 1e-9,
@@ -37,7 +40,7 @@ def _norm_unit(unit: str | None) -> str:
     return (unit or "").strip().lower().replace("Ω", "ohm").replace("µ", "u").replace("μ", "u")
 
 
-def parse_number(text: str, unit: str | None = None) -> float:
+def parse_input_number(text: str, unit: str | None = None) -> float:
     """``5``, ``5 V``, ``5000 mV``, ``5e0`` → a value in the state's unit (tui-screens.md 10.2).
 
     A bare number is taken as the state's unit; a suffixed one is converted when its unit is
@@ -395,3 +398,53 @@ def inactive_under_auto(state: Mapping[str, Mapping[str, Any]], path: str) -> bo
 def channel_paths(info: Mapping[str, Any], channel: int | None) -> list[str]:
     """The state paths of one channel (None: the whole instrument's unchannelled states)."""
     return [sv["path"] for sv in info.get("state", []) if sv.get("channel") == channel]
+
+
+# ---- in-place editing of a field (tui-screens.md 5.3) -----------------------------------------
+
+
+@dataclass
+class FieldEdit:
+    """A field being edited where it stands: a number is typed into ``buffer``, an enum is
+    cycled through ``options``. Pure state — the screen draws it and decides what Enter writes."""
+
+    kind: str  # number | select
+    buffer: str = ""
+    options: list[str] = field(default_factory=list)
+    index: int = 0
+    start: int = 0
+
+    @classmethod
+    def for_select(cls, options: list[str], current: Any) -> FieldEdit:
+        index = options.index(current) if current in options else 0
+        return cls("select", options=options, index=index, start=index)
+
+    def type(self, char: str) -> None:
+        """A printable character into a number's buffer (digits, sign, point, exponent, unit)."""
+        if self.kind == "number" and char and char.isprintable():
+            self.buffer += char
+
+    def backspace(self) -> None:
+        self.buffer = self.buffer[:-1]
+
+    def cycle(self, direction: int) -> None:
+        if self.options:
+            self.index = (self.index + direction) % len(self.options)
+
+    @property
+    def choice(self) -> str | None:
+        return self.options[self.index] if self.options else None
+
+
+def parse_input(text: str, spec: Mapping[str, Any]) -> float:
+    """A typed number as the setting's value: ``5``, ``5 V``, ``200 mV`` (unit conversion as in
+    ``parse_input_number``) within the declared range. Raises :class:`ValueError` with ``"range"`` when
+    out of range and ``"number"`` when it is not an acceptable number (tui-screens.md 10.2)."""
+    try:
+        value = parse_input_number(text, spec.get("display_unit") or spec.get("unit"))
+    except ValueError as exc:
+        raise ValueError("number") from exc
+    lo, hi = spec.get("min"), spec.get("max")
+    if (lo is not None and value < float(lo)) or (hi is not None and value > float(hi)):
+        raise ValueError("range")
+    return value

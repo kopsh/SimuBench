@@ -12,6 +12,7 @@ pytest.importorskip("mcp")
 
 from mcp import Client
 
+from helpers import mcp_result
 from simubench.mcp_server import RateLimiter, build_server
 from simubench.models import api as M
 from simubench.server.manager import ClientsConnected, SessionManager
@@ -53,12 +54,7 @@ async def connect_script(manager: SessionManager, sid: str, instrument: str) -> 
 
 
 def result(r):
-    if r.is_error:
-        return {"error": r.content[0].text}
-    if r.structured_content is not None:
-        sc = r.structured_content
-        return sc.get("result", sc) if set(sc) == {"result"} else sc
-    return json.loads(r.content[0].text)
+    return mcp_result(r, error_ok=True)
 
 
 async def call(client, tool, /, **args):
@@ -748,3 +744,30 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
         out = await call(c, "list_faults")
         assert len(out) == 1
         assert violations == []
+
+
+async def test_try_definition_sessions_are_pooled_and_reused(ws):
+    """A second batch for the same definition runs on the same scratch session instead of cycling
+    a bench per call; the pool owns the semantics, so MCP adds none of its own (issue 636)."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        first = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?"])
+        assert [e.definition for e in manager.tries.all()] == ["sb-dmm-1"]
+        id1 = [e.served.id for e in manager.tries.all()]
+        second = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*IDN?"])
+        assert [e.served.id for e in manager.tries.all()] == id1  # the same session, not a new one
+        assert [r["response"] for r in first["results"]] == [r["response"] for r in second["results"]]
+        # an unknown definition still fails before anything builds
+        unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
+        assert "error" in unknown
+        assert manager.tries.all() == [] or all(e.definition != "no-such-model" for e in manager.tries.all())
+
+
+async def test_try_definition_state_carries_over_between_batches(ws):
+    """What one batch sets is there in the next batch: the same session, not a fresh one (issue 671)."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*ESE 32"])
+        second = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*ESE?"])
+        assert second["results"][0]["response"].strip() == "32"
+        assert len(manager.tries.all()) == 1

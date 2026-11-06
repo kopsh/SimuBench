@@ -37,6 +37,7 @@ from .engine.scriptscan import draft_bench, draft_definition
 from .library.templates import get_template as template_by_id
 from .library.templates import templates as instrument_templates
 from .library.templates.draft import suggester as template_suggester
+from .models import api as M
 from .models.bench import Fault
 from .server.benchfiles import Conflict
 from .server.catalog import components as component_catalog
@@ -425,36 +426,24 @@ def build_server(
             ..., description="Program messages, sent in order to the instrument alone", max_length=200
         ),
     ) -> dict[str, Any]:
-        """Send commands to a definition's instrument alone, without a bench: a temporary session is
-        opened for the batch and closed after it, no SCPI port is bound, no run record is written,
-        and the engineer's open bench is untouched. Each result carries the reply, the errors the
-        command added to the queue and the virtual time, as send_scpi returns them. Commands marked
-        dangerous in the definition run without confirm: the simulation is the sandbox."""
+        """Send commands to a definition's instrument alone, without a bench: the temporary session
+        comes from the same scratch pool the acceptance page uses (no SCPI port is bound, no run
+        record is written, the engineer's open bench is untouched) and stays open for reuse until
+        it falls idle. Each result carries the reply, the errors the command added to the queue
+        and the virtual time, as send_scpi returns them. Commands marked dangerous in the
+        definition run without confirm: the simulation is the sandbox."""
         guard()
-        from .api import open_bench
-        from .models.bench import BenchDefinition
-
-        try:
-            files.library(None).get(definition_id)  # unknown id fails before anything is built
-        except Exception as exc:
-            raise fail(exc) from None
-        bench = BenchDefinition.model_validate(
-            {
-                "schema": "simubench.bench/2",
-                "name": f"try-{definition_id}",
-                "instruments": {definition_id: {"model": definition_id}},
-            }
-        )
 
         def run() -> list[dict[str, Any]]:
-            session = open_bench(bench, definition_dirs=[files.workspace / "instruments"])
-            try:
+            # The pool owns the try semantics (no ports, no record, scratch bench) and the reuse:
+            # a second batch for the same definition runs on the same session instead of cycling
+            # a bench per call (issue 636).
+            # unknown id: KeyError before anything builds
+            with manager.tries.using(definition_id) as entry:
                 return [
-                    {"command": command, **_scpi(session, definition_id, command, client="mcp")}
+                    {"command": command, **_scpi(entry.served.session, definition_id, command, client="mcp")}
                     for command in commands
                 ]
-            finally:
-                session.close()
 
         try:
             results = await asyncio.to_thread(run)
@@ -665,8 +654,10 @@ def build_server(
 
     # ---- deploy -----------------------------------------------------------------------------------
 
-    def session_summary(s: ServedSession) -> dict[str, Any]:
-        info = manager.describe(s)
+    def session_summary(s: ServedSession, info: M.SessionInfo | None = None) -> dict[str, Any]:
+        # `info` when the caller already described the session: describe re-projects every
+        # instrument's state, deviations and nets — not something to do twice (issue 641).
+        info = info or manager.describe(s)
         rel = info.bench_path
         out: dict[str, Any] = {
             "session_id": info.id,
@@ -700,8 +691,11 @@ def build_server(
     @mcp.tool()
     async def start_session(
         path: str,
-        clock: Literal["command", "wall", "stepped"] | None = None,
+        clock: Literal["command", "wall", "stepped", "scaled"] | None = None,
         seed: int | None = None,
+        time_scale: float | None = Field(
+            None, description="For clock=scaled: virtual seconds per real second (default 1)"
+        ),
         force: bool = Field(
             False,
             description="Required while scripts are connected to the ports: starting replaces the running bench and drops them",
@@ -712,7 +706,7 @@ def build_server(
         Refused while scripts are connected to the ports, unless force=true."""
         guard()
         try:
-            s = await manager.start(path, clock=clock, seed=seed, force=force)
+            s = await manager.start(path, clock=clock, seed=seed, force=force, time_scale=time_scale)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
         except Exception as exc:
@@ -748,9 +742,10 @@ def build_server(
         """Topology of a running session: instruments, parts, which of them are DUTs, wires and the nets
         they form."""
         guard()
-        info = manager.describe(served(session_id))
+        s = served(session_id)
+        info = manager.describe(s)
         return {
-            **session_summary(served(session_id)),
+            **session_summary(s, info),
             "parts": [
                 {"name": d.name, "type": d.type, "dut": d.dut, "ports": [p.name for p in d.ports]}
                 for d in info.parts
