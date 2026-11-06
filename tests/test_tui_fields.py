@@ -95,6 +95,7 @@ def test_a_field_text_ellipsises_its_label_and_keeps_the_value():
     tiny = button("Trigger level", 12.5).field_text(info, "en", width=8).plain
     assert tiny == "12.500 V"  # no room for any label: the value alone
 
+
 def test_parse_input_number_itself():
     """The renamed helper (issue 641 → issue 691): bare numbers, prefixed ones, and its errors."""
     assert C.parse_input_number("5") == 5.0  # bare: the state's unit
