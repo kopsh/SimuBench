@@ -343,3 +343,33 @@ test("number fields step up and down: arrow keys, the arrow buttons and the whee
   await expect(timebase).toHaveValue("2 ns");
   await expect(page.getByRole("button", { name: "减小 时基" })).toBeDisabled();
 });
+
+test("the CH selector shows the picked channel's settings and always a valid channel (#733)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", { headers: { "x-simubench-token": TOKEN }, data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true } });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  const tabs = page.getByTestId("channel-settings").getByRole("tab");
+  await expect(tabs).toHaveCount(4);
+  // CH1 first, and its settings are CH1's: the bench sets ch1.scale to 0.5 V/div.
+  await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("textbox", { name: "垂直档位" })).toBeVisible();
+  // Configure CH3 to a different scale; clicking CH3 shows CH3's own value.
+  await page.request.post(`/api/sessions/${sid}/instruments/scope/configure`, {
+    headers: { "x-simubench-token": TOKEN }, data: { path: "ch3.scale", value: 0.2 },
+  });
+  await tabs.nth(2).click();
+  await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("textbox", { name: "垂直档位" })).toHaveValue(/200 m/);
+  // Selecting the two-channel generator and coming back: the picker is valid on both — the
+  // generator's own CH1/CH2, and the scope back on CH1 with its own 500 mV.
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).first().click();
+  await expect(page.getByRole("textbox", { name: "垂直档位" })).toHaveCount(0); // the scope's pane is gone
+  await expect(page.getByTestId("channel-settings").getByRole("tab")).toHaveCount(2);
+  await expect(page.getByTestId("channel-settings").getByRole("tab").first()).toHaveAttribute("aria-selected", "true");
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  // Back on the scope the picked CH3 is valid again and its settings are the ones shown — the
+  // picker never sits on a channel the instrument does not have (#733).
+  await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("textbox", { name: "垂直档位" })).toHaveValue(/200 m/);
+});
