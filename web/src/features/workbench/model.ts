@@ -305,3 +305,58 @@ export function slotRows(vars: StateVarInfo[]): { slots: SlotRow[]; rest: StateV
   }
   return { slots: [...slots.values()], rest };
 }
+
+/* ---- Stepping a number up and down (#738) -----------------------------------------------------
+ * A real instrument's knob moves a value one rung at a time. The rung comes from the setting itself:
+ * its ladder (1-2-5, 1-3 or a list) when it has one, a whole count for an integer, else a tenth of the
+ * decade the value is in (1.5 kHz moves 100 Hz). No definition field is added. */
+
+type Steppable = Pick<StateVarInfo, "type" | "min" | "max" | "ladder">;
+
+const RUNGS: Record<string, number[]> = { "1-2-5": [1, 2, 5], "1-3": [1, 3] };
+
+/** The next rung of a ladder above (``dir`` 1) or below (-1) a positive ``value``; none outside a list. */
+function ladderStep(ladder: string | number[], value: number, dir: 1 | -1): number | null {
+  const tol = 1e-9;
+  if (Array.isArray(ladder)) {
+    const sorted = [...ladder].sort((a, b) => a - b);
+    return (dir > 0 ? sorted.find((r) => r > value * (1 + tol)) : [...sorted].reverse().find((r) => r < value * (1 - tol))) ?? null;
+  }
+  const mantissas = RUNGS[ladder];
+  if (!mantissas || !(value > 0)) return null;
+  const decade = Math.floor(Math.log10(value * (dir > 0 ? 1 + tol : 1 - tol)));
+  const rungs = [decade - 1, decade, decade + 1].flatMap((e) => mantissas.map((m) => Number((m * 10 ** e).toPrecision(12))));
+  return (dir > 0 ? rungs.find((r) => r > value * (1 + tol)) : [...rungs].reverse().find((r) => r < value * (1 - tol))) ?? null;
+}
+
+/**
+ * The value one step up (``dir`` 1) or down (-1) from ``value``, or null when there is nowhere to
+ * go: no finite number, or already at the limit. ``coarse`` (Shift) moves ten times as far, or a
+ * whole decade of a ladder.
+ */
+export function stepNumber(spec: Steppable, value: number, dir: 1 | -1, coarse = false): number | null {
+  if (!Number.isFinite(value)) return null;
+  let next: number | null = null;
+  if (spec.ladder && value > 0) {
+    let at: number | null = value;
+    const rungs = coarse ? (Array.isArray(spec.ladder) ? 3 : (RUNGS[spec.ladder]?.length ?? 1)) : 1;
+    for (let i = 0; i < rungs && at !== null; i++) {
+      const stepped = ladderStep(spec.ladder, at, dir);
+      if (stepped === null) break;
+      at = stepped;
+    }
+    next = at === value ? null : at;
+  }
+  if (next === null && !spec.ladder) {
+    let step: number;
+    if (spec.type === "int") step = 1;
+    else if (value !== 0) step = 10 ** Math.floor(Math.log10(Math.abs(value) * (dir < 0 ? 1 - 1e-9 : 1))) / 10;
+    else step = spec.min != null && spec.max != null && spec.max > spec.min ? (spec.max - spec.min) / 100 : 1;
+    if (coarse) step *= 10;
+    next = Number((value + dir * step).toPrecision(12));
+  }
+  if (next === null) return null;
+  if (spec.min != null) next = Math.max(spec.min, next);
+  if (spec.max != null) next = Math.min(spec.max, next);
+  return next === value ? null : next;
+}

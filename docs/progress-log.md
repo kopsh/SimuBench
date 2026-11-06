@@ -1572,3 +1572,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 点组件列出它使用谁、被谁使用；孤立组件注明由命令和设置驱动 | ✅ `RefList`；端到端 `workbench.spec.ts` 两项（采集的“使用/被使用”，DSO-X 的命令侧） |
 | API 变更按流程重新生成 | ✅ `schemas/openapi.json`、`web/src/api/generated/openapi.ts` |
 | 未做 | ⚠️ 点孤立组件时列出驱动它的 SCPI 命令与受它影响的读数（#729 原文的一项）：需要从命令表反查绑定，另开 issue；`waveform_transfer`、`scope_measurements` 以设置选通道（`source`）的关系不是 `refs`，不在图上 |
+
+## Web 数值输入：点按、方向键、滚轮调大调小（Issue 738）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 数字设置能调大调小，不必每次输入 | ✅ `StateField.tsx` 的 `NumberInput`：悬停或聚焦时的加减按钮、`↑`/`↓`、`Shift` 十倍、聚焦时滚轮；每一步立即走 `configure`；端到端 `workbench.spec.ts`（时基框：方向键、Shift、按钮、滚轮各一次，SCPI 读回 `:TIMebase:SCALe?`；到 2 ns 时减号置灰） |
+| 步长来自设置自己，不改定义格式 | ✅ `model.ts` 的 `stepNumber`：`1-2-5` / `1-3` 梯度与显式列表走下一档、整数 ±1、连续量取数量级的十分之一，钳在 `min`/`max`，到头返回空；`model.test.ts` 9 项（跨十倍程、列表两端、零与负值、从 10 的幂向下、浮点尘埃、Shift） |
+| 滚轮只调聚焦的框，不抢面板滚动 | ✅ 非被动的 wheel 监听，只在输入框是 `document.activeElement` 时拦截 |
+| 只读、被自动开关覆盖、断开时不可用；仪表拒绝某一步后不残留 | ✅ `canStep`；待生效的目标值带来源值并在 1 s 后失效 |
+| 已知未做 | ⚠️ `SpectrumScreen`、`FaultPanel` 自己的输入框（没走 `StateField`）；按住按钮连续步进 |

@@ -308,3 +308,38 @@ test("the settings groups span the screen, not a nested grid's first column", as
     expect(box.width, `${bench}: the settings groups are as wide as their parent`).toBeGreaterThan(parent.width * 0.95);
   }
 });
+
+test("number fields step up and down: arrow keys, the arrow buttons and the wheel (#738)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", { headers: { "x-simubench-token": TOKEN }, data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true } });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  const timebase = page.getByRole("textbox", { name: "时基", exact: true });
+  const scpi = async (command: string) =>
+    ((await (await page.request.post(`/api/sessions/${sid}/instruments/scope/scpi`, { headers: { "x-simubench-token": TOKEN }, data: { command } })).json()) as { response: string }).response.trim();
+  await expect(timebase).toHaveValue("200 µs");
+  // ↑ steps a tenth of the decade (1.5 kHz would move 100 Hz); the instrument takes it at once.
+  await timebase.focus();
+  await timebase.press("ArrowUp");
+  await expect(timebase).toHaveValue("210 µs");
+  expect(Number(await scpi(":TIMebase:SCALe?"))).toBeCloseTo(2.1e-4, 9);
+  // Shift: ten times as far.
+  await timebase.press("Shift+ArrowDown");
+  await expect(timebase).toHaveValue("110 µs");
+  // The arrow buttons step too, and keep the field's focus so the wheel then steps the same field.
+  await page.getByRole("button", { name: "增大 时基" }).click();
+  await expect(timebase).toHaveValue("120 µs");
+  await timebase.hover();
+  await page.mouse.wheel(0, -120);
+  await expect(timebase).toHaveValue("130 µs");
+  await page.mouse.wheel(0, 120);
+  await expect(timebase).toHaveValue("120 µs");
+  // At the end of the range the arrow is greyed out: the time base stops at 2 ns.
+  await timebase.fill("2.1 ns");
+  await timebase.press("Enter");
+  await expect(timebase).toHaveValue("2.1 ns");
+  await timebase.focus();
+  await timebase.press("Shift+ArrowDown");
+  await expect(timebase).toHaveValue("2 ns");
+  await expect(page.getByRole("button", { name: "减小 时基" })).toBeDisabled();
+});
