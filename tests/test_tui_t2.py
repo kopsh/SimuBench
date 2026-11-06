@@ -792,7 +792,9 @@ async def test_scope_screen_toggles_run_through_the_base_orchestration():
         button.focus()
         await pilot.pause(0.1)
         await pilot.press("space")  # on → off, a plain switch: no confirmation
-        await wait_for(pilot, lambda: ("scope", "ch1.display", False) in fake.configures, message="plain toggle")
+        await wait_for(
+            pilot, lambda: ("scope", "ch1.display", False) in fake.configures, message="plain toggle"
+        )
         # The same screen, now electrical: turning it on asks first (10.1). The screen builds its
         # buttons once, so the flag travels on the control the existing button carries.
         button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "ch1.display")
@@ -824,7 +826,9 @@ async def test_a_failed_write_flashes_the_error_under_the_control():
         flashes: list[str] = []
         autozero.focus()
         await pilot.pause(0.1)
-        tui.screen._flash_target = lambda button: tui.screen._flash_static if hasattr(tui.screen, "_flash_static") else None
+        tui.screen._flash_target = lambda button: (
+            tui.screen._flash_static if hasattr(tui.screen, "_flash_static") else None
+        )
         # The flash goes to the screen's flash target, per screen; spy on the update itself.
         tui.screen._flash = lambda button, text: flashes.append(text)  # type: ignore[method-assign]
         tui.screen._toggle_button(autozero)
