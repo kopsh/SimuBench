@@ -777,3 +777,71 @@ async def test_the_virtual_time_stays_on_a_narrow_top_bar_and_the_bench_name_giv
         text = await wait_flat(pilot, tui, "SimuBench")
         first = text.split("\n")[0]
         assert "t = 00:00:00" in first and "…" in first, first
+
+
+async def test_scope_screen_toggles_run_through_the_base_orchestration():
+    """The scope screen inherits the instrument screen's toggle path (#635, issue 669): a plain
+    switch writes at once, an electrical switch turning on confirms first — same as the SMU's."""
+    tui, fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "ch1.display")
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("space")  # on → off, a plain switch: no confirmation
+        await wait_for(pilot, lambda: ("scope", "ch1.display", False) in fake.configures, message="plain toggle")
+        # The same screen, now electrical: turning it on asks first (10.1). The screen builds its
+        # buttons once, so the flag travels on the control the existing button carries.
+        button = next(b for b in tui.screen.query(ControlButton) if b.control.path == "ch1.display")
+        button.control.electrical = True
+        button.focus()
+        await pilot.pause(0.1)
+        await pilot.press("space")
+        from simubench.tui.screens.states import ConfirmScreen
+
+        await wait_for(pilot, lambda: isinstance(tui.screen, ConfirmScreen), message="confirm dialog")
+        await pilot.press("escape")  # cancel: nothing written
+        await wait_for(pilot, lambda: not isinstance(tui.screen, ConfirmScreen), message="dialog closed")
+        assert ("scope", "ch1.display", True) not in fake.configures
+
+
+async def test_a_failed_write_flashes_the_error_under_the_control():
+    """A write the server refuses flashes ``✗ …`` under the focused control (5.3)."""
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        from simubench.tui.screens.instrument import ControlButton
+
+        async def refused(sid, name, path, value):
+            return {"ok": False, "error": {"code": -222, "message": "out of range"}}
+
+        fake.configure = refused
+        autozero = next(b for b in tui.screen.query(ControlButton) if b.control.path == "sense.autozero")
+        flashes: list[str] = []
+        autozero.focus()
+        await pilot.pause(0.1)
+        tui.screen._flash_target = lambda button: tui.screen._flash_static if hasattr(tui.screen, "_flash_static") else None
+        # The flash goes to the screen's flash target; observe it through the screen's own static.
+        from simubench.tui.screens.editing import ControlEditingScreen
+
+        target = tui.screen._flash_target(None)
+        assert target is None  # the instrument screen decides where; spy on the update instead
+        tui.screen._flash = lambda button, text: flashes.append(text)  # type: ignore[method-assign]
+        tui.screen._toggle_button(autozero)
+        await wait_for(pilot, lambda: bool(flashes), message="the flash")
+        assert "-222" in flashes[0] and "out of range" in flashes[0]
+
+
+def test_the_embedded_log_rows_budget():
+    """`_log_rows` keeps the channel area visible at 80×24 and caps the log at 6 rows (#454)."""
+    from types import SimpleNamespace
+
+    from simubench.tui.screens.editing import ControlEditingScreen
+
+    for height, want in ((24, 3), (29, 3), (32, 6), (40, 6)):
+        sham = SimpleNamespace(app=SimpleNamespace(size=SimpleNamespace(height=height)))
+        assert ControlEditingScreen._log_rows(sham) == want, height
