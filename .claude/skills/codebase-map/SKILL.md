@@ -38,7 +38,7 @@ plausible fake).
 | MCP tools | `mcp_server.py` |
 | PyVISA backend / raw socket / HiSLIP | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py` |
 | In-process Python API, pytest plugin | `api.py`, `pytest_plugin.py` |
-| CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py` |
+| CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py`; the shared serving options, `build_manager` and the address-table line live in `service.py` — add a service start parameter there once, all entries get it |
 | TUI (Textual) | `tui/` (screens in `tui/screens/`, wording in `tui/i18n/`). A new instrument screen = subclass `tui/screens/editing.py`'s `ControlEditingScreen` (all write/edit orchestration: toggle with confirmation, in-place field editing, focus, flash) + render row functions in `tui/rows.py` |
 
 ## Elsewhere
