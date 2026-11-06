@@ -21,14 +21,14 @@ NPLC_TIMES = "{0.02: 0.0004, 0.2: 0.004, 1: 0.02, 10: 0.2}"
 
 
 def definition_dir(tmp_path: Path, noise: str | None) -> Path:
-    text = SOURCE.read_text()
+    text = SOURCE.read_text(encoding="utf-8")
     extra = f"      reading_time: {{from: $sense.nplc, table: {NPLC_TIMES}}}\n"
     if noise:
         extra += f"      noise: {noise}\n"
     text = text.replace("      digits: 9\n", "      digits: 9\n" + extra, 1)
     out = tmp_path / "defs"
     out.mkdir(exist_ok=True)
-    (out / "meter-core-test.yaml").write_text(text)
+    (out / "meter-core-test.yaml").write_text(text, encoding="utf-8")
     return out
 
 
