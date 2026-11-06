@@ -72,7 +72,10 @@ def test_guide_procedure_reconstructs_the_bench_signal(scope, fmt):
     picked = rec.volts[::step][:1000]
     assert np.max(np.abs(np.asarray(volts) - picked)) <= (1e-5 if fmt == "ASCii" else 1e-9) + 1e-6
     truth = _truth(session, rec)[::step][:1000]
-    assert np.max(np.abs(np.asarray(volts) - truth)) <= lsb / 2 + 0.01
+    # The record carries the range's input noise now (#745, specs.noise_per_division: the table's
+    # 10 mV rms on 0.5 V/div, quantized to the 15.6 mV codes) — a 1000-point capture reaches some
+    # 4 rms past the truth beside the code's lsb/2, instead of sitting on it.
+    assert np.max(np.abs(np.asarray(volts) - truth)) <= lsb / 2 + 0.01 + 4 * 0.01
     # Time axis: the reference is the centre, so the trigger (a rising zero crossing) is at t = 0.
     assert times[0] == pytest.approx(-5 * 2e-4, abs=2 * rec.dt_s * step)
     assert times[1] - times[0] == pytest.approx(rec.dt_s * step)
@@ -260,5 +263,38 @@ def test_a_running_normal_scope_waits_while_its_level_finds_no_edge(tmp_path):
         assert dso.query(":OPERegister:CONDition?").strip() == "8"  # RUN, triggering again
         dso.write(":STOP")
         assert dso.query(":OPERegister:CONDition?").strip() == "0"
+    finally:
+        rm.close()
+
+
+def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path):
+    """#745's statistical acceptance: the same DC captured repeatedly, read back through the
+    guide's waveform procedure — the samples scatter with the definition's noise on the
+    0.5 V/div range (the table's 10 mV rms, quantized to the 15.6 mV codes), the mean stays at
+    the true level, and every capture draws anew."""
+    import math
+
+    from refcalc.noise import quantized_sigma, sigma_interval
+
+    rm, dso = _open(
+        tmp_path,
+        EXAMPLE_BENCH,
+        awg_state={"ch1.function": "DC", "ch1.offset": 0.8, "ch1.load": "INF", "ch1.output": True},
+    )
+    try:
+        dso.write(":TIMebase:SCALe 2E-4;:CHANnel1:SCALe 0.5;:CHANnel1:OFFSet 0;:WAVeform:FORMat BYTE")
+        captures = []
+        for _ in range(3):
+            dso.write(":DIGitize CHANnel1")
+            _times, volts = reader.read_waveform(dso, "CHANnel1", "BYTE")
+            captures.append(np.asarray(volts))
+        assert not np.array_equal(captures[0], captures[1])  # each capture draws anew
+        samples = np.concatenate(captures)
+        # DC 0.8 V at the generator, the 1 kOhm series into the meter's 1 MOhm: 0.7992 V at the plate
+        truth = 0.8 * 1.0e6 / (1.0e3 + 1.0e6)
+        # the mean sits at the true level: 5 rms of the sample mean plus half a code of bias
+        assert abs(float(np.mean(samples)) - truth) < 5 * 0.01 / math.sqrt(samples.size) + 0.5 / 32 / 2
+        lo, hi = sigma_interval(quantized_sigma(0.01, 0.5 / 32), samples.size)
+        assert lo <= float(np.std(samples)) <= hi, (float(np.std(samples)), lo, hi)
     finally:
         rm.close()

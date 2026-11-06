@@ -47,6 +47,15 @@ specs:
   timebase_s_div: [2.0e-9, 50.0]
   timebase_accuracy_ppm: 25
   trigger_sensitivity: "< 10 mV/div: greater of 1 div or 5 mV; ≥ 10 mV/div: 0.6 div"
+  trigger_jitter_s_rms: 5.0e-11
+  noise_floor: >-
+    estimated (the data sheet 5990-6618EN publishes no rms-noise figure and no trigger-jitter
+    rms — only the TIE measurement's 500 ps, D46, #745): 0.2 mV rms of white input noise at the
+    full 200 MHz, the floor of the sensitive ranges.
+  noise_per_division: >-
+    estimated (data sheet gives none, D46): max(0.2 mV, 0.02 * v_div) at the input — about 0.6
+    code rms at 8 bits (30 codes per division, D46) on the sensitive ranges. Per-division values
+    in the scope_vertical noise_table.
 channels:
   count: 4
   overrides:
@@ -490,6 +499,7 @@ components:
       reacquire: every_read
       missing: acquire
       untriggered: record
+      trigger_jitter_s: 5.0e-11  # specs.trigger_jitter_s_rms: 0.1 × the 2 GSa/s sample interval (估计, #745)
       # :DIGitize 在记录填满后返回；*OPC? 等待未完成的操作（手册 *OPC）；没有触发时一直等（手册：
       # 用 device clear 中止进行中的 :DIGitize）。
       completion: pending
@@ -638,6 +648,11 @@ channel_components:
       scale_range: [1.0e-3, 5.0]
       offset_ranges: [[0.2, 2.0], [.inf, 50.0]]
       out_of_range: clamp
+      # 每档噪声（specs.noise_per_division，估计，D46/#745）：数据手册未给分档噪声；灵敏档取
+      # 0.2 mV 的输入噪声底，高档按 0.02 格线性增大。
+      noise_table: [[1.0e-3, 2.0e-4], [2.0e-3, 2.0e-4], [5.0e-3, 2.0e-4], [1.0e-2, 2.0e-4],
+                    [2.0e-2, 4.0e-4], [5.0e-2, 1.0e-3], [1.0e-1, 2.0e-3], [2.0e-1, 4.0e-3],
+                    [5.0e-1, 1.0e-2], [1.0, 2.0e-2], [2.0, 4.0e-2], [5.0, 1.0e-1]]
   # 改探头比时，刻度与偏置随之乘以探头比（手册 :CHANnel<n>:SCALe）。
   - name: probe
     type: scope_probe
