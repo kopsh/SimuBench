@@ -373,3 +373,33 @@ test("the CH selector shows the picked channel's settings and always a valid cha
   await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("textbox", { name: "垂直档位" })).toHaveValue(/200 m/);
 });
+
+test("the fault panel queues an error code the given number of times (#697, #766)", async ({ page }) => {
+  await startBench(page);
+  const sid = page.url().match(/\/s\/([0-9a-f]+)/)![1];
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  const faults = page.locator("section").filter({ hasText: "故障注入" }).first();
+  await faults.getByRole("button").first().click(); // open the folded section
+  await faults.getByLabel("故障类型").click();
+  await page.getByRole("option", { name: /错误码/ }).click();
+  const code = faults.getByPlaceholder("-300");
+  await expect(code).toBeVisible();
+  // #697: error gets a count field, and the queue answers the code that many times
+  const count = faults.getByPlaceholder("留空表示不限");
+  await expect(count).toBeVisible();
+  await code.fill("-313");
+  await count.fill("3");
+  await faults.getByRole("button", { name: "注入", exact: true }).click();
+  await expect(faults.getByText(/错误码/).first()).toBeVisible(); // the fault lists as in effect
+  const scpi = async () =>
+    (
+      await page.request.post(`/api/sessions/${sid}/instruments/awg/scpi`, {
+        headers: { "x-simubench-token": TOKEN },
+        data: { command: ":SYSTem:ERRor?" },
+      })
+    ).json().then((r) => (r as { response: string }).response.trim());
+  expect(await scpi()).toContain("-313");
+  expect(await scpi()).toContain("-313");
+  expect(await scpi()).toContain("-313");
+  expect((await scpi()).startsWith("0,")).toBe(true); // used up: the queue is empty again
+});
