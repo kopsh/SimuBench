@@ -825,11 +825,7 @@ async def test_a_failed_write_flashes_the_error_under_the_control():
         autozero.focus()
         await pilot.pause(0.1)
         tui.screen._flash_target = lambda button: tui.screen._flash_static if hasattr(tui.screen, "_flash_static") else None
-        # The flash goes to the screen's flash target; observe it through the screen's own static.
-        from simubench.tui.screens.editing import ControlEditingScreen
-
-        target = tui.screen._flash_target(None)
-        assert target is None  # the instrument screen decides where; spy on the update instead
+        # The flash goes to the screen's flash target, per screen; spy on the update itself.
         tui.screen._flash = lambda button, text: flashes.append(text)  # type: ignore[method-assign]
         tui.screen._toggle_button(autozero)
         await wait_for(pilot, lambda: bool(flashes), message="the flash")
