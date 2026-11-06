@@ -439,6 +439,24 @@ def test_in_process_backend_opens_hislip_addresses(tmp_path):
         rm.close()
 
 
+@pytest.mark.unit
+def test_the_resource_string_query_parses_and_names_its_errors():
+    """``_parse_spec`` splits ``bench.yaml?seed=7`` (issue 640): known names only — a typo is an
+    error, not a silent default; a blank value is kept (the caller's ``or`` falls back to the
+    environment); several parameters ride along."""
+    from simubench.access.pyvisa_backend import _parse_spec
+
+    assert _parse_spec("benches/a.bench.yaml") == ("benches/a.bench.yaml", {})
+    assert _parse_spec("a.bench.yaml?seed=7&clock=command") == (
+        "a.bench.yaml",
+        {"seed": "7", "clock": "command"},
+    )
+    assert _parse_spec("a.bench.yaml?seed=") == ("a.bench.yaml", {"seed": ""})  # blank is a value
+    with pytest.raises(ValueError) as e:
+        _parse_spec("a.bench.yaml?cloc=wall")
+    assert "cloc" in str(e.value) and "clock" in str(e.value)  # the known ones are named
+
+
 # ---- protocol errors and faults ---------------------------------------------------------------------------
 
 
