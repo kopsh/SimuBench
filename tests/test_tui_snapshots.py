@@ -7,12 +7,14 @@ the section 4 communication log executed before the TUI connects (they come with
 
 from __future__ import annotations
 
+import asyncio
 import threading
 import time
 from pathlib import Path
 
 import pytest
 
+from helpers import stop_manager_sessions
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
@@ -90,6 +92,7 @@ def demo_server():
     # could never match; stopped, it shows its last acquisition, which is deterministic.
     manager.panel(served, "scope", "stop", client="ui")
     yield f"http://127.0.0.1:{port}", served.id
+    asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
     server.should_exit = True
     thread.join(timeout=10)
 
@@ -295,6 +298,7 @@ def scope_server():
     served.session.exchange("awg", b"C1:OUTP ON", client="ui", reads=1)
     manager.panel(served, "scope", "stop", client="ui")  # a stopped scope shows its last acquisition
     yield f"http://127.0.0.1:{port}", served.id
+    asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
     server.should_exit = True
     thread.join(timeout=10)
 
@@ -511,7 +515,8 @@ def category_server():
         "examples": _serve(ROOT / "examples", 5685, 4999),
     }
     yield {key: (url, manager) for key, (url, manager, _, _) in servers.items()}
-    for _, _, server, thread in servers.values():
+    for _, manager, server, thread in servers.values():
+        asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
         server.should_exit = True
         thread.join(timeout=10)
 
