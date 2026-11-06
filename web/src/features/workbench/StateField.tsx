@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
+import { commit, DraftInput, type DraftHandle, INVALID, type Parsed, SKIP } from "@/components/app/DraftInput";
 import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -185,8 +185,8 @@ function NumberInput({
   const parts = engParts(n, unit, 6);
   // Counts (points, averages, harmonics) read as plain integers, not engineering notation.
   const finite = Number.isFinite(n);
-  // While editing, the draft is what the user types; otherwise the field shows the live value.
-  const [draft, setDraft] = useState<string | null>(null);
+  // While editing, the draft (held by DraftInput) is what the user types; otherwise the field shows the live value.
+  const field = useRef<DraftHandle>(null);
   // The field reads as the value is written, "100 ms" or "1.5 kHz", the prefix next to its unit
   // rather than split across the field ("100 m" … "s", #278). An infinite resistance is the
   // instrument's high-impedance setting, worded as on the canvas and generator screen (#281).
@@ -198,11 +198,9 @@ function NumberInput({
     : v.type === "int"
       ? `${Math.round(n)}${unit ? ` ${unit}` : ""}`
       : `${parts.mantissa} ${parts.prefix}${unit}`.trim();
-  const text = draft ?? (inactive ? t("workbench.auto") : rest);
 
   // Stepping (#738): a rung up or down, written at once like a typed value. A burst of steps (a held
   // key, a spinning wheel) builds on the last one asked for, until the live value catches up.
-  const inputRef = useRef<HTMLInputElement>(null);
   const [asked, setAsked] = useState<{ at: number; to: number } | null>(null);
   const pending = asked && asked.at === n ? asked.to : null; // forgotten once the live value changes
   useEffect(() => {
@@ -215,6 +213,7 @@ function NumberInput({
   const step = (dir: 1 | -1, coarse = false) => {
     if (!canStep) return;
     let from = pending ?? n;
+    const draft = field.current?.draft() ?? null;
     if (draft !== null && draft.trim() !== rest) {
       // Something typed and not yet entered: step from that.
       const typed = draft.trim();
@@ -224,7 +223,7 @@ function NumberInput({
     const next = stepNumber(v, from, dir, coarse);
     if (next === null) return;
     setAsked({ at: n, to: next });
-    setDraft(null);
+    field.current?.clear();
     onCommit(next);
   };
   const stepRef = useRef(step);
@@ -234,7 +233,7 @@ function NumberInput({
   useEffect(() => {
     // The wheel steps only the focused field, so the panel still scrolls under the pointer. React's
     // own wheel handler is passive and cannot stop the scroll.
-    const el = inputRef.current;
+    const el = field.current?.input;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
       if (document.activeElement !== el || !e.deltaY) return;
@@ -246,41 +245,33 @@ function NumberInput({
   }, []);
   const cannot = (dir: 1 | -1) => !canStep || stepNumber(v, pending ?? n, dir) === null;
 
-  const submit = () => {
-    if (draft === null) return;
-    setDraft(null);
-    let typed = draft.trim();
-    if (typed === rest) return; // focused and left without a change
+  // This field's rules, spelled out: unchanged text is skipped, high-Z reads as INF, the unit may be
+  // typed or kept ("2.5 kHz"; a number alone is in the base unit), infinities go as "INF".
+  const parse = (raw: string): Parsed<number | string> => {
+    let typed = raw.trim();
+    if (typed === rest) return SKIP; // focused and left without a change
     if (typed === t("generator.highZ")) typed = "INF";
-    // The unit may be typed or kept ("2.5 kHz"); a number alone is in the base unit, as before.
     if (unit && typed.endsWith(unit)) typed = typed.slice(0, -unit.length);
     const parsed = parseEngineering(typed);
-    if (parsed === null) {
-      onInvalid();
-      return;
-    }
-    if (parsed !== n) onCommit(Number.isFinite(parsed) ? parsed : "INF");
+    if (parsed === null) return INVALID;
+    if (parsed === n) return SKIP;
+    return commit(Number.isFinite(parsed) ? parsed : "INF");
   };
 
   return (
     <div className="group/num relative flex w-full min-w-28 items-center">
-      <Input
-        ref={inputRef}
-        value={text}
+      <DraftInput
+        ref={field}
+        text={rest}
+        display={inactive ? t("workbench.auto") : undefined}
+        parse={parse}
+        onCommit={onCommit}
+        onInvalid={onInvalid}
         disabled={disabled}
-        // Focusing does not change the text, so selecting it and typing replaces it cleanly.
-        onFocus={() => setDraft(rest)}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={submit}
         onKeyDown={(e) => {
           if (e.key === "ArrowUp" || e.key === "ArrowDown") {
             e.preventDefault();
             step(e.key === "ArrowUp" ? 1 : -1, e.shiftKey);
-          }
-          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          if (e.key === "Escape") {
-            setDraft(null);
-            (e.target as HTMLInputElement).blur();
           }
         }}
         className="num h-7 pr-6 text-right text-xs"
