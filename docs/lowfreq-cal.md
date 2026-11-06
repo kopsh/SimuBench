@@ -18,10 +18,10 @@
 
 ```bash
 simubench serve examples/lowfreq-cal/lowfreq_cal.bench.yaml
-#   SCPI  calibrator   TCPIP0::127.0.0.1::5025::SOCKET
-#   SCPI  scope        TCPIP0::127.0.0.1::5026::SOCKET
-#   HiSLIP calibrator  TCPIP0::127.0.0.1::hislip0,4880::INSTR
-#   HiSLIP scope       TCPIP0::127.0.0.1::hislip1,4880::INSTR
+#   SCPI   calibrator   TCPIP0::127.0.0.1::5025::SOCKET
+#   SCPI   scope        TCPIP0::127.0.0.1::5026::SOCKET
+#   HiSLIP calibrator   TCPIP0::127.0.0.1::hislip0,4880::INSTR
+#   HiSLIP scope        TCPIP0::127.0.0.1::hislip1,4880::INSTR
 ```
 
 主机程序按原样连接 `TCPIP0::127.0.0.1::<端口>::SOCKET`，读写结束符 `"\n"`。端口按测试台中仪器的顺序从 `--scpi-base-port`（默认 5025）起编号。不启动 SimuBench 时主机程序照常连接真实仪器，SimuBench 不改动它的任何文件或配置（AC-5）。

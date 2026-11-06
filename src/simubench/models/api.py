@@ -337,6 +337,7 @@ class InstrumentInfo(_Model):
     address_virtual: str
     address_real: str | None = None
     address_hislip: str | None = None
+    address_vxi11: str | None = None
     scpi_port: int | None = None
     display: DisplayInfo
     ports: list[PortInfo]
@@ -349,7 +350,7 @@ class InstrumentInfo(_Model):
     )
     remote: list[str] = Field(
         default_factory=list,
-        description="Clients connected to this instrument's ports (socket, HiSLIP): while any is, the "
+        description="Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the "
         "instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
     )
     local: bool = Field(
@@ -398,6 +399,16 @@ class InternalWire(_Model):
     to: str
 
 
+class InternalRef(_Model):
+    """A component using another one (a ``refs`` parameter): not a signal wire, a dependency."""
+
+    from_: str = Field(
+        ..., alias="from", description="The component used (it feeds the one that uses it, e.g. 'adc')"
+    )
+    to: str = Field(..., description="The component that uses it (e.g. 'acq')")
+    param: str = Field(..., description="The using component's parameter that names it, e.g. 'adc'")
+
+
 class InternalPort(_Model):
     name: str = Field(..., description="Port on the instrument's panel, e.g. 'CH1'")
     target: str = Field(..., description="Component port it leads to, e.g. 'ch1.inp.pin'")
@@ -417,6 +428,11 @@ class InstrumentInternals(_Model):
     channels: int
     components: list[InternalComponent]
     wires: list[InternalWire]
+    refs: list[InternalRef] = Field(
+        default_factory=list,
+        description="Dependencies between components (a component names another in a refs parameter), "
+        "from the one used to the one that uses it; not signal wiring",
+    )
     ports: list[InternalPort]
 
 
@@ -438,11 +454,11 @@ class NetInfo(_Model):
 
 
 class ClientInfo(_Model):
-    """A client connected to the session's SCPI ports (raw socket or HiSLIP)."""
+    """A client connected to the session's SCPI ports (raw socket, HiSLIP or VXI-11)."""
 
     client: str = Field(..., description="Label as it appears in the communication log")
     instrument: str | None = Field(None, description="The instrument whose port it is connected to")
-    locked: bool = Field(False, description="Holds a HiSLIP lock, i.e. a script is in control")
+    locked: bool = Field(False, description="Holds a HiSLIP or VXI-11 lock, i.e. a script is in control")
 
 
 class SessionInfo(_Model):
@@ -464,6 +480,11 @@ class SessionInfo(_Model):
         description="Instrument definitions changed on disk since the session started: restart to apply them",
     )
     record_path: str | None = None
+    link_address: str | None = Field(
+        None,
+        description="host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench "
+        "(GPIB, USB and TCPIP addresses then work unchanged, D63)",
+    )
     clients: list[ClientInfo] = Field(
         default_factory=list, description="Scripts currently connected to the SCPI ports"
     )

@@ -304,7 +304,9 @@ async def test_service_request_when_rqs_rises(rig):
         assert msg_type == ASYNC_SERVICE_REQUEST
         assert control == 0x60  # ESB | RQS
         assert c.status_query() == 0x70  # MAV too: the *OPC? reply was never confirmed as read
-        assert c.status_query(1) == 0x60  # RMT-delivered clears MAV (spec 6.14.1)
+        assert (
+            c.status_query(1) == 0x20
+        )  # RMT-delivered clears MAV (6.14.1); the first query cleared RQS (6.13)
         c.close()
 
     await asyncio.to_thread(run)
@@ -439,6 +441,24 @@ def test_in_process_backend_opens_hislip_addresses(tmp_path):
         rm.close()
 
 
+@pytest.mark.unit
+def test_the_resource_string_query_parses_and_names_its_errors():
+    """``_parse_spec`` splits ``bench.yaml?seed=7`` (issue 640): known names only — a typo is an
+    error, not a silent default; a blank value is kept (the caller's ``or`` falls back to the
+    environment); several parameters ride along."""
+    from simubench.access.pyvisa_backend import _parse_spec
+
+    assert _parse_spec("benches/a.bench.yaml") == ("benches/a.bench.yaml", {})
+    assert _parse_spec("a.bench.yaml?seed=7&clock=command") == (
+        "a.bench.yaml",
+        {"seed": "7", "clock": "command"},
+    )
+    assert _parse_spec("a.bench.yaml?seed=") == ("a.bench.yaml", {"seed": ""})  # blank is a value
+    with pytest.raises(ValueError) as e:
+        _parse_spec("a.bench.yaml?cloc=wall")
+    assert "cloc" in str(e.value) and "clock" in str(e.value)  # the known ones are named
+
+
 # ---- protocol errors and faults ---------------------------------------------------------------------------
 
 
@@ -549,7 +569,9 @@ async def test_an_interrupted_answer_drops_its_remaining_responses():
         sent.append(out)
 
     server._interrupted = interrupted
-    sess = SimpleNamespace(closing=asyncio.Event(), clearing=False, send_response=send_response)
+    sess = SimpleNamespace(
+        closing=asyncio.Event(), clearing=False, overlapped=False, send_response=send_response
+    )
     await server._answer(sess, 7, [b"first\n", b"second\n", b"third\n"])
     assert sent == [b"first\n"]  # interrupted before the second: it and the third are dropped
 
@@ -563,6 +585,32 @@ async def test_after_an_interrupted_query_the_next_message_is_answered(rig):
         assert c.read_response() == (second, b"1\n")
         mid = c.send_command("*IDN?")  # processed as usual afterwards
         assert c.read_response() == (mid, b"SIMUBENCH,SB-DSO-4,SBDSO000001,1.0.0\n")
+        c.close()
+
+    await asyncio.to_thread(run)
+
+
+# ---- the peek fallback and the session list (issue 691) ----------------------------------------------
+
+
+def test_peek_header_reports_a_missing_buffer(caplog):
+    """``_peek_header`` answers None and says so when ``_buffer`` is gone (issue 691): the
+    synchronized-interrupt decision must not switch off silently."""
+    import logging
+
+    from simubench.access.hislip_server import _peek_header
+
+    with caplog.at_level(logging.WARNING):
+        assert _peek_header(object(), 8) is None
+    assert any("interrupt detection is off" in r.message for r in caplog.records)
+
+
+async def test_server_sessions_lists_the_open_connections(rig):
+    """``sessions()`` is what the manager's client lists read (issue 641)."""
+
+    def run() -> None:
+        c = client(rig)
+        assert [s.instrument for s in rig.server.sessions()] == ["scope"]
         c.close()
 
     await asyncio.to_thread(run)

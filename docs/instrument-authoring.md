@@ -184,7 +184,7 @@ params:
 
 定义还可以声明 `extends: <内置型号 id>`，从同库的另一台仪表出发：loader 先解析父定义（父定义自己的 `extends` 也照此解析，单亲、禁止环，成环或父定义不存在都在加载时报错），再把本定义的数据深合并上去。合并次序是 **类别默认 → 父 → 子**；dict 逐键递归合并（`errors` 按 code），**列表整体替换**——要改动命令或组件时重声明整张列表，只想加一条状态时只写那一条。父定义按「子定义所在目录 → `SIMUBENCH_DEFINITIONS` 目录 → 内置库」的顺序查找；类别默认在最底层合并一次，按子定义的 `class` 取表，所以从内置型号出发的自定义义同样拿到它（父定义文件里的通用错误行已上收进类别表，不靠继承）。
 
-内置库的 keysight-53230a（`extends: keysight-53220a`）与 keysight-daq970a（`extends: keysight-34970a`）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
+**子定义里写 `键: null` 丢弃继承来的该键**：dict 键（一条状态、一个端口组、`specs` 的一项）、`errors` 的单个 code、整个列表（如 `components: null`）都适用；null 在全部层合并完才生效，下层与类别默认都带不回来，父定义没有该键时等于没写。内置库的 keysight-53230a（`extends: keysight-53220a`）、keysight-daq970a（`extends: keysight-34970a`）与 keysight-b2912b（`extends: keysight-b2901a`，丢弃单通道的仪器级状态、端口与组件）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
@@ -219,6 +219,8 @@ params:
 - 触发：`trigger_source`、`trigger_level`、`trigger_slope`，按通道的设置写作 `$ch{n}.trigger_level`（`{n}` 是触发通道号，静态校验同样检查），`rising`、`falling` 列出两个沿的取值；非通道的触发源（外触发、电源）不触发；
 - 运行控制：`mode` 与 `auto`、`normal`、`single`、`stop`、`force`（强制一帧后停止，Siglent 的 FTRIG）各自的取值，`after_single`（为空时模式不变、停止运行），`reacquire`，`missing`（`acquire`：没有记录的通道读取时按当前信号采一次，`error`：报 -230），`untriggered`（未触发的采集耗时：整个触发搜索或一帧）。等待中的单次采集在每次读取时重试。通用的 op：`run_mode`、`single`、`run`、`stop`、`force_trigger`、`wait`、`opc`、`digitize`；
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
+  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以不由 ADC 推出；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
+  - 调制谱线预算：RF 信号源的 `LINE_BUDGET = 999` 是金标准锁定的（`tests/test_rfgen_migration.py` 复现的参考值），AWG 调制源的 `line_budget` 是参数（默认 2000），两者是不同仪表类别的限值，不合并。
 - 噪声：`noise_rms`、`noise_key`（`time` 时 `noise_stream` 绑定的设置选择另一组噪声，如采集方式）、`trigger_jitter_s`，`averaging` 与 `averages`。
 
 原设计稿：
@@ -380,6 +382,7 @@ params:
 **T4 的实现（#129）**：
 
 - 页面在 `/i/<定义 id>`（首页“仪表”列表、检查器的“验收页”），也可以作为工作台标签页与“内部结构”并列；六个分页只读。
+- 内部结构接口（`GET .../internals`、`GET /api/try/{sid}/internals`）除 `wires`（定义里的信号连线）外还返回 `refs`（#729）：组件在 `refs` 参数里点名的另一个组件，方向是“被使用的 → 使用它的”（采集使用 `adc`、时基、触发，测量与波形传输使用采集）。它由组件类型自己声明的 `refs` 推导，不是 `wiring:`，不改定义格式，也不改信号通路；图按它排列列，让被使用的阶段排在使用者之前，没有任何连线与 `refs` 的组件（系统块、状态寄存器）归入“命令 / 状态侧”。
 - 读接口：`GET /api/definitions/{id}/document`（sha256 与静态校验诊断，页面据此发现文件变化并自动刷新）、`GET /api/definitions/{id}/coverage`（覆盖表，没有时为 null）、`GET /api/try/{sid}/instrument` 与 `GET /api/try/{sid}/internals`（临时会话的同一份仪表：概览、面板、内部结构、试运行都读它）。T2 的试运行与用例接口、T3 的修改记录接口照旧。
 - 概览的“功能与量程”用仪表实际显示的面板（定义的 `display.panel`，或类别默认布局）整理；没有面板的类别退回设置表。命令页把定义的命令与覆盖表合并，真实型号显示“实现/接受/未实现”。
 - 自动刷新：轮询定义的 sha256；变化后重取定义与覆盖表、重开临时会话，并在页头提示“已载入新的修改”。工作区的第一版按 D35 记为“外部修改”（保存前文件的内容），Agent 之后每次保存各有说明。
@@ -440,7 +443,7 @@ display:
 | `list_templates` | 模板摘要（类别、说明、版本） |
 | `get_template` | 输入的 JSON Schema 与一份示例输入 |
 | `create_definition_from_template` | 按输入展开并保存；输入的诊断指向 `template.inputs` 下的字段 |
-| `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录 |
+| `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录；同一定义的连续调用复用同一个临时会话（会话与虚拟时间延续，直到闲置或被淘汰），并发批次依次执行；验收页的「重新开始」是替换式新开（7.2），HTTP 的试运行请求与批次同样互斥 |
 
 **T1 的实现（#125）**：
 
@@ -533,7 +536,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 - **ADC 与噪声**：位数、每格码值、偏置的加减；输入端白噪声；
 - **运行控制**：AUTO / NORMAL / SINGLE / STOP / FORCE 的状态机，何时重新采集，平均；
 - **自动测量**：命名的测量；
-- **命令操作**：`digitize`、`preamble`、`*OPC`、`wait`。
+- **命令操作**：`digitize`、`*OPC`、`wait`；前导信息是 `waveform_transfer` 的 `header` 声明（操作 `xfer.header`）。旧写法的 `op: <acq>.preamble` 加载时按宏展开为 `xfer.header`，并给传输模块补上 Keysight 十字段 `header`（#665）。
 
 两个型号专用组件只为 Siglent 写：
 
@@ -634,6 +637,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 **G4 的实现（#136）**：
 
 - `scope_vertical` 增加 `noise_table`（[[V/div, 噪声 V rms], …]，输入端）：噪声随档位（F4、D46）。取当前档的行；档位没有列出时取不超过它的最大行的值（地板写在前几行即覆盖最灵敏的档位）。`scope_acquisition` 不再有 `noise_rms` 参数：σ 从通道的 vertical 模块取，按探头比折成显示伏特；随机流仍以采集组件为键（G1 的约定），`noise_key`、`noise_stream` 与触发抖动不变。低频校准参考示波器的假设噪声（与档位无关）写成单行表。
+- `scope_vertical` 的 `noise_divs`（#731，默认 0 即无噪声）：没有 `noise_table` 时，输入噪声取“当前 V/div 的这一比例（V rms）”，随档位同比变化。示波器模板的 `vertical.noise_divs` 默认 0.02 格（约 8 位 ADC 的 0.6 个码值）：档位表给了噪声就以表为准，否则用它；写 0 才是无噪声输入。这是**假设值，不是某台真机的指标**：要还原一台真机，在档位表里按数据手册写每档噪声。触发抖动 `trigger.jitter_s` 不写时同样取假设值——最高采样间隔的十分之一（ADC 没给最高采样率则无抖动），写 0 才是无抖动。已按旧默认展开的仪表不受影响（模板展开后不随升级，D3）；要加噪声，在它的定义里补 `noise_table` 或 `noise_divs` 与 `trigger_jitter_s`。
 - 处理级 `processing`（`normal | average | peak | eres`，可按型号从采集方式映射），都在码值上做——先加噪声，再量化，最后处理（D46）：
   - `average`（`averages`）：N 次采集各自加噪声、量化，记录取均值，耗时 N 次。量化噪声随噪声一起被平均（方差 (σ² + q²/12)/N），所以平均能分辨一个码以内的信号——旧模型把噪声除以 √N 后量化一次，量化噪声一格不降，平均提高不了分辨率。平均的子采集沿噪声流顺延取值。
   - `peak`：每个记录间隔按 ADC 原生速率取样（`peak_max_oversample` 每记录样本至多 64 次，深记录慢时基才可行——真机的峰值检测器也是专用硬件），取间隔内最小与最大码中偏离间隔两端更远的那个进记录：记录速率会跨过的窄脉冲进得来。噪声取原生网格的流（键含原生 dt）。

@@ -118,6 +118,12 @@ class VerticalIn(_In):
     table: list[ScaleRowIn] = _f(
         [], "档位表", "Scale table", "Per V/div, increasing: offset range, noise, error limits; empty: none"
     )
+    noise_divs: float = _f(
+        0.02, "输入噪声（格）", "Input noise (divisions)",
+        "Input noise rms as a fraction of a division where the scale table gives no noise: an assumed "
+        "value (about 0.6 LSB of an 8-bit ADC), not a data-sheet figure; 0: a noiseless input",
+        "div", ge=0,
+    )  # fmt: skip
     offset_max_v: float = _f(
         1000.0, "偏置设定上限", "Offset setting limit",
         "± offset the setting accepts when the table gives no offset ranges (displayed volts)", "V", gt=0,
@@ -223,7 +229,12 @@ class TriggerIn(_In):
         "div",
         gt=0,
     )
-    jitter_s: float = _f(0.0, "触发抖动", "Trigger jitter", "rms jitter of the trigger instant", "s", ge=0)
+    jitter_s: float | None = _f(
+        None, "触发抖动", "Trigger jitter",
+        "rms jitter of the trigger instant; omit: an assumed tenth of the fastest sample interval "
+        "(none when the ADC gives no top rate); 0: no jitter",
+        "s", ge=0,
+    )  # fmt: skip
     auto_windows: int = _f(
         4,
         "自动触发等待",
@@ -478,6 +489,8 @@ def _front(x: OscilloscopeInputs, coupling: Any, bw_limit: bool = True) -> dict[
         front["offset_ranges"] = [[r.v_div, r.offset_v] for r in rows]
     if rows and rows[0].noise_v_rms is not None:
         front["noise_table"] = [[r.v_div, r.noise_v_rms] for r in rows]
+    elif v.noise_divs:  # no table of its own: the assumed default, which scales with the division
+        front["noise_divs"] = v.noise_divs
     if v.out_of_range != "error":
         front["out_of_range"] = v.out_of_range
     return front
@@ -524,8 +537,9 @@ def _sync(x: OscilloscopeInputs) -> dict[str, Any]:
     for key in ("completion", "opc_waits", "while_waiting", "no_trigger"):
         if getattr(aq, key) != AcquisitionIn.model_fields[key].default:
             out[key] = getattr(aq, key)
-    if tr.jitter_s:
-        out["trigger_jitter_s"] = tr.jitter_s
+    jitter = tr.jitter_s if tr.jitter_s is not None else (0.1 / x.adc.max_rate if x.adc.max_rate else 0.0)
+    if jitter:
+        out["trigger_jitter_s"] = jitter
     return out
 
 
@@ -673,8 +687,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         "byteorder": "$waveform.byteorder",
         "no_record": "no acquisition for this source; send :DIGitize first",
     }  # fmt: skip
-    if adc.offset_sign == "subtract":
-        xfer["offset"] = "subtract"
+    xfer["offset"] = adc.offset_sign  # the ADC's convention, spelled out: the two classes' defaults differ
     # The preamble is declared, not coded (format, type, points, count, x and y increments,
     # origins, references); a memory deeper than the points read spreads them over the record.
     kind = (

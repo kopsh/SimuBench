@@ -193,3 +193,29 @@ def test_fault_targets_are_checked(tmp_path):
         DefinitionLibrary(),
     )
     assert [d.code for d in report.diagnostics] == ["E-FAULT-TARGET", "E-FAULT-TARGET"]
+
+
+def test_error_count_queues_it_that_many_times_and_reads_back_in_order(tmp_path):
+    rm, awg, s = open_bench(tmp_path)
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-313, count=3))
+    reads = [awg.query(":SYSTem:ERRor?") for _ in range(4)]
+    assert reads[:3] == ['-313,"Calibration memory lost"'] * 3
+    assert reads[3].startswith("0,")  # used up: the queue is empty again
+    rm.close()
+
+
+def test_error_leaves_the_instrument_state_alone(tmp_path):
+    rm, awg, s = open_bench(tmp_path)
+    awg.write(":OUTPut1 ON")
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-313))
+    assert awg.query(":OUTPut1?") in ("1", "ON")  # unlike trip, nothing is switched off
+    rm.close()
+
+
+def test_error_with_an_unknown_code_is_refused_unless_it_has_a_message(tmp_path):
+    rm, awg, s = open_bench(tmp_path)
+    with pytest.raises(ValueError, match="neither"):
+        s.faults.inject(Fault(kind="error", instrument="awg", code=-9999))
+    s.faults.inject(Fault(kind="error", instrument="awg", code=-9999, message="my own"))
+    assert "my own" in awg.query(":SYSTem:ERRor?")
+    rm.close()

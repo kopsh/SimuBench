@@ -205,7 +205,8 @@ async def test_the_agent_builds_the_bench_and_the_script_runs_through(tmp_path):
     for r in ac[:3]:
         assert r["measured_vpp"] == pytest.approx(r["set"], rel=0.01)
     # The same 0.5 Vpp square set as VRMS and as dBm into 50 Ω lands as the same wave as in VPP.
-    assert ac[3]["measured_vpp"] == ac[4]["measured_vpp"]
+    # (Two acquisitions of a scope with the template's default noise (#731) are no longer bit-identical.)
+    assert ac[3]["measured_vpp"] == pytest.approx(ac[4]["measured_vpp"], rel=0.01)
     assert ac[3]["measured_vpp"] == pytest.approx(0.5, rel=0.01)
     assert ac[5]["measured_vpp"] == pytest.approx(0.05, rel=0.01)
     await manager.stop(next(iter(manager.sessions)))

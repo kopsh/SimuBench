@@ -266,6 +266,11 @@ function ScriptAccess({ session }: { session: SessionInfo }) {
                   {i.address_hislip}
                 </div>
               )}
+              {i.address_vxi11 && (
+                <div className="num text-muted-foreground truncate" title={i.address_vxi11}>
+                  {i.address_vxi11}
+                </div>
+              )}
             </li>
           ))}
         </ul>

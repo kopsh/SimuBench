@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import __version__
-from .service import add_service_options, address_line, build_manager
+from .service import add_service_options, address_line, build_manager, link_line
 
 if TYPE_CHECKING:
     from .library.loader import DefinitionLibrary
@@ -41,6 +41,10 @@ def _serve(args: argparse.Namespace) -> int:
                 print(address_line("SCPI", lst.instrument, lst.address))
             for name, addr in served.hislip.addresses().items() if served.hislip else []:
                 print(address_line("HiSLIP", name, addr))
+            for name, addr in served.vxi11.addresses().items() if served.vxi11 else []:
+                print(address_line("VXI-11", name, addr))
+            if served.link:
+                print(link_line(served.link.address()))
         url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")

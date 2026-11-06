@@ -248,7 +248,13 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   for (const name of ["ch1.inp", "ch1.front", "ch1.probe", "acq"]) await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(3);
   await expect(graph.getByTestId("internal-port")).toHaveCount(4);
-  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3);
+  // wires: CH1's chain (3) and its panel port, the groups to the acquisition (3) and their ports (3);
+  // dependencies (#729): the time base, trigger and ADC group feed the acquisition, which feeds the
+  // measurements and the transfer.
+  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3 + 5);
+  await expect(graph.locator('.react-flow__edge-path[style*="stroke-dasharray"]')).toHaveCount(5);
+  for (const param of ["horizontal", "trigger", "adc", "record"]) await expect(graph.locator(".react-flow__edge-text", { hasText: param }).first()).toBeVisible();
+  await expect(graph.getByTestId("internal-command-side")).toHaveCount(0); // everything here is connected
   // A component's parameters: the bound ones follow the setting.
   await graph.locator('[data-name="ch1.front"]').click();
   const details = page.getByTestId("internal-details");
@@ -258,11 +264,82 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   // Expanding everything shows every channel's chain.
   await page.getByRole("button", { name: "全部展开" }).click();
   // 4 channels × (input port, vertical, probe), the acquisition, its timebase, trigger and ADC group,
-  // the measurements and the waveform transfer (the last five without signal wires).
+  // the measurements and the waveform transfer (the last five joined by dependencies, not signal wires).
   await expect(graph.getByTestId("internal-component")).toHaveCount(18);
   for (const name of ["timebase", "trigger", "adc", "meas"]) await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.locator('[data-name="xfer"]')).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(0);
+  // What the acquisition uses and who uses it (#729).
+  await graph.locator('[data-name="acq"]').click();
+  const refs = page.getByTestId("internal-refs");
+  await expect(refs).toContainText("使用");
+  for (const name of ["timebase", "trigger", "adc", "meas", "xfer"]) await expect(refs).toContainText(name);
   // Read-only: nothing to drag or connect.
   await expect(graph.locator(".react-flow__node.draggable")).toHaveCount(0);
+});
+
+test("instrument internals: what only commands drive waits under its own label (#729)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", { headers: { "x-simubench-token": TOKEN }, data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true } });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  const graph = page.getByTestId("internals-graph");
+  await expect(graph.getByTestId("internal-command-side")).toBeVisible();
+  // The system block and the status registers are not on the signal flow; the acquisition's stages are.
+  await graph.locator('[data-name="sys"]').click();
+  await expect(page.getByTestId("internal-refs")).toContainText("不在信号流上");
+  await graph.locator('[data-name="adc"]').click();
+  await expect(page.getByTestId("internal-refs")).toContainText("acq");
+  await expect(page.getByTestId("internal-refs")).not.toContainText("不在信号流上");
+});
+
+test("the settings groups span the screen, not a nested grid's first column", async ({ page }) => {
+  // issue 693: a caller wrapping SettingsGroups in its own grid section squeezed the groups
+  // into one column — the container must be as wide as its parent on each of these screens.
+  for (const [bench, node] of [["smu", "源测量单元"], ["lockin_rc", "锁相放大器"], ["rfgen", "射频信号源"]] as const) {
+    await page.goto(`/?token=${TOKEN}`);
+    await page.getByRole("listitem").filter({ has: page.getByText(bench, { exact: true }) }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+    await page.locator(".react-flow__node").filter({ hasText: node }).dblclick();
+    const groups = page.getByTestId("settings-groups");
+    await expect(groups).toBeVisible();
+    const box = (await groups.boundingBox())!;
+    const parent = (await groups.locator("xpath=..").boundingBox())!;
+    expect(box.width, `${bench}: the settings groups are as wide as their parent`).toBeGreaterThan(parent.width * 0.95);
+  }
+});
+
+test("number fields step up and down: arrow keys, the arrow buttons and the wheel (#738)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", { headers: { "x-simubench-token": TOKEN }, data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true } });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  const timebase = page.getByRole("textbox", { name: "时基", exact: true });
+  const scpi = async (command: string) =>
+    ((await (await page.request.post(`/api/sessions/${sid}/instruments/scope/scpi`, { headers: { "x-simubench-token": TOKEN }, data: { command } })).json()) as { response: string }).response.trim();
+  await expect(timebase).toHaveValue("200 µs");
+  // ↑ steps a tenth of the decade (1.5 kHz would move 100 Hz); the instrument takes it at once.
+  await timebase.focus();
+  await timebase.press("ArrowUp");
+  await expect(timebase).toHaveValue("210 µs");
+  expect(Number(await scpi(":TIMebase:SCALe?"))).toBeCloseTo(2.1e-4, 9);
+  // Shift: ten times as far.
+  await timebase.press("Shift+ArrowDown");
+  await expect(timebase).toHaveValue("110 µs");
+  // The arrow buttons step too, and keep the field's focus so the wheel then steps the same field.
+  await page.getByRole("button", { name: "增大 时基" }).click();
+  await expect(timebase).toHaveValue("120 µs");
+  await timebase.hover();
+  await page.mouse.wheel(0, -120);
+  await expect(timebase).toHaveValue("130 µs");
+  await page.mouse.wheel(0, 120);
+  await expect(timebase).toHaveValue("120 µs");
+  // At the end of the range the arrow is greyed out: the time base stops at 2 ns.
+  await timebase.fill("2.1 ns");
+  await timebase.press("Enter");
+  await expect(timebase).toHaveValue("2.1 ns");
+  await timebase.focus();
+  await timebase.press("Shift+ArrowDown");
+  await expect(timebase).toHaveValue("2 ns");
+  await expect(page.getByRole("button", { name: "减小 时基" })).toBeDisabled();
 });

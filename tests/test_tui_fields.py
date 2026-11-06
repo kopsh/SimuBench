@@ -94,3 +94,13 @@ def test_a_field_text_ellipsises_its_label_and_keeps_the_value():
     assert capped.endswith("12.500 V") and capped.startswith("…") and len(capped) <= 16
     tiny = button("Trigger level", 12.5).field_text(info, "en", width=8).plain
     assert tiny == "12.500 V"  # no room for any label: the value alone
+
+def test_parse_input_number_itself():
+    """The renamed helper (issue 641 → issue 691): bare numbers, prefixed ones, and its errors."""
+    assert C.parse_input_number("5") == 5.0  # bare: the state's unit
+    assert C.parse_input_number("5000 mV", "V") == pytest.approx(5.0)
+    assert C.parse_input_number(" 7.5V ", "V") == pytest.approx(7.5)  # plain unit, whitespace
+    with pytest.raises(ValueError, match="not a number"):
+        C.parse_input_number("abc", "V")
+    with pytest.raises(ValueError, match="no unit"):
+        C.parse_input_number("5 mV", None)  # a suffix needs the state's unit to convert into

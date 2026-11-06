@@ -1507,3 +1507,90 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ t2 数值键入（20 ms→0.02）、超范围（2000 s 拒绝、留在编辑态）、枚举轮换写入、`+` 1-2-5 步进（ch1.scale）、`/` 跳转；scope 渲染断言按字段文本重写（断言未弱化：数值与探头信息都还在） |
 | 快照 | ✅ 100×32 与 80×24 重生成并审阅 SVG：字段值完整（Timebase 1.0000 ms、Scale 50.000 mV），截断行（…gger slope RISing）可辨；`_wave_size` 未动 |
 | 文档 | ✅ tui-screens.md 6.2/6.4、tui-ui skill；progress-log 本节 |
+
+
+## try_definition 复用同一定义的暂存会话（Issue 671）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `TrySessions.using(def_id)` 取已有或新开，MCP 的 `try_definition` 经它运行；`open` 仍是“替换式新开”，供验收页重新开始 | ✅ `tests/test_mcp.py::test_try_definition_sessions_are_pooled_and_reused`（`served.id` 不变）、`test_try_definition_state_carries_over_between_batches`（`*ESE 32` 在下一批 `*ESE?` 可查） |
+| 闲置回收、MAX 淘汰 | ✅ `tests/test_try_sessions.py::test_idle_session_is_reaped_and_replaced`、`test_max_retires_the_least_recently_used` |
+| 并发：同一定义的批次不会在已关闭的会话上运行 | ✅ 每个会话一把 `busy` 锁，关闭先等批次结束，HTTP 试运行请求同样持锁；`test_replacing_open_waits_for_a_running_batch`、`test_two_batches_of_one_definition_run_one_after_the_other_on_the_same_session`；bench 构造仍只在 `TrySessions._open` 一处 |
+
+## 旧写法示波器定义的 acq.preamble 降级为宏展开（Issue 665）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `op: <acq>.preamble` 加载时展开为 `<xfer>.header`，并给唯一的 `waveform_transfer` 补 Keysight 十字段 `header` | ✅ `library/macros.py::_expand_preamble`；`tests/data/legacy_sb-dso-4.yaml`（17881a9 的原文件）无需修改即通过 `validate_definition_data` |
+| 回复与改动前一致 | ✅ `tests/test_legacy_preamble.py`：BYTE/WORD/ASCii 三种格式下，旧文件与内置新写法的 `:WAVeform:PREamble?` 十个字段逐项相同，并断言字段值 |
+| 与 17881a9 的回复比对 | ✅ `tests/test_legacy_preamble.py` 把 17881a9 实际跑出的十字段写成字面量，BYTE/WORD 逐字相同；**ASCii 的 Y 增量不同**（旧：取采集 ADC 的码/格 8192 → 1.2207E-04；#633 起取传输自己的 `codes_per_div` 32 → 3.125E-02），宏无法还原，测试按现状固定并注明 |
+
+## extends 增「null 删除继承键」语义（Issue 644）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 合并语义：null 删除 dict 键、单个 errors code、整张列表；跨多级链与类别默认带不回来；父定义没有该键时等于没写 | ✅ `tests/test_definition_layers.py` 新增 5 条；顺带修正多级链的合并次序（近亲在祖先之上，原先是倒的），`test_the_nearest_parent_beats_the_grandparent` |
+| b2912b 改写为 `extends: keysight-b2901a` + 差异 | ✅ 层叠后的数据与改写前逐键相同（除 `errors` 来自类别表、多一个 `extends`）；`test_b2912b_extends_b2901a_without_its_single_channel_state_and_ports`；金测/cases/coverage 全绿 |
+| daq970a / 53230a 的惰性继承 | ✅ 22 条 34970A 器件码与 53220A 的 specs 行以 null 清除；`test_daq970a_and_53230a_do_not_keep_the_parents_device_rows`；D59 已更新 |
+
+## #634 收敛未尽的补记（Issue 667，补记 #666）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节）；新增 `E-DEF-OFFSET-CONVENTION` 校验（ADC 量化且传输发码值时两处约定须一致；顺带验证全库定义无冲突），`tests/test_validate_definition.py` 新增一条 |
+| RfModulator 载波低于调制率时边带折叠有测试 | ✅ `tests/test_rf_modulator.py::test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes`（时域波形等于 cos(2πf0t − β·cos(2πRt))）、`test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line` |
+
+## 检查器：多通道分页、主要设置在前、分组与空槽显示（Issue 728）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 多通道仪表一次显示一个通道，CH 选择器用通道色 | ✅ `Inspector.tsx` 的 `ChannelSettings`；亮/暗故事基线 `workbench-inspector--four-channel-template-scope` |
+| 主要设置取 `summary` / `channel_summary`，其余按路径首段分组，远程编程组沉底，没名字的不带前缀设置归“其他” | ✅ `model.ts` 的 `splitSettings`、`groupOpen`；`model.test.ts` 对计数器、源表、示波器、信号源、万用表、校准源的真实快照断言：每项设置恰好出现一次、没名字的不进主要层、有内容可看 |
+| 有名字的设置分组默认展开，不把万用表孔径、源表自动量程折叠起来 | ✅ 端到端 `layout.spec.ts`、`instruments.spec.ts`（频谱仪手动 RBW）；先按“全部折叠”实现时这五项失败，改为按有无名字决定后通过 |
+| `NULL` / `NONE` 显示“无”，空枚举显示“—”，测量槽 P1…P8 一行两个控件 | ✅ `optionLabel` 的词表与单测；`slotRows` 单测；故事展开“测量”组的截图 |
+| 长的只读字符串不再撑出列宽 | ✅ `StateField.tsx` 截断并带 title（源表数据格式的元素列表） |
+| 不改定义格式，已展开的自建仪表也受益 | ✅ 分类只用路径、`label`、已有的摘要字段 |
+| 已知未做 / 环境 | ⚠️ `workbench.spec.ts` 的 `about-version` 在没有 git tag 的检出里得到 `0.1.devN`，与本改动无关；是否把逐设置的“是否上面板”写进定义（改格式，需决策）留待需要时 |
+
+## 示波器模板：默认不再是无噪声的输入（Issue 731）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 模板里没填噪声时，得到合理的默认输入噪声 | ✅ `vertical.noise_divs` 默认 0.02 格（假设值，约 8 位 ADC 的 0.6 个码值），档位表有噪声时以表为准、写 0 为无噪声；`tests/test_templates.py::test_a_scope_built_without_noise_inputs_is_not_noiseless`、`test_the_noise_defaults_give_way_to_what_the_author_states` |
+| 噪声随档位同比变化，不是固定值 | ✅ 引擎 `scope_vertical.noise_divs`（默认 0，行为不变）；`test_the_default_noise_scales_with_the_division` 在 1 V/div 与 0.1 V/div 各验一次 |
+| 触发抖动不写时取假设值 | ✅ 最高采样间隔的十分之一（ADC 没给最高采样率则无）；`trigger.jitter_s` 写 0 才是无抖动 |
+| 与手写的无噪声参考仪表的对比不被默认值破坏 | ✅ `test_a_template_built_sb_dso_4_answers_as_sb_dso_4` 的输入明确写 `noise_divs: 0`、`jitter_s: 0`，断言不变 |
+| 假设值写明，不冒充真机指标；已展开的仪表不受影响 | ✅ 字段说明与 `docs/instrument-authoring.md`（`scope_vertical` 一节）注明；已展开的仪表要在定义里补 `noise_table` 或 `noise_divs` 与 `trigger_jitter_s` |
+| 依赖“无噪声”的断言按新默认改正 | ✅ `acceptance/test_lfcal_agent_scenario.py`：智能体按模板建议的输入建示波器，现在带默认噪声，同一方波用 VRMS 与 dBm 设置的两次独立采集不再逐位相同，改为与上一行同样的 1 % 相对容差（断言的意图——两种单位设出同一幅度——不变） |
+| 未做 | ⚠️ 内置真实型号（如 `keysight-dsox2024a.yaml`）的噪声值：需要手册或确认的取值，不在本 issue |
+
+## 示波器运行中的画面每帧都有变化（Issue 730）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 运行中连续两帧迹线不完全相同；触发锁定时稳定，只带噪声（与触发抖动），不整体滑动 | ✅ `tests/test_panel.py::test_a_triggered_running_screen_is_stable_with_noise_on_it`（Siglent 示例：两帧之间差不为 0，且小于 0.02 V，迹线 0.17 V）。帧噪声与抖动本就以帧号为键（`scope_acquisition._noise` / `_jitter` 的 `frame`），画面死线的原因是定义没有噪声，见 #731 |
+| 没触发时相位逐帧不稳定 | ✅ `scope_acquisition._acquire`：未触发的运行帧起点加一个由种子与帧号决定的偏移（自由运行的扫描起点任意）；`test_an_untriggered_running_screen_slides_from_frame_to_frame`（触发电平置于信号之外，帧间最大差 > 0.05 V，而噪声只有几 mV） |
+| 画面刷新不改变脚本看到的回复与虚拟时间；同一种子下可复现 | ✅ `test_the_frames_of_a_screen_are_the_same_on_every_run`（两次运行逐帧相同，画 3 帧后 `now_ns` 不变）；原有的 `test_a_running_screen_does_not_change_what_a_script_sees` 不改通过 |
+| 无噪声的定义不凭空造变化 | ✅ `test_a_noiseless_triggered_screen_is_identical_frame_to_frame`（DSO-X 2024A 触发时三帧逐点相同，行为按设计：它的输入没有噪声与抖动，补噪声见 #731 与真实型号的另行 issue） |
+| 未做 | ⚠️ 慢时基下的滚动模式（Roll）：用户已确认不做整体滑动，另议；Web 侧每 300 ms 取一帧的节奏不变 |
+
+## 内部构造图：按数据流排列，补出组件间的“使用”关系（Issue 729）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 内部结构接口返回组件间的依赖，由 `refs` 推导，不改定义格式与信号通路 | ✅ `Component.ref_links()`、`InstrumentInternals.refs`（`InternalRef`：被使用的 → 使用它的，带参数名）；`tests/test_internals.py`：DSO-X 2024A 恰为时基、触发、ADC → 采集，采集 → 测量、波形传输；每份内置定义的依赖两端都是本仪表的组件、各出现一次；`wires` 不含依赖 |
+| 示波器的 ADC、时基、触发、测量、波形传输不再孤立 | ✅ 同一测试：除系统块与三个状态寄存器外，整机的每个组件都有连线或依赖 |
+| 图按输入到输出排列：被使用的阶段在使用者之前，读它的在之后；只由命令驱动的组件放进“命令 / 状态侧”带 | ✅ `layout.ts` 的 `buildGraph`（依赖参与列的计算、虚线边带参数名、命令侧单独成带并有标题）；`layout.test.ts` 5 项；故事与亮/暗视觉基线 `workbench-instrument-internals--oscilloscope` |
+| 点组件列出它使用谁、被谁使用；孤立组件注明由命令和设置驱动 | ✅ `RefList`；端到端 `workbench.spec.ts` 两项（采集的“使用/被使用”，DSO-X 的命令侧） |
+| API 变更按流程重新生成 | ✅ `schemas/openapi.json`、`web/src/api/generated/openapi.ts` |
+| 未做 | ⚠️ 点孤立组件时列出驱动它的 SCPI 命令与受它影响的读数（#729 原文的一项）：需要从命令表反查绑定，另开 issue；`waveform_transfer`、`scope_measurements` 以设置选通道（`source`）的关系不是 `refs`，不在图上 |
+
+## Web 数值输入：点按、方向键、滚轮调大调小（Issue 738）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 数字设置能调大调小，不必每次输入 | ✅ `StateField.tsx` 的 `NumberInput`：悬停或聚焦时的加减按钮、`↑`/`↓`、`Shift` 十倍、聚焦时滚轮；每一步立即走 `configure`；端到端 `workbench.spec.ts`（时基框：方向键、Shift、按钮、滚轮各一次，SCPI 读回 `:TIMebase:SCALe?`；到 2 ns 时减号置灰） |
+| 步长来自设置自己，不改定义格式 | ✅ `model.ts` 的 `stepNumber`：`1-2-5` / `1-3` 梯度与显式列表走下一档、整数 ±1、连续量取数量级的十分之一，钳在 `min`/`max`，到头返回空；`model.test.ts` 9 项（跨十倍程、列表两端、零与负值、从 10 的幂向下、浮点尘埃、Shift） |
+| 滚轮只调聚焦的框，不抢面板滚动 | ✅ 非被动的 wheel 监听，只在输入框是 `document.activeElement` 时拦截 |
+| 只读、被自动开关覆盖、断开时不可用；仪表拒绝某一步后不残留 | ✅ `canStep`；待生效的目标值带来源值并在 1 s 后失效 |
+| 已知未做 | ⚠️ `SpectrumScreen`、`FaultPanel` 自己的输入框（没走 `StateField`）；按住按钮连续步进 |

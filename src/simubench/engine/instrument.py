@@ -1507,7 +1507,14 @@ class Instrument:
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
             if st.special and word in st.special:
-                return st.special[word]
+                value = st.special[word]
+                if word.startswith(("MIN", "MAX")) and path is not None:
+                    # MIN/MAX are the setting's legal extremes *now*: a component narrowing the
+                    # range (#437) narrows them with it — the static table is only the fallback
+                    # (issue 663: a load's slew MIN/MAX follow the selected current range).
+                    lo, hi = self.limits(path)
+                    value = lo if word.startswith("MIN") else hi
+                return value
             multipliers = self.definition.dialect.multipliers
             v = V.parse_multiplied(raw, multipliers) if multipliers and st.unit is None else None
             if v is None:
@@ -1777,11 +1784,14 @@ class Instrument:
         for comp in self._status_registers():
             comp.event(name)  # type: ignore[attr-defined]
 
-    def stb(self) -> int:
+    def stb(self, commit: bool = True) -> int:
+        """The status byte. ``commit=False`` only looks: the condition transitions the status
+        registers have not latched yet stay unlatched, so an observer cannot change what a later
+        ``*ESR?`` says."""
         stb = 0
         for comp in self._status_registers():  # status registers' summary bits (#248, #273)
             bit = comp.param("summary_bit")
-            if bit is not None and comp.summary():  # type: ignore[attr-defined]
+            if bit is not None and comp.summary(commit):  # type: ignore[attr-defined]
                 stb |= 1 << int(bit)
         if len(self.errors):
             stb |= 1 << 2
