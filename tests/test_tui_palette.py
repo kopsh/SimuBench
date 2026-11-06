@@ -171,3 +171,88 @@ async def test_switching_an_output_on_from_the_palette_still_asks_first():
         await pilot.pause(0.8)
         assert type(tui.screen).__name__ == "ConfirmScreen"  # the dangerous confirm is not bypassed
         assert fake.configures == []
+
+
+def _palette_options(screen) -> list[str]:
+    """The plain text of the palette's current option prompts, in list order (the help line rides
+    inside the prompt as its second row)."""
+    from textual.command import CommandList
+
+    lst = screen.query_one(CommandList)
+    prompts = []
+    for i in range(lst.option_count):
+        prompt = lst.get_option_at_index(i).prompt
+        prompts.append(prompt.plain if hasattr(prompt, "plain") else str(prompt))
+    return prompts
+
+
+@pytest.mark.tui_boot
+async def test_the_palette_and_the_settings_search_work_at_80x24():
+    """80×24 (#678's acceptance, #696): Ctrl+K and the instrument screen's `/` both open, a
+    `voltage` search lists its hits with their help line, and Enter lands in the field's edit."""
+    tui, _fake = unit_app(fresh())
+    async with tui.run_test(size=(80, 24)) as pilot:
+        await _settle(pilot, tui)
+        await pilot.press("ctrl+k")
+        await pilot.pause(0.3)
+        assert isinstance(tui.screen, CommandPalette)
+        for ch in "voltage":
+            await pilot.press(ch)
+        await pilot.pause(0.6)
+        assert any("Voltage level" in text and "source.voltage.level" in text for text in _palette_options(tui.screen))
+        await pilot.press("enter")  # the top hit: jump to the field and edit it
+        from simubench.tui.screens.instrument import ControlButton
+
+        async def editing():
+            buttons = [b for b in tui.screen.query(ControlButton) if b.control.path == "source.voltage.level"]
+            return bool(buttons) and buttons[0].edit is not None
+
+        from tui_mock import wait_for
+
+        await wait_for(pilot, editing, message="the jumped-to field is in its edit")
+        await pilot.press("escape")  # out of the edit, for the second entry point
+        await pilot.pause(0.3)
+        # `/` on the instrument screen: the settings search over this screen's own fields
+        await pilot.press("slash")
+        await pilot.pause(0.3)
+        assert isinstance(tui.screen, CommandPalette)
+        for ch in "voltage":
+            await pilot.press(ch)
+        await pilot.pause(0.6)
+        assert any("Voltage level" in text for text in _palette_options(tui.screen))
+        await pilot.press("enter")
+        await wait_for(pilot, editing, message="the searched field is in its edit")
+
+
+@pytest.mark.tui_boot
+async def test_the_palette_works_without_colour(monkeypatch):
+    """`NO_COLOR` (#678's acceptance, #696): the same flow is usable, and the match highlight is
+    bold+underline — readable without any colour, not colour alone."""
+    monkeypatch.setenv("NO_COLOR", "1")
+    tui, _fake = unit_app(fresh())
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await _settle(pilot, tui)
+        await pilot.press("ctrl+k")
+        await pilot.pause(0.3)
+        for ch in "voltage":
+            await pilot.press(ch)
+        await pilot.pause(0.6)
+        assert tui.theme == "simubench-mono"
+        options = _palette_options(tui.screen)
+        assert any("Voltage level" in text for text in options)
+        # The matched substring carries an underline span (Textual's :nocolor rule keeps the
+        # underline, drops the bold): a marker that survives without colour.
+        from textual.command import CommandList
+
+        prompt = tui.screen.query_one(CommandList).get_option_at_index(0).prompt
+        styles = [st for _s, _e, st in prompt.spans]
+        assert any(getattr(st, "underline", False) for st in styles)
+        await pilot.press("enter")
+        from simubench.tui.screens.instrument import ControlButton
+        from tui_mock import wait_for
+
+        async def editing():
+            buttons = [b for b in tui.screen.query(ControlButton) if b.control.path == "source.voltage.level"]
+            return bool(buttons) and buttons[0].edit is not None
+
+        await wait_for(pilot, editing, message="the field edit opened without colour")
