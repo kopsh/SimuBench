@@ -673,8 +673,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         "byteorder": "$waveform.byteorder",
         "no_record": "no acquisition for this source; send :DIGitize first",
     }  # fmt: skip
-    if adc.offset_sign == "subtract":
-        xfer["offset"] = "subtract"
+    xfer["offset"] = adc.offset_sign  # the ADC's convention, spelled out: the two classes' defaults differ
     # The preamble is declared, not coded (format, type, points, count, x and y increments,
     # origins, references); a memory deeper than the points read spreads them over the record.
     kind = (

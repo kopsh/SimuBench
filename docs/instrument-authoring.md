@@ -219,7 +219,7 @@ params:
 - 触发：`trigger_source`、`trigger_level`、`trigger_slope`，按通道的设置写作 `$ch{n}.trigger_level`（`{n}` 是触发通道号，静态校验同样检查），`rising`、`falling` 列出两个沿的取值；非通道的触发源（外触发、电源）不触发；
 - 运行控制：`mode` 与 `auto`、`normal`、`single`、`stop`、`force`（强制一帧后停止，Siglent 的 FTRIG）各自的取值，`after_single`（为空时模式不变、停止运行），`reacquire`，`missing`（`acquire`：没有记录的通道读取时按当前信号采一次，`error`：报 -230），`untriggered`（未触发的采集耗时：整个触发搜索或一帧）。等待中的单次采集在每次读取时重试。通用的 op：`run_mode`、`single`、`run`、`stop`、`force_trigger`、`wait`、`opc`、`digitize`；
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
-  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以不由 ADC 推出；同一型号两处应写同值（Keysight 为 subtract，Siglent 为 add）。
+  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以不由 ADC 推出；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
   - 调制谱线预算：RF 信号源的 `LINE_BUDGET = 999` 是金标准锁定的（`tests/test_rfgen_migration.py` 复现的参考值），AWG 调制源的 `line_budget` 是参数（默认 2000），两者是不同仪表类别的限值，不合并。
 - 噪声：`noise_rms`、`noise_key`（`time` 时 `noise_stream` 绑定的设置选择另一组噪声，如采集方式）、`trigger_jitter_s`，`averaging` 与 `averages`。
 
@@ -442,7 +442,7 @@ display:
 | `list_templates` | 模板摘要（类别、说明、版本） |
 | `get_template` | 输入的 JSON Schema 与一份示例输入 |
 | `create_definition_from_template` | 按输入展开并保存；输入的诊断指向 `template.inputs` 下的字段 |
-| `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录；同一定义的连续调用复用同一个临时会话（会话与虚拟时间延续，直到闲置或被淘汰），并发批次依次执行 |
+| `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录；同一定义的连续调用复用同一个临时会话（会话与虚拟时间延续，直到闲置或被淘汰），并发批次依次执行；验收页的「重新开始」是替换式新开（7.2），HTTP 的试运行请求与批次同样互斥 |
 
 **T1 的实现（#125）**：
 

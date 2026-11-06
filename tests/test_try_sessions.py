@@ -82,3 +82,31 @@ def test_replacing_open_waits_for_a_running_batch(tmp_path):
     assert states == [False]
     for e in tries.all():
         tries.close(e.served.id)
+
+
+def test_two_batches_of_one_definition_run_one_after_the_other_on_the_same_session(tmp_path):
+    tries = pool(tmp_path)
+    running = 0
+    overlap: list[int] = []
+    ids: list[str] = []
+    gate = threading.Barrier(2)
+
+    def batch():
+        nonlocal running
+        gate.wait(5)
+        with tries.using("sb-dmm-1") as e:
+            running += 1
+            overlap.append(running)
+            time.sleep(0.15)
+            running -= 1
+            ids.append(e.served.id)
+
+    threads = [threading.Thread(target=batch) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert overlap == [1, 1]  # never two batches on the session at once
+    assert len(set(ids)) == 1 and len(tries.all()) == 1  # and it was one session, not two
+    for e in tries.all():
+        tries.close(e.served.id)

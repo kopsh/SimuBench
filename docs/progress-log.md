@@ -1491,7 +1491,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | `TrySessions.using(def_id)` 取已有或新开，MCP 的 `try_definition` 经它运行；`open` 仍是“替换式新开”，供验收页重新开始 | ✅ `tests/test_mcp.py::test_try_definition_sessions_are_pooled_and_reused`（`served.id` 不变）、`test_try_definition_state_carries_over_between_batches`（`*ESE 32` 在下一批 `*ESE?` 可查） |
 | 闲置回收、MAX 淘汰 | ✅ `tests/test_try_sessions.py::test_idle_session_is_reaped_and_replaced`、`test_max_retires_the_least_recently_used` |
-| 并发：同一定义的批次不会在已关闭的会话上运行 | ✅ 每个会话一把 `busy` 锁，关闭先等批次结束；`test_replacing_open_waits_for_a_running_batch`；bench 构造仍只在 `TrySessions._open` 一处 |
+| 并发：同一定义的批次不会在已关闭的会话上运行 | ✅ 每个会话一把 `busy` 锁，关闭先等批次结束，HTTP 试运行请求同样持锁；`test_replacing_open_waits_for_a_running_batch`、`test_two_batches_of_one_definition_run_one_after_the_other_on_the_same_session`；bench 构造仍只在 `TrySessions._open` 一处 |
 
 ## 旧写法示波器定义的 acq.preamble 降级为宏展开（Issue 665）
 
@@ -1499,6 +1499,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | `op: <acq>.preamble` 加载时展开为 `<xfer>.header`，并给唯一的 `waveform_transfer` 补 Keysight 十字段 `header` | ✅ `library/macros.py::_expand_preamble`；`tests/data/legacy_sb-dso-4.yaml`（17881a9 的原文件）无需修改即通过 `validate_definition_data` |
 | 回复与改动前一致 | ✅ `tests/test_legacy_preamble.py`：BYTE/WORD/ASCii 三种格式下，旧文件与内置新写法的 `:WAVeform:PREamble?` 十个字段逐项相同，并断言字段值 |
+| 与 17881a9 的回复比对 | ✅ `tests/test_legacy_preamble.py` 把 17881a9 实际跑出的十字段写成字面量，BYTE/WORD 逐字相同；**ASCii 的 Y 增量不同**（旧：取采集 ADC 的码/格 8192 → 1.2207E-04；#633 起取传输自己的 `codes_per_div` 32 → 3.125E-02），宏无法还原，测试按现状固定并注明 |
 
 ## extends 增「null 删除继承键」语义（Issue 644）
 
@@ -1512,5 +1513,6 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 
 | 完成条件 | 自检 |
 | --- | --- |
-| #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节），不再是未说明的两份 |
+| #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节）；新增 `E-DEF-OFFSET-CONVENTION` 校验（ADC 量化且传输发码值时两处约定须一致；顺带验证全库定义无冲突），`tests/test_validate_definition.py` 新增一条 |
 | RfModulator 载波低于调制率时边带折叠有测试 | ✅ `tests/test_rf_modulator.py::test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes`（时域波形等于 cos(2πf0t − β·cos(2πRt))）、`test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line` |
+| 校验发现的缺陷 | ✅ `E-DEF-OFFSET-CONVENTION` 在全库定义上只命中示波器模板：ADC 为 add 时模板没给传输写 `offset`，传输按自己的默认取 subtract；模板现在总把 ADC 的约定写给传输（`templates/oscilloscope.py`），传输预览的 `y_origin` 不再出负零 |
