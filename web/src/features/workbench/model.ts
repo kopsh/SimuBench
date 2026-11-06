@@ -64,6 +64,9 @@ const WORDS: Record<string, [string, string]> = {
   MAXH: ["最大保持", "Max hold"],
   WRIT: ["刷新", "Clear/write"],
   ERES: ["高分辨率", "High resolution"],
+  // An empty slot of a template (a measurement not chosen): not the raw mnemonic (#728).
+  NULL: ["无", "None"],
+  NONE: ["无", "None"],
 };
 
 /** A setting's option as the panel shows it: its own label, a common word, or the short form. */
@@ -186,3 +189,100 @@ export function refTarget(session: SessionInfo, ref: string): { label: string; s
   return { label: ref, selection: null };
 }
 
+
+/* ---- The inspector's settings, grouped (#728) ---------------------------------------------------
+ * An instrument carries every setting its SCPI commands bind to, a real front panel shows a few.
+ * The definition's own summary lists are the main tier; the rest group by the first path segment
+ * and stay folded, the remote-programming ones last. No definition format change: a template is
+ * expanded once (decisions.md D-template: no later upgrade), so the grouping has to cope with unlabelled settings. */
+
+/** Path prefixes of settings that only exist for remote programming. */
+const REMOTE_SEGMENTS = new Set(["comm", "waveform", "status", "system", "remote", "interface", "io", "lan", "gpib", "usb", "visa", "hislip"]);
+
+/** True when the definition gave the setting a name of its own (else the path is all there is). */
+export function hasLabel(v: Pick<StateVarInfo, "label" | "label_en">): boolean {
+  return !!(v.label || v.label_en);
+}
+
+export interface SettingGroup {
+  /** First path segment: the group's key (and its i18n name, ``inspector.group.<id>``). */
+  id: string;
+  /** Remote-programming settings, listed after the others. */
+  remote: boolean;
+  vars: StateVarInfo[];
+}
+
+export interface SplitSettings {
+  /** What a front panel puts first: the definition's summary lists, then the flat settings. */
+  main: StateVarInfo[];
+  groups: SettingGroup[];
+}
+
+/** Segment of a setting that groups it: ``measure.p1.kind`` -> ``measure``; none for ``scale``. */
+function groupSegment(name: string): string | null {
+  const dot = name.indexOf(".");
+  return dot > 0 ? name.slice(0, dot) : null;
+}
+
+/**
+ * Split an instrument's settings (all global ones, or one channel's) into the main tier and folded
+ * groups. ``summaryKeys`` are the definition's summary: full paths for the instrument, names
+ * without the channel prefix for a channel.
+ */
+export function splitSettings(vars: StateVarInfo[], summaryKeys: string[]): SplitSettings {
+  const nameOf = (v: StateVarInfo) => varName(v);
+  const byName = new Map(vars.map((v) => [nameOf(v), v]));
+  const main: StateVarInfo[] = [];
+  const seen = new Set<string>();
+  for (const key of summaryKeys) {
+    const v = byName.get(key);
+    if (v && !seen.has(key)) {
+      main.push(v);
+      seen.add(key);
+    }
+  }
+  const groups = new Map<string, SettingGroup>();
+  for (const v of vars) {
+    const name = nameOf(v);
+    if (seen.has(name)) continue;
+    const seg = groupSegment(name);
+    if (seg === null) {
+      main.push(v); // a flat setting is a top-level knob
+      continue;
+    }
+    let g = groups.get(seg);
+    if (!g) {
+      g = { id: seg, remote: REMOTE_SEGMENTS.has(seg), vars: [] };
+      groups.set(seg, g);
+    }
+    g.vars.push(v);
+  }
+  const all = [...groups.values()];
+  return { main, groups: [...all.filter((g) => !g.remote), ...all.filter((g) => g.remote)] };
+}
+
+export interface SlotRow {
+  /** ``P1``: the slot's name. */
+  label: string;
+  vars: StateVarInfo[];
+}
+
+/**
+ * ``measure.p1.kind`` and ``measure.p1.source`` are one measurement slot: one row of two controls
+ * instead of two rows each, eight slots in all. Settings that are not slots stay in ``rest``.
+ */
+export function slotRows(vars: StateVarInfo[]): { slots: SlotRow[]; rest: StateVarInfo[] } {
+  const slots = new Map<string, SlotRow>();
+  const rest: StateVarInfo[] = [];
+  for (const v of vars) {
+    const m = /^[^.]+\.(p\d+)\.[^.]+$/.exec(varName(v));
+    if (!m) {
+      rest.push(v);
+      continue;
+    }
+    const row = slots.get(m[1]) ?? { label: m[1].toUpperCase(), vars: [] };
+    row.vars.push(v);
+    slots.set(m[1], row);
+  }
+  return { slots: [...slots.values()], rest };
+}
