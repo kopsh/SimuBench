@@ -233,12 +233,11 @@ async def test_the_demo_regenerates_the_docs_screenshots(demo_server, tmp_path: 
 async def test_the_modules_sessions_stopping_releases_its_hislip_port(demo_server):
     """The teardown stops the sessions, not just uvicorn (issue 686): the fixed HiSLIP port
     binds again, as the next module's fixed port needs when two files run in one process."""
-    url, manager, records = demo_server
-    served = await manager.start("benches/find-the-trip.bench.yaml", seed=5, clock="command")
+    manager, _records = demo_server[1], demo_server[2]
+    _served = await manager.start("benches/find-the-trip.bench.yaml", seed=5, clock="command")
     port = manager.hislip_port
-    with socket.socket() as probe:
-        with pytest.raises(OSError):
-            probe.bind(("127.0.0.1", port))  # the session holds it
+    with socket.socket() as probe, pytest.raises(OSError):
+        probe.bind(("127.0.0.1", port))  # the session holds it
     await stop_manager_sessions(manager)  # what the module fixtures' teardown runs
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", port))  # released: the next module's bind will succeed
