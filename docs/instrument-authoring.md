@@ -533,7 +533,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 - **ADC 与噪声**：位数、每格码值、偏置的加减；输入端白噪声；
 - **运行控制**：AUTO / NORMAL / SINGLE / STOP / FORCE 的状态机，何时重新采集，平均；
 - **自动测量**：命名的测量；
-- **命令操作**：`digitize`、`preamble`、`*OPC`、`wait`。
+- **命令操作**：`digitize`、`*OPC`、`wait`；前导信息是 `waveform_transfer` 的 `header` 声明（操作 `xfer.header`）。旧写法的 `op: <acq>.preamble` 加载时按宏展开为 `xfer.header`，并给传输模块补上 Keysight 十字段 `header`（#665）。
 
 两个型号专用组件只为 Siglent 写：
 
