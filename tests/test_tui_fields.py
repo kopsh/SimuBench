@@ -70,3 +70,15 @@ def test_out_of_range_is_told_from_not_a_number():
         C.parse_input("abc", VOLTS)
     with pytest.raises(ValueError, match="number"):
         C.parse_input("5 A", VOLTS)  # a wrong unit
+
+
+@pytest.mark.unit
+def test_parse_input_number_itself():
+    """The renamed helper (issue 641 → issue 691): bare numbers, prefixed ones, and its errors."""
+    assert C.parse_input_number("5") == 5.0  # bare: the state's unit
+    assert C.parse_input_number("5000 mV", "V") == pytest.approx(5.0)
+    assert C.parse_input_number(" 7.5V ", "V") == pytest.approx(7.5)  # plain unit, whitespace
+    with pytest.raises(ValueError, match="not a number"):
+        C.parse_input_number("abc", "V")
+    with pytest.raises(ValueError, match="no unit"):
+        C.parse_input_number("5 mV", None)  # a suffix needs the state's unit to convert into
