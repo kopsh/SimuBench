@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { displayUnit, engParts, parseEngineering } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { labelOf, numeric, optionLabel, shortForm } from "./model";
+import { hasLabel, labelOf, numeric, optionLabel, shortForm } from "./model";
 
 interface Props {
   sid: string;
@@ -33,10 +33,12 @@ interface Props {
   trailing?: ReactNode;
   /** A manual value its automatic switch overrides: dimmed, with a note (#279). */
   inactive?: boolean;
+  /** The control alone, its name given by the row it sits in (a measurement slot, #728). */
+  bare?: boolean;
 }
 
 /** One editable state variable; edits are out-of-band "configure" actions (architecture.md 5.2). */
-export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive }: Props) {
+export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive, bare }: Props) {
   const { t } = useTranslation();
   const configure = useConfigure(sid);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +78,7 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
     control = (
       <Select value={String(v.value)} onValueChange={(x) => commit(x)} disabled={readonly}>
         <SelectTrigger size="sm" className="num h-7 w-full min-w-24 text-xs" aria-label={labelOf(v)}>
-          <SelectValue />
+          <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
           {(v.options ?? []).map((o) => (
@@ -94,18 +96,31 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
       <NumberInput v={v} disabled={readonly} inactive={inactive} onCommit={commit} onInvalid={() => setError(t("workbench.refused"))} />
     );
   } else {
-    control = <span className="num">{String(v.value)}</span>;
+    control = (
+      <span className="num min-w-0 truncate" title={String(v.value)}>
+        {String(v.value)}
+      </span>
+    );
   }
 
   return (
     <div
-      className={cn("grid items-center gap-x-3", compact ? "grid-cols-[1fr_auto]" : "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]")}
+      className={cn(
+        "grid items-center gap-x-3",
+        bare ? "grid-cols-1" : compact ? "grid-cols-[1fr_auto]" : "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]",
+      )}
       data-inactive={inactive || undefined}
     >
-      <label className="text-muted-foreground truncate text-xs" title={inactive ? `${v.path} · ${t("workbench.autoInactive")}` : v.path}>
-        {labelOf(v)}
-        {inactive && <span className="text-muted-foreground/70 block text-[10px]">{t("workbench.autoInactive")}</span>}
-      </label>
+      {!bare && (
+        // A setting the definition did not name shows its path, in mono: the name SCPI users know (#728).
+        <label
+          className={cn("text-muted-foreground truncate text-xs", !hasLabel(v) && "num")}
+          title={inactive ? `${v.path} · ${t("workbench.autoInactive")}` : v.path}
+        >
+          {labelOf(v)}
+          {inactive && <span className="text-muted-foreground/70 block text-[10px]">{t("workbench.autoInactive")}</span>}
+        </label>
+      )}
       <div className={cn("flex min-w-0 items-center justify-end gap-1.5", inactive && "opacity-50")}>
         {control}
         {trailing}
