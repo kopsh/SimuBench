@@ -1527,3 +1527,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | #666（调制谱线、取档、ADC 码值各一处实现）补记 | ✅ 本节；`offset_sign` 与 `line_budget` 的保留理由写入 instrument-authoring.md（ADC 一节）；新增 `E-DEF-OFFSET-CONVENTION` 校验（ADC 量化且传输发码值时两处约定须一致；顺带验证全库定义无冲突），`tests/test_validate_definition.py` 新增一条 |
 | RfModulator 载波低于调制率时边带折叠有测试 | ✅ `tests/test_rf_modulator.py::test_sidebands_through_zero_fold_so_the_waveform_is_the_fm_tone_it_describes`（时域波形等于 cos(2πf0t − β·cos(2πRt))）、`test_a_sideband_landing_on_zero_goes_to_dc_not_to_a_line` |
+
+## 检查器：多通道分页、主要设置在前、分组与空槽显示（Issue 728）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 多通道仪表一次显示一个通道，CH 选择器用通道色 | ✅ `Inspector.tsx` 的 `ChannelSettings`；亮/暗故事基线 `workbench-inspector--four-channel-template-scope` |
+| 主要设置取 `summary` / `channel_summary`，其余按路径首段分组，远程编程组沉底，没名字的不带前缀设置归“其他” | ✅ `model.ts` 的 `splitSettings`、`groupOpen`；`model.test.ts` 对计数器、源表、示波器、信号源、万用表、校准源的真实快照断言：每项设置恰好出现一次、没名字的不进主要层、有内容可看 |
+| 有名字的设置分组默认展开，不把万用表孔径、源表自动量程折叠起来 | ✅ 端到端 `layout.spec.ts`、`instruments.spec.ts`（频谱仪手动 RBW）；先按“全部折叠”实现时这五项失败，改为按有无名字决定后通过 |
+| `NULL` / `NONE` 显示“无”，空枚举显示“—”，测量槽 P1…P8 一行两个控件 | ✅ `optionLabel` 的词表与单测；`slotRows` 单测；故事展开“测量”组的截图 |
+| 长的只读字符串不再撑出列宽 | ✅ `StateField.tsx` 截断并带 title（源表数据格式的元素列表） |
+| 不改定义格式，已展开的自建仪表也受益 | ✅ 分类只用路径、`label`、已有的摘要字段 |
+| 已知未做 / 环境 | ⚠️ `workbench.spec.ts` 的 `about-version` 在没有 git tag 的检出里得到 `0.1.devN`，与本改动无关；是否把逐设置的“是否上面板”写进定义（改格式，需决策）留待需要时 |

@@ -197,7 +197,7 @@ export function refTarget(session: SessionInfo, ref: string): { label: string; s
  * expanded once (decisions.md D-template: no later upgrade), so the grouping has to cope with unlabelled settings. */
 
 /** Path prefixes of settings that only exist for remote programming. */
-const REMOTE_SEGMENTS = new Set(["comm", "waveform", "status", "system", "remote", "interface", "io", "lan", "gpib", "usb", "visa", "hislip"]);
+const REMOTE_SEGMENTS = new Set(["comm", "waveform", "status", "system", "remote", "interface", "io", "lan", "gpib", "usb", "visa", "hislip", "format"]);
 
 /** True when the definition gave the setting a name of its own (else the path is all there is). */
 export function hasLabel(v: Pick<StateVarInfo, "label" | "label_en">): boolean {
@@ -242,23 +242,42 @@ export function splitSettings(vars: StateVarInfo[], summaryKeys: string[]): Spli
     }
   }
   const groups = new Map<string, SettingGroup>();
+  const group = (id: string) => {
+    let g = groups.get(id);
+    if (!g) {
+      g = { id, remote: REMOTE_SEGMENTS.has(id), vars: [] };
+      groups.set(id, g);
+    }
+    return g;
+  };
   for (const v of vars) {
     const name = nameOf(v);
     if (seen.has(name)) continue;
     const seg = groupSegment(name);
     if (seg === null) {
-      main.push(v); // a flat setting is a top-level knob
+      // A flat setting is a top-level knob, but only one the definition named: an unnamed one would
+      // head the panel under its raw path, so it waits in "other".
+      (hasLabel(v) ? main : group(OTHER).vars).push(v);
       continue;
     }
-    let g = groups.get(seg);
-    if (!g) {
-      g = { id: seg, remote: REMOTE_SEGMENTS.has(seg), vars: [] };
-      groups.set(seg, g);
-    }
-    g.vars.push(v);
+    group(seg).vars.push(v);
   }
   const all = [...groups.values()];
-  return { main, groups: [...all.filter((g) => !g.remote), ...all.filter((g) => g.remote)] };
+  const named = all.filter((g) => !g.remote && g.id !== OTHER);
+  const other = all.filter((g) => g.id === OTHER);
+  return { main, groups: [...named, ...other, ...all.filter((g) => g.remote)] };
+}
+
+/** The group of flat settings the definition did not name. */
+export const OTHER = "other";
+
+/**
+ * Whether a group starts open. A named setting is one the definition's author means as a knob (a
+ * multimeter's aperture, a source's autorange), so a group of those is open; the folded ones are the
+ * remote-programming groups and groups the definition did not name (a template's measurement slots).
+ */
+export function groupOpen(g: SettingGroup): boolean {
+  return !g.remote && g.vars.filter(hasLabel).length * 2 >= g.vars.length;
 }
 
 export interface SlotRow {

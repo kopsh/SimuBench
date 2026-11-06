@@ -96,7 +96,11 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
       <NumberInput v={v} disabled={readonly} inactive={inactive} onCommit={commit} onInvalid={() => setError(t("workbench.refused"))} />
     );
   } else {
-    control = <span className="num">{String(v.value)}</span>;
+    control = (
+      <span className="num min-w-0 truncate" title={String(v.value)}>
+        {String(v.value)}
+      </span>
+    );
   }
 
   return (

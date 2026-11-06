@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
@@ -372,7 +372,7 @@ function SettingsBlock({
     <div className="space-y-3">
       {main.length > 0 && <div className="space-y-1.5">{main.map(field)}</div>}
       {groups.map((g) => (
-        <Section key={g.id} title={<GroupTitle group={g} />} collapsible defaultOpen={main.length === 0 && g === groups[0]}>
+        <Section key={g.id} title={<GroupTitle group={g} />} collapsible defaultOpen={groupOpen(g) || (main.length === 0 && g === groups[0])}>
           <GroupBody sid={sid} inst={inst} group={g} readonly={readonly} stateVars={stateVars} field={field} />
         </Section>
       ))}
@@ -402,6 +402,18 @@ const GROUP_KEYS = {
   lan: "inspector.group.lan",
   gpib: "inspector.group.gpib",
   usb: "inspector.group.usb",
+  sense: "inspector.group.sense",
+  source: "inspector.group.source",
+  sweep: "inspector.group.sweep",
+  output: "inspector.group.output",
+  compliance: "inspector.group.compliance",
+  sample: "inspector.group.sample",
+  beeper: "inspector.group.beeper",
+  click: "inspector.group.click",
+  line: "inspector.group.line",
+  cal: "inspector.group.cal",
+  format: "inspector.group.format",
+  other: "inspector.group.other",
 } as const;
 
 function GroupTitle({ group }: { group: SettingGroup }) {
