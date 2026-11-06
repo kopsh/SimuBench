@@ -22,7 +22,7 @@ from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition
 from ..scpi import values as V
 from ..scpi.parse import Pattern, Token
 from .commands import told_apart
-from .component import Component, binding_of, component_types
+from .component import Component, binding_of, component_types, noise_problems
 from .portref import ladder, split
 from .validate import Report, _ptr, unknown_name
 
@@ -652,6 +652,20 @@ def _check_state_ref(
     return spec
 
 
+def _check_noise(value: Any, pp: str, spec: ComponentSpec, report: Report) -> None:
+    """The reading-noise parameter ``noise`` (#746) must be spelled right: a wrong key or value
+    would otherwise read as no noise, or fail at the first reading (#752)."""
+    for sub, message in noise_problems(value):
+        report.add(
+            "error",
+            "E-DEF-NOISE",
+            f"{pp}/{sub}" if sub else pp,
+            f"{spec.name}.noise：{message}",
+            "noise 只接受 ppm_of_range（≥0）、ref_time_s（>0）、table（量程→rms，≥0）",
+            spec.name,
+        )
+
+
 def _check_params(
     d: InstrumentDefinition,
     spec: ComponentSpec,
@@ -673,6 +687,8 @@ def _check_params(
                 spec.name,
                 severity="warning",
             )
+        if key == "noise" and key in cls.defaults and binding_of(value) is None:
+            _check_noise(value, pp, spec, report)
         mapping = value if isinstance(value, dict) and "from" in value else None
         ref = binding_of(value)
         words = cls.choices.get(key)

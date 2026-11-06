@@ -11,12 +11,16 @@ expressed by overriding:
 
 from __future__ import annotations
 
+import math
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
 
+import numpy as np
+
 from ..scpi.errors import ScpiError
+from .noise import gaussian, stream_key
 from .signal import Signal
 
 if TYPE_CHECKING:
@@ -235,6 +239,46 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
     return value
 
 
+NOISE_KEYS = ("ppm_of_range", "ref_time_s", "table")
+
+
+def _number(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def noise_problems(value: Any) -> list[tuple[str, str]]:
+    """What is wrong with a ``noise`` parameter (#746, #752), as (sub-pointer, message) pairs:
+    only ``ppm_of_range`` >= 0, ``ref_time_s`` > 0 and ``table`` (range -> rms, both >= 0) are
+    allowed. None is noiseless; a state binding is checked where it is resolved."""
+    if value is None or binding_of(value) is not None:
+        return []
+    allowed = ", ".join(NOISE_KEYS)
+    if not isinstance(value, dict):
+        return [("", f"应是 {{{allowed}}} 的映射，得到 {value!r}")]
+    out: list[tuple[str, str]] = []
+    for k, v in value.items():
+        if k not in NOISE_KEYS:
+            out.append((str(k), f"没有键 {k!r}，允许的键只有 {allowed}"))
+        elif k == "ppm_of_range" and not (_number(v) and v >= 0):
+            out.append((k, f"ppm_of_range 应是 ≥ 0 的数，得到 {v!r}"))
+        elif k == "ref_time_s" and not (_number(v) and v > 0):
+            out.append((k, f"ref_time_s 应是 > 0 的数，得到 {v!r}"))
+        elif k == "table" and v is not None:
+            if not isinstance(v, dict):
+                out.append((k, f"table 应是“量程 → rms”的映射，得到 {v!r}"))
+                continue
+            for rk, rv in v.items():
+                try:
+                    key_ok = _number(float(rk)) and float(rk) >= 0
+                except (TypeError, ValueError):
+                    key_ok = False
+                if not key_ok:
+                    out.append((f"{k}/{rk}", f"table 的键（量程）应是 ≥ 0 的数，得到 {rk!r}"))
+                elif not (_number(rv) and rv >= 0):
+                    out.append((f"{k}/{rk}", f"table[{rk!r}] 的 rms 应是 ≥ 0 的数，得到 {rv!r}"))
+    return out
+
+
 class Component:
     """Base class for every component type."""
 
@@ -361,6 +405,40 @@ class Component:
                 except ValueError:
                     pass
         return value
+
+    # ---- reading noise (#746) --------------------------------------------------------------------
+    #: Counts the frames the Web panel took of this component's readings (see :meth:`panel_frame`).
+    _panel_frames = 0
+
+    def noise_sample(self, sigma: float, stream: str, *key: object) -> float:
+        """One normal sample of rms ``sigma`` that is a pure function of (seed, this component,
+        ``stream``, ``key``): the same instant gives the same value, a replay is bit-identical."""
+        if not sigma > 0:
+            return 0.0
+        return sigma * float(gaussian(stream_key(self.session.seed, self.uid, stream, *key), np.zeros(1))[0])
+
+    def noise_rms(self, range_: float | None, integration_s: float) -> float:
+        """The rms of this component's reading noise (the ``noise`` parameter) on ``range_`` at an
+        integration time: ``ppm_of_range`` of the range, or the ``table`` entry for that range, at the
+        reference time ``ref_time_s``, falling as the square root of the integration time. 0 when the
+        parameter is unset (every definition before #746) or the component has no range."""
+        spec = self.param("noise")
+        if not isinstance(spec, dict) or range_ is None:
+            return 0.0
+        table = spec.get("table") or {}
+        rms = next((float(v) for k, v in table.items() if math.isclose(float(k), range_)), None)
+        if rms is None:
+            rms = float(spec.get("ppm_of_range", 0.0)) * 1e-6 * abs(range_)
+        ref = float(spec.get("ref_time_s", 0.02))
+        if integration_s > 0 and ref > 0:
+            rms *= math.sqrt(ref / integration_s)
+        return rms
+
+    def panel_frame(self) -> int:
+        """The next frame number of the Web panel's readings: its own counter, so the panel's noise
+        moves without touching what a script sees or the virtual clock (D32, like #730)."""
+        self._panel_frames += 1
+        return self._panel_frames
 
     def peer(self, name: str, *, required: bool = False) -> Component | None:
         """The component another one names (a ``refs`` parameter): for a channel component its own
