@@ -20,7 +20,8 @@ function setup(
     />,
   );
   const input = screen.getByLabelText("f") as HTMLInputElement;
-  fireEvent.focus(input);
+  input.focus(); // real focus: the element is document.activeElement (#758)
+  expect(document.activeElement).toBe(input);
   return { input, onCommit, onInvalid };
 }
 
@@ -44,8 +45,9 @@ describe("DraftInput", () => {
   it("Esc drops the draft and restores the value", () => {
     const { input, onCommit } = setup();
     fireEvent.change(input, { target: { value: "99" } });
+    // the real path: Esc blurs a field whose submit closure still holds the draft (#758) —
+    // the cancellation must win, the draft must not go out as a commit
     fireEvent.keyDown(input, { key: "Escape" });
-    fireEvent.blur(input);
     expect(onCommit).not.toHaveBeenCalled();
     expect(input.value).toBe("10");
   });

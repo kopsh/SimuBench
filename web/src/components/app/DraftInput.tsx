@@ -61,6 +61,9 @@ function DraftInputInner<T>(
   ref: React.Ref<DraftHandle>,
 ) {
   const [draft, setDraft] = useState<string | null>(null);
+  // Esc clears the draft and blurs; the blur's submit closure still holds the stale draft, so a
+  // cancelled blur is marked here and drops out (#758).
+  const cancelled = useRef(false);
   const el = useRef<HTMLInputElement & HTMLTextAreaElement>(null);
   useImperativeHandle(
     ref,
@@ -75,6 +78,10 @@ function DraftInputInner<T>(
   );
 
   const submit = () => {
+    if (cancelled.current) {
+      cancelled.current = false;
+      return;
+    }
     if (draft === null) return;
     setDraft(null);
     const r = parse(draft);
@@ -85,7 +92,10 @@ function DraftInputInner<T>(
     ref: el,
     value: draft ?? display ?? text,
     // Focusing does not change the text, so selecting it and typing replaces it cleanly.
-    onFocus: () => setDraft(text),
+    onFocus: () => {
+      cancelled.current = false;
+      setDraft(text);
+    },
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: submit,
     onKeyDown: (
@@ -95,6 +105,7 @@ function DraftInputInner<T>(
       if (e.defaultPrevented) return;
       if (e.key === "Enter" && !multiline) e.currentTarget.blur();
       if (e.key === "Escape") {
+        cancelled.current = true;
         setDraft(null);
         e.currentTarget.blur();
       }
