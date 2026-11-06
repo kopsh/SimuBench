@@ -60,12 +60,62 @@ class RemoteLocal:
             self.remote = False
         return action
 
+    # The 488.1 remote/local interface function (RL1) as local messages and bus messages.
+
+    def assert_ren(self) -> None:
+        self.ren = True
+
+    def release_ren(self) -> None:
+        """REN false returns every state to LOCS, lockout included."""
+        self.ren = self.remote = self.lockout = False
+
+    def listen(self) -> None:
+        """Addressed to listen, or a message received: REMS (RWLS under lockout) when REN is true."""
+        if self.ren:
+            self.remote = True
+
+    def gtl(self) -> None:
+        """Go to local: REMS -> LOCS, RWLS -> LWLS; a lockout stays."""
+        self.remote = False
+
+    def llo(self) -> None:
+        """Local lockout: LOCS -> LWLS, REMS -> RWLS."""
+        self.lockout = True
+
     @property
     def state(self) -> str:
         """``local`` | ``remote`` | ``local_lockout`` | ``remote_lockout`` (488.1 LOCS/REMS/LWLS/RWLS)."""
         if self.lockout:
             return "remote_lockout" if self.remote else "local_lockout"
         return "remote" if self.remote else "local"
+
+
+@dataclass
+class ServiceRequest:
+    """The request-service latch (RQS) of IEEE 488.1 2.7 and 488.2 11.2.
+
+    The instrument's status byte carries MSS in bit 6: a summary, true while any reason enabled by
+    the service request enable register exists. A service request is a *new* reason, which sets
+    RQS and asserts SRQ; a serial poll returns the status byte with RQS in bit 6 and clears it. So
+    a script that waits for SRQ and then polls sees the request once, however long the reason lasts.
+    """
+
+    latch: bool = False
+    reasons: int = 0  # the enabled reasons seen so far (status bits ANDed with the enable register)
+
+    def observe(self, stb: int, sre: int) -> None:
+        """Look at the status byte after something may have changed it."""
+        current = stb & sre & ~0x40
+        if current & ~self.reasons:
+            self.latch = True
+        self.reasons = current
+
+    def poll(self, stb: int, sre: int) -> int:
+        """A serial poll: the status byte as 488.1 returns it, and RQS cleared."""
+        self.observe(stb, sre)
+        out = (stb & ~0x40) | (0x40 if self.latch else 0)
+        self.latch = False
+        return out
 
 
 @dataclass
@@ -121,6 +171,7 @@ class InstrumentBus:
 
     locks: LockTable = field(default_factory=LockTable)
     remote_local: RemoteLocal = field(default_factory=RemoteLocal)
+    service_request: ServiceRequest = field(default_factory=ServiceRequest)
 
 
 _REGISTRY: weakref.WeakKeyDictionary[Session, dict[str, InstrumentBus]] = weakref.WeakKeyDictionary()
@@ -128,4 +179,29 @@ _REGISTRY: weakref.WeakKeyDictionary[Session, dict[str, InstrumentBus]] = weakre
 
 def bus_of(session: Session, instrument: str) -> InstrumentBus:
     """The bus state of one instrument; every access path of a session sees the same object."""
-    return _REGISTRY.setdefault(session, {}).setdefault(instrument, InstrumentBus())
+    buses = _REGISTRY.get(session)
+    if buses is None:
+        buses = _REGISTRY[session] = {}
+        # The status byte changes with every message, whichever interface it came over, so the
+        # request-service latch watches the engine's events instead of relying on the access paths:
+        # a reason that goes away and comes back between two polls is still a new reason.
+        session.subscribe(lambda event: _watch(session, event))
+    return buses.setdefault(instrument, InstrumentBus())
+
+
+def _watch(session: Session, event: dict) -> None:
+    name = event.get("instrument")
+    if event.get("kind") == "scpi" and name in session.instruments:
+        observe(session, name)
+
+
+def observe(session: Session, instrument: str) -> None:
+    """Let the instrument's request-service latch see its status byte (call after any I/O)."""
+    inst = session.instrument(instrument)
+    bus_of(session, instrument).service_request.observe(inst.stb(), inst.sre)
+
+
+def serial_poll(session: Session, instrument: str) -> int:
+    """A serial poll of one instrument, the same on every bus that has one."""
+    inst = session.instrument(instrument)
+    return bus_of(session, instrument).service_request.poll(inst.stb(), inst.sre)
