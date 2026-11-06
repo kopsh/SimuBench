@@ -93,6 +93,39 @@ def test_ocp_trips_when_the_overcurrent_outlasts_the_delay():
         s.close()
 
 
+def test_a_rate_above_the_new_range_is_clamped_when_the_range_switches():
+    """A slew set on the high range follows the range down (issue 721, the model's decision — the
+    manual is silent): the readback clamps to 0.25 A/µs and the ramp runs at the clamped rate."""
+    s = session()
+    try:
+        for c in ("CURR:SLEW:POS 0.5", "CURR:RANG 24", "CURR 10", "INP ON"):
+            assert q(s, c) is None
+        assert float(q(s, "CURR:SLEW:POS?")) == pytest.approx(0.25)
+        s.advance(10e-6)  # 10 µs at 0.25 A/µs: a quarter of the way to 10 A
+        assert float(q(s, "FETC:CURR?")) == pytest.approx(2.5, abs=1e-9)
+        s.advance(0.1)
+        assert float(q(s, "FETC:CURR?")) == pytest.approx(10.0)
+        # back up: the clamped rate is legal on the high range and stays
+        assert q(s, "CURR:RANG 240") is None
+        assert float(q(s, "CURR:SLEW:POS?")) == pytest.approx(0.25)
+    finally:
+        s.close()
+
+
+def test_slew_def_follows_the_selected_range_like_min_and_max():
+    s = session()
+    try:
+        assert q(s, "CURR:RANG 24") is None
+        assert q(s, "CURR:SLEW:POS DEF") is None  # was -222 before issue 721
+        assert float(q(s, "CURR:SLEW:POS?")) == pytest.approx(0.25)
+        assert q(s, "SYST:ERR?") == '0,"No Error"'
+        assert q(s, "CURR:RANG 240") is None
+        assert q(s, "CURR:SLEW:POS DEF") is None
+        assert float(q(s, "CURR:SLEW:POS?")) == pytest.approx(2.5)
+    finally:
+        s.close()
+
+
 def test_cc_slew_at_the_slowest_rate():
     s = session()
     try:
