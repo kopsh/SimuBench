@@ -16,11 +16,11 @@ import type {
 import { useCatalog } from "@/api/hooks";
 import { EmptyState } from "@/components/app/StateViews";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
+import { CLOCK_MODES, oneOf } from "@/lib/enums";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { channelColor } from "@/lib/channels";
 import { pickLabel } from "@/i18n";
@@ -147,13 +147,16 @@ function BenchProperties({ doc }: { doc: BenchDocument }) {
           <Field label={t("edit.clock")}>
             <Select
               value={String(run.clock ?? "command")}
-              onValueChange={(v) => void applyOps([{ op: "set_run", clock: v as "command" | "wall" | "stepped" | "scaled" }])}
+              onValueChange={(v) => {
+                const clock = oneOf(CLOCK_MODES, v);
+                if (clock) void applyOps([{ op: "set_run", clock }]);
+              }}
             >
               <SelectTrigger size="sm" className="h-7 w-full text-xs" aria-label={t("edit.clock")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(["command", "wall", "stepped", "scaled"] as const).map((m) => (
+                {CLOCK_MODES.map((m) => (
                   <SelectItem key={m} value={m} className="text-xs">
                     {t(`workbench.clockMode.${m}`)}
                   </SelectItem>
@@ -514,32 +517,16 @@ function TextField({
   multiline?: boolean;
   numeric?: boolean;
 }) {
-  const [draft, setDraft] = useState<string | null>(null);
-  const text = draft ?? value;
-  const submit = () => {
-    if (draft === null) return;
-    setDraft(null);
-    if (draft.trim() !== value) onCommit(draft.trim());
-  };
-  const common = {
-    value: text,
-    placeholder,
-    onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
-    onBlur: submit,
-    className: cn("text-xs", mono && "num", numeric && "num text-right"),
-  };
-  if (multiline) return <Textarea {...common} rows={3} className={cn(common.className, "min-h-16 w-full resize-y")} />;
+  // Rule: plain text, trimmed; an unchanged value is not entered.
+  const parse = (typed: string): Parsed<string> => (typed.trim() === value ? SKIP : commit(typed.trim()));
   return (
-    <Input
-      {...common}
-      className={cn(common.className, "h-7 w-full")}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-        if (e.key === "Escape") {
-          setDraft(null);
-          (e.target as HTMLInputElement).blur();
-        }
-      }}
+    <DraftInput
+      text={value}
+      parse={parse}
+      onCommit={onCommit}
+      multiline={multiline}
+      placeholder={placeholder}
+      className={cn("text-xs", mono && "num", numeric && "num text-right", multiline ? "min-h-16 w-full resize-y" : "h-7 w-full")}
     />
   );
 }

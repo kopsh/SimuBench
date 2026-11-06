@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, ClipboardCheck, Cpu, LayoutGrid, WifiOff, X } from "lucide-react";
+import { Blocks, ClipboardCheck, LayoutGrid, WifiOff, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useParams } from "react-router-dom";
@@ -14,7 +14,7 @@ import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { BottomPanel } from "./BottomPanel";
 import { Canvas, type LibraryItem } from "./canvas/Canvas";
-import { CLASS_ICON } from "./canvas/InstrumentNode";
+import { ClassIcon, classScreen } from "./classes";
 import type { Issue } from "./canvas/InstrumentNode";
 import { addItem } from "./edit/actions";
 import { HistoryDialog } from "./edit/HistoryDialog";
@@ -29,15 +29,8 @@ import { InternalsView } from "./internals/InternalsView";
 import { InstrumentAcceptance } from "@/features/instrument/InstrumentAcceptance";
 import { LiveValuesBanner } from "./edit/LiveValuesBanner";
 import { RemoteBanner } from "./RemoteBanner";
-import { GeneratorPanel } from "./screens/GeneratorPanel";
-import { LoadScreen } from "./screens/LoadScreen";
-import { LockinScreen } from "./screens/LockinScreen";
 import { PanelScreen } from "./screens/PanelScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
-import { RfGeneratorScreen } from "./screens/RfGeneratorScreen";
-import { ScopeScreen } from "./screens/ScopeScreen";
-import { SmuScreen } from "./screens/SmuScreen";
-import { SpectrumScreen } from "./screens/SpectrumScreen";
 import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
 
@@ -227,8 +220,7 @@ function CenterTabs({
     if (tab.kind === "internals") return <Blocks className="size-3.5" />;
     if (tab.kind === "acceptance") return <ClipboardCheck className="size-3.5" />;
     const cls = session.instruments.find((i) => i.name === tab.instrument)?.instrument_class;
-    const Icon = CLASS_ICON[cls ?? ""] ?? Cpu;
-    return <Icon className="size-3.5" />;
+    return <ClassIcon cls={cls} className="size-3.5" />;
   };
   const current = tabs.find((x) => tabKey(x) === active) ?? tabs[0];
   return (
@@ -328,13 +320,8 @@ function Screen({
   if (!inst) return null;
   // The class template picks the screen (D1); instruments without one get the generic layout.
   const template = inst.display.template ?? inst.instrument_class;
-  if (template === "oscilloscope") return <ScopeScreen session={session} inst={inst} readonly={readonly} />;
-  if (template === "function_generator") return <GeneratorPanel sid={session.id} inst={inst} readonly={readonly} />;
-  if (template === "lockin") return <LockinScreen sid={session.id} inst={inst} readonly={readonly} />;
-  if (template === "spectrum_analyzer") return <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />;
-  if (template === "smu") return <SmuScreen sid={session.id} inst={inst} readonly={readonly} />;
-  if (template === "electronic_load") return <LoadScreen sid={session.id} inst={inst} readonly={readonly} />;
-  if (template === "rf_generator") return <RfGeneratorScreen sid={session.id} inst={inst} readonly={readonly} />;
+  const own = classScreen(template, { session, inst, readonly });
+  if (own) return own;
   // Otherwise the definition's panel, or its class's default (multimeter, calibrator); else the generic layout.
   if (inst.display.panel) return <PanelScreen sid={session.id} inst={inst} initial={initial} readonly={readonly} />;
   return <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />;

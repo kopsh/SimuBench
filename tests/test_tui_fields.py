@@ -96,6 +96,7 @@ def test_a_field_text_ellipsises_its_label_and_keeps_the_value():
     assert tiny == "12.500 V"  # no room for any label: the value alone
 
 
+@pytest.mark.unit
 def test_parse_input_number_itself():
     """The renamed helper (issue 641 → issue 691): bare numbers, prefixed ones, and its errors."""
     assert C.parse_input_number("5") == 5.0  # bare: the state's unit

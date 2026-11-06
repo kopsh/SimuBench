@@ -1,4 +1,4 @@
-import { Cpu, FileWarning, FolderOpen, Plug, Search, Workflow } from "lucide-react";
+import { FileWarning, FolderOpen, Plug, Search, Workflow } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock } from "@/lib/format";
-import { CLASS_ICON } from "@/features/workbench/canvas/InstrumentNode";
+import { ClassIcon } from "@/features/workbench/classes";
 import { RecentRuns } from "../runs/RecentRuns";
 import { GettingStarted } from "./GettingStarted";
 import { NewBenchDialog } from "./NewBenchDialog";
@@ -170,14 +170,13 @@ export function HomePage() {
               </div>
               <ul className="grid gap-2 md:grid-cols-2">
                 {(catalog.data?.instruments ?? []).map((i) => {
-                  const Icon = CLASS_ICON[i.instrument_class] ?? Cpu;
                   return (
                     <li key={i.id}>
                       <Link
                         to={`/i/${i.id}`}
                         className="bg-card hover:bg-accent/50 flex items-center gap-3 rounded-lg border px-3 py-2 transition-colors"
                       >
-                        <Icon className="text-muted-foreground size-4 shrink-0" />
+                        <ClassIcon cls={i.instrument_class} className="text-muted-foreground size-4 shrink-0" />
                         <span className="min-w-0 flex-1">
                           <span className="flex items-center gap-1.5">
                             <span className="truncate text-sm font-medium">
