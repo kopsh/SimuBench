@@ -228,6 +228,11 @@ def _pulse_measure(
         return base
     if amp <= 0:
         return math.nan
+    # The real instruments' method (InfiniiVision 2000 X-Series Programmer's Guide,
+    # :MEASure:OVERshoot): overshoot = (Vmax - Vtop)/(Vtop - Vbase), the top and the base from
+    # the histogram. On a noisy record the extremum rides a few sigma of the noise above the
+    # level cluster, so a clean sine reads a few percent: the noise excursion's order, not the
+    # signal's shape (#782).
     if what == "OVERshoot":
         return max(0.0, vmax - top) / amp * 100.0
     if what == "PREShoot":

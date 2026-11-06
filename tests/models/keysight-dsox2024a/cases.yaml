@@ -432,14 +432,16 @@ cases:
       - query: ":MEASure:VBASe?"
         expect_value: -1.0
         tolerance: 0.05
-      # 过冲/预冲按直方图参考电平算:噪声把电平簇摊开,10% 参考落在噪声簇里,
-      # 干净正弦的 ~0 读出数倍值(#745 的已知疣,值不再有物理意义,只钉"能测")
+      # 过冲/预冲 = (极值 − 直方图顶底)/(顶底差)×100(编程手册 02.66.0000 的 :MEASure:OVERshoot
+      # 方法,顶底取自全记录直方图)。含噪记录上这不是失真而是真机行为:极值带着 ~4σ 的噪声
+      # excursion(0.5 V/div 档 10 mV rms ≈ 40 mV,15.6 mV 码上取整 2 码),直方图众数落在真峰
+      # 内 1 码,合计 3 码 46.9 mV ÷ 1.96875 V ≈ 2.4%(#782)。容差 0.5 盖住噪声抽取的码间波动。
       - query: ":MEASure:OVERshoot?"
-        expect_value: 0.0
-        tolerance: 2.5
+        expect_value: 2.4
+        tolerance: 0.5
       - query: ":MEASure:PREShoot?"
-        expect_value: 0.0
-        tolerance: 2.5
+        expect_value: 2.4
+        tolerance: 0.5
       # A sine's 10–90 % edge: 2·asin(0.8)/(2π·1 kHz) = 0.295 ms.
       # 10–90% 与中点跨越各带 ~2 µs 的噪声抖动(#745)
       - query: ":MEASure:RISetime?"
