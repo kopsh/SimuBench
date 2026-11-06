@@ -152,7 +152,7 @@ async def test_advance_clock_needs_force_while_scripts_are_connected(ws):
             with pytest.raises(ClientsConnected):
                 manager.get(sid).session.advance(0.1)  # the session layer itself refuses
             ok = await call(c, "advance_clock", seconds=0.5, force=True)
-            assert ok["now_s"] >= 0.5
+            assert ok["now_ns"] >= 500_000_000
         finally:
             sock.close()
 
@@ -245,7 +245,7 @@ async def test_true_values_need_bench_switch(ws):
     _, server = make(ws, allow_control=True)
     async with Client(server) as c:
         await call(c, "start_session", path=BENCH)
-        assert (await call(c, "advance_clock", seconds=0.5))["now_s"] >= 0.5
+        assert (await call(c, "advance_clock", seconds=0.5))["now_ns"] >= 500_000_000
         r = await call(c, "read_true_values")
         assert "reveal_true_values" in r["error"]
         doc = await call(c, "read_bench", path=BENCH)
@@ -760,6 +760,21 @@ async def test_try_definition_sessions_are_pooled_and_reused(ws):
         unknown = await call(c, "try_definition", definition_id="no-such-model", commands=["*IDN?"])
         assert "error" in unknown
         assert manager.tries.all() == [] or all(e.definition != "no-such-model" for e in manager.tries.all())
+
+
+async def test_the_time_fields_of_every_tool_agree_on_name_and_unit(ws):
+    """One time field across the MCP tools (issue 653): ``now_ns``, nanoseconds — send_scpi,
+    advance_clock and the session summary read the same instant as the same field."""
+    manager, server = make(ws, allow_control=True)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        sid = s["session_id"]
+        assert set(s) >= {"now_ns"} and "now_s" not in s  # the session summary too
+        sent = await call(c, "send_scpi", instrument="scope", command="*IDN?")
+        advanced = await call(c, "advance_clock", seconds=1.0)
+        assert "now_s" not in advanced
+        assert advanced["now_ns"] - sent["now_ns"] >= 1_000_000_000  # nanoseconds, not seconds
+        assert manager.get(sid).session.now_ns == advanced["now_ns"]
 
 
 async def test_describe_session_describes_once(ws, monkeypatch):
