@@ -188,13 +188,17 @@ class Triggerable:
         end = self._fire_span()
         if end is None:
             end = self._act_ns
+        if self.owner.session.clock_mode == "stepped":
+            # A stepped clock moves only when stepped, so nothing would ever complete a firing
+            # that itself takes virtual time: that span is instantaneous (its spacing is what it
+            # reports). The trigger delay is timer semantics, not the action's cost — it still
+            # stands, like the ready delay does, and ``advance`` runs it (issue 659).
+            end = min(end, self._act_ns)
         self._fire_end_ns = end
-        if end <= self.owner.now_ns() or self.owner.session.clock_mode == "stepped":
-            # A stepped clock moves only when stepped, so nothing would ever complete the firing:
-            # one that itself takes virtual time is instantaneous (its spacing is what it reports).
+        if end > self.owner.now_ns():
+            self.owner.register_pending(self.uid, end, self._fire_step)
+        else:
             self._fire_step()
-            return
-        self.owner.register_pending(self.uid, end, self._fire_step)
 
     def _fire_step(self) -> None:
         """The firing is done — the pending table ran it, or ``wait_fired`` by hand: the action,

@@ -291,7 +291,9 @@ def default_block(instrument_class: object) -> dict[str, Any]:
 def deep_merge(base: dict, override: dict) -> dict:
     """Two definition data blocks merged deep: dicts recurse key by key (``errors`` by code, a
     setting by field), lists and every other value are replaced whole. ``override`` wins; neither
-    input is changed."""
+    input is changed. A ``None`` in ``override`` is kept as the value (a deletion marker for
+    :func:`drop_deleted`, which the layering calls once after every layer is merged: dropping it
+    here would let a lower layer bring the key back)."""
     out = dict(base)
     for key, value in override.items():
         if key in out and isinstance(out[key], dict) and isinstance(value, dict):
@@ -299,3 +301,15 @@ def deep_merge(base: dict, override: dict) -> dict:
         else:
             out[key] = value
     return out
+
+
+def drop_deleted(data: Any) -> Any:
+    """``data`` without the dict keys whose value is ``None`` (recursively through dicts and the
+    dicts inside lists): the deletion markers of an ``extends`` child (D59, ``key: null`` drops the
+    inherited key, an ``errors`` code, a setting, a command field). A copy; a list is not
+    thinned — its items are kept whole, as a list is replaced whole."""
+    if isinstance(data, dict):
+        return {k: drop_deleted(v) for k, v in data.items() if v is not None}
+    if isinstance(data, list):
+        return [drop_deleted(v) for v in data]
+    return data

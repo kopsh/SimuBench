@@ -128,3 +128,12 @@ def mcp_result(r, *, error_ok: bool = False):
     import json
 
     return json.loads(r.content[0].text)
+
+
+async def stop_manager_sessions(manager) -> None:
+    """Stop every session a test's SessionManager still holds, the way a served bench's teardown
+    must: uvicorn's exit does not close them — the SCPI and HiSLIP listening sockets belong to
+    the sessions, and a leaked HiSLIP port makes the next module's fixed-port bind fail
+    (issue 686, two TUI modules in one process). Sync callers wrap it in ``asyncio.run``."""
+    for sid in list(manager.sessions):
+        await manager.stop(sid)
