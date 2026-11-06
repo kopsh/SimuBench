@@ -1561,3 +1561,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 画面刷新不改变脚本看到的回复与虚拟时间；同一种子下可复现 | ✅ `test_the_frames_of_a_screen_are_the_same_on_every_run`（两次运行逐帧相同，画 3 帧后 `now_ns` 不变）；原有的 `test_a_running_screen_does_not_change_what_a_script_sees` 不改通过 |
 | 无噪声的定义不凭空造变化 | ✅ `test_a_noiseless_triggered_screen_is_identical_frame_to_frame`（DSO-X 2024A 触发时三帧逐点相同，行为按设计：它的输入没有噪声与抖动，补噪声见 #731 与真实型号的另行 issue） |
 | 未做 | ⚠️ 慢时基下的滚动模式（Roll）：用户已确认不做整体滑动，另议；Web 侧每 300 ms 取一帧的节奏不变 |
+
+## 内部构造图：按数据流排列，补出组件间的“使用”关系（Issue 729）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 内部结构接口返回组件间的依赖，由 `refs` 推导，不改定义格式与信号通路 | ✅ `Component.ref_links()`、`InstrumentInternals.refs`（`InternalRef`：被使用的 → 使用它的，带参数名）；`tests/test_internals.py`：DSO-X 2024A 恰为时基、触发、ADC → 采集，采集 → 测量、波形传输；每份内置定义的依赖两端都是本仪表的组件、各出现一次；`wires` 不含依赖 |
+| 示波器的 ADC、时基、触发、测量、波形传输不再孤立 | ✅ 同一测试：除系统块与三个状态寄存器外，整机的每个组件都有连线或依赖 |
+| 图按输入到输出排列：被使用的阶段在使用者之前，读它的在之后；只由命令驱动的组件放进“命令 / 状态侧”带 | ✅ `layout.ts` 的 `buildGraph`（依赖参与列的计算、虚线边带参数名、命令侧单独成带并有标题）；`layout.test.ts` 5 项；故事与亮/暗视觉基线 `workbench-instrument-internals--oscilloscope` |
+| 点组件列出它使用谁、被谁使用；孤立组件注明由命令和设置驱动 | ✅ `RefList`；端到端 `workbench.spec.ts` 两项（采集的“使用/被使用”，DSO-X 的命令侧） |
+| API 变更按流程重新生成 | ✅ `schemas/openapi.json`、`web/src/api/generated/openapi.ts` |
+| 未做 | ⚠️ 点孤立组件时列出驱动它的 SCPI 命令与受它影响的读数（#729 原文的一项）：需要从命令表反查绑定，另开 issue；`waveform_transfer`、`scope_measurements` 以设置选通道（`source`）的关系不是 `refs`，不在图上 |
