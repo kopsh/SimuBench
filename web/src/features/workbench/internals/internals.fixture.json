@@ -1721,6 +1721,33 @@
         "to": "acq.in4"
       }
     ],
+    "refs": [
+      {
+        "from": "timebase",
+        "to": "acq",
+        "param": "horizontal"
+      },
+      {
+        "from": "trigger",
+        "to": "acq",
+        "param": "trigger"
+      },
+      {
+        "from": "adc",
+        "to": "acq",
+        "param": "adc"
+      },
+      {
+        "from": "acq",
+        "to": "meas",
+        "param": "record"
+      },
+      {
+        "from": "acq",
+        "to": "xfer",
+        "param": "record"
+      }
+    ],
     "ports": [
       {
         "name": "CH1",

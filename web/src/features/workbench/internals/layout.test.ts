@@ -20,6 +20,7 @@ const scope: InstrumentInternals = {
     { from: `ch${n}.inp.out`, to: `ch${n}.front.in` },
     { from: `ch${n}.front.out`, to: `acq.in${n}` },
   ]),
+  refs: [],
   ports: [1, 2].map((n) => ({ name: `CH${n}`, target: `ch${n}.inp.pin`, direction: "in", medium: "electrical", channel: n })),
 };
 
@@ -53,5 +54,64 @@ describe("buildGraph", () => {
       const sorted = [...col].sort((a, b) => a.y - b.y);
       for (let i = 1; i < sorted.length; i++) expect(sorted[i].y).toBeGreaterThanOrEqual(sorted[i - 1].y + sorted[i - 1].height);
     }
+  });
+});
+
+// The same scope with what the acquisition uses and what uses it (#729), and a system block only commands drive.
+const flow: InstrumentInternals = {
+  ...scope,
+  components: [
+    ...scope.components,
+    { name: "adc", type: "scope_adc", channel: null, doc: null, params: [], ports: [] },
+    { name: "timebase", type: "scope_timebase", channel: null, doc: null, params: [], ports: [] },
+    { name: "meas", type: "scope_measurements", channel: null, doc: null, params: [], ports: [] },
+    { name: "sys", type: "system", channel: null, doc: null, params: [], ports: [] },
+  ],
+  refs: [
+    { from: "adc", to: "acq", param: "adc" },
+    { from: "timebase", to: "acq", param: "horizontal" },
+    { from: "acq", to: "meas", param: "record" },
+  ],
+};
+
+describe("buildGraph dependencies (#729)", () => {
+  it("draws what a component uses as a dashed-kind edge from the used one to its user, named by the parameter", () => {
+    const { edges } = buildGraph(flow, new Set([1, 2]));
+    const refs = edges.filter((e) => e.kind === "ref");
+    expect(refs.map((e) => [e.source, e.target, e.label])).toEqual([
+      ["c:adc", "c:acq", "adc"],
+      ["c:timebase", "c:acq", "horizontal"],
+      ["c:acq", "c:meas", "record"],
+    ]);
+    expect(edges.filter((e) => e.kind === "wire").every((e) => !e.label)).toBe(true);
+  });
+
+  it("puts the stages before the acquisition and the readers after it", () => {
+    const { nodes } = buildGraph(flow, new Set([1, 2]));
+    const x = Object.fromEntries(nodes.map((n) => [n.id, n.x]));
+    expect(x["c:adc"]).toBeLessThan(x["c:acq"]);
+    expect(x["c:timebase"]).toBeLessThan(x["c:acq"]);
+    expect(x["c:acq"]).toBeLessThan(x["c:meas"]);
+  });
+
+  it("parks what only commands drive under a label of its own, below the channels", () => {
+    const { nodes } = buildGraph(flow, new Set([1, 2]));
+    const label = nodes.find((n) => n.kind === "label");
+    const sys = nodes.find((n) => n.id === "c:sys");
+    expect(label).toBeDefined();
+    expect(sys!.y).toBeGreaterThanOrEqual(Math.max(...nodes.filter((n) => n.id !== "c:sys" && n.kind !== "label").map((n) => n.y)));
+    expect(sys!.x).toBeGreaterThan(label!.x);
+    // components with a wire or a dependency are not in that band
+    expect(nodes.find((n) => n.id === "c:adc")!.y).toBeLessThan(sys!.y);
+  });
+
+  it("shows no command side when everything is connected", () => {
+    expect(buildGraph(scope, new Set([1, 2])).nodes.some((n) => n.kind === "label")).toBe(false);
+  });
+
+  it("draws a dependency to a collapsed channel at its group", () => {
+    const withChannelRef: InstrumentInternals = { ...flow, refs: [...flow.refs, { from: "ch2.front", to: "acq", param: "vertical" }] };
+    const { edges } = buildGraph(withChannelRef, new Set([1]));
+    expect(edges.map((e) => e.id)).toContain("g:2/out->c:acq/ref-in:vertical");
   });
 });

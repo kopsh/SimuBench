@@ -2410,6 +2410,11 @@ export interface components {
             instrument: string;
             /** Ports */
             ports: components["schemas"]["InternalPort"][];
+            /**
+             * Refs
+             * @description Dependencies between components (a component names another in a refs parameter), from the one used to the one that uses it; not signal wiring
+             */
+            refs: components["schemas"]["InternalRef"][];
             /** Wires */
             wires: components["schemas"]["InternalWire"][];
         };
@@ -2491,6 +2496,27 @@ export interface components {
              * @description Component port it leads to, e.g. 'ch1.inp.pin'
              */
             target: string;
+        };
+        /**
+         * InternalRef
+         * @description A component using another one (a ``refs`` parameter): not a signal wire, a dependency.
+         */
+        InternalRef: {
+            /**
+             * From
+             * @description The component used (it feeds the one that uses it, e.g. 'adc')
+             */
+            from: string;
+            /**
+             * Param
+             * @description The using component's parameter that names it, e.g. 'adc'
+             */
+            param: string;
+            /**
+             * To
+             * @description The component that uses it (e.g. 'acq')
+             */
+            to: string;
         };
         /** InternalWire */
         InternalWire: {

@@ -2,8 +2,11 @@ import type { InstrumentInternals, InternalComponent } from "@/api/client";
 
 /**
  * The component graph of an instrument (issue 20), laid out in columns along the signal flow:
- * panel ports on the edges, each component one column right of everything that feeds it.
- * Collapsed channels become one group node; their wiring is drawn to the group.
+ * panel ports on the edges, each component one column right of everything that feeds it. What a
+ * component uses (its ``refs``, #729) feeds it too: the converter, the time base and the trigger
+ * stand before the acquisition, the measurements and the transfer after it. Components nothing
+ * connects, only commands and settings drive (the system, the status registers), wait in a band of
+ * their own. Collapsed channels become one group node; their wiring is drawn to the group.
  */
 
 export type PortRow = { name: string; side: "left" | "right" };
@@ -11,12 +14,16 @@ export type PortRow = { name: string; side: "left" | "right" };
 export type GraphNode =
   | { id: string; kind: "component"; comp: InternalComponent; rows: PortRow[]; x: number; y: number; height: number }
   | { id: string; kind: "group"; channel: number; count: number; x: number; y: number; height: number }
-  | { id: string; kind: "port"; name: string; direction: string; medium: string; channel: number | null; x: number; y: number; height: number };
+  | { id: string; kind: "port"; name: string; direction: string; medium: string; channel: number | null; x: number; y: number; height: number }
+  | { id: string; kind: "label"; text: "command"; x: number; y: number; height: number };
 
-export type GraphEdge = { id: string; source: string; sourceHandle: string; target: string; targetHandle: string };
+/** A signal wire, or a dependency (``ref``: the source is used by the target, ``label`` names the parameter). */
+export type GraphEdge = { id: string; source: string; sourceHandle: string; target: string; targetHandle: string; kind: "wire" | "ref"; label?: string };
 
-export const NODE_WIDTH = { component: 196, group: 196, port: 72 } as const;
+export const NODE_WIDTH = { component: 196, group: 196, port: 72, label: 196 } as const;
 export const HEADER = 40;
+/** Handles for a dependency: on the header, apart from the ports' rows. */
+export const REF_HANDLE_TOP = HEADER / 2;
 export const ROW = 18;
 const COLUMN = 250;
 const GAP = 14;
@@ -58,10 +65,10 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     nodes.push({ id: `p:${p.name}`, kind: "port", name: p.name, direction: p.direction, medium: p.medium, channel: p.channel ?? null, x: 0, y: 0, height: 28 });
 
   const edges = new Map<string, GraphEdge>();
-  const add = (source: string, sourceHandle: string, target: string, targetHandle: string) => {
+  const add = (source: string, sourceHandle: string, target: string, targetHandle: string, ref?: string) => {
     if (source === target) return;
-    const id = `${source}/${sourceHandle}->${target}/${targetHandle}`;
-    edges.set(id, { id, source, sourceHandle, target, targetHandle });
+    const id = `${source}/${sourceHandle}->${target}/${targetHandle}${ref ? `:${ref}` : ""}`;
+    edges.set(id, { id, source, sourceHandle, target, targetHandle, kind: ref ? "ref" : "wire", ...(ref ? { label: ref } : {}) });
   };
   const handle = (node: string, port: string, side: "in" | "out") => (node.startsWith("g:") ? side : port);
   for (const w of view.wires) {
@@ -77,6 +84,23 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     if (p.direction === "out") add(n, handle(n, port, "out"), `p:${p.name}`, "p");
     else add(`p:${p.name}`, "p", n, handle(n, port, "in"));
   }
+  // What a component uses feeds it: the used one is the source, so it stands left of its user.
+  const refHandle = (node: string, side: "in" | "out") => (node.startsWith("g:") ? side : `ref-${side}`);
+  for (const r of view.refs ?? []) {
+    const used = nodeOf(r.from);
+    const user = nodeOf(r.to);
+    add(used, refHandle(used, "out"), user, refHandle(user, "in"), r.param);
+  }
+
+  // Components nothing connects and no panel port leads to are driven by commands and settings alone:
+  // a band of their own at the bottom, one column each, under a label.
+  const touched = new Set<string>();
+  for (const e of edges.values()) {
+    touched.add(e.source);
+    touched.add(e.target);
+  }
+  const commandSide = nodes.filter((n) => n.kind === "component" && !touched.has(n.id));
+  const COMMAND_BAND = 1000;
 
   // Longest path from the sources; the cap keeps a feedback loop from running forever.
   const depth = new Map(nodes.map((n) => [n.id, 0]));
@@ -95,9 +119,19 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   const last = Math.max(0, ...depth.values());
   for (const n of nodes) if (n.kind === "port" && n.direction === "out") depth.set(n.id, last);
 
+  if (commandSide.length) {
+    nodes.push({ id: "l:command", kind: "label", text: "command", x: 0, y: 0, height: 40 });
+    depth.set("l:command", 0);
+    commandSide.sort((a, b) => a.id.localeCompare(b.id)).forEach((n, i) => depth.set(n.id, i + 1));
+  }
+  const isCommandSide = new Set([...commandSide.map((n) => n.id), "l:command"]);
+
   // One band per channel (the whole-instrument parts first), so each channel's chain reads as a row
-  // and a collapsed channel lines up with its panel ports.
-  const channelOf = (n: GraphNode) => (n.kind === "component" ? n.comp.channel : n.channel) ?? 0;
+  // and a collapsed channel lines up with its panel ports; the command side is the last band.
+  const channelOf = (n: GraphNode) => {
+    if (isCommandSide.has(n.id)) return COMMAND_BAND;
+    return (n.kind === "component" ? n.comp.channel : n.kind === "label" ? null : n.channel) ?? 0;
+  };
   const bands = new Map<number, Map<number, GraphNode[]>>();
   for (const n of nodes) {
     const band = bands.get(channelOf(n)) ?? new Map<number, GraphNode[]>();

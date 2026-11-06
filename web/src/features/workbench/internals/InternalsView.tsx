@@ -16,11 +16,12 @@ import { displayUnit, formatEng } from "@/lib/format";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { labelOf, numeric, stateMap } from "../model";
-import { type GraphNode, NODE_WIDTH, type PortRow, buildGraph, handleTop } from "./layout";
+import { type GraphNode, NODE_WIDTH, type PortRow, REF_HANDLE_TOP, buildGraph, handleTop } from "./layout";
 
 type ComponentData = { node: Extract<GraphNode, { kind: "component" }>; selected: boolean };
 type GroupData = { node: Extract<GraphNode, { kind: "group" }> };
 type PortData = { node: Extract<GraphNode, { kind: "port" }> };
+type LabelData = { node: Extract<GraphNode, { kind: "label" }> };
 
 /** Read-only view of how an instrument is built from components (issue 20). */
 export function InternalsView({ session, inst }: { session: SessionInfo; inst: InstrumentInfo }) {
@@ -91,7 +92,7 @@ export function InternalsPanel({ view, inst }: { view: InstrumentInternals; inst
       <aside className="bg-sidebar w-72 shrink-0 border-l" aria-label={t("workbench.inspector")}>
         <ScrollArea className="h-full">
           {comp ? (
-            <ComponentDetails comp={comp} inst={inst} />
+            <ComponentDetails comp={comp} inst={inst} view={view} />
           ) : (
             <p className="text-muted-foreground p-4 text-xs">{t("internals.select")}</p>
           )}
@@ -105,6 +106,7 @@ const nodeTypes = {
   component: memo(ComponentNode),
   group: memo(GroupNode),
   port: memo(PortNode),
+  label: memo(LabelNode),
 };
 
 function Graph({
@@ -132,12 +134,21 @@ function Graph({
     connectable: false,
     selectable: n.kind !== "port",
   }));
-  const edges: Edge[] = graph.edges.map((e) => ({
+  const edges: Edge[] = graph.edges.map(({ kind, label, ...e }) => ({
     ...e,
     type: "smoothstep",
     focusable: false,
     selectable: false,
-    style: { stroke: "var(--muted-foreground)", strokeWidth: 1.25 },
+    // A signal wire is solid; what a component uses is dashed and named by its parameter (#729).
+    ...(kind === "ref"
+      ? {
+          label,
+          labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" },
+          labelBgStyle: { fill: "var(--background)" },
+          style: { stroke: "var(--muted-foreground)", strokeWidth: 1.25, strokeDasharray: "5 4", opacity: 0.8 },
+          data: { kind },
+        }
+      : { style: { stroke: "var(--muted-foreground)", strokeWidth: 1.25 }, data: { kind } }),
   }));
   return (
     <ReactFlow
@@ -195,6 +206,9 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
         <div className="truncate text-[13px] leading-tight font-medium">{typeLabel(t, c.type)}</div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{c.name}</div>
       </div>
+      {/* Where a dependency arrives (what this component uses) and leaves (who uses it), #729. */}
+      <Handle id="ref-in" type="target" position={Position.Left} isConnectable={false} style={{ top: REF_HANDLE_TOP, width: 6, height: 6, borderWidth: 1, borderStyle: "dashed", borderColor: "var(--muted-foreground)", background: "var(--card)" }} />
+      <Handle id="ref-out" type="source" position={Position.Right} isConnectable={false} style={{ top: REF_HANDLE_TOP, width: 6, height: 6, borderWidth: 1, borderStyle: "dashed", borderColor: "var(--muted-foreground)", background: "var(--card)" }} />
       {node.rows.map((row) => {
         const top = handleTop(index(row));
         const left = row.side === "left";
@@ -242,6 +256,17 @@ function GroupNode({ data }: NodeProps<Node<GroupData>>) {
   );
 }
 
+/** The title of the band of components only commands and settings drive (#729). */
+function LabelNode({ data }: NodeProps<Node<LabelData>>) {
+  const { t } = useTranslation();
+  return (
+    <div className="text-muted-foreground flex flex-col justify-center text-[11px] leading-snug" style={{ width: NODE_WIDTH.label, height: data.node.height }} data-testid="internal-command-side">
+      <div className="text-foreground text-xs font-medium">{t("internals.commandSide")}</div>
+      <div>{t("internals.commandSideHint")}</div>
+    </div>
+  );
+}
+
 function PortNode({ data }: NodeProps<Node<PortData>>) {
   const { t } = useTranslation();
   const { node } = data;
@@ -260,7 +285,7 @@ function PortNode({ data }: NodeProps<Node<PortData>>) {
   );
 }
 
-function ComponentDetails({ comp, inst }: { comp: InternalComponent; inst: InstrumentInfo }) {
+function ComponentDetails({ comp, inst, view }: { comp: InternalComponent; inst: InstrumentInfo; view: InstrumentInternals }) {
   const { t } = useTranslation();
   const vars = stateMap(inst);
   return (
@@ -306,6 +331,7 @@ function ComponentDetails({ comp, inst }: { comp: InternalComponent; inst: Instr
           </dl>
         )}
       </section>
+      <RefList comp={comp} view={view} />
       <section>
         <h3 className="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">{t("internals.ports")}</h3>
         <dl className="space-y-1">
@@ -320,6 +346,41 @@ function ComponentDetails({ comp, inst }: { comp: InternalComponent; inst: Instr
         </dl>
       </section>
     </div>
+  );
+}
+
+/** What the component uses (it takes their output) and who uses it (they take its output), #729. */
+function RefList({ comp, view }: { comp: InternalComponent; view: InstrumentInternals }) {
+  const { t } = useTranslation();
+  const refs = view.refs ?? [];
+  const uses = refs.filter((r) => r.to === comp.name);
+  const usedBy = refs.filter((r) => r.from === comp.name);
+  const wired = view.wires.some((w) => w.from.startsWith(`${comp.name}.`) || w.to.startsWith(`${comp.name}.`));
+  const drivenByCommands = !uses.length && !usedBy.length && !wired && !view.ports.some((p) => p.target.startsWith(`${comp.name}.`));
+  if (!uses.length && !usedBy.length && !drivenByCommands) return null;
+  const row = (r: (typeof refs)[number], other: string) => (
+    <div key={`${r.from}>${r.to}:${r.param}`} className="flex items-baseline justify-between gap-2 text-xs">
+      <dt className="num truncate">{other}</dt>
+      <dd className="text-muted-foreground num shrink-0">{r.param}</dd>
+    </div>
+  );
+  return (
+    <section data-testid="internal-refs">
+      <h3 className="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">{t("internals.dependencies")}</h3>
+      {drivenByCommands && <p className="text-muted-foreground text-xs">{t("internals.commandSideHint")}</p>}
+      {uses.length > 0 && (
+        <>
+          <div className="text-muted-foreground mb-1 text-[11px]">{t("internals.uses")}</div>
+          <dl className="mb-2 space-y-1">{uses.map((r) => row(r, r.from))}</dl>
+        </>
+      )}
+      {usedBy.length > 0 && (
+        <>
+          <div className="text-muted-foreground mb-1 text-[11px]">{t("internals.usedBy")}</div>
+          <dl className="space-y-1">{usedBy.map((r) => row(r, r.to))}</dl>
+        </>
+      )}
+    </section>
   );
 }
 
