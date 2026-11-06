@@ -218,9 +218,9 @@ sections:
   - header: '[:SOURce]:VOLTage[:LEVel]:ON'
     level: implemented
     note: Von for CC and CW (CV and CR conduct regardless).
-  - header: '[:SOURce]:VOLTage:LATCh[:STATe]'
+  - header: '[:SOURce]:VOLTage[:ON]:LATCh[:STATe]'
     level: implemented
-    note: 'ON (*RST): once above Von the load keeps sinking below it until the input turns off.'
+    note: 'ON (*RST): once above Von the load keeps sinking below it until the input turns off. The manual''s *RST table writes VOLT:ON:LATC while the command chapters have no separate VOLTage:LATCh entry; both spellings are accepted (issue 663, real instrument unverified).'
   - header: '[:SOURce]:VOLTage:HIGH'
     level: accepted
     affects_data: false

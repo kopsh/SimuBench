@@ -266,3 +266,18 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   // Read-only: nothing to drag or connect.
   await expect(graph.locator(".react-flow__node.draggable")).toHaveCount(0);
 });
+
+test("the settings groups span the screen, not a nested grid's first column", async ({ page }) => {
+  // issue 693: a caller wrapping SettingsGroups in its own grid section squeezed the groups
+  // into one column — the container must be as wide as its parent on each of these screens.
+  for (const [bench, node] of [["smu", "源测量单元"], ["lockin_rc", "锁相放大器"], ["rfgen", "射频信号源"]] as const) {
+    await page.goto(`/?token=${TOKEN}`);
+    await page.getByRole("listitem").filter({ has: page.getByText(bench, { exact: true }) }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+    await page.locator(".react-flow__node").filter({ hasText: node }).dblclick();
+    const groups = page.getByTestId("settings-groups");
+    await expect(groups).toBeVisible();
+    const box = (await groups.boundingBox())!;
+    const parent = (await groups.locator("xpath=..").boundingBox())!;
+    expect(box.width, `${bench}: the settings groups are as wide as their parent`).toBeGreaterThan(parent.width * 0.95);
+  }
+});

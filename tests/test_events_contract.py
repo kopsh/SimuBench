@@ -82,6 +82,7 @@ def test_the_kind_description_is_generated_from_the_registry():
         "hidden",
         "remote",
         "hislip",
+        "bus_control",
         "solver",
     }
 
@@ -152,13 +153,19 @@ def test_project_defaults_the_seq_and_the_kind():
 
 @pytest.mark.parametrize(
     "kind",
-    ["ignored", "remote", "hislip"],  # the kinds an engine session alone cannot cheaply produce
+    [
+        "ignored",
+        "remote",
+        "hislip",
+        "bus_control",
+    ],  # the kinds an engine session alone cannot cheaply produce
 )
 def test_project_carries_each_kind_s_declared_fields(kind):
     samples = {
         "ignored": {"header": "C1:FOO", "query": False, "reason": "ignored", "origin": "d.yaml"},
         "remote": {"instrument": "awg", "action": "remote", "source": "script"},
         "hislip": {"instrument": "awg", "client": "hislip:host:1010#0", "action": "GOLOCAL"},
+        "bus_control": {"instrument": "awg", "client": "vxi11:host:1010#0", "action": "go to local"},
     }
     out = project({"kind": kind, **samples[kind]}, 0)
     assert {k: out[k] for k in samples[kind]} == samples[kind]

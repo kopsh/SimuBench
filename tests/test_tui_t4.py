@@ -5,6 +5,7 @@ it, reporting the first difference (11.3).
 
 from __future__ import annotations
 
+import asyncio
 import json
 import socket
 import threading
@@ -15,6 +16,7 @@ import pytest
 import uvicorn
 import yaml
 
+from helpers import stop_manager_sessions
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
@@ -184,6 +186,7 @@ def demo_server(tmp_path_factory):
     while not server.started and time.monotonic() < deadline:
         time.sleep(0.02)
     yield f"http://127.0.0.1:{port}", manager, records
+    asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
     server.should_exit = True
     thread.join(timeout=10)
 
@@ -225,6 +228,19 @@ async def test_the_demo_regenerates_the_docs_screenshots(demo_server, tmp_path: 
         assert any(e.kind == "fault" and e.source == "bench" for e in detail.events)
     finally:
         await manager.stop(served.id)
+
+
+async def test_the_modules_sessions_stopping_releases_its_hislip_port(demo_server):
+    """The teardown stops the sessions, not just uvicorn (issue 686): the fixed HiSLIP port
+    binds again, as the next module's fixed port needs when two files run in one process."""
+    manager, _records = demo_server[1], demo_server[2]
+    _served = await manager.start("benches/find-the-trip.bench.yaml", seed=5, clock="command")
+    port = manager.hislip_port
+    with socket.socket() as probe, pytest.raises(OSError):
+        probe.bind(("127.0.0.1", port))  # the session holds it
+    await stop_manager_sessions(manager)  # what the module fixtures' teardown runs
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", port))  # released: the next module's bind will succeed
 
 
 async def test_open_reveal_and_home_drive_the_screens(tmp_path: Path):

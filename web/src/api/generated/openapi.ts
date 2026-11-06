@@ -1399,7 +1399,7 @@ export interface components {
         };
         /**
          * ClientInfo
-         * @description A client connected to the session's SCPI ports (raw socket or HiSLIP).
+         * @description A client connected to the session's SCPI ports (raw socket, HiSLIP or VXI-11).
          */
         ClientInfo: {
             /**
@@ -1414,7 +1414,7 @@ export interface components {
             instrument: string | null;
             /**
              * Locked
-             * @description Holds a HiSLIP lock, i.e. a script is in control
+             * @description Holds a HiSLIP or VXI-11 lock, i.e. a script is in control
              * @default false
              */
             locked: boolean;
@@ -2335,6 +2335,8 @@ export interface components {
             address_real: string | null;
             /** Address Virtual */
             address_virtual: string;
+            /** Address Vxi11 */
+            address_vxi11: string | null;
             /** Channels */
             channels: number;
             /** Definition Id */
@@ -2383,7 +2385,7 @@ export interface components {
             ports: components["schemas"]["PortInfo"][];
             /**
              * Remote
-             * @description Clients connected to this instrument's ports (socket, HiSLIP): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)
+             * @description Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)
              */
             remote: string[];
             /** Scpi Port */
@@ -3255,7 +3257,7 @@ export interface components {
         RunEvent: {
             /**
              * Action
-             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip events: the acknowledged control
+             * @description A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip and bus_control events: the acknowledged control
              */
             action: string | null;
             /**
@@ -3304,7 +3306,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | solver
+             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver
              */
             kind: string;
             /** Message */
@@ -3562,6 +3564,11 @@ export interface components {
             layout: {
                 [key: string]: components["schemas"]["LayoutItem"];
             };
+            /**
+             * Link Address
+             * @description host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench (GPIB, USB and TCPIP addresses then work unchanged, D63)
+             */
+            link_address: string | null;
             /** Nets */
             nets: components["schemas"]["NetInfo"][];
             /** Now Ns */

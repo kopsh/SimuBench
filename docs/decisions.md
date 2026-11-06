@@ -382,15 +382,15 @@
 - **格式迁移**：每种文件以 `schema` 声明格式与版本；迁移按版本逐级升级解析后的数据，加载时在内存中完成，`simubench migrate [--write]` 改写文件。来自更新版本的文件给出“请升级 SimuBench”的明确诊断（E-FORMAT），而不是难以理解的校验错误。首个迁移：没有 `schema` 行的旧文件视为版本 0。
 - **首次使用引导**：首页的“开始使用”卡片给出三种入口（在界面中运行、用 PyVISA 脚本驱动、让 Agent 搭建），关闭后不再显示。
 
-## D41 HiSLIP 接入：synchronized 模式、共用端口、按子地址区分仪表
+## D41 HiSLIP 接入：同步与重叠两种模式、2.0 安全连接、共用端口、按子地址区分仪表
 
 - **结论**：除 raw socket 外，每台虚拟仪表也以 HiSLIP（IVI-6.1）暴露，NI-VISA、Keysight IO Libraries、pyvisa-py 等客户端不改脚本即可连接 `TCPIP0::127.0.0.1::hislip<i>,<端口>::INSTR`。三条设计约束：
   1. **共用一个端口，按子地址区分仪表**（默认 4880，`--hislip-port 0` 自动分配）：真实仪表各自有 IP、都用 `hislip0`；本机只有一个 IP，用 `hislip0`、`hislip1`…（编号规则与 SOCKET 端口一致）最接近真实情况，另接受 `hislip_<实例名>` 别名。
-  2. **只实现 synchronized 模式**（IVI-6.1 3.1）：`InitializeResponse` 一律回复 synchronized，客户端请求 overlapped 也如此，规范允许服务器这样选择。消息边界、设备清除、读 STB、锁（独占/共享，仅在同一仪表的 HiSLIP 会话之间生效）、SRQ 按规范实现；查询被打断按 synchronized 规则丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。
-  3. **不实现加密与凭证认证**：客户端请求 StartTLS 等按规范以 Error 回复。只绑定 127.0.0.1（D38/安全自检同款约束）。
+  2. **同步与重叠两种模式都服务**（IVI-6.1 3）：起始模式由 `--hislip-overlapped` 选定（默认 synchronized，`InitializeResponse` 控制位 0 宣告），设备清除时服务器提议自己的模式、接受客户端在 `DeviceClearComplete` 里的选择（6.12.1）。synchronized：查询被打断时丢弃旧响应并回 `Interrupted`/`AsyncInterrupted`。overlapped：消息只缓冲、不触发 interrupted，响应的 MessageID 由服务器自己的计数器给（从 0xffffff00 起，每条加 2），MAV 按客户端在 `AsyncStatusQuery` 里报告的已取走 ID 计算（6.14.2）。消息边界、设备清除、读 STB、锁（独占/共享；D63 起与同一仪表的 VXI-11 与 PyVISA 会话共用一份）、SRQ 按规范实现。协商版本为客户端与服务器中较低者，最高 2.0；`GetDescriptors`（2.0 起）在两个通道上应答。**重叠模式需要懂重叠模式的客户端**：规范要求客户端两种模式都支持（3.2.2），但 pyvisa-py 只实现同步模式的 MessageID 校验，对重叠起始的服务器第一次 `write` 之后的 `query` 会因 ID 对不上而丢弃响应、超时，所以默认仍是 synchronized，重叠只在命令行显式要求时才起。
+  3. **安全连接能力（2.0，IVI-6.1 4、6.15、6.16）有证书与密钥才开**（`--hislip-cert`/`--hislip-key`，`--hislip-tls optional|initial|mandatory` 选加密模式）：两个通道各自在连接中途由 `AsyncStartTLS`/`StartTLS` 升级为 TLS（1.2 起），`AsyncEndTLS`/`EndTLS` 降回明文（加密强制时拒绝）；握手前先看缓冲区是否为空（busy/success/error），客户端把 ClientHello 紧跟在 StartTLS 后发出也不丢字节，所以不用 asyncio 的 `start_tls` 而用内存 BIO 自己跑 TLS 状态机（`access/hislip_tls.py`）。强制加密或要求首先加密时，除 TLS 建立类消息外任何消息都是致命错误 5；加密建立后在登录前只回应登录类消息，其余回非致命错误 5。SASL 登录：`--hislip-users`（`name:password` 行）给出时只提供 PLAIN，否则只提供 ANONYMOUS，失败按次数递增延迟；认证只在该加密连接内有效。登录只管 HiSLIP 这个端口，不是测试台的访问控制：加密可选时从不请求加密的客户端（和 1.0 客户端）免登录，raw socket 与 VXI-11 也没有登录，所以命令行只在 `--hislip-tls initial` 或 `mandatory`（每个客户端都必须先加密再登录）时接受 `--hislip-users`。仍只绑定 127.0.0.1（D38/安全自检同款约束）。
 - **理由**：很多现有脚本与 LabVIEW/C# 程序用 HiSLIP 地址；raw socket 以换行结尾，二进制块中的 0x0A 只能靠解析长度，HiSLIP 用 `DataEnd` 标出消息边界，且只有它支持设备清除、读 STB 与 SRQ 这些 IEEE 488.2 语义。
 - **实现位置**：`access/hislip_server.py`（服务器）；`Session.clear_output` 提取为 PyVISA 后端与 HiSLIP 服务器共用的设备清除语义；PyVISA 后端地址表加入 HiSLIP 形式（含 Bench 中配置的 HiSLIP 真实地址直接打开），TCPIP INSTR 资源的 VISA 属性（`TCPIP_IS_HISLIP`、`TCPIP_DEVICE_NAME` 等）按 PyVISA 属性表填齐。
-- **不做**：overlapped、TLS/认证（HiSLIP 2.0 SC 部分）、`GetDescriptors`、VXI-11、USBTMC、GPIB、监听本机以外地址。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
+- **不做**：SASL 的 EXTERNAL（客户端证书）、GSSAPI 等其余机制，TLS 会话恢复，厂商自定义消息，监听本机以外地址。VXI-11、GPIB、USBTMC 见 D63。NI-VISA 与 Keysight IO Libraries 的手动验证不作为合并条件，见 progress-log.md 留待进行。
 
 ## D42 内置仪表都是真实型号
 
@@ -449,7 +449,7 @@
 
 - **结论**：Bench 的 `run` 新增 `idle`，表示命令之间空闲的真实时间怎么计入虚拟时间（只对命令驱动时钟有意义；墙钟、步进时钟不读它）：
   - `wall`（默认，即原有行为）：空闲的真实时间计入虚拟时间。交互使用、界面与 `simubench serve` 保持如此，脚本里的等待能“等”出建立时间；
-  - `sleep`：空闲不计入；进程内把 `time.sleep(t)` 拦截为虚拟时间恰好推进 `t`、不真的等待。pytest 插件默认此档（环境变量 `SIMUBENCH_IDLE` 与标记参数 `idle=` 可覆盖，与 `SIMUBENCH_CLOCK` 一致）；
+  - `sleep`：空闲不计入；进程内把 `time.sleep(t)` 拦截为虚拟时间恰好推进 `t`、不真的等待。pytest 插件默认此档（环境变量 `SIMUBENCH_IDLE` 与标记参数 `idle=` 可覆盖，与 `SIMUBENCH_CLOCK` 一致；issue 640 后这三个设置也可写在资源串查询参数里，资源串优先、环境变量兜底，见 architecture.md 7.3）；
   - `off`：空闲完全不推进虚拟时间，只有命令与显式 `advance` 推进。
 - **理由**：`wall` 空闲推进让慢机器把命令间的调度延迟算进虚拟时间，同一个测试在不同机器上读到不同的数（issue 4 的 Windows 1508 Ω）。测试要的是可复现：`sleep` 档下结果只由命令、`time.sleep` 和显式推进决定，脚本里的 `sleep(5)` 也不再真的等 5 秒，CI 更快。
 - **`sleep` 只在本进程有效**：拦截 `time.sleep` 是进程级补丁，在测试台打开期间生效、最后一个关闭后恢复原函数；进程内同时打开多个 `sleep` 档测试台时，一次被拦截的 `sleep` 推进其中每一个。只拦截 `time.sleep`：`asyncio.sleep`、线程等待与外部进程（SOCKET、HiSLIP 客户端）的等待都不拦截，因此 `simubench serve` 把配置为 `sleep` 的测试台按 `off` 处理。
@@ -537,8 +537,8 @@
 ## D59 定义复用分两层：类别默认块与 extends（单亲、整列表替换、禁止环）
 
 - **结论**：内置库为每个类别（`class`）保存默认块（`library/class_defaults.py`，目前是各类别通用 errors 表），loader 在 `model_validate` 前把所属类别的默认块深合并到定义数据之下：定义数据逐键胜出、`errors` 按 code 胜出；类别表只收「该类全部内置文件逐字一致」的条目，措辞不同或器件特有的码留在型号文件里。定义可声明 `extends: <内置型号 id>`（#596）：loader 先解析父定义（父定义自身的 extends 照此递归，单亲、禁止环），再把子定义深合并上去；dict 递归合并、列表整体替换；合并次序 类别默认 → 父 → 子，类别默认按子定义的 `class` 取表、对一切带 `reference` 的定义生效（不按文件位置；`sb-*` 验证仪器与无 `reference` 的定义不拿表——表条目会整体替换引擎「标准文本；细节」的回包，sb-* 的金测依赖后者）——extends 跨出内置库时，带 reference 的子定义靠这一点拿到父定义文件里已上收进类别表的条目。
-- **理由**：内置定义的 errors 有 ~480 条跨文件重复（通用 SCPI 块逐字重抄），一次行为改动多文件锁步（PR #582 同触 4 个文件）。备选一：每型号 partial 文件/模板展开——D3 的 template 是来源记录而非维护方式，partial 需要新的文件种类；备选二：commands 按命令头逐条合并——部分更新一条命令的参数易错，整列表替换可预期、可直接单测；备选三：子定义以 null 表示「删除继承键」——keysight-b2912b（双通道，设置在 `channel_state`）继承 keysight-b2901a（单通道，仪器级 `state`）需要它，否则 23 条仪器级状态与仪器级端口泄进双通道型号，但该语义超出本 issue 定下的合并规则，未做，b2900 这一对不改写；备选四：类别默认只作用于库内文件——父定义文件的通用错误行已上收进类别表，跨库 extends 的子定义会丢表。均不采用。
-- **代价**：列表整体替换使差异较多的兄弟改写收益有限（b2901a/b2912b 干脆不改写）；某类只有一个型号时类别表为空（如 function_generator），它的通用错误行仍在文件里；keysight-daq970a 经 extends 继承了父定义保留的 22 条 34970A 器件错误码（引擎不抛、只影响 fault 注入时的文本），keysight-53230a 的 `specs` 记录多了父定义的 53220A 行（共享手册、不参与计算）——两者惰性，若不接受需「删除继承键」语义另立 issue。
+- **理由**：内置定义的 errors 有 ~480 条跨文件重复（通用 SCPI 块逐字重抄），一次行为改动多文件锁步（PR #582 同触 4 个文件）。备选一：每型号 partial 文件/模板展开——D3 的 template 是来源记录而非维护方式，partial 需要新的文件种类；备选二：commands 按命令头逐条合并——部分更新一条命令的参数易错，整列表替换可预期、可直接单测；备选三：子定义以 null 表示「删除继承键」——keysight-b2912b（双通道，设置在 `channel_state`）继承 keysight-b2901a（单通道，仪器级 `state`）需要它，否则 23 条仪器级状态与仪器级端口泄进双通道型号；#644 采用：`deep_merge` 保留 null 标记，全部层合并完才一次 `drop_deleted`（下层、类别默认带不回来），b2912b 改写为 extends，daq970a 的 22 条 34970A 器件码与 53230a 的 53220A `specs` 行同法清除；同时修正多级链的合并次序（近亲在祖先之上）；备选四：类别默认只作用于库内文件——父定义文件的通用错误行已上收进类别表，跨库 extends 的子定义会丢表。均不采用。
+- **代价**：列表整体替换使差异较多的兄弟改写收益有限（b2912b 的 commands 仍整张重声明，只省下 format、能力与 14 条共有状态）；null 是第三种合并语义，定义里的 `null` 在有继承/类别默认的文件中即「删除」；某类只有一个型号时类别表为空（如 function_generator），它的通用错误行仍在文件里；daq970a/53230a 的惰性继承（器件错误码、53220A 的 specs 行）已用 null 清除（#644），53230a 仍继承父定义里与型号无关的共享 specs 项（量程、输入、时基，同一手册）。
 
 ## D60 组件不摸引擎内部：会话的公共口 solve/sync/signal_changed/all_components
 
@@ -557,3 +557,23 @@
 - **结论**：组件之间的鸭子接口缝仿 `Sampler` 声明为 `runtime_checkable` Protocol（`engine/component.py`，#630）：`Acquisition`（`read_record`、`transfer_record`、`timebase_scale`、`acq_count`——`waveform_transfer` 的 `record` 引用）、`AcquisitionInput`（可选的输入链 figures：`probe_ratio`、`adc_unit`、`adc_codes_per_div`，没有就落回传输自己的参数）、`TraceSource`（`trace_value`——曲线缓冲的迹线与锁相显示读的量）。`Component.refs` 的目标除组件类型名外可以是一个协议类；定义加载时按协议的**方法**成员扫描被指组件的类，缺方法在第一条 E-DEF-COMPONENT-REF 里点名（`缺 read_record, transfer_record, …`），运行时组件访问器再以 isinstance 复查一次（同 `trigger_model._sampler`，属性成员如 `acq_count` 只在这一层查得到）。transfer/curve/lockin 的 `hasattr` 探测与 `type: ignore[attr-defined]` 清零，守卫 `tests/test_component_boilerplate.py` 锁定组件目录无 `hasattr(`。校准器的 `_Setpoint`/`_Control` mixin 直接继承 `Component`（`range_name` 下移为 mixin 默认 None，`hasattr(sp, "range_name")` 删除），25 处 attr-defined ignore 一并清零。
 - **理由**：换采集组件时没有任何声明告诉作者必须实现 `transfer_record`，六处 ignore 与三连 hasattr 是类型系统对同一问题的抗议。备选一是抽象基类：`runtime_checkable` 的 isinstance 只查成员存在性已够，ABC 重架构不必要；备选二只在运行时报错：作者要跑到第一条命令才发现写错组件，加载期校验（`E-DEF-COMPONENT-REF` 已有的流程）是第一条错误就指明缺什么的现成落点。类级检查只扫方法成员，是因为实例属性（`acq_count` 在 `__init__` 赋值）对类不可见——扫它会误报合法组件。
 - **影响**：写新采集/迹线组件的要求有了名字（实现协议即是全部）；`refs` 声明与加载期校验对有效定义行为不变（全部内置定义原样通过）。同类未清的遗留：rfgen/sources 的 6 处 attr-defined ignore（synth/clock 缝，未列入 #630）、calibrator 的 `getattr` 探测（`kind`/`check_sense`/`_locked`，mixin 类型化后可再收）、lockin 的 3 处 return-value ignore。
+
+## D63 VXI-11 做成网络服务；GPIB 与 USBTMC 的行为在虚拟总线上仿真，脚本从进程内或进程外都能用；锁与远程/本地状态各仪表一份
+
+- **结论**：
+  1. **VXI-11 是网络协议，做**：`access/vxi11_server.py`，ONC RPC over TCP，核心、abort、中断（SRQ）三个通道，只监听 127.0.0.1。设备名 `inst<i>`（按 bench 顺序）、`inst_<实例名>`，以及 bench 的 `address:` 声明为 GPIB 的仪表另有 LAN/GPIB 网关形式 `gpib<板>,<主地址>[,<次地址>]`，不替没声明的仪表编 GPIB 地址。端口映射器（RFC 1833，只答 GETPORT）可选：VISA 库只会问 111 端口，那是特权端口、常被 rpcbind 占着，所以默认不开（`--portmapper-port`），不开时地址写成 `TCPIP0::127.0.0.1,<端口>::inst0::INSTR`（pyvisa-py 认这种写法，NI-VISA 不认）。只服务 TCP，不服务 UDP；`device_readstb` 是串行轮询（读后清 RQS）。
+  2. **GPIB 与 USBTMC 的仿真对象是脚本能观察到的行为，不是物理线缆**。用户不关心仪表程控接口用什么实现，要的是 `GPIB0::4::INSTR`、`USB0::…::INSTR` 的脚本不改就能调。所以两种总线各有服务端模型，访问方式另行协商：
+     - **虚拟 GPIB 总线**（`access/gpib_bus.py`，每块板一条）：bench 里 `address:` 声明为 GPIB 的仪表是总线上的设备；板卡主地址 0（有设备占 0 时用 30）。控制器用命令字节寻址 talker/listener（含次地址），UNL/UNT/SDC/DCL/GET/GTL/LLO/SPE/SPD 按 IEEE 488.1 作用于被寻址的听者或全部设备；IFC 让总线接口回到空闲但不清仪表；REN 是整条总线的线，被寻址时才进入远程；SRQ 线是各设备 RQS 锁存之或；无听者时写返回 `VI_ERROR_NLISTENERS`。VISA 在设备会话背后做的事按真实命令序列发生：写是 UNL+MTA(板)+MLA(设备)，`viClear` 是 SDC，`viAssertTrigger` 是 GET，`viReadSTB` 是 SPE+MTA+串行轮询+SPD。`GPIB<n>::INTFC` 会话是板卡本身：`viGpibCommand`、`viGpibSendIFC`、`viGpibControlATN`、`viGpibControlREN`，读写发给被寻址者，线路状态属性可读。没有模型的设备能接过控制（C0、PP0），所以传递控制只能失败（`VI_ERROR_NSUP_OPER`）。
+     - **虚拟 USBTMC/USB488 接口**（`access/usbtmc.py`，每台 USB 仪表一个）：按 USBTMC 1.00 与 USB488 1.00（usb.org）的表实现：全部类请求及其 USBTMC_status、响应布局（GET_CAPABILITIES 24 字节、INDICATOR_PULSE、READ_STATUS_BYTE 与 bTag 2–127、REN_CONTROL/GO_TO_LOCAL/LOCAL_LOCKOUT）；INITIATE/CHECK 拆分事务（ABORT_BULK_OUT/IN、CLEAR），拆分期间别的类请求回 STATUS_SPLIT_IN_PROGRESS；端点 halt 只有 `CLEAR_FEATURE(ENDPOINT_HALT)` 能解除，`GET_STATUS` 可查；Interrupt-IN 端点承载 SRQ（bTag 1）与状态字节，队列满回 STATUS_INTERRUPT_IN_BUSY；RL 状态机（REN 加一条消息或 TRIGGER 才进入远程）。端点地址（0x02/0x81/0x83）与中断 FIFO 深度是仿真设备自己的选择，所有仪表相同；GET_CAPABILITIES 只报模型实现了的能力（SCPI 位不置）。
+     - 事件 `bus_control` 记录每次总线动作（命令字节作用、IFC、REN 模式、USB 控制请求）。
+  3. **总线状态各仪表一份**（`access/bus.py`）：资源锁（一把独占锁，或一把共享锁、同键者共享）、REN/GTL/LLO 状态机（RL1：LOCS/REMS/LWLS/RWLS）与 RQS 锁存按仪表保存，HiSLIP、VXI-11、GPIB、USB、PyVISA 会话看到同一份。RQS 锁存是 IEEE 488.1/488.2 的规则：仪表状态字节第 6 位在引擎里是 MSS（汇总），“新原因”才置位 RQS 并拉起 SRQ，串行轮询返回带 RQS 的状态字节并清掉它，所以等 SRQ 再轮询的脚本只看到一次请求，所有接口的读状态字节（GPIB、USB、VXI-11、HiSLIP 状态查询、进程内会话）都是这一条规则；锁存由引擎的 scpi 事件驱动观察，不依赖访问层记得调用。
+  4. **一个 VISA 会话在总线上能做的事是 `Link`**（`access/links.py`）：写、读、清除、触发、读状态字节、REN、锁、SRQ 等待，网络/GPIB/USB/INTFC 各一种实现；PyVISA 后端只留 VISA 自己的缓冲区、属性与超时。不适用于会话类型的属性、未知请求按 VISA 报错（此前后端只返回状态码，PyVISA 不会因此抛错）。
+  5. **进程外的脚本用连接模式**（`access/bench_link.py`）：`serve`/`tui`/`mcp` 默认在 127.0.0.1:4881 开一个控制端口（`--link-port`，0 自动分配；绑定失败只警告），一行 JSON 一个请求，把 `Link` 的方法原样转发到服务里执行，所以行为与进程内一致，界面同时看得到。`PYVISA_LIBRARY=127.0.0.1:4881@simubench`（或 `SIMUBENCH_LINK`）让不指定库的 `pyvisa.ResourceManager()` 连到服务；什么都不给时试默认端口。每个 link 有自己的连接（一个资源的长等待不挡住另一个资源的查询），算远程客户端（界面拒绝改动、客户端列表与锁标记可见，事件里标 `bench:` 前缀），连接断开时锁随之释放。服务把自己各端口的地址随 hello 告诉脚本，所以 `serve` 打印的 SOCKET/HiSLIP/VXI-11 地址在连接模式下同样能打开。脚本自己的等待（读超时、等 SRQ）在命令时钟下推进共享的虚拟时间（`Session.wait`，原因 `wait`，记录并可回放），不走会被“有脚本连着就拒绝”拦下的显式推进；界面的显式推进仍受保护。传输可以换：HiSLIP 厂商自定义消息也能承载同一组调用，选专用端口是因为板卡会话不属于任何仪表、HiSLIP 连接却必须挂在一个子地址上。
+- **理由**：VXI-11 是大量老仪表脚本与 LAN/GPIB 网关的写法，纯软件可以完整做到；GPIB 线缆与 USB 设备需要硬件（GPIB 适配卡多半不支持设备端，USB 要 gadget 硬件），但脚本观察到的行为不需要：寻址、命令、SRQ、串行轮询、控制请求都是协议，可以仿真。上一版曾把 GPIB 总线命令、USB 控制请求、进程外 USBTMC 写成“不支持”，那等于把仿真行为当可选，已改正。备选一在 SimuBench 里自带 GPIB/USB 驱动层：要特权与硬件，得不偿失；备选二给没声明地址的仪表自动分配 GPIB/USB 地址：会编出厂商号与序列号，违背“拒绝而不猜”。锁与 REN 若各接入方式各存一份，同一台仪表被 HiSLIP 与 VXI-11 脚本同时用时行为与真机不符。
+- **影响**：HiSLIP 的锁不再只在 HiSLIP 会话之间生效（D41 已改）；HiSLIP 共享锁现在要求同键才合并（与 VISA 一致）；`SessionInfo` 的仪表多 `address_vxi11`，会话多 `link_address`，`ClientInfo` 与 `remote` 含 `vxi11:`、`bench:` 客户端；`serve`/`tui`/`mcp` 多 `--vxi11-port`（0 为自动分配）、`--portmapper-port`（隐含开启 VXI-11）、`--link-port`；VXI-11 在 `SessionManager` 与命令行都默认不开：端口随机，默认开会让启动器输出的地址表（TUI 脚本与 e2e 的固定画面）变得不确定，要用时显式打开。
+- **已知缺口**：
+  - VXI-11 `device_docmd`（经 LAN/GPIB 网关发 GPIB 总线命令，VXI-11.2）：规范原文取不到（vxibus.org 拒绝自动访问），命令码与数据布局不凭记忆写，仍回“不支持”。NI-VISA、LabVIEW 这类不走 PyVISA 的程序因此还不能从网关做 GPIB 总线命令，设备读写、状态字节、触发、清除、REN、锁照常。
+  - NI-VISA、LabVIEW、C# 等不走 PyVISA 的程序没有 USB 与 GPIB 地址的进程外入口（它们的 VISA 库要真硬件）；软件路径是 USB/IP 服务器导出虚拟 USBTMC 设备，客户端用 vhci-hcd 或 usbip-win 接入，需要客户端机器的管理员权限，是另一块大工作，未做。
+  - GPIB：EOI 不是单独的线（消息在引擎的消息边界结束），握手时序、并行轮询（设备是 PP0）、传递控制（设备是 C0）不仿真。
+  - USB：标准描述符与枚举（GET_DESCRIPTOR 等）不仿真，请求回 STALL；一次传输就是一条消息。
+  - UDP 版 VXI-11；HiSLIP 的缺口见 D41。
