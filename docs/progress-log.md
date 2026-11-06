@@ -1495,3 +1495,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档截图 | ✅ `find-the-trip.steps.yaml` 的「数字键 + Enter」两步合并为 `open: smu`，`test_the_demo_regenerates_the_docs_screenshots` 逐字节比较仍过（SVG 不变） |
 | 文档 | ✅ tui-design.md 第 6 节补三个字段与校验规则；script.py 模块串与 tui-ui skill 的步骤字段清单同步 |
 | 测试 | ✅ 单元 3 条（校验模拟顺序、无测试台时不查名、`parse_size`）+ t4 端到端 1 条 |
+
+## #680 TUI 示波器页的字段式交互（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 字段化 | ✅ 设置栏每个可写设置（时基/延迟/触发 5 项/采集 3 项/每通道 开关·档位·耦合·阻抗·探头）是 `标签 值` 的 `ControlButton`，与仪表屏幕同一编辑层（数值含单位、枚举轮换、范围检查、危险确认）；不增不删设置，`r` `s` `c` 键位不变 |
+| 文字块去重 | ✅ 与按钮重复的设置行删除；保留非设置信息（每通道开关状态、连线对端含探头）；触发方式/运行状态在波形框标题 |
+| 宽度 | ✅ 26 列放不下时值优先、标签 `…` 截尾（`ControlButton.field_text(width)`，截断发生在屏幕传入的 `_field_width()`；仪表屏网格自适应不受影响）；单元测试覆盖整标签/截断/仅值三档 |
+| 快捷 | ✅ `/` 搜索与 `go_to_field` 继承可用（t2 断言聚焦与跳转） |
+| 测试 | ✅ t2 数值键入（20 ms→0.02）、超范围（2000 s 拒绝、留在编辑态）、枚举轮换写入、`+` 1-2-5 步进（ch1.scale）、`/` 跳转；scope 渲染断言按字段文本重写（断言未弱化：数值与探头信息都还在） |
+| 快照 | ✅ 100×32 与 80×24 重生成并审阅 SVG：字段值完整（Timebase 1.0000 ms、Scale 50.000 mV），截断行（…gger slope RISing）可辨；`_wave_size` 未动 |
+| 文档 | ✅ tui-screens.md 6.2/6.4、tui-ui skill；progress-log 本节 |

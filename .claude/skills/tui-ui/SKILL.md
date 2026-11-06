@@ -34,6 +34,9 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - **Overview** is status-first: a card's light, its alerts and the attention strip all come from
   `cards.py` (`CardData.alerts`, `status_light`) — add a new kind of alert there, never in the
   screen. `w` (overview and instrument screens alike) goes through `reasons.explain_instrument`.
+- The scope screen's settings column is fields too (issue 680), not `[Name]` buttons: same
+  `ControlEditingScreen` editing, `label value` at a capped width — the value keeps its cells,
+  the label ellipsises (`_field_width()`; the instrument screen's grid passes None).
 - **Fields** (`ControlButton`, kind switch / select / number) read `label value` and are edited
   where they stand (`controls.FieldEdit` is the pure state; `editing.edit_key` the keys): the
   button consumes *every* key while `edit` is set (`check_consume_key`), so screen bindings

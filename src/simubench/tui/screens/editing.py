@@ -64,7 +64,10 @@ class ControlButton(Static):
         """Cells the button's text takes now: the grid sizes its columns from these."""
         return self._text.cell_len
 
-    def field_text(self, info: dict[str, Any], lang: str) -> Text:
+    def field_text(self, info: dict[str, Any], lang: str, width: int | None = None) -> Text:
+        """``label value``; at ``width`` the value keeps its cell and the label is ellipsised from
+        the left (the scope screen's 26-column settings column, issue 680) — the instrument
+        screen's grid sizes itself to the natural widths and never needs this."""
         control = self.control
         if self.edit is not None:
             if self.edit.kind == "number":
@@ -78,13 +81,26 @@ class ControlButton(Static):
             value = "AUTO"  # the stored manual value is not the one in effect (ui-design.md 6)
         else:
             value = C.summary_text(C.control_state(info, control), control.spec, lang)
-        return Text.assemble((control.label, "dim"), " ", (value, "bold"))
+        if width is None:
+            return Text.assemble((control.label, "dim"), " ", (value, "bold"))
+        from ..fmt import cell_len
 
-    def render_button(self, info: dict[str, Any], readonly: bool, lang: str = "en") -> None:
+        keep = width - cell_len(value) - 1  # one space between label and value
+        if keep < 0:
+            return Text(value, "bold")
+        label = control.label
+        if cell_len(label) > keep:
+            tail = max(0, keep - 1)  # one cell goes to the ellipsis itself
+            label = "…" + label[-tail:] if tail else "…"
+        return Text.assemble((label, "dim"), " ", (value, "bold"))
+
+    def render_button(
+        self, info: dict[str, Any], readonly: bool, lang: str = "en", width: int | None = None
+    ) -> None:
         self.set_class(readonly or not self.control.writable, "-readonly")
         self.set_class(C.is_lit(info, self.control), "-lit")
         self.set_class(self.edit is not None, "-editing")
-        self._text = self.field_text(info, lang)
+        self._text = self.field_text(info, lang, width)
         if self.is_attached:
             self.update(self._text)
 
@@ -209,9 +225,15 @@ class ControlEditingScreen(ShellScreen):
             self._log_static.update(Text(hint, style=style_of(app, "muted")))
         self._log_box.scroll_end(animate=False, force=True)
 
+    def _field_width(self) -> int | None:
+        """The width a field button may fill, when its screen caps it (the scope's 26-column
+        settings column, issue 680); the instrument screen's grid fits itself and passes None."""
+        return None
+
     def _refresh_buttons(self) -> None:
+        width = self._field_width()
         for button in self.query(ControlButton):
-            button.render_button(self.info, self.remote_controlled, self.app.lang)
+            button.render_button(self.info, self.remote_controlled, self.app.lang, width)
 
     # ---- focus and cursor ------------------------------------------------------------------------------
 
@@ -415,7 +437,7 @@ class ControlEditingScreen(ShellScreen):
         self._flash(button, hint)
 
     def _repaint_field(self, button: ControlButton) -> None:
-        button.render_button(self.info, self.remote_controlled, self.app.lang)
+        button.render_button(self.info, self.remote_controlled, self.app.lang, self._field_width())
 
     def _end_edit(self, button: ControlButton) -> None:
         button.edit = None
