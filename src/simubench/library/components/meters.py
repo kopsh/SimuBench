@@ -359,6 +359,7 @@ class DmmAdc(Component):
         "resolution": None,  # quantization step as a fraction of full scale (a mapping of a setting)
         "set_resolution": None,  # resolution given to CONFigure (a setting); CONFigure? returns it when > 0
         "reading_time": 0.0,  # s of virtual time one reading takes (integration and overhead)
+        "noise": None,  # reading noise {ppm_of_range, ref_time_s, table} (#746); None: noiseless
         "store": "",  # the calibration_store whose per-key coefficients correct the reading
         "cal_gain": 1.0,  # legacy (no store): calibration gain coefficient
         "cal_offset": 0.0,  # legacy (no store): calibration zero (offset) coefficient
@@ -387,12 +388,26 @@ class DmmAdc(Component):
 
     # ---- the reading -----------------------------------------------------------------------------
 
-    def reading(self, what: str) -> float:
+    _script_reads = 0
+
+    def reading(self, what: str, index: int = 0, frame: int | None = None) -> float:
+        """One reading. Noise (``noise``) is added after the calibration and before the
+        quantization and the overload test (#746). A script's reading is keyed by the sequence
+        number of the scripted readings of this meter (a command that takes no virtual time, as
+        ``MEAS?`` here, would otherwise read the same value twice; a replay of the same commands
+        reproduces it bit for bit); the Web panel's by its own ``frame`` (D32)."""
         conditioning = self._conditioning()
         function = conditioning.active_function(what)
         gain, cal_offset = self._cal(function)
         value = (conditioning.raw(function) - (cal_offset if function == "DC" else 0.0)) * gain
         r = conditioning.effective_range(function)
+        if r is not None and isinstance(self.param("noise"), dict):
+            if frame is None:
+                self._script_reads += 1
+            when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+            value += self.noise_sample(
+                self.noise_rms(r, float(self.param("reading_time"))), "reading", function, *when
+            )
         if r is not None:
             if not math.isfinite(value) or abs(value) > float(self.param("overrange")) * r:
                 return float(self.param("overload_value"))  # past the range (an open ohms input too)
@@ -418,7 +433,7 @@ class DmmAdc(Component):
             return store.coefficients(function)
         return float(self.param("cal_gain")), float(self.param("cal_offset"))
 
-    def measure(self, what: str | None = None) -> float:
+    def measure(self, what: str | None = None, index: int = 0) -> float:
         """One reading with the auto-range decision a measurement command makes (the reading
         itself, unformatted): what the trigger's sampler and the scan table take per point."""
         conditioning = self._conditioning()
@@ -431,13 +446,17 @@ class DmmAdc(Component):
                 conditioning.autorange_to(function, conditioning.true_values()[conditioning._kind(function)])
                 if conditioning.effective_range(function, derive=False) == before:
                     break
-        return self.reading(function)
+        return self.reading(function, index)
 
     def readings(self) -> dict[str, Any]:
-        values: dict[str, Any] = {"DC": self.reading("DC"), "AC": self.reading("AC")}
+        frame = self.panel_frame()
+        values: dict[str, Any] = {
+            "DC": self.reading("DC", frame=frame),
+            "AC": self.reading("AC", frame=frame),
+        }
         active = self._conditioning().active_function()
         if active not in ("DC", "AC"):
-            values[active] = self.reading(active)  # the selected ohms or current function (#301)
+            values[active] = self.reading(active, frame=frame)  # the selected ohms or current function (#301)
         if self.session.reveal_true_values:
             values.update({f"true_{k}": v for k, v in self._conditioning().true_values().items()})
         return {"values": values}
@@ -450,7 +469,7 @@ class DmmAdc(Component):
     def sample(self, index: int) -> float:
         # the same auto-range decision as a measurement command (#522: READ?/INIT on an ohms
         # autorange settled the range only on MEASure?)
-        return self.measure()
+        return self.measure(index=index)
 
     @op("measure")
     def op_measure(self, what: str | None = None, **_: Any) -> OpResult:
