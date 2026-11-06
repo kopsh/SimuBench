@@ -399,6 +399,16 @@ class InternalWire(_Model):
     to: str
 
 
+class InternalRef(_Model):
+    """A component using another one (a ``refs`` parameter): not a signal wire, a dependency."""
+
+    from_: str = Field(
+        ..., alias="from", description="The component used (it feeds the one that uses it, e.g. 'adc')"
+    )
+    to: str = Field(..., description="The component that uses it (e.g. 'acq')")
+    param: str = Field(..., description="The using component's parameter that names it, e.g. 'adc'")
+
+
 class InternalPort(_Model):
     name: str = Field(..., description="Port on the instrument's panel, e.g. 'CH1'")
     target: str = Field(..., description="Component port it leads to, e.g. 'ch1.inp.pin'")
@@ -418,6 +428,11 @@ class InstrumentInternals(_Model):
     channels: int
     components: list[InternalComponent]
     wires: list[InternalWire]
+    refs: list[InternalRef] = Field(
+        default_factory=list,
+        description="Dependencies between components (a component names another in a refs parameter), "
+        "from the one used to the one that uses it; not signal wiring",
+    )
     ports: list[InternalPort]
 
 

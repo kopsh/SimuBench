@@ -829,6 +829,11 @@ class SessionManager:
             channels=inst.channel_count,
             components=components,
             wires=[M.InternalWire(**{"from": a}, to=b) for a, b in wires],
+            refs=[
+                M.InternalRef(**{"from": used}, to=name, param=key)
+                for name, comp in inst.components.items()
+                for key, used in comp.ref_links()
+            ],
             ports=ports,
         )
 

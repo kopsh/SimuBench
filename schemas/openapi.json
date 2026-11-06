@@ -3068,6 +3068,14 @@
             "title": "Ports",
             "type": "array"
           },
+          "refs": {
+            "description": "Dependencies between components (a component names another in a refs parameter), from the one used to the one that uses it; not signal wiring",
+            "items": {
+              "$ref": "#/components/schemas/InternalRef"
+            },
+            "title": "Refs",
+            "type": "array"
+          },
           "wires": {
             "items": {
               "$ref": "#/components/schemas/InternalWire"
@@ -3082,6 +3090,7 @@
           "channels",
           "components",
           "wires",
+          "refs",
           "ports"
         ],
         "title": "InstrumentInternals",
@@ -3280,6 +3289,33 @@
           "channel"
         ],
         "title": "InternalPort",
+        "type": "object"
+      },
+      "InternalRef": {
+        "description": "A component using another one (a ``refs`` parameter): not a signal wire, a dependency.",
+        "properties": {
+          "from": {
+            "description": "The component used (it feeds the one that uses it, e.g. 'adc')",
+            "title": "From",
+            "type": "string"
+          },
+          "param": {
+            "description": "The using component's parameter that names it, e.g. 'adc'",
+            "title": "Param",
+            "type": "string"
+          },
+          "to": {
+            "description": "The component that uses it (e.g. 'acq')",
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "param"
+        ],
+        "title": "InternalRef",
         "type": "object"
       },
       "InternalWire": {
