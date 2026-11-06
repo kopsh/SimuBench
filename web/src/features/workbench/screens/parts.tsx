@@ -114,7 +114,7 @@ export function SettingsGroups({
   compact?: boolean;
 }) {
   return (
-    <section className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
+    <section data-testid="settings-groups" className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
       {groups.map(([title, keys]) => (
         <div key={title} className="bg-card space-y-1.5 rounded-lg border p-3">
           <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{title}</h3>

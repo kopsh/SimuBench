@@ -96,7 +96,8 @@ def test_ocp_trips_when_the_overcurrent_outlasts_the_delay():
 def test_cc_slew_at_the_slowest_rate():
     s = session()
     try:
-        for c in ("CURR:SLEW:POS 0.001", "CURR 20", "INP ON"):
+        # 0.001 A/µs is the low range's slowest (issue 663): the range first, then the slew.
+        for c in ("CURR:RANG 24", "CURR:SLEW:POS 0.001", "CURR 20", "INP ON"):
             assert q(s, c) is None
         s.advance(10e-6)  # 10 µs at 0.001 A/µs
         assert float(q(s, "FETC:CURR?")) == pytest.approx(0.01, abs=1e-9)

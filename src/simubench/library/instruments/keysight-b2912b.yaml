@@ -2,6 +2,7 @@ schema: simubench.instrument/1
 id: keysight-b2912b
 manufacturer: Keysight Technologies
 model: B2912B
+extends: keysight-b2901a
 class: smu
 version: 1
 description: Keysight B2912B 双通道精密源/测量单元（B2900B 系列高性能型，210 V、3.03 A 直流，10 fA 分辨率；常用命令子集）。Real model（D42）：命令、参数、默认值与回复按
@@ -17,26 +18,12 @@ identity:
   idn: Keysight Technologies,B2912B,{serial},{firmware}
   serial: MY63000101
   firmware: 5.0.2051.2800
-format:
-  number: nr3
-  digits: 6
-  sign: true
-  exponent_digits: 2
-  boolean: numeric
-  enum: short
-  error_code: signed
 specs:
+  compliance_default: null
+  current_source_max_voltage_v: null
+  nplc: null
+  reading_memory: null
   source: SCPI Command Reference Tables 2-4、2-6、2-7、2-9、2-10（B2910-90130, Edition 2）
-  voltage_source_ranges_v:
-  - 0.2
-  - 2.0
-  - 20.0
-  - 200.0
-  voltage_source_max_current_a:
-    0.2: 3.03
-    2.0: 3.03
-    20.0: '|V| ≤ 6 V: 3.03；6 V < |V| ≤ 21 V: 1.515'
-    200.0: '|V| ≤ 6 V: 3.03；6 V < |V| ≤ 21 V: 1.515；21 V < |V| ≤ 210 V: 0.105'
   current_source_ranges_a:
   - 1.0e-08
   - 1.0e-07
@@ -59,43 +46,30 @@ specs:
   two_channel_current_limit: Table 2-6：|V1|、|V2| ≤ 6 V 时 I1 + I2 ≤ 4 A 等（未建模，每通道各自按自己的包络）
   pulse: 10.5 A 脉冲档与脉冲输出未建模
 state:
-  format.elements.sense:
-    type: enum_list
-    options:
-    - VOLTage
-    - CURRent
-    - RESistance
-    - TIME
-    - STATus
-    - SOURce
-    default:
-    - VOLTage
-    - CURRent
-    - RESistance
-    - TIME
-    - STATus
-    - SOURce
-    label: 读数元素
-    label_en: Reading elements
-  system.line_freq:
-    type: int
-    min: 50
-    max: 60
-    default: 50
-    label: 电源频率
-    label_en: Line frequency
-  display.enabled:
-    type: bool
-    default: true
-    label: 前面板显示
-    label_en: Front panel display
-  display.digits:
-    type: int
-    min: 4
-    max: 7
-    default: 7
-    label: 显示位数
-    label_en: Display digits
+  # 单通道 b2901a 的仪器级状态在本型号移到 channel_state(每通道一份):`null` 丢弃继承来的键(D59)
+  compliance.current.limit: null
+  compliance.voltage.limit: null
+  output.enabled: null
+  sense.nplc: null
+  sense.range_auto: null
+  sense.range_current: null
+  sense.range_voltage: null
+  sense.remote: null
+  source.autorange_current: null
+  source.autorange_voltage: null
+  source.current.level: null
+  source.function: null
+  source.range_current: null
+  source.range_voltage: null
+  source.shape: null
+  source.voltage.level: null
+  sweep.mode: null
+  sweep.points: null
+  sweep.start: null
+  sweep.stop: null
+  trigger.count: null
+  trigger.delay: null
+  trigger.source: null
   display.view:
     type: enum
     options:
@@ -113,75 +87,14 @@ state:
       DUAL: 双通道
       GRAPh: 图形
       ROLL: 滚动
-  display.color_set:
-    type: int
-    min: 1
-    max: 2
-    default: 1
-    label: 显示配色
-    label_en: Display color set
-  display.zoom:
-    type: bool
-    default: false
-    label: 显示缩放
-    label_en: Display zoom
-  system.beeper:
-    type: bool
-    default: true
-    label: 蜂鸣器
-    label_en: Beeper
-  system.fan:
-    type: enum
-    options:
-    - NORMal
-    - RACK
-    default: NORMal
-    label: 风扇模式
-    label_en: Fan mode
-  system.gpib_address:
-    type: int
-    min: 0
-    max: 30
-    default: 23
-    label: GPIB 地址
-    label_en: GPIB address
-  system.lan_dhcp:
-    type: bool
-    default: true
-    label: LAN DHCP
-    label_en: LAN DHCP
-  system.lxi_identify:
-    type: bool
-    default: false
-    label: LAN 指示灯
-    label_en: LXI identify
-  system.scpi_version:
-    type: float
-    default: 1999.0
-    readonly: true
-    label: SCPI 版本
-    label_en: SCPI version
-  format.data:
-    type: enum
-    options:
-    - ASCii
-    default: ASCii
-    label: 数据格式
-    label_en: Data format
-  system.interlock:
-    type: bool
-    default: false
-    readonly: true
-    label: 互锁
-    label_en: Interlock
 ports:
+  instrument: null  # b2901a 的仪器级端口;本型号的端口按通道
   channel:
     HI{n}: out.hi
     LO{n}: out.lo
     SENSE_HI{n}: out.sense_hi
     SENSE_LO{n}: out.sense_lo
 display:
-  template: smu
   summary:
   - ch1.source.function
   - ch1.source.voltage.level
@@ -189,8 +102,7 @@ display:
   - ch2.source.function
   - ch2.source.voltage.level
   - ch2.output.enabled
-capabilities:
-- smu
+components: null  # b2901a 的仪器级组件;本型号的组件在 channel_components
 commands:
 - header: '[:SOURce<ch>]:FUNCtion:MODE'
   state: ch.source.function

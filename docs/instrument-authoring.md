@@ -184,7 +184,7 @@ params:
 
 定义还可以声明 `extends: <内置型号 id>`，从同库的另一台仪表出发：loader 先解析父定义（父定义自己的 `extends` 也照此解析，单亲、禁止环，成环或父定义不存在都在加载时报错），再把本定义的数据深合并上去。合并次序是 **类别默认 → 父 → 子**；dict 逐键递归合并（`errors` 按 code），**列表整体替换**——要改动命令或组件时重声明整张列表，只想加一条状态时只写那一条。父定义按「子定义所在目录 → `SIMUBENCH_DEFINITIONS` 目录 → 内置库」的顺序查找；类别默认在最底层合并一次，按子定义的 `class` 取表，所以从内置型号出发的自定义义同样拿到它（父定义文件里的通用错误行已上收进类别表，不靠继承）。
 
-内置库的 keysight-53230a（`extends: keysight-53220a`）与 keysight-daq970a（`extends: keysight-34970a`）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
+**子定义里写 `键: null` 丢弃继承来的该键**：dict 键（一条状态、一个端口组、`specs` 的一项）、`errors` 的单个 code、整个列表（如 `components: null`）都适用；null 在全部层合并完才生效，下层与类别默认都带不回来，父定义没有该键时等于没写。内置库的 keysight-53230a（`extends: keysight-53220a`）、keysight-daq970a（`extends: keysight-34970a`）与 keysight-b2912b（`extends: keysight-b2901a`，丢弃单通道的仪器级状态、端口与组件）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
@@ -219,6 +219,8 @@ params:
 - 触发：`trigger_source`、`trigger_level`、`trigger_slope`，按通道的设置写作 `$ch{n}.trigger_level`（`{n}` 是触发通道号，静态校验同样检查），`rising`、`falling` 列出两个沿的取值；非通道的触发源（外触发、电源）不触发；
 - 运行控制：`mode` 与 `auto`、`normal`、`single`、`stop`、`force`（强制一帧后停止，Siglent 的 FTRIG）各自的取值，`after_single`（为空时模式不变、停止运行），`reacquire`，`missing`（`acquire`：没有记录的通道读取时按当前信号采一次，`error`：报 -230），`untriggered`（未触发的采集耗时：整个触发搜索或一帧）。等待中的单次采集在每次读取时重试。通用的 op：`run_mode`、`single`、`run`、`stop`、`force_trigger`、`wait`、`opc`、`digitize`；
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
+  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以不由 ADC 推出；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
+  - 调制谱线预算：RF 信号源的 `LINE_BUDGET = 999` 是金标准锁定的（`tests/test_rfgen_migration.py` 复现的参考值），AWG 调制源的 `line_budget` 是参数（默认 2000），两者是不同仪表类别的限值，不合并。
 - 噪声：`noise_rms`、`noise_key`（`time` 时 `noise_stream` 绑定的设置选择另一组噪声，如采集方式）、`trigger_jitter_s`，`averaging` 与 `averages`。
 
 原设计稿：
@@ -440,7 +442,7 @@ display:
 | `list_templates` | 模板摘要（类别、说明、版本） |
 | `get_template` | 输入的 JSON Schema 与一份示例输入 |
 | `create_definition_from_template` | 按输入展开并保存；输入的诊断指向 `template.inputs` 下的字段 |
-| `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录 |
+| `try_definition` | 在只含这台仪表的临时会话上依次发送命令，返回每条的回复、新增的错误与虚拟时间；不需要测试台，不写运行记录；同一定义的连续调用复用同一个临时会话（会话与虚拟时间延续，直到闲置或被淘汰），并发批次依次执行；验收页的「重新开始」是替换式新开（7.2），HTTP 的试运行请求与批次同样互斥 |
 
 **T1 的实现（#125）**：
 
@@ -533,7 +535,7 @@ D1 的设想是：仪表由功能模块组合而成，误差、校准常数放�
 - **ADC 与噪声**：位数、每格码值、偏置的加减；输入端白噪声；
 - **运行控制**：AUTO / NORMAL / SINGLE / STOP / FORCE 的状态机，何时重新采集，平均；
 - **自动测量**：命名的测量；
-- **命令操作**：`digitize`、`preamble`、`*OPC`、`wait`。
+- **命令操作**：`digitize`、`*OPC`、`wait`；前导信息是 `waveform_transfer` 的 `header` 声明（操作 `xfer.header`）。旧写法的 `op: <acq>.preamble` 加载时按宏展开为 `xfer.header`，并给传输模块补上 Keysight 十字段 `header`（#665）。
 
 两个型号专用组件只为 Siglent 写：
 
