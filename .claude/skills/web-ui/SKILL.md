@@ -16,6 +16,15 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `model.test.ts` (unit-test logic there, not components).
 - `web/src/components/ui/` — primitives (button, dialog, tabs, table, select…): reuse, don't add a
   new one for a one-off. `components/app/` — app-level pieces.
+- `web/src/components/app/DraftInput.tsx` — the one editing lifecycle of a front-panel field (focus
+  starts a draft, Enter/blur enters it, Esc restores). New editable fields use it and pass their
+  parse rule (`commit` / `SKIP` / `INVALID`: unit stripping, INF/high-Z, plain trim) as a prop; never
+  copy the focus/blur/Esc handlers.
+- `web/src/features/workbench/classes.tsx` — the one list of instrument classes (icon + own screen).
+  A new class is added there, plus `acceptance.class.<id>` in both i18n files (`classes.test.ts`
+  checks they agree); do not add icon maps or `if (template === …)` chains elsewhere.
+- `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key
+  families built from API strings; use them instead of `as "a" | "b"` casts.
 - `web/src/i18n/{zh,en}.ts` — all text; `t("area.key")`. zh is primary (D23).
 - `web/e2e/*.spec.ts` (Playwright, served by `e2e/serve.mjs`), `web/visual/` (story snapshots);
   full-app screenshots at 1280/1440 live in `web/e2e/layout-visual.spec.ts` (baselines beside it,

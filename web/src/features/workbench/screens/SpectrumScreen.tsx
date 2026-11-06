@@ -1,12 +1,12 @@
 import { ChevronsRight, Crosshair } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
 import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
 import { cssVar, decimate, resolveColor } from "@/lib/canvas";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
@@ -155,30 +155,20 @@ function ScpiField({
     const p = engParts(value, unit, 7);
     return `${p.mantissa} ${p.prefix}`.trim();
   })();
-  const [draft, setDraft] = useState<string | null>(null);
-  const submit = () => {
-    if (draft === null) return;
-    const parsed = parseEngineering(draft);
-    setDraft(null);
-    if (parsed !== null && parsed !== value) onSend(`${header} ${parsed}`);
+  // Rule: engineering notation without a unit (the unit is fixed); unreadable or unchanged text is dropped.
+  const parse = (typed: string): Parsed<number> => {
+    const parsed = parseEngineering(typed);
+    return parsed !== null && parsed !== value ? commit(parsed) : SKIP;
   };
   return (
     <div className="grid grid-cols-[minmax(5rem,1fr)_minmax(8rem,1.4fr)] items-center gap-x-3">
       <label className="text-muted-foreground truncate text-xs">{label}</label>
       <div className="relative flex items-center">
-        <Input
-          value={draft ?? shown}
+        <DraftInput
+          text={shown}
+          parse={parse}
+          onCommit={(n) => onSend(`${header} ${n}`)}
           disabled={disabled}
-          onFocus={() => setDraft(shown)}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={submit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-            if (e.key === "Escape") {
-              setDraft(null);
-              (e.target as HTMLInputElement).blur();
-            }
-          }}
           className="num h-7 pr-8 text-right text-xs"
           aria-label={label}
         />

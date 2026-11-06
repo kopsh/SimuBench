@@ -1,4 +1,5 @@
 import { History } from "lucide-react";
+import { clockLabel } from "@/lib/enums";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { useRuns } from "@/api/hooks";
@@ -26,7 +27,7 @@ export function RecentRuns() {
                   {!r.ended && <span className="bg-ok/15 text-ok rounded px-1.5 text-[10px] font-medium">{t("runs.live")}</span>}
                 </div>
                 <div className="text-muted-foreground num text-xs">
-                  {new Date(r.started * 1000).toLocaleString()} · {t(`workbench.clockMode.${r.clock as "command" | "wall" | "stepped"}`)} · {t("runs.events", { count: r.events })} ·{" "}
+                  {new Date(r.started * 1000).toLocaleString()} · {clockLabel(r.clock, t)} · {t("runs.events", { count: r.events })} ·{" "}
                   t = {formatClock(r.duration_ns)}
                 </div>
               </div>
