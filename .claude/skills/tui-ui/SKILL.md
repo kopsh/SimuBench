@@ -90,6 +90,12 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - The README screenshots (`docs/tui/*.svg`) and the snapshots must be regenerated together with a
   visible change: `tests/test_tui_t4.py` compares the docs, `tests/test_tui_snapshots.py` the rest.
   Both start servers on fixed ports — run them one after the other, not in parallel with each other.
+- Steps files (`script.py`, `--script`): `key` `scpi` `advance` `wait` `caption` `highlight`
+  `screenshot`, plus the direct-navigation fields `open:` (open an instrument's screen),
+  `reveal:` (focus and highlight a field, `go_to_field(…, edit=False)`), `home: true`
+  (pop to the overview); `--size COLSxROWS` on the command line overrides the file's `size`
+  (issue 684). `validate(steps, instruments)` simulates the steps in order and names the step
+  number of every problem.
 
 ## Tests (D49)
 

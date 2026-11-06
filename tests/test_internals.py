@@ -94,3 +94,48 @@ def test_http_endpoint():
         body = r.json()
         assert {"from": "ch1.probe.out", "to": "acq.in1"} in body["wires"]
         assert c.get(f"/api/sessions/{sid}/instruments/nope/internals").status_code == 404
+
+
+# ---- what a component uses, beside what feeds it (#729) --------------------------------------------
+
+
+def _refs(view) -> set[tuple[str, str, str]]:
+    return {(r.from_, r.to, r.param) for r in view.refs}
+
+
+def test_a_scope_s_acquisition_is_fed_by_its_time_base_trigger_and_adc_and_feeds_the_readers():
+    """The graph's dependencies, from the components' own ``refs``: the used component feeds the one that
+    uses it, so the acquisition has its stages before it and the measurements and the transfer after it."""
+    view = internals({"instruments": {"scope": {"model": "keysight-dsox2024a"}}}, "scope")
+    assert _refs(view) == {
+        ("timebase", "acq", "horizontal"),
+        ("trigger", "acq", "trigger"),
+        ("adc", "acq", "adc"),
+        ("acq", "meas", "record"),
+        ("acq", "xfer", "record"),
+    }
+    # Together with the wires, the converter, the time base, the measurements and the transfer each
+    # have a place in the flow: only the command and status side (system, registers) stands alone.
+    comps = {c.name for c in view.components if c.channel is None}
+    connected = {r.from_ for r in view.refs} | {r.to for r in view.refs}
+    connected |= {w.from_.rsplit(".", 1)[0] for w in view.wires} | {
+        w.to.rsplit(".", 1)[0] for w in view.wires
+    }
+    assert comps - connected == {"ter", "aer", "oper", "sys"}
+
+
+@pytest.mark.parametrize("def_id", LIBRARY.ids())
+def test_every_ref_the_view_shows_is_between_two_components_of_the_instrument(def_id):
+    view = internals({"instruments": {"x": {"model": def_id}}}, "x")
+    names = {c.name for c in view.components}
+    for r in view.refs:
+        assert r.from_ in names and r.to in names, r
+        assert r.from_ != r.to, r
+    assert len(view.refs) == len({(r.from_, r.to, r.param) for r in view.refs})  # each once
+
+
+def test_refs_are_not_wires():
+    """A dependency is not a signal wire: the wires of the view are the definition's wiring, as before."""
+    view = internals({"instruments": {"scope": {"model": "keysight-dsox2024a"}}}, "scope")
+    wires = {(w.from_.rsplit(".", 1)[0], w.to.rsplit(".", 1)[0]) for w in view.wires}
+    assert ("adc", "acq") not in wires and ("acq", "meas") not in wires

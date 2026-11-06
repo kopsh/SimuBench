@@ -786,3 +786,23 @@ async def test_try_definition_state_carries_over_between_batches(ws):
         second = await call(c, "try_definition", definition_id="sb-dmm-1", commands=["*ESE?"])
         assert second["results"][0]["response"].strip() == "32"
         assert len(manager.tries.all()) == 1
+
+
+async def test_describe_session_describes_once(ws, monkeypatch):
+    """The topology tool re-projects the session once (issue 641 → issue 691): the summary takes
+    the described info instead of describing again."""
+    manager, server = make(ws)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        sid = s["session_id"]
+        calls = 0
+        original = manager.describe
+
+        def counted(session):
+            nonlocal calls
+            calls += 1
+            return original(session)
+
+        manager.describe = counted  # type: ignore[method-assign]
+        await call(c, "describe_session", session_id=sid)
+        assert calls == 1

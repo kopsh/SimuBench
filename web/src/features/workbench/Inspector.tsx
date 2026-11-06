@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, stateMap } from "./model";
+import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
@@ -98,7 +98,7 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
   return <ScrollArea className="h-full">{body}</ScrollArea>;
 }
 
-function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
+export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
   const openScreen = useWorkbench((s) => s.openScreen);
   const openInternals = useWorkbench((s) => s.openInternals);
@@ -143,31 +143,10 @@ function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst: Instr
       )}
       {globals.length > 0 && (
         <Section title={t("workbench.settings")}>
-          <div className="space-y-1.5">
-            {globals.map((v) => (
-              <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(vars, v.path)} />
-            ))}
-          </div>
+          <SettingsBlock sid={sid} inst={inst} vars={globals} summary={inst.display.summary} readonly={readonly} stateVars={vars} />
         </Section>
       )}
-      {channels.map((n) => (
-        <Section
-          key={n}
-          title={
-            <span className="num font-semibold" style={{ color: channelColor(n) }}>
-              {t("workbench.channelN", { n })}
-            </span>
-          }
-          collapsible
-          defaultOpen={n <= 2}
-        >
-          <div className="space-y-1.5">
-            {channelVars(inst, n).map((v) => (
-              <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(vars, v.path)} />
-            ))}
-          </div>
-        </Section>
-      ))}
+      {channels.length > 0 && <ChannelSettings sid={sid} inst={inst} readonly={readonly} stateVars={vars} channels={channels} />}
       <Section title={t("workbench.sendCommand")}>
         <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
       </Section>
@@ -318,6 +297,168 @@ function CopyRow({ label, value }: { label: string; value: string }) {
           {done ? <Check className="text-ok size-3.5" /> : <Copy className="size-3.5" />}
         </Button>
       </div>
+    </div>
+  );
+}
+
+type SettingsProps = {
+  sid: string;
+  inst: InstrumentInfo;
+  readonly: boolean;
+  stateVars: ReturnType<typeof stateMap>;
+};
+
+/**
+ * One channel at a time (a 4-channel scope no longer stacks four lists), picked by a CH selector in
+ * the channel colours (#728).
+ */
+function ChannelSettings({ sid, inst, readonly, stateVars, channels }: SettingsProps & { channels: number[] }) {
+  const { t } = useTranslation();
+  const [picked, setPicked] = useState(channels[0]);
+  const n = channels.includes(picked) ? picked : channels[0];
+  return (
+    <section data-testid="channel-settings">
+      {channels.length > 1 ? (
+        <div role="tablist" aria-label={t("workbench.channels")} className="mb-2 flex gap-1">
+          {channels.map((c) => (
+            <button
+              key={c}
+              type="button"
+              role="tab"
+              aria-selected={c === n}
+              onClick={() => setPicked(c)}
+              className={cn(
+                "num h-7 flex-1 rounded-md border text-xs font-semibold transition-colors",
+                c === n ? "bg-muted" : "text-muted-foreground hover:bg-muted/50",
+              )}
+              style={{ color: channelColor(c), borderColor: c === n ? channelColor(c) : undefined }}
+            >
+              {t("workbench.channelN", { n: c })}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="num mb-1.5 text-[11px] font-semibold" style={{ color: channelColor(n) }}>
+          {t("workbench.channelN", { n })}
+        </div>
+      )}
+      <SettingsBlock
+        key={n}
+        sid={sid}
+        inst={inst}
+        vars={channelVars(inst, n)}
+        summary={inst.display.channel_summary}
+        readonly={readonly}
+        stateVars={stateVars}
+      />
+    </section>
+  );
+}
+
+/** The main tier open, the groups folded: what a front panel shows first, then the rest. */
+function SettingsBlock({
+  sid,
+  inst,
+  vars,
+  summary,
+  readonly,
+  stateVars,
+}: SettingsProps & { vars: ReturnType<typeof globalVars>; summary: string[] }) {
+  const { main, groups } = splitSettings(vars, summary);
+  const field = (v: (typeof vars)[number]) => (
+    <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} />
+  );
+  return (
+    <div className="space-y-3">
+      {main.length > 0 && <div className="space-y-1.5">{main.map(field)}</div>}
+      {groups.map((g) => (
+        <Section key={g.id} title={<GroupTitle group={g} />} collapsible defaultOpen={groupOpen(g) || (main.length === 0 && g === groups[0])}>
+          <GroupBody sid={sid} inst={inst} group={g} readonly={readonly} stateVars={stateVars} field={field} />
+        </Section>
+      ))}
+    </div>
+  );
+}
+
+/** The group names the translation files carry; a path prefix without one shows as written. */
+const GROUP_KEYS = {
+  timebase: "inspector.group.timebase",
+  horizontal: "inspector.group.horizontal",
+  vertical: "inspector.group.vertical",
+  trigger: "inspector.group.trigger",
+  acquire: "inspector.group.acquire",
+  measure: "inspector.group.measure",
+  display: "inspector.group.display",
+  memory: "inspector.group.memory",
+  math: "inspector.group.math",
+  cursor: "inspector.group.cursor",
+  bw: "inspector.group.bw",
+  comm: "inspector.group.comm",
+  waveform: "inspector.group.waveform",
+  status: "inspector.group.status",
+  system: "inspector.group.system",
+  remote: "inspector.group.remote",
+  interface: "inspector.group.interface",
+  lan: "inspector.group.lan",
+  gpib: "inspector.group.gpib",
+  usb: "inspector.group.usb",
+  sense: "inspector.group.sense",
+  source: "inspector.group.source",
+  sweep: "inspector.group.sweep",
+  output: "inspector.group.output",
+  compliance: "inspector.group.compliance",
+  sample: "inspector.group.sample",
+  beeper: "inspector.group.beeper",
+  click: "inspector.group.click",
+  line: "inspector.group.line",
+  cal: "inspector.group.cal",
+  format: "inspector.group.format",
+  other: "inspector.group.other",
+} as const;
+
+function GroupTitle({ group }: { group: SettingGroup }) {
+  const { t } = useTranslation();
+  const key = (GROUP_KEYS as Record<string, (typeof GROUP_KEYS)[keyof typeof GROUP_KEYS]>)[group.id];
+  return (
+    <span className="flex items-center gap-1.5">
+      {key ? t(key) : <span className="num normal-case">{group.id}</span>}
+      <span className="num text-muted-foreground/70 font-normal">{group.vars.length}</span>
+    </span>
+  );
+}
+
+/** A group's settings; measurement slots (P1…P8) are one row of controls each. */
+function GroupBody({
+  sid,
+  inst,
+  group,
+  readonly,
+  stateVars,
+  field,
+}: SettingsProps & { group: SettingGroup; field: (v: SettingGroup["vars"][number]) => ReactNode }) {
+  const { slots, rest } = slotRows(group.vars);
+  return (
+    <div className="space-y-1.5">
+      {rest.map(field)}
+      {slots.map((row) => (
+        <div key={row.label} className="grid grid-cols-[2rem_1fr] items-center gap-x-2">
+          <span className="num text-muted-foreground text-xs">{row.label}</span>
+          <div className="flex min-w-0 gap-1.5">
+            {row.vars.map((v) => (
+              <div key={v.path} className="min-w-0 flex-1">
+                <StateField
+                  sid={sid}
+                  instrument={inst.name}
+                  v={v}
+                  disabled={readonly}
+                  inactive={inactiveUnderAuto(stateVars, v.path)}
+                  bare
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
