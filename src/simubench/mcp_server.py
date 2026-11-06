@@ -438,11 +438,12 @@ def build_server(
             # The pool owns the try semantics (no ports, no record, scratch bench) and the reuse:
             # a second batch for the same definition runs on the same session instead of cycling
             # a bench per call (issue 636).
-            entry = manager.tries.open(definition_id)  # unknown id: KeyError before anything builds
-            return [
-                {"command": command, **_scpi(entry.served.session, definition_id, command, client="mcp")}
-                for command in commands
-            ]
+            # unknown id: KeyError before anything builds
+            with manager.tries.using(definition_id) as entry:
+                return [
+                    {"command": command, **_scpi(entry.served.session, definition_id, command, client="mcp")}
+                    for command in commands
+                ]
 
         try:
             results = await asyncio.to_thread(run)

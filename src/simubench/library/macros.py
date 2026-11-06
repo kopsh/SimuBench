@@ -55,6 +55,7 @@ def scope_acquisition(data: Data, spec: Data) -> None:
     ``scope_probe`` named ``probe`` is put between it and the acquisition. Raises ValueError when
     the definition is not shaped so (write the modules out instead)."""
     _expand_measurements(data, spec)
+    _expand_preamble(data, spec)
     params = dict(spec.get("params") or {})
     if any(key in params for key in MACRO_MODULES):
         return  # the modules are written out
@@ -129,6 +130,50 @@ MACRO_MODULES: dict[str, tuple[str, dict[str, str]]] = {
 }
 #: The names the expansion gives the modules.
 MACRO_NAMES = {"horizontal": "timebase", "trigger": "trigger", "adc": "adc"}
+
+
+#: The Keysight ten-field preamble the earlier ``<acq>.preamble`` op produced (format, type, points,
+#: count, x increment, x origin, x reference, y increment, y origin, y reference), as the
+#: ``header`` declaration of a ``waveform_transfer`` (op ``header``); floats as NR3, six digits.
+PREAMBLE_HEADER: Data = {
+    "encoding": "text",
+    "separator": ",",
+    "fields": [
+        {"setting": "waveform.format", "map": {"BYTE": 0, "WORD": 1, "ASCii": 4}},
+        {"value": 0},
+        {"figure": "points"},
+        {"value": 1},
+        {"figure": "x_increment", "format": "%+.6E"},
+        {"figure": "x_start", "format": "%+.6E"},
+        {"value": 0},
+        {"figure": "y_increment", "format": "%+.6E"},
+        {"figure": "y_origin", "format": "%+.6E"},
+        {"figure": "y_reference"},
+    ],
+}
+
+
+def _expand_preamble(data: Data, spec: Data) -> None:
+    """A command with op ``<acq>.preamble`` (the acquisition's own preamble, removed by #633) becomes
+    ``<xfer>.header`` on the definition's ``waveform_transfer``, which gets the Keysight ten-field
+    ``header`` declaration unless it already has one. Raises ValueError when there is no single
+    transfer to carry it."""
+    old = f"{spec['name']}.preamble"
+    commands = [c for c in data.get("commands") or [] if isinstance(c, dict) and c.get("op") == old]
+    if not commands:
+        return
+    transfers = [
+        c for c in data["components"] if isinstance(c, dict) and c.get("type") == "waveform_transfer"
+    ]
+    if len(transfers) != 1:
+        raise ValueError(
+            f"{old}: the acquisition's preamble op is now the transfer's header (xfer.header); "
+            f"it needs exactly one waveform_transfer component to declare it on, found {len(transfers)}"
+        )
+    xfer = transfers[0]
+    xfer.setdefault("params", {}).setdefault("header", copy.deepcopy(PREAMBLE_HEADER))
+    for command in commands:
+        command["op"] = f"{xfer['name']}.header"
 
 
 def _expand_measurements(data: Data, spec: Data) -> None:
