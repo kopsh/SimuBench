@@ -843,16 +843,73 @@ async def test_scope_fields_edit_in_place_like_the_instrument_screen():
             lambda: len([1 for _, p, _ in fake.configures if p == "trigger.coupling"]) == 1,
             message="the cycled option wrote",
         )
-        # + / - step 1-2-5 on a .scale path: ch1.scale 50 mV -> the ladder's next step
+        written = [v for _, p, v in fake.configures if p == "trigger.coupling"]
+        assert written == ["AC"]  # DC cycled to the option after it, not just anything written
+        # + / - step 1-2-5 on a .scale path: ch1.scale 50 mV -> 0.1 -> back to 50 mV
         scale = button("ch1.scale")
         scale.focus()
         await pilot.pause(0.1)
         await pilot.press("plus")
         await wait_for(
             pilot,
-            lambda: any(p == "ch1.scale" and v != 0.05 for _, p, v in fake.configures),
-            message="the 1-2-5 step up",
+            lambda: any(p == "ch1.scale" and v == 0.1 for _, p, v in fake.configures),
+            message="the 1-2-5 step up wrote 0.1",
         )
+        await pilot.press("minus")
+        await wait_for(
+            pilot,
+            lambda: any(p == "ch1.scale" and v == 0.05 for _, p, v in fake.configures),
+            message="the 1-2-5 step down wrote 0.05",
+        )
+
+
+async def test_the_scope_screen_shows_the_focus_without_colour(monkeypatch):
+    """`NO_COLOR` on the scope page (issue 680's acceptance, #755): the focused field stays
+    distinguishable — the mono theme's focus rule is bold+underline, not a colour."""
+    monkeypatch.setenv("NO_COLOR", "1")
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        focused = next(b for b in tui.screen.query(ControlButton) if b.control.path == "timebase.scale")
+        focused.focus()
+        await pilot.pause(0.2)
+        assert focused.has_focus and tui.theme == "simubench-mono"
+        assert focused.styles.text_style.bold and focused.styles.text_style.underline
+        others = [b for b in tui.screen.query(ControlButton) if b is not focused]
+        assert not any(b.styles.text_style.bold or b.styles.text_style.underline for b in others)
+
+
+async def test_the_settings_column_keeps_every_value_readable_at_80x24():
+    """80×24 (issue 680, #755): the settings column ellipsises the label from the left and never
+    the value — every field's value shows in full at the narrow size too."""
+    tui, _fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(80, 24)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        from simubench.tui.screens.scope import ControlButton
+
+        def value_of(text):
+            """The bold span is the value (field_text assembles label + bold value)."""
+            return "".join(
+                text.plain[s:e]
+                for s, e, style in text.spans
+                if style == "bold" or getattr(style, "bold", False)
+            )
+
+        width = tui.screen._field_width()
+        seen = 0
+        for b in tui.screen.query(ControlButton):
+            if not b.is_field:
+                continue
+            full = b.field_text(tui.screen.info, tui.lang)
+            shown = b.field_text(tui.screen.info, tui.lang, width)
+            assert value_of(full) and value_of(full) == value_of(shown)
+            assert shown.plain == b._text.plain  # what the column actually renders
+            seen += 1
+        assert seen > 10  # the scope page's fields are all under the assertion
 
 
 async def test_scope_screen_toggles_run_through_the_base_orchestration():
