@@ -298,3 +298,32 @@ def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path)
         assert lo <= float(np.std(samples)) <= hi, (float(np.std(samples)), lo, hi)
     finally:
         rm.close()
+
+
+def test_the_band_floor_scales_with_the_range_and_the_signal_above_it_is_untouched(scope):
+    """#773's per-division crossing floor through the model's SCPI path (#781): a channel without
+    a signal carries only its range's own noise, which the 0.16-division floor outruns at 5 V/div,
+    so FREQuency, PERiod and BRATe answer the model's infinity; at 1 mV/div the table's flat
+    0.2 mV sensitive-range noise outruns the scaled-down floor and counts crossings; the floor at
+    0 restores the old behaviour on the same noise; and the 4-division sine measures the same
+    with the floor on and off."""
+    dso, session = scope
+    dso.write(":MEASure:SOURce CHANnel2")  # *RST: 5 V/div, no signal — the range's noise alone
+    # -- the noise alone measures as nothing: the 0.1 V rms is 0.02 div, the floor 0.16 div
+    for what in ("FREQuency", "PERiod", "BRATe"):
+        assert float(dso.query(f":MEASure:{what}? CHANnel2")) == 9.9e37
+    # -- the floor is a fraction of a division: at 1 mV/div the table's flat 0.2 mV noise is
+    #    0.2 div rms and outruns the floor's 0.16 mV, so the crossings count (and back)
+    dso.write(":CHANnel2:SCALe 1E-3")
+    assert float(dso.query(":MEASure:FREQuency? CHANnel2")) < 9.9e37
+    dso.write(":CHANnel2:SCALe 5")
+    assert float(dso.query(":MEASure:FREQuency? CHANnel2")) == 9.9e37
+    # -- the floor at 0 is the old counter: the same noise counts its crossings again
+    session.set_parameter("scope", "meas", "hysteresis_floor_divs", 0.0)
+    assert float(dso.query(":MEASure:FREQuency? CHANnel2")) < 9.9e37
+    # -- a signal above the floor is unaffected either way: the sine spans 4 divisions, ten
+    #    times the 0.4 V floor at 0.5 V/div
+    dso.write(":MEASure:SOURce CHANnel1")
+    assert float(dso.query(":MEASure:FREQuency? CHANnel1")) == pytest.approx(1000.0, abs=10.0)
+    session.set_parameter("scope", "meas", "hysteresis_floor_divs", 0.16)
+    assert float(dso.query(":MEASure:FREQuency? CHANnel1")) == pytest.approx(1000.0, abs=10.0)
