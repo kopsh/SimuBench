@@ -34,6 +34,22 @@ def test_levels_and_overshoot():
     assert measure("PREShoot", v, DT) == pytest.approx(0.0)
 
 
+def test_a_noisy_records_overshoot_reads_the_noise_excursion_and_the_ringing_shows():
+    """A clean sine on a noisy record reads the noise excursion's order — the extremum rides a
+    few sigma above the histogram's level cluster (the real instruments' own method, the
+    InfiniiVision Programmer's Guide's (Vmax - Vtop)/(Vtop - Vbase), #782) — and a genuine
+    ringing shows on top of it instead of being masked."""
+    rng = np.random.default_rng(7)
+    t = np.arange(100_000) * DT
+    sine = np.sin(2 * math.pi * 1e3 * t) + rng.normal(0.0, 0.005, 100_000)  # sigma: 0.5% of 1 V
+    over = measure("OVERshoot", sine, DT)
+    amp = measure("VAMPlitude", sine, DT)
+    # the excursion in sigmas of the noise: the extremum's ~4 sigma plus the mode's inward step
+    assert 3.0 <= over / 100.0 * amp / 0.005 <= 6.0, over
+    noisy_pulse = pulse(ringing=0.1) + rng.normal(0.0, 0.005, 10_000)
+    assert 7.0 <= measure("OVERshoot", noisy_pulse, DT) <= 14.0
+
+
 def test_edge_times_widths_and_duty():
     v = pulse()
     # A linear 11-sample ramp: 10 % to 90 % is 0.8 x 11 samples.
