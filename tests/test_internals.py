@@ -134,6 +134,33 @@ def test_every_ref_the_view_shows_is_between_two_components_of_the_instrument(de
     assert len(view.refs) == len({(r.from_, r.to, r.param) for r in view.refs})  # each once
 
 
+@pytest.mark.parametrize("def_id", LIBRARY.ids())
+def test_every_ref_set_on_a_component_of_the_instrument_is_in_the_view(def_id):
+    """Completeness (#740): each ``refs`` parameter that is set and names a component of this instrument
+    shows up as ``(used, user, param)``, whatever the model, so a missed kind of dependency is caught."""
+    session = open_bench(
+        BenchDefinition.model_validate({"name": "t", "instruments": {"x": {"model": def_id}}})
+    )
+    try:
+        inst = session.instrument("x")
+        view = SessionManager.internals(ServedSession("t", session, None), "x")
+        expected = set()
+        for name, comp in inst.components.items():
+            for key in comp.refs:
+                target = str(comp.param(key) or "")
+                if not target:
+                    continue
+                used = comp.peer(target)
+                if used is None:
+                    continue
+                used_name = next((n for n, c in inst.components.items() if c is used), None)
+                if used_name is not None:
+                    expected.add((used_name, name, key))
+    finally:
+        session.close()
+    assert expected <= _refs(view), expected - _refs(view)
+
+
 def test_refs_are_not_wires():
     """A dependency is not a signal wire: the wires of the view are the definition's wiring, as before."""
     view = internals({"instruments": {"scope": {"model": "keysight-dsox2024a"}}}, "scope")
