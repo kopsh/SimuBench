@@ -226,6 +226,37 @@ async def test_maximum_message_size_is_allowed_before_the_secure_connection(init
 # ---- the transaction -----------------------------------------------------------------------------------------
 
 
+async def test_start_tls_on_the_sync_channel_may_arrive_before_the_async_handshake_is_finished(optional_rig):
+    """A TLS 1.3 client has finished its handshake once it holds the server's Finished, and sends
+    StartTLS at once, while its own Finished is still on the way: the server must wait for it
+    instead of refusing StartTLS (found on Python 3.11, where the order came out that way)."""
+
+    def run() -> None:
+        c = Client(optional_rig.port)
+        assert c.start_tls_request() == h.TLS_SUCCESS
+        ctx = client_context()
+        ctx.minimum_version = ssl.TLSVersion.TLSv1_3
+        incoming, outgoing = ssl.MemoryBIO(), ssl.MemoryBIO()
+        tls = ctx.wrap_bio(incoming, outgoing, server_hostname="localhost")
+        while True:
+            try:
+                tls.do_handshake()
+                break
+            except ssl.SSLWantReadError:
+                c.async_.sendall(outgoing.read())
+                incoming.write(c.async_.recv(65536))
+        finished = outgoing.read()  # the client's Finished: held back
+        send_msg(c.sync, h.START_TLS)
+        time.sleep(0.3)  # the server has read StartTLS and is still waiting for the Finished
+        c.async_.sendall(finished)
+        c.sync = client_context().wrap_socket(c.sync)  # the synchronous handshake goes through
+        assert c.sync.cipher() is not None
+        c.sync.close()
+        c.async_.close()
+
+    await asyncio.to_thread(run)
+
+
 async def test_a_query_over_both_encrypted_channels(optional_rig):
     def run() -> None:
         c = Client(optional_rig.port)
