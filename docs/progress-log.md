@@ -1593,3 +1593,10 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | D46 通则、D42/D13 的位置 | ✅ D46 改为“手册值或标明的估计值”,读数噪声在仪表内部、求解之后加 |
 | 测试 | ✅ `tests/test_reading_noise.py`:分布(400 个样本)、√ 缩放、复现、量化前加噪、面板与脚本互不影响、源表 |
 | 未做 | ⚠️ `supply_readback`、`eload_meter`、校准源回读、`mux_card`:没有量程概念,待补型号数据时一并设计(#744);频率计数器的抖动抽样仍用自己的键(改键会改变已有种子的结果);精确值断言清单写进 #744 |
+
+## 读数噪声 noise 参数加载时校验（Issue 752）
+
+| 完成条件 | 自检 |
+|---|---|
+| 写错键名/取值不再静默当作无噪声 | ✅ 允许的键只有 `ppm_of_range`(≥0)、`ref_time_s`(>0)、`table`(键、值 ≥0);创建组件时抛 ValueError(含仪表、组件、键与允许的键),`validate_definition` 报 `E-DEF-NOISE`;不写或 `null` 仍无噪声 |
+| 测试 | ✅ `tests/test_reading_noise.py`:8 种错误各一例 + 空 noise 仍无噪声 |

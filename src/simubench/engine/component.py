@@ -239,6 +239,46 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
     return value
 
 
+NOISE_KEYS = ("ppm_of_range", "ref_time_s", "table")
+
+
+def _number(v: Any) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def noise_problems(value: Any) -> list[tuple[str, str]]:
+    """What is wrong with a ``noise`` parameter (#746, #752), as (sub-pointer, message) pairs:
+    only ``ppm_of_range`` >= 0, ``ref_time_s`` > 0 and ``table`` (range -> rms, both >= 0) are
+    allowed. None is noiseless; a state binding is checked where it is resolved."""
+    if value is None or binding_of(value) is not None:
+        return []
+    allowed = ", ".join(NOISE_KEYS)
+    if not isinstance(value, dict):
+        return [("", f"应是 {{{allowed}}} 的映射，得到 {value!r}")]
+    out: list[tuple[str, str]] = []
+    for k, v in value.items():
+        if k not in NOISE_KEYS:
+            out.append((str(k), f"没有键 {k!r}，允许的键只有 {allowed}"))
+        elif k == "ppm_of_range" and not (_number(v) and v >= 0):
+            out.append((k, f"ppm_of_range 应是 ≥ 0 的数，得到 {v!r}"))
+        elif k == "ref_time_s" and not (_number(v) and v > 0):
+            out.append((k, f"ref_time_s 应是 > 0 的数，得到 {v!r}"))
+        elif k == "table" and v is not None:
+            if not isinstance(v, dict):
+                out.append((k, f"table 应是“量程 → rms”的映射，得到 {v!r}"))
+                continue
+            for rk, rv in v.items():
+                try:
+                    key_ok = _number(float(rk)) and float(rk) >= 0
+                except (TypeError, ValueError):
+                    key_ok = False
+                if not key_ok:
+                    out.append((f"{k}/{rk}", f"table 的键（量程）应是 ≥ 0 的数，得到 {rk!r}"))
+                elif not (_number(rv) and rv >= 0):
+                    out.append((f"{k}/{rk}", f"table[{rk!r}] 的 rms 应是 ≥ 0 的数，得到 {rv!r}"))
+    return out
+
+
 class Component:
     """Base class for every component type."""
 

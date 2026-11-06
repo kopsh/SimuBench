@@ -136,3 +136,31 @@ def test_an_smu_meter_reads_with_noise_per_reading_and_per_frame():
         frames = [meter.readings()["values"]["voltage"] for _ in range(40)]
         assert len(set(frames)) > 20 and frames != script
         assert scpi() != scpi()
+
+
+@pytest.mark.parametrize(
+    ("noise", "fragment"),
+    [
+        ("{ppm_of_rang: 20}", "ppm_of_rang"),
+        ("{ppm_of_range: -5}", "-5"),
+        ("{ppm_of_range: abc}", "abc"),
+        ("{ppm_of_range: 1, table: {abc: 1}}", "abc"),
+        ("{ppm_of_range: 1, table: {10: -1}}", "-1"),
+        ("{ppm_of_range: 1, ref_time_s: 0}", "ref_time_s"),
+        ("{ppm_of_range: 1, ref_time_s: -1}", "ref_time_s"),
+        ("5", "noise"),
+    ],
+)
+def test_a_misspelled_noise_parameter_fails_when_the_definition_loads(tmp_path, noise, fragment):
+    with pytest.raises(Exception) as err:
+        open_noisy(tmp_path, noise=noise)
+    text = str(err.value)
+    assert "instrument 'dmm'" in text  # the instrument, then the component and the parameter
+    assert "meter.noise" in text
+    assert fragment in text
+
+
+def test_an_empty_noise_parameter_is_still_noiseless(tmp_path):
+    with open_noisy(tmp_path, noise="null") as s:
+        a = reads(s, 2)
+    assert a[0] == a[1]
