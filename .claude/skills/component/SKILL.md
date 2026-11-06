@@ -60,7 +60,7 @@ class CounterGate(Component):
 - Out of the model's range → raise `ScpiError` with the right code; never return a guess.
 - Numeric replies: `self.reply_number(value, digits)`, never a hand-formatted string — a
   definition with `format.readings: format` answers in its own format (D54, #366).
-- Randomness only through `engine/noise.py` streams (determinism, D6/D12).
+- Randomness only through `engine/noise.py` streams (determinism, D6/D12). A meter's reading noise goes through `Component.noise_rms` / `noise_sample` / `panel_frame` (#746): add it after calibration and before quantization; a Web `readings()` uses its own `panel_frame()`, never the script's key.
 - New module → import it in `library/components/__init__.py`.
 - Parameters bind to state in definitions via `$path` or `{from, map, scale, offset, default}`.
 
