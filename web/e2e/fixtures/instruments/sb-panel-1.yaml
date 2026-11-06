@@ -46,6 +46,15 @@ state:
     default: true
     label: 蜂鸣器
     label_en: Beeper
+  sense.cal_due:
+    type: float
+    unit: V
+    min: 0.0
+    max: 100.0
+    default: 0.0
+    readonly: true
+    label: 校准常数
+    label_en: Calibration constant
 components:
   - name: input
     type: dmm_input_terminal
