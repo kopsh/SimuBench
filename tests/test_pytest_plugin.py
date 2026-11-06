@@ -132,6 +132,39 @@ def test_options_travel_in_the_resource_string(pytester, monkeypatch):
     )
 
 
+def test_the_environment_configures_a_bench_without_query_options(pytester, monkeypatch):
+    """The environment is the fallback (issue 640, issue 676): a bare ``bench.yaml@simubench``
+    takes its seed and clock from SIMUBENCH_* and behaves value-for-value like the same
+    settings given on the resource string (the plugin injects ``idle=sleep`` either way, D47)."""
+    monkeypatch.setenv("SIMUBENCH_SEED", "9")
+    monkeypatch.setenv("SIMUBENCH_CLOCK", "command")
+    pytester.makepyfile(
+        test_case=f"""
+        import time, pytest
+
+        @pytest.mark.bench({str(BENCH)!r})
+        def test_from_the_environment(instruments, bench_session):
+            _observe(bench_session, 9)
+
+        @pytest.mark.bench({str(BENCH)!r}, seed=9, clock="command")
+        def test_from_the_resource_string(instruments, bench_session):
+            _observe(bench_session, 9)  # the same values, the same behaviour
+
+        def _observe(bench_session, seed):
+            assert bench_session.seed == seed
+            before = bench_session.now_ns
+            t0 = time.perf_counter()
+            time.sleep(1.0)
+            # the command clock's sleep idle: exactly t of virtual time, without really waiting
+            assert time.perf_counter() - t0 < 0.3
+            assert bench_session.now_ns - before == 1_000_000_000
+        """
+    )
+    pytester.runpytest_subprocess("--rootdir=.", "test_case.py", "-p", "no:cacheprovider").assert_outcomes(
+        passed=2
+    )
+
+
 def test_an_unknown_marker_option_is_named(pytester):
     pytester.makepyfile(
         test_case=f"""

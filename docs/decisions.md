@@ -449,7 +449,7 @@
 
 - **结论**：Bench 的 `run` 新增 `idle`，表示命令之间空闲的真实时间怎么计入虚拟时间（只对命令驱动时钟有意义；墙钟、步进时钟不读它）：
   - `wall`（默认，即原有行为）：空闲的真实时间计入虚拟时间。交互使用、界面与 `simubench serve` 保持如此，脚本里的等待能“等”出建立时间；
-  - `sleep`：空闲不计入；进程内把 `time.sleep(t)` 拦截为虚拟时间恰好推进 `t`、不真的等待。pytest 插件默认此档（环境变量 `SIMUBENCH_IDLE` 与标记参数 `idle=` 可覆盖，与 `SIMUBENCH_CLOCK` 一致）；
+  - `sleep`：空闲不计入；进程内把 `time.sleep(t)` 拦截为虚拟时间恰好推进 `t`、不真的等待。pytest 插件默认此档（环境变量 `SIMUBENCH_IDLE` 与标记参数 `idle=` 可覆盖，与 `SIMUBENCH_CLOCK` 一致；issue 640 后这三个设置也可写在资源串查询参数里，资源串优先、环境变量兜底，见 architecture.md 7.3）；
   - `off`：空闲完全不推进虚拟时间，只有命令与显式 `advance` 推进。
 - **理由**：`wall` 空闲推进让慢机器把命令间的调度延迟算进虚拟时间，同一个测试在不同机器上读到不同的数（issue 4 的 Windows 1508 Ω）。测试要的是可复现：`sleep` 档下结果只由命令、`time.sleep` 和显式推进决定，脚本里的 `sleep(5)` 也不再真的等 5 秒，CI 更快。
 - **`sleep` 只在本进程有效**：拦截 `time.sleep` 是进程级补丁，在测试台打开期间生效、最后一个关闭后恢复原函数；进程内同时打开多个 `sleep` 档测试台时，一次被拦截的 `sleep` 推进其中每一个。只拦截 `time.sleep`：`asyncio.sleep`、线程等待与外部进程（SOCKET、HiSLIP 客户端）的等待都不拦截，因此 `simubench serve` 把配置为 `sleep` 的测试台按 `off` 处理。
