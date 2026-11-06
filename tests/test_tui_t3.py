@@ -137,6 +137,29 @@ async def test_fault_dialog_injects_and_lists():
         assert tui.faults and tui.faults[0]["id"] == fake.fault_list[0]["id"]
 
 
+async def test_fault_dialog_injects_an_error_with_count():
+    """error + count (issue 697): the code and the times reach the spec the TUI POSTs."""
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await pilot.press("f")
+        from textual.widgets import Button, Input, RadioButton
+
+        from simubench.tui.screens.faultdialog import FaultDialog
+
+        await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
+        error_radio = next(r for r in tui.screen.query(RadioButton) if r.name == "error")
+        error_radio.value = True
+        await pilot.pause(0.3)
+        tui.screen.query_one("#fd-f-code", Input).value = "-313"
+        tui.screen.query_one("#fd-f-count", Input).value = "3"
+        tui.screen.query_one("#fd-inject", Button).press()
+        await wait_for(pilot, lambda: bool(fake.fault_list), message="injected")
+        spec = fake.fault_list[0]["spec"]
+        assert spec["kind"] == "error" and spec["code"] == -313 and spec["count"] == 3
+        assert fake.fault_list[0]["source"] == "tui"
+
+
 async def test_fault_dialog_revoke_with_confirm():
     """Delete revokes the last pending/active fault, after a confirm (8)."""
     tui, fake = unit_app(fresh(SMU_BENCH))
