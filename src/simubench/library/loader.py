@@ -13,7 +13,7 @@ import yaml
 
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
-from .class_defaults import deep_merge, default_block
+from .class_defaults import deep_merge, default_block, drop_deleted
 from .migrate import upgrade
 
 #: Built-in definitions: real models only (D42). SimuBench's own ``sb-*`` validation definitions are
@@ -113,20 +113,25 @@ def _extends_chain(path: Path, data: dict) -> list[tuple[Path, float]]:
 
 def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
     """The definition's data with every layer merged under it (instrument-authoring.md 2.9):
-    类别默认 → 父 → 子 — the class's default block lowest, then the ancestors from the far end,
+    类别默认 → 父 → 子 — the class's default block lowest, then the ancestors from the far end (the nearest parent over the grandparent),
     the file's own data last. ``errors`` merge by code, everything else by key; lists replace.
 
     The class default serves real models (D42, a `reference`): a table entry replaces the
     engine's "standard text; detail" reply, so a definition without a reference (the ``sb-*``
     validation instruments, a toy) keeps the engine's standard texts as before."""
     merged = data
-    for parent, parent_mtime in reversed(ancestors):
+    layered = False
+    for parent, parent_mtime in ancestors:  # nearest parent first: each lower layer goes under
         merged = deep_merge(_raw_definition(parent, parent_mtime), merged)
+        layered = True
     if merged.get("reference") is not None:
         base = default_block(merged.get("class"))
         if base:
             merged = deep_merge(base, merged)
-    return merged
+            layered = True
+    # ``key: null`` in a child drops what the layers below bring (a dict key, an errors code);
+    # dropped only now, so no layer can bring the key back.
+    return drop_deleted(merged) if layered else merged
 
 
 def layered_definition_data(data: dict, source: Path) -> dict:

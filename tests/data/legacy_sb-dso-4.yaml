@@ -1,0 +1,286 @@
+schema: simubench.instrument/1
+id: sb-dso-4
+manufacturer: SimuBench
+model: SB-DSO-4
+class: oscilloscope
+version: 1
+description: 四通道数字示波器，200 MHz，16 位波形传输，输入 1 MΩ / 50 Ω 可选。
+identity:
+  serial: SBDSO000001
+  firmware: "1.0.0"
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 1.0e-9
+    max: 50.0
+    default: 1.0e-3
+    ladder: 1-2-5
+    label: 时基
+    label_en: Timebase
+  trigger.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
+    default: CHANnel1
+    label: 触发源
+    label_en: Trigger source
+  trigger.level:
+    type: float
+    unit: V
+    min: -1000.0
+    max: 1000.0
+    default: 0.0
+    label: 触发电平
+    label_en: Trigger level
+  trigger.slope:
+    type: enum
+    options: [POSitive, NEGative, EITHer]
+    default: POSitive
+    label: 触发沿
+    label_en: Trigger slope
+  trigger.mode:
+    type: enum
+    options: [AUTO, NORMal]
+    default: AUTO
+    label: 触发方式
+    label_en: Trigger mode
+  waveform.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
+    default: CHANnel1
+    label: 波形传输源
+    label_en: Waveform source
+  waveform.format:
+    type: enum
+    options: [WORD, BYTE, ASCii]
+    default: WORD
+    label: 波形格式
+    label_en: Waveform format
+  waveform.byteorder:
+    type: enum
+    options: [LSBFirst, MSBFirst]
+    default: LSBFirst
+    label: 字节序
+    label_en: Byte order
+  waveform.unsigned:
+    type: bool
+    default: false
+    label: 无符号
+    label_en: Unsigned
+  waveform.points:
+    type: int
+    min: 100
+    max: 10000
+    default: 1000
+    ladder: [100, 250, 500, 1000, 2000, 5000, 10000]
+    label: 记录长度
+    label_en: Record length
+channel_state:
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 100.0
+    default: 1.0
+    ladder: 1-2-5
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: V
+    min: -1000.0
+    max: 1000.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: 耦合
+    label_en: Coupling
+  impedance:
+    type: enum
+    options: [ONEMeg, FIFTy]
+    option_labels: {ONEMeg: "1 MΩ", FIFTy: "50 Ω"}
+    default: ONEMeg
+    electrical: true
+    label: 输入阻抗
+    label_en: Input impedance
+  probe:
+    type: float
+    display_unit: "×"
+    min: 0.001
+    max: 10000.0
+    default: 1.0
+    label: 探头衰减设定
+    label_en: Probe ratio
+  bwlimit:
+    type: bool
+    default: false
+    label: 带宽限制
+    label_en: Bandwidth limit
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Display
+components:
+  # 示波器由模块组成（instrument-authoring.md 8.4）：采集按名称引用时基、触发、ADC 组，以及每通道的
+  # 垂直与探头模块。sb-* 不加噪声、不量化（D42）。
+  - name: acq
+    type: scope_acquisition
+    params:
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
+  - name: timebase
+    type: scope_timebase
+  - name: trigger
+    type: scope_trigger
+  - name: adc
+    type: scope_adc
+  # :MEASure:VPP? 等：在 :WAVeform:SOURce（或命令给出的信源）的记录上测量。
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $waveform.source
+  - name: xfer
+    type: waveform_transfer
+    params:
+      # :WAVeform:DATA? 按 :WAVeform:FORMat：BYTE / WORD 为 ADC 码的定长块，ASCii 为伏特的 NR3 列表。
+      source: $waveform.source
+      encoding: {from: $waveform.format, map: {BYTE: block, WORD: block, ASCii: ascii}}
+      values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
+      codes_per_div: {from: $waveform.format, map: {BYTE: 32.0, WORD: 8192.0}, default: 32.0}
+      adc_bits: {from: $waveform.format, map: {BYTE: 8, WORD: 16}, default: 8}
+      width: {from: $waveform.format, map: {BYTE: 8, WORD: 16}, default: 8}
+      unsigned: $waveform.unsigned
+      byteorder: $waveform.byteorder
+      no_record: "no acquisition for this source; send :DIGitize first"
+channel_components:
+  - name: inp
+    type: input_port
+    params:
+      z_in: $ch.impedance
+      c_in: 0.0
+  - name: front
+    type: scope_vertical
+    params:
+      coupling: $ch.coupling
+      bw_limit: $ch.bwlimit
+      bandwidth: 200.0e6
+      probe_ratio: $ch.probe  # the per-V/div errors are at the input connector
+  - name: probe
+    type: scope_probe
+wiring:
+  channel:
+    - [inp.out, front.in]
+    - [front.out, probe.in]
+  instrument:
+    - ["ch{n}.probe.out", "acq.in{n}"]
+ports:
+  channel:
+    "CH{n}": inp.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, trigger.source, trigger.level, trigger.slope]
+  channel_summary: [display, scale, offset, coupling, impedance, probe]
+capabilities: [oscilloscope]
+commands:
+  - header: ":CHANnel<ch>:SCALe"
+    state: ch.scale
+  - header: ":CHANnel<ch>:OFFSet"
+    state: ch.offset
+  - header: ":CHANnel<ch>:COUPling"
+    state: ch.coupling
+  - header: ":CHANnel<ch>:IMPedance"
+    state: ch.impedance
+  - header: ":CHANnel<ch>:PROBe"
+    state: ch.probe
+  - header: ":CHANnel<ch>:BWLimit"
+    state: ch.bwlimit
+  - header: ":CHANnel<ch>:DISPlay"
+    state: ch.display
+  - header: ":TIMebase[:MAIN]:SCALe"
+    state: timebase.scale
+  - header: ":TRIGger[:EDGE]:SOURce"
+    state: trigger.source
+  - header: ":TRIGger[:EDGE]:LEVel"
+    state: trigger.level
+  - header: ":TRIGger[:EDGE]:SLOPe"
+    state: trigger.slope
+  - header: ":TRIGger:SWEep"
+    state: trigger.mode
+  - header: ":DIGitize"
+    op: acq.digitize
+    query: false
+    params:
+      - {name: sources, type: raw}
+  - header: ":SINGle"
+    op: acq.digitize
+    query: false
+  - header: ":WAVeform:SOURce"
+    state: waveform.source
+  - header: ":WAVeform:FORMat"
+    state: waveform.format
+  - header: ":WAVeform:BYTeorder"
+    state: waveform.byteorder
+  - header: ":WAVeform:UNSigned"
+    state: waveform.unsigned
+  - header: ":WAVeform:POINts"
+    state: waveform.points
+  - header: ":WAVeform:PREamble"
+    op: acq.preamble
+    set: false
+  - header: ":WAVeform:DATA"
+    op: xfer.data
+    set: false
+  - header: ":MEASure:VPP"
+    op: meas.measure
+    set: false
+    args: {what: VPP}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VMAX"
+    op: meas.measure
+    set: false
+    args: {what: VMAX}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VMIN"
+    op: meas.measure
+    set: false
+    args: {what: VMIN}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VAMPlitude"
+    op: meas.measure
+    set: false
+    args: {what: VAMPlitude}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VRMS"
+    op: meas.measure
+    set: false
+    args: {what: VRMS}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VAVerage"
+    op: meas.measure
+    set: false
+    args: {what: VAVerage}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:FREQuency"
+    op: meas.measure
+    set: false
+    args: {what: FREQuency}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:PERiod"
+    op: meas.measure
+    set: false
+    args: {what: PERiod}
+    params: [{name: source, type: string, optional: true}]
