@@ -664,6 +664,21 @@ class Session:
                 raise RuntimeError("cannot advance a wall clock")
             self._advance(round(seconds * 1e9), reason=reason)
 
+    def wait(self, seconds: float, reason: str = "wait") -> None:
+        """Time a client spends waiting: a read that timed out, a wait for a service request.
+
+        Virtual time passes on a command clock and real time on a wall clock, so the wait costs
+        what the client waited. Unlike :meth:`advance` it is not refused while scripts are
+        connected (#121, issue 624): the one waiting is one of them, and its own view of time is
+        what moves. It is recorded like an advance and replays as one."""
+        if seconds <= 0:
+            return
+        if self.clock_mode == "wall":
+            time.sleep(seconds)
+            return
+        with self._lock:
+            self._advance(round(seconds * 1e9), reason=reason)
+
     def configure(self, name: str, path: str, value: Any, client: str = "ui") -> None:
         """Out-of-band state change from the UI, MCP or SDK (action: configure)."""
         with self._lock:

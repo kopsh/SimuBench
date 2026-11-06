@@ -97,3 +97,76 @@ def test_bench_is_a_remote_client_prefix():
     from simubench.server.manager import is_remote
 
     assert is_remote("bench:127.0.0.1:50000#0001") and not is_remote("pyvisa") and not is_remote(None)
+
+
+def current_address(c, info) -> str:
+    """The link address now: a reset starts the service's ports again, and with port 0 they move."""
+    return c.get(f"/api/sessions/{info['id']}").json()["link_address"]
+
+
+# ---- waits of a connected script on a served bench (the clock guard of #121 must not stop them) ------------------
+
+
+def test_a_read_timeout_on_a_served_bench_is_a_timeout_and_costs_virtual_time(served):
+    from pyvisa import errors
+
+    c, info, manager = served
+    session = manager.sessions[info["id"]].session
+    start = session.now_ns
+    rm = pyvisa.ResourceManager(f"{current_address(c, info)}@simubench")
+    try:
+        awg = rm.open_resource("awg", read_termination="\n")
+        awg.timeout = 300
+        with pytest.raises(errors.VisaIOError) as err:
+            awg.read()  # nothing was asked: the instrument has nothing to say
+        assert err.value.error_code == constants.VI_ERROR_TMO  # not a system error from the clock guard
+    finally:
+        rm.close()
+    assert (session.now_ns - start) / 1e9 >= 0.3  # the script's own wait moved the shared clock
+
+
+def test_wait_for_srq_on_a_served_bench_returns(served):
+    c, info, _ = served
+    rm = pyvisa.ResourceManager(f"{current_address(c, info)}@simubench")
+    try:
+        awg = rm.open_resource("awg", read_termination="\n", write_termination="\n")
+        for command in ("*CLS", "*ESE 1", "*SRE 32", "*OPC"):
+            awg.write(command)
+        awg.enable_event(constants.EventType.service_request, constants.EventMechanism.queue)
+        awg.wait_on_event(
+            constants.EventType.service_request, 1000
+        )  # the request is there: the wait ends at once
+        assert awg.read_stb() & 0x20
+    finally:
+        rm.close()
+
+
+def test_the_uis_explicit_advance_is_still_refused_while_a_script_is_connected(served):
+    c, info, _ = served
+    rm = pyvisa.ResourceManager(f"{current_address(c, info)}@simubench")
+    try:
+        awg = rm.open_resource("awg")  # kept: a resource that is collected is closed
+        assert awg is not None
+        r = c.post(f"/api/sessions/{info['id']}/clock/advance", json={"seconds": 0.01})
+        assert r.status_code == 409  # a script is connected: moving its time needs a confirmation
+    finally:
+        rm.close()
+
+
+# ---- the addresses the service itself serves ------------------------------------------------------------------------
+
+
+def test_the_addresses_the_service_prints_open_through_the_link(served):
+    """The ports are the service's choice, so what `serve` prints has to be found in connected mode too."""
+    c, info, _ = served
+    now = c.get(f"/api/sessions/{info['id']}").json()
+    awg = next(i for i in now["instruments"] if i["name"] == "awg")
+    assert awg["address_virtual"] and awg["address_hislip"]
+    rm = pyvisa.ResourceManager(f"{now['link_address']}@simubench")
+    try:
+        for address in (awg["address_virtual"], awg["address_hislip"]):
+            inst = rm.open_resource(address, read_termination="\n", write_termination="\n")
+            assert inst.query("*IDN?").startswith("SIMUBENCH,SB-AWG-2"), address
+        assert awg["address_virtual"] in rm.list_resources("?*")
+    finally:
+        rm.close()

@@ -17,13 +17,12 @@ served bench. Errors are :class:`~simubench.access.bus.BusError` with the VISA s
 
 from __future__ import annotations
 
-import time
 from typing import Any
 
 from pyvisa import constants
 
 from ..engine.session import Session
-from .bus import BusError, LockTable, bus_of, observe
+from .bus import BusError, LockTable, bus_of, observe, serial_poll
 from .gpib_bus import GET, GpibBus, gpib_board
 from .usbtmc import UsbError, UsbStall, UsbtmcInterface, usb_interface
 
@@ -98,10 +97,8 @@ class Link:
         self.pass_time(seconds)
 
     def pass_time(self, seconds: float) -> None:
-        if self.session.clock_mode == "wall":
-            time.sleep(seconds)
-        else:
-            self.session.advance(seconds)
+        """The client's own wait (not the UI's guarded advance, #121): see :meth:`Session.wait`."""
+        self.session.wait(seconds)
 
     def wait_srq(self, timeout_ms: Any) -> bool:
         """Let time pass until a service request is there or the timeout is spent.
@@ -199,9 +196,10 @@ class NetLink(Link):
         self.session.write(self.name, b"*TRG", client=self.client)
 
     def read_stb(self) -> int:
+        """viReadSTB: a serial poll on every bus, so RQS is read once and cleared (IEEE 488.2 11.2)."""
         assert self.name is not None
         self.guard()
-        return self.session.instrument(self.name).stb()
+        return serial_poll(self.session, self.name)
 
     def control_ren(self, mode: int) -> None:
         assert self.name is not None
@@ -216,7 +214,8 @@ class NetLink(Link):
 
     def srq_ready(self) -> bool:
         assert self.name is not None
-        return bool(self.session.instrument(self.name).stb() & 0x40)
+        observe(self.session, self.name)
+        return bus_of(self.session, self.name).service_request.latch
 
 
 # ---- GPIB ---------------------------------------------------------------------------------------------------------
@@ -375,14 +374,18 @@ class UsbLink(Link):
 
     def read_message(self) -> bytes | None:
         self.guard()
-        try:
-            data, _eom = self.iface.read(1 << 20, None, self.client)
-        except UsbError as exc:
-            if exc.code == constants.VI_ERROR_TMO:
-                self.iface.in_active = False  # the host gave up waiting: nothing is left half done
-                return None
-            raise
-        return data
+        data = bytearray()
+        while True:  # one REQUEST_DEV_DEP_MSG_IN per chunk until the transfer that carries EOM
+            try:
+                chunk, eom = self.iface.read(1 << 20, None, self.client)
+            except UsbError as exc:
+                if exc.code == constants.VI_ERROR_TMO and not data:
+                    self.iface.in_active = False  # the host gave up waiting: nothing is left half done
+                    return None
+                raise
+            data += chunk
+            if eom:
+                return bytes(data)
 
     def clear(self) -> None:
         self.guard()

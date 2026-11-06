@@ -207,7 +207,8 @@ def _watch(session: Session, event: dict) -> None:
 def observe(session: Session, instrument: str) -> None:
     """Let the instrument's request-service latch see its status byte (call after any I/O)."""
     inst = session.instrument(instrument)
-    bus_of(session, instrument).service_request.observe(inst.stb(), inst.sre)
+    # Only a look: the observer must not latch what the status registers have not latched yet.
+    bus_of(session, instrument).service_request.observe(inst.stb(commit=False), inst.sre)
 
 
 def serial_poll(session: Session, instrument: str) -> int:

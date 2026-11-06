@@ -404,6 +404,7 @@ class SessionManager:
                 link = BenchLinkServer(session, self.scpi_host, self.link_port)
                 try:
                     await link.start()
+                    link.served = self.served_addresses(served)
                     served.link = link
                 except OSError as exc:  # another service holds the port: this one still works
                     log.warning("bench link not started (port %s: %s)", self.link_port, exc)
@@ -525,6 +526,18 @@ class SessionManager:
             raise KeyError(sid) from None
 
     # ---- descriptions -------------------------------------------------------------------------------
+
+    @staticmethod
+    def served_addresses(served: ServedSession) -> dict[str, list[str]]:
+        """Every address the service's own servers answer at, by instrument: what a script that
+        connects through the bench link must be able to open (the ports are the service's choice)."""
+        out: dict[str, list[str]] = {name: [] for name in served.session.instruments}
+        for lst in served.scpi.listeners if served.scpi else []:
+            out[lst.instrument].append(lst.address)
+        for servers in (served.hislip, served.vxi11):
+            for name, address in (servers.addresses() if servers else {}).items():
+                out[name].append(address)
+        return out
 
     def describe(self, served: ServedSession) -> M.SessionInfo:
         s = served.session

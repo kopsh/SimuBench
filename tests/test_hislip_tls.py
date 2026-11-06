@@ -602,17 +602,22 @@ def test_options_that_cannot_work_alone_are_refused(given):
         hislip_options_of(args(**given))
 
 
-@pytest.mark.unit
 def test_a_service_request_waits_while_the_channel_is_switching():
     """poll_srq runs on the sync task; during a switch a plaintext message would corrupt the TLS stream."""
-    sent: list[bytes] = []
-    rising = SimpleNamespace(stb=lambda: 0x60)
-    server = SimpleNamespace(session=SimpleNamespace(instrument=lambda name: rising), overlapped=False)
-    sess = h.HislipSession(server, "scope", 1)
-    sess.async_writer = SimpleNamespace(is_closing=lambda: False, write=sent.append)
-    sess.switching = True
-    sess.poll_srq()
-    assert sent == [] and sess.last_stb == 0  # nothing written, and the edge is not used up
-    sess.switching = False
-    sess.poll_srq()
-    assert len(sent) == 1 and sent[0][2] == h.ASYNC_SERVICE_REQUEST  # found again once it is over
+    bench = open_bench(BENCH)
+    try:
+        sent: list[bytes] = []
+        sess = h.HislipSession(h.HislipServer(bench, port=0), "scope", 1)
+        sess.async_writer = SimpleNamespace(is_closing=lambda: False, write=sent.append)
+        for command in (b"*CLS", b"*ESE 1", b"*SRE 32", b"*OPC"):
+            bench.write("scope", command, client="test")  # a request for service is now pending
+        sess.switching = True
+        sess.poll_srq()
+        assert sent == [] and not sess.srq_sent  # nothing written, and the request is not used up
+        sess.switching = False
+        sess.poll_srq()
+        assert len(sent) == 1 and sent[0][2] == h.ASYNC_SERVICE_REQUEST  # found again once it is over
+        sess.poll_srq()
+        assert len(sent) == 1  # once per request
+    finally:
+        bench.close()

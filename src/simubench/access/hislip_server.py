@@ -26,7 +26,7 @@ import struct
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
-from .bus import LockTable, bus_of
+from .bus import LockTable, bus_of, observe, serial_poll
 from .hislip_tls import AuthState, SecureConfig, SecureStream
 
 log = logging.getLogger("simubench.hislip")
@@ -119,7 +119,7 @@ class HislipSession:
         self.mav = False
         self.rmt_expected = False
         self.clearing = False
-        self.last_stb = 0
+        self.srq_sent = False  # AsyncServiceRequest went out for the request that is pending
         self.version = 0x0100  # negotiated protocol version
         self.async_reader: asyncio.StreamReader | SecureStream | None = None
         self.secure_required = False  # encryption mandatory, or required right after initialization
@@ -181,7 +181,10 @@ class HislipSession:
         Synchronized: MAV is ours to track (6.14.1). Overlapped: the client says which response it
         has taken (``delivered``, the MessageID of the last Data/DataEND handed to its application)
         and anything the server sent after it is still available (6.14.2)."""
-        stb = self.server.session.instrument(self.instrument).stb()
+        # A status query is a serial poll: it returns RQS and clears it, which allows the next
+        # AsyncServiceRequest (spec 6.13).
+        stb = serial_poll(self.server.session, self.instrument)
+        self.srq_sent = False
         if self.overlapped:
             mav = delivered is not None and delivered != (self.tx_id - 2) & 0xFFFF_FFFF
         else:
@@ -189,16 +192,21 @@ class HislipSession:
         return (stb & ~0x10) | (0x10 if mav else 0)
 
     def poll_srq(self) -> None:
-        """Send AsyncServiceRequest when the RQS bit rises; once per new reason (spec 6.13)."""
+        """Send AsyncServiceRequest when a request for service is pending; once per request (spec 6.13)."""
         if self.switching:
-            return  # a plaintext message now would corrupt the TLS stream; the edge is found again after
+            return  # a plaintext message now would corrupt the TLS stream; it is found again after
+        session = self.server.session
         try:
-            stb = self.server.session.instrument(self.instrument).stb()
+            observe(session, self.instrument)
+            pending = bus_of(session, self.instrument).service_request.latch
+            stb = session.instrument(self.instrument).stb(commit=False)
         except Exception:  # a status read must never take the connection down
             return
-        if stb & 0x40 and not self.last_stb & 0x40:
-            self._send(self.async_writer, _pack(ASYNC_SERVICE_REQUEST, stb & 0xFF))
-        self.last_stb = stb
+        if not pending:
+            self.srq_sent = False
+        elif not self.srq_sent:
+            self.srq_sent = True
+            self._send(self.async_writer, _pack(ASYNC_SERVICE_REQUEST, (stb | 0x40) & 0xFF))
 
     # ---- responses ---------------------------------------------------------------------------------------
 
@@ -517,8 +525,7 @@ class HislipServer:
         elif msg_type == ASYNC_STATUS_QUERY:
             if control & RMT:
                 sess.mav = False
-            sess.last_stb = sess.stb(parameter)  # the status query delivers RMT; no new SRQ from it
-            writer.write(_pack(ASYNC_STATUS_RESPONSE, sess.stb(parameter) & 0xFF))
+            writer.write(_pack(ASYNC_STATUS_RESPONSE, sess.stb(parameter) & 0xFF))  # one poll
             await writer.drain()
         elif msg_type == ASYNC_LOCK:
             await self._lock_message(sess, writer, control, parameter, payload)

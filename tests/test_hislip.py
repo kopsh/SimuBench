@@ -304,7 +304,9 @@ async def test_service_request_when_rqs_rises(rig):
         assert msg_type == ASYNC_SERVICE_REQUEST
         assert control == 0x60  # ESB | RQS
         assert c.status_query() == 0x70  # MAV too: the *OPC? reply was never confirmed as read
-        assert c.status_query(1) == 0x60  # RMT-delivered clears MAV (spec 6.14.1)
+        assert (
+            c.status_query(1) == 0x20
+        )  # RMT-delivered clears MAV (6.14.1); the first query cleared RQS (6.13)
         c.close()
 
     await asyncio.to_thread(run)

@@ -1776,11 +1776,14 @@ class Instrument:
         for comp in self._status_registers():
             comp.event(name)  # type: ignore[attr-defined]
 
-    def stb(self) -> int:
+    def stb(self, commit: bool = True) -> int:
+        """The status byte. ``commit=False`` only looks: the condition transitions the status
+        registers have not latched yet stay unlatched, so an observer cannot change what a later
+        ``*ESR?`` says."""
         stb = 0
         for comp in self._status_registers():  # status registers' summary bits (#248, #273)
             bit = comp.param("summary_bit")
-            if bit is not None and comp.summary():  # type: ignore[attr-defined]
+            if bit is not None and comp.summary(commit):  # type: ignore[attr-defined]
                 stb |= 1 << int(bit)
         if len(self.errors):
             stb |= 1 << 2

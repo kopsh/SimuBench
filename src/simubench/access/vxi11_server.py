@@ -31,7 +31,7 @@ from pyvisa import rname
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
-from .bus import bus_of, serial_poll
+from .bus import bus_of, observe, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
 
@@ -151,7 +151,7 @@ class _Link:
     pending: list[bytes] = field(default_factory=list)  # responses not yet started
     srq_enabled: bool = False
     srq_handle: bytes = b""
-    last_stb: int = 0
+    srq_sent: bool = False  # the interrupt channel was told about the request that is pending
 
     def has_output(self) -> bool:
         return bool(self.current or self.pending)
@@ -436,19 +436,22 @@ class Vxi11Server(_RpcServer):
         return (stb & ~MAV) | (MAV if link.has_output() else 0)
 
     def _poll_srq(self, instrument: str) -> None:
-        """The RQS bit rose: tell every link that enabled SRQ (device_intr_srq), once per new reason."""
+        """A request for service is pending: tell every link that enabled SRQ (device_intr_srq), once per request."""
         try:
-            stb = self.session.instrument(instrument).stb()
+            observe(self.session, instrument)
+            pending = bus_of(self.session, instrument).service_request.latch
         except Exception:  # a status read must never take the connection down
             return
         for link in list(self._links.values()):
             if link.instrument != instrument:
                 continue
-            if link.srq_enabled and stb & RQS and not link.last_stb & RQS:
+            if not pending:
+                link.srq_sent = False
+            elif link.srq_enabled and not link.srq_sent:
+                link.srq_sent = True
                 task = asyncio.create_task(self._send_srq(link))
                 self._tasks.add(task)
                 task.add_done_callback(self._tasks.discard)
-            link.last_stb = stb
 
     async def _send_srq(self, link: _Link) -> None:
         conn = link.conn
@@ -632,7 +635,10 @@ class Vxi11Server(_RpcServer):
         if len(handle) > 40:
             return _error(E_PARAMETER)
         link.srq_enabled, link.srq_handle = enable, handle
-        link.last_stb = self.session.instrument(link.instrument).stb()  # only a new reason raises SRQ
+        observe(self.session, link.instrument)
+        link.srq_sent = bus_of(
+            self.session, link.instrument
+        ).service_request.latch  # only a new request raises SRQ
         return _error(OK)
 
     async def _device_docmd(self, conn: _Conn, rd: _Reader) -> bytes:

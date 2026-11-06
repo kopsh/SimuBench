@@ -357,3 +357,21 @@ def test_every_control_action_is_in_the_event_stream(usb):
 
 def test_the_interface_is_shared_by_every_access_path(usb):
     assert u.usb_interface(usb.session, "load") is usb
+
+
+# ---- a response bigger than one Bulk-IN request --------------------------------------------------------------------
+
+
+def test_a_usb_read_of_a_large_response_gets_all_of_it(usb):
+    """A waveform block of a few MiB arrives over several REQUEST_DEV_DEP_MSG_IN; the message ends at its EOM."""
+    from simubench.access.links import UsbLink
+
+    link = UsbLink(usb.session, "load")
+    big = bytes(range(256)) * (3 * 4096)  # 3 MiB
+    real_read = usb.session.read
+    usb.session.read = lambda name, client="sdk": big  # type: ignore[method-assign]
+    try:
+        link.write(b"*IDN?")
+        assert link.read_message() == big
+    finally:
+        usb.session.read = real_read  # type: ignore[method-assign]

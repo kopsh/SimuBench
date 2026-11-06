@@ -94,6 +94,9 @@ class BenchLinkServer:
     def __init__(self, session: Session, host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> None:
         self.session = session
         self.host, self.port = host, port
+        #: instrument -> the addresses the service serves it at (socket, HiSLIP, VXI-11), set by the
+        #: service once its servers are up: their ports are its choice, a script must find them.
+        self.served: dict[str, list[str]] = {}
         self.server: asyncio.AbstractServer | None = None
         self._clients: dict[str, tuple[str | None, Link]] = {}  # label -> (instrument, link)
         self._writers: set[asyncio.StreamWriter] = set()
@@ -126,7 +129,12 @@ class BenchLinkServer:
 
     def _describe(self) -> dict[str, Any]:
         instruments = [
-            {"name": name, "address": inst.instance.address, "idn": inst.idn}
+            {
+                "name": name,
+                "address": inst.instance.address,
+                "idn": inst.idn,
+                "served": self.served.get(name, []),
+            }
             for name, inst in self.session.instruments.items()
         ]
         return {"ok": True, "protocol": PROTOCOL, "instruments": instruments}
@@ -261,6 +269,7 @@ class RemoteLink(Link):
     def close(self) -> None:
         with contextlib.suppress(BusError):
             self._conn.request({"op": "close", "id": self._id})
+        self._conn.close()
 
 
 def _forward(method: str):
@@ -276,28 +285,44 @@ for _method in LINK_METHODS:
 
 
 class RemoteBench:
-    """What the PyVISA backend needs of a bench it does not own: who is on it, and links to them."""
+    """What the PyVISA backend needs of a bench it does not own: who is on it, and links to them.
+
+    Every link has a connection of its own: a wait on one resource (a 25 s ``wait_for_srq``) must not
+    hold up a query to another, and the lock of a session goes when its connection does."""
 
     def __init__(self, address: str) -> None:
-        self.conn = LinkConnection(address)
-        hello = self.conn.request({"op": "hello"})
+        self.address = address
+        hello_conn = LinkConnection(address)
+        try:
+            hello = hello_conn.request({"op": "hello"})
+        finally:
+            hello_conn.close()
         if not hello.get("ok") or hello.get("protocol") != PROTOCOL:
             raise BusError(constants.VI_ERROR_SYSTEM_ERROR, f"{address} is not a SimuBench bench link")
-        # The shape the backend reads from a session: instruments with an ``instance.address``.
+        # The shape the backend reads from a session: instruments with an ``instance.address``,
+        # plus the addresses the service serves them at (their ports are the service's choice).
         self.instruments = {
-            i["name"]: SimpleNamespace(instance=SimpleNamespace(address=i["address"]), idn=i["idn"])
+            i["name"]: SimpleNamespace(
+                instance=SimpleNamespace(address=i["address"]), idn=i["idn"], served=i.get("served", [])
+            )
             for i in hello["instruments"]
         }
         self._ids = itertools.count(1)
+        self._connections: list[LinkConnection] = []
 
     def open_link(self, name: str | None, kind: str, board: int) -> RemoteLink:
         link_id = next(self._ids)
-        reply = self.conn.request({"op": "open", "id": link_id, "name": name, "kind": kind, "board": board})
+        conn = LinkConnection(self.address)
+        reply = conn.request({"op": "open", "id": link_id, "name": name, "kind": kind, "board": board})
         if not reply.get("ok"):
+            conn.close()
             raise BusError(
                 int(reply.get("code", constants.VI_ERROR_RSRC_NFOUND)), str(reply.get("message", ""))
             )
-        return RemoteLink(self.conn, link_id, name, kind)
+        self._connections.append(conn)
+        return RemoteLink(conn, link_id, name, kind)
 
     def close(self) -> None:
-        self.conn.close()
+        for conn in self._connections:
+            conn.close()
+        self._connections.clear()

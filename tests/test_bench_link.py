@@ -345,3 +345,42 @@ async def test_an_unchanged_script_drives_the_running_bench(gpib_rig):
         e for e in gpib_rig.bench.history if e["kind"] == "scpi" and e.get("client", "").startswith("bench:")
     ]
     assert events  # the service's own event stream shows who talked to the bench
+
+
+# ---- one connection per link ----------------------------------------------------------------------------------------
+
+
+async def test_a_long_wait_on_one_resource_does_not_hold_up_another():
+    import threading
+
+    bench = open_bench(GPIB_BENCH, clock="wall")  # a wall clock: a wait is real time
+    server = BenchLinkServer(bench, port=0)
+    await server.start()
+
+    def run() -> float:
+        rm = manager(server.address())
+        try:
+            cal = rm.open_resource("GPIB0::6::INSTR", read_termination="\n", write_termination="\n")
+            dmm = rm.open_resource("GPIB0::7::INSTR", read_termination="\n", write_termination="\n")
+            cal.enable_event(constants.EventType.service_request, constants.EventMechanism.queue)
+
+            def wait_for_a_request() -> None:
+                with pytest.raises(errors.VisaIOError):  # nothing raises SRQ: it times out after 1.5 s
+                    cal.wait_on_event(constants.EventType.service_request, 1500)
+
+            waiter = threading.Thread(target=wait_for_a_request)
+            waiter.start()
+            time.sleep(0.2)  # the other thread is inside its 1.5 s wait now
+            started = time.monotonic()
+            assert dmm.query("*IDN?").startswith("FLUKE,8588A")  # not queued behind that wait
+            took = time.monotonic() - started
+            waiter.join()
+            return took
+        finally:
+            rm.close()
+
+    try:
+        assert await asyncio.to_thread(run) < 1.0
+    finally:
+        await server.stop()
+        bench.close()

@@ -201,6 +201,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         self.hislip: dict[str, str] = {}  # instrument -> canonical HiSLIP address
         self.vxi11: dict[str, str] = {}  # instrument -> canonical VXI-11 address
         self.vxi11_gateway: dict[str, str] = {}  # instrument -> VXI-11 gateway form of its GPIB address
+        self.served: list[str] = []  # addresses a connected-to service answers at
         for i, (name, inst) in enumerate(self.bench.instruments.items()):
             canon = f"TCPIP0::127.0.0.1::{BASE_PORT + i}::SOCKET"
             self.canonical[name] = canon
@@ -223,6 +224,9 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
                 self.vxi11_gateway[name] = gateway
             if inst.instance.address:
                 self.addresses[self._norm(inst.instance.address)] = name
+            for served in getattr(inst, "served", []):  # a service's own ports (connected mode)
+                self.addresses[self._norm(served)] = name
+                self.served.append(served)
             self.addresses[name.upper()] = name
         # The board of every GPIB address the bench declares can be opened as an interface (D63).
         self.intfc = [f"GPIB{board}::INTFC" for board in boards_of(self.bench)]
@@ -279,7 +283,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
 
     def list_resources(self, session: Any, query: str = "?*::INSTR") -> tuple[str, ...]:
         resources = list(self.canonical.values()) + list(self.hislip.values()) + list(self.vxi11.values())
-        resources += list(self.vxi11_gateway.values()) + self.intfc
+        resources += list(self.vxi11_gateway.values()) + self.intfc + self.served
         for inst in self.bench.instruments.values():
             if inst.instance.address:
                 resources.append(inst.instance.address)

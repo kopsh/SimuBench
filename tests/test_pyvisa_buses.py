@@ -183,7 +183,9 @@ def test_srq_wait_returns_when_rqs_rises_during_the_wait(gpib):
     start = bench.now_ns
     cal_instrument = bench.instrument("cal")
     cal_instrument.sre = 0x20  # ESB is an enabled reason
-    cal_instrument.stb = lambda: 0x60 if bench.now_ns - start >= 250_000_000 else 0  # appears at 250 ms
+    cal_instrument.stb = lambda commit=True: (
+        0x60 if bench.now_ns - start >= 250_000_000 else 0
+    )  # appears at 250 ms
     cal.enable_event(constants.EventType.service_request, constants.EventMechanism.queue)
     resp = cal.wait_on_event(constants.EventType.service_request, 2000)
     assert not resp.timed_out
@@ -427,3 +429,13 @@ def test_a_script_that_names_no_library_runs_on_the_bench_through_the_environmen
     assert out.returncode == 0, out.stderr
     first, second = out.stdout.split("\n")[:2]
     assert "5522A" in first and second == "0x20"  # wait_for_srq took the request with its own poll
+
+
+def test_every_kind_of_session_reads_the_status_byte_as_a_serial_poll(board):
+    """GPIB, USB, VXI-11 and a named instrument: one rule, RQS is read once and cleared (IEEE 488.2 11.2)."""
+    for address in ("GPIB0::6::INSTR", "TCPIP0::127.0.0.1::inst_cal::INSTR", "cal"):
+        inst = board.open_resource(address, write_termination="\n")
+        for command in ("*CLS", "*ESE 1", "*SRE 32", "*OPC"):
+            inst.write(command)
+        assert inst.read_stb() == 0x60, address
+        assert inst.read_stb() == 0x20, address  # the reason is still there, the request is gone
