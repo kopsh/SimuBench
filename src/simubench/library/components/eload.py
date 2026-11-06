@@ -160,7 +160,10 @@ class EloadModeLoop(Component):
         ranges = self._ranges(key)
         if not ranges or self.owner is None:
             return
-        lo, hi = next(((a, b) for a, b in ranges if b >= value * (1 - 1e-12)), ranges[-1])
+        index, (lo, hi) = next(
+            ((i, r) for i, r in enumerate(ranges) if r[1] >= value * (1 - 1e-12)),
+            (len(ranges) - 1, ranges[-1]),
+        )
         path = self.bound_path(key)
         if path is not None and float(value) != hi:
             self.owner.set_state(path, hi)
@@ -169,6 +172,19 @@ class EloadModeLoop(Component):
         level = float(self.param(level_key))
         if level_path is not None and not lo <= level <= hi:
             self.owner.set_state(level_path, hi if level > hi else lo)
+        # The CC slew rates follow the range too (issue 721): the 8600 manual says nothing about a
+        # stored rate when the range changes, so the model clamps it into the new range's
+        # data-sheet bounds — the value a readback shows is the value the ramp uses, like the
+        # setpoint above.
+        if key == "current_range":
+            table = self.param("slew_limits")
+            if isinstance(table, (list, tuple)) and index < len(table):
+                slo, shi = (float(x) for x in table[index])
+                for slew_key in ("slew_rise", "slew_fall"):
+                    slew_path = self.bound_path(slew_key)
+                    slew = float(self.param(slew_key))
+                    if slew_path is not None and not slo <= slew <= shi:
+                        self.owner.set_state(slew_path, shi if slew > shi else slo)
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key in self._RANGED:
