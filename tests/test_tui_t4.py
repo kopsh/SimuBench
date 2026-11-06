@@ -242,7 +242,9 @@ async def test_open_reveal_and_home_drive_the_screens(tmp_path: Path):
     path = tmp_path / "steps.yaml"
     path.write_text(yaml.safe_dump(steps_yaml), encoding="utf-8")
     reveal_only = tmp_path / "reveal.yaml"
-    reveal_only.write_text(yaml.safe_dump({"size": [100, 32], "steps": steps_yaml["steps"][:2]}), encoding="utf-8")
+    reveal_only.write_text(
+        yaml.safe_dump({"size": [100, 32], "steps": steps_yaml["steps"][:2]}), encoding="utf-8"
+    )
     from simubench.tui.script import Steps, run_steps, validate
 
     steps = Steps.load(path)

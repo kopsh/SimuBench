@@ -93,9 +93,22 @@ def validate(steps: Steps, instruments: list[dict[str, Any]] | None = None) -> l
     order (issue 684).
     """
     problems: list[str] = []
-    actions = {"key", "scpi", "advance", "caption", "highlight", "screenshot", "wait", "open", "home", "reveal"}
+    actions = {
+        "key",
+        "scpi",
+        "advance",
+        "caption",
+        "highlight",
+        "screenshot",
+        "wait",
+        "open",
+        "home",
+        "reveal",
+    }
     known = {str(i.get("name")) for i in instruments or []}
-    state_of = {str(i.get("name")): {str(sv.get("path")) for sv in i.get("state", [])} for i in instruments or []}
+    state_of = {
+        str(i.get("name")): {str(sv.get("path")) for sv in i.get("state", [])} for i in instruments or []
+    }
     on_screen: str | None = None
     for i, step in enumerate(steps.items):
         unknown = sorted(set(step) - actions)
@@ -108,7 +121,9 @@ def validate(steps: Steps, instruments: list[dict[str, Any]] | None = None) -> l
         if "open" in step:
             name = str(step["open"])
             if instruments is not None and name not in known:
-                problems.append(f"step {i}: open: no instrument {name!r} on this bench; known: {sorted(known)}")
+                problems.append(
+                    f"step {i}: open: no instrument {name!r} on this bench; known: {sorted(known)}"
+                )
             else:
                 on_screen = name  # an unknown name puts nothing on screen
         if "home" in step and step["home"] is not True:
@@ -119,7 +134,9 @@ def validate(steps: Steps, instruments: list[dict[str, Any]] | None = None) -> l
             path = str(step["reveal"])
             if instruments is not None:
                 if on_screen is None:
-                    problems.append(f"step {i}: reveal: {path!r} needs an open step in front (the screen must show the instrument)")
+                    problems.append(
+                        f"step {i}: reveal: {path!r} needs an open step in front (the screen must show the instrument)"
+                    )
                 elif path not in state_of.get(on_screen, set()):
                     problems.append(f"step {i}: reveal: {on_screen} has no state variable {path!r}")
         if "scpi" in step:
