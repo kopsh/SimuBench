@@ -1551,3 +1551,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 假设值写明，不冒充真机指标；已展开的仪表不受影响 | ✅ 字段说明与 `docs/instrument-authoring.md`（`scope_vertical` 一节）注明；已展开的仪表要在定义里补 `noise_table` 或 `noise_divs` 与 `trigger_jitter_s` |
 | 依赖“无噪声”的断言按新默认改正 | ✅ `acceptance/test_lfcal_agent_scenario.py`：智能体按模板建议的输入建示波器，现在带默认噪声，同一方波用 VRMS 与 dBm 设置的两次独立采集不再逐位相同，改为与上一行同样的 1 % 相对容差（断言的意图——两种单位设出同一幅度——不变） |
 | 未做 | ⚠️ 内置真实型号（如 `keysight-dsox2024a.yaml`）的噪声值：需要手册或确认的取值，不在本 issue |
+
+## 示波器运行中的画面每帧都有变化（Issue 730）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 运行中连续两帧迹线不完全相同；触发锁定时稳定，只带噪声（与触发抖动），不整体滑动 | ✅ `tests/test_panel.py::test_a_triggered_running_screen_is_stable_with_noise_on_it`（Siglent 示例：两帧之间差不为 0，且小于 0.02 V，迹线 0.17 V）。帧噪声与抖动本就以帧号为键（`scope_acquisition._noise` / `_jitter` 的 `frame`），画面死线的原因是定义没有噪声，见 #731 |
+| 没触发时相位逐帧不稳定 | ✅ `scope_acquisition._acquire`：未触发的运行帧起点加一个由种子与帧号决定的偏移（自由运行的扫描起点任意）；`test_an_untriggered_running_screen_slides_from_frame_to_frame`（触发电平置于信号之外，帧间最大差 > 0.05 V，而噪声只有几 mV） |
+| 画面刷新不改变脚本看到的回复与虚拟时间；同一种子下可复现 | ✅ `test_the_frames_of_a_screen_are_the_same_on_every_run`（两次运行逐帧相同，画 3 帧后 `now_ns` 不变）；原有的 `test_a_running_screen_does_not_change_what_a_script_sees` 不改通过 |
+| 无噪声的定义不凭空造变化 | ✅ `test_a_noiseless_triggered_screen_is_identical_frame_to_frame`（DSO-X 2024A 触发时三帧逐点相同，行为按设计：它的输入没有噪声与抖动，补噪声见 #731 与真实型号的另行 issue） |
+| 未做 | ⚠️ 慢时基下的滚动模式（Roll）：用户已确认不做整体滑动，另议；Web 侧每 300 ms 取一帧的节奏不变 |
