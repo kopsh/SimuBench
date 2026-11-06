@@ -3,8 +3,11 @@
 A steps file drives the app headlessly: `key` presses, `scpi` speaks as an external script over
 the instrument's socket (so the log shows 脚本, like the reference video's other client),
 `advance` moves the virtual clock, `wait` holds the frame, `caption` writes the bottom
-subtitle, `highlight` frames the named controls, `screenshot` writes one SVG. With `idle: off`
-and a fixed seed the same bench plus the same steps produce byte-identical SVGs (D47).
+subtitle, `highlight` frames the named controls, `screenshot` writes one SVG. `open`
+opens an instrument's screen directly, `reveal` focuses and highlights one of its fields
+without editing, `home` returns to the overview; the command line's `--size COLSxROWS`
+overrides the file's `size` (issue 684). With `idle: off` and a fixed seed the same bench
+plus the same steps produce byte-identical SVGs (D47).
 """
 
 from __future__ import annotations
@@ -78,14 +81,35 @@ def duration_seconds(value: Any) -> float | None:
         return None
 
 
-def validate(steps: Steps) -> list[str]:
+def validate(steps: Steps, instruments: list[dict[str, Any]] | None = None) -> list[str]:
     """Known fields only, every step does something; a list of problems (empty = ok).
 
     ``caption``, ``highlight`` and ``wait`` decorate the step that moves the demo, so several
     may share one step (the design's ``key: "1"`` + ``caption: …`` form, 6).
+
+    With the bench's instruments, ``open`` / ``reveal`` / ``home`` are checked the way they run:
+    ``open`` names an instrument of the bench, ``home`` is ``true``, and ``reveal``'s path names
+    a state variable of the instrument the previous ``open`` put on screen — simulated in step
+    order (issue 684).
     """
     problems: list[str] = []
-    actions = {"key", "scpi", "advance", "caption", "highlight", "screenshot", "wait"}
+    actions = {
+        "key",
+        "scpi",
+        "advance",
+        "caption",
+        "highlight",
+        "screenshot",
+        "wait",
+        "open",
+        "home",
+        "reveal",
+    }
+    known = {str(i.get("name")) for i in instruments or []}
+    state_of = {
+        str(i.get("name")): {str(sv.get("path")) for sv in i.get("state", [])} for i in instruments or []
+    }
+    on_screen: str | None = None
     for i, step in enumerate(steps.items):
         unknown = sorted(set(step) - actions)
         if unknown:
@@ -94,6 +118,27 @@ def validate(steps: Steps) -> list[str]:
             problems.append(f"step {i}: nothing to do")
         if "key" in step and not isinstance(step["key"], str):
             problems.append(f"step {i}: key must be a key name")
+        if "open" in step:
+            name = str(step["open"])
+            if instruments is not None and name not in known:
+                problems.append(
+                    f"step {i}: open: no instrument {name!r} on this bench; known: {sorted(known)}"
+                )
+            else:
+                on_screen = name  # an unknown name puts nothing on screen
+        if "home" in step and step["home"] is not True:
+            problems.append(f"step {i}: home must be true")
+        if "home" in step:
+            on_screen = None
+        if "reveal" in step:
+            path = str(step["reveal"])
+            if instruments is not None:
+                if on_screen is None:
+                    problems.append(
+                        f"step {i}: reveal: {path!r} needs an open step in front (the screen must show the instrument)"
+                    )
+                elif path not in state_of.get(on_screen, set()):
+                    problems.append(f"step {i}: reveal: {on_screen} has no state variable {path!r}")
         if "scpi" in step:
             spec = step["scpi"]
             if not (isinstance(spec, dict) and "instrument" in spec and "command" in spec):
@@ -110,6 +155,19 @@ def validate(steps: Steps) -> list[str]:
         if "highlight" in step and not isinstance(step["highlight"], list):
             problems.append(f"step {i}: highlight must be a list of control paths")
     return problems
+
+
+def parse_size(value: Any) -> tuple[int, int] | None:
+    """``--size COLSxROWS`` (issue 684): ``100x34``; None when absent, None on a bad format too
+    (the caller reports it)."""
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    try:
+        cols, _, rows = text.partition("x")
+        return (int(cols.strip()), int(rows.strip()))
+    except ValueError:
+        return None
 
 
 def split_key(key: str) -> list[str]:
@@ -170,6 +228,13 @@ async def run_steps(app: Any, pilot: Any, steps: Steps, out_dir: Path, record: b
             _set_highlights(app, highlights, True)
         if "key" in step:
             await pilot.press(*split_key(str(step["key"])))
+        if "open" in step:
+            app.open_instrument(str(step["open"]))
+        if "home" in step:
+            app.go_home()
+        if "reveal" in step:
+            screen: Any = app.screen
+            screen.go_to_field(str(step["reveal"]), edit=False)  # focus and highlight, no editing
         if "scpi" in step:
             spec = step["scpi"]
             await external_scpi(app, spec["instrument"], str(spec["command"]), spec.get("source_port"))
