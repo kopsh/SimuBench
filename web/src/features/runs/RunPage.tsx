@@ -1,4 +1,5 @@
 import { ChevronLeft, CircleCheck, CircleX, Crosshair, Play, Search } from "lucide-react";
+import { clockLabel } from "@/lib/enums";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { T } from "@/i18n";
@@ -71,7 +72,7 @@ export function RunPage() {
       <main className="min-h-0 flex-1 space-y-3 overflow-auto p-3">
         <section className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 text-xs">
           <span>{new Date(summary.started * 1000).toLocaleString()}</span>
-          <span>{t(`workbench.clockMode.${summary.clock as "command" | "wall" | "stepped"}`)}</span>
+          <span>{clockLabel(summary.clock, t)}</span>
           <span>
             {t("runs.seed")} {summary.seed}
           </span>

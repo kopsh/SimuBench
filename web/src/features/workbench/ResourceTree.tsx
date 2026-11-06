@@ -1,4 +1,4 @@
-import { Cable, CircuitBoard, Cpu, Network } from "lucide-react";
+import { Cable, CircuitBoard, Network } from "lucide-react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { SessionInfo } from "@/api/client";
@@ -6,7 +6,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { instrumentTitle } from "./model";
 import { type Selection, useWorkbench } from "./store";
-import { CLASS_ICON, DutBadge } from "./canvas/InstrumentNode";
+import { ClassIcon } from "./classes";
+import { DutBadge } from "./canvas/InstrumentNode";
 
 
 export function ResourceTree({ session }: { session: SessionInfo }) {
@@ -18,10 +19,9 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
       <nav className="p-2 text-[12.5px]" aria-label={t("workbench.resources")}>
         <Group title={t("workbench.instruments")}>
           {session.instruments.map((i) => {
-            const Icon = CLASS_ICON[i.instrument_class] ?? Cpu;
             const s = { kind: "instrument", id: i.name } as const;
             return (
-              <Item key={i.name} active={is(s)} onClick={() => select(s)} onDoubleClick={() => openScreen(i.name)} icon={<Icon className="size-3.5" />}>
+              <Item key={i.name} active={is(s)} onClick={() => select(s)} onDoubleClick={() => openScreen(i.name)} icon={<ClassIcon cls={i.instrument_class} className="size-3.5" />}>
                 <span className="truncate">{instrumentTitle(i)}</span>
                 {i.dut && <DutBadge className="ml-auto" />}
                 {i.errors.length > 0 && <span className={cn("text-error num text-[11px]", !i.dut && "ml-auto")}>{i.errors.length}</span>}
