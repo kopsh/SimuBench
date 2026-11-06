@@ -315,10 +315,12 @@ class ControlEditingScreen(ShellScreen):
             )
         return out
 
-    def go_to_field(self, path: str, text: str | None = None) -> bool:
+    def go_to_field(self, path: str, text: str | None = None, *, edit: bool = True) -> bool:
         """Focus the field for ``path``. With no ``text``, start editing it (a switch is only
-        focused: the jump must not flip an output). With ``text``, type it in and commit, so the
-        value goes through the same range check, unit parsing and confirmation as a typed one."""
+        focused: the jump must not flip an output) — unless ``edit=False``, which only focuses
+        and highlights, for the demo script's ``reveal`` (issue 684). With ``text``, type it in
+        and commit, so the value goes through the same range check, unit parsing and
+        confirmation as a typed one."""
         button = next((b for b in self.query(ControlButton) if b.is_field and b.control.path == path), None)
         if button is None:
             app: Any = self.app
@@ -336,7 +338,7 @@ class ControlEditingScreen(ShellScreen):
             return False
         control = button.control
         if text is None:
-            if control.kind != "switch":
+            if edit and control.kind != "switch":
                 self._edit_button(button)
             return True
         if control.kind == "switch":

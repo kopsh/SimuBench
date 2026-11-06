@@ -292,6 +292,14 @@ class SimuBenchApp(App[None]):
             self.pop_screen()
         self.show(key, name)
 
+    def go_home(self) -> None:
+        """Pop to the overview — the demo script's ``home`` (issue 684): every screen above it
+        leaves, like pressing Esc until the overview is in front."""
+        from .screens.overview import OverviewScreen
+
+        while not isinstance(self.screen, OverviewScreen) and len(self.screen_stack) > 1:
+            self.pop_screen()
+
     # ---- connection loop ----------------------------------------------------------------------------
 
     async def _connection_loop(self) -> None:

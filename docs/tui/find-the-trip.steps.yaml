@@ -5,16 +5,13 @@
 #     --scpi-base-port 5195 --hislip-port 4899 \
 #     --script docs/tui/find-the-trip.steps.yaml --out docs/tui --record-dir runs
 #
-# 测试台预设了一次跳闸（输出关闭、错误队列 -300），演示只用数字键 + Enter 走到那台仪表，
-# 再由另一个客户端读错误队列：TUI 自己说出原因，截图里的状态都能在运行记录里复核。
+# 测试台预设了一次跳闸（输出关闭、错误队列 -300），演示用 `open: smu` 直接走到那台仪表
+# （issue 684），再由另一个客户端读错误队列：TUI 自己说出原因，截图里的状态都能在运行记录里复核。
 size: [100, 34]
 steps:
   - caption: One SMU on the bench has tripped
     wait: 1.5s
-  - key: "1"
-    caption: A digit key moves the focus to its card
-    wait: 1s
-  - key: enter
+  - open: smu
     caption: "Open it: the trip turned the output off and queued a -300"
     wait: 1.5s
   - highlight: [output.enabled]

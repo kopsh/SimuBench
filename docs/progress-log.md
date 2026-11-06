@@ -1484,6 +1484,18 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 唯一命中 | ✅ `widgets.py` 里 `decorate_title` 文档字符串的 `SDG2042X` 改为 `MODEL-A` |
 | 验证 | ✅ 故意在 `tui/fmt.py` 加一行含 `SDG2042X` 的注释，测试红并报 `fmt.py:207 sdg2042x`；撤销后绿；另有一条测试在临时文件上确认守门确实会命中 |
 
+## #684 TUI 截图脚本指令：open / home / reveal 与 --size（#677）
+
+| 项 | 结果 |
+| --- | --- |
+| 三个新字段 | ✅ `open: <仪表>` 直接打开仪表屏幕（`app.open_instrument`）；`reveal: <路径>` 经 `go_to_field(…, edit=False)` 只聚焦高亮不进编辑（`edit` 参数为本次新增，默认行为不变）；`home: true` 弹回到总览（`app.go_home`）；执行顺序在 `key` 之后、`screenshot` 之前，可与 `caption`/`wait`/`screenshot` 同步 |
+| 校验 | ✅ `validate(steps, instruments)` 按步骤顺序模拟当前屏幕：`open` 未知名、`reveal` 无 `open` 前置或路径不在该仪表状态变量、`home` 非 `true`，均报带步骤序号的诊断；launch 把会话的 instruments 传入 |
+| `--size` | ✅ `--size COLSxROWS` 命令行覆盖步骤文件的 `size`；`parse_size` 在 script.py（纯逻辑），格式错报错退出 2 |
+| 端到端 | ✅ t4 新增：`open`+`reveal` 断言聚焦字段未进入编辑（`focused.edit is None`），SVG 中字段值与标签可见；`home` 后回到总览 |
+| 文档截图 | ✅ `find-the-trip.steps.yaml` 的「数字键 + Enter」两步合并为 `open: smu`，`test_the_demo_regenerates_the_docs_screenshots` 逐字节比较仍过（SVG 不变） |
+| 文档 | ✅ tui-design.md 第 6 节补三个字段与校验规则；script.py 模块串与 tui-ui skill 的步骤字段清单同步 |
+| 测试 | ✅ 单元 3 条（校验模拟顺序、无测试台时不查名、`parse_size`）+ t4 端到端 1 条 |
+
 
 ## try_definition 复用同一定义的暂存会话（Issue 671）
 
