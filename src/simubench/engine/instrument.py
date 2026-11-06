@@ -29,7 +29,7 @@ from .commands import (
     named_builtin,
     when_matches,
 )
-from .component import Component, OpResult, component_type, map_setting
+from .component import Component, OpResult, component_type, map_setting, noise_problems
 from .portref import split
 from .signal import Signal
 
@@ -344,6 +344,11 @@ class Instrument:
 
     def _add_component(self, name: str, type_name: str, params: dict[str, Any], channel: int | None) -> None:
         cls = component_type(type_name)
+        if "noise" in cls.defaults and (problems := noise_problems(params.get("noise"))):
+            raise ValueError(
+                f"instrument {self.name!r}: {name}.noise "
+                + "; ".join(f"{(sub + ': ') if sub else ''}{msg}" for sub, msg in problems)
+            )
         self.components[name] = cls(name, params, self, self.session, channel)
 
     def internal_wires(self) -> list[tuple[str, str]]:
