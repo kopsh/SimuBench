@@ -388,6 +388,20 @@ class Component:
             return None
         return self.peer(name, required=key not in self.optional_refs)
 
+    def ref_links(self) -> list[tuple[str, str]]:
+        """What this component uses: ``(refs parameter, the name of the component it resolves to)`` for
+        every ref that is set and names a component, as :meth:`peer` finds it. Never raises: the
+        internal-structure view (#729) shows what is there."""
+        out: list[tuple[str, str]] = []
+        for key in self.refs:
+            target = self.peer(str(self.param(key) or ""))
+            if target is None or self.owner is None:
+                continue
+            name = next((n for n, c in self.owner.components.items() if c is target), None)
+            if name is not None:
+                out.append((key, name))
+        return out
+
     def resolve_path(self, path: str) -> str:
         """Expand channel-relative state paths: 'ch.scale' -> 'ch2.scale' for channel 2."""
         if path.startswith("ch.") and self.channel is not None:

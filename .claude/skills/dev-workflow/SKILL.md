@@ -59,6 +59,7 @@ cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```
 
 Every test has a 120 s limit (`timeout` in pyproject.toml, pytest-timeout): a hang fails with thread stacks instead of stalling CI.
+The fast tests run on Python 3.12 and, in the `python311` job, on 3.11 (`requires-python` is `>=3.11`); reproduce a 3.11-only failure with `uv run --python 3.11 pytest …`.
 Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --durations=20`).
 
 ## Test rules (D49, enforced)

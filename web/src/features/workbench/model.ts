@@ -64,6 +64,9 @@ const WORDS: Record<string, [string, string]> = {
   MAXH: ["最大保持", "Max hold"],
   WRIT: ["刷新", "Clear/write"],
   ERES: ["高分辨率", "High resolution"],
+  // An empty slot of a template (a measurement not chosen): not the raw mnemonic (#728).
+  NULL: ["无", "None"],
+  NONE: ["无", "None"],
 };
 
 /** A setting's option as the panel shows it: its own label, a common word, or the short form. */
@@ -186,3 +189,174 @@ export function refTarget(session: SessionInfo, ref: string): { label: string; s
   return { label: ref, selection: null };
 }
 
+
+/* ---- The inspector's settings, grouped (#728) ---------------------------------------------------
+ * An instrument carries every setting its SCPI commands bind to, a real front panel shows a few.
+ * The definition's own summary lists are the main tier; the rest group by the first path segment
+ * and stay folded, the remote-programming ones last. No definition format change: a template is
+ * expanded once (decisions.md D3: no later upgrade), so the grouping has to cope with unlabelled settings. */
+
+/** Path prefixes of settings that only exist for remote programming. */
+const REMOTE_SEGMENTS = new Set(["comm", "waveform", "status", "system", "remote", "interface", "io", "lan", "gpib", "usb", "visa", "hislip", "format"]);
+
+/** True when the definition gave the setting a name of its own (else the path is all there is). */
+export function hasLabel(v: Pick<StateVarInfo, "label" | "label_en">): boolean {
+  return !!(v.label || v.label_en);
+}
+
+export interface SettingGroup {
+  /** First path segment: the group's key (and its i18n name, ``inspector.group.<id>``). */
+  id: string;
+  /** Remote-programming settings, listed after the others. */
+  remote: boolean;
+  vars: StateVarInfo[];
+}
+
+export interface SplitSettings {
+  /** What a front panel puts first: the definition's summary lists, then the flat settings. */
+  main: StateVarInfo[];
+  groups: SettingGroup[];
+}
+
+/** Segment of a setting that groups it: ``measure.p1.kind`` -> ``measure``; none for ``scale``. */
+function groupSegment(name: string): string | null {
+  const dot = name.indexOf(".");
+  return dot > 0 ? name.slice(0, dot) : null;
+}
+
+/**
+ * Split an instrument's settings (all global ones, or one channel's) into the main tier and folded
+ * groups. ``summaryKeys`` are the definition's summary: full paths for the instrument, names
+ * without the channel prefix for a channel.
+ */
+export function splitSettings(vars: StateVarInfo[], summaryKeys: string[]): SplitSettings {
+  const nameOf = (v: StateVarInfo) => varName(v);
+  const byName = new Map(vars.map((v) => [nameOf(v), v]));
+  const main: StateVarInfo[] = [];
+  const seen = new Set<string>();
+  for (const key of summaryKeys) {
+    const v = byName.get(key);
+    if (v && !seen.has(key)) {
+      main.push(v);
+      seen.add(key);
+    }
+  }
+  const groups = new Map<string, SettingGroup>();
+  const group = (id: string) => {
+    let g = groups.get(id);
+    if (!g) {
+      g = { id, remote: REMOTE_SEGMENTS.has(id), vars: [] };
+      groups.set(id, g);
+    }
+    return g;
+  };
+  for (const v of vars) {
+    const name = nameOf(v);
+    if (seen.has(name)) continue;
+    const seg = groupSegment(name);
+    if (seg === null) {
+      // A flat setting is a top-level knob, but only one the definition named: an unnamed one would
+      // head the panel under its raw path, so it waits in "other".
+      (hasLabel(v) ? main : group(OTHER).vars).push(v);
+      continue;
+    }
+    group(seg).vars.push(v);
+  }
+  const all = [...groups.values()];
+  const named = all.filter((g) => !g.remote && g.id !== OTHER);
+  const other = all.filter((g) => g.id === OTHER);
+  return { main, groups: [...named, ...other, ...all.filter((g) => g.remote)] };
+}
+
+/** The group of flat settings the definition did not name. */
+export const OTHER = "other";
+
+/**
+ * Whether a group starts open. A named setting is one the definition's author means as a knob (a
+ * multimeter's aperture, a source's autorange), so a group of those is open; the folded ones are the
+ * remote-programming groups and groups the definition did not name (a template's measurement slots).
+ */
+export function groupOpen(g: SettingGroup): boolean {
+  return !g.remote && g.vars.filter(hasLabel).length * 2 >= g.vars.length;
+}
+
+export interface SlotRow {
+  /** ``P1``: the slot's name. */
+  label: string;
+  vars: StateVarInfo[];
+}
+
+/**
+ * ``measure.p1.kind`` and ``measure.p1.source`` are one measurement slot: one row of two controls
+ * instead of two rows each, eight slots in all. Settings that are not slots stay in ``rest``.
+ */
+export function slotRows(vars: StateVarInfo[]): { slots: SlotRow[]; rest: StateVarInfo[] } {
+  const slots = new Map<string, SlotRow>();
+  const rest: StateVarInfo[] = [];
+  for (const v of vars) {
+    const m = /^[^.]+\.(p\d+)\.[^.]+$/.exec(varName(v));
+    if (!m) {
+      rest.push(v);
+      continue;
+    }
+    const row = slots.get(m[1]) ?? { label: m[1].toUpperCase(), vars: [] };
+    row.vars.push(v);
+    slots.set(m[1], row);
+  }
+  return { slots: [...slots.values()], rest };
+}
+
+/* ---- Stepping a number up and down (#738) -----------------------------------------------------
+ * A real instrument's knob moves a value one rung at a time. The rung comes from the setting itself:
+ * its ladder (1-2-5, 1-3 or a list) when it has one, a whole count for an integer, else a tenth of the
+ * decade the value is in (1.5 kHz moves 100 Hz). No definition field is added. */
+
+type Steppable = Pick<StateVarInfo, "type" | "min" | "max" | "ladder">;
+
+const RUNGS: Record<string, number[]> = { "1-2-5": [1, 2, 5], "1-3": [1, 3] };
+
+/** The next rung of a ladder above (``dir`` 1) or below (-1) a positive ``value``; none outside a list. */
+function ladderStep(ladder: string | number[], value: number, dir: 1 | -1): number | null {
+  const tol = 1e-9;
+  if (Array.isArray(ladder)) {
+    const sorted = [...ladder].sort((a, b) => a - b);
+    return (dir > 0 ? sorted.find((r) => r > value * (1 + tol)) : [...sorted].reverse().find((r) => r < value * (1 - tol))) ?? null;
+  }
+  const mantissas = RUNGS[ladder];
+  if (!mantissas || !(value > 0)) return null;
+  const decade = Math.floor(Math.log10(value * (dir > 0 ? 1 + tol : 1 - tol)));
+  const rungs = [decade - 1, decade, decade + 1].flatMap((e) => mantissas.map((m) => Number((m * 10 ** e).toPrecision(12))));
+  return (dir > 0 ? rungs.find((r) => r > value * (1 + tol)) : [...rungs].reverse().find((r) => r < value * (1 - tol))) ?? null;
+}
+
+/**
+ * The value one step up (``dir`` 1) or down (-1) from ``value``, or null when there is nowhere to
+ * go: no finite number, or already at the limit. ``coarse`` (Shift) moves ten times as far, or a
+ * whole decade of a ladder.
+ */
+export function stepNumber(spec: Steppable, value: number, dir: 1 | -1, coarse = false): number | null {
+  if (!Number.isFinite(value)) return null;
+  let next: number | null = null;
+  if (spec.ladder && value > 0) {
+    let at: number | null = value;
+    const rungs = coarse ? (Array.isArray(spec.ladder) ? 3 : (RUNGS[spec.ladder]?.length ?? 1)) : 1;
+    for (let i = 0; i < rungs && at !== null; i++) {
+      const stepped = ladderStep(spec.ladder, at, dir);
+      if (stepped === null) break;
+      at = stepped;
+    }
+    next = at === value ? null : at;
+  }
+  if (next === null && !spec.ladder) {
+    let step: number;
+    if (spec.type === "int") step = 1;
+    else if (value !== 0) step = 10 ** Math.floor(Math.log10(Math.abs(value) * (dir < 0 ? 1 - 1e-9 : 1))) / 10;
+    else step = spec.min != null && spec.max != null && spec.max > spec.min ? (spec.max - spec.min) / 100 : 1;
+    if (coarse) step *= 10;
+    next = Number((value + dir * step).toPrecision(12));
+  }
+  if (next === null) return null;
+  if (spec.min != null) next = Math.max(spec.min, next);
+  if (spec.max != null) next = Math.min(spec.max, next);
+  return next === value ? null : next;
+}
