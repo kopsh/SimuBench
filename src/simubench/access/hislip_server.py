@@ -124,8 +124,18 @@ class HislipSession:
         self.async_reader: asyncio.StreamReader | SecureStream | None = None
         self.secure_required = False  # encryption mandatory, or required right after initialization
         self.tls_pending = False  # AsyncStartTLS succeeded: the synchronous channel is next
+        #: AsyncStartTLS was answered with success and its handshake is under way. A client is done
+        #: with a TLS 1.3 handshake as soon as it has the server's Finished and sends StartTLS at
+        #: once, so the server may see that before it has read the client's Finished: the
+        #: synchronous channel waits for ``tls_async_done`` instead of calling it an error.
+        self.tls_async_started = False
+        self.tls_async_done = asyncio.Event()
         self.tls_active = False  # both channels are encrypted
         self.tls_ending = False  # AsyncEndTLS succeeded: the synchronous channel is next
+        #: The same for AsyncEndTLS: the client's close_notify exchange may be over for it before the
+        #: server has noted it, and EndTLS follows at once.
+        self.tls_end_started = False
+        self.tls_end_done = asyncio.Event()
         self.tls_last_error = ""
         #: An asynchronous-channel encryption switch is under way: nothing else may write to it.
         self.switching = False
@@ -647,6 +657,8 @@ class HislipServer:
         # No await between the answer and the handshake: the ClientHello follows it at once. Until
         # the handshake is over nothing else may be written to this channel (``switching``).
         sess.switching = True
+        sess.tls_async_started = True
+        sess.tls_async_done.clear()
         writer.write(_pack(ASYNC_START_TLS_RESPONSE, TLS_SUCCESS))
         try:
             stream = await SecureStream.accept(
@@ -654,20 +666,29 @@ class HislipServer:
             )
         except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
             self._tls_failed(sess, "TLS handshake (asynchronous channel)", exc)
+            sess.tls_async_started = False
             await sess.close()
             return
         finally:
             sess.switching = False
         sess.async_reader = sess.async_writer = stream
         sess.tls_pending = True
+        sess.tls_async_done.set()
         sess.poll_srq()  # a service request raised during the switch is delivered now, encrypted
 
     async def _start_tls_sync(self, sess: HislipSession) -> None:
         """StartTLS: the handshake on the synchronous channel, after the asynchronous one (6.15 step 4)."""
         secure = self.secure
-        if secure is None or not sess.tls_pending:
+        if secure is None or not (sess.tls_pending or sess.tls_async_started):
             await sess.send_error(sess.sync_writer, 0, b"StartTLS must follow a successful AsyncStartTLS")
             return
+        if not sess.tls_pending:  # the asynchronous handshake is still finishing (see tls_async_started)
+            try:
+                await asyncio.wait_for(sess.tls_async_done.wait(), secure.handshake_timeout)
+            except TimeoutError:
+                self._tls_failed(sess, "TLS handshake (asynchronous channel)", TimeoutError())
+                await sess.close()
+                return
         try:
             stream = await SecureStream.accept(
                 sess.sync_reader, sess.sync_writer, secure.context, secure.handshake_timeout
@@ -678,6 +699,7 @@ class HislipServer:
             return
         sess.sync_reader = sess.sync_writer = stream
         sess.tls_pending = False
+        sess.tls_async_started = False
         sess.tls_active = True
         sess.auth = AuthState()  # authentication is valid for this encrypted connection only (table 6)
 
@@ -702,24 +724,35 @@ class HislipServer:
             await writer.drain()
             return
         sess.switching = True
+        sess.tls_end_started = True
+        sess.tls_end_done.clear()
         writer.write(_pack(ASYNC_END_TLS_RESPONSE, TLS_SUCCESS))
         await writer.drain()
         try:
             sess.async_reader, sess.async_writer = await writer.unwrap(secure.handshake_timeout)
         except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
             self._tls_failed(sess, "TLS shutdown (asynchronous channel)", exc)
+            sess.tls_end_started = False
             await sess.close()
             return
         finally:
             sess.switching = False
         sess.tls_ending = True
+        sess.tls_end_done.set()
         sess.poll_srq()
 
     async def _end_tls_sync(self, sess: HislipSession) -> None:
         secure = self.secure
-        if secure is None or not sess.tls_ending:
+        if secure is None or not (sess.tls_ending or sess.tls_end_started):
             await sess.send_error(sess.sync_writer, 0, b"EndTLS must follow a successful AsyncEndTLS")
             return
+        if not sess.tls_ending:  # the asynchronous shutdown is still finishing (see tls_end_started)
+            try:
+                await asyncio.wait_for(sess.tls_end_done.wait(), secure.handshake_timeout)
+            except TimeoutError:
+                self._tls_failed(sess, "TLS shutdown (asynchronous channel)", TimeoutError())
+                await sess.close()
+                return
         try:
             sess.sync_reader, sess.sync_writer = await sess.sync_writer.unwrap(secure.handshake_timeout)
         except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
@@ -727,6 +760,7 @@ class HislipServer:
             await sess.close()
             return
         sess.tls_ending = False
+        sess.tls_end_started = False
         sess.tls_active = False
         sess.auth = AuthState()  # authentication does not outlive the encryption (table 6)
 
