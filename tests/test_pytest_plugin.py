@@ -1,8 +1,20 @@
 """The pytest plugin, run the way a user's test suite runs it."""
 
+import sys
 from pathlib import Path
 
+import pytest
+
 pytest_plugins = ["pytester"]
+
+
+@pytest.fixture(autouse=True)
+def _utf8_subprocess(monkeypatch):
+    """The plugin's messages carry the definition's Chinese text; a Windows subprocess's console
+    codec is cp1252 and mangles it before the parent decodes UTF-8. Force UTF-8 in the child."""
+    monkeypatch.setenv("PYTHONUTF8", "1")
+    monkeypatch.setenv("PYTHONIOENCODING", "utf-8")
+
 
 BENCH = Path(__file__).resolve().parents[1] / "acceptance" / "benches" / "awg_rc_scope.bench.yaml"
 LOCKIN = Path(__file__).resolve().parents[1] / "acceptance" / "benches" / "lockin_rc.bench.yaml"
@@ -204,6 +216,8 @@ def test_a_question_mark_in_the_bench_path_is_explained(pytester, tmp_path):
     """A bench path containing a literal '?' collides with the query separator (issue 675):
     the error says so, instead of listing a mangled path as an unknown option."""
     tricky = tmp_path / "odd?name"
+    if sys.platform == "win32":
+        pytest.skip("'?' cannot occur in a Windows file name; the collision is a POSIX-path one")
     tricky.mkdir()
     (tricky / "b.bench.yaml").write_text(BENCH.read_text())
     pytester.makepyfile(
