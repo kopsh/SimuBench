@@ -368,6 +368,7 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 
 - `pyvisa.ResourceManager("<bench 文件>@simubench")` 在进程内打开 Bench；也可连接到正在运行的服务。
 - 资源名支持：Bench 中的实例名，以及 Bench 中为实例配置的真实测试台地址。后者让脚本连地址都不用改，只换资源管理器。
+- Bench 文件后可带查询参数（issue 640）：`<bench 文件>?clock=command&seed=7&idle=sleep&record_dir=路径@simubench`。`seed` 固定随机序列，`clock` 选时钟模式，`idle` 选空闲档（D47），`record_dir` 指定运行记录目录；参数名不在表内报错（打错字不会静默按默认运行）。**资源串优先，环境变量兜底**：不带查询参数时按 `SIMUBENCH_CLOCK` / `SIMUBENCH_SEED` / `SIMUBENCH_IDLE` / `SIMUBENCH_RECORD_DIR` 取值，都没有时用默认。查询参数放在 `@simubench` 之前（与 #640 正文所写的 `@simubench?…` 不同，以此处为准）。
 - 后端看得到每次读写，因此命令驱动的虚拟时间在这条路径上自然成立。
 - 通信层故障（超时、断连等）在这一层生效，返回与真实 VISA 一致的错误。
 
