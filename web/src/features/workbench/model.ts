@@ -194,7 +194,7 @@ export function refTarget(session: SessionInfo, ref: string): { label: string; s
  * An instrument carries every setting its SCPI commands bind to, a real front panel shows a few.
  * The definition's own summary lists are the main tier; the rest group by the first path segment
  * and stay folded, the remote-programming ones last. No definition format change: a template is
- * expanded once (decisions.md D-template: no later upgrade), so the grouping has to cope with unlabelled settings. */
+ * expanded once (decisions.md D3: no later upgrade), so the grouping has to cope with unlabelled settings. */
 
 /** Path prefixes of settings that only exist for remote programming. */
 const REMOTE_SEGMENTS = new Set(["comm", "waveform", "status", "system", "remote", "interface", "io", "lan", "gpib", "usb", "visa", "hislip", "format"]);

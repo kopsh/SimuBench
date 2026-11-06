@@ -1539,3 +1539,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 长的只读字符串不再撑出列宽 | ✅ `StateField.tsx` 截断并带 title（源表数据格式的元素列表） |
 | 不改定义格式，已展开的自建仪表也受益 | ✅ 分类只用路径、`label`、已有的摘要字段 |
 | 已知未做 / 环境 | ⚠️ `workbench.spec.ts` 的 `about-version` 在没有 git tag 的检出里得到 `0.1.devN`，与本改动无关；是否把逐设置的“是否上面板”写进定义（改格式，需决策）留待需要时 |
+
+## 示波器模板：默认不再是无噪声的输入（Issue 731）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 模板里没填噪声时，得到合理的默认输入噪声 | ✅ `vertical.noise_divs` 默认 0.02 格（假设值，约 8 位 ADC 的 0.6 个码值），档位表有噪声时以表为准、写 0 为无噪声；`tests/test_templates.py::test_a_scope_built_without_noise_inputs_is_not_noiseless`、`test_the_noise_defaults_give_way_to_what_the_author_states` |
+| 噪声随档位同比变化，不是固定值 | ✅ 引擎 `scope_vertical.noise_divs`（默认 0，行为不变）；`test_the_default_noise_scales_with_the_division` 在 1 V/div 与 0.1 V/div 各验一次 |
+| 触发抖动不写时取假设值 | ✅ 最高采样间隔的十分之一（ADC 没给最高采样率则无）；`trigger.jitter_s` 写 0 才是无抖动 |
+| 与手写的无噪声参考仪表的对比不被默认值破坏 | ✅ `test_a_template_built_sb_dso_4_answers_as_sb_dso_4` 的输入明确写 `noise_divs: 0`、`jitter_s: 0`，断言不变 |
+| 假设值写明，不冒充真机指标；已展开的仪表不受影响 | ✅ 字段说明与 `docs/instrument-authoring.md`（`scope_vertical` 一节）注明；已展开的仪表要在定义里补 `noise_table` 或 `noise_divs` 与 `trigger_jitter_s` |
+| 依赖“无噪声”的断言按新默认改正 | ✅ `acceptance/test_lfcal_agent_scenario.py`：智能体按模板建议的输入建示波器，现在带默认噪声，同一方波用 VRMS 与 dBm 设置的两次独立采集不再逐位相同，改为与上一行同样的 1 % 相对容差（断言的意图——两种单位设出同一幅度——不变） |
+| 未做 | ⚠️ 内置真实型号（如 `keysight-dsox2024a.yaml`）的噪声值：需要手册或确认的取值，不在本 issue |
