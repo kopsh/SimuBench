@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { DeviationSection } from "../DeviationSection";
 import { Header, KeyValues, Section } from "../Inspector";
 import { accessoryLabel, channelVars, globalVars, instrumentTitle } from "../model";
-import { StateField } from "../StateField";
+import { FIELD_GRID_COLS, StateField } from "../StateField";
 import { useWorkbench } from "../store";
 import { NAME } from "./actions";
 import { applyOps } from "./editor";
@@ -483,7 +483,7 @@ function Field({
   error?: string;
 }) {
   return (
-    <div className={cn(stacked ? "space-y-1" : "grid grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)] items-center gap-x-3")}>
+    <div className={cn(stacked ? "space-y-1" : `grid ${FIELD_GRID_COLS} items-center gap-x-3`)}>
       <label className="text-muted-foreground flex items-center gap-1 truncate text-xs">
         {label}
         {hint && (
