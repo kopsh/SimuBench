@@ -5,6 +5,7 @@ import type { Messages } from "@/i18n/zh";
 import { engParts, formatEng } from "@/lib/format";
 import { globalVars } from "../model";
 import { StateField } from "../StateField";
+import { ScreenIdentity } from "./parts";
 
 type MeterKey = `${"meter"}.${keyof Messages["meter"]}`;
 const METER: Record<string, [MeterKey, string]> = {
@@ -18,14 +19,14 @@ const METER: Record<string, [MeterKey, string]> = {
  */
 export function ReadingsScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const { query: readings } = useInstrumentReadings(sid, inst.name);
+  const { query: readings } = useInstrumentReadings(sid, inst);
   const entries = Object.entries(readings.data?.values ?? {});
   const settings = globalVars(inst);
   return (
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3 md:grid-cols-2">
       <section className="bg-card rounded-lg border">
-        <header className="border-b px-3 py-2 text-xs font-medium">
-          {inst.label || inst.name} <span className="text-muted-foreground num ml-1">{inst.model}</span>
+        <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs font-medium">
+          <ScreenIdentity inst={inst} />
         </header>
         <div className="divide-y">
           {entries.length === 0 && <p className="text-muted-foreground p-3 text-xs">{t("meter.noReadings")}</p>}

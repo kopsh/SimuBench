@@ -4,6 +4,7 @@ import { useEvents } from "./events";
 import i18n from "@/i18n";
 import { toast } from "sonner";
 import { confirmClients, remoteInstrument } from "@/components/app/ClientsConfirm";
+import { stateMap } from "@/features/workbench/model";
 import type {
   CaseFile,
   DefinitionDocument,
@@ -282,7 +283,6 @@ export function useClearFault(sid: string) {
   });
 }
 
-/** Front-panel readings; refreshed whenever the session's events move (and once a second). */
 /** An instrument's components and internal wiring (issue 20); bound values follow its settings. */
 export function useInternals(sid: string, name: string, version: number) {
   return useQuery({
@@ -294,22 +294,30 @@ export function useInternals(sid: string, name: string, version: number) {
   });
 }
 
-/** A screen's readings wiring in one hook (issue 638): the event version subscription, the query
- * and the value lookups screens kept repeating — eight near-identical copies. `defer` follows the
- * version one render behind, for the heavy scope screen (its own line stays there). */
+/** A screen's readings wiring in one hook (issue 638): the event version subscription, the query,
+ * the value lookups and the screen's state map — what eight screens each repeated. Freshness is
+ * the event stream, decided in D64: the query re-keys on the version (a write, a state change, a
+ * wall/scaled clock tick, a reconnect) and does not poll, so one command is one request; the
+ * page-wide session and faults keys keep their 250 ms debounced invalidation instead. Scope (its
+ * own query), the net probe, net levels and the internals view subscribe the same version for
+ * queries that are not readings wiring — they keep their own (deferred) subscriptions. `defer`
+ * follows the version one render behind. */
 export function useInstrumentReadings(
   sid: string,
-  name: string,
+  inst: InstrumentInfo,
   { enabled = true, defer = false }: { enabled?: boolean; defer?: boolean } = {},
 ) {
   const version = useEvents((s) => s.version);
   const soft = useDeferredValue(version);
-  const query = useReadings(sid, name, defer ? soft : version, enabled);
+  const query = useReadings(sid, inst.name, defer ? soft : version, enabled);
   const values = useMemo(() => query.data?.values ?? {}, [query.data]);
+  const vars = useMemo(() => stateMap(inst), [inst]);
   const num = useCallback((k: string) => Number(values[k] ?? 0), [values]);
-  return { query, values, num };
+  return { query, values, num, vars };
 }
 
+/** Front-panel readings; keyed by the event version, no polling (D64: the version moves on every
+ * write, state change, clock tick and reconnect, so a re-key is exactly one request). */
 export function useReadings(sid: string, name: string, version: number, enabled = true) {
   return useQuery({
     enabled,
@@ -317,7 +325,6 @@ export function useReadings(sid: string, name: string, version: number, enabled 
     queryFn: () =>
       unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/readings", { params: { path: { sid, name } } })),
     placeholderData: (prev) => prev,
-    refetchInterval: 1000,
   });
 }
 
