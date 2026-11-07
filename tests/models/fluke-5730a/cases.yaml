@@ -1,4 +1,5 @@
 # Fluke 5730A 的手册用例：Operators Manual（August 2013 Rev. 1, 6/15）第 6 章 Table 6-5 Commands 的条目与
+# 读数容差 = 4σ 前端噪声（0.3 ppm × 量程，8588A specs.noise_ppm_of_range，#744）。
 # 第 4 章 Operate and Standby Modes。每个用例在刚上电的 examples/benches/fluke-5730a.bench.yaml 上运行
 # （OUTPUT HI 接 Fluke 8588A 的 INPUT HI）。故障队列用 FAULT?（只回码）。
 model: fluke-5730a
@@ -108,7 +109,7 @@ cases:
       - instrument: dmm
         query: ":MEAS:CURR? 0.01"
         expect_value: 0.001
-        tolerance: 1.0e-8
+        tolerance: 2.0e-8
 
   - name: "OPER / STBY：待机时端子断开，工作后经建立时间到达设定值"
     manual: "Table 6-5 > OPER / STBY; Chapter 4 Operate and Standby Modes"
@@ -119,7 +120,7 @@ cases:
       - instrument: dmm
         query: ":READ?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 1.5e-5
       - send: "OPER"
       - query: "*OPC?"
         expect: "1"
@@ -131,7 +132,7 @@ cases:
       - instrument: dmm
         query: ":READ?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 1.5e-5
 
   - name: "≥22 V 的输出在前一输出 <22 V 时被选中，自动回待机"
     manual: "Chapter 4 Operate and Standby Modes（A voltage ≥22 V is selected when the previous output voltage was <22 V）"
@@ -145,7 +146,7 @@ cases:
       - instrument: dmm
         query: ":READ?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 1.5e-4
       - send: "OPER"
       - query: "*OPC?"
         expect: "1"
@@ -174,7 +175,7 @@ cases:
       - instrument: dmm
         query: ":READ?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 1.5e-6
       - send: "OPER"
       - query: "*OPC?"
         expect: "1"

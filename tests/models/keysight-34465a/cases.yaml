@@ -67,11 +67,13 @@ cases:
       - send: ":SOUR:VOLT 5"
         instrument: src
       - query: "MEAS:VOLT:DC?"
-        expect: "+5.00095000E+00"
+        expect_value: 5.00095
+        tolerance: 3.0e-5
       - send: ":SOUR:VOLT 0"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+2.00000000E-04"
+        expect_value: 2.0e-4
+        tolerance: 3.0e-7
 
   - name: "CONFigure 命令头选择功能并设置量程与分辨率；CONF? 查询"
     manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC} / CONFigure?"
@@ -158,7 +160,8 @@ cases:
       - query: "FUNC?"
         expect: '"VOLT:AC"'
       - query: "MEAS:VOLT:AC?"
-        expect: "+0.00000000E+00"
+        expect_value: 0.0
+        tolerance: 3.0e-7
       - send: "FUNC VOLT"
       - query: "FUNC?"
         expect: '"VOLT"'
@@ -174,12 +177,14 @@ cases:
       - send: ":SOUR:VOLT 0.115"
         instrument: src
       - query: "READ?"
-        expect: "+1.15211500E-01"
+        expect_value: 1.152115e-01
+        tolerance: 3.0e-7
       - send: ":VOLT:DC:RANG:AUTO ON"
       - send: ":SOUR:VOLT 0.5"
         instrument: src
       - query: "MEAS:VOLT:DC?"
-        expect: "+5.00240000E-01"
+        expect_value: 5.0024e-01
+        tolerance: 3.0e-6
 
   - name: "积分时间 NPLC：档位、MIN/MAX/DEF、超范围报 -222"
     manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:NPLC"
@@ -270,19 +275,19 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":FETC?"
-        expect: "+5.00095000E+00,+5.00095000E+00,+5.00095000E+00,+5.00095000E+00,+5.00095000E+00,+5.00095000E+00"
+        expect_match: '(\+5\.0009[0-9]{4}E\+00,){5}\+5\.0009[0-9]{4}E\+00'  # ±3e-5 ≈ 4σ 前端噪声（#744）
       - send: "*TRG"
       - query: ":SYST:ERR?"
         expect: '-211,"Trigger ignored"'
       - query: ":DATA:POIN?"
         expect: "6"
       - query: ":DATA:REM? 2"
-        expect: "+5.00095000E+00,+5.00095000E+00"
+        expect_match: '\+5\.0009[0-9]{4}E\+00,\+5\.0009[0-9]{4}E\+00'  # ±3e-5 ≈ 4σ 前端噪声（#744）
       - query: ":DATA:POIN?"
         expect: "4"
       - query: "R?"
         binary: true
-        expect_match: '^#263(\+5\.00095000E\+00,?){4}\n$'
+        expect_match: '^#263(\+5\.0009[0-9]{4}E\+00,?){4}\n$'  # ±3e-5 ≈ 4σ 前端噪声（#744）
       - query: ":DATA:POIN?"
         expect: "0"
 
@@ -345,11 +350,13 @@ cases:
       - send: ":SOUR:VOLT 0"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+2.00000000E-04"
+        expect_value: 2.0e-4
+        tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+1.00017000E+01"
+        expect_value: 10.0017
+        tolerance: 3.0e-5
       - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
       - send: ":SOUR:VOLT 0"
         instrument: src
@@ -357,23 +364,27 @@ cases:
       - query: "CAL?"
         expect: "+0"
       - query: "MEAS:VOLT?"
-        expect: "+0.00000000E+00"
+        expect_value: 0.0
+        tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
       - send: "CAL:VAL 10"
       - query: "CAL?"
         expect: "+0"
       - query: "MEAS:VOLT?"
-        expect: "+1.00000000E+01"
+        expect_value: 10.0
+        tolerance: 3.0e-5
       - send: "CAL:STOR;:CAL:SEC:STAT ON"
       - send: ":SOUR:VOLT 0"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+0.00000000E+00"
+        expect_value: 0.0
+        tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+1.00000000E+01"
+        expect_value: 10.0
+        tolerance: 3.0e-5
       - query: "CAL:COUN?"
         expect: "1"
       - query: "CAL:DATE?"
@@ -394,12 +405,14 @@ cases:
       - query: "CAL?"
         expect: "+0"
       - query: "MEAS:VOLT?"
-        expect: "+1.00000000E+00"
+        expect_value: 1.0
+        tolerance: 3.0e-6
       - send: ":VOLT:DC:RANG 10"
       - send: ":SOUR:VOLT 10"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+1.00017000E+01"
+        expect_value: 10.0017
+        tolerance: 3.0e-5
 
   - name: "校准值不符报 +702 且不改变系数；零点调整要求零输入"
     manual: "SCPI Error Messages > Calibration Errors (+700...)"
@@ -422,7 +435,8 @@ cases:
       - send: ":SOUR:VOLT 10"
         instrument: src
       - query: "MEAS:VOLT?"
-        expect: "+1.00017000E+01"
+        expect_value: 10.0017
+        tolerance: 3.0e-5
 
   - name: "校准值、校准信息与台账：CAL:VALue、CAL:STRing；*RST 只复位校准值"
     manual: "CALibration Subsystem > CALibration:VALue / :STRing / :COUNt? / :DATE? / :TIME?"
@@ -555,7 +569,7 @@ cases:
       - query: "CURR:AC:RANG?"
         expect: "+1.00000000E-01"
       - query: "MEAS:RES?"
-        expect_match: '^\+\d\.\d{8}E[+-]\d{2}$'
+        expect_match: '^[+-]\d\.\d{8}E[+-]\d{2}$'  # 噪声可让近零电阻读数变号（#744）
       - query: "FUNC?"
         expect: '"RES"'
       - query: "MEAS:FRES?"

@@ -23,7 +23,7 @@ sections:
     note: 定长块给出并删除最旧的读数（R? [max]；块内 ASCII，逗号分隔，块后无换行）。
   - header: READ
     level: implemented
-    note: INITiate + FETCh?；等待总线/外部触发时按手册报 -214（触发死锁）。
+    note: INITiate + FETCh?；等待总线/外部触发时按手册报 -214（触发死锁）。读数带噪声（specs.noise_ppm_of_range：估计值，#744/D46），逐读数独立抽样，同种子逐位复现。
   - header: ROUTe:TERMinals?
     level: not_modeled
     note: 前面板 Front/Rear 开关不是可编程的；仿真中无此开关。
