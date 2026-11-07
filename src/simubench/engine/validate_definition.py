@@ -661,7 +661,7 @@ def _check_noise(value: Any, pp: str, spec: ComponentSpec, report: Report) -> No
             "E-DEF-NOISE",
             f"{pp}/{sub}" if sub else pp,
             f"{spec.name}.noise：{message}",
-            "noise 只接受 ppm_of_range（≥0）、ref_time_s（>0）、table（量程→rms，≥0）",
+            "noise 只接受 ppm_of_range（≥0）、ref_time_s（>0）、table（量程→rms，≥0）、rms（绝对 rms，≥0，或“读数量 → rms”的映射；与 ppm_of_range/table 互斥）",
             spec.name,
         )
 
