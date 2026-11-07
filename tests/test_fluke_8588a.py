@@ -7,6 +7,8 @@ measurement currents of the Product Specifications (normal, low current, HV), fo
 past the lead resistance, the current shunts in the circuit and the aperture in virtual time.
 """
 
+import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -111,7 +113,9 @@ def test_two_wire_resistance_drives_the_specified_current(setup, r, range_, curr
         q("dmm", setup)
         # the source sees the DUT beside the stage's 1e12 ohm and the solver's GMIN
         seen = 1 / (1 / r + 1e-12 + GMIN)
-        assert float(q("dmm", ":READ?")) == pytest.approx(seen, rel=1e-9)
+        # The reading rides the front end's noise (#744): 0.3 ppm of the range at the 1 s
+        # reference aperture — the tolerance sits near 10σ of it (the range matches the DUT).
+        assert float(q("dmm", ":READ?")) == pytest.approx(seen, rel=3e-6)
         inst = s.instruments["dmm"]
         node = inst.session.port_signal(inst.components["input"], "pin").mean()
         assert node == pytest.approx(current * seen, rel=1e-9)
@@ -170,8 +174,10 @@ def test_current_flows_through_the_range_shunt():
         q("cal", "OUT 1 V;OPER")
         q("cal", "*OPC?")
         set_v = float(q("cal", "OUT?").split(",")[0])
-        assert float(q("dmm", ":MEAS:CURR? 0.001")) == pytest.approx(set_v / 1010.5, rel=1e-5)
-        assert float(q("dmm", ":MEAS:CURR? 0.01")) == pytest.approx(set_v / 1001.5, rel=1e-5)
+        # The reading rides the front end's noise (#744): 0.3 ppm of each current range at the
+        # reference aperture — the tolerances sit near 10σ of it.
+        assert float(q("dmm", ":MEAS:CURR? 0.001")) == pytest.approx(set_v / 1010.5, rel=3e-5)
+        assert float(q("dmm", ":MEAS:CURR? 0.01")) == pytest.approx(set_v / 1001.5, rel=3e-5)
         q("dmm", ":CURR:RANG 1E-4")
         assert q("dmm", ":READ?") == "+9.910000000E+37"  # 1 mA past the 100 uA range
     finally:
@@ -196,3 +202,37 @@ def test_the_aperture_sets_the_reading_time():
         assert s.now_ns - t0 == pytest.approx(0.6e9, rel=1e-6)
     finally:
         s.close()
+
+
+def test_the_definition_noise_distributes_and_replays():
+    """The built-in reading noise (specs.noise_ppm_of_range, #744): readings are independent
+    draws around the settled output with σ = 0.3 ppm of the range, and the same seed replays
+    bit for bit."""
+    s, q = session(
+        {"rs": resistor(1000.0)},
+        [{"from": "cal.OUT", "to": "rs.A"}, {"from": "rs.B", "to": "dmm.IN"}],
+    )
+    try:
+        q("cal", "OUT 1 V;OPER")
+        q("cal", "*OPC?")
+        set_v = float(q("cal", "OUT?").split(",")[0])
+        q("dmm", ":CONF:VOLT:DC 10")
+        reads = [float(q("dmm", ":READ?")) for _ in range(200)]
+        sigma = 0.3e-6 * 10.0  # 0.3 ppm of the 10 V range at the 1 s reference aperture
+        assert len(set(reads)) > 50
+        assert statistics.mean(reads) == pytest.approx(set_v, abs=4 * sigma / math.sqrt(200))
+        assert statistics.stdev(reads) == pytest.approx(sigma, rel=0.2)
+    finally:
+        s.close()
+    s, q = session(
+        {"rs": resistor(1000.0)},
+        [{"from": "cal.OUT", "to": "rs.A"}, {"from": "rs.B", "to": "dmm.IN"}],
+    )
+    try:
+        q("cal", "OUT 1 V;OPER")
+        q("cal", "*OPC?")
+        q("dmm", ":CONF:VOLT:DC 10")
+        again = [float(q("dmm", ":READ?")) for _ in range(20)]
+    finally:
+        s.close()
+    assert again == reads[:20]

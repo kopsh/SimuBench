@@ -1,4 +1,4 @@
-# Fluke 8588A 的手册用例：8588A/8558A Remote Programmer's Manual（March 2019）的命令表（Table 3、5、6、
+# Fluke 8588A 的手册用例（读数容差 = 4σ 前端噪声：0.3 ppm × 量程，specs.noise_ppm_of_range，#744）：8588A/8558A Remote Programmer's Manual（March 2019）的命令表（Table 3、5、6、
 # 7、10、11、12）与 Remote Command Examples。每个用例在刚上电的 examples/benches/fluke-8588a.bench.yaml
 # 上运行（Fluke 5522A 的 NORMAL 输出接 INPUT HI）。量程与测量电流按 8588A Product Specifications。
 model: fluke-8588a
@@ -117,13 +117,13 @@ cases:
       - send: ":CONF:VOLT:DC 10"
       - query: ":READ?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-5
       - query: ":MEAS:VOLT:DC? 10,1E-6"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-5
       - query: ":MEASure:SCALar:VOLTage:DC?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-5
       - send: ":VOLT:IMP 1M"
       - query: ":VOLT:IMP?"
         expect: "1M"
@@ -132,7 +132,7 @@ cases:
         expect: "10M"
       - query: ":READ?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-5
 
   - name: "量程按 2.02 倍满度选择；过载回 9.91E+37；自动量程"
     manual: "Parameters (SENSe:VOLTage:DC:RANGe: 2.03–20.02 selects the 10 V range); Table 6 > :RANGe / :RANGe:AUTO; Table 5 > FETCh? (9.91E+37)"
@@ -149,7 +149,7 @@ cases:
       - send: ":VOLT:RANG 2.03"
       - query: ":READ?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-5
       - query: ":VOLT:RANG? MIN"
         expect: "+1.00000000E-01"
       - query: ":VOLT:RANG? MAX"
@@ -160,7 +160,7 @@ cases:
         expect: "1"
       - query: ":READ?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-5
       - send: ":VOLT:RANG 2000"
       - query: ":SYST:ERR?"
         expect: '-222,"Data out of range"'
@@ -239,7 +239,7 @@ cases:
       - send: ":CONF:VOLT:AC 1"
       - query: ":READ?"
         expect_value: 1.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-6
       - send: ":VOLT:AC:RANG 0.1"
       - query: ":VOLT:AC:RANG?"
         expect: "+1.00000000E-01"
@@ -250,10 +250,10 @@ cases:
       - send: ":VOLT:AC:RANG:AUTO ON"
       - query: ":READ?"
         expect_value: 1.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-6
       - query: ":MEAS:VOLT:AC? 1"
         expect_value: 1.0
-        tolerance: 1.0e-6
+        tolerance: 1.2e-6
       - send: ":VOLT:AC:FILT 30"
       - query: ":VOLT:AC:FILT?"
         expect: "+4.00000000E+01"
@@ -351,9 +351,9 @@ cases:
         expect: "1"
       - send: "*TRG"
       - query: ":FETCh?"
-        expect_match: '^\+2\.0000000\d\dE\+00,\+2\.0000000\d\dE\+00$'
+        expect_match: '^\+2\.0000[0-1]\d{4}E\+00,\+2\.0000[0-1]\d{4}E\+00$'  # ±2e-5 ≈ 6σ 前端噪声（#744）
       - query: ":FETC? 1"
-        expect_match: '^\+2\.0000000\d\dE\+00,\+2\.0000000\d\dE\+00$'
+        expect_match: '^\+2\.0000[0-1]\d{4}E\+00,\+2\.0000[0-1]\d{4}E\+00$'  # ±2e-5 ≈ 6σ 前端噪声（#744）
       - send: ":FETC? 2"
       - query: ":SYST:ERR?"
         expect: '-222,"Data out of range"'

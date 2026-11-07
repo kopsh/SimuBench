@@ -100,7 +100,7 @@ sections:
     note: '"<功能短格式> <量程>,<分辨率>"；数字为 8 位尾数的 NR3（手册例子的 +1.0E+0 写法未按位数对齐）。'
   - header: :MEASure[:SCALar]:VOLTage[:DC]
     level: implemented
-    note: = ABORt; CONFigure; READ?：配置同 CONFigure 并回一个读数。
+    note: = ABORt; CONFigure; READ?：配置同 CONFigure 并回一个读数。读数带噪声（specs.noise_ppm_of_range：估计值，#744/D46），逐读数独立抽样，同种子逐位复现。
   - header: :MEASure[:SCALar]:VOLTage:AC
     level: implemented
     note: 同直流电压。
