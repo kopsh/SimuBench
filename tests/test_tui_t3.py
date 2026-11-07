@@ -101,10 +101,14 @@ async def test_overview_part_enter_opens_nets_on_its_first_net():
 
 
 async def test_fault_dialog_injects_and_lists():
-    """`f` opens the dialog; injecting POSTs the Fault and the log records the source 终端."""
+    """`f` on the focused card opens the dialog for that instrument (8); injecting POSTs the
+    Fault and the log records the source 终端."""
     tui, fake = unit_app(fresh(SMU_BENCH))
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
+        from test_tui_t2 import focus_card
+
+        await focus_card(pilot, tui, "smu")
         await pilot.press("f")
         from simubench.tui.screens.faultdialog import FaultDialog
 
@@ -132,7 +136,7 @@ async def test_fault_dialog_injects_and_lists():
             "drift",
             "hidden",
         )
-        assert spec.get("instrument") is None  # the session-level dialog has no preselection
+        assert spec["instrument"] == "smu"  # the dialog acts on the focused card's instrument
         # The dialog closed; the injected fault shows in the app's list for the next dialog.
         assert tui.faults and tui.faults[0]["id"] == fake.fault_list[0]["id"]
 
@@ -142,6 +146,9 @@ async def test_fault_dialog_injects_an_error_with_count():
     tui, fake = unit_app(fresh(SMU_BENCH))
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
+        from test_tui_t2 import focus_card
+
+        await focus_card(pilot, tui, "smu")
         await pilot.press("f")
         from textual.widgets import Button, Input, RadioButton
 
@@ -157,6 +164,7 @@ async def test_fault_dialog_injects_an_error_with_count():
         await wait_for(pilot, lambda: bool(fake.fault_list), message="injected")
         spec = fake.fault_list[0]["spec"]
         assert spec["kind"] == "error" and spec["code"] == -313 and spec["count"] == 3
+        assert spec["instrument"] == "smu"
         assert fake.fault_list[0]["source"] == "tui"
 
 
@@ -165,6 +173,9 @@ async def test_fault_dialog_revoke_with_confirm():
     tui, fake = unit_app(fresh(SMU_BENCH))
     async with tui.run_test(size=(100, 32)) as pilot:
         await settle(pilot, tui)
+        from test_tui_t2 import focus_card
+
+        await focus_card(pilot, tui, "smu")
         await pilot.press("f")
         from simubench.tui.screens.faultdialog import FaultDialog
         from simubench.tui.screens.states import ConfirmScreen
@@ -174,6 +185,7 @@ async def test_fault_dialog_revoke_with_confirm():
 
         tui.screen.query_one("#fd-inject", Button).press()  # inject the default timeout
         await wait_for(pilot, lambda: bool(fake.fault_list), message="injected")
+        await focus_card(pilot, tui, "smu")  # the dismissal may leave the overview unfocused
         await pilot.press("f")
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog again")
         await wait_for(pilot, lambda: "1 fault(s) in effect" in flat(tui), message="active fault listed")
