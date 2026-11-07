@@ -46,6 +46,10 @@ specs:
   digits: "8½"
   dcv_ranges_full_scale: {100mV: 202 mV, 1V: 2.02 V, 10V: 20.2 V, 100V: 202 V, 1000V: 1050 V}
   dcv_accuracy_ppm_365day_95pct: {reading_plus_range: {100mV: [2.7, 2.0], 1V: [2.7, 0.3], 10V: [2.7, 0.05], 100V: [4.0, 0.3], 1000V: [4.0, 0.5]}}
+  noise_ppm_of_range: >-
+    0.3 ppm of range（估计，#744/D46）：数据手册没有噪声指标，取 365 天 10 V 读数项 2.7 µV/V
+    （dcv_accuracy_ppm_365day_95pct）的约 1/9，明显小于准确度；ref_time_s 1.0 s（默认孔径），
+    随孔径时间按平方根下降。
   dcv_input_impedance: {auto: ">1 TΩ (100 mV–10 V), 10 MΩ (100 V, 1000 V)", 10M: 10 MΩ ±1 %, 1M: 1.01 MΩ ±1 %}
   dci_input_impedance_front: {10uA: 100 Ω, 100uA: 100 Ω, 1mA: 10.5 Ω, 10mA: 1.5 Ω, 100mA: 0.8 Ω, 1A: 0.4 Ω, 10A: 10 mΩ, 30A: 10 mΩ}
   ohms_measurement_current_normal: {1: 100 mA, 10: 10 mA, 100: 10 mA, 1k: 1 mA, 10k: 100 µA, 100k: 100 µA, 1M: 10 µA, 10M: 1 µA, 100M: 100 nA, 1G: 10 nA}
@@ -397,6 +401,10 @@ components:
       set_resolution: $sense.resolution
       digits: 9
       reading_time: {from: $sense.aperture_mode, map: {MANual: $sense.aperture, FAST: 0.2}, default: 1.0}
+      # 读数噪声（specs.noise_ppm_of_range，#744）：估计值，依据 = 1 年 10 V 读数项 2.7 µV/V 的
+      # 约 1/9（规格几乎全在读数项，量程项仅 0.05 ppm）；ref_time_s 取默认 1 s 孔径，随孔径
+      # 时间按平方根缩放。
+      noise: {ppm_of_range: 0.3, ref_time_s: 1.0}
   - name: trig
     type: trigger_model
     params:

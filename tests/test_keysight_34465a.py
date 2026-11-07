@@ -10,6 +10,8 @@ body verbatim; acts that are provably state-compatible share one bench, with the
 commands noted.
 """
 
+import math
+import statistics
 from pathlib import Path
 
 import numpy as np
@@ -42,6 +44,14 @@ def solve(high_z: bool, emf: float = 1.0) -> float:
 
 
 STEP = {"0.1": 3e-8, "1": 3e-7, "10": 3e-6}  # NPLC 1: resolution fraction x range
+READING_TIME = {0.02: 0.0009, 0.06: 0.00253, 0.2: 0.00813, 1: 0.04013, 10: 0.40016, 100: 4.00016}
+
+
+def noise_sigma(range_v: float, nplc: float = 1.0) -> float:
+    """The front end's reading-noise rms on a range at an NPLC (#744): 1 ppm of range at the
+    0.02 s reference (specs.noise_ppm_of_range), falling with the square root of the reading
+    time; the tolerances below sit at 4σ of it."""
+    return 1.0e-6 * range_v * math.sqrt(0.02 / READING_TIME[nplc])
 
 
 def quantized(value: float, range_key: str = "0.1") -> float:
@@ -60,8 +70,11 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     # quantization (the model boundary the coverage table notes).
     want = round(solve(False) / 1e-6) * 1e-6
     readings = [float(x) for x in out[-2].split(": ")[1].split(" ... ")]
-    assert len(readings) == 2 and readings[0] == readings[-1]
-    assert readings[0] == pytest.approx(want, abs=1e-12)
+    # The example prints six decimals and the reading rides the front end's noise (#744): the
+    # lines sit within a printed count plus 4σ of the quantized solution.
+    assert len(readings) == 2
+    assert readings[0] == pytest.approx(want, abs=1.5e-6)
+    assert readings[-1] == pytest.approx(want, abs=1.5e-6)
 
 
 # ---- the input impedance loads the bench circuit, then the ACV of a sine: one flow -----------------
@@ -84,9 +97,10 @@ def test_the_input_impedance_and_acv_flow():
         low = float(q("dut", "MEAS:VOLT:DC?").lstrip("+"))
         assert q("dut", "VOLT:DC:IMP:AUTO ON") is None
         high = float(q("dut", "MEAS:VOLT:DC?").lstrip("+"))
-        assert low == pytest.approx(quantized(solve(False)), abs=1e-12)
-        assert high == pytest.approx(quantized(solve(True)), abs=1e-12)
-        assert high - low == pytest.approx(quantized(solve(True)) - quantized(solve(False)), abs=1e-12)
+        sig = noise_sigma(0.1)  # the auto range picks 0.1 V for the ~0.1 V reading
+        assert low == pytest.approx(quantized(solve(False)), abs=4 * sig + STEP["0.1"])
+        assert high == pytest.approx(quantized(solve(True)), abs=4 * sig + STEP["0.1"])
+        assert high - low == pytest.approx(quantized(solve(True)) - quantized(solve(False)), abs=8 * sig)
         assert high - low > 8.0e-4  # a ~0.9 % loading error the auto impedance removes
         # -- bridge: the ACV act's expected loading is the 10 MΩ the fresh bench starts with
         q("dut", "VOLT:DC:IMP:AUTO OFF")
@@ -96,8 +110,8 @@ def test_the_input_impedance_and_acv_flow():
         q("dut", "VOLT:DC:RANG:AUTO ON")
         # 1 kHz is far above the 20 Hz filter; a resistive divider scales the peak like DC.
         want = quantized(solve(False) / np.sqrt(2))
-        assert float(q("dut", "MEAS:VOLT:AC?").lstrip("+")) == pytest.approx(want, abs=1e-12)
-        assert float(q("dut", "MEAS:VOLT:DC?").lstrip("+")) == pytest.approx(0.0, abs=1e-12)
+        assert float(q("dut", "MEAS:VOLT:AC?").lstrip("+")) == pytest.approx(want, abs=4 * sig + STEP["0.1"])
+        assert float(q("dut", "MEAS:VOLT:DC?").lstrip("+")) == pytest.approx(0.0, abs=4 * sig)
     finally:
         s.close()
 
@@ -139,7 +153,10 @@ def test_calibration_flow_as_found_as_left():
         for v in (0.0, 10.0):
             level(v)
             as_found = float(q("dmm", "MEAS:VOLT?").lstrip("+"))
-            assert as_found == pytest.approx(v * (1 + 150e-6) + 200e-6, abs=1e-9)
+            rng = "0.1" if v == 0.0 else "10"  # the auto range at 0 V, the set 10 V otherwise
+            assert as_found == pytest.approx(
+                v * (1 + 150e-6) + 200e-6, abs=4 * noise_sigma(float(rng)) + STEP[rng]
+            )
         # The manual's DC voltage gain calibration: short on the input, then the gain value.
         q("dmm", 'CAL:SEC:STAT OFF,"AT3446XA"')
         level(0.0)
@@ -177,7 +194,7 @@ def test_adjustment_is_per_range_and_stays_secured():
         q("dmm", ":VOLT:DC:RANG 10;:VOLT:DC:RANG:AUTO OFF")
         level(10.0)
         assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(
-            10 * (1 + 150e-6) + 200e-6, abs=1e-9
+            10 * (1 + 150e-6) + 200e-6, abs=4 * noise_sigma(10.0) + STEP["10"]
         )
         q("dmm", "CAL:VAL 10")
         q("dmm", "CAL?")  # secured: refused without a reply
@@ -190,10 +207,14 @@ def test_adjustment_is_per_range_and_stays_secured():
         # The 1 V range has its own key: untouched until adjusted on it.
         q("dmm", ":VOLT:DC:RANG 1")
         level(1.0)
-        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(1 * (1 + 150e-6) + 200e-6, abs=1e-9)
+        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(
+            1 * (1 + 150e-6) + 200e-6, abs=4 * noise_sigma(1.0) + STEP["1"]
+        )
         q("dmm", "CAL:VAL 1")
         assert q("dmm", "CAL?") == "+0"
-        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(1.0, abs=1e-9)
+        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(
+            1.0, abs=4 * noise_sigma(1.0) + STEP["1"]
+        )
         # A wrong reference is caught, not applied.
         level(1.0)
         q("dmm", "CAL:VAL 2")
@@ -281,7 +302,9 @@ def test_the_calibration_set_form_adjusts_without_answering():
         s.write("dmm", b":CAL\n")
         s.write("dmm", b":CAL:STOR\n")
         reading = float(q("dmm", ":MEASure:VOLTage:DC?").lstrip("+"))
-        assert reading == pytest.approx(1.0, abs=1e-9)  # adjusted on the 1 V range
+        assert reading == pytest.approx(
+            1.0, abs=4 * noise_sigma(1.0) + STEP["1"]
+        )  # adjusted on the 1 V range
         # The query form still reports the adjustment result.
         s.write("dmm", b":CAL:VAL 1\n")
         assert q("dmm", ":CAL?") == "+0"
@@ -391,3 +414,40 @@ def test_current_flows_through_the_shunt_into_the_circuit():
         assert _q(s, "FUNC?") == '"CURR"'
     finally:
         s.close()
+
+
+def test_the_definition_noise_distributes_and_falls_with_nplc():
+    """The built-in reading noise (specs.noise_ppm_of_range, #744): MEAS readings are independent
+    draws around the solved value with σ = 1 ppm of range at the NPLC's reading time; the same
+    seed replays bit for bit, and 10 NPLC reads √10 tighter than 1 NPLC."""
+    s = open_bench(BENCH)
+    try:
+
+        def q(cmd):
+            s.write("dut", (cmd + "\n").encode())
+            out = s.read("dut")
+            return out.decode().strip() if out else None
+
+        want = solve(False)  # the divided DC the bench solves to, on the auto 0.1 V range
+        ones = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(200)]
+        sigma = noise_sigma(0.1)
+        assert len(set(ones)) > 4  # the last digits flicker across the quantization grid
+        assert statistics.mean(ones) == pytest.approx(want, abs=4 * sigma / math.sqrt(200))
+        assert statistics.stdev(ones) == pytest.approx(sigma, rel=0.2)
+        q("VOLT:DC:NPLC 10")
+        tens = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(200)]
+        assert statistics.stdev(tens) == pytest.approx(noise_sigma(0.1, 10.0), rel=0.25)
+    finally:
+        s.close()
+    s = open_bench(BENCH)
+    try:
+
+        def q(cmd):
+            s.write("dut", (cmd + "\n").encode())
+            out = s.read("dut")
+            return out.decode().strip() if out else None
+
+        again = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(20)]
+    finally:
+        s.close()
+    assert again == ones[:20]

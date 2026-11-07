@@ -74,7 +74,9 @@ AC_SEQUENCE: list[tuple[str, str]] = [
     ("dut", ":SYST:ERR?"),
 ]
 
-#: (instrument, command, reply, ns consumed) — recorded on the dmm_core implementation.
+#: (instrument, command, reply, ns consumed) — recorded on the dmm_core implementation; the
+#: reading replies carry the front end's noise (specs.noise_ppm_of_range, #744), re-recorded
+#: when the noise values change — the gold guards the command path, not the noise draws.
 EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
     ("dut", "*IDN?", "Keysight Technologies,34465A,MY57440001,2.6.1-2.0.0-0.0.0-0.0-0-0", 0),
     ("dut", "*RST", None, 0),
@@ -83,16 +85,16 @@ EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
     ("dut", ":CONF?", '"VOLT +1.00000000E+01,+1.00000000E-03"', 0),
     ("dut", ":SENS:VOLT:DC:NPLCycles 1", None, 0),
     ("src", ":SOUR:VOLT 5", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+5.00000100E+00", 0),
+    ("dut", ":MEAS:VOLT:DC?", "+5.00000400E+00", 0),
     ("dut", ":SENS:VOLT:DC:NPLCycles 10", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+5.00000000E+00", 0),
+    ("dut", ":MEAS:VOLT:DC?", "+4.99999800E+00", 0),
     ("dut", ":SENS:VOLT:DC:RANGe 1", None, 0),
     # The resolution CONFigure gave is a setting: it persists across range changes (#286), so
     # CONF? still reports it (was +1.00000000E-07, range × NPLC step).
     ("dut", ":CONF?", '"VOLT +1.00000000E+00,+1.00000000E-03"', 0),
     ("dut", ":SENS:VOLT:DC:RANGe:AUTO ON", None, 0),
     ("src", ":SOUR:VOLT 0.2", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+2.00000000E-01", 0),
+    ("dut", ":MEAS:VOLT:DC?", "+2.00000100E-01", 0),
     ("dut", ":SENS:VOLT:DC:RANGe 0.1", None, 0),
     ("dut", ":SENS:VOLT:DC:RANGe:AUTO OFF", None, 0),
     ("src", ":SOUR:VOLT 0.12", None, 0),
@@ -102,18 +104,18 @@ EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
     ("src", ":SOUR:VOLT 2", None, 0),
     ("dut", ":SENS:VOLT:DC:RANGe 10", None, 0),
     ("dut", ":SENS:VOLT:DC:IMPedance:AUTO ON", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+2.00000000E+00", 0),
+    ("dut", ":MEAS:VOLT:DC?", "+1.99999800E+00", 0),
     ("dut", ":SENS:VOLT:DC:IMPedance:AUTO?", "1", 0),
     ("dut", ":SENS:VOLT:DC:IMPedance:AUTO OFF", None, 0),
     ("dut", ':FUNC "VOLT:AC"', None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+0.00000000E+00", 0),
+    ("dut", ":MEAS:VOLT:AC?", "+1.00000000E-06", 0),
     ("dut", ':FUNC "VOLT"', None, 0),
     ("dut", ":TRIG:SOUR IMM;:TRIG:COUN 2;:SAMP:COUN 3;:INIT", None, 0),
     ("dut", "*OPC?", "1", 2400960000),
     (
         "dut",
         ":FETC?",
-        "+2.00000000E+00,+2.00000000E+00,+2.00000000E+00,+2.00000000E+00,+2.00000000E+00,+2.00000000E+00",
+        "+2.00000100E+00,+2.00000000E+00,+1.99999600E+00,+2.00000300E+00,+2.00000100E+00,+2.00000000E+00",
         0,
     ),
     ("dut", ":DATA:POIN?", "6", 0),
@@ -124,16 +126,16 @@ EXPECTED_AC: list[tuple[str, str, str | None, int]] = [
     ("awg", ":SOUR1:FREQ 50", None, 0),
     ("dut", ':FUNC "VOLT:AC"', None, 0),
     ("dut", ":SENS:VOLT:AC:BANDwidth 20", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07103200E-02", 0),
+    ("dut", ":MEAS:VOLT:AC?", "+7.07103000E-02", 0),
     ("dut", ":SENS:VOLT:AC:BANDwidth 200", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+0.00000000E+00", 0),
+    ("dut", ":MEAS:VOLT:AC?", "+2.00000000E-08", 0),
     ("dut", ":SENS:VOLT:AC:BANDwidth 3", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07103200E-02", 0),
+    ("dut", ":MEAS:VOLT:AC?", "+7.07103000E-02", 0),
     ("dut", ":SENS:VOLT:AC:RANGe 0.1", None, 0),
     ("dut", ":SENS:VOLT:AC:RANGe:AUTO OFF", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07103200E-02", 0),
+    ("dut", ":MEAS:VOLT:AC?", "+7.07103600E-02", 0),
     ("dut", ":SENS:VOLT:AC:RANGe 10", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07100000E-02", 0),
+    ("dut", ":MEAS:VOLT:AC?", "+7.07120000E-02", 0),
     ("dut", ":SYST:ERR?", '+0,"No error"', 0),
 ]
 

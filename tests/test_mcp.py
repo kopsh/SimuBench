@@ -603,7 +603,13 @@ async def test_try_definition_agrees_with_a_bench_session(ws):
             on_bench = [await call(c, "send_scpi", instrument=name, command=cmd) for cmd in cmds]
             tried = await call(c, "try_definition", definition_id=model, commands=cmds)
             assert tried["definition"] == model and tried["instrument"] == model
-            assert [r["response"] for r in tried["results"]] == [r["response"] for r in on_bench]
+            for tried_r, bench_r in zip(tried["results"], on_bench, strict=True):
+                a, b = tried_r["response"], bench_r["response"]
+                if a == b:
+                    continue
+                # A reading carries the front end's noise (#744): the try world draws with its own
+                # instrument uid, so the two agree within the noise instead of bit for bit.
+                assert float(a) == pytest.approx(float(b), abs=3e-5)  # 4σ on the 10 V range
             assert tried["results"][0]["response"]  # the *IDN? reply came through in both worlds
 
 
