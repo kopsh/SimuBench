@@ -320,7 +320,14 @@ class _Control(ProtectionLatch, Component):
             "settling": sp.settling(),
         }
         if self.wired("out"):
-            values["voltage"] = self.pin_signal("out").mean()
+            voltage = self.pin_signal("out").mean()
+            if isinstance(self.param("noise"), dict):
+                # The readback's own noise (``noise``, an absolute rms — a calibrator has no
+                # measurement ranges), keyed by the panel's frame (#750, D32).
+                voltage += self.noise_sample(
+                    self.noise_rms(None, 0.0, "voltage"), "reading", "voltage", "panel", self.panel_frame()
+                )
+            values["voltage"] = voltage
         return {"values": values}
 
 
@@ -563,6 +570,7 @@ class CalibratorControl(_Control, Component):
         "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
         "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
+        "noise": None,  # readback noise {rms: ...}, absolute (a calibrator has no ranges) (#750); None: noiseless
         "setpoint": "",  # the calibrator_setpoint this control operates
         "remote_sense": False,  # external sense: regulate the SENSE terminal instead of the output (#551)
         "sense_ranges": [],  # the setpoint ranges where external sense is allowed ([]: every range)
@@ -703,6 +711,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
         "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
         "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
+        "noise": None,  # readback noise {rms: ...}, absolute (a calibrator has no ranges) (#750); None: noiseless
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)
     }

@@ -355,14 +355,33 @@ class SupplyReadback(Component):
     regulation state (CV / CC / OFF) the front panel shows."""
 
     refs = {"output": ("power_output", "channel")}
-    defaults = {"output": ""}  # the channel's power_output
+    defaults = {
+        "output": "",  # the channel's power_output
+        "noise": None,  # reading noise {rms: {voltage, current}}, absolute (no ranges here) (#750); None: noiseless
+    }
 
     def _output(self) -> PowerOutput:
         return self.ref("output")  # type: ignore[return-value]
 
+    _script_reads = 0
+
+    def _measured(self, frame: int | None = None) -> tuple[float, float]:
+        """The V/I the channel reports, the reading noise (``noise``, an absolute rms per quantity)
+        added after the solve (#750): a script reading keys on the read sequence, the Web panel's
+        on its own frame (D32), so neither moves the other's noise. Power reads the noised V·I."""
+        v, i = self._output().measured()
+        if not isinstance(self.param("noise"), dict):
+            return v, i
+        if frame is None:
+            self._script_reads += 1
+        when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+        v += self.noise_sample(self.noise_rms(None, 0.0, "voltage"), "reading", "VOLTage", *when)
+        i += self.noise_sample(self.noise_rms(None, 0.0, "current"), "reading", "CURRent", *when)
+        return v, i
+
     @op("measure")
     def op_measure(self, what: str = "voltage", **_: Any) -> OpResult:
-        v, i = self._output().measured()
+        v, i = self._measured()
         value = {"voltage": v, "current": i, "power": v * i}[what]
         return OpResult(self.reply_number(value, 7))
 
@@ -386,7 +405,7 @@ class SupplyReadback(Component):
         }
 
     def readings(self) -> dict[str, Any]:
-        v, i = self._output().measured()
+        v, i = self._measured(self.panel_frame())
         return {
             "values": {
                 "voltage": v,

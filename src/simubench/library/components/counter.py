@@ -26,7 +26,6 @@ import numpy as np
 
 from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, OpResult, PortSpec, component, op
-from ...engine.noise import gaussian, stream_key
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -241,9 +240,10 @@ class CounterTimebase(Component):
         """The instrument's timestamp (s) of a true instant (ns)."""
         t = float(at_ns) * 1e-9 * (1 + self.error())
         sigma = float(self.param("single_shot_s"))
-        if sigma > 0 and self.owner is not None:
-            key = stream_key(self.session.seed, self.owner.name, self.uid, "stamp", sigma)
-            t += sigma * float(gaussian(key, np.array([round(at_ns)]))[0])
+        if sigma > 0:
+            # The shared noise_sample (D46: the jitter's draws changed value with #750 — same
+            # statistics, same seed determinism, new numbers under an old seed).
+            t += self.noise_sample(sigma, "stamp", round(at_ns))
         return t
 
     def gap_free(self) -> bool:
@@ -319,9 +319,7 @@ class CounterCore(Component):
         sigma = math.hypot(float(self.param("trigger_error")), float(self.param("single_shot_s")))
         if sigma <= 0:
             return 0.0
-        assert self.owner is not None
-        key = stream_key(self.session.seed, self.owner.name, self.uid, "event", channel, sigma)
-        return sigma * float(gaussian(key, np.array([int(at_ns)]))[0])
+        return self.noise_sample(sigma, "event", channel, int(at_ns))  # D46: new draws with #750
 
     def measure(self, function: str | None, start_ns: int) -> float:
         """One measurement over the gate starting at ``start_ns`` (true-time windows)."""
