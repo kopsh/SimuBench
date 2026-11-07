@@ -37,6 +37,9 @@ interface Props {
   bare?: boolean;
 }
 
+/** The label/control columns of a setting row, shared with EditInspector's field rows (#689). */
+export const FIELD_GRID_COLS = "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]";
+
 /** One editable state variable; edits are out-of-band "configure" actions (architecture.md 5.2). */
 export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive, bare }: Props) {
   const { t } = useTranslation();
@@ -107,7 +110,7 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
     <div
       className={cn(
         "grid items-center gap-x-3",
-        bare ? "grid-cols-1" : compact ? "grid-cols-[1fr_auto]" : "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]",
+        bare ? "grid-cols-1" : compact ? "grid-cols-[1fr_auto]" : FIELD_GRID_COLS,
       )}
       data-inactive={inactive || undefined}
     >
