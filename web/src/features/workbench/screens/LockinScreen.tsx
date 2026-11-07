@@ -3,8 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
 import { useInstrumentReadings } from "@/api/hooks";
 import { formatEng } from "@/lib/format";
-import { stateMap } from "../model";
-import { Chip, Legend, Readout, SettingsGroups } from "./parts";
+import { Chip, Legend, Readout, ScreenIdentity, SettingsGroups } from "./parts";
 
 type Point = { t: number; r: number };
 const HISTORY = 400;
@@ -16,13 +15,15 @@ const HISTORY = 400;
  */
 export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const { values: v, num, query: readings } = useInstrumentReadings(sid, inst.name);
+  const { values: v, num, query: readings, vars } = useInstrumentReadings(sid, inst);
   const overload = num("demod.overload");
   const locked = v["osc.locked"] !== false;
   const nowS = (readings.data?.now_ns ?? 0) / 1e9;
 
   // R as read, by virtual time: appended when new readings arrive (derived state, no effect);
-  // starts over when time runs backwards (another session).
+  // starts over when time runs backwards (another session). This stays in the screen by decision
+  // (#694): it is the SettlingChart's own sampling rule (dedupe same-instant reads, rewind
+  // restarts), not readings wiring — no second consumer wants it.
   const [points, setPoints] = useState<Point[]>([]);
   const [seen, setSeen] = useState(readings.data);
   if (readings.data && readings.data !== seen) {
@@ -36,7 +37,6 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
   }
   const projected = readings.data?.traces.find((x) => x.name === "demod.R_projected");
 
-  const vars = stateMap(inst);
   const groups: [string, string[]][] = [
     [t("lockin.reference"), ["reference.source", "reference.frequency", "reference.phase", "reference.harmonic"]],
     [
@@ -60,8 +60,7 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3">
       <section className="bg-card rounded-lg border">
         <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs">
-          <span className="font-medium">{inst.label || inst.name}</span>
-          <span className="text-muted-foreground num">{inst.model}</span>
+          <ScreenIdentity inst={inst} />
           <Chip on={locked} tone="ok">
             {locked ? t("lockin.locked") : t("lockin.unlocked")}
           </Chip>

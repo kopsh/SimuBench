@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
 import { useInstrumentReadings } from "@/api/hooks";
-import { numeric, stateMap } from "../model";
-import { Chip, Readout, SettingsGroups } from "./parts";
+import { numeric } from "../model";
+import { Chip, Readout, ScreenIdentity, SettingsGroups } from "./parts";
 
 /**
  * RF signal generator front panel: carrier frequency and level, modulation and sweep state, the
@@ -10,8 +10,7 @@ import { Chip, Readout, SettingsGroups } from "./parts";
  */
 export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const { values: v, num } = useInstrumentReadings(sid, inst.name);
-  const vars = stateMap(inst);
+  const { values: v, num, vars } = useInstrumentReadings(sid, inst);
   const on = (k: string) => vars.get(k)?.value === true;
   const mode = String(vars.get("freq.mode")?.value ?? "CW");
   const external = vars.get("rosc.source")?.value === "EXTernal";
@@ -28,8 +27,7 @@ export function RfGeneratorScreen({ sid, inst, readonly }: { sid: string; inst: 
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3">
       <section className="bg-card rounded-lg border">
         <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs">
-          <span className="font-medium">{inst.label || inst.name}</span>
-          <span className="text-muted-foreground num">{inst.model}</span>
+          <ScreenIdentity inst={inst} />
           <Chip on={on("output.enabled")} tone="ok">
             {t("rfgen.rfOn")}
           </Chip>

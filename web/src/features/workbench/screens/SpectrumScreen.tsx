@@ -10,8 +10,8 @@ import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInp
 import { cssVar, decimate, resolveColor } from "@/lib/canvas";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
-import { stateMap } from "../model";
 import { StateField } from "../StateField";
+import { ScreenIdentity } from "./parts";
 
 const DIVS = 10;
 const DB_PER_DIV = 10;
@@ -23,11 +23,10 @@ const DB_PER_DIV = 10;
  */
 export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const { values: v, query: readings } = useInstrumentReadings(sid, inst.name);
+  const { values: v, query: readings, vars } = useInstrumentReadings(sid, inst);
   const scpi = useScpi(sid, inst.name);
   const n = (k: string) => Number(v[`sa.${k}`] ?? 0);
   const trace = readings.data?.traces.find((x) => x.name === "sa.trace1");
-  const vars = stateMap(inst);
 
   const send = (command: string) =>
     scpi.mutate(command, {
@@ -44,8 +43,7 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3 xl:grid-cols-[1fr_300px]">
       <section className="bg-card rounded-lg border">
         <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-2 text-xs">
-          <span className="font-medium">{inst.label || inst.name}</span>
-          <span className="text-muted-foreground num">{inst.model}</span>
+          <ScreenIdentity inst={inst} />
           <Flag on={!!v["sa.uncal"]} label="UNCAL" title={t("spectrum.uncalReason")} testId="uncal" />
           <Flag on={!!v["sa.overload"]} label={t("spectrum.overload")} testId="overload" />
           <span className="text-muted-foreground num ml-auto">

@@ -78,8 +78,10 @@ export function useEventStream(sid: string, onState?: (ev: Event) => void) {
       const url = `${proto}://${window.location.host}/api/sessions/${sid}/events?token=${encodeURIComponent(getToken() ?? "")}`;
       ws = new WebSocket(url);
       ws.onopen = () => {
+        // A reconnect's missed events are lost for good: bump the version so every version-keyed
+        // query re-reads (D64). The first open must not — every query just mounted on version 0.
+        useEvents.setState((s) => ({ status: "connected", version: attempt > 0 ? s.version + 1 : s.version }));
         attempt = 0;
-        useEvents.setState({ status: "connected" });
       };
       ws.onmessage = (msg) => {
         const ev = JSON.parse(msg.data as string) as Event;

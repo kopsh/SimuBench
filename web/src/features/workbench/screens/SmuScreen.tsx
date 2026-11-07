@@ -7,7 +7,6 @@ import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { formatEng, isOverload, resistance } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { stateMap } from "../model";
 import { Chip, Legend, Readout, ScreenIdentity, SettingsGroups } from "./parts";
 
 const OPEN = 9.9e37; // the SCPI "no value" a resistance reads with no current
@@ -22,7 +21,7 @@ type Row = { v: number; i: number; r: number; t: number; stat: number };
  */
 export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const { values: v, num, query: readings } = useInstrumentReadings(sid, inst.name);
+  const { values: v, num, query: readings, vars } = useInstrumentReadings(sid, inst);
   const regulation = String(v["core.regulation"] ?? "OFF");
   const limited = v["core.limited"] === true;
   const forcingVoltage = v["core.forcing"] !== "CURRent";
@@ -49,7 +48,6 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
     stat: bs[k],
   }));
 
-  const vars = stateMap(inst);
   const groups: [string, string[]][] = [
     [t("smu.source"), ["source.function", "source.voltage.level", "source.current.level", "output.enabled"]],
     [t("smu.limits"), ["compliance.current.limit", "compliance.voltage.limit", "source.delay"]],
