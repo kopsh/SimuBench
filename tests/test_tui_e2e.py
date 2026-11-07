@@ -146,6 +146,49 @@ async def test_find_the_trip(served_validation):
         assert "read away" in text and "-300" in text
 
 
+# ---- the fault dialog against the real server (#764) ---------------------------------------------------
+
+
+async def test_fault_dialog_inject_closes_and_lists(served_validation):
+    """Injecting from the dialog itself against the real server: the dialog closes and the fault
+    lands in the app's list (#764: ``f`` opened a subject-less dialog whose every inject the
+    engine rejects — instrument is required — so the dialog always stayed open on an error)."""
+    served_session = await served_validation.start("benches/smu.bench.yaml", seed=5, clock="command")
+    sid = served_session.id
+    tui = SimuBenchApp(served_validation.url, sid=sid)
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await wait_connected(pilot, tui)
+        from test_tui_t2 import focus_card
+
+        await focus_card(pilot, tui, "smu")
+        await pilot.press("f")
+        from simubench.tui.screens.faultdialog import FaultDialog
+
+        await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
+        dlg = tui.screen
+        assert dlg.instrument == "smu"  # the dialog acts on the focused instrument (8)
+        from textual.widgets import Button, Input, RadioButton
+
+        error_radio = next(r for r in dlg.query(RadioButton) if r.name == "error")
+        error_radio.value = True
+        await pilot.pause(0.3)
+        dlg.query_one("#fd-f-code", Input).value = "-313"
+        dlg.query_one("#fd-f-count", Input).value = "3"
+        dlg.query_one("#fd-inject", Button).press()
+        await wait_for(pilot, lambda: tui.screen is not dlg, message="dialog closed")
+        assert not isinstance(tui.screen, FaultDialog)  # the overview is back
+        await wait_for(pilot, lambda: bool(tui.faults), message="fault in the app's list")
+        fault = tui.faults[-1]
+        assert fault["spec"]["kind"] == "error" and fault["spec"]["instrument"] == "smu"
+        assert fault["spec"]["code"] == -313 and fault["spec"]["count"] == 3
+        assert fault["source"] == "tui"  # the client header marks the source 终端 (8)
+        # The dialog would have shown the error and stayed open on a rejected inject: this
+        # success path is the #764 regression. The server saw one fault for this session.
+        with served_validation.http() as http:
+            listed = http.get(f"/api/sessions/{sid}/faults").json()
+        assert [f["id"] for f in listed] == [fault["id"]]
+
+
 # ---- remote state and local takeover over a real port (tui-screens.md 12) -----------------------------
 
 
