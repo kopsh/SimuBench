@@ -42,9 +42,11 @@ def test_guide_procedure_reconstructs_the_bench_signal(scope):
     # preamble's Y increment has seven digits, so the reconstruction is exact to far below an LSB)
     lsb = 0.1 / 128
     assert np.max(np.abs(volts - rec.volts)) < lsb * 1e-3
-    # the 10 MHz, 400 mVpp sine the generator drives into 50 ohm: its peaks and its period
-    assert volts.max() == pytest.approx(0.2, abs=lsb + 0.005)
-    assert volts.min() == pytest.approx(-0.2, abs=lsb + 0.005)
+    # the 10 MHz, 400 mVpp sine the generator drives into 50 ohm: its peaks and its period.
+    # The range's noise (the data sheet's 2.91 mV rms, #786) rides the ~270 samples that dwell
+    # within one sigma of each peak: their expected worst excursion is ~2.9 sigma = 8.4 mV.
+    assert volts.max() == pytest.approx(0.2, abs=lsb + 0.01)
+    assert volts.min() == pytest.approx(-0.2, abs=lsb + 0.01)
     rising = times[1:][(volts[:-1] < 0) & (volts[1:] >= 0)]
     assert np.diff(rising).mean() == pytest.approx(1e-7, rel=1e-2)
     assert times[1] - times[0] == pytest.approx(wfm["xinc"])
@@ -79,23 +81,25 @@ def test_example_bench_runs_the_script():
     assert volts.min() == pytest.approx(-0.2, abs=0.05)
 
 
-def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path):
-    """#745/#774's statistical acceptance: the same DC captured repeatedly through the guide's
-    waveform procedure — the samples scatter with the definition's noise on the 0.1 V/div range
-    (the table's 1.48 mV rms — the published 50 mV/div floor, #774 — quantized to the 10-bit
-    781 µV codes), the mean stays at the true level, and every capture draws anew."""
+@pytest.mark.parametrize(("scale", "level", "sigma"), [(0.1, 0.2, 2.91e-3), (0.01, 0.02, 3.88e-4)])
+def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path, scale, level, sigma):
+    """#745/#774/#786's statistical acceptance: the same DC captured repeatedly through the
+    guide's waveform procedure — the samples scatter with the definition's noise on the range
+    (the Infiniium UXR-B data sheet's measured RMS Noise Floor table, UXR0334B column: 2.91 mV
+    rms at 100 mV/div and 388 µV rms at 10 mV/div, quantized to the 10-bit codes), the mean
+    stays at the true level, and every capture draws anew."""
     import math
 
     from refcalc.noise import quantized_sigma, sigma_interval
 
     data = yaml.safe_load(EXAMPLE_BENCH.read_text("utf-8"))
-    data["instruments"]["awg"]["state"].update({"ch1.function": "DC", "ch1.offset": 0.2})
+    data["instruments"]["awg"]["state"].update({"ch1.function": "DC", "ch1.offset": level})
     bench = tmp_path / "bench.yaml"
     bench.write_text(yaml.safe_dump(data), "utf-8")
     rm = pyvisa.ResourceManager(f"{bench}@simubench")
     try:
         uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
-        uxr.write(":ACQuire:POINts 2000")
+        uxr.write(f":ACQuire:POINts 2000;:CHANnel1:SCALe {scale}")
         captures = []
         for _ in range(3):
             uxr.write(":DIGitize CHANnel1")
@@ -103,11 +107,10 @@ def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path)
             captures.append(np.asarray(volts))
         assert not np.array_equal(captures[0], captures[1])  # each capture draws anew
         samples = np.concatenate(captures)
-        # DC 0.2 V at the generator, its 50 ohm load setting matched by the scope's 50 ohm input
-        truth = 0.2
+        # the generator's DC into its matched 50 ohm load setting, the scope's 50 ohm input
         # the mean sits at the true level: 5 rms of the sample mean plus half a code of bias
-        assert abs(float(np.mean(samples)) - truth) < 5 * 1.48e-3 / math.sqrt(samples.size) + 0.1 / 128 / 2
-        lo, hi = sigma_interval(quantized_sigma(1.48e-3, 0.1 / 128), samples.size)
+        assert abs(float(np.mean(samples)) - level) < 5 * sigma / math.sqrt(samples.size) + scale / 128 / 2
+        lo, hi = sigma_interval(quantized_sigma(sigma, scale / 128), samples.size)
         assert lo <= float(np.std(samples)) <= hi, (float(np.std(samples)), lo, hi)
     finally:
         rm.close()
