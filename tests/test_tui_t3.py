@@ -141,6 +141,22 @@ async def test_fault_dialog_injects_and_lists():
         assert tui.faults and tui.faults[0]["id"] == fake.fault_list[0]["id"]
 
 
+async def test_fault_key_without_focus_hints_the_bottom_bar():
+    """``f`` with no focused card opens nothing and flashes the bottom bar's remedy (#791), the
+    way ``w`` does when the card has nothing to explain — no silent keystroke."""
+    tui, fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        from simubench.tui.screens.faultdialog import FaultDialog
+
+        tui.screen.set_focus(None)  # no card focused: the digit keys were never pressed
+        await pilot.press("f")
+        text = await wait_flat(pilot, tui, "Press 1–9 to focus an instrument first")
+        assert not isinstance(tui.screen, FaultDialog)
+        assert "Inject a fault" not in text  # the dialog never composed
+        assert not fake.fault_list
+
+
 async def test_fault_dialog_injects_an_error_with_count():
     """error + count (issue 697): the code and the times reach the spec the TUI POSTs."""
     tui, fake = unit_app(fresh(SMU_BENCH))

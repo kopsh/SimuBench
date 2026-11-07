@@ -85,6 +85,7 @@ TERMS: dict = {
         "fault": "fault {id} · {kind}",
         "clear": "✓ All clear · {count} instruments, no faults, limits or errors",
         "noReason": "Nothing to explain on this card",
+        "noFocus": "Press 1–9 to focus an instrument first",
     },
     "cards": {
         "source": "Source",
