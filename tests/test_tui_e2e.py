@@ -152,7 +152,10 @@ async def test_find_the_trip(served_validation):
 async def test_fault_dialog_inject_closes_and_lists(served_validation):
     """Injecting from the dialog itself against the real server: the dialog closes and the fault
     lands in the app's list (#764: ``f`` opened a subject-less dialog whose every inject the
-    engine rejects — instrument is required — so the dialog always stayed open on an error)."""
+    engine rejects — instrument is required — so the dialog always stayed open on an error).
+    The rejection path itself is served-layer asserted (#791): an unknown instrument's inject
+    comes back as an error on ``#fd-error`` with the dialog still open — the reply does return
+    (it does not hang, #764's other reading), and neither the app's list nor the server holds it."""
     served_session = await served_validation.start("benches/smu.bench.yaml", seed=5, clock="command")
     sid = served_session.id
     tui = SimuBenchApp(served_validation.url, sid=sid)
@@ -167,8 +170,21 @@ async def test_fault_dialog_inject_closes_and_lists(served_validation):
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
         dlg = tui.screen
         assert dlg.instrument == "smu"  # the dialog acts on the focused instrument (8)
-        from textual.widgets import Button, Input, RadioButton
+        from textual.widgets import Button, Input, RadioButton, Static
 
+        # The engine looks an unknown instrument up (faults.py _check), so the POST 404s and the
+        # dialog catches: the error shows on #fd-error and the dialog stays (#791's new assertion).
+        dlg.instrument = "ghost"
+        dlg.query_one("#fd-inject", Button).press()
+        error = dlg.query_one("#fd-error", Static)
+        await wait_for(
+            pilot, lambda: error.display and str(error.content).strip(), message="error on #fd-error"
+        )
+        assert tui.screen is dlg  # the dialog did not close on the rejection
+        assert not tui.faults
+        with served_validation.http() as http:
+            assert http.get(f"/api/sessions/{sid}/faults").json() == []
+        dlg.instrument = "smu"  # back to the real subject for the success path below
         error_radio = next(r for r in dlg.query(RadioButton) if r.name == "error")
         error_radio.value = True
         await pilot.pause(0.3)

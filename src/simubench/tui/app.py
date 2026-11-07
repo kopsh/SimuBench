@@ -632,13 +632,18 @@ class SimuBenchApp(App[None]):
             self.exit()
 
     def action_fault(self) -> None:
-        """``f``: inject a fault on the focused instrument (tui-screens.md 8); works while remote (D32)."""
+        """``f``: inject a fault on the focused instrument (tui-screens.md 8); works while remote (D32).
+        Without a subject the bottom bar says how to get one (#791), like ``w`` with nothing to explain."""
         from .screens.faultdialog import FaultDialog
+        from .widgets import BottomBar
 
         if self.conn != "connected":
             return
         instrument = self._focused_instrument()
         if instrument is None:
+            bars = list(self.screen.query(BottomBar))
+            if bars:
+                bars[0].flash(i18n.t("attention.noFocus", self.lang))
             return
         self.push_screen(FaultDialog(instrument=instrument))
 
@@ -646,7 +651,7 @@ class SimuBenchApp(App[None]):
         """The instrument the current screen is acting on (tui-screens.md 8): the overview's
         focused card, or an instrument/scope screen's own subject. Without a subject the dialog
         could only compose faults the engine rejects (every kind needs an instrument or a
-        component), so ``f`` does nothing."""
+        component), so ``f`` flashes the bottom bar's focus hint instead (8)."""
         from .screens.instrument import InstrumentScreen
         from .screens.overview import Card, OverviewScreen
         from .screens.scope import ScopeScreen
