@@ -412,6 +412,8 @@ components:
           24: 0.2
           25: 0.5
           26: 1.0
+      # 输入噪声：手册 p.6 规格 "Input Noise 6 nV/√Hz at 1 kHz (typical)"（#744）。
+      noise_density: 6.0e-9
       # 实际动态储备随灵敏度变化（手册 p.4-8 的表，#273）：每个 RMOD 一列，档间按对数插值。
       reserve_db:
         from: $input.reserve
