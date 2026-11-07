@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import cmath
 import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -294,3 +295,23 @@ def test_the_dynamic_reserve_follows_the_sensitivity_table():
         assert 20 * math.log10(amp.reserve()) == pytest.approx(124.0 - 14.0 * math.log10(2.0), abs=1e-9)
     finally:
         s.close()
+
+
+def test_the_input_noise_is_the_manual_value_and_the_buffer_draws_it():
+    """#744: the front end's input noise is the manual's 6 nV/√Hz (p.6, typical at 1 kHz). The
+    stored X rides the settled signal at the buffer's own instants: successive samples are fresh
+    draws whose spread is the density times the square root of the filter's ENBW."""
+    with open_bench(BENCH) as s:
+        _q(s, "DDEF 1,2,0")  # display 1 shows X noise: the defined density itself
+        assert float((_q(s, "OUTR? 1") or b"0").decode()) == pytest.approx(6.0e-9)
+        enbw_hz = s.instruments["lia"].components["filter"].enbw()
+        sigma = 6.0e-9 * math.sqrt(enbw_hz)
+        _q(s, "DDEF 1,0,0")  # trace 1 stores X
+        _q(s, "SRAT 4")  # 1 Hz
+        _q(s, "STRT")
+        s.advance(65.0)  # the STRT sample plus 64 more, each at its own instant
+        _q(s, "PAUS")
+        raw = (_q(s, "TRCA? 1,0,64") or b"").decode()
+        values = [float(v) for v in raw.strip().rstrip(",").split(",")]
+    assert len(values) == 64 and len(set(values)) > 20  # the read returns 64 bins; fresh draws, not frozen
+    assert statistics.stdev(values) == pytest.approx(sigma, rel=0.35)

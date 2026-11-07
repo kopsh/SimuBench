@@ -888,6 +888,8 @@ components:
         25: 5.0e-09
         26: 2.0e-09
         27: 1.0e-09
+    # 输入噪声：SR865A 手册 "2.5 nV/√Hz at 1 kHz (typical, 10 mV 量程)"（#744）。
+    noise_density: 2.5e-9
     reserve: 1000000000000.0
     input_limit:
       from: $input.range

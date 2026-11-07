@@ -98,3 +98,15 @@ def test_the_current_input_reads_amperes(tmp_path):
         assert r == pytest.approx(AMPLITUDE / (RS + R + 100.0), rel=5e-3)
     finally:
         session.close()
+
+
+def test_the_input_noise_is_the_manual_value():
+    """#744: the SR865A's front end answers its defined input noise, the manual's 2.5 nV/√Hz
+    (typical at 1 kHz, 10 mV range) — the distribution itself is the lock-in component's, covered
+    on sb-lia-1 and on the SR830 through its buffer."""
+    session = open_bench(BENCH)
+    try:
+        assert float(_q(session, "OUTP? XNOise")) == pytest.approx(2.5e-9)
+        assert float(_q(session, "OUTP? YNOise")) == pytest.approx(2.5e-9)
+    finally:
+        session.close()
