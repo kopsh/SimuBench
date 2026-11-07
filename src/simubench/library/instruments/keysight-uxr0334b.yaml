@@ -60,14 +60,16 @@ specs:
   trigger_holdoff_s: [4.0e-8, 10.0]
   trigger_jitter_s_rms: 2.5e-14
   noise_floor: >-
-    published: 1.48 mV rms at 50 mV/div at maximum bandwidth for the 3.5 mm (33 GHz) models
-    (Keysight UXR specifications, keysight.com; the data sheet 3123-1313 itself publishes no
-    rms-noise table, #745/#774). White input noise at the full 33 GHz.
+    published per division: the Infiniium UXR-B Series data sheet 3123-1313's "RMS Noise Floor –
+    Performance Characteristics (Measured)" table, UXR0334B column (page 8): 266 µV rms at
+    4 mV/div (32 mV full scale) rising to 28.8 mV rms at 1 V/div (8 V full scale). The A-series
+    sheet's UXR0334A column is identical, so the B revision kept the measured table (#786).
   noise_per_division: >-
-    the published 1.48 mV rms (at 50 mV/div) held flat across the sensitive ranges to
-    100 mV/div, 0.02 * v_div above — the flat part is unverified per range, only the 50 mV/div
-    point is published (#774). About 1.9 codes rms at 10 bits (128 codes per division) at
-    0.1 V/div. Per-division values in the scope_vertical noise_table.
+    the data sheet's measured RMS Noise Floor table per full scale (4 mV/div to 1 V/div, #786).
+    The table's most sensitive setting is 4 mV/div (32 mV full scale): the 1 and 2 mV/div rows
+    hold that 266 µV (the preamp floor), and 5 mV/div interpolates 4 and 10 mV/div on log-log
+    (291 µV). About 3.7 codes rms at 10 bits (128 codes per division) at 0.1 V/div. Per-division
+    values in the scope_vertical noise_table.
 channels:
   count: 4
   overrides:
@@ -560,12 +562,14 @@ channel_components:
       scale_range: [1.0e-3, 1.0]
       offset_ranges: [[0.0545, 0.4], [0.0935, 0.7], [0.1725, 1.25], [0.3065, 2.25], [1.0, 4.0]]
       out_of_range: error
-      # 每档噪声（specs.noise_per_division，#745/#774）：50 mV/div 档的 1.48 mV rms 为公开值
-      # （Keysight UXR specifications：3.5 mm 型号最大带宽下 50 mV/div 噪声底 1.48 mV rms），
-      # 灵敏档取同一噪声底（未逐档核实），100 mV/div 以上按 0.02 格线性增大。
-      noise_table: [[1.0e-3, 1.48e-3], [2.0e-3, 1.48e-3], [5.0e-3, 1.48e-3], [1.0e-2, 1.48e-3],
-                    [2.0e-2, 1.48e-3], [5.0e-2, 1.48e-3], [1.0e-1, 1.48e-3], [2.0e-1, 4.0e-3],
-                    [5.0e-1, 1.0e-2], [1.0, 2.0e-2]]
+      # 每档噪声（specs.noise_per_division，#786）：Infiniium UXR-B 数据手册 3123-1313 的
+      # "RMS Noise Floor – Performance Characteristics (Measured)" 表，UXR0334B 列（p.8），按
+      # 满量程 32 mV–8 V（4 mV/div–1 V/div）逐档：266 µV、388 µV、702 µV、1.48 mV、2.91 mV、
+      # 6.48 mV、14.7 mV、28.8 mV。1/2 mV/div（zoom）取最灵敏档 4 mV/div 的 266 µV，
+      # 5 mV/div 为 4 与 10 mV/div 的对数-对数插值（291 µV）。A 系列手册同列同值。
+      noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4],
+                    [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3],
+                    [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]
   # 通道带宽限制：WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。
   # 手册说 Bessel 与 Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，
   # 这一组合未建模（覆盖表注明）。
