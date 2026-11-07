@@ -1,9 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
 import { useInstrumentReadings } from "@/api/hooks";
-import { stateMap } from "../model";
 import { StateField } from "../StateField";
-import { Chip, Readout } from "./parts";
+import { Chip, Readout, ScreenIdentity } from "./parts";
 
 /**
  * Electronic load front panel: input voltage, current and power, and whether the load holds its
@@ -11,8 +10,7 @@ import { Chip, Readout } from "./parts";
  */
 export function LoadScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
-  const { values: v, num } = useInstrumentReadings(sid, inst.name);
-  const vars = stateMap(inst);
+  const { values: v, num, vars } = useInstrumentReadings(sid, inst);
   const enabled = vars.get("input.enabled")?.value === true;
   const constantCurrent = vars.get("function.mode")?.value !== "CR";
   const regulating = !constantCurrent || v["load.regulating"] === true;
@@ -21,8 +19,7 @@ export function LoadScreen({ sid, inst, readonly }: { sid: string; inst: Instrum
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3 lg:grid-cols-[2fr_1fr]">
       <section className="bg-card rounded-lg border">
         <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs">
-          <span className="font-medium">{inst.label || inst.name}</span>
-          <span className="text-muted-foreground num">{inst.model}</span>
+          <ScreenIdentity inst={inst} />
           <Chip on={enabled} tone="ok">
             {enabled ? t("load.inputOn") : t("load.inputOff")}
           </Chip>

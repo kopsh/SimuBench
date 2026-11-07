@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { applyOps } from "../edit/editor";
 import { labelOf, numeric, optionLabel, stateMap } from "../model";
 import { StateField } from "../StateField";
+import { ScreenIdentity } from "./parts";
 
 type Panel = Schemas["Panel"];
 type PanelControl = Schemas["PanelControl"];
@@ -44,14 +45,15 @@ export function PanelScreen({
   const { t } = useTranslation();
   const panel = inst.display.panel as Panel;
   const softkeys = panel.softkeys ?? [];
-  const { values: fetched } = useInstrumentReadings(sid, inst.name, { enabled: !values });
+  const { values: fetched, vars: live } = useInstrumentReadings(sid, inst, { enabled: !values });
   const readings = values ?? fetched ?? {};
   const configure = useConfigure(sid);
   const action = usePanel(sid, inst.name);
   const [error, setError] = useState<string | null>(null);
 
-  const live = stateMap(inst);
-  const shown = initial ? stateMap(initial) : live; // what the controls show and set
+  // `initial` is the bench file's instrument, not the running one — its map stays here (D64's
+  // hook carries the live one).
+  const shown = initial ? stateMap(initial) : live;
   const building = !!initial;
   const disabled = !building && readonly;
 
@@ -82,8 +84,7 @@ export function PanelScreen({
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3 lg:grid-cols-[3fr_2fr]" data-testid="instrument-panel">
       <section className="bg-card rounded-lg border" aria-label={t("instPanel.display")}>
         <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2 text-xs">
-          <span className="font-medium">{inst.label || inst.name}</span>
-          <span className="text-muted-foreground num">{inst.model}</span>
+          <ScreenIdentity inst={inst} />
           {/* Where the layout comes from is for whoever builds the instrument, not part of its
               display: an info mark with the explanation on hover (#281). */}
           <Tooltip>
