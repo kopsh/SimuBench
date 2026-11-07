@@ -239,7 +239,7 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
     return value
 
 
-NOISE_KEYS = ("ppm_of_range", "ref_time_s", "table")
+NOISE_KEYS = ("ppm_of_range", "ref_time_s", "table", "rms")
 
 
 def _number(v: Any) -> bool:
@@ -247,9 +247,11 @@ def _number(v: Any) -> bool:
 
 
 def noise_problems(value: Any) -> list[tuple[str, str]]:
-    """What is wrong with a ``noise`` parameter (#746, #752), as (sub-pointer, message) pairs:
-    only ``ppm_of_range`` >= 0, ``ref_time_s`` > 0 and ``table`` (range -> rms, both >= 0) are
-    allowed. None is noiseless; a state binding is checked where it is resolved."""
+    """What is wrong with a ``noise`` parameter (#746, #752, #750), as (sub-pointer, message) pairs:
+    only ``ppm_of_range`` >= 0, ``ref_time_s`` > 0, ``table`` (range -> rms, both >= 0) and ``rms``
+    (an absolute rms, >= 0, or a mapping of reading quantity -> rms) are allowed; ``rms`` is for the
+    components without a range concept and excludes ``ppm_of_range``/``table``. None is noiseless; a
+    state binding is checked where it is resolved."""
     if value is None or binding_of(value) is not None:
         return []
     allowed = ", ".join(NOISE_KEYS)
@@ -263,6 +265,15 @@ def noise_problems(value: Any) -> list[tuple[str, str]]:
             out.append((k, f"ppm_of_range 应是 ≥ 0 的数，得到 {v!r}"))
         elif k == "ref_time_s" and not (_number(v) and v > 0):
             out.append((k, f"ref_time_s 应是 > 0 的数，得到 {v!r}"))
+        elif k == "rms" and not (
+            (_number(v) and v >= 0)
+            or (
+                isinstance(v, dict)
+                and v
+                and all(isinstance(rk, str) and _number(rv) and rv >= 0 for rk, rv in v.items())
+            )
+        ):
+            out.append((k, f"rms 应是 ≥ 0 的数，或“读数量 → rms”的非空映射，得到 {v!r}"))
         elif k == "table" and v is not None:
             if not isinstance(v, dict):
                 out.append((k, f"table 应是“量程 → rms”的映射，得到 {v!r}"))
@@ -276,6 +287,10 @@ def noise_problems(value: Any) -> list[tuple[str, str]]:
                     out.append((f"{k}/{rk}", f"table 的键（量程）应是 ≥ 0 的数，得到 {rk!r}"))
                 elif not (_number(rv) and rv >= 0):
                     out.append((f"{k}/{rk}", f"table[{rk!r}] 的 rms 应是 ≥ 0 的数，得到 {rv!r}"))
+    if isinstance(value, dict) and "rms" in value and ("ppm_of_range" in value or "table" in value):
+        out.append(
+            ("", "rms 与 ppm_of_range/table 不同时给：有量程的读数用 ppm_of_range/table，无量程的用 rms")
+        )
     return out
 
 
@@ -417,18 +432,32 @@ class Component:
             return 0.0
         return sigma * float(gaussian(stream_key(self.session.seed, self.uid, stream, *key), np.zeros(1))[0])
 
-    def noise_rms(self, range_: float | None, integration_s: float) -> float:
+    def noise_rms(self, range_: float | None, integration_s: float, quantity: str | None = None) -> float:
         """The rms of this component's reading noise (the ``noise`` parameter) on ``range_`` at an
         integration time: ``ppm_of_range`` of the range, or the ``table`` entry for that range, at the
-        reference time ``ref_time_s``, falling as the square root of the integration time. 0 when the
-        parameter is unset (every definition before #746) or the component has no range."""
+        reference time ``ref_time_s``, falling as the square root of the integration time. A component
+        without a range concept gives an absolute ``rms`` instead — a number, or a mapping that
+        ``quantity`` picks from (#750). 0 when the parameter is unset (every definition before #746)
+        or nothing applies."""
         spec = self.param("noise")
-        if not isinstance(spec, dict) or range_ is None:
+        if not isinstance(spec, dict):
+            return 0.0
+        if "rms" in spec:
+            rms = spec["rms"]
+            if isinstance(rms, dict):
+                if quantity is None:
+                    return 0.0
+                rms = rms.get(quantity, 0.0)  # a quantity the definition does not name reads noiseless
+            return self._scaled_rms(float(rms), spec, integration_s)
+        if range_ is None:
             return 0.0
         table = spec.get("table") or {}
         rms = next((float(v) for k, v in table.items() if math.isclose(float(k), range_)), None)
         if rms is None:
             rms = float(spec.get("ppm_of_range", 0.0)) * 1e-6 * abs(range_)
+        return self._scaled_rms(rms, spec, integration_s)
+
+    def _scaled_rms(self, rms: float, spec: dict[str, Any], integration_s: float) -> float:
         ref = float(spec.get("ref_time_s", 0.02))
         if integration_s > 0 and ref > 0:
             rms *= math.sqrt(ref / integration_s)

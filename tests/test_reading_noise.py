@@ -15,6 +15,7 @@ SOURCE = Path(__file__).resolve().parent / "models" / "meter-core-test" / "meter
 ROOT = Path(__file__).resolve().parents[1]
 KEYSIGHT_34465A = ROOT / "examples" / "benches" / "keysight-34465a.bench.yaml"
 KEYSIGHT_34970A = ROOT / "examples" / "benches" / "keysight_34970a.bench.yaml"
+KEYSIGHT_E36312A = ROOT / "examples" / "benches" / "keysight_e36312a.bench.yaml"
 LEVEL = 5.0
 PPM = 20.0  # of the 10 V range at the reference time: rms 200 uV
 NPLC_TIMES = "{0.02: 0.0004, 0.2: 0.004, 1: 0.02, 10: 0.2}"
@@ -232,6 +233,10 @@ def test_scan_channels_draw_independently_around_their_own_values():
         ("{ppm_of_range: 1, table: {10: -1}}", "-1"),
         ("{ppm_of_range: 1, ref_time_s: 0}", "ref_time_s"),
         ("{ppm_of_range: 1, ref_time_s: -1}", "ref_time_s"),
+        ("{rms: -1}", "-1"),
+        ("{rms: {voltage: abc}}", "abc"),
+        ("{rms: 1, ppm_of_range: 2}", "不同时给"),
+        ("{rms: 1, table: {10: 2}}", "不同时给"),
         ("5", "noise"),
     ],
 )
@@ -248,3 +253,118 @@ def test_an_empty_noise_parameter_is_still_noiseless(tmp_path):
     with open_noisy(tmp_path, noise="null") as s:
         a = reads(s, 2)
     assert a[0] == a[1]
+
+
+# ---- the range-less readbacks: an absolute noise.rms (#750) -------------------------------------
+
+
+def test_an_eload_meter_reads_with_noise_per_reading_and_per_frame(tmp_path):
+    """The load's readings take an absolute ``noise.rms`` per quantity (#750 — the load has no
+    ranges): the script's reads draw around the solved value, the panel's frames draw on their
+    own, the same seed replays bit for bit."""
+    spec = {
+        "name": "eload-noise",
+        "instruments": {
+            "src": {"model": "sb-smu-1", "state": {"source.voltage.level": LEVEL, "output.enabled": True}},
+            "el": {
+                "model": "rigol-dl3021",
+                "state": {"function.mode": "CURRent", "current.level": 0.01, "input.enabled": True},
+            },
+        },
+        "wires": [{"from": "src.HI", "to": "el.IN"}],
+        "run": {"clock": "command", "seed": 5, "idle": "off"},
+    }
+
+    def meas(s, cmd: str = ":MEAS:VOLT?") -> float:
+        s.write("el", (cmd + "\n").encode())
+        out = s.read("el")
+        return float(out.decode().strip().lstrip("+"))
+
+    def opened() -> tuple:
+        s = open_bench(BenchDefinition.model_validate(spec), definition_dirs=[definition_dir(tmp_path, None)])
+        s.instruments["el"].components["load"].overrides["noise"] = {
+            "rms": {"voltage": 1.0e-4, "current": 1.0e-5}
+        }
+        return s
+
+    with open_bench(BenchDefinition.model_validate(spec)) as s:
+        assert len({meas(s) for _ in range(3)}) == 1  # default: noiseless
+    s = opened()
+    try:
+        meter = s.instruments["el"].components["load"]
+        script = [meas(s) for _ in range(40)]
+        frames = [meter.readings()["values"]["voltage"] for _ in range(40)]
+    finally:
+        s.close()
+    assert len(set(script)) > 20
+    assert statistics.mean(script) == pytest.approx(LEVEL, abs=4 * 1e-4 / math.sqrt(40))
+    assert len(set(frames)) > 20 and frames != script
+    s = opened()
+    try:
+        again = [meas(s) for _ in range(40)]
+    finally:
+        s.close()
+    assert again == script
+
+
+def test_a_supply_readback_reads_with_noise_per_reading_and_per_frame():
+    """The supply channel's readback takes an absolute ``noise.rms`` per quantity (#750): the
+    MEASure reads draw around the set level, the panel's frames draw on their own."""
+    with open_bench(KEYSIGHT_E36312A, idle="off") as s:
+        read = s.instruments["psu"].components["ch1.read"]
+        # The channel's default current is 0 (CC holds 0 A, 0 V): set the operating point first,
+        # as tests/test_keysight_e36312a.py does — 5 V set, 0.1 A into the 10 ohm load reads 1 V.
+        session_query(s, "psu", "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI")
+        plain = {float(session_query(s, "psu", "MEAS:VOLT? (@1)")) for _ in range(3)}
+        assert len(plain) == 1  # default: noiseless
+        read.overrides["noise"] = {"rms": {"voltage": 1.0e-3, "current": 5.0e-4}}
+        script = [float(session_query(s, "psu", "MEAS:VOLT? (@1)")) for _ in range(40)]
+        frames = [read.readings()["values"]["voltage"] for _ in range(40)]
+    assert len(set(script)) > 20
+    assert statistics.mean(script) == pytest.approx(1.0, abs=4 * 1e-3 / math.sqrt(40))
+    assert len(set(frames)) > 20 and frames != script
+
+
+def test_a_calibrator_readback_draws_per_frame_and_replays():
+    """The calibrator's readback takes an absolute ``noise.rms`` (a calibrator has no measurement
+    ranges, #750): every panel frame draws around the settled output; the same seed replays."""
+
+    def opened(noise: dict | None) -> tuple:
+        s = open_bench(
+            BenchDefinition.model_validate(
+                {
+                    "name": "cal-noise",
+                    "instruments": {"cal": {"model": "fluke-5522a", "deviation": "nominal"}},
+                    "parts": {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}},
+                    "wires": [{"from": "cal.OUT", "to": "r.A"}],
+                    "run": {"clock": "command", "seed": 3, "idle": "off"},
+                }
+            )
+        )
+        out = s.instruments["cal"].components["out"]
+        for cmd in ("OUT 1 V", "OPER", "*OPC?"):
+            s.write("cal", (cmd + "\n").encode())
+            s.read("cal")
+        if noise:
+            out.overrides["noise"] = noise
+        return s, out
+
+    s, out = opened(None)
+    try:
+        base = out.readings()["values"]["voltage"]
+        assert [out.readings()["values"]["voltage"] for _ in range(3)] == [base] * 3  # noiseless default
+    finally:
+        s.close()
+    s, out = opened({"rms": 5.0e-4})
+    try:
+        frames = [out.readings()["values"]["voltage"] for _ in range(40)]
+    finally:
+        s.close()
+    assert len(set(frames)) > 20
+    assert statistics.mean(frames) == pytest.approx(base, abs=4 * 5e-4 / math.sqrt(40))
+    s, out = opened({"rms": 5.0e-4})
+    try:
+        again = [out.readings()["values"]["voltage"] for _ in range(40)]
+    finally:
+        s.close()
+    assert again == frames
