@@ -632,12 +632,32 @@ class SimuBenchApp(App[None]):
             self.exit()
 
     def action_fault(self) -> None:
-        """``f``: inject a fault on the session (tui-screens.md 8); works while remote (D32)."""
+        """``f``: inject a fault on the focused instrument (tui-screens.md 8); works while remote (D32)."""
         from .screens.faultdialog import FaultDialog
 
         if self.conn != "connected":
             return
-        self.push_screen(FaultDialog())
+        instrument = self._focused_instrument()
+        if instrument is None:
+            return
+        self.push_screen(FaultDialog(instrument=instrument))
+
+    def _focused_instrument(self) -> str | None:
+        """The instrument the current screen is acting on (tui-screens.md 8): the overview's
+        focused card, or an instrument/scope screen's own subject. Without a subject the dialog
+        could only compose faults the engine rejects (every kind needs an instrument or a
+        component), so ``f`` does nothing."""
+        from .screens.instrument import InstrumentScreen
+        from .screens.overview import Card, OverviewScreen
+        from .screens.scope import ScopeScreen
+
+        screen = self.screen
+        if isinstance(screen, OverviewScreen):
+            focused = screen.focused
+            return focused.card.name if isinstance(focused, Card) else None
+        if isinstance(screen, InstrumentScreen | ScopeScreen):
+            return screen.instrument_name
+        return None
 
     def action_advance(self) -> None:
         """``a``: step the virtual clock (tui-screens.md 11.2)."""

@@ -355,6 +355,8 @@ def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
             await pilot.pause(0.05)
             if tui.conn != "connected" or not tui.session_info:
                 continue
+            await pilot.press("1")  # focus the first card: `f` acts on the focused instrument (8)
+            await pilot.pause(0.05)
             await pilot.press("f")
             await pilot.pause(0.1)
             from simubench.tui.screens.faultdialog import FaultDialog
