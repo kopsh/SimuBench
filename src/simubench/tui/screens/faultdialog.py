@@ -48,6 +48,38 @@ def fields_for_kind(kind: str) -> tuple[str, ...]:
     return FIELDS.get(kind, ())
 
 
+def net_components(session: dict[str, Any] | None, net: str | None) -> list[str]:
+    """The parts (DUTs) with a port on ``net``, in session order — the candidates for a component
+    fault opened from the nets screen (tui-screens.md 8)."""
+    if not net:
+        return []
+    return [
+        p["name"]
+        for p in (session or {}).get("parts", [])
+        if any(q.get("net") == net for q in p.get("ports", []))
+    ]
+
+
+def faults_of_subject(
+    faults: list[dict[str, Any]], instrument: str | None, components: list[str] | None
+) -> list[dict[str, Any]]:
+    """The faults in effect (active / pending) that belong to the dialog's subject: an instrument
+    (its own, its components' ``inst/name``) or a net's components."""
+    out = []
+    for f in faults:
+        if f.get("status") not in ("active", "pending"):
+            continue
+        spec = f.get("spec") or {}
+        comp = spec.get("component") or ""
+        if instrument:
+            mine = spec.get("instrument") == instrument or comp.startswith(f"{instrument}/")
+        else:
+            mine = comp in (components or [])
+        if mine:
+            out.append(f)
+    return out
+
+
 def build_spec(
     kind: str, instrument: str | None, values: dict[str, Any], components: list[str] | None = None
 ) -> dict[str, Any]:
@@ -114,6 +146,16 @@ class FaultDialog(ModalScreen[dict | None]):
         self.instrument = instrument
         self.net = net
         self._busy = False
+        self.components: list[str] = []
+
+    def _groups(self) -> list[tuple[str, tuple[str, ...]]]:
+        """From the nets screen only the component kinds apply (8): the net has no instrument."""
+        if self.net and not self.instrument:
+            return [g for g in GROUPS if g[0] == "component"]
+        return GROUPS
+
+    def _mine(self) -> list[dict[str, Any]]:
+        return faults_of_subject(list(self.app.faults or []), self.instrument, self.components)  # type: ignore[attr-defined]
 
     def compose(self) -> ComposeResult:
         with Vertical(id="fd-box"):
@@ -125,7 +167,7 @@ class FaultDialog(ModalScreen[dict | None]):
         yield Static(i18n.t("fault.title", lang) + (f" · {subject}" if subject else ""), classes="fd-title")
         yield Static("", id="fd-active")  # this instrument's faults in effect, at the top (8)
 
-        for group, kinds in GROUPS:
+        for group, kinds in self._groups():
             yield Static(i18n.t(f"fault.group_{group}", lang), classes="fd-group")
             yield RadioSet(
                 *[RadioButton(i18n.t(f"fault.kinds.{k}", lang), name=k) for k in kinds],
@@ -139,26 +181,35 @@ class FaultDialog(ModalScreen[dict | None]):
             yield Button(i18n.t("common.cancel", lang), id="fd-cancel")
 
     def on_mount(self) -> None:
+        if self.net and not self.instrument:
+            self.components = net_components(self.app.session_info, self.net)  # type: ignore[attr-defined]
         self._refresh_fields()
         self._refresh_active()
-        self.query_one("#fd-group-communication", RadioSet).focus()
+        first = self._groups()[0][0]
+        radios = self.query_one(f"#fd-group-{first}", RadioSet)
+        if first == "component":
+            radios.query(RadioButton).first().value = True
+        radios.focus()
 
     # ---- fields per kind ------------------------------------------------------------------------------------
 
     def _kind(self) -> str:
-        for group, _kinds in GROUPS:
+        for group, _kinds in self._groups():
             radios = self.query_one(f"#fd-group-{group}", RadioSet)
             pressed = radios.pressed_button
             if pressed is not None:
                 return pressed.name or "timeout"
-        return "timeout"
+        return self._groups()[0][1][0]
 
     def _refresh_fields(self) -> None:
         lang = self.app.lang
         box = self.query_one("#fd-fields", Static)
         box.remove_children()
         for name in fields_for_kind(self._kind()):
-            box.mount(Horizontal(Label(i18n.t(f"fault.{name}", lang)), Input(id=f"fd-f-{name}")))
+            preset = self.components[0] if name == "component" and self.components else ""
+            box.mount(
+                Horizontal(Label(i18n.t(f"fault.{name}", lang)), Input(value=preset, id=f"fd-f-{name}"))
+            )
         box.mount(Horizontal(Label(i18n.t("fault.at", lang)), Input(id="fd-f-at_s")))
         box.mount(Horizontal(Label(i18n.t("fault.duration", lang)), Input(id="fd-f-duration_s")))
         effect = i18n.t(f"fault.kindHints.{self._kind()}", lang)
@@ -186,9 +237,14 @@ class FaultDialog(ModalScreen[dict | None]):
         app: Any = self.app
         self._busy = True
         error = self.query_one("#fd-error", Static)
+        if self.net and not self.instrument and not self.components:
+            error.update(i18n.t("fault.noNetComponents", app.lang, net=self.net))
+            error.display = True
+            self._busy = False
+            return
         try:
             info = await app.client.inject_fault(
-                app.sid, build_spec(self._kind(), self.instrument, self._collect())
+                app.sid, build_spec(self._kind(), self.instrument, self._collect(), self.components)
             )
         except Exception as exc:
             error.update(str(exc))
@@ -201,7 +257,7 @@ class FaultDialog(ModalScreen[dict | None]):
 
     def _refresh_active(self) -> None:
         app: Any = self.app
-        mine = [f for f in app.faults or [] if f.get("status") in ("active", "pending")]
+        mine = self._mine()
         box = self.query_one("#fd-active", Static)
         if not mine:
             box.display = False
@@ -217,7 +273,7 @@ class FaultDialog(ModalScreen[dict | None]):
 
     def action_revoke(self) -> None:
         app: Any = self.app
-        mine = [f for f in app.faults or [] if f.get("status") in ("active", "pending")]
+        mine = self._mine()
         if not mine:
             return
 

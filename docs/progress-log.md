@@ -1643,3 +1643,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `mux_card` | ✅ 不带 `noise`:它只有继电器与模拟总线,`readings()` 只给闭合通道清单,没有测量读数;数据采集的读数噪声在内部 DMM |
 | 校准源回读只作用于面板 | ✅ 校准源没有脚本侧电压回读命令(脚本读输出电压靠接在输出上的万用表),回读噪声只作用于 Web 面板帧,按面板帧计数抽样;因此没有「脚本/面板互不影响」用例,理由写在 `tests/test_reading_noise.py::test_a_calibrator_readback_draws_per_frame_and_replays` |
 | 测试 | ✅ `tests/test_reading_noise.py`:校准源回读每帧不同、均值在真值附近、同种子重放一致 |
+
+## 故障对话框按 subject 限定可注入类型(Issue 789)
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 网络屏 `f` 只列元件故障,元件为所选网络上的元件 | ✅ `FaultDialog(net=…)` 只出「元件」一组(drift / hidden),元件取 `session_info.parts` 里端口落在该网络的部件(`net_components`),预选第一个,并传给 `build_spec`;网络上没有部件时在 `#fd-error` 说明而不发请求 |
+| `#fd-active` 只列本 subject 的故障 | ✅ `faults_of_subject`:仪表打开时取该仪表的故障与其元件(`inst/name`)的故障,网络打开时取该网络元件的故障 |
+| 测试 | ✅ `tests/test_tui_t3.py`:网络屏注入 drift 成功并关闭对话框、只列元件组;生效列表按 subject 过滤 |

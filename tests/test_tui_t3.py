@@ -294,3 +294,65 @@ async def test_nets_reason_quotes_sources_and_lines():
         line = SCOPE_BENCH["probe_net-0"]["lines"][0]
         assert fmt(float(line["freq_hz"]), "Hz") in text  # the spectral line
         assert "net-0" in text
+
+
+# ---- the fault dialog's subject (#789) -----------------------------------------------------------------
+
+
+async def test_nets_screen_fault_dialog_lists_only_component_kinds_and_injects_on_the_net():
+    """``f`` on the nets screen (8): the dialog lists only the component kinds, the component is
+    the part on the selected net (preselected), the inject carries it, and the dialog closes."""
+    tui, fake = unit_app(fresh(SCOPE_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_nets(pilot, tui)
+        from textual.widgets import Button, Input, RadioSet
+
+        from simubench.tui.screens.faultdialog import FaultDialog, net_components
+        from simubench.tui.screens.nets import NetsScreen
+
+        net = tui.screen.selected
+        assert net_components(tui.session_info, net) == ["rc"]  # rc has a port on net-0
+        assert isinstance(tui.screen, NetsScreen)
+        await pilot.press("f")
+        await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
+        dlg = tui.screen
+        assert [r.id for r in dlg.query(RadioSet)] == ["fd-group-component"]  # no comm/instrument kinds
+        await pilot.pause(0.3)
+        assert dlg.query_one("#fd-f-component", Input).value == "rc"  # preselected
+        dlg.query_one("#fd-f-param", Input).value = "r"
+        dlg.query_one("#fd-f-drift_per_s", Input).value = "1"
+        dlg.query_one("#fd-inject", Button).press()
+        await wait_for(pilot, lambda: bool(fake.fault_list), message="injected")
+        spec = fake.fault_list[0]["spec"]
+        assert spec["kind"] == "drift" and spec["component"] == "rc" and "instrument" not in spec
+        await wait_for(pilot, lambda: not isinstance(tui.screen, FaultDialog), message="dialog closed")
+
+
+async def test_fault_dialog_active_list_is_the_subjects_own():
+    """``#fd-active`` lists the dialog subject's faults only (8): an instrument's own and its
+    components', a net's components — not the whole session's."""
+    tui, _fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        from simubench.tui.screens.faultdialog import FaultDialog, faults_of_subject
+        from test_tui_t2 import focus_card
+
+        def fault(fid: str, **spec) -> dict:
+            return {"id": fid, "status": "active", "description": fid, "spec": spec}
+
+        tui.faults = [
+            fault("f-1", kind="timeout", instrument="smu"),
+            fault("f-2", kind="timeout", instrument="other"),
+            fault("f-3", kind="hidden", component="smu/meter"),
+            fault("f-4", kind="drift", component="rc"),
+            {**fault("f-5", kind="timeout", instrument="smu"), "status": "ended"},
+        ]
+        assert [f["id"] for f in faults_of_subject(tui.faults, "smu", None)] == ["f-1", "f-3"]
+        assert [f["id"] for f in faults_of_subject(tui.faults, None, ["rc"])] == ["f-4"]
+        await focus_card(pilot, tui, "smu")
+        await pilot.press("f")
+        await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
+        text = flat(tui.screen)
+        assert "f-1" in text and "f-3" in text
+        assert "f-2" not in text and "f-4" not in text and "f-5" not in text
