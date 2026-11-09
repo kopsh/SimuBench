@@ -32,6 +32,7 @@ plausible fake).
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
 | Category default blocks (per class) and the definition deep merge (D59) | `library/class_defaults.py` |
 | Coverage tables & manual cases (D42) | `library/coverage.py` |
+| The packaged Hello World bench, copied into a workspace by `POST /api/benches/hello` (D65) | `library/examples/hello.bench.yaml`, `server/benchfiles.py` (`create_hello`) |
 | File models (pydantic) → JSON Schema | `models/bench.py` (`simubench.bench/2`), `models/definition.py` (`simubench.instrument/1`) |
 | HTTP/WS message models → OpenAPI | `models/api.py` |
 | FastAPI app / sessions served / component catalog | `server/app.py`, `server/manager.py`, `server/catalog.py` |
