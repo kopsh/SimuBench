@@ -133,18 +133,20 @@ CLI：`simubench shared login | search | install | upgrade | publish | list`。
 
 ## 8. 界面
 
-原型：[prototypes/instrument-sharing.html](prototypes/instrument-sharing.html)（静态页，浏览器直接打开；
-颜色取自 `web/src/styles/globals.css`，黄色便签是给实施者的说明）。截图：
+原型：[prototypes/instrument-sharing.html](prototypes/instrument-sharing.html)（静态页，浏览器直接打开）。
+它画在 main（1567eb5，#843）**现有的**网页界面上：首页「真实型号，按手册实现」仪表库区块、仪表验收页
+（`/i/:id`，标签行 + 概览/命令/内部结构/试运行/用例/修改记录）、工作台「搭建」模式的元件库、右上角的引擎胶囊与设置菜单；
+虚线框标出新增的控件，其余照搬现状，黄色便签是给实施者的说明。截图：
 
-| 屏 | 内容 | 截图 |
+| 屏 | 在现有界面上加什么 | 截图 |
 | --- | --- | --- |
-| P1 | 首页仪表库：来源分段（全部/我的/共享/内置）+ 类别标签；三组卡片与徽标（我的、共享、有新版本、已撤回）；「导入定义包」「在共享库中搜索」 | [p1](prototypes/instrument-sharing/p1.png) |
-| P2 | 共享库抽屉：搜索、发布者/类别筛选、行内按钮随本地状态变；安装对话框列出要写入的文件、父型号变化提示 | [p2](prototypes/instrument-sharing/p2.png) |
-| P3 | 发布对话框：发布到（自己/团队）、名称、可见性三档（默认团队）、变更说明、发布前检查（✕ 禁用发布，本地祖先展平提示） | [p3](prototypes/instrument-sharing/p3.png) |
-| P4 | 共享仪表验收页：头部只读标识、版本、来源；新版本横幅；「历史」标签换成「版本」；复制为我的仪表、卸载 | [p4](prototypes/instrument-sharing/p4.png) |
-| P5 | 升级对话框：`definition_changes` 变更列表、受影响测试台、升级后跑用例 | [p5](prototypes/instrument-sharing/p5.png) |
-| P6 | 工作台：元件库三分组；测试台引用未安装的共享仪表时节点画成缺失、问题面板给 `E-SHARED-NOT-INSTALLED` 与「安装」 | [p6](prototypes/instrument-sharing/p6.png) |
-| P7 | 设置 · 共享库：地址、登录状态（已连接/未登录/连不上/未配置） | [p7](prototypes/instrument-sharing/p7.png) |
+| P1 | 首页仪表库区块：类别标签前加来源分段（全部/我的/共享/内置）；共享卡片第二行 `@发布者 · 版本`，徽标 共享/有新版本/已撤回；搜索有输入且连上共享库时，网格下出「共享库里还有 N 个」；缺型号提示里加「导入定义包」；顶栏加「共享库」胶囊 | [p1](prototypes/instrument-sharing/p1.png) |
+| P2 | 安装对话框（从 P1 的结果行打开）：版本、要写入的文件、父型号变化提示；装完打开验收页 | [p2](prototypes/instrument-sharing/p2.png) |
+| P3 | 工作区定义的验收页头部加「发布到共享库」；发布对话框：发布到、名称、可见性（默认团队）、变更说明、发布前检查 | [p3](prototypes/instrument-sharing/p3.png) |
+| P4 | 共享仪表的验收页：标签行的「内置定义/工作区定义」换成 `@发布者 · 版本 共享`；新版本横幅；「⋯」菜单（在共享库中打开、重新安装、卸载）；「修改记录」标签列共享库上的版本 | [p4](prototypes/instrument-sharing/p4.png) |
+| P5 | 升级对话框：变更列表（与「修改记录」同一组件）、受影响测试台、升级后跑用例 | [p5](prototypes/instrument-sharing/p5.png) |
+| P6 | 工作台「搭建」：元件库的仪表分 我的/共享/内置 三组；未安装的共享仪表画成虚线红框节点，「问题」里给 `E-SHARED-NOT-INSTALLED` 与安装按钮 | [p6](prototypes/instrument-sharing/p6.png) |
+| P7 | 共享库连接：顶栏胶囊点开的弹层（已连接/未登录/连不上），设置菜单加「共享库…」（现有菜单只有主题、语言、关于与诊断，没有设置页） | [p7](prototypes/instrument-sharing/p7.png) |
 
 规则（原型之外也成立）：
 
@@ -241,10 +243,10 @@ blobs/<bundle_sha256>.sbdef   # 内容寻址，写一次
 | W1 | `@owner/id` 解析与只读 | — | `library/loader.py`（`Library.path`、`_extends_target`）、`definitionfiles.py`、`models/bench.py` 描述 | `@a/b` 在 `instruments/@a/b.yaml` 找到；裸 id 查找顺序不变；`extends: "@a/b"` 生效；编辑返回 403（`test_shared_resolve.py`） |
 | W2 | `shared.lock` 与完整性校验 | W1 | `models/shared.py`、`library/shared.py`、`engine/validate.py` 接入两条诊断码 | 改一字节 → `E-SHARED-MODIFIED`；缺文件 → `E-SHARED-NOT-INSTALLED`；lock 输出逐字节稳定 |
 | W3 | 定义包导出/导入（无 hub） | W2 | `library/bundle.py`；CLI `shared export <id> -o x.sbdef`、`shared import x.sbdef --as @a/b` | 本地祖先被展平、内置父保留并记哈希；恶意包（`..`、链接、多余文件、超限）被拒；导入记版本历史（`Source` 加 `"shared"`） |
-| W4 | 目录来源字段与仪表库三分组 | W1 | `DefinitionSummary.source`/`shared`（保留 `workspace` 一个版本）；`web/` 首页与元件库分组（原型 P1、P6 左栏）、验收页头部（P4）、导入定义包；i18n | API 类型重新生成；分组顺序 我的→共享→内置；未配置 hub 时无共享搜索入口（vitest + 一条 e2e） |
+| W4 | 目录来源字段与仪表库三分组 | W1 | `DefinitionSummary.source`/`shared`（保留 `workspace` 一个版本）；`web/` 首页仪表库区块的来源分段与徽标（P1）、搭建模式元件库分组（P6 左栏）、验收页标签行（P4）、导入定义包；i18n | API 类型重新生成；分组顺序 我的→共享→内置；未配置 hub 时无共享搜索入口（vitest + 一条 e2e） |
 | W5 | 卸载与引用检查 | W2 | `/api/shared/{owner}/{id}` DELETE；CLI `shared remove` | 被引用时 409 列出测试台；卸载按 lock 的 files 删除且只删这些 |
 | W6 | `simubench hub` 服务骨架 | W3 | `hub/app.py`、`hub/store.py`（SQLite）、第 7.1 节路由、第 10.5 节表；CLI `hub --db --blobs --port` | 发布→列表→下载→撤回闭环；同版本不可覆盖；服务端重跑校验；OpenAPI 进 `schemas/` |
-| W7 | 本机客户端与登录 | W6 | `shared login/search/install/upgrade/publish`；`/api/shared/*` 转发；令牌存用户配置目录；界面：共享库抽屉与安装（P2）、发布（P3）、设置（P7）、工作台缺失仪表（P6） | 令牌不出现在诊断包、日志、运行记录（`test_security.py` 加一条）；hub 不可达时本地全部功能通过 |
+| W7 | 本机客户端与登录 | W6 | `shared login/search/install/upgrade/publish`；`/api/shared/*` 转发；令牌存用户配置目录；界面：首页共享库结果与安装（P1、P2）、发布（P3）、共享库胶囊与设置菜单（P7）、工作台缺失仪表（P6） | 令牌不出现在诊断包、日志、运行记录（`test_security.py` 加一条）；hub 不可达时本地全部功能通过 |
 | W8 | 升级与变更 | W7 | upgrade 返回 `definition_changes`；新版本横幅与「版本」标签（P4）、升级对话框（P5） | 升级记版本历史；撤回版本仍可用并提示 |
 | W9 | 可见性、团队、SSO、审计 | W6 | hub 认证中间件（OIDC 或反代头二选一，见第 12 节问题 1）、`members` | 未授权用户搜不到 team 级、下载 404（不是 403，不泄露存在） |
 | W10 | MCP 工具 | W7 | `search_shared`、`install_shared`（`confirm=true`） | 无发布工具；`tests/test_mcp.py` 覆盖 |
