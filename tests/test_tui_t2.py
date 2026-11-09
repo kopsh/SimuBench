@@ -49,14 +49,18 @@ async def focus_card(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0)
 
 
 async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
-    """Two keystrokes from the overview: the digit key, then Enter (tui-screens.md 2.3)."""
+    """Two keystrokes from the overview: the digit key, then Enter (tui-screens.md 2.3).
+
+    A data refresh between the keystrokes can rebuild the grid and drop the focus (the rebuild
+    restores it only after the next refresh), so the pair is retried until the screen is on top
+    -- the same race focus_card already retried for the digit key alone."""
     from simubench.tui.screens.instrument import InstrumentScreen
     from simubench.tui.screens.scope import ScopeScreen
 
-    await focus_card(pilot, tui, name, timeout)
-    await pilot.press("enter")
     end = asyncio.get_running_loop().time() + timeout
     while asyncio.get_running_loop().time() < end:
+        await focus_card(pilot, tui, name, timeout=max(0.5, end - asyncio.get_running_loop().time()))
+        await pilot.press("enter")
         await pilot.pause(0.05)
         screen = tui.screen
         if isinstance(screen, InstrumentScreen | ScopeScreen) and screen.instrument_name == name:
