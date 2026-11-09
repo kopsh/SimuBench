@@ -127,10 +127,28 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
                     stable, version = 0, tui.data_version
             strips = tui.screen._compositor.render_strips()
             flat_text = "\n".join("".join(seg.text for seg in strip) for strip in strips)
-            if "measured" in flat_text or "9.9" in flat_text:  # the smu card's readings rendered
-                # The log drawer shows the newest rows, and the demo service has served other tests'
-                # commands by now: pin the log to the demo's own first records so the picture does
-                # not depend on which tests ran before it.
+            # Everything the picture shows must have arrived: the dmm card's measured volts
+            # (rendered at both sizes), the RC card's measured values where that card renders
+            # (100x32 only), and the fixture's whole log (its last line is the panel stop).
+            # Under load the app syncs these later, and a partial state once captured a
+            # different picture (#850).
+            if (
+                "9.999000" in flat_text
+                and ("100.000 nF" in flat_text or size == (80, 24))
+                and tui.lines
+                and tui.lines[-1].kind == "panel"
+            ):
+                # Pin the log to the fixture's own records (tui-screens.md 4): the demo service
+                # may serve other tests' commands later. Trim after freezing the log view: the
+                # store keeps receiving events, and a maintenance pass would rebuild the list
+                # from the whole store, undoing the trim (#850).
+                maintenance = tui._maintenance
+
+                async def frozen_maintenance() -> None:
+                    tui._dirty_lines = False  # the rebuild would un-pin the log
+                    await maintenance()
+
+                tui._maintenance = frozen_maintenance
                 del tui.lines[6:]
                 tui.bump()
                 await pilot.pause(0.5)
@@ -331,7 +349,14 @@ def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
                 text = "\n".join(
                     "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
                 )
-                if ("net-0" in text and "直流" in text) or ("DC" in text and "net-0" in text):
+                # The list renders the levels fetch and the probe pane draws the stopped scope's
+                # last acquisition (braille trace, screen_data); under load either lands late and
+                # the capture once happened before they did (#850): hold for the data, not the
+                # layout.
+                trace = any(0x2800 <= ord(c) <= 0x28FF for c in text)
+                if (
+                    ("net-0" in text and "直流" in text) or ("DC" in text and "net-0" in text)
+                ) and (tui.levels or {}).get("nets") and trace:
                     return
         raise AssertionError("the nets screen never settled")
 
