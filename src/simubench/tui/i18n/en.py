@@ -343,6 +343,7 @@ TERMS: dict = {
         "activeCount": "{count} fault(s) in effect (Delete revokes the last)",
         "clear": "Revoke the fault",
         "clearBody": "Revoke fault {fault_id}? Its effect ends with it.",
+        "noNetComponents": "No component is wired to net {net}; component faults need one.",
     },
     "clock": {
         "advanceTitle": "Advance the virtual clock",

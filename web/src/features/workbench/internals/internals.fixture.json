@@ -47,6 +47,12 @@
             "unit": null
           },
           {
+            "name": "digitize_stops",
+            "value": false,
+            "binding": null,
+            "unit": null
+          },
+          {
             "name": "mode",
             "value": "AUTO",
             "binding": "trigger.mode",
@@ -115,12 +121,6 @@
             "unit": null
           },
           {
-            "name": "noise_rms",
-            "value": 3.577708763999664e-05,
-            "binding": null,
-            "unit": null
-          },
-          {
             "name": "noise_key",
             "value": "time",
             "binding": null,
@@ -135,6 +135,30 @@
           {
             "name": "trigger_jitter_s",
             "value": 1e-11,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "processing",
+            "value": "normal",
+            "binding": "acquire.type",
+            "unit": null
+          },
+          {
+            "name": "averages",
+            "value": 16,
+            "binding": "acquire.average",
+            "unit": null
+          },
+          {
+            "name": "eres_bits",
+            "value": 0.5,
+            "binding": "acquire.eres",
+            "unit": null
+          },
+          {
+            "name": "peak_max_oversample",
+            "value": 64,
             "binding": null,
             "unit": null
           },
@@ -194,18 +218,6 @@
             "unit": null
           },
           {
-            "name": "averaging",
-            "value": false,
-            "binding": "acquire.type",
-            "unit": null
-          },
-          {
-            "name": "averages",
-            "value": 16,
-            "binding": "acquire.average",
-            "unit": null
-          },
-          {
             "name": "completion",
             "value": "pending",
             "binding": null,
@@ -259,6 +271,120 @@
             "net": null,
             "channel": null
           }
+        ],
+        "settings": [
+          "trigger.mode",
+          "acquire.type",
+          "acquire.average",
+          "acquire.eres"
+        ],
+        "commands": [
+          {
+            "header": "*CAL",
+            "via": "op:acq.self_cal",
+            "set": false,
+            "query": true
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "via": "op:acq.figure",
+            "set": false,
+            "query": true
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "via": "op:acq.figure",
+            "set": false,
+            "query": true
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "via": "op:acq.figure",
+            "set": false,
+            "query": true
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "via": "op:acq.acquire_type",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "via": "op:acq.run_mode",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:RUN",
+            "via": "op:acq.run",
+            "set": true,
+            "query": false
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "via": "op:acq.status",
+            "set": false,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:STOP",
+            "via": "op:acq.stop",
+            "set": true,
+            "query": false
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "self"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "ref"
+          }
         ]
       },
       {
@@ -286,6 +412,18 @@
             "unit": null
           },
           {
+            "name": "sample_rate",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "max_points",
+            "value": 0,
+            "binding": null,
+            "unit": null
+          },
+          {
             "name": "points",
             "value": "10k",
             "binding": "acquire.mdepth",
@@ -299,15 +437,144 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "reference_divs",
+            "value": 5.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "reference_mode",
+            "value": "DELay",
+            "binding": "timebase.reference",
+            "unit": null
+          },
+          {
+            "name": "reference_position",
+            "value": 50,
+            "binding": "timebase.reference_position",
+            "unit": null
+          },
+          {
+            "name": "clock_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": "ppm"
+          },
+          {
+            "name": "rosc",
+            "value": "INTernal",
+            "binding": null,
+            "unit": null
           }
         ],
-        "ports": []
+        "ports": [
+          {
+            "name": "ref",
+            "direction": "in",
+            "medium": "signal",
+            "net": null,
+            "channel": null
+          }
+        ],
+        "settings": [
+          "timebase.scale",
+          "timebase.delay",
+          "acquire.mdepth",
+          "timebase.reference",
+          "timebase.reference_position"
+        ],
+        "commands": [
+          {
+            "header": ":ACQuire:MDEPth",
+            "via": "setting:acquire.mdepth",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TIMebase:DELay",
+            "via": "setting:timebase.delay",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TIMebase:REFerence",
+            "via": "setting:timebase.reference",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TIMebase:REFerence:POSition",
+            "via": "setting:timebase.reference_position",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TIMebase:SCALe",
+            "via": "setting:timebase.scale",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "ref"
+          }
+        ]
       },
       {
         "name": "trigger",
         "type": "scope_trigger",
         "channel": null,
-        "doc": "Edge trigger: ``source``, ``level`` and ``slope`` (``rising`` and ``falling`` list the slope names that take each edge); a level or slope per channel is bound with the channel number written ``{n}``: ``$ch{n}.trigger_level``. A source that is not a channel (external, line) never triggers. The search looks ``search_windows`` records ahead.",
+        "doc": "Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).",
         "params": [
           {
             "name": "source",
@@ -320,6 +587,12 @@
             "value": 0.0,
             "binding": "trigger.level",
             "unit": "V"
+          },
+          {
+            "name": "level_by_source",
+            "value": {},
+            "binding": null,
+            "unit": null
           },
           {
             "name": "slope",
@@ -356,13 +629,242 @@
             "unit": null
           },
           {
+            "name": "search_horizon_s",
+            "value": 10.0,
+            "binding": null,
+            "unit": "s"
+          },
+          {
+            "name": "max_search_points",
+            "value": 4000000,
+            "binding": null,
+            "unit": null
+          },
+          {
             "name": "level_range_divs",
             "value": 4.1,
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "coupling",
+            "value": "DC",
+            "binding": "trigger.coupling",
+            "unit": null
+          },
+          {
+            "name": "reject",
+            "value": "",
+            "binding": "trigger.coupling",
+            "unit": null
+          },
+          {
+            "name": "hf_reject",
+            "value": false,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "filters",
+            "value": {
+              "AC": [
+                [
+                  "highpass",
+                  5.0
+                ]
+              ],
+              "LF": [
+                [
+                  "highpass",
+                  50000.0
+                ]
+              ],
+              "HF": [
+                [
+                  "lowpass",
+                  1000000.0
+                ]
+              ]
+            },
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "hysteresis_divs",
+            "value": 0.16,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_reject",
+            "value": false,
+            "binding": "trigger.nreject",
+            "unit": null
+          },
+          {
+            "name": "reject_hysteresis_divs",
+            "value": 0.5,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_rms",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "holdoff_on",
+            "value": false,
+            "binding": "trigger.holdoff_type",
+            "unit": null
+          },
+          {
+            "name": "holdoff",
+            "value": 1e-07,
+            "binding": "trigger.holdoff_time",
+            "unit": "s"
+          },
+          {
+            "name": "external",
+            "value": [
+              "EX",
+              "EX5",
+              "EXTernal",
+              "EXT"
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "line",
+            "value": [
+              "LINE"
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "line_hz",
+            "value": 50.0,
+            "binding": null,
+            "unit": "Hz"
           }
         ],
-        "ports": []
+        "ports": [
+          {
+            "name": "ext",
+            "direction": "in",
+            "medium": "signal",
+            "net": null,
+            "channel": null
+          }
+        ],
+        "settings": [
+          "trigger.source",
+          "trigger.level",
+          "trigger.slope",
+          "trigger.coupling",
+          "trigger.nreject",
+          "trigger.holdoff_type",
+          "trigger.holdoff_time"
+        ],
+        "commands": [
+          {
+            "header": ":TRIGger:EDGE:COUPling",
+            "via": "setting:trigger.coupling",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:EDGE:HLDTime",
+            "via": "setting:trigger.holdoff_time",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:EDGE:HOLDoff",
+            "via": "setting:trigger.holdoff_type",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:EDGE:LEVel",
+            "via": "setting:trigger.level",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:EDGE:NREJect",
+            "via": "setting:trigger.nreject",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:EDGE:SLOPe",
+            "via": "setting:trigger.slope",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":TRIGger:EDGE:SOURce",
+            "via": "setting:trigger.source",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "ref"
+          }
+        ]
       },
       {
         "name": "adc",
@@ -422,7 +924,70 @@
             "unit": null
           }
         ],
-        "ports": []
+        "ports": [],
+        "settings": [
+          "acquire.resolution"
+        ],
+        "commands": [
+          {
+            "header": ":ACQuire:RESolution",
+            "via": "setting:acquire.resolution",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "ref"
+          }
+        ]
       },
       {
         "name": "meas",
@@ -512,6 +1077,12 @@
             "unit": null
           },
           {
+            "name": "hysteresis_floor_divs",
+            "value": 0.16,
+            "binding": null,
+            "unit": null
+          },
+          {
             "name": "clipped",
             "value": "measure",
             "binding": null,
@@ -537,9 +1108,57 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "sources",
+            "value": [],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "trigger_levels",
+            "value": {},
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "slots",
+            "value": 0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "all",
+            "value": [],
+            "binding": null,
+            "unit": null
           }
         ],
-        "ports": []
+        "ports": [],
+        "settings": [
+          "measure.source"
+        ],
+        "commands": [
+          {
+            "header": ":MEASure:SIMPle:SOURce",
+            "via": "setting:measure.source",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "via": "op:meas.named",
+            "set": false,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "self"
+          }
+        ]
       },
       {
         "name": "xfer",
@@ -662,6 +1281,12 @@
             "unit": null
           },
           {
+            "name": "reserve_lowest",
+            "value": false,
+            "binding": null,
+            "unit": null
+          },
+          {
             "name": "byteorder",
             "value": "little",
             "binding": null,
@@ -670,6 +1295,12 @@
           {
             "name": "block_digits",
             "value": 0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "indefinite",
+            "value": false,
             "binding": null,
             "unit": null
           },
@@ -896,7 +1527,77 @@
             "unit": null
           }
         ],
-        "ports": []
+        "ports": [],
+        "settings": [
+          "waveform.source",
+          "waveform.start",
+          "waveform.point",
+          "waveform.interval",
+          "acquire.resolution",
+          "waveform.width"
+        ],
+        "commands": [
+          {
+            "header": ":ACQuire:RESolution",
+            "via": "setting:acquire.resolution",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:SOURce",
+            "via": "setting:waveform.source",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:STARt",
+            "via": "setting:waveform.start",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:INTerval",
+            "via": "setting:waveform.interval",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:POINt",
+            "via": "setting:waveform.point",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:WIDTh",
+            "via": "setting:waveform.width",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "via": "op:xfer.header",
+            "set": false,
+            "query": true
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "via": "op:xfer.data",
+            "set": false,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "self"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "self"
+          }
+        ]
       },
       {
         "name": "ch1.inp",
@@ -931,6 +1632,74 @@
             "medium": "signal",
             "net": null,
             "channel": 1
+          }
+        ],
+        "settings": [
+          "ch1.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -969,6 +1738,12 @@
             "value": 5.0,
             "binding": null,
             "unit": "Hz"
+          },
+          {
+            "name": "response",
+            "value": "first_order",
+            "binding": null,
+            "unit": null
           },
           {
             "name": "scale",
@@ -1015,6 +1790,105 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "out_of_range",
+            "value": "error",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_table",
+            "value": [
+              [
+                0.0005,
+                3.577708763999664e-05
+              ],
+              [
+                0.001,
+                3.577708763999664e-05
+              ],
+              [
+                0.002,
+                3.577708763999664e-05
+              ],
+              [
+                0.005,
+                7.5e-05
+              ],
+              [
+                0.01,
+                0.00015
+              ],
+              [
+                0.02,
+                0.0003
+              ],
+              [
+                0.05,
+                0.00075
+              ],
+              [
+                0.1,
+                0.0015
+              ],
+              [
+                0.2,
+                0.003
+              ],
+              [
+                0.5,
+                0.0075
+              ],
+              [
+                1.0,
+                0.015
+              ],
+              [
+                2.0,
+                0.03
+              ],
+              [
+                5.0,
+                0.075
+              ],
+              [
+                10.0,
+                0.15
+              ]
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_divs",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "gain_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "offset_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "dac_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "store",
+            "value": "cal",
+            "binding": null,
+            "unit": null
           }
         ],
         "ports": [
@@ -1031,6 +1905,103 @@
             "medium": "signal",
             "net": null,
             "channel": 1
+          }
+        ],
+        "settings": [
+          "ch1.coupling",
+          "ch1.bwlimit",
+          "ch1.scale",
+          "ch1.offset",
+          "ch1.probe",
+          "ch1.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:BWLimit",
+            "via": "setting:ch.bwlimit",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:COUPling",
+            "via": "setting:ch.coupling",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:OFFSet",
+            "via": "setting:ch.offset",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SCALe",
+            "via": "setting:ch.scale",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1072,6 +2043,18 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "skew",
+            "value": 0.0,
+            "binding": "ch1.skew",
+            "unit": "s"
+          },
+          {
+            "name": "skew_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "s"
           }
         ],
         "ports": [
@@ -1088,6 +2071,194 @@
             "medium": "signal",
             "net": null,
             "channel": 1
+          }
+        ],
+        "settings": [
+          "ch1.probe",
+          "ch1.skew"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "via": "op:ch.probe.set_ratio",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SKEW",
+            "via": "setting:ch.skew",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch1.probe",
+            "via": "self"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
+          }
+        ]
+      },
+      {
+        "name": "ch1.cal",
+        "type": "calibration_store",
+        "channel": 1,
+        "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
+        "params": [
+          {
+            "name": "secured",
+            "value": true,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "code",
+            "value": "SIMUBENCH",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "key",
+            "value": [
+              "$ch.scale"
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "value",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "tolerance",
+            "value": 0.1,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "ok_reply",
+            "value": "+0",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "fail_reply",
+            "value": "+1",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "volatile_until_store",
+            "value": false,
+            "binding": null,
+            "unit": null
+          }
+        ],
+        "ports": [],
+        "settings": [],
+        "commands": [],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1124,6 +2295,74 @@
             "medium": "signal",
             "net": null,
             "channel": 2
+          }
+        ],
+        "settings": [
+          "ch2.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1162,6 +2401,12 @@
             "value": 5.0,
             "binding": null,
             "unit": "Hz"
+          },
+          {
+            "name": "response",
+            "value": "first_order",
+            "binding": null,
+            "unit": null
           },
           {
             "name": "scale",
@@ -1208,6 +2453,105 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "out_of_range",
+            "value": "error",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_table",
+            "value": [
+              [
+                0.0005,
+                3.577708763999664e-05
+              ],
+              [
+                0.001,
+                3.577708763999664e-05
+              ],
+              [
+                0.002,
+                3.577708763999664e-05
+              ],
+              [
+                0.005,
+                7.5e-05
+              ],
+              [
+                0.01,
+                0.00015
+              ],
+              [
+                0.02,
+                0.0003
+              ],
+              [
+                0.05,
+                0.00075
+              ],
+              [
+                0.1,
+                0.0015
+              ],
+              [
+                0.2,
+                0.003
+              ],
+              [
+                0.5,
+                0.0075
+              ],
+              [
+                1.0,
+                0.015
+              ],
+              [
+                2.0,
+                0.03
+              ],
+              [
+                5.0,
+                0.075
+              ],
+              [
+                10.0,
+                0.15
+              ]
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_divs",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "gain_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "offset_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "dac_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "store",
+            "value": "cal",
+            "binding": null,
+            "unit": null
           }
         ],
         "ports": [
@@ -1224,6 +2568,103 @@
             "medium": "signal",
             "net": null,
             "channel": 2
+          }
+        ],
+        "settings": [
+          "ch2.coupling",
+          "ch2.bwlimit",
+          "ch2.scale",
+          "ch2.offset",
+          "ch2.probe",
+          "ch2.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:BWLimit",
+            "via": "setting:ch.bwlimit",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:COUPling",
+            "via": "setting:ch.coupling",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:OFFSet",
+            "via": "setting:ch.offset",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SCALe",
+            "via": "setting:ch.scale",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1265,6 +2706,18 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "skew",
+            "value": 0.0,
+            "binding": "ch2.skew",
+            "unit": "s"
+          },
+          {
+            "name": "skew_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "s"
           }
         ],
         "ports": [
@@ -1281,6 +2734,194 @@
             "medium": "signal",
             "net": null,
             "channel": 2
+          }
+        ],
+        "settings": [
+          "ch2.probe",
+          "ch2.skew"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "via": "op:ch.probe.set_ratio",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SKEW",
+            "via": "setting:ch.skew",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch2.probe",
+            "via": "self"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
+          }
+        ]
+      },
+      {
+        "name": "ch2.cal",
+        "type": "calibration_store",
+        "channel": 2,
+        "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
+        "params": [
+          {
+            "name": "secured",
+            "value": true,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "code",
+            "value": "SIMUBENCH",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "key",
+            "value": [
+              "$ch.scale"
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "value",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "tolerance",
+            "value": 0.1,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "ok_reply",
+            "value": "+0",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "fail_reply",
+            "value": "+1",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "volatile_until_store",
+            "value": false,
+            "binding": null,
+            "unit": null
+          }
+        ],
+        "ports": [],
+        "settings": [],
+        "commands": [],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1317,6 +2958,74 @@
             "medium": "signal",
             "net": null,
             "channel": 3
+          }
+        ],
+        "settings": [
+          "ch3.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1355,6 +3064,12 @@
             "value": 5.0,
             "binding": null,
             "unit": "Hz"
+          },
+          {
+            "name": "response",
+            "value": "first_order",
+            "binding": null,
+            "unit": null
           },
           {
             "name": "scale",
@@ -1401,6 +3116,105 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "out_of_range",
+            "value": "error",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_table",
+            "value": [
+              [
+                0.0005,
+                3.577708763999664e-05
+              ],
+              [
+                0.001,
+                3.577708763999664e-05
+              ],
+              [
+                0.002,
+                3.577708763999664e-05
+              ],
+              [
+                0.005,
+                7.5e-05
+              ],
+              [
+                0.01,
+                0.00015
+              ],
+              [
+                0.02,
+                0.0003
+              ],
+              [
+                0.05,
+                0.00075
+              ],
+              [
+                0.1,
+                0.0015
+              ],
+              [
+                0.2,
+                0.003
+              ],
+              [
+                0.5,
+                0.0075
+              ],
+              [
+                1.0,
+                0.015
+              ],
+              [
+                2.0,
+                0.03
+              ],
+              [
+                5.0,
+                0.075
+              ],
+              [
+                10.0,
+                0.15
+              ]
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_divs",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "gain_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "offset_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "dac_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "store",
+            "value": "cal",
+            "binding": null,
+            "unit": null
           }
         ],
         "ports": [
@@ -1417,6 +3231,103 @@
             "medium": "signal",
             "net": null,
             "channel": 3
+          }
+        ],
+        "settings": [
+          "ch3.coupling",
+          "ch3.bwlimit",
+          "ch3.scale",
+          "ch3.offset",
+          "ch3.probe",
+          "ch3.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:BWLimit",
+            "via": "setting:ch.bwlimit",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:COUPling",
+            "via": "setting:ch.coupling",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:OFFSet",
+            "via": "setting:ch.offset",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SCALe",
+            "via": "setting:ch.scale",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1458,6 +3369,18 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "skew",
+            "value": 0.0,
+            "binding": "ch3.skew",
+            "unit": "s"
+          },
+          {
+            "name": "skew_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "s"
           }
         ],
         "ports": [
@@ -1474,6 +3397,194 @@
             "medium": "signal",
             "net": null,
             "channel": 3
+          }
+        ],
+        "settings": [
+          "ch3.probe",
+          "ch3.skew"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "via": "op:ch.probe.set_ratio",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SKEW",
+            "via": "setting:ch.skew",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch3.probe",
+            "via": "self"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
+          }
+        ]
+      },
+      {
+        "name": "ch3.cal",
+        "type": "calibration_store",
+        "channel": 3,
+        "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
+        "params": [
+          {
+            "name": "secured",
+            "value": true,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "code",
+            "value": "SIMUBENCH",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "key",
+            "value": [
+              "$ch.scale"
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "value",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "tolerance",
+            "value": 0.1,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "ok_reply",
+            "value": "+0",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "fail_reply",
+            "value": "+1",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "volatile_until_store",
+            "value": false,
+            "binding": null,
+            "unit": null
+          }
+        ],
+        "ports": [],
+        "settings": [],
+        "commands": [],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1510,6 +3621,74 @@
             "medium": "signal",
             "net": null,
             "channel": 4
+          }
+        ],
+        "settings": [
+          "ch4.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1548,6 +3727,12 @@
             "value": 5.0,
             "binding": null,
             "unit": "Hz"
+          },
+          {
+            "name": "response",
+            "value": "first_order",
+            "binding": null,
+            "unit": null
           },
           {
             "name": "scale",
@@ -1594,6 +3779,105 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "out_of_range",
+            "value": "error",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_table",
+            "value": [
+              [
+                0.0005,
+                3.577708763999664e-05
+              ],
+              [
+                0.001,
+                3.577708763999664e-05
+              ],
+              [
+                0.002,
+                3.577708763999664e-05
+              ],
+              [
+                0.005,
+                7.5e-05
+              ],
+              [
+                0.01,
+                0.00015
+              ],
+              [
+                0.02,
+                0.0003
+              ],
+              [
+                0.05,
+                0.00075
+              ],
+              [
+                0.1,
+                0.0015
+              ],
+              [
+                0.2,
+                0.003
+              ],
+              [
+                0.5,
+                0.0075
+              ],
+              [
+                1.0,
+                0.015
+              ],
+              [
+                2.0,
+                0.03
+              ],
+              [
+                5.0,
+                0.075
+              ],
+              [
+                10.0,
+                0.15
+              ]
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "noise_divs",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "gain_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "offset_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "dac_error_ppm",
+            "value": 0.0,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "store",
+            "value": "cal",
+            "binding": null,
+            "unit": null
           }
         ],
         "ports": [
@@ -1610,6 +3894,103 @@
             "medium": "signal",
             "net": null,
             "channel": 4
+          }
+        ],
+        "settings": [
+          "ch4.coupling",
+          "ch4.bwlimit",
+          "ch4.scale",
+          "ch4.offset",
+          "ch4.probe",
+          "ch4.impedance"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:BWLimit",
+            "via": "setting:ch.bwlimit",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:COUPling",
+            "via": "setting:ch.coupling",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:IMPedance",
+            "via": "setting:ch.impedance",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:OFFSet",
+            "via": "setting:ch.offset",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SCALe",
+            "via": "setting:ch.scale",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch.probe",
+            "via": "wire"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       },
@@ -1651,6 +4032,18 @@
             ],
             "binding": null,
             "unit": null
+          },
+          {
+            "name": "skew",
+            "value": 0.0,
+            "binding": "ch4.skew",
+            "unit": "s"
+          },
+          {
+            "name": "skew_error",
+            "value": 0.0,
+            "binding": null,
+            "unit": "s"
           }
         ],
         "ports": [
@@ -1667,6 +4060,194 @@
             "medium": "signal",
             "net": null,
             "channel": 4
+          }
+        ],
+        "settings": [
+          "ch4.probe",
+          "ch4.skew"
+        ],
+        "commands": [
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "via": "op:ch.probe.set_ratio",
+            "set": true,
+            "query": true
+          },
+          {
+            "header": ":CHANnel<ch>:SKEW",
+            "via": "setting:ch.skew",
+            "set": true,
+            "query": true
+          }
+        ],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":CHANnel<ch>:PROBe",
+            "provider": "ch4.probe",
+            "via": "self"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "wire"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
+          }
+        ]
+      },
+      {
+        "name": "ch4.cal",
+        "type": "calibration_store",
+        "channel": 4,
+        "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
+        "params": [
+          {
+            "name": "secured",
+            "value": true,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "code",
+            "value": "SIMUBENCH",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "key",
+            "value": [
+              "$ch.scale"
+            ],
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "value",
+            "value": 0.0,
+            "binding": null,
+            "unit": "V"
+          },
+          {
+            "name": "tolerance",
+            "value": 0.1,
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "ok_reply",
+            "value": "+0",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "fail_reply",
+            "value": "+1",
+            "binding": null,
+            "unit": null
+          },
+          {
+            "name": "volatile_until_store",
+            "value": false,
+            "binding": null,
+            "unit": null
+          }
+        ],
+        "ports": [],
+        "settings": [],
+        "commands": [],
+        "readings": [
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "select"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref"
+          },
+          {
+            "header": ":WAVeform:PREamble",
+            "provider": "xfer",
+            "via": "select"
+          },
+          {
+            "header": ":WAVeform:DATA",
+            "provider": "xfer",
+            "via": "select"
           }
         ]
       }

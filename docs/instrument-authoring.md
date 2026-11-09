@@ -383,6 +383,7 @@ params:
 
 - 页面在 `/i/<定义 id>`（首页“仪表”列表、检查器的“验收页”），也可以作为工作台标签页与“内部结构”并列；六个分页只读。
 - 内部结构接口（`GET .../internals`、`GET /api/try/{sid}/internals`）除 `wires`（定义里的信号连线）外还返回 `refs`（#729）：组件在 `refs` 参数里点名的另一个组件，方向是“被使用的 → 使用它的”（采集使用 `adc`、时基、触发，测量与波形传输使用采集）。它由组件类型自己声明的 `refs` 推导，不是 `wiring:`，不改定义格式，也不改信号通路；图按它排列列，让被使用的阶段排在使用者之前，没有任何连线与 `refs` 的组件（系统块、状态寄存器）归入“命令 / 状态侧”。
+- 内部结构接口的每个组件还带三份清单（#739，`server/internals_links.py`）：`settings`（它的参数跟随的设置）、`commands`（驱动它的 SCPI 命令：`op:` 指向它的操作，或经 `state:`、参数的 `state` / `keys`、`writes` 写它跟随的设置；通道组件按去掉通道号的路径匹配，`measure.p{slot}.kind` 这类按任意槽匹配）、`readings`（它自己的与下游组件提供的查询命令）。下游沿信号连线与 `refs` 传递；`waveform_transfer`、`scope_measurements` 这类带 `source` 参数的组件用设置选通道、不是 `refs`，所以每个通道组件都按 `select` 到达它们。宏在定义加载时已展开，反查对展开后的命令与组件做，不需要来源信息。Web 的详情面板显示三份清单。
 - 读接口：`GET /api/definitions/{id}/document`（sha256 与静态校验诊断，页面据此发现文件变化并自动刷新）、`GET /api/definitions/{id}/coverage`（覆盖表，没有时为 null）、`GET /api/try/{sid}/instrument` 与 `GET /api/try/{sid}/internals`（临时会话的同一份仪表：概览、面板、内部结构、试运行都读它）。T2 的试运行与用例接口、T3 的修改记录接口照旧。
 - 概览的“功能与量程”用仪表实际显示的面板（定义的 `display.panel`，或类别默认布局）整理；没有面板的类别退回设置表。命令页把定义的命令与覆盖表合并，真实型号显示“实现/接受/未实现”。
 - 自动刷新：轮询定义的 sha256；变化后重取定义与覆盖表、重开临时会话，并在页头提示“已载入新的修改”。工作区的第一版按 D35 记为“外部修改”（保存前文件的内容），Agent 之后每次保存各有说明。
@@ -645,6 +646,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 - 读数噪声（#746，D46；#750 扩展）：`noise` 参数（默认不写即无噪声），按读数有没有量程概念二选一：
   - 有量程（`dmm_adc`、`smu_meter`，数据采集的内部 DMM 同为 `dmm_adc`）：`{ppm_of_range, ref_time_s, table}`。`ppm_of_range` 是在参考积分时间 `ref_time_s`（默认 0.02 s，即一个 50 Hz 的 PLC）下占**当前量程**的 rms ppm，`table`（量程 → rms）覆盖它；rms 按 `sqrt(ref_time_s / 积分时间)` 随积分时间下降，积分时间取该组件的 `reading_time`（万用表）或 NPLC 折算的读数时间（源表）。
   - 没有量程概念（`supply_readback`、`eload_meter`、校准源回读 `calibrator_control`/`calibrator_output`）：`{rms: <数 或 {读数量: rms}>}`——绝对均方根（电源/负载按 V 与 A 各给，校准源按 V 给一个数），与 `ppm_of_range`/`table` 互斥；给映射时未点名的读数量无噪声。
+  不带 `noise` 的组件：`mux_card`（继电器与模拟总线，没有测量读数；数据采集的读数噪声在内部 DMM 的 `dmm_adc` 上）。校准源回读噪声**只作用于 Web 面板读数**：校准源没有脚本侧的电压回读命令（脚本读输出电压靠接在输出上的万用表，噪声在万用表上），所以没有脚本/面板互不影响的问题（#796）。
   噪声加在校准（电路求解）之后、量化之前，所以末位会闪，高 NPLC 时稳定。写型号时的数值取数据手册，没有就写标明的估计值（`specs.noise_*`），并保证**明显小于该型号的准确度指标**，否则靠近限值的判定会翻转。脚本读数以该组件已发出的读数序号为键（`MEAS?` 不占虚拟时间，用时间区分不了），重放同样的命令逐位一致；Web 面板读数用自己的帧计数，不进脚本能看到的任何东西、不占虚拟时间。写错键名或取值（多余的键、负的 `ppm_of_range`/`rms`、非正的 `ref_time_s`、`table` 的键或值不是数、`rms` 与 `ppm_of_range`/`table` 同给）会在加载时报错（创建组件时抛 ValueError，`validate_definition` 报 `E-DEF-NOISE`），并列出允许的键（#752）。
 - SDS2104X Plus：`processing` 由 `:ACQuire:TYPE` 映射，PEAK / ERES 由『存了不生效』改为实现。每档噪声为**估计值**（数据手册未给分档噪声，D46）：ADC 端约 0.015 格 rms（8 位痕迹约 3 码厚），折算到输入端 max(35.8 µV, 0.015 × 档位)——最灵敏的 0.5–2 mV/div 由 35.8 µV 的噪声底决定；数值写入 `specs.noise_per_division` 与 `front` 的 `noise_table`，覆盖表注明估计依据。
 - `refcalc.noise`：`quantized_sigma`（一次量化的码分布，精确）不变；新增 `averaged_codes_sigma`（G4 的顺序：量化之后平均，量化噪声也随平均下降）。

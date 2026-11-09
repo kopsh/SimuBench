@@ -567,6 +567,13 @@ export const en: Widen<Messages> = {
     usedBy: "Used by (this component's output feeds them)",
     commandSide: "Command / status side",
     commandSideHint: "Not on the signal flow: driven by commands and settings only.",
+    drivingSettings: "Settings that drive it",
+    noSettings: "No parameter follows a setting.",
+    drivingCommands: "SCPI commands that drive it",
+    noCommands: "No command operates it directly.",
+    affectedReadings: "Readings it affects",
+    noReadings: "No query command is affected by it.",
+    via: { self: "itself", wire: "signal wire", ref: "uses", select: "channel picked by a setting" },
     direction: { in: "In", out: "Out", inout: "In/out" },
     medium: { signal: "Signal", electrical: "Electrical", reference: "Reference" },
     types: {
