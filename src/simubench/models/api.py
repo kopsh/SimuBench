@@ -381,6 +381,34 @@ class InternalParam(_Model):
     unit: str | None = None
 
 
+class InternalCommand(_Model):
+    """A SCPI command that drives a component (#739): it writes a setting the component follows, or
+    runs one of the component's operations."""
+
+    header: str = Field(..., description="The command header as the definition writes it")
+    via: str = Field(
+        ...,
+        description="How the command reaches the component: 'setting:<path>' (it writes that setting, "
+        "which one of the component's parameters follows) or 'op:<operation>' (it runs the operation)",
+    )
+    set: bool = True
+    query: bool = True
+
+
+class InternalReading(_Model):
+    """A query command whose answer the component influences (#739): the command reads a component
+    at or downstream of it."""
+
+    header: str
+    provider: str = Field(..., description="The component the query reads, e.g. 'xfer'")
+    via: Literal["self", "wire", "ref", "select"] = Field(
+        ...,
+        description="How the influence travels: 'self' (the component's own query), 'wire' (a signal "
+        "wire downstream), 'ref' (a component that uses it), 'select' (the provider picks its input "
+        "channel with a setting, e.g. a waveform source — not a ref)",
+    )
+
+
 class InternalComponent(_Model):
     name: str = Field(..., description="Unique within the instrument, e.g. 'ch1.front' or 'acq'")
     type: str
@@ -392,6 +420,19 @@ class InternalComponent(_Model):
     )
     params: list[InternalParam] = Field(default_factory=list)
     ports: list[PortInfo] = Field(default_factory=list)
+    settings: list[str] = Field(
+        default_factory=list,
+        description="The settings its parameters follow (binding), each once, in parameter order (#739)",
+    )
+    commands: list[InternalCommand] = Field(
+        default_factory=list,
+        description="SCPI commands that drive it: they write one of its settings or run its operations (#739)",
+    )
+    readings: list[InternalReading] = Field(
+        default_factory=list,
+        description="Query commands whose answer it influences: its own and those of components "
+        "downstream of it (#739)",
+    )
 
 
 class InternalWire(_Model):

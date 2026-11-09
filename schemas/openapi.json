@@ -3145,6 +3145,39 @@
         "title": "InstrumentReadings",
         "type": "object"
       },
+      "InternalCommand": {
+        "description": "A SCPI command that drives a component (#739): it writes a setting the component follows, or\nruns one of the component's operations.",
+        "properties": {
+          "header": {
+            "description": "The command header as the definition writes it",
+            "title": "Header",
+            "type": "string"
+          },
+          "query": {
+            "default": true,
+            "title": "Query",
+            "type": "boolean"
+          },
+          "set": {
+            "default": true,
+            "title": "Set",
+            "type": "boolean"
+          },
+          "via": {
+            "description": "How the command reaches the component: 'setting:<path>' (it writes that setting, which one of the component's parameters follows) or 'op:<operation>' (it runs the operation)",
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "header",
+          "via",
+          "set",
+          "query"
+        ],
+        "title": "InternalCommand",
+        "type": "object"
+      },
       "InternalComponent": {
         "properties": {
           "channel": {
@@ -3158,6 +3191,14 @@
             ],
             "description": "Channel the component belongs to; none for the whole instrument",
             "title": "Channel"
+          },
+          "commands": {
+            "description": "SCPI commands that drive it: they write one of its settings or run its operations (#739)",
+            "items": {
+              "$ref": "#/components/schemas/InternalCommand"
+            },
+            "title": "Commands",
+            "type": "array"
           },
           "doc": {
             "anyOf": [
@@ -3190,6 +3231,22 @@
             "title": "Ports",
             "type": "array"
           },
+          "readings": {
+            "description": "Query commands whose answer it influences: its own and those of components downstream of it (#739)",
+            "items": {
+              "$ref": "#/components/schemas/InternalReading"
+            },
+            "title": "Readings",
+            "type": "array"
+          },
+          "settings": {
+            "description": "The settings its parameters follow (binding), each once, in parameter order (#739)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Settings",
+            "type": "array"
+          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -3201,7 +3258,10 @@
           "channel",
           "doc",
           "params",
-          "ports"
+          "ports",
+          "settings",
+          "commands",
+          "readings"
         ],
         "title": "InternalComponent",
         "type": "object"
@@ -3289,6 +3349,38 @@
           "channel"
         ],
         "title": "InternalPort",
+        "type": "object"
+      },
+      "InternalReading": {
+        "description": "A query command whose answer the component influences (#739): the command reads a component\nat or downstream of it.",
+        "properties": {
+          "header": {
+            "title": "Header",
+            "type": "string"
+          },
+          "provider": {
+            "description": "The component the query reads, e.g. 'xfer'",
+            "title": "Provider",
+            "type": "string"
+          },
+          "via": {
+            "description": "How the influence travels: 'self' (the component's own query), 'wire' (a signal wire downstream), 'ref' (a component that uses it), 'select' (the provider picks its input channel with a setting, e.g. a waveform source — not a ref)",
+            "enum": [
+              "self",
+              "wire",
+              "ref",
+              "select"
+            ],
+            "title": "Via",
+            "type": "string"
+          }
+        },
+        "required": [
+          "header",
+          "provider",
+          "via"
+        ],
+        "title": "InternalReading",
         "type": "object"
       },
       "InternalRef": {

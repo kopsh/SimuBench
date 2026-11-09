@@ -1604,7 +1604,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 脚本与面板分开 | ✅ 脚本以读数序号为键(`MEAS?` 不占虚拟时间);面板用自己的帧计数,不改变脚本看到的回复与虚拟时间 |
 | D46 通则、D42/D13 的位置 | ✅ D46 改为“手册值或标明的估计值”,读数噪声在仪表内部、求解之后加 |
 | 测试 | ✅ `tests/test_reading_noise.py`:分布(400 个样本)、√ 缩放、复现、量化前加噪、面板与脚本互不影响、源表 |
-| 未做 | ⚠️ `supply_readback`、`eload_meter`、校准源回读、`mux_card`:没有量程概念,待补型号数据时一并设计(#744);频率计数器的抖动抽样仍用自己的键(改键会改变已有种子的结果);精确值断言清单写进 #744 |
+| 未做 | ✅ 已由 #750 补齐(见文末「读数噪声接入其余读数组件」一节):`supply_readback`、`eload_meter`、校准源回读与频率计数器抖动已接入;`mux_card` 不带 `noise`(无读数,见 D46) |
 
 ## 读数噪声 noise 参数加载时校验（Issue 752）
 
@@ -1632,3 +1632,33 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 统计验收 | ✅ test_keysight_dsox 新用例:示例台同一直流三次采集读回,3000 样本 σ 落在 refcalc quantized_sigma 的 k=4 区间,均值在真值 + 半码内 |
 | 逐位断言改容差(不删不跳) | ✅ guide 波形重建的 truth 界加 4σ 噪声;时间测量(TVALue/BRATe/DELay/PHASe/频率)按跨越抖动放宽并注明;测量列表用例加宽记录窗口(2 周期窗口距首个可数上升沿一个噪声样本) |
 | 随数据发现的测量缺陷 | ✅ 噪声-only 迹线曾测出 8.5 MHz:measurements 的跨越带加绝对下限(hysteresis_floor_divs 0.16 格,真仪器的计数器带按屏幕格取),噪声-only 回"不可测" |
+
+## 读数噪声接入其余读数组件(Issue 750,#796 补记)
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 没有量程概念的读数可带噪声 | ✅ `supply_readback`、`eload_meter`、校准源回读(`calibrator_control`/`calibrator_output`)接入绝对值形态 `noise: {rms: 数 或 {读数量: rms}}`,与 `ppm_of_range`/`table` 互斥;默认不写即无噪声 |
+| 数据采集 | ✅ 内部测量链就是 `dmm_conditioning`+`dmm_adc`,本就带量程,只差数值 |
+| 频率计数器抖动 | ✅ 改走统一 `noise_sample`,键收敛为 `seed, 组件, 流, 时刻`,D46 记录同一种子下具体数值变了、统计特征不变 |
+| `mux_card` | ✅ 不带 `noise`:它只有继电器与模拟总线,`readings()` 只给闭合通道清单,没有测量读数;数据采集的读数噪声在内部 DMM |
+| 校准源回读只作用于面板 | ✅ 校准源没有脚本侧电压回读命令(脚本读输出电压靠接在输出上的万用表),回读噪声只作用于 Web 面板帧,按面板帧计数抽样;因此没有「脚本/面板互不影响」用例,理由写在 `tests/test_reading_noise.py::test_a_calibrator_readback_draws_per_frame_and_replays` |
+| 测试 | ✅ `tests/test_reading_noise.py`:校准源回读每帧不同、均值在真值附近、同种子重放一致 |
+
+## 故障对话框按 subject 限定可注入类型(Issue 789)
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 网络屏 `f` 只列元件故障,元件为所选网络上的元件 | ✅ `FaultDialog(net=…)` 只出「元件」一组(drift / hidden),元件取 `session_info.parts` 里端口落在该网络的部件(`net_components`),预选第一个,并传给 `build_spec`;网络上没有部件时在 `#fd-error` 说明而不发请求 |
+| `#fd-active` 只列本 subject 的故障 | ✅ `faults_of_subject`:仪表打开时取该仪表的故障与其元件(`inst/name`)的故障,网络打开时取该网络元件的故障 |
+| 测试 | ✅ `tests/test_tui_t3.py`:网络屏注入 drift 成功并关闭对话框、只列元件组;生效列表按 subject 过滤 |
+
+## 内部构造图:点组件列出驱动它的设置与命令、受它影响的读数(Issue 739)
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 接口 | ✅ `GET .../internals` 每个组件加 `settings` / `commands` / `readings`(`server/internals_links.py`);`schemas/` 与 `web/src/api/generated/` 已重新生成 |
+| 命令反查覆盖全部绑定形式 | ✅ `op:`、`state:`、参数的 `state` / `keys`、`writes`、带槽的 `{slot}` 路径;宏在加载时已展开,按展开后的命令反查 |
+| `source` 选通道的关系 | ✅ 不是 `refs`:带绑定 `source` 参数的组件(`waveform_transfer`、`scope_measurements`)被每个通道组件以 `select` 到达,详情里标「按设置选通道」 |
+| 测试 | ✅ `tests/test_internals.py`:每份内置定义里每条命令都能从它操作的组件反查到;示波器 ADC 列出 `:ACQuire:RESolution` 与 `:WAVeform:DATA`/`PREamble`;`source` 选择;只由命令驱动的组件 |
+| Web | ✅ 详情面板三份清单,`Internals.stories.tsx` 的 `ComponentDrivers`,`web/e2e/workbench.spec.ts` 的 ADC 断言 |
+| 未做 | ⚠️ e2e 与视觉基线未在本环境跑(留给 main 上的 CI);面板交互方案(清单的分组、点击跳转到设置)待 advisor 评审,本次只做只读清单 |

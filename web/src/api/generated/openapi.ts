@@ -2437,6 +2437,33 @@ export interface components {
                 [key: string]: number | boolean | string;
             };
         };
+        /**
+         * InternalCommand
+         * @description A SCPI command that drives a component (#739): it writes a setting the component follows, or
+         *     runs one of the component's operations.
+         */
+        InternalCommand: {
+            /**
+             * Header
+             * @description The command header as the definition writes it
+             */
+            header: string;
+            /**
+             * Query
+             * @default true
+             */
+            query: boolean;
+            /**
+             * Set
+             * @default true
+             */
+            set: boolean;
+            /**
+             * Via
+             * @description How the command reaches the component: 'setting:<path>' (it writes that setting, which one of the component's parameters follows) or 'op:<operation>' (it runs the operation)
+             */
+            via: string;
+        };
         /** InternalComponent */
         InternalComponent: {
             /**
@@ -2444,6 +2471,11 @@ export interface components {
              * @description Channel the component belongs to; none for the whole instrument
              */
             channel: number | null;
+            /**
+             * Commands
+             * @description SCPI commands that drive it: they write one of its settings or run its operations (#739)
+             */
+            commands: components["schemas"]["InternalCommand"][];
             /**
              * Doc
              * @description What the component type does (first paragraph of its description)
@@ -2458,6 +2490,16 @@ export interface components {
             params: components["schemas"]["InternalParam"][];
             /** Ports */
             ports: components["schemas"]["PortInfo"][];
+            /**
+             * Readings
+             * @description Query commands whose answer it influences: its own and those of components downstream of it (#739)
+             */
+            readings: components["schemas"]["InternalReading"][];
+            /**
+             * Settings
+             * @description The settings its parameters follow (binding), each once, in parameter order (#739)
+             */
+            settings: string[];
             /** Type */
             type: string;
         };
@@ -2496,6 +2538,26 @@ export interface components {
              * @description Component port it leads to, e.g. 'ch1.inp.pin'
              */
             target: string;
+        };
+        /**
+         * InternalReading
+         * @description A query command whose answer the component influences (#739): the command reads a component
+         *     at or downstream of it.
+         */
+        InternalReading: {
+            /** Header */
+            header: string;
+            /**
+             * Provider
+             * @description The component the query reads, e.g. 'xfer'
+             */
+            provider: string;
+            /**
+             * Via
+             * @description How the influence travels: 'self' (the component's own query), 'wire' (a signal wire downstream), 'ref' (a component that uses it), 'select' (the provider picks its input channel with a setting, e.g. a waveform source — not a ref)
+             * @enum {string}
+             */
+            via: "self" | "wire" | "ref" | "select";
         };
         /**
          * InternalRef
