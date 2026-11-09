@@ -45,8 +45,9 @@ jobs:
           # Main's last finished CI run: while it is red only a pull request labelled 修复main (the
           # fix) merges; the others wait, labelled 等main变绿, and the main job below re-runs their
           # CI when main turns green (#810).
-          MAIN_RED=$(gh run list --repo "$REPO" --workflow ci.yml --branch main --status completed --limit 1 \
-            --json conclusion,url --jq '.[0] | select(.conclusion == "failure") | .url' 2>/dev/null || true)
+          # A cancelled or skipped run says nothing about main: the last success or failure counts (#813).
+          MAIN_RED=$(gh run list --repo "$REPO" --workflow ci.yml --branch main --status completed --limit 20 \
+            --json conclusion,url --jq 'map(select(.conclusion == "success" or .conclusion == "failure")) | first | select(.conclusion == "failure") | .url' 2>/dev/null || true)
           for n in $PRS; do
             if [ -n "$MAIN_RED" ] && ! retry gh pr view "$n" --repo "$REPO" --json labels -q '.labels[].name' | grep -Fqx "修复main"; then
               if ! retry gh pr view "$n" --repo "$REPO" --json labels -q '.labels[].name' | grep -Fqx "等main变绿"; then
@@ -201,6 +202,9 @@ jobs:
           retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
           OPEN=$(retry gh issue list --repo "$REPO" --state open --label "main红了" --json number --jq '.[].number')
           if [ "$CONCLUSION" = failure ]; then
+            # The label an agent puts on the pull request that fixes main must exist before it does (#813).
+            retry gh label create "修复main" --repo "$REPO" --force --color 0e8a16 \
+              --description "The pull request that fixes a red main: merge.yml merges it while main is red"
             if [ -z "$OPEN" ]; then
               retry gh label create "main红了" --repo "$REPO" --force --color b60205 --description "main's CI is red (opened by merge.yml)"
               retry gh issue create --repo "$REPO" --label "main红了" --label "核心" \
