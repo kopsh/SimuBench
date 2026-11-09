@@ -85,7 +85,10 @@ class Step(_Model):
     expect: str | None = Field(None, description="The exact reply")
     expect_match: str | None = Field(None, description="A regular expression the whole reply matches")
     expect_value: float | None = Field(None, description="The reply as a number")
-    tolerance: float | None = Field(None, description="Absolute tolerance for expect_value")
+    expect_values: list[float] | None = Field(
+        None, description="The comma-separated reply as numbers, compared elementwise (#836)"
+    )
+    tolerance: float | None = Field(None, description="Absolute tolerance for expect_value/expect_values")
     binary: bool = Field(
         False,
         description="The reply is binary (a block): expect / expect_match apply to its bytes read as Latin-1",
@@ -95,16 +98,35 @@ class Step(_Model):
     def _check(self) -> Step:
         if (self.send is None) == (self.query is None):
             raise ValueError("a step has exactly one of send or query")
-        if self.send is not None and (self.expect, self.expect_match, self.expect_value) != (
+        if self.send is not None and (
+            self.expect,
+            self.expect_match,
+            self.expect_value,
+            self.expect_values,
+        ) != (
+            None,
             None,
             None,
             None,
         ):
             raise ValueError(f"{self.send!r}: only a query has an expected reply")
-        if self.query is not None and [self.expect, self.expect_match, self.expect_value].count(None) != 2:
-            raise ValueError(f"{self.query!r}: give one of expect, expect_match or expect_value")
-        if self.tolerance is not None and self.expect_value is None:
-            raise ValueError("tolerance goes with expect_value")
+        if (
+            self.query is not None
+            and [
+                self.expect,
+                self.expect_match,
+                self.expect_value,
+                self.expect_values,
+            ].count(None)
+            != 3
+        ):
+            raise ValueError(
+                f"{self.query!r}: give one of expect, expect_match, expect_value or expect_values"
+            )
+        if self.tolerance is not None and self.expect_value is None and self.expect_values is None:
+            raise ValueError("tolerance goes with expect_value or expect_values")
+        if self.expect_values is not None and not self.expect_values:
+            raise ValueError("expect_values is empty")
         return self
 
     @property
@@ -394,6 +416,20 @@ def _check(step: Step, reply: str | None) -> tuple[str, bool]:
             re.fullmatch(step.expect_match, reply, re.DOTALL)
         )
     tol = step.tolerance or 0.0
+    if step.expect_values is not None:
+        # A reading list rides noise (#744): compare elementwise in engineering units instead of a
+        # hand-written per-digit regex envelope.
+        expected = f"{', '.join(repr(v) for v in step.expect_values)} ± {tol!r} (each)"
+        if reply is None:
+            return expected, False
+        parts = reply.split(",")
+        if len(parts) != len(step.expect_values):
+            return expected, False
+        try:
+            got = [float(p) for p in parts]
+        except ValueError:
+            return expected, False
+        return expected, all(abs(g - float(e)) <= tol for g, e in zip(got, step.expect_values, strict=True))
     expected = f"{step.expect_value!r} ± {tol!r}"
     try:
         return expected, reply is not None and abs(float(reply) - float(step.expect_value or 0.0)) <= tol

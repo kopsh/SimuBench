@@ -84,6 +84,22 @@
           "description": "The reply as a number",
           "title": "Expect Value"
         },
+        "expect_values": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The comma-separated reply as numbers, compared elementwise (#836)",
+          "title": "Expect Values"
+        },
         "instrument": {
           "anyOf": [
             {
@@ -131,7 +147,7 @@
             }
           ],
           "default": null,
-          "description": "Absolute tolerance for expect_value",
+          "description": "Absolute tolerance for expect_value/expect_values",
           "title": "Tolerance"
         }
       },
