@@ -137,7 +137,7 @@ def test_an_smu_meter_reads_with_noise_per_reading_and_per_frame():
         scpi = lambda: float(  # noqa: E731
             (s.write("smu", b":MEAS:VOLT?\n"), s.read("smu"))[1].decode().strip().lstrip("+")
         )
-        assert len({scpi() for _ in range(5)}) == 1  # default: noiseless
+        assert len({scpi() for _ in range(5)}) > 1  # the definition's built-in noise now (#744)
         meter.overrides["noise"] = {"ppm_of_range": 100.0, "ref_time_s": 0.02}
         script = [scpi() for _ in range(40)]
         assert len(set(script)) > 20
