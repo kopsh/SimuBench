@@ -7,8 +7,11 @@ read: the trailing issue and PR references ``(Closes #12) (#34)`` and the ``核�
 One heading per day, newest first, named by the day's last version (``version.py``).
 
     python scripts/changelog.py                         # everything
-    python scripts/changelog.py --since 2026.11.4.75    # the commits after that version
+    python scripts/changelog.py --since 2026.11.4.75    # release notes: the commits after that version
     python scripts/changelog.py -o dist/CHANGELOG.md
+
+Every entry ends with the version it first appears in, so no one has to count commits. The release
+notes of a published version are ``--since <the version published before>``.
 
 Standard library and git only, so an internal build needs nothing extra. Needs the full history;
 without it this exits with 2 and says so.
@@ -64,20 +67,26 @@ def is_product(paths: list[str]) -> bool:
 def render(commits: list[Commit], *, since: str | None = None) -> str:
     """Markdown for ``commits`` (first-parent, oldest first): one section per day, newest first."""
     names = versions.numbered([c.epoch for c in commits])
-    floor = versions.parse(since.removeprefix("v")) if since else None
-    days: list[tuple[str, int, list[str]]] = []  # (day's last version, epoch, entries)
+    floor = versions.parse(since.removeprefix("v")) if since else None  # raises ValueError if malformed
+    days: list[tuple[str, int, list[tuple[str, str]]]] = []  # (day's last version, epoch, entries)
     for c, vname in zip(commits, names, strict=True):
         day = versions.day_of(c.epoch)
         if not days or versions.day_of(days[-1][1]) != day:
             days.append((vname, c.epoch, []))
         days[-1] = (vname, c.epoch, days[-1][2])
         if is_product(c.paths) and (floor is None or versions.parse(vname) > floor):
-            days[-1][2].append(entry(c.subject))
-    out = ["# SimuBench 变更记录", ""]
+            days[-1][2].append((entry(c.subject), vname))
+    base = since.removeprefix("v") if since else None
+    out = [f"# SimuBench 变更记录{f'（自 {base} 起）' if base else ''}", ""]
     for vname, epoch, entries in reversed(days):
         if entries:
             d = versions.day_of(epoch)
-            out += [f"## {vname}（{d[0]}-{d[1]:02d}-{d[2]:02d}）", "", *(f"- {s}" for s in entries), ""]
+            out += [
+                f"## {vname}（{d[0]}-{d[1]:02d}-{d[2]:02d}）",
+                "",
+                *(f"- {s}（{v}）" for s, v in entries),
+                "",
+            ]
     return "\n".join(out)
 
 
