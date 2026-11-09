@@ -43,6 +43,11 @@ specs:
     4: {module: N6752A, rating: "50 V / 10 A / 100 W（高性能自动量程模块）"}
   programming_max: {voltage_v: 51.0, current_a: {N6762A: 3.06, N6752A: 10.2}, ovp_v: 60.0}
   ocp_delay_s: "0–0.255，*RST 0.020"
+  noise_readback_rms: >-
+    电压 0.3 mV、电流 8 µA rms（估计，#744/D46）：数据手册没有噪声指标，取测量准确度偏移项的
+    1/20（#748 界限）。本机装的两种模块共用一套 channel_components，按更严的 N6762A 折算
+    （电压 0.016% + 6 mV、电流 0.04% + 0.16 mA → 0.3 mV / 8 µA）；N6752A 的偏移项
+    （电压 20 mV、电流 4 mA）界限更松，同一 rms 自动满足。N6762A 的 µA 测量量程未建模。
 channels:
   count: 4
   overrides:
@@ -327,7 +332,11 @@ channel_components:
       current: $ch.current
   - name: read
     type: supply_readback
-    params: {output: out}
+    params:
+      output: out
+      # 读数噪声（specs.noise_readback_rms，#744）：估计值，按更严的 N6762A 偏移项折算，
+      # N6752A 的界限更松、自动满足（channel_components 全通道一套，不按模块分值）
+      noise: {rms: {voltage: 3.0e-4, current: 8.0e-6}}
   # 瞬变系统（#541）：INIT:TRAN 后一个触发把 STEP 模式的量改为触发电平。
   - name: tran
     type: supply_transient

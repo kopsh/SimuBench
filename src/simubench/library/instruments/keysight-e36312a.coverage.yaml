@@ -100,7 +100,7 @@ sections:
 - section: MEASure Subsystem
   commands:
   - {header: 'MEASure[:SCALar]:CURRent[:DC]', level: implemented, note: 每路回读电流（幅值），来自电路求解；通道列表按顺序逗号拼接。手册没有功率查询，功率按 V×I 计算；手册可选的输出标识前缀未实现。}
-  - {header: 'MEASure[:SCALar]:VOLTage[:DC]', level: implemented, note: 每路回读电压，来自输出端口的电路求解；通道列表按顺序逗号拼接。回读由 supply_readback 写成 7 位尾数。手册可选的 P6V/P25V/N25V/CH1… 输出标识前缀未实现。}
+  - {header: 'MEASure[:SCALar]:VOLTage[:DC]', level: implemented, note: 每路回读电压，来自输出端口的电路求解；通道列表按顺序逗号拼接。回读由 supply_readback 写成 7 位尾数。读数带噪声（specs.noise_readback_rms：估计值，#744/D46），逐读数独立抽样，同种子逐位复现。手册可选的 P6V/P25V/N25V/CH1… 输出标识前缀未实现。}
 - section: MMEMory Subsystem
   commands:
   - {header: 'MMEMory:EXPort:DLOG', level: not_modeled, note: 数据记录文件不在首波。}

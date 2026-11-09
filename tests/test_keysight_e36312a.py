@@ -13,6 +13,7 @@ commands noted.
 
 import math
 import re
+import statistics
 from pathlib import Path
 
 import pytest
@@ -28,6 +29,15 @@ RELAY_S = 0.01
 #: CH1 sees 10 ohm with the pass stage's 1 mohm on each side: 5 V * 10 / 10.002.
 CH1_INT = 5.0 * 10.0 / 10.002
 CH1_CURRENT = 5.0 / 10.002
+#: The readback noise (specs.noise_readback_rms, #744): an absolute rms per quantity.
+SIGMA_V = 1.0e-4
+SIGMA_I = 1.5e-4
+
+
+def sigma_power(v: float, i: float) -> float:
+    """rms of the noised V·I the readback reports as power: |V·σI| ⊕ |I·σV|."""
+    return math.hypot(i * SIGMA_V, v * SIGMA_I)
+
 
 script = load_script(SCRIPT)
 
@@ -74,9 +84,12 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     voltages = [float(v[0]) for v in values]
     currents = [float(v[1]) for v in values]
     powers = [float(v[2]) for v in values]
-    assert voltages == pytest.approx([CH1_INT, 3.3 * 100 / 100.002, 12.0 * 100 / 100.002], rel=1e-6)
-    assert currents == pytest.approx([CH1_CURRENT, 3.3 / 100.002, 12.0 / 100.002], rel=1e-6)
-    assert powers == pytest.approx([v * i for v, i in zip(voltages, currents, strict=True)], rel=1e-6)
+    assert voltages == pytest.approx([CH1_INT, 3.3 * 100 / 100.002, 12.0 * 100 / 100.002], abs=4 * SIGMA_V)
+    assert currents == pytest.approx([CH1_CURRENT, 3.3 / 100.002, 12.0 / 100.002], abs=4 * SIGMA_I)
+    # the printed grid is 1e-4 (the script prints 4 decimals); the widest channel V·I noise dominates
+    assert powers == pytest.approx(
+        [v * i for v, i in zip(voltages, currents, strict=True)], abs=4 * sigma_power(5.0, 0.5)
+    )
 
 
 # ---- the outputs come up, the limit bends CH1 into CC, the three are independent: one flow ----------
@@ -92,27 +105,30 @@ def test_the_outputs_and_channel_list_flow():
         assert q(s, "VOLT 5,(@1);:CURR 1,(@1)") is None
         t0 = s.now_ns
         assert q(s, "OUTP ON,(@1)") is None
-        assert q(s, "MEAS:VOLT? (@1)") == "+0.0000000E+00"
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(0.0, abs=4 * SIGMA_V)
         # Waiting for the output relay advances virtual time by its 10 ms action.
         assert q(s, "*WAI") is None
         assert (s.now_ns - t0) / 1e9 == pytest.approx(RELAY_S, abs=1e-3)
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, abs=4 * SIGMA_V)
         # -- the current limit turns the output into CC
         # (was test_the_current_limit_turns_the_output_into_cc; CH1 is already operating, the
         # act's own settings put it into CC either way)
         assert q(s, "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI") is None
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(1.0, rel=1e-6)
-        assert float(q(s, "MEAS:CURR? (@1)")) == pytest.approx(0.1, rel=1e-9)
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(1.0, abs=4 * SIGMA_V)
+        assert float(q(s, "MEAS:CURR? (@1)")) == pytest.approx(0.1, abs=4 * SIGMA_I)
         values = s.instrument("psu").components["ch1.read"].readings()["values"]
         assert values["regulation"] == "CC"
-        assert values["power"] == pytest.approx(0.1, rel=1e-6)
+        assert values["power"] == pytest.approx(0.1, abs=4 * sigma_power(1.0, 0.1))
         # -- the three outputs are independent and the channel list expands
         # (was test_the_three_outputs_are_independent_and_the_channel_list_expands; the act's
         # CURR 1 puts CH1 back into CV at the same 5 V, so the readings match a fresh bench)
         assert q(s, "VOLT 5,(@1);:VOLT 3.3,(@2);:VOLT 12,(@3)") is None
         assert q(s, "CURR 1,(@1:3)") is None
         assert q(s, "OUTP ON,(@1:3);*WAI") is None
-        assert q(s, "MEAS:VOLT? (@3,1,2)") == ("+1.1999760E+01,+4.9990002E+00,+3.2999340E+00")
+        measured = [float(x) for x in q(s, "MEAS:VOLT? (@3,1,2)").split(",")]
+        assert measured == pytest.approx(
+            [12.0 * 100 / 100.002, CH1_INT, 3.3 * 100 / 100.002], abs=4 * SIGMA_V
+        )
         assert q(s, "OUTP? (@1:3)") == "1,1,1"
         # A channel list query answers in the list's order, not in channel order.
         assert q(s, "VOLT? (@2,1)") == "+3.30000000E+00,+5.00000000E+00"
@@ -124,13 +140,13 @@ def test_remote_sense_regulates_the_voltage_at_the_load():
     s = sense_wired_session()
     try:
         assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1);*WAI") is None
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, abs=4 * SIGMA_V)
         assert q(s, "VOLT:SENS EXT,(@1)") is None
         assert q(s, "VOLT:SENS? (@1)") == "EXT"
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(5.0, rel=1e-9)
-        assert float(q(s, "MEAS:CURR? (@1)")) == pytest.approx(0.5, rel=1e-7)
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(5.0, abs=4 * SIGMA_V)
+        assert float(q(s, "MEAS:CURR? (@1)")) == pytest.approx(0.5, abs=4 * SIGMA_I)
         assert q(s, "VOLT:SENS INT,(@1)") is None
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, abs=4 * SIGMA_V)
     finally:
         s.close()
 
@@ -161,13 +177,13 @@ def test_the_limits_and_ovp_flow():
         assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:VOLT:PROT 4,(@1);:OUTP ON,(@1);*WAI") is None
         assert q(s, "VOLT:PROT:TRIP? (@1)") == "1"
         assert q(s, "OUTP? (@1)") == "0"
-        assert float(q(s, "MEAS:VOLT? (@1)")) == 0.0
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(0.0, abs=4 * SIGMA_V)
         assert q(s, "OUTP ON,(@1)") is None
         assert q(s, "SYST:ERR?") == '+729,"Not allow to enable output"'
         assert q(s, "VOLT:PROT 6,(@1);:VOLT:PROT:CLE (@1)") is None
         assert q(s, "OUTP? (@1)") == "1"
         assert q(s, "*WAI") is None
-        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, rel=1e-6)
+        assert float(q(s, "MEAS:VOLT? (@1)")) == pytest.approx(CH1_INT, abs=4 * SIGMA_V)
         assert close_enough(float(q(s, "VOLT? (@1)")), 5.0, rel=1e-9)
     finally:
         s.close()
@@ -322,3 +338,27 @@ def test_a_bus_trigger_steps_after_the_trigger_delay():
         assert q(s, "SYST:ERR?") == '+0,"No error"'
     finally:
         s.close()
+
+
+def test_the_readback_noise_distributes_and_replays():
+    """The readback noise (specs.noise_readback_rms, #744): MEAS readings are independent draws
+    around the solved operating point with the definition's absolute rms, and the same seed
+    replays bit for bit (D46)."""
+    s = session()
+    try:
+        assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1);*WAI") is None
+        ones = [float(q(s, "MEAS:VOLT? (@1)")) for _ in range(200)]
+        assert len(set(ones)) > 4
+        assert statistics.mean(ones) == pytest.approx(CH1_INT, abs=4 * SIGMA_V / math.sqrt(200))
+        assert statistics.stdev(ones) == pytest.approx(SIGMA_V, rel=0.2)
+        currents = [float(q(s, "MEAS:CURR? (@1)")) for _ in range(200)]
+        assert statistics.stdev(currents) == pytest.approx(SIGMA_I, rel=0.25)
+    finally:
+        s.close()
+    s = session()  # the bench seed is fixed: the same start replays the same draws
+    try:
+        assert q(s, "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1);*WAI") is None
+        again = [float(q(s, "MEAS:VOLT? (@1)")) for _ in range(20)]
+    finally:
+        s.close()
+    assert again == ones[:20]

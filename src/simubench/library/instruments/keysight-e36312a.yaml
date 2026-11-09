@@ -60,6 +60,11 @@ specs:
   ovp_rst_v: {1: 6.6, 2: 27.5, 3: 27.5}
   ovp_rst_note: 通道 1 的设置范围 0.5–6.6 V，通道 2/3 为 1.5–27.5 V
   resolution: "手册未给出电压/电流的编程或读数分辨率，只给出编程范围与 *RST 值"
+  noise_readback_rms: >-
+    电压 0.1 mV、电流 0.15 mA rms（估计，#744/D46）：数据手册没有噪声指标，取 12 个月 Readback
+    accuracy（0.04%–0.05% + 偏移）逐路偏移项（电压 2–5 mV、电流 3–5 mA）的最小项（电压 2 mV、
+    电流 3 mA）的 1/20，#748 界限 σ ≤ 限值/20 在三路、任意输出点成立；低电流量程
+    （0.25% + 80 µA，<20 mA 自动换程）未建模。
   relay_time_s: 0.01
 channels:
   count: 3
@@ -372,7 +377,11 @@ channel_components:
       current: $ch.current
   - name: read
     type: supply_readback
-    params: {output: out}
+    params:
+      output: out
+      # 读数噪声（specs.noise_readback_rms，#744）：估计值，依据 = 手册 Readback accuracy 偏移项
+      # 最小项（电压 2 mV、电流 3 mA）的 1/20
+      noise: {rms: {voltage: 1.0e-4, current: 1.5e-4}}
   # 每路的可疑仪表汇总寄存器（#348）：条件位来自本路的调节状态，事件位在条件变为真时置位、读后清零。
   # 输出触发系统（#548）：INIT 后一个触发（*TRG 或 IMMediate 源）在触发延时后把 STEP 模式的量改为触发电平。
   # 手册：未初始化时 *TRG "is simply ignored"，错误表没有 -211 → 不报错。手册没有 N6700 那样的
