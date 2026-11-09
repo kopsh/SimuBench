@@ -85,6 +85,7 @@ export const zh = {
     },
   },
   workbench: {
+    revealMissing: "检查器里没有这一项：{{path}}",
     resources: "资源",
     instruments: "仪表",
     parts: "元件",
