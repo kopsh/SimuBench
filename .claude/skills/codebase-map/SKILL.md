@@ -52,7 +52,7 @@ plausible fake).
 - `manuals/` — vendor manuals the real models follow (PDF in Git LFS, `.txt` beside it; index `manuals/README.md`).
 - Version and changelog (D58): version computed from the commit history, no tags (`scripts/version.py`,
   called by `pyproject.toml` `[tool.hatch.version]`; `hatch_build.py` writes `src/simubench/_version.py`,
-  git-ignored); changelog `scripts/changelog.py` (one section per day), written into the
+  git-ignored); changelog `scripts/changelog.py` (one section per version), written into the
   wheel and `dist/CHANGELOG.md` by `scripts/build-wheel.sh` (`simubench changelog`).
 - `tests/models/<id>/cases.yaml` — manual cases per model; `tests/definitions/` — test-only defs.
 - `tests/helpers.py` — shared test skeletons: example-script loading, example-bench script runs,

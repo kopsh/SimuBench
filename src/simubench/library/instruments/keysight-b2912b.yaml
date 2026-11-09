@@ -43,6 +43,11 @@ specs:
     200.0: 0.0001
   current_source_setting_resolution_a: 10 fA（10 nA 档）… 10 µA（3 A 档）
   measurement_resolution: 电压 0.1 µV（0.2 V 档）…100 µV（200 V 档）；电流 10 fA（10 nA 档）…10 µA（3 A 档）
+  noise_ppm_of_range: >-
+    7.5 ppm of range（估计，#744/D46）：B2912B 数据手册的测量准确度表与 B2900A 系列逐格相同
+    （1 PLC，偏移项/量程 150–2333 ppm），取最小比值——10 µA 档 150 ppm——的 1/20，#748 界限
+    σ ≤ 限值/20 在全部电压/电流量程成立；ref_time_s 0.02 s（一个 50 Hz PLC），随 NPLC 的
+    reading_time 按平方根下降。
   two_channel_current_limit: Table 2-6：|V1|、|V2| ≤ 6 V 时 I1 + I2 ≤ 4 A 等（未建模，每通道各自按自己的包络）
   pulse: 10.5 A 脉冲档与脉冲输出未建模
 state:
@@ -867,6 +872,8 @@ channel_components:
     measure_autorange: $ch.sense.range_auto
     overrange: 1.06
     overload_value: 9.91e37
+    # 读数噪声（specs.noise_ppm_of_range，#744）：与 B2901A 同值，见其依据说明
+    noise: {ppm_of_range: 7.5, ref_time_s: 0.02}
 - name: trig
   type: trigger_model
   params:

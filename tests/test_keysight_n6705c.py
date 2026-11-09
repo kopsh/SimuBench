@@ -10,6 +10,8 @@ body verbatim; acts that are provably state-compatible share one bench, with the
 commands noted.
 """
 
+import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,10 @@ from simubench.models.bench import BenchDefinition
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-n6705c.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_n6705c_check.py"
+#: The readback noise (specs.noise_readback_rms, #744): an absolute rms per quantity, shared by
+#: all channels (the tighter N6762A anchor; the N6752A slots' bound is looser).
+SIGMA_V = 3.0e-4
+SIGMA_I = 8.0e-6
 
 script = load_script(SCRIPT)
 
@@ -60,8 +66,11 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[1] == "modules: N6762A,N6762A,N6752A,N6752A"
     ch1 = out[2].split()
     assert float(ch1[2]) == pytest.approx(5.0, abs=2e-3) and float(ch1[4]) == pytest.approx(0.5, abs=1e-3)
-    # channel 3 went into constant current on 1 ohm: the protection switched it off
-    assert out[3] == "channel 3: 0.0000 V, 0.0000 A"
+    # channel 3 went into constant current on 1 ohm: the protection switched it off.
+    # The 4-decimal print grid ≈ the 0.3 mV noise (specs.noise_readback_rms, #744).
+    ch3 = out[3].split()
+    assert float(ch3[2]) == pytest.approx(0.0, abs=4 * SIGMA_V)
+    assert float(ch3[4]) == pytest.approx(0.0, abs=4 * SIGMA_I)
     assert out[4] == "output states: 1,0"
     assert out[-1] == '+0,"No error"'
 
@@ -115,7 +124,7 @@ def test_remote_sense_regulates_past_the_leads():
         assert float(q("MEAS:CURR? (@1)")) == pytest.approx(5.0 / 10.5, rel=1e-3)
         q("VOLT:SENS:SOUR EXT,(@1)")
         q("*OPC?")
-        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(5.0, rel=1e-4)
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(5.0, abs=4 * SIGMA_V)  # was 1e-4 rel = 1.7σ
         assert float(q("MEAS:CURR? (@1)")) == pytest.approx(0.5, rel=1e-3)
     finally:
         s.close()
@@ -296,7 +305,7 @@ def test_the_transient_delay_and_ovp_flow():
         s.advance(0.6)
         q("OUTP OFF,(@1)")  # repeated: the countdown keeps running
         s.advance(0.5)
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(0.0, abs=4 * SIGMA_V)
         # -- bridge: the OVP act's bench has no output delays
         q("OUTP:DEL:RISE 0,(@1);:OUTP:DEL:FALL 0,(@1)")
         # -- the OVP latch holds until cleared (was test_ovp_latches_until_cleared)
@@ -304,10 +313,10 @@ def test_the_transient_delay_and_ovp_flow():
         q("*OPC?")
         q("VOLT:PROT 8,(@1)")
         q("*OPC?")
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(0.0, abs=4 * SIGMA_V)
         q("VOLT 5,(@1)")  # the cause removed: the latch still holds the output off
         q("*OPC?")
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(0.0, abs=4 * SIGMA_V)
         q("OUTP:PROT:CLE (@1)")
         q("*OPC?")
         assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(5.0, abs=2e-3)
@@ -346,10 +355,33 @@ def test_a_bench_that_starts_with_the_output_on_waits_for_the_rise_delay():
         return out.decode().strip() if out else ""
 
     try:
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0  # the relay waits rise_delay + relay time
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(
+            0.0, abs=4 * SIGMA_V
+        )  # relay waits rise_delay + relay time
         s.advance(0.3)
-        assert float(q("MEAS:VOLT? (@1)")) == 0.0
+        assert float(q("MEAS:VOLT? (@1)")) == pytest.approx(0.0, abs=4 * SIGMA_V)
         s.advance(0.3)
         assert float(q("MEAS:VOLT? (@1)")) > 4.9
     finally:
         s.close()
+
+
+def test_the_readback_noise_distributes_and_replays():
+    """The readback noise (specs.noise_readback_rms, #744): MEAS readings are independent draws
+    around the solved operating point with the definition's absolute rms, and the same seed
+    replays bit for bit (D46) across two bench instances."""
+
+    def collect(n: int) -> list[float]:
+        s, q = session(*load(1, 10.0))
+        try:
+            assert q("VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1);*OPC?") == "1"
+            return [float(q("MEAS:VOLT? (@1)")) for _ in range(n)]
+        finally:
+            s.close()
+
+    ones = collect(200)
+    want = 5.0 * 10.0 / 10.002  # the stage's 1 mΩ on each side (the e36312a test's CH1_INT)
+    assert len(set(ones)) > 4
+    assert statistics.mean(ones) == pytest.approx(want, abs=4 * SIGMA_V / math.sqrt(200))
+    assert statistics.stdev(ones) == pytest.approx(SIGMA_V, rel=0.2)
+    assert collect(20) == ones[:20]

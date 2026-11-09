@@ -276,7 +276,7 @@ sections:
   commands:
   - header: MEASure[:SCALar]:CURRent[:DC]
     level: implemented
-    note: 通道列表必需（省略报 -109）；回读由电路求解的输出电流；多通道以逗号分隔。测量即取即回，不经测量触发系统（采样点数、积分时间未建模）。
+    note: 通道列表必需（省略报 -109）；回读由电路求解的输出电流；多通道以逗号分隔。读数带噪声（同 specs.noise_readback_rms）。测量即取即回，不经测量触发系统（采样点数、积分时间未建模）。
   - header: MEASure[:SCALar]:CURRent:ACDC
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
@@ -303,7 +303,7 @@ sections:
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
   - header: MEASure[:SCALar]:VOLTage[:DC]
     level: implemented
-    note: 通道列表必需（省略报 -109）；回读输出端（远端检测时为 sense 端）电压；多通道以逗号分隔。
+    note: 通道列表必需（省略报 -109）；回读输出端（远端检测时为 sense 端）电压；多通道以逗号分隔。读数带噪声（specs.noise_readback_rms：估计值，#744/D46），逐读数独立抽样，同种子逐位复现。
   - header: MEASure[:SCALar]:VOLTage:ACDC
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。

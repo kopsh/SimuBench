@@ -137,7 +137,7 @@ def test_an_smu_meter_reads_with_noise_per_reading_and_per_frame():
         scpi = lambda: float(  # noqa: E731
             (s.write("smu", b":MEAS:VOLT?\n"), s.read("smu"))[1].decode().strip().lstrip("+")
         )
-        assert len({scpi() for _ in range(5)}) == 1  # default: noiseless
+        assert len({scpi() for _ in range(5)}) > 1  # the definition's built-in noise now (#744)
         meter.overrides["noise"] = {"ppm_of_range": 100.0, "ref_time_s": 0.02}
         script = [scpi() for _ in range(40)]
         assert len(set(script)) > 20
@@ -316,7 +316,7 @@ def test_a_supply_readback_reads_with_noise_per_reading_and_per_frame():
         # as tests/test_keysight_e36312a.py does — 5 V set, 0.1 A into the 10 ohm load reads 1 V.
         session_query(s, "psu", "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI")
         plain = {float(session_query(s, "psu", "MEAS:VOLT? (@1)")) for _ in range(3)}
-        assert len(plain) == 1  # default: noiseless
+        assert len(plain) > 1  # the definition's built-in noise now (#744)
         read.overrides["noise"] = {"rms": {"voltage": 1.0e-3, "current": 5.0e-4}}
         script = [float(session_query(s, "psu", "MEAS:VOLT? (@1)")) for _ in range(40)]
         frames = [read.readings()["values"]["voltage"] for _ in range(40)]

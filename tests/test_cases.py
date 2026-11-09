@@ -60,6 +60,52 @@ def test_a_failure_names_the_step_the_command_and_both_replies(tmp_path, capsys)
     assert "expected 'ACME,DM2'" in failure.find("failure").get("message")
 
 
+def test_expect_values_compares_comma_separated_readings_elementwise(tmp_path, capsys):
+    """``expect_values`` (#836): a reading list rides noise, so the reply is split on commas and
+    compared elementwise with the absolute tolerance -- no hand-written per-digit envelopes."""
+    path = _cases(
+        tmp_path,
+        [
+            {
+                "name": "good",
+                "steps": [{"query": ":SENS:VOLT:DC:NPLC?", "expect_values": [10.0], "tolerance": 1e-9}],
+            },
+            {
+                "name": "within tolerance",
+                "manual": "SENSe > NPLC",
+                "steps": [{"query": ":SENS:VOLT:DC:NPLC?", "expect_values": [10.001], "tolerance": 1e-2}],
+            },
+            {
+                "name": "off",
+                "manual": "SENSe > NPLC",
+                "steps": [{"query": ":SENS:VOLT:DC:NPLC?", "expect_values": [11.0], "tolerance": 1e-9}],
+            },
+            {
+                "name": "wrong count",
+                "manual": "SENSe > NPLC",
+                "steps": [{"query": ":SENS:VOLT:DC:NPLC?", "expect_values": [10.0, 10.0], "tolerance": 1e-9}],
+            },
+            {
+                "name": "not numbers",
+                "manual": "Common Commands > *IDN?",
+                "steps": [{"query": "*IDN?", "expect_values": [1.0, 2.0, 3.0]}],
+            },
+        ],
+    )
+    assert main(["cases", str(path)]) == 1
+    captured = capsys.readouterr()
+    assert "2/5 cases passed" in captured.out
+    assert (
+        "FAIL off: step 1 (':SENS:VOLT:DC:NPLC?'): expected 11.0 ± 1e-09 (each), got '+1.00000000E+01'"
+        in captured.err
+    )
+    assert (
+        "FAIL wrong count: step 1 (':SENS:VOLT:DC:NPLC?'): expected 10.0, 10.0 ± 1e-09 (each)" in captured.err
+    )
+    assert "FAIL wrong count" in captured.err
+    assert "FAIL not numbers" in captured.err
+
+
 def test_every_case_starts_on_a_freshly_powered_bench(tmp_path):
     path = _cases(
         tmp_path,

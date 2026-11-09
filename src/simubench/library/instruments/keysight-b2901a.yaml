@@ -46,6 +46,11 @@ specs:
     3.0: "|I| ≤ 105 mA: 210；105 mA < |I| ≤ 1.515 A: 21；1.515 A < |I| ≤ 3.03 A: 6"
   voltage_source_setting_resolution_v: {0.2: 1.0e-6, 2.0: 1.0e-5, 20.0: 1.0e-4, 200.0: 1.0e-3}
   measurement_resolution: "电压 0.1 µV（0.2 V 档）…100 µV（200 V 档）；电流 100 fA（100 nA 档）…10 µA（3 A 档）"
+  noise_ppm_of_range: >-
+    7.5 ppm of range（估计，#744/D46）：数据手册没有噪声指标，取 1 年测量准确度（B2900A 数据手册
+    Measurement specifications，1 PLC）偏移项逐量程折算（偏移项/量程 150–2333 ppm）的最小比值——
+    10 µA 档 1.5 nA/10 µA = 150 ppm——的 1/20，#748 界限 σ ≤ 限值/20 在全部电压/电流量程成立；
+    ref_time_s 0.02 s（一个 50 Hz PLC），随 NPLC 的 reading_time 按平方根下降。
   nplc: "50 Hz: 4E-4 … 100；60 Hz: 4.8E-4 … 120；默认 0.1"
   reading_memory: 100000
   compliance_default: "电流 100 µA、电压 2 V"
@@ -360,6 +365,9 @@ components:
       measure_autorange: $sense.range_auto
       overrange: 1.06
       overload_value: 9.91e37
+      # 读数噪声（specs.noise_ppm_of_range，#744）：估计值，依据 = 1 年准确度偏移项逐量程折算的
+      # 最小比值（10 µA 档 150 ppm）的 1/20
+      noise: {ppm_of_range: 7.5, ref_time_s: 0.02}
   - name: trig
     type: trigger_model
     params:

@@ -52,7 +52,7 @@
       expect_match: '^-222,"Data out of range'
 ```
 
-一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期可以是精确字符串（`expect`）、正则（`expect_match`）或数值与容差（`expect_value` + `tolerance`）。用例应覆盖覆盖表中每条“实现”和“接受”的命令；带 `reference` 的定义每条用例都要写 `manual`（覆盖检查报告缺少的）。
+一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期可以是精确字符串（`expect`）、正则（`expect_match`）、数值与容差（`expect_value` + `tolerance`），或多值数值与容差（`expect_values` + `tolerance`，回复按逗号切分逐元素比较——带噪读数列表用这个，不再手写按位数的正则包络，#836）。用例应覆盖覆盖表中每条“实现”和“接受”的命令；带 `reference` 的定义每条用例都要写 `manual`（覆盖检查报告缺少的）。
 
 同一种文件也用来写**契约用例**：按既有测试程序的接口契约而不是厂商手册编写，`manual` 写契约条目（例如 `examples/lowfreq-cal/cases.yaml`）。步骤可以用 `instrument` 发给测试台中的另一台仪器。运行：
 
