@@ -295,6 +295,8 @@ def test_error_report_names_the_command_and_classification():
         (1e7, "OHM", "10.000 MΩ"),
         (0.001, "S", "1.0000 ms"),
         (float("inf"), "OHM", "High Z"),
+        (0.0574, "dBm", "0.0574 dBm"),  # a decibel level takes no SI prefix (never "57.4 mdBm")
+        (-81.6, "dBm", "-81.600 dBm"),
     ],
 )
 def test_engineering_formats(value: float, unit: str, text: str):
@@ -381,6 +383,11 @@ def test_braille_rows_draw_a_peak_at_the_top_and_the_floor_at_the_bottom():
     assert rows[0].strip("⠀") != ""  # the peak lights the top row
     assert rows[0][0] == "⠀" and rows[-1][0] != "⠀"  # the floor sits on the bottom row
     assert braille_rows([], 5, 2) == ["⠀" * 5] * 2
+    # On the instrument's fixed scale (reference level at the top, 100 dB below it) a peak 50 dB
+    # down sits below the top row, and samples under the bottom are clipped to the bottom row.
+    fixed = braille_rows([-200.0] * 50 + [-50.0] + [-200.0] * 49, 20, 3, lo=-100.0, hi=0.0)
+    assert fixed[0].strip("⠀") == "" and fixed[1].strip("⠀") != ""
+    assert fixed[-1][0] != "⠀"
 
 
 def test_a_panel_key_labelled_only_in_chinese_reads_the_enum_word():

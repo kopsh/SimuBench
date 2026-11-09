@@ -56,6 +56,18 @@ class DefinitionFiles:
     def create(self, def_id: str, data: dict[str, Any], source: Source = "agent") -> M.DefinitionDocument:
         return self.save(def_id, None, data, source)
 
+    def copy_of(self, def_id: str, source: Source = "ui") -> M.DefinitionDocument:
+        """ "Copy as my instrument": a workspace definition ``my-<id>`` (``-2``, ``-3`` … when taken)
+        that ``extends`` the given one (D59). It starts as the same instrument and is changed by
+        editing its YAML or with the agent's ``edit_definition``; the parent stays untouched."""
+        self.read(def_id)  # it must exist (built in or in the workspace)
+        base = f"my-{def_id}"
+        new_id, n = base, 1
+        while (self.files.workspace / self.rel_path(new_id)).exists():
+            n += 1
+            new_id = f"{base}-{n}"
+        return self.create(new_id, {"extends": def_id}, source)
+
     def edit(
         self, def_id: str, base_sha256: str, ops: list[jsonpatch.PatchOp], source: Source = "agent"
     ) -> M.DefinitionDocument:

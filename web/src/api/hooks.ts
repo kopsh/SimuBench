@@ -112,6 +112,24 @@ export function useSession(sid: string) {
  * Start a bench (stopping the open one). With scripts connected the user confirms first (#121);
  * ``rebuild`` asks as a rebuild (with "later"), ``force`` skips the question (already asked).
  */
+/** Copy the packaged Hello World bench into the workspace (kept as is when it is already there). */
+export function useCreateHello() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/benches/hello")),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.benches }),
+  });
+}
+
+/** "Copy as my instrument": a workspace definition extending a built-in one (D59). */
+export function useCopyDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (defId: string) => unwrap(api.POST("/api/definitions/{def_id}/copy", { params: { path: { def_id: defId } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.catalog }),
+  });
+}
+
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({

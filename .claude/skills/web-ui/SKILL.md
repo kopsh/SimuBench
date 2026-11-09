@@ -23,6 +23,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - `web/src/features/workbench/classes.tsx` — the one list of instrument classes (icon + own screen).
   A new class is added there, plus `acceptance.class.<id>` in both i18n files (`classes.test.ts`
   checks they agree); do not add icon maps or `if (template === …)` chains elsewhere.
+- `web/src/features/home/` — the product page (D65): `HelloPreview.tsx` plays engine data from
+  `hello-preview.json` (regenerate: `uv run python scripts/capture_hello_preview.py`), `Showcase.tsx`
+  shows real screenshots in `assets/` (TUI: `docs/tui/hello.steps.yaml`; web: the workbench on the
+  Hello World bench, dark, 1440×900, WebP). Never hand-draw an instrument picture on the home page.
+- `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
+  motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key
   families built from API strings; use them instead of `as "a" | "b"` casts.
 - `web/src/i18n/{zh,en}.ts` — all text; `t("area.key")`. zh is primary (D23).

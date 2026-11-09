@@ -8,6 +8,7 @@ error event, so an entry turns grey the moment the ``:SYSTem:ERRor?`` that reads
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from . import controls as C
@@ -171,13 +172,18 @@ def spectrum_rows(
     cols = max(10, width - 4)
     rows: list[list[tuple[str, str]]] = []
     trace = next((t for t in traces if t.get("name") == "trace1"), traces[0] if traces else None)
+    key = next((k for k in values if k.endswith(".marker_x")), None)
     if trace and trace.get("values"):
         wave = [float(v) for v in trace["values"]]
-        for line in braille_rows(wave, cols, 4):
+        # The instrument's graticule: the reference level at the top, 10 dB a division, ten
+        # divisions — as the web screen draws it. A trace scaled to its own range would flatten
+        # the levels it exists to compare (harmonics 9.5 dB apart looked equal).
+        ref = values.get(f"{key.rsplit('.', 1)[0]}.ref_level") if key else None
+        top = float(ref) if isinstance(ref, (int, float)) else 10 * math.ceil(max(wave) / 10)
+        trace_rows = 6 if budget is None or budget >= 20 else 4
+        for line in braille_rows(wave, cols, trace_rows, lo=top - 100.0, hi=top):
             rows.append([(line, "ch1")])
-        lo, hi = min(wave), max(wave)
-        rows.append([(f"{fmt(hi, 'dBm', 4)} top · {fmt(lo, 'dBm', 4)} floor", "muted")])
-    key = next((k for k in values if k.endswith(".marker_x")), None)
+        rows.append([(f"Ref {fmt(top, 'dBm', 4)} · 10 dB/div", "muted")])
     if key:
         base = key.rsplit(".", 1)[0]
         mx, my = values.get(f"{base}.marker_x"), values.get(f"{base}.marker_y")

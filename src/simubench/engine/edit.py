@@ -9,6 +9,7 @@ checks are left to :mod:`simubench.engine.validate`.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
@@ -69,6 +70,16 @@ class SetDut(_Op):
 class Remove(_Op):
     op: Literal["remove"] = "remove"
     name: str = Field(..., description="Instrument or part; its wires are removed too")
+
+
+class ReplaceInstrument(_Op):
+    """Swap an instrument's model for another, keeping its name, label, address and place: wires
+    on ports the new model also has stay, the others are removed; settings the new model also has
+    stay, the rest (and the identity overrides of the old unit) are dropped."""
+
+    op: Literal["replace_instrument"] = "replace_instrument"
+    name: str
+    model: str
 
 
 class Rename(_Op):
@@ -177,6 +188,7 @@ EditOp = Annotated[
     | AddDut
     | SetDut
     | Remove
+    | ReplaceInstrument
     | Rename
     | Connect
     | Disconnect
@@ -219,15 +231,52 @@ def _free_position(b: BenchDefinition) -> LayoutItem:
     return LayoutItem(x=max(xs) + 320, y=60)
 
 
-def apply(bench: BenchDefinition, ops: list[Any]) -> BenchDefinition:
-    """Apply operations in order to a copy of ``bench``; all or nothing."""
+def model_surface(d: Any) -> tuple[set[str], set[str]]:
+    """The port names and state paths of an instrument definition, channels expanded."""
+    count = d.channels.count
+    ports = {p.replace("{n}", str(n)) for n in range(1, count + 1) for p in d.ports.channel}
+    ports |= set(d.ports.instrument)
+    paths = set(d.state) | {f"ch{n}.{k}" for n in range(1, count + 1) for k in d.channel_state}
+    return ports, paths
+
+
+def apply(
+    bench: BenchDefinition, ops: list[Any], library: Callable[[str], Any] | None = None
+) -> BenchDefinition:
+    """Apply operations in order to a copy of ``bench``; all or nothing. ``library`` resolves a
+    definition id; only ``replace_instrument`` needs it (which ports and settings carry over)."""
     b = bench.model_copy(deep=True)
     for i, op in enumerate(ops):
         try:
+            if isinstance(op, ReplaceInstrument):
+                _replace(b, op, library)
+                continue
             _apply_one(b, op)
         except EditError as exc:
             raise EditError(f"第 {i + 1} 个操作 {getattr(op, 'op', '?')}：{exc}") from None
     return b
+
+
+def _replace(b: BenchDefinition, op: ReplaceInstrument, library: Callable[[str], Any] | None) -> None:
+    inst = b.instruments.get(op.name)
+    if inst is None:
+        raise EditError(f"没有名为 {op.name!r} 的仪表")
+    if library is None:
+        raise EditError("替换仪表需要仪表库，在工作区中编辑测试台文件时可用")
+    try:
+        ports, paths = model_surface(library(op.model))
+    except (KeyError, FileNotFoundError, ValueError):
+        raise EditError(f"没有仪表定义 {op.model!r}") from None
+    inst.model = op.model
+    inst.state = {k: v for k, v in inst.state.items() if k in paths}
+    inst.idn = inst.serial = inst.firmware = None
+    inst.hidden = {}
+
+    def kept(ref: str) -> bool:
+        r = parse(ref)
+        return r is None or r.owner != op.name or r.port in ports
+
+    b.wires = [w for w in b.wires if kept(w.from_) and kept(w.to)]
 
 
 def _apply_one(b: BenchDefinition, op: Any) -> None:

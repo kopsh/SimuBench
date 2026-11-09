@@ -8,7 +8,9 @@ import {
   Gauge,
   Radio,
   SquareFunction,
+  Target,
   Waves,
+  Zap,
 } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import type { InstrumentInfo, SessionInfo } from "@/api/client";
@@ -68,6 +70,8 @@ export const INSTRUMENT_CLASSES = {
   source: { icon: Waves },
   daq: { icon: Cpu },
   frequency_counter: { icon: Cpu },
+  calibrator: { icon: Target },
+  power_supply: { icon: Zap },
 } satisfies Record<string, ClassEntry>;
 
 export type InstrumentClassId = keyof typeof INSTRUMENT_CLASSES;
