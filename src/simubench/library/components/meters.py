@@ -408,6 +408,8 @@ class DmmAdc(Component):
             value += self.noise_sample(
                 self.noise_rms(r, float(self.param("reading_time"))), "reading", function, *when
             )
+            if DmmConditioning._kind(function) == "AC":
+                value = abs(value)  # an rms reading is never negative (#803)
         if r is not None:
             if not math.isfinite(value) or abs(value) > float(self.param("overrange")) * r:
                 return float(self.param("overload_value"))  # past the range (an open ohms input too)

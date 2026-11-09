@@ -54,9 +54,11 @@ test("34465A default panel: function and range keys change the reading", async (
   await fn.getByRole("button", { name: "AC V" }).click();
   await expect(fn.getByRole("button", { name: "AC V" })).toHaveAttribute("aria-pressed", "true");
   await expect(panel(page).getByTestId("panel-readout-meter.DC")).toHaveCount(0);
-  // Only the reading noise is left (#744: tens of nV on this range), far below a real AC signal.
+  // Only the reading noise is left (#744: tens of nV on this range), far below a real AC signal;
+  // an rms reading is never negative (#803).
   const ac = panel(page).getByTestId("panel-readout-meter.AC");
-  await expect.poll(async () => Math.abs(await readoutValue(ac))).toBeLessThan(1e-6);
+  await expect.poll(async () => readoutValue(ac)).toBeGreaterThanOrEqual(0);
+  await expect.poll(async () => readoutValue(ac)).toBeLessThan(1e-6);
 
   // NPLC and input impedance are on the panel too.
   await expect(panel(page).getByRole("textbox", { name: "积分时间（PLC）" })).toBeVisible();
