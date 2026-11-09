@@ -605,7 +605,14 @@ def test_category_instrument_snapshot(
             "examples",
             "benches/keysight_e36312a.bench.yaml",
             "psu",
-            ["CH1 voltage", "CH3 current", r"re:CH1 voltage\s+0\.000000 V"],
+            # The panel reading rides the readback noise (#744): any draw within ±4σ of 0 V.
+            # The panel reading rides the readback noise (#744) and the psu screen renders it in
+            # engineering units: any draw within ~4σ of 0 V shows as µV (below ~1 mV) or mV.
+            [
+                "CH1 voltage",
+                "CH3 current",
+                r"re:CH1 voltage\s+[+-]?(?:[0-9]{1,3}\.[0-9]{6} µV|1\.[0-9]{6} mV|0\.000000 V)",
+            ],
             "psu",
         ),
         # The scan's reading with its unit; nothing scanned yet, so zero volts (#374).

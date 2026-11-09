@@ -93,10 +93,10 @@ cases:
       - send: "*WAI"
       - query: "MEAS:VOLT? (@2)"
         expect_value: 39.9992
-        tolerance: 1.0e-4
+        tolerance: 1.0e-4  # 8σ(25 V 路) > 4σ
       - query: "MEAS:VOLT? (@3)"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 4.0e-4  # 4σ(读数噪声,specs.noise_readback_rms,#744)
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
       - send: "VOLT 5,(@3)"
@@ -177,14 +177,14 @@ cases:
         expect: "1"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 4.0e-4  # 4σ(#744)
       - send: "*WAI"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 4.9990002
-        tolerance: 1.0e-6
+        tolerance: 4.0e-4  # 4σ(#744)
       - query: "MEAS:CURR? (@1)"
         expect_value: 0.49990002
-        tolerance: 1.0e-7
+        tolerance: 6.0e-4  # 4σ
       - query: "OUTP? (@1:3)"
         expect: "1,0,0"
 
@@ -194,19 +194,21 @@ cases:
       - send: "VOLT 5,(@1);:CURR 0.1,(@1);:OUTP ON,(@1);*WAI"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 1.0
-        tolerance: 1.0e-3
+        tolerance: 1.0e-3  # > 4σ
       - query: "MEAS:CURR? (@1)"
         expect_value: 0.1
-        tolerance: 1.0e-6
+        tolerance: 6.0e-4  # 4σ(#744)
 
   - name: "MEAS:VOLT? (@1:3) 按通道列表序回答三路，功率按 V×I"
     manual: "MEASure Subsystem > MEASure[:SCALar]:VOLTage[:DC]? / CURRent[:DC]?"
     steps:
       - send: "VOLT 5,(@1);:VOLT 2,(@2);:VOLT 1,(@3);:CURR 1,(@1:3);:OUTP ON,(@1:3);*WAI"
       - query: "MEAS:VOLT? (@1:3)"
-        expect_match: '^\+4\.9990002E\+00,\+1\.9999600E\+00,\+9\.9998000E-01$'
+        expect_values: [4.9990002, 1.99996, 0.99998]
+        tolerance: 4.0e-4  # 4σ(读数噪声,specs.noise_readback_rms,#744)
       - query: "MEAS:CURR? (@1:3)"
-        expect_match: '^\+4\.9990002E-01,\+1\.9999600E-02,\+9\.9998000E-03$'
+        expect_values: [0.49990002, 0.0199996, 0.0099998]
+        tolerance: 6.0e-4  # 4σ
 
   - name: "OVP 阈值每路默认是量程最大值，可在各自范围内设定；低于下限报 -222"
     manual: "VOLTage Subsystem > [SOURce:]VOLTage:PROTection[:LEVel][:AMPLitude]"
@@ -236,7 +238,7 @@ cases:
         expect: "0"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 4.0e-4  # 4σ(#744)
       - send: "OUTP ON,(@1)"
       - query: "SYST:ERR?"
         expect: '+729,"Not allow to enable output"'
@@ -246,7 +248,7 @@ cases:
       - send: "*WAI"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 4.9990002
-        tolerance: 1.0e-6
+        tolerance: 4.0e-4  # 4σ(#744)
 
   - name: "OUTPut:PROTection:CLEar 清除 OVP 锁定并恢复故障前的输出状态"
     manual: "OUTPut Subsystem > OUTPut:PROTection:CLEar"
@@ -268,19 +270,19 @@ cases:
         expect: "INT"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 4.9990002
-        tolerance: 1.0e-6
+        tolerance: 4.0e-4  # 4σ(#744)
       - send: "VOLT:SENS EXT,(@1)"
       - query: "VOLT:SENS? (@1)"
         expect: "EXT"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 5.0
-        tolerance: 1.0e-7
+        tolerance: 4.0e-4  # 4σ(#744)
       - send: "VOLT:SENS INT,(@1)"
       - query: "VOLT:SENS? (@1)"
         expect: "INT"
       - query: "MEAS:VOLT? (@1)"
         expect_value: 4.9990002
-        tolerance: 1.0e-6
+        tolerance: 4.0e-4  # 4σ(#744)
 
   - name: "VOLT:RANGe 接受并回显单一量程对应的值"
     manual: "VOLTage Subsystem > [SOURce:]VOLTage:RANGe"

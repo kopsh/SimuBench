@@ -84,15 +84,17 @@ cases:
         tolerance: 2.0e-3
       - query: "MEASure:SCALar:CURRent:DC? (@3)"
         expect_value: 2.0
-        tolerance: 1.0e-6
+        tolerance: 3.2e-5  # 4σ(#744)
       - query: "MEASure:SCALar:VOLTage:DC? (@3)"
         expect_value: 2.0
         tolerance: 2.0e-3
       - query: "MEAS:CURR? (@2,4)"
-        expect: "+0.000000E+00,+0.000000E+00"
+        expect_values: [0.0, 0.0]
+        tolerance: 3.2e-5  # 4σ(读数噪声,specs.noise_readback_rms,#744)
       - send: "OUTP OFF,(@1)"
       - query: "MEAS:VOLT? (@1)"
-        expect: "+0.000000E+00"
+        expect_values: [0.0]
+        tolerance: 1.2e-3  # 4σ(#744)
 
   - name: "过压保护：越限关输出并锁存，CLEar 恢复"
     manual: "[SOURce:]VOLTage:PROTection[:LOCal][:LEVel]（0 – maximum，最大值为额定的 120 %）; OUTPut:PROTection:CLEar"
@@ -109,7 +111,8 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: "MEAS:VOLT? (@1)"
-        expect: "+0.000000E+00"
+        expect_values: [0.0]
+        tolerance: 1.2e-3  # 4σ(#744)
       - send: "VOLT 5,(@1)"
       - send: "OUTPut:PROTection:CLEar (@1)"
       - query: "*OPC?"
@@ -142,7 +145,8 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: "MEAS:CURR? (@3)"
-        expect: "+0.000000E+00"
+        expect_values: [0.0]
+        tolerance: 3.2e-5  # 4σ(#744)
       - query: "OUTP? (@3)"
         expect: "0"
       - send: "CURR:PROT:STAT OFF,(@3);:CURR 6,(@3);:OUTP:PROT:CLE (@3)"
@@ -172,7 +176,8 @@ cases:
         expect: '-222,"Data out of range"'
       - send: "VOLT 5,(@1);:CURR 1,(@1);:OUTP ON,(@1)"
       - query: "MEAS:VOLT? (@1)"
-        expect: "+0.000000E+00"
+        expect_values: [0.0]
+        tolerance: 1.2e-3  # 继电器延时里读到 0 加噪,4σ(#744)
       - query: "*OPC?"
         expect: "1"
       - query: "MEAS:VOLT? (@1)"
