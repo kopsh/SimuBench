@@ -48,7 +48,8 @@ jobs:
       - name: progress-log keeps its appended history (issue #380)
         run: uv run python scripts/check_progress_log.py
       - name: Unit, service and acceptance tests
-        # tui_boot (Textual screens, snapshots, real-server scenarios) runs on main; see the job below.
+        # tui_boot (Textual boot; runs on main) and load_sensitive (the wall-clock budgets, red
+        # on a busy machine by design) stay out of the fast tier.
         run: uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
       - name: Interface schemas are up to date (D21)
         shell: bash
@@ -152,8 +153,10 @@ jobs:
         run: uv run pytest -n 4 --dist loadscope -q -m "tui_boot or load_sensitive"
 
   e2e:
+    # Gates pull requests too (#848): the browser scenarios and the Storybook visual baselines
+    # are verified before the merge, so a stale baseline cannot turn main red (#618, #645, #841).
     name: End-to-end (Chromium)
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
     needs: [python, web]
     runs-on: ubuntu-latest
     steps:
