@@ -570,6 +570,7 @@ export const en: Widen<Messages> = {
     more: "{{count}} more",
     fewer: "Show fewer",
     pin: "Keep lit on the graph",
+    locate: "Show in the inspector",
     open: "View internals",
     tab: "{{name}} · Internals",
     title: "Internals",
