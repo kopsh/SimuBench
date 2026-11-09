@@ -2415,6 +2415,11 @@ export interface components {
              * @description Dependencies between components (a component names another in a refs parameter), from the one used to the one that uses it; not signal wiring
              */
             refs: components["schemas"]["InternalRef"][];
+            /**
+             * Selects
+             * @description Components that pick their input channel with a setting (#739); not wiring, not refs
+             */
+            selects: components["schemas"]["InternalSelect"][];
             /** Wires */
             wires: components["schemas"]["InternalWire"][];
         };
@@ -2445,9 +2450,14 @@ export interface components {
         InternalCommand: {
             /**
              * Header
-             * @description The command header as the definition writes it
+             * @description The command header as the definition writes it, with a channel component's channel filled in (':CHANnel1:SCALe')
              */
             header: string;
+            /**
+             * Op
+             * @description The component's operation the command runs (e.g. 'figure'); none for a setting
+             */
+            op: string | null;
             /**
              * Query
              * @default true
@@ -2459,10 +2469,10 @@ export interface components {
              */
             set: boolean;
             /**
-             * Via
-             * @description How the command reaches the component: 'setting:<path>' (it writes that setting, which one of the component's parameters follows) or 'op:<operation>' (it runs the operation)
+             * Setting
+             * @description The component's setting the command writes (e.g. 'ch1.scale'); none for an operation
              */
-            via: string;
+            setting: string | null;
         };
         /** InternalComponent */
         InternalComponent: {
@@ -2545,16 +2555,35 @@ export interface components {
          *     at or downstream of it.
          */
         InternalReading: {
-            /** Header */
+            /**
+             * Header
+             * @description As in InternalCommand, with the provider's channel filled in
+             */
             header: string;
             /**
+             * Path
+             * @description The components the influence passes, from the component itself to the provider (the shortest such path)
+             */
+            path: string[];
+            /**
              * Provider
-             * @description The component the query reads, e.g. 'xfer'
+             * @description The component the query reads, e.g. 'xfer' or 'ch1.probe'
              */
             provider: string;
             /**
+             * Selected By
+             * @description For a channel component: the setting that picks which channel a component on the path reads (e.g. 'waveform.source'); the reading reflects this channel only when it is chosen
+             */
+            selected_by: string | null;
+            /**
+             * Terminal
+             * @description The provider feeds nothing further: its queries are the instrument's results (waveform data, measurements), not the state of a component on the way
+             * @default false
+             */
+            terminal: boolean;
+            /**
              * Via
-             * @description How the influence travels: 'self' (the component's own query), 'wire' (a signal wire downstream), 'ref' (a component that uses it), 'select' (the provider picks its input channel with a setting, e.g. a waveform source — not a ref)
+             * @description How the influence reaches the provider (the last step of path): 'self' (the component's own query), 'wire' (a signal wire), 'ref' (a component that uses it), 'select' (the provider picks its input channel with a setting, e.g. a waveform source — not a ref)
              * @enum {string}
              */
             via: "self" | "wire" | "ref" | "select";
@@ -2579,6 +2608,20 @@ export interface components {
              * @description The component that uses it (e.g. 'acq')
              */
             to: string;
+        };
+        /**
+         * InternalSelect
+         * @description A component that picks the channel it reads with a setting (#739), e.g. a waveform transfer's
+         *     source: every channel reaches it, though no wire or ref says so.
+         */
+        InternalSelect: {
+            /** Component */
+            component: string;
+            /**
+             * Setting
+             * @description The setting that names the channel, e.g. 'waveform.source'
+             */
+            setting: string;
         };
         /** InternalWire */
         InternalWire: {

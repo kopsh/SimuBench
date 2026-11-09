@@ -9,6 +9,7 @@ export type StateVarInfo = Schemas["StateVarInfo"];
 export type ComponentInfo = Schemas["ComponentInfo"];
 export type InstrumentInternals = Schemas["InstrumentInternals"];
 export type InternalComponent = Schemas["InternalComponent"];
+export type InternalReading = Schemas["InternalReading"];
 export type WireInfo = Schemas["WireInfo"];
 export type BenchFile = Schemas["BenchFile"];
 export type ScopeScreen = Schemas["ScopeScreen"];

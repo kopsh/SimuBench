@@ -385,11 +385,17 @@ class InternalCommand(_Model):
     """A SCPI command that drives a component (#739): it writes a setting the component follows, or
     runs one of the component's operations."""
 
-    header: str = Field(..., description="The command header as the definition writes it")
-    via: str = Field(
+    header: str = Field(
         ...,
-        description="How the command reaches the component: 'setting:<path>' (it writes that setting, "
-        "which one of the component's parameters follows) or 'op:<operation>' (it runs the operation)",
+        description="The command header as the definition writes it, with a channel component's "
+        "channel filled in (':CHANnel1:SCALe')",
+    )
+    setting: str | None = Field(
+        None,
+        description="The component's setting the command writes (e.g. 'ch1.scale'); none for an operation",
+    )
+    op: str | None = Field(
+        None, description="The component's operation the command runs (e.g. 'figure'); none for a setting"
     )
     set: bool = True
     query: bool = True
@@ -399,14 +405,37 @@ class InternalReading(_Model):
     """A query command whose answer the component influences (#739): the command reads a component
     at or downstream of it."""
 
-    header: str
-    provider: str = Field(..., description="The component the query reads, e.g. 'xfer'")
+    header: str = Field(..., description="As in InternalCommand, with the provider's channel filled in")
+    provider: str = Field(..., description="The component the query reads, e.g. 'xfer' or 'ch1.probe'")
     via: Literal["self", "wire", "ref", "select"] = Field(
         ...,
-        description="How the influence travels: 'self' (the component's own query), 'wire' (a signal "
-        "wire downstream), 'ref' (a component that uses it), 'select' (the provider picks its input "
-        "channel with a setting, e.g. a waveform source — not a ref)",
+        description="How the influence reaches the provider (the last step of path): 'self' (the "
+        "component's own query), 'wire' (a signal wire), 'ref' (a component that uses it), 'select' "
+        "(the provider picks its input channel with a setting, e.g. a waveform source — not a ref)",
     )
+    path: list[str] = Field(
+        default_factory=list,
+        description="The components the influence passes, from the component itself to the provider "
+        "(the shortest such path)",
+    )
+    terminal: bool = Field(
+        False,
+        description="The provider feeds nothing further: its queries are the instrument's results "
+        "(waveform data, measurements), not the state of a component on the way",
+    )
+    selected_by: str | None = Field(
+        None,
+        description="For a channel component: the setting that picks which channel a component on the "
+        "path reads (e.g. 'waveform.source'); the reading reflects this channel only when it is chosen",
+    )
+
+
+class InternalSelect(_Model):
+    """A component that picks the channel it reads with a setting (#739), e.g. a waveform transfer's
+    source: every channel reaches it, though no wire or ref says so."""
+
+    component: str
+    setting: str = Field(..., description="The setting that names the channel, e.g. 'waveform.source'")
 
 
 class InternalComponent(_Model):
@@ -473,6 +502,10 @@ class InstrumentInternals(_Model):
         default_factory=list,
         description="Dependencies between components (a component names another in a refs parameter), "
         "from the one used to the one that uses it; not signal wiring",
+    )
+    selects: list[InternalSelect] = Field(
+        default_factory=list,
+        description="Components that pick their input channel with a setting (#739); not wiring, not refs",
     )
     ports: list[InternalPort]
 

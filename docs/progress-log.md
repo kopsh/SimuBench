@@ -1662,3 +1662,18 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ `tests/test_internals.py`:每份内置定义里每条命令都能从它操作的组件反查到;示波器 ADC 列出 `:ACQuire:RESolution` 与 `:WAVeform:DATA`/`PREamble`;`source` 选择;只由命令驱动的组件 |
 | Web | ✅ 详情面板三份清单,`Internals.stories.tsx` 的 `ComponentDrivers`,`web/e2e/workbench.spec.ts` 的 ADC 断言 |
 | 未做 | ⚠️ e2e 与视觉基线未在本环境跑(留给 main 上的 CI);面板交互方案(清单的分组、点击跳转到设置)待 advisor 评审,本次只做只读清单 |
+
+## 内部构造图：作用链的交互方案（Issue 739）
+
+#799 合入的只读清单在每个组件上几乎一样（ADC、时基、通道都列采集的 10 条查询），命令头未填通道号，来源以内部写法显示；本次按评审过的交互方案重做。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 接口给出结构化字段 | ✅ `InternalCommand` 改为 `setting` / `op`（去掉 `via` 字符串）；`InternalReading` 加 `path`、`terminal`、`selected_by`，`provider` 为实际组件名（不再是 `ch.probe`）；通道组件的命令头填好通道号；顶层 `selects`；`schemas/` 与 `web/src/api/generated/` 重新生成 |
+| 读数沿真实路径 | ✅ 先走信号连线与 `refs`，再走选通：CH2 垂直通道的 `:WAVeform:DATA?` 路径为 `ch2.front → ch2.probe → acq → xfer`，`selected_by` 为 `waveform.source`；只按“终端组件”过滤会让 33622A（没有终端组件）丢掉全部读数、5730A 丢掉 `OPER?`，所以不删、只分组折叠 |
+| 测试 | ✅ `tests/test_internals.py`：每份内置定义里每条命令都能从它操作或写入的组件反查到（填通道号后的命令头、写入的设置），每条读数的路径沿视图自己的连线或选通走到提供者；ADC 的终端读数恰为 `:WAVeform:DATA`、`:WAVeform:PREamble`、`:MEASure:SIMPle:VALue`；通道命令与 `selected_by`；`selects`（含触发）；只由命令驱动的组件 |
+| 图上的作用链、悬停与钉住 | ✅ `internals/trace.ts`（`traceOf`、`pathTrace`、`controlRows`、`readingGroups`、`matchesHeader`、`search`），`trace.test.ts` 26 项；`layout.ts` 的边带组件级 `links`（折叠通道也能亮），`layout.test.ts` 加 1 项 |
+| 详情面板“由什么控制 / 影响哪些读数”与查找 | ✅ `InternalsView.tsx`；故事 `AdcTraced`、`ChannelTraced`、`FindCommand`、`FindNothing`、`ComponentDrivers` 的亮/暗视觉基线（本环境与 CI 同为 Linux/Chromium，既有基线逐像素通过）；端到端 `workbench.spec.ts`：ADC 的控制与读数、图上亮出采集与波形传输而不亮 CH2、点路径选中波形传输并列出 `:WAVeform:FORMat`、查找 `:WAV:DATA?`；DSO-X 系统块“只由命令操作”列出 `:SYSTem:PRESet`。两项内部结构端到端已在本环境跑过 |
+| #799 的端到端断言 | ✅ 修正：`awg_rc_scope` 的 `sb-dso-4` 的 ADC 不跟随任何设置，原断言 `acquire.resolution` 在这台上不成立；issue 举例的 `:WAVeform:FORMat` 在 `sb-dso-4` 的波形传输上（SDS2104X Plus 对应的是 `:WAVeform:WIDTh`） |
+| 文档 | ✅ `ui-design.md` 第 6 节“内部结构图”；`instrument-authoring.md` 的接口说明 |
+| 本期不做 | ⚠️ 点设置跳到工作台检查器（#800，需 selection 带设置路径）；在图里直接改设置（#801）。视觉测试里 `Live canvas / Counter` 两张在未改动的 `main` 上同样失败，与本次无关 |

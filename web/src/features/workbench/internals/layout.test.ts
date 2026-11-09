@@ -59,6 +59,7 @@ const scope: InstrumentInternals = {
     { from: `ch${n}.front.out`, to: `acq.in${n}` },
   ]),
   refs: [],
+  selects: [],
   ports: [1, 2].map((n) => ({
     name: `CH${n}`,
     target: `ch${n}.inp.pin`,
@@ -88,6 +89,16 @@ describe("buildGraph", () => {
     expect(ids).toContain("p:CH2/p->g:2/in");
     expect(ids).toContain("g:2/out->c:acq/in2");
     expect(ids.some((id) => id.startsWith("g:2/out->g:2"))).toBe(false); // no self loop
+  });
+
+  it("keeps the component links an edge draws, for tracing a collapsed channel (#739)", () => {
+    const { edges } = buildGraph(scope, new Set([1]));
+    expect(edges.find((e) => e.id === "g:2/out->c:acq/in2")!.links).toEqual([
+      "ch2.front>acq",
+    ]);
+    expect(edges.find((e) => e.id === "p:CH2/p->g:2/in")!.links).toEqual([
+      "p:CH2>ch2.inp",
+    ]);
   });
 
   it("does not let nodes in a column overlap", () => {
