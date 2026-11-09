@@ -11,7 +11,7 @@ const WORKSPACE = join(tmpdir(), "simubench-e2e-workspace");
 test("acceptance page: functions, commands, trial run and cases of a real model", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
   // The home screen's instrument list opens the acceptance page without a bench.
-  await page.getByTestId("instrument-list").getByText("Keysight Technologies 34465A").click();
+  await page.getByTestId("instrument-list").getByRole("link", { name: /^34465A Keysight Technologies/ }).click();
   await expect(page.getByRole("heading", { name: "34465A" })).toBeVisible();
   await expect(page.getByText("真实型号")).toBeVisible();
   await expect(page.getByText("34460-90901")).toBeVisible();
@@ -46,7 +46,7 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
 
 test("acceptance page reloads a changed definition and shows the change in the instrument's language", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByTestId("instrument-list").getByText("Keysight Technologies 34465A").click();
+  await page.getByTestId("instrument-list").getByRole("link", { name: /^34465A Keysight Technologies/ }).click();
   await expect(page.getByRole("heading", { name: "34465A" })).toBeVisible();
   // An agent edits the workspace copy (the save path behind MCP's edit_definition).
   execFileSync("uv", ["run", "python", "web/e2e/edit_definition.py", WORKSPACE, "keysight-34465a"], {

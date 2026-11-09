@@ -203,3 +203,22 @@
     outline: 2px solid var(--primary);
   }
 }
+
+/* Home hero: a faint scope graticule behind the title, fading out downwards (tokens only). */
+.home-hero {
+  background: linear-gradient(to bottom, color-mix(in oklch, var(--primary) 6%, var(--background)), var(--background));
+}
+.home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 95%);
+}
+.hero-trace {
+  mask-image: linear-gradient(to right, transparent, black 40%, black 70%, transparent);
+}
