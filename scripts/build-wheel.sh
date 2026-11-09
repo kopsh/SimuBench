@@ -7,6 +7,12 @@
 # SIMUBENCH_SINCE) and dist/RELEASE_NOTES.md lists only what is new since then, to post as is.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# The version counts the day's commits (scripts/version.py): a shallow clone would build N 0, lower
+# than the last release, which pip then treats as old (#828).
+if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || true)" = true ]; then
+  echo "error: shallow clone: the version and the changelog need the full history (git fetch --unshallow)" >&2
+  exit 1
+fi
 (cd web && pnpm install --frozen-lockfile && pnpm build)
 rm -rf src/simubench/web_dist src/simubench/CHANGELOG.md
 cp -r web/dist src/simubench/web_dist

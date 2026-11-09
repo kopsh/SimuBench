@@ -6,8 +6,11 @@ a new commit on the same day gives a larger one, so ``pip`` upgrades. Nothing is
 repository: an internal build only fetches.
 
 Used by hatchling (``[tool.hatch.version]``, expression ``version()``) and by ``changelog.py``.
-Without git history (GitHub zip, ``git archive``) the date comes from ``.git_archival.txt`` and N is
-0; an sdist carries the ``_version.py`` its builder wrote. Else ``0+unknown``.
+Without the whole history N cannot be counted: in a shallow clone, and without git (GitHub zip,
+``git archive``, whose date comes from ``.git_archival.txt``) it is 0, which is lower than any real
+one; a shallow clone says so on stderr. An sdist carries the ``_version.py`` its builder wrote. Else
+``0+unknown``. A release build must not run on such a version: ``build-wheel.sh`` refuses a shallow
+clone (#828).
 
     python scripts/version.py
 """
@@ -16,6 +19,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -56,6 +60,23 @@ def _from_git(root: Path) -> str | None:
         ).stdout.strip()
         if Path(top).resolve() != root.resolve():  # an sdist unpacked inside another repository
             return None
+        shallow = subprocess.run(
+            ["git", "rev-parse", "--is-shallow-repository"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        if shallow == "true":
+            head = subprocess.run(
+                ["git", "log", "-1", "--format=%ct"], cwd=root, capture_output=True, text=True, check=True
+            ).stdout.strip()
+            print(
+                "version.py: shallow clone, the commits of the day cannot be counted: version N is 0 "
+                "(run `git fetch --unshallow` for the real one)",
+                file=sys.stderr,
+            )
+            return name(day_of(int(head)), 0) if head else None
         log = subprocess.run(
             ["git", "log", "--first-parent", "--reverse", "--format=%ct"],
             cwd=root,
