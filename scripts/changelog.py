@@ -1,16 +1,16 @@
-"""What changed for the user, by day, from the git history; no tags needed (D58).
+"""What changed for the user, by version, from the git history; no tags needed (D58).
 
 Only commits that change the product are listed: those touching ``PRODUCT`` below, which is what
 goes into the wheel. A commit that touches only CI, tests, cases, docs or skills is left out. The
 entry is the commit subject, i.e. the PR title (squash merge), without what only the developers
 read: the trailing issue and PR references ``(Closes #12) (#34)`` and the ``核心:`` work label.
-One heading per day, newest first, named by the day's last version (``version.py``).
+One heading per version (``version.py``; a commit is a version), newest first, with the date.
 
     python scripts/changelog.py                         # everything
     python scripts/changelog.py --since 2026.11.4.75    # release notes: the commits after that version
     python scripts/changelog.py -o dist/CHANGELOG.md
 
-Every entry ends with the version it first appears in, so no one has to count commits. The release
+The release
 notes of a published version are ``--since <the version published before>``.
 
 Standard library and git only, so an internal build needs nothing extra. Needs the full history;
@@ -65,28 +65,22 @@ def is_product(paths: list[str]) -> bool:
 
 
 def render(commits: list[Commit], *, since: str | None = None) -> str:
-    """Markdown for ``commits`` (first-parent, oldest first): one section per day, newest first."""
+    """Markdown for ``commits`` (first-parent, oldest first): one section per version, newest first.
+
+    A commit is a version, so a section holds that commit's entry; commits that do not change the
+    product have no section (their version number is simply skipped).
+    """
     names = versions.numbered([c.epoch for c in commits])
     floor = versions.parse(since.removeprefix("v")) if since else None  # raises ValueError if malformed
-    days: list[tuple[str, int, list[tuple[str, str]]]] = []  # (day's last version, epoch, entries)
+    sections: list[tuple[str, int, str]] = []  # (version, epoch, entry)
     for c, vname in zip(commits, names, strict=True):
-        day = versions.day_of(c.epoch)
-        if not days or versions.day_of(days[-1][1]) != day:
-            days.append((vname, c.epoch, []))
-        days[-1] = (vname, c.epoch, days[-1][2])
         if is_product(c.paths) and (floor is None or versions.parse(vname) > floor):
-            days[-1][2].append((entry(c.subject), vname))
+            sections.append((vname, c.epoch, entry(c.subject)))
     base = since.removeprefix("v") if since else None
     out = [f"# SimuBench 变更记录{f'（自 {base} 起）' if base else ''}", ""]
-    for vname, epoch, entries in reversed(days):
-        if entries:
-            d = versions.day_of(epoch)
-            out += [
-                f"## {vname}（{d[0]}-{d[1]:02d}-{d[2]:02d}）",
-                "",
-                *(f"- {s}（{v}）" for s, v in entries),
-                "",
-            ]
+    for vname, epoch, text in reversed(sections):
+        d = versions.day_of(epoch)
+        out += [f"## {vname}（{d[0]}-{d[1]:02d}-{d[2]:02d}）", "", f"- {text}", ""]
     return "\n".join(out)
 
 
