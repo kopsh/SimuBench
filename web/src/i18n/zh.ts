@@ -564,6 +564,13 @@ export const zh = {
     usedBy: "被使用（本组件的输出供给它们）",
     commandSide: "命令 / 状态侧",
     commandSideHint: "不在信号流上，只由命令和设置驱动。",
+    drivingSettings: "驱动它的设置",
+    noSettings: "没有参数跟随设置。",
+    drivingCommands: "驱动它的 SCPI 命令",
+    noCommands: "没有命令直接操作它。",
+    affectedReadings: "受它影响的读数",
+    noReadings: "没有读数命令受它影响。",
+    via: { self: "本组件", wire: "信号连线", ref: "使用关系", select: "按设置选通道" },
     direction: { in: "输入", out: "输出", inout: "双向" },
     medium: { signal: "信号", electrical: "电气", reference: "参考" },
     types: {
