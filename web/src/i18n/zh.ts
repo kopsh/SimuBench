@@ -172,6 +172,7 @@ export const zh = {
     normal: "正态",
   },
   edit: {
+    model: "型号",
     initialTitle: "初始设置",
     initialNote: "搭建模式下画布显示测试台文件中的初始设置；运行中的值见“操作”模式或仪表屏幕。",
     liveTitle: "运行中的值",
@@ -690,6 +691,9 @@ export const zh = {
     refusedHint: "按“本地（LOCAL）”从脚本接管后再操作；脚本发出下一条命令后回到远程。",
   },
   acceptance: {
+    copyAsMine: "复制为我的仪表",
+    copied: "已创建 {{path}}",
+    copiedHint: "它继承这个型号；在 YAML 中改动，或让 Agent 用 edit_definition 修改。",
     open: "验收页",
     tab: "{{name}} · 验收",
     title: "仪表验收",

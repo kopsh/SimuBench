@@ -53,6 +53,43 @@ def test_rename_rewrites_wires_and_layout():
     assert [(w.from_, w.to) for w in b.wires] == [("awg.OUT1", "filter.IN"), ("filter.OUT", "scope.CH1")]
 
 
+def test_replace_instrument_keeps_name_place_and_what_the_new_model_shares():
+    """Swapping the hello bench's scope for another four-channel scope: name, label, layout and
+    the CH1 wire stay; a setting the new model also has stays, the old unit's identity goes."""
+    b = apply(
+        empty(),
+        ops(
+            {"op": "add_instrument", "name": "awg", "model": "siglent-sdg2042x"},
+            {
+                "op": "add_instrument",
+                "name": "scope",
+                "model": "siglent-sds2104xplus",
+                "label": "示波器",
+                "x": 400,
+                "y": 0,
+            },
+            {"op": "connect", "from": "awg.CH1", "to": "scope.CH1"},
+            {"op": "set_state", "instrument": "scope", "path": "ch1.scale", "value": 0.25},
+            {"op": "set_state", "instrument": "scope", "path": "acquire.mdepth", "value": "10k"},
+            {"op": "set_identity", "instrument": "scope", "serial": "SN1"},
+        ),
+        LIB,
+    )
+    swapped = apply(b, ops({"op": "replace_instrument", "name": "scope", "model": "keysight-dsox2024a"}), LIB)
+    scope = swapped.instruments["scope"]
+    assert scope.model == "keysight-dsox2024a" and scope.label == "示波器"
+    assert swapped.layout["scope"].x == 400
+    assert [(w.from_, w.to) for w in swapped.wires] == [("awg.CH1", "scope.CH1")]
+    assert "ch1.scale" in scope.state and "acquire.mdepth" not in scope.state
+    assert scope.serial is None
+    _, report = validate_data(to_yaml_data(swapped), LIB)
+    assert report.ok, report.diagnostics
+    with pytest.raises(EditError, match="仪表库"):
+        apply(b, ops({"op": "replace_instrument", "name": "scope", "model": "keysight-dsox2024a"}))
+    with pytest.raises(EditError, match="没有仪表定义"):
+        apply(b, ops({"op": "replace_instrument", "name": "scope", "model": "nope"}), LIB)
+
+
 def test_remove_drops_wires():
     b = apply(build(), ops({"op": "remove", "name": "rc"}))
     assert b.wires == [] and "rc" not in b.layout

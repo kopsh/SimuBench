@@ -191,6 +191,34 @@ function BenchProperties({ doc }: { doc: BenchDocument }) {
 
 // ---- instrument -------------------------------------------------------------------------------------
 
+/** Swap the model for another of the same class (replace_instrument): the name, label, place,
+ * wires on shared ports and shared settings stay; the server says what was dropped by the diff. */
+function ModelField({ inst }: { inst: InstrumentInfo }) {
+  const { t } = useTranslation();
+  const catalog = useCatalog();
+  const options = (catalog.data?.instruments ?? []).filter((i) => i.instrument_class === inst.instrument_class);
+  if (options.length < 2) return null;
+  return (
+    <Field label={t("edit.model")}>
+      <Select
+        value={inst.definition_id}
+        onValueChange={(model) => model !== inst.definition_id && void applyOps([{ op: "replace_instrument", name: inst.name, model }])}
+      >
+        <SelectTrigger className="h-7 w-full text-xs" aria-label={t("edit.model")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o.id} value={o.id} className="text-xs">
+              {o.manufacturer} {o.model}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </Field>
+  );
+}
+
 function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
   const { t } = useTranslation();
   const select = useWorkbench((s) => s.select);
@@ -225,6 +253,7 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
               onCommit={(v) => applyOps([{ op: "set_label", name: inst.name, label: v || null }])}
             />
           </Field>
+          <ModelField inst={inst} />
           <DutField name={inst.name} dut={inst.dut} />
           <Field label={t("workbench.realAddress")} stacked>
             <TextField

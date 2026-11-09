@@ -2215,6 +2215,7 @@
                   "move": "#/components/schemas/Move",
                   "remove": "#/components/schemas/Remove",
                   "rename": "#/components/schemas/Rename",
+                  "replace_instrument": "#/components/schemas/ReplaceInstrument",
                   "set_accessories": "#/components/schemas/SetAccessories",
                   "set_address": "#/components/schemas/SetAddress",
                   "set_deviation": "#/components/schemas/SetDeviation",
@@ -2243,6 +2244,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Remove"
+                },
+                {
+                  "$ref": "#/components/schemas/ReplaceInstrument"
                 },
                 {
                   "$ref": "#/components/schemas/Rename"
@@ -4812,6 +4816,32 @@
           "new_name"
         ],
         "title": "Rename",
+        "type": "object"
+      },
+      "ReplaceInstrument": {
+        "additionalProperties": false,
+        "description": "Swap an instrument's model for another, keeping its name, label, address and place: wires\non ports the new model also has stay, the others are removed; settings the new model also has\nstay, the rest (and the identity overrides of the old unit) are dropped.",
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "op": {
+            "const": "replace_instrument",
+            "default": "replace_instrument",
+            "title": "Op",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "model"
+        ],
+        "title": "ReplaceInstrument",
         "type": "object"
       },
       "ReplayMismatch": {
@@ -8107,6 +8137,46 @@
           }
         },
         "summary": "Run Definition Cases"
+      }
+    },
+    "/api/definitions/{def_id}/copy": {
+      "post": {
+        "description": "\"Copy as my instrument\": a workspace definition ``my-<id>`` that extends this one (D59).",
+        "operationId": "copyDefinition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Copy Definition"
       }
     },
     "/api/definitions/{def_id}/coverage": {

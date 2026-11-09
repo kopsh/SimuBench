@@ -384,6 +384,19 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         except KeyError as exc:
             raise not_found(exc) from None
 
+    @app.post(
+        "/api/definitions/{def_id}/copy",
+        response_model=M.DefinitionDocument,
+        operation_id="copyDefinition",
+        dependencies=[Depends(auth)],
+    )
+    def copy_definition(def_id: str) -> M.DefinitionDocument:
+        """ "Copy as my instrument": a workspace definition ``my-<id>`` that extends this one (D59)."""
+        try:
+            return definition_files.copy_of(def_id, "ui")
+        except KeyError as exc:
+            raise not_found(exc) from None
+
     @app.get(
         "/api/definitions/{def_id}/document",
         response_model=M.DefinitionDocument,

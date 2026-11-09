@@ -175,6 +175,7 @@ export const en: Widen<Messages> = {
     normal: "normal",
   },
   edit: {
+    model: "Model",
     initialTitle: "Initial settings",
     initialNote: "In Build mode the canvas shows the initial settings of the bench file; running values are in Operate mode and on the instrument screens.",
     liveTitle: "Running values",
@@ -701,6 +702,9 @@ export const en: Widen<Messages> = {
     refusedHint: "Press LOCAL to take it from the script first; the script's next command returns it to remote.",
   },
   acceptance: {
+    copyAsMine: "Copy as my instrument",
+    copied: "Created {{path}}",
+    copiedHint: "It extends this model; change it in the YAML, or let the agent use edit_definition.",
     open: "Acceptance page",
     tab: "{{name}} · Acceptance",
     title: "Instrument acceptance",

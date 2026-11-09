@@ -137,7 +137,8 @@ class BenchFiles:
             bench = BenchDefinition.model_validate(doc.data)
         except ValueError:
             raise edit.EditError("文件不符合测试台格式，先修正诊断中的错误再编辑") from None
-        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops)), source)
+        library = self.library(self.resolve(bench_path))
+        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops, library)), source)
 
     # ---- history (D35) ------------------------------------------------------------------------------
 

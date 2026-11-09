@@ -121,6 +121,15 @@ export function useCreateHello() {
   });
 }
 
+/** "Copy as my instrument": a workspace definition extending a built-in one (D59). */
+export function useCopyDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (defId: string) => unwrap(api.POST("/api/definitions/{def_id}/copy", { params: { path: { def_id: defId } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.catalog }),
+  });
+}
+
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,5 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, FlaskConical, History, Info, ListTree, Terminal, X } from "lucide-react";
+import { Blocks, Copy, FlaskConical, History, Info, ListTree, Terminal, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useCopyDefinition } from "@/api/hooks";
+import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -23,6 +27,33 @@ import { CommandsTab } from "./CommandsTab";
 import { HistoryTab } from "./HistoryTab";
 import { OverviewTab } from "./OverviewTab";
 import { TryTab } from "./TryTab";
+
+/** "Copy as my instrument" on a built-in model: a workspace definition that extends it (D59); the
+ * page then opens the copy, whose YAML the user or the agent changes. */
+function CopyAsMine({ definitionId }: { definitionId: string }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const copy = useCopyDefinition();
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-7"
+      disabled={copy.isPending}
+      onClick={() =>
+        copy.mutate(definitionId, {
+          onSuccess: (doc) => {
+            toast.success(t("acceptance.copied", { path: doc.path ?? "" }), { description: t("acceptance.copiedHint") });
+            navigate(`/i/${doc.data.id as string}`);
+          },
+          onError: (e) => toast.error(t("errors.generic"), { description: (e as Error).message }),
+        })
+      }
+    >
+      <Copy className="size-3.5" /> {t("acceptance.copyAsMine")}
+    </Button>
+  );
+}
 
 const SECTIONS = [
   { key: "overview", icon: Info },
@@ -107,6 +138,7 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
           >
             {t("acceptance.copyIdn")}
           </button>
+          {!doc.data.editable && <CopyAsMine definitionId={definitionId} />}
         </div>
       </header>
 
