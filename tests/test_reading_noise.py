@@ -327,7 +327,11 @@ def test_a_supply_readback_reads_with_noise_per_reading_and_per_frame():
 
 def test_a_calibrator_readback_draws_per_frame_and_replays():
     """The calibrator's readback takes an absolute ``noise.rms`` (a calibrator has no measurement
-    ranges, #750): every panel frame draws around the settled output; the same seed replays."""
+    ranges, #750): every panel frame draws around the settled output; the same seed replays.
+
+    The noise is panel-only: a calibrator has no script-side voltage readback command (a script
+    reads its output with a DMM wired to it, whose noise is the DMM's), so there is no
+    script-versus-panel independence case here (#796)."""
 
     def opened(noise: dict | None) -> tuple:
         s = open_bench(
