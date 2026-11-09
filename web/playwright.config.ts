@@ -14,7 +14,11 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     trace: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } }],
+  // Reduced motion: instrument screens then draw each acquisition at once, without persistence or a
+  // sweep line (lib/motion.ts), so the full-app screenshots stay deterministic.
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" } },
+  ],
   webServer: {
     command: `node e2e/serve.mjs ${PORT}`,
     url: `http://127.0.0.1:${PORT}/api/health`,
