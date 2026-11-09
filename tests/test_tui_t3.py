@@ -157,6 +157,28 @@ async def test_fault_key_without_focus_hints_the_bottom_bar():
         assert not fake.fault_list
 
 
+async def test_a_data_refresh_does_not_take_back_a_focus_the_user_cleared():
+    """#827: the overview's rebuild put the focus back on the last card even when nothing was
+    focused, so ``f`` after clearing the focus sometimes opened the dialog (a late refresh won the
+    race). A rebuild restores the focus only while a card has it."""
+    tui, _ = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        from simubench.tui.screens.overview import Card
+
+        screen = tui.screen
+        cards = list(screen.query(Card))
+        assert cards, "the overview has its cards"
+        screen.set_focus(cards[0])  # what the digit keys do
+        await pilot.pause()
+        screen.set_focus(None)
+        tui.data_version += 1  # new data: the screen rebuilds its cards
+        screen.refresh_content()
+        await pilot.pause()
+        await pilot.pause()
+        assert screen.query(Card) and screen.focused is None
+
+
 async def test_fault_dialog_injects_an_error_with_count():
     """error + count (issue 697): the code and the times reach the spec the TUI POSTs."""
     tui, fake = unit_app(fresh(SMU_BENCH))
