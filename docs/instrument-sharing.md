@@ -133,12 +133,27 @@ CLI：`simubench shared login | search | install | upgrade | publish | list`。
 
 ## 8. 界面
 
-- 仪表库（首页、画布元件库）三个分组：**我的**（本地自建）→ **共享**（已安装的其他用户仪表）→ **内置**；
-  搜索框里多一个"在共享库中搜索"，结果标发布者、版本、可见性，按钮"安装"。
-- 验收页：本地自建显示"发布…"/"发布新版本"；共享显示 发布者、版本、"有新版本"、"复制为我的仪表"、"卸载"；
-  内置不变。
-- 没配置 hub 时共享相关入口不出现，不报错——单机用户的体验与今天完全一样。
-- 措辞与 TUI 共用的部分按 web-ui / tui-ui 技能的规则走；TUI 第一期只显示来源，不做安装。
+原型：[prototypes/instrument-sharing.html](prototypes/instrument-sharing.html)（静态页，浏览器直接打开；
+颜色取自 `web/src/styles/globals.css`，黄色便签是给实施者的说明）。截图：
+
+| 屏 | 内容 | 截图 |
+| --- | --- | --- |
+| P1 | 首页仪表库：来源分段（全部/我的/共享/内置）+ 类别标签；三组卡片与徽标（我的、共享、有新版本、已撤回）；「导入定义包」「在共享库中搜索」 | [p1](prototypes/instrument-sharing/p1.png) |
+| P2 | 共享库抽屉：搜索、发布者/类别筛选、行内按钮随本地状态变；安装对话框列出要写入的文件、父型号变化提示 | [p2](prototypes/instrument-sharing/p2.png) |
+| P3 | 发布对话框：发布到（自己/团队）、名称、可见性三档（默认团队）、变更说明、发布前检查（✕ 禁用发布，本地祖先展平提示） | [p3](prototypes/instrument-sharing/p3.png) |
+| P4 | 共享仪表验收页：头部只读标识、版本、来源；新版本横幅；「历史」标签换成「版本」；复制为我的仪表、卸载 | [p4](prototypes/instrument-sharing/p4.png) |
+| P5 | 升级对话框：`definition_changes` 变更列表、受影响测试台、升级后跑用例 | [p5](prototypes/instrument-sharing/p5.png) |
+| P6 | 工作台：元件库三分组；测试台引用未安装的共享仪表时节点画成缺失、问题面板给 `E-SHARED-NOT-INSTALLED` 与「安装」 | [p6](prototypes/instrument-sharing/p6.png) |
+| P7 | 设置 · 共享库：地址、登录状态（已连接/未登录/连不上/未配置） | [p7](prototypes/instrument-sharing/p7.png) |
+
+规则（原型之外也成立）：
+
+- 三组顺序处处一致：**我的 → 共享 → 内置**；空组不显示。共享徽标优先级 已撤回 > 有新版本 > 共享。
+- 没配置 hub 时共享相关入口（搜索、发布、版本标签的 hub 列表）不出现，不报错；「导入定义包」始终可用（W3）。
+- hub 连不上只影响搜索、安装、升级、发布；已安装的共享仪表照常使用、验收、试用。
+- 共享仪表只读：编辑入口一律换成「复制为我的仪表」，复制件是 `extends: "@owner/id"`。
+- 文字终稿进 `web/src/i18n/zh.ts`、`en.ts`；与 TUI 共用的措辞按 web-ui / tui-ui 技能。TUI 第一期只在仪表列表显示来源，不做安装与发布。
+- 截图由 Playwright 在 1280 px 下按 `section.screen` 截取；改原型后重截。
 
 ## 9. 需要记入 decisions.md 的选择（对齐后由设计方写成一条 D66）
 
@@ -226,17 +241,17 @@ blobs/<bundle_sha256>.sbdef   # 内容寻址，写一次
 | W1 | `@owner/id` 解析与只读 | — | `library/loader.py`（`Library.path`、`_extends_target`）、`definitionfiles.py`、`models/bench.py` 描述 | `@a/b` 在 `instruments/@a/b.yaml` 找到；裸 id 查找顺序不变；`extends: "@a/b"` 生效；编辑返回 403（`test_shared_resolve.py`） |
 | W2 | `shared.lock` 与完整性校验 | W1 | `models/shared.py`、`library/shared.py`、`engine/validate.py` 接入两条诊断码 | 改一字节 → `E-SHARED-MODIFIED`；缺文件 → `E-SHARED-NOT-INSTALLED`；lock 输出逐字节稳定 |
 | W3 | 定义包导出/导入（无 hub） | W2 | `library/bundle.py`；CLI `shared export <id> -o x.sbdef`、`shared import x.sbdef --as @a/b` | 本地祖先被展平、内置父保留并记哈希；恶意包（`..`、链接、多余文件、超限）被拒；导入记版本历史（`Source` 加 `"shared"`） |
-| W4 | 目录来源字段与仪表库三分组 | W1 | `DefinitionSummary.source`/`shared`（保留 `workspace` 一个版本）；`web/` 首页与元件库分组；i18n | API 类型重新生成；分组顺序 我的→共享→内置；未配置 hub 时无共享搜索入口（vitest + 一条 e2e） |
+| W4 | 目录来源字段与仪表库三分组 | W1 | `DefinitionSummary.source`/`shared`（保留 `workspace` 一个版本）；`web/` 首页与元件库分组（原型 P1、P6 左栏）、验收页头部（P4）、导入定义包；i18n | API 类型重新生成；分组顺序 我的→共享→内置；未配置 hub 时无共享搜索入口（vitest + 一条 e2e） |
 | W5 | 卸载与引用检查 | W2 | `/api/shared/{owner}/{id}` DELETE；CLI `shared remove` | 被引用时 409 列出测试台；卸载按 lock 的 files 删除且只删这些 |
 | W6 | `simubench hub` 服务骨架 | W3 | `hub/app.py`、`hub/store.py`（SQLite）、第 7.1 节路由、第 10.5 节表；CLI `hub --db --blobs --port` | 发布→列表→下载→撤回闭环；同版本不可覆盖；服务端重跑校验；OpenAPI 进 `schemas/` |
-| W7 | 本机客户端与登录 | W6 | `shared login/search/install/upgrade/publish`；`/api/shared/*` 转发；令牌存用户配置目录 | 令牌不出现在诊断包、日志、运行记录（`test_security.py` 加一条）；hub 不可达时本地全部功能通过 |
-| W8 | 升级与变更 | W7 | upgrade 返回 `definition_changes`；验收页"有新版本"对话框 | 升级记版本历史；撤回版本仍可用并提示 |
+| W7 | 本机客户端与登录 | W6 | `shared login/search/install/upgrade/publish`；`/api/shared/*` 转发；令牌存用户配置目录；界面：共享库抽屉与安装（P2）、发布（P3）、设置（P7）、工作台缺失仪表（P6） | 令牌不出现在诊断包、日志、运行记录（`test_security.py` 加一条）；hub 不可达时本地全部功能通过 |
+| W8 | 升级与变更 | W7 | upgrade 返回 `definition_changes`；新版本横幅与「版本」标签（P4）、升级对话框（P5） | 升级记版本历史；撤回版本仍可用并提示 |
 | W9 | 可见性、团队、SSO、审计 | W6 | hub 认证中间件（OIDC 或反代头二选一，见第 12 节问题 1）、`members` | 未授权用户搜不到 team 级、下载 404（不是 403，不泄露存在） |
 | W10 | MCP 工具 | W7 | `search_shared`、`install_shared`（`confirm=true`） | 无发布工具；`tests/test_mcp.py` 覆盖 |
 | W11 | 文档同步 | 各包 | `security.md`（hub 令牌、包解析）、`architecture.md`、`glossary.md`（共享仪表、定义包、锁文件）、`codebase-map` 技能 | `check_skills.py` 通过 |
 
 建议顺序：W1→W2→W3（此时两人已能靠拷贝 `.sbdef` 共享）→W4、W5 并行→W6→W7→W8/W10→W9。
-W4 的界面布局与措辞属于 Web 交互（`核心`），本稿第 8 节已定稿的部分可以照做，超出的回到设计。
+W4、W7、W8 的界面照原型 P1–P7 做；原型没画到的交互与措辞属于 Web 交互（`核心`），回到设计。
 
 ## 12. 待确认（对齐时回答；问题 1 决定 W9 的做法）
 

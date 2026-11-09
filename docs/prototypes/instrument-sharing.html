@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>仪表共享原型</title>
+<!--
+  UI prototype for docs/instrument-sharing.md section 8. Static, no build: open in a browser.
+  Tokens copied from web/src/styles/globals.css (light theme). Each <section class="screen"> is one
+  screen; scripts/… is not needed — the PNGs next to this file were taken with Playwright at 1280 px.
+  Copy (wording) here is the proposal; the final strings go to web/src/i18n/zh.ts and en.ts.
+-->
+<style>
+:root{
+  --background:oklch(0.985 0.002 250);--foreground:oklch(0.2 0.015 260);--card:oklch(1 0 0);
+  --primary:oklch(0.55 0.17 255);--primary-fg:oklch(0.985 0 0);--muted:oklch(0.955 0.005 255);
+  --muted-fg:oklch(0.5 0.02 260);--accent:oklch(0.94 0.012 255);--border:oklch(0.905 0.008 255);
+  --sidebar:oklch(0.97 0.004 250);--ok:oklch(0.62 0.15 150);--warn:oklch(0.72 0.16 75);
+  --error:oklch(0.58 0.22 27);--off:oklch(0.65 0.01 260);--sim:oklch(0.55 0.18 295);--sim-muted:oklch(0.95 0.03 295);
+  --ch1:oklch(0.8 0.16 90);--plot:oklch(0.17 0.01 260);
+  --shared:oklch(0.55 0.12 200);--shared-muted:oklch(0.95 0.03 200);
+}
+*{box-sizing:border-box}
+body{margin:0;background:#e9ebef;color:var(--foreground);font:13px/1.6 Inter,"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+.num,code{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace}
+code{font-size:11.5px;background:var(--muted);padding:0 4px;border-radius:4px}
+.page-title{max-width:1280px;margin:24px auto 8px;padding:0 16px}
+.page-title h1{font-size:20px;margin:0}
+.page-title p{color:var(--muted-fg);margin:4px 0 0}
+nav.toc{max-width:1280px;margin:0 auto 16px;padding:0 16px;display:flex;flex-wrap:wrap;gap:6px}
+nav.toc a{font-size:12px;color:var(--primary);text-decoration:none;border:1px solid var(--border);background:var(--card);border-radius:999px;padding:2px 10px}
+.screen{width:1280px;margin:0 auto 40px;background:var(--background);border:1px solid var(--border);border-radius:10px;overflow:hidden;position:relative}
+.screen>header.cap{background:#2a2e37;color:#fff;padding:8px 16px;font-size:12.5px;display:flex;gap:12px;align-items:baseline}
+.screen>header.cap b{font-size:13px}
+.screen>header.cap span{opacity:.75}
+.topbar{height:44px;display:flex;align-items:center;gap:14px;padding:0 16px;border-bottom:1px solid var(--border);background:var(--card)}
+.logo{font-weight:600;display:flex;gap:6px;align-items:center}
+.logo i{width:16px;height:16px;border-radius:4px;background:var(--primary);display:inline-block}
+.topbar .sp{flex:1}
+.search{height:30px;border:1px solid var(--border);border-radius:8px;background:var(--card);display:flex;align-items:center;padding:0 10px;color:var(--muted-fg);gap:6px}
+.btn{height:30px;display:inline-flex;align-items:center;gap:6px;padding:0 12px;border-radius:7px;border:1px solid var(--border);background:var(--card);color:var(--foreground);font-size:12.5px;white-space:nowrap}
+.btn.primary{background:var(--primary);border-color:var(--primary);color:var(--primary-fg)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted-fg)}
+.btn.danger{color:var(--error)}
+.btn.sm{height:26px;padding:0 9px;font-size:12px}
+.wrap{padding:20px 24px}
+h2{font-size:15px;margin:0 0 10px}
+h3{font-size:13px;margin:16px 0 8px;color:var(--muted-fg);font-weight:500;display:flex;gap:8px;align-items:center}
+h3 .count{font-size:11px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card)}
+.seg span{padding:4px 12px;font-size:12px;border-right:1px solid var(--border);color:var(--muted-fg)}
+.seg span:last-child{border-right:0}
+.seg span.on{background:var(--accent);color:var(--foreground);font-weight:500}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{height:26px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:0 11px;font-size:12px;color:var(--muted-fg);background:var(--card)}
+.chip.on{border-color:color-mix(in oklch,var(--primary) 60%,transparent);background:color-mix(in oklch,var(--primary) 15%,transparent);color:var(--foreground)}
+.chip .n{font-size:10.5px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.card{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:12px;background:var(--card);padding:11px 13px;min-width:0}
+.card.hl{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in oklch,var(--primary) 18%,transparent)}
+.icon{width:36px;height:36px;border-radius:8px;background:var(--plot);display:grid;place-items:center;flex-shrink:0;color:var(--ch1);font-size:15px}
+.meta{flex:1;min-width:0}
+.meta .m{display:block;font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .s{display:block;color:var(--muted-fg);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{font-size:10px;border:1px solid;border-radius:4px;padding:0 5px;white-space:nowrap;line-height:16px;flex-shrink:0}
+.b-mine{color:var(--sim);border-color:color-mix(in oklch,var(--sim) 40%,transparent)}
+.b-shared{color:var(--shared);border-color:color-mix(in oklch,var(--shared) 45%,transparent)}
+.b-builtin{color:var(--muted-fg);border-color:var(--border)}
+.b-new{color:var(--primary);border-color:color-mix(in oklch,var(--primary) 45%,transparent)}
+.b-warn{color:oklch(0.5 0.13 70);border-color:color-mix(in oklch,var(--warn) 60%,transparent);background:color-mix(in oklch,var(--warn) 10%,transparent)}
+.b-team{color:var(--muted-fg);border-color:var(--border)}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.hubrow{display:grid;grid-template-columns:36px 1fr 150px 90px 80px 90px;gap:12px;align-items:center;padding:10px 14px;border-top:1px solid var(--border)}
+.hubrow:first-child{border-top:0}
+.hubrow.head{color:var(--muted-fg);font-size:11.5px;padding-top:8px;padding-bottom:8px;background:var(--sidebar)}
+.panel{border:1px solid var(--border);border-radius:12px;background:var(--card);overflow:hidden}
+.muted{color:var(--muted-fg)}
+.small{font-size:11.5px}
+.dim{position:absolute;inset:44px 0 0 0;background:rgba(20,22,28,.38)}
+.dialog{position:absolute;left:50%;top:84px;transform:translateX(-50%);width:600px;background:var(--card);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1px solid var(--border)}
+.dialog header{padding:16px 20px 4px}
+.dialog header h2{margin:0;font-size:15px}
+.dialog .body{padding:8px 20px 4px}
+.dialog footer{padding:12px 20px 16px;display:flex;gap:8px;justify-content:flex-end;align-items:center}
+.dialog footer .left{margin-right:auto}
+.field{margin:10px 0}
+.field label{display:block;font-size:12px;color:var(--muted-fg);margin-bottom:4px}
+.input{height:30px;border:1px solid var(--border);border-radius:7px;display:flex;align-items:center;padding:0 10px;background:var(--card)}
+.input .pre{color:var(--muted-fg)}
+.radio{display:flex;gap:8px}
+.radio div{flex:1;border:1px solid var(--border);border-radius:9px;padding:8px 10px;font-size:12px}
+.radio div.on{border-color:var(--primary);background:color-mix(in oklch,var(--primary) 7%,transparent)}
+.radio b{display:block;font-size:12.5px}
+.checks{list-style:none;margin:0;padding:0;border:1px solid var(--border);border-radius:9px}
+.checks li{display:flex;gap:8px;align-items:center;padding:6px 10px;border-top:1px solid var(--border);font-size:12.5px}
+.checks li:first-child{border-top:0}
+.ok{color:var(--ok)} .warn{color:oklch(0.55 0.14 70)} .err{color:var(--error)}
+.note{border-radius:9px;padding:8px 12px;font-size:12px;margin:10px 0}
+.note.info{background:var(--muted)}
+.note.warn{background:color-mix(in oklch,var(--warn) 12%,transparent);color:oklch(0.42 0.1 70)}
+.note.err{background:color-mix(in oklch,var(--error) 9%,transparent);color:oklch(0.45 0.16 27)}
+.note.shared{background:var(--shared-muted);color:oklch(0.38 0.08 200)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);padding:0 24px}
+.tabs span{padding:8px 12px;font-size:12.5px;color:var(--muted-fg);border-bottom:2px solid transparent}
+.tabs span.on{color:var(--foreground);border-color:var(--primary);font-weight:500}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:6px 16px;font-size:12.5px}
+.kv dt{color:var(--muted-fg)}
+.kv dd{margin:0}
+.diff{font-size:12px;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.diff div{display:grid;grid-template-columns:26px 210px 1fr;gap:8px;padding:5px 10px;border-top:1px solid var(--border)}
+.diff div:first-child{border-top:0}
+.diff .a{color:var(--ok)} .diff .r{color:var(--error)} .diff .c{color:oklch(0.55 0.14 70)}
+.layout{display:grid;grid-template-columns:240px 1fr 260px;height:560px}
+.side{background:var(--sidebar);border-right:1px solid var(--border);padding:12px;overflow:hidden}
+.side .grp{font-size:11px;color:var(--muted-fg);margin:12px 0 4px;display:flex;justify-content:space-between}
+.side .item{display:flex;gap:8px;align-items:center;padding:5px 6px;border-radius:6px;font-size:12px}
+.side .item .icon{width:22px;height:22px;font-size:10px;border-radius:5px}
+.side .item .meta .m{font-size:12px}
+.canvas{position:relative;background:radial-gradient(circle,oklch(0.88 0.005 255) 1px,transparent 1px) 0 0/16px 16px}
+.node{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 10px;width:190px;font-size:12px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.node.missing{border:1.5px dashed var(--error);background:color-mix(in oklch,var(--error) 4%,var(--card))}
+.node .t{font-weight:500}
+.wire{position:absolute;height:2px;background:var(--ch1)}
+.inspector{border-left:1px solid var(--border);background:var(--card);padding:12px}
+.bottom{border-top:1px solid var(--border);background:var(--card)}
+.bottom .tabs{padding:0 12px}
+.diag{display:flex;gap:10px;align-items:center;padding:8px 14px;font-size:12.5px}
+.settings{display:grid;grid-template-columns:200px 1fr;min-height:520px}
+.settings .nav{background:var(--sidebar);border-right:1px solid var(--border);padding:12px}
+.settings .nav div{padding:6px 10px;border-radius:6px;font-size:12.5px;color:var(--muted-fg)}
+.settings .nav div.on{background:var(--accent);color:var(--foreground);font-weight:500}
+.ann{position:absolute;background:#ffe9a8;border:1px solid #e3c25c;color:#5a4500;font-size:11px;line-height:1.45;border-radius:6px;padding:4px 8px;max-width:230px;box-shadow:0 2px 6px rgba(0,0,0,.08);z-index:5}
+.ann b{display:inline-block;background:#5a4500;color:#ffe9a8;border-radius:50%;width:16px;height:16px;text-align:center;line-height:16px;font-size:10px;margin-right:4px}
+.legend{max-width:1280px;margin:-28px auto 40px;padding:0 16px;font-size:12px;color:#4a4f5c}
+.legend ol{margin:6px 0 0;padding-left:20px}
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <h1>仪表共享：界面原型</h1>
+  <p>配合 docs/instrument-sharing.md 第 8 节。浅色主题、1280 px；黄色便签是给实施者的说明，不是界面的一部分。</p>
+</div>
+<nav class="toc">
+  <a href="#p1">P1 首页仪表库</a><a href="#p2">P2 共享库搜索与安装</a><a href="#p3">P3 发布</a>
+  <a href="#p4">P4 共享仪表验收页</a><a href="#p5">P5 升级</a><a href="#p6">P6 工作台：元件库与未安装</a>
+  <a href="#p7">P7 设置：共享库连接</a>
+</nav>
+
+<!-- P1 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p1">
+  <header class="cap"><b>P1 首页 · 仪表库</b><span>三个来源：我的 → 共享 → 内置；类别标签与来源筛选可叠加</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="sp"></span>
+    <span class="search" style="width:320px">⌕ 搜索测试台或仪表　<span class="num small">dmm</span></span>
+    <span class="btn ghost">设置</span></div>
+  <div class="wrap">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <h2 style="margin:0">仪表库</h2>
+      <span class="seg"><span class="on">全部 31</span><span>我的 2</span><span>共享 3</span><span>内置 26</span></span>
+      <span class="sp" style="flex:1"></span>
+      <span class="btn sm">⇩ 导入定义包…</span>
+      <span class="btn sm primary">⌕ 在共享库中搜索</span>
+    </div>
+    <div class="chips" style="margin-bottom:6px">
+      <span class="chip on">全部 <span class="n num">31</span></span><span class="chip">万用表 <span class="n num">6</span></span>
+      <span class="chip">示波器 <span class="n num">3</span></span><span class="chip">校准源 <span class="n num">2</span></span>
+      <span class="chip">电源 <span class="n num">4</span></span><span class="chip">源表 <span class="n num">3</span></span><span class="chip">…</span>
+    </div>
+
+    <h3>我的 <span class="count num">2</span><span class="small">工作区 instruments/ · 可编辑</span></h3>
+    <div class="grid">
+      <div class="card"><span class="icon">Ω</span><span class="meta"><span class="m num">ACME-DMM-6500</span><span class="s">acme-dmm · ACME</span></span><span class="badge b-mine">我的</span></div>
+      <div class="card"><span class="icon">Ω</span><span class="meta"><span class="m num">34465A</span><span class="s">my-keysight-34465a · 继承 34465A</span></span><span class="badge b-mine">我的</span></div>
+    </div>
+
+    <h3>共享 <span class="count num">3</span><span class="small">已安装到本工作区 · 只读 · 版本由 shared.lock 锁定</span></h3>
+    <div class="grid">
+      <div class="card"><span class="icon">Ω</span><span class="meta"><span class="m num">ACME-DMM-7510</span><span class="s num">@alice/acme-dmm-7510 · v3</span></span><span class="badge b-new">有 v4</span></div>
+      <div class="card"><span class="icon">⚡</span><span class="meta"><span class="m num">LF-CAL-200</span><span class="s num">@cal-team/lf-cal-200 · v12</span></span><span class="badge b-shared">共享</span></div>
+      <div class="card"><span class="icon">∿</span><span class="meta"><span class="m num">Proto-Scope</span><span class="s num">@bob/proto-scope · v1</span></span><span class="badge b-warn">已撤回</span></div>
+    </div>
+
+    <h3>内置 <span class="count num">26</span><span class="small">随软件发布的真实型号 · 只读</span></h3>
+    <div class="grid">
+      <div class="card"><span class="icon">Ω</span><span class="meta"><span class="m num">34465A</span><span class="s">Keysight</span></span></div>
+      <div class="card"><span class="icon">⚡</span><span class="meta"><span class="m num">5522A</span><span class="s">Fluke</span></span></div>
+      <div class="card"><span class="icon">∿</span><span class="meta"><span class="m num">SDS2104X Plus</span><span class="s">Siglent</span></span><span class="num muted small">4 通道</span></div>
+      <div class="card"><span class="icon">⎍</span><span class="meta"><span class="m num">SDG2042X</span><span class="s">Siglent</span></span><span class="num muted small">2 通道</span></div>
+    </div>
+  </div>
+  <div class="ann" style="left:470px;top:62px"><b>1</b>来源筛选是分段控件；类别标签按当前来源重新计数。</div>
+  <div class="ann" style="left:560px;top:150px"><b>2</b>未配置共享库（P7）时这两个按钮里只保留「导入定义包」。</div>
+  <div class="ann" style="left:820px;top:300px"><b>3</b>共享卡片第二行是全名 + 锁定版本；徽标优先级：已撤回 &gt; 有新版本 &gt; 共享。</div>
+  <div class="ann" style="left:960px;top:375px"><b>4</b>内置卡片不加徽标（与现状一致），多通道仍显示通道数。</div>
+</section>
+<div class="legend">分组为空时整组不显示；搜索框同时筛选三组。卡片点开都是验收页（P4 是共享的样子）。</div>
+
+<!-- P2 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p2" style="height:720px">
+  <header class="cap"><b>P2 在共享库中搜索 · 安装</b><span>右侧抽屉列出 hub 结果；安装对话框写明要写入的文件</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="sp"></span><span class="btn ghost">设置</span></div>
+  <div style="display:grid;grid-template-columns:1fr 760px;height:640px">
+    <div style="padding:20px 24px;opacity:.45"><h2>仪表库</h2><div class="grid" style="grid-template-columns:repeat(2,1fr)">
+      <div class="card"><span class="icon">Ω</span><span class="meta"><span class="m">ACME-DMM-6500</span><span class="s">acme-dmm</span></span></div>
+      <div class="card"><span class="icon">Ω</span><span class="meta"><span class="m">34465A</span><span class="s">Keysight</span></span></div></div></div>
+    <div style="border-left:1px solid var(--border);background:var(--card);padding:16px 20px;position:relative">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <h2 style="margin:0">共享库</h2><span class="muted small num">hub.lab.internal · 已登录 alice</span><span style="flex:1"></span><span class="btn ghost sm">✕</span></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <span class="search" style="flex:1">⌕ <span style="color:var(--foreground)">dmm</span></span>
+        <span class="btn sm">类别：全部 ▾</span><span class="btn sm">发布者：全部 ▾</span></div>
+      <div class="panel">
+        <div class="hubrow head"><span></span><span>仪表</span><span>发布者</span><span>最新</span><span>可见</span><span></span></div>
+        <div class="hubrow"><span class="icon">Ω</span><span class="meta"><span class="m num">ACME-DMM-7510</span><span class="s">7½ 位，按 ACME 接口规格 r4</span></span><span class="num small">@alice</span><span class="num small">v4 · 2 天前</span><span class="badge b-team">团队</span><span><span class="btn sm">升级到 v4</span></span></div>
+        <div class="hubrow" style="background:color-mix(in oklch,var(--primary) 5%,transparent)"><span class="icon">Ω</span><span class="meta"><span class="m num">ACME-DMM-6510</span><span class="s">继承 Keysight 34465A</span></span><span class="num small">@acme-dmm-team</span><span class="num small">v7 · 1 周前</span><span class="badge b-team">团队</span><span><span class="btn sm primary">安装</span></span></div>
+        <div class="hubrow"><span class="icon">Ω</span><span class="meta"><span class="m num">DMM-Fixture</span><span class="s">产线夹具用万用表，无依据</span></span><span class="num small">@carol</span><span class="num small">v2 · 3 月前</span><span class="badge b-team">全公司</span><span><span class="btn sm">安装</span></span></div>
+        <div class="hubrow"><span class="icon">Ω</span><span class="meta"><span class="m num">ACME-DMM-6500</span><span class="s">与「我的 acme-dmm」同名</span></span><span class="num small">@alice</span><span class="num small">v2</span><span class="badge b-team">仅自己</span><span><span class="muted small">已发布</span></span></div>
+      </div>
+      <p class="muted small" style="margin-top:8px">只列你有权限看到的仪表。已撤回的版本不出现在结果里。</p>
+    </div>
+  </div>
+  <div class="dim" style="left:0"></div>
+  <div class="dialog" style="top:110px">
+    <header><h2>安装 @acme-dmm-team/acme-dmm-6510</h2><p class="muted small" style="margin:2px 0 0">ACME-DMM-6510 · 万用表 · 发布者 acme-dmm-team（团队）</p></header>
+    <div class="body">
+      <div class="field"><label>版本</label><div class="input num" style="justify-content:space-between">v7（最新）· 2026-11-02 · bob<span class="muted">▾</span></div></div>
+      <div class="field"><label>将写入本工作区（建议与测试台一起提交到 Git）</label>
+        <ul class="checks num">
+          <li>＋ instruments/@acme-dmm-team/acme-dmm-6510.yaml</li>
+          <li>＋ instruments/@acme-dmm-team/acme-dmm-6510.coverage.yaml</li>
+          <li>＋ instruments/@acme-dmm-team/acme-dmm-6510.cases.yaml</li>
+          <li>✎ shared.lock</li></ul></div>
+      <div class="note warn">⚠ 父型号 Keysight 34465A 在你的 SimuBench 版本中与发布者的不同。安装后建议在验收页「用例」里跑一遍。</div>
+    </div>
+    <footer><span class="left muted small">运行时不联网；装好后离线可用</span><span class="btn">取消</span><span class="btn primary">安装</span></footer>
+  </div>
+  <div class="ann" style="left:540px;top:600px"><b>1</b>行内按钮随本地状态变：安装 / 升级到 vN / 已安装 / 已发布（自己的）。</div>
+  <div class="ann" style="left:24px;top:330px"><b>2</b>文件列表直接来自包的 manifest，所见即所写；写入失败整体回滚。</div>
+  <div class="ann" style="left:24px;top:470px"><b>3</b>父型号哈希不一致只提示不阻止（设计 5）。</div>
+</section>
+
+<!-- P3 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p3" style="height:760px">
+  <header class="cap"><b>P3 发布本地自建仪表</b><span>验收页头部「发布…」打开；发布前检查与服务端一致</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="muted">/ 仪表 / acme-dmm</span><span class="sp"></span>
+    <span class="btn sm">复制为我的仪表</span><span class="btn sm primary">⇧ 发布…</span></div>
+  <div class="wrap" style="opacity:.4"><h2>ACME-DMM-6500 <span class="badge b-mine">我的</span></h2><p class="muted">acme-dmm · 工作区 instruments/acme-dmm.yaml</p></div>
+  <div class="dim"></div>
+  <div class="dialog" style="width:640px;top:70px">
+    <header><h2>发布到共享库</h2><p class="muted small" style="margin:2px 0 0">发布后的每个版本都不能修改，只能发布新版本或撤回。</p></header>
+    <div class="body">
+      <div style="display:grid;grid-template-columns:200px 1fr;gap:12px">
+        <div class="field"><label>发布到</label><div class="input num" style="justify-content:space-between">@acme-dmm-team<span class="muted">▾</span></div></div>
+        <div class="field"><label>名称</label><div class="input num"><span class="pre">@acme-dmm-team/</span>acme-dmm-6500</div></div>
+      </div>
+      <div class="field"><label>谁能看到</label>
+        <div class="radio"><div><b>仅自己</b><span class="muted">在自己的多台电脑间同步</span></div>
+          <div class="on"><b>团队 ✓</b><span class="muted">acme-dmm-team 的 8 名成员</span></div>
+          <div><b>全公司</b><span class="muted">所有登录 hub 的人</span></div></div></div>
+      <div class="field"><label>这个版本改了什么（可选，显示在升级对话框里）</label><div class="input muted">例如：补齐 :SENSe:VOLTage:AC 的量程</div></div>
+      <div class="field"><label>发布前检查</label>
+        <ul class="checks">
+          <li><span class="ok">✓</span>定义校验通过</li>
+          <li><span class="ok">✓</span>覆盖表与定义一致（依据：ACME 接口规格 r4）</li>
+          <li><span class="ok">✓</span>用例 42/42 通过</li>
+          <li><span class="ok">✓</span>不使用工作区插件组件</li>
+          <li><span class="warn">ⓘ</span>继承 <code>my-base-dmm</code>（本地自建，未发布）：发布时合并进来，发布出去的是一份完整定义</li>
+          <li><span class="muted">ⓘ</span>继承内置 <code>keysight-34465a</code>：保留为依赖，记录父型号哈希</li></ul></div>
+    </div>
+    <footer><span class="left muted small num">将发布为 v1 · SimuBench 0.42.0</span><span class="btn">取消</span><span class="btn primary">发布</span></footer>
+  </div>
+  <div class="ann" style="left:980px;top:150px"><b>1</b>「发布到」只列自己和自己所在的团队；本地 id 的 <code>my-</code> 前缀默认去掉。</div>
+  <div class="ann" style="left:980px;top:270px"><b>2</b>默认「团队」（设计 6）；没有团队时默认「仅自己」。</div>
+  <div class="ann" style="left:980px;top:450px"><b>3</b>任一项 ✕ 时「发布」禁用，✕ 行可点开诊断（同验收页「问题」）。插件组件是 ✕，不是 ⓘ。</div>
+</section>
+
+<!-- P4 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p4" style="height:640px">
+  <header class="cap"><b>P4 共享仪表的验收页</b><span>与内置、我的同一个页面，只换头部与「历史」标签</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="muted">/ 仪表 / @alice/acme-dmm-7510</span><span class="sp"></span></div>
+  <div class="wrap" style="padding-bottom:8px">
+    <div style="display:flex;align-items:flex-start;gap:14px">
+      <span class="icon" style="width:48px;height:48px;font-size:20px">Ω</span>
+      <div style="flex:1">
+        <h2 style="margin:0;font-size:18px;display:flex;gap:8px;align-items:center">ACME-DMM-7510 <span class="badge b-shared">共享</span><span class="badge b-team">团队</span></h2>
+        <div class="muted num small">@alice/acme-dmm-7510 · v3 · alice 发布于 2026-10-21 · 只读</div>
+      </div>
+      <span class="btn sm">在共享库中查看</span><span class="btn sm">复制为我的仪表</span><span class="btn sm danger">卸载</span>
+    </div>
+    <div class="note shared" style="display:flex;align-items:center;gap:10px;margin-top:14px">
+      <span>⬆ 有新版本 <b class="num">v4</b>（2 天前）：补齐 AC 电流量程，修正 :SYST:ERR? 的格式。</span><span style="flex:1"></span><span class="btn sm primary">查看变更并升级</span></div>
+  </div>
+  <div class="tabs"><span>概览</span><span>命令</span><span>试用</span><span>用例</span><span class="on">版本</span></div>
+  <div class="wrap">
+    <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
+      <div class="panel">
+        <div class="hubrow head" style="grid-template-columns:70px 1fr 120px 110px"><span>版本</span><span>说明</span><span>发布</span><span></span></div>
+        <div class="hubrow" style="grid-template-columns:70px 1fr 120px 110px"><span class="num">v4</span><span>补齐 AC 电流量程，修正 :SYST:ERR? 的格式</span><span class="num small">bob · 11-07</span><span><span class="btn sm">升级到此版本</span></span></div>
+        <div class="hubrow" style="grid-template-columns:70px 1fr 120px 110px;background:var(--sidebar)"><span class="num"><b>v3</b></span><span>增加 4 线电阻 <span class="badge b-shared">本工作区</span></span><span class="num small">alice · 10-21</span><span class="muted small">已安装</span></div>
+        <div class="hubrow" style="grid-template-columns:70px 1fr 120px 110px"><span class="num">v2</span><span>首个带覆盖表的版本</span><span class="num small">alice · 09-30</span><span><span class="btn sm">换到此版本</span></span></div>
+        <div class="hubrow" style="grid-template-columns:70px 1fr 120px 110px;color:var(--muted-fg)"><span class="num"><s>v1</s></span><span>已撤回：IDN 串写错</span><span class="num small">alice · 09-12</span><span></span></div>
+      </div>
+      <div>
+        <dl class="kv">
+          <dt>来源</dt><dd class="num">hub.lab.internal</dd>
+          <dt>锁定</dt><dd class="num small">sha256 9f2c…e01a ✓ 与文件一致</dd>
+          <dt>继承</dt><dd>内置 Keysight 34465A</dd>
+          <dt>依据</dt><dd>ACME 接口规格 r4</dd>
+          <dt>本工作区使用</dt><dd>2 个测试台：cal-dcv.bench.yaml、noise.bench.yaml</dd>
+        </dl>
+        <div class="note info small" style="margin-top:14px">共享仪表只读。要改，先「复制为我的仪表」：得到 <code>my-acme-dmm-7510</code>，内容为 <code>extends: "@alice/acme-dmm-7510"</code>。</div>
+      </div>
+    </div>
+  </div>
+  <div class="ann" style="left:900px;top:58px"><b>1</b>「卸载」在有测试台引用时禁用，悬停列出测试台（设计 10.4 的 409）。</div>
+  <div class="ann" style="left:915px;top:545px;max-width:340px"><b>2</b>「历史」标签对共享仪表换成「版本」：列 hub 上的版本，不是本地保存历史。hub 不可达时只显示已安装版本一行，并注明「离线」。</div>
+</section>
+
+<!-- P5 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p5" style="height:640px">
+  <header class="cap"><b>P5 升级</b><span>先看变更与影响，再升级；变更列表沿用定义历史的变更格式</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="muted">/ 仪表 / @alice/acme-dmm-7510</span></div>
+  <div class="dim"></div>
+  <div class="dialog" style="width:680px;top:70px">
+    <header><h2>升级 @alice/acme-dmm-7510：<span class="num">v3 → v4</span></h2><p class="muted small" style="margin:2px 0 0">bob 发布于 2026-11-07：补齐 AC 电流量程，修正 :SYST:ERR? 的格式</p></header>
+    <div class="body">
+      <div class="field"><label>定义的变化（6）</label>
+        <div class="diff num">
+          <div><span class="a">＋</span><span>命令 :SENSe:CURRent:AC:RANGe</span><span class="muted">新增，范围 100 µA – 3 A</span></div>
+          <div><span class="a">＋</span><span>状态 current_ac.range</span><span class="muted">默认 1 A</span></div>
+          <div><span class="c">~</span><span>应答 :SYSTem:ERRor?</span><span class="muted">"+0,No error" → "+0,\"No error\""</span></div>
+          <div><span class="c">~</span><span>覆盖表</span><span class="muted">实现 118 → 124</span></div>
+          <div><span class="r">－</span><span>命令 :SENSe:CURRent:AC:RES</span><span class="muted">改为「未实现」，回 -113</span></div>
+          <div><span class="a">＋</span><span>用例</span><span class="muted">+6 条</span></div>
+        </div></div>
+      <div class="note warn">⚠ 应答格式变化会影响解析 :SYST:ERR? 的脚本。本工作区有 2 个测试台使用此仪表：<span class="num">cal-dcv.bench.yaml</span>、<span class="num">noise.bench.yaml</span>。</div>
+      <div class="field"><label>升级后</label>
+        <ul class="checks"><li><span class="ok">☑</span>运行新版本的用例</li><li><span class="muted">☐</span>重新校验使用它的测试台</li></ul></div>
+    </div>
+    <footer><span class="left muted small">升级会记入版本历史，可以换回 v3</span><span class="btn">取消</span><span class="btn primary">升级到 v4</span></footer>
+  </div>
+  <div class="ann" style="left:1000px;top:200px"><b>1</b>变更来自 <code>definition_changes</code>（与「历史」标签同一格式），不自己再写一套。</div>
+  <div class="ann" style="left:1000px;top:400px"><b>2</b>「换回 v3」= 在 P4 的版本列表里选 v3，同一流程。</div>
+</section>
+
+<!-- P6 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p6">
+  <header class="cap"><b>P6 工作台 · 元件库分组与未安装的共享仪表</b><span>同事提交的测试台引用了你没装的仪表</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="muted">测试台：cal-dcv ▾</span><span class="badge b-warn">无法运行</span><span class="sp"></span><span class="btn sm" style="opacity:.5">▶ 运行</span></div>
+  <div class="layout">
+    <div class="side">
+      <div class="search" style="height:28px">⌕ 搜索仪表或元件</div>
+      <div class="grp"><span>我的</span><span class="num">2</span></div>
+      <div class="item"><span class="icon">Ω</span><span class="meta"><span class="m">ACME-DMM-6500</span></span></div>
+      <div class="item"><span class="icon">Ω</span><span class="meta"><span class="m">34465A（我的）</span></span></div>
+      <div class="grp"><span>共享</span><span class="num">2</span></div>
+      <div class="item"><span class="icon">⚡</span><span class="meta"><span class="m">LF-CAL-200</span><span class="s num small">@cal-team · v12</span></span></div>
+      <div class="item"><span class="icon">∿</span><span class="meta"><span class="m">Proto-Scope</span><span class="s num small">@bob · v1 · 已撤回</span></span></div>
+      <div class="grp"><span>内置</span><span class="num">26</span></div>
+      <div class="item"><span class="icon">Ω</span><span class="meta"><span class="m">34465A</span><span class="s small">Keysight</span></span></div>
+      <div class="item"><span class="icon">⚡</span><span class="meta"><span class="m">5522A</span><span class="s small">Fluke</span></span></div>
+      <div class="item"><span class="icon">∿</span><span class="meta"><span class="m">SDS2104X Plus</span><span class="s small">Siglent</span></span></div>
+    </div>
+    <div style="display:grid;grid-template-rows:1fr 120px">
+      <div class="canvas">
+        <div class="node" style="left:60px;top:90px"><div class="t">calibrator · 5522A</div><div class="muted small">NORMAL HI / LO</div></div>
+        <div class="wire" style="left:250px;top:120px;width:150px"></div>
+        <div class="node missing" style="left:400px;top:90px"><div class="t err">dut · 未安装</div><div class="num small">@alice/acme-dmm-7510</div><div class="small muted">shared.lock：v3</div><span class="btn sm primary" style="margin-top:6px">安装 v3</span></div>
+      </div>
+      <div class="bottom">
+        <div class="tabs"><span>通信</span><span>事件</span><span class="on">问题 1</span><span>时间线</span></div>
+        <div class="diag"><span class="err">✕</span><span class="num small">E-SHARED-NOT-INSTALLED</span><span>仪表 dut 的型号 <code>@alice/acme-dmm-7510</code> 未安装到本工作区</span><span style="flex:1"></span><span class="btn sm primary">安装 v3（按 shared.lock）</span></div>
+        <div class="diag muted small" style="padding-top:0">或在终端运行 <code>simubench shared install</code>（按锁文件装齐全部）</div>
+      </div>
+    </div>
+    <div class="inspector"><h2 style="font-size:13px">dut</h2>
+      <dl class="kv" style="grid-template-columns:70px 1fr"><dt>型号</dt><dd class="num small">@alice/acme-dmm-7510</dd><dt>来源</dt><dd>共享 · 未安装</dd><dt>地址</dt><dd class="num small">TCPIP::127.0.0.1::5026::SOCKET</dd></dl>
+      <div class="note err small" style="margin-top:12px">安装前无法运行或编辑这台仪表的设置；连线与位置保留。</div></div>
+  </div>
+  <div class="ann" style="left:250px;top:300px"><b>1</b>元件库三组顺序与首页一致；拖入共享仪表时 <code>model</code> 写全名。</div>
+  <div class="ann" style="left:600px;top:310px"><b>2</b>节点按「缺失」样式画（虚线红框），不从测试台删掉；版本取自 shared.lock，锁里也没有时按钮是「在共享库中查找」。</div>
+  <div class="ann" style="left:900px;top:470px"><b>3</b>未登录或 hub 不可达时按钮换成说明文字，诊断仍然显示。</div>
+</section>
+
+<!-- P7 ─────────────────────────────────────────────────────────────── -->
+<section class="screen" id="p7">
+  <header class="cap"><b>P7 设置 · 共享库</b><span>不配置时共享相关入口全部隐藏，单机体验不变</span></header>
+  <div class="topbar"><span class="logo"><i></i>SimuBench</span><span class="muted">/ 设置</span></div>
+  <div class="settings">
+    <div class="nav"><div>通用</div><div>外观</div><div class="on">共享库</div><div>遥测</div><div>关于与诊断</div></div>
+    <div class="wrap" style="max-width:720px">
+      <h2>共享库</h2>
+      <p class="muted" style="margin-top:0">连接团队的 SimuBench Hub，搜索、安装和发布仪表。仿真运行时不会连接共享库。</p>
+      <div class="field"><label>地址</label><div class="input num">https://hub.lab.internal</div></div>
+      <div class="panel" style="padding:12px 14px;display:flex;gap:12px;align-items:center">
+        <span class="dot" style="background:var(--ok)"></span>
+        <div style="flex:1"><b>已连接</b> · 以 <span class="num">alice</span> 登录<div class="muted small">团队：acme-dmm-team、cal-team · 令牌保存在本机用户配置目录，不写入工作区</div></div>
+        <span class="btn sm">退出登录</span></div>
+      <h3 style="margin-top:24px">其他状态</h3>
+      <div class="panel" style="padding:10px 14px;display:flex;gap:12px;align-items:center;margin-bottom:8px">
+        <span class="dot" style="background:var(--off)"></span><div style="flex:1"><b>未登录</b><div class="muted small">登录后才能搜索、安装和发布；已安装的共享仪表照常可用</div></div><span class="btn sm primary">登录…</span></div>
+      <div class="panel" style="padding:10px 14px;display:flex;gap:12px;align-items:center;margin-bottom:8px">
+        <span class="dot" style="background:var(--warn)"></span><div style="flex:1"><b>连不上</b><div class="muted small">已安装的共享仪表照常可用；搜索、安装、升级、发布暂时不可用</div></div><span class="btn sm">重试</span></div>
+      <div class="panel" style="padding:10px 14px;display:flex;gap:12px;align-items:center">
+        <span class="dot" style="background:var(--off)"></span><div style="flex:1"><b>未配置</b><div class="muted small">仪表库只显示「我的」和「内置」；仍可从文件导入定义包</div></div><span class="btn sm">填写地址</span></div>
+    </div>
+  </div>
+  <div class="ann" style="left:960px;top:220px"><b>1</b>「登录…」打开浏览器走公司 SSO，回调到本机服务（设计 12 问题 1 定了再细化）。CLI 等价：<code>simubench shared login</code>。</div>
+  <div class="ann" style="left:960px;top:360px"><b>2</b>状态点总是配文字（ui-design 4.2）。</div>
+</section>
+
+</body>
+</html>
