@@ -1,5 +1,5 @@
 import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, MonitorPlay, MousePointerClick, Send } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, SessionInfo } from "@/api/client";
 import { useScpi } from "@/api/hooks";
@@ -106,6 +106,27 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
   const globals = globalVars(inst);
   const vars = stateMap(inst);
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
+  const reveal = useWorkbench((s) => s.reveal);
+  useEffect(() => {
+    if (!reveal || reveal.instrument !== inst.name) return;
+    // The channel and the group open on this same request: look for the field once they have rendered.
+    let tries = 0;
+    let frame = 0;
+    const find = () => {
+      const row = document.querySelector<HTMLElement>(`[data-setting="${CSS.escape(reveal.path)}"]`);
+      if (!row) {
+        if (++tries < 20) frame = requestAnimationFrame(find);
+        return;
+      }
+      row.scrollIntoView({ block: "center" });
+      row.querySelector<HTMLElement>("input, button, [role=switch], [role=combobox]")?.focus({ preventScroll: true });
+      row.setAttribute("data-revealed", "");
+      window.setTimeout(() => row.removeAttribute("data-revealed"), 1600);
+    };
+    frame = requestAnimationFrame(find);
+    return () => cancelAnimationFrame(frame);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal?.n]);
   return (
     <div className="space-y-4 p-3">
       <RemoteBanner sid={sid} inst={inst} className="-mx-3 -mt-3" />
@@ -233,13 +254,22 @@ export function Section({
   children,
   collapsible,
   defaultOpen = true,
+  reveal,
 }: {
   title: ReactNode;
   children: ReactNode;
   collapsible?: boolean;
   defaultOpen?: boolean;
+  /** The number of a reveal request for a setting inside: opens the section (#800). */
+  reveal?: number | null;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // A reveal request opens the section: state adjusted while rendering, not in an effect.
+  const [seen, setSeen] = useState(reveal);
+  if (reveal !== seen) {
+    setSeen(reveal);
+    if (reveal != null) setOpen(true);
+  }
   return (
     <section>
       <button
@@ -316,6 +346,14 @@ function ChannelSettings({ sid, inst, readonly, stateVars, channels }: SettingsP
   const { t } = useTranslation();
   const [picked, setPicked] = useState(channels[0]);
   const n = channels.includes(picked) ? picked : channels[0];
+  const reveal = useWorkbench((s) => s.reveal);
+  // A reveal request for a channel's setting picks that channel (adjusted while rendering).
+  const [seen, setSeen] = useState(reveal?.n);
+  if (reveal?.n !== seen) {
+    setSeen(reveal?.n);
+    const ch = reveal?.instrument === inst.name ? /^ch(\d+)\./.exec(reveal.path) : null;
+    if (ch && channels.includes(Number(ch[1]))) setPicked(Number(ch[1]));
+  }
   return (
     <section data-testid="channel-settings">
       {channels.length > 1 ? (
@@ -365,6 +403,7 @@ function SettingsBlock({
   stateVars,
 }: SettingsProps & { vars: ReturnType<typeof globalVars>; summary: string[] }) {
   const { main, groups } = splitSettings(vars, summary);
+  const reveal = useWorkbench((s) => s.reveal);
   const field = (v: (typeof vars)[number]) => (
     <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} />
   );
@@ -372,7 +411,13 @@ function SettingsBlock({
     <div className="space-y-3">
       {main.length > 0 && <div className="space-y-1.5">{main.map(field)}</div>}
       {groups.map((g) => (
-        <Section key={g.id} title={<GroupTitle group={g} />} collapsible defaultOpen={groupOpen(g) || (main.length === 0 && g === groups[0])}>
+        <Section
+          key={g.id}
+          title={<GroupTitle group={g} />}
+          collapsible
+          defaultOpen={groupOpen(g) || (main.length === 0 && g === groups[0])}
+          reveal={reveal?.instrument === inst.name && g.vars.some((v) => v.path === reveal.path) ? reveal.n : null}
+        >
           <GroupBody sid={sid} inst={inst} group={g} readonly={readonly} stateVars={stateVars} field={field} />
         </Section>
       ))}
