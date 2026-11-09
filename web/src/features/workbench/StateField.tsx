@@ -204,7 +204,9 @@ function NumberInput({
       : `${parts.mantissa} ${parts.prefix}${unit}`.trim();
 
   // Stepping (#738): a rung up or down, written at once like a typed value. A burst of steps (a held
-  // key, a spinning wheel) builds on the last one asked for, until the live value catches up.
+  // key, a spinning wheel) builds on the last one asked for, until the live value catches up. Typed
+  // commits join `asked` too: the state event lags the POST, so a step right after Enter would
+  // otherwise read the stale live value and step from it (#835).
   const [asked, setAsked] = useState<{ at: number; to: number } | null>(null);
   const pending = asked && asked.at === n ? asked.to : null; // forgotten once the live value changes
   useEffect(() => {
@@ -213,6 +215,10 @@ function NumberInput({
     const id = setTimeout(() => setAsked(null), 1000);
     return () => clearTimeout(id);
   }, [asked]);
+  const handleCommit = (value: number | string) => {
+    if (typeof value === "number" && Number.isFinite(value)) setAsked({ at: n, to: value });
+    onCommit(value);
+  };
   const canStep = !disabled && !inactive;
   const step = (dir: 1 | -1, coarse = false) => {
     if (!canStep) return;
@@ -226,9 +232,8 @@ function NumberInput({
     }
     const next = stepNumber(v, from, dir, coarse);
     if (next === null) return;
-    setAsked({ at: n, to: next });
     field.current?.clear();
-    onCommit(next);
+    handleCommit(next);
   };
   const stepRef = useRef(step);
   useEffect(() => {
@@ -269,7 +274,7 @@ function NumberInput({
         text={rest}
         display={inactive ? t("workbench.auto") : undefined}
         parse={parse}
-        onCommit={onCommit}
+        onCommit={handleCommit}
         onInvalid={onInvalid}
         disabled={disabled}
         onKeyDown={(e) => {
