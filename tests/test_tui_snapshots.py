@@ -513,7 +513,8 @@ def category_server():
     """The validation benches and the example benches (real models: the load, the power supply and
     the DAQ have no validation bench), each behind its own server."""
     servers = {
-        "validation": _serve(ROOT / "validation", 5585, 4899),
+        # HiSLIP 4799, not 4899: test_tui_t4's demo pins 4899 and runs on another xdist worker.
+        "validation": _serve(ROOT / "validation", 5585, 4799),
         "examples": _serve(ROOT / "examples", 5685, 4999),
     }
     yield {key: (url, manager) for key, (url, manager, _, _) in servers.items()}
