@@ -11,6 +11,12 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      rehearse:
+        description: "red: on main, add a job that fails on purpose, to watch main-status react (#817)"
+        type: choice
+        options: ["", red]
+        default: ""
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -205,6 +211,16 @@ jobs:
             web/visual-report
             web/test-results
 
+  rehearsal:
+    # `gh workflow run ci.yml --ref main -f rehearse=red`: a red main on purpose, so the red and green
+    # paths of main-status can be seen working on the real thing (#817). A normal run afterwards
+    # turns main green again.
+    name: Rehearsal (red on purpose)
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.rehearse == 'red'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "failing on purpose (rehearse=red)" && exit 1
+
   main-status:
     # What main's result means for everyone else (#810, #815). It lives here, not in merge.yml:
     # main's CI is the third workflow_run level (PR CI -> merge.yml -> this run), whose end starts
@@ -214,7 +230,7 @@ jobs:
     # re-run of a failed job runs this job again.
     name: Main status
     if: always() && github.ref == 'refs/heads/main'
-    needs: [python, python311, web, package, slow, e2e]
+    needs: [python, python311, web, package, slow, e2e, rehearsal]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -224,10 +240,13 @@ jobs:
       - run: |
           retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
           RESULTS="${{ join(needs.*.result, ' ') }}"
+          # Green is every real job passing; the rehearsal job is skipped in a normal run. A job
+          # that was skipped because one it needs failed is not green either.
+          REAL="${{ needs.python.result }} ${{ needs.python311.result }} ${{ needs.web.result }} ${{ needs.package.result }} ${{ needs.slow.result }} ${{ needs.e2e.result }}"
           case " $RESULTS " in
             *" failure "*) STATE=red ;;
             *" cancelled "*) exit 0 ;;
-            *) STATE=green ;;
+            *) if [ "$(echo $REAL | tr ' ' '\n' | grep -vc '^success$')" = 0 ]; then STATE=green; else STATE=red; fi ;;
           esac
           OPEN=$(retry gh issue list --repo "$REPO" --state open --label "main红了" --json number --jq '.[].number')
           if [ "$STATE" = red ]; then
@@ -245,13 +264,20 @@ jobs:
           # The pull requests merge.yml held: take the label off and start their merge, if the CI on
           # their head passed (a red one was reported on the pull request already).
           for n in $(retry gh pr list --repo "$REPO" --state open --base main --label "等main变绿" --json number --jq '.[].number'); do
-            retry gh pr edit "$n" --repo "$REPO" --remove-label "等main变绿"
             HEAD=$(retry gh pr view "$n" --repo "$REPO" --json headRefOid -q .headRefOid)
-            PASSED=$(gh run list --repo "$REPO" --workflow ci.yml --commit "$HEAD" --status completed --json conclusion --jq 'map(select(.conclusion == "success")) | length' || echo 0)
+            # A failed query is an error of this job, not "nothing passed": the label stays on until
+            # the pull request has been looked at (#817).
+            if ! PASSED=$(retry gh run list --repo "$REPO" --workflow ci.yml --commit "$HEAD" --status completed --json conclusion --jq 'map(select(.conclusion == "success")) | length'); then
+              echo "::error::could not read the CI runs of pull request $n; its label stays"
+              FAILED=1
+              continue
+            fi
+            retry gh pr edit "$n" --repo "$REPO" --remove-label "等main变绿"
             if [ "${PASSED:-0}" -gt 0 ]; then
               retry gh workflow run merge.yml --repo "$REPO" --ref main -f sha="$HEAD"
             fi
           done
+          exit "${FAILED:-0}"
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

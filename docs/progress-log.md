@@ -1722,3 +1722,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 端到端 | ✅ `workbench.spec.ts`：DSO-X 的 `timebase.scale` 展开分组并聚焦；`ch3.scale` 让检查器从 CH1 切到 CH3 并聚焦（用 issue 举例的 ADC `acquire.resolution` 在这台上没有：ADC 不跟随任何设置，见上一节）。端到端顺带抓到定位按钮曾压在“保持高亮”图钉下面 |
 | 文档 | ✅ `ui-design.md` 第 6 节（第 3 节的 CH 选择器说明仍对：selection 没变） |
 | 本期不做 | ⚠️ 视觉基线：故事不传 `onLocate`，没有新增截图；锚定到 `ui-design` 第 3 节“selection 带通道”的画布内选通道交互仍未做 |
+## main-status 的红/绿判定与排练入口（Issue 817 的第一部分）
+
+审查 #816 指出的三处风险：全绿的判定把 skipped 当成绿；查不到 PR 的 CI 记录时 `PASSED` 回退成 0，标签被静默去掉却不触发合并；红/绿路径从未在 main 上真跑。本次：绿要求六个真实作业（两个 Python、web、package、slow、e2e）全是 success，其中任一被跳过（上游失败所致）按红处理；查询失败时作业报错并保留标签，不再静默去标签；`ci.yml` 的手动触发加输入 `rehearse=red`（只在 main 上生效），多一个必失败的 `Rehearsal` 作业，用 `gh workflow run ci.yml --ref main -f rehearse=red` 就能在真实 main 上演一次红，再手动跑一次普通 CI 变绿。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| skipped 不当绿；查询失败不静默放行 | ✅ 判定逻辑在本地对两组结果试过（全 success 判绿，有 skipped 判红）；去标签挪到查询成功之后 |
+| 红/绿路径在 main 上真跑并留档 | ⚠️ 排练入口随本 PR 合并后才能跑；结果（run 链接）补记在 Issue 817 里，届时再改成 ✅ |
