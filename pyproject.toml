@@ -96,8 +96,8 @@ asyncio_mode = "auto"
 timeout = 120
 markers = [
   # Boots a Textual app or a real server (screens, keys, snapshots, 找到跳闸): seconds per test.
-  # The fast checks run `-m "not tui_boot"`; the whole set runs on main after the merge —
-  # the same tiering as the end-to-end and visual tests (AGENTS.md).
+  # The fast checks run `-m "not tui_boot"`; the whole set runs on main after the merge. The
+  # e2e/visual tier gates pull requests instead (#848) — a stale baseline is a pre-merge failure.
   "tui_boot: needs a running Textual app or server",
   "unit: pure logic, the D49 budget guard applies (<=100 ms per test)",
   # Wall-clock budgets (test_performance.py): red on a busy machine, green on an idle one.

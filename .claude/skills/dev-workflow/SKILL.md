@@ -82,7 +82,7 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
   nearest existing module. A new test *file* is for a new model (the `real-model` template) or
   a behaviour with no existing home. Never add a case into a flow whose state it breaks —
   state-incompatible coverage gets its own test.
-- Windows, wheel, e2e, visual, `tui_boot`, `load_sensitive` run after merge. Red on `main` is
+- Windows, wheel, `tui_boot`, `load_sensitive` run after merge; e2e/visual also gate pull requests (#848). Red on `main` is
   fixed before new work.
 
 ## Keep the skills current
