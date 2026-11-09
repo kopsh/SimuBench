@@ -391,7 +391,8 @@ class InternalCommand(_Model):
         "channel filled in (':CHANnel1:SCALe')",
     )
     setting: str | None = Field(
-        None, description="The component's setting the command writes (e.g. 'ch1.scale'); none for an operation"
+        None,
+        description="The component's setting the command writes (e.g. 'ch1.scale'); none for an operation",
     )
     op: str | None = Field(
         None, description="The component's operation the command runs (e.g. 'figure'); none for a setting"

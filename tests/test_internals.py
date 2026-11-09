@@ -220,7 +220,12 @@ def test_the_scope_adc_lists_the_waveform_commands_it_changes():
     heads = {r.header: r for r in adc.readings}
     assert {":WAVeform:DATA", ":WAVeform:PREamble", ":MEASure:SIMPle:VALue"} <= set(heads)
     data = heads[":WAVeform:DATA"]
-    assert (data.provider, data.via, data.path, data.terminal) == ("xfer", "ref", ["adc", "acq", "xfer"], True)
+    assert (data.provider, data.via, data.path, data.terminal) == (
+        "xfer",
+        "ref",
+        ["adc", "acq", "xfer"],
+        True,
+    )
     assert {r.header for r in adc.readings if r.terminal} == {
         ":WAVeform:DATA",
         ":WAVeform:PREamble",
