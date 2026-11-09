@@ -1743,3 +1743,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | #820 main 恢复绿 | ⚠️ 修复随本 PR 合并，main 的下一次运行为准 |
 | #817 红路径真跑 | ✅ 运行 42559037580 → #820 |
 | #817 绿路径与放行挂起 PR 真跑 | ⚠️ 本 PR 合并后在 #817 里记录 |
+
+## main-status 在真实 main 上走通红、绿两条路径（Issue 817）
+
+用 `gh workflow run ci.yml --ref main -f rehearse=red` 演一次红：运行 [1120](https://github.com/kopsh/SimuBench/actions/runs/42560866283) 的 `Rehearsal` 作业按设计失败，`main-status` 判红，开出唯一的 issue #822（标签 `main红了`）。本条记录所在的 PR 是在 main 红着时开的，被合并机器人挂起（标签 `等main变绿`），随后再手动跑一次普通 CI 变绿：issue 自动关闭、被挂起的 PR 由 `main-status` 去标签并触发 `merge.yml` 合并——这条记录本身出现在 main 上，就是放行路径走通的证据。运行链接见 #817。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 红：唯一的 `main红了` issue，其余 PR 被挂起 | ✅ #822；本 PR 被打上 `等main变绿` |
+| 绿：issue 关闭，挂起的 PR 去标签并合并 | ✅ 本 PR 合并即证据 |
+| 查询失败不静默去标签 | ✅ 代码路径（#821）；没有制造 API 故障去演，已在作业里报错并保留标签 |
