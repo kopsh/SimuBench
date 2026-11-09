@@ -97,7 +97,8 @@ Changed a path, command, check, rule or workflow step that a skill states? Updat
   (except `src/simubench/_version.py`, written by the build).
 - The version comes from git (D58): never write a version number into the source. `__version__`
   is what `uv sync` built the editable install with; re-run `uv sync` to refresh it. The version
-  `YYYY.M.D.N` is counted from the commit history (`scripts/version.py`); nothing is tagged.
+  `YYYY.M.D.N` is counted from the commit history (`scripts/version.py`); nothing is tagged. A shallow
+  clone gives N 0 with a warning and `build-wheel.sh` refuses it: `git fetch --unshallow` first.
 - Changing a Pydantic model / API → regenerate `schemas/` **and** `web/src/api/generated`
   (`pnpm gen:api`), commit both.
 - Changing TUI wording that is shared with the web → `web/src/i18n/{zh,en}.ts` and
