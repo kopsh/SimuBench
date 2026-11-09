@@ -123,6 +123,7 @@ class OverviewScreen(ShellScreen):
     def __init__(self) -> None:
         super().__init__()
         self._last_version: int = -1
+        self._pending_focus: str | None = None  # a rebuild's focus not yet put back (#827)
         self._log_rows = DRAWER_ROWS
         self._log_open = False  # the log is a drawer: shut, it shows the newest few rows
         self._seen_started = False
@@ -177,11 +178,12 @@ class OverviewScreen(ShellScreen):
         app: Any = self.app
         session = app.session_info
         grid = self._grid
-        # The focus to keep across the rebuild, captured before the cards go away. Only a focus
-        # that exists: a focus the user cleared stays cleared (#827, #849) — the restore below is
-        # synchronous, so no late refresh can put a cleared focus back.
-        card = self.focused
-        focused = card.card.name if isinstance(card, Card) else None
+        focused = None
+        if grid.children:
+            # Only a focus that exists, or that a rebuild a moment ago has yet to put back: a focus
+            # the user cleared stays cleared (#827), else ``f`` after a late refresh opened the dialog.
+            card = self.focused
+            focused = card.card.name if isinstance(card, Card) else self._pending_focus
         grid.remove_children()
         if not session:
             note = i18n.t("connect.screen", app.lang)
@@ -203,14 +205,8 @@ class OverviewScreen(ShellScreen):
             for c in row:
                 c.lines += [[]] * (height - len(c.lines))
             grid.mount(Horizontal(*[Card(c) for c in row]))
-        if focused:
-            # Put the focus back synchronously: the widget is in the DOM right after mount, and
-            # with no queued callback there is no window for a user-cleared focus (#827, #849)
-            # to be resurrected.
-            for card in grid.query(Card):
-                if card.card.name == focused:
-                    card.focus()
-                    break
+        self._pending_focus = focused
+        grid.call_after_refresh(self._restore_focus, focused)
 
     def _cards_with_alerts(self) -> list[Card]:
         return [c for c in self._grid.query(Card) if c.card.alerts]
@@ -283,6 +279,15 @@ class OverviewScreen(ShellScreen):
             self.query_one("#bottombar", BottomBar).flash(i18n.t("attention.noReason", app.lang))
             return
         app.show_reason(report)
+
+    def _restore_focus(self, name: str | None) -> None:
+        if name == self._pending_focus:
+            self._pending_focus = None
+        if name:
+            for card in self._grid.query(Card):
+                if card.card.name == name:
+                    card.focus()
+                    return
 
     def _drawer_rows(self) -> int:
         """Rows of the log's box: a few when shut (the cards get the height), the full block
