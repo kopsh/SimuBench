@@ -38,7 +38,7 @@ from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from .benchfiles import BenchFiles, scan
-from .internals_links import downstream, drivers
+from .internals_links import drivers, influence_edges, selections
 from .internals_links import readings as readings_of
 from .runs import Runs
 
@@ -785,6 +785,7 @@ class SessionManager:
         for _pname, (cname, cport) in inst.ports.items():
             exposed.setdefault(cname, set()).add(cport)
         commands = inst.definition.commands
+        edges = influence_edges(inst, wires)
         with s.view():
             components = [
                 M.InternalComponent(
@@ -811,8 +812,8 @@ class SessionManager:
                         if p not in comp.ports and p not in wired.get(name, {})
                     ],
                     settings=(bound := list(dict.fromkeys(comp.bound_paths().values()))),
-                    commands=drivers(commands, name, bound),
-                    readings=readings_of(commands, name, downstream(inst, wires, name)),
+                    commands=drivers(commands, name, comp.channel, bound),
+                    readings=readings_of(commands, inst, edges, name),
                 )
                 for name, comp in inst.components.items()
             ]
@@ -840,6 +841,7 @@ class SessionManager:
                 for name, comp in inst.components.items()
                 for key, used in comp.ref_links()
             ],
+            selects=selections(inst),
             ports=ports,
         )
 

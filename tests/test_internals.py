@@ -175,42 +175,87 @@ def test_refs_are_not_wires():
 def test_every_command_is_found_from_the_component_it_operates(def_id):
     """Every command that runs a component's operation, or writes a setting a component's
     parameter follows, is listed on that component — whatever the binding form (``state:``,
-    ``op:``, a parameter's ``state``, ``keys``, ``writes``)."""
-    from simubench.server.internals_links import command_settings, norm
+    ``op:``, a parameter's ``state``, ``keys``, ``writes``) — with the channel filled in and the
+    setting it writes as the component resolves it; every reading's path leads from the component
+    to the provider over the view's own links."""
+    from simubench.server.internals_links import command_settings, concrete, norm
 
     d = LIBRARY.get(def_id)
     view = internals({"instruments": {"x": {"model": def_id}}}, "x")
-    comps = {norm(c.name): c for c in view.components}
+    by_norm: dict[str, list] = {}
+    for c in view.components:
+        by_norm.setdefault(norm(c.name), []).append(c)
     for cmd in d.commands:
         if cmd.op:
-            owner = norm(cmd.op.rpartition(".")[0])
-            assert owner in comps, f"{cmd.header}: op {cmd.op} names no component"
-            assert any(c.header == cmd.header and c.via == f"op:{cmd.op}" for c in comps[owner].commands)
+            comp_name, _, op = cmd.op.rpartition(".")
+            owners = by_norm.get(norm(comp_name))
+            assert owners, f"{cmd.header}: op {cmd.op} names no component"
+            for c in owners:
+                assert any(x.header == concrete(cmd.header, c.channel) and x.op == op for x in c.commands)
         for path in command_settings(cmd):
             followers = [c for c in view.components if norm(path) in {norm(s) for s in c.settings}]
             for c in followers:
-                assert any(x.header == cmd.header for x in c.commands), (cmd.header, c.name)
+                hit = [x for x in c.commands if x.header == concrete(cmd.header, c.channel)]
+                assert hit, (cmd.header, c.name)
+                assert all(x.setting in c.settings or x.op for x in hit), (cmd.header, c.name)
+    names = {c.name for c in view.components}
+    links = {(w.from_.rpartition(".")[0], w.to.rpartition(".")[0]) for w in view.wires}
+    links |= {(r.from_, r.to) for r in view.refs}
+    selecting = {s.component for s in view.selects}
+    for c in view.components:
+        for r in c.readings:
+            assert r.provider in names, r  # a real component, not 'ch.probe'
+            assert r.path[0] == c.name and r.path[-1] == r.provider, r
+            for a, b in zip(r.path, r.path[1:], strict=False):
+                assert (a, b) in links or b in selecting, (c.name, r)
 
 
 def test_the_scope_adc_lists_the_waveform_commands_it_changes():
+    """The ADC's bit depth reaches the waveform codes and the measurements through the acquisition;
+    the acquisition's own queries (sample rate, status) are on the way, not results."""
     view = internals({"instruments": {"scope": {"model": "siglent-sds2104xplus"}}}, "scope")
     adc = next(c for c in view.components if c.type == "scope_adc")
     assert adc.settings == ["acquire.resolution"]
-    assert [c.header for c in adc.commands] == [":ACQuire:RESolution"]  # drives it: bit depth
+    assert [(c.header, c.setting) for c in adc.commands] == [(":ACQuire:RESolution", "acquire.resolution")]
     heads = {r.header: r for r in adc.readings}
-    assert {":WAVeform:DATA", ":WAVeform:PREamble"} <= set(heads)  # codes depend on the ADC bits
-    assert heads[":WAVeform:DATA"].provider == "xfer" and heads[":WAVeform:DATA"].via == "ref"
+    assert {":WAVeform:DATA", ":WAVeform:PREamble", ":MEASure:SIMPle:VALue"} <= set(heads)
+    data = heads[":WAVeform:DATA"]
+    assert (data.provider, data.via, data.path, data.terminal) == ("xfer", "ref", ["adc", "acq", "xfer"], True)
+    assert {r.header for r in adc.readings if r.terminal} == {
+        ":WAVeform:DATA",
+        ":WAVeform:PREamble",
+        ":MEASure:SIMPle:VALue",
+    }
+    assert not heads[":ACQuire:SRATe"].terminal and heads[":ACQuire:SRATe"].provider == "acq"
+
+
+def test_a_channel_component_names_its_own_channel():
+    """A channel's vertical lists ``:CHANnel2:SCALe`` writing ``ch2.scale``, and the probe after it by
+    its own name; its waveform reaches the transfer by the source setting."""
+    view = internals({"instruments": {"scope": {"model": "siglent-sds2104xplus"}}}, "scope")
+    comps = {c.name: c for c in view.components}
+    front = comps["ch2.front"]
+    assert (":CHANnel2:SCALe", "ch2.scale") in {(c.header, c.setting) for c in front.commands}
+    assert all("<ch>" not in c.header for c in front.commands)
+    assert ":CHANnel2:PROBe" in {r.header for r in front.readings if r.provider == "ch2.probe"}
+    data = next(r for r in front.readings if r.header == ":WAVeform:DATA")
+    assert data.via == "select" and data.path[-1] == "xfer"
 
 
 def test_a_source_setting_selects_the_channel_without_a_ref():
-    """``waveform_transfer`` / ``scope_measurements`` pick their channel with a ``source`` setting:
-    every channel's vertical reaches them ('select'), and the setting is among their drivers."""
+    """``waveform_transfer`` / ``scope_measurements`` / the trigger pick their channel with a ``source`` setting:
+    the view names them and the setting, and the setting is among their drivers."""
     view = internals({"instruments": {"scope": {"model": "siglent-sds2104xplus"}}}, "scope")
     comps = {c.name: c for c in view.components}
-    assert {r.via for r in comps["ch2.front"].readings if r.header == ":WAVeform:DATA"} <= {"select", "ref"}
+    assert {(s.component, s.setting) for s in view.selects} == {
+        ("xfer", "waveform.source"),
+        ("meas", "measure.source"),
+        ("trigger", "trigger.source"),  # the trigger picks its channel the same way
+    }
     assert ":MEASure:SIMPle:VALue" in {r.header for r in comps["ch2.front"].readings}
     assert ":WAVeform:SOURce" in {c.header for c in comps["xfer"].commands}
-    assert ":WAVeform:DATA" in {r.header for r in comps["xfer"].readings}  # its own query
+    own = next(r for r in comps["xfer"].readings if r.header == ":WAVeform:DATA")
+    assert (own.via, own.path) == ("self", ["xfer"])
 
 
 def test_a_command_only_component_lists_the_commands_that_operate_it():
@@ -218,4 +263,4 @@ def test_a_command_only_component_lists_the_commands_that_operate_it():
     view = internals({"instruments": {"x": {"model": "keysight-34465a"}}}, "x")
     ops = [c for c in view.components if not c.settings and c.commands]
     assert ops, "some component is driven by operations only"
-    assert all(cmd.via.startswith("op:") for c in ops for cmd in c.commands)
+    assert all(cmd.op and cmd.setting is None for c in ops for cmd in c.commands)

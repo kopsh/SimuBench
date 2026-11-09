@@ -3076,6 +3076,14 @@
             "title": "Refs",
             "type": "array"
           },
+          "selects": {
+            "description": "Components that pick their input channel with a setting (#739); not wiring, not refs",
+            "items": {
+              "$ref": "#/components/schemas/InternalSelect"
+            },
+            "title": "Selects",
+            "type": "array"
+          },
           "wires": {
             "items": {
               "$ref": "#/components/schemas/InternalWire"
@@ -3091,6 +3099,7 @@
           "components",
           "wires",
           "refs",
+          "selects",
           "ports"
         ],
         "title": "InstrumentInternals",
@@ -3149,9 +3158,21 @@
         "description": "A SCPI command that drives a component (#739): it writes a setting the component follows, or\nruns one of the component's operations.",
         "properties": {
           "header": {
-            "description": "The command header as the definition writes it",
+            "description": "The command header as the definition writes it, with a channel component's channel filled in (':CHANnel1:SCALe')",
             "title": "Header",
             "type": "string"
+          },
+          "op": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The component's operation the command runs (e.g. 'figure'); none for a setting",
+            "title": "Op"
           },
           "query": {
             "default": true,
@@ -3163,15 +3184,23 @@
             "title": "Set",
             "type": "boolean"
           },
-          "via": {
-            "description": "How the command reaches the component: 'setting:<path>' (it writes that setting, which one of the component's parameters follows) or 'op:<operation>' (it runs the operation)",
-            "title": "Via",
-            "type": "string"
+          "setting": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The component's setting the command writes (e.g. 'ch1.scale'); none for an operation",
+            "title": "Setting"
           }
         },
         "required": [
           "header",
-          "via",
+          "setting",
+          "op",
           "set",
           "query"
         ],
@@ -3355,16 +3384,31 @@
         "description": "A query command whose answer the component influences (#739): the command reads a component\nat or downstream of it.",
         "properties": {
           "header": {
+            "description": "As in InternalCommand, with the provider's channel filled in",
             "title": "Header",
             "type": "string"
           },
+          "path": {
+            "description": "The components the influence passes, from the component itself to the provider (the shortest such path)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Path",
+            "type": "array"
+          },
           "provider": {
-            "description": "The component the query reads, e.g. 'xfer'",
+            "description": "The component the query reads, e.g. 'xfer' or 'ch1.probe'",
             "title": "Provider",
             "type": "string"
           },
+          "terminal": {
+            "default": false,
+            "description": "The provider feeds nothing further: its queries are the instrument's results (waveform data, measurements), not the state of a component on the way",
+            "title": "Terminal",
+            "type": "boolean"
+          },
           "via": {
-            "description": "How the influence travels: 'self' (the component's own query), 'wire' (a signal wire downstream), 'ref' (a component that uses it), 'select' (the provider picks its input channel with a setting, e.g. a waveform source — not a ref)",
+            "description": "How the influence reaches the provider (the last step of path): 'self' (the component's own query), 'wire' (a signal wire), 'ref' (a component that uses it), 'select' (the provider picks its input channel with a setting, e.g. a waveform source — not a ref)",
             "enum": [
               "self",
               "wire",
@@ -3378,7 +3422,9 @@
         "required": [
           "header",
           "provider",
-          "via"
+          "via",
+          "path",
+          "terminal"
         ],
         "title": "InternalReading",
         "type": "object"
@@ -3408,6 +3454,26 @@
           "param"
         ],
         "title": "InternalRef",
+        "type": "object"
+      },
+      "InternalSelect": {
+        "description": "A component that picks the channel it reads with a setting (#739), e.g. a waveform transfer's\nsource: every channel reaches it, though no wire or ref says so.",
+        "properties": {
+          "component": {
+            "title": "Component",
+            "type": "string"
+          },
+          "setting": {
+            "description": "The setting that names the channel, e.g. 'waveform.source'",
+            "title": "Setting",
+            "type": "string"
+          }
+        },
+        "required": [
+          "component",
+          "setting"
+        ],
+        "title": "InternalSelect",
         "type": "object"
       },
       "InternalWire": {
