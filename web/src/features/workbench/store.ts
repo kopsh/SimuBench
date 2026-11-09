@@ -25,6 +25,8 @@ interface WorkbenchState {
   reveal: Reveal;
   /** Select the instrument and ask its inspector to show this setting: the channel picked, the group open, the field scrolled to and focused. */
   revealSetting: (instrument: string, path: string) => void;
+  /** The inspector has dealt with request `n` (shown the field or found nothing): a later mount must not act on it again (#819). */
+  consumeReveal: (n: number) => void;
   tabs: Tab[];
   active: string; // tab key
   paletteOpen: boolean;
@@ -74,6 +76,7 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas" })),
   revealSetting: (instrument, path) =>
     set((s) => ({ selection: { kind: "instrument", id: instrument }, reveal: { instrument, path, n: (s.reveal?.n ?? 0) + 1 } })),
+  consumeReveal: (n) => set((s) => (s.reveal?.n === n ? { reveal: null } : s)),
   select: (selection) => set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection })),
   openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
   openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),

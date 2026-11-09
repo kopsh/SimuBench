@@ -1,6 +1,7 @@
 import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, MonitorPlay, MousePointerClick, Send } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import type { InstrumentInfo, SessionInfo } from "@/api/client";
 import { useScpi } from "@/api/hooks";
 import { EmptyState } from "@/components/app/StateViews";
@@ -15,6 +16,7 @@ import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
 import { StateField } from "./StateField";
+import { showSetting } from "./reveal";
 import { useWorkbench } from "./store";
 
 export function Inspector({ session, readonly }: { session: SessionInfo; readonly: boolean }) {
@@ -107,24 +109,15 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
   const vars = stateMap(inst);
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
   const reveal = useWorkbench((s) => s.reveal);
+  const consumeReveal = useWorkbench((s) => s.consumeReveal);
   useEffect(() => {
     if (!reveal || reveal.instrument !== inst.name) return;
-    // The channel and the group open on this same request: look for the field once they have rendered.
-    let tries = 0;
-    let frame = 0;
-    const find = () => {
-      const row = document.querySelector<HTMLElement>(`[data-setting="${CSS.escape(reveal.path)}"]`);
-      if (!row) {
-        if (++tries < 20) frame = requestAnimationFrame(find);
-        return;
-      }
-      row.scrollIntoView({ block: "center" });
-      row.querySelector<HTMLElement>("input, button, [role=switch], [role=combobox]")?.focus({ preventScroll: true });
-      row.setAttribute("data-revealed", "");
-      window.setTimeout(() => row.removeAttribute("data-revealed"), 1600);
-    };
-    frame = requestAnimationFrame(find);
-    return () => cancelAnimationFrame(frame);
+    // The channel and the group open on this same request: the field is looked for once they have rendered.
+    return showSetting(reveal.path, (found) => {
+      // Nothing to show: say so, the focus stays where it is; either way the request is spent (#819).
+      if (!found) toast.info(t("workbench.revealMissing", { path: reveal.path }));
+      consumeReveal(reveal.n);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal?.n]);
   return (
