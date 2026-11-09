@@ -372,3 +372,17 @@ def test_a_calibrator_readback_draws_per_frame_and_replays():
     finally:
         s.close()
     assert again == frames
+
+
+def test_an_rms_reading_of_nothing_is_never_negative(tmp_path):
+    """The noise is added to the AC (rms) reading as it is to the DC one, but an rms is a
+    magnitude: with no AC at the input it reads |noise|, never below zero (#803)."""
+    sigma = PPM * 1e-6 * 10
+    with open_noisy(tmp_path) as s:
+        script = reads(s, 200, "MEAS:VOLT:AC?")
+        meter = s.instruments["dmm"].components["meter"]
+        panel = [meter.readings()["values"]["AC"] for _ in range(200)]
+    for values in (script, panel):
+        assert min(values) >= 0.0
+        assert max(values) <= 4 * sigma + 30e-6  # still inside 4 sigma (+ one 30 uV step)
+        assert len(set(values)) > 5  # and still noise, not a flat zero
