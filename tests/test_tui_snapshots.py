@@ -111,6 +111,14 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
     async def run_before(pilot) -> None:
         import asyncio
 
+        # The capture pins the log to the fixture's own records; a maintenance pass would rebuild
+        # the list from the whole store and undo the trim, so the log view is frozen (#850).
+        original_maintenance = tui._maintenance
+
+        async def frozen_maintenance() -> None:
+            tui._dirty_lines = False  # the rebuild would un-pin the log
+            await original_maintenance()
+
         end = asyncio.get_running_loop().time() + 30
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.05)
@@ -139,15 +147,7 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
                 and tui.lines[-1].kind == "panel"
             ):
                 # Pin the log to the fixture's own records (tui-screens.md 4): the demo service
-                # may serve other tests' commands later. Trim after freezing the log view: the
-                # store keeps receiving events, and a maintenance pass would rebuild the list
-                # from the whole store, undoing the trim (#850).
-                maintenance = tui._maintenance
-
-                async def frozen_maintenance() -> None:
-                    tui._dirty_lines = False  # the rebuild would un-pin the log
-                    await maintenance()
-
+                # may serve other tests' commands later. Trim after freezing the log view (above).
                 tui._maintenance = frozen_maintenance
                 del tui.lines[6:]
                 tui.bump()
@@ -355,8 +355,10 @@ def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
                 # layout.
                 trace = any(0x2800 <= ord(c) <= 0x28FF for c in text)
                 if (
-                    ("net-0" in text and "直流" in text) or ("DC" in text and "net-0" in text)
-                ) and (tui.levels or {}).get("nets") and trace:
+                    (("net-0" in text and "直流" in text) or ("DC" in text and "net-0" in text))
+                    and (tui.levels or {}).get("nets")
+                    and trace
+                ):
                     return
         raise AssertionError("the nets screen never settled")
 
