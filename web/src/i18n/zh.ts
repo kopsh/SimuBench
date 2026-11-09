@@ -567,6 +567,7 @@ export const zh = {
     more: "还有 {{count}} 条",
     fewer: "收起",
     pin: "在图上保持高亮",
+    locate: "在检查器中定位",
     open: "查看内部结构",
     tab: "{{name}} · 内部结构",
     title: "内部结构",

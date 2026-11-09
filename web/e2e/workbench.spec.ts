@@ -452,6 +452,35 @@ test("instrument internals: what only commands drive waits under its own label (
   );
 });
 
+test("internals: a setting row locates its field in the inspector, in the right channel and group (#800)", async ({
+  page,
+}) => {
+  const start = await page.request.post("/api/sessions", {
+    headers: { "x-simubench-token": TOKEN },
+    data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  const graph = page.getByTestId("internals-graph");
+
+  // A whole-instrument setting: the inspector opens its group and focuses the field.
+  await graph.locator('[data-name="timebase"]').click();
+  await page.getByTestId("internal-locate-timebase.scale").click();
+  const scale = page.locator('[data-setting="timebase.scale"]');
+  await expect(scale).toBeVisible();
+  await expect(scale.locator("input")).toBeFocused();
+
+  // A channel's setting: the inspector switches to that channel first (CH1 is the one it shows).
+  await expect(page.getByTestId("channel-settings").getByRole("tab", { selected: true })).toContainText("1");
+  await page.getByTestId("internals-find").fill("ch3.scale");
+  await page.getByTestId("internals-find-results").getByRole("button").first().click();
+  await page.getByTestId("internal-locate-ch3.scale").click();
+  await expect(page.getByTestId("channel-settings").getByRole("tab", { selected: true })).toContainText("3");
+  await expect(page.locator('[data-setting="ch3.scale"] input')).toBeFocused();
+});
+
 test("the settings groups span the screen, not a nested grid's first column", async ({
   page,
 }) => {

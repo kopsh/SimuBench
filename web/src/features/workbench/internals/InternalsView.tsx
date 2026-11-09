@@ -12,9 +12,10 @@ import {
   ReactFlowProvider,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { ArrowRight, Info, Pin, Search } from "lucide-react";
+import { ArrowRight, Crosshair, Info, Pin, Search } from "lucide-react";
 import { type ReactNode, memo, useDeferredValue, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useWorkbench } from "../store";
 import type { T } from "@/i18n";
 import type {
   InstrumentInfo,
@@ -77,13 +78,20 @@ export function InternalsView({
   inst: InstrumentInfo;
 }) {
   const version = useDeferredValue(useEvents((s) => s.version));
+  const revealSetting = useWorkbench((s) => s.revealSetting);
   const query = useInternals(session.id, inst.name, version);
   if (query.error)
     return (
       <ErrorState error={query.error} onRetry={() => void query.refetch()} />
     );
   if (!query.data) return <Skeleton className="m-3 h-[calc(100%-1.5rem)]" />;
-  return <InternalsPanel view={query.data} inst={inst} />;
+  return (
+    <InternalsPanel
+      view={query.data}
+      inst={inst}
+      onLocate={(path) => revealSetting(inst.name, path)}
+    />
+  );
 }
 
 /** What lights up on the graph: a hovered or pinned row, else the selection's chain, else search hits. */
@@ -94,11 +102,14 @@ export function InternalsPanel({
   view,
   inst,
   initial,
+  onLocate,
 }: {
   view: InstrumentInternals;
   inst: InstrumentInfo;
   /** Where the view starts (stories): a selected component or a search. */
   initial?: { selected?: string; query?: string };
+  /** Show a setting in the workbench inspector (#800). The acceptance page has no inspector and leaves it out. */
+  onLocate?: (setting: string) => void;
 }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set([1]));
@@ -239,7 +250,7 @@ export function InternalsPanel({
       >
         <ScrollArea className="h-full">
           {comp ? (
-            <ComponentDetails comp={comp} inst={inst} view={view} focus={focus} />
+            <ComponentDetails comp={comp} inst={inst} view={view} focus={focus} onLocate={onLocate} />
           ) : query.trim() ? (
             <SearchResults view={view} query={query} hits={hits} onSelect={select} />
           ) : (
@@ -702,11 +713,13 @@ export function ComponentDetails({
   inst,
   view,
   focus = NO_FOCUS,
+  onLocate,
 }: {
   comp: InternalComponent;
   inst: InstrumentInfo;
   view: InstrumentInternals;
   focus?: FocusHandlers;
+  onLocate?: (setting: string) => void;
 }) {
   const { t } = useTranslation();
   const vars = stateMap(inst);
@@ -737,7 +750,7 @@ export function ComponentDetails({
           </p>
         )}
       </div>
-      <ControlSection comp={comp} view={view} vars={vars} focus={focus} />
+      <ControlSection comp={comp} view={view} vars={vars} focus={focus} onLocate={onLocate} />
       <Readings comp={comp} view={view} vars={vars} focus={focus} />
       <section>
         <h3 className={HEADING}>{t("internals.params")}</h3>
@@ -880,11 +893,13 @@ function ControlSection({
   view,
   vars,
   focus,
+  onLocate,
 }: {
   comp: InternalComponent;
   view: InstrumentInternals;
   vars: Map<string, StateVarInfo>;
   focus: FocusHandlers;
+  onLocate?: (setting: string) => void;
 }) {
   const { t } = useTranslation();
   const rows = controlRows(view, comp);
@@ -919,6 +934,18 @@ function ControlSection({
                     {label}
                   </span>
                   <span className="num shrink-0">{v ? formatValue(v) : "—"}</span>
+                  {onLocate && v && (
+                    <button
+                      type="button"
+                      aria-label={`${t("internals.locate")}: ${label}`}
+                      title={t("internals.locate")}
+                      data-testid={`internal-locate-${r.setting}`}
+                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring shrink-0 rounded p-0.5 outline-none focus-visible:ring-2"
+                      onClick={() => onLocate(r.setting)}
+                    >
+                      <Crosshair className="size-3" />
+                    </button>
+                  )}
                 </div>
                 <div className="text-muted-foreground num text-[11px] break-all">
                   {r.commands.length ? (

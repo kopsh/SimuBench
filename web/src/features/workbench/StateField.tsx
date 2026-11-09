@@ -109,10 +109,11 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
   return (
     <div
       className={cn(
-        "grid items-center gap-x-3",
+        "grid items-center gap-x-3 rounded-md transition-colors data-[revealed]:bg-primary/15",
         bare ? "grid-cols-1" : compact ? "grid-cols-[1fr_auto]" : FIELD_GRID_COLS,
       )}
       data-inactive={inactive || undefined}
+      data-setting={v.path}
     >
       {!bare && (
         // A setting the definition did not name shows its path, in mono: the name SCPI users know (#728).

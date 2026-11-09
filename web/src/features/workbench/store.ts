@@ -7,6 +7,9 @@ export type Selection =
   | { kind: "net"; id: string }
   | null;
 
+/** A request to show one setting in the inspector (#800): not a selection, so it leaves the links between canvas, tree and log alone. `n` makes a repeated request for the same setting count again. */
+export type Reveal = { instrument: string; path: string; n: number } | null;
+
 export type Tab =
   | { kind: "canvas" }
   | { kind: "screen"; instrument: string }
@@ -19,6 +22,9 @@ interface WorkbenchState {
   mode: Mode;
   setMode: (mode: Mode) => void;
   selection: Selection;
+  reveal: Reveal;
+  /** Select the instrument and ask its inspector to show this setting: the channel picked, the group open, the field scrolled to and focused. */
+  revealSetting: (instrument: string, path: string) => void;
   tabs: Tab[];
   active: string; // tab key
   paletteOpen: boolean;
@@ -45,6 +51,7 @@ export const tabKey = (t: Tab) => (t.kind === "canvas" ? "canvas" : `${t.kind}:$
 
 const initial = {
   selection: null,
+  reveal: null as Reveal,
   tabs: [{ kind: "canvas" }] as Tab[],
   active: "canvas",
   paletteOpen: false,
@@ -65,6 +72,8 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   ...initial,
   mode: "run",
   setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas" })),
+  revealSetting: (instrument, path) =>
+    set((s) => ({ selection: { kind: "instrument", id: instrument }, reveal: { instrument, path, n: (s.reveal?.n ?? 0) + 1 } })),
   select: (selection) => set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection })),
   openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
   openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),

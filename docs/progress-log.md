@@ -1709,3 +1709,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 红时开 issue、绿时关 issue 并放行挂起的 PR | ✅ 写在 `ci.yml` 的 `main-status`，不依赖 workflow_run |
 | 重跑失败作业时也走到这里 | ✅ 随同一次 run 的重跑一起重新执行 |
 | 在 main 上真实走通 | ⚠️ 合并前无法验证：本次合并后的 main 运行是第一次真跑（绿路径：无挂起 PR 时只检查 issue）；红路径要等 main 真红一次。已验证：两个 YAML 解析通过 |
+
+## 内部构造图：点设置在检查器中定位（Issue 800）
+
+“由什么控制”的设置行加“在检查器中定位”按钮：选中该仪表，检查器切到设置所在的通道、展开所在分组、滚动到该项并聚焦、短暂高亮。与 issue 设想的不同：没有给 selection 加设置路径，而是 `store.ts` 里单独的一次性定位请求 `reveal`（仪表、路径、递增序号）——selection 的形状不变，画布、资源树、通信记录的选中联动不受影响，也不用在 selection 里留一个过期的设置路径。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 检查器切到仪表、通道、展开分组、滚动并聚焦 | ✅ `Inspector.tsx`：`Section` 与 `ChannelSettings` 在渲染中按请求序号调整状态，`InstrumentInspector` 的 effect 在渲染后找 `[data-setting]` 滚动、聚焦、高亮；`StateField` 带 `data-setting` |
+| 验收页不显示入口 | ✅ `InternalsPanel` 的 `onLocate` 只由工作台传入 |
+| 单元测试 | ✅ `store.test.ts`：请求选中仪表且不动标签页；重复请求序号递增；reset 清空 |
+| 端到端 | ✅ `workbench.spec.ts`：DSO-X 的 `timebase.scale` 展开分组并聚焦；`ch3.scale` 让检查器从 CH1 切到 CH3 并聚焦（用 issue 举例的 ADC `acquire.resolution` 在这台上没有：ADC 不跟随任何设置，见上一节）。端到端顺带抓到定位按钮曾压在“保持高亮”图钉下面 |
+| 文档 | ✅ `ui-design.md` 第 6 节（第 3 节的 CH 选择器说明仍对：selection 没变） |
+| 本期不做 | ⚠️ 视觉基线：故事不传 `onLocate`，没有新增截图；锚定到 `ui-design` 第 3 节“selection 带通道”的画布内选通道交互仍未做 |
