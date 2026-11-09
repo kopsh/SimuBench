@@ -44,8 +44,9 @@ interface Props<T> {
 }
 
 /**
- * The editing lifecycle of a front-panel text field, once: focus starts a draft, Enter or blur
- * enters it through `parse`, Esc drops it and restores the live value (#688).
+ * The editing lifecycle of a front-panel text field, once: focus reveals the stored value when the
+ * resting display stands in for it ("Auto", #279), Enter or blur enters the typed draft through
+ * `parse`, Esc drops it and restores the live value (#688).
  */
 function DraftInputInner<T>(
   {
@@ -91,10 +92,13 @@ function DraftInputInner<T>(
   const common = {
     ref: el,
     value: draft ?? display ?? text,
-    // Focusing does not change the text, so selecting it and typing replaces it cleanly.
+    // Focusing does not start a draft: the field keeps showing (and following) the live value until
+    // something is typed. Seeding the draft from `text` froze a stale value in the gap between a
+    // commit and its state event, and the stepper then stepped from that stale value (#835). Only
+    // the stand-in display ("Auto") reveals the stored value on focus (#279).
     onFocus: () => {
       cancelled.current = false;
-      setDraft(text);
+      if (display !== undefined) setDraft(text);
     },
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: submit,
