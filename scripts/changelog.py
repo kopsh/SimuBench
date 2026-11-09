@@ -1,18 +1,20 @@
-"""What changed for the user, by version, from the git history and its date tags (D58).
+"""What changed for the user, by day, from the git history; no tags needed (D58).
 
 Only commits that change the product are listed: those touching ``PRODUCT`` below, which is what
 goes into the wheel. A commit that touches only CI, tests, cases, docs or skills is left out. The
 entry is the commit subject, i.e. the PR title (squash merge), without what only the developers
 read: the trailing issue and PR references ``(Closes #12) (#34)`` and the ``核心:`` work label.
-Newest version first.
+One heading per day, newest first, named by the day's last version (``version.py``).
 
     python scripts/changelog.py                         # everything
-    python scripts/changelog.py --since 2026.11.4.75    # after that version
-    python scripts/changelog.py --version 2026.11.5.3 -o dist/CHANGELOG.md
+    python scripts/changelog.py --since 2026.11.4.75    # release notes: the commits after that version
+    python scripts/changelog.py -o dist/CHANGELOG.md
 
-Commits after the newest tag go under ``--version`` (the version being built), else "未发布".
-Standard library and git only, so an internal build needs nothing extra. Needs the history with
-its v* tags; without it this exits with 2 and says so.
+Every entry ends with the version it first appears in, so no one has to count commits. The release
+notes of a published version are ``--since <the version published before>``.
+
+Standard library and git only, so an internal build needs nothing extra. Needs the full history;
+without it this exits with 2 and says so.
 """
 
 from __future__ import annotations
@@ -22,10 +24,11 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 
-TZ = timezone(timedelta(hours=8))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import version as versions  # scripts/version.py, beside this file
+
 PRODUCT_DIRS = ("src/", "web/src/", "examples/")
 PRODUCT_FILES = ("pyproject.toml", "web/package.json")
 SEP = "\x1e"
@@ -61,34 +64,29 @@ def is_product(paths: list[str]) -> bool:
     return any(p.startswith(PRODUCT_DIRS) or p in PRODUCT_FILES for p in paths)
 
 
-def _date(epoch: int) -> str:
-    return datetime.fromtimestamp(epoch, UTC).astimezone(TZ).strftime("%Y-%m-%d")
-
-
-def render(
-    commits: list[Commit], tags: dict[str, str], *, since: str | None = None, version: str | None = None
-) -> str:
-    """Markdown for ``commits`` (first-parent, oldest first); ``tags`` maps sha to ``vX.Y.Z.N``."""
-    groups: list[tuple[str, int, list[str]]] = []
-    pending: list[str] = []
-    for c in commits:
-        if is_product(c.paths):
-            pending.append(entry(c.subject))
-        if c.sha in tags:
-            groups.append((tags[c.sha].removeprefix("v"), c.epoch, pending))
-            pending = []
-    if commits and pending:
-        groups.append((version or "未发布", commits[-1].epoch, pending))
-    if since:
-        names = [name for name, _, _ in groups]
-        since = since.removeprefix("v")
-        if since not in names:
-            raise ValueError(f"no version {since} in this history")
-        groups = groups[names.index(since) + 1 :]
-    out = ["# SimuBench 变更记录", ""]
-    for name, epoch, entries in reversed(groups):
+def render(commits: list[Commit], *, since: str | None = None) -> str:
+    """Markdown for ``commits`` (first-parent, oldest first): one section per day, newest first."""
+    names = versions.numbered([c.epoch for c in commits])
+    floor = versions.parse(since.removeprefix("v")) if since else None  # raises ValueError if malformed
+    days: list[tuple[str, int, list[tuple[str, str]]]] = []  # (day's last version, epoch, entries)
+    for c, vname in zip(commits, names, strict=True):
+        day = versions.day_of(c.epoch)
+        if not days or versions.day_of(days[-1][1]) != day:
+            days.append((vname, c.epoch, []))
+        days[-1] = (vname, c.epoch, days[-1][2])
+        if is_product(c.paths) and (floor is None or versions.parse(vname) > floor):
+            days[-1][2].append((entry(c.subject), vname))
+    base = since.removeprefix("v") if since else None
+    out = [f"# SimuBench 变更记录{f'（自 {base} 起）' if base else ''}", ""]
+    for vname, epoch, entries in reversed(days):
         if entries:
-            out += [f"## {name}（{_date(epoch)}）", "", *(f"- {s}" for s in entries), ""]
+            d = versions.day_of(epoch)
+            out += [
+                f"## {vname}（{d[0]}-{d[1]:02d}-{d[2]:02d}）",
+                "",
+                *(f"- {s}（{v}）" for s, v in entries),
+                "",
+            ]
     return "\n".join(out)
 
 
@@ -96,40 +94,35 @@ def _git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8", check=True).stdout
 
 
-def read_history() -> tuple[list[Commit], dict[str, str]]:
+def read_history() -> list[Commit]:
     commits: list[Commit] = []
     log = _git("log", "--first-parent", "--reverse", "--name-only", f"--format={SEP}%H %ct %s")
     for block in log.split(SEP)[1:]:
         head, *paths = block.strip("\n").split("\n")
         sha, epoch, subject = head.split(" ", 2)
         commits.append(Commit(sha, int(epoch), subject, [p for p in paths if p]))
-    tags = {}
-    for line in _git("tag", "--list", "v[0-9]*", "--format=%(objectname) %(refname:short)").splitlines():
-        sha, tag = line.split()
-        tags[sha] = tag
-    return commits, tags
+    return commits
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--since", help="only the versions after this one")
-    parser.add_argument("--version", help="the name for the commits after the newest tag")
+    parser.add_argument("--since", help="only the commits after this version")
     parser.add_argument("-o", "--output", type=Path, help="write here instead of printing")
     args = parser.parse_args(argv)
     try:
-        commits, tags = read_history()
+        commits = read_history()
     except (OSError, subprocess.CalledProcessError):
         print("changelog: no git history here (a zip or archive): nothing to list", file=sys.stderr)
         return 2
-    if not tags or _git("rev-parse", "--is-shallow-repository").strip() == "true":
+    if not commits or _git("rev-parse", "--is-shallow-repository").strip() == "true":
         print(
-            "changelog: needs the full history with its v* tags (git fetch --unshallow --tags)",
+            "changelog: needs the full history (git fetch --unshallow)",
             file=sys.stderr,
         )
         return 2
     try:
-        text = render(commits, tags, since=args.since, version=args.version)
-    except ValueError as exc:
+        text = render(commits, since=args.since)
+    except ValueError as exc:  # a malformed --since
         print(f"changelog: {exc}", file=sys.stderr)
         return 2
     if args.output:
