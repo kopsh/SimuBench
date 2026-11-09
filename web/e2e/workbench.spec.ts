@@ -4,9 +4,7 @@ const TOKEN = "e2e-token";
 
 async function startBench(page: Page) {
   await page.goto(`/?token=${TOKEN}`);
-  await expect(
-    page.getByRole("heading", { name: "测试台", exact: true, level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /我的测试台/, level: 2 })).toBeVisible();
   await page
     .getByRole("listitem")
     .filter({ hasText: "awg_rc_scope" })
@@ -18,9 +16,7 @@ async function startBench(page: Page) {
 
 test("the token is removed from the address bar", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await expect(
-    page.getByRole("heading", { name: "测试台", exact: true, level: 1 }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: /我的测试台/, level: 2 })).toBeVisible();
   expect(page.url()).not.toContain("token");
 });
 
@@ -321,21 +317,18 @@ test("about and diagnostics: manifest, health checks, bundle download", async ({
   );
 });
 
-test("first-use guide: three ways in, dismissed for good", async ({ page }) => {
+test("home: the product page shows the same bench in the web, the terminal and a script", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  const guide = page.getByRole("region", { name: "开始使用 SimuBench" });
-  await expect(guide).toBeVisible();
-  await expect(guide).toContainText("@simubench");
-  await expect(guide).toContainText("simubench mcp");
-  await guide.getByRole("button", { name: "不再显示" }).click();
-  await expect(guide).toBeHidden();
-  await page.reload();
-  await expect(
-    page.getByRole("heading", { name: "测试台", exact: true, level: 1 }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "开始使用 SimuBench" }),
-  ).toBeHidden();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("搭一个虚拟测试台");
+  await expect(page.getByLabel("Hello World 测试台的实时预览")).toContainText("引擎实测数据");
+  const show = page.getByTestId("showcase");
+  await show.getByRole("tab", { name: /终端控制台/ }).click();
+  await expect(show.getByRole("tabpanel").getByRole("img", { name: "总览：每台仪表一张状态卡片" })).toBeVisible();
+  await show.getByRole("tab", { name: /脚本与 Agent/ }).click();
+  // Reduced motion (playwright.config.ts): the session is shown whole, not typed out.
+  await expect(show.getByRole("tabpanel")).toContainText("@simubench");
+  await expect(show.getByRole("tabpanel")).toContainText("N9320B");
+  await expect(page.getByTestId("instrument-list").getByRole("button", { name: /示波器/ })).toBeVisible();
 });
 
 test("instrument internals: the scope's components, wiring and panel ports, read-only (issue 20)", async ({

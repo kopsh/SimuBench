@@ -122,3 +122,15 @@ test("only opening a bench writes no record", async ({ page }) => {
     .toBe(before + 1); // the first command starts the record
   await page.getByRole("button", { name: "关闭测试台" }).click();
 });
+
+test("Start with Hello World copies the example into the workspace and opens it", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("button", { name: /Hello World/ }).first().click();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3); // generator, scope, analyzer
+  const sid = page.url().split("/s/")[1]?.split("?")[0];
+  const info = (await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as { bench_path: string };
+  expect(info.bench_path).toBe("hello.bench.yaml");
+  await page.getByRole("button", { name: "关闭测试台" }).click(); // leave the workspace free
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("button", { name: "打开 Hello World" })).toBeVisible(); // kept, opened next time
+});

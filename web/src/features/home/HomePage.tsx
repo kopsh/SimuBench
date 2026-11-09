@@ -1,115 +1,145 @@
-import { ArrowRight, ChevronRight, FileWarning, FolderOpen, Library, Plug, Search, SearchX, Workflow } from "lucide-react";
+import { ArrowRight, FileWarning, Play, Plug, Plus, Search, SearchX, Workflow } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { BenchFile, SessionInfo } from "@/api/client";
-import { useBenches, useCatalog, useSessions, useStartSession } from "@/api/hooks";
+import { useBenches, useCatalog, useCreateHello, useRuns, useSessions, useStartSession } from "@/api/hooks";
 import { isCancelled } from "@/components/app/ClientsConfirm";
 import { Logo } from "@/components/app/Logo";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
 import { EmptyState, ErrorState } from "@/components/app/StateViews";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Skeleton } from "@/components/ui/skeleton";
 import { formatClock } from "@/lib/format";
-import { CLASS_IDS, ClassIcon } from "@/features/workbench/classes";
 import { cn } from "@/lib/utils";
 import { RecentRuns } from "../runs/RecentRuns";
-import { GettingStarted } from "./GettingStarted";
-import { filterBenches, groupInstruments } from "./model";
+import { HelloPreview } from "./HelloPreview";
+import { InstrumentLibrary } from "./InstrumentLibrary";
+import { filterBenches } from "./model";
 import { NewBenchDialog } from "./NewBenchDialog";
+import { Showcase } from "./Showcase";
 
+/** The packaged first bench, copied into the workspace on the first click (POST /api/benches/hello). */
+const HELLO_PATH = "hello.bench.yaml";
+
+/**
+ * The home page introduces the product (docs/ui-design.md 2): what SimuBench is, the Hello World
+ * bench playing live, the same bench in the web, the terminal and a script, the instrument library.
+ * The user's own benches come first once there are any, with the open one to resume (one bench is
+ * open at a time, issue 31).
+ */
 export function HomePage() {
   const { t } = useTranslation();
   const benches = useBenches();
   const catalog = useCatalog();
   const sessions = useSessions();
   const start = useStartSession();
+  const createHello = useCreateHello();
+  const hasRuns = (useRuns().data ?? []).length > 0;
   const navigate = useNavigate();
-  const [filter, setFilter] = useState("");
+  const [benchFilter, setBenchFilter] = useState("");
+  const [libraryFilter, setLibraryFilter] = useState("");
   const [pendingSwitch, setPendingSwitch] = useState<BenchFile | null>(null);
 
-  // One bench is open at a time (it holds the SCPI ports); a bench opens on click (issue 31).
   const open = (sessions.data ?? [])[0];
-  const allBenches = benches.data ?? [];
-  const files = useMemo(() => filterBenches(benches.data ?? [], filter, open?.bench_path), [benches.data, filter, open?.bench_path]);
-  const instruments = catalog.data?.instruments ?? [];
-  const groups = useMemo(() => groupInstruments(catalog.data?.instruments ?? [], filter, CLASS_IDS), [catalog.data, filter]);
+  const all = benches.data ?? [];
+  const files = useMemo(() => filterBenches(benches.data ?? [], benchFilter, open?.bench_path), [benches.data, benchFilter, open?.bench_path]);
+  const hello = all.find((b) => b.path === HELLO_PATH);
+  const busy = start.isPending || createHello.isPending;
 
   const openBench = (b: BenchFile) => {
     if (open && open.bench_path !== b.path && open.clients.length > 0) {
       setPendingSwitch(b); // scripts are connected: ask before cutting the ports
       return;
     }
-    startBench(b);
+    startBench(b.path);
   };
 
   // ``force`` once the user confirmed dropping the scripts below; otherwise the engine asks (#121).
-  const startBench = (b: BenchFile, force = false) =>
+  const startBench = (path: string, force = false) =>
     start.mutate(
-      { bench_path: b.path, force },
+      { bench_path: path, force },
       {
         onSuccess: (s) => navigate(`/s/${s.id}`),
         onError: (e) => !isCancelled(e) && toast.error(t("errors.generic"), { description: (e as Error).message }),
       },
     );
 
+  const startHello = () => {
+    if (open?.bench_path === HELLO_PATH) return navigate(`/s/${open.id}`);
+    if (hello) return openBench(hello);
+    createHello.mutate(undefined, {
+      onSuccess: (doc) => {
+        toast.success(t("home.hello.created", { path: doc.path }));
+        startBench(doc.path);
+      },
+      onError: (e) => toast.error(t("errors.generic"), { description: (e as Error).message }),
+    });
+  };
+
   const error = benches.error ?? sessions.error;
 
   return (
     <div className="flex h-full flex-col">
-      <header className="bg-sidebar flex h-11 shrink-0 items-center gap-3 border-b px-4">
+      <header className="bg-background/80 relative z-10 flex h-11 shrink-0 items-center gap-3 border-b px-4 backdrop-blur">
         <Logo />
         <span className="text-muted-foreground hidden text-xs sm:inline">{t("app.tagline")}</span>
-        <div className="ml-auto">
+        <span className="text-muted-foreground bg-card ml-auto hidden items-center gap-2 rounded-full border px-2.5 py-0.5 text-[11.5px] md:inline-flex">
+          <span className="bg-ok size-1.5 rounded-full" aria-hidden />
+          {t("home.engine")} <span className="num">{window.location.host}</span>
+        </span>
+        <div className="md:ml-0 ml-auto">
           <PreferencesMenu />
         </div>
       </header>
+
       <div className="flex-1 overflow-auto">
-        <div className="home-hero relative border-b">
-          <HeroTrace />
-          <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 pt-8 pb-6">
-            <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
-              <div className="min-w-0">
-                <h1 className="text-2xl font-semibold tracking-tight">{t("home.title")}</h1>
-                <p className="text-muted-foreground mt-1 max-w-xl text-[13.5px]">{t("home.subtitle")}</p>
+        <section className="home-hero relative">
+          <div className="relative mx-auto w-full max-w-6xl px-4 sm:px-8">
+            {open && <ResumeStrip session={open} onEnter={() => navigate(`/s/${open.id}`)} />}
+            <div className="grid items-center gap-10 pt-10 pb-14 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:pt-14">
+              <div className="home-rise">
+                <span className="text-primary num inline-flex items-center gap-2 text-[11px] tracking-[0.08em] uppercase">
+                  <i className="h-px w-4 bg-current" aria-hidden />
+                  Virtual Instrument Bench
+                </span>
+                <h1 className="mt-3 text-3xl leading-tight font-bold tracking-tight sm:text-[40px]">
+                  {t("home.hero.line1")}
+                  <br />
+                  {t("home.hero.line2a")}
+                  <em className="home-accent not-italic">{t("home.hero.accent")}</em>
+                  {t("home.hero.line2b")}
+                </h1>
+                <p className="text-muted-foreground mt-4 max-w-[32em] text-[14.5px]">{t("home.hero.lede")}</p>
+                <div className="mt-7 flex flex-wrap items-center gap-2.5">
+                  <Button size="lg" className="home-cta h-10 px-5" disabled={busy} onClick={startHello}>
+                    <Play className="size-4" />
+                    {hello ? t("home.hello.open") : t("home.hello.start")}
+                  </Button>
+                  <NewBenchDialog
+                    trigger={
+                      <Button size="lg" variant="outline" className="h-10 px-5">
+                        <Plus className="size-4" /> {t("home.hero.blank")}
+                      </Button>
+                    }
+                  />
+                </div>
+                <p className="text-muted-foreground mt-3 text-[11.5px]">
+                  {hello ? t("home.hello.exists", { path: HELLO_PATH }) : t("home.hello.note", { path: HELLO_PATH })}
+                </p>
               </div>
-              <dl className="ml-auto flex gap-6" aria-label={t("home.statsLabel")}>
-                <Stat value={benches.isLoading ? undefined : allBenches.length} label={t("home.statBenches")} />
-                <Stat value={catalog.isLoading ? undefined : instruments.length} label={t("home.statInstruments")} />
-              </dl>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative min-w-0 flex-1 sm:max-w-md">
-                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                <Input
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  onKeyDown={(e) => e.key === "Escape" && setFilter("")}
-                  placeholder={t("home.filter")}
-                  className="bg-card h-9 pl-9 shadow-xs"
-                  aria-label={t("home.filter")}
-                />
+              <div className="home-rise [animation-delay:120ms]">
+                <HelloPreview />
               </div>
-              <NewBenchDialog />
             </div>
           </div>
-        </div>
+        </section>
 
-        <main className="mx-auto w-full max-w-6xl px-6 pt-6 pb-12">
-          <GettingStarted example={allBenches.find((b) => !b.error && b.instruments > 0)} onStart={openBench} />
-
+        <main className="mx-auto w-full max-w-6xl space-y-16 px-4 pb-16 sm:px-8">
           {error ? (
             <ErrorState
               error={error}
@@ -119,110 +149,93 @@ export function HomePage() {
               }}
             />
           ) : (
-            <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <div className="min-w-0">
-                <section aria-labelledby="home-benches">
-                  <SectionTitle id="home-benches" title={t("home.files")} count={benches.isLoading ? undefined : files.length} />
-                  {benches.isLoading ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {[0, 1, 2, 3].map((i) => (
-                        <Skeleton key={i} className="h-32 w-full rounded-xl" />
-                      ))}
+            all.length > 0 && (
+              <section aria-labelledby="home-benches" className={cn("grid gap-8", hasRuns && "lg:grid-cols-[minmax(0,1fr)_340px]")}>
+                <div className="min-w-0">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <h2 id="home-benches" className="text-base font-semibold">
+                      {t("home.files")} <span className="text-muted-foreground num text-xs font-normal">{all.length}</span>
+                    </h2>
+                    <div className="relative ml-auto w-56">
+                      <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+                      <Input
+                        value={benchFilter}
+                        onChange={(e) => setBenchFilter(e.target.value)}
+                        onKeyDown={(e) => e.key === "Escape" && setBenchFilter("")}
+                        placeholder={t("home.filter")}
+                        className="h-8 pl-8"
+                        aria-label={t("home.filter")}
+                      />
                     </div>
-                  ) : allBenches.length === 0 ? (
-                    <div className="rounded-xl border border-dashed">
-                      <EmptyState icon={<FolderOpen className="size-6" />} title={t("home.emptyTitle")} body={t("home.emptyBody")} />
-                    </div>
-                  ) : files.length === 0 ? (
+                    <NewBenchDialog />
+                  </div>
+                  {files.length === 0 ? (
                     <div className="rounded-xl border border-dashed">
                       <EmptyState
                         icon={<SearchX className="size-6" />}
-                        title={t("home.noMatch", { query: filter.trim() })}
+                        title={t("home.noMatch", { query: benchFilter.trim() })}
                         action={
-                          <Button variant="outline" size="sm" onClick={() => setFilter("")}>
+                          <Button variant="outline" size="sm" onClick={() => setBenchFilter("")}>
                             {t("home.clearFilter")}
                           </Button>
                         }
                       />
                     </div>
                   ) : (
-                    <ul className="grid gap-3 sm:grid-cols-2" data-testid="bench-list">
-                      {files.map((b) => {
-                        const session = open && open.bench_path === b.path ? open : undefined;
-                        return (
-                          <BenchCard
-                            key={b.path}
-                            bench={b}
-                            session={session}
-                            busy={start.isPending}
-                            onOpen={() => (session ? navigate(`/s/${session.id}`) : openBench(b))}
-                          />
-                        );
-                      })}
+                    <ul className="bg-card divide-y overflow-hidden rounded-xl border" data-testid="bench-list">
+                      {files.map((b) => (
+                        <BenchRow
+                          key={b.path}
+                          bench={b}
+                          session={open && open.bench_path === b.path ? open : undefined}
+                          busy={busy}
+                          onOpen={(s) => (s ? navigate(`/s/${s.id}`) : openBench(b))}
+                        />
+                      ))}
                     </ul>
                   )}
-                </section>
-                <RecentRuns />
-              </div>
+                </div>
+                {hasRuns && (
+                  <div className="min-w-0 lg:-mt-8">
+                    <RecentRuns />
+                  </div>
+                )}
+              </section>
+            )
+          )}
 
-              <aside aria-labelledby="home-instruments" className="lg:sticky lg:top-6 lg:self-start">
-                <section className="bg-card overflow-hidden rounded-xl border" data-testid="instrument-list">
-                  <div className="border-b px-4 py-3">
-                    <h2 id="home-instruments" className="flex items-center gap-2 text-sm font-semibold">
-                      <Library className="text-muted-foreground size-4" />
-                      {t("home.instrumentsTitle")}
-                      <span className="text-muted-foreground num ml-auto text-xs font-normal">{instruments.length}</span>
-                    </h2>
-                    <p className="text-muted-foreground mt-0.5 text-[11.5px] leading-snug">{t("home.instrumentsHint")}</p>
-                  </div>
-                  <div className="lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto">
-                    {catalog.isLoading ? (
-                      <div className="space-y-2 p-4">
-                        {[0, 1, 2, 3, 4].map((i) => (
-                          <Skeleton key={i} className="h-6 w-full" />
-                        ))}
-                      </div>
-                    ) : groups.length === 0 ? (
-                      <p className="text-muted-foreground px-4 py-6 text-center text-xs">{t("home.noInstrumentMatch")}</p>
-                    ) : (
-                      groups.map((g) => (
-                        <div key={g.cls} className="border-b py-1.5 last:border-b-0">
-                          <h3 className="text-muted-foreground flex items-center gap-1.5 px-4 py-1 text-[11px] font-medium">
-                            <ClassIcon cls={g.cls} className="size-3.5" />
-                            {t(`acceptance.class.${g.cls}`, { defaultValue: g.cls })}
-                            <span className="num ml-auto">{g.items.length}</span>
-                          </h3>
-                          <ul>
-                            {g.items.map((i) => (
-                              <li key={i.id}>
-                                <Link
-                                  to={`/i/${i.id}`}
-                                  title={i.description || i.id}
-                                  className="hover:bg-accent/60 focus-visible:bg-accent/60 group flex h-7 items-center gap-2 px-4 text-[12.5px] outline-none transition-colors"
-                                >
-                                  {/* The model leads (it is what people look for); the maker gives way when space runs out. */}
-                                  <span className="flex min-w-0 flex-1 items-baseline gap-1.5">
-                                    <span className="shrink-0 font-medium">{i.model}</span>
-                                    <span className="text-muted-foreground min-w-0 truncate text-[11.5px]">{i.manufacturer}</span>
-                                  </span>
-                                  {i.template && (
-                                    <span className="text-muted-foreground shrink-0 text-[10px]">{t("acceptance.templateBadge")}</span>
-                                  )}
-                                  {i.channels > 1 && (
-                                    <span className="text-muted-foreground num shrink-0 text-[10.5px]">{t("home.channelCount", { count: i.channels })}</span>
-                                  )}
-                                  <ChevronRight className="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </section>
-              </aside>
+          <section aria-labelledby="home-show">
+            <SectionHead id="home-show" kicker="One bench · every interface" title={t("home.show.title")} body={t("home.show.body")} />
+            <Showcase />
+          </section>
+
+          <section aria-labelledby="home-library">
+            <div className="flex flex-wrap items-end gap-4">
+              <SectionHead id="home-library" kicker="Instrument library" title={t("home.library.title")} body={t("home.library.body")} />
+              <div className="relative mb-5 ml-auto w-full sm:w-72">
+                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+                <Input
+                  value={libraryFilter}
+                  onChange={(e) => setLibraryFilter(e.target.value)}
+                  onKeyDown={(e) => e.key === "Escape" && setLibraryFilter("")}
+                  placeholder={t("home.library.search")}
+                  className="h-9 pl-8"
+                  aria-label={t("home.library.search")}
+                />
+              </div>
             </div>
+            <InstrumentLibrary catalog={catalog.data} loading={catalog.isLoading} query={libraryFilter} />
+          </section>
+
+          {all.length === 0 && !benches.isLoading && !error && (
+            <section className="bg-card relative overflow-hidden rounded-2xl border px-6 py-10 text-center">
+              <div className="home-glow pointer-events-none absolute inset-0" aria-hidden />
+              <h2 className="relative text-2xl font-bold">{t("home.final.title")}</h2>
+              <p className="text-muted-foreground relative mt-1.5">{t("home.final.body")}</p>
+              <Button size="lg" className="home-cta relative mt-6 h-10 px-5" disabled={busy} onClick={startHello}>
+                <Play className="size-4" /> {t("home.hello.start")}
+              </Button>
+            </section>
           )}
         </main>
       </div>
@@ -233,7 +246,7 @@ export function HomePage() {
             <DialogTitle>{t("home.switchTitle")}</DialogTitle>
             <DialogDescription>{t("home.switchBody")}</DialogDescription>
           </DialogHeader>
-          <ul className="border rounded-md">
+          <ul className="rounded-md border">
             {open?.clients.map((c) => (
               <li key={c.client} className="num flex items-center justify-between gap-3 px-3 py-2 text-xs">
                 <span>{c.client}</span>
@@ -248,7 +261,7 @@ export function HomePage() {
             <Button
               size="sm"
               onClick={() => {
-                if (pendingSwitch) startBench(pendingSwitch, true);
+                if (pendingSwitch) startBench(pendingSwitch.path, true);
                 setPendingSwitch(null);
               }}
             >
@@ -261,105 +274,66 @@ export function HomePage() {
   );
 }
 
-function Stat({ value, label }: { value: number | undefined; label: string }) {
+function SectionHead({ id, kicker, title, body }: { id: string; kicker: string; title: string; body: string }) {
   return (
-    <div className="text-right">
-      <dd className="num text-xl leading-none font-semibold">{value ?? "–"}</dd>
-      <dt className="text-muted-foreground mt-1 text-[11px]">{label}</dt>
+    <div className="mb-5 max-w-3xl">
+      <div className="text-primary num text-[11px] tracking-[0.08em] uppercase">{kicker}</div>
+      <h2 id={id} className="mt-1.5 text-2xl font-bold tracking-tight">
+        {title}
+      </h2>
+      <p className="text-muted-foreground mt-1.5 text-sm">{body}</p>
     </div>
   );
 }
 
-function SectionTitle({ id, title, count }: { id: string; title: string; count?: number }) {
-  return (
-    <h2 id={id} className="mb-3 flex items-baseline gap-2 text-sm font-semibold">
-      {title}
-      {count !== undefined && <span className="text-muted-foreground num text-xs font-normal">{count}</span>}
-    </h2>
-  );
-}
-
-/** One bench file. The open bench is marked, spans the row and carries the one primary action (#281). */
-function BenchCard({
-  bench: b,
-  session,
-  busy,
-  onOpen,
-}: {
-  bench: BenchFile;
-  session: SessionInfo | undefined;
-  busy: boolean;
-  onOpen: () => void;
-}) {
+/** The open bench, to go back to (returning visits). */
+function ResumeStrip({ session, onEnter }: { session: SessionInfo; onEnter: () => void }) {
   const { t } = useTranslation();
   return (
-    <li
-      className={cn(
-        "bg-card group flex min-w-0 flex-col rounded-xl border p-4 transition-[border-color,box-shadow]",
-        session ? "border-primary/50 ring-primary/15 shadow-sm ring-4 sm:col-span-2" : "hover:border-foreground/20 hover:shadow-sm",
-        b.error && "border-error/40",
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <span
-          className={cn(
-            "grid size-9 shrink-0 place-items-center rounded-lg",
-            b.error ? "bg-error/10 text-error" : session ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary",
-          )}
-        >
-          {b.error ? <FileWarning className="size-4.5" /> : <Workflow className="size-4.5" />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-semibold">{b.name}</span>
-            {session && (
-              <span className="text-ok inline-flex shrink-0 items-center gap-1 text-[11px] font-medium">
-                <span className="bg-ok size-1.5 rounded-full" aria-hidden />
-                {t("home.openNow")}
-              </span>
-            )}
-          </div>
-          {!b.error && <div className="text-muted-foreground text-xs">{t("home.instruments", { count: b.instruments })}</div>}
-        </div>
-      </div>
-      <p className={cn("mt-3 line-clamp-2 min-h-[2lh] flex-1 text-[12.5px] leading-normal", b.error ? "text-error" : "text-muted-foreground")}>
-        {b.error ? `${t("home.brokenFile")}: ${b.error}` : b.description || " "}
-      </p>
-      <div className="mt-3 flex items-center gap-3 border-t pt-3">
-        {session ? (
-          <ScriptAccess session={session} />
-        ) : (
-          <span className="text-muted-foreground num min-w-0 flex-1 truncate text-[11px]" title={b.path}>
-            {b.path}
-          </span>
-        )}
-        <Button
-          size="sm"
-          className="ml-auto shrink-0"
-          variant={session ? "default" : "outline"}
-          disabled={!!b.error || busy}
-          onClick={onOpen}
-        >
-          {session ? t("home.continue") : t("home.open")}
-          {session && <ArrowRight className="size-3.5" />}
-        </Button>
-      </div>
-    </li>
+    <div className="border-primary/40 bg-primary/10 mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border px-4 py-2.5">
+      <span className="bg-ok size-2 rounded-full" aria-hidden />
+      <span className="text-sm">
+        <b className="font-semibold">{session.bench_name}</b> {t("home.openNow")}
+      </span>
+      <span className="text-muted-foreground num text-xs">
+        {t("home.instruments", { count: session.instruments.length })} · {t("home.clients", { count: session.clients.length })} · t ={" "}
+        {formatClock(session.now_ns)}
+      </span>
+      <Button size="sm" className="ml-auto" onClick={onEnter}>
+        {t("home.continue")} <ArrowRight className="size-3.5" />
+      </Button>
+    </div>
   );
 }
 
-/** A faint scope trace behind the page title: CH1 and CH2 on the graticule (decoration only). */
-function HeroTrace() {
+/** One of the user's bench files; the open one carries the one primary action (#281). */
+function BenchRow({ bench: b, session, busy, onOpen }: { bench: BenchFile; session: SessionInfo | undefined; busy: boolean; onOpen: (s?: SessionInfo) => void }) {
+  const { t } = useTranslation();
   return (
-    <svg
-      viewBox="0 0 600 160"
-      preserveAspectRatio="none"
-      aria-hidden
-      className="hero-trace pointer-events-none absolute inset-y-0 right-0 hidden h-full w-[60%] opacity-50 md:block"
-    >
-      <path d="M0 110 C 50 110 60 40 110 40 S 170 120 220 120 S 280 30 330 30 S 390 110 440 110 S 500 50 550 50 S 590 80 600 80" fill="none" stroke="var(--ch1)" strokeWidth="1.5" strokeOpacity="0.55" />
-      <path d="M0 70 L 60 70 L 60 130 L 150 130 L 150 70 L 240 70 L 240 130 L 330 130 L 330 70 L 420 70 L 420 130 L 510 130 L 510 70 L 600 70" fill="none" stroke="var(--ch2)" strokeWidth="1.25" strokeOpacity="0.35" />
-    </svg>
+    <li className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", session ? "bg-primary/5" : "hover:bg-accent/40")}>
+      <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", b.error ? "bg-error/10 text-error" : "bg-primary/10 text-primary")}>
+        {b.error ? <FileWarning className="size-4" /> : <Workflow className="size-4" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-medium">{b.name}</span>
+          {session && (
+            <span className="text-ok inline-flex shrink-0 items-center gap-1 text-[11px] font-medium">
+              <span className="bg-ok size-1.5 rounded-full" aria-hidden />
+              {t("home.openNow")}
+            </span>
+          )}
+          {!b.error && <span className="text-muted-foreground shrink-0 text-xs">{t("home.instruments", { count: b.instruments })}</span>}
+        </div>
+        <div className={cn("truncate text-xs", b.error ? "text-error" : "text-muted-foreground")}>
+          {b.error ? `${t("home.brokenFile")}: ${b.error}` : b.description || <span className="num">{b.path}</span>}
+        </div>
+      </div>
+      {session ? <ScriptAccess session={session} /> : <span className="text-muted-foreground num hidden max-w-56 truncate text-[11px] xl:block">{b.path}</span>}
+      <Button size="sm" variant={session ? "default" : "outline"} disabled={!!b.error || busy} onClick={() => onOpen(session)}>
+        {session ? t("home.continue") : t("home.open")}
+      </Button>
+    </li>
   );
 }
 
@@ -369,10 +343,7 @@ function ScriptAccess({ session }: { session: SessionInfo }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          className="text-primary inline-flex items-center gap-1.5 text-xs font-medium"
-          data-testid="script-access"
-        >
+        <button className="text-primary inline-flex shrink-0 items-center gap-1.5 text-xs font-medium" data-testid="script-access">
           <Plug className="size-3.5" /> {t("home.scriptAccess")}
         </button>
       </PopoverTrigger>
@@ -382,19 +353,11 @@ function ScriptAccess({ session }: { session: SessionInfo }) {
           {session.instruments.map((i) => (
             <li key={i.name} className="text-xs">
               <span className="font-medium">{i.name}</span>
-              <div className="num text-muted-foreground truncate" title={i.address_virtual}>
-                {i.address_virtual}
-              </div>
-              {i.address_hislip && (
-                <div className="num text-muted-foreground truncate" title={i.address_hislip}>
-                  {i.address_hislip}
+              {[i.address_virtual, i.address_hislip, i.address_vxi11].filter(Boolean).map((a) => (
+                <div key={a} className="num text-muted-foreground truncate" title={a ?? ""}>
+                  {a}
                 </div>
-              )}
-              {i.address_vxi11 && (
-                <div className="num text-muted-foreground truncate" title={i.address_vxi11}>
-                  {i.address_vxi11}
-                </div>
-              )}
+              ))}
             </li>
           ))}
         </ul>

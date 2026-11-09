@@ -211,6 +211,9 @@ class DefinitionSummary(_Model):
     channels: int
     ports: list[str]
     template: str | None = None
+    workspace: bool = Field(
+        False, description="Defined in the workspace's instruments/ (the user's own), not built in"
+    )
 
 
 class ComponentTypeInfo(_Model):

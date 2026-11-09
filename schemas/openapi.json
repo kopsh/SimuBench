@@ -1677,6 +1677,12 @@
               }
             ],
             "title": "Template"
+          },
+          "workspace": {
+            "default": false,
+            "description": "Defined in the workspace's instruments/ (the user's own), not built in",
+            "title": "Workspace",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1687,7 +1693,8 @@
           "description",
           "channels",
           "ports",
-          "template"
+          "template",
+          "workspace"
         ],
         "title": "DefinitionSummary",
         "type": "object"

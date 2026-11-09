@@ -197,6 +197,7 @@ class BenchFiles:
                     channels=d.channels.count,
                     ports=ports,
                     template=d.display.template,
+                    workspace=self.workspace in lib.path(def_id).resolve().parents,
                 )
             )
         components = [

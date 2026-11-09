@@ -1862,6 +1862,12 @@ export interface components {
             ports: string[];
             /** Template */
             template: string | null;
+            /**
+             * Workspace
+             * @description Defined in the workspace's instruments/ (the user's own), not built in
+             * @default false
+             */
+            workspace: boolean;
         };
         /**
          * DefinitionVersion
