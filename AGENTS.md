@@ -63,7 +63,7 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
    label on the issues it closes before closing them. Open it as a draft if it is not ready yet. If CI fails, push a fix: the new commit
    runs CI again. Pull requests — and the bot's self-heal re-test of a stale branch — run the
    fast checks (ubuntu: Python and web); Windows, the wheel, end-to-end and visual tests run on
-   `main` after the merge, and a red one there is fixed first, before new work.
+   `main` after the merge, and a red one there is fixed first, before new work. While `main`'s CI is red the merge bot holds every other pull request (label `等main变绿`, re-run when main is green) and opens an issue labelled `main红了`; the pull request that fixes main carries the label `修复main` and merges at once (#810).
 6. Never push to `main` directly, and never weaken, skip or delete tests to get CI green.
 
 Before changing behaviour, check `docs/decisions.md` (the recorded decisions) and
