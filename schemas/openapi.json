@@ -7683,6 +7683,25 @@
         "summary": "Save Bench"
       }
     },
+    "/api/benches/hello": {
+      "post": {
+        "description": "Copy the packaged Hello World bench into the workspace (an existing one is kept as is).",
+        "operationId": "createHelloBench",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Create Hello Bench"
+      }
+    },
     "/api/benches/history": {
       "get": {
         "description": "Saved versions of a bench file, newest first (D35).",

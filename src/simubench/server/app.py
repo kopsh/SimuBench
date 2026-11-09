@@ -176,6 +176,16 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return file_errors(lambda: files.save(req.path, req.base_sha256, req.data, req.source))  # type: ignore[no-any-return]
 
     @app.post(
+        "/api/benches/hello",
+        response_model=M.BenchDocument,
+        operation_id="createHelloBench",
+        dependencies=[Depends(auth)],
+    )
+    def create_hello_bench() -> M.BenchDocument:
+        """Copy the packaged Hello World bench into the workspace (an existing one is kept as is)."""
+        return file_errors(lambda: files.create_hello("ui"))  # type: ignore[no-any-return]
+
+    @app.post(
         "/api/benches/edit",
         response_model=M.BenchDocument,
         operation_id="editBench",

@@ -112,6 +112,15 @@ export function useSession(sid: string) {
  * Start a bench (stopping the open one). With scripts connected the user confirms first (#121);
  * ``rebuild`` asks as a rebuild (with "later"), ``force`` skips the question (already asked).
  */
+/** Copy the packaged Hello World bench into the workspace (kept as is when it is already there). */
+export function useCreateHello() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/benches/hello")),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.benches }),
+  });
+}
+
 export function useStartSession() {
   const qc = useQueryClient();
   return useMutation({
