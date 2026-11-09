@@ -166,3 +166,56 @@ def test_refs_are_not_wires():
     view = internals({"instruments": {"scope": {"model": "keysight-dsox2024a"}}}, "scope")
     wires = {(w.from_.rsplit(".", 1)[0], w.to.rsplit(".", 1)[0]) for w in view.wires}
     assert ("adc", "acq") not in wires and ("acq", "meas") not in wires
+
+
+# ---- commands and readings per component (#739) ----------------------------------------------------
+
+
+@pytest.mark.parametrize("def_id", LIBRARY.ids())
+def test_every_command_is_found_from_the_component_it_operates(def_id):
+    """Every command that runs a component's operation, or writes a setting a component's
+    parameter follows, is listed on that component — whatever the binding form (``state:``,
+    ``op:``, a parameter's ``state``, ``keys``, ``writes``)."""
+    from simubench.server.internals_links import command_settings, norm
+
+    d = LIBRARY.get(def_id)
+    view = internals({"instruments": {"x": {"model": def_id}}}, "x")
+    comps = {norm(c.name): c for c in view.components}
+    for cmd in d.commands:
+        if cmd.op:
+            owner = norm(cmd.op.rpartition(".")[0])
+            assert owner in comps, f"{cmd.header}: op {cmd.op} names no component"
+            assert any(c.header == cmd.header and c.via == f"op:{cmd.op}" for c in comps[owner].commands)
+        for path in command_settings(cmd):
+            followers = [c for c in view.components if norm(path) in {norm(s) for s in c.settings}]
+            for c in followers:
+                assert any(x.header == cmd.header for x in c.commands), (cmd.header, c.name)
+
+
+def test_the_scope_adc_lists_the_waveform_commands_it_changes():
+    view = internals({"instruments": {"scope": {"model": "siglent-sds2104xplus"}}}, "scope")
+    adc = next(c for c in view.components if c.type == "scope_adc")
+    assert adc.settings == ["acquire.resolution"]
+    assert [c.header for c in adc.commands] == [":ACQuire:RESolution"]  # drives it: bit depth
+    heads = {r.header: r for r in adc.readings}
+    assert {":WAVeform:DATA", ":WAVeform:PREamble"} <= set(heads)  # codes depend on the ADC bits
+    assert heads[":WAVeform:DATA"].provider == "xfer" and heads[":WAVeform:DATA"].via == "ref"
+
+
+def test_a_source_setting_selects_the_channel_without_a_ref():
+    """``waveform_transfer`` / ``scope_measurements`` pick their channel with a ``source`` setting:
+    every channel's vertical reaches them ('select'), and the setting is among their drivers."""
+    view = internals({"instruments": {"scope": {"model": "siglent-sds2104xplus"}}}, "scope")
+    comps = {c.name: c for c in view.components}
+    assert {r.via for r in comps["ch2.front"].readings if r.header == ":WAVeform:DATA"} <= {"select", "ref"}
+    assert ":MEASure:SIMPle:VALue" in {r.header for r in comps["ch2.front"].readings}
+    assert ":WAVeform:SOURce" in {c.header for c in comps["xfer"].commands}
+    assert ":WAVeform:DATA" in {r.header for r in comps["xfer"].readings}  # its own query
+
+
+def test_a_command_only_component_lists_the_commands_that_operate_it():
+    """A system block has no parameters bound to settings: its commands are its reason to exist."""
+    view = internals({"instruments": {"x": {"model": "keysight-34465a"}}}, "x")
+    ops = [c for c in view.components if not c.settings and c.commands]
+    assert ops, "some component is driven by operations only"
+    assert all(cmd.via.startswith("op:") for c in ops for cmd in c.commands)
