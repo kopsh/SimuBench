@@ -17,8 +17,12 @@ export type GraphNode =
   | { id: string; kind: "port"; name: string; direction: string; medium: string; channel: number | null; x: number; y: number; height: number }
   | { id: string; kind: "label"; text: "command"; x: number; y: number; height: number };
 
-/** A signal wire, or a dependency (``ref``: the source is used by the target, ``label`` names the parameter). */
-export type GraphEdge = { id: string; source: string; sourceHandle: string; target: string; targetHandle: string; kind: "wire" | "ref"; label?: string };
+/**
+ * A signal wire, or a dependency (``ref``: the source is used by the target, ``label`` names the
+ * parameter). ``links`` are the component-level ``a>b`` it draws (a panel port is ``p:<name>``) — several
+ * when a collapsed channel draws them to its group — so a trace (#739) can light it.
+ */
+export type GraphEdge = { id: string; source: string; sourceHandle: string; target: string; targetHandle: string; kind: "wire" | "ref"; links: string[]; label?: string };
 
 export const NODE_WIDTH = { component: 196, group: 196, port: 72, label: 196 } as const;
 export const HEADER = 40;
@@ -65,10 +69,12 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     nodes.push({ id: `p:${p.name}`, kind: "port", name: p.name, direction: p.direction, medium: p.medium, channel: p.channel ?? null, x: 0, y: 0, height: 28 });
 
   const edges = new Map<string, GraphEdge>();
-  const add = (source: string, sourceHandle: string, target: string, targetHandle: string, ref?: string) => {
+  const add = (source: string, sourceHandle: string, target: string, targetHandle: string, link: string, ref?: string) => {
     if (source === target) return;
     const id = `${source}/${sourceHandle}->${target}/${targetHandle}${ref ? `:${ref}` : ""}`;
-    edges.set(id, { id, source, sourceHandle, target, targetHandle, kind: ref ? "ref" : "wire", ...(ref ? { label: ref } : {}) });
+    const seen = edges.get(id);
+    if (seen) seen.links.push(link);
+    else edges.set(id, { id, source, sourceHandle, target, targetHandle, kind: ref ? "ref" : "wire", links: [link], ...(ref ? { label: ref } : {}) });
   };
   const handle = (node: string, port: string, side: "in" | "out") => (node.startsWith("g:") ? side : port);
   for (const w of view.wires) {
@@ -76,20 +82,20 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     const [tc, tp] = split(w.to);
     const s = nodeOf(fc);
     const t = nodeOf(tc);
-    add(s, handle(s, fp, "out"), t, handle(t, tp, "in"));
+    add(s, handle(s, fp, "out"), t, handle(t, tp, "in"), `${fc}>${tc}`);
   }
   for (const p of view.ports) {
     const [c, port] = split(p.target);
     const n = nodeOf(c);
-    if (p.direction === "out") add(n, handle(n, port, "out"), `p:${p.name}`, "p");
-    else add(`p:${p.name}`, "p", n, handle(n, port, "in"));
+    if (p.direction === "out") add(n, handle(n, port, "out"), `p:${p.name}`, "p", `${c}>p:${p.name}`);
+    else add(`p:${p.name}`, "p", n, handle(n, port, "in"), `p:${p.name}>${c}`);
   }
   // What a component uses feeds it: the used one is the source, so it stands left of its user.
   const refHandle = (node: string, side: "in" | "out") => (node.startsWith("g:") ? side : `ref-${side}`);
   for (const r of view.refs ?? []) {
     const used = nodeOf(r.from);
     const user = nodeOf(r.to);
-    add(used, refHandle(used, "out"), user, refHandle(user, "in"), r.param);
+    add(used, refHandle(used, "out"), user, refHandle(user, "in"), `${r.from}>${r.to}`, r.param);
   }
 
   // Components nothing connects and no panel port leads to are driven by commands and settings alone:

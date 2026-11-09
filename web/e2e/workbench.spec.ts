@@ -392,18 +392,32 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   await expect(refs).toContainText("使用");
   for (const name of ["timebase", "trigger", "adc", "meas", "xfer"])
     await expect(refs).toContainText(name);
-  // Drivers and readings (#739): the ADC group lists the setting it follows, the command that
-  // writes it, and the waveform readings its bit depth changes.
+  // What controls it and what it affects (#739): this scope's ADC group follows no setting, but
+  // the waveform readings depend on it, by the route they take.
   await graph.locator('[data-name="adc"]').click();
-  await expect(page.getByTestId("internal-settings")).toContainText(
-    "acquire.resolution",
+  const controls = page.getByTestId("internal-controls");
+  await expect(controls).toContainText("由什么控制");
+  await expect(controls).toContainText("没有设置或命令直接驱动它");
+  const readings = page.getByTestId("internal-readings");
+  await expect(readings).toContainText(":WAVeform:DATA?");
+  await expect(readings).toContainText("采集");
+  // The graph lights its chain: the acquisition it feeds and the transfer after it; a channel is not on it.
+  await expect(graph.locator('[data-name="acq"]')).toHaveAttribute("data-lit", "");
+  await expect(graph.locator('[data-name="xfer"]')).toHaveAttribute("data-lit", "");
+  await expect(graph.locator('[data-name="ch2.front"]')).not.toHaveAttribute(
+    "data-lit",
   );
-  await expect(page.getByTestId("internal-commands")).toContainText(
-    ":ACQuire:RESolution",
-  );
-  await expect(page.getByTestId("internal-readings")).toContainText(
-    ":WAVeform:DATA",
-  );
+  // A component on the route selects it: the transfer, whose format setting and command drive it.
+  await readings.getByRole("button", { name: "波形传输" }).first().click();
+  await expect(details).toContainText("waveform_transfer");
+  await expect(controls).toContainText(":WAVeform:FORMat");
+  // Finding a command: the component it lands on.
+  await graph.locator(".react-flow__pane").click({ position: { x: 5, y: 5 } });
+  await page.getByTestId("internals-find").fill(":WAV:DATA?");
+  const found = page.getByTestId("internals-find-results");
+  await expect(found).toContainText(":WAVeform:DATA?");
+  await found.getByRole("button").first().click();
+  await expect(details).toContainText("waveform_transfer");
   // Read-only: nothing to drag or connect.
   await expect(graph.locator(".react-flow__node.draggable")).toHaveCount(0);
 });
@@ -428,6 +442,9 @@ test("instrument internals: what only commands drive waits under its own label (
   // The system block and the status registers are not on the signal flow; the acquisition's stages are.
   await graph.locator('[data-name="sys"]').click();
   await expect(page.getByTestId("internal-refs")).toContainText("不在信号流上");
+  // Commands are its reason to exist (#739): it lists the ones that operate it.
+  await expect(page.getByTestId("internal-controls")).toContainText("只由命令操作");
+  await expect(page.getByTestId("internal-controls")).toContainText(":SYSTem:PRESet");
   await graph.locator('[data-name="adc"]').click();
   await expect(page.getByTestId("internal-refs")).toContainText("acq");
   await expect(page.getByTestId("internal-refs")).not.toContainText(
