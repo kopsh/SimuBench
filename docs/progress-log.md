@@ -1692,10 +1692,10 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 
 ## main 红时放行修复 PR：补建标签、忽略取消的运行（Issue 813）
 
-审查 #812 时发现：`修复main` 标签没有任何地方创建，agent 按 AGENTS.md 加标签会报不存在；“main 是否红”只看最近一次完成的运行，被取消的重跑会把红的 main 当成绿。`merge.yml` 的 `main` 作业在 main 变红时先 `gh label create --force` 建好 `修复main`；合并作业改为取最近 20 次完成的运行里最近一次结论为 success 或 failure 的那个。
+审查 #812 时发现：`修复main` 标签没有任何地方创建，agent 按 AGENTS.md 加标签会报不存在；“main 是否红”只看最近一次完成的运行，被取消的重跑会把红的 main 当成绿。标签 `修复main` 由维护者在仓库里手动建好，工作流不再创建它；合并作业改为取最近 20 次完成的运行里最近一次结论为 success 或 failure 的那个。
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 使用前创建 `修复main`（含颜色、说明），名称与 AGENTS.md、技能一致 | ✅ |
+| 使用前 `修复main` 已存在，名称与 AGENTS.md、技能一致 | ✅ 维护者手动创建 |
 | “main 是否红”忽略 cancelled / skipped | ✅ jq 过滤后取第一条 |
 | 在 main 上实际触发 | ⚠️ 无法在合并前验证：需要 main 真红一次。已验证的只有 YAML 语法和 jq 表达式（用构造的运行列表试过：[cancelled, failure] 判红，[cancelled, success] 判绿，全 cancelled 判绿） |

@@ -202,9 +202,6 @@ jobs:
           retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
           OPEN=$(retry gh issue list --repo "$REPO" --state open --label "main红了" --json number --jq '.[].number')
           if [ "$CONCLUSION" = failure ]; then
-            # The label an agent puts on the pull request that fixes main must exist before it does (#813).
-            retry gh label create "修复main" --repo "$REPO" --force --color 0e8a16 \
-              --description "The pull request that fixes a red main: merge.yml merges it while main is red"
             if [ -z "$OPEN" ]; then
               retry gh label create "main红了" --repo "$REPO" --force --color b60205 --description "main's CI is red (opened by merge.yml)"
               retry gh issue create --repo "$REPO" --label "main红了" --label "核心" \
