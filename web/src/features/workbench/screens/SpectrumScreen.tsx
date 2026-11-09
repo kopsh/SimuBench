@@ -8,6 +8,7 @@ import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
 import { cssVar, decimate, resolveColor } from "@/lib/canvas";
+import { prefersReducedMotion, sweepDurationMs, sweepProgress } from "@/lib/motion";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
 import { StateField } from "../StateField";
@@ -67,6 +68,8 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
           start={n("start")}
           stop={n("stop")}
           marker={marker}
+          sweepTime={n("sweep_time")}
+          live={!readonly}
           className="aspect-[16/9] w-full"
         />
         <footer className="num text-muted-foreground flex justify-between border-t px-3 py-1.5 text-[11px]">
@@ -177,12 +180,19 @@ function ScpiField({
 }
 
 /** dBm against frequency: 10 divisions each way, the reference level on the top line. */
+/**
+ * The analyzer's graticule and trace. ``live``: a new trace repaints behind a sweep line moving
+ * left to right, the previous one still showing ahead of it — as the instrument draws a sweep
+ * (paced by its sweep time, within what the eye can follow). Off under prefers-reduced-motion.
+ */
 function SpectrumCanvas({
   values,
   refLevel,
   start,
   stop,
   marker,
+  sweepTime = 0,
+  live = false,
   className,
 }: {
   values: number[];
@@ -190,13 +200,26 @@ function SpectrumCanvas({
   start: number;
   stop: number;
   marker: { x: number; y: number };
+  sweepTime?: number;
+  live?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const shown = useRef<number[]>([]);
+  const previous = useRef<number[]>([]);
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
-    const draw = () => {
+    const motion = live && !prefersReducedMotion();
+    if (shown.current !== values) {
+      previous.current = motion ? shown.current : [];
+      shown.current = values;
+    }
+    const old = previous.current;
+    const started = performance.now();
+    const duration = sweepDurationMs(sweepTime);
+    let raf = 0;
+    const draw = (progress = 1) => {
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -223,25 +246,42 @@ function SpectrumCanvas({
 
       const yOf = (db: number) => ((refLevel - db) / (DIVS * DB_PER_DIV)) * h;
       const clamp = (y: number) => Math.max(1, Math.min(h - 1, y));
-      const n = values.length;
-      if (n > 1) {
-        ctx.strokeStyle = resolveColor(canvas, channelColor(1));
+      const color = resolveColor(canvas, channelColor(1));
+      const stroke = (vals: number[], from: number, to: number, alpha: number) => {
+        const n = vals.length;
+        if (n < 2 || to <= from) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(from, 0, to - from, h);
+        ctx.clip();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color;
         ctx.lineWidth = 1.25;
         ctx.beginPath();
         if (n <= w * 2) {
           for (let i = 0; i < n; i++) {
             const x = (i / (n - 1)) * w;
-            if (i) ctx.lineTo(x, clamp(yOf(values[i])));
-            else ctx.moveTo(x, clamp(yOf(values[i])));
+            if (i) ctx.lineTo(x, clamp(yOf(vals[i])));
+            else ctx.moveTo(x, clamp(yOf(vals[i])));
           }
         } else {
-          const { lo, hi } = decimate(values, w);
+          const { lo, hi } = decimate(vals, w);
           for (let px = 0; px < w; px++) {
             ctx.moveTo(px, clamp(yOf(hi[px])));
             ctx.lineTo(px, clamp(yOf(lo[px])) + 0.5);
           }
         }
         ctx.stroke();
+        ctx.restore();
+      };
+      const sweepX = progress * w;
+      stroke(values, 0, sweepX, 1); // this sweep, up to the line
+      if (progress < 1) {
+        stroke(old, sweepX, w, 0.55); // the previous sweep, still ahead of the line
+        ctx.strokeStyle = cssVar(canvas, "--plot-text", "#bbb");
+        ctx.globalAlpha = 0.5;
+        vline(ctx, sweepX, 0, h);
+        ctx.globalAlpha = 1;
       }
       if (stop > start) {
         const x = ((marker.x - start) / (stop - start)) * w;
@@ -256,11 +296,21 @@ function SpectrumCanvas({
         ctx.fill();
       }
     };
-    draw();
-    const ro = new ResizeObserver(draw);
+    if (motion && old.length > 1) {
+      const step = () => {
+        const p = sweepProgress(performance.now() - started, duration);
+        draw(p);
+        if (p < 1) raf = requestAnimationFrame(step);
+      };
+      step();
+    } else draw();
+    const ro = new ResizeObserver(() => draw());
     ro.observe(canvas);
-    return () => ro.disconnect();
-  }, [values, refLevel, start, stop, marker.x, marker.y]);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [values, refLevel, start, stop, marker.x, marker.y, sweepTime, live]);
   return <canvas ref={ref} className={className} role="img" aria-label="spectrum" />;
 }
 

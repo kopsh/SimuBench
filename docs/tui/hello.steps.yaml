@@ -1,0 +1,18 @@
+# 首页“终端控制台”展示用的截图（Hello World 测试台，web/src/features/home/assets/tui-*.svg）：
+#
+#   simubench tui src/simubench/library/examples/hello.bench.yaml --clock wall \
+#     --script docs/tui/hello.steps.yaml --out web/src/features/home/assets
+#
+# 总览 → 2 ⏎ 打开示波器 → Esc 3 ⏎ 打开频谱仪：首页播放时显示的按键与这里一致。
+size: [100, 32]
+steps:
+  - wait: 1.5s
+    screenshot: tui-overview
+  - open: scope
+    wait: 2s
+    screenshot: tui-scope
+  - home: true
+    wait: 0.5s
+  - open: sa
+    wait: 2s
+    screenshot: tui-sa

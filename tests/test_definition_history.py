@@ -9,6 +9,7 @@ import yaml
 from fastapi.testclient import TestClient
 
 from simubench.engine.jsonpatch import PatchOp
+from simubench.library.loader import DefinitionLibrary
 from simubench.server.app import create_app
 from simubench.server.benchfiles import BenchFiles
 from simubench.server.definitionfiles import DefinitionFiles
@@ -136,3 +137,15 @@ def test_definition_history_and_changes_endpoints(tmp_path):
             == 404
         )
         assert c.get("/api/definitions/keysight-34465a/history").json() == []  # not a workspace file
+
+
+def test_copy_as_my_instrument_extends_the_built_in_model(tmp_path):
+    """ "Copy as my instrument" writes a small workspace definition that extends the model (D59): it
+    loads as the same instrument, passes the checks, and a second copy takes the next free id."""
+    defs = make_files(tmp_path)
+    doc = defs.copy_of("keysight-34465a")
+    assert doc.path == "instruments/my-keysight-34465a.yaml" and doc.editable
+    assert doc.data["extends"] == "keysight-34465a"
+    assert defs.validate(doc.data).diagnostics == []
+    assert DefinitionLibrary([tmp_path / "instruments"])("my-keysight-34465a").model == "34465A"
+    assert defs.copy_of("keysight-34465a").path == "instruments/my-keysight-34465a-2.yaml"

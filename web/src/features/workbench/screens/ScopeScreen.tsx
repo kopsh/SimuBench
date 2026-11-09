@@ -127,6 +127,7 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
               traces={data?.traces ?? []}
               triggerLevel={data?.trigger_level}
               triggerChannel={data?.trigger_source}
+              live={running && data?.source === "live"}
             />
             {data && <SilenceNotice session={session} traces={data.traces} />}
             {cursors && data && (

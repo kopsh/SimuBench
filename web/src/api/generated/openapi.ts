@@ -53,6 +53,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/benches/hello": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Hello Bench
+         * @description Copy the packaged Hello World bench into the workspace (an existing one is kept as is).
+         */
+        post: operations["createHelloBench"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/benches/history": {
         parameters: {
             query?: never;
@@ -250,6 +270,26 @@ export interface paths {
          *     and return every step with what was expected and got.
          */
         post: operations["runDefinitionCases"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/{def_id}/copy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy Definition
+         * @description "Copy as my instrument": a workspace definition ``my-<id>`` that extends this one (D59).
+         */
+        post: operations["copyDefinition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1822,6 +1862,12 @@ export interface components {
             ports: string[];
             /** Template */
             template: string | null;
+            /**
+             * Workspace
+             * @description Defined in the workspace's instruments/ (the user's own), not built in
+             * @default false
+             */
+            workspace: boolean;
         };
         /**
          * DefinitionVersion
@@ -2078,7 +2124,7 @@ export interface components {
             /** Base Sha256 */
             base_sha256: string;
             /** Ops */
-            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddPart"] | components["schemas"]["AddDut"] | components["schemas"]["SetDut"] | components["schemas"]["Remove"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
+            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddPart"] | components["schemas"]["AddDut"] | components["schemas"]["SetDut"] | components["schemas"]["Remove"] | components["schemas"]["ReplaceInstrument"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
             /** Path */
             path: string;
             /**
@@ -3235,6 +3281,23 @@ export interface components {
              * @enum {string}
              */
             op: "rename";
+        };
+        /**
+         * ReplaceInstrument
+         * @description Swap an instrument's model for another, keeping its name, label, address and place: wires
+         *     on ports the new model also has stay, the others are removed; settings the new model also has
+         *     stay, the rest (and the identity overrides of the old unit) are dropped.
+         */
+        ReplaceInstrument: {
+            /** Model */
+            model: string;
+            /** Name */
+            name: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "replace_instrument";
         };
         /** ReplayMismatch */
         ReplayMismatch: {
@@ -4502,6 +4565,26 @@ export interface operations {
             };
         };
     };
+    createHelloBench: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BenchDocument"];
+                };
+            };
+        };
+    };
     benchHistory: {
         parameters: {
             query: {
@@ -4813,6 +4896,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseRunResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    copyDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionDocument"];
                 };
             };
             /** @description Validation Error */

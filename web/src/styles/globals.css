@@ -58,6 +58,7 @@
   --plot-grid: oklch(0.3 0.01 260);
   --plot-axis: oklch(0.45 0.01 260);
   --plot-text: oklch(0.75 0.01 260);
+  --plot-strong: oklch(0.95 0.005 260);
 }
 
 .dark {
@@ -201,5 +202,71 @@
   .node-activity {
     animation: none;
     outline: 2px solid var(--primary);
+  }
+}
+
+/* Home (the product's front page): a faint scope graticule behind the hero, fading downwards,
+ * and the few motions it uses — all off under prefers-reduced-motion. Tokens only. */
+.home-hero {
+  background:
+    radial-gradient(1100px 520px at 50% -180px, color-mix(in oklch, var(--primary) 16%, transparent), transparent 70%),
+    var(--background);
+}
+.home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--border) 65%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--border) 65%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 0%, black 30%, transparent 85%);
+}
+.home-accent {
+  background: linear-gradient(90deg, var(--ch1), var(--ch2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.home-cta {
+  box-shadow: 0 8px 28px -8px color-mix(in oklch, var(--primary) 70%, transparent);
+}
+.home-glow {
+  background: radial-gradient(600px 220px at 50% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent);
+}
+.home-rise {
+  animation: home-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes home-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes home-progress {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+@keyframes home-keypress {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.9);
+  }
+  60% {
+    transform: translateY(1px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-rise {
+    animation: none;
   }
 }

@@ -47,6 +47,11 @@ class Conflict(Exception):
         self.current_sha256 = current_sha256
 
 
+#: The Hello World bench shipped with the package: the first bench a new workspace opens (one
+#: function generator into a scope and a spectrum analyzer, real models only, D42).
+HELLO = Path(__file__).resolve().parents[1] / "library" / "examples" / "hello.bench.yaml"
+
+
 class BenchFiles:
     def __init__(self, workspace: Path) -> None:
         self.workspace = workspace.resolve()
@@ -107,6 +112,21 @@ class BenchFiles:
             self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
         return self._document(bench_path, path, raw, data)
 
+    def create_hello(self, source: Source = "ui") -> M.BenchDocument:
+        """Copy the packaged Hello World bench into the workspace as ``hello.bench.yaml`` — its text
+        as shipped, comments included — and return it; an existing file is returned unchanged,
+        never overwritten (it is the user's now)."""
+        bench_path = HELLO.name
+        path = self.resolve(bench_path)
+        with self._lock:
+            if not path.exists():
+                raw = HELLO.read_bytes()
+                tmp = path.with_name(f".{path.name}.tmp")
+                tmp.write_bytes(raw)
+                os.replace(tmp, path)
+                self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
+        return self.read(bench_path)
+
     def edit(
         self, bench_path: str, base_sha256: str, ops: list[Any], source: Source = "api"
     ) -> M.BenchDocument:
@@ -117,7 +137,8 @@ class BenchFiles:
             bench = BenchDefinition.model_validate(doc.data)
         except ValueError:
             raise edit.EditError("文件不符合测试台格式，先修正诊断中的错误再编辑") from None
-        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops)), source)
+        library = self.library(self.resolve(bench_path))
+        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops, library)), source)
 
     # ---- history (D35) ------------------------------------------------------------------------------
 
@@ -176,6 +197,7 @@ class BenchFiles:
                     channels=d.channels.count,
                     ports=ports,
                     template=d.display.template,
+                    workspace=self.workspace in lib.path(def_id).resolve().parents,
                 )
             )
         components = [

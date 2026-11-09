@@ -19,7 +19,7 @@ const slug = (name: string) =>
     .replace(/^_+|_+$/g, "") || "bench";
 
 /** Create an empty bench file, start it and open the workbench in Edit mode. */
-export function NewBenchDialog() {
+export function NewBenchDialog({ trigger }: { trigger?: React.ReactElement } = {}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const start = useStartSession();
@@ -54,9 +54,11 @@ export function NewBenchDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="h-8">
-          <Plus className="size-3.5" /> {t("edit.newBench")}
-        </Button>
+        {trigger ?? (
+          <Button size="sm" variant="outline" className="h-8">
+            <Plus className="size-3.5" /> {t("edit.newBench")}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={(e) => void submit(e)} className="space-y-4">

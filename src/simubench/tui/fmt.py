@@ -24,6 +24,10 @@ def fix_unit(unit: str | None) -> str:
     return UNIT_FIXES.get((unit or "").upper(), unit) if unit else ""
 
 
+#: Logarithmic units: a level in decibels is never scaled by an SI prefix.
+LOG_UNITS = frozenset({"dB", "dBm", "dBc", "dBV", "dBuV", "dBµV", "dBmV", "dBc/Hz", "dBm/Hz"})
+
+
 def fmt(value: float | int | None, unit: str | None = None, digits: int = 5) -> str:
     """One value with its unit: ``15.000 V``, ``10.000 mA``, ``1.0000 kHz``.
 
@@ -43,6 +47,9 @@ def fmt(value: float | int | None, unit: str | None = None, digits: int = 5) -> 
             return "High Z"
         return ("∞" if value > 0 else "-∞") + (f" {unit}" if unit else "")
     scale, prefix = 1.0, ""
+    if unit in LOG_UNITS:  # a level in decibels takes no SI prefix: 0.057 dBm, never 57 mdBm
+        whole = len(str(int(abs(value)))) if abs(value) >= 1 else 1
+        return f"{value:.{max(0, min(digits - whole, 12))}f} {unit}"
     if value != 0:
         for s, p in _PREFIXES:
             if abs(value) >= s * 0.9999995:
@@ -146,13 +153,18 @@ def _braille_column(chunk: list[float], lo: float, span: float, side: int) -> in
     return bits
 
 
-def braille_rows(wave: list[float], cols: int, rows: int) -> list[str]:
+def braille_rows(
+    wave: list[float], cols: int, rows: int, lo: float | None = None, hi: float | None = None
+) -> list[str]:
     """A trace ``cols`` braille characters wide and ``rows`` text rows high (4 dot rows each),
-    top row first: each dot column lights from its samples' minimum to maximum, scaled to the
-    trace's own range (#282: the spectrum analyzer's trace)."""
+    top row first: each dot column lights from its samples' minimum to maximum, scaled to
+    ``lo``..``hi`` (default: the trace's own range; #282: the spectrum analyzer's trace).
+    Samples outside the range are clipped to its edge, as on the instrument's graticule."""
     if not wave or cols <= 0 or rows <= 0:
         return ["⠀" * max(cols, 0)] * max(rows, 0)
-    lo, hi = min(wave), max(wave)
+    lo = min(wave) if lo is None else lo
+    hi = max(wave) if hi is None else hi
+    wave = [min(hi, max(lo, v)) for v in wave]
     span = (hi - lo) or 1.0
     height = rows * 4
     per = max(1, math.ceil(len(wave) / (cols * 2)))

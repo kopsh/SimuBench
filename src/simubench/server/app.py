@@ -176,6 +176,16 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return file_errors(lambda: files.save(req.path, req.base_sha256, req.data, req.source))  # type: ignore[no-any-return]
 
     @app.post(
+        "/api/benches/hello",
+        response_model=M.BenchDocument,
+        operation_id="createHelloBench",
+        dependencies=[Depends(auth)],
+    )
+    def create_hello_bench() -> M.BenchDocument:
+        """Copy the packaged Hello World bench into the workspace (an existing one is kept as is)."""
+        return file_errors(lambda: files.create_hello("ui"))  # type: ignore[no-any-return]
+
+    @app.post(
         "/api/benches/edit",
         response_model=M.BenchDocument,
         operation_id="editBench",
@@ -371,6 +381,19 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
     def definition(def_id: str) -> InstrumentDefinition:
         try:
             return library.get(def_id)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @app.post(
+        "/api/definitions/{def_id}/copy",
+        response_model=M.DefinitionDocument,
+        operation_id="copyDefinition",
+        dependencies=[Depends(auth)],
+    )
+    def copy_definition(def_id: str) -> M.DefinitionDocument:
+        """ "Copy as my instrument": a workspace definition ``my-<id>`` that extends this one (D59)."""
+        try:
+            return definition_files.copy_of(def_id, "ui")
         except KeyError as exc:
             raise not_found(exc) from None
 
