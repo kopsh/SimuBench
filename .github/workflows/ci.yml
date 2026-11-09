@@ -204,3 +204,57 @@ jobs:
             web/playwright-report
             web/visual-report
             web/test-results
+
+  main-status:
+    # What main's result means for everyone else (#810, #815). It lives here, not in merge.yml:
+    # main's CI is the third workflow_run level (PR CI -> merge.yml -> this run), whose end starts
+    # no workflow. Red: one `main红了` issue with the run (AGENTS.md: red on main is fixed first),
+    # and merge.yml holds the other pull requests. Green: close it and start the merge of the
+    # pull requests that waited. A cancelled run says nothing and leaves things as they are; a
+    # re-run of a failed job runs this job again.
+    name: Main status
+    if: always() && github.ref == 'refs/heads/main'
+    needs: [python, python311, web, package, slow, e2e]
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      issues: write
+      pull-requests: write
+    steps:
+      - run: |
+          retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
+          RESULTS="${{ join(needs.*.result, ' ') }}"
+          case " $RESULTS " in
+            *" failure "*) STATE=red ;;
+            *" cancelled "*) exit 0 ;;
+            *) STATE=green ;;
+          esac
+          OPEN=$(retry gh issue list --repo "$REPO" --state open --label "main红了" --json number --jq '.[].number')
+          if [ "$STATE" = red ]; then
+            if [ -z "$OPEN" ]; then
+              retry gh label create "main红了" --repo "$REPO" --force --color b60205 --description "main's CI is red (opened by ci.yml)"
+              retry gh issue create --repo "$REPO" --label "main红了" --label "核心" \
+                --title "main 红了（${SHA:0:7}）" \
+                --body "main 的 CI 红了：[the run]($RUN)（提交 $SHA）。先修它（AGENTS.md）；其余 PR 暂停合并，修复 PR 加标签 \`修复main\` 即可合并。main 变绿后本 issue 自动关闭。"
+            fi
+            exit 0
+          fi
+          for i in $OPEN; do
+            retry gh issue close "$i" --repo "$REPO" --comment "main is green again ([the run]($RUN))."
+          done
+          # The pull requests merge.yml held: take the label off and start their merge, if the CI on
+          # their head passed (a red one was reported on the pull request already).
+          for n in $(retry gh pr list --repo "$REPO" --state open --base main --label "等main变绿" --json number --jq '.[].number'); do
+            retry gh pr edit "$n" --repo "$REPO" --remove-label "等main变绿"
+            HEAD=$(retry gh pr view "$n" --repo "$REPO" --json headRefOid -q .headRefOid)
+            PASSED=$(gh run list --repo "$REPO" --workflow ci.yml --commit "$HEAD" --status completed --json conclusion --jq 'map(select(.conclusion == "success")) | length' || echo 0)
+            if [ "${PASSED:-0}" -gt 0 ]; then
+              retry gh workflow run merge.yml --repo "$REPO" --ref main -f sha="$HEAD"
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+

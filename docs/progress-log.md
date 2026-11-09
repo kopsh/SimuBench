@@ -1699,3 +1699,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 使用前 `修复main` 已存在，名称与 AGENTS.md、技能一致 | ✅ 维护者手动创建 |
 | “main 是否红”忽略 cancelled / skipped | ✅ jq 过滤后取第一条 |
 | 在 main 上实际触发 | ⚠️ 无法在合并前验证：需要 main 真红一次。已验证的只有 YAML 语法和 jq 表达式（用构造的运行列表试过：[cancelled, failure] 判红，[cancelled, success] 判绿，全 cancelled 判绿） |
+
+## main 状态作业挪进 ci.yml（Issue 815）
+
+#812 的 `main` 作业放在 `merge.yml` 里，但 main 的 CI 是 workflow_run 链的第三层（PR 的 CI → merge.yml → 机器人 dispatch 的 main CI），它的结束不会触发任何 workflow_run：main 红了没开出 `main红了` issue，变绿后被挂起的 #814 也没人放行，只能手动去标签并重跑。现在这项工作是 `ci.yml` 末尾的 `main-status` 作业（`needs` 全部作业，`if: always()`，只在 main 上）：红 → 开 `main红了` issue（已有则不重复）；绿 → 关 issue，对带 `等main变绿` 且其 head 上 CI 通过的 PR 去标签并 `workflow_dispatch` 触发 `merge.yml`（新增 `sha` 输入；该路径不再看“main 是否红”，因为本次 run 还没结束）；取消的运行什么都不做。`merge.yml` 里的 `main` 作业删除。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 红时开 issue、绿时关 issue 并放行挂起的 PR | ✅ 写在 `ci.yml` 的 `main-status`，不依赖 workflow_run |
+| 重跑失败作业时也走到这里 | ✅ 随同一次 run 的重跑一起重新执行 |
+| 在 main 上真实走通 | ⚠️ 合并前无法验证：本次合并后的 main 运行是第一次真跑（绿路径：无挂起 PR 时只检查 issue）；红路径要等 main 真红一次。已验证：两个 YAML 解析通过 |
