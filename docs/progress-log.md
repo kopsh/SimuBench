@@ -1677,3 +1677,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | #799 的端到端断言 | ✅ 修正：`awg_rc_scope` 的 `sb-dso-4` 的 ADC 不跟随任何设置，原断言 `acquire.resolution` 在这台上不成立；issue 举例的 `:WAVeform:FORMat` 在 `sb-dso-4` 的波形传输上（SDS2104X Plus 对应的是 `:WAVeform:WIDTh`） |
 | 文档 | ✅ `ui-design.md` 第 6 节“内部结构图”；`instrument-authoring.md` 的接口说明 |
 | 本期不做 | ⚠️ 点设置跳到工作台检查器（#800，需 selection 带设置路径）；在图里直接改设置（#801）。视觉测试里 `Live canvas / Counter` 两张在未改动的 `main` 上同样失败，与本次无关 |
+
+## main 红时暂停合并（Issue 810）
+
+#794 到 #804 之间 main 的 e2e / TUI 快照一直是红的，合并机器人照常合并了十个 PR：PR 只跑快速检查，红是合并后才看见的。`merge.yml` 现在在 main 最近一次完成的 CI 为红时，只合并带标签 `修复main` 的 PR，其余加 `等main变绿` 并评论；新增 `main` 作业：main 红时开一个 `main红了` issue（带 run 链接，已有则不重复），main 变绿时关闭它，并重跑被挂起 PR 的 CI 让它们合并。`AGENTS.md` 与 dev-workflow 技能同步。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| main 红时有机器信号 | ✅ 自动开 `main红了` issue；其余 PR 暂停合并 |
+| 修复 PR 不被挡 | ✅ 标签 `修复main` 放行 |
+| main 变绿后自动恢复 | ✅ 关 issue、重跑挂起 PR 的 CI |
+| 在真实 GitHub 上跑过 | ⚠️ 工作流只能在合并后的 main 上验证；本地只检查了 YAML 语法 |
+| 本期不做 | ⚠️ 把读数相关的 e2e/TUI 子集提到 PR 阶段（#810 方案 3）另议 |

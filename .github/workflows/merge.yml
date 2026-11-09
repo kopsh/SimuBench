@@ -11,7 +11,8 @@
 # (--match-head-commit). A red CI run on a pull-request head is reported on the pull request
 # (#485): the agent can only react to what it sees. GitHub API calls are retried (a 502 used to end
 # the job), and a pull request labelled 免审查 passes the label to the issues it closes, before they
-# close, so the review an issue's closing starts skips them (#614).
+# close, so the review an issue's closing starts skips them (#614). While main's last CI run is red
+# only a pull request labelled 修复main merges; the rest wait and are re-run when main is green (#810).
 name: Merge when CI passes
 
 on:
@@ -41,7 +42,21 @@ jobs:
           # head SHA instead of reading the event's pull_requests[] at all.
           PRS=$(retry gh pr list --repo "$REPO" --state open --base main --json number,headRefOid,isDraft \
             --jq ".[] | select(.headRefOid == \"$SHA\" and (.isDraft | not)) | .number")
+          # Main's last finished CI run: while it is red only a pull request labelled 修复main (the
+          # fix) merges; the others wait, labelled 等main变绿, and the main job below re-runs their
+          # CI when main turns green (#810).
+          MAIN_RED=$(gh run list --repo "$REPO" --workflow ci.yml --branch main --status completed --limit 1 \
+            --json conclusion,url --jq '.[0] | select(.conclusion == "failure") | .url' 2>/dev/null || true)
           for n in $PRS; do
+            if [ -n "$MAIN_RED" ] && ! retry gh pr view "$n" --repo "$REPO" --json labels -q '.labels[].name' | grep -Fqx "修复main"; then
+              if ! retry gh pr view "$n" --repo "$REPO" --json labels -q '.labels[].name' | grep -Fqx "等main变绿"; then
+                retry gh label create "等main变绿" --repo "$REPO" --force --color fbca04 \
+                  --description "Held by merge.yml while main's CI is red; CI re-runs when main is green"
+                retry gh pr edit "$n" --repo "$REPO" --add-label "等main变绿"
+                retry gh pr comment "$n" --repo "$REPO" --body "main's CI is red ([the run]($MAIN_RED)): this pull request waits and merges after main is green again (merge.yml, #810). A fix for main carries the label 修复main and merges at once."
+              fi
+              continue
+            fi
             behind=$(retry gh api "repos/$REPO/compare/main...$SHA" -q .behind_by)
             # The commit the merge may use: the head CI passed on, or the self-heal merge commit
             # the re-test below passes on.
@@ -173,3 +188,39 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
           RUN: ${{ github.event.workflow_run.html_url }}
+
+  main:
+    # main's own CI finished (#810). Red: open one issue with the run, so the agent that sees
+    # issues sees it too (AGENTS.md: red on main is fixed first), and the merge job above holds
+    # the other pull requests. Green: close that issue and run CI again on the pull requests that
+    # were held, so they merge.
+    if: github.event.workflow_run.head_branch == 'main' && (github.event.workflow_run.conclusion == 'failure' || github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          retry() { local i; for i in 1 2 3 4; do "$@" && return 0; echo "retry $i: $1 $2 $3" >&2; sleep $((i * 10)); done; "$@"; }
+          OPEN=$(retry gh issue list --repo "$REPO" --state open --label "main红了" --json number --jq '.[].number')
+          if [ "$CONCLUSION" = failure ]; then
+            if [ -z "$OPEN" ]; then
+              retry gh label create "main红了" --repo "$REPO" --force --color b60205 --description "main's CI is red (opened by merge.yml)"
+              retry gh issue create --repo "$REPO" --label "main红了" --label "核心" \
+                --title "main 红了（${SHA:0:7}）" \
+                --body "main 的 CI 红了：[the run]($RUN)（提交 $SHA）。先修它（AGENTS.md）；其余 PR 暂停合并，修复 PR 加标签 \`修复main\` 即可合并。main 变绿后本 issue 自动关闭。"
+            fi
+            exit 0
+          fi
+          for i in $OPEN; do
+            retry gh issue close "$i" --repo "$REPO" --comment "main is green again ([the run]($RUN))."
+          done
+          for n in $(retry gh pr list --repo "$REPO" --state open --base main --label "等main变绿" --json number --jq '.[].number'); do
+            retry gh pr edit "$n" --repo "$REPO" --remove-label "等main变绿"
+            BRANCH=$(retry gh pr view "$n" --repo "$REPO" --json headRefName -q .headRefName)
+            RUN_ID=$(gh run list --repo "$REPO" --workflow ci.yml --branch "$BRANCH" --event pull_request --limit 1 --json databaseId -q '.[0].databaseId // empty' || true)
+            if [ -n "$RUN_ID" ]; then retry gh run rerun "$RUN_ID" --repo "$REPO"; fi
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN: ${{ github.event.workflow_run.html_url }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}

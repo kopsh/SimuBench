@@ -37,7 +37,7 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
 6. PR into `main`, body has `Closes #<n>`. The title is the changelog entry when the PR changes
    the product (D58): what changed for the user, not how. It auto-squash-merges when CI is green on a commit that
    contains latest `main`; the bot self-heals a branch that `main` has passed (merge + re-CI on
-   the same fast tier) and comments on a red CI run. Red CI → push a fix commit. Never
+   the same fast tier) and comments on a red CI run. While `main`'s CI is red the bot holds other PRs (`等main变绿`) and a PR that fixes main carries the label `修复main` (#810). Red CI → push a fix commit. Never
    weaken/skip/delete tests. Label the PR `免审查` when the issues it closes need no review: the bot
    copies the label onto them before closing (#614); it retries GitHub API 502s itself.
 7. Append a self-check section to the end of `docs/progress-log.md` when the issue asks for it
