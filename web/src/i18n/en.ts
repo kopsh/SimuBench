@@ -88,6 +88,7 @@ export const en: Widen<Messages> = {
     },
   },
   workbench: {
+    revealMissing: "The inspector has no such setting: {{path}}",
     resources: "Resources",
     instruments: "Instruments",
     parts: "Parts",

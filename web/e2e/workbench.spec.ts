@@ -472,6 +472,16 @@ test("internals: a setting row locates its field in the inspector, in the right 
   await expect(scale).toBeVisible();
   await expect(scale.locator("input")).toBeFocused();
 
+  // The request is spent (#819): leaving the instrument and coming back remounts the inspector,
+  // which must not scroll or take the focus again.
+  await page.getByRole("tab", { name: "画布" }).click();
+  await page.locator(".react-flow__pane").click({ position: { x: 5, y: 5 } });
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  await expect(page.getByTestId("channel-settings")).toBeVisible();
+  await page.waitForTimeout(500);
+  await expect(page.locator('[data-setting="timebase.scale"] input')).not.toBeFocused();
+  await page.getByRole("tab", { name: /示波器 · 内部结构/ }).click();
+
   // A channel's setting: the inspector switches to that channel first (CH1 is the one it shows).
   await expect(page.getByTestId("channel-settings").getByRole("tab", { selected: true })).toContainText("1");
   await page.getByTestId("internals-find").fill("ch3.scale");

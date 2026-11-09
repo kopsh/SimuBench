@@ -419,7 +419,9 @@ async def test_repeated_failures_are_slowed_down(plain_rig):
         started = time.monotonic()
         for _ in range(3):
             assert c.authenticate("PLAIN", b"\0alice\0no")[0] == 0
-        assert time.monotonic() - started >= 0.3  # 0.05 + 0.10 + 0.15 s
+        # The server sleeps 0.05 + 0.10 + 0.15 s. Windows' timers wake up to a tick (15.6 ms) early, so
+        # the elapsed time can read 0.297 (#820); without the slowdown it is a few milliseconds.
+        assert time.monotonic() - started >= 0.25
         c.close()
 
     await asyncio.to_thread(run)
