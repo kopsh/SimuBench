@@ -106,7 +106,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The version comes from the date tags (D58): the full history with its tags.
+          # The version and changelog come from the commit history (D58): the full history.
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
@@ -137,23 +137,6 @@ jobs:
           test -s dist/CHANGELOG.md
           cd /tmp && /tmp/wheel-env/bin/simubench changelog | cmp - "$GITHUB_WORKSPACE/dist/CHANGELOG.md"
 
-  tag:
-    # Every commit on main gets its date tag vYYYY.M.D.N, which is the version a build of it carries
-    # (D58, scripts/release_tags.py). Not gated on the tests: the tag names the commit, it does not
-    # vouch for it. Idempotent, and a run cancelled by a newer push is caught up by the next one.
-    # No GitHub Release: the changelog is written when the wheel is built (scripts/build-wheel.sh).
-    name: Date tag
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Tag the untagged commits of main
-        run: python3 scripts/release_tags.py --push
-
   slow:
     name: Slow tests (Textual boot, load-sensitive)
     if: github.ref == 'refs/heads/main'
@@ -176,8 +159,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The version comes from git's date tags (D58): a shallow clone has none and the About
-          # dialog would show 0.1.dev1, which the e2e test refuses.
+          # The version is counted from the commit history (D58): a shallow clone gets a wrong number
+          # and the About dialog would not show the version the e2e test expects.
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:

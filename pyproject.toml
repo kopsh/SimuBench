@@ -44,15 +44,16 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-# The version comes from git (D58): the date tag vYYYY.M.D.N that main's CI puts on every commit
-# (scripts/release_tags.py). Between tags it is the next number's .devN. No +g<sha> suffix: the
-# commit is in _version.py instead (simubench version --full).
+# The version comes from the git history (D58): YYYY.M.D.N, the date of the newest commit and how
+# many commits that day has (scripts/version.py). No tags; the commit is in _version.py instead
+# (simubench version --full).
 [tool.hatch.version]
-source = "vcs"
-raw-options = { local_scheme = "no-local-version" }
+source = "code"
+path = "scripts/version.py"
+expression = "version()"
 
 # Writes src/simubench/_version.py: the version above and the commit it was built from (hatch_build.py).
 [tool.hatch.build.hooks.custom]

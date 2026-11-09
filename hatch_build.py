@@ -1,7 +1,6 @@
 """Build hook: write ``src/simubench/_version.py`` with the version and the commit (D58).
 
-hatch-vcs gives the version; its own version-file hook leaves the commit out, so this one writes
-both. The commit comes from git, else from ``.git_archival.txt`` (a GitHub zip or ``git archive``),
+scripts/version.py gives the version; this hook writes it and the commit into the file. The commit comes from git, else from ``.git_archival.txt`` (a GitHub zip or ``git archive``),
 else from the file an sdist already carries; unknown stays ``None``.
 """
 

@@ -25,33 +25,28 @@ def _history():
         m.Commit("d", DAY + 86_400, "测试:补用例", ["tests/models/a/cases.yaml"]),
         m.Commit("e", DAY + 86_460, "依赖:numpy 升级", ["pyproject.toml"]),
     ]
-    return m, commits, {"c": "v2026.11.4.3", "d": "v2026.11.5.1"}
+    return m, commits
 
 
-def test_lists_only_commits_that_change_the_product_newest_version_first():
-    m, commits, tags = _history()
-    assert m.render(commits, tags, version="2026.11.5.2.dev1") == (
+def test_lists_only_product_changes_one_section_per_day_newest_first():
+    m, commits = _history()
+    assert m.render(commits) == (
         "# SimuBench 变更记录\n\n"
-        "## 2026.11.5.2.dev1（2026-11-05）\n\n- 依赖:numpy 升级\n\n"
+        "## 2026.11.5.2（2026-11-05）\n\n- 依赖:numpy 升级\n\n"
         "## 2026.11.4.3（2026-11-04）\n\n- 型号 A\n- 界面:新按钮\n"
     )
 
 
-def test_untagged_commits_are_unreleased_without_a_version():
-    m, commits, tags = _history()
-    assert "## 未发布（2026-11-05）" in m.render(commits, tags)
+def test_since_keeps_only_the_commits_after_that_version():
+    m, commits = _history()
+    text = m.render(commits, since="v2026.11.4.1")
+    assert "型号 A" not in text and "界面:新按钮" in text and "依赖:numpy 升级" in text
+    assert "## 2026.11.4.3" in text  # the day is still named by its last version
 
 
-def test_since_keeps_only_the_later_versions():
-    m, commits, tags = _history()
-    text = m.render(commits, tags, since="v2026.11.4.3")
-    assert "型号 A" not in text and "依赖:numpy 升级" in text
-
-
-def test_since_an_unknown_version_is_an_error():
-    m, commits, tags = _history()
-    with pytest.raises(ValueError, match=r"2026\.1\.1\.1"):
-        m.render(commits, tags, since="2026.1.1.1")
+def test_since_the_last_version_is_empty():
+    m, commits = _history()
+    assert m.render(commits, since="2026.11.5.2") == "# SimuBench 变更记录\n"
 
 
 def test_cli_prints_the_packaged_changelog(tmp_path, monkeypatch, capsys):
