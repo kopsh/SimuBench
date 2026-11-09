@@ -281,55 +281,64 @@
         "commands": [
           {
             "header": "*CAL",
-            "via": "op:acq.self_cal",
+            "setting": null,
+            "op": "self_cal",
             "set": false,
             "query": true
           },
           {
             "header": ":ACQuire:NUMAcq",
-            "via": "op:acq.figure",
+            "setting": null,
+            "op": "figure",
             "set": false,
             "query": true
           },
           {
             "header": ":ACQuire:POINts",
-            "via": "op:acq.figure",
+            "setting": null,
+            "op": "figure",
             "set": false,
             "query": true
           },
           {
             "header": ":ACQuire:SRATe",
-            "via": "op:acq.figure",
+            "setting": null,
+            "op": "figure",
             "set": false,
             "query": true
           },
           {
             "header": ":ACQuire:TYPE",
-            "via": "op:acq.acquire_type",
+            "setting": null,
+            "op": "acquire_type",
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:MODE",
-            "via": "op:acq.run_mode",
+            "setting": null,
+            "op": "run_mode",
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:RUN",
-            "via": "op:acq.run",
+            "setting": null,
+            "op": "run",
             "set": true,
             "query": false
           },
           {
             "header": ":TRIGger:STATus",
-            "via": "op:acq.status",
+            "setting": null,
+            "op": "status",
             "set": false,
             "query": true
           },
           {
             "header": ":TRIGger:STOP",
-            "via": "op:acq.stop",
+            "setting": null,
+            "op": "stop",
             "set": true,
             "query": false
           }
@@ -338,52 +347,105 @@
           {
             "header": "*CAL",
             "provider": "acq",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "self"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "ref"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           }
         ]
       },
@@ -488,31 +550,36 @@
         "commands": [
           {
             "header": ":ACQuire:MDEPth",
-            "via": "setting:acquire.mdepth",
+            "setting": "acquire.mdepth",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TIMebase:DELay",
-            "via": "setting:timebase.delay",
+            "setting": "timebase.delay",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TIMebase:REFerence",
-            "via": "setting:timebase.reference",
+            "setting": "timebase.reference",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TIMebase:REFerence:POSition",
-            "via": "setting:timebase.reference_position",
+            "setting": "timebase.reference_position",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TIMebase:SCALe",
-            "via": "setting:timebase.scale",
+            "setting": "timebase.scale",
+            "op": null,
             "set": true,
             "query": true
           }
@@ -521,52 +588,115 @@
           {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "timebase",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           }
         ]
       },
@@ -772,43 +902,50 @@
         "commands": [
           {
             "header": ":TRIGger:EDGE:COUPling",
-            "via": "setting:trigger.coupling",
+            "setting": "trigger.coupling",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:EDGE:HLDTime",
-            "via": "setting:trigger.holdoff_time",
+            "setting": "trigger.holdoff_time",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:EDGE:HOLDoff",
-            "via": "setting:trigger.holdoff_type",
+            "setting": "trigger.holdoff_type",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:EDGE:LEVel",
-            "via": "setting:trigger.level",
+            "setting": "trigger.level",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:EDGE:NREJect",
-            "via": "setting:trigger.nreject",
+            "setting": "trigger.nreject",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:EDGE:SLOPe",
-            "via": "setting:trigger.slope",
+            "setting": "trigger.slope",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":TRIGger:EDGE:SOURce",
-            "via": "setting:trigger.source",
+            "setting": "trigger.source",
+            "op": null,
             "set": true,
             "query": true
           }
@@ -817,52 +954,115 @@
           {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "trigger",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           }
         ]
       },
@@ -931,7 +1131,8 @@
         "commands": [
           {
             "header": ":ACQuire:RESolution",
-            "via": "setting:acquire.resolution",
+            "setting": "acquire.resolution",
+            "op": null,
             "set": true,
             "query": true
           }
@@ -940,52 +1141,115 @@
           {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "ref"
+            "via": "ref",
+            "path": [
+              "adc",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           }
         ]
       },
@@ -1141,13 +1405,15 @@
         "commands": [
           {
             "header": ":MEASure:SIMPle:SOURce",
-            "via": "setting:measure.source",
+            "setting": "measure.source",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":MEASure:SIMPle:VALue",
-            "via": "op:meas.named",
+            "setting": null,
+            "op": "named",
             "set": false,
             "query": true
           }
@@ -1156,7 +1422,12 @@
           {
             "header": ":MEASure:SIMPle:VALue",
             "provider": "meas",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": null
           }
         ]
       },
@@ -1539,49 +1810,57 @@
         "commands": [
           {
             "header": ":ACQuire:RESolution",
-            "via": "setting:acquire.resolution",
+            "setting": "acquire.resolution",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":WAVeform:SOURce",
-            "via": "setting:waveform.source",
+            "setting": "waveform.source",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":WAVeform:STARt",
-            "via": "setting:waveform.start",
+            "setting": "waveform.start",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":WAVeform:INTerval",
-            "via": "setting:waveform.interval",
+            "setting": "waveform.interval",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":WAVeform:POINt",
-            "via": "setting:waveform.point",
+            "setting": "waveform.point",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":WAVeform:WIDTh",
-            "via": "setting:waveform.width",
+            "setting": "waveform.width",
+            "op": null,
             "set": true,
             "query": true
           },
           {
             "header": ":WAVeform:PREamble",
-            "via": "op:xfer.header",
+            "setting": null,
+            "op": "header",
             "set": false,
             "query": true
           },
           {
             "header": ":WAVeform:DATA",
-            "via": "op:xfer.data",
+            "setting": null,
+            "op": "data",
             "set": false,
             "query": true
           }
@@ -1590,12 +1869,22 @@
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "self"
+            "via": "self",
+            "path": [
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": null
           }
         ]
       },
@@ -1639,67 +1928,158 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel1:IMPedance",
+            "setting": "ch1.impedance",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel1:PROBe",
+            "provider": "ch1.probe",
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch1.inp",
+              "ch1.front",
+              "ch1.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -1917,91 +2297,175 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:BWLimit",
-            "via": "setting:ch.bwlimit",
+            "header": ":CHANnel1:BWLimit",
+            "setting": "ch1.bwlimit",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:COUPling",
-            "via": "setting:ch.coupling",
+            "header": ":CHANnel1:COUPling",
+            "setting": "ch1.coupling",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel1:IMPedance",
+            "setting": "ch1.impedance",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:OFFSet",
-            "via": "setting:ch.offset",
+            "header": ":CHANnel1:OFFSet",
+            "setting": "ch1.offset",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SCALe",
-            "via": "setting:ch.scale",
+            "header": ":CHANnel1:SCALe",
+            "setting": "ch1.scale",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel1:PROBe",
+            "provider": "ch1.probe",
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch1.front",
+              "ch1.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -2079,73 +2543,143 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:PROBe",
-            "via": "op:ch.probe.set_ratio",
+            "header": ":CHANnel1:PROBe",
+            "setting": null,
+            "op": "set_ratio",
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SKEW",
-            "via": "setting:ch.skew",
+            "header": ":CHANnel1:SKEW",
+            "setting": "ch1.skew",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel1:PROBe",
+            "provider": "ch1.probe",
+            "via": "self",
+            "path": [
+              "ch1.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch1.probe",
-            "via": "self"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch1.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch1.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch1.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch1.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -2211,54 +2745,121 @@
         "commands": [],
         "readings": [
           {
-            "header": "*CAL",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:NUMAcq",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:POINts",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:SRATe",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:TYPE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
             "header": ":MEASure:SIMPle:VALue",
             "provider": "meas",
-            "via": "select"
-          },
-          {
-            "header": ":TRIGger:MODE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":TRIGger:STATus",
-            "provider": "acq",
-            "via": "ref"
+            "via": "select",
+            "path": [
+              "ch1.cal",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch1.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch1.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
+          },
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch1.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
           }
         ]
       },
@@ -2302,67 +2903,158 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel2:IMPedance",
+            "setting": "ch2.impedance",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel2:PROBe",
+            "provider": "ch2.probe",
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch2.inp",
+              "ch2.front",
+              "ch2.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -2580,91 +3272,175 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:BWLimit",
-            "via": "setting:ch.bwlimit",
+            "header": ":CHANnel2:BWLimit",
+            "setting": "ch2.bwlimit",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:COUPling",
-            "via": "setting:ch.coupling",
+            "header": ":CHANnel2:COUPling",
+            "setting": "ch2.coupling",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel2:IMPedance",
+            "setting": "ch2.impedance",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:OFFSet",
-            "via": "setting:ch.offset",
+            "header": ":CHANnel2:OFFSet",
+            "setting": "ch2.offset",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SCALe",
-            "via": "setting:ch.scale",
+            "header": ":CHANnel2:SCALe",
+            "setting": "ch2.scale",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel2:PROBe",
+            "provider": "ch2.probe",
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch2.front",
+              "ch2.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -2742,73 +3518,143 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:PROBe",
-            "via": "op:ch.probe.set_ratio",
+            "header": ":CHANnel2:PROBe",
+            "setting": null,
+            "op": "set_ratio",
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SKEW",
-            "via": "setting:ch.skew",
+            "header": ":CHANnel2:SKEW",
+            "setting": "ch2.skew",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel2:PROBe",
+            "provider": "ch2.probe",
+            "via": "self",
+            "path": [
+              "ch2.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch2.probe",
-            "via": "self"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch2.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch2.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch2.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch2.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -2874,54 +3720,121 @@
         "commands": [],
         "readings": [
           {
-            "header": "*CAL",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:NUMAcq",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:POINts",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:SRATe",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:TYPE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
             "header": ":MEASure:SIMPle:VALue",
             "provider": "meas",
-            "via": "select"
-          },
-          {
-            "header": ":TRIGger:MODE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":TRIGger:STATus",
-            "provider": "acq",
-            "via": "ref"
+            "via": "select",
+            "path": [
+              "ch2.cal",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch2.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch2.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
+          },
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch2.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
           }
         ]
       },
@@ -2965,67 +3878,158 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel3:IMPedance",
+            "setting": "ch3.impedance",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel3:PROBe",
+            "provider": "ch3.probe",
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch3.inp",
+              "ch3.front",
+              "ch3.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -3243,91 +4247,175 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:BWLimit",
-            "via": "setting:ch.bwlimit",
+            "header": ":CHANnel3:BWLimit",
+            "setting": "ch3.bwlimit",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:COUPling",
-            "via": "setting:ch.coupling",
+            "header": ":CHANnel3:COUPling",
+            "setting": "ch3.coupling",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel3:IMPedance",
+            "setting": "ch3.impedance",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:OFFSet",
-            "via": "setting:ch.offset",
+            "header": ":CHANnel3:OFFSet",
+            "setting": "ch3.offset",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SCALe",
-            "via": "setting:ch.scale",
+            "header": ":CHANnel3:SCALe",
+            "setting": "ch3.scale",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel3:PROBe",
+            "provider": "ch3.probe",
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch3.front",
+              "ch3.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -3405,73 +4493,143 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:PROBe",
-            "via": "op:ch.probe.set_ratio",
+            "header": ":CHANnel3:PROBe",
+            "setting": null,
+            "op": "set_ratio",
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SKEW",
-            "via": "setting:ch.skew",
+            "header": ":CHANnel3:SKEW",
+            "setting": "ch3.skew",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel3:PROBe",
+            "provider": "ch3.probe",
+            "via": "self",
+            "path": [
+              "ch3.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch3.probe",
-            "via": "self"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch3.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch3.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch3.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch3.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -3537,54 +4695,121 @@
         "commands": [],
         "readings": [
           {
-            "header": "*CAL",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:NUMAcq",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:POINts",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:SRATe",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:TYPE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
             "header": ":MEASure:SIMPle:VALue",
             "provider": "meas",
-            "via": "select"
-          },
-          {
-            "header": ":TRIGger:MODE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":TRIGger:STATus",
-            "provider": "acq",
-            "via": "ref"
+            "via": "select",
+            "path": [
+              "ch3.cal",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch3.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch3.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
+          },
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch3.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
           }
         ]
       },
@@ -3628,67 +4853,158 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel4:IMPedance",
+            "setting": "ch4.impedance",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel4:PROBe",
+            "provider": "ch4.probe",
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "ref"
+            "via": "wire",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch4.inp",
+              "ch4.front",
+              "ch4.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -3906,91 +5222,175 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:BWLimit",
-            "via": "setting:ch.bwlimit",
+            "header": ":CHANnel4:BWLimit",
+            "setting": "ch4.bwlimit",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:COUPling",
-            "via": "setting:ch.coupling",
+            "header": ":CHANnel4:COUPling",
+            "setting": "ch4.coupling",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:IMPedance",
-            "via": "setting:ch.impedance",
+            "header": ":CHANnel4:IMPedance",
+            "setting": "ch4.impedance",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:OFFSet",
-            "via": "setting:ch.offset",
+            "header": ":CHANnel4:OFFSet",
+            "setting": "ch4.offset",
+            "op": null,
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SCALe",
-            "via": "setting:ch.scale",
+            "header": ":CHANnel4:SCALe",
+            "setting": "ch4.scale",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel4:PROBe",
+            "provider": "ch4.probe",
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch.probe",
-            "via": "wire"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch4.front",
+              "ch4.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -4068,73 +5468,143 @@
         ],
         "commands": [
           {
-            "header": ":CHANnel<ch>:PROBe",
-            "via": "op:ch.probe.set_ratio",
+            "header": ":CHANnel4:PROBe",
+            "setting": null,
+            "op": "set_ratio",
             "set": true,
             "query": true
           },
           {
-            "header": ":CHANnel<ch>:SKEW",
-            "via": "setting:ch.skew",
+            "header": ":CHANnel4:SKEW",
+            "setting": "ch4.skew",
+            "op": null,
             "set": true,
             "query": true
           }
         ],
         "readings": [
           {
+            "header": ":CHANnel4:PROBe",
+            "provider": "ch4.probe",
+            "via": "self",
+            "path": [
+              "ch4.probe"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
             "header": "*CAL",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:NUMAcq",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:POINts",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:SRATe",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":ACQuire:TYPE",
             "provider": "acq",
-            "via": "wire"
-          },
-          {
-            "header": ":CHANnel<ch>:PROBe",
-            "provider": "ch4.probe",
-            "via": "self"
-          },
-          {
-            "header": ":MEASure:SIMPle:VALue",
-            "provider": "meas",
-            "via": "select"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:MODE",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
           },
           {
             "header": ":TRIGger:STATus",
             "provider": "acq",
-            "via": "wire"
+            "via": "wire",
+            "path": [
+              "ch4.probe",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": null
+          },
+          {
+            "header": ":MEASure:SIMPle:VALue",
+            "provider": "meas",
+            "via": "ref",
+            "path": [
+              "ch4.probe",
+              "acq",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch4.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "ref",
+            "path": [
+              "ch4.probe",
+              "acq",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           }
         ]
       },
@@ -4200,54 +5670,121 @@
         "commands": [],
         "readings": [
           {
-            "header": "*CAL",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:NUMAcq",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:POINts",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:SRATe",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":ACQuire:TYPE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
             "header": ":MEASure:SIMPle:VALue",
             "provider": "meas",
-            "via": "select"
-          },
-          {
-            "header": ":TRIGger:MODE",
-            "provider": "acq",
-            "via": "ref"
-          },
-          {
-            "header": ":TRIGger:STATus",
-            "provider": "acq",
-            "via": "ref"
+            "via": "select",
+            "path": [
+              "ch4.cal",
+              "meas"
+            ],
+            "terminal": true,
+            "selected_by": "measure.source"
           },
           {
             "header": ":WAVeform:PREamble",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch4.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
           },
           {
             "header": ":WAVeform:DATA",
             "provider": "xfer",
-            "via": "select"
+            "via": "select",
+            "path": [
+              "ch4.cal",
+              "xfer"
+            ],
+            "terminal": true,
+            "selected_by": "waveform.source"
+          },
+          {
+            "header": "*CAL",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:NUMAcq",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:POINts",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:SRATe",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":ACQuire:TYPE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:MODE",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
+          },
+          {
+            "header": ":TRIGger:STATus",
+            "provider": "acq",
+            "via": "ref",
+            "path": [
+              "ch4.cal",
+              "trigger",
+              "acq"
+            ],
+            "terminal": false,
+            "selected_by": "trigger.source"
           }
         ]
       }
@@ -4329,6 +5866,20 @@
         "param": "record"
       }
     ],
+    "selects": [
+      {
+        "component": "trigger",
+        "setting": "trigger.source"
+      },
+      {
+        "component": "meas",
+        "setting": "measure.source"
+      },
+      {
+        "component": "xfer",
+        "setting": "waveform.source"
+      }
+    ],
     "ports": [
       {
         "name": "CH1",
@@ -4373,6 +5924,7 @@
     "address_virtual": "TCPIP0::127.0.0.1::5026::SOCKET",
     "address_real": "TCPIP0::192.168.1.31::INSTR",
     "address_hislip": null,
+    "address_vxi11": null,
     "scpi_port": null,
     "display": {
       "template": "oscilloscope",
@@ -4428,123 +5980,160 @@
     ],
     "state": [
       {
-        "path": "timebase.scale",
         "type": "float",
         "unit": "S",
         "min": 1e-09,
         "max": 1000.0,
+        "default": 1e-06,
+        "rst": null,
         "options": null,
+        "ladder": "1-2-5",
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "时基",
         "label_en": "Timebase",
-        "readonly": false,
-        "electrical": false,
+        "path": "timebase.scale",
         "dangerous": false,
         "value": 0.001,
         "channel": null
       },
       {
-        "path": "timebase.delay",
         "type": "float",
         "unit": "S",
         "min": -5000000.0,
         "max": 5000.0,
+        "default": 0.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "水平延迟",
         "label_en": "Delay",
-        "readonly": false,
-        "electrical": false,
+        "path": "timebase.delay",
         "dangerous": false,
         "value": 0.0,
         "channel": null
       },
       {
-        "path": "timebase.reference",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "DELay",
+        "rst": null,
         "options": [
           "DELay",
           "POSition"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "时基参考",
+        "label_en": "Timebase reference",
+        "path": "timebase.reference",
         "dangerous": false,
         "value": "DELay",
         "channel": null
       },
       {
-        "path": "timebase.reference_position",
         "type": "int",
         "unit": null,
         "min": 0.0,
         "max": 100.0,
+        "default": 50,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "参考位置",
+        "label_en": "Reference position",
+        "path": "timebase.reference_position",
         "dangerous": false,
         "value": 50,
         "channel": null
       },
       {
-        "path": "trigger.mode",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "AUTO",
+        "rst": null,
         "options": [
           "AUTO",
           "NORMal",
           "SINGle",
           "FTRIG"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "触发方式",
         "label_en": "Trigger mode",
-        "readonly": false,
-        "electrical": false,
+        "path": "trigger.mode",
         "dangerous": false,
         "value": "AUTO",
         "channel": null
       },
       {
-        "path": "trigger.type",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "EDGE",
+        "rst": null,
         "options": [
           "EDGE"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "触发类型",
+        "label_en": "Trigger type",
+        "path": "trigger.type",
         "dangerous": false,
         "value": "EDGE",
         "channel": null
       },
       {
-        "path": "trigger.source",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "C1",
+        "rst": null,
         "options": [
           "C1",
           "C2",
@@ -4554,158 +6143,278 @@
           "EX5",
           "LINE"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "触发源",
         "label_en": "Trigger source",
-        "readonly": false,
-        "electrical": false,
+        "path": "trigger.source",
         "dangerous": false,
         "value": "C1",
         "channel": null
       },
       {
-        "path": "trigger.level",
         "type": "float",
         "unit": "V",
         "min": -1000000.0,
         "max": 1000000.0,
+        "default": 0.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "触发电平",
         "label_en": "Trigger level",
-        "readonly": false,
-        "electrical": false,
+        "path": "trigger.level",
         "dangerous": false,
         "value": 0.0,
         "channel": null
       },
       {
-        "path": "trigger.slope",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "RISing",
+        "rst": null,
         "options": [
           "RISing",
           "FALLing",
           "ALTernate"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "触发沿",
         "label_en": "Trigger slope",
-        "readonly": false,
-        "electrical": false,
+        "path": "trigger.slope",
         "dangerous": false,
         "value": "RISing",
         "channel": null
       },
       {
-        "path": "trigger.coupling",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "DC",
+        "rst": null,
         "options": [
           "DC",
           "AC",
           "LFREJect",
           "HFREJect"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "触发耦合",
+        "label_en": "Trigger coupling",
+        "path": "trigger.coupling",
         "dangerous": false,
         "value": "DC",
         "channel": null
       },
       {
-        "path": "acquire.type",
+        "type": "bool",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": false,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "噪声抑制",
+        "label_en": "Noise reject",
+        "path": "trigger.nreject",
+        "dangerous": false,
+        "value": false,
+        "channel": null
+      },
+      {
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "OFF",
+        "rst": null,
+        "options": [
+          "OFF",
+          "TIME"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "释抑类型",
+        "label_en": "Holdoff type",
+        "path": "trigger.holdoff_type",
+        "dangerous": false,
+        "value": "OFF",
+        "channel": null
+      },
+      {
+        "type": "float",
+        "unit": "S",
+        "min": 8e-09,
+        "max": 30.0,
+        "default": 1e-07,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "释抑时间",
+        "label_en": "Holdoff time",
+        "path": "trigger.holdoff_time",
+        "dangerous": false,
+        "value": 1e-07,
+        "channel": null
+      },
+      {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "NORMal",
+        "rst": null,
         "options": [
           "NORMal",
           "PEAK",
           "AVERage",
           "ERES"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "采集方式",
         "label_en": "Acquisition type",
-        "readonly": false,
-        "electrical": false,
+        "path": "acquire.type",
         "dangerous": false,
         "value": "NORMal",
         "channel": null
       },
       {
-        "path": "acquire.average",
         "type": "int",
         "unit": null,
         "min": 4.0,
         "max": 8192.0,
+        "default": 16,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "平均次数",
+        "label_en": "Averages",
+        "path": "acquire.average",
         "dangerous": false,
         "value": 16,
         "channel": null
       },
       {
-        "path": "acquire.eres",
         "type": "float",
         "unit": null,
         "min": 0.5,
         "max": 4.0,
+        "default": 0.5,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "增强分辨率位数",
+        "label_en": "ERES bits",
+        "path": "acquire.eres",
         "dangerous": false,
         "value": 0.5,
         "channel": null
       },
       {
-        "path": "acquire.resolution",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "8Bits",
+        "rst": null,
         "options": [
           "8Bits",
           "10Bits"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "垂直分辨率",
         "label_en": "Resolution",
-        "readonly": false,
-        "electrical": false,
+        "path": "acquire.resolution",
         "dangerous": false,
         "value": "8Bits",
         "channel": null
       },
       {
-        "path": "acquire.mdepth",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "10k",
+        "rst": null,
         "options": [
           "10k",
           "20k",
@@ -4718,1028 +6427,1302 @@
           "100M",
           "200M"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "存储深度",
         "label_en": "Memory depth",
-        "readonly": false,
-        "electrical": false,
+        "path": "acquire.mdepth",
         "dangerous": false,
         "value": "10k",
         "channel": null
       },
       {
-        "path": "acquire.mmanagement",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "YT",
+        "rst": null,
         "options": [
-          "AUTO",
-          "FSRate",
-          "FMDepth"
+          "YT"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
-        "dangerous": false,
-        "value": "AUTO",
-        "channel": null
-      },
-      {
+        "readonly": false,
+        "label": "采集模式",
+        "label_en": "Acquire mode",
         "path": "acquire.mode",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "YT",
-          "XY",
-          "ROLL"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "YT",
         "channel": null
       },
       {
-        "path": "acquire.amode",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "FAST",
+        "rst": null,
         "options": [
           "FAST",
           "SLOW"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "波形刷新",
+        "label_en": "Acquisition rate mode",
+        "path": "acquire.amode",
         "dangerous": false,
         "value": "FAST",
         "channel": null
       },
       {
-        "path": "acquire.interpolation",
         "type": "bool",
         "unit": null,
         "min": null,
         "max": null,
+        "default": true,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "插值",
+        "label_en": "Interpolation",
+        "path": "acquire.interpolation",
         "dangerous": false,
         "value": true,
         "channel": null
       },
       {
-        "path": "channel.reference",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
-        "options": [
-          "OFFSet",
-          "POSition"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
-        "dangerous": false,
-        "value": "OFFSet",
-        "channel": null
-      },
-      {
-        "path": "waveform.source",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
+        "default": "C1",
+        "rst": null,
         "options": [
           "C1",
           "C2",
           "C3",
           "C4"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "波形传输源",
         "label_en": "Waveform source",
-        "readonly": false,
-        "electrical": false,
+        "path": "waveform.source",
         "dangerous": false,
         "value": "C1",
         "channel": null
       },
       {
-        "path": "waveform.width",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "BYTE",
+        "rst": null,
         "options": [
           "BYTE",
           "WORD"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "波形格式",
         "label_en": "Waveform width",
-        "readonly": false,
-        "electrical": false,
+        "path": "waveform.width",
         "dangerous": false,
         "value": "BYTE",
         "channel": null
       },
       {
+        "type": "int",
+        "unit": null,
+        "min": 0.0,
+        "max": 200000000.0,
+        "default": 0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "波形起点",
+        "label_en": "Waveform start",
         "path": "waveform.start",
-        "type": "int",
-        "unit": null,
-        "min": 0.0,
-        "max": 200000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 0,
         "channel": null
       },
       {
+        "type": "int",
+        "unit": null,
+        "min": 0.0,
+        "max": 200000000.0,
+        "default": 0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "波形点数",
+        "label_en": "Waveform points",
         "path": "waveform.point",
-        "type": "int",
-        "unit": null,
-        "min": 0.0,
-        "max": 200000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 0,
         "channel": null
       },
       {
-        "path": "waveform.interval",
         "type": "int",
         "unit": null,
         "min": 1.0,
         "max": 200000000.0,
+        "default": 1,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "波形抽点间隔",
+        "label_en": "Waveform interval",
+        "path": "waveform.interval",
         "dangerous": false,
         "value": 1,
         "channel": null
       },
       {
-        "path": "waveform.maxpoint",
         "type": "int",
         "unit": null,
         "min": 10000000.0,
         "max": 10000000.0,
+        "default": 10000000,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": true,
         "electrical": false,
+        "readonly": true,
+        "label": "最大波形点数",
+        "label_en": "Max waveform points",
+        "path": "waveform.maxpoint",
         "dangerous": false,
         "value": 10000000,
         "channel": null
       },
       {
-        "path": "measure.state",
         "type": "bool",
         "unit": null,
         "min": null,
         "max": null,
+        "default": false,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "测量开关",
+        "label_en": "Measure",
+        "path": "measure.state",
         "dangerous": false,
         "value": false,
         "channel": null
       },
       {
-        "path": "measure.mode",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "SIMPle",
+        "rst": null,
         "options": [
           "SIMPle",
           "ADVanced"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "测量模式",
+        "label_en": "Measure mode",
+        "path": "measure.mode",
         "dangerous": false,
         "value": "SIMPle",
         "channel": null
       },
       {
-        "path": "measure.source",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "C1",
+        "rst": null,
         "options": [
           "C1",
           "C2",
           "C3",
           "C4"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "测量信源",
+        "label_en": "Measure source",
+        "path": "measure.source",
         "dangerous": false,
         "value": "C1",
         "channel": null
       },
       {
-        "path": "ch1.scale",
         "type": "float",
         "unit": "V",
         "min": 1e-12,
         "max": 10000000.0,
+        "default": 1.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "垂直档位",
         "label_en": "Scale",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch1.scale",
         "dangerous": false,
         "value": 0.05,
         "channel": 1
       },
       {
+        "type": "float",
+        "unit": "V",
+        "min": -100000000.0,
+        "max": 100000000.0,
+        "default": 0.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "偏置",
+        "label_en": "Offset",
         "path": "ch1.offset",
-        "type": "float",
-        "unit": "V",
-        "min": -100000000.0,
-        "max": 100000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": "偏置",
-        "label_en": "Offset",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 0.0,
         "channel": 1
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "DC",
+        "rst": null,
+        "options": [
+          "DC",
+          "AC",
+          "GND"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "耦合",
+        "label_en": "Coupling",
         "path": "ch1.coupling",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "DC",
-          "AC",
-          "GND"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": "耦合",
-        "label_en": "Coupling",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "DC",
         "channel": 1
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "ONEMeg",
+        "rst": null,
+        "options": [
+          "ONEMeg",
+          "FIFTy"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": {
+          "ONEMeg": "1 MΩ",
+          "FIFTy": "50 Ω"
+        },
+        "display_unit": null,
+        "electrical": true,
+        "readonly": false,
+        "label": "输入阻抗",
+        "label_en": "Input impedance",
         "path": "ch1.impedance",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "ONEMeg",
-          "FIFTy"
-        ],
-        "option_labels": {
-          "ONEMeg": "1 MΩ",
-          "FIFTy": "50 Ω"
-        },
-        "display_unit": null,
-        "label": "输入阻抗",
-        "label_en": "Input impedance",
-        "readonly": false,
-        "electrical": true,
         "dangerous": false,
         "value": "ONEMeg",
         "channel": 1
       },
       {
+        "type": "float",
+        "unit": null,
+        "min": 1e-06,
+        "max": 1000000.0,
+        "default": 1.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": "×",
+        "electrical": false,
+        "readonly": false,
+        "label": "探头衰减设定",
+        "label_en": "Probe ratio",
         "path": "ch1.probe",
-        "type": "float",
-        "unit": null,
-        "min": 1e-06,
-        "max": 1000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": "×",
-        "label": "探头衰减设定",
-        "label_en": "Probe ratio",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 1.0,
         "channel": 1
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "FULL",
+        "rst": null,
+        "options": [
+          "FULL",
+          "20M",
+          "200M"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "带宽限制",
+        "label_en": "Bandwidth limit",
         "path": "ch1.bwlimit",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "FULL",
-          "20M",
-          "200M"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": "带宽限制",
-        "label_en": "Bandwidth limit",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "FULL",
         "channel": 1
       },
       {
+        "type": "bool",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": true,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "显示",
+        "label_en": "Display",
         "path": "ch1.display",
-        "type": "bool",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": "显示",
-        "label_en": "Display",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": true,
         "channel": 1
       },
       {
+        "type": "float",
+        "unit": "S",
+        "min": -1e-07,
+        "max": 1e-07,
+        "default": 0.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "通道延迟校正",
+        "label_en": "Skew",
         "path": "ch1.skew",
-        "type": "float",
-        "unit": "S",
-        "min": -1e-07,
-        "max": 1e-07,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 0.0,
         "channel": 1
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "V",
+        "rst": null,
+        "options": [
+          "V",
+          "A"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "单位",
+        "label_en": "Unit",
         "path": "ch1.unit",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "V",
-          "A"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "V",
         "channel": 1
       },
       {
+        "type": "bool",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": true,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "显示",
+        "label_en": "Visible",
         "path": "ch1.visible",
-        "type": "bool",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": true,
         "channel": 1
       },
       {
+        "type": "float",
+        "unit": "V",
+        "min": 1e-12,
+        "max": 10000000.0,
+        "default": 1.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "垂直档位",
+        "label_en": "Scale",
         "path": "ch2.scale",
-        "type": "float",
-        "unit": "V",
-        "min": 1e-12,
-        "max": 10000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": "垂直档位",
-        "label_en": "Scale",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 1.0,
         "channel": 2
       },
       {
+        "type": "float",
+        "unit": "V",
+        "min": -100000000.0,
+        "max": 100000000.0,
+        "default": 0.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "偏置",
+        "label_en": "Offset",
         "path": "ch2.offset",
-        "type": "float",
-        "unit": "V",
-        "min": -100000000.0,
-        "max": 100000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": "偏置",
-        "label_en": "Offset",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 0.0,
         "channel": 2
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "DC",
+        "rst": null,
+        "options": [
+          "DC",
+          "AC",
+          "GND"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "耦合",
+        "label_en": "Coupling",
         "path": "ch2.coupling",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "DC",
-          "AC",
-          "GND"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": "耦合",
-        "label_en": "Coupling",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "DC",
         "channel": 2
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "ONEMeg",
+        "rst": null,
+        "options": [
+          "ONEMeg",
+          "FIFTy"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": {
+          "ONEMeg": "1 MΩ",
+          "FIFTy": "50 Ω"
+        },
+        "display_unit": null,
+        "electrical": true,
+        "readonly": false,
+        "label": "输入阻抗",
+        "label_en": "Input impedance",
         "path": "ch2.impedance",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "ONEMeg",
-          "FIFTy"
-        ],
-        "option_labels": {
-          "ONEMeg": "1 MΩ",
-          "FIFTy": "50 Ω"
-        },
-        "display_unit": null,
-        "label": "输入阻抗",
-        "label_en": "Input impedance",
-        "readonly": false,
-        "electrical": true,
         "dangerous": false,
         "value": "ONEMeg",
         "channel": 2
       },
       {
+        "type": "float",
+        "unit": null,
+        "min": 1e-06,
+        "max": 1000000.0,
+        "default": 1.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": "×",
+        "electrical": false,
+        "readonly": false,
+        "label": "探头衰减设定",
+        "label_en": "Probe ratio",
         "path": "ch2.probe",
-        "type": "float",
-        "unit": null,
-        "min": 1e-06,
-        "max": 1000000.0,
-        "options": null,
-        "option_labels": null,
-        "display_unit": "×",
-        "label": "探头衰减设定",
-        "label_en": "Probe ratio",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 1.0,
         "channel": 2
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "FULL",
+        "rst": null,
+        "options": [
+          "FULL",
+          "20M",
+          "200M"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "带宽限制",
+        "label_en": "Bandwidth limit",
         "path": "ch2.bwlimit",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "FULL",
-          "20M",
-          "200M"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": "带宽限制",
-        "label_en": "Bandwidth limit",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "FULL",
         "channel": 2
       },
       {
+        "type": "bool",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": false,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "显示",
+        "label_en": "Display",
         "path": "ch2.display",
-        "type": "bool",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": "显示",
-        "label_en": "Display",
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": false,
         "channel": 2
       },
       {
+        "type": "float",
+        "unit": "S",
+        "min": -1e-07,
+        "max": 1e-07,
+        "default": 0.0,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "通道延迟校正",
+        "label_en": "Skew",
         "path": "ch2.skew",
-        "type": "float",
-        "unit": "S",
-        "min": -1e-07,
-        "max": 1e-07,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": 0.0,
         "channel": 2
       },
       {
+        "type": "enum",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": "V",
+        "rst": null,
+        "options": [
+          "V",
+          "A"
+        ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "单位",
+        "label_en": "Unit",
         "path": "ch2.unit",
-        "type": "enum",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": [
-          "V",
-          "A"
-        ],
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": "V",
         "channel": 2
       },
       {
+        "type": "bool",
+        "unit": null,
+        "min": null,
+        "max": null,
+        "default": true,
+        "rst": null,
+        "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
+        "option_labels": null,
+        "display_unit": null,
+        "electrical": false,
+        "readonly": false,
+        "label": "显示",
+        "label_en": "Visible",
         "path": "ch2.visible",
-        "type": "bool",
-        "unit": null,
-        "min": null,
-        "max": null,
-        "options": null,
-        "option_labels": null,
-        "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
-        "electrical": false,
         "dangerous": false,
         "value": true,
         "channel": 2
       },
       {
-        "path": "ch3.scale",
         "type": "float",
         "unit": "V",
         "min": 1e-12,
         "max": 10000000.0,
+        "default": 1.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "垂直档位",
         "label_en": "Scale",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch3.scale",
         "dangerous": false,
         "value": 1.0,
         "channel": 3
       },
       {
-        "path": "ch3.offset",
         "type": "float",
         "unit": "V",
         "min": -100000000.0,
         "max": 100000000.0,
+        "default": 0.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "偏置",
         "label_en": "Offset",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch3.offset",
         "dangerous": false,
         "value": 0.0,
         "channel": 3
       },
       {
-        "path": "ch3.coupling",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "DC",
+        "rst": null,
         "options": [
           "DC",
           "AC",
           "GND"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "耦合",
         "label_en": "Coupling",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch3.coupling",
         "dangerous": false,
         "value": "DC",
         "channel": 3
       },
       {
-        "path": "ch3.impedance",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "ONEMeg",
+        "rst": null,
         "options": [
           "ONEMeg",
           "FIFTy"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": {
           "ONEMeg": "1 MΩ",
           "FIFTy": "50 Ω"
         },
         "display_unit": null,
+        "electrical": true,
+        "readonly": false,
         "label": "输入阻抗",
         "label_en": "Input impedance",
-        "readonly": false,
-        "electrical": true,
+        "path": "ch3.impedance",
         "dangerous": false,
         "value": "ONEMeg",
         "channel": 3
       },
       {
-        "path": "ch3.probe",
         "type": "float",
         "unit": null,
         "min": 1e-06,
         "max": 1000000.0,
+        "default": 1.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": "×",
+        "electrical": false,
+        "readonly": false,
         "label": "探头衰减设定",
         "label_en": "Probe ratio",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch3.probe",
         "dangerous": false,
         "value": 1.0,
         "channel": 3
       },
       {
-        "path": "ch3.bwlimit",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "FULL",
+        "rst": null,
         "options": [
           "FULL",
           "20M",
           "200M"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "带宽限制",
         "label_en": "Bandwidth limit",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch3.bwlimit",
         "dangerous": false,
         "value": "FULL",
         "channel": 3
       },
       {
-        "path": "ch3.display",
         "type": "bool",
         "unit": null,
         "min": null,
         "max": null,
+        "default": false,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "显示",
         "label_en": "Display",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch3.display",
         "dangerous": false,
         "value": false,
         "channel": 3
       },
       {
-        "path": "ch3.skew",
         "type": "float",
         "unit": "S",
         "min": -1e-07,
         "max": 1e-07,
+        "default": 0.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "通道延迟校正",
+        "label_en": "Skew",
+        "path": "ch3.skew",
         "dangerous": false,
         "value": 0.0,
         "channel": 3
       },
       {
-        "path": "ch3.unit",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "V",
+        "rst": null,
         "options": [
           "V",
           "A"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "单位",
+        "label_en": "Unit",
+        "path": "ch3.unit",
         "dangerous": false,
         "value": "V",
         "channel": 3
       },
       {
-        "path": "ch3.visible",
         "type": "bool",
         "unit": null,
         "min": null,
         "max": null,
+        "default": true,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "显示",
+        "label_en": "Visible",
+        "path": "ch3.visible",
         "dangerous": false,
         "value": true,
         "channel": 3
       },
       {
-        "path": "ch4.scale",
         "type": "float",
         "unit": "V",
         "min": 1e-12,
         "max": 10000000.0,
+        "default": 1.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "垂直档位",
         "label_en": "Scale",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch4.scale",
         "dangerous": false,
         "value": 1.0,
         "channel": 4
       },
       {
-        "path": "ch4.offset",
         "type": "float",
         "unit": "V",
         "min": -100000000.0,
         "max": 100000000.0,
+        "default": 0.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "偏置",
         "label_en": "Offset",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch4.offset",
         "dangerous": false,
         "value": 0.0,
         "channel": 4
       },
       {
-        "path": "ch4.coupling",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "DC",
+        "rst": null,
         "options": [
           "DC",
           "AC",
           "GND"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "耦合",
         "label_en": "Coupling",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch4.coupling",
         "dangerous": false,
         "value": "DC",
         "channel": 4
       },
       {
-        "path": "ch4.impedance",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "ONEMeg",
+        "rst": null,
         "options": [
           "ONEMeg",
           "FIFTy"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": {
           "ONEMeg": "1 MΩ",
           "FIFTy": "50 Ω"
         },
         "display_unit": null,
+        "electrical": true,
+        "readonly": false,
         "label": "输入阻抗",
         "label_en": "Input impedance",
-        "readonly": false,
-        "electrical": true,
+        "path": "ch4.impedance",
         "dangerous": false,
         "value": "ONEMeg",
         "channel": 4
       },
       {
-        "path": "ch4.probe",
         "type": "float",
         "unit": null,
         "min": 1e-06,
         "max": 1000000.0,
+        "default": 1.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": "×",
+        "electrical": false,
+        "readonly": false,
         "label": "探头衰减设定",
         "label_en": "Probe ratio",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch4.probe",
         "dangerous": false,
         "value": 1.0,
         "channel": 4
       },
       {
-        "path": "ch4.bwlimit",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "FULL",
+        "rst": null,
         "options": [
           "FULL",
           "20M",
           "200M"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "带宽限制",
         "label_en": "Bandwidth limit",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch4.bwlimit",
         "dangerous": false,
         "value": "FULL",
         "channel": 4
       },
       {
-        "path": "ch4.display",
         "type": "bool",
         "unit": null,
         "min": null,
         "max": null,
+        "default": false,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
+        "electrical": false,
+        "readonly": false,
         "label": "显示",
         "label_en": "Display",
-        "readonly": false,
-        "electrical": false,
+        "path": "ch4.display",
         "dangerous": false,
         "value": false,
         "channel": 4
       },
       {
-        "path": "ch4.skew",
         "type": "float",
         "unit": "S",
         "min": -1e-07,
         "max": 1e-07,
+        "default": 0.0,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "通道延迟校正",
+        "label_en": "Skew",
+        "path": "ch4.skew",
         "dangerous": false,
         "value": 0.0,
         "channel": 4
       },
       {
-        "path": "ch4.unit",
         "type": "enum",
         "unit": null,
         "min": null,
         "max": null,
+        "default": "V",
+        "rst": null,
         "options": [
           "V",
           "A"
         ],
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "单位",
+        "label_en": "Unit",
+        "path": "ch4.unit",
         "dangerous": false,
         "value": "V",
         "channel": 4
       },
       {
-        "path": "ch4.visible",
         "type": "bool",
         "unit": null,
         "min": null,
         "max": null,
+        "default": true,
+        "rst": null,
         "options": null,
+        "ladder": null,
+        "special": null,
+        "not_modeled": null,
+        "replies": null,
         "option_labels": null,
         "display_unit": null,
-        "label": null,
-        "label_en": null,
-        "readonly": false,
         "electrical": false,
+        "readonly": false,
+        "label": "显示",
+        "label_en": "Visible",
+        "path": "ch4.visible",
         "dangerous": false,
         "value": true,
         "channel": 4
@@ -5748,7 +7731,121 @@
     "errors": [],
     "dut": false,
     "deviation": "nominal",
-    "deviations": [],
+    "deviations": [
+      {
+        "param": "ch1.front.gain_error_ppm",
+        "limit": 30000.0,
+        "unit": null,
+        "distribution": "uniform",
+        "by": {
+          "scale": [
+            0.0005,
+            0.001,
+            0.002,
+            0.005,
+            0.01,
+            0.02,
+            0.05,
+            0.1,
+            0.2,
+            0.5,
+            1.0,
+            2.0,
+            5.0,
+            10.0
+          ]
+        },
+        "value": null,
+        "drawn": false
+      },
+      {
+        "param": "ch2.front.gain_error_ppm",
+        "limit": 30000.0,
+        "unit": null,
+        "distribution": "uniform",
+        "by": {
+          "scale": [
+            0.0005,
+            0.001,
+            0.002,
+            0.005,
+            0.01,
+            0.02,
+            0.05,
+            0.1,
+            0.2,
+            0.5,
+            1.0,
+            2.0,
+            5.0,
+            10.0
+          ]
+        },
+        "value": null,
+        "drawn": false
+      },
+      {
+        "param": "ch3.front.gain_error_ppm",
+        "limit": 30000.0,
+        "unit": null,
+        "distribution": "uniform",
+        "by": {
+          "scale": [
+            0.0005,
+            0.001,
+            0.002,
+            0.005,
+            0.01,
+            0.02,
+            0.05,
+            0.1,
+            0.2,
+            0.5,
+            1.0,
+            2.0,
+            5.0,
+            10.0
+          ]
+        },
+        "value": null,
+        "drawn": false
+      },
+      {
+        "param": "ch4.front.gain_error_ppm",
+        "limit": 30000.0,
+        "unit": null,
+        "distribution": "uniform",
+        "by": {
+          "scale": [
+            0.0005,
+            0.001,
+            0.002,
+            0.005,
+            0.01,
+            0.02,
+            0.05,
+            0.1,
+            0.2,
+            0.5,
+            1.0,
+            2.0,
+            5.0,
+            10.0
+          ]
+        },
+        "value": null,
+        "drawn": false
+      },
+      {
+        "param": "timebase.clock_ppm",
+        "limit": 1.0,
+        "unit": null,
+        "distribution": "uniform",
+        "by": null,
+        "value": null,
+        "drawn": false
+      }
+    ],
     "remote": [],
     "local": false
   }

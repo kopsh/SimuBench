@@ -422,6 +422,11 @@ class InternalReading(_Model):
         description="The provider feeds nothing further: its queries are the instrument's results "
         "(waveform data, measurements), not the state of a component on the way",
     )
+    selected_by: str | None = Field(
+        None,
+        description="For a channel component: the setting that picks which channel a component on the "
+        "path reads (e.g. 'waveform.source'); the reading reflects this channel only when it is chosen",
+    )
 
 
 class InternalSelect(_Model):

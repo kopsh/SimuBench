@@ -2571,6 +2571,11 @@ export interface components {
              */
             provider: string;
             /**
+             * Selected By
+             * @description For a channel component: the setting that picks which channel a component on the path reads (e.g. 'waveform.source'); the reading reflects this channel only when it is chosen
+             */
+            selected_by: string | null;
+            /**
              * Terminal
              * @description The provider feeds nothing further: its queries are the instrument's results (waveform data, measurements), not the state of a component on the way
              * @default false

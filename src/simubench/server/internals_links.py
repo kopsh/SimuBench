@@ -123,15 +123,19 @@ def influence_edges(inst: Instrument, wires: list[tuple[str, str]]) -> Edges:
 
 def _reach(edges: Edges, start: str) -> dict[str, tuple[str | None, str]]:
     """Every component ``start`` reaches -> (the component it is reached from, how), breadth first
-    (the shortest path); ``start`` itself maps to (None, 'self')."""
+    (the shortest path); ``start`` itself maps to (None, 'self'). Signal wires and refs come first: a
+    channel reaches the waveform transfer through the acquisition, and the transfer's source setting
+    only picks which channel it reads; a selection is the path only to what nothing else reaches (a
+    trigger that picks its source channel)."""
     seen: dict[str, tuple[str | None, str]] = {start: (None, "self")}
-    queue = deque([start])
-    while queue:
-        cur = queue.popleft()
-        for nxt, how in edges.get(cur, []):
-            if nxt not in seen:
-                seen[nxt] = (cur, how)
-                queue.append(nxt)
+    for kinds in (("wire", "ref"), ("wire", "ref", "select")):
+        queue = deque(seen)
+        while queue:
+            cur = queue.popleft()
+            for nxt, how in edges.get(cur, []):
+                if how in kinds and nxt not in seen:
+                    seen[nxt] = (cur, how)
+                    queue.append(nxt)
     return seen
 
 
@@ -139,9 +143,10 @@ def readings(
     commands: Iterable[CommandSpec], inst: Instrument, edges: Edges, start: str
 ) -> list[M.InternalReading]:
     """The query commands that read ``start`` itself or a component it reaches, nearest first, each
-    with the path its influence takes."""
+    with the path its influence takes and, from a channel, the setting that must pick that channel."""
     cmds = [c for c in commands if c.query and c.op]
     reach = _reach(edges, start)
+    picks = {s.component: s.setting for s in selections(inst)} if inst.components[start].channel else {}
     out: list[M.InternalReading] = []
     seen: set[tuple[str, str]] = set()
     for provider, (_parent, how) in reach.items():
@@ -163,6 +168,7 @@ def readings(
                     via=how,  # type: ignore[arg-type]
                     path=path,
                     terminal=not edges.get(provider),
+                    selected_by=next((picks[n] for n in path[1:] if n in picks), None),
                 )
             )
     return out

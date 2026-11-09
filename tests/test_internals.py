@@ -231,7 +231,8 @@ def test_the_scope_adc_lists_the_waveform_commands_it_changes():
 
 def test_a_channel_component_names_its_own_channel():
     """A channel's vertical lists ``:CHANnel2:SCALe`` writing ``ch2.scale``, and the probe after it by
-    its own name; its waveform reaches the transfer by the source setting."""
+    its own name; its waveform reaches the transfer through the acquisition, and only when the
+    transfer's source setting picks the channel."""
     view = internals({"instruments": {"scope": {"model": "siglent-sds2104xplus"}}}, "scope")
     comps = {c.name: c for c in view.components}
     front = comps["ch2.front"]
@@ -239,7 +240,11 @@ def test_a_channel_component_names_its_own_channel():
     assert all("<ch>" not in c.header for c in front.commands)
     assert ":CHANnel2:PROBe" in {r.header for r in front.readings if r.provider == "ch2.probe"}
     data = next(r for r in front.readings if r.header == ":WAVeform:DATA")
-    assert data.via == "select" and data.path[-1] == "xfer"
+    assert (data.via, data.path) == ("ref", ["ch2.front", "ch2.probe", "acq", "xfer"])
+    assert data.selected_by == "waveform.source"
+    assert next(r for r in front.readings if r.provider == "acq").selected_by is None
+    adc = next(c for c in view.components if c.name == "adc")
+    assert all(r.selected_by is None for r in adc.readings)  # not a channel: nothing to pick
 
 
 def test_a_source_setting_selects_the_channel_without_a_ref():

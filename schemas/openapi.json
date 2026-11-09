@@ -3401,6 +3401,18 @@
             "title": "Provider",
             "type": "string"
           },
+          "selected_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a channel component: the setting that picks which channel a component on the path reads (e.g. 'waveform.source'); the reading reflects this channel only when it is chosen",
+            "title": "Selected By"
+          },
           "terminal": {
             "default": false,
             "description": "The provider feeds nothing further: its queries are the instrument's results (waveform data, measurements), not the state of a component on the way",
@@ -3424,7 +3436,8 @@
           "provider",
           "via",
           "path",
-          "terminal"
+          "terminal",
+          "selected_by"
         ],
         "title": "InternalReading",
         "type": "object"
