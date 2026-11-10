@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import sys
 import threading
 import time
 
@@ -19,7 +20,8 @@ def _free_port() -> int:
 
 def _hold(port: int) -> socket.socket:
     held = socket.socket()
-    held.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    if sys.platform != "win32":  # on Windows SO_REUSEADDR would let others share the port
+        held.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     held.bind(("127.0.0.1", port))
     held.listen()
     return held
