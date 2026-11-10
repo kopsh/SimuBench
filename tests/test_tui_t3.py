@@ -179,6 +179,39 @@ async def test_a_data_refresh_does_not_take_back_a_focus_the_user_cleared():
         assert screen.query(Card) and screen.focused is None
 
 
+async def test_a_data_refresh_keeps_the_focus_on_the_same_card():
+    """#852: a refresh (one, or several in a row) leaves the focus on the very card the user had
+    focused — the same widget, still in the DOM — and a cleared focus stays cleared across
+    refreshes that queue up before it (#849)."""
+    tui, _ = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        from simubench.tui.screens.overview import Card
+
+        screen = tui.screen
+        card = next(iter(screen.query(Card)))
+        name = card.card.name
+        screen.set_focus(card)
+        await pilot.pause()
+        for refreshes in (1, 3):
+            for _ in range(refreshes):
+                tui.data_version += 1
+                screen.refresh_content()
+            await pilot.pause()
+            await pilot.pause()
+            assert screen.focused is card and card in screen.query(Card)
+            assert screen.focused.card.name == name
+        for _ in range(2):  # clear while refreshes are queued: nothing revives the focus
+            tui.data_version += 1
+            screen.refresh_content()
+        screen.set_focus(None)
+        tui.data_version += 1
+        screen.refresh_content()
+        await pilot.pause()
+        await pilot.pause()
+        assert screen.query(Card) and screen.focused is None
+
+
 async def test_fault_dialog_injects_an_error_with_count():
     """error + count (issue 697): the code and the times reach the spec the TUI POSTs."""
     tui, fake = unit_app(fresh(SMU_BENCH))
