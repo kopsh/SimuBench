@@ -134,7 +134,7 @@ sections:
   - {header: 'OUTPut:ALARm:CLEar:ALL', level: not_modeled, note: '报警输出不在首波。'}
 - section: READ subsystem
   commands:
-  - {header: 'READ', level: implemented, note: '启动一次扫描并把读数直接送到输出缓冲（不写入读数存储器，手册 p.122）；触发源 BUS/EXT 时 -214。空扫描表报 -222（手册的设备错误 113 未单独映射）。'}
+  - {header: 'READ', level: implemented, note: '启动一次扫描并把读数直接送到输出缓冲（不写入读数存储器，手册 p.122）；触发源 BUS/EXT 时 -214。读数带噪声（specs.noise_ppm_of_range：估计值，#744/#806），逐读数独立抽样，同种子逐位复现；交流（RMS）读数加噪后取绝对值，不为负（#803）。空扫描表报 -222（手册的设备错误 113 未单独映射）。'}
 - section: ROUTe Subsystem
   commands:
   - {header: 'ROUTe:CHANnel:ADVance:SOURce', level: not_modeled, note: '外部扫描的通道推进不在首波。'}
