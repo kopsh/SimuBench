@@ -414,18 +414,27 @@ class AssistantService:
             return M.RollbackResult(done=False, needs="stop_sessions", plan=plan)
         if any(f.modified_since for f in plan.files) and not req.confirm_lost:
             return M.RollbackResult(done=False, needs="confirm_lost", plan=plan)
-        for sid in plan.sessions:
-            await self.manager.stop(sid)
         conv = self.store.load(req.bench)
         record = conv.files[plan.turn_id]
+        # Everything the plan needs is there before anything is touched (#900): a restore whose
+        # version is gone aborts in words instead of leaving half of the files already back.
+        for f in plan.files:
+            if f.action == "restore":
+                self._restore_data(f, record)
+        deletes = {
+            f.path: self.sha_of(self.files.resolve(f.path)) for f in plan.files if f.action == "delete"
+        }
+        for sid in plan.sessions:
+            await self.manager.stop(sid)
         # Benches first (they stop pointing at templates of this turn), then definitions, then the
         # files the turn created.
         for f in [f for f in plan.files if f.action == "restore"]:
             self._restore(f, record)
         for f in [f for f in plan.files if f.action == "delete"]:
-            current = self.sha_of(self.files.resolve(f.path))
-            if current is not None:
-                self.files.remove_created(f.path, current)
+            sha = deletes[f.path]
+            if sha is not None:
+                # the sha from the plan: a file that changed in the meantime is not lost unseen
+                self.files.remove_created(f.path, sha)
             if f.kind == "definition":
                 self.retire_tries(Path(f.path).stem)
         turn = next(t for t in conv.turns if t.id == plan.turn_id)
@@ -434,29 +443,32 @@ class AssistantService:
         self.store.save(conv)
         return M.RollbackResult(done=True, plan=plan)
 
-    def _restore(self, f: M.RollbackFile, record: TurnFiles) -> None:
+    def _restore_data(self, f: M.RollbackFile, record: TurnFiles):
+        """The version "before the turn" of one file, as a history sequence and/or recorded
+        content; ``Conflict`` in words when the history no longer has it (#900) — so a rollback
+        aborts before anything is written instead of leaving half of the files already back."""
         before = record.before[f.path]
         assert before is not None
+        rel = f.path if f.kind == "bench" else f"{FOLDER}/{Path(f.path).stem}.yaml"
+        seq = next((v.seq for v in self.files.history.versions(rel) if v.sha256 == before), None)
+        data = self._content(f.path, before, record)
+        if seq is None and data is None:
+            raise Conflict(f"{f.path} 的上一轮之前的版本已不在历史里，恢复中止，没有文件被改动", None)
+        return seq, data
+
+    def _restore(self, f: M.RollbackFile, record: TurnFiles) -> None:
+        seq, data = self._restore_data(f, record)
         current = self.sha_of(self.files.resolve(f.path))
         if f.kind == "bench":
-            seq = next((v.seq for v in self.files.history.versions(f.path) if v.sha256 == before), None)
             if seq is not None and current is not None:
                 self.files.restore(f.path, seq, current)
-                return
-            data = self._content(f.path, before, record)
-            if data is None:
-                raise FileNotFoundError(f"{f.path} 的上一轮之前的版本已不在历史里")
-            self.files.save(f.path, current, data, "restore")
+            else:
+                self.files.save(f.path, current, data, "restore")
             return
         def_id = Path(f.path).stem
-        rel = f"{FOLDER}/{def_id}.yaml"
-        seq = next((v.seq for v in self.files.history.versions(rel) if v.sha256 == before), None)
         if seq is not None and current is not None:
             self.definitions.restore(def_id, seq, current)
         else:
-            data = self._content(f.path, before, record)
-            if data is None:
-                raise FileNotFoundError(f"{f.path} 的上一轮之前的版本已不在历史里")
             self.definitions.save(def_id, current, data, "restore")
         self.retire_tries(def_id)
 

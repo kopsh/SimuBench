@@ -36,14 +36,13 @@ async function say(page: Page, text: string) {
   await box.press("Enter");
 }
 
-test("configure, build with consent to stop, restore, stop, clear, narrow", async ({ page }) => {
-  test.setTimeout(90_000);
+test("configure, build with consent to stop, restore, stop, clear, narrow", async ({ page }) => {  test.setTimeout(90_000);
   await page.request.put("/api/assistant/config", { headers, data: { reset: true } });
   const path = await openBench(page);
   const panel = page.getByTestId("assistant-panel");
 
   // not configured: the panel points to the settings
-  await page.getByRole("button", { name: "AI 助手" }).click();
+  await openPanel(page);
   await expect(panel.getByText("还没有配置 AI 助手")).toBeVisible();
   await panel.getByRole("button", { name: "去设置" }).click();
   await page.getByLabel("服务地址").fill(LLM);
@@ -101,3 +100,107 @@ test("configure, build with consent to stop, restore, stop, clear, narrow", asyn
   await panel.getByRole("button", { name: "收起 AI 助手" }).click();
   await expect(panel).toHaveCount(0);
 });
+
+/** Configure through the API (the dialog path is covered by the big test above). */
+async function configureLLM(page: Page, extra: Record<string, unknown> = {}) {
+  await page.request.put("/api/assistant/config", { headers, data: { reset: true } });
+  const saved = await page.request.put("/api/assistant/config", {
+    headers,
+    data: { base_url: LLM, model: "fake-model", api_key: "sk-e2e-secret", ...extra },
+  });
+  expect(saved.ok()).toBeTruthy();
+}
+
+/** Open the panel unless it is already open (the open state survives a page change). */
+async function openPanel(page: Page) {
+  const panel = page.getByTestId("assistant-panel");
+  if ((await panel.count()) === 0) {
+    await page.getByRole("button", { name: "AI 助手", exact: true }).click();
+  }
+  await expect(panel).toBeVisible();
+}
+
+test("a hand-edited file is listed as lost; cancel sends nothing; confirm restores", async ({ page }) => {
+  test.setTimeout(60_000);
+  await configureLLM(page);
+  const path = await openBench(page);
+  const panel = page.getByTestId("assistant-panel");
+  await openPanel(page);
+
+  // a turn that writes the file
+  await say(page, "把函数发生器的标签改成 AI 改的");
+  await expect(panel.getByText(/已把信号源的标签/)).toBeVisible({ timeout: 20_000 });
+
+  // the user edits the file by hand afterwards: restoring would lose that
+  const sid = page.url().split("/s/")[1]!.split("?")[0]!;
+  await page.request.delete(`/api/sessions/${sid}`, { headers });
+  type Doc = { sha256: string; data: { instruments: Record<string, { model: string; label?: string }> } };
+  const doc = (await (await page.request.get(`/api/benches/file?path=${path}`, { headers })).json()) as Doc;
+  doc.data.instruments.awg.label = "手改的";
+  expect(
+    (await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: doc.sha256, data: doc.data } })).ok(),
+  ).toBeTruthy();
+
+  // the dialog lists the file and the change that would be lost
+  await panel.getByRole("button", { name: /恢复到上一轮之前/ }).click();
+  const plan = page.getByTestId("rollback-plan");
+  await expect(plan).toContainText(path);
+  await expect(plan).toContainText("在那之后又被改过");
+  await expect(plan).toContainText("手改的");
+
+  // cancel: no rollback request goes out
+  const posts: string[] = [];
+  await page.route("**/api/assistant/rollback", (route) => {
+    if (route.request().method() === "POST") posts.push(route.request().postData() ?? "");
+    return route.continue();
+  });
+  await page.getByRole("dialog").getByRole("button", { name: "取消" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(posts).toEqual([]);
+
+  // confirm: the consent is in the request body, and the file is as it was before the turn
+  await panel.getByRole("button", { name: /恢复到上一轮之前/ }).click();
+  await expect(page.getByTestId("rollback-plan")).toContainText("手改的");
+  await page.getByRole("dialog").getByRole("button", { name: "恢复", exact: true }).click();
+  await expect(page.getByText("已恢复到上一轮之前").first()).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(posts).toHaveLength(1);
+  const body = JSON.parse(posts[0]!) as { turn_id: string; confirm_lost: boolean; stop_sessions: boolean };
+  expect(body.turn_id).toBeTruthy();
+  expect(body.confirm_lost).toBe(true);
+  expect(body.stop_sessions).toBe(true);
+  const after = (await (await page.request.get(`/api/benches/file?path=${path}`, { headers })).json()) as Doc;
+  expect(after.data.instruments.awg.label).toBeUndefined();
+  expect(after.data.instruments.awg.model).toBe("sb-awg-2");
+  await expect(panel.getByRole("button", { name: /恢复到上一轮之前/ })).toHaveCount(0);
+});
+
+test("going in circles stops the turn in words, and compaction leaves a note", async ({ page }) => {
+  test.setTimeout(90_000);
+  await configureLLM(page);
+  await openBench(page);
+  const panel = page.getByTestId("assistant-panel");
+  await openPanel(page);
+
+  // the same failing edit again and again: the server stops the turn, the reason is in words
+  await say(page, "把 ghost 删掉");
+  const note = panel.getByText(/助手停下了/);
+  await expect(note).toBeVisible({ timeout: 20_000 });
+  const reason = (await note.textContent()) ?? "";
+  expect(reason).toContain("没有进展");
+  expect(reason).not.toContain("{"); // said in words, not a JSON dump
+  await expect(panel.getByRole("button", { name: /恢复到上一轮之前/ })).toHaveCount(0);
+  await say(page, "你好"); // the conversation goes on after a stopped turn
+  await expect(panel.getByText(/我是 SimuBench 助手/)).toBeVisible({ timeout: 15_000 });
+
+  // big tool results over a small configured window: the older ones are compacted, the panel notes it
+  await configureLLM(page, { context_tokens: 1000 });
+  await openBench(page);
+  await openPanel(page);
+  await say(page, "看看目录里的仪表");
+  await expect(panel.getByText(/更早的内容已压缩/)).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByText(/看完了/)).toBeVisible({ timeout: 20_000 });
+  await say(page, "谢谢"); // the conversation still works on the compacted history
+  await expect(panel.getByText(/你好，/)).toBeVisible({ timeout: 15_000 });
+});
+

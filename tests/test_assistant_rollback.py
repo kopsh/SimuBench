@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 import yaml
-from tests.helpers import ScriptedLLM
+from tests.helpers import ScriptedLLM, last_tool_return
 from tests.test_assistant import BENCH, edit, manager, service_with, sha, turn
 
 from simubench.assistant.service import ROLLED_BACK_NOTE
@@ -103,3 +103,104 @@ async def test_a_file_in_use_by_a_running_session_is_stopped_first_with_consent(
     assert asked.needs == "stop_sessions" and manager.sessions
     done = await service.rollback(M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True))
     assert done.done and not manager.sessions and label(manager) == "函数发生器"
+
+
+async def test_a_created_file_changed_while_the_plan_runs_is_not_deleted_unseen(manager):
+    """The delete checks the sha the plan saw (#900): a change during the stop window is a
+    refused rollback with the file intact, and the next plan asks again."""
+    llm = ScriptedLLM([("copy_bench", {})], "复制好了。")
+    service = service_with(manager, llm)
+    t = await turn(service, "复制这个测试台")
+    copy = manager.workspace / "hello-copy.bench.yaml"
+    assert copy.is_file()
+    served = await manager.start("hello-copy.bench.yaml")
+    plan = service.rollback_plan(BENCH)
+    assert [(f.path, f.action) for f in plan.files] == [("hello-copy.bench.yaml", "delete")]
+    assert plan.sessions == [served.id]
+
+    original_stop = manager.stop
+
+    async def stop_and_tamper(sid):
+        copy.write_text("name: 手改的\n", encoding="utf-8")  # what a script could do during the stop
+        return await original_stop(sid)
+
+    manager.stop = stop_and_tamper  # type: ignore[method-assign]
+    try:
+        with pytest.raises(Conflict, match="hello-copy"):
+            await service.rollback(
+                M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
+            )
+    finally:
+        manager.stop = original_stop
+    assert (
+        copy.read_text(encoding="utf-8") == "name: 手改的\n"
+        and not service.conversation(BENCH).turns[-1].rolled_back
+    )
+    # the next plan shows the hand change: confirm again, then it goes
+    assert service.rollback_plan(BENCH).files[0].modified_since
+    done = await service.rollback(
+        M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
+    )
+    assert done.done and not copy.exists()
+
+
+async def test_a_version_no_longer_in_history_aborts_before_any_file_is_touched(manager):
+    """A restore whose version is gone stops the whole rollback in words (#900): no half-restore,
+    the button stays, and the same request works again once the record is consistent."""
+
+    def save_tpl(m):
+        return [("save_template", {"instrument": "awg", "name": "Scope A", "base_sha256": sha(m)})]
+
+    def read_def(m):
+        return [("read_definition", {"definition_id": "my-scope-a"})]
+
+    def edit_both(m):
+        return [
+            (
+                "edit_definition",
+                {
+                    "definition_id": "my-scope-a",
+                    "base_sha256": last_tool_return(m, "read_definition")["sha256"],
+                    "patch": [{"op": "replace", "path": "/channel_state/frequency/default", "value": 5e6}],
+                },
+            ),
+            (
+                "edit_bench",
+                {"base_sha256": sha(m), "ops": [{"op": "set_label", "name": "awg", "label": "AI 改的"}]},
+            ),
+        ]
+
+    llm = ScriptedLLM([("read_bench", {})], save_tpl, "存好了。")
+    service = service_with(manager, llm)
+    t1 = await turn(service, "把信号源存成模板 Scope A")
+    assert t1.status == "done", t1.stop_reason
+    llm.script += [read_def, edit_both, "都改好了。"]
+    t2 = await turn(service, "模板默认频率改成 5 MHz，测试台加个标签")
+    assert t2.status == "done", t2.stop_reason
+    plan = service.rollback_plan(BENCH)
+    assert [(f.path, f.action) for f in plan.files] == [
+        (BENCH, "restore"),
+        ("instruments/my-scope-a.yaml", "restore"),
+    ]
+
+    rel = "instruments/my-scope-a.yaml"
+    conv = service.store.load(BENCH)
+    record = conv.files[t2.id]
+    real_before = record.before[rel]
+    record.before[rel] = "0" * 64  # as if the history had aged that version out
+    service.store.save(conv)
+    with pytest.raises(Conflict, match="my-scope-a"):
+        await service.rollback(M.RollbackRequest(bench=BENCH, turn_id=t2.id))
+    assert label(manager) == "AI 改的"  # the bench was not restored: no half state
+    stored = yaml.safe_load((manager.workspace / rel).read_text(encoding="utf-8"))
+    assert stored["channel_state"]["frequency"]["default"] == 5e6
+    assert service.rollback_plan(BENCH).turn_id == t2.id
+
+    record.before[rel] = real_before
+    service.store.save(conv)
+    done = await service.rollback(M.RollbackRequest(bench=BENCH, turn_id=t2.id))
+    assert done.done
+    assert label(manager) == "函数发生器"
+    restored = yaml.safe_load((manager.workspace / rel).read_text(encoding="utf-8"))
+    assert restored["channel_state"]["frequency"]["default"] == 1e6
+    assert service.conversation(BENCH).turns[-1].rolled_back
