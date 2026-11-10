@@ -188,7 +188,8 @@ def _int_part(text: str) -> int | None:
             return int(text, 8)
         except ValueError:
             return None
-    return int(text) if text.isdigit() else None
+    # isdigit alone is not enough: it is True for superscripts (²) that int() rejects (#914)
+    return int(text) if text.isascii() and text.isdigit() else None
 
 
 def _ipv4_shorthand(host: str) -> str | None:
