@@ -386,6 +386,7 @@ commands:
     op: acq.run_mode
     params:
       - {name: mode, type: enum, options: [AUTO, NORMal, SINGLE, STOP], state: trigger.mode, optional: true}
+    reply: "{header} {value}"  # TRIG_MODE? answers "TRIG_MODE <mode>" (manual, TRIG_MODE)
   - {header: ARM_acquisition, op: acq.single, query: false}
   - {header: STOP, op: acq.stop, query: false}
   - {header: FoRce_TRigger, op: acq.force_trigger, query: false}
