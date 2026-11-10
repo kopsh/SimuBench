@@ -62,7 +62,7 @@ sections:
   - header: TRig_SElect
     level: implemented
     note: 只建模 EDGE 与时间释抑（HT,TI,HV 秒）；脉宽、间隔、事件释抑报 -224
-  - header: C<ch>:TRig_Slope
+  - header: C<ch>:TRig_SLope
     level: implemented
     note: 按触发源分别保存沿；触发使用当前触发源对应通道的沿
   - header: C<ch>:Volt_DIV

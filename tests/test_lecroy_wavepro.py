@@ -42,11 +42,11 @@ def test_the_manual_procedure_reconstructs_the_bench_signal(scope):
     assert desc["HORIZ_INTERVAL"] == pytest.approx(rec.dt_s)
     assert times[0] == pytest.approx(rec.origin)
     assert times[1] - times[0] == pytest.approx(desc["HORIZ_INTERVAL"])
-    # the 1 kHz, 2 Vpp sine the generator drives into 1 MΩ: its peaks and its period
+    # the 1 kHz, 2 Vpp sine the generator drives into 1 MΩ: its peaks and its frequency
     assert volts.max() == pytest.approx(1.0, abs=0.05)
     assert volts.min() == pytest.approx(-1.0, abs=0.05)
-    rising = times[1:][(volts[:-1] < 0) & (volts[1:] >= 0)]
-    assert np.diff(rising).mean() == pytest.approx(1e-3, rel=1e-2)
+    freqs = np.fft.rfftfreq(volts.size, desc["HORIZ_INTERVAL"])
+    assert freqs[np.argmax(np.abs(np.fft.rfft(volts)))] == pytest.approx(1e3, rel=1e-2)
 
 
 def test_the_example_bench_runs_the_script(tmp_path, monkeypatch, capsys):
