@@ -23,6 +23,14 @@ BASELINE = ROOT / "scripts" / "ty_baseline.txt"
 
 LINE = re.compile(r"^(src/[^:]+):\d+:\d+: (?:error|warning)\[([a-z-]+)\] (.*)$")
 
+#: ty's contract: 0 = no diagnostics, 1 = diagnostics found, anything else = the tool itself failed.
+TY_OK_CODES = (0, 1)
+
+
+class TyBroken(RuntimeError):
+    """ty did not run or did not report in the expected format (#916): the gate must fail, not
+    silently pass on zero parsed diagnostics."""
+
 
 def current() -> Counter[str]:
     """The diagnostics ty reports for ``src``, as ``path:rule message -> count`` keys."""
@@ -39,17 +47,38 @@ def current() -> Counter[str]:
             "--output-format=concise",
         ]
     )
-    # ty exits non-zero when it finds diagnostics: that is not our failure, read the report
-    out = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True).stdout
+    try:
+        proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
+    except OSError as exc:  # ty missing and uv not on PATH either: a broken environment
+        raise TyBroken(f"cannot run {cmd[0]!r}: {exc}") from None
+    # ty exits non-zero when it finds diagnostics: that is not our failure, read the report.
+    # Everything else — a crash, a bad config, an output-format change — must fail the gate
+    # instead of parsing to zero diagnostics and passing (#916).
+    if proc.returncode not in TY_OK_CODES:
+        raise TyBroken(f"ty exited {proc.returncode}:\n{proc.stderr.strip() or proc.stdout.strip()}")
     keys: Counter[str] = Counter()
-    for line in out.splitlines():
+    for line in proc.stdout.splitlines():
         if m := LINE.match(line):
             path, rule, message = m.groups()
             keys[f"{path}:{rule} {message.strip()}"] += 1
+    if proc.returncode == 1 and not keys:
+        raise TyBroken(
+            "ty found diagnostics (exit 1) but none matched the expected"
+            " '<path>:<line>:<col>: <level>[<rule>] <message>' lines — the output format or the"
+            f" parse below changed:\n{(proc.stdout or proc.stderr).strip()[:2000]}"
+        )
     return keys
 
 
 def main() -> int:
+    try:
+        return _main()
+    except TyBroken as exc:
+        print(f"the type check itself failed (#916): {exc}")
+        return 1
+
+
+def _main() -> int:
     if "--rebuild" in sys.argv:  # a deliberate baseline refresh, reviewed like any diff
         now = current()
         BASELINE.write_text(
