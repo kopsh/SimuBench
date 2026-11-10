@@ -8,7 +8,7 @@ Specifications are a record (``specs``); the ranges a unit deviates in are fille
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -546,9 +546,30 @@ def _sync(x: OscilloscopeInputs) -> dict[str, Any]:
     return out
 
 
-def build(x: OscilloscopeInputs) -> dict[str, Any]:
-    if x.dialect.command_set == "lecroy-scope":
-        return _build_lecroy(x)
+class _Derived(NamedTuple):
+    """What every part of the SCPI-scope definition is built from."""
+
+    ch: Any
+    v: Any
+    adc: Any
+    tb: Any
+    tr: Any
+    aq: Any
+    xf: Any
+    di: Any
+    names: list[str]
+    labels: dict[str, str]
+    trig_sources: list[str]
+    trig_labels: dict[str, str]
+    plo: float
+    phi: float
+    slo: float
+    shi: float
+    offset_max: float
+    has_types: bool
+
+
+def _derive(x: OscilloscopeInputs) -> _Derived:
     ch, v, adc, tb, tr, aq, xf, di = (
         x.channels, x.vertical, x.adc, x.timebase, x.trigger, x.acquisition, x.transfer, x.dialect,
     )  # fmt: skip
@@ -565,7 +586,24 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     slo, shi = v.scale_range
     offset_max = max(r[1] for r in offsets) * phi if offsets else v.offset_max_v
     has_types = len(aq.types) > 1 or aq.types != ["NORMal"]
+    return _Derived(
+        ch, v, adc, tb, tr, aq, xf, di, names, labels, trig_sources, trig_labels,
+        plo, phi, slo, shi, offset_max, has_types,
+    )  # fmt: skip
 
+
+def _state(x: OscilloscopeInputs, c: _Derived) -> dict[str, Any]:
+    """Instrument-level settings."""
+    tb = c.tb
+    tr = c.tr
+    aq = c.aq
+    xf = c.xf
+    di = c.di
+    names = c.names
+    labels = c.labels
+    trig_sources = c.trig_sources
+    trig_labels = c.trig_labels
+    has_types = c.has_types
     state: dict[str, Any] = {
         "timebase.scale": _setting(
             type="float", unit="S", min=tb.scale_range[0], max=tb.scale_range[1], default=tb.default_scale,
@@ -618,7 +656,18 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
                 type="int", min=min(aq.average_counts), max=max(aq.average_counts), default=aq.average_counts[0],
                 ladder=sorted(aq.average_counts), label="平均次数", label_en="Average count",
             )  # fmt: skip
+    return state
 
+
+def _channel_state(x: OscilloscopeInputs, c: _Derived) -> dict[str, Any]:
+    """Per-channel settings."""
+    ch = c.ch
+    v = c.v
+    plo = c.plo
+    phi = c.phi
+    slo = c.slo
+    shi = c.shi
+    offset_max = c.offset_max
     channel_state: dict[str, Any] = {
         "scale": _setting(
             type="float", unit="V", min=slo * plo, max=shi * phi, default=v.default_scale,
@@ -645,7 +694,15 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
             type="bool", default=False, label="带宽限制", label_en="Bandwidth limit"
         )
     channel_state["display"] = _setting(type="bool", default=False, label="显示", label_en="Display")
+    return channel_state
 
+
+def _acquisition(x: OscilloscopeInputs, c: _Derived) -> dict[str, Any]:
+    """The acquisition component's parameters."""
+    tr = c.tr
+    aq = c.aq
+    di = c.di
+    has_types = c.has_types
     acq: dict[str, Any] = {
         "horizontal": "timebase", "trigger": "trigger", "adc": "adc", "vertical": "front", "probe": "probe",
     }  # fmt: skip
@@ -660,7 +717,15 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         }  # fmt: skip
         if "AVERage" in aq.types:
             acq["averages"] = "$acquire.count"
+    if di.single == "arm" and "SINGLE" not in sweeps:
+        acq["single"] = ["SINGle"]
+    return acq
 
+
+def _timebase_trigger(x: OscilloscopeInputs, c: _Derived) -> tuple[dict[str, Any], dict[str, Any]]:
+    """The timebase and trigger components' parameters."""
+    tb = c.tb
+    tr = c.tr
     timebase: dict[str, Any] = {}
     if tb.memory_depth:
         timebase |= {"record_length": "rate_ladder", "points": tb.memory_depth}
@@ -673,8 +738,17 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
         trigger["hysteresis_divs"] = tr.hysteresis_divs
     if tr.level_range_divs:
         trigger["level_range_divs"] = tr.level_range_divs
-    adc_p = _adc(x)
+    return timebase, trigger
 
+
+def _transfer(x: OscilloscopeInputs, c: _Derived) -> dict[str, Any]:
+    """The waveform_transfer component's parameters."""
+    adc = c.adc
+    tb = c.tb
+    aq = c.aq
+    xf = c.xf
+    di = c.di
+    has_types = c.has_types
     per_div = adc.codes_per_div or ((1 << adc.bits) / adc.divisions if adc.bits else 32.0)
     byte_cpd = xf.byte_codes_per_div or per_div
     word_cpd = xf.word_codes_per_div or byte_cpd * 256
@@ -728,17 +802,15 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
             ],
         },
     }
+    return xfer
 
-    zmap = {z.name: z.ohms for z in ch.impedances}
-    cmap = {z.name: z.capacitance_f for z in ch.impedances}
-    caps = set(cmap.values())
-    front = _front(x, "$ch.coupling")
-    probe: dict[str, Any] = {}
-    if v.probe_rescales:
-        probe["rescales"] = ["$ch.scale", "$ch.offset"]
 
-    deviations = _deviations(x)
-
+def _commands(x: OscilloscopeInputs, c: _Derived) -> list[dict[str, Any]]:
+    """The SCPI command table."""
+    ch = c.ch
+    aq = c.aq
+    di = c.di
+    has_types = c.has_types
     commands: list[dict[str, Any]] = [
         {"header": ":CHANnel<ch>:SCALe", "state": "ch.scale"},
         {"header": ":CHANnel<ch>:OFFSet", "state": "ch.offset"},
@@ -760,8 +832,6 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     if di.single == "digitize":
         commands.append({"header": ":SINGle", "op": "acq.digitize", "query": False})
     elif di.single == "arm":
-        if "SINGLE" not in sweeps:
-            acq["single"] = ["SINGle"]
         commands.append({"header": ":SINGle", "op": "acq.single", "query": False})
     if di.run_stop:
         commands += [
@@ -787,6 +857,34 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
             "header": f":MEASure:{m}", "op": "meas.measure", "set": False, "args": {"what": m},
             "params": [{"name": "source", "type": "string", "optional": True}],
         })  # fmt: skip
+    return commands
+
+
+def build(x: OscilloscopeInputs) -> dict[str, Any]:
+    if x.dialect.command_set == "lecroy-scope":
+        return _build_lecroy(x)
+    c = _derive(x)
+    state = _state(x, c)
+    channel_state = _channel_state(x, c)
+    acq = _acquisition(x, c)
+    timebase, trigger = _timebase_trigger(x, c)
+    adc_p = _adc(x)
+    xfer = _transfer(x, c)
+    ch = c.ch
+    v = c.v
+    tr = c.tr
+    di = c.di
+    zmap = {z.name: z.ohms for z in ch.impedances}
+    cmap = {z.name: z.capacitance_f for z in ch.impedances}
+    caps = set(cmap.values())
+    front = _front(x, "$ch.coupling")
+    probe: dict[str, Any] = {}
+    if v.probe_rescales:
+        probe["rescales"] = ["$ch.scale", "$ch.offset"]
+
+    deviations = _deviations(x)
+
+    commands = _commands(x, c)
 
     channels: dict[str, Any] = {"count": ch.count}
     shown = {n: {"display": {"default": True}} for n in ch.displayed}
@@ -889,9 +987,33 @@ def _lecroy_couplings(
     return options, labels, ohms, kind
 
 
-def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
-    """A LeCroy-style scope: short and long headers echoed in replies (COMM_HEADER), engineering
-    numbers, per-channel trigger level and slope, measurement slots, text waveform readback."""
+class _LeCroy(NamedTuple):
+    """What every part of the LeCroy-scope definition is built from."""
+
+    ch: Any
+    v: Any
+    tb: Any
+    tr: Any
+    xf: Any
+    di: Any
+    n: int
+    mem: Any
+    chans: list[str]
+    sources: list[str]
+    couplings: Any
+    coupling_labels: Any
+    ohms: Any
+    kind: Any
+    plo: float
+    phi: float
+    slo: float
+    shi: float
+    offset_max: float
+    meas_names: list[str]
+    slot: dict[str, Any]
+
+
+def _lecroy_derive(x: OscilloscopeInputs) -> _LeCroy:
     ch, v, tb, tr, xf, di = x.channels, x.vertical, x.timebase, x.trigger, x.transfer, x.dialect
     n = ch.count
     mem = tb.memory_sizes
@@ -905,6 +1027,19 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
     offset_max = max(offsets) * phi if offsets else v.offset_max_v
     meas_names = [LECROY_MEASUREMENTS[m] for m in x.measurements]
     slot = {"type": "enum", "options": ["NULL", *meas_names], "default": "NULL"}
+    return _LeCroy(
+        ch, v, tb, tr, xf, di, n, mem, chans, sources, couplings, coupling_labels, ohms, kind,
+        plo, phi, slo, shi, offset_max, meas_names, slot,
+    )  # fmt: skip
+
+
+def _lecroy_state(x: OscilloscopeInputs, c: _LeCroy) -> dict[str, Any]:
+    """Instrument-level settings."""
+    tb = c.tb
+    mem = c.mem
+    chans = c.chans
+    sources = c.sources
+    slot = c.slot
 
     state: dict[str, Any] = {
         "timebase.scale": _setting(
@@ -936,6 +1071,21 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
     for i in range(1, 9):
         state[f"measure.p{i}.kind"] = dict(slot)
         state[f"measure.p{i}.source"] = {"type": "enum", "options": list(chans), "default": ""}
+    return state
+
+
+def _lecroy_channel_state(x: OscilloscopeInputs, c: _LeCroy) -> dict[str, Any]:
+    """Per-channel settings."""
+    v = c.v
+    tr = c.tr
+    couplings = c.couplings
+    coupling_labels = c.coupling_labels
+    plo = c.plo
+    phi = c.phi
+    slo = c.slo
+    shi = c.shi
+    offset_max = c.offset_max
+
     channel_state: dict[str, Any] = {
         "display": _setting(type="bool", default=False, label="显示", label_en="Trace"),
         "coupling": _setting(
@@ -958,6 +1108,17 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
         ),
         "probe": _setting(type="float", min=plo, max=phi, default=v.default_probe, label="衰减", label_en="Attenuation"),
     }  # fmt: skip
+    return channel_state
+
+
+def _lecroy_components(
+    x: OscilloscopeInputs, c: _LeCroy
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """The component parameters: acquisition, trigger, waveform transfer, input port."""
+    ch = c.ch
+    tr = c.tr
+    xf = c.xf
+    ohms = c.ohms
 
     acq: dict[str, Any] = {
         "horizontal": "timebase", "trigger": "trigger", "adc": "adc", "vertical": "front", "probe": "probe",
@@ -984,7 +1145,6 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
             "ACQ_COUNT": "{count}",
         },
     }  # fmt: skip
-    names = {LECROY_MEASUREMENTS[m]: [m, UNITS.get(m, "V")] for m in x.measurements}
     caps = {z.capacitance_f for z in ch.impedances}
     inp: dict[str, Any] = {
         "z_in": {"from": "$ch.coupling", "map": ohms},
@@ -992,6 +1152,12 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
             k: next(z.capacitance_f for z in ch.impedances if z.ohms == r) for k, r in ohms.items()
         }},
     }  # fmt: skip
+    return acq, trigger, xfer, inp
+
+
+def _lecroy_commands(x: OscilloscopeInputs, c: _LeCroy) -> list[dict[str, Any]]:
+    """The SCPI-like command table."""
+
     inquire = [
         {"name": "name", "type": "string"},
         {"name": "fmt", "type": "enum", "options": ["FLOAT"], "optional": True},
@@ -1049,6 +1215,23 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
         {"header": "C<ch>:INSPect", "when": {"name": "WAVEDESC"}, "op": "xfer.describe", "set": False,
          "reply": '{header} " {value} "', "params": [{"name": "name", "type": "string"}]},
     ]  # fmt: skip
+    return commands
+
+
+def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
+    """A LeCroy-style scope: short and long headers echoed in replies (COMM_HEADER), engineering
+    numbers, per-channel trigger level and slope, measurement slots, text waveform readback."""
+    c = _lecroy_derive(x)
+    state = _lecroy_state(x, c)
+    channel_state = _lecroy_channel_state(x, c)
+    acq, trigger, xfer, inp = _lecroy_components(x, c)
+    commands = _lecroy_commands(x, c)
+    ch = c.ch
+    tr = c.tr
+    di = c.di
+    n = c.n
+    kind = c.kind
+    names = {LECROY_MEASUREMENTS[m]: [m, UNITS.get(m, "V")] for m in x.measurements}
     channels: dict[str, Any] = {"count": n}
     shown = {i: {"display": {"default": True}} for i in ch.displayed}
     if shown:
