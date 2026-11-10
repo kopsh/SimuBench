@@ -28,7 +28,7 @@
 | measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 分段存储未建模;测量窗口只用主记录(没有缩放记录) |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 
-两台内置型号(keysight-dsox2024a、siglent-sds2104xplus)全覆盖,无豁免。
+内置型号(keysight-dsox2024a、keysight-uxr0334b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
 
 ## function_generator
 

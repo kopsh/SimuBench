@@ -1,0 +1,446 @@
+schema: simubench.instrument/1
+id: lecroy-wavepro804hd
+manufacturer: Teledyne LeCroy
+model: WavePro 804HD
+class: oscilloscope
+version: 1
+description: >-
+  Teledyne LeCroy WavePro 804HD, 4 channels, 12 bit, 8 GHz at 50 ohm (2 channels) or 4 GHz
+  (4 channels), 20 GS/s on 2 channels or 10 GS/s on 4 channels, 50 Mpts standard on 4 channels
+  or 100 Mpts on 2 channels, 20 ps/div to 1 ks/div. Commands, replies and waveform transfer
+  follow the MAUI Oscilloscopes Remote Control and Automation Manual (February 2026); ranges
+  follow the WavePro HD data sheet. Settings or values the manual does not state are defaults
+  from the coverage table.
+reference:
+  title: MAUI Oscilloscopes Remote Control and Automation Manual
+  document: maui-remote-control-automation
+  version: February 2026
+identity:
+  idn: "LECROY,WAVEPRO804HD,{serial},{firmware}"
+  serial: WP804HD0001
+  firmware: 10.3.0.0
+builtins: ["*CLS", "*ESE", "*ESR", "*IDN", "*OPC", "*RST", "*SRE", "*STB", "*TRG", "*WAI"]
+dialect:
+  # COMM_HEADER: SHORT echoes short headers (C1:VDIV), LONG echoes long ones (C1:VOLT_DIV).
+  echo_header: $comm.header
+  multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}
+format:
+  number: engineering
+  boolean: word
+  enum: short
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  comm.header:
+    type: enum
+    options: ["OFF", SHORT, LONG]
+    default: SHORT
+    label: 回复头
+    label_en: Reply header
+  timebase.scale:
+    type: float
+    unit: S
+    min: 2.0e-11
+    max: 1000.0
+    default: 1.0e-3
+    label: 时基
+    label_en: Timebase
+  memory.size:
+    type: int
+    min: 500
+    max: 100000000
+    default: 10000
+    ladder:
+      [500, 1000, 2500, 5000, 10000, 25000, 50000, 100000, 250000, 500000,
+       1000000, 2500000, 5000000, 10000000, 25000000, 50000000, 100000000]
+    label: 存储深度
+    label_en: Memory size
+  reference.clock:
+    type: enum
+    options: [INTERNAL, EXTERNAL]
+    default: INTERNAL
+    label: 参考时钟
+    label_en: Reference clock
+  trigger.source:
+    type: enum
+    options: [C1, C2, C3, C4, LINE]
+    default: C1
+    not_modeled:
+      EX: 外触发输入的电平与输入端口没有建模
+      EX10: 外触发输入的电平与输入端口没有建模
+      ETM10: 外触发输入的电平与输入端口没有建模
+    label: 触发源
+    label_en: Trigger source
+  trigger.type:
+    type: enum
+    options: [EDGE]
+    default: EDGE
+    label: 触发类型
+    label_en: Trigger type
+  trigger.mode:
+    type: enum
+    options: [AUTO, NORMal, SINGLE, STOP]
+    default: AUTO
+    label: 触发方式
+    label_en: Trigger mode
+  trigger.hold:
+    type: enum
+    options: ["OFF", TI]
+    default: "OFF"
+    not_modeled:
+      PS: 只建模时间释抑（TI），脉宽释抑没有依据
+      PL: 只建模时间释抑（TI），脉宽释抑没有依据
+      P2: 只建模时间释抑（TI），脉宽释抑没有依据
+      IS: 只建模时间释抑（TI），间隔释抑没有依据
+      IL: 只建模时间释抑（TI），间隔释抑没有依据
+      I2: 只建模时间释抑（TI），间隔释抑没有依据
+    label: 释抑类型
+    label_en: Holdoff type
+  trigger.holdoff:
+    type: float
+    unit: S
+    min: 0.0
+    default: 0.0
+    label: 释抑时间
+    label_en: Holdoff time
+  waveform.sp:
+    type: int
+    min: 0
+    max: 100000000
+    default: 0
+  waveform.np:
+    type: int
+    min: 0
+    max: 100000000
+    default: 0
+  waveform.fp:
+    type: int
+    min: 0
+    max: 100000000
+    default: 0
+  waveform.sn:
+    type: int
+    min: 0
+    max: 10000
+    default: 0
+  measure.p1.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p1.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p2.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p2.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p3.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p3.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p4.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p4.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p5.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p5.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p6.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p6.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p7.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p7.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+  measure.p8.kind: {type: enum, options: ["NULL", AMPL, PKPK, MAX, MIN, MEAN, RMS, FREQ, PER, TOP, BASE, RISE, FALL, WID, NWID, DUTY, OVSP, OVSN], default: "NULL"}
+  measure.p8.source: {type: enum, options: [C1, C2, C3, C4], default: ""}
+channel_state:
+  display: {type: bool, default: false, label: 显示, label_en: Trace}
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 100000.0
+    default: 50.0e-3
+    label: 垂直档位
+    label_en: Volts/div
+  offset:
+    type: float
+    unit: V
+    min: -4000000.0
+    max: 4000000.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  coupling:
+    type: enum
+    options: [D1M, A1M, D50, GND]
+    default: D1M
+    label: 耦合
+    label_en: Coupling
+  probe:
+    type: enum
+    options: ["1", "2", "5", "10", "20", "25", "50", "100", "200", "500", "1000", "10000"]
+    default: "1"
+    label: 探头衰减
+    label_en: Probe attenuation
+  trigger_level:
+    type: float
+    unit: V
+    min: -1000000.0
+    max: 1000000.0
+    default: 0.0
+    label: 触发电平
+    label_en: Trigger level
+  trigger_slope:
+    type: enum
+    options: [POS, NEG]
+    default: POS
+    label: 触发沿
+    label_en: Trigger slope
+specs:
+  source: waveprohd-datasheet
+  channels: 4
+  bandwidth_hz: 8.0e9
+  bandwidth_hz_at_4ch: 4.0e9
+  bandwidth_hz_at_1mohm: 5.0e8
+  sample_rate_max_sps: 20.0e9
+  sample_rate_max_sps_at_4ch: 10.0e9
+  adc_bits: 12
+  memory_points_max: 100000000
+  memory_points_max_at_4ch: 50000000
+  timebase_min_s_div: 2.0e-11
+  timebase_max_s_div: 1000.0
+  timebase_accuracy_ppm: 0.1
+  sample_clock_jitter_s: 6.0e-14
+  dc_gain_accuracy: 0.005
+  probe_attenuation_min: 1.0
+  probe_attenuation_max: 10000.0
+  vertical_scale_min_v_div_50ohm: 1.0e-3
+  vertical_scale_max_v_div_50ohm: 1.0
+  vertical_scale_min_v_div_1mohm: 1.0e-3
+  vertical_scale_max_v_div_1mohm: 10.0
+  input_impedance_ohm_1m: 1.0e6
+  input_capacitance_f_1m: 14.0e-12
+  input_impedance_ohm_50: 50.0
+  trigger_level_range_divs: 4.1
+# 个体偏差（D3，metrology-authoring.md 7）：测试台 deviation: from_specs 时按种子抽取。
+# 直流增益 ±0.5 % 满刻度、时基 ±0.1 ppm（数据手册）。
+deviations:
+  - param: front.gain_error_ppm
+    by: {scale: [1.0e-3, 2.0e-3, 5.0e-3, 1.0e-2, 2.0e-2, 5.0e-2, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0]}
+    limit: 5000.0
+    distribution: uniform
+  - param: timebase.clock_ppm
+    limit: 0.1
+    distribution: uniform
+components:
+  - name: acq
+    type: scope_acquisition
+    params:
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
+      single: [SINGLE]
+      normal: [NORMal]
+      stop: [STOP]
+      after_single: STOP
+      reacquire: on_read_start
+      missing: acquire
+      untriggered: record
+      trigger_jitter_s: 6.0e-14
+  - name: timebase
+    type: scope_timebase
+    params:
+      record_length: exact
+      points: $memory.size
+      clock_ppm: 0.1
+  - name: trigger
+    type: scope_trigger
+    params:
+      source: $trigger.source
+      level: $ch{n}.trigger_level
+      slope: $ch{n}.trigger_slope
+      holdoff: $trigger.holdoff
+      holdoff_on: {from: $trigger.hold, map: {TI: true, "OFF": false}}
+      line: [LINE]
+      line_hz: 50.0
+  - name: adc
+    type: scope_adc
+    params:
+      bits: 12
+      divs: 10.0
+      offset_sign: add
+      max_rate: 20.0e9
+      max_rate_paired: 10.0e9
+      rate_pairs: [[1, 2], [3, 4]]
+  - name: meas
+    type: scope_measurements
+    params:
+      record: acq
+      names:
+        AMPL: [VAMPlitude, V]
+        PKPK: [VPP, V]
+        MAX: [VMAX, V]
+        MIN: [VMIN, V]
+        MEAN: [VAVerage, V]
+        RMS: [VRMS, V]
+        FREQ: [FREQuency, HZ]
+        PER: [PERiod, S]
+        TOP: [VTOP, V]
+        BASE: [VBASe, V]
+        RISE: [RISetime, S]
+        FALL: [FALLtime, S]
+        WID: [PWIDth, S]
+        NWID: [NWIDth, S]
+        DUTY: [DUTYcycle, "%"]
+        OVSP: [OVERshoot, "%"]
+        OVSN: [PREShoot, "%"]
+  - name: xfer
+    type: waveform_transfer
+    params:
+      first: $waveform.fp
+      count: $waveform.np
+      step: $waveform.sp
+      max_points: 100000000
+      encoding: text
+      values: volts
+      format: "%.6e"
+      separator: " "
+      descriptor_item: "{name}: {value}"
+      descriptor:
+        WAVE_ARRAY_COUNT: "{points}"
+        FIRST_POINT: "{first}"
+        SPARSING_FACTOR: "{step}"
+        HORIZ_INTERVAL: "{dt:.9e}"
+        HORIZ_OFFSET: "{x_offset:.9e}"
+        VERTICAL_OFFSET: "{offset:.6e}"
+        VERTICAL_GAIN: "{gain:.6e}"
+        TIMEBASE: "{timebase:.6e}"
+        VOLT_PER_DIV: "{scale:.6e}"
+        ACQ_COUNT: "{count}"
+channel_components:
+  # 输入端口由耦合决定：D1M/A1M 为 1 MΩ ∥ 14 pF，D50 为 50 Ω，GND 仍为 1 MΩ 输入。
+  - name: inp
+    type: input_port
+    params:
+      z_in: {from: $ch.coupling, map: {D1M: 1.0e6, A1M: 1.0e6, D50: 50.0, GND: 1.0e6}}
+      c_in: {from: $ch.coupling, map: {D1M: 14.0e-12, A1M: 14.0e-12, D50: 1.0e-12, GND: 14.0e-12}}
+  # 垂直前端：8 GHz（50 Ω）/ 500 MHz（1 MΩ）；档位范围与偏置范围按数据手册按耦合取值。
+  # 越界按手册取最接近的合法值（VAB 状态位没有建模）。
+  - name: front
+    type: scope_vertical
+    params:
+      coupling: {from: $ch.coupling, map: {D1M: DC, A1M: AC, D50: DC, GND: GND}}
+      bandwidth: {from: $ch.coupling, map: {D50: 8.0e9}, default: 5.0e8}
+      ac_corner: 10.0
+      probe_ratio: $ch.probe
+      noise_table:
+        [[0.001, 315.0e-6], [0.002, 315.0e-6], [0.005, 315.0e-6], [0.01, 315.0e-6],
+         [0.02, 420.0e-6], [0.05, 983.0e-6], [0.1, 1.95e-3], [0.2, 3.16e-3],
+         [0.5, 7.76e-3], [1.0, 13.81e-3]]
+      scale_range:
+        from: $ch.coupling
+        map:
+          D1M: [1.0e-3, 10.0]
+          A1M: [1.0e-3, 10.0]
+          D50: [1.0e-3, 1.0]
+          GND: [1.0e-3, 10.0]
+      offset_ranges:
+        from: $ch.coupling
+        map:
+          # 50 Ω 满 8 GHz 带宽的偏置范围（数据手册 >1 GHz 表）。
+          D50: [[0.0345, 0.5], [0.087, 1.25], [0.220, 3.0], [1.0, 5.0]]
+          # 1 MΩ 的偏置范围（数据手册）。
+          D1M:
+            [[0.00495, 1.6], [0.0099, 4.0], [0.0198, 8.0], [0.1, 16.0],
+             [0.198, 80.0], [1.0, 160.0], [10.0, 400.0]]
+          A1M:
+            [[0.00495, 1.6], [0.0099, 4.0], [0.0198, 8.0], [0.1, 16.0],
+             [0.198, 80.0], [1.0, 160.0], [10.0, 400.0]]
+          GND:
+            [[0.00495, 1.6], [0.0099, 4.0], [0.0198, 8.0], [0.1, 16.0],
+             [0.198, 80.0], [1.0, 160.0], [10.0, 400.0]]
+      out_of_range: clamp
+  # 探头衰减：1、2、5、10、…、10000（手册 ATTN 的取值），改档时垂直档位与偏置同比缩放。
+  - name: probe
+    type: scope_probe
+    params:
+      ratio: $ch.probe
+      rescales: [$ch.scale, $ch.offset]
+wiring:
+  channel:
+    - [inp.out, front.in]
+    - [front.out, probe.in]
+  instrument:
+    - ["ch{n}.probe.out", "acq.in{n}"]
+commands:
+  - {header: Comm_HeaDeR, state: comm.header}
+  - {header: C<ch>:TRAce, state: ch.display}
+  - {header: C<ch>:CouPLing, state: ch.coupling}
+  - {header: C<ch>:Volt_DIV, state: ch.scale, reply: "{header} {value} V"}
+  - {header: C<ch>:OFfSeT, state: ch.offset, reply: "{header} {value} V"}
+  - {header: C<ch>:ATTeNuation, state: ch.probe}
+  - {header: C<ch>:TRig_LeVel, state: ch.trigger_level, reply: "{header} {value} V"}
+  - {header: "C<ch>:TRig_SLope", state: ch.trigger_slope}
+  - {header: Time_DIV, state: timebase.scale, reply: "{header} {value} S"}
+  - {header: Memory_SIZe, state: memory.size, format: {integer: engineering}}
+  - {header: Reference_CLocK, state: reference.clock}
+  - header: TRig_SElect
+    params:
+      - {name: type, type: enum, state: trigger.type}
+      - name: rest
+        type: pairs
+        keys: {SR: trigger.source, HT: trigger.hold, HV: trigger.holdoff}
+        optional: true
+  - header: TRig_MoDe
+    op: acq.run_mode
+    params:
+      - {name: mode, type: enum, options: [AUTO, NORMal, SINGLE, STOP], state: trigger.mode, optional: true}
+  - {header: ARM_acquisition, op: acq.single, query: false}
+  - {header: STOP, op: acq.stop, query: false}
+  - {header: FoRce_TRigger, op: acq.force_trigger, query: false}
+  - header: WAIT
+    op: acq.wait
+    query: false
+    params:
+      - {name: timeout, type: float, unit: S, optional: true}
+  - header: PArameter_CUstom
+    params:
+      - {name: slot, type: int, index: true, min: 1, max: 8}
+      - {name: kind, type: enum, state: "measure.p{slot}.kind"}
+      - {name: source, type: enum, state: "measure.p{slot}.source", optional: true}
+  - header: C<ch>:PArameter_VAlue
+    op: meas.named
+    set: false
+    params:
+      - {name: kind, type: string}
+    reply: "{header} {kind},{value} {unit},{status}"
+  - header: WaveForm_SetUp
+    params:
+      - name: setup
+        type: pairs
+        keys: {SP: waveform.sp, NP: waveform.np, FP: waveform.fp, SN: waveform.sn}
+        optional: true
+  - header: C<ch>:INSPect
+    when: {name: WAVEDESC}
+    op: xfer.describe
+    set: false
+    params:
+      - {name: name, type: string}
+    reply: '{header} " {value} "'
+  - header: C<ch>:INSPect
+    when: {name: SIMPLE}
+    op: xfer.data
+    set: false
+    params:
+      - {name: name, type: string}
+      - {name: fmt, type: enum, options: [FLOAT], optional: true}
+    reply: '{header} " {value} "'
+  - header: C<ch>:INSPect
+    when: {name: DATA_ARRAY_1}
+    op: xfer.data
+    set: false
+    params:
+      - {name: name, type: string}
+      - {name: fmt, type: enum, options: [FLOAT], optional: true}
+    reply: '{header} " {value} "'
+ports:
+  channel:
+    "CH{n}": inp.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, memory.size, trigger.mode, trigger.source]
+  channel_summary: [display, scale, offset, coupling, trigger_level]
+  actions:
+    single: "TRMD SINGLE"
+capabilities: [oscilloscope]
