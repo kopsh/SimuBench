@@ -48,6 +48,7 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
 ```bash
 uv run ruff check src tests acceptance refcalc
 uv run ruff format src tests acceptance refcalc          # fixes; check.sh only --check
+uv run python scripts/check_ty.py                        # type check vs the baseline (#897)
 uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
 uv run pytest tests/test_x.py -q                          # while iterating
 uv run python scripts/check_tui_i18n.py                   # TUI wording == web i18n
@@ -57,6 +58,11 @@ uv run python scripts/check_progress_log.py               # progress-log section
 uv run simubench schemas --out schemas                    # then commit schemas/ if changed
 cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```
+
+The type check is Astral's `ty` over `src`, against `scripts/ty_baseline.txt` (`scripts/check_ty.py`):
+a diagnostic the baseline does not cover fails the check; a batch of fixes deletes its baseline lines
+(`--rebuild` rewrites the file, review it like any diff), so the baseline only ever shrinks. Runs in
+the `python` CI job only (the `ty` binary is one binary for every OS and Python version).
 
 Every test has a 120 s limit (`timeout` in pyproject.toml, pytest-timeout): a hang fails with thread stacks instead of stalling CI.
 The fast tests run on Python 3.12 and, in the `python311` job, on 3.11 (`requires-python` is `>=3.11`); reproduce a 3.11-only failure with `uv run --python 3.11 pytest …`.

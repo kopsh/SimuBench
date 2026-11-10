@@ -405,18 +405,18 @@ def _guess(values: list[str]) -> dict[str, Any]:
         and any(w.upper() in ("ON", "OFF") for w in words)
     ):
         return {"type": "bool", "default": words[0].upper() in ("ON", "1")}
-    numbers = [NUMBER.match(w) for w in words]
-    if words and all(numbers):
+    matched = [m for w in words if (m := NUMBER.match(w)) is not None]
+    if words and len(matched) == len(words):
         unit = None
-        for m in numbers:
-            suffix = m.group(2).upper()  # type: ignore[union-attr]
+        for m in matched:
+            suffix = m.group(2).upper()
             for u in UNITS:
                 if suffix == u or (suffix.endswith(u) and suffix[: -len(u)] in PREFIXES):
                     unit = u
-        spec: dict[str, Any] = {"type": "float", "default": float(numbers[0].group(1))}  # type: ignore[union-attr]
+        spec: dict[str, Any] = {"type": "float", "default": float(matched[0].group(1))}
         if unit:
             spec["unit"] = unit
-            if numbers[0].group(2).upper() != unit:  # type: ignore[union-attr]
+            if matched[0].group(2).upper() != unit:
                 spec["default"] = 0.0  # the first value carries a prefix: no default guessed from it
         return spec
     if words and all(w.startswith(("'", '"')) for w in words):
@@ -504,8 +504,8 @@ def draft_definition(
                 g["query"] = True
             else:
                 g["sets"].append([p.decode(errors="replace") for p in split_params(b",".join(unit.params))])
-    state = data.setdefault("state", {})
-    channel_state = data.setdefault("channel_state", {})
+    state: Any = data.setdefault("state", {})
+    channel_state: Any = data.setdefault("channel_state", {})
     commands = data.setdefault("commands", [])
     drafted = []
     for header, g in groups.items():
@@ -541,7 +541,7 @@ def draft_definition(
             entry["set"] = False
         commands.append(entry)
         if g["channel"]:  # enough channels for the highest suffix the script uses
-            channels = data.setdefault("channels", {"count": 1})
+            channels: Any = data.setdefault("channels", {"count": 1})
             channels["count"] = max(int(channels.get("count", 1)), g["max_ch"])
         drafted.append(
             {

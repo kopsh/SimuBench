@@ -478,9 +478,10 @@ def run_case(
                 result.error = f"{type(exc).__name__}: {exc}"
                 if entry is not None:
                     entry.ok, entry.error = False, result.error
-                    result.steps.append(entry)
+                    if result.steps is not None:  # entry exists only when collect made the list
+                        result.steps.append(entry)
                 break
-            if entry is not None:
+            if entry is not None and result.steps is not None:
                 result.steps.append(entry)
             if step.query is None:
                 continue

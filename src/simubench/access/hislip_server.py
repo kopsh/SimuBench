@@ -108,9 +108,9 @@ class HislipSession:
         self.server = server
         self.instrument = instrument
         self.session_id = session_id
-        self.sync_reader: asyncio.StreamReader | None = None
-        self.sync_writer: asyncio.StreamWriter | None = None
-        self.async_writer: asyncio.StreamWriter | None = None
+        self.sync_reader: asyncio.StreamReader | SecureStream | None = None
+        self.sync_writer: asyncio.StreamWriter | SecureStream | None = None
+        self.async_writer: asyncio.StreamWriter | SecureStream | None = None
         self.client = f"hislip:#session-{session_id:04x}"
         self.max_message_size = MAX_MESSAGE_SIZE  # what the client accepts from us (spec 6.10)
         self.closing = asyncio.Event()
@@ -160,7 +160,9 @@ class HislipSession:
             with contextlib.suppress(ConnectionError, asyncio.CancelledError):
                 await writer.drain()
 
-    async def send_error(self, writer: asyncio.StreamWriter, code: int, message: bytes) -> None:
+    async def send_error(self, writer: asyncio.StreamWriter | None, code: int, message: bytes) -> None:
+        if writer is None:  # no channel to send on: the session is going away anyway
+            return
         self._send(writer, _pack(ERROR, code, 0, message))
         await self._drain(writer)
 
@@ -241,7 +243,7 @@ class HislipSession:
         await self._drain(self.sync_writer)
 
 
-def _peek_header(reader: asyncio.StreamReader, size: int) -> bytes | None:
+def _peek_header(reader: asyncio.StreamReader | SecureStream, size: int) -> bytes | None:
     """The bytes already buffered in ``reader``, without consuming them — enough of a message
     header to decide whether the synchronized mode was interrupted (3.1.1-1). ``StreamReader``
     has no public peek, so this reads its buffer directly (CPython's implementation, stable for
@@ -404,14 +406,14 @@ class HislipServer:
 
     # ---- message plumbing -------------------------------------------------------------------------------
 
-    async def _read_header(self, reader: asyncio.StreamReader) -> tuple | None:
+    async def _read_header(self, reader: asyncio.StreamReader | SecureStream) -> tuple | None:
         raw = await reader.readexactly(HEADER.size)
         prologue, msg_type, control, parameter, length = HEADER.unpack(raw)
         if prologue != b"HS" or length > MAX_PAYLOAD_BUFFER:
             return None
         return prologue, msg_type, control, parameter, length
 
-    async def _read_payload(self, reader: asyncio.StreamReader, length: int) -> bytes:
+    async def _read_payload(self, reader: asyncio.StreamReader | SecureStream, length: int) -> bytes:
         return await reader.readexactly(length) if length else b""
 
     async def _messages(self, sess: HislipSession, channel: str):
@@ -420,6 +422,8 @@ class HislipServer:
         The reader is looked up for every message: StartTLS and EndTLS swap a channel's stream."""
         while not sess.closing.is_set():
             reader = sess.sync_reader if channel == "sync" else sess.async_reader
+            if reader is None:  # the connection closed under us; the close path reports it
+                return
             header = await self._read_header(reader)
             if header is None:
                 await sess.send_fatal(FATAL_POORLY_FORMED, b"malformed message header")
@@ -754,7 +758,9 @@ class HislipServer:
                 await sess.close()
                 return
         try:
-            sess.sync_reader, sess.sync_writer = await sess.sync_writer.unwrap(secure.handshake_timeout)
+            writer = sess.sync_writer
+            if isinstance(writer, SecureStream):  # it is, whenever TLS ending is pending
+                sess.sync_reader, sess.sync_writer = await writer.unwrap(secure.handshake_timeout)
         except (ssl.SSLError, OSError, TimeoutError, asyncio.IncompleteReadError) as exc:
             self._tls_failed(sess, "TLS shutdown (synchronous channel)", exc)
             await sess.close()

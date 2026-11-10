@@ -630,7 +630,7 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
     comp = next((c for c in specs if c.name == comp_name), None)
     cls = component_types().get(comp.type) if comp is not None else None
     impedance_of = getattr(cls, "impedance_of", None)
-    if comp is None or impedance_of is None:
+    if comp is None or cls is None or impedance_of is None:
         return None
 
     def value(v: Any) -> Any:
@@ -643,7 +643,7 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
         setting = bench.instruments[owner].state.get(full, spec.default if spec else None)
         return map_setting(v, setting) if isinstance(v, dict) else setting
 
-    params = {k: value(v) for k, v in {**cls.defaults, **comp.params}.items()}  # type: ignore[union-attr]
+    params = {k: value(v) for k, v in {**cls.defaults, **comp.params}.items()}
     try:
         return impedance_of(params)  # type: ignore[no-any-return]
     except (KeyError, TypeError, ValueError):
@@ -661,9 +661,8 @@ def _impedance_hints(
             continue
         inst = bench.instruments[owner]
         ch = "".join(c for c in port if c.isdigit()) or "1"
-        load = inst.state.get(
-            f"ch{ch}.load", d.channel_state.get("load").default if d.channel_state.get("load") else None
-        )
+        load_spec = d.channel_state.get("load")
+        load = inst.state.get(f"ch{ch}.load", load_spec.default if load_spec else None)
         try:
             load_v = float(load) if load is not None else math.inf
         except (TypeError, ValueError):

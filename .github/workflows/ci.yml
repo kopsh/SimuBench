@@ -44,6 +44,8 @@ jobs:
       - run: uv sync --locked --all-extras
       - run: uv run ruff check src tests acceptance refcalc
       - run: uv run ruff format --check src tests acceptance refcalc
+      - name: The type check against its only-shrinking baseline (#897)
+        run: uv run python scripts/check_ty.py
       - name: The D49 test rules (budgets, e2e assertions, environment reuse)
         run: uv run python scripts/check_test_rules.py
       - name: progress-log keeps its appended history (issue #380)
