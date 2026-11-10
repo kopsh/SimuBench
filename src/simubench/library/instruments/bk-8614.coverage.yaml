@@ -352,19 +352,19 @@ sections:
   commands:
   - header: :FETCh:VOLTage
     level: implemented
-    note: The live reading (no buffered acquisition).
+    note: The live reading (no buffered acquisition). 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :FETCh:CURRent
     level: implemented
-    note: The live reading.
+    note: The live reading. 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :FETCh:POWer[:DC]
     level: implemented
-    note: The live reading.
+    note: The live reading. 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :MEASure:VOLTage[:DC]
     level: implemented
-    note: Takes 117 ms (NPLC 7 of the *RST table at 60 Hz; the manual gives no time — a SimuBench value); the reply is the reading at the start.
+    note: Takes 117 ms (NPLC 7 of the *RST table at 60 Hz; the manual gives no time — a SimuBench value); the reply is the reading at the start. 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :MEASure:CURRent[:DC]
     level: implemented
-    note: Takes 117 ms, as :MEASure:VOLTage.
+    note: Takes 117 ms, as :MEASure:VOLTage. 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :SENSe:AVERage:COUNt
     level: accepted
     affects_data: false

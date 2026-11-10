@@ -49,6 +49,10 @@ specs:
   programmable_resolution: {cc: 0.001, cv_high: 0.001, cv_range: 0.005, cr: "2 mA/Vsense", cp: 0.1}
   readback_resolution: {voltage: 0.0001, current: 0.001, power: 0.1}
   readback_accuracy: {voltage: "±(0.05% + 0.02% FS)", current: "±(0.1% + 0.1% FS)", power: "按 V/I 读数"}
+  readback_noise_rms: >-
+    电压 0.15 mV、电流 0.2 mA（估计，#744/#808）：回读准确度的满量程项按最小量程取（电压
+    15 V 档 0.02% FS = 3 mV，电流 4 A 档 0.1% FS = 4 mA），噪声 σ ≤ 其 1/20，对各量程都成立；
+    数据表没有噪声指标。输入未导通时电流回读恒为 0，不加噪。
   slew_rate: "0.001 A/μs – 1 A/μs（分辨率 0.001 A/μs）"
   integration_time: "10 PLC = 200 ms（:FETCh:TIME?）"
   protection: "OVP / OCP / OPP / OTP / LRV / RRV；手册未给保护阈值命令，V_LIMIT/C_LIMIT 是各模式的工作上限"
@@ -282,7 +286,8 @@ components:
     params: {enabled: $input.enabled, loop: loop, protection: prot}
   - name: load
     type: eload_meter
-    params: {input: inp}
+    # 回读噪声（specs.readback_noise_rms，#744/#808）：绝对 rms，设定值不加噪；功率读 V·I。
+    params: {input: inp, noise: {rms: {voltage: 1.5e-4, current: 2.0e-4}}}
   - name: prot
     type: eload_protection
     # 手册没有单独的保护阈值命令：各模式的 V_LIMIT/ILIMIT 是工作上限，这里让它们同时作为

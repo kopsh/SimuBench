@@ -97,26 +97,26 @@ cases:
         expect: "1"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "MEAS:CURR?"
         expect_value: 20.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "MEAS:VOLT?"
         expect_value: 46.0
-        tolerance: 1.0e-6
+        tolerance: 0.0018  # 4σ of the readback noise (#808)
       - query: "FETC:CURR?"
         expect_value: 20.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "FETC:VOLT?"
         expect_value: 46.0
-        tolerance: 1.0e-6
+        tolerance: 0.0018  # 4σ of the readback noise (#808)
       - query: "FETC:POW?"
         expect_value: 920.0
-        tolerance: 1.0e-3
+        tolerance: 0.23  # 4σ of the readback noise (#808)
       - send: "INP OFF"
       - query: "FETC:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
 
   - name: "CV / CR / CW：47 V 时 10 A；10 Ω 时 4.752 A；500 W 时 10.653 A"
     manual: "Source Commands > [SOURce:]VOLTage / [SOURce:]RESistance / [SOURce:]POWer; [SOURce:]FUNCtion"
@@ -126,23 +126,23 @@ cases:
       - send: "INP ON"
       - query: "MEAS:CURR?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "FETC:VOLT?"
         expect_value: 47.0
-        tolerance: 1.0e-6
+        tolerance: 0.0018  # 4σ of the readback noise (#808)
       - send: "FUNC RES"
       - send: "RES 10"
       - query: "MEAS:CURR?"
         expect_value: 4.752475
-        tolerance: 1.0e-5
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - send: "FUNC POW"
       - send: "POW 500"
       - query: "MEAS:CURR?"
         expect_value: 10.65310
-        tolerance: 1.0e-4
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "FETC:POW?"
         expect_value: 500.0
-        tolerance: 1.0e-3
+        tolerance: 0.23  # 4σ of the readback noise (#808)
       - send: "FUNC:MODE LIST"
       - query: "SYST:ERR?"
         expect_match: '^-224,.*'
@@ -257,21 +257,21 @@ cases:
       - send: "INP ON"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - send: "VOLT:ON 40"
       - query: "MEAS:CURR?"
         expect_value: 20.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - send: "VOLT:ON 47"
       - query: "MEAS:CURR?"
         expect_value: 20.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "FETC:VOLT?"
         expect_value: 46.0
-        tolerance: 1.0e-6
+        tolerance: 0.0018  # 4σ of the readback noise (#808)
       - send: "INP OFF"
       - send: "VOLT:LATC OFF"
       - query: "VOLT:LATC?"
@@ -285,7 +285,7 @@ cases:
       - send: "INP ON"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
 
   - name: "OCP：开关、电平与延时 0 时立即关断输入；条件消除后 PROT:CLE 恢复"
     manual: "Source Commands > [SOURce:]CURRent:PROTection:STATe / :PROTection[:LEVel] / :PROTection:DELay; [SOURce:]PROTection:CLEar"
@@ -299,20 +299,20 @@ cases:
       - send: "INP ON"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "FETC:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "STAT:QUES:COND?"
         expect: "24578"
       - send: "CURR 10"
       - send: "PROT:CLE"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "MEAS:CURR?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - send: "CURR:PROT:DEL 61"
       - query: "SYST:ERR?"
         expect_match: '^-222,.*'
@@ -330,10 +330,10 @@ cases:
       - send: "INP ON"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "MEAS:CURR?"
         expect_value: 20.0
-        tolerance: 1.0e-6
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "STAT:QUES:COND?"
         expect: "16392"
 
@@ -350,7 +350,7 @@ cases:
       - send: "INP ON"
       - query: "MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0048  # 4σ of the readback noise (#808)
       - query: "*STB?"
         expect: "8"
       - query: "STAT:QUES?"
