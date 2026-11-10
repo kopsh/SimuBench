@@ -119,6 +119,8 @@ def test_the_definition_noise_distributes_and_replays():
         q(s, "cal", "OUT 1 V")
         out = s.instrument("cal").components["out"]
         assert s.instrument("cal").session.port_signal(out, "out").mean() == 0.0  # standby: exact
+        # standby: the panel's readback is exactly 0 on every frame, not 0 plus noise (#863)
+        assert [out.readings()["values"]["voltage"] for _ in range(20)] == [0.0] * 20
         q(s, "cal", "OPER;*WAI")
         true_v = s.instrument("cal").session.port_signal(out, "out").mean()  # the driven output
         frames = [out.readings()["values"]["voltage"] for _ in range(200)]
@@ -126,6 +128,9 @@ def test_the_definition_noise_distributes_and_replays():
         assert statistics.mean(frames) == pytest.approx(true_v, abs=4 * READBACK_SIGMA / math.sqrt(200))
         assert statistics.stdev(frames) == pytest.approx(READBACK_SIGMA, rel=0.2)
         first20 = frames[:20]
+        q(s, "cal", "OUT 40 V")  # crossing 33 V sends the output back to standby: readback 0 again
+        assert q(s, "cal", "OPER?").strip() == "0"
+        assert [out.readings()["values"]["voltage"] for _ in range(20)] == [0.0] * 20
     finally:
         s.close()
     s = open_bench(DMM_BENCH)

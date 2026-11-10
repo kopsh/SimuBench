@@ -123,6 +123,23 @@ def test_the_digitize_and_time_origin_flow(scope):
         assert 0.001 < xorg / xinc % 1 < 0.999
 
 
+def test_the_records_time_origin_scatters_by_the_jitter_spec(scope):
+    """#859: the trigger jitter (specs.trigger_jitter_s_rms, 50 ps — an estimate, 0.1 × the 2 GSa/s
+    sample interval, #745) lands in every record's time origin: over repeated acquisitions of the
+    same repeating trigger the origins scatter by exactly it (the trigger's interpolated phase
+    repeats; the jitter draws anew)."""
+    from refcalc.noise import sigma_interval
+
+    dso, session = scope
+    origins = []
+    for _ in range(24):
+        dso.write(":DIGitize CHANnel1")
+        assert dso.query("*OPC?").strip() == "1"
+        origins.append(_record(session).origin)
+    lo, hi = sigma_interval(5.0e-11, len(origins))
+    assert lo <= float(np.std(origins)) <= hi, (float(np.std(origins)), lo, hi)
+
+
 def _bench(seed, deviation="from_specs"):
     data = yaml.safe_load(CASES_BENCH.read_text("utf-8"))
     data["instruments"]["scope"]["deviation"] = deviation

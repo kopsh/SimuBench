@@ -225,7 +225,7 @@ sections:
   commands:
   - header: :MEASure
     level: implemented
-    note: 一次单点测量，回复 VOLT,CURR,RES,TIME,STAT（SOUR 元素未实现）。读数带噪声（specs.noise_ppm_of_range：估计值，#744/D46），逐读数独立抽样，同种子逐位复现。
+    note: 一次单点测量，回复 VOLT,CURR,RES,TIME,STAT（SOUR 元素未实现）。读数带噪声（specs.noise_ppm_of_range：估计值，#744/D46），逐读数独立抽样，同种子逐位复现；RES 取同一次带噪读数的 V/I，随 VOLT、CURR 一起抖动（#846）。
   - header: :MEASure:VOLTage[:DC]
     level: implemented
     note: 单点测量，只回复电压。

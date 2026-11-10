@@ -95,7 +95,8 @@ def main() -> None:
     assert len(readings) == len(CHANNELS), readings
     assert all(math.isclose(a, b, rel_tol=1e-4) for a, b in zip(readings, LOADED, strict=True)), readings
     assert points == 2 * len(CHANNELS), points
-    assert oldest == readings[:2], (oldest, readings)
+    # A different scan than READ?'s, so the readings differ by their noise (a real instrument's too).
+    assert all(math.isclose(a, b, rel_tol=1e-4) for a, b in zip(oldest, readings[:2], strict=True)), oldest
     assert len(removed) == 3 and left == 1, (removed, left)
     assert math.isclose(fres, 1000.0, rel_tol=1e-3), fres
     assert math.isclose(current, 5.0 / (1000.0 + 6.0), rel_tol=2e-2), current

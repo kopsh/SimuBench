@@ -619,12 +619,19 @@ def test_category_instrument_snapshot(
             "rfgen",
         ),
         # Measured V, I, P as values with their units (the bench's source gives 5 V, the input
-        # is off), the input state and the mode (#374: labels alone prove nothing).
+        # is off), the input state and the mode (#374: labels alone prove nothing). The voltage
+        # rides the readback noise (#808): any draw within ±4σ (0.6 mV) of 5 V; the off input sinks
+        # exactly 0 A, so I and P stay exact.
         (
             "examples",
             "benches/rigol_dl3021.bench.yaml",
             "dut",
-            ["INPUT", r"re:V\s+5\.00000 V", r"re:I\s+0\.00000 A", r"re:P\s+0\.000 W"],
+            [
+                "INPUT",
+                r"re:V\s+(?:4\.999[4-9][0-9]|5\.000[0-6][0-9]) V",
+                r"re:I\s+0\.00000 A",
+                r"re:P\s+0\.000 W",
+            ],
             "eload",
         ),
         # Per-channel voltage and current readings with units, all outputs off (zeros) (#374).

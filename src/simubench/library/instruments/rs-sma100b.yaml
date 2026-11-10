@@ -33,6 +33,10 @@ format:
 specs:
   source: R&S SMA100B User Manual（1178.3834.02 v14）第 15 章各命令的 Range 与 *RST
   frequency_range_hz: [8.0e3, 6.0e9]
+  noise_status: >-
+    读数噪声：不适用（#744/#861）——射频源没有测量读数，面板回读的是设定值。相位噪声/频谱纯度
+    （SSB 相位噪声、宽带噪声底）：未建模，超出读数噪声机制（逐读数的高斯抽样）的范围，缺口记在
+    #861；定义里的 NOISe 只是“噪声调制”源（AM/FM/PM 的调制源之一），同样未建模。
   frequency_note: "频率上限依选件（3/6/12.75/20/31.8/40/50/67 GHz）；本定义取 B106（6 GHz），*RST 频率依选件，取 1 GHz"
   level_range_dbm: [-120.0, 18.0]
   am: {depth_percent: [0.0, 100.0], rst_depth: 30}

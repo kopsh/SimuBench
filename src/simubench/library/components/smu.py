@@ -614,10 +614,19 @@ class SmuMeter(Component):
     _script_reads = 0
 
     def _clipped(self, v: float, i: float, frame: int | None = None) -> tuple[float, float]:
+        v, i, _, _ = self._clipped_noisy(v, i, frame)
+        return v, i
+
+    def _clipped_noisy(
+        self, v: float, i: float, frame: int | None = None
+    ) -> tuple[float, float, float, float]:
+        """The clipped readings and, beside them, the same readings with their noise but before the
+        overload clip: what the row's RES is computed from (#846)."""
         noisy = isinstance(self.param("noise"), dict)
         if noisy and frame is None:
             self._script_reads += 1  # the sequence of scripted readings keys the noise (#746)
         when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+        v_noisy, i_noisy = v, i
         for function, ref in (("VOLTage", "v"), ("CURRent", "i")):
             value = v if ref == "v" else i
             r = self._measure_range(function, value)
@@ -625,21 +634,27 @@ class SmuMeter(Component):
                 sigma = self.noise_rms(r, self.reading_time(0.0))
                 value += self.noise_sample(sigma, "reading", function, *when)
                 if ref == "v":
-                    v = value
+                    v = v_noisy = value
                 else:
-                    i = value
+                    i = i_noisy = value
             if r is not None and abs(value) > float(self.param("overrange")) * r:
                 if ref == "v":
                     v = float(self.param("overload_value"))
                 else:
                     i = float(self.param("overload_value"))
-        return v, i
+        return v, i, v_noisy, i_noisy
+
+    def _reading_with_res(self, v_raw: float, i_raw: float) -> tuple[float, float, float]:
+        """VOLT, CURR and RES of one measurement. RES is V/I of the same noisy reading as VOLT and
+        CURR (#846), so it scatters with them; an exactly zero current stays OPEN."""
+        v, i, v_noisy, i_noisy = self._clipped_noisy(v_raw, i_raw)
+        res = v_noisy / i_noisy if abs(i_noisy) > 0 and abs(i_raw) > 0 else OPEN
+        return v, i, res
 
     def _row(self, t: float) -> list[float]:
         """A reading's row as the reading commands write it: VOLT, CURR, RES, TIME, STAT."""
         v_raw, i_raw = self.reading()
-        v, i = self._clipped(v_raw, i_raw)
-        res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
+        v, i, res = self._reading_with_res(v_raw, i_raw)
         return [v, i, res, t, float(STAT_LIMIT if self._loop().limited() else 0)]
 
     def _format(self, rows: list[list[float]]) -> bytes:
@@ -713,8 +728,7 @@ class SmuMeter(Component):
             loop.restart()
             self.session.invalidate(electrical=True)
         v_raw, i_raw = self.reading()
-        v, i = self._clipped(v_raw, i_raw)
-        res = v_raw / i_raw if abs(i_raw) > 0 else OPEN
+        v, i, res = self._reading_with_res(v_raw, i_raw)
         self._point = (v, i, res, float(STAT_LIMIT if loop.limited() else 0))
         function = self.choice("function")  # VOLTage | CURRent | RESistance; a bad word is -224
         if function == "VOLTage":

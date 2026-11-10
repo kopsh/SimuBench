@@ -20,7 +20,7 @@ sections:
   commands:
   - header: READ
     level: implemented
-    note: = INITiate 后紧跟 FETCh?：按扫描表扫描，读数进读数存储器并返回；BUS/EXTernal 触发源时 -214。
+    note: = INITiate 后紧跟 FETCh?：按扫描表扫描，读数进读数存储器并返回；BUS/EXTernal 触发源时 -214。读数带噪声（specs.noise_ppm_of_range：估计值，#744/#806），逐读数独立抽样，同种子逐位复现；交流（RMS）读数加噪后取绝对值，不为负（#803）。
 - section: TEST Subsystem
   commands:
   - header: TEST:ALL
