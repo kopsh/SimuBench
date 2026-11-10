@@ -1,0 +1,1175 @@
+        CAPTURE EVERY DETAIL
+
+
+
+
+                                       2.5 GHz - 8 GHz
+                                       High Definition Oscilloscopes
+
+
+
+                               HD4096 Technology 12-bit resolution with 8 GHz bandwidth
+
+                               Longest Memory Capture and navigate up to 5 Gpt records
+
+                               Deepest Toolbox Powerful signal analysis accelerates insight
+
+teledynelecroy.com/waveprohd
+                                                                         HD4096
+
+
+
+
+    HD4096
+                                                                     technology
+                                                              enables 12 bits of
+                                                              vertical resolution
+                                                          with 8 GHz bandwidth
+
+                                                          • Clean, Crisp
+    High Definition
+                                                        		Waveforms
+
+                                                          • More Signal
+    Technology
+                                                        		Details
+
+                                                          • Unmatched
+                                                        		Measurement
+                                                        		 Precision
+
+
+
+
+    Long
+                       Up to 5 Gpts of acquisition
+                       memory means exceptionally
+                       long capture times at full
+                       sample rate and resolution.
+
+
+
+
+    Memory
+                       Intuitive navigation tools
+                       make it easy to find events of
+                       interest and simplify analysis
+                       of long waveforms.
+
+
+
+
+    Deep              WavePro HD
+
+                      has the greatest
+
+                      breadth and depth
+
+
+
+    Toolbox
+                      of tools to simplify
+
+                      any debug task.
+
+
+
+
+2
+  Faster
+           Insight alone is not enough.
+           Markets and technologies change too rapidly.
+           The timing of critical design
+
+
+
+Time to    decisions is significant.
+
+           Faster Time to Insight is what matters.
+
+
+ Insight
+           8 GHz, 20 GS/s, 5 Gpts.
+           12 bits all the time.
+
+
+
+
+            Capture Every Detail.
+                                                          3
+    HD4096 TECHNOLOGY - 16X CLOSER TO PERFECT
+
+
+                                       Teledyne LeCroy high definition 12-bit oscilloscopes
+                                       use unique HD4096 technology to provide superior
+                                       and uncompromised measurement performance:
+                                         – 12-bit ADCs with high sample rates
+                                         – High signal-to-noise amplifiers
+                                         – Low noise system architecture (to 8 GHz)
+
+
+                                       Oscilloscopes with HD4096 technology have higher resolution
+                                       than conventional 8-bit oscilloscopes (4096 vs. 256 vertical
+                                       levels) and low noise for uncompromised measurement
+                                       performance. The 12-bit ADCs support capture of fast signals
+                                       and oscilloscope bandwidth ratings up to 8 GHz, while 20 GS/s
+                                       sample rate ensures the highest measurement accuracy and
+                                       precision. The high performance input amplifiers deliver pristine
+                                       signal fidelity, and the low-noise system architecture provides
+                                       an ideal signal path to ensure that signal details are delivered
+                                       accurately to the oscilloscope display – 16x closer to perfect.
+
+
+
+
+      HD4096 12-bit
+      oscilloscope                                      16x Closer to Perfect
+      Conventional 8-bit
+      oscilloscope
+
+                                                        16x more resolution
+                                                        HD4096 technology provides 12 bits of vertical
+                                                        resolution with 16x more resolution compared
+                                                        to conventional 8-bit oscilloscopes. The 4096
+                                                        discrete vertical levels reduce the quantization
+                                                        error compared to 256 vertical levels. This
+                                                        improves the accuracy and precision of the
+                                                        signal capture and increases measurement
+                                                        confidence.
+
+
+
+
+                       Analog signal
+
+
+
+
+4
+EXPERIENCE THE DIFFERENCE
+
+
+                                   Experience HD4096 accuracy, detail, and precision and never
+                                   use an 8-bit oscilloscope again. Whether the application is
+                                   general-purpose design and debug, high-precision analog,
+                                   power electronics, automotive electronics, mechatronics, or
+                                   other specialized applications, the HD4096 technology provides
+                                   unsurpassed confidence and measurement capabilities.
+
+
+Clean, crisp waveforms                       More signal details                             Unmatched measurement precision
+When compared to waveforms acquired          16x more resolution provides more signal        HD4096 technology delivers
+and displayed using conventional 8-bit       detail. This is especially helpful for wide     measurement precision several
+oscilloscopes, waveforms captured            dynamic range signals in which a full-          times better than conventional 8-bit
+with HD4096 12-bit technology are            scale signal must be acquired                   oscilloscopes. Higher oscilloscope
+dramatically crisper and cleaner, and        while at the same time very small               measurement precision provides
+are displayed more accurately. Once          amplitude signal details must be                better ability to assess corner cases
+you see a waveform acquired with             analyzed. 12-bit acquisitions combined          and design margins, perform root cause
+HD4096 technology, you will not want         with the oscilloscope’s vertical and            analysis, and create the best possible
+to go back to using a conventional 8-bit     horizontal zoom can be used to                  solution for any discovered
+oscilloscope.                                obtain unparalleled insight to system           design issue.
+                                             behaviors and problems.
+
+
+
+ 8-bit                                                                 12-bit
+                A                                                                      A
+
+
+
+
+                       B                     C                                                B
+                                                                                                                  C
+
+
+
+
+A Clean, Crisp Waveforms | Thin traces show the actual waveform with minimal noise interference
+
+B More Signal Details | Waveform details can now be clearly seen on an HD4096 12-bit oscilloscope
+
+C Unmatched Measurement Precision | Measurements are more precise and not affected by quantization noise
+
+
+
+                                                                                                                                      5
+LONG MEMORY, NO COMPROMISE
+
+With up to 5 Gpts of acquisition memory, WavePro HD 12-bit oscilloscopes capture events occurring over
+long periods of time, while still maintaining high sample rate for visibility into the smallest details.
+
+
+
+                                                                         Longest memory
+                                                                         WavePro HD oscilloscopes contain a
+                                                                         sophisticated acquisition and memory
+                                                                         management architecture that makes
+                                                                         5 Gpt acquisitions fast and responsive.
+                                                                         More memory means more visibility into
+                                                                         system behavior.
+
+                                                                         Simple navigation
+                                                                         Long memory and high sample rates
+                                                                         capture both millisecond-scale trends and
+                                                                         picosecond-scale glitches. WavePro HD
+                                                                         oscilloscopes are equipped with an advanced
+                                                                         user interface that makes it easy to find
+                                                                         features, navigate directly using timebase
+                                                                         scale and position knobs, or set up zoom
+                                                                         traces - whichever you prefer. Apply analysis
+                                                                         tools easily to any type of trace.
+
+
+                                                                         No compromise
+                                                                         WavePro HD can acquire 250 ms of data at
+                                                                         full 20 GS/s sample rate - and always with
+                                                                         12 bits of resolution. Oscilloscopes with less
+                                                                         memory require trading off sample rate for
+                                                                         acquisition time.
+
+
+
+
+WavePro HD
+5 Gpts @ 20 GSs/s
+250 ms acquisition time
+
+Competitor A, 20 GS/s
+100 ms acquisition time
+
+
+Competitor B, 20 GS/s
+40 ms acquisition time
+
+
+                          0           50               100                     150                   200                  250
+                                                             time (ms)
+6
+POWERFUL, DEEP TOOLBOX
+
+
+
+
+Our heritage                               Our obsession                              Our invitation
+Teledyne LeCroy’s 50+ year heritage        Our tools and operating philosophy         Our Periodic Table of Oscilloscope
+is in processing long records to extract   are standardized across much of our        Tools explains the toolsets that
+meaningful insight. We invented the        product line. This deep toolbox inspires   Teledyne LeCroy has deployed in our
+digital oscilloscope and many of the       insight; and your moment of insight is     oscilloscopes. Visit our interactive
+additional waveshape analysis tools.       our reward.                                website to learn more about them.
+                                                                                      teledynelecroy.com/tools
+
+
+
+              WavePro HD                                 Competitor A                               Competitor B
+
+
+
+
+                                                                                                                             7
+DEEPLY EMBEDDED COMPUTING SYSTEMS TESTING
+                                                                             +12 Vdc Supply
+
+
+
+
+            Memory Power                                                                               System Power                                                   Peripherals Power
+    Buck    Buck    Buck   Buck                                              Power            Buck     Buck    Buck           Buck                            Boost     Buck     Buck   Buck
+    DC      DC     DC      DC                                             Management          DC       DC      DC             DC                              DC       DC       DC      DC
+       DC      DC     DC      DC                                                                 DC       DC      DC             DC                              DC        DC      DC      DC
+                                                                           IC (PMIC)
+
+
+
+                                    LDO
+                                   DC       DRAM Memory                                                                   Oscillator
+                                      DC     (DDR, LPDDR)
+
+                                    LDO                                                               LDO         LDO                      LDO
+                                   DC       DRAM Memory                                                 DC          DC                       DC
+                                      DC     (DDR, LPDDR)                                                    DC          DC                       DC
+
+                                    LDO
+                                   DC                       DRAM (DDR)        Power     VSS VCORE      VCC-A VCC-PLL CKIN             CKOUT VCC-A
+                                                EEPROM
+                                      DC                     Memory       Management
+                                                              Control        Interface                                                   12-bit ADC      Analog Sensor
+                                    LDO
+                                   DC            Flash       Interface     (I2C, PMbus,                                                  12-bit ADC      Analog Sensor
+                                      DC        Memory                    SMbus, SPMI)
+                                                            I2C                                                                                            Small LCD
+                                    LDO                                                                                                            I2C
+                                                 ROM                                                                                                         Driver
+                                   DC                       SPI or QSPI
+                                      DC         BIOS                                                                                                       Sensor/
+                                                            SPI                                                                                            Actuator
+
+                                                                                                                                                  SPI    Control Device
+                                                                              Embedded System                                                     SPI      Actuator
+                                                                               High-speed MCU                                                     SPI    Shift Register
+                Key
+                      Analog Signal                                                                                                                I2S   Audio Output
+                      Power Rail                            Initialize                                                                  High-Speed        High-speed
+                      PWM Signal                            Reset                                                                       Serial Data       Serial PHY
+                      Digital Signal                        Trigger In/Out
+                      Serial Data Signal                    Power ON Reset
+                      Parallel Data Bus                     Timer/Counter
+                                                            Interrupt                 1000
+                      Analog Device                                      PWM GPIO    Base-T      UART             FlexRay       CAN FD     USB 2.0
+
+                      Digital Device
+                                                                                      1000
+                                                                                                  UART            FlexRay       CAN FD     USB 2.0
+                                                                                     Base-T
+                      Power Conversion Device                                                     PHY               PHY          PHY        PHY
+                                                                                      PHY
+
+                      Mixed Signal Device
+
+
+                      Serial Data Phy
+
+
+
+
+WavePro HD has unsurpassed capabilities to acquire the longest records at the highest resolution for the
+most comprehensive deeply embedded computing system (analog, digital, serial data and sensor) testing.
+
+
+
+Powerful, deep toolbox                                                                                                                                                          Superior serial data toolsets              Comprehensive probe offering
+More standard math, measure, pass/                                                                                                                                              Comprehensive low-speed serial data        A wide selection of low voltage,
+fail and other toolsets provide faster                                                                                                                                          triggers and decoders, plus measure/       high voltage and current probes will
+and more complete insight into circuit                                                                                                                                          graph and eye diagram testing, provide     accurately measure every signal in your
+problems. Many additional application                                                                                                                                           the best causal analysis. Powerful         circuit. New 8 GHz ProBus2 interface is
+packages are optionally available to                                                                                                                                            serial data jitter analysis toolsets and   backwards-compatible to the 20+ year
+enhance understanding.                                                                                                                                                          compliance packages simplify complex       legacy of ProBus-compatible probes.
+                                                                                                                                                                                validation.
+
+
+
+8
+       POWER INTEGRITY DEBUG AND VALIDATION
+                                                                                    +12 Vdc Supply
+
+
+
+
+                   Memory Power                                                                               System Power                                                   Peripherals Power
+           Buck    Buck    Buck   Buck                                              Power            Buck     Buck    Buck           Buck                            Boost     Buck     Buck   Buck
+           DC      DC     DC      DC                                             Management          DC       DC      DC             DC                              DC       DC       DC      DC
+
+                                                          +12 Vdc Supply
+              DC      DC     DC      DC                                                                 DC       DC      DC             DC                              DC        DC      DC      DC
+                                                                                  IC (PMIC)
+
+
+
+                                           LDO
+                                          DC       DRAM Memory                                                                   Oscillator
+                                             DC     (DDR, LPDDR)
+
+                                           LDO                                                               LDO         LDO                      LDO
+                                          DC       DRAM Memory                                                 DC          DC                       DC
+                                             DC     (DDR, LPDDR)                                                    DC          DC                       DC
+
+                                           LDO
+                                          DC                       DRAM (DDR)        Power     VSS VCORE      VCC-A VCC-PLL CKIN             CKOUT VCC-A
+                                                       EEPROM
+                                             DC                     Memory       Management
+                                                                     Control        Interface                                                   12-bit ADC      Analog Sensor
+                                           LDO
+                                          DC            Flash       Interface     (I2C, PMbus,               System Power
+                                                                                                                       12-bit ADC   Analog Sensor                                                                          Peripherals Power
+                                                      Power                           Buck                   Buck    Buck I C BuckSmall LCD                                                                        Boost     Buck     Buck   Buck
+                                             DC        Memory                    SMbus, SPMI)
+                                                                   I2C                                                                                    2
+                                           LDO
+                                                        ROM                                                                             Driver
+                                          DC                       SPI or QSPI
+                                             DC
+                                                   Management
+                                                        BIOS
+                                                                   SPI                DC                     DC      DC           DC Actuator
+                                                                                                                                       Sensor/
+                                                                                                                                                                                                                   DC       DC       DC      DC
+                                                                                         DC                     DC      DC SPI      DC                                                                                DC        DC      DC      DC
+                                                    IC (PMIC)                        Embedded System
+                                                                                                                                    Control Device
+
+                                                                                                                                                         SPI      Actuator
+                                                                                      High-speed MCU                                                     SPI    Shift Register
+                       Key
+                             Analog Signal                                                                                                                I2S   Audio Output
+                             Power Rail                            Initialize                                                                  High-Speed        High-speed
+                             PWM Signal                            Reset                                                                       Serial Data       Serial PHY
+                             Digital Signal                        Trigger In/Out
+                             Serial Data Signal                    Power ON Reset
+
+mory                         Parallel Data Bus                     Timer/Counter
+                                                                   Interrupt                 1000
+                                                                                                                                                     Oscillator
+                             Analog Device
+DR)
+                                                                                PWM GPIO    Base-T      UART             FlexRay       CAN FD     USB 2.0
+
+                             Digital Device
+                                                                                             1000
+                                                                                                         UART            FlexRay       CAN FD     USB 2.0
+                                                                                            Base-T
+                             Power Conversion Device                                                     PHY               PHY          PHY        PHY
+                                                                                             PHY
+                                                                                                      LDO                            LDO                                                     LDO
+mory
+                             Mixed Signal Device
+
+
+                             Serial Data Phy
+                                                                                                        DC                             DC                                                      DC
+DR)                                                                                                                      DC                     DC                                                     DC
+
+
+         DRAM (DDR)                                   Power     VSS VCORE                                    VCC-A VCC-PLL CKIN                                              CKOUT VCC-A
+M
+          Memory                                  Management
+           Control                                   Interface                                                                                                                       12-bit ADC               Analog Sensor
+          Interface                                (I2C, PMbus,                                                                                                                      12-bit ADC               Analog Sensor
+y                                                 SMbus, SPMI)
+         I2C                                                                                                                                                                                                    Small LCD
+                                                                                                                                                                                                        I2C
+                                                                                                                                                                                                                  Driver
+         SPI or QSPI
+                                                                                                                                                                                                                 Sensor/
+         SPI                                                                                                                                                                                                    Actuator
+
+                                                                                                                                                                                                       SPI    Control Device
+                                                          Embedded System                                                                                                                              SPI      Actuator
+                                                           High-speed MCU                                                                                                                              SPI    Shift Register
+
+                                                                                                                                                                                                        I2S   Audio Output
+         Initialize                                                                                                                                                                High-Speed                  High-speed
+         Reset                                                                                                                                                                     Serial Data                 Serial PHY
+         Trigger In/Out
+         Power ON Reset
+         Timer/Counter
+         Interrupt                                                    1000
+                      PWM GPIO                                       Base-T                    UART                                  FlexRay                    CAN FD                       USB 2.0
+
+
+                                                                      1000
+                                                                                                UART                                 FlexRay                    CAN FD                        USB 2.0
+                                                                     Base-T
+                                                                                                PHY                                    PHY                       PHY                           PHY
+                                                                      PHY
+
+
+
+
+       WavePro HD's combination of high bandwidth and high resolution provides the capability to validate and
+       debug all aspects of power supply, delivery and consumption - ensuring complete confidence.
+
+
+
+       On-die ground bounce                                                                                                                                                             Find sources of PDN noise                                    Specialized power probes
+       WavePro HD's high bandwidth means                                                                                                                                                Sensitive measurements such as rail                          The combination of WavePro HD and
+       accurate characterization of high-speed                                                                                                                                          collapse characterization can be made                        the RP4030 4 GHz Power Rail Probe
+       on-die effects such as ground bounce,                                                                                                                                            with complete confidence thanks to                           gives unsurpassed insight into PDN
+       while its exceptionally low noise enables                                                                                                                                        WavePro HD's high dynamic range and                          behavior over the widest available
+       identification and root-cause analysis of                                                                                                                                        0.5% gain accuracy. And its low noise                        bandwidth. A variety of probe tips
+       low-level noise sources.                                                                                                                                                         floor enables extremely detailed spectral                    ensure easy connectivity.
+                                                                                                                                                                                        analysis of the PDN noise environment.
+
+
+                                                                                                                                                                                                                                                                                          9
+ SERIAL DATA JITTER AND NOISE ANALYSIS
+
+
+
+
+ WavePro HD 12-bit oscilloscopes bring the high signal fidelity of HD4096 technology to high-speed serial
+ data analysis, enabling precise measurements with exceptionally low noise and jitter.
+
+
+ High precision, low jitter              Serial data insight                         Compliance made easy
+ WavePro HD's 12-bit resolution,         SDAIII CompleteLinQ provides the            User-friendly QualiPHY serial data
+ exceptionally low noise and 60 fs       most complete set of serial data            compliance packages make validation
+ timebase jitter mean a low jitter       analysis tools available. Measure and       easy for interfaces such as DDR
+ measurement floor, enabling the most    decompose jitter and noise, compare         memory, 10/100/1000BaseT Ethernet,
+ accurate serial data jitter and noise   eye diagrams, and leverage unique           USB and many more.
+ measurements possible.                  visualization tools to track down issues.
+
+
+
+
+10
+ELECTROMAGNETIC COMPATIBILITY (EMC/EMI)
+
+
+
+
+WavePro HD 12-bit oscilloscopes' high sample rate and long memory combine with Teledyne LeCroy's
+dedicated EMC pulse parameter package to accurately characterize EMC test signals.
+
+
+Pulse measurement fidelity               Long capture time                       EMC pulse parameter package
+Fast pulse rise times may require        WavePro HD combines high sample         Customizable measurements provide
+2.5 to 4 GHz bandwidth at very high      rate and exceptionally long memory      values per specific EMC/ESD standards.
+sample rates to ensure measurement       to enable measurement of many fast      Level selections can be made to
+confidence. WavePro HD provides the      transient packets in one acquisition,   ignore undershoot, overshoot or tail
+most accurate characterization using     for fast and simple pulse train and     perturbations. Measurement filtering
+20 GS/s sample rate, 12-bit resolution   transient testing.                      can limit measurement sets or ignore
+and 0.5% gain accuracy.                                                          unwanted perturbations. (Optional)
+
+
+
+                                                                                                                          11
+ WAVEPRO HD OSCILLOSCOPES AT A GLANCE
+
+
+
+                                                                                                           7
+
+
+                                                             3
+
+                                                                                                      6
+
+
+                                                                 5                    2
+
+
+                                                                                      1
+                                                                                                      8
+
+                                                                                                          10
+                                 4
+                                                                                                9
+
+
+
+
+ Key Attributes
+ 1.	
+    HD4096 technology provides 12-bit        7.	Color-coded panel indicators –       11.	USBTMC (Test and Measurement
+     resolution up to 8 GHz and 20 GS/s         Trigger, horizontal and vertical          Class) over USB 3.1 for fast data
+                                                indicator colors correspond to            offload (Optional)
+ 2.	
+    Up to 5 Gpts of acquisition
+                                                the associated waveform on the        12. Reference Clock Input/Output
+     memory enables detailed viewing
+                                                display                                   connectors for connecting to other
+     of long events
+                                             8.	Cursor/Adjust Knobs – Enable and         equipment
+ 3.	
+    15.6” 1900 x 1080 Full HD
+                                                position cursors or adjust settings
+     capacitive touchscreen
+                                                and parameters without opening
+ 4.	
+    ProBus2 input supports up to
+                                                a menu
+     8 GHz bandwidth while maintaining
+                                             9.	Mixed Signal Capability – Debug
+     support for legacy ProBus probes
+                                                complex embedded designs with                         10
+ 5.	
+    MAUI with OneTouch user interface
+                                                integrated 16-channel mixed signal
+     for intuitive and efficient operation
+                                                capability                                 11
+ 6.	
+    Waveform Control Knobs – Control
+                                             10.	Easy connectivity with seven             12
+     channel, zoom, math and memory
+                                                USB ports (3 x 3.1 Gen1 front, 4 x
+     traces with the multiplexed vertical
+                                                3.2 Gen2 side) and UHD (4k) HDMI
+     and horizontal knobs
+                                                and 8k DisplayPort output
+
+
+
+12
+PROBES
+
+Teledyne LeCroy offers an extensive range of probes to meet virtually every probing need.
+Differential Probes                                                          Active Voltage/Power
+(4 – 8 GHz)                                                                  Rail Probe
+
+
+Various                                                                      4 GHz bandwidth, ±60 V offset, ±800 mV dynamic range. High DC input
+(see ordering information)                                                   impedance and low noise/attenuation for power rail probing.
+
+60 V Common Mode                                                             Current Probes
+Differential Probes
+
+
+The ideal probes for lower voltage GaN power conversion measurement          For AC, DC and impulse current measurements. Utilizes combination of
+with the highest accuracy, best CMRR and lowest noise. Up to 1 GHz.          Hall effect and transformer technology. Up to 500 A, up to 100 MHz.
+
+High Voltage                                                                 Transmission Line
+Differential Probes                                                          Probes
+
+
+1 kV, 2 kV and 6 kV CAT safety rated models. Widest differential voltage     High-bandwidth passive probe for use with 50 Ω inputs. DC to 7.5 GHz
+ranges, exceptional CMRR, low noise, 1% gain accuracy.                       with 0.25 pF input capacitance. 10x or 20x attenuation.
+
+High Voltage                                                                 Probe and Current
+Optically Isolated                                                           Sensor Adapters
+Probes
+
+Ideal for GaN and SiC devices. Highest accuracy, most bandwidth, wide        Change between the different Teledyne LeCroy Oscilloscope input types
+range of voltages, optical isolation.                                        or provide a simple interface to 3rd-party probes.
+
+High Voltage                                                                 Passive Probes
+Passive Probes
+
+
+1 kV to 6 kV ratings. Provides ground-referenced high voltage                10x attenuating with 10 MΩ input resistance. Ideal for low-frequency
+measurements for a wide range of applications.                               signals.
+
+Active Voltage
+Probes
+
+
+1 to 4 GHz models. High signal fidelity and low circuit loading (<1 pF tip
+capacitance), ±8 V dynamic range, ±12 V offset.
+
+
+
+
+                                                                                                                                                     13
+ SPECIFICATIONS
+                                                   WavePro 254HD                WavePro 404HD                  WavePro 604HD                  WavePro 804HD
+                                                  WavePro 254HD-MS             WavePro 404HD-MS               WavePro 604HD-MS               WavePro 804HD-MS
+     Vertical - Analog Channels
+     Analog Bandwidth @ 50 Ω (-3 dB)                       2.5 GHz                       4 GHz                     6 GHz on 2 Ch                  8 GHz on 2 Ch
+                                                                                                                   4 GHz on 4 Ch                  4 GHz on 4 Ch
+     Analog Bandwidth @ 1 MΩ (-3 dB) *                    500 MHz                      500 MHz                        500 MHz                        500 MHz
+                                                          (typical)                    (typical)                      (typical)                      (typical)
+     Rise Time (10–90%, 50 Ω - test limit)                 166 ps                       104 ps                          71 ps                         57.5 ps
+     Rise Time (20–80%, 50 Ω - typical)                    117 ps                        73 ps                          50 ps                         40.5 ps
+     Input Channels                        4
+     Vertical Resolution                   12 bits; up to 15 bits with enhanced resolution (ERES)
+     Effective Number of Bits (ENOB) **                7.8 bits                     7.5 bits                           7.2 bits                       7.0 bits
+     Vertical Noise Floor (rms, 50 Ω)
+                              1 mV/div                 155 μV                       228 μV                              285 μV                         315 μV
+                              2 mV/div                 155 μV                       228 μV                              285 μV                         315 μV
+                              5 mV/div                 155 μV                       228 μV                              285 μV                         315 μV
+                             10 mV/div                 155 μV                       228 μV                              285 μV                         315 μV
+                             20 mV/div                 191 μV                       275 μV                              360 μV                         420 μV
+                             50 mV/div                 429 μV                       633 μV                              835 μV                         983 μV
+                            100 mV/div                 889 μV                      1.31 mV                            1.70 mV                        1.95 mV
+                            200 mV/div                1.44 mV                      2.06 mV                            2.70 mV                         3.16 mV
+                            500 mV/div                3.66 mV                      5.16 mV                             6.70 mV                        7.76 mV
+                                 1 V/div              6.70 mV                      9.17 mV                            11.93 mV                       13.81 mV
+
+     Sensitivity                              50 Ω: 1 mV–1 V/div, fully variable; 1 MΩ: 1 mV–10 V/div, fully variable
+     DC Vertical Gain Accuracy                ±(0.5%) F.S, offset at 0 V
+     (Gain Component of DC Accuracy)
+     Channel-Channel Isolation                     70 dB up to 200 MHz             70 dB up to 200 MHz            70 dB up to 200 MHz             70 dB up to 200 MHz
+     (For any two input channels, same V/          60 dB up to 500 MHz             60 dB up to 500 MHz            60 dB up to 500 MHz             60 dB up to 500 MHz
+     div settings, typical)                          50 dB up to 1 GHz               50 dB up to 1 GHz              50 dB up to 1 GHz               50 dB up to 1 GHz
+                                                    40 dB up to 2.5 GHz             40 dB up to 2.5 GHz            40 dB up to 2.5 GHz             40 dB up to 2.5 GHz
+                                                                                     30 dB up to 4 GHz              30 dB up to 6 GHz               30 dB up to 8 GHz
+     Offset Range                                                                                   50 Ω, ≤1 GHz BWL:
+                                                                                      1 mV to 4.95 mV: ±1.6 V , 5 mV to 9.9 mV: ±4 V
+                                                                                       10 mV to 19.8 mV: ±8 V, 20 mV to 1 V: ±10 V
+                                                                                                   50 Ω, >1 GHz BWL:
+                                                                             1 mV/div to 34.5 mV/div: ± 0.5 V, 35 mV/div to 87 mV/div: ± 1.25 V
+                                                                                88 mV/div to 220 mV/div: ±3 V, 225 mV/div to 1 V/div: ±5 V
+                                                                                                           1 MΩ:
+                                                                                      1 mV to 4.95 mV: ±1.6 V, 5 mV to 9.9 mV: ±4 V
+                                                                                     10 mV to 19.8 mV: ±8 V, 20 mV to 100 mV: ±16 V
+                                                                                     102 mV to 198 mV: ±80 V, 200 mV to 1 V: ±160 V
+                                                                                                  1.02 V to 10 V: ±400 V
+     DC Vertical Offset Accuracy (test limit) ±(0.5% of offset value + 0.5% FS + 1 mV)
+     Maximum Input Voltage                    50 Ω, ≤1 GHz BWL: 5 Vrms, ± 10 V Peak
+                                              50 Ω, >1 GHz BWL: ±2 V max. up to 34.5 mV/div, ±5 V max. 35 mV/div to 87 mV/div, 5.5 Vrms >87 mV/div
+                                              1 MΩ: 400 V max. (DC + Peak AC ≤ 10 kHz)
+     Input Coupling                           1 MΩ: AC, DC, GND; 50 Ω: DC, GND
+     Input Impedance                          50 Ω ±2% or 1 MΩ || 14 pF, 10 MΩ || 9.5 pF
+     Bandwidth Limiters                              20 MHz, 200 MHz,                20 MHz, 200 MHz,               20 MHz, 200 MHz,                20 MHz, 200 MHz,
+                                                      500 MHz, 1 GHz                  500 MHz, 1 GHz,                500 MHz, 1 GHz,            500 MHz, 1 GHz, 2.5 GHz,
+                                                                                           2.5 GHz                    2.5 GHz, 4 GHz                  4 GHz, 6 GHz
+     Rescaling                                Length: meters, inches, feet, yards, miles; Mass: grams, slugs; Temperature: Celsius, Fahrenheit, Kelvin;
+                                              Angle: radian, arcdegr, arcmin, arcsec, cycles, revolutions, turns; Velocity: m/s, in/s, ft/s, yd/s, miles/s;
+                                              Acceleration: m/s2, in/s2, ft/s2, g0; Volume: liters, cubic meters, cubic inches, cubic feet, cubic yards;
+                                              Force (Weight): Newton, grain, ounce, pound; Pressure: Pascal, bar, atmosphere (technical), atmosphere (standard),
+                                              torr, psi; Electrical: Volts, Amps, Watts, Volt-Amperes, Volt-Amperes reactive, Farad, Coulomb, Ohm, Siemen,
+                                              Volt/meter, Coulomb/m2, Farad/meter, Siemen/meter, power factor; Magnetic: Weber, Tesla, Henry, Amp/meter,
+                                              Henry/meter; Energy: Joule, BTU, calorie; Rotating Machine: radian/second, frequency, revolution/second,
+                                              revolution/minute, N·m, lb-ft, lb-in, oz-in, Watt, horsepower; Other: %
+
+     Horizontal - Analog Channels
+     Acquisition Modes                         Real-time, Roll, Sequence
+     Timebases                                 Internal timebase common to 4 input channels
+     Time/Division Range                       20 ps/div to 1 ks/div; Roll Mode available at ≥ 50 ms/div and ≤ 5 MS/s
+     Clock Accuracy                            ±0.10 ppm + 0.10 ppm/year from calibration
+     Sample Clock Jitter                       Up to 10 μs Acquired Time Range: 60 fsrms (Internal Timebase Reference)
+                                               Up to 10 ms Acquired Time Range: 100 fsrms (Internal Timebase Reference)
+
+
+
+     * When used with PP023 passive probes
+     ** Measured at 100 mV/div, 7 divisions (87.5% full-scale)
+14
+SPECIFICATIONS
+                                                   Noise    2
+                                                                + (Sample Clock Jitter)2 (RMS, seconds, TIE)
+                                      WavePro  254HD
+                                          SlewRate                          WavePro 404HD                       WavePro 604HD             WavePro 804HD
+                                   WavePro 254HD-MS                        WavePro 404HD-MS                    WavePro 604HD-MS          WavePro 804HD-MS
+Horizontal - Analog Channels (cont'd)
+Delta Time Measurement Accuracy                    Noise    2
+                                         2*                     + (Sample Clock Jitter)2 (RMS) + (clock accuracy * reading) (seconds)
+                                                 SlewRate
+
+Jitter Measurement Floor                           Noise    2
+                                                                + (Sample Clock Jitter)2 (RMS, seconds, TIE)
+                                                 SlewRate
+
+Channel-Channel Deskew Range         ±9 x time/div. setting, 100 ms max., each channel
+External Timebase Reference (Input) 10 MHz ±25 ppm at 0 to 10 dBm into 50 Ohms
+                                                          2
+External Timebase Reference (Output) 102MHz, 5.0Noise
+                                                  dBm ±2.5  +
+                                                              dBm, sinewave synchronized to reference being used (internal or external reference)
+                                           *                      (Sample Clock Jitter)
+                                                                              2           (RMS) + (clock accuracy * reading) (seconds)
+                                                 SlewRate
+Acquisition - Analog Channels
+Sample Rate (Single-Shot)           10 GS/s on 4 Ch, 20 GS/s on 2 Ch
+Memory Length Options (4 Ch / 2 Ch)                                                             Standard:
+(Number of segments in sequence                                                   50 Mpts / 100 Mpts (65,535 segments)
+acquisition mode)                                                                        WPHD-200MPT Option:
+                                                                                  100 Mpts / 200 Mpts (65,535 segments)
+                                                                                         WPHD-500MPT Option:
+                                                                                  250 Mpts / 500 Mpts (65,535 segments)
+                                                                                        WPHD-1000MPT Option:
+                                                                                 500 Mpts / 1000 Mpts (65,535 segments)
+                                                                                        WPHD-2000MPT Option:
+                                                                                 1000 Mpts / 2000 Mpts (65,535 segments)
+                                                                                        WPHD-5000MPT Option:
+                                                                                 2500 Mpts / 5000 Mpts (65,535 segments)
+
+                                                                          Maximum analysis memory: 500 Mpts per channel
+Intersegment time                      1.5 μs
+Averaging                              Summed averaging to 1 million sweeps; continuous averaging to 1 million sweeps (waveforms of ≤ 500 Mpts)
+Interpolation                          Linear or Sinx/x (2 pt and 5 pt) (waveforms of ≤ 500 Mpts)
+
+Vertical, Horizontal, Acquisition - Digital Channels (-MS Models only)
+Maximum Input Frequency                250 MHz
+Minimum Detectable Pulse Width         2 ns
+Input Dynamic Range                    ±20 V
+Input Impedance (Flying Leads)         100 kΩ || 5 pF
+Input Channels                         16 Digital Channels
+Maximum Input Voltage                  ±30 V Peak
+Minimum Input Voltage Swing            400 mV
+Threshold Groupings                    Pod 2: D15 to D8, Pod 1: D7 to D0
+Threshold Selections                   TTL, ECL, CMOS (2.5 V, 3.3 V, 5 V), PECL, LVDS or User Defined
+Threshold Accuracy                     ±(3% of threshold setting + 100 mV)
+User Defined Threshold Range           ±10 V in 20 mV steps
+User Defined Hysteresis Range          100 mV to 1.4 V in 100 mV steps
+Sample Rate                            1.25 GS/s
+Record Length                                                                               Standard:
+                                                                                             50 Mpts
+                                                                                     WPHD-200MPT Option:
+                                                                                            100 Mpts
+                                                                                     WPHD-500MPT Option:
+                                                                                            125 Mpts
+                                                                                    WPHD-1000MPT Option:
+                                                                                            125 Mpts
+                                                                                    WPHD-2000MPT Option:
+                                                                                            125 Mpts
+                                                                                    WPHD-5000MPT Option:
+                                                                                            125 Mpts
+Channel-to-Channel Skew                350 ps
+
+Triggering System
+Modes                                  Normal, Auto, Single, and Stop (acquisition of ≤ 500 Mpts)
+                                       Single (acquisition of > 500 Mpts)
+Sources                                Any input channel, Ext, Ext/10, Line, or Fast Edge; slope and level unique to each source (except Line and Fast Edge)
+Coupling                               DC, AC, HFRej, LFRej
+Pre-trigger Delay                      0 to 100% of memory size
+Post-trigger Delay                     No limitation
+Hold-off                               From 1 ns up to 20 s or from 1 to 99,999,999 events
+Trigger and Interpolator Jitter        ≤ 2.5 ps RMS (typical), < 0.1 ps RMS (typical, software assisted)
+
+                                                                                                                                                               15
+ SPECIFICATIONS
+                                                   WavePro 254HD                  WavePro 404HD                WavePro 604HD                  WavePro 804HD
+                                                  WavePro 254HD-MS               WavePro 404HD-MS             WavePro 604HD-MS               WavePro 804HD-MS
+     Triggering System (cont'd)
+     Internal Trigger Level Range               ±4.1 div from center (typical)
+     External Trigger Level Range               Ext (±0.4 V); Ext/10 (±4 V)
+     Maximum Trigger Rate                       650,000 waveforms/second
+     Trigger Sensitivity with Edge Trigger                 0.75 div                      0.75 div                0.75 div @ < 5 GHz             2.25 div @ < 8 GHz
+     (Ch 1–4)                                                                                                     1.5 div @ < 6 GHz              1.5 div @ < 6 GHz
+                                                                                                                                               1.25 div @ < 4.5 GHz
+                                                                                                                                                0.75 div @ < 1 GH
+     External Trigger Sensitivity,              0.5 div @ < 1 GHz
+     (Edge Trigger)
+     Max. Trigger Frequency,                    2.0 GHz @ ≥ 10 mV/div
+     SMART Trigger                              (minimum triggerable width 200 ps)
+
+     Trigger Types
+     Edge                                       Triggers when signal meets slope (positive, negative, or either) and level condition.
+     Width                                      Triggers on positive or negative glitches with selectable widths.
+                                                Minimum width: 500 ps, maximum width: 20 s
+     Glitch                                     Triggers on positive or negative glitches with selectable widths.
+                                                Minimum width: 200 ps, maximum width: 20 s
+     Window                                     Triggers when signal exits a window defined by adjustable thresholds.
+     Pattern                                    Logic combination (AND, NAND, OR, NOR) of 5 inputs (4 channels and external trigger input). Each source can be
+                                                high, low, or don’t care. The high and low level can be selected independently. Triggers at start or end of pattern.
+     Runt                                       Trigger on positive or negative runts defined by two voltage limits and two time limits. Select between 1 ns and 20 ns.
+     Slew Rate                                  Trigger on edge rates. Select limits for dV, dt, and slope. Select edge limits between 1 ns and 20 ns.
+     Interval                                   Triggers on intervals selectable between 1 ns and 20 s.
+     Dropout                                    Triggers if signal drops out for longer than selected time between 1 ns and 20 s.
+     Exclusion Triggering                       Trigger on intermittent faults by specifying the expected behavior and triggering when that condition is not met.
+     Measurement Trigger                        Select from a large number of measurement parameters trigger on a measurement value with qualified limits.
+     Multi-stage: Qualified                     Triggers on any input source only if a defined state or edge occurred on another input source. Delay between
+                                                sources is selectable by time or events.
+     Multi-stage: Qualified First               In Sequence acquisition mode, triggers repeatably on event B only if a defined pattern, state, or edge (event A) is
+                                                satisfied in the first segment of the acquisition. Holdoff between sources is selectable by time or events.
+
+     Low Speed Serial Protocol Triggering (Optional)
+                                                I2C, SPI (SPI, SSPI, SIOP), UART-RS232, CAN1.1, CAN2.0, CAN FD, LIN, FlexRay, MIL-STD-1553, AudioBus (I2S, LJ,
+                                                RJ, TDM), USB1.x/2.0
+     Measurement Tools
+     Measurement Functionality                  Display up to 12 measurement parameters together with statistics including mean, minimum, maximum, standard
+                                                deviation, and total number. Each occurrence of each parameter is measured and added to the statistics table.
+                                                Histicons provide a fast, dynamic view of parameters and waveshape characteristics. Parameter math allows
+                                                addition, subtraction, multiplication, or division of two different parameters. Parameter gates define the location for
+                                                measurement on the source waveform. Parameter accept criteria define allowable values based on range setting
+                                                or waveform state.
+     Measurement Parameters -                   Cycles (number of), Delay (from trigger, 50%), Δ Delay (50%), Duty Cycle (50%, @level), Edges (number of, @level),
+     Horizontal + Jitter                        Fall Time (90-10, @levels), Frequency (50%, @level), Half Period (@level), Hold Time (@level), N Cycle Jitter (peak-
+                                                peak), Number of Points, Period (50%, @level), Δ Period (@level), Phase (@level), Rise Time (10-90, @levels), Setup
+                                                (@levels), Skew (@levels), Slew Rate (@levels), Time Interval Error (@level), Time (@level), Δ Time (@level), Width
+                                                (50%, @level), Δ Width (@level), X(value)@max, X(value)@min
+     Measurement Parameters - Vertical          Amplitude, Base, Level@X, Maximum, Mean, Median, Minimum, Peak-to-Peak, RMS, Std. Deviation, Top
+     Measurement Parameters - Pulse             Area, Base, Fall Time (90-10, 80-20, @levels), Overshoot (positive, negative), Rise Time (10-90, 80-20, @levels), Top,
+                                                Width (50%)
+     Measurement Parameters - Statistical       Full Width (@ Half Max, @%), Amplitude, Base, Peak@MaxPopulation, Maximum, Mean, Median, Minimum, Mode,
+     (on Histograms)                            Range, RMS, Std. Deviation, Top, X(value)@Peak, Peaks (number of), Percentile, Population (@bin, total)
+
+     Math Tools
+     Math Functionality                         Display up to 12 math functions traces (F1-F12). The easy-to-use graphical interface simplifies setup of up to two
+                                                operations on each function trace, and function traces can be chained together to perform math-on-math.
+     Math Operators - Basic Math                Average (summed), Average (continuous), Difference (–), Envelope, Floor, Invert (negate), Product (x), Ratio (/),
+                                                Reciprocal, Rescale (with units), Roof, Sum (+)
+     Math Operators - Digital (incl. with MSO   Digital AND, Digital DFlipFlop, Digital NAND, Digital NOR, Digital NOT, Digital OR, Digital XOR
+     models/options)
+     Math Operators - Filters                   Enhanced resolution (to 15 bits vertical), Interpolate (cubic, quadratic, sinx/x)
+     Math Operators - Frequency Analysis        FFT (power spectrum, magnitude, phase, power density, real, imaginary, magnitude squared) up to full analysis
+                                                memory length. Select from Rectangular, VonHann, Hamming, FlatTop and Blackman Harris windows.
+     Math Operators - Functions                 Absolute value, Correlation (two waveforms), Derivative, Deskew (resample), Exp (base e), Exp (base 10), Integral,
+                                                Invert (negate), Log (base e), Log (base 10), Reciprocal, Rescale (with units), Square, Square root, Zoom (identity)
+     Math Operators - Other                     Segment, Sparse
+
+
+
+
+16
+SPECIFICATIONS
+                                      WavePro 254HD                    WavePro 404HD                   WavePro 604HD                    WavePro 804HD
+                                     WavePro 254HD-MS                 WavePro 404HD-MS                WavePro 604HD-MS                 WavePro 804HD-MS
+Measurement and Math Integration
+                                   Histograms to display statistical distributions of up to 2 billion measurement parameters. Trend (datalog) of up
+                                   to 1 million measurement parameters. Track (display parameter vs. time, time-correlated to acquisitions) any
+                                   parameter. Persistence histogram and persistence trace (mean, range, sigma)
+
+Pass/Fail Testing
+                                   Display up to 12 Pass/Fail queries using a Single or Dual Parameter Comparison (compare All values, or Any value
+                                   <, ≤, =, >, ≥, within limit ±Δ value or %) or Mask Test (pre-defined or user-defined mask, waveform All In, All Out, Any
+                                   In, or Any Out conditions). Combine queries into a boolean expression to Pass or Fail IF "All True", "All False", "Any
+                                   True", "Any False", or groups or "All" or "Any", with following THEN Save (waveforms), Stop, Alarm, (send) Pulse,
+                                   Hardcopy (send email, save screen image, save to clipboard, send to printer), or (save) LabNotebook.
+
+Display System
+Size                               Color 15.6" widescreen capacitive touch screen
+Resolution                         Full HD (1920 x 1080 pixels)
+Number of Traces                   Display a maximum of 40 traces. Simultaneously display channel, zoom, memory and math traces.
+Grid Styles                        Auto, Single, Dual, Quad, Octal, XY, Single+XY, Dual+XY, Tandem, Quatro, Twelve, Sixteen
+Waveform Representation            Sample dots joined, or sample dots only
+Processor/CPU
+Type                               Intel® Core 3-201E Quad Cord, 3.6 GHz (or better)
+Processor Memory                   16 GB standard
+Operating System                   Microsoft Windows® 11
+Real Time Clock                    Date and time displayed with waveform in hardcopy files. SNTP support to synchronize to precision internal clocks.
+Connectivity
+Ethernet Port                      1 x 2.5 Gbps and 1 x 1 Gbps Ethernet interface (RJ45 port)
+USB Host Ports                     4 side USB 3.2 Gen2 ports, 3 front USB 3.1 Gen1 ports
+USB Device Port                    1 port - USBTMC (Optional) over USB 3.1 Gen1
+GPIB Port (Optional)               Supports IEEE—488.2 (External)
+External Monitor Port              1 x DisplayPort 1.4a port, supports up to 7680x4320 @ 60 Hz
+                                   1 x HDMI 2.0b port, supports up to 5120x2880 @ 30 Hz
+                                   1 x HDMI 1.4a port, supports up to 3840x2160 @ 30 Hz
+Remote Control                     Via Windows Automation, or via LeCroy Remote Command Set
+Network Communication Standard     VICP or VXI-11, LXI Compatible
+
+Power Requirements
+Voltage                            90 to 264 Vrms, 47 to 63 Hz
+                                   90 to 132 Vrms, 380 to 420 Hz
+Nominal Power Consumption          400 W / 400 VA
+Max Power Consumption              525 W / 525 VA
+Environmental
+Temperature (Operating)            +5 °C to +40 °C
+Temperature (Non-Operating)        –20 °C to +60 °C
+Humidity (Operating)               5% to 90% relative humidity (non-condensing) up to +31 °C
+                                    Upper limit derates to 50% relative humidity (non-condensing) at +40 °C
+Humidity (Non-Operating)            5% to 95% relative humidity (non-condensing) as tested per MIL-PRF-28800F
+Altitude (Operating)                Up to 10,000 ft (3048 m) at or below +30 °C
+Altitude (Non-Operating)            Up to 40,000 ft (12,192 m)
+Random Vibration (Operating)        0.31 grms 5 Hz to 500 Hz, 20 minutes in each of three orthogonal axes
+Random Vibration (Non-Operating)    2.4 grms 5 Hz to 500 Hz, 15 minutes in each of three orthogonal axes
+Functional Shock                    30 g peak, half sine, 11 ms pulse, 3 shocks (positive and negative) in each of three orthogonal axes, 18 shocks total
+Size and Weight
+Dimensions (HWD)                   13.6” H x 17.5” W x 7.7” D (345 mm x 445 mm x 196 mm)
+Weight                             24.4 lbs (11.1kg)
+Certifications
+CE Certification                   CE compliant, UL and cUL listed; conforms to UL 61010-1 (3rd Edition), UL 61010-2-030 (1st Edition)
+UL and cUL Listing                 CAN/CSA C22.2 No. 61010-1-12
+Warranty and Service
+                                    -year warranty; calibration recommended annually. Optional service programs include extended warranty,
+                                   3
+                                   upgrades, and calibration services.
+
+
+
+
+                                                                                                                                                              17
+ ORDERING INFORMATION
+     Product Description                                          Product Code    Product Description                                   Product Code
+     WavePro HD Oscilloscopes                                                     Serial Trigger and Decode
+     2.5 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                       WavePro 254HD      1000Base-T1 Trigger, Decode, Measure/       WPHD-1000BASE-T1 TDMP
+     High Definition Oscilloscope                                                 Graph, and Physical Layer Option
+     with 15.6” Full HD capacitive touch screen                                   100Base-T1 Trigger, Decode, Measure/         WPHD-100BASE-T1 TDMP
+     4 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                         WavePro 404HD      Graph, and Physical Layer Option
+     High Definition Oscilloscope                                                 100Base-T1 Trigger and Decode Optio          WPHD-100Base-T1bus TD
+     with 15.6” Full HD capacitive touch screen                                   10Base-T1S Trigger and Decode Option            WPHD-10BASE-T1S TD
+     6 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                         WavePro 604HD      10Base-T1S Trigger, Decode, Measure/         WPHD-10BASE-T1S TDME
+     High Definition Oscilloscope                                                 Graph, and Eye Diagram Option
+     with 15.6” Full HD capacitive touch screen                                   MIL-STD-1553 Trigger and Decode Option                WPHD-1553 TD
+     8 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                         WavePro 804HD      MIL-STD-1553 Trigger, Decode, Measure/Graph,        WPHD-1553 TDME
+     High Definition Oscilloscope                                                 and Eye Diagram Option
+     with 15.6” Full HD capacitive touch screen                                   8b10b Decode Option                                   WPHD-8b10b D
+     2.5 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                   WavePro 254HD-MS       ARINC 429 Bus Symbolic             WPHD-ARINC429BUS DME SYMBOLIC
+                                                                                  Decode, Measure/Graph, and
+     High Definition Mixed Signal Oscilloscope
+                                                                                  Eye Diagram Option
+     with 15.6” Full HD capacitive touch screen
+                                                                                  ARINC 429 Bus Symbolic                WPHD-ARINC429BUS D SYMBOLIC
+     4 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                     WavePro 404HD-MS       Decode Option
+     High Definition Mixed Signal Oscilloscope                                    AudioBus Trigger and Decode Option                 WPHD-Audiobus TD
+     with 15.6” Full HD capacitive touch screen                                   AudioBus trigger, decode, and graph Option        WPHD-Audiobus TDG
+     6 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                     WavePro 604HD-MS       CAN FD Trigger and Decode Option                 WPHD-CAN FDBUS TD
+     High Definition Mixed Signal Oscilloscope                                    CAN FD Symbolic Trigger,            WPHD-CAN FDBUS TDME SYMBOLIC
+     with 15.6” Full HD capacitive touch screen                                   Decode, and Measure/Graph,
+     8 GHz, 20 GS/s, 4 Ch, 100 Mpts/Ch                     WavePro 804HD-MS       and Eye Diagram Option
+     High Definition Mixed Signal Oscilloscope                                    CAN/ CAN FD/ CAN XL Trigger and De-                 WPHD-CAN XL TD
+     with 15.6” Full HD capacitive touch screen                                   code Option
+                                                                                  CAN /CAN FD/ CAN XL Symbolic            WPHD-CAN XL TDME SYMBOLIC
+     Included with Standard Configurations                                        Trigger, Decode, Measure/Graph,
+     (WavePro HD and WavePro HD-MS)                                               and Eye Diagram Option
+     ÷10, 500 MHz Passive Probe (Qty. 4), Protective Cover, Getting Started       C-PHY (DSI-2/CSI-2) Decode Option                  WPHD-CPHYBUS D
+     Guide, Microsoft Windows® 11, Commercial NIST Traceable Calibration          C-PHY (DSI-2/CSI-2) Decode, Measure/             WPHD-CPHYBUS DMP
+     with Certificate, Power Cable for the Destination Country, 3-year Warranty   Graph and Physical Layer Option
+                                                                                  DigRF 3G Bus Decode Option                       WPHD-DigRF3Gbus D
+     Included with WavePro HD-MS                                                  DigRF V4 Bus Decode Option                        WPHD-DigRFV4bus D
+     16-Channel Digital Leadset, Extra Large Gripper Probe Set (Qty. 22),         DisplayPort AUX Trigger and Decode Option            WPHD-DPAUX TD
+                                                                                  DisplayPort AUX Trigger, Decode, Measure/Graph,   WPHD-DPAUX TDMP
+     Ground Extenders (Qty. 20), Flexible Ground Leads (Qty. 5)                   and Physical Layer Option
+                                                                                  MIPI D-PHY CSI-2, DSI Bus Decode Option             WPHD-DPHYbus D
+     Memory Options                                                               MIPI D-PHY CSI-2, DSI Bus Decode and               WPHD-DPHYbus DP
+     200 Mpt/2 Ch (100 Mpt/4 Ch) Memory Option                 WPHD-200MPT*       Physical Layer Test Option
+     500 Mpt/2 Ch (250 Mpt/4 Ch) Memory Option                 WPHD-500MPT*       Bundle: includes I2C, SPI, UART-RS232                 WPHD-EMB TD
+     1000 Mpt/2 Ch (500 Mpt/4 Ch) Memory Option               WPHD-1000MPT*       Trigger and Decode Option
+     2 Gpt/2 Ch (1 Gpt/4 Ch) Memory Option                    WPHD-2000MPT*       Bundle: includes I2C, SPI, UART-RS232               WPHD-EMB TDME
+     5 Gpt/2 Ch (2.5 Gpt/4 Ch) Memory Option                  WPHD-5000MPT*       Trigger, Decode, Measure/Graph, and
+                                                                                  Eye Diagram Option
+     CPU, Computer and Other Hardware Options                                     ENET Bus Decode Option                              WPHD-ENETbus D
+     32 GB RAM Upgrade for WPHD                         WPHD-UPG-32GBRAM*         FibreChannel decode annotation Option                 WPHD-FCbus D
+     64 GB RAM Upgrade for WPHD                         WPHD-UPG-64GBRAM          FlexRay Trigger and Decode Option               WPHD-FLEXRAYBUS TD
+     Additional Standard Solid State Drive                   WPHD-RSSD-02         FlexRay Trigger, Decode, Measure/Graph      WPHD-FLEXRAYBUS TDMP
+                                                                                  and Physical Layer Option
+     * 32 GB RAM upgrade is included with all Memory Options                      I2C Trigger and Decode Option                       WPHD-I2CBUS TD
+                                                                                  I2C Trigger, Decode, Measure/Graph, and           WPHD-I2CBUS TDME
+                                                                                  Eye Diagram Option
+                                                                                  I3C Trigger and Decode Option                        WPHD-I3Cbus TD
+                                                                                  LIN Trigger and Decode Option                       WPHD-LINBUS TD
+                                                                                  LIN Trigger, Decode, Measure/Graph, and           WPHD-LINBUS TDME
+                                                                                  Eye Diagram Option
+                                                                                  MDIO Decode Option                                  WPHD-MDIOBUS D
+                                                                                  MIPI M-PHY Bus Decode Option                       WPHD-MPHYbus D
+                                                                                  MIPI M-PHY Bus Decode and Physical                WPHD-MPHYbus DP
+                                                                                  Layer Test Option
+                                                                                  NRZ and Manchester Trigger and Decode       WPHD-NRZ-Manchester TD
+                                                                                  Option
+                                                                                  PCIe Gen 1 Decode Option                             WPHD-PCIebus D
+                                                                                  PMBus Trigger and Decode Option                      WPHD-PMBus TD
+                                                                                  PMBus Trigger, Decode, Measure/Graph,             WPHD-PMBus TDME
+                                                                                  and Eye Diagram Option
+
+
+
+
+18
+ORDERING INFORMATION
+Product Description                                  Product Code    Product Description                                       Product Code
+Serial Trigger and Decode (cont'd)                                   Serial Data Compliance Software (Cont'd)
+Decode Annotation and Protocol                      WPHD-ProtoSync   QualiPHY 2 Enabled PCIe 2.0 and 1.0               QPHY2-PCIE1-PCIE2-TX
+Analyzer Synchronization Option                                      Compliance Software Option Includes PCIe Tx
+Decode Annotation and Protocol Analyzer+Bit      WPHD-ProtoSync-BT   and CXL Tx electrical tests
+Tracer Synchronization Option                                        QualiPHY Enabled PCIe Software Option                       QPHY-PCIE
+QSPI (Simple Data, Dual-, Quad-SPI)                  WPHD-QSPI TD    QualiPHY Enabled USB 2.0 Software Option                    QPHY-USB‡
+Trigger and Decode Option
+                                                                     * TF-ENET-B required ‡ TF-USB-B required
+SAS Decode annotation Option                        WPHD-SASbus D
+SATA Decode Option                                 WPHD-SATAbus D
+SENT Bus Decode Option                             WPHD-SENTbus D
+                                                                     Serial Data Test Fixtures
+                                                                     Automotive Ethernet Breakout Test Fixture                 TF-AUTO-ENET
+SMBus Trigger and Decode Option                     WPHD-SMBus TD
+                                                                     Test Fixture HMTD-Connector (m) to SMA                   TF-AUTO-HMTD
+SMBus Trigger, Decode, Measure/Graph,            WPHD-SMBus TDME
+and Eye Diagram Option                                               Test Fixture MATEnet-Connector (m) to SMA (f)         TF-AUTO-MATENET
+SpaceWire Decode Option                       WPHD-SPACEWIREbus D    Test Fixture Mini-50-Connector (m) to SMA (f)           TF-AUTO-MINI50
+SPI Trigger and Decode Option                      WPHD-SPIBUS TD    10/100/1000Base-T Ethernet Test Fixture                     TF-ENET-B**
+SPI Trigger, Decode, Measure/Graph, and          WPHD-SPIBUS TDME    USB4 Sideband Test Coupon Fixture                           TF-USB-C-SB
+Eye Diagram Option                                                   USB 2.0 Compliance Test Fixture                                TF-USB-B
+                                                                     ** Includes ENET-2CAB-SMA018 and ENET-2ADA-BNCSMA
+SPMI Decode Option                                 WPHD-SPMIbus D
+SPMI Trigger and Decode Option                    WPHD-SPMIbus TD
+SPMI Trigger, Decode, Measure/Graph, and        WPHD-SPMIbus TDME    Debug Toolkits
+Eye Diagram Option                                                   100Base-T1 and 1000Base-T1 Debug               WPHD-AUTO-ENET-TOOLKIT
+UART-RS232 Trigger and Decode Option         WPHD-UART-RS232BUS TD   Toolkit
+UART-RS232 Trigger, Decode,              WPHD-UART-RS232BUS TDME     DDR2 and LPDDR2 Debug Toolkit                       WPHD-DDR2-TOOLKIT
+Measure/Graph, and Eye Diagram                                       DDR3, DDR3L, LPDDR3, DDR2, and                      WPHD-DDR3-TOOLKIT
+Option                                                               LPDDR2 Debug Toolkit
+MIPI UniPro Protocol Decoder Software Option     WPHD-UNIPRObus D    DDR2/3/4 and LPDDR2/3/4/4X Debug                    WPHD-DDR4-TOOLKIT
+MPHY to UniPro Decoder                  WPHD-UPG-MPHY-UNIPRObus D    Toolkit
+Software Upgrade
+MPHY REQUIRED
+USB 2.0 Trigger and Decode Option                 WPHD-USB2BUS TD
+                                                                     Serial Data Analysis
+                                                                     Bundle - Multi-Lane SDA Expert Framework,           WPHD-SDAX-COMPLETE
+USB 2.0 Trigger, Decode, Measure/Graph,        WPHD-USB2BUS TDME
+and Eye Diagram Option                                               incl. Eye, Jitter, Noise, Xtalk Meas and
+USB 2.0 HSIC Decode Option                     WPHD-USB2-HSICbus D   VirtualProbe
+USB 3.2 Decode Option                             WPHD-USB32BUS D    SDA Expert Technology Framework for PCIe NRZ WPHD-SDAX-PCIE-NRZ
+USB4-SB Trigger and Decode Option                  WPHD-USB4SB TD    SDA Expert Technology Framework for USB3.2             WPHD-SDAX-USB32
+USB4-SB Trigger, Decode, Measure/Graph,         WPHD-USB4SB TDMP     SDA Expert Technology Framework for                       WPHD-SDAX-DP
+and PHY Measurment Option                                            DisplayPort
+USB-PD Trigger and Decode Option                    WPHD-USBPD TD    NRZ Serial Data Expert Analysis Framework, Eye,          WPHD-SDAX-NRZ
+USB-PD Trigger, Decode, Measure/Graph,           WPHD-USBPD TDMP     Jitter and Noise Measurements
+and Physical Layer Option                                            PAM Serial Data Expert Analysis Framework, Eye,Jitter WPHD-SDAX-PAM
+                                                                     and Noise Measurements
+Serial Data Compliance Software                                      Bundle: incl. Eye Doctor II and VirtualProbe Toolkits   WPHD-EYEDRII-VP
+QualiPHY Enabled 1000Base-T1 (Automotive       QPHY-1000BASE-T1      Eye Doctor II - Channel & Fixture                          WPHD-EYEDRII
+Ethernet) Compliance Software Option                                 De-embedding/Emulation, Tx/Rx Equalization
+QualiPHY Enabled 100Base-T1 (Automotive          QPHY-100Base-T1     Serial Data Mask Software Package                             WPHD-SDM
+Ethernet) Compliance Software Option                                 Cable De-Embedding Option                             WPHD-CBL-DE-EMBED
+QualiPHY Enabled 10Base-T1L (Industrial          QPHY-10Base-T1L
+Ethernet) Compliance Software Option                                 Data Storage Software
+QualiPHY Enabled 10Base-T1S (Automotive          QPHY-10Base-T1S     Advanced Optical Recording Measurement Package            WPHD-AORM
+Ethernet) Compliance Software Option                                 Disk Drive Analyzer Software Package                       WPHD-DDA
+QualiPHY Enabled 10GBASE-T Transmitter           QPHY-10GBASE-T      Disk Drive Measurements Software Package                  WPHD-DDM2
+Compliance Test Software Option
+QualiPHY2 Enabled ASA Motion Link Compliance           QPHY2-ASA     Power Analysis Software
+Software Option                                                      Power Device Analysis Option                       WPHD-POWER-DEVICE
+QualiPHY Enabled DDR2 Software Option                 QPHY-DDR2      3-phase Power Analysis                        WPHD-THREEPHASEPOWER
+QualiPHY Enabled DDR3 Software Option                 QPHY-DDR3      WavePro HD 3-phase Harmonics               WPHD-THREEPHASEHARMONICS
+QualiPHY Enabled Ethernet 10/100/1000BT               QPHY-ENET*     Calculation (only available with
+Software Option                                                      WPHD-THREEPHASEPOWER)
+QualiPHY Enabled LPDDR2 Software Option             QPHY-LPDDR2      3-phase dq0 Transform                           WPHD-THREEPHASEDQ0
+QualiPHY Enabled MIPI D-PHY Software Option      QPHY-MIPI-DPHY      Power Analyzer Software Option                             WPHD-PWR
+QualiPHY Enabled MOST150 Software Option          QPHY-MOST150       Digital Power Management Analysis                 WPHD-DIG-PWR-MGMT
+QualiPHY Enabled MOST50 Software Option            QPHY-MOST50       3-phase Vector Display                        WPHD-THREEPHASEVECTOR
+QualiPHY Enabled MultiGBase-T1 (Automotive     QPHY-MultiGBase-T1
+Ethernet) Compliance Software Option
+QualiPHY Enabled NBASE-T (2.5GBase-T &              QPHY-NBASE-T     Jitter Analysis Software
+5GBASE-T) Compliance Software Option                                 Clock Expert Jitter Analysis Framework                  WPHD-CLOCK-X
+                                                                     Clock Expert Jitter Analysis Framework with SSC,     WPHD-CLOCK-X-PRO
+                                                                     Phase Noise and Accumulated Jitter Analysis
+                                                                     Clock, Clock-Data Jitter Analysis and Views of Time,      WPHD-JITKIT
+                                                                     Statistical, Spectral, and Jitter Overlay
+                                                                                                                                               19
+ORDERING INFORMATION
+Product Description                                                      Product Code           Product Description                                                     Product Code
+Digital Filtering Software                                                                      Probes (cont'd)
+Digital Filter Software Option                                            WPHD-DFP2             6 GHz, 2.5 Vp-p ProBus2 Differential Probe                                D610-A-PB2
+                                                                                                6 GHz, 5 Vp-p ProBus2 Differential Probe                                  D620-A-PB2
+Other Software Options                                                                          8 GHz, 3.5 Vp-p Differential Probe System                                  D830-PB2
+EMC Pulse Parameter Software                           WPHD-EMC                                 WaveLink ProBus2 Platform/Cable Assembly                                   WL-PBUS2
+Electrical Telecom Pulse Mask Test                   WPHD-ET-PMT                                8 GHz differential probe with ProBus2 interface                            DH08-PB2
+MAUI Studio Pro Offline Remote and PC Analysis      MAUI Studio Pro                             30 A; 50 MHz Current Probe – AC/DC; 30 Arms;                                 CP030B
+                                                                                                50 A Peak Pulse
+Software License
+                                                                                                30 A, 10 MHz Current Probe - AC/DC, 30 A rms,                             CP030B-3M
+Spectrum Analyzer for WavePro HD - 1 trace      WPHD-SPECTRUM-1                                 50 A Peak Pulse, 3 meter cable
+Spectrum Analyzer for WavePro HD - 2        WPHD-SPECTRUM-PRO-2R                                30 A; 100 MHz Current Probe – AC/DC; 30 Arms;                                   CP031
+traces + reference                                                                              50 A Peak Pulse
+VectorLinQ Vector Signal Analysis               WPHD-VECTORLINQ                                 30A, 100 MHz High Sensitivity Current Probe -                                  CP031A
+Advanced Customization                                WPHD-XDEV                                 AC/DC, 30 Arms, 50 A Peak Pulse, 1.5-meter Cable
+Zone Trigger option                            WPHD-ZONETRIGGER                                 150 A; 10 MHz Current Probe – AC/DC;                                           CP150B
+                                                                                                150 Arms; 500 A Peak Pulse
+                                                                                                150 A, 5 MHz Current Probe - AC/DC, 150 Arms,                             CP150B-6M
+Remote Control/Network Options                                                                  500 A Peak Pulse, 6-meter Cable
+External USB2 to GPIB Adaptor                                               USB2-GPIB           500 A; 2 MHz Current Probe – AC/DC;                                             CP500
+                                                                                                500 Arms; 700 A Peak Pulse
+General Accessories                                                                             Deskew Calibration Source                                                      DCS025
+WavePro HD Rackmount Kit                                        WPHD-RACKMOUNT                  Programmable Current Sensor to ProBus Adapter                                    CA10
+WavePro HD Carrying Case                                         WPHD-CARRYCASE                 (for third-party current sensors)
+                                                                                                6kV High Voltage Passive Probe, 400 MHz                                      HVP120
+                                                                                                6kV High Voltage Passive Probe, 500 MHz                                     PPE6KV-A
+Probes
+                                                                                                TekProbe to ProBus Probe Adapter                                               TPA10
+High Voltage Optically Isolated Probe, 350 MHz Bandwidth.                     DL03-ISO
+                                                                                                Optical-to-Electrical Converter, 500-870 nm                                    OE425
+High Voltage Optically Isolated Probe, 700 MHz Bandwidth.                     DL07-ISO          ProBus BNC Connector
+High Voltage Optically Isolated Probe, 1 GHz Bandwidth.                       DL10-ISO          Optical-to-Electrical Converter, 950-1630 nm                                    OE455
+Power/Voltage Rail Probe with 2 GHz bandwidth,                                 RP2060           ProBus BNC Connector
+1.2x attenuation, ±60 V offset, ±800 mV                                                         1 kV, 25 MHz High Voltage Differential Probe                            HVD3102A
+Power/Voltage Rail Probe. 4 GHz bandwidth,                                      RP4060          1 kV, 25 MHz High Voltage Differential                            HVD3102A-NOACC
+1.2x attenuation, +/-60V offset, +/-800 mV                                                      Probe (without tip accessories)
+High Voltage Fiber Optic Probe, 150 MHz Bandwidth.                           HVFO108            1 kV, 120 MHz High Voltage Differential Probe                           HVD3106A
+500 MHz Passive Probe, 2.5mm, 10:1, 10 MΩ                                      PP023            1 kV, 120 MHz High Voltage Differential                           HVD3106A-NOACC
+500 MHz Passive Probe, 5mm, 10:1, 10 MΩ                                        PP026            Probe (without tip accessories)
+1 GHz, 0.9 pF, 1 MΩ High Impedance Active Probe                               ZS1000            1 kV, 80 MHz High Voltage Differential Probe                           HVD3106A-6M
+1.5 GHz, 0.9 pF, 1 MΩ High Impedance Active Probe                             ZS1500            with 6-meter Cable and Auto Zero Disconnect
+2.5 GHz, 0.9 pF, 1 MOhm Active Voltage Probe                                  ZS2500            2 kV, 120 MHz High Voltage Differential Probe                             HVD3206A
+4.0 GHz, 0.6 pF, 1 MOhm Active Voltage Probe                                  ZS4000            2 kV, 80 MHz High Voltage Differential Probe                           HVD3206A-6M
+500 MHz, 1.0 pF Active Differential Probe, ±8 V                                ZD500            with 6-meter Cable
+1 GHz, 1.0 pF Active Differential Probe, ±8 V                                 ZD1000            2kV, 400 MHz High Voltage Differential Probe                                HVD3220
+1.5 GHz, 1.0 pF Active Differential Probe, ±8 V                               ZD1500            6 kV, 100 MHz High Voltage Differential Probe                              HVD3605A
+500 MHz, Active Differential Probe (÷1, ÷10, ÷100)                             AP033            500 MHz Passive Probe, 2.5mm, 10:1, 10 MΩ                                    PP023-1
+4 GHz ProBus2 Differential Probe with Adjustable Tip                     D400A-AT-PB2           500 MHz Passive Probe, 5mm, 10:1, 10 MΩ                                      PP026-1
+4 GHz, 2.5 Vp-p ProBus2 Differential Probe                                 D410-A-PB2           7.5 GHz Low Capacitance Passive Probe                                         PP066
+4 GHz, 5 Vp-p ProBus2 Differential Probe                                   D420-A-PB2           (÷10, 1 kΩ; ÷20, 500 Ω)
+6 GHz ProBus2 Differential Probe with Adjustable Tip                     D600A-AT-PB2           250 MHz 60 V Common Mode Differential Probe.                               DL02-HCM
+                                                                                                500 MHz 60 V Common Mode Differential Probe.                               DL05-HCM
+                                                                                                250 MHz 60 V Common Mode Differential Probe.                               DL10-HCM
+
+
+
+
+Customer Service
+Teledyne LeCroy oscilloscopes and probes are designed, built, and tested to ensure high reliability. In the unlikely event you experience difficulties, our digital oscilloscopes are
+fully warranted for three years and our probes are warranted for one year.
+This warranty includes:
+• No charge for return shipping
+• Long-term 7-year support
+• Upgrade to latest software at no charge
+
+
+
+                                                     1-800-5-LeCroy                               Local sales offices are located throughout the world.
+                                                     teledynelecroy.com                           Visit our website to find the most convenient location.
+© 2025 by Teledyne LeCroy, Inc. All rights reserved. Specifications, prices, availability, and delivery subject to change without notice.
+Product or brand names are trademarks or requested trademarks of their respective holders.
+PCI Express® is a registered trademark and/or service mark of PCI-SIG.
+                                                                                                                                                                   waveprohd--ds-11dec25
+MATLAB® is a registered trademark of The MathWorks, Inc. All other product or brand names are trademarks or requested trademarks
+of their respective holders.
+
