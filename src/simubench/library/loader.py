@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from collections.abc import Iterable
@@ -27,6 +28,8 @@ COVERAGE_SUFFIX = ".coverage.yaml"
 #: Folders that never hold the user's files: SimuBench's own state (history versions are folders
 #: named after the file) and tool folders.
 SKIP_DIRS = frozenset({".simubench", ".git", ".venv", "node_modules"})
+
+log = logging.getLogger(__name__)
 
 
 class YamlLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # libyaml's parser when present
@@ -160,8 +163,14 @@ def _build_definition(
             table = path.with_name(path.stem + COVERAGE_SUFFIX)
             definition._coverage = load_coverage(table)
             definition._coverage_file = table
-        except Exception:
-            pass  # a broken table: the definition alone decides (the engine treats it as absent)
+        except Exception as exc:
+            # A broken table: the definition alone decides (the engine treats it as absent), but the
+            # author is told why the manual's coverage is missing.
+            log.warning(
+                "%s: coverage table ignored: %s",
+                table.name,
+                str(exc).splitlines()[0] if str(exc) else type(exc).__name__,
+            )
     return definition
 
 

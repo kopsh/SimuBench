@@ -56,7 +56,7 @@ sections:
     note: 按触发源分别保存电平；触发使用当前触发源对应通道的电平。手册的 ±4.1 格限制与越界 VAB 没有建模
   - header: TRig_MoDe
     level: implemented
-    note: AUTO、NORM、SINGLE、STOP；SINGLE 采一帧后停止
+    note: AUTO、NORM、SINGLE、STOP；SINGLE 采一帧后停止；查询回复带头（TRIG_MODE <mode>），随 COMM_HEADER 变化（#887）
   - header: TRIG_PATTERN
     level: not_modeled
   - header: TRig_SElect

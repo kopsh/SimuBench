@@ -31,7 +31,7 @@ cases:
       - query: "MSIZ?"
         expect: "MSIZ 10E+3"
       - query: "TRMD?"
-        expect: "AUTO"
+        expect: "TRMD AUTO"
 
   - name: "状态寄存器命令 *CLS、*ESE、*ESR、*SRE、*STB、*OPC、*WAI"
     manual: "STATUS > Common (*) Commands"
@@ -64,7 +64,14 @@ cases:
         expect: "C1:VOLT_DIV 50E-3 V"
       - query: "C1:ATTN?"
         expect: "C1:ATTENUATION 1"
+      - query: "TRMD?"  # #887: an operation's reply carries the header too
+        expect: "TRIG_MODE AUTO"
+      - send: "CHDR OFF"
+      - query: "TRMD?"
+        expect: "AUTO"
       - send: "CHDR SHORT"
+      - query: "TRMD?"
+        expect: "TRMD AUTO"
       - query: "C1:VDIV?"
         expect: "C1:VDIV 50E-3 V"
 
@@ -190,13 +197,13 @@ cases:
     steps:
       - send: "TRMD NORM"
       - query: "TRMD?"
-        expect: "NORM"
+        expect: "TRMD NORM"
       - send: "TRMD SINGLE"
       - query: "TRMD?"
-        expect: "SINGLE"
+        expect: "TRMD SINGLE"
       - send: "TRMD AUTO"
       - query: "TRMD?"
-        expect: "AUTO"
+        expect: "TRMD AUTO"
 
   - name: "单次采集与停止"
     manual: "ACQUISITION > ARM_ACQUISITION、STOP"
