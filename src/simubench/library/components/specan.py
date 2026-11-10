@@ -802,7 +802,7 @@ class SpecanTrace(Component):
     def op_trace_data(self, name: str | None = None, **_: Any) -> OpResult:
         if name and name.upper() not in ("TRACE1", "TRAC1", "1"):
             raise ScpiError(-224, f"unknown trace {name!r}")
-        _, y = self.trace()
+        _x, y = self.trace()
         why = self.truncation(self._signal_at(self.session.now_ns), self.settings())
         if why:
             assert self.owner is not None
@@ -882,7 +882,8 @@ class SpecanTrace(Component):
         return bool(self._opt("marker.enabled", True)) and not self._mode().startswith("OFF")
 
     def _turn_on(self) -> None:
-        if "marker.enabled" in self.owner.specs and not self._st("marker.enabled"):  # type: ignore[union-attr]
+        assert self.owner is not None  # a component's settings change through its instrument
+        if "marker.enabled" in self.owner.specs and not self._st("marker.enabled"):
             self._set("marker.enabled", True)
         if self._mode().startswith("OFF"):
             self._set("marker.mode", "POSition")
@@ -979,10 +980,11 @@ class SpecanTrace(Component):
     @op("marker_off")
     def op_marker_off(self, **_: Any) -> OpResult:
         """:CALCulate:MARKer:AOFF — every marker off (and back to normal mode)."""
-        if "marker.enabled" in self.owner.specs:  # type: ignore[union-attr]
+        assert self.owner is not None  # an SCPI op runs on a live instrument
+        if "marker.enabled" in self.owner.specs:
             self._set("marker.enabled", False)
-        if "marker.mode" in self.owner.specs:  # type: ignore[union-attr]
-            options = self.owner.specs["marker.mode"].options or []  # type: ignore[union-attr]
+        if "marker.mode" in self.owner.specs:
+            options = self.owner.specs["marker.mode"].options or []
             self._set("marker.mode", "OFF" if "OFF" in options else "POSition")
         return OpResult()
 

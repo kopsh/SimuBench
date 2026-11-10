@@ -44,7 +44,7 @@ def register(session: Session) -> None:
     with _lock:
         _open.add(session)
         if not _Patch.active:
-            time.sleep = _fake_sleep
+            time.sleep = _fake_sleep  # ty: ignore[invalid-assignment] — the deliberate monkeypatch
             _Patch.active = True
 
 

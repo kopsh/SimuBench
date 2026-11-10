@@ -225,7 +225,7 @@ class DmmConditioning(Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._auto_range: dict[str, float] = {}  # each function's auto-chosen range
+        self._auto_range: dict[str, float | None] = {}  # each function's auto-chosen range
 
     # ---- the function and the true value ---------------------------------------------------------
 
@@ -538,13 +538,14 @@ class DmmAdc(Component):
     @op("cal_zero")
     def op_cal_zero(self, **_: Any) -> OpResult:
         """:CALibration:ZERO? — with 0 V applied, make the reading zero. Replies 0 (done) or 1 (failed)."""
+        assert self.owner is not None  # an SCPI op runs on a live instrument
         store = self._store()
         if store is not None:
             return store.adjust_offset(self)
         raw = self._conditioning().raw("DC")
         full = max(abs(float(self.param("cal_value"))), 1.0)
         if abs(raw) > float(self.param("cal_tolerance")) * full:
-            self.owner.push_error(CAL_INPUT, "Calibration error; input is not zero")  # type: ignore[union-attr]
+            self.owner.push_error(CAL_INPUT, "Calibration error; input is not zero")
             return OpResult(b"1")
         self._set("cal.offset", raw)
         return OpResult(b"0")
@@ -552,13 +553,14 @@ class DmmAdc(Component):
     @op("cal_gain")
     def op_cal_gain(self, **_: Any) -> OpResult:
         """:CALibration[:GAIN]? — with :CALibration:VALue applied, make the reading equal it."""
+        assert self.owner is not None  # an SCPI op runs on a live instrument
         store = self._store()
         if store is not None:
             return store.adjust_gain(self)
         target = float(self.param("cal_value"))
         corrected = self._conditioning().raw("DC") - float(self.param("cal_offset"))
         if target == 0 or corrected == 0 or abs(corrected / target - 1) > float(self.param("cal_tolerance")):
-            self.owner.push_error(CAL_INPUT, "Calibration error; input does not match the calibration value")  # type: ignore[union-attr]
+            self.owner.push_error(CAL_INPUT, "Calibration error; input does not match the calibration value")
             return OpResult(b"1")
         self._set("cal.gain", target / corrected)
         return OpResult(b"0")

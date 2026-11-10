@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Annotated, Any
 from pydantic import Field, TypeAdapter
 from pydantic_ai import RunContext, Tool
 
-from ..engine.edit import EditError, EditOp
+from ..engine.edit import AddInstrument, EditError, EditOp
 from ..engine.jsonpatch import PatchError, PatchOp
 from ..engine.record import jsonable
 from ..models import api as M
@@ -416,7 +416,7 @@ def edit_bench(
         doc = t.service.files.edit(bench, base_sha256, parsed, "agent")
         notes = []
         for op in parsed:
-            if getattr(op, "op", "") == "add_instrument" and op.address:
+            if isinstance(op, AddInstrument) and op.address:
                 given = ((doc.data.get("instruments") or {}).get(op.name) or {}).get("address")
                 if given and given != op.address:
                     notes.append(f"地址 {op.address} 已被占用，{op.name} 分配到空闲地址 {given}")

@@ -9,6 +9,7 @@ import pytest
 
 from simubench.api import open_bench
 from simubench.engine.replay import replay
+from simubench.library.loader import load_yaml
 from simubench.models.bench import BenchDefinition
 
 DEFS = Path(__file__).parent / "definitions"
@@ -181,3 +182,34 @@ def test_a_run_replays_identically(s, tmp_path):
     [record] = tmp_path.glob("*.jsonl")
     report = replay(record, definition_dirs=[DEFS])
     assert report.ok, report
+
+
+def test_fetch_from_a_buffer_that_is_not_configured_is_an_scpi_error(tmp_path):
+    """fetch_from_buffer without a buffer once blew up with an AttributeError (#897's None path);
+    it is a diagnosed -300 instead, with the instrument still answering."""
+    import yaml
+
+    data = load_yaml((DEFS / "test-trigger-meter.yaml").read_text(encoding="utf-8"))
+    data["id"] = "test-trigger-nobuffer"
+    trig = next(c for c in data["components"] if c["type"] == "trigger_model")
+    del trig["params"]["buffer"]  # the buffer named there stays undefined
+    trig["params"]["fetch_from_buffer"] = True
+    (tmp_path / "test-trigger-nobuffer.yaml").write_text(
+        yaml.safe_dump(data, allow_unicode=True), encoding="utf-8"
+    )
+    bench = BenchDefinition.model_validate(
+        {"name": "trigger", "instruments": {"dmm": {"model": "test-trigger-nobuffer"}}}
+    )
+    session = open_bench(bench, definition_dirs=[tmp_path, DEFS])
+    try:
+        session.write("dmm", b":INIT\n")
+        session.write("dmm", b":FETC?\n")
+        reply = session.read("dmm")
+        assert reply is None  # the op raised: the reply is the error queue's, not a reading
+        session.write("dmm", b":SYST:ERR?\n")
+        error = session.read("dmm").decode().strip()
+        assert error.startswith("-300,") and "buffer" in error
+        session.write("dmm", b":SYST:ERR?\n")
+        assert session.read("dmm").decode().startswith("0,")  # the instrument went on working
+    finally:
+        session.close()

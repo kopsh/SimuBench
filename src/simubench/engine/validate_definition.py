@@ -136,9 +136,11 @@ def _check_component_refs(d: InstrumentDefinition, known: dict[str, type[Compone
     for section, specs in (("components", d.components), ("channel_components", d.channel_components)):
         for i, spec in enumerate(specs):
             cls = known.get(spec.type)
-            for param, (base, where) in (cls.refs if cls else {}).items():
-                name = str(spec.params.get(param, cls.defaults.get(param)) or "")  # type: ignore[union-attr]
-                if not name and param in cls.optional_refs:  # type: ignore[union-attr]
+            if cls is None:  # an unknown component type: reported as E-DEF-COMPONENT-UNKNOWN elsewhere
+                continue
+            for param, (base, where) in cls.refs.items():
+                name = str(spec.params.get(param, cls.defaults.get(param)) or "")
+                if not name and param in cls.optional_refs:
                     continue
                 # A channel component resolves a name in its own channel first, then at instrument
                 # level (Component.peer, #382): an instrument-level reference may name a sibling.
