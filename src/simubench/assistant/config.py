@@ -176,12 +176,50 @@ def own_ports(manager: SessionManager | None) -> set[int]:
     return ports
 
 
+def _int_part(text: str) -> int | None:
+    """One dotted part in the BSD shorthand grammar: decimal, ``0x`` hex, or leading-0 octal."""
+    if text[:2] in ("0x", "0X"):
+        try:
+            return int(text, 16)
+        except ValueError:
+            return None
+    if len(text) > 1 and text[0] == "0":
+        try:
+            return int(text, 8)
+        except ValueError:
+            return None
+    return int(text) if text.isdigit() else None
+
+
+def _ipv4_shorthand(host: str) -> str | None:
+    """The full IPv4 address a BSD-style shorthand resolves to: ``127.1`` and ``0x7f.1`` are
+    127.0.0.1, so is ``2130706433`` — the last part fills the remaining bytes. ``None`` when
+    ``host`` is not such an address."""
+    parts = host.split(".")
+    if not 1 <= len(parts) <= 4:
+        return None
+    values: list[int] = []
+    for part in parts:
+        value = _int_part(part)
+        if value is None:
+            return None
+        values.append(value)
+    if any(not 0 <= v <= 255 for v in values[:-1]):
+        return None
+    tail = 4 - (len(values) - 1)
+    if values[-1] >= 256**tail:
+        return None
+    return str(ipaddress.IPv4Address(bytes(values[:-1]) + values[-1].to_bytes(tail, "big")))
+
+
 def _is_this_computer(host: str) -> bool:
+    host = host.rstrip(".").lower().split("%", 1)[0]  # trailing dot, IPv6 zone
     if host in ("localhost", "0.0.0.0", "::", "") or host.endswith(".localhost"):
         return True
     with contextlib.suppress(ValueError):
         return ipaddress.ip_address(host).is_loopback
-    return False
+    shorthand = _ipv4_shorthand(host)
+    return shorthand is not None and ipaddress.ip_address(shorthand).is_loopback
 
 
 def check_base_url(url: str, manager: SessionManager | None) -> None:
@@ -197,3 +235,11 @@ def check_base_url(url: str, manager: SessionManager | None) -> None:
         raise ConfigError("LLM 地址的端口无效") from None
     if _is_this_computer(parts.hostname.strip("[]")) and port in own_ports(manager):
         raise ConfigError(f"LLM 地址指向 SimuBench 自己的端口 {port}；填写 LLM 服务的地址")
+
+
+def check_settings(settings: LlmSettings, manager: SessionManager | None) -> None:
+    """The address rules at use time as well as save time (#901): a default that came from the
+    environment or the workspace's ``settings.json`` is checked here too, before anything is sent
+    to it."""
+    if settings.base_url:
+        check_base_url(settings.base_url, manager)

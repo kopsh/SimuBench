@@ -51,7 +51,7 @@ from ..server.definitionchanges import definition_changes
 from ..server.definitionfiles import FOLDER, DefinitionFiles
 from ..server.manager import SessionManager
 from . import compaction
-from .config import AssistantSettings, ConfigError, LlmSettings
+from .config import AssistantSettings, ConfigError, LlmSettings, check_settings
 from .guard import Stuck
 from .llm import build_model, describe_error
 from .prompt import instructions
@@ -179,6 +179,7 @@ class AssistantService:
         if bench in self.tasks:
             raise Busy("上一轮还在进行：等它结束或先停止")
         settings = self.settings.current()
+        check_settings(settings, self.manager)  # a bad default refuses here, in words (#901)
         model = self.model_factory(settings)  # ConfigError when not configured
         conv = self.store.load(bench)
         turn = M.AssistantTurn(id=uuid.uuid4().hex[:12], user=text, started_at=_now())

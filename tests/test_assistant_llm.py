@@ -213,20 +213,62 @@ def test_the_address_is_http_and_never_simubench_itself(tmp_path):
     for bad in ("ftp://llm/v1", "llm.internal/v1", "http://u:p@llm/v1"):
         with pytest.raises(ConfigError, match=r"http|用户名"):
             check_base_url(bad, manager)
-    for own in (
-        "http://127.0.0.1:8765/v1",
-        "http://localhost:5030",
-        "http://[::1]:4880",
-        "http://127.0.0.1:4881",
-    ):
-        with pytest.raises(ConfigError, match="自己的端口"):
-            check_base_url(own, manager)
     for fine in ("http://127.0.0.1:11434/v1", "https://10.1.2.3/v1", "http://llm.corp.internal:8000/v1"):
         check_base_url(fine, manager)
     with pytest.raises(ConfigError):
         AssistantSettings(tmp_path, {}).update(
             M.AssistantConfigUpdate(base_url="http://127.0.0.1:8765"), manager
         )
+
+
+@pytest.mark.parametrize(
+    ("url", "port"),
+    [
+        pytest.param("http://127.0.0.1:8765/v1", 8765, id="plain"),
+        pytest.param("http://127.1:8765/v1", 8765, id="two-part-shorthand"),
+        pytest.param("http://2130706433:8765", 8765, id="decimal-integer"),
+        pytest.param("http://0x7f.1:8765", 8765, id="hex-shorthand"),
+        pytest.param("http://127.000.000.001:8765/v1", 8765, id="octal-parts"),
+        pytest.param("http://localhost.:8765/v1", 8765, id="trailing-dot"),
+        pytest.param("HTTP://LOCALHOST.:8765", 8765, id="upper-case"),
+        pytest.param("http://localhost:5030", 5030, id="scpi-base"),
+        pytest.param("http://[::1]:4880", 4880, id="ipv6-loopback"),
+        pytest.param("http://[::ffff:127.0.0.1]:8765", 8765, id="ipv4-mapped"),
+        pytest.param("http://127.0.0.1:4881", 4881, id="link-port"),
+    ],
+)
+def test_the_service_is_never_reachable_under_an_alias_of_itself(url, port, tmp_path):
+    manager = SessionManager(tmp_path, scpi_base_port=5025, hislip_port=4880, link_port=4881)
+    manager.web_port = port
+    with pytest.raises(ConfigError, match="自己的端口"):
+        check_base_url(url, manager)
+
+
+async def test_a_default_address_is_checked_before_a_turn_uses_it(manager):
+    """A default from the environment pointing at the service itself refuses the turn in words
+    (#901) — it is not only the settings page that checks."""
+    manager.web_port = 8765
+    service = AssistantService(
+        manager,
+        env={"SIMUBENCH_LLM_BASE_URL": "http://2130706433:8765/v1", "SIMUBENCH_LLM_MODEL": "m"},
+    )
+    with pytest.raises(ConfigError, match="自己的端口"):
+        await service.send(BENCH, "你好")
+    assert service.conversation(BENCH).turns == []
+    with pytest.raises(ConfigError, match="自己的端口"):
+        service.settings.update(M.AssistantConfigUpdate(base_url="http://127.1:8765"), manager)
+
+
+def test_the_connection_test_reports_a_bad_default_in_words(client, manager):
+    manager.web_port = 8765
+    manager.assistant.settings = AssistantSettings(
+        manager.workspace,
+        {"SIMUBENCH_LLM_BASE_URL": "http://localhost.:8765/v1", "SIMUBENCH_LLM_MODEL": "m"},
+    )
+    result = client.post("/api/assistant/config/test").json()
+    assert not result["ok"] and "自己的端口" in result["message"]
+    refused = client.post("/api/assistant/messages", json={"bench": BENCH, "text": "你好"})
+    assert refused.status_code == 422 and "自己的端口" in refused.json()["detail"]
 
 
 @pytest.fixture
