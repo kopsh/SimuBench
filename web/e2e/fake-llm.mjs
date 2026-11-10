@@ -35,6 +35,24 @@ function plan(body) {
     if (step === 3) return { call: ["start_session", {}] };
     return { text: ["已添加示波器 scope2，", "并重新启动了测试台。"] };
   }
+  if (userText.includes("标签")) {
+    const step = since.length;
+    if (step === 0) return { call: ["read_bench", {}] };
+    if (step === 1) return { call: ["edit_bench", { base_sha256: sha, ops: [{ op: "set_label", name: "awg", label: "AI 改的" }] }] };
+    return { text: ["已把信号源的标签改为 AI 改的。"] };
+  }
+  // the same failing edit again and again: the server stops the turn for going in circles (#899)
+  if (userText.includes("ghost")) {
+    if (since.length === 0) return { call: ["read_bench", {}] };
+    return { call: ["edit_bench", { base_sha256: sha, ops: [{ op: "remove", name: "ghost" }] }] };
+  }
+  // big tool results until the context is compacted (#899)
+  if (userText.includes("目录")) {
+    const ids = ["siglent-sdg2042x", "siglent-sds2104xplus", "rigol-dl3021", "keysight-33622a", "fluke-5522a", "keysight-34465a", "keysight-53220a", "keysight-53230a", "bk-8614"];
+    const step = since.length;
+    if (step < ids.length) return { call: ["get_definition", { definition_id: ids[step] }] };
+    return { text: ["看完了，目录里的仪表不少。"] };
+  }
   if (userText.includes("慢")) return { text: Array.from({ length: 60 }, (_, i) => `第${i + 1}句。`), delay: 400 };
   return { text: ["你好，", "我是 SimuBench 助手。"] };
 }
