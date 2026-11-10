@@ -90,6 +90,26 @@ def test_the_segment_memory_flow():
         with pytest.raises(ScpiError) as e:
             arb.op_data(query=True, segment_id=2, offset=100, data=[b"29"])
         assert code(e) == -222
+        # -- a write past the segment's end is -223, a read past it is -222 (#885): the two are
+        # different errors in the manual, and a rejected write leaves the segment as it was
+        before = arb.segments[2].codes.copy()
+        with pytest.raises(ScpiError) as e:
+            arb.op_data(segment_id=2, offset=120, data=[b"#3010" + bytes(10)])  # a block, 8 samples left
+        assert code(e) == -223
+        with pytest.raises(ScpiError) as e:
+            arb.op_data(segment_id=2, offset=127, data=[b"1", b"2"])  # a list, 1 sample left
+        assert code(e) == -223
+        with pytest.raises(ScpiError) as e:
+            arb.op_data(segment_id=2, offset=128, data=[b"1"])  # starting at the end: nothing left
+        assert code(e) == -223
+        assert (arb.segments[2].codes == before).all()
+        with pytest.raises(ScpiError) as e:
+            arb.op_data(query=True, segment_id=2, offset=120, data=[b"10"])  # the same span, read
+        assert code(e) == -222
+        # exactly filling the tail is not an error, by block or by list
+        arb.op_data(segment_id=2, offset=120, data=[b"#3008" + bytes([1] * 8)])
+        arb.op_data(segment_id=2, offset=127, data=[b"7"])
+        assert arb.segments[2].codes[120:].tolist() == [1] * 7 + [7]
         # -- the read-back is a block of signed bytes
         assert arb.op_data(query=True, segment_id=2, offset=100, data=[b"2"]).response == b"#12\x01\x02"
         # -- 16-bit codes (a DAC wider than 8 bits): words, little endian
