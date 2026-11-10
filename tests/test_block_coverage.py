@@ -33,6 +33,14 @@ EXEMPT: set[tuple[str, str]] = {
     ("siglent-sdg2042x", "modulation"),
 }
 
+#: (definition id, block) -> why — blocks the real instrument does not have at all, so there is
+#: nothing to cover (not a debt: unlike EXEMPT it does not shrink). The reason is the manual's.
+#: An entry whose block a component covers anyway is an error: the instrument has it after all.
+NOT_APPLICABLE: dict[tuple[str, str], str] = {
+    # M8194A: a baseband AWG, no AM/FM/PM/FSK/PWM (M8194-91020 lists none; data sheet 5992-3361).
+    ("keysight-m8194a", "modulation"): "baseband AWG: the instrument has no modulation",
+}
+
 
 def _blocks(class_name: str) -> dict[str, set[str]] | None:
     path = BLOCKS_DIR / f"{class_name}.yaml"
@@ -60,6 +68,13 @@ def problems(definitions: list[InstrumentDefinition]) -> list[str]:
             continue
         types = {c.type for c in [*d.components, *d.channel_components]}
         for block, accepted in blocks.items():
+            if (d.id, block) in NOT_APPLICABLE:
+                if accepted & types:
+                    out.append(
+                        f"{d.id}: block {block!r} is listed in NOT_APPLICABLE but a component "
+                        "covers it; remove the entry (tests/test_block_coverage.py)"
+                    )
+                continue
             if accepted & types:
                 continue
             needed.add((d.id, block))

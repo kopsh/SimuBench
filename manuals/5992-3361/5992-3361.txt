@@ -1,0 +1,339 @@
+M8194A 120 GSa/s Arbitrary Waveform
+Generator
+Version 1.0
+
+
+
+
+M8194A in a 2-slot AXIe chassis
+
+
+
+
+Find us at www.keysight.com           Page 1
+M8194A at a glance
+The Keysight Technologies, Inc. M8194A arbitrary waveform generator (AWG) has the highest sample
+rate and the widest bandwidth in its class with up to four synchronized channels operating simultaneously
+in one module
+
+•      Sample rate up to 120 GSa/s (on all 4 channels simultaneously)
+•      Analog bandwidth: 45 GHz (typical), generate signals with frequency components up to 50 GHz 1
+•      8 bits vertical resolution
+•      512 kSa of waveform memory per channel
+•      1, 2, or 4 differential channels per 1-slot AXIe module (number of channels is software upgradeable)
+•      Amplitude up to 0.8 Vpp(se) / 1.6 Vpp(diff.), voltage window -1.0 to +2.5 V
+•      Transition time (20%/80%): 11 ps without corrections / 6 ps with corrections applied (typical)
+•      Built-in frequency and phase response calibration for clean output signals
+•      Up to 4 modules (= 16 channels) can be synchronized
+
+
+
+Coherent Optical Applications
+400 G and 1 Terabit applications demand a new class of generators that provide high speed, precision
+and flexibility at the same time. The M8194A is the ideal solution to test different optical systems from
+discrete components like optical power amplifiers to more complex dual polarization systems like optical
+modulators or optical receivers.
+
+With up to 4 channels per 1-slot AXIe module, each running at up to 120 GSa/s with 45 GHz of analog
+bandwidth, it allows dual polarization testing in a small form factor and the generation of complex signals
+with multiple modulation schemes (PAM-4, PAM-8,
+QPSK, nQAM) up to 100 GBaud.
+
+Compensation for distortions generated e. g. by
+cables and amplifiers can be realized by
+embedding/de-embedding the S-parameters of the
+respective circuits or by performing an in-situ
+calibration using the Keysight Technologies vector
+signal analysis software.
+
+Combined with the 81195A optical modulation
+generator software, the M8194A makes it easy to
+generate optical impairments (e.g. PMD) for
+stressing the optical receiver over multiple test                Figure 1. 64-QAM at 64 GBaud (electrical)
+scenarios.
+
+
+
+
+1
+    At 50 GHz, attenuation is approx. 7.5 dB (ref er to figure 3) – c an be c ompens ated by digital pre-distortion
+
+
+Find us at www.keysight.com                                                                                           Page 2
+Multi-Level/Multi-Channel Digital Signals
+The M8194A is also ideally suited to address multi-
+level/multi-channel interfaces using any standard or custom
+data format, for example high-speed backplane
+connections using PAM-4 or PAM-8 format, as well as
+technologies in the mobile application space.
+
+The flexibility of the waveform generation at its highest
+speeds, combined with excellent intrinsic jitter performance
+makes the M8194A a truly future-proof instrument.
+
+At data rates of multiple Gb/s, the effect of cables, board
+traces, and connectors etc. must be considered in order to
+                                                               Figure 2. 70 GBaud PAM8 (= 210 Gpbs)
+generate the desired signal at the test point of the device
+under test. The M8194A incorporates digital pre-distortion
+techniques for frequency- and phase-response
+compensation of the AWG output and any external circuit
+to generate the desired signal at the device under test.
+Channels can be embedded/de-embedded if the S-
+parameters of the respective circuits are provided.
+
+In conjunction with the 81195A optical modulation
+generator software various kinds of distortions can be
+added to the signal.
+
+With its high channel density, the M8194A is well-suited to
+affordably and precisely stimulate multi-lane high-speed
+interfaces.                                                    Figure 3. 100 GBaud PAM4 (= 200 Gpbs)
+
+
+
+
+Physics, Chemistry and Electronics Research
+With the M8194A AWG it is possible to generate any arbitrary waveform you can mathematically describe
+and download it directly to the M8194A. This includes ultra-short yet precise pulses down to 16 ps pulse
+width or extremely short, yet wideband RF pulses and chirps which are needed to investigate in live time
+chemical reactions and elementary particle excitation.
+
+
+
+Multi-Module Operation
+Up to four M8194A can be synchronized. For two modules, an M8194A-830 sync cable kit is required. For
+three (four) modules, two (three) M8194A-830 sync cable kits plus an M8197A sync module is required.
+Instead of the M8197A, an external clock source can be used that meets the specifications for the Sync B
+In connector
+
+
+
+
+Find us at www.keysight.com                                                                                Page 3
+Configuration
+ Product number            Description                                       Comment
+ M8194A-001                Arbitrary waveform generator module, 1 channel,   Includes local start-up
+                           120 GSa/s, 512 kSa per channel                    assistance
+ M8194A-002                Arbitrary waveform generator module, 2 channels,
+                           120 GSa/s, 512 kSa per channel
+ M8194A-004                Arbitrary waveform generator module, 4 channels,
+                           120 GSa/s, 512 kSa per channel
+ M8194A-BU2                Pre-configured system consisting of one M9502A 2-slot AXIe Chassis with
+                           USB Option
+ M8194A-BU3                Pre-configured system consisting of one M9502A 2-slot AXIe Chassis with
+                           USB Option and one M9537A AXIe Embedded PC Controller
+
+
+Upgrade options
+ Product number            Description                                    Comment
+ M8194AU-U02               Upgrade from 1 channel to 2 channels           Software license
+ M8194AU-U04               Upgrade from 2 channels to 4 channels          Software license
+
+
+
+Accessories
+In order to be operational, an AXI chassis plus either an embedded controller or external PC or laptop are
+required in addition to one or more M8194A modules: (See http://www.keysight.com/find/AXIe for more
+details)
+ Product number            Description
+ M9502A-U20                2-slot AXIe chassis with USB Option
+ M9505A-U20                5-slot AXIe chassis with USB Option
+ M9537A                    AXIe embedded controller
+ 8121-1243                 Cable assembly USB Type A-MINI B
+ M9048A                    PCIe® desktop card adapter Gen 2 x8
+ Y1202A                    PCIe cable for M9048A desktop adapter
+ M8194A-810                Matched cable pair for M8194A AWG, 1.85 mm
+ M8194A-820                Termination 50-Ohm, 1.85 mm
+ M8194A-830                Synchronization cable kit
+
+
+
+Software
+The M8194A comes with a Soft Front Panel application to control its functionality, download waveforms
+from files and generate basic waveforms, including multi-tone signals, digitally modulated signals and
+multi-level serial data signals.
+
+In addition, a free MATLAB utility (IQtools) is included with the instrument software to generate various
+types of waveforms. IQtools also supports “in-system calibration” to measure and compensate the
+frequency and phase response of the AWG and any external circuitry and compensates skew between
+channels
+ Product number            Description                                    Comment
+ 81195A                    Optical Modulation Generator Software          Free to download
+
+Find us at www.keysight.com                                                                                  Page 4
+    81195A-OSP                Optical Signal Properties                          requires 81195A
+    N6171A-M02                MATLAB license (standard)
+    N6171A-M03                MATLAB license (extended)
+
+Specifications
+General characteristics
+    Sample rate                                         115.2 to 120.2 GSa/s
+                                                        107.2 to 112.2 GSa/s
+                                                        95.6 to 100.2 GSa/s
+    DAC resolution                                      8 bits
+    Number of channels per M8194A module                1, 2, or 4 (corresponds to Opt. 001, 002, and 004)
+                                                        Additional number of channels can be enabled via
+                                                        user-installable software license
+    Frequency accuracy (at 1 GHz, at output)            ±30 ppm
+
+
+
+Sample memory
+    Sample memory                                       512 kSa per channel. The waveforms in each channel
+                                                        can have different length
+    Waveform granularity                                128 samples. The length of waveform segments must
+                                                        be a multiple of the granularity
+    Minimum waveform length                             128 samples
+
+
+Out 1, 2, 3, 4
+    Output type                                         Single-ended 2 or differential
+    Analog bandwidth (3 dB, excl. sin(x)/x roll-off)    45 GHz (typ)
+    Rise/fall time (20%/80%)3,4                         6 ps (typ) corrected3
+                                                        11 ps (typ) uncorrected
+    Impedance                                           50 Ω (nom)
+    Amplitude                                           75 mVpp(se) to 0.8 Vpp (se) into 50 Ω
+                                                        150 mVpp (diff.) to 1.6 Vpp (diff.) into 50 Ω
+    Amplitude resolution                                400 μV (nom)
+    DC amplitude accuracy4                              ±(5% +10 mV) (typ)
+    Voltage window                                      –1.0 to +2.5 V single-ended into 50 Ω
+    Offset resolution                                   400 μV (nom)
+    DC offset accuracy5                                 ±20 mV (typ)
+    Differential offset                                 Adjustable
+    Termination voltage window                          –1.5 to +3.5 V
+                                                        (low level -400 mV) to (high level +400 mV)
+    Termination voltage resolution                      300 μV (nom)
+    Skew between any pair of outputs
+        Within channel pairs 1/2 and 3/4                0 ps ±1 ps (typ)
+
+
+2
+  Unus ed output must be terminated with 50 Ω to GND
+3
+  Frequenc y res pons e c orrected up to 50 G Hz
+4
+  Termination voltage = 0 V; adjusted at 23 °C ambient temperature, amplitude increas es by 0.4%/°C (typic al) f or
+ambient temperature below 23 °C
+5
+  Termination voltage = 0 V
+
+
+Find us at www.keysight.com                                                                                           Page 5
+     Between channels 1/2 and 3/4               0 ps ±2 ps (typ)
+     Between any pair of channels               Skew does not change across start/stop and
+     of different, synchronized modules         pattern reload, provided that the sample rate
+                                                is not changed. This allows the user to
+                                                calibrate all channels of a synchronized
+                                                system to zero skew relative to each other
+                                                using in-system calibration.
+ Skew between normal and complement             0 ps ±3 ps (nom)
+ Random Jitter
+     Within channel pairs 1/2 and 3/4           125 fsRMS (typ)
+     Between channels 1/2 and 3/4               400 fsRMS (typ)
+
+ Harmonic distortions
+ 2nd harmonic                                   -35 dBc (typ), fout <= 20 GHz
+                                                -30 dBc (typ), fout > 20 GHz
+ 3rd harmonic                                   -30 dBc (typ), fout <= 10 GHz
+                                                -25 dBc (typ), fout > 10 GHz
+ SFDR (excluding harmonic distortions)          -35 dBc (typ), fout = DC…10 GHz
+                                                -30 dBc (typ), fout = 10 GHz…40 GHz
+                                                -25 dBc (typ), fout = 40 GHz…45 GHz
+ Amplitude flatness (at RF output connector,    +/- 1 dB (typ), f out = DC ... 5 GHz
+ compensated for sin(x)/x)                      +/- 2 dB (typ), f out = 5 GHz ... 40 GHz
+                                                +/- 3 dB (typ), f out = 40 GHz ... 45 GHz
+ Total Harmonic Distortion                      1.3 % (typ), fout = 1 GHz
+                                                1.5 % (typ), fout = 2 GHz
+                                                1.8 % (typ), fout = 5 GHz
+                                                2.3 % (typ), fout = 10 GHz
+ Connector type                                 1.85 mm (female)
+
+
+
+Sync A In/Out
+The Sync A In/Out connectors are used for multi-module operation. The User Guide contains detailed
+information on how they need to be connected
+
+Sync B In (Ref Clk In)
+ Input coupling                                 AC
+ Input impedance                                50 Ohm
+ Input levels                                   500 mVpp to 900 mVpp
+ Input signal shape                             Square wave preferred; sine wave acceptable
+ Frequency range                                200 MHz … 300 MHz
+ Lock range                                     +/- 1%
+ Connector type                                 3.5 mm
+
+Sync B Out (Ref Clk Out)
+ Impedance                                      50 Ohm
+ Output amplitude                               800 mVpp (nominal)
+ Frequency accuracy                             +/- 60 ppm
+ Connector type                                 3.5 mm
+
+Find us at www.keysight.com                                                                          Page 6
+Frequency response
+Frequency response measured with a sample rate of 120 GSa/s, differential output, 500 mV amplitude.
+No sin(x)/x correction has been applied to the graph.
+
+
+
+
+Figure 3.
+
+
+
+ENOB
+ENOB measured with a sample rate of 120 GSa/s, differential output, 500 mV amplitude, according to
+IEEE 1658-2000, with noise and distortions up to the Nyquist frequency (60 GHz) considered.
+
+
+
+
+Figure 4.
+
+
+
+
+Find us at www.keysight.com                                                                           Page 7
+Instrument software
+The M8194A is controlled by a combined soft-front panel and firmware application that runs on an
+embedded AXIe controller or external PC or laptop.
+  Supported operating systems                                                           Windows 7, 8.1, 10, all 64 bit
+  Required hard disk space                                                              1 GB
+  Interface to M8194A hardware                                                          PCI Express® (see AXIe chassis specification)
+                                                                                        USB (see AXIe chassis specification)
+  Application programming interfaces                                                    SCPI, MATLAB
+
+
+
+General
+  Power consumption                                                                     50 W (nom) at 120 GSa/s
+  Operating temperature                                                                 0 to 40°C
+  Operating humidity                                                                    15% to 80% relative humidity, non-condensing
+  Operating altitude                                                                    Up to 2000 m
+  Storage temperature                                                                   –40 to +70°C
+  Stored states                                                                         User configurations and factory default
+  Form factor                                                                           1-slot AXIe
+  Dimensions (W x H x D)                                                                322.25 mm x 30 mm x 281.5 mm
+  Weight                                                                                3.15 kg
+  Safety designed to                                                                    IEC61010-1, UL61010, CSA22.2 61010.1 tested
+  EMC tested to                                                                         IEC61326-1
+  Warm-up time                                                                          30 min
+  Calibration interval                                                                  2 years recommended
+  Cooling requirements                                                                  When operating the M8194A choose a location that
+                                                                                        provides at least 80 mm of clearance at rear, and at
+                                                                                        least 30 mm of clearance at each side
+
+
+
+
+Learn more at: www.keysight.com
+For more information on Keysight Technologies’ products, applications or services,
+please contact your local Keysight office. The complete list is available at:
+www.keysight.com/find/contactus
+
+
+
+Find us at www.keysight.com                                                                                                                    Page 8
+This information is subject to change without notice. © Keysight Technologies, 2018 - 2019, Published in USA, November 20, 2019, 5992-3361EN
+
