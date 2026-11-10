@@ -10,7 +10,7 @@ blocks:
     components: [amplitude_level]
   - block: output              # 输出级(戴维南源、输出阻抗)
     components: [output_stage]
-  - block: arb_memory          # 任意波表(按 rate 播放)
-    components: [arb_table]
+  - block: arb_memory          # 任意波表(按 rate 播放)或分段波形存储(arb_segments,#879)
+    components: [arb_table, arb_segments]
   - block: modulation          # 调制(AM/FM/PM/FSK/PWM,#327);扫频未建模
     components: [awg_modulator]

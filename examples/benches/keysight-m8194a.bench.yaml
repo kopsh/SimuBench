@@ -1,0 +1,26 @@
+schema: simubench.bench/2
+name: keysight_m8194a_scope
+description: >-
+  Keysight M8194A 的通道 1、2 接到 Keysight Infiniium UXR0334B 的通道 1、2（示波器 50 Ω 输入，真实型号，D42）。
+  示例脚本 examples/scripts/keysight_m8194a_levels.py 按 User Guide 的编程建议（*RST 开始、设置、
+  打开输出、最后 :INIT:IMM）设幅度、偏置与高/低电平并装载波形段，再用示波器读直流电平，在真机和 SimuBench 上都不改一行。
+  再给通道 1 装一段 128 点的方波（:TRACe 段定义、二进制块写入、回读与目录）；示波器读到的是它的直流电平。
+instruments:
+  awg:
+    model: keysight-m8194a
+    label: 任意波发生器
+    address: "TCPIP0::192.168.1.50::hislip0::INSTR"
+  scope:
+    model: keysight-uxr0334b
+    label: 示波器
+    address: "TCPIP0::192.168.1.60::hislip0::INSTR"
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+  - {from: awg.CH2, to: scope.CH2}
+run:
+  seed: 5
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  scope: {x: 440, y: 80}

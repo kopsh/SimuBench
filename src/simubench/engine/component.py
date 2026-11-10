@@ -75,6 +75,17 @@ class Sampler(Protocol):
 
 
 @runtime_checkable
+class ArbSource(Protocol):
+    """What a waveform synthesis plays for its arbitrary-waveform function: a table of named waveforms
+    (``arb_table``) or a waveform memory of segments (``arb_segments``, #879). The synthesis reads the
+    component's ``output`` signal; ``points`` is the length of the waveform it loops (0: none)."""
+
+    def points(self) -> int:
+        """The samples of the waveform played."""
+        ...
+
+
+@runtime_checkable
 class Acquisition(Protocol):
     """What a waveform transfer (``waveform_transfer``) reads records from: an instrument's
     acquisition block (instrument-authoring.md 3.1). The transfer's ``record`` ref names one; the

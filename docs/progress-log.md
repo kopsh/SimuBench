@@ -1765,3 +1765,37 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试台与脚本 | ✅ `examples/benches/lecroy-wavepro804hd.bench.yaml`（SDG2042X → WavePro 804HD，1 kHz/2 Vpp 正弦）；`examples/scripts/lecroy_wavepro_read_waveform.py` 按手册的波形传输步骤（`WAVEDESC` 描述项与 `DATA_ARRAY_1,FLOAT` 文本伏值、`HORIZ_INTERVAL`/`HORIZ_OFFSET` 定时轴）读波形，在 `tests/test_lecroy_wavepro.py` 中与测试台信号比对 |
 | 不变 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单未增加 |
 | 检查 | ✅ `scripts/check.sh` 全绿 |
+
+## Keysight M8194A 真实型号（波形存储另立 Issue 879）
+
+`keysight-m8194a`：按 User Guide M8194-91020 第 4 章与数据手册 5992-3361 建 4 通道 AWG 的定义、覆盖表（102 条命令：实现 25，其余 `not_modeled` 并写明原因）、14 条手册用例、示例测试台（通道 1、2 接 UXR0334B）与按手册编程建议写的示例脚本。已建模：每通道幅度、偏置、高/低电平、终端电压、差分偏置、输出开关；DAC 模式、采样频率与范围、参考时钟、开始/停止；身份、选件、错误队列、SCPI 版本。波形存储（`:TRACe` 段定义、按偏移装载、8 位 DAC 块）没有通用组件，已开 #879，本型号不写专用代码；因此输出目前只有直流电平，状态寄存器组（`:STATus`）、文件系统（`:MMEMory`）与多模块同步也未建模。手册没有给 `*RST` 的各项数值，覆盖表如实标为模型值。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义通过校验，不改 `library/components/` | ✅ `simubench validate`；`tests/test_model_components.py` |
+| 覆盖表覆盖手册全部命令头 | ✅ `simubench coverage keysight-m8194a`（102 条） |
+| 每条实现的命令有手册用例 | ✅ `simubench cases tests/models/keysight-m8194a/cases.yaml`（14/14） |
+| 示例测试台与脚本在测试里跑通 | ✅ `tests/test_keysight_m8194a.py` |
+| 缺失的波形存储能力立项，不在型号内绕过 | ✅ #879（`核心`） |
+
+## 任意波形的分段存储 `arb_segments`；M8194A 装载波形（Issue 879）
+
+新增通用组件 `arb_segments`（`library/components/arb_segments.py`，类别 function_generator 的 `arb_memory` 块）：8 位 DAC 码按段定义（`define`、`define_new`、只写变体）、按偏移装载（`data`：IEEE 块或数值列表，查询回块）、`catalog`、`name`/`comment`、`delete`/`delete_all`，段长粒度与最短长度、总量限制（-225）、超出段长 -223、只写段不能回读（-221，错误号为模型选择）；播放循环经零阶保持 DAC（谱按 sinc 加权）。`waveform_synth` 的 `arb` 引用改为 `ArbSource` 协议（`points()`），`arb_table` 与 `arb_segments` 都实现它。`keysight-m8194a` 用它：覆盖表 `:TRACe` 的 10 行改为已实现（`:IMPort` 与 `:MARKer` 仍未建模），新增 4 条手册用例，示例脚本装载一段方波并回读。序列、标记、I/Q 插值模式与“程序模式才能删除”的检查未建模。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件覆盖定义段、分块写入、超长 -223、`CATalog?`、删除、只写段、按采样频率播放 | ✅ `tests/models/keysight-m8194a/cases.yaml`（18 条）、`tests/test_keysight_m8194a.py` 的播放行（基频 = 采样率 / 段长、sinc 加权、删除后无信号） |
+| `keysight-m8194a` 的 `:TRACe` 行改为已实现并补用例，示例脚本装载波形 | ✅ `simubench coverage keysight-m8194a`（实现 35 / 共 102）；`tests/test_keysight_m8194a.py::test_manual_script_runs_on_the_example_bench` |
+| 不放宽 `ALLOWED` 与块覆盖例外清单 | ✅ 没有放宽；M8194A 没有调制，记在 `NOT_APPLICABLE`（不是债务，不进 `EXEMPT`），`tests/test_block_coverage.py` 绿 |
+
+## arb_segments 的组件级测试与样点格式的出处（Issues 881、882）
+
+- **#882**：新增 `tests/test_arb_segments.py`，直接对组件断言：段号范围与按序分配、`max_samples` 与段号用尽的 -225、重定义保留名字与注释、只写段回读 -221、名字与注释超长 -224、块与数值列表写入的偏移与码值范围、块长度不符 -160、16 位字宽分支（-161 与小端回读）、`play` 选段与无段时无信号。“偏移须递增”：手册（p.157 NOTE）没有给乱序的错误，模型不检查，覆盖表该行写明原因。
+- **#881**：查手册：`:INSTrument:DACMode`（p.133）写明 SINGle/DUAL/FOUR 模式下数据是 1 字节样点，而 `:TRACe[:DATA]`（p.157）写 16 位整数含标记，软面板 BIN 格式（p.93）是 int16 的高位 8 位。两处说法矛盾且 `:TRACe[:DATA]` 的“data format described above”在手册里没有出处，模型取 DACMode 的明确说法（1 字节），把矛盾与出处页码写进覆盖表，16 位格式与位对齐未实现，issue 留开请产品负责人决定。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #882 组件级测试覆盖各分支 | ✅ `tests/test_arb_segments.py` |
+| #882 偏移递增：实现或标注不检查及原因 | ✅ 覆盖表 `:TRACe[:DATA]` 行；测试断言乱序写入按所给偏移生效 |
+| #881 在覆盖表写明样点位布局出处 | ✅ 页码与矛盾已写；位布局本身手册无出处 |
+| #881 支持手册的 16 位样点与位对齐 | ⚠️ 未实现：手册自相矛盾，需决定后再做 |
