@@ -1,16 +1,17 @@
-"""What changed for the user, by version, from the git history; no tags needed (D58).
+"""What changed for the user, by build, from the git history; no tags needed (D58).
 
 Only commits that change the product are listed: those touching ``PRODUCT`` below, which is what
 goes into the wheel. A commit that touches only CI, tests, cases, docs or skills is left out. The
 entry is the commit subject, i.e. the PR title (squash merge), without what only the developers
 read: the trailing issue and PR references ``(Closes #12) (#34)`` and the ``核心:`` work label.
-One heading per version (``version.py``; a commit is a version), newest first, with the date.
+One heading per build (a package that was built; ``--builds`` lists the earlier ones), newest first,
+named by the build's version (``version.py``) with its date.
 
     python scripts/changelog.py                         # everything
     python scripts/changelog.py --since 2026.11.4.75    # release notes: the commits after that version
     python scripts/changelog.py -o dist/CHANGELOG.md
 
-The release
+Every entry ends with the version of its own commit. The release
 notes of a published version are ``--since <the version published before>``.
 
 Standard library and git only, so an internal build needs nothing extra. Needs the full history;
@@ -64,23 +65,36 @@ def is_product(paths: list[str]) -> bool:
     return any(p.startswith(PRODUCT_DIRS) or p in PRODUCT_FILES for p in paths)
 
 
-def render(commits: list[Commit], *, since: str | None = None) -> str:
-    """Markdown for ``commits`` (first-parent, oldest first): one section per version, newest first.
+def render(commits: list[Commit], *, since: str | None = None, builds: list[str] | None = None) -> str:
+    """Markdown for ``commits`` (first-parent, oldest first): one section per build, newest first.
 
-    A commit is a version, so a section holds that commit's entry; commits that do not change the
-    product have no section (their version number is simply skipped).
+    A build is a package that was built: ``builds`` lists the versions built before (one per line
+    of ``dist/BUILT_VERSION``); the history's last commit is the build being made now. A section is
+    titled by its build's version and holds the product changes since the build before it, each
+    entry ending with the version of its own commit. A build with no product change has no section.
     """
     names = versions.numbered([c.epoch for c in commits])
     floor = versions.parse(since.removeprefix("v")) if since else None  # raises ValueError if malformed
-    sections: list[tuple[str, int, str]] = []  # (version, epoch, entry)
+    last = versions.parse(names[-1]) if names else ()
+    bounds = sorted({versions.parse(b.removeprefix("v")) for b in builds or []} | {last})
+    bounds = [b for b in bounds if b <= last]
+    sections: dict[tuple[int, ...], list[tuple[str, str]]] = {b: [] for b in bounds}
     for c, vname in zip(commits, names, strict=True):
-        if is_product(c.paths) and (floor is None or versions.parse(vname) > floor):
-            sections.append((vname, c.epoch, entry(c.subject)))
+        v = versions.parse(vname)
+        if is_product(c.paths) and (floor is None or v > floor):
+            sections[next(b for b in bounds if b >= v)].append((entry(c.subject), vname))
+    date_of = {versions.parse(n): versions.day_of(c.epoch) for n, c in zip(names, commits, strict=True)}
     base = since.removeprefix("v") if since else None
     out = [f"# SimuBench 变更记录{f'（自 {base} 起）' if base else ''}", ""]
-    for vname, epoch, text in reversed(sections):
-        d = versions.day_of(epoch)
-        out += [f"## {vname}（{d[0]}-{d[1]:02d}-{d[2]:02d}）", "", f"- {text}", ""]
+    for b in reversed(bounds):
+        if sections[b]:
+            d = date_of.get(b) or next(date_of[k] for k in sorted(date_of, reverse=True) if k <= b)
+            out += [
+                f"## {'.'.join(map(str, b))}（{d[0]}-{d[1]:02d}-{d[2]:02d}）",
+                "",
+                *(f"- {t}（{v}）" for t, v in reversed(sections[b])),
+                "",
+            ]
     return "\n".join(out)
 
 
@@ -101,6 +115,7 @@ def read_history() -> list[Commit]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--since", help="only the commits after this version")
+    parser.add_argument("--builds", type=Path, help="file with the versions built before, one per line")
     parser.add_argument("-o", "--output", type=Path, help="write here instead of printing")
     args = parser.parse_args(argv)
     try:
@@ -115,7 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        text = render(commits, since=args.since)
+        built = args.builds.read_text(encoding="utf-8").split() if args.builds and args.builds.exists() else []
+        text = render(commits, since=args.since, builds=built)
     except ValueError as exc:  # a malformed --since
         print(f"changelog: {exc}", file=sys.stderr)
         return 2
