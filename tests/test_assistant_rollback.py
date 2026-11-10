@@ -144,6 +144,57 @@ async def test_a_created_file_changed_while_the_plan_runs_is_not_deleted_unseen(
     assert done.done and not copy.exists()
 
 
+async def test_a_delete_tampered_during_the_stop_does_not_leave_the_restores_behind(manager):
+    """One turn with both a restore and a delete (#908): the delete target is re-checked after the
+    sessions stopped, so a change there aborts before any restore has landed — not half-way."""
+
+    def copy_and_label(m):
+        return [
+            ("copy_bench", {}),
+            (
+                "edit_bench",
+                {"base_sha256": sha(m), "ops": [{"op": "set_label", "name": "awg", "label": "AI 改的"}]},
+            ),
+        ]
+
+    llm = ScriptedLLM([("read_bench", {})], copy_and_label, "复制并改了标签。")
+    service = service_with(manager, llm)
+    t = await turn(service, "复制测试台并改标签")
+    assert t.status == "done", t.stop_reason
+    copy = manager.workspace / "hello-copy.bench.yaml"
+    assert copy.is_file() and label(manager) == "AI 改的"
+    await manager.start("hello-copy.bench.yaml")
+
+    original_stop = manager.stop
+
+    async def stop_and_tamper(sid):
+        copy.write_text("name: 手改的\n", encoding="utf-8")
+        return await original_stop(sid)
+
+    manager.stop = stop_and_tamper  # type: ignore[method-assign]
+    try:
+        with pytest.raises(Conflict, match="hello-copy"):
+            await service.rollback(
+                M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
+            )
+    finally:
+        manager.stop = original_stop
+    # the abort came before any write: the bench still carries the turn's label, nothing restored
+    assert label(manager) == "AI 改的" and copy.read_text(encoding="utf-8") == "name: 手改的\n"
+    assert not service.conversation(BENCH).turns[-1].rolled_back
+    # the next plan lists the hand change: confirm again, and the whole rollback completes
+    plan = service.rollback_plan(BENCH)
+    assert [(f.path, f.action) for f in plan.files] == [
+        (BENCH, "restore"),
+        ("hello-copy.bench.yaml", "delete"),
+    ]
+    done = await service.rollback(
+        M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
+    )
+    assert done.done
+    assert label(manager) == "函数发生器" and not copy.exists()
+
+
 async def test_a_version_no_longer_in_history_aborts_before_any_file_is_touched(manager):
     """A restore whose version is gone stops the whole rollback in words (#900): no half-restore,
     the button stays, and the same request works again once the record is consistent."""
