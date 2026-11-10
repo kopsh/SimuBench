@@ -130,7 +130,9 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
     try:
-        built = args.builds.read_text(encoding="utf-8").split() if args.builds and args.builds.exists() else []
+        built = (
+            args.builds.read_text(encoding="utf-8").split() if args.builds and args.builds.exists() else []
+        )
         text = render(commits, since=args.since, builds=built)
     except ValueError as exc:  # a malformed --since
         print(f"changelog: {exc}", file=sys.stderr)
