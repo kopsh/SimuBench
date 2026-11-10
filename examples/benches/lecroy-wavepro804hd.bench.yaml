@@ -1,0 +1,34 @@
+schema: simubench.bench/2
+name: lecroy_wavepro804hd
+description: >-
+  Siglent SDG2042X 的 CH1（1 kHz、2 Vpp 正弦）接到 Teledyne LeCroy WavePro 804HD 的 C1
+  （1 MΩ 输入，发生器负载设定高阻；真实型号，D42）。示例脚本
+  examples/scripts/lecroy_wavepro_read_waveform.py 按 MAUI 远程控制手册的波形传输步骤
+  （`C1:INSPECT? "WAVEDESC"` 与 `C1:INSPECT? "DATA_ARRAY_1",FLOAT`）读波形，在真机和
+  SimuBench 上都不改一行。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    address: "TCPIP0::192.168.1.20::INSTR"
+    state:
+      ch1.frequency: 1000
+      ch1.amplitude: 2.0
+      ch1.load: .inf
+      ch1.output: true
+  scope:
+    model: lecroy-wavepro804hd
+    label: 示波器
+    address: "TCPIP0::192.168.1.70::INSTR"
+    state:
+      ch1.scale: 0.5
+      timebase.scale: 5.0e-4
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+run:
+  seed: 1
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  scope: {x: 440, y: 80}

@@ -1754,6 +1754,18 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 绿：issue 关闭，挂起的 PR 去标签并合并 | ✅ 本 PR 合并即证据 |
 | 查询失败不静默去标签 | ✅ 代码路径（#821）；没有制造 API 故障去演，已在作业里报错并保留标签 |
 
+## 真实型号 Teledyne LeCroy WavePro 804HD（Issue 883）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 依据 | ✅ MAUI Oscilloscopes Remote Control and Automation Manual（2026-02）与 WavePro HD 数据手册（2025-12-11）入库 `manuals/maui-remote-control-automation/`、`manuals/waveprohd-datasheet/`（PDF 走 LFS，附文本版），`manuals/README.md` 加两行；定义 `reference` 写同一编号与日期 |
+| 定义 | ✅ `lecroy-wavepro804hd.yaml` 只用通用组件：4 通道（C1 默认显示），D1M/A1M/D50/GND 耦合、14 pF/1 pF 输入、50 Ω 8 GHz 与 1 MΩ 500 MHz 前端、12 位 ADC、10 格、8 GHz 2 通道 / 4 GHz 4 通道、20/10 GSa/s；档位 1 mV–1 V/div（50 Ω）与 1 mV–10 V/div（1 MΩ）、偏置范围按数据手册、越界取最近合法值；时基 20 ps–1 ks/div、0.1 ppm；触发边沿与时间释抑；MAUI 方言（`COMM_HEADER` SHORT/LONG/OFF、工程计数法、ON/OFF、短枚举）与 `C<ch>:INSPECT?` 文本波形；`simubench validate` 无诊断 |
+| 覆盖表 | ✅ `lecroy-wavepro804hd.coverage.yaml` 由手册命令索引生成 164 条，按子系统分节：实现 30、接受 1（`Reference_CLocK`，声明不影响数据）、未实现 133；未实现项的说明记录方言与平台边界（`COMM_HEADER OFF` 不抑制固定单位、`TRSE` 只建模 EDGE 与时间释抑、50 Ω/1 MΩ 越界 clamp 且 VAB 状态位未建模） |
+| 用例 | ✅ `tests/models/lecroy-wavepro804hd/cases.yaml` 23 条，每条带 `manual:`，覆盖全部实现与接受的命令；`simubench cases ... --definitions validation/instruments` 23/23 通过 |
+| 测试台与脚本 | ✅ `examples/benches/lecroy-wavepro804hd.bench.yaml`（SDG2042X → WavePro 804HD，1 kHz/2 Vpp 正弦）；`examples/scripts/lecroy_wavepro_read_waveform.py` 按手册的波形传输步骤（`WAVEDESC` 描述项与 `DATA_ARRAY_1,FLOAT` 文本伏值、`HORIZ_INTERVAL`/`HORIZ_OFFSET` 定时轴）读波形，在 `tests/test_lecroy_wavepro.py` 中与测试台信号比对 |
+| 不变 | ✅ `src/simubench/library/components/` 无改动；`ALLOWED` 与块覆盖例外清单未增加 |
+| 检查 | ✅ `scripts/check.sh` 全绿 |
+
 ## Keysight M8194A 真实型号（波形存储另立 Issue 879）
 
 `keysight-m8194a`：按 User Guide M8194-91020 第 4 章与数据手册 5992-3361 建 4 通道 AWG 的定义、覆盖表（102 条命令：实现 25，其余 `not_modeled` 并写明原因）、14 条手册用例、示例测试台（通道 1、2 接 UXR0334B）与按手册编程建议写的示例脚本。已建模：每通道幅度、偏置、高/低电平、终端电压、差分偏置、输出开关；DAC 模式、采样频率与范围、参考时钟、开始/停止；身份、选件、错误队列、SCPI 版本。波形存储（`:TRACe` 段定义、按偏移装载、8 位 DAC 块）没有通用组件，已开 #879，本型号不写专用代码；因此输出目前只有直流电平，状态寄存器组（`:STATus`）、文件系统（`:MMEMory`）与多模块同步也未建模。手册没有给 `*RST` 的各项数值，覆盖表如实标为模型值。
