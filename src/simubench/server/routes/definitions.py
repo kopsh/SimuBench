@@ -8,6 +8,7 @@ from ...library.coverage import coverage_path, load_coverage
 from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
+from ..mytemplates import save_as_template
 from .context import ApiContext
 
 
@@ -72,6 +73,33 @@ def build_router(ctx: ApiContext) -> APIRouter:
             return definition_files.copy_of(def_id, "ui")
         except KeyError as exc:
             raise not_found(exc) from None
+
+    @router.post(
+        "/api/definitions/templates",
+        response_model=M.SaveTemplateResponse,
+        operation_id="saveAsTemplate",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The bench changed since base_sha256 was read"}},
+    )
+    def save_template(req: M.SaveTemplateRequest) -> M.SaveTemplateResponse:
+        """ "Save as my template" (#875): the bench instrument, its settings folded in, as a
+        definition of its own (no extends); the bench's instrument then points at it."""
+        return ctx.file_errors(  # type: ignore[no-any-return]
+            lambda: save_as_template(
+                definition_files, req.bench_path, req.base_sha256, req.instrument, req.name, "ui"
+            )
+        )
+
+    @router.post(
+        "/api/definitions/{def_id}/restore",
+        response_model=M.DefinitionDocument,
+        operation_id="restoreDefinition",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The file changed since base_sha256 was read"}},
+    )
+    def restore_definition(def_id: str, req: M.RestoreDefinitionRequest) -> M.DefinitionDocument:
+        """Write an earlier version of a workspace definition back as the newest one (D35)."""
+        return ctx.file_errors(lambda: definition_files.restore(def_id, req.seq, req.base_sha256))  # type: ignore[no-any-return]
 
     @router.get(
         "/api/definitions/{def_id}/document",

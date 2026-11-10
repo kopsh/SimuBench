@@ -5,6 +5,7 @@ save in the version history (D35). Definitions outside the workspace are read on
 from __future__ import annotations
 
 import contextlib
+import copy
 import json
 import os
 import re
@@ -16,6 +17,7 @@ from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
 from ..library.loader import layered_definition_data, load_yaml
+from ..library.migrate import upgrade
 from ..models import api as M
 from .benchfiles import BenchFiles, Conflict, _sha
 from .definitionchanges import definition_changes
@@ -130,6 +132,34 @@ class DefinitionFiles:
                 )
             )
         return out
+
+    def restore(self, def_id: str, seq: int, base_sha256: str) -> M.DefinitionDocument:
+        """Write version ``seq`` back as the newest version, recorded as a restore (the versions
+        after it stay in the history), as :meth:`BenchFiles.restore` does for benches."""
+        rel = self.rel_path(def_id)
+        data = _parse(self.files.history.content(rel, seq))
+        return self.save(def_id, base_sha256, data, "restore")
+
+    def free_id(self, base: str) -> str:
+        """``base``, or the first ``-2``, ``-3`` … variant that names no definition yet (workspace
+        or built in)."""
+        known = set(self.files.library(None).ids())
+        new_id, n = base, 1
+        while new_id in known or (self.files.workspace / self.rel_path(new_id)).exists():
+            n += 1
+            new_id = f"{base}-{n}"
+        return new_id
+
+    def expanded(self, def_id: str, bench_path: str | None = None) -> dict[str, Any]:
+        """The definition with its whole ``extends`` chain and category default merged in, as one
+        mapping without ``extends``: what the engine runs, standing on its own (#875). With
+        ``bench_path``, looked up as that bench finds it (its own ``instruments/`` first)."""
+        lib = self.files.library(self.files.resolve(bench_path) if bench_path else None)
+        source = lib.path(def_id)
+        raw, _ = upgrade(_parse(source.read_bytes()), "instrument")
+        data = copy.deepcopy(layered_definition_data(raw, source))
+        data.pop("extends", None)
+        return data
 
     def changes_between(self, def_id: str, base: int, target: int) -> M.DefinitionChangeList:
         """The changes between two saved versions (``base=0`` compares against nothing: creation)."""

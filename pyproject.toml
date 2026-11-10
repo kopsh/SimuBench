@@ -13,6 +13,7 @@ dependencies = [
   "pyvisa>=1.14",
   "fastapi>=0.115",
   "uvicorn[standard]>=0.30",
+  "pydantic-ai-slim[anthropic,openai]>=1",
 ]
 
 [project.optional-dependencies]

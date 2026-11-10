@@ -24,10 +24,13 @@ for (const name of ["keysight-34465a.yaml", "keysight-34465a.coverage.yaml"]) {
   cpSync(join(library, name), join(workspace, "instruments", name));
 }
 
+// The assistant's end-to-end test talks to a scripted LLM service on the next port (#877).
+const llm = spawn(process.execPath, [join(import.meta.dirname, "fake-llm.mjs"), String(Number(port) + 1)], { stdio: "inherit" });
+
 const child = spawn(
   "uv",
   ["run", "simubench", "serve", "--workspace", workspace, "--token", "e2e-token", "--port", port, "--scpi-base-port", "0", "--record-dir", join(workspace, "runs")],
   { cwd: root, stdio: "inherit", shell: process.platform === "win32" },
 );
-for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));
-child.on("exit", (code) => process.exit(code ?? 0));
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => (child.kill(sig), llm.kill(sig)));
+child.on("exit", (code) => (llm.kill(), process.exit(code ?? 0)));

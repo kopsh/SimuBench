@@ -21,7 +21,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from .. import __version__
 from ..models import api as M
 from .manager import SessionManager
-from .routes import acceptance, benches, definitions, events, ops, sessions
+from .routes import acceptance, assistant, benches, definitions, events, ops, sessions
 from .routes.context import IN_USE, LOOPBACK_HOSTS, ApiContext, host_ok
 
 __all__ = ["IN_USE", "LOOPBACK_HOSTS", "WEB_DIST", "LocalOnly", "create_app"]
@@ -59,7 +59,7 @@ def create_app(manager: SessionManager, token: str | None = None, web_dist: Path
         return M.Health(version=__version__)
 
     # The order is the order of the OpenAPI document (and of web/src/api/generated).
-    for area in (benches, ops, definitions, acceptance, sessions, events):
+    for area in (benches, ops, definitions, acceptance, sessions, events, assistant):
         app.include_router(area.build_router(ctx))
 
     dist = web_dist or WEB_DIST

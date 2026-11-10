@@ -192,10 +192,11 @@ test("the stepper is unavailable while covered, read-only, or disconnected (#742
   await expect(page.getByRole("button", { name: "增大 校准常数" })).toHaveCount(0);
 
   // Disconnected (the session stops): the next poll's 404 replaces the workbench with the
-  // gone-session state — there is no steppable field left to reach.
+  // stopped-bench state (#877) — there is no steppable field left to reach.
   const stop = await page.request.delete(`/api/sessions/${sid}`, { headers });
   expect(stop.status()).toBe(204);
-  await expect(page.getByText("找不到该会话，可能已关闭。")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("bench-stopped")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText("测试台已停止")).toBeVisible();
   await expect(range).toHaveCount(0);
 });
 

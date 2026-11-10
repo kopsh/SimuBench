@@ -171,3 +171,61 @@ def wait_for_free_ports(ports, timeout: float = 60.0, host: str = "127.0.0.1") -
         if time.monotonic() >= end:
             raise RuntimeError(f"ports still in use after {timeout:g} s: {busy}")
         time.sleep(0.02)
+
+
+# ---- the AI assistant (#871): a scripted LLM ------------------------------------------------------
+
+
+class ScriptedLLM:
+    """A PydanticAI FunctionModel that plays a script, one entry per model request: a string is the
+    answer, a list of ``(tool, args)`` is a round of tool calls, a callable gets the messages so far
+    and returns either. After the last entry it keeps answering with the last one. ``seen`` holds
+    every request's messages; ``returns()`` the tool results of the latest request."""
+
+    def __init__(self, *script):
+        from pydantic_ai.models.function import FunctionModel
+
+        self.script = list(script)
+        self.seen: list[list] = []
+        self.model = FunctionModel(stream_function=self._stream)
+
+    def factory(self, _settings=None):
+        return self.model
+
+    def returns(self, n: int = -1) -> list:
+        from pydantic_ai.messages import ModelRequest, ToolReturnPart
+
+        req = self.seen[n][-1]
+        assert isinstance(req, ModelRequest)
+        return [p.content for p in req.parts if isinstance(p, ToolReturnPart)]
+
+    async def _stream(self, messages, info):
+        from pydantic_ai.models.function import DeltaToolCall
+
+        self.seen.append(list(messages))
+        step = self.script[min(len(self.seen), len(self.script)) - 1]
+        if callable(step):
+            step = step(messages)
+        if isinstance(step, str):
+            yield step
+            return
+        import json as _json
+
+        yield {
+            i: DeltaToolCall(
+                name=name, json_args=_json.dumps(args), tool_call_id=f"call-{len(self.seen)}-{i}"
+            )
+            for i, (name, args) in enumerate(step)
+        }
+
+
+def last_tool_return(messages, name: str):
+    """The latest return of tool ``name`` in a request's messages."""
+    from pydantic_ai.messages import ModelRequest, ToolReturnPart
+
+    for m in reversed(messages):
+        if isinstance(m, ModelRequest):
+            for p in m.parts:
+                if isinstance(p, ToolReturnPart) and p.tool_name == name:
+                    return p.content
+    return None

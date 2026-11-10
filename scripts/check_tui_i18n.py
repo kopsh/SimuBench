@@ -15,6 +15,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WEB = ROOT / "web" / "src" / "i18n"
 
+#: Web-only wording (key prefixes in web/src/i18n): features the TUI does not have yet. The TUI must
+#: not grow keys of its own under these names — when it gets the feature, its terms move to SHARED.
+WEB_ONLY: tuple[str, ...] = (
+    "assistant.",  # the AI assistant: Web only in the first version (#871, D66)
+    "template.",  # "save as my template" (#875)
+)
+
 #: tui key → web key, for every term the two interfaces share.
 SHARED: dict[str, str] = {
     "common.on": "common.on",
@@ -133,6 +140,10 @@ def main() -> int:
     tui = flatten(tui_en.TERMS)
     web = flatten(parse_ts(WEB / "en.ts"))
     problems: list[str] = []
+    for prefix in WEB_ONLY:
+        if not any(k.startswith(prefix) for k in web):
+            problems.append(f"web-only prefix {prefix!r} has no key in en.ts")
+        problems += [f"tui key {k} is under the web-only {prefix!r}: share it instead" for k in tui if k.startswith(prefix)]
     for tui_key, web_key in SHARED.items():
         if tui_key not in tui:
             problems.append(f"tui key missing: {tui_key}")

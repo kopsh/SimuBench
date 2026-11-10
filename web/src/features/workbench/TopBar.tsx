@@ -1,4 +1,4 @@
-import { ChevronLeft, Command, History, Power, RotateCw, StepForward } from "lucide-react";
+import { ChevronLeft, Command, History, Power, RotateCw, Sparkles, StepForward } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +29,8 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const nowNs = Math.max(useEvents((s) => s.nowNs), session.now_ns);
   const setPalette = useWorkbench((s) => s.setPalette);
   const setHistory = useWorkbench((s) => s.setHistory);
+  const assistantOpen = useWorkbench((s) => s.assistantOpen);
+  const setAssistant = useWorkbench((s) => s.setAssistant);
   const advance = useAdvance(session.id);
   const stop = useStopSession();
   const reset = useResetSession(session.id);
@@ -142,6 +144,23 @@ export function TopBar({ session }: { session: SessionInfo }) {
         <span className="hidden xl:inline">{t("workbench.commandPalette")}</span>
         <Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd>
       </Button>
+      {session.bench_path && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={assistantOpen ? "secondary" : "ghost"}
+              size="icon"
+              className="size-8"
+              aria-label={t("assistant.open")}
+              aria-pressed={assistantOpen}
+              onClick={() => setAssistant(!assistantOpen)}
+            >
+              <Sparkles className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("assistant.open")}</TooltipContent>
+        </Tooltip>
+      )}
       {session.bench_path && (
         <Tooltip>
           <TooltipTrigger asChild>

@@ -63,6 +63,17 @@ def build_router(ctx: ApiContext) -> APIRouter:
         return file_errors(lambda: files.create_hello("ui"))  # type: ignore[no-any-return]
 
     @router.post(
+        "/api/benches/copy",
+        response_model=M.BenchDocument,
+        operation_id="copyBench",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The target file exists"}},
+    )
+    def copy_bench(req: M.CopyBenchRequest) -> M.BenchDocument:
+        """Copy a whole bench — instruments, wires, settings, layout — into a new file (#874)."""
+        return file_errors(lambda: files.copy(req.path, req.new_path, req.name, "ui"))  # type: ignore[no-any-return]
+
+    @router.post(
         "/api/benches/edit",
         response_model=M.BenchDocument,
         operation_id="editBench",

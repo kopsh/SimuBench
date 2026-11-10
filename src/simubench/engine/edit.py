@@ -279,10 +279,54 @@ def _replace(b: BenchDefinition, op: ReplaceInstrument, library: Callable[[str],
     b.wires = [w for w in b.wires if kept(w.from_) and kept(w.to)]
 
 
+_IPV4 = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.)(\d{1,3})")
+_TRAILING_DIGITS = re.compile(r"^(.*?)(\d*)$")
+
+
+def _next_address(address: str) -> str | None:
+    """The address one step on: the next GPIB primary address (1–30), the next IPv4 host of a
+    TCPIP resource, else the next number at the end of the resource's identifying field (a USB
+    serial, a host name). None when it cannot step."""
+    parts = address.split("::")
+    if len(parts) < 2:
+        return None
+    board = parts[0].upper()
+    if board.startswith("GPIB") and parts[1].isdigit():
+        primary = int(parts[1]) % 30 + 1
+        return "::".join([parts[0], str(primary), *parts[2:]])
+    if board.startswith("TCPIP") and (m := _IPV4.fullmatch(parts[1])):
+        host = int(m.group(2)) % 254 + 1
+        return "::".join([parts[0], f"{m.group(1)}{host}", *parts[2:]])
+    i = len(parts) - 2 if parts[-1].upper() in ("INSTR", "SOCKET") and len(parts) > 2 else len(parts) - 1
+    stem, digits = _TRAILING_DIGITS.match(parts[i]).groups()  # type: ignore[union-attr]
+    width = len(digits)
+    parts[i] = f"{stem}{int(digits or '1') + 1:0{width}d}"
+    return "::".join(parts)
+
+
+def free_address(b: BenchDefinition, address: str | None) -> str | None:
+    """``address``, or — when another instrument of the bench already has it — the first free one
+    after it (#874): the platform resolves the conflict, the user only needs an address that
+    works. None stays None (the instrument answers at its virtual address)."""
+    if address is None:
+        return None
+    taken = {i.address.upper() for i in b.instruments.values() if i.address}
+    candidate: str | None = address
+    for _ in range(1000):
+        if candidate is None or candidate.upper() not in taken:
+            break
+        candidate = _next_address(candidate)
+    if candidate is None or candidate.upper() in taken:
+        raise EditError(f"地址 {address} 已被使用，且找不到空闲地址；用 set_address 指定一个")
+    return candidate
+
+
 def _apply_one(b: BenchDefinition, op: Any) -> None:
     if isinstance(op, AddInstrument):
         _check_new_name(b, op.name)
-        b.instruments[op.name] = InstrumentInstance(model=op.model, label=op.label, address=op.address)
+        b.instruments[op.name] = InstrumentInstance(
+            model=op.model, label=op.label, address=free_address(b, op.address)
+        )
         b.layout[op.name] = (
             LayoutItem(x=op.x, y=op.y) if op.x is not None and op.y is not None else _free_position(b)
         )

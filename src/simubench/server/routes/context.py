@@ -26,6 +26,15 @@ IN_USE: dict[int | str, dict[str, Any]] = {
 }
 
 
+def assistant_of(manager: SessionManager) -> Any:
+    """The manager's assistant service, made on first use (tests put their own on the manager)."""
+    if getattr(manager, "assistant", None) is None:
+        from ...assistant.service import AssistantService
+
+        manager.assistant = AssistantService(manager)  # type: ignore[attr-defined]
+    return manager.assistant  # type: ignore[attr-defined]
+
+
 def host_ok(value: str | None) -> bool:
     if not value:
         return True
@@ -46,6 +55,7 @@ class ApiContext:
     library: DefinitionLibrary
     files: BenchFiles
     definition_files: DefinitionFiles
+    assistant: Any = None  # AssistantService (imported lazily: PydanticAI loads only with the app)
 
     @classmethod
     def of(cls, manager: SessionManager, token: str | None) -> ApiContext:
@@ -55,6 +65,7 @@ class ApiContext:
             library=DefinitionLibrary([manager.workspace / "instruments"]),
             files=manager.files,
             definition_files=DefinitionFiles(manager.files),
+            assistant=assistant_of(manager),
         )
 
     def auth(self, request: Request) -> None:
@@ -97,6 +108,8 @@ class ApiContext:
             raise HTTPException(403, str(exc)) from None
         except FileNotFoundError:
             raise HTTPException(404, "no such bench file") from None
+        except KeyError as exc:
+            raise self.not_found(exc) from None
         except Conflict as exc:
             raise HTTPException(409, {"message": str(exc), "current_sha256": exc.current_sha256}) from None
         except EditError as exc:

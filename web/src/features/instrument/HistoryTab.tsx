@@ -9,19 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { changeValue, savedAt } from "./model";
 
-function ChangeLine({ change }: { change: DefinitionChange }) {
+export function ChangeLine({ change }: { change: DefinitionChange }) {
   const { t } = useTranslation();
   const detail = change.detail ? t(`acceptance.field.${change.detail}`, { defaultValue: change.detail }) : null;
+  // An object added or removed whole (a wire) has no values to show.
+  const bare = change.old == null && change.new == null;
   return (
     <li className="flex flex-wrap items-baseline gap-x-1.5 text-[11px]">
       <span className="text-muted-foreground">{t(`acceptance.action.${change.action}`)}</span>
       <span>{t(`acceptance.kind.${change.kind}`, { defaultValue: change.kind })}</span>
       <span className="num break-all">{change.target}</span>
       {detail && <span className="text-muted-foreground">· {detail}</span>}
-      {change.action !== "added" && (
+      {change.action !== "added" && !bare && (
         <span className="num text-muted-foreground break-all">{changeValue(change.old)}</span>
       )}
-      {change.action !== "removed" && (
+      {change.action !== "removed" && !bare && (
         <>
           {change.action === "changed" && <span className="text-muted-foreground">→</span>}
           <span className="num break-all">{changeValue(change.new)}</span>

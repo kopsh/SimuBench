@@ -274,6 +274,550 @@
         "title": "AssetRegister",
         "type": "object"
       },
+      "AssistantConfig": {
+        "description": "The LLM the assistant talks to, as the settings page shows it: never the key itself.",
+        "properties": {
+          "api_key_set": {
+            "default": false,
+            "description": "Whether a key is stored; the key is write-only",
+            "title": "Api Key Set",
+            "type": "boolean"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The service's address, e.g. http://llm.internal:8000/v1",
+            "title": "Base Url"
+          },
+          "configured": {
+            "default": false,
+            "description": "Address and model are set: the assistant can be used",
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "context_tokens": {
+            "default": 32000,
+            "description": "The model's context length; older content is compacted before it fills",
+            "title": "Context Tokens",
+            "type": "integer"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "overridden": {
+            "description": "Fields the settings page set, over the server's defaults (environment or settings.json)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Overridden",
+            "type": "array"
+          },
+          "protocol": {
+            "default": "openai",
+            "description": "openai: /v1/chat/completions compatible; anthropic: /v1/messages compatible",
+            "enum": [
+              "openai",
+              "anthropic"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "timeout_s": {
+            "default": 60.0,
+            "description": "Per request, seconds",
+            "title": "Timeout S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "protocol",
+          "base_url",
+          "model",
+          "timeout_s",
+          "context_tokens",
+          "api_key_set",
+          "configured",
+          "overridden"
+        ],
+        "title": "AssistantConfig",
+        "type": "object"
+      },
+      "AssistantConfigUpdate": {
+        "description": "What the settings page saves; a field left out keeps its value.",
+        "properties": {
+          "api_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A new key; \"\" removes the stored one; null keeps it",
+            "title": "Api Key"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "context_tokens": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 1000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Tokens"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "enum": [
+                  "openai",
+                  "anthropic"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "reset": {
+            "default": false,
+            "description": "Drop every override: back to the server's defaults",
+            "title": "Reset",
+            "type": "boolean"
+          },
+          "timeout_s": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 600.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout S"
+          }
+        },
+        "title": "AssistantConfigUpdate",
+        "type": "object"
+      },
+      "AssistantConversation": {
+        "properties": {
+          "bench": {
+            "title": "Bench",
+            "type": "string"
+          },
+          "compacted": {
+            "default": false,
+            "description": "Some earlier content is only kept in compacted form for the LLM",
+            "title": "Compacted",
+            "type": "boolean"
+          },
+          "configured": {
+            "default": false,
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "running": {
+            "default": false,
+            "title": "Running",
+            "type": "boolean"
+          },
+          "turns": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantTurn"
+            },
+            "title": "Turns",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bench",
+          "turns",
+          "running",
+          "configured",
+          "compacted"
+        ],
+        "title": "AssistantConversation",
+        "type": "object"
+      },
+      "AssistantEvent": {
+        "description": "One event of the stream (``GET /api/assistant/events``, server-sent events).",
+        "properties": {
+          "index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The step's index in the turn",
+            "title": "Index"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantStep"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "turn": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssistantTurn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "turn_id": {
+            "title": "Turn Id",
+            "type": "string"
+          },
+          "type": {
+            "description": "text: a piece of the answer; step / step_done: a tool call starts / ends; compacted: older content was compacted; turn: the turn as it stands (sent at the end)",
+            "enum": [
+              "text",
+              "step",
+              "step_done",
+              "compacted",
+              "turn"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "type",
+          "turn_id",
+          "text",
+          "step",
+          "index",
+          "turn"
+        ],
+        "title": "AssistantEvent",
+        "type": "object"
+      },
+      "AssistantFileChange": {
+        "description": "What a turn changed in one file, in the bench's and instrument's language (no YAML).",
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/DefinitionChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "created": {
+            "default": false,
+            "title": "Created",
+            "type": "boolean"
+          },
+          "kind": {
+            "enum": [
+              "bench",
+              "definition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "created",
+          "changes"
+        ],
+        "title": "AssistantFileChange",
+        "type": "object"
+      },
+      "AssistantMessageRequest": {
+        "properties": {
+          "bench": {
+            "description": "The bench the conversation belongs to",
+            "title": "Bench",
+            "type": "string"
+          },
+          "text": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bench",
+          "text"
+        ],
+        "title": "AssistantMessageRequest",
+        "type": "object"
+      },
+      "AssistantStep": {
+        "description": "One tool call of a turn, shown as a short progress line (“正在添加示波器”), never JSON.",
+        "properties": {
+          "action": {
+            "description": "What the step does: a tool name, or for bench edits the edit operation (add_instrument, connect, set_state, ...)",
+            "title": "Action",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None while it runs",
+            "title": "Ok"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What it acts on: an instrument class, a name, a file",
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "action",
+          "subject",
+          "ok",
+          "error"
+        ],
+        "title": "AssistantStep",
+        "type": "object"
+      },
+      "AssistantStopRequest": {
+        "properties": {
+          "bench": {
+            "title": "Bench",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bench"
+        ],
+        "title": "AssistantStopRequest",
+        "type": "object"
+      },
+      "AssistantTestResult": {
+        "properties": {
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "message": {
+            "description": "What happened, in words; never contains the key",
+            "title": "Message",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "message",
+          "latency_ms"
+        ],
+        "title": "AssistantTestResult",
+        "type": "object"
+      },
+      "AssistantTurn": {
+        "properties": {
+          "compacted": {
+            "default": false,
+            "description": "Older content was compacted during this turn",
+            "title": "Compacted",
+            "type": "boolean"
+          },
+          "files": {
+            "description": "What changed: the summary under the answer",
+            "items": {
+              "$ref": "#/components/schemas/AssistantFileChange"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reply": {
+            "default": "",
+            "description": "The assistant's answer, as streamed",
+            "title": "Reply",
+            "type": "string"
+          },
+          "rolled_back": {
+            "default": false,
+            "description": "The user restored the files to before this turn",
+            "title": "Rolled Back",
+            "type": "boolean"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          },
+          "status": {
+            "default": "running",
+            "enum": [
+              "running",
+              "done",
+              "stopped",
+              "stuck",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/AssistantStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the turn ended early, in words (stopped by the user, going in circles, an error)",
+            "title": "Stop Reason"
+          },
+          "user": {
+            "description": "The user's message",
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user",
+          "reply",
+          "steps",
+          "files",
+          "status",
+          "stop_reason",
+          "compacted",
+          "rolled_back",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "AssistantTurn",
+        "type": "object"
+      },
       "BenchDocument": {
         "description": "A bench file's content as stored, with its diagnostics.",
         "properties": {
@@ -1392,6 +1936,44 @@
           "to"
         ],
         "title": "Connect",
+        "type": "object"
+      },
+      "CopyBenchRequest": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name of the copy; default the original's with “（副本）”",
+            "title": "Name"
+          },
+          "new_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Workspace-relative file of the copy; default <stem>-copy.bench.yaml beside it",
+            "title": "New Path"
+          },
+          "path": {
+            "description": "The bench to copy",
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ],
+        "title": "CopyBenchRequest",
         "type": "object"
       },
       "CoverageEntryInfo": {
@@ -5126,6 +5708,175 @@
         "title": "RestoreBenchRequest",
         "type": "object"
       },
+      "RestoreDefinitionRequest": {
+        "properties": {
+          "base_sha256": {
+            "title": "Base Sha256",
+            "type": "string"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "seq",
+          "base_sha256"
+        ],
+        "title": "RestoreDefinitionRequest",
+        "type": "object"
+      },
+      "RollbackFile": {
+        "properties": {
+          "action": {
+            "description": "restore: back to the version before the turn; delete: the turn created it",
+            "enum": [
+              "restore",
+              "delete"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "bench",
+              "definition"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "lost": {
+            "description": "With modified_since: the changes made after the turn that would be lost",
+            "items": {
+              "$ref": "#/components/schemas/DefinitionChange"
+            },
+            "title": "Lost",
+            "type": "array"
+          },
+          "modified_since": {
+            "default": false,
+            "description": "Changed after the turn (e.g. by hand on the canvas)",
+            "title": "Modified Since",
+            "type": "boolean"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "action",
+          "modified_since",
+          "lost"
+        ],
+        "title": "RollbackFile",
+        "type": "object"
+      },
+      "RollbackPlan": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/RollbackFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "sessions": {
+            "description": "Running sessions that use one of the files: stopped first",
+            "items": {
+              "type": "string"
+            },
+            "title": "Sessions",
+            "type": "array"
+          },
+          "turn_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last turn; None when there is nothing to restore",
+            "title": "Turn Id"
+          }
+        },
+        "required": [
+          "turn_id",
+          "files",
+          "sessions"
+        ],
+        "title": "RollbackPlan",
+        "type": "object"
+      },
+      "RollbackRequest": {
+        "properties": {
+          "bench": {
+            "title": "Bench",
+            "type": "string"
+          },
+          "confirm_lost": {
+            "default": false,
+            "description": "The user agreed to lose the changes made after the turn",
+            "title": "Confirm Lost",
+            "type": "boolean"
+          },
+          "stop_sessions": {
+            "default": false,
+            "description": "The user agreed to stop the sessions using the files",
+            "title": "Stop Sessions",
+            "type": "boolean"
+          },
+          "turn_id": {
+            "description": "The last turn (the plan's turn_id)",
+            "title": "Turn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bench",
+          "turn_id"
+        ],
+        "title": "RollbackRequest",
+        "type": "object"
+      },
+      "RollbackResult": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "boolean"
+          },
+          "needs": {
+            "anyOf": [
+              {
+                "enum": [
+                  "confirm_lost",
+                  "stop_sessions"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Not done yet: what the user has to agree to first",
+            "title": "Needs"
+          },
+          "plan": {
+            "$ref": "#/components/schemas/RollbackPlan"
+          }
+        },
+        "required": [
+          "done",
+          "needs",
+          "plan"
+        ],
+        "title": "RollbackResult",
+        "type": "object"
+      },
       "RunDetail": {
         "properties": {
           "events": {
@@ -5637,6 +6388,72 @@
           "data"
         ],
         "title": "SaveBenchRequest",
+        "type": "object"
+      },
+      "SaveTemplateRequest": {
+        "properties": {
+          "base_sha256": {
+            "description": "sha256 of the bench as read",
+            "title": "Base Sha256",
+            "type": "string"
+          },
+          "bench_path": {
+            "title": "Bench Path",
+            "type": "string"
+          },
+          "instrument": {
+            "description": "The bench instrument to save",
+            "title": "Instrument",
+            "type": "string"
+          },
+          "name": {
+            "description": "The template's name; the id is made from it",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "bench_path",
+          "base_sha256",
+          "instrument",
+          "name"
+        ],
+        "title": "SaveTemplateRequest",
+        "type": "object"
+      },
+      "SaveTemplateResponse": {
+        "properties": {
+          "based_on": {
+            "description": "The model the template was expanded from",
+            "title": "Based On",
+            "type": "string"
+          },
+          "bench": {
+            "$ref": "#/components/schemas/BenchDocument",
+            "description": "The bench, its instrument now pointing at the template"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DefinitionDocument",
+            "description": "The new template: a definition without extends"
+          },
+          "not_folded": {
+            "description": "Initial settings that could not become defaults (channels set differently); they stay in the bench",
+            "items": {
+              "type": "string"
+            },
+            "title": "Not Folded",
+            "type": "array"
+          }
+        },
+        "required": [
+          "definition",
+          "bench",
+          "based_on",
+          "not_folded"
+        ],
+        "title": "SaveTemplateResponse",
         "type": "object"
       },
       "ScopeMeasurement": {
@@ -7579,6 +8396,369 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/assistant/config": {
+      "get": {
+        "description": "The LLM settings; the key is never returned, only whether one is set.",
+        "operationId": "getAssistantConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Config"
+      },
+      "put": {
+        "description": "Override the server's defaults (saved in the workspace's .simubench/, owner-only).",
+        "operationId": "saveAssistantConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistantConfigUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantConfig"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Config"
+      }
+    },
+    "/api/assistant/config/test": {
+      "post": {
+        "description": "One short request to the configured LLM, with a tool call: does it answer, can it call tools.",
+        "operationId": "testAssistantConfig",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantTestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Test Config"
+      }
+    },
+    "/api/assistant/conversation": {
+      "delete": {
+        "description": "Clear the conversation (the files it changed stay as they are).",
+        "operationId": "clearAssistantConversation",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "bench",
+            "required": true,
+            "schema": {
+              "title": "Bench",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "A turn of this conversation is running"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clear"
+      },
+      "get": {
+        "operationId": "getAssistantConversation",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "bench",
+            "required": true,
+            "schema": {
+              "title": "Bench",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantConversation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Conversation"
+      }
+    },
+    "/api/assistant/events": {
+      "get": {
+        "description": "Server-sent events of a turn (each `data:` line one AssistantEvent), after `after`.",
+        "operationId": "assistantEvents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "bench",
+            "required": true,
+            "schema": {
+              "title": "Bench",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "turn",
+            "required": true,
+            "schema": {
+              "title": "Turn",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantEvent"
+                }
+              },
+              "text/event-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Events"
+      }
+    },
+    "/api/assistant/messages": {
+      "post": {
+        "description": "Start a turn; follow it with GET /api/assistant/events.",
+        "operationId": "sendAssistantMessage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistantMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantTurn"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "A turn of this conversation is running"
+          },
+          "422": {
+            "description": "The LLM is not configured"
+          }
+        },
+        "summary": "Send"
+      }
+    },
+    "/api/assistant/rollback": {
+      "get": {
+        "description": "What \"restore to before the last turn\" would do: files restored or deleted, changes made\nsince that would be lost, sessions to stop.",
+        "operationId": "assistantRollbackPlan",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "bench",
+            "required": true,
+            "schema": {
+              "title": "Bench",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollbackPlan"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback Plan"
+      },
+      "post": {
+        "description": "Restore the files the last turn wrote, delete the ones it created (the user's action).",
+        "operationId": "assistantRollback",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollbackResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Not the last turn any more, or scripts are connected"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rollback"
+      }
+    },
+    "/api/assistant/stop": {
+      "post": {
+        "description": "Stop the running turn; what it already wrote can be restored.",
+        "operationId": "stopAssistantTurn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssistantStopRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssistantConversation"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop"
+      }
+    },
     "/api/benches": {
       "get": {
         "operationId": "listBenches",
@@ -7599,6 +8779,48 @@
           }
         },
         "summary": "Benches"
+      }
+    },
+    "/api/benches/copy": {
+      "post": {
+        "description": "Copy a whole bench — instruments, wires, settings, layout — into a new file (#874).",
+        "operationId": "copyBench",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyBenchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The target file exists"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Copy Bench"
       }
     },
     "/api/benches/edit": {
@@ -8013,6 +9235,48 @@
         "summary": "Definitions"
       }
     },
+    "/api/definitions/templates": {
+      "post": {
+        "description": "\"Save as my template\" (#875): the bench instrument, its settings folded in, as a\ndefinition of its own (no extends); the bench's instrument then points at it.",
+        "operationId": "saveAsTemplate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveTemplateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveTemplateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The bench changed since base_sha256 was read"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Template"
+      }
+    },
     "/api/definitions/{def_id}": {
       "get": {
         "operationId": "getDefinition",
@@ -8374,6 +9638,59 @@
           }
         },
         "summary": "Definition Change List"
+      }
+    },
+    "/api/definitions/{def_id}/restore": {
+      "post": {
+        "description": "Write an earlier version of a workspace definition back as the newest one (D35).",
+        "operationId": "restoreDefinition",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestoreDefinitionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionDocument"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "The file changed since base_sha256 was read"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Restore Definition"
       }
     },
     "/api/diagnostics": {

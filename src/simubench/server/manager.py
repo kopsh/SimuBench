@@ -338,6 +338,8 @@ class SessionManager:
         self.record_dir = record_dir
         self.record_raw = record_raw
         self.allow_plugins = allow_plugins
+        #: The Web service's own port, when this manager serves one (``simubench serve``).
+        self.web_port: int | None = None
         self.sessions: dict[str, ServedSession] = {}
         self.files = BenchFiles(workspace)
         self.runs = Runs(record_dir, [self.workspace / "instruments"])
