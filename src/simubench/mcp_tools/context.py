@@ -14,12 +14,12 @@ from ..engine.record import jsonable
 from ..models import api as M
 from ..server.benchfiles import BenchFiles, Conflict
 from ..server.definitionfiles import DefinitionFiles
+from ..server.drive import scpi_response
 from ..server.manager import (
     BenchInvalid,
     ClientsConnected,
     ServedSession,
     SessionManager,
-    scpi_response,
 )
 
 
@@ -112,7 +112,7 @@ class McpContext:
     def session_summary(self, s: ServedSession, info: M.SessionInfo | None = None) -> dict[str, Any]:
         # `info` when the caller already described the session: describe re-projects every
         # instrument's state, deviations and nets — not something to do twice (issue 641).
-        info = info or self.manager.describe(s)
+        info = info or self.manager.views.describe(s)
         rel = info.bench_path
         out: dict[str, Any] = {
             "session_id": info.id,

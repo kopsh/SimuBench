@@ -8,7 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ...models import api as M
 from ...models.bench import Fault
-from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote, fault_info
+from .. import drive, views
+from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote
+from ..views import fault_info
 from .context import IN_USE, ApiContext
 
 
@@ -28,7 +30,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def sessions() -> list[M.SessionInfo]:
-        return [manager.describe(s) for s in manager.sessions.values()]
+        return [manager.views.describe(s) for s in manager.sessions.values()]
 
     @router.post(
         "/api/sessions",
@@ -56,7 +58,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
             ) from None
         except (ValueError, KeyError) as exc:
             raise HTTPException(422, str(exc).splitlines()[0]) from None
-        return manager.describe(s)
+        return manager.views.describe(s)
 
     @router.get(
         "/api/sessions/{sid}",
@@ -65,7 +67,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def get_session(sid: str) -> M.SessionInfo:
-        return manager.describe(served(sid))
+        return manager.views.describe(served(sid))
 
     @router.delete(
         "/api/sessions/{sid}",
@@ -100,7 +102,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
             ) from None
         except (ValueError, KeyError) as exc:
             raise HTTPException(422, str(exc).splitlines()[0]) from None
-        return manager.describe(s)
+        return manager.views.describe(s)
 
     @router.get(
         "/api/sessions/{sid}/instruments/{name}",
@@ -118,7 +120,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         port = next(
             (lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None
         )
-        info = manager.describe_instrument(
+        info = manager.views.describe_instrument(
             s.session,
             inst,
             index,
@@ -138,7 +140,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     def internals(sid: str, name: str) -> M.InstrumentInternals:
         s = served(sid)
         try:
-            return manager.internals(s, name)
+            return views.internals(s, name)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -155,7 +157,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.scpi, s, name, req.command, client)
+            return await asyncio.to_thread(drive.scpi, s, name, req.command, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -174,7 +176,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.configure, s, name, req.path, req.value, client)
+            return await asyncio.to_thread(drive.configure, s, name, req.path, req.value, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -190,7 +192,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         """``points`` (tui-screens.md 6.1): return per-bin min/max instead of every sample."""
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.scope_screen, s, name, points)
+            return await asyncio.to_thread(views.scope_screen, s, name, points)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -208,7 +210,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         s = served(sid)
         try:
             s.require_local(name)
-            return await asyncio.to_thread(manager.panel, s, name, req.action, client)
+            return await asyncio.to_thread(drive.panel, s, name, req.action, client)
         except KeyError as exc:
             raise not_found(exc) from None
         except InstrumentRemote as exc:
@@ -238,7 +240,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     async def net_levels(sid: str) -> M.NetLevels:
         """Every net's level and a thumbnail, for the canvas (D44)."""
-        return await asyncio.to_thread(manager.net_levels, served(sid))
+        return await asyncio.to_thread(views.net_levels, served(sid))
 
     @router.get(
         "/api/sessions/{sid}/nets/{net}/waveform",
@@ -251,7 +253,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     ) -> M.NetWaveform:
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.net_waveform, s, net, window_s, points)
+            return await asyncio.to_thread(views.net_waveform, s, net, window_s, points)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -265,7 +267,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         """A virtual probe: the net's signal without loading it, broken down by source (M4)."""
         s = served(sid)
         try:
-            return await asyncio.to_thread(manager.probe, s, net)
+            return await asyncio.to_thread(views.probe, s, net)
         except KeyError as exc:
             raise not_found(exc) from None
 
@@ -336,7 +338,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     def readings(sid: str, name: str) -> M.InstrumentReadings:
         try:
-            return manager.readings(served(sid), name)
+            return views.readings(served(sid), name)
         except KeyError as exc:
             raise not_found(exc) from None
 

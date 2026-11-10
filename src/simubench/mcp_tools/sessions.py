@@ -13,7 +13,8 @@ from ..engine.commands import classify
 from ..engine.events import project
 from ..engine.record import jsonable
 from ..models.bench import Fault
-from ..server.manager import ClientsConnected, fault_info
+from ..server.manager import ClientsConnected
+from ..server.views import fault_info
 from .context import McpContext, scpi_payload
 
 
@@ -87,7 +88,7 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         they form."""
         guard()
         s = served(session_id)
-        info = manager.describe(s)
+        info = manager.views.describe(s)
         return {
             **session_summary(s, info),
             "parts": [

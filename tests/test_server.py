@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from simubench.server.app import _host_ok, create_app
 from simubench.server.manager import SessionManager
-from simubench.server.manager import fault_info as app_fault_info
+from simubench.server.views import fault_info as app_fault_info
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "test-token"

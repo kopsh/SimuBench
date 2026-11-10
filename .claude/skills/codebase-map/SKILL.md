@@ -35,7 +35,8 @@ plausible fake).
 | The packaged Hello World bench, copied into a workspace by `POST /api/benches/hello` (D65) | `library/examples/hello.bench.yaml`, `server/benchfiles.py` (`create_hello`) |
 | File models (pydantic) → JSON Schema | `models/bench.py` (`simubench.bench/2`), `models/definition.py` (`simubench.instrument/1`) |
 | HTTP/WS message models → OpenAPI | `models/api.py` |
-| FastAPI app (assembly, middleware, SPA) / sessions served / component catalog | `server/app.py`, `server/manager.py`, `server/catalog.py` |
+| FastAPI app (assembly, middleware, SPA) / session lifecycle / component catalog | `server/app.py`, `server/manager.py` (`SessionManager`: start, reset, stop, try sessions), `server/catalog.py` |
+| Read-only session DTOs (describe, internals, scope screen, readings, nets, faults) / actions (SCPI, configure, panel) | `server/views.py` (`manager.views` for the ones that need the manager), `server/drive.py` |
 | HTTP routes, one router per area (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
 | MCP tools, one module per area (bench, definitions, sessions); shared guard / errors | `mcp_server.py` (assembly), `mcp_tools/*.py` (`context.py`: `McpContext`) |
 | PyVISA backend / raw socket / HiSLIP | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py` |

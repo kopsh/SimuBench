@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ...library.coverage import cases_for_model, run_cases
 from ...models import api as M
+from .. import drive, views
 from .context import ApiContext
 
 
@@ -96,7 +97,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         """Send one program message to the try session's instrument (the same reply format as a
         bench session's scpi interface)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(while_idle, e, manager.scpi, e.served, e.definition, req.command)
+        return await asyncio.to_thread(while_idle, e, drive.scpi, e.served, e.definition, req.command)
 
     @router.post(
         "/api/try/{sid}/configure",
@@ -108,7 +109,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         """Set one of the try session's settings (the same interface as a bench session's)."""
         e = try_entry(sid)
         return await asyncio.to_thread(
-            while_idle, e, manager.configure, e.served, e.definition, req.path, req.value
+            while_idle, e, drive.configure, e.served, e.definition, req.path, req.value
         )
 
     @router.post(
@@ -120,7 +121,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     async def try_panel(sid: str, req: M.PanelRequest) -> M.PanelResponse:
         """A front-panel button on the try session's instrument (D32)."""
         e = try_entry(sid)
-        return await asyncio.to_thread(while_idle, e, manager.panel, e.served, e.definition, req.action)
+        return await asyncio.to_thread(while_idle, e, drive.panel, e.served, e.definition, req.action)
 
     @router.get(
         "/api/try/{sid}/instrument",
@@ -138,7 +139,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except KeyError as exc:
             raise not_found(exc) from None
         index = list(e.served.session.instruments).index(name)
-        info = manager.describe_instrument(e.served.session, inst, index, None)
+        info = manager.views.describe_instrument(e.served.session, inst, index, None)
         info.remote, info.local = e.served.remote_clients(name), name in e.served.local
         return info
 
@@ -152,7 +153,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         """The try session's read-only component graph (issue 20), as the acceptance page shows it."""
         e = try_entry(sid)
         try:
-            return manager.internals(e.served, e.definition)
+            return views.internals(e.served, e.definition)
         except KeyError as exc:
             raise not_found(exc) from None
 
