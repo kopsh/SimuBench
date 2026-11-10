@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,8 @@ from ..library.templates import templates as instrument_templates
 from ..library.templates.draft import suggester as template_suggester
 from ..server.definitionfiles import DefinitionFiles
 from .context import McpContext
+
+log = logging.getLogger(__name__)
 
 
 def _pointer_diff(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
@@ -251,7 +254,8 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             for i in lib.ids():
                 try:
                     out.append(lib.get(i))
-                except Exception:
+                except Exception as exc:  # a definition that does not load supports no command
+                    log.debug("draft_bench_from_script: definition %r skipped: %s", i, exc)
                     continue
             return out
 

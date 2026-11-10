@@ -14,6 +14,7 @@ implemented or accepted command of the table is in the definition and has at lea
 from __future__ import annotations
 
 import itertools
+import logging
 import os
 import re
 import time
@@ -36,6 +37,8 @@ if TYPE_CHECKING:
 
 Level = Literal["implemented", "accepted", "not_modeled"]
 LEVEL_TEXT = {"implemented": "实现", "accepted": "接受", "not_modeled": "未实现"}
+
+log = logging.getLogger(__name__)
 
 
 class _Model(BaseModel):
@@ -557,7 +560,8 @@ def cases_for_model(workspace: Path, def_id: str) -> list[tuple[str, int]]:
     for path in find_cases_files(workspace):
         try:
             cases = load_cases(path)
-        except Exception:
+        except Exception as exc:  # not a cases file, or a broken one: the case runner reports it
+            log.debug("cases for %r: %s skipped: %s", def_id, path, exc)
             continue
         if cases.model == def_id:
             out.append((path.relative_to(workspace).as_posix(), len(cases.cases)))

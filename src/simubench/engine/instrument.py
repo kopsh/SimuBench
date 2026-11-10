@@ -840,7 +840,8 @@ class Instrument:
                 try:
                     for form in _header_forms(entry.pattern):
                         keys.setdefault(_header_key(form), entry.header)
-                except Exception:
+                except Exception as exc:  # a coverage entry that does not parse only loses a suggestion
+                    log.debug("%s: header suggestion skipped for %r: %s", self.name, entry.header, exc)
                     continue
             for compiled in self._commands:
                 for form in _header_forms(compiled.pattern):
