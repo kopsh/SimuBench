@@ -1,0 +1,342 @@
+schema: simubench.instrument/1
+id: keysight-m8194a
+manufacturer: Keysight Technologies
+model: M8194A
+class: function_generator
+version: 1
+description: >-
+  Keysight M8194A 120 GSa/s 任意波形发生器模块（AXIe，8 位 DAC，1/2/4 个差分通道，每通道 512 kSa）。
+  真实型号（D42）：命令、参数与回复按 Keysight M8194A 120 GSa/s Arbitrary Waveform Generator User Guide
+  （M8194-91020）第 4 章核对，规格按数据手册（5992-3361）。已建模：每通道的幅度、偏置、高/低电平、终端电压、
+  差分偏置与输出使能，DAC 模式、采样时钟范围与频率、参考时钟，开始与停止信号产生。波形存储（:TRACe 段的
+  定义、按偏移装载二进制块或数值列表、查询、命名与注释，#879）按 8 位 DAC 码建模；从文件导入（:TRACe:IMPort）与标记未建模。
+reference:
+  title: Keysight M8194A 120 GSa/s Arbitrary Waveform Generator User Guide
+  document: M8194-91020
+  version: "Edition 2.0, October 2019"
+  firmware: "*IDN? 按手册写法 x.x.x.x-h（软前面板版本-硬件版本），示例值"
+identity:
+  idn: "Keysight Technologies,M8194A,{serial},{firmware}"
+  serial: "MY12345678"
+  firmware: "0.1.23.0-1"
+format:
+  number: nr3
+  digits: 15
+  sign: false
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  error_code: plain
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]", ":SYSTem:ERRor:COUNt"]
+error_queue: 30
+errors:
+  0: "No error"
+  -100: "Command error"
+  -101: "Invalid character"
+  -102: "Syntax error"
+  -103: "Invalid separator"
+  -104: "Data type error"
+  -108: "Parameter not allowed"
+  -109: "Missing parameter"
+  -110: "Command header error"
+  -113: "Undefined header"
+  -114: "Header suffix out of range"
+  -120: "Numeric data error"
+  -123: "Numeric overflow"
+  -128: "Numeric data not allowed"
+  -131: "Invalid suffix"
+  -138: "Suffix not allowed"
+  -141: "Invalid character data"
+  -148: "Character data not allowed"
+  -150: "String data error"
+  -151: "Invalid string data"
+  -158: "String data not allowed"
+  -161: "Invalid block data"
+  -168: "Block data not allowed"
+  -200: "Execution error"
+  -221: "Settings conflict"
+  -222: "Data out of range"
+  -160: "Block data error"
+  -223: "Too much data"
+  -225: "Out of memory"
+  -224: "Illegal parameter value"
+  -240: "Hardware error"
+  -300: "Device-specific error"
+  -350: "Queue overflow"
+  -400: "Query error"
+specs:
+  source: 数据手册 5992-3361（General characteristics、Sample memory、Out 1, 2, 3, 4、Sync B In）；用户指南 M8194-91020（Output Tab、Clock/Sync Tab）
+  sample_rate: "115.2–120.2 GSa/s（HIGH）、107.2–112.2 GSa/s（MEDium）、95.6–100.2 GSa/s（LOW）；三档之间的空隙不检查"
+  dac_resolution_bits: 8
+  memory: "512 kSa 每通道；段长为 128 的倍数、最短 128 点（段存储未建模）"
+  amplitude: "75 mVpp–0.8 Vpp 单端（50 Ω）；差分 150 mVpp–1.6 Vpp"
+  voltage_window: "-1.0 至 +2.5 V 单端（50 Ω）"
+  termination_voltage: "-1.5 至 +3.5 V"
+  output_impedance_ohm: 50
+  reset: "*RST 回到模型的默认状态：手册只写出厂默认状态，没有列出各项数值，取模型值（幅度 0.5 V、偏置 0、终端电压 0、输出关、DAC 四通道、采样频率 120 GSa/s HIGH）；错误队列不清（:SYSTem:ERRor[:NEXT]）"
+  analog_bandwidth: "45 GHz（典型，3 dB）"
+  ref_clock_in: "Sync In B：200–300 MHz，500–900 mVpp，50 Ω，交流耦合"
+state:
+  dac.mode:
+    type: enum
+    options: [SINGle, DUAL, FOUR, MARKer, DCMarker]
+    default: FOUR
+    # 手册未给出 *RST 的 DAC 模式；取四通道（选件 004）。MARKer/DCMarker 把通道 3、4 用作标记输出，
+    # 标记未建模：这两个模式只保存并回读，不改变通道可用性。
+    label: DAC 模式
+    label_en: DAC mode
+  freq.raster:
+    type: float
+    unit: HZ
+    min: 9.56e10
+    max: 1.202e11
+    default: 1.2e11
+    label: 采样频率
+    label_en: Sample frequency
+  freq.range:
+    type: enum
+    options: [LOW, MEDium, HIGH]
+    default: HIGH
+    label: 采样频率范围
+    label_en: Sample frequency range
+  rosc.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 参考时钟源
+    label_en: Reference clock source
+  rosc.ext_freq:
+    type: float
+    unit: HZ
+    min: 2.0e8
+    max: 3.0e8
+    default: 2.85e8
+    label: 外部参考频率
+    label_en: External reference frequency
+  rosc.int_freq:
+    type: float
+    unit: HZ
+    default: 2.85e8
+    label: 内部参考频率（覆盖值）
+    label_en: Internal reference frequency (override)
+  rosc.override:
+    type: bool
+    default: false
+    label: 覆盖校准的内部参考频率
+    label_en: Override calibrated internal reference frequency
+  rosc.out:
+    type: bool
+    default: false
+    label: Sync Out B 输出
+    label_en: Sync Out B output
+  run.state:
+    type: bool
+    default: false
+    label: 信号产生
+    label_en: Generating
+  system.slot:
+    type: int
+    min: 1
+    max: 14
+    default: 2
+    readonly: true
+    label: AXIe 槽号
+    label_en: AXIe slot
+  system.hw_revision:
+    type: string
+    default: "1"
+    readonly: true
+    label: 硬件版本
+    label_en: Hardware revision
+  system.identify:
+    type: bool
+    default: false
+    label: 识别（前面板 Access 灯闪烁）
+    label_en: Identify
+  system.version:
+    type: string
+    default: "1999.0"
+    readonly: true
+    label: SCPI 版本
+    label_en: SCPI version
+  system.options:
+    type: enum
+    options: ["004"]
+    default: "004"
+    readonly: true
+    label: 已安装选件
+    label_en: Installed options
+channels:
+  count: 4
+channel_state:
+  amplitude: {type: float, unit: V, min: 0.075, max: 0.8, default: 0.5, label: 幅度（单端 Vpp）, label_en: Amplitude (single-ended Vpp)}
+  offset: {type: float, unit: V, min: -1.0, max: 2.5, default: 0.0, label: 偏置, label_en: Offset}
+  term: {type: float, unit: V, min: -1.5, max: 3.5, default: 0.0, label: 终端电压, label_en: Termination voltage}
+  dioffset: {type: float, default: 0.0, label: 差分偏置, label_en: Differential offset}
+  output: {type: bool, default: false, electrical: true, label: 输出, label_en: Output}
+components:
+  # 内部参考振荡器（标称 285 MHz，手册 :OUTPut:ROSCillator）；外部参考与覆盖校准只改 PLL 计算，不改输出频率，未建模。
+  - name: clock
+    type: reference_clock
+    params: {source: INTernal}
+channel_components:
+  # 波形存储（:TRACe 段，#879）：8 位 DAC 码按段定义、按偏移装载，通道循环播放段 1，经零阶保持 DAC（sin(x)/x 滚降）；
+  # 没有定义段时只有偏置。采样率取 :FREQuency:RASTer。
+  - name: synth
+    type: waveform_synth
+    params:
+      function: ARB
+      frequency: 1.0
+      bandwidth: 4.5e10
+      arb: arb
+      clock: clock
+  - name: arb
+    type: arb_segments
+    params:
+      rate: $freq.raster
+      scale: 0.5
+      dac_bits: 8
+      # 数据手册 5992-3361：段长是 128 的倍数、最短 128 点，每通道 512 kSa；没有序列选件时段号只能是 1（手册 :TRACe:DEFine）。
+      granularity: 128
+      min_length: 128
+      max_samples: 524288
+      max_id: 1
+      max_lines: 8192
+  - name: level
+    type: amplitude_level
+    params:
+      amplitude: $ch.amplitude
+      unit: VPP
+      offset: $ch.offset
+      load_setting: 50.0
+      vpp_min: 0.075
+      vpp_max: 0.8
+  - name: out
+    type: output_stage
+    params:
+      z_out: 50.0
+      enabled: $ch.output
+wiring:
+  channel:
+    - [synth.out, level.in]
+    - [level.out, out.in]
+ports:
+  channel:
+    "CH{n}": out.pin
+display:
+  template: function_generator
+  channel_summary: [amplitude, offset, output]
+capabilities: [function_generator]
+commands:
+  # ---- 公共命令（第 4 章 Common Commands）---------------------------------------------------
+  - header: "*OPT"
+    state: system.options
+    set: false
+  # ---- 信号产生（:ABOrt、:INITiate）：状态只保存，不门控输出（输出由 :OUTPut 控制）-----------------
+  - header: ":ABORt<ch>"
+    state: run.state
+    set_value: false
+    query: false
+  - header: ":INITiate:IMMediate<ch>"
+    state: run.state
+    set_value: true
+    query: false
+  - header: ":INITiate:ASYNc<ch>"
+    state: run.state
+    set_value: true
+    query: false
+  # ---- :INSTrument --------------------------------------------------------------------------
+  - header: ":INSTrument:DACMode"
+    state: dac.mode
+  - header: ":INSTrument:HWRevision"
+    state: system.hw_revision
+    set: false
+  - header: ":INSTrument:IDENtify"
+    state: system.identify
+    set_value: true
+    query: false
+  - header: ":INSTrument:IDENtify:STOP"
+    state: system.identify
+    set_value: false
+    query: false
+  - header: ":INSTrument:SLOT[:NUMBer]"
+    state: system.slot
+    set: false
+    reply: '"{value}"'
+  # ---- :TRACe（波形存储段，#879）--------------------------------------------------------------
+  - header: ":TRACe<ch>:CATalog"
+    op: ch.arb.catalog
+    set: false
+  - header: ":TRACe<ch>:COMMent"
+    op: ch.arb.comment
+    params: [{name: segment_id, type: int}, {name: text, type: string, optional: true}]
+  - header: ":TRACe<ch>[:DATA]"
+    op: ch.arb.data
+    params: [{name: segment_id, type: int}, {name: offset, type: int}, {name: data, type: raw}]
+  - header: ":TRACe<ch>:DEFine"
+    op: ch.arb.define
+    query: false
+    params: [{name: segment_id, type: int}, {name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DEFine:NEW"
+    op: ch.arb.define_new
+    set: false
+    params: [{name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DEFine:WONLy"
+    op: ch.arb.define_wonly
+    query: false
+    params: [{name: segment_id, type: int}, {name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DEFine:WONLy:NEW"
+    op: ch.arb.define_wonly_new
+    set: false
+    params: [{name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DELete"
+    op: ch.arb.delete
+    query: false
+    params: [{name: segment_id, type: int}]
+  - header: ":TRACe<ch>:DELete:ALL"
+    op: ch.arb.delete_all
+    query: false
+  - header: ":TRACe<ch>:NAME"
+    op: ch.arb.name
+    params: [{name: segment_id, type: int}, {name: text, type: string, optional: true}]
+  # ---- :OUTPut ------------------------------------------------------------------------------
+  - header: ":OUTPut<ch>:DIOFfset"
+    state: ch.dioffset
+  - header: ":OUTPut<ch>[:STATe]"
+    state: ch.output
+    dangerous: true
+  - header: ":OUTPut:ROSCillator[:STATe]"
+    state: rosc.out
+  # ---- [:SOURce]：采样时钟、参考时钟与电平 ---------------------------------------------------
+  - header: "[:SOURce]:FREQuency:RASTer"
+    state: freq.raster
+  - header: "[:SOURce]:FREQuency:RANGe"
+    state: freq.range
+  - header: "[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate][:AMPLitude]"
+    state: ch.amplitude
+  - header: "[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:HIGH"
+    op: ch.level.high
+    params: [{name: value, type: float, unit: V, optional: true}]
+  - header: "[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:LOW"
+    op: ch.level.low
+    params: [{name: value, type: float, unit: V, optional: true}]
+  - header: "[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:OFFSet"
+    state: ch.offset
+  - header: "[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:TERMination"
+    state: ch.term
+  - header: "[:SOURce]:ROSCillator:SOURce"
+    state: rosc.source
+  - header: "[:SOURce]:ROSCillator:EXTernal:FREQuency"
+    state: rosc.ext_freq
+  - header: "[:SOURce]:ROSCillator:INTernal:FREQuency"
+    state: rosc.int_freq
+  - header: "[:SOURce]:ROSCillator:INTernal:FREQuency:OVERride"
+    state: rosc.override
+  - header: "[:SOURce]:ROSCillator:CALibration[:FREQuency]"
+    state: rosc.int_freq
+    set: false
+    reply: "2.85000000000000E+08"
+  # ---- :SYSTem ------------------------------------------------------------------------------
+  - header: ":SYSTem:VERSion"
+    state: system.version
+    set: false

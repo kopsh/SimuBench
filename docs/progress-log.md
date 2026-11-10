@@ -1753,3 +1753,25 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 红：唯一的 `main红了` issue，其余 PR 被挂起 | ✅ #822；本 PR 被打上 `等main变绿` |
 | 绿：issue 关闭，挂起的 PR 去标签并合并 | ✅ 本 PR 合并即证据 |
 | 查询失败不静默去标签 | ✅ 代码路径（#821）；没有制造 API 故障去演，已在作业里报错并保留标签 |
+
+## Keysight M8194A 真实型号（波形存储另立 Issue 879）
+
+`keysight-m8194a`：按 User Guide M8194-91020 第 4 章与数据手册 5992-3361 建 4 通道 AWG 的定义、覆盖表（102 条命令：实现 25，其余 `not_modeled` 并写明原因）、14 条手册用例、示例测试台（通道 1、2 接 UXR0334B）与按手册编程建议写的示例脚本。已建模：每通道幅度、偏置、高/低电平、终端电压、差分偏置、输出开关；DAC 模式、采样频率与范围、参考时钟、开始/停止；身份、选件、错误队列、SCPI 版本。波形存储（`:TRACe` 段定义、按偏移装载、8 位 DAC 块）没有通用组件，已开 #879，本型号不写专用代码；因此输出目前只有直流电平，状态寄存器组（`:STATus`）、文件系统（`:MMEMory`）与多模块同步也未建模。手册没有给 `*RST` 的各项数值，覆盖表如实标为模型值。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义通过校验，不改 `library/components/` | ✅ `simubench validate`；`tests/test_model_components.py` |
+| 覆盖表覆盖手册全部命令头 | ✅ `simubench coverage keysight-m8194a`（102 条） |
+| 每条实现的命令有手册用例 | ✅ `simubench cases tests/models/keysight-m8194a/cases.yaml`（14/14） |
+| 示例测试台与脚本在测试里跑通 | ✅ `tests/test_keysight_m8194a.py` |
+| 缺失的波形存储能力立项，不在型号内绕过 | ✅ #879（`核心`） |
+
+## 任意波形的分段存储 `arb_segments`；M8194A 装载波形（Issue 879）
+
+新增通用组件 `arb_segments`（`library/components/arb_segments.py`，类别 function_generator 的 `arb_memory` 块）：8 位 DAC 码按段定义（`define`、`define_new`、只写变体）、按偏移装载（`data`：IEEE 块或数值列表，查询回块）、`catalog`、`name`/`comment`、`delete`/`delete_all`，段长粒度与最短长度、总量限制（-225）、超出段长 -223、只写段不能回读（-221，错误号为模型选择）；播放循环经零阶保持 DAC（谱按 sinc 加权）。`waveform_synth` 的 `arb` 引用改为 `ArbSource` 协议（`points()`），`arb_table` 与 `arb_segments` 都实现它。`keysight-m8194a` 用它：覆盖表 `:TRACe` 的 10 行改为已实现（`:IMPort` 与 `:MARKer` 仍未建模），新增 4 条手册用例，示例脚本装载一段方波并回读。序列、标记、I/Q 插值模式与“程序模式才能删除”的检查未建模。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件覆盖定义段、分块写入、超长 -223、`CATalog?`、删除、只写段、按采样频率播放 | ✅ `tests/models/keysight-m8194a/cases.yaml`（18 条）、`tests/test_keysight_m8194a.py` 的播放行（基频 = 采样率 / 段长、sinc 加权、删除后无信号） |
+| `keysight-m8194a` 的 `:TRACe` 行改为已实现并补用例，示例脚本装载波形 | ✅ `simubench coverage keysight-m8194a`（实现 35 / 共 102）；`tests/test_keysight_m8194a.py::test_manual_script_runs_on_the_example_bench` |
+| 不放宽 `ALLOWED` 与块覆盖例外清单 | ✅ 没有放宽；M8194A 没有调制，记在 `NOT_APPLICABLE`（不是债务，不进 `EXEMPT`），`tests/test_block_coverage.py` 绿 |

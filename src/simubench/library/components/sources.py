@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 from scipy.special import jv
 
-from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.component import ArbSource, Component, OpResult, PortSpec, component, op
 from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -160,7 +160,7 @@ class WaveformSynth(Component):
     ports = {"out": PortSpec("out", "signal")}
     refs = {
         "clock": ("reference_clock", "instrument"),
-        "arb": ("arb_table", "channel"),
+        "arb": (ArbSource, "channel"),
         "prbs": ("prbs_source", "channel"),
     }
     optional_refs = frozenset({"clock", "arb", "prbs"})
@@ -908,7 +908,11 @@ class ArbTable(Component):
     @op("points")
     def op_points(self, **_: Any) -> OpResult:
         """``FUNCtion:ARBitrary:POINts?``: the points of the waveform played."""
-        return OpResult(V.format_int(len(self._table())))
+        return OpResult(V.format_int(self.points()))
+
+    def points(self) -> int:
+        """The points of the waveform played (the ArbSource protocol)."""
+        return len(self._table())
 
     @op("clear")
     def op_clear(self, **_: Any) -> OpResult:
