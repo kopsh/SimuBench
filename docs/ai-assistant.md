@@ -38,6 +38,7 @@ LLM 由用户配置，连接私有化部署的服务。
 - 与已有的“复制为我的仪表”（`DefinitionFiles.copy_of`，生成 `my-<id>` 并 `extends` 父型号，D59）的差别：已有机制是活引用，父型号改名、删除，或父型号列表新增条目时，子定义会加载失败或悄悄变旧。独立快照没有这个问题。代价是拿不到内置型号后续的修正，用户需要重新保存。
 - 文件格式升级（`/1` → `/2`）由 `library/migrate.py` 的迁移链处理，模板与内置型号走同一条链，不受影响。
 - 这意味着要改 D59 的“复制”行为，或新增一个“展开成独立定义”的入口（见第 8 节待办）。
+- **实例设置如何进入模板：待确认。** bench 实例和定义是两层：实例有初始状态、`idn/serial/firmware`、地址、个体偏差、附件，定义有默认值、标识、通道、命令。要定：哪些实例设置折进模板（初始状态变成定义默认值？标识串变成定义的标识？地址、个体偏差不带？）；保存时用户要填什么（id、名称、厂商、型号？）；保存后 bench 里的这台是否自动改指向新模板（`replace_instrument`）。
 
 ### 3.3 模板的可改范围：最大
 
@@ -51,7 +52,7 @@ LLM 由用户配置，连接私有化部署的服务。
 
 ### 3.4 复制 bench
 
-bench 不做模块。需要重复使用一组仪表加接线时，**复制整个 bench**（仪表、连线、设置全部带上），在新 bench 上继续改。这是 AI 的一个工具，也是 Web 的一个普通操作。
+bench 不做模块。需要重复使用一组仪表加接线时，**复制整个 bench**（仪表、连线、设置全部带上），在新 bench 上继续改。这是 AI 的一个工具，也是 Web 的一个普通操作。**现在没有通用的复制 bench**：只有 `BenchFiles.create_hello` 复制随包的 Hello World，需要新增。
 
 ## 4. 架构
 
@@ -72,7 +73,7 @@ Web 对话面板 ──HTTP/SSE──▶ /api/assistant/*  ──▶ 对话循�
   | 搭 bench | `create_bench`、`edit_bench`（add / connect / set_state / replace_instrument …）、`validate_bench` |
   | 启动与观察 | `start_session`、`stop_session`、`describe_session`、`get_instrument_state` |
   | 定制模板 | `read_definition`、`edit_definition`、`validate_definition`、`try_definition`、`run_cases` |
-  | 新增 | 复制 bench、保存为独立模板（展开继承）、恢复到上一轮之前 |
+  | 新增 | 复制 bench（现无）、保存为独立模板（展开继承）、定义的版本恢复（现无）、恢复到上一轮之前 |
 
   不暴露：删除 bench 或定义文件、仿真控制（故障注入、读真值，受 `--allow-control` 管）、危险 SCPI 命令（需 `confirm=true`，沿用 MCP 的规则）。
 - **工具权限由服务端强制**，不靠提示词：运行中改结构、删文件等规则写在工具实现里，LLM 无论说什么都越不过去。
@@ -80,12 +81,12 @@ Web 对话面板 ──HTTP/SSE──▶ /api/assistant/*  ──▶ 对话循�
 
 ## 5. 恢复到上一轮之前
 
-现有版本历史（D35，`BenchFiles.versions/restore`、`DefinitionFiles` 同理）已经记录每次写入的来源（`ui`、`agent`、`external`、`restore`）。
+现有版本历史（D35）已经记录每次写入的来源（`ui`、`agent`、`external`、`restore`）。bench 有 `BenchFiles.versions/restore`（`POST /api/benches/restore`）；**定义只有 `DefinitionFiles.versions`，没有恢复**，要补。
 
-- 每轮对话开始时记下涉及文件的当前版本号；“恢复到上一轮之前”就是把这些文件 `restore` 回那个版本。
-- 一轮对话里 AI 改了哪些文件，由对话循环按文件记录。
+- 每轮对话开始时记下涉及文件的当前版本号；“恢复到上一轮之前”就是把这些文件恢复回那个版本。一轮里 AI 改了哪些文件，由对话循环按文件记录。
 - 恢复本身也是一次写入，记入历史，不丢信息。
-- 运行中的会话不回滚（结构已改的 bench 不在运行中，见第 2 节）。
+- **本轮新建的文件**（复制出的 bench、新模板）没有“之前的版本”：待确认，恢复时是删除它（用户点按钮的删除，不是 AI 删除），还是保留。
+- **本轮启动的会话**：待确认，恢复时是否一并停止。
 
 ## 6. 配置与安全
 
