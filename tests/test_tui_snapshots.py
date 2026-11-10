@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from helpers import stop_manager_sessions
+from helpers import stop_manager_sessions, wait_for_free_ports
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
@@ -24,6 +24,11 @@ pytestmark = (
 )  # boots a Textual app or a real server: runs on main, not in the fast checks
 
 ROOT = Path(__file__).resolve().parents[1]
+
+#: The ceiling of every wait for a screen to come up (s). The waits end on their readiness signals
+#: (connected, a quiet data version, a stable render); this only bounds a hang, and a cold start
+#: under load needs more than the 30 s it was (#857). Below the 120 s per-test timeout.
+SETTLE_S = 90.0
 
 
 @pytest.fixture(autouse=True)
@@ -47,15 +52,8 @@ def demo_server():
 
     import uvicorn
 
-    for port in (5175, 5275, 5375):
-        with socket.socket() as probe:
-            try:
-                probe.bind(("127.0.0.1", port))
-            except OSError:
-                continue
-            break
-    else:
-        raise RuntimeError("none of the fixed snapshot SCPI ports 5175/5275/5375 is free")
+    port = 5175
+    wait_for_free_ports([*range(port, port + 8), 4891])  # the module before may not have let go yet (#857)
     manager = SessionManager(ROOT / "tests/data/tui", scpi_base_port=port, hislip_port=4891)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -119,7 +117,7 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
             tui._dirty_lines = False  # the rebuild would un-pin the log
             await original_maintenance()
 
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.05)
             if tui.conn != "connected" or not tui.session_info:
@@ -158,7 +156,7 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
 
 
-async def _settle(pilot, tui, deadline_s: float = 30.0) -> str:
+async def _settle(pilot, tui, deadline_s: float = SETTLE_S) -> str:
     """Wait for the connection, a quiet data version and a stable render; return the screen text."""
     import asyncio
 
@@ -204,7 +202,7 @@ def test_instrument_smu_snapshot(snap_compare, demo_server, lang, size, name):
         await pilot.press("3")
         await pilot.pause(0.2)
         await pilot.press("enter")
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.1)
             text = "\n".join(
@@ -241,7 +239,7 @@ def test_state_tree_snapshot(snap_compare, demo_server, lang, size, name):
         await pilot.press("t")
         await pilot.pause(0.5)
         await pilot.press("h")
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.1)
             text = "\n".join(
@@ -273,7 +271,7 @@ def test_scope_snapshot(snap_compare, demo_server, lang, size, name):
         await pilot.press("2")
         await pilot.pause(0.2)
         await pilot.press("enter")
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.1)
             text = "\n".join(
@@ -336,7 +334,7 @@ def test_nets_snapshot(snap_compare, scope_server, lang, size, name):
     async def run_before(pilot) -> None:
         import asyncio
 
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.05)
             if tui.conn != "connected" or not tui.session_info:
@@ -377,7 +375,7 @@ def test_fault_dialog_snapshot(snap_compare, scope_server, lang, size, name):
     async def run_before(pilot) -> None:
         import asyncio
 
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.05)
             if tui.conn != "connected" or not tui.session_info:
@@ -480,7 +478,7 @@ def test_runs_snapshot(snap_compare, fixed_times, lang, size, name):
 
         from simubench.tui.screens.runs import RunsScreen
 
-        end = asyncio.get_running_loop().time() + 30
+        end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.05)
             if tui.conn != "connected" or not tui.session_info:
@@ -494,7 +492,7 @@ def test_runs_snapshot(snap_compare, fixed_times, lang, size, name):
                 await pilot.pause(0.1)
                 continue
             await pilot.press("p")  # the replay of the selected run reports its first difference
-            end = asyncio.get_running_loop().time() + 30
+            end = asyncio.get_running_loop().time() + SETTLE_S
             while asyncio.get_running_loop().time() < end:
                 await pilot.pause(0.05)
                 if screen.replay is not None:
@@ -515,6 +513,7 @@ def _serve(workspace: Path, scpi_base_port: int, hislip_port: int):
 
     import uvicorn
 
+    wait_for_free_ports([*range(scpi_base_port, scpi_base_port + 8), hislip_port])  # #857
     manager = SessionManager(workspace, scpi_base_port=scpi_base_port, hislip_port=hislip_port)
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
@@ -571,7 +570,7 @@ async def _open_instrument(pilot, tui, instrument: str, needle: str, kind: str) 
 
     await _settle(pilot, tui)
     tui.show("instrument", instrument)
-    end = asyncio.get_running_loop().time() + 30
+    end = asyncio.get_running_loop().time() + SETTLE_S
     text = ""
     while asyncio.get_running_loop().time() < end:
         await pilot.pause(0.1)
