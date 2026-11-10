@@ -349,8 +349,9 @@ def test_a_calibrator_readback_draws_per_frame_and_replays():
         for cmd in ("OUT 1 V", "OPER", "*OPC?"):
             s.write("cal", (cmd + "\n").encode())
             s.read("cal")
-        if noise:
-            out.overrides["noise"] = noise
+        # The fluke-5522a definition carries its own readback noise since #809; overriding the
+        # parameter (with None or a table) is what these legs test, so always set it.
+        out.overrides["noise"] = noise
         return s, out
 
     s, out = opened(None)

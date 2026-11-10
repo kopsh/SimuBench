@@ -59,6 +59,11 @@ specs:
   ac_voltage_frequency: "10 Hz 到 500 kHz（单输出）"
   ac_current_frequency: "第 1 章 AC Current (Sine Wave) 表（LCOMP Off）：330 µA–330 mA 量程 10 Hz–30 kHz，1.1 A 与 3 A 量程 10 Hz–10 kHz，11 A 与 20.5 A 量程 45 Hz–5 kHz（#580）"
   voltage_limits: "±1020 V（出厂 LIMIT 默认）"
+  readback_noise_rms: >-
+    50 nV（电压读回，估计，#744/#809）：手册第 1 章的噪声表（直流 0.1 Hz–10 Hz p-p 与 10 Hz–10 kHz
+    rms，330 mV 档 1 µV p-p / 6 µV rms；交流并入"最大失真与噪声"列）是输出端子的宽带噪声，不是读回
+    的波动，且超过 1 年准确度本身的下限（330 mV 档 1 µV）；按 #809 的上限（1 年指标/20）取估计值 =
+    直流 330 mV 档 1 年下限 1 µV 的 1/20，也低于交流各档下限（≥6 µV）的 1/20，对全部功能与量程成立。
 state:
   out.function:
     type: enum
@@ -198,6 +203,9 @@ components:
       # 0.33 mA、3.3 mA 7 V，33 mA、330 mA 5 V，0.33–3 A 4 V，3–20.5 A 3 V），超出跳回待机并报 1500（#569）。
       compliance: {DC330UA_A: 10.0, DC3_3MA_A: 10.0, DC33MA_A: 7.0, DC330MA_A: 7.0, DC1_1A_A: 6.0, DC3A_A: 6.0, DC11A: 4.0, DC20A: 4.0, AC330UA_A: 7.0, AC3_3MA_A: 7.0, AC33MA_A: 5.0, AC330MA_A: 5.0, AC1_1A_A: 4.0, AC3A_A: 4.0, AC11A: 3.0, AC20A: 3.0}
       compliance_error: 1500
+      # 读回噪声（specs.readback_noise_rms，#744/#809）：面板/组件对端子电压的读回按绝对 rms 抽样
+      # （校准源没有测量量程，#750），逐帧独立、同种子逐位复现；端子上被校表读到的输出不加噪。
+      noise: {rms: 5.0e-8}
   - name: sys
     type: system
 wiring:
