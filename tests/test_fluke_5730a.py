@@ -10,6 +10,8 @@ body verbatim; acts that are provably state-compatible share one bench, with the
 commands noted.
 """
 
+import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,9 @@ from simubench.models.bench import BenchDefinition
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "fluke-5730a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "fluke_5730a_verify.py"
+#: The readback noise the definition carries (specs.readback_noise_rms, #744/#809): the tightest
+#: 1-year floor's 1/20 (DC 220 mV range, floor 0.5 uV), absolute rms on the panel's voltage readback.
+READBACK_SIGMA = 2.5e-8
 
 script = load_script(SCRIPT)
 
@@ -55,6 +60,39 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     # the 5730A's own errors are drawn within its 1-year specification (a few ppm)
     assert readings == pytest.approx([1.0, 10.0, -10.0, 1.0], rel=2e-5)
     assert [line.split()[1] for line in out[1:-1]] == ["V", "V", "V", "V"]
+
+
+def test_the_definition_noise_distributes_and_replays():
+    """The readback noise (specs.readback_noise_rms, #744/#809): the calibrator's own monitor
+    reads the settled output with an independent draw of σ = 25 nV per panel frame and the same
+    seed replays bit for bit; the terminal itself (what a UUT meter reads) carries none of it."""
+    s, q = session(
+        {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}}, [{"from": "cal.OUT", "to": "r.A"}]
+    )
+    try:
+        q("OUT 1 V;OPER")
+        q("*OPC?")
+        inst = s.instruments["cal"]
+        out = inst.components["out"]
+        true_v = inst.session.port_signal(out, "out").mean()  # the driven output, noiseless
+        frames = [out.readings()["values"]["voltage"] for _ in range(200)]
+        assert len(set(frames)) > 100  # every frame draws
+        assert statistics.mean(frames) == pytest.approx(true_v, abs=4 * READBACK_SIGMA / math.sqrt(200))
+        assert statistics.stdev(frames) == pytest.approx(READBACK_SIGMA, rel=0.2)
+        first20 = frames[:20]
+    finally:
+        s.close()
+    s, q = session(
+        {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}}, [{"from": "cal.OUT", "to": "r.A"}]
+    )
+    try:
+        q("OUT 1 V;OPER")
+        q("*OPC?")
+        out = s.instruments["cal"].components["out"]
+        again = [out.readings()["values"]["voltage"] for _ in range(20)]
+        assert again == first20  # the same seed replays bit for bit
+    finally:
+        s.close()
 
 
 # ---- the settling times: one flow -------------------------------------------------------------------

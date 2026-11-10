@@ -12,6 +12,8 @@ body verbatim; acts that are provably state-compatible share one bench, with the
 commands noted.
 """
 
+import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -27,6 +29,9 @@ SCOPE_BENCH = ROOT / "examples" / "benches" / "fluke-5522a.bench.yaml"
 GAIN = 20.0e-6
 FLOOR = 1.0e-6
 QUANTUM = 1.0e-7  # sb-dmm-1 answers with a 7-digit mantissa
+#: The readback noise the definition carries (specs.readback_noise_rms, #744/#809): the tightest
+#: 1-year floor's 1/20 (DC 330 mV range, floor 1 uV), absolute rms on the panel's voltage readback.
+READBACK_SIGMA = 5.0e-8
 
 
 def q(s, inst, cmd):
@@ -102,6 +107,36 @@ def test_the_drawn_deviations_are_the_bench_seed_s_own():
         assert reading(second) == pytest.approx(want, abs=QUANTUM)
     finally:
         second.close()
+
+
+def test_the_definition_noise_distributes_and_replays():
+    """The readback noise (specs.readback_noise_rms, #744/#809): the calibrator's own monitor
+    reads the settled output with an independent draw of σ = 50 nV per panel frame, the same seed
+    replays bit for bit — and the terminal itself stays exactly 0 in standby and carries none of
+    it in operate, so a meter reading the output is untroubled."""
+    s = open_bench(DMM_BENCH)
+    try:
+        q(s, "cal", "OUT 1 V")
+        out = s.instrument("cal").components["out"]
+        assert s.instrument("cal").session.port_signal(out, "out").mean() == 0.0  # standby: exact
+        q(s, "cal", "OPER;*WAI")
+        true_v = s.instrument("cal").session.port_signal(out, "out").mean()  # the driven output
+        frames = [out.readings()["values"]["voltage"] for _ in range(200)]
+        assert len(set(frames)) > 100  # every frame draws
+        assert statistics.mean(frames) == pytest.approx(true_v, abs=4 * READBACK_SIGMA / math.sqrt(200))
+        assert statistics.stdev(frames) == pytest.approx(READBACK_SIGMA, rel=0.2)
+        first20 = frames[:20]
+    finally:
+        s.close()
+    s = open_bench(DMM_BENCH)
+    try:
+        q(s, "cal", "OUT 1 V")
+        q(s, "cal", "OPER;*WAI")
+        out = s.instrument("cal").components["out"]
+        again = [out.readings()["values"]["voltage"] for _ in range(20)]
+        assert again == first20  # the same seed replays bit for bit
+    finally:
+        s.close()
 
 
 # ---- the 33 V confirmation: one flow ----------------------------------------------------------------
