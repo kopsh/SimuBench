@@ -1,0 +1,386 @@
+# Command table for lecroy-wavepro804hd, from the command index of the MAUI Oscilloscopes Remote Control
+# and Automation Manual (February 2026); levels and notes by hand.
+schema: simubench.coverage/1
+model: lecroy-wavepro804hd
+sections:
+- section: ACQUISITION — Controlling Waveform Captures
+  commands:
+  - header: ARM_acquisition
+    level: implemented
+    note: 单次采集：armed 后触发一次，采完停在 STOP；触发方式本身不变
+  - header: AUTO_SETUP
+    level: not_modeled
+  - header: C<ch>:ATTeNuation
+    level: implemented
+    note: 数值是探头衰减比（1、2、5、10、…、10000）；改档时垂直档位与偏置按比例缩放，使探头尖的读数保持不变
+  - header: BANDWIDTH_LIMIT
+    level: not_modeled
+  - header: COMBINE_CHANNELS
+    level: not_modeled
+  - header: C<ch>:CouPLing
+    level: implemented
+    note: D1M/A1M 为 1 MΩ，D50 为 50 Ω，GND 接地；GND 时输入仍按 1 MΩ 建模
+  - header: FoRce_TRigger
+    level: implemented
+    note: 无论触发条件是否满足，立即采一帧
+  - header: INTERLEAVED
+    level: not_modeled
+  - header: Memory_SIZe
+    level: implemented
+    note: 记录长度按存储深度与采样率取最小值；取值按手册的 500、1k、2.5k、…、100M 档取最接近的档
+  - header: C<ch>:OFfSeT
+    level: implemented
+    note: 探头尖的偏置；越界按数据手册取最接近的合法值（VAB 状态位没有建模）
+  - header: Reference_CLocK
+    level: accepted
+    note: 内部/外部参考时钟只保存，仿真时间基准不变
+    affects_data: false
+  - header: SAMPLE_CLOCK
+    level: not_modeled
+  - header: SEQUENCE
+    level: not_modeled
+  - header: STOP
+    level: implemented
+  - header: Time_DIV
+    level: implemented
+    note: 20 ps/div–1 ks/div，任意值；记录长度与采样率由存储深度决定
+  - header: TRIG_COUPLING
+    level: not_modeled
+  - header: TRIG_DELAY
+    level: not_modeled
+  - header: '*TRG'
+    level: implemented
+    note: 与 ARM_acquisition 相同
+  - header: C<ch>:TRig_LeVel
+    level: implemented
+    note: 按触发源分别保存电平；触发使用当前触发源对应通道的电平。手册的 ±4.1 格限制与越界 VAB 没有建模
+  - header: TRig_MoDe
+    level: implemented
+    note: AUTO、NORM、SINGLE、STOP；SINGLE 采一帧后停止
+  - header: TRIG_PATTERN
+    level: not_modeled
+  - header: TRig_SElect
+    level: implemented
+    note: 只建模 EDGE 与时间释抑（HT,TI,HV 秒）；脉宽、间隔、事件释抑报 -224
+  - header: C<ch>:TRig_Slope
+    level: implemented
+    note: 按触发源分别保存沿；触发使用当前触发源对应通道的沿
+  - header: C<ch>:Volt_DIV
+    level: implemented
+    note: 探头尖的垂直档位；50 Ω 为 1 mV–1 V/div，1 MΩ 为 1 mV–10 V/div，越界取最接近的合法值（VAB 没有建模）
+  - header: WAIT
+    level: implemented
+    note: 等待当前采集完成；带超时参数时最多等这么久
+- section: COMM — Communications
+  commands:
+  - header: COMM_FORMAT
+    level: not_modeled
+  - header: Comm_HeaDeR
+    level: implemented
+    note: SHORT/LONG 改变回复的命令头；OFF 只去掉命令头，回复里固定的单位仍会出现（手册的 OFF 也抑制单位，未建模）
+  - header: COMM_HELP_LOG
+    level: not_modeled
+  - header: COMM_HELP
+    level: not_modeled
+  - header: COMM_ORDER
+    level: not_modeled
+- section: CURSOR — Cursors and Parameters
+  commands:
+  - header: CURSOR_MEASURE
+    level: not_modeled
+  - header: CURSORS
+    level: not_modeled
+  - header: CURSOR_SET
+    level: not_modeled
+  - header: CURSOR_VALUE
+    level: not_modeled
+  - header: OFFSET_CONSTANT
+    level: not_modeled
+  - header: PARAMETER_CLR
+    level: not_modeled
+  - header: PArameter_CUstom
+    level: implemented
+    note: P1–P8 分别保存测量种类与信源；CUST1–CUST8 别名没有建模
+  - header: PARAMETER_DELETE
+    level: not_modeled
+  - header: PARAMETER
+    level: not_modeled
+  - header: PARAMETER_STATISTICS
+    level: not_modeled
+  - header: C<ch>:PArameter_VAlue
+    level: implemented
+    note: 查询 P1–P8 绑定的自动测量；无信号或无法测量时状态为 UNDEF
+  - header: PER_CURSOR_SET
+    level: not_modeled
+  - header: PASS_FAIL
+    level: not_modeled
+  - header: PASS_FAIL_DO
+    level: not_modeled
+- section: DISPLAY — Display Control
+  commands:
+  - header: DISPLAY
+    level: not_modeled
+  - header: DOT_JOIN
+    level: not_modeled
+  - header: GRID
+    level: not_modeled
+  - header: HOR_MAGNIFY
+    level: not_modeled
+  - header: HOR_POSITION
+    level: not_modeled
+  - header: INTENSITY
+    level: not_modeled
+  - header: MESSAGE
+    level: not_modeled
+  - header: PERSIST_COLOR
+    level: not_modeled
+  - header: PERSIST_LAST
+    level: not_modeled
+  - header: PERSIST
+    level: not_modeled
+  - header: PERSIST_SAT
+    level: not_modeled
+  - header: PERSIST_SETUP
+    level: not_modeled
+  - header: C<ch>:TRAce
+    level: implemented
+    note: 关掉的通道不参与采集，记录长度与采样率按打开的通道计算
+  - header: VERT_MAGNIFY
+    level: not_modeled
+  - header: VERT_POSITION
+    level: not_modeled
+- section: FUNCTION — Performing Waveform Mathematical Operations
+  commands:
+  - header: CLEAR_MEMORY
+    level: not_modeled
+  - header: CLEAR_SWEEPS
+    level: not_modeled
+  - header: DEFINE
+    level: not_modeled
+  - header: FIND_CENTER_RANGE
+    level: not_modeled
+  - header: FUNCTION_RESET
+    level: not_modeled
+- section: HARDCOPY — Printing the Display/Screen Capture
+  commands:
+  - header: HARDCOPY_SETUP
+    level: not_modeled
+  - header: SCREEN_DUMP
+    level: not_modeled
+- section: MISCELLANEOUS
+  commands:
+  - header: AUTO_CALIBRATE
+    level: not_modeled
+  - header: BUZZER
+    level: not_modeled
+  - header: '*CAL'
+    level: not_modeled
+  - header: CAL_OUTPUT
+    level: not_modeled
+  - header: DATE
+    level: not_modeled
+  - header: '*IDN'
+    level: implemented
+  - header: '*OPT'
+    level: not_modeled
+  - header: '*TST'
+    level: not_modeled
+- section: PROBES — Using Probes
+  commands:
+  - header: PROBE_CAL
+    level: not_modeled
+  - header: PROBE_DEGAUSS
+    level: not_modeled
+  - header: PROBE_NAME
+    level: not_modeled
+- section: SAVE/RECALL SETUP — Preserving and Restoring Panel Settings
+  commands:
+  - header: PANEL_SETUP
+    level: not_modeled
+  - header: '*RCL'
+    level: not_modeled
+  - header: RECALL_PANEL
+    level: not_modeled
+  - header: '*RST'
+    level: implemented
+    note: '*RST 取值：SHORT、1 ms/div、10k、内部时钟、EDGE/C1/DC/上升沿/0 V、AUTO、OFF 释抑、1X、50 mV/div、0 V、D1M、CH1 打开'
+  - header: '*SAV'
+    level: not_modeled
+  - header: STORE_PANEL
+    level: not_modeled
+- section: STATUS — Obtaining Status Information and Setup Service Requests
+  commands:
+  - header: ALL_STATUS
+    level: not_modeled
+  - header: '*CLS'
+    level: implemented
+  - header: CMR
+    level: not_modeled
+  - header: DDR
+    level: not_modeled
+  - header: '*ESE'
+    level: implemented
+  - header: '*ESR'
+    level: implemented
+  - header: EXR
+    level: not_modeled
+  - header: INE
+    level: not_modeled
+  - header: INR
+    level: not_modeled
+  - header: IST
+    level: not_modeled
+  - header: '*OPC'
+    level: implemented
+  - header: '*PRE'
+    level: not_modeled
+  - header: '*SRE'
+    level: implemented
+  - header: '*STB'
+    level: implemented
+  - header: '*WAI'
+    level: implemented
+- section: STORAGE — Files and Directories
+  commands:
+  - header: DELETE_FILE
+    level: not_modeled
+  - header: DIRECTORY
+    level: not_modeled
+- section: WAVEFORM TRANSFER — Transferring Waveforms
+  commands:
+  - header: C<ch>:INSPect
+    level: implemented
+    note: 支持 "WAVEDESC"、"DATA_ARRAY_1"、"SIMPLE" 与 FLOAT 格式；其他变量报 -113
+  - header: STORE
+    level: not_modeled
+  - header: STORE_SETUP
+    level: not_modeled
+  - header: TEMPLATE
+    level: not_modeled
+  - header: TRANSFER_FILE
+    level: not_modeled
+  - header: WAVEFORM
+    level: not_modeled
+  - header: WaveForm_SetUp
+    level: implemented
+    note: SP/NP/FP 决定导出起点、点数与抽点；SN 只保存（序列模式没有建模）
+- section: DISK DRIVE ANALYSIS (Option) — Specialized Disk Drive Measurements
+  commands:
+  - header: DD_CTAF_3DB
+    level: not_modeled
+  - header: DD_ANALOG_COMP_THRESH
+    level: not_modeled
+  - header: DD_ANALYZE_REGION_DISABLE
+    level: not_modeled
+  - header: DD_ANALYZE_REGION_LENGTH
+    level: not_modeled
+  - header: DD_ANALYZE_REGION_START
+    level: not_modeled
+  - header: DD_BITCELL
+    level: not_modeled
+  - header: DD_CTAF_BOOST
+    level: not_modeled
+  - header: DD_BYTE_OFFSET
+    level: not_modeled
+  - header: DD_CTAF_FC
+    level: not_modeled
+  - header: DD_FIND_METHOD
+    level: not_modeled
+  - header: DD_SIGNAL_INPUT
+    level: not_modeled
+  - header: DD_ENCODING
+    level: not_modeled
+  - header: DD_ERR_INFO
+    level: not_modeled
+  - header: DD_ERR_NUM
+    level: not_modeled
+  - header: DD_FIND_BITCELL
+    level: not_modeled
+  - header: DD_FIR_ENABLE
+    level: not_modeled
+  - header: DD_FIND_ERROR
+    level: not_modeled
+  - header: DD_CTAF_GROUP_DELAY
+    level: not_modeled
+  - header: DD_FIR
+    level: not_modeled
+  - header: DD_HEADSIGNAL_CHANNEL
+    level: not_modeled
+  - header: DD_IGNORE_SAMPLES
+    level: not_modeled
+  - header: DD_NUM_ERRORS
+    level: not_modeled
+  - header: DD_OVERLAP_REF
+    level: not_modeled
+  - header: DD_PES_ANALYSIS
+    level: not_modeled
+  - header: DD_PES_DATA
+    level: not_modeled
+  - header: DD_PES_SUMMARY_DATA
+    level: not_modeled
+  - header: DD_PES_SETUP
+    level: not_modeled
+  - header: DD_RESET_AVERAGE
+    level: not_modeled
+  - header: DD_READCLOCK_CHANNEL
+    level: not_modeled
+  - header: DD_READGATE_CHANNEL
+    level: not_modeled
+  - header: DD_READ_GATE_POLARITY
+    level: not_modeled
+  - header: DD_ML_RUN_LENGTH_LIMIT
+    level: not_modeled
+  - header: DD_ML_MIN_SPACING
+    level: not_modeled
+  - header: DD_START_AVERAGING
+    level: not_modeled
+  - header: DD_BYTE_OFFSET_SEGMENT
+    level: not_modeled
+  - header: DD_SHOW_FILTERED
+    level: not_modeled
+  - header: DD_SIGNAL_TYPE
+    level: not_modeled
+  - header: DD_SHOW_LEVELS
+    level: not_modeled
+  - header: DD_SHOW_ML
+    level: not_modeled
+  - header: DD_SAMPLE_PHASE
+    level: not_modeled
+  - header: DD_SHOW_SAMPLE_TIMES
+    level: not_modeled
+  - header: DD_SAM_THRESH
+    level: not_modeled
+  - header: DD_STORE_REFERENCE
+    level: not_modeled
+  - header: DD_TRAIN_FILTER
+    level: not_modeled
+  - header: DD_VCO_SYNCH_PATTERN
+    level: not_modeled
+  - header: DD_VCOSYNCH_TO_DATA
+    level: not_modeled
+- section: ET-PMT (Option) — Mask Tester
+  commands:
+  - header: CUSTOM_APPLICATION
+    level: not_modeled
+  - header: CUSTOM_OPTIONS
+    level: not_modeled
+  - header: MT_FAIL_ACTION
+    level: not_modeled
+  - header: MT_OFFSET
+    level: not_modeled
+  - header: MT_OPC
+    level: not_modeled
+  - header: MT_PF_COUNTERS
+    level: not_modeled
+  - header: MT_SELECT_TEST
+    level: not_modeled
+  - header: MT_SYMBOL
+    level: not_modeled
+  - header: MT_TEST_STATE
+    level: not_modeled
+  - header: MT_VERTICAL_ALIGN
+    level: not_modeled
+- section: AUTOMATION
+  commands:
+  - header: VBS
+    level: not_modeled
