@@ -16,12 +16,44 @@ only the shared skeletons live here — don't copy them into new files.
 from __future__ import annotations
 
 import importlib.util
+import re
 import shutil
 import sys
 from pathlib import Path
 
 import pytest
 import pyvisa
+
+
+class StableScreen:
+    """Decides from successive renders whether a screen has settled (#896): the last two renders
+    are identical and non-empty, show the ``needle`` and match every ``ready`` pattern — a
+    needle alone once captured a screen whose readings had not arrived yet. A pattern is a plain
+    substring, or a regular expression with a ``re:`` prefix. Pure text logic; the unit test is
+    ``tests/test_tui_settle.py``, the snapshot tests feed it their renders."""
+
+    def __init__(self, needle: str, ready: tuple[str, ...] = (), hold: int = 2) -> None:
+        self.needle = needle
+        self.ready = ready
+        self.hold = hold
+        self._previous: str | None = None
+        self._same = 0
+
+    def feed(self, text: str) -> bool:
+        """Feed one render; True when the screen has settled."""
+        if text and text == self._previous:
+            self._same += 1
+        else:
+            self._same = 1
+        self._previous = text
+        if not text.strip() or self._same < self.hold:
+            return False
+        if self.needle and self.needle not in text:
+            return False
+        return all(
+            re.search(pattern[3:], text) if pattern.startswith("re:") else pattern in text
+            for pattern in self.ready
+        )
 
 
 def load_script(path: Path):
