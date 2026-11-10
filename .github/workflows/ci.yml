@@ -1,6 +1,7 @@
-# Pull requests run the fast checks only (ubuntu: Python and web); merge.yml merges on them. The slow
-# ones (Windows, the wheel, end-to-end and visual tests) run after a merge, on main, and do not hold
-# up merging: when one is red on main, fixing it is the next task. A merge by merge.yml pushes with
+# Pull requests run the fast checks (ubuntu: Python and web), the browser end-to-end/visual tests
+# (#848) and the Textual-boot tier — screens, keys, snapshots, real-server scenarios (#858); merge.yml
+# merges on them. The slow ones (Windows, the wheel, the wall-clock budgets) run after a merge, on
+# main, and do not hold up merging: when one is red on main, fixing it is the next task. A merge by merge.yml pushes with
 # the workflow token, which starts no workflow, so merge.yml dispatches this one on main itself.
 # The tier is picked by ref, not by event: anything that is not refs/heads/main — a pull_request's
 # merge ref, and merge.yml's self-heal dispatch on a pull-request branch (#485) — runs the fast
@@ -137,6 +138,21 @@ jobs:
         run: |
           test -s dist/CHANGELOG.md
           cd /tmp && /tmp/wheel-env/bin/simubench changelog | cmp - "$GITHUB_WORKSPACE/dist/CHANGELOG.md"
+
+  tui:
+    # Gates pull requests (#858): a changed TUI snapshot baseline or screen is checked before the
+    # merge, not only on main. The load-sensitive wall-clock budgets stay on main (slow, below).
+    name: TUI screens and snapshots (Textual boot)
+    if: github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync --locked --all-extras
+      - name: Screens, keys, snapshots and real-server scenarios
+        run: uv run pytest -n 4 --dist loadscope -q -m "tui_boot and not load_sensitive"
 
   slow:
     name: Slow tests (Textual boot, load-sensitive)
