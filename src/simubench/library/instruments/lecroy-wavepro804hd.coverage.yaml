@@ -27,7 +27,7 @@ sections:
     level: not_modeled
   - header: Memory_SIZe
     level: implemented
-    note: 记录长度按存储深度与采样率取最小值；取值按手册的 500、1k、2.5k、…、100M 档取最接近的档
+    note: 记录长度按存储深度与采样率取最小值；取值按手册的 500、1k、2.5k、…、100M 档取最接近的档；后缀 K = 千、MA = 兆、单独的 M = 毫（手册：1.0M 是 1 毫采样，#888）
   - header: C<ch>:OFfSeT
     level: implemented
     note: 探头尖的偏置；越界按数据手册取最接近的合法值（VAB 状态位没有建模）

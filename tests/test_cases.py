@@ -27,6 +27,20 @@ def _cases(tmp_path: Path, cases: list[dict]) -> Path:
     return path
 
 
+def test_the_manual_cases_of_a_model_whose_bench_uses_a_validation_instrument_run_from_the_cli(
+    monkeypatch, capsys
+):
+    """The acceptance command of a real-model issue, as written in the real-model skill (#888):
+    ``SIMUBENCH_DEFINITIONS=validation/instruments simubench cases tests/models/<id>/cases.yaml``.
+    The WavePro's and the SDS's benches take their signal from ``sb-awg-2``, which is not shipped."""
+    monkeypatch.setenv("SIMUBENCH_DEFINITIONS", str(ROOT / "validation" / "instruments"))
+    for model in ("lecroy-wavepro804hd", "siglent-sds2104xplus"):
+        path = ROOT / "tests" / "models" / model / "cases.yaml"
+        assert main(["cases", str(path)]) == 0, model
+        n = len(load_cases(path).cases)
+        assert f"{n}/{n} cases passed" in capsys.readouterr().out
+
+
 def test_the_contract_cases_of_the_lowfreq_bench_pass(tmp_path, capsys):
     report = tmp_path / "report.xml"
     assert main(["cases", str(LFCAL_CASES), "--junit", str(report)]) == 0

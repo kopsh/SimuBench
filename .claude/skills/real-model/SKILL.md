@@ -62,6 +62,12 @@ When the platform cannot express something the manual requires:
    uv run simubench cases tests/models/<id>/cases.yaml
    uv run simubench coverage <id>
    ```
+   A cases bench that takes its signal from an `sb-*` validation instrument (the WavePro's and
+   the SDS's do: `sb-awg-2`) needs the definition path, which `pytest` sets itself (`conftest.py`)
+   but the CLI does not — otherwise every case fails with `no instrument definition 'sb-awg-2'`:
+   ```bash
+   SIMUBENCH_DEFINITIONS=validation/instruments uv run simubench cases tests/models/<id>/cases.yaml
+   ```
 7. **Example bench** in `examples/benches/` with real models only (`sb-*` benches go to
    `validation/benches/`). A script written the way a real-instrument script is written, run in a test.
 8. **Check and record**: `scripts/check.sh`; append a self-check section to the end of `docs/progress-log.md`
