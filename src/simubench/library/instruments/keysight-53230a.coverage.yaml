@@ -3,6 +3,8 @@
 # 按 Edition 3（September 1, 2017）核对 53230A 的差异：门时间 1 µs–1000 s、单次分辨率 20 ps、
 # SENSe:FREQuency:MODE（CONTinuous 为无间隙连续测量）已实现；时间戳、派生测量、Option 150
 # 脉冲/突发测量与其余命令标未实现。
+# 抖动（#744/#861）：每个事件时刻带正态误差 = 通道触发误差（1 ns，模型值，手册无该指标）⊕ 内插器单次分辨率
+# 20 ps（Table 5-2 的 Tss）；时间间隔读数约按 √2 倍扩散，同种子逐位复现。
 schema: simubench.coverage/1
 model: keysight-53230a
 sections:

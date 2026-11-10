@@ -7,13 +7,15 @@ gap-free gates on, so adjacent readings share their boundary edge and the readin
 spans add up to exactly the edges counted, while AUTO keeps a gate per reading.
 """
 
+import math
+import statistics
 from pathlib import Path
 
 import pytest
 import pyvisa
 import yaml
 
-from helpers import load_script
+from helpers import load_script, session_query
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
@@ -112,3 +114,25 @@ def test_time_stamps_read_the_scale_factor_and_the_intervals(frequency, rate, sc
         assert float(q(":READ?")) == pytest.approx(frequency, rel=1e-6)  # one reading again
     finally:
         session.close()
+
+
+def test_the_trigger_and_single_shot_jitter_spread_the_time_interval():
+    """The counter's jitter (#744/#861): each event time carries a normal error of the channel's
+    trigger error (1 ns, a model value) combined with the interpolator's single-shot resolution
+    (20 ps, Table 5-2's Tss); a time interval is the difference of two events, so readings spread
+    by √2 × that, around the 750 µs the 90° phase gives, and the same seed replays bit for bit."""
+    sigma = 2**0.5 * math.hypot(1.0e-9, 2.0e-11)
+
+    def run(n: int) -> list[float]:
+        s = open_bench(EXAMPLE_BENCH)
+        try:
+            assert session_query(s, "cnt", ":CONF:TINT (@1),(@2)") is None
+            return [float(session_query(s, "cnt", ":READ?")) for _ in range(n)]
+        finally:
+            s.close()
+
+    readings = run(100)
+    assert len(set(readings)) > 50
+    assert statistics.mean(readings) == pytest.approx(7.5e-4, abs=4 * sigma / math.sqrt(100))
+    assert statistics.stdev(readings) == pytest.approx(sigma, rel=0.3)
+    assert run(20) == readings[:20]

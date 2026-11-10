@@ -285,6 +285,10 @@ components:
       a_input: a
       b_input: b
       statistics: stats
+      # 抖动（#744/#861）：单次分辨率 100 ps 取手册 Table 5-2 的 Tss（53220A）；通道触发误差 1 ns
+      # 是模型值（手册无该指标，取与计数器核心缺省相同的值，显式写出以便核对）。
+      single_shot_s: 1.0e-10
+      trigger_error: 1.0e-9
   - name: ch2.core
     type: counter_core
     params:
@@ -294,6 +298,8 @@ components:
       a_input: b
       b_input: a
       statistics: stats
+      single_shot_s: 1.0e-10
+      trigger_error: 1.0e-9
   - name: trig
     type: trigger_model
     params:
